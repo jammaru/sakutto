@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "サクッと翻訳 for PLaMo",
+    "message": "Sakutto",
     "description": "拡張機能の名前。"
   },
   "extensionShortName": {
-    "message": "サクッと翻訳",
+    "message": "Sakutto",
     "description": "短い名前。"
   },
   "extensionDescription": {

@@ -186,7 +186,7 @@ function renderSvg() {
   const topBar = TOP_ARROW.bar;
   const bottomBar = BOTTOM_ARROW.bar;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
-  <title id="title">Sakutto for PLaMo</title>
+  <title id="title">Sakutto</title>
   <rect width="128" height="128" rx="${BACKGROUND.radius}" fill="#101828"/>
   <g fill="none" stroke="#f8fafc" stroke-width="${topBar.width}" stroke-linecap="round">
     <path d="M${topBar.x1} ${topBar.y1}H${topBar.x2}"/>

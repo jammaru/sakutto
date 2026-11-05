@@ -389,7 +389,7 @@ function withRepo(run: (root: string) => void): void {
     writeFileSync(join(root, 'wxt.config.ts'), 'export default {\n  manifestVersion: 3,\n};\n');
     writeFileSync(
       join(root, 'package.json'),
-      `${JSON.stringify({ name: 'sakutto-for-plamo', version: '0.1.0' }, null, 2)}\n`,
+      `${JSON.stringify({ name: 'sakutto', version: '0.1.0' }, null, 2)}\n`,
     );
     git(root, ['add', '--', 'package.json', 'wxt.config.ts']);
     git(root, ['commit', '-m', 'chore: init']);

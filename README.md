@@ -1,6 +1,6 @@
-# Sakutto for PLaMo
+# Sakutto
 
-Sakutto for PLaMo（サクッと翻訳 for PLaMo）is an unofficial Chrome extension that translates web pages on your device. It runs [PLaMo 3 Translate](https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF) through a pinned [wllama](https://github.com/ngxson/wllama) build. When Chrome's built-in language pack is already available, the page can be translated with Chrome's Translator API while the PLaMo model is not ready. Not affiliated with Preferred Networks, Inc. Built with PLaMo.
+Sakutto is an unofficial Chrome extension that translates web pages on your device. It runs [PLaMo 3 Translate](https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF) through a pinned [wllama](https://github.com/ngxson/wllama) build. When Chrome's built-in language pack is already available, the page can be translated with Chrome's Translator API while the PLaMo model is not ready. Not affiliated with Preferred Networks, Inc. Built with PLaMo.
 
 The extension is free and open source (MIT). It has no ads and no paid features. The model weights are not in this repository or in the extension package.
 

@@ -1,6 +1,6 @@
-# サクッと翻訳 for PLaMo
+# Sakutto
 
-Sakutto for PLaMo（サクッと翻訳 for PLaMo）は、ウェブページを端末の中で翻訳する非公式の Chrome 拡張機能です。翻訳には [PLaMo 3 Translate](https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF) を使い、実行にはピン留めした [wllama](https://github.com/ngxson/wllama) を使います。Chrome の言語パックが既にあるときは、PLaMo のモデルが準備できるまで Chrome 内蔵の翻訳でページを訳すことがあります。Preferred Networks, Inc. とは無関係です。Built with PLaMo。
+Sakutto は、ウェブページを端末の中で翻訳する非公式の Chrome 拡張機能です。翻訳には [PLaMo 3 Translate](https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF) を使い、実行にはピン留めした [wllama](https://github.com/ngxson/wllama) を使います。Chrome の言語パックが既にあるときは、PLaMo のモデルが準備できるまで Chrome 内蔵の翻訳でページを訳すことがあります。Preferred Networks, Inc. とは無関係です。Built with PLaMo。
 
 この拡張機能は無料のオープンソース（MIT）です。広告も有料機能もありません。モデルの重みは、このリポジトリにも拡張パッケージにも含まれません。
 

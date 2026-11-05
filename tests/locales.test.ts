@@ -63,8 +63,10 @@ describe('locale messages', () => {
   });
 
   it('uses the product names from the specification', () => {
-    expect(en.extensionName?.message).toBe('Sakutto for PLaMo');
-    expect(ja.extensionName?.message).toBe('サクッと翻訳 for PLaMo');
+    expect(en.extensionName?.message).toBe('Sakutto');
+    expect(ja.extensionName?.message).toBe('Sakutto');
+    expect(en.extensionShortName?.message).toBe('Sakutto');
+    expect(ja.extensionShortName?.message).toBe('Sakutto');
   });
 
   it('keeps the store name and description inside the manifest limits', () => {

@@ -1,5 +1,5 @@
 {
-  "name": "sakutto-for-plamo",
+  "name": "sakutto",
   "version": "0.1.0",
   "private": true,
   "description": "Local web page translation with PLaMo 3 Translate.",
@@ -7,11 +7,11 @@
   "author": "jammaru",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jammaru/sakutto-for-plamo.git"
+    "url": "git+https://github.com/jammaru/sakutto.git"
   },
-  "homepage": "https://github.com/jammaru/sakutto-for-plamo",
+  "homepage": "https://github.com/jammaru/sakutto",
   "bugs": {
-    "url": "https://github.com/jammaru/sakutto-for-plamo/issues"
+    "url": "https://github.com/jammaru/sakutto/issues"
   },
   "type": "module",
   "engines": {

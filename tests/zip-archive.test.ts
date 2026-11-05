@@ -48,7 +48,7 @@ function zip(files: readonly { name: string; data: Buffer; method?: 0 | 8 }[]): 
 
 describe('readZip', () => {
   it('lists files and inflates manifest.json without the unzip program', () => {
-    const manifest = Buffer.from('{"name":"Sakutto for PLaMo"}');
+    const manifest = Buffer.from('{"name":"Sakutto"}');
     const archive = readZip(
       zip([
         { name: 'vendor/', data: Buffer.alloc(0), method: 0 },

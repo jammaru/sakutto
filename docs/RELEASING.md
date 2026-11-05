@@ -2,7 +2,7 @@
 
 English: [RELEASING.en.md](RELEASING.en.md)
 
-この文書は、Sakutto for PLaMo を Chrome ウェブストアへ出す手順です。
+この文書は、Sakutto を Chrome ウェブストアへ出す手順です。
 
 ## ローカルでバージョンを上げる
 

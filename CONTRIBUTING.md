@@ -1,6 +1,6 @@
 # Contributing
 
-Sakutto for PLaMo is MIT-licensed. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Sakutto is MIT-licensed. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 ## Setup
 

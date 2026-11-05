@@ -21,7 +21,7 @@ test.describe('built extension', () => {
       for (const path of pages) {
         const page = await extension.context.newPage();
         await page.goto(`chrome-extension://${extension.extensionId}/${path}`);
-        await expect(page.locator('h1')).toHaveText('Sakutto for PLaMo');
+        await expect(page.locator('h1')).toHaveText('Sakutto');
         await page.close();
       }
     } finally {
@@ -50,7 +50,7 @@ test.describe('built extension', () => {
       for (const path of pages) {
         const page = await extension.context.newPage();
         await page.goto(`chrome-extension://${extension.extensionId}/${path}`);
-        await expect(page.locator('h1')).toHaveText('サクッと翻訳 for PLaMo');
+        await expect(page.locator('h1')).toHaveText('Sakutto');
         await page.close();
       }
     } finally {

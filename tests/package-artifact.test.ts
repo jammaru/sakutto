@@ -14,7 +14,7 @@ describe('store zip guard', () => {
 
   it('accepts the store zip once it is large enough to hold the runtime', () => {
     expect(
-      storeZipProblems([{ name: 'sakutto-for-plamo-0.1.0-chrome.zip', bytes: 7_500_000 }]),
+      storeZipProblems([{ name: 'sakutto-0.1.0-chrome.zip', bytes: 7_500_000 }]),
     ).toEqual([]);
   });
 });

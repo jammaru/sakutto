@@ -1,6 +1,6 @@
 # Privacy policy
 
-Sakutto for PLaMo（サクッと翻訳 for PLaMo）translates web pages in Chrome. This page describes what the extension code does with data. It is a description of the program, not a legal opinion.
+Sakutto translates web pages in Chrome. This page describes what the extension code does with data. It is a description of the program, not a legal opinion.
 
 Checked against the code on 2026-11-05. If the code changes, this page has to change with it.
 
@@ -69,7 +69,7 @@ Questions about this policy can be opened as an issue on this GitHub repository.
 
 # プライバシーポリシー
 
-サクッと翻訳 for PLaMo は、Chrome でウェブページを翻訳します。このページは、拡張機能のコードがデータをどう扱うかを説明します。法的意見ではありません。
+Sakutto は、Chrome でウェブページを翻訳します。このページは、拡張機能のコードがデータをどう扱うかを説明します。法的意見ではありません。
 
 2026-11-05 のコードに合わせて確認しました。コードが変わったら、このページも変えます。
 
