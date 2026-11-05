@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">Sakutto for PLaMo</title>
+  <rect width="128" height="128" rx="26" fill="#101828"/>
+  <g fill="none" stroke="#f8fafc" stroke-width="11" stroke-linecap="round">
+    <path d="M28 46H84"/>
+  </g>
+  <path d="M79 33L103 46L79 59Z" fill="#f8fafc"/>
+  <g fill="none" stroke="#7dd3fc" stroke-width="11" stroke-linecap="round">
+    <path d="M44 82H100"/>
+  </g>
+  <path d="M49 69L25 82L49 95Z" fill="#7dd3fc"/>
+</svg>

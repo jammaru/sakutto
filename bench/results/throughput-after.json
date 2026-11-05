@@ -1,0 +1,79 @@
+{
+  "label": "throughput-after",
+  "at": "2026-11-05T14:21:35.048Z",
+  "model": "plamo-3-translate-0.8b-q4_k_m",
+  "machine": {
+    "cores": 4,
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+    "crossOriginIsolated": true,
+    "backend": "cpu-wasm",
+    "tier": "c4",
+    "threads": 4,
+    "chromeSupported": true,
+    "downloadMs": 4047,
+    "warmMs": 247,
+    "rssMb": 2182
+  },
+  "pages": [
+    {
+      "page": "wiki",
+      "firstVisibleParagraphMs": 2932,
+      "firstScreenMs": 13280,
+      "fullPageMs": 55228,
+      "proseDone": 16,
+      "proseTotal": 16,
+      "progress": "21/21",
+      "outputChars": 2317,
+      "estimatedOutputTokensPerSec": 18.8,
+      "codeUntouched": null,
+      "cacheReplayMs": null,
+      "rssMb": 2164,
+      "timedOut": false
+    },
+    {
+      "page": "news",
+      "firstVisibleParagraphMs": 8196,
+      "firstScreenMs": 27848,
+      "fullPageMs": 29886,
+      "proseDone": 8,
+      "proseTotal": 8,
+      "progress": "9/9",
+      "outputChars": 1184,
+      "estimatedOutputTokensPerSec": 17.7,
+      "codeUntouched": null,
+      "cacheReplayMs": null,
+      "rssMb": 2162,
+      "timedOut": false
+    },
+    {
+      "page": "docs",
+      "firstVisibleParagraphMs": 9738,
+      "firstScreenMs": 20919,
+      "fullPageMs": 30865,
+      "proseDone": 6,
+      "proseTotal": 6,
+      "progress": "9/9",
+      "outputChars": 896,
+      "estimatedOutputTokensPerSec": 13,
+      "codeUntouched": true,
+      "cacheReplayMs": 56,
+      "rssMb": 2177,
+      "timedOut": false
+    },
+    {
+      "page": "spa",
+      "firstVisibleParagraphMs": 2586,
+      "firstScreenMs": 22210,
+      "fullPageMs": 23983,
+      "proseDone": 8,
+      "proseTotal": 8,
+      "progress": "9/9",
+      "outputChars": 1164,
+      "estimatedOutputTokensPerSec": 21.7,
+      "codeUntouched": null,
+      "cacheReplayMs": null,
+      "rssMb": 2182,
+      "timedOut": false
+    }
+  ]
+}

@@ -1,0 +1,165 @@
+import { createHash } from 'node:crypto';
+import { readFile, readdir } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const distDirectory = join(root, 'vendor', 'wllama', 'dist');
+const publicDirectory = join(root, 'public', 'vendor', 'wllama');
+const manifestPath = join(distDirectory, 'wllama-build.json');
+const patchDirectory = join(root, 'scripts', 'wllama', 'patches');
+
+const errors = [];
+
+function fail(message) {
+  errors.push(message);
+}
+
+function sha256(contents) {
+  return createHash('sha256').update(contents).digest('hex');
+}
+
+async function readManifest() {
+  let contents;
+  try {
+    contents = await readFile(manifestPath, 'utf8');
+  } catch {
+    throw new Error(
+      `${manifestPath} is missing. Run "pnpm build:wllama" before building or packaging the extension.`,
+    );
+  }
+
+  let manifest;
+  try {
+    manifest = JSON.parse(contents);
+  } catch {
+    throw new Error(`${manifestPath} is not valid JSON. Rebuild the artifacts.`);
+  }
+
+  if (manifest?.schemaVersion !== 1) {
+    throw new Error(`${manifestPath} has an unsupported schemaVersion. Rebuild the artifacts.`);
+  }
+  if (typeof manifest.files !== 'object' || manifest.files === null) {
+    throw new Error(`${manifestPath} does not list any files. Rebuild the artifacts.`);
+  }
+  return manifest;
+}
+
+async function verifyDirectory(directory, records, allowManifest) {
+  let entries;
+  try {
+    entries = await readdir(directory);
+  } catch {
+    fail(`${directory} is missing. Run "pnpm build:wllama".`);
+    return;
+  }
+
+  const expectedNames = new Set(records.keys());
+  if (allowManifest) expectedNames.add('wllama-build.json');
+
+  for (const [name, record] of records) {
+    if (!entries.includes(name)) {
+      fail(`${join(directory, name)} is missing.`);
+      continue;
+    }
+
+    const contents = await readFile(join(directory, name));
+    if (contents.byteLength !== record.bytes) {
+      fail(`${name}: expected ${record.bytes} bytes, found ${contents.byteLength}`);
+    }
+    if (sha256(contents) !== record.sha256) {
+      fail(`${name}: sha256 does not match the manifest`);
+    }
+    if (contents.byteLength < record.minimumBytes) {
+      fail(`${name}: ${contents.byteLength} bytes is below the minimum ${record.minimumBytes}`);
+    }
+  }
+
+  for (const name of entries) {
+    if (!expectedNames.has(name)) {
+      fail(`${join(directory, name)} is not listed in the manifest.`);
+    }
+  }
+}
+
+async function verifyManifestCopies() {
+  let distManifest;
+  try {
+    distManifest = await readFile(manifestPath);
+  } catch {
+    fail(`${manifestPath} is missing.`);
+    return;
+  }
+  if (distManifest.byteLength === 0) {
+    fail(`${manifestPath} is empty.`);
+  }
+
+  let publicManifest;
+  try {
+    publicManifest = await readFile(join(publicDirectory, 'wllama-build.json'));
+  } catch {
+    fail(`${join(publicDirectory, 'wllama-build.json')} is missing.`);
+    return;
+  }
+  if (!distManifest.equals(publicManifest)) {
+    fail('public/vendor/wllama/wllama-build.json does not match the dist manifest.');
+  }
+}
+
+async function verifyPatches(patches) {
+  if (!Array.isArray(patches) || patches.length === 0) {
+    fail('the manifest does not record any patches.');
+    return;
+  }
+
+  for (const patch of patches) {
+    if (typeof patch?.file !== 'string' || typeof patch?.sha256 !== 'string') {
+      fail('the manifest contains a malformed patch record.');
+      continue;
+    }
+    let contents;
+    try {
+      contents = await readFile(join(patchDirectory, patch.file));
+    } catch {
+      fail(`scripts/wllama/patches/${patch.file} is missing.`);
+      continue;
+    }
+    if (sha256(contents) !== patch.sha256) {
+      fail(`scripts/wllama/patches/${patch.file} does not match the manifest.`);
+    }
+  }
+}
+
+async function main() {
+  const manifest = await readManifest();
+  const files = manifest.files;
+
+  for (const [name, record] of Object.entries(files)) {
+    if (
+      typeof record?.bytes !== 'number' ||
+      typeof record?.sha256 !== 'string' ||
+      typeof record?.minimumBytes !== 'number'
+    ) {
+      fail(`the manifest record for ${name} is malformed.`);
+    }
+  }
+
+  await verifyDirectory(distDirectory, new Map(Object.entries(files)), true);
+  await verifyDirectory(publicDirectory, new Map(Object.entries(files)), true);
+  await verifyManifestCopies();
+  await verifyPatches(manifest.patches);
+
+  if (errors.length > 0) {
+    console.error('[wllama] the packaged artifacts are not usable:');
+    for (const message of errors) console.error(`  - ${message}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  console.log(`[wllama] verified ${Object.keys(files).length} files against wllama-build.json`);
+}
+
+await main().catch((error) => {
+  console.error(`[wllama] ${error instanceof Error ? error.message : String(error)}`);
+  process.exitCode = 1;
+});

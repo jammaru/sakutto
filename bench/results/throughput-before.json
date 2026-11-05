@@ -1,0 +1,79 @@
+{
+  "label": "throughput-before",
+  "at": "2026-11-05T14:02:35.691Z",
+  "model": "plamo-3-translate-0.8b-q4_k_m",
+  "machine": {
+    "cores": 4,
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+    "crossOriginIsolated": true,
+    "backend": "cpu-wasm",
+    "tier": "c4",
+    "threads": 4,
+    "chromeSupported": true,
+    "downloadMs": 4056,
+    "warmMs": 7060,
+    "rssMb": 2178
+  },
+  "pages": [
+    {
+      "page": "wiki",
+      "firstVisibleParagraphMs": 2911,
+      "firstScreenMs": 23522,
+      "fullPageMs": 66610,
+      "proseDone": 16,
+      "proseTotal": 16,
+      "progress": "21/21",
+      "outputChars": 2325,
+      "estimatedOutputTokensPerSec": 15.6,
+      "codeUntouched": null,
+      "cacheReplayMs": null,
+      "rssMb": 2169,
+      "timedOut": false
+    },
+    {
+      "page": "news",
+      "firstVisibleParagraphMs": 8254,
+      "firstScreenMs": 29670,
+      "fullPageMs": 32227,
+      "proseDone": 8,
+      "proseTotal": 8,
+      "progress": "9/9",
+      "outputChars": 1174,
+      "estimatedOutputTokensPerSec": 16.3,
+      "codeUntouched": null,
+      "cacheReplayMs": null,
+      "rssMb": 2165,
+      "timedOut": false
+    },
+    {
+      "page": "docs",
+      "firstVisibleParagraphMs": 9720,
+      "firstScreenMs": 26618,
+      "fullPageMs": 32984,
+      "proseDone": 6,
+      "proseTotal": 6,
+      "progress": "9/9",
+      "outputChars": 885,
+      "estimatedOutputTokensPerSec": 12,
+      "codeUntouched": true,
+      "cacheReplayMs": 61,
+      "rssMb": 2181,
+      "timedOut": false
+    },
+    {
+      "page": "spa",
+      "firstVisibleParagraphMs": 2594,
+      "firstScreenMs": 23998,
+      "fullPageMs": 26543,
+      "proseDone": 8,
+      "proseTotal": 8,
+      "progress": "9/9",
+      "outputChars": 1192,
+      "estimatedOutputTokensPerSec": 20.1,
+      "codeUntouched": null,
+      "cacheReplayMs": null,
+      "rssMb": 2178,
+      "timedOut": false
+    }
+  ]
+}

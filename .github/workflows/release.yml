@@ -1,0 +1,163 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the uploaded package on the Chrome Web Store
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Check the tag against package.json
+        run: node scripts/release/cli.ts check
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm test
+
+      - id: playwright
+        shell: bash
+        run: echo "key=playwright-chromium-${RUNNER_OS}-$(sha256sum pnpm-lock.yaml | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.playwright.outputs.key }}
+
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+        env:
+          PLAYWRIGHT_SKIP_INSTALL: '1'
+
+  package:
+    name: Package
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/package-extension
+
+      - name: Check the packaged manifest version
+        run: node scripts/release/cli.ts check --manifest .output/chrome-mv3/manifest.json
+
+  release:
+    name: GitHub Release
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: chrome-mv3-zip
+          path: store-zip
+
+      - name: Collect the store zip
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t zips < <(find store-zip -type f -name '*.zip' | sort)
+          if [ "${#zips[@]}" -ne 1 ]; then
+            echo "expected one store zip, found ${#zips[@]}" >&2
+            exit 1
+          fi
+          mkdir -p dist-zip
+          cp -- "${zips[0]}" dist-zip/
+
+      - name: Read the changelog section
+        run: node scripts/release/cli.ts notes > release-notes.md
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body_path: release-notes.md
+          files: dist-zip/*.zip
+          fail_on_unmatched_files: true
+
+  store:
+    name: Chrome Web Store
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: chrome-mv3-zip
+          path: store-zip
+
+      - name: Collect the store zip
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t zips < <(find store-zip -type f -name '*.zip' | sort)
+          if [ "${#zips[@]}" -ne 1 ]; then
+            echo "expected one store zip, found ${#zips[@]}" >&2
+            exit 1
+          fi
+          mkdir -p dist-zip
+          cp -- "${zips[0]}" dist-zip/
+
+      - name: Upload the package
+        env:
+          CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          CWS_PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.publish == true && 'true' || 'false' }}
+        run: node scripts/chrome-web-store.ts dist-zip

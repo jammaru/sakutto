@@ -1,0 +1,591 @@
+{
+  "extensionName": {
+    "message": "Sakutto for PLaMo",
+    "description": "Extension name."
+  },
+  "extensionShortName": {
+    "message": "Sakutto",
+    "description": "Short extension name."
+  },
+  "extensionDescription": {
+    "message": "Unofficial. Not affiliated with Preferred Networks. Translates web pages on your device with PLaMo 3. Built with PLaMo.",
+    "description": "Extension description."
+  },
+  "tagline": {
+    "message": "Page translation that runs on your device"
+  },
+  "settingsLabel": {
+    "message": "Settings"
+  },
+  "targetLanguageLabel": {
+    "message": "Translate into"
+  },
+  "formalityLabel": {
+    "message": "Japanese tone"
+  },
+  "formalityPolite": {
+    "message": "Polite (です・ます)"
+  },
+  "formalityPlain": {
+    "message": "Plain (だ・である)"
+  },
+  "displayLabel": {
+    "message": "Reading style"
+  },
+  "displayReplace": {
+    "message": "Replace original"
+  },
+  "displayBilingual": {
+    "message": "Bilingual"
+  },
+  "statusChecking": {
+    "message": "Checking…"
+  },
+  "pageStatusLabel": {
+    "message": "This page"
+  },
+  "pageStatusUnavailable": {
+    "message": "Not translatable"
+  },
+  "pageStatusLanguageUnknown": {
+    "message": "Unknown language"
+  },
+  "pageStatusReady": {
+    "message": "$LANG$ · $COUNT$ blocks",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      },
+      "count": {
+        "content": "$2"
+      }
+    }
+  },
+  "engineStatusLabel": {
+    "message": "Runtime"
+  },
+  "engineHeading": {
+    "message": "Engine"
+  },
+  "engineWebGpu": {
+    "message": "WebGPU"
+  },
+  "engineCpuWebGpuUnsupported": {
+    "message": "CPU (WebGPU unavailable)"
+  },
+  "engineCpuAdapterUnavailable": {
+    "message": "CPU (no GPU adapter)"
+  },
+  "engineCpuProbeFailed": {
+    "message": "CPU (WebGPU check failed)"
+  },
+  "engineUnavailable": {
+    "message": "Unavailable"
+  },
+  "isolationLabel": {
+    "message": "Cross-origin isolation"
+  },
+  "isolationOn": {
+    "message": "Active"
+  },
+  "isolationOff": {
+    "message": "Inactive"
+  },
+  "threadsLabel": {
+    "message": "Logical cores"
+  },
+  "diagHeading": {
+    "message": "Diagnostics"
+  },
+  "diagBackend": {
+    "message": "Active backend"
+  },
+  "diagThreads": {
+    "message": "Threads"
+  },
+  "diagParallel": {
+    "message": "n_parallel"
+  },
+  "diagBackendGpu": {
+    "message": "WebGPU"
+  },
+  "diagBackendCpu": {
+    "message": "CPU"
+  },
+  "diagBackendUnknown": {
+    "message": "Not loaded"
+  },
+  "diagRateHint": {
+    "message": "While a page is translating, its bar shows tokens/s and segments/s."
+  },
+  "paceLabel": {
+    "message": "Page pace"
+  },
+  "paceFast": {
+    "message": "Fast (quick translation off-screen)"
+  },
+  "paceQuality": {
+    "message": "Quality only"
+  },
+  "paceHelp": {
+    "message": "Fast shows Chrome's built-in translation, labelled as a quick translation, for blocks outside the screen. PLaMo replaces them in reading order. The first paragraph stays on PLaMo. Quality only waits for PLaMo."
+  },
+  "pageRate": {
+    "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
+    "placeholders": {
+      "tokens": {
+        "content": "$1"
+      },
+      "segments": {
+        "content": "$2"
+      }
+    }
+  },
+  "openOptions": {
+    "message": "Open settings"
+  },
+  "unofficialNotice": {
+    "message": "Unofficial. Not affiliated with Preferred Networks. Built with PLaMo."
+  },
+  "optionsTitle": {
+    "message": "Settings"
+  },
+  "optionsLead": {
+    "message": "Choose how translation works, manage the model, and set per-site behavior. Changes save automatically."
+  },
+  "privacyHeading": {
+    "message": "Privacy"
+  },
+  "privacyBody": {
+    "message": "This extension does not send page text to a server. There is no telemetry."
+  },
+  "privacyDestinations": {
+    "message": "The extension's own request is the model download. It starts at huggingface.co and follows Hugging Face's redirect to its CDN. Page text is not included. Chrome downloads its language packs itself."
+  },
+  "licensesHeading": {
+    "message": "Licenses"
+  },
+  "licensesBody": {
+    "message": "The full PLaMo Community License and this extension's MIT license are bundled with the extension."
+  },
+  "licensePlaMoJa": {
+    "message": "PLaMo Community License (Japanese)"
+  },
+  "licensePlaMoEn": {
+    "message": "PLaMo Community License (English)"
+  },
+  "licenseMit": {
+    "message": "MIT License"
+  },
+  "licenseNotice": {
+    "message": "NOTICE"
+  },
+  "licenseModelNote": {
+    "message": "The model weights are not bundled. They are downloaded from the official Hugging Face repository when they are not already stored on this device."
+  },
+  "openOnboarding": {
+    "message": "Open onboarding"
+  },
+  "machineTranslationNotice": {
+    "message": "Translations are machine translations produced by PLaMo."
+  },
+  "onboardingEyebrow": {
+    "message": "Getting started"
+  },
+  "onboardingLead": {
+    "message": "Page translation runs on your device. The PLaMo 3 model downloads only when it is not already stored on this device."
+  },
+  "onboardingSetupHeading": {
+    "message": "About this extension"
+  },
+  "onboardingModelNote": {
+    "message": "The default model (573 MB) downloads to this device. A sustained 100 Mbps transfer of that size is about 46 seconds before overhead; real time varies. An interrupted download resumes."
+  },
+  "onboardingBridgeNote": {
+    "message": "When Chrome's language pack is available, its built-in translator is used while the model downloads. Google documents that translation as on-device."
+  },
+  "onboardingPrivacyNote": {
+    "message": "This extension does not send page text to a server."
+  },
+  "onboardingLicenseNote": {
+    "message": "Users under 18 need consent from a parent or guardian."
+  },
+  "onboardingClose": {
+    "message": "Close"
+  },
+  "onboardingStart": {
+    "message": "Get started"
+  },
+  "onboardingStartFailed": {
+    "message": "Setup could not start. Please try again."
+  },
+  "errorSettings": {
+    "message": "Could not load your settings."
+  },
+  "errorSaveSettings": {
+    "message": "Could not save your settings."
+  },
+  "errorPage": {
+    "message": "Could not read this page."
+  },
+  "errorAction": {
+    "message": "Could not open the page."
+  },
+  "retry": {
+    "message": "Try again"
+  },
+  "originalLabel": {
+    "message": "Original"
+  },
+  "simpleTranslation": {
+    "message": "Quick translation"
+  },
+  "simpleTranslationDetail": {
+    "message": "Quick translation (built into Chrome)"
+  },
+  "machineTranslationTooltip": {
+    "message": "Machine translation by PLaMo."
+  },
+  "selectionPending": {
+    "message": "Translating…"
+  },
+  "selectionFailed": {
+    "message": "Could not translate this selection."
+  },
+  "selectionTitle": {
+    "message": "Selected text"
+  },
+  "close": {
+    "message": "Close"
+  },
+  "commandTranslate": {
+    "message": "Translate this page or restore the original"
+  },
+  "commandBilingual": {
+    "message": "Translate in bilingual view, or switch the current view"
+  },
+  "commandSelection": {
+    "message": "Translate the selected text"
+  },
+  "contextTranslatePage": {
+    "message": "Translate this page"
+  },
+  "contextTranslateSelection": {
+    "message": "Translate the selected text"
+  },
+  "translateThisPage": {
+    "message": "Translate this page"
+  },
+  "restoreThisPage": {
+    "message": "Restore the original"
+  },
+  "pageTranslating": {
+    "message": "Translating…"
+  },
+  "pageProgress": {
+    "message": "Translating $DONE$ / $TOTAL$",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pageProgressLabel": {
+    "message": "Translation progress"
+  },
+  "pageTranslated": {
+    "message": "This page is translated."
+  },
+  "pageAlwaysOn": {
+    "message": "This site is always translated."
+  },
+  "siteGrantTitle": {
+    "message": "Translate this site"
+  },
+  "siteGrantBody": {
+    "message": "Pages on $HOST$ will be translated on this device.",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteGrantAllow": {
+    "message": "Allow"
+  },
+  "siteGrantDenied": {
+    "message": "Permission was not granted. Try again."
+  },
+  "siteGrantInvalid": {
+    "message": "This page does not name a site."
+  },
+  "targetAdjustedNote": {
+    "message": "The page is already in the saved target language, so the target was switched."
+  },
+  "sameLanguageHint": {
+    "message": "This page is already written in the target language."
+  },
+  "displaySiteHint": {
+    "message": "This choice is remembered for the site."
+  },
+  "displayNowBilingual": {
+    "message": "Bilingual view is on for this site."
+  },
+  "displayNowReplace": {
+    "message": "Replacement view is on for this site."
+  },
+  "optionsDefaultHint": {
+    "message": "These are the defaults. A site you translate can keep its own language and reading style."
+  },
+  "optionsSiteLive": {
+    "message": "Language and reading style here follow the site. The settings above are used when a site has no choice of its own."
+  },
+  "alwaysTranslateSite": {
+    "message": "Always translate this site"
+  },
+  "shortcutTranslate": {
+    "message": "Alt+A translates the page or restores the original."
+  },
+  "shortcutBilingual": {
+    "message": "Alt+B switches between replacement and bilingual view, and remembers the choice for this site."
+  },
+  "shortcutSelection": {
+    "message": "Alt+S translates the selected text."
+  },
+  "runtimePreparing": {
+    "message": "Preparing $PERCENT$%",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "runtimeDownloading": {
+    "message": "Downloading $PERCENT$% ($RECEIVED$ / $TOTAL$)",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      },
+      "received": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
+  "runtimeVerifying": {
+    "message": "Checking the downloaded file."
+  },
+  "runtimeLoading": {
+    "message": "Loading the model."
+  },
+  "runtimePlamoGpu": {
+    "message": "PLaMo · WebGPU"
+  },
+  "runtimePlamoCpu": {
+    "message": "PLaMo · CPU"
+  },
+  "runtimeSimple": {
+    "message": "Quick translation"
+  },
+  "runtimeWaiting": {
+    "message": "Waiting for the model"
+  },
+  "runtimeError": {
+    "message": "The model could not be loaded"
+  },
+  "runtimeChecking": {
+    "message": "Checking…"
+  },
+  "chromeOnlySuffix": {
+    "message": " (quick translation)"
+  },
+  "consentCheckbox": {
+    "message": "I agree to Article 2 of the PLaMo Community License. I am 18 or older, or a parent or legal guardian has consented."
+  },
+  "onboardingUseNow": {
+    "message": "If Chrome's language pack is available, you can translate before the model finishes."
+  },
+  "onboardingReadyHeading": {
+    "message": "You're ready."
+  },
+  "onboardingReadyLead": {
+    "message": "You can translate pages on this device."
+  },
+  "onboardingReadyToolbar": {
+    "message": "Click the toolbar icon to translate the open page."
+  },
+  "onboardingReadyPage": {
+    "message": "Press Alt+A to translate the whole page. Press it again to restore the original."
+  },
+  "onboardingReadySelection": {
+    "message": "Press Alt+S to translate selected text."
+  },
+  "onboardingReadyContext": {
+    "message": "Right-click the page and choose \"Translate this page\". For selected text, choose \"Translate the selected text\"."
+  },
+  "onboardingTry": {
+    "message": "Try a sample page"
+  },
+  "onboardingTryNow": {
+    "message": "Try it now"
+  },
+  "onboardingWhileDownloading": {
+    "message": "When Chrome's language pack is available, its quick translation stays visible during the download. PLaMo replaces it when the model is ready."
+  },
+  "downloadEtaSeconds": {
+    "message": "About $COUNT$ seconds left.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadEtaMinutes": {
+    "message": "About $COUNT$ minutes left.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadResuming": {
+    "message": "The download is continuing from where it stopped."
+  },
+  "downloadProgressLabel": {
+    "message": "Download progress"
+  },
+  "downloadPaused": {
+    "message": "The download is paused. It can resume where it left off."
+  },
+  "downloadResume": {
+    "message": "Resume"
+  },
+  "downloadCancel": {
+    "message": "Pause"
+  },
+  "modelHeading": {
+    "message": "Model"
+  },
+  "modelStandard": {
+    "message": "Standard (0.8B)"
+  },
+  "modelHigh": {
+    "message": "High accuracy (2B)"
+  },
+  "modelInUse": {
+    "message": "In use"
+  },
+  "modelUse": {
+    "message": "Use this model"
+  },
+  "modelDownload": {
+    "message": "Download"
+  },
+  "modelDelete": {
+    "message": "Delete"
+  },
+  "highQualityOffer": {
+    "message": "You can try the higher-accuracy model (2B, about 1.81 GB). Speed depends on this device."
+  },
+  "useHighQuality": {
+    "message": "Use it"
+  },
+  "dismissHighQuality": {
+    "message": "Not now"
+  },
+  "glossaryHeading": {
+    "message": "Glossary"
+  },
+  "glossaryHelp": {
+    "message": "Write one “source,translation” pair per line. Choose a site to use the list only there."
+  },
+  "glossaryGlobal": {
+    "message": "All sites"
+  },
+  "glossaryImport": {
+    "message": "Import CSV"
+  },
+  "glossaryExport": {
+    "message": "Export CSV"
+  },
+  "glossaryAddSite": {
+    "message": "Add site"
+  },
+  "siteRulesHeading": {
+    "message": "Per-site translation"
+  },
+  "siteRuleAsk": {
+    "message": "Ask each time"
+  },
+  "siteRuleAlways": {
+    "message": "Always translate"
+  },
+  "siteRuleNever": {
+    "message": "Never translate"
+  },
+  "noSiteRules": {
+    "message": "No per-site settings yet."
+  },
+  "siteHostLabel": {
+    "message": "Host name"
+  },
+  "cacheClear": {
+    "message": "Clear the translation cache"
+  },
+  "cacheCleared": {
+    "message": "The translation cache was cleared."
+  },
+  "cacheClearFailed": {
+    "message": "The translation cache could not be cleared."
+  },
+  "idleLabel": {
+    "message": "Release the model from memory after"
+  },
+  "idle1": {
+    "message": "1 minute"
+  },
+  "idle5": {
+    "message": "5 minutes"
+  },
+  "idle15": {
+    "message": "15 minutes"
+  },
+  "idleNever": {
+    "message": "Never"
+  },
+  "tierLabel": {
+    "message": "Performance mode"
+  },
+  "tierAuto": {
+    "message": "Automatic"
+  },
+  "tierGpu": {
+    "message": "WebGPU"
+  },
+  "tierCpu8": {
+    "message": "CPU (8 threads)"
+  },
+  "tierCpu4": {
+    "message": "CPU (4 threads)"
+  },
+  "tierHelp": {
+    "message": "Automatic picks the mode that fits this PC."
+  },
+  "slowDeviceHint": {
+    "message": "PLaMo is slow on this PC. Chrome's built-in quick translation may be faster."
+  },
+  "errorPermission": {
+    "message": "Permission for this site was not granted."
+  },
+  "siteHostInvalid": {
+    "message": "Enter a valid host name."
+  },
+  "glossaryScopeLabel": {
+    "message": "Applies to"
+  }
+}

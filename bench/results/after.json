@@ -1,0 +1,216 @@
+{
+  "label": "after",
+  "at": "2026-11-05T12:28:38.106Z",
+  "model": "plamo-3-translate-0.8b-q4_k_m",
+  "engine": {
+    "loaded": {
+      "loadMs": 3393,
+      "threads": 4,
+      "multithread": true,
+      "webgpuAdapter": false,
+      "cores": 4,
+      "isolated": true,
+      "bytes": 573116288
+    },
+    "cases": [
+      {
+        "name": "short-cache-off",
+        "ms": 995,
+        "ttftMs": 808,
+        "chars": 17,
+        "timings": {
+          "promptN": 26,
+          "promptMs": 792.12,
+          "promptPerSecond": 32.82330959955562,
+          "predictedN": 5,
+          "predictedMs": 189.516,
+          "predictedPerSecond": 21.106397349036495
+        },
+        "text": "続行するにはサインインしてください"
+      },
+      {
+        "name": "short-cache-on-1",
+        "ms": 381,
+        "ttftMs": 195,
+        "chars": 17,
+        "timings": {
+          "promptN": 5,
+          "promptMs": 191.729,
+          "promptPerSecond": 26.07847534801725,
+          "predictedN": 5,
+          "predictedMs": 184.375,
+          "predictedPerSecond": 21.694915254237287
+        },
+        "text": "続行するにはサインインしてください"
+      },
+      {
+        "name": "short-cache-on-2",
+        "ms": 370,
+        "ttftMs": 176,
+        "chars": 17,
+        "timings": {
+          "promptN": 5,
+          "promptMs": 174.735,
+          "promptPerSecond": 28.61475949294646,
+          "predictedN": 5,
+          "predictedMs": 193,
+          "predictedPerSecond": 20.72538860103627
+        },
+        "text": "続行するにはサインインしてください"
+      },
+      {
+        "name": "paragraph-cache-on-1",
+        "ms": 6371,
+        "ttftMs": 2637,
+        "chars": 161,
+        "timings": {
+          "promptN": 91,
+          "promptMs": 2634.68,
+          "promptPerSecond": 34.53929889018781,
+          "predictedN": 79,
+          "predictedMs": 3733.859,
+          "predictedPerSecond": 20.88991576811015
+        },
+        "text": "朝の列車が静かな駅を出発する頃、パン屋が広場の角に小さな店を開きます。そこでは子供たちが明るい色の袋を手に学校へと歩いて行き、川が落ち葉を運んで、古い石橋の向こうに広がる広い海へと向かいます。市場の近くでは、仕事が始まる前にパンや果物、花を買う近所の人々のために、今日は雨上がりの埃っぽい道が再びきれいに洗い流されました。"
+      },
+      {
+        "name": "paragraph-cache-on-2",
+        "ms": 3855,
+        "ttftMs": 179,
+        "chars": 161,
+        "timings": {
+          "promptN": 5,
+          "promptMs": 176.29,
+          "promptPerSecond": 28.36235747915367,
+          "predictedN": 79,
+          "predictedMs": 3674.546,
+          "predictedPerSecond": 21.22711213847915
+        },
+        "text": "朝の列車が静かな駅を出発する頃、パン屋が広場の角に小さな店を開きます。そこでは子供たちが明るい色の袋を手に学校へと歩いて行き、川が落ち葉を運んで、古い石橋の向こうに広がる広い海へと向かいます。市場の近くでは、仕事が始まる前にパンや果物、花を買う近所の人々のために、今日は雨上がりの埃っぽい道が再びきれいに洗い流されました。"
+      },
+      {
+        "name": "sentences-separate",
+        "ms": 4460,
+        "ttftMs": 914,
+        "chars": 55,
+        "timings": null,
+        "lineCount": 4,
+        "expectedLines": 4,
+        "text": "図書館は9時に開きます。\n番号札をお持ちください。\n東門は今日は閉まっています。\n地図は受付で販売しています。"
+      },
+      {
+        "name": "sentences-batched",
+        "ms": 2585,
+        "ttftMs": 1476,
+        "chars": 56,
+        "timings": {
+          "promptN": 49,
+          "promptMs": 1469.28,
+          "promptPerSecond": 33.349667864532286,
+          "predictedN": 26,
+          "predictedMs": 1108.794,
+          "predictedPerSecond": 22.547019554579116
+        },
+        "lineCount": 4,
+        "expectedLines": 4,
+        "text": "図書館は9時に開館します。\n番号札をお持ちください。\n東門は本日閉鎖されています。\n地図は受付で販売しています。"
+      }
+    ],
+    "quiet": {
+      "ms": 4005,
+      "text": "朝の列車が静かな駅を出発する頃、パン屋が広場の角に小さな店を開きます。そこでは子供たちが明るい色の袋を手に学校へと歩いて行き、川が落ち葉を運んで、古い石橋の向こうに広がる広い海へと向かいます。市場の近くでは、仕事が始まる前にパンや果物、花を買う近所の人々のために、今日は雨上がりの埃っぽい道が再びきれいに洗い流されました。",
+      "timings": {
+        "promptN": 5,
+        "promptMs": 173.551,
+        "promptPerSecond": 28.809975165801408,
+        "predictedN": 79,
+        "predictedMs": 3828.335,
+        "predictedPerSecond": 20.374392523120367
+      },
+      "usage": {
+        "completion_tokens": 79,
+        "prompt_tokens": 91,
+        "total_tokens": 170,
+        "prompt_tokens_details": {
+          "cached_tokens": 86
+        }
+      }
+    },
+    "sweeps": [],
+    "rssMb": 1814
+  },
+  "machine": {
+    "cores": 4,
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+    "crossOriginIsolated": true,
+    "backend": "cpu-wasm",
+    "tier": "c4",
+    "threads": 4,
+    "chromeSupported": true,
+    "downloadMs": 12107,
+    "warmMs": 571,
+    "rssMb": 2194
+  },
+  "pages": [
+    {
+      "page": "wiki",
+      "firstVisibleParagraphMs": 2900,
+      "firstScreenMs": 23205,
+      "fullPageMs": 62713,
+      "proseDone": 16,
+      "proseTotal": 16,
+      "progress": "21/21",
+      "outputChars": 2325,
+      "estimatedOutputTokensPerSec": 16.6,
+      "codeUntouched": null,
+      "cacheReplayMs": null,
+      "rssMb": 2180,
+      "timedOut": false
+    },
+    {
+      "page": "news",
+      "firstVisibleParagraphMs": 7986,
+      "firstScreenMs": 29467,
+      "fullPageMs": 32031,
+      "proseDone": 8,
+      "proseTotal": 8,
+      "progress": "9/9",
+      "outputChars": 1174,
+      "estimatedOutputTokensPerSec": 16.4,
+      "codeUntouched": null,
+      "cacheReplayMs": null,
+      "rssMb": 2180,
+      "timedOut": false
+    },
+    {
+      "page": "docs",
+      "firstVisibleParagraphMs": 9748,
+      "firstScreenMs": 26293,
+      "fullPageMs": 32394,
+      "proseDone": 6,
+      "proseTotal": 6,
+      "progress": "9/9",
+      "outputChars": 885,
+      "estimatedOutputTokensPerSec": 12.2,
+      "codeUntouched": true,
+      "cacheReplayMs": 77,
+      "rssMb": 2194,
+      "timedOut": false
+    },
+    {
+      "page": "spa",
+      "firstVisibleParagraphMs": 2576,
+      "firstScreenMs": 23646,
+      "fullPageMs": 26185,
+      "proseDone": 8,
+      "proseTotal": 8,
+      "progress": "9/9",
+      "outputChars": 1192,
+      "estimatedOutputTokensPerSec": 20.3,
+      "codeUntouched": null,
+      "cacheReplayMs": null,
+      "rssMb": 2194,
+      "timedOut": false
+    }
+  ]
+}

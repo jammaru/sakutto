@@ -1,0 +1,155 @@
+{
+  "label": "baseline",
+  "at": "2026-11-05T12:09:07.276Z",
+  "model": "plamo-3-translate-0.8b-q4_k_m",
+  "engine": {
+    "loaded": {
+      "loadMs": 3390,
+      "threads": 4,
+      "multithread": true,
+      "webgpuAdapter": false,
+      "cores": 4,
+      "isolated": true,
+      "bytes": 573116288
+    },
+    "cases": [
+      {
+        "name": "short-cache-off",
+        "ms": 980,
+        "ttftMs": 802,
+        "chars": 17,
+        "timings": {
+          "promptN": 26,
+          "promptMs": 785.96,
+          "promptPerSecond": 33.0805638963815,
+          "predictedN": 5,
+          "predictedMs": 177.895,
+          "predictedPerSecond": 22.485173838500238
+        },
+        "text": "続行するにはサインインしてください"
+      },
+      {
+        "name": "short-cache-on-1",
+        "ms": 368,
+        "ttftMs": 194,
+        "chars": 17,
+        "timings": {
+          "promptN": 5,
+          "promptMs": 191.45,
+          "promptPerSecond": 26.116479498563592,
+          "predictedN": 5,
+          "predictedMs": 173.399,
+          "predictedPerSecond": 23.06818378422021
+        },
+        "text": "続行するにはサインインしてください"
+      },
+      {
+        "name": "short-cache-on-2",
+        "ms": 356,
+        "ttftMs": 170,
+        "chars": 17,
+        "timings": {
+          "promptN": 5,
+          "promptMs": 168.241,
+          "promptPerSecond": 29.719271758964815,
+          "predictedN": 5,
+          "predictedMs": 185.095,
+          "predictedPerSecond": 21.610524325346443
+        },
+        "text": "続行するにはサインインしてください"
+      },
+      {
+        "name": "paragraph-cache-on-1",
+        "ms": 6520,
+        "ttftMs": 2620,
+        "chars": 161,
+        "timings": {
+          "promptN": 91,
+          "promptMs": 2613.085,
+          "promptPerSecond": 34.82473780990668,
+          "predictedN": 79,
+          "predictedMs": 3899.95,
+          "predictedPerSecond": 20.000256413543767
+        },
+        "text": "朝の列車が静かな駅を出発する頃、パン屋が広場の角に小さな店を開きます。そこでは子供たちが明るい色の袋を手に学校へと歩いて行き、川が落ち葉を運んで、古い石橋の向こうに広がる広い海へと向かいます。市場の近くでは、仕事が始まる前にパンや果物、花を買う近所の人々のために、今日は雨上がりの埃っぽい道が再びきれいに洗い流されました。"
+      },
+      {
+        "name": "paragraph-cache-on-2",
+        "ms": 3936,
+        "ttftMs": 182,
+        "chars": 161,
+        "timings": {
+          "promptN": 5,
+          "promptMs": 179.29,
+          "promptPerSecond": 27.88777957499024,
+          "predictedN": 79,
+          "predictedMs": 3753.395,
+          "predictedPerSecond": 20.781186099517903
+        },
+        "text": "朝の列車が静かな駅を出発する頃、パン屋が広場の角に小さな店を開きます。そこでは子供たちが明るい色の袋を手に学校へと歩いて行き、川が落ち葉を運んで、古い石橋の向こうに広がる広い海へと向かいます。市場の近くでは、仕事が始まる前にパンや果物、花を買う近所の人々のために、今日は雨上がりの埃っぽい道が再びきれいに洗い流されました。"
+      },
+      {
+        "name": "sentences-separate",
+        "ms": 4629,
+        "ttftMs": 873,
+        "chars": 55,
+        "timings": null,
+        "lineCount": 4,
+        "expectedLines": 4,
+        "text": "図書館は9時に開きます。\n番号札をお持ちください。\n東門は今日は閉まっています。\n地図は受付で販売しています。"
+      },
+      {
+        "name": "sentences-batched",
+        "ms": 2614,
+        "ttftMs": 1485,
+        "chars": 56,
+        "timings": {
+          "promptN": 49,
+          "promptMs": 1482.606,
+          "promptPerSecond": 33.04991346318577,
+          "predictedN": 26,
+          "predictedMs": 1128.694,
+          "predictedPerSecond": 22.14949313099919
+        },
+        "lineCount": 4,
+        "expectedLines": 4,
+        "text": "図書館は9時に開館します。\n番号札をお持ちください。\n東門は本日閉鎖されています。\n地図は受付で販売しています。"
+      }
+    ],
+    "quiet": {
+      "ms": 3926,
+      "text": "朝の列車が静かな駅を出発する頃、パン屋が広場の角に小さな店を開きます。そこでは子供たちが明るい色の袋を手に学校へと歩いて行き、川が落ち葉を運んで、古い石橋の向こうに広がる広い海へと向かいます。市場の近くでは、仕事が始まる前にパンや果物、花を買う近所の人々のために、今日は雨上がりの埃っぽい道が再びきれいに洗い流されました。",
+      "timings": {
+        "promptN": 5,
+        "promptMs": 174.815,
+        "promptPerSecond": 28.601664616880704,
+        "predictedN": 79,
+        "predictedMs": 3747.96,
+        "predictedPerSecond": 20.811321358819196
+      },
+      "usage": {
+        "completion_tokens": 79,
+        "prompt_tokens": 91,
+        "total_tokens": 170,
+        "prompt_tokens_details": {
+          "cached_tokens": 86
+        }
+      }
+    },
+    "sweeps": [],
+    "rssMb": 1840
+  },
+  "pagesNote": "Wiki was measured on the unmodified extension. The next page stayed at 0/9 for more than 8 minutes while the runtime kept computing, so the run was stopped before docs and the SPA.",
+  "pages": [
+    {
+      "page": "wiki",
+      "firstVisibleParagraphMs": 27911,
+      "firstScreenMs": 42616,
+      "fullPageMs": 82459,
+      "proseDone": 16,
+      "proseTotal": 16,
+      "rssMb": 2204,
+      "timedOut": false
+    }
+  ]
+}

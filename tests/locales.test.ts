@@ -1,0 +1,82 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+
+interface MessageEntry {
+  message: string;
+  description?: string;
+  placeholders?: Record<string, { content: string }>;
+}
+
+function readMessages(locale: string): Record<string, MessageEntry> {
+  const url = new URL(`../public/_locales/${locale}/messages.json`, import.meta.url);
+  return JSON.parse(readFileSync(url, 'utf8')) as Record<string, MessageEntry>;
+}
+
+function usedMessageKeys(): Set<string> {
+  const keys = new Set<string>();
+  const files = readdirSync(new URL('../src', import.meta.url), {
+    recursive: true,
+    encoding: 'utf8',
+  });
+
+  for (const file of files) {
+    if (!/\.(ts|svelte)$/.test(file)) continue;
+    const source = readFileSync(
+      new URL(`../src/${file.replaceAll('\\', '/')}`, import.meta.url),
+      'utf8',
+    );
+    for (const match of source.matchAll(/\bt\(\s*'([A-Za-z0-9_]+)'/g)) {
+      if (match[1]) keys.add(match[1]);
+    }
+  }
+
+  return keys;
+}
+
+function placeholderNames(entry: MessageEntry | undefined): string[] {
+  return Object.keys(entry?.placeholders ?? {}).sort();
+}
+
+describe('locale messages', () => {
+  const en = readMessages('en');
+  const ja = readMessages('ja');
+
+  it('defines the same non-empty keys in English and Japanese', () => {
+    expect(Object.keys(ja).sort()).toEqual(Object.keys(en).sort());
+
+    for (const [key, entry] of Object.entries({ ...en, ...ja })) {
+      expect(entry.message.trim(), key).not.toBe('');
+    }
+  });
+
+  it('uses matching placeholders in both locales', () => {
+    for (const key of Object.keys(en)) {
+      expect(placeholderNames(ja[key]), key).toEqual(placeholderNames(en[key]));
+    }
+  });
+
+  it('defines every key used by the UI', () => {
+    for (const key of usedMessageKeys()) {
+      expect(en, key).toHaveProperty(key);
+      expect(ja, key).toHaveProperty(key);
+    }
+  });
+
+  it('uses the product names from the specification', () => {
+    expect(en.extensionName?.message).toBe('Sakutto for PLaMo');
+    expect(ja.extensionName?.message).toBe('サクッと翻訳 for PLaMo');
+  });
+
+  it('keeps the store name and description inside the manifest limits', () => {
+    for (const messages of [en, ja]) {
+      expect(messages.extensionName?.message.length).toBeLessThanOrEqual(75);
+      expect(messages.extensionShortName?.message.length).toBeLessThanOrEqual(12);
+      expect(messages.extensionDescription?.message.length).toBeLessThanOrEqual(132);
+    }
+    expect(en.extensionDescription?.message).not.toMatch(/\b(fast|fastest)\b/i);
+    expect(en.privacyBody?.message).not.toMatch(/never leaves/i);
+    expect(ja.privacyBody?.message).not.toContain('端末の外');
+    expect(en.licenseModelNote?.message).not.toMatch(/on first use/i);
+    expect(ja.licenseModelNote?.message).not.toContain('初回に');
+  });
+});

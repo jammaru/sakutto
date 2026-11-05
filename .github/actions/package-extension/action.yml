@@ -1,0 +1,117 @@
+name: Package extension
+description: Restore the pinned wllama build or compile it, then zip the extension and smoke-test the worker.
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 12.15.0
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+
+    - shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - id: inputs
+      shell: bash
+      run: |
+        set -euo pipefail
+        export LC_ALL=C
+        hash=$(find scripts/wllama -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}')
+        tag=$(sed -n "s/^export const EMSDK_TAG = '\\([^']*\\)';/\\1/p" scripts/wllama/pins.ts)
+        test -n "$tag"
+        lock=$(sha256sum pnpm-lock.yaml | awk '{print $1}')
+        {
+          echo "hash=$hash"
+          echo "tag=$tag"
+          echo "playwright=playwright-chromium-${RUNNER_OS}-${lock}"
+        } >> "$GITHUB_OUTPUT"
+
+    - id: wasm
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          vendor/wllama/dist
+          public/vendor/wllama
+        key: wllama-${{ steps.inputs.outputs.hash }}
+
+    - id: image
+      if: steps.wasm.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: /tmp/emsdk-image.tar
+        key: emsdk-${{ steps.inputs.outputs.tag }}-${{ runner.arch }}
+
+    - if: steps.wasm.outputs.cache-hit != 'true' && steps.image.outputs.cache-hit == 'true'
+      shell: bash
+      run: docker load --input /tmp/emsdk-image.tar
+
+    - if: steps.wasm.outputs.cache-hit != 'true' && steps.image.outputs.cache-hit != 'true'
+      shell: bash
+      run: docker pull "emscripten/emsdk:${{ steps.inputs.outputs.tag }}"
+
+    - if: steps.wasm.outputs.cache-hit != 'true'
+      shell: bash
+      run: pnpm build:wllama
+
+    - if: steps.wasm.outputs.cache-hit != 'true'
+      shell: bash
+      run: pnpm verify:wllama
+
+    - if: steps.wasm.outputs.cache-hit != 'true' && steps.image.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        rm -rf vendor/wllama/.checkout/build vendor/wllama/.checkout/build-compat
+        docker save "emscripten/emsdk:${{ steps.inputs.outputs.tag }}" --output /tmp/emsdk-image.tar
+
+    - if: steps.wasm.outputs.cache-hit != 'true' && steps.image.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      continue-on-error: true
+      with:
+        path: /tmp/emsdk-image.tar
+        key: ${{ steps.image.outputs.cache-primary-key }}
+
+    - if: steps.wasm.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          vendor/wllama/dist
+          public/vendor/wllama
+        key: ${{ steps.wasm.outputs.cache-primary-key }}
+
+    - shell: bash
+      run: pnpm zip
+
+    - uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ steps.inputs.outputs.playwright }}
+
+    - shell: bash
+      run: pnpm exec playwright install --with-deps chromium
+
+    - shell: bash
+      run: pnpm exec playwright test e2e/wllama-worker.spec.ts
+
+    - shell: bash
+      run: node scripts/package-artifact.ts
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: chrome-mv3-zip
+        if-no-files-found: error
+        compression-level: 0
+        path: artifacts/store/*.zip
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: chrome-mv3
+        if-no-files-found: error
+        compression-level: 0
+        include-hidden-files: true
+        path: artifacts/chrome-mv3

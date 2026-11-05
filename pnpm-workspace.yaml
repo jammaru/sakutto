@@ -1,0 +1,4 @@
+# Install scripts are allowlisted per package. esbuild needs its postinstall to fetch the
+# platform binary that Vite and WXT use.
+allowBuilds:
+  esbuild: true

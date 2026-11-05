@@ -1,0 +1,345 @@
+{
+  "at": "2026-11-05T14:37:43.818Z",
+  "commit": "03891e907db8a43c97d3a7c75add125cc6d1f96a",
+  "samples": [
+    {
+      "id": "ui",
+      "src": "en",
+      "tgt": "ja"
+    },
+    {
+      "id": "name-year",
+      "src": "en",
+      "tgt": "ja"
+    },
+    {
+      "id": "url",
+      "src": "en",
+      "tgt": "ja"
+    },
+    {
+      "id": "code",
+      "src": "en",
+      "tgt": "ja"
+    },
+    {
+      "id": "instruction",
+      "src": "en",
+      "tgt": "ja"
+    },
+    {
+      "id": "paragraph",
+      "src": "en",
+      "tgt": "ja"
+    },
+    {
+      "id": "ja-en",
+      "src": "ja",
+      "tgt": "en"
+    },
+    {
+      "id": "ambiguous",
+      "src": "en",
+      "tgt": "ja"
+    }
+  ],
+  "models": [
+    {
+      "id": "Q4_K_M",
+      "bytes": 573116288,
+      "loadMs": 3543,
+      "threads": 4,
+      "webgpuAdapter": false,
+      "totalMs": 16889,
+      "meanPredictedPerSecond": 20.9,
+      "samples": [
+        {
+          "id": "ui",
+          "src": "en",
+          "tgt": "ja",
+          "source": "Sign in to continue",
+          "text": "続行するにはサインインしてください",
+          "ms": 1075,
+          "ttftMs": 889,
+          "predictedPerSecond": 21.082146584165198,
+          "predictedN": 5
+        },
+        {
+          "id": "name-year",
+          "src": "en",
+          "tgt": "ja",
+          "source": "Ada Lovelace was born in 1815.",
+          "text": "エイダ・ラブレスは1815年に生まれました。",
+          "ms": 1610,
+          "ttftMs": 987,
+          "predictedPerSecond": 21.11243018687749,
+          "predictedN": 14
+        },
+        {
+          "id": "url",
+          "src": "en",
+          "tgt": "ja",
+          "source": "See https://example.com/docs/start for the guide.",
+          "text": "ガイドについては https://example.com/docs/start をご覧ください。",
+          "ms": 1434,
+          "ttftMs": 978,
+          "predictedPerSecond": 21.942094811791684,
+          "predictedN": 11
+        },
+        {
+          "id": "code",
+          "src": "en",
+          "tgt": "ja",
+          "source": "Run npm install, then open src/app.ts.",
+          "text": "npm installを実行し、src/app.tsを開いてください。",
+          "ms": 1589,
+          "ttftMs": 1046,
+          "predictedPerSecond": 20.244256152413485,
+          "predictedN": 12
+        },
+        {
+          "id": "instruction",
+          "src": "en",
+          "tgt": "ja",
+          "source": "Please take a numbered ticket and wait by the east gate.",
+          "text": "番号札をお持ちになって、東門のところでお待ちください。",
+          "ms": 1534,
+          "ttftMs": 1066,
+          "predictedPerSecond": 21.39678192399863,
+          "predictedN": 11
+        },
+        {
+          "id": "paragraph",
+          "src": "en",
+          "tgt": "ja",
+          "source": "The morning train leaves the quiet station while the baker opens a small shop on the corner of the square where children walk to school with bright bags and the river carries fallen leaves toward the wide sea beyond the old stone bridge near the market that opens early for neighbors who buy bread fruit and flowers before work begins across the town today after the rain has washed the dusty road clean again for everyone here.",
+          "text": "朝の列車が静かな駅を出発する頃、パン屋が広場の角に小さな店を開きます。そこでは子供たちが明るい色の袋を手に学校へと歩いて行き、川が落ち葉を運んで、古い石橋の向こうに広がる広い海へと向かいます。市場の近くでは、仕事が始まる前にパンや果物、花を買う近所の人々のために、今日は雨上がりの埃っぽい道が再びきれいに洗い流されました。",
+          "ms": 6747,
+          "ttftMs": 2701,
+          "predictedPerSecond": 19.28056309131695,
+          "predictedN": 79
+        },
+        {
+          "id": "ja-en",
+          "src": "ja",
+          "tgt": "en",
+          "source": "図書館は9時に開きます。東門は本日閉鎖です。",
+          "text": "The library opens at 9. The east gate is closed today.",
+          "ms": 1449,
+          "ttftMs": 946,
+          "predictedPerSecond": 19.901646065146046,
+          "predictedN": 11
+        },
+        {
+          "id": "ambiguous",
+          "src": "en",
+          "tgt": "ja",
+          "source": "The crane lifted the crane from the river.",
+          "text": "クレーンが川からクレーンを吊り上げました。",
+          "ms": 1451,
+          "ttftMs": 1044,
+          "predictedPerSecond": 22.134776192818496,
+          "predictedN": 10
+        }
+      ]
+    },
+    {
+      "id": "Q3_K_M",
+      "bytes": 486375296,
+      "loadMs": 3395,
+      "threads": 4,
+      "webgpuAdapter": false,
+      "totalMs": 26454,
+      "meanPredictedPerSecond": 16,
+      "samples": [
+        {
+          "id": "ui",
+          "src": "en",
+          "tgt": "ja",
+          "source": "Sign in to continue",
+          "text": "サインインして続行",
+          "ms": 1234,
+          "ttftMs": 1071,
+          "predictedPerSecond": 18.466197625246984,
+          "predictedN": 4
+        },
+        {
+          "id": "name-year",
+          "src": "en",
+          "tgt": "ja",
+          "source": "Ada Lovelace was born in 1815.",
+          "text": "エイダ・ラブレスは1815年に生まれました。",
+          "ms": 2593,
+          "ttftMs": 1498,
+          "predictedPerSecond": 11.87957763532438,
+          "predictedN": 14
+        },
+        {
+          "id": "url",
+          "src": "en",
+          "tgt": "ja",
+          "source": "See https://example.com/docs/start for the guide.",
+          "text": "ガイドについては https://example.com/docs/start をご覧ください。",
+          "ms": 1850,
+          "ttftMs": 1269,
+          "predictedPerSecond": 17.21434092313625,
+          "predictedN": 11
+        },
+        {
+          "id": "code",
+          "src": "en",
+          "tgt": "ja",
+          "source": "Run npm install, then open src/app.ts.",
+          "text": "npm installを実行し、src/app.tsを開いてください。",
+          "ms": 1998,
+          "ttftMs": 1381,
+          "predictedPerSecond": 17.870313510281928,
+          "predictedN": 12
+        },
+        {
+          "id": "instruction",
+          "src": "en",
+          "tgt": "ja",
+          "source": "Please take a numbered ticket and wait by the east gate.",
+          "text": "整理券をお取りの上、東門のところでお待ちください。",
+          "ms": 1851,
+          "ttftMs": 1315,
+          "predictedPerSecond": 18.67605449672702,
+          "predictedN": 11
+        },
+        {
+          "id": "paragraph",
+          "src": "en",
+          "tgt": "ja",
+          "source": "The morning train leaves the quiet station while the baker opens a small shop on the corner of the square where children walk to school with bright bags and the river carries fallen leaves toward the wide sea beyond the old stone bridge near the market that opens early for neighbors who buy bread fruit and flowers before work begins across the town today after the rain has washed the dusty road clean again for everyone here.",
+          "text": "朝の列車が静かな駅を出発する頃、パン屋は広場の角に小さな店を構えます。そこでは子供たちが明るい色の袋を手に学校へと歩いて行き、川は落ち葉を運んで、古い石橋の向こうに広がる広い海へと流れています。市場の近くでは、仕事が始まる前にパンや果物、花を買う近所の人々のために、早朝から店が開かれています。雨が通りの埃を再び洗い流し、ここの人々にとって再び清々しい空気となりました。",
+          "ms": 13276,
+          "ttftMs": 3672,
+          "predictedPerSecond": 9.476206339290465,
+          "predictedN": 92
+        },
+        {
+          "id": "ja-en",
+          "src": "ja",
+          "tgt": "en",
+          "source": "図書館は9時に開きます。東門は本日閉鎖です。",
+          "text": "The library opens at 9. The east gate is closed today.",
+          "ms": 1746,
+          "ttftMs": 1201,
+          "predictedPerSecond": 18.358055514759876,
+          "predictedN": 11
+        },
+        {
+          "id": "ambiguous",
+          "src": "en",
+          "tgt": "ja",
+          "source": "The crane lifted the crane from the river.",
+          "text": "クレーンが川からクレーンを吊り上げました。",
+          "ms": 1906,
+          "ttftMs": 1341,
+          "predictedPerSecond": 15.940065354267952,
+          "predictedN": 10
+        }
+      ]
+    },
+    {
+      "id": "Q2_K",
+      "bytes": 410128256,
+      "loadMs": 3145,
+      "threads": 4,
+      "webgpuAdapter": false,
+      "totalMs": 34688,
+      "meanPredictedPerSecond": 11.1,
+      "samples": [
+        {
+          "id": "ui",
+          "src": "en",
+          "tgt": "ja",
+          "source": "Sign in to continue",
+          "text": "サインインして続行",
+          "ms": 1980,
+          "ttftMs": 1609,
+          "predictedPerSecond": 8.214879337114004,
+          "predictedN": 4
+        },
+        {
+          "id": "name-year",
+          "src": "en",
+          "tgt": "ja",
+          "source": "Ada Lovelace was born in 1815.",
+          "text": "エイダ・ラブレースは1815年に生まれました。",
+          "ms": 5086,
+          "ttftMs": 2709,
+          "predictedPerSecond": 5.470091224290571,
+          "predictedN": 14
+        },
+        {
+          "id": "url",
+          "src": "en",
+          "tgt": "ja",
+          "source": "See https://example.com/docs/start for the guide.",
+          "text": "ガイドについては https://example.com/docs/start をご覧ください。",
+          "ms": 2923,
+          "ttftMs": 2156,
+          "predictedPerSecond": 13.037129745515228,
+          "predictedN": 11
+        },
+        {
+          "id": "code",
+          "src": "en",
+          "tgt": "ja",
+          "source": "Run npm install, then open src/app.ts.",
+          "text": "npm installを実行し、src/app.tsを開いてください。",
+          "ms": 3020,
+          "ttftMs": 2166,
+          "predictedPerSecond": 12.883443486775146,
+          "predictedN": 12
+        },
+        {
+          "id": "instruction",
+          "src": "en",
+          "tgt": "ja",
+          "source": "Please take a numbered ticket and wait by the east gate.",
+          "text": "番号札を持って、東門のところでお待ちください。",
+          "ms": 2922,
+          "ttftMs": 2112,
+          "predictedPerSecond": 12.359335314946762,
+          "predictedN": 11
+        },
+        {
+          "id": "paragraph",
+          "src": "en",
+          "tgt": "ja",
+          "source": "The morning train leaves the quiet station while the baker opens a small shop on the corner of the square where children walk to school with bright bags and the river carries fallen leaves toward the wide sea beyond the old stone bridge near the market that opens early for neighbors who buy bread fruit and flowers before work begins across the town today after the rain has washed the dusty road clean again for everyone here.",
+          "text": "朝の列車が静かな駅を出発する頃、パン屋は広場の角に小さな店を開きます。そこは、子どもたちが明るい色の鞄を持って学校へ通う道であり、川は落ち葉を古い石橋の向こうに広がる大海へと運んでいきます。市場の近く、仕事が始まる前にパンや果物、花を買う近所の人々のために早くから開かれるその市場は、今日、雨がここでの埃をかぶった道を再びきれいに洗い流した後、町の反対側へと向かいます。",
+          "ms": 13114,
+          "ttftMs": 5467,
+          "predictedPerSecond": 12.163152605451916,
+          "predictedN": 94
+        },
+        {
+          "id": "ja-en",
+          "src": "ja",
+          "tgt": "en",
+          "source": "図書館は9時に開きます。東門は本日閉鎖です。",
+          "text": "The library opens at 9:00. The East Gate is closed today.",
+          "ms": 2901,
+          "ttftMs": 1881,
+          "predictedPerSecond": 12.753412764204112,
+          "predictedN": 14
+        },
+        {
+          "id": "ambiguous",
+          "src": "en",
+          "tgt": "ja",
+          "source": "The crane lifted the crane from the river.",
+          "text": "クレーンが川からクレーンを引き上げました。",
+          "ms": 2742,
+          "ttftMs": 2073,
+          "predictedPerSecond": 11.951197285883095,
+          "predictedN": 9
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+# サクッと翻訳 for PLaMo
+
+Sakutto for PLaMo（サクッと翻訳 for PLaMo）は、ウェブページを端末の中で翻訳する非公式の Chrome 拡張機能です。翻訳には [PLaMo 3 Translate](https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF) を使い、実行にはピン留めした [wllama](https://github.com/ngxson/wllama) を使います。Chrome の言語パックが既にあるときは、PLaMo のモデルが準備できるまで Chrome 内蔵の翻訳でページを訳すことがあります。Preferred Networks, Inc. とは無関係です。Built with PLaMo。
+
+この拡張機能は無料のオープンソース（MIT）です。広告も有料機能もありません。モデルの重みは、このリポジトリにも拡張パッケージにも含まれません。
+
+## インストール
+
+Chrome ウェブストアの掲載は、まだ公開していません。公開までは、ソースからインストールしてください。
+
+1. Node.js 24 と pnpm 12 を用意します。
+2. このリポジトリを取得し、`pnpm install` を実行します。
+3. [ビルド](#ビルド) の手順で、翻訳ランタイムと拡張機能をビルドします。
+4. `chrome://extensions` を開きます。
+5. **デベロッパー モード** をオンにします。
+6. **パッケージ化されていない拡張機能を読み込む** を選びます。
+7. このリポジトリの `.output/chrome-mv3` を選択します。
+
+## ショートカット
+
+| 操作                               | 既定のキー |
+| ---------------------------------- | ---------- |
+| ページを翻訳する、または原文に戻す | Alt+A      |
+| 置換表示と対訳表示を切り替える     | Alt+B      |
+| 選択範囲を翻訳する                 | Alt+S      |
+
+ツールバーのポップアップと、右クリックメニューからも同じ操作ができます。キーは `chrome://extensions/shortcuts` で変更できます。Alt+D は Chrome のアドレスバーに使われるため、使いません。
+
+## 対応言語
+
+PLaMo 3 Translate は 53 言語を双方向に翻訳します。訳元はページから判定します。訳先の既定は、ブラウザの表示言語です。表示言語が 53 言語にないときは英語になります。ポップアップでは、今開いているサイトの訳先を変えられます。
+
+cs、da、el、fi、kn、no、pt、ro、sv、tr、uk の 11 言語は、Chrome 内蔵の翻訳だけで訳し、「簡易訳」と表示します。PLaMo だけが対応する言語は、モデルの準備ができるまで訳しません。
+
+## プライバシー
+
+この拡張機能はページの本文をサーバーへ送らず、テレメトリもありません。拡張機能自身の通信はモデルのダウンロードで、`huggingface.co` から始まり、Hugging Face の CDN へ転送されます。その通信に載るのはファイルの要求と接続の情報であり、ページの本文ではありません。Chrome が内蔵翻訳の言語パックを別にダウンロードすることがあります。PLaMo での翻訳が通信なしで行えるのは、検査済みのモデルが端末に保存されたあとです。Chrome への切替は、その言語パックが既にあるときに限られます。詳細は [PRIVACY.md](PRIVACY.md) にあります。
+
+## ビルド
+
+```bash
+pnpm install
+pnpm build:wllama   # Docker が必要です。docs/BUILDING.md を参照
+pnpm verify:wllama
+pnpm build          # 成果物は .output/chrome-mv3
+pnpm zip            # Chrome ウェブストア用の zip は .output
+```
+
+`pnpm build:wllama` は、ピン留めした wllama のコミット `d275dac` を `emscripten/emsdk:4.0.20` コンテナの中でコンパイルします。wasm、worker、モデルの重みはコミットしません。`pnpm build` と `pnpm zip` は、そのビルドを検証できるまで失敗します。`pnpm zip` は、パッケージにランタイムとライセンス文が入っていること、モデルの重みやソースマップ、インストール時のホスト権限が入っていないことを確認します。
+
+```bash
+pnpm dev
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm test:e2e       # ローカルのページで確認します。モデルはダウンロードしません
+```
+
+`pnpm test:e2e` は、ページ内で翻訳するテスト用パッケージをビルドします。これはリリース用のビルドではありません。リリース用のビルドに、テスト用の翻訳処理は入りません。
+
+`pnpm icons` は、`scripts/generate-icons.mjs` から PNG アイコンを作り直します。
+
+## 権限
+
+| 権限               | 理由                                                                       |
+| ------------------ | -------------------------------------------------------------------------- |
+| `storage`          | 訳先の言語、表示、その他の設定を保存します。                               |
+| `unlimitedStorage` | ダウンロードしたモデルと翻訳キャッシュを端末に保持します。                 |
+| `offscreen`        | Service Worker より長く生きる文書で、翻訳ランタイムを動かします。          |
+| `activeTab`        | ポップアップを開いたときやコマンドを実行したときに、今のページを読みます。 |
+| `scripting`        | 翻訳を依頼したタブに content script を注入します。                         |
+| `contextMenus`     | 右クリックメニューに「ページを翻訳」「選択範囲を翻訳」を追加します。       |
+
+サイトごとの自動翻訳をオンにしたときだけ、`https://*/*` と `http://*/*` の任意ホスト権限を要求します。インストール時に、すべてのサイトへの権限は要求しません。
+
+## ライセンス
+
+- このリポジトリのコードは MIT です。[LICENSE](LICENSE) を参照してください。Copyright 2026 jammaru。
+- PLaMo 3 Translate は PLaMo Community License です。全文は `licenses/PLaMo-Community-License-ja.txt` と `licenses/PLaMo-Community-License-en.txt` にあり、拡張パッケージにも同じ写しを同梱します。
+- llama.cpp、wllama、Emscripten、Dawn の WebGPU ライブラリ、Svelte については [NOTICE](NOTICE) と [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) を参照してください。
+- `scripts/bench/fixtures/kyoto.html` は CC BY-SA 4.0 の Wikipedia 二次的著作物です。MIT の対象ではなく、拡張パッケージにも含めません。
+
+English documentation: [README.md](README.md).

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sakutto for PLaMo</title>
+    <style>
+      body {
+        margin: 0;
+        background: #f4f6f8;
+        color: #18202d;
+        font-family: 'Segoe UI', 'Yu Gothic UI', 'Hiragino Sans', sans-serif;
+        font-size: 18px;
+        line-height: 1.7;
+      }
+
+      article {
+        max-width: 40rem;
+        margin: 0 auto;
+        padding: 56px 24px 120px;
+      }
+
+      h1 {
+        margin: 0 0 0.6em;
+        font-size: 32px;
+        line-height: 1.3;
+      }
+
+      p {
+        margin: 0 0 1em;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #0e1218;
+          color: #edf1f6;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <article data-sample="en" lang="en">
+      <h1>Morning at the station</h1>
+      <p>
+        The morning train leaves the quiet station while the baker opens a small shop on the corner.
+      </p>
+      <p>Please take a numbered ticket and wait by the east gate. Maps are sold at the desk.</p>
+      <p>Ada Lovelace was born in 1815. See https://example.com/docs/start for the guide.</p>
+    </article>
+    <article data-sample="ja" lang="ja" hidden>
+      <h1>駅の朝</h1>
+      <p>朝の電車は静かな駅を出発し、パン屋が広場の角の小さな店を開けます。</p>
+      <p>整理券を取って、東門のそばでお待ちください。地図は案内所で販売しています。</p>
+      <p>
+        エイダ・ラブレスは1815年に生まれました。手順は https://example.com/docs/start にあります。
+      </p>
+    </article>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

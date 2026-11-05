@@ -1,0 +1,36 @@
+Sakutto for PLaMo（サクッと翻訳 for PLaMo）
+非公式の Chrome 拡張です。Preferred Networks, Inc. とは無関係です。Built with PLaMo.
+
+本リポジトリのコードは MIT License です（LICENSE を参照）。
+
+モデルについて:
+- 翻訳モデル PLaMo 3 Translate（pfnet/plamo-3-translate-*）は PLaMo Community License で提供されています。
+- このリポジトリと拡張パッケージにはモデルを含みません。端末に保存されていないとき、Hugging Face の公式リポジトリからダウンロードします。
+- ライセンス全文の写しは licenses/PLaMo-Community-License-ja.txt と licenses/PLaMo-Community-License-en.txt にあります。拡張パッケージにも同じ写しを同梱します。
+  - 日本語の原本: https://plamo.preferredai.jp/info/plamo-community-license-ja
+  - 英語の原本: https://plamo.preferredai.jp/info/plamo-community-license-en
+- 写しをリポジトリに収めた日: 2026-11-05。
+
+同梱しているサードパーティのソフトウェア:
+- llama.cpp — MIT License — Copyright (c) 2023-2026 The ggml authors。全文: licenses/llama.cpp-LICENSE.txt
+- wllama — MIT License — Copyright (c) 2024 Xuan Son NGUYEN。全文: licenses/wllama-LICENSE.txt
+- Emscripten runtime — MIT / University of Illinois/NCSA Open Source License — Copyright (c) 2010-2014 Emscripten authors。全文: licenses/emscripten-LICENSE.txt
+- Dawn emdawnwebgpu JavaScript library — BSD-3-Clause — Copyright 2017-2026 The Dawn & Tint Authors。全文: licenses/dawn-LICENSE.txt
+
+ベンチ用の文章:
+- scripts/bench/fixtures/kyoto.html は、英語版 Wikipedia の記事「Kyoto」を改変したローカル計測用の写しです。拡張パッケージには含めません。`scripts/verify-package.ts` は、zip に `kyoto.html` または `scripts/bench/` が入っていると失敗します。
+  - 著作者: Wikipedia contributors
+  - 出典: https://en.wikipedia.org/wiki/Kyoto
+  - ライセンス: Creative Commons Attribution-ShareAlike 4.0 International（https://creativecommons.org/licenses/by-sa/4.0/）
+  - 変更: スクリプト、スタイル、画像、テンプレートのメタデータを除きました。このファイル自体も CC BY-SA 4.0 です。
+- このファイルは MIT ではありません。LICENSE の MIT は、リポジトリのオリジナルのコードに適用されます。
+
+同梱またはコンパイルに含まれることがある UI の依存:
+- Svelte 5.57.3 — MIT — Copyright (c) 2016-2025 Svelte Contributors。全文: licenses/svelte-LICENSE.txt。2026-11-05 に npm の tarball `svelte-5.57.3.tgz` 内 `package/LICENSE.md` から写しました。
+- WXT 0.21.5 — package.json の license は MIT。公開 tarball には LICENSE ファイルがありません。レジストリの author は Aaron Klinker です。拡張機能は `wxt/browser` を使います。著作権の年は tarball にありません。
+
+MIT が及ばないもの:
+- PLaMo 3 Translate の重み。PLaMo Community License です。zip には入れません。
+- 上記の Wikipedia 由来の計測用 HTML。
+
+詳細な台帳: THIRD_PARTY_NOTICES.md

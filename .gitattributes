@@ -1,0 +1,2 @@
+# Unified diffs are applied with `git apply`, so they must keep LF endings and are not source code.
+*.patch text eol=lf -whitespace

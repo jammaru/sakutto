@@ -1,0 +1,60 @@
+{
+  "name": "sakutto-for-plamo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local web page translation with PLaMo 3 Translate.",
+  "license": "MIT",
+  "author": "jammaru",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jammaru/sakutto-for-plamo.git"
+  },
+  "homepage": "https://github.com/jammaru/sakutto-for-plamo",
+  "bugs": {
+    "url": "https://github.com/jammaru/sakutto-for-plamo/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "packageManager": "pnpm@12.15.0",
+  "scripts": {
+    "dev": "node scripts/sync-licenses.mjs && wxt",
+    "build": "node scripts/verify-wllama.mjs && node scripts/sync-licenses.mjs && wxt build",
+    "zip": "node scripts/verify-wllama.mjs && node scripts/sync-licenses.mjs && wxt zip && node scripts/verify-package.ts",
+    "icons": "node scripts/generate-icons.mjs",
+    "build:wllama": "node scripts/wllama/build.ts",
+    "wllama:check": "node scripts/wllama/build.ts --check",
+    "verify:wllama": "node scripts/verify-wllama.mjs",
+    "postinstall": "wxt prepare",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "node scripts/sync-licenses.mjs && wxt prepare && svelte-check --tsconfig ./tsconfig.json --threshold error",
+    "test": "vitest run --configLoader runner",
+    "test:e2e": "node scripts/run-e2e.mjs",
+    "bench": "node scripts/bench/run.ts",
+    "release": "node scripts/release/cli.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
+    "@sveltejs/vite-plugin-svelte": "^6.2.4",
+    "@types/node": "^24.10.0",
+    "@wxt-dev/module-svelte": "^2.0.5",
+    "eslint": "^10.14.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-svelte": "^3.24.0",
+    "globals": "^17.14.0",
+    "happy-dom": "^21.0.4",
+    "prettier": "^3.9.10",
+    "prettier-plugin-svelte": "^4.1.1",
+    "svelte": "^5.57.3",
+    "svelte-check": "^4.7.8",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.72.1",
+    "vite": "^7.3.7",
+    "vitest": "^5.1.0",
+    "wxt": "^0.21.5"
+  }
+}

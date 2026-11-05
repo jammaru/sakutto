@@ -1,0 +1,591 @@
+{
+  "extensionName": {
+    "message": "サクッと翻訳 for PLaMo",
+    "description": "拡張機能の名前。"
+  },
+  "extensionShortName": {
+    "message": "サクッと翻訳",
+    "description": "短い名前。"
+  },
+  "extensionDescription": {
+    "message": "非公式。Preferred Networks とは無関係です。PLaMo 3 でページを端末内で翻訳します。Built with PLaMo。",
+    "description": "拡張機能の説明。"
+  },
+  "tagline": {
+    "message": "端末内で動くページ翻訳"
+  },
+  "settingsLabel": {
+    "message": "設定"
+  },
+  "targetLanguageLabel": {
+    "message": "訳先の言語"
+  },
+  "formalityLabel": {
+    "message": "文体（日本語）"
+  },
+  "formalityPolite": {
+    "message": "です・ます"
+  },
+  "formalityPlain": {
+    "message": "だ・である"
+  },
+  "displayLabel": {
+    "message": "表示"
+  },
+  "displayReplace": {
+    "message": "置換表示"
+  },
+  "displayBilingual": {
+    "message": "対訳表示"
+  },
+  "statusChecking": {
+    "message": "確認中…"
+  },
+  "pageStatusLabel": {
+    "message": "このページ"
+  },
+  "pageStatusUnavailable": {
+    "message": "翻訳できないページです。"
+  },
+  "pageStatusLanguageUnknown": {
+    "message": "言語不明"
+  },
+  "pageStatusReady": {
+    "message": "$LANG$・$COUNT$ ブロック",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      },
+      "count": {
+        "content": "$2"
+      }
+    }
+  },
+  "engineStatusLabel": {
+    "message": "実行環境"
+  },
+  "engineHeading": {
+    "message": "エンジン"
+  },
+  "engineWebGpu": {
+    "message": "WebGPU"
+  },
+  "engineCpuWebGpuUnsupported": {
+    "message": "CPU（WebGPU 非対応）"
+  },
+  "engineCpuAdapterUnavailable": {
+    "message": "CPU（GPU アダプタなし）"
+  },
+  "engineCpuProbeFailed": {
+    "message": "CPU（WebGPU の確認に失敗）"
+  },
+  "engineUnavailable": {
+    "message": "確認できません"
+  },
+  "isolationLabel": {
+    "message": "分離コンテキスト"
+  },
+  "isolationOn": {
+    "message": "有効"
+  },
+  "isolationOff": {
+    "message": "無効"
+  },
+  "threadsLabel": {
+    "message": "論理コア"
+  },
+  "diagHeading": {
+    "message": "診断"
+  },
+  "diagBackend": {
+    "message": "使用中のバックエンド"
+  },
+  "diagThreads": {
+    "message": "スレッド"
+  },
+  "diagParallel": {
+    "message": "n_parallel"
+  },
+  "diagBackendGpu": {
+    "message": "WebGPU"
+  },
+  "diagBackendCpu": {
+    "message": "CPU"
+  },
+  "diagBackendUnknown": {
+    "message": "未ロード"
+  },
+  "diagRateHint": {
+    "message": "翻訳中のページでは、バーに tokens/s と区間/s が出ます。"
+  },
+  "paceLabel": {
+    "message": "ページの速さ"
+  },
+  "paceFast": {
+    "message": "速い（画面外は簡易訳）"
+  },
+  "paceQuality": {
+    "message": "品質のみ"
+  },
+  "paceHelp": {
+    "message": "「速い」は画面の外を Chrome 内蔵翻訳の簡易訳ですぐ表示し、PLaMo が読む順に置き換えます。最初の段落は PLaMo のままです。「品質のみ」は PLaMo を待ちます。"
+  },
+  "pageRate": {
+    "message": "$TOKENS$ tok/s · $SEGMENTS$ 区間/s",
+    "placeholders": {
+      "tokens": {
+        "content": "$1"
+      },
+      "segments": {
+        "content": "$2"
+      }
+    }
+  },
+  "openOptions": {
+    "message": "設定を開く"
+  },
+  "unofficialNotice": {
+    "message": "非公式。Preferred Networks とは無関係です。Built with PLaMo。"
+  },
+  "optionsTitle": {
+    "message": "設定"
+  },
+  "optionsLead": {
+    "message": "翻訳の仕方、モデル、サイトごとの動作を設定します。変更は自動で保存されます。"
+  },
+  "privacyHeading": {
+    "message": "プライバシー"
+  },
+  "privacyBody": {
+    "message": "この拡張機能は、ページの本文をサーバーへ送りません。テレメトリはありません。"
+  },
+  "privacyDestinations": {
+    "message": "拡張機能自身の通信はモデルの取得だけです。接続は huggingface.co から始まり、Hugging Face の CDN へ転送されます。本文は含めません。言語パックは Chrome 自身が取得します。"
+  },
+  "licensesHeading": {
+    "message": "ライセンス"
+  },
+  "licensesBody": {
+    "message": "PLaMo Community License の全文と、この拡張機能の MIT ライセンスを同梱しています。"
+  },
+  "licensePlaMoJa": {
+    "message": "PLaMo コミュニティライセンス（日本語）"
+  },
+  "licensePlaMoEn": {
+    "message": "PLaMo Community License (English)"
+  },
+  "licenseMit": {
+    "message": "MIT License"
+  },
+  "licenseNotice": {
+    "message": "NOTICE"
+  },
+  "licenseModelNote": {
+    "message": "モデルの重みは同梱していません。この端末に保存されていないとき、Hugging Face の公式リポジトリから取得します。"
+  },
+  "openOnboarding": {
+    "message": "オンボーディングを開く"
+  },
+  "machineTranslationNotice": {
+    "message": "訳文は PLaMo による機械翻訳です。"
+  },
+  "onboardingEyebrow": {
+    "message": "はじめに"
+  },
+  "onboardingLead": {
+    "message": "ページ翻訳は端末内で動きます。PLaMo 3 のモデルは、この端末に保存されていないときだけダウンロードします。"
+  },
+  "onboardingSetupHeading": {
+    "message": "この拡張機能について"
+  },
+  "onboardingModelNote": {
+    "message": "標準モデル（573 MB）をこの端末へダウンロードします。100 Mbps を最後まで使えた場合の計算は約 46 秒で、実際の時間は回線により前後します。中断しても続きから再開できます。"
+  },
+  "onboardingBridgeNote": {
+    "message": "言語パックが使えるときは、準備中も Chrome 内蔵の翻訳で訳します。Google の説明では、その翻訳は端末内で動きます。"
+  },
+  "onboardingPrivacyNote": {
+    "message": "この拡張機能は、ページの本文をサーバーへ送りません。"
+  },
+  "onboardingLicenseNote": {
+    "message": "18歳未満の方は保護者の同意が必要です。"
+  },
+  "onboardingClose": {
+    "message": "閉じる"
+  },
+  "onboardingStart": {
+    "message": "はじめる"
+  },
+  "onboardingStartFailed": {
+    "message": "準備を開始できませんでした。もう一度お試しください。"
+  },
+  "errorSettings": {
+    "message": "設定を読み込めませんでした。"
+  },
+  "errorSaveSettings": {
+    "message": "設定を保存できませんでした。"
+  },
+  "errorPage": {
+    "message": "このページを読み取れませんでした。"
+  },
+  "errorAction": {
+    "message": "画面を開けませんでした。"
+  },
+  "retry": {
+    "message": "再試行"
+  },
+  "originalLabel": {
+    "message": "原文"
+  },
+  "simpleTranslation": {
+    "message": "簡易訳"
+  },
+  "simpleTranslationDetail": {
+    "message": "簡易訳（Chrome 内蔵）"
+  },
+  "machineTranslationTooltip": {
+    "message": "PLaMo による機械翻訳です。"
+  },
+  "selectionPending": {
+    "message": "翻訳しています…"
+  },
+  "selectionFailed": {
+    "message": "この選択範囲を翻訳できませんでした。"
+  },
+  "selectionTitle": {
+    "message": "選択したテキスト"
+  },
+  "close": {
+    "message": "閉じる"
+  },
+  "commandTranslate": {
+    "message": "このページを翻訳します。または原文に戻します。"
+  },
+  "commandBilingual": {
+    "message": "対訳で翻訳を始めるか、表示中の訳し方を切り替えます。"
+  },
+  "commandSelection": {
+    "message": "選択したテキストを翻訳します。"
+  },
+  "contextTranslatePage": {
+    "message": "このページを翻訳"
+  },
+  "contextTranslateSelection": {
+    "message": "選択したテキストを翻訳"
+  },
+  "translateThisPage": {
+    "message": "このページを翻訳"
+  },
+  "restoreThisPage": {
+    "message": "原文に戻す"
+  },
+  "pageTranslating": {
+    "message": "翻訳しています…"
+  },
+  "pageProgress": {
+    "message": "翻訳中 $DONE$ / $TOTAL$",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pageProgressLabel": {
+    "message": "翻訳の進み具合"
+  },
+  "pageTranslated": {
+    "message": "翻訳しました。"
+  },
+  "pageAlwaysOn": {
+    "message": "このサイトは常に翻訳します。"
+  },
+  "siteGrantTitle": {
+    "message": "このサイトを翻訳します"
+  },
+  "siteGrantBody": {
+    "message": "$HOST$ を開いたときに、この端末で翻訳します。",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteGrantAllow": {
+    "message": "許可する"
+  },
+  "siteGrantDenied": {
+    "message": "許可されませんでした。もう一度お試しください。"
+  },
+  "siteGrantInvalid": {
+    "message": "対象のサイトを確認できません。"
+  },
+  "targetAdjustedNote": {
+    "message": "ページの言語と翻訳先が同じだったため、翻訳先を切り替えました。"
+  },
+  "sameLanguageHint": {
+    "message": "このページは、すでに翻訳先の言語で書かれています。"
+  },
+  "displaySiteHint": {
+    "message": "この選択は、このサイトに記憶されます。"
+  },
+  "displayNowBilingual": {
+    "message": "このサイトの表示を対訳にしました。"
+  },
+  "displayNowReplace": {
+    "message": "このサイトの表示を置換にしました。"
+  },
+  "optionsDefaultHint": {
+    "message": "これらは初期値です。翻訳したサイトは、言語と表示方法を別に記憶できます。"
+  },
+  "optionsSiteLive": {
+    "message": "ここに表示する言語と表示方法は、サイトごとの設定です。上の設定は、サイトに設定がないときの初期値です。"
+  },
+  "alwaysTranslateSite": {
+    "message": "このサイトを常に翻訳します"
+  },
+  "shortcutTranslate": {
+    "message": "Alt+A で翻訳と原文を切り替えます"
+  },
+  "shortcutBilingual": {
+    "message": "Alt+B で置換表示と対訳表示を切り替え、このサイトの設定として記憶します。"
+  },
+  "shortcutSelection": {
+    "message": "Alt+S で選択したテキストを翻訳します"
+  },
+  "runtimePreparing": {
+    "message": "準備中 $PERCENT$%",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "runtimeDownloading": {
+    "message": "ダウンロード中 $PERCENT$%（$RECEIVED$ / $TOTAL$）",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      },
+      "received": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
+  "runtimeVerifying": {
+    "message": "ダウンロードしたファイルを確認しています。"
+  },
+  "runtimeLoading": {
+    "message": "モデルを読み込んでいます。"
+  },
+  "runtimePlamoGpu": {
+    "message": "PLaMo · WebGPU"
+  },
+  "runtimePlamoCpu": {
+    "message": "PLaMo · CPU"
+  },
+  "runtimeSimple": {
+    "message": "簡易訳"
+  },
+  "runtimeWaiting": {
+    "message": "モデルの準備を待っています"
+  },
+  "runtimeError": {
+    "message": "モデルを読み込めません"
+  },
+  "runtimeChecking": {
+    "message": "確認中…"
+  },
+  "chromeOnlySuffix": {
+    "message": " （簡易訳）"
+  },
+  "consentCheckbox": {
+    "message": "PLaMo Community License の第2条に同意します。18歳以上であるか、18歳未満の場合は親権者または法定代理人の同意を得ています。"
+  },
+  "onboardingUseNow": {
+    "message": "言語パックが使えるときは、モデルの完了を待たずに翻訳できます。"
+  },
+  "onboardingReadyHeading": {
+    "message": "準備ができました。"
+  },
+  "onboardingReadyLead": {
+    "message": "この端末でページを翻訳できます。"
+  },
+  "onboardingReadyToolbar": {
+    "message": "ツールバーのアイコンを押すと、開いているページを翻訳します。"
+  },
+  "onboardingReadyPage": {
+    "message": "Alt+A でページ全体を翻訳します。もう一度押すと、原文に戻します。"
+  },
+  "onboardingReadySelection": {
+    "message": "Alt+S で、選択したテキストを翻訳します。"
+  },
+  "onboardingReadyContext": {
+    "message": "ページを右クリックして「このページを翻訳」を選べます。選択した文字は「選択したテキストを翻訳」です。"
+  },
+  "onboardingTry": {
+    "message": "サンプルページで試す"
+  },
+  "onboardingTryNow": {
+    "message": "今すぐ試す"
+  },
+  "onboardingWhileDownloading": {
+    "message": "言語パックが使えるときは、ダウンロード中も Chrome の簡易訳を表示します。モデルの準備ができると、PLaMo の訳に置き換わります。"
+  },
+  "downloadEtaSeconds": {
+    "message": "あと約 $COUNT$ 秒です。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadEtaMinutes": {
+    "message": "あと約 $COUNT$ 分です。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadResuming": {
+    "message": "続きから再開しています。"
+  },
+  "downloadProgressLabel": {
+    "message": "ダウンロードの進捗"
+  },
+  "downloadPaused": {
+    "message": "ダウンロードを中断しました。続きから再開できます。"
+  },
+  "downloadResume": {
+    "message": "再開"
+  },
+  "downloadCancel": {
+    "message": "中断"
+  },
+  "modelHeading": {
+    "message": "モデル"
+  },
+  "modelStandard": {
+    "message": "標準（0.8B）"
+  },
+  "modelHigh": {
+    "message": "高精度（2B）"
+  },
+  "modelInUse": {
+    "message": "使用中"
+  },
+  "modelUse": {
+    "message": "このモデルを使う"
+  },
+  "modelDownload": {
+    "message": "ダウンロード"
+  },
+  "modelDelete": {
+    "message": "削除"
+  },
+  "highQualityOffer": {
+    "message": "高精度モデル（2B・約1.81GB）を試せます。速度は端末によって異なります。"
+  },
+  "useHighQuality": {
+    "message": "使う"
+  },
+  "dismissHighQuality": {
+    "message": "今はしない"
+  },
+  "glossaryHeading": {
+    "message": "用語集"
+  },
+  "glossaryHelp": {
+    "message": "1行に「原文,訳語」と書いてください。サイトを選ぶと、そのサイトだけで使います。"
+  },
+  "glossaryGlobal": {
+    "message": "すべてのサイト"
+  },
+  "glossaryImport": {
+    "message": "CSV を読み込む"
+  },
+  "glossaryExport": {
+    "message": "CSV を書き出す"
+  },
+  "glossaryAddSite": {
+    "message": "サイトを追加"
+  },
+  "siteRulesHeading": {
+    "message": "サイトごとの翻訳"
+  },
+  "siteRuleAsk": {
+    "message": "毎回確認"
+  },
+  "siteRuleAlways": {
+    "message": "常に翻訳します"
+  },
+  "siteRuleNever": {
+    "message": "翻訳しません"
+  },
+  "noSiteRules": {
+    "message": "サイトごとの設定はまだありません。"
+  },
+  "siteHostLabel": {
+    "message": "ホスト名"
+  },
+  "cacheClear": {
+    "message": "翻訳キャッシュを削除"
+  },
+  "cacheCleared": {
+    "message": "翻訳キャッシュを削除しました。"
+  },
+  "cacheClearFailed": {
+    "message": "翻訳キャッシュを削除できませんでした。"
+  },
+  "idleLabel": {
+    "message": "モデルをメモリから解放するまで"
+  },
+  "idle1": {
+    "message": "1分"
+  },
+  "idle5": {
+    "message": "5分"
+  },
+  "idle15": {
+    "message": "15分"
+  },
+  "idleNever": {
+    "message": "解放しません"
+  },
+  "tierLabel": {
+    "message": "動作モード"
+  },
+  "tierAuto": {
+    "message": "自動"
+  },
+  "tierGpu": {
+    "message": "WebGPU"
+  },
+  "tierCpu8": {
+    "message": "CPU（8スレッド）"
+  },
+  "tierCpu4": {
+    "message": "CPU（4スレッド）"
+  },
+  "tierHelp": {
+    "message": "自動では、この PC に合うモードを選びます。"
+  },
+  "slowDeviceHint": {
+    "message": "この PC では PLaMo の翻訳に時間がかかります。Chrome 内蔵の簡易訳の方が速いことがあります。"
+  },
+  "errorPermission": {
+    "message": "サイトの権限が許可されませんでした。"
+  },
+  "siteHostInvalid": {
+    "message": "ホスト名を確認してください。"
+  },
+  "glossaryScopeLabel": {
+    "message": "適用範囲"
+  }
+}
