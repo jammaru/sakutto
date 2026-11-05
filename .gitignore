@@ -1,4 +1,9 @@
 node_modules/
+video/
+*.mp4
+*.webm
+*.mov
+*.mkv
 .output/
 artifacts/
 .wxt/
