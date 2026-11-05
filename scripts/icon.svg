@@ -1,12 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
   <title id="title">Sakutto</title>
   <rect width="128" height="128" rx="26" fill="#101828"/>
-  <g fill="none" stroke="#f8fafc" stroke-width="11" stroke-linecap="round">
-    <path d="M28 46H84"/>
-  </g>
-  <path d="M79 33L103 46L79 59Z" fill="#f8fafc"/>
-  <g fill="none" stroke="#7dd3fc" stroke-width="11" stroke-linecap="round">
-    <path d="M44 82H100"/>
-  </g>
-  <path d="M49 69L25 82L49 95Z" fill="#7dd3fc"/>
+  <polygon points="87.52,33.76 40.48,33.76 40.48,47.2 87.52,47.2" fill="#7dd3fc"/>
+  <polygon points="87.52,47.2 104.32,40.48 87.52,33.76" fill="#7dd3fc"/>
+  <polygon points="35.73,45.23 59.25,68.75 68.75,59.25 45.23,35.73" fill="#7dd3fc"/>
+  <polygon points="40.48,40.48 40.48,33.76 35.73,45.23" fill="#7dd3fc"/>
+  <polygon points="40.48,40.48 40.48,47.2 45.23,35.73" fill="#7dd3fc"/>
+  <polygon points="59.25,68.75 82.77,92.27 92.27,82.77 68.75,59.25" fill="#f8fafc"/>
+  <polygon points="87.52,80.8 40.48,80.8 40.48,94.24 87.52,94.24" fill="#f8fafc"/>
+  <polygon points="40.48,80.8 23.68,87.52 40.48,94.24" fill="#f8fafc"/>
+  <polygon points="87.52,87.52 82.77,92.27 87.52,80.8" fill="#f8fafc"/>
+  <polygon points="87.52,87.52 92.27,82.77 87.52,94.24" fill="#f8fafc"/>
 </svg>

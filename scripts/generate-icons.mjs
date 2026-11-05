@@ -6,6 +6,7 @@ import { deflateSync } from 'node:zlib';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUTPUT_DIR = join(ROOT, 'public', 'icon');
 const SVG_PATH = join(ROOT, 'scripts', 'icon.svg');
+const LOGO_PATH = join(ROOT, 'scripts', 'logo.svg');
 const SIZES = [16, 32, 48, 128];
 const DESIGN_SIZE = 128;
 const SAMPLES_PER_AXIS = 6;
@@ -17,22 +18,77 @@ const COLORS = {
 };
 
 const BACKGROUND = { x: 0, y: 0, width: 128, height: 128, radius: 26 };
-const TOP_ARROW = {
-  bar: { x1: 28, y1: 46, x2: 84, y2: 46, width: 11 },
-  head: [
-    [79, 33],
-    [103, 46],
-    [79, 59],
+// The mark is one folded strip. Cyan leaves to the right, white returns to the left,
+// and the color changes across the fold. The icon draws it slightly smaller so the
+// points stay inside the rounded plate.
+const MARK_SCALE = 0.84;
+const CYAN = '#7dd3fc';
+const WHITE = '#f8fafc';
+const CYAN_PARTS = [
+  [
+    [92, 28],
+    [36, 28],
+    [36, 44],
+    [92, 44],
   ],
-};
-const BOTTOM_ARROW = {
-  bar: { x1: 44, y1: 82, x2: 100, y2: 82, width: 11 },
-  head: [
-    [49, 69],
-    [25, 82],
-    [49, 95],
+  [
+    [92, 44],
+    [112, 36],
+    [92, 28],
   ],
-};
+  [
+    [30.34, 41.66],
+    [58.34, 69.66],
+    [69.66, 58.34],
+    [41.66, 30.34],
+  ],
+  [
+    [36, 36],
+    [36, 28],
+    [30.34, 41.66],
+  ],
+  [
+    [36, 36],
+    [36, 44],
+    [41.66, 30.34],
+  ],
+];
+const WHITE_PARTS = [
+  [
+    [58.34, 69.66],
+    [86.34, 97.66],
+    [97.66, 86.34],
+    [69.66, 58.34],
+  ],
+  [
+    [92, 84],
+    [36, 84],
+    [36, 100],
+    [92, 100],
+  ],
+  [
+    [36, 84],
+    [16, 92],
+    [36, 100],
+  ],
+  [
+    [92, 92],
+    [86.34, 97.66],
+    [92, 84],
+  ],
+  [
+    [92, 92],
+    [97.66, 86.34],
+    [92, 100],
+  ],
+];
+
+function fit(polygon) {
+  return polygon.map(([x, y]) => [64 + (x - 64) * MARK_SCALE, 64 + (y - 64) * MARK_SCALE]);
+}
+
+const ICON_CYAN = CYAN_PARTS.map(fit);
+const ICON_WHITE = WHITE_PARTS.map(fit);
 
 function isInsideRoundedRect(x, y, rect) {
   const maxX = rect.x + rect.width;
@@ -46,41 +102,31 @@ function isInsideRoundedRect(x, y, rect) {
   return dx * dx + dy * dy <= rect.radius * rect.radius;
 }
 
-function isInsideCapsule(x, y, bar) {
-  const dx = bar.x2 - bar.x1;
-  const dy = bar.y2 - bar.y1;
-  const lengthSquared = dx * dx + dy * dy;
-  const projection = ((x - bar.x1) * dx + (y - bar.y1) * dy) / lengthSquared;
-  const t = Math.min(Math.max(projection, 0), 1);
-  const nearestX = bar.x1 + t * dx;
-  const nearestY = bar.y1 + t * dy;
-  const distanceX = x - nearestX;
-  const distanceY = y - nearestY;
-  const radius = bar.width / 2;
-  return distanceX * distanceX + distanceY * distanceY <= radius * radius;
+function isInsidePolygon(x, y, polygon) {
+  let inside = false;
+  for (
+    let index = 0, previous = polygon.length - 1;
+    index < polygon.length;
+    previous = index, index += 1
+  ) {
+    const [currentX, currentY] = polygon[index];
+    const [previousX, previousY] = polygon[previous];
+    const crosses = currentY > y !== previousY > y;
+    if (!crosses) continue;
+    const intersection =
+      ((previousX - currentX) * (y - currentY)) / (previousY - currentY) + currentX;
+    if (x < intersection) inside = !inside;
+  }
+  return inside;
 }
 
-function triangleSign(px, py, ax, ay, bx, by) {
-  return (px - bx) * (ay - by) - (ax - bx) * (py - by);
-}
-
-function isInsideTriangle(x, y, triangle) {
-  const [a, b, c] = triangle;
-  const first = triangleSign(x, y, a[0], a[1], b[0], b[1]);
-  const second = triangleSign(x, y, b[0], b[1], c[0], c[1]);
-  const third = triangleSign(x, y, c[0], c[1], a[0], a[1]);
-  const hasNegative = first < 0 || second < 0 || third < 0;
-  const hasPositive = first > 0 || second > 0 || third > 0;
-  return !(hasNegative && hasPositive);
-}
-
-function isInsideArrow(x, y, arrow) {
-  return isInsideCapsule(x, y, arrow.bar) || isInsideTriangle(x, y, arrow.head);
+function covers(x, y, parts) {
+  return parts.some((polygon) => isInsidePolygon(x, y, polygon));
 }
 
 function colorAt(x, y) {
-  if (isInsideArrow(x, y, BOTTOM_ARROW)) return COLORS.accent;
-  if (isInsideArrow(x, y, TOP_ARROW)) return COLORS.primary;
+  if (covers(x, y, ICON_WHITE)) return COLORS.primary;
+  if (covers(x, y, ICON_CYAN)) return COLORS.accent;
   if (isInsideRoundedRect(x, y, BACKGROUND)) return COLORS.background;
   return null;
 }
@@ -182,20 +228,27 @@ function encodePng(size, rgba) {
   ]);
 }
 
+function polygonTag(polygon, fill) {
+  const points = polygon
+    .map(([x, y]) => `${Number(x.toFixed(2))},${Number(y.toFixed(2))}`)
+    .join(' ');
+  return `<polygon points="${points}" fill="${fill}"/>`;
+}
+
+function renderLogoSvg() {
+  const cyan = CYAN_PARTS.map((polygon) => polygonTag(polygon, CYAN)).join('');
+  const white = WHITE_PARTS.map((polygon) => polygonTag(polygon, WHITE)).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Sakutto">${cyan}${white}</svg>\n`;
+}
+
 function renderSvg() {
-  const topBar = TOP_ARROW.bar;
-  const bottomBar = BOTTOM_ARROW.bar;
+  const cyan = ICON_CYAN.map((polygon) => polygonTag(polygon, CYAN)).join('\n  ');
+  const white = ICON_WHITE.map((polygon) => polygonTag(polygon, WHITE)).join('\n  ');
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
   <title id="title">Sakutto</title>
   <rect width="128" height="128" rx="${BACKGROUND.radius}" fill="#101828"/>
-  <g fill="none" stroke="#f8fafc" stroke-width="${topBar.width}" stroke-linecap="round">
-    <path d="M${topBar.x1} ${topBar.y1}H${topBar.x2}"/>
-  </g>
-  <path d="M${TOP_ARROW.head[0][0]} ${TOP_ARROW.head[0][1]}L${TOP_ARROW.head[1][0]} ${TOP_ARROW.head[1][1]}L${TOP_ARROW.head[2][0]} ${TOP_ARROW.head[2][1]}Z" fill="#f8fafc"/>
-  <g fill="none" stroke="#7dd3fc" stroke-width="${bottomBar.width}" stroke-linecap="round">
-    <path d="M${bottomBar.x1} ${bottomBar.y1}H${bottomBar.x2}"/>
-  </g>
-  <path d="M${BOTTOM_ARROW.head[0][0]} ${BOTTOM_ARROW.head[0][1]}L${BOTTOM_ARROW.head[1][0]} ${BOTTOM_ARROW.head[1][1]}L${BOTTOM_ARROW.head[2][0]} ${BOTTOM_ARROW.head[2][1]}Z" fill="#7dd3fc"/>
+  ${cyan}
+  ${white}
 </svg>
 `;
 }
@@ -222,3 +275,4 @@ for (const size of SIZES) {
 }
 
 await writeFile(SVG_PATH, renderSvg(), 'utf8');
+await writeFile(LOGO_PATH, renderLogoSvg(), 'utf8');
