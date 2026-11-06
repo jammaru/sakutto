@@ -40,7 +40,7 @@ The 0.8B file is the default (573,123,200 bytes). The 2B file (1,807,199,392 byt
 
 ## Stored on the device
 
-- Settings, glossary, per-site rules, license consent, and a timing sample (`chrome.storage.local`, `src/shared/storage.ts`, `src/dom/sites.ts`, `src/shared/quality.ts`). Pressing Get started writes the consent record: license `plamo-community`, the bundled license version, an ISO timestamp, and `guardian: true`. The onboarding page states that starting agrees to Article 2 of the PLaMo Community License, including the requirement to be 18 or older or to have a parent or guardian's consent, and it links to the license texts. There is no separate checkbox. The timing sample stores the model id, a duration, and a timestamp for a fixed paragraph. It does not store page text. `chrome.storage.local` is documented by Chrome as not encrypted, and as cleared when the extension is removed.
+- Settings, glossary, per-site rules, license consent, and a timing sample (`chrome.storage.local`, `src/shared/storage.ts`, `src/dom/sites.ts`, `src/shared/quality.ts`). Consent is recorded by one click on Get started. The notice beside that button states that starting agrees to Article 2 of the PLaMo Community License, including the requirement to be 18 or older or to have a parent or guardian's consent, and the page links to the license texts. The click writes license `plamo-community`, version `2026-11-05` (the bundled license text, `PLAMO_LICENSE_VERSION` in `src/shared/settings.ts`), an ISO timestamp, and `guardian: true`. The onboarding page has no consent checkbox, and `guardian: true` is part of that same record. The timing sample stores the model id, a duration, and a timestamp for a fixed paragraph. It does not store page text. `chrome.storage.local` is documented by Chrome as not encrypted, and as cleared when the extension is removed.
 - A short-lived capabilities cache in `chrome.storage.session`.
 - The model file, under the OPFS directory `sakutto` (`src/engine/model/file-store.ts`).
 - A translation cache in IndexedDB, database `sakutto-translations` (`src/engine/cache/store.ts`). Each row stores the translation, which engine produced it, and timestamps. The key includes a SHA-256 of the source text and a hash of the glossary, not the source text itself. The cache keeps at most 5,000 rows and drops the least recently used. There is no time limit.
@@ -65,7 +65,7 @@ The extension has no account. The model download did not require a Hugging Face 
 
 ## Contact
 
-Questions about this policy can be opened as an issue on this GitHub repository. This file does not invent a publisher legal name or a public email. If a Chrome Web Store listing is published later, that listing will show the contact used for the listing.
+Questions about this policy can be opened as an issue at https://github.com/jammaru/sakutto/issues. The repository is https://github.com/jammaru/sakutto. This file does not invent a publisher legal name or a public email. If a Chrome Web Store listing is published later, that listing will show the contact used for the listing.
 
 # プライバシーポリシー
 
@@ -109,7 +109,7 @@ MIT の著作権表示にある `jammaru` はリポジトリ上の名前であ�
 
 ## 端末に保存するもの
 
-- 設定、用語集、サイトごとの規則、ライセンスへの同意、計測の記録（`chrome.storage.local`。`src/shared/storage.ts`、`src/dom/sites.ts`、`src/shared/quality.ts`）。「はじめる」を押すと、同意を記録します。中身はライセンス名 `plamo-community`、同梱しているライセンス文の版、ISO 形式の時刻、`guardian: true` です。オンボーディングには、開始すると PLaMo Community License の第2条に同意したことになり、18歳以上であるか保護者の同意が必要だと書きます。ライセンス本文へのリンクもあります。同意用のチェックボックスはありません。計測の記録は、モデル ID、所要時間、固定の段落を測った時刻です。ページの本文は入れません。Chrome の文書では、`chrome.storage.local` は暗号化されず、拡張機能を削除すると消えます。
+- 設定、用語集、サイトごとの規則、ライセンスへの同意、計測の記録（`chrome.storage.local`。`src/shared/storage.ts`、`src/dom/sites.ts`、`src/shared/quality.ts`）。同意は「はじめる」のワンクリックで記録します。ボタンの横の注意書きには、開始すると PLaMo Community License の第2条に同意したことになり、18歳以上であるか保護者の同意が必要だと書きます。ライセンス本文へのリンクもあります。クリックが書く記録は、ライセンス名 `plamo-community`、版 `2026-11-05`（同梱しているライセンス文。`src/shared/settings.ts` の `PLAMO_LICENSE_VERSION`）、ISO 形式の時刻、`guardian: true` です。オンボーディングに同意用のチェックボックスはなく、`guardian: true` も同じ記録の一部です。計測の記録は、モデル ID、所要時間、固定の段落を測った時刻です。ページの本文は入れません。Chrome の文書では、`chrome.storage.local` は暗号化されず、拡張機能を削除すると消えます。
 - 能力情報の短いキャッシュ（`chrome.storage.session`）。
 - モデルファイル。OPFS の `sakutto` ディレクトリです（`src/engine/model/file-store.ts`）。
 - 翻訳キャッシュ。IndexedDB の `sakutto-translations` です（`src/engine/cache/store.ts`）。各行は訳文、どちらのエンジンか、時刻です。キーには原文の SHA-256 と用語集のハッシュが入り、原文そのものは入りません。最大 5,000 件で、最も昔に使ったものから捨てます。期限はありません。
@@ -134,4 +134,4 @@ MIT の著作権表示にある `jammaru` はリポジトリ上の名前であ�
 
 ## 連絡先
 
-このポリシーについての質問は、この GitHub リポジトリの issue で受けます。このファイルは、公開者の法的名称や公開メールを作りません。Chrome ウェブストアの掲載が後から出る場合、その掲載に使う連絡先は、その掲載に出ます。
+このポリシーについての質問は、https://github.com/jammaru/sakutto/issues の issue で受けます。リポジトリは https://github.com/jammaru/sakutto です。このファイルは、公開者の法的名称や公開メールを作りません。Chrome ウェブストアの掲載が後から出る場合、その掲載に使う連絡先は、その掲載に出ます。
