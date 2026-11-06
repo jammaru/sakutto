@@ -54,7 +54,7 @@ function record(overrides: Partial<BenchRecord> = {}): BenchRecord {
       outputChars: 7000,
       estimatedOutputTokensPerSecond: null,
       reportedRate: '100.0 tok/s, 4.0 seg/s',
-      engineWork: { batches: 12, pieces: 26, previews: 0, engineMs: 3800 },
+      engineWork: { batches: 12, pieces: 26, engineMs: 3800 },
       blocks: {
         total: 44,
         prose: 22,

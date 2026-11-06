@@ -92,7 +92,6 @@ export interface BenchMetrics {
   engineWork: {
     batches: number | null;
     pieces: number | null;
-    previews: number | null;
     engineMs: number | null;
   };
   blocks: {
@@ -194,7 +193,7 @@ export function isBenchRecord(value: unknown): value is BenchRecord {
   if (metrics.reportedRate !== null && typeof metrics.reportedRate !== 'string') return false;
   const work = metrics.engineWork;
   if (!isRecord(work)) return false;
-  for (const key of ['batches', 'pieces', 'previews', 'engineMs'] as const) {
+  for (const key of ['batches', 'pieces', 'engineMs'] as const) {
     if (!isNullableNumber(work[key])) return false;
   }
   if (typeof metrics.lateBlocks !== 'number') return false;

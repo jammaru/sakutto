@@ -136,8 +136,9 @@ function launchArgs(extension: string): string[] {
     '--disable-sync',
     '--no-first-run',
     '--disable-default-apps',
-    // Chrome's built-in translator would draft the on-screen blocks before PLaMo does and
-    // blur which engine a number describes. Both modes measure exactly one engine.
+    // The extension translates with PLaMo only, but Chrome's own translator is disabled
+    // anyway: a browser-level translation would change the page under the recorder and
+    // blur which engine a number describes.
     '--disable-features=Translate,TranslateUI,DisableLoadExtensionCommandLineSwitch',
     '--enable-precise-memory-info',
   ];
@@ -348,7 +349,6 @@ async function measurePage(input: {
         engineWork: {
           batches: recorded.perf?.batches ?? null,
           pieces: recorded.perf?.pieces ?? null,
-          previews: recorded.perf?.previews ?? null,
           engineMs: recorded.perf?.engineMs ?? null,
         },
         blocks: recorded.blocks,

@@ -2088,7 +2088,7 @@ describe('long page translation', () => {
     }
   });
 
-  it('counts batches, pieces and previews for the page bench', async () => {
+  it('counts batches and pieces for the page bench', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML = `
       <p id="a">Hello world from the article</p>
@@ -2113,14 +2113,12 @@ describe('long page translation', () => {
     const perf = JSON.parse(raw) as {
       batches: number;
       pieces: number;
-      previews: number;
       engineMs: number;
     };
     expect(perf.batches).toBe(batches);
     expect(perf.batches).toBeGreaterThan(0);
     // Every translated block is one piece, and pieces can share a batch.
     expect(perf.pieces).toBeGreaterThanOrEqual(perf.batches);
-    expect(perf.previews).toBe(0);
     expect(perf.engineMs).toBeGreaterThanOrEqual(0);
   });
 

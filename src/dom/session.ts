@@ -254,10 +254,10 @@ export class PageSession {
   private perf: HTMLElement | null = null;
   /**
    * Scheduling counters for the page bench. They describe how the page drove the engine
-   * — batches, pieces, previews — which is the only part of a run a mock translator can
-   * still measure, and the part a software-side speed change actually moves.
+   * — batches and pieces — which is the only part of a run a mock translator can still
+   * measure, and the part a software-side speed change actually moves.
    */
-  private work = { batches: 0, pieces: 0, previews: 0, engineMs: 0 };
+  private work = { batches: 0, pieces: 0, engineMs: 0 };
   private readonly onVisibility: () => void;
   private readonly onScroll: () => void;
   private readonly onPageHide: () => void;
@@ -498,7 +498,7 @@ export class PageSession {
     this.heldRates = { tokensPerSecond: null, segmentsPerSecond: null };
     this.heldTokensAt = 0;
     this.heldSegmentsAt = 0;
-    this.work = { batches: 0, pieces: 0, previews: 0, engineMs: 0 };
+    this.work = { batches: 0, pieces: 0, engineMs: 0 };
     this.pageController = new AbortController();
     this.eagerOnce = true;
     this.lastRateAt = 0;
@@ -1663,7 +1663,6 @@ export class PageSession {
       segments: this.samples,
       batches: this.work.batches,
       pieces: this.work.pieces,
-      previews: this.work.previews,
       engineMs: this.work.engineMs,
     });
   }

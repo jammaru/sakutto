@@ -34,7 +34,6 @@ export interface PerfPayload {
   segments: { id: string; ms: number }[];
   /** Scheduling counters added for the page bench: how the page drove the engine. */
   batches?: number;
-  previews?: number;
   pieces?: number;
   engineMs?: number;
 }
