@@ -58,6 +58,34 @@ describe('locale messages', () => {
     }
   });
 
+  /**
+   * Chrome refuses to install the whole extension when a message interpolates a `$NAME$`
+   * that the entry does not declare: `Failed to load extension … Variable $LANGUAGES$ used
+   * but not defined`. Nothing in the unit suite noticed, because the pages are rendered from
+   * the JSON rather than by Chrome, so one missing `placeholders` block made every installed
+   * build fail to load at all. Every token in the text must be declared, and every declared
+   * placeholder must be used.
+   */
+  it('declares every placeholder its message interpolates', () => {
+    for (const [locale, messages] of [
+      ['en', en],
+      ['ja', ja],
+    ] as const) {
+      for (const [key, entry] of Object.entries(messages)) {
+        const used = [...entry.message.matchAll(/\$([A-Za-z0-9_]+)\$/g)].map((match) =>
+          match[1]?.toLowerCase(),
+        );
+        const declared = placeholderNames(entry).map((name) => name.toLowerCase());
+        for (const name of used) {
+          expect(declared, `${locale} ${key} uses $${name}$`).toContain(name);
+        }
+        for (const name of declared) {
+          expect(used, `${locale} ${key} declares ${name}`).toContain(name);
+        }
+      }
+    }
+  });
+
   it('defines every key used by the UI', () => {
     for (const key of usedMessageKeys()) {
       expect(en, key).toHaveProperty(key);
@@ -108,13 +136,16 @@ describe('locale messages', () => {
     }
   });
 
-  it('describes starting as agreement to the whole license and uses the pinned model size', () => {
-    expect(en.onboardingStartNotice?.message).toBe(
-      "Starting means you agree to the whole PLaMo Community License. You must be 18 or older, or have a parent or guardian's consent (Article 2). This extension does not check your age or ask a guardian to confirm.",
+  it('describes the button as an agreement and uses the pinned model size', () => {
+    // The consent sentence binds to the button rather than a vague "starting means…".
+    expect(en.onboardingConsentSentence?.message).toBe(
+      'Pressing "Agree to the license and start" means you agree to the PLaMo Community License.',
     );
-    expect(ja.onboardingStartNotice?.message).toBe(
-      '開始すると、PLaMo Community License の全文に同意したものとみなされます。18歳以上であるか、保護者の同意が必要です（第2条）。この拡張機能は、年齢の確認や保護者への確認は行いません。',
+    expect(ja.onboardingConsentSentence?.message).toBe(
+      '「ライセンスに同意して開始」を押すと、PLaMo Community Licenseに同意したことになります。',
     );
+    expect(en.onboardingStartNotice?.message).toContain('Agree to the license and start');
+    expect(ja.onboardingStartNotice?.message).toContain('ライセンスに同意して開始');
     expect(en).not.toHaveProperty('consentCheckbox');
     expect(ja).not.toHaveProperty('consentCheckbox');
 
@@ -126,6 +157,28 @@ describe('locale messages', () => {
     expect(ja.onboardingModelNote?.message).toContain(label);
     expect(en.onboardingHttpError?.message).toContain('HTTP');
     expect(ja.onboardingHttpError?.message).toContain('HTTP');
+  });
+
+  /**
+   * A reviewer read the age line as the extension vouching for parental consent. The line
+   * states the requirement only; the build never claims to verify age or contact a guardian,
+   * and it no longer says "this extension does not check your age" either, because the
+   * requirement itself is what the reader needs.
+   */
+  it('states the age requirement without claiming to verify it', () => {
+    expect(ja.onboardingAgeNotice?.message).toBe(
+      '18歳未満など、単独で契約できる年齢に達していない場合は、親権者等の同意が必要です。',
+    );
+    for (const messages of [en, ja]) {
+      const copy = messages.onboardingAgeNotice?.message ?? '';
+      expect(copy).toMatch(/guardian|親権者/);
+      expect(copy).not.toMatch(/does not check your age|年齢の確認や保護者への確認は行いません/);
+    }
+    // Nothing in the user-facing copy claims a guardian was asked or an age was checked.
+    for (const entry of Object.values({ ...en, ...ja })) {
+      expect(entry.message).not.toMatch(/guardian verified|保護者の同意を確認しました/);
+      expect(entry.message).not.toMatch(/guardian:\s*true/);
+    }
   });
 
   it('does not describe the whole agreement as Article 2', () => {
@@ -140,26 +193,56 @@ describe('locale messages', () => {
 
   /**
    * Article 3 of the PLaMo Community License is the only source for the commercial summary.
-   * These strings have to keep the registration form, the revenue cap, and the need for a
-   * separate license when the conditions stop being met.
+   * The three-part rewrite has to keep the registration form, the revenue cap, and the need
+   * for a separate license when the conditions stop being met.
    */
-  it('summarizes the commercial conditions from Article 3', () => {
+  it('summarizes the commercial conditions from Article 3 in three parts', () => {
     for (const messages of [en, ja]) {
-      expect(messages.onboardingCommercialPrivate?.message).toMatch(/no registration|登録が不要/);
-      expect(messages.onboardingCommercialConditions?.message).toMatch(
-        /official form|公式フォーム/,
+      expect(messages.onboardingPersonalHeading?.message).toMatch(/Personal|個人/);
+      expect(messages.onboardingPersonalBody?.message).toMatch(/registration|登録/);
+      expect(messages.onboardingPersonalBody?.message).toMatch(
+        /no .*registration|なし|不要|not needed|needs no/i,
       );
-      expect(messages.onboardingCommercialConditions?.message).toMatch(/1 billion yen|10億円/);
-      expect(messages.onboardingCommercialScope?.message).toMatch(
-        /for-profit|organizational|organization|営利|組織/,
+
+      expect(messages.onboardingCommercialHeading2?.message).toMatch(/Work|commercial|仕事|商業/i);
+      expect(messages.onboardingCommercialBody?.message).toMatch(
+        /inside a company|organi[sz]ation|企業内|組織/i,
       );
-      expect(messages.onboardingCommercialChange?.message).toMatch(
-        /commercial license|商業用ライセンス/,
+      expect(messages.onboardingCommercialRegistration?.message).toMatch(/PFN/);
+      expect(messages.onboardingCommercialRevenue?.message).toMatch(/1 billion|10億/);
+
+      expect(messages.onboardingCommercialUnmetHeading?.message).toMatch(/not met|満たさない/);
+      expect(messages.onboardingCommercialUnmetBody?.message).toMatch(
+        /separate license|別途ライセンス|commercial license|商業用ライセンス/,
       );
-      expect(messages.licensesCommercialNote?.message).toMatch(/1 billion yen|10億円/);
-      // The model's license is summarized, not presented as a condition on this MIT code.
-      expect(messages.onboardingCommercialScope?.message).toMatch(/PLaMo|モデル/);
+
+      // The heading names the terms of use, not just "commercial use".
+      expect(messages.onboardingCommercialHeading?.message).toMatch(/terms|利用条件/);
     }
+  });
+
+  /**
+   * The terms are stated once, in the three-part panel, on both pages that show them. A
+   * fourth prose summary of the same conditions was the wall of text this change removes.
+   */
+  it('does not repeat a fourth prose summary of the commercial terms', () => {
+    expect(en).not.toHaveProperty('licensesCommercialNote');
+    expect(ja).not.toHaveProperty('licensesCommercialNote');
+    expect(en).not.toHaveProperty('onboardingCommercialConditions');
+    expect(ja).not.toHaveProperty('onboardingCommercialConditions');
+  });
+
+  it('keeps the first screen to the official Japanese license and the registration form', () => {
+    const onboarding = readFileSync(
+      new URL('../src/entrypoints/onboarding/App.svelte', import.meta.url),
+      'utf8',
+    );
+    // Featured links: the official Japanese text and PFN's form.
+    expect(onboarding).toContain('officialLinks.licenseJa');
+    expect(onboarding).toContain('officialLinks.registration');
+    // The rest are folded into a details block so the first screen is not a wall of links.
+    expect(onboarding).toContain('onboardingOtherLicenses');
+    expect(onboarding).toMatch(/<details[\s\S]*officialLinks\.licenseEn[\s\S]*<\/details>/u);
   });
 
   /**

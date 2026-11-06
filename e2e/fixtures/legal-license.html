@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>PLaMo Community License Agreement</title>
+    <style>
+      /* The shape a Tailwind legal page ships: a centred column, a bordered card,
+         numbered articles as list items, and nested ordered lists. */
+      body {
+        margin: 0;
+        background: #f3f4f6;
+        color: #111827;
+        font:
+          16px/1.7 -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+      }
+      .center {
+        display: flex;
+        justify-content: center;
+      }
+      .column {
+        width: 100%;
+        max-width: 50rem;
+        margin: 50px 1rem 100px;
+      }
+      .stack {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2.5rem;
+      }
+      .card {
+        width: 100%;
+        border: 1px solid #e5e7eb;
+        border-radius: 1rem;
+        background: #fff;
+      }
+      .card-body {
+        padding: 1.5rem;
+      }
+      .articles > li {
+        margin-bottom: 1.25rem;
+      }
+      .articles ol {
+        padding-left: 2rem;
+      }
+      .indent {
+        padding-left: 1rem;
+      }
+      .legal-foot {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      Durable fixture for the legal / documentation layout reported after page translation.
+      The page is tagged `lang="ja"` while its body is English, which is exactly what the
+      reported license page does, and the articles are `li` elements that each own a title
+      and a nested `ol`. Original prose written for this repository.
+    -->
+    <div class="center">
+      <div class="column">
+        <div class="stack">
+          <h1 id="legal-title">PLaMo Community License Agreement</h1>
+          <div class="card">
+            <div class="card-body">
+              <div id="legal-lead">
+                This agreement outlines the terms and conditions for using the large-scale language
+                foundation model PLaMo and its derivatives, together with the obligations the user
+                must observe.
+              </div>
+              <ul class="articles">
+                <li id="article-1">
+                  Article 1 (Definitions)
+                  <ol>
+                    <li id="def-agreement">
+                      "AGREEMENT" refers to this license agreement for the model.
+                    </li>
+                    <li id="def-model">
+                      "MODEL" means the model weights, tokenizer and training scripts provided under
+                      the name PLaMo.
+                    </li>
+                    <li id="def-commercial">
+                      "COMMERCIAL PURPOSE" covers use in a business, for-profit use, and use inside
+                      the user's own organization.
+                    </li>
+                  </ol>
+                </li>
+                <li id="article-2">
+                  Article 2 (User Requirements)
+                  <div class="indent" id="article-2-body">
+                    The user must be old enough to enter a contract where they live, or have a
+                    parent or guardian agree on their behalf.
+                  </div>
+                </li>
+                <li id="article-3">
+                  Article 3 (This License)
+                  <ol>
+                    <li id="article-3-1">
+                      The model materials may be used within the scope described in this agreement
+                      while the user complies with it.
+                    </li>
+                    <li id="article-3-2">
+                      This license is non-exclusive, worldwide, non-transferable and royalty free.
+                    </li>
+                    <li id="article-3-3">
+                      Commercial purpose needs both prior registration and revenue or sales for the
+                      user or its affiliates within the stated limit.
+                      <ol class="indent-list">
+                        <li id="article-3-3-a">
+                          Prior registration on the provider's official registration page.
+                        </li>
+                        <li id="article-3-3-b">
+                          Annual revenue or sales at or below the stated limit.
+                        </li>
+                      </ol>
+                    </li>
+                  </ol>
+                </li>
+                <li id="article-7">
+                  Article 7 (Warranty Disclaimer)
+                  <div class="indent" id="article-7-body">
+                    The model and its output are provided without warranties of accuracy,
+                    merchantability or fitness for a particular purpose.
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="legal-foot">
+            <p id="legal-privacy">Privacy policy</p>
+            <p id="legal-terms">Terms of service</p>
+            <p id="legal-contact">Contact</p>
+          </div>
+          <p id="legal-copyright">© 2026 Example Research Institute</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

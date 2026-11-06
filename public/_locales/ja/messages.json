@@ -421,22 +421,52 @@
     "message": "（Chrome 内蔵）"
   },
   "onboardingStartNotice": {
-    "message": "開始すると、PLaMo Community License の全文に同意したものとみなされます。18歳以上であるか、保護者の同意が必要です（第2条）。この拡張機能は、年齢の確認や保護者への確認は行いません。"
+    "message": "「ライセンスに同意して開始」を押すと、PLaMo Community License の全文に同意したことになります。"
   },
   "onboardingCommercialHeading": {
-    "message": "PLaMo の商業利用"
+    "message": "PLaMoの利用条件"
   },
-  "onboardingCommercialPrivate": {
-    "message": "個人利用と学術利用は、登録が不要です。"
+  "onboardingPersonalHeading": {
+    "message": "個人・学術目的での利用"
   },
-  "onboardingCommercialScope": {
-    "message": "PLaMo のライセンスでは、商業目的に、事業での利用、営利を目的とする利用、組織の内部での利用、製品やサービスの開発・提供も含まれます。"
+  "onboardingPersonalBody": {
+    "message": "事前登録なしで利用できます。"
   },
-  "onboardingCommercialConditions": {
-    "message": "商業利用は、次の両方を満たす場合だけ認められます。PFN の公式フォームへの事前登録と、利用者または関係会社の直近事業年度の収入・売上が10億円（現地通貨換算）以下であることです。"
+  "onboardingCommercialHeading2": {
+    "message": "仕事・商業目的での利用"
   },
-  "onboardingCommercialChange": {
-    "message": "この条件を満たさなくなったら、商業利用には PFN の商業用ライセンスが必要です。"
+  "onboardingCommercialBody": {
+    "message": "企業内での業務利用も含まれます。利用するには、次の両方が必要です。"
+  },
+  "onboardingCommercialRegistration": {
+    "message": "PFNへの事前登録"
+  },
+  "onboardingCommercialRevenue": {
+    "message": "利用者または関係会社の直近年度の売上・収入が10億円以下"
+  },
+  "onboardingCommercialUnmetHeading": {
+    "message": "条件を満たさない場合"
+  },
+  "onboardingCommercialUnmetBody": {
+    "message": "商業利用にはPFNから別途ライセンスを取得する必要があります。"
+  },
+  "onboardingAgeNotice": {
+    "message": "18歳未満など、単独で契約できる年齢に達していない場合は、親権者等の同意が必要です。"
+  },
+  "onboardingConsentSentence": {
+    "message": "「ライセンスに同意して開始」を押すと、PLaMo Community Licenseに同意したことになります。"
+  },
+  "onboardingOtherLicenses": {
+    "message": "その他のライセンス情報"
+  },
+  "onboardingReconsentHeading": {
+    "message": "PLaMoの利用条件を読みやすくしました"
+  },
+  "onboardingReconsentBody": {
+    "message": "以前に PLaMo Community License に同意いただいています。利用条件の要約を読みやすくしたので、あらためて同意をお願いします。ダウンロード済みのモデルは、この端末にそのまま残ります。"
+  },
+  "onboardingReconsentStart": {
+    "message": "同意して続ける"
   },
   "plamoRegistrationLink": {
     "message": "PFN の公式登録フォーム（商業利用）"
@@ -446,9 +476,6 @@
   },
   "plamoOfficialLicenseEn": {
     "message": "PLaMo Community License (official, English)"
-  },
-  "licensesCommercialNote": {
-    "message": "商業利用は、PFN の公式登録フォームでの事前登録と、直近事業年度の収入・売上が10億円以下であることの両方が必要です。個人利用と学術利用は登録不要です。条件を満たさない場合は PFN の商業用ライセンスが必要です。"
   },
   "onboardingUseNow": {
     "message": "Chrome 内蔵の翻訳を使うのは、PLaMo が対応していない言語の組み合わせだけです。"
@@ -630,5 +657,120 @@
   },
   "glossaryScopeLabel": {
     "message": "適用範囲"
+  },
+  "listSeparator": {
+    "message": "、"
+  },
+  "openTyped": {
+    "message": "テキストを翻訳"
+  },
+  "typedLead": {
+    "message": "テキストを入力または貼り付けて、ページ翻訳と同じ PLaMo で翻訳します。端末の外へは送りません。"
+  },
+  "typedHeading": {
+    "message": "入力するテキスト"
+  },
+  "typedSourceLabel": {
+    "message": "翻訳するテキスト"
+  },
+  "typedPlaceholder": {
+    "message": "ここにテキストを入力するか、貼り付けてください。"
+  },
+  "typedCounter": {
+    "message": "$COUNT$ / $LIMIT$ 文字",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "limit": {
+        "content": "$2"
+      }
+    }
+  },
+  "typedTooLong": {
+    "message": "1回の翻訳には長すぎます。$LIMIT$ 文字以下にしてください。",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedDirectionHint": {
+    "message": "$LANGUAGE$ に翻訳します。ほかの言語は自動で判定します。",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedSwap": {
+    "message": "翻訳する向きを入れ替える"
+  },
+  "typedTranslate": {
+    "message": "翻訳"
+  },
+  "typedTranslating": {
+    "message": "翻訳しています…"
+  },
+  "typedStop": {
+    "message": "中止"
+  },
+  "typedClear": {
+    "message": "クリア"
+  },
+  "typedCopy": {
+    "message": "コピー"
+  },
+  "typedCopied": {
+    "message": "コピーしました"
+  },
+  "typedCopyFailed": {
+    "message": "コピーできませんでした。訳文を選んでコピーしてください。"
+  },
+  "typedResultHeading": {
+    "message": "訳文"
+  },
+  "typedResultEmpty": {
+    "message": "訳文はここに表示します。"
+  },
+  "typedFailed": {
+    "message": "翻訳できませんでした。入力したテキストはそのままです。もう一度お試しください。"
+  },
+  "typedNeedsConsent": {
+    "message": "PLaMo を使うには、最初に一度だけライセンスへの同意が必要です。同意するまでテキストは翻訳しません。"
+  },
+  "typedOpenOnboarding": {
+    "message": "ライセンスを確認して開始"
+  },
+  "typedModelMissing": {
+    "message": "PLaMo のモデルがまだこの端末にありません。"
+  },
+  "typedModelPartial": {
+    "message": "PLaMo のモデルのダウンロードが中断されています。"
+  },
+  "typedModelBusy": {
+    "message": "PLaMo のモデルをダウンロードしています。準備ができると翻訳できます。"
+  },
+  "typedModelError": {
+    "message": "PLaMo のモデルを読み込めませんでした。設定画面で確認してください。"
+  },
+  "typedDownloadModel": {
+    "message": "モデルをダウンロード"
+  },
+  "typedChromeOnlyTarget": {
+    "message": "テキストの翻訳は PLaMo だけで行います。PLaMo は $LANGUAGE$ への翻訳に対応していません。ここでは別の言語を選ぶか、ページ翻訳で Chrome の内蔵翻訳を使ってください。",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedChromeOnlyNote": {
+    "message": "Chrome の内蔵翻訳は $LANGUAGES$ をページでのみ担当します。入力したテキストを渡すことはありません。",
+    "placeholders": {
+      "languages": {
+        "content": "$1"
+      }
+    }
   }
 }

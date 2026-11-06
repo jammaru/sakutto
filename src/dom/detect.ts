@@ -70,7 +70,11 @@ export function languageOf(block: Element, fallback: string | null): string | nu
   if (inferred) return inferred;
 
   const source = canonicalPageLanguage(root?.getAttribute('data-sakutto-source-lang'));
-  if (source) return source;
+  if (source) {
+    // See the note on `contradictsScript` below: a page can declare a language its prose is
+    // not in, and a stale declaration must not override the words on the page.
+    return contradictsScript(source, block.textContent ?? '') ? null : source;
+  }
 
   // `<html lang>` is set to the target while a page is translated, so reading it as an
   // ancestor tag would mark every untagged block as already translated. Short Latin
@@ -82,7 +86,46 @@ export function languageOf(block: Element, fallback: string | null): string | nu
     if (tagged) return tagged;
   }
 
-  return canonicalPageLanguage(fallback);
+  const declared = canonicalPageLanguage(fallback);
+  // A page can declare a language its prose is not in. The PLaMo license page is served as
+  // `<html lang="ja">` with an English body, and reporting `ja` as the source told the model
+  // to translate English out of Japanese. When a block is plainly not written in the script
+  // of the declared language, claim no source language and let the model see the text alone.
+  if (declared !== null && contradictsScript(declared, block.textContent ?? '')) return null;
+  return declared;
+}
+
+/** Languages written without Latin letters, used only to spot a wrong declared tag. */
+const NON_LATIN_SCRIPTS: ReadonlySet<string> = new Set([
+  'ja',
+  'zh-hans',
+  'zh-hant',
+  'ko',
+  'ru',
+  'ar',
+  'th',
+  'he',
+]);
+
+/** Enough letters to make the script of a block unambiguous. */
+const SCRIPT_SAMPLE_MIN_LETTERS = 24;
+
+/**
+ * True when a block has no character from the declared language's script at all. A Japanese
+ * page that quotes an English sentence keeps the quote out of the Japanese reading, and a
+ * Japanese paragraph always carries kana or kanji, so an all-Latin run of prose is not
+ * Japanese whatever the tag says.
+ */
+function contradictsScript(declared: string, text: string): boolean {
+  if (!NON_LATIN_SCRIPTS.has(declared)) return false;
+  let latin = 0;
+  let other = 0;
+  for (const character of text) {
+    const code = character.codePointAt(0) ?? 0;
+    if ((code >= 0x41 && code <= 0x5a) || (code >= 0x61 && code <= 0x7a)) latin += 1;
+    else if (code > 0x7f && /\p{L}/u.test(character)) other += 1;
+  }
+  return other === 0 && latin >= SCRIPT_SAMPLE_MIN_LETTERS;
 }
 
 export function isAlreadyTargetLanguage(

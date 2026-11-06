@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { displayLanguage, resolveTargetLanguage } from '@/shared/languages';
 import {
   DEFAULT_SETTINGS,
+  LEGACY_NOTICE_VERSION,
   PLAMO_LICENSE_VERSION,
+  PLAMO_NOTICE_VERSION,
   SETTINGS_SCHEMA_VERSION,
   createDefaultSettings,
+  needsLicenseReconsent,
   normalizeSettings,
   type Settings,
 } from '@/shared/settings';
@@ -125,6 +128,7 @@ describe('settings defaults', () => {
           consent: {
             license: 'plamo-community',
             version: PLAMO_LICENSE_VERSION,
+            notice: PLAMO_NOTICE_VERSION,
             acceptedAt,
             ageNoticeShown: true,
           },
@@ -141,6 +145,7 @@ describe('settings defaults', () => {
         consent: {
           license: 'plamo-community',
           version: PLAMO_LICENSE_VERSION,
+          notice: PLAMO_NOTICE_VERSION,
           acceptedAt,
           ageNoticeShown: true,
         },
@@ -170,10 +175,13 @@ describe('settings defaults', () => {
     expect(consent).toEqual({
       license: 'plamo-community',
       version: PLAMO_LICENSE_VERSION,
+      notice: LEGACY_NOTICE_VERSION,
       acceptedAt,
       ageNoticeShown: true,
     });
     expect(consent).not.toHaveProperty('guardian');
+    // A legacy record still counts as consent to the same license text.
+    expect(needsLicenseReconsent({ consent })).toBe(true);
   });
 
   it('does not treat a false guardian flag as a recorded consent', () => {
@@ -191,5 +199,57 @@ describe('settings defaults', () => {
         'ja',
       ).consent,
     ).toBeNull();
+  });
+});
+
+describe('license notice re-consent', () => {
+  const acceptedAt = '2026-11-05T00:00:00.000Z';
+
+  function consentWith(extra: Record<string, unknown>): Settings {
+    return normalizeSettings(
+      {
+        schemaVersion: SETTINGS_SCHEMA_VERSION,
+        consent: {
+          license: 'plamo-community',
+          version: PLAMO_LICENSE_VERSION,
+          acceptedAt,
+          ageNoticeShown: true,
+          ...extra,
+        },
+      },
+      'ja',
+    );
+  }
+
+  it('asks nothing of a user who already agreed under the current notice', () => {
+    const settings = consentWith({ notice: PLAMO_NOTICE_VERSION });
+    expect(settings.consent?.notice).toBe(PLAMO_NOTICE_VERSION);
+    expect(needsLicenseReconsent(settings)).toBe(false);
+  });
+
+  /**
+   * The earlier build's four-bullet commercial summary was accurate but hard to read, and
+   * users who agreed to it never saw the clearer three-part version. Their consent still
+   * names the same bundled license text, so it stays valid, and the notice version is what
+   * tells the UI to show the new explanation once without discarding the stored model.
+   */
+  it('asks a user who agreed under an earlier notice to see the new one', () => {
+    const settings = consentWith({});
+    expect(settings.consent).not.toBeNull();
+    expect(settings.consent?.notice).toBe(LEGACY_NOTICE_VERSION);
+    expect(needsLicenseReconsent(settings)).toBe(true);
+  });
+
+  it('does not ask before any consent exists', () => {
+    expect(needsLicenseReconsent(null)).toBe(false);
+    expect(needsLicenseReconsent(undefined)).toBe(false);
+    expect(needsLicenseReconsent(consentWith({ license: 'other' }))).toBe(false);
+  });
+
+  it('keeps the recorded timestamp and never claims a guardian agreed', () => {
+    const settings = consentWith({ notice: PLAMO_NOTICE_VERSION });
+    expect(settings.consent?.acceptedAt).toBe(acceptedAt);
+    expect(settings.consent?.ageNoticeShown).toBe(true);
+    expect(settings.consent).not.toHaveProperty('guardian');
   });
 });

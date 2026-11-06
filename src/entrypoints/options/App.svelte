@@ -173,6 +173,15 @@
     }
   }
 
+  async function openTyped() {
+    actionFailed = false;
+    try {
+      await browser.tabs.create({ url: browser.runtime.getURL('/typed.html') });
+    } catch {
+      actionFailed = true;
+    }
+  }
+
   onMount(() => {
     const unsubscribe = subscribeSettings((next) => {
       settings = next;
@@ -391,39 +400,62 @@
   <section class="panel">
     <h2>{t('licensesHeading')}</h2>
     <p>{t('licensesBody')}</p>
-    <p class="muted">{t('licensesCommercialNote')}</p>
-    <ul class="links">
-      <li>
-        <a href={licenseLinks.plamoJa} target="_blank" rel="noreferrer">{t('licensePlaMoJa')}</a>
-      </li>
-      <li>
-        <a href={licenseLinks.plamoEn} target="_blank" rel="noreferrer">{t('licensePlaMoEn')}</a>
-      </li>
-      <li>
-        <a href={officialLinks.licenseJa} target="_blank" rel="noreferrer"
-          >{t('plamoOfficialLicenseJa')}</a
-        >
-      </li>
-      <li>
-        <a href={officialLinks.licenseEn} target="_blank" rel="noreferrer"
-          >{t('plamoOfficialLicenseEn')}</a
-        >
-      </li>
-      <li>
-        <a href={officialLinks.registration} target="_blank" rel="noreferrer"
-          >{t('plamoRegistrationLink')}</a
-        >
-      </li>
-      <li><a href={licenseLinks.mit} target="_blank" rel="noreferrer">{t('licenseMit')}</a></li>
-      <li>
-        <a href={licenseLinks.notice} target="_blank" rel="noreferrer">{t('licenseNotice')}</a>
-      </li>
-    </ul>
+    <h3>{t('onboardingCommercialHeading')}</h3>
+    <div class="terms">
+      <div>
+        <h4>{t('onboardingPersonalHeading')}</h4>
+        <p class="muted">{t('onboardingPersonalBody')}</p>
+      </div>
+      <div>
+        <h4>{t('onboardingCommercialHeading2')}</h4>
+        <p class="muted">{t('onboardingCommercialBody')}</p>
+        <ul class="conditions">
+          <li>{t('onboardingCommercialRegistration')}</li>
+          <li>{t('onboardingCommercialRevenue')}</li>
+        </ul>
+      </div>
+      <div>
+        <h4>{t('onboardingCommercialUnmetHeading')}</h4>
+        <p class="muted">{t('onboardingCommercialUnmetBody')}</p>
+      </div>
+    </div>
+    <p class="muted">{t('onboardingAgeNotice')}</p>
+    <details class="more">
+      <summary>{t('onboardingOtherLicenses')}</summary>
+      <ul class="links">
+        <li>
+          <a href={officialLinks.licenseJa} target="_blank" rel="noreferrer"
+            >{t('plamoOfficialLicenseJa')}</a
+          >
+        </li>
+        <li>
+          <a href={officialLinks.licenseEn} target="_blank" rel="noreferrer"
+            >{t('plamoOfficialLicenseEn')}</a
+          >
+        </li>
+        <li>
+          <a href={officialLinks.registration} target="_blank" rel="noreferrer"
+            >{t('plamoRegistrationLink')}</a
+          >
+        </li>
+        <li>
+          <a href={licenseLinks.plamoJa} target="_blank" rel="noreferrer">{t('licensePlaMoJa')}</a>
+        </li>
+        <li>
+          <a href={licenseLinks.plamoEn} target="_blank" rel="noreferrer">{t('licensePlaMoEn')}</a>
+        </li>
+        <li><a href={licenseLinks.mit} target="_blank" rel="noreferrer">{t('licenseMit')}</a></li>
+        <li>
+          <a href={licenseLinks.notice} target="_blank" rel="noreferrer">{t('licenseNotice')}</a>
+        </li>
+      </ul>
+    </details>
     <p class="muted">{t('licenseModelNote')}</p>
   </section>
 
   <div class="actions">
     <button class="button" type="button" onclick={openOnboarding}>{t('openOnboarding')}</button>
+    <button class="button secondary" type="button" onclick={openTyped}>{t('openTyped')}</button>
   </div>
   {#if actionFailed}
     <p class="error" role="alert">{t('errorAction')}</p>
@@ -486,6 +518,39 @@
     margin: var(--space-3) 0 var(--space-2);
     font-size: 12px;
     font-weight: 700;
+  }
+
+  h4 {
+    margin: 0 0 var(--space-1);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .terms {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .terms .conditions {
+    display: grid;
+    gap: var(--space-1);
+    margin-top: var(--space-2);
+    padding-left: 18px;
+    list-style: disc;
+  }
+
+  .more {
+    margin-top: var(--space-3);
+  }
+
+  .more > summary {
+    cursor: pointer;
+    color: var(--accent-strong);
+    font-weight: 600;
+  }
+
+  .more .links {
+    margin-top: var(--space-2);
   }
 
   .diag {

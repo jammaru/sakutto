@@ -421,22 +421,52 @@
     "message": " (Chrome built-in)"
   },
   "onboardingStartNotice": {
-    "message": "Starting means you agree to the whole PLaMo Community License. You must be 18 or older, or have a parent or guardian's consent (Article 2). This extension does not check your age or ask a guardian to confirm."
+    "message": "Pressing \"Agree to the license and start\" means you agree to the whole PLaMo Community License."
   },
   "onboardingCommercialHeading": {
-    "message": "Commercial use of PLaMo"
+    "message": "PLaMo terms of use"
   },
-  "onboardingCommercialPrivate": {
-    "message": "Personal and academic use needs no registration."
+  "onboardingPersonalHeading": {
+    "message": "Personal and academic use"
   },
-  "onboardingCommercialScope": {
-    "message": "Under PLaMo's license, commercial purpose includes business and for-profit use, use inside an organization, and developing or providing a product or service."
+  "onboardingPersonalBody": {
+    "message": "No prior registration is needed."
   },
-  "onboardingCommercialConditions": {
-    "message": "Commercial use is allowed only with both: prior registration on PFN's official form, and income or sales for you or your affiliates of no more than 1 billion yen (local-currency equivalent) in the most recent fiscal year."
+  "onboardingCommercialHeading2": {
+    "message": "Work and commercial use"
   },
-  "onboardingCommercialChange": {
-    "message": "If those conditions stop being met, commercial use needs a separate commercial license from PFN."
+  "onboardingCommercialBody": {
+    "message": "This includes using it for work inside a company. Both of the following are required."
+  },
+  "onboardingCommercialRegistration": {
+    "message": "Prior registration with PFN"
+  },
+  "onboardingCommercialRevenue": {
+    "message": "Income or sales for you or your affiliates in the most recent fiscal year of 1 billion yen or less"
+  },
+  "onboardingCommercialUnmetHeading": {
+    "message": "When the conditions are not met"
+  },
+  "onboardingCommercialUnmetBody": {
+    "message": "Commercial use then needs a separate license from PFN."
+  },
+  "onboardingAgeNotice": {
+    "message": "If you are under 18 or otherwise not old enough to enter a contract on your own, a parent or guardian's consent is required."
+  },
+  "onboardingConsentSentence": {
+    "message": "Pressing \"Agree to the license and start\" means you agree to the PLaMo Community License."
+  },
+  "onboardingOtherLicenses": {
+    "message": "Other license information"
+  },
+  "onboardingReconsentHeading": {
+    "message": "The PLaMo terms are now easier to read"
+  },
+  "onboardingReconsentBody": {
+    "message": "You agreed to the PLaMo Community License earlier. Here is the clearer summary of the terms, so you can agree once more. Your downloaded model stays on this device."
+  },
+  "onboardingReconsentStart": {
+    "message": "Agree and continue"
   },
   "plamoRegistrationLink": {
     "message": "PFN's official registration form (commercial use)"
@@ -446,9 +476,6 @@
   },
   "plamoOfficialLicenseEn": {
     "message": "PLaMo Community License (official, English)"
-  },
-  "licensesCommercialNote": {
-    "message": "Commercial use needs both prior registration on PFN's official form and income or sales of no more than 1 billion yen in the most recent fiscal year. Personal and academic use needs no registration. If those conditions are not met, commercial use needs a commercial license from PFN."
   },
   "onboardingUseNow": {
     "message": "Chrome's built-in translator is used only for the language pairs PLaMo does not support."
@@ -630,5 +657,120 @@
   },
   "glossaryScopeLabel": {
     "message": "Applies to"
+  },
+  "listSeparator": {
+    "message": ", "
+  },
+  "openTyped": {
+    "message": "Translate typed text"
+  },
+  "typedLead": {
+    "message": "Type or paste text and translate it with the same PLaMo model the page translation uses. Nothing leaves this device."
+  },
+  "typedHeading": {
+    "message": "Your text"
+  },
+  "typedSourceLabel": {
+    "message": "Text to translate"
+  },
+  "typedPlaceholder": {
+    "message": "Type or paste the text here."
+  },
+  "typedCounter": {
+    "message": "$COUNT$ / $LIMIT$ characters",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "limit": {
+        "content": "$2"
+      }
+    }
+  },
+  "typedTooLong": {
+    "message": "This text is too long for one request. Shorten it to $LIMIT$ characters or fewer.",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedDirectionHint": {
+    "message": "Translates into $LANGUAGE$. Other languages are detected automatically.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedSwap": {
+    "message": "Switch the translation direction"
+  },
+  "typedTranslate": {
+    "message": "Translate"
+  },
+  "typedTranslating": {
+    "message": "Translating…"
+  },
+  "typedStop": {
+    "message": "Stop"
+  },
+  "typedClear": {
+    "message": "Clear"
+  },
+  "typedCopy": {
+    "message": "Copy"
+  },
+  "typedCopied": {
+    "message": "Copied"
+  },
+  "typedCopyFailed": {
+    "message": "Could not copy the translation. Select it and copy it yourself."
+  },
+  "typedResultHeading": {
+    "message": "Translation"
+  },
+  "typedResultEmpty": {
+    "message": "The translation appears here."
+  },
+  "typedFailed": {
+    "message": "The text could not be translated. Your text is unchanged; try again."
+  },
+  "typedNeedsConsent": {
+    "message": "PLaMo needs a one-time licence agreement before it can run. Your text is not translated until then."
+  },
+  "typedOpenOnboarding": {
+    "message": "Review the licence and start"
+  },
+  "typedModelMissing": {
+    "message": "The PLaMo model is not on this device yet."
+  },
+  "typedModelPartial": {
+    "message": "The PLaMo model download was interrupted."
+  },
+  "typedModelBusy": {
+    "message": "The PLaMo model is downloading. Translation starts once it is ready."
+  },
+  "typedModelError": {
+    "message": "The PLaMo model could not load. Open the options page to check it."
+  },
+  "typedDownloadModel": {
+    "message": "Download the model"
+  },
+  "typedChromeOnlyTarget": {
+    "message": "Typed translation uses PLaMo only, and PLaMo does not translate into $LANGUAGE$. Pick another language here, or translate a page for the built-in translator.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedChromeOnlyNote": {
+    "message": "Chrome's built-in translator covers $LANGUAGES$ on pages only; typed text is never sent to it.",
+    "placeholders": {
+      "languages": {
+        "content": "$1"
+      }
+    }
   }
 }

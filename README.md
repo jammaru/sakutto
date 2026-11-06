@@ -26,6 +26,10 @@ The Chrome Web Store listing is not published yet. Until it is, install from sou
 
 The same actions are in the toolbar popup and the right-click menu. Change the keys at `chrome://extensions/shortcuts`. Alt+D is not used, because Chrome uses it for the address bar.
 
+## Typed text
+
+The popup has a **Translate typed text** button, and the options page has the same button. It opens a small extension page with a source box and a result box, so you can type or paste a paragraph and translate it without touching a page. It uses the same PLaMo model, the same licence consent, and the same load flow as page translation, and the direction follows the same target-language setting. The built-in translator is not used there: typed text is translated by PLaMo only, and a language PLaMo does not support is refused in the page rather than quietly handed to Chrome. The result has a Copy button.
+
 ## Languages
 
 PLaMo 3 Translate supports 53 languages in either direction. The source language is detected from the page. The default target language is the browser UI language, or English when that language is not one of the 53. The popup can set a different target language for the current site.
