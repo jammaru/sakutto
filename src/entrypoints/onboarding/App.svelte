@@ -18,7 +18,11 @@
   import { prepareTranslatorPack } from '@/shared/translator-pack';
   import { estimateRemainingMs, type ByteMark } from '@/ui/download-eta';
   import { formatByteSize } from '@/ui/format';
-  import { onboardingPhaseAfterStatus, type OnboardingPhase } from '@/ui/onboarding-phase';
+  import {
+    onboardingErrorMessage,
+    onboardingPhaseAfterStatus,
+    type OnboardingPhase,
+  } from '@/ui/onboarding-phase';
 
   const licenseLinks = {
     plamoJa: browser.runtime.getURL('/licenses/PLaMo-Community-License-ja.txt'),
@@ -32,11 +36,10 @@
   type Phase = OnboardingPhase;
 
   let targetLanguage = $state<TargetLanguage>(resolveTargetLanguage(currentUiLanguage()));
-  let agreed = $state(false);
-  let agreementTouched = $state(false);
   let startRequested = $state(false);
   let consentSaved = $state(false);
   let phase = $state<Phase>('consent');
+  let failureDetail = $state<string | null>(null);
   let received = $state(0);
   let total = $state(model.size);
   let progress = $state(0);
@@ -70,6 +73,17 @@
     }
     return `${formatByteSize(received)} / ${formatByteSize(total)}`;
   });
+  let showStartButton = $derived(!consentSaved || phase === 'paused' || phase === 'error');
+  let showStartNotice = $derived(showStartButton && !consentSaved);
+  let failureText = $derived(
+    phase === 'error'
+      ? onboardingErrorMessage({
+          error: failureDetail ?? undefined,
+          fallback: t('onboardingStartFailed'),
+          http: (status) => t('onboardingHttpError', [status]),
+        })
+      : null,
+  );
 
   function applyStatus(status: ModelStatus) {
     if (status.id !== DEFAULT_MODEL_ID) return;
@@ -79,6 +93,10 @@
     total = next.total || model.size;
     progress = next.progress;
     modelState = next.state;
+    if (next.state === 'error') failureDetail = next.error ?? null;
+    else if (next.state === 'downloading' || next.state === 'ready' || next.state === 'loaded') {
+      failureDetail = null;
+    }
     if (status.state === 'downloading') noteBytes(next.received);
     phase = onboardingPhaseAfterStatus(phase, next.state, consentSaved || startRequested);
   }
@@ -93,15 +111,10 @@
     marks = next.length > 40 ? next.slice(-40) : next;
   }
 
-  function setAgreed(event: Event) {
-    const input = event.currentTarget as HTMLInputElement;
-    agreementTouched = true;
-    agreed = input.checked;
-  }
-
   async function start() {
-    if (!agreed || phase === 'downloading') return;
+    if (phase === 'downloading') return;
     if (startRequested && phase !== 'paused' && phase !== 'error') return;
+    failureDetail = null;
     const alreadyReady = modelState === 'ready' || modelState === 'loaded';
     startRequested = true;
     if (!alreadyReady) phase = 'downloading';
@@ -183,12 +196,10 @@
       .then((settings) => {
         targetLanguage = settings.targetLanguage;
         const stored = agreementFromStorage(settings.consent !== null, {
-          touched: agreementTouched,
           started: startRequested,
         });
         if (stored === null) return;
         consentSaved = stored;
-        agreed = stored;
       })
       .catch(() => undefined)
       .then(() => requestModelInspect(DEFAULT_MODEL_ID))
@@ -237,10 +248,6 @@
           <a href={licenseLinks.notice} target="_blank" rel="noreferrer">{t('licenseNotice')}</a>
         </li>
       </ul>
-      <label class="check">
-        <input type="checkbox" checked={agreed} onchange={setAgreed} />
-        <span>{t('consentCheckbox')}</span>
-      </label>
     </section>
   {/if}
 
@@ -279,27 +286,39 @@
       {#if phase === 'downloading' || phase === 'paused'}
         <p>{t('onboardingWhileDownloading')}</p>
       {:else if phase === 'error'}
-        <p class="error" role="alert">{t('onboardingStartFailed')}</p>
+        <p class="error" role="alert">{failureText}</p>
       {/if}
     </section>
   {/if}
 
   <div class="actions">
-    {#if phase === 'ready'}
-      <button class="button" type="button" onclick={trySample}>{t('onboardingTry')}</button>
-    {:else if phase === 'downloading' || phase === 'paused'}
-      <button class="button" type="button" onclick={trySample}>{t('onboardingTryNow')}</button>
+    {#if showStartNotice}
+      <p id="start-notice" class="start-note">{t('onboardingStartNotice')}</p>
     {/if}
-    {#if phase === 'downloading'}
-      <button class="button secondary" type="button" onclick={pause}>{t('downloadCancel')}</button>
-    {:else if !consentSaved || phase === 'paused' || phase === 'error'}
-      <button class="button" type="button" onclick={start} disabled={!agreed || closing}>
-        {consentSaved ? t('downloadResume') : t('onboardingStart')}
+    <div class="action-row">
+      {#if phase === 'ready'}
+        <button class="button" type="button" onclick={trySample}>{t('onboardingTry')}</button>
+      {:else if phase === 'downloading' || phase === 'paused'}
+        <button class="button" type="button" onclick={trySample}>{t('onboardingTryNow')}</button>
+      {/if}
+      {#if phase === 'downloading'}
+        <button class="button secondary" type="button" onclick={pause}>{t('downloadCancel')}</button
+        >
+      {:else if showStartButton}
+        <button
+          class="button"
+          type="button"
+          onclick={start}
+          disabled={closing}
+          aria-describedby={showStartNotice ? 'start-notice' : undefined}
+        >
+          {consentSaved ? t('downloadResume') : t('onboardingStart')}
+        </button>
+      {/if}
+      <button class="button secondary" type="button" onclick={close} disabled={closing}>
+        {t('onboardingClose')}
       </button>
-    {/if}
-    <button class="button secondary" type="button" onclick={close} disabled={closing}>
-      {t('onboardingClose')}
-    </button>
+    </div>
   </div>
   {#if closeFailed || tryFailed}
     <p class="error" role="alert">{t('errorAction')}</p>
@@ -416,13 +435,6 @@
     background: var(--accent);
   }
 
-  .check {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: var(--space-2);
-    align-items: start;
-  }
-
   .track {
     height: 8px;
     overflow: hidden;
@@ -442,12 +454,24 @@
   }
 
   .actions {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .start-note {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .action-row {
     display: flex;
     gap: var(--space-2);
     justify-content: flex-end;
   }
 
-  .actions .button {
+  .action-row .button {
     min-width: 112px;
   }
 

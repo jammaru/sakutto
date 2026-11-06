@@ -1,0 +1,30 @@
+name: Model pins
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: model-pins-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  range:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Range-check the pinned model URLs
+        run: node scripts/check-model-pins.ts

@@ -15,3 +15,21 @@ export function onboardingPhaseAfterStatus(
   if (phase !== 'consent') return 'paused';
   return phase;
 }
+
+const HTTP_STATUS = /\bHTTP (\d{3})\b/;
+
+/**
+ * Prefer the status from a failed model request. Other engine errors stay
+ * visible. A missing detail falls back to the generic setup message.
+ */
+export function onboardingErrorMessage(input: {
+  error?: string | undefined;
+  fallback: string;
+  http: (status: string) => string;
+}): string {
+  const detail = input.error?.trim() ?? '';
+  const status = HTTP_STATUS.exec(detail)?.[1];
+  if (status) return input.http(status);
+  if (detail.length > 0) return detail;
+  return input.fallback;
+}

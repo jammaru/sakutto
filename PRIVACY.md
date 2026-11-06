@@ -2,7 +2,7 @@
 
 Sakutto translates web pages in Chrome. This page describes what the extension code does with data. It is a description of the program, not a legal opinion.
 
-Checked against the code on 2026-11-05. If the code changes, this page has to change with it.
+Checked against the code on 2026-11-06. If the code changes, this page has to change with it.
 
 ## Who operates the extension
 
@@ -22,14 +22,14 @@ It uses that text only to produce a translation on the device. The developer doe
 
 The only URL the extension fetches is a pinned model file:
 
-- `https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF/resolve/03891e907db8a43c97d3a7c75add125cc6d1f96a/plamo-3-translate-0.8b-Q4_K_M.gguf`
-- `https://huggingface.co/pfnet/plamo-3-translate-2b-GGUF/resolve/f2b4599dff9b3e45c62567eac15e83186b4cb64e/plamo-3-translate-2b-Q4_K_M.gguf`
+- `https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF/resolve/dbeb0856cb0b004b484f190bb71dd65876297013/plamo-3-translate-0.8b-Q4_K_M.gguf`
+- `https://huggingface.co/pfnet/plamo-3-translate-2b-GGUF/resolve/232fbd7916519edecddfdae0beae7e76fe70453f/plamo-3-translate-2b-Q4_K_M.gguf`
 
-The code is `src/engine/model/catalog.ts` and `src/engine/model/download.ts`. The request has no body. A resume sends a `Range` header and nothing else from the page. `credentials` is omitted, so the default is same-origin and a Hugging Face cookie from the page's profile is not attached. On 2026-11-05 an unauthenticated request for each file was accepted (`gated: false` on the model API, `user_id=public` on the redirect). Hugging Face can change that later. The extension does not ship a token.
+The code is `src/engine/model/catalog.ts` and `src/engine/model/download.ts`. The request has no body. A resume sends a `Range` header and nothing else from the page. `credentials` is omitted, so the default is same-origin and a Hugging Face cookie from the page's profile is not attached. On 2026-11-06 an unauthenticated request for each file was accepted (`gated: false` on the model API, `user_id=public` on the redirect). Hugging Face can change that later. The extension does not ship a token.
 
-`redirect: 'follow'` means the browser then requests the host Hugging Face names. On 2026-11-05 that host was `https://us.aws.cdn.hf.co/`. The region can differ. That CDN receives the IP address, the usual browser request headers, and the signed URL for the file. It does not receive the page text. The `Link` header also named `https://cas-server.xethub.hf.co/`. `fetch` does not follow `Link` headers, and the extension has no Xet client, so that host is not requested by this code.
+`redirect: 'follow'` means the browser then requests the host Hugging Face names. On 2026-11-06 that host was `https://us.aws.cdn.hf.co/`. The region can differ. That CDN receives the IP address, the usual browser request headers, and the signed URL for the file. It does not receive the page text. The `Link` header also named `https://cas-server.xethub.hf.co/`. `fetch` does not follow `Link` headers, and the extension has no Xet client, so that host is not requested by this code.
 
-The 0.8B file is the default (573,116,288 bytes). The 2B file (1,807,192,480 bytes) is downloaded only after you choose it. Both are checked with the pinned SHA-256 before use. A mismatch is discarded.
+The 0.8B file is the default (573,123,200 bytes). The 2B file (1,807,199,392 bytes) is downloaded only after you choose it. Both are checked with the pinned SHA-256 before use. A mismatch is discarded.
 
 ## Requests the extension does not make
 
@@ -40,7 +40,7 @@ The 0.8B file is the default (573,116,288 bytes). The 2B file (1,807,192,480 byt
 
 ## Stored on the device
 
-- Settings, glossary, per-site rules, license consent, and a timing sample (`chrome.storage.local`, `src/shared/storage.ts`, `src/dom/sites.ts`, `src/shared/quality.ts`). The timing sample stores the model id, a duration, and a timestamp for a fixed paragraph. It does not store page text. `chrome.storage.local` is documented by Chrome as not encrypted, and as cleared when the extension is removed.
+- Settings, glossary, per-site rules, license consent, and a timing sample (`chrome.storage.local`, `src/shared/storage.ts`, `src/dom/sites.ts`, `src/shared/quality.ts`). Pressing Get started writes the consent record: license `plamo-community`, the bundled license version, an ISO timestamp, and `guardian: true`. The onboarding page states that starting agrees to Article 2 of the PLaMo Community License, including the requirement to be 18 or older or to have a parent or guardian's consent, and it links to the license texts. There is no separate checkbox. The timing sample stores the model id, a duration, and a timestamp for a fixed paragraph. It does not store page text. `chrome.storage.local` is documented by Chrome as not encrypted, and as cleared when the extension is removed.
 - A short-lived capabilities cache in `chrome.storage.session`.
 - The model file, under the OPFS directory `sakutto` (`src/engine/model/file-store.ts`).
 - A translation cache in IndexedDB, database `sakutto-translations` (`src/engine/cache/store.ts`). Each row stores the translation, which engine produced it, and timestamps. The key includes a SHA-256 of the source text and a hash of the glossary, not the source text itself. The cache keeps at most 5,000 rows and drops the least recently used. There is no time limit.
@@ -61,7 +61,7 @@ Page text, site rules, and glossary entries are used only to translate pages in 
 
 ## Accounts and offline use
 
-The extension has no account. The model download did not require a Hugging Face login on 2026-11-05. After the checked file is stored, PLaMo translation does not need the network. Before that, it does. Chrome's fallback also needs its language pack to be installed already. Neither path is offline on a new install with no files saved.
+The extension has no account. The model download did not require a Hugging Face login on 2026-11-06. After the checked file is stored, PLaMo translation does not need the network. Before that, it does. Chrome's fallback also needs its language pack to be installed already. Neither path is offline on a new install with no files saved.
 
 ## Contact
 
@@ -71,7 +71,7 @@ Questions about this policy can be opened as an issue on this GitHub repository.
 
 Sakutto は、Chrome でウェブページを翻訳します。このページは、拡張機能のコードがデータをどう扱うかを説明します。法的意見ではありません。
 
-2026-11-05 のコードに合わせて確認しました。コードが変わったら、このページも変えます。
+2026-11-06 のコードに合わせて確認しました。コードが変わったら、このページも変えます。
 
 ## 運営者
 
@@ -91,14 +91,14 @@ MIT の著作権表示にある `jammaru` はリポジトリ上の名前であ�
 
 拡張機能が取得するのは、ピン留めしたモデルファイルだけです。
 
-- `https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF/resolve/03891e907db8a43c97d3a7c75add125cc6d1f96a/plamo-3-translate-0.8b-Q4_K_M.gguf`
-- `https://huggingface.co/pfnet/plamo-3-translate-2b-GGUF/resolve/f2b4599dff9b3e45c62567eac15e83186b4cb64e/plamo-3-translate-2b-Q4_K_M.gguf`
+- `https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF/resolve/dbeb0856cb0b004b484f190bb71dd65876297013/plamo-3-translate-0.8b-Q4_K_M.gguf`
+- `https://huggingface.co/pfnet/plamo-3-translate-2b-GGUF/resolve/232fbd7916519edecddfdae0beae7e76fe70453f/plamo-3-translate-2b-Q4_K_M.gguf`
 
-コードは `src/engine/model/catalog.ts` と `src/engine/model/download.ts` です。リクエストに本文はありません。再開するときは `Range` ヘッダーだけで、ページの内容は送りません。`credentials` は指定しないため、既定の same-origin になり、プロフィールに保存された Hugging Face のクッキーは付きません。2026-11-05 には、認証なしのリクエストが両方のファイルで通りました（モデル API の `gated` は `false`、リダイレクトの `user_id` は `public`）。Hugging Face が後から制限することはあります。拡張機能はトークンを持ちません。
+コードは `src/engine/model/catalog.ts` と `src/engine/model/download.ts` です。リクエストに本文はありません。再開するときは `Range` ヘッダーだけで、ページの内容は送りません。`credentials` は指定しないため、既定の same-origin になり、プロフィールに保存された Hugging Face のクッキーは付きません。2026-11-06 には、認証なしのリクエストが両方のファイルで通りました（モデル API の `gated` は `false`、リダイレクトの `user_id` は `public`）。Hugging Face が後から制限することはあります。拡張機能はトークンを持ちません。
 
-`redirect: 'follow'` のため、ブラウザは Hugging Face が示したホストへ続きます。2026-11-05 のホストは `https://us.aws.cdn.hf.co/` でした。地域によりホストは変わります。その CDN には、IP アドレス、通常のブラウザのヘッダー、ファイル用の署名付き URL が届きます。ページの本文は届きません。`Link` ヘッダーには `https://cas-server.xethub.hf.co/` も出ていました。`fetch` は `Link` をたどらず、この拡張機能に Xet のクライアントはないため、そのホストへは要求しません。
+`redirect: 'follow'` のため、ブラウザは Hugging Face が示したホストへ続きます。2026-11-06 のホストは `https://us.aws.cdn.hf.co/` でした。地域によりホストは変わります。その CDN には、IP アドレス、通常のブラウザのヘッダー、ファイル用の署名付き URL が届きます。ページの本文は届きません。`Link` ヘッダーには `https://cas-server.xethub.hf.co/` も出ていました。`fetch` は `Link` をたどらず、この拡張機能に Xet のクライアントはないため、そのホストへは要求しません。
 
-標準は 0.8B（573,116,288 バイト）です。2B（1,807,192,480 バイト）は、利用者が選んだときだけ取得します。どちらも、使う前にピン留めした SHA-256 で確認します。一致しなければ捨てます。
+標準は 0.8B（573,123,200 バイト）です。2B（1,807,199,392 バイト）は、利用者が選んだときだけ取得します。どちらも、使う前にピン留めした SHA-256 で確認します。一致しなければ捨てます。
 
 ## 拡張機能が行わない通信
 
@@ -109,7 +109,7 @@ MIT の著作権表示にある `jammaru` はリポジトリ上の名前であ�
 
 ## 端末に保存するもの
 
-- 設定、用語集、サイトごとの規則、ライセンスへの同意、計測の記録（`chrome.storage.local`。`src/shared/storage.ts`、`src/dom/sites.ts`、`src/shared/quality.ts`）。計測の記録は、モデル ID、所要時間、固定の段落を測った時刻です。ページの本文は入れません。Chrome の文書では、`chrome.storage.local` は暗号化されず、拡張機能を削除すると消えます。
+- 設定、用語集、サイトごとの規則、ライセンスへの同意、計測の記録（`chrome.storage.local`。`src/shared/storage.ts`、`src/dom/sites.ts`、`src/shared/quality.ts`）。「はじめる」を押すと、同意を記録します。中身はライセンス名 `plamo-community`、同梱しているライセンス文の版、ISO 形式の時刻、`guardian: true` です。オンボーディングには、開始すると PLaMo Community License の第2条に同意したことになり、18歳以上であるか保護者の同意が必要だと書きます。ライセンス本文へのリンクもあります。同意用のチェックボックスはありません。計測の記録は、モデル ID、所要時間、固定の段落を測った時刻です。ページの本文は入れません。Chrome の文書では、`chrome.storage.local` は暗号化されず、拡張機能を削除すると消えます。
 - 能力情報の短いキャッシュ（`chrome.storage.session`）。
 - モデルファイル。OPFS の `sakutto` ディレクトリです（`src/engine/model/file-store.ts`）。
 - 翻訳キャッシュ。IndexedDB の `sakutto-translations` です（`src/engine/cache/store.ts`）。各行は訳文、どちらのエンジンか、時刻です。キーには原文の SHA-256 と用語集のハッシュが入り、原文そのものは入りません。最大 5,000 件で、最も昔に使ったものから捨てます。期限はありません。
@@ -130,7 +130,7 @@ MIT の著作権表示にある `jammaru` はリポジトリ上の名前であ�
 
 ## アカウントとオフライン
 
-拡張機能にアカウントはありません。2026-11-05 のモデル取得に、Hugging Face へのログインは不要でした。検査済みのファイルが保存されたあと、PLaMo の翻訳に通信は不要です。保存前には必要です。Chrome への切替も、言語パックが既に入っていることが必要です。何も保存していない新規導入では、どちらの経路もオフラインでは完了しません。
+拡張機能にアカウントはありません。2026-11-06 のモデル取得に、Hugging Face へのログインは不要でした。検査済みのファイルが保存されたあと、PLaMo の翻訳に通信は不要です。保存前には必要です。Chrome への切替も、言語パックが既に入っていることが必要です。何も保存していない新規導入では、どちらの経路もオフラインでは完了しません。
 
 ## 連絡先
 

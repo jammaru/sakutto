@@ -1,5 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_MODEL_ID, getModel } from '@/engine/model/catalog';
+import { formatByteSize } from '@/ui/format';
 
 interface MessageEntry {
   message: string;
@@ -80,5 +82,22 @@ describe('locale messages', () => {
     expect(ja.privacyBody?.message).not.toContain('端末の外');
     expect(en.licenseModelNote?.message).not.toMatch(/on first use/i);
     expect(ja.licenseModelNote?.message).not.toContain('初回に');
+  });
+
+  it('describes starting as agreement and uses the pinned model size', () => {
+    expect(en.onboardingStartNotice?.message).toBe(
+      "By starting, you agree to the PLaMo Community License (Article 2). You must be 18 or older, or have a parent or guardian's consent.",
+    );
+    expect(ja.onboardingStartNotice?.message).toBe(
+      '開始すると、PLaMo Community License（第2条）に同意したものとみなされます。18歳以上であるか、保護者の同意が必要です。',
+    );
+    expect(en).not.toHaveProperty('consentCheckbox');
+    expect(ja).not.toHaveProperty('consentCheckbox');
+
+    const label = formatByteSize(getModel(DEFAULT_MODEL_ID).size);
+    expect(en.onboardingModelNote?.message).toContain(label);
+    expect(ja.onboardingModelNote?.message).toContain(label);
+    expect(en.onboardingHttpError?.message).toContain('HTTP');
+    expect(ja.onboardingHttpError?.message).toContain('HTTP');
   });
 });

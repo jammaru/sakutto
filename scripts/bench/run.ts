@@ -6,14 +6,15 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext, type Page, type Worker } from '@playwright/test';
 
+import { DEFAULT_MODEL_ID, getModel } from '../../src/engine/model/catalog.ts';
 import { BATCH_SENTENCES, QUALITY_PARAGRAPH, SHORT_TEXT, enginePage } from './engine-page.ts';
 import { PAGES } from './fixtures.ts';
 import { startBenchServer } from './server.ts';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const MODEL_SHA = '3dbb09295bfd3350231ba0dba92bc72cb14111ef1b034e37dad39d581bd86b9c';
-const MODEL_URL =
-  'https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF/resolve/03891e907db8a43c97d3a7c75add125cc6d1f96a/plamo-3-translate-0.8b-Q4_K_M.gguf';
+const PINNED_MODEL = getModel(DEFAULT_MODEL_ID);
+const MODEL_SHA = PINNED_MODEL.sha256;
+const MODEL_URL = PINNED_MODEL.url;
 const MODEL_ID = 'plamo-3-translate-0.8b-q4_k_m';
 const JA_TOKENS_PER_CHAR = 447 / 1000;
 const PAGE_TIMEOUT_MS = 12 * 60 * 1000;

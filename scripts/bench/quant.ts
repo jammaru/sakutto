@@ -3,8 +3,11 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext, type Page } from '@playwright/test';
 
+import { DEFAULT_MODEL_ID, getModel } from '../../src/engine/model/catalog.ts';
 import { QUALITY_PARAGRAPH, enginePage } from './engine-page.ts';
 import { startBenchServer } from './server.ts';
+
+const PINNED_MODEL = getModel(DEFAULT_MODEL_ID);
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -56,18 +59,18 @@ const SAMPLES: readonly Sample[] = [
 const MODELS = [
   {
     id: 'Q4_K_M',
-    file: 'plamo-3-translate-0.8b-Q4_K_M.gguf',
-    bytes: 573_116_288,
+    file: PINNED_MODEL.file,
+    bytes: PINNED_MODEL.size,
   },
   {
     id: 'Q3_K_M',
     file: 'plamo-3-translate-0.8b-Q3_K_M.gguf',
-    bytes: 486_375_296,
+    bytes: 486_382_208,
   },
   {
     id: 'Q2_K',
     file: 'plamo-3-translate-0.8b-Q2_K.gguf',
-    bytes: 410_128_256,
+    bytes: 410_135_168,
   },
 ] as const;
 
@@ -187,7 +190,7 @@ async function main(): Promise<void> {
   for (const model of MODELS) models.push(await runModel(model));
   const result = {
     at: new Date().toISOString(),
-    commit: '03891e907db8a43c97d3a7c75add125cc6d1f96a',
+    commit: PINNED_MODEL.commit,
     samples: SAMPLES.map((sample) => ({ id: sample.id, src: sample.src, tgt: sample.tgt })),
     models,
   };

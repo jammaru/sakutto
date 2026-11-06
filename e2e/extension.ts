@@ -13,6 +13,7 @@ const ALLOWED_REQUEST = [
   /^http:\/\/localhost(?::\d+)?\//,
   /^https:\/\/huggingface\.co\//,
   /^https:\/\/cdn-lfs\.huggingface\.co\//,
+  /^https:\/\/(?:[a-z0-9-]+\.)*hf\.co\//,
   /^data:/,
   /^blob:/,
   /^about:/,

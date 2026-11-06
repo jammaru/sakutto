@@ -74,6 +74,21 @@ describe('ModelManager', () => {
     expect(store.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
   });
 
+  it('keeps an HTTP 403 on the model status', async () => {
+    const store = new MemoryFileStore();
+    const fetchImpl = vi.fn(async () => new Response(null, { status: 403 }));
+    const { manager } = createManager(store, { fetchImpl });
+
+    await expect(
+      manager.download(ENTRY.id, { signal: new AbortController().signal }),
+    ).rejects.toThrow(/HTTP 403/);
+    expect(await manager.status(ENTRY.id)).toMatchObject({
+      state: 'error',
+      error: expect.stringContaining('HTTP 403'),
+    });
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
   it('reports progress from a partial file and refuses to start without space', async () => {
     const store = new MemoryFileStore();
     await store.append(`models/${ENTRY.id}/model.gguf.part`, PAYLOAD.slice(0, 5), 0);

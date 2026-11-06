@@ -24,12 +24,12 @@ const ZERO_EIGHT: ModelEntry = {
   quantization: 'Q4_K_M',
   repository: 'pfnet/plamo-3-translate-0.8b-GGUF',
   file: 'plamo-3-translate-0.8b-Q4_K_M.gguf',
-  commit: '03891e907db8a43c97d3a7c75add125cc6d1f96a',
-  size: 573_116_288,
-  sha256: '3dbb09295bfd3350231ba0dba92bc72cb14111ef1b034e37dad39d581bd86b9c',
+  commit: 'dbeb0856cb0b004b484f190bb71dd65876297013',
+  size: 573_123_200,
+  sha256: '923b2f28a9856de1b8b3b610a7e59ded0b14d007466fd5dd526e6a9ecaadafdd',
   url: resolveUrl(
     'pfnet/plamo-3-translate-0.8b-GGUF',
-    '03891e907db8a43c97d3a7c75add125cc6d1f96a',
+    'dbeb0856cb0b004b484f190bb71dd65876297013',
     'plamo-3-translate-0.8b-Q4_K_M.gguf',
   ),
 };
@@ -40,12 +40,12 @@ const TWO: ModelEntry = {
   quantization: 'Q4_K_M',
   repository: 'pfnet/plamo-3-translate-2b-GGUF',
   file: 'plamo-3-translate-2b-Q4_K_M.gguf',
-  commit: 'f2b4599dff9b3e45c62567eac15e83186b4cb64e',
-  size: 1_807_192_480,
-  sha256: '2c288ecc7ebfe60c3561726580da3583767f3c41ca3ef5c6825bf6c4cc060787',
+  commit: '232fbd7916519edecddfdae0beae7e76fe70453f',
+  size: 1_807_199_392,
+  sha256: 'f36d0813dd95573a852ab5d76e374c543632d9e292929e922bcdbf7e53b494e0',
   url: resolveUrl(
     'pfnet/plamo-3-translate-2b-GGUF',
-    'f2b4599dff9b3e45c62567eac15e83186b4cb64e',
+    '232fbd7916519edecddfdae0beae7e76fe70453f',
     'plamo-3-translate-2b-Q4_K_M.gguf',
   ),
 };
