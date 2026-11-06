@@ -36,7 +36,8 @@ export function runtimeLabel(input: {
   if (isChromeOnlyLanguage(targetLanguage) || pageSimple) return { key: 'runtimeChrome' };
 
   if (status.plamoReady) {
-    return { key: status.backend === 'webgpu' ? 'runtimePlamoGpu' : 'runtimePlamoCpu' };
+    if (status.backend === 'webgpu') return { key: 'runtimePlamoGpu' };
+    return { key: status.gpuFallback === true ? 'runtimePlamoGpuFallback' : 'runtimePlamoCpu' };
   }
 
   if (state === 'error') return { key: 'runtimeError' };

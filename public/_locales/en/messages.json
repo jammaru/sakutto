@@ -402,6 +402,9 @@
   "runtimePlamoCpu": {
     "message": "PLaMo · CPU"
   },
+  "runtimePlamoGpuFallback": {
+    "message": "PLaMo · CPU (WebGPU could not load the model)"
+  },
   "runtimeChrome": {
     "message": "Chrome's built-in translation"
   },

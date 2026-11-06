@@ -38,6 +38,8 @@ export interface WllamaLoadParams {
   use_mlock?: boolean;
   warmup?: boolean;
   ctx_shift?: boolean;
+  /** llama.cpp log threshold: 1 debug, 2 info, 3 warn, 4 error. */
+  log_level?: number;
 }
 
 export interface WllamaCompletionChunk {

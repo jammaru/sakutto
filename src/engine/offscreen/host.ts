@@ -16,7 +16,7 @@ import { LazyInBrowserEngine } from '../in-browser/lazy-engine';
 import { createWllamaRuntime, type LlamaRuntime } from '../in-browser/runtime';
 import { DEFAULT_MODEL_ID, getModel, type ModelId } from '../model/catalog';
 import { OpfsModelFileStore } from '../model/file-store';
-import { ModelManager } from '../model/manager';
+import { ModelManager, type LoadedModel } from '../model/manager';
 import type { DownloadProgress } from '../model/download';
 import { QUALITY_PARAGRAPH } from '../model/suggestion';
 import { buildTranslationPrompt } from '../prompt/pfml3';
@@ -44,6 +44,8 @@ export interface EngineServices {
   router: RoutingEngine;
   chrome: ChromeTranslatorEngine;
   lazy: LazyInBrowserEngine;
+  /** Loads the active model, dropping to the CPU tier when the GPU cannot take it. */
+  load: (signal: AbortSignal) => Promise<LoadedModel>;
   readonly selection: BackendSelection;
   clearCache: () => Promise<void>;
   setTier: (tier: TierPreference) => Promise<void>;
@@ -98,6 +100,25 @@ async function warmup(runtime: LlamaRuntime, tgt: string): Promise<void> {
   }
 }
 
+/**
+ * Loads on the current selection and, when a GPU load fails for any reason but an abort,
+ * loads again on the CPU. Translation and warm-up both come through here, so neither can
+ * leave the engine without a model just because WebGPU would not take it.
+ */
+export async function loadWithCpuFallback(
+  ensureLoaded: (selection: BackendSelection) => Promise<LoadedModel>,
+  selection: BackendSelection,
+  signal: AbortSignal,
+): Promise<{ loaded: LoadedModel; selection: BackendSelection }> {
+  try {
+    return { loaded: await ensureLoaded(selection), selection };
+  } catch (error) {
+    const fallback = isAbortError(error) || signal.aborted ? null : cpuFallback(selection);
+    if (!fallback) throw error;
+    return { loaded: await ensureLoaded(fallback), selection: fallback };
+  }
+}
+
 export class EngineHost {
   private readonly idleReleaseMs: number;
   private readonly openServices: () => Promise<EngineServices>;
@@ -111,6 +132,8 @@ export class EngineHost {
   private idleGeneration = 0;
   private benchmark: AbortController | null = null;
   private prewarmKey: string | null = null;
+  /** The probe offered WebGPU but the model could not be placed on it. */
+  private gpuFallback = false;
 
   constructor(options: EngineHostOptions = {}) {
     this.idleReleaseMs = options.idleReleaseMs ?? IDLE_RELEASE_MS;
@@ -167,26 +190,21 @@ export class EngineHost {
     const manager = new ModelManager({ store, createRuntime: createWllamaRuntime });
     const cache = await openCache();
     const chrome = new ChromeTranslatorEngine();
-    const lazy = new LazyInBrowserEngine({
-      loadRuntime: async (signal) => {
-        let loaded;
+    const load = async (signal: AbortSignal): Promise<LoadedModel> => {
+      const result = await loadWithCpuFallback(
+        (selection) => manager.ensureLoaded(this.activeModelId, selection, { signal }),
+        selectionState.current,
+        signal,
+      );
+      if (result.selection !== selectionState.current) {
+        selectionState.current = result.selection;
+        this.gpuFallback = true;
+      }
 
-        try {
-          loaded = await manager.ensureLoaded(this.activeModelId, selectionState.current, {
-            signal,
-          });
-        } catch (error) {
-          const fallback = isAbortError(error) ? null : cpuFallback(selectionState.current);
-          if (!fallback) throw error;
-
-          loaded = await manager.ensureLoaded(this.activeModelId, fallback, { signal });
-          selectionState.current = fallback;
-        }
-
-        this.touch();
-        return loaded;
-      },
-    });
+      this.touch();
+      return result.loaded;
+    };
+    const lazy = new LazyInBrowserEngine({ loadRuntime: load });
 
     const chromeForCache = chrome.available ? new CachingEngine(chrome, cache, 'chrome') : null;
 
@@ -207,12 +225,14 @@ export class EngineHost {
       router,
       chrome,
       lazy,
+      load,
       get selection() {
         return selectionState.current;
       },
       clearCache: () => cache.clear(),
       setTier: async (tier: TierPreference) => {
         selectionState.current = selectionForTier(tier, probe);
+        this.gpuFallback = false;
         lazy.reset();
         await manager.unload();
       },
@@ -342,9 +362,7 @@ export class EngineHost {
       const services = await this.services();
       let loaded = services.manager.loadedModel;
       if (!loaded || loaded.id !== this.activeModelId) {
-        loaded = await services.manager.ensureLoaded(this.activeModelId, services.selection, {
-          signal: controller.signal,
-        });
+        loaded = await services.load(controller.signal);
       }
       try {
         await warmup(loaded.runtime, 'ja');
@@ -546,6 +564,7 @@ export class EngineHost {
       tier: selection.tier,
       threads: selection.nThreads,
       parallel: selection.nParallel,
+      gpuFallback: this.gpuFallback && selection.backend === 'cpu-wasm',
       plamoReady: this.plamoReady,
       chromeSupported: services.chrome.available,
       active: services.router.activeEngine,
