@@ -215,6 +215,10 @@
     void browser.runtime.openOptionsPage().catch(() => undefined);
   }
 
+  function openTyped() {
+    void browser.tabs.create({ url: browser.runtime.getURL('/typed.html') }).catch(() => undefined);
+  }
+
   onMount(() => {
     const unsubscribe = subscribeSettings((next) => {
       settings = next;
@@ -377,6 +381,10 @@
     <li>{t('shortcutBilingual')}</li>
     <li>{t('shortcutSelection')}</li>
   </ul>
+
+  <button class="button secondary block" type="button" onclick={openTyped}>
+    {t('openTyped')}
+  </button>
 
   <footer class="footer">
     <button class="link-button" type="button" onclick={openOptions}>{t('openOptions')}</button>

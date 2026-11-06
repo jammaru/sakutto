@@ -17,6 +17,23 @@ const EXCLUDED_SELECTOR = [
   '.notranslate',
 ].join(', ');
 
+/**
+ * Inline code inside a sentence. It must never be rewritten, and it must not move either.
+ *
+ * Dropping it from the segment split the sentence into two gaps, the translation was
+ * written into the first one, and the code element ended up after the translated line: a
+ * model card read `forward + reverse scan, , with a per-channel` with the identifier
+ * dangling at the end. These tags become placeholders instead, so the model keeps them where
+ * the sentence put them and the element itself is never rewritten — a code child is stored
+ * with no text slots, so whatever the model writes inside the tag is discarded and the
+ * original code stays in the DOM.
+ */
+const INLINE_CODE_TAGS: ReadonlySet<string> = new Set(['code', 'kbd', 'samp', 'var']);
+
+export function isInlineCode(element: Element): boolean {
+  return INLINE_CODE_TAGS.has(element.localName);
+}
+
 const BLOCK_SELECTOR = [
   'address',
   'article',
@@ -309,6 +326,33 @@ const DATA_ROW_MIN_CELLS = 2;
 const DATA_CELL_MAX_CHARS = 60;
 
 /**
+ * Elements that are copy by definition, so they are never a record row however many child
+ * elements they happen to have.
+ *
+ * A Hugging Face model card is what this fixes. Its headings are `<h2><a><span>How it
+ * works</span></a><span>…</span></h2>` and its paragraphs are prose with several `<code>`
+ * children. Both have two or more short child elements, three or more of them repeat down
+ * the card, and the repeated-row rule then read the whole model card as a data table: the
+ * headings and those paragraphs were dropped and the page reported a large leftover count.
+ */
+const PROSE_ROW_TAGS: ReadonlySet<string> = new Set([
+  'p',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'blockquote',
+  'caption',
+  'figcaption',
+  'summary',
+  'dt',
+  'dd',
+  'pre',
+]);
+
+/**
  * A cell of a repeating row: a ranking row, a price list, a file table. Three or more
  * sibling rows of the same tag, each with more than one cell, is a page showing data,
  * where a cell holds a value rather than copy.
@@ -343,16 +387,51 @@ const MAX_CELL_DEPTH = 3;
 function isRepeatedRow(row: Element): boolean {
   const list = row.parentElement;
   if (!list || row.children.length < DATA_ROW_MIN_CELLS) return false;
+  if (PROSE_ROW_TAGS.has(row.localName)) return false;
+  if (isProseMarkup(row)) return false;
 
   let rows = 0;
   for (const sibling of list.children) {
     if (sibling.localName !== row.localName) continue;
+    if (PROSE_ROW_TAGS.has(sibling.localName)) continue;
     if (sibling.children.length < DATA_ROW_MIN_CELLS) continue;
+    if (isProseMarkup(sibling)) continue;
     if (!showsOnlyValues(sibling)) continue;
     rows += 1;
     if (rows >= DATA_ROW_MIN_ROWS) return true;
   }
   return false;
+}
+
+/**
+ * A row whose cells are inline formatting rather than columns. A ranking row is
+ * `<li><span>1</span><a><span>antfu</span><span>Anthony Fu</span></a><span>Japan</span></li>`:
+ * it paints as a grid, and each cell is a separate box. A bullet of README prose is
+ * `<li><strong>Layers:</strong> causal mask removed.</li>` — one cell beside loose text — and
+ * a prose paragraph is text with an inline `<code>` in the middle. Neither is a record.
+ *
+ * The test is whether the row places its children in slots of their own. A record row
+ * always does (a grid, a flex line, a `<tr>`); a sentence does not, so its children are
+ * inline and part of the same line of text.
+ */
+function isProseMarkup(row: Element): boolean {
+  for (const node of row.childNodes) {
+    if (node.nodeType !== Node.TEXT_NODE) continue;
+    const value = node.nodeValue ?? '';
+    if (value.trim().length > 0 && LETTER_PATTERN.test(value)) return true;
+  }
+  const view = row.ownerDocument.defaultView;
+  if (!view) return false;
+  const display = view.getComputedStyle(row).display;
+  if (
+    display === 'flex' ||
+    display === 'inline-flex' ||
+    display === 'grid' ||
+    display === 'inline-grid'
+  ) {
+    return false;
+  }
+  return true;
 }
 
 function showsOnlyValues(row: Element): boolean {

@@ -14,7 +14,11 @@
   } from '@/shared/messages';
   import { advanceModelStatus } from '@/shared/model-progress';
   import { PLAMO_OFFICIAL_LINKS } from '@/shared/plamo-license';
-  import { PLAMO_LICENSE_VERSION } from '@/shared/settings';
+  import {
+    PLAMO_LICENSE_VERSION,
+    PLAMO_NOTICE_VERSION,
+    needsLicenseReconsent,
+  } from '@/shared/settings';
   import { loadSettings, saveSettings } from '@/shared/storage';
   import { prepareTranslatorPack } from '@/shared/translator-pack';
   import { estimateRemainingMs, type ByteMark } from '@/ui/download-eta';
@@ -41,6 +45,12 @@
   let targetLanguage = $state<TargetLanguage>(resolveTargetLanguage(currentUiLanguage()));
   let startRequested = $state(false);
   let consentSaved = $state(false);
+  /**
+   * True when a stored consent predates the clearer commercial summary. That user already
+   * agreed to the same license; they are shown the new notice once more, and the click
+   * rewrites the record without touching the downloaded model.
+   */
+  let reconsent = $state(false);
   let phase = $state<Phase>('consent');
   let failureDetail = $state<string | null>(null);
   let received = $state(0);
@@ -130,11 +140,13 @@
         consent: {
           license: 'plamo-community',
           version: PLAMO_LICENSE_VERSION,
+          notice: PLAMO_NOTICE_VERSION,
           acceptedAt: new Date().toISOString(),
           ageNoticeShown: true,
         },
       });
       consentSaved = true;
+      reconsent = false;
     } catch {
       phase = 'error';
       startRequested = false;
@@ -198,11 +210,15 @@
     void loadSettings()
       .then((settings) => {
         targetLanguage = settings.targetLanguage;
+        // A consent written under an earlier notice stays valid, but this user has not seen
+        // the clearer commercial summary. Showing it again does not invalidate the license,
+        // does not touch the stored model, and only asks for one more click.
+        reconsent = needsLicenseReconsent(settings);
         const stored = agreementFromStorage(settings.consent !== null, {
           started: startRequested,
         });
         if (stored === null) return;
-        consentSaved = stored;
+        consentSaved = stored && !reconsent;
       })
       .catch(() => undefined)
       .then(() => requestModelInspect(DEFAULT_MODEL_ID))
@@ -234,22 +250,6 @@
         <li>{t('onboardingBridgeNote')}</li>
         <li>{t('onboardingUseNow')}</li>
         <li>{t('onboardingPrivacyNote')}</li>
-      </ul>
-    </section>
-
-    <section class="panel notes">
-      <h2>{t('licensesHeading')}</h2>
-      <ul>
-        <li>
-          <a href={licenseLinks.plamoJa} target="_blank" rel="noreferrer">{t('licensePlaMoJa')}</a>
-        </li>
-        <li>
-          <a href={licenseLinks.plamoEn} target="_blank" rel="noreferrer">{t('licensePlaMoEn')}</a>
-        </li>
-        <li><a href={licenseLinks.mit} target="_blank" rel="noreferrer">{t('licenseMit')}</a></li>
-        <li>
-          <a href={licenseLinks.notice} target="_blank" rel="noreferrer">{t('licenseNotice')}</a>
-        </li>
       </ul>
     </section>
   {/if}
@@ -298,27 +298,75 @@
     {#if showStartNotice}
       <section class="panel consent" aria-labelledby="commercial-heading">
         <h2 id="commercial-heading">{t('onboardingCommercialHeading')}</h2>
-        <ul>
-          <li>{t('onboardingCommercialPrivate')}</li>
-          <li>{t('onboardingCommercialScope')}</li>
-          <li>{t('onboardingCommercialConditions')}</li>
-          <li>{t('onboardingCommercialChange')}</li>
-        </ul>
+
+        {#if reconsent}
+          <p class="reconsent">{t('onboardingReconsentHeading')}</p>
+          <p class="muted">{t('onboardingReconsentBody')}</p>
+        {/if}
+
+        <div class="terms">
+          <div>
+            <h3>{t('onboardingPersonalHeading')}</h3>
+            <p>{t('onboardingPersonalBody')}</p>
+          </div>
+          <div>
+            <h3>{t('onboardingCommercialHeading2')}</h3>
+            <p>{t('onboardingCommercialBody')}</p>
+            <ul class="conditions">
+              <li>{t('onboardingCommercialRegistration')}</li>
+              <li>{t('onboardingCommercialRevenue')}</li>
+            </ul>
+          </div>
+          <div>
+            <h3>{t('onboardingCommercialUnmetHeading')}</h3>
+            <p>{t('onboardingCommercialUnmetBody')}</p>
+          </div>
+        </div>
+
+        <p class="age">{t('onboardingAgeNotice')}</p>
+
         <p class="consent-links">
-          <a href={officialLinks.registration} target="_blank" rel="noreferrer"
-            >{t('plamoRegistrationLink')}</a
-          >
-          <a href={licenseLinks.plamoJa} target="_blank" rel="noreferrer">{t('licensePlaMoJa')}</a>
-          <a href={licenseLinks.plamoEn} target="_blank" rel="noreferrer">{t('licensePlaMoEn')}</a>
           <a href={officialLinks.licenseJa} target="_blank" rel="noreferrer"
             >{t('plamoOfficialLicenseJa')}</a
           >
-          <a href={officialLinks.licenseEn} target="_blank" rel="noreferrer"
-            >{t('plamoOfficialLicenseEn')}</a
+          <a href={officialLinks.registration} target="_blank" rel="noreferrer"
+            >{t('plamoRegistrationLink')}</a
           >
         </p>
+
+        <!--
+          Everything else stays reachable without repeating a wall of the same links above:
+          the English official text, both bundled copies, this code's MIT license and NOTICE.
+        -->
+        <details class="more">
+          <summary>{t('onboardingOtherLicenses')}</summary>
+          <ul class="consent-links">
+            <li>
+              <a href={officialLinks.licenseEn} target="_blank" rel="noreferrer"
+                >{t('plamoOfficialLicenseEn')}</a
+              >
+            </li>
+            <li>
+              <a href={licenseLinks.plamoJa} target="_blank" rel="noreferrer"
+                >{t('licensePlaMoJa')}</a
+              >
+            </li>
+            <li>
+              <a href={licenseLinks.plamoEn} target="_blank" rel="noreferrer"
+                >{t('licensePlaMoEn')}</a
+              >
+            </li>
+            <li>
+              <a href={licenseLinks.mit} target="_blank" rel="noreferrer">{t('licenseMit')}</a>
+            </li>
+            <li>
+              <a href={licenseLinks.notice} target="_blank" rel="noreferrer">{t('licenseNotice')}</a
+              >
+            </li>
+          </ul>
+        </details>
       </section>
-      <p id="start-notice" class="start-note">{t('onboardingStartNotice')}</p>
+      <p id="start-notice" class="start-note">{t('onboardingConsentSentence')}</p>
     {/if}
     <div class="action-row">
       {#if phase === 'ready'}
@@ -337,7 +385,11 @@
           disabled={closing}
           aria-describedby={showStartNotice ? 'start-notice' : undefined}
         >
-          {consentSaved ? t('downloadResume') : t('onboardingStart')}
+          {consentSaved
+            ? t('downloadResume')
+            : reconsent
+              ? t('onboardingReconsentStart')
+              : t('onboardingStart')}
         </button>
       {/if}
       <button class="button secondary" type="button" onclick={close} disabled={closing}>
@@ -495,9 +547,53 @@
     background: color-mix(in srgb, var(--accent) 8%, var(--surface));
   }
 
-  .consent ul {
+  .consent .terms {
     display: grid;
-    gap: var(--space-2);
+    gap: var(--space-3);
+  }
+
+  .consent h3 {
+    margin: 0 0 var(--space-1);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--text);
+  }
+
+  .consent .conditions {
+    display: grid;
+    gap: var(--space-1);
+    margin-top: var(--space-2);
+    padding-left: 18px;
+    list-style: disc;
+    font-size: 13px;
+  }
+
+  .consent .age {
+    margin-top: var(--space-3);
+    font-size: 13px;
+  }
+
+  .reconsent {
+    margin-bottom: var(--space-1);
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  .more {
+    margin-top: var(--space-2);
+    font-size: 13px;
+  }
+
+  .more > summary {
+    cursor: pointer;
+    color: var(--accent-strong);
+    font-weight: 600;
+  }
+
+  .more ul {
+    margin-top: var(--space-2);
   }
 
   .consent-links {

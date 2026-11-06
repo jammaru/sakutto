@@ -5,6 +5,7 @@ import {
   isDataRowCell,
   isDataValueText,
   isFrozenInline,
+  isInlineCode,
   isKeptInlineText,
   isScreenReaderOnly,
   isTranslationExcluded,
@@ -161,7 +162,24 @@ function buildFrame(element: Element, allocateId: () => string, freezeValues = f
       continue;
     }
 
-    if (!(child instanceof Element) || isTranslationExcluded(child)) continue;
+    if (!(child instanceof Element)) continue;
+    // Inline code keeps its place in the sentence but is never sent to the model as prose.
+    // It goes in as a placeholder whose frame holds no text slots, so the translation keeps
+    // the token where the sentence had it and the element's own text is never rewritten.
+    // Checked before the exclusion list, because `<code>` is excluded from translation but
+    // still has to hold its position in the line.
+    if (
+      isInlineCode(child) &&
+      isLaidOutInline(child) &&
+      !child.matches('[translate="no"], .notranslate')
+    ) {
+      const id = allocateId();
+      children.push({ id, element: child, gaps: [], children: [], order: [...child.childNodes] });
+      gaps.push([]);
+      source += `<${id}>${child.textContent ?? ''}</${id}>`;
+      continue;
+    }
+    if (isTranslationExcluded(child)) continue;
     // Screen-reader-only text and collapsed panels are not translated on their own, so
     // they must not be folded into a parent's segment either: the model would translate
     // a label the reader cannot see, and its text would then change behind their back.
