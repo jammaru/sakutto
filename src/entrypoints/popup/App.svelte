@@ -309,6 +309,9 @@
   {#if view?.targetAdjusted}
     <p class="muted">{t('targetAdjustedNote')}</p>
   {/if}
+  {#if view?.active && view.pending === 0 && view.skipped > 0}
+    <p class="muted" role="status">{t('pagePartial', [String(view.skipped)])}</p>
+  {/if}
   {#if view?.sameLanguage}
     <p class="muted">{t('sameLanguageHint')}</p>
   {/if}

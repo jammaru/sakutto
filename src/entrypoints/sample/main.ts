@@ -25,6 +25,7 @@ function overlayLabels(): OverlayLabels {
     barProgress: (done, total) => t('pageProgress', [String(done), String(total)]),
     barRate: (tokens, segments) => t('pageRate', [tokens, segments]),
     barDone: t('pageTranslated'),
+    barPartial: (blocks) => t('pagePartial', [String(blocks)]),
     barOriginal: t('restoreThisPage'),
     barAlways: t('alwaysTranslateSite'),
     barAlwaysOn: t('pageAlwaysOn'),

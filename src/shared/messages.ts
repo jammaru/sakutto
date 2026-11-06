@@ -51,6 +51,8 @@ export interface PageViewState {
   sameLanguage: boolean;
   tokensPerSecond: number | null;
   segmentsPerSecond: number | null;
+  /** Visible prose that stayed in the source language because no segment could be built. */
+  skipped: number;
 }
 
 const PAGE_COMMANDS: ReadonlySet<string> = new Set<PageCommandName>([
@@ -171,7 +173,8 @@ export function isPageViewState(value: unknown): value is PageViewState {
     typeof value.targetAdjusted === 'boolean' &&
     typeof value.sameLanguage === 'boolean' &&
     (value.tokensPerSecond === null || typeof value.tokensPerSecond === 'number') &&
-    (value.segmentsPerSecond === null || typeof value.segmentsPerSecond === 'number')
+    (value.segmentsPerSecond === null || typeof value.segmentsPerSecond === 'number') &&
+    (value.skipped === undefined || (typeof value.skipped === 'number' && value.skipped >= 0))
   );
 }
 

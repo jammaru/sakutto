@@ -307,6 +307,14 @@
   "pageTranslated": {
     "message": "This page is translated."
   },
+  "pagePartial": {
+    "message": "$BLOCKS$ parts of this page could not be translated.",
+    "placeholders": {
+      "blocks": {
+        "content": "$1"
+      }
+    }
+  },
   "pageAlwaysOn": {
     "message": "This site is always translated."
   },
