@@ -1927,6 +1927,64 @@ describe('long page translation', () => {
     }
   });
 
+  it('keeps the built-in draft of a piece that has none of its own', async () => {
+    document.documentElement.lang = 'en';
+    const sentence = 'This is one sentence about the release. ';
+    document.body.innerHTML = `<p id="lead">${sentence.repeat(12)}</p>`;
+    const spy = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockReturnValue(new DOMRect(0, 20, 640, 80));
+    let releasePlamo!: () => void;
+    const plamoGate = new Promise<void>((resolve) => {
+      releasePlamo = resolve;
+    });
+    let releaseChrome!: () => void;
+    const chromeGate = new Promise<void>((resolve) => {
+      releaseChrome = resolve;
+    });
+    const painted: string[] = [];
+
+    try {
+      const session = start(
+        document,
+        engineOf(async function* (segments) {
+          // Only the first piece gets a draft. The rest are drafted later, so this
+          // call is also where PLaMo must not wipe the previews already on screen.
+          const first = segments[0];
+          if (!first) return;
+          yield { id: first.id, final: '簡易一', engine: 'chrome' as const };
+          await chromeGate;
+          for (const segment of segments.slice(1)) {
+            yield { id: segment.id, final: '簡易', engine: 'chrome' as const };
+          }
+          await plamoGate;
+          yield { id: first.id, textDelta: '高', engine: 'plamo' as const };
+          painted.push(document.querySelector('#lead')?.textContent ?? '');
+          for (const segment of segments) {
+            yield { id: segment.id, final: `高:${segment.text}`, engine: 'plamo' as const };
+          }
+        }),
+      );
+
+      const pending = session.translate();
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        if (document.querySelector('#lead')?.textContent?.includes('簡易一')) break;
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+      releaseChrome();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      releasePlamo();
+      await pending;
+      await session.whenIdle();
+
+      expect(painted[0]).toContain('簡易一');
+      expect(painted[0]).not.toContain('高');
+      expect(document.querySelector('#lead')?.textContent).toContain('高:');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('moves the count while a long paragraph still has pieces left', async () => {
     document.documentElement.lang = 'en';
     const sentence = 'This is one sentence about the release. ';
@@ -2020,6 +2078,75 @@ describe('long page translation', () => {
       now += 30_000;
       const later = session.state();
       expect(later.tokensPerSecond === null || later.tokensPerSecond >= tokens * 0.5).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('streams PLaMo tokens into an on-screen paragraph that has no built-in draft', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p id="lead">Hello world from the article.</p>';
+    const spy = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockReturnValue(new DOMRect(0, 20, 640, 80));
+    const painted: string[] = [];
+
+    try {
+      const session = start(
+        document,
+        engineOf(async function* (segments) {
+          const segment = segments[0];
+          if (!segment) return;
+          for (const delta of ['こんに', 'ちは', '、世界', '。']) {
+            yield { id: segment.id, textDelta: delta, engine: 'plamo' as const };
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            painted.push(document.querySelector('#lead')?.textContent ?? '');
+          }
+          yield { id: segment.id, final: 'こんにちは、世界。', engine: 'plamo' as const };
+        }),
+      );
+
+      await session.translate();
+      await session.whenIdle();
+
+      expect(painted).toEqual(['こんに', 'こんにちは', 'こんにちは、世界', 'こんにちは、世界。']);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('does not keep half-decoded fragments as the translation of a failed block', async () => {
+    document.documentElement.lang = 'en';
+    const sentence = 'This is one sentence about the release. ';
+    document.body.innerHTML = `<p id="lead">${sentence.repeat(12)}</p><p id="next">Hello world</p>`;
+    const spy = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockReturnValue(new DOMRect(0, 20, 640, 80));
+    let attempts = 0;
+
+    try {
+      const session = start(
+        document,
+        engineOf(async function* (segments) {
+          const poison = segments.find((segment) => segment.text.includes('This is one sentence'));
+          if (poison) {
+            attempts += 1;
+            yield { id: poison.id, textDelta: '途中', engine: 'plamo' as const };
+            throw new Error('context overflow');
+          }
+          for (const segment of segments) {
+            yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+          }
+        }),
+      );
+
+      await session.translate();
+      await session.whenIdle();
+
+      expect(attempts).toBeGreaterThan(1);
+      expect(document.querySelector('#lead')?.textContent).not.toContain('途中');
+      expect(document.querySelector('#lead')?.textContent).toContain('This is one sentence');
+      expect(document.querySelector('#next')?.textContent).toContain('訳:Hello world');
     } finally {
       spy.mockRestore();
     }

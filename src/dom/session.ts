@@ -128,6 +128,8 @@ interface Live {
   partText: string[];
   partFinal: boolean[];
   partPlamo: boolean[];
+  /** True while this piece shows Chrome text that PLaMo has not replaced yet. */
+  partDraft: boolean[];
   rect: DOMRect | null;
   batchToken: number;
 }
@@ -819,6 +821,7 @@ export class PageSession {
       partText: [],
       partFinal: [],
       partPlamo: [],
+      partDraft: [],
       rect: null,
       batchToken: 0,
     };
@@ -858,6 +861,7 @@ export class PageSession {
       partText: [],
       partFinal: [],
       partPlamo: [],
+      partDraft: [],
       rect,
       batchToken: 0,
     };
@@ -1067,9 +1071,16 @@ export class PageSession {
       item.partPlamo = pieces.map((_, index) =>
         preserve ? item.partPlamo[index] === true : false,
       );
-      if (keepPreview || preserve) {
+      const retaining = keepPreview || preserve;
+      item.partDraft = pieces.map((_, index) => retaining && item.partDraft[index] === true);
+      if (retaining) {
         item.draft = keepPreview || item.draft;
-        item.partText = pieces.map((_, index) => item.partText[index] ?? '');
+        // A retry restarts unfinished pieces, so their half-decoded text must go;
+        // otherwise attempt two appends onto the fragment attempt one left behind.
+        item.partText = pieces.map((_, index) => {
+          const kept = item.partFinal[index] === true || item.partDraft[index] === true;
+          return kept ? (item.partText[index] ?? '') : '';
+        });
       } else {
         item.partText = pieces.map(() => '');
         item.draft = false;
@@ -1106,16 +1117,20 @@ export class PageSession {
           this.pumpPreviews();
         }
         if (plamoUpgrade) item.partPlamo[index] = true;
+        if (chunk.engine === 'chrome') item.partDraft[index] = true;
+        // Only a piece that already shows Chrome text waits for PLaMo to finish it.
+        // Any other piece streams token by token, so a page without the built-in
+        // translator still fills the paragraph that is on screen.
         const holdDraft =
-          plamoUpgrade &&
-          chunk.final === undefined &&
-          (item.partText[index]?.trim().length ?? 0) > 0;
+          plamoUpgrade && chunk.final === undefined && item.partDraft[index] === true;
         if (chunk.engine) item.engine = chunk.engine;
         if (chunk.textDelta && !holdDraft) {
+          if (chunk.engine === 'plamo') item.partDraft[index] = false;
           item.partText[index] = (item.partText[index] ?? '') + chunk.textDelta;
           this.queuePaint(item);
         }
         if (chunk.final !== undefined) {
+          if (chunk.engine === 'plamo') item.partDraft[index] = false;
           item.partText[index] = chunk.final;
           item.partFinal[index] = true;
           if (item.partFinal.every(Boolean)) this.complete(item);
@@ -1159,23 +1174,39 @@ export class PageSession {
     }
   }
 
-  /** Keeps any finished sentences and lets the page counter move past a block that will not complete. */
+  /**
+   * Keeps any finished sentences and lets the page counter move past a block that will not
+   * complete. Only pieces that actually finished are kept; a half-decoded fragment is not a
+   * translation, so that piece falls back to the source text instead.
+   */
   private settleFailed(item: Live): void {
     const pieces = expandSource(item);
-    const anyText = item.partText.some((part) => part.trim().length > 0);
+    const keep = pieces.map((_, index) =>
+      item.partFinal[index] === true || item.partDraft[index] === true
+        ? (item.partText[index]?.trim() ?? '')
+        : '',
+    );
     item.upgraded = true;
-    if (!anyText) {
+    if (!keep.some((part) => part.length > 0)) {
+      // Nothing finished. Undo the partial paint so the block shows its source text
+      // instead of a half-decoded fragment.
+      this.resetLive(item);
       item.state = 'done';
       item.translation = '';
+      item.partText = [];
+      item.partFinal = [];
+      item.partDraft = [];
+      item.engine = null;
       item.model?.block.removeAttribute('data-sakutto-pending');
       this.publishState();
       return;
     }
     item.partText = pieces.map((piece, index) => {
-      const text = item.partText[index]?.trim() ?? '';
+      const text = keep[index] ?? '';
       return text.length > 0 ? text : piece.text;
     });
     item.partFinal = item.partText.map(() => true);
+    item.partDraft = item.partText.map(() => false);
     this.complete(item);
   }
 
@@ -1240,6 +1271,7 @@ export class PageSession {
       item.flatten = true;
       item.partText = [];
       item.partFinal = [];
+      item.partDraft = [];
       item.translation = '';
       item.state = 'idle';
       item.model.block.setAttribute('data-sakutto-pending', '1');
@@ -1433,6 +1465,7 @@ export class PageSession {
       item.failures = 0;
       item.partText = [];
       item.partFinal = [];
+      item.partDraft = [];
       item.state = 'idle';
       this.enqueue(item, true);
     }
@@ -1484,6 +1517,7 @@ export class PageSession {
         item.state = 'idle';
         item.partText = [];
         item.partFinal = [];
+        item.partDraft = [];
         item.model?.block.removeAttribute('data-sakutto-pending');
         if (requeue && this.active && !this.navigating) this.enqueue(item);
       }
@@ -1663,8 +1697,12 @@ export class PageSession {
         if (item.state === 'running' || item.engine === 'plamo') return;
         if (chunk.final === undefined) continue;
         const index = partIndex(chunk.id);
-        if (item.partText.length !== pieces.length) item.partText = pieces.map(() => '');
+        if (item.partText.length !== pieces.length) {
+          item.partText = pieces.map(() => '');
+          item.partDraft = pieces.map(() => false);
+        }
         item.partText[index] = chunk.final;
+        item.partDraft[index] = true;
         item.engine = 'chrome';
         item.draft = true;
         this.paint(item, true);
