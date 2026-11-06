@@ -190,8 +190,18 @@ describe('locale messages', () => {
 
       // The heading names the terms of use, not just "commercial use".
       expect(messages.onboardingCommercialHeading?.message).toMatch(/terms|利用条件/);
-      expect(messages.licensesCommercialNote?.message).toMatch(/1 billion yen|10億円/);
     }
+  });
+
+  /**
+   * The terms are stated once, in the three-part panel, on both pages that show them. A
+   * fourth prose summary of the same conditions was the wall of text this change removes.
+   */
+  it('does not repeat a fourth prose summary of the commercial terms', () => {
+    expect(en).not.toHaveProperty('licensesCommercialNote');
+    expect(ja).not.toHaveProperty('licensesCommercialNote');
+    expect(en).not.toHaveProperty('onboardingCommercialConditions');
+    expect(ja).not.toHaveProperty('onboardingCommercialConditions');
   });
 
   it('keeps the first screen to the official Japanese license and the registration form', () => {

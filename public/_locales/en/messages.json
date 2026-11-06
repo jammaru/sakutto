@@ -477,9 +477,6 @@
   "plamoOfficialLicenseEn": {
     "message": "PLaMo Community License (official, English)"
   },
-  "licensesCommercialNote": {
-    "message": "Commercial use needs both prior registration on PFN's official form and income or sales of 1 billion yen or less in the most recent fiscal year. Personal and academic use needs no registration. If those conditions are not met, commercial use needs a commercial license from PFN."
-  },
   "onboardingUseNow": {
     "message": "Chrome's built-in translator is used only for the language pairs PLaMo does not support."
   },
