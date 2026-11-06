@@ -274,4 +274,29 @@ describe('locale messages', () => {
       expect(source, file).toContain('officialLinks.registration');
     }
   });
+
+  /**
+   * The typed box is a side-by-side comparison, so its copy has to describe two panes and
+   * stay in Sakutto's voice. A heading that reads the same in any translation product, or a
+   * promise of extra furniture this build does not have, is the thing to catch.
+   */
+  it('describes the typed box as a comparison in its own words', () => {
+    expect(en.typedSourceLanguageLabel?.message).toBe('Translate from');
+    expect(ja.typedSourceLanguageLabel?.message).toBe('訳元の言語');
+    for (const messages of [en, ja]) {
+      expect(messages.typedDetectSource?.message).toBeTruthy();
+      expect(messages.typedResultEmpty?.message).not.toMatch(/^The translation appears here\.$/);
+    }
+    // Nothing promises a document importer or a dictionary.
+    for (const entry of Object.values({ ...en, ...ja })) {
+      expect(entry.message).not.toMatch(/PDF|Word file|PowerPoint|辞書/iu);
+    }
+  });
+
+  it('has no copy left for a try control during the download', () => {
+    // The control is not rendered at all until the model is ready, so its label is gone
+    // from both locales rather than sitting unused.
+    expect(en).not.toHaveProperty('onboardingTryNow');
+    expect(ja).not.toHaveProperty('onboardingTryNow');
+  });
 });

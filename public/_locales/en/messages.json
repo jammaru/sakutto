@@ -284,6 +284,9 @@
   "restoreThisPage": {
     "message": "Restore the original"
   },
+  "pageStartBlocked": {
+    "message": "Page translation waits until the PLaMo model finishes downloading and loads. Open onboarding to see the progress."
+  },
   "pageTranslating": {
     "message": "Translating…"
   },
@@ -501,9 +504,6 @@
   "onboardingTry": {
     "message": "Try a sample page"
   },
-  "onboardingTryNow": {
-    "message": "Try it now"
-  },
   "onboardingWhileDownloading": {
     "message": "While the model downloads, pages keep their original text; nothing is translated until PLaMo is ready."
   },
@@ -668,7 +668,13 @@
     "message": "Type or paste text and translate it with the same PLaMo model the page translation uses. Nothing leaves this device."
   },
   "typedHeading": {
-    "message": "Your text"
+    "message": "Typed translation"
+  },
+  "typedSourceLanguageLabel": {
+    "message": "Translate from"
+  },
+  "typedDetectSource": {
+    "message": "Detected automatically"
   },
   "typedSourceLabel": {
     "message": "Text to translate"
@@ -731,7 +737,10 @@
     "message": "Translation"
   },
   "typedResultEmpty": {
-    "message": "The translation appears here."
+    "message": "The PLaMo translation appears here, beside the text you pasted."
+  },
+  "typedRunHint": {
+    "message": "Ctrl+Enter translates too."
   },
   "typedFailed": {
     "message": "The text could not be translated. Your text is unchanged; try again."

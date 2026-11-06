@@ -53,6 +53,28 @@ export function isModelStatus(value: unknown): value is ModelStatus {
   return true;
 }
 
+/**
+ * True when a translation request can be served right now. `ready` is a verified file on
+ * disk: the first request loads it, so a reader may start.
+ */
+export function modelCanTranslate(status: Pick<ModelStatus, 'state'> | null | undefined): boolean {
+  return status?.state === 'ready' || status?.state === 'loaded';
+}
+
+/**
+ * True when a start-now control has to stay out of the way because the model cannot answer
+ * yet: no file, a file still downloading or being verified, or a load that failed. `loading`
+ * is not blocked — a request joins the load that is already running.
+ *
+ * A control that starts a translation anyway leaves the reader in front of a page that keeps
+ * its source text, which reads as a broken translation rather than as a download in progress.
+ */
+export function modelStartBlocked(status: Pick<ModelStatus, 'state'> | null | undefined): boolean {
+  const state = status?.state;
+  if (state === undefined) return false;
+  return state !== 'ready' && state !== 'loaded' && state !== 'loading';
+}
+
 export function isEngineStatus(value: unknown): value is EngineStatus {
   if (typeof value !== 'object' || value === null) return false;
   const record = value as Record<string, unknown>;

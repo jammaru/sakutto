@@ -128,6 +128,10 @@
               {t('modelUse')}
             </button>
           {/if}
+        {:else if state === 'loading'}
+          <!-- The file is here and the runtime is reading it. A Download button in this
+               state is a start control for something that is already under way. -->
+          <p class="muted">{t('runtimeLoading')}</p>
         {:else}
           <button
             class="button"

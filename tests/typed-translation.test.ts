@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_TYPED_CHARS,
   copyTranslation,
+  isTranslateShortcut,
   normalizeTypedInput,
   planTypedTranslation,
   typedReadiness,
@@ -102,6 +103,29 @@ describe('typed input', () => {
     // `MAX_SEGMENT_TEXT` in the offscreen protocol is 20,000 characters; a longer typed
     // segment would be rejected before it reached the model.
     expect(MAX_TYPED_CHARS).toBe(20_000);
+  });
+});
+
+describe('the run shortcut', () => {
+  it('runs on Ctrl+Enter and Cmd+Enter', () => {
+    expect(isTranslateShortcut({ key: 'Enter', ctrlKey: true })).toBe(true);
+    expect(isTranslateShortcut({ key: 'Enter', metaKey: true })).toBe(true);
+  });
+
+  it('leaves a plain Enter to insert a line break', () => {
+    // The box is for paragraphs, so Enter has to keep its normal meaning.
+    expect(isTranslateShortcut({ key: 'Enter' })).toBe(false);
+    expect(isTranslateShortcut({ key: 'Enter', shiftKey: true } as never)).toBe(false);
+  });
+
+  it('never fires from an IME composition or with Alt held', () => {
+    expect(isTranslateShortcut({ key: 'Enter', ctrlKey: true, isComposing: true })).toBe(false);
+    expect(isTranslateShortcut({ key: 'Enter', ctrlKey: true, altKey: true })).toBe(false);
+  });
+
+  it('ignores every other key', () => {
+    expect(isTranslateShortcut({ key: 'a', ctrlKey: true })).toBe(false);
+    expect(isTranslateShortcut({ key: 'Tab', ctrlKey: true })).toBe(false);
   });
 });
 

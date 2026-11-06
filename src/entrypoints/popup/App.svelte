@@ -3,7 +3,7 @@
   import { browser } from 'wxt/browser';
   import { HIGH_QUALITY_MODEL_ID, getModel } from '@/engine/model/catalog';
   import { shouldSuggestHighQuality } from '@/engine/model/suggestion';
-  import type { EngineStatus, ModelStatus } from '@/shared/engine-status';
+  import { modelStartBlocked, type EngineStatus, type ModelStatus } from '@/shared/engine-status';
   import { hasLicenseConsent } from '@/shared/agreement';
   import { currentUiLanguage, t } from '@/shared/i18n';
   import {
@@ -28,7 +28,7 @@
     subscribeSiteRules,
     type SiteRule,
   } from '@/dom/sites';
-  import { resolvePageTarget, type TargetLanguage } from '@/shared/languages';
+  import { isChromeOnlyLanguage, resolvePageTarget, type TargetLanguage } from '@/shared/languages';
   import { advanceModelStatus } from '@/shared/model-progress';
   import { readDeviceHeadroom, type DeviceHeadroom } from '@/ui/device-headroom';
   import LanguageField from '@/ui/LanguageField.svelte';
@@ -60,6 +60,18 @@
   let display = $derived(rule?.display ?? settings?.display ?? 'replace');
   let translated = $derived(view?.active === true);
   let primaryLabel = $derived(translated ? t('restoreThisPage') : t('translateThisPage'));
+  /**
+   * The toolbar button starts a page translation, so it waits for the model the same way
+   * the onboarding card does. Restoring an already translated page is always allowed, and
+   * a Chrome-only target never needed PLaMo in the first place. An unknown status (the
+   * first moment of the popup, or a host that did not answer) keeps the button as it is
+   * rather than locking it on a guess.
+   */
+  let canStart = $derived(
+    translated ||
+      isChromeOnlyLanguage(targetLanguage) ||
+      !modelStartBlocked(engine?.model ?? modelMark),
+  );
   let engineText = $derived.by(() => {
     const label = runtimeLabel({
       status: engine,
@@ -215,6 +227,12 @@
     void browser.runtime.openOptionsPage().catch(() => undefined);
   }
 
+  function openOnboarding() {
+    void browser.tabs
+      .create({ url: browser.runtime.getURL('/onboarding.html') })
+      .catch(() => undefined);
+  }
+
   function openTyped() {
     void browser.tabs.create({ url: browser.runtime.getURL('/typed.html') }).catch(() => undefined);
   }
@@ -271,11 +289,20 @@
     type="button"
     aria-keyshortcuts="Alt+A"
     aria-busy={view?.pending ? 'true' : 'false'}
-    disabled={!pageReady || commandBusy}
+    disabled={!pageReady || commandBusy || !canStart}
     onclick={translatePage}
   >
     {primaryLabel}
   </button>
+
+  {#if !canStart}
+    <div class="panel gate" role="status">
+      <p class="muted">{t('pageStartBlocked')}</p>
+      <button class="link-button" type="button" onclick={openOnboarding}>
+        {t('openOnboarding')}
+      </button>
+    </div>
+  {/if}
 
   <p class="engine" aria-live="polite">{engineText}</p>
   {#if engine}
@@ -472,6 +499,16 @@
 
   .offer p {
     margin-bottom: var(--space-2);
+  }
+
+  .gate {
+    display: grid;
+    gap: var(--space-2);
+    justify-items: start;
+  }
+
+  .gate .link-button {
+    font-size: 12px;
   }
 
   .offer-actions {

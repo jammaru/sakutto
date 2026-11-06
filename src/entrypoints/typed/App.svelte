@@ -23,6 +23,7 @@
   import {
     MAX_TYPED_CHARS,
     copyTranslation,
+    isTranslateShortcut,
     normalizeTypedInput,
     planTypedTranslation,
     typedReadiness,
@@ -60,6 +61,7 @@
     !translating && trimmed.length > 0 && !tooLong && !chromeOnlyTarget && readiness === 'ready',
   );
   let targetLabel = $derived(displayLanguage(targetLanguage, uiLanguage));
+  let hasAnything = $derived(sourceText.length > 0 || result.length > 0);
 
   async function refreshEngine() {
     engineStatus = await requestEngineStatus();
@@ -94,6 +96,14 @@
     resultError = false;
     copied = false;
     copyFailed = false;
+  }
+
+  function clearBoth() {
+    abortController?.abort();
+    abortController = null;
+    translating = false;
+    sourceText = '';
+    resetResult();
   }
 
   async function translateTyped() {
@@ -141,6 +151,13 @@
     translating = false;
   }
 
+  function onSourceKeydown(event: KeyboardEvent) {
+    if (!isTranslateShortcut(event)) return;
+    if (!canTranslate) return;
+    event.preventDefault();
+    void translateTyped();
+  }
+
   async function copyResult() {
     copyFailed = false;
     copied = false;
@@ -152,8 +169,17 @@
     else copyFailed = true;
   }
 
+  /**
+   * Turns the comparison around: what was translated becomes the text to translate, and
+   * the target flips to the other half of the pair. Without this the swap only moved a
+   * label, and the reader had to select the result and paste it back by hand.
+   */
   function swap() {
     if (!plan.other) return;
+    const carried = result.trim();
+    stop();
+    resetResult();
+    if (carried.length > 0) sourceText = carried;
     void changeTarget(plan.other);
   }
 
@@ -215,17 +241,17 @@
     <img src="/icon/48.png" alt="" width="40" height="40" />
     <div>
       <h1>{t('extensionName')}</h1>
-      <p class="muted">{t('typedLead')}</p>
+      <p class="muted lead">{t('typedLead')}</p>
     </div>
   </header>
 
-  <section class="panel composer" aria-labelledby="typed-heading">
-    <h2 id="typed-heading">{t('typedHeading')}</h2>
+  <section class="workspace" aria-labelledby="typed-heading">
+    <h2 id="typed-heading" class="visually-hidden">{t('typedHeading')}</h2>
 
     <div class="direction">
       <LanguageField value={targetLanguage} {uiLanguage} onChange={changeTarget} />
       <button
-        class="button secondary swap"
+        class="swap"
         type="button"
         onclick={swap}
         aria-label={t('typedSwap')}
@@ -233,48 +259,104 @@
       >
         ⇄
       </button>
+      <p class="muted hint">{t('typedDirectionHint', [targetLabel])}</p>
     </div>
-    <p class="muted hint">{t('typedDirectionHint', [targetLabel])}</p>
 
-    <label class="field">
-      <span>{t('typedSourceLabel')}</span>
-      <textarea
-        bind:value={sourceText}
-        rows="7"
-        spellcheck="false"
-        placeholder={t('typedPlaceholder')}
-        aria-describedby="typed-counter"></textarea>
-    </label>
-    <p id="typed-counter" class="muted counter" class:over={tooLong}>
-      {t('typedCounter', [String(trimmed.length), String(MAX_TYPED_CHARS)])}
-    </p>
+    <div class="compare">
+      <section class="pane" aria-labelledby="typed-source-title">
+        <div class="pane-head">
+          <h2 id="typed-source-title">{t('typedSourceLabel')}</h2>
+          <span class="pane-note">{t('typedDetectSource')}</span>
+          <button
+            class="link-button pane-action"
+            type="button"
+            onclick={clearBoth}
+            disabled={!hasAnything}
+          >
+            {t('typedClear')}
+          </button>
+        </div>
+        <textarea
+          bind:value={sourceText}
+          aria-labelledby="typed-source-title"
+          aria-describedby="typed-counter"
+          spellcheck="false"
+          placeholder={t('typedPlaceholder')}
+          onkeydown={onSourceKeydown}></textarea>
+        <div class="pane-foot">
+          <p id="typed-counter" class="counter" class:over={tooLong}>
+            {t('typedCounter', [String(trimmed.length), String(MAX_TYPED_CHARS)])}
+          </p>
+        </div>
+        {#if tooLong}
+          <p class="error" role="alert">{t('typedTooLong', [String(MAX_TYPED_CHARS)])}</p>
+        {/if}
+      </section>
 
-    {#if chromeOnlyTarget}
-      <p class="muted" role="status">{t('typedChromeOnlyTarget', [targetLabel])}</p>
-    {:else if readiness === 'no-consent'}
-      <div class="gate">
-        <p>{t('typedNeedsConsent')}</p>
-        <button class="button" type="button" onclick={openOnboarding}>
-          {t('typedOpenOnboarding')}
-        </button>
-      </div>
-    {:else if readiness === 'model-absent' || readiness === 'model-partial'}
-      <div class="gate">
-        <p>{readiness === 'model-partial' ? t('typedModelPartial') : t('typedModelMissing')}</p>
-        <button class="button" type="button" onclick={startDownload} disabled={downloadBusy}>
-          {readiness === 'model-partial' ? t('downloadResume') : t('typedDownloadModel')}
-        </button>
-        {#if downloadFailed}
-          <p class="error" role="alert">{t('errorAction')}</p>
+      <section
+        class="pane output"
+        aria-labelledby="typed-result-title"
+        aria-busy={translating ? 'true' : 'false'}
+      >
+        <div class="pane-head">
+          <h2 id="typed-result-title">{t('typedResultHeading')}</h2>
+          <span class="pane-note">{targetLabel}</span>
+          <button
+            class="button secondary pane-action"
+            type="button"
+            onclick={copyResult}
+            disabled={result.trim().length === 0}
+          >
+            {copied ? t('typedCopied') : t('typedCopy')}
+          </button>
+        </div>
+
+        {#if chromeOnlyTarget}
+          <p class="muted note" role="status">{t('typedChromeOnlyTarget', [targetLabel])}</p>
+        {:else if readiness === 'no-consent'}
+          <div class="gate">
+            <p>{t('typedNeedsConsent')}</p>
+            <button class="button" type="button" onclick={openOnboarding}>
+              {t('typedOpenOnboarding')}
+            </button>
+          </div>
+        {:else if readiness === 'model-absent' || readiness === 'model-partial'}
+          <div class="gate">
+            <p>{readiness === 'model-partial' ? t('typedModelPartial') : t('typedModelMissing')}</p>
+            <button class="button" type="button" onclick={startDownload} disabled={downloadBusy}>
+              {readiness === 'model-partial' ? t('downloadResume') : t('typedDownloadModel')}
+            </button>
+            {#if downloadFailed}
+              <p class="error" role="alert">{t('errorAction')}</p>
+            {/if}
+          </div>
+        {:else if readiness === 'model-busy'}
+          <p class="muted note" role="status">{t('typedModelBusy')}</p>
+        {:else if readiness === 'model-error'}
+          <p class="error note" role="alert">{t('typedModelError')}</p>
+        {:else if resultError}
+          <p class="error note" role="alert">{t('typedFailed')}</p>
+        {:else if result.trim().length > 0}
+          <output class="result" lang={targetLanguage} aria-labelledby="typed-result-title"
+            >{result}</output
+          >
+        {:else}
+          <p class="muted empty">{t('typedResultEmpty')}</p>
+        {/if}
+
+        <div class="pane-foot">
+          <p class="status" role="status">{translating ? t('typedTranslating') : ''}</p>
+        </div>
+      </section>
+    </div>
+
+    <div class="run">
+      <div class="run-status">
+        {#if copyFailed}
+          <p class="error" role="alert">{t('typedCopyFailed')}</p>
         {/if}
       </div>
-    {:else if readiness === 'model-busy'}
-      <p class="muted" role="status">{t('typedModelBusy')}</p>
-    {:else if readiness === 'model-error'}
-      <p class="error" role="alert">{t('typedModelError')}</p>
-    {/if}
-
-    <div class="actions">
+      <p class="muted shortcut">{t('typedRunHint')}</p>
       {#if translating}
         <button class="button secondary" type="button" onclick={stop}>{t('typedStop')}</button>
       {:else}
@@ -282,44 +364,7 @@
           {t('typedTranslate')}
         </button>
       {/if}
-      <button
-        class="button secondary"
-        type="button"
-        onclick={copyResult}
-        disabled={result.trim().length === 0}
-      >
-        {copied ? t('typedCopied') : t('typedCopy')}
-      </button>
-      <button
-        class="button secondary"
-        type="button"
-        onclick={resetResult}
-        disabled={result.length === 0}
-      >
-        {t('typedClear')}
-      </button>
     </div>
-
-    {#if copyFailed}
-      <p class="error" role="alert">{t('typedCopyFailed')}</p>
-    {/if}
-    {#if tooLong}
-      <p class="error" role="alert">{t('typedTooLong', [String(MAX_TYPED_CHARS)])}</p>
-    {/if}
-  </section>
-
-  <section class="panel" aria-labelledby="result-heading">
-    <h2 id="result-heading">{t('typedResultHeading')}</h2>
-    {#if resultError}
-      <p class="error" role="alert">{t('typedFailed')}</p>
-    {:else if result.trim().length > 0}
-      <output class="result" lang={targetLanguage}>{result}</output>
-    {:else}
-      <p class="muted">{t('typedResultEmpty')}</p>
-    {/if}
-    {#if translating}
-      <p class="muted">{t('typedTranslating')}</p>
-    {/if}
   </section>
 
   <footer class="footer">
@@ -334,7 +379,7 @@
   .page {
     display: grid;
     gap: var(--space-4);
-    max-width: 640px;
+    max-width: 1040px;
     margin: 0 auto;
     padding: var(--space-6) var(--space-5);
   }
@@ -349,66 +394,121 @@
     border-radius: var(--radius-sm);
   }
 
+  .lead {
+    max-width: 640px;
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
   h1 {
     font-size: 16px;
     font-weight: 700;
   }
 
   h2 {
-    margin-bottom: var(--space-3);
     color: var(--muted);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
 
-  .composer {
+  .workspace {
     display: grid;
     gap: var(--space-3);
+    padding: var(--space-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
   }
 
   .direction {
-    display: grid;
-    grid-template-columns: 1fr auto;
+    display: flex;
+    flex-wrap: wrap;
     align-items: end;
-    gap: var(--space-2);
+    gap: var(--space-2) var(--space-3);
+  }
+
+  .direction :global(.field) {
+    min-width: 200px;
   }
 
   .swap {
     min-width: 44px;
-    padding: 9px 12px;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text);
     font-size: 16px;
     line-height: 1;
   }
 
-  .hint,
-  .counter {
+  .swap:hover {
+    background: var(--surface-muted);
+  }
+
+  .hint {
+    flex: 1 1 240px;
+    padding-bottom: 8px;
     font-size: 12px;
   }
 
-  .counter {
-    justify-self: end;
-  }
-
-  .counter.over {
-    color: var(--danger);
-  }
-
-  .field {
+  .compare {
     display: grid;
-    gap: var(--space-1);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-3);
   }
 
-  .field > span {
+  .pane {
+    display: grid;
+    align-content: start;
+    gap: var(--space-2);
+    min-width: 0;
+    padding: var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+  }
+
+  .pane.output {
+    background: var(--surface-muted);
+  }
+
+  .pane-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 30px;
+  }
+
+  .pane-note {
+    flex: 1 1 auto;
     color: var(--muted);
     font-size: 11px;
-    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pane-action {
+    flex: none;
+    padding: 3px 10px;
+    font-size: 12px;
   }
 
   textarea {
     width: 100%;
-    min-height: 140px;
+    min-height: 240px;
     padding: 10px 12px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
@@ -418,6 +518,51 @@
     resize: vertical;
   }
 
+  .result {
+    display: block;
+    min-height: 240px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .empty {
+    min-height: 240px;
+    padding: 10px 12px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .note {
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .pane-foot {
+    display: flex;
+    justify-content: flex-end;
+    min-height: 18px;
+  }
+
+  .counter,
+  .status,
+  .shortcut {
+    font-size: 12px;
+  }
+
+  .counter.over {
+    color: var(--danger);
+  }
+
+  .status {
+    color: var(--muted);
+  }
+
   .gate {
     display: grid;
     gap: var(--space-2);
@@ -425,19 +570,20 @@
     padding: var(--space-3);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    background: var(--surface-muted);
+    background: var(--surface);
+    font-size: 12px;
+    line-height: 1.6;
   }
 
-  .actions {
+  .run {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-3);
   }
 
-  .result {
-    display: block;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
+  .run-status {
+    margin-right: auto;
   }
 
   .footer {
@@ -445,9 +591,31 @@
     gap: var(--space-1);
   }
 
+  /* One column keeps both boxes wide enough to read; stacking source above result is the
+     order the comparison is read in anyway. */
+  @media (max-width: 720px) {
+    .compare {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .pane.output {
+      border-top: 3px solid var(--accent);
+    }
+  }
+
   @media (max-width: 480px) {
     .page {
       padding: var(--space-5) var(--space-4);
+    }
+
+    .run {
+      flex-wrap: wrap;
+      justify-content: flex-start;
+    }
+
+    .shortcut {
+      flex-basis: 100%;
+      order: 3;
     }
   }
 </style>

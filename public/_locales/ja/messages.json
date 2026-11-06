@@ -284,6 +284,9 @@
   "restoreThisPage": {
     "message": "原文に戻す"
   },
+  "pageStartBlocked": {
+    "message": "PLaMo のモデルのダウンロードと読み込みが終わるまで、ページ翻訳は始められません。進行状況はオンボーディングで確認できます。"
+  },
   "pageTranslating": {
     "message": "翻訳しています…"
   },
@@ -501,9 +504,6 @@
   "onboardingTry": {
     "message": "サンプルページで試す"
   },
-  "onboardingTryNow": {
-    "message": "今すぐ試す"
-  },
   "onboardingWhileDownloading": {
     "message": "モデルのダウンロード中、ページは原文のまま表示します。PLaMo の準備ができるまで訳文は出ません。"
   },
@@ -668,7 +668,13 @@
     "message": "テキストを入力または貼り付けて、ページ翻訳と同じ PLaMo で翻訳します。端末の外へは送りません。"
   },
   "typedHeading": {
-    "message": "入力するテキスト"
+    "message": "テキストの翻訳"
+  },
+  "typedSourceLanguageLabel": {
+    "message": "訳元の言語"
+  },
+  "typedDetectSource": {
+    "message": "自動で判定します"
   },
   "typedSourceLabel": {
     "message": "翻訳するテキスト"
@@ -731,7 +737,10 @@
     "message": "訳文"
   },
   "typedResultEmpty": {
-    "message": "訳文はここに表示します。"
+    "message": "貼り付けたテキストの隣に、PLaMo の訳文をここへ表示します。"
+  },
+  "typedRunHint": {
+    "message": "Ctrl+Enter でも翻訳できます。"
   },
   "typedFailed": {
     "message": "翻訳できませんでした。入力したテキストはそのままです。もう一度お試しください。"
