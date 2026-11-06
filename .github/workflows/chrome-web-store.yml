@@ -1,0 +1,86 @@
+name: Chrome Web Store
+
+# Manual only. A push to main does not upload or publish.
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Submit the uploaded package for Chrome Web Store review. Off uploads only.
+        type: boolean
+        default: false
+
+concurrency:
+  group: chrome-web-store
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  credentials:
+    name: Credentials
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Require OAuth secrets
+        env:
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+          EXTENSION_ID: ${{ secrets.EXTENSION_ID || vars.EXTENSION_ID || 'mhlbjjijfkoghmcjndgdimhdlfkhadfl' }}
+          PUBLISHER_ID: ${{ secrets.PUBLISHER_ID || vars.PUBLISHER_ID || 'a842b3f6-c065-46c2-b77a-0448bd11f52a' }}
+        run: node scripts/cws-upload.ts --check
+
+  package:
+    name: Package
+    needs: credentials
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/package-extension
+
+  upload:
+    name: Upload
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: chrome-mv3-zip
+          path: store-zip
+
+      - name: Install chrome-webstore-upload-cli
+        shell: bash
+        run: npm install --ignore-scripts --no-audit --no-fund --prefix "${RUNNER_TEMP}/cws-cli" chrome-webstore-upload-cli@4.0.2
+
+      - name: Upload the package
+        shell: bash
+        env:
+          PATH: ${{ runner.temp }}/cws-cli/node_modules/.bin:${{ env.PATH }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+          EXTENSION_ID: ${{ secrets.EXTENSION_ID || vars.EXTENSION_ID || 'mhlbjjijfkoghmcjndgdimhdlfkhadfl' }}
+          PUBLISHER_ID: ${{ secrets.PUBLISHER_ID || vars.PUBLISHER_ID || 'a842b3f6-c065-46c2-b77a-0448bd11f52a' }}
+          CWS_SUBMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.publish == true && 'true' || 'false' }}
+        run: node scripts/cws-upload.ts store-zip

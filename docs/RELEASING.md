@@ -91,6 +91,10 @@ Chrome ウェブストアの更新では、拡張機能 ID は変わりません
 
 ストア版と、別の拡張機能 ID で読み込んだパッケージ（たとえばパッケージ化されていない拡張機能）はオリジンが違うため、モデルを共有しません。
 
+## chrome-webstore-upload-cli
+
+Actions から同じ公式 API v2 を `chrome-webstore-upload-cli` で呼ぶ手順は [CWS_UPLOAD.md](CWS_UPLOAD.md) です。必要な secrets は `CLIENT_ID`、`CLIENT_SECRET`、`REFRESH_TOKEN` です。一つでも無いときはスキップせず失敗します。`main` への push では動かず、公開は手動実行で publish を選んだときだけです。上の `CWS_*` とは別の名前です。
+
 ## 関連
 
 - ビルド: [BUILDING.md](BUILDING.md)
