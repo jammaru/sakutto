@@ -363,13 +363,13 @@
     "message": "Always translate this site"
   },
   "shortcutTranslate": {
-    "message": "Alt+A translates the page or restores the original."
+    "message": "Alt+A (Option+A on a Mac) translates the page or restores the original."
   },
   "shortcutBilingual": {
-    "message": "Alt+B switches between replacement and bilingual view, and remembers the choice for this site."
+    "message": "Alt+B (Option+B on a Mac) switches between replacement and bilingual view, and remembers the choice for this site."
   },
   "shortcutSelection": {
-    "message": "Alt+S translates the selected text."
+    "message": "Alt+S (Option+S on a Mac) translates the selected text."
   },
   "runtimePreparing": {
     "message": "Preparing $PERCENT$%",
@@ -493,10 +493,10 @@
     "message": "Click the toolbar icon to translate the open page."
   },
   "onboardingReadyPage": {
-    "message": "Press Alt+A to translate the whole page. Press it again to restore the original."
+    "message": "Press Alt+A (Option+A on a Mac) to translate the whole page. Press it again to restore the original."
   },
   "onboardingReadySelection": {
-    "message": "Press Alt+S to translate selected text."
+    "message": "Press Alt+S (Option+S on a Mac) to translate selected text."
   },
   "onboardingReadyContext": {
     "message": "Right-click the page and choose \"Translate this page\". For selected text, choose \"Translate the selected text\"."
@@ -740,7 +740,7 @@
     "message": "The PLaMo translation appears here, beside the text you pasted."
   },
   "typedRunHint": {
-    "message": "Ctrl+Enter translates too."
+    "message": "Ctrl+Enter (⌘+Enter on a Mac) translates too."
   },
   "typedFailed": {
     "message": "The text could not be translated. Your text is unchanged; try again."

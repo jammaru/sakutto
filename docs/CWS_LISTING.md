@@ -53,6 +53,8 @@ Sakutto は、ウェブページをこの端末の中で翻訳する無料のオ
 
 PLaMo のライセンスでは、個人利用と学術利用は登録が不要です。商業目的には、事業での利用、営利を目的とする利用、組織の内部での利用、製品やサービスの開発・提供も含まれます。商業利用が認められるのは、PFN の公式フォームへの事前登録と、直近事業年度の収入・売上が10億円以下であることの両方を満たす場合だけです。満たさなくなった場合は、PFN の商業用ライセンスが必要です。この条件は PLaMo のモデルのライセンスによるもので、Sakutto の MIT のコードを制限するものではありません。全文は同梱しています。
 
+ショートカットは、Windows と Linux では Alt+A（ページの翻訳と原文）、Alt+B（対訳表示）、Alt+S（選択したテキスト）です。Mac では Option+A、Option+B、Option+S です。入力したテキストの翻訳は Ctrl+Enter、Mac では ⌘+Enter です。キーは chrome://extensions/shortcuts で変更できます。
+
 インストール時に、すべてのサイトへのアクセスは要求しません。サイトの自動翻訳をオンにしたときだけ、そのサイトのホスト権限を求めます。開いているページの翻訳は、その操作のときに行います。
 
 PLaMo 3 Translate は 53 言語です。Chrome 116 以降で動きます。
@@ -74,7 +76,7 @@ https://huggingface.co/pfnet/plamo-3-translate-2b-GGUF/resolve/232fbd7916519edec
 プライバシーポリシー: https://github.com/jammaru/sakutto/blob/main/PRIVACY.md
 ```
 
-文字数: 2263 / 16000
+文字数: 2461 / 16000
 
 ### カテゴリ
 
@@ -216,6 +218,8 @@ Reading styles are replace-original and bilingual. Language and reading style ca
 
 PLaMo's license needs no registration for personal or academic use. Under it, commercial purpose includes business and for-profit use, use inside an organization, and developing or providing a product or service. Commercial use is allowed only with prior registration on PFN's official form and income or sales for you or your affiliates of no more than 1 billion yen in the most recent fiscal year. If those conditions are not met, commercial use needs a separate commercial license from PFN. That condition comes from the model's license, not from Sakutto's MIT code. The full texts are bundled.
 
+Shortcuts on Windows and Linux are Alt+A (translate the page or restore it), Alt+B (bilingual view), and Alt+S (selected text). On a Mac they are Option+A, Option+B, and Option+S. Typed text translates with Ctrl+Enter, or ⌘+Enter on a Mac. Change the keys at chrome://extensions/shortcuts.
+
 Host access is not requested for every site at install. Optional host permission is requested only when automatic translation is turned on for a site. Translating the open page happens when you ask for it.
 
 PLaMo 3 Translate covers 53 languages. The extension requires Chrome 116 or later.
@@ -237,7 +241,7 @@ https://huggingface.co/pfnet/plamo-3-translate-2b-GGUF/resolve/232fbd7916519edec
 Privacy policy: https://github.com/jammaru/sakutto/blob/main/PRIVACY.md
 ```
 
-文字数: 3788 / 16000
+文字数: 4079 / 16000
 
 ### Category
 
