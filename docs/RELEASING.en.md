@@ -43,3 +43,7 @@ The Google account needs 2-step verification. Fill in the store listing and priv
 6. Store the five values as repository Actions secrets.
 
 The model stored in OPFS is not downloaded again on an extension update unless the model changes. A store update keeps the extension id, so the origin and its OPFS directory (`sakutto`, from `navigator.storage.getDirectory()`) remain. The saved file stays ready while its SHA-256 and size match `src/engine/model/catalog.ts`. A new catalog hash or size, or a delete by the user, downloads the model again. An unpacked extension with a different id does not share that storage.
+
+## chrome-webstore-upload-cli
+
+[CWS_UPLOAD.en.md](CWS_UPLOAD.en.md) is the manual workflow that calls the same API v2 through `chrome-webstore-upload-cli`. It needs `CLIENT_ID`, `CLIENT_SECRET`, and `REFRESH_TOKEN`. A missing secret fails the run instead of skipping it. It does not run on pushes to `main`, and it publishes only when that dispatch input is selected. Those names are separate from the `CWS_*` secrets above.

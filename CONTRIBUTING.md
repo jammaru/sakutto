@@ -28,3 +28,5 @@ The PLaMo Community License texts in `licenses/` are verbatim copies. Do not rew
 ## Release
 
 Owners ship from a clean `main` checkout with `pnpm release patch` (or `minor` / `major`). The command bumps the version, updates `CHANGELOG.md`, commits, and creates an annotated tag. It does not push. See [docs/RELEASING.md](docs/RELEASING.md) and [docs/RELEASING.en.md](docs/RELEASING.en.md).
+
+Uploading that package with `chrome-webstore-upload-cli` is a separate manual workflow. It does not run on pushes to `main`. See [docs/CWS_UPLOAD.md](docs/CWS_UPLOAD.md).
