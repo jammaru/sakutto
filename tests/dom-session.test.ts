@@ -2088,6 +2088,42 @@ describe('long page translation', () => {
     }
   });
 
+  it('counts batches, pieces and previews for the page bench', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = `
+      <p id="a">Hello world from the article</p>
+      <p id="b">Second block of text</p>
+      <p id="c">Third block, also short</p>
+    `;
+    let batches = 0;
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        batches += 1;
+        for (const segment of segments) {
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    const raw = document.querySelector('sakutto-perf')?.textContent ?? '';
+    const perf = JSON.parse(raw) as {
+      batches: number;
+      pieces: number;
+      previews: number;
+      engineMs: number;
+    };
+    expect(perf.batches).toBe(batches);
+    expect(perf.batches).toBeGreaterThan(0);
+    // Every translated block is one piece, and pieces can share a batch.
+    expect(perf.pieces).toBeGreaterThanOrEqual(perf.batches);
+    expect(perf.previews).toBe(0);
+    expect(perf.engineMs).toBeGreaterThanOrEqual(0);
+  });
+
   it('streams PLaMo tokens into an on-screen paragraph that has no built-in draft', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML = '<p id="lead">Hello world from the article.</p>';
