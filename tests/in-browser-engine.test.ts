@@ -299,6 +299,39 @@ describe('InBrowserEngine', () => {
     ]);
   });
 
+  it('puts the source back on a shown line whose retry comes back empty', async () => {
+    const runtime = new FakeRuntime((prompt) => {
+      if (prompt.includes('Sign in\nSettings')) return '設定';
+      if (prompt.includes('Sign in')) return '';
+      if (prompt.includes('Settings')) return '設定';
+      return 'もっと見る';
+    });
+    const engine = new InBrowserEngine(runtime);
+
+    const chunks = await collectChunks(
+      engine.translate(
+        [
+          { id: 'a', text: 'Sign in' },
+          { id: 'b', text: 'Settings' },
+          { id: 'c', text: 'Learn more' },
+        ],
+        options(),
+      ),
+    );
+
+    // "設定" was streamed into the first block by the misaligned batch.
+    const streamed = chunks
+      .filter((chunk) => chunk.id === 'a' && chunk.textDelta !== undefined)
+      .map((chunk) => chunk.textDelta)
+      .join('');
+    expect(streamed).toBe('設定');
+    expect(finalChunks(chunks)).toEqual([
+      { id: 'a', final: 'Sign in', engine: 'plamo' },
+      { id: 'b', final: '設定', engine: 'plamo' },
+      { id: 'c', final: 'もっと見る', engine: 'plamo' },
+    ]);
+  });
+
   it('keeps the next segment when one piece does not fit in the context', async () => {
     const runtime = new FakeRuntime(() => '訳');
     const engine = new InBrowserEngine(runtime, { contextTokens: 96 });

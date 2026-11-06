@@ -262,7 +262,11 @@ export class InBrowserEngine implements IdentifiedEngine {
         });
         restart = false;
       });
-      stream.push({ id: segment.id, final: cleanModelOutput(output), engine: this.kind });
+      const cleaned = cleanModelOutput(output);
+      // An empty retry sends no delta to restart with, and an empty final paints nothing, so
+      // a line that was shown would keep the misaligned text. The source replaces it instead.
+      const final = cleaned.length === 0 && index < alreadyShown ? segment.text : cleaned;
+      stream.push({ id: segment.id, final, engine: this.kind });
     }
   }
 
