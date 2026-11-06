@@ -260,6 +260,9 @@
   "selectionTitle": {
     "message": "選択したテキスト"
   },
+  "selectionIcon": {
+    "message": "選択したテキストを翻訳します"
+  },
   "close": {
     "message": "閉じる"
   },

@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildSegment } from '@/dom/segment';
 import { applyTranslation, restoreSegment } from '@/dom/render';
+import { SELECTION_ICON_PX, selectionIconBox } from '@/dom/overlay';
 import { PageSession, type PageEngine, type SessionPreferences } from '@/dom/session';
 import type { TranslateOptions } from '@/engine/types';
 
@@ -13,6 +14,7 @@ const labels = {
   selectionPending: '翻訳しています…',
   selectionFailed: 'この選択範囲を翻訳できませんでした。',
   selectionTitle: '選択したテキスト',
+  selectionIcon: '選択したテキストを翻訳します',
   close: '閉じる',
   bilingualOn: 'このサイトの表示を対訳にしました。',
   replaceOn: 'このサイトの表示を置換にしました。',
@@ -1494,5 +1496,232 @@ describe('page translation corrections', () => {
     expect(calls).toBe(1);
     release();
     await session.whenIdle();
+  });
+});
+
+function overlapsRect(
+  left: number,
+  top: number,
+  size: number,
+  anchor: Pick<DOMRect, 'left' | 'top' | 'right' | 'bottom'>,
+): boolean {
+  return (
+    left < anchor.right &&
+    left + size > anchor.left &&
+    top < anchor.bottom &&
+    top + size > anchor.top
+  );
+}
+
+describe('selection icon placement', () => {
+  it('sits beside a highlight and moves below or above when the edge is tight', () => {
+    const besideAnchor = new DOMRect(20, 40, 120, 18);
+    const beside = selectionIconBox(besideAnchor, { width: 800, height: 600 });
+    expect(overlapsRect(beside.left, beside.top, SELECTION_ICON_PX, besideAnchor)).toBe(false);
+    expect(beside.left).toBeGreaterThan(besideAnchor.right);
+
+    const belowAnchor = new DOMRect(160, 40, 30, 18);
+    const below = selectionIconBox(belowAnchor, { width: 200, height: 800 });
+    expect(overlapsRect(below.left, below.top, SELECTION_ICON_PX, belowAnchor)).toBe(false);
+    expect(below.top).toBeGreaterThanOrEqual(belowAnchor.bottom);
+
+    const aboveAnchor = new DOMRect(20, 70, 760, 18);
+    const above = selectionIconBox(aboveAnchor, { width: 800, height: 100 });
+    expect(overlapsRect(above.left, above.top, SELECTION_ICON_PX, aboveAnchor)).toBe(false);
+    expect(above.top + SELECTION_ICON_PX).toBeLessThanOrEqual(aboveAnchor.top);
+  });
+});
+
+describe('selection icon', () => {
+  function icon(): HTMLElement {
+    const node = document.querySelector('sakutto-select');
+    if (!(node instanceof HTMLElement)) throw new Error('missing selection icon');
+    return node;
+  }
+
+  function iconButton(): HTMLButtonElement {
+    const button = icon().shadowRoot?.querySelector('button');
+    if (!(button instanceof HTMLButtonElement)) throw new Error('missing selection button');
+    return button;
+  }
+
+  async function selectElement(element: Element): Promise<void> {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const selection = document.getSelection();
+    if (!selection) throw new Error('missing selection');
+    selection.removeAllRanges();
+    selection.addRange(range);
+    document.dispatchEvent(new Event('selectionchange'));
+    document.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  }
+
+  afterEach(() => {
+    document.getSelection()?.removeAllRanges();
+  });
+
+  it('shows a small icon beside the selection and translates only that text when it is used', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML =
+      '<p id="lead">Osaka is a designated city.</p><p id="next">Leave this page text.</p>';
+    const anchor = new DOMRect(20, 40, 120, 18);
+    const rects = vi.spyOn(Range.prototype, 'getClientRects').mockImplementation(
+      () =>
+        ({
+          length: 1,
+          item: (index: number) => (index === 0 ? anchor : null),
+        }) as unknown as DOMRectList,
+    );
+    const box = vi.spyOn(Range.prototype, 'getBoundingClientRect').mockReturnValue(anchor);
+    const seen: string[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        seen.push(segments.map((segment) => segment.text).join('|'));
+        const segment = segments[0];
+        if (!segment) return;
+        await gate;
+        yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+      }),
+    );
+
+    try {
+      const lead = document.querySelector('#lead');
+      if (!lead) throw new Error('missing lead');
+      await selectElement(lead);
+
+      expect(seen).toEqual(['Osaka is a designated city.']);
+      expect(icon().hidden).toBe(false);
+      expect(icon().style.width).toBe(`${String(SELECTION_ICON_PX)}px`);
+      expect(icon().style.height).toBe(`${String(SELECTION_ICON_PX)}px`);
+      const left = Number.parseFloat(icon().style.left);
+      const top = Number.parseFloat(icon().style.top);
+      expect(
+        overlapsRect(left, top, SELECTION_ICON_PX, {
+          left: anchor.left,
+          top: anchor.top,
+          right: anchor.right,
+          bottom: anchor.bottom,
+        }),
+      ).toBe(false);
+      expect(iconButton().getAttribute('aria-label')).toBe('選択したテキストを翻訳します');
+      expect(iconButton().querySelector('svg')?.getAttribute('viewBox')).toBe('0 0 128 128');
+      expect(iconButton().querySelectorAll('polygon')).toHaveLength(10);
+      const popover = document.querySelector('sakutto-pop');
+      expect(popover instanceof HTMLElement && popover.hidden).toBe(true);
+
+      release();
+      await session.whenIdle();
+      expect(popover instanceof HTMLElement && popover.hidden).toBe(true);
+      expect(seen).toEqual(['Osaka is a designated city.']);
+
+      iconButton().dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      expect(document.querySelector('sakutto-pop')?.shadowRoot?.textContent).toContain(
+        '訳:Osaka is a designated city.',
+      );
+      expect(seen).toEqual(['Osaka is a designated city.']);
+      expect(document.querySelector('#next')?.textContent).toBe('Leave this page text.');
+      expect(icon().hidden).toBe(true);
+    } finally {
+      rects.mockRestore();
+      box.mockRestore();
+    }
+  });
+
+  it('ignores a blank selection and hides the icon when the highlight is cleared or clicked away', async () => {
+    document.body.innerHTML = '<p id="blank">   </p><p id="lead">Hello world</p>';
+    const seen: string[] = [];
+    start(
+      document,
+      engineOf(async function* (segments) {
+        seen.push(segments.map((segment) => segment.text).join('|'));
+        yield { id: segments[0]?.id ?? 's', final: '訳', engine: 'plamo' as const };
+      }),
+    );
+
+    const blank = document.querySelector('#blank');
+    const lead = document.querySelector('#lead');
+    if (!blank || !lead) throw new Error('missing text');
+    await selectElement(blank);
+    expect(document.querySelector('sakutto-select') instanceof HTMLElement).toBe(true);
+    expect((document.querySelector('sakutto-select') as HTMLElement).hidden).toBe(true);
+    expect(seen).toEqual([]);
+
+    await selectElement(lead);
+    expect(icon().hidden).toBe(false);
+    expect(seen).toEqual(['Hello world']);
+
+    document.getSelection()?.removeAllRanges();
+    document.dispatchEvent(new Event('selectionchange'));
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(icon().hidden).toBe(true);
+
+    await selectElement(lead);
+    expect(icon().hidden).toBe(false);
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+    expect(icon().hidden).toBe(true);
+
+    await selectElement(lead);
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 2 }));
+    expect(icon().hidden).toBe(false);
+
+    document.defaultView?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
+    expect(icon().hidden).toBe(true);
+  });
+
+  it('still opens the selection popover from Alt+S and the selection command', async () => {
+    document.body.innerHTML = '<p id="lead">Selected phrase</p>';
+    const seen: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        seen.push(segments.map((segment) => segment.text).join('|'));
+        for (const segment of segments) {
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+    );
+
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing lead');
+    await selectElement(lead);
+    expect(seen).toEqual(['Selected phrase']);
+    const popover = (): HTMLElement => {
+      const node = document.querySelector('sakutto-pop');
+      if (!(node instanceof HTMLElement)) throw new Error('missing popover');
+      return node;
+    };
+    expect(popover().hidden).toBe(true);
+
+    document.defaultView?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 's',
+        code: 'KeyS',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await session.whenIdle();
+    expect(popover().hidden).toBe(false);
+    expect(popover().shadowRoot?.textContent).toContain('訳:Selected phrase');
+    expect(seen).toEqual(['Selected phrase']);
+
+    document.body.innerHTML = '<p id="other">Another phrase</p>';
+    const other = document.querySelector('#other');
+    if (!other) throw new Error('missing other');
+    await selectElement(other);
+    await session.handle('selection');
+    await session.whenIdle();
+    expect(popover().shadowRoot?.textContent).toContain('訳:Another phrase');
+    expect(seen).toContain('Another phrase');
+    expect(document.body.textContent).toContain('Another phrase');
   });
 });

@@ -8,6 +8,7 @@ export interface OverlayLabels {
   selectionPending: string;
   selectionFailed: string;
   selectionTitle: string;
+  selectionIcon: string;
   close: string;
   bilingualOn: string;
   replaceOn: string;
@@ -140,6 +141,121 @@ button:focus-visible { outline: 2px solid #0e7490; outline-offset: 2px; }
 }
 `;
 
+const ICON_STYLE = `
+:host { all: initial; }
+button {
+  box-sizing: border-box;
+  display: block;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 88%);
+  border-radius: 7px;
+  background: #101828;
+  box-shadow: 0 2px 8px rgb(15 23 32 / 28%);
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+}
+button:hover,
+button:focus-visible {
+  border-color: #67e8f9;
+}
+button:focus-visible { outline: 2px solid #0e7490; outline-offset: 2px; }
+svg { display: block; width: 26px; height: 26px; }
+@media (prefers-reduced-motion: reduce) {
+  button { transition: none; }
+}
+`;
+
+/** Square control drawn beside a selection. Matches the shadow-DOM button. */
+export const SELECTION_ICON_PX = 26;
+
+/**
+ * Puts the selection icon just outside the selection so the highlight stays readable.
+ * The first choice is the end of the last line. A tight edge moves it below, then above.
+ */
+export function selectionIconBox(
+  anchor: Pick<DOMRect, 'left' | 'top' | 'right' | 'bottom' | 'width' | 'height'>,
+  viewport: { width: number; height: number },
+): { left: number; top: number } {
+  const size = SELECTION_ICON_PX;
+  const gap = 6;
+  const margin = 8;
+  const width = Math.max(viewport.width, size + margin * 2);
+  const height = Math.max(viewport.height, size + margin * 2);
+  const overlaps = (left: number, top: number): boolean =>
+    left < anchor.right &&
+    left + size > anchor.left &&
+    top < anchor.bottom &&
+    top + size > anchor.top;
+
+  let left = anchor.right + gap;
+  let top = anchor.top + (anchor.height - size) / 2;
+
+  if (left + size > width - margin || overlaps(left, top)) {
+    left = anchor.right - size;
+    top = anchor.bottom + gap;
+  }
+  if (top + size > height - margin) {
+    const above = anchor.top - size - gap;
+    top = above >= margin ? above : anchor.bottom + gap;
+  }
+
+  left = Math.min(Math.max(left, margin), width - size - margin);
+  top = Math.min(Math.max(top, margin), height - size - margin);
+
+  if (overlaps(left, top)) {
+    const below = anchor.bottom + gap;
+    const above = anchor.top - size - gap;
+    if (below + size <= height - margin) top = below;
+    else if (above >= margin) top = above;
+    left = Math.min(Math.max(anchor.left, margin), width - size - margin);
+    top = Math.min(Math.max(top, margin), height - size - margin);
+  }
+
+  return { left, top };
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/** Folded-strip mark. Same polygons as scripts/icon.svg. */
+const SELECTION_ICON_POLYGONS: readonly (readonly [string, string])[] = [
+  ['87.52,33.76 40.48,33.76 40.48,47.2 87.52,47.2', '#7dd3fc'],
+  ['87.52,47.2 104.32,40.48 87.52,33.76', '#7dd3fc'],
+  ['35.73,45.23 59.25,68.75 68.75,59.25 45.23,35.73', '#7dd3fc'],
+  ['40.48,40.48 40.48,33.76 35.73,45.23', '#7dd3fc'],
+  ['40.48,40.48 40.48,47.2 45.23,35.73', '#7dd3fc'],
+  ['59.25,68.75 82.77,92.27 92.27,82.77 68.75,59.25', '#f8fafc'],
+  ['87.52,80.8 40.48,80.8 40.48,94.24 87.52,94.24', '#f8fafc'],
+  ['40.48,80.8 23.68,87.52 40.48,94.24', '#f8fafc'],
+  ['87.52,87.52 82.77,92.27 87.52,80.8', '#f8fafc'],
+  ['87.52,87.52 92.27,82.77 87.52,94.24', '#f8fafc'],
+];
+
+/**
+ * Drawn with DOM constructors. `innerHTML` and `DOMParser.parseFromString` are
+ * TrustedHTML sinks, so either one throws on pages that require Trusted Types
+ * and the content script never attaches.
+ */
+function appendSelectionIcon(doc: Document, button: HTMLButtonElement): void {
+  const svg = doc.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 128 128');
+  svg.setAttribute('aria-hidden', 'true');
+  const rect = doc.createElementNS(SVG_NS, 'rect');
+  rect.setAttribute('width', '128');
+  rect.setAttribute('height', '128');
+  rect.setAttribute('fill', '#101828');
+  svg.append(rect);
+  for (const [points, fill] of SELECTION_ICON_POLYGONS) {
+    const polygon = doc.createElementNS(SVG_NS, 'polygon');
+    polygon.setAttribute('points', points);
+    polygon.setAttribute('fill', fill);
+    svg.append(polygon);
+  }
+  button.append(svg);
+}
+
 const BAR_STYLE = `
 .bar {
   box-sizing: border-box;
@@ -190,6 +306,8 @@ export class PageOverlay {
   private readonly style: HTMLStyleElement;
   private readonly tipHost: HTMLElement;
   private readonly popHost: HTMLElement;
+  private readonly iconHost: HTMLElement;
+  private readonly iconButton: HTMLButtonElement;
   private readonly tipBody: HTMLElement;
   private readonly tipNote: HTMLElement;
   private readonly tipKicker: HTMLElement;
@@ -206,6 +324,7 @@ export class PageOverlay {
   private labels: OverlayLabels;
   private returnFocus: HTMLElement | null = null;
   private onClose: (() => void) | null = null;
+  private onSelectionIcon: (() => void) | null = null;
   private statusTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
@@ -220,7 +339,8 @@ export class PageOverlay {
 
     this.tipHost = doc.createElement('sakutto-tip');
     this.popHost = doc.createElement('sakutto-pop');
-    for (const host of [this.tipHost, this.popHost]) {
+    this.iconHost = doc.createElement('sakutto-select');
+    for (const host of [this.tipHost, this.popHost, this.iconHost]) {
       host.setAttribute('translate', 'no');
       host.style.position = 'fixed';
       host.style.zIndex = '2147483646';
@@ -229,6 +349,9 @@ export class PageOverlay {
       doc.documentElement.append(host);
     }
     this.tipHost.style.pointerEvents = 'none';
+    this.iconHost.style.width = `${String(SELECTION_ICON_PX)}px`;
+    this.iconHost.style.height = `${String(SELECTION_ICON_PX)}px`;
+    this.iconButton = this.mountSelectionIcon(this.iconHost);
 
     const tip = this.mountBubble(this.tipHost, false);
     const pop = this.mountBubble(this.popHost, true);
@@ -321,12 +444,18 @@ export class PageOverlay {
     this.onClose = handler;
   }
 
+  setOnSelectionIcon(handler: () => void): void {
+    this.onSelectionIcon = handler;
+  }
+
   setLabels(labels: OverlayLabels): void {
     this.labels = labels;
     this.tipKicker.textContent = labels.original;
     this.popKicker.textContent = labels.selectionTitle;
     this.popCard.setAttribute('aria-label', labels.selectionTitle);
     this.popButton.textContent = labels.close;
+    this.iconButton.setAttribute('aria-label', labels.selectionIcon);
+    this.iconButton.title = labels.selectionIcon;
     this.bar.setAttribute('aria-label', labels.barLabel);
   }
 
@@ -404,14 +533,41 @@ export class PageOverlay {
     back?.focus();
   }
 
+  showSelectionIcon(anchor: DOMRect): void {
+    this.iconButton.setAttribute('aria-label', this.labels.selectionIcon);
+    this.iconButton.title = this.labels.selectionIcon;
+    this.placeIcon(anchor);
+  }
+
+  moveSelectionIcon(anchor: DOMRect): void {
+    if (!this.selectionIconVisible()) return;
+    this.placeIcon(anchor);
+  }
+
+  hideSelectionIcon(): void {
+    this.iconHost.hidden = true;
+    this.iconHost.style.display = 'none';
+  }
+
+  selectionIconVisible(): boolean {
+    return !this.iconHost.hidden && this.iconHost.style.display !== 'none';
+  }
+
+  moveSelection(anchor: DOMRect): void {
+    if (this.popHost.hidden) return;
+    this.place(this.popHost, anchor, true);
+  }
+
   contains(node: Node): boolean {
     return (
       this.tipHost.contains(node) ||
       this.popHost.contains(node) ||
+      this.iconHost.contains(node) ||
       this.bar === node ||
       this.bar.contains(node) ||
       this.tipHost.shadowRoot?.contains(node) === true ||
       this.popHost.shadowRoot?.contains(node) === true ||
+      this.iconHost.shadowRoot?.contains(node) === true ||
       this.bar.shadowRoot?.contains(node) === true
     );
   }
@@ -421,9 +577,47 @@ export class PageOverlay {
     this.style.remove();
     this.tipHost.remove();
     this.popHost.remove();
+    this.iconHost.remove();
     this.status.remove();
     this.reservePage(false);
     this.bar.remove();
+  }
+
+  private mountSelectionIcon(host: HTMLElement): HTMLButtonElement {
+    const shadow = host.attachShadow({ mode: 'open' });
+    const style = this.doc.createElement('style');
+    style.textContent = ICON_STYLE;
+    const button = this.doc.createElement('button');
+    button.type = 'button';
+    button.setAttribute('aria-haspopup', 'dialog');
+    button.setAttribute('aria-label', this.labels.selectionIcon);
+    button.title = this.labels.selectionIcon;
+    appendSelectionIcon(this.doc, button);
+    const keepSelection = (event: Event): void => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    button.addEventListener('pointerdown', keepSelection);
+    button.addEventListener('mousedown', keepSelection);
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.onSelectionIcon?.();
+    });
+    shadow.append(style, button);
+    return button;
+  }
+
+  private placeIcon(anchor: DOMRect): void {
+    const view = this.doc.defaultView;
+    const box = selectionIconBox(anchor, {
+      width: view?.innerWidth ?? 800,
+      height: view?.innerHeight ?? 600,
+    });
+    this.iconHost.hidden = false;
+    this.iconHost.style.display = 'block';
+    this.iconHost.style.left = `${String(Math.round(box.left))}px`;
+    this.iconHost.style.top = `${String(Math.round(box.top))}px`;
   }
 
   private mountBubble(
