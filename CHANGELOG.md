@@ -2,6 +2,10 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
+## [1.0.0] - 2026-11-06
+
+- No commits since the previous release.
+
 ## [0.1.1] - 2026-11-06
 
 - Initial public source release
