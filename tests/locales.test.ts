@@ -58,6 +58,34 @@ describe('locale messages', () => {
     }
   });
 
+  /**
+   * Chrome refuses to install the whole extension when a message interpolates a `$NAME$`
+   * that the entry does not declare: `Failed to load extension … Variable $LANGUAGES$ used
+   * but not defined`. Nothing in the unit suite noticed, because the pages are rendered from
+   * the JSON rather than by Chrome, so one missing `placeholders` block made every installed
+   * build fail to load at all. Every token in the text must be declared, and every declared
+   * placeholder must be used.
+   */
+  it('declares every placeholder its message interpolates', () => {
+    for (const [locale, messages] of [
+      ['en', en],
+      ['ja', ja],
+    ] as const) {
+      for (const [key, entry] of Object.entries(messages)) {
+        const used = [...entry.message.matchAll(/\$([A-Za-z0-9_]+)\$/g)].map((match) =>
+          match[1]?.toLowerCase(),
+        );
+        const declared = placeholderNames(entry).map((name) => name.toLowerCase());
+        for (const name of used) {
+          expect(declared, `${locale} ${key} uses $${name}$`).toContain(name);
+        }
+        for (const name of declared) {
+          expect(used, `${locale} ${key} declares ${name}`).toContain(name);
+        }
+      }
+    }
+  });
+
   it('defines every key used by the UI', () => {
     for (const key of usedMessageKeys()) {
       expect(en, key).toHaveProperty(key);

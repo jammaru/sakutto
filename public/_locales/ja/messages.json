@@ -766,6 +766,11 @@
     }
   },
   "typedChromeOnlyNote": {
-    "message": "Chrome の内蔵翻訳は $LANGUAGES$ をページでのみ担当します。入力したテキストを渡すことはありません。"
+    "message": "Chrome の内蔵翻訳は $LANGUAGES$ をページでのみ担当します。入力したテキストを渡すことはありません。",
+    "placeholders": {
+      "languages": {
+        "content": "$1"
+      }
+    }
   }
 }

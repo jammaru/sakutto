@@ -766,6 +766,11 @@
     }
   },
   "typedChromeOnlyNote": {
-    "message": "Chrome's built-in translator covers $LANGUAGES$ on pages only; typed text is never sent to it."
+    "message": "Chrome's built-in translator covers $LANGUAGES$ on pages only; typed text is never sent to it.",
+    "placeholders": {
+      "languages": {
+        "content": "$1"
+      }
+    }
   }
 }
