@@ -168,6 +168,58 @@ describe('repeated data rows', () => {
     ]);
   });
 
+  it('translates a card grid instead of treating it as a data table', () => {
+    // A card grid is also a set of sibling elements with the same tag, but a card holds a
+    // heading and a paragraph — copy, not values. Only a row of short cells is a record.
+    document.body.style.setProperty('display', 'contents');
+    document.body.innerHTML = `
+      <section style="display: grid; grid-template-columns: 1fr 1fr">
+        <article><p>Evaluation</p><h2>Why small benchmarks lie</h2><p>A suite of twenty questions fits in a spreadsheet and flatters every change.</p><p>6 min read</p></article>
+        <article><p>Infrastructure</p><h2>The queue is the product</h2><p>Scheduling decisions show up as latency long before throughput charts.</p><p>9 min read</p></article>
+        <article><p>Tooling</p><h2>A linter for experiment logs</h2><p>Most failed runs are misconfigured, not mistuned.</p><p>6 min read</p></article>
+      </section>
+    `;
+    const texts = blocks().map((block) => (block.textContent ?? '').trim());
+    expect(texts).toContain(
+      'A suite of twenty questions fits in a spreadsheet and flatters every change.',
+    );
+    expect(texts).toContain(
+      'Scheduling decisions show up as latency long before throughput charts.',
+    );
+    // The repeated meta line inside cards is copy, not a column value.
+    expect(texts.filter((text) => text === '6 min read')).toHaveLength(2);
+  });
+
+  it('still treats short repeated rows as data', () => {
+    document.body.innerHTML = rankingTable();
+    const row = document.querySelector('li');
+    if (!row) throw new Error('missing row');
+    expect(isDataRowCell(row.children[0] ?? row)).toBe(true);
+  });
+
+  it('translates a flex container that holds only text', () => {
+    // A `<p>` styled `display: flex` to space a label and a score still only holds text of
+    // its own. Descending into it used to find no child to yield, so the line was never
+    // translated and the page reported itself finished over it.
+    document.body.innerHTML = `
+      <div id="index">
+        <p style="display: flex; justify-content: space-between">Translation 41.2</p>
+        <p style="display: flex; justify-content: space-between">Fluency 38.7</p>
+      </div>
+    `;
+    const own = blocks()
+      .filter((block) => block.tagName === 'P')
+      .map((block) => buildSegment(block)?.source ?? '');
+    expect(own).toEqual(['Translation 41.2', 'Fluency 38.7']);
+  });
+
+  it('still does not yield a flex row that holds real elements', () => {
+    document.body.innerHTML = '<p style="display: flex"><span>Hello</span><span>world</span></p>';
+    const paragraph = document.querySelector('p');
+    if (!paragraph) throw new Error('missing paragraph');
+    expect(blocks()).not.toContain(paragraph);
+  });
+
   it('reads repeated column values with their markup removed', () => {
     document.body.innerHTML = `
       <ul>

@@ -305,11 +305,13 @@ class LayoutProbe {
 
 const DATA_ROW_MIN_ROWS = 3;
 const DATA_ROW_MIN_CELLS = 2;
+/** A record's cell holds a value; a card's cell holds a paragraph. */
+const DATA_CELL_MAX_CHARS = 60;
 
 /**
- * A cell of a repeating row: a ranking row, a price list, a file table. The repetition is
- * the signal — three or more sibling rows of the same tag, each with more than one cell,
- * means the page is showing data, where a cell holds a value rather than copy.
+ * A cell of a repeating row: a ranking row, a price list, a file table. Three or more
+ * sibling rows of the same tag, each with more than one cell, is a page showing data,
+ * where a cell holds a value rather than copy.
  *
  * The walk only asks this of an element it reached as a slot of such a row, so a one-word
  * paragraph inside a card grid is still translated. The ancestor walk is here because a
@@ -330,6 +332,14 @@ export function isDataRowCell(element: Element): boolean {
 /** How far above a cell its wrapping markup may sit and still count as the same column. */
 const MAX_CELL_DEPTH = 3;
 
+/**
+ * Three or more sibling rows of the same tag, each showing a handful of short values.
+ *
+ * The short-cell test is what separates a record from a card. A card grid is also a set of
+ * sibling elements with the same tag, but a card holds a heading and a paragraph — copy a
+ * reader wants translated — while a ranking row holds `antfu`, `Japan`, `TypeScript`. Only
+ * the latter is a data row, and only there is a cell's text a value to skip.
+ */
 function isRepeatedRow(row: Element): boolean {
   const list = row.parentElement;
   if (!list || row.children.length < DATA_ROW_MIN_CELLS) return false;
@@ -338,10 +348,18 @@ function isRepeatedRow(row: Element): boolean {
   for (const sibling of list.children) {
     if (sibling.localName !== row.localName) continue;
     if (sibling.children.length < DATA_ROW_MIN_CELLS) continue;
+    if (!showsOnlyValues(sibling)) continue;
     rows += 1;
     if (rows >= DATA_ROW_MIN_ROWS) return true;
   }
   return false;
+}
+
+function showsOnlyValues(row: Element): boolean {
+  for (const cell of row.children) {
+    if (cellValue(cell).length > DATA_CELL_MAX_CHARS) return false;
+  }
+  return true;
 }
 
 /** A count, a magnitude or an amount: `44`, `1,305`, `64.4k`, `+12%`. */
@@ -598,10 +616,33 @@ function* visitBlock(
   }
   if (!items && hasDirectTranslatableText(element, probe, layout)) yield element;
 
+  // A slot container with no slots. A paragraph styled `display: flex` to space a label
+  // and a value still only holds text of its own, and descending into it would find no
+  // child to yield, so the line would never be translated at all.
+  if (items && element.children.length === 0) {
+    if (hasTranslatableTextIn(element, probe)) yield element;
+    return;
+  }
+  if (items && !hasSlotDescendant(element, probe, layout) && hasOwnSlotText(element)) {
+    yield element;
+    return;
+  }
+
   const childContext: WalkContext = rows ? 'row' : items ? 'item' : 'flow';
   for (const child of element.children) {
     yield* visitBlock(child, probe, layout, childContext, repeatedCells);
   }
+}
+
+/** Translatable text a container owns directly, rather than through a child element. */
+function hasOwnSlotText(element: Element): boolean {
+  for (const child of element.childNodes) {
+    if (child.nodeType !== Node.TEXT_NODE) continue;
+    const value = child.nodeValue ?? '';
+    if (isSkippableText(value)) continue;
+    if (LETTER_PATTERN.test(value)) return true;
+  }
+  return false;
 }
 
 function hasSlotDescendant(element: Element, probe: VisibilityProbe, layout: LayoutProbe): boolean {
