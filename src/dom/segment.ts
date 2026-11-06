@@ -1,4 +1,11 @@
-import { isBlockElement, isFrozenInline, isKeptInlineText, isTranslationExcluded } from './blocks';
+import {
+  isBlockElement,
+  isCollapsedDetail,
+  isFrozenInline,
+  isKeptInlineText,
+  isScreenReaderOnly,
+  isTranslationExcluded,
+} from './blocks';
 
 export interface TextSlot {
   node: Text;
@@ -113,6 +120,10 @@ function buildFrame(element: Element, allocateId: () => string): BuiltFrame {
     }
 
     if (!(child instanceof Element) || isTranslationExcluded(child)) continue;
+    // Screen-reader-only text and collapsed panels are not translated on their own, so
+    // they must not be folded into a parent's segment either: the model would translate
+    // a label the reader cannot see, and its text would then change behind their back.
+    if (isScreenReaderOnly(child) || isCollapsedDetail(child)) continue;
     if (child.tagName === 'BR') {
       source += '\n';
       continue;

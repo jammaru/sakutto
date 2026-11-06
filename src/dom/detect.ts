@@ -72,9 +72,15 @@ export function languageOf(block: Element, fallback: string | null): string | nu
   const source = canonicalPageLanguage(root?.getAttribute('data-sakutto-source-lang'));
   if (source) return source;
 
+  // `<html lang>` is set to the target while a page is translated, so reading it as an
+  // ancestor tag would mark every untagged block as already translated. Short Latin
+  // labels ("Spaces", "Docs") infer nothing, so that tag used to swallow whole sidebars
+  // and, on Hugging Face, the entire page. Only a real ancestor below the root counts.
   const ancestor = block.parentElement?.closest('[lang]');
-  const tagged = canonicalPageLanguage(ancestor?.getAttribute('lang'));
-  if (tagged) return tagged;
+  if (ancestor && ancestor !== root) {
+    const tagged = canonicalPageLanguage(ancestor.getAttribute('lang'));
+    if (tagged) return tagged;
+  }
 
   return canonicalPageLanguage(fallback);
 }
