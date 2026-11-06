@@ -22,6 +22,13 @@ test.describe('built extension', () => {
         const page = await extension.context.newPage();
         await page.goto(`chrome-extension://${extension.extensionId}/${path}`);
         await expect(page.locator('h1')).toHaveText('Sakutto');
+        if (path === 'onboarding.html') {
+          await expect(page.getByRole('checkbox')).toHaveCount(0);
+          await expect(page.getByRole('button', { name: 'Get started' })).toBeEnabled();
+          await expect(page.locator('#start-notice')).toHaveText(
+            "By starting, you agree to the PLaMo Community License (Article 2). You must be 18 or older, or have a parent or guardian's consent.",
+          );
+        }
         await page.close();
       }
     } finally {
@@ -51,6 +58,13 @@ test.describe('built extension', () => {
         const page = await extension.context.newPage();
         await page.goto(`chrome-extension://${extension.extensionId}/${path}`);
         await expect(page.locator('h1')).toHaveText('Sakutto');
+        if (path === 'onboarding.html') {
+          await expect(page.getByRole('checkbox')).toHaveCount(0);
+          await expect(page.getByRole('button', { name: 'はじめる' })).toBeEnabled();
+          await expect(page.locator('#start-notice')).toHaveText(
+            '開始すると、PLaMo Community License（第2条）に同意したものとみなされます。18歳以上であるか、保護者の同意が必要です。',
+          );
+        }
         await page.close();
       }
     } finally {

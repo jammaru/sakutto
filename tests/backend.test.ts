@@ -79,11 +79,11 @@ describe('model catalog', () => {
 
     expect(entry.repository).toBe('pfnet/plamo-3-translate-0.8b-GGUF');
     expect(entry.file).toBe('plamo-3-translate-0.8b-Q4_K_M.gguf');
-    expect(entry.commit).toBe('03891e907db8a43c97d3a7c75add125cc6d1f96a');
-    expect(entry.size).toBe(573_116_288);
-    expect(entry.sha256).toBe('3dbb09295bfd3350231ba0dba92bc72cb14111ef1b034e37dad39d581bd86b9c');
+    expect(entry.commit).toBe('dbeb0856cb0b004b484f190bb71dd65876297013');
+    expect(entry.size).toBe(573_123_200);
+    expect(entry.sha256).toBe('923b2f28a9856de1b8b3b610a7e59ded0b14d007466fd5dd526e6a9ecaadafdd');
     expect(entry.url).toBe(
-      'https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF/resolve/03891e907db8a43c97d3a7c75add125cc6d1f96a/plamo-3-translate-0.8b-Q4_K_M.gguf',
+      'https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF/resolve/dbeb0856cb0b004b484f190bb71dd65876297013/plamo-3-translate-0.8b-Q4_K_M.gguf',
     );
   });
 
@@ -91,9 +91,9 @@ describe('model catalog', () => {
     const entry = MODEL_CATALOG['plamo-3-translate-2b-q4_k_m'];
 
     expect(entry.repository).toBe('pfnet/plamo-3-translate-2b-GGUF');
-    expect(entry.commit).toBe('f2b4599dff9b3e45c62567eac15e83186b4cb64e');
-    expect(entry.size).toBe(1_807_192_480);
-    expect(entry.sha256).toBe('2c288ecc7ebfe60c3561726580da3583767f3c41ca3ef5c6825bf6c4cc060787');
+    expect(entry.commit).toBe('232fbd7916519edecddfdae0beae7e76fe70453f');
+    expect(entry.size).toBe(1_807_199_392);
+    expect(entry.sha256).toBe('f36d0813dd95573a852ab5d76e374c543632d9e292929e922bcdbf7e53b494e0');
   });
 
   it('validates model identifiers', () => {

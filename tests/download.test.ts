@@ -206,7 +206,22 @@ describe('resumable model download', () => {
         fetchImpl,
         attempts: 3,
       }),
-    ).rejects.toMatchObject({ code: 'download-failed' });
+    ).rejects.toThrow(/HTTP 404/);
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
+  it('reports an HTTP 403 without retrying', async () => {
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const fetchImpl = vi.fn(async () => new Response(null, { status: 403 }));
+
+    await expect(
+      downloadModel({
+        ...baseRequest(store, controller.signal),
+        fetchImpl,
+        attempts: 3,
+      }),
+    ).rejects.toThrow(/HTTP 403/);
     expect(fetchImpl).toHaveBeenCalledOnce();
   });
 

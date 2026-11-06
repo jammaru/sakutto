@@ -207,9 +207,6 @@
   "onboardingPrivacyNote": {
     "message": "This extension does not send page text to a server."
   },
-  "onboardingLicenseNote": {
-    "message": "Users under 18 need consent from a parent or guardian."
-  },
   "onboardingClose": {
     "message": "Close"
   },
@@ -218,6 +215,14 @@
   },
   "onboardingStartFailed": {
     "message": "Setup could not start. Please try again."
+  },
+  "onboardingHttpError": {
+    "message": "The model download failed (HTTP $STATUS$). Please try again.",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      }
+    }
   },
   "errorSettings": {
     "message": "Could not load your settings."
@@ -404,8 +409,8 @@
   "chromeOnlySuffix": {
     "message": " (quick translation)"
   },
-  "consentCheckbox": {
-    "message": "I agree to Article 2 of the PLaMo Community License. I am 18 or older, or a parent or legal guardian has consented."
+  "onboardingStartNotice": {
+    "message": "By starting, you agree to the PLaMo Community License (Article 2). You must be 18 or older, or have a parent or guardian's consent."
   },
   "onboardingUseNow": {
     "message": "If Chrome's language pack is available, you can translate before the model finishes."

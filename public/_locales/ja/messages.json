@@ -207,9 +207,6 @@
   "onboardingPrivacyNote": {
     "message": "この拡張機能は、ページの本文をサーバーへ送りません。"
   },
-  "onboardingLicenseNote": {
-    "message": "18歳未満の方は保護者の同意が必要です。"
-  },
   "onboardingClose": {
     "message": "閉じる"
   },
@@ -218,6 +215,14 @@
   },
   "onboardingStartFailed": {
     "message": "準備を開始できませんでした。もう一度お試しください。"
+  },
+  "onboardingHttpError": {
+    "message": "モデルのダウンロードに失敗しました（HTTP $STATUS$）。もう一度お試しください。",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      }
+    }
   },
   "errorSettings": {
     "message": "設定を読み込めませんでした。"
@@ -404,8 +409,8 @@
   "chromeOnlySuffix": {
     "message": " （簡易訳）"
   },
-  "consentCheckbox": {
-    "message": "PLaMo Community License の第2条に同意します。18歳以上であるか、18歳未満の場合は親権者または法定代理人の同意を得ています。"
+  "onboardingStartNotice": {
+    "message": "開始すると、PLaMo Community License（第2条）に同意したものとみなされます。18歳以上であるか、保護者の同意が必要です。"
   },
   "onboardingUseNow": {
     "message": "言語パックが使えるときは、モデルの完了を待たずに翻訳できます。"
