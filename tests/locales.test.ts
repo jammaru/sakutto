@@ -94,8 +94,8 @@ describe('locale messages', () => {
   });
 
   it('uses the product names from the specification', () => {
-    expect(en.extensionName?.message).toBe('Sakutto');
-    expect(ja.extensionName?.message).toBe('Sakutto');
+    expect(en.extensionName?.message).toBe('Sakutto - Local AI translation');
+    expect(ja.extensionName?.message).toBe('Sakutto - ローカルAI翻訳');
     expect(en.extensionShortName?.message).toBe('Sakutto');
     expect(ja.extensionShortName?.message).toBe('Sakutto');
   });

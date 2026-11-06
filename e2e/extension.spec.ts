@@ -21,7 +21,7 @@ test.describe('built extension', () => {
       for (const path of pages) {
         const page = await extension.context.newPage();
         await page.goto(`chrome-extension://${extension.extensionId}/${path}`);
-        await expect(page.locator('h1')).toHaveText('Sakutto');
+        await expect(page.locator('h1')).toHaveText('Sakutto - Local AI translation');
         if (path === 'onboarding.html') {
           await expect(page.getByRole('checkbox')).toHaveCount(0);
           await expect(
@@ -74,7 +74,7 @@ test.describe('built extension', () => {
       for (const path of pages) {
         const page = await extension.context.newPage();
         await page.goto(`chrome-extension://${extension.extensionId}/${path}`);
-        await expect(page.locator('h1')).toHaveText('Sakutto');
+        await expect(page.locator('h1')).toHaveText('Sakutto - ローカルAI翻訳');
         if (path === 'onboarding.html') {
           await expect(page.getByRole('checkbox')).toHaveCount(0);
           await expect(

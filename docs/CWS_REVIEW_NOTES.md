@@ -8,14 +8,14 @@ Privacy policy: https://github.com/jammaru/sakutto/blob/main/PRIVACY.md
 
 That privacy URL loads for a logged-out reviewer only after the owner makes the repository public. Preparing these notes does not publish the repository and does not submit the item.
 
-The packaged name is Sakutto in both locales (`extensionName` and `extensionShortName`). The older titles Sakutto for PLaMo and サクッと翻訳 for PLaMo are not the current name. The item is unofficial and is not a Preferred Networks product. The UI says Built with PLaMo.
+The packaged name is `extensionName` in both locales: Sakutto - Local AI translation in `en` and Sakutto - ローカルAI翻訳 in `ja`. `extensionShortName` is Sakutto in both. Both the item name and the summary are read-only in the dashboard and come from the zip. The older titles Sakutto for PLaMo and サクッと翻訳 for PLaMo are not the current name. The item is unofficial and is not a Preferred Networks product. The UI says Built with PLaMo.
 
 Paste the block below into the reviewer notes field. The same pins are repeated in Japanese afterwards so the owner can read them without the English block.
 
 ## Notes to paste
 
 ```text
-Sakutto (https://github.com/jammaru/sakutto) translates web pages on the device. It is unofficial and is not affiliated with Preferred Networks. Built with PLaMo. The packaged name in _locales/en and _locales/ja is Sakutto. There is no account, no analytics, and no telemetry.
+Sakutto (https://github.com/jammaru/sakutto) translates web pages on the device. It is unofficial and is not affiliated with Preferred Networks. Built with PLaMo. The packaged name in _locales/en is Sakutto - Local AI translation and in _locales/ja it is Sakutto - ローカルAI翻訳; the short name is Sakutto in both. There is no account, no analytics, and no telemetry.
 
 Single purpose: translating web pages.
 
@@ -57,7 +57,7 @@ url https://huggingface.co/pfnet/plamo-3-translate-2b-GGUF/resolve/232fbd7916519
 The packaged runtime is the pinned wllama build (commit d275dac17bc7f190161deb24fd834ce03342e2bc, llama.cpp 5aeac37a35b44fde4bdffaec9159f2fcb253b622). It is compiled into the zip. It is not downloaded at runtime. The listing does not claim a GPU speed. WebGPU and n_parallel on a real GPU are unmeasured in this repository.
 ```
 
-文字数: 4842
+文字数: 4928
 
 ## モデルのピン
 
