@@ -1,6 +1,6 @@
 {
   "name": "sakutto",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Local web page translation with PLaMo 3 Translate.",
   "license": "MIT",
