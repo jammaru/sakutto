@@ -7,11 +7,23 @@ export interface BatchingConfig {
   maxBatchTokens: number;
 }
 
+/**
+ * Source tokens that still leave room for the prompt template, a small glossary,
+ * and a 2× completion inside one sequence. CPU `n_ctx` is 2048 per slot; WebGPU
+ * divides the same per-slot budget across its two sequences.
+ */
+export function sourceTokenBudget(contextTokens: number): number {
+  const overhead = 192;
+  const margin = 64;
+  const room = contextTokens - overhead - margin;
+  return Math.max(96, Math.floor(room / 3));
+}
+
 export const DEFAULT_BATCHING: Readonly<BatchingConfig> = Object.freeze({
-  // A Wikipedia sentence is often longer than 80 tokens. Batching it with the
-  // next sentence of the same paragraph avoids a fresh prompt prefill each time.
-  maxSegmentTokens: 120,
-  maxBatchTokens: 360,
+  // A full 450-character piece is about 225 CJK tokens. It can share a completion
+  // with the next sentence instead of paying the prompt prefill again.
+  maxSegmentTokens: 240,
+  maxBatchTokens: Math.min(512, sourceTokenBudget(2048)),
 });
 
 const MAX_BATCH_SEGMENTS = 8;

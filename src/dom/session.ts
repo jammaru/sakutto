@@ -1,5 +1,14 @@
 import { estimateTokens } from '@/engine/text/tokens';
-import { formatRate, pageRates } from './throughput';
+import {
+  coveredBlocks,
+  formatRate,
+  outputTokenCount,
+  pageRates,
+  RATE_HOLD_MS,
+  roundProgress,
+  type PageRates,
+  type ThroughputSample,
+} from './throughput';
 import { joinTranslatedSentences, splitForTranslation } from '@/engine/text/sentences';
 import { isPlainAltS } from '@/shared/shortcuts';
 import { PriorityQueue } from '@/engine/queue/priority-queue';
@@ -40,10 +49,11 @@ import type { SiteAuto, SiteRule } from './sites';
 
 const SHORT_TOKEN_LIMIT = 40;
 const BATCH_TOKEN_LIMIT = 200;
-const PACK_TOKEN_LIMIT = 360;
-const PACK_SEGMENT_TOKENS = 140;
+const PACK_TOKEN_LIMIT = 512;
+const PACK_SEGMENT_TOKENS = 240;
 const SLICE_SIZE = 24;
-const PREVIEW_LIMIT = 2;
+const PREVIEW_LIMIT = 4;
+const MAX_PAGE_FAILURES = 2;
 /** Keyboard selections settle before inference, so a partial highlight does not occupy the model. */
 const SELECTION_SETTLE_MS = 48;
 /** A selectionchange that follows pointerup is the same gesture and should not wait out the keyboard delay. */
@@ -99,6 +109,7 @@ interface Live {
   placeholder: boolean;
   flatten: boolean;
   attempts: number;
+  failures: number;
   short: boolean;
   heading: boolean;
   kind: ContentKind;
@@ -117,6 +128,8 @@ interface Live {
   partText: string[];
   partFinal: boolean[];
   partPlamo: boolean[];
+  /** True while this piece shows Chrome text that PLaMo has not replaced yet. */
+  partDraft: boolean[];
   rect: DOMRect | null;
   batchToken: number;
 }
@@ -176,11 +189,13 @@ export class PageSession {
   private readonly keyWindows = new Set<Window>();
   private grantPending = false;
   private eagerOnce = true;
-  private draftsLeft = 3;
   private previewing = 0;
   private previewGeneration = 0;
-  private plamoSeen = false;
   private lastRateAt = 0;
+  private throughputSamples: ThroughputSample[] = [];
+  private heldRates: PageRates = { tokensPerSecond: null, segmentsPerSecond: null };
+  private heldTokensAt = 0;
+  private heldSegmentsAt = 0;
   private readonly queue = new PriorityQueue<Live>();
   private readonly live = new Map<string, Live>();
   private readonly liveByBlock = new Map<Element, Live>();
@@ -213,6 +228,8 @@ export class PageSession {
   private readonly expected = new WeakMap<Text, string>();
   private applying = 0;
   private plamoReady = false;
+  /** True once a built-in draft has painted, so the rest of the screen can preview immediately. */
+  private chromePreviewReady = false;
   private historyUnpatch: (() => void) | null = null;
   private scanTimer: ReturnType<typeof setTimeout> | null = null;
   private direction: 'down' | 'up' = 'down';
@@ -393,16 +410,14 @@ export class PageSession {
 
   state(): PageViewState {
     const lives = [...this.live.values()];
-    const pages = lives.filter((item) => item.role === 'page');
-    const prose = pages.filter((item) => item.kind === 'prose');
-    const tracked = prose.length > 0 ? prose : pages;
+    const tracked = this.trackedPages();
     const simple = lives.some((item) => item.engine === 'chrome');
     const hasPlamo = lives.some((item) => item.engine === 'plamo');
     let engine: EngineKind | null = null;
     if (this.active && hasPlamo) engine = 'plamo';
     else if (this.active && simple) engine = 'chrome';
     const pageLanguage = this.sourceLanguage();
-    const rates = this.rates(tracked);
+    const rates = this.rates();
 
     return {
       active: this.active,
@@ -410,7 +425,7 @@ export class PageSession {
       engine,
       simple: this.active && simple && !hasPlamo,
       pending: tracked.filter((item) => item.state === 'queued' || item.state === 'running').length,
-      done: tracked.filter((item) => item.state === 'done').length,
+      done: roundProgress(coveredBlocks(tracked)),
       total: tracked.length,
       host: this.prefs.host,
       auto: this.prefs.auto,
@@ -456,12 +471,15 @@ export class PageSession {
     this.startedAt = performance.now();
     this.firstTextAt = null;
     this.samples = [];
+    this.throughputSamples = [{ atMs: this.startedAt, tokens: 0, segments: 0 }];
+    this.heldRates = { tokensPerSecond: null, segmentsPerSecond: null };
+    this.heldTokensAt = 0;
+    this.heldSegmentsAt = 0;
     this.pageController = new AbortController();
     this.eagerOnce = true;
-    this.draftsLeft = 3;
+    this.chromePreviewReady = false;
     this.previewGeneration += 1;
     this.previewing = 0;
-    this.plamoSeen = false;
     this.lastRateAt = 0;
     this.rememberSourceLanguage();
     this.alignTargetLanguage();
@@ -482,7 +500,9 @@ export class PageSession {
     this.invalidatePaints();
     this.previewGeneration += 1;
     this.previewing = 0;
-    this.plamoSeen = false;
+    this.chromePreviewReady = false;
+    this.throughputSamples = [];
+    this.heldRates = { tokensPerSecond: null, segmentsPerSecond: null };
     this.pageController?.abort();
     this.pageController = null;
     this.abortRunning(false);
@@ -689,8 +709,8 @@ export class PageSession {
   }
 
   upgradeChromeSegments(): void {
-    if (!this.active) return;
     this.plamoReady = true;
+    if (!this.active) return;
     for (const item of this.live.values()) {
       if (item.role !== 'page' || item.engine === 'plamo' || item.state === 'running') continue;
       if (item.engine === 'chrome' && item.state === 'queued') continue;
@@ -782,6 +802,7 @@ export class PageSession {
       placeholder: model.placeholder,
       flatten: false,
       attempts: 0,
+      failures: 0,
       short: model.placeholder ? false : estimateTokens(model.source) <= SHORT_TOKEN_LIMIT,
       heading: /^H[1-6]$/u.test(block.tagName),
       kind: contentKind(block),
@@ -800,6 +821,7 @@ export class PageSession {
       partText: [],
       partFinal: [],
       partPlamo: [],
+      partDraft: [],
       rect: null,
       batchToken: 0,
     };
@@ -820,6 +842,7 @@ export class PageSession {
       placeholder: false,
       flatten: false,
       attempts: 0,
+      failures: 0,
       short: true,
       heading: false,
       kind: 'prose',
@@ -838,6 +861,7 @@ export class PageSession {
       partText: [],
       partFinal: [],
       partPlamo: [],
+      partDraft: [],
       rect,
       batchToken: 0,
     };
@@ -1035,22 +1059,45 @@ export class PageSession {
     const owners = new Map<string, Live>();
 
     for (const item of batch) {
-      if (item.model?.placeholder) item.model.block.setAttribute('data-sakutto-pending', '1');
+      if (item.role === 'page' && item.model) {
+        item.model.block.setAttribute('data-sakutto-pending', '1');
+      }
       const pieces = expandSource(item);
       const keepPreview = item.engine === 'chrome' && item.partText.some((part) => part.length > 0);
-      item.partFinal = pieces.map(() => false);
-      item.partPlamo = pieces.map(() => false);
-      if (keepPreview) {
-        item.draft = true;
-        item.partText = pieces.map((_, index) => item.partText[index] ?? '');
+      const preserve = item.failures > 0 && item.partText.length === pieces.length;
+      item.partFinal = pieces.map((_, index) =>
+        preserve ? item.partFinal[index] === true : false,
+      );
+      item.partPlamo = pieces.map((_, index) =>
+        preserve ? item.partPlamo[index] === true : false,
+      );
+      const retaining = keepPreview || preserve;
+      item.partDraft = pieces.map((_, index) => retaining && item.partDraft[index] === true);
+      if (retaining) {
+        item.draft = keepPreview || item.draft;
+        // A retry restarts unfinished pieces, so their half-decoded text must go;
+        // otherwise attempt two appends onto the fragment attempt one left behind.
+        item.partText = pieces.map((_, index) => {
+          const kept = item.partFinal[index] === true || item.partDraft[index] === true;
+          return kept ? (item.partText[index] ?? '') : '';
+        });
       } else {
         item.partText = pieces.map(() => '');
         item.draft = false;
       }
       for (const piece of pieces) {
+        const index = partIndex(piece.id);
+        if (item.partFinal[index]) continue;
         requests.push(piece);
         owners.set(piece.id, item);
       }
+    }
+
+    if (requests.length === 0) {
+      for (const item of batch) {
+        if (item.partFinal.length > 0 && item.partFinal.every(Boolean)) this.complete(item);
+      }
+      return;
     }
 
     try {
@@ -1065,20 +1112,25 @@ export class PageSession {
         const plamoUpgrade = item.draft && chunk.engine === 'plamo';
         if (item.state !== 'running' && !(plamoUpgrade && item.state === 'done')) continue;
         if (chunk.engine === 'chrome' && item.partPlamo[index]) continue;
-        if (plamoUpgrade && !item.partPlamo[index]) {
-          item.partPlamo[index] = true;
-          if (chunk.textDelta) item.partText[index] = '';
-        }
-        if (chunk.engine === 'plamo' && !this.plamoSeen) {
-          this.plamoSeen = true;
+        if (chunk.engine === 'chrome' && item.role === 'page' && !this.chromePreviewReady) {
+          this.chromePreviewReady = true;
           this.pumpPreviews();
         }
+        if (plamoUpgrade) item.partPlamo[index] = true;
+        if (chunk.engine === 'chrome') item.partDraft[index] = true;
+        // Only a piece that already shows Chrome text waits for PLaMo to finish it.
+        // Any other piece streams token by token, so a page without the built-in
+        // translator still fills the paragraph that is on screen.
+        const holdDraft =
+          plamoUpgrade && chunk.final === undefined && item.partDraft[index] === true;
         if (chunk.engine) item.engine = chunk.engine;
-        if (chunk.textDelta) {
+        if (chunk.textDelta && !holdDraft) {
+          if (chunk.engine === 'plamo') item.partDraft[index] = false;
           item.partText[index] = (item.partText[index] ?? '') + chunk.textDelta;
           this.queuePaint(item);
         }
         if (chunk.final !== undefined) {
+          if (chunk.engine === 'plamo') item.partDraft[index] = false;
           item.partText[index] = chunk.final;
           item.partFinal[index] = true;
           if (item.partFinal.every(Boolean)) this.complete(item);
@@ -1086,21 +1138,76 @@ export class PageSession {
         }
       }
     } catch {
-      // A failed batch leaves the original text in place.
+      // Unfinished blocks are retried below. Abort keeps the previous text.
     } finally {
       for (const item of batch) {
-        if (item.batchToken !== token) continue;
-        if (item.state === 'running') {
-          const unfinished = item.translation.trim().length === 0;
+        if (item.batchToken !== token || item.state !== 'running') {
+          if (item.batchToken === token) this.showSelectionFailure(item, signal);
+          if (item.batchToken === token) this.queueChromeUpgrade(item);
+          continue;
+        }
+        if (signal.aborted) {
           item.state = item.translation.length > 0 ? 'done' : 'idle';
           item.model?.block.removeAttribute('data-sakutto-pending');
-          if (unfinished) this.showSelectionFailure(item, signal);
-        } else {
           this.showSelectionFailure(item, signal);
+          continue;
         }
-        this.queueChromeUpgrade(item);
+        if (item.partFinal.length > 0 && item.partFinal.every(Boolean)) {
+          this.complete(item);
+          this.queueChromeUpgrade(item);
+          continue;
+        }
+        if (item.role === 'page' && item.failures < MAX_PAGE_FAILURES) {
+          item.failures += 1;
+          item.state = 'idle';
+          this.enqueue(item, true);
+          continue;
+        }
+        if (item.role === 'selection') {
+          item.state = item.translation.length > 0 ? 'done' : 'idle';
+          item.model?.block.removeAttribute('data-sakutto-pending');
+          this.showSelectionFailure(item, signal);
+          continue;
+        }
+        this.settleFailed(item);
       }
     }
+  }
+
+  /**
+   * Keeps any finished sentences and lets the page counter move past a block that will not
+   * complete. Only pieces that actually finished are kept; a half-decoded fragment is not a
+   * translation, so that piece falls back to the source text instead.
+   */
+  private settleFailed(item: Live): void {
+    const pieces = expandSource(item);
+    const keep = pieces.map((_, index) =>
+      item.partFinal[index] === true || item.partDraft[index] === true
+        ? (item.partText[index]?.trim() ?? '')
+        : '',
+    );
+    item.upgraded = true;
+    if (!keep.some((part) => part.length > 0)) {
+      // Nothing finished. Undo the partial paint so the block shows its source text
+      // instead of a half-decoded fragment.
+      this.resetLive(item);
+      item.state = 'done';
+      item.translation = '';
+      item.partText = [];
+      item.partFinal = [];
+      item.partDraft = [];
+      item.engine = null;
+      item.model?.block.removeAttribute('data-sakutto-pending');
+      this.publishState();
+      return;
+    }
+    item.partText = pieces.map((piece, index) => {
+      const text = keep[index] ?? '';
+      return text.length > 0 ? text : piece.text;
+    });
+    item.partFinal = item.partText.map(() => true);
+    item.partDraft = item.partText.map(() => false);
+    this.complete(item);
   }
 
   private showSelectionFailure(item: Live, signal: AbortSignal): void {
@@ -1164,6 +1271,7 @@ export class PageSession {
       item.flatten = true;
       item.partText = [];
       item.partFinal = [];
+      item.partDraft = [];
       item.translation = '';
       item.state = 'idle';
       item.model.block.setAttribute('data-sakutto-pending', '1');
@@ -1192,11 +1300,17 @@ export class PageSession {
       batch.some((item) => item.role === 'page' && item.kind === 'prose' && !item.heading);
     const eager = this.eagerOnce && visibleProse;
     if (eager) this.eagerOnce = false;
-    const draft = this.draftsLeft > 0 && visibleProse;
-    if (draft) {
-      this.draftsLeft -= 1;
+    const onScreen = (item: Live): boolean =>
+      item.role === 'page' && (item.band === 'visible' || item.band === 'near');
+    const needsChrome = batch.some(
+      (item) =>
+        onScreen(item) &&
+        item.engine !== 'chrome' &&
+        !item.partText.some((part) => part.trim().length > 0),
+    );
+    if (needsChrome || batch.some((item) => item.engine === 'chrome' && onScreen(item))) {
       for (const item of batch) {
-        if (item.role === 'page' && item.kind === 'prose' && !item.heading) item.draft = true;
+        if (onScreen(item) || item.engine === 'chrome') item.draft = true;
       }
     }
 
@@ -1209,7 +1323,7 @@ export class PageSession {
       ...(glossary.length > 0 ? { glossary } : {}),
       ...(context ? { context } : {}),
       ...(eager ? { eager: true } : {}),
-      ...(draft ? { draft: true } : {}),
+      ...(needsChrome ? { draft: true } : {}),
     };
   }
 
@@ -1348,8 +1462,10 @@ export class PageSession {
       item.previewing = false;
       item.flatten = false;
       item.attempts = 0;
+      item.failures = 0;
       item.partText = [];
       item.partFinal = [];
+      item.partDraft = [];
       item.state = 'idle';
       this.enqueue(item, true);
     }
@@ -1401,6 +1517,7 @@ export class PageSession {
         item.state = 'idle';
         item.partText = [];
         item.partFinal = [];
+        item.partDraft = [];
         item.model?.block.removeAttribute('data-sakutto-pending');
         if (requeue && this.active && !this.navigating) this.enqueue(item);
       }
@@ -1442,21 +1559,63 @@ export class PageSession {
     this.dirty.delete(item);
   }
 
-  private rates(items?: readonly Live[]): {
-    tokensPerSecond: number | null;
-    segmentsPerSecond: number | null;
-  } {
-    const tracked = items ?? [...this.live.values()].filter((item) => item.role === 'page');
-    const output = tracked
-      .map((item) => (item.translation.length > 0 ? item.translation : item.partText.join('')))
-      .join('\n');
-    const done = tracked.filter((item) => item.state === 'done').length;
-    return pageRates({
+  private trackedPages(): Live[] {
+    const pages = [...this.live.values()].filter((item) => item.role === 'page');
+    const prose = pages.filter((item) => item.kind === 'prose');
+    return prose.length > 0 ? prose : pages;
+  }
+
+  private rates(): PageRates {
+    const tracked = this.trackedPages();
+    this.noteThroughput(tracked);
+    const now = performance.now();
+    const measured = pageRates({
       active: this.active,
-      elapsedMs: this.startedAt === 0 ? 0 : performance.now() - this.startedAt,
-      done,
-      output,
+      nowMs: now,
+      samples: this.throughputSamples,
     });
+    const tokens = measured.tokensPerSecond ?? this.heldRate('tokens', now);
+    const segments = measured.segmentsPerSecond ?? this.heldRate('segments', now);
+    if (measured.tokensPerSecond !== null) {
+      this.heldRates = { ...this.heldRates, tokensPerSecond: measured.tokensPerSecond };
+      this.heldTokensAt = now;
+    }
+    if (measured.segmentsPerSecond !== null) {
+      this.heldRates = { ...this.heldRates, segmentsPerSecond: measured.segmentsPerSecond };
+      this.heldSegmentsAt = now;
+    }
+    return { tokensPerSecond: tokens, segmentsPerSecond: segments };
+  }
+
+  private heldRate(kind: 'tokens' | 'segments', now: number): number | null {
+    const at = kind === 'tokens' ? this.heldTokensAt : this.heldSegmentsAt;
+    if (now - at > RATE_HOLD_MS) return null;
+    return kind === 'tokens' ? this.heldRates.tokensPerSecond : this.heldRates.segmentsPerSecond;
+  }
+
+  private noteThroughput(tracked: readonly Live[], now = performance.now()): void {
+    if (!this.active) return;
+    const tokens = outputTokenCount(
+      tracked.map((item) =>
+        item.translation.length > 0 ? item.translation : item.partText.join(''),
+      ),
+    );
+    const segments = tracked.reduce((count, item) => {
+      if (item.partFinal.some(Boolean)) return count + item.partFinal.filter(Boolean).length;
+      return count + (item.state === 'done' ? 1 : 0);
+    }, 0);
+    const last = this.throughputSamples[this.throughputSamples.length - 1];
+    if (last && last.tokens === tokens && last.segments === segments) return;
+    if (last && last.segments === segments && now - last.atMs < 200) {
+      last.tokens = tokens;
+      last.atMs = now;
+      return;
+    }
+    this.throughputSamples.push({ atMs: now, tokens, segments });
+    const cutoff = now - RATE_HOLD_MS * 2;
+    while (this.throughputSamples.length > 2 && (this.throughputSamples[0]?.atMs ?? 0) < cutoff) {
+      this.throughputSamples.shift();
+    }
   }
 
   private barText(view: PageViewState): string {
@@ -1475,26 +1634,16 @@ export class PageSession {
 
   private pumpPreviews(): void {
     if (
-      this.prefs.pace !== 'fast' ||
-      !this.plamoReady ||
-      !this.plamoSeen ||
+      (!this.plamoReady && !this.chromePreviewReady) ||
       !this.active ||
-      this.navigating
+      this.navigating ||
+      this.paused
     ) {
       return;
     }
     const generation = this.previewGeneration;
     while (this.previewing < PREVIEW_LIMIT) {
-      const item = [...this.live.values()].find(
-        (candidate) =>
-          candidate.role === 'page' &&
-          candidate.band !== 'visible' &&
-          candidate.state === 'queued' &&
-          !candidate.previewed &&
-          !candidate.previewing &&
-          candidate.engine === null &&
-          hasBox(candidate),
-      );
+      const item = this.nextPreviewTarget();
       if (!item) return;
       item.previewing = true;
       this.previewing += 1;
@@ -1507,6 +1656,28 @@ export class PageSession {
         this.resolveIdle();
       });
     }
+  }
+
+  /** Visible text first, then nearby, then the rest of a fast-pace page. */
+  private nextPreviewTarget(): Live | undefined {
+    let best: Live | undefined;
+    let bestPriority = Number.POSITIVE_INFINITY;
+    for (const candidate of this.live.values()) {
+      if (!this.canPreview(candidate)) continue;
+      const priority = this.priorityOf(candidate);
+      if (priority >= bestPriority) continue;
+      best = candidate;
+      bestPriority = priority;
+    }
+    return best;
+  }
+
+  private canPreview(candidate: Live): boolean {
+    if (candidate.role !== 'page' || candidate.state !== 'queued') return false;
+    if (candidate.previewed || candidate.previewing || candidate.engine !== null) return false;
+    if (!hasBox(candidate)) return false;
+    if (candidate.band === 'far') return this.prefs.pace === 'fast';
+    return candidate.band === 'visible' || candidate.band === 'near';
   }
 
   private async runPreview(item: Live, generation: number): Promise<void> {
@@ -1526,8 +1697,12 @@ export class PageSession {
         if (item.state === 'running' || item.engine === 'plamo') return;
         if (chunk.final === undefined) continue;
         const index = partIndex(chunk.id);
-        if (item.partText.length !== pieces.length) item.partText = pieces.map(() => '');
+        if (item.partText.length !== pieces.length) {
+          item.partText = pieces.map(() => '');
+          item.partDraft = pieces.map(() => false);
+        }
         item.partText[index] = chunk.final;
+        item.partDraft[index] = true;
         item.engine = 'chrome';
         item.draft = true;
         this.paint(item, true);
@@ -1575,7 +1750,8 @@ export class PageSession {
     }
     const view = this.state();
     root.dataset.sakuttoState = view.pending > 0 ? 'translating' : 'translated';
-    root.dataset.sakuttoProgress = `${String(view.done)}/${String(view.total)}`;
+    const blocksDone = Math.min(view.total, Math.floor(view.done));
+    root.dataset.sakuttoProgress = `${String(blocksDone)}/${String(view.total)}`;
     if (view.tokensPerSecond !== null && view.segmentsPerSecond !== null) {
       root.dataset.sakuttoRate = `${formatRate(view.tokensPerSecond)} tok/s, ${formatRate(view.segmentsPerSecond)} seg/s`;
     } else {

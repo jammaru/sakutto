@@ -53,6 +53,18 @@ describe('translation planning', () => {
     expect(items[0]?.kind).toBe('batch');
   });
 
+  it('packs several long sentences into one completion', () => {
+    const piece = 'あ'.repeat(300);
+    const items = planWork(segments(piece, piece, piece));
+
+    expect(estimateTokens(piece)).toBe(150);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.kind).toBe('batch');
+    if (items[0]?.kind === 'batch') {
+      expect(estimateTokens(items[0].text)).toBeLessThanOrEqual(DEFAULT_PLAN_CONFIG.maxBatchTokens);
+    }
+  });
+
   it('keeps long segments alone', () => {
     const long = 'A sentence. '.repeat(40);
     const items = planWork(segments('Sign in', long, 'Learn more'));
