@@ -226,7 +226,7 @@ describe('InBrowserEngine', () => {
     expect(runtime.requests[0]?.prompt).toContain('<|plamo:key|>lang<|plamo:val|>ja');
   });
 
-  it('retries each segment when a batch loses a line', async () => {
+  it('retries only the lines a batch lost instead of the whole batch', async () => {
     const runtime = new FakeRuntime((prompt) => {
       if (prompt.includes('Sign in\nSettings')) return 'サインイン';
       if (prompt.includes('Sign in')) return 'サインイン';
@@ -246,7 +246,10 @@ describe('InBrowserEngine', () => {
       ),
     );
 
-    expect(runtime.requests).toHaveLength(4);
+    // The batch decodes one usable line, so the two missing lines are the only retries.
+    // Re-translating the line the model already produced cost a whole completion per
+    // batch that lost its tail, and those were the common failures.
+    expect(runtime.requests).toHaveLength(3);
     expect(finalChunks(chunks)).toEqual([
       { id: 'a', final: 'サインイン', engine: 'plamo' },
       { id: 'b', final: '設定', engine: 'plamo' },

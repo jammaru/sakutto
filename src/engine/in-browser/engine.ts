@@ -280,7 +280,26 @@ export class InBrowserEngine implements IdentifiedEngine {
       cleaned.length === 0 ? [] : cleaned.split('\n').map((line) => cleanModelOutput(line));
 
     if (lines.length !== segments.length || lines.some((line) => line.length === 0)) {
-      await this.completeIndividually(segments, options, signal, stream, shown + (opened ? 1 : 0));
+      // Keep the lines the model did finish. Re-translating a line that is already
+      // correct and already on screen wasted one completion per line whenever a batch
+      // lost its tail, which is the common failure for a packed paragraph.
+      const usable = lines.slice(0, segments.length).map((line) => line.trim());
+      const settled = usable.findIndex((line) => line.length === 0);
+      const keep = settled === -1 ? usable.length : settled;
+      if (keep > 0) {
+        for (let index = 0; index < keep; index += 1) {
+          const segment = segments[index];
+          if (segment)
+            stream.push({ id: segment.id, final: usable[index] ?? '', engine: this.kind });
+        }
+      }
+      await this.completeIndividually(
+        segments.slice(keep),
+        options,
+        signal,
+        stream,
+        Math.max(0, shown + (opened ? 1 : 0) - keep),
+      );
       return;
     }
 

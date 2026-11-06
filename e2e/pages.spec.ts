@@ -175,3 +175,81 @@ test.describe('in-page translation', () => {
     }
   });
 });
+
+test.describe('faded translation and skipped sidebar', () => {
+  test.beforeAll(async () => {
+    extension = await loadExtension('en-US');
+  });
+
+  test.afterAll(async () => {
+    if (!extension) return;
+    try {
+      expect(extension.denied).toEqual([]);
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('translates a model card sidebar and keeps the translation at full contrast', async () => {
+    const page = await openFixture('/model-card.html');
+    try {
+      // Sidebar metadata and short labels used to be dropped, leaving a finished-looking
+      // page with an English column beside it.
+      await expect(page.locator('#downloads')).toContainText(MARKER);
+      await expect(page.locator('#size')).toContainText(MARKER);
+      await expect(page.locator('#spaces')).toContainText(MARKER);
+      await expect(page.locator('#docs')).toContainText(MARKER);
+      await expect(page.locator('#lead')).toContainText(MARKER);
+      await expect(page.locator('#shell')).toContainText(MARKER);
+
+      // Literal content stays literal.
+      await expect(page.locator('#code')).toHaveText('model = load("weights")');
+      await expect(page.locator('#sr')).toHaveText('Shortcut hint only screen readers announce');
+      await expect(page.locator('html')).toHaveAttribute('data-sakutto-state', 'translated');
+
+      // The reported bug: Japanese rendered paler than the English it replaced. The
+      // translated paragraph must keep the host color at full opacity.
+      const contrast = await page.evaluate(() => {
+        const lead = document.querySelector('#lead');
+        if (!lead) return null;
+        const style = getComputedStyle(lead);
+        return {
+          color: style.color,
+          opacity: style.opacity,
+          originalColor: getComputedStyle(document.body).color,
+        };
+      });
+      expect(contrast?.opacity).toBe('1');
+      expect(contrast?.color).toBe(contrast?.originalColor);
+
+      // A block that is still streaming must not dim. Before the fix this attribute set
+      // opacity 0.58 (and shimmered to 0.32), so any paragraph the model had not finished
+      // — and any block whose attribute outlived the request — read as pale gray.
+      expect(
+        await page.evaluate(() => {
+          const lead = document.querySelector('#lead');
+          if (!lead) return null;
+          lead.setAttribute('data-sakutto-pending', '1');
+          const opacity = getComputedStyle(lead).opacity;
+          lead.removeAttribute('data-sakutto-pending');
+          return opacity;
+        }),
+      ).toBe('1');
+      expect(
+        await page.evaluate(() => document.getElementById('sakutto-style')?.textContent ?? ''),
+      ).not.toMatch(/color-mix\(/);
+
+      await commandPage(extension.worker, page, 'bilingual');
+      const line = page.locator('#lead sakutto-line');
+      await expect(line).toContainText(MARKER);
+      expect(
+        await line.evaluate((element) => ({
+          opacity: getComputedStyle(element).opacity,
+          color: getComputedStyle(element).color,
+        })),
+      ).toEqual({ opacity: '1', color: contrast?.originalColor });
+    } finally {
+      await page.close();
+    }
+  });
+});

@@ -1,6 +1,10 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { countTranslatableBlocks, isTranslationExcluded } from '@/dom/blocks';
+import {
+  countTranslatableBlocks,
+  isTranslationExcluded,
+  listTranslatableBlocks,
+} from '@/dom/blocks';
 
 describe('translatable blocks', () => {
   it('counts leaf blocks once and skips excluded content', () => {
@@ -48,7 +52,6 @@ describe('translatable blocks', () => {
     `;
 
     expect(countTranslatableBlocks(document)).toBe(1);
-    expect(isTranslationExcluded(document.querySelector('[aria-hidden="true"]')!)).toBe(true);
   });
 
   it('treats inline-only wrappers as a single block', () => {
@@ -58,5 +61,100 @@ describe('translatable blocks', () => {
     `;
 
     expect(countTranslatableBlocks(document)).toBe(2);
+  });
+});
+
+describe('page coverage on app shells', () => {
+  function blocks(): string[] {
+    return listTranslatableBlocks(document).map((block) =>
+      (block.textContent ?? '').replace(/\s+/g, ' ').trim(),
+    );
+  }
+
+  it('skips a collapsed menu and keeps the same text when the panel opens', () => {
+    document.body.innerHTML = `
+      <div id="closed" style="display: none"><p>Hidden panel copy</p></div>
+      <p>Visible copy</p>
+    `;
+    expect(blocks()).toEqual(['Visible copy']);
+    const panel = document.querySelector<HTMLElement>('#closed');
+    if (!panel) throw new Error('missing panel');
+    panel.style.display = 'block';
+    expect(blocks()).toEqual(['Hidden panel copy', 'Visible copy']);
+  });
+
+  it('skips screen-reader-only clones of visible copy', () => {
+    document.body.innerHTML = `
+      <div><span class="sr-only">Shortcut hint for screen readers</span></div>
+      <p>Visible copy</p>
+    `;
+    expect(blocks()).toEqual(['Visible copy']);
+  });
+
+  it('keeps screen-reader text that a utility class re-enables', () => {
+    document.body.innerHTML = `
+      <div><span class="sr-only not-sr-only">Now visible label</span></div>
+      <p>Visible copy</p>
+    `;
+    expect(blocks()).toContain('Now visible label');
+  });
+
+  it('keeps a container that holds both decorative and readable content', () => {
+    document.body.innerHTML = `
+      <div>
+        <span aria-hidden="true">★</span>
+        <p>Readable paragraph</p>
+      </div>
+    `;
+    expect(blocks()).toEqual(['Readable paragraph']);
+  });
+});
+
+describe('aria-hidden shells', () => {
+  it('translates prose behind an aria-hidden wrapper instead of dropping the page', () => {
+    // Frameworks mark an app shell aria-hidden while a dialog or portal is open. Treating
+    // that as a skip list made the whole page look translated while it stayed English.
+    document.body.innerHTML = `
+      <div aria-hidden="true"><main><p>English body copy here</p></main></div>
+    `;
+    expect(countTranslatableBlocks(document)).toBe(1);
+  });
+
+  it('still skips a decorative aria-hidden glyph beside real copy', () => {
+    document.body.innerHTML = `
+      <div>
+        <span aria-hidden="true">★</span>
+        <p>Readable paragraph</p>
+      </div>
+    `;
+    const blocks = listTranslatableBlocks(document).map((block) => block.tagName);
+    expect(blocks).toEqual(['P']);
+  });
+});
+
+describe('visibility edge cases', () => {
+  it('keeps prose inside a content-visibility: auto section', () => {
+    document.body.innerHTML = `
+      <section style="content-visibility: auto"><p>Long article body</p></section>
+    `;
+    expect(countTranslatableBlocks(document)).toBe(1);
+  });
+
+  it('keeps a visible tab panel and skips the collapsed one', () => {
+    document.body.innerHTML = `
+      <div id="open"><p>Read me tab</p></div>
+      <div id="closed" style="display: none"><p>Hidden tab copy</p></div>
+    `;
+    const blocks = listTranslatableBlocks(document).map((block) => block.textContent?.trim());
+    expect(blocks).toEqual(['Read me tab']);
+  });
+
+  it('skips a closed details body but keeps its summary', () => {
+    document.body.innerHTML = `
+      <details><summary>More options</summary><p>Collapsed detail copy</p></details>
+    `;
+    const blocks = listTranslatableBlocks(document).map((block) => block.textContent?.trim());
+    expect(blocks).toContain('More options');
+    expect(blocks).not.toContain('Collapsed detail copy');
   });
 });
