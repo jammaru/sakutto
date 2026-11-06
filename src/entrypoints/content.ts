@@ -48,8 +48,7 @@ async function requestSiteAccess(host: string): Promise<boolean> {
 function overlayLabels(): OverlayLabels {
   return {
     original: t('originalLabel'),
-    simple: t('simpleTranslation'),
-    simpleDetail: t('simpleTranslationDetail'),
+    chromeNote: t('chromeTranslationNote'),
     machine: t('machineTranslationTooltip'),
     selectionPending: t('selectionPending'),
     selectionFailed: t('selectionFailed'),

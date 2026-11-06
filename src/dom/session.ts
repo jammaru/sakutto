@@ -46,7 +46,6 @@ import {
   removeTranslationUi,
   restoreSegment,
   showBilingual,
-  showReplaceNote,
 } from './render';
 import {
   allSlots,
@@ -1483,21 +1482,19 @@ export class PageSession {
       if (item.engine) model.block.setAttribute('data-sakutto-engine', item.engine);
 
       if (bilingual) {
-        showBilingual(model, text, item.engine, this.labels.simple, item.created);
+        showBilingual(model, text, item.created);
         const line = model.block.querySelector('sakutto-line');
         if (line instanceof HTMLElement) line.lang = this.prefs.targetLanguage;
         if (!partial || !model.placeholder) model.block.removeAttribute('data-sakutto-pending');
       } else if (partial) {
+        removeTranslationUi(model.block);
         paintPlain(model, text, item.created);
-        if (item.engine === 'chrome') {
-          showReplaceNote(model.block, item.engine, this.labels.simple);
-          model.block.setAttribute('data-sakutto-pending', '1');
-        } else if (model.placeholder) {
+        if (item.engine === 'chrome' || model.placeholder) {
           model.block.setAttribute('data-sakutto-pending', '1');
         }
       } else {
+        removeTranslationUi(model.block);
         applyTranslation(model, text, item.created);
-        showReplaceNote(model.block, item.engine, this.labels.simple);
         model.block.removeAttribute('data-sakutto-pending');
       }
       this.remember(model, item.created);

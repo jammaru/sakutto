@@ -9,8 +9,7 @@ import type { TranslateOptions } from '@/engine/types';
 
 const labels = {
   original: '原文',
-  simple: '簡易訳',
-  simpleDetail: '簡易訳（Chrome 内蔵）',
+  chromeNote: 'Chrome の内蔵翻訳',
   machine: 'PLaMo による機械翻訳です。',
   selectionPending: '翻訳しています…',
   selectionFailed: 'この選択範囲を翻訳できませんでした。',
@@ -276,7 +275,7 @@ describe('page session', () => {
     expect(document.querySelector('sakutto-line')?.textContent).toContain('訳:Hello world');
   });
 
-  it('labels a built-in translation as a quick translation', async () => {
+  it('shows a built-in translation without a badge next to it', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML = '<p>Hello world</p>';
     const session = start(
@@ -287,11 +286,50 @@ describe('page session', () => {
     await session.translate();
     await session.whenIdle();
 
-    expect(document.querySelector('sakutto-note')?.textContent).toBe('簡易訳');
+    expect(document.body.textContent).toContain('訳:Hello world');
+    expect(document.querySelector('sakutto-note')).toBeNull();
+    expect(document.body.textContent).not.toContain('簡易訳');
     document.querySelector('p')?.dispatchEvent(new PointerEvent('pointerover', { bubbles: true }));
     expect(document.querySelector('sakutto-tip')?.shadowRoot?.textContent).toContain(
-      '簡易訳（Chrome 内蔵）',
+      'Chrome の内蔵翻訳',
     );
+  });
+
+  it('shows a built-in translation without a badge on a bilingual line', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello world</p>';
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`, 'chrome'),
+      { display: 'bilingual' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    const line = document.querySelector('sakutto-line');
+    if (!line) throw new Error('missing bilingual line');
+    expect(line.textContent).toBe('訳:Hello world');
+    expect(line.querySelector('sakutto-note')).toBeNull();
+    expect(document.body.textContent).not.toContain('簡易訳');
+    expect(translationPageStyle()).not.toMatch(/sakutto-note/);
+    expect(translationPageStyle()).not.toContain('簡易訳');
+  });
+
+  it('drops a badge painted into the page by an older build', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML =
+      '<p id="lead">Hello world<sakutto-note data-mode="replace">簡易訳</sakutto-note></p>';
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    expect(document.querySelector('sakutto-note')).toBeNull();
+    expect(document.querySelector('#lead')?.textContent).not.toContain('簡易訳');
   });
 
   it('remembers bilingual mode for the page and can switch back', async () => {
@@ -1253,13 +1291,13 @@ describe('page translation corrections', () => {
     try {
       const pending = session.translate();
       for (let attempt = 0; attempt < 20; attempt += 1) {
-        if (document.querySelector('sakutto-note')) break;
+        if (document.querySelector('#lead')?.textContent?.includes('今日の大阪')) break;
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
       const lead = document.querySelector('#lead');
-      expect(lead?.querySelector('sakutto-note')?.textContent).toBe('簡易訳');
-      expect(lead?.querySelector('a')?.getAttribute('href')).toBe('/osaka');
       expect(lead?.textContent).toContain('今日の大阪をご覧ください。');
+      expect(lead?.querySelector('sakutto-note')).toBeNull();
+      expect(lead?.querySelector('a')?.getAttribute('href')).toBe('/osaka');
 
       release();
       await pending;

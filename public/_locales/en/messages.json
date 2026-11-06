@@ -122,13 +122,13 @@
     "message": "Page pace"
   },
   "paceFast": {
-    "message": "Fast (quick translation off-screen too)"
+    "message": "Fast (off-screen text too)"
   },
   "paceQuality": {
     "message": "Quality only"
   },
   "paceHelp": {
-    "message": "Text on screen appears at once with Chrome's built-in translation, labelled as a quick translation, and PLaMo replaces it in reading order. Fast also fills off-screen text that way. Quality only waits for PLaMo off-screen."
+    "message": "Text on screen appears at once with Chrome's built-in translation, and PLaMo replaces it in reading order. Fast also fills off-screen text that way. Quality only waits for PLaMo off-screen."
   },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
@@ -242,11 +242,8 @@
   "originalLabel": {
     "message": "Original"
   },
-  "simpleTranslation": {
-    "message": "Quick translation"
-  },
-  "simpleTranslationDetail": {
-    "message": "Quick translation (built into Chrome)"
+  "chromeTranslationNote": {
+    "message": "Chrome's built-in translation"
   },
   "machineTranslationTooltip": {
     "message": "Machine translation by PLaMo."
@@ -406,7 +403,7 @@
     "message": "PLaMo · CPU"
   },
   "runtimeSimple": {
-    "message": "Quick translation"
+    "message": "Chrome's built-in translation"
   },
   "runtimeWaiting": {
     "message": "Waiting for the model"
@@ -418,7 +415,7 @@
     "message": "Checking…"
   },
   "chromeOnlySuffix": {
-    "message": " (quick translation)"
+    "message": " (Chrome built-in)"
   },
   "onboardingStartNotice": {
     "message": "By starting, you agree to the PLaMo Community License (Article 2). You must be 18 or older, or have a parent or guardian's consent."
@@ -451,7 +448,7 @@
     "message": "Try it now"
   },
   "onboardingWhileDownloading": {
-    "message": "When Chrome's language pack is available, its quick translation stays visible during the download. PLaMo replaces it when the model is ready."
+    "message": "When Chrome's language pack is available, its built-in translation stays visible during the download. PLaMo replaces it when the model is ready."
   },
   "downloadEtaSeconds": {
     "message": "About $COUNT$ seconds left.",
@@ -593,7 +590,7 @@
     "message": "Automatic picks the mode that fits this PC."
   },
   "slowDeviceHint": {
-    "message": "PLaMo is slow on this PC. Chrome's built-in quick translation may be faster."
+    "message": "PLaMo is slow on this PC. Chrome's built-in translation may be faster."
   },
   "errorPermission": {
     "message": "Permission for this site was not granted."

@@ -30,7 +30,7 @@ The same actions are in the toolbar popup and the right-click menu. Change the k
 
 PLaMo 3 Translate supports 53 languages in either direction. The source language is detected from the page. The default target language is the browser UI language, or English when that language is not one of the 53. The popup can set a different target language for the current site.
 
-Eleven further languages (cs, da, el, fi, kn, no, pt, ro, sv, tr, uk) are translated only by Chrome's built-in translator and are labeled as a quick translation. Languages that PLaMo supports and Chrome does not stay untranslated until the model is ready.
+Eleven further languages (cs, da, el, fi, kn, no, pt, ro, sv, tr, uk) are translated only by Chrome's built-in translator. Languages that PLaMo supports and Chrome does not stay untranslated until the model is ready.
 
 ## Privacy
 

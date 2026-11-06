@@ -122,13 +122,13 @@
     "message": "ページの速さ"
   },
   "paceFast": {
-    "message": "速い（画面の外も簡易訳）"
+    "message": "速い（画面の外も Chrome 内蔵の翻訳）"
   },
   "paceQuality": {
     "message": "品質のみ"
   },
   "paceHelp": {
-    "message": "見えている範囲は Chrome 内蔵の簡易訳ですぐ表示し、PLaMo が読む順に置き換えます。「速い」は画面の外も簡易訳します。「品質のみ」は画面の外を PLaMo まで待ちます。"
+    "message": "見えている範囲は Chrome 内蔵の翻訳ですぐ表示し、PLaMo が読む順に置き換えます。「速い」は画面の外も Chrome 内蔵の翻訳で埋めます。「品質のみ」は画面の外を PLaMo まで待ちます。"
   },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ 区間/s",
@@ -242,11 +242,8 @@
   "originalLabel": {
     "message": "原文"
   },
-  "simpleTranslation": {
-    "message": "簡易訳"
-  },
-  "simpleTranslationDetail": {
-    "message": "簡易訳（Chrome 内蔵）"
+  "chromeTranslationNote": {
+    "message": "Chrome の内蔵翻訳"
   },
   "machineTranslationTooltip": {
     "message": "PLaMo による機械翻訳です。"
@@ -406,7 +403,7 @@
     "message": "PLaMo · CPU"
   },
   "runtimeSimple": {
-    "message": "簡易訳"
+    "message": "Chrome 内蔵の翻訳"
   },
   "runtimeWaiting": {
     "message": "モデルの準備を待っています"
@@ -418,7 +415,7 @@
     "message": "確認中…"
   },
   "chromeOnlySuffix": {
-    "message": " （簡易訳）"
+    "message": "（Chrome 内蔵）"
   },
   "onboardingStartNotice": {
     "message": "開始すると、PLaMo Community License（第2条）に同意したものとみなされます。18歳以上であるか、保護者の同意が必要です。"
@@ -451,7 +448,7 @@
     "message": "今すぐ試す"
   },
   "onboardingWhileDownloading": {
-    "message": "言語パックが使えるときは、ダウンロード中も Chrome の簡易訳を表示します。モデルの準備ができると、PLaMo の訳に置き換わります。"
+    "message": "言語パックが使えるときは、ダウンロード中も Chrome 内蔵の翻訳を表示します。モデルの準備ができると、PLaMo の訳に置き換わります。"
   },
   "downloadEtaSeconds": {
     "message": "あと約 $COUNT$ 秒です。",
@@ -593,7 +590,7 @@
     "message": "自動では、この PC に合うモードを選びます。"
   },
   "slowDeviceHint": {
-    "message": "この PC では PLaMo の翻訳に時間がかかります。Chrome 内蔵の簡易訳の方が速いことがあります。"
+    "message": "この PC では PLaMo の翻訳に時間がかかります。Chrome 内蔵の翻訳の方が速いことがあります。"
   },
   "errorPermission": {
     "message": "サイトの権限が許可されませんでした。"

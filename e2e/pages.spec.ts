@@ -41,6 +41,8 @@ test.describe('in-page translation', () => {
       await expect(page.locator('#lead')).toContainText(MARKER);
       await expect(page.locator('#link a')).toHaveAttribute('href', '/docs.html');
       await expect(page.locator('#link a')).toContainText(`${MARKER}ドキュメント`);
+      // A Chrome draft used to carry a "quick translation" badge beside the translated text.
+      await expect(page.locator('sakutto-note')).toHaveCount(0);
       await savePerf('article', page);
 
       await commandPage(extension.worker, page, 'restore');
@@ -163,6 +165,7 @@ test.describe('in-page translation', () => {
       await commandPage(extension.worker, page, 'bilingual');
       await expect(page.locator('#lead sakutto-line')).toContainText(MARKER);
       await expect(page.locator('#lead')).toContainText('今日はよく晴れています。');
+      await expect(page.locator('sakutto-note')).toHaveCount(0);
       expect(await readSiteDisplay(extension.worker)).toBe('bilingual');
 
       await page.reload();
@@ -170,6 +173,7 @@ test.describe('in-page translation', () => {
       await waitTranslated(page);
       await expect(page.locator('#lead sakutto-line')).toContainText(MARKER);
       await expect(page.locator('#lead')).toContainText('今日はよく晴れています。');
+      await expect(page.locator('sakutto-note')).toHaveCount(0);
     } finally {
       await page.close();
     }
