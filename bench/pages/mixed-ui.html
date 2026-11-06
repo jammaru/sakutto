@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Settings — Meridian workspace</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #f6f5f2;
+        color: #1c1b19;
+        font:
+          14px/1.5 -apple-system,
+          'Segoe UI',
+          Roboto,
+          Helvetica,
+          sans-serif;
+      }
+      .app {
+        display: grid;
+        grid-template-columns: 15rem 1fr;
+        min-height: 100vh;
+      }
+      .side {
+        border-right: 1px solid #e2dfd8;
+        padding: 18px 14px;
+        background: #fbfaf7;
+      }
+      .side .workspace {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-weight: 600;
+        padding: 6px 8px 14px;
+      }
+      .side .workspace p {
+        margin: 0;
+      }
+      .side ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .side li {
+        padding: 7px 10px;
+        border-radius: 6px;
+        color: #45413a;
+        margin-bottom: 2px;
+      }
+      .side li.on {
+        background: #ebe7de;
+        font-weight: 600;
+      }
+      .side .group {
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #8b857a;
+        padding: 16px 10px 6px;
+      }
+      main {
+        padding: 30px 40px 96px;
+        max-width: 60rem;
+      }
+      h1 {
+        font-size: 1.4rem;
+        margin: 0 0 6px;
+      }
+      .hint {
+        color: #615c53;
+        margin: 0 0 26px;
+      }
+      .section {
+        background: #ffffff;
+        border: 1px solid #e2dfd8;
+        border-radius: 10px;
+        padding: 22px 24px;
+        margin-bottom: 18px;
+      }
+      .section h2 {
+        font-size: 1rem;
+        margin: 0 0 4px;
+      }
+      .section .sub {
+        color: #6d6860;
+        font-size: 13px;
+        margin: 0 0 18px;
+      }
+      .row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 12px 0;
+        border-top: 1px solid #f0ede7;
+      }
+      .row:first-of-type {
+        border-top: none;
+      }
+      .row .label {
+        font-weight: 500;
+        margin: 0;
+      }
+      .row .desc {
+        color: #6d6860;
+        font-size: 12.5px;
+        margin: 2px 0 0;
+      }
+      .row .value {
+        font-variant-numeric: tabular-nums;
+        color: #45413a;
+        white-space: nowrap;
+        margin: 0;
+      }
+      button {
+        font: inherit;
+        border: 1px solid #d5d1c8;
+        background: #fbfaf7;
+        border-radius: 6px;
+        padding: 5px 12px;
+        color: #2b2925;
+        cursor: default;
+      }
+      button.primary {
+        background: #2b2925;
+        border-color: #2b2925;
+        color: #ffffff;
+      }
+      .actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        padding-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <nav class="side">
+        <div class="workspace">
+          <p data-bench="ui" data-bench-id="ws-name">Meridian workspace</p>
+          <p data-bench="ui" data-bench-id="ws-plan">Pro</p>
+        </div>
+        <ul>
+          <li data-bench="ui" data-bench-id="side-1">Home</li>
+          <li data-bench="ui" data-bench-id="side-2">Projects</li>
+          <li data-bench="ui" data-bench-id="side-3">Reports</li>
+        </ul>
+        <div class="group" data-bench="ui" data-bench-id="group-1">Workspace</div>
+        <ul>
+          <li class="on" data-bench="ui" data-bench-id="side-4">Settings</li>
+          <li data-bench="ui" data-bench-id="side-5">Members</li>
+          <li data-bench="ui" data-bench-id="side-6">Billing</li>
+          <li data-bench="ui" data-bench-id="side-7">Integrations</li>
+          <li data-bench="ui" data-bench-id="side-8">Audit log</li>
+        </ul>
+        <div class="group" data-bench="ui" data-bench-id="group-2">Account</div>
+        <ul>
+          <li data-bench="ui" data-bench-id="side-9">Profile</li>
+          <li data-bench="ui" data-bench-id="side-10">Security</li>
+          <li data-bench="ui" data-bench-id="side-11">Sessions</li>
+        </ul>
+      </nav>
+
+      <main>
+        <h1 data-bench="heading" data-bench-id="title">Workspace settings</h1>
+        <p class="hint" data-bench="prose" data-bench-id="hint">
+          These options apply to every project in this workspace. Changes are logged and take effect
+          immediately for new runs; finished reports are not recalculated.
+        </p>
+
+        <section class="section">
+          <h2 data-bench="heading" data-bench-id="h2-1">Data retention</h2>
+          <p class="sub" data-bench="prose" data-bench-id="sub-1">
+            Choose how long raw inputs are kept after a report is generated. Aggregated metrics are
+            retained for two years regardless of this setting.
+          </p>
+          <div class="row">
+            <div>
+              <p class="label" data-bench="ui" data-bench-id="l-1">Keep raw inputs</p>
+              <p class="desc" data-bench="prose" data-bench-id="d-1">
+                Applies to uploaded files and copied text. Deleting an input does not delete the
+                report that was already produced from it.
+              </p>
+            </div>
+            <p class="value" data-bench="ui" data-bench-id="v-1">90 days</p>
+          </div>
+          <div class="row">
+            <div>
+              <p class="label" data-bench="ui" data-bench-id="l-2">Keep intermediate results</p>
+              <p class="desc" data-bench="prose" data-bench-id="d-2">
+                Intermediate tables are kept so a failed step can be resumed without repeating the
+                expensive upstream work.
+              </p>
+            </div>
+            <p class="value" data-bench="ui" data-bench-id="v-2">14 days</p>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2 data-bench="heading" data-bench-id="h2-2">Access and sharing</h2>
+          <p class="sub" data-bench="prose" data-bench-id="sub-2">
+            Members inherit access from the workspace role. Guest links expire automatically and can
+            be revoked at any time from the sharing panel.
+          </p>
+          <div class="row">
+            <div>
+              <p class="label" data-bench="ui" data-bench-id="l-3">Default share link</p>
+              <p class="desc" data-bench="prose" data-bench-id="d-3">
+                New reports are created with this visibility. Owners can always tighten the setting
+                on an individual report.
+              </p>
+            </div>
+            <p class="value" data-bench="ui" data-bench-id="v-3">Members only</p>
+          </div>
+          <div class="row">
+            <div>
+              <p class="label" data-bench="ui" data-bench-id="l-4">
+                Require two-factor authentication
+              </p>
+              <p class="desc" data-bench="prose" data-bench-id="d-4">
+                Members without a second factor keep their current session and are prompted at the
+                next sign-in.
+              </p>
+            </div>
+            <p class="value" data-bench="ui" data-bench-id="v-4">Enabled</p>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2 data-bench="heading" data-bench-id="h2-3">Compute</h2>
+          <p class="sub" data-bench="prose" data-bench-id="sub-3">
+            Larger machines reduce wall-clock time for wide tables and shorten the queue at peak
+            hours. Running reports are not migrated when this changes.
+          </p>
+          <div class="row">
+            <div>
+              <p class="label" data-bench="ui" data-bench-id="l-5">Default machine</p>
+              <p class="desc" data-bench="prose" data-bench-id="d-5">
+                Two cores are enough for most reports. Choose four for tables above ten million rows
+                or for anything that joins several uploaded files.
+              </p>
+            </div>
+            <p class="value" data-bench="ui" data-bench-id="v-5">Standard · 2 cores</p>
+          </div>
+          <div class="row">
+            <div>
+              <p class="label" data-bench="ui" data-bench-id="l-6">Queue priority</p>
+              <p class="desc" data-bench="prose" data-bench-id="d-6">
+                Priority orders jobs inside the workspace, not against other workspaces, and does
+                not guarantee a start time during an outage.
+              </p>
+            </div>
+            <p class="value" data-bench="ui" data-bench-id="v-6">Normal</p>
+          </div>
+        </section>
+
+        <div class="actions">
+          <button type="button" data-bench="ui" data-bench-id="btn-1">Discard</button>
+          <button type="button" class="primary" data-bench="ui" data-bench-id="btn-2">
+            Save changes
+          </button>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

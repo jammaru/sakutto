@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en" data-bench-settle="3000">
+  <head>
+    <meta charset="utf-8" />
+    <title>Field notes — live</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: #1a1a1a;
+        font:
+          16px/1.65 -apple-system,
+          'Segoe UI',
+          Roboto,
+          Helvetica,
+          sans-serif;
+      }
+      header.bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 24px;
+        border-bottom: 1px solid #e8e8e8;
+        font-size: 13.5px;
+      }
+      header.bar .name {
+        font-weight: 600;
+        margin: 0;
+      }
+      header.bar nav ul {
+        display: flex;
+        gap: 16px;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      header.bar nav a {
+        color: #5b5b5b;
+      }
+      main {
+        max-width: 44rem;
+        margin: 0 auto;
+        padding: 34px 24px 100px;
+      }
+      h1 {
+        font-size: 1.65rem;
+        letter-spacing: -0.02em;
+        margin: 0 0 14px;
+      }
+      article p {
+        margin: 0 0 1rem;
+      }
+      .skeleton {
+        height: 12px;
+        border-radius: 3px;
+        background: #f0f0f0;
+        margin: 0 0 12px;
+      }
+      .skeleton.w1 {
+        width: 96%;
+      }
+      .skeleton.w2 {
+        width: 88%;
+      }
+      .skeleton.w3 {
+        width: 62%;
+      }
+      .latemount {
+        margin-top: 26px;
+        padding-top: 20px;
+        border-top: 1px solid #eee;
+      }
+      .latemount h2 {
+        font-size: 1.05rem;
+        margin: 0 0 10px;
+      }
+      .latemount ul {
+        padding-left: 20px;
+        margin: 0 0 14px;
+      }
+      .latemount li {
+        margin: 0 0 6px;
+      }
+      .latemount .comment {
+        background: #fafafa;
+        border: 1px solid #ededed;
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin: 0 0 10px;
+        font-size: 14px;
+        line-height: 1.55;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="bar">
+      <p class="name" data-bench="ui" data-bench-id="brand">Field notes</p>
+      <nav>
+        <ul>
+          <li data-bench="ui" data-bench-id="nav-1"><a href="#latest">Latest</a></li>
+          <li data-bench="ui" data-bench-id="nav-2"><a href="#latest">Series</a></li>
+          <li data-bench="ui" data-bench-id="nav-3"><a href="#latest">About</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main>
+      <h1 data-bench="heading" data-bench-id="title">
+        What the tide gauges recorded during the outage
+      </h1>
+
+      <article id="story">
+        <p data-bench="prose" data-bench-id="p1">
+          The gauges kept recording through the three days when the reporting system was offline, so
+          the record is complete even though nobody could read it at the time. A technician
+          recovered the files on Thursday morning from a laptop that had been left running in the
+          shed.
+        </p>
+        <p data-bench="prose" data-bench-id="p2">
+          Each file covers six hours and holds a reading every ten seconds, which is finer than the
+          old paper charts ever managed. The first surprise was the size of the short-period
+          oscillation that appears whenever the wind drops below four knots.
+        </p>
+      </article>
+
+      <div class="skeleton w1"></div>
+      <div class="skeleton w2"></div>
+      <div class="skeleton w3"></div>
+
+      <section class="latemount" id="latest"></section>
+    </main>
+
+    <script>
+      const slot = document.getElementById('latest');
+      let mounted = false;
+
+      // Built with the DOM rather than cloned from a <template>: the bench ids have to be
+      // unique in the document, and a template would repeat them in the markup.
+      const blocks = [
+        ['h2', 'heading', 'h2-late', 'Readers added these notes after publication'],
+        [
+          'p',
+          'prose',
+          'p3',
+          'Several people who keep their own records sent corrections within an hour of the story appearing. The ones that mattered most came from a retired pilot who had logged the same water for thirty years and recognised the pattern immediately.',
+        ],
+        [
+          'li',
+          'prose',
+          'li-1',
+          'The oscillation is not new. It appears in the handwritten logs from the same weeks in every year that the herring fleet moved early.',
+        ],
+        [
+          'li',
+          'prose',
+          'li-2',
+          'The gauge on the western pier reads slightly high because the housing shifted after the storm in March, and the offset is roughly eleven millimetres.',
+        ],
+        [
+          'li',
+          'prose',
+          'li-3',
+          'The laptop that held the backup files had been replaced twice without anyone moving the cable that charges it.',
+        ],
+        [
+          'p',
+          'prose',
+          'comment-1',
+          'Thank you for publishing the raw files. I compared them with my own notes from the same period and the two disagree by less than the width of a pencil line, which is better than I expected for a system built in 2009.',
+        ],
+        [
+          'p',
+          'prose',
+          'comment-2',
+          'One correction: the shed was moved in 2019, not 2017, and the gauge was recalibrated at the same time. The article repeats the date from the old maintenance log.',
+        ],
+      ];
+
+      const mount = () => {
+        if (mounted) return;
+        mounted = true;
+        let list = document.createElement('ul');
+        const flushList = () => {
+          if (list.childElementCount === 0) return;
+          slot.append(list);
+          list = document.createElement('ul');
+        };
+        for (const [tag, kind, id, text] of blocks) {
+          const node = document.createElement(tag);
+          node.dataset.bench = kind;
+          node.dataset.benchId = id;
+          node.textContent = text;
+          if (tag === 'li') {
+            list.append(node);
+            continue;
+          }
+          flushList();
+          slot.append(node);
+        }
+        flushList();
+        document.documentElement.dataset.lateMounted = '1';
+      };
+
+      // Content arrives the way a client-rendered feed does: after the first paint, on a
+      // timer, as new nodes rather than a class change.
+      window.setTimeout(mount, 1200);
+      window.addEventListener('hashchange', mount);
+      document.getElementById('nav-1')?.addEventListener('click', (event) => {
+        event.preventDefault();
+        history.pushState({}, '', '#latest');
+        mount();
+      });
+    </script>
+  </body>
+</html>
