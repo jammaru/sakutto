@@ -84,6 +84,29 @@ describe('locale messages', () => {
     expect(ja.licenseModelNote?.message).not.toContain('初回に');
   });
 
+  /**
+   * A Chrome built-in translation is only ever the page's real engine for a pair PLaMo
+   * cannot translate. Copy that offers it as something a reader can get *while the model
+   * loads*, or as a faster stand-in for a slow PC, describes a feature that is gone.
+   */
+  it('does not promise a built-in translation as a stand-in for a supported pair', () => {
+    const standIn = [
+      'onboardingUseNow',
+      'onboardingWhileDownloading',
+      'onboardingBridgeNote',
+      'slowDeviceHint',
+    ];
+    const enStandIn =
+      /before the model finishes|built-in translation stays visible|built-in translator is used while|may be faster/i;
+    const jaStandIn =
+      /モデルの完了を待たず|ダウンロード中も Chrome|準備中も Chrome|の方が速いことが/;
+
+    for (const key of standIn) {
+      expect(en[key]?.message, key).not.toMatch(enStandIn);
+      expect(ja[key]?.message, key).not.toMatch(jaStandIn);
+    }
+  });
+
   it('describes starting as agreement and uses the pinned model size', () => {
     expect(en.onboardingStartNotice?.message).toBe(
       "By starting, you agree to the PLaMo Community License (Article 2). You must be 18 or older, or have a parent or guardian's consent.",

@@ -57,8 +57,8 @@ export function paintPlain(model: SegmentModel, translation: string, created: Te
 }
 
 /**
- * Adds the second, translated line under the original. Chrome drafts and PLaMo output use
- * the same line: a draft is body copy for the reader, so it carries no badge or caption.
+ * Adds the second, translated line under the original. The line holds the translation and
+ * nothing else: no badge and no engine caption, whatever translated it.
  */
 export function showBilingual(model: SegmentModel, translation: string, created: Text[]): void {
   restoreStructure(model, created);

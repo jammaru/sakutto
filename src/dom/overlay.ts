@@ -46,11 +46,11 @@ sakutto-line {
 /*
  * [data-sakutto-pending="1"] has no rule on purpose. It used to fade the whole block to
  * 58% and shimmer down to 32%, so every block that PLaMo had not finished — and, because
- * the attribute could outlive a draft-held or retried block, some that it had — read as
- * pale gray instead of Japanese. Progress is already shown by the status bar and by text
- * that fills in. It must not paint opacity 1 either: that would override a host that dims
- * its own text (disabled rows, carousel slides at opacity 0) and make content the page
- * meant to hide appear as soon as a block starts streaming.
+ * the attribute could outlive a retried block, some that it had — read as pale gray
+ * instead of Japanese. Progress is already shown by the status bar and by text that fills
+ * in. It must not paint opacity 1 either: that would override a host that dims its own
+ * text (disabled rows, carousel slides at opacity 0) and make content the page meant to
+ * hide appear as soon as a block starts streaming.
  */
 sakutto-status {
   position: fixed;
