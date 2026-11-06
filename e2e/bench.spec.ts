@@ -67,7 +67,7 @@ test.describe('page bench', () => {
     const article = result.records.find((record) => record.page === 'long-article');
     expect(article?.metrics.blocks.prose).toBeGreaterThanOrEqual(20);
 
-    // The headline fixture must be identifiable and carry the two copy-ready numbers.
+    // The headline fixture must be identifiable and carry the two summary numbers.
     expect(article?.headline).toBe(true);
     expect(result.records.filter((record) => record.headline)).toHaveLength(1);
     expect(article?.engine.accelerator).toBe('mock');
@@ -78,7 +78,7 @@ test.describe('page bench', () => {
     expect(headline.fullPageMs).not.toBeNull();
 
     // The lead-then-tail page must show a real gap: the first paragraph lands well
-    // before the page finishes, which is the scenario the release copy describes.
+    // before the page finishes, which is the split the lead-then-tail page exists for.
     const tail = result.records.find((record) => record.page === 'first-paragraph-then-long-tail');
     expect(tail?.metrics.firstVisibleTextMs).not.toBeNull();
     expect(tail?.metrics.fullPageMs).not.toBeNull();

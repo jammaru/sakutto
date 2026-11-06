@@ -25,8 +25,8 @@ Engine: **mock translator** · mode `mock` · commit `2fc966c`
 | Full page translated                       | 3.9 s |
 | Remaining work after the first paragraph   | 3.7 s |
 
-Only these two numbers belong in a tweet, and only from a `live` run. Mock numbers
-measure the scheduler, not the model.
+These are the two numbers to cite from a `live` run. Mock numbers measure the
+scheduler, not the model, and must not be presented as translation speed.
 
 Mock mode replaces the model with an in-page stub, so these durations describe
 scheduling, DOM painting, batching and harness overhead — not translation speed.

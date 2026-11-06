@@ -14,7 +14,7 @@ export const BENCH_PAGES: readonly BenchPage[] = [
     name: 'long-article',
     file: 'long-article.html',
     stresses:
-      'Sustained prefill and decode over 22 prose blocks of realistic news prose, plus a sidebar. The headline page: the numbers in the release copy come from here.',
+      'Sustained prefill and decode over 22 prose blocks of realistic news prose, plus a sidebar. The headline page for the two summary numbers.',
   },
   {
     name: 'first-paragraph-then-long-tail',

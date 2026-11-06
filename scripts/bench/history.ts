@@ -18,7 +18,7 @@ export interface BenchRecord {
   /** 1-based repetition index, and how many repetitions this run took. */
   sample: number;
   samples: number;
-  /** True for the page the release copy quotes: the long article. */
+  /** True for the page summarised as the headline numbers: the long article. */
   headline: boolean;
   engine: BenchEngine;
   machine: BenchMachine;
@@ -37,7 +37,7 @@ export interface BenchEngine {
   model: string | null;
   /** `cpu` or `webgpu` when the runtime reported it, `mock` in mock mode. */
   accelerator: BenchAccelerator;
-  /** The copy-ready phrase: "CPU only", "WebGPU", "mock translator". */
+  /** A display label for the accelerator: "CPU only", "WebGPU", "mock translator". */
   accelerateLabel: string;
 }
 
@@ -49,13 +49,12 @@ export interface BenchMachine {
   viewport: { width: number; height: number };
 }
 
-/** What actually ran the model, in the terms the release copy uses. */
+/** What actually ran the model. */
 export type BenchAccelerator = 'cpu' | 'webgpu' | 'mock' | 'unknown';
 
 /**
- * The two numbers the release copy quotes, under the names the copy uses. They are
- * derived from the other metrics rather than measured separately, so they can never
- * disagree with the rest of the record.
+ * The two summary numbers for a page. They are derived from the other metrics rather
+ * than measured separately, so they can never disagree with the rest of the record.
  */
 export interface BenchHeadline {
   /** Time to the first real translated text a reader could see without scrolling. */
@@ -400,7 +399,7 @@ export interface RunSummaryInput {
 }
 
 /** The human-readable half of the history: one markdown table per run. */
-/** The two numbers the release copy quotes, with the copy's own wording. */
+/** The two summary numbers for a page, with the acceleration and thread count. */
 export function headlineSection(
   records: readonly BenchRecord[],
   page = HEADLINE_PAGE,
@@ -452,8 +451,8 @@ export function headlineSection(
   }
 
   lines.push(
-    'Only these two numbers belong in a tweet, and only from a `live` run. Mock numbers',
-    'measure the scheduler, not the model.',
+    'These are the two numbers to cite from a `live` run. Mock numbers measure the',
+    'scheduler, not the model, and must not be presented as translation speed.',
     '',
   );
   return lines;
@@ -527,7 +526,7 @@ export function runSummary(input: RunSummaryInput): string {
 
 export { METRIC_LABELS };
 
-/** The fixture the release copy quotes. Registered in `pages.ts`. */
+/** The fixture summarised as the headline numbers. Registered in `pages.ts`. */
 export const HEADLINE_PAGE = 'long-article';
 
 /** The copy phrasing for each backend the runtime can report. */
@@ -552,9 +551,8 @@ export function medianForPage(
 }
 
 /**
- * The two numbers the release copy cites, for the run's headline fixture. Derived from
- * the same records as everything else, so a tweet can never quote a number the history
- * does not contain.
+ * The two headline numbers, for the run's headline fixture. Derived from the same records
+ * as everything else, so a reported number can never disagree with the history.
  */
 export function headlineFor(records: readonly BenchRecord[], page = HEADLINE_PAGE): BenchHeadline {
   const samples = recordsForPage(records, page);
@@ -568,78 +566,8 @@ export function headlineFor(records: readonly BenchRecord[], page = HEADLINE_PAG
   };
 }
 
-/** Seconds with one decimal, the way the release copy writes them (27.9秒, 2.9秒). */
+/** Seconds with one decimal, so the two numbers can be read at a glance. */
 export function seconds(ms: number | null): string {
   if (ms === null) return '—';
   return (ms / 1000).toFixed(1);
-}
-
-export interface TweetInput {
-  records: readonly BenchRecord[];
-  run: string;
-  page?: string | undefined;
-  /** An earlier live run of the same fixture, to quote as the "before" number. */
-  before?: { run: string; records: readonly BenchRecord[] } | undefined;
-}
-
-/**
- * Copy-ready Japanese sentences for the headline numbers. Deliberately neutral: it states
- * only what the runs measured, and when a previous run is supplied it writes the
- * "before → after" pair in the style the release copy uses. Nothing is invented: every
- * number comes from a record, and a missing side prints a dash instead of a guess.
- */
-export function tweetDraft(input: TweetInput): string {
-  const page = input.page ?? HEADLINE_PAGE;
-  const samples = recordsForPage(input.records, page);
-  const first = samples[0];
-  if (!first) return `${page} の記録がありません。`;
-
-  const headline = headlineFor(input.records, page);
-  const { accelerateLabel } = first.engine;
-  const previous = input.before ? headlineFor(input.before.records, page) : null;
-  const previousSamples = input.before ? recordsForPage(input.before.records, page) : [];
-  const previousEngine = previousSamples[0]?.engine.accelerateLabel ?? null;
-
-  const pair = (before: number | null, after: number | null): string =>
-    before === null || after === null
-      ? `${seconds(after)}秒`
-      : `${seconds(before)}秒→${seconds(after)}秒`;
-
-  const lines: string[] = [];
-  if (previous) {
-    // The copy's phrasing is CPU-specific ("CPUだけでも"), so only use it when the run
-    // really was CPU-only. A WebGPU run must not be described as a CPU measurement.
-    const lead = accelerateLabel === 'CPU only' ? 'CPUだけで' : accelerateLabel;
-    lines.push(
-      `${lead}、最初の段落が出るまで${pair(previous.timeToFirstParagraphMs, headline.timeToFirstParagraphMs)}、`,
-    );
-    lines.push(
-      `長い記事1ページ丸ごとで${pair(previous.fullPageMs, headline.fullPageMs)}まで縮められました。`,
-    );
-    if (previousEngine !== null && previousEngine !== accelerateLabel) {
-      lines.push(
-        `（前回は${previousEngine}、今回は${accelerateLabel}の計測なので、改善幅にはハードの違いも含みます）`,
-      );
-    }
-  } else {
-    lines.push(`「${page}」を ${accelerateLabel} で翻訳したときの実測:`);
-    lines.push(`- 最初の段落が出るまで: ${seconds(headline.timeToFirstParagraphMs)}秒`);
-    lines.push(`- ページ全体が訳し終わるまで: ${seconds(headline.fullPageMs)}秒`);
-    if (headline.tailMs !== null) {
-      lines.push(`- 読み始められたあと、残りに ${seconds(headline.tailMs)}秒かかった`);
-    }
-  }
-
-  lines.push(
-    '',
-    `計測: ${first.at} / ${first.machine.platform} / ${String(first.machine.cores)}コア / ${first.mode}${
-      first.dirty ? ' / 未コミットのツリー' : ''
-    }${input.before ? ` / 比較: ${input.before.run}` : ''}`,
-  );
-  if (first.mode === 'mock') {
-    lines.push('この数字はモックなので、対外的に引用しないでください（スケジューラの計測です）。');
-  } else {
-    lines.push('（この文はそのままは投稿せず、文言はご自身で整えてください）');
-  }
-  return lines.join('\n');
 }

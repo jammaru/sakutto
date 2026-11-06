@@ -86,7 +86,7 @@ export interface RunPageBenchResult {
   commit: string;
   dirty: boolean;
   records: BenchRecord[];
-  /** The two numbers the release copy quotes, derived from `records`. */
+  /** The two summary numbers, derived from `records`. */
   headline: BenchHeadline;
   summary: string;
   summaryPath: string | null;

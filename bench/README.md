@@ -35,7 +35,7 @@ use the popup) with the unpacked extension loaded.
 
 | Page                             | Pattern                                                                 | Bottleneck it isolates                                                                                                                                                           |
 | -------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `long-article`                   | Long research/news article, 22 paragraphs in 4 sections, plus a sidebar | Sustained prefill and decode over realistic prose. **The headline page**: the two numbers in the release copy come from here.                                                    |
+| `long-article`                   | Long research/news article, 22 paragraphs in 4 sections, plus a sidebar | Sustained prefill and decode over realistic prose. **The headline page** for the two summary numbers.                                                                            |
 | `first-paragraph-then-long-tail` | A one-sentence lead, then 16 paragraphs                                 | The "first paragraph appears quickly while the rest is still going" split. A change that shortens the lead but lengthens the tail shows up here instead of hiding in an average. |
 | `many-cards`                     | 12 cards, each a kicker + heading + paragraph + meta line               | Per-block overhead: batching, packing and scheduling many tiny blocks instead of raw token throughput.                                                                           |
 | `single-long-paragraph`          | One paragraph of ~2,900 characters                                      | The sentence splitter and chunk scheduling. The block cannot finish until its last chunk lands.                                                                                  |
@@ -83,7 +83,6 @@ Live mode is opt-in exactly like `SAKUTTO_E2E_REAL=1` for `pnpm test:e2e`: it is
 
 ```sh
 pnpm bench:history                     # newest run vs the one before it
-pnpm bench:history --tweet             # ...plus copy-ready Japanese sentences
 pnpm bench:history --summary <run>     # rebuild one run's markdown
 pnpm bench:history --baseline <a> --compare <b>
 ```
@@ -91,57 +90,44 @@ pnpm bench:history --baseline <a> --compare <b>
 `bench/results/pages/<run>.md` is written by every run and holds the same tables; the JSONL file is
 the source of truth.
 
-## Producing the two headline numbers after a speed PR
+## The two headline numbers after a speed change
 
-The release copy quotes two numbers for one page (`long-article`), on one machine:
+Two numbers summarise a run of the `long-article` page, on one machine:
 
-- **最初の段落が出るまで / time to first visible translated paragraph**
-  (`firstVisibleTextMs`, printed as seconds)
-- **長い記事1ページ丸ごと / full page translated** (`fullPageMs`, printed as seconds)
+- **time to first visible translated paragraph** (`firstVisibleTextMs`, printed as seconds)
+- **full page translated** (`fullPageMs`, printed as seconds)
 
-Both come from a `live` run. Mock numbers describe the scheduler and **must not** be quoted.
+Both come from a `live` run. Mock numbers describe the scheduler, not the model.
 
 ```sh
-# one time, on the machine whose numbers you want to quote
+# one time, on the machine whose numbers you want to record
 pnpm install
 pnpm build:wllama                          # Docker; pinned wasm, see docs/BUILDING.md
 pnpm bench:build:live
 
 # after every speed change
 pnpm bench:live --run "after-<short-sha>" --samples 3
-pnpm bench:history --tweet
+pnpm bench:history
 ```
 
 `pnpm bench:live` prints the table plus a `## Headline numbers (long-article)` section that
 states both numbers in seconds, the engine (`CPU only` or `WebGPU`), the thread count, the
-commit and whether the tree was dirty. It also prints the delta against the previous live run
-and, with `--tweet`, a draft of the Japanese sentences.
+commit and whether the tree was dirty. `pnpm bench:history` prints the same section next to the
+previous run of the same mode.
 
-Rules that keep the numbers citable:
+Rules that keep a comparison meaningful:
 
 - **Same machine, same mode, same fixture.** A CPU run and a WebGPU run are different claims;
-  the summary prints a warning if a comparison spans them.
-- **Quote the median of `--samples 3`**, not a single run, and never quote a run with
-  `dirty: true` — that tree was not the commit.
-- **One page, one number.** Saying 27.9 s → 2.9 s only makes sense if both values are
-  `firstVisibleTextMs` on `long-article`, with the acceleration labelled in the sentence.
+  the summary prints a warning when a comparison spans them.
+- **Use the median of `--samples 3`**, not a single run, and do not compare against a run whose
+  record says `dirty: true` — that tree was not the commit.
+- **One page, one number.** A before/after pair is only meaningful when both values are the
+  same metric on `long-article`, with the acceleration stated alongside.
 - **Never compare mock with live.** The bench refuses to mix a fake-engine build into a live
-  run, but no tool can stop you pasting a mock number into a tweet. The record is labelled
-  `"mode": "mock"` and the summary repeats the warning.
+  run, and every mock record is labelled `"mode": "mock"`; the summary repeats the warning.
 
-### The old numbers in the draft copy
-
-The figures already used publicly (27.9 s → 2.9 s to the first paragraph; 66.6 s → 30.8 s for
-the whole long page, CPU only, 4 vCPU) came from an earlier, separate 4 vCPU run recorded in
-`bench/results/throughput-before.json` and `bench/results/throughput-after.json`. They are
-**not** reproduced by this suite and are not checked into `bench/history/pages.jsonl`: the
-pages, viewport and measurement points differ, so putting them on the same axis as a new run
-would be a fabricated comparison.
-
-Use them as history in a sentence ("we already went from 27.9 s to 2.9 s"), and use a fresh
-live run for every number after that. If you want a like-for-like baseline for the new suite,
-run `pnpm bench:live` on the commit before the change and keep both rows — that pair is what a
-later tweet should quote.
+To get a like-for-like pair for a change, run `pnpm bench:live` on the commit before the change
+and again after it, and keep both rows.
 
 ## What is recorded
 
@@ -153,8 +139,8 @@ One JSON line per page per repetition in `bench/history/pages.jsonl` (`schema: 1
 | `mode`                                                                         | `mock` or `live`. Mock and live numbers must never be compared.                                                                                         |
 | `commit`, `dirty`                                                              | Full SHA of the tree the numbers came from, and whether it had uncommitted changes.                                                                     |
 | `engine.label` / `backend` / `tier` / `threads` / `chromeTranslator` / `model` | Which engine answered. `chromeTranslator` records whether Chrome's built-in translator existed in that browser; the extension no longer drafts with it. |
-| `engine.accelerator` / `engine.accelerateLabel`                                | `cpu`, `webgpu`, `mock` or `unknown`, and the copy-ready phrase (`CPU only`, `WebGPU`).                                                                 |
-| `headline`                                                                     | True for the one fixture the release copy quotes (`long-article`).                                                                                      |
+| `engine.accelerator` / `engine.accelerateLabel`                                | `cpu`, `webgpu`, `mock` or `unknown`, and an accompanying display label (`CPU only`, `WebGPU`).                                                         |
+| `headline`                                                                     | True for the one fixture summarised as the headline numbers (`long-article`).                                                                           |
 | `machine`                                                                      | Platform, core count, user agent, cross-origin isolation, viewport.                                                                                     |
 | `metrics.firstTextMs`                                                          | Harness command to the first changed block of any kind.                                                                                                 |
 | `metrics.firstVisibleTextMs`                                                   | Same, restricted to prose the reader could see without scrolling. **What a reader feels.**                                                              |

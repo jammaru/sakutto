@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import { ROOT, arg, has } from './host.ts';
+import { ROOT, arg } from './host.ts';
 import {
   HEADLINE_PAGE,
   comparisonRows,
@@ -14,7 +14,6 @@ import {
   runSummary,
   runsInOrder,
   TIMING_METRICS,
-  tweetDraft,
   type BenchMetricKey,
   type BenchRecord,
 } from './history.ts';
@@ -127,10 +126,6 @@ async function main(): Promise<void> {
     if (latestRecords.length > 0) {
       console.log('');
       console.log(headlineSection(latestRecords, HEADLINE_PAGE).join('\n'));
-      if (has('--tweet')) {
-        console.log('');
-        console.log(tweetDraft({ records: latestRecords, run: latestRun }));
-      }
     }
     return;
   }
@@ -151,8 +146,7 @@ async function main(): Promise<void> {
     console.log(markdownComparison(labels.title, rows, labels.unit));
   }
 
-  // The two numbers the release copy cites, in seconds, with a copy-ready draft.
-  const headlineRun = runs[runs.length - 1] ?? '';
+  // The two headline numbers, in seconds, next to the previous run of the same page.
   const previousRun = runs[runs.length - 2];
   console.log('');
   console.log(
@@ -161,18 +155,6 @@ async function main(): Promise<void> {
       records: before,
     }).join('\n'),
   );
-  if (has('--tweet')) {
-    console.log('');
-    console.log(
-      tweetDraft({
-        records: after,
-        run: headlineRun,
-        ...(before.length > 0
-          ? { before: { run: baseline ?? previousRun ?? '', records: before } }
-          : {}),
-      }),
-    );
-  }
 }
 
 main().catch((error: unknown) => {
