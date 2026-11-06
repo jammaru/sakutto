@@ -260,6 +260,9 @@
   "selectionTitle": {
     "message": "Selected text"
   },
+  "selectionIcon": {
+    "message": "Translate the selected text"
+  },
   "close": {
     "message": "Close"
   },

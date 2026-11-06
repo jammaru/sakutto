@@ -44,6 +44,10 @@ const PACK_TOKEN_LIMIT = 360;
 const PACK_SEGMENT_TOKENS = 140;
 const SLICE_SIZE = 24;
 const PREVIEW_LIMIT = 2;
+/** Keyboard selections settle before inference, so a partial highlight does not occupy the model. */
+const SELECTION_SETTLE_MS = 48;
+/** A selectionchange that follows pointerup is the same gesture and should not wait out the keyboard delay. */
+const POINTER_RELEASE_WINDOW_MS = 80;
 
 export interface PageEngine {
   translate(
@@ -195,6 +199,11 @@ export class PageSession {
   private pageController: AbortController | null = null;
   private readonly inflightBatches = new Set<InflightBatch>();
   private selection: Live | null = null;
+  /** True while the selection popover is the thing the user is looking at. */
+  private selectionShown = false;
+  private selectionTimer: ReturnType<typeof setTimeout> | null = null;
+  private pointerDown = false;
+  private pointerReleasedAt = 0;
   private navigating = false;
   private targetAdjusted = false;
   private observers: MutationObserver[] = [];
@@ -226,6 +235,8 @@ export class PageSession {
   private readonly onFocusIn: (event: Event) => void;
   private readonly onFocusOut: (event: Event) => void;
   private readonly onResize: () => void;
+  private readonly onSelectionChange: () => void;
+  private readonly onPointerUp: () => void;
 
   constructor(
     private readonly doc: Document,
@@ -248,6 +259,7 @@ export class PageSession {
       });
     this.overlay = new PageOverlay(doc, options.labels);
     this.overlay.setOnClose(() => this.dismissSelection());
+    this.overlay.setOnSelectionIcon(() => this.activateSelectionIcon());
     this.overlay.setBarActions({
       onOriginal: () => this.restore(),
       onAlways: () => {
@@ -258,6 +270,7 @@ export class PageSession {
     this.onVisibility = () => {
       if (this.doc.hidden) {
         this.paused = true;
+        this.pointerDown = false;
         this.abortRunning(true);
         return;
       }
@@ -266,6 +279,7 @@ export class PageSession {
     };
     this.onScroll = () => {
       this.overlay.hideOriginal();
+      this.followSelection();
       const top = this.doc.defaultView?.scrollY ?? 0;
       const next = top >= this.lastScroll ? 'down' : 'up';
       this.lastScroll = top;
@@ -285,16 +299,33 @@ export class PageSession {
     this.onPointerOver = (event) => this.showHover(event);
     this.onPointerOut = (event) => this.hideHover(event);
     this.onPointerDown = (event) => {
+      if (event instanceof MouseEvent && event.button !== 0) return;
       const target = event.target;
-      if (!(target instanceof Node) || this.overlay.contains(target)) return;
+      if (target instanceof Node && this.overlay.contains(target)) return;
+      this.pointerDown = true;
+      this.clearSelectionOffer();
       this.overlay.hideOriginal();
       this.dismissSelection();
+    };
+    this.onPointerUp = () => {
+      this.pointerDown = false;
+      this.pointerReleasedAt = performance.now();
+      this.scheduleSelectionOffer(0);
+    };
+    this.onSelectionChange = () => {
+      if (this.pointerDown) return;
+      if (this.applying > 0) {
+        this.scheduleSelectionOffer(SELECTION_SETTLE_MS);
+        return;
+      }
+      const justReleased = performance.now() - this.pointerReleasedAt < POINTER_RELEASE_WINDOW_MS;
+      this.scheduleSelectionOffer(justReleased ? 0 : SELECTION_SETTLE_MS);
     };
     this.onKeyDown = (event) => {
       if (!(event instanceof KeyboardEvent) || event.repeat) return;
       if (event.key === 'Escape') {
         this.overlay.hideOriginal();
-        if (!this.selection) return;
+        if (!this.selection && !this.overlay.selectionIconVisible()) return;
         event.preventDefault();
         event.stopPropagation();
         this.dismissSelection();
@@ -309,7 +340,10 @@ export class PageSession {
     };
     this.onFocusIn = (event) => this.showHover(event);
     this.onFocusOut = (event) => this.hideHover(event);
-    this.onResize = () => this.bindVisibility();
+    this.onResize = () => {
+      this.followSelection();
+      this.bindVisibility();
+    };
 
     this.doc.addEventListener('visibilitychange', this.onVisibility);
     this.doc.addEventListener('scroll', this.onScroll, { capture: true, passive: true });
@@ -457,8 +491,12 @@ export class PageSession {
     this.live.clear();
     this.liveByBlock.clear();
     this.selection = null;
+    this.selectionShown = false;
+    this.pointerDown = false;
+    this.clearSelectionOffer();
     this.overlay.hideOriginal();
     this.overlay.hideSelection();
+    this.overlay.hideSelectionIcon();
     this.overlay.hideBar();
     this.perf?.remove();
     this.perf = null;
@@ -489,22 +527,34 @@ export class PageSession {
     await this.onSitePatch?.({ display });
   }
 
-  translateSelection(text: string, rect?: DOMRect): void {
+  translateSelection(text: string, rect?: DOMRect, reveal = true): void {
     const trimmed = text.trim();
     if (trimmed.length === 0) return;
-    if (
-      this.selection?.source === trimmed &&
-      (this.selection.state === 'queued' || this.selection.state === 'running')
-    ) {
-      return;
-    }
     this.navigating = false;
     this.overlay.hideOriginal();
-    this.queue.remove((item) => item.role === 'selection' && item.state !== 'running');
     const anchor = rect ?? new DOMRect(16, 16, 0, 0);
-    this.selection = this.createSelection(trimmed, anchor);
-    this.overlay.showSelection(anchor, '', null, true, this.prefs.targetLanguage);
-    this.enqueue(this.selection, true);
+    const current = this.selection;
+    if (
+      current?.source === trimmed &&
+      (current.state === 'queued' || current.state === 'running' || current.state === 'done')
+    ) {
+      current.rect = anchor;
+      if (reveal) this.revealSelection();
+      return;
+    }
+
+    this.queue.remove((item) => item.role === 'selection' && item.state !== 'running');
+    const next = this.createSelection(trimmed, anchor);
+    this.supersedeSelection(next);
+    if (reveal) {
+      this.selectionShown = true;
+      this.overlay.hideSelectionIcon();
+      this.overlay.showSelection(anchor, '', null, true, this.prefs.targetLanguage);
+    } else if (this.selectionShown) {
+      this.selectionShown = false;
+      this.overlay.hideSelection();
+    }
+    this.enqueue(next, true);
     this.pump();
   }
 
@@ -520,9 +570,122 @@ export class PageSession {
       if (!selection || selection.isCollapsed || selection.rangeCount === 0) continue;
       const text = selection.toString().trim();
       if (text.length === 0) continue;
-      return { text, rect: selection.getRangeAt(0).getBoundingClientRect() };
+      const endpoint = selection.anchorNode ?? selection.focusNode;
+      if (endpoint && this.overlay.contains(endpoint)) continue;
+      let range: Range;
+      try {
+        range = selection.getRangeAt(0);
+      } catch {
+        continue;
+      }
+      return { text, rect: selectionViewportRect(range, doc, this.doc) };
     }
     return null;
+  }
+
+  /**
+   * Inference starts when the highlight stops moving. The icon only reveals the
+   * popover, so a click does not wait to begin a request that is already running.
+   */
+  private scheduleSelectionOffer(delayMs: number): void {
+    if (this.selectionTimer !== null) clearTimeout(this.selectionTimer);
+    this.selectionTimer = setTimeout(() => {
+      this.selectionTimer = null;
+      if (!this.pointerDown) this.offerSelection();
+      this.resolveIdle();
+    }, delayMs);
+  }
+
+  private clearSelectionOffer(): void {
+    if (this.selectionTimer === null) return;
+    clearTimeout(this.selectionTimer);
+    this.selectionTimer = null;
+    this.resolveIdle();
+  }
+
+  private offerSelection(): void {
+    if (this.navigating || this.doc.hidden || this.pointerDown) return;
+    const selected = this.readSelection();
+    if (!selected) {
+      this.overlay.hideSelectionIcon();
+      if (!this.selectionShown && this.selection) this.dismissSelection();
+      return;
+    }
+    if (this.selectionShown && this.selection?.source === selected.text) {
+      this.selection.rect = selected.rect;
+      this.overlay.hideSelectionIcon();
+      this.overlay.moveSelection(selected.rect);
+      return;
+    }
+    if (this.selectionShown) this.dismissSelection();
+    this.overlay.showSelectionIcon(selected.rect);
+    this.translateSelection(selected.text, selected.rect, false);
+  }
+
+  private activateSelectionIcon(): void {
+    const selected = this.readSelection();
+    if (selected) {
+      this.translateSelection(selected.text, selected.rect, true);
+      return;
+    }
+    if (this.selection?.rect) this.revealSelection();
+  }
+
+  private revealSelection(): void {
+    const item = this.selection;
+    if (!item?.rect) return;
+    this.selectionShown = true;
+    this.overlay.hideSelectionIcon();
+    const ready =
+      item.state === 'done' ? item.translation : partialText(item, this.prefs.targetLanguage);
+    const text = stripPlaceholderTokens(ready);
+    if (item.state === 'done' && text.trim().length === 0) {
+      this.overlay.showSelection(
+        item.rect,
+        this.labels.selectionFailed,
+        null,
+        false,
+        this.prefs.targetLanguage,
+      );
+      return;
+    }
+    const pending = text.trim().length === 0;
+    this.overlay.showSelection(
+      item.rect,
+      pending ? '' : text,
+      pending ? null : item.engine,
+      pending,
+      this.prefs.targetLanguage,
+    );
+  }
+
+  private followSelection(): void {
+    if (!this.selectionShown && !this.overlay.selectionIconVisible()) return;
+    const selected = this.readSelection();
+    if (!selected) {
+      this.overlay.hideSelectionIcon();
+      return;
+    }
+    if (this.selection) this.selection.rect = selected.rect;
+    if (this.overlay.selectionIconVisible()) this.overlay.moveSelectionIcon(selected.rect);
+    if (this.selectionShown) this.overlay.moveSelection(selected.rect);
+  }
+
+  private supersedeSelection(next: Live): void {
+    const previous = this.selection;
+    this.selection = next;
+    if (!previous || previous === next) return;
+    this.queue.remove((item) => item === previous);
+    if (previous.state !== 'running') {
+      previous.state = 'idle';
+      return;
+    }
+    for (const batch of this.inflightBatches) {
+      if (!batch.items.includes(previous)) continue;
+      if (batch.items.some((item) => item.role !== 'selection')) continue;
+      batch.controller.abort();
+      previous.state = 'idle';
+    }
   }
 
   upgradeChromeSegments(): void {
@@ -681,9 +844,12 @@ export class PageSession {
   }
 
   private dismissSelection(): void {
+    this.clearSelectionOffer();
     const current = this.selection;
     this.selection = null;
+    this.selectionShown = false;
     this.overlay.hideSelection();
+    this.overlay.hideSelectionIcon();
     if (!current) return;
     this.queue.remove((item) => item === current);
     if (current.state !== 'running') current.state = 'idle';
@@ -724,7 +890,10 @@ export class PageSession {
     this.pageController?.abort();
     this.queue.clear();
     this.selection = null;
+    this.selectionShown = false;
+    this.clearSelectionOffer();
     this.overlay.hideSelection();
+    this.overlay.hideSelectionIcon();
     this.overlay.hideOriginal();
     this.abortBatches(() => true, false);
   }
@@ -937,7 +1106,7 @@ export class PageSession {
   private showSelectionFailure(item: Live, signal: AbortSignal): void {
     if (signal.aborted || item.role !== 'selection' || item !== this.selection || !item.rect)
       return;
-    if (item.translation.trim().length > 0) return;
+    if (!this.selectionShown || item.translation.trim().length > 0) return;
     this.overlay.showSelection(
       item.rect,
       this.labels.selectionFailed,
@@ -1101,7 +1270,7 @@ export class PageSession {
     if (text.trim().length === 0) return;
 
     if (item.role === 'selection') {
-      if (item !== this.selection || !item.rect) return;
+      if (!this.selectionShown || item !== this.selection || !item.rect) return;
       this.overlay.showSelection(
         item.rect,
         stripPlaceholderTokens(text),
@@ -1589,8 +1758,11 @@ export class PageSession {
     root.addEventListener('pointerover', this.onPointerOver);
     root.addEventListener('pointerout', this.onPointerOut);
     root.addEventListener('pointerdown', this.onPointerDown);
+    root.addEventListener('pointerup', this.onPointerUp);
+    root.addEventListener('pointercancel', this.onPointerUp);
     root.addEventListener('focusin', this.onFocusIn);
     root.addEventListener('focusout', this.onFocusOut);
+    if (isSelectionRoot(root)) root.addEventListener('selectionchange', this.onSelectionChange);
     this.pointerRoots.add(root);
   }
 
@@ -1599,8 +1771,13 @@ export class PageSession {
       root.removeEventListener('pointerover', this.onPointerOver);
       root.removeEventListener('pointerout', this.onPointerOut);
       root.removeEventListener('pointerdown', this.onPointerDown);
+      root.removeEventListener('pointerup', this.onPointerUp);
+      root.removeEventListener('pointercancel', this.onPointerUp);
       root.removeEventListener('focusin', this.onFocusIn);
       root.removeEventListener('focusout', this.onFocusOut);
+      if (isSelectionRoot(root)) {
+        root.removeEventListener('selectionchange', this.onSelectionChange);
+      }
     }
     this.pointerRoots.clear();
   }
@@ -1731,6 +1908,7 @@ export class PageSession {
       this.previewing === 0 &&
       this.queue.size === 0 &&
       this.scanTimer === null &&
+      this.selectionTimer === null &&
       this.pendingScans === 0
     );
   }
@@ -1818,6 +1996,45 @@ function partialText(item: Live, target: string): string {
   const parts = item.partText.filter((part) => part.trim().length > 0);
   if (parts.length === 0) return '';
   return joinTranslatedSentences(parts, target);
+}
+
+/**
+ * A frame document fails `instanceof Document` when `Document` comes from another
+ * window. selectionchange is dispatched on each document, not on its shadow roots.
+ */
+function isSelectionRoot(root: EventTarget): root is Document {
+  return 'nodeType' in root && (root as Node).nodeType === Node.DOCUMENT_NODE;
+}
+
+function selectionViewportRect(range: Range, source: Document, page: Document): DOMRect {
+  const local = endClientRect(range);
+  let left = local.left;
+  let topPx = local.top;
+  let current: Document | null = source;
+  const seen = new Set<Document>();
+  while (current && current !== page && !seen.has(current)) {
+    seen.add(current);
+    const frameElement: Element | null = current.defaultView?.frameElement ?? null;
+    if (!(frameElement instanceof HTMLElement)) break;
+    const frameRect = frameElement.getBoundingClientRect();
+    left += frameRect.left;
+    topPx += frameRect.top;
+    current = frameElement.ownerDocument;
+  }
+  return new DOMRect(left, topPx, local.width, local.height);
+}
+
+function endClientRect(range: Range): DOMRect {
+  if (typeof range.getClientRects === 'function') {
+    const rects = range.getClientRects();
+    for (let index = rects.length - 1; index >= 0; index -= 1) {
+      const rect = rects.item(index);
+      if (!rect || (rect.width <= 0 && rect.height <= 0)) continue;
+      return new DOMRect(rect.left, rect.top, rect.width, rect.height);
+    }
+  }
+  const box = range.getBoundingClientRect();
+  return new DOMRect(box.left, box.top, box.width, box.height);
 }
 
 function blockFromEvent(event: Event): Element | null {
