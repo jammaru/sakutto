@@ -2,6 +2,15 @@ import type { ModelStatus } from '@/shared/engine-status';
 
 export type OnboardingPhase = 'consent' | 'downloading' | 'paused' | 'ready' | 'error';
 
+/**
+ * Whether the card may offer a way to start translating right now. Only a phase that has
+ * the model on disk qualifies: a sample page opened during the download keeps its source
+ * text, so a "try it now" control there would promise a translation that cannot happen.
+ */
+export function onboardingCanTry(phase: OnboardingPhase): boolean {
+  return phase === 'ready';
+}
+
 export function onboardingPhaseAfterStatus(
   phase: OnboardingPhase,
   state: ModelStatus['state'],

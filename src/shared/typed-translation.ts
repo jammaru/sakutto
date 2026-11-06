@@ -73,6 +73,24 @@ export function typedTargetNeedsChrome(targetLanguage: string): boolean {
   return isChromeOnlyLanguage(targetLanguage);
 }
 
+/**
+ * Ctrl+Enter (⌘+Enter on a Mac) runs the translation. It is the one accelerator a
+ * multi-line box needs, because plain Enter has to keep inserting line breaks.
+ */
+export function isTranslateShortcut(event: {
+  key: string;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+  altKey?: boolean;
+  shiftKey?: boolean;
+  isComposing?: boolean;
+}): boolean {
+  if (event.key !== 'Enter') return false;
+  if (event.isComposing === true) return false;
+  if (event.altKey === true || event.shiftKey === true) return false;
+  return event.ctrlKey === true || event.metaKey === true;
+}
+
 /** A character count that fits the model's own per-segment ceiling. */
 export const MAX_TYPED_CHARS = 20_000;
 

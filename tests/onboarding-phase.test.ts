@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { onboardingErrorMessage, onboardingPhaseAfterStatus } from '@/ui/onboarding-phase';
+import {
+  onboardingCanTry,
+  onboardingErrorMessage,
+  onboardingPhaseAfterStatus,
+} from '@/ui/onboarding-phase';
 
 describe('onboardingPhaseAfterStatus', () => {
   it('keeps the ready screen while the downloaded model loads', () => {
@@ -19,6 +23,23 @@ describe('onboardingPhaseAfterStatus', () => {
   it('leaves an error in place until a later ready state', () => {
     expect(onboardingPhaseAfterStatus('error', 'loading', true)).toBe('error');
     expect(onboardingPhaseAfterStatus('error', 'ready', true)).toBe('ready');
+  });
+});
+
+/**
+ * The reported screenshot: a download card at 46% with 「今すぐ試す」 beside 中断 and 閉じる.
+ * A sample page opened there keeps its source text, so the card must not offer it.
+ */
+describe('onboardingCanTry', () => {
+  it('keeps the sample control hidden while the download is in progress', () => {
+    expect(onboardingCanTry('consent')).toBe(false);
+    expect(onboardingCanTry('downloading')).toBe(false);
+    expect(onboardingCanTry('paused')).toBe(false);
+    expect(onboardingCanTry('error')).toBe(false);
+  });
+
+  it('offers the sample only when the model is on disk', () => {
+    expect(onboardingCanTry('ready')).toBe(true);
   });
 });
 

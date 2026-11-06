@@ -24,6 +24,7 @@
   import { estimateRemainingMs, type ByteMark } from '@/ui/download-eta';
   import { formatByteSize } from '@/ui/format';
   import {
+    onboardingCanTry,
     onboardingErrorMessage,
     onboardingPhaseAfterStatus,
     type OnboardingPhase,
@@ -87,6 +88,12 @@
     return `${formatByteSize(received)} / ${formatByteSize(total)}`;
   });
   let showStartButton = $derived(!consentSaved || phase === 'paused' || phase === 'error');
+  /**
+   * A sample page is only offered once the model is on disk. While the file is still
+   * downloading, verifying, or loading there is nothing to sample: the page would keep its
+   * source text and read as broken, so the control is not rendered at all until then.
+   */
+  let showTryButton = $derived(onboardingCanTry(phase));
   let showStartNotice = $derived(showStartButton && !consentSaved);
   let failureText = $derived(
     phase === 'error'
@@ -369,10 +376,8 @@
       <p id="start-notice" class="start-note">{t('onboardingConsentSentence')}</p>
     {/if}
     <div class="action-row">
-      {#if phase === 'ready'}
+      {#if showTryButton}
         <button class="button" type="button" onclick={trySample}>{t('onboardingTry')}</button>
-      {:else if phase === 'downloading' || phase === 'paused'}
-        <button class="button" type="button" onclick={trySample}>{t('onboardingTryNow')}</button>
       {/if}
       {#if phase === 'downloading'}
         <button class="button secondary" type="button" onclick={pause}>{t('downloadCancel')}</button
