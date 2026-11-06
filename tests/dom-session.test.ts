@@ -1610,6 +1610,8 @@ describe('selection icon', () => {
         }),
       ).toBe(false);
       expect(iconButton().getAttribute('aria-label')).toBe('選択したテキストを翻訳します');
+      expect(iconButton().querySelector('svg')?.getAttribute('viewBox')).toBe('0 0 128 128');
+      expect(iconButton().querySelectorAll('polygon')).toHaveLength(10);
       const popover = document.querySelector('sakutto-pop');
       expect(popover instanceof HTMLElement && popover.hidden).toBe(true);
 

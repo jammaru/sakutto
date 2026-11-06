@@ -217,7 +217,44 @@ export function selectionIconBox(
   return { left, top };
 }
 
-const SELECTION_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" aria-hidden="true"><rect width="128" height="128" fill="#101828"/><polygon points="87.52,33.76 40.48,33.76 40.48,47.2 87.52,47.2" fill="#7dd3fc"/><polygon points="87.52,47.2 104.32,40.48 87.52,33.76" fill="#7dd3fc"/><polygon points="35.73,45.23 59.25,68.75 68.75,59.25 45.23,35.73" fill="#7dd3fc"/><polygon points="40.48,40.48 40.48,33.76 35.73,45.23" fill="#7dd3fc"/><polygon points="40.48,40.48 40.48,47.2 45.23,35.73" fill="#7dd3fc"/><polygon points="59.25,68.75 82.77,92.27 92.27,82.77 68.75,59.25" fill="#f8fafc"/><polygon points="87.52,80.8 40.48,80.8 40.48,94.24 87.52,94.24" fill="#f8fafc"/><polygon points="40.48,80.8 23.68,87.52 40.48,94.24" fill="#f8fafc"/><polygon points="87.52,87.52 82.77,92.27 87.52,80.8" fill="#f8fafc"/><polygon points="87.52,87.52 92.27,82.77 87.52,94.24" fill="#f8fafc"/></svg>`;
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/** Folded-strip mark. Same polygons as scripts/icon.svg. */
+const SELECTION_ICON_POLYGONS: readonly (readonly [string, string])[] = [
+  ['87.52,33.76 40.48,33.76 40.48,47.2 87.52,47.2', '#7dd3fc'],
+  ['87.52,47.2 104.32,40.48 87.52,33.76', '#7dd3fc'],
+  ['35.73,45.23 59.25,68.75 68.75,59.25 45.23,35.73', '#7dd3fc'],
+  ['40.48,40.48 40.48,33.76 35.73,45.23', '#7dd3fc'],
+  ['40.48,40.48 40.48,47.2 45.23,35.73', '#7dd3fc'],
+  ['59.25,68.75 82.77,92.27 92.27,82.77 68.75,59.25', '#f8fafc'],
+  ['87.52,80.8 40.48,80.8 40.48,94.24 87.52,94.24', '#f8fafc'],
+  ['40.48,80.8 23.68,87.52 40.48,94.24', '#f8fafc'],
+  ['87.52,87.52 82.77,92.27 87.52,80.8', '#f8fafc'],
+  ['87.52,87.52 92.27,82.77 87.52,94.24', '#f8fafc'],
+];
+
+/**
+ * Drawn with DOM constructors. `innerHTML` and `DOMParser.parseFromString` are
+ * TrustedHTML sinks, so either one throws on pages that require Trusted Types
+ * and the content script never attaches.
+ */
+function appendSelectionIcon(doc: Document, button: HTMLButtonElement): void {
+  const svg = doc.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 128 128');
+  svg.setAttribute('aria-hidden', 'true');
+  const rect = doc.createElementNS(SVG_NS, 'rect');
+  rect.setAttribute('width', '128');
+  rect.setAttribute('height', '128');
+  rect.setAttribute('fill', '#101828');
+  svg.append(rect);
+  for (const [points, fill] of SELECTION_ICON_POLYGONS) {
+    const polygon = doc.createElementNS(SVG_NS, 'polygon');
+    polygon.setAttribute('points', points);
+    polygon.setAttribute('fill', fill);
+    svg.append(polygon);
+  }
+  button.append(svg);
+}
 
 const BAR_STYLE = `
 .bar {
@@ -555,7 +592,7 @@ export class PageOverlay {
     button.setAttribute('aria-haspopup', 'dialog');
     button.setAttribute('aria-label', this.labels.selectionIcon);
     button.title = this.labels.selectionIcon;
-    button.innerHTML = SELECTION_ICON_SVG;
+    appendSelectionIcon(this.doc, button);
     const keepSelection = (event: Event): void => {
       event.preventDefault();
       event.stopPropagation();
