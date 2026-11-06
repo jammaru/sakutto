@@ -22,10 +22,6 @@ export interface TranslateOptions {
   signal: AbortSignal;
   /** Stream the first short piece before the rest of this call is batched. */
   eager?: boolean | undefined;
-  /** Show a built-in draft for this call, then replace it with the PLaMo result. */
-  draft?: boolean | undefined;
-  /** Paint Chrome's built-in translator only. PLaMo is not started by this call. */
-  preview?: boolean | undefined;
 }
 
 interface TranslationChunkBase {

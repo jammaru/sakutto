@@ -2,8 +2,7 @@ import type { EngineKind } from '@/engine/types';
 
 export interface OverlayLabels {
   original: string;
-  simple: string;
-  simpleDetail: string;
+  chromeNote: string;
   machine: string;
   selectionPending: string;
   selectionFailed: string;
@@ -40,33 +39,18 @@ sakutto-line {
   font: inherit;
   line-height: 1.55;
 }
-sakutto-note {
-  color: inherit;
-  font: inherit;
-  font-size: 0.72em;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-}
-sakutto-note[data-mode="replace"] {
-  display: inline;
-  margin-inline-start: 0.35em;
-  vertical-align: super;
-}
-sakutto-note[data-mode="bilingual"] {
-  display: inline-block;
-  margin-inline-start: 0.45em;
-  padding: 0 0.4em;
-  border: 1px solid currentColor;
-  border-radius: 999px;
-}
+/*
+ * Older builds painted a "quick translation" badge next to Chrome drafts. Nothing renders
+ * that badge any more, so there is no rule for it: translated text is never captioned.
+ */
 /*
  * [data-sakutto-pending="1"] has no rule on purpose. It used to fade the whole block to
  * 58% and shimmer down to 32%, so every block that PLaMo had not finished — and, because
- * the attribute could outlive a draft-held or retried block, some that it had — read as
- * pale gray instead of Japanese. Progress is already shown by the status bar and by text
- * that fills in. It must not paint opacity 1 either: that would override a host that dims
- * its own text (disabled rows, carousel slides at opacity 0) and make content the page
- * meant to hide appear as soon as a block starts streaming.
+ * the attribute could outlive a retried block, some that it had — read as pale gray
+ * instead of Japanese. Progress is already shown by the status bar and by text that fills
+ * in. It must not paint opacity 1 either: that would override a host that dims its own
+ * text (disabled rows, carousel slides at opacity 0) and make content the page meant to
+ * hide appear as soon as a block starts streaming.
  */
 sakutto-status {
   position: fixed;
@@ -489,7 +473,7 @@ export class PageOverlay {
     point?: { x: number; y: number },
   ): void {
     this.tipBody.textContent = original;
-    this.tipNote.textContent = engine === 'chrome' ? this.labels.simpleDetail : this.labels.machine;
+    this.tipNote.textContent = engine === 'chrome' ? this.labels.chromeNote : this.labels.machine;
     const rect = point ? new DOMRect(point.x, point.y, 0, 0) : anchor.getBoundingClientRect();
     this.place(this.tipHost, rect, false);
   }
@@ -522,7 +506,7 @@ export class PageOverlay {
     this.popNote.textContent = pending
       ? ''
       : engine === 'chrome'
-        ? this.labels.simpleDetail
+        ? this.labels.chromeNote
         : this.labels.machine;
     this.place(this.popHost, anchor, true);
     if (!opening) return;

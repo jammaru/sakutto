@@ -119,16 +119,16 @@
     "message": "翻訳中のページでは、バーに tokens/s と区間/s が出ます。"
   },
   "paceLabel": {
-    "message": "ページの速さ"
+    "message": "先読み"
   },
   "paceFast": {
-    "message": "速い（画面の外も簡易訳）"
+    "message": "広めに先読み"
   },
   "paceQuality": {
-    "message": "品質のみ"
+    "message": "表示優先"
   },
   "paceHelp": {
-    "message": "見えている範囲は Chrome 内蔵の簡易訳ですぐ表示し、PLaMo が読む順に置き換えます。「速い」は画面の外も簡易訳します。「品質のみ」は画面の外を PLaMo まで待ちます。"
+    "message": "画面に入る前の段落を先に翻訳しておきます。「広めに先読み」は画面の下を多めに先読みし、スクロールしたときに訳が出来上がっているようにします。PLaMo が対応する言語では、訳文はすべて PLaMo が生成します。Chrome の下書きは使いません。"
   },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ 区間/s",
@@ -202,7 +202,7 @@
     "message": "標準モデル（573 MB）をこの端末へダウンロードします。100 Mbps を最後まで使えた場合の計算は約 46 秒で、実際の時間は回線により前後します。中断しても続きから再開できます。"
   },
   "onboardingBridgeNote": {
-    "message": "言語パックが使えるときは、準備中も Chrome 内蔵の翻訳で訳します。Google の説明では、その翻訳は端末内で動きます。"
+    "message": "モデルの準備ができるまで、ページは原文のまま表示します。準備ができると PLaMo が訳します。Google の説明では、Chrome の翻訳は端末内で動きます。"
   },
   "onboardingPrivacyNote": {
     "message": "この拡張機能は、ページの本文をサーバーへ送りません。"
@@ -242,11 +242,8 @@
   "originalLabel": {
     "message": "原文"
   },
-  "simpleTranslation": {
-    "message": "簡易訳"
-  },
-  "simpleTranslationDetail": {
-    "message": "簡易訳（Chrome 内蔵）"
+  "chromeTranslationNote": {
+    "message": "Chrome の内蔵翻訳"
   },
   "machineTranslationTooltip": {
     "message": "PLaMo による機械翻訳です。"
@@ -405,8 +402,8 @@
   "runtimePlamoCpu": {
     "message": "PLaMo · CPU"
   },
-  "runtimeSimple": {
-    "message": "簡易訳"
+  "runtimeChrome": {
+    "message": "Chrome 内蔵の翻訳"
   },
   "runtimeWaiting": {
     "message": "モデルの準備を待っています"
@@ -418,13 +415,13 @@
     "message": "確認中…"
   },
   "chromeOnlySuffix": {
-    "message": " （簡易訳）"
+    "message": "（Chrome 内蔵）"
   },
   "onboardingStartNotice": {
     "message": "開始すると、PLaMo Community License（第2条）に同意したものとみなされます。18歳以上であるか、保護者の同意が必要です。"
   },
   "onboardingUseNow": {
-    "message": "言語パックが使えるときは、モデルの完了を待たずに翻訳できます。"
+    "message": "Chrome 内蔵の翻訳を使うのは、PLaMo が対応していない言語の組み合わせだけです。"
   },
   "onboardingReadyHeading": {
     "message": "準備ができました。"
@@ -451,7 +448,7 @@
     "message": "今すぐ試す"
   },
   "onboardingWhileDownloading": {
-    "message": "言語パックが使えるときは、ダウンロード中も Chrome の簡易訳を表示します。モデルの準備ができると、PLaMo の訳に置き換わります。"
+    "message": "モデルのダウンロード中、ページは原文のまま表示します。PLaMo の準備ができるまで訳文は出ません。"
   },
   "downloadEtaSeconds": {
     "message": "あと約 $COUNT$ 秒です。",
@@ -593,7 +590,7 @@
     "message": "自動では、この PC に合うモードを選びます。"
   },
   "slowDeviceHint": {
-    "message": "この PC では PLaMo の翻訳に時間がかかります。Chrome 内蔵の簡易訳の方が速いことがあります。"
+    "message": "この PC では PLaMo の翻訳に時間がかかります。段落ごとに、訳し終わった順に表示します。"
   },
   "errorPermission": {
     "message": "サイトの権限が許可されませんでした。"

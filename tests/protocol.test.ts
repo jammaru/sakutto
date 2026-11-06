@@ -100,9 +100,10 @@ describe('engine host protocol', () => {
     expect(isEngineHostRequest(request({ priority: -101 }))).toBe(false);
     expect(isEngineHostRequest(request({ tgt: 'english' }))).toBe(false);
     expect(isEngineHostRequest(request({ tgt: 'pt' }))).toBe(true);
-    expect(isEngineHostRequest(request({ draft: true, eager: true, preview: true }))).toBe(true);
-    expect(isEngineHostRequest(request({ preview: 'yes' }))).toBe(false);
-    expect(isEngineHostRequest(request({ draft: 'yes' }))).toBe(false);
+    expect(isEngineHostRequest(request({ eager: true }))).toBe(true);
+    expect(isEngineHostRequest(request({ eager: 'yes' }))).toBe(false);
+    // Draft and preview options are gone: the host never paints built-in page text.
+    expect(isEngineHostRequest(request({ draft: true }))).toBe(true);
     expect(isEngineHostRequest({ type: 'benchmark', requestId: 'b1' })).toBe(true);
     expect(isEngineHostRequest({ type: 'cache-clear', requestId: 'c1' })).toBe(true);
     expect(isEngineHostRequest({ type: 'tier-set', requestId: 't1', tier: 'auto' })).toBe(true);

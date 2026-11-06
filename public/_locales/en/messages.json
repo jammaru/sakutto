@@ -119,16 +119,16 @@
     "message": "While a page is translating, its bar shows tokens/s and segments/s."
   },
   "paceLabel": {
-    "message": "Page pace"
+    "message": "Look-ahead"
   },
   "paceFast": {
-    "message": "Fast (quick translation off-screen too)"
+    "message": "Look ahead further"
   },
   "paceQuality": {
-    "message": "Quality only"
+    "message": "Visible first"
   },
   "paceHelp": {
-    "message": "Text on screen appears at once with Chrome's built-in translation, labelled as a quick translation, and PLaMo replaces it in reading order. Fast also fills off-screen text that way. Quality only waits for PLaMo off-screen."
+    "message": "Translates paragraphs just before they scroll into view. \"Look ahead further\" prefetches more below the fold, so the text is ready when you scroll. For the languages PLaMo supports, every line comes from PLaMo; Chrome's draft is never used."
   },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
@@ -202,7 +202,7 @@
     "message": "The default model (573 MB) downloads to this device. A sustained 100 Mbps transfer of that size is about 46 seconds before overhead; real time varies. An interrupted download resumes."
   },
   "onboardingBridgeNote": {
-    "message": "When Chrome's language pack is available, its built-in translator is used while the model downloads. Google documents that translation as on-device."
+    "message": "The page keeps its original text until the model is ready, then PLaMo translates it. Google documents Chrome's translation as on-device."
   },
   "onboardingPrivacyNote": {
     "message": "This extension does not send page text to a server."
@@ -242,11 +242,8 @@
   "originalLabel": {
     "message": "Original"
   },
-  "simpleTranslation": {
-    "message": "Quick translation"
-  },
-  "simpleTranslationDetail": {
-    "message": "Quick translation (built into Chrome)"
+  "chromeTranslationNote": {
+    "message": "Chrome's built-in translation"
   },
   "machineTranslationTooltip": {
     "message": "Machine translation by PLaMo."
@@ -405,8 +402,8 @@
   "runtimePlamoCpu": {
     "message": "PLaMo · CPU"
   },
-  "runtimeSimple": {
-    "message": "Quick translation"
+  "runtimeChrome": {
+    "message": "Chrome's built-in translation"
   },
   "runtimeWaiting": {
     "message": "Waiting for the model"
@@ -418,13 +415,13 @@
     "message": "Checking…"
   },
   "chromeOnlySuffix": {
-    "message": " (quick translation)"
+    "message": " (Chrome built-in)"
   },
   "onboardingStartNotice": {
     "message": "By starting, you agree to the PLaMo Community License (Article 2). You must be 18 or older, or have a parent or guardian's consent."
   },
   "onboardingUseNow": {
-    "message": "If Chrome's language pack is available, you can translate before the model finishes."
+    "message": "Chrome's built-in translator is used only for the language pairs PLaMo does not support."
   },
   "onboardingReadyHeading": {
     "message": "You're ready."
@@ -451,7 +448,7 @@
     "message": "Try it now"
   },
   "onboardingWhileDownloading": {
-    "message": "When Chrome's language pack is available, its quick translation stays visible during the download. PLaMo replaces it when the model is ready."
+    "message": "While the model downloads, pages keep their original text; nothing is translated until PLaMo is ready."
   },
   "downloadEtaSeconds": {
     "message": "About $COUNT$ seconds left.",
@@ -593,7 +590,7 @@
     "message": "Automatic picks the mode that fits this PC."
   },
   "slowDeviceHint": {
-    "message": "PLaMo is slow on this PC. Chrome's built-in quick translation may be faster."
+    "message": "PLaMo is slow on this PC. Each paragraph appears as the model finishes it."
   },
   "errorPermission": {
     "message": "Permission for this site was not granted."

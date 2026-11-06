@@ -62,7 +62,7 @@
   let engineText = $derived.by(() => {
     const label = runtimeLabel({
       status: engine,
-      pageSimple: view?.simple === true,
+      pageSimple: view?.active === true && view.engine === 'chrome',
       targetLanguage,
     });
     return t(label.key, label.substitutions);

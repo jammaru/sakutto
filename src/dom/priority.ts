@@ -104,10 +104,17 @@ export function translationPriority(
   return Math.max(-100, Math.min(100, Number((kindBase + bandRank * 12 + order).toFixed(2))));
 }
 
-export function lookaheadScreens(tier: 'g' | 'c8' | 'c4' | null): number {
-  if (tier === 'g') return 2;
-  if (tier === 'c4') return 0.5;
-  return 1;
+/**
+ * How many viewport heights ahead the page asks PLaMo to translate. This is prefetch for
+ * the model itself: text that is about to scroll into view is queued before it is visible,
+ * so scrolling finds a finished translation instead of waiting for a cold request.
+ */
+export function lookaheadScreens(
+  tier: 'g' | 'c8' | 'c4' | null,
+  pace: 'fast' | 'quality' = 'quality',
+): number {
+  const base = tier === 'g' ? 2 : tier === 'c4' ? 0.5 : 1;
+  return pace === 'fast' ? base + 1 : base;
 }
 
 export function translationConcurrency(tier: 'g' | 'c8' | 'c4' | null): number {

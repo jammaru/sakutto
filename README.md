@@ -1,6 +1,6 @@
 # Sakutto
 
-Sakutto is an unofficial Chrome extension that translates web pages on your device. It runs [PLaMo 3 Translate](https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF) through a pinned [wllama](https://github.com/ngxson/wllama) build. When Chrome's built-in language pack is already available, the page can be translated with Chrome's Translator API while the PLaMo model is not ready. Not affiliated with Preferred Networks, Inc. Built with PLaMo.
+Sakutto is an unofficial Chrome extension that translates web pages on your device. It runs [PLaMo 3 Translate](https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF) through a pinned [wllama](https://github.com/ngxson/wllama) build. Every translated line is written by PLaMo: a page waiting for the model keeps its source text rather than showing a draft from another engine. Chrome's Translator API is used only for the language pairs PLaMo does not support. Not affiliated with Preferred Networks, Inc. Built with PLaMo.
 
 The extension is free and open source (MIT). It has no ads and no paid features. The model weights are not in this repository or in the extension package.
 
@@ -30,11 +30,11 @@ The same actions are in the toolbar popup and the right-click menu. Change the k
 
 PLaMo 3 Translate supports 53 languages in either direction. The source language is detected from the page. The default target language is the browser UI language, or English when that language is not one of the 53. The popup can set a different target language for the current site.
 
-Eleven further languages (cs, da, el, fi, kn, no, pt, ro, sv, tr, uk) are translated only by Chrome's built-in translator and are labeled as a quick translation. Languages that PLaMo supports and Chrome does not stay untranslated until the model is ready.
+Eleven further languages (cs, da, el, fi, kn, no, pt, ro, sv, tr, uk) are translated only by Chrome's built-in translator. Languages that PLaMo supports and Chrome does not stay untranslated until the model is ready.
 
 ## Privacy
 
-The extension does not send page text to a server, and it has no telemetry. Its own request is the model download, which starts at `huggingface.co` and follows Hugging Face's redirect to a CDN. That request carries the file request and connection metadata, not the page text. Chrome may separately download a built-in translation language pack. PLaMo translation works offline only after the checked model file is stored. Chrome's fallback works only when that language pack is already available. Details are in [PRIVACY.md](PRIVACY.md).
+The extension does not send page text to a server, and it has no telemetry. Its own request is the model download, which starts at `huggingface.co` and follows Hugging Face's redirect to a CDN. That request carries the file request and connection metadata, not the page text. Chrome may separately download a built-in translation language pack, which is used only for the pairs PLaMo does not translate. PLaMo translation works offline only after the checked model file is stored. Details are in [PRIVACY.md](PRIVACY.md).
 
 ## Build
 

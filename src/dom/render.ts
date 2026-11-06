@@ -13,7 +13,12 @@ import {
 } from './segment';
 
 const LINE_TAG = 'sakutto-line';
-const NOTE_TAG = 'sakutto-note';
+/**
+ * Older builds painted a "quick translation" badge beside every Chrome draft. The badge
+ * is gone, but a block translated by an older build can still hold one, so the cleanup
+ * paths keep stripping it.
+ */
+const LEGACY_NOTE_TAG = 'sakutto-note';
 
 interface Frame {
   element: Element;
@@ -51,50 +56,21 @@ export function paintPlain(model: SegmentModel, translation: string, created: Te
   writeFlat(model, visibleTranslation(translation), created);
 }
 
-export function showBilingual(
-  model: SegmentModel,
-  translation: string,
-  engine: 'plamo' | 'chrome' | null,
-  simpleLabel: string,
-  created: Text[],
-): void {
+/**
+ * Adds the second, translated line under the original. The line holds the translation and
+ * nothing else: no badge and no engine caption, whatever translated it.
+ */
+export function showBilingual(model: SegmentModel, translation: string, created: Text[]): void {
   restoreStructure(model, created);
-  removeReplaceNote(model.block);
 
   const line = ensureChild(model.block, LINE_TAG);
   line.replaceChildren();
   line.setAttribute('translate', 'no');
   line.append(model.block.ownerDocument.createTextNode(visibleTranslation(translation)));
-
-  if (engine === 'chrome') {
-    const note = model.block.ownerDocument.createElement(NOTE_TAG);
-    note.dataset.mode = 'bilingual';
-    note.setAttribute('translate', 'no');
-    note.textContent = simpleLabel;
-    line.append(note);
-  }
-}
-
-export function showReplaceNote(
-  block: Element,
-  engine: 'plamo' | 'chrome' | null,
-  simpleLabel: string,
-): void {
-  removeLine(block);
-  if (engine !== 'chrome') {
-    removeReplaceNote(block);
-    return;
-  }
-
-  const note = ensureChild(block, NOTE_TAG);
-  note.dataset.mode = 'replace';
-  note.setAttribute('translate', 'no');
-  note.textContent = simpleLabel;
 }
 
 export function removeTranslationUi(block: Element): void {
   removeLine(block);
-  removeReplaceNote(block);
 }
 
 function discardCreated(created: Text[]): void {
@@ -236,7 +212,8 @@ function hasUnrelatedChildren(frame: Frame): boolean {
 
 function isTranslationChrome(node: Node): boolean {
   return (
-    node instanceof Element && (node.tagName === 'SAKUTTO-LINE' || node.tagName === 'SAKUTTO-NOTE')
+    node instanceof Element &&
+    (node.tagName === 'SAKUTTO-LINE' || node.tagName === LEGACY_NOTE_TAG.toUpperCase())
   );
 }
 
@@ -279,10 +256,24 @@ function removeLine(block: Element): void {
   for (const child of [...block.children]) {
     if (child.tagName === 'SAKUTTO-LINE') child.remove();
   }
+  removeLegacyNote(block);
 }
 
-function removeReplaceNote(block: Element): void {
+/**
+ * Strips the badge an older build painted beside Chrome drafts. Nothing creates one any
+ * more; this only clears a block that an earlier version already painted.
+ */
+function removeLegacyNote(block: Element): void {
   for (const child of [...block.children]) {
-    if (child.tagName === 'SAKUTTO-NOTE') child.remove();
+    if (child.tagName === LEGACY_NOTE_TAG.toUpperCase()) child.remove();
   }
+}
+
+/**
+ * Removes every leftover badge under a root. The per-block cleanup only reaches blocks
+ * this session paints, and a block an older build already translated into the target
+ * language is never repainted, so a stale 「簡易訳」 would otherwise stay on screen.
+ */
+export function stripLegacyNotes(root: ParentNode): void {
+  for (const note of [...root.querySelectorAll(LEGACY_NOTE_TAG)]) note.remove();
 }

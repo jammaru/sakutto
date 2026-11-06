@@ -9,8 +9,7 @@ import type { TranslateOptions } from '@/engine/types';
 
 const labels = {
   original: '原文',
-  simple: '簡易訳',
-  simpleDetail: '簡易訳（Chrome 内蔵）',
+  chromeNote: 'Chrome の内蔵翻訳',
   machine: 'PLaMo による機械翻訳です。',
   selectionPending: '翻訳しています…',
   selectionFailed: 'この選択範囲を翻訳できませんでした。',
@@ -276,22 +275,130 @@ describe('page session', () => {
     expect(document.querySelector('sakutto-line')?.textContent).toContain('訳:Hello world');
   });
 
-  it('labels a built-in translation as a quick translation', async () => {
+  it('paints a Chrome-only pair without a badge next to the text', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML = '<p>Hello world</p>';
+    // Czech is one of the pairs the model does not translate, so the built-in translator
+    // is the page's real engine here rather than a stand-in.
     const session = start(
       document,
       immediate((text) => `訳:${text}`, 'chrome'),
+      { targetLanguage: 'cs' },
     );
 
     await session.translate();
     await session.whenIdle();
 
-    expect(document.querySelector('sakutto-note')?.textContent).toBe('簡易訳');
+    expect(document.body.textContent).toContain('訳:Hello world');
+    expect(document.querySelector('sakutto-note')).toBeNull();
+    expect(document.body.textContent).not.toContain('簡易訳');
     document.querySelector('p')?.dispatchEvent(new PointerEvent('pointerover', { bubbles: true }));
     expect(document.querySelector('sakutto-tip')?.shadowRoot?.textContent).toContain(
-      '簡易訳（Chrome 内蔵）',
+      'Chrome の内蔵翻訳',
     );
+  });
+
+  it('paints a Chrome-only pair without a badge on the bilingual line', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello world</p>';
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`, 'chrome'),
+      { targetLanguage: 'cs', display: 'bilingual' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    const line = document.querySelector('sakutto-line');
+    if (!line) throw new Error('missing bilingual line');
+    expect(line.textContent).toBe('訳:Hello world');
+    expect(line.querySelector('sakutto-note')).toBeNull();
+    expect(document.body.textContent).not.toContain('簡易訳');
+    expect(translationPageStyle()).not.toMatch(/sakutto-note/);
+    expect(translationPageStyle()).not.toContain('簡易訳');
+  });
+
+  it('never requests a built-in draft or preview for a PLaMo pair', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p id="lead">Hello world</p>';
+    const seen: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments, options) {
+        seen.push(
+          JSON.stringify(options, (_key, value) =>
+            value instanceof AbortSignal ? 'signal' : value,
+          ),
+        );
+        for (const segment of segments) {
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    expect(seen.length).toBeGreaterThan(0);
+    for (const call of seen) {
+      expect(call).not.toContain('"draft"');
+      expect(call).not.toContain('"preview"');
+    }
+    expect(document.querySelector('#lead')?.textContent).toBe('訳:Hello world');
+  });
+
+  it('drops a badge painted into the page by an older build', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML =
+      '<p id="lead">Hello world<sakutto-note data-mode="replace">簡易訳</sakutto-note></p>';
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    expect(document.querySelector('sakutto-note')).toBeNull();
+    expect(document.querySelector('#lead')?.textContent).not.toContain('簡易訳');
+  });
+
+  it('drops a badge an older build left in a block it had already translated', async () => {
+    // An extension update re-injects the content script into a tab whose DOM still holds
+    // the old paint: the block already reads as the target language, so the scan skips it
+    // and the per-block cleanup never runs. The badge has to be swept away separately.
+    document.documentElement.lang = 'ja';
+    document.documentElement.setAttribute('data-sakutto-source-lang', 'en');
+    document.body.innerHTML =
+      '<p id="lead">今日はよく晴れています。<sakutto-note data-mode="replace">簡易訳</sakutto-note></p>';
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    expect(document.querySelector('sakutto-note')).toBeNull();
+    expect(document.querySelector('#lead')?.textContent).not.toContain('簡易訳');
+  });
+
+  it('drops a badge an older build left inside a bilingual line', async () => {
+    document.documentElement.lang = 'ja';
+    document.documentElement.setAttribute('data-sakutto-source-lang', 'en');
+    document.body.innerHTML =
+      '<p id="lead">Hello world<sakutto-line lang="ja">今日はよく晴れています。' +
+      '<sakutto-note data-mode="bilingual">簡易訳</sakutto-note></sakutto-line></p>';
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    expect(document.querySelector('sakutto-note')).toBeNull();
   });
 
   it('remembers bilingual mode for the page and can switch back', async () => {
@@ -471,7 +578,7 @@ describe('page session', () => {
     expect(document.body.textContent).not.toContain('訳:');
 
     ready = true;
-    session.upgradeChromeSegments();
+    session.retryUntranslated();
     await session.whenIdle();
     expect(document.body.textContent).toContain('訳:Hello world');
   });
@@ -925,7 +1032,7 @@ describe('page session', () => {
     expect(text).not.toContain('翻訳しています…');
   });
 
-  it('replaces an in-flight Chrome draft after PLaMo becomes ready', async () => {
+  it('shows no built-in text while PLaMo is still streaming a paragraph', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML = '<p id="lead">Hello world from the article.</p>';
     const rect = new DOMRect(0, 0, 640, 80);
@@ -934,38 +1041,34 @@ describe('page session', () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    let phase: 'chrome' | 'plamo' = 'chrome';
     const session = start(
       document,
       engineOf(async function* (segments) {
         const segment = segments[0];
         if (!segment) return;
-        if (phase === 'chrome') {
-          yield { id: segment.id, textDelta: '簡易', engine: 'chrome' as const };
-          await gate;
-          yield { id: segment.id, final: '簡易訳です。', engine: 'chrome' as const };
-          return;
-        }
-        yield { id: segment.id, final: `高品質:${segment.text}`, engine: 'plamo' as const };
+        await gate;
+        yield { id: segment.id, textDelta: '高', engine: 'plamo' as const };
+        yield { id: segment.id, final: '高品質の訳です。', engine: 'plamo' as const };
       }),
     );
 
     try {
       const pending = session.translate();
       for (let attempt = 0; attempt < 20; attempt += 1) {
-        if (document.querySelector('#lead')?.textContent?.includes('簡易')) break;
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
-      expect(document.querySelector('#lead')?.textContent).toContain('簡易');
+      // Before PLaMo produces anything the source text stays on the page: no draft.
+      const lead = document.querySelector('#lead');
+      expect(lead?.textContent).toBe('Hello world from the article.');
+      expect(lead?.hasAttribute('data-sakutto-engine')).toBe(false);
+      expect(lead?.hasAttribute('data-sakutto-pending')).toBe(true);
 
-      phase = 'plamo';
-      session.upgradeChromeSegments();
       release();
       await pending;
       await session.whenIdle();
 
-      expect(document.querySelector('#lead')?.textContent).toContain('高品質:');
-      expect(document.querySelector('#lead')?.textContent).not.toContain('簡易訳です。');
+      expect(lead?.textContent).toBe('高品質の訳です。');
+      expect(lead?.getAttribute('data-sakutto-engine')).toBe('plamo');
     } finally {
       spy.mockRestore();
     }
@@ -1230,7 +1333,7 @@ describe('page session', () => {
 });
 
 describe('page translation corrections', () => {
-  it('paints a built-in draft of a linked paragraph and then restores the link', async () => {
+  it('keeps the source paragraph and its link until PLaMo paints markup', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML = '<p id="lead">See <a href="/osaka">Osaka</a> today.</p>';
     const rect = new DOMRect(0, 0, 120, 24);
@@ -1244,7 +1347,6 @@ describe('page translation corrections', () => {
       engineOf(async function* (segments) {
         const segment = segments[0];
         if (!segment) return;
-        yield { id: segment.id, final: '今日の大阪をご覧ください。', engine: 'chrome' };
         await gate;
         yield { id: segment.id, final: '今日の<i1>大阪</i1>をご覧ください。', engine: 'plamo' };
       }),
@@ -1253,17 +1355,19 @@ describe('page translation corrections', () => {
     try {
       const pending = session.translate();
       for (let attempt = 0; attempt < 20; attempt += 1) {
-        if (document.querySelector('sakutto-note')) break;
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
       const lead = document.querySelector('#lead');
-      expect(lead?.querySelector('sakutto-note')?.textContent).toBe('簡易訳');
+      // Nothing has been painted yet, so the paragraph is still its own source text with
+      // the link in place. A Chrome draft used to replace it here.
+      expect(lead?.textContent).toBe('See Osaka today.');
+      expect(lead?.querySelector('sakutto-note')).toBeNull();
       expect(lead?.querySelector('a')?.getAttribute('href')).toBe('/osaka');
-      expect(lead?.textContent).toContain('今日の大阪をご覧ください。');
 
       release();
       await pending;
       await session.whenIdle();
+      expect(lead?.textContent).toBe('今日の大阪をご覧ください。');
       expect(lead?.querySelector('sakutto-note')).toBeNull();
       expect(lead?.querySelector('a')?.textContent).toBe('大阪');
       expect(lead?.querySelector('a')?.getAttribute('href')).toBe('/osaka');
@@ -1748,16 +1852,17 @@ describe('long page translation', () => {
     };
   }
 
-  it('fills visible blocks with a preview before off-screen text', async () => {
+  it('translates visible prose before off-screen text with PLaMo alone', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML = ['a', 'b', 'c', 'd', 'far']
       .map((id) => longParagraph(id, id === 'far' ? 'Farther' : id.toUpperCase()))
       .join('');
     const restore = installBands();
     const seen: string[] = [];
+    const engines: (string | undefined)[] = [];
     const session = start(
       document,
-      engineOf(async function* (segments, options) {
+      engineOf(async function* (segments) {
         const text = segments.map((segment) => segment.text).join('\n');
         const label = text.includes('Farther')
           ? 'far'
@@ -1770,19 +1875,14 @@ describe('long page translation', () => {
                 : text.includes('D stays')
                   ? 'd'
                   : 'other';
-        seen.push(`${options.preview ? 'preview' : options.draft ? 'draft' : 'run'}:${label}`);
-        await Promise.resolve();
+        seen.push(label);
         for (const segment of segments) {
-          yield {
-            id: segment.id,
-            final: `訳:${segment.text}`,
-            engine: options.preview ? ('chrome' as const) : ('plamo' as const),
-          };
+          engines.push('plamo');
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
         }
       }),
       { pace: 'fast' },
     );
-    session.upgradeChromeSegments();
 
     try {
       await session.translate();
@@ -1791,18 +1891,21 @@ describe('long page translation', () => {
       restore();
     }
 
-    const previewAt = (label: string): number => seen.indexOf(`preview:${label}`);
-    expect(previewAt('b') + previewAt('c') + previewAt('d')).toBeGreaterThan(-3);
+    // Every request went to PLaMo: there is no separate preview pass over Chrome.
+    expect(engines.every((engine) => engine === 'plamo')).toBe(true);
     const firstVisible = ['b', 'c', 'd']
-      .map((label) => previewAt(label))
+      .map((label) => seen.indexOf(label))
       .filter((index) => index >= 0)
       .sort((left, right) => left - right)[0];
     expect(firstVisible).toBeGreaterThanOrEqual(0);
-    if (previewAt('far') >= 0) expect(previewAt('far')).toBeGreaterThan(firstVisible ?? 0);
-    expect(seen.filter((entry) => /:(a|b|c|d)$/.test(entry)).length).toBeGreaterThanOrEqual(4);
+    const farAt = seen.indexOf('far');
+    if (farAt >= 0) expect(farAt).toBeGreaterThan(firstVisible ?? 0);
+    for (const id of ['a', 'b', 'c', 'd', 'far']) {
+      expect(document.querySelector(`#${id}`)?.textContent).toContain('訳:');
+    }
   });
 
-  it('does not preview far blocks while the pace waits for PLaMo off-screen', async () => {
+  it('prefetches further below the fold when the look-ahead is widened', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML = [
       longParagraph('a', 'A'),
@@ -1810,19 +1913,19 @@ describe('long page translation', () => {
       longParagraph('far', 'Farther'),
     ].join('');
     const restore = installBands();
-    const seen: string[] = [];
+    const queuedAtStart: string[] = [];
     const session = start(
       document,
-      engineOf(async function* (segments, options) {
+      engineOf(async function* (segments) {
         const text = segments.map((segment) => segment.text).join('\n');
         const label = text.includes('Farther') ? 'far' : text.includes('B stays') ? 'b' : 'a';
-        seen.push(`${options.preview ? 'preview' : 'run'}:${label}`);
+        queuedAtStart.push(label);
         for (const segment of segments) {
           yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
         }
       }),
+      { pace: 'fast' },
     );
-    session.upgradeChromeSegments();
 
     try {
       await session.translate();
@@ -1831,137 +1934,35 @@ describe('long page translation', () => {
       restore();
     }
 
-    expect(seen.some((entry) => entry === 'preview:far')).toBe(false);
-    expect(seen.some((entry) => entry === 'preview:b')).toBe(true);
-    expect(document.querySelector('#a')?.textContent).toContain('訳:');
-    expect(document.querySelector('#b')?.textContent).toContain('訳:');
+    // The widened look-ahead means the off-screen block is queued too, and PLaMo — not a
+    // Chrome preview — is what fills it.
+    expect(queuedAtStart).toContain('far');
     expect(document.querySelector('#far')?.textContent).toContain('訳:');
+    expect(document.querySelector('#far')?.getAttribute('data-sakutto-engine')).toBe('plamo');
   });
 
-  it('starts visible previews after the first built-in draft, before PLaMo is marked ready', async () => {
-    document.documentElement.lang = 'en';
-    document.body.innerHTML = [longParagraph('a', 'A'), longParagraph('b', 'B')].join('');
-    const restore = installBands();
-    const seen: string[] = [];
-    const session = start(
-      document,
-      engineOf(async function* (segments, options) {
-        const text = segments.map((segment) => segment.text).join('\n');
-        const label = text.includes('B stays') ? 'b' : 'a';
-        seen.push(`${options.preview ? 'preview' : options.draft ? 'draft' : 'run'}:${label}`);
-        if (options.preview) {
-          for (const segment of segments) {
-            yield { id: segment.id, final: `予:${segment.text}`, engine: 'chrome' as const };
-          }
-          return;
-        }
-        const segment = segments[0];
-        if (!segment) return;
-        yield { id: segment.id, final: '簡易の全文です。', engine: 'chrome' as const };
-        for (const piece of segments) {
-          yield { id: piece.id, final: `訳:${piece.text}`, engine: 'plamo' as const };
-        }
-      }),
-    );
-
-    try {
-      await session.translate();
-      await session.whenIdle();
-    } finally {
-      restore();
-    }
-
-    const draftAt = seen.indexOf('draft:a');
-    const previewAt = seen.indexOf('preview:b');
-    expect(draftAt).toBeGreaterThanOrEqual(0);
-    expect(previewAt).toBeGreaterThan(draftAt);
-    expect(document.querySelector('#b')?.textContent).toContain('訳:');
-  });
-
-  it('keeps the Chrome sentence until PLaMo finishes that piece', async () => {
-    document.documentElement.lang = 'en';
-    document.body.innerHTML = '<p id="lead">Hello world from the article.</p>';
-    const spy = vi
-      .spyOn(Element.prototype, 'getBoundingClientRect')
-      .mockReturnValue(new DOMRect(0, 20, 640, 80));
-    let releaseDelta!: () => void;
-    let releaseFinal!: () => void;
-    const deltaGate = new Promise<void>((resolve) => {
-      releaseDelta = resolve;
-    });
-    const finalGate = new Promise<void>((resolve) => {
-      releaseFinal = resolve;
-    });
-    const session = start(
-      document,
-      engineOf(async function* (segments) {
-        const segment = segments[0];
-        if (!segment) return;
-        yield { id: segment.id, final: '簡易の全文です。', engine: 'chrome' as const };
-        await deltaGate;
-        yield { id: segment.id, textDelta: '高', engine: 'plamo' as const };
-        await finalGate;
-        yield { id: segment.id, final: '高品質の全文です。', engine: 'plamo' as const };
-      }),
-    );
-
-    try {
-      const pending = session.translate();
-      for (let attempt = 0; attempt < 20; attempt += 1) {
-        if (document.querySelector('#lead')?.textContent?.includes('簡易の全文です。')) break;
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
-      expect(document.querySelector('#lead')?.textContent).toContain('簡易の全文です。');
-
-      releaseDelta();
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(document.querySelector('#lead')?.textContent).toContain('簡易の全文です。');
-      expect(document.querySelector('#lead')?.textContent).not.toContain('高');
-
-      releaseFinal();
-      await pending;
-      await session.whenIdle();
-      expect(document.querySelector('#lead')?.textContent).toContain('高品質の全文です。');
-      expect(document.querySelector('#lead')?.textContent).not.toContain('簡易の全文です。');
-    } finally {
-      spy.mockRestore();
-    }
-  });
-
-  it('keeps the built-in draft of a piece that has none of its own', async () => {
+  it('streams PLaMo pieces into a long paragraph without a built-in sentence', async () => {
     document.documentElement.lang = 'en';
     const sentence = 'This is one sentence about the release. ';
     document.body.innerHTML = `<p id="lead">${sentence.repeat(12)}</p>`;
     const spy = vi
       .spyOn(Element.prototype, 'getBoundingClientRect')
       .mockReturnValue(new DOMRect(0, 20, 640, 80));
-    let releasePlamo!: () => void;
-    const plamoGate = new Promise<void>((resolve) => {
-      releasePlamo = resolve;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
     });
-    let releaseChrome!: () => void;
-    const chromeGate = new Promise<void>((resolve) => {
-      releaseChrome = resolve;
-    });
-    const painted: string[] = [];
+    const paintedBeforePieces: string[] = [];
 
     try {
       const session = start(
         document,
         engineOf(async function* (segments) {
-          // Only the first piece gets a draft. The rest are drafted later, so this
-          // call is also where PLaMo must not wipe the previews already on screen.
           const first = segments[0];
           if (!first) return;
-          yield { id: first.id, final: '簡易一', engine: 'chrome' as const };
-          await chromeGate;
-          for (const segment of segments.slice(1)) {
-            yield { id: segment.id, final: '簡易', engine: 'chrome' as const };
-          }
-          await plamoGate;
-          yield { id: first.id, textDelta: '高', engine: 'plamo' as const };
-          painted.push(document.querySelector('#lead')?.textContent ?? '');
+          // The paragraph has no text of its own until PLaMo streams its first piece.
+          paintedBeforePieces.push(document.querySelector('#lead')?.textContent ?? '');
+          await gate;
           for (const segment of segments) {
             yield { id: segment.id, final: `高:${segment.text}`, engine: 'plamo' as const };
           }
@@ -1970,18 +1971,17 @@ describe('long page translation', () => {
 
       const pending = session.translate();
       for (let attempt = 0; attempt < 30; attempt += 1) {
-        if (document.querySelector('#lead')?.textContent?.includes('簡易一')) break;
+        if (paintedBeforePieces.length > 0) break;
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
-      releaseChrome();
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      releasePlamo();
+      release();
       await pending;
       await session.whenIdle();
 
-      expect(painted[0]).toContain('簡易一');
-      expect(painted[0]).not.toContain('高');
+      expect(paintedBeforePieces[0]).toContain(sentence.trim());
+      expect(paintedBeforePieces[0]).not.toContain('簡易');
       expect(document.querySelector('#lead')?.textContent).toContain('高:');
+      expect(document.querySelector('#lead')?.getAttribute('data-sakutto-engine')).toBe('plamo');
     } finally {
       spy.mockRestore();
     }
@@ -2244,12 +2244,11 @@ describe('translated text contrast', () => {
     expect(styleText()).not.toMatch(/sakutto-line[^}]*mix/i);
   });
 
-  it('leaves no pending attribute or draft paint on a finished Chrome draft', async () => {
+  it('leaves no pending attribute or badge on a finished PLaMo block', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML = '<p id="lead">Hello world from the article.</p>';
     const rect = new DOMRect(0, 20, 640, 80);
     const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(rect);
-    let phase: 'chrome' | 'plamo' = 'chrome';
 
     try {
       const session = start(
@@ -2257,10 +2256,6 @@ describe('translated text contrast', () => {
         engineOf(async function* (segments) {
           const segment = segments[0];
           if (!segment) return;
-          if (phase === 'chrome') {
-            yield { id: segment.id, final: '簡易訳です。', engine: 'chrome' as const };
-            return;
-          }
           yield { id: segment.id, final: '高品質の訳です。', engine: 'plamo' as const };
         }),
       );
@@ -2270,15 +2265,9 @@ describe('translated text contrast', () => {
 
       const lead = document.querySelector('#lead');
       if (!lead) throw new Error('missing lead');
-      expect(lead.textContent).toContain('簡易訳です。');
-      expect(opacityOf(lead)).toBe('1');
-
-      phase = 'plamo';
-      session.upgradeChromeSegments();
-      await session.whenIdle();
-
-      expect(lead.textContent).toContain('高品質の訳です。');
+      expect(lead.textContent).toBe('高品質の訳です。');
       expect(lead.hasAttribute('data-sakutto-pending')).toBe(false);
+      expect(lead.getAttribute('data-sakutto-engine')).toBe('plamo');
       expect(lead.querySelector('sakutto-note')).toBeNull();
       expect(opacityOf(lead)).toBe('1');
     } finally {

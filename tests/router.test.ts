@@ -17,7 +17,6 @@ function options(overrides: Partial<TranslateOptions> = {}): TranslateOptions {
 const CHUNK: TranslationChunk = { id: 'a', final: 'translated', engine: 'plamo' };
 
 interface Setup {
-  plamoReady?: boolean;
   plamoSupports?: boolean;
   chromeSupport?: PairSupport;
   plamoChunks?: TranslationChunk[];
@@ -35,7 +34,6 @@ function setup(config: Setup = {}) {
   const router = new RoutingEngine({
     plamo,
     chrome,
-    plamoReady: () => config.plamoReady ?? true,
     plamoSupports: (_src, tgt) => config.plamoSupports ?? tgt === 'ja',
     chromeSupport: async () => {
       chromeProbes += 1;
@@ -54,7 +52,7 @@ function setup(config: Setup = {}) {
 }
 
 describe('RoutingEngine', () => {
-  it('uses PLaMo when it is ready and supports the pair', async () => {
+  it('uses PLaMo when it supports the pair, without asking the built-in translator', async () => {
     const { router, plamo, chrome, chromeProbes } = setup();
 
     const chunks = await collectChunks(router.translate([{ id: 'a', text: 'Hello.' }], options()));
@@ -67,80 +65,16 @@ describe('RoutingEngine', () => {
     expect(chrome.calls).toBe(0);
   });
 
-  it('shows a built-in draft and then replaces it with PLaMo', async () => {
-    let release: () => void = () => undefined;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const plamo = fakeEngine('plamo', [{ id: 'a', final: '丁寧', engine: 'plamo' }], {
-      beforeChunks: () => gate,
-    });
-    const chrome = fakeEngine('chrome', [{ id: 'a', final: '簡易', engine: 'chrome' }]);
-    const router = new RoutingEngine({
-      plamo,
-      chrome,
-      plamoReady: () => true,
-      plamoSupports: () => true,
-      chromeSupport: async () => 'available',
-    });
-
-    const pending = collectChunks(
-      router.translate([{ id: 'a', text: 'Hello.' }], options({ draft: true })),
-    );
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(chrome.calls).toBe(1);
-    } finally {
-      release();
-    }
-    const chunks = await pending;
-
-    expect(plamo.calls).toBe(1);
-    expect(chunks.map((chunk) => chunk.final)).toEqual(['簡易', '丁寧']);
-  });
-
-  it('paints a built-in preview without starting PLaMo', async () => {
-    const { router, plamo, chrome } = setup();
-
-    const chunks = await collectChunks(
-      router.translate([{ id: 'a', text: 'Hello.' }], options({ preview: true })),
-    );
-
-    expect(chunks).toEqual([{ id: 'a', final: 'chrome', engine: 'chrome' }]);
-    expect(plamo.calls).toBe(0);
-    expect(chrome.calls).toBe(1);
-    expect(router.activeEngine).toBeNull();
-  });
-
-  it('does not draft when the built-in translator is unavailable', async () => {
-    const { router, plamo, chrome } = setup({ chromeSupport: 'unavailable' });
-
-    const chunks = await collectChunks(
-      router.translate([{ id: 'a', text: 'Hello.' }], options({ draft: true })),
-    );
-
-    expect(chunks).toEqual([CHUNK]);
-    expect(plamo.calls).toBe(1);
-    expect(chrome.calls).toBe(0);
-  });
-
-  it('uses the built-in translator while the model is not ready', async () => {
-    const { router, plamo, chrome } = setup({ plamoReady: false });
+  it('never paints built-in text for a pair PLaMo supports, even before the model loads', async () => {
+    // A cold start is exactly when a Chrome draft used to appear. The router must send the
+    // request to PLaMo, which waits for the runtime, instead of answering from Chrome.
+    const { router, plamo, chrome } = setup({ plamoSupports: true });
 
     const chunks = await collectChunks(router.translate([{ id: 'a', text: 'Hello.' }], options()));
 
-    expect(chunks).toEqual([{ id: 'a', final: 'chrome', engine: 'chrome' }]);
-    expect(router.activeEngine).toBe('chrome');
-    expect(plamo.calls).toBe(0);
-    expect(chrome.calls).toBe(1);
-  });
-
-  it('throws while the model is downloading and no bridge is ready', async () => {
-    const { router } = setup({ plamoReady: false, chromeSupport: 'downloading' });
-
-    await expect(
-      collectChunks(router.translate([{ id: 'a', text: 'Hello.' }], options())),
-    ).rejects.toMatchObject({ code: 'model-missing' });
+    expect(chunks).toEqual([{ id: 'a', final: 'translated', engine: 'plamo' }]);
+    expect(plamo.calls).toBe(1);
+    expect(chrome.calls).toBe(0);
   });
 
   it('routes languages PLaMo does not support to the built-in translator', async () => {
@@ -150,6 +84,7 @@ describe('RoutingEngine', () => {
     );
 
     expect(chunks).toEqual([{ id: 'a', final: 'chrome', engine: 'chrome' }]);
+    expect(router.activeEngine).toBe('chrome');
   });
 
   it('throws for a pair neither engine can handle', async () => {
@@ -170,16 +105,18 @@ describe('RoutingEngine', () => {
     expect(chunks).toEqual([{ id: 'a', final: '簡易訳', engine: 'chrome' }]);
   });
 
-  it('falls back to the bridge when PLaMo fails before producing text', async () => {
+  it('fails rather than falling back to Chrome when PLaMo cannot start', async () => {
+    // The page keeps its source text in this case. A Chrome draft would turn a visible
+    // paragraph into a translation the reader never asked for.
     const { router, chrome } = setup({
       plamoError: new EngineError('model-load-failed', 'load failed'),
     });
 
-    const chunks = await collectChunks(router.translate([{ id: 'a', text: 'Hello.' }], options()));
-
-    expect(chunks).toEqual([{ id: 'a', final: 'chrome', engine: 'chrome' }]);
-    expect(chrome.calls).toBe(1);
-    expect(router.activeEngine).toBe('chrome');
+    await expect(
+      collectChunks(router.translate([{ id: 'a', text: 'Hello.' }], options())),
+    ).rejects.toMatchObject({ code: 'model-load-failed' });
+    expect(chrome.calls).toBe(0);
+    expect(router.activeEngine).toBe('plamo');
   });
 
   it('does not fall back when the request is aborted', async () => {
@@ -204,7 +141,6 @@ describe('RoutingEngine', () => {
     const router = new RoutingEngine({
       plamo,
       chrome,
-      plamoReady: () => true,
       plamoSupports: () => true,
       chromeSupport: async () => 'available',
     });
@@ -219,62 +155,5 @@ describe('RoutingEngine', () => {
     });
     await expect(iterator.next()).rejects.toMatchObject({ code: 'model-load-failed' });
     expect(chrome.calls).toBe(0);
-  });
-
-  it('keeps a built-in draft when PLaMo fails before producing text', async () => {
-    const { router } = setup({
-      plamoError: new EngineError('model-load-failed', 'load failed'),
-      chromeChunks: [{ id: 'a', final: '簡易', engine: 'chrome' }],
-    });
-
-    const chunks = await collectChunks(
-      router.translate([{ id: 'a', text: 'Hello.' }], options({ draft: true })),
-    );
-
-    expect(chunks.map((chunk) => chunk.final)).toEqual(['簡易']);
-    expect(router.activeEngine).toBe('chrome');
-  });
-
-  it('asks again after the built-in translator was not ready', async () => {
-    let probes = 0;
-    let plamoCalls = 0;
-    let release: () => void = () => undefined;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const chrome = fakeEngine('chrome', [{ id: 'a', final: '簡易', engine: 'chrome' }]);
-    const router = new RoutingEngine({
-      plamo: fakeEngine('plamo', [{ id: 'a', final: '丁寧', engine: 'plamo' }], {
-        beforeChunks: () => {
-          plamoCalls += 1;
-          return plamoCalls === 1 ? Promise.resolve() : gate;
-        },
-      }),
-      chrome,
-      plamoReady: () => true,
-      plamoSupports: () => true,
-      chromeSupport: async () => {
-        probes += 1;
-        return probes === 1 ? 'downloadable' : 'available';
-      },
-    });
-
-    const first = await collectChunks(
-      router.translate([{ id: 'a', text: 'Hello.' }], options({ draft: true })),
-    );
-    const pending = collectChunks(
-      router.translate([{ id: 'a', text: 'Hello.' }], options({ draft: true })),
-    );
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(chrome.calls).toBe(1);
-    } finally {
-      release();
-    }
-    const second = await pending;
-
-    expect(probes).toBe(2);
-    expect(first.map((chunk) => chunk.final)).toEqual(['丁寧']);
-    expect(second.map((chunk) => chunk.final)).toEqual(['簡易', '丁寧']);
   });
 });

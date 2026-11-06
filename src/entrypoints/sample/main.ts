@@ -11,8 +11,7 @@ import { translateViaBackground } from '@/shared/translation-client';
 function overlayLabels(): OverlayLabels {
   return {
     original: t('originalLabel'),
-    simple: t('simpleTranslation'),
-    simpleDetail: t('simpleTranslationDetail'),
+    chromeNote: t('chromeTranslationNote'),
     machine: t('machineTranslationTooltip'),
     selectionPending: t('selectionPending'),
     selectionFailed: t('selectionFailed'),
@@ -58,12 +57,12 @@ const session = new PageSession(document, {
 
 browser.runtime.onMessage.addListener((message) => {
   if (!isModelProgressMessage(message)) return;
-  if (message.status.state === 'loaded') session.upgradeChromeSegments();
+  if (message.status.state === 'loaded') session.retryUntranslated();
 });
 
 void requestEngineStatus()
   .then((status) => {
-    if (status?.model.state === 'loaded') session.upgradeChromeSegments();
+    if (status?.model.state === 'loaded') session.retryUntranslated();
   })
   .catch(() => undefined);
 

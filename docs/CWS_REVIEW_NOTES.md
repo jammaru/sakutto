@@ -32,7 +32,7 @@ Onboarding is one click on Get started (はじめる). There is no consent check
 
 Stored on the device: settings, glossary, per-site rules, and that consent record in chrome.storage.local; a timing sample for a fixed paragraph (model id, duration, timestamp; not page text); a short capabilities cache in chrome.storage.session; the model file in the OPFS directory sakutto; a translation cache in IndexedDB database sakutto-translations (at most 5000 rows). The cache key includes a SHA-256 of the source text and a hash of the glossary. The source text itself is not the key.
 
-Until the PLaMo file is ready, page translation can use Chrome's Translator API when Chrome reports the language pack as available. Chrome may download its own language packs. Get started may call Translator.create() for the language pair so Chrome can install the pack. That call does not include page text. If the source language is empty, up to 1000 characters of page text may be passed to Chrome's Language Detector API. The extension does not choose a translation server and does not upload page text to the developer, Preferred Networks, or any other translation server.
+Chrome's Translator API is used only for a language pair the PLaMo model does not support, and only when Chrome reports the language pack as available. A pair the model supports is never routed to Chrome, so the page keeps its source text until PLaMo paints it. Chrome may download its own language packs. Get started may call Translator.create() for the language pair so Chrome can install the pack. That call does not include page text. If the source language is empty, up to 1000 characters of page text may be passed to Chrome's Language Detector API. The extension does not choose a translation server and does not upload page text to the developer, Preferred Networks, or any other translation server.
 
 Model pins from src/engine/model/catalog.ts:
 
@@ -121,6 +121,6 @@ content script は `src/entrypoints/content.ts` の `registration: 'runtime'` �
 
 拡張機能自身の通信は、上の GGUF 取得です。ページ本文、選択範囲、用語集、訳文を載せるリクエストはありません。`chrome.runtime.requestUpdateCheck` と `chrome.storage.sync` は使いません。
 
-モデルが準備できるまでのページ翻訳は、Chrome の Translator API が言語パックを `available` と報告しているときだけ Chrome 側です（`src/engine/router.ts`、`src/engine/chrome/translator.ts`）。言語パックの取得は Chrome です。「はじめる」は、パックが `downloadable` でもクリック中に `Translator.create()` を呼ぶことがあります（`src/shared/translator-pack.ts`）。この呼び出しにページ本文はありません。原文言語が空のとき、最大 1,000 文字を Chrome の Language Detector API に渡します（`src/engine/offscreen/host.ts`）。
+Chrome の Translator API を使うのは、PLaMo のモデルが対応していない言語の組み合わせで、かつ Chrome が言語パックを `available` と報告しているときだけです（`src/engine/router.ts`、`src/engine/chrome/translator.ts`）。モデルが対応する組み合わせを Chrome に回すことはないため、モデルが描画するまでは原文のまま表示します。言語パックの取得は Chrome です。「はじめる」は、パックが `downloadable` でもクリック中に `Translator.create()` を呼ぶことがあります（`src/shared/translator-pack.ts`）。この呼び出しにページ本文はありません。原文言語が空のとき、最大 1,000 文字を Chrome の Language Detector API に渡します（`src/engine/offscreen/host.ts`）。
 
 速度の数値は審査メモの主張にしません。WebGPU と `n_parallel` を実 GPU で測った結果は、このリポジトリにありません。
