@@ -25,21 +25,23 @@ pnpm bench:serve            # http://127.0.0.1:4180/ lists every fixture
 Or open any file under `bench/pages/` in a static server of your choice. Then press `Alt+A` (or
 use the popup) with the unpacked extension loaded.
 
-- `bench/pages/long-article.html`
+- `bench/pages/long-article.html` — the headline page
+- `bench/pages/first-paragraph-then-long-tail.html`
 - `bench/pages/many-cards.html`
 - `bench/pages/single-long-paragraph.html`
 - `bench/pages/model-card-sidebar.html`
 - `bench/pages/mixed-ui.html`
 - `bench/pages/late-mount-spa.html`
 
-| Page                    | Pattern                                                                 | Bottleneck it isolates                                                                                 |
-| ----------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `long-article`          | Long research/news article, 22 paragraphs in 4 sections, plus a sidebar | Sustained prefill and decode over realistic prose. The default "is it faster" page.                    |
-| `many-cards`            | 12 cards, each a kicker + heading + paragraph + meta line               | Per-block overhead: batching, packing and scheduling many tiny blocks instead of raw token throughput. |
-| `single-long-paragraph` | One paragraph of ~2,900 characters                                      | The sentence splitter and chunk scheduling. The block cannot finish until its last chunk lands.        |
-| `model-card-sidebar`    | README prose in the main column, short metadata labels in a sidebar     | Chrome/metadata prioritisation against body copy, plus a sidebar the old collector dropped.            |
-| `mixed-ui`              | Settings screen: navigation, labels, help paragraphs, values, buttons   | Mixed short/long blocks where most text is small — the everyday app UI case.                           |
-| `late-mount-spa`        | Content injected 1.2 s after first paint, plus a `pushState` link       | Rescanning, the mutation observer, and whether late blocks reuse a warm runtime.                       |
+| Page                             | Pattern                                                                 | Bottleneck it isolates                                                                                                                                                           |
+| -------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `long-article`                   | Long research/news article, 22 paragraphs in 4 sections, plus a sidebar | Sustained prefill and decode over realistic prose. **The headline page**: the two numbers in the release copy come from here.                                                    |
+| `first-paragraph-then-long-tail` | A one-sentence lead, then 16 paragraphs                                 | The "first paragraph appears quickly while the rest is still going" split. A change that shortens the lead but lengthens the tail shows up here instead of hiding in an average. |
+| `many-cards`                     | 12 cards, each a kicker + heading + paragraph + meta line               | Per-block overhead: batching, packing and scheduling many tiny blocks instead of raw token throughput.                                                                           |
+| `single-long-paragraph`          | One paragraph of ~2,900 characters                                      | The sentence splitter and chunk scheduling. The block cannot finish until its last chunk lands.                                                                                  |
+| `model-card-sidebar`             | README prose in the main column, short metadata labels in a sidebar     | Chrome/metadata prioritisation against body copy, plus a sidebar the old collector dropped.                                                                                      |
+| `mixed-ui`                       | Settings screen: navigation, labels, help paragraphs, values, buttons   | Mixed short/long blocks where most text is small — the everyday app UI case.                                                                                                     |
+| `late-mount-spa`                 | Content injected 1.2 s after first paint, plus a `pushState` link       | Rescanning, the mutation observer, and whether late blocks reuse a warm runtime.                                                                                                 |
 
 Every fixture is original English prose written for this repo. No article text is copied from
 Anthropic, Hugging Face or Wikipedia, so the fixtures stay under the project's MIT license and
@@ -58,7 +60,7 @@ because branded Chrome refuses `--load-extension`.
 
 ```sh
 pnpm bench:build:mock      # fake in-page translator, no wasm/model needed
-pnpm bench:mock            # ~30 s for all six pages
+pnpm bench:mock            # ~1 min for all seven pages
 pnpm bench:mock --only long-article
 pnpm bench:mock --samples 3
 ```
@@ -81,12 +83,65 @@ Live mode is opt-in exactly like `SAKUTTO_E2E_REAL=1` for `pnpm test:e2e`: it is
 
 ```sh
 pnpm bench:history                     # newest run vs the one before it
+pnpm bench:history --tweet             # ...plus copy-ready Japanese sentences
 pnpm bench:history --summary <run>     # rebuild one run's markdown
 pnpm bench:history --baseline <a> --compare <b>
 ```
 
 `bench/results/pages/<run>.md` is written by every run and holds the same tables; the JSONL file is
 the source of truth.
+
+## Producing the two headline numbers after a speed PR
+
+The release copy quotes two numbers for one page (`long-article`), on one machine:
+
+- **最初の段落が出るまで / time to first visible translated paragraph**
+  (`firstVisibleTextMs`, printed as seconds)
+- **長い記事1ページ丸ごと / full page translated** (`fullPageMs`, printed as seconds)
+
+Both come from a `live` run. Mock numbers describe the scheduler and **must not** be quoted.
+
+```sh
+# one time, on the machine whose numbers you want to quote
+pnpm install
+pnpm build:wllama                          # Docker; pinned wasm, see docs/BUILDING.md
+pnpm bench:build:live
+
+# after every speed change
+pnpm bench:live --run "after-<short-sha>" --samples 3
+pnpm bench:history --tweet
+```
+
+`pnpm bench:live` prints the table plus a `## Headline numbers (long-article)` section that
+states both numbers in seconds, the engine (`CPU only` or `WebGPU`), the thread count, the
+commit and whether the tree was dirty. It also prints the delta against the previous live run
+and, with `--tweet`, a draft of the Japanese sentences.
+
+Rules that keep the numbers citable:
+
+- **Same machine, same mode, same fixture.** A CPU run and a WebGPU run are different claims;
+  the summary prints a warning if a comparison spans them.
+- **Quote the median of `--samples 3`**, not a single run, and never quote a run with
+  `dirty: true` — that tree was not the commit.
+- **One page, one number.** Saying 27.9 s → 2.9 s only makes sense if both values are
+  `firstVisibleTextMs` on `long-article`, with the acceleration labelled in the sentence.
+- **Never compare mock with live.** The bench refuses to mix a fake-engine build into a live
+  run, but no tool can stop you pasting a mock number into a tweet. The record is labelled
+  `"mode": "mock"` and the summary repeats the warning.
+
+### The old numbers in the draft copy
+
+The figures already used publicly (27.9 s → 2.9 s to the first paragraph; 66.6 s → 30.8 s for
+the whole long page, CPU only, 4 vCPU) came from an earlier, separate 4 vCPU run recorded in
+`bench/results/throughput-before.json` and `bench/results/throughput-after.json`. They are
+**not** reproduced by this suite and are not checked into `bench/history/pages.jsonl`: the
+pages, viewport and measurement points differ, so putting them on the same axis as a new run
+would be a fabricated comparison.
+
+Use them as history in a sentence ("we already went from 27.9 s to 2.9 s"), and use a fresh
+live run for every number after that. If you want a like-for-like baseline for the new suite,
+run `pnpm bench:live` on the commit before the change and keep both rows — that pair is what a
+later tweet should quote.
 
 ## What is recorded
 
@@ -98,6 +153,8 @@ One JSON line per page per repetition in `bench/history/pages.jsonl` (`schema: 1
 | `mode`                                                                         | `mock` or `live`. Mock and live numbers must never be compared.                                  |
 | `commit`, `dirty`                                                              | Full SHA of the tree the numbers came from, and whether it had uncommitted changes.              |
 | `engine.label` / `backend` / `tier` / `threads` / `chromeTranslator` / `model` | Which engine answered, and whether Chrome's translator was available to draft.                   |
+| `engine.accelerator` / `engine.accelerateLabel`                                | `cpu`, `webgpu`, `mock` or `unknown`, and the copy-ready phrase (`CPU only`, `WebGPU`).          |
+| `headline`                                                                     | True for the one fixture the release copy quotes (`long-article`).                               |
 | `machine`                                                                      | Platform, core count, user agent, cross-origin isolation, viewport.                              |
 | `metrics.firstTextMs`                                                          | Harness command to the first changed block of any kind.                                          |
 | `metrics.firstVisibleTextMs`                                                   | Same, restricted to prose the reader could see without scrolling. **What a reader feels.**       |

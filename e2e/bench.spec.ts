@@ -67,13 +67,30 @@ test.describe('page bench', () => {
     const article = result.records.find((record) => record.page === 'long-article');
     expect(article?.metrics.blocks.prose).toBeGreaterThanOrEqual(20);
 
+    // The headline fixture must be identifiable and carry the two copy-ready numbers.
+    expect(article?.headline).toBe(true);
+    expect(result.records.filter((record) => record.headline)).toHaveLength(1);
+    expect(article?.engine.accelerator).toBe('mock');
+    expect(article?.engine.accelerateLabel).toBe('mock translator');
+    const headline = result.headline;
+    expect(headline.fixture).toBe('long-article');
+    expect(headline.timeToFirstParagraphMs).not.toBeNull();
+    expect(headline.fullPageMs).not.toBeNull();
+
+    // The lead-then-tail page must show a real gap: the first paragraph lands well
+    // before the page finishes, which is the scenario the release copy describes.
+    const tail = result.records.find((record) => record.page === 'first-paragraph-then-long-tail');
+    expect(tail?.metrics.firstVisibleTextMs).not.toBeNull();
+    expect(tail?.metrics.fullPageMs).not.toBeNull();
+    expect(tail?.metrics.fullPageMs ?? 0).toBeGreaterThan(tail?.metrics.firstVisibleTextMs ?? 0);
+
     // A page that mounts content after first paint must be captured too, otherwise the
     // late-mount fixture would silently measure only the first screen.
     const spa = result.records.find((record) => record.page === 'late-mount-spa');
     expect(spa?.metrics.lateBlocks).toBeGreaterThan(0);
 
     expect(result.summary).toContain('Mock mode replaces the model');
-    expect(result.summary).toContain('long-article');
+    expect(result.summary).toContain('## Headline numbers (long-article)');
   });
 
   test('stamps records with the build commit', () => {
