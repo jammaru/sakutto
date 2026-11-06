@@ -16,27 +16,36 @@ export interface OverlayLabels {
   barProgress: (done: number, total: number) => string;
   barRate: (tokens: string, segments: string) => string;
   barDone: string;
+  /** Shown when some source prose had no translatable segment. */
+  barPartial: (blocks: number) => string;
   barOriginal: string;
   barAlways: string;
   barAlwaysOn: string;
 }
 
+/**
+ * Replace mode rewrites the block's own text nodes, so the translation inherits the
+ * page's own color and weight. Nothing here may lower contrast: an opacity on the
+ * block would fade the page's text as well, and a `color-mix` on the translated run
+ * would paint it a lighter gray than the original.
+ *
+ * Bilingual mode adds a second line under the original. It keeps the host color and
+ * is only slightly smaller, so it reads as body copy instead of a caption.
+ */
 const PAGE_STYLE = `
 sakutto-line {
   display: block;
   margin: 0.2em 0 0.35em;
-  color: color-mix(in srgb, currentColor 76%, transparent);
+  color: inherit;
   font: inherit;
-  font-size: 0.92em;
   line-height: 1.55;
 }
 sakutto-note {
+  color: inherit;
   font: inherit;
   font-size: 0.72em;
   font-weight: 600;
   letter-spacing: 0.03em;
-  opacity: 0.8;
-  color: inherit;
 }
 sakutto-note[data-mode="replace"] {
   display: inline;
@@ -47,20 +56,18 @@ sakutto-note[data-mode="bilingual"] {
   display: inline-block;
   margin-inline-start: 0.45em;
   padding: 0 0.4em;
-  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  border: 1px solid currentColor;
   border-radius: 999px;
 }
-[data-sakutto-pending="1"] {
-  opacity: 0.58;
-}
-@media (prefers-reduced-motion: no-preference) {
-  [data-sakutto-pending="1"] {
-    animation: sakutto-shimmer 1.15s ease-in-out infinite;
-  }
-}
-@keyframes sakutto-shimmer {
-  50% { opacity: 0.32; }
-}
+/*
+ * [data-sakutto-pending="1"] has no rule on purpose. It used to fade the whole block to
+ * 58% and shimmer down to 32%, so every block that PLaMo had not finished — and, because
+ * the attribute could outlive a draft-held or retried block, some that it had — read as
+ * pale gray instead of Japanese. Progress is already shown by the status bar and by text
+ * that fills in. It must not paint opacity 1 either: that would override a host that dims
+ * its own text (disabled rows, carousel slides at opacity 0) and make content the page
+ * meant to hide appear as soon as a block starts streaming.
+ */
 sakutto-status {
   position: fixed;
   z-index: 2147483646;
@@ -687,6 +694,49 @@ export class PageOverlay {
 }
 
 export const PAGE_STYLE_ELEMENT_ID = 'sakutto-style';
+
+/**
+ * Rules that decide whether translated text keeps the page's contrast. Exported so a
+ * test can assert them without a browser, since the fade was purely a stylesheet bug.
+ */
+export const TRANSLATION_STYLE_RULES = {
+  /** The bilingual line inherits the host color instead of mixing in transparency. */
+  line: /sakutto-line\s*\{[^}]*color:\s*inherit/iu,
+  /** The pending marker paints nothing at all, so it cannot dim or un-dim a host block. */
+  pending: /\[data-sakutto-pending="1"\]\s*\{[^}]*\}/iu,
+  /** Any rule that lowers opacity, which is what used to fade translated text. */
+  fadedOpacity: /opacity:\s*(?:0?\.\d+|0)\s*;/giu,
+  /** Any rule that raises opacity, which would un-hide a block the host meant to hide. */
+  forcedOpacity: /opacity:\s*1\s*;?/iu,
+  shimmer: /@keyframes\s+sakutto-shimmer/iu,
+  colorMix: /color-mix\(/iu,
+} as const;
+
+/** The part of the page stylesheet that paints translated text, without the status chip. */
+function translationRules(css: string): string {
+  const rules = css.split('sakutto-status')[0] ?? '';
+  // Comments explain the history here, and they name the selectors and properties they
+  // warn about, so they must not be scanned as if they were declarations.
+  return rules.replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
+/**
+ * True when the injected page stylesheet leaves translated text at full contrast.
+ * The status chip may dim its own chrome; the page's translated text may not.
+ */
+export function translationStyleKeepsContrast(css: string): boolean {
+  const rules = translationRules(css);
+  if (TRANSLATION_STYLE_RULES.shimmer.test(rules)) return false;
+  if (TRANSLATION_STYLE_RULES.colorMix.test(rules)) return false;
+  if (TRANSLATION_STYLE_RULES.pending.test(rules)) return false;
+  if (TRANSLATION_STYLE_RULES.forcedOpacity.test(rules)) return false;
+  TRANSLATION_STYLE_RULES.fadedOpacity.lastIndex = 0;
+  return !TRANSLATION_STYLE_RULES.fadedOpacity.test(rules);
+}
+
+export function translationPageStyle(): string {
+  return PAGE_STYLE;
+}
 
 const BAR_HEIGHT_PX = 40;
 

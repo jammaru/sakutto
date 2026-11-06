@@ -2,7 +2,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildSegment } from '@/dom/segment';
 import { applyTranslation, restoreSegment } from '@/dom/render';
-import { SELECTION_ICON_PX, selectionIconBox } from '@/dom/overlay';
+import { SELECTION_ICON_PX, selectionIconBox, translationPageStyle } from '@/dom/overlay';
+import { translationStyleKeepsContrast } from '@/dom/overlay';
 import { PageSession, type PageEngine, type SessionPreferences } from '@/dom/session';
 import type { TranslateOptions } from '@/engine/types';
 
@@ -22,6 +23,7 @@ const labels = {
   barProgress: (done: number, total: number) => `翻訳中 ${String(done)} / ${String(total)}`,
   barRate: (tokens: string, segments: string) => `${tokens} tok/s · ${segments} seg/s`,
   barDone: '翻訳しました。',
+  barPartial: (blocks: number) => `翻訳できない箇所が ${String(blocks)} 件残っています。`,
   barOriginal: '原文に戻す',
   barAlways: 'このサイトを常に翻訳します',
   barAlwaysOn: 'このサイトは常に翻訳します。',
@@ -2048,7 +2050,10 @@ describe('long page translation', () => {
     expect(document.querySelector('#good')?.textContent).toContain('訳:Hello world');
     expect(document.querySelector('#bad')?.textContent).toContain('Poison paragraph');
     expect(session.state().pending).toBe(0);
-    expect(document.documentElement.dataset.sakuttoState).toBe('translated');
+    // The failed block stayed in English, so the page is not finished. Reporting
+    // `translated` here is the false completion the reported page hit.
+    expect(session.state().skipped).toBe(1);
+    expect(document.documentElement.dataset.sakuttoState).toBe('partial');
   });
 
   it('keeps a recent rate instead of a lifetime average that collapses during a pause', async () => {
@@ -2150,5 +2155,388 @@ describe('long page translation', () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+/**
+ * The reported fade: translated Japanese arrived with the right words but at 58% opacity
+ * and a `color-mix` gray, so it was harder to read than the English it replaced. These
+ * tests pin both paint paths — the stylesheet and the DOM the session writes — so the
+ * translation cannot lose contrast again in either display mode.
+ */
+describe('translated text contrast', () => {
+  function styleText(): string {
+    return document.querySelector('#sakutto-style')?.textContent ?? '';
+  }
+
+  function opacityOf(element: Element): string {
+    return getComputedStyle(element).opacity || '1';
+  }
+
+  it('never dims, shimmers or mixes color into translated text', () => {
+    const css = translationPageStyle();
+    expect(translationStyleKeepsContrast(css)).toBe(true);
+    expect(css).not.toMatch(/opacity:\s*0?\.\d+/i);
+    expect(css).not.toContain('sakutto-shimmer');
+    expect(css).not.toContain('color-mix(');
+    expect(css).toMatch(/sakutto-line\s*\{[^}]*color:\s*inherit/i);
+  });
+
+  it('does not paint over a host block that dims or hides itself', () => {
+    // `opacity: 1` on the pending marker read as "full contrast" but overrode the host:
+    // a carousel slide at `opacity: 0` popped into view the moment its block started
+    // streaming, and a disabled row lost its dimming. The marker must paint nothing.
+    expect(translationStyleKeepsContrast(translationPageStyle())).toBe(true);
+    expect(translationPageStyle()).not.toMatch(/\[data-sakutto-pending="1"\]\s*\{/);
+  });
+
+  it('keeps a streamed block at full opacity while its text is still arriving', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p id="lead">Hello world from the article.</p>';
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        const segment = segments[0];
+        if (!segment) return;
+        yield { id: segment.id, textDelta: 'こんにちは', engine: 'plamo' as const };
+        await gate;
+        yield { id: segment.id, final: 'こんにちは、世界。', engine: 'plamo' as const };
+      }),
+    );
+
+    const pending = session.translate();
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      if (document.querySelector('#lead')?.textContent?.includes('こんにちは')) break;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing lead');
+    expect(lead.getAttribute('data-sakutto-pending')).toBe('1');
+    expect(opacityOf(lead)).toBe('1');
+
+    release();
+    await pending;
+    await session.whenIdle();
+    expect(opacityOf(lead)).toBe('1');
+  });
+
+  it('does not fade a bilingual line below the original', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p id="lead">Hello world</p>';
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+      { display: 'bilingual' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    const line = document.querySelector('#lead sakutto-line');
+    if (!line) throw new Error('missing bilingual line');
+    expect(opacityOf(line)).toBe('1');
+    expect(getComputedStyle(line).color).toBe(getComputedStyle(line.parentElement!).color);
+    expect(styleText()).not.toMatch(/sakutto-line[^}]*mix/i);
+  });
+
+  it('leaves no pending attribute or draft paint on a finished Chrome draft', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p id="lead">Hello world from the article.</p>';
+    const rect = new DOMRect(0, 20, 640, 80);
+    const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(rect);
+    let phase: 'chrome' | 'plamo' = 'chrome';
+
+    try {
+      const session = start(
+        document,
+        engineOf(async function* (segments) {
+          const segment = segments[0];
+          if (!segment) return;
+          if (phase === 'chrome') {
+            yield { id: segment.id, final: '簡易訳です。', engine: 'chrome' as const };
+            return;
+          }
+          yield { id: segment.id, final: '高品質の訳です。', engine: 'plamo' as const };
+        }),
+      );
+
+      await session.translate();
+      await session.whenIdle();
+
+      const lead = document.querySelector('#lead');
+      if (!lead) throw new Error('missing lead');
+      expect(lead.textContent).toContain('簡易訳です。');
+      expect(opacityOf(lead)).toBe('1');
+
+      phase = 'plamo';
+      session.upgradeChromeSegments();
+      await session.whenIdle();
+
+      expect(lead.textContent).toContain('高品質の訳です。');
+      expect(lead.hasAttribute('data-sakutto-pending')).toBe(false);
+      expect(lead.querySelector('sakutto-note')).toBeNull();
+      expect(opacityOf(lead)).toBe('1');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('restores full contrast after a block fails and falls back to its source', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p id="lead">Hello world from the article.</p>';
+    const session = start(
+      document,
+      engineOf(async function* () {
+        await Promise.reject(new Error('model failed'));
+        yield { id: 'unused', final: '', engine: 'plamo' as const };
+      }),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing lead');
+    expect(lead.textContent).toContain('Hello world');
+    expect(lead.hasAttribute('data-sakutto-pending')).toBe(false);
+    expect(opacityOf(lead)).toBe('1');
+  });
+});
+
+/**
+ * The reported no-op: on Hugging Face model cards the button flipped to "Restore the
+ * original" and the bar said the page was translated while the model card, the sidebar
+ * and the tabs stayed in English. Both causes are covered here.
+ */
+describe('whole-page coverage', () => {
+  it('translates a sidebar whose short labels have no language of their own', async () => {
+    // Hugging Face ships `<html class="">` with no lang attribute at all. The page
+    // language is detected separately, and short Latin labels like "spaces" or "docs"
+    // carry no script signal, so nothing but an ancestor tag could ever classify them.
+    document.documentElement.lang = '';
+    document.body.innerHTML = `
+      <main><p id="card">Model card body copy stays readable.</p></main>
+      <aside>
+        <dl><dt id="downloads">Downloads last month</dt><dd>1,305</dd></dl>
+        <div id="size">Model size</div>
+        <div id="spaces">spaces</div>
+        <div id="docs">docs</div>
+      </aside>
+    `;
+    const seen: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          seen.push(segment.text);
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+    );
+    session.setDetectedLanguage('en');
+
+    await session.translate();
+    await session.whenIdle();
+
+    expect(document.querySelector('#card')?.textContent).toContain('訳:');
+    expect(document.querySelector('#downloads')?.textContent).toContain('訳:');
+    expect(document.querySelector('#size')?.textContent).toContain('訳:');
+    expect(document.querySelector('#spaces')?.textContent).toContain('訳:');
+    expect(document.querySelector('#docs')?.textContent).toContain('訳:');
+    expect(seen).toContain('Downloads last month');
+    expect(document.documentElement.dataset.sakuttoState).toBe('translated');
+  });
+
+  it('translates a sidebar that mounts after the first scan', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<main><p>Article body</p></main>';
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    const aside = document.createElement('aside');
+    aside.innerHTML = '<p id="late">Downloads last month</p>';
+    document.body.append(aside);
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    await session.whenIdle();
+
+    expect(document.querySelector('#late')?.textContent).toContain('訳:');
+  });
+
+  it('repaints a sidebar tab that swaps its content in place', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = `
+      <main><div id="panel"><p>Overview copy</p></div></main>
+    `;
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+    expect(document.querySelector('#panel')?.textContent).toContain('訳:Overview copy');
+
+    document.querySelector('#panel')!.innerHTML = '<p>Files and versions</p>';
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    await session.whenIdle();
+
+    expect(document.querySelector('#panel')?.textContent).toContain('訳:Files and versions');
+    expect(document.querySelector('#panel')?.textContent).not.toContain('Overview copy');
+  });
+
+  it('does not claim success while visible prose has no translation', async () => {
+    document.documentElement.lang = 'en';
+    // A block whose requests all fail falls back to its source text and the bar used to
+    // say the page was done. A frozen citation is different: the builder keeps it on
+    // purpose, so it is not a coverage gap and must not be reported as one.
+    document.body.innerHTML = `
+      <p id="ok">Readable sentence</p>
+      <p id="odd">This paragraph never translates</p>
+    `;
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          if (segment.text.includes('never translates')) throw new Error('model failed');
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    const view = session.state();
+    expect(view.pending).toBe(0);
+    expect(view.skipped).toBe(1);
+    expect(document.documentElement.dataset.sakuttoState).toBe('partial');
+    expect(document.querySelector('#ok')?.textContent).toContain('訳:');
+    expect(document.querySelector('#odd')?.textContent).toContain(
+      'This paragraph never translates',
+    );
+
+    const bar = document.querySelector('sakutto-bar');
+    expect(bar?.shadowRoot?.textContent).toContain('翻訳できない箇所が 1 件残っています。');
+  });
+
+  it('never reports a frozen citation or a language link as untranslated', async () => {
+    // Wikipedia keeps citations, IPA and interlanguage links in inline elements the
+    // segment builder leaves alone. Counting them made every real article report
+    // "25 parts of this page could not be translated" over a page that was done.
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = `
+      <p>Osaka (<span class="IPA">oːsaka</span>) is a city.<sup>[1]</sup></p>
+      <ul>
+        <li><a lang="af" href="/af">Afrikaans</a></li>
+        <li><a lang="de" href="/de">Deutsch</a></li>
+      </ul>
+      <table><tr><td><span lang="ja">阿倍野区</span></td></tr></table>
+    `;
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    expect(session.state().skipped).toBe(0);
+    expect(document.documentElement.dataset.sakuttoState).toBe('translated');
+  });
+
+  it('reports a fully translated page as translated', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Readable sentence</p><p>Another sentence</p>';
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    expect(session.state().skipped).toBe(0);
+    expect(document.documentElement.dataset.sakuttoState).toBe('translated');
+  });
+
+  it('finishes a page whose only region has nothing to translate', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<div><pre>const answer = 42;</pre></div>';
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    expect(session.state().pending).toBe(0);
+    expect(document.documentElement.dataset.sakuttoState).toBe('translated');
+    expect(document.querySelector('pre')?.textContent).toBe('const answer = 42;');
+  });
+});
+
+describe('throughput bookkeeping', () => {
+  it('keeps the live rate on a long page without re-counting every block per token', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = Array.from(
+      { length: 40 },
+      (_, index) =>
+        `<p id="p${String(index)}">${`Paragraph ${String(index)} has a sentence. `.repeat(8)}</p>`,
+    ).join('');
+    let now = 1_000;
+    const spy = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          now += 400;
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+    );
+
+    try {
+      await session.translate();
+      await session.whenIdle();
+      const live = session.state();
+      expect(live.tokensPerSecond).not.toBeNull();
+      expect(live.segmentsPerSecond).not.toBeNull();
+      expect(live.pending).toBe(0);
+      expect(document.querySelectorAll('[data-sakutto-id]').length).toBeGreaterThan(10);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe('coverage reporting does not over-report', () => {
+  it('does not count a container whose text belongs to nested blocks', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = `
+      <nav><ul><li><a href="#a">Etymology</a></li><li><a href="#b">History</a></li></ul></nav>
+      <form><p>Your name</p><p>Price</p></form>
+      <p>Body copy</p>
+    `;
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    expect(session.state().skipped).toBe(0);
+    expect(document.documentElement.dataset.sakuttoState).toBe('translated');
   });
 });

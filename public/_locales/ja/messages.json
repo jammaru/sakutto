@@ -307,6 +307,14 @@
   "pageTranslated": {
     "message": "翻訳しました。"
   },
+  "pagePartial": {
+    "message": "翻訳できない箇所が $BLOCKS$ 件残っています。",
+    "placeholders": {
+      "blocks": {
+        "content": "$1"
+      }
+    }
+  },
   "pageAlwaysOn": {
     "message": "このサイトは常に翻訳します。"
   },

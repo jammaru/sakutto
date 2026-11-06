@@ -11,6 +11,7 @@ import {
   isModelUseRequest,
   isPageInfo,
   isPageInfoRequest,
+  isPageViewState,
 } from '@/shared/messages';
 
 const capabilities = {
@@ -119,5 +120,40 @@ describe('message validation', () => {
     expect(
       isModelProgressMessage({ type: 'model:progress', status: { ...modelStatus, state: 'nope' } }),
     ).toBe(false);
+  });
+});
+
+describe('page view state contract', () => {
+  const base = {
+    active: true,
+    display: 'replace',
+    engine: 'plamo',
+    simple: false,
+    pending: 0,
+    done: 3,
+    total: 3,
+    host: 'example.com',
+    auto: 'ask',
+    targetLanguage: 'ja',
+    pageLanguage: 'en',
+    targetAdjusted: false,
+    sameLanguage: false,
+    tokensPerSecond: 12.5,
+    segmentsPerSecond: 1.5,
+  };
+
+  it('carries the skipped-prose count the popup reports', () => {
+    expect(isPageViewState({ ...base, skipped: 0 })).toBe(true);
+    expect(isPageViewState({ ...base, skipped: 2 })).toBe(true);
+    // Older content scripts do not send it; the popup must still accept their state.
+    expect(isPageViewState(base)).toBe(true);
+    expect(isPageViewState({ ...base, skipped: -1 })).toBe(false);
+    expect(isPageViewState({ ...base, skipped: '2' })).toBe(false);
+  });
+
+  it('rejects a state that is missing a required field', () => {
+    const { total, ...missing } = base;
+    expect(total).toBe(3);
+    expect(isPageViewState({ ...missing, skipped: 0 })).toBe(false);
   });
 });

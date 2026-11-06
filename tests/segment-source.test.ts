@@ -29,4 +29,52 @@ describe('segment source', () => {
     expect(visibleOriginal(lead)).toContain('oːsaka');
     expect(visibleOriginal(lead)).toContain('[1]');
   });
+
+  it('keeps an aria-hidden icon ligature out of the source and out of the translation', () => {
+    // Material Symbols and friends paint a glyph from the literal word inside the span.
+    // Sending that word to the model replaced it with a translated word, and the icon
+    // then rendered that word's letters — a blank box or the wrong picture — in place of
+    // the glyph. The decorative inline stays in the DOM and out of the segment.
+    document.body.innerHTML = `
+      <p id="lead">Search <span class="material-symbols-outlined" aria-hidden="true">search</span> models</p>
+    `;
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing paragraph');
+    const model = buildSegment(lead);
+    if (!model) throw new Error('missing segment');
+
+    expect(model.source).toContain('Search');
+    expect(model.source).toContain('models');
+    expect(model.source).not.toContain('search');
+    expect(model.children).toHaveLength(0);
+  });
+
+  it('keeps a decorative separator between two links out of the source', () => {
+    document.body.innerHTML = `
+      <p id="lead"><a href="/a">Models</a><span aria-hidden="true">/</span><a href="/b">Datasets</a></p>
+    `;
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing paragraph');
+    const model = buildSegment(lead);
+    if (!model) throw new Error('missing segment');
+
+    expect(model.source).toContain('<i1>Models</i1>');
+    expect(model.source).toContain('<i2>Datasets</i2>');
+  });
+
+  it('leaves an aria-hidden inline region to the block walk, as before this change', () => {
+    // A decorative inline stays out of the parent's segment even when it wraps real text,
+    // which is the pre-PR behaviour restored here. The block walk still descends into a
+    // non-leaf `aria-hidden` region that contains blocks.
+    document.body.innerHTML = `
+      <p id="lead">Hello <span aria-hidden="true"><em>world</em></span> today</p>
+    `;
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing paragraph');
+    const model = buildSegment(lead);
+    if (!model) throw new Error('missing segment');
+    expect(model.source).not.toContain('world');
+    expect(model.source).toContain('Hello');
+    expect(model.source).toContain('today');
+  });
 });

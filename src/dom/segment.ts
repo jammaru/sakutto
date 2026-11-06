@@ -1,4 +1,12 @@
-import { isBlockElement, isFrozenInline, isKeptInlineText, isTranslationExcluded } from './blocks';
+import {
+  isAriaHiddenLeaf,
+  isBlockElement,
+  isCollapsedDetail,
+  isFrozenInline,
+  isKeptInlineText,
+  isScreenReaderOnly,
+  isTranslationExcluded,
+} from './blocks';
 
 export interface TextSlot {
   node: Text;
@@ -113,6 +121,16 @@ function buildFrame(element: Element, allocateId: () => string): BuiltFrame {
     }
 
     if (!(child instanceof Element) || isTranslationExcluded(child)) continue;
+    // Screen-reader-only text and collapsed panels are not translated on their own, so
+    // they must not be folded into a parent's segment either: the model would translate
+    // a label the reader cannot see, and its text would then change behind their back.
+    if (isScreenReaderOnly(child) || isCollapsedDetail(child)) continue;
+    // An `aria-hidden` inline is decorative: an icon glyph, a spinner, a separator, or an
+    // icon-font ligature such as `material-symbols-outlined`'s `search`. Sending it to the
+    // model turns the ligature into a translated word, and the icon then paints that word
+    // as a glyph — blank, or the wrong picture. It stays in the DOM, untranslated, between
+    // the surrounding text nodes, which still get their own placeholders on either side.
+    if (isAriaHiddenLeaf(child)) continue;
     if (child.tagName === 'BR') {
       source += '\n';
       continue;

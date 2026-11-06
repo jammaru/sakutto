@@ -175,3 +175,138 @@ test.describe('in-page translation', () => {
     }
   });
 });
+
+test.describe('faded translation and skipped sidebar', () => {
+  test.beforeAll(async () => {
+    extension = await loadExtension('en-US');
+  });
+
+  test.afterAll(async () => {
+    if (!extension) return;
+    try {
+      expect(extension.denied).toEqual([]);
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('translates a model card sidebar and keeps the translation at full contrast', async () => {
+    const page = await openFixture('/model-card.html');
+    try {
+      // Sidebar metadata and short labels used to be dropped, leaving a finished-looking
+      // page with an English column beside it.
+      await expect(page.locator('#downloads')).toContainText(MARKER);
+      await expect(page.locator('#size')).toContainText(MARKER);
+      await expect(page.locator('#spaces')).toContainText(MARKER);
+      await expect(page.locator('#docs')).toContainText(MARKER);
+      await expect(page.locator('#lead')).toContainText(MARKER);
+      await expect(page.locator('#shell')).toContainText(MARKER);
+
+      // Literal content stays literal.
+      await expect(page.locator('#code')).toHaveText('model = load("weights")');
+      await expect(page.locator('#sr')).toHaveText('Shortcut hint only screen readers announce');
+      await expect(page.locator('html')).toHaveAttribute('data-sakutto-state', 'translated');
+
+      // The reported bug: Japanese rendered paler than the English it replaced. The
+      // translated paragraph must keep the host color at full opacity.
+      const contrast = await page.evaluate(() => {
+        const lead = document.querySelector('#lead');
+        if (!lead) return null;
+        const style = getComputedStyle(lead);
+        return {
+          color: style.color,
+          opacity: style.opacity,
+          originalColor: getComputedStyle(document.body).color,
+        };
+      });
+      expect(contrast?.opacity).toBe('1');
+      expect(contrast?.color).toBe(contrast?.originalColor);
+
+      // A block that is still streaming must not dim. Before the fix this attribute set
+      // opacity 0.58 (and shimmered to 0.32), so any paragraph the model had not finished
+      // — and any block whose attribute outlived the request — read as pale gray.
+      expect(
+        await page.evaluate(() => {
+          const lead = document.querySelector('#lead');
+          if (!lead) return null;
+          lead.setAttribute('data-sakutto-pending', '1');
+          const opacity = getComputedStyle(lead).opacity;
+          lead.removeAttribute('data-sakutto-pending');
+          return opacity;
+        }),
+      ).toBe('1');
+      expect(
+        await page.evaluate(() => document.getElementById('sakutto-style')?.textContent ?? ''),
+      ).not.toMatch(/color-mix\(/);
+
+      await commandPage(extension.worker, page, 'bilingual');
+      const line = page.locator('#lead sakutto-line');
+      await expect(line).toContainText(MARKER);
+      expect(
+        await line.evaluate((element) => ({
+          opacity: getComputedStyle(element).opacity,
+          color: getComputedStyle(element).color,
+        })),
+      ).toEqual({ opacity: '1', color: contrast?.originalColor });
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('translates a page whose content sits behind a wrapper with no box', async () => {
+    // `display: contents` generates no box, so `checkVisibility()` says false even though
+    // everything inside paints. Treating that as hidden left the header, the model card
+    // and the sidebar in English while the bar read "This page is translated".
+    const page = await openFixture('/app-shell.html');
+    try {
+      await expect(page.locator('#lead')).toContainText(MARKER);
+      await expect(page.locator('#title')).toContainText(MARKER);
+      await expect(page.locator('nav a').first()).toContainText(MARKER);
+      await expect(page.locator('#downloads')).toContainText(MARKER);
+      await expect(page.locator('html')).toHaveAttribute('data-sakutto-state', 'translated');
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('leaves an aria-hidden icon glyph untranslated', async () => {
+    // An icon font paints a glyph from the literal word inside the span. Sending that word
+    // to the model replaced it with a translated word, and the icon then drew those letters
+    // instead of the glyph.
+    const page = await openFixture('/app-shell.html');
+    try {
+      await expect(page.locator('#icon-row')).toContainText(MARKER);
+      await expect(page.locator('#icon-row .material-symbols-outlined')).toHaveText('search');
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('does not un-hide a block the page keeps invisible', async () => {
+    // The pending marker used to paint `opacity: 1` to undo the old fade. On a host block
+    // that is deliberately transparent — a carousel slide, a disabled row — that made
+    // hidden content appear as soon as translation started.
+    const page = await openFixture('/app-shell.html');
+    try {
+      await expect(page.locator('#downloads')).toContainText(MARKER);
+      const opacity = await page.evaluate(() => {
+        const slide = document.querySelector<HTMLElement>('#slide');
+        const disabled = document.querySelector<HTMLElement>('#disabled');
+        if (!slide || !disabled) return null;
+        const before = getComputedStyle(slide).opacity;
+        slide.setAttribute('data-sakutto-pending', '1');
+        disabled.setAttribute('data-sakutto-pending', '1');
+        const after = {
+          slide: getComputedStyle(slide).opacity,
+          disabled: getComputedStyle(disabled).opacity,
+        };
+        slide.removeAttribute('data-sakutto-pending');
+        disabled.removeAttribute('data-sakutto-pending');
+        return { before, ...after };
+      });
+      expect(opacity).toEqual({ before: '0', slide: '0', disabled: '0.4' });
+    } finally {
+      await page.close();
+    }
+  });
+});

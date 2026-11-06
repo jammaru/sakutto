@@ -17,7 +17,17 @@ import { mergeGlossary } from '@/shared/glossary';
 import { chooseTargetLanguage, isTargetLanguage, type TargetLanguage } from '@/shared/languages';
 import type { Formality, Settings, TranslationPace } from '@/shared/settings';
 import { canonicalPageLanguage, isAlreadyTargetLanguage, languageOf } from './detect';
-import { collectDocuments, collectShadowRoots, eachTranslatableBlock, isOwnUi } from './blocks';
+import {
+  collectDocuments,
+  collectShadowRoots,
+  eachTranslatableBlock,
+  isAriaHiddenLeaf,
+  isBlockElement,
+  isFrozenInline,
+  isOwnUi,
+  isScreenReaderOnly,
+  isTranslationExcluded,
+} from './blocks';
 import type { OverlayLabels } from './overlay';
 import { PageOverlay, PAGE_STYLE_ELEMENT_ID } from './overlay';
 import { assessTranslation, stripPlaceholderTokens } from './placeholders';
@@ -58,6 +68,11 @@ const MAX_PAGE_FAILURES = 2;
 const SELECTION_SETTLE_MS = 48;
 /** A selectionchange that follows pointerup is the same gesture and should not wait out the keyboard delay. */
 const POINTER_RELEASE_WINDOW_MS = 80;
+/**
+ * The rate only needs a few observations per second, so the whole page is not re-counted
+ * for every finished segment. Each count walks every translated character.
+ */
+const TOKEN_RECOUNT_MS = 250;
 
 export interface PageEngine {
   translate(
@@ -95,6 +110,8 @@ export interface PageViewState {
   sameLanguage: boolean;
   tokensPerSecond: number | null;
   segmentsPerSecond: number | null;
+  /** Visible prose the page had when translation started that never got a translation. */
+  skipped: number;
 }
 
 type LiveState = 'idle' | 'queued' | 'running' | 'done';
@@ -192,6 +209,7 @@ export class PageSession {
   private previewing = 0;
   private previewGeneration = 0;
   private lastRateAt = 0;
+  private tokenCountAt = 0;
   private throughputSamples: ThroughputSample[] = [];
   private heldRates: PageRates = { tokensPerSecond: null, segmentsPerSecond: null };
   private heldTokensAt = 0;
@@ -222,10 +240,17 @@ export class PageSession {
   private navigating = false;
   private targetAdjusted = false;
   private observers: MutationObserver[] = [];
+  private readonly observedRoots = new Map<Node, MutationObserver>();
   private readonly visibilities = new Map<Document, IntersectionObserver>();
   private readonly pointerRoots = new Set<EventTarget>();
   private readonly frameLoads = new Map<HTMLIFrameElement, () => void>();
   private readonly expected = new WeakMap<Text, string>();
+  /**
+   * Blocks the last scan found but could not turn into a translation job. Only a block
+   * that owns prose of its own counts: a layout container whose text lives in nested
+   * blocks is covered by those blocks, and counting it would make every page look partial.
+   */
+  private readonly skippedBlocks = new Map<Element, string>();
   private applying = 0;
   private plamoReady = false;
   /** True once a built-in draft has painted, so the rest of the screen can preview immediately. */
@@ -439,6 +464,7 @@ export class PageSession {
         pageLanguage === canonicalPageLanguage(this.prefs.targetLanguage),
       tokensPerSecond: rates.tokensPerSecond,
       segmentsPerSecond: rates.segmentsPerSecond,
+      skipped: this.active ? this.skippedProse() : 0,
     };
   }
 
@@ -731,6 +757,7 @@ export class PageSession {
     this.restore();
     for (const observer of this.observers) observer.disconnect();
     this.observers = [];
+    this.observedRoots.clear();
     for (const observer of this.visibilities.values()) observer.disconnect();
     this.visibilities.clear();
     this.unbindPointers();
@@ -786,12 +813,26 @@ export class PageSession {
     this.bindVisibility();
   }
 
+  /**
+   * A translated page must not read as finished while visible prose has no translation.
+   * A block is admitted when it becomes a translation job; it is skipped when it is
+   * already in the target language, which is correct. Anything else the page shows as
+   * prose but that produced no job is reported, so a page whose collector found too
+   * little can no longer present "Translated" over an English column.
+   */
   private addBlock(block: Element, index: number): void {
     if (this.liveByBlock.has(block)) return;
     if (isAlreadyTargetLanguage(block, this.prefs.targetLanguage, this.detectedLanguage)) return;
 
     const model = buildSegment(block);
-    if (!model) return;
+    if (!model) {
+      // A container whose only text belongs to nested blocks is covered by those blocks.
+      // Reporting it would turn every page with a menu or a form into a partial result.
+      if (ownProse(block, canonicalPageLanguage(this.prefs.targetLanguage))) {
+        this.skippedBlocks.set(block, block.textContent ?? '');
+      }
+      return;
+    }
 
     const item: Live = {
       id: this.allocateId(),
@@ -949,6 +990,29 @@ export class PageSession {
       if (item.role === 'page' && item.kind === 'prose' && item.band === 'visible') return true;
     }
     return false;
+  }
+
+  /**
+   * Blocks still showing source text, either because no translation job could be built for
+   * them or because every attempt failed and the block fell back to its source. A block
+   * that later gains a translation, or whose text the page replaced, stops counting.
+   */
+  private skippedProse(): number {
+    let count = 0;
+    for (const [block, text] of [...this.skippedBlocks]) {
+      // A block that got a translation is covered, even though it is still a live item.
+      // A block that failed keeps its live entry with an empty translation, so it has to
+      // stay counted here.
+      const live = this.liveByBlock.get(block);
+      const translated = live !== undefined && live.translation.trim().length > 0;
+      const gone = translated || !block.isConnected || block.textContent !== text;
+      if (gone) {
+        this.skippedBlocks.delete(block);
+        continue;
+      }
+      count += 1;
+    }
+    return count;
   }
 
   private selectionBusy(): boolean {
@@ -1190,6 +1254,10 @@ export class PageSession {
     if (!keep.some((part) => part.length > 0)) {
       // Nothing finished. Undo the partial paint so the block shows its source text
       // instead of a half-decoded fragment.
+      // The page keeps showing source prose here, so it must not read as translated. A
+      // block that exhausted its retries is the case the reported page hit: the requests
+      // failed and the bar still said the page was done.
+      if (item.model) this.skippedBlocks.set(item.model.block, item.model.block.textContent ?? '');
       this.resetLive(item);
       item.state = 'done';
       item.translation = '';
@@ -1595,16 +1663,23 @@ export class PageSession {
 
   private noteThroughput(tracked: readonly Live[], now = performance.now()): void {
     if (!this.active) return;
-    const tokens = outputTokenCount(
-      tracked.map((item) =>
-        item.translation.length > 0 ? item.translation : item.partText.join(''),
-      ),
-    );
     const segments = tracked.reduce((count, item) => {
       if (item.partFinal.some(Boolean)) return count + item.partFinal.filter(Boolean).length;
       return count + (item.state === 'done' ? 1 : 0);
     }, 0);
     const last = this.throughputSamples[this.throughputSamples.length - 1];
+    if (last && last.segments === segments && now - last.atMs < 200) return;
+
+    // Counting tokens means walking every translated character on the page. That was done
+    // on every completion and every paint frame, which is quadratic on a long page for a
+    // number that only needs a few observations per second to produce a rate.
+    if (this.tokenCountAt > 0 && now - this.tokenCountAt < TOKEN_RECOUNT_MS) return;
+    const tokens = outputTokenCount(
+      tracked.map((item) =>
+        item.translation.length > 0 ? item.translation : item.partText.join(''),
+      ),
+    );
+    this.tokenCountAt = now;
     if (last && last.tokens === tokens && last.segments === segments) return;
     if (last && last.segments === segments && now - last.atMs < 200) {
       last.tokens = tokens;
@@ -1620,7 +1695,11 @@ export class PageSession {
 
   private barText(view: PageViewState): string {
     const base =
-      view.pending > 0 ? this.labels.barProgress(view.done, view.total) : this.labels.barDone;
+      view.pending > 0
+        ? this.labels.barProgress(view.done, view.total)
+        : view.skipped > 0
+          ? this.labels.barPartial(view.skipped)
+          : this.labels.barDone;
     if (view.tokensPerSecond === null || view.segmentsPerSecond === null) return base;
     return `${base} · ${this.labels.barRate(formatRate(view.tokensPerSecond), formatRate(view.segmentsPerSecond))}`;
   }
@@ -1749,7 +1828,14 @@ export class PageSession {
       return;
     }
     const view = this.state();
-    root.dataset.sakuttoState = view.pending > 0 ? 'translating' : 'translated';
+    // `translated` is what the popup and the e2e suite read, so it may only appear when
+    // the page really is translated. Leftover source prose keeps the page `partial`.
+    const finished = view.pending === 0;
+    root.dataset.sakuttoState = finished
+      ? view.skipped > 0
+        ? 'partial'
+        : 'translated'
+      : 'translating';
     const blocksDone = Math.min(view.total, Math.floor(view.done));
     root.dataset.sakuttoProgress = `${String(blocksDone)}/${String(view.total)}`;
     if (view.tokensPerSecond !== null && view.segmentsPerSecond !== null) {
@@ -1870,28 +1956,42 @@ export class PageSession {
     }, this.debounceMs);
   }
 
+  /**
+   * Observers are attached incrementally instead of being rebuilt. Disconnecting them
+   * on every scan dropped the mutations that arrived while a scan was walking, which is
+   * exactly the window in which a single-page app mounts its sidebar. Only roots that
+   * disappeared are dropped, so a long page does not pay for a full teardown per scan.
+   */
   private bindObservers(): void {
-    for (const observer of this.observers) observer.disconnect();
-    this.observers = [];
+    const documents = collectDocuments(this.doc);
+    const roots = new Set<Node>();
+    for (const document of documents) {
+      roots.add(document.body ?? document.documentElement);
+      for (const shadow of collectShadowRoots(document)) roots.add(shadow);
+    }
 
-    const watch = (root: Node): void => {
+    for (const [root, observer] of [...this.observedRoots]) {
+      if (roots.has(root)) continue;
+      observer.disconnect();
+      this.observedRoots.delete(root);
+    }
+
+    for (const root of roots) {
+      if (this.observedRoots.has(root)) continue;
       try {
         const observer = new MutationObserver((records) => this.onMutations(records));
         observer.observe(root, { childList: true, subtree: true, characterData: true });
+        this.observedRoots.set(root, observer);
         this.observers.push(observer);
       } catch {
         // Documents without MutationObserver still translate the tree captured at start.
       }
-    };
+    }
 
     this.bindKeys();
-    for (const document of collectDocuments(this.doc)) {
-      this.bindPointerRoot(document);
-      watch(document.body ?? document.documentElement);
-      for (const shadow of collectShadowRoots(document)) {
-        this.bindPointerRoot(shadow);
-        watch(shadow);
-      }
+    for (const document of documents) this.bindPointerRoot(document);
+    for (const document of documents) {
+      for (const shadow of collectShadowRoots(document)) this.bindPointerRoot(shadow);
     }
     this.watchFrames();
   }
@@ -2104,6 +2204,36 @@ function hasBox(item: Live): boolean {
 
 function isBodyCopy(block: Element): boolean {
   return block.matches('p, li, blockquote, dd, figcaption');
+}
+
+/**
+ * True when a block shows prose a reader would notice staying in the source language.
+ *
+ * `buildSegment` keeps a great deal of text out of a segment on purpose: citations and
+ * pronunciation in frozen inlines, inline icon glyphs, screen-reader-only labels, and text
+ * that is already in the target language. None of that is a coverage gap, so counting it
+ * reported every Wikipedia article as "partial" — its interlanguage links, IPA cells and
+ * ward names in Japanese are all source text the builder correctly leaves alone.
+ */
+function ownProse(block: Element, target: string | null): boolean {
+  for (const child of block.childNodes) {
+    if (child.nodeType === Node.TEXT_NODE) {
+      const value = child.nodeValue ?? '';
+      if (value.trim().length > 0 && /\p{L}/u.test(value)) return true;
+      continue;
+    }
+    if (!(child instanceof Element)) continue;
+    if (isBlockElement(child)) continue;
+    // Everything the segment builder drops from the source text. A <style> or <script>
+    // inside a block is excluded the same way; its CSS is not prose the reader sees.
+    if (isTranslationExcluded(child)) continue;
+    if (isFrozenInline(child)) continue;
+    if (isScreenReaderOnly(child)) continue;
+    if (isAriaHiddenLeaf(child)) continue;
+    if (target !== null && isAlreadyTargetLanguage(child, target, null)) continue;
+    if (ownProse(child, target)) return true;
+  }
+  return false;
 }
 
 /**
