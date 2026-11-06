@@ -99,10 +99,24 @@ function git(args: readonly string[]): string {
   return execFileSync('git', [...args], { cwd: ROOT, encoding: 'utf8' }).trim();
 }
 
+/**
+ * Files the bench writes itself. Changing them is not a code change, and a run would
+ * otherwise mark itself dirty merely by appending its own history line, which would make
+ * every record look untrustworthy.
+ */
+const BENCH_OUTPUT_PATHS = ['bench/history', 'bench/results'] as const;
+
 export function workingTree(): { commit: string; dirty: boolean } {
   try {
     const commit = git(['rev-parse', 'HEAD']);
-    const status = git(['status', '--porcelain', '--untracked-files=no']);
+    const status = git([
+      'status',
+      '--porcelain',
+      '--untracked-files=no',
+      '--',
+      '.',
+      ...BENCH_OUTPUT_PATHS.map((path) => `:(exclude)${path}`),
+    ]);
     return { commit, dirty: status.length > 0 };
   } catch {
     // A source archive has no git metadata. The record still validates; the commit is a

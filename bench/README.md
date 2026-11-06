@@ -147,28 +147,28 @@ later tweet should quote.
 
 One JSON line per page per repetition in `bench/history/pages.jsonl` (`schema: 1`):
 
-| Field                                                                          | Meaning                                                                                          |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| `run`, `at`, `page`, `sample`, `samples`                                       | Which invocation, when, which fixture, and which repetition.                                     |
-| `mode`                                                                         | `mock` or `live`. Mock and live numbers must never be compared.                                  |
-| `commit`, `dirty`                                                              | Full SHA of the tree the numbers came from, and whether it had uncommitted changes.              |
-| `engine.label` / `backend` / `tier` / `threads` / `chromeTranslator` / `model` | Which engine answered, and whether Chrome's translator was available to draft.                   |
-| `engine.accelerator` / `engine.accelerateLabel`                                | `cpu`, `webgpu`, `mock` or `unknown`, and the copy-ready phrase (`CPU only`, `WebGPU`).          |
-| `headline`                                                                     | True for the one fixture the release copy quotes (`long-article`).                               |
-| `machine`                                                                      | Platform, core count, user agent, cross-origin isolation, viewport.                              |
-| `metrics.firstTextMs`                                                          | Harness command to the first changed block of any kind.                                          |
-| `metrics.firstVisibleTextMs`                                                   | Same, restricted to prose the reader could see without scrolling. **What a reader feels.**       |
-| `metrics.viewportDoneMs`                                                       | Every prose block that was on screen when first seen has a finished translation.                 |
-| `metrics.fullPageMs`                                                           | Every followed block finished. `null` when the run timed out.                                    |
-| `metrics.commitsPerSecond`                                                     | Blocks finished per second between first text and completion. Comparable in both modes.          |
-| `metrics.outputChars`                                                          | Characters that landed in the DOM.                                                               |
-| `metrics.estimatedOutputTokensPerSecond`                                       | `outputChars × 0.447 / s`. Live mode only; an estimate, not a tokenizer call.                    |
-| `metrics.reportedRate`                                                         | The rate the page overlay itself printed, verbatim (the `sakutto-perf` hook).                    |
-| `metrics.blocks`                                                               | Total tracked blocks, split by prose / heading / UI / code, plus how many were visible/finished. |
-| `metrics.lateBlocks`                                                           | Blocks that entered the DOM after the run started.                                               |
-| `metrics.engines`                                                              | How many blocks carry each `data-sakutto-engine` value.                                          |
-| `metrics.codeUntouched`                                                        | Whether literal `code` blocks kept their exact source text.                                      |
-| `metrics.state` / `progress` / `timedOut`                                      | The `data-sakutto-state` the page settled in, the progress label, and whether it stalled.        |
+| Field                                                                          | Meaning                                                                                                                                                 |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `run`, `at`, `page`, `sample`, `samples`                                       | Which invocation, when, which fixture, and which repetition.                                                                                            |
+| `mode`                                                                         | `mock` or `live`. Mock and live numbers must never be compared.                                                                                         |
+| `commit`, `dirty`                                                              | Full SHA of the tree the numbers came from, and whether it had uncommitted changes.                                                                     |
+| `engine.label` / `backend` / `tier` / `threads` / `chromeTranslator` / `model` | Which engine answered. `chromeTranslator` records whether Chrome's built-in translator existed in that browser; the extension no longer drafts with it. |
+| `engine.accelerator` / `engine.accelerateLabel`                                | `cpu`, `webgpu`, `mock` or `unknown`, and the copy-ready phrase (`CPU only`, `WebGPU`).                                                                 |
+| `headline`                                                                     | True for the one fixture the release copy quotes (`long-article`).                                                                                      |
+| `machine`                                                                      | Platform, core count, user agent, cross-origin isolation, viewport.                                                                                     |
+| `metrics.firstTextMs`                                                          | Harness command to the first changed block of any kind.                                                                                                 |
+| `metrics.firstVisibleTextMs`                                                   | Same, restricted to prose the reader could see without scrolling. **What a reader feels.**                                                              |
+| `metrics.viewportDoneMs`                                                       | Every prose block that was on screen when first seen has a finished translation.                                                                        |
+| `metrics.fullPageMs`                                                           | Every followed block finished. `null` when the run timed out.                                                                                           |
+| `metrics.commitsPerSecond`                                                     | Blocks finished per second between first text and completion. Comparable in both modes.                                                                 |
+| `metrics.outputChars`                                                          | Characters that landed in the DOM.                                                                                                                      |
+| `metrics.estimatedOutputTokensPerSecond`                                       | `outputChars × 0.447 / s`. Live mode only; an estimate, not a tokenizer call.                                                                           |
+| `metrics.reportedRate`                                                         | The rate the page overlay itself printed, verbatim (the `sakutto-perf` hook).                                                                           |
+| `metrics.blocks`                                                               | Total tracked blocks, split by prose / heading / UI / code, plus how many were visible/finished.                                                        |
+| `metrics.lateBlocks`                                                           | Blocks that entered the DOM after the run started.                                                                                                      |
+| `metrics.engines`                                                              | How many blocks carry each `data-sakutto-engine` value.                                                                                                 |
+| `metrics.codeUntouched`                                                        | Whether literal `code` blocks kept their exact source text.                                                                                             |
+| `metrics.state` / `progress` / `timedOut`                                      | The `data-sakutto-state` the page settled in, the progress label, and whether it stalled.                                                               |
 
 `metrics.blocks.code` is excluded from the finished count: literal code must not be translated.
 
@@ -187,8 +187,10 @@ streaming deltas) proportional to the text length. That makes mock numbers descr
 and **not** model speed. A mock run is roughly a tenth as long as a live one. Every mock record is
 labelled `mode: "mock"`, carries a note saying so, and the summary repeats the warning.
 
-Live mode is the only mode whose tok/s describes the model. Both modes run with Chrome's built-in
-translator disabled so a draft never stands in for the engine under test.
+Live mode is the only mode whose tok/s describes the model. Both modes launch with Chrome's built-in
+translator disabled at the browser level as well, so every number describes exactly one engine
+(PLaMo in live mode, the stub in mock mode) even though the extension itself no longer uses the
+built-in translator at all.
 
 ## CI
 
