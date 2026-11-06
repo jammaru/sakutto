@@ -8,7 +8,7 @@
     "description": "Short extension name."
   },
   "extensionDescription": {
-    "message": "A local LLM translates pages on your device. Free, no account. Built with PLaMo.",
+    "message": "A local LLM translates pages on your device. Free, no account.",
     "description": "Extension description."
   },
   "tagline": {

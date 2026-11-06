@@ -10,7 +10,7 @@ Developer Dashboard に貼る文です。日本語が主で、英語は後半で
 
 `public/_locales/en/messages.json` と `public/_locales/ja/messages.json` の `extensionName` は、英語が `Sakutto - Local AI translation`、日本語が `Sakutto - ローカルAI翻訳` です。`extensionShortName` はどちらも `Sakutto` です。以前の公開名 `Sakutto for PLaMo` と `サクッと翻訳 for PLaMo` は、表示名から外してあります。アイテム名と概要はダッシュボードでは読み取り専用で、zip の `_locales` から入ります。マニフェストの短い名前は `Sakutto`（7 文字、上限 12）です。
 
-「Built with PLaMo」は、名前ではなく、概要の末尾と画面上の表示に残します。PLaMo Community License 第4条の表示です。
+「Built with PLaMo」は、名前と概要ではなく、詳細な説明の本文と画面上の表示に残します。PLaMo Community License 第4条の表示です。
 
 ## 日本語
 
@@ -27,10 +27,10 @@ Sakutto - ローカルAI翻訳
 `extensionDescription` と同じ文字列です。
 
 ```text
-ローカルLLMが、この端末の中でページを翻訳します。アカウント不要の無料拡張機能です。Built with PLaMo。
+ローカルLLMが、この端末の中でページを翻訳します。アカウント不要の無料拡張機能です。
 ```
 
-文字数: 60 / 132
+文字数: 43 / 132
 
 ### 詳細な説明
 
@@ -161,10 +161,10 @@ Sakutto - Local AI translation
 ### Summary
 
 ```text
-A local LLM translates pages on your device. Free, no account. Built with PLaMo.
+A local LLM translates pages on your device. Free, no account.
 ```
 
-文字数: 80 / 132
+文字数: 62 / 132
 
 ### Detailed description
 
