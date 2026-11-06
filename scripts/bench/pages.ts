@@ -47,6 +47,12 @@ export const BENCH_PAGES: readonly BenchPage[] = [
       'Dense application UI: navigation, setting labels, help text and buttons. Isolates mixed short/long blocks where most text is small.',
   },
   {
+    name: 'headline-in-header',
+    file: 'headline-in-header.html',
+    stresses:
+      "A news-style post whose headline sits in the article's own <header>, under a sticky top bar and beside a metadata list. Isolates whether the title and the first paragraphs fill the first screen before labels and the rest of the body.",
+  },
+  {
     name: 'late-mount-spa',
     file: 'late-mount-spa.html',
     stresses:
