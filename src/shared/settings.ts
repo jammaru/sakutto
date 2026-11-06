@@ -23,7 +23,11 @@ export interface LicenseConsent {
   license: 'plamo-community';
   version: typeof PLAMO_LICENSE_VERSION;
   acceptedAt: string;
-  guardian: true;
+  /**
+   * True when the onboarding click happened with the age notice on screen. It records that
+   * the notice was shown, not that a guardian was asked or that the user's age was checked.
+   */
+  ageNoticeShown: true;
 }
 
 export interface Settings {
@@ -111,7 +115,10 @@ function normalizeConsent(value: unknown): LicenseConsent | null {
   if (!isRecord(value)) return null;
   if (value.license !== 'plamo-community') return null;
   if (value.version !== PLAMO_LICENSE_VERSION) return null;
-  if (value.guardian !== true) return null;
+  // Records written before the age notice was renamed stored `guardian: true` from the same
+  // click. They still describe the same license text, so they keep counting as consent; the
+  // rewritten record stores only that the notice was shown.
+  if (value.ageNoticeShown !== true && value.guardian !== true) return null;
   if (typeof value.acceptedAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(value.acceptedAt)) {
     return null;
   }
@@ -119,6 +126,6 @@ function normalizeConsent(value: unknown): LicenseConsent | null {
     license: 'plamo-community',
     version: PLAMO_LICENSE_VERSION,
     acceptedAt: value.acceptedAt,
-    guardian: true,
+    ageNoticeShown: true,
   };
 }

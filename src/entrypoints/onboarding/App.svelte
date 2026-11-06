@@ -13,6 +13,7 @@
     requestModelInspect,
   } from '@/shared/messages';
   import { advanceModelStatus } from '@/shared/model-progress';
+  import { PLAMO_OFFICIAL_LINKS } from '@/shared/plamo-license';
   import { PLAMO_LICENSE_VERSION } from '@/shared/settings';
   import { loadSettings, saveSettings } from '@/shared/storage';
   import { prepareTranslatorPack } from '@/shared/translator-pack';
@@ -30,6 +31,8 @@
     mit: browser.runtime.getURL('/licenses/LICENSE.txt'),
     notice: browser.runtime.getURL('/licenses/NOTICE.txt'),
   };
+
+  const officialLinks = PLAMO_OFFICIAL_LINKS;
 
   const model = getModel(DEFAULT_MODEL_ID);
 
@@ -128,7 +131,7 @@
           license: 'plamo-community',
           version: PLAMO_LICENSE_VERSION,
           acceptedAt: new Date().toISOString(),
-          guardian: true,
+          ageNoticeShown: true,
         },
       });
       consentSaved = true;
@@ -293,6 +296,28 @@
 
   <div class="actions">
     {#if showStartNotice}
+      <section class="panel consent" aria-labelledby="commercial-heading">
+        <h2 id="commercial-heading">{t('onboardingCommercialHeading')}</h2>
+        <ul>
+          <li>{t('onboardingCommercialPrivate')}</li>
+          <li>{t('onboardingCommercialScope')}</li>
+          <li>{t('onboardingCommercialConditions')}</li>
+          <li>{t('onboardingCommercialChange')}</li>
+        </ul>
+        <p class="consent-links">
+          <a href={officialLinks.registration} target="_blank" rel="noreferrer"
+            >{t('plamoRegistrationLink')}</a
+          >
+          <a href={licenseLinks.plamoJa} target="_blank" rel="noreferrer">{t('licensePlaMoJa')}</a>
+          <a href={licenseLinks.plamoEn} target="_blank" rel="noreferrer">{t('licensePlaMoEn')}</a>
+          <a href={officialLinks.licenseJa} target="_blank" rel="noreferrer"
+            >{t('plamoOfficialLicenseJa')}</a
+          >
+          <a href={officialLinks.licenseEn} target="_blank" rel="noreferrer"
+            >{t('plamoOfficialLicenseEn')}</a
+          >
+        </p>
+      </section>
       <p id="start-notice" class="start-note">{t('onboardingStartNotice')}</p>
     {/if}
     <div class="action-row">
@@ -463,6 +488,24 @@
     color: var(--muted);
     font-size: 13px;
     line-height: 1.5;
+  }
+
+  .consent {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  }
+
+  .consent ul {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .consent-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-3);
+    margin-top: var(--space-3);
+    font-size: 13px;
   }
 
   .action-row {

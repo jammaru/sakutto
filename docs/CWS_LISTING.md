@@ -47,9 +47,11 @@ Sakutto は、ウェブページをこの端末の中で翻訳する無料のオ
 
 モデル重み（GGUF データ）のみを huggingface.co から DL。実行コードはすべて同梱。
 
-標準モデルは 0.8B です。大きさは 573 MB（573,123,200 バイト）で、この端末に保存されていないときだけダウンロードします。2B（約 1.81 GB、1,807,199,392 バイト）は任意です。訳文はすべて PLaMo が生成します。モデルの準備を待つあいだ、ページは原文のまま表示し、Chrome 内蔵翻訳の下書きは表示しません。Chrome 内蔵の翻訳を使うのは、PLaMo が対応していない言語の組み合わせだけです。言語パックは Chrome が取得します。「はじめる」は、ページ本文を含めずに Chrome へ言語パックの導入を頼むことがあります。原文の言語が空のときは、組み合わせを決めるために最大 1,000 文字を Chrome の Language Detector API に渡すことがあります。これは、この拡張機能から翻訳サーバーへの送信ではありません。
+標準モデルは 0.8B です。大きさは 573 MB（573,123,200 バイト）で、この端末に保存されていないときだけダウンロードします。2B（約 1.81 GB、1,807,199,392 バイト）は任意です。訳文はすべて PLaMo が生成します。モデルの準備を待つあいだ、ページは原文のまま表示し、Chrome 内蔵翻訳の下書きは表示しません。Chrome 内蔵の翻訳を使うのは、PLaMo が対応していない言語の組み合わせだけです。言語パックは Chrome が取得します。「ライセンスに同意して開始」は、ページ本文を含めずに Chrome へ言語パックの導入を頼むことがあります。原文の言語が空のときは、組み合わせを決めるために最大 1,000 文字を Chrome の Language Detector API に渡すことがあります。これは、この拡張機能から翻訳サーバーへの送信ではありません。
 
-表示は、原文を訳文に置き換える方法と、原文と訳文を並べる対訳です。言語と表示はサイトごとに記憶できます。最初の開始は「はじめる」のワンクリックです。ボタンの横の注意書きが同意の文です。開始すると、PLaMo Community License（第2条）に同意したことになり、18歳以上であるか、保護者の同意が必要です。同意用のチェックボックスはありません。
+表示は、原文を訳文に置き換える方法と、原文と訳文を並べる対訳です。言語と表示はサイトごとに記憶できます。最初の開始は「ライセンスに同意して開始」のワンクリックです。ボタンの横の注意書きが同意の文です。開始すると、PLaMo Community License の全文に同意したことになり、18歳以上であるか、保護者の同意が必要です（第2条）。この拡張機能は、年齢の確認や保護者への確認は行いません。同意用のチェックボックスはありません。
+
+PLaMo のライセンスでは、個人利用と学術利用は登録が不要です。商業目的には、事業での利用、営利を目的とする利用、組織の内部での利用、製品やサービスの開発・提供も含まれます。商業利用が認められるのは、PFN の公式フォームへの事前登録と、直近事業年度の収入・売上が10億円以下であることの両方を満たす場合だけです。満たさなくなった場合は、PFN の商業用ライセンスが必要です。この条件は PLaMo のモデルのライセンスによるもので、Sakutto の MIT のコードを制限するものではありません。全文は同梱しています。
 
 インストール時に、すべてのサイトへのアクセスは要求しません。サイトの自動翻訳をオンにしたときだけ、そのサイトのホスト権限を求めます。開いているページの翻訳は、その操作のときに行います。
 
@@ -72,7 +74,7 @@ https://huggingface.co/pfnet/plamo-3-translate-2b-GGUF/resolve/232fbd7916519edec
 プライバシーポリシー: https://github.com/jammaru/sakutto/blob/main/PRIVACY.md
 ```
 
-文字数: 1909 / 16000
+文字数: 2263 / 16000
 
 ### カテゴリ
 
@@ -208,9 +210,11 @@ The extension's own network requests download PLaMo 3 Translate GGUF model weigh
 モデル重み（GGUF データ）のみを huggingface.co から DL。実行コードはすべて同梱。
 Only model weights (GGUF data) are downloaded from huggingface.co. Every script, worker, and wasm the extension executes is in the zip.
 
-The default model is 0.8B, 573 MB (573,123,200 bytes). It downloads to the device when it is not already stored. The 2B model (about 1.81 GB, 1,807,199,392 bytes) is optional. Every translated line is written by PLaMo. While the model is being prepared the page keeps its source text; no built-in draft is shown. Chrome's built-in translator is used only for the language pairs PLaMo does not support. Chrome may download its own language packs. Get started can ask Chrome to install a pack, and that call does not include page text. If the source language is empty, up to 1,000 characters may be passed to Chrome's Language Detector API so the pair can be chosen. That is not a request from this extension to a translation server.
+The default model is 0.8B, 573 MB (573,123,200 bytes). It downloads to the device when it is not already stored. The 2B model (about 1.81 GB, 1,807,199,392 bytes) is optional. Every translated line is written by PLaMo. While the model is being prepared the page keeps its source text; no built-in draft is shown. Chrome's built-in translator is used only for the language pairs PLaMo does not support. Chrome may download its own language packs. Agree to the license and start can ask Chrome to install a pack, and that call does not include page text. If the source language is empty, up to 1,000 characters may be passed to Chrome's Language Detector API so the pair can be chosen. That is not a request from this extension to a translation server.
 
-Reading styles are replace-original and bilingual. Language and reading style can be remembered per site. Starting is one click on Get started. The notice beside the button says that starting agrees to the PLaMo Community License (Article 2), and that you must be 18 or older or have a parent or guardian's consent. There is no consent checkbox.
+Reading styles are replace-original and bilingual. Language and reading style can be remembered per site. Starting is one click on Agree to the license and start. The notice beside the button says that starting agrees to the whole PLaMo Community License, and that you must be 18 or older or have a parent or guardian's consent (Article 2). It also says the extension does not verify age or contact a guardian. There is no consent checkbox.
+
+PLaMo's license needs no registration for personal or academic use. Under it, commercial purpose includes business and for-profit use, use inside an organization, and developing or providing a product or service. Commercial use is allowed only with prior registration on PFN's official form and income or sales for you or your affiliates of no more than 1 billion yen in the most recent fiscal year. If those conditions are not met, commercial use needs a separate commercial license from PFN. That condition comes from the model's license, not from Sakutto's MIT code. The full texts are bundled.
 
 Host access is not requested for every site at install. Optional host permission is requested only when automatic translation is turned on for a site. Translating the open page happens when you ask for it.
 
@@ -233,7 +237,7 @@ https://huggingface.co/pfnet/plamo-3-translate-2b-GGUF/resolve/232fbd7916519edec
 Privacy policy: https://github.com/jammaru/sakutto/blob/main/PRIVACY.md
 ```
 
-文字数: 2981 / 16000
+文字数: 3788 / 16000
 
 ### Category
 

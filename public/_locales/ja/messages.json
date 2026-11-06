@@ -211,7 +211,7 @@
     "message": "閉じる"
   },
   "onboardingStart": {
-    "message": "はじめる"
+    "message": "ライセンスに同意して開始"
   },
   "onboardingStartFailed": {
     "message": "準備を開始できませんでした。もう一度お試しください。"
@@ -421,7 +421,34 @@
     "message": "（Chrome 内蔵）"
   },
   "onboardingStartNotice": {
-    "message": "開始すると、PLaMo Community License（第2条）に同意したものとみなされます。18歳以上であるか、保護者の同意が必要です。"
+    "message": "開始すると、PLaMo Community License の全文に同意したものとみなされます。18歳以上であるか、保護者の同意が必要です（第2条）。この拡張機能は、年齢の確認や保護者への確認は行いません。"
+  },
+  "onboardingCommercialHeading": {
+    "message": "PLaMo の商業利用"
+  },
+  "onboardingCommercialPrivate": {
+    "message": "個人利用と学術利用は、登録が不要です。"
+  },
+  "onboardingCommercialScope": {
+    "message": "PLaMo のライセンスでは、商業目的に、事業での利用、営利を目的とする利用、組織の内部での利用、製品やサービスの開発・提供も含まれます。"
+  },
+  "onboardingCommercialConditions": {
+    "message": "商業利用は、次の両方を満たす場合だけ認められます。PFN の公式フォームへの事前登録と、利用者または関係会社の直近事業年度の収入・売上が10億円（現地通貨換算）以下であることです。"
+  },
+  "onboardingCommercialChange": {
+    "message": "この条件を満たさなくなったら、商業利用には PFN の商業用ライセンスが必要です。"
+  },
+  "plamoRegistrationLink": {
+    "message": "PFN の公式登録フォーム（商業利用）"
+  },
+  "plamoOfficialLicenseJa": {
+    "message": "PLaMo Community License（公式・日本語）"
+  },
+  "plamoOfficialLicenseEn": {
+    "message": "PLaMo Community License (official, English)"
+  },
+  "licensesCommercialNote": {
+    "message": "商業利用は、PFN の公式登録フォームでの事前登録と、直近事業年度の収入・売上が10億円以下であることの両方が必要です。個人利用と学術利用は登録不要です。条件を満たさない場合は PFN の商業用ライセンスが必要です。"
   },
   "onboardingUseNow": {
     "message": "Chrome 内蔵の翻訳を使うのは、PLaMo が対応していない言語の組み合わせだけです。"

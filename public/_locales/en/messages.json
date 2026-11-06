@@ -211,7 +211,7 @@
     "message": "Close"
   },
   "onboardingStart": {
-    "message": "Get started"
+    "message": "Agree to the license and start"
   },
   "onboardingStartFailed": {
     "message": "Setup could not start. Please try again."
@@ -421,7 +421,34 @@
     "message": " (Chrome built-in)"
   },
   "onboardingStartNotice": {
-    "message": "By starting, you agree to the PLaMo Community License (Article 2). You must be 18 or older, or have a parent or guardian's consent."
+    "message": "Starting means you agree to the whole PLaMo Community License. You must be 18 or older, or have a parent or guardian's consent (Article 2). This extension does not check your age or ask a guardian to confirm."
+  },
+  "onboardingCommercialHeading": {
+    "message": "Commercial use of PLaMo"
+  },
+  "onboardingCommercialPrivate": {
+    "message": "Personal and academic use needs no registration."
+  },
+  "onboardingCommercialScope": {
+    "message": "Under PLaMo's license, commercial purpose includes business and for-profit use, use inside an organization, and developing or providing a product or service."
+  },
+  "onboardingCommercialConditions": {
+    "message": "Commercial use is allowed only with both: prior registration on PFN's official form, and income or sales for you or your affiliates of no more than 1 billion yen (local-currency equivalent) in the most recent fiscal year."
+  },
+  "onboardingCommercialChange": {
+    "message": "If those conditions stop being met, commercial use needs a separate commercial license from PFN."
+  },
+  "plamoRegistrationLink": {
+    "message": "PFN's official registration form (commercial use)"
+  },
+  "plamoOfficialLicenseJa": {
+    "message": "PLaMo Community License (official, Japanese)"
+  },
+  "plamoOfficialLicenseEn": {
+    "message": "PLaMo Community License (official, English)"
+  },
+  "licensesCommercialNote": {
+    "message": "Commercial use needs both prior registration on PFN's official form and income or sales of no more than 1 billion yen in the most recent fiscal year. Personal and academic use needs no registration. If those conditions are not met, commercial use needs a commercial license from PFN."
   },
   "onboardingUseNow": {
     "message": "Chrome's built-in translator is used only for the language pairs PLaMo does not support."

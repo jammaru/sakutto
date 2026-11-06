@@ -24,9 +24,11 @@ test.describe('built extension', () => {
         await expect(page.locator('h1')).toHaveText('Sakutto');
         if (path === 'onboarding.html') {
           await expect(page.getByRole('checkbox')).toHaveCount(0);
-          await expect(page.getByRole('button', { name: 'Get started' })).toBeEnabled();
+          await expect(
+            page.getByRole('button', { name: 'Agree to the license and start' }),
+          ).toBeEnabled();
           await expect(page.locator('#start-notice')).toHaveText(
-            "By starting, you agree to the PLaMo Community License (Article 2). You must be 18 or older, or have a parent or guardian's consent.",
+            "Starting means you agree to the whole PLaMo Community License. You must be 18 or older, or have a parent or guardian's consent (Article 2). This extension does not check your age or ask a guardian to confirm.",
           );
         }
         await page.close();
@@ -60,9 +62,11 @@ test.describe('built extension', () => {
         await expect(page.locator('h1')).toHaveText('Sakutto');
         if (path === 'onboarding.html') {
           await expect(page.getByRole('checkbox')).toHaveCount(0);
-          await expect(page.getByRole('button', { name: 'はじめる' })).toBeEnabled();
+          await expect(
+            page.getByRole('button', { name: 'ライセンスに同意して開始' }),
+          ).toBeEnabled();
           await expect(page.locator('#start-notice')).toHaveText(
-            '開始すると、PLaMo Community License（第2条）に同意したものとみなされます。18歳以上であるか、保護者の同意が必要です。',
+            '開始すると、PLaMo Community License の全文に同意したものとみなされます。18歳以上であるか、保護者の同意が必要です（第2条）。この拡張機能は、年齢の確認や保護者への確認は行いません。',
           );
         }
         await page.close();

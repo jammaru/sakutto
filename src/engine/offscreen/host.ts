@@ -1,4 +1,5 @@
 import { browser, type Browser } from 'wxt/browser';
+import { hasLicenseConsent } from '@/shared/agreement';
 import { probeCapabilities } from '@/shared/capabilities';
 import { canonicalLanguage } from '@/shared/languages';
 import type { EngineStatus, ModelStatus } from '@/shared/engine-status';
@@ -657,7 +658,7 @@ export class EngineHost {
 
   private async prewarmFrequent(services: EngineServices): Promise<void> {
     const settings = await loadSettings().catch(() => null);
-    if (!settings?.consent) return;
+    if (!hasLicenseConsent(settings)) return;
 
     const request = prewarmRequest(settings.targetLanguage);
     if (!request) return;
