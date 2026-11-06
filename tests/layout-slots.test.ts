@@ -220,6 +220,61 @@ describe('repeated data rows', () => {
     expect(blocks()).not.toContain(paragraph);
   });
 
+  it('translates a flex row that owns text beside its items', () => {
+    // `<div class="bar">Fluency <span>38.7</span></div>`. Every child of a flex container is
+    // blockified by the engine, so the span paints as `display: block`; descending past the
+    // container found only that span to yield and dropped `Fluency` on the floor. The cells
+    // filled in, the words around them stayed in English, and the page still said it was
+    // translated.
+    document.body.innerHTML = `
+      <div style="display: flex; justify-content: space-between" id="bar">
+        Fluency <span style="display: block">38.7</span>
+      </div>
+    `;
+    const bar = document.querySelector('#bar');
+    if (!bar) throw new Error('missing bar');
+    expect(blocks()).toContain(bar);
+    expect(buildSegment(bar)?.source).toBe('Fluency <i1>38.7</i1>');
+  });
+
+  it('keeps the words around a link in a flex paragraph', () => {
+    document.body.innerHTML = `
+      <p style="display: flex">
+        Read the whole <a href="/x" style="display: block">report</a> before you decide.
+      </p>
+    `;
+    const model = buildSegment(document.querySelector('p') ?? document.body);
+    // One segment, so the sentence stays in order around the link instead of the loose
+    // words being dropped or merged into each other.
+    expect(model?.source).toBe('Read the whole <i1>report</i1> before you decide.');
+  });
+
+  it('never folds a grid row that only owns the indentation between its cells', () => {
+    // The row's own text nodes are `\n  ` between the cells. Treating those as copy would
+    // make the row one segment again, which is the collapse this file exists to prevent.
+    document.body.innerHTML = rankingTable();
+    for (const row of [...document.querySelectorAll('li')]) {
+      const model = buildSegment(row);
+      if (!model) continue;
+      expect(model.source).not.toContain('Anthony Fu');
+      expect(model.source).not.toContain('Japan');
+    }
+  });
+
+  it('keeps a nested block under a container that owns text', () => {
+    // The container is yielded for its own loose text, and the nested block is still its own
+    // segment. Yielding the container and stopping would drop the paragraph entirely.
+    document.body.innerHTML = `
+      <div style="display: grid" id="g">
+        Intro sentence
+        <article><p>Deep paragraph that readers want.</p></article>
+      </div>
+    `;
+    const sources = blocks().map((block) => buildSegment(block)?.source ?? '');
+    expect(sources).toContain('Intro sentence');
+    expect(sources).toContain('Deep paragraph that readers want.');
+  });
+
   it('reads repeated column values with their markup removed', () => {
     document.body.innerHTML = `
       <ul>

@@ -616,15 +616,27 @@ function* visitBlock(
   }
   if (!items && hasDirectTranslatableText(element, probe, layout)) yield element;
 
-  // A slot container with no slots. A paragraph styled `display: flex` to space a label
-  // and a value still only holds text of its own, and descending into it would find no
-  // child to yield, so the line would never be translated at all.
+  // A slot container that owns text of its own: a `<p>` or `<div>` styled `display: flex`
+  // to space a label and a value, or a flex paragraph with a link in the middle. That text
+  // is already an anonymous item of the container, so writing a translation into the text
+  // nodes the source already had keeps the item count unchanged.
+  //
+  // Descending used to lose those words: every child of a flex or grid container is
+  // blockified by the engine, so `hasSlotDescendant` is true for these containers and the
+  // branch below never fired. The cells filled in, the text around them stayed in the source
+  // language, and the page still reported itself translated.
+  //
+  // A repeated data row is excluded: its cells are separate columns, yielded below as usual.
+  // A container with a nested block is descended into as well — the block is a segment of
+  // its own, so the container is yielded for its loose text and the walk continues.
+  if (items && !rows && ownsText(element)) {
+    yield element;
+    if (!hasBlockChild(element, probe, layout)) return;
+  }
+
+  // A slot container with no child elements at all. Descending would find nothing to yield.
   if (items && element.children.length === 0) {
     if (hasTranslatableTextIn(element, probe)) yield element;
-    return;
-  }
-  if (items && !hasSlotDescendant(element, probe, layout) && hasOwnSlotText(element)) {
-    yield element;
     return;
   }
 
@@ -634,8 +646,28 @@ function* visitBlock(
   }
 }
 
-/** Translatable text a container owns directly, rather than through a child element. */
-function hasOwnSlotText(element: Element): boolean {
+/**
+ * A nested block directly under this element, which is a segment or container of segments
+ * in its own right. A slot container that holds one cannot also be translated as a single
+ * segment: the segment would cover only the loose text and the block would never be visited.
+ */
+function hasBlockChild(element: Element, probe: VisibilityProbe, layout: LayoutProbe): boolean {
+  for (const child of element.children) {
+    if (isSkipped(child, probe)) continue;
+    if (layout.blockBox(child)) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether a container's own text nodes carry words, as opposed to the indentation between
+ * its children. A grid row is `<li>\n  <span/>\n  <span/>\n</li>`, and those newlines are
+ * layout rather than copy: they must never force the row to be one segment.
+ *
+ * A container that does own text is one segment — a flex bar reading `Fluency 38.7`, a
+ * paragraph with a link in the middle — and its children stay placeholders there.
+ */
+export function ownsText(element: Element): boolean {
   for (const child of element.childNodes) {
     if (child.nodeType !== Node.TEXT_NODE) continue;
     const value = child.nodeValue ?? '';

@@ -8,6 +8,7 @@ import {
   isKeptInlineText,
   isScreenReaderOnly,
   isTranslationExcluded,
+  ownsText,
 } from './blocks';
 
 export interface TextSlot {
@@ -138,6 +139,12 @@ function isLaidOutInline(element: Element): boolean {
 }
 
 function buildFrame(element: Element, allocateId: () => string, freezeValues = false): BuiltFrame {
+  // A container that owns text of its own is one segment, and a child that paints as its
+  // own box — a flex item is blockified even as a `<span>` — has to fold in as a
+  // placeholder: dropping it merges the words on either side and reorders them. A container
+  // whose own text is only the indentation between its cells folds nothing, so a grid row
+  // can never become one segment.
+  const foldChildren = ownsText(element);
   const order = [...element.childNodes];
   const gaps: TextSlot[][] = [[]];
   const children: InlineFrame[] = [];
@@ -177,11 +184,16 @@ function buildFrame(element: Element, allocateId: () => string, freezeValues = f
 
     // Nested blocks are translated as their own segments, including direct text around them.
     if (isBlockElement(child)) continue;
-    // An element that paints as a block of its own — a table cell, a card, a grid item —
-    // is a segment or a container of segments, never inline text of its parent. Folding it
-    // in rebuilt the parent's text with the child's words inside, and the grid the child
-    // sat in reflowed as soon as the parent was rewritten.
-    if (!isLaidOutInline(child)) continue;
+    // An element that paints as a block of its own — a table cell, a card, a grid item — is
+    // a segment or a container of segments, never inline text of its parent. Folding it in
+    // rebuilt the parent's text with the child's words inside, and the grid the child sat in
+    // reflowed as soon as the parent was rewritten.
+    //
+    // Unless this container owns text of its own. Then the container *is* one segment
+    // (`Fluency <span>38.7</span>`, a flex paragraph with a link), and a child that paints
+    // as a box has to stay a placeholder: dropping it merges the words on either side and
+    // reorders them.
+    if (!foldChildren && !isLaidOutInline(child)) continue;
     if (child.shadowRoot && child.childNodes.length === 0) continue;
 
     const inner = buildFrame(child, allocateId, freezeValues);
