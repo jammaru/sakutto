@@ -63,6 +63,22 @@ describe('bench fixtures', () => {
     expect(long.replace(/\s+/gu, ' ').trim().length).toBeGreaterThan(2500);
   });
 
+  it('gives the lead-then-tail page a short lead and a long rest', () => {
+    const html = readFileSync(new URL('first-paragraph-then-long-tail.html', pagesDir), 'utf8');
+    const lead = /data-bench-id="lead"[^>]*>([\s\S]*?)<\/p>/u.exec(html)?.[1] ?? '';
+    const leadLength = lead.replace(/\s+/gu, ' ').trim().length;
+    const body = html
+      .replace(/<style[\s\S]*?<\/style>/gu, '')
+      .replace(/<[^>]+>/gu, ' ')
+      .replace(/\s+/gu, ' ');
+
+    // A short lead is what makes the "first paragraph is ready, the page is not" split
+    // observable; a long lead would blur the two measurements together.
+    expect(leadLength).toBeGreaterThan(40);
+    expect(leadLength).toBeLessThan(200);
+    expect(body.length).toBeGreaterThan(leadLength * 10);
+  });
+
   it('parses the checked-in history, which may be empty', () => {
     const text = existsSync(historyFile) ? readFileSync(historyFile, 'utf8') : '';
     const { problems } = parseHistory(text);

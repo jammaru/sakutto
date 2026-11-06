@@ -14,7 +14,13 @@ export const BENCH_PAGES: readonly BenchPage[] = [
     name: 'long-article',
     file: 'long-article.html',
     stresses:
-      'Sustained prefill and decode over 24 prose blocks of realistic news prose, plus a sidebar. The default "did the page get faster" page.',
+      'Sustained prefill and decode over 22 prose blocks of realistic news prose, plus a sidebar. The headline page: the numbers in the release copy come from here.',
+  },
+  {
+    name: 'first-paragraph-then-long-tail',
+    file: 'first-paragraph-then-long-tail.html',
+    stresses:
+      'A short lead followed by 16 paragraphs. Isolates the "first paragraph appears quickly while the rest is still translating" split, so a change that shortens the lead but lengthens the tail cannot hide in one average.',
   },
   {
     name: 'many-cards',
