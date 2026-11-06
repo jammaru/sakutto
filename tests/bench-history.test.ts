@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  acceleratorFor,
   comparisonRows,
+  headlineFor,
+  headlineSection,
   isBenchRecord,
   markdownComparison,
   medianMetric,
   parseHistory,
   runSummary,
+  seconds,
   serializeRecord,
+  tweetDraft,
   type BenchRecord,
 } from '../scripts/bench/history.ts';
 
@@ -22,6 +27,7 @@ function record(overrides: Partial<BenchRecord> = {}): BenchRecord {
     page: 'long-article',
     sample: 1,
     samples: 1,
+    headline: true,
     engine: {
       label: 'mock',
       backend: null,
@@ -29,6 +35,8 @@ function record(overrides: Partial<BenchRecord> = {}): BenchRecord {
       threads: null,
       chromeTranslator: false,
       model: null,
+      accelerator: 'mock',
+      accelerateLabel: 'mock translator',
     },
     machine: {
       platform: 'Linux x86_64',
@@ -160,5 +168,159 @@ describe('bench comparisons', () => {
     expect(summary).toContain('Mock mode replaces the model');
     expect(summary).toContain('dirty working tree');
     expect(summary).toContain('| long-article |');
+  });
+});
+
+describe('headline numbers', () => {
+  it('quotes the long article in seconds under the release copy names', () => {
+    const headline = headlineFor([
+      record({
+        metrics: {
+          ...record().metrics,
+          firstVisibleTextMs: 27911,
+          fullPageMs: 66576,
+        },
+      }),
+    ]);
+
+    expect(headline).toEqual({
+      timeToFirstParagraphMs: 27911,
+      fullPageMs: 66576,
+      tailMs: 38665,
+      fixture: 'long-article',
+    });
+    expect(seconds(headline.timeToFirstParagraphMs)).toBe('27.9');
+    expect(seconds(headline.fullPageMs)).toBe('66.6');
+  });
+
+  it('takes the median across samples, so one slow sample does not become the quote', () => {
+    const samples = [
+      record({ sample: 1, samples: 3 }),
+      record({
+        sample: 2,
+        samples: 3,
+        metrics: { ...record().metrics, firstVisibleTextMs: 9000, fullPageMs: 30000 },
+      }),
+      record({
+        sample: 3,
+        samples: 3,
+        metrics: { ...record().metrics, firstVisibleTextMs: 3000, fullPageMs: 31000 },
+      }),
+    ];
+    const headline = headlineFor(samples);
+    expect(seconds(headline.timeToFirstParagraphMs)).toBe('3.0');
+    // Median of 4000, 30000 and 31000 is the middle sample.
+    expect(seconds(headline.fullPageMs)).toBe('30.0');
+  });
+
+  it('labels CPU and WebGPU separately, and never calls a mock run either', () => {
+    expect(acceleratorFor({ mode: 'live', backend: 'cpu-wasm' })).toEqual({
+      accelerator: 'cpu',
+      accelerateLabel: 'CPU only',
+    });
+    expect(acceleratorFor({ mode: 'live', backend: 'webgpu' })).toEqual({
+      accelerator: 'webgpu',
+      accelerateLabel: 'WebGPU',
+    });
+    expect(acceleratorFor({ mode: 'mock', backend: null }).accelerator).toBe('mock');
+    expect(acceleratorFor({ mode: 'live', backend: null }).accelerator).toBe('unknown');
+  });
+
+  it('warns when a comparison spans different acceleration', () => {
+    const cpu = record({
+      run: 'before',
+      engine: {
+        ...record().engine,
+        accelerator: 'cpu',
+        accelerateLabel: 'CPU only',
+        label: 'cpu-wasm',
+      },
+      metrics: { ...record().metrics, firstVisibleTextMs: 27911, fullPageMs: 66576 },
+    });
+    const gpu = record({
+      run: 'after',
+      engine: {
+        ...record().engine,
+        accelerator: 'webgpu',
+        accelerateLabel: 'WebGPU',
+        label: 'webgpu',
+      },
+      metrics: { ...record().metrics, firstVisibleTextMs: 2900, fullPageMs: 30800 },
+    });
+
+    const section = headlineSection([gpu], 'long-article', {
+      run: 'before',
+      records: [cpu],
+    }).join('\n');
+
+    expect(section).toContain('| Time to first visible translated paragraph | 2.9 s |');
+    expect(section).toContain('| Full page translated | 30.8 s |');
+    expect(section).toContain('different acceleration');
+    expect(section).toContain('-89.6%');
+  });
+
+  it('drafts copy-ready sentences from a record without inventing a comparison', () => {
+    const draft = tweetDraft({
+      records: [
+        record({
+          mode: 'live',
+          engine: { ...record().engine, accelerator: 'cpu', accelerateLabel: 'CPU only' },
+          metrics: { ...record().metrics, firstVisibleTextMs: 2900, fullPageMs: 30800 },
+        }),
+      ],
+      run: 'after',
+    });
+
+    expect(draft).toContain('最初の段落が出るまで: 2.9秒');
+    expect(draft).toContain('ページ全体が訳し終わるまで: 30.8秒');
+    expect(draft).toContain('CPU only');
+    // No improvement claim unless a previous run was supplied.
+    expect(draft).not.toContain('→');
+  });
+
+  it('writes the before → after pair in the release copy style', () => {
+    const before = record({
+      run: 'before',
+      mode: 'live',
+      engine: { ...record().engine, accelerator: 'cpu', accelerateLabel: 'CPU only' },
+      metrics: { ...record().metrics, firstVisibleTextMs: 27911, fullPageMs: 66576 },
+    });
+    const after = record({
+      run: 'after',
+      mode: 'live',
+      engine: { ...record().engine, accelerator: 'cpu', accelerateLabel: 'CPU only' },
+      metrics: { ...record().metrics, firstVisibleTextMs: 2900, fullPageMs: 30800 },
+    });
+
+    const draft = tweetDraft({
+      records: [after],
+      run: 'after',
+      before: { run: 'before', records: [before] },
+    });
+
+    expect(draft).toContain('CPUだけで、最初の段落が出るまで27.9秒→2.9秒');
+    expect(draft).toContain('長い記事1ページ丸ごとで66.6秒→30.8秒');
+    // A live draft is presentable; only mock output carries the warning.
+    expect(draft).not.toContain('モックなので');
+  });
+
+  it('does not call a WebGPU run a CPU measurement', () => {
+    const gpu = record({
+      mode: 'live',
+      engine: { ...record().engine, accelerator: 'webgpu', accelerateLabel: 'WebGPU' },
+      metrics: { ...record().metrics, firstVisibleTextMs: 1200, fullPageMs: 9000 },
+    });
+    const draft = tweetDraft({
+      records: [gpu],
+      run: 'after',
+      before: { run: 'before', records: [record({ run: 'before' })] },
+    });
+    expect(draft).not.toContain('CPUだけで');
+    expect(draft).toContain('WebGPU、最初の段落が出るまで');
+    expect(draft).toContain('ハードの違い');
+  });
+
+  it('refuses to draft copy for a fixture the run never measured', () => {
+    expect(tweetDraft({ records: [], run: 'after' })).toContain('記録がありません');
   });
 });

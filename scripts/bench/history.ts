@@ -18,6 +18,8 @@ export interface BenchRecord {
   /** 1-based repetition index, and how many repetitions this run took. */
   sample: number;
   samples: number;
+  /** True for the page the release copy quotes: the long article. */
+  headline: boolean;
   engine: BenchEngine;
   machine: BenchMachine;
   metrics: BenchMetrics;
@@ -33,6 +35,10 @@ export interface BenchEngine {
   /** Whether the page had Chrome's built-in translator available to draft text. */
   chromeTranslator: boolean;
   model: string | null;
+  /** `cpu` or `webgpu` when the runtime reported it, `mock` in mock mode. */
+  accelerator: BenchAccelerator;
+  /** The copy-ready phrase: "CPU only", "WebGPU", "mock translator". */
+  accelerateLabel: string;
 }
 
 export interface BenchMachine {
@@ -41,6 +47,25 @@ export interface BenchMachine {
   userAgent: string;
   crossOriginIsolated: boolean;
   viewport: { width: number; height: number };
+}
+
+/** What actually ran the model, in the terms the release copy uses. */
+export type BenchAccelerator = 'cpu' | 'webgpu' | 'mock' | 'unknown';
+
+/**
+ * The two numbers the release copy quotes, under the names the copy uses. They are
+ * derived from the other metrics rather than measured separately, so they can never
+ * disagree with the rest of the record.
+ */
+export interface BenchHeadline {
+  /** Time to the first real translated text a reader could see without scrolling. */
+  timeToFirstParagraphMs: number | null;
+  /** Time until every block on the page had finished translating. */
+  fullPageMs: number | null;
+  /** How long the page kept working after the reader could already read the top of it. */
+  tailMs: number | null;
+  /** Which page in this run the two numbers above describe. */
+  fixture: string;
 }
 
 export interface BenchMetrics {
@@ -105,6 +130,7 @@ export const TIMING_METRICS: readonly BenchMetricKey[] = [
 ];
 
 const MODES: ReadonlySet<string> = new Set(['mock', 'live']);
+const ACCELERATORS: ReadonlySet<string> = new Set(['cpu', 'webgpu', 'mock', 'unknown']);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -129,11 +155,14 @@ export function isBenchRecord(value: unknown): value is BenchRecord {
   if (typeof value.page !== 'string' || value.page.length === 0) return false;
   if (typeof value.sample !== 'number' || value.sample < 1) return false;
   if (typeof value.samples !== 'number' || value.samples < value.sample) return false;
+  if (typeof value.headline !== 'boolean') return false;
 
   const engine = value.engine;
   if (!isRecord(engine)) return false;
   if (typeof engine.label !== 'string') return false;
   if (typeof engine.chromeTranslator !== 'boolean') return false;
+  if (typeof engine.accelerator !== 'string' || !ACCELERATORS.has(engine.accelerator)) return false;
+  if (typeof engine.accelerateLabel !== 'string') return false;
   if (engine.backend !== null && typeof engine.backend !== 'string') return false;
   if (engine.tier !== null && typeof engine.tier !== 'string') return false;
   if (engine.threads !== null && typeof engine.threads !== 'number') return false;
@@ -372,6 +401,65 @@ export interface RunSummaryInput {
 }
 
 /** The human-readable half of the history: one markdown table per run. */
+/** The two numbers the release copy quotes, with the copy's own wording. */
+export function headlineSection(
+  records: readonly BenchRecord[],
+  page = HEADLINE_PAGE,
+  before?: { run: string; records: readonly BenchRecord[] } | undefined,
+): string[] {
+  const samples = recordsForPage(records, page);
+  if (samples.length === 0) return [];
+  const headline = headlineFor(records, page);
+  const first = samples[0];
+  if (!first) return [];
+
+  const lines = [
+    `## Headline numbers (${page})`,
+    '',
+    `Engine: **${first.engine.accelerateLabel}**${first.engine.threads === null ? '' : ` (${String(first.engine.threads)} threads)`} · mode \`${first.mode}\` · commit \`${first.commit.slice(0, 7)}\`${first.dirty ? ' · dirty tree' : ''}`,
+    '',
+    '| Metric | Value |',
+    '| --- | ---: |',
+    `| Time to first visible translated paragraph | ${seconds(headline.timeToFirstParagraphMs)} s |`,
+    `| Full page translated | ${seconds(headline.fullPageMs)} s |`,
+    `| Remaining work after the first paragraph | ${seconds(headline.tailMs)} s |`,
+    '',
+  ];
+
+  if (before) {
+    const previous = headlineFor(before.records, page);
+    const previousSamples = recordsForPage(before.records, page);
+    const previousEngine = previousSamples[0]?.engine.accelerateLabel ?? 'unknown';
+    const delta = (from: number | null, to: number | null): string => {
+      if (from === null || to === null) return '—';
+      const change = Math.round(((to - from) / from) * 1000) / 10;
+      return `${String(change)}%`;
+    };
+    lines.push(
+      `Compared with \`${before.run}\` (${previousEngine}):`,
+      '',
+      '| Metric | Before (s) | After (s) | Change |',
+      '| --- | ---: | ---: | ---: |',
+      `| Time to first visible translated paragraph | ${seconds(previous.timeToFirstParagraphMs)} | ${seconds(headline.timeToFirstParagraphMs)} | ${delta(previous.timeToFirstParagraphMs, headline.timeToFirstParagraphMs)} |`,
+      `| Full page translated | ${seconds(previous.fullPageMs)} | ${seconds(headline.fullPageMs)} | ${delta(previous.fullPageMs, headline.fullPageMs)} |`,
+      '',
+    );
+    if (previousSamples[0]?.engine.accelerator !== first.engine.accelerator) {
+      lines.push(
+        `Note: the two runs used different acceleration (${previousEngine} vs ${first.engine.accelerateLabel}), so the change mixes hardware and software.`,
+        '',
+      );
+    }
+  }
+
+  lines.push(
+    'Only these two numbers belong in a tweet, and only from a `live` run. Mock numbers',
+    'measure the scheduler, not the model.',
+    '',
+  );
+  return lines;
+}
+
 export function runSummary(input: RunSummaryInput): string {
   const pages = [...new Set(input.records.map((record) => record.page))];
   const lines: string[] = [
@@ -400,6 +488,8 @@ export function runSummary(input: RunSummaryInput): string {
       )} | ${String(first.metrics.outputChars)} | ${first.engine.label} |`,
     );
   }
+
+  lines.push('', ...headlineSection(input.records, HEADLINE_PAGE, input.before));
 
   const timedOut = input.records.filter((record) => record.metrics.timedOut);
   if (timedOut.length > 0) {
@@ -437,3 +527,120 @@ export function runSummary(input: RunSummaryInput): string {
 }
 
 export { METRIC_LABELS };
+
+/** The fixture the release copy quotes. Registered in `pages.ts`. */
+export const HEADLINE_PAGE = 'long-article';
+
+/** The copy phrasing for each backend the runtime can report. */
+export function acceleratorFor(input: { mode: 'mock' | 'live'; backend: string | null }): {
+  accelerator: BenchAccelerator;
+  accelerateLabel: string;
+} {
+  if (input.mode === 'mock') return { accelerator: 'mock', accelerateLabel: 'mock translator' };
+  if (input.backend === 'webgpu') return { accelerator: 'webgpu', accelerateLabel: 'WebGPU' };
+  if (input.backend === 'cpu-wasm') return { accelerator: 'cpu', accelerateLabel: 'CPU only' };
+  // A live run that did not report a backend cannot be quoted as either.
+  return { accelerator: 'unknown', accelerateLabel: 'backend not reported' };
+}
+
+/** Median of a metric over one run, restricted to one page. */
+export function medianForPage(
+  records: readonly BenchRecord[],
+  page: string,
+  metric: BenchMetricKey,
+): number | null {
+  return medianMetric(recordsForPage(records, page), metric);
+}
+
+/**
+ * The two numbers the release copy cites, for the run's headline fixture. Derived from
+ * the same records as everything else, so a tweet can never quote a number the history
+ * does not contain.
+ */
+export function headlineFor(records: readonly BenchRecord[], page = HEADLINE_PAGE): BenchHeadline {
+  const samples = recordsForPage(records, page);
+  const first = medianMetric(samples, 'firstVisibleTextMs');
+  const full = medianMetric(samples, 'fullPageMs');
+  return {
+    timeToFirstParagraphMs: first,
+    fullPageMs: full,
+    tailMs: first === null || full === null ? null : Math.round((full - first) * 10) / 10,
+    fixture: page,
+  };
+}
+
+/** Seconds with one decimal, the way the release copy writes them (27.9秒, 2.9秒). */
+export function seconds(ms: number | null): string {
+  if (ms === null) return '—';
+  return (ms / 1000).toFixed(1);
+}
+
+export interface TweetInput {
+  records: readonly BenchRecord[];
+  run: string;
+  page?: string | undefined;
+  /** An earlier live run of the same fixture, to quote as the "before" number. */
+  before?: { run: string; records: readonly BenchRecord[] } | undefined;
+}
+
+/**
+ * Copy-ready Japanese sentences for the headline numbers. Deliberately neutral: it states
+ * only what the runs measured, and when a previous run is supplied it writes the
+ * "before → after" pair in the style the release copy uses. Nothing is invented: every
+ * number comes from a record, and a missing side prints a dash instead of a guess.
+ */
+export function tweetDraft(input: TweetInput): string {
+  const page = input.page ?? HEADLINE_PAGE;
+  const samples = recordsForPage(input.records, page);
+  const first = samples[0];
+  if (!first) return `${page} の記録がありません。`;
+
+  const headline = headlineFor(input.records, page);
+  const { accelerateLabel } = first.engine;
+  const previous = input.before ? headlineFor(input.before.records, page) : null;
+  const previousSamples = input.before ? recordsForPage(input.before.records, page) : [];
+  const previousEngine = previousSamples[0]?.engine.accelerateLabel ?? null;
+
+  const pair = (before: number | null, after: number | null): string =>
+    before === null || after === null
+      ? `${seconds(after)}秒`
+      : `${seconds(before)}秒→${seconds(after)}秒`;
+
+  const lines: string[] = [];
+  if (previous) {
+    // The copy's phrasing is CPU-specific ("CPUだけでも"), so only use it when the run
+    // really was CPU-only. A WebGPU run must not be described as a CPU measurement.
+    const lead = accelerateLabel === 'CPU only' ? 'CPUだけで' : accelerateLabel;
+    lines.push(
+      `${lead}、最初の段落が出るまで${pair(previous.timeToFirstParagraphMs, headline.timeToFirstParagraphMs)}、`,
+    );
+    lines.push(
+      `長い記事1ページ丸ごとで${pair(previous.fullPageMs, headline.fullPageMs)}まで縮められました。`,
+    );
+    if (previousEngine !== null && previousEngine !== accelerateLabel) {
+      lines.push(
+        `（前回は${previousEngine}、今回は${accelerateLabel}の計測なので、改善幅にはハードの違いも含みます）`,
+      );
+    }
+  } else {
+    lines.push(`「${page}」を ${accelerateLabel} で翻訳したときの実測:`);
+    lines.push(`- 最初の段落が出るまで: ${seconds(headline.timeToFirstParagraphMs)}秒`);
+    lines.push(`- ページ全体が訳し終わるまで: ${seconds(headline.fullPageMs)}秒`);
+    if (headline.tailMs !== null) {
+      lines.push(`- 読み始められたあと、残りに ${seconds(headline.tailMs)}秒かかった`);
+    }
+  }
+
+  lines.push(
+    '',
+    `計測: ${first.at} / ${first.machine.platform} / ${String(first.machine.cores)}コア / ${first.mode}${
+      first.dirty ? ' / 未コミットのツリー' : ''
+    }${input.before ? ` / 比較: ${input.before.run}` : ''}`,
+  );
+  if (first.mode === 'mock') {
+    lines.push('この数字はモックなので、対外的に引用しないでください（スケジューラの計測です）。');
+  } else {
+    lines.push('（この文はそのままは投稿せず、文言はご自身で整えてください）');
+  }
+  return lines.join('\n');
+}

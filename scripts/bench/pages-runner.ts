@@ -18,7 +18,11 @@ import {
   type ChromeApi,
 } from './host.ts';
 import {
+  HEADLINE_PAGE,
+  acceleratorFor,
   appendHistory,
+  headlineFor,
+  type BenchHeadline,
   comparisonRows,
   medianMetric,
   parseHistory,
@@ -82,6 +86,8 @@ export interface RunPageBenchResult {
   commit: string;
   dirty: boolean;
   records: BenchRecord[];
+  /** The two numbers the release copy quotes, derived from `records`. */
+  headline: BenchHeadline;
   summary: string;
   summaryPath: string | null;
   historyPath: string | null;
@@ -210,6 +216,7 @@ async function openHarness(
       threads: prepared.status.threads,
       chromeTranslator: prepared.status.chromeSupported,
       model: MODEL_ID,
+      ...acceleratorFor({ mode: 'live', backend: prepared.status.backend }),
     };
   } else {
     await options.evaluate(async (stored) => {
@@ -224,6 +231,7 @@ async function openHarness(
       threads: null,
       chromeTranslator: false,
       model: null,
+      ...acceleratorFor({ mode: 'mock', backend: null }),
     };
   }
 
@@ -325,6 +333,7 @@ async function measurePage(input: {
       page: fixture.name,
       sample: input.sample,
       samples: input.samples,
+      headline: fixture.name === HEADLINE_PAGE,
       engine: harness.engine,
       machine: { ...harness.machine, viewport: VIEWPORT },
       metrics: {
@@ -539,6 +548,7 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
     commit: tree.commit,
     dirty: tree.dirty,
     records,
+    headline: headlineFor(records),
     summary,
     summaryPath,
     historyPath: writeHistory ? historyPath : null,
