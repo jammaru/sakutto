@@ -1167,6 +1167,9 @@ export class PageSession {
       // Unfinished blocks are retried below. Abort keeps the previous text.
     } finally {
       this.work.engineMs += Math.round(performance.now() - engineStarted);
+      // The last `complete()` of this batch already ran inside the loop above, before this
+      // time was added, so the payload has to be rewritten once the batch's cost is known.
+      this.writePerf();
       for (const item of batch) {
         if (item.batchToken !== token || item.state !== 'running') {
           if (item.batchToken === token) this.showSelectionFailure(item, signal);
@@ -1654,6 +1657,17 @@ export class PageSession {
       this.perf.setAttribute('translate', 'no');
       this.doc.documentElement.append(this.perf);
     }
+    this.writePerf();
+  }
+
+  /**
+   * Rewrites the `sakutto-perf` payload. This also runs after a batch's engine time is
+   * added, because `noteTiming` is reached from the last `complete()` inside the batch —
+   * one statement before that time is counted — so the final batch of every page used to
+   * be missing from `engineMs`, which on a single-block page is the whole cost.
+   */
+  private writePerf(): void {
+    if (!this.perf) return;
     const rates = this.rates();
     this.perf.textContent = JSON.stringify({
       startedAt: this.startedAt,
