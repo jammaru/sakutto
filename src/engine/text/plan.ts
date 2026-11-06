@@ -13,8 +13,7 @@ export interface BatchingConfig {
 
 /**
  * Source tokens that still leave room for the prompt template, a small glossary,
- * and a 2× completion inside one sequence. CPU `n_ctx` is 2048 per slot; WebGPU
- * divides the same per-slot budget across its two sequences.
+ * and a 2× completion inside one sequence. `n_ctx` is 2048 for the single slot.
  */
 export function sourceTokenBudget(contextTokens: number): number {
   const overhead = 192;

@@ -36,7 +36,7 @@ import {
   bandForRect,
   contentKind,
   lookaheadScreens,
-  translationConcurrency,
+  TRANSLATION_CONCURRENCY,
   translationPriority,
   type ContentKind,
   type VisibilityBand,
@@ -222,7 +222,6 @@ export class PageSession {
   private pendingScans = 0;
   private scanChain: Promise<void> = Promise.resolve();
   private running = 0;
-  private concurrency: number;
   private nextId = 0;
   private nextBatchToken = 0;
   private pageController: AbortController | null = null;
@@ -290,7 +289,6 @@ export class PageSession {
     this.onSitePatch = options.onSitePatch;
     this.onGrantSite = options.onGrantSite;
     this.selectionKey = options.selectionKey ?? isPlainAltS;
-    this.concurrency = translationConcurrency(options.preferences.tier);
     this.scheduleFrame =
       options.scheduleFrame ??
       ((callback) => {
@@ -411,7 +409,6 @@ export class PageSession {
     const previous = this.prefs;
     const tier = next.tier ?? previous.tier;
     this.prefs = { ...next, tier };
-    this.concurrency = translationConcurrency(tier);
     if (
       lookaheadScreens(previous.tier, previous.pace) !== lookaheadScreens(tier, this.prefs.pace)
     ) {
@@ -1023,7 +1020,7 @@ export class PageSession {
 
     this.startQueuedSelection();
 
-    while (this.running < this.concurrency && this.queue.size > 0) {
+    while (this.running < TRANSLATION_CONCURRENCY && this.queue.size > 0) {
       const next = this.queue.peek();
       if (!next) break;
       if (this.selectionBusy() && next.value.role !== 'selection') break;

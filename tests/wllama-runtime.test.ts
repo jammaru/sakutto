@@ -56,12 +56,12 @@ describe('wllama runtime load', () => {
     const runtime = await createWllamaRuntime(new Blob(), gpu);
 
     expect(runtime.backend).toBe('webgpu');
-    expect(runtime.parallel).toBe(2);
+    expect(runtime.parallel).toBe(1);
     expect(native.loadModel).toHaveBeenCalledWith(
       [expect.any(Blob)],
       expect.objectContaining({
-        n_ctx: 4096,
-        n_parallel: 2,
+        n_ctx: 2048,
+        n_parallel: 1,
         ctx_shift: false,
         log_level: 2,
       }),

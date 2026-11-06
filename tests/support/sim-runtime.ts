@@ -27,7 +27,7 @@ export const CPU_COSTS: SimCosts = {
 export const GPU_COSTS: SimCosts = {
   prefillMsPerToken: 1,
   decodeMsPerToken: 12,
-  parallel: 2,
+  parallel: 1,
   backend: 'webgpu',
 };
 

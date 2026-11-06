@@ -24,8 +24,7 @@ export type RuntimeFactory = (file: Blob, selection: BackendSelection) => Promis
 /**
  * A cancelled completion is left to finish. Aborting the WASM call wedges the
  * pthread, so the slot stays busy until that generation ends and then opens
- * for the next request. Width matches `n_parallel`: one slot on CPU, and the
- * WebGPU slots that were previously queued behind a single lock.
+ * for the next request. Width matches `n_parallel`.
  */
 export class CompletionGate {
   private active = 0;
@@ -79,8 +78,7 @@ export type GpuEvidence = 'engaged' | 'missing' | 'unknown';
  *
  * Asking for `n_gpu_layers` does not guarantee a GPU: when ggml-webgpu cannot get an adapter
  * or a device inside the worker, llama.cpp registers no GPU and quietly runs every layer on
- * the CPU — with the GPU tier's two slots and doubled context, and with the popup still
- * saying WebGPU. "missing" is only returned on positive evidence (a WebGPU failure, zero
+ * the CPU, with the popup still saying WebGPU. "missing" is only returned on positive evidence (a WebGPU failure, zero
  * offloaded layers, or a tensor load that never names a GPU), so a log format this code
  * does not recognise leaves the GPU path alone instead of forcing a working GPU onto the CPU.
  */

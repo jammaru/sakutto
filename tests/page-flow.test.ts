@@ -50,7 +50,7 @@ describe('whole-page translation keeps moving', () => {
     expect(result.longestStillMs).toBeLessThan(CPU_PIECE_PREFILL_MS);
   }, 60_000);
 
-  it('keeps the page moving with two GPU slots', async () => {
+  it('keeps the page moving on the WebGPU tier', async () => {
     const result = await runFlow({ costs: GPU_COSTS, tier: 'g', firstScreen: FIRST_SCREEN });
 
     expect(result.firstScreenMs).toBeLessThan(result.totalMs * 0.3);
