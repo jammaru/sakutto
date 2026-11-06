@@ -60,9 +60,22 @@ export function isChromeBlock(block: Element): boolean {
   if (main && !main.contains(host)) return false;
   // A `<header>` inside the article is the article's own title block, and an `<h1>` is the
   // page title wherever the site put it. Treating either as navigation sent the headline
-  // to the back of the queue, so it stayed in English after the body was translated.
-  if (host.localName === 'header' && (main !== null || block.localName === 'h1')) return false;
+  // to the back of the queue, so it stayed in English after the body was translated. The
+  // date, category and tag labels beside the headline still wait: ahead of the body they
+  // held the first paragraph back by a whole packed request on the CPU.
+  if (host.localName === 'header') {
+    if (block.localName === 'h1') return false;
+    if (main !== null && (HEADING.test(block.localName) || isParagraphLength(block))) return false;
+  }
   return true;
+}
+
+const HEADING = /^h[1-6]$/u;
+/** The length at which `contentKind` already reads an untagged block as prose. */
+const PARAGRAPH_CHARS = 80;
+
+function isParagraphLength(block: Element): boolean {
+  return (block.textContent ?? '').trim().length >= PARAGRAPH_CHARS;
 }
 
 /** Hatnotes, coordinates, infoboxes and reference lists wait behind the article body. */
@@ -75,7 +88,9 @@ export function contentKind(block: Element): ContentKind {
   const tag = block.tagName.toLowerCase();
   if (PROSE_TAGS.has(tag)) return 'prose';
   const length = (block.textContent ?? '').trim().length;
-  if (length >= 80 && (tag === 'div' || tag === 'section' || tag === 'td')) return 'prose';
+  if (length >= PARAGRAPH_CHARS && (tag === 'div' || tag === 'section' || tag === 'td')) {
+    return 'prose';
+  }
   return 'chrome';
 }
 
