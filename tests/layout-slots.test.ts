@@ -275,6 +275,19 @@ describe('repeated data rows', () => {
     expect(sources).toContain('Deep paragraph that readers want.');
   });
 
+  it('does not translate a folded flex item twice', () => {
+    // A blockified `<span>` is folded into the parent's segment as a placeholder, so walking
+    // into it as well would queue the same words a second time over a translation.
+    document.body.innerHTML = `
+      <div style="display: flex" id="bar">Fluency <span style="display: block">38.7</span></div>
+    `;
+    const sources = blocks()
+      .map((block) => buildSegment(block)?.source ?? '')
+      .filter((source) => source.length > 0);
+    expect(sources.filter((source) => source === '38.7')).toEqual([]);
+    expect(sources).toEqual(['Fluency <i1>38.7</i1>']);
+  });
+
   it('reads repeated column values with their markup removed', () => {
     document.body.innerHTML = `
       <ul>

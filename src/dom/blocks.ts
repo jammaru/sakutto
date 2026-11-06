@@ -631,7 +631,7 @@ function* visitBlock(
   // its own, so the container is yielded for its loose text and the walk continues.
   if (items && !rows && ownsText(element)) {
     yield element;
-    if (!hasBlockChild(element, probe, layout)) return;
+    if (!hasBlockChild(element, probe)) return;
   }
 
   // A slot container with no child elements at all. Descending would find nothing to yield.
@@ -647,14 +647,18 @@ function* visitBlock(
 }
 
 /**
- * A nested block directly under this element, which is a segment or container of segments
- * in its own right. A slot container that holds one cannot also be translated as a single
- * segment: the segment would cover only the loose text and the block would never be visited.
+ * A nested block directly under this element. `buildFrame` leaves a nested block out of the
+ * segment (it is a segment of its own), so a container that also owns text must keep walking
+ * into them or their copy is never visited.
+ *
+ * Only real block elements count: a `<span>` inside a flex row is blockified by the engine,
+ * but it is still folded into the parent's segment as a placeholder, so descending into it
+ * would translate the same words twice.
  */
-function hasBlockChild(element: Element, probe: VisibilityProbe, layout: LayoutProbe): boolean {
+function hasBlockChild(element: Element, probe: VisibilityProbe): boolean {
   for (const child of element.children) {
     if (isSkipped(child, probe)) continue;
-    if (layout.blockBox(child)) return true;
+    if (isBlockElement(child)) return true;
   }
   return false;
 }
