@@ -8,6 +8,7 @@
     type ModelId,
   } from '@/engine/model/catalog';
   import type { ModelStatus } from '@/shared/engine-status';
+  import { hasLicenseConsent } from '@/shared/agreement';
   import { t } from '@/shared/i18n';
   import {
     isModelProgressMessage,
@@ -49,7 +50,7 @@
 
   async function download(id: ModelId) {
     const stored = await loadSettings().catch(() => null);
-    if (!stored?.consent) {
+    if (!hasLicenseConsent(stored)) {
       await browser.tabs
         .create({ url: browser.runtime.getURL('/onboarding.html') })
         .catch(() => undefined);

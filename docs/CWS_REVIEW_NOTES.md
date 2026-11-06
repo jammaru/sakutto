@@ -28,11 +28,11 @@ Release manifest permissions: offscreen, storage, unlimitedStorage, activeTab, s
 
 Optional host permission is requested only when automatic translation is turned on for one site. The request is that host (https and http), from the popup or from the grant page during the click. Turning automatic translation off stores the site rule as ask. The code does not call permissions.remove.
 
-Onboarding is one click on Get started (はじめる). There is no consent checkbox. The notice says: "By starting, you agree to the PLaMo Community License (Article 2). You must be 18 or older, or have a parent or guardian's consent." The click stores, in chrome.storage.local, license plamo-community, version 2026-11-05, an ISO timestamp, and guardian: true. guardian: true is written by that click. It is not a separate control.
+Onboarding is one click on the agree-and-start button: Agree to the license and start (ライセンスに同意して開始). There is no consent checkbox. The button stores, in chrome.storage.local, license plamo-community, version 2026-11-05, an ISO timestamp, and ageNoticeShown: true. ageNoticeShown records only that the notice was on screen for that click. It is not a verification of age or of a guardian's consent, and the page has no guardian control. The notice beside the button says: "Starting means you agree to the whole PLaMo Community License. You must be 18 or older, or have a parent or guardian's consent (Article 2). This extension does not check your age or ask a guardian to confirm." The same panel summarizes the Article 3 commercial conditions and links to the bundled license texts, the official pages, and PFN's registration form.
 
 Stored on the device: settings, glossary, per-site rules, and that consent record in chrome.storage.local; a timing sample for a fixed paragraph (model id, duration, timestamp; not page text); a short capabilities cache in chrome.storage.session; the model file in the OPFS directory sakutto; a translation cache in IndexedDB database sakutto-translations (at most 5000 rows). The cache key includes a SHA-256 of the source text and a hash of the glossary. The source text itself is not the key.
 
-Chrome's Translator API is used only for a language pair the PLaMo model does not support, and only when Chrome reports the language pack as available. A pair the model supports is never routed to Chrome, so the page keeps its source text until PLaMo paints it. Chrome may download its own language packs. Get started may call Translator.create() for the language pair so Chrome can install the pack. That call does not include page text. If the source language is empty, up to 1000 characters of page text may be passed to Chrome's Language Detector API. The extension does not choose a translation server and does not upload page text to the developer, Preferred Networks, or any other translation server.
+Chrome's Translator API is used only for a language pair the PLaMo model does not support, and only when Chrome reports the language pack as available. A pair the model supports is never routed to Chrome, so the page keeps its source text until PLaMo paints it. Chrome may download its own language packs. The agree-and-start button may call Translator.create() for the language pair so Chrome can install the pack. That call does not include page text. If the source language is empty, up to 1000 characters of page text may be passed to Chrome's Language Detector API. The extension does not choose a translation server and does not upload page text to the developer, Preferred Networks, or any other translation server.
 
 Model pins from src/engine/model/catalog.ts:
 
@@ -57,7 +57,7 @@ url https://huggingface.co/pfnet/plamo-3-translate-2b-GGUF/resolve/232fbd7916519
 The packaged runtime is the pinned wllama build (commit d275dac17bc7f190161deb24fd834ce03342e2bc, llama.cpp 5aeac37a35b44fde4bdffaec9159f2fcb253b622). It is compiled into the zip. It is not downloaded at runtime. The listing does not claim a GPU speed. WebGPU and n_parallel on a real GPU are unmeasured in this repository.
 ```
 
-文字数: 4288
+文字数: 4842
 
 ## モデルのピン
 
@@ -94,17 +94,21 @@ content script は `src/entrypoints/content.ts` の `registration: 'runtime'` �
 
 ## オンボーディング
 
-初回インストールで `onboarding.html` を開きます。開始ボタンの文言は、英語が Get started、日本語が「はじめる」（`onboardingStart`）です。横の注意書きは次です。
+初回インストールで `onboarding.html` を開きます。開始ボタンの文言は、英語が Agree to the license and start、日本語が「ライセンスに同意して開始」（`onboardingStart`）です。横の注意書きは次です。
 
-- 英語: By starting, you agree to the PLaMo Community License (Article 2). You must be 18 or older, or have a parent or guardian's consent.
-- 日本語: 開始すると、PLaMo Community License（第2条）に同意したものとみなされます。18歳以上であるか、保護者の同意が必要です。
+- 英語: Starting means you agree to the whole PLaMo Community License. You must be 18 or older, or have a parent or guardian's consent (Article 2). This extension does not check your age or ask a guardian to confirm.
+- 日本語: 開始すると、PLaMo Community License の全文に同意したものとみなされます。18歳以上であるか、保護者の同意が必要です（第2条）。この拡張機能は、年齢の確認や保護者への確認は行いません。
+
+同じ場所に、第3条の商業利用の条件（個人利用と学術利用は登録不要、商業目的の範囲、PFN のフォームへの事前登録と直近事業年度の収入・売上が10億円以下という二つの条件、満たさなくなった場合は商業用ライセンスが必要）を示し、同梱ライセンス本文、公式ページ、登録フォームへのリンクを並べます。
 
 `consentCheckbox` という文言キーはありません。オンボーディングのテンプレートにチェックボックスはありません。クリックは `src/entrypoints/onboarding/App.svelte` の `start()` で、`chrome.storage.local` の設定に次を書きます。
 
 - `license`: `plamo-community`
 - `version`: `2026-11-05`（`PLAMO_LICENSE_VERSION`。同梱ライセンス文の版）
 - `acceptedAt`: ISO 時刻
-- `guardian`: `true`（同じクリックが書く。別の入力欄ではない）
+- `ageNoticeShown`: `true`（同じクリックが書く。注意書きが画面に出ていたことだけを記録し、年齢や保護者の同意を確認した記録ではありません）
+
+以前の記録にある `guardian: true` は、同じクリックが書いていた値です。同梱ライセンス文の版が変わっていなければ、読み込み時に `ageNoticeShown: true` として扱い、同意は有効なままにします。
 
 ## 端末に残るもの
 

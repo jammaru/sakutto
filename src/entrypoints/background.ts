@@ -8,6 +8,7 @@ import { measureQuality } from '@/background/quality';
 import { TranslationBroker } from '@/background/translation-broker';
 import { grantOriginsFor } from '@/dom/sites';
 import { DEFAULT_MODEL_ID, getModel, type ModelId } from '@/engine/model/catalog';
+import { hasLicenseConsent } from '@/shared/agreement';
 import type { EngineCapabilities } from '@/shared/capabilities';
 import { isEngineCapabilities } from '@/shared/capabilities';
 import {
@@ -189,7 +190,7 @@ export default defineBackground(() => {
     if (warmStarted) return;
     warmStarted = true;
     const settings = await ensureSettings();
-    if (!settings.consent) return;
+    if (!hasLicenseConsent(settings)) return;
     const status = await client.modelStatus(DEFAULT_MODEL_ID).catch(() => null);
     if (!status || (status.state !== 'ready' && status.state !== 'loaded')) return;
     const warmed = await client.warmModel().catch(() => null);
@@ -298,7 +299,7 @@ export default defineBackground(() => {
     if (isModelDownloadRequest(message)) {
       void ensureSettings().then(
         (settings) => {
-          if (!settings.consent) {
+          if (!hasLicenseConsent(settings)) {
             sendResponse(false);
             return;
           }

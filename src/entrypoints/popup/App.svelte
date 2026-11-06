@@ -4,6 +4,7 @@
   import { HIGH_QUALITY_MODEL_ID, getModel } from '@/engine/model/catalog';
   import { shouldSuggestHighQuality } from '@/engine/model/suggestion';
   import type { EngineStatus, ModelStatus } from '@/shared/engine-status';
+  import { hasLicenseConsent } from '@/shared/agreement';
   import { currentUiLanguage, t } from '@/shared/i18n';
   import {
     isModelProgressMessage,
@@ -188,7 +189,7 @@
   }
 
   async function useHighQuality() {
-    if (!settings?.consent) {
+    if (!hasLicenseConsent(settings)) {
       await browser.tabs
         .create({ url: browser.runtime.getURL('/onboarding.html') })
         .catch(() => undefined);

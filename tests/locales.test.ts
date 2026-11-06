@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_MODEL_ID, getModel } from '@/engine/model/catalog';
+import { PLAMO_OFFICIAL_LINKS } from '@/shared/plamo-license';
 import { formatByteSize } from '@/ui/format';
 
 interface MessageEntry {
@@ -107,20 +108,87 @@ describe('locale messages', () => {
     }
   });
 
-  it('describes starting as agreement and uses the pinned model size', () => {
+  it('describes starting as agreement to the whole license and uses the pinned model size', () => {
     expect(en.onboardingStartNotice?.message).toBe(
-      "By starting, you agree to the PLaMo Community License (Article 2). You must be 18 or older, or have a parent or guardian's consent.",
+      "Starting means you agree to the whole PLaMo Community License. You must be 18 or older, or have a parent or guardian's consent (Article 2). This extension does not check your age or ask a guardian to confirm.",
     );
     expect(ja.onboardingStartNotice?.message).toBe(
-      '開始すると、PLaMo Community License（第2条）に同意したものとみなされます。18歳以上であるか、保護者の同意が必要です。',
+      '開始すると、PLaMo Community License の全文に同意したものとみなされます。18歳以上であるか、保護者の同意が必要です（第2条）。この拡張機能は、年齢の確認や保護者への確認は行いません。',
     );
     expect(en).not.toHaveProperty('consentCheckbox');
     expect(ja).not.toHaveProperty('consentCheckbox');
+
+    expect(en.onboardingStart?.message).toBe('Agree to the license and start');
+    expect(ja.onboardingStart?.message).toBe('ライセンスに同意して開始');
 
     const label = formatByteSize(getModel(DEFAULT_MODEL_ID).size);
     expect(en.onboardingModelNote?.message).toContain(label);
     expect(ja.onboardingModelNote?.message).toContain(label);
     expect(en.onboardingHttpError?.message).toContain('HTTP');
     expect(ja.onboardingHttpError?.message).toContain('HTTP');
+  });
+
+  it('does not describe the whole agreement as Article 2', () => {
+    for (const messages of [en, ja]) {
+      expect(messages.onboardingStartNotice?.message).not.toMatch(
+        /（第2条）に同意|Article 2\)\.?$/,
+      );
+      expect(messages.onboardingStartNotice?.message).not.toMatch(/License（第2条）/);
+    }
+    expect(en.onboardingStartNotice?.message).not.toContain('License (Article 2)');
+  });
+
+  /**
+   * Article 3 of the PLaMo Community License is the only source for the commercial summary.
+   * These strings have to keep the registration form, the revenue cap, and the need for a
+   * separate license when the conditions stop being met.
+   */
+  it('summarizes the commercial conditions from Article 3', () => {
+    for (const messages of [en, ja]) {
+      expect(messages.onboardingCommercialPrivate?.message).toMatch(/no registration|登録が不要/);
+      expect(messages.onboardingCommercialConditions?.message).toMatch(
+        /official form|公式フォーム/,
+      );
+      expect(messages.onboardingCommercialConditions?.message).toMatch(/1 billion yen|10億円/);
+      expect(messages.onboardingCommercialScope?.message).toMatch(
+        /for-profit|organizational|organization|営利|組織/,
+      );
+      expect(messages.onboardingCommercialChange?.message).toMatch(
+        /commercial license|商業用ライセンス/,
+      );
+      expect(messages.licensesCommercialNote?.message).toMatch(/1 billion yen|10億円/);
+      // The model's license is summarized, not presented as a condition on this MIT code.
+      expect(messages.onboardingCommercialScope?.message).toMatch(/PLaMo|モデル/);
+    }
+  });
+
+  /**
+   * The extra links must point at pages the bundled license text already names, so the notice
+   * cannot drift into citing a form or page that PFN does not publish.
+   */
+  it('only links to pages named in the bundled license', () => {
+    const bundled = ['ja', 'en']
+      .map((locale) =>
+        readFileSync(
+          new URL(`../licenses/PLaMo-Community-License-${locale}.txt`, import.meta.url),
+          'utf8',
+        ),
+      )
+      .join('\n');
+
+    expect(bundled).toContain(PLAMO_OFFICIAL_LINKS.registration);
+    expect(bundled).toContain(PLAMO_OFFICIAL_LINKS.licenseJa);
+    expect(bundled).toContain(PLAMO_OFFICIAL_LINKS.licenseEn);
+  });
+
+  it('offers the registration form next to the consent control', () => {
+    for (const file of [
+      '../src/entrypoints/onboarding/App.svelte',
+      '../src/entrypoints/options/App.svelte',
+    ]) {
+      const source = readFileSync(new URL(file, import.meta.url), 'utf8');
+      expect(source, file).toContain('PLAMO_OFFICIAL_LINKS');
+      expect(source, file).toContain('officialLinks.registration');
+    }
   });
 });

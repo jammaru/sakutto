@@ -82,7 +82,7 @@ export function settings(): Record<string, unknown> {
       license: 'plamo-community',
       version: '2026-11-05',
       acceptedAt: '2026-11-05T00:00:00.000Z',
-      guardian: true,
+      ageNoticeShown: true,
     },
     highQualityDismissed: true,
     glossary: [],

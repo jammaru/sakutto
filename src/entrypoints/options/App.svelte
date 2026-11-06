@@ -16,6 +16,7 @@
     requestQualitySample,
   } from '@/shared/messages';
   import type { QualitySample } from '@/shared/quality';
+  import { PLAMO_OFFICIAL_LINKS } from '@/shared/plamo-license';
   import type { IdleMinutes, Settings, SettingsPatch, TierPreference } from '@/shared/settings';
   import { isIdleMinutes, isTierPreference } from '@/shared/settings';
   import type { TargetLanguage } from '@/shared/languages';
@@ -36,6 +37,8 @@
     mit: browser.runtime.getURL('/licenses/LICENSE.txt'),
     notice: browser.runtime.getURL('/licenses/NOTICE.txt'),
   };
+
+  const officialLinks = PLAMO_OFFICIAL_LINKS;
 
   let settings = $state<Settings | null>(null);
   let settingsError = $state<SettingsError>(null);
@@ -388,12 +391,28 @@
   <section class="panel">
     <h2>{t('licensesHeading')}</h2>
     <p>{t('licensesBody')}</p>
+    <p class="muted">{t('licensesCommercialNote')}</p>
     <ul class="links">
       <li>
         <a href={licenseLinks.plamoJa} target="_blank" rel="noreferrer">{t('licensePlaMoJa')}</a>
       </li>
       <li>
         <a href={licenseLinks.plamoEn} target="_blank" rel="noreferrer">{t('licensePlaMoEn')}</a>
+      </li>
+      <li>
+        <a href={officialLinks.licenseJa} target="_blank" rel="noreferrer"
+          >{t('plamoOfficialLicenseJa')}</a
+        >
+      </li>
+      <li>
+        <a href={officialLinks.licenseEn} target="_blank" rel="noreferrer"
+          >{t('plamoOfficialLicenseEn')}</a
+        >
+      </li>
+      <li>
+        <a href={officialLinks.registration} target="_blank" rel="noreferrer"
+          >{t('plamoRegistrationLink')}</a
+        >
       </li>
       <li><a href={licenseLinks.mit} target="_blank" rel="noreferrer">{t('licenseMit')}</a></li>
       <li>

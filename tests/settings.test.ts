@@ -107,7 +107,7 @@ describe('settings defaults', () => {
           consent: {
             license: 'plamo-community',
             acceptedAt: '2026-11-05T00:00:00.000Z',
-            guardian: true,
+            ageNoticeShown: true,
           },
         },
         'ja',
@@ -126,7 +126,7 @@ describe('settings defaults', () => {
             license: 'plamo-community',
             version: PLAMO_LICENSE_VERSION,
             acceptedAt,
-            guardian: true,
+            ageNoticeShown: true,
           },
           glossary: [{ source: 'Sign in', target: 'ログイン' }],
           idleMinutes: 0,
@@ -142,7 +142,7 @@ describe('settings defaults', () => {
           license: 'plamo-community',
           version: PLAMO_LICENSE_VERSION,
           acceptedAt,
-          guardian: true,
+          ageNoticeShown: true,
         },
         glossary: [{ source: 'Sign in', target: 'ログイン' }],
         idleMinutes: 0,
@@ -150,5 +150,46 @@ describe('settings defaults', () => {
         highQualityDismissed: true,
       }),
     );
+  });
+
+  it('keeps consent written before the age notice was renamed', () => {
+    const acceptedAt = '2026-11-05T00:00:00.000Z';
+    const consent = normalizeSettings(
+      {
+        schemaVersion: SETTINGS_SCHEMA_VERSION,
+        consent: {
+          license: 'plamo-community',
+          version: PLAMO_LICENSE_VERSION,
+          acceptedAt,
+          guardian: true,
+        },
+      },
+      'ja',
+    ).consent;
+
+    expect(consent).toEqual({
+      license: 'plamo-community',
+      version: PLAMO_LICENSE_VERSION,
+      acceptedAt,
+      ageNoticeShown: true,
+    });
+    expect(consent).not.toHaveProperty('guardian');
+  });
+
+  it('does not treat a false guardian flag as a recorded consent', () => {
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          consent: {
+            license: 'plamo-community',
+            version: PLAMO_LICENSE_VERSION,
+            acceptedAt: '2026-11-05T00:00:00.000Z',
+            guardian: false,
+          },
+        },
+        'ja',
+      ).consent,
+    ).toBeNull();
   });
 });

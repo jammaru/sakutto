@@ -80,7 +80,7 @@ Optional host permissions (`https://*/*` and `http://*/*`) are requested only wh
 ## Licenses
 
 - Project code: MIT. See [LICENSE](LICENSE). Copyright 2026 jammaru.
-- PLaMo 3 Translate: PLaMo Community License. The texts are in `licenses/PLaMo-Community-License-ja.txt` and `licenses/PLaMo-Community-License-en.txt`, and the same copies are packed into the extension.
+- PLaMo 3 Translate: PLaMo Community License. The texts are in `licenses/PLaMo-Community-License-ja.txt` and `licenses/PLaMo-Community-License-en.txt`, and the same copies are packed into the extension. Personal and academic use needs no registration. Under Article 3 the model's license allows commercial use only with prior registration on PFN's form (https://forms.gle/mTL8tBLrMYXKNZD56) and income or sales for you or your affiliates of no more than 1 billion yen in the most recent fiscal year; otherwise commercial use needs a separate commercial license from PFN. This repository's MIT license covers Sakutto's own code, not the model weights.
 - llama.cpp, wllama, the Emscripten runtime, the Dawn WebGPU library, and Svelte: see [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 - `scripts/bench/fixtures/kyoto.html` is a CC BY-SA 4.0 Wikipedia derivative. It is not covered by the MIT license and is not part of the extension package.
 
