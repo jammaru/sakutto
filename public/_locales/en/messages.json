@@ -1,6 +1,6 @@
 {
   "extensionName": {
-    "message": "Sakutto",
+    "message": "Sakutto - Local AI translation",
     "description": "Extension name."
   },
   "extensionShortName": {
@@ -8,7 +8,7 @@
     "description": "Short extension name."
   },
   "extensionDescription": {
-    "message": "Unofficial. Not affiliated with Preferred Networks. Translates web pages on your device with PLaMo 3. Built with PLaMo.",
+    "message": "A local LLM translates pages on your device. Free, no account. Built with PLaMo.",
     "description": "Extension description."
   },
   "tagline": {

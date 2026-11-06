@@ -1,6 +1,6 @@
 {
   "extensionName": {
-    "message": "Sakutto",
+    "message": "Sakutto - ローカルAI翻訳",
     "description": "拡張機能の名前。"
   },
   "extensionShortName": {
@@ -8,7 +8,7 @@
     "description": "短い名前。"
   },
   "extensionDescription": {
-    "message": "非公式。Preferred Networks とは無関係です。PLaMo 3 でページを端末内で翻訳します。Built with PLaMo。",
+    "message": "ローカルLLMが、この端末の中でページを翻訳します。アカウント不要の無料拡張機能です。Built with PLaMo。",
     "description": "拡張機能の説明。"
   },
   "tagline": {

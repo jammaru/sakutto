@@ -8,75 +8,45 @@ Developer Dashboard に貼る文です。日本語が主で、英語は後半で
 
 ## 名前の確認
 
-`public/_locales/en/messages.json` と `public/_locales/ja/messages.json` の `extensionName` と `extensionShortName` は、どちらも `Sakutto` です。以前の公開名 `Sakutto for PLaMo` と `サクッと翻訳 for PLaMo` は、表示名から外してあります。アイテム名には `Sakutto` を貼ります。マニフェストの短い名前も `Sakutto`（7 文字、上限 12）です。
+`public/_locales/en/messages.json` と `public/_locales/ja/messages.json` の `extensionName` は、英語が `Sakutto - Local AI translation`、日本語が `Sakutto - ローカルAI翻訳` です。`extensionShortName` はどちらも `Sakutto` です。以前の公開名 `Sakutto for PLaMo` と `サクッと翻訳 for PLaMo` は、表示名から外してあります。アイテム名と概要はダッシュボードでは読み取り専用で、zip の `_locales` から入ります。マニフェストの短い名前は `Sakutto`（7 文字、上限 12）です。
 
-「Built with PLaMo」は、名前ではなく、説明の先頭と画面上の表示に残します。PLaMo Community License 第4条の表示です。
+「Built with PLaMo」は、名前ではなく、概要の末尾と画面上の表示に残します。PLaMo Community License 第4条の表示です。
 
 ## 日本語
 
 ### アイテム名
 
 ```text
-Sakutto
+Sakutto - ローカルAI翻訳
 ```
 
-文字数: 7 / 75
+文字数: 18 / 75
 
 ### 概要
 
 `extensionDescription` と同じ文字列です。
 
 ```text
-非公式。Preferred Networks とは無関係です。PLaMo 3 でページを端末内で翻訳します。Built with PLaMo。
+ローカルLLMが、この端末の中でページを翻訳します。アカウント不要の無料拡張機能です。Built with PLaMo。
 ```
 
-文字数: 71 / 132
+文字数: 60 / 132
 
 ### 詳細な説明
 
-先頭行は、画面の非公式表示（`unofficialNotice`）と同じ文です。
-
 ```text
-非公式。Preferred Networks とは無関係です。Built with PLaMo。
+ウェブページを、この端末の中だけで翻訳する無料の拡張機能です。アカウント登録は不要です。広告も分析もありません。
 
-Sakutto は、ウェブページをこの端末の中で翻訳する無料のオープンソース（MIT）拡張機能です。アカウントはありません。広告、分析、テレメトリもありません。
+ページ全体の翻訳、選択したテキストの翻訳、手元で入力して訳すことができます。原文を訳文に置き換える表示と、並べて読む対訳表示があります。
 
-翻訳は端末上で行います。ページの本文、選択した文字、用語集、訳文は、開発者にも、Preferred Networks にも、その他の翻訳サーバーにも送りません。
+本文は外部の翻訳サーバーへ送りません。ローカルLLMが、この端末の中で訳します。Built with PLaMo。
 
-拡張機能自身が通信するのは、PLaMo 3 Translate の GGUF モデル重みを、公式の Hugging Face リポジトリから取得するときだけです。URL はコミットでピン留めし、使う前に SHA-256 を確認します。一致しなければ捨てます。リクエストは huggingface.co から始まり、Hugging Face のリダイレクト先へ続きます。Hugging Face とその配信先には、IP アドレスとファイルのリクエストが届きます。ページの本文は含みません。
+非公式です。Preferred Networks とは無関係です。
 
-モデル重み（GGUF データ）のみを huggingface.co から DL。実行コードはすべて同梱。
-
-標準モデルは 0.8B です。大きさは 573 MB（573,123,200 バイト）で、この端末に保存されていないときだけダウンロードします。2B（約 1.81 GB、1,807,199,392 バイト）は任意です。訳文はすべて PLaMo が生成します。モデルの準備を待つあいだ、ページは原文のまま表示し、Chrome 内蔵翻訳の下書きは表示しません。Chrome 内蔵の翻訳を使うのは、PLaMo が対応していない言語の組み合わせだけです。言語パックは Chrome が取得します。「ライセンスに同意して開始」は、ページ本文を含めずに Chrome へ言語パックの導入を頼むことがあります。原文の言語が空のときは、組み合わせを決めるために最大 1,000 文字を Chrome の Language Detector API に渡すことがあります。これは、この拡張機能から翻訳サーバーへの送信ではありません。
-
-表示は、原文を訳文に置き換える方法と、原文と訳文を並べる対訳です。言語と表示はサイトごとに記憶できます。最初の開始は「ライセンスに同意して開始」のワンクリックです。ボタンの横の注意書きが同意の文です。開始すると、PLaMo Community License の全文に同意したことになり、18歳以上であるか、保護者の同意が必要です（第2条）。この拡張機能は、年齢の確認や保護者への確認は行いません。同意用のチェックボックスはありません。
-
-PLaMo のライセンスでは、個人利用と学術利用は登録が不要です。商業目的には、事業での利用、営利を目的とする利用、組織の内部での利用、製品やサービスの開発・提供も含まれます。商業利用が認められるのは、PFN の公式フォームへの事前登録と、直近事業年度の収入・売上が10億円以下であることの両方を満たす場合だけです。満たさなくなった場合は、PFN の商業用ライセンスが必要です。この条件は PLaMo のモデルのライセンスによるもので、Sakutto の MIT のコードを制限するものではありません。全文は同梱しています。
-
-ショートカットは、Windows と Linux では Alt+A（ページの翻訳と原文）、Alt+B（対訳表示）、Alt+S（選択したテキスト）です。Mac では Option+A、Option+B、Option+S です。入力したテキストの翻訳は Ctrl+Enter、Mac では ⌘+Enter です。キーは chrome://extensions/shortcuts で変更できます。
-
-インストール時に、すべてのサイトへのアクセスは要求しません。サイトの自動翻訳をオンにしたときだけ、そのサイトのホスト権限を求めます。開いているページの翻訳は、その操作のときに行います。
-
-PLaMo 3 Translate は 53 言語です。Chrome 116 以降で動きます。
-
-ピン留めしているファイル:
-
-0.8B plamo-3-translate-0.8b-Q4_K_M.gguf
-commit dbeb0856cb0b004b484f190bb71dd65876297013
-573,123,200 バイト
-SHA-256 923b2f28a9856de1b8b3b610a7e59ded0b14d007466fd5dd526e6a9ecaadafdd
-https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF/resolve/dbeb0856cb0b004b484f190bb71dd65876297013/plamo-3-translate-0.8b-Q4_K_M.gguf
-
-2B plamo-3-translate-2b-Q4_K_M.gguf
-commit 232fbd7916519edecddfdae0beae7e76fe70453f
-1,807,199,392 バイト
-SHA-256 f36d0813dd95573a852ab5d76e374c543632d9e292929e922bcdbf7e53b494e0
-https://huggingface.co/pfnet/plamo-3-translate-2b-GGUF/resolve/232fbd7916519edecddfdae0beae7e76fe70453f/plamo-3-translate-2b-Q4_K_M.gguf
-
-プライバシーポリシー: https://github.com/jammaru/sakutto/blob/main/PRIVACY.md
+プライバシーポリシー: https://jammaru.com/sakutto/privacy/
 ```
 
-文字数: 2461 / 16000
+文字数: 270 / 16000
 
 ### カテゴリ
 
@@ -158,7 +128,7 @@ Productivity。ウェブページを翻訳する用途に合います。
 
 ### リモートコード
 
-詳細な説明にも、同じ日本語の文を入れてあります。この欄には短い方を貼ります。
+詳細な説明にはモデル取得の文を含めていないため、この欄で説明します。
 
 ```text
 モデル重み（GGUF データ）のみを huggingface.co から DL。実行コードはすべて同梱。GGUF は公式リポジトリのコミットでピン留めし、SHA-256 を確認してから使います。ページ本文はリクエストに含めません。実行するスクリプト、worker、wasm は zip に入っています。
@@ -169,12 +139,12 @@ Productivity。ウェブページを翻訳する用途に合います。
 ### プライバシーポリシーの URL
 
 ```text
-https://github.com/jammaru/sakutto/blob/main/PRIVACY.md
+https://jammaru.com/sakutto/privacy/
 ```
 
-文字数: 55
+文字数: 36
 
-この URL は、所有者が https://github.com/jammaru/sakutto を公開したあとでなければ、ログインしていない閲覧者には開けません。この変更ではリポジトリを公開しません。提出する前に、ログアウトしたブラウザでこの URL が `PRIVACY.md` を表示することを確認してください。非公開のままでは、審査者はポリシーを読めません。
+このページは、詳細な説明の末尾にも同じ URL で書いています。
 
 ## English
 
@@ -183,65 +153,34 @@ The item name matches `extensionName`. The summary matches `extensionDescription
 ### Item name
 
 ```text
-Sakutto
+Sakutto - Local AI translation
 ```
 
-文字数: 7 / 75
+文字数: 30 / 75
 
 ### Summary
 
 ```text
-Unofficial. Not affiliated with Preferred Networks. Translates web pages on your device with PLaMo 3. Built with PLaMo.
+A local LLM translates pages on your device. Free, no account. Built with PLaMo.
 ```
 
-文字数: 119 / 132
+文字数: 80 / 132
 
 ### Detailed description
 
-The first line matches `unofficialNotice`.
-
 ```text
-Unofficial. Not affiliated with Preferred Networks. Built with PLaMo.
+A free extension that translates web pages on your device. No account. No ads or analytics.
 
-Sakutto is a free, open-source (MIT) extension that translates web pages on this device. It has no account, no ads, no analytics, and no telemetry.
+Translate a whole page, selected text, or text you type. You can replace the page with the translation, or read the original and the translation side by side.
 
-Translation runs on the device. Page text, selections, the glossary, and translations are not sent to the developer, to Preferred Networks, or to any other translation server.
+Your page text is not sent to an outside translation server. A local LLM translates on this device. Built with PLaMo.
 
-The extension's own network requests download PLaMo 3 Translate GGUF model weights from the official Hugging Face repositories. Each URL is pinned to a commit and checked with SHA-256 before use. A mismatch is discarded. The request starts at huggingface.co and follows Hugging Face's redirect. Hugging Face and that host can see the IP address and the file request. Page text is not included.
+Unofficial. Not affiliated with Preferred Networks.
 
-モデル重み（GGUF データ）のみを huggingface.co から DL。実行コードはすべて同梱。
-Only model weights (GGUF data) are downloaded from huggingface.co. Every script, worker, and wasm the extension executes is in the zip.
-
-The default model is 0.8B, 573 MB (573,123,200 bytes). It downloads to the device when it is not already stored. The 2B model (about 1.81 GB, 1,807,199,392 bytes) is optional. Every translated line is written by PLaMo. While the model is being prepared the page keeps its source text; no built-in draft is shown. Chrome's built-in translator is used only for the language pairs PLaMo does not support. Chrome may download its own language packs. Agree to the license and start can ask Chrome to install a pack, and that call does not include page text. If the source language is empty, up to 1,000 characters may be passed to Chrome's Language Detector API so the pair can be chosen. That is not a request from this extension to a translation server.
-
-Reading styles are replace-original and bilingual. Language and reading style can be remembered per site. Starting is one click on Agree to the license and start. The notice beside the button says that starting agrees to the whole PLaMo Community License, and that you must be 18 or older or have a parent or guardian's consent (Article 2). It also says the extension does not verify age or contact a guardian. There is no consent checkbox.
-
-PLaMo's license needs no registration for personal or academic use. Under it, commercial purpose includes business and for-profit use, use inside an organization, and developing or providing a product or service. Commercial use is allowed only with prior registration on PFN's official form and income or sales for you or your affiliates of no more than 1 billion yen in the most recent fiscal year. If those conditions are not met, commercial use needs a separate commercial license from PFN. That condition comes from the model's license, not from Sakutto's MIT code. The full texts are bundled.
-
-Shortcuts on Windows and Linux are Alt+A (translate the page or restore it), Alt+B (bilingual view), and Alt+S (selected text). On a Mac they are Option+A, Option+B, and Option+S. Typed text translates with Ctrl+Enter, or ⌘+Enter on a Mac. Change the keys at chrome://extensions/shortcuts.
-
-Host access is not requested for every site at install. Optional host permission is requested only when automatic translation is turned on for a site. Translating the open page happens when you ask for it.
-
-PLaMo 3 Translate covers 53 languages. The extension requires Chrome 116 or later.
-
-Pinned files:
-
-0.8B plamo-3-translate-0.8b-Q4_K_M.gguf
-commit dbeb0856cb0b004b484f190bb71dd65876297013
-573,123,200 bytes
-SHA-256 923b2f28a9856de1b8b3b610a7e59ded0b14d007466fd5dd526e6a9ecaadafdd
-https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF/resolve/dbeb0856cb0b004b484f190bb71dd65876297013/plamo-3-translate-0.8b-Q4_K_M.gguf
-
-2B plamo-3-translate-2b-Q4_K_M.gguf
-commit 232fbd7916519edecddfdae0beae7e76fe70453f
-1,807,199,392 bytes
-SHA-256 f36d0813dd95573a852ab5d76e374c543632d9e292929e922bcdbf7e53b494e0
-https://huggingface.co/pfnet/plamo-3-translate-2b-GGUF/resolve/232fbd7916519edecddfdae0beae7e76fe70453f/plamo-3-translate-2b-Q4_K_M.gguf
-
-Privacy policy: https://github.com/jammaru/sakutto/blob/main/PRIVACY.md
+Privacy policy: https://jammaru.com/sakutto/privacy/
 ```
 
-文字数: 4079 / 16000
+文字数: 477 / 16000
 
 ### Category
 
@@ -332,12 +271,12 @@ Not requested at install. Requested only for the host whose automatic translatio
 ### Privacy policy URL
 
 ```text
-https://github.com/jammaru/sakutto/blob/main/PRIVACY.md
+https://jammaru.com/sakutto/privacy/
 ```
 
-文字数: 55
+文字数: 36
 
-This URL is publicly reachable only after the owner makes https://github.com/jammaru/sakutto public. This change does not publish the repository. Before submit, open the URL in a logged-out browser and confirm it shows `PRIVACY.md`. Reviewers cannot read the policy while the repository is private.
+The detailed description ends with the same URL.
 
 ## 自分で入れるもの
 
