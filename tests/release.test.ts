@@ -167,11 +167,26 @@ describe('command parsing', () => {
 describe('release command', () => {
   it('points the cli at this repository', () => {
     expect(repoRoot()).toBe(repo);
-    expect(readFileSync(join(repo, 'CHANGELOG.md'), 'utf8')).toBe(CHANGELOG_HEADER);
-    const pkg = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8')) as {
+    const pkg = JSON.parse(readFileSync(join(repoRoot(), 'package.json'), 'utf8')) as {
       scripts: { release: string };
     };
     expect(pkg.scripts.release).toBe('node scripts/release/cli.ts');
+
+    // `pnpm release` prepends a section every time, so this repository's
+    // changelog no longer equals the starter template once it has shipped.
+    // Release runs must keep the template header and only add sections below it.
+    const changelog = readFileSync(join(repoRoot(), 'CHANGELOG.md'), 'utf8');
+    const head = changelog.split(/^## /m)[0] ?? '';
+    expect(head.trim()).toBe(CHANGELOG_HEADER.trim());
+
+    const versions = changelogSectionVersions(changelog);
+    expect(new Set(versions).size).toBe(versions.length);
+    for (const version of versions) {
+      expect(() => parseVersion(version)).not.toThrow();
+      expect(extractChangelogSection(changelog, version)).toMatch(
+        /^## \[[^\]]+\] - \d{4}-\d{2}-\d{2}\n\n- \S/,
+      );
+    }
   });
 
   it('commits the bump and an annotated tag without pushing', () => {
@@ -397,6 +412,13 @@ function withRepo(run: (root: string) => void): void {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+}
+
+function changelogSectionVersions(changelog: string): string[] {
+  return changelog
+    .split(/\r?\n/)
+    .map((line) => /^## \[([^\]]+)\]/.exec(line)?.[1])
+    .filter((version): version is string => version !== undefined);
 }
 
 function commitFile(root: string, name: string, contents: string, message: string): void {
