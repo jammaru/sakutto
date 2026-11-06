@@ -39,6 +39,25 @@ describe('translation priority', () => {
     expect(contentKind(paragraph)).toBe('prose');
   });
 
+  it('treats an article headline in its own header as prose and the site header as chrome', () => {
+    document.body.innerHTML = `
+      <header><a href="/">Home</a><div>Sign in to continue reading</div></header>
+      <main>
+        <article>
+          <header><h1>Funding the harbour libraries</h1></header>
+          <p>The cooperative is placing part of its surplus into branch libraries.</p>
+        </article>
+      </main>
+    `;
+
+    const site = document.querySelector('body > header div');
+    const headline = document.querySelector('h1');
+    if (!site || !headline) throw new Error('missing blocks');
+
+    expect(contentKind(site)).toBe('chrome');
+    expect(contentKind(headline)).toBe('prose');
+  });
+
   it('keeps hatnotes, coordinates and infoboxes behind the lead paragraph', () => {
     document.body.innerHTML = `
       <div class="hatnote">For other uses, see Osaka (disambiguation) and the places that share the name.</div>

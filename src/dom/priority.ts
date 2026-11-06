@@ -58,6 +58,10 @@ export function isChromeBlock(block: Element): boolean {
   if (!host) return false;
   const main = block.closest('main, article, [role="main"]');
   if (main && !main.contains(host)) return false;
+  // A `<header>` inside the article is the article's own title block, and an `<h1>` is the
+  // page title wherever the site put it. Treating either as navigation sent the headline
+  // to the back of the queue, so it stayed in English after the body was translated.
+  if (host.localName === 'header' && (main !== null || block.localName === 'h1')) return false;
   return true;
 }
 
@@ -117,6 +121,12 @@ export function lookaheadScreens(
   return pace === 'fast' ? base + 1 : base;
 }
 
+/**
+ * Page requests kept in flight: one per model slot, plus one waiting in the engine's own
+ * queue. Without the extra request the model sat idle for the whole round trip between one
+ * request finishing and the page sending the next. The waiting request has not reached the
+ * model, so it can still be cancelled or overtaken by a selection.
+ */
 export function translationConcurrency(tier: 'g' | 'c8' | 'c4' | null): number {
-  return tier === 'g' ? 2 : 1;
+  return (tier === 'g' ? 2 : 1) + 1;
 }

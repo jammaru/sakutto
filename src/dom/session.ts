@@ -1607,10 +1607,23 @@ export class PageSession {
     return { tokensPerSecond: tokens, segmentsPerSecond: segments };
   }
 
+  /**
+   * The last measured rate stays on the bar while a page request is inside the engine. A
+   * prompt's prefill produces no tokens, and on the CPU runtime it costs nearly as much per
+   * token as decoding, so dropping the rate there made a working engine look stalled.
+   */
   private heldRate(kind: 'tokens' | 'segments', now: number): number | null {
     const at = kind === 'tokens' ? this.heldTokensAt : this.heldSegmentsAt;
-    if (now - at > RATE_HOLD_MS) return null;
+    if (at === 0) return null;
+    if (now - at > RATE_HOLD_MS && !this.pageWorkInFlight()) return null;
     return kind === 'tokens' ? this.heldRates.tokensPerSecond : this.heldRates.segmentsPerSecond;
+  }
+
+  private pageWorkInFlight(): boolean {
+    for (const batch of this.inflightBatches) {
+      if (batch.items.some((item) => item.role === 'page')) return true;
+    }
+    return false;
   }
 
   private noteThroughput(tracked: readonly Live[], now = performance.now()): void {
