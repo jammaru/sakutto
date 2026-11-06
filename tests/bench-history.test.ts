@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import {
   acceleratorFor,
+  comparableRun,
   comparisonRows,
   headlineFor,
   headlineSection,
   isBenchRecord,
   markdownComparison,
   medianMetric,
+  modeOfRun,
   parseHistory,
   runSummary,
   seconds,
@@ -262,5 +264,53 @@ describe('headline numbers', () => {
     const section = headlineSection([record({ run: 'only' })]).join('\n');
     expect(section).toContain('## Headline numbers (long-article)');
     expect(section).not.toContain('Compared with');
+  });
+});
+
+describe('choosing a comparable run', () => {
+  it('will not compare across modes', () => {
+    const history = [
+      record({ run: 'mock-old', mode: 'mock' }),
+      record({
+        run: 'live-new',
+        mode: 'live',
+        engine: { ...record().engine, accelerator: 'webgpu', accelerateLabel: 'WebGPU' },
+      }),
+    ];
+    expect(modeOfRun(history, 'live-new')).toBe('live');
+    expect(comparableRun(history, 'mock-newer', 'mock', ['long-article'])).toBe('mock-old');
+    expect(comparableRun(history, 'mock-newer', 'live', ['long-article'])).toBe('live-new');
+  });
+
+  it('will not compare a partial --only run with a full one', () => {
+    const history = [
+      record({ run: 'full', page: 'long-article' }),
+      record({ run: 'full', page: 'many-cards' }),
+      record({ run: 'partial', page: 'long-article' }),
+    ];
+    expect(comparableRun(history, 'next', 'mock', ['long-article', 'many-cards'])).toBe('full');
+    expect(comparableRun(history, 'next', 'mock', ['long-article'])).toBe('partial');
+  });
+
+  it('treats a run whose own lines disagree about their mode as unusable', () => {
+    const history = [
+      record({ run: 'mixed', mode: 'mock' }),
+      record({ run: 'mixed', mode: 'live' }),
+    ];
+    expect(modeOfRun(history, 'mixed')).toBeNull();
+    expect(comparableRun(history, 'next', 'mock', ['long-article'])).toBeNull();
+  });
+
+  it('warns in the summary when an explicit comparison spans modes', () => {
+    const summary = runSummary({
+      run: 'live-run',
+      mode: 'live',
+      commit: '3eeb1a8',
+      dirty: false,
+      at: '2026-11-06T00:00:00.000Z',
+      records: [record({ run: 'live-run', mode: 'live' })],
+      before: { run: 'mock-run', records: [record({ run: 'mock-run' })] },
+    });
+    expect(summary).toContain('are not on the same scale');
   });
 });

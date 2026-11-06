@@ -265,6 +265,38 @@ export function runsInOrder(records: readonly BenchRecord[]): string[] {
   return seen;
 }
 
+/** The one mode a run was taken in, or null when its own lines disagree. */
+export function modeOfRun(records: readonly BenchRecord[], run: string): string | null {
+  const modes = new Set(recordsOfRun(records, run).map((record) => record.mode as string));
+  return modes.size === 1 ? ([...modes][0] ?? null) : null;
+}
+
+/**
+ * The run a fresh one should be compared against: the same mode and the same set of
+ * pages. Comparing across modes puts a stub next to an 0.8B model, and a `--only` run
+ * covers one fixture, so a delta against either is a number nobody measured.
+ */
+export function comparableRun(
+  records: readonly BenchRecord[],
+  run: string,
+  mode: string,
+  pages: readonly string[],
+): string | null {
+  const wanted = [...new Set(pages)].sort().join('\u0000');
+  const ordered = runsInOrder(records).filter((label) => label !== run);
+  for (let index = ordered.length - 1; index >= 0; index -= 1) {
+    const label = ordered[index];
+    if (label === undefined) continue;
+    if (modeOfRun(records, label) !== mode) continue;
+    const pagesOfRun = [...new Set(recordsOfRun(records, label).map((record) => record.page))]
+      .sort()
+      .join('\u0000');
+    if (pagesOfRun !== wanted) continue;
+    return label;
+  }
+  return null;
+}
+
 /** The newest record per page, for a "latest state of every fixture" table. */
 export function latestByPage(records: readonly BenchRecord[]): BenchRecord[] {
   const latest = new Map<string, BenchRecord>();
@@ -499,6 +531,15 @@ export function runSummary(input: RunSummaryInput): string {
 
   if (input.before) {
     lines.push('', `Compared with run \`${input.before.run}\`:`, '');
+    const beforeModes = new Set(input.before.records.map((record) => record.mode as string));
+    if (beforeModes.size > 1 || (beforeModes.size === 1 && !beforeModes.has(input.mode))) {
+      lines.push(
+        `> Warning: that run was taken in ${[...beforeModes].join('/')} mode and this one in`,
+        `> ${input.mode} mode. The durations are not on the same scale, so this delta says`,
+        '> nothing about speed. Only compare runs of the same mode.',
+        '',
+      );
+    }
     for (const metric of TIMING_METRICS) {
       const rows = comparisonRows(input.before.records, input.records, metric);
       if (rows.length === 0) continue;

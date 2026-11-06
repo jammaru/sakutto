@@ -50,7 +50,7 @@ export const BENCH_PAGES: readonly BenchPage[] = [
     name: 'late-mount-spa',
     file: 'late-mount-spa.html',
     stresses:
-      'Blocks that mount after first paint, then a pushState link. Isolates rescanning, the mutation observer and whether late blocks reuse a warm runtime. Declares a 4 s settle window so the late blocks count toward completion.',
+      'Blocks that mount after first paint, then a pushState link. Isolates rescanning, the mutation observer and whether late blocks reuse a warm runtime. Declares a 3 s settle window so the late blocks count toward completion.',
   },
 ];
 

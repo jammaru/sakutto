@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { ROOT, arg } from './host.ts';
 import {
   HEADLINE_PAGE,
+  comparableRun,
   comparisonRows,
   headlineSection,
   latestByPage,
@@ -65,8 +66,15 @@ async function main(): Promise<void> {
       process.exitCode = 1;
       return;
     }
-    const previousRuns = runsInOrder(records).filter((label) => label !== run);
-    const compareWith = arg('--compare') ?? previousRuns[previousRuns.length - 1];
+    const compareWith =
+      arg('--compare') ??
+      comparableRun(
+        records,
+        run ?? '',
+        selected[0]?.mode ?? 'mock',
+        selected.map((record) => record.page),
+      ) ??
+      undefined;
     console.log(
       runSummary({
         run: run ?? '',
@@ -111,10 +119,25 @@ async function main(): Promise<void> {
   } else {
     const latest = runs[runs.length - 1];
     after = latest === undefined ? [] : recordsOfRun(records, latest);
-    const previous = runs[runs.length - 2];
-    before = previous === undefined ? [] : recordsOfRun(records, previous);
-    if (previous !== undefined && latest !== undefined) {
+    // The run before the newest one is only a baseline if it used the same mode and the
+    // same fixtures, otherwise the delta is against a number measured a different way.
+    const previous =
+      latest === undefined
+        ? null
+        : comparableRun(
+            records,
+            latest,
+            after[0]?.mode ?? 'mock',
+            after.map((record) => record.page),
+          );
+    before = previous === null ? [] : recordsOfRun(records, previous);
+    if (previous !== null && latest !== undefined) {
       console.log('', `Comparing ${latest} with ${previous}.`);
+    } else {
+      console.log(
+        '',
+        'No earlier run of the same mode covers these pages, so there is nothing to compare yet.',
+      );
     }
   }
 

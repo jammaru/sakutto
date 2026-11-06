@@ -21,6 +21,7 @@ import {
   HEADLINE_PAGE,
   acceleratorFor,
   appendHistory,
+  comparableRun,
   headlineFor,
   type BenchHeadline,
   comparisonRows,
@@ -28,7 +29,6 @@ import {
   parseHistory,
   recordsOfRun,
   runSummary,
-  runsInOrder,
   TIMING_METRICS,
   type BenchEngine,
   type BenchMachine,
@@ -505,14 +505,17 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
   }
 
   const history = await readHistory(historyPath);
-  // Mock and live durations are not on the same scale, so an automatic comparison only
-  // looks at runs taken in the same mode. An explicit --compare still wins.
-  const previousRuns = runsInOrder(history).filter((label) => {
-    if (label === run) return false;
-    const first = history.find((record) => record.run === label);
-    return first?.mode === mode;
-  });
-  const compareWith = options.compare ?? previousRuns[previousRuns.length - 1];
+  // An automatic comparison needs a run of the same mode over the same fixtures: mock and
+  // live durations are on different scales, and a `--only` run has no row for the others.
+  // An explicit --compare still wins; the summary warns when that pair spans modes.
+  const compareWith =
+    options.compare ??
+    comparableRun(
+      history,
+      run,
+      mode,
+      records.map((record) => record.page),
+    );
 
   const summary = runSummary({
     run,

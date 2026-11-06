@@ -149,7 +149,8 @@ One JSON line per page per repetition in `bench/history/pages.jsonl` (`schema: 1
 | `metrics.commitsPerSecond`                                                     | Blocks finished per second between first text and completion. Comparable in both modes.                                                                 |
 | `metrics.outputChars`                                                          | Characters that landed in the DOM.                                                                                                                      |
 | `metrics.estimatedOutputTokensPerSecond`                                       | `outputChars × 0.447 / s`. Live mode only; an estimate, not a tokenizer call.                                                                           |
-| `metrics.reportedRate`                                                         | The rate the page overlay itself printed, verbatim (the `sakutto-perf` hook).                                                                           |
+| `metrics.reportedRate`                                                         | The rate the page overlay itself printed, verbatim (the `sakutto-perf` hook). In mock mode this is the stub's pacing, not a model.                      |
+| `metrics.engineWork`                                                           | `batches` / `pieces` the page asked for, and `engineMs` spent inside the engine. `engineMs` includes the final batch.                                   |
 | `metrics.blocks`                                                               | Total tracked blocks, split by prose / heading / UI / code, plus how many were visible/finished.                                                        |
 | `metrics.lateBlocks`                                                           | Blocks that entered the DOM after the run started.                                                                                                      |
 | `metrics.engines`                                                              | How many blocks carry each `data-sakutto-engine` value.                                                                                                 |
@@ -172,6 +173,12 @@ streaming deltas) proportional to the text length. That makes mock numbers descr
 
 and **not** model speed. A mock run is roughly a tenth as long as a live one. Every mock record is
 labelled `mode: "mock"`, carries a note saying so, and the summary repeats the warning.
+
+The pace is a stub, not a simulated model: the fake engine has no queue, no prefill and no shared
+concurrency limit, and `pageRates` derives its tok/s from elapsed wall time over a fixed
+characters-per-token ratio. So `reportedRate` and `estimatedOutputTokensPerSecond` in a mock record
+describe the stub pacing, not a tokenizer or a model. Read the timing rows, `commitsPerSecond` and
+`engineWork` there instead; the tok/s numbers only mean something in a live run.
 
 Live mode is the only mode whose tok/s describes the model. Both modes launch with Chrome's built-in
 translator disabled at the browser level as well, so every number describes exactly one engine
@@ -214,9 +221,11 @@ No live PLaMo run is checked in. The VM used to write this suite has no Docker d
 pinned wllama wasm and no model in `bench/.cache/`, so the real-runtime numbers were not taken
 here. Run `pnpm bench:live` on a machine with the wasm build to add the first live line.
 
-Because a mock sample is already checked in, an automatic comparison only considers runs of the
-same mode, and `pnpm bench:history` warns when a comparison spans modes. Keep mock and live runs
-under different `--run` labels and never compare across `mode`.
+Because a mock sample is already checked in, an automatic comparison only considers a run with
+the **same mode and the same set of fixtures**. A `--only long-article` run is not put next to a
+seven-page run, and a live run is not put next to the mock baseline; in both cases the bench says
+there is nothing to compare rather than printing a delta. `--baseline` / `--compare` still compare
+whatever you name, and the summary prints a warning when that pair spans modes.
 
 ## Relationship to the older model bench
 
