@@ -158,3 +158,72 @@ describe('visibility edge cases', () => {
     expect(blocks).not.toContain('Collapsed detail copy');
   });
 });
+
+describe('layout wrappers that generate no box', () => {
+  /**
+   * happy-dom reports `true` for a `display: contents` element, but Chromium reports
+   * `false`: the element generates no box, so it has no layout to be visible in, while
+   * everything inside it paints normally. The tests below run against the browser's rule
+   * so the regression is caught in this environment, where the real one cannot be.
+   */
+  function emulateChromiumCheckVisibility(): () => void {
+    const proto = Element.prototype as unknown as {
+      checkVisibility?: (options?: { visibilityProperty?: boolean }) => boolean;
+    };
+    const original = proto.checkVisibility;
+    proto.checkVisibility = function (this: Element): boolean {
+      const style = getComputedStyle(this);
+      if (style.display === 'contents') return false;
+      return original ? original.call(this, { visibilityProperty: true }) : true;
+    };
+    return () => {
+      if (original) proto.checkVisibility = original;
+      else delete proto.checkVisibility;
+    };
+  }
+
+  it('translates prose inside a display: contents app shell', () => {
+    // Frameworks put the whole shell in a `contents` div. Reading the missing box as
+    // "hidden" dropped Hugging Face's header, model card and sidebar while the bar still
+    // said the page was translated.
+    document.body.innerHTML = `
+      <div class="hydrated contents" style="display: contents">
+        <header><nav><ul><li><a href="/docs">Docs</a></li></ul></nav></header>
+        <main><p>Model card body copy</p></main>
+      </div>
+      <p>Copy outside any wrapper</p>
+    `;
+    const restore = emulateChromiumCheckVisibility();
+    try {
+      const blocks = listTranslatableBlocks(document).map((block) => block.textContent?.trim());
+      expect(blocks).toContain('Model card body copy');
+      expect(blocks).toContain('Docs');
+      expect(blocks).toContain('Copy outside any wrapper');
+    } finally {
+      restore();
+    }
+  });
+
+  it('still skips a display: contents wrapper the page hides', () => {
+    document.body.innerHTML = `
+      <div style="display: contents; visibility: hidden"><p>Panel behind a closed menu</p></div>
+      <p>Visible copy</p>
+    `;
+    const restore = emulateChromiumCheckVisibility();
+    try {
+      const blocks = listTranslatableBlocks(document).map((block) => block.textContent?.trim());
+      expect(blocks).toEqual(['Visible copy']);
+    } finally {
+      restore();
+    }
+  });
+
+  it('still skips contents inside a display: none ancestor', () => {
+    document.body.innerHTML = `
+      <div style="display: none"><div style="display: contents"><p>Modal copy</p></div></div>
+      <p>Visible copy</p>
+    `;
+    const blocks = listTranslatableBlocks(document).map((block) => block.textContent?.trim());
+    expect(blocks).toEqual(['Visible copy']);
+  });
+});

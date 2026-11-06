@@ -252,4 +252,61 @@ test.describe('faded translation and skipped sidebar', () => {
       await page.close();
     }
   });
+
+  test('translates a page whose content sits behind a wrapper with no box', async () => {
+    // `display: contents` generates no box, so `checkVisibility()` says false even though
+    // everything inside paints. Treating that as hidden left the header, the model card
+    // and the sidebar in English while the bar read "This page is translated".
+    const page = await openFixture('/app-shell.html');
+    try {
+      await expect(page.locator('#lead')).toContainText(MARKER);
+      await expect(page.locator('#title')).toContainText(MARKER);
+      await expect(page.locator('nav a').first()).toContainText(MARKER);
+      await expect(page.locator('#downloads')).toContainText(MARKER);
+      await expect(page.locator('html')).toHaveAttribute('data-sakutto-state', 'translated');
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('leaves an aria-hidden icon glyph untranslated', async () => {
+    // An icon font paints a glyph from the literal word inside the span. Sending that word
+    // to the model replaced it with a translated word, and the icon then drew those letters
+    // instead of the glyph.
+    const page = await openFixture('/app-shell.html');
+    try {
+      await expect(page.locator('#icon-row')).toContainText(MARKER);
+      await expect(page.locator('#icon-row .material-symbols-outlined')).toHaveText('search');
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('does not un-hide a block the page keeps invisible', async () => {
+    // The pending marker used to paint `opacity: 1` to undo the old fade. On a host block
+    // that is deliberately transparent — a carousel slide, a disabled row — that made
+    // hidden content appear as soon as translation started.
+    const page = await openFixture('/app-shell.html');
+    try {
+      await expect(page.locator('#downloads')).toContainText(MARKER);
+      const opacity = await page.evaluate(() => {
+        const slide = document.querySelector<HTMLElement>('#slide');
+        const disabled = document.querySelector<HTMLElement>('#disabled');
+        if (!slide || !disabled) return null;
+        const before = getComputedStyle(slide).opacity;
+        slide.setAttribute('data-sakutto-pending', '1');
+        disabled.setAttribute('data-sakutto-pending', '1');
+        const after = {
+          slide: getComputedStyle(slide).opacity,
+          disabled: getComputedStyle(disabled).opacity,
+        };
+        slide.removeAttribute('data-sakutto-pending');
+        disabled.removeAttribute('data-sakutto-pending');
+        return { before, ...after };
+      });
+      expect(opacity).toEqual({ before: '0', slide: '0', disabled: '0.4' });
+    } finally {
+      await page.close();
+    }
+  });
 });

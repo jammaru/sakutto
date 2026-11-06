@@ -21,8 +21,12 @@ import {
   collectDocuments,
   collectShadowRoots,
   eachTranslatableBlock,
+  isAriaHiddenLeaf,
   isBlockElement,
+  isFrozenInline,
   isOwnUi,
+  isScreenReaderOnly,
+  isTranslationExcluded,
 } from './blocks';
 import type { OverlayLabels } from './overlay';
 import { PageOverlay, PAGE_STYLE_ELEMENT_ID } from './overlay';
@@ -824,7 +828,9 @@ export class PageSession {
     if (!model) {
       // A container whose only text belongs to nested blocks is covered by those blocks.
       // Reporting it would turn every page with a menu or a form into a partial result.
-      if (ownProse(block)) this.skippedBlocks.set(block, block.textContent ?? '');
+      if (ownProse(block, canonicalPageLanguage(this.prefs.targetLanguage))) {
+        this.skippedBlocks.set(block, block.textContent ?? '');
+      }
       return;
     }
 
@@ -987,14 +993,19 @@ export class PageSession {
   }
 
   /**
-   * Blocks still showing source text because no translation job could be built for them,
-   * and still holding the same text. A block that later gains a translation, or whose text
-   * the page replaced, stops counting.
+   * Blocks still showing source text, either because no translation job could be built for
+   * them or because every attempt failed and the block fell back to its source. A block
+   * that later gains a translation, or whose text the page replaced, stops counting.
    */
   private skippedProse(): number {
     let count = 0;
     for (const [block, text] of [...this.skippedBlocks]) {
-      const gone = this.liveByBlock.has(block) || !block.isConnected || block.textContent !== text;
+      // A block that got a translation is covered, even though it is still a live item.
+      // A block that failed keeps its live entry with an empty translation, so it has to
+      // stay counted here.
+      const live = this.liveByBlock.get(block);
+      const translated = live !== undefined && live.translation.trim().length > 0;
+      const gone = translated || !block.isConnected || block.textContent !== text;
       if (gone) {
         this.skippedBlocks.delete(block);
         continue;
@@ -1243,6 +1254,10 @@ export class PageSession {
     if (!keep.some((part) => part.length > 0)) {
       // Nothing finished. Undo the partial paint so the block shows its source text
       // instead of a half-decoded fragment.
+      // The page keeps showing source prose here, so it must not read as translated. A
+      // block that exhausted its retries is the case the reported page hit: the requests
+      // failed and the bar still said the page was done.
+      if (item.model) this.skippedBlocks.set(item.model.block, item.model.block.textContent ?? '');
       this.resetLive(item);
       item.state = 'done';
       item.translation = '';
@@ -2192,10 +2207,15 @@ function isBodyCopy(block: Element): boolean {
 }
 
 /**
- * True when a block owns prose: text of its own, not only inline wrappers around another
- * block's text. That is what a reader would notice staying in the source language.
+ * True when a block shows prose a reader would notice staying in the source language.
+ *
+ * `buildSegment` keeps a great deal of text out of a segment on purpose: citations and
+ * pronunciation in frozen inlines, inline icon glyphs, screen-reader-only labels, and text
+ * that is already in the target language. None of that is a coverage gap, so counting it
+ * reported every Wikipedia article as "partial" — its interlanguage links, IPA cells and
+ * ward names in Japanese are all source text the builder correctly leaves alone.
  */
-function ownProse(block: Element): boolean {
+function ownProse(block: Element, target: string | null): boolean {
   for (const child of block.childNodes) {
     if (child.nodeType === Node.TEXT_NODE) {
       const value = child.nodeValue ?? '';
@@ -2204,8 +2224,14 @@ function ownProse(block: Element): boolean {
     }
     if (!(child instanceof Element)) continue;
     if (isBlockElement(child)) continue;
-    if (child.matches('[translate="no"], .notranslate')) continue;
-    if (ownProse(child)) return true;
+    // Everything the segment builder drops from the source text. A <style> or <script>
+    // inside a block is excluded the same way; its CSS is not prose the reader sees.
+    if (isTranslationExcluded(child)) continue;
+    if (isFrozenInline(child)) continue;
+    if (isScreenReaderOnly(child)) continue;
+    if (isAriaHiddenLeaf(child)) continue;
+    if (target !== null && isAlreadyTargetLanguage(child, target, null)) continue;
+    if (ownProse(child, target)) return true;
   }
   return false;
 }

@@ -59,16 +59,15 @@ sakutto-note[data-mode="bilingual"] {
   border: 1px solid currentColor;
   border-radius: 999px;
 }
-/**
- * A streaming block keeps full contrast. The old rule faded the whole block to 58% and
- * shimmered down to 32%, so every block that PLaMo had not finished — and, because the
- * attribute could outlive a draft-held or retried block, some that it had — read as pale
- * gray instead of Japanese. Progress is already shown by the status bar and by text that
- * fills in, so the attribute now carries no paint of its own.
+/*
+ * [data-sakutto-pending="1"] has no rule on purpose. It used to fade the whole block to
+ * 58% and shimmer down to 32%, so every block that PLaMo had not finished — and, because
+ * the attribute could outlive a draft-held or retried block, some that it had — read as
+ * pale gray instead of Japanese. Progress is already shown by the status bar and by text
+ * that fills in. It must not paint opacity 1 either: that would override a host that dims
+ * its own text (disabled rows, carousel slides at opacity 0) and make content the page
+ * meant to hide appear as soon as a block starts streaming.
  */
-[data-sakutto-pending="1"] {
-  opacity: 1;
-}
 sakutto-status {
   position: fixed;
   z-index: 2147483646;
@@ -703,17 +702,22 @@ export const PAGE_STYLE_ELEMENT_ID = 'sakutto-style';
 export const TRANSLATION_STYLE_RULES = {
   /** The bilingual line inherits the host color instead of mixing in transparency. */
   line: /sakutto-line\s*\{[^}]*color:\s*inherit/iu,
-  /** A streaming block is never dimmed or shimmered; progress has its own indicator. */
-  pending: /\[data-sakutto-pending="1"\]\s*\{\s*opacity:\s*1\s*;?\s*\}/iu,
+  /** The pending marker paints nothing at all, so it cannot dim or un-dim a host block. */
+  pending: /\[data-sakutto-pending="1"\]\s*\{[^}]*\}/iu,
   /** Any rule that lowers opacity, which is what used to fade translated text. */
   fadedOpacity: /opacity:\s*(?:0?\.\d+|0)\s*;/giu,
+  /** Any rule that raises opacity, which would un-hide a block the host meant to hide. */
+  forcedOpacity: /opacity:\s*1\s*;?/iu,
   shimmer: /@keyframes\s+sakutto-shimmer/iu,
   colorMix: /color-mix\(/iu,
 } as const;
 
 /** The part of the page stylesheet that paints translated text, without the status chip. */
 function translationRules(css: string): string {
-  return css.split('sakutto-status')[0] ?? '';
+  const rules = css.split('sakutto-status')[0] ?? '';
+  // Comments explain the history here, and they name the selectors and properties they
+  // warn about, so they must not be scanned as if they were declarations.
+  return rules.replace(/\/\*[\s\S]*?\*\//g, '');
 }
 
 /**
@@ -724,6 +728,8 @@ export function translationStyleKeepsContrast(css: string): boolean {
   const rules = translationRules(css);
   if (TRANSLATION_STYLE_RULES.shimmer.test(rules)) return false;
   if (TRANSLATION_STYLE_RULES.colorMix.test(rules)) return false;
+  if (TRANSLATION_STYLE_RULES.pending.test(rules)) return false;
+  if (TRANSLATION_STYLE_RULES.forcedOpacity.test(rules)) return false;
   TRANSLATION_STYLE_RULES.fadedOpacity.lastIndex = 0;
   return !TRANSLATION_STYLE_RULES.fadedOpacity.test(rules);
 }

@@ -2050,7 +2050,10 @@ describe('long page translation', () => {
     expect(document.querySelector('#good')?.textContent).toContain('訳:Hello world');
     expect(document.querySelector('#bad')?.textContent).toContain('Poison paragraph');
     expect(session.state().pending).toBe(0);
-    expect(document.documentElement.dataset.sakuttoState).toBe('translated');
+    // The failed block stayed in English, so the page is not finished. Reporting
+    // `translated` here is the false completion the reported page hit.
+    expect(session.state().skipped).toBe(1);
+    expect(document.documentElement.dataset.sakuttoState).toBe('partial');
   });
 
   it('keeps a recent rate instead of a lifetime average that collapses during a pause', async () => {
@@ -2177,6 +2180,14 @@ describe('translated text contrast', () => {
     expect(css).not.toContain('sakutto-shimmer');
     expect(css).not.toContain('color-mix(');
     expect(css).toMatch(/sakutto-line\s*\{[^}]*color:\s*inherit/i);
+  });
+
+  it('does not paint over a host block that dims or hides itself', () => {
+    // `opacity: 1` on the pending marker read as "full contrast" but overrode the host:
+    // a carousel slide at `opacity: 0` popped into view the moment its block started
+    // streaming, and a disabled row lost its dimming. The marker must paint nothing.
+    expect(translationStyleKeepsContrast(translationPageStyle())).toBe(true);
+    expect(translationPageStyle()).not.toMatch(/\[data-sakutto-pending="1"\]\s*\{/);
   });
 
   it('keeps a streamed block at full opacity while its text is still arriving', async () => {
@@ -2385,15 +2396,21 @@ describe('whole-page coverage', () => {
 
   it('does not claim success while visible prose has no translation', async () => {
     document.documentElement.lang = 'en';
-    // The paragraph's only prose sits in a frozen citation, so no segment can be built
-    // for it and it keeps its source language. The page must not report success.
+    // A block whose requests all fail falls back to its source text and the bar used to
+    // say the page was done. A frozen citation is different: the builder keeps it on
+    // purpose, so it is not a coverage gap and must not be reported as one.
     document.body.innerHTML = `
       <p id="ok">Readable sentence</p>
-      <p id="odd">+++ <sup>a widget</sup></p>
+      <p id="odd">This paragraph never translates</p>
     `;
     const session = start(
       document,
-      immediate((text) => `訳:${text}`),
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          if (segment.text.includes('never translates')) throw new Error('model failed');
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
     );
 
     await session.translate();
@@ -2404,10 +2421,37 @@ describe('whole-page coverage', () => {
     expect(view.skipped).toBe(1);
     expect(document.documentElement.dataset.sakuttoState).toBe('partial');
     expect(document.querySelector('#ok')?.textContent).toContain('訳:');
-    expect(document.querySelector('#odd')?.textContent).toContain('a widget');
+    expect(document.querySelector('#odd')?.textContent).toContain(
+      'This paragraph never translates',
+    );
 
     const bar = document.querySelector('sakutto-bar');
     expect(bar?.shadowRoot?.textContent).toContain('翻訳できない箇所が 1 件残っています。');
+  });
+
+  it('never reports a frozen citation or a language link as untranslated', async () => {
+    // Wikipedia keeps citations, IPA and interlanguage links in inline elements the
+    // segment builder leaves alone. Counting them made every real article report
+    // "25 parts of this page could not be translated" over a page that was done.
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = `
+      <p>Osaka (<span class="IPA">oːsaka</span>) is a city.<sup>[1]</sup></p>
+      <ul>
+        <li><a lang="af" href="/af">Afrikaans</a></li>
+        <li><a lang="de" href="/de">Deutsch</a></li>
+      </ul>
+      <table><tr><td><span lang="ja">阿倍野区</span></td></tr></table>
+    `;
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    expect(session.state().skipped).toBe(0);
+    expect(document.documentElement.dataset.sakuttoState).toBe('translated');
   });
 
   it('reports a fully translated page as translated', async () => {

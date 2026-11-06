@@ -212,10 +212,24 @@ function isRenderedHere(element: Element): boolean {
   // `contentVisibilityAuto` stays off on purpose: a long article that uses
   // `content-visibility: auto` skips rendering below the fold, and treating that as
   // hidden would drop most of the page from the very first scan.
-  const measure = element.checkVisibility?.bind(element);
-  if (measure) {
-    return measure({ visibilityProperty: true });
+  const measure = element.checkVisibility?.bind(element) ?? null;
+  if (measure !== null && measure({ visibilityProperty: true })) return true;
+
+  // `checkVisibility()` is false for an element that generates no box, and a
+  // `display: contents` wrapper is exactly that: its children paint, the element itself
+  // does not. Frameworks wrap whole app shells this way — Hugging Face keeps its header,
+  // model card and sidebar inside a `contents` div — so reading the missing box as
+  // "hidden" discarded the page content inside it. Ancestors were already vetted by the
+  // caller's recursion, so only the element's own style decides here.
+  const own = measure === null ? null : view.getComputedStyle(element);
+  if (own !== null && own.display === 'contents') {
+    return (
+      own.visibility !== 'hidden' &&
+      own.visibility !== 'collapse' &&
+      own.contentVisibility !== 'hidden'
+    );
   }
+  if (measure !== null) return false;
 
   for (let node: Element | null = element; node; node = node.parentElement) {
     const style = view.getComputedStyle(node);
