@@ -1,4 +1,4 @@
-import { isAbortError, EngineError, toEngineError } from '../errors';
+import { isAbortError, isEngineError, EngineError, toEngineError } from '../errors';
 import {
   buildTranslationPrompt,
   cleanModelOutput,
@@ -60,10 +60,13 @@ export class InBrowserEngine implements IdentifiedEngine {
     options.signal.addEventListener('abort', forwardAbort, { once: true });
 
     let remaining = work.length;
+    let failed: unknown = null;
     const handles: ScheduledHandle[] = [];
     const finishOne = (): void => {
       remaining -= 1;
-      if (remaining === 0) stream.end();
+      if (remaining > 0) return;
+      if (failed) stream.fail(failed);
+      else stream.end();
     };
 
     for (const item of work) {
@@ -74,8 +77,8 @@ export class InBrowserEngine implements IdentifiedEngine {
             try {
               await this.runWorkItem(item, options, controller.signal, stream);
             } catch (error) {
-              if (!isAbortError(error) && !controller.signal.aborted) {
-                stream.fail(toEngineError(error));
+              if (!isAbortError(error) && !controller.signal.aborted && !failed) {
+                failed = toEngineError(error);
               }
             } finally {
               finishOne();
@@ -117,7 +120,7 @@ export class InBrowserEngine implements IdentifiedEngine {
 
     const pieces = splitForTranslation(segment.text, this.config);
     if (pieces.length <= 1) {
-      const output = await this.complete(
+      const output = await this.completeRecover(
         pieces[0] ?? segment.text.trim(),
         options,
         signal,
@@ -127,26 +130,106 @@ export class InBrowserEngine implements IdentifiedEngine {
       return;
     }
 
-    const translated: string[] = [];
-    for (const piece of pieces) {
-      throwIfAborted(signal);
-      if (translated.length > 0) {
-        const separator = sentenceSeparator(options.tgt);
-        if (separator.length > 0) {
-          stream.push({ id: segment.id, textDelta: separator, engine: this.kind });
-        }
+    await this.runPieces(segment, pieces, options, signal, stream);
+  }
+
+  /**
+   * Sentence pieces of one paragraph share a completion when they fit. Each piece used
+   * to prefill the prompt on its own, so a long paragraph paid that cost once per sentence.
+   */
+  private async runPieces(
+    segment: TranslateSegment,
+    pieces: readonly string[],
+    options: TranslateOptions,
+    signal: AbortSignal,
+    stream: ChunkStream<TranslationChunk>,
+  ): Promise<void> {
+    const synthetic = pieces.map((text, index) => ({
+      id: `${segment.id}#${String(index)}`,
+      text,
+    }));
+    const translated = pieces.map(() => '');
+    let started = false;
+    const emitSeparator = (): void => {
+      if (!started) return;
+      const separator = sentenceSeparator(options.tgt);
+      if (separator.length > 0) {
+        stream.push({ id: segment.id, textDelta: separator, engine: this.kind });
       }
-      const output = await this.complete(piece, options, signal, (delta) =>
-        stream.push({ id: segment.id, textDelta: delta, engine: this.kind }),
+    };
+
+    for (const item of planWork(synthetic, this.config, options.eager === true)) {
+      throwIfAborted(signal);
+      if (item.kind === 'single') {
+        const index = pieceIndex(item.segment.id);
+        emitSeparator();
+        started = true;
+        const output = await this.completeRecover(item.segment.text, options, signal, (delta) =>
+          stream.push({ id: segment.id, textDelta: delta, engine: this.kind }),
+        );
+        translated[index] = cleanModelOutput(output);
+        continue;
+      }
+
+      emitSeparator();
+      started = true;
+      await this.collectBatch(
+        item.segments,
+        item.text,
+        segment.id,
+        translated,
+        options,
+        signal,
+        stream,
       );
-      translated.push(cleanModelOutput(output));
     }
 
     stream.push({
       id: segment.id,
-      final: joinTranslatedSentences(translated, options.tgt),
+      final: joinTranslatedSentences(
+        translated.map((part, index) => (part.trim().length > 0 ? part : (pieces[index] ?? ''))),
+        options.tgt,
+      ),
       engine: this.kind,
     });
+  }
+
+  private async collectBatch(
+    segments: readonly TranslateSegment[],
+    text: string,
+    parentId: string,
+    translated: string[],
+    options: TranslateOptions,
+    signal: AbortSignal,
+    stream: ChunkStream<TranslationChunk>,
+  ): Promise<void> {
+    const side = new ChunkStream<TranslationChunk>();
+    let opened = -1;
+    const reading = (async (): Promise<void> => {
+      for await (const chunk of side) {
+        const index = pieceIndex(chunk.id);
+        if (chunk.textDelta) {
+          if (index !== opened) {
+            if (opened >= 0) {
+              const separator = sentenceSeparator(options.tgt);
+              if (separator.length > 0) {
+                stream.push({ id: parentId, textDelta: separator, engine: this.kind });
+              }
+            }
+            opened = index;
+          }
+          stream.push({ id: parentId, textDelta: chunk.textDelta, engine: this.kind });
+        }
+        if (chunk.final !== undefined) translated[index] = chunk.final;
+      }
+    })();
+
+    try {
+      await this.runBatch(segments, text, options, signal, side);
+    } finally {
+      side.end();
+      await reading;
+    }
   }
 
   private async runBatch(
@@ -158,25 +241,46 @@ export class InBrowserEngine implements IdentifiedEngine {
   ): Promise<void> {
     let shown = 0;
     let pending = '';
-    const output = await this.complete(text, options, signal, (delta) => {
-      pending += delta;
-      let newline = pending.indexOf('\n');
-      while (newline !== -1) {
-        const line = cleanModelOutput(pending.slice(0, newline));
-        pending = pending.slice(newline + 1);
-        newline = pending.indexOf('\n');
-        if (line.length === 0 || shown >= segments.length) continue;
-        const segment = segments[shown];
-        shown += 1;
-        if (segment) stream.push({ id: segment.id, textDelta: line, engine: this.kind });
-      }
-    });
+    let opened = false;
+
+    const takeLine = (): void => {
+      const line = cleanModelOutput(pending);
+      pending = '';
+      opened = false;
+      if (line.length === 0 || shown >= segments.length) return;
+      shown += 1;
+    };
+
+    let output: string;
+    try {
+      output = await this.complete(text, options, signal, (delta) => {
+        let rest = delta;
+        while (rest.length > 0) {
+          const newlineAt = rest.indexOf('\n');
+          const chunk = newlineAt === -1 ? rest : rest.slice(0, newlineAt);
+          if (chunk.length > 0 && shown < segments.length) {
+            pending += chunk;
+            opened = true;
+            const segment = segments[shown];
+            if (segment) stream.push({ id: segment.id, textDelta: chunk, engine: this.kind });
+          }
+          if (newlineAt === -1) break;
+          takeLine();
+          rest = rest.slice(newlineAt + 1);
+        }
+      });
+    } catch (error) {
+      if (signal.aborted || isAbortError(error) || !isOversized(error)) throw error;
+      await this.completeIndividually(segments, options, signal, stream, shown + (opened ? 1 : 0));
+      return;
+    }
+
     const cleaned = cleanModelOutput(output);
     const lines =
       cleaned.length === 0 ? [] : cleaned.split('\n').map((line) => cleanModelOutput(line));
 
     if (lines.length !== segments.length || lines.some((line) => line.length === 0)) {
-      await this.completeIndividually(segments, options, signal, stream, shown);
+      await this.completeIndividually(segments, options, signal, stream, shown + (opened ? 1 : 0));
       return;
     }
 
@@ -202,7 +306,7 @@ export class InBrowserEngine implements IdentifiedEngine {
         continue;
       }
 
-      const output = await this.complete(
+      const output = await this.completeRecover(
         segment.text.trim(),
         options,
         signal,
@@ -211,6 +315,48 @@ export class InBrowserEngine implements IdentifiedEngine {
           : (delta) => stream.push({ id: segment.id, textDelta: delta, engine: this.kind }),
       );
       stream.push({ id: segment.id, final: cleanModelOutput(output), engine: this.kind });
+    }
+  }
+
+  /**
+   * A piece that does not fit is split and translated in smaller calls. Text that still
+   * cannot fit is kept, so one oversized sentence does not drop the rest of the page.
+   */
+  private async completeRecover(
+    text: string,
+    options: TranslateOptions,
+    signal: AbortSignal,
+    onDelta: (delta: string) => void,
+  ): Promise<string> {
+    try {
+      return await this.complete(text, options, signal, onDelta);
+    } catch (error) {
+      if (signal.aborted || isAbortError(error) || !isOversized(error)) throw error;
+      const smaller = splitForTranslation(text, {
+        sentenceThreshold: Math.min(80, this.config.sentenceThreshold),
+        maxChunkChars: Math.min(160, this.config.maxChunkChars),
+      }).filter((piece) => piece.trim().length > 0);
+      const unchanged = smaller.length <= 1 && (smaller[0] ?? '') === text.trim();
+      if (unchanged) return text;
+
+      const parts: string[] = [];
+      for (const piece of smaller) {
+        throwIfAborted(signal);
+        if (parts.length > 0) {
+          const separator = sentenceSeparator(options.tgt);
+          if (separator.length > 0) onDelta(separator);
+        }
+        try {
+          const output = await this.complete(piece, options, signal, onDelta);
+          const cleaned = cleanModelOutput(output);
+          parts.push(cleaned.length > 0 ? cleaned : piece);
+        } catch (inner) {
+          if (signal.aborted || isAbortError(inner) || !isOversized(inner)) throw inner;
+          parts.push(piece);
+          onDelta(piece);
+        }
+      }
+      return parts.join(sentenceSeparator(options.tgt));
     }
   }
 
@@ -267,4 +413,15 @@ export class InBrowserEngine implements IdentifiedEngine {
 
     return output;
   }
+}
+
+function isOversized(error: unknown): boolean {
+  return isEngineError(error) && error.code === 'invalid-input';
+}
+
+function pieceIndex(id: string): number {
+  const marker = id.lastIndexOf('#');
+  if (marker === -1) return 0;
+  const index = Number(id.slice(marker + 1));
+  return Number.isInteger(index) ? index : 0;
 }

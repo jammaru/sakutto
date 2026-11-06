@@ -122,13 +122,13 @@
     "message": "Page pace"
   },
   "paceFast": {
-    "message": "Fast (quick translation off-screen)"
+    "message": "Fast (quick translation off-screen too)"
   },
   "paceQuality": {
     "message": "Quality only"
   },
   "paceHelp": {
-    "message": "Fast shows Chrome's built-in translation, labelled as a quick translation, for blocks outside the screen. PLaMo replaces them in reading order. The first paragraph stays on PLaMo. Quality only waits for PLaMo."
+    "message": "Text on screen appears at once with Chrome's built-in translation, labelled as a quick translation, and PLaMo replaces it in reading order. Fast also fills off-screen text that way. Quality only waits for PLaMo off-screen."
   },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",

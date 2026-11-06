@@ -122,13 +122,13 @@
     "message": "ページの速さ"
   },
   "paceFast": {
-    "message": "速い（画面外は簡易訳）"
+    "message": "速い（画面の外も簡易訳）"
   },
   "paceQuality": {
     "message": "品質のみ"
   },
   "paceHelp": {
-    "message": "「速い」は画面の外を Chrome 内蔵翻訳の簡易訳ですぐ表示し、PLaMo が読む順に置き換えます。最初の段落は PLaMo のままです。「品質のみ」は PLaMo を待ちます。"
+    "message": "見えている範囲は Chrome 内蔵の簡易訳ですぐ表示し、PLaMo が読む順に置き換えます。「速い」は画面の外も簡易訳します。「品質のみ」は画面の外を PLaMo まで待ちます。"
   },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ 区間/s",

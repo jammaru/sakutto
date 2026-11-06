@@ -77,6 +77,13 @@ describe('InBrowserEngine', () => {
 
   it('splits a long paragraph and joins the translated sentences', async () => {
     const runtime = new FakeRuntime((prompt) => {
+      if (
+        prompt.includes('First sentence') &&
+        prompt.includes('Second sentence') &&
+        prompt.includes('Third sentence')
+      ) {
+        return 'First translation.\nSecond translation.\nThird translation.';
+      }
       if (prompt.includes('First sentence')) return 'First translation.';
       if (prompt.includes('Second sentence')) return 'Second translation.';
       return 'Third translation.';
@@ -91,7 +98,7 @@ describe('InBrowserEngine', () => {
       engine.translate([{ id: 'long', text }], options({ tgt: 'en' })),
     );
 
-    expect(runtime.requests).toHaveLength(3);
+    expect(runtime.requests).toHaveLength(1);
     expect(finalChunks(chunks)).toEqual([
       {
         id: 'long',
@@ -144,9 +151,16 @@ describe('InBrowserEngine', () => {
       ),
     );
 
-    const firstLine = chunks.findIndex(
-      (chunk) => chunk.id === 'a' && chunk.textDelta === 'サインイン',
-    );
+    const readyAt = (id: string, text: string): number =>
+      chunks.findIndex((_, index) => {
+        const soFar = chunks
+          .slice(0, index + 1)
+          .filter((chunk) => chunk.id === id && chunk.textDelta !== undefined)
+          .map((chunk) => chunk.textDelta)
+          .join('');
+        return soFar === text;
+      });
+    const firstLine = readyAt('a', 'サインイン');
     const lastFinal = chunks.findIndex((chunk) => chunk.id === 'c' && chunk.final === 'もっと見る');
     expect(firstLine).toBeGreaterThanOrEqual(0);
     expect(lastFinal).toBeGreaterThan(firstLine);
@@ -274,6 +288,25 @@ describe('InBrowserEngine', () => {
       { id: 'b', final: '設定', engine: 'plamo' },
       { id: 'c', final: 'もっと見る', engine: 'plamo' },
     ]);
+  });
+
+  it('keeps the next segment when one piece does not fit in the context', async () => {
+    const runtime = new FakeRuntime(() => '訳');
+    const engine = new InBrowserEngine(runtime, { contextTokens: 96 });
+
+    const chunks = await collectChunks(
+      engine.translate(
+        [
+          { id: 'big', text: 'word '.repeat(500) },
+          { id: 'small', text: 'Hello.' },
+        ],
+        options(),
+      ),
+    );
+
+    const finals = finalChunks(chunks);
+    expect(finals.find((chunk) => chunk.id === 'small')?.final).toBe('訳');
+    expect((finals.find((chunk) => chunk.id === 'big')?.final ?? '').length).toBeGreaterThan(0);
   });
 
   it('returns empty segments without calling the runtime', async () => {
