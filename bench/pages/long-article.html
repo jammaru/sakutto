@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>The long road to a reliable ferry timetable</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #fffdf9;
+        color: #1b1b1f;
+        font:
+          17px/1.65 Georgia,
+          'Iowan Old Style',
+          'Times New Roman',
+          serif;
+      }
+      header.site {
+        display: flex;
+        gap: 22px;
+        align-items: baseline;
+        flex-wrap: wrap;
+        padding: 16px 28px;
+        border-bottom: 1px solid #e7e1d6;
+        background: #fbf7ef;
+        font:
+          14px/1.4 -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+      }
+      header.site .brand {
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+      }
+      header.site nav {
+        display: block;
+      }
+      header.site ul {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      header.site a {
+        color: #5a4a2f;
+        text-decoration: none;
+      }
+      .wrap {
+        display: flex;
+        align-items: flex-start;
+        gap: 40px;
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 32px 24px 96px;
+      }
+      article {
+        flex: 1 1 34rem;
+        min-width: 0;
+      }
+      h1 {
+        font-size: 2.1rem;
+        line-height: 1.2;
+        margin: 0 0 10px;
+      }
+      .standfirst {
+        font-size: 1.12rem;
+        color: #4a4640;
+        margin: 0 0 26px;
+      }
+      h2 {
+        font-size: 1.25rem;
+        margin: 2.1rem 0 0.6rem;
+        letter-spacing: 0.005em;
+      }
+      p {
+        margin: 0 0 1.05rem;
+      }
+      blockquote {
+        margin: 1.6rem 0;
+        padding: 4px 0 4px 18px;
+        border-left: 3px solid #cbbfa6;
+        color: #3d3a34;
+        font-style: italic;
+      }
+      figure {
+        margin: 1.8rem 0;
+        padding: 12px 16px;
+        background: #f4efe4;
+        border-radius: 6px;
+        font:
+          14px/1.5 -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        color: #4a4640;
+      }
+      code {
+        font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+        font-size: 0.86em;
+      }
+      aside.rail {
+        flex: 0 0 15rem;
+        padding: 18px;
+        border: 1px solid #e7e1d6;
+        border-radius: 8px;
+        background: #fbf7ef;
+        font:
+          13px/1.5 -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+      }
+      aside.rail h3 {
+        margin: 0 0 8px;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #6b6353;
+      }
+      aside.rail ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+      footer.site {
+        padding: 22px 28px 48px;
+        border-top: 1px solid #e7e1d6;
+        font:
+          13px/1.5 -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        color: #5a5347;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site">
+      <span class="brand">Harbor Review</span>
+      <nav>
+        <ul>
+          <li data-bench="ui" data-bench-id="nav-1"><a href="#report">Coastal</a></li>
+          <li data-bench="ui" data-bench-id="nav-2"><a href="#report">Transit</a></li>
+          <li data-bench="ui" data-bench-id="nav-3"><a href="#report">Weather</a></li>
+          <li data-bench="ui" data-bench-id="nav-4"><a href="#report">Data desk</a></li>
+          <li data-bench="ui" data-bench-id="nav-5"><a href="#report">Archive</a></li>
+          <li data-bench="ui" data-bench-id="nav-6"><a href="#report">Subscribe</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <div class="wrap">
+      <article>
+        <h1 data-bench="heading" data-bench-id="title">
+          The long road to a reliable ferry timetable
+        </h1>
+        <p class="standfirst" data-bench="prose" data-bench-id="standfirst">
+          For eleven months, a small harbor authority rewrote the schedule that six thousand people
+          depend on every day. The arguments over minutes turned out to be arguments about trust.
+        </p>
+
+        <p data-bench="prose" data-bench-id="p1">
+          The first draft of the winter timetable arrived on a Tuesday, stapled into three bundles
+          and left on the counter of the booking office beside a bowl of peppermints. It moved the
+          seven o'clock sailing four minutes earlier and the last crossing eleven minutes later, and
+          nobody who read it believed those numbers were the important part.
+        </p>
+
+        <p data-bench="prose" data-bench-id="p2">
+          A timetable is a promise made in advance by people who understand how rarely the sea keeps
+          promises. The authority had spent the previous season apologising for cancellations, and
+          the new document was an attempt to apologise less often by admitting more about the
+          weather, the tides, and the age of the boats.
+        </p>
+
+        <h2 data-bench="heading" data-bench-id="h2-1">How the review began</h2>
+
+        <p data-bench="prose" data-bench-id="p3">
+          The review began with a spreadsheet of every crossing made in the previous three years,
+          joined to a log of wind speeds recorded at the outer buoy. Two analysts spent a fortnight
+          matching delays to conditions and found that almost half of the late sailings happened in
+          a narrow band of wind directions that funnelled between the headland and the eastern
+          breakwater.
+        </p>
+
+        <p data-bench="prose" data-bench-id="p4">
+          That finding changed the shape of the conversation. Instead of arguing about whether a
+          particular morning had been unusually rough, the committee could point at a pattern that
+          repeated itself three or four times a month and ask what the schedule should do about it
+          in advance rather than afterwards.
+        </p>
+
+        <p data-bench="prose" data-bench-id="p5">
+          The harbourmaster, who had worked the crossing for nineteen years before taking the desk
+          job, was sceptical of the spreadsheet at first. She pointed out that the buoy measures
+          wind at a height no deck experiences and that a single number cannot describe a sea that
+          arrives from two directions at once.
+        </p>
+
+        <blockquote data-bench="prose" data-bench-id="quote">
+          We do not need a forecast that is always right. We need a promise that is honest enough
+          that people can plan around it.
+        </blockquote>
+
+        <h2 data-bench="heading" data-bench-id="h2-2">The tidal window</h2>
+
+        <p data-bench="prose" data-bench-id="p6">
+          The eastern pier was built for boats that were shorter than the ones now in service, and
+          at the lowest tides of the month the ramp sits at an angle that makes loading slow. The
+          authority had quietly absorbed the cost of that angle for years by padding the turnaround
+          time, which meant the published schedule was already a generous document nobody trusted.
+        </p>
+
+        <p data-bench="prose" data-bench-id="p7">
+          Padding is a strange kind of honesty. It protects the operator from blame and costs the
+          passenger a few minutes every day, and because the pad is invisible, passengers learn to
+          treat the printed time as an aspiration. One of the review's recommendations was to
+          publish the tide window instead of hiding it inside an unexplained gap.
+        </p>
+
+        <p data-bench="prose" data-bench-id="p8">
+          That recommendation produced the longest argument of the winter. Publishing the window
+          would mean admitting that some crossings cannot be punctual, and the authority's board was
+          worried that a visible constraint would look like an excuse rather than a plan.
+        </p>
+
+        <figure data-bench="prose" data-bench-id="figure">
+          Crossings delayed by more than five minutes, by month, 2023 to 2026. The autumn band is
+          narrower than the spring band but twice as deep, and both track the same wind direction.
+        </figure>
+
+        <h2 data-bench="heading" data-bench-id="h2-3">What passengers said</h2>
+
+        <p data-bench="prose" data-bench-id="p9">
+          The survey went out in three languages and came back with four thousand replies, which for
+          a route of this size was unprecedented. The free-text answers were more useful than the
+          ratings, because they described the situations that made a late boat expensive: a hospital
+          appointment, a shift handover, a school gate that closes at ten past eight.
+        </p>
+
+        <p data-bench="prose" data-bench-id="p10">
+          One respondent wrote that she did not mind waiting when she knew the wait was coming, and
+          that the worst mornings were the ones where the board showed a time that had already
+          passed. Several others described the same thing in different words, and the pattern was
+          impossible to ignore.
+        </p>
+
+        <p data-bench="prose" data-bench-id="p11">
+          The review team began to think of the timetable as two documents: the one printed on the
+          wall and the one the authority actually believed. Closing the distance between them looked
+          like a cheaper improvement than buying a faster boat, and it had the advantage of being
+          possible within a single budget cycle.
+        </p>
+
+        <h2 data-bench="heading" data-bench-id="h2-4">Freight, crews, and the night crossing</h2>
+
+        <p data-bench="prose" data-bench-id="p12">
+          Freight operators had the least patience for the review and the most to lose from a badly
+          sequenced change. A van that misses the nine o'clock crossing loses a morning of
+          deliveries on the far side, and two of the island's three grocers plan their week around
+          that single sailing.
+        </p>
+
+        <p data-bench="prose" data-bench-id="p13">
+          Crew rest rules set a hard boundary around any discussion of the night crossing. The last
+          boat cannot leave later than it does without shortening the interval before the first
+          morning sailing, and shortening that interval is the one change the union has consistently
+          refused to consider.
+        </p>
+
+        <p data-bench="prose" data-bench-id="p14">
+          So the review worked backwards from the morning. Everything else, including the length of
+          the evening gap, was negotiable as long as the first boat left on time with a full crew
+          and a rested master, which is why the final document looks less like a timetable than a
+          chain of dependencies with a hull attached.
+        </p>
+
+        <p data-bench="prose" data-bench-id="p15">
+          The cost model added a further constraint that nobody had expected. Running the same
+          number of crossings with a wider buffer cost slightly less in fuel, because boats that are
+          not racing a deadline hold a steadier speed, and slightly more in staff hours, because the
+          turnaround allowance grew at both ends of the day.
+        </p>
+
+        <p data-bench="prose" data-bench-id="p16">
+          Island residents made the environmental case in the plainest terms available. The ferry is
+          the clinic's supply line, the school's second bus, and the only way a plumber reaches a
+          broken pump in February, so a schedule that fails quietly in bad weather is a public
+          health problem dressed as a transport problem.
+        </p>
+
+        <p data-bench="prose" data-bench-id="p17">
+          Ticketing changed too, though more slowly than the schedule. The authority replaced its
+          paper punch cards with a scanner that works in the rain, and the first month produced a
+          predictable crop of duplicate charges. The refunds were quick, and the goodwill survived
+          mostly because the office answered the telephone.
+        </p>
+
+        <p data-bench="prose" data-bench-id="p18">
+          By the time the final draft went to the board, the document had grown four appendices and
+          lost two sailings. It also contained a sentence that would have been unthinkable a year
+          earlier: when conditions exceed the stated limits, the crossing will not depart, and the
+          decision will be published within twenty minutes.
+        </p>
+
+        <p data-bench="prose" data-bench-id="p19">
+          The board approved it by a single vote, which the harbourmaster described afterwards as
+          the correct margin for a document that promises less and delivers more. The new schedule
+          takes effect in three weeks, and the first test of it will not be the weather but whether
+          anyone bothers to read the appendices.
+        </p>
+      </article>
+
+      <aside class="rail">
+        <h3 data-bench="ui" data-bench-id="rail-title">In this report</h3>
+        <ul>
+          <li data-bench="ui" data-bench-id="rail-1">How the review began</li>
+          <li data-bench="ui" data-bench-id="rail-2">The tidal window</li>
+          <li data-bench="ui" data-bench-id="rail-3">What passengers said</li>
+          <li data-bench="ui" data-bench-id="rail-4">Freight and crews</li>
+          <li data-bench="ui" data-bench-id="rail-5">Decision timeline</li>
+        </ul>
+        <h3 data-bench="ui" data-bench-id="rail-data-title">From the data desk</h3>
+        <ul>
+          <li data-bench="ui" data-bench-id="rail-d1">3.1 years of crossings</li>
+          <li data-bench="ui" data-bench-id="rail-d2">4,012 survey replies</li>
+          <li data-bench="ui" data-bench-id="rail-d3">19 staff interviews</li>
+        </ul>
+      </aside>
+    </div>
+
+    <footer class="site">
+      <p data-bench="ui" data-bench-id="foot-1">Harbor Review — coastal reporting since 1998</p>
+    </footer>
+  </body>
+</html>

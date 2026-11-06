@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>First paragraph fast, then a long tail</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: #1a1a1a;
+        font:
+          17px/1.66 Georgia,
+          'Iowan Old Style',
+          'Times New Roman',
+          serif;
+      }
+      header.masthead {
+        display: flex;
+        align-items: baseline;
+        gap: 20px;
+        padding: 14px 28px;
+        border-bottom: 1px solid #e6e6e6;
+        font:
+          13.5px/1.4 -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        background: #fcfcfc;
+      }
+      header.masthead .brand {
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+      header.masthead nav ul {
+        display: flex;
+        gap: 16px;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      header.masthead a {
+        color: #4a4a4a;
+        text-decoration: none;
+      }
+      main {
+        max-width: 40rem;
+        margin: 0 auto;
+        padding: 34px 24px 140px;
+      }
+      h1 {
+        font-size: 2rem;
+        line-height: 1.2;
+        margin: 0 0 12px;
+        letter-spacing: -0.01em;
+      }
+      .lead {
+        font-size: 1.15rem;
+        color: #3a3a3a;
+        margin: 0 0 30px;
+      }
+      h2 {
+        font-size: 1.2rem;
+        margin: 2rem 0 0.6rem;
+      }
+      p {
+        margin: 0 0 1.05rem;
+      }
+      blockquote {
+        margin: 1.6rem 0;
+        padding-left: 18px;
+        border-left: 3px solid #d6d6d6;
+        color: #3d3d3d;
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="masthead">
+      <p class="brand">The Ledger</p>
+      <nav>
+        <ul>
+          <li data-bench="ui" data-bench-id="nav-1"><a href="#story">Markets</a></li>
+          <li data-bench="ui" data-bench-id="nav-2"><a href="#story">Industry</a></li>
+          <li data-bench="ui" data-bench-id="nav-3"><a href="#story">Opinion</a></li>
+          <li data-bench="ui" data-bench-id="nav-4"><a href="#story">Archive</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main>
+      <h1 data-bench="heading" data-bench-id="title">
+        A small co-op bought its own grid, and the bills went down
+      </h1>
+
+      <!--
+        The lead is deliberately short. A reader should be able to start reading almost
+        immediately while the rest of the article is still being translated, so a run on
+        this page shows the gap between first text and the finished page.
+      -->
+      <p class="lead" data-bench="prose" data-bench-id="lead">
+        Six villages pooled their savings and bought the substation that had been raising their
+        prices for a decade.
+      </p>
+
+      <p data-bench="prose" data-bench-id="p1">
+        The vote took four minutes and had been eight years in the making. On a wet Tuesday in
+        March, sixty-one households agreed to borrow against their own roofs to buy a substation
+        that had changed hands three times since the grid was privatised, and whose last owner had
+        raised the standing charge twice in eighteen months without explaining why.
+      </p>
+
+      <p data-bench="prose" data-bench-id="p2">
+        Nobody in the room was under the illusion that the purchase would be simple. The substation
+        is thirty-one years old, its transformers were last rewound in 2011, and the easement that
+        carries the line across the eastern field expires in 2031 unless the landowner agrees to
+        renew it. The co-op's solicitor read all three problems aloud before the vote, which is the
+        kind of thing that usually kills a proposal.
+      </p>
+
+      <p data-bench="prose" data-bench-id="p3">
+        What carried it instead was arithmetic on a single sheet of paper. The standing charge alone
+        accounted for a little over a fifth of what a typical household paid each year, and the
+        co-op's model showed that owning the asset and paying a contractor to maintain it would cost
+        less than that within four years, even with a pessimistic assumption about how often the
+        transformers would fail.
+      </p>
+
+      <h2 data-bench="heading" data-bench-id="h2-1">The numbers behind the vote</h2>
+
+      <p data-bench="prose" data-bench-id="p4">
+        The model was built by a retired distribution engineer who had spent twenty-two years in the
+        regional utility and who described his spreadsheet, without irony, as the least interesting
+        document he had ever produced. It projects maintenance costs, replacement costs, insurance
+        and the interest on the loan, then compares the total against the charges the co-op would
+        otherwise have paid.
+      </p>
+
+      <p data-bench="prose" data-bench-id="p5">
+        The interesting column is the one labelled "failure", which carries an estimate of how many
+        times a year the older transformer will trip in cold weather. The engineer set that number
+        at four, which is twice the rate the utility had recorded, because he did not trust the
+        utility's records. Even at four, the co-op still comes out ahead by the fourth winter.
+      </p>
+
+      <blockquote data-bench="prose" data-bench-id="quote">
+        We are not trying to beat the grid. We are trying to stop paying for the parts of it that
+        never reach us.
+      </blockquote>
+
+      <p data-bench="prose" data-bench-id="p6">
+        That line, from the co-op's chair, became the slogan on the leaflet that went to every
+        household. It is also, more or less, the legal theory behind the purchase: the co-op is not
+        building a rival network, it is acquiring the last mile that it already pays to use, and
+        hiring professionals to run it on the same standards the regulator requires.
+      </p>
+
+      <p data-bench="prose" data-bench-id="p7">
+        The regulator's response has been cautious but not hostile. Its published guidance allows a
+        community to own distribution assets, provided the operation is licensed, the safety
+        obligations are met, and the co-op does not try to serve customers outside its own boundary.
+        The last condition is the awkward one, because two farms on the far side of the line have
+        asked whether they can join.
+      </p>
+
+      <h2 data-bench="heading" data-bench-id="h2-2">What the first winter showed</h2>
+
+      <p data-bench="prose" data-bench-id="p8">
+        The first winter produced eleven faults, three of them inside a fortnight, all of them on
+        the section of overhead line that runs along the ridge. The contractor was on site within
+        four hours each time, which was faster than the previous owner had managed, and the co-op's
+        outage log is now public, which is new.
+      </p>
+
+      <p data-bench="prose" data-bench-id="p9">
+        Publishing the log changed the tone of the local meetings. Instead of arguing about whether
+        the power had gone off, residents could point at a date and a duration, and the board could
+        answer with a work order. Two of the eleven faults turned out to be caused by a single
+        damaged insulator that had been missed in the handover survey.
+      </p>
+
+      <p data-bench="prose" data-bench-id="p10">
+        The ridge line is now scheduled for replacement in the spring, at a cost the co-op had not
+        budgeted for, funded by a small increase in the monthly contribution that the board approved
+        without a vote because it fell inside the reserve it had set aside. Three households wrote
+        to object, and the board published the letters alongside its reply.
+      </p>
+
+      <p data-bench="prose" data-bench-id="p11">
+        There is a broader lesson in the letters, which is that a co-op's members are not customers
+        and do not behave like them. A customer who is unhappy leaves, and the operator loses
+        revenue. A member who is unhappy turns up at the next meeting and asks detailed questions
+        about the reserve, which is more work and considerably more useful.
+      </p>
+
+      <h2 data-bench="heading" data-bench-id="h2-3">The part nobody modelled</h2>
+
+      <p data-bench="prose" data-bench-id="p12">
+        What the spreadsheet could not capture was the time. Running a licensed distribution asset
+        is a second job for the four people on the board, and the paperwork is not trivial: safety
+        inspections, insurance renewals, a quarterly return that the regulator reads in a way nobody
+        has yet been able to explain to a volunteer.
+      </p>
+
+      <p data-bench="prose" data-bench-id="p13">
+        The co-op has since hired a part-time clerk, which appears in the model as a cost the
+        engineer had omitted because he assumed the board would absorb it. It is the single largest
+        correction to the original arithmetic, and it pushes the payback out by roughly seven
+        months.
+      </p>
+
+      <p data-bench="prose" data-bench-id="p14">
+        Even so, the board is ahead of its own projection at the eighteen-month mark, mostly because
+        the price of the wholesale power it buys has fallen faster than the model assumed. That is
+        luck rather than judgement, and the chair says so every time the subject comes up at a
+        meeting.
+      </p>
+
+      <p data-bench="prose" data-bench-id="p15">
+        The two farms across the line are still waiting. Serving them would mean extending the
+        licensed boundary, which is a decision for the regulator and not for the co-op, and which
+        the co-op has decided not to pursue until the ridge line has been replaced and a full year
+        has passed without a fault inside the boundary.
+      </p>
+
+      <p data-bench="prose" data-bench-id="p16">
+        In the meantime the substation has a new fence, a new sign, and a small brass plate by the
+        gate that lists the names of the sixty-one households that voted for the purchase. It is the
+        only piece of infrastructure in the valley with a list of owners on the front, and the chair
+        admits she had it made before the vote, in the hope that she would need it.
+      </p>
+    </main>
+  </body>
+</html>

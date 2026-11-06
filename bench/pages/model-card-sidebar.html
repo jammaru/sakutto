@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>riverlight/plamo-diffusion-1b</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: #1f2328;
+        font:
+          15px/1.55 -apple-system,
+          'Segoe UI',
+          Roboto,
+          Helvetica,
+          sans-serif;
+      }
+      header.top {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 12px 24px;
+        border-bottom: 1px solid #e5e7eb;
+        font-size: 14px;
+      }
+      header.top .logo {
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        margin: 0;
+      }
+      header.top nav ul {
+        display: flex;
+        gap: 16px;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      header.top nav a {
+        color: #57606a;
+        text-decoration: none;
+      }
+      .tabs {
+        display: flex;
+        gap: 22px;
+        padding: 0 24px;
+        border-bottom: 1px solid #e5e7eb;
+        font-size: 14px;
+        color: #57606a;
+      }
+      .tabs p {
+        padding: 12px 0;
+        margin: 0;
+      }
+      .tabs .on {
+        color: #1f2328;
+        border-bottom: 2px solid #1f2328;
+        font-weight: 600;
+      }
+      .layout {
+        display: flex;
+        align-items: flex-start;
+        gap: 32px;
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 28px 24px 96px;
+      }
+      .column {
+        flex: 1 1 40rem;
+        min-width: 0;
+      }
+      .panel {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 24px 26px;
+        margin: 0 0 20px;
+      }
+      h1 {
+        font-size: 1.6rem;
+        letter-spacing: -0.02em;
+        margin: 0 0 6px;
+      }
+      .subtitle {
+        color: #57606a;
+        margin: 0 0 18px;
+        font-size: 0.95rem;
+      }
+      .tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 0 0 18px;
+        padding: 0;
+        list-style: none;
+      }
+      .tags li {
+        border: 1px solid #d0d7de;
+        border-radius: 999px;
+        padding: 2px 10px;
+        font-size: 12px;
+        color: #3d444d;
+      }
+      .readme h2 {
+        font-size: 1.15rem;
+        margin: 1.7rem 0 0.5rem;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #eaeef2;
+      }
+      .readme p {
+        margin: 0 0 1rem;
+      }
+      .readme ul {
+        margin: 0 0 1rem;
+        padding-left: 22px;
+      }
+      .readme li {
+        margin: 0 0 0.35rem;
+      }
+      .readme code {
+        font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+        font-size: 0.85em;
+        background: #f6f8fa;
+        border-radius: 4px;
+        padding: 1px 5px;
+      }
+      pre {
+        background: #f6f8fa;
+        border-radius: 6px;
+        padding: 14px 16px;
+        overflow: auto;
+        margin: 0 0 1rem;
+      }
+      pre code {
+        background: none;
+        padding: 0;
+        font-size: 0.82rem;
+        line-height: 1.5;
+      }
+      aside.info {
+        flex: 0 0 17rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 18px 20px;
+        font-size: 13px;
+        color: #3d444d;
+      }
+      aside.info h2 {
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #57606a;
+        margin: 0 0 10px;
+      }
+      aside.info dl {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 6px 12px;
+        margin: 0 0 18px;
+      }
+      aside.info dt {
+        color: #57606a;
+        font-weight: 400;
+      }
+      aside.info dd {
+        margin: 0;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      aside.info .model-index {
+        border-top: 1px solid #eaeef2;
+        padding-top: 14px;
+      }
+      aside.info .model-index p {
+        display: flex;
+        justify-content: space-between;
+        padding: 3px 0;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="top">
+      <p class="logo" data-bench="ui" data-bench-id="logo">Meridian Hub</p>
+      <nav>
+        <ul>
+          <li data-bench="ui" data-bench-id="nav-models"><a href="#readme">Models</a></li>
+          <li data-bench="ui" data-bench-id="nav-datasets"><a href="#readme">Datasets</a></li>
+          <li data-bench="ui" data-bench-id="nav-spaces"><a href="#readme">Spaces</a></li>
+          <li data-bench="ui" data-bench-id="nav-docs"><a href="#readme">Docs</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <div class="tabs">
+      <p class="on" data-bench="ui" data-bench-id="tab-card">Model card</p>
+      <p data-bench="ui" data-bench-id="tab-files">Files and versions</p>
+      <p data-bench="ui" data-bench-id="tab-community">Community</p>
+      <p data-bench="ui" data-bench-id="tab-settings">Settings</p>
+    </div>
+
+    <div class="layout">
+      <div class="column">
+        <section class="panel">
+          <h1 data-bench="heading" data-bench-id="title">riverlight / plamo-diffusion-1b</h1>
+          <p class="subtitle" data-bench="prose" data-bench-id="subtitle">
+            A masked diffusion language model fine-tuned for short document translation. Trained on
+            paired paragraphs in eleven languages, released for research use.
+          </p>
+          <ul class="tags">
+            <li data-bench="ui" data-bench-id="tag-1">diffusion</li>
+            <li data-bench="ui" data-bench-id="tag-2">translation</li>
+            <li data-bench="ui" data-bench-id="tag-3">multilingual</li>
+            <li data-bench="ui" data-bench-id="tag-4">masked-lm</li>
+            <li data-bench="ui" data-bench-id="tag-5">research</li>
+          </ul>
+        </section>
+
+        <section class="panel readme">
+          <h2 data-bench="heading" data-bench-id="h2-1">Overview</h2>
+          <p data-bench="prose" data-bench-id="p1">
+            This model converts an autoregressive checkpoint into a masked diffusion decoder. Full
+            attention layers drop the causal mask, and the sampling loop unmasks the most confident
+            positions first, so a paragraph is produced in a fixed number of passes rather than one
+            token at a time.
+          </p>
+          <p data-bench="prose" data-bench-id="p2">
+            The practical effect for translation is that latency depends on the number of refinement
+            steps rather than on the length of the output. Short segments finish in eight passes,
+            while longer paragraphs benefit from sixteen, and the quality difference between the two
+            settings is smaller than the timing difference.
+          </p>
+
+          <h2 data-bench="heading" data-bench-id="h2-2">Training data</h2>
+          <p data-bench="prose" data-bench-id="p3">
+            The fine-tuning set contains roughly nine million paragraph pairs filtered for document
+            alignment, sentence segmentation quality, and language identification confidence. Pairs
+            that failed an automated back-translation check were removed before training, which cut
+            the dataset by about eleven percent and improved the held-out score.
+          </p>
+          <ul>
+            <li data-bench="prose" data-bench-id="li-1">
+              News and magazine prose, licensed for research use only.
+            </li>
+            <li data-bench="prose" data-bench-id="li-2">
+              Technical documentation released under permissive licenses.
+            </li>
+            <li data-bench="prose" data-bench-id="li-3">
+              Public-domain fiction and out-of-copyright reference works.
+            </li>
+          </ul>
+
+          <h2 data-bench="heading" data-bench-id="h2-3">Usage</h2>
+          <p data-bench="prose" data-bench-id="p4">
+            Load the quantized weights with any runtime that supports the reference chat template
+            and pass the language pair as a structured prefix. The example below runs on CPU with
+            four threads and no GPU offload.
+          </p>
+          <pre><code data-bench="code" data-bench-id="code-1">const runtime = await loadModel("plamo-diffusion-1b-q4.gguf", {
+  nCtx: 2048,
+  nThreads: 4,
+  nGpuLayers: 0,
+});
+const out = await runtime.translate({ text, src: "en", tgt: "ja" });</code></pre>
+
+          <h2 data-bench="heading" data-bench-id="h2-4">Limitations</h2>
+          <p data-bench="prose" data-bench-id="p5">
+            The model inherits the biases of its training pairs and performs poorly on text that
+            mixes scripts inside a single sentence. Inline markup is preserved only when the request
+            uses the placeholder convention described in the reference implementation, and long
+            inputs should be split at sentence boundaries before they reach the model.
+          </p>
+          <p data-bench="prose" data-bench-id="p6">
+            Evaluation was limited to paragraph-level translation with a reference translation
+            available for scoring. Interactive settings, where a user waits for the first characters
+            of a paragraph, were not measured and may behave differently from the reported numbers.
+          </p>
+
+          <h2 data-bench="heading" data-bench-id="h2-5">Citation</h2>
+          <pre><code data-bench="code" data-bench-id="code-2">@misc{riverlight2026diffusion,
+  title  = {Masked diffusion decoding for short document translation},
+  author = {Riverlight Research},
+  year   = {2026},
+}</code></pre>
+        </section>
+      </div>
+
+      <aside class="info">
+        <h2 data-bench="ui" data-bench-id="info-title">Model details</h2>
+        <dl>
+          <dt data-bench="ui" data-bench-id="dt-downloads">Downloads last month</dt>
+          <dd>12,847</dd>
+          <dt data-bench="ui" data-bench-id="dt-size">Model size</dt>
+          <dd data-bench="ui" data-bench-id="dd-size">0.8B params</dd>
+          <dt data-bench="ui" data-bench-id="dt-tensor">Tensor type</dt>
+          <dd data-bench="ui" data-bench-id="dd-tensor">BF16</dd>
+          <dt data-bench="ui" data-bench-id="dt-updated">Updated</dt>
+          <dd data-bench="ui" data-bench-id="dd-updated">3 days ago</dd>
+          <dt data-bench="ui" data-bench-id="dt-license">License</dt>
+          <dd data-bench="ui" data-bench-id="dd-license">Research</dd>
+        </dl>
+        <div class="model-index">
+          <p data-bench="ui" data-bench-id="mi-1">Translation 41.2</p>
+          <p data-bench="ui" data-bench-id="mi-2">Fluency 38.7</p>
+          <p data-bench="ui" data-bench-id="mi-3">Latency 29.4</p>
+          <p data-bench="ui" data-bench-id="mi-4">Robustness 33.9</p>
+        </div>
+      </aside>
+    </div>
+  </body>
+</html>

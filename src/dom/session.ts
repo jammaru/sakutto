@@ -257,6 +257,12 @@ export class PageSession {
   private firstTextAt: number | null = null;
   private samples: { id: string; ms: number }[] = [];
   private perf: HTMLElement | null = null;
+  /**
+   * Scheduling counters for the page bench. They describe how the page drove the engine
+   * — batches and pieces — which is the only part of a run a mock translator can still
+   * measure, and the part a software-side speed change actually moves.
+   */
+  private work = { batches: 0, pieces: 0, engineMs: 0 };
   private readonly onVisibility: () => void;
   private readonly onScroll: () => void;
   private readonly onPageHide: () => void;
@@ -497,6 +503,7 @@ export class PageSession {
     this.heldRates = { tokensPerSecond: null, segmentsPerSecond: null };
     this.heldTokensAt = 0;
     this.heldSegmentsAt = 0;
+    this.work = { batches: 0, pieces: 0, engineMs: 0 };
     this.pageController = new AbortController();
     this.eagerOnce = true;
     this.lastRateAt = 0;
@@ -1142,6 +1149,10 @@ export class PageSession {
       return;
     }
 
+    this.work.batches += 1;
+    this.work.pieces += requests.length;
+    const engineStarted = performance.now();
+
     try {
       for await (const chunk of this.engine.translate(
         requests,
@@ -1167,6 +1178,10 @@ export class PageSession {
     } catch {
       // Unfinished blocks are retried below. Abort keeps the previous text.
     } finally {
+      this.work.engineMs += Math.round(performance.now() - engineStarted);
+      // The last `complete()` of this batch already ran inside the loop above, before this
+      // time was added, so the payload has to be rewritten once the batch's cost is known.
+      this.writePerf();
       for (const item of batch) {
         if (item.batchToken !== token || item.state !== 'running') {
           if (item.batchToken === token) this.showSelectionFailure(item, signal);
@@ -1663,6 +1678,17 @@ export class PageSession {
       this.perf.setAttribute('translate', 'no');
       this.doc.documentElement.append(this.perf);
     }
+    this.writePerf();
+  }
+
+  /**
+   * Rewrites the `sakutto-perf` payload. This also runs after a batch's engine time is
+   * added, because `noteTiming` is reached from the last `complete()` inside the batch —
+   * one statement before that time is counted — so the final batch of every page used to
+   * be missing from `engineMs`, which on a single-block page is the whole cost.
+   */
+  private writePerf(): void {
+    if (!this.perf) return;
     const rates = this.rates();
     this.perf.textContent = JSON.stringify({
       startedAt: this.startedAt,
@@ -1670,6 +1696,9 @@ export class PageSession {
       tokensPerSecond: rates.tokensPerSecond,
       segmentsPerSecond: rates.segmentsPerSecond,
       segments: this.samples,
+      batches: this.work.batches,
+      pieces: this.work.pieces,
+      engineMs: this.work.engineMs,
     });
   }
 
