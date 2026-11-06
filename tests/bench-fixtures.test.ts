@@ -84,4 +84,29 @@ describe('bench fixtures', () => {
     const { problems } = parseHistory(text);
     expect(problems).toEqual([]);
   });
+
+  it('checks in no live numbers and no announcement copy', () => {
+    const text = existsSync(historyFile) ? readFileSync(historyFile, 'utf8') : '';
+    const { records } = parseHistory(text);
+    // A live row in this repo has to come from a real `pnpm bench:live` on a machine with
+    // the wasm build. Nothing in this tree can produce one, so a live record means someone
+    // typed it.
+    for (const record of records) {
+      expect(record.mode, `${record.run}/${record.page} is not a mock record`).toBe('mock');
+      expect(record.metrics.estimatedOutputTokensPerSecond).toBeNull();
+    }
+  });
+
+  it('keeps the README fixture count in step with the registry', () => {
+    const count = BENCH_PAGES.length;
+    const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+    const claims: Array<[string, string]> = [
+      ['README.md', `${words[count] ?? String(count)} fixtures`],
+      ['README.ja.md', `${String(count)} つのページ`],
+    ];
+    for (const [file, claim] of claims) {
+      const text = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+      expect(text, `${file} should say "${claim}"`).toContain(claim);
+    }
+  });
 });
