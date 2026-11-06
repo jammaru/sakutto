@@ -57,10 +57,14 @@ import {
 } from './segment';
 import type { SiteAuto, SiteRule } from './sites';
 
-const SHORT_TOKEN_LIMIT = 40;
-const BATCH_TOKEN_LIMIT = 200;
 const PACK_TOKEN_LIMIT = 512;
 const PACK_SEGMENT_TOKENS = 240;
+/** How many blocks one packed completion may carry. */
+const MAX_BATCH_SEGMENTS = 8;
+/** Placeholder tags one packed request may carry before the line match gets unreliable. */
+const MAX_BATCH_PLACEHOLDERS = 16;
+/** How far behind the head of the queue a block may sit and still join its request. */
+const PACK_PRIORITY_SLACK = 24;
 const SLICE_SIZE = 24;
 const MAX_PAGE_FAILURES = 2;
 /** Keyboard selections settle before inference, so a partial highlight does not occupy the model. */
@@ -125,8 +129,9 @@ interface Live {
   flatten: boolean;
   attempts: number;
   failures: number;
-  short: boolean;
   heading: boolean;
+  /** The block is too large or too structured to share a completion with another block. */
+  solo: boolean;
   kind: ContentKind;
   lang: string | null;
   index: number;
@@ -839,8 +844,8 @@ export class PageSession {
       flatten: false,
       attempts: 0,
       failures: 0,
-      short: model.placeholder ? false : estimateTokens(model.source) <= SHORT_TOKEN_LIMIT,
       heading: /^H[1-6]$/u.test(block.tagName),
+      solo: model.source.includes('\n'),
       kind: contentKind(block),
       lang: languageOf(block, this.detectedLanguage),
       index,
@@ -873,8 +878,8 @@ export class PageSession {
       flatten: false,
       attempts: 0,
       failures: 0,
-      short: true,
       heading: false,
+      solo: true,
       kind: 'prose',
       lang: this.detectedLanguage,
       index: 0,
@@ -1059,28 +1064,35 @@ export class PageSession {
     if (!first) return [];
     first.state = 'running';
     const batch = [first];
-    if (first.role === 'selection') return batch;
+    // The very first request of a run paints one block on its own, so the reader sees text
+    // before the rest of the screen is packed. Every later request packs.
+    const eager = this.eagerOnce;
+    this.eagerOnce = false;
+    if (first.role === 'selection' || first.heading || first.solo || eager) return batch;
 
-    const allowLong = !this.eagerOnce && !first.heading;
+    const limit = PACK_TOKEN_LIMIT;
     const firstTokens = estimateTokens(first.source);
-    const firstPackable = first.short || (allowLong && firstTokens <= PACK_SEGMENT_TOKENS);
-    if (!firstPackable) return batch;
+    if (firstTokens > PACK_SEGMENT_TOKENS) return batch;
 
     let tokens = firstTokens;
     let placeholders = openPlaceholderCount(first.source);
-    const limit = this.eagerOnce ? BATCH_TOKEN_LIMIT : PACK_TOKEN_LIMIT;
     const firstPriority = this.priorityOf(first);
-    while (this.queue.size > 0 && batch.length < 8) {
+    while (this.queue.size > 0 && batch.length < MAX_BATCH_SEGMENTS) {
       const peeked = this.queue.peek();
       if (!peeked) break;
       const next = peeked.value;
       if (next.role !== 'page' || next.lang !== first.lang) break;
-      if (next.placeholder !== first.placeholder) break;
-      if (peeked.priority > firstPriority + 3) break;
+      if (next.heading || next.solo) break;
+      if (peeked.priority > firstPriority + PACK_PRIORITY_SLACK) break;
       const added = estimateTokens(next.source);
-      const packable = next.short || (allowLong && !next.heading && added <= PACK_SEGMENT_TOKENS);
       const nextPlaceholders = openPlaceholderCount(next.source);
-      if (!packable || tokens + added > limit || placeholders + nextPlaceholders > 16) break;
+      if (
+        added > PACK_SEGMENT_TOKENS ||
+        tokens + added > limit ||
+        placeholders + nextPlaceholders > MAX_BATCH_PLACEHOLDERS
+      ) {
+        break;
+      }
       this.queue.dequeue();
       next.state = 'running';
       batch.push(next);
@@ -1187,6 +1199,10 @@ export class PageSession {
         }
         if (item.role === 'page' && item.failures < MAX_PAGE_FAILURES) {
           item.failures += 1;
+          // Retry alone. A packed request that failed may have done so because of one of
+          // its neighbours, so packing the same group again would fail the same way and
+          // take every block in it down with it.
+          item.solo = true;
           item.state = 'idle';
           this.enqueue(item, true);
           continue;
@@ -1555,10 +1571,15 @@ export class PageSession {
     this.dirty.delete(item);
   }
 
+  /**
+   * Every block the page is translating. The bar used to count only `prose` blocks, so a
+   * page whose text lives in table cells or sidebars reported "2 / 2" while a hundred rows
+   * were still pending — and, once the scan started splitting table rows into cells, that
+   * silent filter hid nearly all of the work. Coverage is about blocks that got a job, not
+   * about how the ranking classified them.
+   */
   private trackedPages(): Live[] {
-    const pages = [...this.live.values()].filter((item) => item.role === 'page');
-    const prose = pages.filter((item) => item.kind === 'prose');
-    return prose.length > 0 ? prose : pages;
+    return [...this.live.values()].filter((item) => item.role === 'page');
   }
 
   private rates(): PageRates {

@@ -2,10 +2,13 @@ import {
   isAriaHiddenLeaf,
   isBlockElement,
   isCollapsedDetail,
+  isDataRowCell,
+  isDataValueText,
   isFrozenInline,
   isKeptInlineText,
   isScreenReaderOnly,
   isTranslationExcluded,
+  ownsText,
 } from './blocks';
 
 export interface TextSlot {
@@ -86,24 +89,62 @@ function needsOriginalSpace(left: string, right: string): boolean {
 
 export function buildSegment(block: Element): SegmentModel | null {
   let nextId = 0;
-  const built = buildFrame(block, () => {
-    nextId += 1;
-    return `i${String(nextId)}`;
-  });
+  const frozen = isDataRowCell(block);
+  const built = buildFrame(
+    block,
+    () => {
+      nextId += 1;
+      return `i${String(nextId)}`;
+    },
+    frozen,
+  );
+  const source = collapseSource(built.source);
 
-  if (!/[^\s<>]/.test(built.source) || !/\p{L}/u.test(built.source)) return null;
+  if (!/[^\s<>]/.test(source) || !/\p{L}/u.test(source)) return null;
 
   return {
     block,
     gaps: built.gaps,
     children: built.children,
-    source: built.source,
+    source,
     placeholder: built.children.length > 0,
     order: built.order,
   };
 }
 
-function buildFrame(element: Element, allocateId: () => string): BuiltFrame {
+/**
+ * An inline element whose whole text is an identifier: a handle, a slug, a version. Only
+ * consulted inside a data row, where such a value is the column's content rather than copy.
+ */
+function isIdentifierInline(element: Element): boolean {
+  if (element.children.length > 0) return false;
+  const text = (element.textContent ?? '').trim();
+  if (text.length === 0 || text.length > 40) return false;
+  return isDataValueText(text);
+}
+
+/**
+ * Whether an element paints inside its parent's line. Anything that generates a block box
+ * — a table cell, a grid item, a card — is laid out in its own slot, and folding its text
+ * into the parent's segment rewrites the parent in a way the layout did not expect.
+ *
+ * `display: contents` is the exception: it has no box of its own and its children are laid
+ * out by the grandparent, so its text really is part of the surrounding line.
+ */
+function isLaidOutInline(element: Element): boolean {
+  const display = element.ownerDocument.defaultView?.getComputedStyle(element).display ?? '';
+  if (display.length === 0) return true;
+  if (display === 'contents') return true;
+  return display.startsWith('inline') || display === 'ruby' || display === 'ruby-text';
+}
+
+function buildFrame(element: Element, allocateId: () => string, freezeValues = false): BuiltFrame {
+  // A container that owns text of its own is one segment, and a child that paints as its
+  // own box — a flex item is blockified even as a `<span>` — has to fold in as a
+  // placeholder: dropping it merges the words on either side and reorders them. A container
+  // whose own text is only the indentation between its cells folds nothing, so a grid row
+  // can never become one segment.
+  const foldChildren = ownsText(element);
   const order = [...element.childNodes];
   const gaps: TextSlot[][] = [[]];
   const children: InlineFrame[] = [];
@@ -132,16 +173,30 @@ function buildFrame(element: Element, allocateId: () => string): BuiltFrame {
     // the surrounding text nodes, which still get their own placeholders on either side.
     if (isAriaHiddenLeaf(child)) continue;
     if (child.tagName === 'BR') {
-      source += '\n';
+      source += LINE_BREAK;
       continue;
     }
     if (isFrozenInline(child)) continue;
+    // Inside a cell of a repeating data row, an identifier is left in the DOM: a handle,
+    // a slug or a version is not a word, and a placeholder keeps it out of the model's
+    // reach while the rest of the cell still translates.
+    if (freezeValues && isIdentifierInline(child)) continue;
 
     // Nested blocks are translated as their own segments, including direct text around them.
     if (isBlockElement(child)) continue;
+    // An element that paints as a block of its own — a table cell, a card, a grid item — is
+    // a segment or a container of segments, never inline text of its parent. Folding it in
+    // rebuilt the parent's text with the child's words inside, and the grid the child sat in
+    // reflowed as soon as the parent was rewritten.
+    //
+    // Unless this container owns text of its own. Then the container *is* one segment
+    // (`Fluency <span>38.7</span>`, a flex paragraph with a link), and a child that paints
+    // as a box has to stay a placeholder: dropping it merges the words on either side and
+    // reorders them.
+    if (!foldChildren && !isLaidOutInline(child)) continue;
     if (child.shadowRoot && child.childNodes.length === 0) continue;
 
-    const inner = buildFrame(child, allocateId);
+    const inner = buildFrame(child, allocateId, freezeValues);
     if (inner.source.trim().length === 0) continue;
 
     const id = allocateId();
@@ -157,4 +212,29 @@ function buildFrame(element: Element, allocateId: () => string): BuiltFrame {
   }
 
   return { gaps, children, source, order };
+}
+
+/**
+ * The mark used to keep a real `<br>` apart from the document's own indentation while the
+ * source is normalized. A private-use character cannot appear in page text by accident.
+ */
+const LINE_BREAK = '\uE000';
+
+/**
+ * Page markup carries the indentation of the document: a row cell is often three hundred
+ * characters of newlines and spaces around four words. That formatting is layout, not
+ * text — the model has no use for it, and it inflated every prompt, made every short block
+ * look long enough to be kept out of a packed request, and (through the newline rule) put
+ * a whole table row in a request of its own.
+ *
+ * Runs of whitespace inside a text slot collapse to a single space, and the whole source is
+ * trimmed. A real `<br>` keeps its newline, because that break is content: a batch is joined
+ * at newlines, so a block that spans lines must stay in a request of its own. The slot nodes
+ * keep their original bytes, so restoring the page is unaffected.
+ */
+function collapseSource(value: string): string {
+  return value
+    .replace(/\s+/gu, ' ')
+    .replace(new RegExp(`\\s*${LINE_BREAK}\\s*`, 'gu'), '\n')
+    .trim();
 }

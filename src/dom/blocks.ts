@@ -247,6 +247,199 @@ export function isVisuallyRendered(element: Element): boolean {
   return new VisibilityProbe().visible(element);
 }
 
+/**
+ * Layouts that give every child its own slot. A text node between two children of such a
+ * container is not "just whitespace" to the engine: it becomes an anonymous grid or flex
+ * item and pushes every following child one slot along.
+ *
+ * That is what flattened the ranking table on srclog.com. The whole row was one segment,
+ * its translation was written into the whitespace between the cells, and the row — a CSS
+ * grid with one column per cell — reflowed into a vertical pile. Rows that had not been
+ * translated yet still looked like a table, which is the contrast the reader noticed.
+ */
+const ITEM_CONTAINER_DISPLAYS: ReadonlySet<string> = new Set([
+  'grid',
+  'inline-grid',
+  'flex',
+  'inline-flex',
+  'table-row',
+  'table-row-group',
+]);
+
+/**
+ * Display values that are cached for one scan. `getComputedStyle` is the expensive part
+ * of deciding whether a container lays out in slots, and a row is asked about twice —
+ * once as a container and once as a cell of the list above it.
+ */
+class LayoutProbe {
+  private readonly displays = new WeakMap<Element, string>();
+
+  display(element: Element): string {
+    const cached = this.displays.get(element);
+    if (cached !== undefined) return cached;
+    const value = element.ownerDocument.defaultView?.getComputedStyle(element).display ?? '';
+    this.displays.set(element, value);
+    return value;
+  }
+
+  /** True when the element places each child in its own slot, so loose text reflows it. */
+  itemContainer(element: Element): boolean {
+    return ITEM_CONTAINER_DISPLAYS.has(this.display(element));
+  }
+
+  /** True when the element is laid out as a block of its own instead of inline in a line. */
+  blockBox(element: Element): boolean {
+    if (isBlockElement(element)) return true;
+    const display = this.display(element);
+    return display.length > 0 && display !== 'contents' && !display.startsWith('inline');
+  }
+
+  /** True when the element lays out inside its parent's line rather than in its own box. */
+  inline(element: Element): boolean {
+    if (isBlockElement(element)) return false;
+    const display = this.display(element);
+    if (display.length === 0) return true;
+    return display === 'contents' || display.startsWith('inline');
+  }
+}
+
+const DATA_ROW_MIN_ROWS = 3;
+const DATA_ROW_MIN_CELLS = 2;
+/** A record's cell holds a value; a card's cell holds a paragraph. */
+const DATA_CELL_MAX_CHARS = 60;
+
+/**
+ * A cell of a repeating row: a ranking row, a price list, a file table. Three or more
+ * sibling rows of the same tag, each with more than one cell, is a page showing data,
+ * where a cell holds a value rather than copy.
+ *
+ * The walk only asks this of an element it reached as a slot of such a row, so a one-word
+ * paragraph inside a card grid is still translated. The ancestor walk is here because a
+ * cell's content is often wrapped (`a > span > span` on a ranking row) and every wrapper
+ * still belongs to the same column.
+ */
+export function isDataRowCell(element: Element): boolean {
+  let node: Element | null = element;
+  for (let depth = 0; node !== null && depth < MAX_CELL_DEPTH; depth += 1) {
+    const row: Element | null = node.parentElement;
+    if (!row) return false;
+    if (isRepeatedRow(row)) return true;
+    node = row.parentElement;
+  }
+  return false;
+}
+
+/** How far above a cell its wrapping markup may sit and still count as the same column. */
+const MAX_CELL_DEPTH = 3;
+
+/**
+ * Three or more sibling rows of the same tag, each showing a handful of short values.
+ *
+ * The short-cell test is what separates a record from a card. A card grid is also a set of
+ * sibling elements with the same tag, but a card holds a heading and a paragraph — copy a
+ * reader wants translated — while a ranking row holds `antfu`, `Japan`, `TypeScript`. Only
+ * the latter is a data row, and only there is a cell's text a value to skip.
+ */
+function isRepeatedRow(row: Element): boolean {
+  const list = row.parentElement;
+  if (!list || row.children.length < DATA_ROW_MIN_CELLS) return false;
+
+  let rows = 0;
+  for (const sibling of list.children) {
+    if (sibling.localName !== row.localName) continue;
+    if (sibling.children.length < DATA_ROW_MIN_CELLS) continue;
+    if (!showsOnlyValues(sibling)) continue;
+    rows += 1;
+    if (rows >= DATA_ROW_MIN_ROWS) return true;
+  }
+  return false;
+}
+
+function showsOnlyValues(row: Element): boolean {
+  for (const cell of row.children) {
+    if (cellValue(cell).length > DATA_CELL_MAX_CHARS) return false;
+  }
+  return true;
+}
+
+/** A count, a magnitude or an amount: `44`, `1,305`, `64.4k`, `+12%`. */
+const NUMERIC_VALUE =
+  /^[+\-–—~<>≈]?[\d][\d.,\s]*(?:%|[kmbt]|万|億|千|件|個|円|人|回|users?|repos?|stars?|forks?)?$/iu;
+
+/** Letters, digits, punctuation and symbols — the script of a handle, a code or a stat. */
+const LATIN_ONLY = /^[\p{Script=Latin}\p{N}\p{P}\p{S}\s]+$/u;
+
+const HAS_LOWERCASE = /\p{Ll}/u;
+const HAS_UPPERCASE = /\p{Lu}/u;
+
+/** Letters, digits and the separators an identifier uses: `dai-shi`, `node.js`, `v1.2.3`. */
+const IDENTIFIER = /^[\p{Script=Latin}\p{N}._+#-]+$/u;
+
+/**
+ * A value in a data row, as opposed to copy: a count, a stat line, a handle, a slug, a
+ * version. Sending one to the model spends a completion to hand it back, and the model
+ * often rewrites an identifier into something that is no longer the same account.
+ *
+ * A capitalised word stays copy: `Japan`, `TypeScript` and `Anthony Fu` are words a reader
+ * may not know, and they are what the extension is for. When such a word fills a whole
+ * column it is skipped as a repeated value instead, once per page rather than once per row.
+ */
+export function isDataValueText(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return true;
+  if (!LATIN_ONLY.test(trimmed)) return false;
+
+  const words = trimmed.split(/\s+/u).filter((part) => LETTER_PATTERN.test(part));
+  if (words.length === 0) return true;
+  const numeric = words.filter((word) => NUMERIC_VALUE.test(word)).length;
+  if (numeric === words.length) return true;
+  // A stat line: `⭐ 64.4k · 🍴 4.1k · 👀 2.5k · 44 repos`.
+  if (numeric > 0 && numeric * 2 >= words.length) return true;
+  if (words.length !== 1) return false;
+  if (HAS_UPPERCASE.test(trimmed)) return false;
+  return IDENTIFIER.test(trimmed) && HAS_LOWERCASE.test(trimmed);
+}
+
+/**
+ * Values that repeat down a data column: the same country, language, size or unit in
+ * dozens of rows. Translated once each they cost one completion per row for a handful of
+ * distinct strings, and every cell is a chance for the model to drift. A column is read
+ * once per page scan and the repeated spellings are skipped, exactly as if they were
+ * counts.
+ *
+ * The threshold is what makes this safe: a phrase that appears three times in the same
+ * repeated row is a column value, while copy that happens to repeat stays below it and is
+ * translated in every place it appears.
+ */
+const REPEATED_CELL_LIMIT = 3;
+
+/**
+ * The value a cell shows, with its markup removed. A language chip is `Japan` in one row
+ * and `<span>Japan</span>` in the next, and both are the same column value.
+ */
+function cellValue(element: Element): string {
+  return (element.textContent ?? '').replace(/\s+/gu, ' ').trim();
+}
+
+export function repeatedCellTexts(root: ParentNode): ReadonlySet<string> {
+  const counts = new Map<string, number>();
+  for (const row of root.querySelectorAll('*')) {
+    if (!isRepeatedRow(row)) continue;
+    for (const cell of row.children) {
+      const text = cellValue(cell);
+      if (text.length === 0 || text.length > 60) continue;
+      if (!LETTER_PATTERN.test(text)) continue;
+      counts.set(text, (counts.get(text) ?? 0) + 1);
+    }
+  }
+
+  const repeated = new Set<string>();
+  for (const [text, count] of counts) {
+    if (count >= REPEATED_CELL_LIMIT) repeated.add(text);
+  }
+  return repeated;
+}
+
 /** Text that must stay on the page unchanged: whitespace is kept, URLs and symbol runs are not. */
 export function isAtomicText(value: string): boolean {
   const trimmed = value.trim();
@@ -299,7 +492,11 @@ function hasTranslatableTextIn(element: Element, probe: VisibilityProbe): boolea
   return false;
 }
 
-function hasDirectTranslatableText(element: Element, probe: VisibilityProbe): boolean {
+function hasDirectTranslatableText(
+  element: Element,
+  probe: VisibilityProbe,
+  layout: LayoutProbe,
+): boolean {
   for (const child of element.childNodes) {
     if (child.nodeType !== Node.TEXT_NODE) continue;
     const value = child.nodeValue ?? '';
@@ -308,7 +505,7 @@ function hasDirectTranslatableText(element: Element, probe: VisibilityProbe): bo
   }
 
   for (const child of element.children) {
-    if (isBlockElement(child) || isSkipped(child, probe)) continue;
+    if (layout.blockBox(child) || isSkipped(child, probe)) continue;
     if (hasTranslatableTextIn(child, probe)) return true;
   }
 
@@ -325,6 +522,19 @@ export function listTranslatableBlocks(root: ParentNode): Element[] {
 }
 
 /**
+ * What the walk is currently looking at, which decides how a translation is written back.
+ *
+ * - `flow`: ordinary page copy. A container may keep its own direct text, because a
+ *   rewritten run of text in normal flow stays one anonymous block box on the same line.
+ * - `item`: a child of a grid or flex container. It has its own slot, so its text is a
+ *   segment of its own; writing into the parent's whitespace would create an extra item
+ *   and push every following slot one place along.
+ * - `row`: a cell of a repeating data row. Same as `item`, plus a cell whose text is a
+ *   value rather than copy is not translated at all.
+ */
+type WalkContext = 'flow' | 'item' | 'row';
+
+/**
  * Yields blocks in document order. One tree walk stays linear on a Wikipedia
  * article, where querySelectorAll plus closest() on every div is much heavier.
  *
@@ -336,35 +546,146 @@ export function* eachTranslatableBlock(root: ParentNode): Generator<Element> {
   const start = root instanceof Document ? root.documentElement : root;
   if (!start) return;
   const probe = new VisibilityProbe();
+  const layout = new LayoutProbe();
+  const repeatedCells = repeatedCellTexts(start);
   if (start instanceof Element) {
-    yield* visitBlock(start, probe);
+    yield* visitBlock(start, probe, layout, 'flow', repeatedCells);
     return;
   }
-  for (const child of start.children) yield* visitBlock(child, probe);
+  for (const child of start.children) {
+    yield* visitBlock(child, probe, layout, 'flow', repeatedCells);
+  }
 }
 
-function* visitBlock(element: Element, probe: VisibilityProbe): Generator<Element> {
-  if (!isBlockElement(element)) {
-    // Containers are not probed for layout. Every block that could hold text is checked
-    // below, and a hidden wrapper hides the blocks inside it, so probing the wrappers too
-    // would repeat the same ancestor walk for each level of a deep component tree.
-    if (isTranslationExcluded(element) || isAriaHiddenLeaf(element)) return;
-    for (const child of element.children) yield* visitBlock(child, probe);
+/**
+ * Walks one element of the page.
+ *
+ * The rule that fixes a broken table: a container that places each child in its own slot
+ * (grid, flex, a table row) is never translated as one string. A translation written into
+ * the container's text nodes lands *between* the cells, and each of those runs becomes an
+ * anonymous grid or flex item — so every cell after it moves one slot along. That is what
+ * flattened the ranking table on srclog.com: the whole row went to the model, the result
+ * landed in the row's whitespace, and the row became a vertical pile while its untranslated
+ * neighbours still looked like a table. Such a container is descended into, and its cells
+ * are translated individually, each into its own text node.
+ *
+ * The same reasoning makes an inline child of such a container a segment of its own: a grid
+ * item is a slot whatever its own `display` says.
+ */
+function* visitBlock(
+  element: Element,
+  probe: VisibilityProbe,
+  layout: LayoutProbe,
+  context: WalkContext,
+  repeatedCells: ReadonlySet<string>,
+): Generator<Element> {
+  if (isTranslationExcluded(element) || isAriaHiddenLeaf(element)) return;
+
+  // A repeated row's cell holds a value: a handle, a language tag, a count, a stat line.
+  // Sending it to the model spends a completion to hand it back, and a translated value in
+  // a narrow column is what reflows the row. Cells outside a repeated row keep their text:
+  // a table header reads as UI copy, not as data.
+  if (context === 'row') {
+    const text = cellValue(element);
+    if (isDataValueText(text) || repeatedCells.has(text)) return;
+  }
+
+  const elementItems = layout.itemContainer(element);
+  if (!elementItems && context === 'flow' && layout.inline(element)) {
+    // An inline or `contents` wrapper in a line of text. Every block that could hold text
+    // is checked below, and a hidden wrapper hides the blocks inside it, so probing the
+    // wrappers too would repeat the same ancestor walk for every level of a component tree.
+    for (const child of element.children) {
+      yield* visitBlock(child, probe, layout, 'flow', repeatedCells);
+    }
     return;
   }
   if (probe.skipped(element)) return;
-  if (hasBlockDescendant(element, probe)) {
-    if (hasDirectTranslatableText(element, probe)) yield element;
-    for (const child of element.children) yield* visitBlock(child, probe);
+
+  // A repeating row of a data list is treated exactly like a grid container even when the
+  // page lays it out some other way: its cells are separate units and each one gets its own
+  // text node. The structure is a stronger signal than the computed display, because the
+  // display can come from a stylesheet that is injected later or is not readable at all,
+  // and the cost of being wrong here is the reported layout collapse.
+  const repeated = isRepeatedRow(element);
+  const items = elementItems || repeated;
+  const rows = context === 'row' || repeated;
+  if (!items && !hasSlotDescendant(element, probe, layout)) {
+    if (hasTranslatableTextIn(element, probe)) yield element;
     return;
   }
-  if (hasTranslatableTextIn(element, probe)) yield element;
+  if (!items && hasDirectTranslatableText(element, probe, layout)) yield element;
+
+  // A slot container that owns text of its own: a `<p>` or `<div>` styled `display: flex`
+  // to space a label and a value, or a flex paragraph with a link in the middle. That text
+  // is already an anonymous item of the container, so writing a translation into the text
+  // nodes the source already had keeps the item count unchanged.
+  //
+  // Descending used to lose those words: every child of a flex or grid container is
+  // blockified by the engine, so `hasSlotDescendant` is true for these containers and the
+  // branch below never fired. The cells filled in, the text around them stayed in the source
+  // language, and the page still reported itself translated.
+  //
+  // A repeated data row is excluded: its cells are separate columns, yielded below as usual.
+  // A container with a nested block is descended into as well — the block is a segment of
+  // its own, so the container is yielded for its loose text and the walk continues.
+  if (items && !rows && ownsText(element)) {
+    yield element;
+    if (!hasBlockChild(element, probe)) return;
+  }
+
+  // A slot container with no child elements at all. Descending would find nothing to yield.
+  if (items && element.children.length === 0) {
+    if (hasTranslatableTextIn(element, probe)) yield element;
+    return;
+  }
+
+  const childContext: WalkContext = rows ? 'row' : items ? 'item' : 'flow';
+  for (const child of element.children) {
+    yield* visitBlock(child, probe, layout, childContext, repeatedCells);
+  }
 }
 
-function hasBlockDescendant(element: Element, probe: VisibilityProbe): boolean {
+/**
+ * A nested block directly under this element. `buildFrame` leaves a nested block out of the
+ * segment (it is a segment of its own), so a container that also owns text must keep walking
+ * into them or their copy is never visited.
+ *
+ * Only real block elements count: a `<span>` inside a flex row is blockified by the engine,
+ * but it is still folded into the parent's segment as a placeholder, so descending into it
+ * would translate the same words twice.
+ */
+function hasBlockChild(element: Element, probe: VisibilityProbe): boolean {
   for (const child of element.children) {
     if (isSkipped(child, probe)) continue;
-    if (isBlockElement(child) || hasBlockDescendant(child, probe)) return true;
+    if (isBlockElement(child)) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether a container's own text nodes carry words, as opposed to the indentation between
+ * its children. A grid row is `<li>\n  <span/>\n  <span/>\n</li>`, and those newlines are
+ * layout rather than copy: they must never force the row to be one segment.
+ *
+ * A container that does own text is one segment — a flex bar reading `Fluency 38.7`, a
+ * paragraph with a link in the middle — and its children stay placeholders there.
+ */
+export function ownsText(element: Element): boolean {
+  for (const child of element.childNodes) {
+    if (child.nodeType !== Node.TEXT_NODE) continue;
+    const value = child.nodeValue ?? '';
+    if (isSkippableText(value)) continue;
+    if (LETTER_PATTERN.test(value)) return true;
+  }
+  return false;
+}
+
+function hasSlotDescendant(element: Element, probe: VisibilityProbe, layout: LayoutProbe): boolean {
+  for (const child of element.children) {
+    if (isSkipped(child, probe)) continue;
+    if (layout.blockBox(child)) return true;
+    if (hasSlotDescendant(child, probe, layout)) return true;
   }
   return false;
 }
