@@ -16,6 +16,7 @@ export default tseslint.config(
       'playwright-report/**',
       'public/**',
       'vendor/**',
+      'launch-video/**',
     ],
   },
   js.configs.recommended,

@@ -1,5 +1,6 @@
 node_modules/
 video/
+launch-video/
 *.mp4
 *.webm
 *.mov
