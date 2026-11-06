@@ -4,9 +4,9 @@ Reviewer-facing facts for the current tree. The source of truth for model pins i
 
 Repository: https://github.com/jammaru/sakutto
 
-Privacy policy: https://github.com/jammaru/sakutto/blob/main/PRIVACY.md
+Privacy policy: https://jammaru.com/sakutto/privacy/
 
-That privacy URL loads for a logged-out reviewer only after the owner makes the repository public. Preparing these notes does not publish the repository and does not submit the item.
+The same privacy URL ends both detailed descriptions in `CWS_LISTING.md`. Preparing these notes does not publish the repository and does not submit the item.
 
 The packaged name is `extensionName` in both locales: Sakutto - Local AI translation in `en` and Sakutto - ローカルAI翻訳 in `ja`. `extensionShortName` is Sakutto in both. Both the item name and the summary are read-only in the dashboard and come from the zip. The older titles Sakutto for PLaMo and サクッと翻訳 for PLaMo are not the current name. The item is unofficial and is not a Preferred Networks product. The UI says Built with PLaMo.
 
@@ -19,7 +19,7 @@ Sakutto (https://github.com/jammaru/sakutto) translates web pages on the device.
 
 Single purpose: translating web pages.
 
-Privacy policy: https://github.com/jammaru/sakutto/blob/main/PRIVACY.md
+Privacy policy: https://jammaru.com/sakutto/privacy/
 
 Remote code: モデル重み（GGUF データ）のみを huggingface.co から DL。実行コードはすべて同梱。
 The only fetch this extension makes is a PLaMo 3 Translate GGUF weight from huggingface.co. The URL is pinned to a commit. The file is checked with SHA-256 before use, and a mismatch is discarded. The request has no body. Page text is not included. Hugging Face can see the IP address and the file request. Redirects are followed. credentials is omitted. Every script, worker, and wasm the extension executes is in the zip under vendor/wllama/. The extension does not request nativeMessaging.
