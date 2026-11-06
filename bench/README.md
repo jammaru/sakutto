@@ -211,11 +211,11 @@ are slow enough to be flaky on shared runners.
 
 ## History and the checked-in sample
 
-`bench/history/pages.jsonl` starts with one **mock** sample captured while this suite was being
-written, on the merge base of the branch (`3eeb1a8`, 4-core Linux VM, headless Chromium 156,
-`--samples 2`). Its records say `"mode": "mock"` and `"dirty": true`, because the working tree
-held the uncommitted suite itself. It is not a claim about model speed; it exists so the expected
-shape of a run is visible and so `pnpm bench:history` has something to print.
+`bench/history/pages.jsonl` holds one **mock** sample, taken after the branch was rebased onto
+`0340393` (4-core Linux VM, headless Chromium 156, `--samples 2`). Its commit is
+`2fc966c`, the commit that stopped the bench's own output from marking the tree dirty, and its
+records say `"mode": "mock"` and `"dirty": false`. It is not a claim about model speed; it exists
+so the expected shape of a run is visible and so `pnpm bench:history` has something to print.
 
 No live PLaMo run is checked in. The VM used to write this suite has no Docker daemon to build the
 pinned wllama wasm and no model in `bench/.cache/`, so the real-runtime numbers were not taken
