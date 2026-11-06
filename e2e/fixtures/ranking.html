@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Top TypeScript GitHub Developers in Japan</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0;
+      }
+      .wrap {
+        max-width: 1024px;
+        margin: 0 auto;
+        padding: 40px 16px;
+      }
+      .card {
+        background: #fff;
+        border-radius: 16px;
+        border: 1px solid #f3f4f6;
+        overflow: hidden;
+      }
+      .head {
+        display: none;
+        grid-template-columns: 3rem 1fr 9rem 8rem repeat(4, 5.5rem);
+        gap: 0.75rem;
+        padding: 0.75rem 1.25rem;
+        background: #f9fafb;
+        border-bottom: 1px solid #f3f4f6;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      @media (min-width: 768px) {
+        .head {
+          display: grid;
+        }
+      }
+      .head .right {
+        text-align: right;
+      }
+      .rows {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 2.5rem 1fr;
+        column-gap: 0.75rem;
+        row-gap: 0.25rem;
+        align-items: center;
+        padding: 0.75rem 1.25rem;
+      }
+      @media (min-width: 768px) {
+        .row {
+          grid-template-columns: 3rem 1fr 9rem 8rem repeat(4, 5.5rem);
+        }
+      }
+      .rank {
+        font-size: 0.875rem;
+        font-weight: 700;
+        color: #0e7490;
+        font-variant-numeric: tabular-nums;
+      }
+      .person {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        min-width: 0;
+        text-decoration: none;
+      }
+      .avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 999px;
+        flex-shrink: 0;
+        background: #e5e7eb;
+      }
+      .who {
+        min-width: 0;
+      }
+      .login {
+        display: block;
+        font-weight: 600;
+        color: #1f2937;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .name {
+        display: block;
+        font-size: 0.75rem;
+        color: #9ca3af;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .country {
+        font-size: 0.875rem;
+        color: #4b5563;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .lang {
+        font-size: 0.75rem;
+        background: #f3f4f6;
+        color: #4b5563;
+        padding: 0.125rem 0.5rem;
+        border-radius: 6px;
+      }
+      .stat-mobile {
+        font-size: 0.75rem;
+        color: #6b7280;
+      }
+      @media (min-width: 768px) {
+        .stat-mobile {
+          display: none;
+        }
+      }
+      .stat {
+        display: none;
+        text-align: right;
+        font-size: 0.875rem;
+        font-variant-numeric: tabular-nums;
+        color: #6b7280;
+      }
+      .stat.strong {
+        font-weight: 600;
+        color: #111827;
+      }
+      @media (min-width: 768px) {
+        .stat {
+          display: block;
+        }
+      }
+      .md-col {
+        grid-column-start: 2;
+      }
+      @media (min-width: 768px) {
+        .md-col {
+          grid-column-start: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1 id="title">🇯🇵 Top TypeScript Developers in Japan</h1>
+      <p id="lede">
+        SrcLog ranks 74 TypeScript developers based in Japan by the total stars of their public
+        repositories.
+      </p>
+      <div class="card">
+        <div class="head" id="head">
+          <span>#</span>
+          <span>Name</span>
+          <span>Country</span>
+          <span>Language</span>
+          <a href="?sort=repos" class="right">Repos</a>
+          <a href="?" class="right">Stars ↓</a>
+          <a href="?sort=forks" class="right">Forks</a>
+          <a href="?sort=watchers" class="right">Watchers</a>
+        </div>
+        <ol class="rows" id="rows">
+          <li class="row" data-rank="1">
+            <span class="rank">1</span>
+            <a href="/github/antfu" class="person">
+              <img
+                class="avatar"
+                src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                alt="antfu avatar"
+              />
+              <span class="who">
+                <span class="login">antfu</span>
+                <span class="name">Anthony Fu</span>
+              </span>
+            </a>
+            <span class="country md-col" title="Gifu, Japan">🇯🇵 Japan</span>
+            <span class="md-col"><span class="lang">TypeScript</span></span>
+            <span class="stat-mobile">⭐ 64.4k · 🍴 4.1k · 👀 2.5k · 44 repos</span>
+            <span class="stat">44</span>
+            <span class="stat strong">64.4k</span>
+            <span class="stat">4.1k</span>
+            <span class="stat">2.5k</span>
+          </li>
+          <li class="row" data-rank="2">
+            <span class="rank">2</span>
+            <a href="/github/DayuanJiang" class="person">
+              <img
+                class="avatar"
+                src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                alt="DayuanJiang avatar"
+              />
+              <span class="who">
+                <span class="login">DayuanJiang</span>
+                <span class="name">Dayuan Jiang</span>
+              </span>
+            </a>
+            <span class="country md-col" title="Tokyo">🇯🇵 Japan</span>
+            <span class="md-col"><span class="lang">TypeScript</span></span>
+            <span class="stat-mobile">⭐ 37.2k · 🍴 3.9k · 👀 138 · 2 repos</span>
+            <span class="stat">2</span>
+            <span class="stat strong">37.2k</span>
+            <span class="stat">3.9k</span>
+            <span class="stat">138</span>
+          </li>
+          <li class="row" data-rank="3">
+            <span class="rank">3</span>
+            <a href="/github/yusukebe" class="person">
+              <img
+                class="avatar"
+                src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                alt="yusukebe avatar"
+              />
+              <span class="who">
+                <span class="login">yusukebe</span>
+                <span class="name">Yusuke Wada</span>
+              </span>
+            </a>
+            <span class="country md-col" title="Yokohama, Japan">🇯🇵 Japan</span>
+            <span class="md-col"><span class="lang">TypeScript</span></span>
+            <span class="stat-mobile">⭐ 34.4k · 🍴 1.6k · 👀 198 · 7 repos</span>
+            <span class="stat">7</span>
+            <span class="stat strong">34.4k</span>
+            <span class="stat">1.6k</span>
+            <span class="stat">198</span>
+          </li>
+          <li class="row" data-rank="4">
+            <span class="rank">4</span>
+            <a href="/github/yamadashy" class="person">
+              <img
+                class="avatar"
+                src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                alt="yamadashy avatar"
+              />
+              <span class="who">
+                <span class="login">yamadashy</span>
+                <span class="name">Kazuki Yamada</span>
+              </span>
+            </a>
+            <span class="country md-col" title="Tokyo, Japan">🇯🇵 Japan</span>
+            <span class="md-col"><span class="lang">TypeScript</span></span>
+            <span class="stat-mobile">⭐ 16.8k · 🍴 1.1k · 👀 88 · 12 repos</span>
+            <span class="stat">12</span>
+            <span class="stat strong">16.8k</span>
+            <span class="stat">1.1k</span>
+            <span class="stat">88</span>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </body>
+</html>

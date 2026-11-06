@@ -206,6 +206,100 @@ test.describe('in-page translation', () => {
     }
   });
 
+  test('translates a ranking table without collapsing its rows', async () => {
+    // The reported page: a CSS-grid ranking table. The whole row used to go to the model in
+    // one request, and the translation was written into the whitespace between the cells.
+    // Each of those runs became an anonymous grid item, so every cell after it moved one
+    // slot along and the row became a vertical pile.
+    await resetExtensionStorage(extension.worker);
+    const page = await extension.context.newPage();
+    try {
+      await page.goto(`${FIXTURE_ORIGIN}/ranking.html`);
+      const gridBefore = await page.evaluate(() => {
+        const row = document.querySelector<HTMLElement>('#rows > li');
+        if (!row) return null;
+        const style = getComputedStyle(row);
+        const cells = [...row.children].map((cell) => {
+          const rect = cell.getBoundingClientRect();
+          return { x: Math.round(rect.x), y: Math.round(rect.y) };
+        });
+        return {
+          columns: style.gridTemplateColumns,
+          height: Math.round(row.getBoundingClientRect().height),
+          cells,
+          scrollWidth: document.documentElement.scrollWidth,
+        };
+      });
+      expect(gridBefore).not.toBeNull();
+
+      await commandPage(extension.worker, page, 'toggle');
+      await waitTranslated(page);
+
+      const gridAfter = await page.evaluate(() => {
+        const row = document.querySelector<HTMLElement>('#rows > li');
+        if (!row) return null;
+        const style = getComputedStyle(row);
+        const cells = [...row.children].map((cell) => {
+          const rect = cell.getBoundingClientRect();
+          return { x: Math.round(rect.x), y: Math.round(rect.y) };
+        });
+        return {
+          columns: style.gridTemplateColumns,
+          height: Math.round(row.getBoundingClientRect().height),
+          cells,
+          scrollWidth: document.documentElement.scrollWidth,
+        };
+      });
+
+      // Same grid, same column count, same row height, same horizontal placement.
+      expect(gridAfter?.columns).toBe(gridBefore?.columns);
+      expect(gridAfter?.height).toBe(gridBefore?.height);
+      expect(gridAfter?.scrollWidth).toBe(gridBefore?.scrollWidth);
+      expect(gridAfter?.cells.map((cell) => cell.x)).toEqual(
+        gridBefore?.cells.map((cell) => cell.x),
+      );
+
+      // Row text is PLaMo's, and no row was stamped as a Chrome translation. The fixture is
+      // English, so the target adjusts to Japanese and PLaMo's fake marker is `§ja§`.
+      await expect(page.locator('#rows > li').first()).toContainText('§ja§');
+      await expect(page.locator('[data-sakutto-engine="chrome"]')).toHaveCount(0);
+      await expect(page.locator('sakutto-note')).toHaveCount(0);
+      await expect(page.locator('html')).toHaveAttribute('data-sakutto-state', 'translated');
+
+      // A handle and a stat cell stay as the page wrote them.
+      await expect(page.locator('#rows > li').first()).toContainText('Anthony Fu');
+      const firstRow = await page.locator('#rows > li').first().innerText();
+      expect(firstRow).toContain('64.4k');
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('keeps a data column translated once instead of per row', async () => {
+    // `Japan` and the language chip fill the same column in every row. Translating them per
+    // row spends one completion on the same word dozens of times, and each cell is a chance
+    // for the model to drift into a wider string that reflows the column.
+    await resetExtensionStorage(extension.worker);
+    const page = await extension.context.newPage();
+    try {
+      await page.goto(`${FIXTURE_ORIGIN}/ranking.html`);
+      await commandPage(extension.worker, page, 'toggle');
+      await waitTranslated(page);
+
+      const countries = await page.evaluate(() =>
+        [...document.querySelectorAll('#rows > li')].map(
+          (row) => row.querySelector('.country')?.textContent?.trim() ?? '',
+        ),
+      );
+      expect(countries.length).toBeGreaterThan(0);
+      for (const country of countries) {
+        expect(country).toBe('🇯🇵 Japan');
+      }
+    } finally {
+      await page.close();
+    }
+  });
+
   test('remembers bilingual mode for the site', async () => {
     const page = await openFixture('/article.html');
     try {
