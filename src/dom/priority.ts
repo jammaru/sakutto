@@ -58,7 +58,24 @@ export function isChromeBlock(block: Element): boolean {
   if (!host) return false;
   const main = block.closest('main, article, [role="main"]');
   if (main && !main.contains(host)) return false;
+  // A `<header>` inside the article is the article's own title block, and an `<h1>` is the
+  // page title wherever the site put it. Treating either as navigation sent the headline
+  // to the back of the queue, so it stayed in English after the body was translated. The
+  // date, category and tag labels beside the headline still wait: ahead of the body they
+  // held the first paragraph back by a whole packed request on the CPU.
+  if (host.localName === 'header') {
+    if (block.localName === 'h1') return false;
+    if (main !== null && (HEADING.test(block.localName) || isParagraphLength(block))) return false;
+  }
   return true;
+}
+
+const HEADING = /^h[1-6]$/u;
+/** The length at which `contentKind` already reads an untagged block as prose. */
+const PARAGRAPH_CHARS = 80;
+
+function isParagraphLength(block: Element): boolean {
+  return (block.textContent ?? '').trim().length >= PARAGRAPH_CHARS;
 }
 
 /** Hatnotes, coordinates, infoboxes and reference lists wait behind the article body. */
@@ -71,7 +88,9 @@ export function contentKind(block: Element): ContentKind {
   const tag = block.tagName.toLowerCase();
   if (PROSE_TAGS.has(tag)) return 'prose';
   const length = (block.textContent ?? '').trim().length;
-  if (length >= 80 && (tag === 'div' || tag === 'section' || tag === 'td')) return 'prose';
+  if (length >= PARAGRAPH_CHARS && (tag === 'div' || tag === 'section' || tag === 'td')) {
+    return 'prose';
+  }
   return 'chrome';
 }
 
@@ -117,6 +136,10 @@ export function lookaheadScreens(
   return pace === 'fast' ? base + 1 : base;
 }
 
-export function translationConcurrency(tier: 'g' | 'c8' | 'c4' | null): number {
-  return tier === 'g' ? 2 : 1;
-}
+/**
+ * Page requests kept in flight: one for the model's single slot, plus one waiting in the
+ * engine's own queue. Without the extra request the model sat idle for the whole round trip
+ * between one request finishing and the page sending the next. The waiting request has not
+ * reached the model, so it can still be cancelled or overtaken by a selection.
+ */
+export const TRANSLATION_CONCURRENCY = 2;

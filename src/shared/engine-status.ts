@@ -20,6 +20,8 @@ export interface EngineStatus {
   tier: ComputeTier | null;
   threads: number | null;
   parallel: number | null;
+  /** WebGPU was offered but the model could not be placed on it, so it runs on the CPU. */
+  gpuFallback?: boolean;
   plamoReady: boolean;
   chromeSupported: boolean;
   active: EngineKind | null;
@@ -66,6 +68,7 @@ export function isEngineStatus(value: unknown): value is EngineStatus {
   }
   if (record.threads !== null && typeof record.threads !== 'number') return false;
   if (record.parallel !== null && typeof record.parallel !== 'number') return false;
+  if (record.gpuFallback !== undefined && typeof record.gpuFallback !== 'boolean') return false;
   if (typeof record.plamoReady !== 'boolean') return false;
   if (typeof record.chromeSupported !== 'boolean') return false;
   if (

@@ -85,6 +85,13 @@ describe('runtime label', () => {
         targetLanguage: 'ja',
       }).key,
     ).toBe('runtimePlamoCpu');
+    expect(
+      runtimeLabel({
+        status: status({ backend: 'cpu-wasm', tier: 'c8', gpuFallback: true }),
+        pageSimple: false,
+        targetLanguage: 'ja',
+      }).key,
+    ).toBe('runtimePlamoGpuFallback');
     expect(runtimeLabel({ status: status(), pageSimple: true, targetLanguage: 'ja' }).key).toBe(
       'runtimeChrome',
     );

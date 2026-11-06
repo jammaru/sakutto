@@ -167,6 +167,27 @@ describe('engine host protocol', () => {
       }),
     ).toBe(true);
 
+    expect(
+      isEngineHostMessage({
+        type: 'chunk',
+        requestId: 'r1',
+        chunk: { id: 'a', textDelta: '訳', engine: 'plamo', restart: true },
+      }),
+    ).toBe(true);
+    expect(
+      isEngineHostMessage({
+        type: 'chunk',
+        requestId: 'r1',
+        chunk: { id: 'a', final: '訳', engine: 'plamo', restart: true },
+      }),
+    ).toBe(false);
+    expect(
+      isEngineHostMessage({
+        type: 'chunk',
+        requestId: 'r1',
+        chunk: { id: 'a', textDelta: '訳', engine: 'plamo', restart: 'yes' },
+      }),
+    ).toBe(false);
     expect(isEngineHostMessage({ type: 'chunk', requestId: 'r1', chunk: { id: 'a' } })).toBe(false);
     expect(isEngineHostMessage({ type: 'done' })).toBe(false);
     expect(isEngineHostMessage({ type: 'response', requestId: 'r1', ok: true })).toBe(false);

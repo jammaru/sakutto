@@ -9,7 +9,8 @@ import {
   type PageRates,
   type ThroughputSample,
 } from './throughput';
-import { joinTranslatedSentences, splitForTranslation } from '@/engine/text/sentences';
+import { DEFAULT_BATCHING } from '@/engine/text/plan';
+import { chunkForTranslation, joinTranslatedSentences } from '@/engine/text/sentences';
 import { isPlainAltS } from '@/shared/shortcuts';
 import { PriorityQueue } from '@/engine/queue/priority-queue';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
@@ -35,7 +36,7 @@ import {
   bandForRect,
   contentKind,
   lookaheadScreens,
-  translationConcurrency,
+  TRANSLATION_CONCURRENCY,
   translationPriority,
   type ContentKind,
   type VisibilityBand,
@@ -57,8 +58,9 @@ import {
 } from './segment';
 import type { SiteAuto, SiteRule } from './sites';
 
-const PACK_TOKEN_LIMIT = 512;
-const PACK_SEGMENT_TOKENS = 240;
+/** The engine packs by the same rule, so a request the page packs is not split up again. */
+const PACK_TOKEN_LIMIT = DEFAULT_BATCHING.maxBatchTokens;
+const PACK_SEGMENT_TOKENS = DEFAULT_BATCHING.maxSegmentTokens;
 /** How many blocks one packed completion may carry. */
 const MAX_BATCH_SEGMENTS = 8;
 /** Placeholder tags one packed request may carry before the line match gets unreliable. */
@@ -220,7 +222,6 @@ export class PageSession {
   private pendingScans = 0;
   private scanChain: Promise<void> = Promise.resolve();
   private running = 0;
-  private concurrency: number;
   private nextId = 0;
   private nextBatchToken = 0;
   private pageController: AbortController | null = null;
@@ -288,7 +289,6 @@ export class PageSession {
     this.onSitePatch = options.onSitePatch;
     this.onGrantSite = options.onGrantSite;
     this.selectionKey = options.selectionKey ?? isPlainAltS;
-    this.concurrency = translationConcurrency(options.preferences.tier);
     this.scheduleFrame =
       options.scheduleFrame ??
       ((callback) => {
@@ -409,7 +409,6 @@ export class PageSession {
     const previous = this.prefs;
     const tier = next.tier ?? previous.tier;
     this.prefs = { ...next, tier };
-    this.concurrency = translationConcurrency(tier);
     if (
       lookaheadScreens(previous.tier, previous.pace) !== lookaheadScreens(tier, this.prefs.pace)
     ) {
@@ -1021,7 +1020,7 @@ export class PageSession {
 
     this.startQueuedSelection();
 
-    while (this.running < this.concurrency && this.queue.size > 0) {
+    while (this.running < TRANSLATION_CONCURRENCY && this.queue.size > 0) {
       const next = this.queue.peek();
       if (!next) break;
       if (this.selectionBusy() && next.value.role !== 'selection') break;
@@ -1165,7 +1164,8 @@ export class PageSession {
         if (item.state !== 'running') continue;
         if (chunk.engine) item.engine = chunk.engine;
         if (chunk.textDelta) {
-          item.partText[index] = (item.partText[index] ?? '') + chunk.textDelta;
+          const before = chunk.restart === true ? '' : (item.partText[index] ?? '');
+          item.partText[index] = before + chunk.textDelta;
           this.queuePaint(item);
         }
         if (chunk.final !== undefined) {
@@ -1604,10 +1604,23 @@ export class PageSession {
     return { tokensPerSecond: tokens, segmentsPerSecond: segments };
   }
 
+  /**
+   * The last measured rate stays on the bar while a page request is inside the engine. A
+   * prompt's prefill produces no tokens, and on the CPU runtime it costs nearly as much per
+   * token as decoding, so dropping the rate there made a working engine look stalled.
+   */
   private heldRate(kind: 'tokens' | 'segments', now: number): number | null {
     const at = kind === 'tokens' ? this.heldTokensAt : this.heldSegmentsAt;
-    if (now - at > RATE_HOLD_MS) return null;
+    if (at === 0) return null;
+    if (now - at > RATE_HOLD_MS && !this.pageWorkInFlight()) return null;
     return kind === 'tokens' ? this.heldRates.tokensPerSecond : this.heldRates.segmentsPerSecond;
+  }
+
+  private pageWorkInFlight(): boolean {
+    for (const batch of this.inflightBatches) {
+      if (batch.items.some((item) => item.role === 'page')) return true;
+    }
+    return false;
   }
 
   private noteThroughput(tracked: readonly Live[], now = performance.now()): void {
@@ -2138,7 +2151,7 @@ function glossaryKey(glossary: readonly GlossaryEntry[] | undefined): string {
 
 function expandSource(item: Live): { id: string; text: string }[] {
   const source = item.flatten ? stripPlaceholderTokens(item.source) : item.source;
-  const pieces = splitForTranslation(source);
+  const pieces = chunkForTranslation(source);
   if (pieces.length <= 1) return [{ id: item.id, text: source }];
   return pieces.map((text, index) => ({ id: `${item.id}#${String(index)}`, text }));
 }

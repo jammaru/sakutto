@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_MODEL_ID, type ModelId } from '@/engine/model/catalog';
 import type { DownloadProgress } from '@/engine/model/download';
 import type { BackendSelection } from '@/engine/in-browser/backend';
-import { EngineHost, type EngineServices } from '@/engine/offscreen/host';
+import { EngineError } from '@/engine/errors';
+import { selectBackend } from '@/engine/in-browser/backend';
+import { EngineHost, loadWithCpuFallback, type EngineServices } from '@/engine/offscreen/host';
+import type { LoadedModel } from '@/engine/model/manager';
 import type { ModelStatus } from '@/shared/engine-status';
 import type { TranslateOptions } from '@/engine/types';
 import { serializeTranslateOptions } from '@/engine/offscreen/protocol';
@@ -59,6 +62,7 @@ function createServices() {
     router: { activeEngine: null, translate: vi.fn() },
     chrome: { available: true, dispose },
     lazy: { kind: 'plamo', reset, translate: vi.fn() },
+    load: vi.fn(async () => ({})),
     selection: SELECTION,
   } as unknown as EngineServices;
 
@@ -182,5 +186,40 @@ describe('EngineHost', () => {
     await flushTasks();
 
     expect(port.sent).toHaveLength(0);
+  });
+});
+
+describe('model load on the GPU tier', () => {
+  const gpu = selectBackend({ webgpu: true, hardwareConcurrency: 8 });
+  const loaded = {} as LoadedModel;
+
+  it('keeps the GPU when the model lands on it', async () => {
+    const ensureLoaded = vi.fn(async () => loaded);
+    const result = await loadWithCpuFallback(ensureLoaded, gpu, new AbortController().signal);
+
+    expect(result.selection).toBe(gpu);
+    expect(ensureLoaded).toHaveBeenCalledTimes(1);
+  });
+
+  it('loads on the CPU tier when WebGPU will not take the model', async () => {
+    const ensureLoaded = vi.fn(async (selection: BackendSelection) => {
+      if (selection.backend === 'webgpu') throw new EngineError('gpu-unavailable', 'no GPU');
+      return loaded;
+    });
+    const result = await loadWithCpuFallback(ensureLoaded, gpu, new AbortController().signal);
+
+    expect(result.loaded).toBe(loaded);
+    expect(result.selection).toMatchObject({ backend: 'cpu-wasm', nParallel: 1, nCtx: 2048 });
+  });
+
+  it('does not retry an aborted load', async () => {
+    const controller = new AbortController();
+    const ensureLoaded = vi.fn(async () => {
+      controller.abort();
+      throw new DOMException('aborted', 'AbortError');
+    });
+
+    await expect(loadWithCpuFallback(ensureLoaded, gpu, controller.signal)).rejects.toThrow();
+    expect(ensureLoaded).toHaveBeenCalledTimes(1);
   });
 });

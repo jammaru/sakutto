@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { InBrowserEngine } from '@/engine/in-browser/engine';
 import type { TranslateOptions, TranslationChunk } from '@/engine/types';
 import { collectChunks, FakeRuntime } from './support/fakes';
+import { promptSource } from './support/sim-runtime';
 
 function options(overrides: Partial<TranslateOptions> = {}): TranslateOptions {
   return {
@@ -75,38 +76,44 @@ describe('InBrowserEngine', () => {
     expect(runtime.requests[0]?.prompt ?? '').not.toContain('glossary');
   });
 
-  it('splits a long paragraph and joins the translated sentences', async () => {
-    const runtime = new FakeRuntime((prompt) => {
-      if (
-        prompt.includes('First sentence') &&
-        prompt.includes('Second sentence') &&
-        prompt.includes('Third sentence')
-      ) {
-        return 'First translation.\nSecond translation.\nThird translation.';
-      }
-      if (prompt.includes('First sentence')) return 'First translation.';
-      if (prompt.includes('Second sentence')) return 'Second translation.';
-      return 'Third translation.';
-    });
+  it('translates an ordinary paragraph as one prompt, not one sentence per line', async () => {
+    const runtime = new FakeRuntime(() => '段落の訳。');
     const engine = new InBrowserEngine(runtime);
     const text =
       'First sentence explains the feature in enough detail that readers can follow it on their own. ' +
       'Second sentence explains the workflow in enough detail that readers can repeat it on their own. ' +
       'Third sentence explains the result in enough detail that readers can verify it on their own.';
 
-    const chunks = await collectChunks(
-      engine.translate([{ id: 'long', text }], options({ tgt: 'en' })),
-    );
+    const chunks = await collectChunks(engine.translate([{ id: 'p', text }], options()));
 
     expect(runtime.requests).toHaveLength(1);
-    expect(finalChunks(chunks)).toEqual([
-      {
-        id: 'long',
-        final: 'First translation. Second translation. Third translation.',
-        engine: 'plamo',
-      },
-    ]);
-    expect(deltaText(chunks)).toContain('First translation.');
+    expect(runtime.requests[0]?.prompt).toContain(text);
+    expect(runtime.requests[0]?.prompt).not.toContain('their own.\nSecond');
+    expect(finalChunks(chunks)).toEqual([{ id: 'p', final: '段落の訳。', engine: 'plamo' }]);
+  });
+
+  it('splits a very long paragraph into prompts of whole sentences and joins them', async () => {
+    let calls = 0;
+    const runtime = new FakeRuntime(() => {
+      calls += 1;
+      return `訳${String(calls)}。`;
+    });
+    const engine = new InBrowserEngine(runtime);
+    const sentence = 'This sentence explains one more step of the long procedure in detail. ';
+    const text = sentence.repeat(20).trim();
+
+    const chunks = await collectChunks(engine.translate([{ id: 'long', text }], options()));
+
+    expect(runtime.requests.length).toBeGreaterThan(1);
+    for (const request of runtime.requests) {
+      const source = promptSource(request.prompt);
+      // No line structure for the model to keep, and every prompt ends on a full stop.
+      expect(source).not.toContain('\n');
+      expect(source.trim().endsWith('.')).toBe(true);
+    }
+    const final = finalChunks(chunks)[0]?.final ?? '';
+    expect(final).toBe(runtime.requests.map((_, index) => `訳${String(index + 1)}。`).join(''));
+    expect(deltaText(chunks)).toBe(final);
   });
 
   it('batches short segments into one newline request', async () => {
@@ -226,7 +233,7 @@ describe('InBrowserEngine', () => {
     expect(runtime.requests[0]?.prompt).toContain('<|plamo:key|>lang<|plamo:val|>ja');
   });
 
-  it('retries only the lines a batch lost instead of the whole batch', async () => {
+  it('translates every line on its own when a packed batch loses its alignment', async () => {
     const runtime = new FakeRuntime((prompt) => {
       if (prompt.includes('Sign in\nSettings')) return 'サインイン';
       if (prompt.includes('Sign in')) return 'サインイン';
@@ -246,10 +253,9 @@ describe('InBrowserEngine', () => {
       ),
     );
 
-    // The batch decodes one usable line, so the two missing lines are the only retries.
-    // Re-translating the line the model already produced cost a whole completion per
-    // batch that lost its tail, and those were the common failures.
-    expect(runtime.requests).toHaveLength(3);
+    // One line came back for three. Which one it is cannot be told from the count — a
+    // merged line would shift every later line into the wrong block — so none is kept.
+    expect(runtime.requests).toHaveLength(4);
     expect(finalChunks(chunks)).toEqual([
       { id: 'a', final: 'サインイン', engine: 'plamo' },
       { id: 'b', final: '設定', engine: 'plamo' },
@@ -257,7 +263,7 @@ describe('InBrowserEngine', () => {
     ]);
   });
 
-  it('does not append a per-segment retry onto a line already shown', async () => {
+  it('restarts a line already shown instead of appending its retry to it', async () => {
     const runtime = new FakeRuntime((prompt) => {
       if (prompt.includes('Sign in\nSettings')) return 'サインイン\n設定';
       if (prompt.includes('Sign in')) return 'サインイン';
@@ -278,16 +284,49 @@ describe('InBrowserEngine', () => {
     );
 
     const shown = (id: string): string =>
-      chunks
-        .filter((chunk) => chunk.id === id && chunk.textDelta !== undefined)
-        .map((chunk) => chunk.textDelta)
-        .join('');
+      chunks.reduce((text, chunk) => {
+        if (chunk.id !== id || chunk.textDelta === undefined) return text;
+        return chunk.restart === true ? chunk.textDelta : text + chunk.textDelta;
+      }, '');
 
     expect(shown('a')).toBe('サインイン');
     expect(shown('b')).toBe('設定');
     expect(shown('c')).toBe('もっと見る');
     expect(finalChunks(chunks)).toEqual([
       { id: 'a', final: 'サインイン', engine: 'plamo' },
+      { id: 'b', final: '設定', engine: 'plamo' },
+      { id: 'c', final: 'もっと見る', engine: 'plamo' },
+    ]);
+  });
+
+  it('puts the source back on a shown line whose retry comes back empty', async () => {
+    const runtime = new FakeRuntime((prompt) => {
+      if (prompt.includes('Sign in\nSettings')) return '設定';
+      if (prompt.includes('Sign in')) return '';
+      if (prompt.includes('Settings')) return '設定';
+      return 'もっと見る';
+    });
+    const engine = new InBrowserEngine(runtime);
+
+    const chunks = await collectChunks(
+      engine.translate(
+        [
+          { id: 'a', text: 'Sign in' },
+          { id: 'b', text: 'Settings' },
+          { id: 'c', text: 'Learn more' },
+        ],
+        options(),
+      ),
+    );
+
+    // "設定" was streamed into the first block by the misaligned batch.
+    const streamed = chunks
+      .filter((chunk) => chunk.id === 'a' && chunk.textDelta !== undefined)
+      .map((chunk) => chunk.textDelta)
+      .join('');
+    expect(streamed).toBe('設定');
+    expect(finalChunks(chunks)).toEqual([
+      { id: 'a', final: 'Sign in', engine: 'plamo' },
       { id: 'b', final: '設定', engine: 'plamo' },
       { id: 'c', final: 'もっと見る', engine: 'plamo' },
     ]);

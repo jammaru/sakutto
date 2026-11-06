@@ -9,14 +9,14 @@ import {
 import { DEFAULT_MODEL_ID, getModel, isModelId, MODEL_CATALOG } from '@/engine/model/catalog';
 
 describe('backend selection', () => {
-  it('uses every GPU layer and two slots when WebGPU is available', () => {
+  it('uses every GPU layer and one slot when WebGPU is available', () => {
     expect(selectBackend({ webgpu: true, hardwareConcurrency: 4 })).toEqual({
       tier: 'g',
       backend: 'webgpu',
       nGpuLayers: WEBGPU_ALL_LAYERS,
       nThreads: 4,
-      nParallel: 2,
-      nCtx: CONTEXT_TOKENS * 2,
+      nParallel: 1,
+      nCtx: CONTEXT_TOKENS,
     });
   });
 

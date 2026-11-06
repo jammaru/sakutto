@@ -31,17 +31,19 @@ use the popup) with the unpacked extension loaded.
 - `bench/pages/single-long-paragraph.html`
 - `bench/pages/model-card-sidebar.html`
 - `bench/pages/mixed-ui.html`
+- `bench/pages/headline-in-header.html`
 - `bench/pages/late-mount-spa.html`
 
-| Page                             | Pattern                                                                 | Bottleneck it isolates                                                                                                                                                           |
-| -------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `long-article`                   | Long research/news article, 22 paragraphs in 4 sections, plus a sidebar | Sustained prefill and decode over realistic prose. **The headline page** for the two summary numbers.                                                                            |
-| `first-paragraph-then-long-tail` | A one-sentence lead, then 16 paragraphs                                 | The "first paragraph appears quickly while the rest is still going" split. A change that shortens the lead but lengthens the tail shows up here instead of hiding in an average. |
-| `many-cards`                     | 12 cards, each a kicker + heading + paragraph + meta line               | Per-block overhead: batching, packing and scheduling many tiny blocks instead of raw token throughput.                                                                           |
-| `single-long-paragraph`          | One paragraph of ~2,900 characters                                      | The sentence splitter and chunk scheduling. The block cannot finish until its last chunk lands.                                                                                  |
-| `model-card-sidebar`             | README prose in the main column, short metadata labels in a sidebar     | Chrome/metadata prioritisation against body copy, plus a sidebar the old collector dropped.                                                                                      |
-| `mixed-ui`                       | Settings screen: navigation, labels, help paragraphs, values, buttons   | Mixed short/long blocks where most text is small — the everyday app UI case.                                                                                                     |
-| `late-mount-spa`                 | Content injected 1.2 s after first paint, plus a `pushState` link       | Rescanning, the mutation observer, and whether late blocks reuse a warm runtime.                                                                                                 |
+| Page                             | Pattern                                                                                                  | Bottleneck it isolates                                                                                                                                                           |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `long-article`                   | Long research/news article, 22 paragraphs in 4 sections, plus a sidebar                                  | Sustained prefill and decode over realistic prose. **The headline page** for the two summary numbers.                                                                            |
+| `first-paragraph-then-long-tail` | A one-sentence lead, then 16 paragraphs                                                                  | The "first paragraph appears quickly while the rest is still going" split. A change that shortens the lead but lengthens the tail shows up here instead of hiding in an average. |
+| `many-cards`                     | 12 cards, each a kicker + heading + paragraph + meta line                                                | Per-block overhead: batching, packing and scheduling many tiny blocks instead of raw token throughput.                                                                           |
+| `single-long-paragraph`          | One paragraph of ~2,900 characters                                                                       | The sentence splitter and chunk scheduling. The block cannot finish until its last chunk lands.                                                                                  |
+| `model-card-sidebar`             | README prose in the main column, short metadata labels in a sidebar                                      | Chrome/metadata prioritisation against body copy, plus a sidebar the old collector dropped.                                                                                      |
+| `mixed-ui`                       | Settings screen: navigation, labels, help paragraphs, values, buttons                                    | Mixed short/long blocks where most text is small — the everyday app UI case.                                                                                                     |
+| `headline-in-header`             | A post whose `<h1>` sits in the article's own `<header>`, under a sticky top bar, beside a metadata list | Whether the title and the first paragraphs fill the first screen before labels and the rest of the body.                                                                         |
+| `late-mount-spa`                 | Content injected 1.2 s after first paint, plus a `pushState` link                                        | Rescanning, the mutation observer, and whether late blocks reuse a warm runtime.                                                                                                 |
 
 Every fixture is original English prose written for this repo. No article text is copied from
 Anthropic, Hugging Face or Wikipedia, so the fixtures stay under the project's MIT license and
@@ -60,7 +62,7 @@ because branded Chrome refuses `--load-extension`.
 
 ```sh
 pnpm bench:build:mock      # fake in-page translator, no wasm/model needed
-pnpm bench:mock            # ~1 min for all seven pages
+pnpm bench:mock            # ~1 min for all eight pages
 pnpm bench:mock --only long-article
 pnpm bench:mock --samples 3
 ```
@@ -223,7 +225,7 @@ here. Run `pnpm bench:live` on a machine with the wasm build to add the first li
 
 Because a mock sample is already checked in, an automatic comparison only considers a run with
 the **same mode and the same set of fixtures**. A `--only long-article` run is not put next to a
-seven-page run, and a live run is not put next to the mock baseline; in both cases the bench says
+eight-page run, and a live run is not put next to the mock baseline; in both cases the bench says
 there is nothing to compare rather than printing a delta. `--baseline` / `--compare` still compare
 whatever you name, and the summary prints a warning when that pair spans modes.
 

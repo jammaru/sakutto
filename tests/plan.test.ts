@@ -44,24 +44,24 @@ describe('translation planning', () => {
     expect(items[0]).toMatchObject({ text: 'Sign in\nSettings\nLearn more' });
   });
 
-  it('batches a Wikipedia-length sentence with the next one', () => {
+  it('gives each paragraph-sized segment a prompt of its own', () => {
+    // Packing two paragraphs makes the model read them as one text and holds the first
+    // paragraph's first token behind the second paragraph's prefill.
     const sentence = 'The harbor market opens early and the baker sets out bread. '.repeat(5);
     const items = planWork(segments(sentence, sentence));
 
-    expect(sentence.length).toBeLessThan(450);
-    expect(items).toHaveLength(1);
-    expect(items[0]?.kind).toBe('batch');
+    expect(items.map((item) => item.kind)).toEqual(['single', 'single']);
   });
 
-  it('packs several long sentences into one completion', () => {
-    const piece = 'あ'.repeat(300);
-    const items = planWork(segments(piece, piece, piece));
+  it('keeps a packed request of labels small', () => {
+    const items = planWork(
+      segments(...Array.from({ length: 20 }, (_, index) => `Menu entry number ${String(index)}`)),
+    );
 
-    expect(estimateTokens(piece)).toBe(150);
-    expect(items).toHaveLength(1);
-    expect(items[0]?.kind).toBe('batch');
-    if (items[0]?.kind === 'batch') {
-      expect(estimateTokens(items[0].text)).toBeLessThanOrEqual(DEFAULT_PLAN_CONFIG.maxBatchTokens);
+    expect(items.length).toBeGreaterThan(1);
+    for (const item of items) {
+      if (item.kind !== 'batch') continue;
+      expect(estimateTokens(item.text)).toBeLessThanOrEqual(DEFAULT_PLAN_CONFIG.maxBatchTokens);
     }
   });
 

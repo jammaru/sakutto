@@ -8,7 +8,12 @@ import {
 import { ChunkStream } from '../queue/chunk-stream';
 import { JobScheduler, type ScheduledHandle } from '../queue/scheduler';
 import { DEFAULT_PLAN_CONFIG, planWork, type PlanConfig, type WorkItem } from '../text/plan';
-import { joinTranslatedSentences, sentenceSeparator, splitForTranslation } from '../text/sentences';
+import {
+  chunkForTranslation,
+  joinTranslatedSentences,
+  sentenceSeparator,
+  splitForTranslation,
+} from '../text/sentences';
 import { completionTokenBudget, estimateTokens } from '../text/tokens';
 import type {
   IdentifiedEngine,
@@ -118,7 +123,7 @@ export class InBrowserEngine implements IdentifiedEngine {
       return;
     }
 
-    const pieces = splitForTranslation(segment.text, this.config);
+    const pieces = chunkForTranslation(segment.text, this.config.pieceChars);
     if (pieces.length <= 1) {
       const output = await this.completeRecover(
         pieces[0] ?? segment.text.trim(),
@@ -134,8 +139,9 @@ export class InBrowserEngine implements IdentifiedEngine {
   }
 
   /**
-   * Sentence pieces of one paragraph share a completion when they fit. Each piece used
-   * to prefill the prompt on its own, so a long paragraph paid that cost once per sentence.
+   * A text longer than a paragraph is translated as runs of whole sentences, one prompt per
+   * run. The runs used to be one sentence per line of a single packed prompt, which cut each
+   * sentence off from its neighbours and relied on the model returning the same line count.
    */
   private async runPieces(
     segment: TranslateSegment,
@@ -144,92 +150,26 @@ export class InBrowserEngine implements IdentifiedEngine {
     signal: AbortSignal,
     stream: ChunkStream<TranslationChunk>,
   ): Promise<void> {
-    const synthetic = pieces.map((text, index) => ({
-      id: `${segment.id}#${String(index)}`,
-      text,
-    }));
-    const translated = pieces.map(() => '');
-    let started = false;
-    const emitSeparator = (): void => {
-      if (!started) return;
-      const separator = sentenceSeparator(options.tgt);
-      if (separator.length > 0) {
+    const translated: string[] = [];
+    const separator = sentenceSeparator(options.tgt);
+
+    for (const [index, piece] of pieces.entries()) {
+      throwIfAborted(signal);
+      if (index > 0 && separator.length > 0) {
         stream.push({ id: segment.id, textDelta: separator, engine: this.kind });
       }
-    };
-
-    for (const item of planWork(synthetic, this.config, options.eager === true)) {
-      throwIfAborted(signal);
-      if (item.kind === 'single') {
-        const index = pieceIndex(item.segment.id);
-        emitSeparator();
-        started = true;
-        const output = await this.completeRecover(item.segment.text, options, signal, (delta) =>
-          stream.push({ id: segment.id, textDelta: delta, engine: this.kind }),
-        );
-        translated[index] = cleanModelOutput(output);
-        continue;
-      }
-
-      emitSeparator();
-      started = true;
-      await this.collectBatch(
-        item.segments,
-        item.text,
-        segment.id,
-        translated,
-        options,
-        signal,
-        stream,
+      const output = await this.completeRecover(piece, options, signal, (delta) =>
+        stream.push({ id: segment.id, textDelta: delta, engine: this.kind }),
       );
+      const cleaned = cleanModelOutput(output);
+      translated.push(cleaned.length > 0 ? cleaned : piece);
     }
 
     stream.push({
       id: segment.id,
-      final: joinTranslatedSentences(
-        translated.map((part, index) => (part.trim().length > 0 ? part : (pieces[index] ?? ''))),
-        options.tgt,
-      ),
+      final: joinTranslatedSentences(translated, options.tgt),
       engine: this.kind,
     });
-  }
-
-  private async collectBatch(
-    segments: readonly TranslateSegment[],
-    text: string,
-    parentId: string,
-    translated: string[],
-    options: TranslateOptions,
-    signal: AbortSignal,
-    stream: ChunkStream<TranslationChunk>,
-  ): Promise<void> {
-    const side = new ChunkStream<TranslationChunk>();
-    let opened = -1;
-    const reading = (async (): Promise<void> => {
-      for await (const chunk of side) {
-        const index = pieceIndex(chunk.id);
-        if (chunk.textDelta) {
-          if (index !== opened) {
-            if (opened >= 0) {
-              const separator = sentenceSeparator(options.tgt);
-              if (separator.length > 0) {
-                stream.push({ id: parentId, textDelta: separator, engine: this.kind });
-              }
-            }
-            opened = index;
-          }
-          stream.push({ id: parentId, textDelta: chunk.textDelta, engine: this.kind });
-        }
-        if (chunk.final !== undefined) translated[index] = chunk.final;
-      }
-    })();
-
-    try {
-      await this.runBatch(segments, text, options, signal, side);
-    } finally {
-      side.end();
-      await reading;
-    }
   }
 
   private async runBatch(
@@ -280,26 +220,11 @@ export class InBrowserEngine implements IdentifiedEngine {
       cleaned.length === 0 ? [] : cleaned.split('\n').map((line) => cleanModelOutput(line));
 
     if (lines.length !== segments.length || lines.some((line) => line.length === 0)) {
-      // Keep the lines the model did finish. Re-translating a line that is already
-      // correct and already on screen wasted one completion per line whenever a batch
-      // lost its tail, which is the common failure for a packed paragraph.
-      const usable = lines.slice(0, segments.length).map((line) => line.trim());
-      const settled = usable.findIndex((line) => line.length === 0);
-      const keep = settled === -1 ? usable.length : settled;
-      if (keep > 0) {
-        for (let index = 0; index < keep; index += 1) {
-          const segment = segments[index];
-          if (segment)
-            stream.push({ id: segment.id, final: usable[index] ?? '', engine: this.kind });
-        }
-      }
-      await this.completeIndividually(
-        segments.slice(keep),
-        options,
-        signal,
-        stream,
-        Math.max(0, shown + (opened ? 1 : 0) - keep),
-      );
+      // A short count does not say which line went missing. When the model merges two
+      // lines, every line after the merge belongs to the next block, so keeping the
+      // "finished" prefix wrote one block's translation into another. Each line is
+      // translated again on its own; they are short, because only short blocks are packed.
+      await this.completeIndividually(segments, options, signal, stream, shown + (opened ? 1 : 0));
       return;
     }
 
@@ -325,15 +250,23 @@ export class InBrowserEngine implements IdentifiedEngine {
         continue;
       }
 
-      const output = await this.completeRecover(
-        segment.text.trim(),
-        options,
-        signal,
-        index < alreadyShown
-          ? () => undefined
-          : (delta) => stream.push({ id: segment.id, textDelta: delta, engine: this.kind }),
-      );
-      stream.push({ id: segment.id, final: cleanModelOutput(output), engine: this.kind });
+      // A line the packed attempt already painted starts over, so the retry replaces the
+      // misaligned text instead of being appended to it.
+      let restart = index < alreadyShown;
+      const output = await this.completeRecover(segment.text.trim(), options, signal, (delta) => {
+        stream.push({
+          id: segment.id,
+          textDelta: delta,
+          engine: this.kind,
+          ...(restart ? { restart: true } : {}),
+        });
+        restart = false;
+      });
+      const cleaned = cleanModelOutput(output);
+      // An empty retry sends no delta to restart with, and an empty final paints nothing, so
+      // a line that was shown would keep the misaligned text. The source replaces it instead.
+      const final = cleaned.length === 0 && index < alreadyShown ? segment.text : cleaned;
+      stream.push({ id: segment.id, final, engine: this.kind });
     }
   }
 
@@ -436,11 +369,4 @@ export class InBrowserEngine implements IdentifiedEngine {
 
 function isOversized(error: unknown): boolean {
   return isEngineError(error) && error.code === 'invalid-input';
-}
-
-function pieceIndex(id: string): number {
-  const marker = id.lastIndexOf('#');
-  if (marker === -1) return 0;
-  const index = Number(id.slice(marker + 1));
-  return Number.isInteger(index) ? index : 0;
 }

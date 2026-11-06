@@ -6,8 +6,13 @@ export const CONTEXT_TOKENS = 2048;
 
 export const WEBGPU_ALL_LAYERS = 99999;
 
-const WEBGPU_SLOTS = 2;
-// llama.cpp divides n_ctx across parallel slots, so the two-slot GPU tier sizes it for two.
+/**
+ * One sequence on WebGPU as well. With two slots decoding at once, ggml-webgpu ran a pair of
+ * paragraphs in 9–14 s that it finishes one after the other in under 3 s (RTX 4070 Ti SUPER,
+ * pinned wasm), so the second slot only produced long stretches with nothing painted.
+ */
+const WEBGPU_SLOTS = 1;
+// llama.cpp divides n_ctx across parallel slots.
 const WEBGPU_CONTEXT_TOKENS = CONTEXT_TOKENS * WEBGPU_SLOTS;
 
 export interface BackendProbe {
@@ -30,9 +35,8 @@ function clampThreads(requested: number, hardwareConcurrency: number): number {
 }
 
 /**
- * CPU tiers keep one sequence so the first paragraph is not split across slots.
- * WebGPU keeps two sequences. The completion gate allows that many calls at once,
- * which is what actually overlaps them inside llama.cpp.
+ * Every tier keeps one sequence, so the paragraph on screen gets the whole model instead
+ * of sharing each decode step with the next one.
  */
 export function selectBackend(probe: BackendProbe): BackendSelection {
   if (probe.webgpu) {

@@ -1,5 +1,9 @@
 import type { TranslateSegment } from '../types';
-import { DEFAULT_MAX_CHUNK_CHARS, DEFAULT_SENTENCE_THRESHOLD } from './sentences';
+import {
+  DEFAULT_MAX_CHUNK_CHARS,
+  DEFAULT_PIECE_CHARS,
+  DEFAULT_SENTENCE_THRESHOLD,
+} from './sentences';
 import { estimateTokens } from './tokens';
 
 export interface BatchingConfig {
@@ -9,8 +13,7 @@ export interface BatchingConfig {
 
 /**
  * Source tokens that still leave room for the prompt template, a small glossary,
- * and a 2× completion inside one sequence. CPU `n_ctx` is 2048 per slot; WebGPU
- * divides the same per-slot budget across its two sequences.
+ * and a 2× completion inside one sequence. `n_ctx` is 2048 for the single slot.
  */
 export function sourceTokenBudget(contextTokens: number): number {
   const overhead = 192;
@@ -19,11 +22,15 @@ export function sourceTokenBudget(contextTokens: number): number {
   return Math.max(96, Math.floor(room / 3));
 }
 
+/**
+ * Only labels, cells and one-line items share a completion. Packing pays off where the prompt
+ * template is as long as the text; for a paragraph it saves a few template tokens but makes
+ * the model read unrelated sentences as one text, delays every block in the pack behind the
+ * whole pack's prefill, and depends on the model keeping the line count.
+ */
 export const DEFAULT_BATCHING: Readonly<BatchingConfig> = Object.freeze({
-  // A full 450-character piece is about 225 CJK tokens. It can share a completion
-  // with the next sentence instead of paying the prompt prefill again.
-  maxSegmentTokens: 240,
-  maxBatchTokens: Math.min(512, sourceTokenBudget(2048)),
+  maxSegmentTokens: 48,
+  maxBatchTokens: 160,
 });
 
 const MAX_BATCH_SEGMENTS = 8;
@@ -31,12 +38,15 @@ const MAX_BATCH_SEGMENTS = 8;
 export interface PlanConfig extends BatchingConfig {
   sentenceThreshold: number;
   maxChunkChars: number;
+  /** A segment longer than this is translated as several prompts of whole sentences. */
+  pieceChars: number;
 }
 
 export const DEFAULT_PLAN_CONFIG: Readonly<PlanConfig> = Object.freeze({
   ...DEFAULT_BATCHING,
   sentenceThreshold: DEFAULT_SENTENCE_THRESHOLD,
   maxChunkChars: DEFAULT_MAX_CHUNK_CHARS,
+  pieceChars: DEFAULT_PIECE_CHARS,
 });
 
 export type WorkItem =
