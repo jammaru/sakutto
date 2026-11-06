@@ -267,12 +267,7 @@
         <div class="pane-head">
           <h2 id="typed-source-title">{t('typedSourceLabel')}</h2>
           <span class="pane-note">{t('typedDetectSource')}</span>
-          <button
-            class="link-button pane-action"
-            type="button"
-            onclick={clearBoth}
-            disabled={!hasAnything}
-          >
+          <button class="pane-action" type="button" onclick={clearBoth} disabled={!hasAnything}>
             {t('typedClear')}
           </button>
         </div>
@@ -302,7 +297,7 @@
           <h2 id="typed-result-title">{t('typedResultHeading')}</h2>
           <span class="pane-note">{targetLabel}</span>
           <button
-            class="button secondary pane-action"
+            class="pane-action"
             type="button"
             onclick={copyResult}
             disabled={result.trim().length === 0}
@@ -377,17 +372,22 @@
 
 <style>
   .page {
+    /* One hairline colour for the whole page: rules replace the boxes that used to carry
+       the structure. */
+    --rule: color-mix(in srgb, var(--border) 30%, transparent);
     display: grid;
-    gap: var(--space-4);
-    max-width: 1040px;
+    gap: var(--space-5);
+    max-width: 1080px;
     margin: 0 auto;
-    padding: var(--space-6) var(--space-5);
+    padding: var(--space-6) var(--space-5) var(--space-4);
   }
 
   .page-header {
     display: flex;
     align-items: center;
     gap: var(--space-3);
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--rule);
   }
 
   .page-header img {
@@ -424,11 +424,7 @@
 
   .workspace {
     display: grid;
-    gap: var(--space-3);
-    padding: var(--space-4);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--surface);
+    gap: var(--space-4);
   }
 
   .direction {
@@ -445,7 +441,7 @@
   .swap {
     min-width: 44px;
     padding: 9px 10px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--rule);
     border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text);
@@ -462,26 +458,24 @@
     padding-bottom: 8px;
     font-size: 12px;
   }
-
   .compare {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: var(--space-3);
+    gap: 0;
   }
 
+  /* The panes are two halves of one sheet: a single vertical rule between them, no card. */
   .pane {
     display: grid;
     align-content: start;
     gap: var(--space-2);
     min-width: 0;
-    padding: var(--space-3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--bg);
+    padding: var(--space-3) var(--space-4) var(--space-2) 0;
   }
 
   .pane.output {
-    background: var(--surface-muted);
+    padding: var(--space-3) 0 var(--space-2) var(--space-4);
+    border-left: 1px solid var(--rule);
   }
 
   .pane-head {
@@ -489,6 +483,9 @@
     align-items: center;
     gap: var(--space-2);
     min-height: 30px;
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: var(--space-1);
   }
 
   .pane-note {
@@ -502,40 +499,55 @@
 
   .pane-action {
     flex: none;
-    padding: 3px 10px;
+    min-height: 0;
+    padding: 2px 2px;
+    border: 0;
+    background: none;
+    color: var(--accent-strong);
     font-size: 12px;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .pane-action:hover:not(:disabled) {
+    background: none;
+    color: var(--accent);
+  }
+
+  .pane-action:disabled {
+    color: var(--muted);
+    text-decoration: none;
+    opacity: 1;
   }
 
   textarea {
     width: 100%;
     min-height: 240px;
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--surface);
+    padding: 4px 0 0;
+    border: 0;
+    background: transparent;
     color: var(--text);
     font: inherit;
+    line-height: 1.75;
     resize: vertical;
   }
 
   .result {
     display: block;
     min-height: 240px;
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--surface);
+    padding: 4px 0 0;
+    color: var(--text);
+    line-height: 1.75;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
 
   .empty {
     min-height: 240px;
-    padding: 10px 12px;
-    border: 1px dashed var(--border);
-    border-radius: var(--radius-sm);
+    padding: 4px 0 0;
     font-size: 12px;
-    line-height: 1.6;
+    line-height: 1.7;
   }
 
   .note {
@@ -567,10 +579,8 @@
     display: grid;
     gap: var(--space-2);
     justify-items: start;
-    padding: var(--space-3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--surface);
+    padding: var(--space-3) 0 0;
+    border-top: 1px solid var(--rule);
     font-size: 12px;
     line-height: 1.6;
   }
@@ -580,6 +590,8 @@
     align-items: center;
     justify-content: flex-end;
     gap: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--rule);
   }
 
   .run-status {
@@ -589,17 +601,26 @@
   .footer {
     display: grid;
     gap: var(--space-1);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--rule);
   }
 
   /* One column keeps both boxes wide enough to read; stacking source above result is the
-     order the comparison is read in anyway. */
+     order the comparison is read in anyway. The vertical rule becomes a horizontal one so
+     the two halves stay visually separate. */
   @media (max-width: 720px) {
     .compare {
       grid-template-columns: minmax(0, 1fr);
     }
 
+    .pane {
+      padding: var(--space-3) 0 var(--space-2);
+    }
+
     .pane.output {
-      border-top: 3px solid var(--accent);
+      padding: var(--space-4) 0 var(--space-2);
+      border-top: 1px solid var(--rule);
+      border-left: 0;
     }
   }
 
