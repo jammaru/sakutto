@@ -1,5 +1,11 @@
 export const DEFAULT_SENTENCE_THRESHOLD = 250;
 export const DEFAULT_MAX_CHUNK_CHARS = 450;
+/**
+ * About 150 source tokens of English: a full paragraph of most articles. Larger pieces keep
+ * more context but hold the first token back by their whole prefill, which on the CPU
+ * runtime costs nearly as much per token as decoding does.
+ */
+export const DEFAULT_PIECE_CHARS = 600;
 
 const NO_SPACE_TARGETS: ReadonlySet<string> = new Set(['ja', 'zh-hans', 'zh-hant', 'th']);
 
@@ -246,6 +252,33 @@ export function splitForTranslation(text: string, options: SentenceSplitOptions 
   const ranges = findProtectedRanges(trimmed);
   const merged = mergeUnbalanced(splitRawSentences(trimmed, ranges));
   return merged.flatMap((chunk) => splitLongChunk(chunk, maxChunkChars));
+}
+
+/**
+ * Splits text only when it is longer than one ordinary paragraph, and then into runs of whole
+ * sentences rather than single sentences. Each piece becomes its own prompt, so the model
+ * sees a sentence together with its neighbours, as it does when it translates a paragraph,
+ * and no piece depends on the model echoing back a line structure.
+ */
+export function chunkForTranslation(text: string, maxChars = DEFAULT_PIECE_CHARS): string[] {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return [];
+  if (trimmed.length <= maxChars) return [trimmed];
+
+  const sentences = mergeUnbalanced(splitRawSentences(trimmed, findProtectedRanges(trimmed)));
+  const pieces: string[] = [];
+  let current = '';
+  for (const sentence of sentences.flatMap((chunk) => splitLongChunk(chunk, maxChars))) {
+    const joined = current.length > 0 ? joinChunks(current, sentence) : sentence;
+    if (current.length > 0 && joined.length > maxChars) {
+      pieces.push(current);
+      current = sentence;
+      continue;
+    }
+    current = joined;
+  }
+  if (current.length > 0) pieces.push(current);
+  return pieces;
 }
 
 export function sentenceSeparator(tgt: string): string {

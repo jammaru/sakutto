@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  chunkForTranslation,
   joinTranslatedSentences,
   sentenceSeparator,
   splitForTranslation,
@@ -99,5 +100,22 @@ describe('sentence splitting', () => {
     expect(joinTranslatedSentences(['最初。', '次。'], 'ja')).toBe('最初。次。');
     expect(sentenceSeparator('zh-hant')).toBe('');
     expect(sentenceSeparator('ko')).toBe(' ');
+  });
+
+  it('keeps an ordinary paragraph whole so the model sees its context', () => {
+    expect(chunkForTranslation(` ${LONG_EN} `)).toEqual([LONG_EN]);
+  });
+
+  it('cuts a very long paragraph only between sentences', () => {
+    const text = Array.from({ length: 6 }, () => LONG_EN).join(' ');
+    const pieces = chunkForTranslation(text, 600);
+
+    expect(pieces.length).toBeGreaterThan(1);
+    for (const piece of pieces) {
+      expect(piece.length).toBeLessThanOrEqual(600);
+      expect(piece.endsWith('.')).toBe(true);
+      expect(piece.split('. ').length).toBeGreaterThan(2);
+    }
+    expect(pieces.join(' ')).toBe(text);
   });
 });

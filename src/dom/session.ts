@@ -9,7 +9,8 @@ import {
   type PageRates,
   type ThroughputSample,
 } from './throughput';
-import { joinTranslatedSentences, splitForTranslation } from '@/engine/text/sentences';
+import { DEFAULT_BATCHING } from '@/engine/text/plan';
+import { chunkForTranslation, joinTranslatedSentences } from '@/engine/text/sentences';
 import { isPlainAltS } from '@/shared/shortcuts';
 import { PriorityQueue } from '@/engine/queue/priority-queue';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
@@ -57,8 +58,9 @@ import {
 } from './segment';
 import type { SiteAuto, SiteRule } from './sites';
 
-const PACK_TOKEN_LIMIT = 512;
-const PACK_SEGMENT_TOKENS = 240;
+/** The engine packs by the same rule, so a request the page packs is not split up again. */
+const PACK_TOKEN_LIMIT = DEFAULT_BATCHING.maxBatchTokens;
+const PACK_SEGMENT_TOKENS = DEFAULT_BATCHING.maxSegmentTokens;
 /** How many blocks one packed completion may carry. */
 const MAX_BATCH_SEGMENTS = 8;
 /** Placeholder tags one packed request may carry before the line match gets unreliable. */
@@ -1165,7 +1167,8 @@ export class PageSession {
         if (item.state !== 'running') continue;
         if (chunk.engine) item.engine = chunk.engine;
         if (chunk.textDelta) {
-          item.partText[index] = (item.partText[index] ?? '') + chunk.textDelta;
+          const before = chunk.restart === true ? '' : (item.partText[index] ?? '');
+          item.partText[index] = before + chunk.textDelta;
           this.queuePaint(item);
         }
         if (chunk.final !== undefined) {
@@ -2138,7 +2141,7 @@ function glossaryKey(glossary: readonly GlossaryEntry[] | undefined): string {
 
 function expandSource(item: Live): { id: string; text: string }[] {
   const source = item.flatten ? stripPlaceholderTokens(item.source) : item.source;
-  const pieces = splitForTranslation(source);
+  const pieces = chunkForTranslation(source);
   if (pieces.length <= 1) return [{ id: item.id, text: source }];
   return pieces.map((text, index) => ({ id: `${item.id}#${String(index)}`, text }));
 }

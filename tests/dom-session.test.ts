@@ -5,6 +5,7 @@ import { applyTranslation, restoreSegment } from '@/dom/render';
 import { SELECTION_ICON_PX, selectionIconBox, translationPageStyle } from '@/dom/overlay';
 import { translationStyleKeepsContrast } from '@/dom/overlay';
 import { PageSession, type PageEngine, type SessionPreferences } from '@/dom/session';
+import { JobScheduler } from '@/engine/queue/scheduler';
 import type { TranslateOptions } from '@/engine/types';
 
 const labels = {
@@ -536,16 +537,18 @@ describe('page session', () => {
     expect(contexts.some((context) => context?.includes('First paragraph'))).toBe(true);
   });
 
-  it('splits a long paragraph into sentences before asking the engine', async () => {
+  it('splits a paragraph longer than a piece into runs of sentences', async () => {
     document.documentElement.lang = 'en';
     const sentence = 'This is one sentence about the release. ';
-    document.body.innerHTML = `<p>${sentence.repeat(12)}</p>`;
+    document.body.innerHTML = `<p>${sentence.repeat(30)}</p>`;
     const ids: string[] = [];
+    const texts: string[] = [];
     const session = start(
       document,
       engineOf(async function* (segments) {
         for (const segment of segments) {
           ids.push(segment.id);
+          texts.push(segment.text);
           yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
         }
       }),
@@ -555,6 +558,11 @@ describe('page session', () => {
     await session.whenIdle();
 
     expect(ids.some((id) => id.includes('#'))).toBe(true);
+    // Each piece carries several whole sentences, not one sentence cut off from the rest.
+    for (const text of texts) {
+      expect(text.split('. ').length).toBeGreaterThan(2);
+      expect(text.endsWith('.')).toBe(true);
+    }
     expect(document.body.textContent).toContain('訳:');
   });
 
@@ -724,24 +732,46 @@ describe('page session', () => {
     document.body.innerHTML = `<p>${'First paragraph of the page. '.repeat(8)}</p><p>Second paragraph</p>`;
     let releasePage: (() => void) | undefined;
     const calls: string[] = [];
+    // The page keeps one request waiting inside the engine, as the real engine does. Like
+    // the real engine, this double runs one completion at a time and takes the waiting
+    // request with the lowest priority value next, so a selection overtakes the next page
+    // chunk without cancelling the one already inside the model.
+    const slot = new JobScheduler(1);
     const session = start(
       document,
       engineOf(async function* (segments, options) {
         const label = segments.map((segment) => segment.text).join('|');
-        calls.push(`start:${label}`);
-        if (label.startsWith('First paragraph')) {
-          await new Promise<void>((resolve) => {
-            releasePage = resolve;
+        let finish!: () => void;
+        const finished = new Promise<void>((resolve) => {
+          finish = resolve;
+        });
+        await new Promise<void>((admitted) => {
+          slot.schedule({
+            priority: options.priority,
+            run: () => {
+              admitted();
+              return finished;
+            },
           });
-          if (options.signal.aborted) {
-            calls.push('aborted');
-            return;
+        });
+        try {
+          calls.push(`start:${label}`);
+          if (label.startsWith('First paragraph')) {
+            await new Promise<void>((resolve) => {
+              releasePage = resolve;
+            });
+            if (options.signal.aborted) {
+              calls.push('aborted');
+              return;
+            }
           }
+          for (const segment of segments) {
+            yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+          }
+          calls.push(`end:${label}`);
+        } finally {
+          finish();
         }
-        for (const segment of segments) {
-          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
-        }
-        calls.push(`end:${label}`);
       }),
     );
 
@@ -754,23 +784,24 @@ describe('page session', () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
     session.translateSelection('Selected phrase', new DOMRect(12, 12, 40, 16));
-    for (let attempt = 0; attempt < 20 && !calls.includes('end:Selected phrase'); attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).not.toContain('start:Second paragraph');
+
+    releasePage?.();
+    for (let attempt = 0; attempt < 40 && !calls.includes('end:Selected phrase'); attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
+    await pending;
+    await session.whenIdle();
 
-    expect(calls).toContain('start:Selected phrase');
-    expect(calls).toContain('end:Selected phrase');
-    expect(calls).not.toContain('start:Second paragraph');
+    const order = (prefix: string): number => calls.findIndex((call) => call.startsWith(prefix));
     expect(calls).not.toContain('aborted');
+    expect(order('end:First paragraph')).toBeGreaterThanOrEqual(0);
+    expect(order('start:Selected phrase')).toBeGreaterThan(order('end:First paragraph'));
+    expect(order('end:Selected phrase')).toBeLessThan(order('start:Second paragraph'));
     expect(document.querySelector('sakutto-pop')?.shadowRoot?.textContent).toContain(
       '訳:Selected phrase',
     );
-
-    releasePage?.();
-    await pending;
-    await session.whenIdle();
-    expect(calls.some((call) => call.startsWith('end:First paragraph'))).toBe(true);
-    expect(calls).toContain('start:Second paragraph');
     expect(document.body.textContent).toContain('訳:Second paragraph');
   });
 
@@ -1990,7 +2021,7 @@ describe('long page translation', () => {
   it('moves the count while a long paragraph still has pieces left', async () => {
     document.documentElement.lang = 'en';
     const sentence = 'This is one sentence about the release. ';
-    document.body.innerHTML = `<p id="lead">${sentence.repeat(12)}</p>`;
+    document.body.innerHTML = `<p id="lead">${sentence.repeat(30)}</p>`;
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
       release = resolve;

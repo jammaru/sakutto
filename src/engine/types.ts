@@ -30,8 +30,16 @@ interface TranslationChunkBase {
 }
 
 export type TranslationChunk =
-  | (TranslationChunkBase & { textDelta: string; final?: undefined })
-  | (TranslationChunkBase & { textDelta?: undefined; final: string });
+  | (TranslationChunkBase & {
+      textDelta: string;
+      final?: undefined;
+      /**
+       * The text streamed for this id so far was wrong (a packed request lost its line
+       * alignment) and this delta starts it over.
+       */
+      restart?: boolean | undefined;
+    })
+  | (TranslationChunkBase & { textDelta?: undefined; final: string; restart?: undefined });
 
 export interface Engine {
   translate(
@@ -52,6 +60,8 @@ export function isTranslationChunk(value: unknown): value is TranslationChunk {
   if (delta === undefined && final === undefined) return false;
   if (delta !== undefined && typeof delta !== 'string') return false;
   if (final !== undefined && typeof final !== 'string') return false;
+  const restart = 'restart' in value ? value.restart : undefined;
+  if (restart !== undefined && (typeof restart !== 'boolean' || delta === undefined)) return false;
   const engine = 'engine' in value ? value.engine : undefined;
   return engine === undefined || engine === 'plamo' || engine === 'chrome';
 }
