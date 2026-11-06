@@ -268,3 +268,12 @@ function removeLegacyNote(block: Element): void {
     if (child.tagName === LEGACY_NOTE_TAG.toUpperCase()) child.remove();
   }
 }
+
+/**
+ * Removes every leftover badge under a root. The per-block cleanup only reaches blocks
+ * this session paints, and a block an older build already translated into the target
+ * language is never repainted, so a stale 「簡易訳」 would otherwise stay on screen.
+ */
+export function stripLegacyNotes(root: ParentNode): void {
+  for (const note of [...root.querySelectorAll(LEGACY_NOTE_TAG)]) note.remove();
+}

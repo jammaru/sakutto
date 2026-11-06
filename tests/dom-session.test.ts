@@ -332,6 +332,43 @@ describe('page session', () => {
     expect(document.querySelector('#lead')?.textContent).not.toContain('簡易訳');
   });
 
+  it('drops a badge an older build left in a block it had already translated', async () => {
+    // An extension update re-injects the content script into a tab whose DOM still holds
+    // the old paint: the block already reads as the target language, so the scan skips it
+    // and the per-block cleanup never runs. The badge has to be swept away separately.
+    document.documentElement.lang = 'ja';
+    document.documentElement.setAttribute('data-sakutto-source-lang', 'en');
+    document.body.innerHTML =
+      '<p id="lead">今日はよく晴れています。<sakutto-note data-mode="replace">簡易訳</sakutto-note></p>';
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    expect(document.querySelector('sakutto-note')).toBeNull();
+    expect(document.querySelector('#lead')?.textContent).not.toContain('簡易訳');
+  });
+
+  it('drops a badge an older build left inside a bilingual line', async () => {
+    document.documentElement.lang = 'ja';
+    document.documentElement.setAttribute('data-sakutto-source-lang', 'en');
+    document.body.innerHTML =
+      '<p id="lead">Hello world<sakutto-line lang="ja">今日はよく晴れています。' +
+      '<sakutto-note data-mode="bilingual">簡易訳</sakutto-note></sakutto-line></p>';
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    expect(document.querySelector('sakutto-note')).toBeNull();
+  });
+
   it('remembers bilingual mode for the page and can switch back', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML = '<p>Hello world</p>';

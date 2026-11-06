@@ -46,6 +46,7 @@ import {
   removeTranslationUi,
   restoreSegment,
   showBilingual,
+  stripLegacyNotes,
 } from './render';
 import {
   allSlots,
@@ -493,6 +494,7 @@ export class PageSession {
     if (this.active) return;
     this.active = true;
     this.navigating = false;
+    this.sweepLegacyNotes();
     this.startedAt = performance.now();
     this.firstTextAt = null;
     this.samples = [];
@@ -1548,6 +1550,20 @@ export class PageSession {
         if (node.parentNode === block) block.appendChild(node);
       }
       this.remember(model, item.created);
+    });
+  }
+
+  /**
+   * A page translated by an older build keeps its badge in the DOM. Blocks that already
+   * read as the target language are skipped by the scan, so the per-block cleanup never
+   * reaches them: this clears the whole page before the first paint instead.
+   */
+  private sweepLegacyNotes(): void {
+    this.editDom(() => {
+      for (const document of collectDocuments(this.doc)) {
+        stripLegacyNotes(document);
+        for (const shadow of collectShadowRoots(document)) stripLegacyNotes(shadow);
+      }
     });
   }
 
