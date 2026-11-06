@@ -18,13 +18,14 @@ The Chrome Web Store listing is not published yet. Until it is, install from sou
 
 ## Shortcuts
 
-| Action                                          | Default |
-| ----------------------------------------------- | ------- |
-| Translate the page, or restore the original     | Alt+A   |
-| Switch between replaced text and bilingual text | Alt+B   |
-| Translate the selection                         | Alt+S   |
+| Action                                          | Windows / Linux | Mac          |
+| ----------------------------------------------- | --------------- | ------------ |
+| Translate the page, or restore the original     | Alt+A           | Option (⌥)+A |
+| Switch between replaced text and bilingual text | Alt+B           | Option (⌥)+B |
+| Translate the selection                         | Alt+S           | Option (⌥)+S |
+| Translate typed text (on the typed text page)   | Ctrl+Enter      | ⌘+Enter      |
 
-The same actions are in the toolbar popup and the right-click menu. Change the keys at `chrome://extensions/shortcuts`. Alt+D is not used, because Chrome uses it for the address bar.
+The same actions are in the toolbar popup and the right-click menu. Change the keys at `chrome://extensions/shortcuts`. Chrome reads Alt in an extension shortcut as Option on a Mac, so the keys are the same letters. Alt+D is not used, because Chrome on Windows and Linux uses it for the address bar.
 
 ## Typed text
 

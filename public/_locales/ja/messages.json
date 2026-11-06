@@ -363,13 +363,13 @@
     "message": "このサイトを常に翻訳します"
   },
   "shortcutTranslate": {
-    "message": "Alt+A で翻訳と原文を切り替えます"
+    "message": "Alt+A（Mac は Option+A）で翻訳と原文を切り替えます"
   },
   "shortcutBilingual": {
-    "message": "Alt+B で置換表示と対訳表示を切り替え、このサイトの設定として記憶します。"
+    "message": "Alt+B（Mac は Option+B）で置換表示と対訳表示を切り替え、このサイトの設定として記憶します。"
   },
   "shortcutSelection": {
-    "message": "Alt+S で選択したテキストを翻訳します"
+    "message": "Alt+S（Mac は Option+S）で選択したテキストを翻訳します"
   },
   "runtimePreparing": {
     "message": "準備中 $PERCENT$%",
@@ -493,10 +493,10 @@
     "message": "ツールバーのアイコンを押すと、開いているページを翻訳します。"
   },
   "onboardingReadyPage": {
-    "message": "Alt+A でページ全体を翻訳します。もう一度押すと、原文に戻します。"
+    "message": "Alt+A（Mac は Option+A）でページ全体を翻訳します。もう一度押すと、原文に戻します。"
   },
   "onboardingReadySelection": {
-    "message": "Alt+S で、選択したテキストを翻訳します。"
+    "message": "Alt+S（Mac は Option+S）で、選択したテキストを翻訳します。"
   },
   "onboardingReadyContext": {
     "message": "ページを右クリックして「このページを翻訳」を選べます。選択した文字は「選択したテキストを翻訳」です。"
@@ -740,7 +740,7 @@
     "message": "貼り付けたテキストの隣に、PLaMo の訳文をここへ表示します。"
   },
   "typedRunHint": {
-    "message": "Ctrl+Enter でも翻訳できます。"
+    "message": "Ctrl+Enter（Mac は ⌘+Enter）でも翻訳できます。"
   },
   "typedFailed": {
     "message": "翻訳できませんでした。入力したテキストはそのままです。もう一度お試しください。"
