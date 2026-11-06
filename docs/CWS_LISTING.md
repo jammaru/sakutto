@@ -35,18 +35,16 @@ Sakutto - ローカルAI翻訳
 ### 詳細な説明
 
 ```text
-ウェブページを、この端末の中だけで翻訳する無料の拡張機能です。アカウント登録は不要です。広告も分析もありません。
-
 ページ全体の翻訳、選択したテキストの翻訳、手元で入力して訳すことができます。原文を訳文に置き換える表示と、並べて読む対訳表示があります。
 
-本文は外部の翻訳サーバーへ送りません。ローカルLLMが、この端末の中で訳します。Built with PLaMo。
+広告も分析もありません。本文は外部の翻訳サーバーへ送りません。Built with PLaMo。
 
 非公式です。Preferred Networks とは無関係です。
 
 プライバシーポリシー: https://jammaru.com/sakutto/privacy/
 ```
 
-文字数: 270 / 16000
+文字数: 203 / 16000
 
 ### カテゴリ
 
@@ -169,18 +167,16 @@ A local LLM translates pages on your device. Free, no account.
 ### Detailed description
 
 ```text
-A free extension that translates web pages on your device. No account. No ads or analytics.
-
 Translate a whole page, selected text, or text you type. You can replace the page with the translation, or read the original and the translation side by side.
 
-Your page text is not sent to an outside translation server. A local LLM translates on this device. Built with PLaMo.
+No ads or analytics. Your page text is not sent to an outside translation server. Built with PLaMo.
 
 Unofficial. Not affiliated with Preferred Networks.
 
 Privacy policy: https://jammaru.com/sakutto/privacy/
 ```
 
-文字数: 477 / 16000
+文字数: 366 / 16000
 
 ### Category
 
