@@ -55,8 +55,8 @@
   <label class="field">
     <span>{t('paceLabel')}</span>
     <select value={settings.pace} onchange={updatePace}>
-      <option value="fast">{t('paceFast')}</option>
       <option value="quality">{t('paceQuality')}</option>
+      <option value="fast">{t('paceFast')}</option>
     </select>
   </label>
   <p class="muted help">{t('paceHelp')}</p>

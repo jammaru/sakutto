@@ -193,7 +193,6 @@ export class EngineHost {
     const router = new RoutingEngine({
       plamo: new CachingEngine(lazy, cache, () => this.activeModelId),
       chrome: chromeForCache,
-      plamoReady: () => this.plamoReady,
       plamoSupports: (src, tgt) =>
         canonicalLanguage(tgt) !== null &&
         (src === undefined || src.trim().length === 0 || canonicalLanguage(src) !== null),

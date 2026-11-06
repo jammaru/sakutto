@@ -39,7 +39,6 @@ export interface PageViewState {
   active: boolean;
   display: DisplayMode;
   engine: EngineKind | null;
-  simple: boolean;
   pending: number;
   done: number;
   total: number;
@@ -162,7 +161,6 @@ export function isPageViewState(value: unknown): value is PageViewState {
     typeof value.active === 'boolean' &&
     (value.display === 'replace' || value.display === 'bilingual') &&
     (value.engine === null || value.engine === 'plamo' || value.engine === 'chrome') &&
-    typeof value.simple === 'boolean' &&
     typeof value.pending === 'number' &&
     typeof value.done === 'number' &&
     typeof value.total === 'number' &&

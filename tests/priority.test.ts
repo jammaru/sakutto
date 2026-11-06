@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { bandForRect, contentKind, translationPriority } from '@/dom/priority';
+import { bandForRect, contentKind, lookaheadScreens, translationPriority } from '@/dom/priority';
 
 describe('translation priority', () => {
   it('finishes article prose before navigation and infoboxes', () => {
@@ -67,5 +67,16 @@ describe('translation priority', () => {
     expect(bandForRect({ top: 900, bottom: 940, width: 100, height: 40 }, 800)).toBe('near');
     expect(bandForRect({ top: 4000, bottom: 4040, width: 100, height: 40 }, 800)).toBe('far');
     expect(bandForRect({ top: 0, bottom: 0, width: 0, height: 0 }, 800)).toBe('far');
+  });
+
+  it('prefetches more of the page for PLaMo when the look-ahead is widened', () => {
+    // The look-ahead is how much of the page is handed to PLaMo before it is on screen.
+    // It used to decide how much Chrome drafted; now it is pure model prefetch.
+    expect(lookaheadScreens('g', 'quality')).toBe(2);
+    expect(lookaheadScreens('c8', 'quality')).toBe(1);
+    expect(lookaheadScreens('c4', 'quality')).toBe(0.5);
+    expect(lookaheadScreens('g', 'fast')).toBeGreaterThan(lookaheadScreens('g', 'quality'));
+    expect(lookaheadScreens('c8', 'fast')).toBeGreaterThan(lookaheadScreens('c8', 'quality'));
+    expect(lookaheadScreens(null, 'fast')).toBeGreaterThan(lookaheadScreens(null, 'quality'));
   });
 });

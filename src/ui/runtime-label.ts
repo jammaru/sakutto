@@ -1,6 +1,6 @@
 import type { EngineStatus } from '@/shared/engine-status';
 import type { MessageKey } from '@/shared/i18n';
-import { isChromeLanguage, isChromeOnlyLanguage } from '@/shared/languages';
+import { isChromeOnlyLanguage } from '@/shared/languages';
 import { formatByteSize } from './format';
 
 export interface RuntimeLabel {
@@ -31,14 +31,12 @@ export function runtimeLabel(input: {
   if (state === 'verifying') return { key: 'runtimeVerifying' };
   if (state === 'loading') return { key: 'runtimeLoading' };
 
-  if (isChromeOnlyLanguage(targetLanguage)) return { key: 'runtimeSimple' };
+  // Only a pair the model cannot translate at all is handled by Chrome, and that engine
+  // is the page's real translator rather than a stand-in for a warming model.
+  if (isChromeOnlyLanguage(targetLanguage) || pageSimple) return { key: 'runtimeChrome' };
 
-  if (status.plamoReady && !pageSimple) {
+  if (status.plamoReady) {
     return { key: status.backend === 'webgpu' ? 'runtimePlamoGpu' : 'runtimePlamoCpu' };
-  }
-
-  if (pageSimple || (isChromeLanguage(targetLanguage) && !status.plamoReady)) {
-    return { key: 'runtimeSimple' };
   }
 
   if (state === 'error') return { key: 'runtimeError' };

@@ -57,12 +57,12 @@ const session = new PageSession(document, {
 
 browser.runtime.onMessage.addListener((message) => {
   if (!isModelProgressMessage(message)) return;
-  if (message.status.state === 'loaded') session.upgradeChromeSegments();
+  if (message.status.state === 'loaded') session.retryUntranslated();
 });
 
 void requestEngineStatus()
   .then((status) => {
-    if (status?.model.state === 'loaded') session.upgradeChromeSegments();
+    if (status?.model.state === 'loaded') session.retryUntranslated();
   })
   .catch(() => undefined);
 

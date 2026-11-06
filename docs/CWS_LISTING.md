@@ -47,7 +47,7 @@ Sakutto は、ウェブページをこの端末の中で翻訳する無料のオ
 
 モデル重み（GGUF データ）のみを huggingface.co から DL。実行コードはすべて同梱。
 
-標準モデルは 0.8B です。大きさは 573 MB（573,123,200 バイト）で、この端末に保存されていないときだけダウンロードします。2B（約 1.81 GB、1,807,199,392 バイト）は任意です。モデルの準備ができるまで、ページ翻訳は Chrome が言語パックを利用可能と報告しているときに Chrome 内蔵の翻訳を使うことがあります。言語パックは Chrome が取得します。「はじめる」は、ページ本文を含めずに Chrome へ言語パックの導入を頼むことがあります。原文の言語が空のときは、組み合わせを決めるために最大 1,000 文字を Chrome の Language Detector API に渡すことがあります。これは、この拡張機能から翻訳サーバーへの送信ではありません。
+標準モデルは 0.8B です。大きさは 573 MB（573,123,200 バイト）で、この端末に保存されていないときだけダウンロードします。2B（約 1.81 GB、1,807,199,392 バイト）は任意です。訳文はすべて PLaMo が生成します。モデルの準備を待つあいだ、ページは原文のまま表示し、Chrome 内蔵翻訳の下書きは表示しません。Chrome 内蔵の翻訳を使うのは、PLaMo が対応していない言語の組み合わせだけです。言語パックは Chrome が取得します。「はじめる」は、ページ本文を含めずに Chrome へ言語パックの導入を頼むことがあります。原文の言語が空のときは、組み合わせを決めるために最大 1,000 文字を Chrome の Language Detector API に渡すことがあります。これは、この拡張機能から翻訳サーバーへの送信ではありません。
 
 表示は、原文を訳文に置き換える方法と、原文と訳文を並べる対訳です。言語と表示はサイトごとに記憶できます。最初の開始は「はじめる」のワンクリックです。ボタンの横の注意書きが同意の文です。開始すると、PLaMo Community License（第2条）に同意したことになり、18歳以上であるか、保護者の同意が必要です。同意用のチェックボックスはありません。
 
@@ -208,7 +208,7 @@ The extension's own network requests download PLaMo 3 Translate GGUF model weigh
 モデル重み（GGUF データ）のみを huggingface.co から DL。実行コードはすべて同梱。
 Only model weights (GGUF data) are downloaded from huggingface.co. Every script, worker, and wasm the extension executes is in the zip.
 
-The default model is 0.8B, 573 MB (573,123,200 bytes). It downloads to the device when it is not already stored. The 2B model (about 1.81 GB, 1,807,199,392 bytes) is optional. Until the model is ready, page translation can use Chrome's built-in translator when Chrome reports the language pack as available. Chrome may download its own language packs. Get started can ask Chrome to install a pack, and that call does not include page text. If the source language is empty, up to 1,000 characters may be passed to Chrome's Language Detector API so the pair can be chosen. That is not a request from this extension to a translation server.
+The default model is 0.8B, 573 MB (573,123,200 bytes). It downloads to the device when it is not already stored. The 2B model (about 1.81 GB, 1,807,199,392 bytes) is optional. Every translated line is written by PLaMo. While the model is being prepared the page keeps its source text; no built-in draft is shown. Chrome's built-in translator is used only for the language pairs PLaMo does not support. Chrome may download its own language packs. Get started can ask Chrome to install a pack, and that call does not include page text. If the source language is empty, up to 1,000 characters may be passed to Chrome's Language Detector API so the pair can be chosen. That is not a request from this extension to a translation server.
 
 Reading styles are replace-original and bilingual. Language and reading style can be remembered per site. Starting is one click on Get started. The notice beside the button says that starting agrees to the PLaMo Community License (Article 2), and that you must be 18 or older or have a parent or guardian's consent. There is no consent checkbox.
 

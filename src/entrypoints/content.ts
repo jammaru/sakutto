@@ -173,13 +173,13 @@ export default defineContentScript({
   },
 });
 
-async function requestEngineTier(session: PageSession, upgrade = false): Promise<void> {
+async function requestEngineTier(session: PageSession, retry = false): Promise<void> {
   try {
     const status = await requestEngineStatus();
     if (status?.tier) session.setTier(status.tier);
-    if (upgrade || status?.model.state === 'loaded') session.upgradeChromeSegments();
+    if (retry || status?.model.state === 'loaded') session.retryUntranslated();
   } catch {
-    // A load broadcast still replaces the built-in translation if the status read fails.
-    if (upgrade) session.upgradeChromeSegments();
+    // A load broadcast still re-queues the blocks that failed while the model loaded.
+    if (retry) session.retryUntranslated();
   }
 }

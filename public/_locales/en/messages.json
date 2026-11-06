@@ -119,16 +119,16 @@
     "message": "While a page is translating, its bar shows tokens/s and segments/s."
   },
   "paceLabel": {
-    "message": "Page pace"
+    "message": "Look-ahead"
   },
   "paceFast": {
-    "message": "Fast (off-screen text too)"
+    "message": "Look ahead further"
   },
   "paceQuality": {
-    "message": "Quality only"
+    "message": "Visible first"
   },
   "paceHelp": {
-    "message": "Text on screen appears at once with Chrome's built-in translation, and PLaMo replaces it in reading order. Fast also fills off-screen text that way. Quality only waits for PLaMo off-screen."
+    "message": "Translates paragraphs just before they scroll into view. \"Look ahead further\" prefetches more below the fold, so the text is ready when you scroll. Every line is translated by PLaMo; Chrome's draft is never used."
   },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
@@ -402,7 +402,7 @@
   "runtimePlamoCpu": {
     "message": "PLaMo · CPU"
   },
-  "runtimeSimple": {
+  "runtimeChrome": {
     "message": "Chrome's built-in translation"
   },
   "runtimeWaiting": {

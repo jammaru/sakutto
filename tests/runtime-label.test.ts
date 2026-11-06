@@ -86,10 +86,10 @@ describe('runtime label', () => {
       }).key,
     ).toBe('runtimePlamoCpu');
     expect(runtimeLabel({ status: status(), pageSimple: true, targetLanguage: 'ja' }).key).toBe(
-      'runtimeSimple',
+      'runtimeChrome',
     );
     expect(runtimeLabel({ status: status(), pageSimple: false, targetLanguage: 'pt' }).key).toBe(
-      'runtimeSimple',
+      'runtimeChrome',
     );
     expect(
       runtimeLabel({
@@ -109,7 +109,7 @@ describe('runtime label', () => {
         pageSimple: false,
         targetLanguage: 'pt',
       }).key,
-    ).toBe('runtimeSimple');
+    ).toBe('runtimeChrome');
     expect(
       runtimeLabel({
         status: status({

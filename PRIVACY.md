@@ -36,7 +36,7 @@ The 0.8B file is the default (573,123,200 bytes). The 2B file (1,807,199,392 byt
 - No analytics, crash report, or telemetry endpoint.
 - No request that includes page text, a glossary, or a translation.
 - No extension-initiated update check. If you installed from the Chrome Web Store, Chrome may contact Google to update the extension. That is Chrome's request. It is not page text, and this program does not add one.
-- While the PLaMo file is not ready, page translation uses Chrome's Translator API (`src/engine/chrome/translator.ts`) only when Chrome reports the language pack as `available` (`src/engine/router.ts`). The extension does not choose a server and does not upload the text itself. If the source language is empty, up to 1,000 characters of page text may first go to Chrome's Language Detector API so the extension can ask Translator about the right pair (`src/engine/offscreen/host.ts`). Onboarding's Get started button may call `Translator.create()` for the language pair even when the pack is still `downloadable`, so Chrome can install the pack (`src/shared/translator-pack.ts`). That call does not include page text. Google's Translator API documentation describes translation as client-side and says Chrome downloads the language pack. This policy does not claim an independent audit of Chrome.
+- Chrome's Translator API (`src/engine/chrome/translator.ts`) is used only for a language pair the PLaMo model does not support, and only when Chrome reports the language pack as `available` (`src/engine/router.ts`). A pair the model supports is never routed to Chrome, so no built-in text is shown as a stand-in while the model loads. The extension does not choose a server and does not upload the text itself. If the source language is empty, up to 1,000 characters of page text may first go to Chrome's Language Detector API so the extension can ask Translator about the right pair (`src/engine/offscreen/host.ts`). Onboarding's Get started button may call `Translator.create()` for the language pair even when the pack is still `downloadable`, so Chrome can install the pack (`src/shared/translator-pack.ts`). That call does not include page text. Google's Translator API documentation describes translation as client-side and says Chrome downloads the language pack. This policy does not claim an independent audit of Chrome.
 
 ## Stored on the device
 
@@ -61,7 +61,7 @@ Page text, site rules, and glossary entries are used only to translate pages in 
 
 ## Accounts and offline use
 
-The extension has no account. The model download did not require a Hugging Face login on 2026-11-06. After the checked file is stored, PLaMo translation does not need the network. Before that, it does. Chrome's fallback also needs its language pack to be installed already. Neither path is offline on a new install with no files saved.
+The extension has no account. The model download did not require a Hugging Face login on 2026-11-06. After the checked file is stored, PLaMo translation does not need the network. Before that, it does. Chrome's built-in translator, used for the pairs the model does not support, also needs its language pack to be installed already. Neither path is offline on a new install with no files saved.
 
 ## Contact
 
@@ -105,7 +105,7 @@ MIT の著作権表示にある `jammaru` はリポジトリ上の名前であ�
 - 分析、クラッシュ報告、テレメトリのエンドポイントはありません。
 - ページの本文、用語集、訳文を含むリクエストはありません。
 - 拡張機能自身の更新確認はありません。Chrome ウェブストアから入れた場合、Chrome が Google に更新を問い合わせることがあります。それは Chrome の通信であり、ページの本文ではなく、このプログラムが追加するものでもありません。
-- PLaMo のファイルが準備できるまでは、ページ翻訳が Chrome の Translator API を使うのは、Chrome が言語パックを `available` と報告しているときに限ります（`src/engine/chrome/translator.ts`、`src/engine/router.ts`）。サーバーは選ばず、拡張機能自身は文字を送りません。ソース言語が空のときは、その前に最大 1,000 文字を Chrome の Language Detector API に渡して組み合わせを決めます（`src/engine/offscreen/host.ts`）。オンボーディングの開始では、言語パックが `downloadable` でもクリック中に `Translator.create()` し、Chrome がパックを入れられるようにすることがあります（`src/shared/translator-pack.ts`）。この呼び出しにページ本文は入りません。Google の Translator API の文書は、これを端末側の翻訳と説明し、言語パックは Chrome が取得するとしています。このポリシーは、Chrome 本体を独自に監査したとは言いません。
+- Chrome の Translator API（`src/engine/chrome/translator.ts`）を使うのは、PLaMo のモデルが対応していない言語の組み合わせで、かつ Chrome が言語パックを `available` と報告しているときだけです（`src/engine/router.ts`）。モデルが対応する組み合わせを Chrome に回すことはないため、モデルの読み込み中に Chrome 内蔵の訳が代わりに表示されることはありません。サーバーは選ばず、拡張機能自身は文字を送りません。ソース言語が空のときは、その前に最大 1,000 文字を Chrome の Language Detector API に渡して組み合わせを決めます（`src/engine/offscreen/host.ts`）。オンボーディングの開始では、言語パックが `downloadable` でもクリック中に `Translator.create()` し、Chrome がパックを入れられるようにすることがあります（`src/shared/translator-pack.ts`）。この呼び出しにページ本文は入りません。Google の Translator API の文書は、これを端末側の翻訳と説明し、言語パックは Chrome が取得するとしています。このポリシーは、Chrome 本体を独自に監査したとは言いません。
 
 ## 端末に保存するもの
 
@@ -130,7 +130,7 @@ MIT の著作権表示にある `jammaru` はリポジトリ上の名前であ�
 
 ## アカウントとオフライン
 
-拡張機能にアカウントはありません。2026-11-06 のモデル取得に、Hugging Face へのログインは不要でした。検査済みのファイルが保存されたあと、PLaMo の翻訳に通信は不要です。保存前には必要です。Chrome への切替も、言語パックが既に入っていることが必要です。何も保存していない新規導入では、どちらの経路もオフラインでは完了しません。
+拡張機能にアカウントはありません。2026-11-06 のモデル取得に、Hugging Face へのログインは不要でした。検査済みのファイルが保存されたあと、PLaMo の翻訳に通信は不要です。保存前には必要です。モデルが対応しない言語で使う Chrome 内蔵の翻訳も、言語パックが既に入っていることが必要です。何も保存していない新規導入では、どちらの経路もオフラインでは完了しません。
 
 ## 連絡先
 

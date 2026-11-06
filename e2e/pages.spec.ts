@@ -26,6 +26,50 @@ test.describe('in-page translation', () => {
     extension = await loadExtension('en-US');
   });
 
+  test('never paints built-in translator text as page copy', async () => {
+    await resetExtensionStorage(extension.worker);
+    const page = await extension.context.newPage();
+    try {
+      // Watch every block from the first mutation, not only the finished result, and fail
+      // the test if any block is ever stamped as a Chrome translation.
+      await page.addInitScript(() => {
+        const seen: string[] = [];
+        (globalThis as unknown as { __chromeBlocks: string[] }).__chromeBlocks = seen;
+        const record = (): void => {
+          for (const block of document.querySelectorAll('[data-sakutto-engine]')) {
+            if (block.getAttribute('data-sakutto-engine') !== 'chrome') continue;
+            const text = block.textContent ?? '';
+            if (!seen.includes(text)) seen.push(text);
+          }
+        };
+        const start = (): void => {
+          new MutationObserver(record).observe(document.documentElement, {
+            subtree: true,
+            childList: true,
+            attributes: true,
+            characterData: true,
+          });
+        };
+        if (document.documentElement) start();
+        else document.addEventListener('DOMContentLoaded', start, { once: true });
+      });
+
+      await page.goto(`${FIXTURE_ORIGIN}/article.html`);
+      await commandPage(extension.worker, page, 'toggle');
+      await waitTranslated(page);
+
+      const chromeBlocks = await page.evaluate(
+        () => (globalThis as unknown as { __chromeBlocks: string[] }).__chromeBlocks,
+      );
+      expect(chromeBlocks).toEqual([]);
+      await expect(page.locator('sakutto-note')).toHaveCount(0);
+      await expect(page.locator('#lead')).toHaveAttribute('data-sakutto-engine', 'plamo');
+      await expect(page.locator('#lead')).toContainText(MARKER);
+    } finally {
+      await page.close();
+    }
+  });
+
   test.afterAll(async () => {
     if (!extension) return;
     try {
@@ -41,8 +85,11 @@ test.describe('in-page translation', () => {
       await expect(page.locator('#lead')).toContainText(MARKER);
       await expect(page.locator('#link a')).toHaveAttribute('href', '/docs.html');
       await expect(page.locator('#link a')).toContainText(`${MARKER}ドキュメント`);
-      // A Chrome draft used to carry a "quick translation" badge beside the translated text.
+      // Page text comes from PLaMo only: no built-in badge, and no block is stamped as a
+      // Chrome translation.
       await expect(page.locator('sakutto-note')).toHaveCount(0);
+      await expect(page.locator('[data-sakutto-engine="chrome"]')).toHaveCount(0);
+      await expect(page.locator('#lead')).toHaveAttribute('data-sakutto-engine', 'plamo');
       await savePerf('article', page);
 
       await commandPage(extension.worker, page, 'restore');

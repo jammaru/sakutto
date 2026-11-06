@@ -119,16 +119,16 @@
     "message": "翻訳中のページでは、バーに tokens/s と区間/s が出ます。"
   },
   "paceLabel": {
-    "message": "ページの速さ"
+    "message": "先読み"
   },
   "paceFast": {
-    "message": "速い（画面の外も Chrome 内蔵の翻訳）"
+    "message": "広めに先読み"
   },
   "paceQuality": {
-    "message": "品質のみ"
+    "message": "表示優先"
   },
   "paceHelp": {
-    "message": "見えている範囲は Chrome 内蔵の翻訳ですぐ表示し、PLaMo が読む順に置き換えます。「速い」は画面の外も Chrome 内蔵の翻訳で埋めます。「品質のみ」は画面の外を PLaMo まで待ちます。"
+    "message": "画面に入る前の段落を PLaMo で先に翻訳しておきます。「広めに先読み」は画面の下を多めに先読みし、スクロールしたときに訳が出来上がっているようにします。訳文はすべて PLaMo が生成します。Chrome の下書きは使いません。"
   },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ 区間/s",
@@ -402,7 +402,7 @@
   "runtimePlamoCpu": {
     "message": "PLaMo · CPU"
   },
-  "runtimeSimple": {
+  "runtimeChrome": {
     "message": "Chrome 内蔵の翻訳"
   },
   "runtimeWaiting": {

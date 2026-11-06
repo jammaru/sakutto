@@ -128,7 +128,6 @@ describe('page view state contract', () => {
     active: true,
     display: 'replace',
     engine: 'plamo',
-    simple: false,
     pending: 0,
     done: 3,
     total: 3,
