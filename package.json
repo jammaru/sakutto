@@ -34,6 +34,12 @@
     "test": "vitest run --configLoader runner",
     "test:e2e": "node scripts/run-e2e.mjs",
     "bench": "node scripts/bench/run.ts",
+    "bench:mock": "node scripts/bench/pages-run.ts --mode mock",
+    "bench:live": "node scripts/bench/pages-run.ts --mode live",
+    "bench:build:mock": "node scripts/sync-licenses.mjs && SAKUTTO_FAKE_ENGINE=1 wxt build",
+    "bench:build:live": "node scripts/verify-wllama.mjs && node scripts/sync-licenses.mjs && SAKUTTO_E2E_REAL=1 wxt build",
+    "bench:serve": "node scripts/bench/static.ts",
+    "bench:history": "node scripts/bench/report.ts",
     "release": "node scripts/release/cli.ts"
   },
   "devDependencies": {
