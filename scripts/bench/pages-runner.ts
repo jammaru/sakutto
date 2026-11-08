@@ -55,6 +55,24 @@ export const RUNS_DIR = resolve(ROOT, 'bench/results/pages');
 export const VIEWPORT = { width: 1280, height: 800 };
 
 /**
+ * Runs Prettier over a generated report, with the repository's own configuration.
+ *
+ * The bench writes tables by hand, and `pnpm format:check` covers the checked-in reports,
+ * so an unformatted report fails CI on whichever machine recorded it. Formatting here keeps
+ * the recording step from producing a file that has to be fixed by hand afterwards. A
+ * missing Prettier is not fatal: the report is still written, just as generated.
+ */
+async function formatMarkdown(markdown: string): Promise<string> {
+  try {
+    const prettier = await import('prettier');
+    const config = (await prettier.resolveConfig(ROOT)) ?? {};
+    return await prettier.format(markdown, { ...config, parser: 'markdown' });
+  } catch {
+    return markdown;
+  }
+}
+
+/**
  * Japanese runs about 1.3 tokens per character for this model family. The same constant
  * the older model bench uses, so the two outputs can be read side by side.
  */
@@ -537,7 +555,9 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
   if (writeSummary) {
     await mkdir(RUNS_DIR, { recursive: true });
     summaryPath = resolve(RUNS_DIR, `${run}.md`);
-    await writeFile(summaryPath, summary);
+    // `pnpm format:check` runs over the repository, so a report nobody hand-formatted would
+    // fail CI on the machine that recorded it. Format here, where the tables are generated.
+    await writeFile(summaryPath, await formatMarkdown(summary));
   }
   if (writeHistory) {
     await mkdir(resolve(historyPath, '..'), { recursive: true });
