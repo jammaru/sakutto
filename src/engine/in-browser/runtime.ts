@@ -125,6 +125,21 @@ export const createWllamaRuntime: RuntimeFactory = async (file, selection) => {
       n_threads: selection.nThreads,
       n_gpu_layers: selection.nGpuLayers,
       n_parallel: selection.nParallel,
+      /**
+       * Keep the attention window at full size instead of rotating it.
+       *
+       * PLaMo 3 declares `attention.sliding_window: 2048`, and llama.cpp builds a cache at
+       * that window and rotates it once a sequence runs past it. `swa_full` allocates the
+       * window in full, so the rotation disappears. The window the model can see does not
+       * change: the GPU tier's two sequences split `n_ctx` 4096 into 2048 each, the same
+       * size as the window, so every token a sequence can reach was already inside it.
+       *
+       * Long-article fixture, `pnpm bench:live`, interleaved A/B over 4 rounds on an RTX
+       * 4070 Ti SUPER: first visible paragraph 813 ms -> 326 ms, full page 19489 ms ->
+       * 15863 ms. Twenty-four paragraphs back to back: 15560 ms -> 11088 ms, byte-identical
+       * output, worker RSS +48 MB.
+       */
+      swa_full: true,
       ...(selection.nParallel > 1
         ? {
             cont_batching: true,
