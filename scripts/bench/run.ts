@@ -19,6 +19,7 @@ import {
   type ChromeApi,
 } from './host.ts';
 import { startBenchServer } from './server.ts';
+import { stageExtension } from './stable-extension.ts';
 
 const PAGE_TIMEOUT_MS = 12 * 60 * 1000;
 
@@ -261,8 +262,11 @@ async function runPages(
   machine: Record<string, unknown>;
   pages: PageResult[];
 }> {
-  const extension = extensionDir();
-  await access(resolve(extension, 'manifest.json'));
+  const requested = extensionDir();
+  await access(resolve(requested, 'manifest.json'));
+  // Load from the one stable path so the extension keeps a single origin, and with it a
+  // single copy of the model in the profile. See `stable-extension.ts`.
+  const extension = await stageExtension(requested);
   const profile = resolve(ROOT, 'bench/.chrome-profile');
   await mkdir(profile, { recursive: true });
   const server = await startBenchServer({

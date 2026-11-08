@@ -46,6 +46,7 @@ import {
 } from './page-metrics.ts';
 import { BENCH_PAGES, type BenchPage } from './pages.ts';
 import { startStaticServer } from './static.ts';
+import { stageExtension } from './stable-extension.ts';
 
 export type BenchMode = 'mock' | 'live';
 
@@ -432,7 +433,10 @@ export function defaultRunLabel(mode: BenchMode, at = new Date()): string {
  */
 export async function runPageBench(options: RunPageBenchOptions): Promise<RunPageBenchResult> {
   const mode = options.mode;
-  const extension = resolve(options.extension ?? resolve(ROOT, '.output/chrome-mv3'));
+  const requested = resolve(options.extension ?? resolve(ROOT, '.output/chrome-mv3'));
+  // A live run always loads from the same path so the extension keeps one origin, and with
+  // it one copy of the model in the profile. See `stable-extension.ts`.
+  const extension = mode === 'live' ? await stageExtension(requested) : requested;
   const samples = options.samples !== undefined && options.samples > 0 ? options.samples : 1;
   const run = options.run ?? defaultRunLabel(mode);
   const historyPath = options.historyPath ?? DEFAULT_HISTORY_PATH;
