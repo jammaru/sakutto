@@ -1,5 +1,12 @@
 # Sakutto
 
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/mhlbjjijfkoghmcjndgdimhdlfkhadfl?logo=googlechrome&logoColor=white&label=Chrome%20Web%20Store)](https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl)
+[![Chrome Web Store users](https://img.shields.io/chrome-web-store/users/mhlbjjijfkoghmcjndgdimhdlfkhadfl?label=users)](https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl)
+[![GitHub stars](https://img.shields.io/github/stars/jammaru/sakutto?style=flat&logo=github)](https://github.com/jammaru/sakutto/stargazers)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/pdSRBaSr38)
+[![Last commit](https://img.shields.io/github/last-commit/jammaru/sakutto)](https://github.com/jammaru/sakutto/commits/main)
+
 Sakutto is an unofficial Chrome extension that translates web pages on your device. It runs [PLaMo 3 Translate](https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF) through a pinned [wllama](https://github.com/ngxson/wllama) build. Every translated line is written by PLaMo: a page waiting for the model keeps its source text rather than showing a draft from another engine. Chrome's Translator API is used only for the language pairs PLaMo does not support. Not affiliated with Preferred Networks, Inc. Built with PLaMo.
 
 The extension is free and open source (MIT). It has no ads and no paid features. The model weights are not in this repository or in the extension package.

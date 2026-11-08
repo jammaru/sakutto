@@ -1,5 +1,12 @@
 # Sakutto
 
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/mhlbjjijfkoghmcjndgdimhdlfkhadfl?logo=googlechrome&logoColor=white&label=Chrome%20Web%20Store)](https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl)
+[![Chrome Web Store users](https://img.shields.io/chrome-web-store/users/mhlbjjijfkoghmcjndgdimhdlfkhadfl?label=users)](https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl)
+[![GitHub stars](https://img.shields.io/github/stars/jammaru/sakutto?style=flat&logo=github)](https://github.com/jammaru/sakutto/stargazers)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/pdSRBaSr38)
+[![Last commit](https://img.shields.io/github/last-commit/jammaru/sakutto)](https://github.com/jammaru/sakutto/commits/main)
+
 Sakutto は、ウェブページを端末の中で翻訳する非公式の Chrome 拡張機能です。翻訳には [PLaMo 3 Translate](https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF) を使い、実行にはピン留めした [wllama](https://github.com/ngxson/wllama) を使います。訳文はすべて PLaMo が生成します。モデルの準備を待つあいだも、ページには Chrome 内蔵翻訳の下書きを挟まず、原文のまま表示します。Chrome の Translator API を使うのは、PLaMo が対応していない言語の組み合わせだけです。Preferred Networks, Inc. とは無関係です。Built with PLaMo。
 
 この拡張機能は無料のオープンソース（MIT）です。広告も有料機能もありません。モデルの重みは、このリポジトリにも拡張パッケージにも含まれません。

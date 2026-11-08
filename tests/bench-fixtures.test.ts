@@ -90,14 +90,40 @@ describe('bench fixtures', () => {
     const text = existsSync(historyFile) ? readFileSync(historyFile, 'utf8') : '';
     const { records } = parseHistory(text);
     // A mock run measures the scheduler, so it carries no model rate. A live run is a
-    // measurement from `pnpm bench:live`, so it names a commit that exists in this
-    // repository and records the rate it measured.
+    // measurement from `pnpm bench:live`, so it names a commit and records the rate it
+    // measured.
+    //
+    // The commit must exist in this repository, but not necessarily in `main`: a squash
+    // merge leaves a PR's own commits reachable only from the branch that made them, and
+    // the branch is deleted after the merge. Requiring ancestry would fail the run that
+    // merged the branch and pass again once the row was rewritten, which says nothing
+    // about the numbers. Ask git whether the object is here at all, and say what to do
+    // when it is not, since a shallow clone answers "no" for every row.
+    const shallow = (() => {
+      try {
+        return execFileSync('git', ['rev-parse', '--is-shallow-repository'], {
+          encoding: 'utf8',
+        }).trim();
+      } catch {
+        return 'false';
+      }
+    })();
+
     for (const record of records) {
       const where = `${record.run}/${record.page}`;
       expect(record.dirty, where).toBe(false);
+      let kind: string;
+      try {
+        kind = execFileSync('git', ['cat-file', '-t', record.commit], { encoding: 'utf8' }).trim();
+      } catch {
+        kind = '';
+      }
       expect(
-        execFileSync('git', ['cat-file', '-t', record.commit], { encoding: 'utf8' }).trim(),
-        where,
+        kind,
+        `${where} names commit ${record.commit.slice(0, 7)}, which this clone does not have` +
+          (shallow === 'true'
+            ? '. The clone is shallow; fetch the full history (fetch-depth: 0) and rerun.'
+            : '. Re-record the run on a commit that is in the repository, or restore the branch it came from.'),
       ).toBe('commit');
       if (record.mode === 'mock') {
         expect(record.metrics.estimatedOutputTokensPerSecond, where).toBeNull();
