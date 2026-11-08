@@ -36,9 +36,10 @@ export interface WllamaLoadParams {
   /** One KV cache per sequence. wllama defaults to a single shared cache. */
   kv_unified?: boolean;
   /**
-   * Keep the full-size attention window instead of llama.cpp's sliding one. PLaMo 3 declares
-   * `attention.sliding_window: 2048`, and the default builds the cache at the window size,
-   * which costs a rotation on every step past it.
+   * llama.cpp's `swa_full`: size the SWA cache to the whole context instead of to the model's
+   * sliding window. PLaMo 3 declares `attention.sliding_window: 2048`, so the default sizes it
+   * to that window. On this app's options the allocation llama.cpp reports is the same either
+   * way, and the measured effect is real; see `runtime.ts` for the numbers.
    */
   swa_full?: boolean;
   flash_attn?: boolean;

@@ -81,6 +81,22 @@ describe('wllama runtime load', () => {
     );
   });
 
+  it('keeps the full-size SWA cache on every tier', async () => {
+    native.log = ['load_tensors: offloaded 29/29 layers to GPU'];
+
+    // PLaMo 3 declares a 2048-token sliding window. Asking for the full-size SWA cache took
+    // a 50-token prompt from a 155 ms median to 52 ms on the shipped options; see
+    // `runtime.ts` for why the KV allocation itself does not change.
+    for (const selection of [gpu, cpu]) {
+      native.loadModel.mockClear();
+      await createWllamaRuntime(new Blob(), selection);
+      expect(native.loadModel).toHaveBeenCalledWith(
+        [expect.any(Blob)],
+        expect.objectContaining({ swa_full: true }),
+      );
+    }
+  });
+
   it('gates as many completions as llama.cpp has sequences', async () => {
     native.log = ['load_tensors: offloaded 29/29 layers to GPU'];
     const runtime = await createWllamaRuntime(new Blob(), gpu);

@@ -126,18 +126,27 @@ export const createWllamaRuntime: RuntimeFactory = async (file, selection) => {
       n_gpu_layers: selection.nGpuLayers,
       n_parallel: selection.nParallel,
       /**
-       * Keep the attention window at full size instead of rotating it.
+       * Ask llama.cpp for its full-size SWA cache.
        *
-       * PLaMo 3 declares `attention.sliding_window: 2048`, and llama.cpp builds a cache at
-       * that window and rotates it once a sequence runs past it. `swa_full` allocates the
-       * window in full, so the rotation disappears. The window the model can see does not
-       * change: the GPU tier's two sequences split `n_ctx` 4096 into 2048 each, the same
-       * size as the window, so every token a sequence can reach was already inside it.
+       * PLaMo 3 declares `attention.sliding_window: 2048`, so by default llama.cpp sizes the
+       * SWA half of the attention cache to that window. The flag is kept for the measured
+       * speed, not for the allocation: long-article fixture, `pnpm bench:live`, 4
+       * interleaved rounds on an RTX 4070 Ti SUPER, first visible paragraph 813 ms -> 326 ms
+       * and full page 19489 ms -> 15863 ms. Twenty-four paragraphs back to back: 15560 ms ->
+       * 11088 ms.
        *
-       * Long-article fixture, `pnpm bench:live`, interleaved A/B over 4 rounds on an RTX
-       * 4070 Ti SUPER: first visible paragraph 813 ms -> 326 ms, full page 19489 ms ->
-       * 15863 ms. Twenty-four paragraphs back to back: 15560 ms -> 11088 ms, byte-identical
-       * output, worker RSS +48 MB.
+       * The gain is in prompt processing, not decode: a fixed 50-token prompt on the shipped
+       * options went from a 155 ms median to 52 ms while predicted time did not move, and the
+       * effect also appears on a single sequence with `n_gpu_layers` 0.
+       *
+       * What this is not: at this tier's options — `n_ctx` 4096 over two sequences, so
+       * `n_ctx_seq` 2048 — llama.cpp reports the same SWA cache either way, 2048 cells and a
+       * 28 MiB WebGPU buffer, because it already sizes the window as
+       * `min(n_ctx_seq, n_swa + n_ubatch)`. Do not describe the gain as the rotation
+       * disappearing: the allocation is identical, and the saving upstream's `--swa-full`
+       * gives other models is not what is being measured here. The window the model can see
+       * is unchanged either way, since every token a sequence could reach was already inside
+       * it.
        */
       swa_full: true,
       ...(selection.nParallel > 1
