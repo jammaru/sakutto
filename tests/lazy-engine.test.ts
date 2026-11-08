@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { abortError } from '@/engine/errors';
+import { abortError, EngineError } from '@/engine/errors';
 import type { BackendSelection } from '@/engine/in-browser/backend';
 import { LazyInBrowserEngine } from '@/engine/in-browser/lazy-engine';
 import type { TranslateOptions } from '@/engine/types';
@@ -106,5 +106,105 @@ describe('LazyInBrowserEngine', () => {
     expect(firstRuntime.requests).toHaveLength(0);
     expect(secondRuntime.requests).toHaveLength(1);
     expect(chunks.at(-1)).toEqual({ id: 'a', final: '新しい', engine: 'plamo' });
+  });
+});
+
+describe('LazyInBrowserEngine after the GPU is lost', () => {
+  const gone = () => new EngineError('gpu-lost', 'The GPU stopped working.');
+  const a = { id: 'a', text: 'Hello.' };
+  const b = { id: 'b', text: 'Bye.' };
+
+  function dying(afterToken = false): FakeRuntime {
+    const runtime = new FakeRuntime(() => '');
+    runtime.complete = async (request) => {
+      if (afterToken) request.onToken('壊');
+      throw gone();
+    };
+    return runtime;
+  }
+
+  function engineOver(runtimes: FakeRuntime[], onGpuLost = vi.fn(async () => undefined)) {
+    const loadRuntime = vi.fn(async () => {
+      const runtime = runtimes.shift();
+      if (!runtime) throw new Error('nothing left to load');
+      return { runtime, selection: SELECTION };
+    });
+    return { engine: new LazyInBrowserEngine({ loadRuntime, onGpuLost }), loadRuntime, onGpuLost };
+  }
+
+  it('reloads and finishes the request', async () => {
+    const { engine, loadRuntime, onGpuLost } = engineOver([dying(), new FakeRuntime(() => 'は')]);
+
+    await expect(collectChunks(engine.translate([a], options()))).resolves.toEqual([
+      { id: 'a', textDelta: 'は', engine: 'plamo' },
+      { id: 'a', final: 'は', engine: 'plamo' },
+    ]);
+    expect(onGpuLost).toHaveBeenCalledOnce();
+    expect(loadRuntime).toHaveBeenCalledTimes(2);
+  });
+
+  it('starts over the text already streamed from the lost runtime', async () => {
+    const { engine } = engineOver([dying(true), new FakeRuntime(() => 'はい')]);
+
+    await expect(collectChunks(engine.translate([a], options()))).resolves.toEqual([
+      { id: 'a', textDelta: '壊', engine: 'plamo' },
+      { id: 'a', textDelta: 'は', engine: 'plamo', restart: true },
+      { id: 'a', textDelta: 'い', engine: 'plamo' },
+      { id: 'a', final: 'はい', engine: 'plamo' },
+    ]);
+  });
+
+  it('recovers once for every request on the lost runtime', async () => {
+    const { engine, loadRuntime, onGpuLost } = engineOver([dying(), new FakeRuntime(() => 'は')]);
+
+    await Promise.all([
+      collectChunks(engine.translate([a], options())),
+      collectChunks(engine.translate([b], options())),
+    ]);
+
+    expect(onGpuLost).toHaveBeenCalledOnce();
+    expect(loadRuntime).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not translate again what already finished', async () => {
+    // Long enough that the two texts are not packed into one request.
+    const first_ = { id: 'a', text: 'A sentence of ordinary length. '.repeat(12) };
+    const next = { id: 'b', text: 'Another ordinary sentence here. '.repeat(12) };
+    const second = new FakeRuntime(() => 'は');
+    let calls = 0;
+    const first = new FakeRuntime(() => '');
+    first.complete = async (request) => {
+      calls += 1;
+      if (calls > 1) throw gone();
+      request.onToken('先');
+    };
+    const { engine } = engineOver([first, second]);
+
+    const chunks = await collectChunks(engine.translate([first_, next], options()));
+
+    expect(chunks.filter((chunk) => chunk.final !== undefined)).toHaveLength(2);
+    expect(second.requests).toHaveLength(1);
+  });
+
+  it('gives up after walking every step', async () => {
+    const { engine, loadRuntime } = engineOver([dying(), dying(), dying(), dying()]);
+
+    await expect(collectChunks(engine.translate([a], options()))).rejects.toMatchObject({
+      code: 'gpu-lost',
+    });
+    expect(loadRuntime).toHaveBeenCalledTimes(4);
+  });
+
+  it('leaves any other failure to the caller', async () => {
+    const broken = new FakeRuntime(() => '');
+    broken.complete = async () => {
+      throw new EngineError('model-load-failed', 'refused');
+    };
+    const { engine, onGpuLost } = engineOver([broken]);
+
+    await expect(collectChunks(engine.translate([a], options()))).rejects.toMatchObject({
+      code: 'model-load-failed',
+    });
+    expect(onGpuLost).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { selectBackend } from '@/engine/in-browser/backend';
-import { createWllamaRuntime, gpuEvidence } from '@/engine/in-browser/runtime';
+import { createWllamaRuntime, gpuEvidence, isRuntimeDead } from '@/engine/in-browser/runtime';
 import type { WllamaLogger } from '@/engine/wllama/module';
 
 const native = vi.hoisted(() => ({
@@ -56,29 +56,25 @@ describe('wllama runtime load', () => {
     const runtime = await createWllamaRuntime(new Blob(), gpu);
 
     expect(runtime.backend).toBe('webgpu');
-    expect(runtime.parallel).toBe(2);
+    expect(runtime.parallel).toBe(gpu.nParallel);
     expect(native.loadModel).toHaveBeenCalledWith(
       [expect.any(Blob)],
       expect.objectContaining({
-        n_ctx: 4096,
-        n_parallel: 2,
+        n_ctx: gpu.nCtx,
+        n_parallel: gpu.nParallel,
         ctx_shift: false,
         log_level: 2,
       }),
     );
   });
 
-  it('gives each WebGPU sequence its own KV cache', async () => {
+  it('keeps one KV cache across the WebGPU sequences', async () => {
     native.log = ['load_tensors: offloaded 29/29 layers to GPU'];
     await createWllamaRuntime(new Blob(), gpu);
 
-    // wllama defaults kv_unified to true. With one shared cache the request right after a
-    // pair takes 4222 ms instead of 661 ms, and a page keeping two requests in flight never
-    // settles; see `backend.ts`.
-    expect(native.loadModel).toHaveBeenCalledWith(
-      [expect.any(Blob)],
-      expect.objectContaining({ cont_batching: true, kv_unified: false }),
-    );
+    const params = native.loadModel.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(params['cont_batching']).toBe(true);
+    expect(params['kv_unified']).toBeUndefined();
   });
 
   it('keeps the full-size SWA cache on every tier', async () => {
@@ -139,5 +135,17 @@ describe('wllama runtime load', () => {
     await expect(createWllamaRuntime(new Blob(), gpu)).resolves.toMatchObject({
       backend: 'webgpu',
     });
+  });
+});
+
+describe('a dead WASM runtime', () => {
+  it('is told from a request the model refused', () => {
+    const abort = new Error('(ABORT) ');
+    abort.name = 'RuntimeError';
+
+    expect(isRuntimeDead(abort)).toBe(true);
+    expect(isRuntimeDead('RuntimeError: Aborted()')).toBe(true);
+    expect(isRuntimeDead(new Error('request exceeds the available context size'))).toBe(false);
+    expect(isRuntimeDead(undefined)).toBe(false);
   });
 });

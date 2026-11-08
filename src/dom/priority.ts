@@ -137,13 +137,11 @@ export function lookaheadScreens(
 }
 
 /**
- * Page requests kept in flight: one per model sequence, plus one waiting in the engine's own
- * queue on the CPU tiers. Without the extra request the model sat idle for the whole round
- * trip between one request finishing and the page sending the next. The waiting request has
- * not reached the model, so it can still be cancelled or overtaken by a selection.
- *
- * The CPU tiers run one sequence, so two is one decoding plus one waiting. The GPU tier runs
- * two sequences and this is also its width, so there both requests are inside the model and
- * neither is a spare: a third would only queue behind the same two.
+ * Page requests kept in flight on the CPU tiers: one for the model's single slot, plus one waiting in the
+ * engine's own queue. Without the extra request the model sat idle for the whole round trip
+ * between one request finishing and the page sending the next. The waiting request has not
+ * reached the model, so it can still be cancelled or overtaken by a selection.
  */
 export const TRANSLATION_CONCURRENCY = 2;
+/** Enough requests in flight on the GPU tier to fill a wave and have the next one waiting. */
+export const GPU_TRANSLATION_CONCURRENCY = 32;

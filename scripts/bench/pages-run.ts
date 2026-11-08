@@ -1,13 +1,21 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { ROOT, arg, has, log } from './host.ts';
+import { ROOT, arg, has, log, type BenchTier } from './host.ts';
 import { runPageBench, type BenchMode } from './pages-runner.ts';
 
 function mode(): BenchMode {
   const value = arg('--mode') ?? 'mock';
   if (value !== 'mock' && value !== 'live') {
     throw new Error(`--mode must be "mock" or "live", not "${value}".`);
+  }
+  return value;
+}
+
+function tier(): BenchTier {
+  const value = arg('--tier') ?? 'auto';
+  if (value !== 'auto' && value !== 'g' && value !== 'c8' && value !== 'c4') {
+    throw new Error(`--tier must be auto, g, c8 or c4, not "${value}".`);
   }
   return value;
 }
@@ -31,6 +39,7 @@ async function main(): Promise<void> {
     ...(arg('--run') !== undefined ? { run: arg('--run') } : {}),
     ...(arg('--compare') !== undefined ? { compare: arg('--compare') } : {}),
     ...(arg('--model') !== undefined ? { modelPath: arg('--model') } : {}),
+    tier: tier(),
     ...(arg('--history') !== undefined ? { historyPath: resolve(arg('--history') ?? '') } : {}),
     writeHistory: !has('--no-history'),
     writeSummary: !has('--no-summary'),

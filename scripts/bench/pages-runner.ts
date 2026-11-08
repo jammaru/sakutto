@@ -15,6 +15,7 @@ import {
   readStatus,
   routeModel,
   settings,
+  type BenchTier,
   type ChromeApi,
 } from './host.ts';
 import {
@@ -95,6 +96,8 @@ export interface RunPageBenchOptions {
   writeSummary?: boolean | undefined;
   /** Cached GGUF for live mode. */
   modelPath?: string | undefined;
+  /** Compute tier for live mode: `auto` keeps the probe, the others force GPU or a CPU size. */
+  tier?: BenchTier | undefined;
   /** Called after every fixture so a caller can stream progress. */
   onRecord?: ((record: BenchRecord) => void) | undefined;
 }
@@ -197,6 +200,7 @@ async function openHarness(
   mode: BenchMode,
   extension: string,
   modelPath: string,
+  tier: BenchTier,
 ): Promise<ExtensionHarness> {
   await readFile(resolve(extension, 'manifest.json'));
 
@@ -236,7 +240,7 @@ async function openHarness(
 
   let engine: BenchEngine;
   if (mode === 'live') {
-    const prepared = await prepareModel(options);
+    const prepared = await prepareModel(options, tier);
     log(
       'page-bench',
       `download ${String(prepared.downloadMs)}ms warm ${String(prepared.warmMs)}ms ${
@@ -496,7 +500,7 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
   const server = await startStaticServer({ directory: resolve(ROOT, 'bench/pages') });
   let harness: ExtensionHarness;
   try {
-    harness = await openHarness(mode, extension, modelPath);
+    harness = await openHarness(mode, extension, modelPath, options.tier ?? 'auto');
   } catch (error) {
     // A rejected build must not leave the static server holding the process open.
     await server.close();

@@ -37,6 +37,7 @@ import {
   bandForRect,
   contentKind,
   lookaheadScreens,
+  GPU_TRANSLATION_CONCURRENCY,
   TRANSLATION_CONCURRENCY,
   translationPriority,
   type ContentKind,
@@ -1023,7 +1024,9 @@ export class PageSession {
 
     this.startQueuedSelection();
 
-    while (this.running < TRANSLATION_CONCURRENCY && this.queue.size > 0) {
+    const concurrency =
+      this.prefs.tier === 'g' ? GPU_TRANSLATION_CONCURRENCY : TRANSLATION_CONCURRENCY;
+    while (this.running < concurrency && this.queue.size > 0) {
       const next = this.queue.peek();
       if (!next) break;
       if (this.selectionBusy() && next.value.role !== 'selection') break;

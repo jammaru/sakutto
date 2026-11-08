@@ -35,6 +35,45 @@ function throwIfAborted(signal: AbortSignal): void {
   if (signal.aborted) throw new EngineError('aborted', 'The request was aborted.');
 }
 
+/**
+ * Streams pieces translated at the same time in reading order. The earliest unfinished
+ * piece streams live; a later piece is held until every piece before it is done.
+ */
+class PieceAssembler {
+  private readonly raw: string[];
+  private readonly done: Array<string | null>;
+  private current = 0;
+
+  constructor(
+    count: number,
+    private readonly separator: string,
+    private readonly onDelta: (delta: string) => void,
+    private readonly onFinal: (parts: string[]) => void,
+  ) {
+    this.raw = new Array<string>(count).fill('');
+    this.done = new Array<string | null>(count).fill(null);
+  }
+
+  delta(index: number, delta: string): void {
+    this.raw[index] += delta;
+    if (index === this.current) this.onDelta(delta);
+  }
+
+  finish(index: number, text: string): void {
+    this.done[index] = text;
+    while (this.current < this.done.length && this.done[this.current] !== null) {
+      this.current += 1;
+      if (this.current === this.done.length) {
+        this.onFinal(this.done as string[]);
+        return;
+      }
+      if (this.separator.length > 0) this.onDelta(this.separator);
+      const buffered = this.raw[this.current] ?? '';
+      if (buffered.length > 0) this.onDelta(buffered);
+    }
+  }
+}
+
 export class InBrowserEngine implements IdentifiedEngine {
   readonly kind = 'plamo' as const;
 
@@ -47,7 +86,7 @@ export class InBrowserEngine implements IdentifiedEngine {
     this.runtime = runtime;
     this.config = { ...DEFAULT_PLAN_CONFIG, ...options.config };
     this.contextTokens = options.contextTokens ?? CONTEXT_TOKENS;
-    this.scheduler = options.scheduler ?? new JobScheduler(runtime.parallel);
+    this.scheduler = options.scheduler ?? new JobScheduler(runtime.parallel, runtime.parallel > 1);
   }
 
   async *translate(
@@ -64,7 +103,8 @@ export class InBrowserEngine implements IdentifiedEngine {
     const forwardAbort = (): void => controller.abort();
     options.signal.addEventListener('abort', forwardAbort, { once: true });
 
-    let remaining = work.length;
+    const jobs = work.flatMap((item) => this.jobsFor(item, options, controller.signal, stream));
+    let remaining = jobs.length;
     let failed: unknown = null;
     const handles: ScheduledHandle[] = [];
     const finishOne = (): void => {
@@ -74,13 +114,13 @@ export class InBrowserEngine implements IdentifiedEngine {
       else stream.end();
     };
 
-    for (const item of work) {
+    for (const job of jobs) {
       handles.push(
         this.scheduler.schedule({
           priority: options.priority,
           run: async () => {
             try {
-              await this.runWorkItem(item, options, controller.signal, stream);
+              await job();
             } catch (error) {
               if (!isAbortError(error) && !controller.signal.aborted && !failed) {
                 failed = toEngineError(error);
@@ -102,6 +142,44 @@ export class InBrowserEngine implements IdentifiedEngine {
       for (const handle of handles) handle.cancel();
       stream.end();
     }
+  }
+
+  /**
+   * With several slots, the pieces of a long text are separate jobs so one wave translates
+   * them together; a text decoded piece by piece would hold the wave open on a single slot.
+   */
+  private jobsFor(
+    item: WorkItem,
+    options: TranslateOptions,
+    signal: AbortSignal,
+    stream: ChunkStream<TranslationChunk>,
+  ): Array<() => Promise<void>> {
+    const whole = (): Promise<void> => this.runWorkItem(item, options, signal, stream);
+    if (this.runtime.parallel <= 1 || item.kind !== 'single') return [whole];
+    const { segment } = item;
+    if (segment.text.trim().length === 0) return [whole];
+    const pieces = chunkForTranslation(segment.text, this.config.pieceChars);
+    if (pieces.length <= 1) return [whole];
+
+    const assembler = new PieceAssembler(
+      pieces.length,
+      sentenceSeparator(options.tgt),
+      (delta) => stream.push({ id: segment.id, textDelta: delta, engine: this.kind }),
+      (parts) =>
+        stream.push({
+          id: segment.id,
+          final: joinTranslatedSentences(parts, options.tgt),
+          engine: this.kind,
+        }),
+    );
+    return pieces.map((piece, index) => async () => {
+      throwIfAborted(signal);
+      const output = await this.completeRecover(piece, options, signal, (delta) =>
+        assembler.delta(index, delta),
+      );
+      const cleaned = cleanModelOutput(output);
+      assembler.finish(index, cleaned.length > 0 ? cleaned : piece);
+    });
   }
 
   private async runWorkItem(

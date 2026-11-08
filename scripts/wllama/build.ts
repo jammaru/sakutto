@@ -22,6 +22,29 @@ const PATCH_MARKERS: ReadonlyArray<readonly [string, string]> = [
   ['src/wllama.ts', "this.pathConfig['wllama.worker.js']"],
   ['src/wllama.ts', "this.pathConfig['wllama.pthread.js']"],
   ['src/wllama.ts', "const compatWasm = this.pathConfig['wllama.compat.wasm'];"],
+  [
+    'scripts/docker-compose.yml',
+    'emcmake cmake .. -DEMSCRIPTEN_SYSTEM_PROCESSOR=wasm32 -DGGML_WEBGPU=ON',
+  ],
+  [
+    'scripts/docker-compose.yml',
+    'emcmake cmake .. -DEMSCRIPTEN_SYSTEM_PROCESSOR=wasm32 -DWLLAMA_COMPAT=ON',
+  ],
+  [
+    'llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp',
+    'std::unordered_map<std::string, wgpu::BindGroup> bind_group_cache;',
+  ],
+  [
+    'llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp',
+    'ctx->param_arena.flush(ctx->global_ctx->queue);',
+  ],
+  ['llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp', 'ggml_webgpu_append_mmvq_columns(ctx, src0'],
+  ['cpp/wllama-context.h', 'params.n_ctx_checkpoints = 0;'],
+  ['cpp/wllama-context.h', 'params.cache_ram_mib = 0;'],
+  [
+    'llama.cpp/tools/server/server-context.cpp',
+    'task->is_stateless() || !task->params.cache_prompt',
+  ],
 ];
 
 function git(args: readonly string[], cwd = CHECKOUT_DIR): Promise<string> {
@@ -101,6 +124,8 @@ async function ensureCheckout(): Promise<void> {
 }
 
 async function resetCheckout(): Promise<void> {
+  // A superproject reset leaves the submodule's files alone, and a patch applies into llama.cpp.
+  await git(['checkout', '--', '.'], join(CHECKOUT_DIR, 'llama.cpp'));
   await git(['reset', '--hard', WLLAMA_COMMIT]);
   await git([
     'clean',

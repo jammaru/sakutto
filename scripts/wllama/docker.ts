@@ -12,6 +12,33 @@ const COMPAT_WASM_SOURCE_FILES = [
   join('compat', 'wasm', 'wllama.wasm'),
 ] as const;
 
+/**
+ * Emscripten reports an x86 processor unless told otherwise, and ggml then compiles its
+ * scalar fallback instead of the wasm SIMD dot products. The 0003 patch sets the processor;
+ * this object only exists when the SIMD kernels were built.
+ */
+const WASM_KERNEL_OBJECT = join(
+  'llama.cpp',
+  'ggml',
+  'src',
+  'CMakeFiles',
+  'ggml-cpu.dir',
+  'ggml-cpu',
+  'arch',
+  'wasm',
+  'quants.c.o',
+);
+
+export async function assertWasmKernels(checkoutDir: string, compat: boolean): Promise<void> {
+  for (const dir of compat ? ['build', 'build-compat'] : ['build']) {
+    if (!(await exists(join(checkoutDir, dir, WASM_KERNEL_OBJECT)))) {
+      throw new Error(
+        `the ${dir} wasm build used ggml's generic CPU kernels; check that the 0003 patch set EMSCRIPTEN_SYSTEM_PROCESSOR`,
+      );
+    }
+  }
+}
+
 export function emsdkTag(arch: string): string {
   return arch === 'arm64' ? `${EMSDK_TAG}-arm64` : EMSDK_TAG;
 }
@@ -64,4 +91,5 @@ export async function buildWasm(checkoutDir: string, arch: string, compat: boole
       throw new Error(`the wasm build did not produce ${file}`);
     }
   }
+  await assertWasmKernels(checkoutDir, compat);
 }

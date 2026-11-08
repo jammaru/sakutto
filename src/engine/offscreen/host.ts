@@ -11,8 +11,14 @@ import { CachingEngine } from '../cache/caching-engine';
 import { TranslationCache } from '../cache/cache';
 import { prewarmRequest } from '../cache/prewarm';
 import { ChromeTranslatorEngine } from '../chrome/translator';
-import { isAbortError } from '../errors';
-import { selectionForTier, cpuFallback, type BackendSelection } from '../in-browser/backend';
+import { isAbortError, isEngineError } from '../errors';
+import {
+  cpuFallback,
+  lighterSelection,
+  selectionAfterGpuLoss,
+  selectionForTier,
+  type BackendSelection,
+} from '../in-browser/backend';
 import { LazyInBrowserEngine } from '../in-browser/lazy-engine';
 import { createWllamaRuntime, type LlamaRuntime } from '../in-browser/runtime';
 import { DEFAULT_MODEL_ID, getModel, type ModelId } from '../model/catalog';
@@ -102,21 +108,27 @@ async function warmup(runtime: LlamaRuntime, tgt: string): Promise<void> {
 }
 
 /**
- * Loads on the current selection and, when a GPU load fails for any reason but an abort,
- * loads again on the CPU. Translation and warm-up both come through here, so neither can
- * leave the engine without a model just because WebGPU would not take it.
+ * Loads on the current selection and, when a GPU load fails for any reason but an abort, steps
+ * down to fewer slots and then the CPU. A GPU that was not found at all skips the narrower load.
+ * Translation and warm-up both come through here, so neither can leave the engine without a
+ * model just because WebGPU would not take it.
  */
-export async function loadWithCpuFallback(
+export async function loadWithFallback(
   ensureLoaded: (selection: BackendSelection) => Promise<LoadedModel>,
   selection: BackendSelection,
   signal: AbortSignal,
 ): Promise<{ loaded: LoadedModel; selection: BackendSelection }> {
-  try {
-    return { loaded: await ensureLoaded(selection), selection };
-  } catch (error) {
-    const fallback = isAbortError(error) || signal.aborted ? null : cpuFallback(selection);
-    if (!fallback) throw error;
-    return { loaded: await ensureLoaded(fallback), selection: fallback };
+  let current = selection;
+  for (;;) {
+    try {
+      return { loaded: await ensureLoaded(current), selection: current };
+    } catch (error) {
+      if (isAbortError(error) || signal.aborted) throw error;
+      const noGpu = isEngineError(error) && error.code === 'gpu-unavailable';
+      const next = noGpu ? cpuFallback(current) : lighterSelection(current);
+      if (!next) throw error;
+      current = next;
+    }
   }
 }
 
@@ -183,6 +195,7 @@ export class EngineHost {
     const probe = {
       webgpu: capabilities.webgpu === 'ready',
       hardwareConcurrency: capabilities.hardwareConcurrency,
+      fastBatches: capabilities.gpuFastBatches === true,
     };
     const stored = browser.storage?.local ? await loadSettings().catch(() => null) : null;
     const selection = selectionForTier(stored?.tier ?? 'auto', probe);
@@ -192,7 +205,7 @@ export class EngineHost {
     const cache = await openCache();
     const chrome = new ChromeTranslatorEngine();
     const load = async (signal: AbortSignal): Promise<LoadedModel> => {
-      const result = await loadWithCpuFallback(
+      const result = await loadWithFallback(
         (selection) => manager.ensureLoaded(this.activeModelId, selection, { signal }),
         selectionState.current,
         signal,
@@ -205,7 +218,18 @@ export class EngineHost {
       this.touch();
       return result.loaded;
     };
-    const lazy = new LazyInBrowserEngine({ loadRuntime: load });
+    let lastGpuLossAt = Number.NEGATIVE_INFINITY;
+    const onGpuLost = async (): Promise<void> => {
+      const now = Date.now();
+      const next = selectionAfterGpuLoss(selectionState.current, now - lastGpuLossAt);
+      lastGpuLossAt = now;
+      if (next !== selectionState.current) {
+        selectionState.current = next;
+        this.gpuFallback = true;
+      }
+      await manager.unload();
+    };
+    const lazy = new LazyInBrowserEngine({ loadRuntime: load, onGpuLost });
 
     const chromeForCache = chrome.available ? new CachingEngine(chrome, cache, 'chrome') : null;
 

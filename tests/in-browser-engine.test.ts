@@ -25,6 +25,42 @@ function deltaText(chunks: readonly TranslationChunk[]): string {
 }
 
 describe('InBrowserEngine', () => {
+  it('translates the pieces of a long text together and streams them in reading order', async () => {
+    const first = 'A'.repeat(300);
+    const text = `${first}. ${'B'.repeat(300)}. ${'C'.repeat(300)}.`;
+    const inFlight: Array<() => void> = [];
+    let peak = 0;
+    let active = 0;
+    class WaitingRuntime extends FakeRuntime {
+      override async complete(request: Parameters<FakeRuntime['complete']>[0]): Promise<void> {
+        active += 1;
+        peak = Math.max(peak, active);
+        const source = promptSource(request.prompt);
+        // The first piece is the last to finish, so later pieces have to wait behind it.
+        await new Promise<void>((resolve) => {
+          if (source.startsWith('A')) inFlight.push(resolve);
+          else resolve();
+        });
+        active -= 1;
+        request.onToken(`[${source.slice(0, 1)}]`);
+      }
+    }
+    const runtime = new WaitingRuntime(() => '', 4);
+    const engine = new InBrowserEngine(runtime);
+
+    const collected = collectChunks(engine.translate([{ id: 'long', text }], options()));
+    for (let attempt = 0; attempt < 50 && inFlight.length === 0; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    inFlight.shift()?.();
+    const chunks = await collected;
+
+    expect(peak).toBeGreaterThan(1);
+    expect(deltaText(chunks).replace(/\s/gu, '')).toBe('[A][B][C]');
+    expect(finalChunks(chunks)[0]?.final?.replace(/\s/gu, '')).toBe('[A][B][C]');
+  });
+
   it('streams deltas and a final tagged with the PLaMo engine', async () => {
     const runtime = new FakeRuntime(() => 'こんにちは');
     const engine = new InBrowserEngine(runtime);

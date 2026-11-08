@@ -24,6 +24,28 @@ describe('WebGPU probe', () => {
     expect(requestAdapter).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    ['nvidia', true, true],
+    ['amd', true, false],
+    ['intel', true, false],
+    ['apple', true, false],
+    ['', true, false],
+    ['nvidia', false, false],
+  ])(
+    'reports fast batches for vendor "%s" with dot product %s as %s',
+    async (vendor, dot, want) => {
+      vi.stubGlobal('navigator', {
+        gpu: {
+          requestAdapter: vi.fn(async () => ({ info: { vendor } })),
+          wgslLanguageFeatures: new Set(dot ? ['packed_4x8_integer_dot_product'] : []),
+        },
+        hardwareConcurrency: 8,
+      });
+
+      expect((await probeCapabilities()).gpuFastBatches).toBe(want);
+    },
+  );
+
   it('asks once when a hardware WebGL context exists', async () => {
     const requestAdapter = vi.fn(async () => ({ name: 'adapter' }));
     vi.stubGlobal('navigator', { gpu: { requestAdapter }, hardwareConcurrency: 8 });

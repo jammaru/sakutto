@@ -644,7 +644,7 @@
     "message": "WebGPU"
   },
   "tierCpu8": {
-    "message": "CPU (8 threads)"
+    "message": "CPU (8 or more threads)"
   },
   "tierCpu4": {
     "message": "CPU (4 threads)"

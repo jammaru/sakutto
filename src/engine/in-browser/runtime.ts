@@ -71,6 +71,17 @@ export function forwardCompletionToken(
   onToken(text);
 }
 
+/**
+ * ggml aborts the WASM module when the GPU device goes away. The request running at that moment
+ * rejects with wllama's RuntimeError, and every later call rejects with the plain string its
+ * worker posts back. A failure the model itself reports is a typed WllamaError instead, and
+ * leaves the runtime usable.
+ */
+export function isRuntimeDead(error: unknown): boolean {
+  if (typeof error === 'string') return true;
+  return error instanceof Error && error.name === 'RuntimeError';
+}
+
 export type GpuEvidence = 'engaged' | 'missing' | 'unknown';
 
 /**
@@ -149,18 +160,7 @@ export const createWllamaRuntime: RuntimeFactory = async (file, selection) => {
        * it.
        */
       swa_full: true,
-      ...(selection.nParallel > 1
-        ? {
-            cont_batching: true,
-            // wllama defaults to one KV cache for every sequence. Sharing it keeps a single
-            // pair of paragraphs quick (844 ms against 1299 ms) but the request right after
-            // that pair takes 4222 ms instead of 661 ms, and with the page's usual two
-            // requests in flight it never settles: 36.2 s over 12 paragraphs against 8.1 s
-            // on one slot. A cache per sequence keeps the pair's advantage and leaves
-            // nothing behind it; the numbers are in `backend.ts`.
-            kv_unified: false,
-          }
-        : {}),
+      ...(selection.nParallel > 1 ? { cont_batching: true } : {}),
       ctx_shift: false,
       log_level: LOG_LEVEL_INFO,
     });
@@ -182,6 +182,13 @@ export const createWllamaRuntime: RuntimeFactory = async (file, selection) => {
   }
 
   const gate = new CompletionGate(selection.nParallel);
+  // The first request to see the abort fails the others too: reloading terminates the worker,
+  // and a request still waiting on it would never settle.
+  let reportLoss: (error: unknown) => void = () => undefined;
+  const lost = new Promise<never>((_resolve, reject) => {
+    reportLoss = reject;
+  });
+  lost.catch(() => undefined);
 
   return {
     backend: selection.backend,
@@ -191,20 +198,29 @@ export const createWllamaRuntime: RuntimeFactory = async (file, selection) => {
       await gate.exclusive(async () => {
         if (request.signal.aborted) throw abortError();
         try {
-          await wllama.createCompletion({
-            prompt: request.prompt,
-            max_tokens: request.maxTokens,
-            temperature: 0,
-            cache_prompt: true,
-            stop: [...TRANSLATION_STOP_TOKENS],
-            stream: true,
-            onData: (chunk) => {
-              forwardCompletionToken(request.signal, chunk.choices?.[0]?.text, request.onToken);
-            },
-          });
+          await Promise.race([
+            lost,
+            wllama.createCompletion({
+              prompt: request.prompt,
+              max_tokens: request.maxTokens,
+              temperature: 0,
+              // A finished request that asks for no reuse gives back its cells (patch 0005); cells
+              // left by idle slots would widen every attention step of the requests still running.
+              cache_prompt: selection.nParallel === 1,
+              stop: [...TRANSLATION_STOP_TOKENS],
+              stream: true,
+              onData: (chunk) => {
+                forwardCompletionToken(request.signal, chunk.choices?.[0]?.text, request.onToken);
+              },
+            }),
+          ]);
           if (request.signal.aborted) throw abortError();
         } catch (error) {
           if (isAbortError(error) || request.signal.aborted) throw abortError();
+          if (selection.backend === 'webgpu' && isRuntimeDead(error)) {
+            reportLoss(error);
+            throw new EngineError('gpu-lost', 'The GPU stopped working.', { cause: error });
+          }
           throw new EngineError('model-load-failed', 'The translation request failed.', {
             cause: error,
           });

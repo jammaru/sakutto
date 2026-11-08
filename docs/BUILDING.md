@@ -3,7 +3,8 @@
 The extension runs PLaMo 3 Translate with a pinned wllama build. The published npm package
 (`@wllama/wllama` 3.8.1) cannot load the PLaMo 3 tokenizer, so the extension ships its own build of
 [ngxson/wllama](https://github.com/ngxson/wllama) at commit `d275dac` (llama.cpp `5aeac37`,
-2026-10-18) with two MV3 patches.
+2026-10-18) with two MV3 patches, one build-flag patch and two
+run-time patches.
 
 ## Requirements
 
@@ -84,6 +85,60 @@ cover both places where wllama used a Blob:
 
 The worker loads its glue with `importScripts`, and the emscripten pthread entry is a static file
 under the extension origin. No code is fetched at runtime.
+
+## The CPU kernel patch
+
+Emscripten's CMake toolchain reports the processor as `x86`. ggml-cpu does not read that as wasm,
+so without a patch it builds `GGML_CPU_GENERIC`, the scalar fallback, and never compiles the wasm
+SIMD dot products in `ggml-cpu/arch/wasm/quants.c`.
+`0003-wasm-simd-cpu-kernels.patch` passes `-DEMSCRIPTEN_SYSTEM_PROCESSOR=wasm32` to both builds.
+The build fails if the SIMD object file is missing, so the flag cannot drop out unnoticed.
+
+On a 32-thread Windows desktop with 8 CPU threads, the patch raised the mean decode rate of the
+`quant.ts` samples from 35.5 to 43.1 tokens/s for Q4_K_M. The full `long-article` page fell from
+67.2 s to 56.7 s on the CPU tier (one sample each). The WebGPU tier does not change.
+
+## The WebGPU encoding patch
+
+On the WebGPU tier, a token's cost was mostly command encoding rather than GPU work. Each decode
+step encodes the same few hundred dispatches over the same buffers, and ggml-webgpu created a new
+bind group and issued a separate `WriteBuffer` for every dispatch. In a browser each call is
+serialized to the GPU process. A trace of 71 tokens on an RTX 4090 showed the worker idle about
+60% of the time and about 33 command-buffer flushes per token.
+
+`0004-webgpu-reuse-bind-groups.patch` changes `llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp`:
+
+- Bind groups are cached by pipeline and entries. The cache is cleared when a buffer is freed,
+  because a later buffer can reuse the freed handle's address.
+- Kernel parameters are staged on the host and uploaded with one `WriteBuffer` before each submit.
+- A matrix product with more than four rows used to run in the tiled matrix shader, which took 87%
+  of the GPU time of a batched decode. It now runs through the vector shader in batches of four
+  columns, which share each read of the weights.
+- The backend's synchronize no longer waits for the queue. The tensor read that follows waits for
+  the same work, and the extra round trip took most of a decode step.
+
+Bind group reuse and the single upload leave the GPU work unchanged, and the `quant.ts` samples
+translate to identical text. On an RTX 4090 they cut the median time per token from about 14 ms to
+9.5 ms, and each bench page finished 16–32% sooner (three samples each).
+
+## The request state patch
+
+`0005-disable-prompt-cache.patch` removes two costs of running several slots:
+
+- `cpp/wllama-context.h` turns the server's prompt cache and context checkpoints off. Each read a
+  slot's cells back from the GPU, which took over a second per request and about 0.4 s per prefill
+  batch on WebGPU.
+- `llama.cpp/tools/server/server-context.cpp` clears a finished request's cells when that request
+  asked for no prompt reuse. Cells left by idle slots widened every attention step of the requests
+  that were still running.
+
+With both patches the WebGPU tier runs in waves: sixteen slots on an NVIDIA GPU with the integer
+shaders (packed dot product), four otherwise. On an RTX 4090, `long-article` went from about 19.8 s
+on v1.0.1 to about 2.9 s (six runs each). Against a single slot, 38 to 39 of its 44 blocks stayed
+the same; the others differ in word choice, and batched output varies slightly between runs.
+
+The patch lives inside the llama.cpp submodule, so the build resets the submodule's files before
+it applies the patches.
 
 ## Compatibility builds
 

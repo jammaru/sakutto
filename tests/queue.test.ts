@@ -54,6 +54,50 @@ function deferred(): { promise: Promise<void>; resolve: () => void } {
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe('JobScheduler', () => {
+  it('starts waves together, ramps up the first ones, and holds the next until a wave ends', async () => {
+    const scheduler = new JobScheduler(4, true);
+    const releases: Array<() => void> = [];
+    let running = 0;
+    const started: number[] = [];
+    const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 5));
+
+    for (let index = 0; index < 9; index += 1) {
+      scheduler.schedule({
+        priority: 10,
+        run: () =>
+          new Promise<void>((resolve) => {
+            running += 1;
+            started.push(index);
+            releases.push(() => {
+              running -= 1;
+              resolve();
+            });
+          }),
+      });
+    }
+
+    await tick();
+    expect(running).toBe(1);
+    releases.shift()?.();
+    await tick();
+    expect(running).toBe(4);
+    expect(started).toEqual([0, 1, 2, 3, 4]);
+
+    releases.shift()?.();
+    await tick();
+    expect(running).toBe(3);
+    expect(started).toHaveLength(5);
+
+    while (releases.length > 0) releases.shift()?.();
+    await tick();
+    expect(running).toBe(4);
+    expect(started).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8]);
+
+    while (releases.length > 0) releases.shift()?.();
+    await scheduler.waitForIdle();
+    expect(running).toBe(0);
+  });
+
   it('runs no more jobs than the concurrency limit', async () => {
     const scheduler = new JobScheduler(2);
     let active = 0;

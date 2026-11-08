@@ -7,35 +7,25 @@ export const CONTEXT_TOKENS = 2048;
 export const WEBGPU_ALL_LAYERS = 99999;
 
 /**
- * Two sequences on WebGPU.
+ * A WebGPU decode step costs about the same for one token as for many, so sequences advance
+ * together. The scheduler starts them in waves, because a prompt that joins mid-wave makes
+ * every step of the sequences already generating as slow as a prefill.
  *
- * Two slots were dropped once because a pair of paragraphs seemed to take 9–14 s that it
- * finished one after the other in under 3 s. Re-measured on the pinned wasm and this model,
- * the second sequence is not what cost that: the damage was wllama's `kv_unified: true`
- * default, one KV cache shared by every sequence.
- *
- * Medians of 6 interleaved rounds (RTX 4070 Ti SUPER, 8 threads), a pair of paragraphs and
- * then one more request — the request a page sends straight afterwards:
- *
- *   1 slot, one after the other      pair 1299 ms   next request  661 ms
- *   2 slots, shared KV cache         pair  844 ms   next request 4222 ms
- *   2 slots, a cache per sequence    pair  909 ms   next request  650 ms
- *
- * A page keeps two requests in flight (`TRANSLATION_CONCURRENCY`), so the pair is not a burst
- * before an idle model — it is the steady state. Run that way over 12 paragraphs, the shared
- * cache never settles: 36.2 s against 8.1 s on one slot and 6.3 s with a cache per sequence
- * and continuous batching, and eight of its twelve requests land between 5 s and 17.6 s
- * where the other two arms stay near 0.5–1.5 s. With a cache per sequence the pair stays
- * ahead of one-at-a-time and nothing after it pays. `runtime.ts` therefore turns
- * `kv_unified` off whenever `nParallel` is above one.
+ * The width depends on ggml's integer shaders, which only some GPUs get. Without them, up to
+ * four rows still use the vector shader and a fifth falls to the tiled one. Long article on
+ * an RTX 4090 with the integer shaders forced off: 1 slot 8.1 s, 4 slots 3.7 s, 16 slots 5.2 s.
+ * Sixteen slots are kept to the GPUs they have been measured on; see `supportsFastBatches`.
  */
-const WEBGPU_SLOTS = 2;
-// llama.cpp divides n_ctx across parallel slots, so the GPU tier sizes it for two.
-const WEBGPU_CONTEXT_TOKENS = CONTEXT_TOKENS * WEBGPU_SLOTS;
+const WEBGPU_SLOTS_FAST = 16;
+const WEBGPU_SLOTS_PLAIN = 4;
+// llama.cpp divides n_ctx across parallel slots. A piece of text fits well inside 1024.
+const WEBGPU_CONTEXT_PER_SLOT = 1024;
 
 export interface BackendProbe {
   webgpu: boolean;
   hardwareConcurrency: number;
+  /** The GPU has been measured at the full width. Any other GPU gets the narrower one. */
+  fastBatches?: boolean;
 }
 
 export interface BackendSelection {
@@ -53,19 +43,26 @@ function clampThreads(requested: number, hardwareConcurrency: number): number {
 }
 
 /**
- * Every CPU tier keeps one sequence, so the paragraph on screen gets the whole model instead
- * of sharing each decode step with the next one. WebGPU takes two, which only pays off with a
- * per-sequence KV cache; see `WEBGPU_SLOTS`.
+ * Half the logical cores, which is the physical core count on SMT CPUs, between 8 and 16.
+ * On a 32-thread desktop, 16 threads decoded 60 tokens/s where 8 decoded 43 (SIMD build,
+ * Q4_K_M), so a large CPU is not held to eight. A machine with 16 or fewer threads keeps 8.
  */
+function largeCpuThreads(hardwareConcurrency: number): number {
+  const cores = Number.isFinite(hardwareConcurrency) ? Math.floor(hardwareConcurrency) : 4;
+  return clampThreads(Math.min(16, Math.max(8, Math.floor(cores / 2))), cores);
+}
+
+/** The CPU tiers keep one sequence: there, each sequence costs its full compute. */
 export function selectBackend(probe: BackendProbe): BackendSelection {
   if (probe.webgpu) {
+    const slots = probe.fastBatches === true ? WEBGPU_SLOTS_FAST : WEBGPU_SLOTS_PLAIN;
     return {
       tier: 'g',
       backend: 'webgpu',
       nGpuLayers: WEBGPU_ALL_LAYERS,
       nThreads: clampThreads(8, probe.hardwareConcurrency),
-      nParallel: WEBGPU_SLOTS,
-      nCtx: WEBGPU_CONTEXT_TOKENS,
+      nParallel: slots,
+      nCtx: WEBGPU_CONTEXT_PER_SLOT * slots,
     };
   }
 
@@ -74,7 +71,7 @@ export function selectBackend(probe: BackendProbe): BackendSelection {
       tier: 'c8',
       backend: 'cpu-wasm',
       nGpuLayers: 0,
-      nThreads: clampThreads(8, probe.hardwareConcurrency),
+      nThreads: largeCpuThreads(probe.hardwareConcurrency),
       nParallel: 1,
       nCtx: CONTEXT_TOKENS,
     };
@@ -99,14 +96,14 @@ export function selectionForTier(
 ): BackendSelection {
   if (preference === 'auto') return selectBackend(probe);
   if (preference === 'g') {
-    return selectBackend({ webgpu: true, hardwareConcurrency: probe.hardwareConcurrency });
+    return selectBackend({ ...probe, webgpu: true });
   }
   if (preference === 'c8') {
     return {
       tier: 'c8',
       backend: 'cpu-wasm',
       nGpuLayers: 0,
-      nThreads: clampThreads(8, probe.hardwareConcurrency),
+      nThreads: largeCpuThreads(probe.hardwareConcurrency),
       nParallel: 1,
       nCtx: CONTEXT_TOKENS,
     };
@@ -128,4 +125,28 @@ export function cpuFallback(selection: BackendSelection): BackendSelection | nul
     webgpu: false,
     hardwareConcurrency: selection.nThreads,
   });
+}
+
+/** The next lighter place to run after `selection` failed: four slots, then the CPU. */
+export function lighterSelection(selection: BackendSelection): BackendSelection | null {
+  if (selection.backend === 'webgpu' && selection.nParallel > WEBGPU_SLOTS_PLAIN) {
+    return {
+      ...selection,
+      nParallel: WEBGPU_SLOTS_PLAIN,
+      nCtx: WEBGPU_CONTEXT_PER_SLOT * WEBGPU_SLOTS_PLAIN,
+    };
+  }
+  return cpuFallback(selection);
+}
+
+/** Losses further apart than this are unrelated, such as a driver update or a resume from sleep. */
+export const GPU_LOSS_WINDOW_MS = 120_000;
+
+/** A lone GPU loss reloads the same way. A second soon after means this load is too heavy. */
+export function selectionAfterGpuLoss(
+  selection: BackendSelection,
+  sinceLastLossMs: number,
+): BackendSelection {
+  if (sinceLastLossMs >= GPU_LOSS_WINDOW_MS) return selection;
+  return lighterSelection(selection) ?? selection;
 }

@@ -1,4 +1,4 @@
-import { abortError } from '../errors';
+import { abortError, isEngineError } from '../errors';
 import type {
   IdentifiedEngine,
   TranslateOptions,
@@ -16,8 +16,13 @@ export interface LoadedRuntime {
 
 export interface LazyInBrowserEngineOptions {
   loadRuntime: (signal: AbortSignal) => Promise<LoadedRuntime>;
+  /** Runs once per lost GPU, before anything loads again. */
+  onGpuLost?: () => Promise<void>;
   config?: InBrowserEngineOptions['config'];
 }
+
+/** Enough to walk reload, four slots, CPU, even if every step loses the GPU again. */
+const MAX_GPU_RECOVERIES = 3;
 
 export class LazyInBrowserEngine implements IdentifiedEngine {
   readonly kind = 'plamo' as const;
@@ -27,6 +32,7 @@ export class LazyInBrowserEngine implements IdentifiedEngine {
   private loadController: AbortController | null = null;
   private generation = 0;
   private waiting = 0;
+  private recovery: Promise<void> | null = null;
 
   constructor(private readonly options: LazyInBrowserEngineOptions) {}
 
@@ -43,8 +49,43 @@ export class LazyInBrowserEngine implements IdentifiedEngine {
     segments: readonly TranslateSegment[],
     options: TranslateOptions,
   ): AsyncIterable<TranslationChunk> {
-    const engine = await this.getEngine(options);
-    yield* engine.translate(segments, options);
+    let pending = segments;
+    const streamed = new Set<string>();
+
+    for (let recoveries = 0; ; recoveries += 1) {
+      const engine = await this.getEngine(options);
+      const restarting = new Set(streamed);
+      try {
+        for await (const chunk of engine.translate(pending, options)) {
+          if (chunk.final !== undefined) {
+            pending = pending.filter((segment) => segment.id !== chunk.id);
+          } else if (restarting.delete(chunk.id)) {
+            yield { ...chunk, restart: true };
+            continue;
+          } else {
+            streamed.add(chunk.id);
+          }
+          yield chunk;
+        }
+        return;
+      } catch (error) {
+        const lost = isEngineError(error) && error.code === 'gpu-lost';
+        if (!lost || options.signal.aborted || recoveries >= MAX_GPU_RECOVERIES) throw error;
+        await this.recover(engine);
+        if (pending.length === 0) return;
+      }
+    }
+  }
+
+  /** Every request running on the lost GPU lands here; only the first one does the work. */
+  private recover(lost: InBrowserEngine): Promise<void> {
+    if (this.engine === lost && this.options.onGpuLost) {
+      this.reset();
+      this.recovery = this.options.onGpuLost().finally(() => {
+        this.recovery = null;
+      });
+    }
+    return this.recovery ?? Promise.resolve();
   }
 
   private getEngine(options: TranslateOptions): Promise<InBrowserEngine> {
@@ -105,6 +146,7 @@ export class LazyInBrowserEngine implements IdentifiedEngine {
   }
 
   private async createEngine(signal: AbortSignal): Promise<InBrowserEngine> {
+    await this.recovery;
     const loaded = await this.options.loadRuntime(signal);
 
     return new InBrowserEngine(loaded.runtime, {

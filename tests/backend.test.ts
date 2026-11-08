@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   CONTEXT_TOKENS,
   cpuFallback,
+  GPU_LOSS_WINDOW_MS,
+  lighterSelection,
+  selectionAfterGpuLoss,
   selectBackend,
   selectionForTier,
   WEBGPU_ALL_LAYERS,
@@ -9,20 +12,34 @@ import {
 import { DEFAULT_MODEL_ID, getModel, isModelId, MODEL_CATALOG } from '@/engine/model/catalog';
 
 describe('backend selection', () => {
-  it('uses every GPU layer and two slots when WebGPU is available', () => {
-    expect(selectBackend({ webgpu: true, hardwareConcurrency: 4 })).toEqual({
+  it('runs four slots on a GPU without the fast integer shaders', () => {
+    for (const probe of [{ fastBatches: false }, {}]) {
+      expect(selectBackend({ webgpu: true, hardwareConcurrency: 8, ...probe })).toMatchObject({
+        nParallel: 4,
+        nCtx: 1024 * 4,
+      });
+    }
+  });
+
+  it('keeps the fast shader width when the GPU tier is forced', () => {
+    const probe = { webgpu: false, hardwareConcurrency: 8, fastBatches: true };
+    expect(selectionForTier('g', probe).nParallel).toBe(16);
+  });
+
+  it('uses every GPU layer and sixteen slots when WebGPU has the fast shaders', () => {
+    expect(selectBackend({ webgpu: true, hardwareConcurrency: 4, fastBatches: true })).toEqual({
       tier: 'g',
       backend: 'webgpu',
       nGpuLayers: WEBGPU_ALL_LAYERS,
       nThreads: 4,
-      nParallel: 2,
-      nCtx: CONTEXT_TOKENS * 2,
+      nParallel: 16,
+      nCtx: 1024 * 16,
     });
   });
 
-  it('sizes the GPU context for both sequences and not more', () => {
+  it('gives each GPU sequence 1024 tokens of context', () => {
     const gpu = selectBackend({ webgpu: true, hardwareConcurrency: 16 });
-    expect(gpu.nCtx).toBe(gpu.nParallel * CONTEXT_TOKENS);
+    expect(gpu.nCtx).toBe(gpu.nParallel * 1024);
   });
 
   it('runs eight threads sequentially on a CPU tier with enough cores', () => {
@@ -34,6 +51,15 @@ describe('backend selection', () => {
       nParallel: 1,
       nCtx: CONTEXT_TOKENS,
     });
+  });
+
+  it('gives a large CPU half its logical cores, up to sixteen threads', () => {
+    expect(selectBackend({ webgpu: false, hardwareConcurrency: 16 }).nThreads).toBe(8);
+    expect(selectBackend({ webgpu: false, hardwareConcurrency: 24 }).nThreads).toBe(12);
+    expect(selectBackend({ webgpu: false, hardwareConcurrency: 32 }).nThreads).toBe(16);
+    expect(selectBackend({ webgpu: false, hardwareConcurrency: 64 }).nThreads).toBe(16);
+    expect(selectionForTier('c8', { webgpu: true, hardwareConcurrency: 32 }).nThreads).toBe(16);
+    expect(selectBackend({ webgpu: true, hardwareConcurrency: 32 }).nThreads).toBe(8);
   });
 
   it('caps a small CPU at four threads', () => {
@@ -108,5 +134,27 @@ describe('model catalog', () => {
     expect(isModelId('plamo-3-translate-2b-q4_k_m')).toBe(true);
     expect(isModelId('plamo-3-translate-8b-q4_k_m')).toBe(false);
     expect(isModelId(null)).toBe(false);
+  });
+});
+
+describe('stepping down after a GPU failure', () => {
+  const wide = selectBackend({ webgpu: true, hardwareConcurrency: 8, fastBatches: true });
+  const plain = selectBackend({ webgpu: true, hardwareConcurrency: 8 });
+  const cpu = selectBackend({ webgpu: false, hardwareConcurrency: 8 });
+
+  it('walks from sixteen slots to four to the CPU', () => {
+    expect(lighterSelection(wide)).toEqual(plain);
+    expect(lighterSelection(plain)).toMatchObject({ backend: 'cpu-wasm', nParallel: 1 });
+    expect(lighterSelection(cpu)).toBeNull();
+  });
+
+  it('keeps the selection after a lone loss', () => {
+    expect(selectionAfterGpuLoss(wide, GPU_LOSS_WINDOW_MS)).toBe(wide);
+    expect(selectionAfterGpuLoss(wide, Number.POSITIVE_INFINITY)).toBe(wide);
+  });
+
+  it('steps down when the GPU is lost again soon after', () => {
+    expect(selectionAfterGpuLoss(wide, GPU_LOSS_WINDOW_MS - 1)).toEqual(plain);
+    expect(selectionAfterGpuLoss(plain, 1000).backend).toBe('cpu-wasm');
   });
 });

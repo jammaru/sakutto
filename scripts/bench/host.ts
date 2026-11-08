@@ -72,7 +72,9 @@ export function log(scope: string, message: string): void {
 }
 
 /** Settings the e2e and bench packages store before translating, with the license accepted. */
-export function settings(): Record<string, unknown> {
+export type BenchTier = 'auto' | 'g' | 'c8' | 'c4';
+
+export function settings(tier: BenchTier = 'auto'): Record<string, unknown> {
   return {
     schemaVersion: 1,
     targetLanguage: 'ja',
@@ -87,7 +89,7 @@ export function settings(): Record<string, unknown> {
     highQualityDismissed: true,
     glossary: [],
     idleMinutes: 15,
-    tier: 'auto',
+    tier,
     pace: 'quality',
   };
 }
@@ -173,11 +175,14 @@ export async function routeModel(context: BrowserContext, modelPath: string): Pr
 
 export async function prepareModel(
   page: Page,
+  tier: BenchTier = 'auto',
 ): Promise<{ downloadMs: number; warmMs: number; status: EngineStatus }> {
   await page.evaluate(async (stored) => {
     const chrome = (globalThis as unknown as { chrome: ChromeApi }).chrome;
     await chrome.storage.local.set({ settings: stored, siteRules: {} });
-  }, settings());
+  }, settings(tier));
+  // The engine may already be running on the probed tier, so the options page's switch is sent too.
+  if (tier !== 'auto') await extensionCall(page, { type: 'engine:tier', tier });
 
   const downloadStarted = Date.now();
   const accepted = await extensionCall(page, { type: 'model:download', modelId: MODEL_ID });

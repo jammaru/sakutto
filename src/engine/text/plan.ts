@@ -13,8 +13,7 @@ export interface BatchingConfig {
 
 /**
  * Source tokens that still leave room for the prompt template, a small glossary,
- * and a 2× completion inside one sequence. The budget is per sequence, so it is the same
- * for the CPU tier's 2048 and for each of the GPU tier's two 2048-token sequences.
+ * and a 2× completion inside one sequence. The budget is per sequence.
  */
 export function sourceTokenBudget(contextTokens: number): number {
   const overhead = 192;

@@ -6,6 +6,8 @@ export interface EngineCapabilities {
   crossOriginIsolated: boolean;
   webgpu: WebGpuStatus;
   hardwareConcurrency: number;
+  /** The GPU can run a wide batch through ggml's fast integer shaders. */
+  gpuFastBatches?: boolean;
 }
 
 const WEBGPU_STATUSES: ReadonlySet<string> = new Set<WebGpuStatus>([
@@ -18,6 +20,7 @@ const WEBGPU_STATUSES: ReadonlySet<string> = new Set<WebGpuStatus>([
 interface NavigatorWithGpu extends Navigator {
   readonly gpu?: {
     requestAdapter(): Promise<unknown | null>;
+    readonly wgslLanguageFeatures?: { has(name: string): boolean };
   };
 }
 
@@ -27,7 +30,8 @@ export function isEngineCapabilities(value: unknown): value is EngineCapabilitie
     typeof value.crossOriginIsolated === 'boolean' &&
     typeof value.webgpu === 'string' &&
     WEBGPU_STATUSES.has(value.webgpu) &&
-    typeof value.hardwareConcurrency === 'number'
+    typeof value.hardwareConcurrency === 'number' &&
+    (value.gpuFastBatches === undefined || typeof value.gpuFastBatches === 'boolean')
   );
 }
 
@@ -51,6 +55,16 @@ let adapterTask: Promise<WebGpuAdapterInfo> | null = null;
 export interface WebGpuAdapterInfo {
   present: boolean;
   maxBufferSize: number | null;
+  fastBatches: boolean;
+}
+
+// ggml gives AMD and Intel the same shaders, but sixteen slots have only been measured on NVIDIA.
+const FAST_BATCH_VENDORS: ReadonlySet<string> = new Set(['nvidia']);
+const DOT_PRODUCT_FEATURE = 'packed_4x8_integer_dot_product';
+
+/** The gate on ggml's fast integer shaders, ggml_webgpu_can_use_mmvq, for measured vendors. */
+function supportsFastBatches(vendor: unknown, dotProduct: unknown): boolean {
+  return dotProduct === true && typeof vendor === 'string' && FAST_BATCH_VENDORS.has(vendor);
 }
 
 export function resetCapabilityProbe(): void {
@@ -137,7 +151,7 @@ export function probeWebGpuAdapter(): Promise<WebGpuAdapterInfo> {
 
 async function requestWebGpuAdapter(): Promise<WebGpuAdapterInfo> {
   const gpu = (navigator as NavigatorWithGpu).gpu;
-  if (!gpu) return { present: false, maxBufferSize: null };
+  if (!gpu) return { present: false, maxBufferSize: null, fastBatches: false };
   installAdapterNoiseFilter();
   if (extensionPage()) {
     const quiet = await requestAdapterInQuietFrame();
@@ -145,22 +159,24 @@ async function requestWebGpuAdapter(): Promise<WebGpuAdapterInfo> {
   }
   try {
     const adapter = (await gpu.requestAdapter()) as AdapterLimits | null;
-    return infoFrom(adapter);
+    return infoFrom(adapter, gpu.wgslLanguageFeatures?.has(DOT_PRODUCT_FEATURE) === true);
   } catch (error) {
-    if (isAdapterNoise([error])) return { present: false, maxBufferSize: null };
+    if (isAdapterNoise([error])) return { present: false, maxBufferSize: null, fastBatches: false };
     throw error;
   }
 }
 
 interface AdapterLimits {
   limits?: { maxBufferSize?: number };
+  info?: { vendor?: string };
 }
 
-function infoFrom(adapter: AdapterLimits | null): WebGpuAdapterInfo {
+function infoFrom(adapter: AdapterLimits | null, dotProduct: boolean): WebGpuAdapterInfo {
   const limit = adapter?.limits?.maxBufferSize;
   return {
     present: adapter !== null,
     maxBufferSize: typeof limit === 'number' ? limit : null,
+    fastBatches: supportsFastBatches(adapter?.info?.vendor, dotProduct),
   };
 }
 
@@ -188,11 +204,18 @@ function requestAdapterInQuietFrame(): Promise<WebGpuAdapterInfo | null> {
       // A srcdoc frame on an extension page is an opaque origin, so its
       // location.origin is "null". The source window is the frame we created.
       if (event.origin !== window.location.origin && event.origin !== 'null') return;
-      const data = event.data as { source?: unknown; present?: unknown; maxBufferSize?: unknown };
+      const data = event.data as {
+        source?: unknown;
+        present?: unknown;
+        maxBufferSize?: unknown;
+        vendor?: unknown;
+        dotProduct?: unknown;
+      };
       if (!data || data.source !== GPU_PROBE_SOURCE) return;
       finish({
         present: data.present === true,
         maxBufferSize: typeof data.maxBufferSize === 'number' ? data.maxBufferSize : null,
+        fastBatches: supportsFastBatches(data.vendor, data.dotProduct),
       });
     };
     timer = window.setTimeout(() => finish(null), GPU_PROBE_TIMEOUT_MS);
@@ -228,6 +251,10 @@ export function probeCapabilities(): Promise<EngineCapabilities> {
         crossOriginIsolated: globalThis.crossOriginIsolated === true,
         webgpu: await probeWebGpu(),
         hardwareConcurrency: navigator.hardwareConcurrency,
+        gpuFastBatches: await probeWebGpuAdapter().then(
+          (info) => info.fastBatches,
+          () => false,
+        ),
       }))
       .catch((error: unknown) => {
         probeTask = null;

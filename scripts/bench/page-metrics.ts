@@ -199,8 +199,9 @@ function installRecorder(input: RecorderInput): void {
       const block = owning(item.el);
       const engine = block.getAttribute('data-sakutto-engine');
       const pending = block.hasAttribute('data-sakutto-pending');
-      const changed = text.length > 0 && text !== item.original;
-      if (changed && engine !== null && !pending) {
+      // A name, a version or a unit translates to itself ("Pro", "BF16"), so an unchanged
+      // text cannot mean unfinished. The engine mark without the pending mark is the finish.
+      if (text.length > 0 && engine !== null && !pending) {
         if (item.doneMs === null) item.doneMs = atMs;
         done += 1;
       }

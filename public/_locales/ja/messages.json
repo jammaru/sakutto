@@ -644,7 +644,7 @@
     "message": "WebGPU"
   },
   "tierCpu8": {
-    "message": "CPU（8スレッド）"
+    "message": "CPU（8スレッド以上）"
   },
   "tierCpu4": {
     "message": "CPU（4スレッド）"

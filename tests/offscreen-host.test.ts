@@ -4,7 +4,7 @@ import type { DownloadProgress } from '@/engine/model/download';
 import type { BackendSelection } from '@/engine/in-browser/backend';
 import { EngineError } from '@/engine/errors';
 import { selectBackend } from '@/engine/in-browser/backend';
-import { EngineHost, loadWithCpuFallback, type EngineServices } from '@/engine/offscreen/host';
+import { EngineHost, loadWithFallback, type EngineServices } from '@/engine/offscreen/host';
 import type { LoadedModel } from '@/engine/model/manager';
 import type { ModelStatus } from '@/shared/engine-status';
 import type { TranslateOptions } from '@/engine/types';
@@ -191,11 +191,12 @@ describe('EngineHost', () => {
 
 describe('model load on the GPU tier', () => {
   const gpu = selectBackend({ webgpu: true, hardwareConcurrency: 8 });
+  const wide = selectBackend({ webgpu: true, hardwareConcurrency: 8, fastBatches: true });
   const loaded = {} as LoadedModel;
 
   it('keeps the GPU when the model lands on it', async () => {
     const ensureLoaded = vi.fn(async () => loaded);
-    const result = await loadWithCpuFallback(ensureLoaded, gpu, new AbortController().signal);
+    const result = await loadWithFallback(ensureLoaded, gpu, new AbortController().signal);
 
     expect(result.selection).toBe(gpu);
     expect(ensureLoaded).toHaveBeenCalledTimes(1);
@@ -206,10 +207,46 @@ describe('model load on the GPU tier', () => {
       if (selection.backend === 'webgpu') throw new EngineError('gpu-unavailable', 'no GPU');
       return loaded;
     });
-    const result = await loadWithCpuFallback(ensureLoaded, gpu, new AbortController().signal);
+    const result = await loadWithFallback(ensureLoaded, gpu, new AbortController().signal);
 
     expect(result.loaded).toBe(loaded);
     expect(result.selection).toMatchObject({ backend: 'cpu-wasm', nParallel: 1, nCtx: 2048 });
+  });
+
+  it('tries four slots before the CPU when a wide load fails', async () => {
+    const tried: Array<[string, number]> = [];
+    const ensureLoaded = vi.fn(async (selection: BackendSelection) => {
+      tried.push([selection.backend, selection.nParallel]);
+      if (selection.backend === 'webgpu') throw new EngineError('model-load-failed', 'no memory');
+      return loaded;
+    });
+    await loadWithFallback(ensureLoaded, wide, new AbortController().signal);
+
+    expect(tried).toEqual([
+      ['webgpu', 16],
+      ['webgpu', 4],
+      ['cpu-wasm', 1],
+    ]);
+  });
+
+  it('stops at four slots when they load', async () => {
+    const ensureLoaded = vi.fn(async (selection: BackendSelection) => {
+      if (selection.nParallel === 16) throw new EngineError('model-load-failed', 'no memory');
+      return loaded;
+    });
+    const result = await loadWithFallback(ensureLoaded, wide, new AbortController().signal);
+
+    expect(result.selection).toMatchObject({ backend: 'webgpu', nParallel: 4, nCtx: 1024 * 4 });
+  });
+
+  it('goes straight to the CPU when no GPU was found', async () => {
+    const ensureLoaded = vi.fn(async (selection: BackendSelection) => {
+      if (selection.backend === 'webgpu') throw new EngineError('gpu-unavailable', 'no GPU');
+      return loaded;
+    });
+    await loadWithFallback(ensureLoaded, wide, new AbortController().signal);
+
+    expect(ensureLoaded).toHaveBeenCalledTimes(2);
   });
 
   it('does not retry an aborted load', async () => {
@@ -219,7 +256,7 @@ describe('model load on the GPU tier', () => {
       throw new DOMException('aborted', 'AbortError');
     });
 
-    await expect(loadWithCpuFallback(ensureLoaded, gpu, controller.signal)).rejects.toThrow();
+    await expect(loadWithFallback(ensureLoaded, gpu, controller.signal)).rejects.toThrow();
     expect(ensureLoaded).toHaveBeenCalledTimes(1);
   });
 });
