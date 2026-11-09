@@ -94,6 +94,9 @@
   "threadsLabel": {
     "message": "Lõi logic"
   },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
   "diagHeading": {
     "message": "Chẩn đoán"
   },
@@ -373,6 +376,9 @@
   },
   "shortcutHelp": {
     "message": "Chrome lưu các phím này. Chọn Đổi phím tắt để sửa chúng trong phần cài đặt của Chrome."
+  },
+  "shortcutHelpFirefox": {
+    "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
   },
   "shortcutChange": {
     "message": "Đổi phím tắt"
@@ -685,6 +691,9 @@
   },
   "tierCpu4": {
     "message": "CPU (4 luồng)"
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
   },
   "tierHelp": {
     "message": "Tự động chọn chế độ phù hợp với chiếc PC này."

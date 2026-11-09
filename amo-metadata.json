@@ -1,0 +1,20 @@
+{
+  "name": {
+    "en-US": "Sakutto - Local AI translation",
+    "ja": "Sakutto - ローカルAI翻訳"
+  },
+  "summary": {
+    "en-US": "Local LLM translation on this device. Free, no account.",
+    "ja": "ローカルLLMが、この端末の中でページを翻訳します。アカウント不要の無料拡張機能です。"
+  },
+  "description": {
+    "en-US": "Translate a whole page, a selection, or text you type. Replace the original or read a bilingual view.\n\nNo ads and no analytics. Page text is not sent to a translation server. Built with PLaMo.\n\nUnofficial. Not affiliated with Preferred Networks.\n\nRequires Firefox 153 or later on Windows. WebGPU is used when the GPU allows it; otherwise the model runs on the CPU with one thread.\n\nPrivacy policy: https://jammaru.com/sakutto/privacy/",
+    "ja": "ページ全体の翻訳、選択したテキストの翻訳、手元で入力して訳すことができます。原文を訳文に置き換える表示と、並べて読む対訳表示があります。\n\n広告も分析もありません。本文は外部の翻訳サーバーへ送りません。Built with PLaMo。\n\n非公式です。Preferred Networks とは無関係です。\n\nWindows の Firefox 153 以降が必要です。GPU が使えるときは WebGPU を使い、使えないときは CPU の 1 スレッドで動かします。\n\nプライバシーポリシー: https://jammaru.com/sakutto/privacy/"
+  },
+  "categories": ["privacy-security"],
+  "license": "MIT",
+  "homepage": {
+    "en-US": "https://github.com/jammaru/sakutto",
+    "ja": "https://github.com/jammaru/sakutto"
+  }
+}

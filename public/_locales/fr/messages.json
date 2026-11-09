@@ -94,6 +94,9 @@
   "threadsLabel": {
     "message": "Cœurs logiques"
   },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
   "diagHeading": {
     "message": "Diagnostic"
   },
@@ -373,6 +376,9 @@
   },
   "shortcutHelp": {
     "message": "Chrome conserve ces touches. « Modifier les raccourcis » les ouvre dans les réglages de Chrome."
+  },
+  "shortcutHelpFirefox": {
+    "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
   },
   "shortcutChange": {
     "message": "Modifier les raccourcis"
@@ -685,6 +691,9 @@
   },
   "tierCpu4": {
     "message": "CPU (4 threads)"
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
   },
   "tierHelp": {
     "message": "Choisit automatiquement le mode adapté à ce PC."

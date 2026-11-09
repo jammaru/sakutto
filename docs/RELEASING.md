@@ -42,6 +42,8 @@ git push origin main vX.Y.Z
 5. GitHub Release を下書きで作り、ストア用 zip を添付し、`CHANGELOG.md` のその節を本文にします。下書きは自動では公開しません。
 6. Chrome ウェブストア用のシークレットが揃っているときだけ、パッケージをアップロードします。タグの push では公開しません。
 
+Firefox の zip は CI の `firefox` ジョブが作ります。AMO への署名と listed 提出は `.github/workflows/amo.yml` を手動実行したときだけです。手順は [AMO_UPLOAD.md](AMO_UPLOAD.md) です。
+
 ## Chrome ウェブストアへ公開する
 
 アップロードと公開は別です。タグの push はアップロードだけです。審査へ提出して公開するには、同じタグでワークフローを手動実行し、`publish` を true にします。Actions の再実行は、元のタグ push の再実行なので、公開にはなりません。

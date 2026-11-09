@@ -94,6 +94,9 @@
   "threadsLabel": {
     "message": "論理コア"
   },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox の拡張機能ページでは wasm のスレッドが使えないため、CPU の翻訳は 1 スレッドです。"
+  },
   "diagHeading": {
     "message": "診断"
   },
@@ -373,6 +376,9 @@
   },
   "shortcutHelp": {
     "message": "キーは Chrome が管理します。「ショートカットキーを変更」を押すと Chrome の設定で編集できます。"
+  },
+  "shortcutHelpFirefox": {
+    "message": "キーは Firefox が管理します。「ショートカットキーを変更」を押すと Firefox の設定で編集できます。"
   },
   "shortcutChange": {
     "message": "ショートカットキーを変更"
@@ -685,6 +691,9 @@
   },
   "tierCpu4": {
     "message": "CPU（4スレッド）"
+  },
+  "tierCpu1": {
+    "message": "CPU（1スレッド）"
   },
   "tierHelp": {
     "message": "自動では、この PC に合うモードを選びます。"

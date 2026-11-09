@@ -39,7 +39,7 @@ const MODEL_STATES: ReadonlySet<string> = new Set<ModelState>([
 ]);
 
 const BACKENDS: ReadonlySet<string> = new Set<BackendKind>(['webgpu', 'cpu-wasm']);
-const TIERS: ReadonlySet<string> = new Set<ComputeTier>(['g', 'c8', 'c4']);
+const TIERS: ReadonlySet<string> = new Set<ComputeTier>(['g', 'c8', 'c4', 'c1']);
 const ENGINES: ReadonlySet<string> = new Set<EngineKind>(['plamo', 'chrome']);
 
 export function isModelStatus(value: unknown): value is ModelStatus {

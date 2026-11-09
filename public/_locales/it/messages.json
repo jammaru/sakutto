@@ -94,6 +94,9 @@
   "threadsLabel": {
     "message": "Cerchi logici"
   },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
   "diagHeading": {
     "message": "Diagnostica"
   },
@@ -373,6 +376,9 @@
   },
   "shortcutHelp": {
     "message": "Queste combinazioni sono gestite da Chrome. Con «Modifica le scorciatoie» le cambi nelle impostazioni di Chrome."
+  },
+  "shortcutHelpFirefox": {
+    "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
   },
   "shortcutChange": {
     "message": "Modifica le scorciatoie"
@@ -685,6 +691,9 @@
   },
   "tierCpu4": {
     "message": "CPU (4 thread)"
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
   },
   "tierHelp": {
     "message": "Seleziona automaticamente la modalità adatta a questo PC."

@@ -1,7 +1,15 @@
 import { readFileSync, realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
-const BUNDLE_FILES = new Set(['.github/workflows/ci.yml', 'scripts/package-artifact.ts']);
+const BUNDLE_FILES = new Set([
+  '.github/workflows/ci.yml',
+  '.github/workflows/amo.yml',
+  'scripts/package-artifact.ts',
+  'scripts/amo-source-package.ts',
+  'scripts/web-ext-lint.ts',
+  'scripts/compare-extension-builds.ts',
+  'amo-metadata.json',
+]);
 
 export interface ChangeScope {
   wllama: boolean;

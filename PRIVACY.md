@@ -1,8 +1,8 @@
 # Privacy policy
 
-Last updated: 2026-11-08
+Last updated: 2026-11-09
 
-Sakutto is an unofficial Chrome extension that translates web pages on your device. This page describes what the extension does with data in plain terms. It describes the kinds of data involved and who can see them, not the internals of the implementation.
+Sakutto is an unofficial extension for Chrome and Firefox that translates web pages on your device. This page describes what the extension does with data in plain terms. It describes the kinds of data involved and who can see them, not the internals of the implementation.
 
 ## At a glance
 
@@ -30,17 +30,15 @@ The developer does not receive your page text, your selections, your glossary, o
 
 PLaMo 3 Translate runs inside the extension on your device. The model file is not bundled with the extension: the extension downloads it from Hugging Face the first time it needs it, and keeps it on your device. After that, PLaMo translation does not need a network connection.
 
-For language pairs PLaMo does not support, the extension uses Chrome's built-in translator, which also runs on the device. Chrome downloads the language packs for those pairs itself.
+On Chrome, for language pairs PLaMo does not support, the extension uses Chrome's built-in translator, which also runs on the device. Chrome downloads the language packs for those pairs itself. When a page does not say what language it is in, Chrome's built-in language detector may look at some of the page text to work it out. These are Chrome features running on your device. They are not uploads that this extension sends to the developer or to Preferred Networks.
 
-When a page does not say what language it is in, Chrome's built-in language detector may look at some of the page text to work it out.
-
-These are Chrome features running on your device. They are not uploads that this extension sends to the developer or to Preferred Networks.
+On Firefox those Chrome APIs are not used. Only the language pairs PLaMo supports are translated.
 
 ## The download, and who can see it
 
 The extension's own network request is the model download from Hugging Face. Hugging Face, and the network that serves the file, can see your IP address and that a model file was requested. They do not receive the page text, your selections, your glossary, or your translations.
 
-If you installed the extension from the Chrome Web Store, Chrome may update it. That is Chrome's own request, not one this extension makes.
+If you installed the extension from the Chrome Web Store or from addons.mozilla.org, the browser may update it. That is the browser's own request, not one this extension makes.
 
 ## Stored on your device
 
@@ -60,7 +58,7 @@ The extension tries not to translate text you are typing into a form field, and 
 
 ## Permissions
 
-The extension is not given access to every site when you install it. A one-time translation of the current tab uses the access Chrome grants for that action. Access to a particular site is optional, and is requested only when you turn that site on, for automatic translation.
+The extension is not given access to every site when you install it. A one-time translation of the current tab uses the access the browser grants for that action. Access to a particular site is optional, and is requested only when you turn that site on, for automatic translation.
 
 ## Limited Use
 
@@ -68,13 +66,13 @@ The extension has a single purpose: translating web pages. The text it reads, yo
 
 ## Contact
 
-Questions about this policy can be opened as an issue at https://github.com/jammaru/sakutto/issues. The source code is at https://github.com/jammaru/sakutto, and the Chrome Web Store listing is at https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl.
+Questions about this policy can be opened as an issue at https://github.com/jammaru/sakutto/issues. The source code is at https://github.com/jammaru/sakutto. The Chrome Web Store listing is at https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl.
 
 # プライバシーポリシー
 
-最終更新: 2026-11-08
+最終更新: 2026-11-09
 
-Sakutto は、端末の中でウェブページを翻訳する非公式の Chrome 拡張機能です。このページでは、拡張機能がデータをどう扱うかを平易に説明します。扱うデータの種類と、それを誰が見られるかに絞って書き、実装の細部には立ち入りません。
+Sakutto は、端末の中でウェブページを翻訳する、Chrome と Firefox 向けの非公式の拡張機能です。このページでは、拡張機能がデータをどう扱うかを平易に説明します。扱うデータの種類と、それを誰が見られるかに絞って書き、実装の細部には立ち入りません。
 
 ## 要点
 
@@ -102,17 +100,15 @@ Sakutto は非公式の拡張機能です。Preferred Networks, Inc. の製品�
 
 PLaMo 3 Translate は、拡張機能の中で、端末上で動きます。モデルのファイルは拡張機能に同梱しておらず、最初に必要になったときに Hugging Face から取得して端末に保存します。そのあとは、PLaMo の翻訳に通信は要りません。
 
-PLaMo が対応していない言語の組み合わせでは、Chrome 内蔵の翻訳を使います。これも端末の中で動きます。その言語の言語パックは Chrome 自身が取得します。
+Chrome では、PLaMo が対応していない言語の組み合わせに Chrome 内蔵の翻訳を使います。これも端末の中で動きます。その言語の言語パックは Chrome 自身が取得します。ページが言語を示していないときは、Chrome 内蔵の言語判定が、ページの文字の一部を見ることがあります。いずれも端末上で動く Chrome の機能です。この拡張機能が開発者や Preferred Networks へ送るものではありません。
 
-ページが言語を示していないときは、Chrome 内蔵の言語判定が、ページの文字の一部を見ることがあります。
-
-いずれも端末上で動く Chrome の機能です。この拡張機能が開発者や Preferred Networks へ送るものではありません。
+Firefox ではそれらの Chrome の機能は使いません。PLaMo が対応する言語の組み合わせだけを訳します。
 
 ## ダウンロードと、それを見られる範囲
 
 この拡張機能自身が行う通信は、Hugging Face からのモデルの取得です。Hugging Face と、ファイルを配信するネットワークには、IP アドレスと、モデルのファイルが要求されたことが伝わります。ページの本文、選択範囲、用語集、訳文は伝わりません。
 
-Chrome ウェブストアから入れた場合、Chrome が拡張機能を更新することがあります。それは Chrome 自身の通信で、この拡張機能が行うものではありません。
+Chrome ウェブストアまたは addons.mozilla.org から入れた場合、ブラウザが拡張機能を更新することがあります。それはブラウザ自身の通信で、この拡張機能が行うものではありません。
 
 ## 端末に保存するもの
 
@@ -132,7 +128,7 @@ Chrome ウェブストアから入れた場合、Chrome が拡張機能を更新
 
 ## 権限
 
-インストールした時点で、すべてのサイトへのアクセスが与えられるわけではありません。今開いているタブの一回だけの翻訳には、その操作に対して Chrome が与えるアクセスを使います。特定のサイトへのアクセスは任意で、そのサイトの自動翻訳をオンにしたときだけ要求します。
+インストールした時点で、すべてのサイトへのアクセスが与えられるわけではありません。今開いているタブの一回だけの翻訳には、その操作に対してブラウザが与えるアクセスを使います。特定のサイトへのアクセスは任意で、そのサイトの自動翻訳をオンにしたときだけ要求します。
 
 ## 限定的な利用
 

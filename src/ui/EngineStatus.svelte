@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { isFirefoxBuild } from '@/shared/browser';
   import type { EngineCapabilities } from '@/shared/capabilities';
   import { t } from '@/shared/i18n';
 
@@ -45,4 +46,16 @@
     <span>{t('threadsLabel')}</span>
     <span class="value">{capabilities.hardwareConcurrency}</span>
   </div>
+  {#if isFirefoxBuild() && !capabilities.crossOriginIsolated}
+    <p class="help">{t('engineFirefoxSingleThread')}</p>
+  {/if}
 {/if}
+
+<style>
+  .help {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+</style>

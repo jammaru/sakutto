@@ -1,0 +1,121 @@
+name: AMO
+
+# Manual only. A push to main does not sign or submit.
+# Required repository secrets: AMO_JWT_ISSUER, AMO_JWT_SECRET
+# (add-on JWT from https://addons.mozilla.org/developers/addon/api/key/).
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: amo
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  credentials:
+    name: Credentials
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require AMO JWT secrets
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${AMO_JWT_ISSUER}" ] || [ -z "${AMO_JWT_SECRET}" ]; then
+            echo "Add repository secrets AMO_JWT_ISSUER and AMO_JWT_SECRET before signing." >&2
+            exit 1
+          fi
+
+  package:
+    name: Package
+    needs: credentials
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/package-extension
+        with:
+          browser: firefox
+
+  sign:
+    name: Sign
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: firefox-mv3-zip
+          path: store-zip
+
+      - name: Collect the Firefox zip and source zip
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t zips < <(find store-zip -type f -name '*.zip' | sort)
+          if [ "${#zips[@]}" -lt 1 ]; then
+            echo "expected a Firefox zip in the artifact" >&2
+            exit 1
+          fi
+          mkdir -p dist-zip
+          for zip in "${zips[@]}"; do
+            cp -- "${zip}" dist-zip/
+          done
+          source_zip=$(find dist-zip -type f -name '*sources*' | sort | head -n 1)
+          ext_zip=$(find dist-zip -type f -name '*.zip' ! -name '*sources*' | sort | head -n 1)
+          if [ -z "${ext_zip}" ]; then
+            echo "the Firefox extension zip is missing" >&2
+            exit 1
+          fi
+          echo "EXT_ZIP=${ext_zip}" >> "$GITHUB_ENV"
+          echo "SOURCE_ZIP=${source_zip}" >> "$GITHUB_ENV"
+
+      - name: Sign and upload to AMO listed
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(
+            sign
+            --channel listed
+            --source-dir dist-unpacked
+            --api-key "${AMO_JWT_ISSUER}"
+            --api-secret "${AMO_JWT_SECRET}"
+            --amo-metadata amo-metadata.json
+            --approval-timeout 0
+          )
+          rm -rf dist-unpacked
+          mkdir dist-unpacked
+          python3 - <<PY
+          import os, zipfile
+          zipfile.ZipFile(os.environ['EXT_ZIP']).extractall('dist-unpacked')
+          PY
+          if [ -n "${SOURCE_ZIP}" ]; then
+            args+=(--upload-source-code "${SOURCE_ZIP}")
+          fi
+          pnpm exec web-ext "${args[@]}"

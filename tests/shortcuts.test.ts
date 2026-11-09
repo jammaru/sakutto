@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CHROME_DEFAULT_SHORTCUTS,
   DEFAULT_SELECTION_SHORTCUT,
   DEFAULT_SHORTCUTS,
+  FIREFOX_DEFAULT_SHORTCUTS,
+  defaultShortcutsFor,
   ariaShortcut,
   displayShortcut,
   isPlainAltS,
@@ -41,6 +44,22 @@ describe('selection shortcut', () => {
       'translate-selection': 'Alt+S',
     });
     expect(DEFAULT_SELECTION_SHORTCUT).toBe('Alt+S');
+    expect(CHROME_DEFAULT_SHORTCUTS).toEqual(DEFAULT_SHORTCUTS);
+    expect(defaultShortcutsFor('firefox')).toEqual(FIREFOX_DEFAULT_SHORTCUTS);
+    expect(FIREFOX_DEFAULT_SHORTCUTS).toEqual({
+      'translate-page': 'Alt+Shift+A',
+      'toggle-bilingual': 'Alt+Shift+B',
+      'translate-selection': 'Alt+Shift+S',
+    });
+    expect(
+      matchesShortcut(
+        key({ altKey: true, shiftKey: true }),
+        FIREFOX_DEFAULT_SHORTCUTS['translate-selection'],
+      ),
+    ).toBe(true);
+    expect(
+      matchesShortcut(key({ altKey: true }), FIREFOX_DEFAULT_SHORTCUTS['translate-selection']),
+    ).toBe(false);
   });
 });
 

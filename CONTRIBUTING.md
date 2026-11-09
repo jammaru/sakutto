@@ -46,22 +46,24 @@ Reload the extension after a rebuild if Chrome does not pick up the change. `pnp
 pnpm build:wllama   # Docker; see docs/BUILDING.md
 pnpm verify:wllama
 pnpm build          # production build in .output/chrome-mv3
+pnpm build:firefox  # Firefox 153+ in .output/firefox-mv3
 ```
 
-`pnpm test:e2e` builds a separate package that translates inside the page. That package is not the release build.
+`pnpm test:e2e` builds a separate package that translates inside the page. That package is not the release build. Firefox is loaded from `about:debugging` with `.output/firefox-mv3/manifest.json`; see [docs/FIREFOX.md](docs/FIREFOX.md).
 
 ## Commands that exist
 
-| Command             | What it does                                        |
-| ------------------- | --------------------------------------------------- |
-| `pnpm lint`         | ESLint                                              |
-| `pnpm format`       | Prettier write                                      |
-| `pnpm format:check` | Prettier check (CI)                                 |
-| `pnpm typecheck`    | `wxt prepare` and `svelte-check`                    |
-| `pnpm test`         | Vitest                                              |
-| `pnpm test:e2e`     | Playwright fixtures; no model download              |
-| `pnpm i18n:check`   | Locale catalogs against English                     |
-| `pnpm build`        | Production extension, after a verified wllama build |
+| Command              | What it does                                               |
+| -------------------- | ---------------------------------------------------------- |
+| `pnpm lint`          | ESLint                                                     |
+| `pnpm format`        | Prettier write                                             |
+| `pnpm format:check`  | Prettier check (CI)                                        |
+| `pnpm typecheck`     | `wxt prepare` and `svelte-check`                           |
+| `pnpm test`          | Vitest                                                     |
+| `pnpm test:e2e`      | Playwright fixtures; no model download                     |
+| `pnpm i18n:check`    | Locale catalogs against English                            |
+| `pnpm build`         | Production Chrome extension, after a verified wllama build |
+| `pnpm build:firefox` | Firefox MV3 in `.output/firefox-mv3`                       |
 
 You do not need `pnpm bench`, `pnpm release`, or a Chrome Web Store upload for a normal contribution.
 

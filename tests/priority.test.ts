@@ -121,6 +121,7 @@ describe('translation priority', () => {
     expect(lookaheadScreens('g', 'quality')).toBe(2);
     expect(lookaheadScreens('c8', 'quality')).toBe(1);
     expect(lookaheadScreens('c4', 'quality')).toBe(0.5);
+    expect(lookaheadScreens('c1', 'quality')).toBe(0.5);
     expect(lookaheadScreens('g', 'fast')).toBeGreaterThan(lookaheadScreens('g', 'quality'));
     expect(lookaheadScreens('c8', 'fast')).toBeGreaterThan(lookaheadScreens('c8', 'quality'));
     expect(lookaheadScreens(null, 'fast')).toBeGreaterThan(lookaheadScreens(null, 'quality'));

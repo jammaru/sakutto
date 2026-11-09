@@ -33,6 +33,42 @@ describe('auditPackage', () => {
     expect(auditPackage(COMPLETE, manifest())).toEqual([]);
   });
 
+  it('accepts a Firefox package without offscreen and with a pinned gecko id', () => {
+    expect(
+      auditPackage(
+        COMPLETE,
+        manifest({
+          permissions: ['storage', 'unlimitedStorage', 'activeTab', 'scripting', 'contextMenus'],
+          browser_specific_settings: {
+            gecko: {
+              id: 'sakutto@jammaru',
+              strict_min_version: '153.0',
+              data_collection_permissions: { required: ['none'] },
+            },
+          },
+        }),
+        'firefox',
+      ),
+    ).toEqual([]);
+  });
+
+  it('rejects a Firefox package that still asks for offscreen or Chrome isolation keys', () => {
+    const problems = auditPackage(
+      COMPLETE,
+      manifest({
+        minimum_chrome_version: '116',
+        cross_origin_embedder_policy: { value: 'require-corp' },
+        cross_origin_opener_policy: { value: 'same-origin' },
+      }),
+      'firefox',
+    );
+    expect(problems.some((problem) => problem.startsWith('permissions '))).toBe(true);
+    expect(problems).toContain('firefox manifest has minimum_chrome_version');
+    expect(problems).toContain('firefox manifest has cross_origin_embedder_policy');
+    expect(problems).toContain('firefox manifest has cross_origin_opener_policy');
+    expect(problems).toContain('gecko.id missing');
+  });
+
   it('rejects a package that omits the wasm or includes weights', () => {
     const entries = COMPLETE.filter((entry) => entry !== 'vendor/wllama/wllama.wasm');
     const problems = auditPackage(

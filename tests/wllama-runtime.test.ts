@@ -68,6 +68,18 @@ describe('wllama runtime load', () => {
     );
   });
 
+  it('asks for one thread when SharedArrayBuffer is unavailable', async () => {
+    const isolated = selectBackend({
+      webgpu: false,
+      hardwareConcurrency: 16,
+      sharedMemory: false,
+    });
+    await createWllamaRuntime(new Blob(), isolated);
+    const params = native.loadModel.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(isolated.nThreads).toBe(1);
+    expect(params['n_threads']).toBe(1);
+  });
+
   it('keeps one KV cache across the WebGPU sequences', async () => {
     native.log = ['load_tensors: offloaded 29/29 layers to GPU'];
     await createWllamaRuntime(new Blob(), gpu);

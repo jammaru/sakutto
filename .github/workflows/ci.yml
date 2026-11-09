@@ -121,3 +121,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/package-extension
+
+  firefox:
+    needs: changes
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.bundle == 'true' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.code == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/package-extension
+        with:
+          browser: firefox

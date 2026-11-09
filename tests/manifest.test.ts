@@ -1,20 +1,33 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SHORTCUTS } from '@/shared/shortcuts';
+import { FIREFOX_EXTENSION_ID, FIREFOX_STRICT_MIN_VERSION } from '@/shared/browser';
+import { CHROME_DEFAULT_SHORTCUTS, FIREFOX_DEFAULT_SHORTCUTS } from '@/shared/shortcuts';
 import config from '../wxt.config';
 
-const manifest = config.manifest as unknown as Record<string, unknown>;
+function manifestFor(browser: 'chrome' | 'firefox'): Record<string, unknown> {
+  const factory = config.manifest;
+  if (typeof factory !== 'function') throw new Error('expected a manifest factory');
+  return factory({
+    browser,
+    manifestVersion: 3,
+    command: 'build',
+    mode: 'production',
+  } as never) as Record<string, unknown>;
+}
+
+const chromeManifest = manifestFor('chrome');
+const firefoxManifest = manifestFor('firefox');
 
 describe('extension manifest', () => {
   it('uses the localized name and description', () => {
-    expect(manifest.name).toBe('__MSG_extensionName__');
-    expect(manifest.short_name).toBe('__MSG_extensionShortName__');
-    expect(manifest.description).toBe('__MSG_extensionDescription__');
-    expect(manifest.default_locale).toBe('en');
+    expect(chromeManifest.name).toBe('__MSG_extensionName__');
+    expect(chromeManifest.short_name).toBe('__MSG_extensionShortName__');
+    expect(chromeManifest.description).toBe('__MSG_extensionDescription__');
+    expect(chromeManifest.default_locale).toBe('en');
     expect(config.manifestVersion).toBe(3);
   });
 
-  it('requests only the permissions the extension uses', () => {
-    expect(manifest.permissions).toEqual([
+  it('requests only the permissions the Chrome extension uses', () => {
+    expect(chromeManifest.permissions).toEqual([
       'offscreen',
       'storage',
       'unlimitedStorage',
@@ -22,24 +35,24 @@ describe('extension manifest', () => {
       'scripting',
       'contextMenus',
     ]);
-    expect(manifest).not.toHaveProperty('host_permissions');
-    expect(manifest.optional_host_permissions).toEqual(['https://*/*', 'http://*/*']);
+    expect(chromeManifest).not.toHaveProperty('host_permissions');
+    expect(chromeManifest.optional_host_permissions).toEqual(['https://*/*', 'http://*/*']);
   });
 
   it('sets a minimum Chrome version that supports offscreen documents', () => {
-    expect(manifest.minimum_chrome_version).toBe('116');
+    expect(chromeManifest.minimum_chrome_version).toBe('116');
   });
 
-  it('locks the extension pages down to bundled scripts and wasm', () => {
-    expect(manifest.content_security_policy).toEqual({
+  it('locks the Chrome extension pages down to bundled scripts and wasm', () => {
+    expect(chromeManifest.content_security_policy).toEqual({
       extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",
     });
-    expect(manifest.cross_origin_embedder_policy).toEqual({ value: 'require-corp' });
-    expect(manifest.cross_origin_opener_policy).toEqual({ value: 'same-origin' });
+    expect(chromeManifest.cross_origin_embedder_policy).toEqual({ value: 'require-corp' });
+    expect(chromeManifest.cross_origin_opener_policy).toEqual({ value: 'same-origin' });
   });
 
-  it('declares the translation shortcuts', () => {
-    expect(manifest.commands).toEqual({
+  it('declares the Chrome translation shortcuts', () => {
+    expect(chromeManifest.commands).toEqual({
       'translate-page': {
         suggested_key: { default: 'Alt+A' },
         description: '__MSG_commandTranslate__',
@@ -53,7 +66,7 @@ describe('extension manifest', () => {
         description: '__MSG_commandSelection__',
       },
     });
-    expect(manifest.permissions).toContain('contextMenus');
+    expect(chromeManifest.permissions).toContain('contextMenus');
   });
 
   /**
@@ -61,19 +74,64 @@ describe('extension manifest', () => {
    * background answers name that same key. A default that moved in one place only would make
    * the popup advertise a shortcut Chrome never bound.
    */
-  it('suggests the same default the page falls back to', () => {
-    const commands = manifest.commands as Record<string, { suggested_key: { default: string } }>;
-    for (const [name, shortcut] of Object.entries(DEFAULT_SHORTCUTS)) {
+  it('suggests the same Chrome default the page falls back to', () => {
+    const commands = chromeManifest.commands as Record<
+      string,
+      { suggested_key: { default: string } }
+    >;
+    for (const [name, shortcut] of Object.entries(CHROME_DEFAULT_SHORTCUTS)) {
       expect(commands[name]?.suggested_key.default, name).toBe(shortcut);
     }
   });
 
   it('points every icon size at a bundled PNG', () => {
-    expect(manifest.icons).toEqual({
+    expect(chromeManifest.icons).toEqual({
       16: 'icon/16.png',
       32: 'icon/32.png',
       48: 'icon/48.png',
       128: 'icon/128.png',
     });
+  });
+});
+
+describe('Firefox manifest', () => {
+  it('drops Chrome-only keys and pins a gecko id that cannot change after first upload', () => {
+    expect(firefoxManifest.permissions).toEqual([
+      'storage',
+      'unlimitedStorage',
+      'activeTab',
+      'scripting',
+      'contextMenus',
+    ]);
+    expect(firefoxManifest.permissions).not.toContain('offscreen');
+    expect(firefoxManifest).not.toHaveProperty('minimum_chrome_version');
+    expect(firefoxManifest).not.toHaveProperty('cross_origin_embedder_policy');
+    expect(firefoxManifest).not.toHaveProperty('cross_origin_opener_policy');
+    const gecko = (
+      firefoxManifest.browser_specific_settings as {
+        gecko: {
+          id: string;
+          strict_min_version: string;
+          data_collection_permissions: { required: string[] };
+        };
+      }
+    ).gecko;
+    expect(gecko.id).toBe(FIREFOX_EXTENSION_ID);
+    expect(gecko.strict_min_version).toBe(FIREFOX_STRICT_MIN_VERSION);
+    expect(gecko.data_collection_permissions).toEqual({ required: ['none'] });
+  });
+
+  it('suggests Alt+Shift defaults that match the content-script fallback', () => {
+    const commands = firefoxManifest.commands as Record<
+      string,
+      { suggested_key: { default: string } }
+    >;
+    for (const [name, shortcut] of Object.entries(FIREFOX_DEFAULT_SHORTCUTS)) {
+      expect(commands[name]?.suggested_key.default, name).toBe(shortcut);
+    }
+  });
+
+  it('keeps the same CSP as Chrome so wasm can compile', () => {
+    expect(firefoxManifest.content_security_policy).toEqual(chromeManifest.content_security_policy);
   });
 });

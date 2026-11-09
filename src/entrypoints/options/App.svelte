@@ -7,6 +7,7 @@
   import { loadSiteRules, pageHost, saveSiteRule, subscribeSiteRules } from '@/dom/sites';
   import type { EngineCapabilities } from '@/shared/capabilities';
   import type { EngineStatus } from '@/shared/engine-status';
+  import { hasBuiltInTranslatorUi, isFirefoxBuild } from '@/shared/browser';
   import { currentUiLanguage, t } from '@/shared/i18n';
   import {
     requestCacheClear,
@@ -66,7 +67,8 @@
       : (rules[glossaryScope]?.glossary ?? []),
   );
   let showSlow = $derived(
-    shouldHintBuiltInFallback(engine?.tier ?? null, quality?.milliseconds ?? null),
+    hasBuiltInTranslatorUi() &&
+      shouldHintBuiltInFallback(engine?.tier ?? null, quality?.milliseconds ?? null),
   );
   let engineLine = $derived.by(() => {
     const label = runtimeLabel({
@@ -236,7 +238,7 @@
 
   <section class="panel">
     <h2>{t('shortcutHeading')}</h2>
-    <p class="muted help">{t('shortcutHelp')}</p>
+    <p class="muted help">{t(isFirefoxBuild() ? 'shortcutHelpFirefox' : 'shortcutHelp')}</p>
     <ShortcutSettings />
   </section>
 
@@ -358,8 +360,12 @@
         <select value={settings.tier} onchange={changeTier}>
           <option value="auto">{t('tierAuto')}</option>
           <option value="g">{t('tierGpu')}</option>
-          <option value="c8">{t('tierCpu8')}</option>
-          <option value="c4">{t('tierCpu4')}</option>
+          {#if isFirefoxBuild()}
+            <option value="c1">{t('tierCpu1')}</option>
+          {:else}
+            <option value="c8">{t('tierCpu8')}</option>
+            <option value="c4">{t('tierCpu4')}</option>
+          {/if}
         </select>
       </label>
       <p class="muted help">{t('tierHelp')}</p>

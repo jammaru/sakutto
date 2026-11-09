@@ -94,6 +94,9 @@
   "threadsLabel": {
     "message": "邏輯核心"
   },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
   "diagHeading": {
     "message": "診斷"
   },
@@ -373,6 +376,9 @@
   },
   "shortcutHelp": {
     "message": "這些按鍵由 Chrome 管理。選擇「變更快速鍵」即可在 Chrome 的設定中修改。"
+  },
+  "shortcutHelpFirefox": {
+    "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
   },
   "shortcutChange": {
     "message": "變更快速鍵"
@@ -685,6 +691,9 @@
   },
   "tierCpu4": {
     "message": "CPU (4 執行緒)"
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
   },
   "tierHelp": {
     "message": "自動選擇適合此電腦的模式。"

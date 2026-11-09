@@ -129,10 +129,10 @@ export function translationPriority(
  * so scrolling finds a finished translation instead of waiting for a cold request.
  */
 export function lookaheadScreens(
-  tier: 'g' | 'c8' | 'c4' | null,
+  tier: 'g' | 'c8' | 'c4' | 'c1' | null,
   pace: 'fast' | 'quality' = 'quality',
 ): number {
-  const base = tier === 'g' ? 2 : tier === 'c4' ? 0.5 : 1;
+  const base = tier === 'g' ? 2 : tier === 'c4' || tier === 'c1' ? 0.5 : 1;
   return pace === 'fast' ? base + 1 : base;
 }
 

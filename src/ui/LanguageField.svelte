@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { hasBuiltInTranslatorUi } from '@/shared/browser';
   import { t } from '@/shared/i18n';
   import {
     CHROME_ONLY_LANGUAGES,
@@ -17,7 +18,9 @@
 
   let { value, uiLanguage, onChange }: Props = $props();
 
-  const languages = [...SUPPORTED_LANGUAGES, ...CHROME_ONLY_LANGUAGES];
+  const languages = hasBuiltInTranslatorUi()
+    ? [...SUPPORTED_LANGUAGES, ...CHROME_ONLY_LANGUAGES]
+    : [...SUPPORTED_LANGUAGES];
 
   function update(event: Event) {
     const select = event.currentTarget as HTMLSelectElement;

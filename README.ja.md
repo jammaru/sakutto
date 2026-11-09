@@ -7,7 +7,7 @@
 [![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/pdSRBaSr38)
 [![Last commit](https://img.shields.io/github/last-commit/jammaru/sakutto)](https://github.com/jammaru/sakutto/commits/main)
 
-Sakutto は、ウェブページを端末の中で翻訳する非公式の Chrome 拡張機能です。翻訳には [PLaMo 3 Translate](https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF) を使い、実行にはピン留めした [wllama](https://github.com/ngxson/wllama) を使います。訳文はすべて PLaMo が生成します。モデルの準備を待つあいだも、ページには Chrome 内蔵翻訳の下書きを挟まず、原文のまま表示します。Chrome の Translator API を使うのは、PLaMo が対応していない言語の組み合わせだけです。Preferred Networks, Inc. とは無関係です。Built with PLaMo。
+Sakutto は、ウェブページを端末の中で翻訳する、Chrome と Firefox 向けの非公式の拡張機能です。翻訳には [PLaMo 3 Translate](https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF) を使い、実行にはピン留めした [wllama](https://github.com/ngxson/wllama) を使います。訳文はすべて PLaMo が生成します。モデルの準備を待つあいだも、ページには Chrome 内蔵翻訳の下書きを挟まず、原文のまま表示します。Chrome の Translator API を使うのは、PLaMo が対応していない言語の組み合わせだけです。Firefox では PLaMo だけを使います。Preferred Networks, Inc. とは無関係です。Built with PLaMo。
 
 この拡張機能は無料のオープンソース（MIT）です。広告も有料機能もありません。モデルの重みは、このリポジトリにも拡張パッケージにも含まれません。
 
@@ -22,21 +22,19 @@ https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl
 1. Node.js 24 と pnpm 12 を用意します。
 2. このリポジトリを取得し、`pnpm install` を実行します。
 3. [ビルド](#ビルド) の手順で、翻訳ランタイムと拡張機能をビルドします。
-4. `chrome://extensions` を開きます。
-5. **デベロッパー モード** をオンにします。
-6. **パッケージ化されていない拡張機能を読み込む** を選びます。
-7. このリポジトリの `.output/chrome-mv3` を選択します。
+4. Chrome: `chrome://extensions` を開き、**デベロッパー モード** をオンにし、**パッケージ化されていない拡張機能を読み込む** から `.output/chrome-mv3` を選びます。
+5. Firefox 153 以降（まずは Windows）: `about:debugging` の「この Firefox」から **一時的なアドオンを読み込む** で `.output/firefox-mv3/manifest.json` を選びます。[docs/FIREFOX.md](docs/FIREFOX.md) を参照してください。
 
 ## ショートカット
 
-| 操作                                     | Windows / Linux | Mac          |
-| ---------------------------------------- | --------------- | ------------ |
-| ページを翻訳する、または原文に戻す       | Alt+A           | Option (⌥)+A |
-| 置換表示と対訳表示を切り替える           | Alt+B           | Option (⌥)+B |
-| 選択範囲を翻訳する                       | Alt+S           | Option (⌥)+S |
-| 入力したテキストを翻訳する（専用ページ） | Ctrl+Enter      | ⌘+Enter      |
+| 操作                                     | Windows / Linux                 | Mac          |
+| ---------------------------------------- | ------------------------------- | ------------ |
+| ページを翻訳する、または原文に戻す       | Alt+A（Firefox は Alt+Shift+A） | Option (⌥)+A |
+| 置換表示と対訳表示を切り替える           | Alt+B（Firefox は Alt+Shift+B） | Option (⌥)+B |
+| 選択範囲を翻訳する                       | Alt+S（Firefox は Alt+Shift+S） | Option (⌥)+S |
+| 入力したテキストを翻訳する（専用ページ） | Ctrl+Enter                      | ⌘+Enter      |
 
-ツールバーのポップアップと、右クリックメニューからも同じ操作ができます。キーは Chrome が管理しているため、設定画面の「キーボードショートカット」か、ポップアップの「ショートカットキーを変更」から `chrome://extensions/shortcuts` を開いて変更します。変更すると、ポップアップに並ぶキーの表示もその場で切り替わります。拡張機能のショートカットの Alt は、Mac の Chrome では Option として扱われるため、文字は同じです。Alt+D は Windows と Linux の Chrome がアドレスバーに使うため、既定では使いません。
+ツールバーのポップアップと、右クリックメニューからも同じ操作ができます。キーは Chrome が管理しているため、設定画面の「キーボードショートカット」か、ポップアップの「ショートカットキーを変更」から `chrome://extensions/shortcuts` を開いて変更します。Firefox の初期キーは Alt+Shift+文字で、Windows のメニューと重ならないようにしてあります。「ショートカットキーを変更」は Firefox 自身の設定を開きます。変更すると、ポップアップに並ぶキーの表示もその場で切り替わります。拡張機能のショートカットの Alt は、Mac の Chrome では Option として扱われるため、文字は同じです。Alt+D は Windows と Linux の Chrome がアドレスバーに使うため、既定では使いません。
 
 ## 入力したテキストの翻訳
 
@@ -46,7 +44,7 @@ https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl
 
 PLaMo 3 Translate は 53 言語を双方向に翻訳します。訳元はページから判定します。訳先の既定は、ブラウザの表示言語です。表示言語が 53 言語にないときは英語になります。ポップアップでは、今開いているサイトの訳先を変えられます。
 
-cs、da、el、fi、kn、no、pt、ro、sv、tr、uk の 11 言語は、Chrome 内蔵の翻訳だけで訳します。PLaMo だけが対応する言語は、モデルの準備ができるまで訳しません。
+cs、da、el、fi、kn、no、pt、ro、sv、tr、uk の 11 言語は、Chrome 内蔵の翻訳だけで訳します。Firefox ではこれらの訳先は出しません。PLaMo が対応する言語は、モデルの準備ができるまで訳しません。
 
 画面の文言は、英語、日本語、韓国語、中国語（簡体字・繁体字）、スペイン語、ポルトガル語（ブラジル）、フランス語、ドイツ語、イタリア語、ロシア語、ベトナム語、タイ語、インドネシア語の 14 言語にあります。ブラウザの表示言語に合わせて選ばれ、どれにも当たらないときは英語になります。追加の方法は [docs/TRANSLATING.ja.md](docs/TRANSLATING.ja.md) にあります。
 
@@ -61,7 +59,9 @@ pnpm install
 pnpm build:wllama   # Docker が必要です。docs/BUILDING.md を参照
 pnpm verify:wllama
 pnpm build          # 成果物は .output/chrome-mv3
+pnpm build:firefox  # Firefox 153 以降向け。成果物は .output/firefox-mv3
 pnpm zip            # Chrome ウェブストア用の zip は .output
+pnpm zip:firefox    # Firefox 用 zip。.output へ。AMO のソース zip は pnpm source:firefox
 ```
 
 `pnpm build:wllama` は、ピン留めした wllama のコミット `d275dac` を `emscripten/emsdk:4.0.20` コンテナの中でコンパイルします。wasm、worker、モデルの重みはコミットしません。`pnpm build` と `pnpm zip` は、そのビルドを検証できるまで失敗します。`pnpm zip` は、パッケージにランタイムとライセンス文が入っていること、モデルの重みやソースマップ、インストール時のホスト権限が入っていないことを確認します。

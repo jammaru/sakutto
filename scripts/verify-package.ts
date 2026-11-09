@@ -1,24 +1,33 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { FIREFOX_EXTENSION_ID, FIREFOX_STRICT_MIN_VERSION } from '../src/shared/browser.ts';
+import { CHROME_PERMISSIONS, FIREFOX_PERMISSIONS } from '../src/shared/manifest.ts';
 import { UI_LOCALES } from '../src/shared/locales.ts';
 import { readZip } from './zip-archive.ts';
+
+export type PackageBrowser = 'chrome' | 'firefox';
 
 export interface PackagedManifest {
   permissions?: readonly string[];
   optional_permissions?: readonly string[];
   host_permissions?: readonly string[];
   optional_host_permissions?: readonly string[];
+  minimum_chrome_version?: string;
+  offscreen?: unknown;
+  cross_origin_embedder_policy?: unknown;
+  cross_origin_opener_policy?: unknown;
+  browser_specific_settings?: {
+    gecko?: {
+      id?: string;
+      strict_min_version?: string;
+      data_collection_permissions?: { required?: readonly string[] };
+    };
+  };
 }
 
-export const REQUIRED_PERMISSIONS = [
-  'activeTab',
-  'contextMenus',
-  'offscreen',
-  'scripting',
-  'storage',
-  'unlimitedStorage',
-] as const;
+export const REQUIRED_PERMISSIONS = [...CHROME_PERMISSIONS];
+export const FIREFOX_REQUIRED_PERMISSIONS = [...FIREFOX_PERMISSIONS];
 
 export const REQUIRED_HOST_PATTERNS = ['http://*/*', 'https://*/*'] as const;
 
@@ -91,7 +100,11 @@ function sameMembers(actual: readonly string[], expected: readonly string[]): bo
   return expected.every((item) => seen.has(item));
 }
 
-export function auditPackage(entries: readonly string[], manifest: PackagedManifest): string[] {
+export function auditPackage(
+  entries: readonly string[],
+  manifest: PackagedManifest,
+  browser: PackageBrowser = 'chrome',
+): string[] {
   const problems: string[] = [];
   const names = new Set(entries);
   for (const entry of REQUIRED_ENTRIES) {
@@ -120,7 +133,9 @@ export function auditPackage(entries: readonly string[], manifest: PackagedManif
     if (FORBIDDEN.some((pattern) => pattern.test(entry))) problems.push(`unexpected ${entry}`);
   }
   const permissions = manifest.permissions ?? [];
-  if (!sameMembers(permissions, REQUIRED_PERMISSIONS)) {
+  const expectedPermissions =
+    browser === 'firefox' ? FIREFOX_REQUIRED_PERMISSIONS : REQUIRED_PERMISSIONS;
+  if (!sameMembers(permissions, expectedPermissions)) {
     problems.push(`permissions ${permissions.join(',')}`);
   }
   if ((manifest.host_permissions ?? []).length > 0) {
@@ -132,6 +147,28 @@ export function auditPackage(entries: readonly string[], manifest: PackagedManif
   }
   if ((manifest.optional_permissions ?? []).length > 0) {
     problems.push('optional_permissions must stay empty');
+  }
+  if (browser === 'firefox') {
+    if (permissions.includes('offscreen')) problems.push('firefox manifest has offscreen');
+    if (manifest.minimum_chrome_version)
+      problems.push('firefox manifest has minimum_chrome_version');
+    if (manifest.cross_origin_embedder_policy) {
+      problems.push('firefox manifest has cross_origin_embedder_policy');
+    }
+    if (manifest.cross_origin_opener_policy) {
+      problems.push('firefox manifest has cross_origin_opener_policy');
+    }
+    const gecko = manifest.browser_specific_settings?.gecko;
+    if (gecko?.id !== FIREFOX_EXTENSION_ID) {
+      problems.push(`gecko.id ${gecko?.id ?? 'missing'}`);
+    }
+    if (gecko?.strict_min_version !== FIREFOX_STRICT_MIN_VERSION) {
+      problems.push(`gecko.strict_min_version ${gecko?.strict_min_version ?? 'missing'}`);
+    }
+    const collection = gecko?.data_collection_permissions?.required ?? [];
+    if (!sameMembers(collection, ['none'])) {
+      problems.push(`data_collection_permissions ${collection.join(',')}`);
+    }
   }
   return problems;
 }
@@ -147,13 +184,15 @@ export function remoteCodeProblems(files: Iterable<readonly [string, string]>): 
   return problems;
 }
 
-function findZip(outputDirectory: string): string {
+function findZip(outputDirectory: string, browser: PackageBrowser): string {
   const zips = readdirSync(outputDirectory)
     .filter((name) => name.endsWith('.zip'))
+    .filter((name) => !name.includes('sources'))
     .map((name) => join(outputDirectory, name))
     .filter((path) => statSync(path).isFile())
     .sort((left, right) => statSync(right).mtimeMs - statSync(left).mtimeMs);
-  const zip = zips[0];
+  const named = zips.find((path) => path.includes(browser));
+  const zip = named ?? zips[0];
   if (zip === undefined) throw new Error(`no zip in ${outputDirectory}`);
   return zip;
 }
@@ -177,12 +216,20 @@ function inspectZip(zip: string): {
   };
 }
 
+function parseBrowser(argv: readonly string[]): PackageBrowser {
+  const flag = argv.find((arg) => arg.startsWith('--browser='));
+  const index = argv.indexOf('--browser');
+  const value = flag?.slice('--browser='.length) ?? (index >= 0 ? argv[index + 1] : undefined);
+  return value === 'firefox' ? 'firefox' : 'chrome';
+}
+
 function main(): void {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  const zip = findZip(join(root, '.output'));
+  const browser = parseBrowser(process.argv.slice(2));
+  const zip = findZip(join(root, '.output'), browser);
   const inspected = inspectZip(zip);
   const problems = [
-    ...auditPackage(inspected.entries, inspected.manifest),
+    ...auditPackage(inspected.entries, inspected.manifest, browser),
     ...remoteCodeProblems(inspected.texts),
   ];
   if (problems.length > 0) {

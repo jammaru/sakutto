@@ -94,6 +94,9 @@
   "threadsLabel": {
     "message": "Núcleos lógicos"
   },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
   "diagHeading": {
     "message": "Diagnóstico"
   },
@@ -373,6 +376,9 @@
   },
   "shortcutHelp": {
     "message": "O Chrome guarda estas teclas. Em Alterar atalhos, você as edita nas configurações do Chrome."
+  },
+  "shortcutHelpFirefox": {
+    "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
   },
   "shortcutChange": {
     "message": "Alterar atalhos"
@@ -685,6 +691,9 @@
   },
   "tierCpu4": {
     "message": "CPU (4 threads)"
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
   },
   "tierHelp": {
     "message": "Automático escolhe o modo que combina com este computador."

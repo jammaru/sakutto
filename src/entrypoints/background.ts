@@ -1,7 +1,7 @@
 import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
 import { EngineClient } from '@/background/engine-client';
-import { OffscreenController } from '@/background/offscreen-lifecycle';
+import { createEngineHostController } from '@/background/engine-host-document';
 import { installPageActions } from '@/background/page-actions';
 import { broadcastModelProgress, shouldWarmDownloadedModel } from '@/background/progress-broadcast';
 import { measureQuality } from '@/background/quality';
@@ -31,34 +31,10 @@ import {
 import { ensureSettings } from '@/shared/storage';
 import { readShortcutSnapshot } from '@/shared/shortcuts';
 
-const OFFSCREEN_PAGE = 'offscreen.html';
 const CAPABILITIES_CACHE_KEY = 'engineCapabilities';
 
-function createOffscreenController(): OffscreenController {
-  return new OffscreenController({
-    hasDocument: async () => {
-      const contexts = await browser.runtime.getContexts({
-        contextTypes: ['OFFSCREEN_DOCUMENT'],
-        documentUrls: [browser.runtime.getURL(`/${OFFSCREEN_PAGE}`)],
-      });
-      return contexts.length > 0;
-    },
-    createDocument: async () => {
-      await browser.offscreen.createDocument({
-        url: OFFSCREEN_PAGE,
-        reasons: [browser.offscreen.Reason.WORKERS],
-        justification:
-          'Runs the translation runtime in a document whose workers stay alive independently of the toolbar UI.',
-      });
-    },
-    closeDocument: async () => {
-      await browser.offscreen.closeDocument();
-    },
-  });
-}
-
 export default defineBackground(() => {
-  const client = new EngineClient(createOffscreenController());
+  const client = new EngineClient(createEngineHostController());
   const broker = new TranslationBroker(client);
   const downloads = new Map<ModelId, AbortController>();
   let capabilitiesCache: EngineCapabilities | null = null;

@@ -38,15 +38,19 @@ function publish(root: string): void {
   }));
   const problems = storeZipProblems(entries);
 
-  const unpacked = join(output, 'chrome-mv3');
-  const manifest = join(unpacked, 'manifest.json');
-  const wasm = join(unpacked, 'vendor', 'wllama', 'wllama.wasm');
-  if (!existsSync(manifest)) problems.push('the unpacked extension is missing manifest.json');
-  const wasmBytes = existsSync(wasm) ? statSync(wasm).size : 0;
-  if (wasmBytes < MIN_STORE_ZIP_BYTES) {
-    problems.push(
-      `wllama.wasm is ${String(wasmBytes)} bytes, below ${String(MIN_STORE_ZIP_BYTES)}`,
-    );
+  const browsers = ['chrome-mv3', 'firefox-mv3'] as const;
+  const unpacked = browsers
+    .map((name) => join(output, name))
+    .find((path) => existsSync(join(path, 'manifest.json')));
+  if (!unpacked) problems.push('the unpacked extension is missing manifest.json');
+  else {
+    const wasm = join(unpacked, 'vendor', 'wllama', 'wllama.wasm');
+    const wasmBytes = existsSync(wasm) ? statSync(wasm).size : 0;
+    if (wasmBytes < MIN_STORE_ZIP_BYTES) {
+      problems.push(
+        `wllama.wasm is ${String(wasmBytes)} bytes, below ${String(MIN_STORE_ZIP_BYTES)}`,
+      );
+    }
   }
 
   if (problems.length > 0) {
@@ -62,7 +66,10 @@ function publish(root: string): void {
     cpSync(join(output, entry.name), join(destination, 'store', entry.name));
     console.log(`${entry.name} ${String(entry.bytes)}`);
   }
-  cpSync(unpacked, join(destination, 'chrome-mv3'), { recursive: true });
+  if (unpacked) {
+    const name = unpacked.endsWith('firefox-mv3') ? 'firefox-mv3' : 'chrome-mv3';
+    cpSync(unpacked, join(destination, name), { recursive: true });
+  }
 }
 
 function isDirectRun(): boolean {

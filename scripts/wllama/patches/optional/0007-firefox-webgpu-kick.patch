@@ -1,0 +1,22 @@
+diff --git a/src/utils.ts b/src/utils.ts
+index 526c626..a1b2c0d 100644
+--- a/src/utils.ts
++++ b/src/utils.ts
+@@ -349,8 +349,16 @@ export const createWorker = (
+   workerUrl: string,
+   runOptions: WorkerRunOptions
+ ): Worker => {
+   const url = new URL(workerUrl);
+-  url.searchParams.set('options', JSON.stringify(runOptions));
++  const options = { ...runOptions } as WorkerRunOptions & {
++    firefoxWebGpuKick?: boolean;
++  };
++  const kick = (globalThis as { __SAKUTTO_FIREFOX_WEBGPU_KICK?: boolean })
++    .__SAKUTTO_FIREFOX_WEBGPU_KICK;
++  if (kick === true) {
++    options.firefoxWebGpuKick = true;
++  }
++  url.searchParams.set('options', JSON.stringify(options));
+   return new Worker(url.href);
+ };
+ 

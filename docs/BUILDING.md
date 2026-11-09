@@ -26,8 +26,10 @@ The script runs these steps:
 1. Fetches `d275dac` into `vendor/wllama/.checkout` with a depth-1 fetch (falling back to the full
    branch history when the server rejects the commit) and checks out the `llama.cpp` submodule at
    the pinned commit. It forces `core.autocrlf=false` and `core.eol=lf` in that checkout.
-2. Resets the checkout and applies every patch in `scripts/wllama/patches/` with `git apply`. A
-   patch that no longer matches aborts the build with the patch name.
+2. Resets the checkout and applies every `*.patch` in `scripts/wllama/patches/` (not
+   `patches/optional/`) with `git apply`. A patch that no longer matches aborts the build with the
+   patch name. `0007-firefox-webgpu-kick.patch` stays optional and off until a Firefox GPU
+   measurement confirms it; see `src/engine/wllama/firefox-webgpu-kick.ts`.
 3. Installs the wllama dev dependencies with `npm ci` and bundles the library with tsup.
 4. Runs the upstream Docker recipe (`scripts/docker-compose.yml` in the checkout) with
    `emscripten/emsdk:4.0.20`: WebGPU enabled, JSPI build, plus the compat (asyncify) build.
@@ -167,7 +169,9 @@ runs restore `vendor/wllama/dist` from the Actions cache when the
 pin, patches, build scripts, and emsdk tag are unchanged. The emsdk image is cached the same way. A
 cache miss compiles with `emscripten/emsdk:4.0.20` and then saves both caches. The job uploads
 `chrome-mv3-zip` (the store zip from `pnpm zip`) and `chrome-mv3` (the unpacked extension), and
-fails if the zip is missing or smaller than 1 MiB.
+fails if the zip is missing or smaller than 1 MiB. A sibling `firefox` job runs `pnpm zip:firefox`,
+`web-ext lint` (0 errors), a second build compared with `scripts/compare-extension-builds.ts`, and
+a rebuild from `pnpm source:firefox`.
 
 ## Troubleshooting
 

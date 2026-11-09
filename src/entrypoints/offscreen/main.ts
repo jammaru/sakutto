@@ -1,15 +1,22 @@
 import { browser } from 'wxt/browser';
 import { EngineHost } from '@/engine/offscreen/host';
+import { applyFirefoxWebGpuKickFlag } from '@/engine/wllama/firefox-webgpu-kick';
 import { installAdapterNoiseFilter, probeCapabilities } from '@/shared/capabilities';
-
-installAdapterNoiseFilter();
 import { isEngineProbeRequest, type EngineProbeResponse } from '@/shared/messages';
 
+applyFirefoxWebGpuKickFlag();
+installAdapterNoiseFilter();
+
 const host = new EngineHost();
+const FRAME_READY = 'sakutto-engine-frame';
 
 browser.runtime.onConnect.addListener((port) => {
   host.handlePort(port);
 });
+
+if (typeof window !== 'undefined' && window.parent !== window) {
+  window.parent.postMessage({ source: FRAME_READY, type: 'ready' }, window.location.origin);
+}
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== browser.runtime.id) return false;

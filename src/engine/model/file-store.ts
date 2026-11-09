@@ -1,3 +1,5 @@
+import { isFirefoxBuild } from '@/shared/browser';
+
 export interface StorageEstimate {
   usage: number;
   quota: number;
@@ -45,6 +47,12 @@ export class OpfsModelFileStore implements ModelFileStore {
   private constructor(private readonly root: FileSystemDirectoryHandle) {}
 
   static async open(directoryName = 'sakutto'): Promise<OpfsModelFileStore> {
+    // Firefox treats OPFS as evictable unless the origin is persistent. Chrome already
+    // grants this through unlimitedStorage; calling persist() there is a no-op for us,
+    // so it stays Firefox-only to keep Chrome's path unchanged.
+    if (isFirefoxBuild()) {
+      await navigator.storage.persist().catch(() => false);
+    }
     const origin = await navigator.storage.getDirectory();
     const root = await origin.getDirectoryHandle(directoryName, { create: true });
     return new OpfsModelFileStore(root);

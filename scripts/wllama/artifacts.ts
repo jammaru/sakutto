@@ -1,5 +1,6 @@
 import { copyFile, mkdir, readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { firefoxWebGpuKickWorkerBootstrap } from '../../src/engine/wllama/firefox-webgpu-kick.ts';
 import { DAWN_TAG, LLAMA_CPP_COMMIT, WLLAMA_COMMIT, WLLAMA_REPOSITORY } from './pins.ts';
 import { exists, log, readText, sha256, writeText } from './support.ts';
 
@@ -148,6 +149,7 @@ if (RUN_OPTIONS.noWebGPU) {
     });
   } catch (e) {}
 }
+${firefoxWebGpuKickWorkerBootstrap()}
 importScripts(RUN_OPTIONS.moduleUrl);
 ${llamaCppJs}
 `;

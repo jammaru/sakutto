@@ -7,7 +7,7 @@
 [![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/pdSRBaSr38)
 [![Last commit](https://img.shields.io/github/last-commit/jammaru/sakutto)](https://github.com/jammaru/sakutto/commits/main)
 
-Sakutto is an unofficial Chrome extension that translates web pages on your device. It runs [PLaMo 3 Translate](https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF) through a pinned [wllama](https://github.com/ngxson/wllama) build. Every translated line is written by PLaMo: a page waiting for the model keeps its source text rather than showing a draft from another engine. Chrome's Translator API is used only for the language pairs PLaMo does not support. Not affiliated with Preferred Networks, Inc. Built with PLaMo.
+Sakutto is an unofficial extension for Chrome and Firefox that translates web pages on your device. It runs [PLaMo 3 Translate](https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF) through a pinned [wllama](https://github.com/ngxson/wllama) build. Every translated line is written by PLaMo: a page waiting for the model keeps its source text rather than showing a draft from another engine. On Chrome, Chrome's Translator API is used only for the language pairs PLaMo does not support. Firefox uses PLaMo only. Not affiliated with Preferred Networks, Inc. Built with PLaMo.
 
 The extension is free and open source (MIT). It has no ads and no paid features. The model weights are not in this repository or in the extension package.
 
@@ -22,21 +22,19 @@ To build and load it yourself instead:
 1. Install Node.js 24 and pnpm 12.
 2. Clone this repository and run `pnpm install`.
 3. Build the translation runtime and the extension (see [Build](#build)).
-4. Open `chrome://extensions`.
-5. Turn on **Developer mode**.
-6. Choose **Load unpacked**.
-7. Select the `.output/chrome-mv3` directory in this repository.
+4. Chrome: open `chrome://extensions`, turn on **Developer mode**, choose **Load unpacked**, and select `.output/chrome-mv3`.
+5. Firefox 153 or later (Windows first): open `about:debugging`, choose **This Firefox**, **Load Temporary Add-on**, and select `.output/firefox-mv3/manifest.json`. See [docs/FIREFOX.md](docs/FIREFOX.md).
 
 ## Shortcuts
 
-| Action                                          | Windows / Linux | Mac          |
-| ----------------------------------------------- | --------------- | ------------ |
-| Translate the page, or restore the original     | Alt+A           | Option (⌥)+A |
-| Switch between replaced text and bilingual text | Alt+B           | Option (⌥)+B |
-| Translate the selection                         | Alt+S           | Option (⌥)+S |
-| Translate typed text (on the typed text page)   | Ctrl+Enter      | ⌘+Enter      |
+| Action                                          | Windows / Linux              | Mac          |
+| ----------------------------------------------- | ---------------------------- | ------------ |
+| Translate the page, or restore the original     | Alt+A (Firefox: Alt+Shift+A) | Option (⌥)+A |
+| Switch between replaced text and bilingual text | Alt+B (Firefox: Alt+Shift+B) | Option (⌥)+B |
+| Translate the selection                         | Alt+S (Firefox: Alt+Shift+S) | Option (⌥)+S |
+| Translate typed text (on the typed text page)   | Ctrl+Enter                   | ⌘+Enter      |
 
-The same actions are in the toolbar popup and the right-click menu. Chrome keeps these keys, so you change them in Chrome's own editor: the settings page has a **Keyboard shortcuts** panel, and the popup has a **Change shortcuts** link, both of which open `chrome://extensions/shortcuts`. The key list in the popup and the hint on the translate button follow whatever you bind there. Chrome reads Alt in an extension shortcut as Option on a Mac, so the keys are the same letters. Alt+D is not a default, because Chrome on Windows and Linux uses it for the address bar.
+The same actions are in the toolbar popup and the right-click menu. Chrome keeps these keys, so you change them in Chrome's own editor: the settings page has a **Keyboard shortcuts** panel, and the popup has a **Change shortcuts** link, both of which open `chrome://extensions/shortcuts`. Firefox uses Alt+Shift+letter by default so the Windows menu bar is not taken, and **Change shortcuts** opens Firefox's own editor. The key list in the popup and the hint on the translate button follow whatever you bind there. Chrome reads Alt in an extension shortcut as Option on a Mac, so the keys are the same letters. Alt+D is not a default, because Chrome on Windows and Linux uses it for the address bar.
 
 ## Typed text
 
@@ -46,7 +44,7 @@ The popup has a **Translate typed text** button, and the options page has the sa
 
 PLaMo 3 Translate supports 53 languages in either direction. The source language is detected from the page. The default target language is the browser UI language, or English when that language is not one of the 53. The popup can set a different target language for the current site.
 
-Eleven further languages (cs, da, el, fi, kn, no, pt, ro, sv, tr, uk) are translated only by Chrome's built-in translator. Languages that PLaMo supports and Chrome does not stay untranslated until the model is ready.
+Eleven further languages (cs, da, el, fi, kn, no, pt, ro, sv, tr, uk) are translated only by Chrome's built-in translator, and only in Chrome. Firefox hides those targets. Languages that PLaMo supports stay untranslated until the model is ready.
 
 The interface itself is translated into 14 languages: English, Japanese, Korean, Chinese (Simplified and Traditional), Spanish, Portuguese (Brazil), French, German, Italian, Russian, Vietnamese, Thai, and Indonesian. Chrome picks the catalog that matches the browser UI language and falls back to English. To add one, see [docs/TRANSLATING.md](docs/TRANSLATING.md).
 
@@ -61,7 +59,9 @@ pnpm install
 pnpm build:wllama   # once, with Docker; see docs/BUILDING.md
 pnpm verify:wllama
 pnpm build          # production build in .output/chrome-mv3
+pnpm build:firefox  # Firefox 153+ MV3 in .output/firefox-mv3
 pnpm zip            # Chrome Web Store zip in .output
+pnpm zip:firefox    # Firefox zip in .output; then pnpm source:firefox for the AMO source zip
 ```
 
 `pnpm build:wllama` compiles the pinned wllama commit `d275dac` inside the `emscripten/emsdk:4.0.20` container. The wasm, workers, and model weights are not committed. `pnpm build` and `pnpm zip` refuse to run until that build has been verified. `pnpm zip` also checks that the package contains the runtime and the license texts, and that it does not contain model weights, source maps, or install-time host permissions.

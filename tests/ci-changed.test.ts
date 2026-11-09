@@ -40,6 +40,11 @@ describe('CI change scope', () => {
       code: true,
       bundle: true,
     });
+    expect(classifyChanges(['.github/workflows/amo.yml', 'scripts/web-ext-lint.ts'])).toEqual({
+      wllama: false,
+      code: true,
+      bundle: true,
+    });
   });
 
   it('does not rebuild wasm for the package-audit script', () => {

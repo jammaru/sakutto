@@ -196,6 +196,7 @@ export class EngineHost {
       webgpu: capabilities.webgpu === 'ready',
       hardwareConcurrency: capabilities.hardwareConcurrency,
       fastBatches: capabilities.gpuFastBatches === true,
+      sharedMemory: capabilities.crossOriginIsolated,
     };
     const stored = browser.storage?.local ? await loadSettings().catch(() => null) : null;
     const selection = selectionForTier(stored?.tier ?? 'auto', probe);

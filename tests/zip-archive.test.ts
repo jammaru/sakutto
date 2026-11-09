@@ -1,6 +1,6 @@
 import { deflateRawSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { readZip } from '../scripts/zip-archive';
+import { readZip, writeZip } from '../scripts/zip-archive';
 
 function zip(files: readonly { name: string; data: Buffer; method?: 0 | 8 }[]): Buffer {
   const locals: Buffer[] = [];
@@ -60,5 +60,17 @@ describe('readZip', () => {
     expect(archive.entries).toEqual(['manifest.json', 'vendor/wllama/wllama.wasm']);
     expect(archive.read('manifest.json').toString('utf8')).toBe(manifest.toString('utf8'));
     expect(archive.read('vendor/wllama/wllama.wasm').toString('utf8')).toBe('wasm');
+  });
+
+  it('round-trips files written by writeZip', () => {
+    const manifest = Buffer.from('{"name":"Sakutto"}');
+    const archive = readZip(
+      writeZip([
+        { name: 'manifest.json', data: manifest },
+        { name: 'vendor/wllama/wllama.wasm', data: Buffer.from('wasm') },
+      ]),
+    );
+    expect(archive.entries).toEqual(['manifest.json', 'vendor/wllama/wllama.wasm']);
+    expect(archive.read('manifest.json').toString('utf8')).toBe(manifest.toString('utf8'));
   });
 });

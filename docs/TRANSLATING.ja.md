@@ -76,7 +76,7 @@ English: [TRANSLATING.md](TRANSLATING.md)
 - 結果を書く（例:「モデルの準備ができるまで、ページは原文のまま表示します」）。
 - 感嘆符を使わない。宣伝的な形容詞を使わない。速度を約束しない。
 - 英語の二人称に合わせます。日本語は です・ます です。
-- Chrome の内蔵翻訳が実際のエンジンになるのは、PLaMo が訳せない言語の組み合わせだけです。モデルの読み込み中に使えるもの、遅い PC の代わりになるもの、という書き方はしません。
+- Chrome の内蔵翻訳が実際のエンジンになるのは、PLaMo が訳せない言語の組み合わせだけで、Chrome のときだけです。Firefox ではその言語と文言を出しません（`shortcutHelpFirefox`、`engineFirefoxSingleThread`、`tierCpu1`）。モデルの読み込み中に使えるもの、遅い PC の代わりになるもの、という書き方はしません。
 
 この最後の点は、英語と日本語についてテストが見ています。言語を足すときは `onboardingUseNow` と `onboardingBridgeNote` をよく読んでください。
 

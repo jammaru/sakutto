@@ -4,6 +4,7 @@
   import { DEFAULT_MODEL_ID, getModel } from '@/engine/model/catalog';
   import type { ModelStatus } from '@/shared/engine-status';
   import { agreementFromStorage } from '@/shared/agreement';
+  import { hasBuiltInTranslatorUi } from '@/shared/browser';
   import { currentUiLanguage, t } from '@/shared/i18n';
   import { resolveTargetLanguage, type TargetLanguage } from '@/shared/languages';
   import {
@@ -287,7 +288,9 @@
       <ul>
         <li>{t('onboardingModelNote')}</li>
         <li>{t('onboardingBridgeNote')}</li>
-        <li>{t('onboardingUseNow')}</li>
+        {#if hasBuiltInTranslatorUi()}
+          <li>{t('onboardingUseNow')}</li>
+        {/if}
         <li>{t('onboardingPrivacyNote')}</li>
       </ul>
     </section>

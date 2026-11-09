@@ -29,6 +29,7 @@
     subscribeSiteRules,
     type SiteRule,
   } from '@/dom/sites';
+  import { hasBuiltInTranslatorUi } from '@/shared/browser';
   import { isChromeOnlyLanguage, resolvePageTarget, type TargetLanguage } from '@/shared/languages';
   import { advanceModelStatus } from '@/shared/model-progress';
   import { openShortcutEditor } from '@/shared/shortcut-editor';
@@ -114,7 +115,7 @@
    */
   let canStart = $derived(
     translated ||
-      isChromeOnlyLanguage(targetLanguage) ||
+      (hasBuiltInTranslatorUi() && isChromeOnlyLanguage(targetLanguage)) ||
       !modelStartBlocked(engine?.model ?? modelMark),
   );
   let engineText = $derived.by(() => {

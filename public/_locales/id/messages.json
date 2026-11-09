@@ -94,6 +94,9 @@
   "threadsLabel": {
     "message": "Inti logika"
   },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
   "diagHeading": {
     "message": "Diagnosi"
   },
@@ -373,6 +376,9 @@
   },
   "shortcutHelp": {
     "message": "Chrome menyimpan tombol ini. Pilih Ubah pintasan untuk menyuntingnya di pengaturan Chrome."
+  },
+  "shortcutHelpFirefox": {
+    "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
   },
   "shortcutChange": {
     "message": "Ubah pintasan"
@@ -685,6 +691,9 @@
   },
   "tierCpu4": {
     "message": "CPU (4 thread)"
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
   },
   "tierHelp": {
     "message": "Secara otomatis memilih mode yang sesuai untuk PC ini."

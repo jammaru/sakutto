@@ -91,8 +91,10 @@ The UI says what happens, not how impressive it is. Match that.
 - Describe the outcome: "The page keeps its original text until the model is ready."
 - No exclamation marks, no marketing adjectives, no promises about speed.
 - Use the second person the way the English does. Japanese uses です・ます.
-- Chrome's built-in translation is only ever the real engine for a pair PLaMo cannot translate.
-  Never describe it as something a reader gets while the model loads, or as a faster stand-in.
+- Chrome's built-in translation is only ever the real engine for a pair PLaMo cannot translate,
+  and only in Chrome. Firefox hides those languages and that copy (`shortcutHelpFirefox`,
+  `engineFirefoxSingleThread`, `tierCpu1`). Never describe the built-in translator as something a
+  reader gets while the model loads, or as a faster stand-in.
 
 `tests/locales.test.ts` checks the last point in English and Japanese. If you are adding a
 language, read `onboardingUseNow` and `onboardingBridgeNote` carefully.

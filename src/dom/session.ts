@@ -96,7 +96,7 @@ export interface SessionPreferences {
   auto: SiteAuto;
   host: string;
   context: boolean;
-  tier: 'g' | 'c8' | 'c4' | null;
+  tier: 'g' | 'c8' | 'c4' | 'c1' | null;
   pace: TranslationPace;
   glossary?: readonly GlossaryEntry[];
 }
@@ -438,7 +438,7 @@ export class PageSession {
     }
   }
 
-  setTier(tier: 'g' | 'c8' | 'c4' | null): void {
+  setTier(tier: 'g' | 'c8' | 'c4' | 'c1' | null): void {
     this.setPreferences({ ...this.prefs, tier });
   }
 

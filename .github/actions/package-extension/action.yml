@@ -1,6 +1,12 @@
 name: Package extension
 description: Restore the pinned wllama build or compile it, then zip the extension and smoke-test the worker.
 
+inputs:
+  browser:
+    description: Target browser (chrome or firefox)
+    required: false
+    default: chrome
+
 runs:
   using: composite
   steps:
@@ -84,34 +90,96 @@ runs:
           public/vendor/wllama
         key: ${{ steps.wasm.outputs.cache-primary-key }}
 
-    - shell: bash
+    - if: inputs.browser != 'firefox'
+      shell: bash
       run: pnpm zip
 
-    - uses: actions/cache@v4
+    - if: inputs.browser == 'firefox'
+      shell: bash
+      run: pnpm zip:firefox
+
+    - if: inputs.browser != 'firefox'
+      uses: actions/cache@v4
       with:
         path: ~/.cache/ms-playwright
         key: ${{ steps.inputs.outputs.playwright }}
 
-    - shell: bash
+    - if: inputs.browser != 'firefox'
+      shell: bash
       run: pnpm exec playwright install --with-deps chromium
 
-    - shell: bash
+    - if: inputs.browser != 'firefox'
+      shell: bash
       run: pnpm exec playwright test e2e/wllama-worker.spec.ts
+
+    - if: inputs.browser == 'firefox'
+      shell: bash
+      run: pnpm lint:firefox
+
+    - if: inputs.browser == 'firefox'
+      shell: bash
+      run: |
+        set -euo pipefail
+        rm -rf /tmp/firefox-mv3-first
+        cp -a .output/firefox-mv3 /tmp/firefox-mv3-first
+        pnpm zip:firefox
+        node scripts/compare-extension-builds.ts /tmp/firefox-mv3-first .output/firefox-mv3
+
+    - if: inputs.browser == 'firefox'
+      shell: bash
+      run: |
+        set -euo pipefail
+        pnpm source:firefox
+        rm -rf /tmp/sakutto-firefox-src
+        mkdir -p /tmp/sakutto-firefox-src
+        python3 - <<'PY'
+        from pathlib import Path
+        import zipfile
+        zipfile.ZipFile('.output/sakutto-firefox-sources.zip').extractall('/tmp/sakutto-firefox-src')
+        PY
+        mkdir -p /tmp/sakutto-firefox-src/vendor/wllama /tmp/sakutto-firefox-src/public/vendor
+        cp -a vendor/wllama/dist /tmp/sakutto-firefox-src/vendor/wllama/dist
+        cp -a public/vendor/wllama /tmp/sakutto-firefox-src/public/vendor/wllama
+        (
+          cd /tmp/sakutto-firefox-src
+          pnpm install --frozen-lockfile
+          pnpm zip:firefox
+        )
+        node scripts/compare-extension-builds.ts .output/firefox-mv3 /tmp/sakutto-firefox-src/.output/firefox-mv3
 
     - shell: bash
       run: node scripts/package-artifact.ts
 
-    - uses: actions/upload-artifact@v4
+    - if: inputs.browser != 'firefox'
+      uses: actions/upload-artifact@v4
       with:
         name: chrome-mv3-zip
         if-no-files-found: error
         compression-level: 0
         path: artifacts/store/*.zip
 
-    - uses: actions/upload-artifact@v4
+    - if: inputs.browser != 'firefox'
+      uses: actions/upload-artifact@v4
       with:
         name: chrome-mv3
         if-no-files-found: error
         compression-level: 0
         include-hidden-files: true
         path: artifacts/chrome-mv3
+
+    - if: inputs.browser == 'firefox'
+      uses: actions/upload-artifact@v4
+      with:
+        name: firefox-mv3-zip
+        if-no-files-found: error
+        compression-level: 0
+        path: artifacts/store/*.zip
+
+    - if: inputs.browser == 'firefox'
+      uses: actions/upload-artifact@v4
+      with:
+        name: firefox-mv3
+        if-no-files-found: error
+        compression-level: 0
+        include-hidden-files: true
+        path: artifacts/firefox-mv3

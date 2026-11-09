@@ -1,4 +1,4 @@
-export type ComputeTier = 'g' | 'c8' | 'c4';
+export type ComputeTier = 'g' | 'c8' | 'c4' | 'c1';
 
 export type BackendKind = 'webgpu' | 'cpu-wasm';
 
@@ -26,6 +26,11 @@ export interface BackendProbe {
   hardwareConcurrency: number;
   /** The GPU has been measured at the full width. Any other GPU gets the narrower one. */
   fastBatches?: boolean;
+  /**
+   * SharedArrayBuffer / wasm threads. Firefox extension pages are never
+   * `crossOriginIsolated`, so this is false there and CPU is one thread.
+   */
+  sharedMemory?: boolean;
 }
 
 export interface BackendSelection {
@@ -35,6 +40,7 @@ export interface BackendSelection {
   nThreads: number;
   nParallel: number;
   nCtx: number;
+  sharedMemory?: boolean;
 }
 
 function clampThreads(requested: number, hardwareConcurrency: number): number {
@@ -52,39 +58,70 @@ function largeCpuThreads(hardwareConcurrency: number): number {
   return clampThreads(Math.min(16, Math.max(8, Math.floor(cores / 2))), cores);
 }
 
+function withMemory(selection: BackendSelection, probe: BackendProbe): BackendSelection {
+  return probe.sharedMemory === false ? { ...selection, sharedMemory: false } : selection;
+}
+
+function singleThreadCpu(probe: BackendProbe): BackendSelection {
+  return withMemory(
+    {
+      tier: 'c1',
+      backend: 'cpu-wasm',
+      nGpuLayers: 0,
+      nThreads: 1,
+      nParallel: 1,
+      nCtx: CONTEXT_TOKENS,
+    },
+    probe,
+  );
+}
+
 /** The CPU tiers keep one sequence: there, each sequence costs its full compute. */
 export function selectBackend(probe: BackendProbe): BackendSelection {
+  if (probe.sharedMemory === false && !probe.webgpu) {
+    return singleThreadCpu(probe);
+  }
+
   if (probe.webgpu) {
     const slots = probe.fastBatches === true ? WEBGPU_SLOTS_FAST : WEBGPU_SLOTS_PLAIN;
-    return {
-      tier: 'g',
-      backend: 'webgpu',
-      nGpuLayers: WEBGPU_ALL_LAYERS,
-      nThreads: clampThreads(8, probe.hardwareConcurrency),
-      nParallel: slots,
-      nCtx: WEBGPU_CONTEXT_PER_SLOT * slots,
-    };
+    return withMemory(
+      {
+        tier: 'g',
+        backend: 'webgpu',
+        nGpuLayers: WEBGPU_ALL_LAYERS,
+        nThreads: probe.sharedMemory === false ? 1 : clampThreads(8, probe.hardwareConcurrency),
+        nParallel: slots,
+        nCtx: WEBGPU_CONTEXT_PER_SLOT * slots,
+      },
+      probe,
+    );
   }
 
   if (probe.hardwareConcurrency >= 8) {
-    return {
-      tier: 'c8',
-      backend: 'cpu-wasm',
-      nGpuLayers: 0,
-      nThreads: largeCpuThreads(probe.hardwareConcurrency),
-      nParallel: 1,
-      nCtx: CONTEXT_TOKENS,
-    };
+    return withMemory(
+      {
+        tier: 'c8',
+        backend: 'cpu-wasm',
+        nGpuLayers: 0,
+        nThreads: largeCpuThreads(probe.hardwareConcurrency),
+        nParallel: 1,
+        nCtx: CONTEXT_TOKENS,
+      },
+      probe,
+    );
   }
 
-  return {
-    tier: 'c4',
-    backend: 'cpu-wasm',
-    nGpuLayers: 0,
-    nThreads: clampThreads(4, probe.hardwareConcurrency),
-    nParallel: 1,
-    nCtx: CONTEXT_TOKENS,
-  };
+  return withMemory(
+    {
+      tier: 'c4',
+      backend: 'cpu-wasm',
+      nGpuLayers: 0,
+      nThreads: clampThreads(4, probe.hardwareConcurrency),
+      nParallel: 1,
+      nCtx: CONTEXT_TOKENS,
+    },
+    probe,
+  );
 }
 
 export type TierPreference = 'auto' | ComputeTier;
@@ -99,24 +136,35 @@ export function selectionForTier(
     return selectBackend({ ...probe, webgpu: true });
   }
   if (preference === 'c8') {
-    return {
-      tier: 'c8',
-      backend: 'cpu-wasm',
-      nGpuLayers: 0,
-      nThreads: largeCpuThreads(probe.hardwareConcurrency),
-      nParallel: 1,
-      nCtx: CONTEXT_TOKENS,
-    };
+    if (probe.sharedMemory === false) return singleThreadCpu(probe);
+    return withMemory(
+      {
+        tier: 'c8',
+        backend: 'cpu-wasm',
+        nGpuLayers: 0,
+        nThreads: largeCpuThreads(probe.hardwareConcurrency),
+        nParallel: 1,
+        nCtx: CONTEXT_TOKENS,
+      },
+      probe,
+    );
   }
 
-  return {
-    tier: 'c4',
-    backend: 'cpu-wasm',
-    nGpuLayers: 0,
-    nThreads: clampThreads(4, probe.hardwareConcurrency),
-    nParallel: 1,
-    nCtx: CONTEXT_TOKENS,
-  };
+  if (preference === 'c1' || probe.sharedMemory === false) {
+    return singleThreadCpu(probe);
+  }
+
+  return withMemory(
+    {
+      tier: 'c4',
+      backend: 'cpu-wasm',
+      nGpuLayers: 0,
+      nThreads: clampThreads(4, probe.hardwareConcurrency),
+      nParallel: 1,
+      nCtx: CONTEXT_TOKENS,
+    },
+    probe,
+  );
 }
 
 export function cpuFallback(selection: BackendSelection): BackendSelection | null {
@@ -124,6 +172,7 @@ export function cpuFallback(selection: BackendSelection): BackendSelection | nul
   return selectBackend({
     webgpu: false,
     hardwareConcurrency: selection.nThreads,
+    ...(selection.sharedMemory === undefined ? {} : { sharedMemory: selection.sharedMemory }),
   });
 }
 

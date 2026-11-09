@@ -94,6 +94,9 @@
   "threadsLabel": {
     "message": "คอร์ลโลจิก"
   },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
   "diagHeading": {
     "message": "การวินิจฉัย"
   },
@@ -373,6 +376,9 @@
   },
   "shortcutHelp": {
     "message": "Chrome เป็นผู้เก็บแป้นเหล่านี้ กดเปลี่ยนแป้นลัดเพื่อแก้ไขในการตั้งค่าของ Chrome"
+  },
+  "shortcutHelpFirefox": {
+    "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
   },
   "shortcutChange": {
     "message": "เปลี่ยนแป้นลัด"
@@ -685,6 +691,9 @@
   },
   "tierCpu4": {
     "message": "CPU (4 เธรด)"
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
   },
   "tierHelp": {
     "message": "จะเลือกโหมดที่เหมาะสมกับ PC เครื่องนี้โดยอัตโนมัติ"

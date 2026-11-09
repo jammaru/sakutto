@@ -8,6 +8,7 @@ import {
   PLAMO_NOTICE_VERSION,
   SETTINGS_SCHEMA_VERSION,
   createDefaultSettings,
+  isTierPreference,
   needsLicenseReconsent,
   normalizeSettings,
   type Settings,
@@ -30,6 +31,12 @@ function stored(overrides: Partial<Settings> = {}): Settings {
 }
 
 describe('settings defaults', () => {
+  it('accepts the single-thread CPU tier used on Firefox', () => {
+    expect(isTierPreference('c1')).toBe(true);
+    expect(isTierPreference('c8')).toBe(true);
+    expect(isTierPreference('gpu')).toBe(false);
+  });
+
   it('uses the UI language with polite form and replacement display', () => {
     expect(createDefaultSettings('fr-FR')).toEqual(stored({ targetLanguage: 'fr' }));
     expect(DEFAULT_SETTINGS.targetLanguage).toBe('en');

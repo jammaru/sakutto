@@ -35,6 +35,8 @@ Set these as GitHub Actions repository secrets only. Do not commit them, print t
 
 The Google account needs 2-step verification. Fill in the store listing and privacy tabs before publishing.
 
+Firefox packages are built by the `firefox` CI job. AMO signing and listed submit are the manual `AMO` workflow only. See [AMO_UPLOAD.md](AMO_UPLOAD.md). Secrets: `AMO_JWT_ISSUER`, `AMO_JWT_SECRET`.
+
 1. In Google Cloud Console, enable the Chrome Web Store API.
 2. Configure the OAuth consent screen as External, and add the item owner as a test user.
 3. Create a web application OAuth client. Add `https://developers.google.com/oauthplayground` as an authorized redirect URI.

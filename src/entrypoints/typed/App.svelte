@@ -4,6 +4,7 @@
   import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
   import { isEngineError } from '@/engine/errors';
   import type { EngineStatus } from '@/shared/engine-status';
+  import { hasBuiltInTranslatorUi } from '@/shared/browser';
   import { currentUiLanguage, t } from '@/shared/i18n';
   import {
     CHROME_ONLY_LANGUAGES,
@@ -56,7 +57,7 @@
       plamoReady: engineStatus?.plamoReady ?? false,
     }),
   );
-  let chromeOnlyTarget = $derived(isChromeOnlyLanguage(targetLanguage));
+  let chromeOnlyTarget = $derived(hasBuiltInTranslatorUi() && isChromeOnlyLanguage(targetLanguage));
   let canTranslate = $derived(
     !translating && trimmed.length > 0 && !tooLong && !chromeOnlyTarget && readiness === 'ready',
   );
@@ -366,7 +367,9 @@
     <button class="link-button" type="button" onclick={openOptions}>{t('openOptions')}</button>
     <p class="notice">{t('machineTranslationNotice')}</p>
     <p class="notice">{t('unofficialNotice')}</p>
-    <p class="notice">{t('typedChromeOnlyNote', [chromeOnlyNames.join(t('listSeparator'))])}</p>
+    {#if hasBuiltInTranslatorUi()}
+      <p class="notice">{t('typedChromeOnlyNote', [chromeOnlyNames.join(t('listSeparator'))])}</p>
+    {/if}
   </footer>
 </main>
 

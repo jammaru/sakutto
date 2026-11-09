@@ -1,3 +1,4 @@
+import { extensionBrowser, type ExtensionBrowser } from './browser';
 import type { PageCommandName, ShortcutSnapshot } from './messages';
 
 export type { ShortcutSnapshot };
@@ -19,17 +20,37 @@ export const SHORTCUT_PAGE_COMMANDS: Readonly<Record<ShortcutCommand, PageComman
 };
 
 /**
- * The key the manifest suggests for each command. A page or a settings screen uses these
- * until Chrome answers with the keys the user actually bound, and keeps them if it never
- * answers. Chrome reports the same bindings with its own spelling on a Mac.
+ * Chrome defaults. Alt+letter is the historical binding; Firefox cannot use those on
+ * Windows because they collide with the menu bar.
  */
-export const DEFAULT_SHORTCUTS: Readonly<Record<ShortcutCommand, string>> = {
+export const CHROME_DEFAULT_SHORTCUTS: Readonly<Record<ShortcutCommand, string>> = {
   'translate-page': 'Alt+A',
   'toggle-bilingual': 'Alt+B',
   'translate-selection': 'Alt+S',
 };
 
-/** The key the selection command has until Chrome answers. */
+/** Firefox defaults. Alt+Shift+letter avoids the Windows menu-bar access keys. */
+export const FIREFOX_DEFAULT_SHORTCUTS: Readonly<Record<ShortcutCommand, string>> = {
+  'translate-page': 'Alt+Shift+A',
+  'toggle-bilingual': 'Alt+Shift+B',
+  'translate-selection': 'Alt+Shift+S',
+};
+
+export function defaultShortcutsFor(
+  browser: ExtensionBrowser,
+): Readonly<Record<ShortcutCommand, string>> {
+  return browser === 'firefox' ? FIREFOX_DEFAULT_SHORTCUTS : CHROME_DEFAULT_SHORTCUTS;
+}
+
+/**
+ * The key the manifest suggests for each command. A page or a settings screen uses these
+ * until the browser answers with the keys the user actually bound, and keeps them if it never
+ * answers. Chrome reports the same bindings with its own spelling on a Mac.
+ */
+export const DEFAULT_SHORTCUTS: Readonly<Record<ShortcutCommand, string>> =
+  defaultShortcutsFor(extensionBrowser());
+
+/** The key the selection command has until the browser answers. */
 export const DEFAULT_SELECTION_SHORTCUT = DEFAULT_SHORTCUTS['translate-selection'];
 
 /** The shape `browser.commands.getAll()` returns, without depending on its declared type. */

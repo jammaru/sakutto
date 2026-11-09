@@ -133,7 +133,10 @@ export const createWllamaRuntime: RuntimeFactory = async (file, selection) => {
   try {
     await wllama.loadModel([file], {
       n_ctx: selection.nCtx,
-      n_threads: selection.nThreads,
+      n_threads:
+        globalThis.crossOriginIsolated === true || selection.sharedMemory !== false
+          ? selection.nThreads
+          : 1,
       n_gpu_layers: selection.nGpuLayers,
       n_parallel: selection.nParallel,
       /**

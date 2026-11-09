@@ -46,22 +46,24 @@ Chrome が変更を拾わないときは、拡張機能を再読み込みして�
 pnpm build:wllama   # Docker が必要です。docs/BUILDING.md を参照
 pnpm verify:wllama
 pnpm build          # 成果物は .output/chrome-mv3
+pnpm build:firefox  # Firefox 153 以降。成果物は .output/firefox-mv3
 ```
 
-`pnpm test:e2e` は、ページ内で翻訳するテスト用パッケージをビルドします。これはリリース用のビルドではありません。
+`pnpm test:e2e` は、ページ内で翻訳するテスト用パッケージをビルドします。これはリリース用のビルドではありません。Firefox は `about:debugging` から `.output/firefox-mv3/manifest.json` を読みます。[docs/FIREFOX.md](docs/FIREFOX.md) を参照してください。
 
 ## 実際にあるコマンド
 
-| コマンド            | 内容                                                  |
-| ------------------- | ----------------------------------------------------- |
-| `pnpm lint`         | ESLint                                                |
-| `pnpm format`       | Prettier で書き込み                                   |
-| `pnpm format:check` | Prettier の確認（CI）                                 |
-| `pnpm typecheck`    | `wxt prepare` と `svelte-check`                       |
-| `pnpm test`         | Vitest                                                |
-| `pnpm test:e2e`     | Playwright のフィクスチャ。モデルはダウンロードしない |
-| `pnpm i18n:check`   | ロケールカタログを英語と突き合わせる                  |
-| `pnpm build`        | 検証済み wllama のあとの本番ビルド                    |
+| コマンド             | 内容                                                  |
+| -------------------- | ----------------------------------------------------- |
+| `pnpm lint`          | ESLint                                                |
+| `pnpm format`        | Prettier で書き込み                                   |
+| `pnpm format:check`  | Prettier の確認（CI）                                 |
+| `pnpm typecheck`     | `wxt prepare` と `svelte-check`                       |
+| `pnpm test`          | Vitest                                                |
+| `pnpm test:e2e`      | Playwright のフィクスチャ。モデルはダウンロードしない |
+| `pnpm i18n:check`    | ロケールカタログを英語と突き合わせる                  |
+| `pnpm build`         | 検証済み wllama のあとの Chrome 向け本番ビルド        |
+| `pnpm build:firefox` | Firefox MV3。成果物は `.output/firefox-mv3`           |
 
 通常の貢献に `pnpm bench`、`pnpm release`、Chrome ウェブストアへのアップロードは不要です。
 

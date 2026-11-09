@@ -62,6 +62,24 @@ describe('backend selection', () => {
     expect(selectBackend({ webgpu: true, hardwareConcurrency: 32 }).nThreads).toBe(8);
   });
 
+  it('uses one CPU thread when the page is not cross-origin isolated', () => {
+    expect(selectBackend({ webgpu: false, hardwareConcurrency: 32, sharedMemory: false })).toEqual({
+      tier: 'c1',
+      backend: 'cpu-wasm',
+      nGpuLayers: 0,
+      nThreads: 1,
+      nParallel: 1,
+      nCtx: CONTEXT_TOKENS,
+      sharedMemory: false,
+    });
+    expect(
+      selectBackend({ webgpu: true, hardwareConcurrency: 16, sharedMemory: false }).nThreads,
+    ).toBe(1);
+    expect(
+      selectionForTier('c8', { webgpu: true, hardwareConcurrency: 32, sharedMemory: false }),
+    ).toMatchObject({ tier: 'c1', nThreads: 1 });
+  });
+
   it('caps a small CPU at four threads', () => {
     expect(selectBackend({ webgpu: false, hardwareConcurrency: 4 })).toMatchObject({
       tier: 'c4',
@@ -88,6 +106,12 @@ describe('backend selection', () => {
       nThreads: 4,
     });
     expect(cpuFallback(selectBackend({ webgpu: false, hardwareConcurrency: 8 }))).toBeNull();
+    expect(
+      cpuFallback(selectBackend({ webgpu: true, hardwareConcurrency: 12, sharedMemory: false })),
+    ).toMatchObject({
+      tier: 'c1',
+      nThreads: 1,
+    });
   });
 
   it('lets a saved preference force the CPU tier on a GPU machine', () => {

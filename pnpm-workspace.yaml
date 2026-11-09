@@ -1,4 +1,6 @@
 # Install scripts are allowlisted per package. esbuild needs its postinstall to fetch the
-# platform binary that Vite and WXT use.
+# platform binary that Vite and WXT use. spawn-sync arrives with web-ext's fx-runner; its
+# install script is not needed for `web-ext lint` or `web-ext sign`.
 allowBuilds:
   esbuild: true
+  spawn-sync: false
