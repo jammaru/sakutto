@@ -1,0 +1,82 @@
+name: 訳文の品質 / Translation quality
+description: PLaMo の訳がおかしい、抜けている、用語が違う。A bad or missing model translation.
+title: '[Quality] '
+labels:
+  - translation-quality
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        モデルの訳文そのものに関する報告です。拡張機能の画面文言は「画面の文言」テンプレートを使ってください。
+
+        **原文の貼り付けは任意です。非公開の文章、メール、社内文書、個人情報は貼らないでください。** 公開してよい短い抜粋だけにしてください。
+
+        For the model output, not the extension UI (use the interface-language form for that). **Source text is optional. Do not paste private, mail, intranet, or personal text.** Quote a short public excerpt only.
+
+  - type: input
+    id: languages
+    attributes:
+      label: 言語の組み合わせ / Language pair
+      placeholder: 英語 → 日本語 / English to Japanese
+    validations:
+      required: true
+
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: CPU または GPU / WebGPU
+      options:
+        - CPU
+        - GPU / WebGPU
+        - わからない / Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: どこで訳したか / Where
+      options:
+        - ページ / Page
+        - 選択範囲 / Selection
+        - 入力したテキスト / Typed text
+        - わからない / Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: source
+    attributes:
+      label: 原文（任意） / Source text (optional)
+      description: |
+        公開してよい短い抜粋だけ。個人名、住所、アカウント、本文全体は書かないでください。
+        A short public excerpt only. No names, addresses, accounts, or full private documents.
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 実際の訳 / Actual translation
+      description: 問題の箇所だけ。個人情報は消してください。 Only the problem span, with personal data removed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待する訳 / Expected translation
+      description: こう訳してほしい、という案。任意です。 Optional. A better wording if you have one.
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 補足（任意） / Notes (optional)
+      description: 専門用語、固有名詞、用語集を使っていたかなど。公開してよい範囲で。 Glossary use, domain terms. Public information only.
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: プライバシー / Privacy
+      options:
+        - label: 非公開の原文や個人情報は貼っていません。 I have not pasted private source text or personal data.
+          required: true

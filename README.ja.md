@@ -109,6 +109,14 @@ Sakutto にマネタイズポイントはありません。完全無料で、広
 
 どちらのプランも限定機能や優先サポートはありません。いただいた支援は、新機能の追加や翻訳品質・速度の改善、継続的なメンテナンスに役立てます。もちろん、支援の有無に関係なく、これからも完全無料で使える OSS として開発を続けていきます。https://github.com/sponsors/jammaru
 
+## 貢献
+
+不具合と要望は [GitHub Issues](https://github.com/jammaru/sakutto/issues) のフォームへ。非公開ページの本文は貼らないでください。使い方の質問は [Discord](https://discord.gg/pdSRBaSr38) の方が早いことがあります。
+
+- [CONTRIBUTING.ja.md](CONTRIBUTING.ja.md)（English: [CONTRIBUTING.md](CONTRIBUTING.md)）
+- [行動規範](CODE_OF_CONDUCT.ja.md)
+- [SECURITY.md](SECURITY.md)
+
 ## ライセンス
 
 - このリポジトリのコードは MIT です。[LICENSE](LICENSE) を参照してください。Copyright 2026 jammaru。- PLaMo 3 Translate は PLaMo Community License です。全文は `licenses/PLaMo-Community-License-ja.txt` と `licenses/PLaMo-Community-License-en.txt` にあり、拡張パッケージにも同じ写しを同梱します。個人利用と学術利用は登録が不要です。第3条により、モデルのライセンスで商業利用が認められるのは、PFN のフォーム（https://forms.gle/mTL8tBLrMYXKNZD56）への事前登録と、利用者または関係会社の直近事業年度の収入・売上が10億円以下であることの両方を満たす場合だけです。満たさない場合、商業利用には PFN の商業用ライセンスが必要です。このリポジトリの MIT は Sakutto 自身のコードに対するもので、モデルの重みは対象ではありません。

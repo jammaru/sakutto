@@ -111,6 +111,14 @@ Continuing development still takes time and money, so I opened GitHub Sponsors. 
 
 Neither tier adds limited features or priority support. The money goes towards new features, translation quality and speed, and ongoing maintenance. Whether you sponsor or not, Sakutto stays completely free and open source. https://github.com/sponsors/jammaru
 
+## Contributing
+
+Bug reports and feature requests are welcome as [GitHub Issues](https://github.com/jammaru/sakutto/issues). Please use the issue forms, and do not paste private page content. Questions are often faster in [Discord](https://discord.gg/pdSRBaSr38).
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) (日本語: [CONTRIBUTING.ja.md](CONTRIBUTING.ja.md))
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [SECURITY.md](SECURITY.md)
+
 ## Licenses
 
 - Project code: MIT. See [LICENSE](LICENSE). Copyright 2026 jammaru.

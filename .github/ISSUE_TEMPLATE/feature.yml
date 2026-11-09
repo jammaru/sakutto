@@ -1,0 +1,61 @@
+name: 機能の要望 / Feature request
+description: 新しい機能や、既存の動きの改善。A new feature or a change to existing behavior.
+title: '[Feature] '
+labels:
+  - enhancement
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        先に既存の Issue を検索してください。使い方の質問は [Discord](https://discord.gg/pdSRBaSr38) へどうぞ。
+
+        **個人情報や非公開ページの本文は貼らないでください。**
+
+        Please search existing issues first. Questions belong in Discord. **Do not paste private page content or personal data.**
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 困っていること / The problem
+      description: 何が足りないか、今の動きのどこが不便か。 What is missing, or what is awkward today.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 提案 / Proposal
+      description: こうなるとよい、という案。任意で構いません。 A sketch of the change. Optional if the problem is already clear.
+      placeholder: |
+        例 / example: ポップアップから、今のタブだけ対訳表示をオンにしたい。
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 対象 / Area
+      options:
+        - ページ翻訳 / Page translation
+        - 選択範囲 / Selection
+        - 入力したテキスト / Typed text
+        - 用語集 / Glossary
+        - 設定・ショートカット / Settings or shortcuts
+        - 画面の文言 / Interface language
+        - 速度 / Performance
+        - その他 / Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 補足（任意） / Extra (optional)
+      description: 公開してよい範囲で。 Do not include personal data.
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: プライバシー / Privacy
+      options:
+        - label: 個人情報、認証情報、非公開ページの本文は貼っていません。 I have not pasted personal data, credentials, or private page content.
+          required: true

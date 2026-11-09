@@ -1,0 +1,19 @@
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+          - docs/**
+
+i18n:
+  - changed-files:
+      - any-glob-to-any-file:
+          - public/_locales/**
+          - docs/TRANSLATING.md
+          - docs/TRANSLATING.ja.md
+          - src/shared/locales.ts
+
+performance:
+  - changed-files:
+      - any-glob-to-any-file:
+          - bench/**
+          - scripts/bench/**
