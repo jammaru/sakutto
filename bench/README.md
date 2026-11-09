@@ -92,6 +92,10 @@ pnpm bench:history --baseline <a> --compare <b>
 `bench/results/pages/<run>.md` is written by every run and holds the same tables; the JSONL file is
 the source of truth.
 
+Firefox cannot be driven by this Chromium harness. Manual Firefox GPU/CPU timings are recorded
+in `docs/FIREFOX.md` and `bench/results/pages/firefox-webgpu-kick-20261109.md`. Do not mix those
+rows with `pages.jsonl`.
+
 ## The two headline numbers after a speed change
 
 Two numbers summarise a run of the `long-article` page, on one machine:

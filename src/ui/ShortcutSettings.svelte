@@ -1,14 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { t, type MessageKey } from '@/shared/i18n';
-  import { requestShortcutSnapshot } from '@/shared/messages';
+  import { t, tForBrowser, type MessageKey } from '@/shared/i18n';
+  import { requestShortcutSnapshot, type ShortcutQueryResult } from '@/shared/messages';
   import { openShortcutEditor } from '@/shared/shortcut-editor';
   import {
     SHORTCUT_COMMANDS,
     ariaShortcut,
+    boundShortcut,
     displayShortcut,
+    usesInPageFallback,
     type ShortcutCommand,
-    type ShortcutSnapshot,
   } from '@/shared/shortcuts';
 
   const LABELS: Readonly<Record<ShortcutCommand, MessageKey>> = {
@@ -17,32 +18,44 @@
     'translate-selection': 'commandSelection',
   };
 
-  let bound = $state<ShortcutSnapshot | null>(null);
+  let shortcutState = $state<ShortcutQueryResult | null>(null);
   let openFailed = $state(false);
 
+  function keyFor(command: ShortcutCommand): string {
+    return boundShortcut(shortcutState?.snapshot ?? null, command, {
+      assigned: shortcutState?.assigned[command],
+    });
+  }
+
   function keyText(command: ShortcutCommand): string {
-    const shortcut = bound?.[command];
-    if (shortcut === null || shortcut === undefined || shortcut.length === 0) {
-      return t('shortcutUnset');
-    }
-    return displayShortcut(shortcut);
+    const shortcut = keyFor(command);
+    return shortcut.length > 0 ? displayShortcut(shortcut) : t('shortcutUnset');
   }
 
   function aria(command: ShortcutCommand): string | undefined {
-    const shortcut = bound?.[command];
-    if (shortcut === null || shortcut === undefined || shortcut.length === 0) return undefined;
+    const shortcut = keyFor(command);
+    if (shortcut.length === 0) return undefined;
     return ariaShortcut(shortcut) ?? undefined;
   }
 
+  function showsFallback(command: ShortcutCommand): boolean {
+    return usesInPageFallback(
+      shortcutState?.snapshot ?? null,
+      command,
+      shortcutState?.assigned[command],
+    );
+  }
+
   function refresh(): void {
-    void requestShortcutSnapshot().then((snapshot) => {
-      if (snapshot) bound = snapshot;
+    void requestShortcutSnapshot().then((next) => {
+      if (next) shortcutState = next;
     });
   }
 
   /**
-   * Chrome owns the key bindings, so the only honest control is a button that opens Chrome's
-   * own editor. The rows are read again when the reader comes back from that tab.
+   * The browser owns the key bindings, so the only honest control is a button that opens
+   * its editor. The rows are read again when the reader comes back from that tab. The
+   * in-page default only fills in when the browser never assigned the suggested key.
    */
   async function openEditor(): Promise<void> {
     openFailed = !(await openShortcutEditor());
@@ -68,6 +81,9 @@
         <kbd aria-keyshortcuts={aria(command)}>{keyText(command)}</kbd>
       </dd>
     </div>
+    {#if showsFallback(command)}
+      <p class="fallback">{tForBrowser('shortcutFallbackNote', 'shortcutFallbackNoteFirefox')}</p>
+    {/if}
   {/each}
 </dl>
 <button class="button secondary" type="button" onclick={openEditor}>{t('shortcutChange')}</button>
@@ -96,6 +112,13 @@
 
   dd {
     margin: 0;
+  }
+
+  .fallback {
+    margin: -4px 0 4px;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.45;
   }
 
   kbd {

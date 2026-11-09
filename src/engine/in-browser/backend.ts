@@ -176,6 +176,14 @@ export function cpuFallback(selection: BackendSelection): BackendSelection | nul
   });
 }
 
+/**
+ * True when a WebGPU load ended on the CPU. A manual CPU choice is the same backend on
+ * both sides, so it must not be reported as "WebGPU could not load the model".
+ */
+export function isGpuLoadFallback(requested: BackendSelection, loaded: BackendSelection): boolean {
+  return requested.backend === 'webgpu' && loaded.backend === 'cpu-wasm';
+}
+
 /** The next lighter place to run after `selection` failed: four slots, then the CPU. */
 export function lighterSelection(selection: BackendSelection): BackendSelection | null {
   if (selection.backend === 'webgpu' && selection.nParallel > WEBGPU_SLOTS_PLAIN) {

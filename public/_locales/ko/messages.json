@@ -133,6 +133,9 @@
   "paceHelp": {
     "message": "단락이 스크롤되어 보이기 직전에 번역합니다. \"Look ahead further\"는 폴드 아래에서 더 많은 내용을 미리 가져오므로, 스크롤할 때 즉시 텍스트를 사용할 수 있습니다. PLaMo가 지원하는 언어의 경우 모든 줄이 PLaMo에서 생성되며, Chrome의 초안은 절대 사용되지 않습니다."
   },
+  "paceHelpFirefox": {
+    "message": "단락이 스크롤되어 보이기 직전에 번역합니다. \"Look ahead further\"는 폴드 아래에서 더 많은 내용을 미리 가져오므로, 스크롤할 때 즉시 텍스트를 사용할 수 있습니다. PLaMo가 지원하는 언어의 경우 모든 줄이 PLaMo에서 생성됩니다."
+  },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
     "placeholders": {
@@ -164,6 +167,9 @@
   },
   "privacyDestinations": {
     "message": "이 확장 프로그램의 자체 요청 사항은 모델 다운로드입니다. huggingface.co에서 시작하여 Hugging Face의 CDN 리다이렉트를 따릅니다. 페이지 텍스트는 포함되지 않습니다. Chrome은 언어 팩을 자체적으로 다운로드합니다."
+  },
+  "privacyDestinationsFirefox": {
+    "message": "이 확장 프로그램의 자체 요청 사항은 모델 다운로드입니다. huggingface.co에서 시작하여 Hugging Face의 CDN 리다이렉트를 따릅니다. 페이지 텍스트는 포함되지 않습니다."
   },
   "privacyPolicyLink": {
     "message": "개인정보 처리방침"
@@ -212,6 +218,9 @@
   },
   "onboardingBridgeNote": {
     "message": "페이지는 모델이 준비될 때까지 원문을 유지하며, 이후 PLaMo가 이를 번역합니다. Google 문서는 기기에서 실행되는 Chrome의 번역을 반영합니다."
+  },
+  "onboardingBridgeNoteFirefox": {
+    "message": "페이지는 모델이 준비될 때까지 원문을 유지하며, 이후 PLaMo가 이를 번역합니다."
   },
   "onboardingPrivacyNote": {
     "message": "이 확장 프로그램은 서버로 페이지 텍스트를 전송하지 않습니다."
@@ -385,6 +394,12 @@
   },
   "shortcutUnset": {
     "message": "설정 안 됨"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+  },
+  "shortcutFallbackNoteFirefox": {
+    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
   },
   "shortcutTranslate": {
     "message": "$KEY$를 누르면 페이지가 변환되거나 원본으로 복원됩니다.",

@@ -1,3 +1,5 @@
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { UI_LOCALES } from '../src/shared/locales.ts';
 import {
@@ -134,5 +136,20 @@ describe('auditPackage', () => {
         ],
       ]),
     ).toEqual(['vendor/wllama/wllama.js contains cdn.jsdelivr.net']);
+  });
+
+  it('lets node load the firefox package-audit import chain', () => {
+    const root = fileURLToPath(new URL('..', import.meta.url));
+    const result = spawnSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        "import { FIREFOX_PERMISSIONS } from './src/shared/manifest.ts'; if (!FIREFOX_PERMISSIONS.includes('storage')) process.exit(2);",
+      ],
+      { cwd: root, encoding: 'utf8' },
+    );
+    expect(result.stderr, result.stderr).toBe('');
+    expect(result.status, result.stdout).toBe(0);
   });
 });

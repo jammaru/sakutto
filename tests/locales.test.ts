@@ -192,6 +192,20 @@ describe('locale messages', () => {
     }
   });
 
+  it('keeps Firefox-facing copy free of Chrome-only claims', () => {
+    const firefoxKeys = [
+      'paceHelpFirefox',
+      'privacyDestinationsFirefox',
+      'onboardingBridgeNoteFirefox',
+      'shortcutHelpFirefox',
+      'shortcutFallbackNoteFirefox',
+    ];
+    for (const key of firefoxKeys) {
+      expect(en[key]?.message, key).not.toMatch(/Chrome/i);
+      expect(ja[key]?.message, key).not.toMatch(/Chrome|Google/);
+    }
+  });
+
   it('describes the button as an agreement and uses the pinned model size', () => {
     // The consent sentence binds to the button rather than a vague "starting means…". Both
     // locales name the same control, so the sentence has to quote the label verbatim.

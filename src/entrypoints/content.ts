@@ -6,14 +6,14 @@ import { fakeTranslate } from '@/dom/fake-engine';
 import type { OverlayLabels } from '@/dom/overlay';
 import { PageSession, preferencesFor } from '@/dom/session';
 import { loadSiteRule, pageHost, saveSiteRule, subscribeSiteRules } from '@/dom/sites';
-import { DEFAULT_SELECTION_SHORTCUT, matchesShortcut } from '@/shared/shortcuts';
+import { boundShortcut, DEFAULT_SELECTION_SHORTCUT, matchesShortcut } from '@/shared/shortcuts';
 import { t } from '@/shared/i18n';
 import {
   isModelProgressMessage,
   isPageCommandRequest,
   isPageInfoRequest,
   isPageStateRequest,
-  isShortcutSnapshot,
+  isShortcutQueryResult,
   requestEngineStatus,
   requestEngineWarm,
   type PageCommandName,
@@ -29,19 +29,19 @@ interface ContentBridgeGlobal {
 const bridge = globalThis as typeof globalThis & ContentBridgeGlobal;
 
 /**
- * The key the user bound to "translate the selection". Chrome only tells a page which keys
- * are bound through the background worker, so this asks once and keeps the manifest default
- * when the answer never arrives. An empty string means the command has no key.
+ * The key the user bound to "translate the selection". The browser only tells a page which
+ * keys are bound through the background worker, so this asks once and keeps the manifest
+ * default when the answer never arrives. An empty string means the command has no key — a
+ * user clear, once that command was assigned at least once.
  */
 async function readSelectionShortcut(): Promise<string> {
   const response: unknown = await browser.runtime
     .sendMessage({ type: 'commands:shortcuts' })
     .catch(() => undefined);
-  if (!isShortcutSnapshot(response)) return DEFAULT_SELECTION_SHORTCUT;
-  const selection = response['translate-selection'];
-  // A command Chrome did not list is one this page cannot learn about; keep the default.
-  if (selection === null) return DEFAULT_SELECTION_SHORTCUT;
-  return selection;
+  if (!isShortcutQueryResult(response)) return DEFAULT_SELECTION_SHORTCUT;
+  return boundShortcut(response.snapshot, 'translate-selection', {
+    assigned: response.assigned['translate-selection'],
+  });
 }
 
 async function requestSiteAccess(host: string): Promise<boolean> {

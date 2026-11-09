@@ -133,6 +133,9 @@
   "paceHelp": {
     "message": "Traduz os parágrafos logo antes de entrarem na tela. «Antecipar mais» prepara mais conteúdo abaixo da dobra, para que o texto esteja pronto ao rolar. Nos idiomas que o PLaMo suporta, cada linha vem do PLaMo; o rascunho do Chrome nunca é usado."
   },
+  "paceHelpFirefox": {
+    "message": "Traduz os parágrafos logo antes de entrarem na tela. «Antecipar mais» prepara mais conteúdo abaixo da dobra, para que o texto esteja pronto ao rolar. Nos idiomas que o PLaMo suporta, cada linha vem do PLaMo."
+  },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
     "placeholders": {
@@ -164,6 +167,9 @@
   },
   "privacyDestinations": {
     "message": "A única requisição da própria extensão é o download do modelo. Ela começa em huggingface.co e segue o redirecionamento do Hugging Face para o CDN dele. O texto das páginas não vai junto. O Chrome baixa os pacotes de idioma por conta própria."
+  },
+  "privacyDestinationsFirefox": {
+    "message": "A única requisição da própria extensão é o download do modelo. Ela começa em huggingface.co e segue o redirecionamento do Hugging Face para o CDN dele. O texto das páginas não vai junto."
   },
   "privacyPolicyLink": {
     "message": "Política de privacidade"
@@ -212,6 +218,9 @@
   },
   "onboardingBridgeNote": {
     "message": "A página mantém o texto original até o modelo ficar pronto; depois o PLaMo traduz. A Google descreve a tradução do Chrome como local."
+  },
+  "onboardingBridgeNoteFirefox": {
+    "message": "A página mantém o texto original até o modelo ficar pronto; depois o PLaMo traduz."
   },
   "onboardingPrivacyNote": {
     "message": "Esta extensão não envia o texto das páginas a nenhum servidor."
@@ -385,6 +394,12 @@
   },
   "shortcutUnset": {
     "message": "Não definido"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+  },
+  "shortcutFallbackNoteFirefox": {
+    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
   },
   "shortcutTranslate": {
     "message": "$KEY$ traduz a página ou restaura o original.",

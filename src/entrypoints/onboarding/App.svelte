@@ -5,7 +5,7 @@
   import type { ModelStatus } from '@/shared/engine-status';
   import { agreementFromStorage } from '@/shared/agreement';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';
-  import { currentUiLanguage, t } from '@/shared/i18n';
+  import { currentUiLanguage, t, tForBrowser } from '@/shared/i18n';
   import { resolveTargetLanguage, type TargetLanguage } from '@/shared/languages';
   import {
     isModelProgressMessage,
@@ -18,6 +18,7 @@
   import {
     DEFAULT_SHORTCUTS,
     SHORTCUT_COMMANDS,
+    boundShortcut,
     displayShortcut,
     type ShortcutCommand,
   } from '@/shared/shortcuts';
@@ -257,12 +258,13 @@
       })
       .catch(() => undefined);
 
-    void requestShortcutSnapshot().then((snapshot) => {
-      if (!snapshot) return;
+    void requestShortcutSnapshot().then((result) => {
+      if (!result) return;
       const next = { ...bound };
       for (const command of SHORTCUT_COMMANDS) {
-        const shortcut = snapshot[command];
-        if (shortcut !== null) next[command] = shortcut;
+        next[command] = boundShortcut(result.snapshot, command, {
+          assigned: result.assigned[command],
+        });
       }
       bound = next;
     });
@@ -287,7 +289,7 @@
       <h2>{t('onboardingSetupHeading')}</h2>
       <ul>
         <li>{t('onboardingModelNote')}</li>
-        <li>{t('onboardingBridgeNote')}</li>
+        <li>{tForBrowser('onboardingBridgeNote', 'onboardingBridgeNoteFirefox')}</li>
         {#if hasBuiltInTranslatorUi()}
           <li>{t('onboardingUseNow')}</li>
         {/if}

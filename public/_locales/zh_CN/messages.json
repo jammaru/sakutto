@@ -133,6 +133,9 @@
   "paceHelp": {
     "message": "在段落滚动显示之前直接翻译。“Look ahead further”会在折叠线以下预加载更多内容，因此在滚动时文本就已准备就绪。对于 PLaMo 支持的语言，每一行均来自 PLaMo；Chrome 的草案绝不会被使用。"
   },
+  "paceHelpFirefox": {
+    "message": "在段落滚动显示之前直接翻译。“Look ahead further”会在折叠线以下预加载更多内容，因此在滚动时文本就已准备就绪。对于 PLaMo 支持的语言，每一行均来自 PLaMo。"
+  },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
     "placeholders": {
@@ -164,6 +167,9 @@
   },
   "privacyDestinations": {
     "message": "该扩展本身的请求是模型下载。它从 huggingface.co 开始，随后跟随 Hugging Face 重定向至其 CDN。页面文本不包含在内。Chrome 自行下载其语言包。"
+  },
+  "privacyDestinationsFirefox": {
+    "message": "该扩展本身的请求是模型下载。它从 huggingface.co 开始，随后跟随 Hugging Face 重定向至其 CDN。页面文本不包含在内。"
   },
   "privacyPolicyLink": {
     "message": "隐私政策"
@@ -212,6 +218,9 @@
   },
   "onboardingBridgeNote": {
     "message": "页面会保留原文本直到模型准备就绪，随后由 PLaMo 进行翻译。Google 文档将 Chrome 的翻译按设备进行。"
+  },
+  "onboardingBridgeNoteFirefox": {
+    "message": "页面会保留原文本直到模型准备就绪，随后由 PLaMo 进行翻译。"
   },
   "onboardingPrivacyNote": {
     "message": "此扩展不会将页面文本发送至服务器。"
@@ -385,6 +394,12 @@
   },
   "shortcutUnset": {
     "message": "未设置"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+  },
+  "shortcutFallbackNoteFirefox": {
+    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
   },
   "shortcutTranslate": {
     "message": "$KEY$ 可转换页面或还原原件。",

@@ -8,7 +8,7 @@
   import type { EngineCapabilities } from '@/shared/capabilities';
   import type { EngineStatus } from '@/shared/engine-status';
   import { hasBuiltInTranslatorUi, isFirefoxBuild } from '@/shared/browser';
-  import { currentUiLanguage, t } from '@/shared/i18n';
+  import { currentUiLanguage, t, tForBrowser } from '@/shared/i18n';
   import {
     requestCacheClear,
     requestEngineCapabilities,
@@ -408,7 +408,7 @@
   <section class="panel">
     <h2>{t('privacyHeading')}</h2>
     <p>{t('privacyBody')}</p>
-    <p class="muted">{t('privacyDestinations')}</p>
+    <p class="muted">{tForBrowser('privacyDestinations', 'privacyDestinationsFirefox')}</p>
     <ul class="links">
       <li>
         <a href={projectLinks.privacy} target="_blank" rel="noreferrer">{t('privacyPolicyLink')}</a>

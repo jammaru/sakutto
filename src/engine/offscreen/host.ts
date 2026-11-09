@@ -14,6 +14,7 @@ import { ChromeTranslatorEngine } from '../chrome/translator';
 import { isAbortError, isEngineError } from '../errors';
 import {
   cpuFallback,
+  isGpuLoadFallback,
   lighterSelection,
   selectionAfterGpuLoss,
   selectionForTier,
@@ -211,10 +212,10 @@ export class EngineHost {
         selectionState.current,
         signal,
       );
-      if (result.selection !== selectionState.current) {
-        selectionState.current = result.selection;
+      if (isGpuLoadFallback(selectionState.current, result.selection)) {
         this.gpuFallback = true;
       }
+      selectionState.current = result.selection;
 
       this.touch();
       return result.loaded;
@@ -225,8 +226,10 @@ export class EngineHost {
       const next = selectionAfterGpuLoss(selectionState.current, now - lastGpuLossAt);
       lastGpuLossAt = now;
       if (next !== selectionState.current) {
+        if (isGpuLoadFallback(selectionState.current, next)) {
+          this.gpuFallback = true;
+        }
         selectionState.current = next;
-        this.gpuFallback = true;
       }
       await manager.unload();
     };

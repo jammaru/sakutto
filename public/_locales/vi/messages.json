@@ -133,6 +133,9 @@
   "paceHelp": {
     "message": "Dịch các đoạn văn ngay trước khi chúng cuộn vào màn hình. \"Look ahead further\" sẽ tải sớm thêm nội dung dưới gờ, giúp văn bản sẵn sàng ngay khi bạn cuộn trang. Đối với các ngôn ngữ mà PLaMo hỗ trợ, mọi dòng chữ đều đến từ PLaMo; bản thảo của Chrome không bao giờ được sử dụng."
   },
+  "paceHelpFirefox": {
+    "message": "Dịch các đoạn văn ngay trước khi chúng cuộn vào màn hình. \"Look ahead further\" sẽ tải sớm thêm nội dung dưới gờ, giúp văn bản sẵn sàng ngay khi bạn cuộn trang. Đối với các ngôn ngữ mà PLaMo hỗ trợ, mọi dòng chữ đều đến từ PLaMo."
+  },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
     "placeholders": {
@@ -164,6 +167,9 @@
   },
   "privacyDestinations": {
     "message": "Yêu cầu của bản mở rộng là tải xuống mô hình. Nó bắt đầu tại huggingface.co và tiếp nối lối chuyển hướng của Hugging Face đến CDN của nó. Văn bản trang không được bao gồm. Chrome tự tải xuống các gói ngôn ngữ của chính nó."
+  },
+  "privacyDestinationsFirefox": {
+    "message": "Yêu cầu của bản mở rộng là tải xuống mô hình. Nó bắt đầu tại huggingface.co và tiếp nối lối chuyển hướng của Hugging Face đến CDN của nó. Văn bản trang không được bao gồm."
   },
   "privacyPolicyLink": {
     "message": "Chính sách bảo mật"
@@ -212,6 +218,9 @@
   },
   "onboardingBridgeNote": {
     "message": "Trang web tiếp tục giữ nguyên văn bản cho đến khi mô hình sẵn sàng, sau đó PLaMo sẽ dịch lại. Google Docs dịch bản của Chrome theo thiết bị."
+  },
+  "onboardingBridgeNoteFirefox": {
+    "message": "Trang web tiếp tục giữ nguyên văn bản cho đến khi mô hình sẵn sàng, sau đó PLaMo sẽ dịch lại."
   },
   "onboardingPrivacyNote": {
     "message": "Tiện ích mở rộng này không gửi văn bản trang đến máy chủ."
@@ -385,6 +394,12 @@
   },
   "shortcutUnset": {
     "message": "Chưa đặt"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+  },
+  "shortcutFallbackNoteFirefox": {
+    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
   },
   "shortcutTranslate": {
     "message": "$KEY$ chuyển đổi trang hoặc khôi phục bản gốc.",

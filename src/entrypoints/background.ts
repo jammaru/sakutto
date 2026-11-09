@@ -28,8 +28,8 @@ import {
   requestEngineProbe,
   type ModelProgressMessage,
 } from '@/shared/messages';
+import { resolveShortcutQuery } from '@/shared/shortcut-assignment';
 import { ensureSettings } from '@/shared/storage';
-import { readShortcutSnapshot } from '@/shared/shortcuts';
 
 const CAPABILITIES_CACHE_KEY = 'engineCapabilities';
 
@@ -152,14 +152,22 @@ export default defineBackground(() => {
     return client.deleteModel(modelId).catch(() => null);
   }
 
+  async function recordCommandAssignments(): Promise<void> {
+    const commands = await browser.commands.getAll().catch(() => []);
+    await resolveShortcutQuery(commands);
+  }
+
   browser.runtime.onInstalled.addListener(({ reason }) => {
     void (async () => {
       await ensureSettings();
+      await recordCommandAssignments();
       if (reason === 'install') {
         await browser.tabs.create({ url: browser.runtime.getURL('/onboarding.html') });
       }
     })().catch(() => undefined);
   });
+
+  void recordCommandAssignments();
 
   let warmStarted = false;
 
@@ -223,7 +231,7 @@ export default defineBackground(() => {
 
     if (isShortcutQuery(message)) {
       void browser.commands.getAll().then(
-        (commands) => sendResponse(readShortcutSnapshot(commands)),
+        (commands) => resolveShortcutQuery(commands).then(sendResponse, () => sendResponse(null)),
         () => sendResponse(null),
       );
       return true;

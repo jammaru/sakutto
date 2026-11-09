@@ -16,6 +16,7 @@
     requestQualitySample,
     requestShortcutSnapshot,
     type PageViewState,
+    type ShortcutQueryResult,
   } from '@/shared/messages';
   import { ensureContentScript } from '@/shared/page-bridge';
   import type { QualitySample } from '@/shared/quality';
@@ -37,9 +38,9 @@
     DEFAULT_SHORTCUTS,
     SHORTCUT_COMMANDS,
     ariaShortcut,
+    boundShortcut,
     displayShortcut,
     type ShortcutCommand,
-    type ShortcutSnapshot,
   } from '@/shared/shortcuts';
   import { readDeviceHeadroom, type DeviceHeadroom } from '@/ui/device-headroom';
   import LanguageField from '@/ui/LanguageField.svelte';
@@ -70,19 +71,19 @@
   let modelMark = $state<ModelStatus | null>(null);
   let quality = $state<QualitySample | null>(null);
   let headroom = $state<DeviceHeadroom | null>(null);
-  let shortcuts = $state<ShortcutSnapshot | null>(null);
+  let shortcuts = $state<ShortcutQueryResult | null>(null);
   let shortcutError = $state(false);
 
   /**
-   * The key Chrome currently has bound to each command. A binding the user removed stays as
-   * `''` so a hint can say it is unset rather than name a key that no longer works.
+   * The key the browser currently has bound to each command. A binding the user removed stays
+   * as `''` so a hint can say it is unset rather than name a key that no longer works.
    */
   let bound = $derived.by((): Record<ShortcutCommand, string> => {
     const next: Record<ShortcutCommand, string> = { ...DEFAULT_SHORTCUTS };
-    if (!shortcuts) return next;
     for (const command of SHORTCUT_COMMANDS) {
-      const shortcut = shortcuts[command];
-      if (shortcut !== null) next[command] = shortcut;
+      next[command] = boundShortcut(shortcuts?.snapshot ?? null, command, {
+        assigned: shortcuts?.assigned[command],
+      });
     }
     return next;
   });

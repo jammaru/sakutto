@@ -133,6 +133,9 @@
   "paceHelp": {
     "message": "Übersetzt Absätze unmittelbar bevor sie sich anzeigen. „Look ahead further“ fährt weitere Texte unter der Folie vor, sodass der Text bereits beim Scrollen fertig ist. Für die von PLaMo unterstützten Sprachen stammt jede Zeile aus PLaMo; der Entwurf von Chrome wird nie verwendet."
   },
+  "paceHelpFirefox": {
+    "message": "Übersetzt Absätze unmittelbar bevor sie sich anzeigen. „Look ahead further“ fährt weitere Texte unter der Folie vor, sodass der Text bereits beim Scrollen fertig ist. Für die von PLaMo unterstützten Sprachen stammt jede Zeile aus PLaMo."
+  },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
     "placeholders": {
@@ -164,6 +167,9 @@
   },
   "privacyDestinations": {
     "message": "Die eigene Anfrage der Erweiterung ist der Modell-Download. Dieser startet bei huggingface.co und folgt dem Weiterleiten von Hugging Face zu seiner CDN. Seitentext ist nicht enthalten. Chrome lädt seine Sprachpakete selbst herunter."
+  },
+  "privacyDestinationsFirefox": {
+    "message": "Die eigene Anfrage der Erweiterung ist der Modell-Download. Dieser startet bei huggingface.co und folgt dem Weiterleiten von Hugging Face zu seiner CDN. Seitentext ist nicht enthalten."
   },
   "privacyPolicyLink": {
     "message": "Datenschutzerklärung"
@@ -212,6 +218,9 @@
   },
   "onboardingBridgeNote": {
     "message": "Die Seite behält ihren Originaltext, bis das Modell fertig ist, woraufhin PLaMo dieses übersetzt. Google Docs übersetzt Chrome-Texte auf dem Gerät."
+  },
+  "onboardingBridgeNoteFirefox": {
+    "message": "Die Seite behält ihren Originaltext, bis das Modell fertig ist, woraufhin PLaMo dieses übersetzt."
   },
   "onboardingPrivacyNote": {
     "message": "Diese Erweiterung sendet keine Seitentexte an einen Server."
@@ -385,6 +394,12 @@
   },
   "shortcutUnset": {
     "message": "Nicht festgelegt"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+  },
+  "shortcutFallbackNoteFirefox": {
+    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
   },
   "shortcutTranslate": {
     "message": "$KEY$ übersetzt die Seite oder stellt das Original wieder her.",

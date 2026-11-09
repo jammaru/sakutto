@@ -1,10 +1,17 @@
 import { browser } from 'wxt/browser';
 import { EngineHost } from '@/engine/offscreen/host';
-import { applyFirefoxWebGpuKickFlag } from '@/engine/wllama/firefox-webgpu-kick';
+import {
+  applyFirefoxWebGpuKickFlag,
+  installFirefoxWebGpuKickWorkerOption,
+} from '@/engine/wllama/firefox-webgpu-kick';
+import { isFirefoxBuild } from '@/shared/browser';
 import { installAdapterNoiseFilter, probeCapabilities } from '@/shared/capabilities';
 import { isEngineProbeRequest, type EngineProbeResponse } from '@/shared/messages';
 
 applyFirefoxWebGpuKickFlag();
+if (isFirefoxBuild()) {
+  installFirefoxWebGpuKickWorkerOption();
+}
 installAdapterNoiseFilter();
 
 const host = new EngineHost();

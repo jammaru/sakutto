@@ -4,14 +4,22 @@ import {
   DEFAULT_SELECTION_SHORTCUT,
   DEFAULT_SHORTCUTS,
   FIREFOX_DEFAULT_SHORTCUTS,
+  SHORTCUT_COMMANDS,
+  boundShortcut,
   defaultShortcutsFor,
   ariaShortcut,
   displayShortcut,
   isPlainAltS,
+  markCommandAssigned,
   matchesShortcut,
   parseShortcut,
   readShortcutSnapshot,
+  rememberShortcutAssignments,
+  shortcutAssignedRecord,
+  usesInPageFallback,
+  type ShortcutAssigned,
 } from '@/shared/shortcuts';
+import type { ShortcutSnapshot } from '@/shared/messages';
 
 function key(overrides: Partial<KeyboardEvent> = {}): KeyboardEvent {
   return {
@@ -162,5 +170,95 @@ describe('displayShortcut', () => {
     expect(displayShortcut('Alt+A')).toBe('Alt+A');
     expect(displayShortcut('Ctrl+Shift+5')).toBe('Ctrl+Shift+5');
     expect(displayShortcut('')).toBe('');
+  });
+});
+
+function snapshot(overrides: Partial<ShortcutSnapshot> = {}): ShortcutSnapshot {
+  return {
+    'translate-page': DEFAULT_SHORTCUTS['translate-page'],
+    'toggle-bilingual': DEFAULT_SHORTCUTS['toggle-bilingual'],
+    'translate-selection': DEFAULT_SHORTCUTS['translate-selection'],
+    ...overrides,
+  };
+}
+
+function assigned(overrides: Partial<ShortcutAssigned> = {}): ShortcutAssigned {
+  return {
+    'translate-page': true,
+    'toggle-bilingual': true,
+    'translate-selection': true,
+    ...overrides,
+  };
+}
+
+function alt(code: string, letter: string): KeyboardEvent {
+  return key({ altKey: true, code, key: letter });
+}
+
+describe('shortcut assignment and in-page fallback', () => {
+  it('uses the fresh-install defaults and does not treat them as unset', () => {
+    const live = snapshot();
+    const ever = rememberShortcutAssignments({}, live);
+    expect(shortcutAssignedRecord(ever)).toEqual(assigned());
+    for (const command of SHORTCUT_COMMANDS) {
+      const binding = boundShortcut(live, command, { assigned: ever[command] });
+      expect(binding, command).toBe(DEFAULT_SHORTCUTS[command]);
+      expect(usesInPageFallback(live, command, ever[command]), command).toBe(false);
+      expect(binding.length, command).toBeGreaterThan(0);
+    }
+    expect(boundShortcut(null, 'translate-page')).toBe(DEFAULT_SHORTCUTS['translate-page']);
+  });
+
+  it('stops handling a command the user cleared in the browser', () => {
+    const installed = rememberShortcutAssignments({}, snapshot());
+    const cleared = snapshot({ 'translate-page': '' });
+    const ever = rememberShortcutAssignments(installed, cleared);
+    expect(ever['translate-page']).toBe(true);
+    expect(boundShortcut(cleared, 'translate-page', { assigned: ever['translate-page'] })).toBe('');
+    expect(usesInPageFallback(cleared, 'translate-page', ever['translate-page'])).toBe(false);
+    expect(
+      matchesShortcut(
+        alt('KeyA', 'a'),
+        boundShortcut(cleared, 'translate-page', { assigned: true }),
+      ),
+    ).toBe(false);
+  });
+
+  it('uses only the rebound key, not the old default', () => {
+    const rebound = snapshot({ 'translate-page': 'Alt+Q' });
+    const ever = rememberShortcutAssignments({}, rebound);
+    const binding = boundShortcut(rebound, 'translate-page', { assigned: ever['translate-page'] });
+    expect(binding).toBe('Alt+Q');
+    expect(matchesShortcut(alt('KeyQ', 'q'), binding)).toBe(true);
+    expect(matchesShortcut(alt('KeyA', 'a'), binding)).toBe(false);
+    expect(usesInPageFallback(rebound, 'translate-page', true)).toBe(false);
+  });
+
+  it('falls back to the default only when the browser never assigned the key at install', () => {
+    const conflict = snapshot({ 'translate-selection': '' });
+    const ever = rememberShortcutAssignments({}, conflict);
+    expect(ever['translate-selection']).toBe(false);
+    expect(ever['translate-page']).toBe(true);
+    const binding = boundShortcut(conflict, 'translate-selection', {
+      assigned: ever['translate-selection'],
+    });
+    expect(binding).toBe(DEFAULT_SELECTION_SHORTCUT);
+    expect(usesInPageFallback(conflict, 'translate-selection', ever['translate-selection'])).toBe(
+      true,
+    );
+    expect(usesInPageFallback(conflict, 'translate-page', ever['translate-page'])).toBe(false);
+  });
+
+  it('promotes a later browser assignment, and never treats a clear as a fresh conflict', () => {
+    const conflict = rememberShortcutAssignments({}, snapshot({ 'translate-page': '' }));
+    expect(conflict['translate-page']).toBe(false);
+    const rebound = rememberShortcutAssignments(conflict, snapshot({ 'translate-page': 'Alt+Q' }));
+    expect(rebound['translate-page']).toBe(true);
+    const cleared = rememberShortcutAssignments(rebound, snapshot({ 'translate-page': '' }));
+    expect(cleared['translate-page']).toBe(true);
+    expect(
+      boundShortcut(snapshot({ 'translate-page': '' }), 'translate-page', { assigned: true }),
+    ).toBe('');
+    expect(markCommandAssigned(conflict, 'translate-page')['translate-page']).toBe(true);
   });
 });

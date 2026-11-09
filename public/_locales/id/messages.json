@@ -133,6 +133,9 @@
   "paceHelp": {
     "message": "Menerjemahkan paragraf tepat sebelum muncul di layar. \"Look ahead further\" meng-prefetch lebih banyak teks di bawah lipatan, sehingga teksnya sudah siap saat Anda menggulir. Untuk bahasa yang didukung PLaMo, setiap baris berasal dari PLaMo; draf Chrome tidak pernah digunakan."
   },
+  "paceHelpFirefox": {
+    "message": "Menerjemahkan paragraf tepat sebelum muncul di layar. \"Look ahead further\" meng-prefetch lebih banyak teks di bawah lipatan, sehingga teksnya sudah siap saat Anda menggulir. Untuk bahasa yang didukung PLaMo, setiap baris berasal dari PLaMo."
+  },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
     "placeholders": {
@@ -164,6 +167,9 @@
   },
   "privacyDestinations": {
     "message": "Permintaan dari ekstensi itu sendiri adalah pengunduhan model. Model tersebut dimulai dari huggingface.co dan mengikuti pengalihan Hugging Face ke CDN-nya. Teks halaman tidak disertakan. Chrome mengunduh paket bahasanya sendiri."
+  },
+  "privacyDestinationsFirefox": {
+    "message": "Permintaan dari ekstensi itu sendiri adalah pengunduhan model. Model tersebut dimulai dari huggingface.co dan mengikuti pengalihan Hugging Face ke CDN-nya. Teks halaman tidak disertakan."
   },
   "privacyPolicyLink": {
     "message": "Kebijakan privasi"
@@ -212,6 +218,9 @@
   },
   "onboardingBridgeNote": {
     "message": "Halaman tersebut tetap mempertahankan teks aslinya sampai model siap, kemudian PLaMo menerjemahkannya. Google Docs menerjemahkan Chrome ke dalam perangkat."
+  },
+  "onboardingBridgeNoteFirefox": {
+    "message": "Halaman tersebut tetap mempertahankan teks aslinya sampai model siap, kemudian PLaMo menerjemahkannya."
   },
   "onboardingPrivacyNote": {
     "message": "Ekstensi ini tidak mengirimkan teks halaman ke server."
@@ -385,6 +394,12 @@
   },
   "shortcutUnset": {
     "message": "Belum diatur"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+  },
+  "shortcutFallbackNoteFirefox": {
+    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
   },
   "shortcutTranslate": {
     "message": "$KEY$ menerjemahkan halaman atau mengembalikan versi aslinya.",

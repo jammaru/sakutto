@@ -12,6 +12,7 @@ import {
   isPageInfo,
   isPageInfoRequest,
   isPageViewState,
+  isShortcutQueryResult,
   isShortcutSnapshot,
 } from '@/shared/messages';
 
@@ -68,6 +69,30 @@ describe('message validation', () => {
       }),
     ).toBe(false);
     expect(isShortcutSnapshot(null)).toBe(false);
+  });
+
+  it('validates the shortcut query a page reads after assignment tracking', () => {
+    expect(
+      isShortcutQueryResult({
+        snapshot: {
+          'translate-page': 'Alt+A',
+          'toggle-bilingual': '',
+          'translate-selection': 'Alt+S',
+        },
+        assigned: {
+          'translate-page': true,
+          'toggle-bilingual': false,
+          'translate-selection': true,
+        },
+      }),
+    ).toBe(true);
+    expect(
+      isShortcutQueryResult({
+        'translate-page': 'Alt+A',
+        'toggle-bilingual': 'Alt+B',
+        'translate-selection': 'Alt+S',
+      }),
+    ).toBe(false);
   });
 
   it('matches only the page info request type', () => {

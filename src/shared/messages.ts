@@ -101,6 +101,25 @@ export interface ShortcutSnapshot {
   'translate-selection': string | null;
 }
 
+/**
+ * Whether the browser has assigned a key to each command at least once. `true` never goes
+ * back to `false`.
+ */
+export interface ShortcutAssigned {
+  'translate-page': boolean;
+  'toggle-bilingual': boolean;
+  'translate-selection': boolean;
+}
+
+/**
+ * Live bindings plus the persisted "ever assigned" map a page needs to decide whether the
+ * in-page default should still run.
+ */
+export interface ShortcutQueryResult {
+  snapshot: ShortcutSnapshot;
+  assigned: ShortcutAssigned;
+}
+
 export interface ModelDownloadRequest {
   type: 'model:download';
   modelId: ModelId;
@@ -216,6 +235,25 @@ export function isShortcutSnapshot(value: unknown): value is ShortcutSnapshot {
     isShortcutBinding(value['translate-page']) &&
     isShortcutBinding(value['toggle-bilingual']) &&
     isShortcutBinding(value['translate-selection'])
+  );
+}
+
+function isShortcutAssignedFlag(value: unknown): value is boolean {
+  return value === true || value === false;
+}
+
+export function isShortcutAssigned(value: unknown): value is ShortcutAssigned {
+  return (
+    isRecord(value) &&
+    isShortcutAssignedFlag(value['translate-page']) &&
+    isShortcutAssignedFlag(value['toggle-bilingual']) &&
+    isShortcutAssignedFlag(value['translate-selection'])
+  );
+}
+
+export function isShortcutQueryResult(value: unknown): value is ShortcutQueryResult {
+  return (
+    isRecord(value) && isShortcutSnapshot(value.snapshot) && isShortcutAssigned(value.assigned)
   );
 }
 
@@ -350,12 +388,12 @@ export async function requestEngineWarm(): Promise<boolean> {
   }
 }
 
-export async function requestShortcutSnapshot(): Promise<ShortcutSnapshot | null> {
+export async function requestShortcutSnapshot(): Promise<ShortcutQueryResult | null> {
   try {
     const response: unknown = await browser.runtime.sendMessage({
       type: 'commands:shortcuts',
     } satisfies ShortcutQuery);
-    return isShortcutSnapshot(response) ? response : null;
+    return isShortcutQueryResult(response) ? response : null;
   } catch {
     return null;
   }

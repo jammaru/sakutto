@@ -3,6 +3,7 @@ import {
   CONTEXT_TOKENS,
   cpuFallback,
   GPU_LOSS_WINDOW_MS,
+  isGpuLoadFallback,
   lighterSelection,
   selectionAfterGpuLoss,
   selectBackend,
@@ -180,5 +181,11 @@ describe('stepping down after a GPU failure', () => {
   it('steps down when the GPU is lost again soon after', () => {
     expect(selectionAfterGpuLoss(wide, GPU_LOSS_WINDOW_MS - 1)).toEqual(plain);
     expect(selectionAfterGpuLoss(plain, 1000).backend).toBe('cpu-wasm');
+  });
+
+  it('does not treat a manual CPU choice as a GPU failure', () => {
+    expect(isGpuLoadFallback(wide, cpu)).toBe(true);
+    expect(isGpuLoadFallback(cpu, cpu)).toBe(false);
+    expect(isGpuLoadFallback(wide, plain)).toBe(false);
   });
 });

@@ -51,9 +51,11 @@ pnpm build:firefox
 - This repository's source (TypeScript, Svelte, scripts, locale catalogs, tests)
 - `scripts/wllama/patches/` applied at wasm build time (`git apply` of top-level `*.patch` only)
 - `scripts/wllama/patches/optional/0007-firefox-webgpu-kick.patch` is **not** applied. The worker
-  bootstrap always contains the empty-`queue.submit` helper with `enabled = false`. To A/B it:
-  `SAKUTTO_FIREFOX_WEBGPU_KICK=1 pnpm build:wllama`, or flip `FIREFOX_WEBGPU_KICK` and apply
-  the optional patch so `createWorker` can pass the flag
+  bootstrap still contains the empty-`queue.submit` helper and now defaults to `enabled = true`
+  (Firefox UA only; originals restored on error). To A/B it off: `SAKUTTO_FIREFOX_WEBGPU_KICK=0
+pnpm build:wllama`. A Firefox session also injects `firefoxWebGpuKick` on the worker URL so a
+  cached wasm that still bakes `enabled = false` gets the same path. Measurement:
+  `docs/FIREFOX.md`, `bench/results/pages/firefox-webgpu-kick-20261109.md`.
 - `scripts/wllama/Dockerfile` pinning the emsdk image
 - When the vendor checkout was present at pack time, `vendor/wllama/.checkout` at the pinned
   wllama and llama.cpp commits (without `node_modules` or build directories)

@@ -1,5 +1,9 @@
-import { FIREFOX_EXTENSION_ID, FIREFOX_STRICT_MIN_VERSION, type ExtensionBrowser } from './browser';
-import { defaultShortcutsFor, SHORTCUT_COMMANDS } from './shortcuts';
+import {
+  FIREFOX_EXTENSION_ID,
+  FIREFOX_STRICT_MIN_VERSION,
+  type ExtensionBrowser,
+} from './browser.ts';
+import { defaultShortcutsFor, SHORTCUT_COMMANDS } from './shortcuts.ts';
 
 export const CHROME_PERMISSIONS = [
   'offscreen',

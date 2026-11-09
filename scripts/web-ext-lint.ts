@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -20,13 +21,24 @@ export function webExtLintErrors(text: string): number {
   return Number(match[1]);
 }
 
+/** Absolute path to web-ext's CLI, so Windows does not have to find `pnpm.cmd`. */
+export function resolveWebExtCli(fromUrl = import.meta.url): string {
+  const require = createRequire(fromUrl);
+  return join(dirname(require.resolve('web-ext')), 'bin/web-ext.js');
+}
+
 function run(root: string): void {
   const sourceDir = firefoxOutputDirectory(root);
   const result = spawnSync(
-    'pnpm',
-    ['exec', 'web-ext', 'lint', '--source-dir', sourceDir, '--output', 'text'],
+    process.execPath,
+    [resolveWebExtCli(), 'lint', '--source-dir', sourceDir, '--output', 'text'],
     { cwd: root, encoding: 'utf8' },
   );
+  if (result.error) {
+    console.error(result.error.message);
+    process.exitCode = 1;
+    return;
+  }
   const text = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
   process.stdout.write(text);
   const errors = webExtLintErrors(text);

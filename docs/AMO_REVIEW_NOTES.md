@@ -33,7 +33,12 @@ Chrome's Translator API and Language Detector are not used on Firefox. Chrome-on
 
 The packaged runtime is a pinned build of wllama (commit d275dac17bc7f190161deb24fd834ce03342e2bc, llama.cpp 5aeac37a35b44fde4bdffaec9159f2fcb253b622) with the patches in scripts/wllama/patches/ (static worker, packaged asset paths, wasm SIMD CPU kernels, WebGPU bind-group reuse, disable prompt cache, retry Dawn download). This is Sakutto's own compiled code, not an unmodified third-party release. Source, patches, Dockerfile, and rebuild steps are in the source zip (SOURCE_CODE_REVIEW.md, docs/BUILDING.md).
 
-scripts/wllama/patches/optional/0007-firefox-webgpu-kick.patch is a workaround for Firefox bug 1870699 (100ms GPU completion polling). It is not applied in the default build. FIREFOX_WEBGPU_KICK in src/engine/wllama/firefox-webgpu-kick.ts is false until a Windows Firefox GPU measurement confirms a benefit.
+scripts/wllama/patches/optional/0007-firefox-webgpu-kick.patch is a workaround for Firefox bug 1870699 (100ms GPU completion polling). It is not applied as a llama.cpp patch. The packaged worker still contains the helper; FIREFOX_WEBGPU_KICK is now true after a Windows Firefox 159 / RTX 4070 Ti SUPER measurement (full page 8.4–9.0s → 1.6–1.9s, identical output; docs/FIREFOX.md). The helper is UA-gated to Firefox, empty queue.submit only, and restores the original GPU methods on any error. SAKUTTO_FIREFOX_WEBGPU_KICK=0 disables it.
+
+web-ext lint on the packaged add-on is required to report 0 errors. Two warnings are expected and are not remote code:
+
+1. innerHTML: Svelte compiles some extension-page text updates to innerHTML. The in-page overlay (src/dom/overlay.ts) is drawn with DOM constructors, not innerHTML, and never assigns page content as HTML.
+2. dynamic import(): src/engine/wllama/module.ts import()s only vendor/wllama/wllama.js after isExtensionAssetUrl confirms the URL is this add-on's origin.
 
 How to try it: load the unpacked directory from about:debugging, agree to the PLaMo Community License on first run, wait for the 0.8B model to download and hash, then translate a page. GPU evidence is llama.cpp log lines "using device WebGPU" and "offloaded N/N layers".
 
@@ -58,4 +63,4 @@ sha256 f36d0813dd95573a852ab5d76e374c543632d9e292929e922bcdbf7e53b494e0
 
 ## 日本語（所有者向け）
 
-Firefox 版の審査メモです。gecko id `sakutto@jammaru` は初回 listed の前に確認してください。パッチを当てた wllama は「Sakutto 自身のコンパイル済みコード」として出し、ソース zip に手順を入れています。空 submit の WebGPU 回避策は既定ではオフです。Chrome 内蔵 Translator は Firefox では使いません。
+Firefox 版の審査メモです。gecko id `sakutto@jammaru` は初回 listed の前に確認してください。パッチを当てた wllama は「Sakutto 自身のコンパイル済みコード」として出し、ソース zip に手順を入れています。空 submit の WebGPU 回避策は既定オンです（計測は docs/FIREFOX.md）。Chrome 内蔵 Translator は Firefox では使いません。web-ext lint の innerHTML / dynamic import 警告は審査メモに理由を書いてあります。

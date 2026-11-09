@@ -133,6 +133,9 @@
   "paceHelp": {
     "message": "Translates paragraphs just before they scroll into view. \"Look ahead further\" prefetches more below the fold, so the text is ready when you scroll. For the languages PLaMo supports, every line comes from PLaMo; Chrome's draft is never used."
   },
+  "paceHelpFirefox": {
+    "message": "Translates paragraphs just before they scroll into view. \"Look ahead further\" prefetches more below the fold, so the text is ready when you scroll. Every line comes from PLaMo."
+  },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
     "placeholders": {
@@ -164,6 +167,9 @@
   },
   "privacyDestinations": {
     "message": "The extension's own request is the model download. It starts at huggingface.co and follows Hugging Face's redirect to its CDN. Page text is not included. Chrome downloads its language packs itself."
+  },
+  "privacyDestinationsFirefox": {
+    "message": "The extension's own request is the model download. It starts at huggingface.co and follows Hugging Face's redirect to its CDN. Page text is not included."
   },
   "privacyPolicyLink": {
     "message": "Privacy policy"
@@ -212,6 +218,9 @@
   },
   "onboardingBridgeNote": {
     "message": "The page keeps its original text until the model is ready, then PLaMo translates it. Google documents Chrome's translation as on-device."
+  },
+  "onboardingBridgeNoteFirefox": {
+    "message": "The page keeps its original text until the model is ready, then PLaMo translates it."
   },
   "onboardingPrivacyNote": {
     "message": "This extension does not send page text to a server."
@@ -385,6 +394,12 @@
   },
   "shortcutUnset": {
     "message": "Not set"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+  },
+  "shortcutFallbackNoteFirefox": {
+    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
   },
   "shortcutTranslate": {
     "message": "$KEY$ translates the page or restores the original.",

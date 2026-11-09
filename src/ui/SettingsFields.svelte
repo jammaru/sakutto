@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t } from '@/shared/i18n';
+  import { t, tForBrowser } from '@/shared/i18n';
   import type { Settings, SettingsPatch } from '@/shared/settings';
   import LanguageField from './LanguageField.svelte';
 
@@ -59,7 +59,7 @@
       <option value="fast">{t('paceFast')}</option>
     </select>
   </label>
-  <p class="muted help">{t('paceHelp')}</p>
+  <p class="muted help">{tForBrowser('paceHelp', 'paceHelpFirefox')}</p>
 </div>
 
 <style>

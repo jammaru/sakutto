@@ -106,9 +106,10 @@ describe('shortcut settings', () => {
   const shortcuts = source('ui/ShortcutSettings.svelte');
   const options = source('entrypoints/options/App.svelte');
 
-  it('reads the keys Chrome has bound instead of the manifest defaults', () => {
+  it('reads the keys the browser has bound instead of the manifest defaults', () => {
     expect(shortcuts).toContain('requestShortcutSnapshot');
     expect(shortcuts).toContain('displayShortcut');
+    expect(shortcuts).toContain('boundShortcut');
     expect(shortcuts).not.toContain("'Alt+A'");
   });
 

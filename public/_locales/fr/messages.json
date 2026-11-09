@@ -133,6 +133,9 @@
   "paceHelp": {
     "message": "Traduit les paragraphes juste avant qu'ils ne s'affichent. « Look ahead further » précharge davantage en dessous du pli, si bien que le texte est prêt dès le défilement. Pour les langues supportées par PLaMo, chaque ligne provient de PLaMo ; le brouillon de Chrome n'est jamais utilisé."
   },
+  "paceHelpFirefox": {
+    "message": "Traduit les paragraphes juste avant qu'ils ne s'affichent. « Look ahead further » précharge davantage en dessous du pli, si bien que le texte est prêt dès le défilement. Pour les langues supportées par PLaMo, chaque ligne provient de PLaMo."
+  },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
     "placeholders": {
@@ -164,6 +167,9 @@
   },
   "privacyDestinations": {
     "message": "La requête propre à l'extension est le téléchargement du modèle. Il part de huggingface.co et suit la redirection de Hugging Face vers sa CDN. Le texte de la page n'est pas inclus. Chrome télécharge ses packs de langues automatiquement."
+  },
+  "privacyDestinationsFirefox": {
+    "message": "La requête propre à l'extension est le téléchargement du modèle. Il part de huggingface.co et suit la redirection de Hugging Face vers sa CDN. Le texte de la page n'est pas inclus."
   },
   "privacyPolicyLink": {
     "message": "Politique de confidentialité"
@@ -212,6 +218,9 @@
   },
   "onboardingBridgeNote": {
     "message": "La page conserve son texte d'origine jusqu'à ce que le modèle soit prêt, puis PLaMo le traduit. Google Docs traduit Chrome tel quel sur l'appareil."
+  },
+  "onboardingBridgeNoteFirefox": {
+    "message": "La page conserve son texte d'origine jusqu'à ce que le modèle soit prêt, puis PLaMo le traduit."
   },
   "onboardingPrivacyNote": {
     "message": "Cette extension ne transmet pas de texte de page à un serveur."
@@ -385,6 +394,12 @@
   },
   "shortcutUnset": {
     "message": "Non défini"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+  },
+  "shortcutFallbackNoteFirefox": {
+    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
   },
   "shortcutTranslate": {
     "message": "$KEY$ traduit la page ou rétablit l’original.",

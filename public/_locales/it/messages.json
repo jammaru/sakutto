@@ -133,6 +133,9 @@
   "paceHelp": {
     "message": "Traduisce i paragrafi appena prima di apparire. \"Look ahead further\" prefetcha ulteriori testi sotto il fold, così il testo è pronto al momento dello scorrimento. Per le lingue supportate da PLaMo, ogni riga proviene da PLaMo; la bozza di Chrome non viene mai utilizzata."
   },
+  "paceHelpFirefox": {
+    "message": "Traduisce i paragrafi appena prima di apparire. \"Look ahead further\" prefetcha ulteriori testi sotto il fold, così il testo è pronto al momento dello scorrimento. Per le lingue supportate da PLaMo, ogni riga proviene da PLaMo."
+  },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
     "placeholders": {
@@ -164,6 +167,9 @@
   },
   "privacyDestinations": {
     "message": "La richiesta dell'estensione è il download del modello. Inizia su huggingface.co e segue il reindirizzo di Hugging Face verso la propria CDN. Il testo della pagina non è incluso. Chrome scarica i propri language pack autonomamente."
+  },
+  "privacyDestinationsFirefox": {
+    "message": "La richiesta dell'estensione è il download del modello. Inizia su huggingface.co e segue il reindirizzo di Hugging Face verso la propria CDN. Il testo della pagina non è incluso."
   },
   "privacyPolicyLink": {
     "message": "Informativa sulla privacy"
@@ -212,6 +218,9 @@
   },
   "onboardingBridgeNote": {
     "message": "La pagina mantiene il testo originale finché il modello non è pronto, poi PLaMo lo traduce. Google Docs traduce Chrome in modo on-device."
+  },
+  "onboardingBridgeNoteFirefox": {
+    "message": "La pagina mantiene il testo originale finché il modello non è pronto, poi PLaMo lo traduce."
   },
   "onboardingPrivacyNote": {
     "message": "Questa estensione non invia il testo della pagina a un server."
@@ -385,6 +394,12 @@
   },
   "shortcutUnset": {
     "message": "Non impostata"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+  },
+  "shortcutFallbackNoteFirefox": {
+    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
   },
   "shortcutTranslate": {
     "message": "$KEY$ converte la pagina o ripristina l’originale.",

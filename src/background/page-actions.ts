@@ -2,6 +2,7 @@ import { browser } from 'wxt/browser';
 import { originPattern, pageHost, loadSiteRule } from '@/dom/sites';
 import { ensureContentScript } from '@/shared/page-bridge';
 import { requestPageCommand, type PageCommandName } from '@/shared/messages';
+import { noteShortcutCommandAssigned } from '@/shared/shortcut-assignment';
 import { isShortcutCommand, SHORTCUT_PAGE_COMMANDS } from '@/shared/shortcuts';
 
 interface PageTranslationCanceller {
@@ -13,6 +14,7 @@ export function installPageActions(translations?: PageTranslationCanceller): voi
 
   browser.commands.onCommand.addListener((command) => {
     if (!isShortcutCommand(command)) return;
+    void noteShortcutCommandAssigned(command);
     void runOnActiveTab(SHORTCUT_PAGE_COMMANDS[command]);
   });
 

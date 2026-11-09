@@ -133,6 +133,9 @@
   "paceHelp": {
     "message": "画面に入る前の段落を先に翻訳しておきます。「広めに先読み」は画面の下を多めに先読みし、スクロールしたときに訳が出来上がっているようにします。PLaMo が対応する言語では、訳文はすべて PLaMo が生成します。Chrome の下書きは使いません。"
   },
+  "paceHelpFirefox": {
+    "message": "画面に入る前の段落を先に翻訳しておきます。「広めに先読み」は画面の下を多めに先読みし、スクロールしたときに訳が出来上がっているようにします。訳文はすべて PLaMo が生成します。"
+  },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ 区間/s",
     "placeholders": {
@@ -164,6 +167,9 @@
   },
   "privacyDestinations": {
     "message": "拡張機能自身の通信はモデルの取得だけです。接続は huggingface.co から始まり、Hugging Face の CDN へ転送されます。本文は含めません。言語パックは Chrome 自身が取得します。"
+  },
+  "privacyDestinationsFirefox": {
+    "message": "拡張機能自身の通信はモデルの取得だけです。接続は huggingface.co から始まり、Hugging Face の CDN へ転送されます。本文は含めません。"
   },
   "privacyPolicyLink": {
     "message": "プライバシーポリシー"
@@ -212,6 +218,9 @@
   },
   "onboardingBridgeNote": {
     "message": "モデルの準備ができるまで、ページは原文のまま表示します。準備ができると PLaMo が訳します。Google の説明では、Chrome の翻訳は端末内で動きます。"
+  },
+  "onboardingBridgeNoteFirefox": {
+    "message": "モデルの準備ができるまで、ページは原文のまま表示します。準備ができると PLaMo が訳します。"
   },
   "onboardingPrivacyNote": {
     "message": "この拡張機能は、ページの本文をサーバーへ送りません。"
@@ -385,6 +394,12 @@
   },
   "shortcutUnset": {
     "message": "未設定"
+  },
+  "shortcutFallbackNote": {
+    "message": "インストール時に Chrome がこの操作にキーを割り当てなかったため、ページでは既定のキーを使います。"
+  },
+  "shortcutFallbackNoteFirefox": {
+    "message": "インストール時に Firefox がこの操作にキーを割り当てなかったため、ページでは既定のキーを使います。"
   },
   "shortcutTranslate": {
     "message": "「$KEY$」で翻訳と原文を切り替えます",

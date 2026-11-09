@@ -133,6 +133,9 @@
   "paceHelp": {
     "message": "แปลย่อหน้าก่อนที่จะเลื่อนเข้ามาเห็น \"Look ahead further\" จะเก็บข้อมูลเพิ่มเติมไว้ที่ด้านล่างของการเลื่อนหน้า เพื่อให้ข้อความพร้อมใช้งานเมื่อคุณเลื่อนหน้า สำหรับภาษาที่ PLaMo รองรับ ทุกบรรทัดจะมาจาก PLaMo โดยไม่มีการนำร่างของ Chrome มาใช้เลย"
   },
+  "paceHelpFirefox": {
+    "message": "แปลย่อหน้าก่อนที่จะเลื่อนเข้ามาเห็น \"Look ahead further\" จะเก็บข้อมูลเพิ่มเติมไว้ที่ด้านล่างของการเลื่อนหน้า เพื่อให้ข้อความพร้อมใช้งานเมื่อคุณเลื่อนหน้า สำหรับภาษาที่ PLaMo รองรับ ทุกบรรทัดจะมาจาก PLaMo"
+  },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
     "placeholders": {
@@ -164,6 +167,9 @@
   },
   "privacyDestinations": {
     "message": "คำขอของส่วนขยายนี้คือการดาวน์โหลดโมเดล โดยจะเริ่มต้นที่ huggingface.co และดำเนินต่อไปจากการเปลี่ยนเส้นทางของ Hugging Face ไปยัง CDN ของมัน ไม่มีการรวมข้อความในหน้าเว็บไว้ด้วย ส่วน Chrome จะดาวน์โหลดแพ็กภาษาของตนเอง"
+  },
+  "privacyDestinationsFirefox": {
+    "message": "คำขอของส่วนขยายนี้คือการดาวน์โหลดโมเดล โดยจะเริ่มต้นที่ huggingface.co และดำเนินต่อไปจากการเปลี่ยนเส้นทางของ Hugging Face ไปยัง CDN ของมัน ไม่มีการรวมข้อความในหน้าเว็บไว้ด้วย"
   },
   "privacyPolicyLink": {
     "message": "นโยบายความเป็นส่วนตัว"
@@ -212,6 +218,9 @@
   },
   "onboardingBridgeNote": {
     "message": "หน้าเว็บจะคงข้อความเดิมไว้จนกว่าโมเดลจะพร้อมใช้งาน จากนั้น PLaMo จะแปลข้อความนั้น โดย Google Docs จะแปลภาษา Chrome ให้เป็นภาษาในเครื่อง"
+  },
+  "onboardingBridgeNoteFirefox": {
+    "message": "หน้าเว็บจะคงข้อความเดิมไว้จนกว่าโมเดลจะพร้อมใช้งาน จากนั้น PLaMo จะแปลข้อความนั้น"
   },
   "onboardingPrivacyNote": {
     "message": "ส่วนขยายนี้ไม่ส่งข้อความหน้าเว็บไปยังเซิร์ฟเวอร์"
@@ -385,6 +394,12 @@
   },
   "shortcutUnset": {
     "message": "ยังไม่ได้ตั้งค่า"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+  },
+  "shortcutFallbackNoteFirefox": {
+    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
   },
   "shortcutTranslate": {
     "message": "$KEY$ จะแปลงหน้าเว็บหรือกู้คืนหน้าเว็บเดิม",

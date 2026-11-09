@@ -133,6 +133,9 @@
   "paceHelp": {
     "message": "Переводит абзацы прямо перед тем, как они появятся в глазах. «Look ahead further» загружает дополнительный текст ниже линии, так что текст готов к моменту прокрутки. Для языков, поддерживаемых PLaMo, каждая строка поступает из PLaMo; черновик Chrome никогда не используется."
   },
+  "paceHelpFirefox": {
+    "message": "Переводит абзацы прямо перед тем, как они появятся в глазах. «Look ahead further» загружает дополнительный текст ниже линии, так что текст готов к моменту прокрутки. Для языков, поддерживаемых PLaMo, каждая строка поступает из PLaMo."
+  },
   "pageRate": {
     "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
     "placeholders": {
@@ -164,6 +167,9 @@
   },
   "privacyDestinations": {
     "message": "Самым важным требованием расширения является скачивание модели. Оно начинается с huggingface.co и переходит на редирект к своему CDN от Hugging Face. Текст страницы в него не входит. Chrome самостоятельно скачивает языковые пакеты."
+  },
+  "privacyDestinationsFirefox": {
+    "message": "Самым важным требованием расширения является скачивание модели. Оно начинается с huggingface.co и переходит на редирект к своему CDN от Hugging Face. Текст страницы в него не входит."
   },
   "privacyPolicyLink": {
     "message": "Политика конфиденциальности"
@@ -212,6 +218,9 @@
   },
   "onboardingBridgeNote": {
     "message": "Страница сохраняет исходный текст, пока модель не будет готова, после чего её переводит PLaMo. Google описывает перевод Chrome как локальный."
+  },
+  "onboardingBridgeNoteFirefox": {
+    "message": "Страница сохраняет исходный текст, пока модель не будет готова, после чего её переводит PLaMo."
   },
   "onboardingPrivacyNote": {
     "message": "Это расширение не отправляет текст страницы на сервер."
@@ -385,6 +394,12 @@
   },
   "shortcutUnset": {
     "message": "Не задано"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+  },
+  "shortcutFallbackNoteFirefox": {
+    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
   },
   "shortcutTranslate": {
     "message": "$KEY$ переводит страницу или восстанавливает оригинал.",
