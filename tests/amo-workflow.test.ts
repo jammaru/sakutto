@@ -25,13 +25,14 @@ describe('AMO workflow', () => {
   });
 
   it('packages Firefox through the shared action', () => {
-    expect(action).toContain('browser:');
+    expect(action).toContain('target:');
     expect(action).toContain('default: chrome');
     expect(action).toContain('pnpm zip:firefox');
     expect(action).toContain('pnpm lint:firefox');
     expect(action).toContain('pnpm source:firefox');
     expect(action).toContain('scripts/compare-extension-builds.ts');
-    expect(ci).toContain('browser: firefox');
+    expect(ci).toContain('package-firefox');
+    expect(ci).toContain('target: firefox');
     expect(ci).not.toContain('web-ext sign');
     expect(ci).not.toContain('AMO_JWT');
     expect(packageJson).toContain('"build:firefox"');
