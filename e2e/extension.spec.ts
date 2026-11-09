@@ -138,7 +138,9 @@ test.describe('built extension', () => {
             'href',
             'https://github.com/jammaru/sakutto',
           );
-          await expect(page.getByRole('heading', { name: 'キーボードショートカット' })).toBeVisible();
+          await expect(
+            page.getByRole('heading', { name: 'キーボードショートカット' }),
+          ).toBeVisible();
           await expect(
             page.getByRole('button', { name: 'ショートカットキーを変更' }),
           ).toBeVisible();
