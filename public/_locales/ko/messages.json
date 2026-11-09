@@ -118,6 +118,24 @@
   "diagRateHint": {
     "message": "페이지가 번역 중인 동안, 바에는 토큰/s와 세그먼트/s가 표시됩니다."
   },
+  "diagGpuHeading": {
+    "message": "WebGPU 어댑터"
+  },
+  "diagGpuCopy": {
+    "message": "복사"
+  },
+  "diagGpuCopied": {
+    "message": "복사했습니다"
+  },
+  "diagGpuCopyFailed": {
+    "message": "복사하지 못했습니다"
+  },
+  "diagGpuHelp": {
+    "message": "이 보고서는 이 기기에만 남습니다. WebGPU가 실패하면 GitHub 이슈에 붙여 넣으세요."
+  },
+  "diagGpuEmpty": {
+    "message": "WebGPU 보고서가 아직 없습니다."
+  },
   "paceLabel": {
     "message": "미리 살펴보기"
   },

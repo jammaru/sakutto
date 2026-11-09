@@ -1,4 +1,5 @@
 import { abortError, EngineError, isAbortError } from '../errors';
+import { gpuFailureExcerpt } from '@/shared/gpu-diagnostic';
 import { TRANSLATION_STOP_TOKENS } from '../prompt/pfml3';
 import { createWllama } from '../wllama';
 import type { WllamaConfig } from '../wllama/module';
@@ -84,6 +85,13 @@ export function isRuntimeDead(error: unknown): boolean {
 
 export type GpuEvidence = 'engaged' | 'missing' | 'unknown';
 
+let lastWebGpuLines: string[] = [];
+
+/** llama.cpp WebGPU lines from the most recent model load. Used by the settings diagnostic. */
+export function lastWebGpuLoadLog(): readonly string[] {
+  return lastWebGpuLines;
+}
+
 /**
  * Reads llama.cpp's own load log to tell whether the model really landed on the GPU.
  *
@@ -93,15 +101,36 @@ export type GpuEvidence = 'engaged' | 'missing' | 'unknown';
  * offloaded layers, or a tensor load that never names a GPU), so a log format this code
  * does not recognise leaves the GPU path alone instead of forcing a working GPU onto the CPU.
  */
+
 export function gpuEvidence(lines: readonly string[]): GpuEvidence {
   let loadedTensors = false;
+  let sawDeviceReady = false;
+  let sawFinalFailure = false;
+  let offloaded: GpuEvidence | null = null;
   for (const line of lines) {
     if (/using device WebGPU/iu.test(line)) return 'engaged';
-    const offloaded = /offloaded (\d+)\/\d+ layers to GPU/iu.exec(line);
-    if (offloaded) return Number(offloaded[1]) > 0 ? 'engaged' : 'missing';
-    if (/ggml_webgpu: Failed to get (?:an adapter|a device)/iu.test(line)) return 'missing';
+    if (/ggml_webgpu: device ready/iu.test(line)) sawDeviceReady = true;
+    const match = /offloaded (\d+)\/\d+ layers to GPU/iu.exec(line);
+    if (match) offloaded = Number(match[1]) > 0 ? 'engaged' : 'missing';
+    if (
+      /ggml_webgpu: Failed to get an adapter/iu.test(line) ||
+      /ggml_webgpu: adapter lacks shader-f16/iu.test(line) ||
+      /ggml_webgpu: no adapter with shader-f16/iu.test(line) ||
+      /ggml_webgpu: giving up on WebGPU/iu.test(line) ||
+      /ggml_webgpu: Failed to get a device after retries/iu.test(line) ||
+      /ggml_webgpu: correctness probe failed/iu.test(line) ||
+      /ggml_webgpu: .*WebGPU backend disabled/iu.test(line)
+    ) {
+      sawFinalFailure = true;
+    }
     if (/load_tensors:/u.test(line)) loadedTensors = true;
   }
+  if (offloaded) return offloaded;
+  // A probe failure is logged after `device ready`, then the device is dropped.
+  // Treating ready as success here left status at WebGPU/16-parallel while the
+  // model actually ran on the CPU.
+  if (sawFinalFailure) return 'missing';
+  if (sawDeviceReady) return 'unknown';
   return loadedTensors ? 'missing' : 'unknown';
 }
 
@@ -130,6 +159,7 @@ export const createWllamaRuntime: RuntimeFactory = async (file, selection) => {
   const log = loadLog();
   const wllama = await createWllama({ suppressNativeLog: false, logger: log.logger });
 
+  lastWebGpuLines = [];
   try {
     await wllama.loadModel([file], {
       n_ctx: selection.nCtx,
@@ -169,18 +199,24 @@ export const createWllamaRuntime: RuntimeFactory = async (file, selection) => {
     });
   } catch (error) {
     log.stop();
+    lastWebGpuLines = log.lines.slice();
     await wllama.exit().catch(() => undefined);
     throw new EngineError('model-load-failed', 'The translation model could not be loaded.', {
       cause: error,
+      detail:
+        gpuFailureExcerpt(log.lines) ?? (error instanceof Error ? error.message : String(error)),
     });
   }
   log.stop();
+  lastWebGpuLines = log.lines.slice();
 
   if (selection.backend === 'webgpu' && gpuEvidence(log.lines) === 'missing') {
     await wllama.exit().catch(() => undefined);
+    const detail = gpuFailureExcerpt(log.lines);
     throw new EngineError(
       'gpu-unavailable',
       'WebGPU was requested but llama.cpp did not place the model on a GPU.',
+      detail ? { detail } : undefined,
     );
   }
 

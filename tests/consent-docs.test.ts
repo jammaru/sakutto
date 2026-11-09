@@ -1,10 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { normalizeEol } from './support/eol';
 
-const privacy = readFileSync(new URL('../PRIVACY.md', import.meta.url), 'utf8');
-const reviewNotes = readFileSync(new URL('../docs/CWS_REVIEW_NOTES.md', import.meta.url), 'utf8');
-const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
-const readmeJa = readFileSync(new URL('../README.ja.md', import.meta.url), 'utf8');
+const privacy = normalizeEol(readFileSync(new URL('../PRIVACY.md', import.meta.url), 'utf8'));
+const reviewNotes = normalizeEol(
+  readFileSync(new URL('../docs/CWS_REVIEW_NOTES.md', import.meta.url), 'utf8'),
+);
+const readme = normalizeEol(readFileSync(new URL('../README.md', import.meta.url), 'utf8'));
+const readmeJa = normalizeEol(readFileSync(new URL('../README.ja.md', import.meta.url), 'utf8'));
 
 const ENGLISH_HEADING = '# Privacy policy';
 const JAPANESE_HEADING = '# プライバシーポリシー';

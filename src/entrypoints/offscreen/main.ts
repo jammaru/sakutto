@@ -6,13 +6,15 @@ import {
 } from '@/engine/wllama/firefox-webgpu-kick';
 import { isFirefoxBuild } from '@/shared/browser';
 import { installAdapterNoiseFilter, probeCapabilities } from '@/shared/capabilities';
+import { applyWebGpuDebugProfileFromHref } from '@/shared/gpu-diagnostic';
 import { isEngineProbeRequest, type EngineProbeResponse } from '@/shared/messages';
 
+installAdapterNoiseFilter();
+applyWebGpuDebugProfileFromHref(typeof location !== 'undefined' ? location.href : '');
 applyFirefoxWebGpuKickFlag();
 if (isFirefoxBuild()) {
   installFirefoxWebGpuKickWorkerOption();
 }
-installAdapterNoiseFilter();
 
 const host = new EngineHost();
 const FRAME_READY = 'sakutto-engine-frame';

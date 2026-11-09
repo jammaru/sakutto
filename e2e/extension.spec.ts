@@ -83,8 +83,12 @@ test.describe('built extension', () => {
     try {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/sample.html?to=ja`);
-      await expect(page.locator('article h1')).toContainText('§ja§Morning at the station');
+      // HTML ships both language articles. `article h1` matches both until boot JS
+      // removes one, and Playwright throws immediately on a two-element locator.
       await expect(page.locator('article[data-sample="ja"]')).toHaveCount(0);
+      await expect(page.locator('article[data-sample="en"] h1')).toContainText(
+        '§ja§Morning at the station',
+      );
       await page.close();
     } finally {
       await extension.close();

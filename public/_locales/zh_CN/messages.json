@@ -118,6 +118,24 @@
   "diagRateHint": {
     "message": "当页面进行翻译时，其列显示的是 token/s 和 segment/s。"
   },
+  "diagGpuHeading": {
+    "message": "WebGPU 适配器"
+  },
+  "diagGpuCopy": {
+    "message": "复制"
+  },
+  "diagGpuCopied": {
+    "message": "已复制"
+  },
+  "diagGpuCopyFailed": {
+    "message": "无法复制"
+  },
+  "diagGpuHelp": {
+    "message": "此报告只留在本设备上。如果 WebGPU 失败，请将其粘贴到 GitHub Issue。"
+  },
+  "diagGpuEmpty": {
+    "message": "尚无 WebGPU 报告。"
+  },
   "paceLabel": {
     "message": "预判"
   },

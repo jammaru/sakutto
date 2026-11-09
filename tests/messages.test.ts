@@ -4,6 +4,7 @@ import { isEngineStatus } from '@/shared/engine-status';
 import {
   isEngineProbeResponse,
   isEngineStatusRequest,
+  isWebGpuDebugQuery,
   isModelCancelRequest,
   isModelDeleteRequest,
   isModelDownloadRequest,
@@ -120,6 +121,8 @@ describe('message validation', () => {
     expect(isEngineStatusRequest({ type: 'engine:status' })).toBe(true);
     expect(isEngineStatusRequest({ type: 'engine:status', extra: true })).toBe(true);
     expect(isEngineStatusRequest({ type: 'engine:probe' })).toBe(false);
+    expect(isWebGpuDebugQuery({ type: 'engine:webgpu-debug' })).toBe(true);
+    expect(isWebGpuDebugQuery({ type: 'engine:probe' })).toBe(false);
 
     expect(
       isEngineStatus({
@@ -131,6 +134,26 @@ describe('message validation', () => {
         plamoReady: false,
         chromeSupported: true,
         active: 'chrome',
+        gpuFallback: true,
+        gpuDiagnostic: {
+          vendor: 'amd',
+          architecture: 'rdna3',
+          device: null,
+          description: 'AMD Radeon RX 7800 XT',
+          fallbackAdapter: false,
+          shaderF16: true,
+          subgroups: true,
+          subgroupMinSize: 32,
+          subgroupMaxSize: 64,
+          features: ['shader-f16'],
+          maxBufferSize: 2147483644,
+          maxStorageBufferBindingSize: 2147483644,
+          maxComputeWorkgroupStorageSize: 32768,
+          maxComputeInvocationsPerWorkgroup: 1024,
+          adapterAttempts: ['high-performance'],
+          error: 'ggml_webgpu: Failed to get a device',
+          debugProfile: null,
+        },
       }),
     ).toBe(true);
     expect(

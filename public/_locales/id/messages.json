@@ -118,6 +118,24 @@
   "diagRateHint": {
     "message": "Saat sebuah halaman sedang melakukan translasi, bilahnya menampilkan token/s dan segmen/s."
   },
+  "diagGpuHeading": {
+    "message": "Adapter WebGPU"
+  },
+  "diagGpuCopy": {
+    "message": "Salin"
+  },
+  "diagGpuCopied": {
+    "message": "Disalin"
+  },
+  "diagGpuCopyFailed": {
+    "message": "Tidak dapat menyalin"
+  },
+  "diagGpuHelp": {
+    "message": "Laporan ini tetap di perangkat ini. Jika WebGPU gagal, tempelkan ke issue GitHub."
+  },
+  "diagGpuEmpty": {
+    "message": "Belum ada laporan WebGPU."
+  },
   "paceLabel": {
     "message": "Look-ahead"
   },

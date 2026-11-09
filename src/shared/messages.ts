@@ -13,6 +13,7 @@ import type { QualitySample } from './quality';
 import { isQualitySample } from './quality';
 import type { DisplayMode, TierPreference } from './settings';
 import { isTierPreference } from './settings';
+import { WEBGPU_DEBUG_MESSAGE_TYPE } from './gpu-diagnostic';
 import { isRecord } from './object';
 
 export interface PageInfo {
@@ -68,6 +69,10 @@ export interface EngineCapabilitiesRequest {
 
 export interface EngineProbeRequest {
   type: 'engine:probe';
+}
+
+export interface WebGpuDebugQuery {
+  type: 'engine:webgpu-debug';
 }
 
 export interface EngineProbeResponse {
@@ -214,6 +219,10 @@ export function isEngineCapabilitiesRequest(value: unknown): value is EngineCapa
 
 export function isEngineProbeRequest(value: unknown): value is EngineProbeRequest {
   return isRecord(value) && value.type === 'engine:probe';
+}
+
+export function isWebGpuDebugQuery(value: unknown): value is WebGpuDebugQuery {
+  return isRecord(value) && value.type === WEBGPU_DEBUG_MESSAGE_TYPE;
 }
 
 export function isEngineStatusRequest(value: unknown): value is EngineStatusRequest {

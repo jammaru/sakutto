@@ -21,12 +21,15 @@ export class EngineError extends Error {
   constructor(
     readonly code: EngineErrorCode,
     message: string,
-    options?: { cause?: unknown; retryable?: boolean },
+    options?: { cause?: unknown; retryable?: boolean; detail?: string },
   ) {
     super(message);
     if (options && 'cause' in options) this.cause = options.cause;
     this.retryable = options?.retryable ?? true;
+    if (typeof options?.detail === 'string') this.detail = options.detail;
   }
+
+  readonly detail?: string;
 }
 
 export function isEngineError(value: unknown): value is EngineError {

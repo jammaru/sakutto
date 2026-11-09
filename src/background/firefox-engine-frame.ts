@@ -1,4 +1,9 @@
 import { browser } from 'wxt/browser';
+import {
+  WEBGPU_DEBUG_STORAGE_KEY,
+  isWebGpuDebugProfile,
+  offscreenDocumentUrl,
+} from '@/shared/gpu-diagnostic';
 import type { OffscreenDocumentApi } from './offscreen-lifecycle';
 import { ENGINE_PAGE } from './chrome-offscreen';
 
@@ -17,6 +22,16 @@ function existingFrame(): HTMLIFrameElement | null {
 
 function enginePageUrl(): string {
   return browser.runtime.getURL(`/${ENGINE_PAGE}`);
+}
+
+async function engineFrameSrc(): Promise<string> {
+  try {
+    const stored = await browser.storage.local.get(WEBGPU_DEBUG_STORAGE_KEY);
+    const profile = stored[WEBGPU_DEBUG_STORAGE_KEY];
+    return offscreenDocumentUrl(enginePageUrl(), isWebGpuDebugProfile(profile) ? profile : 'off');
+  } catch {
+    return enginePageUrl();
+  }
 }
 
 /**
@@ -69,7 +84,7 @@ export function createFirefoxEngineFrameApi(): OffscreenDocumentApi {
       frame.id = FRAME_ID;
       frame.hidden = true;
       frame.setAttribute('aria-hidden', 'true');
-      frame.src = enginePageUrl();
+      frame.src = await engineFrameSrc();
 
       await waitForFrameReady(frame);
       startKeepAlive();

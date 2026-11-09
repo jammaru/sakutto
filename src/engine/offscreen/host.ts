@@ -1,6 +1,7 @@
 import { browser, type Browser } from 'wxt/browser';
 import { hasLicenseConsent } from '@/shared/agreement';
-import { probeCapabilities } from '@/shared/capabilities';
+import { lastGpuDiagnostic, probeCapabilities } from '@/shared/capabilities';
+import { mergeGpuDiagnostic, type GpuDiagnostic } from '@/shared/gpu-diagnostic';
 import { canonicalLanguage } from '@/shared/languages';
 import type { EngineStatus, ModelStatus } from '@/shared/engine-status';
 import { advanceModelStatus } from '@/shared/model-progress';
@@ -21,7 +22,7 @@ import {
   type BackendSelection,
 } from '../in-browser/backend';
 import { LazyInBrowserEngine } from '../in-browser/lazy-engine';
-import { createWllamaRuntime, type LlamaRuntime } from '../in-browser/runtime';
+import { createWllamaRuntime, lastWebGpuLoadLog, type LlamaRuntime } from '../in-browser/runtime';
 import { DEFAULT_MODEL_ID, getModel, type ModelId } from '../model/catalog';
 import { OpfsModelFileStore } from '../model/file-store';
 import { ModelManager, type LoadedModel } from '../model/manager';
@@ -109,8 +110,22 @@ async function warmup(runtime: LlamaRuntime, tgt: string): Promise<void> {
 }
 
 /**
+ * Adapter/device/WGSL failures will not be fixed by asking for fewer slots; skip straight
+ * to CPU so the model is not loaded and discarded twice (10–24 s on a failed GPU path).
+ */
+export function skipRemainingWebGpuAttempts(error: unknown): boolean {
+  if (!isEngineError(error)) return false;
+  if (error.code === 'gpu-unavailable') return true;
+  const text = `${error.detail ?? ''}\n${error.message}`;
+  return /Failed to get an adapter|adapter lacks shader-f16|no adapter with shader-f16|Failed to get a device after retries|giving up on WebGPU|Error while parsing WGSL|extension 'subgroups' is not allowed|correctness probe failed|WebGPU backend disabled/iu.test(
+    text,
+  );
+}
+
+/**
  * Loads on the current selection and, when a GPU load fails for any reason but an abort, steps
- * down to fewer slots and then the CPU. A GPU that was not found at all skips the narrower load.
+ * down to fewer slots, then one conservative WebGPU slot, then the CPU. A missing adapter,
+ * a device that failed after ggml retries, or a WGSL compile error skips the narrower loads.
  * Translation and warm-up both come through here, so neither can leave the engine without a
  * model just because WebGPU would not take it.
  */
@@ -125,8 +140,9 @@ export async function loadWithFallback(
       return { loaded: await ensureLoaded(current), selection: current };
     } catch (error) {
       if (isAbortError(error) || signal.aborted) throw error;
-      const noGpu = isEngineError(error) && error.code === 'gpu-unavailable';
-      const next = noGpu ? cpuFallback(current) : lighterSelection(current);
+      const next = skipRemainingWebGpuAttempts(error)
+        ? cpuFallback(current)
+        : lighterSelection(current);
       if (!next) throw error;
       current = next;
     }
@@ -148,6 +164,7 @@ export class EngineHost {
   private prewarmKey: string | null = null;
   /** The probe offered WebGPU but the model could not be placed on it. */
   private gpuFallback = false;
+  private gpuDiagnostic: GpuDiagnostic | null = null;
 
   constructor(options: EngineHostOptions = {}) {
     this.idleReleaseMs = options.idleReleaseMs ?? IDLE_RELEASE_MS;
@@ -191,8 +208,18 @@ export class EngineHost {
     return this.servicesTask;
   }
 
+  private noteGpuError(error: unknown): void {
+    const detail = isEngineError(error)
+      ? (error.detail ?? error.message)
+      : error instanceof Error
+        ? error.message
+        : String(error);
+    this.gpuDiagnostic = mergeGpuDiagnostic(lastGpuDiagnostic(), detail, lastWebGpuLoadLog());
+  }
+
   private async createServices(): Promise<EngineServices> {
     const capabilities = await probeCapabilities();
+    this.gpuDiagnostic = mergeGpuDiagnostic(lastGpuDiagnostic(), null);
     const probe = {
       webgpu: capabilities.webgpu === 'ready',
       hardwareConcurrency: capabilities.hardwareConcurrency,
@@ -208,7 +235,14 @@ export class EngineHost {
     const chrome = new ChromeTranslatorEngine();
     const load = async (signal: AbortSignal): Promise<LoadedModel> => {
       const result = await loadWithFallback(
-        (selection) => manager.ensureLoaded(this.activeModelId, selection, { signal }),
+        async (selection) => {
+          try {
+            return await manager.ensureLoaded(this.activeModelId, selection, { signal });
+          } catch (error) {
+            this.noteGpuError(error);
+            throw error;
+          }
+        },
         selectionState.current,
         signal,
       );
@@ -216,6 +250,11 @@ export class EngineHost {
         this.gpuFallback = true;
       }
       selectionState.current = result.selection;
+      this.gpuDiagnostic = mergeGpuDiagnostic(
+        lastGpuDiagnostic(),
+        this.gpuDiagnostic?.error,
+        lastWebGpuLoadLog(),
+      );
 
       this.touch();
       return result.loaded;
@@ -231,6 +270,7 @@ export class EngineHost {
         }
         selectionState.current = next;
       }
+      this.gpuDiagnostic = mergeGpuDiagnostic(lastGpuDiagnostic(), this.gpuDiagnostic?.error);
       await manager.unload();
     };
     const lazy = new LazyInBrowserEngine({ loadRuntime: load, onGpuLost });
@@ -262,6 +302,7 @@ export class EngineHost {
       setTier: async (tier: TierPreference) => {
         selectionState.current = selectionForTier(tier, probe);
         this.gpuFallback = false;
+        this.gpuDiagnostic = mergeGpuDiagnostic(lastGpuDiagnostic(), null);
         lazy.reset();
         await manager.unload();
       },
@@ -594,6 +635,7 @@ export class EngineHost {
       threads: selection.nThreads,
       parallel: selection.nParallel,
       gpuFallback: this.gpuFallback && selection.backend === 'cpu-wasm',
+      ...(this.gpuDiagnostic ? { gpuDiagnostic: this.gpuDiagnostic } : {}),
       plamoReady: this.plamoReady,
       chromeSupported: services.chrome.available,
       active: services.router.activeEngine,

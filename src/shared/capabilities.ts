@@ -1,5 +1,20 @@
+import {
+  applyDebugOverlay,
+  gpuDiagnosticFromUnknown,
+  loadWebGpuDebugProfileFromStorage,
+  type GpuDiagnostic,
+} from './gpu-diagnostic';
 import { isRecord } from './object';
+import {
+  infoFromAdapter,
+  requestAdapterWithPreferences,
+  supportsFastBatches,
+  wgslDotProduct,
+  type NavigatorGpu,
+  type WebGpuAdapterInfo,
+} from './webgpu-adapter';
 
+export type { WebGpuAdapterInfo } from './webgpu-adapter';
 export type WebGpuStatus = 'ready' | 'unsupported' | 'unavailable' | 'failed';
 
 export interface EngineCapabilities {
@@ -18,10 +33,7 @@ const WEBGPU_STATUSES: ReadonlySet<string> = new Set<WebGpuStatus>([
 ]);
 
 interface NavigatorWithGpu extends Navigator {
-  readonly gpu?: {
-    requestAdapter(): Promise<unknown | null>;
-    readonly wgslLanguageFeatures?: { has(name: string): boolean };
-  };
+  readonly gpu?: NavigatorGpu;
 }
 
 export function isEngineCapabilities(value: unknown): value is EngineCapabilities {
@@ -51,25 +63,20 @@ const GPU_PROBE_TIMEOUT_MS = 4000;
 let adapterNoiseInstalled = false;
 let probeTask: Promise<EngineCapabilities> | null = null;
 let adapterTask: Promise<WebGpuAdapterInfo> | null = null;
+let lastAdapterInfo: WebGpuAdapterInfo | null = null;
 
-export interface WebGpuAdapterInfo {
-  present: boolean;
-  maxBufferSize: number | null;
-  fastBatches: boolean;
+export function lastWebGpuAdapterInfo(): WebGpuAdapterInfo | null {
+  return lastAdapterInfo;
 }
 
-// ggml gives AMD and Intel the same shaders, but sixteen slots have only been measured on NVIDIA.
-const FAST_BATCH_VENDORS: ReadonlySet<string> = new Set(['nvidia']);
-const DOT_PRODUCT_FEATURE = 'packed_4x8_integer_dot_product';
-
-/** The gate on ggml's fast integer shaders, ggml_webgpu_can_use_mmvq, for measured vendors. */
-function supportsFastBatches(vendor: unknown, dotProduct: unknown): boolean {
-  return dotProduct === true && typeof vendor === 'string' && FAST_BATCH_VENDORS.has(vendor);
+export function lastGpuDiagnostic(): GpuDiagnostic | null {
+  return lastAdapterInfo?.diagnostic ?? null;
 }
 
 export function resetCapabilityProbe(): void {
   probeTask = null;
   adapterTask = null;
+  lastAdapterInfo = null;
 }
 
 function isAdapterNoise(values: readonly unknown[]): boolean {
@@ -150,34 +157,35 @@ export function probeWebGpuAdapter(): Promise<WebGpuAdapterInfo> {
 }
 
 async function requestWebGpuAdapter(): Promise<WebGpuAdapterInfo> {
+  await loadWebGpuDebugProfileFromStorage();
   const gpu = (navigator as NavigatorWithGpu).gpu;
-  if (!gpu) return { present: false, maxBufferSize: null, fastBatches: false };
+  if (!gpu) {
+    lastAdapterInfo = infoFromAdapter(null, false, { error: 'navigator.gpu is missing' });
+    lastAdapterInfo.present = false;
+    return lastAdapterInfo;
+  }
   installAdapterNoiseFilter();
   if (extensionPage()) {
     const quiet = await requestAdapterInQuietFrame();
-    if (quiet) return quiet;
+    if (quiet) {
+      lastAdapterInfo = quiet;
+      return quiet;
+    }
   }
   try {
-    const adapter = (await gpu.requestAdapter()) as AdapterLimits | null;
-    return infoFrom(adapter, gpu.wgslLanguageFeatures?.has(DOT_PRODUCT_FEATURE) === true);
+    const { adapter, attempts, error } = await requestAdapterWithPreferences(gpu);
+    const info = infoFromAdapter(adapter, wgslDotProduct(gpu), { attempts, error });
+    lastAdapterInfo = info;
+    return info;
   } catch (error) {
-    if (isAdapterNoise([error])) return { present: false, maxBufferSize: null, fastBatches: false };
+    if (isAdapterNoise([error])) {
+      lastAdapterInfo = infoFromAdapter(null, false, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return lastAdapterInfo;
+    }
     throw error;
   }
-}
-
-interface AdapterLimits {
-  limits?: { maxBufferSize?: number };
-  info?: { vendor?: string };
-}
-
-function infoFrom(adapter: AdapterLimits | null, dotProduct: boolean): WebGpuAdapterInfo {
-  const limit = adapter?.limits?.maxBufferSize;
-  return {
-    present: adapter !== null,
-    maxBufferSize: typeof limit === 'number' ? limit : null,
-    fastBatches: supportsFastBatches(adapter?.info?.vendor, dotProduct),
-  };
 }
 
 function requestAdapterInQuietFrame(): Promise<WebGpuAdapterInfo | null> {
@@ -204,18 +212,18 @@ function requestAdapterInQuietFrame(): Promise<WebGpuAdapterInfo | null> {
       // A srcdoc frame on an extension page is an opaque origin, so its
       // location.origin is "null". The source window is the frame we created.
       if (event.origin !== window.location.origin && event.origin !== 'null') return;
-      const data = event.data as {
-        source?: unknown;
-        present?: unknown;
-        maxBufferSize?: unknown;
-        vendor?: unknown;
-        dotProduct?: unknown;
-      };
+      const data = event.data as { source?: unknown };
       if (!data || data.source !== GPU_PROBE_SOURCE) return;
+      const diagnostic = applyDebugOverlay(gpuDiagnosticFromUnknown(data));
+      const present = (data as { present?: unknown }).present === true;
       finish({
-        present: data.present === true,
-        maxBufferSize: typeof data.maxBufferSize === 'number' ? data.maxBufferSize : null,
-        fastBatches: supportsFastBatches(data.vendor, data.dotProduct),
+        present,
+        maxBufferSize: diagnostic.maxBufferSize,
+        fastBatches: supportsFastBatches(
+          diagnostic.vendor,
+          (data as { dotProduct?: unknown }).dotProduct === true,
+        ),
+        diagnostic,
       });
     };
     timer = window.setTimeout(() => finish(null), GPU_PROBE_TIMEOUT_MS);
@@ -238,7 +246,11 @@ async function probeWebGpu(): Promise<WebGpuStatus> {
   // working GPU can still fail that canvas check, and the owner then stays on CPU.
   try {
     const info = await probeWebGpuAdapter();
-    return info.present ? 'ready' : 'unavailable';
+    if (!info.present) return 'unavailable';
+    // ggml-webgpu requires shader-f16. Skip the GPU load when the adapter (or
+    // the no-f16 debug overlay) already says it is missing.
+    if (info.diagnostic.shaderF16 === false) return 'unavailable';
+    return 'ready';
   } catch {
     return 'failed';
   }

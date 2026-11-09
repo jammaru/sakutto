@@ -68,7 +68,10 @@ describe('packaged license text', () => {
    * ship an unmarked license or skip one entirely.
    */
   it("keeps the build script's copy list in step with the tested list", () => {
-    const script = readFileSync(new URL('../scripts/sync-licenses.mjs', import.meta.url), 'utf8');
+    const script = readFileSync(
+      new URL('../scripts/sync-licenses.mjs', import.meta.url),
+      'utf8',
+    ).replace(/\r\n/g, '\n');
     const listed = [...script.matchAll(/^\s+'([^']+\.txt)',$/gmu)].map((match) => match[1]);
     const inScript = listed.filter((name) => name !== 'LICENSE.txt' && name !== 'NOTICE.txt');
     expect(new Set(inScript)).toEqual(new Set(LICENSE_FILE_COPIES));

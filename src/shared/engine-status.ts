@@ -1,6 +1,7 @@
 import { isModelId, type ModelId } from '../engine/model/catalog';
 import type { BackendKind, ComputeTier } from '../engine/in-browser/backend';
 import type { EngineKind } from '../engine/types';
+import { isGpuDiagnostic, type GpuDiagnostic } from './gpu-diagnostic';
 
 export type ModelState =
   'absent' | 'partial' | 'downloading' | 'verifying' | 'ready' | 'loading' | 'loaded' | 'error';
@@ -22,6 +23,8 @@ export interface EngineStatus {
   parallel: number | null;
   /** WebGPU was offered but the model could not be placed on it, so it runs on the CPU. */
   gpuFallback?: boolean;
+  /** Adapter features/limits and the llama.cpp error, if WebGPU failed. Stays on the device. */
+  gpuDiagnostic?: GpuDiagnostic;
   plamoReady: boolean;
   chromeSupported: boolean;
   active: EngineKind | null;
@@ -91,6 +94,7 @@ export function isEngineStatus(value: unknown): value is EngineStatus {
   if (record.threads !== null && typeof record.threads !== 'number') return false;
   if (record.parallel !== null && typeof record.parallel !== 'number') return false;
   if (record.gpuFallback !== undefined && typeof record.gpuFallback !== 'boolean') return false;
+  if (record.gpuDiagnostic !== undefined && !isGpuDiagnostic(record.gpuDiagnostic)) return false;
   if (typeof record.plamoReady !== 'boolean') return false;
   if (typeof record.chromeSupported !== 'boolean') return false;
   if (

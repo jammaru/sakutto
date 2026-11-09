@@ -26,10 +26,16 @@ import {
   isModelInspectRequest,
   isModelUseRequest,
   isQualitySampleRequest,
+  isWebGpuDebugQuery,
   requestEngineProbe,
   type ModelProgressMessage,
 } from '@/shared/messages';
 import { resolveShortcutQuery } from '@/shared/shortcut-assignment';
+import {
+  WEBGPU_DEBUG_STORAGE_KEY,
+  isWebGpuDebugProfile,
+  type WebGpuDebugProfile,
+} from '@/shared/gpu-diagnostic';
 import { ensureSettings } from '@/shared/storage';
 
 const CAPABILITIES_CACHE_KEY = 'engineCapabilities';
@@ -195,6 +201,17 @@ export default defineBackground(() => {
 
     if (isEngineCapabilitiesRequest(message)) {
       void getEngineCapabilities().then(sendResponse, () => sendResponse(null));
+      return true;
+    }
+
+    if (isWebGpuDebugQuery(message)) {
+      void browser.storage.local.get(WEBGPU_DEBUG_STORAGE_KEY).then(
+        (stored) => {
+          const value = stored[WEBGPU_DEBUG_STORAGE_KEY];
+          sendResponse((isWebGpuDebugProfile(value) ? value : 'off') satisfies WebGpuDebugProfile);
+        },
+        () => sendResponse('off' satisfies WebGpuDebugProfile),
+      );
       return true;
     }
 

@@ -118,6 +118,24 @@
   "diagRateHint": {
     "message": "翻訳中のページでは、バーに tokens/s と区間/s が出ます。"
   },
+  "diagGpuHeading": {
+    "message": "WebGPU アダプタ"
+  },
+  "diagGpuCopy": {
+    "message": "コピー"
+  },
+  "diagGpuCopied": {
+    "message": "コピーしました"
+  },
+  "diagGpuCopyFailed": {
+    "message": "コピーできませんでした"
+  },
+  "diagGpuHelp": {
+    "message": "この内容は端末の中だけにあります。WebGPU が失敗したときは GitHub の Issue に貼ってください。"
+  },
+  "diagGpuEmpty": {
+    "message": "WebGPU の報告はまだありません。"
+  },
   "paceLabel": {
     "message": "先読み"
   },
