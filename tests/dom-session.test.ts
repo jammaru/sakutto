@@ -1145,6 +1145,95 @@ describe('page session', () => {
     expect(document.body.textContent).not.toContain('訳:');
   });
 
+  it('finishes the decoding block when the tab is hidden and cancels the waiting one', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>First paragraph here</p><p>Second paragraph here</p>';
+    let hidden = false;
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+    const signals = new Map<string, AbortSignal>();
+    let secondCalls = 0;
+    let release: (() => void) | undefined;
+    const session = start(
+      document,
+      engineOf(async function* (segments, options) {
+        const first = segments[0];
+        if (!first) return;
+        signals.set(first.text, options.signal);
+        if (first.text.startsWith('First')) {
+          yield { id: first.id, textDelta: '訳:', engine: 'plamo' as const };
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+        } else if (++secondCalls === 1) {
+          await new Promise<void>((resolve) => {
+            options.signal.addEventListener('abort', () => resolve(), { once: true });
+          });
+          if (options.signal.aborted) return;
+        }
+        for (const segment of segments) {
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+    );
+
+    void session.translate();
+    for (let attempt = 0; attempt < 50 && (!release || signals.size < 2); attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    hidden = true;
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    expect(signals.get('First paragraph here')?.aborted).toBe(false);
+    expect(signals.get('Second paragraph here')?.aborted).toBe(true);
+
+    release?.();
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(document.body.textContent).toContain('訳:First paragraph here');
+    expect(document.body.textContent).not.toContain('訳:Second paragraph here');
+
+    hidden = false;
+    document.dispatchEvent(new Event('visibilitychange'));
+    await session.whenIdle();
+    expect(document.body.textContent).toContain('訳:Second paragraph here');
+    Reflect.deleteProperty(document, 'hidden');
+  });
+
+  it('keeps translating after a beforeunload that does not leave the page', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>First paragraph here</p><p>Second paragraph here</p>';
+    let release: (() => void) | undefined;
+    let calls = 0;
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        calls += 1;
+        if (calls === 1) {
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+        }
+        for (const segment of segments) {
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+    );
+
+    const pending = session.translate();
+    for (let attempt = 0; attempt < 20 && !release; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    // A download link or a cancelled "Leave site?" prompt fires beforeunload and stays.
+    document.defaultView?.dispatchEvent(new Event('beforeunload'));
+    release?.();
+    await pending;
+    await session.whenIdle();
+
+    expect(document.body.textContent).toContain('訳:First paragraph here');
+    expect(document.body.textContent).toContain('訳:Second paragraph here');
+  });
+
   it('switches an English page off an English default and restores the language', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML = '<p>Hello world</p>';

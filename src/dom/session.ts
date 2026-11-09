@@ -156,6 +156,8 @@ interface InflightBatch {
   items: Live[];
   priority: number;
   settled: boolean;
+  /** The engine has sent this batch's first chunk, so the model is already decoding it. */
+  streaming: boolean;
 }
 
 export interface PageSessionOptions {
@@ -312,7 +314,9 @@ export class PageSession {
       if (this.doc.hidden) {
         this.paused = true;
         this.pointerDown = false;
-        this.abortRunning(true);
+        // A completion the model is decoding runs to its end even when aborted, so the
+        // batch it belongs to finishes and paints. Batches still waiting give the engine back.
+        this.abortBatches((batch) => !batch.streaming, true);
         return;
       }
       this.paused = false;
@@ -390,7 +394,6 @@ export class PageSession {
     this.doc.addEventListener('scroll', this.onScroll, { capture: true, passive: true });
     this.doc.defaultView?.addEventListener('scroll', this.onScroll, { passive: true });
     this.doc.defaultView?.addEventListener('pagehide', this.onPageHide);
-    this.doc.defaultView?.addEventListener('beforeunload', this.onPageHide);
     this.doc.defaultView?.addEventListener('popstate', this.onPopState);
     this.doc.defaultView?.addEventListener('resize', this.onResize);
     this.bindHistory();
@@ -774,7 +777,6 @@ export class PageSession {
     this.doc.defaultView?.removeEventListener('scroll', this.onScroll);
     this.unbindKeys();
     this.doc.defaultView?.removeEventListener('pagehide', this.onPageHide);
-    this.doc.defaultView?.removeEventListener('beforeunload', this.onPageHide);
     this.doc.defaultView?.removeEventListener('popstate', this.onPopState);
     this.doc.defaultView?.removeEventListener('resize', this.onResize);
     this.overlay.destroy();
@@ -909,7 +911,7 @@ export class PageSession {
     if (!current) return;
     this.queue.remove((item) => item === current);
     if (current.state !== 'running') current.state = 'idle';
-    this.abortBatches((priority) => priority <= 0, false);
+    this.abortBatches((batch) => batch.priority <= 0, false);
     this.pump();
   }
 
@@ -1055,10 +1057,16 @@ export class PageSession {
   private beginBatch(batch: Live[], priority: number): void {
     for (const item of batch) item.state = 'running';
     const controller = new AbortController();
-    const entry: InflightBatch = { controller, items: batch, priority, settled: false };
+    const entry: InflightBatch = {
+      controller,
+      items: batch,
+      priority,
+      settled: false,
+      streaming: false,
+    };
     this.inflightBatches.add(entry);
     this.running += 1;
-    void this.runBatch(batch, priority, controller).finally(() => {
+    void this.runBatch(entry).finally(() => {
       this.releaseBatch(entry);
       this.pump();
     });
@@ -1108,11 +1116,8 @@ export class PageSession {
     return batch;
   }
 
-  private async runBatch(
-    batch: readonly Live[],
-    priority: number,
-    controller: AbortController,
-  ): Promise<void> {
+  private async runBatch(entry: InflightBatch): Promise<void> {
+    const { controller, items: batch, priority } = entry;
     const signal = this.pageController
       ? AbortSignal.any([this.pageController.signal, controller.signal])
       : controller.signal;
@@ -1164,6 +1169,7 @@ export class PageSession {
         this.optionsFor(batch, priority, signal),
       )) {
         if (signal.aborted) return;
+        entry.streaming = true;
         const item = owners.get(chunk.id);
         if (!item || item.batchToken !== token) continue;
         const index = partIndex(chunk.id);
@@ -1516,10 +1522,10 @@ export class PageSession {
     this.running = Math.max(0, this.running - 1);
   }
 
-  private abortBatches(match: (priority: number) => boolean, requeue: boolean): void {
+  private abortBatches(match: (batch: InflightBatch) => boolean, requeue: boolean): void {
     let released = false;
     for (const batch of [...this.inflightBatches]) {
-      if (!match(batch.priority)) continue;
+      if (!match(batch)) continue;
       batch.controller.abort();
       this.releaseBatch(batch);
       released = true;
