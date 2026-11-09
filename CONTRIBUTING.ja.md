@@ -2,9 +2,13 @@
 
 English: [CONTRIBUTING.md](CONTRIBUTING.md)
 
-Sakutto は MIT です。[LICENSE](LICENSE) と [NOTICE](NOTICE) を参照してください。[行動規範](CODE_OF_CONDUCT.ja.md) に従ってください。小さな pull request を歓迎します。誤字、1 つの言語、ドキュメント、範囲の狭い修正で構いません。
+Sakutto は MIT です。[LICENSE](LICENSE) と [NOTICE](NOTICE) を参照してください。[行動規範](CODE_OF_CONDUCT.ja.md) に従ってください。
 
-不具合と要望は [GitHub Issues](https://github.com/jammaru/sakutto/issues) のフォームへ。使い方の質問は [Discord](https://discord.gg/pdSRBaSr38) の方が早いことがあります。Issue や pull request に、非公開ページの本文、認証情報、個人情報を貼らないでください。脆弱性は [SECURITY.md](SECURITY.md) です。
+まず [Issue](https://github.com/jammaru/sakutto/issues) を開き、その Issue に対して pull request を出す、という順を歓迎します。できるなら PR をとても歓迎します。Issue だけでも十分です。コードを書かなくても構いません。小さな PR で足ります。誤字、1 つの言語、ドキュメント、範囲の狭い修正で構いません。
+
+使い方の質問は [Discord](https://discord.gg/pdSRBaSr38) の方が早いことがあります。Issue や pull request に、非公開ページの本文、認証情報、個人情報を貼らないでください。脆弱性は [SECURITY.md](SECURITY.md) です。
+
+`help wanted` は外部の助けを求めている印です。`good first issue` は小さくて着手しやすい課題です。どちらも PR を歓迎する印です。
 
 ## 準備
 
@@ -67,7 +71,7 @@ pull request の先は `main` です。短い説明的なブランチ名で構�
 
 このリポジトリのコミット件名は、命令形の英文がほとんどです。Issue に紐づくときは末尾の `(#123)` がよく使われます。`docs:` や `chore:` の接頭辞があるコミットもありますが、必須ではありません。件名にも本文にも個人情報を書かないでください。
 
-pull request の本文は、何を変えたかとなぜかを短い段落で始めます。日本語でも英語でも構いません。必要なら `変更内容`、`確認したこと`、`残っていること` を足します。短い修正なら見出しは不要です。ひな型は [`.github/pull_request_template.md`](.github/pull_request_template.md) です。
+pull request の本文は [`.github/pull_request_template.md`](.github/pull_request_template.md) に従います。日本語でも英語でも構いません。Issue には `Closes #123` または `Refs #123` を付けます。使わない節は削って構いません。
 
 ## 画面の翻訳
 

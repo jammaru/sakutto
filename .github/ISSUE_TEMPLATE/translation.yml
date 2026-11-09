@@ -13,9 +13,9 @@ body:
         先に [docs/TRANSLATING.md](https://github.com/jammaru/sakutto/blob/main/docs/TRANSLATING.md)
         （[日本語](https://github.com/jammaru/sakutto/blob/main/docs/TRANSLATING.ja.md)）を読んでください。テストが課している規則と、その理由が書いてあります。
 
-        画面全体は `public/_locales/<lang>/messages.json` です。翻訳の pull request が触るのはそのファイルと、`src/shared/locales.ts` の 1 行だけです。
+        画面全体は `public/_locales/<lang>/messages.json` です。翻訳の pull request が触るのはそのファイルと、`src/shared/locales.ts` の 1 行だけです。Issue だけでも歓迎です。できるなら PR も大歓迎です。
 
-        This form is for the extension UI catalog, not for PLaMo page translations. Read TRANSLATING.md first. A translation pull request touches that catalog file, one line in `src/shared/locales.ts`, and nothing else.
+        This form is for the extension UI catalog, not for PLaMo page translations. Read TRANSLATING.md first. A translation pull request touches that catalog file, one line in `src/shared/locales.ts`, and nothing else. An issue by itself is welcome; a PR is very much wanted if you can.
 
   - type: input
     id: language
@@ -78,3 +78,12 @@ body:
       placeholder: |
         母語として読めます。オンボーディングのトーンは第二意見が欲しいです。
         I can read this as a native speaker. The onboarding tone needs a second opinion.
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: pull request
+      description: 必須ではありません。Issue だけでも歓迎です。 Optional. An issue by itself is welcome.
+      options:
+        - label: できればこの Issue の PR を出してみたい / I'd like to open a PR for this
+          required: false

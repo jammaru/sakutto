@@ -27,11 +27,11 @@
 
 - name: good first issue
   color: '#7057ff'
-  description: Good for newcomers
+  description: 小さくて着手しやすい。PR 歓迎 / Small first task; PRs welcome
 
 - name: help wanted
   color: '#008672'
-  description: Extra attention is needed
+  description: 外部の PR を歓迎 / Outside help wanted
 
 - name: needs-triage
   color: '#ededed'

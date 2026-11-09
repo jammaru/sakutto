@@ -113,7 +113,7 @@ Neither tier adds limited features or priority support. The money goes towards n
 
 ## Contributing
 
-Bug reports and feature requests are welcome as [GitHub Issues](https://github.com/jammaru/sakutto/issues). Please use the issue forms, and do not paste private page content. Questions are often faster in [Discord](https://discord.gg/pdSRBaSr38).
+Open an [Issue](https://github.com/jammaru/sakutto/issues) first, then a pull request for that Issue if you can. That path is fully welcome. A PR is very much wanted; an Issue by itself is also enough. Please use the issue forms, and do not paste private page content. Questions are often faster in [Discord](https://discord.gg/pdSRBaSr38).
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) (日本語: [CONTRIBUTING.ja.md](CONTRIBUTING.ja.md))
 - [Code of Conduct](CODE_OF_CONDUCT.md)

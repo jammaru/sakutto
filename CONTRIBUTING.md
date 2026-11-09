@@ -2,9 +2,13 @@
 
 日本語: [CONTRIBUTING.ja.md](CONTRIBUTING.ja.md)
 
-Sakutto is MIT-licensed. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Please follow the [Code of Conduct](CODE_OF_CONDUCT.md). Small pull requests are welcome: a typo, one locale, a docs fix, or a narrow bug fix is enough.
+Sakutto is MIT-licensed. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-Bug reports and feature requests go to [GitHub Issues](https://github.com/jammaru/sakutto/issues) using the issue forms. Questions are often faster in [Discord](https://discord.gg/pdSRBaSr38). Do not paste private page content, credentials, or personal data into issues or pull requests. Security issues: [SECURITY.md](SECURITY.md).
+The usual path is an [Issue](https://github.com/jammaru/sakutto/issues) first, then a pull request for that Issue. That sequence is fully welcome. If you can, a PR is very much wanted. An Issue by itself is also totally welcome — you do not have to write code. Small PRs are enough: a typo, one locale, a docs fix, or a narrow bug fix.
+
+Questions are often faster in [Discord](https://discord.gg/pdSRBaSr38). Do not paste private page content, credentials, or personal data into issues or pull requests. Security issues: [SECURITY.md](SECURITY.md).
+
+`help wanted` means outside help is wanted. `good first issue` is a small, well-scoped task. Either label is an invitation to open a PR.
 
 ## Setup
 
@@ -67,7 +71,7 @@ Open a pull request against `main`. Short descriptive branch names are fine (`fi
 
 Commit subjects in this repository are usually an imperative English sentence. A trailing `(#123)` is common when the work belongs to an issue. `docs:` and `chore:` prefixes appear on some commits; they are optional. Do not put personal data in the subject or the body.
 
-The pull request body starts with a short paragraph of what changed and why, in Japanese or English. Then add headings as needed (`変更内容`, `確認したこと`, `残っていること`). Small fixes can skip headings. See [`.github/pull_request_template.md`](.github/pull_request_template.md).
+The pull request body follows [`.github/pull_request_template.md`](.github/pull_request_template.md). Japanese or English is fine. Point at the Issue with `Closes #123` or `Refs #123`. Delete sections that do not apply.
 
 ## Translating the interface
 

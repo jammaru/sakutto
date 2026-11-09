@@ -111,7 +111,7 @@ Sakutto にマネタイズポイントはありません。完全無料で、広
 
 ## 貢献
 
-不具合と要望は [GitHub Issues](https://github.com/jammaru/sakutto/issues) のフォームへ。非公開ページの本文は貼らないでください。使い方の質問は [Discord](https://discord.gg/pdSRBaSr38) の方が早いことがあります。
+まず [Issue](https://github.com/jammaru/sakutto/issues) を開き、できるならその Issue への pull request を出してください。その順を歓迎します。PR はとても欲しいですが、Issue だけでも十分です。フォームを使い、非公開ページの本文は貼らないでください。使い方の質問は [Discord](https://discord.gg/pdSRBaSr38) の方が早いことがあります。
 
 - [CONTRIBUTING.ja.md](CONTRIBUTING.ja.md)（English: [CONTRIBUTING.md](CONTRIBUTING.md)）
 - [行動規範](CODE_OF_CONDUCT.ja.md)

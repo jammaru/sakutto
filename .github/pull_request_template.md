@@ -1,18 +1,37 @@
-<!-- 冒頭に、何を変えたかとなぜかを短く。日本語でも英語でもよい。 -->
+## Summary / 概要
 
-<!-- 関連 Issue があれば: Refs #123 -->
+<!-- What changed and why. 何を変えたか、なぜか。 -->
 
-## 変更内容
+## Related issue / 関連 Issue
 
-<!-- 動きと仕組み。見出しは内容に合わせて差し替えてよい。短い修正ならこの節は削って冒頭だけでもよい。 -->
+<!-- `Closes #123` or `Refs #123`. Delete this section if none. なければこの節を削る。 -->
 
-## 確認したこと
+## Changes / 変更内容
+
+<!-- What moved. 動きと仕組み。 -->
+
+## How tested / 確認したこと
+
+<!-- Commands and results. Screenshots for UI changes. コマンドと結果。UI ならスクリーンショット。 -->
 
 - `pnpm test`
 - `pnpm lint` / `pnpm typecheck` / `pnpm format:check`
 
-<!-- 走らせたコマンドと結果を書く。UI ならスクリーンショット。測ったなら数字。 -->
+## Benchmarks / ベンチマーク
 
-## 残っていること
+<!-- Delete if performance did not change. 速度が変わっていなければこの節を削る。 Include the page fixture, GPU vs CPU, and machine if you have it. ページ、GPU/CPU、機種。 -->
 
-<!-- 未確認、この PR で触っていないこと。なければ見出しごと削る。 -->
+|               | before | after |
+| ------------- | -----: | ----: |
+| first visible |        |       |
+| full page     |        |       |
+
+## Checklist / チェック
+
+- [ ] `pnpm test` / `pnpm lint` / `pnpm typecheck` / `pnpm format:check` pass
+- [ ] No personal data or private page content / 個人情報・非公開本文なし
+- [ ] Docs or i18n updated if needed / 必要なら docs・i18n を更新した
+
+## Notes / 補足
+
+<!-- Remaining work or untested cases. Delete if none. 残っていること。なければこの節を削る。 -->

@@ -8,11 +8,11 @@ body:
   - type: markdown
     attributes:
       value: |
-        モデルの訳文そのものに関する報告です。拡張機能の画面文言は「画面の文言」テンプレートを使ってください。
+        モデルの訳文そのものに関する報告です。拡張機能の画面文言は「画面の文言」テンプレートを使ってください。Issue だけでも歓迎です。できるなら PR も大歓迎です。
 
         **原文の貼り付けは任意です。非公開の文章、メール、社内文書、個人情報は貼らないでください。** 公開してよい短い抜粋だけにしてください。
 
-        For the model output, not the extension UI (use the interface-language form for that). **Source text is optional. Do not paste private, mail, intranet, or personal text.** Quote a short public excerpt only.
+        For the model output, not the extension UI (use the interface-language form for that). An issue by itself is welcome; a PR is very much wanted if you can. **Source text is optional. Do not paste private, mail, intranet, or personal text.** Quote a short public excerpt only.
 
   - type: input
     id: languages
@@ -80,3 +80,12 @@ body:
       options:
         - label: 非公開の原文や個人情報は貼っていません。 I have not pasted private source text or personal data.
           required: true
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: pull request
+      description: 必須ではありません。Issue だけでも歓迎です。 Optional. An issue by itself is welcome.
+      options:
+        - label: できればこの Issue の PR を出してみたい / I'd like to open a PR for this
+          required: false

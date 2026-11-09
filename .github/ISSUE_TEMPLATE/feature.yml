@@ -8,11 +8,11 @@ body:
   - type: markdown
     attributes:
       value: |
-        先に既存の Issue を検索してください。使い方の質問は [Discord](https://discord.gg/pdSRBaSr38) へどうぞ。
+        先に既存の Issue を検索してください。Issue のあと、できるならその Issue への pull request も大歓迎です。Issue だけでも十分です。使い方の質問は [Discord](https://discord.gg/pdSRBaSr38) へどうぞ。
 
         **個人情報や非公開ページの本文は貼らないでください。**
 
-        Please search existing issues first. Questions belong in Discord. **Do not paste private page content or personal data.**
+        Please search existing issues first. A PR for the issue is very welcome if you can; the issue alone is also enough. Questions belong in Discord. **Do not paste private page content or personal data.**
 
   - type: textarea
     id: problem
@@ -59,3 +59,12 @@ body:
       options:
         - label: 個人情報、認証情報、非公開ページの本文は貼っていません。 I have not pasted personal data, credentials, or private page content.
           required: true
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: pull request
+      description: 必須ではありません。Issue だけでも歓迎です。 Optional. An issue by itself is welcome.
+      options:
+        - label: できればこの Issue の PR を出してみたい / I'd like to open a PR for this
+          required: false

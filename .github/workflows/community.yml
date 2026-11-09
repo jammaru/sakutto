@@ -62,21 +62,25 @@ jobs:
 
             const issueBody = [
               '初めての Issue をありがとうございます。メンテナが確認します。',
+              'この Issue への pull request も大歓迎です。出せなくても、Issue だけでも十分です。',
+              '`help wanted` や `good first issue` が付いたものは、特に PR を待っています。',
               '',
               '使い方の質問は [Discord](https://discord.gg/pdSRBaSr38) の方が早いことがあります。',
               '非公開のページ本文、認証情報、個人情報は貼らないでください。',
               '',
               'Thank you for your first issue. A maintainer will take a look.',
+              'A PR for this issue is very welcome if you can; the issue alone is also enough.',
+              '`help wanted` and `good first issue` are invitations to open a PR.',
               'Questions are often faster in [Discord](https://discord.gg/pdSRBaSr38).',
               'Please do not paste private page content, credentials, or personal data.',
             ].join('\n');
 
             const prBody = [
-              '初めての pull request をありがとうございます。小さな修正も歓迎です。',
+              '初めての pull request をありがとうございます。Issue を先に開いてからの PR も歓迎です。小さな修正で構いません。',
               '手順は [CONTRIBUTING.md](https://github.com/jammaru/sakutto/blob/main/CONTRIBUTING.md)',
               '（[日本語](https://github.com/jammaru/sakutto/blob/main/CONTRIBUTING.ja.md)）にあります。',
               '',
-              'Thank you for your first pull request. Small changes are welcome.',
+              'Thank you for your first pull request. Opening an Issue first, then a PR, is welcome. Small changes are enough.',
               'See CONTRIBUTING.md for setup and checks.',
             ].join('\n');
 
