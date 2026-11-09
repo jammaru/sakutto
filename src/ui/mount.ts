@@ -1,10 +1,10 @@
 import { mount, type Component } from 'svelte';
-import { t, uiLocale } from '@/shared/i18n';
+import { t, uiLocaleTag } from '@/shared/i18n';
 import '@/ui/tokens.css';
 import '@/ui/base.css';
 
 export function mountPage(app: Component): void {
-  document.documentElement.lang = uiLocale();
+  document.documentElement.lang = uiLocaleTag();
   document.title = t('extensionName');
 
   const target = document.getElementById('app');

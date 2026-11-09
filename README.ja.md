@@ -48,6 +48,8 @@ PLaMo 3 Translate は 53 言語を双方向に翻訳します。訳元はペー�
 
 cs、da、el、fi、kn、no、pt、ro、sv、tr、uk の 11 言語は、Chrome 内蔵の翻訳だけで訳します。PLaMo だけが対応する言語は、モデルの準備ができるまで訳しません。
 
+画面の文言は、英語、日本語、韓国語、中国語（簡体字・繁体字）、スペイン語、ポルトガル語（ブラジル）、フランス語、ドイツ語、イタリア語、ロシア語、ベトナム語、タイ語、インドネシア語の 14 言語にあります。ブラウザの表示言語に合わせて選ばれ、どれにも当たらないときは英語になります。追加の方法は [docs/TRANSLATING.ja.md](docs/TRANSLATING.ja.md) にあります。
+
 ## プライバシー
 
 翻訳は端末の中で行います。ページの本文、選択範囲、用語集、訳文を、開発者や翻訳サーバーへ送ることはありません。アカウント、広告、テレメトリもありません。拡張機能自身の通信は、Hugging Face からのモデルの取得だけです。ポリシーは [PRIVACY.md](PRIVACY.md) と https://jammaru.com/sakutto/privacy/ にあります。
@@ -78,6 +80,8 @@ pnpm test:e2e       # ローカルのページで確認します。モデルは�
 
 `pnpm icons` は、`scripts/generate-icons.mjs` から PNG アイコンを作り直します。
 
+`pnpm i18n:check` は、`public/_locales` の全カタログを英語と突き合わせ、キー・`$TOKEN$`・空の文言を検査します。`pnpm i18n:draft <カタログ> <言語>` は、同梱しているのと同じ PLaMo で英語から下書きを作ります。どちらも [docs/TRANSLATING.ja.md](docs/TRANSLATING.ja.md) にあります。
+
 ## 権限
 
 | 権限               | 理由                                                                       |
@@ -107,8 +111,7 @@ Sakutto にマネタイズポイントはありません。完全無料で、広
 
 ## ライセンス
 
-- このリポジトリのコードは MIT です。[LICENSE](LICENSE) を参照してください。Copyright 2026 jammaru。
-- PLaMo 3 Translate は PLaMo Community License です。全文は `licenses/PLaMo-Community-License-ja.txt` と `licenses/PLaMo-Community-License-en.txt` にあり、拡張パッケージにも同じ写しを同梱します。個人利用と学術利用は登録が不要です。第3条により、モデルのライセンスで商業利用が認められるのは、PFN のフォーム（https://forms.gle/mTL8tBLrMYXKNZD56）への事前登録と、利用者または関係会社の直近事業年度の収入・売上が10億円以下であることの両方を満たす場合だけです。満たさない場合、商業利用には PFN の商業用ライセンスが必要です。このリポジトリの MIT は Sakutto 自身のコードに対するもので、モデルの重みは対象ではありません。
+- このリポジトリのコードは MIT です。[LICENSE](LICENSE) を参照してください。Copyright 2026 jammaru。- PLaMo 3 Translate は PLaMo Community License です。全文は `licenses/PLaMo-Community-License-ja.txt` と `licenses/PLaMo-Community-License-en.txt` にあり、拡張パッケージにも同じ写しを同梱します。個人利用と学術利用は登録が不要です。第3条により、モデルのライセンスで商業利用が認められるのは、PFN のフォーム（https://forms.gle/mTL8tBLrMYXKNZD56）への事前登録と、利用者または関係会社の直近事業年度の収入・売上が10億円以下であることの両方を満たす場合だけです。満たさない場合、商業利用には PFN の商業用ライセンスが必要です。このリポジトリの MIT は Sakutto 自身のコードに対するもので、モデルの重みは対象ではありません。
 - llama.cpp、wllama、Emscripten、Dawn の WebGPU ライブラリ、Svelte については [NOTICE](NOTICE) と [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) を参照してください。
 - `scripts/bench/fixtures/kyoto.html` は CC BY-SA 4.0 の Wikipedia 二次的著作物です。MIT の対象ではなく、拡張パッケージにも含めません。
 

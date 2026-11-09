@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { UI_LOCALES } from '../src/shared/locales.ts';
 import { readZip } from './zip-archive.ts';
 
 export interface PackagedManifest {
@@ -37,8 +38,6 @@ export const REQUIRED_ENTRIES = [
   'icon/32.png',
   'icon/48.png',
   'icon/128.png',
-  '_locales/en/messages.json',
-  '_locales/ja/messages.json',
   'licenses/LICENSE.txt',
   'licenses/NOTICE.txt',
   'licenses/PLaMo-Community-License-en.txt',
@@ -58,6 +57,18 @@ export const REQUIRED_ENTRIES = [
   'vendor/wllama/wllama-compat-pthread.js',
   'vendor/wllama/wllama-build.json',
 ] as const;
+
+/**
+ * Catalogs every package has to carry. The rest of `UI_LOCALES` is optional: a build that has
+ * not translated a locale yet must not fail the audit, because the source tree is the place a
+ * translation lands and the zip is built from it.
+ *
+ * `default_locale` is the one Chrome falls back to, so its absence is a broken install rather
+ * than a missing translation. `ja` is here because the store listing is primarily Japanese.
+ */
+export const REQUIRED_LOCALES = ['en', 'ja'] as const;
+
+const LOCALE_ENTRY = /^_locales\/([^/]+)\/messages\.json$/;
 
 const FORBIDDEN = [
   /\.gguf$/i,
@@ -85,6 +96,25 @@ export function auditPackage(entries: readonly string[], manifest: PackagedManif
   const names = new Set(entries);
   for (const entry of REQUIRED_ENTRIES) {
     if (!names.has(entry)) problems.push(`missing ${entry}`);
+  }
+  for (const locale of REQUIRED_LOCALES) {
+    const entry = `_locales/${locale}/messages.json`;
+    if (!names.has(entry)) problems.push(`missing ${entry}`);
+  }
+  // A catalog directory the source tree does not register is a locale Chrome will never pick,
+  // and a registered locale with no catalog is a promise the build cannot keep. Both are
+  // reported here so a translation PR cannot land half-wired.
+  const shipped = new Set<string>();
+  for (const entry of entries) {
+    const match = LOCALE_ENTRY.exec(entry);
+    if (match?.[1] === undefined) continue;
+    shipped.add(match[1]);
+    if (!(UI_LOCALES as readonly string[]).includes(match[1])) {
+      problems.push(`unregistered locale _locales/${match[1]}`);
+    }
+  }
+  for (const locale of UI_LOCALES) {
+    if (!shipped.has(locale)) problems.push(`missing _locales/${locale}/messages.json`);
   }
   for (const entry of entries) {
     if (FORBIDDEN.some((pattern) => pattern.test(entry))) problems.push(`unexpected ${entry}`);

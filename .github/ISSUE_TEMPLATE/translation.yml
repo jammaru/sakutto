@@ -1,0 +1,73 @@
+name: Add or fix a UI translation
+description: Add a language to the interface, or correct strings in one that is already there.
+labels: ['i18n']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping more people read Sakutto in their own language.
+
+        Read [docs/TRANSLATING.md](https://github.com/jammaru/sakutto/blob/main/docs/TRANSLATING.md)
+        first. It lists the rules the test suite enforces and why each one exists.
+
+        The whole interface is `public/_locales/<lang>/messages.json`. A translation pull request
+        touches that file, one line in `src/shared/locales.ts`, and nothing else.
+
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      description: The language and the catalog name you are adding or fixing, e.g. `Polish / pl`.
+      placeholder: Polish / pl
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What are you doing?
+      options:
+        - Adding a new language
+        - Fixing strings in an existing language
+        - Reviewing a PLaMo-generated catalog
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: What changed, or what is wrong
+      description: |
+        For a new language, say whether you translated every key or only part of the file.
+        For a fix, quote the current string and the one you propose, with the key name.
+      placeholder: |
+        `onboardingModelNote` says "573 MB" but the model catalog says 573 MB — the unit is right, the wording is off.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you open the pull request
+      description: These are the things the suite rejects. Please confirm each one.
+      options:
+        - label: 'Every key from `public/_locales/en/messages.json` exists, with no extra keys.'
+          required: true
+        - label: 'Every `$TOKEN$` in the English string is still in mine, and the `placeholders` block is unchanged.'
+          required: true
+        - label: '`extensionName` still starts with `Sakutto`, and `extensionShortName` is still `Sakutto`.'
+          required: true
+        - label: "I left the licence facts alone: the revenue cap, PFN's registration form, and the model size."
+          required: true
+        - label: '`pnpm test` passes.'
+          required: true
+
+  - type: textarea
+    id: review
+    attributes:
+      label: Who can review the wording?
+      description: |
+        A machine translation is a draft. Say whether you are a native or fluent reader of this
+        language, or whether someone still needs to check the tone. This is not a blocker.
+      placeholder: |
+        I am a native speaker. The tone on the onboarding screen needs a second opinion.

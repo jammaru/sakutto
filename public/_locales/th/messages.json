@@ -1,0 +1,791 @@
+{
+  "extensionName": {
+    "message": "Sakutto - การแปลด้วย AI ท้องถิ่น",
+    "description": "Extension name."
+  },
+  "extensionShortName": {
+    "message": "Sakutto",
+    "description": "Short extension name."
+  },
+  "extensionDescription": {
+    "message": "LLM ท้องถิ่นจะแปลหน้าเว็บบนอุปกรณ์ของคุณ ฟรี ไม่ต้องใช้บัญชี",
+    "description": "Extension description."
+  },
+  "tagline": {
+    "message": "การแปลหน้าเว็บที่ทำงานบนอุปกรณ์ของคุณ"
+  },
+  "settingsLabel": {
+    "message": "การตั้งค่า"
+  },
+  "targetLanguageLabel": {
+    "message": "แปลเป็น"
+  },
+  "formalityLabel": {
+    "message": "โทนภาษาญี่ปุ่น"
+  },
+  "formalityPolite": {
+    "message": "Polite (です・ます)"
+  },
+  "formalityPlain": {
+    "message": "เรียบ (だ・である)"
+  },
+  "displayLabel": {
+    "message": "รูปแบบการอ่าน"
+  },
+  "displayReplace": {
+    "message": "แทนที่ต้นฉบับ"
+  },
+  "displayBilingual": {
+    "message": "สองภาษา"
+  },
+  "statusChecking": {
+    "message": "กำลังตรวจสอบ…"
+  },
+  "pageStatusLabel": {
+    "message": "หน้านี้"
+  },
+  "pageStatusUnavailable": {
+    "message": "ไม่สามารถแปลได้"
+  },
+  "pageStatusLanguageUnknown": {
+    "message": "ภาษาที่ไม่ทราบ"
+  },
+  "pageStatusReady": {
+    "message": "$LANG$ · $COUNT$ บล็อก",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      },
+      "count": {
+        "content": "$2"
+      }
+    }
+  },
+  "engineStatusLabel": {
+    "message": "ระยะเวลาการทำงาน"
+  },
+  "engineHeading": {
+    "message": "เครื่องยนต์"
+  },
+  "engineWebGpu": {
+    "message": "WebGPU"
+  },
+  "engineCpuWebGpuUnsupported": {
+    "message": "CPU (ไม่สามารถใช้ WebGPU ได้)"
+  },
+  "engineCpuAdapterUnavailable": {
+    "message": "CPU (ไม่มีอะแดปเตอร์ GPU)"
+  },
+  "engineCpuProbeFailed": {
+    "message": "CPU (WebGPU check ล้มเหลว)"
+  },
+  "engineUnavailable": {
+    "message": "ไม่พร้อมใช้งาน"
+  },
+  "isolationLabel": {
+    "message": "การแยกออกจากแหล่งกำเนิดเดียวกัน"
+  },
+  "isolationOn": {
+    "message": "ทำงานอยู่"
+  },
+  "isolationOff": {
+    "message": "ไม่ทำงาน"
+  },
+  "threadsLabel": {
+    "message": "คอร์ลโลจิก"
+  },
+  "diagHeading": {
+    "message": "การวินิจฉัย"
+  },
+  "diagBackend": {
+    "message": "Backend ที่ทำงานอยู่"
+  },
+  "diagThreads": {
+    "message": "กระทู้"
+  },
+  "diagParallel": {
+    "message": "n_parallel"
+  },
+  "diagBackendGpu": {
+    "message": "WebGPU"
+  },
+  "diagBackendCpu": {
+    "message": "CPU"
+  },
+  "diagBackendUnknown": {
+    "message": "ไม่โหลด"
+  },
+  "diagRateHint": {
+    "message": "ในขณะที่หน้าเว็บกำลังแปล แถบของหน้านั้นจะแสดงโทเคน/s และเซกเมนต์/s"
+  },
+  "paceLabel": {
+    "message": "มองล่วงหน้า"
+  },
+  "paceFast": {
+    "message": "มองไปข้างหน้าให้ไกลขึ้น"
+  },
+  "paceQuality": {
+    "message": "มองเห็นก่อน"
+  },
+  "paceHelp": {
+    "message": "แปลย่อหน้าก่อนที่จะเลื่อนเข้ามาเห็น \"Look ahead further\" จะเก็บข้อมูลเพิ่มเติมไว้ที่ด้านล่างของการเลื่อนหน้า เพื่อให้ข้อความพร้อมใช้งานเมื่อคุณเลื่อนหน้า สำหรับภาษาที่ PLaMo รองรับ ทุกบรรทัดจะมาจาก PLaMo โดยไม่มีการนำร่างของ Chrome มาใช้เลย"
+  },
+  "pageRate": {
+    "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
+    "placeholders": {
+      "tokens": {
+        "content": "$1"
+      },
+      "segments": {
+        "content": "$2"
+      }
+    }
+  },
+  "openOptions": {
+    "message": "เปิดการตั้งค่า"
+  },
+  "unofficialNotice": {
+    "message": "ไม่เป็นทางการ ไม่ได้มีความเกี่ยวข้องกับ Preferred Networks สร้างด้วย PLaMo"
+  },
+  "optionsTitle": {
+    "message": "การตั้งค่า"
+  },
+  "optionsLead": {
+    "message": "เลือกวิธีการทำงานของการแปล จัดการโมเดล และกำหนดพฤติกรรมของแต่ละไซต์ การเปลี่ยนแปลงจะถูกบันทึกโดยอัตโนมัติ"
+  },
+  "privacyHeading": {
+    "message": "ความเป็นส่วนตัว"
+  },
+  "privacyBody": {
+    "message": "ส่วนขยายนี้ไม่ส่งข้อความหน้าเว็บไปยังเซิร์ฟเวอร์ ไม่มีการเก็บข้อมูลทางเทเลเมทรี"
+  },
+  "privacyDestinations": {
+    "message": "คำขอของส่วนขยายนี้คือการดาวน์โหลดโมเดล โดยจะเริ่มต้นที่ huggingface.co และดำเนินต่อไปจากการเปลี่ยนเส้นทางของ Hugging Face ไปยัง CDN ของมัน ไม่มีการรวมข้อความในหน้าเว็บไว้ด้วย ส่วน Chrome จะดาวน์โหลดแพ็กภาษาของตนเอง"
+  },
+  "privacyPolicyLink": {
+    "message": "นโยบายความเป็นส่วนตัว"
+  },
+  "sourceCodeLink": {
+    "message": "โค้ดต้นทาง"
+  },
+  "licensesHeading": {
+    "message": "ใบอนุญาต"
+  },
+  "licensesBody": {
+    "message": "PLaMo Community License ฉบับเต็มและ MIT License ของส่วนขยายนี้ถูกรวมอยู่ในตัวส่วนขยายแล้ว"
+  },
+  "licensePlaMoJa": {
+    "message": "PLaMo Community License (ภาษาญี่ปุ่น)"
+  },
+  "licensePlaMoEn": {
+    "message": "PLaMo Community License (ภาษาอังกฤษ)"
+  },
+  "licenseMit": {
+    "message": "ใบอนุญาต MIT"
+  },
+  "licenseNotice": {
+    "message": "ประกาศ"
+  },
+  "licenseModelNote": {
+    "message": "น้ำหนักของโมเดลไม่ได้ถูกรวมไว้ด้วยกัน โดยจะถูกดาวน์โหลดจากรีโพซิทอรีอย่างเป็นทางการของ Hugging Face ในกรณีที่ยังไม่มีการจัดเก็บไว้บนอุปกรณ์นี้"
+  },
+  "openOnboarding": {
+    "message": "เปิดรับการปฐมนิเทศ"
+  },
+  "machineTranslationNotice": {
+    "message": "คำแปลคือการแปลด้วยเครื่องที่สร้างโดย PLaMo"
+  },
+  "onboardingEyebrow": {
+    "message": "เริ่มต้นใช้งาน"
+  },
+  "onboardingLead": {
+    "message": "การแปลหน้าเว็บจะทำงานบนอุปกรณ์ของคุณ รุ่น PLaMo 3 จะดาวน์โหลดได้ก็ต่อเมื่อยังไม่มีการจัดเก็บไว้ในอุปกรณ์นี้"
+  },
+  "onboardingSetupHeading": {
+    "message": "เกี่ยวกับส่วนขยายนี้"
+  },
+  "onboardingModelNote": {
+    "message": "โมเดลเริ่มต้น (573 MB) จะดาวน์โหลดลงในอุปกรณ์นี้ การถ่ายโอนความเร็ว 100 Mbps อย่างต่อเนื่องในขนาดดังกล่าวจะใช้เวลาประมาณ 46 วินาทีก่อนจะเกิดค่า overhead โดยเวลาจริงจะแตกต่างกันไป การดาวน์โหลดที่หยุดชะงักจะกลับมาเริ่มต้นใหม่"
+  },
+  "onboardingBridgeNote": {
+    "message": "หน้าเว็บจะคงข้อความเดิมไว้จนกว่าโมเดลจะพร้อมใช้งาน จากนั้น PLaMo จะแปลข้อความนั้น โดย Google Docs จะแปลภาษา Chrome ให้เป็นภาษาในเครื่อง"
+  },
+  "onboardingPrivacyNote": {
+    "message": "ส่วนขยายนี้ไม่ส่งข้อความหน้าเว็บไปยังเซิร์ฟเวอร์"
+  },
+  "onboardingClose": {
+    "message": "ปิด"
+  },
+  "onboardingStart": {
+    "message": "ตกลงยอมรับใบอนุญาตและเริ่มต้น"
+  },
+  "onboardingStartFailed": {
+    "message": "ไม่สามารถเริ่มการตั้งค่าได้ กรุณาลองอีกครั้ง"
+  },
+  "onboardingHttpError": {
+    "message": "การดาวน์โหลดโมเดลล้มเหลว (HTTP $STATUS$) กรุณาลองอีกครั้ง",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      }
+    }
+  },
+  "errorSettings": {
+    "message": "ไม่สามารถโหลดการตั้งค่าของคุณได้"
+  },
+  "errorSaveSettings": {
+    "message": "ไม่สามารถบันทึกการตั้งค่าของคุณได้"
+  },
+  "errorPage": {
+    "message": "ไม่สามารถอ่านหน้านี้ได้"
+  },
+  "errorAction": {
+    "message": "ไม่สามารถเปิดหน้าเว็บได้"
+  },
+  "retry": {
+    "message": "ลองอีกครั้ง"
+  },
+  "originalLabel": {
+    "message": "ต้นฉบับ"
+  },
+  "chromeTranslationNote": {
+    "message": "การแปลในตัวของ Chrome"
+  },
+  "machineTranslationTooltip": {
+    "message": "การแปลเป็นเครื่องด้วย PLaMo."
+  },
+  "selectionPending": {
+    "message": "แปล…"
+  },
+  "selectionFailed": {
+    "message": "ไม่สามารถแปลตัวเลือกนี้ได้"
+  },
+  "selectionTitle": {
+    "message": "ข้อความที่เลือก"
+  },
+  "selectionIcon": {
+    "message": "แปลข้อความที่เลือก"
+  },
+  "close": {
+    "message": "ปิด"
+  },
+  "commandTranslate": {
+    "message": "แปลหน้านี้หรือกู้คืนหน้าเดิม"
+  },
+  "commandBilingual": {
+    "message": "แปลในมุมมองสองภาษา หรือสลับมุมมองปัจจุบัน"
+  },
+  "commandSelection": {
+    "message": "แปลข้อความที่เลือก"
+  },
+  "contextTranslatePage": {
+    "message": "แปลหน้านี้"
+  },
+  "contextTranslateSelection": {
+    "message": "แปลข้อความที่เลือก"
+  },
+  "translateThisPage": {
+    "message": "แปลหน้านี้"
+  },
+  "restoreThisPage": {
+    "message": "กู้คืนต้นฉบับ"
+  },
+  "pageStartBlocked": {
+    "message": "การแปลหน้าเว็บจะรอจนกว่าโมเดล PLaMo จะดาวน์โหลดและโหลดเสร็จสมบูรณ์ เปิดการปฐมนิเทศเพื่อดูความคืบหน้า"
+  },
+  "pageTranslating": {
+    "message": "แปล…"
+  },
+  "pageProgress": {
+    "message": "แปล $DONE$ / $TOTAL$",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pageProgressLabel": {
+    "message": "ความคืบหน้าในการแปล"
+  },
+  "pageTranslated": {
+    "message": "หน้านี้เป็นฉบับแปล"
+  },
+  "pagePartial": {
+    "message": "ไม่สามารถแปลส่วนต่างๆ ของหน้านี้ได้ $BLOCKS$ ส่วน",
+    "placeholders": {
+      "blocks": {
+        "content": "$1"
+      }
+    }
+  },
+  "pageAlwaysOn": {
+    "message": "เว็บไซต์นี้มีการแปลอยู่เสมอ"
+  },
+  "siteGrantTitle": {
+    "message": "แปลเว็บไซต์นี้"
+  },
+  "siteGrantBody": {
+    "message": "หน้าเว็บบน $HOST$ จะถูกแปลบนอุปกรณ์นี้",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteGrantAllow": {
+    "message": "อนุญาต"
+  },
+  "siteGrantDenied": {
+    "message": "ไม่ได้รับอนุญาต ให้ลองอีกครั้ง"
+  },
+  "siteGrantInvalid": {
+    "message": "หน้านี้ไม่ได้ระบุชื่อเว็บไซต์"
+  },
+  "targetAdjustedNote": {
+    "message": "หน้านี้อยู่ในภาษาเป้าหมายที่บันทึกไว้แล้ว ดังนั้นจึงมีการสลับเป้าหมาย"
+  },
+  "sameLanguageHint": {
+    "message": "หน้านี้เขียนด้วยภาษาเป้าหมายแล้ว"
+  },
+  "displaySiteHint": {
+    "message": "ตัวเลือกนี้จะถูกจดจำไว้สำหรับเว็บไซต์"
+  },
+  "displayNowBilingual": {
+    "message": "เว็บไซต์นี้เปิดให้ใช้งานแบบสองภาษาแล้ว"
+  },
+  "displayNowReplace": {
+    "message": "มีการเปิดดูแทนในเว็บไซต์นี้"
+  },
+  "optionsDefaultHint": {
+    "message": "นี่คือค่าเริ่มต้น เว็บไซต์ที่คุณแปลสามารถคงภาษาและรูปแบบการอ่านของตนเองไว้ได้"
+  },
+  "optionsSiteLive": {
+    "message": "ภาษาและรูปแบบการอ่านในที่นี้เป็นไปตามตัวเว็บไซต์ การตั้งค่าข้างต้นจะใช้เมื่อเว็บไซต์ไม่มีตัวเลือกในการเลือกเอง"
+  },
+  "alwaysTranslateSite": {
+    "message": "แปลเว็บไซต์นี้เสมอ"
+  },
+  "shortcutTranslate": {
+    "message": "Alt+A (Option+A บน Mac) จะแปลงหน้าเว็บหรือกู้คืนหน้าเว็บเดิม"
+  },
+  "shortcutBilingual": {
+    "message": "Alt+B (Option+B บน Mac) จะสลับระหว่างการแสดงผลแบบแทนที่และแบบสองภาษา และจะจดจำตัวเลือกสำหรับเว็บไซต์นี้ไว้"
+  },
+  "shortcutSelection": {
+    "message": "Alt+S (Option+S บน Mac) จะแปลงข้อความที่เลือก"
+  },
+  "runtimePreparing": {
+    "message": "การเตรียม $PERCENT$%",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "runtimeDownloading": {
+    "message": "กำลังดาวน์โหลด $PERCENT$% ($RECEIVED$ / $TOTAL$)",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      },
+      "received": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
+  "runtimeVerifying": {
+    "message": "ตรวจสอบไฟล์ที่ดาวน์โหลดมา"
+  },
+  "runtimeLoading": {
+    "message": "กำลังโหลดโมเดล"
+  },
+  "runtimePlamoGpu": {
+    "message": "PLaMo · WebGPU"
+  },
+  "runtimePlamoCpu": {
+    "message": "PLaMo · CPU"
+  },
+  "runtimePlamoGpuFallback": {
+    "message": "PLaMo · CPU (WebGPU ไม่สามารถโหลดโมเดลได้)"
+  },
+  "runtimeChrome": {
+    "message": "การแปลในตัวของ Chrome"
+  },
+  "runtimeWaiting": {
+    "message": "รอโมเดล"
+  },
+  "runtimeError": {
+    "message": "ไม่สามารถโหลดโมเดลได้"
+  },
+  "runtimeChecking": {
+    "message": "กำลังตรวจสอบ…"
+  },
+  "chromeOnlySuffix": {
+    "message": "(ในตัว Chrome)"
+  },
+  "onboardingStartNotice": {
+    "message": "การกด \"ตกลงยอมรับใบอนุญาตและเริ่มต้น\" หมายความว่าคุณตกลงยอมรับใบอนุญาต PLaMo Community License ทั้งหมด"
+  },
+  "onboardingCommercialHeading": {
+    "message": "ข้อกำหนดการใช้งานของ PLaMo"
+  },
+  "onboardingPersonalHeading": {
+    "message": "การใช้งานส่วนบุคคลและทางวิชาการ"
+  },
+  "onboardingPersonalBody": {
+    "message": "ไม่จำเป็นต้องลงทะเบียนล่วงหน้า"
+  },
+  "onboardingCommercialHeading2": {
+    "message": "การใช้งานในเชิงพาณิชย์และการทำงาน"
+  },
+  "onboardingCommercialBody": {
+    "message": "รวมถึงการใช้งานสำหรับการทำงานภายในบริษัท โดยจำเป็นต้องใช้สิ่งต่อไปนี้ทั้งสองอย่าง"
+  },
+  "onboardingCommercialRegistration": {
+    "message": "การลงทะเบียนกับ PFN ก่อนหน้านี้"
+  },
+  "onboardingCommercialRevenue": {
+    "message": "รายได้หรือยอดขายของท่านหรือบริษัทในเครือในปีงบประมาณล่าสุดไม่เกิน 1 พันล้านเยน"
+  },
+  "onboardingCommercialUnmetHeading": {
+    "message": "เมื่อไม่เป็นไปตามเงื่อนไข"
+  },
+  "onboardingCommercialUnmetBody": {
+    "message": "หากใช้งานในเชิงพาณิชย์ จำเป็นต้องใช้ใบอนุญาตแยกต่างหากจาก PFN"
+  },
+  "onboardingAgeNotice": {
+    "message": "หากคุณมีอายุต่ำกว่า 18 ปี หรือไม่ถึงเกณฑ์ที่จะทำสัญญาด้วยตนเอง จำเป็นต้องได้รับความยินยอมจากผู้ปกครองหรือผู้ดูแล"
+  },
+  "onboardingConsentSentence": {
+    "message": "การกด \"ตกลงยอมรับใบอนุญาตและเริ่มต้น\" หมายความว่าคุณตกลงยอมรับ PLaMo Community License"
+  },
+  "onboardingOtherLicenses": {
+    "message": "ข้อมูลใบอนุญาตอื่น ๆ"
+  },
+  "onboardingReconsentHeading": {
+    "message": "คำศัพท์ของ PLaMo อ่านง่ายขึ้นแล้ว"
+  },
+  "onboardingReconsentBody": {
+    "message": "คุณได้ตกลงยอมรับ PLaMo Community License ไปก่อนหน้านี้แล้ว ต่อไปนี้คือสรุปเงื่อนไขที่ชัดเจนยิ่งขึ้น เพื่อให้คุณตกลงยอมรับอีกครั้ง โมเดลที่คุณดาวน์โหลดมาจะยังคงอยู่บนอุปกรณ์เครื่องนี้ต่อไป"
+  },
+  "onboardingReconsentStart": {
+    "message": "เห็นด้วยและดำเนินต่อ"
+  },
+  "plamoRegistrationLink": {
+    "message": "แบบฟอร์มการลงทะเบียนอย่างเป็นทางการของ PFN (สำหรับการใช้งานเชิงพาณิชย์)"
+  },
+  "plamoOfficialLicenseJa": {
+    "message": "PLaMo Community License (อย่างเป็นทางการ, ภาษาญี่ปุ่น)"
+  },
+  "plamoOfficialLicenseEn": {
+    "message": "PLaMo Community License (อย่างเป็นทางการ, ภาษาอังกฤษ)"
+  },
+  "onboardingUseNow": {
+    "message": "ตัวแปลภาษาในตัวของ Chrome จะถูกใช้งานเฉพาะสำหรับคู่ภาษาที่ PLaMo ไม่รองรับเท่านั้น"
+  },
+  "onboardingReadyHeading": {
+    "message": "คุณพร้อมแล้ว"
+  },
+  "onboardingReadyLead": {
+    "message": "คุณสามารถแปลหน้าเว็บบนอุปกรณ์นี้ได้"
+  },
+  "onboardingReadyToolbar": {
+    "message": "คลิกที่ไอคอนแถบเครื่องมือเพื่อแปลหน้าที่เปิดอยู่"
+  },
+  "onboardingReadyPage": {
+    "message": "กด Alt+A (Option+A บน Mac) เพื่อแปลงหน้าทั้งหมด กดอีกครั้งเพื่อกู้คืนหน้าเดิม"
+  },
+  "onboardingReadySelection": {
+    "message": "กด Alt+S (Option+S บน Mac) เพื่อแปลข้อความที่เลือก"
+  },
+  "onboardingReadyContext": {
+    "message": "คลิกขวาที่หน้าและเลือก \"Translate this page\" สำหรับข้อความที่เลือกแล้ว ให้เลือก \"Translate the selected text\""
+  },
+  "onboardingTry": {
+    "message": "ลองดูหน้าตัวอย่าง"
+  },
+  "onboardingWhileDownloading": {
+    "message": "ในขณะที่โมเดลกำลังดาวน์โหลด หน้าเว็บจะยังคงเนื้อหาเดิมไว้ โดยจะไม่มีสิ่งใดถูกแปลจนกว่า PLaMo จะพร้อมใช้งาน"
+  },
+  "downloadEtaSeconds": {
+    "message": "เหลือเวลาประมาณ $COUNT$ วินาที",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadEtaMinutes": {
+    "message": "เหลือเวลาประมาณ $COUNT$ นาที",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadResuming": {
+    "message": "การดาวน์โหลดยังคงดำเนินต่อไปจากจุดที่หยุดลง"
+  },
+  "downloadProgressLabel": {
+    "message": "ดาวน์โหลดความคืบหน้า"
+  },
+  "downloadPaused": {
+    "message": "การดาวน์โหลดถูกระงับ สามารถกลับมาดำเนินการต่อได้จากจุดที่เคยดำเนินการไว้"
+  },
+  "downloadResume": {
+    "message": "รีซิวเมอร์"
+  },
+  "downloadCancel": {
+    "message": "หยุดชั่วคราว"
+  },
+  "modelHeading": {
+    "message": "โมเดล"
+  },
+  "modelStandard": {
+    "message": "มาตรฐาน (0.8B)"
+  },
+  "modelHigh": {
+    "message": "ความแม่นยำสูง (2B)"
+  },
+  "modelInUse": {
+    "message": "กำลังใช้งาน"
+  },
+  "modelUse": {
+    "message": "ใช้โมเดลนี้"
+  },
+  "modelDownload": {
+    "message": "ดาวน์โหลด"
+  },
+  "modelDelete": {
+    "message": "ลบ"
+  },
+  "highQualityOffer": {
+    "message": "คุณสามารถลองใช้โมเดลที่มีความแม่นยำสูงกว่า (2B, ประมาณ 1.81 GB) ได้ ความเร็วจะขึ้นอยู่กับอุปกรณ์นี้"
+  },
+  "useHighQuality": {
+    "message": "ใช้งาน"
+  },
+  "dismissHighQuality": {
+    "message": "ไม่ใช่ตอนนี้"
+  },
+  "glossaryHeading": {
+    "message": "คำศัพท์"
+  },
+  "glossaryHelp": {
+    "message": "เขียนคู่ “แหล่งที่มา, การแปล” หนึ่งคู่ต่อบรรทัด เลือกเว็บไซต์ที่จะใช้รายการนี้เฉพาะที่นั้นเท่านั้น"
+  },
+  "glossaryGlobal": {
+    "message": "ทุกไซต์"
+  },
+  "glossaryImport": {
+    "message": "นำเข้า CSV"
+  },
+  "glossaryExport": {
+    "message": "ส่งออก CSV"
+  },
+  "glossaryAddSite": {
+    "message": "เพิ่มไซต์"
+  },
+  "siteRulesHeading": {
+    "message": "การแปลแบบรายไซต์"
+  },
+  "siteRuleAsk": {
+    "message": "ถามทุกครั้ง"
+  },
+  "siteRuleAlways": {
+    "message": "แปลเสมอ"
+  },
+  "siteRuleNever": {
+    "message": "ห้ามแปลโดยเด็ดขาด"
+  },
+  "noSiteRules": {
+    "message": "ยังไม่มีการตั้งค่ารายไซต์"
+  },
+  "siteHostLabel": {
+    "message": "ชื่อโฮสต์"
+  },
+  "cacheClear": {
+    "message": "ล้างแคชการแปล"
+  },
+  "cacheCleared": {
+    "message": "แคชการแปลถูกล้างออก"
+  },
+  "cacheClearFailed": {
+    "message": "ไม่สามารถล้างแคชการแปลได้"
+  },
+  "idleLabel": {
+    "message": "ปล่อยโมเดลออกจากหน่วยความจำหลังจาก"
+  },
+  "idle1": {
+    "message": "1 นาที"
+  },
+  "idle5": {
+    "message": "5 นาที"
+  },
+  "idle15": {
+    "message": "15 นาที"
+  },
+  "idleNever": {
+    "message": "ไม่มีทาง"
+  },
+  "tierLabel": {
+    "message": "โหมดประสิทธิภาพ"
+  },
+  "tierAuto": {
+    "message": "อัตโนมัติ"
+  },
+  "tierGpu": {
+    "message": "WebGPU"
+  },
+  "tierCpu8": {
+    "message": "CPU (8 เธรดขึ้นไป)"
+  },
+  "tierCpu4": {
+    "message": "CPU (4 เธรด)"
+  },
+  "tierHelp": {
+    "message": "จะเลือกโหมดที่เหมาะสมกับ PC เครื่องนี้โดยอัตโนมัติ"
+  },
+  "slowDeviceHint": {
+    "message": "PLaMo ช้าบน PC เครื่องนี้ ย่อหน้าแต่ละย่อหน้าจะปรากฏขึ้นเมื่อโมเดลจบการทำงาน"
+  },
+  "errorPermission": {
+    "message": "ไม่ได้รับอนุญาตให้ใช้งานเว็บไซต์นี้"
+  },
+  "siteHostInvalid": {
+    "message": "กรอกชื่อโฮสต์ที่ถูกต้อง"
+  },
+  "glossaryScopeLabel": {
+    "message": "ใช้กับ"
+  },
+  "listSeparator": {
+    "message": ","
+  },
+  "openTyped": {
+    "message": "แปลข้อความที่พิมพ์แล้ว"
+  },
+  "typedLead": {
+    "message": "พิมพ์หรือวางข้อความแล้วแปลด้วยโมเดล PLaMo เดียวกับที่ใช้ในการแปลหน้าเว็บ ไม่มีอะไรออกจากอุปกรณ์นี้"
+  },
+  "typedHeading": {
+    "message": "การแปลแบบพิมพ์"
+  },
+  "typedSourceLanguageLabel": {
+    "message": "แปลจาก"
+  },
+  "typedDetectSource": {
+    "message": "ตรวจพบโดยอัตโนมัติ"
+  },
+  "typedSourceLabel": {
+    "message": "ข้อความที่ต้องแปล"
+  },
+  "typedPlaceholder": {
+    "message": "พิมพ์หรือวางข้อความลงที่นี่"
+  },
+  "typedCounter": {
+    "message": "$COUNT$ / $LIMIT$ ตัวอักษร",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "limit": {
+        "content": "$2"
+      }
+    }
+  },
+  "typedTooLong": {
+    "message": "ข้อความนี้ยาวเกินไปสำหรับคำขอหนึ่งรายการ โปรดลดความยาวลงเหลือ $LIMIT$ ตัวอักษรหรือน้อยกว่านั้น",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedDirectionHint": {
+    "message": "แปลเป็น $LANGUAGE$. ภาษาอื่น ๆ จะถูกตรวจพบโดยอัตโนมัติ",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedSwap": {
+    "message": "เปลี่ยนทิศทางการแปล"
+  },
+  "typedTranslate": {
+    "message": "แปล"
+  },
+  "typedTranslating": {
+    "message": "แปล…"
+  },
+  "typedStop": {
+    "message": "หยุด"
+  },
+  "typedClear": {
+    "message": "ชัดเจน"
+  },
+  "typedCopy": {
+    "message": "คัดลอก"
+  },
+  "typedCopied": {
+    "message": "คัดลอกแล้ว"
+  },
+  "typedCopyFailed": {
+    "message": "ไม่สามารถคัดลอกคำแปลได้ โปรดเลือกแล้วคัดลอกด้วยตนเอง"
+  },
+  "typedResultHeading": {
+    "message": "การแปล"
+  },
+  "typedResultEmpty": {
+    "message": "คำแปล PLaMo ปรากฏอยู่ตรงนี้ ข้างกับข้อความที่คุณวางไว้"
+  },
+  "typedRunHint": {
+    "message": "Ctrl+Enter (⌘+Enter บน Mac) แปลงได้ด้วย"
+  },
+  "typedFailed": {
+    "message": "ข้อความไม่สามารถแปลได้ ข้อความของคุณยังคงเดิม โปรดลองอีกครั้ง"
+  },
+  "typedNeedsConsent": {
+    "message": "PLaMo จำเป็นต้องมีข้อตกลงใบอนุญาตแบบครั้งเดียวก่อนจะสามารถเริ่มดำเนินการได้ ข้อความของคุณจะยังไม่ถูกแปลจนกว่าจะถึงตอนนั้น"
+  },
+  "typedOpenOnboarding": {
+    "message": "ตรวจสอบใบอนุญาตแล้วเริ่มต้น"
+  },
+  "typedModelMissing": {
+    "message": "โมเดล PLaMo ยังไม่มีอยู่บนอุปกรณ์นี้"
+  },
+  "typedModelPartial": {
+    "message": "การดาวน์โหลดโมเดล PLaMo ถูกขัดจังหวะ"
+  },
+  "typedModelBusy": {
+    "message": "โมเดล PLaMo กำลังดาวน์โหลดอยู่ การแปลจะเริ่มต้นขึ้นเมื่อพร้อมแล้ว"
+  },
+  "typedModelError": {
+    "message": "โมเดล PLaMo ไม่สามารถโหลดได้ เปิดหน้าเลือกตัวเลือกเพื่อตรวจสอบ"
+  },
+  "typedDownloadModel": {
+    "message": "ดาวน์โหลดโมเดล"
+  },
+  "typedChromeOnlyTarget": {
+    "message": "การแปลแบบพิมพ์ใช้เพียง PLaMo และ PLaMo ไม่ได้แปลเป็น $LANGUAGE$ ให้เลือกภาษาอื่นในส่วนนี้ หรือแปลหน้าเว็บสำหรับตัวแปลภาษาในตัว",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedChromeOnlyNote": {
+    "message": "ตัวแปลในตัวของ Chrome ครอบคลุมเฉพาะ $LANGUAGES$ ในหน้าเว็บเท่านั้น โดยจะไม่มีการส่งข้อความที่พิมพ์เข้าไปยังตัวแปลดังกล่าว",
+    "placeholders": {
+      "languages": {
+        "content": "$1"
+      }
+    }
+  }
+}

@@ -1,0 +1,791 @@
+{
+  "extensionName": {
+    "message": "Sakutto - 本地 AI 翻譯",
+    "description": "Extension name."
+  },
+  "extensionShortName": {
+    "message": "Sakutto",
+    "description": "Short extension name."
+  },
+  "extensionDescription": {
+    "message": "本地 LLM 可翻譯您裝置上的頁面。免費，無需帳號。",
+    "description": "Extension description."
+  },
+  "tagline": {
+    "message": "在您的裝置上執行的頁面翻譯"
+  },
+  "settingsLabel": {
+    "message": "設定"
+  },
+  "targetLanguageLabel": {
+    "message": "轉換為"
+  },
+  "formalityLabel": {
+    "message": "日語語調"
+  },
+  "formalityPolite": {
+    "message": "Polite (です・ます)"
+  },
+  "formalityPlain": {
+    "message": "Plain (だ・である)"
+  },
+  "displayLabel": {
+    "message": "閱讀風格"
+  },
+  "displayReplace": {
+    "message": "替換原件"
+  },
+  "displayBilingual": {
+    "message": "雙語"
+  },
+  "statusChecking": {
+    "message": "正在檢查…"
+  },
+  "pageStatusLabel": {
+    "message": "本頁面"
+  },
+  "pageStatusUnavailable": {
+    "message": "無法轉譯"
+  },
+  "pageStatusLanguageUnknown": {
+    "message": "未知語言"
+  },
+  "pageStatusReady": {
+    "message": "$LANG$ · $COUNT$ 區塊",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      },
+      "count": {
+        "content": "$2"
+      }
+    }
+  },
+  "engineStatusLabel": {
+    "message": "執行時間"
+  },
+  "engineHeading": {
+    "message": "引擎"
+  },
+  "engineWebGpu": {
+    "message": "WebGPU"
+  },
+  "engineCpuWebGpuUnsupported": {
+    "message": "CPU (WebGPU 無法使用)"
+  },
+  "engineCpuAdapterUnavailable": {
+    "message": "CPU（無 GPU 轉接器）"
+  },
+  "engineCpuProbeFailed": {
+    "message": "CPU (WebGPU 檢查失敗)"
+  },
+  "engineUnavailable": {
+    "message": "不可用"
+  },
+  "isolationLabel": {
+    "message": "跨來源隔離"
+  },
+  "isolationOn": {
+    "message": "啟用"
+  },
+  "isolationOff": {
+    "message": "非活動"
+  },
+  "threadsLabel": {
+    "message": "邏輯核心"
+  },
+  "diagHeading": {
+    "message": "診斷"
+  },
+  "diagBackend": {
+    "message": "主動的後端"
+  },
+  "diagThreads": {
+    "message": "討論串"
+  },
+  "diagParallel": {
+    "message": "n_parallel"
+  },
+  "diagBackendGpu": {
+    "message": "WebGPU"
+  },
+  "diagBackendCpu": {
+    "message": "CPU"
+  },
+  "diagBackendUnknown": {
+    "message": "未載入"
+  },
+  "diagRateHint": {
+    "message": "當頁面進行翻譯時，其列顯示的是 token/s 與 segment/s。"
+  },
+  "paceLabel": {
+    "message": "預判"
+  },
+  "paceFast": {
+    "message": "展望更遠的未來"
+  },
+  "paceQuality": {
+    "message": "可見第一"
+  },
+  "paceHelp": {
+    "message": "在段落捲動至視覺化之前會先翻譯。「Look ahead further」會在頁面下方預載更多內容，因此當您捲動時，文本就已準備就緒。對於 PLaMo 支援的語言，每一行均來自 PLaMo；Chrome 的草案絕不會被使用。"
+  },
+  "pageRate": {
+    "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
+    "placeholders": {
+      "tokens": {
+        "content": "$1"
+      },
+      "segments": {
+        "content": "$2"
+      }
+    }
+  },
+  "openOptions": {
+    "message": "開啟設定"
+  },
+  "unofficialNotice": {
+    "message": "非官方。與 Preferred Networks 無關。由 PLaMo 開發。"
+  },
+  "optionsTitle": {
+    "message": "設定"
+  },
+  "optionsLead": {
+    "message": "選擇翻譯運作方式、管理模型並設定每個站點的行為。變更將自動儲存。"
+  },
+  "privacyHeading": {
+    "message": "隱私"
+  },
+  "privacyBody": {
+    "message": "此擴充功能不會將頁面文字傳送至伺服器。不提供行尾追蹤。"
+  },
+  "privacyDestinations": {
+    "message": "該擴充功能本身的需求是模型下載。它從 huggingface.co 開始，隨後依循 Hugging Face 轉向其 CDN。頁面文字不包含在內。Chrome 則自行下載其語言包。"
+  },
+  "privacyPolicyLink": {
+    "message": "隱私權政策"
+  },
+  "sourceCodeLink": {
+    "message": "原始碼"
+  },
+  "licensesHeading": {
+    "message": "授權"
+  },
+  "licensesBody": {
+    "message": "完整的 PLaMo Community License 以及此擴充功能的 MIT 授權條款均隨附於該擴充功能中。"
+  },
+  "licensePlaMoJa": {
+    "message": "PLaMo 社群授權 (日文)"
+  },
+  "licensePlaMoEn": {
+    "message": "PLaMo 社群授權 (英文)"
+  },
+  "licenseMit": {
+    "message": "MIT 授權"
+  },
+  "licenseNotice": {
+    "message": "通知"
+  },
+  "licenseModelNote": {
+    "message": "模型權重不隨附。若尚未儲存於此裝置上，則會從 Hugging Face 官方儲存庫下載。"
+  },
+  "openOnboarding": {
+    "message": "開放式入職培訓"
+  },
+  "machineTranslationNotice": {
+    "message": "翻譯為由 PLaMo 產生的機器翻譯。"
+  },
+  "onboardingEyebrow": {
+    "message": "入門指南"
+  },
+  "onboardingLead": {
+    "message": "頁面翻譯將在您的裝置上執行。PLaMo 3 型號僅在尚未儲存於該裝置時才會下載。"
+  },
+  "onboardingSetupHeading": {
+    "message": "關於此擴充功能"
+  },
+  "onboardingModelNote": {
+    "message": "預設模型 (573 MB) 下載至此裝置。該大小的持續 100 Mbps 傳輸時間約為 46 秒，隨後會產生開銷；即時時間則有所不同。中斷的下載會重新開始。"
+  },
+  "onboardingBridgeNote": {
+    "message": "頁面會保留原有文字直到模型準備就緒，接著由 PLaMo 進行翻譯。Google 文件將 Chrome 的翻譯轉換為裝置端版本。"
+  },
+  "onboardingPrivacyNote": {
+    "message": "此擴充功能不會將頁面文字傳送至伺服器。"
+  },
+  "onboardingClose": {
+    "message": "關閉"
+  },
+  "onboardingStart": {
+    "message": "同意授權條款並開始"
+  },
+  "onboardingStartFailed": {
+    "message": "無法啟動設定。請再試一次。"
+  },
+  "onboardingHttpError": {
+    "message": "模型下載失敗 (HTTP $STATUS$)。請再試一次。",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      }
+    }
+  },
+  "errorSettings": {
+    "message": "無法載入您的設定。"
+  },
+  "errorSaveSettings": {
+    "message": "無法儲存您的設定。"
+  },
+  "errorPage": {
+    "message": "無法讀取此頁面。"
+  },
+  "errorAction": {
+    "message": "無法開啟頁面。"
+  },
+  "retry": {
+    "message": "再試一次"
+  },
+  "originalLabel": {
+    "message": "原件"
+  },
+  "chromeTranslationNote": {
+    "message": "Chrome 內建的翻譯功能"
+  },
+  "machineTranslationTooltip": {
+    "message": "由 PLaMo 提供的機器翻譯。"
+  },
+  "selectionPending": {
+    "message": "翻譯…"
+  },
+  "selectionFailed": {
+    "message": "無法轉換此選項。"
+  },
+  "selectionTitle": {
+    "message": "選定文本"
+  },
+  "selectionIcon": {
+    "message": "翻譯所選文本"
+  },
+  "close": {
+    "message": "關閉"
+  },
+  "commandTranslate": {
+    "message": "翻譯此頁面或還原原文"
+  },
+  "commandBilingual": {
+    "message": "以雙語視圖翻譯，或切換目前視圖"
+  },
+  "commandSelection": {
+    "message": "翻譯所選文本"
+  },
+  "contextTranslatePage": {
+    "message": "翻譯此頁面"
+  },
+  "contextTranslateSelection": {
+    "message": "翻譯所選文本"
+  },
+  "translateThisPage": {
+    "message": "翻譯此頁面"
+  },
+  "restoreThisPage": {
+    "message": "還原原始檔案"
+  },
+  "pageStartBlocked": {
+    "message": "頁面翻譯將等待 PLaMo 模型完成下載並載入。開啟上手培訓以查看進度。"
+  },
+  "pageTranslating": {
+    "message": "翻譯…"
+  },
+  "pageProgress": {
+    "message": "轉換 $DONE$ / $TOTAL$",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pageProgressLabel": {
+    "message": "翻譯進度"
+  },
+  "pageTranslated": {
+    "message": "本頁面為翻譯文本。"
+  },
+  "pagePartial": {
+    "message": "無法翻譯本頁面的 $BLOCKS$ 部分。",
+    "placeholders": {
+      "blocks": {
+        "content": "$1"
+      }
+    }
+  },
+  "pageAlwaysOn": {
+    "message": "本網站隨時會進行翻譯。"
+  },
+  "siteGrantTitle": {
+    "message": "翻譯本網站"
+  },
+  "siteGrantBody": {
+    "message": "$HOST$ 上的頁面將在本裝置上進行翻譯。",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteGrantAllow": {
+    "message": "允許"
+  },
+  "siteGrantDenied": {
+    "message": "未授予權限。請再試一次。"
+  },
+  "siteGrantInvalid": {
+    "message": "本頁面未命名網站。"
+  },
+  "targetAdjustedNote": {
+    "message": "該頁面已在儲存的目標語言中，因此目標已切換。"
+  },
+  "sameLanguageHint": {
+    "message": "此頁面已以目標語言撰寫。"
+  },
+  "displaySiteHint": {
+    "message": "此選項將記錄在網站中。"
+  },
+  "displayNowBilingual": {
+    "message": "本網站已開啟雙語瀏覽。"
+  },
+  "displayNowReplace": {
+    "message": "本網站已開啟替換視圖。"
+  },
+  "optionsDefaultHint": {
+    "message": "這些是預設值。您翻譯的網站可以保留其自身的語言與閱讀風格。"
+  },
+  "optionsSiteLive": {
+    "message": "此處的語言與閱讀風格遵循網站規範。若網站沒有自行選擇的設定，則採用上述設定。"
+  },
+  "alwaysTranslateSite": {
+    "message": "請務必翻譯本網站"
+  },
+  "shortcutTranslate": {
+    "message": "Alt+A（Mac 上按 Option+A）可轉換頁面或還原原始頁面。"
+  },
+  "shortcutBilingual": {
+    "message": "Alt+B（Mac 上為 Option+B）可在替換視圖與雙語視圖之間切換，並記憶此網站的選擇。"
+  },
+  "shortcutSelection": {
+    "message": "Alt+S（Mac 上為 Option+S）會轉換所選文字。"
+  },
+  "runtimePreparing": {
+    "message": "準備 $PERCENT$%",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "runtimeDownloading": {
+    "message": "下載 $PERCENT$% ($RECEIVED$ / $TOTAL$)",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      },
+      "received": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
+  "runtimeVerifying": {
+    "message": "檢查下載的檔案。"
+  },
+  "runtimeLoading": {
+    "message": "載入模型。"
+  },
+  "runtimePlamoGpu": {
+    "message": "PLaMo · WebGPU"
+  },
+  "runtimePlamoCpu": {
+    "message": "PLaMo · CPU"
+  },
+  "runtimePlamoGpuFallback": {
+    "message": "PLaMo · CPU (WebGPU 無法載入模型)"
+  },
+  "runtimeChrome": {
+    "message": "Chrome 內建的翻譯功能"
+  },
+  "runtimeWaiting": {
+    "message": "等待模型"
+  },
+  "runtimeError": {
+    "message": "無法載入模型"
+  },
+  "runtimeChecking": {
+    "message": "正在檢查…"
+  },
+  "chromeOnlySuffix": {
+    "message": "(Chrome 內建)"
+  },
+  "onboardingStartNotice": {
+    "message": "按下「同意授權並開始」，即表示您同意整個 PLaMo 社群授權。"
+  },
+  "onboardingCommercialHeading": {
+    "message": "PLaMo 使用條款"
+  },
+  "onboardingPersonalHeading": {
+    "message": "個人與學術用途"
+  },
+  "onboardingPersonalBody": {
+    "message": "無需事先註冊。"
+  },
+  "onboardingCommercialHeading2": {
+    "message": "工作與商業用途"
+  },
+  "onboardingCommercialBody": {
+    "message": "這包括將其用於公司內部的工作。以下兩項皆為必需。"
+  },
+  "onboardingCommercialRegistration": {
+    "message": "先前已向 PFN 註冊"
+  },
+  "onboardingCommercialRevenue": {
+    "message": "您或您的關聯公司在最近一個財政年度的收入或銷售額在 10 億日圓以下"
+  },
+  "onboardingCommercialUnmetHeading": {
+    "message": "當條件不符時"
+  },
+  "onboardingCommercialUnmetBody": {
+    "message": "商業用途則需要與 PFN 取得獨立的授權。"
+  },
+  "onboardingAgeNotice": {
+    "message": "若您未滿 18 歲或其他原因無法自行簽署合約，則需經父母或監護人同意。"
+  },
+  "onboardingConsentSentence": {
+    "message": "按下「同意授權並開始」即表示您同意 PLaMo 社群授權。"
+  },
+  "onboardingOtherLicenses": {
+    "message": "其他授權資訊"
+  },
+  "onboardingReconsentHeading": {
+    "message": "PLaMo 的術語現在更易於閱讀"
+  },
+  "onboardingReconsentBody": {
+    "message": "您先前已同意 PLaMo 社群授權條款。以下是條款的更清晰摘要，以便您再次同意。您下載的模型將保留在本裝置上。"
+  },
+  "onboardingReconsentStart": {
+    "message": "同意並繼續"
+  },
+  "plamoRegistrationLink": {
+    "message": "PFN 的官方註冊表單（商業用途）"
+  },
+  "plamoOfficialLicenseJa": {
+    "message": "PLaMo 社群授權 (官方，日文)"
+  },
+  "plamoOfficialLicenseEn": {
+    "message": "PLaMo 社群授權 (官方，英文)"
+  },
+  "onboardingUseNow": {
+    "message": "Chrome 內建的翻譯器僅用於 PLaMo 不支援的語言對。"
+  },
+  "onboardingReadyHeading": {
+    "message": "你準備好了。"
+  },
+  "onboardingReadyLead": {
+    "message": "您可以在這台裝置上翻譯頁面。"
+  },
+  "onboardingReadyToolbar": {
+    "message": "點擊工具列圖示以翻譯開啟的頁面。"
+  },
+  "onboardingReadyPage": {
+    "message": "按下 Alt+A（Mac 上為 Option+A）以翻譯整個頁面。再次按下即可還原原始內容。"
+  },
+  "onboardingReadySelection": {
+    "message": "按下 Alt+S（Mac 上為 Option+S）以翻譯所選文字。"
+  },
+  "onboardingReadyContext": {
+    "message": "右鍵點擊頁面並選擇「翻譯此頁面」。對於已選擇的文字，請選擇「翻譯已選擇的文字」。"
+  },
+  "onboardingTry": {
+    "message": "試試範例頁面"
+  },
+  "onboardingWhileDownloading": {
+    "message": "在模型下載期間，頁面會保留原有的文字；直到 PLaMo 準備就緒，才會進行翻譯。"
+  },
+  "downloadEtaSeconds": {
+    "message": "剩餘約 $COUNT$ 秒。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadEtaMinutes": {
+    "message": "剩餘約 $COUNT$ 分鐘。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadResuming": {
+    "message": "下載仍從中斷的位置繼續進行。"
+  },
+  "downloadProgressLabel": {
+    "message": "下載進度"
+  },
+  "downloadPaused": {
+    "message": "下載暫停。可從原處繼續下載。"
+  },
+  "downloadResume": {
+    "message": "重新開始"
+  },
+  "downloadCancel": {
+    "message": "暫停"
+  },
+  "modelHeading": {
+    "message": "模型"
+  },
+  "modelStandard": {
+    "message": "標準 (0.8B)"
+  },
+  "modelHigh": {
+    "message": "高精度 (2B)"
+  },
+  "modelInUse": {
+    "message": "使用中"
+  },
+  "modelUse": {
+    "message": "使用此模型"
+  },
+  "modelDownload": {
+    "message": "下載"
+  },
+  "modelDelete": {
+    "message": "刪除"
+  },
+  "highQualityOffer": {
+    "message": "您可以嘗試精度更高的模型（2B，約 1.81 GB）。速度取決於此裝置。"
+  },
+  "useHighQuality": {
+    "message": "使用它"
+  },
+  "dismissHighQuality": {
+    "message": "目前不適用"
+  },
+  "glossaryHeading": {
+    "message": "術語表"
+  },
+  "glossaryHelp": {
+    "message": "每行寫一組「來源、翻譯」組合。選擇一個網站，僅在該網站使用此清單。"
+  },
+  "glossaryGlobal": {
+    "message": "所有網站"
+  },
+  "glossaryImport": {
+    "message": "匯入 CSV"
+  },
+  "glossaryExport": {
+    "message": "匯出 CSV"
+  },
+  "glossaryAddSite": {
+    "message": "新增網站"
+  },
+  "siteRulesHeading": {
+    "message": "單站翻譯"
+  },
+  "siteRuleAsk": {
+    "message": "每次詢問"
+  },
+  "siteRuleAlways": {
+    "message": "始終翻譯"
+  },
+  "siteRuleNever": {
+    "message": "絕不要翻譯"
+  },
+  "noSiteRules": {
+    "message": "尚未設定每個網站的設定。"
+  },
+  "siteHostLabel": {
+    "message": "主機名稱"
+  },
+  "cacheClear": {
+    "message": "清除翻譯快取"
+  },
+  "cacheCleared": {
+    "message": "翻譯快取已清空。"
+  },
+  "cacheClearFailed": {
+    "message": "無法清除翻譯快取。"
+  },
+  "idleLabel": {
+    "message": "將模型從記憶體中釋放後"
+  },
+  "idle1": {
+    "message": "1 分鐘"
+  },
+  "idle5": {
+    "message": "5 分鐘"
+  },
+  "idle15": {
+    "message": "15 分鐘"
+  },
+  "idleNever": {
+    "message": "從不"
+  },
+  "tierLabel": {
+    "message": "效能模式"
+  },
+  "tierAuto": {
+    "message": "自動"
+  },
+  "tierGpu": {
+    "message": "WebGPU"
+  },
+  "tierCpu8": {
+    "message": "CPU (8 個或以上執行緒)"
+  },
+  "tierCpu4": {
+    "message": "CPU (4 執行緒)"
+  },
+  "tierHelp": {
+    "message": "自動選擇適合此電腦的模式。"
+  },
+  "slowDeviceHint": {
+    "message": "這台電腦上的 PLaMo 速度很慢。每一段文字都會以模型完成時的形式顯示。"
+  },
+  "errorPermission": {
+    "message": "本網站未獲授權。"
+  },
+  "siteHostInvalid": {
+    "message": "請輸入有效的主機名稱。"
+  },
+  "glossaryScopeLabel": {
+    "message": "適用於"
+  },
+  "listSeparator": {
+    "message": ","
+  },
+  "openTyped": {
+    "message": "翻譯打字內容"
+  },
+  "typedLead": {
+    "message": "輸入或貼上文字，並使用頁面翻譯所採用的相同 PLaMo 模型進行翻譯。此資料不會離開本裝置。"
+  },
+  "typedHeading": {
+    "message": "類型化翻譯"
+  },
+  "typedSourceLanguageLabel": {
+    "message": "翻譯自"
+  },
+  "typedDetectSource": {
+    "message": "自動偵測"
+  },
+  "typedSourceLabel": {
+    "message": "文本轉譯"
+  },
+  "typedPlaceholder": {
+    "message": "在此輸入或貼上文字。"
+  },
+  "typedCounter": {
+    "message": "$COUNT$ / $LIMIT$ 個字元",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "limit": {
+        "content": "$2"
+      }
+    }
+  },
+  "typedTooLong": {
+    "message": "此文字對於單一請求來說過長。請縮短至 $LIMIT$ 個字元或更少。",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedDirectionHint": {
+    "message": "轉換為 $LANGUAGE$。其他語言將自動偵測。",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedSwap": {
+    "message": "切換翻譯方向"
+  },
+  "typedTranslate": {
+    "message": "翻譯"
+  },
+  "typedTranslating": {
+    "message": "翻譯…"
+  },
+  "typedStop": {
+    "message": "停止"
+  },
+  "typedClear": {
+    "message": "清晰"
+  },
+  "typedCopy": {
+    "message": "複製"
+  },
+  "typedCopied": {
+    "message": "已複製"
+  },
+  "typedCopyFailed": {
+    "message": "無法複製翻譯。請選取並自行複製。"
+  },
+  "typedResultHeading": {
+    "message": "翻譯"
+  },
+  "typedResultEmpty": {
+    "message": "PLaMo 的翻譯會出現在這裡，就在你貼上的文字旁邊。"
+  },
+  "typedRunHint": {
+    "message": "Ctrl+Enter (Mac 上為 ⌘+Enter) 也能轉換。"
+  },
+  "typedFailed": {
+    "message": "無法翻譯該文字。您的文字未變更，請再試一次。"
+  },
+  "typedNeedsConsent": {
+    "message": "PLaMo 需要一次性授權協議後才能啟動。在此之前，您的文字將不會被翻譯。"
+  },
+  "typedOpenOnboarding": {
+    "message": "審閱授權並開始"
+  },
+  "typedModelMissing": {
+    "message": "PLaMo 模型尚未安裝於此裝置上。"
+  },
+  "typedModelPartial": {
+    "message": "PLaMo 模型的下載中斷。"
+  },
+  "typedModelBusy": {
+    "message": "PLaMo 模型正在下載中。一旦準備就緒，翻譯即開始。"
+  },
+  "typedModelError": {
+    "message": "PLaMo 模型無法載入。請開啟選項頁面以檢查。"
+  },
+  "typedDownloadModel": {
+    "message": "下載模型"
+  },
+  "typedChromeOnlyTarget": {
+    "message": "類型化翻譯僅使用 PLaMo，且 PLaMo 無法翻譯為 $LANGUAGE$。在此請選擇其他語言，或使用內建翻譯器翻譯頁面。",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedChromeOnlyNote": {
+    "message": "Chrome 內建的翻譯器僅涵蓋頁面上的 $LANGUAGES$；輸入的文字絕不會被傳送到該處。",
+    "placeholders": {
+      "languages": {
+        "content": "$1"
+      }
+    }
+  }
+}

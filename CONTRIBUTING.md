@@ -17,6 +17,13 @@ pnpm test:e2e
 
 `pnpm test:e2e` does not download the model. `pnpm build` and `pnpm zip` need a verified wllama build.
 
+## Translating the interface
+
+The UI strings live in `public/_locales/<lang>/messages.json`. Adding a language is a copy-only
+change: see [docs/TRANSLATING.md](docs/TRANSLATING.md). The suite checks every catalog against
+English for missing keys, placeholder tokens, brand names, and the licence facts, so a partial
+catalog fails rather than shipping raw `__MSG_<key>__` to a reader.
+
 ## What not to commit
 
 - Model weights, `.env` files, and secrets.

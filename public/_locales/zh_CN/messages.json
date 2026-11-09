@@ -1,0 +1,791 @@
+{
+  "extensionName": {
+    "message": "Sakutto - 本地 AI 翻译",
+    "description": "Extension name."
+  },
+  "extensionShortName": {
+    "message": "Sakutto",
+    "description": "Short extension name."
+  },
+  "extensionDescription": {
+    "message": "本地 LLM 可翻译您设备上的页面。免费，无需账号。",
+    "description": "Extension description."
+  },
+  "tagline": {
+    "message": "在您的设备上运行的页面翻译"
+  },
+  "settingsLabel": {
+    "message": "设置"
+  },
+  "targetLanguageLabel": {
+    "message": "转换为"
+  },
+  "formalityLabel": {
+    "message": "日语语调"
+  },
+  "formalityPolite": {
+    "message": "Polite (です・ます)"
+  },
+  "formalityPlain": {
+    "message": "Plain (だ・である)"
+  },
+  "displayLabel": {
+    "message": "阅读风格"
+  },
+  "displayReplace": {
+    "message": "替换原件"
+  },
+  "displayBilingual": {
+    "message": "双语"
+  },
+  "statusChecking": {
+    "message": "正在检查…"
+  },
+  "pageStatusLabel": {
+    "message": "本页"
+  },
+  "pageStatusUnavailable": {
+    "message": "无法翻译"
+  },
+  "pageStatusLanguageUnknown": {
+    "message": "未知语言"
+  },
+  "pageStatusReady": {
+    "message": "$LANG$ · $COUNT$ 块",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      },
+      "count": {
+        "content": "$2"
+      }
+    }
+  },
+  "engineStatusLabel": {
+    "message": "运行时"
+  },
+  "engineHeading": {
+    "message": "引擎"
+  },
+  "engineWebGpu": {
+    "message": "WebGPU"
+  },
+  "engineCpuWebGpuUnsupported": {
+    "message": "CPU（WebGPU 不可用）"
+  },
+  "engineCpuAdapterUnavailable": {
+    "message": "CPU（无 GPU 适配器）"
+  },
+  "engineCpuProbeFailed": {
+    "message": "CPU (WebGPU 检查失败)"
+  },
+  "engineUnavailable": {
+    "message": "不可用"
+  },
+  "isolationLabel": {
+    "message": "跨源隔离"
+  },
+  "isolationOn": {
+    "message": "活动"
+  },
+  "isolationOff": {
+    "message": "非活动"
+  },
+  "threadsLabel": {
+    "message": "逻辑核心"
+  },
+  "diagHeading": {
+    "message": "诊断"
+  },
+  "diagBackend": {
+    "message": "活动后端"
+  },
+  "diagThreads": {
+    "message": "线程"
+  },
+  "diagParallel": {
+    "message": "n_parallel"
+  },
+  "diagBackendGpu": {
+    "message": "WebGPU"
+  },
+  "diagBackendCpu": {
+    "message": "CPU"
+  },
+  "diagBackendUnknown": {
+    "message": "未加载"
+  },
+  "diagRateHint": {
+    "message": "当页面进行翻译时，其列显示的是 token/s 和 segment/s。"
+  },
+  "paceLabel": {
+    "message": "预判"
+  },
+  "paceFast": {
+    "message": "展望更远的未来"
+  },
+  "paceQuality": {
+    "message": "可见第一"
+  },
+  "paceHelp": {
+    "message": "在段落滚动显示之前直接翻译。“Look ahead further”会在折叠线以下预加载更多内容，因此在滚动时文本就已准备就绪。对于 PLaMo 支持的语言，每一行均来自 PLaMo；Chrome 的草案绝不会被使用。"
+  },
+  "pageRate": {
+    "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
+    "placeholders": {
+      "tokens": {
+        "content": "$1"
+      },
+      "segments": {
+        "content": "$2"
+      }
+    }
+  },
+  "openOptions": {
+    "message": "打开设置"
+  },
+  "unofficialNotice": {
+    "message": "非官方。与 Preferred Networks 无关。由 PLaMo 构建。"
+  },
+  "optionsTitle": {
+    "message": "设置"
+  },
+  "optionsLead": {
+    "message": "选择翻译工作方式、管理模型并设置每个站点的行为。更改将自动保存。"
+  },
+  "privacyHeading": {
+    "message": "隐私"
+  },
+  "privacyBody": {
+    "message": "此扩展不会向服务器发送页面文本。不提供遥测数据。"
+  },
+  "privacyDestinations": {
+    "message": "该扩展本身的请求是模型下载。它从 huggingface.co 开始，随后跟随 Hugging Face 重定向至其 CDN。页面文本不包含在内。Chrome 自行下载其语言包。"
+  },
+  "privacyPolicyLink": {
+    "message": "隐私政策"
+  },
+  "sourceCodeLink": {
+    "message": "源代码"
+  },
+  "licensesHeading": {
+    "message": "许可证"
+  },
+  "licensesBody": {
+    "message": "完整的 PLaMo 社区许可证以及本扩展的 MIT 许可证均随扩展一同提供。"
+  },
+  "licensePlaMoJa": {
+    "message": "PLaMo 社区许可证（日语）"
+  },
+  "licensePlaMoEn": {
+    "message": "PLaMo 社区许可证（英文）"
+  },
+  "licenseMit": {
+    "message": "MIT 许可证"
+  },
+  "licenseNotice": {
+    "message": "通知"
+  },
+  "licenseModelNote": {
+    "message": "模型权重不会被打包。如果这些权重尚未存储在该设备上，则会从 Hugging Face 官方仓库下载。"
+  },
+  "openOnboarding": {
+    "message": "开放式入职"
+  },
+  "machineTranslationNotice": {
+    "message": "译文是由 PLaMo 生成的机器翻译。"
+  },
+  "onboardingEyebrow": {
+    "message": "入门指南"
+  },
+  "onboardingLead": {
+    "message": "页面翻译在您的设备上运行。只有在 PLaMo 3 型号尚未存储在该设备上时，才会进行下载。"
+  },
+  "onboardingSetupHeading": {
+    "message": "关于此扩展"
+  },
+  "onboardingModelNote": {
+    "message": "默认模型（573 MB）下载至该设备。该大小的持续 100 Mbps 传输在开销发生前约需 46 秒；实时时间有所不同。中断后下载将恢复。"
+  },
+  "onboardingBridgeNote": {
+    "message": "页面会保留原文本直到模型准备就绪，随后由 PLaMo 进行翻译。Google 文档将 Chrome 的翻译按设备进行。"
+  },
+  "onboardingPrivacyNote": {
+    "message": "此扩展不会将页面文本发送至服务器。"
+  },
+  "onboardingClose": {
+    "message": "关闭"
+  },
+  "onboardingStart": {
+    "message": "同意许可协议并开始"
+  },
+  "onboardingStartFailed": {
+    "message": "无法启动设置。请重试。"
+  },
+  "onboardingHttpError": {
+    "message": "模型下载失败 (HTTP $STATUS$)。请重试。",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      }
+    }
+  },
+  "errorSettings": {
+    "message": "无法加载您的设置。"
+  },
+  "errorSaveSettings": {
+    "message": "无法保存您的设置。"
+  },
+  "errorPage": {
+    "message": "无法读取此页面。"
+  },
+  "errorAction": {
+    "message": "无法打开页面。"
+  },
+  "retry": {
+    "message": "再试一次"
+  },
+  "originalLabel": {
+    "message": "原件"
+  },
+  "chromeTranslationNote": {
+    "message": "Chrome 内置的翻译"
+  },
+  "machineTranslationTooltip": {
+    "message": "PLaMo 的机器翻译。"
+  },
+  "selectionPending": {
+    "message": "翻译…"
+  },
+  "selectionFailed": {
+    "message": "无法转换此选择。"
+  },
+  "selectionTitle": {
+    "message": "选定文本"
+  },
+  "selectionIcon": {
+    "message": "翻译所选文本"
+  },
+  "close": {
+    "message": "关闭"
+  },
+  "commandTranslate": {
+    "message": "翻译此页或还原原文"
+  },
+  "commandBilingual": {
+    "message": "翻译为双语视图，或切换当前视图"
+  },
+  "commandSelection": {
+    "message": "翻译所选文本"
+  },
+  "contextTranslatePage": {
+    "message": "翻译此页面"
+  },
+  "contextTranslateSelection": {
+    "message": "翻译所选文本"
+  },
+  "translateThisPage": {
+    "message": "翻译此页面"
+  },
+  "restoreThisPage": {
+    "message": "还原原件"
+  },
+  "pageStartBlocked": {
+    "message": "页面翻译将等待 PLaMo 模型完成下载并加载。打开上手引导以查看进度。"
+  },
+  "pageTranslating": {
+    "message": "翻译…"
+  },
+  "pageProgress": {
+    "message": "转换 $DONE$ / $TOTAL$",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pageProgressLabel": {
+    "message": "翻译进度"
+  },
+  "pageTranslated": {
+    "message": "本页面为译文。"
+  },
+  "pagePartial": {
+    "message": "无法翻译本页的 $BLOCKS$ 部分。",
+    "placeholders": {
+      "blocks": {
+        "content": "$1"
+      }
+    }
+  },
+  "pageAlwaysOn": {
+    "message": "本网站始终有翻译。"
+  },
+  "siteGrantTitle": {
+    "message": "翻译本站"
+  },
+  "siteGrantBody": {
+    "message": "$HOST$ 上的页面将在该设备上进行翻译。",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteGrantAllow": {
+    "message": "允许"
+  },
+  "siteGrantDenied": {
+    "message": "未授予权限。请重试。"
+  },
+  "siteGrantInvalid": {
+    "message": "本页面未命名网站。"
+  },
+  "targetAdjustedNote": {
+    "message": "该页面已保存在目标语言中，因此目标已切换。"
+  },
+  "sameLanguageHint": {
+    "message": "本页已用目标语言编写。"
+  },
+  "displaySiteHint": {
+    "message": "此选项将被记住。"
+  },
+  "displayNowBilingual": {
+    "message": "本站已开启双语视图。"
+  },
+  "displayNowReplace": {
+    "message": "本站已开启替换视图。"
+  },
+  "optionsDefaultHint": {
+    "message": "这些是默认设置。你翻译的网站可以保留自己的语言和阅读风格。"
+  },
+  "optionsSiteLive": {
+    "message": "此处的语言和阅读风格遵循网站规范。当网站没有自定义选项时，将使用上述设置。"
+  },
+  "alwaysTranslateSite": {
+    "message": "请始终翻译本站"
+  },
+  "shortcutTranslate": {
+    "message": "Alt+A（Mac 上按 Option+A）可转换页面或还原原件。"
+  },
+  "shortcutBilingual": {
+    "message": "Alt+B（Mac 上为 Option+B）可在替换视图和双语视图之间切换，并记住本站的选择。"
+  },
+  "shortcutSelection": {
+    "message": "Alt+S（Mac 上按 Option+S）可转换所选文本。"
+  },
+  "runtimePreparing": {
+    "message": "准备 $PERCENT$%",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "runtimeDownloading": {
+    "message": "下载 $PERCENT$% ($RECEIVED$ / $TOTAL$)",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      },
+      "received": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
+  "runtimeVerifying": {
+    "message": "检查下载的文件。"
+  },
+  "runtimeLoading": {
+    "message": "正在加载模型。"
+  },
+  "runtimePlamoGpu": {
+    "message": "PLaMo · WebGPU"
+  },
+  "runtimePlamoCpu": {
+    "message": "PLaMo · CPU"
+  },
+  "runtimePlamoGpuFallback": {
+    "message": "PLaMo · CPU (WebGPU 无法加载模型)"
+  },
+  "runtimeChrome": {
+    "message": "Chrome 内置的翻译"
+  },
+  "runtimeWaiting": {
+    "message": "等待模型"
+  },
+  "runtimeError": {
+    "message": "无法加载模型"
+  },
+  "runtimeChecking": {
+    "message": "正在检查…"
+  },
+  "chromeOnlySuffix": {
+    "message": "(Chrome 内置)"
+  },
+  "onboardingStartNotice": {
+    "message": "点击“同意许可证并开始”，即表示您同意整个 PLaMo 社区许可证。"
+  },
+  "onboardingCommercialHeading": {
+    "message": "PLaMo 使用条款"
+  },
+  "onboardingPersonalHeading": {
+    "message": "个人及学术用途"
+  },
+  "onboardingPersonalBody": {
+    "message": "无需预先注册。"
+  },
+  "onboardingCommercialHeading2": {
+    "message": "工作与商业用途"
+  },
+  "onboardingCommercialBody": {
+    "message": "这包括在公司内部用于工作。以下两项均为必须。"
+  },
+  "onboardingCommercialRegistration": {
+    "message": "先前在 PFN 注册"
+  },
+  "onboardingCommercialRevenue": {
+    "message": "您或您的关联公司在最近一个财年的收入或销售额在 10 亿日元或以下"
+  },
+  "onboardingCommercialUnmetHeading": {
+    "message": "当条件不满足时"
+  },
+  "onboardingCommercialUnmetBody": {
+    "message": "商业用途则需要与 PFN 办理单独的许可证。"
+  },
+  "onboardingAgeNotice": {
+    "message": "如果您未满 18 岁或其他原因无法独立签署合同，则需要家长或监护人的同意。"
+  },
+  "onboardingConsentSentence": {
+    "message": "点击“同意许可证并开始”即表示您同意 PLaMo 社区许可证。"
+  },
+  "onboardingOtherLicenses": {
+    "message": "其他许可信息"
+  },
+  "onboardingReconsentHeading": {
+    "message": "PLaMo 的术语现在更易读了"
+  },
+  "onboardingReconsentBody": {
+    "message": "您此前已同意 PLaMo 社区许可证。以下是条款的更清晰摘要，以便您再次同意。您下载的模型将保留在该设备上。"
+  },
+  "onboardingReconsentStart": {
+    "message": "同意并继续"
+  },
+  "plamoRegistrationLink": {
+    "message": "PFN 的官方注册表（商业用途）"
+  },
+  "plamoOfficialLicenseJa": {
+    "message": "PLaMo 社区许可证（官方，日语）"
+  },
+  "plamoOfficialLicenseEn": {
+    "message": "PLaMo 社区许可证（官方，英文）"
+  },
+  "onboardingUseNow": {
+    "message": "Chrome 内置的翻译器仅用于 PLaMo 不支持的语言对。"
+  },
+  "onboardingReadyHeading": {
+    "message": "你准备好了。"
+  },
+  "onboardingReadyLead": {
+    "message": "您可以在该设备上翻译页面。"
+  },
+  "onboardingReadyToolbar": {
+    "message": "点击工具栏图标即可翻译打开的页面。"
+  },
+  "onboardingReadyPage": {
+    "message": "按下 Alt+A（Mac 上按 Option+A）即可翻译整个页面。再次按下即可还原原件。"
+  },
+  "onboardingReadySelection": {
+    "message": "按 Alt+S（Mac 上为 Option+S）以翻译所选文本。"
+  },
+  "onboardingReadyContext": {
+    "message": "右键单击页面并选择“翻译此页面”。对于选定的文本，选择“翻译选定文本”。"
+  },
+  "onboardingTry": {
+    "message": "试用示例页面"
+  },
+  "onboardingWhileDownloading": {
+    "message": "在模型下载期间，页面会保留原文本；在 PLaMo 准备就绪之前，没有任何内容会被翻译。"
+  },
+  "downloadEtaSeconds": {
+    "message": "还剩约 $COUNT$ 秒。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadEtaMinutes": {
+    "message": "还剩约 $COUNT$ 分钟。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadResuming": {
+    "message": "下载仍在原处继续进行。"
+  },
+  "downloadProgressLabel": {
+    "message": "下载进度"
+  },
+  "downloadPaused": {
+    "message": "下载暂停。可从原处继续。"
+  },
+  "downloadResume": {
+    "message": "复习"
+  },
+  "downloadCancel": {
+    "message": "暂停"
+  },
+  "modelHeading": {
+    "message": "模型"
+  },
+  "modelStandard": {
+    "message": "标准 (0.8B)"
+  },
+  "modelHigh": {
+    "message": "高精度 (2B)"
+  },
+  "modelInUse": {
+    "message": "正在使用"
+  },
+  "modelUse": {
+    "message": "使用此模型"
+  },
+  "modelDownload": {
+    "message": "下载"
+  },
+  "modelDelete": {
+    "message": "删除"
+  },
+  "highQualityOffer": {
+    "message": "你可以尝试精度更高的模型（2B，约 1.81 GB）。速度取决于这款设备。"
+  },
+  "useHighQuality": {
+    "message": "使用它"
+  },
+  "dismissHighQuality": {
+    "message": "现在不行"
+  },
+  "glossaryHeading": {
+    "message": "术语表"
+  },
+  "glossaryHelp": {
+    "message": "每行写一对“源码、译文”。选择一个站点，仅在该站点使用此列表。"
+  },
+  "glossaryGlobal": {
+    "message": "所有站点"
+  },
+  "glossaryImport": {
+    "message": "导入 CSV"
+  },
+  "glossaryExport": {
+    "message": "导出 CSV"
+  },
+  "glossaryAddSite": {
+    "message": "添加站点"
+  },
+  "siteRulesHeading": {
+    "message": "站点翻译"
+  },
+  "siteRuleAsk": {
+    "message": "每次都询问"
+  },
+  "siteRuleAlways": {
+    "message": "始终翻译"
+  },
+  "siteRuleNever": {
+    "message": "绝不要翻译"
+  },
+  "noSiteRules": {
+    "message": "暂无站点设置。"
+  },
+  "siteHostLabel": {
+    "message": "主机名"
+  },
+  "cacheClear": {
+    "message": "清除翻译缓存"
+  },
+  "cacheCleared": {
+    "message": "翻译缓存已清空。"
+  },
+  "cacheClearFailed": {
+    "message": "无法清空翻译缓存。"
+  },
+  "idleLabel": {
+    "message": "在之后从内存中释放模型"
+  },
+  "idle1": {
+    "message": "1 分钟"
+  },
+  "idle5": {
+    "message": "5 分钟"
+  },
+  "idle15": {
+    "message": "15 分钟"
+  },
+  "idleNever": {
+    "message": "从不"
+  },
+  "tierLabel": {
+    "message": "性能模式"
+  },
+  "tierAuto": {
+    "message": "自动"
+  },
+  "tierGpu": {
+    "message": "WebGPU"
+  },
+  "tierCpu8": {
+    "message": "CPU（8 个或更多线程）"
+  },
+  "tierCpu4": {
+    "message": "CPU (4 线程)"
+  },
+  "tierHelp": {
+    "message": "自动选择适合该电脑的模式。"
+  },
+  "slowDeviceHint": {
+    "message": "这台电脑上的 PLaMo 运行缓慢。每个段落都显示在模型完成时。"
+  },
+  "errorPermission": {
+    "message": "未授予本网站的权限。"
+  },
+  "siteHostInvalid": {
+    "message": "请输入有效的主机名。"
+  },
+  "glossaryScopeLabel": {
+    "message": "适用于"
+  },
+  "listSeparator": {
+    "message": ","
+  },
+  "openTyped": {
+    "message": "翻译打字文本"
+  },
+  "typedLead": {
+    "message": "输入或粘贴文本，并使用页面翻译所采用的相同 PLaMo 模型进行翻译。该文本不会离开本设备。"
+  },
+  "typedHeading": {
+    "message": "类型翻译"
+  },
+  "typedSourceLanguageLabel": {
+    "message": "翻译自"
+  },
+  "typedDetectSource": {
+    "message": "自动检测到"
+  },
+  "typedSourceLabel": {
+    "message": "文本转译"
+  },
+  "typedPlaceholder": {
+    "message": "在此输入或粘贴文本。"
+  },
+  "typedCounter": {
+    "message": "$COUNT$ / $LIMIT$ 个字符",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "limit": {
+        "content": "$2"
+      }
+    }
+  },
+  "typedTooLong": {
+    "message": "此文本对于单个请求来说过长。请将其缩短至 $LIMIT$ 个字符或更少。",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedDirectionHint": {
+    "message": "转换为 $LANGUAGE$。其他语言将自动检测。",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedSwap": {
+    "message": "切换翻译方向"
+  },
+  "typedTranslate": {
+    "message": "翻译"
+  },
+  "typedTranslating": {
+    "message": "翻译…"
+  },
+  "typedStop": {
+    "message": "停止"
+  },
+  "typedClear": {
+    "message": "清晰"
+  },
+  "typedCopy": {
+    "message": "复制"
+  },
+  "typedCopied": {
+    "message": "已复制"
+  },
+  "typedCopyFailed": {
+    "message": "无法复制翻译。请选择该内容并自行复制。"
+  },
+  "typedResultHeading": {
+    "message": "翻译"
+  },
+  "typedResultEmpty": {
+    "message": "PLaMo 的翻译显示在这里，就在你粘贴的文本旁边。"
+  },
+  "typedRunHint": {
+    "message": "Ctrl+Enter（Mac 上为 ⌘+Enter）也能转换。"
+  },
+  "typedFailed": {
+    "message": "无法翻译文本。您的文本未变更，请重试。"
+  },
+  "typedNeedsConsent": {
+    "message": "PLaMo 需要一次性许可协议后才能运行。在此之前，您的文本将不会被翻译。"
+  },
+  "typedOpenOnboarding": {
+    "message": "审阅许可证并开始"
+  },
+  "typedModelMissing": {
+    "message": "PLaMo 模型尚未在该设备上。"
+  },
+  "typedModelPartial": {
+    "message": "PLaMo 模型的下载中断了。"
+  },
+  "typedModelBusy": {
+    "message": "PLaMo 模型正在下载中。一旦准备就绪，翻译即可开始。"
+  },
+  "typedModelError": {
+    "message": "PLaMo 模型无法加载。打开选项页面进行检查。"
+  },
+  "typedDownloadModel": {
+    "message": "下载模型"
+  },
+  "typedChromeOnlyTarget": {
+    "message": "类型翻译仅使用 PLaMo，且 PLaMo 不会翻译为 $LANGUAGE$。在此选择另一种语言，或使用内置翻译器翻译页面。",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedChromeOnlyNote": {
+    "message": "Chrome 内置的翻译器仅覆盖页面上的 $LANGUAGES$，字符输入文本永远不会被发送到该翻译器。",
+    "placeholders": {
+      "languages": {
+        "content": "$1"
+      }
+    }
+  }
+}
