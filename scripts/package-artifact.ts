@@ -17,8 +17,12 @@ export interface ZipEntry {
   bytes: number;
 }
 
+function isStoreZip(name: string): boolean {
+  return name.endsWith('.zip') && !name.endsWith('sources.zip');
+}
+
 export function storeZipProblems(entries: readonly ZipEntry[]): string[] {
-  const zips = entries.filter((entry) => entry.name.endsWith('.zip'));
+  const zips = entries.filter((entry) => isStoreZip(entry.name));
   if (zips.length === 0) return ['the store zip is missing'];
   return zips.flatMap((zip) =>
     zip.bytes < MIN_STORE_ZIP_BYTES
