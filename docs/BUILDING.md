@@ -3,8 +3,8 @@
 The extension runs PLaMo 3 Translate with a pinned wllama build. The published npm package
 (`@wllama/wllama` 3.8.1) cannot load the PLaMo 3 tokenizer, so the extension ships its own build of
 [ngxson/wllama](https://github.com/ngxson/wllama) at commit `d275dac` (llama.cpp `5aeac37`,
-2026-10-18) with two MV3 patches, one build-flag patch and two
-run-time patches.
+2026-10-18) with two MV3 patches, one build-flag patch, two run-time patches, a Dawn
+download retry, and two WebGPU adapter/device patches.
 
 ## Requirements
 
@@ -139,6 +139,32 @@ the same; the others differ in word choice, and batched output varies slightly b
 
 The patch lives inside the llama.cpp submodule, so the build resets the submodule's files before
 it applies the patches.
+
+## The WebGPU adapter and device retry
+
+`0007-webgpu-adapter-device-retry.patch` changes how ggml-webgpu picks an adapter and a device.
+The pinned llama.cpp required `shader-f16` plus every advertised adapter limit, then
+`GGML_ASSERT` on a failed `requestDevice`. On AMD D3D12 (and some Intel adapters) that abort
+left the model on the CPU with only "WebGPU could not load the model". The patch:
+
+- Tries `powerPreference` high-performance, then default, then low-power, and keeps a
+  `shader-f16` adapter when one exists ([ggml-org/llama.cpp#21744](https://github.com/ggml-org/llama.cpp/pull/21744),
+  [#23844](https://github.com/ggml-org/llama.cpp/issues/23844)).
+- Retries `requestDevice`: adapter-max limits with optional features, then `shader-f16` only,
+  then 2 GiB−4 storage caps (typical D3D12 on AMD/Intel), then default limits.
+- Does not assert. `device_count` is 1 only when a device exists. Failure lines stay in the
+  INFO log so Sakutto can show them in settings.
+- Treats a zero `subgroupMinSize`/`MaxSize` as 32/64 (RDNA wave32/wave64) instead of collapsing
+  workgroup math.
+
+`0008-webgpu-debug-profile.patch` copies `globalThis.__SAKUTTO_WEBGPU_DEBUG__` into the worker
+so an NVIDIA machine can simulate those 2 GiB caps (`amd-rdna3` or `intel-arc`). Set
+`chrome.storage.local.sakuttoWebGpuDebug` to one of `amd-rdna3`, `intel-arc`, `no-f16`,
+`subgroup-64`, then reload the offscreen document.
+
+**The owner must rebuild wllama** after these patches: `pnpm build:wllama` then
+`pnpm verify:wllama`. Until that runs, the packaged wasm is still the previous build and AMD
+device retries are not in the worker.
 
 ## Compatibility builds
 

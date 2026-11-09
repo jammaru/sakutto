@@ -40,6 +40,10 @@ const PATCH_MARKERS: ReadonlyArray<readonly [string, string]> = [
     'ctx->param_arena.flush(ctx->global_ctx->queue);',
   ],
   ['llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp', 'ggml_webgpu_append_mmvq_columns(ctx, src0'],
+  ['llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp', 'ggml_webgpu: device ready'],
+  ['llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp', 'ggml_webgpu_try_request_device'],
+  ['src/utils.ts', 'webgpuDebug?: string'],
+  ['src/worker.ts', '__SAKUTTO_WEBGPU_DEBUG__'],
   ['cpp/wllama-context.h', 'params.n_ctx_checkpoints = 0;'],
   ['cpp/wllama-context.h', 'params.cache_ram_mib = 0;'],
   [

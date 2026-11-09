@@ -118,6 +118,24 @@
   "diagRateHint": {
     "message": "Mientras una página está traduciendo, su barra muestra tokens/s y segmentos/s."
   },
+  "diagGpuHeading": {
+    "message": "Adaptador WebGPU"
+  },
+  "diagGpuCopy": {
+    "message": "Copiar"
+  },
+  "diagGpuCopied": {
+    "message": "Copiado"
+  },
+  "diagGpuCopyFailed": {
+    "message": "No se pudo copiar"
+  },
+  "diagGpuHelp": {
+    "message": "Este informe se queda en este dispositivo. Si WebGPU falló, pégalo en un issue de GitHub."
+  },
+  "diagGpuEmpty": {
+    "message": "Aún no hay un informe de WebGPU."
+  },
   "paceLabel": {
     "message": "Miro adelante"
   },

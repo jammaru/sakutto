@@ -18,6 +18,8 @@ export const WEBGPU_ALL_LAYERS = 99999;
  */
 const WEBGPU_SLOTS_FAST = 16;
 const WEBGPU_SLOTS_PLAIN = 4;
+/** One sequence: smaller KV, used after a wide WebGPU load failed. */
+const WEBGPU_SLOTS_CONSERVATIVE = 1;
 // llama.cpp divides n_ctx across parallel slots. A piece of text fits well inside 1024.
 const WEBGPU_CONTEXT_PER_SLOT = 1024;
 
@@ -127,13 +129,23 @@ export function cpuFallback(selection: BackendSelection): BackendSelection | nul
   });
 }
 
-/** The next lighter place to run after `selection` failed: four slots, then the CPU. */
+/**
+ * The next lighter place to run after `selection` failed: four slots, then one
+ * conservative WebGPU slot, then the CPU.
+ */
 export function lighterSelection(selection: BackendSelection): BackendSelection | null {
   if (selection.backend === 'webgpu' && selection.nParallel > WEBGPU_SLOTS_PLAIN) {
     return {
       ...selection,
       nParallel: WEBGPU_SLOTS_PLAIN,
       nCtx: WEBGPU_CONTEXT_PER_SLOT * WEBGPU_SLOTS_PLAIN,
+    };
+  }
+  if (selection.backend === 'webgpu' && selection.nParallel > WEBGPU_SLOTS_CONSERVATIVE) {
+    return {
+      ...selection,
+      nParallel: WEBGPU_SLOTS_CONSERVATIVE,
+      nCtx: WEBGPU_CONTEXT_PER_SLOT * WEBGPU_SLOTS_CONSERVATIVE,
     };
   }
   return cpuFallback(selection);

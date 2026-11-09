@@ -148,6 +148,11 @@ if (RUN_OPTIONS.noWebGPU) {
     });
   } catch (e) {}
 }
+if (RUN_OPTIONS.webgpuDebug) {
+  try {
+    globalThis.__SAKUTTO_WEBGPU_DEBUG__ = RUN_OPTIONS.webgpuDebug;
+  } catch (e) {}
+}
 importScripts(RUN_OPTIONS.moduleUrl);
 ${llamaCppJs}
 `;

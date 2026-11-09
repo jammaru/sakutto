@@ -22,6 +22,7 @@
   import type { TargetLanguage } from '@/shared/languages';
   import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
   import EngineStatusView from '@/ui/EngineStatus.svelte';
+  import GpuDiagnosticView from '@/ui/GpuDiagnostic.svelte';
   import LanguageField from '@/ui/LanguageField.svelte';
   import GlossaryEditor from '@/ui/GlossaryEditor.svelte';
   import ModelManager from '@/ui/ModelManager.svelte';
@@ -403,6 +404,7 @@
     </dl>
     <p class="muted help">{t('diagRateHint')}</p>
     <EngineStatusView {capabilities} failed={capabilitiesFailed} detailed />
+    <GpuDiagnosticView diagnostic={engine?.gpuDiagnostic} />
   </section>
 
   <section class="panel">

@@ -118,6 +118,24 @@
   "diagRateHint": {
     "message": "ในขณะที่หน้าเว็บกำลังแปล แถบของหน้านั้นจะแสดงโทเคน/s และเซกเมนต์/s"
   },
+  "diagGpuHeading": {
+    "message": "อะแดปเตอร์ WebGPU"
+  },
+  "diagGpuCopy": {
+    "message": "คัดลอก"
+  },
+  "diagGpuCopied": {
+    "message": "คัดลอกแล้ว"
+  },
+  "diagGpuCopyFailed": {
+    "message": "คัดลอกไม่ได้"
+  },
+  "diagGpuHelp": {
+    "message": "รายงานนี้อยู่บนอุปกรณ์นี้เท่านั้น หาก WebGPU ล้มเหลว ให้วางลงใน GitHub issue"
+  },
+  "diagGpuEmpty": {
+    "message": "ยังไม่มีรายงาน WebGPU"
+  },
   "paceLabel": {
     "message": "มองล่วงหน้า"
   },

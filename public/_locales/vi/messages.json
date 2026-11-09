@@ -118,6 +118,24 @@
   "diagRateHint": {
     "message": "Khi một trang đang dịch, thanh của nó hiển thị các token/s và phân đoạn/s."
   },
+  "diagGpuHeading": {
+    "message": "Bộ điều hợp WebGPU"
+  },
+  "diagGpuCopy": {
+    "message": "Sao chép"
+  },
+  "diagGpuCopied": {
+    "message": "Đã sao chép"
+  },
+  "diagGpuCopyFailed": {
+    "message": "Không sao chép được"
+  },
+  "diagGpuHelp": {
+    "message": "Báo cáo này ở lại trên thiết bị này. Nếu WebGPU thất bại, hãy dán vào một issue GitHub."
+  },
+  "diagGpuEmpty": {
+    "message": "Chưa có báo cáo WebGPU."
+  },
   "paceLabel": {
     "message": "Nhìn trước"
   },

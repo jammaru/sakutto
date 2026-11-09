@@ -118,6 +118,24 @@
   "diagRateHint": {
     "message": "Пока страница переводится, на её полосе отображаются токены/s и сегменты/s."
   },
+  "diagGpuHeading": {
+    "message": "Адаптер WebGPU"
+  },
+  "diagGpuCopy": {
+    "message": "Копировать"
+  },
+  "diagGpuCopied": {
+    "message": "Скопировано"
+  },
+  "diagGpuCopyFailed": {
+    "message": "Не удалось скопировать"
+  },
+  "diagGpuHelp": {
+    "message": "Этот отчёт остаётся на этом устройстве. Если WebGPU не сработал, вставьте его в issue на GitHub."
+  },
+  "diagGpuEmpty": {
+    "message": "Отчёта WebGPU пока нет."
+  },
   "paceLabel": {
     "message": "Предвидение"
   },

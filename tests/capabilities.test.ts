@@ -12,16 +12,19 @@ describe('WebGPU probe', () => {
   });
 
   it('asks for an adapter even when WebGL would be software', async () => {
-    const requestAdapter = vi.fn(async () => ({ name: 'adapter' }));
+    const requestAdapter = vi.fn<
+      (opts?: { powerPreference?: string }) => Promise<{ name: string }>
+    >(async () => ({ name: 'adapter' }));
     vi.stubGlobal('navigator', { gpu: { requestAdapter }, hardwareConcurrency: 4 });
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
 
     const capabilities = await probeCapabilities();
 
     expect(capabilities.webgpu).toBe('ready');
-    expect(requestAdapter).toHaveBeenCalledTimes(1);
+    expect(requestAdapter).toHaveBeenCalled();
+    expect(requestAdapter.mock.calls[0]?.[0]).toEqual({ powerPreference: 'high-performance' });
     expect(await probeCapabilities()).toBe(capabilities);
-    expect(requestAdapter).toHaveBeenCalledTimes(1);
+    expect(requestAdapter).toHaveBeenCalledTimes(requestAdapter.mock.calls.length);
   });
 
   it.each([
@@ -54,9 +57,10 @@ describe('WebGPU probe', () => {
     const capabilities = await probeCapabilities();
 
     expect(capabilities.webgpu).toBe('ready');
-    expect(requestAdapter).toHaveBeenCalledTimes(1);
+    expect(requestAdapter).toHaveBeenCalled();
+    const calls = requestAdapter.mock.calls.length;
     await probeCapabilities();
-    expect(requestAdapter).toHaveBeenCalledTimes(1);
+    expect(requestAdapter).toHaveBeenCalledTimes(calls);
   });
 
   it('asks for an adapter from a srcdoc frame on an extension page', async () => {
@@ -99,6 +103,30 @@ describe('WebGPU probe', () => {
     const source = readFileSync(resolve('public/gpu-probe.js'), 'utf8');
     expect(source).toContain("source: 'sakutto-gpu-probe'");
     expect(source).toContain('requestAdapter');
+  });
+
+  it('treats an AMD adapter with shader-f16 as WebGPU ready', async () => {
+    vi.stubGlobal('navigator', {
+      gpu: {
+        requestAdapter: vi.fn(async () => ({
+          info: { vendor: 'amd', architecture: 'rdna3', description: 'AMD Radeon RX 7800 XT' },
+          features: new Set(['shader-f16', 'subgroups']),
+          limits: {
+            maxBufferSize: 2_147_483_644,
+            maxStorageBufferBindingSize: 2_147_483_644,
+            maxComputeWorkgroupStorageSize: 32_768,
+            maxComputeInvocationsPerWorkgroup: 1_024,
+          },
+        })),
+        wgslLanguageFeatures: new Set(['packed_4x8_integer_dot_product']),
+      },
+      hardwareConcurrency: 16,
+    });
+
+    const capabilities = await probeCapabilities();
+
+    expect(capabilities.webgpu).toBe('ready');
+    expect(capabilities.gpuFastBatches).toBe(false);
   });
 
   it('reports unsupported when the browser has no WebGPU', async () => {

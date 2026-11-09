@@ -14,6 +14,10 @@ body:
 
         Please search existing issues first. A PR for the issue is very welcome if you can; the issue alone is also enough. **Do not paste private page content, credentials, or personal data.** Redact tokens and email addresses from any URL.
 
+        WebGPU が CPU に落ちたときは、設定の診断にある「コピー」で端末上のアダプタ報告を Issue に貼れます。その報告は端末の外へは送られません。
+
+        If WebGPU fell back to CPU, Settings → Diagnostics has a Copy button for the adapter report. It never leaves the device until you paste it.
+
   - type: input
     id: chrome
     attributes:
@@ -106,6 +110,14 @@ body:
       description: エラーメッセージがあれば、個人情報を消してから貼ってください。 Paste error text only after redacting personal data.
     validations:
       required: true
+
+  - type: textarea
+    id: webgpu-diagnostic
+    attributes:
+      label: WebGPU の診断（任意） / WebGPU diagnostic (optional)
+      description: |
+        設定 → エンジン → 診断の「コピー」の内容。個人情報は含まれません。端末の外へは送られません。
+        The Copy button under Settings → Engine → Diagnostics. It stays on the device until you paste it.
 
   - type: input
     id: public-url

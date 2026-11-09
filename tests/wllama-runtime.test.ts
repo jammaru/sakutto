@@ -39,6 +39,10 @@ describe('gpu evidence in the llama.cpp load log', () => {
   it('sees a model that stayed on the CPU', () => {
     expect(gpuEvidence(['load_tensors: offloaded 0/29 layers to GPU'])).toBe('missing');
     expect(gpuEvidence(['ggml_webgpu: Failed to get an adapter'])).toBe('missing');
+    expect(gpuEvidence(['ggml_webgpu: adapter lacks shader-f16; WebGPU backend disabled'])).toBe(
+      'missing',
+    );
+    expect(gpuEvidence(['ggml_webgpu: Failed to get a device after retries'])).toBe('missing');
     expect(gpuEvidence(['load_tensors:   CPU_Mapped model buffer size = 500.00 MiB'])).toBe(
       'missing',
     );
@@ -120,6 +124,7 @@ describe('wllama runtime load', () => {
 
     await expect(createWllamaRuntime(new Blob(), gpu)).rejects.toMatchObject({
       code: 'gpu-unavailable',
+      detail: expect.stringContaining('Failed to get a device'),
     });
     expect(native.exit).toHaveBeenCalled();
   });

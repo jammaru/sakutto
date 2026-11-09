@@ -142,9 +142,11 @@ describe('stepping down after a GPU failure', () => {
   const plain = selectBackend({ webgpu: true, hardwareConcurrency: 8 });
   const cpu = selectBackend({ webgpu: false, hardwareConcurrency: 8 });
 
-  it('walks from sixteen slots to four to the CPU', () => {
+  it('walks from sixteen slots to four to one to the CPU', () => {
     expect(lighterSelection(wide)).toEqual(plain);
-    expect(lighterSelection(plain)).toMatchObject({ backend: 'cpu-wasm', nParallel: 1 });
+    const conservative = lighterSelection(plain);
+    expect(conservative).toMatchObject({ backend: 'webgpu', nParallel: 1, nCtx: 1024 });
+    expect(lighterSelection(conservative!)).toMatchObject({ backend: 'cpu-wasm', nParallel: 1 });
     expect(lighterSelection(cpu)).toBeNull();
   });
 
@@ -155,6 +157,6 @@ describe('stepping down after a GPU failure', () => {
 
   it('steps down when the GPU is lost again soon after', () => {
     expect(selectionAfterGpuLoss(wide, GPU_LOSS_WINDOW_MS - 1)).toEqual(plain);
-    expect(selectionAfterGpuLoss(plain, 1000).backend).toBe('cpu-wasm');
+    expect(selectionAfterGpuLoss(plain, 1000)).toMatchObject({ backend: 'webgpu', nParallel: 1 });
   });
 });

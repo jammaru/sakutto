@@ -139,3 +139,16 @@ describe('shortcut settings', () => {
     expect(background).toContain('onInstalled');
   });
 });
+
+describe('WebGPU diagnostic on settings', () => {
+  const options = source('entrypoints/options/App.svelte');
+  const panel = source('ui/GpuDiagnostic.svelte');
+
+  it('shows the adapter report under the engine status with a copy control', () => {
+    expect(options).toContain('GpuDiagnosticView');
+    expect(options).toContain('engine?.gpuDiagnostic');
+    expect(panel).toContain('diagGpuCopy');
+    expect(panel).toContain('formatGpuDiagnostic');
+    expect(panel).toContain('navigator.clipboard.writeText');
+  });
+});

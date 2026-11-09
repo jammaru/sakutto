@@ -118,6 +118,24 @@
   "diagRateHint": {
     "message": "While a page is translating, its bar shows tokens/s and segments/s."
   },
+  "diagGpuHeading": {
+    "message": "WebGPU adapter"
+  },
+  "diagGpuCopy": {
+    "message": "Copy"
+  },
+  "diagGpuCopied": {
+    "message": "Copied"
+  },
+  "diagGpuCopyFailed": {
+    "message": "Could not copy"
+  },
+  "diagGpuHelp": {
+    "message": "This report stays on this device. If WebGPU failed, paste it into a GitHub issue."
+  },
+  "diagGpuEmpty": {
+    "message": "No WebGPU report yet."
+  },
   "paceLabel": {
     "message": "Look-ahead"
   },

@@ -225,6 +225,7 @@ describe('model load on the GPU tier', () => {
     expect(tried).toEqual([
       ['webgpu', 16],
       ['webgpu', 4],
+      ['webgpu', 1],
       ['cpu-wasm', 1],
     ]);
   });
@@ -239,14 +240,39 @@ describe('model load on the GPU tier', () => {
     expect(result.selection).toMatchObject({ backend: 'webgpu', nParallel: 4, nCtx: 1024 * 4 });
   });
 
-  it('goes straight to the CPU when no GPU was found', async () => {
+  it('goes straight to the CPU when no adapter was found', async () => {
     const ensureLoaded = vi.fn(async (selection: BackendSelection) => {
-      if (selection.backend === 'webgpu') throw new EngineError('gpu-unavailable', 'no GPU');
+      if (selection.backend === 'webgpu') {
+        throw new EngineError('gpu-unavailable', 'no GPU', {
+          detail: 'ggml_webgpu: Failed to get an adapter: no adapter after high-performance',
+        });
+      }
       return loaded;
     });
     await loadWithFallback(ensureLoaded, wide, new AbortController().signal);
 
     expect(ensureLoaded).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries one WebGPU slot before the CPU when the device failed', async () => {
+    const tried: Array<[string, number]> = [];
+    const ensureLoaded = vi.fn(async (selection: BackendSelection) => {
+      tried.push([selection.backend, selection.nParallel]);
+      if (selection.backend === 'webgpu') {
+        throw new EngineError('gpu-unavailable', 'no GPU', {
+          detail:
+            'ggml_webgpu: Failed to get a device (adapter-max-limits optional-features): Limit exceeded',
+        });
+      }
+      return loaded;
+    });
+    await loadWithFallback(ensureLoaded, gpu, new AbortController().signal);
+
+    expect(tried).toEqual([
+      ['webgpu', 4],
+      ['webgpu', 1],
+      ['cpu-wasm', 1],
+    ]);
   });
 
   it('does not retry an aborted load', async () => {
