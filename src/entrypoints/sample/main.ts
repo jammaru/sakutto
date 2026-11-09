@@ -40,10 +40,12 @@ function showSample(targetLanguage: string): void {
   }
 }
 
-const settings = await loadSettings();
 const requested = new URL(location.href).searchParams.get('to');
+if (isTargetLanguage(requested)) showSample(requested);
+
+const settings = await loadSettings();
 const targetLanguage = isTargetLanguage(requested) ? requested : settings.targetLanguage;
-showSample(targetLanguage);
+if (!isTargetLanguage(requested)) showSample(targetLanguage);
 
 const session = new PageSession(document, {
   engine: { translate: __SAKUTTO_FAKE_ENGINE__ ? fakeTranslate : translateViaBackground },
