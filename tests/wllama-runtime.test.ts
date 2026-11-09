@@ -48,6 +48,15 @@ describe('gpu evidence in the llama.cpp load log', () => {
     );
     expect(
       gpuEvidence([
+        'ggml_webgpu: device ready (adapter-max-limits optional-features)',
+        'ggml_webgpu: device features: shader-f16=true subgroups=true',
+        'ggml_webgpu: correctness probe failed; add sum 152 != 136',
+        'ggml_webgpu: correctness probe failed; WebGPU backend disabled',
+        'load_tensors:   CPU_Mapped model buffer size = 500.00 MiB',
+      ]),
+    ).toBe('missing');
+    expect(
+      gpuEvidence([
         'ggml_webgpu: Failed to get a device (adapter-max-limits optional-features): Limit exceeded',
         'ggml_webgpu: device ready (capped-limits optional-features)',
         'llama_model_load_from_file_impl: using device WebGPU (NVIDIA)',
@@ -129,6 +138,21 @@ describe('wllama runtime load', () => {
     const params = native.loadModel.mock.calls[0]?.[1] as Record<string, unknown>;
     expect(params).not.toHaveProperty('kv_unified');
     expect(params).not.toHaveProperty('cont_batching');
+  });
+
+  it('rejects a WebGPU load whose correctness probe failed after device ready', async () => {
+    native.log = [
+      'ggml_webgpu: device ready (adapter-max-limits optional-features)',
+      'ggml_webgpu: correctness probe failed; add sum 152 != 136',
+      'ggml_webgpu: correctness probe failed; WebGPU backend disabled',
+      'load_tensors:   CPU_Mapped model buffer size = 500.00 MiB',
+    ];
+
+    await expect(createWllamaRuntime(new Blob(), gpu)).rejects.toMatchObject({
+      code: 'gpu-unavailable',
+      detail: expect.stringContaining('correctness probe failed'),
+    });
+    expect(native.exit).toHaveBeenCalled();
   });
 
   it('rejects a WebGPU load that llama.cpp quietly ran on the CPU', async () => {

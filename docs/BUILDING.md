@@ -175,7 +175,10 @@ The offscreen document often has no `chrome.storage`; the service worker reads
 `engine:webgpu-debug`). Profiles, after a wllama rebuild:
 
 - `amd-rdna3` / `intel-arc` — cap C++ buffer limits to 2 GiB−4 (Chrome on NVIDIA already
-  reports those, so this may not reject `requestDevice`)
+  reports those, so this may not reject `requestDevice`). They do **not** spoof
+  subgroup size: a wrong min/max silently mistranslates, so shaders and the
+  diagnostic keep the adapter's reported range. Typical RDNA3 is 32–64 and Arc
+  16–32; those figures are documentation only.
 - `reject-max-limits` — fail adapter-max `requestDevice` so the capped/default ladder runs
 - `no-f16` — disable the WebGPU backend as if the adapter lacked `shader-f16`
 

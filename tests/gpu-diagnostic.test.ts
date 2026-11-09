@@ -93,8 +93,20 @@ describe('gpu diagnostic', () => {
     expect(overlay.maxStorageBufferBindingSize).toBe(
       AMD_RDNA3_SIMULATED_LIMITS.maxStorageBufferBindingSize,
     );
-    expect(overlay.subgroupMaxSize).toBe(64);
     expect(overlay.debugProfile).toBe('amd-rdna3');
+  });
+
+  it('keeps the adapter subgroup size under amd-rdna3 (C++ only caps buffers)', () => {
+    setWebGpuDebugProfile('amd-rdna3');
+    const overlay = applyDebugOverlay({
+      ...EMPTY_GPU_DIAGNOSTIC,
+      vendor: 'nvidia',
+      subgroupMinSize: 32,
+      subgroupMaxSize: 32,
+    });
+    expect(overlay.vendor).toBe('amd');
+    expect(overlay.subgroupMinSize).toBe(32);
+    expect(overlay.subgroupMaxSize).toBe(32);
   });
 
   it('overlays a missing shader-f16 without inventing a subgroup size', () => {

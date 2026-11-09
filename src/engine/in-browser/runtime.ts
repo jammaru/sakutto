@@ -118,15 +118,19 @@ export function gpuEvidence(lines: readonly string[]): GpuEvidence {
       /ggml_webgpu: no adapter with shader-f16/iu.test(line) ||
       /ggml_webgpu: giving up on WebGPU/iu.test(line) ||
       /ggml_webgpu: Failed to get a device after retries/iu.test(line) ||
-      /ggml_webgpu: correctness probe failed/iu.test(line)
+      /ggml_webgpu: correctness probe failed/iu.test(line) ||
+      /ggml_webgpu: .*WebGPU backend disabled/iu.test(line)
     ) {
       sawFinalFailure = true;
     }
     if (/load_tensors:/u.test(line)) loadedTensors = true;
   }
   if (offloaded) return offloaded;
-  if (sawDeviceReady) return 'unknown';
+  // A probe failure is logged after `device ready`, then the device is dropped.
+  // Treating ready as success here left status at WebGPU/16-parallel while the
+  // model actually ran on the CPU.
   if (sawFinalFailure) return 'missing';
+  if (sawDeviceReady) return 'unknown';
   return loadedTensors ? 'missing' : 'unknown';
 }
 

@@ -104,7 +104,12 @@ export const EMPTY_GPU_DIAGNOSTIC: GpuDiagnostic = {
   correctnessProbeSubgroupSize: null,
 };
 
-/** Typical D3D12 grant on AMD RDNA3 / Intel Arc: 2 GiB − 4, wave32 or wave64. */
+/**
+ * Typical D3D12 grant on AMD RDNA3 / Intel Arc: 2 GiB − 4.
+ * `subgroupMinSize` / `MaxSize` here are documentation (RDNA3 wave32/wave64).
+ * The debug overlay does not apply them: C++ only caps buffer limits, and a
+ * guessed shader size silently mistranslates.
+ */
 export const AMD_RDNA3_SIMULATED_LIMITS = {
   vendor: 'amd',
   architecture: 'rdna3',
@@ -498,10 +503,11 @@ export function applyDebugOverlay(diagnostic: GpuDiagnostic): GpuDiagnostic {
     next.maxComputeWorkgroupStorageSize = AMD_RDNA3_SIMULATED_LIMITS.maxComputeWorkgroupStorageSize;
     next.maxComputeInvocationsPerWorkgroup =
       AMD_RDNA3_SIMULATED_LIMITS.maxComputeInvocationsPerWorkgroup;
-    next.subgroupMinSize = AMD_RDNA3_SIMULATED_LIMITS.subgroupMinSize;
-    next.subgroupMaxSize = AMD_RDNA3_SIMULATED_LIMITS.subgroupMaxSize;
     next.shaderF16 = AMD_RDNA3_SIMULATED_LIMITS.shaderF16;
     next.subgroups = AMD_RDNA3_SIMULATED_LIMITS.subgroups;
+    // Subgroup min/max stay the adapter's reported values. C++ only caps buffer
+    // limits for this profile; a fake 32–64 range would lie in the diagnostic
+    // (and must not reach shaders — a wrong size silently mistranslates).
   } else if (profile === 'intel-arc') {
     next.vendor = INTEL_ARC_SIMULATED_LIMITS.vendor;
     next.architecture = INTEL_ARC_SIMULATED_LIMITS.architecture;
@@ -511,8 +517,6 @@ export function applyDebugOverlay(diagnostic: GpuDiagnostic): GpuDiagnostic {
     next.maxComputeWorkgroupStorageSize = INTEL_ARC_SIMULATED_LIMITS.maxComputeWorkgroupStorageSize;
     next.maxComputeInvocationsPerWorkgroup =
       INTEL_ARC_SIMULATED_LIMITS.maxComputeInvocationsPerWorkgroup;
-    next.subgroupMinSize = INTEL_ARC_SIMULATED_LIMITS.subgroupMinSize;
-    next.subgroupMaxSize = INTEL_ARC_SIMULATED_LIMITS.subgroupMaxSize;
     next.shaderF16 = INTEL_ARC_SIMULATED_LIMITS.shaderF16;
     next.subgroups = INTEL_ARC_SIMULATED_LIMITS.subgroups;
   } else if (profile === 'no-f16') {
