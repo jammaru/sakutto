@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   FIREFOX_WEBGPU_KICK,
@@ -12,10 +13,22 @@ describe('Firefox WebGPU kick switch', () => {
     expect(FIREFOX_WEBGPU_KICK).toBe(true);
     expect(firefoxWebGpuKickEnabled()).toBe(true);
     const bootstrap = firefoxWebGpuKickWorkerBootstrap();
+    expect(bootstrap).toContain('function sakuttoInstallFirefoxWebGpuKick()');
+    expect(bootstrap).toContain('RUN_OPTIONS.firefoxWebGpuKick === true');
+    expect(bootstrap).toContain('sakuttoInstallFirefoxWebGpuKick();');
     expect(bootstrap).toContain('var enabled = true');
     expect(bootstrap).toContain('queue.submit([])');
     expect(bootstrap).toContain('/Firefox/i.test(navigator.userAgent');
     expect(bootstrap).toContain('GPUBuffer.prototype.mapAsync = originalMapAsync');
+    const verify = readFileSync(new URL('../scripts/verify-wllama.mjs', import.meta.url), 'utf8');
+    for (const marker of [
+      'function sakuttoInstallFirefoxWebGpuKick()',
+      'RUN_OPTIONS.firefoxWebGpuKick === true',
+      'sakuttoInstallFirefoxWebGpuKick();',
+    ]) {
+      expect(verify).toContain(marker);
+      expect(bootstrap).toContain(marker);
+    }
   });
 
   it('exposes a page-global flag the optional worker patch can read', () => {

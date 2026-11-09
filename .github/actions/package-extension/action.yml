@@ -27,7 +27,9 @@ runs:
       run: |
         set -euo pipefail
         export LC_ALL=C
-        hash=$(find scripts/wllama -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}')
+        # The generated wllama-worker.js also embeds the Firefox WebGPU kick bootstrap from
+        # src/engine/wllama/firefox-webgpu-kick.ts, so a change there must miss the cache.
+        hash=$( (find scripts/wllama -type f -print0; printf '%s\0' src/engine/wllama/firefox-webgpu-kick.ts) | sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}')
         tag=$(sed -n "s/^export const EMSDK_TAG = '\\([^']*\\)';/\\1/p" scripts/wllama/pins.ts)
         test -n "$tag"
         lock=$(sha256sum pnpm-lock.yaml | awk '{print $1}')

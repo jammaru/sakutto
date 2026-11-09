@@ -109,6 +109,14 @@ comparisons; do not mix those JSONL rows with this Firefox table.
   single-threaded (`c1`).
 - Bug 1870699 is why the empty submit helps; if Mozilla ships a real completion poll, the
   kick becomes a no-op and can be turned off.
+- The kick lives in the generated `vendor/wllama/dist/wllama-worker.js`. A vendor tree built
+  before the bootstrap existed still passes the sha256 checks against its own manifest, but
+  runs without the kick. 2026-11-10, Windows Firefox 159 / RTX 4070 Ti SUPER, the same
+  Wikipedia article (196 blocks), cache cleared, 45 s each: worker without the bootstrap
+  8–37 tok/s, 14/196 blocks, GPU mostly idle; worker with it 80–108 tok/s, 69/196 blocks
+  (about 5 times faster). The CI-built worker on the same page got 60–85 tok/s and 116/196
+  blocks. `pnpm verify:wllama` now fails on such a worker. If a Firefox page
+  shows ~30 tok/s with `n_parallel 4` and the GPU near idle, rebuild with `pnpm build:wllama`.
 
 ## 日本語
 
