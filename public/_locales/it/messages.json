@@ -372,13 +372,22 @@
     "message": "Scorciatoie da tastiera"
   },
   "shortcutHelp": {
-    "message": "Queste combinazioni sono gestite da Chrome. Con «Modifica le scorciatoie» le cambi nelle impostazioni di Chrome."
+    "message": "Se Chrome lascia un comando senza tasto, sulle pagine vale comunque quello predefinito. Togli il segno di spunta per disattivarlo. Usa Modifica scorciatoie per cambiare i tasti in Chrome."
   },
   "shortcutChange": {
     "message": "Modifica le scorciatoie"
   },
   "shortcutUnset": {
     "message": "Non impostata"
+  },
+  "shortcutUse": {
+    "message": "Usa questa scorciatoia"
+  },
+  "shortcutOff": {
+    "message": "Disattivato"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome non ha un tasto per questo comando, quindi sulle pagine vale quello predefinito."
   },
   "shortcutTranslate": {
     "message": "$KEY$ converte la pagina o ripristina l’originale.",
@@ -901,6 +910,24 @@
   },
   "composeIconSettingHelp": {
     "message": "La scorciatoia e il menu contestuale funzionano anche se il pulsante è nascosto."
+  },
+  "composeTargetSetting": {
+    "message": "Lingua di destinazione in scrittura"
+  },
+  "composeTargetAuto": {
+    "message": "Automatico (le bozze in giapponese vanno all’altra lingua della coppia; il resto alla lingua della pagina)"
+  },
+  "composeTargetSettingHelp": {
+    "message": "La lingua scelta nell’anteprima viene ricordata qui."
+  },
+  "composeTargetLabel": {
+    "message": "Destinazione"
+  },
+  "composeInstantSetting": {
+    "message": "Traduci e sostituisci con un solo tasto"
+  },
+  "composeInstantSettingHelp": {
+    "message": "Senza anteprima: un tasto traduce la bozza e la sostituisce. Annulla resta disponibile."
   },
   "composeNeedSetup": {
     "message": "PLaMo non è ancora pronto. Apri la configurazione per accettare la licenza e scaricare il modello."

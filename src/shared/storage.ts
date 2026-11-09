@@ -29,7 +29,17 @@ export async function ensureSettings(): Promise<Settings> {
 export function saveSettings(patch: SettingsPatch): Promise<Settings> {
   const operation = writeQueue.then(async () => {
     const current = await loadSettings();
-    const next = normalizeSettings({ ...current, ...patch }, currentUiLanguage());
+    const next = normalizeSettings(
+      {
+        ...current,
+        ...patch,
+        shortcutsEnabled: {
+          ...current.shortcutsEnabled,
+          ...(patch.shortcutsEnabled ?? {}),
+        },
+      },
+      currentUiLanguage(),
+    );
     await browser.storage.local.set({ [SETTINGS_STORAGE_KEY]: next });
     return next;
   });

@@ -26,6 +26,7 @@ const labels: ComposeLabels = {
   loading: 'The PLaMo model is loading.',
   ineligible: 'This field cannot be translated.',
   openSetup: 'Open setup',
+  target: 'Target',
   into: (language) => `Into ${language}`,
   chromeOnly: (language) => `PLaMo does not translate into ${language}.`,
 };
@@ -46,9 +47,10 @@ function panelText(): string {
 
 function panelButton(label: string): HTMLButtonElement {
   const shadow = composeShadow(document.querySelector('sakutto-compose'));
-  const button = [...(shadow?.querySelectorAll('button') ?? [])].find(
-    (node) => node.textContent === label,
-  );
+  const button = [...(shadow?.querySelectorAll('button') ?? [])].find((node) => {
+    const text = node.textContent ?? '';
+    return text === label || text.startsWith(`${label} `);
+  });
   if (!(button instanceof HTMLButtonElement)) throw new Error(`missing ${label}`);
   return button;
 }
@@ -64,6 +66,9 @@ const defaultPrefs: ComposePreferences = {
   uiLanguage: 'en',
   showIcon: true,
   readiness: 'ready',
+  explicitTarget: false,
+  instantReplace: false,
+  replaceShortcut: 'Alt+T',
 };
 
 describe('compose controller', () => {
@@ -113,7 +118,7 @@ describe('compose controller', () => {
     });
   });
 
-  it('does not apply on a second shortcut; Replace keeps the undo snapshot', async () => {
+  it('replaces on a second shortcut once the preview is ready, and keeps undo', async () => {
     document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
     const field = document.querySelector('#box');
     if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
@@ -123,16 +128,132 @@ describe('compose controller', () => {
     await vi.waitFor(() => {
       expect(panelText()).toContain('§ja§See you tomorrow.');
     });
+    expect(panelButton('Replace').textContent).toContain('Alt+T');
     await new Promise((resolve) => setTimeout(resolve, 90));
     controller.handleShortcut();
-    expect(field.value).toBe('See you tomorrow.');
-    clickPanel('Replace');
     await vi.waitFor(() => {
       expect(field.value).toBe('§ja§See you tomorrow.');
     });
     controller.handleShortcut();
     expect(panelButton('Restore original').disabled).toBe(false);
     expect(field.value).toBe('§ja§See you tomorrow.');
+  });
+
+  it('replaces with Ctrl+Enter in the field while the preview is open', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    start();
+    field.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 't', altKey: true, code: 'KeyT', bubbles: true }),
+    );
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§See you tomorrow.');
+    });
+    field.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await vi.waitFor(() => {
+      expect(field.value).toBe('§ja§See you tomorrow.');
+    });
+  });
+
+  it('does not replace on plain Enter', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const controller = start();
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§See you tomorrow.');
+    });
+    field.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    );
+    expect(field.value).toBe('See you tomorrow.');
+  });
+
+  it('applies as soon as a pending translation finishes if the shortcut was pressed again', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        await gate;
+        for (const segment of segments) {
+          yield { id: segment.id, final: `§${options.tgt}§${segment.text}`, engine: 'plamo' };
+        }
+      },
+    };
+    const controller = start(engine);
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('Translating');
+    });
+    await new Promise((resolve) => setTimeout(resolve, 90));
+    controller.handleShortcut();
+    expect(field.value).toBe('See you tomorrow.');
+    release?.();
+    await vi.waitFor(() => {
+      expect(field.value).toBe('§ja§See you tomorrow.');
+    });
+  });
+
+  it('replaces immediately when instant replace is on', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const controller = start(undefined, { instantReplace: true });
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(field.value).toBe('§ja§See you tomorrow.');
+    });
+    expect(panelButton('Restore original').disabled).toBe(false);
+  });
+
+  it('re-translates when the preview target language changes', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const picked: string[] = [];
+    const controller = new ComposeController(document, {
+      engine: immediate((text, tgt) => `§${tgt}§${text}`),
+      labels,
+      preferences: defaultPrefs,
+      previewMs: 20,
+      onTarget: (language) => {
+        picked.push(language);
+      },
+    });
+    controllers.push(controller);
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§See you tomorrow.');
+    });
+    const select = composeShadow(document.querySelector('sakutto-compose'))?.querySelector(
+      'select.target',
+    );
+    if (!(select instanceof HTMLSelectElement)) throw new Error('missing target select');
+    select.value = 'ko';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ko§See you tomorrow.');
+    });
+    expect(picked).toEqual(['ko']);
   });
 
   it('does not start a reverse translation from the input event Replace itself fires', async () => {

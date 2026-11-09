@@ -106,9 +106,10 @@ describe('shortcut settings', () => {
   const shortcuts = source('ui/ShortcutSettings.svelte');
   const options = source('entrypoints/options/App.svelte');
 
-  it('reads the keys Chrome has bound instead of the manifest defaults', () => {
+  it('reads the keys Chrome has bound, falling back to the defaults when unbound', () => {
     expect(shortcuts).toContain('requestShortcutSnapshot');
     expect(shortcuts).toContain('displayShortcut');
+    expect(shortcuts).toContain('boundShortcut');
     expect(shortcuts).not.toContain("'Alt+A'");
   });
 
@@ -119,8 +120,11 @@ describe('shortcut settings', () => {
     expect(shortcuts).not.toMatch(/onkeydown|addEventListener\('keydown'/u);
   });
 
-  it('says a command has no key rather than showing an empty box', () => {
+  it('names the effective key rather than showing an empty box', () => {
     expect(shortcuts).toContain('shortcutUnset');
+    expect(shortcuts).toContain('shortcutOff');
+    expect(shortcuts).toContain('shortcutUse');
+    expect(shortcuts).toContain('shortcutFallbackNote');
   });
 
   it('is on the settings page', () => {

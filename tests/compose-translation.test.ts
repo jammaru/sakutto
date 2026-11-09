@@ -61,4 +61,14 @@ describe('compose translation direction', () => {
     expect(plan.targetLanguage).toBe('pt');
     expect(plan.ok).toBe(false);
   });
+
+  it('keeps an explicit target instead of flipping a Japanese draft', () => {
+    const auto = planComposeTranslation('こんにちは', 'ja');
+    const explicit = planComposeTranslation('こんにちは', 'ja', false, true);
+    expect(auto.targetLanguage).toBe('en');
+    expect(explicit.targetLanguage).toBe('ja');
+    expect(planComposeTranslation('See you tomorrow.', 'ko', false, true).targetLanguage).toBe(
+      'ko',
+    );
+  });
 });

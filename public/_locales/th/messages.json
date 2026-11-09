@@ -372,13 +372,22 @@
     "message": "แป้นพิมพ์ลัด"
   },
   "shortcutHelp": {
-    "message": "Chrome เป็นผู้เก็บแป้นเหล่านี้ กดเปลี่ยนแป้นลัดเพื่อแก้ไขในการตั้งค่าของ Chrome"
+    "message": "ถ้า Chrome ไม่กำหนดปุ่มให้คำสั่ง หน้าเว็บยังใช้ปุ่มเริ่มต้นได้ เอาเครื่องหมายถูกออกเพื่อปิดคำสั่ง ใช้ปุ่มเปลี่ยนทางลัดเพื่อแก้ปุ่มใน Chrome"
   },
   "shortcutChange": {
     "message": "เปลี่ยนแป้นลัด"
   },
   "shortcutUnset": {
     "message": "ยังไม่ได้ตั้งค่า"
+  },
+  "shortcutUse": {
+    "message": "ใช้ทางลัดนี้"
+  },
+  "shortcutOff": {
+    "message": "ปิด"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome ไม่ได้กำหนดปุ่มให้คำสั่งนี้ จึงใช้ปุ่มเริ่มต้นในหน้าเว็บ"
   },
   "shortcutTranslate": {
     "message": "$KEY$ จะแปลงหน้าเว็บหรือกู้คืนหน้าเว็บเดิม",
@@ -901,6 +910,24 @@
   },
   "composeIconSettingHelp": {
     "message": "ทางลัดและเมนูคลิกขวายังใช้ได้เมื่อซ่อนปุ่ม"
+  },
+  "composeTargetSetting": {
+    "message": "ภาษาปลายทางตอนพิมพ์"
+  },
+  "composeTargetAuto": {
+    "message": "อัตโนมัติ (ฉบับร่างภาษาญี่ปุ่นไปอีกภาษาของคู่ มิฉะนั้นใช้ภาษาของหน้า)"
+  },
+  "composeTargetSettingHelp": {
+    "message": "ภาษาที่เลือกในหน้าต่างตัวอย่างจะจำไว้ที่นี่"
+  },
+  "composeTargetLabel": {
+    "message": "ปลายทาง"
+  },
+  "composeInstantSetting": {
+    "message": "แปลแล้วแทนที่ด้วยทางลัดครั้งเดียว"
+  },
+  "composeInstantSettingHelp": {
+    "message": "ข้ามตัวอย่าง กดทางลัดครั้งเดียวแปลแล้วแทนที่ฉบับร่าง ยังเลิกทำได้"
   },
   "composeNeedSetup": {
     "message": "PLaMo ยังไม่พร้อม เปิดการตั้งค่าเพื่อยอมรับสัญญาอนุญาตและดาวน์โหลดโมเดล"

@@ -2,11 +2,17 @@ import type { GlossaryEntry } from '@/engine/types';
 import { normalizeGlossary } from './glossary';
 import {
   DEFAULT_TARGET_LANGUAGE,
+  isChromeOnlyLanguage,
   isTargetLanguage,
   resolveTargetLanguage,
   type TargetLanguage,
 } from './languages';
 import { isRecord } from './object';
+import {
+  defaultShortcutEnabled,
+  normalizeShortcutEnabled,
+  type ShortcutEnabled,
+} from './shortcuts';
 
 export const SETTINGS_SCHEMA_VERSION = 1;
 
@@ -61,6 +67,18 @@ export interface Settings {
   pace: TranslationPace;
   /** False hides the あA button on message boxes. The shortcut and context menu stay. */
   composeIcon: boolean;
+  /**
+   * Per-command on/off in Sakutto. Chrome reporting a command as unbound is not an off
+   * switch; that still uses the default key on pages until this flag is false.
+   */
+  shortcutsEnabled: ShortcutEnabled;
+  /**
+   * When set, compose translation always uses this target. `null` keeps the heuristic:
+   * Japanese drafts go to the other side of the pair, everything else to the page target.
+   */
+  composeTargetLanguage: TargetLanguage | null;
+  /** One shortcut press translates and replaces, skipping the preview confirmation. */
+  composeInstantReplace: boolean;
 }
 
 export type SettingsPatch = Partial<
@@ -76,8 +94,12 @@ export type SettingsPatch = Partial<
     | 'tier'
     | 'pace'
     | 'composeIcon'
+    | 'composeTargetLanguage'
+    | 'composeInstantReplace'
   >
->;
+> & {
+  shortcutsEnabled?: Partial<ShortcutEnabled>;
+};
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   schemaVersion: SETTINGS_SCHEMA_VERSION,
@@ -91,12 +113,16 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   tier: 'auto',
   pace: 'quality',
   composeIcon: true,
+  shortcutsEnabled: defaultShortcutEnabled(),
+  composeTargetLanguage: null,
+  composeInstantReplace: false,
 });
 
 export function createDefaultSettings(uiLanguage: string): Settings {
   return {
     ...DEFAULT_SETTINGS,
     glossary: [],
+    shortcutsEnabled: defaultShortcutEnabled(),
     targetLanguage: resolveTargetLanguage(uiLanguage),
   };
 }
@@ -131,7 +157,15 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     tier: isTierPreference(value.tier) ? value.tier : defaults.tier,
     pace: isTranslationPace(value.pace) ? value.pace : defaults.pace,
     composeIcon: value.composeIcon !== false,
+    shortcutsEnabled: normalizeShortcutEnabled(value.shortcutsEnabled),
+    composeTargetLanguage: normalizeComposeTarget(value.composeTargetLanguage),
+    composeInstantReplace: value.composeInstantReplace === true,
   };
+}
+
+function normalizeComposeTarget(value: unknown): TargetLanguage | null {
+  if (!isTargetLanguage(value) || isChromeOnlyLanguage(value)) return null;
+  return value;
 }
 
 function isAcceptedAt(value: unknown): value is string {

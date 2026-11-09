@@ -1813,6 +1813,49 @@ describe('page translation corrections', () => {
     release();
     await session.whenIdle();
   });
+
+  it('ignores page shortcuts while an IME composition is in progress', async () => {
+    document.body.innerHTML = '<p>Hello world</p>';
+    let calls = 0;
+    const session = new PageSession(document, {
+      engine: engineOf(async function* (segments) {
+        calls += 1;
+        for (const segment of segments) {
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' };
+        }
+      }),
+      labels,
+      preferences: preferences(),
+      scheduleFrame: (callback) => callback(),
+      pageKey: (event) => event.altKey && event.code === 'KeyA',
+    });
+    sessions.push(session);
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'a',
+        code: 'KeyA',
+        altKey: true,
+        isComposing: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toBe(0);
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'a',
+        code: 'KeyA',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await session.whenIdle();
+    expect(calls).toBeGreaterThan(0);
+  });
 });
 
 function overlapsRect(

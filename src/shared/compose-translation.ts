@@ -60,6 +60,7 @@ function chooseComposeTarget(text: string, preferred: TargetLanguage): TargetLan
  * already in that language — Japanese when the target is Japanese, English when it is
  * English — flips to the other side of the main pair so the first request is not a no-op.
  * `swapped` inverts that choice for this field, the way the typed page's swap control does.
+ * `explicit` skips the auto-flip: the preview language the reader picked is the target.
  *
  * The source is left unset for the engine: PLaMo does not need it, and a wrong guess here
  * would be a second place to fail. `sourceLanguage` is only the heuristic the swap and the
@@ -69,9 +70,10 @@ export function planComposeTranslation(
   text: string,
   preferred: TargetLanguage,
   swapped = false,
+  explicit = false,
 ): ComposePlan {
   const preferredTarget = isTargetLanguage(preferred) ? preferred : PRIMARY_PAIR_TARGET;
-  const auto = chooseComposeTarget(text, preferredTarget);
+  const auto = explicit ? preferredTarget : chooseComposeTarget(text, preferredTarget);
   const target = swapped ? composePairOther(auto, preferredTarget) : auto;
   return {
     ok: !typedTargetNeedsChrome(target),

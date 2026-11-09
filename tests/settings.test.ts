@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_GLOSSARY_ENTRIES } from '@/shared/glossary';
 import { displayLanguage, resolveTargetLanguage } from '@/shared/languages';
+import { defaultShortcutEnabled } from '@/shared/shortcuts';
 import {
   DEFAULT_SETTINGS,
   LEGACY_NOTICE_VERSION,
@@ -26,6 +27,9 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     tier: 'auto',
     pace: 'quality',
     composeIcon: true,
+    shortcutsEnabled: defaultShortcutEnabled(),
+    composeTargetLanguage: null,
+    composeInstantReplace: false,
     ...overrides,
   };
 }
@@ -54,6 +58,45 @@ describe('settings defaults', () => {
     expect(displayLanguage('en', 'ja')).toBe('英語');
     expect(displayLanguage('not-a-language', 'en')).toBe('not-a-language');
     expect(displayLanguage('', 'en')).toBe('');
+  });
+
+  it('defaults shortcuts on, compose target automatic, and instant replace off', () => {
+    const settings = normalizeSettings(
+      {
+        schemaVersion: SETTINGS_SCHEMA_VERSION,
+        targetLanguage: 'en',
+      },
+      'en-US',
+    );
+    expect(settings.shortcutsEnabled).toEqual(defaultShortcutEnabled());
+    expect(settings.composeTargetLanguage).toBeNull();
+    expect(settings.composeInstantReplace).toBe(false);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          shortcutsEnabled: { 'toggle-bilingual': false },
+          composeTargetLanguage: 'ko',
+          composeInstantReplace: true,
+        },
+        'en-US',
+      ),
+    ).toMatchObject({
+      shortcutsEnabled: { ...defaultShortcutEnabled(), 'toggle-bilingual': false },
+      composeTargetLanguage: 'ko',
+      composeInstantReplace: true,
+    });
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          composeTargetLanguage: 'pt',
+        },
+        'en-US',
+      ).composeTargetLanguage,
+    ).toBeNull();
   });
 
   it('defaults the compose icon on for a record that predates the setting', () => {

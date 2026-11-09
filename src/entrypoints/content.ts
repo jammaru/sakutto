@@ -1,21 +1,32 @@
 import { browser } from 'wxt/browser';
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { listPageBlocks } from '@/dom/blocks';
-import { ComposeController, type ComposeLabels } from '@/dom/compose';
+import { ComposeController, type ComposeLabels, type ComposePreferences } from '@/dom/compose';
 import { detectDocumentLanguage } from '@/dom/detect';
 import { fakeTranslate } from '@/dom/fake-engine';
 import type { OverlayLabels } from '@/dom/overlay';
 import { PageSession, preferencesFor } from '@/dom/session';
-import { loadSiteRule, pageHost, saveSiteRule, subscribeSiteRules } from '@/dom/sites';
+import {
+  loadSiteRule,
+  pageHost,
+  saveSiteRule,
+  subscribeSiteRules,
+  type SiteRule,
+} from '@/dom/sites';
 import { hasLicenseConsent } from '@/shared/agreement';
 import type { ModelStatus } from '@/shared/engine-status';
 import { mergeGlossary } from '@/shared/glossary';
 import { currentUiLanguage, t } from '@/shared/i18n';
+import { isTargetLanguage, type TargetLanguage } from '@/shared/languages';
 import {
   boundShortcut,
-  DEFAULT_COMPOSE_SHORTCUT,
-  DEFAULT_SELECTION_SHORTCUT,
+  DEFAULT_SHORTCUTS,
+  defaultShortcutEnabled,
+  displayShortcut,
   matchesShortcut,
+  SHORTCUT_PAGE_COMMANDS,
+  type ShortcutCommand,
+  type ShortcutEnabled,
 } from '@/shared/shortcuts';
 import {
   isModelProgressMessage,
@@ -27,8 +38,9 @@ import {
   requestEngineWarm,
   type PageCommandName,
   type PageInfo,
+  type ShortcutSnapshot,
 } from '@/shared/messages';
-import { loadSettings, subscribeSettings } from '@/shared/storage';
+import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
 import type { Settings } from '@/shared/settings';
 import { typedReadiness, type TypedReadiness } from '@/shared/typed-translation';
 import { translateViaBackground } from '@/shared/translation-client';
@@ -40,18 +52,66 @@ interface ContentBridgeGlobal {
 const bridge = globalThis as typeof globalThis & ContentBridgeGlobal;
 
 /**
- * The key the user bound to "translate the selection". Chrome only tells a page which keys
- * are bound through the background worker, so this asks once and keeps the manifest default
- * when the answer never arrives. An empty string means the command has no key.
+ * Chrome only tells a page which keys are bound through the background worker. An empty
+ * snapshot keeps the manifest defaults. A command Chrome listed as unbound also keeps the
+ * default unless the reader turned that command off in Sakutto.
  */
-async function readBoundShortcuts(): Promise<{ selection: string; compose: string }> {
+async function readShortcutSnapshot(): Promise<ShortcutSnapshot | null> {
   const response: unknown = await browser.runtime
     .sendMessage({ type: 'commands:shortcuts' })
     .catch(() => undefined);
-  const snapshot = isShortcutSnapshot(response) ? response : null;
+  return isShortcutSnapshot(response) ? response : null;
+}
+
+function shortcutFor(
+  snapshot: ShortcutSnapshot | null,
+  enabled: ShortcutEnabled,
+  command: ShortcutCommand,
+): string {
+  return boundShortcut(snapshot, command, DEFAULT_SHORTCUTS[command], enabled[command]);
+}
+
+function listensFor(
+  snapshot: ShortcutSnapshot | null,
+  enabled: ShortcutEnabled,
+  command: ShortcutCommand,
+): (event: KeyboardEvent) => boolean {
+  return (event) => {
+    const shortcut = shortcutFor(snapshot, enabled, command);
+    return shortcut.length > 0 && matchesShortcut(event, shortcut);
+  };
+}
+
+function commandEnabled(
+  snapshot: ShortcutSnapshot | null,
+  enabled: ShortcutEnabled,
+  command: PageCommandName,
+): boolean {
+  const name = (Object.keys(SHORTCUT_PAGE_COMMANDS) as ShortcutCommand[]).find(
+    (entry) => SHORTCUT_PAGE_COMMANDS[entry] === command,
+  );
+  if (!name) return true;
+  return shortcutFor(snapshot, enabled, name).length > 0;
+}
+
+function composePreferencesFor(
+  settings: Settings,
+  rule: SiteRule,
+  readiness: TypedReadiness,
+  replaceShortcut: string,
+): ComposePreferences {
+  const composeTarget = settings.composeTargetLanguage;
   return {
-    selection: boundShortcut(snapshot, 'translate-selection', DEFAULT_SELECTION_SHORTCUT),
-    compose: boundShortcut(snapshot, 'translate-compose', DEFAULT_COMPOSE_SHORTCUT),
+    targetLanguage: composeTarget ?? rule.targetLanguage ?? settings.targetLanguage,
+    form: settings.form,
+    glossary: mergeGlossary(settings.glossary, rule.glossary),
+    enabled: rule.auto !== 'never',
+    uiLanguage: currentUiLanguage(),
+    showIcon: settings.composeIcon,
+    readiness,
+    explicitTarget: composeTarget !== null,
+    instantReplace: settings.composeInstantReplace,
+    replaceShortcut,
   };
 }
 
@@ -86,6 +146,7 @@ function composeLabels(readiness?: TypedReadiness): ComposeLabels {
     loading: t('composeLoading'),
     ineligible: t('composeIneligible'),
     openSetup: t('composeOpenSetup'),
+    target: t('composeTargetLabel'),
     into: (language) => t('composeInto', [language]),
     chromeOnly: (language) => t('composeChromeOnly', [language]),
   };
@@ -152,26 +213,25 @@ export default defineContentScript({
     bridge.__sakuttoContentBridgeReady = true;
 
     const host = pageHost(location.href) ?? '';
-    // The bound keys, or the manifest defaults until the background answers. An empty string
-    // means the user unbound the command, so the page does not answer it at all.
-    let selectionShortcut: string = DEFAULT_SELECTION_SHORTCUT;
-    let composeShortcut: string = DEFAULT_COMPOSE_SHORTCUT;
+    // Chrome's bindings, or the manifest defaults until the background answers. A command
+    // Chrome left unbound still uses its default on this page unless Sakutto turned it off.
+    let shortcutSnapshot: ShortcutSnapshot | null = null;
+    let shortcutsEnabled = defaultShortcutEnabled();
     let lastCommand = '';
     let lastCommandAt = 0;
     let compose: ComposeController | null = null;
     let modelState: ModelStatus['state'] | null = null;
     let plamoReady = false;
     let modelStatusKnown = false;
-    const readBoundShortcutsNow = (): void => {
-      void readBoundShortcuts().then((bound) => {
-        selectionShortcut = bound.selection;
-        composeShortcut = bound.compose;
+    const refreshShortcuts = (): void => {
+      void readShortcutSnapshot().then((snapshot) => {
+        if (snapshot) shortcutSnapshot = snapshot;
       });
     };
-    readBoundShortcutsNow();
+    refreshShortcuts();
     // Chrome has no event for a changed binding. A reader who rebinds and comes back to the
     // page brings it into focus, which is the moment to read the new key.
-    window.addEventListener('focus', readBoundShortcutsNow);
+    window.addEventListener('focus', refreshShortcuts);
 
     const engine = { translate: __SAKUTTO_FAKE_ENGINE__ ? fakeTranslate : translateViaBackground };
 
@@ -186,6 +246,7 @@ export default defineContentScript({
           modelStatusKnown = true;
         }
       }
+      shortcutsEnabled = settings.shortcutsEnabled;
       const session = new PageSession(document, {
         engine,
         labels: overlayLabels(),
@@ -195,8 +256,11 @@ export default defineContentScript({
           await saveSiteRule({ ...current, ...patch, host });
         },
         onGrantSite: () => requestSiteAccess(host),
+        pageKey: (event) => listensFor(shortcutSnapshot, shortcutsEnabled, 'translate-page')(event),
+        bilingualKey: (event) =>
+          listensFor(shortcutSnapshot, shortcutsEnabled, 'toggle-bilingual')(event),
         selectionKey: (event) =>
-          selectionShortcut.length > 0 && matchesShortcut(event, selectionShortcut),
+          listensFor(shortcutSnapshot, shortcutsEnabled, 'translate-selection')(event),
       });
       const readiness = composeReadiness(
         settings,
@@ -207,22 +271,23 @@ export default defineContentScript({
       compose = new ComposeController(document, {
         engine,
         labels: composeLabels(readiness),
-        preferences: {
-          targetLanguage: rule.targetLanguage ?? settings.targetLanguage,
-          form: settings.form,
-          glossary: mergeGlossary(settings.glossary, rule.glossary),
-          enabled: rule.auto !== 'never',
-          uiLanguage: currentUiLanguage(),
-          showIcon: settings.composeIcon,
+        preferences: composePreferencesFor(
+          settings,
+          rule,
           readiness,
-        },
+          displayShortcut(shortcutFor(shortcutSnapshot, shortcutsEnabled, 'translate-compose')),
+        ),
         composeKey: (event) =>
-          composeShortcut.length > 0 && matchesShortcut(event, composeShortcut),
+          listensFor(shortcutSnapshot, shortcutsEnabled, 'translate-compose')(event),
         onWarm: () => {
           if (!__SAKUTTO_FAKE_ENGINE__) void requestEngineWarm();
         },
         onSetup: () => {
           void browser.runtime.sendMessage({ type: 'ui:open-setup' }).catch(() => undefined);
+        },
+        onTarget: (language: TargetLanguage) => {
+          if (!isTargetLanguage(language)) return;
+          void saveSettings({ composeTargetLanguage: language });
         },
       });
 
@@ -231,6 +296,7 @@ export default defineContentScript({
 
       const applyStored = async (): Promise<void> => {
         const [nextSettings, nextRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
+        shortcutsEnabled = nextSettings.shortcutsEnabled;
         session.setLabels(overlayLabels());
         session.setPreferences(preferencesFor(nextSettings, nextRule, host));
         const readiness = composeReadiness(
@@ -240,15 +306,14 @@ export default defineContentScript({
           modelStatusKnown,
         );
         compose?.setLabels(composeLabels(readiness));
-        compose?.setPreferences({
-          targetLanguage: nextRule.targetLanguage ?? nextSettings.targetLanguage,
-          form: nextSettings.form,
-          glossary: mergeGlossary(nextSettings.glossary, nextRule.glossary),
-          enabled: nextRule.auto !== 'never',
-          uiLanguage: currentUiLanguage(),
-          showIcon: nextSettings.composeIcon,
-          readiness,
-        });
+        compose?.setPreferences(
+          composePreferencesFor(
+            nextSettings,
+            nextRule,
+            readiness,
+            displayShortcut(shortcutFor(shortcutSnapshot, shortcutsEnabled, 'translate-compose')),
+          ),
+        );
       };
 
       subscribeSettings(() => {
@@ -276,6 +341,7 @@ export default defineContentScript({
       lastCommand = command;
       lastCommandAt = now;
       const session = await sessionPromise;
+      if (!commandEnabled(shortcutSnapshot, shortcutsEnabled, command)) return session.state();
       if (!__SAKUTTO_FAKE_ENGINE__) {
         void requestEngineWarm();
         void requestEngineTier(session);
@@ -302,15 +368,14 @@ export default defineContentScript({
           const [nextSettings, nextRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
           const readiness = composeReadiness(nextSettings, message.status, plamoReady, true);
           compose?.setLabels(composeLabels(readiness));
-          compose?.setPreferences({
-            targetLanguage: nextRule.targetLanguage ?? nextSettings.targetLanguage,
-            form: nextSettings.form,
-            glossary: mergeGlossary(nextSettings.glossary, nextRule.glossary),
-            enabled: nextRule.auto !== 'never',
-            uiLanguage: currentUiLanguage(),
-            showIcon: nextSettings.composeIcon,
-            readiness,
-          });
+          compose?.setPreferences(
+            composePreferencesFor(
+              nextSettings,
+              nextRule,
+              readiness,
+              displayShortcut(shortcutFor(shortcutSnapshot, shortcutsEnabled, 'translate-compose')),
+            ),
+          );
           if (message.status.state === 'loaded' && !__SAKUTTO_FAKE_ENGINE__) {
             void requestEngineTier(session, true);
           }

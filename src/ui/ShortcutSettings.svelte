@@ -6,8 +6,12 @@
   import {
     SHORTCUT_COMMANDS,
     ariaShortcut,
+    boundShortcut,
+    chromeLeftShortcutUnset,
+    defaultShortcutEnabled,
     displayShortcut,
     type ShortcutCommand,
+    type ShortcutEnabled,
     type ShortcutSnapshot,
   } from '@/shared/shortcuts';
 
@@ -18,21 +22,35 @@
     'translate-compose': 'commandCompose',
   };
 
+  interface Props {
+    enabled?: ShortcutEnabled | undefined;
+    onToggle?: ((command: ShortcutCommand, enabled: boolean) => void) | undefined;
+  }
+
+  let { enabled = defaultShortcutEnabled(), onToggle }: Props = $props();
+
   let bound = $state<ShortcutSnapshot | null>(null);
   let openFailed = $state(false);
 
+  function isOn(command: ShortcutCommand): boolean {
+    return enabled[command] !== false;
+  }
+
   function keyText(command: ShortcutCommand): string {
-    const shortcut = bound?.[command];
-    if (shortcut === null || shortcut === undefined || shortcut.length === 0) {
-      return t('shortcutUnset');
-    }
-    return displayShortcut(shortcut);
+    if (!isOn(command)) return t('shortcutOff');
+    const shortcut = boundShortcut(bound, command);
+    return shortcut.length > 0 ? displayShortcut(shortcut) : t('shortcutUnset');
   }
 
   function aria(command: ShortcutCommand): string | undefined {
-    const shortcut = bound?.[command];
-    if (shortcut === null || shortcut === undefined || shortcut.length === 0) return undefined;
+    if (!isOn(command)) return undefined;
+    const shortcut = boundShortcut(bound, command);
+    if (shortcut.length === 0) return undefined;
     return ariaShortcut(shortcut) ?? undefined;
+  }
+
+  function showsFallback(command: ShortcutCommand): boolean {
+    return isOn(command) && chromeLeftShortcutUnset(bound, command);
   }
 
   function refresh(): void {
@@ -43,7 +61,8 @@
 
   /**
    * Chrome owns the key bindings, so the only honest control is a button that opens Chrome's
-   * own editor. The rows are read again when the reader comes back from that tab.
+   * own editor. The rows are read again when the reader comes back from that tab. Sakutto's
+   * own checkbox is the off switch; Chrome leaving a command unbound is not.
    */
   async function openEditor(): Promise<void> {
     openFailed = !(await openShortcutEditor());
@@ -66,9 +85,23 @@
     <div>
       <dt>{t(LABELS[command])}</dt>
       <dd>
+        <label class="use">
+          <input
+            type="checkbox"
+            checked={isOn(command)}
+            onchange={(event) => {
+              const input = event.currentTarget as HTMLInputElement;
+              onToggle?.(command, input.checked);
+            }}
+          />
+          <span>{t('shortcutUse')}</span>
+        </label>
         <kbd aria-keyshortcuts={aria(command)}>{keyText(command)}</kbd>
       </dd>
     </div>
+    {#if showsFallback(command)}
+      <p class="fallback">{t('shortcutFallbackNote')}</p>
+    {/if}
   {/each}
 </dl>
 <button class="button secondary" type="button" onclick={openEditor}>{t('shortcutChange')}</button>
@@ -96,7 +129,25 @@
   }
 
   dd {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
     margin: 0;
+  }
+
+  .use {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .fallback {
+    margin: -4px 0 4px;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.45;
   }
 
   kbd {

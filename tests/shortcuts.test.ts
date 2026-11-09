@@ -5,6 +5,7 @@ import {
   DEFAULT_SHORTCUTS,
   ariaShortcut,
   boundShortcut,
+  chromeLeftShortcutUnset,
   displayShortcut,
   isPlainAltS,
   matchesShortcut,
@@ -113,14 +114,17 @@ describe('readShortcutSnapshot', () => {
     });
   });
 
-  it('does not steal Alt+T when Chrome listed compose but left it unbound', () => {
+  it('uses the default key when Chrome listed a command but left it unbound', () => {
     const snapshot = readShortcutSnapshot([
       { name: 'translate-page', shortcut: 'Alt+A' },
       { name: 'toggle-bilingual', shortcut: 'Alt+B' },
       { name: 'translate-selection', shortcut: 'Alt+S' },
       { name: 'translate-compose', shortcut: '' },
     ]);
-    expect(boundShortcut(snapshot, 'translate-compose', DEFAULT_COMPOSE_SHORTCUT)).toBe('');
+    expect(boundShortcut(snapshot, 'translate-compose', DEFAULT_COMPOSE_SHORTCUT)).toBe('Alt+T');
+    expect(boundShortcut(snapshot, 'translate-compose', DEFAULT_COMPOSE_SHORTCUT, false)).toBe('');
+    expect(chromeLeftShortcutUnset(snapshot, 'translate-compose')).toBe(true);
+    expect(chromeLeftShortcutUnset(snapshot, 'translate-page')).toBe(false);
     expect(boundShortcut(null, 'translate-compose', DEFAULT_COMPOSE_SHORTCUT)).toBe('Alt+T');
     expect(
       boundShortcut(
@@ -134,6 +138,17 @@ describe('readShortcutSnapshot', () => {
         DEFAULT_COMPOSE_SHORTCUT,
       ),
     ).toBe('Alt+T');
+    expect(
+      boundShortcut(
+        {
+          'translate-page': 'Alt+Q',
+          'toggle-bilingual': '',
+          'translate-selection': '',
+          'translate-compose': '',
+        },
+        'translate-page',
+      ),
+    ).toBe('Alt+Q');
   });
 
   it('keeps a command Chrome did not list apart from an unbound one', () => {

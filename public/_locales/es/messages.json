@@ -372,13 +372,22 @@
     "message": "Atajos de teclado"
   },
   "shortcutHelp": {
-    "message": "Chrome guarda estas teclas. Con «Cambiar atajos» las editas en los ajustes de Chrome."
+    "message": "Si Chrome deja un comando sin tecla, en las páginas sigue valiendo la tecla predeterminada. Desmarque un comando para desactivarlo. Use Cambiar atajos para editar las teclas en Chrome."
   },
   "shortcutChange": {
     "message": "Cambiar atajos"
   },
   "shortcutUnset": {
     "message": "Sin asignar"
+  },
+  "shortcutUse": {
+    "message": "Usar este atajo"
+  },
+  "shortcutOff": {
+    "message": "Desactivado"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome no tiene tecla para este comando, así que en las páginas se usa la predeterminada."
   },
   "shortcutTranslate": {
     "message": "$KEY$ traduce la página o restaura la original.",
@@ -901,6 +910,24 @@
   },
   "composeIconSettingHelp": {
     "message": "El atajo y el menú contextual siguen funcionando si el botón está oculto."
+  },
+  "composeTargetSetting": {
+    "message": "Idioma de destino al redactar"
+  },
+  "composeTargetAuto": {
+    "message": "Automático (los borradores en japonés van al otro idioma del par; el resto, al idioma de la página)"
+  },
+  "composeTargetSettingHelp": {
+    "message": "El idioma que elija en la vista previa se recuerda aquí."
+  },
+  "composeTargetLabel": {
+    "message": "Destino"
+  },
+  "composeInstantSetting": {
+    "message": "Traducir y reemplazar con un solo atajo"
+  },
+  "composeInstantSettingHelp": {
+    "message": "Sin vista previa: un atajo traduce el borrador y lo reemplaza. Deshacer sigue disponible."
   },
   "composeNeedSetup": {
     "message": "PLaMo aún no está listo. Abre la configuración para aceptar la licencia y descargar el modelo."

@@ -1,9 +1,19 @@
 import type { GlossaryEntry, TranslateOptions } from '@/engine/types';
-import { displayLanguage, isTargetLanguage, type TargetLanguage } from '@/shared/languages';
-import { COMPOSE_PREVIEW_MS, planComposeTranslation } from '@/shared/compose-translation';
+import {
+  displayLanguage,
+  isTargetLanguage,
+  SUPPORTED_LANGUAGES,
+  type TargetLanguage,
+} from '@/shared/languages';
+import {
+  COMPOSE_PREVIEW_MS,
+  composePairOther,
+  planComposeTranslation,
+} from '@/shared/compose-translation';
 import { matchesShortcut } from '@/shared/shortcuts';
 import type { Formality } from '@/shared/settings';
 import {
+  isTranslateShortcut,
   MAX_TYPED_CHARS,
   normalizeTypedInput,
   type TypedReadiness,
@@ -45,6 +55,7 @@ export interface ComposeLabels {
   loading: string;
   ineligible: string;
   openSetup: string;
+  target: string;
   into: (language: string) => string;
   chromeOnly: (language: string) => string;
 }
@@ -57,6 +68,12 @@ export interface ComposePreferences {
   uiLanguage: string;
   showIcon: boolean;
   readiness: TypedReadiness;
+  /** True when the reader picked a compose target; skips the Japanese-draft auto-flip. */
+  explicitTarget: boolean;
+  /** One shortcut press translates and replaces, without waiting for the preview button. */
+  instantReplace: boolean;
+  /** Shown on the Replace button, e.g. `Alt+T`. Empty when the command is off. */
+  replaceShortcut: string;
 }
 
 const ICON_PX = 26;
@@ -164,6 +181,21 @@ button.swap {
   color: #0e7490;
   font-weight: 700;
 }
+.target {
+  max-width: 11em;
+  padding: 1px 4px;
+  border: 1px solid #d5dde6;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 10px;
+}
+kbd {
+  margin-left: 0.35em;
+  font: 600 10px/1 var(--font-mono, ui-monospace, monospace);
+  opacity: 0.85;
+}
 button.setup { display: none; }
 button.setup.visible { display: inline-flex; }
 @media (prefers-color-scheme: dark) {
@@ -177,6 +209,7 @@ button.setup.visible { display: inline-flex; }
   button { background: #67e8f9; color: #062a33; }
   button.secondary { background: #1d2631; color: #edf1f6; }
   button.swap { color: #67e8f9; background: transparent; }
+  .target { border-color: #2d3947; color: #edf1f6; }
 }
 `;
 
@@ -223,6 +256,7 @@ class ComposeOverlay {
   private readonly iconButton: HTMLButtonElement;
   private readonly kicker: HTMLElement;
   private readonly swapButton: HTMLButtonElement;
+  private readonly targetSelect: HTMLSelectElement;
   private readonly body: HTMLElement;
   private readonly note: HTMLElement;
   private readonly replaceButton: HTMLButtonElement;
@@ -236,6 +270,9 @@ class ComposeOverlay {
   private onClose: () => void = () => undefined;
   private onSwap: () => void = () => undefined;
   private onSetup: () => void = () => undefined;
+  private onTarget: (language: TargetLanguage) => void = () => undefined;
+  private replaceShortcut = '';
+  private uiLanguage = 'en';
 
   constructor(
     private readonly doc: Document,
@@ -258,6 +295,7 @@ class ComposeOverlay {
     const panel = this.mountPanel();
     this.kicker = panel.kicker;
     this.swapButton = panel.swap;
+    this.targetSelect = panel.target;
     this.body = panel.body;
     this.note = panel.note;
     this.replaceButton = panel.replace;
@@ -273,6 +311,7 @@ class ComposeOverlay {
         if (detail === 'undo') this.onUndo();
       });
     }
+    this.fillLanguages();
   }
 
   setLabels(labels: ComposeLabels): void {
@@ -282,7 +321,9 @@ class ComposeOverlay {
     this.kicker.textContent = labels.title;
     this.swapButton.setAttribute('aria-label', labels.swap);
     this.swapButton.title = labels.swap;
-    this.replaceButton.textContent = labels.replace;
+    this.paintReplaceButton();
+    this.targetSelect.setAttribute('aria-label', labels.target);
+    this.fillLanguages();
     this.undoButton.textContent = labels.undo;
     this.closeButton.textContent = labels.close;
     this.setupButton.textContent = labels.openSetup;
@@ -297,6 +338,7 @@ class ComposeOverlay {
     onClose: () => void;
     onSwap: () => void;
     onSetup: () => void;
+    onTarget: (language: TargetLanguage) => void;
   }): void {
     this.onIcon = handlers.onIcon;
     this.onReplace = handlers.onReplace;
@@ -304,6 +346,18 @@ class ComposeOverlay {
     this.onClose = handlers.onClose;
     this.onSwap = handlers.onSwap;
     this.onSetup = handlers.onSetup;
+    this.onTarget = handlers.onTarget;
+  }
+
+  setReplaceShortcut(shortcut: string): void {
+    this.replaceShortcut = shortcut;
+    this.paintReplaceButton();
+  }
+
+  setUiLanguage(language: string): void {
+    if (this.uiLanguage === language) return;
+    this.uiLanguage = language;
+    this.fillLanguages();
   }
 
   showIcon(anchor: DOMRect): void {
@@ -343,6 +397,7 @@ class ComposeOverlay {
     this.undoButton.disabled = !state.canUndo;
     this.setupButton.classList.toggle('visible', state.needsSetup);
     this.kicker.textContent = this.labels.title;
+    this.targetSelect.value = state.lang;
     this.placePanel(anchor);
   }
 
@@ -394,9 +449,35 @@ class ComposeOverlay {
     return button;
   }
 
+  private paintReplaceButton(): void {
+    const hint = this.replaceShortcut;
+    this.replaceButton.textContent = '';
+    this.replaceButton.append(this.doc.createTextNode(this.labels.replace));
+    if (hint.length > 0) {
+      const kbd = this.doc.createElement('kbd');
+      kbd.textContent = hint;
+      this.replaceButton.append(' ', kbd);
+    }
+  }
+
+  private fillLanguages(): void {
+    const current = this.targetSelect.value;
+    this.targetSelect.replaceChildren();
+    for (const language of SUPPORTED_LANGUAGES) {
+      const option = this.doc.createElement('option');
+      option.value = language;
+      option.textContent = displayLanguage(language, this.uiLanguage);
+      this.targetSelect.append(option);
+    }
+    if ([...this.targetSelect.options].some((option) => option.value === current)) {
+      this.targetSelect.value = current;
+    }
+  }
+
   private mountPanel(): {
     kicker: HTMLElement;
     swap: HTMLButtonElement;
+    target: HTMLSelectElement;
     body: HTMLElement;
     note: HTMLElement;
     replace: HTMLButtonElement;
@@ -438,7 +519,16 @@ class ComposeOverlay {
       event.stopPropagation();
       this.onSwap();
     });
-    kickerRow.append(kicker, swap);
+    const target = this.doc.createElement('select');
+    target.className = 'target';
+    target.setAttribute('aria-label', this.labels.target);
+    target.addEventListener('mousedown', keep);
+    target.addEventListener('pointerdown', keep);
+    target.addEventListener('change', () => {
+      const value = target.value;
+      if (isTargetLanguage(value)) this.onTarget(value);
+    });
+    kickerRow.append(kicker, target, swap);
 
     const body = this.doc.createElement('p');
     body.className = 'body';
@@ -450,6 +540,7 @@ class ComposeOverlay {
     actions.className = 'actions';
     const replace = this.doc.createElement('button');
     replace.type = 'button';
+    replace.className = 'replace';
     replace.textContent = this.labels.replace;
     replace.addEventListener('pointerdown', keepFocus);
     replace.addEventListener('mousedown', keepFocus);
@@ -495,7 +586,7 @@ class ComposeOverlay {
     actions.append(replace, undo, close, setup);
     card.append(kickerRow, body, note, actions);
     shadow.append(style, card);
-    return { kicker, swap, body, note, replace, undo, close, setup };
+    return { kicker, swap, target, body, note, replace, undo, close, setup };
   }
 
   private placePanel(anchor: DOMRect): void {
@@ -527,11 +618,13 @@ export interface ComposeControllerOptions {
   previewMs?: number;
   onWarm?: () => void;
   onSetup?: () => void;
+  onTarget?: (language: TargetLanguage) => void;
 }
 
 /**
- * Translates the focused message box on request. A live preview is shown only after the
- * reader opens the panel; the field is never rewritten until Replace is chosen.
+ * Translates the focused message box on request. A live preview is shown after the
+ * reader opens the panel; the field is rewritten only when Replace is chosen, the
+ * compose shortcut is pressed again, or Ctrl+Enter (⌘+Enter on a Mac) is pressed.
  */
 export class ComposeController {
   private readonly engine: PageEngine;
@@ -540,6 +633,7 @@ export class ComposeController {
   private readonly previewMs: number;
   private readonly onWarm: (() => void) | undefined;
   private readonly onSetup: (() => void) | undefined;
+  private readonly onTarget: ((language: TargetLanguage) => void) | undefined;
   private readonly boundDocs = new Set<Document>();
   private prefs: ComposePreferences;
   private labels: ComposeLabels;
@@ -558,6 +652,7 @@ export class ComposeController {
   private lastAnchor: DOMRect | null = null;
   private replacing = false;
   private lastShortcutAt = 0;
+  private replaceWhenReady = false;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private request: AbortController | null = null;
   private generation = 0;
@@ -581,7 +676,10 @@ export class ComposeController {
     this.composeKey = options.composeKey ?? ((event) => matchesShortcut(event, 'Alt+T'));
     this.onWarm = options.onWarm;
     this.onSetup = options.onSetup;
+    this.onTarget = options.onTarget;
     this.overlay = new ComposeOverlay(doc, options.labels);
+    this.overlay.setReplaceShortcut(this.prefs.replaceShortcut);
+    this.overlay.setUiLanguage(this.prefs.uiLanguage);
     this.overlay.setHandlers({
       onIcon: () => this.openFromIcon(),
       onReplace: () => {
@@ -593,6 +691,7 @@ export class ComposeController {
       onClose: () => this.dismiss(),
       onSwap: () => this.swapDirection(),
       onSetup: () => this.onSetup?.(),
+      onTarget: (language) => this.pickTarget(language),
     });
     this.onFocusIn = (event) => this.handleFocus(event);
     this.onFocusOut = (event) => this.handleBlur(event);
@@ -613,9 +712,13 @@ export class ComposeController {
   }
 
   setPreferences(prefs: ComposePreferences): void {
-    const languageChanged = prefs.targetLanguage !== this.prefs.targetLanguage;
+    const languageChanged =
+      prefs.targetLanguage !== this.prefs.targetLanguage ||
+      prefs.explicitTarget !== this.prefs.explicitTarget;
     const becameReady = this.prefs.readiness !== 'ready' && prefs.readiness === 'ready';
     this.prefs = prefs;
+    this.overlay.setReplaceShortcut(prefs.replaceShortcut);
+    this.overlay.setUiLanguage(prefs.uiLanguage);
     if (!prefs.enabled) {
       this.dismiss();
       this.overlay.hideIcon();
@@ -643,14 +746,11 @@ export class ComposeController {
     this.field = field;
     this.lastField = field;
     if (this.panelOpen) {
-      if (this.applied !== null || this.preview.trim().length > 0 || this.pending) {
-        this.render();
-        return;
-      }
-      this.translateField(field);
+      this.requestReplace();
       return;
     }
     this.openPanel(field);
+    if (this.prefs.instantReplace) this.replaceWhenReady = true;
     this.translateField(field);
   }
 
@@ -790,6 +890,12 @@ export class ComposeController {
       return;
     }
     if (event.isComposing) return;
+    if (this.panelOpen && isTranslateShortcut(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.requestReplace();
+      return;
+    }
     if (!this.composeKey(event)) return;
     event.preventDefault();
     event.stopPropagation();
@@ -841,6 +947,7 @@ export class ComposeController {
     this.stale = false;
     this.swapped = false;
     this.ineligible = false;
+    this.replaceWhenReady = false;
     this.overlay.hidePanel();
     this.syncIcon();
   }
@@ -882,7 +989,28 @@ export class ComposeController {
     );
   }
 
+  private flushReplaceWhenReady(): void {
+    if (!this.replaceWhenReady || !this.canApply()) return;
+    this.replaceWhenReady = false;
+    void this.apply();
+  }
+
+  private requestReplace(): void {
+    if (this.canApply()) {
+      void this.apply();
+      return;
+    }
+    if (this.pending) {
+      this.replaceWhenReady = true;
+      return;
+    }
+    if (this.applied !== null) return;
+    const field = this.resolveField();
+    if (field) this.translateField(field);
+  }
+
   private async apply(): Promise<void> {
+    this.replaceWhenReady = false;
     const field = this.resolveField();
     if (!field || !this.canApply()) return;
     const snapshot = snapshotComposeField(field);
@@ -927,9 +1055,24 @@ export class ComposeController {
   }
 
   private swapDirection(): void {
-    this.swapped = !this.swapped;
+    const field = this.resolveField();
+    const trimmed = field ? normalizeTypedInput(readComposeText(field)) : '';
+    const plan = planComposeTranslation(
+      trimmed,
+      this.preferredTarget(),
+      this.swapped,
+      this.prefs.explicitTarget,
+    );
+    this.pickTarget(composePairOther(plan.targetLanguage, this.preferredTarget()));
+  }
+
+  private pickTarget(language: TargetLanguage): void {
+    this.swapped = false;
+    this.prefs = { ...this.prefs, targetLanguage: language, explicitTarget: true };
+    this.onTarget?.(language);
     const field = this.resolveField();
     if (field) this.translateField(field);
+    else this.render();
   }
 
   private schedulePreview(field: Element): void {
@@ -985,7 +1128,12 @@ export class ComposeController {
       this.render();
       return;
     }
-    const plan = planComposeTranslation(trimmed, this.preferredTarget(), this.swapped);
+    const plan = planComposeTranslation(
+      trimmed,
+      this.preferredTarget(),
+      this.swapped,
+      this.prefs.explicitTarget,
+    );
     if (!plan.ok) {
       this.abort();
       this.preview = '';
@@ -1038,10 +1186,13 @@ export class ComposeController {
       this.stale = false;
       if (output.trim().length === 0) this.failed = true;
       this.render();
+      if (this.failed) this.replaceWhenReady = false;
+      else this.flushReplaceWhenReady();
     } catch {
       if (signal.aborted || token !== this.generation) return;
       this.pending = false;
       this.failed = true;
+      this.replaceWhenReady = false;
       this.render();
     }
   }
@@ -1067,7 +1218,12 @@ export class ComposeController {
     }
     const raw = readComposeText(field);
     const trimmed = normalizeTypedInput(raw);
-    const plan = planComposeTranslation(trimmed, this.preferredTarget(), this.swapped);
+    const plan = planComposeTranslation(
+      trimmed,
+      this.preferredTarget(),
+      this.swapped,
+      this.prefs.explicitTarget,
+    );
     const language = displayLanguage(plan.targetLanguage, this.prefs.uiLanguage);
     let note = this.labels.into(language);
     let preview = this.preview;

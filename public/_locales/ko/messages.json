@@ -372,13 +372,22 @@
     "message": "키보드 단축키"
   },
   "shortcutHelp": {
-    "message": "이 키는 Chrome이 관리합니다. 단축키 변경을 누르면 Chrome 설정에서 수정할 수 있습니다."
+    "message": "Chrome가 명령에 키를 지정하지 않아도 페이지에서는 기본 키가 동작합니다. 끄려면 아래 체크를 해제하세요. Chrome에서 키를 바꾸려면 단축키 변경을 누르세요."
   },
   "shortcutChange": {
     "message": "단축키 변경"
   },
   "shortcutUnset": {
     "message": "설정 안 됨"
+  },
+  "shortcutUse": {
+    "message": "이 단축키 사용"
+  },
+  "shortcutOff": {
+    "message": "끄기"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome가 이 명령에 키를 지정하지 않아 페이지에서는 기본 키를 씁니다."
   },
   "shortcutTranslate": {
     "message": "$KEY$를 누르면 페이지가 변환되거나 원본으로 복원됩니다.",
@@ -901,6 +910,24 @@
   },
   "composeIconSettingHelp": {
     "message": "버튼을 숨겨도 단축키와 오른쪽 클릭 메뉴는 그대로 동작합니다."
+  },
+  "composeTargetSetting": {
+    "message": "입력 중 번역의 대상 언어"
+  },
+  "composeTargetAuto": {
+    "message": "자동(일본어 초안은 쌍의 다른 언어, 그 외는 페이지 대상 언어)"
+  },
+  "composeTargetSettingHelp": {
+    "message": "미리보기에서 고른 언어도 여기에 기억됩니다."
+  },
+  "composeTargetLabel": {
+    "message": "대상"
+  },
+  "composeInstantSetting": {
+    "message": "단축키 한 번에 번역하고 바꾸기"
+  },
+  "composeInstantSettingHelp": {
+    "message": "미리보기 없이 단축키 한 번으로 초안을 바꿉니다. 되돌리기는 그대로 쓸 수 있습니다."
   },
   "composeNeedSetup": {
     "message": "PLaMo가 아직 준비되지 않았습니다. 설정을 열어 라이선스에 동의하고 모델을 받으세요."

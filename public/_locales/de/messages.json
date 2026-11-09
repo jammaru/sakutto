@@ -372,13 +372,22 @@
     "message": "Tastenkürzel"
   },
   "shortcutHelp": {
-    "message": "Diese Tasten verwaltet Chrome. Über „Tastenkürzel ändern“ bearbeiten Sie sie in den Einstellungen von Chrome."
+    "message": "Hat Chrome einem Befehl keine Taste zugewiesen, gilt auf Seiten weiterhin die Standardtaste. Entfernen Sie das Häkchen, um den Befehl auszuschalten. Über „Tastenkürzel ändern“ bearbeiten Sie die Zuweisungen in Chrome."
   },
   "shortcutChange": {
     "message": "Tastenkürzel ändern"
   },
   "shortcutUnset": {
     "message": "Nicht festgelegt"
+  },
+  "shortcutUse": {
+    "message": "Diese Tastenkombination verwenden"
+  },
+  "shortcutOff": {
+    "message": "Aus"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome hat diesem Befehl keine Taste zugewiesen. Auf Seiten gilt die Standardtaste."
   },
   "shortcutTranslate": {
     "message": "$KEY$ übersetzt die Seite oder stellt das Original wieder her.",
@@ -901,6 +910,24 @@
   },
   "composeIconSettingHelp": {
     "message": "Tastenkürzel und Rechtsklickmenü funktionieren weiterhin, wenn die Schaltfläche ausgeblendet ist."
+  },
+  "composeTargetSetting": {
+    "message": "Zielsprache für Entwürfe"
+  },
+  "composeTargetAuto": {
+    "message": "Automatisch (japanische Entwürfe in die andere Sprache des Paars, sonst die Seitensprache)"
+  },
+  "composeTargetSettingHelp": {
+    "message": "Die zuletzt im Vorschaufenster gewählte Sprache wird hier gespeichert."
+  },
+  "composeTargetLabel": {
+    "message": "Ziel"
+  },
+  "composeInstantSetting": {
+    "message": "Mit einem Tastendruck übersetzen und ersetzen"
+  },
+  "composeInstantSettingHelp": {
+    "message": "Ohne Vorschau: ein Tastendruck übersetzt den Entwurf und ersetzt ihn. Rückgängig bleibt möglich."
   },
   "composeNeedSetup": {
     "message": "PLaMo ist noch nicht bereit. Öffnen Sie die Einrichtung, um der Lizenz zuzustimmen und das Modell herunterzuladen."

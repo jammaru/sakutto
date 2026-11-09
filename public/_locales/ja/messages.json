@@ -372,13 +372,22 @@
     "message": "キーボードショートカット"
   },
   "shortcutHelp": {
-    "message": "キーは Chrome が管理します。「ショートカットキーを変更」を押すと Chrome の設定で編集できます。"
+    "message": "Chrome がキーを割り当てていない場合でも、ページ上では既定のキーが使えます。オフにするには下のチェックを外してください。Chrome 側の割り当てを変えるには「ショートカットキーを変更」を押します。"
   },
   "shortcutChange": {
     "message": "ショートカットキーを変更"
   },
   "shortcutUnset": {
     "message": "未設定"
+  },
+  "shortcutUse": {
+    "message": "このショートカットを使う"
+  },
+  "shortcutOff": {
+    "message": "オフ"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome がこのコマンドにキーを割り当てていないため、ページ上では既定のキーを使います。"
   },
   "shortcutTranslate": {
     "message": "「$KEY$」で翻訳と原文を切り替えます",
@@ -901,6 +910,24 @@
   },
   "composeIconSettingHelp": {
     "message": "ボタンを消しても、ショートカットと右クリックメニューは使えます。"
+  },
+  "composeTargetSetting": {
+    "message": "入力中の翻訳の訳先"
+  },
+  "composeTargetAuto": {
+    "message": "自動（日本語の下書きはペアのもう一方、それ以外はページの訳先）"
+  },
+  "composeTargetSettingHelp": {
+    "message": "プレビューの言語メニューで変えた訳先も、ここに記憶されます。"
+  },
+  "composeTargetLabel": {
+    "message": "訳先"
+  },
+  "composeInstantSetting": {
+    "message": "ショートカット一発で翻訳して置き換える"
+  },
+  "composeInstantSettingHelp": {
+    "message": "プレビューを出さず、ショートカット一回で下書きを置き換えます。元に戻す操作は使えます。"
   },
   "composeNeedSetup": {
     "message": "PLaMo の準備ができていません。セットアップを開いてライセンスに同意し、モデルを入手してください。"

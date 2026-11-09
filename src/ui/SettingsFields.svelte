@@ -1,5 +1,11 @@
 <script lang="ts">
   import { t } from '@/shared/i18n';
+  import {
+    displayLanguage,
+    isTargetLanguage,
+    SUPPORTED_LANGUAGES,
+    type TargetLanguage,
+  } from '@/shared/languages';
   import type { Settings, SettingsPatch } from '@/shared/settings';
   import LanguageField from './LanguageField.svelte';
 
@@ -24,6 +30,16 @@
   function updatePace(event: Event) {
     const select = event.currentTarget as HTMLSelectElement;
     onChange({ pace: select.value === 'quality' ? 'quality' : 'fast' });
+  }
+
+  function updateComposeTarget(event: Event) {
+    const select = event.currentTarget as HTMLSelectElement;
+    if (select.value.length === 0) {
+      onChange({ composeTargetLanguage: null });
+      return;
+    }
+    if (!isTargetLanguage(select.value)) return;
+    onChange({ composeTargetLanguage: select.value as TargetLanguage });
   }
 </script>
 
@@ -73,6 +89,30 @@
     <span>{t('composeIconSetting')}</span>
   </label>
   <p class="muted help">{t('composeIconSettingHelp')}</p>
+
+  <label class="field">
+    <span>{t('composeTargetSetting')}</span>
+    <select value={settings.composeTargetLanguage ?? ''} onchange={updateComposeTarget}>
+      <option value="">{t('composeTargetAuto')}</option>
+      {#each SUPPORTED_LANGUAGES as language (language)}
+        <option value={language}>{displayLanguage(language, uiLanguage)}</option>
+      {/each}
+    </select>
+  </label>
+  <p class="muted help">{t('composeTargetSettingHelp')}</p>
+
+  <label class="check">
+    <input
+      type="checkbox"
+      checked={settings.composeInstantReplace}
+      onchange={(event) => {
+        const input = event.currentTarget as HTMLInputElement;
+        onChange({ composeInstantReplace: input.checked });
+      }}
+    />
+    <span>{t('composeInstantSetting')}</span>
+  </label>
+  <p class="muted help">{t('composeInstantSettingHelp')}</p>
 </div>
 
 <style>

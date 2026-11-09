@@ -372,13 +372,22 @@
     "message": "鍵盤快速鍵"
   },
   "shortcutHelp": {
-    "message": "這些按鍵由 Chrome 管理。選擇「變更快速鍵」即可在 Chrome 的設定中修改。"
+    "message": "即使 Chrome 未為命令指定快捷鍵，頁面上仍使用預設鍵。取消勾選即可關閉。點「變更快捷鍵」可在 Chrome 中修改。"
   },
   "shortcutChange": {
     "message": "變更快速鍵"
   },
   "shortcutUnset": {
     "message": "未設定"
+  },
+  "shortcutUse": {
+    "message": "使用此快捷鍵"
+  },
+  "shortcutOff": {
+    "message": "關閉"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome 未為此命令指定快捷鍵，因此頁面上使用預設鍵。"
   },
   "shortcutTranslate": {
     "message": "$KEY$ 可轉換頁面或還原原始頁面。",
@@ -901,6 +910,24 @@
   },
   "composeIconSettingHelp": {
     "message": "隱藏按鈕後，快捷鍵和右鍵選單仍然可用。"
+  },
+  "composeTargetSetting": {
+    "message": "輸入時翻譯的目標語言"
+  },
+  "composeTargetAuto": {
+    "message": "自動（日語草稿譯成語言對的另一側，其餘譯成頁面目標語言）"
+  },
+  "composeTargetSettingHelp": {
+    "message": "在預覽中選擇的語言會記在這裡。"
+  },
+  "composeTargetLabel": {
+    "message": "目標"
+  },
+  "composeInstantSetting": {
+    "message": "按一次快捷鍵即翻譯並取代"
+  },
+  "composeInstantSettingHelp": {
+    "message": "不顯示預覽：按一次快捷鍵翻譯草稿並取代。仍可復原。"
   },
   "composeNeedSetup": {
     "message": "PLaMo 尚未就緒。請開啟設定以同意授權並下載模型。"

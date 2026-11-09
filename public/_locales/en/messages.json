@@ -372,13 +372,22 @@
     "message": "Keyboard shortcuts"
   },
   "shortcutHelp": {
-    "message": "Chrome keeps these keys. Choose Change shortcuts to edit them in Chrome’s own settings."
+    "message": "When Chrome leaves a command unbound, the default key still works on pages. Uncheck a command here to turn it off. Use Change shortcuts to edit Chrome’s own bindings."
   },
   "shortcutChange": {
     "message": "Change shortcuts"
   },
   "shortcutUnset": {
     "message": "Not set"
+  },
+  "shortcutUse": {
+    "message": "Use this shortcut"
+  },
+  "shortcutOff": {
+    "message": "Off"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome has no key for this command, so the default is used on pages."
   },
   "shortcutTranslate": {
     "message": "$KEY$ translates the page or restores the original.",
@@ -901,6 +910,24 @@
   },
   "composeIconSettingHelp": {
     "message": "The shortcut and the right-click menu still work when the button is hidden."
+  },
+  "composeTargetSetting": {
+    "message": "Draft translation target"
+  },
+  "composeTargetAuto": {
+    "message": "Auto (Japanese drafts go to the other language of the pair; otherwise the page target)"
+  },
+  "composeTargetSettingHelp": {
+    "message": "The language you last picked in the compose preview is remembered here."
+  },
+  "composeTargetLabel": {
+    "message": "Target"
+  },
+  "composeInstantSetting": {
+    "message": "Translate and replace with one shortcut press"
+  },
+  "composeInstantSettingHelp": {
+    "message": "Skip the preview: one shortcut press translates the draft and replaces it. Undo is still available."
   },
   "composeNeedSetup": {
     "message": "PLaMo is not ready yet. Open setup to agree to the licence and download the model."

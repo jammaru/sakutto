@@ -17,6 +17,7 @@
   import {
     DEFAULT_SHORTCUTS,
     SHORTCUT_COMMANDS,
+    boundShortcut,
     displayShortcut,
     type ShortcutCommand,
   } from '@/shared/shortcuts';
@@ -261,8 +262,7 @@
       if (!snapshot) return;
       const next = { ...bound };
       for (const command of SHORTCUT_COMMANDS) {
-        const shortcut = snapshot[command];
-        if (shortcut !== null) next[command] = shortcut;
+        next[command] = boundShortcut(snapshot, command);
       }
       bound = next;
     });

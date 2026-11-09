@@ -372,13 +372,22 @@
     "message": "Atalhos de teclado"
   },
   "shortcutHelp": {
-    "message": "O Chrome guarda estas teclas. Em Alterar atalhos, você as edita nas configurações do Chrome."
+    "message": "Se o Chrome deixar um comando sem tecla, a tecla padrão continua valendo nas páginas. Desmarque um comando para desligá-lo. Use Alterar atalhos para editar as teclas no Chrome."
   },
   "shortcutChange": {
     "message": "Alterar atalhos"
   },
   "shortcutUnset": {
     "message": "Não definido"
+  },
+  "shortcutUse": {
+    "message": "Usar este atalho"
+  },
+  "shortcutOff": {
+    "message": "Desativado"
+  },
+  "shortcutFallbackNote": {
+    "message": "O Chrome não tem tecla para este comando, então nas páginas vale a tecla padrão."
   },
   "shortcutTranslate": {
     "message": "$KEY$ traduz a página ou restaura o original.",
@@ -901,6 +910,24 @@
   },
   "composeIconSettingHelp": {
     "message": "O atalho e o menu de contexto continuam funcionando se o botão estiver oculto."
+  },
+  "composeTargetSetting": {
+    "message": "Idioma de destino ao escrever"
+  },
+  "composeTargetAuto": {
+    "message": "Automático (rascunhos em japonês vão para o outro idioma do par; o resto, para o idioma da página)"
+  },
+  "composeTargetSettingHelp": {
+    "message": "O idioma escolhido na prévia fica lembrado aqui."
+  },
+  "composeTargetLabel": {
+    "message": "Destino"
+  },
+  "composeInstantSetting": {
+    "message": "Traduzir e substituir com um atalho"
+  },
+  "composeInstantSettingHelp": {
+    "message": "Sem prévia: um atalho traduz o rascunho e o substitui. Desfazer continua disponível."
   },
   "composeNeedSetup": {
     "message": "O PLaMo ainda não está pronto. Abra a configuração para aceitar a licença e baixar o modelo."

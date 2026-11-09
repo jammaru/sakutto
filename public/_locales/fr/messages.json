@@ -372,13 +372,22 @@
     "message": "Raccourcis clavier"
   },
   "shortcutHelp": {
-    "message": "Chrome conserve ces touches. « Modifier les raccourcis » les ouvre dans les réglages de Chrome."
+    "message": "Si Chrome n’assigne pas de touche à une commande, la touche par défaut s’applique quand même sur les pages. Décochez une commande pour la désactiver. Utilisez Modifier les raccourcis pour changer les touches dans Chrome."
   },
   "shortcutChange": {
     "message": "Modifier les raccourcis"
   },
   "shortcutUnset": {
     "message": "Non défini"
+  },
+  "shortcutUse": {
+    "message": "Utiliser ce raccourci"
+  },
+  "shortcutOff": {
+    "message": "Désactivé"
+  },
+  "shortcutFallbackNote": {
+    "message": "Chrome n’a pas de touche pour cette commande ; la touche par défaut s’applique sur les pages."
   },
   "shortcutTranslate": {
     "message": "$KEY$ traduit la page ou rétablit l’original.",
@@ -901,6 +910,24 @@
   },
   "composeIconSettingHelp": {
     "message": "Le raccourci et le menu contextuel fonctionnent encore si le bouton est masqué."
+  },
+  "composeTargetSetting": {
+    "message": "Langue cible de la rédaction"
+  },
+  "composeTargetAuto": {
+    "message": "Auto (les brouillons japonais vont vers l’autre langue de la paire ; sinon la langue de la page)"
+  },
+  "composeTargetSettingHelp": {
+    "message": "La langue choisie dans l’aperçu est mémorisée ici."
+  },
+  "composeTargetLabel": {
+    "message": "Cible"
+  },
+  "composeInstantSetting": {
+    "message": "Traduire et remplacer en une seule touche"
+  },
+  "composeInstantSettingHelp": {
+    "message": "Sans aperçu : une touche traduit le brouillon et le remplace. Annuler reste possible."
   },
   "composeNeedSetup": {
     "message": "PLaMo n’est pas encore prêt. Ouvrez la configuration pour accepter la licence et télécharger le modèle."
