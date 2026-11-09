@@ -67,6 +67,8 @@ Open a pull request against `main`. Short descriptive branch names are fine (`fi
 
 Commit subjects in this repository are usually an imperative English sentence. A trailing `(#123)` is common when the work belongs to an issue. `docs:` and `chore:` prefixes appear on some commits; they are optional. Do not put personal data in the subject or the body.
 
+The pull request body starts with a short paragraph of what changed and why, in Japanese or English. Then add headings as needed (`変更内容`, `確認したこと`, `残っていること`). Small fixes can skip headings. See [`.github/pull_request_template.md`](.github/pull_request_template.md).
+
 ## Translating the interface
 
 The UI strings live in `public/_locales/<lang>/messages.json`. Adding a language is a copy-only change: see [docs/TRANSLATING.md](docs/TRANSLATING.md). The suite checks every catalog against English for missing keys, placeholder tokens, brand names, and the licence facts, so a partial catalog fails rather than shipping raw `__MSG_<key>__` to a reader. There is an issue form for this work.

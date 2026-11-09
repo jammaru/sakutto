@@ -1,13 +1,18 @@
-## 内容 / What
+<!-- 冒頭に、何を変えたかとなぜかを短く。日本語でも英語でもよい。 -->
 
-<!-- 何を変えたか、なぜか。What changed and why. -->
+<!-- 関連 Issue があれば: Refs #123 -->
 
-## 関連 / Related
+## 変更内容
 
-<!-- `Fixes #123` など。Issue がなければ「なし」。Issue number, or "none". -->
+<!-- 動きと仕組み。見出しは内容に合わせて差し替えてよい。短い修正ならこの節は削って冒頭だけでもよい。 -->
 
-## 確認 / Checklist
+## 確認したこと
 
-- [ ] `pnpm lint`、`pnpm typecheck`、`pnpm test`、`pnpm format:check` を実行した
-- [ ] UI の変更なら、スクリーンショットを付けた / Screenshots for UI changes
-- [ ] 個人情報、認証情報、非公開ページの本文は含めていない / No personal data or private page content
+- `pnpm test`
+- `pnpm lint` / `pnpm typecheck` / `pnpm format:check`
+
+<!-- 走らせたコマンドと結果を書く。UI ならスクリーンショット。測ったなら数字。 -->
+
+## 残っていること
+
+<!-- 未確認、この PR で触っていないこと。なければ見出しごと削る。 -->
