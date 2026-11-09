@@ -217,6 +217,28 @@ describe('reading and replacing compose text', () => {
     expect(field.querySelector('.gmail_quote')?.textContent).toContain('On Monday');
   });
 
+  it('reads a Gmail draft inside a dir=ltr wrapper that also holds the signature', async () => {
+    document.body.innerHTML = `
+      <div id="editor" contenteditable>
+        <div dir="ltr">
+          <div>明日会いましょう。</div>
+          <div class="gmail_signature_prefix">-- </div>
+          <div class="gmail_signature">Jane Doe</div>
+        </div>
+      </div>
+    `;
+    const field = document.querySelector('#editor');
+    if (!(field instanceof HTMLElement)) throw new Error('missing editor');
+    expect(readComposeText(field)).toContain('明日会いましょう。');
+    expect(readComposeText(field)).not.toContain('Jane Doe');
+    expect(readComposeText(field).trim().length).toBeGreaterThan(0);
+    expect((await replaceComposeText(field, 'See you tomorrow.')).ok).toBe(true);
+    expect(textsMatch(readComposeText(field), 'See you tomorrow.')).toBe(true);
+    expect(field.querySelector('[dir="ltr"]')).not.toBeNull();
+    expect(field.querySelector('.gmail_signature_prefix')?.textContent).toBe('-- ');
+    expect(field.querySelector('.gmail_signature')?.textContent).toContain('Jane Doe');
+  });
+
   /**
    * Assumed Outlook web compose DOM: draft, `#appendonsend`, a preceding `<hr>`,
    * `#divRplyFwdMsg`, quoted-body siblings after that header (not nested inside it),
@@ -262,6 +284,21 @@ describe('reading and replacing compose text', () => {
     expect(result.method).toBe('beforeinput');
     expect(editor.slateValue).toBe('English draft');
     expect(readComposeText(editor).replace(/\n$/u, '')).toBe('English draft');
+  });
+
+  it('undoes a Slate-style replace through beforeinput so the internal model matches', async () => {
+    const editor = mountSlate('日本語の下書き', { asyncSelection: true });
+    document.body.append(editor);
+    editor.focus();
+    const snapshot = snapshotComposeField(editor);
+    const replaced = await replaceComposeText(editor, 'English draft');
+    expect(replaced.ok).toBe(true);
+    expect(replaced.method).toBe('beforeinput');
+    expect(editor.slateValue).toBe('English draft');
+    const undone = await undoComposeReplace(editor, snapshot, replaced.method);
+    expect(undone.ok).toBe(true);
+    expect(editor.slateValue).toBe('日本語の下書き');
+    expect(readComposeText(editor).replace(/\n$/u, '')).toBe('日本語の下書き');
   });
 
   it('treats a canceled beforeinput as success only after the document matches', async () => {
@@ -429,6 +466,8 @@ describe('reading and replacing compose text', () => {
     Object.defineProperty(frame, 'getBoundingClientRect', {
       value: () => new DOMRect(20, 30, 400, 300),
     });
+    Object.defineProperty(frame, 'clientLeft', { configurable: true, value: 2 });
+    Object.defineProperty(frame, 'clientTop', { configurable: true, value: 3 });
     const inner = document.implementation.createHTMLDocument('frame');
     Object.defineProperty(inner, 'defaultView', {
       configurable: true,
@@ -440,8 +479,8 @@ describe('reading and replacing compose text', () => {
       value: () => new DOMRect(4, 5, 100, 40),
     });
     const rect = composeFieldRect(field, document);
-    expect(rect?.left).toBe(24);
-    expect(rect?.top).toBe(35);
+    expect(rect?.left).toBe(26);
+    expect(rect?.top).toBe(38);
     expect(rect?.width).toBe(100);
     Object.defineProperty(inner, 'defaultView', {
       configurable: true,

@@ -175,12 +175,29 @@ function childHoldsExcluded(child: Node): boolean {
 }
 
 /**
+ * Gmail often wraps the whole compose body in a single `<div dir="ltr">` that also
+ * contains the signature. That wrapper is not itself excluded; walking into it exposes
+ * the draft as siblings of the signature instead of treating the field as empty.
+ */
+function draftHost(field: Element): Element {
+  let host = field;
+  for (;;) {
+    const meaningful = [...host.childNodes].filter((node) => !isBlankText(node));
+    if (meaningful.length !== 1 || !(meaningful[0] instanceof Element)) return host;
+    const only = meaningful[0];
+    if (only.matches(COMPOSE_EXCLUDED_SELECTOR)) return host;
+    if (!only.querySelector(COMPOSE_EXCLUDED_SELECTOR)) return host;
+    host = only;
+  }
+}
+
+/**
  * First child of the compose root that must be kept: the earliest excluded marker, or a
  * preceding `<hr>` / whitespace. Everything from that node onward is quoted history,
  * signature, or Outlook's send-append marker — not the draft.
  */
 export function firstPreservedChild(field: Element): ChildNode | null {
-  const children = [...field.childNodes];
+  const children = [...draftHost(field).childNodes];
   const index = children.findIndex((child) => childHoldsExcluded(child));
   if (index < 0) return null;
   let start = index;
@@ -351,8 +368,9 @@ function selectDraftRegion(field: Element): boolean {
   if (!selection) return false;
   try {
     const range = doc.createRange();
+    const host = draftHost(field);
     const keep = new Set(preservedTail(field));
-    const draft = [...field.childNodes].filter((node) => {
+    const draft = [...host.childNodes].filter((node) => {
       if (keep.has(node)) return false;
       if (isBlankText(node)) return false;
       return true;
@@ -361,10 +379,10 @@ function selectDraftRegion(field: Element): boolean {
       range.setStartBefore(draft[0]!);
       range.setEndAfter(draft[draft.length - 1]!);
     } else if (keep.size > 0) {
-      range.setStart(field, 0);
+      range.setStart(host, 0);
       range.setEndBefore([...keep][0]!);
     } else {
-      range.selectNodeContents(field);
+      range.selectNodeContents(host);
     }
     selection.removeAllRanges();
     selection.addRange(range);
@@ -475,7 +493,9 @@ function dispatchNativeInput(field: Element, text: string, inputType: string): v
 }
 
 function draftUsesDivLines(field: Element, tail: readonly ChildNode[]): boolean {
-  const draft = [...field.childNodes].filter((node) => !tail.includes(node) && !isBlankText(node));
+  const draft = [...draftHost(field).childNodes].filter(
+    (node) => !tail.includes(node) && !isBlankText(node),
+  );
   const elements = draft.filter((node): node is Element => node instanceof Element);
   if (tail.length > 0 && elements.length === 0) return true;
   return elements.length > 0 && elements.every((element) => element.localName === 'div');
@@ -502,10 +522,11 @@ function nodesForDraftLines(doc: Document, text: string, asDivs: boolean): Node[
 
 function applyNativeContents(field: Element, text: string): boolean {
   const doc = field.ownerDocument;
+  const host = draftHost(field);
   const tail = preservedTail(field);
   if (tail.length > 0) {
     const lead = nodesForDraftLines(doc, text, draftUsesDivLines(field, tail));
-    field.replaceChildren(...lead, ...tail);
+    host.replaceChildren(...lead, ...tail);
     dispatchNativeInput(field, text, 'insertText');
     return true;
   }
@@ -530,9 +551,9 @@ function applyNativeContents(field: Element, text: string): boolean {
     }
   }
   if (draftUsesDivLines(field, [])) {
-    field.replaceChildren(...nodesForDraftLines(doc, text, true));
+    host.replaceChildren(...nodesForDraftLines(doc, text, true));
   } else {
-    field.replaceChildren(...nodesForDraftLines(doc, text, false));
+    host.replaceChildren(...nodesForDraftLines(doc, text, false));
   }
   dispatchNativeInput(field, text, 'insertText');
   return true;
@@ -720,23 +741,48 @@ export async function replaceComposeText(
   return { ok: outcome !== 'noop', method: outcome === 'noop' ? null : 'native' };
 }
 
+function restoreVerified(field: Element, snapshot: ComposeSnapshot): boolean {
+  return (
+    snapshotMatchesField(field, snapshot) || textsMatch(readDraftRegionText(field), snapshot.draft)
+  );
+}
+
+/**
+ * Slate, Lexical and similar editors ignore `innerHTML`. Restore the saved plain draft
+ * through the same beforeinput path that wrote the translation, with the whole draft
+ * selected so a leftover caret cannot rewrite only a fragment.
+ */
+async function restoreDraftThroughEditor(
+  field: Element,
+  snapshot: ComposeSnapshot,
+): Promise<ComposeReplaceResult> {
+  focusField(field);
+  selectDraftRegion(field);
+  const result = await replaceComposeText(field, snapshot.draft);
+  return { ok: result.ok && restoreVerified(field, snapshot), method: result.method };
+}
+
 async function writeSnapshot(
   field: Element,
   snapshot: ComposeSnapshot,
+  method: ComposeReplaceMethod | null,
 ): Promise<ComposeReplaceResult> {
   if (isNativeTextField(field)) {
     setNativeValue(field, snapshot.text);
     dispatchNativeInput(field, snapshot.text, 'insertReplacementText');
     await nextComposeFrame(field.ownerDocument);
-    return { ok: snapshotMatchesField(field, snapshot), method: 'native' };
+    return { ok: restoreVerified(field, snapshot), method: 'native' };
   }
-  if (snapshot.html !== null) {
+  // Direct DOM rewrite (Gmail/Outlook native contents). Editor-managed paths
+  // (beforeinput) must not use innerHTML: the on-screen copy would revert while
+  // the editor's document stayed on the translation.
+  if (method === 'native' && snapshot.html !== null) {
     field.innerHTML = snapshot.html;
     dispatchNativeInput(field, snapshot.draft, 'insertReplacementText');
     await nextComposeFrame(field.ownerDocument);
-    if (snapshotMatchesField(field, snapshot)) return { ok: true, method: 'native' };
+    if (restoreVerified(field, snapshot)) return { ok: true, method: 'native' };
   }
-  return replaceComposeText(field, snapshot.draft);
+  return restoreDraftThroughEditor(field, snapshot);
 }
 
 /**
@@ -755,9 +801,9 @@ export async function undoComposeReplace(
   focusField(field);
   if (method === 'insertText' && tryExecUndo(field.ownerDocument)) {
     await nextComposeFrame(field.ownerDocument);
-    if (snapshotMatchesField(field, snapshot)) return { ok: true, method: 'undo' };
+    if (restoreVerified(field, snapshot)) return { ok: true, method: 'undo' };
   }
-  return writeSnapshot(field, snapshot);
+  return writeSnapshot(field, snapshot, method);
 }
 
 function mapFieldRectToOverlay(field: Element, overlayDoc: Document): DOMRect | null {
@@ -769,8 +815,10 @@ function mapFieldRectToOverlay(field: Element, overlayDoc: Document): DOMRect | 
     const frame = doc.defaultView?.frameElement;
     if (!(frame instanceof Element)) return null;
     const frameRect = frame.getBoundingClientRect();
-    left += frameRect.left;
-    top += frameRect.top;
+    const borderLeft = frame instanceof HTMLElement ? frame.clientLeft : 0;
+    const borderTop = frame instanceof HTMLElement ? frame.clientTop : 0;
+    left += frameRect.left + borderLeft;
+    top += frameRect.top + borderTop;
     doc = frame.ownerDocument;
   }
   return new DOMRect(left, top, local.width, local.height);

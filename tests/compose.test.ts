@@ -334,6 +334,10 @@ describe('compose controller', () => {
     await vi.waitFor(() => {
       expect(value).toBe('§en§会議は明日です');
     });
+    clickPanel('Restore original');
+    await vi.waitFor(() => {
+      expect(value).toBe('会議は明日です');
+    });
   });
 
   it('does not write into a password field and shows that it cannot be translated', () => {
