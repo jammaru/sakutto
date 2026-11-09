@@ -254,14 +254,13 @@ describe('model load on the GPU tier', () => {
     expect(ensureLoaded).toHaveBeenCalledTimes(2);
   });
 
-  it('retries one WebGPU slot before the CPU when the device failed', async () => {
+  it('goes straight to the CPU when ggml already retried the device', async () => {
     const tried: Array<[string, number]> = [];
     const ensureLoaded = vi.fn(async (selection: BackendSelection) => {
       tried.push([selection.backend, selection.nParallel]);
       if (selection.backend === 'webgpu') {
         throw new EngineError('gpu-unavailable', 'no GPU', {
-          detail:
-            'ggml_webgpu: Failed to get a device (adapter-max-limits optional-features): Limit exceeded',
+          detail: 'ggml_webgpu: Failed to get a device after retries',
         });
       }
       return loaded;
@@ -270,7 +269,25 @@ describe('model load on the GPU tier', () => {
 
     expect(tried).toEqual([
       ['webgpu', 4],
-      ['webgpu', 1],
+      ['cpu-wasm', 1],
+    ]);
+  });
+
+  it('goes straight to the CPU when WGSL rejected subgroups', async () => {
+    const tried: Array<[string, number]> = [];
+    const ensureLoaded = vi.fn(async (selection: BackendSelection) => {
+      tried.push([selection.backend, selection.nParallel]);
+      if (selection.backend === 'webgpu') {
+        throw new EngineError('model-load-failed', 'aborted', {
+          detail: "Error while parsing WGSL: extension 'subgroups' is not allowed",
+        });
+      }
+      return loaded;
+    });
+    await loadWithFallback(ensureLoaded, wide, new AbortController().signal);
+
+    expect(tried).toEqual([
+      ['webgpu', 16],
       ['cpu-wasm', 1],
     ]);
   });

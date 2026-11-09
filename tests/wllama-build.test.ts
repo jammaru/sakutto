@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
 import {
@@ -27,7 +28,7 @@ describe('wllama artifact rendering', () => {
     expect(source).toContain('RUN_OPTIONS.noWebGPU');
     expect(source).toContain('RUN_OPTIONS.webgpuDebug');
     expect(source).toContain('__SAKUTTO_WEBGPU_DEBUG__');
-    expect(source.trimEnd().endsWith(WORKER_CODE.trimEnd())).toBe(true);
+    expect(source.replace(/\r\n/g, '\n').trimEnd().endsWith(WORKER_CODE.trimEnd())).toBe(true);
   });
 
   it('round-trips extension urls through the worker query string', () => {
@@ -85,5 +86,17 @@ describe('wllama artifact rendering', () => {
     expect(source).toContain(GLUE);
     expect(source).toContain('WebAssembly.Suspending');
     expect(source).not.toContain('wModuleInit');
+  });
+
+  it('keeps subgroups on WebGPU limit retries and re-derives them from the device', () => {
+    const patch = readFileSync(
+      new URL('../scripts/wllama/patches/0007-webgpu-adapter-device-retry.patch', import.meta.url),
+      'utf8',
+    );
+    expect(patch).toContain('capped-limits optional-features');
+    expect(patch).toContain('ggml_webgpu_apply_granted_device_caps');
+    expect(patch).toContain('device.HasFeature(wgpu::FeatureName::Subgroups)');
+    expect(patch).toContain('reject-max-limits');
+    expect(patch).not.toContain('capped-limits shader-f16');
   });
 });

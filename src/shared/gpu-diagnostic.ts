@@ -1,8 +1,11 @@
 import { isRecord } from './object';
 
-export type WebGpuDebugProfile = 'off' | 'amd-rdna3' | 'intel-arc' | 'no-f16' | 'subgroup-64';
+export type WebGpuDebugProfile =
+  'off' | 'amd-rdna3' | 'intel-arc' | 'no-f16' | 'subgroup-64' | 'reject-max-limits';
 
 export const WEBGPU_DEBUG_STORAGE_KEY = 'sakuttoWebGpuDebug';
+export const WEBGPU_DEBUG_QUERY_PARAM = 'webgpuDebug';
+export const WEBGPU_DEBUG_MESSAGE_TYPE = 'engine:webgpu-debug';
 
 const DEBUG_PROFILES: ReadonlySet<string> = new Set<WebGpuDebugProfile>([
   'off',
@@ -10,6 +13,7 @@ const DEBUG_PROFILES: ReadonlySet<string> = new Set<WebGpuDebugProfile>([
   'intel-arc',
   'no-f16',
   'subgroup-64',
+  'reject-max-limits',
 ]);
 
 export function isWebGpuDebugProfile(value: unknown): value is WebGpuDebugProfile {
@@ -36,6 +40,11 @@ export interface GpuDiagnostic {
   maxComputeWorkgroupStorageSize: number | null;
   maxComputeInvocationsPerWorkgroup: number | null;
   adapterAttempts: string[];
+  deviceStage: string | null;
+  deviceFeatures: string[];
+  deviceMaxBufferSize: number | null;
+  deviceMaxStorageBufferBindingSize: number | null;
+  hint: string | null;
   error: string | null;
   debugProfile: WebGpuDebugProfile | null;
 }
@@ -56,6 +65,11 @@ export const EMPTY_GPU_DIAGNOSTIC: GpuDiagnostic = {
   maxComputeWorkgroupStorageSize: null,
   maxComputeInvocationsPerWorkgroup: null,
   adapterAttempts: [],
+  deviceStage: null,
+  deviceFeatures: [],
+  deviceMaxBufferSize: null,
+  deviceMaxStorageBufferBindingSize: null,
+  hint: null,
   error: null,
   debugProfile: null,
 };
@@ -89,8 +103,11 @@ export const INTEL_ARC_SIMULATED_LIMITS = {
   subgroups: true,
 } as const;
 
+export const INTEGRATED_GPU_HINT =
+  'Windows Chrome ignores powerPreference (crbug 369219127). If this adapter looks integrated, try chrome://flags/#force-high-performance-gpu.';
+
 let profileOverride: WebGpuDebugProfile | null = null;
-let storageTask: Promise<void> | null = null;
+let storageTask: Promise<WebGpuDebugProfile> | null = null;
 
 function debugGlobal(): { __SAKUTTO_WEBGPU_DEBUG__?: unknown } {
   return globalThis as { __SAKUTTO_WEBGPU_DEBUG__?: unknown };
@@ -115,25 +132,96 @@ export function webGpuDebugProfile(): WebGpuDebugProfile {
   return isWebGpuDebugProfile(fromGlobal) ? fromGlobal : 'off';
 }
 
-export function loadWebGpuDebugProfileFromStorage(): Promise<void> {
-  if (!storageTask) {
-    storageTask = readDebugProfileFromStorage().catch(() => undefined);
+export function webGpuDebugProfileFromUrl(href: string): WebGpuDebugProfile | null {
+  try {
+    const url = new URL(href, 'https://sakutto.invalid/');
+    const value = url.searchParams.get(WEBGPU_DEBUG_QUERY_PARAM);
+    return isWebGpuDebugProfile(value) ? value : null;
+  } catch {
+    return null;
   }
-  return storageTask;
 }
 
-async function readDebugProfileFromStorage(): Promise<void> {
-  const local = (
-    globalThis as {
-      chrome?: { storage?: { local?: { get: (key: string) => Promise<Record<string, unknown>> } } };
-    }
-  ).chrome?.storage?.local;
-  if (!local?.get) return;
-  const stored = await local.get(WEBGPU_DEBUG_STORAGE_KEY);
-  const value = stored[WEBGPU_DEBUG_STORAGE_KEY];
-  if (isWebGpuDebugProfile(value) && value !== 'off' && profileOverride === null) {
-    setWebGpuDebugProfile(value);
+export function applyWebGpuDebugProfileFromHref(href: string): WebGpuDebugProfile | null {
+  const profile = webGpuDebugProfileFromUrl(href);
+  if (profile) setWebGpuDebugProfile(profile);
+  return profile;
+}
+
+/** Offscreen createDocument path, with the debug profile in the query string when set. */
+export function offscreenDocumentUrl(page: string, profile: WebGpuDebugProfile | null): string {
+  if (!profile || profile === 'off') return page;
+  const join = page.includes('?') ? '&' : '?';
+  return `${page}${join}${WEBGPU_DEBUG_QUERY_PARAM}=${encodeURIComponent(profile)}`;
+}
+
+export function offscreenDocumentMatches(documentUrl: string, pageUrl: string): boolean {
+  return documentUrl === pageUrl || documentUrl.startsWith(`${pageUrl}?`);
+}
+
+type StorageLocal = { get: (key: string) => Promise<Record<string, unknown>> };
+
+function chromeLike(): {
+  storage?: { local?: StorageLocal };
+  runtime?: { sendMessage?: (message: unknown) => Promise<unknown> };
+} {
+  return (globalThis as { chrome?: ReturnType<typeof chromeLike> }).chrome ?? {};
+}
+
+export async function resolveWebGpuDebugProfile(options?: {
+  href?: string;
+  storage?: StorageLocal | null;
+  askHost?: () => Promise<unknown>;
+}): Promise<WebGpuDebugProfile> {
+  const href = options?.href ?? (typeof location !== 'undefined' ? location.href : '');
+  const fromUrl = webGpuDebugProfileFromUrl(href);
+  if (fromUrl) {
+    setWebGpuDebugProfile(fromUrl);
+    return fromUrl;
   }
+  if (profileOverride) return profileOverride;
+
+  const chrome = chromeLike();
+  const storage =
+    options?.storage !== undefined ? options.storage : (chrome.storage?.local ?? null);
+  if (storage?.get) {
+    try {
+      const stored = await storage.get(WEBGPU_DEBUG_STORAGE_KEY);
+      const value = stored[WEBGPU_DEBUG_STORAGE_KEY];
+      if (isWebGpuDebugProfile(value)) {
+        setWebGpuDebugProfile(value);
+        return value;
+      }
+    } catch {
+      // Offscreen documents often have chrome.runtime but no chrome.storage.
+    }
+  }
+
+  const ask =
+    options?.askHost ??
+    (typeof chrome.runtime?.sendMessage === 'function' && !chrome.storage
+      ? () => chrome.runtime!.sendMessage!({ type: WEBGPU_DEBUG_MESSAGE_TYPE })
+      : null);
+  if (ask) {
+    try {
+      const value = await ask();
+      if (isWebGpuDebugProfile(value)) {
+        setWebGpuDebugProfile(value);
+        return value;
+      }
+    } catch {
+      // The service worker may not be listening yet.
+    }
+  }
+
+  return webGpuDebugProfile();
+}
+
+export function loadWebGpuDebugProfileFromStorage(): Promise<WebGpuDebugProfile> {
+  if (!storageTask) {
+    storageTask = resolveWebGpuDebugProfile().catch(() => webGpuDebugProfile());
+  }
+  return storageTask;
 }
 
 function optionalString(value: unknown): string | null {
@@ -153,47 +241,61 @@ function stringList(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === 'string');
 }
 
+function isStringOrNull(value: unknown): boolean {
+  return value === null || value === undefined || typeof value === 'string';
+}
+
+function isBooleanOrNull(value: unknown): boolean {
+  return value === null || value === undefined || typeof value === 'boolean';
+}
+
+function isNumberOrNull(value: unknown): boolean {
+  return value === null || value === undefined || typeof value === 'number';
+}
+
 export function isGpuDiagnostic(value: unknown): value is GpuDiagnostic {
   if (!isRecord(value)) return false;
-  if (value.vendor !== null && typeof value.vendor !== 'string') return false;
-  if (value.architecture !== null && typeof value.architecture !== 'string') return false;
-  if (value.device !== null && typeof value.device !== 'string') return false;
-  if (value.description !== null && typeof value.description !== 'string') return false;
-  if (value.fallbackAdapter !== null && typeof value.fallbackAdapter !== 'boolean') return false;
-  if (value.shaderF16 !== null && typeof value.shaderF16 !== 'boolean') return false;
-  if (value.subgroups !== null && typeof value.subgroups !== 'boolean') return false;
-  if (value.subgroupMinSize !== null && typeof value.subgroupMinSize !== 'number') return false;
-  if (value.subgroupMaxSize !== null && typeof value.subgroupMaxSize !== 'number') return false;
+  if (!isStringOrNull(value.vendor)) return false;
+  if (!isStringOrNull(value.architecture)) return false;
+  if (!isStringOrNull(value.device)) return false;
+  if (!isStringOrNull(value.description)) return false;
+  if (!isBooleanOrNull(value.fallbackAdapter)) return false;
+  if (!isBooleanOrNull(value.shaderF16)) return false;
+  if (!isBooleanOrNull(value.subgroups)) return false;
+  if (!isNumberOrNull(value.subgroupMinSize)) return false;
+  if (!isNumberOrNull(value.subgroupMaxSize)) return false;
   if (!Array.isArray(value.features) || value.features.some((item) => typeof item !== 'string')) {
     return false;
   }
-  if (value.maxBufferSize !== null && typeof value.maxBufferSize !== 'number') return false;
-  if (
-    value.maxStorageBufferBindingSize !== null &&
-    typeof value.maxStorageBufferBindingSize !== 'number'
-  ) {
-    return false;
-  }
-  if (
-    value.maxComputeWorkgroupStorageSize !== null &&
-    typeof value.maxComputeWorkgroupStorageSize !== 'number'
-  ) {
-    return false;
-  }
-  if (
-    value.maxComputeInvocationsPerWorkgroup !== null &&
-    typeof value.maxComputeInvocationsPerWorkgroup !== 'number'
-  ) {
-    return false;
-  }
+  if (!isNumberOrNull(value.maxBufferSize)) return false;
+  if (!isNumberOrNull(value.maxStorageBufferBindingSize)) return false;
+  if (!isNumberOrNull(value.maxComputeWorkgroupStorageSize)) return false;
+  if (!isNumberOrNull(value.maxComputeInvocationsPerWorkgroup)) return false;
   if (
     !Array.isArray(value.adapterAttempts) ||
     value.adapterAttempts.some((item) => typeof item !== 'string')
   ) {
     return false;
   }
-  if (value.error !== null && typeof value.error !== 'string') return false;
-  if (value.debugProfile !== null && !isWebGpuDebugProfile(value.debugProfile)) return false;
+  if (!isStringOrNull(value.deviceStage)) return false;
+  if (
+    value.deviceFeatures !== undefined &&
+    (!Array.isArray(value.deviceFeatures) ||
+      value.deviceFeatures.some((item) => typeof item !== 'string'))
+  ) {
+    return false;
+  }
+  if (!isNumberOrNull(value.deviceMaxBufferSize)) return false;
+  if (!isNumberOrNull(value.deviceMaxStorageBufferBindingSize)) return false;
+  if (!isStringOrNull(value.hint)) return false;
+  if (!isStringOrNull(value.error)) return false;
+  if (
+    value.debugProfile !== null &&
+    value.debugProfile !== undefined &&
+    !isWebGpuDebugProfile(value.debugProfile)
+  ) {
+    return false;
+  }
   return true;
 }
 
@@ -215,35 +317,107 @@ export function gpuDiagnosticFromUnknown(value: unknown): GpuDiagnostic {
     maxComputeWorkgroupStorageSize: optionalNumber(value.maxComputeWorkgroupStorageSize),
     maxComputeInvocationsPerWorkgroup: optionalNumber(value.maxComputeInvocationsPerWorkgroup),
     adapterAttempts: stringList(value.adapterAttempts),
+    deviceStage: optionalString(value.deviceStage),
+    deviceFeatures: stringList(value.deviceFeatures),
+    deviceMaxBufferSize: optionalNumber(value.deviceMaxBufferSize),
+    deviceMaxStorageBufferBindingSize: optionalNumber(value.deviceMaxStorageBufferBindingSize),
+    hint: optionalString(value.hint),
     error: optionalString(value.error),
     debugProfile: isWebGpuDebugProfile(value.debugProfile) ? value.debugProfile : null,
   };
 }
 
+const INTERESTING_LOG = /ggml_webgpu:|using device WebGPU|offloaded \d+\/\d+ layers to GPU/iu;
+const EXCERPT_HEAD = 8;
+const EXCERPT_TAIL = 8;
+
 /** Lines from llama.cpp that explain why WebGPU did or did not take the model. */
 export function gpuFailureExcerpt(lines: readonly string[]): string | null {
-  const interesting = lines.filter((line) =>
-    /ggml_webgpu:|using device WebGPU|offloaded \d+\/\d+ layers to GPU/iu.test(line),
-  );
+  const interesting = lines.filter((line) => INTERESTING_LOG.test(line));
   if (interesting.length === 0) return null;
-  return interesting.slice(-16).join('\n');
+  if (interesting.length <= EXCERPT_HEAD + EXCERPT_TAIL) return interesting.join('\n');
+  const head = interesting.slice(0, EXCERPT_HEAD);
+  const tail = interesting.slice(-EXCERPT_TAIL);
+  return [...head, '...', ...tail].join('\n');
+}
+
+export function parseWebGpuLog(text: string | readonly string[] | null | undefined): {
+  deviceStage: string | null;
+  deviceFeatures: string[];
+  deviceMaxBufferSize: number | null;
+  deviceMaxStorageBufferBindingSize: number | null;
+} {
+  const joined = typeof text === 'string' ? text : Array.isArray(text) ? text.join('\n') : '';
+  const ready = /ggml_webgpu: device ready \(([^)]+)\)/iu.exec(joined);
+  const feat =
+    /ggml_webgpu: device features: shader-f16=(true|false) subgroups=(true|false)/iu.exec(joined);
+  const limits =
+    /ggml_webgpu: device limits: maxBufferSize=(\d+) maxStorageBufferBindingSize=(\d+)/iu.exec(
+      joined,
+    );
+  const deviceFeatures: string[] = [];
+  if (feat?.[1] === 'true') deviceFeatures.push('shader-f16');
+  if (feat?.[2] === 'true') deviceFeatures.push('subgroups');
+  return {
+    deviceStage: ready?.[1] ?? null,
+    deviceFeatures,
+    deviceMaxBufferSize: limits ? Number(limits[1]) : null,
+    deviceMaxStorageBufferBindingSize: limits ? Number(limits[2]) : null,
+  };
+}
+
+/** Intel UHD/Iris and AMD "Radeon Graphics" iGPUs, not Arc / RX discrete cards. */
+export function looksIntegratedGpu(
+  diagnostic: Pick<GpuDiagnostic, 'vendor' | 'architecture' | 'description' | 'fallbackAdapter'>,
+): boolean {
+  if (diagnostic.fallbackAdapter === true) return true;
+  const vendor = (diagnostic.vendor ?? '').toLowerCase();
+  const arch = (diagnostic.architecture ?? '').toLowerCase();
+  const desc = (diagnostic.description ?? '').toLowerCase();
+  const blob = `${arch} ${desc}`;
+  if (/\brx\s*\d|radeon\s+pro|\barc\b|xe-hpg|alchemist/.test(blob)) return false;
+  if (vendor.includes('intel')) return true;
+  if (vendor.includes('amd') || vendor.includes('ati')) {
+    return /radeon(?:\(tm\))? graphics/.test(desc) && !/\brx\s*\d/.test(desc);
+  }
+  return false;
 }
 
 export function mergeGpuDiagnostic(
   adapter: GpuDiagnostic | null | undefined,
   error: string | null | undefined,
+  logLines?: readonly string[] | null,
 ): GpuDiagnostic {
   const base = adapter
-    ? { ...adapter, features: [...adapter.features] }
+    ? {
+        ...adapter,
+        features: [...adapter.features],
+        deviceFeatures: [...adapter.deviceFeatures],
+        adapterAttempts: [...adapter.adapterAttempts],
+      }
     : { ...EMPTY_GPU_DIAGNOSTIC };
+  const parsed = parseWebGpuLog(logLines ?? error ?? '');
+  if (parsed.deviceStage) base.deviceStage = parsed.deviceStage;
+  if (parsed.deviceFeatures.length > 0) base.deviceFeatures = parsed.deviceFeatures;
+  if (parsed.deviceMaxBufferSize !== null) base.deviceMaxBufferSize = parsed.deviceMaxBufferSize;
+  if (parsed.deviceMaxStorageBufferBindingSize !== null) {
+    base.deviceMaxStorageBufferBindingSize = parsed.deviceMaxStorageBufferBindingSize;
+  }
   if (error && error.length > 0) base.error = error;
+  if (looksIntegratedGpu(base)) base.hint = INTEGRATED_GPU_HINT;
   return applyDebugOverlay(base);
 }
 
 export function applyDebugOverlay(diagnostic: GpuDiagnostic): GpuDiagnostic {
   const profile = webGpuDebugProfile();
   if (profile === 'off') return { ...diagnostic, debugProfile: diagnostic.debugProfile };
-  const next = { ...diagnostic, features: [...diagnostic.features], debugProfile: profile };
+  const next = {
+    ...diagnostic,
+    features: [...diagnostic.features],
+    deviceFeatures: [...diagnostic.deviceFeatures],
+    adapterAttempts: [...diagnostic.adapterAttempts],
+    debugProfile: profile,
+  };
   if (profile === 'amd-rdna3') {
     next.vendor = AMD_RDNA3_SIMULATED_LIMITS.vendor;
     next.architecture = AMD_RDNA3_SIMULATED_LIMITS.architecture;
@@ -276,6 +450,10 @@ export function applyDebugOverlay(diagnostic: GpuDiagnostic): GpuDiagnostic {
   } else if (profile === 'subgroup-64') {
     next.subgroupMinSize = 64;
     next.subgroupMaxSize = 64;
+  } else if (profile === 'reject-max-limits') {
+    next.description = next.description
+      ? `${next.description} (debug: reject adapter-max requestDevice)`
+      : 'debug: reject adapter-max requestDevice';
   }
   return next;
 }
@@ -306,7 +484,14 @@ export function formatGpuDiagnostic(diagnostic: GpuDiagnostic): string {
     diagnostic.adapterAttempts.length > 0
       ? `adapterAttempts: ${diagnostic.adapterAttempts.join(', ')}`
       : null,
+    line('deviceStage', diagnostic.deviceStage),
+    diagnostic.deviceFeatures.length > 0
+      ? `deviceFeatures: ${diagnostic.deviceFeatures.join(', ')}`
+      : null,
+    line('deviceMaxBufferSize', diagnostic.deviceMaxBufferSize),
+    line('deviceMaxStorageBufferBindingSize', diagnostic.deviceMaxStorageBufferBindingSize),
     line('debugProfile', diagnostic.debugProfile),
+    diagnostic.hint ? `hint: ${diagnostic.hint}` : null,
     diagnostic.error ? `error:\n${diagnostic.error}` : null,
   ].filter((item): item is string => item !== null);
   return lines.join('\n');
@@ -322,6 +507,8 @@ export function gpuDiagnosticIsEmpty(diagnostic: GpuDiagnostic | null | undefine
     diagnostic.features.length === 0 &&
     diagnostic.maxBufferSize === null &&
     diagnostic.error === null &&
-    diagnostic.adapterAttempts.length === 0
+    diagnostic.adapterAttempts.length === 0 &&
+    diagnostic.deviceStage === null &&
+    diagnostic.hint === null
   );
 }

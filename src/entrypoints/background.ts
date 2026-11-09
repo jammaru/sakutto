@@ -26,10 +26,18 @@ import {
   isModelInspectRequest,
   isModelUseRequest,
   isQualitySampleRequest,
+  isWebGpuDebugQuery,
   requestEngineProbe,
   type ModelProgressMessage,
 } from '@/shared/messages';
 import { resolveShortcutQuery } from '@/shared/shortcut-assignment';
+import {
+  WEBGPU_DEBUG_STORAGE_KEY,
+  isWebGpuDebugProfile,
+  offscreenDocumentMatches,
+  offscreenDocumentUrl,
+  type WebGpuDebugProfile,
+} from '@/shared/gpu-diagnostic';
 import { ensureSettings } from '@/shared/storage';
 
 const OFFSCREEN_PAGE = 'offscreen.html';
@@ -38,15 +46,20 @@ const CAPABILITIES_CACHE_KEY = 'engineCapabilities';
 function createOffscreenController(): OffscreenController {
   return new OffscreenController({
     hasDocument: async () => {
+      const pageUrl = browser.runtime.getURL(`/${OFFSCREEN_PAGE}`);
       const contexts = await browser.runtime.getContexts({
         contextTypes: ['OFFSCREEN_DOCUMENT'],
-        documentUrls: [browser.runtime.getURL(`/${OFFSCREEN_PAGE}`)],
       });
-      return contexts.length > 0;
+      return contexts.some((context) => {
+        const url = 'documentUrl' in context ? String(context.documentUrl ?? '') : '';
+        return offscreenDocumentMatches(url, pageUrl);
+      });
     },
     createDocument: async () => {
+      const stored = await browser.storage.local.get(WEBGPU_DEBUG_STORAGE_KEY);
+      const profile = stored[WEBGPU_DEBUG_STORAGE_KEY];
       await browser.offscreen.createDocument({
-        url: OFFSCREEN_PAGE,
+        url: offscreenDocumentUrl(OFFSCREEN_PAGE, isWebGpuDebugProfile(profile) ? profile : 'off'),
         reasons: [browser.offscreen.Reason.WORKERS],
         justification:
           'Runs the translation runtime in a document whose workers stay alive independently of the toolbar UI.',
@@ -217,6 +230,17 @@ export default defineBackground(() => {
 
     if (isEngineCapabilitiesRequest(message)) {
       void getEngineCapabilities().then(sendResponse, () => sendResponse(null));
+      return true;
+    }
+
+    if (isWebGpuDebugQuery(message)) {
+      void browser.storage.local.get(WEBGPU_DEBUG_STORAGE_KEY).then(
+        (stored) => {
+          const value = stored[WEBGPU_DEBUG_STORAGE_KEY];
+          sendResponse((isWebGpuDebugProfile(value) ? value : 'off') satisfies WebGpuDebugProfile);
+        },
+        () => sendResponse('off' satisfies WebGpuDebugProfile),
+      );
       return true;
     }
 

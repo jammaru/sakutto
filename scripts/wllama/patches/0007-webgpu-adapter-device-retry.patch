@@ -1,18 +1,20 @@
 Retry WebGPU adapter/device requests so AMD and Intel GPUs can load.
 
-ggml-webgpu required shader-f16 plus every adapter limit, then GGML_ASSERT
-on a failed requestDevice. Chrome on AMD D3D12 often advertises a 4 GiB
-maxBufferSize it will not grant, or picks an iGPU without f16. WASM aborted
-and Sakutto fell back to CPU with no error. Request high-performance then
-default then low-power; retry the device without optional features and with
-capped/default limits; do not assert; set device_count only when a device exists.
+Keep Subgroups on every limit retry and re-derive shader capabilities from
+the granted device. Dropping Subgroups while the adapter still reported the
+feature compiled WGSL with `enable subgroups` and Chrome rejected it
+(`extension 'subgroups' is not allowed`), which aborted WASM onto CPU.
 
-See ggml-org/llama.cpp#21744, #23844 and Dawn D3D12 adapter-limit mismatches.
+Also: no GGML_ASSERT on a failed requestDevice; parseable device-ready /
+device-features / device-limits log lines; debug profiles that actually
+constrain the wasm request (no-f16, subgroup-64, reject-max-limits).
+
+See ggml-org/llama.cpp#21744, #23844 and Chromium crbug 369219127.
 
 diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp b/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp
 --- a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp
 +++ b/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp
-@@ -4146,34 +4146,187 @@
+@@ -4146,34 +4146,233 @@
      ctx->memset_pipeline = ggml_webgpu_create_pipeline(ctx->device, wgsl_memset, "memset", constants);
  }
  
@@ -30,7 +32,8 @@ diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp b/llama.cpp/ggml/src
 +// Chrome on Windows often has both an iGPU and a discrete GPU. Dawn's default
 +// pick can miss shader-f16 (ggml-org/llama.cpp#21744, #23844). Try
 +// high-performance first, then the default, then low-power, and keep a
-+// shader-f16 adapter when one exists.
++// shader-f16 adapter when one exists. Windows Chrome ignores powerPreference
++// (crbug 369219127); the extra tries stay harmless.
  static void ggml_backend_webgpu_request_adapter(wgpu::Instance & instance, wgpu::Adapter & adapter) {
 -    wgpu::RequestAdapterOptions options = {};
 +    const wgpu::PowerPreference preferences[] = {
@@ -59,14 +62,8 @@ diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp b/llama.cpp/ggml/src
 +        adapterTogglesDesc.enabledToggles     = adapterEnabledToggles;
 +        adapterTogglesDesc.enabledToggleCount = 2;
 +        options.nextInChain                   = &adapterTogglesDesc;
- #endif
- 
--    instance.WaitAny(
--        instance.RequestAdapter(
--            &options, wgpu::CallbackMode::AllowSpontaneous,
--            [&adapter](wgpu::RequestAdapterStatus status, wgpu::Adapter _adapter, wgpu::StringView message) {
--                if (status != wgpu::RequestAdapterStatus::Success) {
--                    GGML_LOG_ERROR("ggml_webgpu: Failed to get an adapter: %s\n", std::string(message).c_str());
++#endif
++
 +        wgpu::Adapter candidate;
 +        std::string   error;
 +        instance.WaitAny(
@@ -117,21 +114,34 @@ diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp b/llama.cpp/ggml/src
 +    }
 +}
 +
-+static bool ggml_webgpu_debug_cap_d3d12_limits() {
++// 0 off, 1 amd-rdna3, 2 intel-arc, 3 no-f16, 4 subgroup-64, 5 reject-max-limits
++static int ggml_webgpu_debug_profile_code() {
 +#ifdef __EMSCRIPTEN__
 +    return EM_ASM_INT({
 +               var v = (typeof globalThis !== 'undefined' && globalThis.__SAKUTTO_WEBGPU_DEBUG__) ?
 +                           String(globalThis.__SAKUTTO_WEBGPU_DEBUG__) :
 +                           '';
-+               return (v === 'amd-rdna3' || v === 'intel-arc') ? 1 : 0;
-+           }) != 0;
++               if (v === 'amd-rdna3') return 1;
++               if (v === 'intel-arc') return 2;
++               if (v === 'no-f16') return 3;
++               if (v === 'subgroup-64') return 4;
++               if (v === 'reject-max-limits') return 5;
++               return 0;
++           });
 +#else
-+    return false;
-+#endif
++    return 0;
+ #endif
 +}
-+
-+// D3D12 on AMD and Intel commonly grants 2 GiB - 4, while some adapters report 4 GiB
-+// maxBufferSize that requestDevice then rejects. See Dawn/D3D12 adapter limit mismatches.
+ 
+-    instance.WaitAny(
+-        instance.RequestAdapter(
+-            &options, wgpu::CallbackMode::AllowSpontaneous,
+-            [&adapter](wgpu::RequestAdapterStatus status, wgpu::Adapter _adapter, wgpu::StringView message) {
+-                if (status != wgpu::RequestAdapterStatus::Success) {
+-                    GGML_LOG_ERROR("ggml_webgpu: Failed to get an adapter: %s\n", std::string(message).c_str());
++// D3D12 on AMD and Intel commonly grants 2 GiB - 4. Keep a conservative cap
++// for the retry ladder and for debug profiles; requesting <= adapter limits
++// should succeed per spec (the first try is still adapter-max).
 +static void ggml_webgpu_cap_storage_limits(wgpu::Limits & limits) {
 +    const uint64_t cap = 2147483644ull;
 +    if (limits.maxStorageBufferBindingSize > cap) {
@@ -146,6 +156,14 @@ diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp b/llama.cpp/ggml/src
 +                                           const std::vector<wgpu::FeatureName> & features,
 +                                           const wgpu::Limits *                   limits,
 +                                           const char *                           label) {
++    if (ggml_webgpu_debug_profile_code() == 5) {
++        const std::string name(label);
++        if (name.find("adapter-max-limits") != std::string::npos) {
++            GGML_LOG_ERROR("ggml_webgpu: Failed to get a device (%s): debug profile reject-max-limits\n", label);
++            return false;
++        }
++    }
++
 +    wgpu::DeviceDescriptor dev_desc;
 +    dev_desc.requiredLimits       = limits;
 +    dev_desc.requiredFeatures     = features.data();
@@ -199,6 +217,36 @@ diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp b/llama.cpp/ggml/src
 +    }
 +    GGML_LOG_ERROR("ggml_webgpu: Failed to get a device (%s): %s\n", label, error.c_str());
 +    return false;
++}
++
++static void ggml_webgpu_apply_granted_device_caps(ggml_backend_webgpu_reg_context * ctx) {
++    auto & device = ctx->webgpu_global_ctx->device;
++    auto & caps   = ctx->webgpu_global_ctx->capabilities;
++    device.GetLimits(&caps.limits);
++    // Shader selection (enable subgroups) must follow the *device*, not the
++    // adapter. A later retry that only lowers limits still requests Subgroups
++    // when the adapter has it; a last-resort f16-only device must take the
++    // workgroup-reduction shaders (USE_WORKGROUP_REDUCTION).
++    caps.supports_subgroups = device.HasFeature(wgpu::FeatureName::Subgroups);
++#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
++    if (!device.HasFeature(wgpu::FeatureName::ChromiumExperimentalSubgroupMatrix)) {
++        caps.supports_subgroup_matrix = false;
++    }
++#endif
++    if (ggml_webgpu_debug_profile_code() == 4) {
++        caps.min_subgroup_size = 64;
++        caps.max_subgroup_size = 64;
++    }
++    GGML_LOG_INFO("ggml_webgpu: device features: shader-f16=%s subgroups=%s\n",
++                  device.HasFeature(wgpu::FeatureName::ShaderF16) ? "true" : "false",
++                  caps.supports_subgroups ? "true" : "false");
++    GGML_LOG_INFO(
++        "ggml_webgpu: device limits: maxBufferSize=%llu maxStorageBufferBindingSize=%llu "
++        "maxComputeWorkgroupStorageSize=%u maxComputeInvocationsPerWorkgroup=%u min_subgroup_size=%u "
++        "max_subgroup_size=%u\n",
++        (unsigned long long) caps.limits.maxBufferSize,
++        (unsigned long long) caps.limits.maxStorageBufferBindingSize, caps.limits.maxComputeWorkgroupStorageSize,
++        caps.limits.maxComputeInvocationsPerWorkgroup, caps.min_subgroup_size, caps.max_subgroup_size);
  }
  
  static void create_webgpu_device(ggml_backend_webgpu_reg_context * ctx) {
@@ -215,7 +263,7 @@ diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp b/llama.cpp/ggml/src
  
      ctx->webgpu_global_ctx->adapter.GetLimits(&ctx->webgpu_global_ctx->capabilities.limits);
  
-@@ -4218,75 +4371,83 @@
+@@ -4218,75 +4417,86 @@
  
      // Runtime subgroup size can be any supported size in this range. Shaders
      // that allocate per-lane register arrays must size them for the minimum.
@@ -236,6 +284,10 @@ diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp b/llama.cpp/ggml/src
 +    if (max_sg < min_sg) {
 +        max_sg = min_sg;
 +    }
++    if (ggml_webgpu_debug_profile_code() == 4) {
++        min_sg = 64;
++        max_sg = 64;
++    }
 +    ctx->webgpu_global_ctx->capabilities.min_subgroup_size = min_sg;
 +    ctx->webgpu_global_ctx->capabilities.max_subgroup_size = max_sg;
 +
@@ -247,7 +299,8 @@ diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp b/llama.cpp/ggml/src
 +        ctx->webgpu_global_ctx->capabilities.limits.maxComputeWorkgroupStorageSize,
 +        ctx->webgpu_global_ctx->capabilities.limits.maxComputeInvocationsPerWorkgroup, min_sg, max_sg);
 +
-+    if (!ctx->webgpu_global_ctx->adapter.HasFeature(wgpu::FeatureName::ShaderF16)) {
++    const int debug_profile = ggml_webgpu_debug_profile_code();
++    if (debug_profile == 3 || !ctx->webgpu_global_ctx->adapter.HasFeature(wgpu::FeatureName::ShaderF16)) {
 +        GGML_LOG_ERROR("ggml_webgpu: adapter lacks shader-f16; WebGPU backend disabled\n");
 +        return;
 +    }
@@ -272,8 +325,10 @@ diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp b/llama.cpp/ggml/src
  
  #ifdef GGML_WEBGPU_GPU_PROFILE
 -    required_features.push_back(wgpu::FeatureName::TimestampQuery);
--#endif
--
++    features_f16.push_back(wgpu::FeatureName::TimestampQuery);
++    features_full.push_back(wgpu::FeatureName::TimestampQuery);
+ #endif
+ 
 -    wgpu::DeviceDescriptor dev_desc;
 -    dev_desc.requiredLimits       = &ctx->webgpu_global_ctx->capabilities.limits;
 -    dev_desc.requiredFeatures     = required_features.data();
@@ -309,9 +364,31 @@ diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp b/llama.cpp/ggml/src
 -    deviceTogglesDesc.disabledToggleCount = 1;
 -
 -    dev_desc.nextInChain = &deviceTogglesDesc;
-+    features_f16.push_back(wgpu::FeatureName::TimestampQuery);
-+    features_full.push_back(wgpu::FeatureName::TimestampQuery);
- #endif
+-#endif
++    wgpu::Limits limits_max = ctx->webgpu_global_ctx->capabilities.limits;
++    wgpu::Limits limits_cap = limits_max;
++    ggml_webgpu_cap_storage_limits(limits_cap);
++
++    if (debug_profile == 1 || debug_profile == 2) {
++        GGML_LOG_INFO("ggml_webgpu: debug profile capping buffer limits to 2147483644\n");
++        ggml_webgpu_cap_storage_limits(limits_max);
++        limits_cap = limits_max;
++    }
++
++    // Keep Subgroups on every limit retry when the adapter has it. Dropping that
++    // feature while capabilities.supports_subgroups is still true compiles WGSL
++    // with `enable subgroups` and Chrome rejects it.
++    // Last resort: shader-f16 only, then re-derive supports_subgroups from the device
++    // so the workgroup-reduction shaders run.
++    const bool ok =
++        ggml_webgpu_try_request_device(ctx, features_full, &limits_max, "adapter-max-limits optional-features") ||
++        ggml_webgpu_try_request_device(ctx, features_full, &limits_cap, "capped-limits optional-features") ||
++        ggml_webgpu_try_request_device(ctx, features_full, nullptr, "default-limits optional-features") ||
++        ggml_webgpu_try_request_device(ctx, features_f16, nullptr, "default-limits shader-f16");
++    if (!ok || ctx->webgpu_global_ctx->device == nullptr) {
++        GGML_LOG_ERROR("ggml_webgpu: Failed to get a device after retries\n");
++        return;
++    }
  
 -    ctx->webgpu_global_ctx->instance.WaitAny(
 -        ctx->webgpu_global_ctx->adapter.RequestDevice(
@@ -325,38 +402,11 @@ diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp b/llama.cpp/ggml/src
 -            }),
 -        UINT64_MAX);
 -    GGML_ASSERT(ctx->webgpu_global_ctx->device != nullptr);
-+    wgpu::Limits limits_max = ctx->webgpu_global_ctx->capabilities.limits;
-+    wgpu::Limits limits_cap = limits_max;
-+    ggml_webgpu_cap_storage_limits(limits_cap);
-+
-+    const bool debug_cap = ggml_webgpu_debug_cap_d3d12_limits();
-+    if (debug_cap) {
-+        GGML_LOG_INFO("ggml_webgpu: debug profile capping buffer limits to 2147483644\n");
-+        ggml_webgpu_cap_storage_limits(limits_max);
-+        limits_cap = limits_max;
-+    }
-+
-+    // Optional features stay optional: Subgroups / subgroup-matrix are used when granted,
-+    // but a device that only has shader-f16 still runs. Default limits are last.
-+    const bool ok =
-+        (debug_cap &&
-+         ggml_webgpu_try_request_device(ctx, features_f16, &limits_cap, "capped-limits shader-f16")) ||
-+        ggml_webgpu_try_request_device(ctx, features_full, &limits_max, "adapter-max-limits optional-features") ||
-+        ggml_webgpu_try_request_device(ctx, features_f16, &limits_max, "adapter-max-limits shader-f16") ||
-+        ggml_webgpu_try_request_device(ctx, features_f16, &limits_cap, "capped-limits shader-f16") ||
-+        ggml_webgpu_try_request_device(ctx, features_f16, nullptr, "default-limits shader-f16");
-+    if (!ok || ctx->webgpu_global_ctx->device == nullptr) {
-+        GGML_LOG_ERROR("ggml_webgpu: Failed to get a device after retries\n");
-+        return;
-+    }
-+
-+    // Granted limits can be lower than the adapter's advertised max (the capped
-+    // or default retry). Buffer allocation must follow the device, not the adapter.
-+    ctx->webgpu_global_ctx->device.GetLimits(&ctx->webgpu_global_ctx->capabilities.limits);
++    ggml_webgpu_apply_granted_device_caps(ctx);
  
      ggml_webgpu_init_memset_pipeline(ctx->webgpu_global_ctx);
      ggml_webgpu_create_buffer(ctx->webgpu_global_ctx->device, ctx->webgpu_global_ctx->memset_params_buf,
-@@ -4923,18 +5084,13 @@
+@@ -4923,18 +5133,13 @@
      ctx->webgpu_global_ctx           = webgpu_global_context(new webgpu_global_context_struct());
      ctx->webgpu_global_ctx->instance = std::move(inst);
  

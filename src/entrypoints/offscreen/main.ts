@@ -1,9 +1,11 @@
 import { browser } from 'wxt/browser';
 import { EngineHost } from '@/engine/offscreen/host';
 import { installAdapterNoiseFilter, probeCapabilities } from '@/shared/capabilities';
+import { applyWebGpuDebugProfileFromHref } from '@/shared/gpu-diagnostic';
+import { isEngineProbeRequest, type EngineProbeResponse } from '@/shared/messages';
 
 installAdapterNoiseFilter();
-import { isEngineProbeRequest, type EngineProbeResponse } from '@/shared/messages';
+applyWebGpuDebugProfileFromHref(typeof location !== 'undefined' ? location.href : '');
 
 const host = new EngineHost();
 

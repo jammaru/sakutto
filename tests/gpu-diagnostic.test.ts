@@ -5,9 +5,15 @@ import {
   EMPTY_GPU_DIAGNOSTIC,
   formatGpuDiagnostic,
   gpuFailureExcerpt,
+  INTEGRATED_GPU_HINT,
   isGpuDiagnostic,
+  looksIntegratedGpu,
   mergeGpuDiagnostic,
+  offscreenDocumentMatches,
+  offscreenDocumentUrl,
+  parseWebGpuLog,
   resetWebGpuDebugProfile,
+  resolveWebGpuDebugProfile,
   setWebGpuDebugProfile,
 } from '@/shared/gpu-diagnostic';
 
@@ -109,5 +115,104 @@ describe('gpu diagnostic', () => {
     const merged = mergeGpuDiagnostic(amdLike, 'ggml_webgpu: adapter lacks shader-f16');
     expect(merged.vendor).toBe('amd');
     expect(merged.error).toBe('ggml_webgpu: adapter lacks shader-f16');
+  });
+
+  it('keeps the first and last llama.cpp WebGPU lines', () => {
+    const lines = Array.from({ length: 20 }, (_, index) => `ggml_webgpu: line ${index + 1}`);
+    const excerpt = gpuFailureExcerpt(lines);
+    expect(excerpt).toContain('ggml_webgpu: line 1');
+    expect(excerpt).toContain('ggml_webgpu: line 20');
+    expect(excerpt).toContain('...');
+    expect(excerpt).not.toContain('ggml_webgpu: line 10');
+  });
+
+  it('reads granted device stage, features and limits from the wasm log', () => {
+    const parsed = parseWebGpuLog([
+      'ggml_webgpu: Failed to get a device (adapter-max-limits optional-features): Limit exceeded',
+      'ggml_webgpu: device ready (capped-limits optional-features)',
+      'ggml_webgpu: device features: shader-f16=true subgroups=true',
+      'ggml_webgpu: device limits: maxBufferSize=2147483648 maxStorageBufferBindingSize=2147483644 maxComputeWorkgroupStorageSize=32768 maxComputeInvocationsPerWorkgroup=1024 min_subgroup_size=32 max_subgroup_size=64',
+    ]);
+    expect(parsed.deviceStage).toBe('capped-limits optional-features');
+    expect(parsed.deviceFeatures).toEqual(['shader-f16', 'subgroups']);
+    expect(parsed.deviceMaxStorageBufferBindingSize).toBe(2_147_483_644);
+    const merged = mergeGpuDiagnostic(amdLike, null, [
+      'ggml_webgpu: device ready (capped-limits optional-features)',
+      'ggml_webgpu: device features: shader-f16=true subgroups=true',
+      'ggml_webgpu: device limits: maxBufferSize=2147483648 maxStorageBufferBindingSize=2147483644',
+    ]);
+    expect(merged.deviceStage).toBe('capped-limits optional-features');
+    expect(formatGpuDiagnostic(merged)).toContain('deviceStage: capped-limits optional-features');
+  });
+
+  it('treats Intel UHD and AMD Radeon Graphics as integrated', () => {
+    expect(
+      looksIntegratedGpu({
+        vendor: 'intel',
+        architecture: 'gen-12lp',
+        description: 'Intel(R) UHD Graphics 770',
+        fallbackAdapter: false,
+      }),
+    ).toBe(true);
+    expect(
+      looksIntegratedGpu({
+        vendor: 'amd',
+        architecture: '',
+        description: 'AMD Radeon(TM) Graphics',
+        fallbackAdapter: false,
+      }),
+    ).toBe(true);
+    expect(
+      looksIntegratedGpu({
+        vendor: 'amd',
+        architecture: 'rdna3',
+        description: 'AMD Radeon RX 7800 XT',
+        fallbackAdapter: false,
+      }),
+    ).toBe(false);
+    const merged = mergeGpuDiagnostic(
+      {
+        ...EMPTY_GPU_DIAGNOSTIC,
+        vendor: 'intel',
+        description: 'Intel(R) UHD Graphics',
+      },
+      null,
+    );
+    expect(merged.hint).toBe(INTEGRATED_GPU_HINT);
+  });
+
+  it('puts the debug profile on the offscreen URL', () => {
+    expect(offscreenDocumentUrl('offscreen.html', 'off')).toBe('offscreen.html');
+    expect(offscreenDocumentUrl('offscreen.html', 'reject-max-limits')).toBe(
+      'offscreen.html?webgpuDebug=reject-max-limits',
+    );
+    expect(
+      offscreenDocumentMatches(
+        'chrome-extension://id/offscreen.html?webgpuDebug=amd-rdna3',
+        'chrome-extension://id/offscreen.html',
+      ),
+    ).toBe(true);
+  });
+
+  it('reads the debug profile from the host when chrome.storage is missing', async () => {
+    const askHost = async () => 'reject-max-limits';
+    await expect(
+      resolveWebGpuDebugProfile({
+        href: 'chrome-extension://id/offscreen.html',
+        storage: null,
+        askHost,
+      }),
+    ).resolves.toBe('reject-max-limits');
+    expect((globalThis as { chrome?: unknown }).chrome).toBeUndefined();
+  });
+
+  it('prefers the offscreen URL param over storage', async () => {
+    await expect(
+      resolveWebGpuDebugProfile({
+        href: 'chrome-extension://id/offscreen.html?webgpuDebug=no-f16',
+        storage: { get: async () => ({ sakuttoWebGpuDebug: 'amd-rdna3' }) },
+        askHost: async () => 'reject-max-limits',
+      }),
+    ).resolves.toBe('no-f16');
   });
 });

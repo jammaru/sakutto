@@ -42,6 +42,8 @@ const PATCH_MARKERS: ReadonlyArray<readonly [string, string]> = [
   ['llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp', 'ggml_webgpu_append_mmvq_columns(ctx, src0'],
   ['llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp', 'ggml_webgpu: device ready'],
   ['llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp', 'ggml_webgpu_try_request_device'],
+  ['llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp', 'ggml_webgpu: device features:'],
+  ['llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp', 'ggml_webgpu_apply_granted_device_caps'],
   ['src/utils.ts', 'webgpuDebug?: string'],
   ['src/worker.ts', '__SAKUTTO_WEBGPU_DEBUG__'],
   ['cpp/wllama-context.h', 'params.n_ctx_checkpoints = 0;'],

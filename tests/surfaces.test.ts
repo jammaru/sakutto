@@ -152,3 +152,12 @@ describe('WebGPU diagnostic on settings', () => {
     expect(panel).toContain('navigator.clipboard.writeText');
   });
 });
+
+describe('offscreen debug profile wiring', () => {
+  it('applies the URL param without reading chrome.storage', () => {
+    const offscreen = source('entrypoints/offscreen/main.ts');
+    expect(offscreen).toContain('applyWebGpuDebugProfileFromHref');
+    expect(offscreen).not.toContain('chrome.storage');
+    expect(offscreen).not.toContain('browser.storage');
+  });
+});

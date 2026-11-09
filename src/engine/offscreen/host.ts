@@ -21,7 +21,7 @@ import {
   type BackendSelection,
 } from '../in-browser/backend';
 import { LazyInBrowserEngine } from '../in-browser/lazy-engine';
-import { createWllamaRuntime, type LlamaRuntime } from '../in-browser/runtime';
+import { createWllamaRuntime, lastWebGpuLoadLog, type LlamaRuntime } from '../in-browser/runtime';
 import { DEFAULT_MODEL_ID, getModel, type ModelId } from '../model/catalog';
 import { OpfsModelFileStore } from '../model/file-store';
 import { ModelManager, type LoadedModel } from '../model/manager';
@@ -109,10 +109,23 @@ async function warmup(runtime: LlamaRuntime, tgt: string): Promise<void> {
 }
 
 /**
+ * Adapter/device/WGSL failures will not be fixed by asking for fewer slots; skip straight
+ * to CPU so the model is not loaded and discarded twice (10–24 s on a failed GPU path).
+ */
+export function skipRemainingWebGpuAttempts(error: unknown): boolean {
+  if (!isEngineError(error)) return false;
+  const text = `${error.detail ?? ''}\n${error.message}`;
+  return /Failed to get an adapter|adapter lacks shader-f16|no adapter with shader-f16|Failed to get a device after retries|giving up on WebGPU|Error while parsing WGSL|extension 'subgroups' is not allowed/iu.test(
+    text,
+  );
+}
+
+/**
  * Loads on the current selection and, when a GPU load fails for any reason but an abort, steps
- * down to fewer slots, then one conservative WebGPU slot, then the CPU. A missing adapter
- * skips the narrower loads. Translation and warm-up both come through here, so neither can
- * leave the engine without a model just because WebGPU would not take it.
+ * down to fewer slots, then one conservative WebGPU slot, then the CPU. A missing adapter,
+ * a device that failed after ggml retries, or a WGSL compile error skips the narrower loads.
+ * Translation and warm-up both come through here, so neither can leave the engine without a
+ * model just because WebGPU would not take it.
  */
 export async function loadWithFallback(
   ensureLoaded: (selection: BackendSelection) => Promise<LoadedModel>,
@@ -125,13 +138,9 @@ export async function loadWithFallback(
       return { loaded: await ensureLoaded(current), selection: current };
     } catch (error) {
       if (isAbortError(error) || signal.aborted) throw error;
-      const noGpu = isEngineError(error) && error.code === 'gpu-unavailable';
-      const adapterMissing =
-        noGpu &&
-        /Failed to get an adapter|adapter lacks shader-f16|no adapter with shader-f16/iu.test(
-          error.detail ?? error.message,
-        );
-      const next = adapterMissing ? cpuFallback(current) : lighterSelection(current);
+      const next = skipRemainingWebGpuAttempts(error)
+        ? cpuFallback(current)
+        : lighterSelection(current);
       if (!next) throw error;
       current = next;
     }
@@ -203,7 +212,7 @@ export class EngineHost {
       : error instanceof Error
         ? error.message
         : String(error);
-    this.gpuDiagnostic = mergeGpuDiagnostic(lastGpuDiagnostic(), detail);
+    this.gpuDiagnostic = mergeGpuDiagnostic(lastGpuDiagnostic(), detail, lastWebGpuLoadLog());
   }
 
   private async createServices(): Promise<EngineServices> {
@@ -238,7 +247,11 @@ export class EngineHost {
         selectionState.current = result.selection;
         this.gpuFallback = true;
       }
-      this.gpuDiagnostic = mergeGpuDiagnostic(lastGpuDiagnostic(), this.gpuDiagnostic?.error);
+      this.gpuDiagnostic = mergeGpuDiagnostic(
+        lastGpuDiagnostic(),
+        this.gpuDiagnostic?.error,
+        lastWebGpuLoadLog(),
+      );
 
       this.touch();
       return result.loaded;

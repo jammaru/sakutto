@@ -144,23 +144,36 @@ it applies the patches.
 
 `0007-webgpu-adapter-device-retry.patch` changes how ggml-webgpu picks an adapter and a device.
 The pinned llama.cpp required `shader-f16` plus every advertised adapter limit, then
-`GGML_ASSERT` on a failed `requestDevice`. On AMD D3D12 (and some Intel adapters) that abort
-left the model on the CPU with only "WebGPU could not load the model". The patch:
+`GGML_ASSERT` on a failed `requestDevice`. A failed device, or a WGSL compile after a
+retry that dropped `subgroups`, aborted WASM and left the model on the CPU with only
+"WebGPU could not load the model". The patch:
 
 - Tries `powerPreference` high-performance, then default, then low-power, and keeps a
   `shader-f16` adapter when one exists ([ggml-org/llama.cpp#21744](https://github.com/ggml-org/llama.cpp/pull/21744),
-  [#23844](https://github.com/ggml-org/llama.cpp/issues/23844)).
-- Retries `requestDevice`: adapter-max limits with optional features, then `shader-f16` only,
-  then 2 GiB−4 storage caps (typical D3D12 on AMD/Intel), then default limits.
-- Does not assert. `device_count` is 1 only when a device exists. Failure lines stay in the
-  INFO log so Sakutto can show them in settings.
-- Treats a zero `subgroupMinSize`/`MaxSize` as 32/64 (RDNA wave32/wave64) instead of collapsing
-  workgroup math.
+  [#23844](https://github.com/ggml-org/llama.cpp/issues/23844)). Windows Chrome ignores
+  `powerPreference` ([crbug 369219127](https://issues.chromium.org/issues/369219127));
+  the extra tries stay harmless. Settings suggests `chrome://flags/#force-high-performance-gpu`
+  when the adapter looks integrated.
+- Retries `requestDevice` while **keeping `subgroups` whenever the adapter has it**, only
+  lowering limits: adapter-max → 2 GiB−4 cap → default limits. A last-resort `shader-f16`
+  only device then re-derives `supports_subgroups` from `device.HasFeature` so the
+  workgroup-reduction shaders compile (ggml's `USE_WORKGROUP_REDUCTION` path).
+- Does not assert. `device_count` is 1 only when a device exists. Logs `device ready`,
+  `device features`, and `device limits` so Sakutto can show the granted stage.
+- Treats a zero `subgroupMinSize`/`MaxSize` as 32/64 (RDNA wave32/wave64).
 
-`0008-webgpu-debug-profile.patch` copies `globalThis.__SAKUTTO_WEBGPU_DEBUG__` into the worker
-so an NVIDIA machine can simulate those 2 GiB caps (`amd-rdna3` or `intel-arc`). Set
-`chrome.storage.local.sakuttoWebGpuDebug` to one of `amd-rdna3`, `intel-arc`, `no-f16`,
-`subgroup-64`, then reload the offscreen document.
+`0008-webgpu-debug-profile.patch` copies `globalThis.__SAKUTTO_WEBGPU_DEBUG__` into the worker.
+The offscreen document often has no `chrome.storage`; the service worker reads
+`chrome.storage.local.sakuttoWebGpuDebug` and puts it on the offscreen URL (and answers
+`engine:webgpu-debug`). Profiles, after a wllama rebuild:
+
+- `amd-rdna3` / `intel-arc` — cap C++ buffer limits to 2 GiB−4 (Chrome on NVIDIA already
+  reports those, so this may not reject `requestDevice`)
+- `reject-max-limits` — fail adapter-max `requestDevice` so the capped/default ladder runs
+- `no-f16` — disable the WebGPU backend as if the adapter lacked `shader-f16`
+- `subgroup-64` — force subgroup min/max 64 in shader workgroup math
+
+Reload the extension (or recreate the offscreen document) after setting the flag.
 
 **The owner must rebuild wllama** after these patches: `pnpm build:wllama` then
 `pnpm verify:wllama`. Until that runs, the packaged wasm is still the previous build and AMD
