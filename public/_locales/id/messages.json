@@ -368,14 +368,41 @@
   "alwaysTranslateSite": {
     "message": "Selalu terjemahkan situs ini"
   },
+  "shortcutHeading": {
+    "message": "Pintasan papan kekunci"
+  },
+  "shortcutHelp": {
+    "message": "Chrome menyimpan tombol ini. Pilih Ubah pintasan untuk menyuntingnya di pengaturan Chrome."
+  },
+  "shortcutChange": {
+    "message": "Ubah pintasan"
+  },
+  "shortcutUnset": {
+    "message": "Belum diatur"
+  },
   "shortcutTranslate": {
-    "message": "Alt+A (Option+A pada Mac) menerjemahkan halaman atau mengembalikan versi aslinya."
+    "message": "$KEY$ menerjemahkan halaman atau mengembalikan versi aslinya.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutBilingual": {
-    "message": "Alt+B (Option+B pada Mac) beralih antara tampilan pengganti dan tampilan bilingual, serta mengingat pilihan untuk situs ini."
+    "message": "$KEY$ beralih antara tampilan pengganti dan tampilan bilingual, serta mengingat pilihan untuk situs ini.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutSelection": {
-    "message": "Alt+S (Option+S pada Mac) menerjemahkan teks yang dipilih."
+    "message": "$KEY$ menerjemahkan teks yang dipilih.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "runtimePreparing": {
     "message": "Penyiapan $PERCENT$%",
@@ -499,10 +526,20 @@
     "message": "Klik ikon toolbar untuk menerjemahkan halaman yang terbuka."
   },
   "onboardingReadyPage": {
-    "message": "Tekan Alt+A (Option+A pada Mac) untuk menerjemahkan seluruh halaman. Tekan kembali untuk memulihkan versi asli."
+    "message": "Tekan $KEY$ untuk menerjemahkan seluruh halaman. Tekan kembali untuk memulihkan versi asli.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadySelection": {
-    "message": "Tekan Alt+S (Option+S pada Mac) untuk menerjemahkan teks yang dipilih."
+    "message": "Tekan $KEY$ untuk menerjemahkan teks yang dipilih.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadyContext": {
     "message": "Klik kanan pada halaman dan pilih \"Translate this page\". Untuk teks yang dipilih, pilih \"Translate the selected text\"."

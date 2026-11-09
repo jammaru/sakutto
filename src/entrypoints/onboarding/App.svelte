@@ -11,8 +11,15 @@
     requestModelCancel,
     requestModelDownload,
     requestModelInspect,
+    requestShortcutSnapshot,
   } from '@/shared/messages';
   import { advanceModelStatus } from '@/shared/model-progress';
+  import {
+    DEFAULT_SHORTCUTS,
+    SHORTCUT_COMMANDS,
+    displayShortcut,
+    type ShortcutCommand,
+  } from '@/shared/shortcuts';
   import { PLAMO_OFFICIAL_LINKS, PROJECT_LINKS } from '@/shared/plamo-license';
   import {
     PLAMO_LICENSE_VERSION,
@@ -66,6 +73,20 @@
   let continued = $state(false);
   let marks = $state<ByteMark[]>([]);
   let now = $state(Date.now());
+
+  /**
+   * The keys Chrome has bound right now, so the "you are ready" checklist names the keys the
+   * reader will actually press rather than the values the manifest shipped with.
+   */
+  let bound = $state<Record<ShortcutCommand, string>>({ ...DEFAULT_SHORTCUTS });
+
+  function keyText(command: ShortcutCommand): string {
+    const shortcut = bound[command];
+    return shortcut.length > 0 ? displayShortcut(shortcut) : t('shortcutUnset');
+  }
+
+  let readyPage = $derived(t('onboardingReadyPage', [keyText('translate-page')]));
+  let readySelection = $derived(t('onboardingReadySelection', [keyText('translate-selection')]));
 
   let percent = $derived(Math.max(0, Math.min(100, Math.round(progress * 100))));
   let etaLabel = $derived.by(() => {
@@ -235,6 +256,16 @@
       })
       .catch(() => undefined);
 
+    void requestShortcutSnapshot().then((snapshot) => {
+      if (!snapshot) return;
+      const next = { ...bound };
+      for (const command of SHORTCUT_COMMANDS) {
+        const shortcut = snapshot[command];
+        if (shortcut !== null) next[command] = shortcut;
+      }
+      bound = next;
+    });
+
     return () => {
       clearInterval(timer);
       browser.runtime.onMessage.removeListener(onMessage);
@@ -268,8 +299,8 @@
       <p>{t('onboardingReadyLead')}</p>
       <ul>
         <li>{t('onboardingReadyToolbar')}</li>
-        <li>{t('onboardingReadyPage')}</li>
-        <li>{t('onboardingReadySelection')}</li>
+        <li>{readyPage}</li>
+        <li>{readySelection}</li>
         <li>{t('onboardingReadyContext')}</li>
       </ul>
     </section>

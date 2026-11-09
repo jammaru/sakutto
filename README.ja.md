@@ -36,7 +36,7 @@ https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl
 | 選択範囲を翻訳する                       | Alt+S           | Option (⌥)+S |
 | 入力したテキストを翻訳する（専用ページ） | Ctrl+Enter      | ⌘+Enter      |
 
-ツールバーのポップアップと、右クリックメニューからも同じ操作ができます。キーは `chrome://extensions/shortcuts` で変更できます。拡張機能のショートカットの Alt は、Mac の Chrome では Option として扱われるため、文字は同じです。Alt+D は Windows と Linux の Chrome がアドレスバーに使うため、使いません。
+ツールバーのポップアップと、右クリックメニューからも同じ操作ができます。キーは Chrome が管理しているため、設定画面の「キーボードショートカット」か、ポップアップの「ショートカットキーを変更」から `chrome://extensions/shortcuts` を開いて変更します。変更すると、ポップアップに並ぶキーの表示もその場で切り替わります。拡張機能のショートカットの Alt は、Mac の Chrome では Option として扱われるため、文字は同じです。Alt+D は Windows と Linux の Chrome がアドレスバーに使うため、既定では使いません。
 
 ## 入力したテキストの翻訳
 

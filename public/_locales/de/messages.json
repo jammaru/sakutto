@@ -368,14 +368,41 @@
   "alwaysTranslateSite": {
     "message": "Übertragen Sie diese Seite immer"
   },
+  "shortcutHeading": {
+    "message": "Tastenkürzel"
+  },
+  "shortcutHelp": {
+    "message": "Diese Tasten verwaltet Chrome. Über „Tastenkürzel ändern“ bearbeiten Sie sie in den Einstellungen von Chrome."
+  },
+  "shortcutChange": {
+    "message": "Tastenkürzel ändern"
+  },
+  "shortcutUnset": {
+    "message": "Nicht festgelegt"
+  },
   "shortcutTranslate": {
-    "message": "Alt+A (Option+A auf einem Mac) übersetzt die Seite oder wiederherstellt das Original."
+    "message": "$KEY$ übersetzt die Seite oder stellt das Original wieder her.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutBilingual": {
-    "message": "Alt+B (Option+B auf einem Mac) wechselt zwischen der Ersatz- und der zweisprachigen Ansicht und merkt die Auswahl für diese Seite."
+    "message": "$KEY$ wechselt zwischen der Ersatz- und der zweisprachigen Ansicht und merkt die Auswahl für diese Seite.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutSelection": {
-    "message": "Alt+S (Option+S auf einem Mac) übersetzt den ausgewählten Text."
+    "message": "$KEY$ übersetzt den ausgewählten Text.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "runtimePreparing": {
     "message": "Vorbereitung $PERCENT$%",
@@ -499,10 +526,20 @@
     "message": "Klicken Sie auf das Symbol der Symbolleiste, um die geöffnete Seite zu übersetzen."
   },
   "onboardingReadyPage": {
-    "message": "Drücken Sie Alt+A (Option+A auf einem Mac), um die gesamte Seite zu übersetzen. Drücken Sie es erneut, um die ursprüngliche Version wiederherzustellen."
+    "message": "Drücken Sie $KEY$, um die gesamte Seite zu übersetzen. Drücken Sie es erneut, um die ursprüngliche Version wiederherzustellen.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadySelection": {
-    "message": "Drücken Sie Alt+S (Option+S auf einem Mac), um den ausgewählten Text zu übersetzen."
+    "message": "Drücken Sie $KEY$, um den ausgewählten Text zu übersetzen.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadyContext": {
     "message": "Klicken Sie mit der rechten Maustaste auf die Seite und wählen Sie „Diese Seite übersetzen“. Wählen Sie für ausgewählten Text „Ausgewählten Text übersetzen“."

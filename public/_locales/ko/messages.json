@@ -368,14 +368,41 @@
   "alwaysTranslateSite": {
     "message": "이 사이트를 항상 번역하세요"
   },
+  "shortcutHeading": {
+    "message": "키보드 단축키"
+  },
+  "shortcutHelp": {
+    "message": "이 키는 Chrome이 관리합니다. 단축키 변경을 누르면 Chrome 설정에서 수정할 수 있습니다."
+  },
+  "shortcutChange": {
+    "message": "단축키 변경"
+  },
+  "shortcutUnset": {
+    "message": "설정 안 됨"
+  },
   "shortcutTranslate": {
-    "message": "Alt+A (Mac에서는 Option+A)를 누르면 페이지가 변환되거나 원본으로 복원됩니다."
+    "message": "$KEY$를 누르면 페이지가 변환되거나 원본으로 복원됩니다.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutBilingual": {
-    "message": "Alt+B (Mac의 경우 Option+B)는 대체 보기와 이중 언어 보기를 전환하며, 이 사이트에서 선택한 내용을 저장합니다."
+    "message": "$KEY$는 대체 보기와 이중 언어 보기를 전환하며, 이 사이트에서 선택한 내용을 저장합니다.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutSelection": {
-    "message": "Alt+S (Mac의 경우 Option+S)를 누르면 선택한 텍스트가 변환됩니다."
+    "message": "$KEY$를 누르면 선택한 텍스트가 변환됩니다.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "runtimePreparing": {
     "message": "$PERCENT$% 준비",
@@ -499,10 +526,20 @@
     "message": "툴바 아이콘을 클릭하여 열려 있는 페이지를 변환하세요."
   },
   "onboardingReadyPage": {
-    "message": "Alt+A(Mac의 경우 Option+A)를 눌러 페이지 전체를 변환하세요. 다시 한번 눌러 원본으로 복원하세요."
+    "message": "$KEY$를 눌러 페이지 전체를 변환하세요. 다시 한번 눌러 원본으로 복원하세요.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadySelection": {
-    "message": "Alt+S(Mac의 경우 Option+S)를 눌러 선택한 텍스트를 변환하세요."
+    "message": "$KEY$를 눌러 선택한 텍스트를 변환하세요.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadyContext": {
     "message": "페이지를 우클릭하고 \"이 페이지 번역\"을 선택하세요. 선택한 텍스트의 경우 \"선택한 텍스트 번역\"을 선택하세요."

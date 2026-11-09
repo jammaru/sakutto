@@ -171,7 +171,10 @@ export interface PageSessionOptions {
   }) => void | Promise<void>;
   /** Resolves true only after this site already has host access. */
   onGrantSite?: () => boolean | Promise<boolean>;
-  /** False when the user has changed the selection shortcut away from Alt+S. */
+  /**
+   * True for the key the reader bound to the selection command. Defaults to Alt+S, the key the
+   * manifest suggests; a page that can read the current binding passes its own test.
+   */
   selectionKey?: (event: KeyboardEvent) => boolean;
 }
 

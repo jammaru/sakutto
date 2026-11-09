@@ -96,3 +96,35 @@ describe('typed translation layout', () => {
     expect(typed).toContain('copyTranslation');
   });
 });
+
+/**
+ * Chrome decides which keys run a command and has no API for changing them, so the only way
+ * to let a reader rebind one is to send them to Chrome's own editor. A settings screen that
+ * showed a key it could not change, or offered an edit box of its own, would be lying.
+ */
+describe('shortcut settings', () => {
+  const shortcuts = source('ui/ShortcutSettings.svelte');
+  const options = source('entrypoints/options/App.svelte');
+
+  it('reads the keys Chrome has bound instead of the manifest defaults', () => {
+    expect(shortcuts).toContain('requestShortcutSnapshot');
+    expect(shortcuts).toContain('displayShortcut');
+    expect(shortcuts).not.toContain("'Alt+A'");
+  });
+
+  it('hands the reader to Chrome for the change itself', () => {
+    expect(shortcuts).toContain('openShortcutEditor');
+    expect(shortcuts).toContain('shortcutChange');
+    // No key capture of its own: Chrome owns the bindings.
+    expect(shortcuts).not.toMatch(/onkeydown|addEventListener\('keydown'/u);
+  });
+
+  it('says a command has no key rather than showing an empty box', () => {
+    expect(shortcuts).toContain('shortcutUnset');
+  });
+
+  it('is on the settings page', () => {
+    expect(options).toContain('ShortcutSettings');
+    expect(options).toContain('shortcutHeading');
+  });
+});

@@ -29,6 +29,7 @@ import {
   type ModelProgressMessage,
 } from '@/shared/messages';
 import { ensureSettings } from '@/shared/storage';
+import { readShortcutSnapshot } from '@/shared/shortcuts';
 
 const OFFSCREEN_PAGE = 'offscreen.html';
 const CAPABILITIES_CACHE_KEY = 'engineCapabilities';
@@ -246,11 +247,8 @@ export default defineBackground(() => {
 
     if (isShortcutQuery(message)) {
       void browser.commands.getAll().then(
-        (commands) => {
-          const selection = commands.find((command) => command.name === 'translate-selection');
-          sendResponse({ selection: selection?.shortcut ?? '' });
-        },
-        () => sendResponse({ selection: null }),
+        (commands) => sendResponse(readShortcutSnapshot(commands)),
+        () => sendResponse(null),
       );
       return true;
     }

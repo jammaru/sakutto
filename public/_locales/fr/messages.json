@@ -368,14 +368,41 @@
   "alwaysTranslateSite": {
     "message": "Traduisez toujours ce site"
   },
+  "shortcutHeading": {
+    "message": "Raccourcis clavier"
+  },
+  "shortcutHelp": {
+    "message": "Chrome conserve ces touches. « Modifier les raccourcis » les ouvre dans les réglages de Chrome."
+  },
+  "shortcutChange": {
+    "message": "Modifier les raccourcis"
+  },
+  "shortcutUnset": {
+    "message": "Non défini"
+  },
   "shortcutTranslate": {
-    "message": "Alt+A (Option+A sur Mac) traduit la page ou rétablit l'original."
+    "message": "$KEY$ traduit la page ou rétablit l’original.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutBilingual": {
-    "message": "Alt+B (Option+B sur Mac) alterne entre la vue de remplacement et la vue bilingue, et conserve le choix pour ce site."
+    "message": "$KEY$ alterne entre la vue de remplacement et la vue bilingue, et conserve le choix pour ce site.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutSelection": {
-    "message": "Alt+S (Option+S sur Mac) traduit le texte sélectionné."
+    "message": "$KEY$ traduit le texte sélectionné.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "runtimePreparing": {
     "message": "Préparation $PERCENT$%",
@@ -499,10 +526,20 @@
     "message": "Cliquez sur l'icône de l'onglet d'outils pour traduire la page ouverte."
   },
   "onboardingReadyPage": {
-    "message": "Appuyez sur Alt+A (Option+A sur Mac) pour traduire toute la page. Appuyez à nouveau pour rétablir l'original."
+    "message": "Appuyez sur $KEY$ pour traduire toute la page. Appuyez à nouveau pour rétablir l’original.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadySelection": {
-    "message": "Appuyez sur Alt+S (Option+S sur Mac) pour traduire le texte sélectionné."
+    "message": "Appuyez sur $KEY$ pour traduire le texte sélectionné.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadyContext": {
     "message": "Faites un clic droit sur la page et sélectionnez « Traduction de cette page ». Pour le texte sélectionné, choisissez « Traduction du texte sélectionné »."

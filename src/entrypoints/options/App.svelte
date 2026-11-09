@@ -27,6 +27,7 @@
   import ModelManager from '@/ui/ModelManager.svelte';
   import { runtimeLabel } from '@/ui/runtime-label';
   import SettingsFields from '@/ui/SettingsFields.svelte';
+  import ShortcutSettings from '@/ui/ShortcutSettings.svelte';
 
   type SettingsError = 'load' | 'save' | null;
   type CacheState = 'cleared' | 'failed' | null;
@@ -231,6 +232,12 @@
     {:else}
       <p class="muted">{t('statusChecking')}</p>
     {/if}
+  </section>
+
+  <section class="panel">
+    <h2>{t('shortcutHeading')}</h2>
+    <p class="muted help">{t('shortcutHelp')}</p>
+    <ShortcutSettings />
   </section>
 
   <section class="panel">

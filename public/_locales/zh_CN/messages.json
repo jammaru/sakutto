@@ -368,14 +368,41 @@
   "alwaysTranslateSite": {
     "message": "请始终翻译本站"
   },
+  "shortcutHeading": {
+    "message": "键盘快捷键"
+  },
+  "shortcutHelp": {
+    "message": "这些按键由 Chrome 管理。选择“更改快捷键”即可在 Chrome 的设置中修改。"
+  },
+  "shortcutChange": {
+    "message": "更改快捷键"
+  },
+  "shortcutUnset": {
+    "message": "未设置"
+  },
   "shortcutTranslate": {
-    "message": "Alt+A（Mac 上按 Option+A）可转换页面或还原原件。"
+    "message": "$KEY$ 可转换页面或还原原件。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutBilingual": {
-    "message": "Alt+B（Mac 上为 Option+B）可在替换视图和双语视图之间切换，并记住本站的选择。"
+    "message": "$KEY$ 可在替换视图和双语视图之间切换，并记住本站的选择。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutSelection": {
-    "message": "Alt+S（Mac 上按 Option+S）可转换所选文本。"
+    "message": "$KEY$ 可转换所选文本。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "runtimePreparing": {
     "message": "准备 $PERCENT$%",
@@ -499,10 +526,20 @@
     "message": "点击工具栏图标即可翻译打开的页面。"
   },
   "onboardingReadyPage": {
-    "message": "按下 Alt+A（Mac 上按 Option+A）即可翻译整个页面。再次按下即可还原原件。"
+    "message": "按下 $KEY$ 即可翻译整个页面。再次按下即可还原原件。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadySelection": {
-    "message": "按 Alt+S（Mac 上为 Option+S）以翻译所选文本。"
+    "message": "按 $KEY$ 以翻译所选文本。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadyContext": {
     "message": "右键单击页面并选择“翻译此页面”。对于选定的文本，选择“翻译选定文本”。"

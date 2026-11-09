@@ -5,7 +5,7 @@
   import { shouldSuggestHighQuality } from '@/engine/model/suggestion';
   import { modelStartBlocked, type EngineStatus, type ModelStatus } from '@/shared/engine-status';
   import { hasLicenseConsent } from '@/shared/agreement';
-  import { currentUiLanguage, t } from '@/shared/i18n';
+  import { currentUiLanguage, t, type MessageKey } from '@/shared/i18n';
   import {
     isModelProgressMessage,
     requestEngineStatus,
@@ -14,6 +14,7 @@
     requestPageCommand,
     requestPageState,
     requestQualitySample,
+    requestShortcutSnapshot,
     type PageViewState,
   } from '@/shared/messages';
   import { ensureContentScript } from '@/shared/page-bridge';
@@ -30,11 +31,27 @@
   } from '@/dom/sites';
   import { isChromeOnlyLanguage, resolvePageTarget, type TargetLanguage } from '@/shared/languages';
   import { advanceModelStatus } from '@/shared/model-progress';
+  import { openShortcutEditor } from '@/shared/shortcut-editor';
+  import {
+    DEFAULT_SHORTCUTS,
+    SHORTCUT_COMMANDS,
+    ariaShortcut,
+    displayShortcut,
+    type ShortcutCommand,
+    type ShortcutSnapshot,
+  } from '@/shared/shortcuts';
   import { readDeviceHeadroom, type DeviceHeadroom } from '@/ui/device-headroom';
   import LanguageField from '@/ui/LanguageField.svelte';
   import { runtimeLabel } from '@/ui/runtime-label';
 
   type SettingsError = 'load' | 'save' | null;
+
+  /** The three hints under the button, each naming the key bound right now. */
+  const SHORTCUT_HINTS: readonly { label: MessageKey; command: ShortcutCommand }[] = [
+    { label: 'shortcutTranslate', command: 'translate-page' },
+    { label: 'shortcutBilingual', command: 'toggle-bilingual' },
+    { label: 'shortcutSelection', command: 'translate-selection' },
+  ];
 
   let settings = $state<Settings | null>(null);
   let settingsError = $state<SettingsError>(null);
@@ -52,6 +69,34 @@
   let modelMark = $state<ModelStatus | null>(null);
   let quality = $state<QualitySample | null>(null);
   let headroom = $state<DeviceHeadroom | null>(null);
+  let shortcuts = $state<ShortcutSnapshot | null>(null);
+  let shortcutError = $state(false);
+
+  /**
+   * The key Chrome currently has bound to each command. A binding the user removed stays as
+   * `''` so a hint can say it is unset rather than name a key that no longer works.
+   */
+  let bound = $derived.by((): Record<ShortcutCommand, string> => {
+    const next: Record<ShortcutCommand, string> = { ...DEFAULT_SHORTCUTS };
+    if (!shortcuts) return next;
+    for (const command of SHORTCUT_COMMANDS) {
+      const shortcut = shortcuts[command];
+      if (shortcut !== null) next[command] = shortcut;
+    }
+    return next;
+  });
+  let shortcutLines = $derived(
+    SHORTCUT_HINTS.map((hint) => ({
+      label: hint.label,
+      text: t(hint.label, [keyText(hint.command)]),
+    })),
+  );
+  let toggleKeys = $derived(ariaShortcut(bound['translate-page']) ?? undefined);
+
+  function keyText(command: ShortcutCommand): string {
+    const shortcut = bound[command];
+    return shortcut.length > 0 ? displayShortcut(shortcut) : t('shortcutUnset');
+  }
 
   let storedTarget = $derived(rule?.targetLanguage ?? settings?.targetLanguage ?? 'en');
   let targetLanguage = $derived(
@@ -227,6 +272,10 @@
     void browser.runtime.openOptionsPage().catch(() => undefined);
   }
 
+  async function changeShortcuts() {
+    shortcutError = !(await openShortcutEditor());
+  }
+
   function openOnboarding() {
     void browser.tabs
       .create({ url: browser.runtime.getURL('/onboarding.html') })
@@ -265,6 +314,9 @@
     void readDeviceHeadroom().then((value) => {
       headroom = value;
     });
+    void requestShortcutSnapshot().then((snapshot) => {
+      shortcuts = snapshot;
+    });
 
     return () => {
       unsubscribe();
@@ -287,7 +339,7 @@
   <button
     class="button block"
     type="button"
-    aria-keyshortcuts="Alt+A"
+    aria-keyshortcuts={toggleKeys}
     aria-busy={view?.pending ? 'true' : 'false'}
     disabled={!pageReady || commandBusy || !canStart}
     onclick={translatePage}
@@ -404,10 +456,16 @@
   {/if}
 
   <ul class="shortcuts">
-    <li>{t('shortcutTranslate')}</li>
-    <li>{t('shortcutBilingual')}</li>
-    <li>{t('shortcutSelection')}</li>
+    {#each shortcutLines as line (line.label)}
+      <li>{line.text}</li>
+    {/each}
   </ul>
+  <button class="link-button shortcut-change" type="button" onclick={changeShortcuts}>
+    {t('shortcutChange')}
+  </button>
+  {#if shortcutError}
+    <p class="error" role="alert">{t('errorAction')}</p>
+  {/if}
 
   <button class="button secondary block" type="button" onclick={openTyped}>
     {t('openTyped')}
@@ -520,6 +578,11 @@
     display: grid;
     gap: 2px;
     color: var(--muted);
+  }
+
+  .shortcut-change {
+    justify-self: start;
+    font-size: 11px;
   }
 
   .footer {

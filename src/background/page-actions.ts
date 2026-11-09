@@ -2,24 +2,18 @@ import { browser } from 'wxt/browser';
 import { originPattern, pageHost, loadSiteRule } from '@/dom/sites';
 import { ensureContentScript } from '@/shared/page-bridge';
 import { requestPageCommand, type PageCommandName } from '@/shared/messages';
+import { isShortcutCommand, SHORTCUT_PAGE_COMMANDS } from '@/shared/shortcuts';
 
 interface PageTranslationCanceller {
   cancelTab(tabId: number): void;
 }
 
-const SHORTCUTS: Record<string, PageCommandName> = {
-  'translate-page': 'toggle',
-  'toggle-bilingual': 'bilingual',
-  'translate-selection': 'selection',
-};
-
 export function installPageActions(translations?: PageTranslationCanceller): void {
   installMenus();
 
   browser.commands.onCommand.addListener((command) => {
-    const pageCommand = SHORTCUTS[command];
-    if (!pageCommand) return;
-    void runOnActiveTab(pageCommand);
+    if (!isShortcutCommand(command)) return;
+    void runOnActiveTab(SHORTCUT_PAGE_COMMANDS[command]);
   });
 
   browser.contextMenus.onClicked.addListener((info, tab) => {

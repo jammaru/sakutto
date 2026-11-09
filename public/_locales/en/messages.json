@@ -368,14 +368,41 @@
   "alwaysTranslateSite": {
     "message": "Always translate this site"
   },
+  "shortcutHeading": {
+    "message": "Keyboard shortcuts"
+  },
+  "shortcutHelp": {
+    "message": "Chrome keeps these keys. Choose Change shortcuts to edit them in Chrome’s own settings."
+  },
+  "shortcutChange": {
+    "message": "Change shortcuts"
+  },
+  "shortcutUnset": {
+    "message": "Not set"
+  },
   "shortcutTranslate": {
-    "message": "Alt+A (Option+A on a Mac) translates the page or restores the original."
+    "message": "$KEY$ translates the page or restores the original.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutBilingual": {
-    "message": "Alt+B (Option+B on a Mac) switches between replacement and bilingual view, and remembers the choice for this site."
+    "message": "$KEY$ switches between replacement and bilingual view, and remembers the choice for this site.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutSelection": {
-    "message": "Alt+S (Option+S on a Mac) translates the selected text."
+    "message": "$KEY$ translates the selected text.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "runtimePreparing": {
     "message": "Preparing $PERCENT$%",
@@ -499,10 +526,20 @@
     "message": "Click the toolbar icon to translate the open page."
   },
   "onboardingReadyPage": {
-    "message": "Press Alt+A (Option+A on a Mac) to translate the whole page. Press it again to restore the original."
+    "message": "Press $KEY$ to translate the whole page. Press it again to restore the original.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadySelection": {
-    "message": "Press Alt+S (Option+S on a Mac) to translate selected text."
+    "message": "Press $KEY$ to translate selected text.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadyContext": {
     "message": "Right-click the page and choose \"Translate this page\". For selected text, choose \"Translate the selected text\"."

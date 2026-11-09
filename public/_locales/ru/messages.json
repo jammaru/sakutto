@@ -368,14 +368,41 @@
   "alwaysTranslateSite": {
     "message": "Всегда переводить этот сайт"
   },
+  "shortcutHeading": {
+    "message": "Сочетания клавиш"
+  },
+  "shortcutHelp": {
+    "message": "Эти клавиши хранит Chrome. Кнопка «Изменить сочетания клавиш» открывает их в настройках Chrome."
+  },
+  "shortcutChange": {
+    "message": "Изменить сочетания клавиш"
+  },
+  "shortcutUnset": {
+    "message": "Не задано"
+  },
   "shortcutTranslate": {
-    "message": "Alt+A (Option+A на Mac) переводит страницу или восстанавливает оригинал."
+    "message": "$KEY$ переводит страницу или восстанавливает оригинал.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutBilingual": {
-    "message": "Alt+B (Option+B на Mac) переключает между вариантами замены и двуязычного просмотра, а также запоминает выбор для этого сайта."
+    "message": "$KEY$ переключает между вариантами замены и двуязычного просмотра, а также запоминает выбор для этого сайта.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutSelection": {
-    "message": "Alt+S (Option+S на Mac) переводит выбранный текст."
+    "message": "$KEY$ переводит выбранный текст.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "runtimePreparing": {
     "message": "Подготовка $PERCENT$%",
@@ -499,10 +526,20 @@
     "message": "Нажмите на значок панели инструментов, чтобы перевести открытую страницу."
   },
   "onboardingReadyPage": {
-    "message": "Нажмите Alt+A (Option+A на Mac), чтобы перевести весь страницу. Нажмите снова, чтобы восстановить исходную версию."
+    "message": "Нажмите $KEY$, чтобы перевести всю страницу. Нажмите снова, чтобы восстановить исходную версию.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadySelection": {
-    "message": "Нажмите Alt+S (Option+S на Mac), чтобы перевести выбранный текст."
+    "message": "Нажмите $KEY$, чтобы перевести выбранный текст.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadyContext": {
     "message": "Щелкните правой кнопкой мыши по странице и выберите «Перевести эту страницу». Для выбранного текста выберите «Перевести выбранный текст»."

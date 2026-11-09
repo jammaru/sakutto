@@ -368,14 +368,41 @@
   "alwaysTranslateSite": {
     "message": "Luôn dịch trang web này"
   },
+  "shortcutHeading": {
+    "message": "Phím tắt"
+  },
+  "shortcutHelp": {
+    "message": "Chrome lưu các phím này. Chọn Đổi phím tắt để sửa chúng trong phần cài đặt của Chrome."
+  },
+  "shortcutChange": {
+    "message": "Đổi phím tắt"
+  },
+  "shortcutUnset": {
+    "message": "Chưa đặt"
+  },
   "shortcutTranslate": {
-    "message": "Alt+A (Option+A trên Mac) chuyển đổi trang hoặc khôi phục bản gốc."
+    "message": "$KEY$ chuyển đổi trang hoặc khôi phục bản gốc.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutBilingual": {
-    "message": "Alt+B (Option+B trên Mac) chuyển đổi giữa chế độ thay thế và chế độ xem song ngữ, đồng thời ghi nhớ lựa chọn cho trang web này."
+    "message": "$KEY$ chuyển đổi giữa chế độ thay thế và chế độ xem song ngữ, đồng thời ghi nhớ lựa chọn cho trang web này.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutSelection": {
-    "message": "Alt+S (Option+S trên Mac) chuyển đổi văn bản được chọn."
+    "message": "$KEY$ chuyển đổi văn bản được chọn.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "runtimePreparing": {
     "message": "Chuẩn bị $PERCENT$%",
@@ -499,10 +526,20 @@
     "message": "Nhấp vào biểu tượng thanh công cụ để chuyển đổi trang đang mở."
   },
   "onboardingReadyPage": {
-    "message": "Nhấn Alt+A (Option+A trên Mac) để chuyển đổi toàn bộ trang. Nhấn lại một lần nữa để khôi phục bản gốc."
+    "message": "Nhấn $KEY$ để chuyển đổi toàn bộ trang. Nhấn lại một lần nữa để khôi phục bản gốc.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadySelection": {
-    "message": "Nhấn Alt+S (Option+S trên Mac) để chuyển đổi văn bản đã chọn."
+    "message": "Nhấn $KEY$ để chuyển đổi văn bản đã chọn.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadyContext": {
     "message": "Nhấp chuột phải vào trang và chọn \"Translate this page\". Đối với văn bản đã chọn, hãy chọn \"Translate the selected text\"."

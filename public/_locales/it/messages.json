@@ -368,14 +368,41 @@
   "alwaysTranslateSite": {
     "message": "Traduci sempre questo sito"
   },
+  "shortcutHeading": {
+    "message": "Scorciatoie da tastiera"
+  },
+  "shortcutHelp": {
+    "message": "Queste combinazioni sono gestite da Chrome. Con «Modifica le scorciatoie» le cambi nelle impostazioni di Chrome."
+  },
+  "shortcutChange": {
+    "message": "Modifica le scorciatoie"
+  },
+  "shortcutUnset": {
+    "message": "Non impostata"
+  },
   "shortcutTranslate": {
-    "message": "Alt+A (Option+A su Mac) converte la pagina o ripristina l'originale."
+    "message": "$KEY$ converte la pagina o ripristina l’originale.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutBilingual": {
-    "message": "Alt+B (Option+B su Mac) alterna tra la vista sostitutiva e quella bilingue, e ricorda la scelta effettuata per questo sito."
+    "message": "$KEY$ alterna tra la vista sostitutiva e quella bilingue, e ricorda la scelta effettuata per questo sito.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutSelection": {
-    "message": "Alt+S (Option+S su Mac) converte il testo selezionato."
+    "message": "$KEY$ converte il testo selezionato.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "runtimePreparing": {
     "message": "Preparazione $PERCENT$%",
@@ -499,10 +526,20 @@
     "message": "Fai clic sull'icona della barra degli strumenti per tradurre la pagina aperta."
   },
   "onboardingReadyPage": {
-    "message": "Premere Alt+A (Option+A su Mac) per tradurre l'intera pagina. Premere nuovamente per ripristinare l'originale."
+    "message": "Premere $KEY$ per tradurre l’intera pagina. Premere nuovamente per ripristinare l’originale.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadySelection": {
-    "message": "Premere Alt+S (Option+S su Mac) per tradurre il testo selezionato."
+    "message": "Premere $KEY$ per tradurre il testo selezionato.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadyContext": {
     "message": "Fare clic destro sulla pagina e selezionare \"Traduci questa pagina\". Per il testo selezionato, selezionare \"Traduci il testo selezionato\"."

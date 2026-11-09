@@ -36,7 +36,7 @@ To build and load it yourself instead:
 | Translate the selection                         | Alt+S           | Option (⌥)+S |
 | Translate typed text (on the typed text page)   | Ctrl+Enter      | ⌘+Enter      |
 
-The same actions are in the toolbar popup and the right-click menu. Change the keys at `chrome://extensions/shortcuts`. Chrome reads Alt in an extension shortcut as Option on a Mac, so the keys are the same letters. Alt+D is not used, because Chrome on Windows and Linux uses it for the address bar.
+The same actions are in the toolbar popup and the right-click menu. Chrome keeps these keys, so you change them in Chrome's own editor: the settings page has a **Keyboard shortcuts** panel, and the popup has a **Change shortcuts** link, both of which open `chrome://extensions/shortcuts`. The key list in the popup and the hint on the translate button follow whatever you bind there. Chrome reads Alt in an extension shortcut as Option on a Mac, so the keys are the same letters. Alt+D is not a default, because Chrome on Windows and Linux uses it for the address bar.
 
 ## Typed text
 

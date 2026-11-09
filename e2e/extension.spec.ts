@@ -62,6 +62,10 @@ test.describe('built extension', () => {
             'href',
             'https://github.com/jammaru/sakutto',
           );
+          // Chrome owns the bindings, so the panel shows them and links to Chrome's editor.
+          await expect(page.getByRole('heading', { name: 'Keyboard shortcuts' })).toBeVisible();
+          await expect(page.getByRole('button', { name: 'Change shortcuts' })).toBeVisible();
+          await expect(page.locator('kbd').first()).toHaveText('Alt+A');
         }
         if (path === 'typed.html') {
           await expect(page.locator('textarea')).toBeVisible();
@@ -134,6 +138,10 @@ test.describe('built extension', () => {
             'href',
             'https://github.com/jammaru/sakutto',
           );
+          await expect(page.getByRole('heading', { name: 'キーボードショートカット' })).toBeVisible();
+          await expect(
+            page.getByRole('button', { name: 'ショートカットキーを変更' }),
+          ).toBeVisible();
         }
         if (path === 'typed.html') {
           await expect(page.locator('textarea')).toBeVisible();

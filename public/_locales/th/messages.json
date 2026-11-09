@@ -368,14 +368,41 @@
   "alwaysTranslateSite": {
     "message": "แปลเว็บไซต์นี้เสมอ"
   },
+  "shortcutHeading": {
+    "message": "แป้นพิมพ์ลัด"
+  },
+  "shortcutHelp": {
+    "message": "Chrome เป็นผู้เก็บแป้นเหล่านี้ กดเปลี่ยนแป้นลัดเพื่อแก้ไขในการตั้งค่าของ Chrome"
+  },
+  "shortcutChange": {
+    "message": "เปลี่ยนแป้นลัด"
+  },
+  "shortcutUnset": {
+    "message": "ยังไม่ได้ตั้งค่า"
+  },
   "shortcutTranslate": {
-    "message": "Alt+A (Option+A บน Mac) จะแปลงหน้าเว็บหรือกู้คืนหน้าเว็บเดิม"
+    "message": "$KEY$ จะแปลงหน้าเว็บหรือกู้คืนหน้าเว็บเดิม",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutBilingual": {
-    "message": "Alt+B (Option+B บน Mac) จะสลับระหว่างการแสดงผลแบบแทนที่และแบบสองภาษา และจะจดจำตัวเลือกสำหรับเว็บไซต์นี้ไว้"
+    "message": "$KEY$ จะสลับระหว่างการแสดงผลแบบแทนที่และแบบสองภาษา และจะจดจำตัวเลือกสำหรับเว็บไซต์นี้ไว้",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutSelection": {
-    "message": "Alt+S (Option+S บน Mac) จะแปลงข้อความที่เลือก"
+    "message": "$KEY$ จะแปลงข้อความที่เลือก",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "runtimePreparing": {
     "message": "การเตรียม $PERCENT$%",
@@ -499,10 +526,20 @@
     "message": "คลิกที่ไอคอนแถบเครื่องมือเพื่อแปลหน้าที่เปิดอยู่"
   },
   "onboardingReadyPage": {
-    "message": "กด Alt+A (Option+A บน Mac) เพื่อแปลงหน้าทั้งหมด กดอีกครั้งเพื่อกู้คืนหน้าเดิม"
+    "message": "กด $KEY$ เพื่อแปลงหน้าทั้งหมด กดอีกครั้งเพื่อกู้คืนหน้าเดิม",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadySelection": {
-    "message": "กด Alt+S (Option+S บน Mac) เพื่อแปลข้อความที่เลือก"
+    "message": "กด $KEY$ เพื่อแปลข้อความที่เลือก",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadyContext": {
     "message": "คลิกขวาที่หน้าและเลือก \"Translate this page\" สำหรับข้อความที่เลือกแล้ว ให้เลือก \"Translate the selected text\""

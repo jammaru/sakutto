@@ -12,6 +12,7 @@ import {
   isPageInfo,
   isPageInfoRequest,
   isPageViewState,
+  isShortcutSnapshot,
 } from '@/shared/messages';
 
 const capabilities = {
@@ -35,6 +36,38 @@ describe('message validation', () => {
     expect(isPageInfo({ lang: 'en' })).toBe(false);
     expect(isPageInfo(null)).toBe(false);
     expect(isPageInfo([])).toBe(false);
+  });
+
+  it('validates the shortcut snapshot a page reads', () => {
+    expect(
+      isShortcutSnapshot({
+        'translate-page': 'Alt+A',
+        'toggle-bilingual': '⌥⇧B',
+        'translate-selection': '',
+      }),
+    ).toBe(true);
+    // `null` is a command Chrome did not list; `''` is one the user unbound.
+    expect(
+      isShortcutSnapshot({
+        'translate-page': null,
+        'toggle-bilingual': '',
+        'translate-selection': 'Alt+S',
+      }),
+    ).toBe(true);
+    expect(
+      isShortcutSnapshot({
+        'translate-page': 'Alt+A',
+        'toggle-bilingual': 'Alt+B',
+      }),
+    ).toBe(false);
+    expect(
+      isShortcutSnapshot({
+        'translate-page': 'Alt+A',
+        'toggle-bilingual': 1,
+        'translate-selection': 'Alt+S',
+      }),
+    ).toBe(false);
+    expect(isShortcutSnapshot(null)).toBe(false);
   });
 
   it('matches only the page info request type', () => {

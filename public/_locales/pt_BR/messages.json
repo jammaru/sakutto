@@ -368,14 +368,41 @@
   "alwaysTranslateSite": {
     "message": "Traduzir sempre este site"
   },
+  "shortcutHeading": {
+    "message": "Atalhos de teclado"
+  },
+  "shortcutHelp": {
+    "message": "O Chrome guarda estas teclas. Em Alterar atalhos, você as edita nas configurações do Chrome."
+  },
+  "shortcutChange": {
+    "message": "Alterar atalhos"
+  },
+  "shortcutUnset": {
+    "message": "Não definido"
+  },
   "shortcutTranslate": {
-    "message": "Alt+A (Option+A no Mac) traduz a página ou restaura o original."
+    "message": "$KEY$ traduz a página ou restaura o original.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutBilingual": {
-    "message": "Alt+B (Option+B no Mac) alterna entre substituição e vista bilíngue, e lembra a escolha para este site."
+    "message": "$KEY$ alterna entre substituição e vista bilíngue, e lembra a escolha para este site.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutSelection": {
-    "message": "Alt+S (Option+S no Mac) traduz o texto selecionado."
+    "message": "$KEY$ traduz o texto selecionado.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "runtimePreparing": {
     "message": "Preparando $PERCENT$%",
@@ -499,10 +526,20 @@
     "message": "Clique no ícone da barra de ferramentas para traduzir a página aberta."
   },
   "onboardingReadyPage": {
-    "message": "Pressione Alt+A (Option+A no Mac) para traduzir a página inteira. Pressione de novo para restaurar o original."
+    "message": "Pressione $KEY$ para traduzir a página inteira. Pressione de novo para restaurar o original.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadySelection": {
-    "message": "Pressione Alt+S (Option+S no Mac) para traduzir o texto selecionado."
+    "message": "Pressione $KEY$ para traduzir o texto selecionado.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadyContext": {
     "message": "Clique com o botão direito na página e escolha «Traduzir esta página». Para o texto selecionado, escolha «Traduzir o texto selecionado»."

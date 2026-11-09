@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_SHORTCUTS } from '@/shared/shortcuts';
 import config from '../wxt.config';
 
 const manifest = config.manifest as unknown as Record<string, unknown>;
@@ -53,6 +54,18 @@ describe('extension manifest', () => {
       },
     });
     expect(manifest.permissions).toContain('contextMenus');
+  });
+
+  /**
+   * Chrome starts every user on the manifest key, and the hints a page shows before the
+   * background answers name that same key. A default that moved in one place only would make
+   * the popup advertise a shortcut Chrome never bound.
+   */
+  it('suggests the same default the page falls back to', () => {
+    const commands = manifest.commands as Record<string, { suggested_key: { default: string } }>;
+    for (const [name, shortcut] of Object.entries(DEFAULT_SHORTCUTS)) {
+      expect(commands[name]?.suggested_key.default, name).toBe(shortcut);
+    }
   });
 
   it('points every icon size at a bundled PNG', () => {

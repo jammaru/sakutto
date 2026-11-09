@@ -6,13 +6,14 @@ import { fakeTranslate } from '@/dom/fake-engine';
 import type { OverlayLabels } from '@/dom/overlay';
 import { PageSession, preferencesFor } from '@/dom/session';
 import { loadSiteRule, pageHost, saveSiteRule, subscribeSiteRules } from '@/dom/sites';
-import { isDefaultAltSShortcut, isPlainAltS } from '@/shared/shortcuts';
+import { DEFAULT_SELECTION_SHORTCUT, matchesShortcut } from '@/shared/shortcuts';
 import { t } from '@/shared/i18n';
 import {
   isModelProgressMessage,
   isPageCommandRequest,
   isPageInfoRequest,
   isPageStateRequest,
+  isShortcutSnapshot,
   requestEngineStatus,
   requestEngineWarm,
   type PageCommandName,
@@ -27,15 +28,20 @@ interface ContentBridgeGlobal {
 
 const bridge = globalThis as typeof globalThis & ContentBridgeGlobal;
 
-async function readSelectionShortcut(): Promise<boolean> {
-  const response = await browser.runtime
+/**
+ * The key the user bound to "translate the selection". Chrome only tells a page which keys
+ * are bound through the background worker, so this asks once and keeps the manifest default
+ * when the answer never arrives. An empty string means the command has no key.
+ */
+async function readSelectionShortcut(): Promise<string> {
+  const response: unknown = await browser.runtime
     .sendMessage({ type: 'commands:shortcuts' })
     .catch(() => undefined);
-  if (!response || typeof response !== 'object' || !('selection' in response)) return true;
-  const selection = response.selection;
-  if (selection === null) return true;
-  if (typeof selection !== 'string' || selection.length === 0) return false;
-  return isDefaultAltSShortcut(selection);
+  if (!isShortcutSnapshot(response)) return DEFAULT_SELECTION_SHORTCUT;
+  const selection = response['translate-selection'];
+  // A command Chrome did not list is one this page cannot learn about; keep the default.
+  if (selection === null) return DEFAULT_SELECTION_SHORTCUT;
+  return selection;
 }
 
 async function requestSiteAccess(host: string): Promise<boolean> {
@@ -83,12 +89,20 @@ export default defineContentScript({
     bridge.__sakuttoContentBridgeReady = true;
 
     const host = pageHost(location.href) ?? '';
-    let allowSelectionShortcut = true;
+    // The bound key, or the manifest default until the background answers. An empty string
+    // means the user unbound the command, so the page does not answer it at all.
+    let selectionShortcut: string = DEFAULT_SELECTION_SHORTCUT;
     let lastCommand = '';
     let lastCommandAt = 0;
-    void readSelectionShortcut().then((allowed) => {
-      allowSelectionShortcut = allowed;
-    });
+    const readBoundSelection = (): void => {
+      void readSelectionShortcut().then((shortcut) => {
+        selectionShortcut = shortcut;
+      });
+    };
+    readBoundSelection();
+    // Chrome has no event for a changed binding. A reader who rebinds and comes back to the
+    // page brings it into focus, which is the moment to read the new key.
+    window.addEventListener('focus', readBoundSelection);
 
     const sessionPromise = (async () => {
       const settings = await loadSettings();
@@ -102,7 +116,8 @@ export default defineContentScript({
           await saveSiteRule({ ...current, ...patch, host });
         },
         onGrantSite: () => requestSiteAccess(host),
-        selectionKey: (event) => allowSelectionShortcut && isPlainAltS(event),
+        selectionKey: (event) =>
+          selectionShortcut.length > 0 && matchesShortcut(event, selectionShortcut),
       });
 
       const detected = await detectDocumentLanguage(document);

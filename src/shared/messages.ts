@@ -91,8 +91,14 @@ export interface ShortcutQuery {
   type: 'commands:shortcuts';
 }
 
+/**
+ * The key each rebindable command holds right now, as Chrome reports it: `Alt+A`, `⌥⇧P` on a
+ * Mac, or `''` for a command the user unbound. `null` means the command was not listed.
+ */
 export interface ShortcutSnapshot {
-  selection: string | null;
+  'translate-page': string | null;
+  'toggle-bilingual': string | null;
+  'translate-selection': string | null;
 }
 
 export interface ModelDownloadRequest {
@@ -198,6 +204,19 @@ export function isSiteGrantRequest(value: unknown): value is SiteGrantRequest {
 
 export function isShortcutQuery(value: unknown): value is ShortcutQuery {
   return isRecord(value) && value.type === 'commands:shortcuts';
+}
+
+function isShortcutBinding(value: unknown): value is string | null {
+  return value === null || typeof value === 'string';
+}
+
+export function isShortcutSnapshot(value: unknown): value is ShortcutSnapshot {
+  return (
+    isRecord(value) &&
+    isShortcutBinding(value['translate-page']) &&
+    isShortcutBinding(value['toggle-bilingual']) &&
+    isShortcutBinding(value['translate-selection'])
+  );
 }
 
 export function isModelDownloadRequest(value: unknown): value is ModelDownloadRequest {
@@ -328,6 +347,17 @@ export async function requestEngineWarm(): Promise<boolean> {
     return response === true;
   } catch {
     return false;
+  }
+}
+
+export async function requestShortcutSnapshot(): Promise<ShortcutSnapshot | null> {
+  try {
+    const response: unknown = await browser.runtime.sendMessage({
+      type: 'commands:shortcuts',
+    } satisfies ShortcutQuery);
+    return isShortcutSnapshot(response) ? response : null;
+  } catch {
+    return null;
   }
 }
 

@@ -368,14 +368,41 @@
   "alwaysTranslateSite": {
     "message": "請務必翻譯本網站"
   },
+  "shortcutHeading": {
+    "message": "鍵盤快速鍵"
+  },
+  "shortcutHelp": {
+    "message": "這些按鍵由 Chrome 管理。選擇「變更快速鍵」即可在 Chrome 的設定中修改。"
+  },
+  "shortcutChange": {
+    "message": "變更快速鍵"
+  },
+  "shortcutUnset": {
+    "message": "未設定"
+  },
   "shortcutTranslate": {
-    "message": "Alt+A（Mac 上按 Option+A）可轉換頁面或還原原始頁面。"
+    "message": "$KEY$ 可轉換頁面或還原原始頁面。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutBilingual": {
-    "message": "Alt+B（Mac 上為 Option+B）可在替換視圖與雙語視圖之間切換，並記憶此網站的選擇。"
+    "message": "$KEY$ 可在替換視圖與雙語視圖之間切換，並記憶此網站的選擇。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutSelection": {
-    "message": "Alt+S（Mac 上為 Option+S）會轉換所選文字。"
+    "message": "$KEY$ 會轉換所選文字。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "runtimePreparing": {
     "message": "準備 $PERCENT$%",
@@ -499,10 +526,20 @@
     "message": "點擊工具列圖示以翻譯開啟的頁面。"
   },
   "onboardingReadyPage": {
-    "message": "按下 Alt+A（Mac 上為 Option+A）以翻譯整個頁面。再次按下即可還原原始內容。"
+    "message": "按下 $KEY$ 即可翻譯整個頁面。再次按下即可還原原始內容。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadySelection": {
-    "message": "按下 Alt+S（Mac 上為 Option+S）以翻譯所選文字。"
+    "message": "按下 $KEY$ 以翻譯所選文字。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "onboardingReadyContext": {
     "message": "右鍵點擊頁面並選擇「翻譯此頁面」。對於已選擇的文字，請選擇「翻譯已選擇的文字」。"
