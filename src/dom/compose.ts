@@ -8,17 +8,22 @@ import {
   normalizeTypedInput,
   type TypedReadiness,
 } from '@/shared/typed-translation';
-import { collectDocuments } from './blocks';
+import { collectDocuments, focusedEditableField } from './blocks';
 import {
   composeFieldRect,
   focusedComposeField,
   isComposeCandidate,
   isComposeMenuTarget,
+  isSensitiveField,
   readComposeText,
   replaceComposeText,
   showsComposeIcon,
+  snapshotComposeField,
+  snapshotMatchesField,
   textsMatch,
   undoComposeReplace,
+  type ComposeReplaceMethod,
+  type ComposeSnapshot,
 } from './compose-field';
 import type { PageEngine } from './session';
 import { uiShadow } from './overlay';
@@ -37,6 +42,8 @@ export interface ComposeLabels {
   replaced: string;
   stale: string;
   setup: string;
+  loading: string;
+  ineligible: string;
   openSetup: string;
   into: (language: string) => string;
   chromeOnly: (language: string) => string;
@@ -181,6 +188,33 @@ interface PanelState {
   canReplace: boolean;
   canUndo: boolean;
   needsSetup: boolean;
+  loading: boolean;
+}
+
+/** Place the あA button so it does not sit on top of typed text in a short field. */
+export function composeIconPosition(
+  anchor: DOMRect,
+  viewport: { width: number; height: number },
+  iconPx = ICON_PX,
+): { left: number; top: number } {
+  const short = anchor.height < iconPx + 16;
+  let left: number;
+  let top: number;
+  if (short) {
+    left = anchor.right + 6;
+    top = anchor.top + (anchor.height - iconPx) / 2;
+    if (left + iconPx > viewport.width - 8) left = anchor.left - iconPx - 6;
+    if (left < 8) {
+      left = Math.min(Math.max(anchor.right - iconPx, 8), viewport.width - iconPx - 8);
+      top = anchor.top - iconPx - 4;
+    }
+  } else {
+    left = anchor.right - iconPx - 6;
+    top = anchor.bottom - iconPx - 6;
+  }
+  left = Math.min(Math.max(left, 8), viewport.width - iconPx - 8);
+  top = Math.min(Math.max(top, 8), viewport.height - iconPx - 8);
+  return { left, top };
 }
 
 class ComposeOverlay {
@@ -230,11 +264,15 @@ class ComposeOverlay {
     this.undoButton = panel.undo;
     this.closeButton = panel.close;
     this.setupButton = panel.setup;
-    this.panelHost.addEventListener('sakutto-compose-action', (event) => {
-      const detail = event instanceof CustomEvent ? event.detail : null;
-      if (detail === 'replace') this.onReplace();
-      if (detail === 'undo') this.onUndo();
-    });
+    // Page scripts must not be able to fire Replace. The event exists only in the
+    // fake-engine/test build, where e2e cannot pierce the closed shadow root.
+    if (__SAKUTTO_FAKE_ENGINE__) {
+      this.panelHost.addEventListener('sakutto-compose-action', (event) => {
+        const detail = event instanceof CustomEvent ? event.detail : null;
+        if (detail === 'replace') this.onReplace();
+        if (detail === 'undo') this.onUndo();
+      });
+    }
   }
 
   setLabels(labels: ComposeLabels): void {
@@ -272,15 +310,10 @@ class ComposeOverlay {
     this.iconButton.setAttribute('aria-label', this.labels.icon);
     this.iconButton.title = this.labels.icon;
     const view = this.doc.defaultView;
-    const width = view?.innerWidth ?? 800;
-    const height = view?.innerHeight ?? 600;
-    let left = anchor.right - ICON_PX - 6;
-    let top = anchor.bottom - ICON_PX - 6;
-    if (anchor.height < ICON_PX + 8) {
-      top = anchor.top + Math.max(0, (anchor.height - ICON_PX) / 2);
-    }
-    left = Math.min(Math.max(left, 8), width - ICON_PX - 8);
-    top = Math.min(Math.max(top, 8), height - ICON_PX - 8);
+    const { left, top } = composeIconPosition(anchor, {
+      width: view?.innerWidth ?? 800,
+      height: view?.innerHeight ?? 600,
+    });
     this.iconHost.hidden = false;
     this.iconHost.style.display = 'block';
     this.iconHost.style.left = `${String(Math.round(left))}px`;
@@ -299,9 +332,11 @@ class ComposeOverlay {
   showPanel(anchor: DOMRect, state: PanelState): void {
     this.body.textContent = state.pending
       ? this.labels.pending
-      : state.needsSetup
-        ? this.labels.setup
-        : state.preview;
+      : state.loading
+        ? this.labels.loading
+        : state.needsSetup
+          ? this.labels.setup
+          : state.preview;
     this.body.lang = state.lang;
     this.note.textContent = state.note;
     this.replaceButton.disabled = !state.canReplace;
@@ -492,7 +527,6 @@ export interface ComposeControllerOptions {
   previewMs?: number;
   onWarm?: () => void;
   onSetup?: () => void;
-  onMenu?: (enabled: boolean) => void;
 }
 
 /**
@@ -506,7 +540,6 @@ export class ComposeController {
   private readonly previewMs: number;
   private readonly onWarm: (() => void) | undefined;
   private readonly onSetup: (() => void) | undefined;
-  private readonly onMenu: ((enabled: boolean) => void) | undefined;
   private readonly boundDocs = new Set<Document>();
   private prefs: ComposePreferences;
   private labels: ComposeLabels;
@@ -518,8 +551,11 @@ export class ComposeController {
   private pending = false;
   private failed = false;
   private stale = false;
-  private original: string | null = null;
+  private snapshot: ComposeSnapshot | null = null;
+  private replaceMethod: ComposeReplaceMethod | null = null;
   private applied: string | null = null;
+  private ineligible = false;
+  private lastAnchor: DOMRect | null = null;
   private replacing = false;
   private lastShortcutAt = 0;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -545,7 +581,6 @@ export class ComposeController {
     this.composeKey = options.composeKey ?? ((event) => matchesShortcut(event, 'Alt+T'));
     this.onWarm = options.onWarm;
     this.onSetup = options.onSetup;
-    this.onMenu = options.onMenu;
     this.overlay = new ComposeOverlay(doc, options.labels);
     this.overlay.setHandlers({
       onIcon: () => this.openFromIcon(),
@@ -579,6 +614,7 @@ export class ComposeController {
 
   setPreferences(prefs: ComposePreferences): void {
     const languageChanged = prefs.targetLanguage !== this.prefs.targetLanguage;
+    const becameReady = this.prefs.readiness !== 'ready' && prefs.readiness === 'ready';
     this.prefs = prefs;
     if (!prefs.enabled) {
       this.dismiss();
@@ -587,8 +623,9 @@ export class ComposeController {
       return;
     }
     this.syncIcon();
-    if (languageChanged && this.panelOpen) this.translateField(this.resolveField());
-    else if (this.panelOpen) this.render();
+    if (this.panelOpen && !this.ineligible && (languageChanged || becameReady)) {
+      this.translateField(this.resolveField());
+    } else if (this.panelOpen) this.render();
   }
 
   /** Chrome command, context menu, or the in-page key. Never sends the message. */
@@ -598,7 +635,11 @@ export class ComposeController {
     this.lastShortcutAt = now;
     if (!this.prefs.enabled) return;
     const field = this.resolveField();
-    if (!field) return;
+    if (!field) {
+      this.showIneligible();
+      return;
+    }
+    this.ineligible = false;
     this.field = field;
     this.lastField = field;
     if (this.panelOpen) {
@@ -651,6 +692,8 @@ export class ComposeController {
   private resolveField(): Element | null {
     const focused = focusedComposeField(this.doc);
     if (focused) return focused;
+    const active = focusedEditableField(this.doc.activeElement) ?? this.doc.activeElement;
+    if (active instanceof Element && isSensitiveField(active)) return null;
     if (this.field && this.field.isConnected && isComposeCandidate(this.field)) return this.field;
     if (this.lastField && this.lastField.isConnected && isComposeCandidate(this.lastField)) {
       return this.lastField;
@@ -665,8 +708,11 @@ export class ComposeController {
   private syncIcon(): void {
     const focused = this.focusedField();
     if (this.prefs.enabled && this.prefs.showIcon && focused && showsComposeIcon(focused)) {
-      this.overlay.showIcon(composeFieldRect(focused));
-      return;
+      const rect = composeFieldRect(focused, this.doc);
+      if (rect) {
+        this.overlay.showIcon(rect);
+        return;
+      }
     }
     this.overlay.hideIcon();
   }
@@ -683,7 +729,8 @@ export class ComposeController {
     }
     if (this.field !== field) {
       this.applied = null;
-      this.original = null;
+      this.snapshot = null;
+      this.replaceMethod = null;
       this.preview = '';
       this.swapped = false;
       this.stale = false;
@@ -713,7 +760,8 @@ export class ComposeController {
     const current = readComposeText(field);
     if (this.applied !== null && textsMatch(current, this.applied)) return;
     this.applied = null;
-    this.original = null;
+    this.snapshot = null;
+    this.replaceMethod = null;
     if (!this.panelOpen) return;
     this.stale = true;
     this.render();
@@ -743,17 +791,21 @@ export class ComposeController {
     }
     if (event.isComposing) return;
     if (!this.composeKey(event)) return;
-    const field = this.resolveField();
-    if (!field) return;
     event.preventDefault();
     event.stopPropagation();
     this.handleShortcut();
   }
 
   private handleContextMenu(event: Event): void {
-    this.onMenu?.(isComposeMenuTarget(event.target));
-    const field = this.focusedField();
-    if (field) this.lastField = field;
+    if (event instanceof MouseEvent) {
+      this.lastAnchor = new DOMRect(event.clientX, event.clientY, 1, 1);
+    }
+    if (isComposeMenuTarget(event.target)) {
+      const field = this.focusedField();
+      if (field) this.lastField = field;
+      return;
+    }
+    this.lastField = null;
   }
 
   private openFromIcon(): void {
@@ -771,7 +823,9 @@ export class ComposeController {
     this.stale = false;
     this.preview = '';
     this.applied = null;
-    this.original = null;
+    this.snapshot = null;
+    this.replaceMethod = null;
+    this.ineligible = false;
     this.field = field;
     this.lastField = field;
     this.render();
@@ -786,20 +840,43 @@ export class ComposeController {
     this.failed = false;
     this.stale = false;
     this.swapped = false;
+    this.ineligible = false;
     this.overlay.hidePanel();
     this.syncIcon();
   }
 
+  private showIneligible(): void {
+    this.panelOpen = true;
+    this.ineligible = true;
+    this.pending = false;
+    this.failed = false;
+    this.stale = false;
+    this.preview = '';
+    this.render();
+  }
+
   private needsSetup(): boolean {
-    return this.prefs.readiness !== 'ready';
+    const readiness = this.prefs.readiness;
+    return (
+      readiness === 'no-consent' ||
+      readiness === 'model-absent' ||
+      readiness === 'model-partial' ||
+      readiness === 'model-error'
+    );
+  }
+
+  private isLoading(): boolean {
+    return this.prefs.readiness === 'model-busy';
   }
 
   private canApply(): boolean {
     return (
       this.panelOpen &&
+      !this.ineligible &&
       !this.pending &&
       !this.stale &&
       !this.needsSetup() &&
+      !this.isLoading() &&
       this.preview.trim().length > 0 &&
       this.applied === null
     );
@@ -808,16 +885,18 @@ export class ComposeController {
   private async apply(): Promise<void> {
     const field = this.resolveField();
     if (!field || !this.canApply()) return;
-    const current = readComposeText(field);
+    const snapshot = snapshotComposeField(field);
     this.replacing = true;
     try {
       const result = await replaceComposeText(field, this.preview);
-      if (!result.ok) {
+      const changed = !snapshotMatchesField(field, snapshot);
+      if (!result.ok && !changed) {
         this.failed = true;
         this.render();
         return;
       }
-      this.original = current;
+      this.snapshot = snapshot;
+      this.replaceMethod = result.method;
       this.applied = readComposeText(field);
       this.stale = false;
       this.render();
@@ -828,18 +907,19 @@ export class ComposeController {
 
   private async undo(): Promise<void> {
     const field = this.resolveField();
-    if (!field || this.original === null) return;
-    const restore = this.original;
+    if (!field || this.snapshot === null) return;
+    const snapshot = this.snapshot;
     this.replacing = true;
     try {
-      const result = await undoComposeReplace(field, restore);
+      const result = await undoComposeReplace(field, snapshot, this.replaceMethod);
       if (!result.ok) {
         this.failed = true;
         this.render();
         return;
       }
       this.applied = null;
-      this.original = null;
+      this.snapshot = null;
+      this.replaceMethod = null;
       this.render();
     } finally {
       this.replacing = false;
@@ -880,7 +960,7 @@ export class ComposeController {
     const raw = readComposeText(field);
     const trimmed = normalizeTypedInput(raw);
     this.failed = false;
-    if (this.needsSetup()) {
+    if (this.needsSetup() || this.isLoading()) {
       this.abort();
       this.preview = '';
       this.pending = false;
@@ -968,8 +1048,21 @@ export class ComposeController {
 
   private render(): void {
     const field = this.resolveField();
-    if (!this.panelOpen || !field) {
+    if (!this.panelOpen) {
       this.overlay.hidePanel();
+      return;
+    }
+    if (this.ineligible || !field) {
+      this.overlay.showPanel(this.lastAnchor ?? new DOMRect(8, 8, 0, 0), {
+        preview: this.labels.ineligible,
+        note: '',
+        pending: false,
+        lang: this.preferredTarget(),
+        canReplace: false,
+        canUndo: false,
+        needsSetup: false,
+        loading: false,
+      });
       return;
     }
     const raw = readComposeText(field);
@@ -979,8 +1072,12 @@ export class ComposeController {
     let note = this.labels.into(language);
     let preview = this.preview;
     const needsSetup = this.needsSetup();
+    const loading = this.isLoading();
     if (needsSetup) {
       preview = this.labels.setup;
+      note = '';
+    } else if (loading) {
+      preview = this.labels.loading;
       note = '';
     } else if (trimmed.length === 0) {
       preview = this.labels.empty;
@@ -999,14 +1096,16 @@ export class ComposeController {
       note = this.labels.replaced;
     }
     this.syncIcon();
-    this.overlay.showPanel(composeFieldRect(field), {
+    const anchor = composeFieldRect(field, this.doc) ?? this.lastAnchor ?? new DOMRect(8, 8, 0, 0);
+    this.overlay.showPanel(anchor, {
       preview,
       note,
-      pending: this.pending && trimmed.length > 0 && plan.ok && !needsSetup,
+      pending: this.pending && trimmed.length > 0 && plan.ok && !needsSetup && !loading,
       lang: plan.targetLanguage,
       canReplace: this.canApply(),
-      canUndo: this.original !== null,
+      canUndo: this.snapshot !== null,
       needsSetup,
+      loading,
     });
   }
 

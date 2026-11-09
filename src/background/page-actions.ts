@@ -42,9 +42,10 @@ export function installPageActions(translations?: PageTranslationCanceller): voi
   });
 }
 
-let composeMenuEnabled = true;
-
 function installMenus(): void {
+  // Chrome decides menu contents when it opens, so hiding after contextmenu is too
+  // late and the hidden state would be global across tabs. Keep this item on every
+  // editable; ineligible fields no-op with feedback in the page.
   void browser.contextMenus.removeAll().then(() => {
     browser.contextMenus.create({
       id: 'translate-page',
@@ -60,18 +61,8 @@ function installMenus(): void {
       id: 'translate-compose',
       title: browser.i18n.getMessage('contextTranslateCompose'),
       contexts: ['editable'],
-      enabled: composeMenuEnabled,
-      visible: composeMenuEnabled,
     });
   });
-}
-
-/** Hide the compose item on password and other secret fields when the page can tell. */
-export function setComposeMenuEnabled(enabled: boolean): void {
-  composeMenuEnabled = enabled;
-  void browser.contextMenus
-    .update('translate-compose', { enabled, visible: enabled })
-    .catch(() => undefined);
 }
 
 async function runOnActiveTab(command: PageCommandName): Promise<void> {

@@ -92,11 +92,6 @@ export interface ShortcutQuery {
   type: 'commands:shortcuts';
 }
 
-export interface ComposeMenuRequest {
-  type: 'compose:menu';
-  enabled: boolean;
-}
-
 export interface OpenSetupRequest {
   type: 'ui:open-setup';
 }
@@ -215,10 +210,6 @@ export function isSiteGrantRequest(value: unknown): value is SiteGrantRequest {
 
 export function isShortcutQuery(value: unknown): value is ShortcutQuery {
   return isRecord(value) && value.type === 'commands:shortcuts';
-}
-
-export function isComposeMenuRequest(value: unknown): value is ComposeMenuRequest {
-  return isRecord(value) && value.type === 'compose:menu' && typeof value.enabled === 'boolean';
 }
 
 export function isOpenSetupRequest(value: unknown): value is OpenSetupRequest {

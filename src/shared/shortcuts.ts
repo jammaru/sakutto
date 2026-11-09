@@ -39,10 +39,9 @@ export const DEFAULT_SELECTION_SHORTCUT = DEFAULT_SHORTCUTS['translate-selection
 export const DEFAULT_COMPOSE_SHORTCUT = DEFAULT_SHORTCUTS['translate-compose'];
 
 /**
- * The key a page should listen for. Chrome only applies `suggested_key` on first install,
- * so an update that adds `translate-compose` often arrives with an empty binding. `null`
- * (Chrome did not list the command) keeps the manifest default; `''` (listed but unbound)
- * is left empty so the page does not steal Alt+T when the user never received it.
+ * The key a page should listen for. `null` (Chrome did not list the command) keeps the
+ * manifest default; `''` (listed but unbound) is left empty so the page does not steal
+ * Alt+T when the command has no key. The あA button and the context menu still work.
  */
 export function boundShortcut(
   snapshot: ShortcutSnapshot | null,

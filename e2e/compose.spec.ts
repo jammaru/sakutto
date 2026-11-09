@@ -97,8 +97,24 @@ test.describe('compose translation', () => {
       await page.locator('#mail').focus();
       await applyCompose(page);
       await expect(page.locator('#mail')).toContainText(`${MARKER}会議は明日です。`);
+      await expect(page.locator('.gmail_signature_prefix')).toHaveText('-- ');
       await expect(page.locator('.gmail_signature')).toHaveText('Jane Doe');
       await expect(page.locator('.gmail_quote')).toContainText('On Monday');
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('keeps Outlook quoted siblings after the reply header', async () => {
+    const page = await openComposePage();
+    try {
+      await page.locator('#outlook').focus();
+      await applyCompose(page);
+      await expect(page.locator('#outlook')).toContainText(`${MARKER}会議は明日です。`);
+      await expect(page.locator('#appendonsend')).toHaveCount(1);
+      await expect(page.locator('#divRplyFwdMsg')).toContainText('From: Alex');
+      await expect(page.locator('#quoted')).toHaveText('Quoted original that must survive');
+      await expect(page.locator('#Signature')).toHaveText('Sent from Outlook');
     } finally {
       await page.close();
     }
@@ -111,7 +127,11 @@ test.describe('compose translation', () => {
       await secret.focus();
       await commandPage(extension.worker, page, 'compose');
       await expect(secret).toHaveValue('hunter2');
-      await expect(page.locator('sakutto-compose')).toBeHidden();
+      await expect
+        .poll(async () =>
+          page.locator('sakutto-compose').evaluate((el) => (el as HTMLElement).hidden),
+        )
+        .toBe(false);
     } finally {
       await page.close();
     }

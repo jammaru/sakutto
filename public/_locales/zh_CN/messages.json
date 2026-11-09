@@ -905,6 +905,12 @@
   "composeNeedSetup": {
     "message": "PLaMo 尚未就绪。请打开设置以同意许可并下载模型。"
   },
+  "composeLoading": {
+    "message": "正在加载 PLaMo 模型。就绪后会显示预览。"
+  },
+  "composeIneligible": {
+    "message": "无法翻译此输入框。"
+  },
   "composeOpenSetup": {
     "message": "打开设置"
   },

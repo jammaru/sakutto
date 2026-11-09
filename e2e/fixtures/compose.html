@@ -61,8 +61,19 @@
     <div class="label" id="mail-label">Gmail-style compose</div>
     <div id="mail" contenteditable="true" role="textbox" aria-labelledby="mail-label">
       <div id="mail-body">会議は明日です。</div>
+      <div class="gmail_signature_prefix">--</div>
       <div class="gmail_signature">Jane Doe</div>
       <div class="gmail_quote">On Monday, Alex wrote: Hello</div>
+    </div>
+
+    <div class="label" id="outlook-label">Outlook-style compose</div>
+    <div id="outlook" contenteditable="true" role="textbox" aria-labelledby="outlook-label">
+      <div>会議は明日です。</div>
+      <div id="appendonsend"></div>
+      <hr />
+      <div id="divRplyFwdMsg">From: Alex</div>
+      <div id="quoted">Quoted original that must survive</div>
+      <div id="Signature">Sent from Outlook</div>
     </div>
 
     <label for="secret">Password (must never be touched)</label>

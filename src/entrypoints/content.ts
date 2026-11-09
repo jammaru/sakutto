@@ -30,7 +30,7 @@ import {
 } from '@/shared/messages';
 import { loadSettings, subscribeSettings } from '@/shared/storage';
 import type { Settings } from '@/shared/settings';
-import { typedReadiness } from '@/shared/typed-translation';
+import { typedReadiness, type TypedReadiness } from '@/shared/typed-translation';
 import { translateViaBackground } from '@/shared/translation-client';
 
 interface ContentBridgeGlobal {
@@ -62,7 +62,13 @@ async function requestSiteAccess(host: string): Promise<boolean> {
   return response === true;
 }
 
-function composeLabels(): ComposeLabels {
+function composeLabels(readiness?: TypedReadiness): ComposeLabels {
+  const setup =
+    readiness === 'no-consent'
+      ? t('typedNeedsConsent')
+      : readiness === 'model-error'
+        ? t('typedModelError')
+        : t('composeNeedSetup');
   return {
     title: t('composeTitle'),
     icon: t('composeIcon'),
@@ -76,7 +82,9 @@ function composeLabels(): ComposeLabels {
     swap: t('composeSwap'),
     replaced: t('composeReplaced'),
     stale: t('composeStale'),
-    setup: t('composeNeedSetup'),
+    setup,
+    loading: t('composeLoading'),
+    ineligible: t('composeIneligible'),
     openSetup: t('composeOpenSetup'),
     into: (language) => t('composeInto', [language]),
     chromeOnly: (language) => t('composeChromeOnly', [language]),
@@ -87,10 +95,20 @@ function composeReadiness(
   settings: Settings,
   model: Pick<ModelStatus, 'state'> | null,
   ready: boolean,
+  statusKnown: boolean,
 ) {
   if (__SAKUTTO_FAKE_ENGINE__) return 'ready' as const;
+  if (!hasLicenseConsent(settings)) {
+    return typedReadiness({
+      consent: false,
+      modelState: model?.state ?? 'absent',
+      plamoReady: ready,
+    });
+  }
+  // A failed status fetch is not "no model"; keep showing loading until we know.
+  if (!statusKnown) return 'model-busy' as const;
   return typedReadiness({
-    consent: hasLicenseConsent(settings),
+    consent: true,
     modelState: model?.state ?? 'absent',
     plamoReady: ready,
   });
@@ -143,6 +161,7 @@ export default defineContentScript({
     let compose: ComposeController | null = null;
     let modelState: ModelStatus['state'] | null = null;
     let plamoReady = false;
+    let modelStatusKnown = false;
     const readBoundShortcutsNow = (): void => {
       void readBoundShortcuts().then((bound) => {
         selectionShortcut = bound.selection;
@@ -161,8 +180,11 @@ export default defineContentScript({
       const rule = await loadSiteRule(host);
       if (!__SAKUTTO_FAKE_ENGINE__) {
         const status = await requestEngineStatus().catch(() => null);
-        modelState = status?.model.state ?? null;
-        plamoReady = status?.plamoReady ?? false;
+        if (status) {
+          modelState = status.model.state;
+          plamoReady = status.plamoReady;
+          modelStatusKnown = true;
+        }
       }
       const session = new PageSession(document, {
         engine,
@@ -176,9 +198,15 @@ export default defineContentScript({
         selectionKey: (event) =>
           selectionShortcut.length > 0 && matchesShortcut(event, selectionShortcut),
       });
+      const readiness = composeReadiness(
+        settings,
+        modelState ? { state: modelState } : null,
+        plamoReady,
+        modelStatusKnown,
+      );
       compose = new ComposeController(document, {
         engine,
-        labels: composeLabels(),
+        labels: composeLabels(readiness),
         preferences: {
           targetLanguage: rule.targetLanguage ?? settings.targetLanguage,
           form: settings.form,
@@ -186,11 +214,7 @@ export default defineContentScript({
           enabled: rule.auto !== 'never',
           uiLanguage: currentUiLanguage(),
           showIcon: settings.composeIcon,
-          readiness: composeReadiness(
-            settings,
-            modelState ? { state: modelState } : null,
-            plamoReady,
-          ),
+          readiness,
         },
         composeKey: (event) =>
           composeShortcut.length > 0 && matchesShortcut(event, composeShortcut),
@@ -199,11 +223,6 @@ export default defineContentScript({
         },
         onSetup: () => {
           void browser.runtime.sendMessage({ type: 'ui:open-setup' }).catch(() => undefined);
-        },
-        onMenu: (enabled) => {
-          void browser.runtime
-            .sendMessage({ type: 'compose:menu', enabled })
-            .catch(() => undefined);
         },
       });
 
@@ -214,7 +233,13 @@ export default defineContentScript({
         const [nextSettings, nextRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
         session.setLabels(overlayLabels());
         session.setPreferences(preferencesFor(nextSettings, nextRule, host));
-        compose?.setLabels(composeLabels());
+        const readiness = composeReadiness(
+          nextSettings,
+          modelState ? { state: modelState } : null,
+          plamoReady,
+          modelStatusKnown,
+        );
+        compose?.setLabels(composeLabels(readiness));
         compose?.setPreferences({
           targetLanguage: nextRule.targetLanguage ?? nextSettings.targetLanguage,
           form: nextSettings.form,
@@ -222,11 +247,7 @@ export default defineContentScript({
           enabled: nextRule.auto !== 'never',
           uiLanguage: currentUiLanguage(),
           showIcon: nextSettings.composeIcon,
-          readiness: composeReadiness(
-            nextSettings,
-            modelState ? { state: modelState } : null,
-            plamoReady,
-          ),
+          readiness,
         });
       };
 
@@ -275,9 +296,12 @@ export default defineContentScript({
       }
       if (isModelProgressMessage(message)) {
         modelState = message.status.state;
+        modelStatusKnown = true;
         if (message.status.state === 'loaded') plamoReady = true;
         void sessionPromise.then(async (session) => {
           const [nextSettings, nextRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
+          const readiness = composeReadiness(nextSettings, message.status, plamoReady, true);
+          compose?.setLabels(composeLabels(readiness));
           compose?.setPreferences({
             targetLanguage: nextRule.targetLanguage ?? nextSettings.targetLanguage,
             form: nextSettings.form,
@@ -285,7 +309,7 @@ export default defineContentScript({
             enabled: nextRule.auto !== 'never',
             uiLanguage: currentUiLanguage(),
             showIcon: nextSettings.composeIcon,
-            readiness: composeReadiness(nextSettings, message.status, plamoReady),
+            readiness,
           });
           if (message.status.state === 'loaded' && !__SAKUTTO_FAKE_ENGINE__) {
             void requestEngineTier(session, true);

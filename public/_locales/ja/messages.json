@@ -905,6 +905,12 @@
   "composeNeedSetup": {
     "message": "PLaMo の準備ができていません。セットアップを開いてライセンスに同意し、モデルを入手してください。"
   },
+  "composeLoading": {
+    "message": "PLaMo のモデルを読み込んでいます。準備ができるとプレビューを出します。"
+  },
+  "composeIneligible": {
+    "message": "この欄は翻訳できません。"
+  },
   "composeOpenSetup": {
     "message": "セットアップを開く"
   },

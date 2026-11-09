@@ -1,6 +1,11 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ComposeController, composeShadow, type ComposeLabels } from '@/dom/compose';
+import {
+  ComposeController,
+  composeIconPosition,
+  composeShadow,
+  type ComposeLabels,
+} from '@/dom/compose';
 import type { PageEngine } from '@/dom/session';
 import type { ComposePreferences } from '@/dom/compose';
 
@@ -18,6 +23,8 @@ const labels: ComposeLabels = {
   replaced: 'Replaced. You can restore the original.',
   stale: 'The draft changed. Replace is paused until the preview catches up.',
   setup: 'PLaMo is not ready yet.',
+  loading: 'The PLaMo model is loading.',
+  ineligible: 'This field cannot be translated.',
   openSetup: 'Open setup',
   into: (language) => `Into ${language}`,
   chromeOnly: (language) => `PLaMo does not translate into ${language}.`,
@@ -329,15 +336,89 @@ describe('compose controller', () => {
     });
   });
 
-  it('never opens on a password field', () => {
+  it('does not write into a password field and shows that it cannot be translated', () => {
     document.body.innerHTML = '<input id="pw" type="password" value="hunter2">';
     const field = document.querySelector('#pw');
     if (!(field instanceof HTMLInputElement)) throw new Error('missing password');
     field.focus();
     start().handleShortcut();
-    expect(document.querySelector('sakutto-compose') instanceof HTMLElement).toBe(true);
-    expect((document.querySelector('sakutto-compose') as HTMLElement).hidden).toBe(true);
     expect(field.value).toBe('hunter2');
+    expect((document.querySelector('sakutto-compose') as HTMLElement).hidden).toBe(false);
+    expect(panelText()).toContain('This field cannot be translated.');
+    expect(panelButton('Replace').disabled).toBe(true);
+  });
+
+  it('ignores a page-dispatched replace event in the production build', async () => {
+    expect(__SAKUTTO_FAKE_ENGINE__).toBe(false);
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const controller = start();
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§See you tomorrow.');
+    });
+    const host = document.querySelector('sakutto-compose');
+    host?.dispatchEvent(new CustomEvent('sakutto-compose-action', { detail: 'replace' }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(field.value).toBe('See you tomorrow.');
+  });
+
+  it('restores the whole draft after replacing a selection', async () => {
+    document.body.innerHTML = '<textarea id="box">Hello world extra</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    field.setSelectionRange(0, 5);
+    const controller = start();
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§Hello');
+    });
+    clickPanel('Replace');
+    await vi.waitFor(() => {
+      expect(field.value).toBe('§ja§Hello world extra');
+    });
+    clickPanel('Restore original');
+    await vi.waitFor(() => {
+      expect(field.value).toBe('Hello world extra');
+    });
+  });
+
+  it('shows a loading message instead of setup while the model is busy', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    let calls = 0;
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        calls += 1;
+        for (const segment of segments) {
+          yield { id: segment.id, final: `§${options.tgt}§${segment.text}`, engine: 'plamo' };
+        }
+      },
+    };
+    const controller = start(engine, { readiness: 'model-busy' });
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('The PLaMo model is loading.');
+    });
+    expect(panelText()).not.toContain('PLaMo is not ready yet.');
+    expect(calls).toBe(0);
+    expect(panelButton('Open setup').classList.contains('visible')).toBe(false);
+    controller.setPreferences({ ...defaultPrefs, readiness: 'ready' });
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§See you tomorrow.');
+    });
+    expect(calls).toBe(1);
+  });
+
+  it('places the icon outside a short single-line field', () => {
+    const pos = composeIconPosition(new DOMRect(20, 40, 240, 32), { width: 800, height: 600 });
+    expect(pos.left).toBeGreaterThanOrEqual(260);
+    expect(pos.left + 26).toBeLessThanOrEqual(20 + 240 + 6 + 26 + 1);
   });
 
   it('stays idle when the site is set to never translate', () => {

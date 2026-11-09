@@ -2,7 +2,7 @@ import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
 import { EngineClient } from '@/background/engine-client';
 import { OffscreenController } from '@/background/offscreen-lifecycle';
-import { installPageActions, setComposeMenuEnabled } from '@/background/page-actions';
+import { installPageActions } from '@/background/page-actions';
 import { broadcastModelProgress, shouldWarmDownloadedModel } from '@/background/progress-broadcast';
 import { measureQuality } from '@/background/quality';
 import { TranslationBroker } from '@/background/translation-broker';
@@ -13,7 +13,6 @@ import type { EngineCapabilities } from '@/shared/capabilities';
 import { isEngineCapabilities } from '@/shared/capabilities';
 import {
   isCacheClearRequest,
-  isComposeMenuRequest,
   isEngineCapabilitiesRequest,
   isEngineStatusRequest,
   isEngineTierRequest,
@@ -245,12 +244,6 @@ export default defineBackground(() => {
         })
         .catch(() => sendResponse(false));
       return true;
-    }
-
-    if (isComposeMenuRequest(message)) {
-      setComposeMenuEnabled(message.enabled);
-      sendResponse(true);
-      return false;
     }
 
     if (isOpenSetupRequest(message)) {

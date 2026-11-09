@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { isTranslationExcluded, listTranslatableBlocks } from '@/dom/blocks';
 import {
+  composeFieldRect,
   focusedComposeField,
   isComposeCandidate,
   isComposeMenuTarget,
@@ -9,6 +10,8 @@ import {
   readComposeText,
   replaceComposeText,
   showsComposeIcon,
+  snapshotComposeField,
+  textsMatch,
   undoComposeReplace,
 } from '@/dom/compose-field';
 
@@ -177,10 +180,17 @@ describe('reading and replacing compose text', () => {
     expect(readComposeText(field).replace(/\n$/u, '')).toBe('The meeting is tomorrow.');
   });
 
-  it('leaves Gmail signature and quoted history in place', async () => {
+  /**
+   * Assumed Gmail compose DOM: one `<div>` per draft line, then `.gmail_signature_prefix`
+   * (`-- `), `.gmail_signature`, and `.gmail_quote`. Newlines must stay as sibling divs,
+   * not collapse into one text node.
+   */
+  it('leaves Gmail signature, prefix and quoted history in place as line divs', async () => {
     document.body.innerHTML = `
       <div id="editor" contenteditable>
         <div id="body">明日会いましょう。</div>
+        <div>場所は駅です。</div>
+        <div class="gmail_signature_prefix">-- </div>
         <div class="gmail_signature">Jane Doe</div>
         <div class="gmail_quote">On Monday, Alex wrote: Hello</div>
       </div>
@@ -190,25 +200,51 @@ describe('reading and replacing compose text', () => {
     expect(readComposeText(field)).toContain('明日会いましょう。');
     expect(readComposeText(field)).not.toContain('Jane Doe');
     expect(readComposeText(field)).not.toContain('On Monday');
-    expect((await replaceComposeText(field, 'See you tomorrow.')).ok).toBe(true);
-    expect(readComposeText(field).replace(/\n$/u, '')).toBe('See you tomorrow.');
+    expect(readComposeText(field)).not.toContain('--');
+    expect((await replaceComposeText(field, 'See you tomorrow.\nAt the station.')).ok).toBe(true);
+    const draftDivs = [...field.children].filter(
+      (node) =>
+        !node.classList.contains('gmail_signature') &&
+        !node.classList.contains('gmail_signature_prefix') &&
+        !node.classList.contains('gmail_quote'),
+    );
+    expect(draftDivs.map((node) => node.textContent)).toEqual([
+      'See you tomorrow.',
+      'At the station.',
+    ]);
+    expect(field.querySelector('.gmail_signature_prefix')?.textContent).toBe('-- ');
     expect(field.querySelector('.gmail_signature')?.textContent).toContain('Jane Doe');
     expect(field.querySelector('.gmail_quote')?.textContent).toContain('On Monday');
   });
 
-  it('leaves an Outlook reply header in place', async () => {
+  /**
+   * Assumed Outlook web compose DOM: draft, `#appendonsend`, a preceding `<hr>`,
+   * `#divRplyFwdMsg`, quoted-body siblings after that header (not nested inside it),
+   * then `#Signature`.
+   */
+  it('preserves Outlook quoted siblings from the first excluded marker onward', async () => {
     document.body.innerHTML = `
       <div id="editor" contenteditable>
         <div>会議は明日です。</div>
+        <div id="appendonsend"></div>
+        <hr>
         <div id="divRplyFwdMsg">From: Alex</div>
+        <div id="quoted">Quoted original that must survive</div>
         <div id="Signature">Sent from Outlook</div>
       </div>
     `;
     const field = document.querySelector('#editor');
     if (!(field instanceof HTMLElement)) throw new Error('missing editor');
+    expect(readComposeText(field)).toContain('会議は明日です。');
     expect(readComposeText(field)).not.toContain('From: Alex');
+    expect(readComposeText(field)).not.toContain('Quoted original');
     expect((await replaceComposeText(field, 'The meeting is tomorrow.')).ok).toBe(true);
+    expect(field.querySelector('#appendonsend')).not.toBeNull();
+    expect(field.querySelector('hr')).not.toBeNull();
     expect(field.querySelector('#divRplyFwdMsg')?.textContent).toContain('From: Alex');
+    expect(field.querySelector('#quoted')?.textContent).toContain(
+      'Quoted original that must survive',
+    );
     expect(field.querySelector('#Signature')?.textContent).toContain('Sent from Outlook');
   });
 
@@ -279,7 +315,8 @@ describe('reading and replacing compose text', () => {
     const result = await replaceComposeText(editor, 'translated');
     document.execCommand = exec;
     expect(inserts).toBe(1);
-    expect(result.ok).toBe(false);
+    expect(result.ok).toBe(true);
+    expect(editor.textContent).toBe('originalX');
   });
 
   it('waits for a Slate-style selectionchange before inserting', async () => {
@@ -291,10 +328,12 @@ describe('reading and replacing compose text', () => {
     expect(editor.slateValue).toBe('English draft');
   });
 
-  it('prefers native undo so formatting can come back', async () => {
+  it('prefers native undo so formatting can come back after insertText', async () => {
     document.body.innerHTML = '<div id="editor" contenteditable><b>hello</b></div>';
     const field = document.querySelector('#editor');
     if (!(field instanceof HTMLElement)) throw new Error('missing editor');
+    const snapshot = snapshotComposeField(field);
+    field.textContent = 'translated';
     const exec = document.execCommand;
     let undone = false;
     document.execCommand = ((command: string) => {
@@ -305,12 +344,110 @@ describe('reading and replacing compose text', () => {
       }
       return typeof exec === 'function' ? exec.call(document, command) : false;
     }) as typeof document.execCommand;
-    const result = await undoComposeReplace(field, 'hello');
+    const result = await undoComposeReplace(field, snapshot, 'insertText');
     document.execCommand = exec;
     expect(undone).toBe(true);
     expect(result.ok).toBe(true);
     expect(result.method).toBe('undo');
     expect(field.querySelector('b')?.textContent).toBe('hello');
+  });
+
+  it('does not use execCommand undo after a native value write', async () => {
+    document.body.innerHTML = '<textarea id="box">typed more</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    const snapshot = snapshotComposeField(field);
+    field.value = 'translated';
+    const exec = document.execCommand;
+    let undone = false;
+    document.execCommand = ((command: string) => {
+      if (command === 'undo') {
+        undone = true;
+        field.value = 'typed';
+        return true;
+      }
+      return typeof exec === 'function' ? exec.call(document, command) : false;
+    }) as typeof document.execCommand;
+    const result = await undoComposeReplace(field, snapshot, 'native');
+    document.execCommand = exec;
+    expect(undone).toBe(false);
+    expect(result.ok).toBe(true);
+    expect(field.value).toBe('typed more');
+  });
+
+  it('falls back to the snapshot when execCommand undo reverts too far', async () => {
+    document.body.innerHTML = '<textarea id="box">typed more</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    const snapshot = snapshotComposeField(field);
+    field.value = 'translated';
+    const exec = document.execCommand;
+    document.execCommand = ((command: string) => {
+      if (command === 'undo') {
+        field.value = 'typed';
+        return true;
+      }
+      return typeof exec === 'function' ? exec.call(document, command) : false;
+    }) as typeof document.execCommand;
+    const result = await undoComposeReplace(field, snapshot, 'insertText');
+    document.execCommand = exec;
+    expect(result.ok).toBe(true);
+    expect(field.value).toBe('typed more');
+  });
+
+  it('restores the whole textarea after replacing a selected span', async () => {
+    document.body.innerHTML = '<textarea id="box">Hello world extra</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    const snapshot = snapshotComposeField(field);
+    field.setSelectionRange(0, 5);
+    expect((await replaceComposeText(field, 'Bonjour')).ok).toBe(true);
+    expect(field.value).toBe('Bonjour world extra');
+    expect((await undoComposeReplace(field, snapshot, 'native')).ok).toBe(true);
+    expect(field.value).toBe('Hello world extra');
+  });
+
+  it('replaces the selected occurrence when the same text appears twice', async () => {
+    document.body.innerHTML = '<textarea id="box">foo foo bar</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.setSelectionRange(4, 7);
+    expect(readComposeText(field)).toBe('foo');
+    expect((await replaceComposeText(field, 'baz')).ok).toBe(true);
+    expect(field.value).toBe('foo baz bar');
+  });
+
+  it('treats extra Gmail-style newlines as the same draft when verifying', () => {
+    expect(
+      textsMatch('See you tomorrow.\n\nAt the station.', 'See you tomorrow.\nAt the station.'),
+    ).toBe(true);
+  });
+
+  it('offsets a same-origin iframe field by the frame rect', () => {
+    const frame = document.createElement('div');
+    document.body.append(frame);
+    Object.defineProperty(frame, 'getBoundingClientRect', {
+      value: () => new DOMRect(20, 30, 400, 300),
+    });
+    const inner = document.implementation.createHTMLDocument('frame');
+    Object.defineProperty(inner, 'defaultView', {
+      configurable: true,
+      value: { frameElement: frame },
+    });
+    const field = inner.createElement('textarea');
+    inner.body.append(field);
+    Object.defineProperty(field, 'getBoundingClientRect', {
+      value: () => new DOMRect(4, 5, 100, 40),
+    });
+    const rect = composeFieldRect(field, document);
+    expect(rect?.left).toBe(24);
+    expect(rect?.top).toBe(35);
+    expect(rect?.width).toBe(100);
+    Object.defineProperty(inner, 'defaultView', {
+      configurable: true,
+      value: { frameElement: null },
+    });
+    expect(composeFieldRect(field, document)).toBeNull();
   });
 
   it('does not write into a password field', async () => {

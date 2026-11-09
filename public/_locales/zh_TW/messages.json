@@ -905,6 +905,12 @@
   "composeNeedSetup": {
     "message": "PLaMo 尚未就緒。請開啟設定以同意授權並下載模型。"
   },
+  "composeLoading": {
+    "message": "正在載入 PLaMo 模型。就緒後會顯示預覽。"
+  },
+  "composeIneligible": {
+    "message": "無法翻譯此輸入欄。"
+  },
   "composeOpenSetup": {
     "message": "開啟設定"
   },

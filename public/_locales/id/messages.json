@@ -905,6 +905,12 @@
   "composeNeedSetup": {
     "message": "PLaMo belum siap. Buka penyiapan untuk menyetujui lisensi dan mengunduh model."
   },
+  "composeLoading": {
+    "message": "Model PLaMo sedang dimuat. Pratinjau muncul setelah siap."
+  },
+  "composeIneligible": {
+    "message": "Kolom ini tidak dapat diterjemahkan."
+  },
   "composeOpenSetup": {
     "message": "Buka penyiapan"
   },

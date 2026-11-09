@@ -905,6 +905,12 @@
   "composeNeedSetup": {
     "message": "PLaMo is not ready yet. Open setup to agree to the licence and download the model."
   },
+  "composeLoading": {
+    "message": "The PLaMo model is loading. The preview will appear when it is ready."
+  },
+  "composeIneligible": {
+    "message": "This field cannot be translated."
+  },
   "composeOpenSetup": {
     "message": "Open setup"
   },

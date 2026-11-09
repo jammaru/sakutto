@@ -905,6 +905,12 @@
   "composeNeedSetup": {
     "message": "PLaMo chưa sẵn sàng. Mở thiết lập để đồng ý giấy phép và tải mô hình."
   },
+  "composeLoading": {
+    "message": "Mô hình PLaMo đang tải. Bản xem trước sẽ hiện khi sẵn sàng."
+  },
+  "composeIneligible": {
+    "message": "Không thể dịch ô này."
+  },
   "composeOpenSetup": {
     "message": "Mở thiết lập"
   },

@@ -905,6 +905,12 @@
   "composeNeedSetup": {
     "message": "PLaMo ещё не готов. Откройте настройку, чтобы принять лицензию и скачать модель."
   },
+  "composeLoading": {
+    "message": "Модель PLaMo загружается. Предпросмотр появится, когда она будет готова."
+  },
+  "composeIneligible": {
+    "message": "Это поле нельзя перевести."
+  },
   "composeOpenSetup": {
     "message": "Открыть настройку"
   },

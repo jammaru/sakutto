@@ -905,6 +905,12 @@
   "composeNeedSetup": {
     "message": "PLaMo ist noch nicht bereit. Öffnen Sie die Einrichtung, um der Lizenz zuzustimmen und das Modell herunterzuladen."
   },
+  "composeLoading": {
+    "message": "Das PLaMo-Modell wird geladen. Die Vorschau erscheint, sobald es bereit ist."
+  },
+  "composeIneligible": {
+    "message": "Dieses Feld kann nicht übersetzt werden."
+  },
   "composeOpenSetup": {
     "message": "Einrichtung öffnen"
   },

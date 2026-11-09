@@ -18,17 +18,27 @@ const SENSITIVE_NAME =
   /(?:^|[^a-z0-9])(?:password|passwd|pwd|secret|ssn|cvv|cvc|otp|token|pin|api[_-]?key)(?:[^a-z0-9]|$)/iu;
 
 /**
- * Reply chrome that must not be sent through the model or overwritten: Gmail's signature and
- * quoted history, Outlook's reply header and signature block.
+ * Reply chrome that must not be sent through the model or overwritten. Assumed DOM:
+ *
+ * Gmail: draft lines, then `.gmail_signature_prefix` (`-- `), `.gmail_signature`,
+ * `.gmail_quote` / `blockquote.gmail_quote`.
+ *
+ * Outlook web: draft, then `#appendonsend`, a preceding `<hr>`, `#divRplyFwdMsg`,
+ * quoted-body siblings after that header, then `#Signature`. Quoted history is not
+ * nested inside `#divRplyFwdMsg`; everything from the first of these markers onward
+ * is kept, including that preceding `<hr>`.
  */
 export const COMPOSE_EXCLUDED_SELECTOR = [
   '.gmail_signature',
+  '.gmail_signature_prefix',
   '[data-smartmail="gmail_signature"]',
   '.gmail_quote',
   'blockquote.gmail_quote',
   '#divRplyFwdMsg',
   '[id$="divRplyFwdMsg"]',
   '#Signature',
+  '#appendonsend',
+  '[id="appendonsend"]',
 ].join(', ');
 
 export function isNativeTextField(field: Element): field is HTMLInputElement | HTMLTextAreaElement {
@@ -105,7 +115,9 @@ export function showsComposeIcon(field: Element): boolean {
 
 /**
  * True when the right-click target is a compose field that is allowed to be translated.
- * Password and other secrets return false so the context menu item can be hidden.
+ * Password and other secrets return false so the command can no-op with feedback; the
+ * menu item itself stays visible on every editable because Chrome decides its contents
+ * when the menu opens.
  */
 export function isComposeMenuTarget(target: EventTarget | null): boolean {
   if (!(target instanceof Element) || isOwnUi(target)) return false;
@@ -133,13 +145,69 @@ function lineBreaks(value: string): string {
   return value.replace(/\r\n?/gu, '\n');
 }
 
-export function textsMatch(actual: string, wanted: string): boolean {
-  return actual.replace(/^\s+|\s+$/gu, '') === wanted.replace(/^\s+|\s+$/gu, '');
+function normalizeForCompare(value: string): string {
+  return lineBreaks(value)
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/gu, ' ').trim())
+    .join('\n')
+    .replace(/\n{2,}/gu, '\n')
+    .trim();
 }
 
-function firstExcluded(field: Element): Element | null {
-  const hit = field.querySelector(COMPOSE_EXCLUDED_SELECTOR);
-  return hit && field.contains(hit) ? hit : null;
+export function textsMatch(actual: string, wanted: string): boolean {
+  return normalizeForCompare(actual) === normalizeForCompare(wanted);
+}
+
+function isHr(node: Node): boolean {
+  return node instanceof HTMLHRElement || (node instanceof Element && node.localName === 'hr');
+}
+
+function isBlankText(node: Node): boolean {
+  return node instanceof Text && (node.textContent ?? '').trim().length === 0;
+}
+
+function childHoldsExcluded(child: Node): boolean {
+  if (!(child instanceof Element)) return false;
+  return (
+    child.matches(COMPOSE_EXCLUDED_SELECTOR) ||
+    child.querySelector(COMPOSE_EXCLUDED_SELECTOR) !== null
+  );
+}
+
+/**
+ * First child of the compose root that must be kept: the earliest excluded marker, or a
+ * preceding `<hr>` / whitespace. Everything from that node onward is quoted history,
+ * signature, or Outlook's send-append marker — not the draft.
+ */
+export function firstPreservedChild(field: Element): ChildNode | null {
+  const children = [...field.childNodes];
+  const index = children.findIndex((child) => childHoldsExcluded(child));
+  if (index < 0) return null;
+  let start = index;
+  while (start > 0) {
+    const prev = children[start - 1]!;
+    if (isBlankText(prev) || isHr(prev)) {
+      start -= 1;
+      continue;
+    }
+    break;
+  }
+  return children[start] ?? null;
+}
+
+export function preservedTail(field: Element): ChildNode[] {
+  const start = firstPreservedChild(field);
+  if (!start) return [];
+  const nodes: ChildNode[] = [];
+  for (let node: ChildNode | null = start; node; node = node.nextSibling) nodes.push(node);
+  return nodes;
+}
+
+function nodeIsAtOrAfter(node: Node, cutoff: Node): boolean {
+  if (node === cutoff) return true;
+  if (cutoff.contains(node)) return true;
+  const position = cutoff.compareDocumentPosition(node);
+  return (position & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
 }
 
 function nodeInside(field: Element, node: Node): boolean {
@@ -165,17 +233,22 @@ export function readComposeText(field: Element): string {
   return readComposeDraft(field).text;
 }
 
+function visibleText(field: Element): string {
+  if (field instanceof HTMLElement && typeof field.innerText === 'string') {
+    return lineBreaks(field.innerText);
+  }
+  return lineBreaks(field.textContent ?? '');
+}
+
 export function readDraftRegionText(field: Element): string {
   if (isNativeTextField(field)) return lineBreaks(field.value);
-  if (!firstExcluded(field)) {
-    if (field instanceof HTMLElement && typeof field.innerText === 'string') {
-      return lineBreaks(field.innerText);
-    }
-    return lineBreaks(field.textContent ?? '');
-  }
   const clone = field.cloneNode(true);
-  if (!(clone instanceof HTMLElement)) return lineBreaks(field.textContent ?? '');
-  for (const node of [...clone.querySelectorAll(COMPOSE_EXCLUDED_SELECTOR)]) node.remove();
+  if (!(clone instanceof HTMLElement)) return visibleText(field);
+  const cutoff = firstPreservedChild(clone);
+  if (cutoff) {
+    while (cutoff.nextSibling) cutoff.nextSibling.remove();
+    cutoff.remove();
+  }
   return lineBreaks(clone.innerText);
 }
 
@@ -229,6 +302,30 @@ export interface ComposeReplaceResult {
   method: ComposeReplaceMethod | null;
 }
 
+/** Whole-field snapshot taken before a replace, so undo can restore more than a selection. */
+export interface ComposeSnapshot {
+  text: string;
+  html: string | null;
+  draft: string;
+}
+
+export function snapshotComposeField(field: Element): ComposeSnapshot {
+  if (isNativeTextField(field)) {
+    return { text: field.value, html: null, draft: field.value };
+  }
+  return {
+    text: visibleText(field),
+    html: field.innerHTML,
+    draft: readDraftRegionText(field),
+  };
+}
+
+export function snapshotMatchesField(field: Element, snapshot: ComposeSnapshot): boolean {
+  if (isNativeTextField(field)) return textsMatch(field.value, snapshot.text);
+  if (snapshot.html !== null && field.innerHTML === snapshot.html) return true;
+  return textsMatch(visibleText(field), snapshot.text);
+}
+
 function focusField(field: Element): void {
   if (field instanceof HTMLElement) field.focus();
 }
@@ -254,10 +351,10 @@ function selectDraftRegion(field: Element): boolean {
   if (!selection) return false;
   try {
     const range = doc.createRange();
-    const keep = new Set(siblingExcludedBlocks(field));
+    const keep = new Set(preservedTail(field));
     const draft = [...field.childNodes].filter((node) => {
       if (keep.has(node)) return false;
-      if (node instanceof Text && (node.textContent ?? '').trim().length === 0) return false;
+      if (isBlankText(node)) return false;
       return true;
     });
     if (draft.length > 0) {
@@ -265,7 +362,7 @@ function selectDraftRegion(field: Element): boolean {
       range.setEndAfter(draft[draft.length - 1]!);
     } else if (keep.size > 0) {
       range.setStart(field, 0);
-      range.setEndBefore(keep.values().next().value as Node);
+      range.setEndBefore([...keep][0]!);
     } else {
       range.selectNodeContents(field);
     }
@@ -377,21 +474,38 @@ function dispatchNativeInput(field: Element, text: string, inputType: string): v
   field.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-function siblingExcludedBlocks(field: Element): ChildNode[] {
-  return [...field.childNodes].filter((child) => {
-    if (!(child instanceof Element)) return false;
-    return (
-      child.matches(COMPOSE_EXCLUDED_SELECTOR) || child.querySelector(COMPOSE_EXCLUDED_SELECTOR)
-    );
-  });
+function draftUsesDivLines(field: Element, tail: readonly ChildNode[]): boolean {
+  const draft = [...field.childNodes].filter((node) => !tail.includes(node) && !isBlankText(node));
+  const elements = draft.filter((node): node is Element => node instanceof Element);
+  if (tail.length > 0 && elements.length === 0) return true;
+  return elements.length > 0 && elements.every((element) => element.localName === 'div');
+}
+
+function nodesForDraftLines(doc: Document, text: string, asDivs: boolean): Node[] {
+  const lines = text.split('\n');
+  if (asDivs) {
+    return lines.map((line) => {
+      const div = doc.createElement('div');
+      if (line.length === 0) div.append(doc.createElement('br'));
+      else div.append(doc.createTextNode(line));
+      return div;
+    });
+  }
+  const nodes: Node[] = [];
+  for (const [index, line] of lines.entries()) {
+    if (index > 0) nodes.push(doc.createElement('br'));
+    if (line.length > 0) nodes.push(doc.createTextNode(line));
+  }
+  if (nodes.length === 0) nodes.push(doc.createTextNode(''));
+  return nodes;
 }
 
 function applyNativeContents(field: Element, text: string): boolean {
   const doc = field.ownerDocument;
-  const keep = siblingExcludedBlocks(field);
-  if (keep.length > 0) {
-    const lead = doc.createTextNode(text);
-    field.replaceChildren(lead, ...keep);
+  const tail = preservedTail(field);
+  if (tail.length > 0) {
+    const lead = nodesForDraftLines(doc, text, draftUsesDivLines(field, tail));
+    field.replaceChildren(...lead, ...tail);
     dispatchNativeInput(field, text, 'insertText');
     return true;
   }
@@ -400,15 +514,12 @@ function applyNativeContents(field: Element, text: string): boolean {
     try {
       const range = selection.getRangeAt(0);
       range.deleteContents();
-      const lines = text.split('\n');
-      for (const [index, line] of lines.entries()) {
-        if (index > 0) range.insertNode(doc.createElement('br'));
-        if (line.length > 0) {
-          const node = doc.createTextNode(line);
-          range.insertNode(node);
-          range.setStartAfter(node);
-          range.collapse(true);
-        }
+      const asDivs = draftUsesDivLines(field, []);
+      const nodes = nodesForDraftLines(doc, text, asDivs);
+      for (const node of nodes) {
+        range.insertNode(node);
+        range.setStartAfter(node);
+        range.collapse(true);
       }
       selection.removeAllRanges();
       selection.addRange(range);
@@ -418,23 +529,60 @@ function applyNativeContents(field: Element, text: string): boolean {
       // Fall through to rewriting the subtree.
     }
   }
-  field.textContent = text;
+  if (draftUsesDivLines(field, [])) {
+    field.replaceChildren(...nodesForDraftLines(doc, text, true));
+  } else {
+    field.replaceChildren(...nodesForDraftLines(doc, text, false));
+  }
   dispatchNativeInput(field, text, 'insertText');
   return true;
 }
 
+function richSelectionSpan(
+  field: Element,
+): { start: number; end: number; selected: string } | null {
+  const selection = field.ownerDocument.getSelection();
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
+  const range = selection.getRangeAt(0);
+  if (!nodeInside(field, range.commonAncestorContainer)) return null;
+  const cutoff = firstPreservedChild(field);
+  if (cutoff && nodeIsAtOrAfter(range.startContainer, cutoff)) return null;
+  try {
+    const prefix = field.ownerDocument.createRange();
+    prefix.setStart(field, 0);
+    prefix.setEnd(range.startContainer, range.startOffset);
+    const start = prefix.toString().length;
+    const selected = range.toString();
+    return { start, end: start + selected.length, selected };
+  } catch {
+    return null;
+  }
+}
+
 function expectedDraft(field: Element, translation: string): string {
-  const selected = selectedComposeText(field);
-  if (selected === null) return translation;
   if (isNativeTextField(field)) {
     const span = nativeSpan(field);
     if (!span) return translation;
     return field.value.slice(0, span.start) + translation + field.value.slice(span.end);
   }
   const current = readDraftRegionText(field);
-  const index = current.indexOf(selected);
-  if (index < 0) return translation;
-  return current.slice(0, index) + translation + current.slice(index + selected.length);
+  const span = richSelectionSpan(field);
+  if (!span) return translation;
+  const { start, end, selected } = span;
+  if (start >= 0 && end <= current.length && current.slice(start, end) === selected) {
+    return current.slice(0, start) + translation + current.slice(end);
+  }
+  const first = current.indexOf(selected);
+  if (first < 0) return translation;
+  const second = current.indexOf(selected, first + selected.length);
+  if (second < 0) {
+    return current.slice(0, first) + translation + current.slice(first + selected.length);
+  }
+  const raw = lineBreaks(field.textContent ?? '');
+  if (start >= 0 && end <= raw.length) {
+    return raw.slice(0, start) + translation + raw.slice(end);
+  }
+  return current.slice(0, start) + translation + current.slice(end);
 }
 
 /**
@@ -464,13 +612,21 @@ async function afterStrategy(
   field: Element,
   expected: string,
   before: string,
-  preserved: readonly Element[],
+  preserved: readonly ChildNode[],
 ): Promise<StrategyOutcome> {
   await nextComposeFrame(field.ownerDocument);
   const kept = preserved.every((node) => node.isConnected && field.contains(node));
   if (textsMatch(readDraftRegionText(field), expected) && kept) return 'ok';
   if (surfaceOf(field) !== before || !kept) return 'changed';
   return 'noop';
+}
+
+function accepted(
+  outcome: StrategyOutcome,
+  method: ComposeReplaceMethod,
+): ComposeReplaceResult | null {
+  if (outcome === 'ok' || outcome === 'changed') return { ok: true, method };
+  return null;
 }
 
 /**
@@ -495,7 +651,7 @@ export async function replaceComposeText(
   if (!isComposeCandidate(field)) return { ok: false, method: null };
 
   const expected = expectedDraft(field, text);
-  const preserved = [...field.querySelectorAll(COMPOSE_EXCLUDED_SELECTOR)];
+  const preserved = preservedTail(field);
 
   if (isNativeTextField(field)) {
     const span = nativeSpan(field);
@@ -506,10 +662,7 @@ export async function replaceComposeText(
     ): Promise<ComposeReplaceResult | null> => {
       const before = surfaceOf(field);
       act();
-      const outcome = await afterStrategy(field, expected, before, preserved);
-      if (outcome === 'ok') return { ok: true, method };
-      if (outcome === 'changed') return { ok: false, method };
-      return null;
+      return accepted(await afterStrategy(field, expected, before, preserved), method);
     };
 
     const inserted = await run('insertText', () => {
@@ -526,7 +679,7 @@ export async function replaceComposeText(
     setNativeValue(field, expected);
     dispatchNativeInput(field, text, 'insertReplacementText');
     const outcome = await afterStrategy(field, expected, before, preserved);
-    return { ok: outcome === 'ok', method: 'native' };
+    return { ok: outcome !== 'noop', method: outcome === 'noop' ? null : 'native' };
   }
 
   focusField(field);
@@ -539,10 +692,7 @@ export async function replaceComposeText(
   ): Promise<ComposeReplaceResult | null> => {
     const before = surfaceOf(field);
     act();
-    const outcome = await afterStrategy(field, expected, before, preserved);
-    if (outcome === 'ok') return { ok: true, method };
-    if (outcome === 'changed') return { ok: false, method };
-    return null;
+    return accepted(await afterStrategy(field, expected, before, preserved), method);
   };
 
   const insertText = await run('beforeinput', () => {
@@ -567,36 +717,82 @@ export async function replaceComposeText(
   const before = surfaceOf(field);
   applyNativeContents(field, text);
   const outcome = await afterStrategy(field, expected, before, preserved);
-  return { ok: outcome === 'ok', method: outcome === 'ok' ? 'native' : null };
+  return { ok: outcome !== 'noop', method: outcome === 'noop' ? null : 'native' };
+}
+
+async function writeSnapshot(
+  field: Element,
+  snapshot: ComposeSnapshot,
+): Promise<ComposeReplaceResult> {
+  if (isNativeTextField(field)) {
+    setNativeValue(field, snapshot.text);
+    dispatchNativeInput(field, snapshot.text, 'insertReplacementText');
+    await nextComposeFrame(field.ownerDocument);
+    return { ok: snapshotMatchesField(field, snapshot), method: 'native' };
+  }
+  if (snapshot.html !== null) {
+    field.innerHTML = snapshot.html;
+    dispatchNativeInput(field, snapshot.draft, 'insertReplacementText');
+    await nextComposeFrame(field.ownerDocument);
+    if (snapshotMatchesField(field, snapshot)) return { ok: true, method: 'native' };
+  }
+  return replaceComposeText(field, snapshot.draft);
 }
 
 /**
- * Restores the last compose replacement through the editor's own undo stack when that
- * works, so formatting, signatures and quoted history come back. Falls back to rewriting
- * the stored draft text when `execCommand('undo')` does nothing.
+ * Restores the pre-replace snapshot. `execCommand('undo')` is used only when the
+ * replacement itself went through `insertText`, and only if the field then matches
+ * the snapshot; otherwise the snapshot is written back. Calling undo blindly would
+ * revert the user's earlier typing when the write used a value setter or a DOM
+ * rewrite that never entered the browser undo stack.
  */
 export async function undoComposeReplace(
   field: Element,
-  fallback: string,
+  snapshot: ComposeSnapshot,
+  method: ComposeReplaceMethod | null = null,
 ): Promise<ComposeReplaceResult> {
   if (!isComposeCandidate(field)) return { ok: false, method: null };
   focusField(field);
-  if (tryExecUndo(field.ownerDocument)) {
+  if (method === 'insertText' && tryExecUndo(field.ownerDocument)) {
     await nextComposeFrame(field.ownerDocument);
-    return { ok: true, method: 'undo' };
+    if (snapshotMatchesField(field, snapshot)) return { ok: true, method: 'undo' };
   }
-  return replaceComposeText(field, fallback);
+  return writeSnapshot(field, snapshot);
 }
 
-/** The box used to park the compose icon, clamped to the visible part of the field. */
-export function composeFieldRect(field: Element): DOMRect {
-  const rect = field.getBoundingClientRect();
-  const view = field.ownerDocument.defaultView;
+function mapFieldRectToOverlay(field: Element, overlayDoc: Document): DOMRect | null {
+  const local = field.getBoundingClientRect();
+  let left = local.left;
+  let top = local.top;
+  let doc = field.ownerDocument;
+  while (doc !== overlayDoc) {
+    const frame = doc.defaultView?.frameElement;
+    if (!(frame instanceof Element)) return null;
+    const frameRect = frame.getBoundingClientRect();
+    left += frameRect.left;
+    top += frameRect.top;
+    doc = frame.ownerDocument;
+  }
+  return new DOMRect(left, top, local.width, local.height);
+}
+
+/**
+ * The box used to park the compose icon, in the overlay document's viewport. Same-origin
+ * iframe fields are offset by the frame rect; when the frame cannot be mapped, returns
+ * `null` so the icon is not shown at the wrong place.
+ */
+export function composeFieldRect(
+  field: Element,
+  overlayDoc: Document = field.ownerDocument,
+): DOMRect | null {
+  const mapped = mapFieldRectToOverlay(field, overlayDoc);
+  if (!mapped) return null;
+  const view = overlayDoc.defaultView;
   const width = view?.innerWidth ?? 800;
   const height = view?.innerHeight ?? 600;
-  const left = Math.min(Math.max(rect.left, 8), Math.max(8, width - 8));
-  const top = Math.min(Math.max(rect.top, 8), Math.max(8, height - 8));
-  const right = Math.min(Math.max(rect.right, left), width - 8);
-  const bottom = Math.min(Math.max(rect.bottom, top), height - 8);
+  const left = Math.min(Math.max(mapped.left, 8), Math.max(8, width - 8));
+  const top = Math.min(Math.max(mapped.top, 8), Math.max(8, height - 8));
+  const right = Math.min(Math.max(mapped.right, left), width - 8);
+  const bottom = Math.min(Math.max(mapped.bottom, top), height - 8);
   return new DOMRect(left, top, Math.max(0, right - left), Math.max(0, bottom - top));
 }
