@@ -63,9 +63,10 @@ test.describe('built extension', () => {
             'https://github.com/jammaru/sakutto',
           );
           // Chrome owns the bindings, so the panel shows them and links to Chrome's editor.
+          // A fresh install must name the defaults, not "Not set".
           await expect(page.getByRole('heading', { name: 'Keyboard shortcuts' })).toBeVisible();
           await expect(page.getByRole('button', { name: 'Change shortcuts' })).toBeVisible();
-          await expect(page.locator('kbd').first()).toHaveText('Alt+A');
+          await expect(page.locator('kbd')).toHaveText(['Alt+A', 'Alt+B', 'Alt+S', 'Alt+T']);
         }
         if (path === 'typed.html') {
           await expect(page.locator('textarea')).toBeVisible();

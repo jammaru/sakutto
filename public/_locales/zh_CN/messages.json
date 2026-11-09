@@ -372,7 +372,7 @@
     "message": "键盘快捷键"
   },
   "shortcutHelp": {
-    "message": "即使 Chrome 未给命令指定快捷键，页面上仍使用默认键。取消勾选即可关闭。点“更改快捷键”可在 Chrome 中修改。"
+    "message": "取消勾选即可在 Sakutto 中关闭该命令。“更改快捷键”会打开 Chrome 自己的编辑器。在那里清除按键后，Sakutto 也不再使用它。仅当安装时 Chrome 从未指定快捷键（例如冲突）时，页面上才使用默认键。"
   },
   "shortcutChange": {
     "message": "更改快捷键"
@@ -387,7 +387,7 @@
     "message": "关闭"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome 未为此命令指定快捷键，因此页面上使用默认键。"
+    "message": "安装时 Chrome 未为此命令指定快捷键，因此页面上使用默认键。"
   },
   "shortcutTranslate": {
     "message": "$KEY$ 可转换页面或还原原件。",

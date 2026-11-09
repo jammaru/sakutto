@@ -1,7 +1,7 @@
-import type { PageCommandName, ShortcutSnapshot } from './messages';
+import type { PageCommandName, ShortcutAssigned, ShortcutSnapshot } from './messages';
 import { isRecord } from './object';
 
-export type { ShortcutSnapshot };
+export type { ShortcutAssigned, ShortcutSnapshot };
 
 /** The commands the manifest declares, in the order the settings page lists them. */
 export const SHORTCUT_COMMANDS = [
@@ -23,8 +23,8 @@ export const SHORTCUT_PAGE_COMMANDS: Readonly<Record<ShortcutCommand, PageComman
 
 /**
  * The key the manifest suggests for each command. A page or a settings screen uses these
- * until Chrome answers with the keys the user actually bound, and keeps them if it never
- * answers. Chrome reports the same bindings with its own spelling on a Mac.
+ * until the browser answers with the keys the user actually bound. Chrome reports the same
+ * bindings with its own spelling on a Mac.
  */
 export const DEFAULT_SHORTCUTS: Readonly<Record<ShortcutCommand, string>> = {
   'translate-page': 'Alt+A',
@@ -61,33 +61,129 @@ export function normalizeShortcutEnabled(value: unknown): ShortcutEnabled {
 }
 
 /**
- * The key a page should listen for. Chrome may report `''` when it skipped `suggested_key`
- * (another extension already holds Alt+B, a command added in an update, a second copy of
- * this extension). That is not treated as "the user turned it off": the manifest default
- * stays active until Sakutto's own setting disables the command. A key the user set in
- * Chrome wins. `null` (Chrome did not list the command) also keeps the default.
+ * Whether the browser has assigned a key to each command at least once. Missing keys have
+ * not been observed yet. `true` never goes back to `false`: a later empty binding is a
+ * user clear, not a reason to revive the in-page default.
+ */
+export type ShortcutAssignment = Partial<ShortcutAssigned>;
+
+export function emptyShortcutAssigned(): ShortcutAssigned {
+  return {
+    'translate-page': false,
+    'toggle-bilingual': false,
+    'translate-selection': false,
+    'translate-compose': false,
+  };
+}
+
+export function shortcutAssignedRecord(recorded: ShortcutAssignment): ShortcutAssigned {
+  const next = emptyShortcutAssigned();
+  for (const command of SHORTCUT_COMMANDS) {
+    next[command] = recorded[command] === true;
+  }
+  return next;
+}
+
+export function normalizeShortcutAssignment(value: unknown): ShortcutAssignment {
+  if (!isRecord(value)) return {};
+  const next: ShortcutAssignment = {};
+  for (const command of SHORTCUT_COMMANDS) {
+    if (value[command] === true) next[command] = true;
+    else if (value[command] === false) next[command] = false;
+  }
+  return next;
+}
+
+export function sameShortcutAssignment(
+  left: ShortcutAssignment,
+  right: ShortcutAssignment,
+): boolean {
+  for (const command of SHORTCUT_COMMANDS) {
+    if (left[command] !== right[command]) return false;
+  }
+  return true;
+}
+
+function hasShortcutKey(binding: string | null | undefined): binding is string {
+  return typeof binding === 'string' && binding.length > 0;
+}
+
+/**
+ * Merges a live `commands.getAll()` snapshot into the persisted assignment map.
+ *
+ * A command the map has never seen is recorded as assigned only when the browser reported a
+ * key. An unassigned command becomes assigned if a key appears later. Assigned never goes
+ * back to false, so clearing the key in the browser's shortcut editor is not mistaken for
+ * the install-time conflict that still needs the in-page default.
+ */
+export function rememberShortcutAssignments(
+  recorded: ShortcutAssignment,
+  snapshot: ShortcutSnapshot,
+): ShortcutAssigned {
+  const next = emptyShortcutAssigned();
+  for (const command of SHORTCUT_COMMANDS) {
+    next[command] = recorded[command] === true || hasShortcutKey(snapshot[command]);
+  }
+  return next;
+}
+
+export function markCommandAssigned(
+  recorded: ShortcutAssignment,
+  command: ShortcutCommand,
+): ShortcutAssignment {
+  if (recorded[command] === true) return recorded;
+  return { ...recorded, [command]: true };
+}
+
+export interface BoundShortcutOptions {
+  readonly fallback?: string;
+  readonly enabled?: boolean;
+  /**
+   * Whether the browser has assigned a key to this command at least once. `true` means a
+   * later empty snapshot is a user clear — no in-page fallback. `false` means the first
+   * observation was empty (a conflict at install), so the manifest default stays on the
+   * page. Omitted until that observation is recorded, which also keeps the default so
+   * first-run still works before `onInstalled` finishes.
+   */
+  readonly assigned?: boolean | undefined;
+}
+
+/**
+ * The key a page should listen for. A key the user set in the browser wins. An empty
+ * binding is a user clear when that command was assigned at least once, and the in-page
+ * default only when the browser never assigned the suggested key (another extension already
+ * holds it, a command added in an update, a second copy of this extension). Sakutto's own
+ * setting is a separate off switch. `null` on the snapshot (the command was not listed)
+ * follows the same empty-binding rule. No snapshot at all keeps the default so a page can
+ * answer before the background replies.
  */
 export function boundShortcut(
   snapshot: ShortcutSnapshot | null,
   command: ShortcutCommand,
-  fallback: string = DEFAULT_SHORTCUTS[command],
-  enabled = true,
+  options: BoundShortcutOptions = {},
 ): string {
-  if (!enabled) return '';
+  const fallback = options.fallback ?? DEFAULT_SHORTCUTS[command];
+  if (options.enabled === false) return '';
   if (!snapshot) return fallback;
   const binding = snapshot[command];
-  if (binding === null || binding.length === 0) return fallback;
-  return binding;
+  if (hasShortcutKey(binding)) return binding;
+  if (options.assigned === true) return '';
+  return fallback;
 }
 
-/** True when Chrome listed the command with no key, so the in-page default is filling in. */
-export function chromeLeftShortcutUnset(
+/**
+ * True when the in-page default is filling in because the browser never assigned a key.
+ * A user-cleared command is empty in the snapshot too, but `assigned` is then true and
+ * this is false, so the settings screen can say "Not set" instead of advertising a fallback.
+ */
+export function usesInPageFallback(
   snapshot: ShortcutSnapshot | null,
   command: ShortcutCommand,
+  assigned?: boolean | undefined,
 ): boolean {
   if (!snapshot) return false;
-  const binding = snapshot[command];
-  return binding === '' || binding === null;
+  if (hasShortcutKey(snapshot[command])) return false;
+  return assigned !== true;
 }
 
 /** The shape `browser.commands.getAll()` returns, without depending on its declared type. */
@@ -100,7 +196,7 @@ export function isShortcutCommand(value: string): value is ShortcutCommand {
   return (SHORTCUT_COMMANDS as readonly string[]).includes(value);
 }
 
-/** Reads the commands a user can rebind into the three keys a page cares about. */
+/** Reads the commands a user can rebind into the keys a page cares about. */
 export function readShortcutSnapshot(commands: readonly CommandBinding[]): ShortcutSnapshot {
   const shortcutOf = (name: ShortcutCommand): string | null => {
     const command = commands.find((entry) => entry.name === name);

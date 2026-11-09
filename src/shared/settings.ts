@@ -71,8 +71,9 @@ export interface Settings {
   /** False hides the あA button on message boxes. The shortcut and context menu stay. */
   composeIcon: boolean;
   /**
-   * Per-command on/off in Sakutto. Chrome reporting a command as unbound is not an off
-   * switch; that still uses the default key on pages until this flag is false.
+   * Per-command on/off in Sakutto. Unchecking disables the in-page key. Clearing the
+   * binding in the browser's shortcut editor also stops in-page handling, unless the
+   * browser never assigned the suggested key (a conflict at install).
    */
   shortcutsEnabled: ShortcutEnabled;
   /**

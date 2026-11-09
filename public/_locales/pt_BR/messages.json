@@ -372,7 +372,7 @@
     "message": "Atalhos de teclado"
   },
   "shortcutHelp": {
-    "message": "Se o Chrome deixar um comando sem tecla, a tecla padrão continua valendo nas páginas. Desmarque um comando para desligá-lo. Use Alterar atalhos para editar as teclas no Chrome."
+    "message": "Desmarque um comando para desligá-lo no Sakutto. Alterar atalhos abre o editor do Chrome. Limpar uma tecla lá faz o Sakutto parar de usá-la. A tecla padrão vale nas páginas só se o Chrome nunca atribuiu uma na instalação, por exemplo por um conflito."
   },
   "shortcutChange": {
     "message": "Alterar atalhos"
@@ -387,7 +387,7 @@
     "message": "Desativado"
   },
   "shortcutFallbackNote": {
-    "message": "O Chrome não tem tecla para este comando, então nas páginas vale a tecla padrão."
+    "message": "O Chrome não atribuiu uma tecla a este comando na instalação, então nas páginas vale a tecla padrão."
   },
   "shortcutTranslate": {
     "message": "$KEY$ traduz a página ou restaura o original.",

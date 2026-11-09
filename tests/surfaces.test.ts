@@ -98,18 +98,20 @@ describe('typed translation layout', () => {
 });
 
 /**
- * Chrome decides which keys run a command and has no API for changing them, so the only way
- * to let a reader rebind one is to send them to Chrome's own editor. A settings screen that
- * showed a key it could not change, or offered an edit box of its own, would be lying.
+ * The browser decides which keys run a command and has no API for changing them, so the
+ * only way to let a reader rebind one is to send them to its own editor. A settings screen
+ * that showed a key it could not change, or offered an edit box of its own, would be lying.
  */
 describe('shortcut settings', () => {
   const shortcuts = source('ui/ShortcutSettings.svelte');
   const options = source('entrypoints/options/App.svelte');
+  const background = source('entrypoints/background.ts');
 
-  it('reads the keys Chrome has bound, falling back to the defaults when unbound', () => {
+  it('reads the keys the browser has bound, and falls back only after an install conflict', () => {
     expect(shortcuts).toContain('requestShortcutSnapshot');
     expect(shortcuts).toContain('displayShortcut');
     expect(shortcuts).toContain('boundShortcut');
+    expect(shortcuts).toContain('usesInPageFallback');
     expect(shortcuts).not.toContain("'Alt+A'");
   });
 
@@ -130,5 +132,10 @@ describe('shortcut settings', () => {
   it('is on the settings page', () => {
     expect(options).toContain('ShortcutSettings');
     expect(options).toContain('shortcutHeading');
+  });
+
+  it('records the browser’s first command bindings so a later clear is not a conflict', () => {
+    expect(background).toContain('resolveShortcutQuery');
+    expect(background).toContain('onInstalled');
   });
 });

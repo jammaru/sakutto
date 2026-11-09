@@ -372,7 +372,7 @@
     "message": "Tastenkürzel"
   },
   "shortcutHelp": {
-    "message": "Hat Chrome einem Befehl keine Taste zugewiesen, gilt auf Seiten weiterhin die Standardtaste. Entfernen Sie das Häkchen, um den Befehl auszuschalten. Über „Tastenkürzel ändern“ bearbeiten Sie die Zuweisungen in Chrome."
+    "message": "Entfernen Sie das Häkchen, um einen Befehl in Sakutto auszuschalten. „Tastenkürzel ändern“ öffnet den Editor von Chrome. Eine dort gelöschte Taste verwendet Sakutto nicht mehr. Die Standardtaste gilt auf Seiten nur, wenn Chrome sie bei der Installation nie zugewiesen hat, etwa wegen eines Konflikts."
   },
   "shortcutChange": {
     "message": "Tastenkürzel ändern"
@@ -387,7 +387,7 @@
     "message": "Aus"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome hat diesem Befehl keine Taste zugewiesen. Auf Seiten gilt die Standardtaste."
+    "message": "Chrome hat diesem Befehl bei der Installation keine Taste zugewiesen. Auf Seiten gilt die Standardtaste."
   },
   "shortcutTranslate": {
     "message": "$KEY$ übersetzt die Seite oder stellt das Original wieder her.",

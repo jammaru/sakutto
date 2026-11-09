@@ -372,7 +372,7 @@
     "message": "키보드 단축키"
   },
   "shortcutHelp": {
-    "message": "Chrome가 명령에 키를 지정하지 않아도 페이지에서는 기본 키가 동작합니다. 끄려면 아래 체크를 해제하세요. Chrome에서 키를 바꾸려면 단축키 변경을 누르세요."
+    "message": "명령을 끄려면 체크를 해제하세요. 단축키 변경은 Chrome의 편집기를 엽니다. 거기서 키를 지우면 Sakutto도 그 단축키를 쓰지 않습니다. 설치 때 Chrome이 키를 지정하지 않은 경우(충돌 등)에만 페이지에서 기본 키를 씁니다."
   },
   "shortcutChange": {
     "message": "단축키 변경"
@@ -387,7 +387,7 @@
     "message": "끄기"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome가 이 명령에 키를 지정하지 않아 페이지에서는 기본 키를 씁니다."
+    "message": "설치 때 Chrome가 이 명령에 키를 지정하지 않아 페이지에서는 기본 키를 씁니다."
   },
   "shortcutTranslate": {
     "message": "$KEY$를 누르면 페이지가 변환되거나 원본으로 복원됩니다.",

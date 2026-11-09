@@ -25,8 +25,10 @@ import {
   DEFAULT_SHORTCUTS,
   defaultShortcutEnabled,
   displayShortcut,
+  emptyShortcutAssigned,
   matchesShortcut,
   SHORTCUT_PAGE_COMMANDS,
+  type ShortcutAssigned,
   type ShortcutCommand,
   type ShortcutEnabled,
 } from '@/shared/shortcuts';
@@ -35,11 +37,12 @@ import {
   isPageCommandRequest,
   isPageInfoRequest,
   isPageStateRequest,
-  isShortcutSnapshot,
+  isShortcutQueryResult,
   requestEngineStatus,
   requestEngineWarm,
   type PageCommandName,
   type PageInfo,
+  type ShortcutQueryResult,
   type ShortcutSnapshot,
 } from '@/shared/messages';
 import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
@@ -54,38 +57,45 @@ interface ContentBridgeGlobal {
 const bridge = globalThis as typeof globalThis & ContentBridgeGlobal;
 
 /**
- * Chrome only tells a page which keys are bound through the background worker. An empty
- * snapshot keeps the manifest defaults. A command Chrome listed as unbound also keeps the
- * default unless the reader turned that command off in Sakutto.
+ * The browser only tells a page which keys are bound through the background worker. An
+ * empty snapshot keeps the manifest defaults until that answer arrives. A command the
+ * browser never assigned still uses the default; one the user cleared does not.
  */
-async function readShortcutSnapshot(): Promise<ShortcutSnapshot | null> {
+async function readShortcutState(): Promise<ShortcutQueryResult | null> {
   const response: unknown = await browser.runtime
     .sendMessage({ type: 'commands:shortcuts' })
     .catch(() => undefined);
-  return isShortcutSnapshot(response) ? response : null;
+  return isShortcutQueryResult(response) ? response : null;
 }
 
 function shortcutFor(
   snapshot: ShortcutSnapshot | null,
+  assigned: ShortcutAssigned,
   enabled: ShortcutEnabled,
   command: ShortcutCommand,
 ): string {
-  return boundShortcut(snapshot, command, DEFAULT_SHORTCUTS[command], enabled[command]);
+  return boundShortcut(snapshot, command, {
+    fallback: DEFAULT_SHORTCUTS[command],
+    enabled: enabled[command],
+    assigned: assigned[command],
+  });
 }
 
 function listensFor(
   snapshot: ShortcutSnapshot | null,
+  assigned: ShortcutAssigned,
   enabled: ShortcutEnabled,
   command: ShortcutCommand,
 ): (event: KeyboardEvent) => boolean {
   return (event) => {
-    const shortcut = shortcutFor(snapshot, enabled, command);
+    const shortcut = shortcutFor(snapshot, assigned, enabled, command);
     return shortcut.length > 0 && matchesShortcut(event, shortcut);
   };
 }
 
 function commandEnabled(
   snapshot: ShortcutSnapshot | null,
+  assigned: ShortcutAssigned,
   enabled: ShortcutEnabled,
   command: PageCommandName,
 ): boolean {
@@ -93,7 +103,7 @@ function commandEnabled(
     (entry) => SHORTCUT_PAGE_COMMANDS[entry] === command,
   );
   if (!name) return true;
-  return shortcutFor(snapshot, enabled, name).length > 0;
+  return shortcutFor(snapshot, assigned, enabled, name).length > 0;
 }
 
 function composePreferencesFor(
@@ -236,9 +246,10 @@ export default defineContentScript({
     bridge.__sakuttoContentBridgeReady = true;
 
     const host = pageHost(location.href) ?? '';
-    // Chrome's bindings, or the manifest defaults until the background answers. A command
-    // Chrome left unbound still uses its default on this page unless Sakutto turned it off.
+    // The browser's bindings, or the manifest defaults until the background answers. A
+    // command the browser never assigned still uses its default; a user-cleared one does not.
     let shortcutSnapshot: ShortcutSnapshot | null = null;
+    let shortcutAssigned = emptyShortcutAssigned();
     let shortcutsEnabled = defaultShortcutEnabled();
     let lastCommand = '';
     let lastCommandAt = 0;
@@ -247,13 +258,15 @@ export default defineContentScript({
     let plamoReady = false;
     let modelStatusKnown = false;
     const refreshShortcuts = (): void => {
-      void readShortcutSnapshot().then((snapshot) => {
-        if (snapshot) shortcutSnapshot = snapshot;
+      void readShortcutState().then((state) => {
+        if (!state) return;
+        shortcutSnapshot = state.snapshot;
+        shortcutAssigned = state.assigned;
       });
     };
     refreshShortcuts();
-    // Chrome has no event for a changed binding. A reader who rebinds and comes back to the
-    // page brings it into focus, which is the moment to read the new key.
+    // The browser has no event for a changed binding. A reader who rebinds and comes back
+    // to the page brings it into focus, which is the moment to read the new key.
     window.addEventListener('focus', refreshShortcuts);
 
     const engine = { translate: __SAKUTTO_FAKE_ENGINE__ ? fakeTranslate : translateViaBackground };
@@ -279,11 +292,22 @@ export default defineContentScript({
           await saveSiteRule({ ...current, ...patch, host });
         },
         onGrantSite: () => requestSiteAccess(host),
-        pageKey: (event) => listensFor(shortcutSnapshot, shortcutsEnabled, 'translate-page')(event),
+        pageKey: (event) =>
+          listensFor(shortcutSnapshot, shortcutAssigned, shortcutsEnabled, 'translate-page')(event),
         bilingualKey: (event) =>
-          listensFor(shortcutSnapshot, shortcutsEnabled, 'toggle-bilingual')(event),
+          listensFor(
+            shortcutSnapshot,
+            shortcutAssigned,
+            shortcutsEnabled,
+            'toggle-bilingual',
+          )(event),
         selectionKey: (event) =>
-          listensFor(shortcutSnapshot, shortcutsEnabled, 'translate-selection')(event),
+          listensFor(
+            shortcutSnapshot,
+            shortcutAssigned,
+            shortcutsEnabled,
+            'translate-selection',
+          )(event),
       });
       const readiness = composeReadiness(
         settings,
@@ -298,10 +322,17 @@ export default defineContentScript({
           settings,
           rule,
           readiness,
-          displayShortcut(shortcutFor(shortcutSnapshot, shortcutsEnabled, 'translate-compose')),
+          displayShortcut(
+            shortcutFor(shortcutSnapshot, shortcutAssigned, shortcutsEnabled, 'translate-compose'),
+          ),
         ),
         composeKey: (event) =>
-          listensFor(shortcutSnapshot, shortcutsEnabled, 'translate-compose')(event),
+          listensFor(
+            shortcutSnapshot,
+            shortcutAssigned,
+            shortcutsEnabled,
+            'translate-compose',
+          )(event),
         onWarm: () => {
           if (!__SAKUTTO_FAKE_ENGINE__) void requestEngineWarm();
         },
@@ -361,7 +392,14 @@ export default defineContentScript({
             nextSettings,
             nextRule,
             readiness,
-            displayShortcut(shortcutFor(shortcutSnapshot, shortcutsEnabled, 'translate-compose')),
+            displayShortcut(
+              shortcutFor(
+                shortcutSnapshot,
+                shortcutAssigned,
+                shortcutsEnabled,
+                'translate-compose',
+              ),
+            ),
           ),
         );
       };
@@ -393,7 +431,9 @@ export default defineContentScript({
       lastCommand = command;
       lastCommandAt = now;
       const session = await sessionPromise;
-      if (!commandEnabled(shortcutSnapshot, shortcutsEnabled, command)) return session.state();
+      if (!commandEnabled(shortcutSnapshot, shortcutAssigned, shortcutsEnabled, command)) {
+        return session.state();
+      }
       if (!__SAKUTTO_FAKE_ENGINE__) {
         void requestEngineWarm();
         void requestEngineTier(session);
@@ -425,7 +465,14 @@ export default defineContentScript({
               nextSettings,
               nextRule,
               readiness,
-              displayShortcut(shortcutFor(shortcutSnapshot, shortcutsEnabled, 'translate-compose')),
+              displayShortcut(
+                shortcutFor(
+                  shortcutSnapshot,
+                  shortcutAssigned,
+                  shortcutsEnabled,
+                  'translate-compose',
+                ),
+              ),
             ),
           );
           if (message.status.state === 'loaded' && !__SAKUTTO_FAKE_ENGINE__) {

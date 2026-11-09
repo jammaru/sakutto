@@ -372,7 +372,7 @@
     "message": "Scorciatoie da tastiera"
   },
   "shortcutHelp": {
-    "message": "Se Chrome lascia un comando senza tasto, sulle pagine vale comunque quello predefinito. Togli il segno di spunta per disattivarlo. Usa Modifica scorciatoie per cambiare i tasti in Chrome."
+    "message": "Togli il segno di spunta per disattivare un comando in Sakutto. Modifica scorciatoie apre l’editor di Chrome. Se cancelli un tasto lì, Sakutto smette di usarlo. Il tasto predefinito vale sulle pagine solo se Chrome non ne ha assegnato uno all’installazione, per esempio per un conflitto."
   },
   "shortcutChange": {
     "message": "Modifica le scorciatoie"
@@ -387,7 +387,7 @@
     "message": "Disattivato"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome non ha un tasto per questo comando, quindi sulle pagine vale quello predefinito."
+    "message": "Chrome non ha assegnato un tasto a questo comando all’installazione, quindi sulle pagine vale quello predefinito."
   },
   "shortcutTranslate": {
     "message": "$KEY$ converte la pagina o ripristina l’originale.",

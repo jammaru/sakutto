@@ -372,7 +372,7 @@
     "message": "Atajos de teclado"
   },
   "shortcutHelp": {
-    "message": "Si Chrome deja un comando sin tecla, en las páginas sigue valiendo la tecla predeterminada. Desmarque un comando para desactivarlo. Use Cambiar atajos para editar las teclas en Chrome."
+    "message": "Desmarque un comando para desactivarlo en Sakutto. Cambiar atajos abre el editor de Chrome. Si borra una tecla ahí, Sakutto deja de usarla. La tecla predeterminada se usa en las páginas solo si Chrome no asignó ninguna al instalar, por ejemplo por un conflicto."
   },
   "shortcutChange": {
     "message": "Cambiar atajos"
@@ -387,7 +387,7 @@
     "message": "Desactivado"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome no tiene tecla para este comando, así que en las páginas se usa la predeterminada."
+    "message": "Chrome no asignó una tecla a este comando al instalar, así que en las páginas se usa la predeterminada."
   },
   "shortcutTranslate": {
     "message": "$KEY$ traduce la página o restaura la original.",

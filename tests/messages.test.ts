@@ -12,6 +12,7 @@ import {
   isPageInfo,
   isPageInfoRequest,
   isPageViewState,
+  isShortcutQueryResult,
   isShortcutSnapshot,
 } from '@/shared/messages';
 
@@ -72,6 +73,27 @@ describe('message validation', () => {
       }),
     ).toBe(false);
     expect(isShortcutSnapshot(null)).toBe(false);
+  });
+
+  it('validates the assigned map a page needs beside the snapshot', () => {
+    const snapshot = {
+      'translate-page': 'Alt+A',
+      'toggle-bilingual': '',
+      'translate-selection': 'Alt+S',
+      'translate-compose': null,
+    };
+    const assigned = {
+      'translate-page': true,
+      'toggle-bilingual': false,
+      'translate-selection': true,
+      'translate-compose': false,
+    };
+    expect(isShortcutQueryResult({ snapshot, assigned })).toBe(true);
+    expect(isShortcutQueryResult({ snapshot })).toBe(false);
+    expect(
+      isShortcutQueryResult({ snapshot, assigned: { ...assigned, 'translate-page': 1 } }),
+    ).toBe(false);
+    expect(isShortcutQueryResult(snapshot)).toBe(false);
   });
 
   it('matches only the page info request type', () => {

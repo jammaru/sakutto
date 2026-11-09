@@ -372,7 +372,7 @@
     "message": "Phím tắt"
   },
   "shortcutHelp": {
-    "message": "Nếu Chrome không gán phím cho lệnh, trang vẫn dùng phím mặc định. Bỏ chọn để tắt lệnh. Dùng Đổi phím tắt để sửa phím trong Chrome."
+    "message": "Bỏ chọn lệnh để tắt trong Sakutto. Đổi phím tắt mở trình sửa của Chrome. Xóa phím ở đó thì Sakutto ngừng dùng phím đó. Phím mặc định chỉ dùng trên trang khi Chrome không gán phím lúc cài, ví dụ vì xung đột."
   },
   "shortcutChange": {
     "message": "Đổi phím tắt"
@@ -387,7 +387,7 @@
     "message": "Tắt"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome không gán phím cho lệnh này nên trên trang sẽ dùng phím mặc định."
+    "message": "Chrome không gán phím cho lệnh này lúc cài nên trên trang sẽ dùng phím mặc định."
   },
   "shortcutTranslate": {
     "message": "$KEY$ chuyển đổi trang hoặc khôi phục bản gốc.",

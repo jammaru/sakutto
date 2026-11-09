@@ -1,18 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { t, type MessageKey } from '@/shared/i18n';
-  import { requestShortcutSnapshot } from '@/shared/messages';
+  import { requestShortcutSnapshot, type ShortcutQueryResult } from '@/shared/messages';
   import { openShortcutEditor } from '@/shared/shortcut-editor';
   import {
     SHORTCUT_COMMANDS,
     ariaShortcut,
     boundShortcut,
-    chromeLeftShortcutUnset,
     defaultShortcutEnabled,
     displayShortcut,
+    usesInPageFallback,
     type ShortcutCommand,
     type ShortcutEnabled,
-    type ShortcutSnapshot,
   } from '@/shared/shortcuts';
 
   const LABELS: Readonly<Record<ShortcutCommand, MessageKey>> = {
@@ -29,40 +28,51 @@
 
   let { enabled = defaultShortcutEnabled(), onToggle }: Props = $props();
 
-  let bound = $state<ShortcutSnapshot | null>(null);
+  let shortcutState = $state<ShortcutQueryResult | null>(null);
   let openFailed = $state(false);
 
   function isOn(command: ShortcutCommand): boolean {
     return enabled[command] !== false;
   }
 
+  function keyFor(command: ShortcutCommand): string {
+    return boundShortcut(shortcutState?.snapshot ?? null, command, {
+      assigned: shortcutState?.assigned[command],
+      enabled: isOn(command),
+    });
+  }
+
   function keyText(command: ShortcutCommand): string {
     if (!isOn(command)) return t('shortcutOff');
-    const shortcut = boundShortcut(bound, command);
+    const shortcut = keyFor(command);
     return shortcut.length > 0 ? displayShortcut(shortcut) : t('shortcutUnset');
   }
 
   function aria(command: ShortcutCommand): string | undefined {
     if (!isOn(command)) return undefined;
-    const shortcut = boundShortcut(bound, command);
+    const shortcut = keyFor(command);
     if (shortcut.length === 0) return undefined;
     return ariaShortcut(shortcut) ?? undefined;
   }
 
   function showsFallback(command: ShortcutCommand): boolean {
-    return isOn(command) && chromeLeftShortcutUnset(bound, command);
+    return (
+      isOn(command) &&
+      usesInPageFallback(shortcutState?.snapshot ?? null, command, shortcutState?.assigned[command])
+    );
   }
 
   function refresh(): void {
-    void requestShortcutSnapshot().then((snapshot) => {
-      if (snapshot) bound = snapshot;
+    void requestShortcutSnapshot().then((next) => {
+      if (next) shortcutState = next;
     });
   }
 
   /**
-   * Chrome owns the key bindings, so the only honest control is a button that opens Chrome's
-   * own editor. The rows are read again when the reader comes back from that tab. Sakutto's
-   * own checkbox is the off switch; Chrome leaving a command unbound is not.
+   * The browser owns the key bindings, so the only honest control is a button that opens
+   * its editor. The rows are read again when the reader comes back from that tab. Sakutto's
+   * own checkbox is one off switch; clearing a key in the browser is another. The in-page
+   * default only fills in when the browser never assigned the suggested key.
    */
   async function openEditor(): Promise<void> {
     openFailed = !(await openShortcutEditor());

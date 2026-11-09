@@ -372,7 +372,7 @@
     "message": "鍵盤快速鍵"
   },
   "shortcutHelp": {
-    "message": "即使 Chrome 未為命令指定快捷鍵，頁面上仍使用預設鍵。取消勾選即可關閉。點「變更快捷鍵」可在 Chrome 中修改。"
+    "message": "取消勾選即可在 Sakutto 中關閉該命令。「變更快捷鍵」會開啟 Chrome 自己的編輯器。在那裡清除按鍵後，Sakutto 也不再使用它。僅當安裝時 Chrome 從未指定快捷鍵（例如衝突）時，頁面上才使用預設鍵。"
   },
   "shortcutChange": {
     "message": "變更快速鍵"
@@ -387,7 +387,7 @@
     "message": "關閉"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome 未為此命令指定快捷鍵，因此頁面上使用預設鍵。"
+    "message": "安裝時 Chrome 未為此命令指定快捷鍵，因此頁面上使用預設鍵。"
   },
   "shortcutTranslate": {
     "message": "$KEY$ 可轉換頁面或還原原始頁面。",

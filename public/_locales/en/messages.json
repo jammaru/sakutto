@@ -372,7 +372,7 @@
     "message": "Keyboard shortcuts"
   },
   "shortcutHelp": {
-    "message": "When Chrome leaves a command unbound, the default key still works on pages. Uncheck a command here to turn it off. Use Change shortcuts to edit Chrome’s own bindings."
+    "message": "Uncheck a command to turn it off in Sakutto. Change shortcuts opens Chrome’s own editor. Clearing a key there stops Sakutto from using it. The default key is used on pages only when Chrome never assigned one, for example because of a conflict."
   },
   "shortcutChange": {
     "message": "Change shortcuts"
@@ -387,7 +387,7 @@
     "message": "Off"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome has no key for this command, so the default is used on pages."
+    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
   },
   "shortcutTranslate": {
     "message": "$KEY$ translates the page or restores the original.",

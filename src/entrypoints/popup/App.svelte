@@ -16,6 +16,7 @@
     requestQualitySample,
     requestShortcutSnapshot,
     type PageViewState,
+    type ShortcutQueryResult,
   } from '@/shared/messages';
   import { ensureContentScript } from '@/shared/page-bridge';
   import type { QualitySample } from '@/shared/quality';
@@ -39,7 +40,6 @@
     boundShortcut,
     displayShortcut,
     type ShortcutCommand,
-    type ShortcutSnapshot,
   } from '@/shared/shortcuts';
   import { readDeviceHeadroom, type DeviceHeadroom } from '@/ui/device-headroom';
   import LanguageField from '@/ui/LanguageField.svelte';
@@ -71,28 +71,28 @@
   let modelMark = $state<ModelStatus | null>(null);
   let quality = $state<QualitySample | null>(null);
   let headroom = $state<DeviceHeadroom | null>(null);
-  let shortcuts = $state<ShortcutSnapshot | null>(null);
+  let shortcuts = $state<ShortcutQueryResult | null>(null);
   let shortcutError = $state(false);
 
   /**
-   * The key each command actually uses on a page. Chrome leaving a command unbound is not
-   * an off switch — the manifest default stays until Sakutto's own setting turns it off.
+   * The key each command actually uses on a page. A browser-assigned key wins. The
+   * manifest default fills in only when the browser never assigned one. Sakutto's own
+   * setting, or a key the user cleared in the browser, turns the command off.
    */
   let bound = $derived.by((): Record<ShortcutCommand, string> => {
     const enabled = settings?.shortcutsEnabled;
     const next: Record<ShortcutCommand, string> = { ...DEFAULT_SHORTCUTS };
     for (const command of SHORTCUT_COMMANDS) {
-      next[command] = boundShortcut(
-        shortcuts,
-        command,
-        DEFAULT_SHORTCUTS[command],
-        enabled?.[command] !== false,
-      );
+      next[command] = boundShortcut(shortcuts?.snapshot ?? null, command, {
+        fallback: DEFAULT_SHORTCUTS[command],
+        enabled: enabled?.[command] !== false,
+        assigned: shortcuts?.assigned[command],
+      });
     }
     return next;
   });
   let shortcutLines = $derived(
-    SHORTCUT_HINTS.map((hint) => ({
+    SHORTCUT_HINTS.filter((hint) => bound[hint.command].length > 0).map((hint) => ({
       label: hint.label,
       text: t(hint.label, [keyText(hint.command)]),
     })),

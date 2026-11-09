@@ -3,15 +3,21 @@ import {
   DEFAULT_COMPOSE_SHORTCUT,
   DEFAULT_SELECTION_SHORTCUT,
   DEFAULT_SHORTCUTS,
+  SHORTCUT_COMMANDS,
   ariaShortcut,
   boundShortcut,
-  chromeLeftShortcutUnset,
   displayShortcut,
   isPlainAltS,
+  markCommandAssigned,
   matchesShortcut,
   parseShortcut,
   readShortcutSnapshot,
+  rememberShortcutAssignments,
+  shortcutAssignedRecord,
+  usesInPageFallback,
+  type ShortcutAssigned,
 } from '@/shared/shortcuts';
+import type { ShortcutSnapshot } from '@/shared/messages';
 
 function key(overrides: Partial<KeyboardEvent> = {}): KeyboardEvent {
   return {
@@ -104,6 +110,30 @@ describe('parseShortcut', () => {
   });
 });
 
+function snapshot(overrides: Partial<ShortcutSnapshot> = {}): ShortcutSnapshot {
+  return {
+    'translate-page': DEFAULT_SHORTCUTS['translate-page'],
+    'toggle-bilingual': DEFAULT_SHORTCUTS['toggle-bilingual'],
+    'translate-selection': DEFAULT_SHORTCUTS['translate-selection'],
+    'translate-compose': DEFAULT_SHORTCUTS['translate-compose'],
+    ...overrides,
+  };
+}
+
+function assigned(overrides: Partial<ShortcutAssigned> = {}): ShortcutAssigned {
+  return {
+    'translate-page': true,
+    'toggle-bilingual': true,
+    'translate-selection': true,
+    'translate-compose': true,
+    ...overrides,
+  };
+}
+
+function alt(code: string, letter: string): KeyboardEvent {
+  return key({ altKey: true, code, key: letter });
+}
+
 describe('readShortcutSnapshot', () => {
   it('reports each command the way Chrome does, and an unbound one as empty', () => {
     expect(
@@ -121,43 +151,6 @@ describe('readShortcutSnapshot', () => {
     });
   });
 
-  it('uses the default key when Chrome listed a command but left it unbound', () => {
-    const snapshot = readShortcutSnapshot([
-      { name: 'translate-page', shortcut: 'Alt+A' },
-      { name: 'toggle-bilingual', shortcut: 'Alt+B' },
-      { name: 'translate-selection', shortcut: 'Alt+S' },
-      { name: 'translate-compose', shortcut: '' },
-    ]);
-    expect(boundShortcut(snapshot, 'translate-compose', DEFAULT_COMPOSE_SHORTCUT)).toBe('Alt+T');
-    expect(boundShortcut(snapshot, 'translate-compose', DEFAULT_COMPOSE_SHORTCUT, false)).toBe('');
-    expect(chromeLeftShortcutUnset(snapshot, 'translate-compose')).toBe(true);
-    expect(chromeLeftShortcutUnset(snapshot, 'translate-page')).toBe(false);
-    expect(boundShortcut(null, 'translate-compose', DEFAULT_COMPOSE_SHORTCUT)).toBe('Alt+T');
-    expect(
-      boundShortcut(
-        {
-          'translate-page': null,
-          'toggle-bilingual': null,
-          'translate-selection': null,
-          'translate-compose': null,
-        },
-        'translate-compose',
-        DEFAULT_COMPOSE_SHORTCUT,
-      ),
-    ).toBe('Alt+T');
-    expect(
-      boundShortcut(
-        {
-          'translate-page': 'Alt+Q',
-          'toggle-bilingual': '',
-          'translate-selection': '',
-          'translate-compose': '',
-        },
-        'translate-page',
-      ),
-    ).toBe('Alt+Q');
-  });
-
   it('keeps a command Chrome did not list apart from an unbound one', () => {
     expect(readShortcutSnapshot([{ name: 'translate-page' }])).toEqual({
       'translate-page': '',
@@ -165,6 +158,112 @@ describe('readShortcutSnapshot', () => {
       'translate-selection': null,
       'translate-compose': null,
     });
+  });
+});
+
+describe('shortcut assignment and in-page fallback', () => {
+  it('uses the fresh-install defaults and does not treat them as unset', () => {
+    const live = snapshot();
+    const ever = rememberShortcutAssignments({}, live);
+    expect(shortcutAssignedRecord(ever)).toEqual(assigned());
+    for (const command of SHORTCUT_COMMANDS) {
+      const binding = boundShortcut(live, command, { assigned: ever[command] });
+      expect(binding, command).toBe(DEFAULT_SHORTCUTS[command]);
+      expect(usesInPageFallback(live, command, ever[command]), command).toBe(false);
+      expect(binding.length, command).toBeGreaterThan(0);
+    }
+    expect(boundShortcut(null, 'translate-page')).toBe('Alt+A');
+    expect(boundShortcut(null, 'translate-compose')).toBe(DEFAULT_COMPOSE_SHORTCUT);
+  });
+
+  it('stops handling a command the user cleared in Chrome', () => {
+    const installed = rememberShortcutAssignments({}, snapshot());
+    const cleared = snapshot({ 'translate-page': '' });
+    const ever = rememberShortcutAssignments(installed, cleared);
+    expect(ever['translate-page']).toBe(true);
+    expect(boundShortcut(cleared, 'translate-page', { assigned: ever['translate-page'] })).toBe('');
+    expect(usesInPageFallback(cleared, 'translate-page', ever['translate-page'])).toBe(false);
+    expect(
+      matchesShortcut(
+        alt('KeyA', 'a'),
+        boundShortcut(cleared, 'translate-page', { assigned: true }),
+      ),
+    ).toBe(false);
+  });
+
+  it('uses only the Chrome-rebound key, not the old default', () => {
+    const rebound = snapshot({ 'translate-page': 'Alt+Q' });
+    const ever = rememberShortcutAssignments({}, rebound);
+    const binding = boundShortcut(rebound, 'translate-page', { assigned: ever['translate-page'] });
+    expect(binding).toBe('Alt+Q');
+    expect(matchesShortcut(alt('KeyQ', 'q'), binding)).toBe(true);
+    expect(matchesShortcut(alt('KeyA', 'a'), binding)).toBe(false);
+    expect(usesInPageFallback(rebound, 'translate-page', true)).toBe(false);
+  });
+
+  it('keeps a Sakutto-disabled command off even when Chrome still has a key', () => {
+    const live = snapshot();
+    expect(boundShortcut(live, 'toggle-bilingual', { enabled: false, assigned: true })).toBe('');
+    expect(
+      matchesShortcut(
+        alt('KeyB', 'b'),
+        boundShortcut(live, 'toggle-bilingual', { enabled: false, assigned: true }),
+      ),
+    ).toBe(false);
+  });
+
+  it('falls back to the default only when Chrome never assigned the key at install', () => {
+    const conflict = snapshot({ 'translate-compose': '' });
+    const ever = rememberShortcutAssignments({}, conflict);
+    expect(ever['translate-compose']).toBe(false);
+    expect(ever['translate-page']).toBe(true);
+    const binding = boundShortcut(conflict, 'translate-compose', {
+      assigned: ever['translate-compose'],
+    });
+    expect(binding).toBe(DEFAULT_COMPOSE_SHORTCUT);
+    expect(usesInPageFallback(conflict, 'translate-compose', ever['translate-compose'])).toBe(true);
+    expect(usesInPageFallback(conflict, 'translate-page', ever['translate-page'])).toBe(false);
+    expect(matchesShortcut(alt('KeyT', 't'), binding)).toBe(true);
+  });
+
+  it('seeds a command added in an update without resetting the others', () => {
+    const recorded = rememberShortcutAssignments(
+      {
+        'translate-page': true,
+        'toggle-bilingual': true,
+        'translate-selection': false,
+      },
+      snapshot({
+        'translate-selection': '',
+        'translate-compose': '',
+      }),
+    );
+    expect(recorded['translate-page']).toBe(true);
+    expect(recorded['translate-selection']).toBe(false);
+    expect(recorded['translate-compose']).toBe(false);
+  });
+
+  it('promotes a later browser assignment, and never treats a clear as a fresh conflict', () => {
+    const conflict = rememberShortcutAssignments({}, snapshot({ 'translate-page': '' }));
+    expect(conflict['translate-page']).toBe(false);
+    const rebound = rememberShortcutAssignments(conflict, snapshot({ 'translate-page': 'Alt+Q' }));
+    expect(rebound['translate-page']).toBe(true);
+    const cleared = rememberShortcutAssignments(rebound, snapshot({ 'translate-page': '' }));
+    expect(cleared['translate-page']).toBe(true);
+    expect(
+      boundShortcut(snapshot({ 'translate-page': '' }), 'translate-page', { assigned: true }),
+    ).toBe('');
+  });
+
+  it('treats a command the browser later delivers as assigned', () => {
+    const conflict = rememberShortcutAssignments({}, snapshot({ 'toggle-bilingual': '' }));
+    expect(conflict['toggle-bilingual']).toBe(false);
+    expect(markCommandAssigned(conflict, 'toggle-bilingual')['toggle-bilingual']).toBe(true);
+  });
+
+  it('uses a rebound key even when that command was a conflict at install', () => {
+    const live = snapshot({ 'translate-compose': 'Alt+Shift+L' });
+    expect(boundShortcut(live, 'translate-compose', { assigned: false })).toBe('Alt+Shift+L');
   });
 });
 

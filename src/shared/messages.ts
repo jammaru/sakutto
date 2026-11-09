@@ -97,14 +97,34 @@ export interface OpenSetupRequest {
 }
 
 /**
- * The key each rebindable command holds right now, as Chrome reports it: `Alt+A`, `⌥⇧P` on a
- * Mac, or `''` for a command the user unbound. `null` means the command was not listed.
+ * The key each rebindable command holds right now, as the browser reports it: `Alt+A`,
+ * `⌥⇧P` on a Mac, or `''` for a command with no key. `null` means the command was not listed.
  */
 export interface ShortcutSnapshot {
   'translate-page': string | null;
   'toggle-bilingual': string | null;
   'translate-selection': string | null;
   'translate-compose': string | null;
+}
+
+/**
+ * Whether the browser has assigned a key to each command at least once since we first
+ * observed `commands.getAll()`. `true` means a later empty binding is a user clear.
+ */
+export interface ShortcutAssigned {
+  'translate-page': boolean;
+  'toggle-bilingual': boolean;
+  'translate-selection': boolean;
+  'translate-compose': boolean;
+}
+
+/**
+ * Live bindings plus the persisted "ever assigned" map a page needs to decide whether the
+ * in-page default should still run.
+ */
+export interface ShortcutQueryResult {
+  snapshot: ShortcutSnapshot;
+  assigned: ShortcutAssigned;
 }
 
 export interface ModelDownloadRequest {
@@ -227,6 +247,26 @@ export function isShortcutSnapshot(value: unknown): value is ShortcutSnapshot {
     isShortcutBinding(value['toggle-bilingual']) &&
     isShortcutBinding(value['translate-selection']) &&
     isShortcutBinding(value['translate-compose'])
+  );
+}
+
+function isShortcutAssignedFlag(value: unknown): value is boolean {
+  return value === true || value === false;
+}
+
+export function isShortcutAssigned(value: unknown): value is ShortcutAssigned {
+  return (
+    isRecord(value) &&
+    isShortcutAssignedFlag(value['translate-page']) &&
+    isShortcutAssignedFlag(value['toggle-bilingual']) &&
+    isShortcutAssignedFlag(value['translate-selection']) &&
+    isShortcutAssignedFlag(value['translate-compose'])
+  );
+}
+
+export function isShortcutQueryResult(value: unknown): value is ShortcutQueryResult {
+  return (
+    isRecord(value) && isShortcutSnapshot(value.snapshot) && isShortcutAssigned(value.assigned)
   );
 }
 
@@ -366,12 +406,12 @@ export async function requestEngineWarm(): Promise<boolean> {
   }
 }
 
-export async function requestShortcutSnapshot(): Promise<ShortcutSnapshot | null> {
+export async function requestShortcutSnapshot(): Promise<ShortcutQueryResult | null> {
   try {
     const response: unknown = await browser.runtime.sendMessage({
       type: 'commands:shortcuts',
     } satisfies ShortcutQuery);
-    return isShortcutSnapshot(response) ? response : null;
+    return isShortcutQueryResult(response) ? response : null;
   } catch {
     return null;
   }

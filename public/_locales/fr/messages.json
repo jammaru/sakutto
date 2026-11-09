@@ -372,7 +372,7 @@
     "message": "Raccourcis clavier"
   },
   "shortcutHelp": {
-    "message": "Si Chrome n’assigne pas de touche à une commande, la touche par défaut s’applique quand même sur les pages. Décochez une commande pour la désactiver. Utilisez Modifier les raccourcis pour changer les touches dans Chrome."
+    "message": "Décochez une commande pour la désactiver dans Sakutto. Modifier les raccourcis ouvre l’éditeur de Chrome. Si vous y effacez une touche, Sakutto cesse de l’utiliser. La touche par défaut s’applique sur les pages seulement si Chrome n’en a jamais assigné une à l’installation, par exemple à cause d’un conflit."
   },
   "shortcutChange": {
     "message": "Modifier les raccourcis"
@@ -387,7 +387,7 @@
     "message": "Désactivé"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome n’a pas de touche pour cette commande ; la touche par défaut s’applique sur les pages."
+    "message": "Chrome n’a pas assigné de touche à cette commande à l’installation ; la touche par défaut s’applique sur les pages."
   },
   "shortcutTranslate": {
     "message": "$KEY$ traduit la page ou rétablit l’original.",
