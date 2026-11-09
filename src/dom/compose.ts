@@ -77,6 +77,8 @@ export interface ComposePreferences {
 }
 
 const ICON_PX = 26;
+/** Chrome's command and the page keydown can both arrive for one keypress. */
+const COMPOSE_SHORTCUT_DEDUP_MS = 200;
 
 const uiShadows = new WeakMap<Element, ShadowRoot>();
 
@@ -547,6 +549,7 @@ class ComposeOverlay {
     replace.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
+      if (replace.disabled) return;
       this.onReplace();
     });
     const undo = this.doc.createElement('button');
@@ -559,6 +562,7 @@ class ComposeOverlay {
     undo.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
+      if (undo.disabled) return;
       this.onUndo();
     });
     const close = this.doc.createElement('button');
@@ -733,8 +737,9 @@ export class ComposeController {
 
   /** Chrome command, context menu, or the in-page key. Never sends the message. */
   handleShortcut(): void {
+    if (this.replacing) return;
     const now = Date.now();
-    if (now - this.lastShortcutAt < 80) return;
+    if (now - this.lastShortcutAt < COMPOSE_SHORTCUT_DEDUP_MS) return;
     this.lastShortcutAt = now;
     if (!this.prefs.enabled) return;
     const field = this.resolveField();
@@ -886,6 +891,7 @@ export class ComposeController {
       if (event.isComposing || !this.panelOpen) return;
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation();
       this.dismiss();
       return;
     }
@@ -893,12 +899,15 @@ export class ComposeController {
     if (this.panelOpen && isTranslateShortcut(event)) {
       event.preventDefault();
       event.stopPropagation();
-      this.requestReplace();
+      event.stopImmediatePropagation();
+      if (!this.replacing) this.requestReplace();
       return;
     }
     if (!this.composeKey(event)) return;
     event.preventDefault();
     event.stopPropagation();
+    event.stopImmediatePropagation();
+    if (this.replacing) return;
     this.handleShortcut();
   }
 
@@ -996,6 +1005,7 @@ export class ComposeController {
   }
 
   private requestReplace(): void {
+    if (this.replacing) return;
     if (this.canApply()) {
       void this.apply();
       return;
@@ -1011,6 +1021,7 @@ export class ComposeController {
 
   private async apply(): Promise<void> {
     this.replaceWhenReady = false;
+    if (this.replacing) return;
     const field = this.resolveField();
     if (!field || !this.canApply()) return;
     const snapshot = snapshotComposeField(field);
@@ -1034,20 +1045,23 @@ export class ComposeController {
   }
 
   private async undo(): Promise<void> {
+    if (this.replacing) return;
     const field = this.resolveField();
     if (!field || this.snapshot === null) return;
     const snapshot = this.snapshot;
+    const method = this.replaceMethod;
+    // Consume the snapshot before writing so a second click cannot insert again.
+    this.snapshot = null;
+    this.replaceMethod = null;
     this.replacing = true;
     try {
-      const result = await undoComposeReplace(field, snapshot, this.replaceMethod);
+      const result = await undoComposeReplace(field, snapshot, method);
+      this.applied = null;
       if (!result.ok) {
         this.failed = true;
         this.render();
         return;
       }
-      this.applied = null;
-      this.snapshot = null;
-      this.replaceMethod = null;
       this.render();
     } finally {
       this.replacing = false;

@@ -17,8 +17,8 @@ import {
 
 function mountSlate(
   initial: string,
-  options: { asyncSelection?: boolean } = {},
-): HTMLElement & { slateValue: string } {
+  options: { asyncSelection?: boolean; asyncApply?: boolean } = {},
+): HTMLElement & { slateValue: string; beforeCount: number } {
   const editor = document.createElement('div');
   editor.setAttribute('contenteditable', 'true');
   editor.setAttribute('role', 'textbox');
@@ -57,23 +57,42 @@ function mountSlate(
     selStart = next.start;
     selEnd = next.end;
   });
+  let beforeCount = 0;
   editor.addEventListener('beforeinput', (event) => {
     const input = event as InputEvent;
     if (input.inputType !== 'insertText' && input.inputType !== 'insertFromPaste') return;
     const data = input.data ?? input.dataTransfer?.getData('text/plain') ?? '';
     if (data.length === 0) return;
     event.preventDefault();
+    beforeCount += 1;
     const start = options.asyncSelection ? selStart : offsetsFromDom().start;
     const end = options.asyncSelection ? selEnd : offsetsFromDom().end;
-    value = value.slice(0, start) + data + value.slice(end);
-    selStart = selEnd = start + data.length;
-    render();
+    const apply = (): void => {
+      value = value.slice(0, start) + data + value.slice(end);
+      selStart = selEnd = start + data.length;
+      render();
+    };
+    if (options.asyncApply) {
+      const view = editor.ownerDocument.defaultView;
+      if (view && typeof view.requestAnimationFrame === 'function') {
+        view.requestAnimationFrame(() => {
+          setTimeout(apply, 0);
+        });
+      } else {
+        setTimeout(apply, 32);
+      }
+    } else {
+      apply();
+    }
   });
   render();
   Object.defineProperty(editor, 'slateValue', {
     get: () => value,
   });
-  return editor as unknown as HTMLElement & { slateValue: string };
+  Object.defineProperty(editor, 'beforeCount', {
+    get: () => beforeCount,
+  });
+  return editor as unknown as HTMLElement & { slateValue: string; beforeCount: number };
 }
 
 describe('compose field eligibility', () => {
@@ -363,6 +382,63 @@ describe('reading and replacing compose text', () => {
     const result = await replaceComposeText(editor, 'English draft');
     expect(result.ok).toBe(true);
     expect(editor.slateValue).toBe('English draft');
+  });
+
+  it('waits for an async Slate render and writes only once', async () => {
+    const editor = mountSlate(
+      'こんにちはー！！これはSakuttoの入力リアルタイム翻訳機能を使ってコメントしています。',
+      {
+        asyncApply: true,
+      },
+    );
+    document.body.append(editor);
+    editor.focus();
+    const snapshot = snapshotComposeField(editor);
+    const result = await replaceComposeText(
+      editor,
+      "Hi there!! I'm commenting using Sakutto's real-time input translation feature.",
+    );
+    expect(result.ok).toBe(true);
+    expect(editor.beforeCount).toBe(1);
+    expect(editor.slateValue).toBe(
+      "Hi there!! I'm commenting using Sakutto's real-time input translation feature.",
+    );
+    expect(editor.slateValue.includes('Hi there!!')).toBe(true);
+    expect(
+      editor.slateValue.split(
+        "Hi there!! I'm commenting using Sakutto's real-time input translation feature.",
+      ).length - 1,
+    ).toBe(1);
+
+    const undone = await undoComposeReplace(editor, snapshot, result.method);
+    expect(undone.ok).toBe(true);
+    expect(editor.slateValue).toBe(
+      'こんにちはー！！これはSakuttoの入力リアルタイム翻訳機能を使ってコメントしています。',
+    );
+
+    const again = await undoComposeReplace(editor, snapshot, result.method);
+    expect(again.ok).toBe(true);
+    expect(editor.beforeCount).toBe(2);
+    expect(editor.slateValue).toBe(
+      'こんにちはー！！これはSakuttoの入力リアルタイム翻訳機能を使ってコメントしています。',
+    );
+  });
+
+  it('serializes a second replace so a double trigger cannot insert twice', async () => {
+    const editor = mountSlate('日本語の下書き', { asyncApply: true });
+    document.body.append(editor);
+    editor.focus();
+    const first = replaceComposeText(editor, 'English draft');
+    const second = replaceComposeText(editor, 'English draft');
+    const results = await Promise.all([first, second]);
+    expect(results.every((result) => result.ok)).toBe(true);
+    expect(editor.beforeCount).toBe(1);
+    expect(editor.slateValue).toBe('English draft');
+  });
+
+  it('ignores zero-width characters when verifying a write', () => {
+    expect(textsMatch('Hi\u200B there', 'Hi there')).toBe(true);
+    expect(textsMatch('Hi\u00A0there', 'Hi there')).toBe(true);
   });
 
   it('prefers native undo so formatting can come back after insertText', async () => {

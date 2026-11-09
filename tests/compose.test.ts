@@ -129,7 +129,7 @@ describe('compose controller', () => {
       expect(panelText()).toContain('§ja§See you tomorrow.');
     });
     expect(panelButton('Replace').textContent).toContain('Alt+T');
-    await new Promise((resolve) => setTimeout(resolve, 90));
+    await new Promise((resolve) => setTimeout(resolve, 220));
     controller.handleShortcut();
     await vi.waitFor(() => {
       expect(field.value).toBe('§ja§See you tomorrow.');
@@ -202,7 +202,7 @@ describe('compose controller', () => {
     await vi.waitFor(() => {
       expect(panelText()).toContain('Translating');
     });
-    await new Promise((resolve) => setTimeout(resolve, 90));
+    await new Promise((resolve) => setTimeout(resolve, 220));
     controller.handleShortcut();
     expect(field.value).toBe('See you tomorrow.');
     release?.();
@@ -431,15 +431,28 @@ describe('compose controller', () => {
     editor.contentEditable = 'true';
     editor.setAttribute('role', 'textbox');
     let value = '会議は明日です';
+    let beforeCount = 0;
     const render = (): void => {
       editor.textContent = value;
     };
     editor.addEventListener('beforeinput', (event) => {
       const input = event as InputEvent;
-      if (input.inputType !== 'insertText' || input.data === null) return;
+      if (input.inputType !== 'insertText' && input.inputType !== 'insertFromPaste') return;
+      const data = input.data ?? input.dataTransfer?.getData('text/plain') ?? '';
+      if (data.length === 0) return;
       event.preventDefault();
-      value = input.data;
-      render();
+      beforeCount += 1;
+      const next = data;
+      const apply = (): void => {
+        value = next;
+        render();
+      };
+      const view = editor.ownerDocument.defaultView;
+      if (view && typeof view.requestAnimationFrame === 'function') {
+        view.requestAnimationFrame(() => setTimeout(apply, 0));
+      } else {
+        setTimeout(apply, 32);
+      }
     });
     render();
     document.body.append(editor);
@@ -452,13 +465,19 @@ describe('compose controller', () => {
     });
     expect(value).toBe('会議は明日です');
     clickPanel('Replace');
+    controller.handleShortcut();
     await vi.waitFor(() => {
       expect(value).toBe('§en§会議は明日です');
     });
+    expect(beforeCount).toBe(1);
     clickPanel('Restore original');
     await vi.waitFor(() => {
       expect(value).toBe('会議は明日です');
     });
+    expect(panelButton('Restore original').disabled).toBe(true);
+    clickPanel('Restore original');
+    expect(value).toBe('会議は明日です');
+    expect(beforeCount).toBe(2);
   });
 
   it('does not write into a password field and shows that it cannot be translated', () => {

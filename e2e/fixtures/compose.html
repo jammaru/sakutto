@@ -121,9 +121,16 @@
         const data = event.data ?? event.dataTransfer?.getData('text/plain') ?? '';
         if (!data) return;
         event.preventDefault();
-        value = value.slice(0, selStart) + data + value.slice(selEnd);
-        selStart = selEnd = selStart + data.length;
-        render();
+        const start = selStart;
+        const end = selEnd;
+        // Discord's Slate applies the change after the current frame, not in the handler.
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            value = value.slice(0, start) + data + value.slice(end);
+            selStart = selEnd = start + data.length;
+            render();
+          }, 0);
+        });
       });
       editor.addEventListener('keydown', (event) => {
         if (event.key !== 'Backspace' && event.key !== 'Delete') return;

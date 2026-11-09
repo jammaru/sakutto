@@ -145,8 +145,16 @@ function lineBreaks(value: string): string {
   return value.replace(/\r\n?/gu, '\n');
 }
 
+/**
+ * Zero-width and format characters Slate/Discord leave in the DOM. They must not make a
+ * successful write look like a miss, or the next strategy will insert again.
+ */
+const INVISIBLE_CHARS = /[\u200B-\u200D\u2060\uFEFF\u00AD]/gu;
+
 function normalizeForCompare(value: string): string {
   return lineBreaks(value)
+    .replace(INVISIBLE_CHARS, '')
+    .replace(/\u00A0/gu, ' ')
     .split('\n')
     .map((line) => line.replace(/[ \t]+/gu, ' ').trim())
     .join('\n')
@@ -627,7 +635,30 @@ export function nextComposeFrame(doc: Document): Promise<void> {
   });
 }
 
+/**
+ * Discord's Slate applies `beforeinput` on a later tick than the event. One animation
+ * frame is not enough; waiting this long still feels like a click, and a match returns
+ * as soon as the DOM catches up.
+ */
+export const COMPOSE_STRATEGY_WAIT_MS = 200;
+
 type StrategyOutcome = 'ok' | 'changed' | 'noop';
+
+function preservedKept(field: Element, preserved: readonly ChildNode[]): boolean {
+  return preserved.every((node) => node.isConnected && field.contains(node));
+}
+
+function draftIsExpected(
+  field: Element,
+  expected: string,
+  preserved: readonly ChildNode[],
+): boolean {
+  return preservedKept(field, preserved) && textsMatch(readDraftRegionText(field), expected);
+}
+
+function strategyChanged(field: Element, before: string, preserved: readonly ChildNode[]): boolean {
+  return surfaceOf(field) !== before || !preservedKept(field, preserved);
+}
 
 async function afterStrategy(
   field: Element,
@@ -635,11 +666,51 @@ async function afterStrategy(
   before: string,
   preserved: readonly ChildNode[],
 ): Promise<StrategyOutcome> {
-  await nextComposeFrame(field.ownerDocument);
-  const kept = preserved.every((node) => node.isConnected && field.contains(node));
-  if (textsMatch(readDraftRegionText(field), expected) && kept) return 'ok';
-  if (surfaceOf(field) !== before || !kept) return 'changed';
-  return 'noop';
+  if (draftIsExpected(field, expected, preserved)) return 'ok';
+  const doc = field.ownerDocument;
+  const view = doc.defaultView;
+  const deadline = Date.now() + COMPOSE_STRATEGY_WAIT_MS;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let observer: MutationObserver | null = null;
+    const finish = (outcome: StrategyOutcome): void => {
+      if (settled) return;
+      settled = true;
+      observer?.disconnect();
+      resolve(outcome);
+    };
+    const sample = (): boolean => {
+      if (draftIsExpected(field, expected, preserved)) {
+        finish('ok');
+        return true;
+      }
+      return false;
+    };
+    try {
+      observer = new MutationObserver(() => {
+        sample();
+      });
+      observer.observe(field, { subtree: true, childList: true, characterData: true });
+    } catch {
+      observer = null;
+    }
+    const tick = (): void => {
+      if (settled) return;
+      if (sample()) return;
+      if (Date.now() >= deadline) {
+        finish(strategyChanged(field, before, preserved) ? 'changed' : 'noop');
+        return;
+      }
+      if (view && typeof view.requestAnimationFrame === 'function') {
+        view.requestAnimationFrame(tick);
+      } else {
+        setTimeout(tick, 16);
+      }
+    };
+    tick();
+    setTimeout(tick, COMPOSE_STRATEGY_WAIT_MS);
+  });
 }
 
 function accepted(
@@ -665,26 +736,48 @@ function accepted(
  * compose does not lose them. Native inputs use the prototype setter so a framework that
  * hooked `value` still sees the write, then an `input` event.
  */
+const replaceInFlight = new WeakMap<Element, Promise<unknown>>();
+
 export async function replaceComposeText(
   field: Element,
   text: string,
 ): Promise<ComposeReplaceResult> {
+  const previous = replaceInFlight.get(field) ?? Promise.resolve();
+  let release: (() => void) | undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const chained = previous.catch(() => undefined).then(() => gate);
+  replaceInFlight.set(field, chained);
+  await previous.catch(() => undefined);
+  try {
+    return await replaceComposeTextOnce(field, text);
+  } finally {
+    release?.();
+    if (replaceInFlight.get(field) === chained) replaceInFlight.delete(field);
+  }
+}
+
+async function replaceComposeTextOnce(field: Element, text: string): Promise<ComposeReplaceResult> {
   if (!isComposeCandidate(field)) return { ok: false, method: null };
 
   const expected = expectedDraft(field, text);
   const preserved = preservedTail(field);
+  if (draftIsExpected(field, expected, preserved)) return { ok: true, method: null };
+
+  const run = async (
+    method: ComposeReplaceMethod,
+    act: () => void,
+  ): Promise<ComposeReplaceResult | null> => {
+    if (draftIsExpected(field, expected, preserved)) return { ok: true, method };
+    const before = surfaceOf(field);
+    act();
+    return accepted(await afterStrategy(field, expected, before, preserved), method);
+  };
 
   if (isNativeTextField(field)) {
     const span = nativeSpan(field);
     if (!span) selectNative(field);
-    const run = async (
-      method: ComposeReplaceMethod,
-      act: () => void,
-    ): Promise<ComposeReplaceResult | null> => {
-      const before = surfaceOf(field);
-      act();
-      return accepted(await afterStrategy(field, expected, before, preserved), method);
-    };
 
     const inserted = await run('insertText', () => {
       tryExecInsert(field.ownerDocument, text);
@@ -696,6 +789,7 @@ export async function replaceComposeText(
     });
     if (beforeInput) return beforeInput;
 
+    if (draftIsExpected(field, expected, preserved)) return { ok: true, method: 'beforeinput' };
     const before = surfaceOf(field);
     setNativeValue(field, expected);
     dispatchNativeInput(field, text, 'insertReplacementText');
@@ -706,21 +800,14 @@ export async function replaceComposeText(
   focusField(field);
   if (selectedComposeText(field) === null) selectDraftRegion(field);
   await nextComposeFrame(field.ownerDocument);
-
-  const run = async (
-    method: ComposeReplaceMethod,
-    act: () => void,
-  ): Promise<ComposeReplaceResult | null> => {
-    const before = surfaceOf(field);
-    act();
-    return accepted(await afterStrategy(field, expected, before, preserved), method);
-  };
+  if (draftIsExpected(field, expected, preserved)) return { ok: true, method: null };
 
   const insertText = await run('beforeinput', () => {
     dispatchBeforeInput(field, 'insertText', text, null);
   });
   if (insertText) return insertText;
 
+  if (draftIsExpected(field, expected, preserved)) return { ok: true, method: 'beforeinput' };
   const paste = await run('beforeinput', () => {
     dispatchBeforeInput(field, 'insertFromPaste', text, clipboardFor(text, field.ownerDocument));
   });
@@ -729,12 +816,16 @@ export async function replaceComposeText(
   // insertText on a range that starts at the contenteditable root can swallow sibling
   // signature and quote blocks in Gmail/Outlook. Skip it when those nodes are present.
   if (preserved.length === 0) {
+    if (draftIsExpected(field, expected, preserved)) return { ok: true, method: 'beforeinput' };
     const command = await run('insertText', () => {
       tryExecInsert(field.ownerDocument, text);
     });
     if (command) return command;
   }
 
+  if (draftIsExpected(field, expected, preserved)) {
+    return { ok: true, method: preserved.length === 0 ? 'insertText' : 'beforeinput' };
+  }
   const before = surfaceOf(field);
   applyNativeContents(field, text);
   const outcome = await afterStrategy(field, expected, before, preserved);
@@ -756,6 +847,7 @@ async function restoreDraftThroughEditor(
   field: Element,
   snapshot: ComposeSnapshot,
 ): Promise<ComposeReplaceResult> {
+  if (restoreVerified(field, snapshot)) return { ok: true, method: 'undo' };
   focusField(field);
   selectDraftRegion(field);
   const result = await replaceComposeText(field, snapshot.draft);
@@ -767,6 +859,7 @@ async function writeSnapshot(
   snapshot: ComposeSnapshot,
   method: ComposeReplaceMethod | null,
 ): Promise<ComposeReplaceResult> {
+  if (restoreVerified(field, snapshot)) return { ok: true, method: 'undo' };
   if (isNativeTextField(field)) {
     setNativeValue(field, snapshot.text);
     dispatchNativeInput(field, snapshot.text, 'insertReplacementText');
@@ -798,11 +891,13 @@ export async function undoComposeReplace(
   method: ComposeReplaceMethod | null = null,
 ): Promise<ComposeReplaceResult> {
   if (!isComposeCandidate(field)) return { ok: false, method: null };
+  if (restoreVerified(field, snapshot)) return { ok: true, method: 'undo' };
   focusField(field);
   if (method === 'insertText' && tryExecUndo(field.ownerDocument)) {
     await nextComposeFrame(field.ownerDocument);
     if (restoreVerified(field, snapshot)) return { ok: true, method: 'undo' };
   }
+  if (restoreVerified(field, snapshot)) return { ok: true, method: 'undo' };
   return writeSnapshot(field, snapshot, method);
 }
 

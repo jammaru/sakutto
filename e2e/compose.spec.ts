@@ -86,6 +86,14 @@ test.describe('compose translation', () => {
         )
         .toBe(`${MARKER}よろしくお願いします。`);
       await page.screenshot({ path: 'e2e-results/compose-slate.png', fullPage: true });
+      await page.locator('sakutto-compose').evaluate((el) => {
+        el.dispatchEvent(new CustomEvent('sakutto-compose-action', { detail: 'undo' }));
+      });
+      await expect
+        .poll(async () =>
+          page.evaluate(() => document.querySelector('#slate')?.getAttribute('data-slate-value')),
+        )
+        .toBe('よろしくお願いします。');
     } finally {
       await page.close();
     }

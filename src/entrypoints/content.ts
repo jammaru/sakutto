@@ -335,7 +335,7 @@ export default defineContentScript({
 
     const run = async (command: PageCommandName) => {
       const now = Date.now();
-      if (lastCommand === command && now - lastCommandAt < 80) {
+      if (lastCommand === command && now - lastCommandAt < (command === 'compose' ? 200 : 80)) {
         return (await sessionPromise).state();
       }
       lastCommand = command;
