@@ -1,6 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resetWebGpuDebugProfile, setWebGpuDebugProfile } from '@/shared/gpu-diagnostic';
+import {
+  resetWebGpuDebugProfile,
+  setWebGpuDebugProfile,
+  subgroupShadersEnabled,
+} from '@/shared/gpu-diagnostic';
 import {
   diagnosticFromAdapter,
   infoFromAdapter,
@@ -107,6 +111,24 @@ describe('WebGPU adapter selection', () => {
     expect(infoFromAdapter(adapter({ vendor: 'amd' }), true).fastBatches).toBe(false);
     expect(infoFromAdapter(adapter({ vendor: 'nvidia' }), true).fastBatches).toBe(true);
     expect(infoFromAdapter(adapter({ vendor: 'intel' }), true).fastBatches).toBe(false);
+  });
+
+  it('does not invent a subgroup size when the adapter reports 0', () => {
+    const diagnostic = diagnosticFromAdapter(
+      adapter({
+        subgroupMinSize: 0,
+        subgroupMaxSize: 0,
+      }),
+    );
+    expect(diagnostic.subgroupMinSize).toBe(0);
+    expect(diagnostic.subgroupMaxSize).toBe(0);
+    expect(
+      subgroupShadersEnabled(
+        diagnostic.subgroups,
+        diagnostic.subgroupMinSize,
+        diagnostic.subgroupMaxSize,
+      ),
+    ).toBe(false);
   });
 
   it('does not treat NVIDIA as fast batches under an AMD debug profile', () => {

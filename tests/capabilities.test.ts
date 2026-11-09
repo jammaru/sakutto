@@ -3,18 +3,20 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { probeCapabilities, resetCapabilityProbe } from '@/shared/capabilities';
+import { resetWebGpuDebugProfile, setWebGpuDebugProfile } from '@/shared/gpu-diagnostic';
 
 describe('WebGPU probe', () => {
   afterEach(() => {
     resetCapabilityProbe();
+    resetWebGpuDebugProfile();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
   it('asks for an adapter even when WebGL would be software', async () => {
     const requestAdapter = vi.fn<
-      (opts?: { powerPreference?: string }) => Promise<{ name: string }>
-    >(async () => ({ name: 'adapter' }));
+      (opts?: { powerPreference?: string }) => Promise<{ name: string; features: Set<string> }>
+    >(async () => ({ name: 'adapter', features: new Set(['shader-f16']) }));
     vi.stubGlobal('navigator', { gpu: { requestAdapter }, hardwareConcurrency: 4 });
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
 
@@ -50,7 +52,10 @@ describe('WebGPU probe', () => {
   );
 
   it('asks once when a hardware WebGL context exists', async () => {
-    const requestAdapter = vi.fn(async () => ({ name: 'adapter' }));
+    const requestAdapter = vi.fn(async () => ({
+      name: 'adapter',
+      features: new Set(['shader-f16']),
+    }));
     vi.stubGlobal('navigator', { gpu: { requestAdapter }, hardwareConcurrency: 8 });
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({} as RenderingContext);
 
@@ -127,6 +132,37 @@ describe('WebGPU probe', () => {
 
     expect(capabilities.webgpu).toBe('ready');
     expect(capabilities.gpuFastBatches).toBe(false);
+  });
+
+  it('treats a missing shader-f16 adapter as WebGPU unavailable', async () => {
+    vi.stubGlobal('navigator', {
+      gpu: {
+        requestAdapter: vi.fn(async () => ({
+          info: { vendor: 'amd' },
+          features: new Set(['subgroups']),
+        })),
+        wgslLanguageFeatures: new Set(['packed_4x8_integer_dot_product']),
+      },
+      hardwareConcurrency: 8,
+    });
+
+    expect((await probeCapabilities()).webgpu).toBe('unavailable');
+  });
+
+  it('skips WebGPU when the no-f16 debug profile is on', async () => {
+    setWebGpuDebugProfile('no-f16');
+    vi.stubGlobal('navigator', {
+      gpu: {
+        requestAdapter: vi.fn(async () => ({
+          info: { vendor: 'nvidia' },
+          features: new Set(['shader-f16', 'subgroups']),
+        })),
+        wgslLanguageFeatures: new Set(['packed_4x8_integer_dot_product']),
+      },
+      hardwareConcurrency: 8,
+    });
+
+    expect((await probeCapabilities()).webgpu).toBe('unavailable');
   });
 
   it('reports unsupported when the browser has no WebGPU', async () => {

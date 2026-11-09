@@ -114,8 +114,9 @@ async function warmup(runtime: LlamaRuntime, tgt: string): Promise<void> {
  */
 export function skipRemainingWebGpuAttempts(error: unknown): boolean {
   if (!isEngineError(error)) return false;
+  if (error.code === 'gpu-unavailable') return true;
   const text = `${error.detail ?? ''}\n${error.message}`;
-  return /Failed to get an adapter|adapter lacks shader-f16|no adapter with shader-f16|Failed to get a device after retries|giving up on WebGPU|Error while parsing WGSL|extension 'subgroups' is not allowed/iu.test(
+  return /Failed to get an adapter|adapter lacks shader-f16|no adapter with shader-f16|Failed to get a device after retries|giving up on WebGPU|Error while parsing WGSL|extension 'subgroups' is not allowed|correctness probe failed|WebGPU backend disabled/iu.test(
     text,
   );
 }

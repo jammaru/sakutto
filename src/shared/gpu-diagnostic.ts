@@ -1,7 +1,8 @@
 import { isRecord } from './object';
 
-export type WebGpuDebugProfile =
-  'off' | 'amd-rdna3' | 'intel-arc' | 'no-f16' | 'subgroup-64' | 'reject-max-limits';
+export type WebGpuDebugProfile = 'off' | 'amd-rdna3' | 'intel-arc' | 'no-f16' | 'reject-max-limits';
+
+export type CorrectnessProbeStatus = 'ok' | 'failed' | 'subgroups-disabled';
 
 export const WEBGPU_DEBUG_STORAGE_KEY = 'sakuttoWebGpuDebug';
 export const WEBGPU_DEBUG_QUERY_PARAM = 'webgpuDebug';
@@ -12,9 +13,32 @@ const DEBUG_PROFILES: ReadonlySet<string> = new Set<WebGpuDebugProfile>([
   'amd-rdna3',
   'intel-arc',
   'no-f16',
-  'subgroup-64',
   'reject-max-limits',
 ]);
+
+const REJECT_MAX_NOTE = 'debug: reject adapter-max requestDevice';
+
+/**
+ * Shader specialization may only use a size the adapter actually reported.
+ * Unknown, zero, or inverted ranges mean the non-subgroup (workgroup) path.
+ */
+export function reportedSubgroupRange(
+  min: number | null | undefined,
+  max: number | null | undefined,
+): { min: number; max: number } | null {
+  if (typeof min !== 'number' || typeof max !== 'number') return null;
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
+  if (min <= 0 || max <= 0 || max < min) return null;
+  return { min, max };
+}
+
+export function subgroupShadersEnabled(
+  hasFeature: boolean | null | undefined,
+  min: number | null | undefined,
+  max: number | null | undefined,
+): boolean {
+  return hasFeature === true && reportedSubgroupRange(min, max) !== null;
+}
 
 export function isWebGpuDebugProfile(value: unknown): value is WebGpuDebugProfile {
   return typeof value === 'string' && DEBUG_PROFILES.has(value);
@@ -47,6 +71,9 @@ export interface GpuDiagnostic {
   hint: string | null;
   error: string | null;
   debugProfile: WebGpuDebugProfile | null;
+  correctnessProbe: CorrectnessProbeStatus | null;
+  correctnessProbeMs: number | null;
+  correctnessProbeSubgroupSize: number | null;
 }
 
 export const EMPTY_GPU_DIAGNOSTIC: GpuDiagnostic = {
@@ -72,6 +99,9 @@ export const EMPTY_GPU_DIAGNOSTIC: GpuDiagnostic = {
   hint: null,
   error: null,
   debugProfile: null,
+  correctnessProbe: null,
+  correctnessProbeMs: null,
+  correctnessProbeSubgroupSize: null,
 };
 
 /** Typical D3D12 grant on AMD RDNA3 / Intel Arc: 2 GiB − 4, wave32 or wave64. */
@@ -253,6 +283,10 @@ function isNumberOrNull(value: unknown): boolean {
   return value === null || value === undefined || typeof value === 'number';
 }
 
+function isCorrectnessProbeStatus(value: unknown): value is CorrectnessProbeStatus {
+  return value === 'ok' || value === 'failed' || value === 'subgroups-disabled';
+}
+
 export function isGpuDiagnostic(value: unknown): value is GpuDiagnostic {
   if (!isRecord(value)) return false;
   if (!isStringOrNull(value.vendor)) return false;
@@ -296,6 +330,15 @@ export function isGpuDiagnostic(value: unknown): value is GpuDiagnostic {
   ) {
     return false;
   }
+  if (
+    value.correctnessProbe !== null &&
+    value.correctnessProbe !== undefined &&
+    !isCorrectnessProbeStatus(value.correctnessProbe)
+  ) {
+    return false;
+  }
+  if (!isNumberOrNull(value.correctnessProbeMs)) return false;
+  if (!isNumberOrNull(value.correctnessProbeSubgroupSize)) return false;
   return true;
 }
 
@@ -324,6 +367,11 @@ export function gpuDiagnosticFromUnknown(value: unknown): GpuDiagnostic {
     hint: optionalString(value.hint),
     error: optionalString(value.error),
     debugProfile: isWebGpuDebugProfile(value.debugProfile) ? value.debugProfile : null,
+    correctnessProbe: isCorrectnessProbeStatus(value.correctnessProbe)
+      ? value.correctnessProbe
+      : null,
+    correctnessProbeMs: optionalNumber(value.correctnessProbeMs),
+    correctnessProbeSubgroupSize: optionalNumber(value.correctnessProbeSubgroupSize),
   };
 }
 
@@ -346,6 +394,9 @@ export function parseWebGpuLog(text: string | readonly string[] | null | undefin
   deviceFeatures: string[];
   deviceMaxBufferSize: number | null;
   deviceMaxStorageBufferBindingSize: number | null;
+  correctnessProbe: CorrectnessProbeStatus | null;
+  correctnessProbeMs: number | null;
+  correctnessProbeSubgroupSize: number | null;
 } {
   const joined = typeof text === 'string' ? text : Array.isArray(text) ? text.join('\n') : '';
   const ready = /ggml_webgpu: device ready \(([^)]+)\)/iu.exec(joined);
@@ -355,14 +406,29 @@ export function parseWebGpuLog(text: string | readonly string[] | null | undefin
     /ggml_webgpu: device limits: maxBufferSize=(\d+) maxStorageBufferBindingSize=(\d+)/iu.exec(
       joined,
     );
+  const probeOk =
+    /ggml_webgpu: correctness probe: ok subgroups=(true|false) subgroup_size=(\d+) add=\d+ ms=([0-9.]+)/iu.exec(
+      joined,
+    );
+  const probeFailed = /ggml_webgpu: correctness probe failed/iu.test(joined);
+  const probeDisabled = /ggml_webgpu: correctness probe: disabling subgroups/iu.test(joined);
   const deviceFeatures: string[] = [];
   if (feat?.[1] === 'true') deviceFeatures.push('shader-f16');
-  if (feat?.[2] === 'true') deviceFeatures.push('subgroups');
+  if (feat?.[2] === 'true' && !probeDisabled && probeOk?.[1] !== 'false') {
+    deviceFeatures.push('subgroups');
+  }
+  let correctnessProbe: CorrectnessProbeStatus | null = null;
+  if (probeFailed) correctnessProbe = 'failed';
+  else if (probeDisabled || probeOk?.[1] === 'false') correctnessProbe = 'subgroups-disabled';
+  else if (probeOk) correctnessProbe = 'ok';
   return {
     deviceStage: ready?.[1] ?? null,
     deviceFeatures,
     deviceMaxBufferSize: limits ? Number(limits[1]) : null,
     deviceMaxStorageBufferBindingSize: limits ? Number(limits[2]) : null,
+    correctnessProbe,
+    correctnessProbeMs: probeOk ? Number(probeOk[3]) : null,
+    correctnessProbeSubgroupSize: probeOk ? Number(probeOk[2]) : null,
   };
 }
 
@@ -402,6 +468,11 @@ export function mergeGpuDiagnostic(
   if (parsed.deviceMaxBufferSize !== null) base.deviceMaxBufferSize = parsed.deviceMaxBufferSize;
   if (parsed.deviceMaxStorageBufferBindingSize !== null) {
     base.deviceMaxStorageBufferBindingSize = parsed.deviceMaxStorageBufferBindingSize;
+  }
+  if (parsed.correctnessProbe) base.correctnessProbe = parsed.correctnessProbe;
+  if (parsed.correctnessProbeMs !== null) base.correctnessProbeMs = parsed.correctnessProbeMs;
+  if (parsed.correctnessProbeSubgroupSize !== null) {
+    base.correctnessProbeSubgroupSize = parsed.correctnessProbeSubgroupSize;
   }
   if (error && error.length > 0) base.error = error;
   if (looksIntegratedGpu(base)) base.hint = INTEGRATED_GPU_HINT;
@@ -447,13 +518,12 @@ export function applyDebugOverlay(diagnostic: GpuDiagnostic): GpuDiagnostic {
   } else if (profile === 'no-f16') {
     next.shaderF16 = false;
     next.features = next.features.filter((name) => name !== 'shader-f16');
-  } else if (profile === 'subgroup-64') {
-    next.subgroupMinSize = 64;
-    next.subgroupMaxSize = 64;
   } else if (profile === 'reject-max-limits') {
-    next.description = next.description
-      ? `${next.description} (debug: reject adapter-max requestDevice)`
-      : 'debug: reject adapter-max requestDevice';
+    if (!next.description?.includes(REJECT_MAX_NOTE)) {
+      next.description = next.description
+        ? `${next.description} (${REJECT_MAX_NOTE})`
+        : REJECT_MAX_NOTE;
+    }
   }
   return next;
 }
@@ -491,6 +561,9 @@ export function formatGpuDiagnostic(diagnostic: GpuDiagnostic): string {
     line('deviceMaxBufferSize', diagnostic.deviceMaxBufferSize),
     line('deviceMaxStorageBufferBindingSize', diagnostic.deviceMaxStorageBufferBindingSize),
     line('debugProfile', diagnostic.debugProfile),
+    line('correctnessProbe', diagnostic.correctnessProbe),
+    line('correctnessProbeMs', diagnostic.correctnessProbeMs),
+    line('correctnessProbeSubgroupSize', diagnostic.correctnessProbeSubgroupSize),
     diagnostic.hint ? `hint: ${diagnostic.hint}` : null,
     diagnostic.error ? `error:\n${diagnostic.error}` : null,
   ].filter((item): item is string => item !== null);

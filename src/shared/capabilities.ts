@@ -246,7 +246,11 @@ async function probeWebGpu(): Promise<WebGpuStatus> {
   // working GPU can still fail that canvas check, and the owner then stays on CPU.
   try {
     const info = await probeWebGpuAdapter();
-    return info.present ? 'ready' : 'unavailable';
+    if (!info.present) return 'unavailable';
+    // ggml-webgpu requires shader-f16. Skip the GPU load when the adapter (or
+    // the no-f16 debug overlay) already says it is missing.
+    if (info.diagnostic.shaderF16 === false) return 'unavailable';
+    return 'ready';
   } catch {
     return 'failed';
   }

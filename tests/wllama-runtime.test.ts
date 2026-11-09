@@ -43,6 +43,9 @@ describe('gpu evidence in the llama.cpp load log', () => {
       'missing',
     );
     expect(gpuEvidence(['ggml_webgpu: Failed to get a device after retries'])).toBe('missing');
+    expect(gpuEvidence(['ggml_webgpu: correctness probe failed; WebGPU backend disabled'])).toBe(
+      'missing',
+    );
     expect(
       gpuEvidence([
         'ggml_webgpu: Failed to get a device (adapter-max-limits optional-features): Limit exceeded',

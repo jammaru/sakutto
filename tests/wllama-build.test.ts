@@ -97,6 +97,11 @@ describe('wllama artifact rendering', () => {
     expect(patch).toContain('ggml_webgpu_apply_granted_device_caps');
     expect(patch).toContain('device.HasFeature(wgpu::FeatureName::Subgroups)');
     expect(patch).toContain('reject-max-limits');
+    expect(patch).toContain('correctness probe');
+    expect(patch).toContain('Never guess a size');
     expect(patch).not.toContain('capped-limits shader-f16');
+    expect(patch).not.toContain('subgroup-64');
+    expect(patch).not.toContain('min_sg = 32');
+    expect(patch).not.toContain('max_sg = 64');
   });
 });

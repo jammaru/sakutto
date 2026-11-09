@@ -160,7 +160,14 @@ retry that dropped `subgroups`, aborted WASM and left the model on the CPU with 
   workgroup-reduction shaders compile (ggml's `USE_WORKGROUP_REDUCTION` path).
 - Does not assert. `device_count` is 1 only when a device exists. Logs `device ready`,
   `device features`, and `device limits` so Sakutto can show the granted stage.
-- Treats a zero `subgroupMinSize`/`MaxSize` as 32/64 (RDNA wave32/wave64).
+- Never guesses a subgroup size. Unknown or zero `subgroupMinSize`/`MaxSize`
+  disables subgroups and uses ggml's workgroup-reduction shaders. A wrong
+  `MAX_SUBGROUP_SIZE` (for example 64 on wave32 NVIDIA) silently mistranslates.
+- After `requestDevice`, runs a cheap known-answer probe (workgroup add plus a
+  `subgroup_size` readback). A size mismatch drops subgroups in-process; an add
+  mismatch disables WebGPU. The log line
+  `ggml_webgpu: correctness probe: ok subgroups=… subgroup_size=… add=… ms=…`
+  is copied into Settings diagnostics.
 
 `0008-webgpu-debug-profile.patch` copies `globalThis.__SAKUTTO_WEBGPU_DEBUG__` into the worker.
 The offscreen document often has no `chrome.storage`; the service worker reads
@@ -171,7 +178,6 @@ The offscreen document often has no `chrome.storage`; the service worker reads
   reports those, so this may not reject `requestDevice`)
 - `reject-max-limits` — fail adapter-max `requestDevice` so the capped/default ladder runs
 - `no-f16` — disable the WebGPU backend as if the adapter lacked `shader-f16`
-- `subgroup-64` — force subgroup min/max 64 in shader workgroup math
 
 Reload the extension (or recreate the offscreen document) after setting the flag.
 

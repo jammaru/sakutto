@@ -117,7 +117,8 @@ export function gpuEvidence(lines: readonly string[]): GpuEvidence {
       /ggml_webgpu: adapter lacks shader-f16/iu.test(line) ||
       /ggml_webgpu: no adapter with shader-f16/iu.test(line) ||
       /ggml_webgpu: giving up on WebGPU/iu.test(line) ||
-      /ggml_webgpu: Failed to get a device after retries/iu.test(line)
+      /ggml_webgpu: Failed to get a device after retries/iu.test(line) ||
+      /ggml_webgpu: correctness probe failed/iu.test(line)
     ) {
       sawFinalFailure = true;
     }

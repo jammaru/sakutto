@@ -211,6 +211,26 @@ describe('model load on the GPU tier', () => {
 
     expect(result.loaded).toBe(loaded);
     expect(result.selection).toMatchObject({ backend: 'cpu-wasm', nParallel: 1, nCtx: 2048 });
+    expect(ensureLoaded).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not start a second GPU load after gpu-unavailable', async () => {
+    const tried: Array<[string, number]> = [];
+    const ensureLoaded = vi.fn(async (selection: BackendSelection) => {
+      tried.push([selection.backend, selection.nParallel]);
+      if (selection.backend === 'webgpu') {
+        throw new EngineError('gpu-unavailable', 'no GPU', {
+          detail: 'ggml_webgpu: adapter lacks shader-f16; WebGPU backend disabled',
+        });
+      }
+      return loaded;
+    });
+    await loadWithFallback(ensureLoaded, wide, new AbortController().signal);
+
+    expect(tried).toEqual([
+      ['webgpu', 16],
+      ['cpu-wasm', 1],
+    ]);
   });
 
   it('tries four slots before the CPU when a wide load fails', async () => {
@@ -269,6 +289,25 @@ describe('model load on the GPU tier', () => {
 
     expect(tried).toEqual([
       ['webgpu', 4],
+      ['cpu-wasm', 1],
+    ]);
+  });
+
+  it('goes straight to the CPU when the correctness probe fails', async () => {
+    const tried: Array<[string, number]> = [];
+    const ensureLoaded = vi.fn(async (selection: BackendSelection) => {
+      tried.push([selection.backend, selection.nParallel]);
+      if (selection.backend === 'webgpu') {
+        throw new EngineError('model-load-failed', 'aborted', {
+          detail: 'ggml_webgpu: correctness probe failed; WebGPU backend disabled',
+        });
+      }
+      return loaded;
+    });
+    await loadWithFallback(ensureLoaded, wide, new AbortController().signal);
+
+    expect(tried).toEqual([
+      ['webgpu', 16],
       ['cpu-wasm', 1],
     ]);
   });

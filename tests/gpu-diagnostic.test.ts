@@ -7,14 +7,17 @@ import {
   gpuFailureExcerpt,
   INTEGRATED_GPU_HINT,
   isGpuDiagnostic,
+  isWebGpuDebugProfile,
   looksIntegratedGpu,
   mergeGpuDiagnostic,
   offscreenDocumentMatches,
   offscreenDocumentUrl,
   parseWebGpuLog,
+  reportedSubgroupRange,
   resetWebGpuDebugProfile,
   resolveWebGpuDebugProfile,
   setWebGpuDebugProfile,
+  subgroupShadersEnabled,
 } from '@/shared/gpu-diagnostic';
 
 const amdLike = {
@@ -94,21 +97,45 @@ describe('gpu diagnostic', () => {
     expect(overlay.debugProfile).toBe('amd-rdna3');
   });
 
-  it('overlays a missing shader-f16 and a wave64 subgroup', () => {
+  it('overlays a missing shader-f16 without inventing a subgroup size', () => {
     setWebGpuDebugProfile('no-f16');
     expect(
       applyDebugOverlay({ ...EMPTY_GPU_DIAGNOSTIC, shaderF16: true, features: ['shader-f16'] })
         .shaderF16,
     ).toBe(false);
 
-    setWebGpuDebugProfile('subgroup-64');
+    expect(isWebGpuDebugProfile('subgroup-64')).toBe(false);
     const wave = applyDebugOverlay({
       ...EMPTY_GPU_DIAGNOSTIC,
       subgroupMinSize: 32,
       subgroupMaxSize: 32,
     });
-    expect(wave.subgroupMinSize).toBe(64);
-    expect(wave.subgroupMaxSize).toBe(64);
+    expect(wave.subgroupMinSize).toBe(32);
+    expect(wave.subgroupMaxSize).toBe(32);
+  });
+
+  it('does not double the reject-max-limits description', () => {
+    setWebGpuDebugProfile('reject-max-limits');
+    const once = applyDebugOverlay({
+      ...EMPTY_GPU_DIAGNOSTIC,
+      description: 'NVIDIA GeForce RTX 4070 Ti SUPER',
+    });
+    const twice = applyDebugOverlay(once);
+    expect(twice.description).toBe(
+      'NVIDIA GeForce RTX 4070 Ti SUPER (debug: reject adapter-max requestDevice)',
+    );
+    expect(twice.description?.match(/debug: reject adapter-max requestDevice/gu)).toHaveLength(1);
+  });
+
+  it('treats an unknown or zero subgroup size as no subgroups', () => {
+    expect(reportedSubgroupRange(0, 64)).toBeNull();
+    expect(reportedSubgroupRange(32, 0)).toBeNull();
+    expect(reportedSubgroupRange(null, 32)).toBeNull();
+    expect(reportedSubgroupRange(64, 32)).toBeNull();
+    expect(reportedSubgroupRange(32, 32)).toEqual({ min: 32, max: 32 });
+    expect(subgroupShadersEnabled(true, 0, 64)).toBe(false);
+    expect(subgroupShadersEnabled(true, 32, 32)).toBe(true);
+    expect(subgroupShadersEnabled(false, 32, 32)).toBe(false);
   });
 
   it('keeps an existing error when merging a later adapter snapshot', () => {
@@ -143,6 +170,30 @@ describe('gpu diagnostic', () => {
     ]);
     expect(merged.deviceStage).toBe('capped-limits optional-features');
     expect(formatGpuDiagnostic(merged)).toContain('deviceStage: capped-limits optional-features');
+  });
+
+  it('reads the correctness probe and its cost from the wasm log', () => {
+    const parsed = parseWebGpuLog([
+      'ggml_webgpu: correctness probe: ok subgroups=true subgroup_size=32 add=136 ms=12.4',
+    ]);
+    expect(parsed.correctnessProbe).toBe('ok');
+    expect(parsed.correctnessProbeMs).toBe(12.4);
+    expect(parsed.correctnessProbeSubgroupSize).toBe(32);
+    const disabled = parseWebGpuLog([
+      'ggml_webgpu: correctness probe: disabling subgroups (hardware subgroup_size=32 not in [64,64])',
+      'ggml_webgpu: correctness probe: ok subgroups=false subgroup_size=32 add=136 ms=8.1',
+      'ggml_webgpu: device features: shader-f16=true subgroups=true',
+    ]);
+    expect(disabled.correctnessProbe).toBe('subgroups-disabled');
+    expect(disabled.deviceFeatures).toEqual(['shader-f16']);
+    expect(
+      parseWebGpuLog(['ggml_webgpu: correctness probe failed; add sum 0 != 136']).correctnessProbe,
+    ).toBe('failed');
+    const merged = mergeGpuDiagnostic(amdLike, null, [
+      'ggml_webgpu: correctness probe: ok subgroups=true subgroup_size=32 add=136 ms=12.4',
+    ]);
+    expect(formatGpuDiagnostic(merged)).toContain('correctnessProbe: ok');
+    expect(formatGpuDiagnostic(merged)).toContain('correctnessProbeMs: 12.4');
   });
 
   it('treats Intel UHD and AMD Radeon Graphics as integrated', () => {
