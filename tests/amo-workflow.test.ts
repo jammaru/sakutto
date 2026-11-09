@@ -31,8 +31,10 @@ describe('AMO workflow', () => {
     expect(action).toContain('pnpm lint:firefox');
     expect(action).toContain('pnpm source:firefox');
     expect(action).toContain('scripts/compare-extension-builds.ts');
-    expect(ci).toContain('package-firefox');
-    expect(ci).toContain('target: firefox');
+    expect(ci).toContain('target: [chrome, firefox]');
+    expect(ci).toContain('target: ${{ matrix.target }}');
+    expect(ci).toMatch(/checks:\n {4}needs: changes\n {4}runs-on:/);
+    expect(ci).not.toContain('package-firefox');
     expect(ci).not.toContain('web-ext sign');
     expect(ci).not.toContain('AMO_JWT');
     expect(packageJson).toContain('"build:firefox"');

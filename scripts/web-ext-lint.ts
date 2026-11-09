@@ -15,10 +15,31 @@ export function firefoxOutputDirectory(root: string): string {
   return join(output, fallback.name);
 }
 
+const TABLE_ERRORS = /(?:^|\n)errors\s+(\d+)/i;
+const INLINE_ERRORS = /(?:^|\n)(\d+)\s+errors?(?:\s|$)/im;
+
+/** True when the text includes a web-ext validation summary we can parse. */
+export function webExtLintHasSummary(text: string): boolean {
+  return TABLE_ERRORS.test(text) || INLINE_ERRORS.test(text);
+}
+
+/**
+ * Error count from `web-ext lint --output text`.
+ * Accepts both `0 errors` and the table form `errors          0`.
+ * The word "errors" in a 0-error summary is not a failure.
+ */
 export function webExtLintErrors(text: string): number {
-  const match = /(\d+)\s+error/i.exec(text);
-  if (!match?.[1]) return /error/i.test(text) ? 1 : 0;
-  return Number(match[1]);
+  const table = TABLE_ERRORS.exec(text);
+  if (table?.[1] !== undefined) return Number(table[1]);
+  const inline = INLINE_ERRORS.exec(text);
+  if (inline?.[1] !== undefined) return Number(inline[1]);
+  return 0;
+}
+
+/** Fail on a counted error, or on a non-zero exit with no summary (a crash). */
+export function webExtLintFailed(text: string, status: number | null): boolean {
+  if (webExtLintErrors(text) > 0) return true;
+  return status !== 0 && !webExtLintHasSummary(text);
 }
 
 /** Absolute path to web-ext's CLI, so Windows does not have to find `pnpm.cmd`. */
@@ -41,15 +62,12 @@ function run(root: string): void {
   }
   const text = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
   process.stdout.write(text);
+  if (!webExtLintFailed(text, result.status)) return;
   const errors = webExtLintErrors(text);
-  if (result.status !== 0 && errors === 0) {
-    process.exitCode = result.status ?? 1;
-    return;
-  }
   if (errors > 0) {
     console.error(`web-ext lint reported ${String(errors)} error(s)`);
-    process.exitCode = 1;
   }
+  process.exitCode = 1;
 }
 
 function isDirectRun(): boolean {

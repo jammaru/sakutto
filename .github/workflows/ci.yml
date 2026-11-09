@@ -52,12 +52,10 @@ jobs:
           if ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
             git fetch --no-tags origin "$BASE_SHA"
           fi
-          git diff --name-only "$BASE_SHA" HEAD | node scripts/ci-changed.ts --stdin | tee /tmp/ci-scope.txt
-          cat /tmp/ci-scope.txt >> "$GITHUB_OUTPUT"
+          git diff --name-only "$BASE_SHA" HEAD | node scripts/ci-changed.ts --stdin | tee -a "$GITHUB_OUTPUT"
 
   checks:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -100,7 +98,6 @@ jobs:
 
   pinned-wllama:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -115,24 +112,16 @@ jobs:
 
   package:
     needs: changes
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      needs.changes.outputs.bundle == 'true' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.code == 'true')
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/package-extension
-
-  package-firefox:
-    name: Package Firefox
-    needs: changes
     if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.bundle == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.code == 'true') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [chrome, firefox]
+    name: Package ${{ matrix.target }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/package-extension
         with:
-          target: firefox
+          target: ${{ matrix.target }}
