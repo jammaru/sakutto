@@ -1,0 +1,791 @@
+{
+  "extensionName": {
+    "message": "Sakutto - Dịch AI cục bộ",
+    "description": "Extension name."
+  },
+  "extensionShortName": {
+    "message": "Sakutto",
+    "description": "Short extension name."
+  },
+  "extensionDescription": {
+    "message": "Một LLM cục bộ dịch các trang trên thiết bị của bạn. Miễn phí, không cần tài khoản.",
+    "description": "Extension description."
+  },
+  "tagline": {
+    "message": "Bản dịch trang chạy trên thiết bị của bạn"
+  },
+  "settingsLabel": {
+    "message": "Cài đặt"
+  },
+  "targetLanguageLabel": {
+    "message": "Dịch sang"
+  },
+  "formalityLabel": {
+    "message": "Nhạc giao điệu Nhật Bản"
+  },
+  "formalityPolite": {
+    "message": "Polite (です・ます)"
+  },
+  "formalityPlain": {
+    "message": "Plain (だ・である)"
+  },
+  "displayLabel": {
+    "message": "Phong cách đọc"
+  },
+  "displayReplace": {
+    "message": "Thay thế bản gốc"
+  },
+  "displayBilingual": {
+    "message": "song ngữ"
+  },
+  "statusChecking": {
+    "message": "Đang kiểm tra…"
+  },
+  "pageStatusLabel": {
+    "message": "Trang này"
+  },
+  "pageStatusUnavailable": {
+    "message": "Không thể dịch được"
+  },
+  "pageStatusLanguageUnknown": {
+    "message": "Ngôn ngữ không xác định"
+  },
+  "pageStatusReady": {
+    "message": "$LANG$ · $COUNT$ khối",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      },
+      "count": {
+        "content": "$2"
+      }
+    }
+  },
+  "engineStatusLabel": {
+    "message": "Thời gian chạy"
+  },
+  "engineHeading": {
+    "message": "Động cơ"
+  },
+  "engineWebGpu": {
+    "message": "WebGPU"
+  },
+  "engineCpuWebGpuUnsupported": {
+    "message": "CPU (WebGPU không khả dụng)"
+  },
+  "engineCpuAdapterUnavailable": {
+    "message": "CPU (không có bộ chuyển đổi GPU)"
+  },
+  "engineCpuProbeFailed": {
+    "message": "CPU (Kiểm tra WebGPU thất bại)"
+  },
+  "engineUnavailable": {
+    "message": "Không khả dụng"
+  },
+  "isolationLabel": {
+    "message": "Cách ly đa nguồn"
+  },
+  "isolationOn": {
+    "message": "Đang hoạt động"
+  },
+  "isolationOff": {
+    "message": "Không hoạt động"
+  },
+  "threadsLabel": {
+    "message": "Lõi logic"
+  },
+  "diagHeading": {
+    "message": "Chẩn đoán"
+  },
+  "diagBackend": {
+    "message": "Backend hoạt động"
+  },
+  "diagThreads": {
+    "message": "Luồng"
+  },
+  "diagParallel": {
+    "message": "n_parallel"
+  },
+  "diagBackendGpu": {
+    "message": "WebGPU"
+  },
+  "diagBackendCpu": {
+    "message": "CPU"
+  },
+  "diagBackendUnknown": {
+    "message": "Chưa tải"
+  },
+  "diagRateHint": {
+    "message": "Khi một trang đang dịch, thanh của nó hiển thị các token/s và phân đoạn/s."
+  },
+  "paceLabel": {
+    "message": "Nhìn trước"
+  },
+  "paceFast": {
+    "message": "Hãy nhìn xa hơn"
+  },
+  "paceQuality": {
+    "message": "Xem thấy trước"
+  },
+  "paceHelp": {
+    "message": "Dịch các đoạn văn ngay trước khi chúng cuộn vào màn hình. \"Look ahead further\" sẽ tải sớm thêm nội dung dưới gờ, giúp văn bản sẵn sàng ngay khi bạn cuộn trang. Đối với các ngôn ngữ mà PLaMo hỗ trợ, mọi dòng chữ đều đến từ PLaMo; bản thảo của Chrome không bao giờ được sử dụng."
+  },
+  "pageRate": {
+    "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
+    "placeholders": {
+      "tokens": {
+        "content": "$1"
+      },
+      "segments": {
+        "content": "$2"
+      }
+    }
+  },
+  "openOptions": {
+    "message": "Mở cài đặt"
+  },
+  "unofficialNotice": {
+    "message": "Không chính thức. Không liên kết với Preferred Networks. Được xây dựng bằng PLaMo."
+  },
+  "optionsTitle": {
+    "message": "Cài đặt"
+  },
+  "optionsLead": {
+    "message": "Chọn cách vận hành bản dịch, quản lý mô hình và thiết lập hành vi cho từng trang web. Các thay đổi sẽ được lưu tự động."
+  },
+  "privacyHeading": {
+    "message": "Quyền riêng tư"
+  },
+  "privacyBody": {
+    "message": "Tiện ích mở rộng này không gửi văn bản trang đến máy chủ. Không có dữ liệu đo lường nào."
+  },
+  "privacyDestinations": {
+    "message": "Yêu cầu của bản mở rộng là tải xuống mô hình. Nó bắt đầu tại huggingface.co và tiếp nối lối chuyển hướng của Hugging Face đến CDN của nó. Văn bản trang không được bao gồm. Chrome tự tải xuống các gói ngôn ngữ của chính nó."
+  },
+  "privacyPolicyLink": {
+    "message": "Chính sách bảo mật"
+  },
+  "sourceCodeLink": {
+    "message": "Mã nguồn"
+  },
+  "licensesHeading": {
+    "message": "Giấy phép"
+  },
+  "licensesBody": {
+    "message": "Bản quyền PLaMo Community License đầy đủ và bản quyền MIT của tiện ích mở rộng này được đi kèm với tiện ích mở rộng."
+  },
+  "licensePlaMoJa": {
+    "message": "Giấy phép Cộng đồng PLaMo (Tiếng Nhật)"
+  },
+  "licensePlaMoEn": {
+    "message": "Giấy phép Cộng đồng PLaMo (Tiếng Anh)"
+  },
+  "licenseMit": {
+    "message": "Giấy phép MIT"
+  },
+  "licenseNotice": {
+    "message": "THÔNG BÁO"
+  },
+  "licenseModelNote": {
+    "message": "Các trọng số mô hình không được gộp lại. Chúng được tải xuống từ kho lưu trữ chính thức của Hugging Face khi chưa được lưu trữ trên thiết bị này."
+  },
+  "openOnboarding": {
+    "message": "Kết nối mở"
+  },
+  "machineTranslationNotice": {
+    "message": "Các bản dịch là bản dịch máy được tạo bởi PLaMo."
+  },
+  "onboardingEyebrow": {
+    "message": "Bắt đầu"
+  },
+  "onboardingLead": {
+    "message": "Việc dịch trang diễn ra trên thiết bị của bạn. Mẫu PLaMo 3 chỉ tải xuống khi chưa được lưu trữ trên thiết bị này."
+  },
+  "onboardingSetupHeading": {
+    "message": "Về tiện ích mở rộng này"
+  },
+  "onboardingModelNote": {
+    "message": "Mô hình mặc định (573 MB) tải xuống thiết bị này. Việc truyền tải duy trì ở mức 100 Mbps với kích thước đó mất khoảng 46 giây trước khi phát sinh chi phí thêm; thời gian thực có thể thay đổi. Việc tải xuống bị gián đoạn sẽ tiếp tục."
+  },
+  "onboardingBridgeNote": {
+    "message": "Trang web tiếp tục giữ nguyên văn bản cho đến khi mô hình sẵn sàng, sau đó PLaMo sẽ dịch lại. Google Docs dịch bản của Chrome theo thiết bị."
+  },
+  "onboardingPrivacyNote": {
+    "message": "Tiện ích mở rộng này không gửi văn bản trang đến máy chủ."
+  },
+  "onboardingClose": {
+    "message": "Đóng"
+  },
+  "onboardingStart": {
+    "message": "Đồng ý với giấy phép và bắt đầu"
+  },
+  "onboardingStartFailed": {
+    "message": "Không thể khởi động thiết lập. Vui lòng thử lại."
+  },
+  "onboardingHttpError": {
+    "message": "Việc tải xuống mô hình đã thất bại (HTTP $STATUS$). Vui lòng thử lại.",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      }
+    }
+  },
+  "errorSettings": {
+    "message": "Không thể tải cài đặt của bạn."
+  },
+  "errorSaveSettings": {
+    "message": "Không thể lưu cài đặt của bạn."
+  },
+  "errorPage": {
+    "message": "Không thể đọc trang này."
+  },
+  "errorAction": {
+    "message": "Không thể mở trang."
+  },
+  "retry": {
+    "message": "Thử lại"
+  },
+  "originalLabel": {
+    "message": "Nguyên bản"
+  },
+  "chromeTranslationNote": {
+    "message": "Từ khóa dịch tích hợp sẵn của Chrome"
+  },
+  "machineTranslationTooltip": {
+    "message": "Dịch máy bởi PLaMo."
+  },
+  "selectionPending": {
+    "message": "Dịch…"
+  },
+  "selectionFailed": {
+    "message": "Không thể chuyển đổi lựa chọn này."
+  },
+  "selectionTitle": {
+    "message": "Văn bản được chọn"
+  },
+  "selectionIcon": {
+    "message": "Dịch văn bản đã chọn"
+  },
+  "close": {
+    "message": "Đóng"
+  },
+  "commandTranslate": {
+    "message": "Dịch trang này hoặc khôi phục bản gốc"
+  },
+  "commandBilingual": {
+    "message": "Dịch theo chế độ nhìn song ngữ, hoặc chuyển đổi chế độ hiện tại"
+  },
+  "commandSelection": {
+    "message": "Dịch văn bản đã chọn"
+  },
+  "contextTranslatePage": {
+    "message": "Dịch trang này"
+  },
+  "contextTranslateSelection": {
+    "message": "Dịch văn bản đã chọn"
+  },
+  "translateThisPage": {
+    "message": "Dịch trang này"
+  },
+  "restoreThisPage": {
+    "message": "Khôi phục bản gốc"
+  },
+  "pageStartBlocked": {
+    "message": "Việc dịch trang sẽ chờ cho đến khi mô hình PLaMo hoàn tất tải xuống và tải vào. Mở bước đăng ký để xem tiến độ."
+  },
+  "pageTranslating": {
+    "message": "Dịch…"
+  },
+  "pageProgress": {
+    "message": "Dịch $DONE$ / $TOTAL$",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pageProgressLabel": {
+    "message": "Tiến độ dịch"
+  },
+  "pageTranslated": {
+    "message": "Trang này được dịch."
+  },
+  "pagePartial": {
+    "message": "$BLOCKS$ phần của trang này không thể dịch được.",
+    "placeholders": {
+      "blocks": {
+        "content": "$1"
+      }
+    }
+  },
+  "pageAlwaysOn": {
+    "message": "Trang web này luôn được dịch."
+  },
+  "siteGrantTitle": {
+    "message": "Dịch trang web này"
+  },
+  "siteGrantBody": {
+    "message": "Các trang trên $HOST$ sẽ được dịch trên thiết bị này.",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteGrantAllow": {
+    "message": "Cho phép"
+  },
+  "siteGrantDenied": {
+    "message": "Không được cấp quyền. Hãy thử lại."
+  },
+  "siteGrantInvalid": {
+    "message": "Trang này không đặt tên cho trang web."
+  },
+  "targetAdjustedNote": {
+    "message": "Trang này đã nằm trong ngôn ngữ mục tiêu đã lưu, nên mục tiêu đã được chuyển sang."
+  },
+  "sameLanguageHint": {
+    "message": "Trang này đã được viết bằng ngôn ngữ mục tiêu."
+  },
+  "displaySiteHint": {
+    "message": "Lựa chọn này sẽ được ghi nhớ cho trang web."
+  },
+  "displayNowBilingual": {
+    "message": "Trang web này có hiển thị chế độ xem song ngữ."
+  },
+  "displayNowReplace": {
+    "message": "Góc nhìn thay thế đang hiển thị cho trang web này."
+  },
+  "optionsDefaultHint": {
+    "message": "Đây là các mặc định. Một trang web mà bạn dịch có thể giữ nguyên ngôn ngữ và phong cách đọc riêng của mình."
+  },
+  "optionsSiteLive": {
+    "message": "Ngôn ngữ và phong cách đọc ở đây tuân theo trang web. Các cài đặt trên được sử dụng khi trang web không có tùy chọn riêng."
+  },
+  "alwaysTranslateSite": {
+    "message": "Luôn dịch trang web này"
+  },
+  "shortcutTranslate": {
+    "message": "Alt+A (Option+A trên Mac) chuyển đổi trang hoặc khôi phục bản gốc."
+  },
+  "shortcutBilingual": {
+    "message": "Alt+B (Option+B trên Mac) chuyển đổi giữa chế độ thay thế và chế độ xem song ngữ, đồng thời ghi nhớ lựa chọn cho trang web này."
+  },
+  "shortcutSelection": {
+    "message": "Alt+S (Option+S trên Mac) chuyển đổi văn bản được chọn."
+  },
+  "runtimePreparing": {
+    "message": "Chuẩn bị $PERCENT$%",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "runtimeDownloading": {
+    "message": "Đang tải xuống $PERCENT$% ($RECEIVED$ / $TOTAL$)",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      },
+      "received": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
+  "runtimeVerifying": {
+    "message": "Kiểm tra tệp đã tải về."
+  },
+  "runtimeLoading": {
+    "message": "Đang tải mô hình."
+  },
+  "runtimePlamoGpu": {
+    "message": "PLaMo · WebGPU"
+  },
+  "runtimePlamoCpu": {
+    "message": "PLaMo · CPU"
+  },
+  "runtimePlamoGpuFallback": {
+    "message": "PLaMo · CPU (WebGPU không thể tải mô hình)"
+  },
+  "runtimeChrome": {
+    "message": "Từ khóa dịch tích hợp sẵn của Chrome"
+  },
+  "runtimeWaiting": {
+    "message": "Đang chờ mô hình"
+  },
+  "runtimeError": {
+    "message": "Mô hình không thể được tải vào"
+  },
+  "runtimeChecking": {
+    "message": "Đang kiểm tra…"
+  },
+  "chromeOnlySuffix": {
+    "message": "(Tích hợp sẵn trong Chrome)"
+  },
+  "onboardingStartNotice": {
+    "message": "Nhấn \"Đồng ý với bản quyền và bắt đầu\" có nghĩa là bạn đồng ý với toàn bộ Bản quyền Cộng đồng PLaMo."
+  },
+  "onboardingCommercialHeading": {
+    "message": "Điều khoản sử dụng của PLaMo"
+  },
+  "onboardingPersonalHeading": {
+    "message": "Sử dụng cá nhân và học thuật"
+  },
+  "onboardingPersonalBody": {
+    "message": "Không cần đăng ký trước."
+  },
+  "onboardingCommercialHeading2": {
+    "message": "Sử dụng trong công việc và thương mại"
+  },
+  "onboardingCommercialBody": {
+    "message": "Điều này bao gồm cả việc sử dụng cho công việc trong nội bộ công ty. Cả hai điều sau đều bắt buộc."
+  },
+  "onboardingCommercialRegistration": {
+    "message": "Đăng ký trước với PFN"
+  },
+  "onboardingCommercialRevenue": {
+    "message": "Thu nhập hoặc doanh thu của bạn hoặc các đối tác của bạn trong năm tài chính gần nhất từ 1 tỷ yên trở xuống"
+  },
+  "onboardingCommercialUnmetHeading": {
+    "message": "Khi các điều kiện không được đáp ứng"
+  },
+  "onboardingCommercialUnmetBody": {
+    "message": "Nếu sử dụng cho mục đích thương mại, cần có giấy phép riêng từ PFN."
+  },
+  "onboardingAgeNotice": {
+    "message": "Nếu bạn dưới 18 tuổi hoặc không đủ tuổi để tự đăng ký hợp đồng, cần có sự đồng ý của cha mẹ hoặc người giám hộ."
+  },
+  "onboardingConsentSentence": {
+    "message": "Nhấn \"Đồng ý với bản quyền và bắt đầu\" có nghĩa là bạn đồng ý với Bản quyền Cộng đồng PLaMo."
+  },
+  "onboardingOtherLicenses": {
+    "message": "Thông tin giấy phép khác"
+  },
+  "onboardingReconsentHeading": {
+    "message": "Các thuật ngữ của PLaMo giờ đây dễ đọc hơn"
+  },
+  "onboardingReconsentBody": {
+    "message": "Bạn đã đồng ý với Giấy phép Cộng đồng PLaMo trước đó. Dưới đây là bản tóm tắt rõ ràng hơn về các điều khoản để bạn có thể đồng ý một lần nữa. Mô hình bạn tải về vẫn sẽ nằm trong thiết bị này."
+  },
+  "onboardingReconsentStart": {
+    "message": "Đồng ý và tiếp tục"
+  },
+  "plamoRegistrationLink": {
+    "message": "Đơn đăng ký chính thức của PFN (sử dụng thương mại)"
+  },
+  "plamoOfficialLicenseJa": {
+    "message": "Giấy phép Cộng đồng PLaMo (chính thức, tiếng Nhật)"
+  },
+  "plamoOfficialLicenseEn": {
+    "message": "Giấy phép Cộng đồng PLaMo (chính thức, tiếng Anh)"
+  },
+  "onboardingUseNow": {
+    "message": "Trình dịch tích hợp sẵn của Chrome chỉ được sử dụng cho các cặp ngôn ngữ mà PLaMo không hỗ trợ."
+  },
+  "onboardingReadyHeading": {
+    "message": "Bạn đã sẵn sàng rồi."
+  },
+  "onboardingReadyLead": {
+    "message": "Bạn có thể dịch các trang trên thiết bị này."
+  },
+  "onboardingReadyToolbar": {
+    "message": "Nhấp vào biểu tượng thanh công cụ để chuyển đổi trang đang mở."
+  },
+  "onboardingReadyPage": {
+    "message": "Nhấn Alt+A (Option+A trên Mac) để chuyển đổi toàn bộ trang. Nhấn lại một lần nữa để khôi phục bản gốc."
+  },
+  "onboardingReadySelection": {
+    "message": "Nhấn Alt+S (Option+S trên Mac) để chuyển đổi văn bản đã chọn."
+  },
+  "onboardingReadyContext": {
+    "message": "Nhấp chuột phải vào trang và chọn \"Translate this page\". Đối với văn bản đã chọn, hãy chọn \"Translate the selected text\"."
+  },
+  "onboardingTry": {
+    "message": "Thử trang mẫu"
+  },
+  "onboardingWhileDownloading": {
+    "message": "Trong khi mô hình đang tải về, các trang vẫn giữ nguyên văn bản gốc; không có gì được dịch cho đến khi PLaMo sẵn sàng."
+  },
+  "downloadEtaSeconds": {
+    "message": "Còn khoảng $COUNT$ giây.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadEtaMinutes": {
+    "message": "Còn khoảng $COUNT$ phút.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadResuming": {
+    "message": "Quá trình tải xuống đang tiếp tục từ nơi nó dừng lại."
+  },
+  "downloadProgressLabel": {
+    "message": "Tải xuống tiến độ"
+  },
+  "downloadPaused": {
+    "message": "Việc tải xuống đang tạm dừng. Nó có thể tiếp tục ở vị trí cũ."
+  },
+  "downloadResume": {
+    "message": "Tiếp tục"
+  },
+  "downloadCancel": {
+    "message": "Tạm dừng"
+  },
+  "modelHeading": {
+    "message": "Mô hình"
+  },
+  "modelStandard": {
+    "message": "Tiêu chuẩn (0,8B)"
+  },
+  "modelHigh": {
+    "message": "Độ chính xác cao (2B)"
+  },
+  "modelInUse": {
+    "message": "Đang sử dụng"
+  },
+  "modelUse": {
+    "message": "Sử dụng mô hình này"
+  },
+  "modelDownload": {
+    "message": "Tải xuống"
+  },
+  "modelDelete": {
+    "message": "Xóa"
+  },
+  "highQualityOffer": {
+    "message": "Bạn có thể dùng thử mô hình có độ chính xác cao hơn (2B, khoảng 1,81 GB). Tốc độ tùy thuộc vào thiết bị này."
+  },
+  "useHighQuality": {
+    "message": "Sử dụng nó"
+  },
+  "dismissHighQuality": {
+    "message": "Không lúc này"
+  },
+  "glossaryHeading": {
+    "message": "Từ điển"
+  },
+  "glossaryHelp": {
+    "message": "Viết một cặp “nguồn, dịch” cho mỗi dòng. Chọn một trang web để chỉ sử dụng danh sách này."
+  },
+  "glossaryGlobal": {
+    "message": "Tất cả các trang web"
+  },
+  "glossaryImport": {
+    "message": "Nhập CSV"
+  },
+  "glossaryExport": {
+    "message": "Xuất CSV"
+  },
+  "glossaryAddSite": {
+    "message": "Thêm trang web"
+  },
+  "siteRulesHeading": {
+    "message": "Dịch phiên bản trên từng trang web"
+  },
+  "siteRuleAsk": {
+    "message": "Hỏi mỗi lần"
+  },
+  "siteRuleAlways": {
+    "message": "Luôn dịch"
+  },
+  "siteRuleNever": {
+    "message": "Không bao giờ dịch"
+  },
+  "noSiteRules": {
+    "message": "Chưa có cài đặt cho từng trang web."
+  },
+  "siteHostLabel": {
+    "message": "Tên máy chủ"
+  },
+  "cacheClear": {
+    "message": "Xóa bộ nhớ đệm dịch"
+  },
+  "cacheCleared": {
+    "message": "Bộ nhớ đệm dịch đã được xóa."
+  },
+  "cacheClearFailed": {
+    "message": "Bộ nhớ đệm dịch không thể xóa được."
+  },
+  "idleLabel": {
+    "message": "Xuất mô hình khỏi bộ nhớ sau"
+  },
+  "idle1": {
+    "message": "1 phút"
+  },
+  "idle5": {
+    "message": "5 phút"
+  },
+  "idle15": {
+    "message": "15 phút"
+  },
+  "idleNever": {
+    "message": "Không bao giờ"
+  },
+  "tierLabel": {
+    "message": "Chế độ hiệu suất"
+  },
+  "tierAuto": {
+    "message": "Tự động"
+  },
+  "tierGpu": {
+    "message": "WebGPU"
+  },
+  "tierCpu8": {
+    "message": "CPU (8 luồng trở lên)"
+  },
+  "tierCpu4": {
+    "message": "CPU (4 luồng)"
+  },
+  "tierHelp": {
+    "message": "Tự động chọn chế độ phù hợp với chiếc PC này."
+  },
+  "slowDeviceHint": {
+    "message": "PLaMo chậm trên máy tính này. Mỗi đoạn văn đều hiển thị khi mô hình hoàn tất."
+  },
+  "errorPermission": {
+    "message": "Không được cấp phép cho trang web này."
+  },
+  "siteHostInvalid": {
+    "message": "Nhập tên máy chủ hợp lệ."
+  },
+  "glossaryScopeLabel": {
+    "message": "Áp dụng cho"
+  },
+  "listSeparator": {
+    "message": ","
+  },
+  "openTyped": {
+    "message": "Dịch văn bản đánh văn"
+  },
+  "typedLead": {
+    "message": "Nhập hoặc dán văn bản và dịch nó bằng cùng một mô hình PLaMo mà bản dịch trang sử dụng. Không có gì rời khỏi thiết bị này."
+  },
+  "typedHeading": {
+    "message": "Dịch bản định dạng"
+  },
+  "typedSourceLanguageLabel": {
+    "message": "Dịch từ"
+  },
+  "typedDetectSource": {
+    "message": "Được phát hiện tự động"
+  },
+  "typedSourceLabel": {
+    "message": "Văn bản cần dịch"
+  },
+  "typedPlaceholder": {
+    "message": "Nhập hoặc dán văn bản vào đây."
+  },
+  "typedCounter": {
+    "message": "$COUNT$ / $LIMIT$ ký tự",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "limit": {
+        "content": "$2"
+      }
+    }
+  },
+  "typedTooLong": {
+    "message": "Văn bản này quá dài đối với một yêu cầu. Hãy rút ngắn xuống còn $LIMIT$ ký tự hoặc ít hơn.",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedDirectionHint": {
+    "message": "Dịch sang $LANGUAGE$. Các ngôn ngữ khác được phát hiện tự động.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedSwap": {
+    "message": "Chuyển hướng dịch thuật"
+  },
+  "typedTranslate": {
+    "message": "Dịch"
+  },
+  "typedTranslating": {
+    "message": "Dịch…"
+  },
+  "typedStop": {
+    "message": "Dừng lại"
+  },
+  "typedClear": {
+    "message": "Rõ ràng"
+  },
+  "typedCopy": {
+    "message": "Sao chép"
+  },
+  "typedCopied": {
+    "message": "Đã sao chép"
+  },
+  "typedCopyFailed": {
+    "message": "Không thể sao chép bản dịch. Hãy chọn nó và tự sao chép."
+  },
+  "typedResultHeading": {
+    "message": "Dịch"
+  },
+  "typedResultEmpty": {
+    "message": "Bản dịch PLaMo xuất hiện ở đây, bên cạnh văn bản bạn đã dán."
+  },
+  "typedRunHint": {
+    "message": "Ctrl+Enter (⌘+Enter trên Mac) cũng chuyển đổi được."
+  },
+  "typedFailed": {
+    "message": "Văn bản không thể dịch được. Văn bản của bạn không thay đổi; hãy thử lại."
+  },
+  "typedNeedsConsent": {
+    "message": "PLaMo cần một thỏa thuận bản quyền một lần trước khi có thể chạy. Văn bản của bạn sẽ không được dịch cho đến lúc đó."
+  },
+  "typedOpenOnboarding": {
+    "message": "Xem lại giấy phép và bắt đầu"
+  },
+  "typedModelMissing": {
+    "message": "Mô hình PLaMo hiện chưa có trên thiết bị này."
+  },
+  "typedModelPartial": {
+    "message": "Việc tải xuống mô hình PLaMo đã bị gián đoạn."
+  },
+  "typedModelBusy": {
+    "message": "Mô hình PLaMo đang tải xuống. Việc dịch bản sẽ bắt đầu ngay khi nó đã sẵn sàng."
+  },
+  "typedModelError": {
+    "message": "Mô hình PLaMo không thể tải được. Hãy mở trang tùy chọn để kiểm tra."
+  },
+  "typedDownloadModel": {
+    "message": "Tải xuống mô hình"
+  },
+  "typedChromeOnlyTarget": {
+    "message": "Bản dịch định dạng chỉ sử dụng PLaMo, và PLaMo không dịch sang $LANGUAGE$. Hãy chọn một ngôn ngữ khác tại đây, hoặc dịch một trang cho trình dịch tích hợp.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedChromeOnlyNote": {
+    "message": "Trình dịch tích hợp sẵn của Chrome chỉ bao quát $LANGUAGES$ trên các trang; văn bản nhập vào không bao giờ được gửi đến đó.",
+    "placeholders": {
+      "languages": {
+        "content": "$1"
+      }
+    }
+  }
+}

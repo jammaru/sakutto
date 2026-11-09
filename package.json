@@ -40,6 +40,8 @@
     "bench:build:live": "node scripts/verify-wllama.mjs && node scripts/sync-licenses.mjs && SAKUTTO_E2E_REAL=1 wxt build",
     "bench:serve": "node scripts/bench/static.ts",
     "bench:history": "node scripts/bench/report.ts",
+    "i18n:check": "node scripts/i18n/check-locales.mjs",
+    "i18n:draft": "node scripts/i18n/generate-locale.mjs",
     "release": "node scripts/release/cli.ts"
   },
   "devDependencies": {

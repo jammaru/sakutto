@@ -48,6 +48,8 @@ PLaMo 3 Translate supports 53 languages in either direction. The source language
 
 Eleven further languages (cs, da, el, fi, kn, no, pt, ro, sv, tr, uk) are translated only by Chrome's built-in translator. Languages that PLaMo supports and Chrome does not stay untranslated until the model is ready.
 
+The interface itself is translated into 14 languages: English, Japanese, Korean, Chinese (Simplified and Traditional), Spanish, Portuguese (Brazil), French, German, Italian, Russian, Vietnamese, Thai, and Indonesian. Chrome picks the catalog that matches the browser UI language and falls back to English. To add one, see [docs/TRANSLATING.md](docs/TRANSLATING.md).
+
 ## Privacy
 
 Translation runs on your device. The extension does not send page text, selections, your glossary, or translations to the developer or to any translation server, and it has no account, ads, or telemetry. Its own network request is the model download from Hugging Face. Read the policy at [PRIVACY.md](PRIVACY.md) or https://jammaru.com/sakutto/privacy/.
@@ -79,6 +81,8 @@ pnpm test:e2e       # local fixtures; does not download the model
 `pnpm bench:mock` and `pnpm bench:live` measure whole pages the way a reader experiences them, on eight fixtures in [bench/pages](bench/pages) that each isolate a different cost (a long article, a short lead with a long tail, many short cards, one very long paragraph, a sidebar, mixed UI, a headline inside the article header, and late-mounted content). Every run appends to `bench/history/pages.jsonl`, so a later commit can be diffed against an earlier one on the same pages. `pnpm bench:serve` opens those fixtures in your own browser. See [bench/README.md](bench/README.md) for the metrics, the mock-versus-live distinction, and how to add a fixture.
 
 `pnpm icons` regenerates the PNG icons from `scripts/generate-icons.mjs`.
+
+`pnpm i18n:check` compares every catalog in `public/_locales` against English for missing keys, placeholder tokens, and empty messages. `pnpm i18n:draft <catalog> <language>` drafts a catalog from English with the same PLaMo model the extension ships. Both are described in [docs/TRANSLATING.md](docs/TRANSLATING.md).
 
 ## Permissions
 

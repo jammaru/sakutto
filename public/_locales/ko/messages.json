@@ -1,0 +1,791 @@
+{
+  "extensionName": {
+    "message": "Sakutto - 로컬 AI 번역",
+    "description": "Extension name."
+  },
+  "extensionShortName": {
+    "message": "Sakutto",
+    "description": "Short extension name."
+  },
+  "extensionDescription": {
+    "message": "로컬 LLM이 기기에서 페이지를 번역합니다. 무료이며 계정이 필요하지 않습니다.",
+    "description": "Extension description."
+  },
+  "tagline": {
+    "message": "기기에서 실행되는 페이지 번역"
+  },
+  "settingsLabel": {
+    "message": "설정"
+  },
+  "targetLanguageLabel": {
+    "message": "번역하여"
+  },
+  "formalityLabel": {
+    "message": "일본어 톤"
+  },
+  "formalityPolite": {
+    "message": "Polite (です・ます)"
+  },
+  "formalityPlain": {
+    "message": "Plain (だ・である)"
+  },
+  "displayLabel": {
+    "message": "읽기 스타일"
+  },
+  "displayReplace": {
+    "message": "원본 대체"
+  },
+  "displayBilingual": {
+    "message": "이중 언어"
+  },
+  "statusChecking": {
+    "message": "확인 중…"
+  },
+  "pageStatusLabel": {
+    "message": "이 페이지"
+  },
+  "pageStatusUnavailable": {
+    "message": "번역 불가"
+  },
+  "pageStatusLanguageUnknown": {
+    "message": "미지의 언어"
+  },
+  "pageStatusReady": {
+    "message": "$LANG$ · $COUNT$ 블록",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      },
+      "count": {
+        "content": "$2"
+      }
+    }
+  },
+  "engineStatusLabel": {
+    "message": "런타임"
+  },
+  "engineHeading": {
+    "message": "엔진"
+  },
+  "engineWebGpu": {
+    "message": "WebGPU"
+  },
+  "engineCpuWebGpuUnsupported": {
+    "message": "CPU (WebGPU 이용 불가)"
+  },
+  "engineCpuAdapterUnavailable": {
+    "message": "CPU (GPU 어댑터 없음)"
+  },
+  "engineCpuProbeFailed": {
+    "message": "CPU (WebGPU 확인 실패)"
+  },
+  "engineUnavailable": {
+    "message": "이용 불가"
+  },
+  "isolationLabel": {
+    "message": "교차 원소 격리"
+  },
+  "isolationOn": {
+    "message": "활성"
+  },
+  "isolationOff": {
+    "message": "비활성"
+  },
+  "threadsLabel": {
+    "message": "논리 코어"
+  },
+  "diagHeading": {
+    "message": "진단"
+  },
+  "diagBackend": {
+    "message": "활성 백엔드"
+  },
+  "diagThreads": {
+    "message": "스레드"
+  },
+  "diagParallel": {
+    "message": "n_parallel"
+  },
+  "diagBackendGpu": {
+    "message": "WebGPU"
+  },
+  "diagBackendCpu": {
+    "message": "CPU"
+  },
+  "diagBackendUnknown": {
+    "message": "로드되지 않음"
+  },
+  "diagRateHint": {
+    "message": "페이지가 번역 중인 동안, 바에는 토큰/s와 세그먼트/s가 표시됩니다."
+  },
+  "paceLabel": {
+    "message": "미리 살펴보기"
+  },
+  "paceFast": {
+    "message": "더 앞을 보세요"
+  },
+  "paceQuality": {
+    "message": "가시적인 최초"
+  },
+  "paceHelp": {
+    "message": "단락이 스크롤되어 보이기 직전에 번역합니다. \"Look ahead further\"는 폴드 아래에서 더 많은 내용을 미리 가져오므로, 스크롤할 때 즉시 텍스트를 사용할 수 있습니다. PLaMo가 지원하는 언어의 경우 모든 줄이 PLaMo에서 생성되며, Chrome의 초안은 절대 사용되지 않습니다."
+  },
+  "pageRate": {
+    "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
+    "placeholders": {
+      "tokens": {
+        "content": "$1"
+      },
+      "segments": {
+        "content": "$2"
+      }
+    }
+  },
+  "openOptions": {
+    "message": "설정 열기"
+  },
+  "unofficialNotice": {
+    "message": "비공식. Preferred Networks와 제휴 관계가 아님. PLaMo로 구축됨."
+  },
+  "optionsTitle": {
+    "message": "설정"
+  },
+  "optionsLead": {
+    "message": "번역 방식을 선택하고 모델을 관리하며 사이트별 동작을 설정하세요. 변경 사항은 자동으로 저장됩니다."
+  },
+  "privacyHeading": {
+    "message": "개인정보 보호"
+  },
+  "privacyBody": {
+    "message": "이 확장 프로그램은 서버로 페이지 텍스트를 전송하지 않습니다. 텔레메트리가 없습니다."
+  },
+  "privacyDestinations": {
+    "message": "이 확장 프로그램의 자체 요청 사항은 모델 다운로드입니다. huggingface.co에서 시작하여 Hugging Face의 CDN 리다이렉트를 따릅니다. 페이지 텍스트는 포함되지 않습니다. Chrome은 언어 팩을 자체적으로 다운로드합니다."
+  },
+  "privacyPolicyLink": {
+    "message": "개인정보 처리방침"
+  },
+  "sourceCodeLink": {
+    "message": "소스 코드"
+  },
+  "licensesHeading": {
+    "message": "라이선스"
+  },
+  "licensesBody": {
+    "message": "전체 PLaMo 커뮤니티 라이선스와 본 확장 기능의 MIT 라이선스가 확장 기능에 포함되어 있습니다."
+  },
+  "licensePlaMoJa": {
+    "message": "PLaMo 커뮤니티 라이선스 (일본어)"
+  },
+  "licensePlaMoEn": {
+    "message": "PLaMo 커뮤니티 라이선스 (영어)"
+  },
+  "licenseMit": {
+    "message": "MIT 라이선스"
+  },
+  "licenseNotice": {
+    "message": "공지"
+  },
+  "licenseModelNote": {
+    "message": "모델 가중치는 번들로 제공되지 않습니다. 해당 기기에 이미 저장되어 있지 않은 경우 공식 Hugging Face 저장소에서 다운로드됩니다."
+  },
+  "openOnboarding": {
+    "message": "오픈 온보딩"
+  },
+  "machineTranslationNotice": {
+    "message": "번역은 PLaMo에서 생성한 기계 번역입니다."
+  },
+  "onboardingEyebrow": {
+    "message": "시작하기"
+  },
+  "onboardingLead": {
+    "message": "페이지 번역은 기기에서 실행됩니다. PLaMo 3 모델은 해당 기기에 이미 저장되어 있지 않은 경우에만 다운로드됩니다."
+  },
+  "onboardingSetupHeading": {
+    "message": "이 확장 프로그램에 대하여"
+  },
+  "onboardingModelNote": {
+    "message": "기본 모델(573 MB)이 이 장치에 다운로드됩니다. 해당 용량의 100 Mbps 지속 전송은 오버헤드 발생 전 약 46초가 소요되며, 실시간은 차이가 있습니다. 중단된 다운로드는 재개됩니다."
+  },
+  "onboardingBridgeNote": {
+    "message": "페이지는 모델이 준비될 때까지 원문을 유지하며, 이후 PLaMo가 이를 번역합니다. Google 문서는 기기에서 실행되는 Chrome의 번역을 반영합니다."
+  },
+  "onboardingPrivacyNote": {
+    "message": "이 확장 프로그램은 서버로 페이지 텍스트를 전송하지 않습니다."
+  },
+  "onboardingClose": {
+    "message": "닫기"
+  },
+  "onboardingStart": {
+    "message": "라이선스에 동의하고 시작하기"
+  },
+  "onboardingStartFailed": {
+    "message": "설정을 시작할 수 없습니다. 다시 시도해 주세요."
+  },
+  "onboardingHttpError": {
+    "message": "모델 다운로드에 실패했습니다 (HTTP $STATUS$). 다시 시도해 주세요.",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      }
+    }
+  },
+  "errorSettings": {
+    "message": "설정을 불러올 수 없습니다."
+  },
+  "errorSaveSettings": {
+    "message": "설정을 저장할 수 없습니다."
+  },
+  "errorPage": {
+    "message": "이 페이지를 읽을 수 없습니다."
+  },
+  "errorAction": {
+    "message": "페이지를 열 수 없었습니다."
+  },
+  "retry": {
+    "message": "다시 시도해 보세요"
+  },
+  "originalLabel": {
+    "message": "원본"
+  },
+  "chromeTranslationNote": {
+    "message": "Chrome 내장 번역"
+  },
+  "machineTranslationTooltip": {
+    "message": "PLaMo를 통한 기계 번역."
+  },
+  "selectionPending": {
+    "message": "번역 중…"
+  },
+  "selectionFailed": {
+    "message": "이 선택 항목을 변환할 수 없습니다."
+  },
+  "selectionTitle": {
+    "message": "선택된 텍스트"
+  },
+  "selectionIcon": {
+    "message": "선택한 텍스트를 번역하세요"
+  },
+  "close": {
+    "message": "닫기"
+  },
+  "commandTranslate": {
+    "message": "이 페이지를 번역하거나 원본으로 복구하세요"
+  },
+  "commandBilingual": {
+    "message": "이중 언어 뷰로 번역하거나 현재 뷰 전환"
+  },
+  "commandSelection": {
+    "message": "선택한 텍스트를 번역하세요"
+  },
+  "contextTranslatePage": {
+    "message": "이 페이지 번역하기"
+  },
+  "contextTranslateSelection": {
+    "message": "선택한 텍스트를 번역하세요"
+  },
+  "translateThisPage": {
+    "message": "이 페이지 번역하기"
+  },
+  "restoreThisPage": {
+    "message": "원본 복원"
+  },
+  "pageStartBlocked": {
+    "message": "페이지 번역은 PLaMo 모델의 다운로드 및 로드가 완료될 때까지 대기합니다. 오픈 온보딩을 열어 진행 상황을 확인하세요."
+  },
+  "pageTranslating": {
+    "message": "번역 중…"
+  },
+  "pageProgress": {
+    "message": "$DONE$ / $TOTAL$ 변환",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pageProgressLabel": {
+    "message": "번역 진행 상황"
+  },
+  "pageTranslated": {
+    "message": "이 페이지는 번역되었습니다."
+  },
+  "pagePartial": {
+    "message": "이 페이지의 $BLOCKS$ 부분은 번역할 수 없습니다.",
+    "placeholders": {
+      "blocks": {
+        "content": "$1"
+      }
+    }
+  },
+  "pageAlwaysOn": {
+    "message": "이 사이트는 항상 번역됩니다."
+  },
+  "siteGrantTitle": {
+    "message": "이 사이트 번역하기"
+  },
+  "siteGrantBody": {
+    "message": "$HOST$의 페이지는 이 기기에서 번역됩니다.",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteGrantAllow": {
+    "message": "허용"
+  },
+  "siteGrantDenied": {
+    "message": "권한이 부여되지 않았습니다. 다시 시도해 주세요."
+  },
+  "siteGrantInvalid": {
+    "message": "이 페이지는 사이트 이름을 지정하지 않습니다."
+  },
+  "targetAdjustedNote": {
+    "message": "페이지가 이미 저장된 대상 언어로 되어 있어 대상이 변경되었습니다."
+  },
+  "sameLanguageHint": {
+    "message": "이 페이지는 이미 대상 언어로 작성되어 있습니다."
+  },
+  "displaySiteHint": {
+    "message": "이 선택 사항은 사이트에 기억됩니다."
+  },
+  "displayNowBilingual": {
+    "message": "이 사이트는 이중 언어 보기가 활성화되어 있습니다."
+  },
+  "displayNowReplace": {
+    "message": "이 사이트의 대체 뷰가 활성화되어 있습니다."
+  },
+  "optionsDefaultHint": {
+    "message": "이는 기본 설정입니다. 번역하는 사이트는 자체 언어와 읽기 스타일을 유지할 수 있습니다."
+  },
+  "optionsSiteLive": {
+    "message": "여기서의 언어 및 읽기 방식은 사이트 표준을 따릅니다. 위 설정은 사이트 자체에 선택지가 없는 경우에 사용됩니다."
+  },
+  "alwaysTranslateSite": {
+    "message": "이 사이트를 항상 번역하세요"
+  },
+  "shortcutTranslate": {
+    "message": "Alt+A (Mac에서는 Option+A)를 누르면 페이지가 변환되거나 원본으로 복원됩니다."
+  },
+  "shortcutBilingual": {
+    "message": "Alt+B (Mac의 경우 Option+B)는 대체 보기와 이중 언어 보기를 전환하며, 이 사이트에서 선택한 내용을 저장합니다."
+  },
+  "shortcutSelection": {
+    "message": "Alt+S (Mac의 경우 Option+S)를 누르면 선택한 텍스트가 변환됩니다."
+  },
+  "runtimePreparing": {
+    "message": "$PERCENT$% 준비",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "runtimeDownloading": {
+    "message": "$PERCENT$% 다운로드 중 ($RECEIVED$ / $TOTAL$)",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      },
+      "received": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
+  "runtimeVerifying": {
+    "message": "다운로드한 파일을 확인 중입니다."
+  },
+  "runtimeLoading": {
+    "message": "모델을 로드 중입니다."
+  },
+  "runtimePlamoGpu": {
+    "message": "PLaMo · WebGPU"
+  },
+  "runtimePlamoCpu": {
+    "message": "PLaMo · CPU"
+  },
+  "runtimePlamoGpuFallback": {
+    "message": "PLaMo · CPU (WebGPU가 모델을 로드할 수 없었음)"
+  },
+  "runtimeChrome": {
+    "message": "Chrome 내장 번역"
+  },
+  "runtimeWaiting": {
+    "message": "모델 대기 중"
+  },
+  "runtimeError": {
+    "message": "모델을 불러올 수 없었습니다"
+  },
+  "runtimeChecking": {
+    "message": "확인 중…"
+  },
+  "chromeOnlySuffix": {
+    "message": "(Chrome 내장)"
+  },
+  "onboardingStartNotice": {
+    "message": "\"라이선스에 동의하고 시작\"을 누르면 PLaMo 커뮤니티 라이선스 전체에 동의하게 됩니다."
+  },
+  "onboardingCommercialHeading": {
+    "message": "PLaMo 이용 약관"
+  },
+  "onboardingPersonalHeading": {
+    "message": "개인 및 학술 용도"
+  },
+  "onboardingPersonalBody": {
+    "message": "사전 등록은 필요하지 않습니다."
+  },
+  "onboardingCommercialHeading2": {
+    "message": "업무 및 상업적 이용"
+  },
+  "onboardingCommercialBody": {
+    "message": "여기에는 기업 내 업무에 사용하는 것이 포함됩니다. 다음 두 가지가 모두 필수입니다."
+  },
+  "onboardingCommercialRegistration": {
+    "message": "PFN 사전 등록"
+  },
+  "onboardingCommercialRevenue": {
+    "message": "최근 회계연도 귀하 또는 귀하의 계열사 소득 또는 매출 10억 엔 이하"
+  },
+  "onboardingCommercialUnmetHeading": {
+    "message": "조건이 충족되지 않는 경우"
+  },
+  "onboardingCommercialUnmetBody": {
+    "message": "상업적 이용 시에는 PFN과 별도의 라이선스가 필요합니다."
+  },
+  "onboardingAgeNotice": {
+    "message": "18세 미만이거나 기타 자력으로 계약을 체결하기에 충분한 연령이 되지 않은 경우, 부모 또는 보호자의 동의가 필요합니다."
+  },
+  "onboardingConsentSentence": {
+    "message": "\"라이선스에 동의하고 시작\"을 누르면 PLaMo 커뮤니티 라이선스에 동의하는 것입니다."
+  },
+  "onboardingOtherLicenses": {
+    "message": "기타 라이선스 정보"
+  },
+  "onboardingReconsentHeading": {
+    "message": "PLaMo 용어들이 이제 더 읽기 쉬워졌습니다"
+  },
+  "onboardingReconsentBody": {
+    "message": "앞서 PLaMo 커뮤니티 라이선스에 동의하셨습니다. 다시 한번 확인하실 수 있도록 약관의 내용을 더 명확하게 정리해 드립니다. 다운로드하신 모델은 이 기기에 그대로 유지됩니다."
+  },
+  "onboardingReconsentStart": {
+    "message": "동의하고 계속하기"
+  },
+  "plamoRegistrationLink": {
+    "message": "PFN의 공식 등록 양식(상업적 이용)"
+  },
+  "plamoOfficialLicenseJa": {
+    "message": "PLaMo 커뮤니티 라이선스 (공식, 일본어)"
+  },
+  "plamoOfficialLicenseEn": {
+    "message": "PLaMo 커뮤니티 라이선스 (공식, 영어)"
+  },
+  "onboardingUseNow": {
+    "message": "Chrome의 내장 번역기는 PLaMo가 지원하지 않는 언어 쌍에만 사용됩니다."
+  },
+  "onboardingReadyHeading": {
+    "message": "준비되셨습니다."
+  },
+  "onboardingReadyLead": {
+    "message": "이 기기에서 페이지를 변환할 수 있습니다."
+  },
+  "onboardingReadyToolbar": {
+    "message": "툴바 아이콘을 클릭하여 열려 있는 페이지를 변환하세요."
+  },
+  "onboardingReadyPage": {
+    "message": "Alt+A(Mac의 경우 Option+A)를 눌러 페이지 전체를 변환하세요. 다시 한번 눌러 원본으로 복원하세요."
+  },
+  "onboardingReadySelection": {
+    "message": "Alt+S(Mac의 경우 Option+S)를 눌러 선택한 텍스트를 변환하세요."
+  },
+  "onboardingReadyContext": {
+    "message": "페이지를 우클릭하고 \"이 페이지 번역\"을 선택하세요. 선택한 텍스트의 경우 \"선택한 텍스트 번역\"을 선택하세요."
+  },
+  "onboardingTry": {
+    "message": "샘플 페이지 확인하기"
+  },
+  "onboardingWhileDownloading": {
+    "message": "모델이 다운로드되는 동안 페이지는 원본 텍스트를 유지하며, PLaMo가 준비될 때까지 아무것도 번역되지 않습니다."
+  },
+  "downloadEtaSeconds": {
+    "message": "남은 시간은 약 $COUNT$초입니다.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadEtaMinutes": {
+    "message": "약 $COUNT$분 남음.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadResuming": {
+    "message": "다운로드가 중단된 지점에서 계속 진행 중입니다."
+  },
+  "downloadProgressLabel": {
+    "message": "다운로드 진행 상황"
+  },
+  "downloadPaused": {
+    "message": "다운로드가 일시 중지되었습니다. 중단된 지점부터 다시 시작할 수 있습니다."
+  },
+  "downloadResume": {
+    "message": "재개"
+  },
+  "downloadCancel": {
+    "message": "일시정지"
+  },
+  "modelHeading": {
+    "message": "모델"
+  },
+  "modelStandard": {
+    "message": "표준 (0.8B)"
+  },
+  "modelHigh": {
+    "message": "높은 정확도 (2B)"
+  },
+  "modelInUse": {
+    "message": "사용 중"
+  },
+  "modelUse": {
+    "message": "이 모델을 사용하세요"
+  },
+  "modelDownload": {
+    "message": "다운로드"
+  },
+  "modelDelete": {
+    "message": "삭제"
+  },
+  "highQualityOffer": {
+    "message": "더 정확도가 높은 모델(2B, 약 1.81 GB)을 시도해 보세요. 속도는 이 기기에 따라 다릅니다."
+  },
+  "useHighQuality": {
+    "message": "사용하세요"
+  },
+  "dismissHighQuality": {
+    "message": "지금은 아니요"
+  },
+  "glossaryHeading": {
+    "message": "용어집"
+  },
+  "glossaryHelp": {
+    "message": "한 줄에 “출처, 번역” 한 쌍을 작성하세요. 해당 목록을 그곳에서만 사용할 사이트를 선택하세요."
+  },
+  "glossaryGlobal": {
+    "message": "모든 사이트"
+  },
+  "glossaryImport": {
+    "message": "CSV 가져오기"
+  },
+  "glossaryExport": {
+    "message": "CSV 내보내기"
+  },
+  "glossaryAddSite": {
+    "message": "사이트 추가"
+  },
+  "siteRulesHeading": {
+    "message": "사이트별 번역"
+  },
+  "siteRuleAsk": {
+    "message": "매번 질문하기"
+  },
+  "siteRuleAlways": {
+    "message": "항상 변환"
+  },
+  "siteRuleNever": {
+    "message": "절대 번역하지 마십시오"
+  },
+  "noSiteRules": {
+    "message": "아직 사이트별 설정이 없습니다."
+  },
+  "siteHostLabel": {
+    "message": "호스트 이름"
+  },
+  "cacheClear": {
+    "message": "번역 캐시 정리"
+  },
+  "cacheCleared": {
+    "message": "번역 캐시가 삭제되었습니다."
+  },
+  "cacheClearFailed": {
+    "message": "번역 캐시를 삭제할 수 없었습니다."
+  },
+  "idleLabel": {
+    "message": "다음 시점에 모델을 메모리에서 릴리스합니다."
+  },
+  "idle1": {
+    "message": "1분"
+  },
+  "idle5": {
+    "message": "5분"
+  },
+  "idle15": {
+    "message": "15분"
+  },
+  "idleNever": {
+    "message": "절대 없음"
+  },
+  "tierLabel": {
+    "message": "성능 모드"
+  },
+  "tierAuto": {
+    "message": "자동"
+  },
+  "tierGpu": {
+    "message": "WebGPU"
+  },
+  "tierCpu8": {
+    "message": "CPU (8개 이상의 스레드)"
+  },
+  "tierCpu4": {
+    "message": "CPU (4개 스레드)"
+  },
+  "tierHelp": {
+    "message": "이 PC에 맞는 모드를 자동으로 선택합니다."
+  },
+  "slowDeviceHint": {
+    "message": "이 PC에서 PLaMo는 느립니다. 각 단락은 모델이 완료될 때 나타납니다."
+  },
+  "errorPermission": {
+    "message": "본 사이트에 대한 권한이 부여되지 않았습니다."
+  },
+  "siteHostInvalid": {
+    "message": "유효한 호스트 이름을 입력하세요."
+  },
+  "glossaryScopeLabel": {
+    "message": "적용 대상"
+  },
+  "listSeparator": {
+    "message": ","
+  },
+  "openTyped": {
+    "message": "타입 지정된 텍스트 변환"
+  },
+  "typedLead": {
+    "message": "텍스트를 입력하거나 붙여넣은 후, 페이지 번역에 사용되는 동일한 PLaMo 모델로 번역하세요. 이 기기에서 아무것도 빠져나가지 않습니다."
+  },
+  "typedHeading": {
+    "message": "타입 번역"
+  },
+  "typedSourceLanguageLabel": {
+    "message": "~에서 번역"
+  },
+  "typedDetectSource": {
+    "message": "자동으로 감지됨"
+  },
+  "typedSourceLabel": {
+    "message": "번역할 텍스트"
+  },
+  "typedPlaceholder": {
+    "message": "여기에 텍스트를 입력하거나 붙여넣으세요."
+  },
+  "typedCounter": {
+    "message": "$COUNT$ / $LIMIT$ 문자",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "limit": {
+        "content": "$2"
+      }
+    }
+  },
+  "typedTooLong": {
+    "message": "이 텍스트는 요청 하나에 너무 깁니다. $LIMIT$ 문자 이하로 줄여주세요.",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedDirectionHint": {
+    "message": "$LANGUAGE$로 변환합니다. 다른 언어는 자동으로 감지됩니다.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedSwap": {
+    "message": "번역 방향 전환"
+  },
+  "typedTranslate": {
+    "message": "번역"
+  },
+  "typedTranslating": {
+    "message": "번역 중…"
+  },
+  "typedStop": {
+    "message": "중단"
+  },
+  "typedClear": {
+    "message": "명확함"
+  },
+  "typedCopy": {
+    "message": "복사"
+  },
+  "typedCopied": {
+    "message": "복사됨"
+  },
+  "typedCopyFailed": {
+    "message": "번역본을 복사할 수 없습니다. 선택하여 직접 복사해 주세요."
+  },
+  "typedResultHeading": {
+    "message": "번역"
+  },
+  "typedResultEmpty": {
+    "message": "붙여넣은 텍스트 옆에 PLaMo 번역이 여기 나오고 있습니다."
+  },
+  "typedRunHint": {
+    "message": "Ctrl+Enter (Mac에서는 ⌘+Enter)로도 변환됩니다."
+  },
+  "typedFailed": {
+    "message": "텍스트를 번역할 수 없습니다. 텍스트가 변경되지 않았습니다. 다시 시도해 주세요."
+  },
+  "typedNeedsConsent": {
+    "message": "PLaMo는 실행 전 일회성 라이선스 계약이 필요합니다. 그전까지는 텍스트가 번역되지 않습니다."
+  },
+  "typedOpenOnboarding": {
+    "message": "라이선스를 검토하고 시작하세요"
+  },
+  "typedModelMissing": {
+    "message": "PLaMo 모델이 아직 이 장치에 탑재되어 있지 않습니다."
+  },
+  "typedModelPartial": {
+    "message": "PLaMo 모델 다운로드가 중단되었습니다."
+  },
+  "typedModelBusy": {
+    "message": "PLaMo 모델이 다운로드 중입니다. 준비가 되면 번역이 시작됩니다."
+  },
+  "typedModelError": {
+    "message": "PLaMo 모델을 불러올 수 없었습니다. 옵션 페이지를 열어 확인해 보세요."
+  },
+  "typedDownloadModel": {
+    "message": "모델 다운로드"
+  },
+  "typedChromeOnlyTarget": {
+    "message": "타입 번역은 PLaMo만 사용하며, PLaMo는 $LANGUAGE$로 번역하지 않습니다. 여기서 다른 언어를 선택하거나, 내장 번역기로 페이지를 번역하세요.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedChromeOnlyNote": {
+    "message": "Chrome의 내장 번역기는 페이지 내 $LANGUAGES$만 다루며, 입력된 텍스트는 절대 전송되지 않습니다.",
+    "placeholders": {
+      "languages": {
+        "content": "$1"
+      }
+    }
+  }
+}

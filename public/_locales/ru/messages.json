@@ -1,0 +1,791 @@
+{
+  "extensionName": {
+    "message": "Sakutto — Местный перевод ИИ",
+    "description": "Extension name."
+  },
+  "extensionShortName": {
+    "message": "Sakutto",
+    "description": "Short extension name."
+  },
+  "extensionDescription": {
+    "message": "Локальный LLM переводит страницы на вашем устройстве. Бесплатно, без аккаунта.",
+    "description": "Extension description."
+  },
+  "tagline": {
+    "message": "Перевод страниц, работающий на вашем устройстве"
+  },
+  "settingsLabel": {
+    "message": "Настройки"
+  },
+  "targetLanguageLabel": {
+    "message": "Перевести в"
+  },
+  "formalityLabel": {
+    "message": "Японский тон"
+  },
+  "formalityPolite": {
+    "message": "Polite (です・ます)"
+  },
+  "formalityPlain": {
+    "message": "Простой (だ・である)"
+  },
+  "displayLabel": {
+    "message": "Стиль чтения"
+  },
+  "displayReplace": {
+    "message": "Заменить оригинал"
+  },
+  "displayBilingual": {
+    "message": "Двуязычный"
+  },
+  "statusChecking": {
+    "message": "Проверяю…"
+  },
+  "pageStatusLabel": {
+    "message": "Эта страница"
+  },
+  "pageStatusUnavailable": {
+    "message": "Непереводимо"
+  },
+  "pageStatusLanguageUnknown": {
+    "message": "Неизвестный язык"
+  },
+  "pageStatusReady": {
+    "message": "$LANG$ · $COUNT$ блоков",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      },
+      "count": {
+        "content": "$2"
+      }
+    }
+  },
+  "engineStatusLabel": {
+    "message": "Время выполнения"
+  },
+  "engineHeading": {
+    "message": "Инженер"
+  },
+  "engineWebGpu": {
+    "message": "WebGPU"
+  },
+  "engineCpuWebGpuUnsupported": {
+    "message": "CPU (WebGPU недоступен)"
+  },
+  "engineCpuAdapterUnavailable": {
+    "message": "CPU (без адаптера GPU)"
+  },
+  "engineCpuProbeFailed": {
+    "message": "CPU (проверка WebGPU не удалась)"
+  },
+  "engineUnavailable": {
+    "message": "Недоступно"
+  },
+  "isolationLabel": {
+    "message": "Изоляция между истоками"
+  },
+  "isolationOn": {
+    "message": "Активно"
+  },
+  "isolationOff": {
+    "message": "Неактивно"
+  },
+  "threadsLabel": {
+    "message": "Логические ядра"
+  },
+  "diagHeading": {
+    "message": "Диагностика"
+  },
+  "diagBackend": {
+    "message": "Активный бэкенд"
+  },
+  "diagThreads": {
+    "message": "Треды"
+  },
+  "diagParallel": {
+    "message": "n_parallel"
+  },
+  "diagBackendGpu": {
+    "message": "WebGPU"
+  },
+  "diagBackendCpu": {
+    "message": "CPU"
+  },
+  "diagBackendUnknown": {
+    "message": "Не загружено"
+  },
+  "diagRateHint": {
+    "message": "Пока страница переводится, на её полосе отображаются токены/s и сегменты/s."
+  },
+  "paceLabel": {
+    "message": "Предвидение"
+  },
+  "paceFast": {
+    "message": "Смотри дальше"
+  },
+  "paceQuality": {
+    "message": "Видимый первый"
+  },
+  "paceHelp": {
+    "message": "Переводит абзацы прямо перед тем, как они появятся в глазах. «Look ahead further» загружает дополнительный текст ниже линии, так что текст готов к моменту прокрутки. Для языков, поддерживаемых PLaMo, каждая строка поступает из PLaMo; черновик Chrome никогда не используется."
+  },
+  "pageRate": {
+    "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
+    "placeholders": {
+      "tokens": {
+        "content": "$1"
+      },
+      "segments": {
+        "content": "$2"
+      }
+    }
+  },
+  "openOptions": {
+    "message": "Открыть настройки"
+  },
+  "unofficialNotice": {
+    "message": "Неофициальный. Не связан с Preferred Networks. Создан с помощью PLaMo."
+  },
+  "optionsTitle": {
+    "message": "Настройки"
+  },
+  "optionsLead": {
+    "message": "Выберите способ работы перевода, управляйте моделью и настройте поведение для каждого сайта. Изменения сохраняются автоматически."
+  },
+  "privacyHeading": {
+    "message": "Конфиденциальность"
+  },
+  "privacyBody": {
+    "message": "Это расширение не отправляет текст страницы на сервер. Телеметрии нет."
+  },
+  "privacyDestinations": {
+    "message": "Самым важным требованием расширения является скачивание модели. Оно начинается с huggingface.co и переходит на редирект к своему CDN от Hugging Face. Текст страницы в него не входит. Chrome самостоятельно скачивает языковые пакеты."
+  },
+  "privacyPolicyLink": {
+    "message": "Политика конфиденциальности"
+  },
+  "sourceCodeLink": {
+    "message": "Исходный код"
+  },
+  "licensesHeading": {
+    "message": "Лицензии"
+  },
+  "licensesBody": {
+    "message": "Полная лицензия PLaMo Community и лицензия MIT данного расширения входят в комплект расширения."
+  },
+  "licensePlaMoJa": {
+    "message": "Лицензия PLaMo Community (японский)"
+  },
+  "licensePlaMoEn": {
+    "message": "Лицензия PLaMo Community (на английском языке)"
+  },
+  "licenseMit": {
+    "message": "Лицензия MIT"
+  },
+  "licenseNotice": {
+    "message": "ПРЕДУПРЕЖДЕНИЕ"
+  },
+  "licenseModelNote": {
+    "message": "Весы моделей не собираются вместе. Они скачиваются из официального репозитория Hugging Face, когда они еще не хранятся на данном устройстве."
+  },
+  "openOnboarding": {
+    "message": "Открытое онбординг"
+  },
+  "machineTranslationNotice": {
+    "message": "Переводы представляют собой машинные переводы, созданные PLaMo."
+  },
+  "onboardingEyebrow": {
+    "message": "Начало работы"
+  },
+  "onboardingLead": {
+    "message": "Перевод страниц выполняется на вашем устройстве. Модель PLaMo 3 скачивается только в том случае, если она еще не хранится на этом устройстве."
+  },
+  "onboardingSetupHeading": {
+    "message": "О данном расширении"
+  },
+  "onboardingModelNote": {
+    "message": "По умолчанию на это устройство загружается модель (573 МБ). Продолжительный переход скоростью 100 Мбит/с такого размера занимает около 46 секунд до операционных затрат; реальное время может меняться. Перерыв в загрузке возобновляется."
+  },
+  "onboardingBridgeNote": {
+    "message": "Страница сохраняет исходный текст, пока модель не будет готова, после чего её переводит PLaMo. Google описывает перевод Chrome как локальный."
+  },
+  "onboardingPrivacyNote": {
+    "message": "Это расширение не отправляет текст страницы на сервер."
+  },
+  "onboardingClose": {
+    "message": "Закрыть"
+  },
+  "onboardingStart": {
+    "message": "Согласиться с лицензией и начать"
+  },
+  "onboardingStartFailed": {
+    "message": "Настройка не удалась. Попробуйте еще раз."
+  },
+  "onboardingHttpError": {
+    "message": "Загрузка модели завершилась не успешно (HTTP $STATUS$). Пожалуйста, попробуйте еще раз.",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      }
+    }
+  },
+  "errorSettings": {
+    "message": "Настройки не удалось загрузить."
+  },
+  "errorSaveSettings": {
+    "message": "Не удалось сохранить настройки."
+  },
+  "errorPage": {
+    "message": "Страница не была прочитана."
+  },
+  "errorAction": {
+    "message": "Страница открыть не удалось."
+  },
+  "retry": {
+    "message": "Попробуйте еще раз"
+  },
+  "originalLabel": {
+    "message": "Оригинал"
+  },
+  "chromeTranslationNote": {
+    "message": "Встроенная переводчика Chrome"
+  },
+  "machineTranslationTooltip": {
+    "message": "Машинная переводная конвертация по PLaMo."
+  },
+  "selectionPending": {
+    "message": "Перевод…"
+  },
+  "selectionFailed": {
+    "message": "Этот отбор не удалось перевести."
+  },
+  "selectionTitle": {
+    "message": "Избранный текст"
+  },
+  "selectionIcon": {
+    "message": "Перевести выбранный текст"
+  },
+  "close": {
+    "message": "Закрыть"
+  },
+  "commandTranslate": {
+    "message": "Перевести эту страницу или восстановить оригинал"
+  },
+  "commandBilingual": {
+    "message": "Перевод в двуязычном варианте или смена текущего варианта"
+  },
+  "commandSelection": {
+    "message": "Перевести выбранный текст"
+  },
+  "contextTranslatePage": {
+    "message": "Перевести эту страницу"
+  },
+  "contextTranslateSelection": {
+    "message": "Перевести выбранный текст"
+  },
+  "translateThisPage": {
+    "message": "Перевести эту страницу"
+  },
+  "restoreThisPage": {
+    "message": "Вернуть оригинал"
+  },
+  "pageStartBlocked": {
+    "message": "Перевод страницы ожидает, пока модель PLaMo закончит загрузку и загрузку откроется. Откройте онбординг, чтобы просмотреть ход процесса."
+  },
+  "pageTranslating": {
+    "message": "Перевод…"
+  },
+  "pageProgress": {
+    "message": "Перевод $DONE$ / $TOTAL$",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pageProgressLabel": {
+    "message": "Прогресс перевода"
+  },
+  "pageTranslated": {
+    "message": "Эта страница переведена."
+  },
+  "pagePartial": {
+    "message": "$BLOCKS$ частей этой страницы не удалось перевести.",
+    "placeholders": {
+      "blocks": {
+        "content": "$1"
+      }
+    }
+  },
+  "pageAlwaysOn": {
+    "message": "Этот сайт постоянно переводится."
+  },
+  "siteGrantTitle": {
+    "message": "Перевести этот сайт"
+  },
+  "siteGrantBody": {
+    "message": "Страницы на $HOST$ будут переведены на этом устройстве.",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteGrantAllow": {
+    "message": "Разрешить"
+  },
+  "siteGrantDenied": {
+    "message": "Разрешение не было предоставлено. Попробуйте еще раз."
+  },
+  "siteGrantInvalid": {
+    "message": "На этой странице не указано название сайта."
+  },
+  "targetAdjustedNote": {
+    "message": "Страница уже находится в сохраненном языке цели, поэтому цель была сменена."
+  },
+  "sameLanguageHint": {
+    "message": "На этой странице уже написано на целевом языке."
+  },
+  "displaySiteHint": {
+    "message": "Этот выбор запоминается для сайта."
+  },
+  "displayNowBilingual": {
+    "message": "На этом сайте открыта двуязычная версия."
+  },
+  "displayNowReplace": {
+    "message": "На этом сайте открыта перестановка представления."
+  },
+  "optionsDefaultHint": {
+    "message": "Это значения по умолчанию. Сайт, который вы переводите, может сохранять собственный язык и стиль чтения."
+  },
+  "optionsSiteLive": {
+    "message": "Язык и стиль чтения здесь соответствуют сайту. Приведенные выше настройки используются в случаях, когда сайт не имеет собственного выбора."
+  },
+  "alwaysTranslateSite": {
+    "message": "Всегда переводить этот сайт"
+  },
+  "shortcutTranslate": {
+    "message": "Alt+A (Option+A на Mac) переводит страницу или восстанавливает оригинал."
+  },
+  "shortcutBilingual": {
+    "message": "Alt+B (Option+B на Mac) переключает между вариантами замены и двуязычного просмотра, а также запоминает выбор для этого сайта."
+  },
+  "shortcutSelection": {
+    "message": "Alt+S (Option+S на Mac) переводит выбранный текст."
+  },
+  "runtimePreparing": {
+    "message": "Подготовка $PERCENT$%",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "runtimeDownloading": {
+    "message": "Скачивание $PERCENT$% ($RECEIVED$ / $TOTAL$)",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      },
+      "received": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
+  "runtimeVerifying": {
+    "message": "Проверка загруженного файла."
+  },
+  "runtimeLoading": {
+    "message": "Загрузка модели."
+  },
+  "runtimePlamoGpu": {
+    "message": "PLaMo · WebGPU"
+  },
+  "runtimePlamoCpu": {
+    "message": "PLaMo · CPU"
+  },
+  "runtimePlamoGpuFallback": {
+    "message": "PLaMo · CPU (WebGPU не смог загрузить модель)"
+  },
+  "runtimeChrome": {
+    "message": "Встроенная переводчика Chrome"
+  },
+  "runtimeWaiting": {
+    "message": "Ожидание модели"
+  },
+  "runtimeError": {
+    "message": "Модель не удалось загрузить"
+  },
+  "runtimeChecking": {
+    "message": "Проверяю…"
+  },
+  "chromeOnlySuffix": {
+    "message": "(встроено в Chrome)"
+  },
+  "onboardingStartNotice": {
+    "message": "Нажатие кнопки «Согласиться с лицензией и начать» означает, что вы соглашаетесь с полной Лицензией сообщества PLaMo."
+  },
+  "onboardingCommercialHeading": {
+    "message": "Условия использования PLaMo"
+  },
+  "onboardingPersonalHeading": {
+    "message": "Личное и академическое использование"
+  },
+  "onboardingPersonalBody": {
+    "message": "Предварительная регистрация не требуется."
+  },
+  "onboardingCommercialHeading2": {
+    "message": "Работа и коммерческое использование"
+  },
+  "onboardingCommercialBody": {
+    "message": "Это включает использование его для работы внутри компании. Оба следующих требования обязательны."
+  },
+  "onboardingCommercialRegistration": {
+    "message": "Предварительная регистрация в PFN"
+  },
+  "onboardingCommercialRevenue": {
+    "message": "Доход или выручка вашей компании или ваших аффилированных лиц за последнее финансовое года не более 1 млрд иен"
+  },
+  "onboardingCommercialUnmetHeading": {
+    "message": "Когда условия не соблюдаются"
+  },
+  "onboardingCommercialUnmetBody": {
+    "message": "Коммерческое использование требует отдельной лицензии от PFN."
+  },
+  "onboardingAgeNotice": {
+    "message": "Если вам меньше 18 лет или вы в любом другом возрасте не достигаете возраста для заключения договора самостоятельно, необходимо получение согласия родителя или опекуна."
+  },
+  "onboardingConsentSentence": {
+    "message": "Нажатие кнопки «Согласиться с лицензией и начать» означает, что вы соглашаетесь с Лицензией PLaMo Community."
+  },
+  "onboardingOtherLicenses": {
+    "message": "Прочая информация о лицензии"
+  },
+  "onboardingReconsentHeading": {
+    "message": "Термины PLaMo теперь проще читать"
+  },
+  "onboardingReconsentBody": {
+    "message": "Ранее вы согласились на лицензию PLaMo Community License. Ниже приведен более подробный обзор условий, чтобы вы могли согласиться еще раз. Вы скачанная модель остается на этом устройстве."
+  },
+  "onboardingReconsentStart": {
+    "message": "Согласен и продолжаю"
+  },
+  "plamoRegistrationLink": {
+    "message": "Официальная форма регистрации PFN (коммерческое использование)"
+  },
+  "plamoOfficialLicenseJa": {
+    "message": "Лицензия PLaMo Community (официальная, японская)"
+  },
+  "plamoOfficialLicenseEn": {
+    "message": "Лицензия PLaMo Community (официальная, на английском языке)"
+  },
+  "onboardingUseNow": {
+    "message": "Встроенный переводчик Chrome используется только для языковых пар, которые не поддерживает PLaMo."
+  },
+  "onboardingReadyHeading": {
+    "message": "Вы готовы."
+  },
+  "onboardingReadyLead": {
+    "message": "На этом устройстве можно переводить страницы."
+  },
+  "onboardingReadyToolbar": {
+    "message": "Нажмите на значок панели инструментов, чтобы перевести открытую страницу."
+  },
+  "onboardingReadyPage": {
+    "message": "Нажмите Alt+A (Option+A на Mac), чтобы перевести весь страницу. Нажмите снова, чтобы восстановить исходную версию."
+  },
+  "onboardingReadySelection": {
+    "message": "Нажмите Alt+S (Option+S на Mac), чтобы перевести выбранный текст."
+  },
+  "onboardingReadyContext": {
+    "message": "Щелкните правой кнопкой мыши по странице и выберите «Перевести эту страницу». Для выбранного текста выберите «Перевести выбранный текст»."
+  },
+  "onboardingTry": {
+    "message": "Попробуйте примерную страницу"
+  },
+  "onboardingWhileDownloading": {
+    "message": "Пока модель загружается, страницы сохраняют свой оригинальный текст; ничего не переводится, пока PLaMo не будет готов."
+  },
+  "downloadEtaSeconds": {
+    "message": "Осталось около $COUNT$ секунд.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadEtaMinutes": {
+    "message": "Осталось около $COUNT$ минут.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadResuming": {
+    "message": "Загрузка продолжается с того места, где она прекратилась."
+  },
+  "downloadProgressLabel": {
+    "message": "Прогресс загрузки"
+  },
+  "downloadPaused": {
+    "message": "Загрузка приостановлена. Она может возобновиться там, где закончилась."
+  },
+  "downloadResume": {
+    "message": "Восстановление"
+  },
+  "downloadCancel": {
+    "message": "Пауза"
+  },
+  "modelHeading": {
+    "message": "Модель"
+  },
+  "modelStandard": {
+    "message": "Стандартный (0,8 млрд)"
+  },
+  "modelHigh": {
+    "message": "Высокая точность (2B)"
+  },
+  "modelInUse": {
+    "message": "В использовании"
+  },
+  "modelUse": {
+    "message": "Используйте эту модель"
+  },
+  "modelDownload": {
+    "message": "Скачать"
+  },
+  "modelDelete": {
+    "message": "Удалить"
+  },
+  "highQualityOffer": {
+    "message": "Вы можете попробовать модель с более высокой точностью (2B, около 1,81 ГБ). Скорость зависит от этого устройства."
+  },
+  "useHighQuality": {
+    "message": "Используйте его"
+  },
+  "dismissHighQuality": {
+    "message": "Не сейчас"
+  },
+  "glossaryHeading": {
+    "message": "Глоссарий"
+  },
+  "glossaryHelp": {
+    "message": "Напишите по одной паре «источник, перевод» на каждой строке. Выберите сайт, на котором будет использоваться список только."
+  },
+  "glossaryGlobal": {
+    "message": "Все сайты"
+  },
+  "glossaryImport": {
+    "message": "Импорт CSV"
+  },
+  "glossaryExport": {
+    "message": "Экспорт CSV"
+  },
+  "glossaryAddSite": {
+    "message": "Добавить сайт"
+  },
+  "siteRulesHeading": {
+    "message": "Перевод на уровне сайта"
+  },
+  "siteRuleAsk": {
+    "message": "Спрашивайте при каждом разе"
+  },
+  "siteRuleAlways": {
+    "message": "Всегда переводить"
+  },
+  "siteRuleNever": {
+    "message": "Никогда не переводить"
+  },
+  "noSiteRules": {
+    "message": "Настроек на сайты пока нет."
+  },
+  "siteHostLabel": {
+    "message": "Имя хоста"
+  },
+  "cacheClear": {
+    "message": "Очистить кэш перевода"
+  },
+  "cacheCleared": {
+    "message": "Кэш перевода был очищен."
+  },
+  "cacheClearFailed": {
+    "message": "Кэш перевода не удалось очистить."
+  },
+  "idleLabel": {
+    "message": "Выпустить модель из памяти после"
+  },
+  "idle1": {
+    "message": "1 минута"
+  },
+  "idle5": {
+    "message": "5 минут"
+  },
+  "idle15": {
+    "message": "15 минут"
+  },
+  "idleNever": {
+    "message": "Никогда"
+  },
+  "tierLabel": {
+    "message": "Режим производительности"
+  },
+  "tierAuto": {
+    "message": "Автоматический"
+  },
+  "tierGpu": {
+    "message": "WebGPU"
+  },
+  "tierCpu8": {
+    "message": "CPU (8 или более потоков)"
+  },
+  "tierCpu4": {
+    "message": "CPU (4 потока)"
+  },
+  "tierHelp": {
+    "message": "Автоматически выбирает режим, подходящий для этого ПК."
+  },
+  "slowDeviceHint": {
+    "message": "PLaMo медленно работает на этом ПК. Каждая абзац отображается так, будто модель её завершает."
+  },
+  "errorPermission": {
+    "message": "Разрешение на данный сайт не было предоставлено."
+  },
+  "siteHostInvalid": {
+    "message": "Введите корректное имя хоста."
+  },
+  "glossaryScopeLabel": {
+    "message": "Применимо к"
+  },
+  "listSeparator": {
+    "message": ","
+  },
+  "openTyped": {
+    "message": "Переводить введенный текст"
+  },
+  "typedLead": {
+    "message": "Введите или вставьте текст и переведите его с помощью того же модели PLaMo, который используется при переводе страниц. Ничто не выходит из этого устройства."
+  },
+  "typedHeading": {
+    "message": "Типированный перевод"
+  },
+  "typedSourceLanguageLabel": {
+    "message": "Перевести с"
+  },
+  "typedDetectSource": {
+    "message": "Обнаружено автоматически"
+  },
+  "typedSourceLabel": {
+    "message": "Текст для перевода"
+  },
+  "typedPlaceholder": {
+    "message": "Введите или вставьте текст здесь."
+  },
+  "typedCounter": {
+    "message": "$COUNT$ / $LIMIT$ символов",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "limit": {
+        "content": "$2"
+      }
+    }
+  },
+  "typedTooLong": {
+    "message": "Этот текст слишком длинный для одного запроса. Укорочите его до $LIMIT$ символов или меньше.",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedDirectionHint": {
+    "message": "Переводит в $LANGUAGE$. Другие языки обнаруживаются автоматически.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedSwap": {
+    "message": "Измените направление перевода"
+  },
+  "typedTranslate": {
+    "message": "Переводить"
+  },
+  "typedTranslating": {
+    "message": "Перевод…"
+  },
+  "typedStop": {
+    "message": "Остановиться"
+  },
+  "typedClear": {
+    "message": "Чисто"
+  },
+  "typedCopy": {
+    "message": "Копировать"
+  },
+  "typedCopied": {
+    "message": "Копировано"
+  },
+  "typedCopyFailed": {
+    "message": "Не удалось скопировать перевод. Выберите его и скопируйте сами."
+  },
+  "typedResultHeading": {
+    "message": "Перевод"
+  },
+  "typedResultEmpty": {
+    "message": "Здесь, помимо вставленного вами текста, отображается перевод PLaMo."
+  },
+  "typedRunHint": {
+    "message": "Ctrl+Enter (⌘+Enter на Mac) тоже переводит."
+  },
+  "typedFailed": {
+    "message": "Текст не удалось перевести. Ваш текст остался без изменений; попробуйте еще раз."
+  },
+  "typedNeedsConsent": {
+    "message": "PLaMo требует одноразового соглашения о лицензии, прежде чем можно будет запустить его. Текст не будет переведен до тех пор."
+  },
+  "typedOpenOnboarding": {
+    "message": "Изучите лицензию и начните"
+  },
+  "typedModelMissing": {
+    "message": "Модель PLaMo пока не представлена на этом устройстве."
+  },
+  "typedModelPartial": {
+    "message": "Загрузка модели PLaMo была прервана."
+  },
+  "typedModelBusy": {
+    "message": "Модель PLaMo загружается. Перевод начинается, как только он будет готов."
+  },
+  "typedModelError": {
+    "message": "Модель PLaMo не удалось загрузить. Откройте страницу опций, чтобы проверить это."
+  },
+  "typedDownloadModel": {
+    "message": "Скачать модель"
+  },
+  "typedChromeOnlyTarget": {
+    "message": "Типированный перевод использует только PLaMo, и PLaMo не переводит в $LANGUAGE$. Выберите другой язык здесь или переведите страницу с помощью встроенного переводчика.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedChromeOnlyNote": {
+    "message": "Встроенный переводчик Chrome охватывает только страницы с текстом $LANGUAGES$; введенный текст к нему никогда не отправляется.",
+    "placeholders": {
+      "languages": {
+        "content": "$1"
+      }
+    }
+  }
+}

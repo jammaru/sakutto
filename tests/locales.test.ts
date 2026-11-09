@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_MODEL_ID, getModel } from '@/engine/model/catalog';
+import { DEFAULT_UI_LOCALE, UI_LOCALES } from '@/shared/locales';
 import { PLAMO_OFFICIAL_LINKS, PROJECT_LINKS } from '@/shared/plamo-license';
 import { formatByteSize } from '@/ui/format';
 
@@ -10,9 +11,22 @@ interface MessageEntry {
   placeholders?: Record<string, { content: string }>;
 }
 
-function readMessages(locale: string): Record<string, MessageEntry> {
+type Messages = Record<string, MessageEntry>;
+
+function readMessages(locale: string): Messages {
   const url = new URL(`../public/_locales/${locale}/messages.json`, import.meta.url);
-  return JSON.parse(readFileSync(url, 'utf8')) as Record<string, MessageEntry>;
+  return JSON.parse(readFileSync(url, 'utf8')) as Messages;
+}
+
+/**
+ * Every catalog Chrome will be handed. Read from the directory rather than from a list, so a
+ * new `public/_locales/<lang>` shows up here whether or not anyone remembered to register it.
+ */
+function catalogNames(): string[] {
+  return readdirSync(new URL('../public/_locales', import.meta.url), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
 }
 
 function usedMessageKeys(): Set<string> {
@@ -40,21 +54,35 @@ function placeholderNames(entry: MessageEntry | undefined): string[] {
   return Object.keys(entry?.placeholders ?? {}).sort();
 }
 
-describe('locale messages', () => {
-  const en = readMessages('en');
-  const ja = readMessages('ja');
+function messageTokens(message: string): string[] {
+  return [...message.matchAll(/\$([A-Za-z0-9_]+)\$/g)]
+    .map((match) => match[1]?.toLowerCase())
+    .filter((name): name is string => name !== undefined);
+}
 
-  it('defines the same non-empty keys in English and Japanese', () => {
-    expect(Object.keys(ja).sort()).toEqual(Object.keys(en).sort());
+const catalogs = catalogNames();
+const en = readMessages(DEFAULT_UI_LOCALE);
 
-    for (const [key, entry] of Object.entries({ ...en, ...ja })) {
-      expect(entry.message.trim(), key).not.toBe('');
+describe('locale catalogs', () => {
+  it('registers every catalog directory in UI_LOCALES, and no others', () => {
+    expect(catalogs).toEqual([...UI_LOCALES].sort());
+  });
+
+  it.each(catalogs)('%s defines the same non-empty keys as English', (locale) => {
+    const messages = readMessages(locale);
+    expect(Object.keys(messages).sort()).toEqual(Object.keys(en).sort());
+
+    for (const [key, entry] of Object.entries(messages)) {
+      expect(entry.message.trim(), `${locale} ${key}`).not.toBe('');
     }
   });
 
-  it('uses matching placeholders in both locales', () => {
+  it.each(catalogs)('%s uses the same placeholders as English', (locale) => {
+    const messages = readMessages(locale);
     for (const key of Object.keys(en)) {
-      expect(placeholderNames(ja[key]), key).toEqual(placeholderNames(en[key]));
+      expect(placeholderNames(messages[key]), `${locale} ${key}`).toEqual(
+        placeholderNames(en[key]),
+      );
     }
   });
 
@@ -66,32 +94,47 @@ describe('locale messages', () => {
    * build fail to load at all. Every token in the text must be declared, and every declared
    * placeholder must be used.
    */
-  it('declares every placeholder its message interpolates', () => {
-    for (const [locale, messages] of [
-      ['en', en],
-      ['ja', ja],
-    ] as const) {
-      for (const [key, entry] of Object.entries(messages)) {
-        const used = [...entry.message.matchAll(/\$([A-Za-z0-9_]+)\$/g)].map((match) =>
-          match[1]?.toLowerCase(),
-        );
-        const declared = placeholderNames(entry).map((name) => name.toLowerCase());
-        for (const name of used) {
-          expect(declared, `${locale} ${key} uses $${name}$`).toContain(name);
-        }
-        for (const name of declared) {
-          expect(used, `${locale} ${key} declares ${name}`).toContain(name);
-        }
+  it.each(catalogs)('%s declares every placeholder its message interpolates', (locale) => {
+    const messages = readMessages(locale);
+    for (const [key, entry] of Object.entries(messages)) {
+      const used = messageTokens(entry.message);
+      const declared = placeholderNames(entry).map((name) => name.toLowerCase());
+      for (const name of used) {
+        expect(declared, `${locale} ${key} uses $${name}$`).toContain(name);
+      }
+      for (const name of declared) {
+        expect(used, `${locale} ${key} declares ${name}`).toContain(name);
       }
     }
   });
 
-  it('defines every key used by the UI', () => {
-    for (const key of usedMessageKeys()) {
-      expect(en, key).toHaveProperty(key);
-      expect(ja, key).toHaveProperty(key);
+  /**
+   * A catalog that copies a `$TOKEN$` from English into the text by hand, without the
+   * `placeholders` block, is caught above. This catches the other half: an English sentence
+   * that kept a token the translation dropped, which would show a raw `$COUNT$` to the reader.
+   */
+  it.each(catalogs)('%s keeps the placeholder tokens English uses', (locale) => {
+    const messages = readMessages(locale);
+    for (const key of Object.keys(en)) {
+      const expected = [...new Set(messageTokens(en[key]?.message ?? ''))].sort();
+      const actual = [...new Set(messageTokens(messages[key]?.message ?? ''))].sort();
+      expect(actual, `${locale} ${key}`).toEqual(expected);
     }
   });
+
+  it('defines every key used by the UI', () => {
+    const used = usedMessageKeys();
+    for (const locale of catalogs) {
+      const messages = readMessages(locale);
+      for (const key of used) {
+        expect(messages, `${locale} ${key}`).toHaveProperty(key);
+      }
+    }
+  });
+});
+
+describe('locale messages', () => {
+  const ja = readMessages('ja');
 
   it('uses the product names from the specification', () => {
     expect(en.extensionName?.message).toBe('Sakutto - Local AI translation');
@@ -100,11 +143,24 @@ describe('locale messages', () => {
     expect(ja.extensionShortName?.message).toBe('Sakutto');
   });
 
+  /**
+   * The name is also the store listing, and the store rejects a listing whose name is not the
+   * manifest name. Every catalog therefore has to keep the brand word first and its own
+   * product name short enough for a 75-character store title.
+   */
+  it.each(catalogs)('%s keeps a store-length name that starts with the brand', (locale) => {
+    const messages = readMessages(locale);
+    expect(messages.extensionName?.message.startsWith('Sakutto'), locale).toBe(true);
+    expect(messages.extensionName?.message.length, locale).toBeLessThanOrEqual(75);
+    expect(messages.extensionShortName?.message, locale).toBe('Sakutto');
+  });
+
   it('keeps the store name and description inside the manifest limits', () => {
-    for (const messages of [en, ja]) {
-      expect(messages.extensionName?.message.length).toBeLessThanOrEqual(75);
-      expect(messages.extensionShortName?.message.length).toBeLessThanOrEqual(12);
-      expect(messages.extensionDescription?.message.length).toBeLessThanOrEqual(132);
+    for (const locale of catalogs) {
+      const messages = readMessages(locale);
+      expect(messages.extensionName?.message.length, locale).toBeLessThanOrEqual(75);
+      expect(messages.extensionShortName?.message.length, locale).toBeLessThanOrEqual(12);
+      expect(messages.extensionDescription?.message.length, locale).toBeLessThanOrEqual(132);
     }
     expect(en.extensionDescription?.message).not.toMatch(/\b(fast|fastest)\b/i);
     expect(en.privacyBody?.message).not.toMatch(/never leaves/i);
@@ -137,26 +193,39 @@ describe('locale messages', () => {
   });
 
   it('describes the button as an agreement and uses the pinned model size', () => {
-    // The consent sentence binds to the button rather than a vague "starting means…".
-    expect(en.onboardingConsentSentence?.message).toBe(
-      'Pressing "Agree to the license and start" means you agree to the PLaMo Community License.',
-    );
-    expect(ja.onboardingConsentSentence?.message).toBe(
-      '「ライセンスに同意して開始」を押すと、PLaMo Community Licenseに同意したことになります。',
-    );
-    expect(en.onboardingStartNotice?.message).toContain('Agree to the license and start');
-    expect(ja.onboardingStartNotice?.message).toContain('ライセンスに同意して開始');
+    // The consent sentence binds to the button rather than a vague "starting means…". Both
+    // locales name the same control, so the sentence has to quote the label verbatim.
+    for (const [locale, messages] of [
+      ['en', en],
+      ['ja', ja],
+    ] as const) {
+      const start = messages.onboardingStart?.message ?? '';
+      const consent = messages.onboardingConsentSentence?.message ?? '';
+      const notice = messages.onboardingStartNotice?.message ?? '';
+      expect(consent, locale).toContain(start);
+      expect(consent, locale).toContain('PLaMo Community License');
+      expect(notice, locale).toContain(start);
+    }
+    expect(en.onboardingStart?.message).toBe('Agree to the license and start');
+    expect(ja.onboardingStart?.message).toBe('ライセンスに同意して開始');
     expect(en).not.toHaveProperty('consentCheckbox');
     expect(ja).not.toHaveProperty('consentCheckbox');
 
-    expect(en.onboardingStart?.message).toBe('Agree to the license and start');
-    expect(ja.onboardingStart?.message).toBe('ライセンスに同意して開始');
-
-    const label = formatByteSize(getModel(DEFAULT_MODEL_ID).size);
-    expect(en.onboardingModelNote?.message).toContain(label);
-    expect(ja.onboardingModelNote?.message).toContain(label);
     expect(en.onboardingHttpError?.message).toContain('HTTP');
     expect(ja.onboardingHttpError?.message).toContain('HTTP');
+  });
+
+  /**
+   * The model size and its byte count are facts from the catalog. A translation that restates
+   * the size by hand drifts the moment the default model changes, so each catalog carries the
+   * same number the English one builds. The unit is matched loosely: a translation writes it as
+   * `MB`, `Mo` or `МБ`, and every one of those is the same fact.
+   */
+  it.each(catalogs)('%s states the pinned model size', (locale) => {
+    const label = formatByteSize(getModel(DEFAULT_MODEL_ID).size);
+    const number = label.replace(/\s*[A-Za-zА-Яа-я]+\s*$/u, '');
+    expect(number, locale).not.toBe('');
+    expect(readMessages(locale).onboardingModelNote?.message, locale).toContain(number);
   });
 
   /**
@@ -174,10 +243,12 @@ describe('locale messages', () => {
       expect(copy).toMatch(/guardian|親権者/);
       expect(copy).not.toMatch(/does not check your age|年齢の確認や保護者への確認は行いません/);
     }
-    // Nothing in the user-facing copy claims a guardian was asked or an age was checked.
-    for (const entry of Object.values({ ...en, ...ja })) {
-      expect(entry.message).not.toMatch(/guardian verified|保護者の同意を確認しました/);
-      expect(entry.message).not.toMatch(/guardian:\s*true/);
+    // Nothing in any locale claims a guardian was asked or an age was checked.
+    for (const locale of catalogs) {
+      for (const entry of Object.values(readMessages(locale))) {
+        expect(entry.message, locale).not.toMatch(/guardian verified|保護者の同意を確認しました/);
+        expect(entry.message, locale).not.toMatch(/guardian:\s*true/);
+      }
     }
   });
 
@@ -206,7 +277,7 @@ describe('locale messages', () => {
 
       expect(messages.onboardingCommercialHeading2?.message).toMatch(/Work|commercial|仕事|商業/i);
       expect(messages.onboardingCommercialBody?.message).toMatch(
-        /inside a company|organi[sz]ation|企業内|組織/i,
+        /(inside|within) a company|organi[sz]ation|企業内|組織/i,
       );
       expect(messages.onboardingCommercialRegistration?.message).toMatch(/PFN/);
       expect(messages.onboardingCommercialRevenue?.message).toMatch(/1 billion|10億/);
@@ -217,8 +288,27 @@ describe('locale messages', () => {
       );
 
       // The heading names the terms of use, not just "commercial use".
-      expect(messages.onboardingCommercialHeading?.message).toMatch(/terms|利用条件/);
+      expect(messages.onboardingCommercialHeading?.message).toMatch(/terms|利用条件/i);
     }
+  });
+
+  /**
+   * Every catalog has to keep the two facts a reader needs before agreeing: that commercial use
+   * has conditions, and where PFN's registration form is. A translation that softens either one
+   * would be a licence summary that misstates the licence.
+   *
+   * The revenue cap is checked as "the number one is still there" rather than by matching a
+   * word. Every language spells the unit differently (`billion`, `Milliarde`, `億`, `tỷ`,
+   * `억`, `พันล้าน`), and a regex listing them rejects correct translations instead of
+   * protecting the fact. What matters is that the cap was not dropped or rounded away.
+   */
+  it.each(catalogs)('%s keeps PFN, the revenue cap, and the registration link', (locale) => {
+    const messages = readMessages(locale);
+    expect(messages.onboardingCommercialRegistration?.message, locale).toMatch(/PFN/);
+    expect(messages.onboardingCommercialRevenue?.message, locale).toMatch(/\b1\b|\b10\b/u);
+    expect(messages.plamoRegistrationLink?.message, locale).toContain('PFN');
+    expect(messages.unofficialNotice?.message, locale).toMatch(/Preferred Networks/);
+    expect(messages.unofficialNotice?.message, locale).toContain('PLaMo');
   });
 
   /**
@@ -308,8 +398,10 @@ describe('locale messages', () => {
       expect(messages.typedResultEmpty?.message).not.toMatch(/^The translation appears here\.$/);
     }
     // Nothing promises a document importer or a dictionary.
-    for (const entry of Object.values({ ...en, ...ja })) {
-      expect(entry.message).not.toMatch(/PDF|Word file|PowerPoint|辞書/iu);
+    for (const locale of catalogs) {
+      for (const entry of Object.values(readMessages(locale))) {
+        expect(entry.message, locale).not.toMatch(/PDF|Word file|PowerPoint|辞書/iu);
+      }
     }
   });
 
