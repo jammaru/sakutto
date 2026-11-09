@@ -1,12 +1,15 @@
 version: 2
 updates:
   - package-ecosystem: github-actions
-    directory: /
+    directories:
+      - /
+      - '/.github/actions/*'
     schedule:
-      interval: monthly
+      interval: weekly
     open-pull-requests-limit: 5
     groups:
       github-actions:
+        applies-to: version-updates
         patterns:
           - '*'
     commit-message:
@@ -16,14 +19,33 @@ updates:
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: monthly
+      interval: weekly
     open-pull-requests-limit: 5
     groups:
+      eslint-major:
+        applies-to: version-updates
+        update-types:
+          - major
+        patterns:
+          - eslint
+          - '@eslint/*'
+          - typescript-eslint
+          - eslint-*
       npm-minor:
         applies-to: version-updates
         update-types:
           - minor
           - patch
+        patterns:
+          - '*'
+      npm-security:
+        applies-to: security-updates
+        patterns:
+          - '*'
+    ignore:
+      - dependency-name: '@types/node'
+        update-types:
+          - version-update:semver-major
     commit-message:
       prefix: chore
       include: scope
