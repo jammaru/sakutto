@@ -153,6 +153,7 @@ interface Live {
 
 interface InflightBatch {
   controller: AbortController;
+  drain: AbortController;
   items: Live[];
   priority: number;
   settled: boolean;
@@ -314,9 +315,14 @@ export class PageSession {
       if (this.doc.hidden) {
         this.paused = true;
         this.pointerDown = false;
-        // A completion the model is decoding runs to its end even when aborted, so the
-        // batch it belongs to finishes and paints. Batches still waiting give the engine back.
+        // If the tab is hidden before a batch's first chunk, it is still prefilling:
+        // aborting discards that completion's output. That is accepted — wllama cannot
+        // interrupt createCompletion, but the next visible pass should not wait on a
+        // result that never painted.
         this.abortBatches((batch) => !batch.streaming, true);
+        // A streaming batch keeps the completion already decoding. Remaining jobs and
+        // pieces stop at the engine's between-completion drain checks and are requeued.
+        for (const batch of this.inflightBatches) batch.drain.abort();
         return;
       }
       this.paused = false;
@@ -1059,6 +1065,7 @@ export class PageSession {
     const controller = new AbortController();
     const entry: InflightBatch = {
       controller,
+      drain: new AbortController(),
       items: batch,
       priority,
       settled: false,
@@ -1131,7 +1138,7 @@ export class PageSession {
         item.model.block.setAttribute('data-sakutto-pending', '1');
       }
       const pieces = expandSource(item);
-      const preserve = item.failures > 0 && item.partText.length === pieces.length;
+      const preserve = item.partText.length === pieces.length && item.partFinal.some(Boolean);
       item.partFinal = pieces.map((_, index) =>
         preserve ? item.partFinal[index] === true : false,
       );
@@ -1166,7 +1173,7 @@ export class PageSession {
     try {
       for await (const chunk of this.engine.translate(
         requests,
-        this.optionsFor(batch, priority, signal),
+        this.optionsFor(batch, priority, signal, entry.drain.signal),
       )) {
         if (signal.aborted) return;
         entry.streaming = true;
@@ -1207,6 +1214,11 @@ export class PageSession {
         }
         if (item.partFinal.length > 0 && item.partFinal.every(Boolean)) {
           this.complete(item);
+          continue;
+        }
+        if (entry.drain.signal.aborted) {
+          item.state = 'idle';
+          if (this.active && !this.navigating) this.enqueue(item, true);
           continue;
         }
         if (item.role === 'page' && item.failures < MAX_PAGE_FAILURES) {
@@ -1321,6 +1333,7 @@ export class PageSession {
     batch: readonly Live[],
     priority: number,
     signal: AbortSignal,
+    drain: AbortSignal,
   ): TranslateOptions {
     const languages = new Set(batch.map((item) => item.lang));
     const source = languages.size === 1 ? [...languages][0] : null;
@@ -1342,6 +1355,7 @@ export class PageSession {
       form: this.prefs.form,
       priority,
       signal,
+      drain,
       ...(source ? { src: source } : {}),
       ...(glossary.length > 0 ? { glossary } : {}),
       ...(context ? { context } : {}),
@@ -1378,6 +1392,10 @@ export class PageSession {
     return parts.join('\n').slice(0, 500);
   }
 
+  /**
+   * Background tabs do not run requestAnimationFrame, so a block that finishes
+   * while hidden is painted when the tab returns.
+   */
   private queuePaint(item: Live): void {
     this.dirty.add(item);
     if (this.frameQueued) return;
@@ -1527,6 +1545,7 @@ export class PageSession {
     for (const batch of [...this.inflightBatches]) {
       if (!match(batch)) continue;
       batch.controller.abort();
+      batch.drain.abort();
       this.releaseBatch(batch);
       released = true;
       for (const item of batch.items) {

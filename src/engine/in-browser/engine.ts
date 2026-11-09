@@ -15,11 +15,12 @@ import {
   splitForTranslation,
 } from '../text/sentences';
 import { completionTokenBudget, estimateTokens } from '../text/tokens';
-import type {
-  IdentifiedEngine,
-  TranslateOptions,
-  TranslateSegment,
-  TranslationChunk,
+import {
+  isTranslateStopped,
+  type IdentifiedEngine,
+  type TranslateOptions,
+  type TranslateSegment,
+  type TranslationChunk,
 } from '../types';
 import { canonicalLanguage } from '@/shared/languages';
 import { CONTEXT_TOKENS } from './backend';
@@ -31,8 +32,9 @@ export interface InBrowserEngineOptions {
   scheduler?: JobScheduler;
 }
 
-function throwIfAborted(signal: AbortSignal): void {
-  if (signal.aborted) throw new EngineError('aborted', 'The request was aborted.');
+function throwIfAborted(signal: AbortSignal, drain?: AbortSignal): void {
+  if (signal.aborted || drain?.aborted)
+    throw new EngineError('aborted', 'The request was aborted.');
 }
 
 /**
@@ -93,7 +95,7 @@ export class InBrowserEngine implements IdentifiedEngine {
     segments: readonly TranslateSegment[],
     options: TranslateOptions,
   ): AsyncIterable<TranslationChunk> {
-    if (options.signal.aborted) return;
+    if (isTranslateStopped(options)) return;
 
     const work = planWork(segments, this.config, options.eager === true);
     if (work.length === 0) return;
@@ -173,7 +175,7 @@ export class InBrowserEngine implements IdentifiedEngine {
         }),
     );
     return pieces.map((piece, index) => async () => {
-      throwIfAborted(signal);
+      throwIfAborted(signal, options.drain);
       const output = await this.completeRecover(piece, options, signal, (delta) =>
         assembler.delta(index, delta),
       );
@@ -188,7 +190,7 @@ export class InBrowserEngine implements IdentifiedEngine {
     signal: AbortSignal,
     stream: ChunkStream<TranslationChunk>,
   ): Promise<void> {
-    throwIfAborted(signal);
+    throwIfAborted(signal, options.drain);
 
     if (item.kind === 'batch') {
       await this.runBatch(item.segments, item.text, options, signal, stream);
@@ -232,7 +234,7 @@ export class InBrowserEngine implements IdentifiedEngine {
     const separator = sentenceSeparator(options.tgt);
 
     for (const [index, piece] of pieces.entries()) {
-      throwIfAborted(signal);
+      throwIfAborted(signal, options.drain);
       if (index > 0 && separator.length > 0) {
         stream.push({ id: segment.id, textDelta: separator, engine: this.kind });
       }
@@ -321,7 +323,7 @@ export class InBrowserEngine implements IdentifiedEngine {
     for (let index = 0; index < segments.length; index += 1) {
       const segment = segments[index];
       if (!segment) continue;
-      throwIfAborted(signal);
+      throwIfAborted(signal, options.drain);
 
       if (segment.text.trim().length === 0) {
         stream.push({ id: segment.id, final: segment.text, engine: this.kind });
@@ -371,7 +373,7 @@ export class InBrowserEngine implements IdentifiedEngine {
 
       const parts: string[] = [];
       for (const piece of smaller) {
-        throwIfAborted(signal);
+        throwIfAborted(signal, options.drain);
         if (parts.length > 0) {
           const separator = sentenceSeparator(options.tgt);
           if (separator.length > 0) onDelta(separator);
@@ -435,6 +437,7 @@ export class InBrowserEngine implements IdentifiedEngine {
       prompt,
       maxTokens: Math.min(completionTokenBudget(text), available),
       signal,
+      ...(options.drain ? { drain: options.drain } : {}),
       onToken: (delta) => {
         output += delta;
         onDelta(delta);

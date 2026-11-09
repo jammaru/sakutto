@@ -126,7 +126,12 @@ export class SimRuntime implements LlamaRuntime {
       for (;;) {
         while (this.active.length < this.parallel && this.waiting.length > 0) {
           const next = this.waiting.shift();
-          if (next) this.active.push(next);
+          if (!next) continue;
+          if (next.request.signal.aborted || next.request.drain?.aborted) {
+            next.reject(abortError());
+            continue;
+          }
+          this.active.push(next);
         }
         if (this.active.length === 0) return;
 

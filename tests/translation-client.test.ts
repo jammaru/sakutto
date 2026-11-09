@@ -68,4 +68,32 @@ describe('translateViaBackground', () => {
     await expect(pending).resolves.toEqual([]);
     expect(port.messagesOfType('cancel')).toHaveLength(1);
   });
+
+  it('asks the broker to drain without cancelling when drain aborts', async () => {
+    const port = new FakePort({ name: 'sakutto:translate' });
+    connect.mockReturnValue(port.port);
+    const drain = new AbortController();
+
+    const pending = collect(
+      translateViaBackground([{ id: 'a', text: 'Hello.' }], {
+        ...options(),
+        drain: drain.signal,
+      }),
+    );
+    await flushTasks();
+
+    drain.abort();
+    await flushTasks();
+    expect(port.messagesOfType('drain')).toHaveLength(1);
+    expect(port.messagesOfType('cancel')).toHaveLength(0);
+
+    const start = port.messagesOfType('start')[0] as { requestId: string };
+    port.emit({
+      type: 'chunk',
+      requestId: start.requestId,
+      chunk: { id: 'a', final: 'こんにちは' },
+    });
+    port.emit({ type: 'done', requestId: start.requestId });
+    await expect(pending).resolves.toEqual([{ id: 'a', final: 'こんにちは' }]);
+  });
 });

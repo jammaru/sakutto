@@ -20,8 +20,22 @@ export interface TranslateOptions {
   context?: string | undefined;
   priority: number;
   signal: AbortSignal;
+  /**
+   * Stops work that has not entered a completion yet. The completion already
+   * decoding still runs to the end, and its tokens are forwarded unless `signal`
+   * is also aborted.
+   */
+  drain?: AbortSignal | undefined;
   /** Stream the first short piece before the rest of this call is batched. */
   eager?: boolean | undefined;
+}
+
+/** True when no new completion should start. */
+export function isTranslateStopped(options: {
+  signal: AbortSignal;
+  drain?: AbortSignal | undefined;
+}): boolean {
+  return options.signal.aborted || options.drain?.aborted === true;
 }
 
 interface TranslationChunkBase {

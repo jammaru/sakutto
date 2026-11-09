@@ -51,7 +51,15 @@ export async function* translateViaBackground(
     }
     stream.end();
   };
+  const drain = (): void => {
+    try {
+      port.postMessage({ type: 'drain', requestId } satisfies TranslationClientMessage);
+    } catch {
+      // The port is already gone.
+    }
+  };
   options.signal.addEventListener('abort', cancel, { once: true });
+  options.drain?.addEventListener('abort', drain, { once: true });
 
   try {
     port.postMessage({
@@ -60,6 +68,7 @@ export async function* translateViaBackground(
       segments: segments.map((segment) => ({ ...segment })),
       options: serializeTranslateOptions(options),
     } satisfies TranslationClientMessage);
+    if (options.drain?.aborted) drain();
 
     for await (const chunk of stream) yield chunk;
   } catch (error) {
@@ -71,6 +80,7 @@ export async function* translateViaBackground(
         });
   } finally {
     options.signal.removeEventListener('abort', cancel);
+    options.drain?.removeEventListener('abort', drain);
     try {
       port.disconnect();
     } catch {

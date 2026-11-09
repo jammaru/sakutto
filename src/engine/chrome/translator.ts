@@ -1,9 +1,10 @@
 import { EngineError, isAbortError } from '../errors';
-import type {
-  IdentifiedEngine,
-  TranslateOptions,
-  TranslateSegment,
-  TranslationChunk,
+import {
+  isTranslateStopped,
+  type IdentifiedEngine,
+  type TranslateOptions,
+  type TranslateSegment,
+  type TranslationChunk,
 } from '../types';
 import {
   canonicalChromeLanguage,
@@ -157,7 +158,7 @@ export class ChromeTranslatorEngine implements IdentifiedEngine {
     const translator = await this.ensureTranslator(sourceLanguage, targetLanguage);
 
     for (const segment of segments) {
-      if (options.signal.aborted) return;
+      if (isTranslateStopped(options)) return;
 
       if (segment.text.trim().length === 0) {
         yield { id: segment.id, final: segment.text, engine: this.kind };

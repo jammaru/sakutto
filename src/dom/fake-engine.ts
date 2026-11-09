@@ -1,4 +1,9 @@
-import type { TranslateOptions, TranslateSegment, TranslationChunk } from '@/engine/types';
+import {
+  isTranslateStopped,
+  type TranslateOptions,
+  type TranslateSegment,
+  type TranslationChunk,
+} from '@/engine/types';
 
 const PLACEHOLDER = /(<\/?i\d+>)/;
 
@@ -75,7 +80,7 @@ export async function* fakeTranslate(
 ): AsyncGenerator<TranslationChunk> {
   const pace = readPace();
   for (const segment of segments) {
-    if (options.signal.aborted) return;
+    if (isTranslateStopped(options)) return;
     const text = fakeTranslateText(segment.text, options.tgt);
     if (!pace) {
       yield { id: segment.id, final: text, engine: 'plamo' };

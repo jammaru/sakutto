@@ -43,12 +43,14 @@ export function serializeTranslateOptions(options: TranslateOptions): Serialized
 export function deserializeTranslateOptions(
   serialized: SerializedTranslateOptions,
   signal: AbortSignal,
+  drain?: AbortSignal,
 ): TranslateOptions {
   return {
     tgt: serialized.tgt,
     form: serialized.form,
     priority: serialized.priority,
     signal,
+    ...(drain ? { drain } : {}),
     ...(serialized.src !== undefined ? { src: serialized.src } : {}),
     ...(serialized.glossary ? { glossary: serialized.glossary } : {}),
     ...(serialized.context !== undefined ? { context: serialized.context } : {}),
@@ -80,6 +82,11 @@ export interface TranslateRequest {
 
 export interface CancelRequest {
   type: 'cancel';
+  requestId: string;
+}
+
+export interface DrainRequest {
+  type: 'drain';
   requestId: string;
 }
 
@@ -146,6 +153,7 @@ export interface BenchmarkRequest {
 export type EngineHostRequest =
   | TranslateRequest
   | CancelRequest
+  | DrainRequest
   | StatusRequest
   | PingRequest
   | ModelDownloadRequest
@@ -210,6 +218,11 @@ export interface TranslationCancelRequest {
   requestId: string;
 }
 
+export interface TranslationDrainRequest {
+  type: 'drain';
+  requestId: string;
+}
+
 export interface TranslationChunkEvent {
   type: 'chunk';
   requestId: string;
@@ -227,7 +240,8 @@ export interface TranslationErrorEvent {
   error: EngineErrorPayload;
 }
 
-export type TranslationClientMessage = TranslationStartRequest | TranslationCancelRequest;
+export type TranslationClientMessage =
+  TranslationStartRequest | TranslationCancelRequest | TranslationDrainRequest;
 
 export type TranslationServerMessage =
   TranslationChunkEvent | TranslationDoneEvent | TranslationErrorEvent;
@@ -307,6 +321,7 @@ export function isEngineHostRequest(value: unknown): value is EngineHostRequest 
     case 'status':
     case 'ping':
     case 'cancel':
+    case 'drain':
     case 'model-cancel':
     case 'model-warm':
       return true;
@@ -337,6 +352,10 @@ export function isTranslationStartRequest(value: unknown): value is TranslationS
 
 export function isTranslationCancelRequest(value: unknown): value is TranslationCancelRequest {
   return isRecord(value) && value.type === 'cancel' && isRequestId(value);
+}
+
+export function isTranslationDrainRequest(value: unknown): value is TranslationDrainRequest {
+  return isRecord(value) && value.type === 'drain' && isRequestId(value);
 }
 
 function isErrorPayload(value: unknown): value is EngineErrorPayload {

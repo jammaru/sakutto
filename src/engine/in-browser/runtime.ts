@@ -8,6 +8,8 @@ export interface CompletionRequest {
   prompt: string;
   maxTokens: number;
   signal: AbortSignal;
+  /** Stops this request from starting. An in-flight `createCompletion` still runs. */
+  drain?: AbortSignal;
   onToken: (text: string) => void;
 }
 
@@ -196,7 +198,7 @@ export const createWllamaRuntime: RuntimeFactory = async (file, selection) => {
     parallel: selection.nParallel,
     async complete(request: CompletionRequest): Promise<void> {
       await gate.exclusive(async () => {
-        if (request.signal.aborted) throw abortError();
+        if (request.signal.aborted || request.drain?.aborted) throw abortError();
         try {
           await Promise.race([
             lost,

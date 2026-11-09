@@ -82,4 +82,20 @@ describe('fake page engine', () => {
     }
     expect(chunks.map((chunk) => chunk.id)).toEqual(['a']);
   });
+
+  it('stops later segments when drain aborts after the one in flight', async () => {
+    const drain = new AbortController();
+    const chunks = [];
+    for await (const chunk of fakeTranslate(
+      [
+        { id: 'a', text: 'one' },
+        { id: 'b', text: 'two' },
+      ],
+      { ...options(), drain: drain.signal },
+    )) {
+      chunks.push(chunk);
+      drain.abort();
+    }
+    expect(chunks.map((chunk) => chunk.id)).toEqual(['a']);
+  });
 });
