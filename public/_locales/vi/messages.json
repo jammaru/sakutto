@@ -94,9 +94,6 @@
   "threadsLabel": {
     "message": "Lõi logic"
   },
-  "engineFirefoxSingleThread": {
-    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
-  },
   "diagHeading": {
     "message": "Chẩn đoán"
   },
@@ -384,7 +381,7 @@
     "message": "Phím tắt"
   },
   "shortcutHelp": {
-    "message": "Chrome lưu các phím này. Chọn Đổi phím tắt để sửa chúng trong phần cài đặt của Chrome."
+    "message": "Nếu Chrome không gán phím cho lệnh, trang vẫn dùng phím mặc định. Bỏ chọn để tắt lệnh. Dùng Đổi phím tắt để sửa phím trong Chrome."
   },
   "shortcutHelpFirefox": {
     "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
@@ -394,6 +391,12 @@
   },
   "shortcutUnset": {
     "message": "Chưa đặt"
+  },
+  "shortcutUse": {
+    "message": "Dùng phím tắt này"
+  },
+  "shortcutOff": {
+    "message": "Tắt"
   },
   "shortcutFallbackNote": {
     "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
@@ -707,9 +710,6 @@
   "tierCpu4": {
     "message": "CPU (4 luồng)"
   },
-  "tierCpu1": {
-    "message": "CPU (1 thread)"
-  },
   "tierHelp": {
     "message": "Tự động chọn chế độ phù hợp với chiếc PC này."
   },
@@ -848,5 +848,179 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "Dịch văn bản bạn đang viết"
+  },
+  "contextTranslateCompose": {
+    "message": "Dịch nội dung đang soạn"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ dịch văn bản trong ô bạn đang gõ.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "Nhấn $KEY$ khi đang gõ trong ô tin nhắn để xem bản dịch và chọn có áp dụng hay không.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "Khi ô tin nhắn đang được chọn, nút あA (hoặc phím tắt) xem trước bản dịch. Bản nháp tiếng Nhật sang tiếng Anh (hoặc ngôn ngữ đích ở trên); các bản khác dùng ngôn ngữ đó. Không gì bị thay cho đến khi bạn chọn Thay thế."
+  },
+  "composeTitle": {
+    "message": "Bản dịch bản nháp"
+  },
+  "composeIcon": {
+    "message": "Dịch nội dung đang soạn"
+  },
+  "composeReplace": {
+    "message": "Thay thế"
+  },
+  "composeUndo": {
+    "message": "Khôi phục bản gốc"
+  },
+  "composePending": {
+    "message": "Đang dịch…"
+  },
+  "composeFailed": {
+    "message": "Không dịch được bản nháp này."
+  },
+  "composeEmpty": {
+    "message": "Hãy gõ để xem bản dịch."
+  },
+  "composeTooLong": {
+    "message": "Bản nháp này quá dài để dịch."
+  },
+  "composeSwap": {
+    "message": "Đổi hướng dịch"
+  },
+  "composeReplaced": {
+    "message": "Đã thay thế. Bạn có thể khôi phục bản gốc."
+  },
+  "composeInto": {
+    "message": "Sang $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "Dịch bản nháp chỉ dùng PLaMo, và PLaMo không dịch sang $LANGUAGE$.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeIconSetting": {
+    "message": "Hiện nút あA trên ô tin nhắn"
+  },
+  "composeIconSettingHelp": {
+    "message": "Phím tắt và menu chuột phải vẫn hoạt động khi nút bị ẩn."
+  },
+  "composeTargetSetting": {
+    "message": "Ngôn ngữ đích khi soạn"
+  },
+  "composeTargetAuto": {
+    "message": "Tự động (bản nháp tiếng Nhật sang ngôn ngữ kia của cặp; còn lại theo ngôn ngữ trang)"
+  },
+  "composeTargetSettingHelp": {
+    "message": "Ngôn ngữ vừa chọn trong bản xem trước được nhớ ở đây."
+  },
+  "composeTargetLabel": {
+    "message": "Đích"
+  },
+  "composeInstantSetting": {
+    "message": "Dịch và thay bằng một lần bấm phím tắt"
+  },
+  "composeInstantSettingHelp": {
+    "message": "Bỏ qua xem trước: một lần phím tắt dịch bản nháp và thay nó. Hoàn tác vẫn dùng được."
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo chưa sẵn sàng. Mở thiết lập để đồng ý giấy phép và tải mô hình."
+  },
+  "composeLoading": {
+    "message": "Mô hình PLaMo đang tải. Bản xem trước sẽ hiện khi sẵn sàng."
+  },
+  "composeIneligible": {
+    "message": "Không thể dịch ô này."
+  },
+  "composeOpenSetup": {
+    "message": "Mở thiết lập"
+  },
+  "composeStale": {
+    "message": "Bản nháp đã đổi. Thay thế tạm dừng đến khi bản xem trước bắt kịp."
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$ để thay",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "Tự động"
+  },
+  "composePlacementSetting": {
+    "message": "Vị trí thanh dịch khi soạn"
+  },
+  "composePlacementSettingHelp": {
+    "message": "Mặc định cho mọi trang. Kéo tay cầm ⋮⋮ trên thanh để đặt nó bất kỳ đâu trên trang này. Menu ⋯ cũng có thể ghi đè chỉ cho trang đó."
+  },
+  "composePlacementAbove": {
+    "message": "Phía trên ô tin nhắn"
+  },
+  "composePlacementBelow": {
+    "message": "Phía dưới ô tin nhắn"
+  },
+  "composePlacementCorner": {
+    "message": "Góc dưới bên phải cửa sổ"
+  },
+  "composePlacementFree": {
+    "message": "Di chuyển tự do"
+  },
+  "composePlacementMenu": {
+    "message": "Vị trí thanh"
+  },
+  "composePlacementSite": {
+    "message": "Trang này"
+  },
+  "composePlacementFollowSettings": {
+    "message": "Dùng cài đặt cho mọi trang"
+  },
+  "composePlacementReset": {
+    "message": "Về vị trí ban đầu"
+  },
+  "composePlacementHandle": {
+    "message": "Kéo để đặt thanh ở bất kỳ đâu"
+  },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
   }
 }

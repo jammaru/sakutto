@@ -10,11 +10,11 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: pnpm/action-setup@v4
+    - uses: pnpm/action-setup@v6
       with:
         version: 12.15.0
 
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v7
       with:
         node-version: 24
         cache: pnpm
@@ -38,7 +38,7 @@ runs:
         } >> "$GITHUB_OUTPUT"
 
     - id: wasm
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v6
       with:
         path: |
           vendor/wllama/dist
@@ -47,7 +47,7 @@ runs:
 
     - id: image
       if: steps.wasm.outputs.cache-hit != 'true'
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v6
       with:
         path: /tmp/emsdk-image.tar
         key: emsdk-${{ steps.inputs.outputs.tag }}-${{ runner.arch }}
@@ -76,14 +76,14 @@ runs:
         docker save "emscripten/emsdk:${{ steps.inputs.outputs.tag }}" --output /tmp/emsdk-image.tar
 
     - if: steps.wasm.outputs.cache-hit != 'true' && steps.image.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v6
       continue-on-error: true
       with:
         path: /tmp/emsdk-image.tar
         key: ${{ steps.image.outputs.cache-primary-key }}
 
     - if: steps.wasm.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v6
       with:
         path: |
           vendor/wllama/dist
@@ -99,7 +99,7 @@ runs:
       run: pnpm zip:firefox
 
     - if: inputs.browser != 'firefox'
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ~/.cache/ms-playwright
         key: ${{ steps.inputs.outputs.playwright }}
@@ -151,7 +151,7 @@ runs:
       run: node scripts/package-artifact.ts
 
     - if: inputs.browser != 'firefox'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: chrome-mv3-zip
         if-no-files-found: error
@@ -159,7 +159,7 @@ runs:
         path: artifacts/store/*.zip
 
     - if: inputs.browser != 'firefox'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: chrome-mv3
         if-no-files-found: error
@@ -168,7 +168,7 @@ runs:
         path: artifacts/chrome-mv3
 
     - if: inputs.browser == 'firefox'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: firefox-mv3-zip
         if-no-files-found: error
@@ -176,7 +176,7 @@ runs:
         path: artifacts/store/*.zip
 
     - if: inputs.browser == 'firefox'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: firefox-mv3
         if-no-files-found: error

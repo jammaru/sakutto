@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>Gmail-like compose</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: #f6f8fc;
+        color: #1f1f1f;
+        font:
+          14px/1.5 'Google Sans',
+          'Hiragino Sans',
+          'Noto Sans JP',
+          sans-serif;
+      }
+      .shell {
+        max-width: 720px;
+        margin: 24px auto;
+        padding: 0 16px;
+      }
+      .card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow:
+          0 1px 3px rgb(60 64 67 / 15%),
+          0 4px 8px rgb(60 64 67 / 10%);
+        overflow: hidden;
+      }
+      .bar {
+        padding: 12px 16px;
+        border-bottom: 1px solid #e8eaed;
+        font-weight: 600;
+      }
+      .meta {
+        padding: 8px 16px;
+        color: #5f6368;
+        border-bottom: 1px solid #e8eaed;
+      }
+      #draft {
+        display: block;
+        width: 100%;
+        min-height: 180px;
+        box-sizing: border-box;
+        padding: 16px;
+        border: 0;
+        resize: vertical;
+        background: #ffffff;
+        color: #1f1f1f;
+        font: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="card">
+        <div class="bar">New message</div>
+        <div class="meta">To: alex@example.com</div>
+        <textarea id="draft">会議は明日です。よろしくお願いします。</textarea>
+      </div>
+    </div>
+  </body>
+</html>

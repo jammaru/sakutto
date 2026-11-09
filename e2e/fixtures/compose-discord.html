@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>Discord-like compose</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #313338;
+        color: #dbdee1;
+        font:
+          15px/1.45 'gg sans',
+          'Hiragino Sans',
+          'Noto Sans JP',
+          sans-serif;
+      }
+      .app {
+        display: grid;
+        grid-template-rows: 48px 1fr auto;
+        height: 100%;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        border-bottom: 1px solid rgb(255 255 255 / 6%);
+        background: #2b2d31;
+        font-weight: 600;
+      }
+      .log {
+        overflow: auto;
+        padding: 16px 16px 8px;
+      }
+      .msg {
+        display: grid;
+        grid-template-columns: 40px 1fr;
+        gap: 12px;
+        margin: 0 0 16px;
+      }
+      .avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #5865f2;
+      }
+      .avatar.orange {
+        background: #f23f43;
+      }
+      .name {
+        font-weight: 600;
+        color: #f2f3f5;
+      }
+      .time {
+        margin-left: 8px;
+        color: #949ba4;
+        font-size: 12px;
+        font-weight: 400;
+      }
+      .compose {
+        padding: 0 16px 24px;
+        background: #313338;
+      }
+      #draft {
+        display: block;
+        width: 100%;
+        min-height: 44px;
+        max-height: 120px;
+        box-sizing: border-box;
+        padding: 11px 14px;
+        border: 0;
+        border-radius: 8px;
+        background: #383a40;
+        color: #dbdee1;
+        font: inherit;
+        resize: none;
+      }
+      #draft::placeholder {
+        color: #949ba4;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header>#general</header>
+      <div class="log">
+        <div class="msg">
+          <div class="avatar"></div>
+          <div>
+            <div><span class="name">User A</span><span class="time">12:00</span></div>
+            <div>こんにちは</div>
+          </div>
+        </div>
+        <div class="msg">
+          <div class="avatar orange"></div>
+          <div>
+            <div><span class="name">User B</span><span class="time">12:01</span></div>
+            <div>明日の打ち合わせについて</div>
+          </div>
+        </div>
+      </div>
+      <div class="compose">
+        <textarea id="draft" placeholder="Message #general">明日の打ち合わせについて</textarea>
+      </div>
+    </div>
+  </body>
+</html>

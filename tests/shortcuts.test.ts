@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CHROME_DEFAULT_SHORTCUTS,
+  DEFAULT_COMPOSE_SHORTCUT,
   DEFAULT_SELECTION_SHORTCUT,
   DEFAULT_SHORTCUTS,
   FIREFOX_DEFAULT_SHORTCUTS,
@@ -50,14 +51,17 @@ describe('selection shortcut', () => {
       'translate-page': 'Alt+A',
       'toggle-bilingual': 'Alt+B',
       'translate-selection': 'Alt+S',
+      'translate-compose': 'Alt+T',
     });
     expect(DEFAULT_SELECTION_SHORTCUT).toBe('Alt+S');
+    expect(DEFAULT_COMPOSE_SHORTCUT).toBe('Alt+T');
     expect(CHROME_DEFAULT_SHORTCUTS).toEqual(DEFAULT_SHORTCUTS);
     expect(defaultShortcutsFor('firefox')).toEqual(FIREFOX_DEFAULT_SHORTCUTS);
     expect(FIREFOX_DEFAULT_SHORTCUTS).toEqual({
       'translate-page': 'Alt+Shift+A',
       'toggle-bilingual': 'Alt+Shift+B',
       'translate-selection': 'Alt+Shift+S',
+      'translate-compose': 'Alt+Shift+T',
     });
     expect(
       matchesShortcut(
@@ -98,6 +102,24 @@ describe('matchesShortcut', () => {
     expect(matchesShortcut(key(), 'S')).toBe(false);
     expect(matchesShortcut(key({ altKey: true }), '')).toBe(false);
   });
+
+  it('matches Alt+T from the physical key even when the layout reports a dagger', () => {
+    const dagger = key({ altKey: true, code: 'KeyT', key: '†' });
+    expect(matchesShortcut(dagger, 'Alt+T')).toBe(true);
+    expect(matchesShortcut(dagger, DEFAULT_COMPOSE_SHORTCUT)).toBe(true);
+    expect(matchesShortcut(key({ altKey: true, code: 'KeyY', key: '†' }), 'Alt+T')).toBe(false);
+  });
+
+  it('matches Firefox compose Alt+Shift+T and not Alt+T', () => {
+    const shifted = key({ altKey: true, shiftKey: true, code: 'KeyT', key: 't' });
+    expect(matchesShortcut(shifted, FIREFOX_DEFAULT_SHORTCUTS['translate-compose'])).toBe(true);
+    expect(
+      matchesShortcut(
+        key({ altKey: true, code: 'KeyT', key: 't' }),
+        FIREFOX_DEFAULT_SHORTCUTS['translate-compose'],
+      ),
+    ).toBe(false);
+  });
 });
 
 describe('parseShortcut', () => {
@@ -127,11 +149,13 @@ describe('readShortcutSnapshot', () => {
         { name: 'translate-page', shortcut: 'Alt+A' },
         { name: 'toggle-bilingual', shortcut: '' },
         { name: 'translate-selection', shortcut: '⌥⇧S' },
+        { name: 'translate-compose', shortcut: 'Alt+T' },
       ]),
     ).toEqual({
       'translate-page': 'Alt+A',
       'toggle-bilingual': '',
       'translate-selection': '⌥⇧S',
+      'translate-compose': 'Alt+T',
     });
   });
 
@@ -140,6 +164,7 @@ describe('readShortcutSnapshot', () => {
       'translate-page': '',
       'toggle-bilingual': null,
       'translate-selection': null,
+      'translate-compose': null,
     });
   });
 });
@@ -178,6 +203,7 @@ function snapshot(overrides: Partial<ShortcutSnapshot> = {}): ShortcutSnapshot {
     'translate-page': DEFAULT_SHORTCUTS['translate-page'],
     'toggle-bilingual': DEFAULT_SHORTCUTS['toggle-bilingual'],
     'translate-selection': DEFAULT_SHORTCUTS['translate-selection'],
+    'translate-compose': DEFAULT_SHORTCUTS['translate-compose'],
     ...overrides,
   };
 }
@@ -187,6 +213,7 @@ function assigned(overrides: Partial<ShortcutAssigned> = {}): ShortcutAssigned {
     'translate-page': true,
     'toggle-bilingual': true,
     'translate-selection': true,
+    'translate-compose': true,
     ...overrides,
   };
 }
@@ -260,5 +287,25 @@ describe('shortcut assignment and in-page fallback', () => {
       boundShortcut(snapshot({ 'translate-page': '' }), 'translate-page', { assigned: true }),
     ).toBe('');
     expect(markCommandAssigned(conflict, 'translate-page')['translate-page']).toBe(true);
+  });
+
+  it('turns a command off from Sakutto even when the browser still has a key', () => {
+    const live = snapshot();
+    expect(boundShortcut(live, 'translate-compose', { assigned: true, enabled: false })).toBe('');
+    expect(boundShortcut(live, 'translate-compose', { assigned: true })).toBe('Alt+T');
+  });
+
+  it('falls back to the compose default only when that command was never assigned', () => {
+    const conflict = snapshot({ 'translate-compose': '' });
+    const ever = rememberShortcutAssignments({}, conflict);
+    expect(ever['translate-compose']).toBe(false);
+    expect(
+      boundShortcut(conflict, 'translate-compose', { assigned: ever['translate-compose'] }),
+    ).toBe(DEFAULT_COMPOSE_SHORTCUT);
+    expect(usesInPageFallback(conflict, 'translate-compose', ever['translate-compose'])).toBe(true);
+    const cleared = rememberShortcutAssignments(assigned(), conflict);
+    expect(
+      boundShortcut(conflict, 'translate-compose', { assigned: cleared['translate-compose'] }),
+    ).toBe('');
   });
 });

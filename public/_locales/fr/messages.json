@@ -94,9 +94,6 @@
   "threadsLabel": {
     "message": "Cœurs logiques"
   },
-  "engineFirefoxSingleThread": {
-    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
-  },
   "diagHeading": {
     "message": "Diagnostic"
   },
@@ -384,7 +381,7 @@
     "message": "Raccourcis clavier"
   },
   "shortcutHelp": {
-    "message": "Chrome conserve ces touches. « Modifier les raccourcis » les ouvre dans les réglages de Chrome."
+    "message": "Si Chrome n’assigne pas de touche à une commande, la touche par défaut s’applique quand même sur les pages. Décochez une commande pour la désactiver. Utilisez Modifier les raccourcis pour changer les touches dans Chrome."
   },
   "shortcutHelpFirefox": {
     "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
@@ -394,6 +391,12 @@
   },
   "shortcutUnset": {
     "message": "Non défini"
+  },
+  "shortcutUse": {
+    "message": "Utiliser ce raccourci"
+  },
+  "shortcutOff": {
+    "message": "Désactivé"
   },
   "shortcutFallbackNote": {
     "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
@@ -707,9 +710,6 @@
   "tierCpu4": {
     "message": "CPU (4 threads)"
   },
-  "tierCpu1": {
-    "message": "CPU (1 thread)"
-  },
   "tierHelp": {
     "message": "Choisit automatiquement le mode adapté à ce PC."
   },
@@ -848,5 +848,179 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "Traduire le texte en cours de saisie"
+  },
+  "contextTranslateCompose": {
+    "message": "Traduire ce que vous écrivez"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ traduit le texte du champ dans lequel vous tapez.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "Appuyez sur $KEY$ dans un champ de message pour prévisualiser une traduction que vous pouvez appliquer.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "Lorsqu’une zone de message a le focus, le bouton あA (ou le raccourci) affiche un aperçu de la traduction. Les brouillons japonais vont vers l’anglais (ou vers la langue cible ci-dessus) ; les autres utilisent cette langue cible. Rien n’est remplacé tant que vous ne choisissez pas Remplacer."
+  },
+  "composeTitle": {
+    "message": "Traduction du brouillon"
+  },
+  "composeIcon": {
+    "message": "Traduire ce que vous écrivez"
+  },
+  "composeReplace": {
+    "message": "Remplacer"
+  },
+  "composeUndo": {
+    "message": "Restaurer l’original"
+  },
+  "composePending": {
+    "message": "Traduction…"
+  },
+  "composeFailed": {
+    "message": "Impossible de traduire ce brouillon."
+  },
+  "composeEmpty": {
+    "message": "Saisissez du texte pour voir une traduction."
+  },
+  "composeTooLong": {
+    "message": "Ce brouillon est trop long pour être traduit."
+  },
+  "composeSwap": {
+    "message": "Inverser le sens de la traduction"
+  },
+  "composeReplaced": {
+    "message": "Remplacé. Vous pouvez restaurer l’original."
+  },
+  "composeInto": {
+    "message": "Vers le $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "La traduction du brouillon n’utilise que PLaMo, et PLaMo ne traduit pas vers le $LANGUAGE$.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeIconSetting": {
+    "message": "Afficher le bouton あA sur les zones de message"
+  },
+  "composeIconSettingHelp": {
+    "message": "Le raccourci et le menu contextuel fonctionnent encore si le bouton est masqué."
+  },
+  "composeTargetSetting": {
+    "message": "Langue cible de la rédaction"
+  },
+  "composeTargetAuto": {
+    "message": "Auto (les brouillons japonais vont vers l’autre langue de la paire ; sinon la langue de la page)"
+  },
+  "composeTargetSettingHelp": {
+    "message": "La langue choisie dans l’aperçu est mémorisée ici."
+  },
+  "composeTargetLabel": {
+    "message": "Cible"
+  },
+  "composeInstantSetting": {
+    "message": "Traduire et remplacer en une seule touche"
+  },
+  "composeInstantSettingHelp": {
+    "message": "Sans aperçu : une touche traduit le brouillon et le remplace. Annuler reste possible."
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo n’est pas encore prêt. Ouvrez la configuration pour accepter la licence et télécharger le modèle."
+  },
+  "composeLoading": {
+    "message": "Le modèle PLaMo est en cours de chargement. L’aperçu s’affichera lorsqu’il sera prêt."
+  },
+  "composeIneligible": {
+    "message": "Ce champ ne peut pas être traduit."
+  },
+  "composeOpenSetup": {
+    "message": "Ouvrir la configuration"
+  },
+  "composeStale": {
+    "message": "Le brouillon a changé. Remplacer est en pause jusqu’à ce que l’aperçu se mette à jour."
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$ pour remplacer",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "Auto"
+  },
+  "composePlacementSetting": {
+    "message": "Position de la barre de traduction à la saisie"
+  },
+  "composePlacementSettingHelp": {
+    "message": "La valeur par défaut pour tous les sites. Faites glisser la poignée ⋮⋮ de la barre pour la poser où vous voulez sur cette page. Le menu ⋯ peut aussi la remplacer pour ce site seulement."
+  },
+  "composePlacementAbove": {
+    "message": "Au-dessus de la zone de message"
+  },
+  "composePlacementBelow": {
+    "message": "Sous la zone de message"
+  },
+  "composePlacementCorner": {
+    "message": "Coin inférieur droit de la fenêtre"
+  },
+  "composePlacementFree": {
+    "message": "Déplacer librement"
+  },
+  "composePlacementMenu": {
+    "message": "Position de la barre"
+  },
+  "composePlacementSite": {
+    "message": "Ce site"
+  },
+  "composePlacementFollowSettings": {
+    "message": "Utiliser le réglage pour tous les sites"
+  },
+  "composePlacementReset": {
+    "message": "Revenir à la position d’origine"
+  },
+  "composePlacementHandle": {
+    "message": "Faites glisser pour déplacer la barre n’importe où"
+  },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
   }
 }

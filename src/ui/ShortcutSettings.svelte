@@ -7,42 +7,58 @@
     SHORTCUT_COMMANDS,
     ariaShortcut,
     boundShortcut,
+    defaultShortcutEnabled,
     displayShortcut,
     usesInPageFallback,
     type ShortcutCommand,
+    type ShortcutEnabled,
   } from '@/shared/shortcuts';
 
   const LABELS: Readonly<Record<ShortcutCommand, MessageKey>> = {
     'translate-page': 'commandTranslate',
     'toggle-bilingual': 'commandBilingual',
     'translate-selection': 'commandSelection',
+    'translate-compose': 'commandCompose',
   };
+
+  interface Props {
+    enabled?: ShortcutEnabled | undefined;
+    onToggle?: ((command: ShortcutCommand, enabled: boolean) => void) | undefined;
+  }
+
+  let { enabled = defaultShortcutEnabled(), onToggle }: Props = $props();
 
   let shortcutState = $state<ShortcutQueryResult | null>(null);
   let openFailed = $state(false);
 
+  function isOn(command: ShortcutCommand): boolean {
+    return enabled[command] !== false;
+  }
+
   function keyFor(command: ShortcutCommand): string {
     return boundShortcut(shortcutState?.snapshot ?? null, command, {
       assigned: shortcutState?.assigned[command],
+      enabled: isOn(command),
     });
   }
 
   function keyText(command: ShortcutCommand): string {
+    if (!isOn(command)) return t('shortcutOff');
     const shortcut = keyFor(command);
     return shortcut.length > 0 ? displayShortcut(shortcut) : t('shortcutUnset');
   }
 
   function aria(command: ShortcutCommand): string | undefined {
+    if (!isOn(command)) return undefined;
     const shortcut = keyFor(command);
     if (shortcut.length === 0) return undefined;
     return ariaShortcut(shortcut) ?? undefined;
   }
 
   function showsFallback(command: ShortcutCommand): boolean {
-    return usesInPageFallback(
-      shortcutState?.snapshot ?? null,
-      command,
-      shortcutState?.assigned[command],
+    return (
+      isOn(command) &&
+      usesInPageFallback(shortcutState?.snapshot ?? null, command, shortcutState?.assigned[command])
     );
   }
 
@@ -54,8 +70,9 @@
 
   /**
    * The browser owns the key bindings, so the only honest control is a button that opens
-   * its editor. The rows are read again when the reader comes back from that tab. The
-   * in-page default only fills in when the browser never assigned the suggested key.
+   * its editor. The rows are read again when the reader comes back from that tab. Sakutto's
+   * own checkbox is the off switch. The in-page default only fills in when the browser never
+   * assigned the suggested key.
    */
   async function openEditor(): Promise<void> {
     openFailed = !(await openShortcutEditor());
@@ -78,6 +95,17 @@
     <div>
       <dt>{t(LABELS[command])}</dt>
       <dd>
+        <label class="use">
+          <input
+            type="checkbox"
+            checked={isOn(command)}
+            onchange={(event) => {
+              const input = event.currentTarget as HTMLInputElement;
+              onToggle?.(command, input.checked);
+            }}
+          />
+          <span>{t('shortcutUse')}</span>
+        </label>
         <kbd aria-keyshortcuts={aria(command)}>{keyText(command)}</kbd>
       </dd>
     </div>
@@ -111,7 +139,18 @@
   }
 
   dd {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
     margin: 0;
+  }
+
+  .use {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    color: var(--muted);
+    font-size: 11px;
   }
 
   .fallback {

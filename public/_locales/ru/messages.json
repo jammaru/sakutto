@@ -94,9 +94,6 @@
   "threadsLabel": {
     "message": "Логические ядра"
   },
-  "engineFirefoxSingleThread": {
-    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
-  },
   "diagHeading": {
     "message": "Диагностика"
   },
@@ -384,7 +381,7 @@
     "message": "Сочетания клавиш"
   },
   "shortcutHelp": {
-    "message": "Эти клавиши хранит Chrome. Кнопка «Изменить сочетания клавиш» открывает их в настройках Chrome."
+    "message": "Если Chrome не назначил клавишу команде, на страницах действует стандартная. Снимите флажок, чтобы отключить команду. «Изменить сочетания» открывает настройки Chrome."
   },
   "shortcutHelpFirefox": {
     "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
@@ -394,6 +391,12 @@
   },
   "shortcutUnset": {
     "message": "Не задано"
+  },
+  "shortcutUse": {
+    "message": "Использовать это сочетание"
+  },
+  "shortcutOff": {
+    "message": "Выкл."
   },
   "shortcutFallbackNote": {
     "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
@@ -707,9 +710,6 @@
   "tierCpu4": {
     "message": "CPU (4 потока)"
   },
-  "tierCpu1": {
-    "message": "CPU (1 thread)"
-  },
   "tierHelp": {
     "message": "Автоматически выбирает режим, подходящий для этого ПК."
   },
@@ -848,5 +848,179 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "Перевести текст, который вы пишете"
+  },
+  "contextTranslateCompose": {
+    "message": "Перевести набираемый текст"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ переводит текст в поле, в котором вы печатаете.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "Нажмите $KEY$ в поле сообщения, чтобы увидеть перевод, который можно подставить.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "Когда поле сообщения в фокусе, кнопка あA (или сочетание клавиш) показывает предварительный перевод. Японские черновики идут на английский (или на выбранный выше язык); остальные — на этот язык. Текст не заменяется, пока вы не выберете «Заменить»."
+  },
+  "composeTitle": {
+    "message": "Перевод черновика"
+  },
+  "composeIcon": {
+    "message": "Перевести набираемый текст"
+  },
+  "composeReplace": {
+    "message": "Заменить"
+  },
+  "composeUndo": {
+    "message": "Вернуть исходный текст"
+  },
+  "composePending": {
+    "message": "Перевод…"
+  },
+  "composeFailed": {
+    "message": "Не удалось перевести этот черновик."
+  },
+  "composeEmpty": {
+    "message": "Начните ввод, чтобы увидеть перевод."
+  },
+  "composeTooLong": {
+    "message": "Этот черновик слишком длинный для перевода."
+  },
+  "composeSwap": {
+    "message": "Сменить направление перевода"
+  },
+  "composeReplaced": {
+    "message": "Заменено. Можно вернуть исходный текст."
+  },
+  "composeInto": {
+    "message": "На $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "Перевод черновика использует только PLaMo, а PLaMo не переводит на $LANGUAGE$.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeIconSetting": {
+    "message": "Показывать кнопку あA в полях сообщений"
+  },
+  "composeIconSettingHelp": {
+    "message": "Сочетание клавиш и контекстное меню работают, даже если кнопка скрыта."
+  },
+  "composeTargetSetting": {
+    "message": "Язык перевода при наборе"
+  },
+  "composeTargetAuto": {
+    "message": "Авто (японские черновики — на другой язык пары, остальные — на язык страницы)"
+  },
+  "composeTargetSettingHelp": {
+    "message": "Язык, выбранный в предпросмотре, запоминается здесь."
+  },
+  "composeTargetLabel": {
+    "message": "Направление"
+  },
+  "composeInstantSetting": {
+    "message": "Перевести и заменить одним сочетанием"
+  },
+  "composeInstantSettingHelp": {
+    "message": "Без предпросмотра: одно сочетание переводит черновик и заменяет его. Отмена по-прежнему доступна."
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo ещё не готов. Откройте настройку, чтобы принять лицензию и скачать модель."
+  },
+  "composeLoading": {
+    "message": "Модель PLaMo загружается. Предпросмотр появится, когда она будет готова."
+  },
+  "composeIneligible": {
+    "message": "Это поле нельзя перевести."
+  },
+  "composeOpenSetup": {
+    "message": "Открыть настройку"
+  },
+  "composeStale": {
+    "message": "Черновик изменился. Замена приостановлена, пока предпросмотр не обновится."
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$, чтобы заменить",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "Авто"
+  },
+  "composePlacementSetting": {
+    "message": "Положение панели перевода при вводе"
+  },
+  "composePlacementSettingHelp": {
+    "message": "Значение по умолчанию для всех сайтов. Перетащите маркер ⋮⋮ на панели, чтобы поставить её куда угодно на этой странице. Меню ⋯ тоже может заменить это только для этого сайта."
+  },
+  "composePlacementAbove": {
+    "message": "Над полем сообщения"
+  },
+  "composePlacementBelow": {
+    "message": "Под полем сообщения"
+  },
+  "composePlacementCorner": {
+    "message": "Правый нижний угол окна"
+  },
+  "composePlacementFree": {
+    "message": "Перемещать свободно"
+  },
+  "composePlacementMenu": {
+    "message": "Положение панели"
+  },
+  "composePlacementSite": {
+    "message": "Этот сайт"
+  },
+  "composePlacementFollowSettings": {
+    "message": "Вернуть настройку для всех сайтов"
+  },
+  "composePlacementReset": {
+    "message": "Вернуть на исходное место"
+  },
+  "composePlacementHandle": {
+    "message": "Перетащите, чтобы поставить панель куда угодно"
+  },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
   }
 }

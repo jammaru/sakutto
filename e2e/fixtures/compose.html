@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>Compose fixtures</title>
+    <style>
+      body {
+        font: 16px/1.5 sans-serif;
+        max-width: 40rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      label,
+      .label {
+        display: block;
+        margin: 1.25rem 0 0.35rem;
+        font-weight: 600;
+      }
+      textarea,
+      input,
+      [contenteditable],
+      .slate {
+        width: 100%;
+        min-height: 4.5rem;
+        padding: 0.5rem 0.6rem;
+        border: 1px solid #c5d0dc;
+        border-radius: 8px;
+        box-sizing: border-box;
+      }
+      input {
+        min-height: 2.4rem;
+      }
+      .slate [data-slate-node='element'] {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>入力欄の翻訳</h1>
+    <p>Page copy that page translation may rewrite. Drafts below must stay put until Replace.</p>
+
+    <label for="plain">Textarea</label>
+    <textarea id="plain"></textarea>
+
+    <label for="title">Text input</label>
+    <input id="title" type="text" />
+
+    <div class="label" id="rich-label">Plain contenteditable</div>
+    <div id="rich" contenteditable="true" role="textbox" aria-labelledby="rich-label"></div>
+
+    <div class="label" id="slate-label">Slate-style editor</div>
+    <div
+      id="slate"
+      class="slate"
+      contenteditable="true"
+      role="textbox"
+      data-slate-editor="true"
+      aria-labelledby="slate-label"
+    ></div>
+
+    <div class="label" id="mail-label">Gmail-style compose</div>
+    <div id="mail" contenteditable="true" role="textbox" aria-labelledby="mail-label">
+      <div id="mail-body">会議は明日です。</div>
+      <div class="gmail_signature_prefix">--</div>
+      <div class="gmail_signature">Jane Doe</div>
+      <div class="gmail_quote">On Monday, Alex wrote: Hello</div>
+    </div>
+
+    <div class="label" id="outlook-label">Outlook-style compose</div>
+    <div id="outlook" contenteditable="true" role="textbox" aria-labelledby="outlook-label">
+      <div>会議は明日です。</div>
+      <div id="appendonsend"></div>
+      <hr />
+      <div id="divRplyFwdMsg">From: Alex</div>
+      <div id="quoted">Quoted original that must survive</div>
+      <div id="Signature">Sent from Outlook</div>
+    </div>
+
+    <label for="secret">Password (must never be touched)</label>
+    <input id="secret" type="password" value="hunter2" />
+
+    <script>
+      const editor = document.getElementById('slate');
+      let value = '';
+      let selStart = 0;
+      let selEnd = 0;
+      const render = () => {
+        editor.replaceChildren();
+        const block = document.createElement('div');
+        block.setAttribute('data-slate-node', 'element');
+        const text = document.createElement('span');
+        text.setAttribute('data-slate-node', 'text');
+        text.textContent = value;
+        block.append(text);
+        editor.append(block);
+        editor.dataset.slateValue = value;
+      };
+      const offsetsFromDom = () => {
+        const selection = document.getSelection();
+        if (!selection || selection.rangeCount === 0) return { start: selStart, end: selEnd };
+        const range = selection.getRangeAt(0);
+        if (
+          !editor.contains(range.commonAncestorContainer) &&
+          range.commonAncestorContainer !== editor
+        ) {
+          return { start: selStart, end: selEnd };
+        }
+        const pre = range.cloneRange();
+        pre.selectNodeContents(editor);
+        pre.setEnd(range.startContainer, range.startOffset);
+        const start = pre.toString().length;
+        return { start, end: start + range.toString().length };
+      };
+      document.addEventListener('selectionchange', () => {
+        const next = offsetsFromDom();
+        selStart = next.start;
+        selEnd = next.end;
+      });
+      editor.addEventListener('beforeinput', (event) => {
+        if (event.inputType !== 'insertText' && event.inputType !== 'insertFromPaste') return;
+        const data = event.data ?? event.dataTransfer?.getData('text/plain') ?? '';
+        if (!data) return;
+        event.preventDefault();
+        const start = selStart;
+        const end = selEnd;
+        // Discord's Slate applies the change after the current frame, not in the handler.
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            value = value.slice(0, start) + data + value.slice(end);
+            selStart = selEnd = start + data.length;
+            render();
+          }, 0);
+        });
+      });
+      editor.addEventListener('keydown', (event) => {
+        if (event.key !== 'Backspace' && event.key !== 'Delete') return;
+        event.preventDefault();
+        value = '';
+        selStart = selEnd = 0;
+        render();
+      });
+      render();
+      window.__slate = {
+        set(next) {
+          value = next;
+          selStart = 0;
+          selEnd = next.length;
+          render();
+        },
+        get() {
+          return value;
+        },
+      };
+    </script>
+  </body>
+</html>

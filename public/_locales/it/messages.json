@@ -94,9 +94,6 @@
   "threadsLabel": {
     "message": "Cerchi logici"
   },
-  "engineFirefoxSingleThread": {
-    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
-  },
   "diagHeading": {
     "message": "Diagnostica"
   },
@@ -384,7 +381,7 @@
     "message": "Scorciatoie da tastiera"
   },
   "shortcutHelp": {
-    "message": "Queste combinazioni sono gestite da Chrome. Con «Modifica le scorciatoie» le cambi nelle impostazioni di Chrome."
+    "message": "Se Chrome lascia un comando senza tasto, sulle pagine vale comunque quello predefinito. Togli il segno di spunta per disattivarlo. Usa Modifica scorciatoie per cambiare i tasti in Chrome."
   },
   "shortcutHelpFirefox": {
     "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
@@ -394,6 +391,12 @@
   },
   "shortcutUnset": {
     "message": "Non impostata"
+  },
+  "shortcutUse": {
+    "message": "Usa questa scorciatoia"
+  },
+  "shortcutOff": {
+    "message": "Disattivato"
   },
   "shortcutFallbackNote": {
     "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
@@ -707,9 +710,6 @@
   "tierCpu4": {
     "message": "CPU (4 thread)"
   },
-  "tierCpu1": {
-    "message": "CPU (1 thread)"
-  },
   "tierHelp": {
     "message": "Seleziona automaticamente la modalità adatta a questo PC."
   },
@@ -848,5 +848,179 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "Traduci il testo che stai scrivendo"
+  },
+  "contextTranslateCompose": {
+    "message": "Traduci ciò che stai scrivendo"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ traduce il testo del campo in cui stai scrivendo.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "Premi $KEY$ mentre scrivi in una casella di messaggio per vedere una traduzione da applicare.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "Quando una casella di messaggio ha il focus, il pulsante あA (o la scorciatoia) mostra un’anteprima della traduzione. Le bozze in giapponese vanno in inglese (o nella lingua di destinazione sopra); le altre usano quella destinazione. Nulla viene sostituito finché non scegli Sostituisci."
+  },
+  "composeTitle": {
+    "message": "Traduzione della bozza"
+  },
+  "composeIcon": {
+    "message": "Traduci ciò che stai scrivendo"
+  },
+  "composeReplace": {
+    "message": "Sostituisci"
+  },
+  "composeUndo": {
+    "message": "Ripristina l’originale"
+  },
+  "composePending": {
+    "message": "Traduzione in corso…"
+  },
+  "composeFailed": {
+    "message": "Impossibile tradurre questa bozza."
+  },
+  "composeEmpty": {
+    "message": "Inizia a scrivere per vedere una traduzione."
+  },
+  "composeTooLong": {
+    "message": "Questa bozza è troppo lunga da tradurre."
+  },
+  "composeSwap": {
+    "message": "Inverti la direzione della traduzione"
+  },
+  "composeReplaced": {
+    "message": "Sostituito. Puoi ripristinare l’originale."
+  },
+  "composeInto": {
+    "message": "In $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "La traduzione della bozza usa solo PLaMo e PLaMo non traduce in $LANGUAGE$.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeIconSetting": {
+    "message": "Mostra il pulsante あA sulle caselle di messaggio"
+  },
+  "composeIconSettingHelp": {
+    "message": "La scorciatoia e il menu contestuale funzionano anche se il pulsante è nascosto."
+  },
+  "composeTargetSetting": {
+    "message": "Lingua di destinazione in scrittura"
+  },
+  "composeTargetAuto": {
+    "message": "Automatico (le bozze in giapponese vanno all’altra lingua della coppia; il resto alla lingua della pagina)"
+  },
+  "composeTargetSettingHelp": {
+    "message": "La lingua scelta nell’anteprima viene ricordata qui."
+  },
+  "composeTargetLabel": {
+    "message": "Destinazione"
+  },
+  "composeInstantSetting": {
+    "message": "Traduci e sostituisci con un solo tasto"
+  },
+  "composeInstantSettingHelp": {
+    "message": "Senza anteprima: un tasto traduce la bozza e la sostituisce. Annulla resta disponibile."
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo non è ancora pronto. Apri la configurazione per accettare la licenza e scaricare il modello."
+  },
+  "composeLoading": {
+    "message": "Il modello PLaMo è in caricamento. L’anteprima comparirà quando è pronto."
+  },
+  "composeIneligible": {
+    "message": "Questo campo non può essere tradotto."
+  },
+  "composeOpenSetup": {
+    "message": "Apri configurazione"
+  },
+  "composeStale": {
+    "message": "La bozza è cambiata. Sostituisci è in pausa finché l’anteprima non si aggiorna."
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$ per sostituire",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "Auto"
+  },
+  "composePlacementSetting": {
+    "message": "Posizione della barra di traduzione in scrittura"
+  },
+  "composePlacementSettingHelp": {
+    "message": "Il valore predefinito per ogni sito. Trascina la maniglia ⋮⋮ della barra per posizionarla dove vuoi in questa pagina. Il menu ⋯ può anche sostituirlo solo per questo sito."
+  },
+  "composePlacementAbove": {
+    "message": "Sopra la casella del messaggio"
+  },
+  "composePlacementBelow": {
+    "message": "Sotto la casella del messaggio"
+  },
+  "composePlacementCorner": {
+    "message": "In basso a destra nella finestra"
+  },
+  "composePlacementFree": {
+    "message": "Sposta liberamente"
+  },
+  "composePlacementMenu": {
+    "message": "Posizione della barra"
+  },
+  "composePlacementSite": {
+    "message": "Questo sito"
+  },
+  "composePlacementFollowSettings": {
+    "message": "Usa l’impostazione per tutti i siti"
+  },
+  "composePlacementReset": {
+    "message": "Torna alla posizione originale"
+  },
+  "composePlacementHandle": {
+    "message": "Trascina per spostare la barra ovunque"
+  },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
   }
 }

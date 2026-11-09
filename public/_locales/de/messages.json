@@ -94,9 +94,6 @@
   "threadsLabel": {
     "message": "Logische Kerne"
   },
-  "engineFirefoxSingleThread": {
-    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
-  },
   "diagHeading": {
     "message": "Diagnostik"
   },
@@ -384,7 +381,7 @@
     "message": "Tastenkürzel"
   },
   "shortcutHelp": {
-    "message": "Diese Tasten verwaltet Chrome. Über „Tastenkürzel ändern“ bearbeiten Sie sie in den Einstellungen von Chrome."
+    "message": "Hat Chrome einem Befehl keine Taste zugewiesen, gilt auf Seiten weiterhin die Standardtaste. Entfernen Sie das Häkchen, um den Befehl auszuschalten. Über „Tastenkürzel ändern“ bearbeiten Sie die Zuweisungen in Chrome."
   },
   "shortcutHelpFirefox": {
     "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
@@ -394,6 +391,12 @@
   },
   "shortcutUnset": {
     "message": "Nicht festgelegt"
+  },
+  "shortcutUse": {
+    "message": "Diese Tastenkombination verwenden"
+  },
+  "shortcutOff": {
+    "message": "Aus"
   },
   "shortcutFallbackNote": {
     "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
@@ -707,9 +710,6 @@
   "tierCpu4": {
     "message": "CPU (4 Threads)"
   },
-  "tierCpu1": {
-    "message": "CPU (1 thread)"
-  },
   "tierHelp": {
     "message": "Wählt automatisch die Mode aus, die zu diesem PC passt."
   },
@@ -848,5 +848,179 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "Den Text übersetzen, den Sie gerade schreiben"
+  },
+  "contextTranslateCompose": {
+    "message": "Geschriebenes übersetzen"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ übersetzt den Text im Feld, in das Sie schreiben.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "Drücken Sie $KEY$ in einem Nachrichtenfeld, um eine Übersetzung anzuzeigen, die Sie übernehmen können.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "Wenn ein Nachrichtenfeld den Fokus hat, zeigt die あA-Schaltfläche (oder das Tastenkürzel) eine Vorschau der Übersetzung. Japanische Entwürfe gehen ins Englische (oder in die Zielsprache oben); andere Entwürfe nutzen diese Zielsprache. Nichts wird ersetzt, bis Sie „Ersetzen“ wählen."
+  },
+  "composeTitle": {
+    "message": "Übersetzung des Entwurfs"
+  },
+  "composeIcon": {
+    "message": "Geschriebenes übersetzen"
+  },
+  "composeReplace": {
+    "message": "Ersetzen"
+  },
+  "composeUndo": {
+    "message": "Original wiederherstellen"
+  },
+  "composePending": {
+    "message": "Übersetzung läuft…"
+  },
+  "composeFailed": {
+    "message": "Dieser Entwurf konnte nicht übersetzt werden."
+  },
+  "composeEmpty": {
+    "message": "Tippen Sie, um eine Übersetzung zu sehen."
+  },
+  "composeTooLong": {
+    "message": "Dieser Entwurf ist zu lang zum Übersetzen."
+  },
+  "composeSwap": {
+    "message": "Übersetzungsrichtung wechseln"
+  },
+  "composeReplaced": {
+    "message": "Ersetzt. Sie können das Original wiederherstellen."
+  },
+  "composeInto": {
+    "message": "Nach $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "Die Entwurfsübersetzung nutzt nur PLaMo, und PLaMo übersetzt nicht nach $LANGUAGE$.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeIconSetting": {
+    "message": "Die あA-Schaltfläche in Nachrichtenfeldern anzeigen"
+  },
+  "composeIconSettingHelp": {
+    "message": "Tastenkürzel und Rechtsklickmenü funktionieren weiterhin, wenn die Schaltfläche ausgeblendet ist."
+  },
+  "composeTargetSetting": {
+    "message": "Zielsprache für Entwürfe"
+  },
+  "composeTargetAuto": {
+    "message": "Automatisch (japanische Entwürfe in die andere Sprache des Paars, sonst die Seitensprache)"
+  },
+  "composeTargetSettingHelp": {
+    "message": "Die zuletzt im Vorschaufenster gewählte Sprache wird hier gespeichert."
+  },
+  "composeTargetLabel": {
+    "message": "Ziel"
+  },
+  "composeInstantSetting": {
+    "message": "Mit einem Tastendruck übersetzen und ersetzen"
+  },
+  "composeInstantSettingHelp": {
+    "message": "Ohne Vorschau: ein Tastendruck übersetzt den Entwurf und ersetzt ihn. Rückgängig bleibt möglich."
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo ist noch nicht bereit. Öffnen Sie die Einrichtung, um der Lizenz zuzustimmen und das Modell herunterzuladen."
+  },
+  "composeLoading": {
+    "message": "Das PLaMo-Modell wird geladen. Die Vorschau erscheint, sobald es bereit ist."
+  },
+  "composeIneligible": {
+    "message": "Dieses Feld kann nicht übersetzt werden."
+  },
+  "composeOpenSetup": {
+    "message": "Einrichtung öffnen"
+  },
+  "composeStale": {
+    "message": "Der Entwurf hat sich geändert. Ersetzen ist pausiert, bis die Vorschau nachzieht."
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$ zum Ersetzen",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "Auto"
+  },
+  "composePlacementSetting": {
+    "message": "Position der Entwurf-Übersetzungsleiste"
+  },
+  "composePlacementSettingHelp": {
+    "message": "Die Vorgabe für jede Website. Ziehen Sie den ⋮⋮-Griff der Leiste, um sie auf dieser Seite beliebig zu platzieren. Das ⋯-Menü kann das ebenfalls nur für diese Website überschreiben."
+  },
+  "composePlacementAbove": {
+    "message": "Über dem Eingabefeld"
+  },
+  "composePlacementBelow": {
+    "message": "Unter dem Eingabefeld"
+  },
+  "composePlacementCorner": {
+    "message": "Unten rechts im Fenster"
+  },
+  "composePlacementFree": {
+    "message": "Frei verschieben"
+  },
+  "composePlacementMenu": {
+    "message": "Leistenposition"
+  },
+  "composePlacementSite": {
+    "message": "Diese Website"
+  },
+  "composePlacementFollowSettings": {
+    "message": "Einstellung für alle Websites verwenden"
+  },
+  "composePlacementReset": {
+    "message": "Zur ursprünglichen Position zurück"
+  },
+  "composePlacementHandle": {
+    "message": "Ziehen, um die Leiste beliebig zu verschieben"
+  },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
   }
 }

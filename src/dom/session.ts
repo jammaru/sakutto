@@ -178,6 +178,10 @@ export interface PageSessionOptions {
    * manifest suggests; a page that can read the current binding passes its own test.
    */
   selectionKey?: (event: KeyboardEvent) => boolean;
+  /** Page translate / restore. Used when Chrome left that command unbound. */
+  pageKey?: (event: KeyboardEvent) => boolean;
+  /** Bilingual toggle. Used when Chrome left that command unbound. */
+  bilingualKey?: (event: KeyboardEvent) => boolean;
 }
 
 export function preferencesFor(
@@ -208,6 +212,8 @@ export class PageSession {
   private readonly onSitePatch: PageSessionOptions['onSitePatch'];
   private readonly onGrantSite: PageSessionOptions['onGrantSite'];
   private readonly selectionKey: (event: KeyboardEvent) => boolean;
+  private readonly pageKey: ((event: KeyboardEvent) => boolean) | undefined;
+  private readonly bilingualKey: ((event: KeyboardEvent) => boolean) | undefined;
   private readonly keyWindows = new Set<Window>();
   private grantPending = false;
   private eagerOnce = true;
@@ -296,6 +302,8 @@ export class PageSession {
     this.onSitePatch = options.onSitePatch;
     this.onGrantSite = options.onGrantSite;
     this.selectionKey = options.selectionKey ?? isPlainAltS;
+    this.pageKey = options.pageKey;
+    this.bilingualKey = options.bilingualKey;
     this.scheduleFrame =
       options.scheduleFrame ??
       ((callback) => {
@@ -373,12 +381,25 @@ export class PageSession {
     };
     this.onKeyDown = (event) => {
       if (!(event instanceof KeyboardEvent) || event.repeat) return;
+      if (event.isComposing) return;
       if (event.key === 'Escape') {
         this.overlay.hideOriginal();
         if (!this.selection && !this.overlay.selectionIconVisible()) return;
         event.preventDefault();
         event.stopPropagation();
         this.dismissSelection();
+        return;
+      }
+      if (this.pageKey?.(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+        void this.handle('toggle');
+        return;
+      }
+      if (this.bilingualKey?.(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+        void this.handle('bilingual');
         return;
       }
       if (!this.selectionKey(event)) return;
@@ -478,7 +499,9 @@ export class PageSession {
     };
   }
 
-  async handle(command: 'toggle' | 'restore' | 'bilingual' | 'selection'): Promise<void> {
+  async handle(
+    command: 'toggle' | 'restore' | 'bilingual' | 'selection' | 'compose',
+  ): Promise<void> {
     switch (command) {
       case 'toggle':
         await this.toggle();
@@ -491,6 +514,9 @@ export class PageSession {
         return;
       case 'selection':
         this.translateDocumentSelection();
+        return;
+      case 'compose':
+        // Handled by ComposeController in the content script, which owns the focused field.
         return;
     }
   }

@@ -18,6 +18,7 @@ import {
   isEngineTierRequest,
   isEngineWarmRequest,
   isModelCancelRequest,
+  isOpenSetupRequest,
   isShortcutQuery,
   isSiteGrantRequest,
   isModelDeleteRequest,
@@ -226,6 +227,14 @@ export default defineBackground(() => {
           sendResponse(false);
         })
         .catch(() => sendResponse(false));
+      return true;
+    }
+
+    if (isOpenSetupRequest(message)) {
+      void browser.tabs.create({ url: browser.runtime.getURL('/onboarding.html') }).then(
+        () => sendResponse(true),
+        () => sendResponse(false),
+      );
       return true;
     }
 

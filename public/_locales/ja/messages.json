@@ -94,9 +94,6 @@
   "threadsLabel": {
     "message": "論理コア"
   },
-  "engineFirefoxSingleThread": {
-    "message": "Firefox の拡張機能ページでは wasm のスレッドが使えないため、CPU の翻訳は 1 スレッドです。"
-  },
   "diagHeading": {
     "message": "診断"
   },
@@ -384,16 +381,22 @@
     "message": "キーボードショートカット"
   },
   "shortcutHelp": {
-    "message": "キーは Chrome が管理します。「ショートカットキーを変更」を押すと Chrome の設定で編集できます。"
+    "message": "オフにするには下のチェックを外してください。「ショートカットキーを変更」は Chrome 自身の設定を開きます。そこでキーを消すと Sakutto は使いません。既定のキーがページで使われるのは、Chrome がインストール時に一度も割り当てなかった場合だけです（ほかの拡張機能と衝突したときなど）。"
   },
   "shortcutHelpFirefox": {
-    "message": "キーは Firefox が管理します。「ショートカットキーを変更」を押すと Firefox の設定で編集できます。"
+    "message": "オフにするには下のチェックを外してください。「ショートカットキーを変更」は Firefox 自身の設定を開きます。そこでキーを消すと Sakutto は使いません。既定のキーがページで使われるのは、Firefox がインストール時に一度も割り当てなかった場合だけです（ほかの拡張機能と衝突したときなど）。"
   },
   "shortcutChange": {
     "message": "ショートカットキーを変更"
   },
   "shortcutUnset": {
     "message": "未設定"
+  },
+  "shortcutUse": {
+    "message": "このショートカットを使う"
+  },
+  "shortcutOff": {
+    "message": "オフ"
   },
   "shortcutFallbackNote": {
     "message": "インストール時に Chrome がこの操作にキーを割り当てなかったため、ページでは既定のキーを使います。"
@@ -707,9 +710,6 @@
   "tierCpu4": {
     "message": "CPU（4スレッド）"
   },
-  "tierCpu1": {
-    "message": "CPU（1スレッド）"
-  },
   "tierHelp": {
     "message": "自動では、この PC に合うモードを選びます。"
   },
@@ -848,5 +848,179 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "入力中のテキストを翻訳します"
+  },
+  "contextTranslateCompose": {
+    "message": "入力中のテキストを翻訳"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ で、入力中の欄のテキストを翻訳します。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "メッセージ欄で $KEY$ を押すと、入力中の文の訳がプレビューされ、置き換えるかどうかを選べます。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "メッセージ欄にフォーカスがあるとき、欄のすみの「あA」ボタンかショートカットで、入力中の文の訳をプレビューできます。日本語の下書きは対になるもう一方の言語へ、それ以外は上で選んだ訳先へ訳します。「置き換える」を選ぶまで、欄の文は変わりません。"
+  },
+  "composeTitle": {
+    "message": "入力中の文を翻訳"
+  },
+  "composeIcon": {
+    "message": "入力中のテキストを翻訳"
+  },
+  "composeReplace": {
+    "message": "置き換える"
+  },
+  "composeUndo": {
+    "message": "元に戻す"
+  },
+  "composePending": {
+    "message": "翻訳しています…"
+  },
+  "composeFailed": {
+    "message": "この入力を翻訳できませんでした。"
+  },
+  "composeEmpty": {
+    "message": "入力すると訳が出ます"
+  },
+  "composeTooLong": {
+    "message": "この入力は長すぎて翻訳できません。"
+  },
+  "composeSwap": {
+    "message": "翻訳の向きを切り替えます"
+  },
+  "composeReplaced": {
+    "message": "置き換えました。元の文に戻せます。"
+  },
+  "composeInto": {
+    "message": "$LANGUAGE$ へ",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "PLaMo は $LANGUAGE$ に対応していないため翻訳できません。",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeIconSetting": {
+    "message": "メッセージ欄に「あA」ボタンを表示する"
+  },
+  "composeIconSettingHelp": {
+    "message": "ボタンを消しても、ショートカットと右クリックメニューは使えます。"
+  },
+  "composeTargetSetting": {
+    "message": "入力中の翻訳の訳先"
+  },
+  "composeTargetAuto": {
+    "message": "自動（日本語の下書きはペアのもう一方、それ以外はページの訳先）"
+  },
+  "composeTargetSettingHelp": {
+    "message": "プレビューの言語メニューで変えた訳先も、ここに記憶されます。"
+  },
+  "composeTargetLabel": {
+    "message": "訳先"
+  },
+  "composeInstantSetting": {
+    "message": "ショートカット一発で翻訳して置き換える"
+  },
+  "composeInstantSettingHelp": {
+    "message": "プレビューを出さず、ショートカット一回で下書きを置き換えます。元に戻す操作は使えます。"
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo の準備ができていません。セットアップを開いてライセンスに同意し、モデルを入手してください。"
+  },
+  "composeLoading": {
+    "message": "PLaMo のモデルを読み込んでいます。準備ができるとプレビューを出します。"
+  },
+  "composeIneligible": {
+    "message": "この欄は翻訳できません。"
+  },
+  "composeOpenSetup": {
+    "message": "セットアップを開く"
+  },
+  "composeStale": {
+    "message": "下書きが変わったので、プレビューが追いつくまで置き換えできません。"
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$ で置き換え",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "自動"
+  },
+  "composePlacementSetting": {
+    "message": "入力中の翻訳バーの位置"
+  },
+  "composePlacementSettingHelp": {
+    "message": "すべてのサイトの既定です。バー左端の ⋮⋮ をドラッグすると、このページだけ好きな位置へ置けます。⋯ メニューでもこのサイトだけ上書きできます。"
+  },
+  "composePlacementAbove": {
+    "message": "入力欄の上"
+  },
+  "composePlacementBelow": {
+    "message": "入力欄の下"
+  },
+  "composePlacementCorner": {
+    "message": "画面の右下（フローティング）"
+  },
+  "composePlacementFree": {
+    "message": "自由に動かす"
+  },
+  "composePlacementMenu": {
+    "message": "バーの位置"
+  },
+  "composePlacementSite": {
+    "message": "このサイト"
+  },
+  "composePlacementFollowSettings": {
+    "message": "設定の位置に戻す（すべてのサイト）"
+  },
+  "composePlacementReset": {
+    "message": "元の位置に戻す"
+  },
+  "composePlacementHandle": {
+    "message": "ドラッグしてバーを好きな位置へ"
+  },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox の拡張機能ページでは wasm のスレッドが使えないため、CPU の翻訳は 1 スレッドです。"
+  },
+  "tierCpu1": {
+    "message": "CPU（1スレッド）"
   }
 }

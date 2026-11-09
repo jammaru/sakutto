@@ -94,9 +94,6 @@
   "threadsLabel": {
     "message": "Inti logika"
   },
-  "engineFirefoxSingleThread": {
-    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
-  },
   "diagHeading": {
     "message": "Diagnosi"
   },
@@ -384,7 +381,7 @@
     "message": "Pintasan papan kekunci"
   },
   "shortcutHelp": {
-    "message": "Chrome menyimpan tombol ini. Pilih Ubah pintasan untuk menyuntingnya di pengaturan Chrome."
+    "message": "Jika Chrome tidak menetapkan tombol untuk suatu perintah, tombol bawaan tetap dipakai di halaman. Hapus centang untuk mematikannya. Gunakan Ubah pintasan untuk mengedit tombol di Chrome."
   },
   "shortcutHelpFirefox": {
     "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
@@ -394,6 +391,12 @@
   },
   "shortcutUnset": {
     "message": "Belum diatur"
+  },
+  "shortcutUse": {
+    "message": "Gunakan pintasan ini"
+  },
+  "shortcutOff": {
+    "message": "Nonaktif"
   },
   "shortcutFallbackNote": {
     "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
@@ -707,9 +710,6 @@
   "tierCpu4": {
     "message": "CPU (4 thread)"
   },
-  "tierCpu1": {
-    "message": "CPU (1 thread)"
-  },
   "tierHelp": {
     "message": "Secara otomatis memilih mode yang sesuai untuk PC ini."
   },
@@ -848,5 +848,179 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "Terjemahkan teks yang sedang Anda tulis"
+  },
+  "contextTranslateCompose": {
+    "message": "Terjemahkan yang sedang Anda tulis"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ menerjemahkan teks di kolom tempat Anda mengetik.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "Tekan $KEY$ saat mengetik di kotak pesan untuk melihat terjemahan yang dapat Anda terapkan.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "Saat kotak pesan berfokus, tombol あA (atau pintasan) menampilkan pratinjau terjemahan. Draf Jepang ke bahasa Inggris (atau bahasa sasaran di atas); yang lain memakai sasaran itu. Tidak ada yang diganti sampai Anda memilih Ganti."
+  },
+  "composeTitle": {
+    "message": "Terjemahan draf"
+  },
+  "composeIcon": {
+    "message": "Terjemahkan yang sedang Anda tulis"
+  },
+  "composeReplace": {
+    "message": "Ganti"
+  },
+  "composeUndo": {
+    "message": "Kembalikan aslinya"
+  },
+  "composePending": {
+    "message": "Menerjemahkan…"
+  },
+  "composeFailed": {
+    "message": "Draf ini tidak dapat diterjemahkan."
+  },
+  "composeEmpty": {
+    "message": "Mulai mengetik untuk melihat terjemahan."
+  },
+  "composeTooLong": {
+    "message": "Draf ini terlalu panjang untuk diterjemahkan."
+  },
+  "composeSwap": {
+    "message": "Ubah arah terjemahan"
+  },
+  "composeReplaced": {
+    "message": "Diganti. Anda dapat mengembalikan teks asli."
+  },
+  "composeInto": {
+    "message": "Ke $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "Terjemahan draf hanya memakai PLaMo, dan PLaMo tidak menerjemahkan ke $LANGUAGE$.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeIconSetting": {
+    "message": "Tampilkan tombol あA pada kotak pesan"
+  },
+  "composeIconSettingHelp": {
+    "message": "Pintasan dan menu klik kanan tetap bekerja jika tombol disembunyikan."
+  },
+  "composeTargetSetting": {
+    "message": "Bahasa tujuan saat menulis"
+  },
+  "composeTargetAuto": {
+    "message": "Otomatis (draf Jepang ke bahasa lain dalam pasangan; selain itu ke bahasa halaman)"
+  },
+  "composeTargetSettingHelp": {
+    "message": "Bahasa terakhir yang dipilih di pratinjau diingat di sini."
+  },
+  "composeTargetLabel": {
+    "message": "Tujuan"
+  },
+  "composeInstantSetting": {
+    "message": "Terjemahkan dan ganti dengan satu pintasan"
+  },
+  "composeInstantSettingHelp": {
+    "message": "Tanpa pratinjau: satu pintasan menerjemahkan draf dan menggantinya. Urungkan tetap tersedia."
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo belum siap. Buka penyiapan untuk menyetujui lisensi dan mengunduh model."
+  },
+  "composeLoading": {
+    "message": "Model PLaMo sedang dimuat. Pratinjau muncul setelah siap."
+  },
+  "composeIneligible": {
+    "message": "Kolom ini tidak dapat diterjemahkan."
+  },
+  "composeOpenSetup": {
+    "message": "Buka penyiapan"
+  },
+  "composeStale": {
+    "message": "Draf berubah. Ganti dijeda sampai pratinjau menyusul."
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$ untuk mengganti",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "Otomatis"
+  },
+  "composePlacementSetting": {
+    "message": "Posisi bilah terjemahan saat menulis"
+  },
+  "composePlacementSettingHelp": {
+    "message": "Bawaan untuk setiap situs. Seret gagang ⋮⋮ pada bilah untuk menaruhnya di mana saja di halaman ini. Menu ⋯ juga dapat menimpa ini hanya untuk situs itu."
+  },
+  "composePlacementAbove": {
+    "message": "Di atas kotak pesan"
+  },
+  "composePlacementBelow": {
+    "message": "Di bawah kotak pesan"
+  },
+  "composePlacementCorner": {
+    "message": "Kanan bawah jendela"
+  },
+  "composePlacementFree": {
+    "message": "Geser bebas"
+  },
+  "composePlacementMenu": {
+    "message": "Posisi bilah"
+  },
+  "composePlacementSite": {
+    "message": "Situs ini"
+  },
+  "composePlacementFollowSettings": {
+    "message": "Gunakan pengaturan untuk semua situs"
+  },
+  "composePlacementReset": {
+    "message": "Kembalikan ke posisi semula"
+  },
+  "composePlacementHandle": {
+    "message": "Seret untuk memindahkan bilah ke mana saja"
+  },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
   }
 }

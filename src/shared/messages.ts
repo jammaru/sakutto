@@ -24,7 +24,7 @@ export interface PageInfoRequest {
   type: 'page:info';
 }
 
-export type PageCommandName = 'toggle' | 'restore' | 'bilingual' | 'selection';
+export type PageCommandName = 'toggle' | 'restore' | 'bilingual' | 'selection' | 'compose';
 
 export interface PageCommandRequest {
   type: 'page:command';
@@ -59,6 +59,7 @@ const PAGE_COMMANDS: ReadonlySet<string> = new Set<PageCommandName>([
   'restore',
   'bilingual',
   'selection',
+  'compose',
 ]);
 
 export interface EngineCapabilitiesRequest {
@@ -91,6 +92,10 @@ export interface ShortcutQuery {
   type: 'commands:shortcuts';
 }
 
+export interface OpenSetupRequest {
+  type: 'ui:open-setup';
+}
+
 /**
  * The key each rebindable command holds right now, as Chrome reports it: `Alt+A`, `⌥⇧P` on a
  * Mac, or `''` for a command the user unbound. `null` means the command was not listed.
@@ -99,6 +104,7 @@ export interface ShortcutSnapshot {
   'translate-page': string | null;
   'toggle-bilingual': string | null;
   'translate-selection': string | null;
+  'translate-compose': string | null;
 }
 
 /**
@@ -109,6 +115,7 @@ export interface ShortcutAssigned {
   'translate-page': boolean;
   'toggle-bilingual': boolean;
   'translate-selection': boolean;
+  'translate-compose': boolean;
 }
 
 /**
@@ -225,6 +232,10 @@ export function isShortcutQuery(value: unknown): value is ShortcutQuery {
   return isRecord(value) && value.type === 'commands:shortcuts';
 }
 
+export function isOpenSetupRequest(value: unknown): value is OpenSetupRequest {
+  return isRecord(value) && value.type === 'ui:open-setup';
+}
+
 function isShortcutBinding(value: unknown): value is string | null {
   return value === null || typeof value === 'string';
 }
@@ -234,7 +245,8 @@ export function isShortcutSnapshot(value: unknown): value is ShortcutSnapshot {
     isRecord(value) &&
     isShortcutBinding(value['translate-page']) &&
     isShortcutBinding(value['toggle-bilingual']) &&
-    isShortcutBinding(value['translate-selection'])
+    isShortcutBinding(value['translate-selection']) &&
+    isShortcutBinding(value['translate-compose'])
   );
 }
 
@@ -247,7 +259,8 @@ export function isShortcutAssigned(value: unknown): value is ShortcutAssigned {
     isRecord(value) &&
     isShortcutAssignedFlag(value['translate-page']) &&
     isShortcutAssignedFlag(value['toggle-bilingual']) &&
-    isShortcutAssignedFlag(value['translate-selection'])
+    isShortcutAssignedFlag(value['translate-selection']) &&
+    isShortcutAssignedFlag(value['translate-compose'])
   );
 }
 
@@ -321,12 +334,17 @@ export async function requestPageState(tabId: number): Promise<PageViewState | n
 export async function requestPageCommand(
   tabId: number,
   command: PageCommandName,
+  frameId?: number,
 ): Promise<PageViewState | null> {
   try {
-    const response: unknown = await browser.tabs.sendMessage(tabId, {
-      type: 'page:command',
-      command,
-    } satisfies PageCommandRequest);
+    const response: unknown = await browser.tabs.sendMessage(
+      tabId,
+      {
+        type: 'page:command',
+        command,
+      } satisfies PageCommandRequest,
+      frameId === undefined ? {} : { frameId },
+    );
     return isPageViewState(response) ? response : null;
   } catch {
     return null;

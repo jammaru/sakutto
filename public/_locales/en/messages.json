@@ -94,9 +94,6 @@
   "threadsLabel": {
     "message": "Logical cores"
   },
-  "engineFirefoxSingleThread": {
-    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
-  },
   "diagHeading": {
     "message": "Diagnostics"
   },
@@ -384,16 +381,22 @@
     "message": "Keyboard shortcuts"
   },
   "shortcutHelp": {
-    "message": "Chrome keeps these keys. Choose Change shortcuts to edit them in Chrome’s own settings."
+    "message": "Uncheck a command to turn it off in Sakutto. Change shortcuts opens Chrome’s own editor. Clearing a key there stops Sakutto from using it. The default key is used on pages only when Chrome never assigned one, for example because of a conflict."
   },
   "shortcutHelpFirefox": {
-    "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
+    "message": "Uncheck a command to turn it off in Sakutto. Change shortcuts opens Firefox’s own editor. Clearing a key there stops Sakutto from using it. The default key is used on pages only when Firefox never assigned one, for example because of a conflict."
   },
   "shortcutChange": {
     "message": "Change shortcuts"
   },
   "shortcutUnset": {
     "message": "Not set"
+  },
+  "shortcutUse": {
+    "message": "Use this shortcut"
+  },
+  "shortcutOff": {
+    "message": "Off"
   },
   "shortcutFallbackNote": {
     "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
@@ -707,9 +710,6 @@
   "tierCpu4": {
     "message": "CPU (4 threads)"
   },
-  "tierCpu1": {
-    "message": "CPU (1 thread)"
-  },
   "tierHelp": {
     "message": "Automatic picks the mode that fits this PC."
   },
@@ -848,5 +848,179 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "Translate the text you are writing"
+  },
+  "contextTranslateCompose": {
+    "message": "Translate what you are writing"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ translates the text in the field you are typing in.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "Press $KEY$ while typing in a message box to preview a translation you can apply.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "While a message box is focused, the あA button (or the shortcut) previews a translation of what you are typing. Japanese drafts go to English (or to the target language above); other drafts use that target. Nothing is replaced until you choose Replace."
+  },
+  "composeTitle": {
+    "message": "Draft translation"
+  },
+  "composeIcon": {
+    "message": "Translate what you are writing"
+  },
+  "composeReplace": {
+    "message": "Replace"
+  },
+  "composeUndo": {
+    "message": "Restore original"
+  },
+  "composePending": {
+    "message": "Translating…"
+  },
+  "composeFailed": {
+    "message": "Could not translate this draft."
+  },
+  "composeEmpty": {
+    "message": "Start typing to see a translation."
+  },
+  "composeTooLong": {
+    "message": "This draft is too long to translate."
+  },
+  "composeSwap": {
+    "message": "Switch the translation direction"
+  },
+  "composeReplaced": {
+    "message": "Replaced. You can restore the original."
+  },
+  "composeInto": {
+    "message": "Into $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "Draft translation uses PLaMo only, and PLaMo does not translate into $LANGUAGE$.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeIconSetting": {
+    "message": "Show the あA button on message boxes"
+  },
+  "composeIconSettingHelp": {
+    "message": "The shortcut and the right-click menu still work when the button is hidden."
+  },
+  "composeTargetSetting": {
+    "message": "Draft translation target"
+  },
+  "composeTargetAuto": {
+    "message": "Auto (Japanese drafts go to the other language of the pair; otherwise the page target)"
+  },
+  "composeTargetSettingHelp": {
+    "message": "The language you last picked in the compose preview is remembered here."
+  },
+  "composeTargetLabel": {
+    "message": "Target"
+  },
+  "composeInstantSetting": {
+    "message": "Translate and replace with one shortcut press"
+  },
+  "composeInstantSettingHelp": {
+    "message": "Skip the preview: one shortcut press translates the draft and replaces it. Undo is still available."
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo is not ready yet. Open setup to agree to the licence and download the model."
+  },
+  "composeLoading": {
+    "message": "The PLaMo model is loading. The preview will appear when it is ready."
+  },
+  "composeIneligible": {
+    "message": "This field cannot be translated."
+  },
+  "composeOpenSetup": {
+    "message": "Open setup"
+  },
+  "composeStale": {
+    "message": "The draft changed. Replace is paused until the preview catches up."
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$ to replace",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "Auto"
+  },
+  "composePlacementSetting": {
+    "message": "Draft translation bar position"
+  },
+  "composePlacementSettingHelp": {
+    "message": "The default for every site. Drag the ⋮⋮ grip on the bar to park it anywhere on this page. The ⋯ menu can also override this for that site only."
+  },
+  "composePlacementAbove": {
+    "message": "Above the message box"
+  },
+  "composePlacementBelow": {
+    "message": "Below the message box"
+  },
+  "composePlacementCorner": {
+    "message": "Bottom-right of the window"
+  },
+  "composePlacementFree": {
+    "message": "Move freely"
+  },
+  "composePlacementMenu": {
+    "message": "Bar position"
+  },
+  "composePlacementSite": {
+    "message": "This site"
+  },
+  "composePlacementFollowSettings": {
+    "message": "Use the setting for all sites"
+  },
+  "composePlacementReset": {
+    "message": "Reset to the original position"
+  },
+  "composePlacementHandle": {
+    "message": "Drag to move the bar anywhere"
+  },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
   }
 }

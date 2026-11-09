@@ -48,11 +48,12 @@
 
   type SettingsError = 'load' | 'save' | null;
 
-  /** The three hints under the button, each naming the key bound right now. */
+  /** The hints under the button, each naming the key bound right now. */
   const SHORTCUT_HINTS: readonly { label: MessageKey; command: ShortcutCommand }[] = [
     { label: 'shortcutTranslate', command: 'translate-page' },
     { label: 'shortcutBilingual', command: 'toggle-bilingual' },
     { label: 'shortcutSelection', command: 'translate-selection' },
+    { label: 'shortcutCompose', command: 'translate-compose' },
   ];
 
   let settings = $state<Settings | null>(null);
@@ -75,14 +76,17 @@
   let shortcutError = $state(false);
 
   /**
-   * The key the browser currently has bound to each command. A binding the user removed stays
-   * as `''` so a hint can say it is unset rather than name a key that no longer works.
+   * The key each command actually uses on a page. A binding the user removed stays as `''`
+   * so a hint can say it is unset rather than name a key that no longer works. Sakutto's own
+   * setting is a separate off switch.
    */
   let bound = $derived.by((): Record<ShortcutCommand, string> => {
+    const enabled = settings?.shortcutsEnabled;
     const next: Record<ShortcutCommand, string> = { ...DEFAULT_SHORTCUTS };
     for (const command of SHORTCUT_COMMANDS) {
       next[command] = boundShortcut(shortcuts?.snapshot ?? null, command, {
         assigned: shortcuts?.assigned[command],
+        enabled: enabled?.[command] !== false,
       });
     }
     return next;

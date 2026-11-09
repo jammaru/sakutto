@@ -4,6 +4,7 @@ const FIELD_SELECTORS = [
   'input',
   'select',
   '[contenteditable]:not([contenteditable="false"])',
+  '[role="textbox"]',
 ];
 
 const EXCLUDED_SELECTOR = [
@@ -108,6 +109,8 @@ const OWN_UI_TAGS: ReadonlySet<string> = new Set([
   'SAKUTTO-TIP',
   'SAKUTTO-POP',
   'SAKUTTO-SELECT',
+  'SAKUTTO-COMPOSE',
+  'SAKUTTO-WRITE',
   'SAKUTTO-PERF',
   'SAKUTTO-STATUS',
   'SAKUTTO-BAR',

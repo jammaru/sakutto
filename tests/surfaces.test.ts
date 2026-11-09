@@ -120,8 +120,11 @@ describe('shortcut settings', () => {
     expect(shortcuts).not.toMatch(/onkeydown|addEventListener\('keydown'/u);
   });
 
-  it('says a command has no key rather than showing an empty box', () => {
+  it('names the effective key rather than showing an empty box', () => {
     expect(shortcuts).toContain('shortcutUnset');
+    expect(shortcuts).toContain('shortcutOff');
+    expect(shortcuts).toContain('shortcutUse');
+    expect(shortcuts).toContain('shortcutFallbackNote');
   });
 
   it('is on the settings page', () => {

@@ -28,6 +28,7 @@ const COMMAND_MESSAGES = {
   'translate-page': '__MSG_commandTranslate__',
   'toggle-bilingual': '__MSG_commandBilingual__',
   'translate-selection': '__MSG_commandSelection__',
+  'translate-compose': '__MSG_commandCompose__',
 } as const;
 
 export function commandSuggestions(
@@ -49,6 +50,10 @@ export function commandSuggestions(
     'translate-selection': {
       suggested_key: { default: shortcuts['translate-selection'] },
       description: COMMAND_MESSAGES['translate-selection'],
+    },
+    'translate-compose': {
+      suggested_key: { default: shortcuts['translate-compose'] },
+      description: COMMAND_MESSAGES['translate-compose'],
     },
   };
 }

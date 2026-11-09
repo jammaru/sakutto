@@ -65,8 +65,16 @@ describe('extension manifest', () => {
         suggested_key: { default: 'Alt+S' },
         description: '__MSG_commandSelection__',
       },
+      'translate-compose': {
+        suggested_key: { default: 'Alt+T' },
+        description: '__MSG_commandCompose__',
+      },
     });
     expect(chromeManifest.permissions).toContain('contextMenus');
+    const withSuggested = Object.values(
+      chromeManifest.commands as Record<string, { suggested_key?: unknown }>,
+    ).filter((command) => command.suggested_key !== undefined);
+    expect(withSuggested).toHaveLength(4);
   });
 
   /**

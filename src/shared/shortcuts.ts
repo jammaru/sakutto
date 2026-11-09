@@ -9,6 +9,7 @@ export const SHORTCUT_COMMANDS = [
   'translate-page',
   'toggle-bilingual',
   'translate-selection',
+  'translate-compose',
 ] as const;
 
 export type ShortcutCommand = (typeof SHORTCUT_COMMANDS)[number];
@@ -18,6 +19,7 @@ export const SHORTCUT_PAGE_COMMANDS: Readonly<Record<ShortcutCommand, PageComman
   'translate-page': 'toggle',
   'toggle-bilingual': 'bilingual',
   'translate-selection': 'selection',
+  'translate-compose': 'compose',
 };
 
 /**
@@ -28,6 +30,7 @@ export const CHROME_DEFAULT_SHORTCUTS: Readonly<Record<ShortcutCommand, string>>
   'translate-page': 'Alt+A',
   'toggle-bilingual': 'Alt+B',
   'translate-selection': 'Alt+S',
+  'translate-compose': 'Alt+T',
 };
 
 /** Firefox defaults. Alt+Shift+letter avoids the Windows menu-bar access keys. */
@@ -35,6 +38,7 @@ export const FIREFOX_DEFAULT_SHORTCUTS: Readonly<Record<ShortcutCommand, string>
   'translate-page': 'Alt+Shift+A',
   'toggle-bilingual': 'Alt+Shift+B',
   'translate-selection': 'Alt+Shift+S',
+  'translate-compose': 'Alt+Shift+T',
 };
 
 export function defaultShortcutsFor(
@@ -54,6 +58,30 @@ export const DEFAULT_SHORTCUTS: Readonly<Record<ShortcutCommand, string>> =
 /** The key the selection command has until the browser answers. */
 export const DEFAULT_SELECTION_SHORTCUT = DEFAULT_SHORTCUTS['translate-selection'];
 
+/** The key the compose command has until the browser answers. */
+export const DEFAULT_COMPOSE_SHORTCUT = DEFAULT_SHORTCUTS['translate-compose'];
+
+export type ShortcutEnabled = Record<ShortcutCommand, boolean>;
+
+/** Every command is on until the user turns it off in Sakutto's own settings. */
+export function defaultShortcutEnabled(): ShortcutEnabled {
+  return {
+    'translate-page': true,
+    'toggle-bilingual': true,
+    'translate-selection': true,
+    'translate-compose': true,
+  };
+}
+
+export function normalizeShortcutEnabled(value: unknown): ShortcutEnabled {
+  const next = defaultShortcutEnabled();
+  if (!isRecord(value)) return next;
+  for (const command of SHORTCUT_COMMANDS) {
+    if (value[command] === false) next[command] = false;
+  }
+  return next;
+}
+
 /**
  * Whether the browser has assigned a key to each command at least once. Missing keys have
  * not been observed yet. `true` never goes back to `false`: a later empty binding is a
@@ -62,11 +90,13 @@ export const DEFAULT_SELECTION_SHORTCUT = DEFAULT_SHORTCUTS['translate-selection
 export type ShortcutAssignment = Partial<ShortcutAssigned>;
 
 export function emptyShortcutAssigned(): ShortcutAssigned {
-  return {
+  const next = {
     'translate-page': false,
     'toggle-bilingual': false,
     'translate-selection': false,
-  };
+    'translate-compose': false,
+  } satisfies ShortcutAssigned;
+  return next;
 }
 
 export function shortcutAssignedRecord(recorded: ShortcutAssignment): ShortcutAssigned {
@@ -189,7 +219,7 @@ export function isShortcutCommand(value: string): value is ShortcutCommand {
   return (SHORTCUT_COMMANDS as readonly string[]).includes(value);
 }
 
-/** Reads the commands a user can rebind into the three keys a page cares about. */
+/** Reads the commands a user can rebind into the keys a page cares about. */
 export function readShortcutSnapshot(commands: readonly CommandBinding[]): ShortcutSnapshot {
   const shortcutOf = (name: ShortcutCommand): string | null => {
     const command = commands.find((entry) => entry.name === name);
@@ -200,6 +230,7 @@ export function readShortcutSnapshot(commands: readonly CommandBinding[]): Short
     'translate-page': shortcutOf('translate-page'),
     'toggle-bilingual': shortcutOf('toggle-bilingual'),
     'translate-selection': shortcutOf('translate-selection'),
+    'translate-compose': shortcutOf('translate-compose'),
   };
 }
 

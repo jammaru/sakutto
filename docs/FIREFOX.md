@@ -47,17 +47,19 @@ listing numbers.
 
 ## Shortcuts
 
-Defaults are Alt+Shift+A / Alt+Shift+B / Alt+Shift+S. Confirm they fire and that Alt+A / Alt+B /
-Alt+S still open Firefox menus rather than Sakutto. Change shortcuts from the options page
-(`commands.openShortcutSettings()`). Confirm the content-script selection key matches the bound
-key (and the Alt+Shift+S default before the background answers).
+Defaults are Alt+Shift+A / Alt+Shift+B / Alt+Shift+S / Alt+Shift+T. Confirm they fire and that
+Alt+A / Alt+B / Alt+S / Alt+T still open Firefox menus rather than Sakutto. Ctrl+Shift+T remains
+Firefox's undo-close-tab. Change shortcuts from the options page
+(`commands.openShortcutSettings()`). Confirm the content-script selection and compose keys match
+the bound keys (and the Alt+Shift+S / Alt+Shift+T defaults before the background answers).
 
 ## Features
 
-Page translation, bilingual view, selection, context menu, popup, options, typed translation
-(up to 100,000 characters), site grant window, always-translate site. Chrome built-in translator
-languages and copy must stay hidden. Private windows: default off; note what happens to the
-model store if the add-on is allowed there.
+Page translation, bilingual view, selection, compose (live preview bar, あA button, input-field
+context menu), context menu, popup, options, typed translation (up to 100,000 characters), site
+grant window, always-translate site. Chrome built-in translator languages and copy must stay
+hidden. Private windows: default off; note what happens to the model store if the add-on is
+allowed there.
 
 ## Learnings — 2026-11-09 (Windows Firefox 159, RTX 4070 Ti SUPER)
 

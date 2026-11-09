@@ -94,9 +94,6 @@
   "threadsLabel": {
     "message": "논리 코어"
   },
-  "engineFirefoxSingleThread": {
-    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
-  },
   "diagHeading": {
     "message": "진단"
   },
@@ -384,7 +381,7 @@
     "message": "키보드 단축키"
   },
   "shortcutHelp": {
-    "message": "이 키는 Chrome이 관리합니다. 단축키 변경을 누르면 Chrome 설정에서 수정할 수 있습니다."
+    "message": "Chrome가 명령에 키를 지정하지 않아도 페이지에서는 기본 키가 동작합니다. 끄려면 아래 체크를 해제하세요. Chrome에서 키를 바꾸려면 단축키 변경을 누르세요."
   },
   "shortcutHelpFirefox": {
     "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
@@ -394,6 +391,12 @@
   },
   "shortcutUnset": {
     "message": "설정 안 됨"
+  },
+  "shortcutUse": {
+    "message": "이 단축키 사용"
+  },
+  "shortcutOff": {
+    "message": "끄기"
   },
   "shortcutFallbackNote": {
     "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
@@ -707,9 +710,6 @@
   "tierCpu4": {
     "message": "CPU (4개 스레드)"
   },
-  "tierCpu1": {
-    "message": "CPU (1 thread)"
-  },
   "tierHelp": {
     "message": "이 PC에 맞는 모드를 자동으로 선택합니다."
   },
@@ -848,5 +848,179 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "작성 중인 텍스트를 번역합니다"
+  },
+  "contextTranslateCompose": {
+    "message": "작성 중인 텍스트 번역"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ 키로 입력 중인 필드의 텍스트를 번역합니다.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "메시지 입력란에서 $KEY$ 를 누르면 작성 중인 글의 번역을 미리 보고 적용할 수 있습니다.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "메시지 상자에 포커스가 있으면 あA 버튼(또는 단축키)으로 입력 중인 글의 번역을 미리 봅니다. 일본어 초안은 영어(또는 위에서 고른 대상 언어)로, 그 외는 그 대상 언어로 갑니다. 바꾸기를 고르기 전에는 본문이 바뀌지 않습니다."
+  },
+  "composeTitle": {
+    "message": "작성 중 번역"
+  },
+  "composeIcon": {
+    "message": "작성 중인 텍스트 번역"
+  },
+  "composeReplace": {
+    "message": "바꾸기"
+  },
+  "composeUndo": {
+    "message": "원래대로"
+  },
+  "composePending": {
+    "message": "번역하는 중…"
+  },
+  "composeFailed": {
+    "message": "이 초안을 번역하지 못했습니다."
+  },
+  "composeEmpty": {
+    "message": "입력하면 번역이 나타납니다."
+  },
+  "composeTooLong": {
+    "message": "이 초안은 너무 길어 번역할 수 없습니다."
+  },
+  "composeSwap": {
+    "message": "번역 방향 바꾸기"
+  },
+  "composeReplaced": {
+    "message": "바꿨습니다. 원래 글로 되돌릴 수 있습니다."
+  },
+  "composeInto": {
+    "message": "$LANGUAGE$ 로",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "작성 중 번역은 PLaMo만 사용하며, PLaMo는 $LANGUAGE$ 로의 번역을 지원하지 않습니다.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeIconSetting": {
+    "message": "메시지 상자에 あA 버튼 표시"
+  },
+  "composeIconSettingHelp": {
+    "message": "버튼을 숨겨도 단축키와 오른쪽 클릭 메뉴는 그대로 동작합니다."
+  },
+  "composeTargetSetting": {
+    "message": "입력 중 번역의 대상 언어"
+  },
+  "composeTargetAuto": {
+    "message": "자동(일본어 초안은 쌍의 다른 언어, 그 외는 페이지 대상 언어)"
+  },
+  "composeTargetSettingHelp": {
+    "message": "미리보기에서 고른 언어도 여기에 기억됩니다."
+  },
+  "composeTargetLabel": {
+    "message": "대상"
+  },
+  "composeInstantSetting": {
+    "message": "단축키 한 번에 번역하고 바꾸기"
+  },
+  "composeInstantSettingHelp": {
+    "message": "미리보기 없이 단축키 한 번으로 초안을 바꿉니다. 되돌리기는 그대로 쓸 수 있습니다."
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo가 아직 준비되지 않았습니다. 설정을 열어 라이선스에 동의하고 모델을 받으세요."
+  },
+  "composeLoading": {
+    "message": "PLaMo 모델을 불러오는 중입니다. 준비되면 미리보기가 나타납니다."
+  },
+  "composeIneligible": {
+    "message": "이 입력란은 번역할 수 없습니다."
+  },
+  "composeOpenSetup": {
+    "message": "설정 열기"
+  },
+  "composeStale": {
+    "message": "초안이 바뀌었습니다. 미리보기가 따라잡을 때까지 바꾸기를 잠시 멈춥니다."
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$로 바꾸기",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "자동"
+  },
+  "composePlacementSetting": {
+    "message": "입력 중 번역 막대 위치"
+  },
+  "composePlacementSettingHelp": {
+    "message": "모든 사이트의 기본값입니다. 막대 왼쪽의 ⋮⋮ 를 드래그하면 이 페이지에서만 원하는 곳에 둘 수 있습니다. ⋯ 메뉴로도 이 사이트만 바꿀 수 있습니다."
+  },
+  "composePlacementAbove": {
+    "message": "입력란 위"
+  },
+  "composePlacementBelow": {
+    "message": "입력란 아래"
+  },
+  "composePlacementCorner": {
+    "message": "창의 오른쪽 아래"
+  },
+  "composePlacementFree": {
+    "message": "자유롭게 옮기기"
+  },
+  "composePlacementMenu": {
+    "message": "막대 위치"
+  },
+  "composePlacementSite": {
+    "message": "이 사이트"
+  },
+  "composePlacementFollowSettings": {
+    "message": "모든 사이트 설정으로 되돌리기"
+  },
+  "composePlacementReset": {
+    "message": "원래 위치로"
+  },
+  "composePlacementHandle": {
+    "message": "드래그해서 막대를 원하는 곳으로"
+  },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
   }
 }

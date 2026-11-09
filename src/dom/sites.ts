@@ -3,7 +3,13 @@ import type { GlossaryEntry } from '@/engine/types';
 import { normalizeGlossary } from '@/shared/glossary';
 import { isTargetLanguage, type TargetLanguage } from '@/shared/languages';
 import { isRecord } from '@/shared/object';
-import type { DisplayMode } from '@/shared/settings';
+import {
+  isComposePlacement,
+  normalizeComposeFreePoint,
+  type ComposeFreePoint,
+  type ComposePlacement,
+  type DisplayMode,
+} from '@/shared/settings';
 
 const SITE_RULES_KEY = 'siteRules';
 
@@ -15,6 +21,10 @@ export interface SiteRule {
   display?: DisplayMode;
   targetLanguage?: TargetLanguage;
   glossary?: GlossaryEntry[];
+  /** When set, the compose bar on this host ignores the global position setting. */
+  composePlacement?: ComposePlacement;
+  /** Last drop point for `free` placement on this host, in CSS pixels. */
+  composeFreePoint?: ComposeFreePoint;
 }
 
 export function pageHost(url: string): string | null {
@@ -40,6 +50,9 @@ export function normalizeSiteRule(host: string, value: unknown): SiteRule | null
   if (isTargetLanguage(value.targetLanguage)) rule.targetLanguage = value.targetLanguage;
   const glossary = normalizeGlossary(value.glossary);
   if (glossary.length > 0) rule.glossary = glossary;
+  if (isComposePlacement(value.composePlacement)) rule.composePlacement = value.composePlacement;
+  const freePoint = normalizeComposeFreePoint(value.composeFreePoint);
+  if (freePoint) rule.composeFreePoint = freePoint;
   return rule;
 }
 
@@ -72,17 +85,36 @@ export async function loadSiteRule(host: string): Promise<SiteRule> {
 let siteWriteQueue: Promise<unknown> = Promise.resolve();
 
 export function saveSiteRule(rule: SiteRule): Promise<SiteRule> {
-  const operation = siteWriteQueue.then(async () => {
-    const rules = await loadSiteRules();
-    const next = normalizeSiteRule(rule.host, rule);
-    if (!next) return rule;
-    rules[next.host] = next;
-    await browser.storage.local.set({ [SITE_RULES_KEY]: rules });
-    return next;
-  });
+  return enqueueSiteWrite(() => saveSiteRuleUnlocked(rule));
+}
 
+/**
+ * Merge a patch onto the stored rule for `host` inside the write queue, so two
+ * bar-menu saves (placement, then drop point) cannot clobber each other.
+ */
+export function patchSiteRule(
+  host: string,
+  patch: (current: SiteRule) => SiteRule,
+): Promise<SiteRule> {
+  return enqueueSiteWrite(async () => {
+    const current = await loadSiteRule(host);
+    return saveSiteRuleUnlocked(patch({ ...current, host }));
+  });
+}
+
+function enqueueSiteWrite<T>(work: () => Promise<T>): Promise<T> {
+  const operation = siteWriteQueue.then(work);
   siteWriteQueue = operation.catch(() => undefined);
   return operation;
+}
+
+async function saveSiteRuleUnlocked(rule: SiteRule): Promise<SiteRule> {
+  const rules = await loadSiteRules();
+  const next = normalizeSiteRule(rule.host, rule);
+  if (!next) return rule;
+  rules[next.host] = next;
+  await browser.storage.local.set({ [SITE_RULES_KEY]: rules });
+  return next;
 }
 
 export function subscribeSiteRules(

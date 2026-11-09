@@ -1,13 +1,35 @@
 import { browser } from 'wxt/browser';
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { listPageBlocks } from '@/dom/blocks';
+import { ComposeController, type ComposeLabels, type ComposePreferences } from '@/dom/compose';
+import { shouldHandleComposeCommand } from '@/dom/compose-field';
 import { detectDocumentLanguage } from '@/dom/detect';
 import { fakeTranslate } from '@/dom/fake-engine';
 import type { OverlayLabels } from '@/dom/overlay';
 import { PageSession, preferencesFor } from '@/dom/session';
-import { loadSiteRule, pageHost, saveSiteRule, subscribeSiteRules } from '@/dom/sites';
-import { boundShortcut, DEFAULT_SELECTION_SHORTCUT, matchesShortcut } from '@/shared/shortcuts';
-import { t } from '@/shared/i18n';
+import {
+  loadSiteRule,
+  pageHost,
+  patchSiteRule,
+  saveSiteRule,
+  subscribeSiteRules,
+  type SiteRule,
+} from '@/dom/sites';
+import { hasLicenseConsent } from '@/shared/agreement';
+import type { ModelStatus } from '@/shared/engine-status';
+import { mergeGlossary } from '@/shared/glossary';
+import { currentUiLanguage, t } from '@/shared/i18n';
+import { isTargetLanguage, type TargetLanguage } from '@/shared/languages';
+import {
+  boundShortcut,
+  DEFAULT_SHORTCUTS,
+  defaultShortcutEnabled,
+  displayShortcut,
+  matchesShortcut,
+  SHORTCUT_PAGE_COMMANDS,
+  type ShortcutCommand,
+  type ShortcutEnabled,
+} from '@/shared/shortcuts';
 import {
   isModelProgressMessage,
   isPageCommandRequest,
@@ -18,8 +40,11 @@ import {
   requestEngineWarm,
   type PageCommandName,
   type PageInfo,
+  type ShortcutQueryResult,
 } from '@/shared/messages';
-import { loadSettings, subscribeSettings } from '@/shared/storage';
+import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
+import type { Settings } from '@/shared/settings';
+import { typedReadiness, type TypedReadiness } from '@/shared/typed-translation';
 import { translateViaBackground } from '@/shared/translation-client';
 
 interface ContentBridgeGlobal {
@@ -29,19 +54,75 @@ interface ContentBridgeGlobal {
 const bridge = globalThis as typeof globalThis & ContentBridgeGlobal;
 
 /**
- * The key the user bound to "translate the selection". The browser only tells a page which
- * keys are bound through the background worker, so this asks once and keeps the manifest
- * default when the answer never arrives. An empty string means the command has no key — a
- * user clear, once that command was assigned at least once.
+ * The browser only tells a page which keys are bound through the background worker. An empty
+ * snapshot keeps the manifest defaults. A user-cleared key stays empty once that command was
+ * assigned. An install-time conflict (never assigned) keeps the default unless the reader
+ * turned that command off in Sakutto.
  */
-async function readSelectionShortcut(): Promise<string> {
+async function readShortcutQuery(): Promise<ShortcutQueryResult | null> {
   const response: unknown = await browser.runtime
     .sendMessage({ type: 'commands:shortcuts' })
     .catch(() => undefined);
-  if (!isShortcutQueryResult(response)) return DEFAULT_SELECTION_SHORTCUT;
-  return boundShortcut(response.snapshot, 'translate-selection', {
-    assigned: response.assigned['translate-selection'],
+  return isShortcutQueryResult(response) ? response : null;
+}
+
+function shortcutFor(
+  query: ShortcutQueryResult | null,
+  enabled: ShortcutEnabled,
+  command: ShortcutCommand,
+): string {
+  return boundShortcut(query?.snapshot ?? null, command, {
+    fallback: DEFAULT_SHORTCUTS[command],
+    enabled: enabled[command],
+    assigned: query?.assigned[command],
   });
+}
+
+function listensFor(
+  query: ShortcutQueryResult | null,
+  enabled: ShortcutEnabled,
+  command: ShortcutCommand,
+): (event: KeyboardEvent) => boolean {
+  return (event) => {
+    const shortcut = shortcutFor(query, enabled, command);
+    return shortcut.length > 0 && matchesShortcut(event, shortcut);
+  };
+}
+
+function commandEnabled(
+  query: ShortcutQueryResult | null,
+  enabled: ShortcutEnabled,
+  command: PageCommandName,
+): boolean {
+  const name = (Object.keys(SHORTCUT_PAGE_COMMANDS) as ShortcutCommand[]).find(
+    (entry) => SHORTCUT_PAGE_COMMANDS[entry] === command,
+  );
+  if (!name) return true;
+  return shortcutFor(query, enabled, name).length > 0;
+}
+
+function composePreferencesFor(
+  settings: Settings,
+  rule: SiteRule,
+  readiness: TypedReadiness,
+  replaceShortcut: string,
+): ComposePreferences {
+  const composeTarget = settings.composeTargetLanguage;
+  return {
+    targetLanguage: composeTarget ?? rule.targetLanguage ?? settings.targetLanguage,
+    form: settings.form,
+    glossary: mergeGlossary(settings.glossary, rule.glossary),
+    enabled: rule.auto !== 'never',
+    uiLanguage: currentUiLanguage(),
+    showIcon: settings.composeIcon,
+    readiness,
+    explicitTarget: composeTarget !== null,
+    instantReplace: settings.composeInstantReplace,
+    replaceShortcut,
+    placement: settings.composePlacement,
+    sitePlacement: rule.composePlacement ?? null,
+    freePoint: rule.composeFreePoint ?? null,
+  };
 }
 
 async function requestSiteAccess(host: string): Promise<boolean> {
@@ -49,6 +130,77 @@ async function requestSiteAccess(host: string): Promise<boolean> {
     .sendMessage({ type: 'site:grant', host })
     .catch(() => false);
   return response === true;
+}
+
+function composeLabels(readiness?: TypedReadiness): ComposeLabels {
+  const setup =
+    readiness === 'no-consent'
+      ? t('typedNeedsConsent')
+      : readiness === 'model-error'
+        ? t('typedModelError')
+        : t('composeNeedSetup');
+  return {
+    title: t('composeTitle'),
+    icon: t('composeIcon'),
+    replace: t('composeReplace'),
+    undo: t('composeUndo'),
+    close: t('close'),
+    pending: t('composePending'),
+    failed: t('composeFailed'),
+    empty: t('composeEmpty'),
+    tooLong: t('composeTooLong'),
+    swap: t('composeSwap'),
+    replaced: t('composeReplaced'),
+    stale: t('composeStale'),
+    setup,
+    loading: t('composeLoading'),
+    ineligible: t('composeIneligible'),
+    openSetup: t('composeOpenSetup'),
+    target: t('composeTargetLabel'),
+    autoSource: t('composeAutoSource'),
+    replaceHint: (compose, enter) => t('composeReplaceHint', [compose, enter]),
+    langPair: (source, target) => t('composeLangPair', [source, target]),
+    into: (language) => t('composeInto', [language]),
+    chromeOnly: (language) => t('composeChromeOnly', [language]),
+    placementMenu: t('composePlacementMenu'),
+    placementSite: t('composePlacementSite'),
+    placementFollowSettings: t('composePlacementFollowSettings'),
+    placementReset: t('composePlacementReset'),
+    placementHandle: t('composePlacementHandle'),
+    placementLabel: (placement) =>
+      t(
+        placement === 'below'
+          ? 'composePlacementBelow'
+          : placement === 'corner'
+            ? 'composePlacementCorner'
+            : placement === 'free'
+              ? 'composePlacementFree'
+              : 'composePlacementAbove',
+      ),
+  };
+}
+
+function composeReadiness(
+  settings: Settings,
+  model: Pick<ModelStatus, 'state'> | null,
+  ready: boolean,
+  statusKnown: boolean,
+) {
+  if (__SAKUTTO_FAKE_ENGINE__) return 'ready' as const;
+  if (!hasLicenseConsent(settings)) {
+    return typedReadiness({
+      consent: false,
+      modelState: model?.state ?? 'absent',
+      plamoReady: ready,
+    });
+  }
+  // A failed status fetch is not "no model"; keep showing loading until we know.
+  if (!statusKnown) return 'model-busy' as const;
+  return typedReadiness({
+    consent: true,
+    modelState: model?.state ?? 'absent',
+    plamoReady: ready,
+  });
 }
 
 function overlayLabels(): OverlayLabels {
@@ -89,26 +241,42 @@ export default defineContentScript({
     bridge.__sakuttoContentBridgeReady = true;
 
     const host = pageHost(location.href) ?? '';
-    // The bound key, or the manifest default until the background answers. An empty string
-    // means the user unbound the command, so the page does not answer it at all.
-    let selectionShortcut: string = DEFAULT_SELECTION_SHORTCUT;
+    // The browser's bindings, or the manifest defaults until the background answers. A
+    // command never assigned still uses its default unless Sakutto turned it off.
+    let shortcutQuery: ShortcutQueryResult | null = null;
+    let shortcutsEnabled = defaultShortcutEnabled();
     let lastCommand = '';
     let lastCommandAt = 0;
-    const readBoundSelection = (): void => {
-      void readSelectionShortcut().then((shortcut) => {
-        selectionShortcut = shortcut;
+    let compose: ComposeController | null = null;
+    let modelState: ModelStatus['state'] | null = null;
+    let plamoReady = false;
+    let modelStatusKnown = false;
+    const refreshShortcuts = (): void => {
+      void readShortcutQuery().then((query) => {
+        if (query) shortcutQuery = query;
       });
     };
-    readBoundSelection();
+    refreshShortcuts();
     // Chrome has no event for a changed binding. A reader who rebinds and comes back to the
     // page brings it into focus, which is the moment to read the new key.
-    window.addEventListener('focus', readBoundSelection);
+    window.addEventListener('focus', refreshShortcuts);
+
+    const engine = { translate: __SAKUTTO_FAKE_ENGINE__ ? fakeTranslate : translateViaBackground };
 
     const sessionPromise = (async () => {
       const settings = await loadSettings();
       const rule = await loadSiteRule(host);
+      if (!__SAKUTTO_FAKE_ENGINE__) {
+        const status = await requestEngineStatus().catch(() => null);
+        if (status) {
+          modelState = status.model.state;
+          plamoReady = status.plamoReady;
+          modelStatusKnown = true;
+        }
+      }
+      shortcutsEnabled = settings.shortcutsEnabled;
       const session = new PageSession(document, {
-        engine: { translate: __SAKUTTO_FAKE_ENGINE__ ? fakeTranslate : translateViaBackground },
+        engine,
         labels: overlayLabels(),
         preferences: preferencesFor(settings, rule, host),
         onSitePatch: async (patch) => {
@@ -116,8 +284,66 @@ export default defineContentScript({
           await saveSiteRule({ ...current, ...patch, host });
         },
         onGrantSite: () => requestSiteAccess(host),
+        pageKey: (event) => listensFor(shortcutQuery, shortcutsEnabled, 'translate-page')(event),
+        bilingualKey: (event) =>
+          listensFor(shortcutQuery, shortcutsEnabled, 'toggle-bilingual')(event),
         selectionKey: (event) =>
-          selectionShortcut.length > 0 && matchesShortcut(event, selectionShortcut),
+          listensFor(shortcutQuery, shortcutsEnabled, 'translate-selection')(event),
+      });
+      const readiness = composeReadiness(
+        settings,
+        modelState ? { state: modelState } : null,
+        plamoReady,
+        modelStatusKnown,
+      );
+      compose = new ComposeController(document, {
+        engine,
+        labels: composeLabels(readiness),
+        preferences: composePreferencesFor(
+          settings,
+          rule,
+          readiness,
+          displayShortcut(shortcutFor(shortcutQuery, shortcutsEnabled, 'translate-compose')),
+        ),
+        composeKey: (event) =>
+          listensFor(shortcutQuery, shortcutsEnabled, 'translate-compose')(event),
+        onWarm: () => {
+          if (!__SAKUTTO_FAKE_ENGINE__) void requestEngineWarm();
+        },
+        onSetup: () => {
+          void browser.runtime.sendMessage({ type: 'ui:open-setup' }).catch(() => undefined);
+        },
+        onTarget: (language: TargetLanguage) => {
+          if (!isTargetLanguage(language)) return;
+          void saveSettings({ composeTargetLanguage: language });
+        },
+        onPlacement: (placement) => {
+          void patchSiteRule(host, (current) => {
+            const next = { ...current, host, composePlacement: placement };
+            if (placement !== 'free') delete next.composeFreePoint;
+            return next;
+          });
+        },
+        onFollowSettings: () => {
+          void patchSiteRule(host, (current) => {
+            const next = { ...current, host };
+            delete next.composePlacement;
+            delete next.composeFreePoint;
+            return next;
+          });
+        },
+        onFreePoint: (point) => {
+          void patchSiteRule(host, (current) => {
+            const next = { ...current, host };
+            if (point) {
+              next.composePlacement = 'free';
+              next.composeFreePoint = point;
+            } else {
+              delete next.composeFreePoint;
+            }
+            return next;
+          });
+        },
       });
 
       const detected = await detectDocumentLanguage(document);
@@ -125,8 +351,24 @@ export default defineContentScript({
 
       const applyStored = async (): Promise<void> => {
         const [nextSettings, nextRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
+        shortcutsEnabled = nextSettings.shortcutsEnabled;
         session.setLabels(overlayLabels());
         session.setPreferences(preferencesFor(nextSettings, nextRule, host));
+        const readiness = composeReadiness(
+          nextSettings,
+          modelState ? { state: modelState } : null,
+          plamoReady,
+          modelStatusKnown,
+        );
+        compose?.setLabels(composeLabels(readiness));
+        compose?.setPreferences(
+          composePreferencesFor(
+            nextSettings,
+            nextRule,
+            readiness,
+            displayShortcut(shortcutFor(shortcutQuery, shortcutsEnabled, 'translate-compose')),
+          ),
+        );
       };
 
       subscribeSettings(() => {
@@ -148,15 +390,22 @@ export default defineContentScript({
 
     const run = async (command: PageCommandName) => {
       const now = Date.now();
-      if (lastCommand === command && now - lastCommandAt < 80) {
+      // Compose re-entry is owned by the controller so a Chrome command that found no field
+      // cannot swallow the page keydown (or a second command) that does.
+      if (command !== 'compose' && lastCommand === command && now - lastCommandAt < 80) {
         return (await sessionPromise).state();
       }
       lastCommand = command;
       lastCommandAt = now;
       const session = await sessionPromise;
+      if (!commandEnabled(shortcutQuery, shortcutsEnabled, command)) return session.state();
       if (!__SAKUTTO_FAKE_ENGINE__) {
         void requestEngineWarm();
         void requestEngineTier(session);
+      }
+      if (command === 'compose') {
+        if (shouldHandleComposeCommand(document)) compose?.handleShortcut();
+        return session.state();
       }
       await session.handle(command);
       return session.state();
@@ -169,9 +418,25 @@ export default defineContentScript({
         return;
       }
       if (isModelProgressMessage(message)) {
-        if (message.status.state === 'loaded' && !__SAKUTTO_FAKE_ENGINE__) {
-          void sessionPromise.then((session) => requestEngineTier(session, true));
-        }
+        modelState = message.status.state;
+        modelStatusKnown = true;
+        if (message.status.state === 'loaded') plamoReady = true;
+        void sessionPromise.then(async (session) => {
+          const [nextSettings, nextRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
+          const readiness = composeReadiness(nextSettings, message.status, plamoReady, true);
+          compose?.setLabels(composeLabels(readiness));
+          compose?.setPreferences(
+            composePreferencesFor(
+              nextSettings,
+              nextRule,
+              readiness,
+              displayShortcut(shortcutFor(shortcutQuery, shortcutsEnabled, 'translate-compose')),
+            ),
+          );
+          if (message.status.state === 'loaded' && !__SAKUTTO_FAKE_ENGINE__) {
+            void requestEngineTier(session, true);
+          }
+        });
         return;
       }
       if (!isPageCommandRequest(message) && !isPageStateRequest(message)) return;

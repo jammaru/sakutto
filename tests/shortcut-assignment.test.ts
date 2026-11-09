@@ -35,12 +35,14 @@ describe('shortcut assignment persistence', () => {
       { name: 'translate-page', shortcut: 'Alt+A' },
       { name: 'toggle-bilingual', shortcut: 'Alt+B' },
       { name: 'translate-selection', shortcut: 'Alt+S' },
+      { name: 'translate-compose', shortcut: 'Alt+T' },
     ]);
     expect(result.snapshot).toEqual(DEFAULT_SHORTCUTS);
     expect(result.assigned).toEqual({
       'translate-page': true,
       'toggle-bilingual': true,
       'translate-selection': true,
+      'translate-compose': true,
     });
     expect(await loadShortcutAssignment()).toEqual(result.assigned);
   });
@@ -50,11 +52,13 @@ describe('shortcut assignment persistence', () => {
       { name: 'translate-page', shortcut: 'Alt+A' },
       { name: 'toggle-bilingual', shortcut: '' },
       { name: 'translate-selection', shortcut: 'Alt+S' },
+      { name: 'translate-compose', shortcut: 'Alt+T' },
     ]);
     const later = await resolveShortcutQuery([
       { name: 'translate-page', shortcut: 'Alt+A' },
       { name: 'toggle-bilingual', shortcut: '' },
       { name: 'translate-selection', shortcut: 'Alt+S' },
+      { name: 'translate-compose', shortcut: 'Alt+T' },
     ]);
     expect(later.assigned['toggle-bilingual']).toBe(false);
     expect(later.assigned['translate-page']).toBe(true);
@@ -65,11 +69,13 @@ describe('shortcut assignment persistence', () => {
       { name: 'translate-page', shortcut: 'Alt+A' },
       { name: 'toggle-bilingual', shortcut: 'Alt+B' },
       { name: 'translate-selection', shortcut: 'Alt+S' },
+      { name: 'translate-compose', shortcut: 'Alt+T' },
     ]);
     const cleared = await resolveShortcutQuery([
       { name: 'translate-page', shortcut: '' },
       { name: 'toggle-bilingual', shortcut: 'Alt+B' },
       { name: 'translate-selection', shortcut: 'Alt+S' },
+      { name: 'translate-compose', shortcut: 'Alt+T' },
     ]);
     expect(cleared.snapshot['translate-page']).toBe('');
     expect(cleared.assigned['translate-page']).toBe(true);
@@ -80,6 +86,7 @@ describe('shortcut assignment persistence', () => {
       'translate-page': '',
       'toggle-bilingual': 'Alt+B',
       'translate-selection': 'Alt+S',
+      'translate-compose': 'Alt+T',
     });
     expect((await loadShortcutAssignment())['translate-page']).toBe(false);
     await noteShortcutCommandAssigned('translate-page');

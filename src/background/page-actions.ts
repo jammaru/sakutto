@@ -24,9 +24,11 @@ export function installPageActions(translations?: PageTranslationCanceller): voi
     const pageCommand =
       info.menuItemId === 'translate-selection'
         ? 'selection'
-        : info.menuItemId === 'translate-page'
-          ? 'toggle'
-          : null;
+        : info.menuItemId === 'translate-compose'
+          ? 'compose'
+          : info.menuItemId === 'translate-page'
+            ? 'toggle'
+            : null;
     if (!pageCommand) return;
     void runCommand(tabId, pageCommand);
   });
@@ -43,6 +45,9 @@ export function installPageActions(translations?: PageTranslationCanceller): voi
 }
 
 function installMenus(): void {
+  // Chrome decides menu contents when it opens, so hiding after contextmenu is too
+  // late and the hidden state would be global across tabs. Keep this item on every
+  // editable; ineligible fields no-op with feedback in the page.
   void browser.contextMenus.removeAll().then(() => {
     browser.contextMenus.create({
       id: 'translate-page',
@@ -54,6 +59,11 @@ function installMenus(): void {
       title: browser.i18n.getMessage('contextTranslateSelection'),
       contexts: ['selection'],
     });
+    browser.contextMenus.create({
+      id: 'translate-compose',
+      title: browser.i18n.getMessage('contextTranslateCompose'),
+      contexts: ['editable'],
+    });
   });
 }
 
@@ -64,9 +74,34 @@ async function runOnActiveTab(command: PageCommandName): Promise<void> {
   await runCommand(tabId, command);
 }
 
+/** The frame whose document has a real focused control, if scripting can see it. */
+export function pickFocusedFrameId(
+  results: ReadonlyArray<{ frameId?: number; result?: boolean | undefined }>,
+): number | undefined {
+  return results.find((entry) => entry.result === true)?.frameId;
+}
+
+async function focusedContentFrameId(tabId: number): Promise<number | undefined> {
+  try {
+    const results = await browser.scripting.executeScript({
+      target: { tabId, allFrames: true },
+      func: (): boolean => {
+        if (!document.hasFocus()) return false;
+        const active = document.activeElement;
+        return Boolean(active && active !== document.body && active !== document.documentElement);
+      },
+    });
+    return pickFocusedFrameId(results);
+  } catch {
+    return undefined;
+  }
+}
+
 async function runCommand(tabId: number, command: PageCommandName): Promise<void> {
-  if (!(await ensureContentScript(tabId))) return;
-  await requestPageCommand(tabId, command);
+  const allFrames = command === 'compose';
+  if (!(await ensureContentScript(tabId, { allFrames }))) return;
+  const frameId = allFrames ? await focusedContentFrameId(tabId) : undefined;
+  await requestPageCommand(tabId, command, frameId);
 }
 
 async function injectIfAlways(tabId: number, url: string): Promise<void> {

@@ -94,9 +94,6 @@
   "threadsLabel": {
     "message": "邏輯核心"
   },
-  "engineFirefoxSingleThread": {
-    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
-  },
   "diagHeading": {
     "message": "診斷"
   },
@@ -384,7 +381,7 @@
     "message": "鍵盤快速鍵"
   },
   "shortcutHelp": {
-    "message": "這些按鍵由 Chrome 管理。選擇「變更快速鍵」即可在 Chrome 的設定中修改。"
+    "message": "即使 Chrome 未為命令指定快捷鍵，頁面上仍使用預設鍵。取消勾選即可關閉。點「變更快捷鍵」可在 Chrome 中修改。"
   },
   "shortcutHelpFirefox": {
     "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
@@ -394,6 +391,12 @@
   },
   "shortcutUnset": {
     "message": "未設定"
+  },
+  "shortcutUse": {
+    "message": "使用此快捷鍵"
+  },
+  "shortcutOff": {
+    "message": "關閉"
   },
   "shortcutFallbackNote": {
     "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
@@ -707,9 +710,6 @@
   "tierCpu4": {
     "message": "CPU (4 執行緒)"
   },
-  "tierCpu1": {
-    "message": "CPU (1 thread)"
-  },
   "tierHelp": {
     "message": "自動選擇適合此電腦的模式。"
   },
@@ -848,5 +848,179 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "翻譯正在輸入的文字"
+  },
+  "contextTranslateCompose": {
+    "message": "翻譯正在輸入的內容"
+  },
+  "shortcutCompose": {
+    "message": "按 $KEY$ 翻譯目前輸入欄中的文字。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "在訊息欄輸入時按 $KEY$，即可預覽譯文並選擇是否取代。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "訊息框處於焦點時，あA 按鈕（或快捷鍵）會預覽正在輸入內容的譯文。日文草稿譯成英文（或上方所選目標語言）；其他草稿使用該目標語言。在選擇「取代」之前不會改動正文。"
+  },
+  "composeTitle": {
+    "message": "輸入中的翻譯"
+  },
+  "composeIcon": {
+    "message": "翻譯正在輸入的文字"
+  },
+  "composeReplace": {
+    "message": "取代"
+  },
+  "composeUndo": {
+    "message": "還原原文"
+  },
+  "composePending": {
+    "message": "正在翻譯…"
+  },
+  "composeFailed": {
+    "message": "無法翻譯這段草稿。"
+  },
+  "composeEmpty": {
+    "message": "開始輸入即可看到譯文。"
+  },
+  "composeTooLong": {
+    "message": "這段草稿太長，無法翻譯。"
+  },
+  "composeSwap": {
+    "message": "切換翻譯方向"
+  },
+  "composeReplaced": {
+    "message": "已取代。可以還原原文。"
+  },
+  "composeInto": {
+    "message": "譯成 $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "輸入中的翻譯只使用 PLaMo，而 PLaMo 不能譯成 $LANGUAGE$。",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeIconSetting": {
+    "message": "在訊息框上顯示 あA 按鈕"
+  },
+  "composeIconSettingHelp": {
+    "message": "隱藏按鈕後，快捷鍵和右鍵選單仍然可用。"
+  },
+  "composeTargetSetting": {
+    "message": "輸入時翻譯的目標語言"
+  },
+  "composeTargetAuto": {
+    "message": "自動（日語草稿譯成語言對的另一側，其餘譯成頁面目標語言）"
+  },
+  "composeTargetSettingHelp": {
+    "message": "在預覽中選擇的語言會記在這裡。"
+  },
+  "composeTargetLabel": {
+    "message": "目標"
+  },
+  "composeInstantSetting": {
+    "message": "按一次快捷鍵即翻譯並取代"
+  },
+  "composeInstantSettingHelp": {
+    "message": "不顯示預覽：按一次快捷鍵翻譯草稿並取代。仍可復原。"
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo 尚未就緒。請開啟設定以同意授權並下載模型。"
+  },
+  "composeLoading": {
+    "message": "正在載入 PLaMo 模型。就緒後會顯示預覽。"
+  },
+  "composeIneligible": {
+    "message": "無法翻譯此輸入欄。"
+  },
+  "composeOpenSetup": {
+    "message": "開啟設定"
+  },
+  "composeStale": {
+    "message": "草稿已變更。預覽更新完成前暫停取代。"
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$ 取代",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "自動"
+  },
+  "composePlacementSetting": {
+    "message": "輸入時翻譯列位置"
+  },
+  "composePlacementSettingHelp": {
+    "message": "所有網站的預設值。拖曳列左側的 ⋮⋮ 即可在本頁任意位置停放。⋯ 選單也可以只覆蓋目前網站。"
+  },
+  "composePlacementAbove": {
+    "message": "輸入框上方"
+  },
+  "composePlacementBelow": {
+    "message": "輸入框下方"
+  },
+  "composePlacementCorner": {
+    "message": "視窗右下角"
+  },
+  "composePlacementFree": {
+    "message": "自由拖曳"
+  },
+  "composePlacementMenu": {
+    "message": "翻譯列位置"
+  },
+  "composePlacementSite": {
+    "message": "此網站"
+  },
+  "composePlacementFollowSettings": {
+    "message": "恢復所有網站的設定"
+  },
+  "composePlacementReset": {
+    "message": "恢復到原來的位置"
+  },
+  "composePlacementHandle": {
+    "message": "拖曳即可把列放到任意位置"
+  },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
   }
 }

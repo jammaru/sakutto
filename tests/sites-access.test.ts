@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { grantOriginsFor, isSiteHost, siteAccessOrigins } from '@/dom/sites';
+import { grantOriginsFor, isSiteHost, normalizeSiteRule, siteAccessOrigins } from '@/dom/sites';
 
 describe('site access origins', () => {
   it('asks for both schemes on the open host', () => {
@@ -26,5 +26,22 @@ describe('site access origins', () => {
       'https://example.com/*',
       'http://example.com/*',
     ]);
+  });
+
+  it('keeps a per-site compose bar position', () => {
+    expect(
+      normalizeSiteRule('discord.com', {
+        auto: 'ask',
+        composePlacement: 'below',
+        composeFreePoint: { x: 24, y: 80 },
+      }),
+    ).toMatchObject({
+      host: 'discord.com',
+      composePlacement: 'below',
+      composeFreePoint: { x: 24, y: 80 },
+    });
+    expect(
+      normalizeSiteRule('discord.com', { auto: 'ask', composePlacement: 'side' })?.composePlacement,
+    ).toBeUndefined();
   });
 });

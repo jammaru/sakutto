@@ -94,9 +94,6 @@
   "threadsLabel": {
     "message": "คอร์ลโลจิก"
   },
-  "engineFirefoxSingleThread": {
-    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
-  },
   "diagHeading": {
     "message": "การวินิจฉัย"
   },
@@ -384,7 +381,7 @@
     "message": "แป้นพิมพ์ลัด"
   },
   "shortcutHelp": {
-    "message": "Chrome เป็นผู้เก็บแป้นเหล่านี้ กดเปลี่ยนแป้นลัดเพื่อแก้ไขในการตั้งค่าของ Chrome"
+    "message": "ถ้า Chrome ไม่กำหนดปุ่มให้คำสั่ง หน้าเว็บยังใช้ปุ่มเริ่มต้นได้ เอาเครื่องหมายถูกออกเพื่อปิดคำสั่ง ใช้ปุ่มเปลี่ยนทางลัดเพื่อแก้ปุ่มใน Chrome"
   },
   "shortcutHelpFirefox": {
     "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
@@ -394,6 +391,12 @@
   },
   "shortcutUnset": {
     "message": "ยังไม่ได้ตั้งค่า"
+  },
+  "shortcutUse": {
+    "message": "ใช้ทางลัดนี้"
+  },
+  "shortcutOff": {
+    "message": "ปิด"
   },
   "shortcutFallbackNote": {
     "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
@@ -707,9 +710,6 @@
   "tierCpu4": {
     "message": "CPU (4 เธรด)"
   },
-  "tierCpu1": {
-    "message": "CPU (1 thread)"
-  },
   "tierHelp": {
     "message": "จะเลือกโหมดที่เหมาะสมกับ PC เครื่องนี้โดยอัตโนมัติ"
   },
@@ -848,5 +848,179 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "แปลข้อความที่กำลังพิมพ์"
+  },
+  "contextTranslateCompose": {
+    "message": "แปลข้อความที่กำลังเขียน"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ แปลข้อความในช่องที่คุณกำลังพิมพ์",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "กด $KEY$ ขณะพิมพ์ในช่องข้อความเพื่อดูคำแปลแล้วเลือกว่าจะนำไปใช้หรือไม่",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "เมื่อช่องข้อความมีโฟกัส ปุ่ม あA (หรือทางลัด) จะแสดงตัวอย่างคำแปล ฉบับร่างภาษาญี่ปุ่นไปเป็นภาษาอังกฤษ (หรือภาษาเป้าหมายด้านบน) ส่วนอื่นใช้ภาษานั้น จะไม่แทนที่จนกว่าคุณจะเลือกแทนที่"
+  },
+  "composeTitle": {
+    "message": "คำแปลฉบับร่าง"
+  },
+  "composeIcon": {
+    "message": "แปลข้อความที่กำลังเขียน"
+  },
+  "composeReplace": {
+    "message": "แทนที่"
+  },
+  "composeUndo": {
+    "message": "คืนค่าต้นฉบับ"
+  },
+  "composePending": {
+    "message": "กำลังแปล…"
+  },
+  "composeFailed": {
+    "message": "แปลฉบับร่างนี้ไม่ได้"
+  },
+  "composeEmpty": {
+    "message": "เริ่มพิมพ์เพื่อดูคำแปล"
+  },
+  "composeTooLong": {
+    "message": "ฉบับร่างนี้ยาวเกินไปที่จะแปล"
+  },
+  "composeSwap": {
+    "message": "สลับทิศทางการแปล"
+  },
+  "composeReplaced": {
+    "message": "แทนที่แล้ว คุณสามารถคืนค่าต้นฉบับได้"
+  },
+  "composeInto": {
+    "message": "เป็น $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "การแปลฉบับร่างใช้เฉพาะ PLaMo และ PLaMo ไม่แปลเป็น $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeIconSetting": {
+    "message": "แสดงปุ่ม あA บนช่องข้อความ"
+  },
+  "composeIconSettingHelp": {
+    "message": "ทางลัดและเมนูคลิกขวายังใช้ได้เมื่อซ่อนปุ่ม"
+  },
+  "composeTargetSetting": {
+    "message": "ภาษาปลายทางตอนพิมพ์"
+  },
+  "composeTargetAuto": {
+    "message": "อัตโนมัติ (ฉบับร่างภาษาญี่ปุ่นไปอีกภาษาของคู่ มิฉะนั้นใช้ภาษาของหน้า)"
+  },
+  "composeTargetSettingHelp": {
+    "message": "ภาษาที่เลือกในหน้าต่างตัวอย่างจะจำไว้ที่นี่"
+  },
+  "composeTargetLabel": {
+    "message": "ปลายทาง"
+  },
+  "composeInstantSetting": {
+    "message": "แปลแล้วแทนที่ด้วยทางลัดครั้งเดียว"
+  },
+  "composeInstantSettingHelp": {
+    "message": "ข้ามตัวอย่าง กดทางลัดครั้งเดียวแปลแล้วแทนที่ฉบับร่าง ยังเลิกทำได้"
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo ยังไม่พร้อม เปิดการตั้งค่าเพื่อยอมรับสัญญาอนุญาตและดาวน์โหลดโมเดล"
+  },
+  "composeLoading": {
+    "message": "กำลังโหลดโมเดล PLaMo ตัวอย่างจะปรากฏเมื่อพร้อม"
+  },
+  "composeIneligible": {
+    "message": "แปลช่องนี้ไม่ได้"
+  },
+  "composeOpenSetup": {
+    "message": "เปิดการตั้งค่า"
+  },
+  "composeStale": {
+    "message": "ฉบับร่างเปลี่ยนแล้ว หยุดการแทนที่จนกว่าตัวอย่างจะตามทัน"
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$ เพื่อแทนที่",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "อัตโนมัติ"
+  },
+  "composePlacementSetting": {
+    "message": "ตำแหน่งแถบแปลขณะพิมพ์"
+  },
+  "composePlacementSettingHelp": {
+    "message": "ค่าเริ่มต้นสำหรับทุกไซต์ ลากที่จับ ⋮⋮ บนแถบเพื่อวางที่ใดก็ได้ในหน้านี้ เมนู ⋯ ก็แทนที่ค่านี้ได้เฉพาะไซต์นี้"
+  },
+  "composePlacementAbove": {
+    "message": "เหนือช่องข้อความ"
+  },
+  "composePlacementBelow": {
+    "message": "ใต้ช่องข้อความ"
+  },
+  "composePlacementCorner": {
+    "message": "มุมขวาล่างของหน้าต่าง"
+  },
+  "composePlacementFree": {
+    "message": "ย้ายได้อย่างอิสระ"
+  },
+  "composePlacementMenu": {
+    "message": "ตำแหน่งแถบ"
+  },
+  "composePlacementSite": {
+    "message": "ไซต์นี้"
+  },
+  "composePlacementFollowSettings": {
+    "message": "ใช้การตั้งค่าสำหรับทุกไซต์"
+  },
+  "composePlacementReset": {
+    "message": "กลับไปตำแหน่งเดิม"
+  },
+  "composePlacementHandle": {
+    "message": "ลากเพื่อย้ายแถบไปที่ใดก็ได้"
+  },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
   }
 }
