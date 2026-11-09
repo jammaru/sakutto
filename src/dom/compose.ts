@@ -1,16 +1,13 @@
 import type { GlossaryEntry, TranslateOptions } from '@/engine/types';
 import {
+  canonicalLanguage,
   displayLanguage,
   isTargetLanguage,
   SUPPORTED_LANGUAGES,
   type TargetLanguage,
 } from '@/shared/languages';
-import {
-  COMPOSE_PREVIEW_MS,
-  composePairOther,
-  planComposeTranslation,
-} from '@/shared/compose-translation';
-import { matchesShortcut } from '@/shared/shortcuts';
+import { COMPOSE_PREVIEW_MS, planComposeTranslation } from '@/shared/compose-translation';
+import { displayShortcut, matchesShortcut } from '@/shared/shortcuts';
 import type { Formality } from '@/shared/settings';
 import {
   isTranslateShortcut,
@@ -56,6 +53,9 @@ export interface ComposeLabels {
   ineligible: string;
   openSetup: string;
   target: string;
+  autoSource: string;
+  replaceHint: (composeKey: string, enterKey: string) => string;
+  langPair: (source: string, target: string) => string;
   into: (language: string) => string;
   chromeOnly: (language: string) => string;
 }
@@ -120,98 +120,155 @@ const PANEL_STYLE = `
 :host { all: initial; }
 .card {
   box-sizing: border-box;
-  width: min(360px, 70vw);
-  padding: 8px 10px;
-  border-radius: 10px;
+  padding: 8px 10px 8px 12px;
+  border-radius: 12px;
   border: 1px solid #d5dde6;
   background: #ffffff;
   color: #18202d;
-  font: 12px/1.45 "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
-  box-shadow: 0 8px 24px rgb(15 23 32 / 16%);
+  font: 13px/1.45 "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  box-shadow: 0 10px 28px rgb(15 23 32 / 14%);
 }
-.kicker {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 0 0 4px;
-  color: #5b6675;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+.card.dark {
+  border-color: rgb(255 255 255 / 10%);
+  background: #1e1f22;
+  color: #f2f3f5;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 45%);
 }
 .body {
-  margin: 0;
-  max-height: 8.5em;
+  position: relative;
+  margin: 0 0 6px;
+  max-height: 6.5em;
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.45;
 }
-.note {
-  margin: 6px 0 0;
-  color: #5b6675;
-  font-size: 10px;
-}
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
-button {
-  padding: 4px 8px;
-  border: 0;
+.body:empty, .card.undo .body:empty { display: none; }
+.card.undo .body { display: none; }
+.body.pending {
+  min-height: 1.15em;
+  color: transparent;
+  background: linear-gradient(90deg, rgb(14 116 144 / 6%), rgb(14 116 144 / 22%), rgb(14 116 144 / 6%));
+  background-size: 200% 100%;
   border-radius: 6px;
+  animation: shimmer 1.15s linear infinite;
+}
+.card.dark .body.pending {
+  background: linear-gradient(90deg, rgb(103 232 249 / 4%), rgb(103 232 249 / 18%), rgb(103 232 249 / 4%));
+  background-size: 200% 100%;
+}
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.chip {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid #d5dde6;
+  background: #f4f7fa;
+  color: #0e7490;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.card.dark .chip {
+  border-color: rgb(255 255 255 / 12%);
+  background: #2b2d31;
+  color: #67e8f9;
+}
+.chip::after {
+  content: "▾";
+  margin-left: 4px;
+  font-size: 9px;
+  opacity: 0.75;
+}
+.chip select {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 16px;
+}
+.hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #5b6675;
+  font-size: 11px;
+}
+.card.dark .hint { color: #b5bac1; }
+.status {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #5b6675;
+  font-size: 11px;
+}
+.card.dark .status { color: #b5bac1; }
+.card:not(.undo) .status { display: none; }
+.card.undo .hint, .card.undo .chip, .card.undo button.replace { display: none; }
+button {
+  flex: 0 0 auto;
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 8px;
   background: #0e7490;
   color: #ffffff;
-  font: inherit;
-  font-weight: 600;
+  font: 600 12px/1.2 "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
   cursor: pointer;
 }
-button.secondary {
+.card.dark button.replace, .card.dark button.undo {
+  background: #67e8f9;
+  color: #062a33;
+}
+button.undo {
   background: #e8eef4;
   color: #18202d;
 }
-button:disabled {
-  opacity: 0.55;
-  cursor: default;
+.card:not(.undo) button.undo { display: none; }
+button.close {
+  padding: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: transparent;
+  color: #5b6675;
+  font-size: 16px;
+  line-height: 1;
 }
+.card.dark button.close { color: #b5bac1; }
+button:disabled { opacity: 0.45; cursor: default; }
 button:focus-visible { outline: 2px solid #0e7490; outline-offset: 2px; }
-button.swap {
-  padding: 2px 6px;
-  background: transparent;
-  color: #0e7490;
-  font-weight: 700;
-}
-.target {
-  max-width: 11em;
-  padding: 1px 4px;
-  border: 1px solid #d5dde6;
-  border-radius: 4px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 10px;
-}
-kbd {
-  margin-left: 0.35em;
-  font: 600 10px/1 var(--font-mono, ui-monospace, monospace);
-  opacity: 0.85;
-}
+.card.dark button:focus-visible { outline-color: #67e8f9; }
 button.setup { display: none; }
 button.setup.visible { display: inline-flex; }
-@media (prefers-color-scheme: dark) {
-  .card {
-    border-color: #2d3947;
-    background: #151b23;
-    color: #edf1f6;
-    box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
-  }
-  .kicker, .note { color: #b7c2cf; }
-  button { background: #67e8f9; color: #062a33; }
-  button.secondary { background: #1d2631; color: #edf1f6; }
-  button.swap { color: #67e8f9; background: transparent; }
-  .target { border-color: #2d3947; color: #edf1f6; }
+@keyframes shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .body.pending { animation: none; background: rgb(14 116 144 / 12%); }
+  .card.dark .body.pending { background: rgb(103 232 249 / 12%); }
 }
 `;
 
@@ -220,10 +277,12 @@ interface PanelState {
   note: string;
   pending: boolean;
   lang: string;
+  source: string | null;
   canReplace: boolean;
   canUndo: boolean;
   needsSetup: boolean;
   loading: boolean;
+  dark: boolean;
 }
 
 /** Place the あA button so it does not sit on top of typed text in a short field. */
@@ -252,15 +311,117 @@ export function composeIconPosition(
   return { left, top };
 }
 
+/** Short tag for the language chip, e.g. `JA` or `ZH`. */
+export function composeLangTag(code: string | null | undefined): string {
+  if (!code) return '';
+  const canonical = canonicalLanguage(code) ?? code.toLowerCase();
+  if (canonical === 'zh-hans') return 'ZH';
+  if (canonical === 'zh-hant') return 'ZH-T';
+  const base = canonical.split('-')[0] ?? canonical;
+  return base.slice(0, 3).toUpperCase();
+}
+
+function parseCssColor(color: string): { r: number; g: number; b: number; a: number } | null {
+  const trimmed = color.trim().toLowerCase();
+  if (!trimmed || trimmed === 'transparent') return null;
+  const rgb = trimmed.match(
+    /^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*,\s*([0-9.]+))?\s*\)$/u,
+  );
+  if (rgb) {
+    return {
+      r: Number(rgb[1]),
+      g: Number(rgb[2]),
+      b: Number(rgb[3]),
+      a: rgb[4] === undefined ? 1 : Number(rgb[4]),
+    };
+  }
+  const hex = trimmed.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/u);
+  if (!hex) return null;
+  const raw = hex[1] ?? '';
+  const full = raw.length === 3 ? `${raw[0]}${raw[0]}${raw[1]}${raw[1]}${raw[2]}${raw[2]}` : raw;
+  return {
+    r: Number.parseInt(full.slice(0, 2), 16),
+    g: Number.parseInt(full.slice(2, 4), 16),
+    b: Number.parseInt(full.slice(4, 6), 16),
+    a: 1,
+  };
+}
+
+function relativeLuminance(channel: { r: number; g: number; b: number }): number {
+  const toLinear = (value: number): number => {
+    const s = value / 255;
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * toLinear(channel.r) + 0.7152 * toLinear(channel.g) + 0.0722 * toLinear(channel.b);
+}
+
+/**
+ * Whether the compose bar should use a dark surface. Walks from the field up until a
+ * background with real alpha is found; otherwise follows `prefers-color-scheme`.
+ */
+export function composeSurfaceIsDark(start: Element): boolean {
+  let node: Element | null = start;
+  while (node) {
+    const view = node.ownerDocument.defaultView;
+    const computed = view?.getComputedStyle(node).backgroundColor ?? '';
+    const inline = node instanceof HTMLElement ? node.style.backgroundColor : '';
+    const parsed =
+      parseCssColor(computed) ??
+      (computed === 'rgba(0, 0, 0, 0)' || computed === 'transparent' || computed.length === 0
+        ? parseCssColor(inline)
+        : null);
+    if (parsed && parsed.a >= 0.4) return relativeLuminance(parsed) < 0.45;
+    node = node.parentElement;
+  }
+  try {
+    return (
+      start.ownerDocument.defaultView?.matchMedia('(prefers-color-scheme: dark)').matches === true
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function composePanelWidth(anchor: DOMRect, viewportWidth: number): number {
+  return Math.round(Math.min(Math.max(anchor.width, 240), Math.max(240, viewportWidth - 16)));
+}
+
+/** Sit on the field's top edge; flip below when there is no room above. */
+export function composePanelPosition(
+  anchor: DOMRect,
+  size: { width: number; height: number },
+  viewport: { width: number; height: number },
+  gap = 6,
+): { left: number; top: number; placement: 'above' | 'below' } {
+  let left = anchor.left;
+  if (left + size.width > viewport.width - 8) left = viewport.width - size.width - 8;
+  if (left < 8) left = 8;
+  const above = anchor.top - size.height - gap;
+  const below = anchor.bottom + gap;
+  if (above >= 8) return { left, top: above, placement: 'above' };
+  if (below + size.height <= viewport.height - 8) {
+    return { left, top: below, placement: 'below' };
+  }
+  if (anchor.top >= viewport.height - anchor.bottom) {
+    return { left, top: Math.max(8, above), placement: 'above' };
+  }
+  return {
+    left,
+    top: Math.min(below, Math.max(8, viewport.height - size.height - 8)),
+    placement: 'below',
+  };
+}
+
 class ComposeOverlay {
   private readonly iconHost: HTMLElement;
   private readonly panelHost: HTMLElement;
   private readonly iconButton: HTMLButtonElement;
-  private readonly kicker: HTMLElement;
-  private readonly swapButton: HTMLButtonElement;
+  private readonly card: HTMLElement;
+  private readonly chipFace: HTMLElement;
   private readonly targetSelect: HTMLSelectElement;
   private readonly body: HTMLElement;
-  private readonly note: HTMLElement;
+  private readonly hint: HTMLElement;
+  private readonly status: HTMLElement;
   private readonly replaceButton: HTMLButtonElement;
   private readonly undoButton: HTMLButtonElement;
   private readonly closeButton: HTMLButtonElement;
@@ -270,7 +431,6 @@ class ComposeOverlay {
   private onReplace: () => void = () => undefined;
   private onUndo: () => void = () => undefined;
   private onClose: () => void = () => undefined;
-  private onSwap: () => void = () => undefined;
   private onSetup: () => void = () => undefined;
   private onTarget: (language: TargetLanguage) => void = () => undefined;
   private replaceShortcut = '';
@@ -295,11 +455,12 @@ class ComposeOverlay {
     this.iconHost.style.height = `${String(ICON_PX)}px`;
     this.iconButton = this.mountIcon();
     const panel = this.mountPanel();
-    this.kicker = panel.kicker;
-    this.swapButton = panel.swap;
+    this.card = panel.card;
+    this.chipFace = panel.chipFace;
     this.targetSelect = panel.target;
     this.body = panel.body;
-    this.note = panel.note;
+    this.hint = panel.hint;
+    this.status = panel.status;
     this.replaceButton = panel.replace;
     this.undoButton = panel.undo;
     this.closeButton = panel.close;
@@ -320,17 +481,15 @@ class ComposeOverlay {
     this.labels = labels;
     this.iconButton.setAttribute('aria-label', labels.icon);
     this.iconButton.title = labels.icon;
-    this.kicker.textContent = labels.title;
-    this.swapButton.setAttribute('aria-label', labels.swap);
-    this.swapButton.title = labels.swap;
     this.paintReplaceButton();
+    this.paintHint();
     this.targetSelect.setAttribute('aria-label', labels.target);
     this.fillLanguages();
     this.undoButton.textContent = labels.undo;
-    this.closeButton.textContent = labels.close;
+    this.closeButton.setAttribute('aria-label', labels.close);
+    this.closeButton.title = labels.close;
     this.setupButton.textContent = labels.openSetup;
-    const card = uiShadows.get(this.panelHost)?.querySelector('.card');
-    if (card instanceof HTMLElement) card.setAttribute('aria-label', labels.title);
+    this.card.setAttribute('aria-label', labels.title);
   }
 
   setHandlers(handlers: {
@@ -338,7 +497,6 @@ class ComposeOverlay {
     onReplace: () => void;
     onUndo: () => void;
     onClose: () => void;
-    onSwap: () => void;
     onSetup: () => void;
     onTarget: (language: TargetLanguage) => void;
   }): void {
@@ -346,7 +504,6 @@ class ComposeOverlay {
     this.onReplace = handlers.onReplace;
     this.onUndo = handlers.onUndo;
     this.onClose = handlers.onClose;
-    this.onSwap = handlers.onSwap;
     this.onSetup = handlers.onSetup;
     this.onTarget = handlers.onTarget;
   }
@@ -354,6 +511,7 @@ class ComposeOverlay {
   setReplaceShortcut(shortcut: string): void {
     this.replaceShortcut = shortcut;
     this.paintReplaceButton();
+    this.paintHint();
   }
 
   setUiLanguage(language: string): void {
@@ -386,20 +544,38 @@ class ComposeOverlay {
   }
 
   showPanel(anchor: DOMRect, state: PanelState): void {
-    this.body.textContent = state.pending
-      ? this.labels.pending
-      : state.loading
-        ? this.labels.loading
-        : state.needsSetup
-          ? this.labels.setup
-          : state.preview;
+    const undoOnly = state.canUndo && !state.pending && !state.needsSetup && !state.loading;
+    this.card.classList.toggle('dark', state.dark);
+    this.card.classList.toggle('undo', undoOnly);
+    this.panelHost.dataset.theme = state.dark ? 'dark' : 'light';
+    this.panelHost.dataset.mode = undoOnly ? 'undo' : 'preview';
+    this.body.classList.toggle('pending', state.pending);
+    this.body.setAttribute('aria-busy', state.pending ? 'true' : 'false');
+    if (state.pending) {
+      this.body.textContent = '';
+      const hidden = this.doc.createElement('span');
+      hidden.className = 'sr';
+      hidden.textContent = this.labels.pending;
+      this.body.append(hidden);
+    } else if (state.loading) {
+      this.body.textContent = this.labels.loading;
+    } else if (state.needsSetup) {
+      this.body.textContent = this.labels.setup;
+    } else {
+      this.body.textContent = state.preview;
+    }
     this.body.lang = state.lang;
-    this.note.textContent = state.note;
+    this.status.textContent = state.note;
     this.replaceButton.disabled = !state.canReplace;
     this.undoButton.disabled = !state.canUndo;
     this.setupButton.classList.toggle('visible', state.needsSetup);
-    this.kicker.textContent = this.labels.title;
-    this.targetSelect.value = state.lang;
+    const source = composeLangTag(state.source) || this.labels.autoSource;
+    const target = composeLangTag(state.lang) || state.lang.toUpperCase();
+    this.chipFace.textContent = this.labels.langPair(source, target);
+    if ([...this.targetSelect.options].some((option) => option.value === state.lang)) {
+      this.targetSelect.value = state.lang;
+    }
+    this.paintHint();
     this.placePanel(anchor);
   }
 
@@ -452,14 +628,13 @@ class ComposeOverlay {
   }
 
   private paintReplaceButton(): void {
-    const hint = this.replaceShortcut;
-    this.replaceButton.textContent = '';
-    this.replaceButton.append(this.doc.createTextNode(this.labels.replace));
-    if (hint.length > 0) {
-      const kbd = this.doc.createElement('kbd');
-      kbd.textContent = hint;
-      this.replaceButton.append(' ', kbd);
-    }
+    this.replaceButton.textContent = this.labels.replace;
+  }
+
+  private paintHint(): void {
+    const compose = this.replaceShortcut;
+    const enter = displayShortcut('Ctrl+Enter');
+    this.hint.textContent = compose.length > 0 ? this.labels.replaceHint(compose, enter) : enter;
   }
 
   private fillLanguages(): void {
@@ -477,11 +652,12 @@ class ComposeOverlay {
   }
 
   private mountPanel(): {
-    kicker: HTMLElement;
-    swap: HTMLButtonElement;
+    card: HTMLElement;
+    chipFace: HTMLElement;
     target: HTMLSelectElement;
     body: HTMLElement;
-    note: HTMLElement;
+    hint: HTMLElement;
+    status: HTMLElement;
     replace: HTMLButtonElement;
     undo: HTMLButtonElement;
     close: HTMLButtonElement;
@@ -492,7 +668,7 @@ class ComposeOverlay {
     style.textContent = PANEL_STYLE;
     const card = this.doc.createElement('div');
     card.className = 'card';
-    card.setAttribute('role', 'dialog');
+    card.setAttribute('role', 'region');
     card.setAttribute('aria-label', this.labels.title);
     const keep = (event: Event): void => {
       event.stopPropagation();
@@ -504,23 +680,16 @@ class ComposeOverlay {
     card.addEventListener('pointerdown', keep);
     card.addEventListener('mousedown', keep);
 
-    const kickerRow = this.doc.createElement('div');
-    kickerRow.className = 'kicker';
-    const kicker = this.doc.createElement('span');
-    kicker.textContent = this.labels.title;
-    const swap = this.doc.createElement('button');
-    swap.type = 'button';
-    swap.className = 'swap';
-    swap.textContent = '↔';
-    swap.setAttribute('aria-label', this.labels.swap);
-    swap.title = this.labels.swap;
-    swap.addEventListener('pointerdown', keepFocus);
-    swap.addEventListener('mousedown', keepFocus);
-    swap.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      this.onSwap();
-    });
+    const body = this.doc.createElement('p');
+    body.className = 'body';
+    body.setAttribute('aria-live', 'polite');
+
+    const toolbar = this.doc.createElement('div');
+    toolbar.className = 'toolbar';
+    const chip = this.doc.createElement('label');
+    chip.className = 'chip';
+    const chipFace = this.doc.createElement('span');
+    chipFace.setAttribute('aria-hidden', 'true');
     const target = this.doc.createElement('select');
     target.className = 'target';
     target.setAttribute('aria-label', this.labels.target);
@@ -530,16 +699,13 @@ class ComposeOverlay {
       const value = target.value;
       if (isTargetLanguage(value)) this.onTarget(value);
     });
-    kickerRow.append(kicker, target, swap);
+    chip.append(chipFace, target);
 
-    const body = this.doc.createElement('p');
-    body.className = 'body';
-    body.setAttribute('aria-live', 'polite');
-    const note = this.doc.createElement('p');
-    note.className = 'note';
+    const hint = this.doc.createElement('span');
+    hint.className = 'hint';
+    const status = this.doc.createElement('span');
+    status.className = 'status';
 
-    const actions = this.doc.createElement('div');
-    actions.className = 'actions';
     const replace = this.doc.createElement('button');
     replace.type = 'button';
     replace.className = 'replace';
@@ -554,7 +720,7 @@ class ComposeOverlay {
     });
     const undo = this.doc.createElement('button');
     undo.type = 'button';
-    undo.className = 'secondary';
+    undo.className = 'undo';
     undo.textContent = this.labels.undo;
     undo.disabled = true;
     undo.addEventListener('pointerdown', keepFocus);
@@ -567,8 +733,10 @@ class ComposeOverlay {
     });
     const close = this.doc.createElement('button');
     close.type = 'button';
-    close.className = 'secondary';
-    close.textContent = this.labels.close;
+    close.className = 'close';
+    close.textContent = '×';
+    close.setAttribute('aria-label', this.labels.close);
+    close.title = this.labels.close;
     close.addEventListener('pointerdown', keepFocus);
     close.addEventListener('mousedown', keepFocus);
     close.addEventListener('click', (event) => {
@@ -587,30 +755,27 @@ class ComposeOverlay {
       event.stopPropagation();
       this.onSetup();
     });
-    actions.append(replace, undo, close, setup);
-    card.append(kickerRow, body, note, actions);
+    toolbar.append(chip, hint, status, replace, undo, setup, close);
+    card.append(body, toolbar);
     shadow.append(style, card);
-    return { kicker, swap, target, body, note, replace, undo, close, setup };
+    return { card, chipFace, target, body, hint, status, replace, undo, close, setup };
   }
 
   private placePanel(anchor: DOMRect): void {
     const view = this.doc.defaultView;
-    const width = view?.innerWidth ?? 800;
-    const height = view?.innerHeight ?? 600;
+    const viewport = { width: view?.innerWidth ?? 800, height: view?.innerHeight ?? 600 };
+    const width = composePanelWidth(anchor, viewport.width);
+    this.card.style.width = `${String(width)}px`;
     this.panelHost.style.pointerEvents = 'auto';
     this.panelHost.style.display = 'block';
     this.panelHost.hidden = false;
-    const card = uiShadows.get(this.panelHost)?.querySelector('.card');
-    const cardWidth = card instanceof HTMLElement ? card.offsetWidth : 280;
-    const cardHeight = card instanceof HTMLElement ? card.offsetHeight : 140;
-    this.panelHost.style.width = `${String(cardWidth)}px`;
-    this.panelHost.style.height = `${String(cardHeight)}px`;
-    let left = anchor.left;
-    if (left + cardWidth > width - 8) left = width - cardWidth - 8;
-    let top = anchor.bottom + 8;
-    if (top + cardHeight > height - 8) top = Math.max(8, anchor.top - cardHeight - 8);
-    this.panelHost.style.left = `${String(Math.max(8, left))}px`;
-    this.panelHost.style.top = `${String(Math.max(8, top))}px`;
+    const height = this.card.offsetHeight || 72;
+    this.panelHost.style.width = `${String(width)}px`;
+    this.panelHost.style.height = `${String(height)}px`;
+    const { left, top, placement } = composePanelPosition(anchor, { width, height }, viewport);
+    this.panelHost.dataset.placement = placement;
+    this.panelHost.style.left = `${String(Math.round(left))}px`;
+    this.panelHost.style.top = `${String(Math.round(top))}px`;
   }
 }
 
@@ -661,6 +826,7 @@ export class ComposeController {
   private request: AbortController | null = null;
   private generation = 0;
   private scrollFrame = 0;
+  private resizeObserver: ResizeObserver | null = null;
   private readonly onFocusIn: (event: Event) => void;
   private readonly onFocusOut: (event: Event) => void;
   private readonly onInput: (event: Event) => void;
@@ -693,7 +859,6 @@ export class ComposeController {
         void this.undo();
       },
       onClose: () => this.dismiss(),
-      onSwap: () => this.swapDirection(),
       onSetup: () => this.onSetup?.(),
       onTarget: (language) => this.pickTarget(language),
     });
@@ -766,6 +931,8 @@ export class ComposeController {
   destroy(): void {
     this.abort();
     this.clearDebounce();
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
     if (this.scrollFrame !== 0) this.doc.defaultView?.cancelAnimationFrame(this.scrollFrame);
     this.overlay.destroy();
     for (const doc of this.boundDocs) {
@@ -843,7 +1010,10 @@ export class ComposeController {
     this.field = field;
     this.lastField = field;
     this.syncIcon();
-    if (this.panelOpen) this.reposition();
+    if (this.panelOpen) {
+      this.watchFieldSize(field);
+      this.reposition();
+    }
   }
 
   private handleBlur(event: Event): void {
@@ -868,6 +1038,10 @@ export class ComposeController {
     this.snapshot = null;
     this.replaceMethod = null;
     if (!this.panelOpen) return;
+    if (normalizeTypedInput(current).length === 0) {
+      this.dismiss();
+      return;
+    }
     this.stale = true;
     this.render();
     this.schedulePreview(field);
@@ -889,6 +1063,7 @@ export class ComposeController {
     if (!(event instanceof KeyboardEvent) || event.repeat) return;
     if (event.key === 'Escape') {
       if (event.isComposing || !this.panelOpen) return;
+      if (!this.escapeClosesFrom(event.target)) return;
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
@@ -943,7 +1118,16 @@ export class ComposeController {
     this.ineligible = false;
     this.field = field;
     this.lastField = field;
+    this.watchFieldSize(field);
     this.render();
+  }
+
+  private watchFieldSize(field: Element): void {
+    const view = this.doc.defaultView;
+    if (!view || typeof view.ResizeObserver !== 'function') return;
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = new view.ResizeObserver(() => this.scheduleReposition());
+    this.resizeObserver.observe(field);
   }
 
   private dismiss(): void {
@@ -1066,18 +1250,6 @@ export class ComposeController {
     } finally {
       this.replacing = false;
     }
-  }
-
-  private swapDirection(): void {
-    const field = this.resolveField();
-    const trimmed = field ? normalizeTypedInput(readComposeText(field)) : '';
-    const plan = planComposeTranslation(
-      trimmed,
-      this.preferredTarget(),
-      this.swapped,
-      this.prefs.explicitTarget,
-    );
-    this.pickTarget(composePairOther(plan.targetLanguage, this.preferredTarget()));
   }
 
   private pickTarget(language: TargetLanguage): void {
@@ -1211,6 +1383,14 @@ export class ComposeController {
     }
   }
 
+  private escapeClosesFrom(target: EventTarget | null): boolean {
+    if (!(target instanceof Node)) return false;
+    if (this.overlay.contains(target)) return true;
+    const field = this.resolveField() ?? this.field;
+    if (!field) return false;
+    return field === target || field.contains(target);
+  }
+
   private render(): void {
     const field = this.resolveField();
     if (!this.panelOpen) {
@@ -1218,20 +1398,27 @@ export class ComposeController {
       return;
     }
     if (this.ineligible || !field) {
+      const dark = field ? composeSurfaceIsDark(field) : false;
       this.overlay.showPanel(this.lastAnchor ?? new DOMRect(8, 8, 0, 0), {
         preview: this.labels.ineligible,
         note: '',
         pending: false,
         lang: this.preferredTarget(),
+        source: null,
         canReplace: false,
         canUndo: false,
         needsSetup: false,
         loading: false,
+        dark,
       });
       return;
     }
     const raw = readComposeText(field);
     const trimmed = normalizeTypedInput(raw);
+    if (trimmed.length === 0) {
+      this.dismiss();
+      return;
+    }
     const plan = planComposeTranslation(
       trimmed,
       this.preferredTarget(),
@@ -1248,9 +1435,6 @@ export class ComposeController {
       note = '';
     } else if (loading) {
       preview = this.labels.loading;
-      note = '';
-    } else if (trimmed.length === 0) {
-      preview = this.labels.empty;
       note = '';
     } else if (trimmed.length > MAX_TYPED_CHARS) {
       preview = this.labels.tooLong;
@@ -1272,10 +1456,12 @@ export class ComposeController {
       note,
       pending: this.pending && trimmed.length > 0 && plan.ok && !needsSetup && !loading,
       lang: plan.targetLanguage,
+      source: plan.sourceLanguage,
       canReplace: this.canApply(),
       canUndo: this.snapshot !== null,
       needsSetup,
       loading,
+      dark: composeSurfaceIsDark(field),
     });
   }
 

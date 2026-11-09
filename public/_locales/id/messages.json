@@ -943,5 +943,30 @@
   },
   "composeStale": {
     "message": "Draf berubah. Ganti dijeda sampai pratinjau menyusul."
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$ untuk mengganti",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "Otomatis"
   }
 }

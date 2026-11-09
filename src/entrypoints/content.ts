@@ -147,6 +147,9 @@ function composeLabels(readiness?: TypedReadiness): ComposeLabels {
     ineligible: t('composeIneligible'),
     openSetup: t('composeOpenSetup'),
     target: t('composeTargetLabel'),
+    autoSource: t('composeAutoSource'),
+    replaceHint: (compose, enter) => t('composeReplaceHint', [compose, enter]),
+    langPair: (source, target) => t('composeLangPair', [source, target]),
     into: (language) => t('composeInto', [language]),
     chromeOnly: (language) => t('composeChromeOnly', [language]),
   };

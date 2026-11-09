@@ -943,5 +943,30 @@
   },
   "composeStale": {
     "message": "ฉบับร่างเปลี่ยนแล้ว หยุดการแทนที่จนกว่าตัวอย่างจะตามทัน"
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$ เพื่อแทนที่",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "อัตโนมัติ"
   }
 }

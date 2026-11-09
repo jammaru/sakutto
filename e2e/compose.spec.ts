@@ -158,4 +158,60 @@ test.describe('compose translation', () => {
       await page.close();
     }
   });
+
+  test('anchors a dark bar to the Discord-like input without covering the log', async () => {
+    await resetExtensionStorage(extension.worker);
+    const page = await extension.context.newPage();
+    await page.setViewportSize({ width: 900, height: 640 });
+    await page.goto(`${FIXTURE_ORIGIN}/compose-discord.html`);
+    try {
+      const draft = page.locator('#draft');
+      await draft.focus();
+      await commandPage(extension.worker, page, 'compose');
+      const panel = page.locator('sakutto-compose');
+      await expect.poll(async () => panel.evaluate((el) => (el as HTMLElement).hidden)).toBe(false);
+      await page.waitForTimeout(200);
+      await expect(panel).toHaveAttribute('data-theme', 'dark');
+      await expect(panel).toHaveAttribute('data-placement', 'above');
+      const boxes = await page.evaluate(() => {
+        const host = document.querySelector('sakutto-compose');
+        const field = document.querySelector('#draft');
+        if (!(host instanceof HTMLElement) || !(field instanceof HTMLElement)) {
+          throw new Error('missing compose nodes');
+        }
+        const panelBox = host.getBoundingClientRect();
+        const fieldBox = field.getBoundingClientRect();
+        return {
+          panel: { x: panelBox.x, y: panelBox.y, width: panelBox.width, bottom: panelBox.bottom },
+          field: { x: fieldBox.x, y: fieldBox.y, width: fieldBox.width },
+        };
+      });
+      expect(boxes.panel.bottom).toBeLessThanOrEqual(boxes.field.y + 2);
+      expect(Math.abs(boxes.panel.x - boxes.field.x)).toBeLessThan(8);
+      expect(boxes.panel.width).toBeGreaterThan(boxes.field.width - 8);
+      await page.screenshot({ path: 'e2e-results/compose-discord-after.png' });
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('uses a light bar on a Gmail-like compose window', async () => {
+    await resetExtensionStorage(extension.worker);
+    const page = await extension.context.newPage();
+    await page.setViewportSize({ width: 900, height: 640 });
+    await page.goto(`${FIXTURE_ORIGIN}/compose-gmail.html`);
+    try {
+      const draft = page.locator('#draft');
+      await draft.focus();
+      await commandPage(extension.worker, page, 'compose');
+      const panel = page.locator('sakutto-compose');
+      await expect.poll(async () => panel.evaluate((el) => (el as HTMLElement).hidden)).toBe(false);
+      await page.waitForTimeout(200);
+      await expect(panel).toHaveAttribute('data-theme', 'light');
+      await expect(panel).toHaveAttribute('data-placement', 'above');
+      await page.screenshot({ path: 'e2e-results/compose-gmail-after.png' });
+    } finally {
+      await page.close();
+    }
+  });
 });

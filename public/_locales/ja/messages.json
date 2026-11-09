@@ -943,5 +943,30 @@
   },
   "composeStale": {
     "message": "下書きが変わったので、プレビューが追いつくまで置き換えできません。"
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$ で置き換え",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "自動"
   }
 }

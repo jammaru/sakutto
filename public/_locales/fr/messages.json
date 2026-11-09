@@ -943,5 +943,30 @@
   },
   "composeStale": {
     "message": "Le brouillon a changé. Remplacer est en pause jusqu’à ce que l’aperçu se mette à jour."
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$ pour remplacer",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "Auto"
   }
 }

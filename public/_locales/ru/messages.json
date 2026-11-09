@@ -943,5 +943,30 @@
   },
   "composeStale": {
     "message": "Черновик изменился. Замена приостановлена, пока предпросмотр не обновится."
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$, чтобы заменить",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "Авто"
   }
 }

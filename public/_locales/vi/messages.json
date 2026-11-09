@@ -943,5 +943,30 @@
   },
   "composeStale": {
     "message": "Bản nháp đã đổi. Thay thế tạm dừng đến khi bản xem trước bắt kịp."
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$ để thay",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "Tự động"
   }
 }

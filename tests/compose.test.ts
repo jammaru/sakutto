@@ -3,7 +3,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ComposeController,
   composeIconPosition,
+  composeLangTag,
+  composePanelPosition,
+  composePanelWidth,
   composeShadow,
+  composeSurfaceIsDark,
   type ComposeLabels,
 } from '@/dom/compose';
 import type { PageEngine } from '@/dom/session';
@@ -27,6 +31,9 @@ const labels: ComposeLabels = {
   ineligible: 'This field cannot be translated.',
   openSetup: 'Open setup',
   target: 'Target',
+  autoSource: 'Auto',
+  replaceHint: (compose, enter) => `${compose} / ${enter} to replace`,
+  langPair: (source, target) => `${source} → ${target}`,
   into: (language) => `Into ${language}`,
   chromeOnly: (language) => `PLaMo does not translate into ${language}.`,
 };
@@ -49,10 +56,18 @@ function panelButton(label: string): HTMLButtonElement {
   const shadow = composeShadow(document.querySelector('sakutto-compose'));
   const button = [...(shadow?.querySelectorAll('button') ?? [])].find((node) => {
     const text = node.textContent ?? '';
-    return text === label || text.startsWith(`${label} `);
+    return (
+      text === label || text.startsWith(`${label} `) || node.getAttribute('aria-label') === label
+    );
   });
   if (!(button instanceof HTMLButtonElement)) throw new Error(`missing ${label}`);
   return button;
+}
+
+function panelCard(): HTMLElement {
+  const card = composeShadow(document.querySelector('sakutto-compose'))?.querySelector('.card');
+  if (!(card instanceof HTMLElement)) throw new Error('missing card');
+  return card;
 }
 
 function clickPanel(label: string): void {
@@ -128,7 +143,8 @@ describe('compose controller', () => {
     await vi.waitFor(() => {
       expect(panelText()).toContain('§ja§See you tomorrow.');
     });
-    expect(panelButton('Replace').textContent).toContain('Alt+T');
+    expect(panelText()).toContain('Alt+T');
+    expect(panelButton('Replace').textContent).toBe('Replace');
     await new Promise((resolve) => setTimeout(resolve, 220));
     controller.handleShortcut();
     await vi.waitFor(() => {
@@ -563,6 +579,116 @@ describe('compose controller', () => {
     const pos = composeIconPosition(new DOMRect(20, 40, 240, 32), { width: 800, height: 600 });
     expect(pos.left).toBeGreaterThanOrEqual(260);
     expect(pos.left + 26).toBeLessThanOrEqual(20 + 240 + 6 + 26 + 1);
+  });
+
+  it('anchors the preview bar to the field and flips below when there is no room', () => {
+    const above = composePanelPosition(
+      new DOMRect(40, 500, 400, 44),
+      { width: 400, height: 72 },
+      { width: 800, height: 600 },
+    );
+    expect(above.placement).toBe('above');
+    expect(above.left).toBe(40);
+    expect(above.top).toBe(500 - 72 - 6);
+    const below = composePanelPosition(
+      new DOMRect(40, 8, 400, 44),
+      { width: 400, height: 72 },
+      { width: 800, height: 600 },
+    );
+    expect(below.placement).toBe('below');
+    expect(below.top).toBe(8 + 44 + 6);
+    expect(composePanelWidth(new DOMRect(40, 500, 400, 44), 800)).toBe(400);
+    expect(composePanelWidth(new DOMRect(40, 500, 120, 44), 800)).toBe(240);
+  });
+
+  it('tags languages compactly for the chip', () => {
+    expect(composeLangTag('ja')).toBe('JA');
+    expect(composeLangTag('en-US')).toBe('EN');
+    expect(composeLangTag('zh-Hans')).toBe('ZH');
+    expect(composeLangTag('zh-Hant')).toBe('ZH-T');
+    expect(composeLangTag(null)).toBe('');
+  });
+
+  it('picks a dark surface from a dark field even when the OS is light', () => {
+    document.body.innerHTML =
+      '<div id="chat" style="background:#313338"><textarea id="box" style="background:#383a40">hello</textarea></div>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    expect(composeSurfaceIsDark(field)).toBe(true);
+    document.body.innerHTML =
+      '<div id="mail" style="background:#ffffff"><textarea id="box" style="background:#ffffff">hello</textarea></div>';
+    const light = document.querySelector('#box');
+    if (!(light instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    expect(composeSurfaceIsDark(light)).toBe(false);
+  });
+
+  it('hides the panel when the field is cleared after send', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const controller = start();
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§See you tomorrow.');
+    });
+    field.value = '';
+    field.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    expect((document.querySelector('sakutto-compose') as HTMLElement).hidden).toBe(true);
+    expect(panelText()).not.toContain('Type something to translate.');
+  });
+
+  it('does not steal Escape from the page while the panel is open', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const controller = start();
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect((document.querySelector('sakutto-compose') as HTMLElement).hidden).toBe(false);
+    });
+    const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    const prevented = !document.body.dispatchEvent(event);
+    expect(prevented).toBe(false);
+    expect((document.querySelector('sakutto-compose') as HTMLElement).hidden).toBe(false);
+  });
+
+  it('uses a language chip and an undo toast after replace', async () => {
+    document.body.innerHTML = '<textarea id="box">会議は明日です。</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const controller = start();
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§en§');
+    });
+    expect(panelText()).toContain('JA → EN');
+    expect(panelText()).toContain('Alt+T / Ctrl+Enter to replace');
+    expect(panelCard().classList.contains('undo')).toBe(false);
+    clickPanel('Replace');
+    await vi.waitFor(() => {
+      expect(field.value).toBe('§en§会議は明日です。');
+    });
+    expect(panelCard().classList.contains('undo')).toBe(true);
+    expect(panelButton('Restore original').disabled).toBe(false);
+    expect(panelText()).toContain('Replaced');
+  });
+
+  it('follows a dark field with a dark compose bar', async () => {
+    document.body.innerHTML =
+      '<div style="background:#313338;color:#f2f3f5"><textarea id="box" style="background:#383a40;color:#f2f3f5">会議は明日です。</textarea></div>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const controller = start();
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§en§');
+    });
+    expect(panelCard().classList.contains('dark')).toBe(true);
+    expect((document.querySelector('sakutto-compose') as HTMLElement).dataset.theme).toBe('dark');
   });
 
   it('stays idle when the site is set to never translate', () => {

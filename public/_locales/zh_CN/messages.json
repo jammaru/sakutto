@@ -943,5 +943,30 @@
   },
   "composeStale": {
     "message": "草稿已更改。预览更新完成前暂停替换。"
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$ 替换",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "自动"
   }
 }

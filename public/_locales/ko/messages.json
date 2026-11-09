@@ -943,5 +943,30 @@
   },
   "composeStale": {
     "message": "초안이 바뀌었습니다. 미리보기가 따라잡을 때까지 바꾸기를 잠시 멈춥니다."
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$로 바꾸기",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "자동"
   }
 }
