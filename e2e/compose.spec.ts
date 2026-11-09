@@ -189,7 +189,7 @@ test.describe('compose translation', () => {
       expect(boxes.panel.bottom).toBeLessThanOrEqual(boxes.field.y + 2);
       expect(Math.abs(boxes.panel.x - boxes.field.x)).toBeLessThan(8);
       expect(boxes.panel.width).toBeGreaterThan(boxes.field.width - 8);
-      await page.screenshot({ path: 'e2e-results/compose-discord-after.png' });
+      await page.screenshot({ path: 'e2e-results/compose-discord-bar.png' });
     } finally {
       await page.close();
     }
@@ -209,7 +209,7 @@ test.describe('compose translation', () => {
       await page.waitForTimeout(200);
       await expect(panel).toHaveAttribute('data-theme', 'light');
       await expect(panel).toHaveAttribute('data-placement', 'above');
-      await page.screenshot({ path: 'e2e-results/compose-gmail-after.png' });
+      await page.screenshot({ path: 'e2e-results/compose-gmail-bar.png' });
     } finally {
       await page.close();
     }
