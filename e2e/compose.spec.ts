@@ -295,6 +295,106 @@ test.describe('compose translation', () => {
     }
   });
 
+  test('updates the preview after Replace when the reader keeps typing', async () => {
+    const page = await openComposePage();
+    try {
+      const box = page.locator('#plain');
+      await box.fill('明日会いましょう。');
+      await box.focus();
+      await applyCompose(page);
+      await expect(box).toHaveValue(`${MARKER}明日会いましょう。`);
+      await box.focus();
+      await box.pressSequentially(' 追記');
+      await page.waitForTimeout(900);
+      await page.locator('sakutto-compose').evaluate((el) => {
+        el.dispatchEvent(new CustomEvent('sakutto-compose-action', { detail: 'replace' }));
+      });
+      await expect(box).toHaveValue(`${MARKER}${MARKER}明日会いましょう。 追記`);
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('translates a new draft after Replace, clear, and type', async () => {
+    const page = await openComposePage();
+    try {
+      const box = page.locator('#plain');
+      await box.fill('明日会いましょう。');
+      await box.focus();
+      await applyCompose(page);
+      await expect(box).toHaveValue(`${MARKER}明日会いましょう。`);
+      await box.press('Control+A');
+      await box.press('Backspace');
+      await box.pressSequentially('こんにちは');
+      await page.waitForTimeout(900);
+      await page.locator('sakutto-compose').evaluate((el) => {
+        el.dispatchEvent(new CustomEvent('sakutto-compose-action', { detail: 'replace' }));
+      });
+      await expect(box).toHaveValue(`${MARKER}こんにちは`);
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('replaces several drafts in a row from the same field', async () => {
+    const page = await openComposePage();
+    try {
+      const box = page.locator('#plain');
+      await box.fill('あ');
+      await box.focus();
+      await applyCompose(page);
+      await expect(box).toHaveValue(`${MARKER}あ`);
+      for (const draft of ['い', 'う']) {
+        await box.fill(draft);
+        await page.waitForTimeout(900);
+        await page.locator('sakutto-compose').evaluate((el) => {
+          el.dispatchEvent(new CustomEvent('sakutto-compose-action', { detail: 'replace' }));
+        });
+        await expect(box).toHaveValue(`${MARKER}${draft}`);
+      }
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('updates a Slate-style preview after Replace when typing continues', async () => {
+    const page = await openComposePage();
+    try {
+      await page.evaluate(() => {
+        (window as unknown as { __slate: { set(text: string): void } }).__slate.set(
+          'よろしくお願いします。',
+        );
+      });
+      await page.locator('#slate').focus();
+      await applyCompose(page);
+      await expect
+        .poll(async () =>
+          page.evaluate(() => document.querySelector('#slate')?.getAttribute('data-slate-value')),
+        )
+        .toBe(`${MARKER}よろしくお願いします。`);
+      // Discord/Slate rewrites the DOM without an `input` event. Append through the
+      // fixture's render path so the MutationObserver, not keydown, has to resume preview.
+      await page.evaluate(() => {
+        const editor = document.querySelector('#slate');
+        const current = editor?.getAttribute('data-slate-value') ?? '';
+        (window as unknown as { __slate: { set(text: string): void } }).__slate.set(
+          `${current} 追記`,
+        );
+      });
+      await page.waitForTimeout(900);
+      await page.locator('sakutto-compose').evaluate((el) => {
+        el.dispatchEvent(new CustomEvent('sakutto-compose-action', { detail: 'replace' }));
+      });
+      await expect
+        .poll(async () =>
+          page.evaluate(() => document.querySelector('#slate')?.getAttribute('data-slate-value')),
+        )
+        .toBe(`${MARKER}${MARKER}よろしくお願いします。 追記`);
+    } finally {
+      await page.close();
+    }
+  });
+
   test('uses a light bar on a Gmail-like compose window', async () => {
     await resetExtensionStorage(extension.worker);
     const page = await extension.context.newPage();

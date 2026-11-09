@@ -323,6 +323,102 @@ describe('compose controller', () => {
     expect(panelText()).not.toContain('The draft changed');
   });
 
+  it('keeps the live preview after Replace when the reader types more', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const controller = start();
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§See you tomorrow.');
+    });
+    clickPanel('Replace');
+    await vi.waitFor(() => {
+      expect(field.value).toBe('§ja§See you tomorrow.');
+    });
+    field.value = `${field.value} Extra.`;
+    field.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('Extra.');
+    });
+    expect(panelButton('Replace').disabled).toBe(false);
+    expect(panelText()).not.toContain('Replaced');
+  });
+
+  it('translates a new draft after Replace, clear, and type', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const controller = start();
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§See you tomorrow.');
+    });
+    clickPanel('Replace');
+    await vi.waitFor(() => {
+      expect(field.value).toBe('§ja§See you tomorrow.');
+    });
+    field.value = '';
+    field.dispatchEvent(
+      new InputEvent('input', { bubbles: true, inputType: 'deleteContentBackward' }),
+    );
+    expect((document.querySelector('sakutto-compose') as HTMLElement).hidden).toBe(false);
+    field.value = '会議は明日です。';
+    field.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§en§会議は明日です。');
+    });
+  });
+
+  it('allows several replace cycles in a row', async () => {
+    document.body.innerHTML = '<textarea id="box">Hello.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const controller = start();
+    for (const draft of ['Hello.', 'Hello there.', '会議は明日です。']) {
+      field.value = draft;
+      field.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+      if ((document.querySelector('sakutto-compose') as HTMLElement).hidden) {
+        controller.handleShortcut();
+      }
+      await vi.waitFor(() => {
+        expect(panelButton('Replace').disabled).toBe(false);
+      });
+      clickPanel('Replace');
+      await vi.waitFor(() => {
+        expect(field.value).toMatch(new RegExp(`§(?:ja|en)§${draft.replace('.', '\\.')}`));
+      });
+    }
+  });
+
+  it('resumes preview on a contenteditable after Replace leaves the translation selected', async () => {
+    document.body.innerHTML = '<div id="box" contenteditable="true">会議は明日です。</div>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLElement)) throw new Error('missing editor');
+    field.focus();
+    const controller = start();
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§en§会議は明日です。');
+    });
+    clickPanel('Replace');
+    await vi.waitFor(() => {
+      expect(field.textContent).toContain('§en§会議は明日です。');
+    });
+    const range = document.createRange();
+    range.selectNodeContents(field);
+    const selection = document.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    field.append(' 追記');
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('追記');
+    });
+  });
+
   it('marks the preview stale when the draft changes after it', async () => {
     document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
     const field = document.querySelector('#box');

@@ -23,6 +23,7 @@ import {
 } from '@/shared/typed-translation';
 import { collectDocuments, focusedEditableField } from './blocks';
 import {
+  collapseComposeCaret,
   composeEditableRoot,
   composeFieldRect,
   focusedComposeField,
@@ -30,6 +31,7 @@ import {
   isComposeMenuTarget,
   isSensitiveField,
   readComposeText,
+  readDraftRegionText,
   replaceComposeText,
   showsComposeIcon,
   snapshotComposeField,
@@ -1296,6 +1298,7 @@ export class ComposeController {
   private generation = 0;
   private scrollFrame = 0;
   private resizeObserver: ResizeObserver | null = null;
+  private draftObserver: MutationObserver | null = null;
   private readonly onFocusIn: (event: Event) => void;
   private readonly onFocusOut: (event: Event) => void;
   private readonly onInput: (event: Event) => void;
@@ -1409,6 +1412,8 @@ export class ComposeController {
     this.clearDebounce();
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
+    this.draftObserver?.disconnect();
+    this.draftObserver = null;
     if (this.scrollFrame !== 0) this.doc.defaultView?.cancelAnimationFrame(this.scrollFrame);
     this.overlay.destroy();
     for (const doc of this.boundDocs) {
@@ -1501,7 +1506,7 @@ export class ComposeController {
     this.lastField = field;
     this.syncIcon();
     if (this.panelOpen) {
-      this.watchFieldSize(field);
+      this.watchField(field);
       this.reposition();
     }
   }
@@ -1514,15 +1519,40 @@ export class ComposeController {
     }, 50);
   }
 
-  private handleInput(event: Event): void {
-    if (this.replacing) return;
-    if (isComposingEvent(event)) return;
+  private fieldFromEvent(event: Event): Element | null {
     const target = event.target;
-    if (!(target instanceof Element)) return;
-    if (this.overlay.contains(target)) return;
-    const field = this.resolveField();
-    if (!field || (field !== target && !field.contains(target))) return;
-    const current = readComposeText(field);
+    if (target instanceof Node && this.overlay.contains(target)) return null;
+    const connected = target instanceof Node && target.isConnected ? target : null;
+    const field = this.resolveField(connected);
+    if (!field) return null;
+    if (connected instanceof Node && field !== connected && !field.contains(connected)) {
+      return null;
+    }
+    return field;
+  }
+
+  private handleInput(event: Event): void {
+    if (isComposingEvent(event)) return;
+    this.syncIcon();
+    const field = this.fieldFromEvent(event);
+    if (!field) return;
+    this.noteDraftChange(field, event);
+  }
+
+  private handleCompositionEnd(event: Event): void {
+    const field = this.fieldFromEvent(event);
+    if (!field) return;
+    this.noteDraftChange(field);
+  }
+
+  /**
+   * Resume live preview when the draft actually changes. Matching the just-inserted
+   * translation is ignored (the editor's own echo), but that check uses the whole draft
+   * — not a leftover selection — so typing after Replace is never treated as a no-op.
+   */
+  private noteDraftChange(field: Element, event?: Event): void {
+    if (this.replacing) return;
+    const current = readDraftRegionText(field);
     if (this.applied !== null && textsMatch(current, this.applied)) return;
     this.applied = null;
     this.snapshot = null;
@@ -1530,7 +1560,7 @@ export class ComposeController {
     if (!this.panelOpen) return;
     const length = normalizeTypedInput(current).length;
     if (length === 0) {
-      if (this.lastDraftLen > 0 && !isDeletionInput(event)) {
+      if (event && this.lastDraftLen > 0 && !isDeletionInput(event)) {
         this.lastDraftLen = 0;
         this.dismiss();
         return;
@@ -1545,19 +1575,7 @@ export class ComposeController {
     this.lastDraftLen = length;
     this.stale = true;
     this.render();
-    this.schedulePreview(field);
-  }
-
-  private handleCompositionEnd(event: Event): void {
-    if (this.replacing || !this.panelOpen) return;
-    const target = event.target;
-    if (!(target instanceof Element)) return;
-    if (this.overlay.contains(target)) return;
-    const field = this.resolveField();
-    if (!field || (field !== target && !field.contains(target))) return;
-    this.stale = true;
-    this.render();
-    this.schedulePreview(field);
+    this.schedulePreview(field, 'draft');
   }
 
   private handleKey(event: Event): void {
@@ -1624,9 +1642,14 @@ export class ComposeController {
     this.ineligible = false;
     this.field = field;
     this.lastField = field;
-    this.lastDraftLen = normalizeTypedInput(readComposeText(field)).length;
-    this.watchFieldSize(field);
+    this.lastDraftLen = normalizeTypedInput(readDraftRegionText(field)).length;
+    this.watchField(field);
     this.render();
+  }
+
+  private watchField(field: Element): void {
+    this.watchFieldSize(field);
+    this.watchDraftMutations(field);
   }
 
   private watchFieldSize(field: Element): void {
@@ -1635,6 +1658,26 @@ export class ComposeController {
     this.resizeObserver?.disconnect();
     this.resizeObserver = new view.ResizeObserver(() => this.scheduleReposition());
     this.resizeObserver.observe(field);
+  }
+
+  /**
+   * Discord/Slate often cancel `beforeinput` and rewrite the DOM on a later tick, so the
+   * `input` event never arrives. Watch the field itself while the bar is open.
+   */
+  private watchDraftMutations(field: Element): void {
+    this.draftObserver?.disconnect();
+    this.draftObserver = null;
+    const view = this.doc.defaultView;
+    if (!view || typeof view.MutationObserver !== 'function') return;
+    this.draftObserver = new view.MutationObserver(() => {
+      if (this.replacing || !this.panelOpen) return;
+      this.noteDraftChange(field);
+    });
+    this.draftObserver.observe(field, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    });
   }
 
   private dismiss(): void {
@@ -1648,6 +1691,11 @@ export class ComposeController {
     this.swapped = false;
     this.ineligible = false;
     this.replaceWhenReady = false;
+    this.applied = null;
+    this.snapshot = null;
+    this.replaceMethod = null;
+    this.draftObserver?.disconnect();
+    this.draftObserver = null;
     this.overlay.hidePanel();
     this.syncIcon();
   }
@@ -1727,8 +1775,11 @@ export class ComposeController {
       }
       this.snapshot = snapshot;
       this.replaceMethod = result.method;
-      this.applied = readComposeText(field);
+      collapseComposeCaret(field);
+      this.applied = readDraftRegionText(field);
+      this.lastDraftLen = normalizeTypedInput(this.applied).length;
       this.stale = false;
+      this.watchField(field);
       this.render();
     } finally {
       this.replacing = false;
@@ -1798,11 +1849,11 @@ export class ComposeController {
     else this.render();
   }
 
-  private schedulePreview(field: Element): void {
+  private schedulePreview(field: Element, source: 'auto' | 'draft' = 'auto'): void {
     this.clearDebounce();
     this.debounceTimer = setTimeout(() => {
       this.debounceTimer = null;
-      this.translateField(field);
+      this.translateField(field, source);
     }, this.previewMs);
   }
 
@@ -1821,9 +1872,9 @@ export class ComposeController {
     return isTargetLanguage(this.prefs.targetLanguage) ? this.prefs.targetLanguage : 'en';
   }
 
-  private translateField(field: Element | null): void {
+  private translateField(field: Element | null, source: 'auto' | 'draft' = 'auto'): void {
     if (!field || !this.panelOpen || !this.prefs.enabled) return;
-    const raw = readComposeText(field);
+    const raw = source === 'draft' ? readDraftRegionText(field) : readComposeText(field);
     const trimmed = normalizeTypedInput(raw);
     this.failed = false;
     if (this.needsSetup() || this.isLoading()) {

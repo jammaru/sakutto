@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { isTranslationExcluded, listTranslatableBlocks } from '@/dom/blocks';
 import {
+  collapseComposeCaret,
   composeEditableRoot,
   composeFieldRect,
   focusedComposeField,
@@ -9,6 +10,7 @@ import {
   isComposeMenuTarget,
   isSensitiveField,
   readComposeText,
+  readDraftRegionText,
   replaceComposeText,
   shouldHandleComposeCommand,
   showsComposeIcon,
@@ -607,6 +609,35 @@ describe('reading and replacing compose text', () => {
     } finally {
       Reflect.deleteProperty(document, 'activeElement');
     }
+  });
+
+  it('collapses a leftover insertText selection so later typing is not the old translation', () => {
+    document.body.innerHTML = '<textarea id="box">Hello world</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.setSelectionRange(0, field.value.length);
+    expect(readComposeText(field)).toBe('Hello world');
+    collapseComposeCaret(field);
+    expect(field.selectionStart).toBe(field.value.length);
+    expect(field.selectionEnd).toBe(field.value.length);
+    expect(readComposeText(field)).toBe('Hello world');
+    expect(readDraftRegionText(field)).toBe('Hello world');
+  });
+
+  it('collapses a contenteditable selection to the end of the draft', () => {
+    document.body.innerHTML = '<div id="box" contenteditable="true">Hello world</div>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLElement)) throw new Error('missing editor');
+    const selected = document.createRange();
+    selected.selectNodeContents(field);
+    const selection = document.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(selected);
+    expect(readComposeText(field)).toBe('Hello world');
+    collapseComposeCaret(field);
+    const collapsed = document.getSelection();
+    expect(collapsed?.isCollapsed).toBe(true);
+    expect(readDraftRegionText(field)).toBe('Hello world');
   });
 
   it('climbs from a child of role=textbox when that root is not contenteditable', () => {

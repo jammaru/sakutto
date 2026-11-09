@@ -403,6 +403,43 @@ function selectNative(field: HTMLInputElement | HTMLTextAreaElement): boolean {
   }
 }
 
+/**
+ * Put the caret at the end of the draft so a leftover selection from insertText is not
+ * mistaken for "the field is unchanged" on the next input event.
+ */
+export function collapseComposeCaret(field: Element): void {
+  if (isNativeTextField(field)) {
+    try {
+      const end = field.value.length;
+      field.setSelectionRange(end, end);
+      notifySelection(field);
+    } catch {
+      // Some inputs (email on older WebKit) reject setSelectionRange.
+    }
+    return;
+  }
+  const doc = field.ownerDocument;
+  const selection = doc.getSelection();
+  if (!selection) return;
+  try {
+    const range = doc.createRange();
+    const host = draftHost(field);
+    const keep = preservedTail(field);
+    if (keep.length > 0) {
+      range.setStartBefore(keep[0]!);
+      range.collapse(true);
+    } else {
+      range.selectNodeContents(host);
+      range.collapse(false);
+    }
+    selection.removeAllRanges();
+    selection.addRange(range);
+    notifySelection(field);
+  } catch {
+    // A detached field or a closed shadow has no range.
+  }
+}
+
 function selectDraftRegion(field: Element): boolean {
   const doc = field.ownerDocument;
   const selection = doc.getSelection();
