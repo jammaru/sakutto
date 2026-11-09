@@ -4,7 +4,8 @@ Draft for a listed add-on on addons.mozilla.org. The packaged name still comes f
 `public/_locales/*/messages.json` (`extensionName` / `extensionShortName`). Confirm the gecko id
 `sakutto@jammaru` in `src/shared/browser.ts` before the first listed upload. It cannot change
 afterwards. `amo-metadata.json` is the file `web-ext sign` submits; keep these blocks in sync
-with it. AMO summaries must stay at or under 250 characters.
+with it. The JSON follows the AMO v5 add-on API (`version.license`,
+`categories.firefox`, locale maps). AMO summaries must stay at or under 250 characters.
 
 Do not paste Chrome Web Store speed numbers. Firefox GPU and CPU times must be measured on the
 target Firefox before any claim is added.

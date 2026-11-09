@@ -22,7 +22,7 @@ English follows the Japanese section.
 1. `pnpm zip:firefox` と `pnpm source:firefox` がローカルまたは CI の firefox ジョブで通ること。
 2. `pnpm lint:firefox` がエラー 0 であること。
 3. Actions で `AMO` を手動実行する。listed 提出が既定です。
-4. ワークフローは `web-ext sign --channel listed --upload-source-code … --amo-metadata amo-metadata.json --approval-timeout 0` を呼びます。
+4. ワークフローは `web-ext sign --channel listed --upload-source-code … --amo-metadata amo-metadata.json --approval-timeout 0` を呼びます。`web-ext` はこの JSON を AMO v5 の Create/Put にそのまま渡します。掲載版では `version.license` が `MIT`、`categories` が `{"firefox": ["privacy-security"]}`、翻訳欄（`name` / `summary` / `description` / `homepage`）が `en-US` と `ja` のオブジェクトです。`license` をトップレベルに置かないでください。
 
 掲載文は `docs/AMO_LISTING.md`、審査メモは `docs/AMO_REVIEW_NOTES.md`、ソースのビルド手順は `SOURCE_CODE_REVIEW.md` です。
 
@@ -35,7 +35,7 @@ English follows the Japanese section.
 
 # Uploading to AMO
 
-This is the listed-channel path for the Firefox package. Signing and submit happen only when the owner runs the `AMO` workflow with `workflow_dispatch`. A push to `main` does not sign. Pull request CI builds and lints; it does not call `web-ext sign`.
+This is the listed-channel path for the Firefox package. Signing and submit happen only when the owner runs the `AMO` workflow with `workflow_dispatch`. A push to `main` does not sign. Pull request CI builds and lints; it does not call `web-ext sign`. `amo-metadata.json` is the AMO v5 add-on payload: `version.license` is `MIT`, `categories` is `{"firefox": ["privacy-security"]}`, and name, summary, description, and homepage are `en-US` / `ja` maps.
 
 Add repository secrets `AMO_JWT_ISSUER` and `AMO_JWT_SECRET` from https://addons.mozilla.org/developers/addon/api/key/. Confirm gecko id `sakutto@jammaru` before the first listed upload.
 

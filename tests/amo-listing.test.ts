@@ -56,6 +56,7 @@ describe('AMO listing copy', () => {
 
   it('tells the owner to upload screenshots and paste reviewer notes after sign', () => {
     expect(upload).toContain('web-ext sign');
+    expect(upload).toContain('version.license');
     expect(upload).toContain('スクリーンショットをアップロードする');
     expect(upload).toContain('Upload screenshots');
     expect(upload).toContain('Notes for Reviewers');
