@@ -26,8 +26,22 @@ English follows the Japanese section.
 
 掲載文は `docs/AMO_LISTING.md`、審査メモは `docs/AMO_REVIEW_NOTES.md`、ソースのビルド手順は `SOURCE_CODE_REVIEW.md` です。
 
+## 提出後
+
+`web-ext sign` はスクリーンショットも審査メモも送りません。ワークフローが終わったら、AMO の開発者ハブで次を行ってください。
+
+1. スクリーンショットをアップロードする
+2. `docs/AMO_REVIEW_NOTES.md` の英語ブロックを Notes for Reviewers に貼る
+
 # Uploading to AMO
 
 This is the listed-channel path for the Firefox package. Signing and submit happen only when the owner runs the `AMO` workflow with `workflow_dispatch`. A push to `main` does not sign. Pull request CI builds and lints; it does not call `web-ext sign`.
 
 Add repository secrets `AMO_JWT_ISSUER` and `AMO_JWT_SECRET` from https://addons.mozilla.org/developers/addon/api/key/. Confirm gecko id `sakutto@jammaru` before the first listed upload.
+
+## After submit
+
+`web-ext sign` does not upload screenshots or reviewer notes. After the workflow finishes, in the AMO developer hub:
+
+1. Upload screenshots
+2. Paste the English block from `docs/AMO_REVIEW_NOTES.md` into Notes for Reviewers

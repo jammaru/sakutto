@@ -10,7 +10,7 @@ Privacy policy: https://jammaru.com/sakutto/privacy/
 
 Gecko id (confirm before first listed upload; it cannot change afterwards): `sakutto@jammaru`
 
-`strict_min_version`: 153.0 (JSPI, WebGPU, memory64). First target is Windows, including ESR 153.
+`strict_min_version`: 153.0 (JSPI, WebGPU, memory64), including ESR 153. Desktop Firefox on Windows, macOS, and Linux. Tested on Windows. The manifest has no OS filter. `gecko_android` is not set, so this is not listed for Firefox for Android.
 
 ## Notes to paste
 
@@ -27,7 +27,7 @@ Remote code: none. Every script, worker, and wasm the add-on executes is in the 
 
 Firefox has no offscreen documents. The engine runs in an iframe of offscreen.html inside the MV3 event page. storage.session is written about every 15 seconds while that frame exists so the event page is not killed after 30 seconds (bug 1851373). Message ports are not used to keep the page alive.
 
-Firefox extension pages are not cross-origin isolated (bugs 1673477, 1750654). CPU inference is therefore one thread. WebGPU is preferred when the adapter is present.
+Firefox extension pages are not cross-origin isolated (bugs 1673477, 1750654). CPU inference is therefore one thread on every desktop OS. WebGPU is preferred when the adapter is present. When WebGPU is unavailable the model runs on the CPU.
 
 Chrome's Translator API and Language Detector are not used on Firefox. Chrome-only target languages are hidden.
 
@@ -63,4 +63,4 @@ sha256 f36d0813dd95573a852ab5d76e374c543632d9e292929e922bcdbf7e53b494e0
 
 ## 日本語（所有者向け）
 
-Firefox 版の審査メモです。gecko id `sakutto@jammaru` は初回 listed の前に確認してください。パッチを当てた wllama は「Sakutto 自身のコンパイル済みコード」として出し、ソース zip に手順を入れています。空 submit の WebGPU 回避策は既定オンです（計測は docs/FIREFOX.md）。Chrome 内蔵 Translator は Firefox では使いません。web-ext lint の innerHTML / dynamic import 警告は審査メモに理由を書いてあります。
+Firefox 版の審査メモです。gecko id `sakutto@jammaru` は初回 listed の前に確認してください。対象はデスクトップの Firefox（Windows、macOS、Linux）です。確認したのは Windows。macOS と Linux をマニフェストで除外してはいません。Android 向けの `gecko_android` は付けていません。パッチを当てた wllama は「Sakutto 自身のコンパイル済みコード」として出し、ソース zip に手順を入れています。空 submit の WebGPU 回避策は既定オンです（計測は docs/FIREFOX.md）。Chrome 内蔵 Translator は Firefox では使いません。web-ext lint の innerHTML / dynamic import 警告は審査メモに理由を書いてあります。
