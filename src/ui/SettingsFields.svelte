@@ -60,6 +60,19 @@
     </select>
   </label>
   <p class="muted help">{t('paceHelp')}</p>
+
+  <label class="check">
+    <input
+      type="checkbox"
+      checked={settings.composeIcon}
+      onchange={(event) => {
+        const input = event.currentTarget as HTMLInputElement;
+        onChange({ composeIcon: input.checked });
+      }}
+    />
+    <span>{t('composeIconSetting')}</span>
+  </label>
+  <p class="muted help">{t('composeIconSettingHelp')}</p>
 </div>
 
 <style>
@@ -92,5 +105,13 @@
     border-radius: var(--radius-sm);
     background: var(--surface);
     color: var(--text);
+  }
+
+  .check {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--text);
+    font-size: 13px;
   }
 </style>

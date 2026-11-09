@@ -848,10 +848,10 @@
     }
   },
   "composeHelp": {
-    "message": "メッセージ欄にフォーカスがあるとき、入力中の文の訳を小さな操作で確認できます。日本語の下書きは対になるもう一方の言語へ、それ以外は上で選んだ訳先へ訳します。「置き換える」を選ぶまで、欄の文は変わりません。"
+    "message": "メッセージ欄にフォーカスがあるとき、欄のすみの「あA」ボタンかショートカットで、入力中の文の訳をプレビューできます。日本語の下書きは対になるもう一方の言語へ、それ以外は上で選んだ訳先へ訳します。「置き換える」を選ぶまで、欄の文は変わりません。"
   },
   "composeTitle": {
-    "message": "入力中の翻訳"
+    "message": "入力中の文を翻訳"
   },
   "composeIcon": {
     "message": "入力中のテキストを翻訳"
@@ -889,11 +889,26 @@
     }
   },
   "composeChromeOnly": {
-    "message": "入力中の翻訳は PLaMo だけを使い、PLaMo は $LANGUAGE$ への翻訳に対応していません。",
+    "message": "PLaMo は $LANGUAGE$ に対応していないため翻訳できません。",
     "placeholders": {
       "language": {
         "content": "$1"
       }
     }
+  },
+  "composeIconSetting": {
+    "message": "メッセージ欄に「あA」ボタンを表示する"
+  },
+  "composeIconSettingHelp": {
+    "message": "ボタンを消しても、ショートカットと右クリックメニューは使えます。"
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo の準備ができていません。セットアップを開いてライセンスに同意し、モデルを入手してください。"
+  },
+  "composeOpenSetup": {
+    "message": "セットアップを開く"
+  },
+  "composeStale": {
+    "message": "下書きが変わったので、プレビューが追いつくまで置き換えできません。"
   }
 }

@@ -4,17 +4,25 @@ import { isTranslationExcluded, listTranslatableBlocks } from '@/dom/blocks';
 import {
   focusedComposeField,
   isComposeCandidate,
+  isComposeMenuTarget,
   isSensitiveField,
   readComposeText,
   replaceComposeText,
+  showsComposeIcon,
+  undoComposeReplace,
 } from '@/dom/compose-field';
 
-function mountSlate(initial: string): HTMLElement & { slateValue: string } {
+function mountSlate(
+  initial: string,
+  options: { asyncSelection?: boolean } = {},
+): HTMLElement & { slateValue: string } {
   const editor = document.createElement('div');
   editor.setAttribute('contenteditable', 'true');
   editor.setAttribute('role', 'textbox');
   editor.setAttribute('data-slate-editor', 'true');
   let value = initial;
+  let selStart = value.length;
+  let selEnd = value.length;
   const render = (): void => {
     editor.replaceChildren();
     const block = document.createElement('div');
@@ -25,12 +33,37 @@ function mountSlate(initial: string): HTMLElement & { slateValue: string } {
     block.append(text);
     editor.append(block);
   };
+  const offsetsFromDom = (): { start: number; end: number } => {
+    const selection = document.getSelection();
+    if (!selection || selection.rangeCount === 0) return { start: selStart, end: selEnd };
+    const range = selection.getRangeAt(0);
+    if (
+      !editor.contains(range.commonAncestorContainer) &&
+      range.commonAncestorContainer !== editor
+    ) {
+      return { start: selStart, end: selEnd };
+    }
+    const pre = range.cloneRange();
+    pre.selectNodeContents(editor);
+    pre.setEnd(range.startContainer, range.startOffset);
+    const start = pre.toString().length;
+    return { start, end: start + range.toString().length };
+  };
+  document.addEventListener('selectionchange', () => {
+    const next = offsetsFromDom();
+    selStart = next.start;
+    selEnd = next.end;
+  });
   editor.addEventListener('beforeinput', (event) => {
     const input = event as InputEvent;
     if (input.inputType !== 'insertText' && input.inputType !== 'insertFromPaste') return;
-    if (input.data === null || input.data === undefined) return;
+    const data = input.data ?? input.dataTransfer?.getData('text/plain') ?? '';
+    if (data.length === 0) return;
     event.preventDefault();
-    value = input.data;
+    const start = options.asyncSelection ? selStart : offsetsFromDom().start;
+    const end = options.asyncSelection ? selEnd : offsetsFromDom().end;
+    value = value.slice(0, start) + data + value.slice(end);
+    selStart = selEnd = start + data.length;
     render();
   });
   render();
@@ -44,11 +77,11 @@ describe('compose field eligibility', () => {
   it('accepts a textarea, a text input and a contenteditable region', () => {
     document.body.innerHTML = `
       <textarea id="box">hello</textarea>
-      <input id="search" type="search" value="query">
+      <input id="title" type="text" value="query">
       <div id="editor" contenteditable>draft</div>
     `;
     expect(isComposeCandidate(document.querySelector('#box')!)).toBe(true);
-    expect(isComposeCandidate(document.querySelector('#search')!)).toBe(true);
+    expect(isComposeCandidate(document.querySelector('#title')!)).toBe(true);
     expect(isComposeCandidate(document.querySelector('#editor')!)).toBe(true);
   });
 
@@ -60,6 +93,9 @@ describe('compose field eligibility', () => {
       <input id="otp" autocomplete="one-time-code" value="123456">
       <input id="card" autocomplete="cc-number" value="4111111111111111">
       <input id="named" name="password" value="secret">
+      <input id="api" name="api_key" value="sk">
+      <input id="pin" name="pin" value="1234">
+      <input id="emailish" type="text" inputmode="email" value="a@b.c">
       <textarea id="ok">hello</textarea>
     `;
     expect(isSensitiveField(document.querySelector('#pw')!)).toBe(true);
@@ -69,7 +105,12 @@ describe('compose field eligibility', () => {
     expect(isComposeCandidate(document.querySelector('#otp')!)).toBe(false);
     expect(isComposeCandidate(document.querySelector('#card')!)).toBe(false);
     expect(isComposeCandidate(document.querySelector('#named')!)).toBe(false);
+    expect(isComposeCandidate(document.querySelector('#api')!)).toBe(false);
+    expect(isComposeCandidate(document.querySelector('#pin')!)).toBe(false);
+    expect(isComposeCandidate(document.querySelector('#emailish')!)).toBe(false);
     expect(isComposeCandidate(document.querySelector('#ok')!)).toBe(true);
+    expect(isComposeMenuTarget(document.querySelector('#pw')!)).toBe(false);
+    expect(isComposeMenuTarget(document.querySelector('#ok')!)).toBe(true);
   });
 
   it('refuses a read-only or disabled field', () => {
@@ -80,10 +121,22 @@ describe('compose field eligibility', () => {
     expect(isComposeCandidate(document.querySelector('#ro')!)).toBe(false);
     expect(isComposeCandidate(document.querySelector('#off')!)).toBe(false);
   });
+
+  it('hides the inline icon on search boxes and comboboxes', () => {
+    document.body.innerHTML = `
+      <input id="search" type="search" value="query">
+      <div id="combo" contenteditable role="combobox">pick</div>
+      <textarea id="box">hello</textarea>
+    `;
+    expect(isComposeCandidate(document.querySelector('#search')!)).toBe(true);
+    expect(showsComposeIcon(document.querySelector('#search')!)).toBe(false);
+    expect(showsComposeIcon(document.querySelector('#combo')!)).toBe(false);
+    expect(showsComposeIcon(document.querySelector('#box')!)).toBe(true);
+  });
 });
 
 describe('reading and replacing compose text', () => {
-  it('replaces a textarea through the value setter and an input event', () => {
+  it('replaces a textarea through the value setter and an input event', async () => {
     document.body.innerHTML = '<textarea id="box">こんにちは</textarea>';
     const field = document.querySelector('#box');
     if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
@@ -91,27 +144,72 @@ describe('reading and replacing compose text', () => {
     field.addEventListener('input', () => {
       seen.push(field.value);
     });
-    const result = replaceComposeText(field, 'Hello there');
+    const result = await replaceComposeText(field, 'Hello there');
     expect(result.ok).toBe(true);
     expect(field.value).toBe('Hello there');
     expect(seen).toContain('Hello there');
   });
 
-  it('replaces a text input the same way', () => {
+  it('replaces only the selected span in a textarea', async () => {
+    document.body.innerHTML = '<textarea id="box">Hello world</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.setSelectionRange(0, 5);
+    expect(readComposeText(field)).toBe('Hello');
+    expect((await replaceComposeText(field, 'Bonjour')).ok).toBe(true);
+    expect(field.value).toBe('Bonjour world');
+  });
+
+  it('replaces a text input the same way', async () => {
     document.body.innerHTML = '<input id="title" type="text" value="下書き">';
     const field = document.querySelector('#title');
     if (!(field instanceof HTMLInputElement)) throw new Error('missing input');
-    expect(replaceComposeText(field, 'Draft').ok).toBe(true);
+    expect((await replaceComposeText(field, 'Draft')).ok).toBe(true);
     expect(field.value).toBe('Draft');
     expect(readComposeText(field)).toBe('Draft');
   });
 
-  it('replaces a plain contenteditable region', () => {
+  it('replaces a plain contenteditable region', async () => {
     document.body.innerHTML = '<div id="editor" contenteditable>会議は明日です</div>';
     const field = document.querySelector('#editor');
     if (!(field instanceof HTMLElement)) throw new Error('missing editor');
-    expect(replaceComposeText(field, 'The meeting is tomorrow.').ok).toBe(true);
+    expect((await replaceComposeText(field, 'The meeting is tomorrow.')).ok).toBe(true);
     expect(readComposeText(field).replace(/\n$/u, '')).toBe('The meeting is tomorrow.');
+  });
+
+  it('leaves Gmail signature and quoted history in place', async () => {
+    document.body.innerHTML = `
+      <div id="editor" contenteditable>
+        <div id="body">明日会いましょう。</div>
+        <div class="gmail_signature">Jane Doe</div>
+        <div class="gmail_quote">On Monday, Alex wrote: Hello</div>
+      </div>
+    `;
+    const field = document.querySelector('#editor');
+    if (!(field instanceof HTMLElement)) throw new Error('missing editor');
+    expect(readComposeText(field)).toContain('明日会いましょう。');
+    expect(readComposeText(field)).not.toContain('Jane Doe');
+    expect(readComposeText(field)).not.toContain('On Monday');
+    expect((await replaceComposeText(field, 'See you tomorrow.')).ok).toBe(true);
+    expect(readComposeText(field).replace(/\n$/u, '')).toBe('See you tomorrow.');
+    expect(field.querySelector('.gmail_signature')?.textContent).toContain('Jane Doe');
+    expect(field.querySelector('.gmail_quote')?.textContent).toContain('On Monday');
+  });
+
+  it('leaves an Outlook reply header in place', async () => {
+    document.body.innerHTML = `
+      <div id="editor" contenteditable>
+        <div>会議は明日です。</div>
+        <div id="divRplyFwdMsg">From: Alex</div>
+        <div id="Signature">Sent from Outlook</div>
+      </div>
+    `;
+    const field = document.querySelector('#editor');
+    if (!(field instanceof HTMLElement)) throw new Error('missing editor');
+    expect(readComposeText(field)).not.toContain('From: Alex');
+    expect((await replaceComposeText(field, 'The meeting is tomorrow.')).ok).toBe(true);
+    expect(field.querySelector('#divRplyFwdMsg')?.textContent).toContain('From: Alex');
+    expect(field.querySelector('#Signature')?.textContent).toContain('Sent from Outlook');
   });
 
   /**
@@ -119,22 +217,107 @@ describe('reading and replacing compose text', () => {
    * leaves that document on the original draft, so Enter would send the untranslated text.
    * The replacement has to go through `beforeinput` / `insertText` so the editor updates.
    */
-  it('replaces a Slate-style editor through beforeinput so its document matches', () => {
+  it('replaces a Slate-style editor through beforeinput so its document matches', async () => {
     const editor = mountSlate('日本語の下書き');
     document.body.append(editor);
     editor.focus();
-    const result = replaceComposeText(editor, 'English draft');
+    const result = await replaceComposeText(editor, 'English draft');
     expect(result.ok).toBe(true);
     expect(result.method).toBe('beforeinput');
     expect(editor.slateValue).toBe('English draft');
     expect(readComposeText(editor).replace(/\n$/u, '')).toBe('English draft');
   });
 
-  it('does not write into a password field', () => {
+  it('treats a canceled beforeinput as success only after the document matches', async () => {
+    const editor = document.createElement('div');
+    editor.contentEditable = 'true';
+    editor.textContent = 'original';
+    let beforeCount = 0;
+    editor.addEventListener('beforeinput', (event) => {
+      beforeCount += 1;
+      event.preventDefault();
+      editor.textContent = 'translated';
+    });
+    document.body.append(editor);
+    editor.focus();
+    const result = await replaceComposeText(editor, 'translated');
+    expect(beforeCount).toBe(1);
+    expect(result.ok).toBe(true);
+    expect(result.method).toBe('beforeinput');
+  });
+
+  it('does not treat a canceled beforeinput as success when the document stays put', async () => {
+    const editor = document.createElement('div');
+    editor.contentEditable = 'true';
+    editor.textContent = 'original';
+    editor.addEventListener('beforeinput', (event) => {
+      event.preventDefault();
+    });
+    document.body.append(editor);
+    editor.focus();
+    const result = await replaceComposeText(editor, 'translated');
+    expect(result.ok).toBe(true);
+    expect(readComposeText(editor).replace(/\n$/u, '')).toBe('translated');
+  });
+
+  it('stops after a beforeinput handler mutates the field without canceling', async () => {
+    const editor = document.createElement('div');
+    editor.contentEditable = 'true';
+    editor.textContent = 'original';
+    let inserts = 0;
+    editor.addEventListener('beforeinput', () => {
+      inserts += 1;
+      editor.textContent = `${editor.textContent ?? ''}X`;
+    });
+    const exec = document.execCommand;
+    document.execCommand = ((command: string) => {
+      if (command === 'insertText') inserts += 1;
+      return typeof exec === 'function' ? exec.call(document, command) : false;
+    }) as typeof document.execCommand;
+    document.body.append(editor);
+    editor.focus();
+    const result = await replaceComposeText(editor, 'translated');
+    document.execCommand = exec;
+    expect(inserts).toBe(1);
+    expect(result.ok).toBe(false);
+  });
+
+  it('waits for a Slate-style selectionchange before inserting', async () => {
+    const editor = mountSlate('日本語の下書き', { asyncSelection: true });
+    document.body.append(editor);
+    editor.focus();
+    const result = await replaceComposeText(editor, 'English draft');
+    expect(result.ok).toBe(true);
+    expect(editor.slateValue).toBe('English draft');
+  });
+
+  it('prefers native undo so formatting can come back', async () => {
+    document.body.innerHTML = '<div id="editor" contenteditable><b>hello</b></div>';
+    const field = document.querySelector('#editor');
+    if (!(field instanceof HTMLElement)) throw new Error('missing editor');
+    const exec = document.execCommand;
+    let undone = false;
+    document.execCommand = ((command: string) => {
+      if (command === 'undo') {
+        undone = true;
+        field.innerHTML = '<b>hello</b>';
+        return true;
+      }
+      return typeof exec === 'function' ? exec.call(document, command) : false;
+    }) as typeof document.execCommand;
+    const result = await undoComposeReplace(field, 'hello');
+    document.execCommand = exec;
+    expect(undone).toBe(true);
+    expect(result.ok).toBe(true);
+    expect(result.method).toBe('undo');
+    expect(field.querySelector('b')?.textContent).toBe('hello');
+  });
+
+  it('does not write into a password field', async () => {
     document.body.innerHTML = '<input id="pw" type="password" value="hunter2">';
     const field = document.querySelector('#pw');
     if (!(field instanceof HTMLInputElement)) throw new Error('missing password');
-    expect(replaceComposeText(field, 'Hello').ok).toBe(false);
+    expect((await replaceComposeText(field, 'Hello')).ok).toBe(false);
     expect(field.value).toBe('hunter2');
   });
 

@@ -42,6 +42,8 @@ export function installPageActions(translations?: PageTranslationCanceller): voi
   });
 }
 
+let composeMenuEnabled = true;
+
 function installMenus(): void {
   void browser.contextMenus.removeAll().then(() => {
     browser.contextMenus.create({
@@ -58,8 +60,18 @@ function installMenus(): void {
       id: 'translate-compose',
       title: browser.i18n.getMessage('contextTranslateCompose'),
       contexts: ['editable'],
+      enabled: composeMenuEnabled,
+      visible: composeMenuEnabled,
     });
   });
+}
+
+/** Hide the compose item on password and other secret fields when the page can tell. */
+export function setComposeMenuEnabled(enabled: boolean): void {
+  composeMenuEnabled = enabled;
+  void browser.contextMenus
+    .update('translate-compose', { enabled, visible: enabled })
+    .catch(() => undefined);
 }
 
 async function runOnActiveTab(command: PageCommandName): Promise<void> {

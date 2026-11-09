@@ -38,6 +38,23 @@ export const DEFAULT_SELECTION_SHORTCUT = DEFAULT_SHORTCUTS['translate-selection
 /** The key the compose command has until Chrome answers. */
 export const DEFAULT_COMPOSE_SHORTCUT = DEFAULT_SHORTCUTS['translate-compose'];
 
+/**
+ * The key a page should listen for. Chrome only applies `suggested_key` on first install,
+ * so an update that adds `translate-compose` often arrives with an empty binding. `null`
+ * (Chrome did not list the command) keeps the manifest default; `''` (listed but unbound)
+ * is left empty so the page does not steal Alt+T when the user never received it.
+ */
+export function boundShortcut(
+  snapshot: ShortcutSnapshot | null,
+  command: ShortcutCommand,
+  fallback: string,
+): string {
+  if (!snapshot) return fallback;
+  const binding = snapshot[command];
+  if (binding === null) return fallback;
+  return binding;
+}
+
 /** The shape `browser.commands.getAll()` returns, without depending on its declared type. */
 export interface CommandBinding {
   readonly name?: string | undefined;

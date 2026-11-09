@@ -848,7 +848,7 @@
     }
   },
   "composeHelp": {
-    "message": "当消息框处于焦点时，一个小控件会提供正在输入内容的译文。日语草稿会译成主语言对中的另一种语言；其他草稿使用上方的目标语言。在选择“替换”之前，输入框中的文字不会被改动。"
+    "message": "消息框处于焦点时，あA 按钮（或快捷键）会预览正在输入内容的译文。日语草稿译成英语（或上方所选目标语言）；其他草稿使用该目标语言。在选择“替换”之前不会改动正文。"
   },
   "composeTitle": {
     "message": "正在输入的翻译"
@@ -895,5 +895,20 @@
         "content": "$1"
       }
     }
+  },
+  "composeIconSetting": {
+    "message": "在消息框上显示 あA 按钮"
+  },
+  "composeIconSettingHelp": {
+    "message": "隐藏按钮后，快捷键和右键菜单仍然可用。"
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo 尚未就绪。请打开设置以同意许可并下载模型。"
+  },
+  "composeOpenSetup": {
+    "message": "打开设置"
+  },
+  "composeStale": {
+    "message": "草稿已更改。预览更新完成前暂停替换。"
   }
 }

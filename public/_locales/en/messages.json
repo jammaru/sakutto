@@ -848,7 +848,7 @@
     }
   },
   "composeHelp": {
-    "message": "While a message box is focused, a small control offers a translation of what you are typing. Japanese drafts go into the other language of the main pair; other drafts use the target language above. Nothing is replaced until you choose Replace."
+    "message": "While a message box is focused, the あA button (or the shortcut) previews a translation of what you are typing. Japanese drafts go to English (or to the target language above); other drafts use that target. Nothing is replaced until you choose Replace."
   },
   "composeTitle": {
     "message": "Draft translation"
@@ -895,5 +895,20 @@
         "content": "$1"
       }
     }
+  },
+  "composeIconSetting": {
+    "message": "Show the あA button on message boxes"
+  },
+  "composeIconSettingHelp": {
+    "message": "The shortcut and the right-click menu still work when the button is hidden."
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo is not ready yet. Open setup to agree to the licence and download the model."
+  },
+  "composeOpenSetup": {
+    "message": "Open setup"
+  },
+  "composeStale": {
+    "message": "The draft changed. Replace is paused until the preview catches up."
   }
 }

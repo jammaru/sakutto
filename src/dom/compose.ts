@@ -3,14 +3,22 @@ import { displayLanguage, isTargetLanguage, type TargetLanguage } from '@/shared
 import { COMPOSE_PREVIEW_MS, planComposeTranslation } from '@/shared/compose-translation';
 import { matchesShortcut } from '@/shared/shortcuts';
 import type { Formality } from '@/shared/settings';
-import { MAX_TYPED_CHARS, normalizeTypedInput } from '@/shared/typed-translation';
+import {
+  MAX_TYPED_CHARS,
+  normalizeTypedInput,
+  type TypedReadiness,
+} from '@/shared/typed-translation';
 import { collectDocuments } from './blocks';
 import {
   composeFieldRect,
   focusedComposeField,
   isComposeCandidate,
+  isComposeMenuTarget,
   readComposeText,
   replaceComposeText,
+  showsComposeIcon,
+  textsMatch,
+  undoComposeReplace,
 } from './compose-field';
 import type { PageEngine } from './session';
 import { uiShadow } from './overlay';
@@ -27,6 +35,9 @@ export interface ComposeLabels {
   tooLong: string;
   swap: string;
   replaced: string;
+  stale: string;
+  setup: string;
+  openSetup: string;
   into: (language: string) => string;
   chromeOnly: (language: string) => string;
 }
@@ -37,6 +48,8 @@ export interface ComposePreferences {
   glossary?: readonly GlossaryEntry[];
   enabled: boolean;
   uiLanguage: string;
+  showIcon: boolean;
+  readiness: TypedReadiness;
 }
 
 const ICON_PX = 26;
@@ -144,6 +157,8 @@ button.swap {
   color: #0e7490;
   font-weight: 700;
 }
+button.setup { display: none; }
+button.setup.visible { display: inline-flex; }
 @media (prefers-color-scheme: dark) {
   .card {
     border-color: #2d3947;
@@ -165,6 +180,7 @@ interface PanelState {
   lang: string;
   canReplace: boolean;
   canUndo: boolean;
+  needsSetup: boolean;
 }
 
 class ComposeOverlay {
@@ -178,12 +194,14 @@ class ComposeOverlay {
   private readonly replaceButton: HTMLButtonElement;
   private readonly undoButton: HTMLButtonElement;
   private readonly closeButton: HTMLButtonElement;
+  private readonly setupButton: HTMLButtonElement;
   private labels: ComposeLabels;
   private onIcon: () => void = () => undefined;
   private onReplace: () => void = () => undefined;
   private onUndo: () => void = () => undefined;
   private onClose: () => void = () => undefined;
   private onSwap: () => void = () => undefined;
+  private onSetup: () => void = () => undefined;
 
   constructor(
     private readonly doc: Document,
@@ -211,6 +229,12 @@ class ComposeOverlay {
     this.replaceButton = panel.replace;
     this.undoButton = panel.undo;
     this.closeButton = panel.close;
+    this.setupButton = panel.setup;
+    this.panelHost.addEventListener('sakutto-compose-action', (event) => {
+      const detail = event instanceof CustomEvent ? event.detail : null;
+      if (detail === 'replace') this.onReplace();
+      if (detail === 'undo') this.onUndo();
+    });
   }
 
   setLabels(labels: ComposeLabels): void {
@@ -223,6 +247,7 @@ class ComposeOverlay {
     this.replaceButton.textContent = labels.replace;
     this.undoButton.textContent = labels.undo;
     this.closeButton.textContent = labels.close;
+    this.setupButton.textContent = labels.openSetup;
     const card = uiShadows.get(this.panelHost)?.querySelector('.card');
     if (card instanceof HTMLElement) card.setAttribute('aria-label', labels.title);
   }
@@ -233,12 +258,14 @@ class ComposeOverlay {
     onUndo: () => void;
     onClose: () => void;
     onSwap: () => void;
+    onSetup: () => void;
   }): void {
     this.onIcon = handlers.onIcon;
     this.onReplace = handlers.onReplace;
     this.onUndo = handlers.onUndo;
     this.onClose = handlers.onClose;
     this.onSwap = handlers.onSwap;
+    this.onSetup = handlers.onSetup;
   }
 
   showIcon(anchor: DOMRect): void {
@@ -247,9 +274,11 @@ class ComposeOverlay {
     const view = this.doc.defaultView;
     const width = view?.innerWidth ?? 800;
     const height = view?.innerHeight ?? 600;
-    let left = anchor.right - ICON_PX;
-    let top = anchor.bottom + 6;
-    if (top + ICON_PX > height - 8) top = Math.max(8, anchor.top - ICON_PX - 6);
+    let left = anchor.right - ICON_PX - 6;
+    let top = anchor.bottom - ICON_PX - 6;
+    if (anchor.height < ICON_PX + 8) {
+      top = anchor.top + Math.max(0, (anchor.height - ICON_PX) / 2);
+    }
     left = Math.min(Math.max(left, 8), width - ICON_PX - 8);
     top = Math.min(Math.max(top, 8), height - ICON_PX - 8);
     this.iconHost.hidden = false;
@@ -268,11 +297,16 @@ class ComposeOverlay {
   }
 
   showPanel(anchor: DOMRect, state: PanelState): void {
-    this.body.textContent = state.pending ? this.labels.pending : state.preview;
+    this.body.textContent = state.pending
+      ? this.labels.pending
+      : state.needsSetup
+        ? this.labels.setup
+        : state.preview;
     this.body.lang = state.lang;
     this.note.textContent = state.note;
     this.replaceButton.disabled = !state.canReplace;
     this.undoButton.disabled = !state.canUndo;
+    this.setupButton.classList.toggle('visible', state.needsSetup);
     this.kicker.textContent = this.labels.title;
     this.placePanel(anchor);
   }
@@ -333,6 +367,7 @@ class ComposeOverlay {
     replace: HTMLButtonElement;
     undo: HTMLButtonElement;
     close: HTMLButtonElement;
+    setup: HTMLButtonElement;
   } {
     const shadow = attachClosedShadow(this.panelHost);
     const style = this.doc.createElement('style');
@@ -411,10 +446,21 @@ class ComposeOverlay {
       event.stopPropagation();
       this.onClose();
     });
-    actions.append(replace, undo, close);
+    const setup = this.doc.createElement('button');
+    setup.type = 'button';
+    setup.className = 'setup';
+    setup.textContent = this.labels.openSetup;
+    setup.addEventListener('pointerdown', keepFocus);
+    setup.addEventListener('mousedown', keepFocus);
+    setup.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.onSetup();
+    });
+    actions.append(replace, undo, close, setup);
     card.append(kickerRow, body, note, actions);
     shadow.append(style, card);
-    return { kicker, swap, body, note, replace, undo, close };
+    return { kicker, swap, body, note, replace, undo, close, setup };
   }
 
   private placePanel(anchor: DOMRect): void {
@@ -431,8 +477,8 @@ class ComposeOverlay {
     this.panelHost.style.height = `${String(cardHeight)}px`;
     let left = anchor.left;
     if (left + cardWidth > width - 8) left = width - cardWidth - 8;
-    let top = anchor.bottom + 16;
-    if (top + cardHeight > height - 8) top = Math.max(8, anchor.top - cardHeight - 16);
+    let top = anchor.bottom + 8;
+    if (top + cardHeight > height - 8) top = Math.max(8, anchor.top - cardHeight - 8);
     this.panelHost.style.left = `${String(Math.max(8, left))}px`;
     this.panelHost.style.top = `${String(Math.max(8, top))}px`;
   }
@@ -444,6 +490,9 @@ export interface ComposeControllerOptions {
   preferences: ComposePreferences;
   composeKey?: (event: KeyboardEvent) => boolean;
   previewMs?: number;
+  onWarm?: () => void;
+  onSetup?: () => void;
+  onMenu?: (enabled: boolean) => void;
 }
 
 /**
@@ -455,6 +504,9 @@ export class ComposeController {
   private readonly overlay: ComposeOverlay;
   private readonly composeKey: (event: KeyboardEvent) => boolean;
   private readonly previewMs: number;
+  private readonly onWarm: (() => void) | undefined;
+  private readonly onSetup: (() => void) | undefined;
+  private readonly onMenu: ((enabled: boolean) => void) | undefined;
   private readonly boundDocs = new Set<Document>();
   private prefs: ComposePreferences;
   private labels: ComposeLabels;
@@ -465,17 +517,21 @@ export class ComposeController {
   private preview = '';
   private pending = false;
   private failed = false;
+  private stale = false;
   private original: string | null = null;
   private applied: string | null = null;
+  private replacing = false;
   private lastShortcutAt = 0;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private request: AbortController | null = null;
   private generation = 0;
+  private scrollFrame = 0;
   private readonly onFocusIn: (event: Event) => void;
   private readonly onFocusOut: (event: Event) => void;
   private readonly onInput: (event: Event) => void;
   private readonly onKeyDown: (event: Event) => void;
   private readonly onContextMenu: (event: Event) => void;
+  private readonly onCompositionEnd: (event: Event) => void;
   private readonly onScroll: () => void;
 
   constructor(
@@ -487,20 +543,29 @@ export class ComposeController {
     this.prefs = options.preferences;
     this.previewMs = options.previewMs ?? COMPOSE_PREVIEW_MS;
     this.composeKey = options.composeKey ?? ((event) => matchesShortcut(event, 'Alt+T'));
+    this.onWarm = options.onWarm;
+    this.onSetup = options.onSetup;
+    this.onMenu = options.onMenu;
     this.overlay = new ComposeOverlay(doc, options.labels);
     this.overlay.setHandlers({
       onIcon: () => this.openFromIcon(),
-      onReplace: () => this.apply(),
-      onUndo: () => this.undo(),
+      onReplace: () => {
+        void this.apply();
+      },
+      onUndo: () => {
+        void this.undo();
+      },
       onClose: () => this.dismiss(),
       onSwap: () => this.swapDirection(),
+      onSetup: () => this.onSetup?.(),
     });
     this.onFocusIn = (event) => this.handleFocus(event);
     this.onFocusOut = (event) => this.handleBlur(event);
     this.onInput = (event) => this.handleInput(event);
     this.onKeyDown = (event) => this.handleKey(event);
     this.onContextMenu = (event) => this.handleContextMenu(event);
-    this.onScroll = () => this.reposition();
+    this.onCompositionEnd = (event) => this.handleCompositionEnd(event);
+    this.onScroll = () => this.scheduleReposition();
     this.bindDocuments();
     this.doc.defaultView?.addEventListener('scroll', this.onScroll, true);
     this.doc.defaultView?.addEventListener('resize', this.onScroll);
@@ -521,7 +586,9 @@ export class ComposeController {
       this.field = null;
       return;
     }
+    this.syncIcon();
     if (languageChanged && this.panelOpen) this.translateField(this.resolveField());
+    else if (this.panelOpen) this.render();
   }
 
   /** Chrome command, context menu, or the in-page key. Never sends the message. */
@@ -534,8 +601,12 @@ export class ComposeController {
     if (!field) return;
     this.field = field;
     this.lastField = field;
-    if (this.panelOpen && this.canApply()) {
-      this.apply();
+    if (this.panelOpen) {
+      if (this.applied !== null || this.preview.trim().length > 0 || this.pending) {
+        this.render();
+        return;
+      }
+      this.translateField(field);
       return;
     }
     this.openPanel(field);
@@ -549,6 +620,7 @@ export class ComposeController {
   destroy(): void {
     this.abort();
     this.clearDebounce();
+    if (this.scrollFrame !== 0) this.doc.defaultView?.cancelAnimationFrame(this.scrollFrame);
     this.overlay.destroy();
     for (const doc of this.boundDocs) {
       doc.removeEventListener('focusin', this.onFocusIn, true);
@@ -556,6 +628,7 @@ export class ComposeController {
       doc.removeEventListener('input', this.onInput, true);
       doc.removeEventListener('keydown', this.onKeyDown, true);
       doc.removeEventListener('contextmenu', this.onContextMenu, true);
+      doc.removeEventListener('compositionend', this.onCompositionEnd, true);
     }
     this.boundDocs.clear();
     this.doc.defaultView?.removeEventListener('scroll', this.onScroll, true);
@@ -570,6 +643,7 @@ export class ComposeController {
       doc.addEventListener('input', this.onInput, true);
       doc.addEventListener('keydown', this.onKeyDown, true);
       doc.addEventListener('contextmenu', this.onContextMenu, true);
+      doc.addEventListener('compositionend', this.onCompositionEnd, true);
       this.boundDocs.add(doc);
     }
   }
@@ -584,14 +658,27 @@ export class ComposeController {
     return null;
   }
 
+  private focusedField(): Element | null {
+    return focusedComposeField(this.doc);
+  }
+
+  private syncIcon(): void {
+    const focused = this.focusedField();
+    if (this.prefs.enabled && this.prefs.showIcon && focused && showsComposeIcon(focused)) {
+      this.overlay.showIcon(composeFieldRect(focused));
+      return;
+    }
+    this.overlay.hideIcon();
+  }
+
   private handleFocus(event: Event): void {
     this.bindDocuments();
     const target = event.target;
     if (!(target instanceof Node)) return;
     if (this.overlay.contains(target)) return;
-    const field = focusedComposeField(this.doc);
+    const field = this.focusedField();
     if (!this.prefs.enabled || !field) {
-      if (!this.panelOpen) this.overlay.hideIcon();
+      this.syncIcon();
       return;
     }
     if (this.field !== field) {
@@ -599,10 +686,11 @@ export class ComposeController {
       this.original = null;
       this.preview = '';
       this.swapped = false;
+      this.stale = false;
     }
     this.field = field;
     this.lastField = field;
-    this.overlay.showIcon(composeFieldRect(field));
+    this.syncIcon();
     if (this.panelOpen) this.reposition();
   }
 
@@ -610,32 +698,44 @@ export class ComposeController {
     const next = event instanceof FocusEvent ? event.relatedTarget : null;
     if (next instanceof Node && this.overlay.contains(next)) return;
     window.setTimeout(() => {
-      const field = focusedComposeField(this.doc);
-      if (field) {
-        this.field = field;
-        this.overlay.showIcon(composeFieldRect(field));
-        return;
-      }
-      if (!this.panelOpen) this.overlay.hideIcon();
+      this.syncIcon();
     }, 50);
   }
 
   private handleInput(event: Event): void {
+    if (this.replacing) return;
+    if (isComposingEvent(event)) return;
     const target = event.target;
     if (!(target instanceof Element)) return;
     if (this.overlay.contains(target)) return;
     const field = this.resolveField();
     if (!field || (field !== target && !field.contains(target))) return;
-    if (this.applied && readComposeText(field) === this.applied) return;
+    const current = readComposeText(field);
+    if (this.applied !== null && textsMatch(current, this.applied)) return;
     this.applied = null;
     this.original = null;
     if (!this.panelOpen) return;
+    this.stale = true;
+    this.render();
+    this.schedulePreview(field);
+  }
+
+  private handleCompositionEnd(event: Event): void {
+    if (this.replacing || !this.panelOpen) return;
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (this.overlay.contains(target)) return;
+    const field = this.resolveField();
+    if (!field || (field !== target && !field.contains(target))) return;
+    this.stale = true;
+    this.render();
     this.schedulePreview(field);
   }
 
   private handleKey(event: Event): void {
     if (!(event instanceof KeyboardEvent) || event.repeat) return;
-    if (event.key === 'Escape' && (this.panelOpen || this.overlay.iconVisible())) {
+    if (event.key === 'Escape') {
+      if (event.isComposing || !this.panelOpen) return;
       event.preventDefault();
       event.stopPropagation();
       this.dismiss();
@@ -651,13 +751,13 @@ export class ComposeController {
   }
 
   private handleContextMenu(event: Event): void {
-    const target = event.target;
-    if (!(target instanceof Element)) return;
-    const field = focusedComposeField(this.doc);
+    this.onMenu?.(isComposeMenuTarget(event.target));
+    const field = this.focusedField();
     if (field) this.lastField = field;
   }
 
   private openFromIcon(): void {
+    this.onWarm?.();
     const field = this.resolveField();
     if (!field) return;
     this.openPanel(field);
@@ -668,6 +768,7 @@ export class ComposeController {
     this.panelOpen = true;
     this.swapped = false;
     this.failed = false;
+    this.stale = false;
     this.preview = '';
     this.applied = null;
     this.original = null;
@@ -683,47 +784,66 @@ export class ComposeController {
     this.preview = '';
     this.pending = false;
     this.failed = false;
+    this.stale = false;
     this.swapped = false;
     this.overlay.hidePanel();
-    const field = this.resolveField();
-    if (field && this.prefs.enabled) this.overlay.showIcon(composeFieldRect(field));
-    else this.overlay.hideIcon();
+    this.syncIcon();
+  }
+
+  private needsSetup(): boolean {
+    return this.prefs.readiness !== 'ready';
   }
 
   private canApply(): boolean {
     return (
-      this.panelOpen && !this.pending && this.preview.trim().length > 0 && this.applied === null
+      this.panelOpen &&
+      !this.pending &&
+      !this.stale &&
+      !this.needsSetup() &&
+      this.preview.trim().length > 0 &&
+      this.applied === null
     );
   }
 
-  private apply(): void {
+  private async apply(): Promise<void> {
     const field = this.resolveField();
     if (!field || !this.canApply()) return;
     const current = readComposeText(field);
-    const result = replaceComposeText(field, this.preview);
-    if (!result.ok) {
-      this.failed = true;
+    this.replacing = true;
+    try {
+      const result = await replaceComposeText(field, this.preview);
+      if (!result.ok) {
+        this.failed = true;
+        this.render();
+        return;
+      }
+      this.original = current;
+      this.applied = readComposeText(field);
+      this.stale = false;
       this.render();
-      return;
+    } finally {
+      this.replacing = false;
     }
-    this.original = current;
-    this.applied = this.preview;
-    this.render();
   }
 
-  private undo(): void {
+  private async undo(): Promise<void> {
     const field = this.resolveField();
     if (!field || this.original === null) return;
     const restore = this.original;
-    const result = replaceComposeText(field, restore);
-    if (!result.ok) {
-      this.failed = true;
+    this.replacing = true;
+    try {
+      const result = await undoComposeReplace(field, restore);
+      if (!result.ok) {
+        this.failed = true;
+        this.render();
+        return;
+      }
+      this.applied = null;
+      this.original = null;
       this.render();
-      return;
+    } finally {
+      this.replacing = false;
     }
-    this.applied = null;
-    this.original = null;
-    this.render();
   }
 
   private swapDirection(): void {
@@ -760,10 +880,19 @@ export class ComposeController {
     const raw = readComposeText(field);
     const trimmed = normalizeTypedInput(raw);
     this.failed = false;
+    if (this.needsSetup()) {
+      this.abort();
+      this.preview = '';
+      this.pending = false;
+      this.stale = false;
+      this.render();
+      return;
+    }
     if (trimmed.length === 0) {
       this.abort();
       this.preview = '';
       this.pending = false;
+      this.stale = false;
       this.render();
       return;
     }
@@ -772,6 +901,7 @@ export class ComposeController {
       this.preview = '';
       this.pending = false;
       this.failed = true;
+      this.stale = false;
       this.render();
       return;
     }
@@ -780,6 +910,7 @@ export class ComposeController {
       this.abort();
       this.preview = '';
       this.pending = false;
+      this.stale = false;
       this.render();
       return;
     }
@@ -824,6 +955,7 @@ export class ComposeController {
       }
       if (signal.aborted || token !== this.generation) return;
       this.pending = false;
+      this.stale = false;
       if (output.trim().length === 0) this.failed = true;
       this.render();
     } catch {
@@ -846,7 +978,11 @@ export class ComposeController {
     const language = displayLanguage(plan.targetLanguage, this.prefs.uiLanguage);
     let note = this.labels.into(language);
     let preview = this.preview;
-    if (trimmed.length === 0) {
+    const needsSetup = this.needsSetup();
+    if (needsSetup) {
+      preview = this.labels.setup;
+      note = '';
+    } else if (trimmed.length === 0) {
       preview = this.labels.empty;
       note = '';
     } else if (trimmed.length > MAX_TYPED_CHARS) {
@@ -857,27 +993,44 @@ export class ComposeController {
       note = '';
     } else if (this.failed && this.preview.trim().length === 0) {
       preview = this.labels.failed;
+    } else if (this.stale) {
+      note = this.labels.stale;
     } else if (this.applied !== null) {
       note = this.labels.replaced;
     }
-    this.overlay.showIcon(composeFieldRect(field));
+    this.syncIcon();
     this.overlay.showPanel(composeFieldRect(field), {
       preview,
       note,
-      pending: this.pending && trimmed.length > 0 && plan.ok,
+      pending: this.pending && trimmed.length > 0 && plan.ok && !needsSetup,
       lang: plan.targetLanguage,
       canReplace: this.canApply(),
       canUndo: this.original !== null,
+      needsSetup,
+    });
+  }
+
+  private scheduleReposition(): void {
+    if (this.scrollFrame !== 0) return;
+    const view = this.doc.defaultView;
+    if (!view) {
+      this.reposition();
+      return;
+    }
+    this.scrollFrame = view.requestAnimationFrame(() => {
+      this.scrollFrame = 0;
+      this.reposition();
     });
   }
 
   private reposition(): void {
-    const field = this.resolveField();
-    if (!field) return;
-    const rect = composeFieldRect(field);
-    if (this.prefs.enabled) this.overlay.showIcon(rect);
+    this.syncIcon();
     if (this.panelOpen) this.render();
   }
+}
+
+function isComposingEvent(event: Event): boolean {
+  return 'isComposing' in event && (event as InputEvent).isComposing === true;
 }
 
 /** Exported so a test can read the closed panel without opening the shadow from the page. */

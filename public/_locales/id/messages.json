@@ -848,7 +848,7 @@
     }
   },
   "composeHelp": {
-    "message": "Saat kotak pesan mendapat fokus, kontrol kecil menawarkan terjemahan dari yang Anda ketik. Draf Jepang menuju bahasa lain dari pasangan utama; draf lain memakai bahasa sasaran di atas. Teks tidak diganti sampai Anda memilih Ganti."
+    "message": "Saat kotak pesan berfokus, tombol あA (atau pintasan) menampilkan pratinjau terjemahan. Draf Jepang ke bahasa Inggris (atau bahasa sasaran di atas); yang lain memakai sasaran itu. Tidak ada yang diganti sampai Anda memilih Ganti."
   },
   "composeTitle": {
     "message": "Terjemahan draf"
@@ -895,5 +895,20 @@
         "content": "$1"
       }
     }
+  },
+  "composeIconSetting": {
+    "message": "Tampilkan tombol あA pada kotak pesan"
+  },
+  "composeIconSettingHelp": {
+    "message": "Pintasan dan menu klik kanan tetap bekerja jika tombol disembunyikan."
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo belum siap. Buka penyiapan untuk menyetujui lisensi dan mengunduh model."
+  },
+  "composeOpenSetup": {
+    "message": "Buka penyiapan"
+  },
+  "composeStale": {
+    "message": "Draf berubah. Ganti dijeda sampai pratinjau menyusul."
   }
 }

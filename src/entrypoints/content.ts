@@ -7,9 +7,12 @@ import { fakeTranslate } from '@/dom/fake-engine';
 import type { OverlayLabels } from '@/dom/overlay';
 import { PageSession, preferencesFor } from '@/dom/session';
 import { loadSiteRule, pageHost, saveSiteRule, subscribeSiteRules } from '@/dom/sites';
+import { hasLicenseConsent } from '@/shared/agreement';
+import type { ModelStatus } from '@/shared/engine-status';
 import { mergeGlossary } from '@/shared/glossary';
 import { currentUiLanguage, t } from '@/shared/i18n';
 import {
+  boundShortcut,
   DEFAULT_COMPOSE_SHORTCUT,
   DEFAULT_SELECTION_SHORTCUT,
   matchesShortcut,
@@ -24,9 +27,10 @@ import {
   requestEngineWarm,
   type PageCommandName,
   type PageInfo,
-  type ShortcutSnapshot,
 } from '@/shared/messages';
 import { loadSettings, subscribeSettings } from '@/shared/storage';
+import type { Settings } from '@/shared/settings';
+import { typedReadiness } from '@/shared/typed-translation';
 import { translateViaBackground } from '@/shared/translation-client';
 
 interface ContentBridgeGlobal {
@@ -40,26 +44,14 @@ const bridge = globalThis as typeof globalThis & ContentBridgeGlobal;
  * are bound through the background worker, so this asks once and keeps the manifest default
  * when the answer never arrives. An empty string means the command has no key.
  */
-function shortcutFromSnapshot(
-  snapshot: ShortcutSnapshot | null,
-  command: 'translate-selection' | 'translate-compose',
-  fallback: string,
-): string {
-  if (!snapshot) return fallback;
-  const binding = snapshot[command];
-  // A command Chrome did not list is one this page cannot learn about; keep the default.
-  if (binding === null) return fallback;
-  return binding;
-}
-
 async function readBoundShortcuts(): Promise<{ selection: string; compose: string }> {
   const response: unknown = await browser.runtime
     .sendMessage({ type: 'commands:shortcuts' })
     .catch(() => undefined);
   const snapshot = isShortcutSnapshot(response) ? response : null;
   return {
-    selection: shortcutFromSnapshot(snapshot, 'translate-selection', DEFAULT_SELECTION_SHORTCUT),
-    compose: shortcutFromSnapshot(snapshot, 'translate-compose', DEFAULT_COMPOSE_SHORTCUT),
+    selection: boundShortcut(snapshot, 'translate-selection', DEFAULT_SELECTION_SHORTCUT),
+    compose: boundShortcut(snapshot, 'translate-compose', DEFAULT_COMPOSE_SHORTCUT),
   };
 }
 
@@ -83,9 +75,25 @@ function composeLabels(): ComposeLabels {
     tooLong: t('composeTooLong'),
     swap: t('composeSwap'),
     replaced: t('composeReplaced'),
+    stale: t('composeStale'),
+    setup: t('composeNeedSetup'),
+    openSetup: t('composeOpenSetup'),
     into: (language) => t('composeInto', [language]),
     chromeOnly: (language) => t('composeChromeOnly', [language]),
   };
+}
+
+function composeReadiness(
+  settings: Settings,
+  model: Pick<ModelStatus, 'state'> | null,
+  ready: boolean,
+) {
+  if (__SAKUTTO_FAKE_ENGINE__) return 'ready' as const;
+  return typedReadiness({
+    consent: hasLicenseConsent(settings),
+    modelState: model?.state ?? 'absent',
+    plamoReady: ready,
+  });
 }
 
 function overlayLabels(): OverlayLabels {
@@ -133,6 +141,8 @@ export default defineContentScript({
     let lastCommand = '';
     let lastCommandAt = 0;
     let compose: ComposeController | null = null;
+    let modelState: ModelStatus['state'] | null = null;
+    let plamoReady = false;
     const readBoundShortcutsNow = (): void => {
       void readBoundShortcuts().then((bound) => {
         selectionShortcut = bound.selection;
@@ -149,6 +159,11 @@ export default defineContentScript({
     const sessionPromise = (async () => {
       const settings = await loadSettings();
       const rule = await loadSiteRule(host);
+      if (!__SAKUTTO_FAKE_ENGINE__) {
+        const status = await requestEngineStatus().catch(() => null);
+        modelState = status?.model.state ?? null;
+        plamoReady = status?.plamoReady ?? false;
+      }
       const session = new PageSession(document, {
         engine,
         labels: overlayLabels(),
@@ -170,9 +185,26 @@ export default defineContentScript({
           glossary: mergeGlossary(settings.glossary, rule.glossary),
           enabled: rule.auto !== 'never',
           uiLanguage: currentUiLanguage(),
+          showIcon: settings.composeIcon,
+          readiness: composeReadiness(
+            settings,
+            modelState ? { state: modelState } : null,
+            plamoReady,
+          ),
         },
         composeKey: (event) =>
           composeShortcut.length > 0 && matchesShortcut(event, composeShortcut),
+        onWarm: () => {
+          if (!__SAKUTTO_FAKE_ENGINE__) void requestEngineWarm();
+        },
+        onSetup: () => {
+          void browser.runtime.sendMessage({ type: 'ui:open-setup' }).catch(() => undefined);
+        },
+        onMenu: (enabled) => {
+          void browser.runtime
+            .sendMessage({ type: 'compose:menu', enabled })
+            .catch(() => undefined);
+        },
       });
 
       const detected = await detectDocumentLanguage(document);
@@ -189,6 +221,12 @@ export default defineContentScript({
           glossary: mergeGlossary(nextSettings.glossary, nextRule.glossary),
           enabled: nextRule.auto !== 'never',
           uiLanguage: currentUiLanguage(),
+          showIcon: nextSettings.composeIcon,
+          readiness: composeReadiness(
+            nextSettings,
+            modelState ? { state: modelState } : null,
+            plamoReady,
+          ),
         });
       };
 
@@ -236,9 +274,23 @@ export default defineContentScript({
         return;
       }
       if (isModelProgressMessage(message)) {
-        if (message.status.state === 'loaded' && !__SAKUTTO_FAKE_ENGINE__) {
-          void sessionPromise.then((session) => requestEngineTier(session, true));
-        }
+        modelState = message.status.state;
+        if (message.status.state === 'loaded') plamoReady = true;
+        void sessionPromise.then(async (session) => {
+          const [nextSettings, nextRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
+          compose?.setPreferences({
+            targetLanguage: nextRule.targetLanguage ?? nextSettings.targetLanguage,
+            form: nextSettings.form,
+            glossary: mergeGlossary(nextSettings.glossary, nextRule.glossary),
+            enabled: nextRule.auto !== 'never',
+            uiLanguage: currentUiLanguage(),
+            showIcon: nextSettings.composeIcon,
+            readiness: composeReadiness(nextSettings, message.status, plamoReady),
+          });
+          if (message.status.state === 'loaded' && !__SAKUTTO_FAKE_ENGINE__) {
+            void requestEngineTier(session, true);
+          }
+        });
         return;
       }
       if (!isPageCommandRequest(message) && !isPageStateRequest(message)) return;

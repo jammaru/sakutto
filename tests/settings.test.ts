@@ -25,6 +25,7 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     idleMinutes: 5,
     tier: 'auto',
     pace: 'quality',
+    composeIcon: true,
     ...overrides,
   };
 }
@@ -53,6 +54,28 @@ describe('settings defaults', () => {
     expect(displayLanguage('en', 'ja')).toBe('英語');
     expect(displayLanguage('not-a-language', 'en')).toBe('not-a-language');
     expect(displayLanguage('', 'en')).toBe('');
+  });
+
+  it('defaults the compose icon on for a record that predates the setting', () => {
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+        },
+        'en-US',
+      ).composeIcon,
+    ).toBe(true);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          composeIcon: false,
+        },
+        'en-US',
+      ).composeIcon,
+    ).toBe(false);
   });
 
   it('keeps valid stored values and repairs invalid ones', () => {

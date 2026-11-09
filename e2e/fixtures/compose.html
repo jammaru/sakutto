@@ -58,12 +58,21 @@
       aria-labelledby="slate-label"
     ></div>
 
+    <div class="label" id="mail-label">Gmail-style compose</div>
+    <div id="mail" contenteditable="true" role="textbox" aria-labelledby="mail-label">
+      <div id="mail-body">会議は明日です。</div>
+      <div class="gmail_signature">Jane Doe</div>
+      <div class="gmail_quote">On Monday, Alex wrote: Hello</div>
+    </div>
+
     <label for="secret">Password (must never be touched)</label>
     <input id="secret" type="password" value="hunter2" />
 
     <script>
       const editor = document.getElementById('slate');
       let value = '';
+      let selStart = 0;
+      let selEnd = 0;
       const render = () => {
         editor.replaceChildren();
         const block = document.createElement('div');
@@ -75,23 +84,49 @@
         editor.append(block);
         editor.dataset.slateValue = value;
       };
+      const offsetsFromDom = () => {
+        const selection = document.getSelection();
+        if (!selection || selection.rangeCount === 0) return { start: selStart, end: selEnd };
+        const range = selection.getRangeAt(0);
+        if (
+          !editor.contains(range.commonAncestorContainer) &&
+          range.commonAncestorContainer !== editor
+        ) {
+          return { start: selStart, end: selEnd };
+        }
+        const pre = range.cloneRange();
+        pre.selectNodeContents(editor);
+        pre.setEnd(range.startContainer, range.startOffset);
+        const start = pre.toString().length;
+        return { start, end: start + range.toString().length };
+      };
+      document.addEventListener('selectionchange', () => {
+        const next = offsetsFromDom();
+        selStart = next.start;
+        selEnd = next.end;
+      });
       editor.addEventListener('beforeinput', (event) => {
         if (event.inputType !== 'insertText' && event.inputType !== 'insertFromPaste') return;
-        if (event.data === null) return;
+        const data = event.data ?? event.dataTransfer?.getData('text/plain') ?? '';
+        if (!data) return;
         event.preventDefault();
-        value = event.data;
+        value = value.slice(0, selStart) + data + value.slice(selEnd);
+        selStart = selEnd = selStart + data.length;
         render();
       });
       editor.addEventListener('keydown', (event) => {
         if (event.key !== 'Backspace' && event.key !== 'Delete') return;
         event.preventDefault();
         value = '';
+        selStart = selEnd = 0;
         render();
       });
       render();
       window.__slate = {
         set(next) {
           value = next;
+          selStart = 0;
+          selEnd = next.length;
           render();
         },
         get() {

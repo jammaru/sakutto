@@ -848,7 +848,7 @@
     }
   },
   "composeHelp": {
-    "message": "Wenn ein Nachrichtenfeld den Fokus hat, bietet ein kleines Steuerelement eine Übersetzung des getippten Texts. Japanische Entwürfe gehen in die andere Sprache des Hauptpaars; andere Entwürfe nutzen die Zielsprache oben. Nichts wird ersetzt, bis Sie „Ersetzen“ wählen."
+    "message": "Wenn ein Nachrichtenfeld den Fokus hat, zeigt die あA-Schaltfläche (oder das Tastenkürzel) eine Vorschau der Übersetzung. Japanische Entwürfe gehen ins Englische (oder in die Zielsprache oben); andere Entwürfe nutzen diese Zielsprache. Nichts wird ersetzt, bis Sie „Ersetzen“ wählen."
   },
   "composeTitle": {
     "message": "Übersetzung des Entwurfs"
@@ -889,11 +889,26 @@
     }
   },
   "composeChromeOnly": {
-    "message": "Die Entwurfübersetzung nutzt nur PLaMo, und PLaMo übersetzt nicht nach $LANGUAGE$.",
+    "message": "Die Entwurfsübersetzung nutzt nur PLaMo, und PLaMo übersetzt nicht nach $LANGUAGE$.",
     "placeholders": {
       "language": {
         "content": "$1"
       }
     }
+  },
+  "composeIconSetting": {
+    "message": "Die あA-Schaltfläche in Nachrichtenfeldern anzeigen"
+  },
+  "composeIconSettingHelp": {
+    "message": "Tastenkürzel und Rechtsklickmenü funktionieren weiterhin, wenn die Schaltfläche ausgeblendet ist."
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo ist noch nicht bereit. Öffnen Sie die Einrichtung, um der Lizenz zuzustimmen und das Modell herunterzuladen."
+  },
+  "composeOpenSetup": {
+    "message": "Einrichtung öffnen"
+  },
+  "composeStale": {
+    "message": "Der Entwurf hat sich geändert. Ersetzen ist pausiert, bis die Vorschau nachzieht."
   }
 }

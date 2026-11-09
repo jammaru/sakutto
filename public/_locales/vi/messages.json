@@ -848,7 +848,7 @@
     }
   },
   "composeHelp": {
-    "message": "Khi ô tin nhắn đang được chọn, một điều khiển nhỏ đưa ra bản dịch những gì bạn đang gõ. Bản nháp tiếng Nhật được dịch sang ngôn ngữ còn lại của cặp chính; các bản khác dùng ngôn ngữ đích ở trên. Văn bản không bị thay cho đến khi bạn chọn Thay thế."
+    "message": "Khi ô tin nhắn đang được chọn, nút あA (hoặc phím tắt) xem trước bản dịch. Bản nháp tiếng Nhật sang tiếng Anh (hoặc ngôn ngữ đích ở trên); các bản khác dùng ngôn ngữ đó. Không gì bị thay cho đến khi bạn chọn Thay thế."
   },
   "composeTitle": {
     "message": "Bản dịch bản nháp"
@@ -895,5 +895,20 @@
         "content": "$1"
       }
     }
+  },
+  "composeIconSetting": {
+    "message": "Hiện nút あA trên ô tin nhắn"
+  },
+  "composeIconSettingHelp": {
+    "message": "Phím tắt và menu chuột phải vẫn hoạt động khi nút bị ẩn."
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo chưa sẵn sàng. Mở thiết lập để đồng ý giấy phép và tải mô hình."
+  },
+  "composeOpenSetup": {
+    "message": "Mở thiết lập"
+  },
+  "composeStale": {
+    "message": "Bản nháp đã đổi. Thay thế tạm dừng đến khi bản xem trước bắt kịp."
   }
 }

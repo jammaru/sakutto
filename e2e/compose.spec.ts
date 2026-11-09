@@ -11,10 +11,15 @@ async function openComposePage(): Promise<Page> {
   return page;
 }
 
-async function translateDraft(page: Page): Promise<void> {
+async function applyCompose(page: Page): Promise<void> {
   await commandPage(extension.worker, page, 'compose');
+  await expect
+    .poll(async () => page.locator('sakutto-compose').evaluate((el) => (el as HTMLElement).hidden))
+    .toBe(false);
   await page.waitForTimeout(150);
-  await commandPage(extension.worker, page, 'compose');
+  await page.locator('sakutto-compose').evaluate((el) => {
+    el.dispatchEvent(new CustomEvent('sakutto-compose-action', { detail: 'replace' }));
+  });
 }
 
 test.describe('compose translation', () => {
@@ -27,7 +32,7 @@ test.describe('compose translation', () => {
     await extension.close();
   });
 
-  test('replaces a textarea draft only after the second compose command', async () => {
+  test('replaces a textarea draft only after Replace', async () => {
     const page = await openComposePage();
     try {
       const box = page.locator('#plain');
@@ -42,7 +47,9 @@ test.describe('compose translation', () => {
         .toBe(false);
       await page.screenshot({ path: 'e2e-results/compose-preview.png', fullPage: true });
       await page.waitForTimeout(150);
-      await commandPage(extension.worker, page, 'compose');
+      await page.locator('sakutto-compose').evaluate((el) => {
+        el.dispatchEvent(new CustomEvent('sakutto-compose-action', { detail: 'replace' }));
+      });
       await expect(box).toHaveValue(`${MARKER}明日会いましょう。`);
       await page.screenshot({ path: 'e2e-results/compose-replaced.png', fullPage: true });
     } finally {
@@ -56,7 +63,7 @@ test.describe('compose translation', () => {
       const rich = page.locator('#rich');
       await rich.fill('会議は明日です。');
       await rich.focus();
-      await translateDraft(page);
+      await applyCompose(page);
       await expect(rich).toContainText(`${MARKER}会議は明日です。`);
     } finally {
       await page.close();
@@ -72,13 +79,26 @@ test.describe('compose translation', () => {
         );
       });
       await page.locator('#slate').focus();
-      await translateDraft(page);
+      await applyCompose(page);
       await expect
         .poll(async () =>
           page.evaluate(() => document.querySelector('#slate')?.getAttribute('data-slate-value')),
         )
         .toBe(`${MARKER}よろしくお願いします。`);
       await page.screenshot({ path: 'e2e-results/compose-slate.png', fullPage: true });
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('keeps Gmail signature and quoted history when replacing the body', async () => {
+    const page = await openComposePage();
+    try {
+      await page.locator('#mail').focus();
+      await applyCompose(page);
+      await expect(page.locator('#mail')).toContainText(`${MARKER}会議は明日です。`);
+      await expect(page.locator('.gmail_signature')).toHaveText('Jane Doe');
+      await expect(page.locator('.gmail_quote')).toContainText('On Monday');
     } finally {
       await page.close();
     }

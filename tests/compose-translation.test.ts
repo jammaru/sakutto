@@ -26,23 +26,20 @@ describe('compose translation direction', () => {
     expect(plan.other).toBe('en');
   });
 
-  /**
-   * An English UI whose saved target is English would otherwise translate an English
-   * draft into English. The Latin heuristic treats that as already in the target and
-   * flips to Japanese, the other side of the main pair.
-   */
-  it('flips a Latin draft away from a Latin saved target', () => {
-    const plan = planComposeTranslation('See you tomorrow.', 'en');
-    expect(plan.targetLanguage).toBe('ja');
-    expect(draftLooksLikeTarget('See you tomorrow.', 'en')).toBe(true);
-    expect(draftLooksLikeTarget('See you tomorrow.', 'de')).toBe(true);
-    expect(draftLooksLikeTarget('See you tomorrow.', 'ja')).toBe(false);
+  it('does not send a Latin draft to Japanese just because the saved target is English', () => {
+    const english = planComposeTranslation('See you tomorrow.', 'en');
+    expect(english.targetLanguage).toBe('en');
+    const german = planComposeTranslation('Guten Morgen, wir treffen uns morgen.', 'en');
+    expect(german.targetLanguage).toBe('en');
+    expect(draftLooksLikeTarget('See you tomorrow.', 'en')).toBe(false);
+    expect(draftLooksLikeTarget('Guten Morgen, wir treffen uns morgen.', 'en')).toBe(false);
+    expect(draftLooksLikeTarget('こんにちは', 'ja')).toBe(true);
   });
 
   it('does not treat a few kanji inside an English sentence as Japanese', () => {
-    expect(draftLooksLikeTarget('By the Edo period, 大坂 was the city.', 'en')).toBe(true);
+    expect(draftLooksLikeTarget('By the Edo period, 大坂 was the city.', 'en')).toBe(false);
     const plan = planComposeTranslation('By the Edo period, 大坂 was the city.', 'en');
-    expect(plan.targetLanguage).toBe('ja');
+    expect(plan.targetLanguage).toBe('en');
   });
 
   it('inverts the auto choice when the reader swaps', () => {

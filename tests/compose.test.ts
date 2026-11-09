@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ComposeController, composeShadow, type ComposeLabels } from '@/dom/compose';
 import type { PageEngine } from '@/dom/session';
+import type { ComposePreferences } from '@/dom/compose';
 
 const labels: ComposeLabels = {
   title: 'Draft translation',
@@ -15,6 +16,9 @@ const labels: ComposeLabels = {
   tooLong: 'This draft is too long to translate.',
   swap: 'Switch the translation direction',
   replaced: 'Replaced. You can restore the original.',
+  stale: 'The draft changed. Replace is paused until the preview catches up.',
+  setup: 'PLaMo is not ready yet.',
+  openSetup: 'Open setup',
   into: (language) => `Into ${language}`,
   chromeOnly: (language) => `PLaMo does not translate into ${language}.`,
 };
@@ -33,14 +37,27 @@ function panelText(): string {
   return composeShadow(document.querySelector('sakutto-compose'))?.textContent ?? '';
 }
 
-function clickPanel(label: string): void {
+function panelButton(label: string): HTMLButtonElement {
   const shadow = composeShadow(document.querySelector('sakutto-compose'));
   const button = [...(shadow?.querySelectorAll('button') ?? [])].find(
     (node) => node.textContent === label,
   );
-  if (!button) throw new Error(`missing ${label}`);
-  button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  if (!(button instanceof HTMLButtonElement)) throw new Error(`missing ${label}`);
+  return button;
 }
+
+function clickPanel(label: string): void {
+  panelButton(label).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+}
+
+const defaultPrefs: ComposePreferences = {
+  targetLanguage: 'ja',
+  form: 'polite',
+  enabled: true,
+  uiLanguage: 'en',
+  showIcon: true,
+  readiness: 'ready',
+};
 
 describe('compose controller', () => {
   const controllers: ComposeController[] = [];
@@ -53,17 +70,12 @@ describe('compose controller', () => {
 
   function start(
     engine: PageEngine = immediate((text, tgt) => `§${tgt}§${text}`),
-    enabled = true,
+    prefs: Partial<ComposePreferences> = {},
   ): ComposeController {
     const controller = new ComposeController(document, {
       engine,
       labels,
-      preferences: {
-        targetLanguage: 'ja',
-        form: 'polite',
-        enabled,
-        uiLanguage: 'en',
-      },
+      preferences: { ...defaultPrefs, ...prefs },
       previewMs: 20,
     });
     controllers.push(controller);
@@ -83,14 +95,18 @@ describe('compose controller', () => {
     expect(field.value).toBe('See you tomorrow.');
 
     clickPanel('Replace');
-    expect(field.value).toBe('§ja§See you tomorrow.');
+    await vi.waitFor(() => {
+      expect(field.value).toBe('§ja§See you tomorrow.');
+    });
     expect(panelText()).toContain('Replaced');
 
     clickPanel('Restore original');
-    expect(field.value).toBe('See you tomorrow.');
+    await vi.waitFor(() => {
+      expect(field.value).toBe('See you tomorrow.');
+    });
   });
 
-  it('applies on a second shortcut once the preview is ready', async () => {
+  it('does not apply on a second shortcut; Replace keeps the undo snapshot', async () => {
     document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
     const field = document.querySelector('#box');
     if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
@@ -100,11 +116,186 @@ describe('compose controller', () => {
     await vi.waitFor(() => {
       expect(panelText()).toContain('§ja§See you tomorrow.');
     });
-    // The first key and Chrome's command can arrive together; a second press inside
-    // that window must not apply. Wait out the debounce, then apply.
     await new Promise((resolve) => setTimeout(resolve, 90));
     controller.handleShortcut();
+    expect(field.value).toBe('See you tomorrow.');
+    clickPanel('Replace');
+    await vi.waitFor(() => {
+      expect(field.value).toBe('§ja§See you tomorrow.');
+    });
+    controller.handleShortcut();
+    expect(panelButton('Restore original').disabled).toBe(false);
     expect(field.value).toBe('§ja§See you tomorrow.');
+  });
+
+  it('does not start a reverse translation from the input event Replace itself fires', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    let calls = 0;
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        calls += 1;
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: `§${options.tgt}§${segment.text}`,
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const controller = start(engine);
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§See you tomorrow.');
+    });
+    expect(calls).toBe(1);
+    clickPanel('Replace');
+    await vi.waitFor(() => {
+      expect(field.value).toBe('§ja§See you tomorrow.');
+    });
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(calls).toBe(1);
+    expect(panelText()).not.toContain('The draft changed');
+  });
+
+  it('marks the preview stale when the draft changes after it', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    start();
+    const controller = controllers[0]!;
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§See you tomorrow.');
+    });
+    field.value = 'See you tomorrow. Extra.';
+    field.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    expect(panelButton('Replace').disabled).toBe(true);
+    expect(panelText()).toContain('The draft changed');
+  });
+
+  it('ignores input events while an IME composition is in progress', async () => {
+    document.body.innerHTML = '<textarea id="box">あ</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    let calls = 0;
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        calls += 1;
+        for (const segment of segments) {
+          yield { id: segment.id, final: `§${options.tgt}§${segment.text}`, engine: 'plamo' };
+        }
+      },
+    };
+    const controller = start(engine);
+    controller.handleShortcut();
+    await vi.waitFor(() => expect(calls).toBe(1));
+    field.value = 'あい';
+    field.dispatchEvent(new InputEvent('input', { bubbles: true, isComposing: true }));
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(calls).toBe(1);
+    field.dispatchEvent(new Event('compositionend', { bubbles: true }));
+    await vi.waitFor(() => expect(calls).toBe(2));
+  });
+
+  it('does not steal Escape while only the icon is visible', () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    start();
+    field.focus();
+    field.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    const icon = document.querySelector('sakutto-write');
+    expect(icon instanceof HTMLElement && icon.hidden === false).toBe(true);
+    const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    const prevented = !field.dispatchEvent(event);
+    expect(prevented).toBe(false);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it('dismisses the panel on Escape and ignores Escape during composition', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const controller = start();
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect((document.querySelector('sakutto-compose') as HTMLElement).hidden).toBe(false);
+    });
+    const composing = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+      isComposing: true,
+    });
+    field.dispatchEvent(composing);
+    expect((document.querySelector('sakutto-compose') as HTMLElement).hidden).toBe(false);
+    field.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
+    expect((document.querySelector('sakutto-compose') as HTMLElement).hidden).toBe(true);
+  });
+
+  it('hides the icon on a search box and when the setting is off', () => {
+    document.body.innerHTML = `
+      <input id="search" type="search" value="query">
+      <textarea id="box">hello</textarea>
+    `;
+    const search = document.querySelector('#search');
+    if (!(search instanceof HTMLInputElement)) throw new Error('missing search');
+    start();
+    search.focus();
+    search.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    expect((document.querySelector('sakutto-write') as HTMLElement).hidden).toBe(true);
+    const box = document.querySelector('#box');
+    if (!(box instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    box.focus();
+    box.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    expect((document.querySelector('sakutto-write') as HTMLElement).hidden).toBe(false);
+    controllers[0]?.setPreferences({ ...defaultPrefs, showIcon: false });
+    expect((document.querySelector('sakutto-write') as HTMLElement).hidden).toBe(true);
+  });
+
+  it('hides the icon on blur so a later scroll does not bring it back', async () => {
+    document.body.innerHTML = '<textarea id="box">hello</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    start();
+    field.focus();
+    field.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    expect((document.querySelector('sakutto-write') as HTMLElement).hidden).toBe(false);
+    field.blur();
+    field.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    window.dispatchEvent(new Event('scroll'));
+    expect((document.querySelector('sakutto-write') as HTMLElement).hidden).toBe(true);
+  });
+
+  it('shows a setup message instead of translating when the model is not ready', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    let calls = 0;
+    const engine: PageEngine = {
+      async *translate() {
+        calls += 1;
+        yield { id: 'compose', final: 'nope', engine: 'plamo' };
+      },
+    };
+    const controller = start(engine, { readiness: 'no-consent' });
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('PLaMo is not ready yet.');
+    });
+    expect(calls).toBe(0);
+    expect(panelButton('Replace').disabled).toBe(true);
   });
 
   it('replaces a Slate-style editor so Enter would send the translation', async () => {
@@ -133,7 +324,9 @@ describe('compose controller', () => {
     });
     expect(value).toBe('会議は明日です');
     clickPanel('Replace');
-    expect(value).toBe('§en§会議は明日です');
+    await vi.waitFor(() => {
+      expect(value).toBe('§en§会議は明日です');
+    });
   });
 
   it('never opens on a password field', () => {
@@ -152,7 +345,7 @@ describe('compose controller', () => {
     const field = document.querySelector('#box');
     if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
     field.focus();
-    start(undefined, false).handleShortcut();
+    start(undefined, { enabled: false }).handleShortcut();
     expect(field.value).toBe('See you tomorrow.');
     expect((document.querySelector('sakutto-compose') as HTMLElement).hidden).toBe(true);
   });

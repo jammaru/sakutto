@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_COMPOSE_SHORTCUT,
   DEFAULT_SELECTION_SHORTCUT,
   DEFAULT_SHORTCUTS,
   ariaShortcut,
+  boundShortcut,
   displayShortcut,
   isPlainAltS,
   matchesShortcut,
@@ -109,6 +111,29 @@ describe('readShortcutSnapshot', () => {
       'translate-selection': '⌥⇧S',
       'translate-compose': 'Alt+T',
     });
+  });
+
+  it('does not steal Alt+T when Chrome listed compose but left it unbound', () => {
+    const snapshot = readShortcutSnapshot([
+      { name: 'translate-page', shortcut: 'Alt+A' },
+      { name: 'toggle-bilingual', shortcut: 'Alt+B' },
+      { name: 'translate-selection', shortcut: 'Alt+S' },
+      { name: 'translate-compose', shortcut: '' },
+    ]);
+    expect(boundShortcut(snapshot, 'translate-compose', DEFAULT_COMPOSE_SHORTCUT)).toBe('');
+    expect(boundShortcut(null, 'translate-compose', DEFAULT_COMPOSE_SHORTCUT)).toBe('Alt+T');
+    expect(
+      boundShortcut(
+        {
+          'translate-page': null,
+          'toggle-bilingual': null,
+          'translate-selection': null,
+          'translate-compose': null,
+        },
+        'translate-compose',
+        DEFAULT_COMPOSE_SHORTCUT,
+      ),
+    ).toBe('Alt+T');
   });
 
   it('keeps a command Chrome did not list apart from an unbound one', () => {

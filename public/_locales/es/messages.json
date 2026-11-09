@@ -848,7 +848,7 @@
     }
   },
   "composeHelp": {
-    "message": "Cuando un cuadro de mensaje tiene el foco, un control pequeño ofrece una traducción de lo que escribes. Los borradores en japonés van al otro idioma del par principal; los demás usan el idioma de destino de arriba. El texto no se sustituye hasta que eliges Reemplazar."
+    "message": "Cuando un cuadro de mensaje tiene el foco, el botón あA (o el atajo) muestra una vista previa de la traducción. Los borradores en japonés van al inglés (o al idioma de destino de arriba); los demás usan ese destino. Nada se reemplaza hasta que elijas Reemplazar."
   },
   "composeTitle": {
     "message": "Traducción del borrador"
@@ -895,5 +895,20 @@
         "content": "$1"
       }
     }
+  },
+  "composeIconSetting": {
+    "message": "Mostrar el botón あA en los cuadros de mensaje"
+  },
+  "composeIconSettingHelp": {
+    "message": "El atajo y el menú contextual siguen funcionando si el botón está oculto."
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo aún no está listo. Abre la configuración para aceptar la licencia y descargar el modelo."
+  },
+  "composeOpenSetup": {
+    "message": "Abrir configuración"
+  },
+  "composeStale": {
+    "message": "El borrador cambió. Reemplazar se pausa hasta que la vista previa se actualice."
   }
 }

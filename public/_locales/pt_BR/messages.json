@@ -848,7 +848,7 @@
     }
   },
   "composeHelp": {
-    "message": "Quando uma caixa de mensagem está em foco, um controle pequeno oferece uma tradução do que você está digitando. Rascunhos em japonês vão para o outro idioma do par principal; os demais usam o idioma de destino acima. Nada é substituído até você escolher Substituir."
+    "message": "Quando uma caixa de mensagem está em foco, o botão あA (ou o atalho) mostra uma prévia da tradução. Rascunhos em japonês vão para o inglês (ou para o idioma de destino acima); os demais usam esse destino. Nada é substituído até você escolher Substituir."
   },
   "composeTitle": {
     "message": "Tradução do rascunho"
@@ -895,5 +895,20 @@
         "content": "$1"
       }
     }
+  },
+  "composeIconSetting": {
+    "message": "Mostrar o botão あA nas caixas de mensagem"
+  },
+  "composeIconSettingHelp": {
+    "message": "O atalho e o menu de contexto continuam funcionando se o botão estiver oculto."
+  },
+  "composeNeedSetup": {
+    "message": "O PLaMo ainda não está pronto. Abra a configuração para aceitar a licença e baixar o modelo."
+  },
+  "composeOpenSetup": {
+    "message": "Abrir configuração"
+  },
+  "composeStale": {
+    "message": "O rascunho mudou. Substituir fica pausado até a prévia acompanhar."
   }
 }

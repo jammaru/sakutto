@@ -848,7 +848,7 @@
     }
   },
   "composeHelp": {
-    "message": "Quando una casella di messaggio ha il focus, un piccolo controllo offre una traduzione di ciò che stai scrivendo. Le bozze in giapponese vanno nell’altra lingua della coppia principale; le altre usano la lingua di destinazione sopra. Il testo non viene sostituito finché non scegli Sostituisci."
+    "message": "Quando una casella di messaggio ha il focus, il pulsante あA (o la scorciatoia) mostra un’anteprima della traduzione. Le bozze in giapponese vanno in inglese (o nella lingua di destinazione sopra); le altre usano quella destinazione. Nulla viene sostituito finché non scegli Sostituisci."
   },
   "composeTitle": {
     "message": "Traduzione della bozza"
@@ -895,5 +895,20 @@
         "content": "$1"
       }
     }
+  },
+  "composeIconSetting": {
+    "message": "Mostra il pulsante あA sulle caselle di messaggio"
+  },
+  "composeIconSettingHelp": {
+    "message": "La scorciatoia e il menu contestuale funzionano anche se il pulsante è nascosto."
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo non è ancora pronto. Apri la configurazione per accettare la licenza e scaricare il modello."
+  },
+  "composeOpenSetup": {
+    "message": "Apri configurazione"
+  },
+  "composeStale": {
+    "message": "La bozza è cambiata. Sostituisci è in pausa finché l’anteprima non si aggiorna."
   }
 }

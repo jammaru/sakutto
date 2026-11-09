@@ -11,42 +11,6 @@ export type ComposePlan = {
 };
 
 /**
- * Scripts the heuristic can name without guessing among Latin languages. Latin text is left
- * undecided by `inferLanguage`, so a Latin target has to be treated as a match for that
- * undecided text or an English draft would be translated into English.
- */
-const DISTINCTIVE_SCRIPT_TARGETS: ReadonlySet<string> = new Set([
-  'ja',
-  'ko',
-  'zh-hans',
-  'zh-hant',
-  'ar',
-  'he',
-  'th',
-  'ru',
-  'bg',
-  'be',
-  'kk',
-  'hy',
-  'ka',
-  'my',
-  'km',
-  'si',
-  'ta',
-  'te',
-  'ml',
-  'mr',
-  'bn',
-  'gu',
-  'pa',
-  'ne',
-  'ur',
-  'fa',
-  'hi',
-  'el',
-]);
-
-/**
  * How long to wait after the last keystroke before refreshing a live preview. Short enough
  * that a pause in typing still feels like a reply, long enough that a burst of keys does
  * not start a request per letter.
@@ -67,16 +31,16 @@ export function composePairOther(
 
 /**
  * True when the draft already reads as the chosen target, so translating into that target
- * would be a no-op. Kana, Hangul and the other distinctive scripts are named by
- * `inferLanguage`; Latin letters are treated as a match only when the target is itself a
- * Latin-script language.
+ * would be a no-op. Only scripts `inferLanguage` can name (kana, Hangul, Han, and the
+ * other distinctive ones) count: Latin letters cover many languages, so a German draft
+ * with an English target must not be treated as "already English" and sent to Japanese.
  */
 export function draftLooksLikeTarget(text: string, target: string): boolean {
   const inferred = inferLanguage(text);
+  if (!inferred) return false;
   const canonical = canonicalLanguage(target) ?? (isTargetLanguage(target) ? target : null);
   if (!canonical) return false;
-  if (inferred) return sameScript(inferred, canonical);
-  return !DISTINCTIVE_SCRIPT_TARGETS.has(canonical);
+  return sameScript(inferred, canonical);
 }
 
 function sameScript(inferred: string, target: string): boolean {

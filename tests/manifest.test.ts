@@ -58,6 +58,10 @@ describe('extension manifest', () => {
       },
     });
     expect(manifest.permissions).toContain('contextMenus');
+    const withSuggested = Object.values(
+      manifest.commands as Record<string, { suggested_key?: unknown }>,
+    ).filter((command) => command.suggested_key !== undefined);
+    expect(withSuggested).toHaveLength(4);
   });
 
   /**

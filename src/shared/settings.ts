@@ -59,6 +59,8 @@ export interface Settings {
   idleMinutes: IdleMinutes;
   tier: TierPreference;
   pace: TranslationPace;
+  /** False hides the あA button on message boxes. The shortcut and context menu stay. */
+  composeIcon: boolean;
 }
 
 export type SettingsPatch = Partial<
@@ -73,6 +75,7 @@ export type SettingsPatch = Partial<
     | 'idleMinutes'
     | 'tier'
     | 'pace'
+    | 'composeIcon'
   >
 >;
 
@@ -87,6 +90,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   idleMinutes: 5,
   tier: 'auto',
   pace: 'quality',
+  composeIcon: true,
 });
 
 export function createDefaultSettings(uiLanguage: string): Settings {
@@ -126,6 +130,7 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     idleMinutes: isIdleMinutes(value.idleMinutes) ? value.idleMinutes : defaults.idleMinutes,
     tier: isTierPreference(value.tier) ? value.tier : defaults.tier,
     pace: isTranslationPace(value.pace) ? value.pace : defaults.pace,
+    composeIcon: value.composeIcon !== false,
   };
 }
 

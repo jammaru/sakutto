@@ -2,7 +2,7 @@ import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
 import { EngineClient } from '@/background/engine-client';
 import { OffscreenController } from '@/background/offscreen-lifecycle';
-import { installPageActions } from '@/background/page-actions';
+import { installPageActions, setComposeMenuEnabled } from '@/background/page-actions';
 import { broadcastModelProgress, shouldWarmDownloadedModel } from '@/background/progress-broadcast';
 import { measureQuality } from '@/background/quality';
 import { TranslationBroker } from '@/background/translation-broker';
@@ -13,11 +13,13 @@ import type { EngineCapabilities } from '@/shared/capabilities';
 import { isEngineCapabilities } from '@/shared/capabilities';
 import {
   isCacheClearRequest,
+  isComposeMenuRequest,
   isEngineCapabilitiesRequest,
   isEngineStatusRequest,
   isEngineTierRequest,
   isEngineWarmRequest,
   isModelCancelRequest,
+  isOpenSetupRequest,
   isShortcutQuery,
   isSiteGrantRequest,
   isModelDeleteRequest,
@@ -242,6 +244,20 @@ export default defineBackground(() => {
           sendResponse(false);
         })
         .catch(() => sendResponse(false));
+      return true;
+    }
+
+    if (isComposeMenuRequest(message)) {
+      setComposeMenuEnabled(message.enabled);
+      sendResponse(true);
+      return false;
+    }
+
+    if (isOpenSetupRequest(message)) {
+      void browser.tabs.create({ url: browser.runtime.getURL('/onboarding.html') }).then(
+        () => sendResponse(true),
+        () => sendResponse(false),
+      );
       return true;
     }
 

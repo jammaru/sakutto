@@ -47,6 +47,9 @@ export default defineConfig({
         description: '__MSG_commandSelection__',
       },
       'translate-compose': {
+        // Chrome accepts at most four suggested_key commands. Existing installs may
+        // receive this command with no key; the page then falls back to the あA button
+        // and the context menu rather than stealing Alt+T.
         suggested_key: { default: 'Alt+T' },
         description: '__MSG_commandCompose__',
       },

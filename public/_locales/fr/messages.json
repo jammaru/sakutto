@@ -848,7 +848,7 @@
     }
   },
   "composeHelp": {
-    "message": "Lorsqu’un champ de message a le focus, un petit contrôle propose une traduction de ce que vous tapez. Les brouillons en japonais vont vers l’autre langue de la paire principale ; les autres utilisent la langue cible ci-dessus. Rien n’est remplacé tant que vous ne choisissez pas Remplacer."
+    "message": "Lorsqu’une zone de message a le focus, le bouton あA (ou le raccourci) affiche un aperçu de la traduction. Les brouillons japonais vont vers l’anglais (ou vers la langue cible ci-dessus) ; les autres utilisent cette langue cible. Rien n’est remplacé tant que vous ne choisissez pas Remplacer."
   },
   "composeTitle": {
     "message": "Traduction du brouillon"
@@ -895,5 +895,20 @@
         "content": "$1"
       }
     }
+  },
+  "composeIconSetting": {
+    "message": "Afficher le bouton あA sur les zones de message"
+  },
+  "composeIconSettingHelp": {
+    "message": "Le raccourci et le menu contextuel fonctionnent encore si le bouton est masqué."
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo n’est pas encore prêt. Ouvrez la configuration pour accepter la licence et télécharger le modèle."
+  },
+  "composeOpenSetup": {
+    "message": "Ouvrir la configuration"
+  },
+  "composeStale": {
+    "message": "Le brouillon a changé. Remplacer est en pause jusqu’à ce que l’aperçu se mette à jour."
   }
 }

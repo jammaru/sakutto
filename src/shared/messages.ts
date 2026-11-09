@@ -92,6 +92,15 @@ export interface ShortcutQuery {
   type: 'commands:shortcuts';
 }
 
+export interface ComposeMenuRequest {
+  type: 'compose:menu';
+  enabled: boolean;
+}
+
+export interface OpenSetupRequest {
+  type: 'ui:open-setup';
+}
+
 /**
  * The key each rebindable command holds right now, as Chrome reports it: `Alt+A`, `⌥⇧P` on a
  * Mac, or `''` for a command the user unbound. `null` means the command was not listed.
@@ -206,6 +215,14 @@ export function isSiteGrantRequest(value: unknown): value is SiteGrantRequest {
 
 export function isShortcutQuery(value: unknown): value is ShortcutQuery {
   return isRecord(value) && value.type === 'commands:shortcuts';
+}
+
+export function isComposeMenuRequest(value: unknown): value is ComposeMenuRequest {
+  return isRecord(value) && value.type === 'compose:menu' && typeof value.enabled === 'boolean';
+}
+
+export function isOpenSetupRequest(value: unknown): value is OpenSetupRequest {
+  return isRecord(value) && value.type === 'ui:open-setup';
 }
 
 function isShortcutBinding(value: unknown): value is string | null {
