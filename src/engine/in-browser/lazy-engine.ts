@@ -1,10 +1,9 @@
 import { abortError, isEngineError } from '../errors';
-import {
-  isTranslateStopped,
-  type IdentifiedEngine,
-  type TranslateOptions,
-  type TranslateSegment,
-  type TranslationChunk,
+import type {
+  IdentifiedEngine,
+  TranslateOptions,
+  TranslateSegment,
+  TranslationChunk,
 } from '../types';
 import type { BackendSelection } from './backend';
 import { InBrowserEngine, type InBrowserEngineOptions } from './engine';
@@ -71,7 +70,7 @@ export class LazyInBrowserEngine implements IdentifiedEngine {
         return;
       } catch (error) {
         const lost = isEngineError(error) && error.code === 'gpu-lost';
-        if (!lost || isTranslateStopped(options) || recoveries >= MAX_GPU_RECOVERIES) throw error;
+        if (!lost || options.signal.aborted || recoveries >= MAX_GPU_RECOVERIES) throw error;
         await this.recover(engine);
         if (pending.length === 0) return;
       }

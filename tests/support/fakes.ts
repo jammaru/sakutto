@@ -110,7 +110,6 @@ export class FakeRuntime implements LlamaRuntime {
 
   async complete(request: CompletionRequest): Promise<void> {
     this.requests.push(request);
-    if (request.signal.aborted || request.drain?.aborted) throw abortError();
     const output = this.handler(request.prompt);
     for (const character of output) {
       if (request.signal.aborted) throw abortError();

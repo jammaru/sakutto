@@ -4,7 +4,6 @@ import {
   isTranslationCancelRequest,
   isTranslationStartRequest,
   deserializeTranslateOptions,
-  isTranslationDrainRequest,
   TRANSLATION_PORT,
   type TranslationServerMessage,
 } from '@/engine/offscreen/protocol';
@@ -39,7 +38,7 @@ export class TranslationBroker {
   }
 
   private attach(port: Browser.runtime.Port): void {
-    const controllers = new Map<string, { abort: AbortController; drain: AbortController }>();
+    const controllers = new Map<string, AbortController>();
     const tabId = port.sender?.tab?.id;
     if (tabId !== undefined) {
       const group = this.tabs.get(tabId) ?? new Set<Browser.runtime.Port>();
@@ -57,37 +56,26 @@ export class TranslationBroker {
 
     port.onMessage.addListener((message: unknown) => {
       if (isTranslationCancelRequest(message)) {
-        const active = controllers.get(message.requestId);
-        active?.abort.abort();
-        active?.drain.abort();
+        controllers.get(message.requestId)?.abort();
         controllers.delete(message.requestId);
-        return;
-      }
-
-      if (isTranslationDrainRequest(message)) {
-        controllers.get(message.requestId)?.drain.abort();
         return;
       }
 
       if (!isTranslationStartRequest(message)) return;
 
       const requestId = message.requestId;
-      const active = { abort: new AbortController(), drain: new AbortController() };
-      controllers.set(requestId, active);
+      const controller = new AbortController();
+      controllers.set(requestId, controller);
 
       void (async () => {
         try {
-          const options = deserializeTranslateOptions(
-            message.options,
-            active.abort.signal,
-            active.drain.signal,
-          );
+          const options = deserializeTranslateOptions(message.options, controller.signal);
           for await (const chunk of this.client.translate(message.segments, options)) {
             post({ type: 'chunk', requestId, chunk });
           }
-          if (!active.abort.signal.aborted) post({ type: 'done', requestId });
+          if (!controller.signal.aborted) post({ type: 'done', requestId });
         } catch (error) {
-          if (!active.abort.signal.aborted) {
+          if (!controller.signal.aborted) {
             post({ type: 'error', requestId, error: errorPayload(error) });
           }
         } finally {
@@ -98,7 +86,7 @@ export class TranslationBroker {
 
     port.onDisconnect.addListener(() => {
       if (tabId !== undefined) this.tabs.get(tabId)?.delete(port);
-      for (const active of controllers.values()) active.abort.abort();
+      for (const controller of controllers.values()) controller.abort();
       controllers.clear();
     });
   }

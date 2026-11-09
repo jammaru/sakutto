@@ -65,7 +65,6 @@ export interface EngineHostOptions {
 
 interface HostRequest {
   controller: AbortController;
-  drain?: AbortController;
   port: Browser.runtime.Port | null;
   kind: 'translate' | 'download' | 'warm';
 }
@@ -313,11 +312,7 @@ export class EngineHost {
       case 'cancel':
       case 'model-cancel':
         this.requests.get(message.requestId)?.controller.abort();
-        this.requests.get(message.requestId)?.drain?.abort();
         this.requests.delete(message.requestId);
-        return;
-      case 'drain':
-        this.requests.get(message.requestId)?.drain?.abort();
         return;
       case 'model-download':
         void this.handleDownload(port, message);
@@ -351,15 +346,14 @@ export class EngineHost {
     request: TranslateRequest,
   ): Promise<void> {
     const controller = new AbortController();
-    const drain = new AbortController();
-    this.requests.set(request.requestId, { controller, drain, port, kind: 'translate' });
+    this.requests.set(request.requestId, { controller, port, kind: 'translate' });
     this.touch();
 
     try {
       const services = await this.services();
       if (controller.signal.aborted) return;
 
-      const options = deserializeTranslateOptions(request.options, controller.signal, drain.signal);
+      const options = deserializeTranslateOptions(request.options, controller.signal);
 
       for await (const chunk of services.router.translate(request.segments, options)) {
         if (controller.signal.aborted) return;

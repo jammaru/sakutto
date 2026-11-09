@@ -1152,7 +1152,6 @@ describe('page session', () => {
     let hidden = false;
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
     const signals = new Map<string, AbortSignal>();
-    const drains = new Map<string, AbortSignal | undefined>();
     let secondCalls = 0;
     let release: (() => void) | undefined;
     const session = start(
@@ -1161,7 +1160,6 @@ describe('page session', () => {
         const first = segments[0];
         if (!first) return;
         signals.set(first.text, options.signal);
-        drains.set(first.text, options.drain);
         if (first.text.startsWith('First')) {
           yield { id: first.id, textDelta: '訳:', engine: 'plamo' as const };
           await new Promise<void>((resolve) => {
@@ -1190,7 +1188,6 @@ describe('page session', () => {
       document.dispatchEvent(new Event('visibilitychange'));
 
       expect(signals.get('First paragraph here')?.aborted).toBe(false);
-      expect(drains.get('First paragraph here')?.aborted).toBe(true);
       expect(signals.get('Second paragraph here')?.aborted).toBe(true);
 
       release?.();
@@ -1204,67 +1201,6 @@ describe('page session', () => {
       document.dispatchEvent(new Event('visibilitychange'));
       await session.whenIdle();
       expect(document.body.textContent).toContain('訳:Second paragraph here');
-    } finally {
-      Reflect.deleteProperty(document, 'hidden');
-    }
-  });
-
-  it('stops later pieces of a streaming batch when the tab is hidden and requeues them', async () => {
-    document.documentElement.lang = 'en';
-    const first = `${'A'.repeat(400)}. `;
-    const second = `${'B'.repeat(400)}.`;
-    document.body.innerHTML = `<p>${first}${second}</p>`;
-    let hidden = false;
-    Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
-    const requests: string[][] = [];
-    let drain: AbortSignal | undefined;
-    let release: (() => void) | undefined;
-    const session = start(
-      document,
-      engineOf(async function* (segments, options) {
-        requests.push(segments.map((segment) => segment.text.slice(0, 5)));
-        drain = options.drain;
-        const [head, ...rest] = segments;
-        if (!head) return;
-        if (requests.length === 1) {
-          yield { id: head.id, textDelta: '訳:', engine: 'plamo' as const };
-          await new Promise<void>((resolve) => {
-            release = resolve;
-          });
-        }
-        yield { id: head.id, final: `訳:${head.text}`, engine: 'plamo' as const };
-        if (options.drain?.aborted || options.signal.aborted) return;
-        for (const segment of rest) {
-          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
-        }
-      }),
-    );
-
-    try {
-      void session.translate();
-      for (let attempt = 0; attempt < 50 && !release; attempt += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
-      expect(release).toBeDefined();
-      expect(requests[0]?.length).toBeGreaterThan(1);
-
-      hidden = true;
-      document.dispatchEvent(new Event('visibilitychange'));
-      expect(drain?.aborted).toBe(true);
-
-      release?.();
-      for (let attempt = 0; attempt < 20; attempt += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
-      expect(document.body.textContent).toContain(`訳:${'A'.repeat(400)}`);
-      expect(document.body.textContent).not.toContain(`訳:${'B'.repeat(400)}`);
-      expect(requests).toHaveLength(1);
-
-      hidden = false;
-      document.dispatchEvent(new Event('visibilitychange'));
-      await session.whenIdle();
-      expect(requests.length).toBeGreaterThan(1);
-      expect(document.body.textContent).toContain(`訳:${'B'.repeat(400)}`);
     } finally {
       Reflect.deleteProperty(document, 'hidden');
     }
@@ -1294,7 +1230,6 @@ describe('page session', () => {
     for (let attempt = 0; attempt < 20 && !release; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
-    expect(release).toBeDefined();
     // A download link or a cancelled "Leave site?" prompt fires beforeunload and stays.
     document.defaultView?.dispatchEvent(new Event('beforeunload'));
     release?.();

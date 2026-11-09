@@ -8,7 +8,6 @@ import {
   isEngineHostMessage,
   isEngineHostRequest,
   isTranslationCancelRequest,
-  isTranslationDrainRequest,
   isTranslationServerMessage,
   isTranslationStartRequest,
   serializeTranslateOptions,
@@ -255,9 +254,6 @@ describe('engine host protocol', () => {
       }),
     ).toBe(true);
     expect(isTranslationCancelRequest({ type: 'cancel', requestId: 'r1' })).toBe(true);
-    expect(isTranslationDrainRequest({ type: 'drain', requestId: 'r1' })).toBe(true);
-    expect(isTranslationDrainRequest({ type: 'cancel', requestId: 'r1' })).toBe(false);
-    expect(isEngineHostRequest({ type: 'drain', requestId: 'r1' })).toBe(true);
     expect(isTranslationStartRequest({ type: 'start', requestId: 'r1' })).toBe(false);
     expect(isTranslationServerMessage({ type: 'done', requestId: 'r1' })).toBe(true);
     expect(

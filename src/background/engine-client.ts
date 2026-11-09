@@ -206,11 +206,7 @@ export class EngineClient {
       this.sendRaw({ type: 'cancel', requestId });
       stream.end();
     };
-    const drain = (): void => {
-      this.sendRaw({ type: 'drain', requestId });
-    };
     options.signal.addEventListener('abort', cancel, { once: true });
-    options.drain?.addEventListener('abort', drain, { once: true });
 
     try {
       const port = await this.connect();
@@ -222,7 +218,6 @@ export class EngineClient {
         segments: segments.map((segment) => ({ ...segment })),
         options: serializeTranslateOptions(options),
       } satisfies TranslateRequest);
-      if (options.drain?.aborted) drain();
 
       for await (const chunk of stream) yield chunk;
     } catch (error) {
@@ -230,7 +225,6 @@ export class EngineClient {
       throw error instanceof EngineError ? error : hostError('The translation host failed.', error);
     } finally {
       options.signal.removeEventListener('abort', cancel);
-      options.drain?.removeEventListener('abort', drain);
       this.streams.delete(requestId);
       this.sendRaw({ type: 'cancel', requestId });
     }

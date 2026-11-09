@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { abortError } from '@/engine/errors';
 import { InBrowserEngine } from '@/engine/in-browser/engine';
 import type { TranslateOptions, TranslationChunk } from '@/engine/types';
 import { MAX_SEGMENT_TEXT } from '@/engine/offscreen/protocol';
@@ -471,89 +470,5 @@ describe('InBrowserEngine', () => {
     }
 
     expect(rest.some((chunk) => chunk.final !== undefined)).toBe(false);
-  });
-
-  it('finishes the completion already decoding when drain aborts, and skips the rest', async () => {
-    const pieceA = `${'A'.repeat(80)}.`;
-    const pieceB = `${'B'.repeat(80)}.`;
-    const text = `${pieceA} ${pieceB}`;
-    let release!: () => void;
-    let started = false;
-    class WaitingRuntime extends FakeRuntime {
-      override async complete(request: Parameters<FakeRuntime['complete']>[0]): Promise<void> {
-        this.requests.push(request);
-        if (request.signal.aborted || request.drain?.aborted) throw abortError();
-        if (this.requests.length === 1) {
-          started = true;
-          await new Promise<void>((resolve) => {
-            release = resolve;
-          });
-        }
-        if (request.signal.aborted) throw abortError();
-        const source = promptSource(request.prompt);
-        request.onToken(`[${source.slice(0, 1)}]`);
-      }
-    }
-    const runtime = new WaitingRuntime(() => '');
-    const engine = new InBrowserEngine(runtime, { config: { pieceChars: 90 } });
-    const drain = new AbortController();
-
-    const collected = collectChunks(
-      engine.translate([{ id: 'long', text }], options({ drain: drain.signal })),
-    );
-    for (let attempt = 0; attempt < 50 && !started; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    }
-    expect(started).toBe(true);
-    drain.abort();
-    release();
-    const chunks = await collected;
-
-    expect(runtime.requests).toHaveLength(1);
-    expect(deltaText(chunks)).toContain('[A]');
-    expect(deltaText(chunks)).not.toContain('[B]');
-    expect(finalChunks(chunks)).toHaveLength(0);
-  });
-
-  it('does not start a queued job after drain, while the in-flight one still finishes', async () => {
-    let release!: () => void;
-    let started = 0;
-    class WaitingRuntime extends FakeRuntime {
-      override async complete(request: Parameters<FakeRuntime['complete']>[0]): Promise<void> {
-        this.requests.push(request);
-        if (request.signal.aborted || request.drain?.aborted) throw abortError();
-        started += 1;
-        if (this.requests.length === 1) {
-          await new Promise<void>((resolve) => {
-            release = resolve;
-          });
-        }
-        if (request.signal.aborted) throw abortError();
-        request.onToken('訳');
-      }
-    }
-    const runtime = new WaitingRuntime(() => '');
-    const engine = new InBrowserEngine(runtime);
-    const drain = new AbortController();
-
-    const collected = collectChunks(
-      engine.translate(
-        [
-          { id: 'a', text: `Hello.\n${'A'.repeat(40)}` },
-          { id: 'b', text: `World.\n${'B'.repeat(40)}` },
-        ],
-        options({ drain: drain.signal }),
-      ),
-    );
-    for (let attempt = 0; attempt < 50 && started === 0; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    }
-    expect(started).toBe(1);
-    drain.abort();
-    release();
-    const chunks = await collected;
-
-    expect(runtime.requests).toHaveLength(1);
-    expect(finalChunks(chunks).map((chunk) => chunk.id)).toEqual(['a']);
   });
 });

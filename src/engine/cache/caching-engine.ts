@@ -1,10 +1,9 @@
-import {
-  isTranslateStopped,
-  type Engine,
-  type IdentifiedEngine,
-  type TranslateOptions,
-  type TranslateSegment,
-  type TranslationChunk,
+import type {
+  Engine,
+  IdentifiedEngine,
+  TranslateOptions,
+  TranslateSegment,
+  TranslationChunk,
 } from '../types';
 import { TranslationCache } from './cache';
 import { buildTranslationCacheKey } from './key';
@@ -30,7 +29,7 @@ export class CachingEngine implements IdentifiedEngine {
     const model = typeof this.modelId === 'function' ? this.modelId() : this.modelId;
 
     for (const segment of segments) {
-      if (isTranslateStopped(options)) return;
+      if (options.signal.aborted) return;
 
       const key = buildTranslationCacheKey({
         model,

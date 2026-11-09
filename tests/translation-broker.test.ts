@@ -82,36 +82,6 @@ describe('TranslationBroker', () => {
     expect(port.messagesOfType('done')).toHaveLength(0);
   });
 
-  it('keeps the in-flight translation running when drain arrives', async () => {
-    const release = deferred<void>();
-    let signal: AbortSignal | undefined;
-    let drain: AbortSignal | undefined;
-    const translate = vi.fn(async function* (
-      _segments: unknown,
-      translateOptions: TranslateOptions,
-    ): AsyncIterable<TranslationChunk> {
-      signal = translateOptions.signal;
-      drain = translateOptions.drain;
-      await release.promise;
-      yield { id: 'a', final: 'x', engine: 'plamo' };
-    });
-    const broker = new TranslationBroker({ translate } as unknown as EngineClient);
-    broker.start();
-
-    const port = connect();
-    start(port);
-    await flushTasks();
-    port.emit({ type: 'drain', requestId: 'r1' });
-    await flushTasks();
-    expect(signal?.aborted).toBe(false);
-    expect(drain?.aborted).toBe(true);
-
-    release.resolve();
-    await flushTasks();
-    expect(port.messagesOfType('chunk')).toHaveLength(1);
-    expect(port.messagesOfType('done')).toHaveLength(1);
-  });
-
   it('aborts translations when the caller disconnects', async () => {
     let signal: AbortSignal | undefined;
     const translate = vi.fn(async function* (

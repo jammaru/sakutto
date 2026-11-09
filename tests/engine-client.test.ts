@@ -87,36 +87,4 @@ describe('EngineClient', () => {
 
     expect(chunks).toEqual([{ id: 'a', final: '邁｡譏楢ｨｳ', engine: 'chrome' }]);
   });
-
-  it('sends drain without ending the stream', async () => {
-    const port = new FakePort();
-    connect.mockReturnValue(port.port);
-    const client = new EngineClient(controller());
-    const drain = new AbortController();
-    const chunks: TranslationChunk[] = [];
-
-    const pending = (async () => {
-      for await (const chunk of client.translate([{ id: 'a', text: 'Hello.' }], {
-        ...options(),
-        drain: drain.signal,
-      })) {
-        chunks.push(chunk);
-      }
-    })();
-    await flushTasks();
-    drain.abort();
-    await flushTasks();
-    expect(port.messagesOfType('drain')).toHaveLength(1);
-    expect(port.messagesOfType('cancel')).toHaveLength(0);
-
-    const requestId = (port.messagesOfType('translate')[0] as { requestId: string }).requestId;
-    port.emit({
-      type: 'chunk',
-      requestId,
-      chunk: { id: 'a', final: 'こんにちは', engine: 'plamo' },
-    });
-    port.emit({ type: 'done', requestId });
-    await pending;
-    expect(chunks).toEqual([{ id: 'a', final: 'こんにちは', engine: 'plamo' }]);
-  });
 });

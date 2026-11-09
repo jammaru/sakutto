@@ -1,11 +1,10 @@
 import { EngineError, isAbortError } from './errors';
-import {
-  isTranslateStopped,
-  type EngineKind,
-  type IdentifiedEngine,
-  type TranslateOptions,
-  type TranslateSegment,
-  type TranslationChunk,
+import type {
+  EngineKind,
+  IdentifiedEngine,
+  TranslateOptions,
+  TranslateSegment,
+  TranslationChunk,
 } from './types';
 
 export type PairSupport = 'available' | 'downloadable' | 'downloading' | 'unavailable';
@@ -49,7 +48,7 @@ export class RoutingEngine {
     segments: readonly TranslateSegment[],
     options: TranslateOptions,
   ): AsyncIterable<TranslationChunk> {
-    if (segments.length === 0 || isTranslateStopped(options)) return;
+    if (segments.length === 0 || options.signal.aborted) return;
 
     const choice = await this.choose(segments, options);
     this.lastChoice = choice;

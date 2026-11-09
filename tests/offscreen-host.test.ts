@@ -105,44 +105,6 @@ describe('EngineHost', () => {
     expect(port.messagesOfType('error')).toHaveLength(0);
   });
 
-  it('keeps forwarding chunks after drain and still sends done', async () => {
-    const { services } = createServices();
-    const release = deferred<void>();
-    let signal: AbortSignal | undefined;
-    let drain: AbortSignal | undefined;
-    services.router.translate = async function* (
-      _segments: unknown,
-      translateOptions: { signal: AbortSignal; drain?: AbortSignal },
-    ) {
-      signal = translateOptions.signal;
-      drain = translateOptions.drain;
-      yield { id: 'a', textDelta: 'こん', engine: 'plamo' };
-      await release.promise;
-      yield { id: 'a', final: 'こんにちは', engine: 'plamo' };
-    } as never;
-
-    const host = createHost(services);
-    const port = new FakePort();
-    host.handlePort(port.port);
-
-    port.emit({
-      type: 'translate',
-      requestId: 'r1',
-      segments: [{ id: 'a', text: 'Hello.' }],
-      options: serializeTranslateOptions(options()),
-    });
-    await flushTasks();
-    port.emit({ type: 'drain', requestId: 'r1' });
-    await flushTasks();
-    expect(signal?.aborted).toBe(false);
-    expect(drain?.aborted).toBe(true);
-
-    release.resolve();
-    await flushTasks();
-    expect(port.messagesOfType('chunk')).toHaveLength(2);
-    expect(port.messagesOfType('done')).toHaveLength(1);
-  });
-
   it('keeps the model loaded while a request is in flight', async () => {
     const { services, unload, reset } = createServices();
     const release = deferred<void>();
