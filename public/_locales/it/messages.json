@@ -878,7 +878,7 @@
     "message": "Impossibile tradurre questa bozza."
   },
   "composeEmpty": {
-    "message": "Scrivi qualcosa da tradurre."
+    "message": "Inizia a scrivere per vedere una traduzione."
   },
   "composeTooLong": {
     "message": "Questa bozza è troppo lunga da tradurre."
@@ -968,5 +968,38 @@
   },
   "composeAutoSource": {
     "message": "Auto"
+  },
+  "composePlacementSetting": {
+    "message": "Posizione della barra di traduzione in scrittura"
+  },
+  "composePlacementSettingHelp": {
+    "message": "Il valore predefinito per tutti i siti. Il menu ⋯ della barra può sostituirlo solo su questo sito."
+  },
+  "composePlacementAbove": {
+    "message": "Sopra la casella del messaggio"
+  },
+  "composePlacementBelow": {
+    "message": "Sotto la casella del messaggio"
+  },
+  "composePlacementCorner": {
+    "message": "In basso a destra nella finestra"
+  },
+  "composePlacementFree": {
+    "message": "Sposta liberamente"
+  },
+  "composePlacementMenu": {
+    "message": "Posizione della barra"
+  },
+  "composePlacementSite": {
+    "message": "Questo sito"
+  },
+  "composePlacementFollowSettings": {
+    "message": "Usa l’impostazione per tutti i siti"
+  },
+  "composePlacementReset": {
+    "message": "Reimposta posizione"
+  },
+  "composePlacementHandle": {
+    "message": "Trascina per spostare la barra"
   }
 }

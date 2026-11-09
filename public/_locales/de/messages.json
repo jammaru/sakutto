@@ -878,7 +878,7 @@
     "message": "Dieser Entwurf konnte nicht übersetzt werden."
   },
   "composeEmpty": {
-    "message": "Geben Sie Text zum Übersetzen ein."
+    "message": "Tippen Sie, um eine Übersetzung zu sehen."
   },
   "composeTooLong": {
     "message": "Dieser Entwurf ist zu lang zum Übersetzen."
@@ -968,5 +968,38 @@
   },
   "composeAutoSource": {
     "message": "Auto"
+  },
+  "composePlacementSetting": {
+    "message": "Position der Entwurf-Übersetzungsleiste"
+  },
+  "composePlacementSettingHelp": {
+    "message": "Die Vorgabe für alle Websites. Das ⋯-Menü der Leiste kann das nur für die aktuelle Seite überschreiben."
+  },
+  "composePlacementAbove": {
+    "message": "Über dem Eingabefeld"
+  },
+  "composePlacementBelow": {
+    "message": "Unter dem Eingabefeld"
+  },
+  "composePlacementCorner": {
+    "message": "Unten rechts im Fenster"
+  },
+  "composePlacementFree": {
+    "message": "Frei verschieben"
+  },
+  "composePlacementMenu": {
+    "message": "Leistenposition"
+  },
+  "composePlacementSite": {
+    "message": "Diese Website"
+  },
+  "composePlacementFollowSettings": {
+    "message": "Einstellung für alle Websites verwenden"
+  },
+  "composePlacementReset": {
+    "message": "Position zurücksetzen"
+  },
+  "composePlacementHandle": {
+    "message": "Ziehen, um die Leiste zu verschieben"
   }
 }

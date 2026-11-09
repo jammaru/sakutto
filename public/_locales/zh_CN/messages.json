@@ -878,7 +878,7 @@
     "message": "无法翻译这段草稿。"
   },
   "composeEmpty": {
-    "message": "请输入要翻译的文本。"
+    "message": "开始输入即可看到译文。"
   },
   "composeTooLong": {
     "message": "这段草稿太长，无法翻译。"
@@ -968,5 +968,38 @@
   },
   "composeAutoSource": {
     "message": "自动"
+  },
+  "composePlacementSetting": {
+    "message": "输入时翻译条位置"
+  },
+  "composePlacementSettingHelp": {
+    "message": "所有网站的默认位置。可在翻译条的 ⋯ 菜单中仅覆盖当前网站。"
+  },
+  "composePlacementAbove": {
+    "message": "输入框上方"
+  },
+  "composePlacementBelow": {
+    "message": "输入框下方"
+  },
+  "composePlacementCorner": {
+    "message": "窗口右下角"
+  },
+  "composePlacementFree": {
+    "message": "自由拖动"
+  },
+  "composePlacementMenu": {
+    "message": "翻译条位置"
+  },
+  "composePlacementSite": {
+    "message": "此网站"
+  },
+  "composePlacementFollowSettings": {
+    "message": "恢复所有网站的设置"
+  },
+  "composePlacementReset": {
+    "message": "重置位置"
+  },
+  "composePlacementHandle": {
+    "message": "拖动以移动翻译条"
   }
 }

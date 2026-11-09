@@ -195,6 +195,104 @@ test.describe('compose translation', () => {
     }
   });
 
+  test('opens the bar with a hint when the field is empty', async () => {
+    const page = await openComposePage();
+    try {
+      const box = page.locator('#plain');
+      await box.fill('');
+      await box.focus();
+      await commandPage(extension.worker, page, 'compose');
+      const panel = page.locator('sakutto-compose');
+      await expect.poll(async () => panel.evaluate((el) => (el as HTMLElement).hidden)).toBe(false);
+      await page.screenshot({ path: 'e2e-results/compose-empty-bar.png', fullPage: true });
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('places the Discord-like bar below, in the corner, and freely', async () => {
+    await resetExtensionStorage(extension.worker);
+    const page = await extension.context.newPage();
+    await page.setViewportSize({ width: 900, height: 640 });
+    await page.goto(`${FIXTURE_ORIGIN}/compose-discord.html`);
+    try {
+      const draft = page.locator('#draft');
+      await draft.focus();
+      await commandPage(extension.worker, page, 'compose');
+      const panel = page.locator('sakutto-compose');
+      await expect.poll(async () => panel.evaluate((el) => (el as HTMLElement).hidden)).toBe(false);
+      await page.waitForTimeout(200);
+
+      // The Discord-like grid pins the box to the bottom. Leave room under it so
+      // "below" can actually sit there instead of auto-flipping back above.
+      await page.evaluate(() => {
+        const compose = document.querySelector('.compose');
+        if (compose instanceof HTMLElement) compose.style.paddingBottom = '200px';
+      });
+      await panel.evaluate((el) => {
+        el.dispatchEvent(
+          new CustomEvent('sakutto-compose-action', {
+            detail: { action: 'placement', value: 'below' },
+          }),
+        );
+      });
+      await expect(panel).toHaveAttribute('data-placement', 'below');
+      const belowBoxes = await page.evaluate(() => {
+        const host = document.querySelector('sakutto-compose');
+        const field = document.querySelector('#draft');
+        if (!(host instanceof HTMLElement) || !(field instanceof HTMLElement)) {
+          throw new Error('missing compose nodes');
+        }
+        return {
+          panel: host.getBoundingClientRect(),
+          field: field.getBoundingClientRect(),
+        };
+      });
+      expect(belowBoxes.panel.y).toBeGreaterThanOrEqual(belowBoxes.field.bottom - 2);
+      await page.screenshot({ path: 'e2e-results/compose-discord-bar-below.png' });
+
+      await panel.evaluate((el) => {
+        el.dispatchEvent(
+          new CustomEvent('sakutto-compose-action', {
+            detail: { action: 'placement', value: 'corner' },
+          }),
+        );
+      });
+      await expect(panel).toHaveAttribute('data-placement', 'corner');
+      const cornerBox = await panel.evaluate((el) => (el as HTMLElement).getBoundingClientRect());
+      expect(cornerBox.right).toBeGreaterThan(900 - 40);
+      expect(cornerBox.bottom).toBeGreaterThan(640 - 40);
+      await page.screenshot({ path: 'e2e-results/compose-discord-bar-corner.png' });
+
+      await panel.evaluate((el) => {
+        el.dispatchEvent(
+          new CustomEvent('sakutto-compose-action', {
+            detail: { action: 'placement', value: 'free' },
+          }),
+        );
+        el.dispatchEvent(
+          new CustomEvent('sakutto-compose-action', {
+            // The Discord bar is nearly as wide as the window, so 24px is the
+            // leftmost clamped drop. Sit it on the message log, not on the box.
+            detail: { action: 'free-point', x: 24, y: 120 },
+          }),
+        );
+      });
+      await expect(panel).toHaveAttribute('data-placement', 'free');
+      await expect
+        .poll(async () =>
+          panel.evaluate((el) => {
+            const box = (el as HTMLElement).getBoundingClientRect();
+            return { x: Math.round(box.x), y: Math.round(box.y) };
+          }),
+        )
+        .toEqual({ x: 24, y: 120 });
+      await page.screenshot({ path: 'e2e-results/compose-discord-bar-free.png' });
+    } finally {
+      await page.close();
+    }
+  });
+
   test('uses a light bar on a Gmail-like compose window', async () => {
     await resetExtensionStorage(extension.worker);
     const page = await extension.context.newPage();

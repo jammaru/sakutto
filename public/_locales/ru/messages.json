@@ -878,7 +878,7 @@
     "message": "Не удалось перевести этот черновик."
   },
   "composeEmpty": {
-    "message": "Введите текст для перевода."
+    "message": "Начните ввод, чтобы увидеть перевод."
   },
   "composeTooLong": {
     "message": "Этот черновик слишком длинный для перевода."
@@ -968,5 +968,38 @@
   },
   "composeAutoSource": {
     "message": "Авто"
+  },
+  "composePlacementSetting": {
+    "message": "Положение панели перевода при вводе"
+  },
+  "composePlacementSettingHelp": {
+    "message": "Значение по умолчанию для всех сайтов. Меню ⋯ панели может заменить его только на этом сайте."
+  },
+  "composePlacementAbove": {
+    "message": "Над полем сообщения"
+  },
+  "composePlacementBelow": {
+    "message": "Под полем сообщения"
+  },
+  "composePlacementCorner": {
+    "message": "Правый нижний угол окна"
+  },
+  "composePlacementFree": {
+    "message": "Перемещать свободно"
+  },
+  "composePlacementMenu": {
+    "message": "Положение панели"
+  },
+  "composePlacementSite": {
+    "message": "Этот сайт"
+  },
+  "composePlacementFollowSettings": {
+    "message": "Вернуть настройку для всех сайтов"
+  },
+  "composePlacementReset": {
+    "message": "Сбросить положение"
+  },
+  "composePlacementHandle": {
+    "message": "Перетащите, чтобы переместить панель"
   }
 }

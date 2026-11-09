@@ -878,7 +878,7 @@
     "message": "Không dịch được bản nháp này."
   },
   "composeEmpty": {
-    "message": "Nhập nội dung cần dịch."
+    "message": "Hãy gõ để xem bản dịch."
   },
   "composeTooLong": {
     "message": "Bản nháp này quá dài để dịch."
@@ -968,5 +968,38 @@
   },
   "composeAutoSource": {
     "message": "Tự động"
+  },
+  "composePlacementSetting": {
+    "message": "Vị trí thanh dịch khi soạn"
+  },
+  "composePlacementSettingHelp": {
+    "message": "Mặc định cho mọi trang. Menu ⋯ trên thanh có thể ghi đè chỉ trên trang này."
+  },
+  "composePlacementAbove": {
+    "message": "Phía trên ô tin nhắn"
+  },
+  "composePlacementBelow": {
+    "message": "Phía dưới ô tin nhắn"
+  },
+  "composePlacementCorner": {
+    "message": "Góc dưới bên phải cửa sổ"
+  },
+  "composePlacementFree": {
+    "message": "Di chuyển tự do"
+  },
+  "composePlacementMenu": {
+    "message": "Vị trí thanh"
+  },
+  "composePlacementSite": {
+    "message": "Trang này"
+  },
+  "composePlacementFollowSettings": {
+    "message": "Dùng cài đặt cho mọi trang"
+  },
+  "composePlacementReset": {
+    "message": "Đặt lại vị trí"
+  },
+  "composePlacementHandle": {
+    "message": "Kéo để di chuyển thanh"
   }
 }

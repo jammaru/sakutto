@@ -878,7 +878,7 @@
     "message": "Draf ini tidak dapat diterjemahkan."
   },
   "composeEmpty": {
-    "message": "Ketik sesuatu untuk diterjemahkan."
+    "message": "Mulai mengetik untuk melihat terjemahan."
   },
   "composeTooLong": {
     "message": "Draf ini terlalu panjang untuk diterjemahkan."
@@ -968,5 +968,38 @@
   },
   "composeAutoSource": {
     "message": "Otomatis"
+  },
+  "composePlacementSetting": {
+    "message": "Posisi bilah terjemahan saat menulis"
+  },
+  "composePlacementSettingHelp": {
+    "message": "Nilai bawaan untuk semua situs. Menu ⋯ pada bilah dapat menimpanya hanya untuk situs ini."
+  },
+  "composePlacementAbove": {
+    "message": "Di atas kotak pesan"
+  },
+  "composePlacementBelow": {
+    "message": "Di bawah kotak pesan"
+  },
+  "composePlacementCorner": {
+    "message": "Kanan bawah jendela"
+  },
+  "composePlacementFree": {
+    "message": "Geser bebas"
+  },
+  "composePlacementMenu": {
+    "message": "Posisi bilah"
+  },
+  "composePlacementSite": {
+    "message": "Situs ini"
+  },
+  "composePlacementFollowSettings": {
+    "message": "Gunakan pengaturan untuk semua situs"
+  },
+  "composePlacementReset": {
+    "message": "Atur ulang posisi"
+  },
+  "composePlacementHandle": {
+    "message": "Seret untuk memindahkan bilah"
   }
 }

@@ -878,7 +878,7 @@
     "message": "Não foi possível traduzir este rascunho."
   },
   "composeEmpty": {
-    "message": "Digite algo para traduzir."
+    "message": "Comece a digitar para ver uma tradução."
   },
   "composeTooLong": {
     "message": "Este rascunho é longo demais para traduzir."
@@ -968,5 +968,38 @@
   },
   "composeAutoSource": {
     "message": "Automático"
+  },
+  "composePlacementSetting": {
+    "message": "Posição da barra de tradução ao escrever"
+  },
+  "composePlacementSettingHelp": {
+    "message": "O padrão para todos os sites. O menu ⋯ da barra pode substituir isso só neste site."
+  },
+  "composePlacementAbove": {
+    "message": "Acima da caixa de mensagem"
+  },
+  "composePlacementBelow": {
+    "message": "Abaixo da caixa de mensagem"
+  },
+  "composePlacementCorner": {
+    "message": "Canto inferior direito da janela"
+  },
+  "composePlacementFree": {
+    "message": "Mover livremente"
+  },
+  "composePlacementMenu": {
+    "message": "Posição da barra"
+  },
+  "composePlacementSite": {
+    "message": "Este site"
+  },
+  "composePlacementFollowSettings": {
+    "message": "Usar a configuração para todos os sites"
+  },
+  "composePlacementReset": {
+    "message": "Redefinir posição"
+  },
+  "composePlacementHandle": {
+    "message": "Arraste para mover a barra"
   }
 }

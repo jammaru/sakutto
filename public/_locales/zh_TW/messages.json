@@ -878,7 +878,7 @@
     "message": "無法翻譯這段草稿。"
   },
   "composeEmpty": {
-    "message": "請輸入要翻譯的文字。"
+    "message": "開始輸入即可看到譯文。"
   },
   "composeTooLong": {
     "message": "這段草稿太長，無法翻譯。"
@@ -968,5 +968,38 @@
   },
   "composeAutoSource": {
     "message": "自動"
+  },
+  "composePlacementSetting": {
+    "message": "輸入時翻譯列位置"
+  },
+  "composePlacementSettingHelp": {
+    "message": "所有網站的預設位置。可在翻譯列的 ⋯ 選單中僅覆寫目前網站。"
+  },
+  "composePlacementAbove": {
+    "message": "輸入框上方"
+  },
+  "composePlacementBelow": {
+    "message": "輸入框下方"
+  },
+  "composePlacementCorner": {
+    "message": "視窗右下角"
+  },
+  "composePlacementFree": {
+    "message": "自由拖曳"
+  },
+  "composePlacementMenu": {
+    "message": "翻譯列位置"
+  },
+  "composePlacementSite": {
+    "message": "此網站"
+  },
+  "composePlacementFollowSettings": {
+    "message": "恢復所有網站的設定"
+  },
+  "composePlacementReset": {
+    "message": "重設位置"
+  },
+  "composePlacementHandle": {
+    "message": "拖曳以移動翻譯列"
   }
 }

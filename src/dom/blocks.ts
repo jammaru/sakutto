@@ -4,6 +4,7 @@ const FIELD_SELECTORS = [
   'input',
   'select',
   '[contenteditable]:not([contenteditable="false"])',
+  '[role="textbox"]',
 ];
 
 const EXCLUDED_SELECTOR = [

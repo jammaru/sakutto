@@ -2,6 +2,7 @@ import { browser } from 'wxt/browser';
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { listPageBlocks } from '@/dom/blocks';
 import { ComposeController, type ComposeLabels, type ComposePreferences } from '@/dom/compose';
+import { shouldHandleComposeCommand } from '@/dom/compose-field';
 import { detectDocumentLanguage } from '@/dom/detect';
 import { fakeTranslate } from '@/dom/fake-engine';
 import type { OverlayLabels } from '@/dom/overlay';
@@ -9,6 +10,7 @@ import { PageSession, preferencesFor } from '@/dom/session';
 import {
   loadSiteRule,
   pageHost,
+  patchSiteRule,
   saveSiteRule,
   subscribeSiteRules,
   type SiteRule,
@@ -112,6 +114,9 @@ function composePreferencesFor(
     explicitTarget: composeTarget !== null,
     instantReplace: settings.composeInstantReplace,
     replaceShortcut,
+    placement: settings.composePlacement,
+    sitePlacement: rule.composePlacement ?? null,
+    freePoint: rule.composeFreePoint ?? null,
   };
 }
 
@@ -152,6 +157,21 @@ function composeLabels(readiness?: TypedReadiness): ComposeLabels {
     langPair: (source, target) => t('composeLangPair', [source, target]),
     into: (language) => t('composeInto', [language]),
     chromeOnly: (language) => t('composeChromeOnly', [language]),
+    placementMenu: t('composePlacementMenu'),
+    placementSite: t('composePlacementSite'),
+    placementFollowSettings: t('composePlacementFollowSettings'),
+    placementReset: t('composePlacementReset'),
+    placementHandle: t('composePlacementHandle'),
+    placementLabel: (placement) =>
+      t(
+        placement === 'below'
+          ? 'composePlacementBelow'
+          : placement === 'corner'
+            ? 'composePlacementCorner'
+            : placement === 'free'
+              ? 'composePlacementFree'
+              : 'composePlacementAbove',
+      ),
   };
 }
 
@@ -292,6 +312,33 @@ export default defineContentScript({
           if (!isTargetLanguage(language)) return;
           void saveSettings({ composeTargetLanguage: language });
         },
+        onPlacement: (placement) => {
+          void patchSiteRule(host, (current) => {
+            const next = { ...current, host, composePlacement: placement };
+            if (placement !== 'free') delete next.composeFreePoint;
+            return next;
+          });
+        },
+        onFollowSettings: () => {
+          void patchSiteRule(host, (current) => {
+            const next = { ...current, host };
+            delete next.composePlacement;
+            delete next.composeFreePoint;
+            return next;
+          });
+        },
+        onFreePoint: (point) => {
+          void patchSiteRule(host, (current) => {
+            const next = {
+              ...current,
+              host,
+              composePlacement: current.composePlacement ?? 'free',
+            };
+            if (point) next.composeFreePoint = point;
+            else delete next.composeFreePoint;
+            return next;
+          });
+        },
       });
 
       const detected = await detectDocumentLanguage(document);
@@ -338,7 +385,9 @@ export default defineContentScript({
 
     const run = async (command: PageCommandName) => {
       const now = Date.now();
-      if (lastCommand === command && now - lastCommandAt < (command === 'compose' ? 200 : 80)) {
+      // Compose re-entry is owned by the controller so a Chrome command that found no field
+      // cannot swallow the page keydown (or a second command) that does.
+      if (command !== 'compose' && lastCommand === command && now - lastCommandAt < 80) {
         return (await sessionPromise).state();
       }
       lastCommand = command;
@@ -350,7 +399,7 @@ export default defineContentScript({
         void requestEngineTier(session);
       }
       if (command === 'compose') {
-        compose?.handleShortcut();
+        if (shouldHandleComposeCommand(document)) compose?.handleShortcut();
         return session.state();
       }
       await session.handle(command);

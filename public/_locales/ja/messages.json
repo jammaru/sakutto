@@ -878,7 +878,7 @@
     "message": "この入力を翻訳できませんでした。"
   },
   "composeEmpty": {
-    "message": "翻訳するテキストを入力してください。"
+    "message": "入力すると訳が出ます"
   },
   "composeTooLong": {
     "message": "この入力は長すぎて翻訳できません。"
@@ -968,5 +968,38 @@
   },
   "composeAutoSource": {
     "message": "自動"
+  },
+  "composePlacementSetting": {
+    "message": "入力中の翻訳バーの位置"
+  },
+  "composePlacementSettingHelp": {
+    "message": "すべてのサイトの既定です。いま見ているページでは、バーの ⋯ メニューでこのサイトだけ上書きできます。"
+  },
+  "composePlacementAbove": {
+    "message": "入力欄の上"
+  },
+  "composePlacementBelow": {
+    "message": "入力欄の下"
+  },
+  "composePlacementCorner": {
+    "message": "画面の右下（フローティング）"
+  },
+  "composePlacementFree": {
+    "message": "自由に動かす"
+  },
+  "composePlacementMenu": {
+    "message": "バーの位置"
+  },
+  "composePlacementSite": {
+    "message": "このサイト"
+  },
+  "composePlacementFollowSettings": {
+    "message": "設定の位置に戻す（すべてのサイト）"
+  },
+  "composePlacementReset": {
+    "message": "位置をリセット"
+  },
+  "composePlacementHandle": {
+    "message": "ドラッグしてバーを移動"
   }
 }

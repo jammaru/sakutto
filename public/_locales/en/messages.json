@@ -878,7 +878,7 @@
     "message": "Could not translate this draft."
   },
   "composeEmpty": {
-    "message": "Type something to translate."
+    "message": "Start typing to see a translation."
   },
   "composeTooLong": {
     "message": "This draft is too long to translate."
@@ -968,5 +968,38 @@
   },
   "composeAutoSource": {
     "message": "Auto"
+  },
+  "composePlacementSetting": {
+    "message": "Draft translation bar position"
+  },
+  "composePlacementSettingHelp": {
+    "message": "The default for every site. On the page you are on, the bar’s ⋯ menu can override this for that site only."
+  },
+  "composePlacementAbove": {
+    "message": "Above the message box"
+  },
+  "composePlacementBelow": {
+    "message": "Below the message box"
+  },
+  "composePlacementCorner": {
+    "message": "Bottom-right of the window"
+  },
+  "composePlacementFree": {
+    "message": "Move freely"
+  },
+  "composePlacementMenu": {
+    "message": "Bar position"
+  },
+  "composePlacementSite": {
+    "message": "This site"
+  },
+  "composePlacementFollowSettings": {
+    "message": "Use the setting for all sites"
+  },
+  "composePlacementReset": {
+    "message": "Reset position"
+  },
+  "composePlacementHandle": {
+    "message": "Drag to move the bar"
   }
 }

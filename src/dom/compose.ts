@@ -8,7 +8,13 @@ import {
 } from '@/shared/languages';
 import { COMPOSE_PREVIEW_MS, planComposeTranslation } from '@/shared/compose-translation';
 import { displayShortcut, matchesShortcut } from '@/shared/shortcuts';
-import type { Formality } from '@/shared/settings';
+import {
+  COMPOSE_PLACEMENTS,
+  isComposePlacement,
+  type ComposeFreePoint,
+  type ComposePlacement,
+  type Formality,
+} from '@/shared/settings';
 import {
   isTranslateShortcut,
   MAX_TYPED_CHARS,
@@ -17,6 +23,7 @@ import {
 } from '@/shared/typed-translation';
 import { collectDocuments, focusedEditableField } from './blocks';
 import {
+  composeEditableRoot,
   composeFieldRect,
   focusedComposeField,
   isComposeCandidate,
@@ -32,6 +39,7 @@ import {
   type ComposeReplaceMethod,
   type ComposeSnapshot,
 } from './compose-field';
+import { isRecord } from '@/shared/object';
 import type { PageEngine } from './session';
 import { uiShadow } from './overlay';
 
@@ -58,6 +66,12 @@ export interface ComposeLabels {
   langPair: (source: string, target: string) => string;
   into: (language: string) => string;
   chromeOnly: (language: string) => string;
+  placementMenu: string;
+  placementSite: string;
+  placementFollowSettings: string;
+  placementReset: string;
+  placementHandle: string;
+  placementLabel: (placement: ComposePlacement) => string;
 }
 
 export interface ComposePreferences {
@@ -74,6 +88,12 @@ export interface ComposePreferences {
   instantReplace: boolean;
   /** Shown on the Replace button, e.g. `Alt+T`. Empty when the command is off. */
   replaceShortcut: string;
+  /** Global default from settings. */
+  placement: ComposePlacement;
+  /** When set, this page overrides the global default. */
+  sitePlacement: ComposePlacement | null;
+  /** Last drop point when the bar is in free mode. */
+  freePoint: ComposeFreePoint | null;
 }
 
 const ICON_PX = 26;
@@ -119,6 +139,7 @@ button:focus-visible { outline: 2px solid #0e7490; outline-offset: 2px; }
 const PANEL_STYLE = `
 :host { all: initial; }
 .card {
+  position: relative;
   box-sizing: border-box;
   padding: 8px 10px 8px 12px;
   border-radius: 12px;
@@ -227,6 +248,79 @@ const PANEL_STYLE = `
 .card.dark .status { color: #b5bac1; }
 .card:not(.undo) .status { display: none; }
 .card.undo .hint, .card.undo .chip, .card.undo button.replace { display: none; }
+.handle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  width: 18px;
+  height: 22px;
+  border-radius: 6px;
+  background: transparent;
+  color: #5b6675;
+  cursor: grab;
+  font-size: 11px;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+.card.free .handle { display: inline-flex; }
+.card.dark .handle { color: #b5bac1; }
+.handle:active { cursor: grabbing; }
+button.more {
+  padding: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: transparent;
+  color: #5b6675;
+  font-size: 16px;
+  line-height: 1;
+}
+.card.dark button.more { color: #b5bac1; }
+.menu {
+  position: absolute;
+  right: 8px;
+  top: calc(100% - 4px);
+  z-index: 2;
+  min-width: 200px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid #d5dde6;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgb(15 23 32 / 16%);
+}
+.card.dark .menu {
+  border-color: rgb(255 255 255 / 12%);
+  background: #2b2d31;
+  box-shadow: 0 10px 24px rgb(0 0 0 / 40%);
+}
+.menu[hidden] { display: none; }
+.menu .caption {
+  padding: 4px 8px 6px;
+  color: #5b6675;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.card.dark .menu .caption { color: #b5bac1; }
+.menu button.option {
+  display: flex;
+  width: 100%;
+  margin: 0 0 2px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: 600 12px/1.3 "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  text-align: left;
+}
+.menu button.option[aria-checked="true"] { background: rgb(14 116 144 / 12%); }
+.card.dark .menu button.option[aria-checked="true"] { background: rgb(103 232 249 / 14%); }
+.menu button.option:hover, .menu button.option:focus-visible { background: rgb(14 116 144 / 18%); }
+.card.dark .menu button.option:hover, .card.dark .menu button.option:focus-visible {
+  background: rgb(103 232 249 / 20%);
+}
 button {
   flex: 0 0 auto;
   padding: 4px 9px;
@@ -283,6 +377,9 @@ interface PanelState {
   needsSetup: boolean;
   loading: boolean;
   dark: boolean;
+  placement: ComposePlacement;
+  freePoint: ComposeFreePoint | null;
+  siteOverride: boolean;
 }
 
 /** Place the あA button so it does not sit on top of typed text in a short field. */
@@ -386,11 +483,12 @@ export function composePanelWidth(anchor: DOMRect, viewportWidth: number): numbe
   return Math.round(Math.min(Math.max(anchor.width, 240), Math.max(240, viewportWidth - 16)));
 }
 
-/** Sit on the field's top edge; flip below when there is no room above. */
+/** Sit on the field's preferred edge; flip to the other side when there is no room. */
 export function composePanelPosition(
   anchor: DOMRect,
   size: { width: number; height: number },
   viewport: { width: number; height: number },
+  prefer: 'above' | 'below' = 'above',
   gap = 6,
 ): { left: number; top: number; placement: 'above' | 'below' } {
   let left = anchor.left;
@@ -398,9 +496,14 @@ export function composePanelPosition(
   if (left < 8) left = 8;
   const above = anchor.top - size.height - gap;
   const below = anchor.bottom + gap;
-  if (above >= 8) return { left, top: above, placement: 'above' };
-  if (below + size.height <= viewport.height - 8) {
-    return { left, top: below, placement: 'below' };
+  const fitsAbove = above >= 8;
+  const fitsBelow = below + size.height <= viewport.height - 8;
+  if (prefer === 'below') {
+    if (fitsBelow) return { left, top: below, placement: 'below' };
+    if (fitsAbove) return { left, top: above, placement: 'above' };
+  } else {
+    if (fitsAbove) return { left, top: above, placement: 'above' };
+    if (fitsBelow) return { left, top: below, placement: 'below' };
   }
   if (anchor.top >= viewport.height - anchor.bottom) {
     return { left, top: Math.max(8, above), placement: 'above' };
@@ -409,6 +512,33 @@ export function composePanelPosition(
     left,
     top: Math.min(below, Math.max(8, viewport.height - size.height - 8)),
     placement: 'below',
+  };
+}
+
+export function composeCornerPosition(
+  size: { width: number; height: number },
+  viewport: { width: number; height: number },
+  inset = 16,
+): { left: number; top: number } {
+  return composeClampPosition(
+    viewport.width - size.width - inset,
+    viewport.height - size.height - inset,
+    size,
+    viewport,
+  );
+}
+
+export function composeClampPosition(
+  left: number,
+  top: number,
+  size: { width: number; height: number },
+  viewport: { width: number; height: number },
+): { left: number; top: number } {
+  const maxLeft = Math.max(8, viewport.width - size.width - 8);
+  const maxTop = Math.max(8, viewport.height - size.height - 8);
+  return {
+    left: Math.min(Math.max(8, left), maxLeft),
+    top: Math.min(Math.max(8, top), maxTop),
   };
 }
 
@@ -426,6 +556,13 @@ class ComposeOverlay {
   private readonly undoButton: HTMLButtonElement;
   private readonly closeButton: HTMLButtonElement;
   private readonly setupButton: HTMLButtonElement;
+  private readonly handleButton: HTMLButtonElement;
+  private readonly moreButton: HTMLButtonElement;
+  private readonly menu: HTMLElement;
+  private readonly menuCaption: HTMLElement;
+  private readonly followButton: HTMLButtonElement;
+  private readonly resetButton: HTMLButtonElement;
+  private readonly placementButtons = new Map<ComposePlacement, HTMLButtonElement>();
   private labels: ComposeLabels;
   private onIcon: () => void = () => undefined;
   private onReplace: () => void = () => undefined;
@@ -433,8 +570,18 @@ class ComposeOverlay {
   private onClose: () => void = () => undefined;
   private onSetup: () => void = () => undefined;
   private onTarget: (language: TargetLanguage) => void = () => undefined;
+  private onPlacement: (placement: ComposePlacement) => void = () => undefined;
+  private onFollowSettings: () => void = () => undefined;
+  private onFreePoint: (point: ComposeFreePoint | null) => void = () => undefined;
   private replaceShortcut = '';
   private uiLanguage = 'en';
+  private placement: ComposePlacement = 'above';
+  private freePoint: ComposeFreePoint | null = null;
+  private siteOverride = false;
+  private dragging = false;
+  private dragOffset = { x: 0, y: 0 };
+  private readonly onDragMove = (event: PointerEvent): void => this.handleDragMove(event);
+  private readonly onDragUp = (): void => this.handleDragUp();
 
   constructor(
     private readonly doc: Document,
@@ -465,6 +612,15 @@ class ComposeOverlay {
     this.undoButton = panel.undo;
     this.closeButton = panel.close;
     this.setupButton = panel.setup;
+    this.handleButton = panel.handle;
+    this.moreButton = panel.more;
+    this.menu = panel.menu;
+    this.menuCaption = panel.menuCaption;
+    this.followButton = panel.follow;
+    this.resetButton = panel.reset;
+    for (const [placement, button] of panel.placementButtons) {
+      this.placementButtons.set(placement, button);
+    }
     // Page scripts must not be able to fire Replace. The event exists only in the
     // fake-engine/test build, where e2e cannot pierce the closed shadow root.
     if (__SAKUTTO_FAKE_ENGINE__) {
@@ -472,9 +628,23 @@ class ComposeOverlay {
         const detail = event instanceof CustomEvent ? event.detail : null;
         if (detail === 'replace') this.onReplace();
         if (detail === 'undo') this.onUndo();
+        if (detail === 'follow-settings') this.onFollowSettings();
+        if (detail === 'reset-placement') this.resetFreePoint();
+        if (isRecord(detail) && detail.action === 'placement' && isComposePlacement(detail.value)) {
+          this.choosePlacement(detail.value);
+        }
+        if (
+          isRecord(detail) &&
+          detail.action === 'free-point' &&
+          typeof detail.x === 'number' &&
+          typeof detail.y === 'number'
+        ) {
+          this.onFreePoint({ x: detail.x, y: detail.y });
+        }
       });
     }
     this.fillLanguages();
+    this.paintMenu();
   }
 
   setLabels(labels: ComposeLabels): void {
@@ -490,6 +660,11 @@ class ComposeOverlay {
     this.closeButton.title = labels.close;
     this.setupButton.textContent = labels.openSetup;
     this.card.setAttribute('aria-label', labels.title);
+    this.moreButton.setAttribute('aria-label', labels.placementMenu);
+    this.moreButton.title = labels.placementMenu;
+    this.handleButton.setAttribute('aria-label', labels.placementHandle);
+    this.handleButton.title = labels.placementHandle;
+    this.paintMenu();
   }
 
   setHandlers(handlers: {
@@ -499,6 +674,9 @@ class ComposeOverlay {
     onClose: () => void;
     onSetup: () => void;
     onTarget: (language: TargetLanguage) => void;
+    onPlacement: (placement: ComposePlacement) => void;
+    onFollowSettings: () => void;
+    onFreePoint: (point: ComposeFreePoint | null) => void;
   }): void {
     this.onIcon = handlers.onIcon;
     this.onReplace = handlers.onReplace;
@@ -506,6 +684,9 @@ class ComposeOverlay {
     this.onClose = handlers.onClose;
     this.onSetup = handlers.onSetup;
     this.onTarget = handlers.onTarget;
+    this.onPlacement = handlers.onPlacement;
+    this.onFollowSettings = handlers.onFollowSettings;
+    this.onFreePoint = handlers.onFreePoint;
   }
 
   setReplaceShortcut(shortcut: string): void {
@@ -545,10 +726,15 @@ class ComposeOverlay {
 
   showPanel(anchor: DOMRect, state: PanelState): void {
     const undoOnly = state.canUndo && !state.pending && !state.needsSetup && !state.loading;
+    this.placement = state.placement;
+    this.freePoint = state.freePoint;
+    this.siteOverride = state.siteOverride;
     this.card.classList.toggle('dark', state.dark);
     this.card.classList.toggle('undo', undoOnly);
+    this.card.classList.toggle('free', state.placement === 'free');
     this.panelHost.dataset.theme = state.dark ? 'dark' : 'light';
     this.panelHost.dataset.mode = undoOnly ? 'undo' : 'preview';
+    this.panelHost.dataset.site = state.siteOverride ? '1' : '0';
     this.body.classList.toggle('pending', state.pending);
     this.body.setAttribute('aria-busy', state.pending ? 'true' : 'false');
     if (state.pending) {
@@ -576,12 +762,24 @@ class ComposeOverlay {
       this.targetSelect.value = state.lang;
     }
     this.paintHint();
+    this.paintMenu();
     this.placePanel(anchor);
   }
 
   hidePanel(): void {
+    this.closeMenu();
+    this.stopDrag();
     this.panelHost.hidden = true;
     this.panelHost.style.display = 'none';
+  }
+
+  menuOpen(): boolean {
+    return !this.menu.hidden;
+  }
+
+  closeMenu(): void {
+    this.menu.hidden = true;
+    this.moreButton.setAttribute('aria-expanded', 'false');
   }
 
   panelVisible(): boolean {
@@ -598,6 +796,7 @@ class ComposeOverlay {
   }
 
   destroy(): void {
+    this.stopDrag();
     this.iconHost.remove();
     this.panelHost.remove();
   }
@@ -662,6 +861,13 @@ class ComposeOverlay {
     undo: HTMLButtonElement;
     close: HTMLButtonElement;
     setup: HTMLButtonElement;
+    handle: HTMLButtonElement;
+    more: HTMLButtonElement;
+    menu: HTMLElement;
+    menuCaption: HTMLElement;
+    follow: HTMLButtonElement;
+    reset: HTMLButtonElement;
+    placementButtons: Map<ComposePlacement, HTMLButtonElement>;
   } {
     const shadow = attachClosedShadow(this.panelHost);
     const style = this.doc.createElement('style');
@@ -686,6 +892,23 @@ class ComposeOverlay {
 
     const toolbar = this.doc.createElement('div');
     toolbar.className = 'toolbar';
+    const handle = this.doc.createElement('button');
+    handle.type = 'button';
+    handle.className = 'handle';
+    handle.textContent = '⋮⋮';
+    handle.setAttribute('aria-label', this.labels.placementHandle);
+    handle.title = this.labels.placementHandle;
+    handle.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.button !== 0) return;
+      this.startDrag(event);
+    });
+    handle.addEventListener('dblclick', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.resetFreePoint();
+    });
     const chip = this.doc.createElement('label');
     chip.className = 'chip';
     const chipFace = this.doc.createElement('span');
@@ -700,6 +923,22 @@ class ComposeOverlay {
       if (isTargetLanguage(value)) this.onTarget(value);
     });
     chip.append(chipFace, target);
+
+    const more = this.doc.createElement('button');
+    more.type = 'button';
+    more.className = 'more';
+    more.textContent = '⋯';
+    more.setAttribute('aria-haspopup', 'menu');
+    more.setAttribute('aria-expanded', 'false');
+    more.setAttribute('aria-label', this.labels.placementMenu);
+    more.title = this.labels.placementMenu;
+    more.addEventListener('pointerdown', keepFocus);
+    more.addEventListener('mousedown', keepFocus);
+    more.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.toggleMenu();
+    });
 
     const hint = this.doc.createElement('span');
     hint.className = 'hint';
@@ -755,10 +994,77 @@ class ComposeOverlay {
       event.stopPropagation();
       this.onSetup();
     });
-    toolbar.append(chip, hint, status, replace, undo, setup, close);
-    card.append(body, toolbar);
+    const menu = this.doc.createElement('div');
+    menu.className = 'menu';
+    menu.hidden = true;
+    menu.setAttribute('role', 'menu');
+    const menuCaption = this.doc.createElement('div');
+    menuCaption.className = 'caption';
+    menuCaption.textContent = this.labels.placementSite;
+    const placementButtons = new Map<ComposePlacement, HTMLButtonElement>();
+    menu.append(menuCaption);
+    for (const placement of COMPOSE_PLACEMENTS) {
+      const option = this.doc.createElement('button');
+      option.type = 'button';
+      option.className = 'option';
+      option.setAttribute('role', 'menuitemradio');
+      option.dataset.placement = placement;
+      option.addEventListener('pointerdown', keepFocus);
+      option.addEventListener('mousedown', keepFocus);
+      option.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.choosePlacement(placement);
+      });
+      placementButtons.set(placement, option);
+      menu.append(option);
+    }
+    const reset = this.doc.createElement('button');
+    reset.type = 'button';
+    reset.className = 'option';
+    reset.setAttribute('role', 'menuitem');
+    reset.addEventListener('pointerdown', keepFocus);
+    reset.addEventListener('mousedown', keepFocus);
+    reset.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.resetFreePoint();
+    });
+    const follow = this.doc.createElement('button');
+    follow.type = 'button';
+    follow.className = 'option';
+    follow.setAttribute('role', 'menuitem');
+    follow.addEventListener('pointerdown', keepFocus);
+    follow.addEventListener('mousedown', keepFocus);
+    follow.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.closeMenu();
+      this.onFollowSettings();
+    });
+    menu.append(reset, follow);
+    toolbar.append(handle, chip, more, hint, status, replace, undo, setup, close);
+    card.append(body, toolbar, menu);
     shadow.append(style, card);
-    return { card, chipFace, target, body, hint, status, replace, undo, close, setup };
+    return {
+      card,
+      chipFace,
+      target,
+      body,
+      hint,
+      status,
+      replace,
+      undo,
+      close,
+      setup,
+      handle,
+      more,
+      menu,
+      menuCaption,
+      follow,
+      reset,
+      placementButtons,
+    };
   }
 
   private placePanel(anchor: DOMRect): void {
@@ -772,10 +1078,111 @@ class ComposeOverlay {
     const height = this.card.offsetHeight || 72;
     this.panelHost.style.width = `${String(width)}px`;
     this.panelHost.style.height = `${String(height)}px`;
-    const { left, top, placement } = composePanelPosition(anchor, { width, height }, viewport);
-    this.panelHost.dataset.placement = placement;
+    if (this.dragging) return;
+    const size = { width, height };
+    let left: number;
+    let top: number;
+    let shown: string;
+    if (this.placement === 'corner') {
+      ({ left, top } = composeCornerPosition(size, viewport));
+      shown = 'corner';
+    } else if (this.placement === 'free' && this.freePoint) {
+      ({ left, top } = composeClampPosition(this.freePoint.x, this.freePoint.y, size, viewport));
+      shown = 'free';
+    } else {
+      const prefer = this.placement === 'below' ? 'below' : 'above';
+      const pos = composePanelPosition(anchor, size, viewport, prefer);
+      left = pos.left;
+      top = pos.top;
+      shown = this.placement === 'free' ? 'free' : pos.placement;
+    }
+    this.panelHost.dataset.placement = shown;
     this.panelHost.style.left = `${String(Math.round(left))}px`;
     this.panelHost.style.top = `${String(Math.round(top))}px`;
+  }
+
+  private paintMenu(): void {
+    this.menuCaption.textContent = this.labels.placementSite;
+    this.followButton.textContent = this.labels.placementFollowSettings;
+    this.followButton.hidden = !this.siteOverride;
+    this.resetButton.textContent = this.labels.placementReset;
+    this.resetButton.hidden = this.placement !== 'free';
+    for (const [placement, button] of this.placementButtons) {
+      button.textContent = this.labels.placementLabel(placement);
+      button.setAttribute('aria-checked', placement === this.placement ? 'true' : 'false');
+    }
+  }
+
+  private toggleMenu(): void {
+    if (this.menu.hidden) {
+      this.paintMenu();
+      this.menu.hidden = false;
+      this.moreButton.setAttribute('aria-expanded', 'true');
+    } else {
+      this.closeMenu();
+    }
+  }
+
+  private choosePlacement(placement: ComposePlacement): void {
+    this.closeMenu();
+    if (placement === 'free' && this.freePoint === null) {
+      this.onFreePoint({
+        x: Number.parseFloat(this.panelHost.style.left) || 8,
+        y: Number.parseFloat(this.panelHost.style.top) || 8,
+      });
+    }
+    this.onPlacement(placement);
+  }
+
+  private resetFreePoint(): void {
+    this.closeMenu();
+    this.onFreePoint(null);
+  }
+
+  private startDrag(event: PointerEvent): void {
+    if (this.placement !== 'free') this.choosePlacement('free');
+    this.dragging = true;
+    const left = Number.parseFloat(this.panelHost.style.left) || 0;
+    const top = Number.parseFloat(this.panelHost.style.top) || 0;
+    this.dragOffset = { x: event.clientX - left, y: event.clientY - top };
+    this.handleButton.setPointerCapture(event.pointerId);
+    this.doc.addEventListener('pointermove', this.onDragMove, true);
+    this.doc.addEventListener('pointerup', this.onDragUp, true);
+    this.doc.addEventListener('pointercancel', this.onDragUp, true);
+  }
+
+  private handleDragMove(event: PointerEvent): void {
+    if (!this.dragging) return;
+    const view = this.doc.defaultView;
+    const viewport = { width: view?.innerWidth ?? 800, height: view?.innerHeight ?? 600 };
+    const size = {
+      width: this.panelHost.offsetWidth || 240,
+      height: this.panelHost.offsetHeight || 72,
+    };
+    const { left, top } = composeClampPosition(
+      event.clientX - this.dragOffset.x,
+      event.clientY - this.dragOffset.y,
+      size,
+      viewport,
+    );
+    this.panelHost.style.left = `${String(Math.round(left))}px`;
+    this.panelHost.style.top = `${String(Math.round(top))}px`;
+    this.panelHost.dataset.placement = 'free';
+  }
+
+  private handleDragUp(): void {
+    if (!this.dragging) return;
+    const left = Number.parseFloat(this.panelHost.style.left) || 8;
+    const top = Number.parseFloat(this.panelHost.style.top) || 8;
+    this.stopDrag();
+    this.onFreePoint({ x: left, y: top });
+  }
+
+  private stopDrag(): void {
+    this.dragging = false;
+    this.doc.removeEventListener('pointermove', this.onDragMove, true);
+    this.doc.removeEventListener('pointerup', this.onDragUp, true);
+    this.doc.removeEventListener('pointercancel', this.onDragUp, true);
   }
 }
 
@@ -788,6 +1195,9 @@ export interface ComposeControllerOptions {
   onWarm?: () => void;
   onSetup?: () => void;
   onTarget?: (language: TargetLanguage) => void;
+  onPlacement?: (placement: ComposePlacement) => void;
+  onFollowSettings?: () => void;
+  onFreePoint?: (point: ComposeFreePoint | null) => void;
 }
 
 /**
@@ -803,7 +1213,11 @@ export class ComposeController {
   private readonly onWarm: (() => void) | undefined;
   private readonly onSetup: (() => void) | undefined;
   private readonly onTarget: ((language: TargetLanguage) => void) | undefined;
+  private readonly onPlacement: ((placement: ComposePlacement) => void) | undefined;
+  private readonly onFollowSettings: (() => void) | undefined;
+  private readonly onFreePoint: ((point: ComposeFreePoint | null) => void) | undefined;
   private readonly boundDocs = new Set<Document>();
+  private readonly boundWindows = new Set<Window>();
   private prefs: ComposePreferences;
   private labels: ComposeLabels;
   private field: Element | null = null;
@@ -821,6 +1235,7 @@ export class ComposeController {
   private lastAnchor: DOMRect | null = null;
   private replacing = false;
   private lastShortcutAt = 0;
+  private lastDraftLen = 0;
   private replaceWhenReady = false;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private request: AbortController | null = null;
@@ -847,6 +1262,9 @@ export class ComposeController {
     this.onWarm = options.onWarm;
     this.onSetup = options.onSetup;
     this.onTarget = options.onTarget;
+    this.onPlacement = options.onPlacement;
+    this.onFollowSettings = options.onFollowSettings;
+    this.onFreePoint = options.onFreePoint;
     this.overlay = new ComposeOverlay(doc, options.labels);
     this.overlay.setReplaceShortcut(this.prefs.replaceShortcut);
     this.overlay.setUiLanguage(this.prefs.uiLanguage);
@@ -861,6 +1279,9 @@ export class ComposeController {
       onClose: () => this.dismiss(),
       onSetup: () => this.onSetup?.(),
       onTarget: (language) => this.pickTarget(language),
+      onPlacement: (placement) => this.pickPlacement(placement),
+      onFollowSettings: () => this.followSettingsPlacement(),
+      onFreePoint: (point) => this.pickFreePoint(point),
     });
     this.onFocusIn = (event) => this.handleFocus(event);
     this.onFocusOut = (event) => this.handleBlur(event);
@@ -901,21 +1322,22 @@ export class ComposeController {
   }
 
   /** Chrome command, context menu, or the in-page key. Never sends the message. */
-  handleShortcut(): void {
+  handleShortcut(source?: EventTarget | null): void {
     if (this.replacing) return;
     const now = Date.now();
     if (now - this.lastShortcutAt < COMPOSE_SHORTCUT_DEDUP_MS) return;
-    this.lastShortcutAt = now;
     if (!this.prefs.enabled) return;
-    const field = this.resolveField();
+    const field = this.resolveField(source);
     if (!field) {
       this.showIneligible();
       return;
     }
+    this.lastShortcutAt = now;
+    const wasIneligible = this.ineligible;
     this.ineligible = false;
     this.field = field;
     this.lastField = field;
-    if (this.panelOpen) {
+    if (this.panelOpen && !wasIneligible) {
       this.requestReplace();
       return;
     }
@@ -944,28 +1366,42 @@ export class ComposeController {
       doc.removeEventListener('compositionend', this.onCompositionEnd, true);
     }
     this.boundDocs.clear();
+    for (const view of this.boundWindows) {
+      view.removeEventListener('keydown', this.onKeyDown, true);
+    }
+    this.boundWindows.clear();
     this.doc.defaultView?.removeEventListener('scroll', this.onScroll, true);
     this.doc.defaultView?.removeEventListener('resize', this.onScroll);
   }
 
   private bindDocuments(): void {
     for (const doc of collectDocuments(this.doc)) {
+      const view = doc.defaultView;
+      if (view && !this.boundWindows.has(view)) {
+        // Window capture runs before a page that stopPropagation()s on its editor.
+        view.addEventListener('keydown', this.onKeyDown, true);
+        this.boundWindows.add(view);
+      }
       if (this.boundDocs.has(doc)) continue;
       doc.addEventListener('focusin', this.onFocusIn, true);
       doc.addEventListener('focusout', this.onFocusOut, true);
       doc.addEventListener('input', this.onInput, true);
-      doc.addEventListener('keydown', this.onKeyDown, true);
       doc.addEventListener('contextmenu', this.onContextMenu, true);
       doc.addEventListener('compositionend', this.onCompositionEnd, true);
       this.boundDocs.add(doc);
     }
   }
 
-  private resolveField(): Element | null {
+  private resolveField(source?: EventTarget | null): Element | null {
+    const fromEvent = composeEditableRoot(source);
+    if (fromEvent && isComposeCandidate(fromEvent)) return fromEvent;
     const focused = focusedComposeField(this.doc);
     if (focused) return focused;
-    const active = focusedEditableField(this.doc.activeElement) ?? this.doc.activeElement;
-    if (active instanceof Element && isSensitiveField(active)) return null;
+    const active = composeEditableRoot(
+      focusedEditableField(this.doc.activeElement) ?? this.doc.activeElement,
+    );
+    if (active && isSensitiveField(active)) return null;
+    if (active && isComposeCandidate(active)) return active;
     if (this.field && this.field.isConnected && isComposeCandidate(this.field)) return this.field;
     if (this.lastField && this.lastField.isConnected && isComposeCandidate(this.lastField)) {
       return this.lastField;
@@ -1038,10 +1474,21 @@ export class ComposeController {
     this.snapshot = null;
     this.replaceMethod = null;
     if (!this.panelOpen) return;
-    if (normalizeTypedInput(current).length === 0) {
-      this.dismiss();
+    const length = normalizeTypedInput(current).length;
+    if (length === 0) {
+      if (this.lastDraftLen > 0 && !isDeletionInput(event)) {
+        this.lastDraftLen = 0;
+        this.dismiss();
+        return;
+      }
+      this.lastDraftLen = 0;
+      this.preview = '';
+      this.pending = false;
+      this.stale = false;
+      this.render();
       return;
     }
+    this.lastDraftLen = length;
     this.stale = true;
     this.render();
     this.schedulePreview(field);
@@ -1067,7 +1514,19 @@ export class ComposeController {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
+      if (this.overlay.menuOpen()) {
+        this.overlay.closeMenu();
+        return;
+      }
       this.dismiss();
+      return;
+    }
+    if (this.composeKey(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      if (this.replacing) return;
+      this.handleShortcut(event.target);
       return;
     }
     if (event.isComposing) return;
@@ -1076,14 +1535,7 @@ export class ComposeController {
       event.stopPropagation();
       event.stopImmediatePropagation();
       if (!this.replacing) this.requestReplace();
-      return;
     }
-    if (!this.composeKey(event)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.stopImmediatePropagation();
-    if (this.replacing) return;
-    this.handleShortcut();
   }
 
   private handleContextMenu(event: Event): void {
@@ -1118,6 +1570,7 @@ export class ComposeController {
     this.ineligible = false;
     this.field = field;
     this.lastField = field;
+    this.lastDraftLen = normalizeTypedInput(readComposeText(field)).length;
     this.watchFieldSize(field);
     this.render();
   }
@@ -1250,6 +1703,36 @@ export class ComposeController {
     } finally {
       this.replacing = false;
     }
+  }
+
+  private effectivePlacement(): ComposePlacement {
+    return this.prefs.sitePlacement ?? this.prefs.placement ?? 'above';
+  }
+
+  private pickPlacement(placement: ComposePlacement): void {
+    this.prefs = {
+      ...this.prefs,
+      sitePlacement: placement,
+      freePoint: placement === 'free' ? this.prefs.freePoint : null,
+    };
+    this.onPlacement?.(placement);
+    this.render();
+  }
+
+  private followSettingsPlacement(): void {
+    this.prefs = { ...this.prefs, sitePlacement: null, freePoint: null };
+    this.onFollowSettings?.();
+    this.render();
+  }
+
+  private pickFreePoint(point: ComposeFreePoint | null): void {
+    this.prefs = {
+      ...this.prefs,
+      sitePlacement: this.prefs.sitePlacement ?? 'free',
+      freePoint: point,
+    };
+    this.onFreePoint?.(point);
+    this.render();
   }
 
   private pickTarget(language: TargetLanguage): void {
@@ -1410,15 +1893,14 @@ export class ComposeController {
         needsSetup: false,
         loading: false,
         dark,
+        placement: this.effectivePlacement(),
+        freePoint: this.prefs.freePoint,
+        siteOverride: this.prefs.sitePlacement !== null,
       });
       return;
     }
     const raw = readComposeText(field);
     const trimmed = normalizeTypedInput(raw);
-    if (trimmed.length === 0) {
-      this.dismiss();
-      return;
-    }
     const plan = planComposeTranslation(
       trimmed,
       this.preferredTarget(),
@@ -1435,6 +1917,9 @@ export class ComposeController {
       note = '';
     } else if (loading) {
       preview = this.labels.loading;
+      note = '';
+    } else if (trimmed.length === 0) {
+      preview = this.labels.empty;
       note = '';
     } else if (trimmed.length > MAX_TYPED_CHARS) {
       preview = this.labels.tooLong;
@@ -1462,6 +1947,9 @@ export class ComposeController {
       needsSetup,
       loading,
       dark: composeSurfaceIsDark(field),
+      placement: this.effectivePlacement(),
+      freePoint: this.prefs.freePoint,
+      siteOverride: this.prefs.sitePlacement !== null,
     });
   }
 
@@ -1486,6 +1974,11 @@ export class ComposeController {
 
 function isComposingEvent(event: Event): boolean {
   return 'isComposing' in event && (event as InputEvent).isComposing === true;
+}
+
+function isDeletionInput(event: Event): boolean {
+  if (!(event instanceof InputEvent)) return false;
+  return event.inputType.startsWith('delete') || event.inputType === 'historyUndo';
 }
 
 /** Exported so a test can read the closed panel without opening the shadow from the page. */

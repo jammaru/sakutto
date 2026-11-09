@@ -878,7 +878,7 @@
     "message": "Impossible de traduire ce brouillon."
   },
   "composeEmpty": {
-    "message": "Saisissez du texte à traduire."
+    "message": "Saisissez du texte pour voir une traduction."
   },
   "composeTooLong": {
     "message": "Ce brouillon est trop long pour être traduit."
@@ -968,5 +968,38 @@
   },
   "composeAutoSource": {
     "message": "Auto"
+  },
+  "composePlacementSetting": {
+    "message": "Position de la barre de traduction à la saisie"
+  },
+  "composePlacementSettingHelp": {
+    "message": "La valeur par défaut pour tous les sites. Le menu ⋯ de la barre peut la remplacer uniquement sur ce site."
+  },
+  "composePlacementAbove": {
+    "message": "Au-dessus de la zone de message"
+  },
+  "composePlacementBelow": {
+    "message": "Sous la zone de message"
+  },
+  "composePlacementCorner": {
+    "message": "Coin inférieur droit de la fenêtre"
+  },
+  "composePlacementFree": {
+    "message": "Déplacer librement"
+  },
+  "composePlacementMenu": {
+    "message": "Position de la barre"
+  },
+  "composePlacementSite": {
+    "message": "Ce site"
+  },
+  "composePlacementFollowSettings": {
+    "message": "Utiliser le réglage pour tous les sites"
+  },
+  "composePlacementReset": {
+    "message": "Réinitialiser la position"
+  },
+  "composePlacementHandle": {
+    "message": "Faites glisser pour déplacer la barre"
   }
 }

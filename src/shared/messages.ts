@@ -294,12 +294,17 @@ export async function requestPageState(tabId: number): Promise<PageViewState | n
 export async function requestPageCommand(
   tabId: number,
   command: PageCommandName,
+  frameId?: number,
 ): Promise<PageViewState | null> {
   try {
-    const response: unknown = await browser.tabs.sendMessage(tabId, {
-      type: 'page:command',
-      command,
-    } satisfies PageCommandRequest);
+    const response: unknown = await browser.tabs.sendMessage(
+      tabId,
+      {
+        type: 'page:command',
+        command,
+      } satisfies PageCommandRequest,
+      frameId === undefined ? {} : { frameId },
+    );
     return isPageViewState(response) ? response : null;
   } catch {
     return null;

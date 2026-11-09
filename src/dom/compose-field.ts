@@ -98,7 +98,27 @@ export function isComposeCandidate(field: Element): boolean {
   if (isSensitiveField(field)) return false;
   if (field instanceof HTMLTextAreaElement) return true;
   if (field instanceof HTMLInputElement) return COMPOSE_INPUT_TYPES.has(field.type);
-  return isContentEditable(field);
+  if (isContentEditable(field)) return true;
+  return field.getAttribute('role') === 'textbox';
+}
+
+const COMPOSE_ROOT_SELECTOR = [
+  'textarea',
+  'input',
+  '[contenteditable]:not([contenteditable="false"])',
+  '[role="textbox"]',
+].join(', ');
+
+/**
+ * The message box that holds `start`: a focused child span (Slate) climbs to the
+ * contenteditable / `role=textbox` root. `null` when `start` is not inside one.
+ */
+export function composeEditableRoot(start: EventTarget | Node | null | undefined): Element | null {
+  let element: Element | null = null;
+  if (start instanceof Element) element = start;
+  else if (start instanceof Node) element = start.parentElement;
+  if (!element) return null;
+  return focusedEditableField(element) ?? element.closest(COMPOSE_ROOT_SELECTOR);
 }
 
 /**
@@ -135,10 +155,23 @@ export function isComposeMenuTarget(target: EventTarget | null): boolean {
  */
 export function focusedComposeField(root: Document): Element | null {
   for (const doc of collectDocuments(root)) {
-    const field = focusedEditableField(doc.activeElement);
+    const active = doc.activeElement;
+    const field = composeEditableRoot(focusedEditableField(active) ?? active);
     if (field && isComposeCandidate(field)) return field;
   }
   return null;
+}
+
+/**
+ * Chrome may deliver the compose command to every injected frame. The frame that holds the
+ * focused box handles it. The top frame still handles the case where no nested frame claimed
+ * it, so the ineligible notice has a home.
+ */
+export function shouldHandleComposeCommand(doc: Document): boolean {
+  const focused = focusedComposeField(doc);
+  if (focused && (focused.ownerDocument === doc || doc.contains(focused))) return true;
+  const view = doc.defaultView;
+  return view === null || view === view.top;
 }
 
 function lineBreaks(value: string): string {

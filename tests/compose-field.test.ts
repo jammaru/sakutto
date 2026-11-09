@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { isTranslationExcluded, listTranslatableBlocks } from '@/dom/blocks';
 import {
+  composeEditableRoot,
   composeFieldRect,
   focusedComposeField,
   isComposeCandidate,
@@ -9,6 +10,7 @@ import {
   isSensitiveField,
   readComposeText,
   replaceComposeText,
+  shouldHandleComposeCommand,
   showsComposeIcon,
   snapshotComposeField,
   textsMatch,
@@ -587,6 +589,37 @@ describe('reading and replacing compose text', () => {
     if (!(password instanceof HTMLInputElement)) throw new Error('missing password');
     password.focus();
     expect(focusedComposeField(document)).toBeNull();
+  });
+
+  it('climbs from a focused Slate span to the contenteditable textbox', () => {
+    const editor = mountSlate('hello');
+    const span = editor.querySelector('[data-slate-node="text"]');
+    if (!(span instanceof HTMLElement)) throw new Error('missing slate span');
+    expect(composeEditableRoot(span)).toBe(editor);
+    expect(isComposeCandidate(editor)).toBe(true);
+    Object.defineProperty(document, 'activeElement', {
+      configurable: true,
+      get: () => span,
+    });
+    try {
+      expect(focusedComposeField(document)).toBe(editor);
+      expect(shouldHandleComposeCommand(document)).toBe(true);
+    } finally {
+      Reflect.deleteProperty(document, 'activeElement');
+    }
+  });
+
+  it('climbs from a child of role=textbox when that root is not contenteditable', () => {
+    document.body.innerHTML = '<div role="textbox" id="box"><span id="caret">x</span></div>';
+    const box = document.querySelector('#box');
+    const caret = document.querySelector('#caret');
+    if (!(box instanceof HTMLElement) || !(caret instanceof HTMLElement)) {
+      throw new Error('missing textbox');
+    }
+    expect(composeEditableRoot(caret)).toBe(box);
+    expect(isComposeCandidate(box)).toBe(true);
+    caret.focus();
+    expect(focusedComposeField(document)).toBe(box);
   });
 });
 

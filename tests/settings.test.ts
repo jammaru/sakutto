@@ -30,6 +30,7 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     shortcutsEnabled: defaultShortcutEnabled(),
     composeTargetLanguage: null,
     composeInstantReplace: false,
+    composePlacement: 'above',
     ...overrides,
   };
 }
@@ -71,6 +72,27 @@ describe('settings defaults', () => {
     expect(settings.shortcutsEnabled).toEqual(defaultShortcutEnabled());
     expect(settings.composeTargetLanguage).toBeNull();
     expect(settings.composeInstantReplace).toBe(false);
+    expect(settings.composePlacement).toBe('above');
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          composePlacement: 'corner',
+        },
+        'en-US',
+      ).composePlacement,
+    ).toBe('corner');
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          composePlacement: 'side',
+        },
+        'en-US',
+      ).composePlacement,
+    ).toBe('above');
     expect(
       normalizeSettings(
         {

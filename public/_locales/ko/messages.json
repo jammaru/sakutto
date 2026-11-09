@@ -878,7 +878,7 @@
     "message": "이 초안을 번역하지 못했습니다."
   },
   "composeEmpty": {
-    "message": "번역할 텍스트를 입력하세요."
+    "message": "입력하면 번역이 나타납니다."
   },
   "composeTooLong": {
     "message": "이 초안은 너무 길어 번역할 수 없습니다."
@@ -968,5 +968,38 @@
   },
   "composeAutoSource": {
     "message": "자동"
+  },
+  "composePlacementSetting": {
+    "message": "입력 중 번역 막대 위치"
+  },
+  "composePlacementSettingHelp": {
+    "message": "모든 사이트의 기본값입니다. 막대의 ⋯ 메뉴로 이 사이트만 바꿀 수 있습니다."
+  },
+  "composePlacementAbove": {
+    "message": "입력란 위"
+  },
+  "composePlacementBelow": {
+    "message": "입력란 아래"
+  },
+  "composePlacementCorner": {
+    "message": "창의 오른쪽 아래"
+  },
+  "composePlacementFree": {
+    "message": "자유롭게 옮기기"
+  },
+  "composePlacementMenu": {
+    "message": "막대 위치"
+  },
+  "composePlacementSite": {
+    "message": "이 사이트"
+  },
+  "composePlacementFollowSettings": {
+    "message": "모든 사이트 설정으로 되돌리기"
+  },
+  "composePlacementReset": {
+    "message": "위치 재설정"
+  },
+  "composePlacementHandle": {
+    "message": "드래그하여 막대 이동"
   }
 }

@@ -75,6 +75,13 @@ describe('matchesShortcut', () => {
     expect(matchesShortcut(key(), 'S')).toBe(false);
     expect(matchesShortcut(key({ altKey: true }), '')).toBe(false);
   });
+
+  it('matches Alt+T from the physical key even when the layout reports a dagger', () => {
+    const dagger = key({ altKey: true, code: 'KeyT', key: '†' });
+    expect(matchesShortcut(dagger, 'Alt+T')).toBe(true);
+    expect(matchesShortcut(dagger, DEFAULT_COMPOSE_SHORTCUT)).toBe(true);
+    expect(matchesShortcut(key({ altKey: true, code: 'KeyY', key: '†' }), 'Alt+T')).toBe(false);
+  });
 });
 
 describe('parseShortcut', () => {

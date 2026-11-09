@@ -37,6 +37,9 @@ export type DisplayMode = 'replace' | 'bilingual';
 export type TierPreference = 'auto' | 'g' | 'c8' | 'c4';
 export type TranslationPace = 'fast' | 'quality';
 export type IdleMinutes = 0 | 1 | 5 | 15;
+export const COMPOSE_PLACEMENTS = ['above', 'below', 'corner', 'free'] as const;
+export type ComposePlacement = (typeof COMPOSE_PLACEMENTS)[number];
+export type ComposeFreePoint = { x: number; y: number };
 
 export interface LicenseConsent {
   license: 'plamo-community';
@@ -79,6 +82,8 @@ export interface Settings {
   composeTargetLanguage: TargetLanguage | null;
   /** One shortcut press translates and replaces, skipping the preview confirmation. */
   composeInstantReplace: boolean;
+  /** Where the compose preview bar sits. Sites may override this from the bar menu. */
+  composePlacement: ComposePlacement;
 }
 
 export type SettingsPatch = Partial<
@@ -96,6 +101,7 @@ export type SettingsPatch = Partial<
     | 'composeIcon'
     | 'composeTargetLanguage'
     | 'composeInstantReplace'
+    | 'composePlacement'
   >
 > & {
   shortcutsEnabled?: Partial<ShortcutEnabled>;
@@ -116,6 +122,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   shortcutsEnabled: defaultShortcutEnabled(),
   composeTargetLanguage: null,
   composeInstantReplace: false,
+  composePlacement: 'above',
 });
 
 export function createDefaultSettings(uiLanguage: string): Settings {
@@ -160,7 +167,19 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     shortcutsEnabled: normalizeShortcutEnabled(value.shortcutsEnabled),
     composeTargetLanguage: normalizeComposeTarget(value.composeTargetLanguage),
     composeInstantReplace: value.composeInstantReplace === true,
+    composePlacement: isComposePlacement(value.composePlacement) ? value.composePlacement : 'above',
   };
+}
+
+export function isComposePlacement(value: unknown): value is ComposePlacement {
+  return value === 'above' || value === 'below' || value === 'corner' || value === 'free';
+}
+
+export function normalizeComposeFreePoint(value: unknown): ComposeFreePoint | undefined {
+  if (!isRecord(value)) return undefined;
+  if (typeof value.x !== 'number' || typeof value.y !== 'number') return undefined;
+  if (!Number.isFinite(value.x) || !Number.isFinite(value.y)) return undefined;
+  return { x: value.x, y: value.y };
 }
 
 function normalizeComposeTarget(value: unknown): TargetLanguage | null {

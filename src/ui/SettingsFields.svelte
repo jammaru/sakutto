@@ -6,7 +6,12 @@
     SUPPORTED_LANGUAGES,
     type TargetLanguage,
   } from '@/shared/languages';
-  import type { Settings, SettingsPatch } from '@/shared/settings';
+  import {
+    COMPOSE_PLACEMENTS,
+    isComposePlacement,
+    type Settings,
+    type SettingsPatch,
+  } from '@/shared/settings';
   import LanguageField from './LanguageField.svelte';
 
   interface Props {
@@ -41,6 +46,19 @@
     if (!isTargetLanguage(select.value)) return;
     onChange({ composeTargetLanguage: select.value as TargetLanguage });
   }
+
+  function updateComposePlacement(event: Event) {
+    const select = event.currentTarget as HTMLSelectElement;
+    if (!isComposePlacement(select.value)) return;
+    onChange({ composePlacement: select.value });
+  }
+
+  const placementLabels = {
+    above: 'composePlacementAbove',
+    below: 'composePlacementBelow',
+    corner: 'composePlacementCorner',
+    free: 'composePlacementFree',
+  } as const;
 </script>
 
 <div class="fields">
@@ -113,6 +131,16 @@
     <span>{t('composeInstantSetting')}</span>
   </label>
   <p class="muted help">{t('composeInstantSettingHelp')}</p>
+
+  <label class="field">
+    <span>{t('composePlacementSetting')}</span>
+    <select value={settings.composePlacement} onchange={updateComposePlacement}>
+      {#each COMPOSE_PLACEMENTS as placement (placement)}
+        <option value={placement}>{t(placementLabels[placement])}</option>
+      {/each}
+    </select>
+  </label>
+  <p class="muted help">{t('composePlacementSettingHelp')}</p>
 </div>
 
 <style>

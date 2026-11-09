@@ -878,7 +878,7 @@
     "message": "แปลฉบับร่างนี้ไม่ได้"
   },
   "composeEmpty": {
-    "message": "พิมพ์ข้อความที่จะแปล"
+    "message": "เริ่มพิมพ์เพื่อดูคำแปล"
   },
   "composeTooLong": {
     "message": "ฉบับร่างนี้ยาวเกินไปที่จะแปล"
@@ -968,5 +968,38 @@
   },
   "composeAutoSource": {
     "message": "อัตโนมัติ"
+  },
+  "composePlacementSetting": {
+    "message": "ตำแหน่งแถบแปลขณะพิมพ์"
+  },
+  "composePlacementSettingHelp": {
+    "message": "ค่าเริ่มต้นสำหรับทุกไซต์ เมนู ⋯ บนแถบสามารถแทนที่ได้เฉพาะไซต์นี้"
+  },
+  "composePlacementAbove": {
+    "message": "เหนือช่องข้อความ"
+  },
+  "composePlacementBelow": {
+    "message": "ใต้ช่องข้อความ"
+  },
+  "composePlacementCorner": {
+    "message": "มุมขวาล่างของหน้าต่าง"
+  },
+  "composePlacementFree": {
+    "message": "ย้ายได้อย่างอิสระ"
+  },
+  "composePlacementMenu": {
+    "message": "ตำแหน่งแถบ"
+  },
+  "composePlacementSite": {
+    "message": "ไซต์นี้"
+  },
+  "composePlacementFollowSettings": {
+    "message": "ใช้การตั้งค่าสำหรับทุกไซต์"
+  },
+  "composePlacementReset": {
+    "message": "รีเซ็ตตำแหน่ง"
+  },
+  "composePlacementHandle": {
+    "message": "ลากเพื่อย้ายแถบ"
   }
 }

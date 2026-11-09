@@ -72,9 +72,34 @@ async function runOnActiveTab(command: PageCommandName): Promise<void> {
   await runCommand(tabId, command);
 }
 
+/** The frame whose document has a real focused control, if scripting can see it. */
+export function pickFocusedFrameId(
+  results: ReadonlyArray<{ frameId?: number; result?: boolean | undefined }>,
+): number | undefined {
+  return results.find((entry) => entry.result === true)?.frameId;
+}
+
+async function focusedContentFrameId(tabId: number): Promise<number | undefined> {
+  try {
+    const results = await browser.scripting.executeScript({
+      target: { tabId, allFrames: true },
+      func: (): boolean => {
+        if (!document.hasFocus()) return false;
+        const active = document.activeElement;
+        return Boolean(active && active !== document.body && active !== document.documentElement);
+      },
+    });
+    return pickFocusedFrameId(results);
+  } catch {
+    return undefined;
+  }
+}
+
 async function runCommand(tabId: number, command: PageCommandName): Promise<void> {
-  if (!(await ensureContentScript(tabId))) return;
-  await requestPageCommand(tabId, command);
+  const allFrames = command === 'compose';
+  if (!(await ensureContentScript(tabId, { allFrames }))) return;
+  const frameId = allFrames ? await focusedContentFrameId(tabId) : undefined;
+  await requestPageCommand(tabId, command, frameId);
 }
 
 async function injectIfAlways(tabId: number, url: string): Promise<void> {

@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ComposeController,
   composeIconPosition,
+  composeClampPosition,
+  composeCornerPosition,
   composeLangTag,
   composePanelPosition,
   composePanelWidth,
@@ -36,6 +38,19 @@ const labels: ComposeLabels = {
   langPair: (source, target) => `${source} → ${target}`,
   into: (language) => `Into ${language}`,
   chromeOnly: (language) => `PLaMo does not translate into ${language}.`,
+  placementMenu: 'Bar position',
+  placementSite: 'This site',
+  placementFollowSettings: 'Use the setting for all sites',
+  placementReset: 'Reset position',
+  placementHandle: 'Drag to move the bar',
+  placementLabel: (placement) =>
+    placement === 'below'
+      ? 'Below the message box'
+      : placement === 'corner'
+        ? 'Bottom-right of the window'
+        : placement === 'free'
+          ? 'Move freely'
+          : 'Above the message box',
 };
 
 function immediate(render: (text: string, tgt: string) => string): PageEngine {
@@ -84,6 +99,9 @@ const defaultPrefs: ComposePreferences = {
   explicitTarget: false,
   instantReplace: false,
   replaceShortcut: 'Alt+T',
+  placement: 'above',
+  sitePlacement: null,
+  freePoint: null,
 };
 
 describe('compose controller', () => {
@@ -699,5 +717,167 @@ describe('compose controller', () => {
     start(undefined, { enabled: false }).handleShortcut();
     expect(field.value).toBe('See you tomorrow.');
     expect((document.querySelector('sakutto-compose') as HTMLElement).hidden).toBe(true);
+  });
+
+  it('opens the bar on an empty field with a hint instead of closing', () => {
+    document.body.innerHTML = '<textarea id="box"></textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    start().handleShortcut();
+    const host = document.querySelector('sakutto-compose');
+    if (!(host instanceof HTMLElement)) throw new Error('missing panel');
+    expect(host.hidden).toBe(false);
+    expect(panelText()).toContain('Type something to translate.');
+  });
+
+  it('keeps the empty hint when the reader deletes the last character', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const controller = start();
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§See you tomorrow.');
+    });
+    field.value = '';
+    field.dispatchEvent(
+      new InputEvent('input', { bubbles: true, inputType: 'deleteContentBackward' }),
+    );
+    const host = document.querySelector('sakutto-compose');
+    if (!(host instanceof HTMLElement)) throw new Error('missing panel');
+    expect(host.hidden).toBe(false);
+    expect(panelText()).toContain('Type something to translate.');
+  });
+
+  it('hears Alt+T on window capture even when the editor stops the event', async () => {
+    document.body.innerHTML = '<div id="slate" contenteditable="true" role="textbox"></div>';
+    const field = document.querySelector('#slate');
+    if (!(field instanceof HTMLElement)) throw new Error('missing editor');
+    field.addEventListener('keydown', (event) => {
+      event.stopPropagation();
+      event.preventDefault();
+    });
+    field.focus();
+    start();
+    field.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: '†',
+        code: 'KeyT',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+      }),
+    );
+    const host = document.querySelector('sakutto-compose');
+    if (!(host instanceof HTMLElement)) throw new Error('missing panel');
+    expect(host.hidden).toBe(false);
+    expect(panelText()).toContain('Type something to translate.');
+  });
+
+  it('opens from Alt+T even while the field is composing', () => {
+    document.body.innerHTML = '<textarea id="box"></textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    start();
+    field.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: '†',
+        code: 'KeyT',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+        isComposing: true,
+      }),
+    );
+    const host = document.querySelector('sakutto-compose');
+    if (!(host instanceof HTMLElement)) throw new Error('missing panel');
+    expect(host.hidden).toBe(false);
+  });
+
+  it('does not swallow a later shortcut after the first press found no field', () => {
+    const controller = start();
+    controller.handleShortcut();
+    const ineligible = document.querySelector('sakutto-compose');
+    if (!(ineligible instanceof HTMLElement)) throw new Error('missing panel');
+    expect(panelText()).toContain('This field cannot be translated.');
+    document.body.innerHTML += '<textarea id="box"></textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    controller.handleShortcut(field);
+    expect((document.querySelector('sakutto-compose') as HTMLElement).hidden).toBe(false);
+    expect(panelText()).toContain('Type something to translate.');
+  });
+
+  it('keeps listening after the field is swapped like a SPA channel change', () => {
+    document.body.innerHTML = '<textarea id="old">hello</textarea>';
+    const previous = document.querySelector('#old');
+    if (!(previous instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    previous.focus();
+    start();
+    document.body.innerHTML = '<textarea id="new"></textarea>';
+    const next = document.querySelector('#new');
+    if (!(next instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    next.focus();
+    next.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 't',
+        code: 'KeyT',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    const host = document.querySelector('sakutto-compose');
+    if (!(host instanceof HTMLElement)) throw new Error('missing panel');
+    expect(host.hidden).toBe(false);
+    expect(panelText()).toContain('Type something to translate.');
+  });
+
+  it('honors a preferred below placement when there is room', () => {
+    const pos = composePanelPosition(
+      new DOMRect(40, 200, 400, 44),
+      { width: 400, height: 72 },
+      { width: 800, height: 600 },
+      'below',
+    );
+    expect(pos.placement).toBe('below');
+    expect(pos.top).toBe(200 + 44 + 6);
+  });
+
+  it('clamps a free point and sits in the bottom-right corner', () => {
+    expect(composeCornerPosition({ width: 280, height: 72 }, { width: 800, height: 600 })).toEqual({
+      left: 800 - 280 - 16,
+      top: 600 - 72 - 16,
+    });
+    expect(
+      composeClampPosition(-40, 900, { width: 280, height: 72 }, { width: 800, height: 600 }),
+    ).toEqual({ left: 8, top: 600 - 72 - 8 });
+  });
+
+  it('opens the bar below the field when that position is chosen from the menu', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const controller = start();
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§See you tomorrow.');
+    });
+    const shadow = composeShadow(document.querySelector('sakutto-compose'));
+    const more = shadow?.querySelector('.more');
+    if (!(more instanceof HTMLButtonElement)) throw new Error('missing menu button');
+    more.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const below = shadow?.querySelector('[data-placement="below"]');
+    if (!(below instanceof HTMLButtonElement)) throw new Error('missing below option');
+    below.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const host = document.querySelector('sakutto-compose');
+    if (!(host instanceof HTMLElement)) throw new Error('missing panel');
+    expect(host.dataset.placement).toBe('below');
   });
 });
