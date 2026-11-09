@@ -90,13 +90,12 @@ export function normalizeShortcutEnabled(value: unknown): ShortcutEnabled {
 export type ShortcutAssignment = Partial<ShortcutAssigned>;
 
 export function emptyShortcutAssigned(): ShortcutAssigned {
-  const next = {
+  return {
     'translate-page': false,
     'toggle-bilingual': false,
     'translate-selection': false,
     'translate-compose': false,
-  } satisfies ShortcutAssigned;
-  return next;
+  };
 }
 
 export function shortcutAssignedRecord(recorded: ShortcutAssignment): ShortcutAssigned {

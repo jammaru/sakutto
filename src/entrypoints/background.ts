@@ -184,8 +184,10 @@ export default defineBackground(() => {
   }
 
   void warmStoredModel();
+  void recordCommandAssignments().catch(() => undefined);
   browser.runtime.onStartup.addListener(() => {
     void warmStoredModel();
+    void recordCommandAssignments().catch(() => undefined);
   });
 
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -239,10 +241,10 @@ export default defineBackground(() => {
     }
 
     if (isShortcutQuery(message)) {
-      void browser.commands.getAll().then(
-        (commands) => resolveShortcutQuery(commands).then(sendResponse, () => sendResponse(null)),
-        () => sendResponse(null),
-      );
+      void browser.commands
+        .getAll()
+        .then((commands) => resolveShortcutQuery(commands))
+        .then(sendResponse, () => sendResponse(null));
       return true;
     }
 

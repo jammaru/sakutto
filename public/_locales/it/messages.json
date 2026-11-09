@@ -381,10 +381,10 @@
     "message": "Scorciatoie da tastiera"
   },
   "shortcutHelp": {
-    "message": "Se Chrome lascia un comando senza tasto, sulle pagine vale comunque quello predefinito. Togli il segno di spunta per disattivarlo. Usa Modifica scorciatoie per cambiare i tasti in Chrome."
+    "message": "Togli il segno di spunta per disattivare un comando in Sakutto. Modifica scorciatoie apre l’editor di Chrome. Se cancelli un tasto lì, Sakutto smette di usarlo. Il tasto predefinito vale sulle pagine solo se Chrome non ne ha assegnato uno all’installazione, per esempio per un conflitto."
   },
   "shortcutHelpFirefox": {
-    "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
+    "message": "Togli il segno di spunta per disattivare un comando in Sakutto. Modifica scorciatoie apre l’editor di Firefox. Se cancelli un tasto lì, Sakutto smette di usarlo. Il tasto predefinito vale sulle pagine solo se Firefox non ne ha assegnato uno all’installazione, per esempio per un conflitto."
   },
   "shortcutChange": {
     "message": "Modifica le scorciatoie"
@@ -399,10 +399,10 @@
     "message": "Disattivato"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+    "message": "Chrome non ha assegnato un tasto a questo comando all’installazione, quindi sulle pagine vale quello predefinito."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
+    "message": "Firefox non ha assegnato un tasto a questo comando all’installazione, quindi sulle pagine vale quello predefinito."
   },
   "shortcutTranslate": {
     "message": "$KEY$ converte la pagina o ripristina l’originale.",

@@ -381,10 +381,10 @@
     "message": "Tastenkürzel"
   },
   "shortcutHelp": {
-    "message": "Hat Chrome einem Befehl keine Taste zugewiesen, gilt auf Seiten weiterhin die Standardtaste. Entfernen Sie das Häkchen, um den Befehl auszuschalten. Über „Tastenkürzel ändern“ bearbeiten Sie die Zuweisungen in Chrome."
+    "message": "Entfernen Sie das Häkchen, um einen Befehl in Sakutto auszuschalten. „Tastenkürzel ändern“ öffnet den Editor von Chrome. Eine dort gelöschte Taste verwendet Sakutto nicht mehr. Die Standardtaste gilt auf Seiten nur, wenn Chrome sie bei der Installation nie zugewiesen hat, etwa wegen eines Konflikts."
   },
   "shortcutHelpFirefox": {
-    "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
+    "message": "Entfernen Sie das Häkchen, um einen Befehl in Sakutto auszuschalten. „Tastenkürzel ändern“ öffnet den Editor von Firefox. Eine dort gelöschte Taste verwendet Sakutto nicht mehr. Die Standardtaste gilt auf Seiten nur, wenn Firefox sie bei der Installation nie zugewiesen hat, etwa wegen eines Konflikts."
   },
   "shortcutChange": {
     "message": "Tastenkürzel ändern"
@@ -399,10 +399,10 @@
     "message": "Aus"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+    "message": "Chrome hat diesem Befehl bei der Installation keine Taste zugewiesen. Auf Seiten gilt die Standardtaste."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
+    "message": "Firefox hat diesem Befehl bei der Installation keine Taste zugewiesen. Auf Seiten gilt die Standardtaste."
   },
   "shortcutTranslate": {
     "message": "$KEY$ übersetzt die Seite oder stellt das Original wieder her.",

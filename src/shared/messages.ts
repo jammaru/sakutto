@@ -97,8 +97,8 @@ export interface OpenSetupRequest {
 }
 
 /**
- * The key each rebindable command holds right now, as Chrome reports it: `Alt+A`, `⌥⇧P` on a
- * Mac, or `''` for a command the user unbound. `null` means the command was not listed.
+ * The key each rebindable command holds right now, as the browser reports it: `Alt+A`,
+ * `⌥⇧P` on a Mac, or `''` for a command with no key. `null` means the command was not listed.
  */
 export interface ShortcutSnapshot {
   'translate-page': string | null;
@@ -108,8 +108,8 @@ export interface ShortcutSnapshot {
 }
 
 /**
- * Whether the browser has assigned a key to each command at least once. `true` never goes
- * back to `false`.
+ * Whether the browser has assigned a key to each command at least once since we first
+ * observed `commands.getAll()`. `true` means a later empty binding is a user clear.
  */
 export interface ShortcutAssigned {
   'translate-page': boolean;

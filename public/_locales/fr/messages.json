@@ -381,10 +381,10 @@
     "message": "Raccourcis clavier"
   },
   "shortcutHelp": {
-    "message": "Si Chrome n’assigne pas de touche à une commande, la touche par défaut s’applique quand même sur les pages. Décochez une commande pour la désactiver. Utilisez Modifier les raccourcis pour changer les touches dans Chrome."
+    "message": "Décochez une commande pour la désactiver dans Sakutto. Modifier les raccourcis ouvre l’éditeur de Chrome. Si vous y effacez une touche, Sakutto cesse de l’utiliser. La touche par défaut s’applique sur les pages seulement si Chrome n’en a jamais assigné une à l’installation, par exemple à cause d’un conflit."
   },
   "shortcutHelpFirefox": {
-    "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
+    "message": "Décochez une commande pour la désactiver dans Sakutto. Modifier les raccourcis ouvre l’éditeur de Firefox. Si vous y effacez une touche, Sakutto cesse de l’utiliser. La touche par défaut s’applique sur les pages seulement si Firefox n’en a jamais assigné une à l’installation, par exemple à cause d’un conflit."
   },
   "shortcutChange": {
     "message": "Modifier les raccourcis"
@@ -399,10 +399,10 @@
     "message": "Désactivé"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+    "message": "Chrome n’a pas assigné de touche à cette commande à l’installation ; la touche par défaut s’applique sur les pages."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
+    "message": "Firefox n’a pas assigné de touche à cette commande à l’installation ; la touche par défaut s’applique sur les pages."
   },
   "shortcutTranslate": {
     "message": "$KEY$ traduit la page ou rétablit l’original.",

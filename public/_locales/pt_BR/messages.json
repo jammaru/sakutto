@@ -381,10 +381,10 @@
     "message": "Atalhos de teclado"
   },
   "shortcutHelp": {
-    "message": "Se o Chrome deixar um comando sem tecla, a tecla padrão continua valendo nas páginas. Desmarque um comando para desligá-lo. Use Alterar atalhos para editar as teclas no Chrome."
+    "message": "Desmarque um comando para desligá-lo no Sakutto. Alterar atalhos abre o editor do Chrome. Limpar uma tecla lá faz o Sakutto parar de usá-la. A tecla padrão vale nas páginas só se o Chrome nunca atribuiu uma na instalação, por exemplo por um conflito."
   },
   "shortcutHelpFirefox": {
-    "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
+    "message": "Desmarque um comando para desligá-lo no Sakutto. Alterar atalhos abre o editor do Firefox. Limpar uma tecla lá faz o Sakutto parar de usá-la. A tecla padrão vale nas páginas só se o Firefox nunca atribuiu uma na instalação, por exemplo por um conflito."
   },
   "shortcutChange": {
     "message": "Alterar atalhos"
@@ -399,10 +399,10 @@
     "message": "Desativado"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+    "message": "O Chrome não atribuiu uma tecla a este comando na instalação, então nas páginas vale a tecla padrão."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
+    "message": "O Firefox não atribuiu uma tecla a este comando na instalação, então nas páginas vale a tecla padrão."
   },
   "shortcutTranslate": {
     "message": "$KEY$ traduz a página ou restaura o original.",

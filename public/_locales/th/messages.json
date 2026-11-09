@@ -381,10 +381,10 @@
     "message": "แป้นพิมพ์ลัด"
   },
   "shortcutHelp": {
-    "message": "ถ้า Chrome ไม่กำหนดปุ่มให้คำสั่ง หน้าเว็บยังใช้ปุ่มเริ่มต้นได้ เอาเครื่องหมายถูกออกเพื่อปิดคำสั่ง ใช้ปุ่มเปลี่ยนทางลัดเพื่อแก้ปุ่มใน Chrome"
+    "message": "เอาเครื่องหมายถูกออกเพื่อปิดคำสั่งใน Sakutto ปุ่มเปลี่ยนทางลัดจะเปิดตัวแก้ไขของ Chrome ถ้าลบปุ่มที่นั่น Sakutto จะเลิกใช้ปุ่มนั้น ปุ่มเริ่มต้นใช้ในหน้าเว็บเฉพาะเมื่อ Chrome ไม่ได้กำหนดปุ่มตอนติดตั้ง เช่น เพราะชนกับส่วนขยายอื่น"
   },
   "shortcutHelpFirefox": {
-    "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
+    "message": "เอาเครื่องหมายถูกออกเพื่อปิดคำสั่งใน Sakutto ปุ่มเปลี่ยนทางลัดจะเปิดตัวแก้ไขของ Firefox ถ้าลบปุ่มที่นั่น Sakutto จะเลิกใช้ปุ่มนั้น ปุ่มเริ่มต้นใช้ในหน้าเว็บเฉพาะเมื่อ Firefox ไม่ได้กำหนดปุ่มตอนติดตั้ง เช่น เพราะชนกับส่วนขยายอื่น"
   },
   "shortcutChange": {
     "message": "เปลี่ยนแป้นลัด"
@@ -399,10 +399,10 @@
     "message": "ปิด"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+    "message": "Chrome ไม่ได้กำหนดปุ่มให้คำสั่งนี้ตอนติดตั้ง จึงใช้ปุ่มเริ่มต้นในหน้าเว็บ"
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
+    "message": "Firefox ไม่ได้กำหนดปุ่มให้คำสั่งนี้ตอนติดตั้ง จึงใช้ปุ่มเริ่มต้นในหน้าเว็บ"
   },
   "shortcutTranslate": {
     "message": "$KEY$ จะแปลงหน้าเว็บหรือกู้คืนหน้าเว็บเดิม",

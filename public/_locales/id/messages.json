@@ -381,10 +381,10 @@
     "message": "Pintasan papan kekunci"
   },
   "shortcutHelp": {
-    "message": "Jika Chrome tidak menetapkan tombol untuk suatu perintah, tombol bawaan tetap dipakai di halaman. Hapus centang untuk mematikannya. Gunakan Ubah pintasan untuk mengedit tombol di Chrome."
+    "message": "Hapus centang perintah untuk mematikannya di Sakutto. Ubah pintasan membuka editor Chrome. Menghapus tombol di sana membuat Sakutto berhenti menggunakannya. Tombol bawaan dipakai di halaman hanya jika Chrome tidak pernah menetapkannya saat pemasangan, misalnya karena konflik."
   },
   "shortcutHelpFirefox": {
-    "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
+    "message": "Hapus centang perintah untuk mematikannya di Sakutto. Ubah pintasan membuka editor Firefox. Menghapus tombol di sana membuat Sakutto berhenti menggunakannya. Tombol bawaan dipakai di halaman hanya jika Firefox tidak pernah menetapkannya saat pemasangan, misalnya karena konflik."
   },
   "shortcutChange": {
     "message": "Ubah pintasan"
@@ -399,10 +399,10 @@
     "message": "Nonaktif"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+    "message": "Chrome tidak menetapkan tombol untuk perintah ini saat pemasangan, jadi tombol bawaan dipakai di halaman."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
+    "message": "Firefox tidak menetapkan tombol untuk perintah ini saat pemasangan, jadi tombol bawaan dipakai di halaman."
   },
   "shortcutTranslate": {
     "message": "$KEY$ menerjemahkan halaman atau mengembalikan versi aslinya.",

@@ -71,8 +71,8 @@
   /**
    * The browser owns the key bindings, so the only honest control is a button that opens
    * its editor. The rows are read again when the reader comes back from that tab. Sakutto's
-   * own checkbox is the off switch. The in-page default only fills in when the browser never
-   * assigned the suggested key.
+   * own checkbox is one off switch; clearing a key in the browser is another. The in-page
+   * default only fills in when the browser never assigned the suggested key.
    */
   async function openEditor(): Promise<void> {
     openFailed = !(await openShortcutEditor());

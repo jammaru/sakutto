@@ -75,30 +75,25 @@ describe('message validation', () => {
     expect(isShortcutSnapshot(null)).toBe(false);
   });
 
-  it('validates the shortcut query a page reads after assignment tracking', () => {
+  it('validates the assigned map a page needs beside the snapshot', () => {
+    const snapshot = {
+      'translate-page': 'Alt+A',
+      'toggle-bilingual': '',
+      'translate-selection': 'Alt+S',
+      'translate-compose': null,
+    };
+    const assigned = {
+      'translate-page': true,
+      'toggle-bilingual': false,
+      'translate-selection': true,
+      'translate-compose': false,
+    };
+    expect(isShortcutQueryResult({ snapshot, assigned })).toBe(true);
+    expect(isShortcutQueryResult({ snapshot })).toBe(false);
     expect(
-      isShortcutQueryResult({
-        snapshot: {
-          'translate-page': 'Alt+A',
-          'toggle-bilingual': '',
-          'translate-selection': 'Alt+S',
-          'translate-compose': 'Alt+T',
-        },
-        assigned: {
-          'translate-page': true,
-          'toggle-bilingual': false,
-          'translate-selection': true,
-          'translate-compose': true,
-        },
-      }),
-    ).toBe(true);
-    expect(
-      isShortcutQueryResult({
-        'translate-page': 'Alt+A',
-        'toggle-bilingual': 'Alt+B',
-        'translate-selection': 'Alt+S',
-      }),
+      isShortcutQueryResult({ snapshot, assigned: { ...assigned, 'translate-page': 1 } }),
     ).toBe(false);
+    expect(isShortcutQueryResult(snapshot)).toBe(false);
   });
 
   it('matches only the page info request type', () => {

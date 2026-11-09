@@ -76,23 +76,24 @@
   let shortcutError = $state(false);
 
   /**
-   * The key each command actually uses on a page. A binding the user removed stays as `''`
-   * so a hint can say it is unset rather than name a key that no longer works. Sakutto's own
-   * setting is a separate off switch.
+   * The key each command actually uses on a page. A browser-assigned key wins. The
+   * manifest default fills in only when the browser never assigned one. Sakutto's own
+   * setting, or a key the user cleared in the browser, turns the command off.
    */
   let bound = $derived.by((): Record<ShortcutCommand, string> => {
     const enabled = settings?.shortcutsEnabled;
     const next: Record<ShortcutCommand, string> = { ...DEFAULT_SHORTCUTS };
     for (const command of SHORTCUT_COMMANDS) {
       next[command] = boundShortcut(shortcuts?.snapshot ?? null, command, {
-        assigned: shortcuts?.assigned[command],
+        fallback: DEFAULT_SHORTCUTS[command],
         enabled: enabled?.[command] !== false,
+        assigned: shortcuts?.assigned[command],
       });
     }
     return next;
   });
   let shortcutLines = $derived(
-    SHORTCUT_HINTS.map((hint) => ({
+    SHORTCUT_HINTS.filter((hint) => bound[hint.command].length > 0).map((hint) => ({
       label: hint.label,
       text: t(hint.label, [keyText(hint.command)]),
     })),

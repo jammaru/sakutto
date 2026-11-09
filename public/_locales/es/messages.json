@@ -381,10 +381,10 @@
     "message": "Atajos de teclado"
   },
   "shortcutHelp": {
-    "message": "Si Chrome deja un comando sin tecla, en las páginas sigue valiendo la tecla predeterminada. Desmarque un comando para desactivarlo. Use Cambiar atajos para editar las teclas en Chrome."
+    "message": "Desmarque un comando para desactivarlo en Sakutto. Cambiar atajos abre el editor de Chrome. Si borra una tecla ahí, Sakutto deja de usarla. La tecla predeterminada se usa en las páginas solo si Chrome no asignó ninguna al instalar, por ejemplo por un conflicto."
   },
   "shortcutHelpFirefox": {
-    "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
+    "message": "Desmarque un comando para desactivarlo en Sakutto. Cambiar atajos abre el editor de Firefox. Si borra una tecla ahí, Sakutto deja de usarla. La tecla predeterminada se usa en las páginas solo si Firefox no asignó ninguna al instalar, por ejemplo por un conflicto."
   },
   "shortcutChange": {
     "message": "Cambiar atajos"
@@ -399,10 +399,10 @@
     "message": "Desactivado"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+    "message": "Chrome no asignó una tecla a este comando al instalar, así que en las páginas se usa la predeterminada."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
+    "message": "Firefox no asignó una tecla a este comando al instalar, así que en las páginas se usa la predeterminada."
   },
   "shortcutTranslate": {
     "message": "$KEY$ traduce la página o restaura la original.",

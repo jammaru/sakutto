@@ -34,6 +34,7 @@ describe('compose command routing', () => {
     const messages = readFileSync(new URL('../src/shared/messages.ts', import.meta.url), 'utf8');
     const bridge = readFileSync(new URL('../src/shared/page-bridge.ts', import.meta.url), 'utf8');
     const content = readFileSync(new URL('../src/entrypoints/content.ts', import.meta.url), 'utf8');
+    expect(actions).toContain('noteShortcutCommandAssigned');
     expect(actions).toContain("const allFrames = command === 'compose'");
     expect(actions).toContain('allFrames: true');
     expect(actions).toContain('document.hasFocus()');

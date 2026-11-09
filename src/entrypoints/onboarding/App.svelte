@@ -259,12 +259,12 @@
       })
       .catch(() => undefined);
 
-    void requestShortcutSnapshot().then((result) => {
-      if (!result) return;
+    void requestShortcutSnapshot().then((state) => {
+      if (!state) return;
       const next = { ...bound };
       for (const command of SHORTCUT_COMMANDS) {
-        next[command] = boundShortcut(result.snapshot, command, {
-          assigned: result.assigned[command],
+        next[command] = boundShortcut(state.snapshot, command, {
+          assigned: state.assigned[command],
         });
       }
       bound = next;

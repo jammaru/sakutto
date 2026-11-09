@@ -381,10 +381,10 @@
     "message": "Сочетания клавиш"
   },
   "shortcutHelp": {
-    "message": "Если Chrome не назначил клавишу команде, на страницах действует стандартная. Снимите флажок, чтобы отключить команду. «Изменить сочетания» открывает настройки Chrome."
+    "message": "Снимите флажок, чтобы отключить команду в Sakutto. «Изменить сочетания» открывает редактор Chrome. Если убрать клавишу там, Sakutto перестанет её использовать. Стандартная клавиша действует на страницах, только если Chrome не назначил её при установке, например из‑за конфликта."
   },
   "shortcutHelpFirefox": {
-    "message": "Firefox keeps these keys. Choose Change shortcuts to edit them in Firefox’s own settings."
+    "message": "Снимите флажок, чтобы отключить команду в Sakutto. «Изменить сочетания» открывает редактор Firefox. Если убрать клавишу там, Sakutto перестанет её использовать. Стандартная клавиша действует на страницах, только если Firefox не назначил её при установке, например из‑за конфликта."
   },
   "shortcutChange": {
     "message": "Изменить сочетания клавиш"
@@ -399,10 +399,10 @@
     "message": "Выкл."
   },
   "shortcutFallbackNote": {
-    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+    "message": "Chrome не назначил клавишу этой команде при установке, поэтому на страницах действует стандартная."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
+    "message": "Firefox не назначил клавишу этой команде при установке, поэтому на страницах действует стандартная."
   },
   "shortcutTranslate": {
     "message": "$KEY$ переводит страницу или восстанавливает оригинал.",
