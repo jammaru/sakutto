@@ -223,6 +223,11 @@ Windows with the real model, commit `a4946bd`, WebGPU, 8 threads, `--samples 3`.
 in it timed out and have no full-page number. It is one machine's measurement, not a speed the
 extension promises.
 
+WebGPU adapter retry, subgroup fail-safe, and debug-profile timings from the same machine
+(2026-11-09, RTX 4070 Ti SUPER, 4 paragraphs + heading, 149 characters) live in
+[docs/BUILDING.md](../docs/BUILDING.md#2026-11-09-amdintel-fallback-and-subgroup-fail-safe).
+Those are not `pnpm bench:live` rows and are not in `pages.jsonl`.
+
 A live run needs the wasm build from `pnpm build:wllama` and the model in `bench/.cache/`. Run
 `pnpm bench:live` on a machine that has both to add another line.
 

@@ -188,6 +188,74 @@ Reload the extension (or recreate the offscreen document) after setting the flag
 `pnpm verify:wllama`. Until that runs, the packaged wasm is still the previous build and AMD
 device retries are not in the worker.
 
+## 2026-11-09: AMD/Intel fallback and subgroup fail-safe
+
+Owner retest on Windows, Chrome, RTX 4070 Ti SUPER, wllama rebuilt. This is not a
+`pnpm bench:live` fixture run. The page was four paragraphs plus a heading; every
+successful translation was 149 characters and identical to `off`.
+
+### What was wrong
+
+1. **Subgroups dropped on retry while shaders still used them.** A later
+   `requestDevice` (capped or default limits) omitted the `Subgroups` feature, but
+   ggml still compiled WGSL with `enable subgroups`. Chrome rejected
+   `extension 'subgroups' is not allowed`, WASM aborted, and the model ran on CPU.
+2. **`gpuEvidence` misread intermediate failures.** A failed adapter-max
+   `requestDevice` looked fatal even when a later stage succeeded. After the
+   correctness probe, a `device ready` line before `correctness probe failed`
+   looked like success, so status stayed `backend=webgpu`, `tier=g`,
+   `gpuFallback=false` while the model ran on CPU at 16 parallel (3.5–5.3 s
+   instead of ~2.9 s with CPU settings).
+3. **`subgroupMaxSize == 0` was guessed as 64.** Shader specialization then
+   assumed wave64 on 32-wide NVIDIA hardware. The `subgroup-64` debug overlay did
+   the same on purpose. WebGPU stayed engaged at 16 parallel with no error, but
+   the text was garbage (shorter than 149 characters, e.g. 「子供たちは 川を 運ぶ。」).
+4. **The debug flag did not reach the offscreen document.** Offscreen has
+   `chrome.runtime` but not `chrome.storage`, so `sakuttoWebGpuDebug` in
+   `chrome.storage.local` never reached ggml.
+
+### What fixed each
+
+| Failure                                                           | Fix                                                                                                                                                                    |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Subgroups dropped on retry                                        | Retry ladder keeps `Subgroups` whenever the adapter has it; `device.HasFeature` re-derives shader caps. Last-resort f16-only uses `USE_WORKGROUP_REDUCTION`.           |
+| Intermediate `Failed to get a device (…)` treated as fatal        | `gpuEvidence` only treats _final_ failures as missing GPU (`after retries`, no adapter, no f16, probe failed).                                                         |
+| Probe failure after `device ready` left WebGPU/16-parallel status | Check final failure, especially `correctness probe failed`, **before** `sawDeviceReady`. That path is `gpu-unavailable` and falls back with CPU slots.                 |
+| Guessed or forced subgroup size 64                                | Never guess. Unknown/0 disables subgroups. No `subgroup-64` debug mode.                                                                                                |
+| Silent mistranslation in general                                  | Known-answer probe after `requestDevice` (workgroup add = 136, plus `subgroup_size` readback). Size mismatch drops subgroups in-process; add mismatch disables WebGPU. |
+| Debug flag missing in offscreen                                   | Patch `0008` copies `__SAKUTTO_WEBGPU_DEBUG__` into the worker. The service worker puts the profile on the offscreen URL and answers `engine:webgpu-debug`.            |
+
+NVIDIA first try is unchanged: adapter-max + optional features, 16 parallel when
+`fastBatches`.
+
+### Measurements (2026-11-09)
+
+Machine: Windows, RTX 4070 Ti SUPER, Chrome. Page: 4 paragraphs + heading.
+Output: 149 characters, identical to `off` in every mode that produced a
+translation. Probe cost is 5–22 ms (89 ms on the very first run).
+
+| Profile                              | Runtime                         |                   Probe |  Load | Translate |
+| ------------------------------------ | ------------------------------- | ----------------------: | ----: | --------: |
+| `off`                                | WebGPU 16 parallel, adapter-max | ok, subgroup 32, 9.8 ms | 2.9 s |    0.82 s |
+| `reject-max-limits`                  | WebGPU, capped-limits           |                  6.2 ms | 2.9 s |    0.86 s |
+| `amd-rdna3`                          | WebGPU 4 parallel               |                  8.3 ms | 2.9 s |    0.69 s |
+| `intel-arc`                          | WebGPU                          |                  9.3 ms | 4.9 s |    0.86 s |
+| `no-f16`                             | CPU 8 threads                   |                       — | 2.9 s |     2.9 s |
+| simulated subgroup size 0            | WebGPU, subgroups disabled      |                  5.4 ms |     — |    0.79 s |
+| spoofed 64–64 range                  | probe drops subgroups           |                       — |     — |    1.15 s |
+| forced probe failure (add 152 ≠ 136) | CPU; output still correct       |                  failed |     — |         — |
+
+`amd-rdna3` / `intel-arc` cap C++ buffer limits only. They do not spoof subgroup
+size; a fake 32–64 range would either lie in the diagnostic or risk the silent
+mistranslation above.
+
+### Remaining unknowns
+
+Not yet verified on real Radeon hardware (RX 7800 XT / RDNA3). Chrome on this
+NVIDIA machine already reports 2 GiB−4 adapter limits, so `amd-rdna3` may not
+reject `requestDevice`. A Radeon-only Dawn/D3D12 mismatch, or a WGSL/pipeline
+failure after a device exists, is still possible for issue #48.
+
 ## Compatibility builds
 
 `needCompat()` (missing JSPI or memory64) selects the compat files automatically. The compat build
