@@ -973,7 +973,7 @@
     "message": "Posisi bilah terjemahan saat menulis"
   },
   "composePlacementSettingHelp": {
-    "message": "Nilai bawaan untuk semua situs. Menu ⋯ pada bilah dapat menimpanya hanya untuk situs ini."
+    "message": "Bawaan untuk setiap situs. Seret gagang ⋮⋮ pada bilah untuk menaruhnya di mana saja di halaman ini. Menu ⋯ juga dapat menimpa ini hanya untuk situs itu."
   },
   "composePlacementAbove": {
     "message": "Di atas kotak pesan"
@@ -997,9 +997,9 @@
     "message": "Gunakan pengaturan untuk semua situs"
   },
   "composePlacementReset": {
-    "message": "Atur ulang posisi"
+    "message": "Kembalikan ke posisi semula"
   },
   "composePlacementHandle": {
-    "message": "Seret untuk memindahkan bilah"
+    "message": "Seret untuk memindahkan bilah ke mana saja"
   }
 }

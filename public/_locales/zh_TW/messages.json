@@ -973,7 +973,7 @@
     "message": "輸入時翻譯列位置"
   },
   "composePlacementSettingHelp": {
-    "message": "所有網站的預設位置。可在翻譯列的 ⋯ 選單中僅覆寫目前網站。"
+    "message": "所有網站的預設值。拖曳列左側的 ⋮⋮ 即可在本頁任意位置停放。⋯ 選單也可以只覆蓋目前網站。"
   },
   "composePlacementAbove": {
     "message": "輸入框上方"
@@ -997,9 +997,9 @@
     "message": "恢復所有網站的設定"
   },
   "composePlacementReset": {
-    "message": "重設位置"
+    "message": "恢復到原來的位置"
   },
   "composePlacementHandle": {
-    "message": "拖曳以移動翻譯列"
+    "message": "拖曳即可把列放到任意位置"
   }
 }

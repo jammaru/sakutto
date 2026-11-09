@@ -973,7 +973,7 @@
     "message": "Vị trí thanh dịch khi soạn"
   },
   "composePlacementSettingHelp": {
-    "message": "Mặc định cho mọi trang. Menu ⋯ trên thanh có thể ghi đè chỉ trên trang này."
+    "message": "Mặc định cho mọi trang. Kéo tay cầm ⋮⋮ trên thanh để đặt nó bất kỳ đâu trên trang này. Menu ⋯ cũng có thể ghi đè chỉ cho trang đó."
   },
   "composePlacementAbove": {
     "message": "Phía trên ô tin nhắn"
@@ -997,9 +997,9 @@
     "message": "Dùng cài đặt cho mọi trang"
   },
   "composePlacementReset": {
-    "message": "Đặt lại vị trí"
+    "message": "Về vị trí ban đầu"
   },
   "composePlacementHandle": {
-    "message": "Kéo để di chuyển thanh"
+    "message": "Kéo để đặt thanh ở bất kỳ đâu"
   }
 }

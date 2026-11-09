@@ -973,7 +973,7 @@
     "message": "Position der Entwurf-Übersetzungsleiste"
   },
   "composePlacementSettingHelp": {
-    "message": "Die Vorgabe für alle Websites. Das ⋯-Menü der Leiste kann das nur für die aktuelle Seite überschreiben."
+    "message": "Die Vorgabe für jede Website. Ziehen Sie den ⋮⋮-Griff der Leiste, um sie auf dieser Seite beliebig zu platzieren. Das ⋯-Menü kann das ebenfalls nur für diese Website überschreiben."
   },
   "composePlacementAbove": {
     "message": "Über dem Eingabefeld"
@@ -997,9 +997,9 @@
     "message": "Einstellung für alle Websites verwenden"
   },
   "composePlacementReset": {
-    "message": "Position zurücksetzen"
+    "message": "Zur ursprünglichen Position zurück"
   },
   "composePlacementHandle": {
-    "message": "Ziehen, um die Leiste zu verschieben"
+    "message": "Ziehen, um die Leiste beliebig zu verschieben"
   }
 }

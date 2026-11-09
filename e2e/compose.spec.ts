@@ -190,6 +190,7 @@ test.describe('compose translation', () => {
       expect(Math.abs(boxes.panel.x - boxes.field.x)).toBeLessThan(8);
       expect(boxes.panel.width).toBeGreaterThan(boxes.field.width - 8);
       await page.screenshot({ path: 'e2e-results/compose-discord-bar.png' });
+      await page.screenshot({ path: 'e2e-results/compose-discord-bar-handle.png' });
     } finally {
       await page.close();
     }
@@ -288,6 +289,7 @@ test.describe('compose translation', () => {
         )
         .toEqual({ x: 24, y: 120 });
       await page.screenshot({ path: 'e2e-results/compose-discord-bar-free.png' });
+      await page.screenshot({ path: 'e2e-results/compose-discord-bar-dragged.png' });
     } finally {
       await page.close();
     }

@@ -973,7 +973,7 @@
     "message": "입력 중 번역 막대 위치"
   },
   "composePlacementSettingHelp": {
-    "message": "모든 사이트의 기본값입니다. 막대의 ⋯ 메뉴로 이 사이트만 바꿀 수 있습니다."
+    "message": "모든 사이트의 기본값입니다. 막대 왼쪽의 ⋮⋮ 를 드래그하면 이 페이지에서만 원하는 곳에 둘 수 있습니다. ⋯ 메뉴로도 이 사이트만 바꿀 수 있습니다."
   },
   "composePlacementAbove": {
     "message": "입력란 위"
@@ -997,9 +997,9 @@
     "message": "모든 사이트 설정으로 되돌리기"
   },
   "composePlacementReset": {
-    "message": "위치 재설정"
+    "message": "원래 위치로"
   },
   "composePlacementHandle": {
-    "message": "드래그하여 막대 이동"
+    "message": "드래그해서 막대를 원하는 곳으로"
   }
 }

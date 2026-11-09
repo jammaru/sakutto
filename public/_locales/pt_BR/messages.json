@@ -973,7 +973,7 @@
     "message": "Posição da barra de tradução ao escrever"
   },
   "composePlacementSettingHelp": {
-    "message": "O padrão para todos os sites. O menu ⋯ da barra pode substituir isso só neste site."
+    "message": "O padrão para todos os sites. Arraste o punho ⋮⋮ da barra para deixá-la em qualquer lugar nesta página. O menu ⋯ também pode substituir isso só neste site."
   },
   "composePlacementAbove": {
     "message": "Acima da caixa de mensagem"
@@ -997,9 +997,9 @@
     "message": "Usar a configuração para todos os sites"
   },
   "composePlacementReset": {
-    "message": "Redefinir posição"
+    "message": "Voltar à posição original"
   },
   "composePlacementHandle": {
-    "message": "Arraste para mover a barra"
+    "message": "Arraste para mover a barra para qualquer lugar"
   }
 }

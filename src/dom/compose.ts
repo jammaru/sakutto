@@ -249,7 +249,7 @@ const PANEL_STYLE = `
 .card:not(.undo) .status { display: none; }
 .card.undo .hint, .card.undo .chip, .card.undo button.replace { display: none; }
 .handle {
-  display: none;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -262,9 +262,11 @@ const PANEL_STYLE = `
   font-size: 11px;
   letter-spacing: -1px;
   line-height: 1;
+  touch-action: none;
 }
-.card.free .handle { display: inline-flex; }
 .card.dark .handle { color: #b5bac1; }
+.handle:hover, .handle:focus-visible { background: rgb(15 23 32 / 8%); }
+.card.dark .handle:hover, .card.dark .handle:focus-visible { background: rgb(255 255 255 / 10%); }
 .handle:active { cursor: grabbing; }
 button.more {
   padding: 0;
@@ -579,6 +581,8 @@ class ComposeOverlay {
   private freePoint: ComposeFreePoint | null = null;
   private siteOverride = false;
   private dragging = false;
+  private dragMoved = false;
+  private dragOrigin = { x: 0, y: 0 };
   private dragOffset = { x: 0, y: 0 };
   private readonly onDragMove = (event: PointerEvent): void => this.handleDragMove(event);
   private readonly onDragUp = (): void => this.handleDragUp();
@@ -629,7 +633,7 @@ class ComposeOverlay {
         if (detail === 'replace') this.onReplace();
         if (detail === 'undo') this.onUndo();
         if (detail === 'follow-settings') this.onFollowSettings();
-        if (detail === 'reset-placement') this.resetFreePoint();
+        if (detail === 'reset-placement') this.resetToDefault();
         if (isRecord(detail) && detail.action === 'placement' && isComposePlacement(detail.value)) {
           this.choosePlacement(detail.value);
         }
@@ -898,16 +902,21 @@ class ComposeOverlay {
     handle.textContent = '⋮⋮';
     handle.setAttribute('aria-label', this.labels.placementHandle);
     handle.title = this.labels.placementHandle;
+    handle.setAttribute('aria-keyshortcuts', 'ArrowLeft ArrowRight ArrowUp ArrowDown');
     handle.addEventListener('pointerdown', (event) => {
+      // preventDefault on the handle only: the field keeps focus and IME/caret.
       event.preventDefault();
       event.stopPropagation();
       if (event.button !== 0) return;
       this.startDrag(event);
     });
+    handle.addEventListener('keydown', (event) => {
+      this.handleNudgeKey(event);
+    });
     handle.addEventListener('dblclick', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      this.resetFreePoint();
+      this.resetToDefault();
     });
     const chip = this.doc.createElement('label');
     chip.className = 'chip';
@@ -1028,7 +1037,7 @@ class ComposeOverlay {
     reset.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      this.resetFreePoint();
+      this.resetToDefault();
     });
     const follow = this.doc.createElement('button');
     follow.type = 'button';
@@ -1106,7 +1115,7 @@ class ComposeOverlay {
     this.followButton.textContent = this.labels.placementFollowSettings;
     this.followButton.hidden = !this.siteOverride;
     this.resetButton.textContent = this.labels.placementReset;
-    this.resetButton.hidden = this.placement !== 'free';
+    this.resetButton.hidden = false;
     for (const [placement, button] of this.placementButtons) {
       button.textContent = this.labels.placementLabel(placement);
       button.setAttribute('aria-checked', placement === this.placement ? 'true' : 'false');
@@ -1134,18 +1143,24 @@ class ComposeOverlay {
     this.onPlacement(placement);
   }
 
-  private resetFreePoint(): void {
+  private resetToDefault(): void {
     this.closeMenu();
     this.onFreePoint(null);
+    this.onPlacement('above');
   }
 
   private startDrag(event: PointerEvent): void {
-    if (this.placement !== 'free') this.choosePlacement('free');
     this.dragging = true;
+    this.dragMoved = false;
     const left = Number.parseFloat(this.panelHost.style.left) || 0;
     const top = Number.parseFloat(this.panelHost.style.top) || 0;
+    this.dragOrigin = { x: left, y: top };
     this.dragOffset = { x: event.clientX - left, y: event.clientY - top };
-    this.handleButton.setPointerCapture(event.pointerId);
+    try {
+      this.handleButton.setPointerCapture(event.pointerId);
+    } catch {
+      // happy-dom and some hosts have no capture; document listeners still move it.
+    }
     this.doc.addEventListener('pointermove', this.onDragMove, true);
     this.doc.addEventListener('pointerup', this.onDragUp, true);
     this.doc.addEventListener('pointercancel', this.onDragUp, true);
@@ -1153,29 +1168,68 @@ class ComposeOverlay {
 
   private handleDragMove(event: PointerEvent): void {
     if (!this.dragging) return;
+    const nextLeft = event.clientX - this.dragOffset.x;
+    const nextTop = event.clientY - this.dragOffset.y;
+    if (
+      !this.dragMoved &&
+      Math.abs(nextLeft - this.dragOrigin.x) < 3 &&
+      Math.abs(nextTop - this.dragOrigin.y) < 3
+    ) {
+      return;
+    }
+    this.dragMoved = true;
+    this.moveTo(nextLeft, nextTop, false);
+  }
+
+  private handleDragUp(): void {
+    if (!this.dragging) return;
+    const moved = this.dragMoved;
+    const left = Number.parseFloat(this.panelHost.style.left) || 8;
+    const top = Number.parseFloat(this.panelHost.style.top) || 8;
+    this.stopDrag();
+    if (!moved) return;
+    this.commitFreePoint(left, top);
+  }
+
+  private handleNudgeKey(event: KeyboardEvent): void {
+    const step = event.shiftKey ? 16 : 8;
+    let dx = 0;
+    let dy = 0;
+    if (event.key === 'ArrowLeft') dx = -step;
+    else if (event.key === 'ArrowRight') dx = step;
+    else if (event.key === 'ArrowUp') dy = -step;
+    else if (event.key === 'ArrowDown') dy = step;
+    else return;
+    event.preventDefault();
+    event.stopPropagation();
+    const left = (Number.parseFloat(this.panelHost.style.left) || 8) + dx;
+    const top = (Number.parseFloat(this.panelHost.style.top) || 8) + dy;
+    this.commitFreePoint(left, top);
+  }
+
+  private commitFreePoint(left: number, top: number): void {
+    const { left: x, top: y } = this.moveTo(left, top, true);
+    this.onFreePoint({ x, y });
+    this.onPlacement('free');
+  }
+
+  private moveTo(left: number, top: number, paint: boolean): { left: number; top: number } {
     const view = this.doc.defaultView;
     const viewport = { width: view?.innerWidth ?? 800, height: view?.innerHeight ?? 600 };
     const size = {
       width: this.panelHost.offsetWidth || 240,
       height: this.panelHost.offsetHeight || 72,
     };
-    const { left, top } = composeClampPosition(
-      event.clientX - this.dragOffset.x,
-      event.clientY - this.dragOffset.y,
-      size,
-      viewport,
-    );
-    this.panelHost.style.left = `${String(Math.round(left))}px`;
-    this.panelHost.style.top = `${String(Math.round(top))}px`;
+    const clamped = composeClampPosition(left, top, size, viewport);
+    this.panelHost.style.left = `${String(Math.round(clamped.left))}px`;
+    this.panelHost.style.top = `${String(Math.round(clamped.top))}px`;
     this.panelHost.dataset.placement = 'free';
-  }
-
-  private handleDragUp(): void {
-    if (!this.dragging) return;
-    const left = Number.parseFloat(this.panelHost.style.left) || 8;
-    const top = Number.parseFloat(this.panelHost.style.top) || 8;
-    this.stopDrag();
-    this.onFreePoint({ x: left, y: top });
+    if (paint) {
+      this.placement = 'free';
+      this.freePoint = { x: clamped.left, y: clamped.top };
+      this.card.classList.add('free');
+    }
+    return clamped;
   }
 
   private stopDrag(): void {
@@ -1728,7 +1782,7 @@ export class ComposeController {
   private pickFreePoint(point: ComposeFreePoint | null): void {
     this.prefs = {
       ...this.prefs,
-      sitePlacement: this.prefs.sitePlacement ?? 'free',
+      sitePlacement: point ? 'free' : this.prefs.sitePlacement,
       freePoint: point,
     };
     this.onFreePoint?.(point);

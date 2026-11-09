@@ -329,13 +329,13 @@ export default defineContentScript({
         },
         onFreePoint: (point) => {
           void patchSiteRule(host, (current) => {
-            const next = {
-              ...current,
-              host,
-              composePlacement: current.composePlacement ?? 'free',
-            };
-            if (point) next.composeFreePoint = point;
-            else delete next.composeFreePoint;
+            const next = { ...current, host };
+            if (point) {
+              next.composePlacement = 'free';
+              next.composeFreePoint = point;
+            } else {
+              delete next.composeFreePoint;
+            }
             return next;
           });
         },

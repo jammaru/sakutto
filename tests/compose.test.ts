@@ -41,8 +41,8 @@ const labels: ComposeLabels = {
   placementMenu: 'Bar position',
   placementSite: 'This site',
   placementFollowSettings: 'Use the setting for all sites',
-  placementReset: 'Reset position',
-  placementHandle: 'Drag to move the bar',
+  placementReset: 'Reset to the original position',
+  placementHandle: 'Drag to move the bar anywhere',
   placementLabel: (placement) =>
     placement === 'below'
       ? 'Below the message box'
@@ -857,6 +857,151 @@ describe('compose controller', () => {
     expect(
       composeClampPosition(-40, 900, { width: 280, height: 72 }, { width: 800, height: 600 }),
     ).toEqual({ left: 8, top: 600 - 72 - 8 });
+  });
+
+  it('shows a drag handle on the left in every placement', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const controller = start();
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§See you tomorrow.');
+    });
+    const shadow = composeShadow(document.querySelector('sakutto-compose'));
+    const handle = shadow?.querySelector('.handle');
+    if (!(handle instanceof HTMLButtonElement)) throw new Error('missing handle');
+    expect(handle.textContent).toBe('⋮⋮');
+    expect(handle.getAttribute('aria-label')).toBe('Drag to move the bar anywhere');
+    expect(handle.title).toBe('Drag to move the bar anywhere');
+    expect(handle.hidden).toBe(false);
+    expect(getComputedStyle(handle).display).not.toBe('none');
+    expect(getComputedStyle(handle).cursor).toBe('grab');
+    const more = shadow?.querySelector('.more');
+    if (!(more instanceof HTMLButtonElement)) throw new Error('missing menu button');
+    more.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const corner = shadow?.querySelector('[data-placement="corner"]');
+    if (!(corner instanceof HTMLButtonElement)) throw new Error('missing corner option');
+    corner.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(handle.isConnected).toBe(true);
+    expect(handle.hidden).toBe(false);
+  });
+
+  it('dragging the handle from above parks the bar and marks the site free', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    start();
+    field.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 't', altKey: true, code: 'KeyT', bubbles: true }),
+    );
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§See you tomorrow.');
+    });
+    const host = document.querySelector('sakutto-compose');
+    if (!(host instanceof HTMLElement)) throw new Error('missing panel');
+    const handle = composeShadow(host)?.querySelector('.handle');
+    if (!(handle instanceof HTMLButtonElement)) throw new Error('missing handle');
+    const startLeft = Number.parseFloat(host.style.left) || 0;
+    const startTop = Number.parseFloat(host.style.top) || 0;
+    handle.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        button: 0,
+        pointerId: 1,
+        clientX: startLeft + 8,
+        clientY: startTop + 8,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    document.dispatchEvent(
+      new PointerEvent('pointermove', {
+        pointerId: 1,
+        clientX: startLeft + 80,
+        clientY: startTop + 60,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    document.dispatchEvent(
+      new PointerEvent('pointerup', {
+        pointerId: 1,
+        clientX: startLeft + 80,
+        clientY: startTop + 60,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(host.dataset.placement).toBe('free');
+    expect(Number.parseFloat(host.style.left)).toBeGreaterThan(startLeft + 20);
+  });
+
+  it('does not steal field focus when the handle is pressed', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const controller = start();
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§See you tomorrow.');
+    });
+    expect(document.activeElement).toBe(field);
+    const handle = composeShadow(document.querySelector('sakutto-compose'))?.querySelector(
+      '.handle',
+    );
+    if (!(handle instanceof HTMLButtonElement)) throw new Error('missing handle');
+    handle.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        button: 0,
+        pointerId: 1,
+        clientX: 20,
+        clientY: 20,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(document.activeElement).toBe(field);
+    expect(panelButton('Replace').disabled).toBe(false);
+  });
+
+  it('nudges the bar with arrow keys on the handle and resets it above the field', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    Object.defineProperty(field, 'getBoundingClientRect', {
+      value: () => new DOMRect(40, 320, 400, 44),
+    });
+    field.focus();
+    const controller = start();
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§See you tomorrow.');
+    });
+    const host = document.querySelector('sakutto-compose');
+    if (!(host instanceof HTMLElement)) throw new Error('missing panel');
+    const shadow = composeShadow(host);
+    const handle = shadow?.querySelector('.handle');
+    if (!(handle instanceof HTMLButtonElement)) throw new Error('missing handle');
+    const startTop = Number.parseFloat(host.style.top) || 0;
+    handle.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
+    );
+    expect(host.dataset.placement).toBe('free');
+    expect(Number.parseFloat(host.style.top)).toBe(startTop + 8);
+    const more = shadow?.querySelector('.more');
+    if (!(more instanceof HTMLButtonElement)) throw new Error('missing menu button');
+    more.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const reset = [...(shadow?.querySelectorAll('[role="menuitem"]') ?? [])].find(
+      (node) => node.textContent === 'Reset to the original position',
+    );
+    if (!(reset instanceof HTMLButtonElement)) throw new Error('missing reset');
+    reset.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const above = shadow?.querySelector('[data-placement="above"]');
+    expect(above?.getAttribute('aria-checked')).toBe('true');
+    expect(host.dataset.placement).toBe('above');
   });
 
   it('opens the bar below the field when that position is chosen from the menu', async () => {

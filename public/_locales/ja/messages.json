@@ -973,7 +973,7 @@
     "message": "入力中の翻訳バーの位置"
   },
   "composePlacementSettingHelp": {
-    "message": "すべてのサイトの既定です。いま見ているページでは、バーの ⋯ メニューでこのサイトだけ上書きできます。"
+    "message": "すべてのサイトの既定です。バー左端の ⋮⋮ をドラッグすると、このページだけ好きな位置へ置けます。⋯ メニューでもこのサイトだけ上書きできます。"
   },
   "composePlacementAbove": {
     "message": "入力欄の上"
@@ -997,9 +997,9 @@
     "message": "設定の位置に戻す（すべてのサイト）"
   },
   "composePlacementReset": {
-    "message": "位置をリセット"
+    "message": "元の位置に戻す"
   },
   "composePlacementHandle": {
-    "message": "ドラッグしてバーを移動"
+    "message": "ドラッグしてバーを好きな位置へ"
   }
 }

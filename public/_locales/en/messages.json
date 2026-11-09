@@ -973,7 +973,7 @@
     "message": "Draft translation bar position"
   },
   "composePlacementSettingHelp": {
-    "message": "The default for every site. On the page you are on, the bar’s ⋯ menu can override this for that site only."
+    "message": "The default for every site. Drag the ⋮⋮ grip on the bar to park it anywhere on this page. The ⋯ menu can also override this for that site only."
   },
   "composePlacementAbove": {
     "message": "Above the message box"
@@ -997,9 +997,9 @@
     "message": "Use the setting for all sites"
   },
   "composePlacementReset": {
-    "message": "Reset position"
+    "message": "Reset to the original position"
   },
   "composePlacementHandle": {
-    "message": "Drag to move the bar"
+    "message": "Drag to move the bar anywhere"
   }
 }

@@ -973,7 +973,7 @@
     "message": "Position de la barre de traduction à la saisie"
   },
   "composePlacementSettingHelp": {
-    "message": "La valeur par défaut pour tous les sites. Le menu ⋯ de la barre peut la remplacer uniquement sur ce site."
+    "message": "La valeur par défaut pour tous les sites. Faites glisser la poignée ⋮⋮ de la barre pour la poser où vous voulez sur cette page. Le menu ⋯ peut aussi la remplacer pour ce site seulement."
   },
   "composePlacementAbove": {
     "message": "Au-dessus de la zone de message"
@@ -997,9 +997,9 @@
     "message": "Utiliser le réglage pour tous les sites"
   },
   "composePlacementReset": {
-    "message": "Réinitialiser la position"
+    "message": "Revenir à la position d’origine"
   },
   "composePlacementHandle": {
-    "message": "Faites glisser pour déplacer la barre"
+    "message": "Faites glisser pour déplacer la barre n’importe où"
   }
 }
