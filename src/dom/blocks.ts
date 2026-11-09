@@ -108,6 +108,8 @@ const OWN_UI_TAGS: ReadonlySet<string> = new Set([
   'SAKUTTO-TIP',
   'SAKUTTO-POP',
   'SAKUTTO-SELECT',
+  'SAKUTTO-COMPOSE',
+  'SAKUTTO-WRITE',
   'SAKUTTO-PERF',
   'SAKUTTO-STATUS',
   'SAKUTTO-BAR',

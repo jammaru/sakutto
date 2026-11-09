@@ -24,7 +24,7 @@ export interface PageInfoRequest {
   type: 'page:info';
 }
 
-export type PageCommandName = 'toggle' | 'restore' | 'bilingual' | 'selection';
+export type PageCommandName = 'toggle' | 'restore' | 'bilingual' | 'selection' | 'compose';
 
 export interface PageCommandRequest {
   type: 'page:command';
@@ -59,6 +59,7 @@ const PAGE_COMMANDS: ReadonlySet<string> = new Set<PageCommandName>([
   'restore',
   'bilingual',
   'selection',
+  'compose',
 ]);
 
 export interface EngineCapabilitiesRequest {
@@ -99,6 +100,7 @@ export interface ShortcutSnapshot {
   'translate-page': string | null;
   'toggle-bilingual': string | null;
   'translate-selection': string | null;
+  'translate-compose': string | null;
 }
 
 export interface ModelDownloadRequest {
@@ -215,7 +217,8 @@ export function isShortcutSnapshot(value: unknown): value is ShortcutSnapshot {
     isRecord(value) &&
     isShortcutBinding(value['translate-page']) &&
     isShortcutBinding(value['toggle-bilingual']) &&
-    isShortcutBinding(value['translate-selection'])
+    isShortcutBinding(value['translate-selection']) &&
+    isShortcutBinding(value['translate-compose'])
   );
 }
 

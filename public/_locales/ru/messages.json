@@ -824,5 +824,76 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "Перевести текст, который вы пишете"
+  },
+  "contextTranslateCompose": {
+    "message": "Перевести набираемый текст"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ переводит текст в поле, в котором вы печатаете.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "Нажмите $KEY$ в поле сообщения, чтобы увидеть перевод, который можно подставить.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "Когда поле сообщения в фокусе, небольшой элемент показывает перевод набираемого текста. Японские черновики идут на другой язык основной пары; остальные — на выбранный выше язык. Текст не заменяется, пока вы не выберете «Заменить»."
+  },
+  "composeTitle": {
+    "message": "Перевод черновика"
+  },
+  "composeIcon": {
+    "message": "Перевести набираемый текст"
+  },
+  "composeReplace": {
+    "message": "Заменить"
+  },
+  "composeUndo": {
+    "message": "Вернуть исходный текст"
+  },
+  "composePending": {
+    "message": "Перевод…"
+  },
+  "composeFailed": {
+    "message": "Не удалось перевести этот черновик."
+  },
+  "composeEmpty": {
+    "message": "Введите текст для перевода."
+  },
+  "composeTooLong": {
+    "message": "Этот черновик слишком длинный для перевода."
+  },
+  "composeSwap": {
+    "message": "Сменить направление перевода"
+  },
+  "composeReplaced": {
+    "message": "Заменено. Можно вернуть исходный текст."
+  },
+  "composeInto": {
+    "message": "На $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "Перевод черновика использует только PLaMo, а PLaMo не переводит на $LANGUAGE$.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
   }
 }

@@ -824,5 +824,76 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "แปลข้อความที่กำลังพิมพ์"
+  },
+  "contextTranslateCompose": {
+    "message": "แปลข้อความที่กำลังเขียน"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ แปลข้อความในช่องที่คุณกำลังพิมพ์",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "กด $KEY$ ขณะพิมพ์ในช่องข้อความเพื่อดูคำแปลแล้วเลือกว่าจะนำไปใช้หรือไม่",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "เมื่อช่องข้อความมีโฟกัส ตัวควบคุมเล็กๆ จะแสดงคำแปลของสิ่งที่คุณกำลังพิมพ์ ฉบับร่างภาษาญี่ปุ่นจะไปอีกภาษาในคู่หลัก ส่วนฉบับอื่นใช้ภาษาเป้าหมายด้านบน ข้อความจะไม่ถูกแทนที่จนกว่าคุณจะเลือก แทนที่"
+  },
+  "composeTitle": {
+    "message": "คำแปลฉบับร่าง"
+  },
+  "composeIcon": {
+    "message": "แปลข้อความที่กำลังเขียน"
+  },
+  "composeReplace": {
+    "message": "แทนที่"
+  },
+  "composeUndo": {
+    "message": "คืนค่าต้นฉบับ"
+  },
+  "composePending": {
+    "message": "กำลังแปล…"
+  },
+  "composeFailed": {
+    "message": "แปลฉบับร่างนี้ไม่ได้"
+  },
+  "composeEmpty": {
+    "message": "พิมพ์ข้อความที่จะแปล"
+  },
+  "composeTooLong": {
+    "message": "ฉบับร่างนี้ยาวเกินไปที่จะแปล"
+  },
+  "composeSwap": {
+    "message": "สลับทิศทางการแปล"
+  },
+  "composeReplaced": {
+    "message": "แทนที่แล้ว คุณสามารถคืนค่าต้นฉบับได้"
+  },
+  "composeInto": {
+    "message": "เป็น $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "การแปลฉบับร่างใช้เฉพาะ PLaMo และ PLaMo ไม่แปลเป็น $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
   }
 }

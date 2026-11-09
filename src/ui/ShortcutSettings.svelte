@@ -15,6 +15,7 @@
     'translate-page': 'commandTranslate',
     'toggle-bilingual': 'commandBilingual',
     'translate-selection': 'commandSelection',
+    'translate-compose': 'commandCompose',
   };
 
   let bound = $state<ShortcutSnapshot | null>(null);

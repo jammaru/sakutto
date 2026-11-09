@@ -824,5 +824,76 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "Den Text übersetzen, den Sie gerade schreiben"
+  },
+  "contextTranslateCompose": {
+    "message": "Geschriebenes übersetzen"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ übersetzt den Text im Feld, in das Sie schreiben.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "Drücken Sie $KEY$ in einem Nachrichtenfeld, um eine Übersetzung anzuzeigen, die Sie übernehmen können.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "Wenn ein Nachrichtenfeld den Fokus hat, bietet ein kleines Steuerelement eine Übersetzung des getippten Texts. Japanische Entwürfe gehen in die andere Sprache des Hauptpaars; andere Entwürfe nutzen die Zielsprache oben. Nichts wird ersetzt, bis Sie „Ersetzen“ wählen."
+  },
+  "composeTitle": {
+    "message": "Übersetzung des Entwurfs"
+  },
+  "composeIcon": {
+    "message": "Geschriebenes übersetzen"
+  },
+  "composeReplace": {
+    "message": "Ersetzen"
+  },
+  "composeUndo": {
+    "message": "Original wiederherstellen"
+  },
+  "composePending": {
+    "message": "Übersetzung läuft…"
+  },
+  "composeFailed": {
+    "message": "Dieser Entwurf konnte nicht übersetzt werden."
+  },
+  "composeEmpty": {
+    "message": "Geben Sie Text zum Übersetzen ein."
+  },
+  "composeTooLong": {
+    "message": "Dieser Entwurf ist zu lang zum Übersetzen."
+  },
+  "composeSwap": {
+    "message": "Übersetzungsrichtung wechseln"
+  },
+  "composeReplaced": {
+    "message": "Ersetzt. Sie können das Original wiederherstellen."
+  },
+  "composeInto": {
+    "message": "Nach $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "Die Entwurfübersetzung nutzt nur PLaMo, und PLaMo übersetzt nicht nach $LANGUAGE$.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
   }
 }

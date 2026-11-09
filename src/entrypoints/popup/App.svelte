@@ -46,11 +46,12 @@
 
   type SettingsError = 'load' | 'save' | null;
 
-  /** The three hints under the button, each naming the key bound right now. */
+  /** The hints under the button, each naming the key bound right now. */
   const SHORTCUT_HINTS: readonly { label: MessageKey; command: ShortcutCommand }[] = [
     { label: 'shortcutTranslate', command: 'translate-page' },
     { label: 'shortcutBilingual', command: 'toggle-bilingual' },
     { label: 'shortcutSelection', command: 'translate-selection' },
+    { label: 'shortcutCompose', command: 'translate-compose' },
   ];
 
   let settings = $state<Settings | null>(null);

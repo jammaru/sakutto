@@ -824,5 +824,76 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "작성 중인 텍스트를 번역합니다"
+  },
+  "contextTranslateCompose": {
+    "message": "작성 중인 텍스트 번역"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ 키로 입력 중인 필드의 텍스트를 번역합니다.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "메시지 입력란에서 $KEY$ 를 누르면 작성 중인 글의 번역을 미리 보고 적용할 수 있습니다.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "메시지 입력란에 초점이 있으면 작은 컨트롤로 작성 중인 글의 번역을 볼 수 있습니다. 일본어 초안은 주 언어 쌍의 다른 쪽으로, 그 외는 위에서 고른 대상 언어로 번역됩니다. 바꾸기를 선택할 때까지 필드의 글은 바뀌지 않습니다."
+  },
+  "composeTitle": {
+    "message": "작성 중 번역"
+  },
+  "composeIcon": {
+    "message": "작성 중인 텍스트 번역"
+  },
+  "composeReplace": {
+    "message": "바꾸기"
+  },
+  "composeUndo": {
+    "message": "원래대로"
+  },
+  "composePending": {
+    "message": "번역하는 중…"
+  },
+  "composeFailed": {
+    "message": "이 초안을 번역하지 못했습니다."
+  },
+  "composeEmpty": {
+    "message": "번역할 텍스트를 입력하세요."
+  },
+  "composeTooLong": {
+    "message": "이 초안은 너무 길어 번역할 수 없습니다."
+  },
+  "composeSwap": {
+    "message": "번역 방향 바꾸기"
+  },
+  "composeReplaced": {
+    "message": "바꿨습니다. 원래 글로 되돌릴 수 있습니다."
+  },
+  "composeInto": {
+    "message": "$LANGUAGE$ 로",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "작성 중 번역은 PLaMo만 사용하며, PLaMo는 $LANGUAGE$ 로의 번역을 지원하지 않습니다.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
   }
 }

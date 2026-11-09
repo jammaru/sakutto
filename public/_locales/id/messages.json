@@ -824,5 +824,76 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "Terjemahkan teks yang sedang Anda tulis"
+  },
+  "contextTranslateCompose": {
+    "message": "Terjemahkan yang sedang Anda tulis"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ menerjemahkan teks di kolom tempat Anda mengetik.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "Tekan $KEY$ saat mengetik di kotak pesan untuk melihat terjemahan yang dapat Anda terapkan.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "Saat kotak pesan mendapat fokus, kontrol kecil menawarkan terjemahan dari yang Anda ketik. Draf Jepang menuju bahasa lain dari pasangan utama; draf lain memakai bahasa sasaran di atas. Teks tidak diganti sampai Anda memilih Ganti."
+  },
+  "composeTitle": {
+    "message": "Terjemahan draf"
+  },
+  "composeIcon": {
+    "message": "Terjemahkan yang sedang Anda tulis"
+  },
+  "composeReplace": {
+    "message": "Ganti"
+  },
+  "composeUndo": {
+    "message": "Kembalikan aslinya"
+  },
+  "composePending": {
+    "message": "Menerjemahkan…"
+  },
+  "composeFailed": {
+    "message": "Draf ini tidak dapat diterjemahkan."
+  },
+  "composeEmpty": {
+    "message": "Ketik sesuatu untuk diterjemahkan."
+  },
+  "composeTooLong": {
+    "message": "Draf ini terlalu panjang untuk diterjemahkan."
+  },
+  "composeSwap": {
+    "message": "Ubah arah terjemahan"
+  },
+  "composeReplaced": {
+    "message": "Diganti. Anda dapat mengembalikan teks asli."
+  },
+  "composeInto": {
+    "message": "Ke $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "Terjemahan draf hanya memakai PLaMo, dan PLaMo tidak menerjemahkan ke $LANGUAGE$.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
   }
 }

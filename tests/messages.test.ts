@@ -44,6 +44,7 @@ describe('message validation', () => {
         'translate-page': 'Alt+A',
         'toggle-bilingual': '⌥⇧B',
         'translate-selection': '',
+        'translate-compose': 'Alt+T',
       }),
     ).toBe(true);
     // `null` is a command Chrome did not list; `''` is one the user unbound.
@@ -52,12 +53,14 @@ describe('message validation', () => {
         'translate-page': null,
         'toggle-bilingual': '',
         'translate-selection': 'Alt+S',
+        'translate-compose': null,
       }),
     ).toBe(true);
     expect(
       isShortcutSnapshot({
         'translate-page': 'Alt+A',
         'toggle-bilingual': 'Alt+B',
+        'translate-selection': 'Alt+S',
       }),
     ).toBe(false);
     expect(
@@ -65,6 +68,7 @@ describe('message validation', () => {
         'translate-page': 'Alt+A',
         'toggle-bilingual': 1,
         'translate-selection': 'Alt+S',
+        'translate-compose': 'Alt+T',
       }),
     ).toBe(false);
     expect(isShortcutSnapshot(null)).toBe(false);

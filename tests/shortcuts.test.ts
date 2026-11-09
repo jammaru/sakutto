@@ -39,6 +39,7 @@ describe('selection shortcut', () => {
       'translate-page': 'Alt+A',
       'toggle-bilingual': 'Alt+B',
       'translate-selection': 'Alt+S',
+      'translate-compose': 'Alt+T',
     });
     expect(DEFAULT_SELECTION_SHORTCUT).toBe('Alt+S');
   });
@@ -100,11 +101,13 @@ describe('readShortcutSnapshot', () => {
         { name: 'translate-page', shortcut: 'Alt+A' },
         { name: 'toggle-bilingual', shortcut: '' },
         { name: 'translate-selection', shortcut: '⌥⇧S' },
+        { name: 'translate-compose', shortcut: 'Alt+T' },
       ]),
     ).toEqual({
       'translate-page': 'Alt+A',
       'toggle-bilingual': '',
       'translate-selection': '⌥⇧S',
+      'translate-compose': 'Alt+T',
     });
   });
 
@@ -113,6 +116,7 @@ describe('readShortcutSnapshot', () => {
       'translate-page': '',
       'toggle-bilingual': null,
       'translate-selection': null,
+      'translate-compose': null,
     });
   });
 });

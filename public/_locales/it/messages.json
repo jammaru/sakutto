@@ -824,5 +824,76 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "Traduci il testo che stai scrivendo"
+  },
+  "contextTranslateCompose": {
+    "message": "Traduci ciò che stai scrivendo"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ traduce il testo del campo in cui stai scrivendo.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "Premi $KEY$ mentre scrivi in una casella di messaggio per vedere una traduzione da applicare.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "Quando una casella di messaggio ha il focus, un piccolo controllo offre una traduzione di ciò che stai scrivendo. Le bozze in giapponese vanno nell’altra lingua della coppia principale; le altre usano la lingua di destinazione sopra. Il testo non viene sostituito finché non scegli Sostituisci."
+  },
+  "composeTitle": {
+    "message": "Traduzione della bozza"
+  },
+  "composeIcon": {
+    "message": "Traduci ciò che stai scrivendo"
+  },
+  "composeReplace": {
+    "message": "Sostituisci"
+  },
+  "composeUndo": {
+    "message": "Ripristina l’originale"
+  },
+  "composePending": {
+    "message": "Traduzione in corso…"
+  },
+  "composeFailed": {
+    "message": "Impossibile tradurre questa bozza."
+  },
+  "composeEmpty": {
+    "message": "Scrivi qualcosa da tradurre."
+  },
+  "composeTooLong": {
+    "message": "Questa bozza è troppo lunga da tradurre."
+  },
+  "composeSwap": {
+    "message": "Inverti la direzione della traduzione"
+  },
+  "composeReplaced": {
+    "message": "Sostituito. Puoi ripristinare l’originale."
+  },
+  "composeInto": {
+    "message": "In $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "La traduzione della bozza usa solo PLaMo e PLaMo non traduce in $LANGUAGE$.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
   }
 }

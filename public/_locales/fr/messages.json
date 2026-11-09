@@ -824,5 +824,76 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "Traduire le texte en cours de saisie"
+  },
+  "contextTranslateCompose": {
+    "message": "Traduire ce que vous écrivez"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ traduit le texte du champ dans lequel vous tapez.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "Appuyez sur $KEY$ dans un champ de message pour prévisualiser une traduction que vous pouvez appliquer.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "Lorsqu’un champ de message a le focus, un petit contrôle propose une traduction de ce que vous tapez. Les brouillons en japonais vont vers l’autre langue de la paire principale ; les autres utilisent la langue cible ci-dessus. Rien n’est remplacé tant que vous ne choisissez pas Remplacer."
+  },
+  "composeTitle": {
+    "message": "Traduction du brouillon"
+  },
+  "composeIcon": {
+    "message": "Traduire ce que vous écrivez"
+  },
+  "composeReplace": {
+    "message": "Remplacer"
+  },
+  "composeUndo": {
+    "message": "Restaurer l’original"
+  },
+  "composePending": {
+    "message": "Traduction…"
+  },
+  "composeFailed": {
+    "message": "Impossible de traduire ce brouillon."
+  },
+  "composeEmpty": {
+    "message": "Saisissez du texte à traduire."
+  },
+  "composeTooLong": {
+    "message": "Ce brouillon est trop long pour être traduit."
+  },
+  "composeSwap": {
+    "message": "Inverser le sens de la traduction"
+  },
+  "composeReplaced": {
+    "message": "Remplacé. Vous pouvez restaurer l’original."
+  },
+  "composeInto": {
+    "message": "Vers le $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "La traduction du brouillon n’utilise que PLaMo, et PLaMo ne traduit pas vers le $LANGUAGE$.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
   }
 }

@@ -478,7 +478,9 @@ export class PageSession {
     };
   }
 
-  async handle(command: 'toggle' | 'restore' | 'bilingual' | 'selection'): Promise<void> {
+  async handle(
+    command: 'toggle' | 'restore' | 'bilingual' | 'selection' | 'compose',
+  ): Promise<void> {
     switch (command) {
       case 'toggle':
         await this.toggle();
@@ -491,6 +493,9 @@ export class PageSession {
         return;
       case 'selection':
         this.translateDocumentSelection();
+        return;
+      case 'compose':
+        // Handled by ComposeController in the content script, which owns the focused field.
         return;
     }
   }

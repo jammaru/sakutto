@@ -824,5 +824,76 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "Traducir el texto que estás escribiendo"
+  },
+  "contextTranslateCompose": {
+    "message": "Traducir lo que estás escribiendo"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ traduce el texto del campo en el que escribes.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "Pulsa $KEY$ mientras escribes en un cuadro de mensaje para ver una traducción que puedes aplicar.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "Cuando un cuadro de mensaje tiene el foco, un control pequeño ofrece una traducción de lo que escribes. Los borradores en japonés van al otro idioma del par principal; los demás usan el idioma de destino de arriba. El texto no se sustituye hasta que eliges Reemplazar."
+  },
+  "composeTitle": {
+    "message": "Traducción del borrador"
+  },
+  "composeIcon": {
+    "message": "Traducir lo que estás escribiendo"
+  },
+  "composeReplace": {
+    "message": "Reemplazar"
+  },
+  "composeUndo": {
+    "message": "Restaurar el original"
+  },
+  "composePending": {
+    "message": "Traduciendo…"
+  },
+  "composeFailed": {
+    "message": "No se pudo traducir este borrador."
+  },
+  "composeEmpty": {
+    "message": "Escribe algo para traducir."
+  },
+  "composeTooLong": {
+    "message": "Este borrador es demasiado largo para traducirlo."
+  },
+  "composeSwap": {
+    "message": "Cambiar la dirección de la traducción"
+  },
+  "composeReplaced": {
+    "message": "Reemplazado. Puedes restaurar el original."
+  },
+  "composeInto": {
+    "message": "Al $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "La traducción del borrador usa solo PLaMo, y PLaMo no traduce al $LANGUAGE$.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
   }
 }

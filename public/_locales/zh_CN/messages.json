@@ -824,5 +824,76 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "翻译正在输入的文本"
+  },
+  "contextTranslateCompose": {
+    "message": "翻译正在输入的内容"
+  },
+  "shortcutCompose": {
+    "message": "按 $KEY$ 翻译当前输入框中的文本。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "在消息框中输入时按 $KEY$，即可预览译文并选择是否替换。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "当消息框处于焦点时，一个小控件会提供正在输入内容的译文。日语草稿会译成主语言对中的另一种语言；其他草稿使用上方的目标语言。在选择“替换”之前，输入框中的文字不会被改动。"
+  },
+  "composeTitle": {
+    "message": "正在输入的翻译"
+  },
+  "composeIcon": {
+    "message": "翻译正在输入的文本"
+  },
+  "composeReplace": {
+    "message": "替换"
+  },
+  "composeUndo": {
+    "message": "恢复原文"
+  },
+  "composePending": {
+    "message": "正在翻译…"
+  },
+  "composeFailed": {
+    "message": "无法翻译这段草稿。"
+  },
+  "composeEmpty": {
+    "message": "请输入要翻译的文本。"
+  },
+  "composeTooLong": {
+    "message": "这段草稿太长，无法翻译。"
+  },
+  "composeSwap": {
+    "message": "切换翻译方向"
+  },
+  "composeReplaced": {
+    "message": "已替换。可以恢复原文。"
+  },
+  "composeInto": {
+    "message": "译成 $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "输入中的翻译只使用 PLaMo，而 PLaMo 不能译成 $LANGUAGE$。",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
   }
 }

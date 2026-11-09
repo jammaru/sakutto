@@ -22,9 +22,11 @@ export function installPageActions(translations?: PageTranslationCanceller): voi
     const pageCommand =
       info.menuItemId === 'translate-selection'
         ? 'selection'
-        : info.menuItemId === 'translate-page'
-          ? 'toggle'
-          : null;
+        : info.menuItemId === 'translate-compose'
+          ? 'compose'
+          : info.menuItemId === 'translate-page'
+            ? 'toggle'
+            : null;
     if (!pageCommand) return;
     void runCommand(tabId, pageCommand);
   });
@@ -51,6 +53,11 @@ function installMenus(): void {
       id: 'translate-selection',
       title: browser.i18n.getMessage('contextTranslateSelection'),
       contexts: ['selection'],
+    });
+    browser.contextMenus.create({
+      id: 'translate-compose',
+      title: browser.i18n.getMessage('contextTranslateCompose'),
+      contexts: ['editable'],
     });
   });
 }

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>Compose fixtures</title>
+    <style>
+      body {
+        font: 16px/1.5 sans-serif;
+        max-width: 40rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      label,
+      .label {
+        display: block;
+        margin: 1.25rem 0 0.35rem;
+        font-weight: 600;
+      }
+      textarea,
+      input,
+      [contenteditable],
+      .slate {
+        width: 100%;
+        min-height: 4.5rem;
+        padding: 0.5rem 0.6rem;
+        border: 1px solid #c5d0dc;
+        border-radius: 8px;
+        box-sizing: border-box;
+      }
+      input {
+        min-height: 2.4rem;
+      }
+      .slate [data-slate-node='element'] {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>入力欄の翻訳</h1>
+    <p>Page copy that page translation may rewrite. Drafts below must stay put until Replace.</p>
+
+    <label for="plain">Textarea</label>
+    <textarea id="plain"></textarea>
+
+    <label for="title">Text input</label>
+    <input id="title" type="text" />
+
+    <div class="label" id="rich-label">Plain contenteditable</div>
+    <div id="rich" contenteditable="true" role="textbox" aria-labelledby="rich-label"></div>
+
+    <div class="label" id="slate-label">Slate-style editor</div>
+    <div
+      id="slate"
+      class="slate"
+      contenteditable="true"
+      role="textbox"
+      data-slate-editor="true"
+      aria-labelledby="slate-label"
+    ></div>
+
+    <label for="secret">Password (must never be touched)</label>
+    <input id="secret" type="password" value="hunter2" />
+
+    <script>
+      const editor = document.getElementById('slate');
+      let value = '';
+      const render = () => {
+        editor.replaceChildren();
+        const block = document.createElement('div');
+        block.setAttribute('data-slate-node', 'element');
+        const text = document.createElement('span');
+        text.setAttribute('data-slate-node', 'text');
+        text.textContent = value;
+        block.append(text);
+        editor.append(block);
+        editor.dataset.slateValue = value;
+      };
+      editor.addEventListener('beforeinput', (event) => {
+        if (event.inputType !== 'insertText' && event.inputType !== 'insertFromPaste') return;
+        if (event.data === null) return;
+        event.preventDefault();
+        value = event.data;
+        render();
+      });
+      editor.addEventListener('keydown', (event) => {
+        if (event.key !== 'Backspace' && event.key !== 'Delete') return;
+        event.preventDefault();
+        value = '';
+        render();
+      });
+      render();
+      window.__slate = {
+        set(next) {
+          value = next;
+          render();
+        },
+        get() {
+          return value;
+        },
+      };
+    </script>
+  </body>
+</html>

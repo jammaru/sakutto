@@ -43,7 +43,7 @@ export async function resetExtensionStorage(worker: Worker): Promise<void> {
 export async function commandPage(
   worker: Worker,
   page: Page,
-  command: 'toggle' | 'restore' | 'bilingual',
+  command: 'toggle' | 'restore' | 'bilingual' | 'compose',
 ): Promise<void> {
   const url = page.url();
   await worker.evaluate(

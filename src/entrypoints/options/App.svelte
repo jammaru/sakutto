@@ -237,6 +237,7 @@
   <section class="panel">
     <h2>{t('shortcutHeading')}</h2>
     <p class="muted help">{t('shortcutHelp')}</p>
+    <p class="muted help">{t('composeHelp')}</p>
     <ShortcutSettings />
   </section>
 

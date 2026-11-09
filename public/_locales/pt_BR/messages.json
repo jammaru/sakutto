@@ -824,5 +824,76 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "Traduzir o texto que você está escrevendo"
+  },
+  "contextTranslateCompose": {
+    "message": "Traduzir o que você está escrevendo"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ traduz o texto do campo em que você está digitando.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "Pressione $KEY$ ao escrever em uma caixa de mensagem para ver uma tradução que você pode aplicar.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "Quando uma caixa de mensagem está em foco, um controle pequeno oferece uma tradução do que você está digitando. Rascunhos em japonês vão para o outro idioma do par principal; os demais usam o idioma de destino acima. Nada é substituído até você escolher Substituir."
+  },
+  "composeTitle": {
+    "message": "Tradução do rascunho"
+  },
+  "composeIcon": {
+    "message": "Traduzir o que você está escrevendo"
+  },
+  "composeReplace": {
+    "message": "Substituir"
+  },
+  "composeUndo": {
+    "message": "Restaurar o original"
+  },
+  "composePending": {
+    "message": "Traduzindo…"
+  },
+  "composeFailed": {
+    "message": "Não foi possível traduzir este rascunho."
+  },
+  "composeEmpty": {
+    "message": "Digite algo para traduzir."
+  },
+  "composeTooLong": {
+    "message": "Este rascunho é longo demais para traduzir."
+  },
+  "composeSwap": {
+    "message": "Trocar a direção da tradução"
+  },
+  "composeReplaced": {
+    "message": "Substituído. Você pode restaurar o original."
+  },
+  "composeInto": {
+    "message": "Para $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "A tradução do rascunho usa só o PLaMo, e o PLaMo não traduz para $LANGUAGE$.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
   }
 }

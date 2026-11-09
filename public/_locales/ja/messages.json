@@ -824,5 +824,76 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "入力中のテキストを翻訳します"
+  },
+  "contextTranslateCompose": {
+    "message": "入力中のテキストを翻訳"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ で、入力中の欄のテキストを翻訳します。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "メッセージ欄で $KEY$ を押すと、入力中の文の訳がプレビューされ、置き換えるかどうかを選べます。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "メッセージ欄にフォーカスがあるとき、入力中の文の訳を小さな操作で確認できます。日本語の下書きは対になるもう一方の言語へ、それ以外は上で選んだ訳先へ訳します。「置き換える」を選ぶまで、欄の文は変わりません。"
+  },
+  "composeTitle": {
+    "message": "入力中の翻訳"
+  },
+  "composeIcon": {
+    "message": "入力中のテキストを翻訳"
+  },
+  "composeReplace": {
+    "message": "置き換える"
+  },
+  "composeUndo": {
+    "message": "元に戻す"
+  },
+  "composePending": {
+    "message": "翻訳しています…"
+  },
+  "composeFailed": {
+    "message": "この入力を翻訳できませんでした。"
+  },
+  "composeEmpty": {
+    "message": "翻訳するテキストを入力してください。"
+  },
+  "composeTooLong": {
+    "message": "この入力は長すぎて翻訳できません。"
+  },
+  "composeSwap": {
+    "message": "翻訳の向きを切り替えます"
+  },
+  "composeReplaced": {
+    "message": "置き換えました。元の文に戻せます。"
+  },
+  "composeInto": {
+    "message": "$LANGUAGE$ へ",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "入力中の翻訳は PLaMo だけを使い、PLaMo は $LANGUAGE$ への翻訳に対応していません。",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
   }
 }

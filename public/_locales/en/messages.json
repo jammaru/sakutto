@@ -824,5 +824,76 @@
         "content": "$1"
       }
     }
+  },
+  "commandCompose": {
+    "message": "Translate the text you are writing"
+  },
+  "contextTranslateCompose": {
+    "message": "Translate what you are writing"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ translates the text in the field you are typing in.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "Press $KEY$ while typing in a message box to preview a translation you can apply.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "While a message box is focused, a small control offers a translation of what you are typing. Japanese drafts go into the other language of the main pair; other drafts use the target language above. Nothing is replaced until you choose Replace."
+  },
+  "composeTitle": {
+    "message": "Draft translation"
+  },
+  "composeIcon": {
+    "message": "Translate what you are writing"
+  },
+  "composeReplace": {
+    "message": "Replace"
+  },
+  "composeUndo": {
+    "message": "Restore original"
+  },
+  "composePending": {
+    "message": "Translating…"
+  },
+  "composeFailed": {
+    "message": "Could not translate this draft."
+  },
+  "composeEmpty": {
+    "message": "Type something to translate."
+  },
+  "composeTooLong": {
+    "message": "This draft is too long to translate."
+  },
+  "composeSwap": {
+    "message": "Switch the translation direction"
+  },
+  "composeReplaced": {
+    "message": "Replaced. You can restore the original."
+  },
+  "composeInto": {
+    "message": "Into $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "Draft translation uses PLaMo only, and PLaMo does not translate into $LANGUAGE$.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
   }
 }

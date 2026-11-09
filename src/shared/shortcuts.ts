@@ -7,6 +7,7 @@ export const SHORTCUT_COMMANDS = [
   'translate-page',
   'toggle-bilingual',
   'translate-selection',
+  'translate-compose',
 ] as const;
 
 export type ShortcutCommand = (typeof SHORTCUT_COMMANDS)[number];
@@ -16,6 +17,7 @@ export const SHORTCUT_PAGE_COMMANDS: Readonly<Record<ShortcutCommand, PageComman
   'translate-page': 'toggle',
   'toggle-bilingual': 'bilingual',
   'translate-selection': 'selection',
+  'translate-compose': 'compose',
 };
 
 /**
@@ -27,10 +29,14 @@ export const DEFAULT_SHORTCUTS: Readonly<Record<ShortcutCommand, string>> = {
   'translate-page': 'Alt+A',
   'toggle-bilingual': 'Alt+B',
   'translate-selection': 'Alt+S',
+  'translate-compose': 'Alt+T',
 };
 
 /** The key the selection command has until Chrome answers. */
 export const DEFAULT_SELECTION_SHORTCUT = DEFAULT_SHORTCUTS['translate-selection'];
+
+/** The key the compose command has until Chrome answers. */
+export const DEFAULT_COMPOSE_SHORTCUT = DEFAULT_SHORTCUTS['translate-compose'];
 
 /** The shape `browser.commands.getAll()` returns, without depending on its declared type. */
 export interface CommandBinding {
@@ -53,6 +59,7 @@ export function readShortcutSnapshot(commands: readonly CommandBinding[]): Short
     'translate-page': shortcutOf('translate-page'),
     'toggle-bilingual': shortcutOf('toggle-bilingual'),
     'translate-selection': shortcutOf('translate-selection'),
+    'translate-compose': shortcutOf('translate-compose'),
   };
 }
 

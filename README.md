@@ -34,11 +34,14 @@ To build and load it yourself instead:
 | Translate the page, or restore the original     | Alt+A           | Option (⌥)+A |
 | Switch between replaced text and bilingual text | Alt+B           | Option (⌥)+B |
 | Translate the selection                         | Alt+S           | Option (⌥)+S |
+| Translate the text you are writing              | Alt+T           | Option (⌥)+T |
 | Translate typed text (on the typed text page)   | Ctrl+Enter      | ⌘+Enter      |
 
 The same actions are in the toolbar popup and the right-click menu. Chrome keeps these keys, so you change them in Chrome's own editor: the settings page has a **Keyboard shortcuts** panel, and the popup has a **Change shortcuts** link, both of which open `chrome://extensions/shortcuts`. The key list in the popup and the hint on the translate button follow whatever you bind there. Chrome reads Alt in an extension shortcut as Option on a Mac, so the keys are the same letters. Alt+D is not a default, because Chrome on Windows and Linux uses it for the address bar.
 
 ## Typed text
+
+While a message box, a textarea, or another editable field is focused, Alt+T (Option+T on a Mac) previews an on-device translation of what you are typing. Nothing is replaced until you choose Replace; Restore original puts the draft back. Japanese drafts go to English (or to your saved target if that is not Japanese); other drafts use the saved target, flipping to Japanese when that target would be a no-op. Password fields and sites set to never translate are left alone. The same PLaMo model as page translation is used; the built-in translator is not.
 
 The popup has a **Translate typed text** button, and the options page has the same button. It opens a small extension page with a source box and a result box, so you can type or paste a paragraph and translate it without touching a page. It uses the same PLaMo model, the same licence consent, and the same load flow as page translation, and the direction follows the same target-language setting. The built-in translator is not used there: typed text is translated by PLaMo only, and a language PLaMo does not support is refused in the page rather than quietly handed to Chrome. The result has a Copy button.
 

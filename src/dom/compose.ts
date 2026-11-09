@@ -1,0 +1,887 @@
+import type { GlossaryEntry, TranslateOptions } from '@/engine/types';
+import { displayLanguage, isTargetLanguage, type TargetLanguage } from '@/shared/languages';
+import { COMPOSE_PREVIEW_MS, planComposeTranslation } from '@/shared/compose-translation';
+import { matchesShortcut } from '@/shared/shortcuts';
+import type { Formality } from '@/shared/settings';
+import { MAX_TYPED_CHARS, normalizeTypedInput } from '@/shared/typed-translation';
+import { collectDocuments } from './blocks';
+import {
+  composeFieldRect,
+  focusedComposeField,
+  isComposeCandidate,
+  readComposeText,
+  replaceComposeText,
+} from './compose-field';
+import type { PageEngine } from './session';
+import { uiShadow } from './overlay';
+
+export interface ComposeLabels {
+  title: string;
+  icon: string;
+  replace: string;
+  undo: string;
+  close: string;
+  pending: string;
+  failed: string;
+  empty: string;
+  tooLong: string;
+  swap: string;
+  replaced: string;
+  into: (language: string) => string;
+  chromeOnly: (language: string) => string;
+}
+
+export interface ComposePreferences {
+  targetLanguage: string;
+  form: Formality;
+  glossary?: readonly GlossaryEntry[];
+  enabled: boolean;
+  uiLanguage: string;
+}
+
+const ICON_PX = 26;
+
+const uiShadows = new WeakMap<Element, ShadowRoot>();
+
+function attachClosedShadow(host: HTMLElement): ShadowRoot {
+  const existing = uiShadows.get(host);
+  if (existing) return existing;
+  const shadow = host.attachShadow({ mode: 'closed' });
+  uiShadows.set(host, shadow);
+  return shadow;
+}
+
+const ICON_STYLE = `
+:host { all: initial; }
+button {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  width: ${String(ICON_PX)}px;
+  height: ${String(ICON_PX)}px;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 88%);
+  border-radius: 7px;
+  background: #101828;
+  color: #f8fafc;
+  box-shadow: 0 2px 8px rgb(15 23 32 / 28%);
+  font: 700 10px/1 "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  cursor: pointer;
+  user-select: none;
+}
+button:hover,
+button:focus-visible { border-color: #67e8f9; }
+button:focus-visible { outline: 2px solid #0e7490; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  button { transition: none; }
+}
+`;
+
+const PANEL_STYLE = `
+:host { all: initial; }
+.card {
+  box-sizing: border-box;
+  width: min(360px, 70vw);
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #d5dde6;
+  background: #ffffff;
+  color: #18202d;
+  font: 12px/1.45 "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  box-shadow: 0 8px 24px rgb(15 23 32 / 16%);
+}
+.kicker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 4px;
+  color: #5b6675;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.body {
+  margin: 0;
+  max-height: 8.5em;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.note {
+  margin: 6px 0 0;
+  color: #5b6675;
+  font-size: 10px;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+button {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: #0e7490;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+button.secondary {
+  background: #e8eef4;
+  color: #18202d;
+}
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+button:focus-visible { outline: 2px solid #0e7490; outline-offset: 2px; }
+button.swap {
+  padding: 2px 6px;
+  background: transparent;
+  color: #0e7490;
+  font-weight: 700;
+}
+@media (prefers-color-scheme: dark) {
+  .card {
+    border-color: #2d3947;
+    background: #151b23;
+    color: #edf1f6;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+  }
+  .kicker, .note { color: #b7c2cf; }
+  button { background: #67e8f9; color: #062a33; }
+  button.secondary { background: #1d2631; color: #edf1f6; }
+  button.swap { color: #67e8f9; background: transparent; }
+}
+`;
+
+interface PanelState {
+  preview: string;
+  note: string;
+  pending: boolean;
+  lang: string;
+  canReplace: boolean;
+  canUndo: boolean;
+}
+
+class ComposeOverlay {
+  private readonly iconHost: HTMLElement;
+  private readonly panelHost: HTMLElement;
+  private readonly iconButton: HTMLButtonElement;
+  private readonly kicker: HTMLElement;
+  private readonly swapButton: HTMLButtonElement;
+  private readonly body: HTMLElement;
+  private readonly note: HTMLElement;
+  private readonly replaceButton: HTMLButtonElement;
+  private readonly undoButton: HTMLButtonElement;
+  private readonly closeButton: HTMLButtonElement;
+  private labels: ComposeLabels;
+  private onIcon: () => void = () => undefined;
+  private onReplace: () => void = () => undefined;
+  private onUndo: () => void = () => undefined;
+  private onClose: () => void = () => undefined;
+  private onSwap: () => void = () => undefined;
+
+  constructor(
+    private readonly doc: Document,
+    labels: ComposeLabels,
+  ) {
+    this.labels = labels;
+    this.iconHost = doc.createElement('sakutto-write');
+    this.panelHost = doc.createElement('sakutto-compose');
+    for (const host of [this.iconHost, this.panelHost]) {
+      host.setAttribute('translate', 'no');
+      host.style.position = 'fixed';
+      host.style.zIndex = '2147483646';
+      host.hidden = true;
+      host.style.display = 'none';
+      doc.documentElement.append(host);
+    }
+    this.iconHost.style.width = `${String(ICON_PX)}px`;
+    this.iconHost.style.height = `${String(ICON_PX)}px`;
+    this.iconButton = this.mountIcon();
+    const panel = this.mountPanel();
+    this.kicker = panel.kicker;
+    this.swapButton = panel.swap;
+    this.body = panel.body;
+    this.note = panel.note;
+    this.replaceButton = panel.replace;
+    this.undoButton = panel.undo;
+    this.closeButton = panel.close;
+  }
+
+  setLabels(labels: ComposeLabels): void {
+    this.labels = labels;
+    this.iconButton.setAttribute('aria-label', labels.icon);
+    this.iconButton.title = labels.icon;
+    this.kicker.textContent = labels.title;
+    this.swapButton.setAttribute('aria-label', labels.swap);
+    this.swapButton.title = labels.swap;
+    this.replaceButton.textContent = labels.replace;
+    this.undoButton.textContent = labels.undo;
+    this.closeButton.textContent = labels.close;
+    const card = uiShadows.get(this.panelHost)?.querySelector('.card');
+    if (card instanceof HTMLElement) card.setAttribute('aria-label', labels.title);
+  }
+
+  setHandlers(handlers: {
+    onIcon: () => void;
+    onReplace: () => void;
+    onUndo: () => void;
+    onClose: () => void;
+    onSwap: () => void;
+  }): void {
+    this.onIcon = handlers.onIcon;
+    this.onReplace = handlers.onReplace;
+    this.onUndo = handlers.onUndo;
+    this.onClose = handlers.onClose;
+    this.onSwap = handlers.onSwap;
+  }
+
+  showIcon(anchor: DOMRect): void {
+    this.iconButton.setAttribute('aria-label', this.labels.icon);
+    this.iconButton.title = this.labels.icon;
+    const view = this.doc.defaultView;
+    const width = view?.innerWidth ?? 800;
+    const height = view?.innerHeight ?? 600;
+    let left = anchor.right - ICON_PX;
+    let top = anchor.bottom + 6;
+    if (top + ICON_PX > height - 8) top = Math.max(8, anchor.top - ICON_PX - 6);
+    left = Math.min(Math.max(left, 8), width - ICON_PX - 8);
+    top = Math.min(Math.max(top, 8), height - ICON_PX - 8);
+    this.iconHost.hidden = false;
+    this.iconHost.style.display = 'block';
+    this.iconHost.style.left = `${String(Math.round(left))}px`;
+    this.iconHost.style.top = `${String(Math.round(top))}px`;
+  }
+
+  hideIcon(): void {
+    this.iconHost.hidden = true;
+    this.iconHost.style.display = 'none';
+  }
+
+  iconVisible(): boolean {
+    return !this.iconHost.hidden && this.iconHost.style.display !== 'none';
+  }
+
+  showPanel(anchor: DOMRect, state: PanelState): void {
+    this.body.textContent = state.pending ? this.labels.pending : state.preview;
+    this.body.lang = state.lang;
+    this.note.textContent = state.note;
+    this.replaceButton.disabled = !state.canReplace;
+    this.undoButton.disabled = !state.canUndo;
+    this.kicker.textContent = this.labels.title;
+    this.placePanel(anchor);
+  }
+
+  hidePanel(): void {
+    this.panelHost.hidden = true;
+    this.panelHost.style.display = 'none';
+  }
+
+  panelVisible(): boolean {
+    return !this.panelHost.hidden && this.panelHost.style.display !== 'none';
+  }
+
+  contains(node: Node): boolean {
+    return (
+      this.iconHost.contains(node) ||
+      this.panelHost.contains(node) ||
+      uiShadows.get(this.iconHost)?.contains(node) === true ||
+      uiShadows.get(this.panelHost)?.contains(node) === true
+    );
+  }
+
+  destroy(): void {
+    this.iconHost.remove();
+    this.panelHost.remove();
+  }
+
+  private mountIcon(): HTMLButtonElement {
+    const shadow = attachClosedShadow(this.iconHost);
+    const style = this.doc.createElement('style');
+    style.textContent = ICON_STYLE;
+    const button = this.doc.createElement('button');
+    button.type = 'button';
+    button.setAttribute('aria-haspopup', 'dialog');
+    button.setAttribute('aria-label', this.labels.icon);
+    button.title = this.labels.icon;
+    button.textContent = 'あA';
+    const keepFocus = (event: Event): void => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    button.addEventListener('pointerdown', keepFocus);
+    button.addEventListener('mousedown', keepFocus);
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.onIcon();
+    });
+    shadow.append(style, button);
+    return button;
+  }
+
+  private mountPanel(): {
+    kicker: HTMLElement;
+    swap: HTMLButtonElement;
+    body: HTMLElement;
+    note: HTMLElement;
+    replace: HTMLButtonElement;
+    undo: HTMLButtonElement;
+    close: HTMLButtonElement;
+  } {
+    const shadow = attachClosedShadow(this.panelHost);
+    const style = this.doc.createElement('style');
+    style.textContent = PANEL_STYLE;
+    const card = this.doc.createElement('div');
+    card.className = 'card';
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-label', this.labels.title);
+    const keep = (event: Event): void => {
+      event.stopPropagation();
+    };
+    const keepFocus = (event: Event): void => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    card.addEventListener('pointerdown', keep);
+    card.addEventListener('mousedown', keep);
+
+    const kickerRow = this.doc.createElement('div');
+    kickerRow.className = 'kicker';
+    const kicker = this.doc.createElement('span');
+    kicker.textContent = this.labels.title;
+    const swap = this.doc.createElement('button');
+    swap.type = 'button';
+    swap.className = 'swap';
+    swap.textContent = '↔';
+    swap.setAttribute('aria-label', this.labels.swap);
+    swap.title = this.labels.swap;
+    swap.addEventListener('pointerdown', keepFocus);
+    swap.addEventListener('mousedown', keepFocus);
+    swap.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.onSwap();
+    });
+    kickerRow.append(kicker, swap);
+
+    const body = this.doc.createElement('p');
+    body.className = 'body';
+    body.setAttribute('aria-live', 'polite');
+    const note = this.doc.createElement('p');
+    note.className = 'note';
+
+    const actions = this.doc.createElement('div');
+    actions.className = 'actions';
+    const replace = this.doc.createElement('button');
+    replace.type = 'button';
+    replace.textContent = this.labels.replace;
+    replace.addEventListener('pointerdown', keepFocus);
+    replace.addEventListener('mousedown', keepFocus);
+    replace.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.onReplace();
+    });
+    const undo = this.doc.createElement('button');
+    undo.type = 'button';
+    undo.className = 'secondary';
+    undo.textContent = this.labels.undo;
+    undo.disabled = true;
+    undo.addEventListener('pointerdown', keepFocus);
+    undo.addEventListener('mousedown', keepFocus);
+    undo.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.onUndo();
+    });
+    const close = this.doc.createElement('button');
+    close.type = 'button';
+    close.className = 'secondary';
+    close.textContent = this.labels.close;
+    close.addEventListener('pointerdown', keepFocus);
+    close.addEventListener('mousedown', keepFocus);
+    close.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.onClose();
+    });
+    actions.append(replace, undo, close);
+    card.append(kickerRow, body, note, actions);
+    shadow.append(style, card);
+    return { kicker, swap, body, note, replace, undo, close };
+  }
+
+  private placePanel(anchor: DOMRect): void {
+    const view = this.doc.defaultView;
+    const width = view?.innerWidth ?? 800;
+    const height = view?.innerHeight ?? 600;
+    this.panelHost.style.pointerEvents = 'auto';
+    this.panelHost.style.display = 'block';
+    this.panelHost.hidden = false;
+    const card = uiShadows.get(this.panelHost)?.querySelector('.card');
+    const cardWidth = card instanceof HTMLElement ? card.offsetWidth : 280;
+    const cardHeight = card instanceof HTMLElement ? card.offsetHeight : 140;
+    this.panelHost.style.width = `${String(cardWidth)}px`;
+    this.panelHost.style.height = `${String(cardHeight)}px`;
+    let left = anchor.left;
+    if (left + cardWidth > width - 8) left = width - cardWidth - 8;
+    let top = anchor.bottom + 16;
+    if (top + cardHeight > height - 8) top = Math.max(8, anchor.top - cardHeight - 16);
+    this.panelHost.style.left = `${String(Math.max(8, left))}px`;
+    this.panelHost.style.top = `${String(Math.max(8, top))}px`;
+  }
+}
+
+export interface ComposeControllerOptions {
+  engine: PageEngine;
+  labels: ComposeLabels;
+  preferences: ComposePreferences;
+  composeKey?: (event: KeyboardEvent) => boolean;
+  previewMs?: number;
+}
+
+/**
+ * Translates the focused message box on request. A live preview is shown only after the
+ * reader opens the panel; the field is never rewritten until Replace is chosen.
+ */
+export class ComposeController {
+  private readonly engine: PageEngine;
+  private readonly overlay: ComposeOverlay;
+  private readonly composeKey: (event: KeyboardEvent) => boolean;
+  private readonly previewMs: number;
+  private readonly boundDocs = new Set<Document>();
+  private prefs: ComposePreferences;
+  private labels: ComposeLabels;
+  private field: Element | null = null;
+  private lastField: Element | null = null;
+  private panelOpen = false;
+  private swapped = false;
+  private preview = '';
+  private pending = false;
+  private failed = false;
+  private original: string | null = null;
+  private applied: string | null = null;
+  private lastShortcutAt = 0;
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private request: AbortController | null = null;
+  private generation = 0;
+  private readonly onFocusIn: (event: Event) => void;
+  private readonly onFocusOut: (event: Event) => void;
+  private readonly onInput: (event: Event) => void;
+  private readonly onKeyDown: (event: Event) => void;
+  private readonly onContextMenu: (event: Event) => void;
+  private readonly onScroll: () => void;
+
+  constructor(
+    private readonly doc: Document,
+    options: ComposeControllerOptions,
+  ) {
+    this.engine = options.engine;
+    this.labels = options.labels;
+    this.prefs = options.preferences;
+    this.previewMs = options.previewMs ?? COMPOSE_PREVIEW_MS;
+    this.composeKey = options.composeKey ?? ((event) => matchesShortcut(event, 'Alt+T'));
+    this.overlay = new ComposeOverlay(doc, options.labels);
+    this.overlay.setHandlers({
+      onIcon: () => this.openFromIcon(),
+      onReplace: () => this.apply(),
+      onUndo: () => this.undo(),
+      onClose: () => this.dismiss(),
+      onSwap: () => this.swapDirection(),
+    });
+    this.onFocusIn = (event) => this.handleFocus(event);
+    this.onFocusOut = (event) => this.handleBlur(event);
+    this.onInput = (event) => this.handleInput(event);
+    this.onKeyDown = (event) => this.handleKey(event);
+    this.onContextMenu = (event) => this.handleContextMenu(event);
+    this.onScroll = () => this.reposition();
+    this.bindDocuments();
+    this.doc.defaultView?.addEventListener('scroll', this.onScroll, true);
+    this.doc.defaultView?.addEventListener('resize', this.onScroll);
+  }
+
+  setLabels(labels: ComposeLabels): void {
+    this.labels = labels;
+    this.overlay.setLabels(labels);
+    if (this.panelOpen) this.render();
+  }
+
+  setPreferences(prefs: ComposePreferences): void {
+    const languageChanged = prefs.targetLanguage !== this.prefs.targetLanguage;
+    this.prefs = prefs;
+    if (!prefs.enabled) {
+      this.dismiss();
+      this.overlay.hideIcon();
+      this.field = null;
+      return;
+    }
+    if (languageChanged && this.panelOpen) this.translateField(this.resolveField());
+  }
+
+  /** Chrome command, context menu, or the in-page key. Never sends the message. */
+  handleShortcut(): void {
+    const now = Date.now();
+    if (now - this.lastShortcutAt < 80) return;
+    this.lastShortcutAt = now;
+    if (!this.prefs.enabled) return;
+    const field = this.resolveField();
+    if (!field) return;
+    this.field = field;
+    this.lastField = field;
+    if (this.panelOpen && this.canApply()) {
+      this.apply();
+      return;
+    }
+    this.openPanel(field);
+    this.translateField(field);
+  }
+
+  contains(node: Node): boolean {
+    return this.overlay.contains(node);
+  }
+
+  destroy(): void {
+    this.abort();
+    this.clearDebounce();
+    this.overlay.destroy();
+    for (const doc of this.boundDocs) {
+      doc.removeEventListener('focusin', this.onFocusIn, true);
+      doc.removeEventListener('focusout', this.onFocusOut, true);
+      doc.removeEventListener('input', this.onInput, true);
+      doc.removeEventListener('keydown', this.onKeyDown, true);
+      doc.removeEventListener('contextmenu', this.onContextMenu, true);
+    }
+    this.boundDocs.clear();
+    this.doc.defaultView?.removeEventListener('scroll', this.onScroll, true);
+    this.doc.defaultView?.removeEventListener('resize', this.onScroll);
+  }
+
+  private bindDocuments(): void {
+    for (const doc of collectDocuments(this.doc)) {
+      if (this.boundDocs.has(doc)) continue;
+      doc.addEventListener('focusin', this.onFocusIn, true);
+      doc.addEventListener('focusout', this.onFocusOut, true);
+      doc.addEventListener('input', this.onInput, true);
+      doc.addEventListener('keydown', this.onKeyDown, true);
+      doc.addEventListener('contextmenu', this.onContextMenu, true);
+      this.boundDocs.add(doc);
+    }
+  }
+
+  private resolveField(): Element | null {
+    const focused = focusedComposeField(this.doc);
+    if (focused) return focused;
+    if (this.field && this.field.isConnected && isComposeCandidate(this.field)) return this.field;
+    if (this.lastField && this.lastField.isConnected && isComposeCandidate(this.lastField)) {
+      return this.lastField;
+    }
+    return null;
+  }
+
+  private handleFocus(event: Event): void {
+    this.bindDocuments();
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (this.overlay.contains(target)) return;
+    const field = focusedComposeField(this.doc);
+    if (!this.prefs.enabled || !field) {
+      if (!this.panelOpen) this.overlay.hideIcon();
+      return;
+    }
+    if (this.field !== field) {
+      this.applied = null;
+      this.original = null;
+      this.preview = '';
+      this.swapped = false;
+    }
+    this.field = field;
+    this.lastField = field;
+    this.overlay.showIcon(composeFieldRect(field));
+    if (this.panelOpen) this.reposition();
+  }
+
+  private handleBlur(event: Event): void {
+    const next = event instanceof FocusEvent ? event.relatedTarget : null;
+    if (next instanceof Node && this.overlay.contains(next)) return;
+    window.setTimeout(() => {
+      const field = focusedComposeField(this.doc);
+      if (field) {
+        this.field = field;
+        this.overlay.showIcon(composeFieldRect(field));
+        return;
+      }
+      if (!this.panelOpen) this.overlay.hideIcon();
+    }, 50);
+  }
+
+  private handleInput(event: Event): void {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (this.overlay.contains(target)) return;
+    const field = this.resolveField();
+    if (!field || (field !== target && !field.contains(target))) return;
+    if (this.applied && readComposeText(field) === this.applied) return;
+    this.applied = null;
+    this.original = null;
+    if (!this.panelOpen) return;
+    this.schedulePreview(field);
+  }
+
+  private handleKey(event: Event): void {
+    if (!(event instanceof KeyboardEvent) || event.repeat) return;
+    if (event.key === 'Escape' && (this.panelOpen || this.overlay.iconVisible())) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.dismiss();
+      return;
+    }
+    if (event.isComposing) return;
+    if (!this.composeKey(event)) return;
+    const field = this.resolveField();
+    if (!field) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.handleShortcut();
+  }
+
+  private handleContextMenu(event: Event): void {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const field = focusedComposeField(this.doc);
+    if (field) this.lastField = field;
+  }
+
+  private openFromIcon(): void {
+    const field = this.resolveField();
+    if (!field) return;
+    this.openPanel(field);
+    this.translateField(field);
+  }
+
+  private openPanel(field: Element): void {
+    this.panelOpen = true;
+    this.swapped = false;
+    this.failed = false;
+    this.preview = '';
+    this.applied = null;
+    this.original = null;
+    this.field = field;
+    this.lastField = field;
+    this.render();
+  }
+
+  private dismiss(): void {
+    this.abort();
+    this.clearDebounce();
+    this.panelOpen = false;
+    this.preview = '';
+    this.pending = false;
+    this.failed = false;
+    this.swapped = false;
+    this.overlay.hidePanel();
+    const field = this.resolveField();
+    if (field && this.prefs.enabled) this.overlay.showIcon(composeFieldRect(field));
+    else this.overlay.hideIcon();
+  }
+
+  private canApply(): boolean {
+    return (
+      this.panelOpen && !this.pending && this.preview.trim().length > 0 && this.applied === null
+    );
+  }
+
+  private apply(): void {
+    const field = this.resolveField();
+    if (!field || !this.canApply()) return;
+    const current = readComposeText(field);
+    const result = replaceComposeText(field, this.preview);
+    if (!result.ok) {
+      this.failed = true;
+      this.render();
+      return;
+    }
+    this.original = current;
+    this.applied = this.preview;
+    this.render();
+  }
+
+  private undo(): void {
+    const field = this.resolveField();
+    if (!field || this.original === null) return;
+    const restore = this.original;
+    const result = replaceComposeText(field, restore);
+    if (!result.ok) {
+      this.failed = true;
+      this.render();
+      return;
+    }
+    this.applied = null;
+    this.original = null;
+    this.render();
+  }
+
+  private swapDirection(): void {
+    this.swapped = !this.swapped;
+    const field = this.resolveField();
+    if (field) this.translateField(field);
+  }
+
+  private schedulePreview(field: Element): void {
+    this.clearDebounce();
+    this.debounceTimer = setTimeout(() => {
+      this.debounceTimer = null;
+      this.translateField(field);
+    }, this.previewMs);
+  }
+
+  private clearDebounce(): void {
+    if (this.debounceTimer === null) return;
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = null;
+  }
+
+  private abort(): void {
+    this.request?.abort();
+    this.request = null;
+  }
+
+  private preferredTarget(): TargetLanguage {
+    return isTargetLanguage(this.prefs.targetLanguage) ? this.prefs.targetLanguage : 'en';
+  }
+
+  private translateField(field: Element | null): void {
+    if (!field || !this.panelOpen || !this.prefs.enabled) return;
+    const raw = readComposeText(field);
+    const trimmed = normalizeTypedInput(raw);
+    this.failed = false;
+    if (trimmed.length === 0) {
+      this.abort();
+      this.preview = '';
+      this.pending = false;
+      this.render();
+      return;
+    }
+    if (trimmed.length > MAX_TYPED_CHARS) {
+      this.abort();
+      this.preview = '';
+      this.pending = false;
+      this.failed = true;
+      this.render();
+      return;
+    }
+    const plan = planComposeTranslation(trimmed, this.preferredTarget(), this.swapped);
+    if (!plan.ok) {
+      this.abort();
+      this.preview = '';
+      this.pending = false;
+      this.render();
+      return;
+    }
+    this.abort();
+    const controller = new AbortController();
+    this.request = controller;
+    this.pending = true;
+    this.preview = '';
+    this.render();
+    const token = ++this.generation;
+    void this.runTranslate(trimmed, plan.targetLanguage, controller.signal, token);
+  }
+
+  private async runTranslate(
+    text: string,
+    target: TargetLanguage,
+    signal: AbortSignal,
+    token: number,
+  ): Promise<void> {
+    let output = '';
+    try {
+      const options: TranslateOptions = {
+        tgt: target,
+        form: this.prefs.form,
+        priority: 0,
+        signal,
+        eager: true,
+        ...(this.prefs.glossary && this.prefs.glossary.length > 0
+          ? { glossary: this.prefs.glossary }
+          : {}),
+      };
+      for await (const chunk of this.engine.translate([{ id: 'compose', text }], options)) {
+        if (signal.aborted || token !== this.generation) return;
+        if (chunk.textDelta !== undefined) {
+          output = chunk.restart === true ? chunk.textDelta : output + chunk.textDelta;
+          this.preview = output;
+          this.render();
+        } else if (chunk.final !== undefined) {
+          output = chunk.final;
+          this.preview = output;
+        }
+      }
+      if (signal.aborted || token !== this.generation) return;
+      this.pending = false;
+      if (output.trim().length === 0) this.failed = true;
+      this.render();
+    } catch {
+      if (signal.aborted || token !== this.generation) return;
+      this.pending = false;
+      this.failed = true;
+      this.render();
+    }
+  }
+
+  private render(): void {
+    const field = this.resolveField();
+    if (!this.panelOpen || !field) {
+      this.overlay.hidePanel();
+      return;
+    }
+    const raw = readComposeText(field);
+    const trimmed = normalizeTypedInput(raw);
+    const plan = planComposeTranslation(trimmed, this.preferredTarget(), this.swapped);
+    const language = displayLanguage(plan.targetLanguage, this.prefs.uiLanguage);
+    let note = this.labels.into(language);
+    let preview = this.preview;
+    if (trimmed.length === 0) {
+      preview = this.labels.empty;
+      note = '';
+    } else if (trimmed.length > MAX_TYPED_CHARS) {
+      preview = this.labels.tooLong;
+      note = '';
+    } else if (!plan.ok) {
+      preview = this.labels.chromeOnly(language);
+      note = '';
+    } else if (this.failed && this.preview.trim().length === 0) {
+      preview = this.labels.failed;
+    } else if (this.applied !== null) {
+      note = this.labels.replaced;
+    }
+    this.overlay.showIcon(composeFieldRect(field));
+    this.overlay.showPanel(composeFieldRect(field), {
+      preview,
+      note,
+      pending: this.pending && trimmed.length > 0 && plan.ok,
+      lang: plan.targetLanguage,
+      canReplace: this.canApply(),
+      canUndo: this.original !== null,
+    });
+  }
+
+  private reposition(): void {
+    const field = this.resolveField();
+    if (!field) return;
+    const rect = composeFieldRect(field);
+    if (this.prefs.enabled) this.overlay.showIcon(rect);
+    if (this.panelOpen) this.render();
+  }
+}
+
+/** Exported so a test can read the closed panel without opening the shadow from the page. */
+export function composeShadow(host: Element | null | undefined): ShadowRoot | null {
+  if (!host) return null;
+  return uiShadows.get(host) ?? uiShadow(host);
+}
