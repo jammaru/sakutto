@@ -1,7 +1,8 @@
 import { canonicalLanguage } from '@/shared/languages';
 import { sha256Hex } from '../model/sha256';
 import { sanitizeGlossary } from '../prompt/pfml3';
-import type { Formality, GlossaryEntry } from '../types';
+import { resolvePromptContext } from '../prompt/style';
+import type { Formality, GlossaryEntry, TranslationStyle } from '../types';
 
 export interface CacheKeyInput {
   model: string;
@@ -9,7 +10,9 @@ export interface CacheKeyInput {
   form: Formality;
   text: string;
   src?: string | undefined;
+  style?: TranslationStyle | undefined;
   glossary?: readonly GlossaryEntry[] | undefined;
+  context?: string | undefined;
 }
 
 function fnv1a(value: string): string {
@@ -32,13 +35,23 @@ function languagePart(value: string | undefined): string {
 }
 
 export function buildTranslationCacheKey(input: CacheKeyInput): string {
-  return [
+  const parts = [
     'v1',
     input.model,
     languagePart(input.src),
     languagePart(input.tgt),
     input.form,
     glossaryVersion(sanitizeGlossary(input.glossary ?? [])),
-    sha256Hex(input.text),
-  ].join('|');
+  ];
+  const context = resolvePromptContext({
+    style: input.style,
+    tgt: input.tgt,
+    src: input.src,
+    context: input.context,
+  });
+  // Neutral with no surrounding context keeps the previous 7-part key so cached
+  // translations for the default style stay valid.
+  if (context) parts.push(`ctx:${fnv1a(context)}`);
+  parts.push(sha256Hex(input.text));
+  return parts.join('|');
 }

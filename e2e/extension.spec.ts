@@ -67,6 +67,12 @@ test.describe('built extension', () => {
           await expect(page.getByRole('heading', { name: 'Keyboard shortcuts' })).toBeVisible();
           await expect(page.getByRole('button', { name: 'Change shortcuts' })).toBeVisible();
           await expect(page.locator('kbd')).toHaveText(['Alt+A', 'Alt+B', 'Alt+S', 'Alt+T']);
+          const styleSelect = page
+            .locator('label')
+            .filter({ hasText: 'Writing style' })
+            .locator('select');
+          await expect(styleSelect).toHaveValue('neutral');
+          await expect(page.getByText('Japanese tone', { exact: true })).toHaveCount(0);
         }
         if (path === 'typed.html') {
           await expect(page.locator('textarea')).toBeVisible();
@@ -145,12 +151,45 @@ test.describe('built extension', () => {
           await expect(
             page.getByRole('button', { name: 'ショートカットキーを変更' }),
           ).toBeVisible();
+          await expect(
+            page.locator('label').filter({ hasText: '文章スタイル' }).locator('select'),
+          ).toHaveValue('neutral');
         }
         if (path === 'typed.html') {
           await expect(page.locator('textarea')).toBeVisible();
         }
         await page.close();
       }
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('saves writing style from the options page', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      const page = await extension.context.newPage();
+      await page.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      const language = page
+        .locator('label')
+        .filter({ hasText: 'Translate into' })
+        .locator('select');
+      const style = page.locator('label').filter({ hasText: 'Writing style' }).locator('select');
+      await expect(style).toHaveValue('neutral');
+      await language.selectOption('ja');
+      await expect(page.getByText('Japanese tone', { exact: true })).toBeVisible();
+      await style.selectOption('business');
+      await page.reload();
+      await expect(
+        page.locator('label').filter({ hasText: 'Writing style' }).locator('select'),
+      ).toHaveValue('business');
+      await expect(
+        page.locator('label').filter({ hasText: 'Japanese tone' }).locator('select'),
+      ).toHaveValue('polite');
+      await language.selectOption('ko');
+      await expect(page.getByText('Writing style', { exact: true })).toHaveCount(0);
+      await expect(page.getByText('Japanese tone', { exact: true })).toHaveCount(0);
+      await page.close();
     } finally {
       await extension.close();
     }

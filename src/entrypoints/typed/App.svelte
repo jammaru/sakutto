@@ -119,6 +119,7 @@
       for await (const chunk of typedEngine.translate(segments, {
         tgt: targetLanguage,
         form: settings?.form ?? 'polite',
+        style: settings?.style ?? 'neutral',
         priority: 0,
         signal: controller.signal,
         ...(settings && settings.glossary.length > 0 ? { glossary: settings.glossary } : {}),

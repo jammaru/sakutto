@@ -19,6 +19,7 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     schemaVersion: SETTINGS_SCHEMA_VERSION,
     targetLanguage: 'en',
     form: 'polite',
+    style: 'neutral',
     display: 'replace',
     consent: null,
     highQualityDismissed: false,
@@ -150,6 +151,7 @@ describe('settings defaults', () => {
           schemaVersion: SETTINGS_SCHEMA_VERSION,
           targetLanguage: 'ko',
           form: 'plain',
+          style: 'business',
           display: 'bilingual',
         },
         'en-US',
@@ -158,6 +160,7 @@ describe('settings defaults', () => {
       stored({
         targetLanguage: 'ko',
         form: 'plain',
+        style: 'business',
         display: 'bilingual',
       }),
     );
@@ -168,11 +171,24 @@ describe('settings defaults', () => {
           schemaVersion: SETTINGS_SCHEMA_VERSION,
           targetLanguage: 'xx',
           form: 'verbose',
+          style: 'theatrical',
           display: 'side-by-side',
         },
         'en-US',
       ),
     ).toEqual(stored());
+  });
+
+  it('defaults writing style to Neutral for a record that predates the setting', () => {
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+        },
+        'en-US',
+      ).style,
+    ).toBe('neutral');
   });
 
   it('ignores stored values written by another schema version', () => {

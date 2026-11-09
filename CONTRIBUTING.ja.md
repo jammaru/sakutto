@@ -52,16 +52,17 @@ pnpm build          # 成果物は .output/chrome-mv3
 
 ## 実際にあるコマンド
 
-| コマンド            | 内容                                                  |
-| ------------------- | ----------------------------------------------------- |
-| `pnpm lint`         | ESLint                                                |
-| `pnpm format`       | Prettier で書き込み                                   |
-| `pnpm format:check` | Prettier の確認（CI）                                 |
-| `pnpm typecheck`    | `wxt prepare` と `svelte-check`                       |
-| `pnpm test`         | Vitest                                                |
-| `pnpm test:e2e`     | Playwright のフィクスチャ。モデルはダウンロードしない |
-| `pnpm i18n:check`   | ロケールカタログを英語と突き合わせる                  |
-| `pnpm build`        | 検証済み wllama のあとの本番ビルド                    |
+| コマンド            | 内容                                                                  |
+| ------------------- | --------------------------------------------------------------------- |
+| `pnpm lint`         | ESLint                                                                |
+| `pnpm format`       | Prettier で書き込み                                                   |
+| `pnpm format:check` | Prettier の確認（CI）                                                 |
+| `pnpm typecheck`    | `wxt prepare` と `svelte-check`                                       |
+| `pnpm test`         | Vitest                                                                |
+| `pnpm test:e2e`     | Playwright のフィクスチャ。モデルはダウンロードしない                 |
+| `pnpm i18n:check`   | ロケールカタログを英語と突き合わせる                                  |
+| `pnpm style:eval`   | プロンプト確認。ローカルに PLaMo サーバーがあればスタイルのずれも見る |
+| `pnpm build`        | 検証済み wllama のあとの本番ビルド                                    |
 
 通常の貢献に `pnpm bench`、`pnpm release`、Chrome ウェブストアへのアップロードは不要です。
 

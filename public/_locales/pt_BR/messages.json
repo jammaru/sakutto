@@ -29,6 +29,33 @@
   "formalityPlain": {
     "message": "Simples (だ・である)"
   },
+  "styleLabel": {
+    "message": "Estilo de escrita"
+  },
+  "styleHelp": {
+    "message": "Independente do registro do japonês. Neutro é a tradução de antes deste ajuste."
+  },
+  "styleFormal": {
+    "message": "Formal"
+  },
+  "stylePolite": {
+    "message": "Cortês"
+  },
+  "styleBusiness": {
+    "message": "Empresarial"
+  },
+  "styleNeutral": {
+    "message": "Neutro"
+  },
+  "styleCasual": {
+    "message": "Informal"
+  },
+  "styleFriendly": {
+    "message": "Amigável"
+  },
+  "styleLogical": {
+    "message": "Lógico"
+  },
   "displayLabel": {
     "message": "Forma de leitura"
   },

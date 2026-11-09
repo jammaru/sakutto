@@ -29,6 +29,33 @@
   "formalityPlain": {
     "message": "Plain (だ・である)"
   },
+  "styleLabel": {
+    "message": "Estilo de redacción"
+  },
+  "styleHelp": {
+    "message": "Independiente del tono japonés. Neutral coincide con la traducción anterior a este ajuste."
+  },
+  "styleFormal": {
+    "message": "Formal"
+  },
+  "stylePolite": {
+    "message": "Cortés"
+  },
+  "styleBusiness": {
+    "message": "Empresarial"
+  },
+  "styleNeutral": {
+    "message": "Neutral"
+  },
+  "styleCasual": {
+    "message": "Informal"
+  },
+  "styleFriendly": {
+    "message": "Cercano"
+  },
+  "styleLogical": {
+    "message": "Lógico"
+  },
   "displayLabel": {
     "message": "Estilo de lectura"
   },

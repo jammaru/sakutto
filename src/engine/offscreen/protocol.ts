@@ -1,12 +1,14 @@
 import { EngineError, isEngineErrorCode, type EngineErrorCode } from '../errors';
 import { isModelId, type ModelId } from '../model/catalog';
 import { isTranslationChunk } from '../types';
+import { DEFAULT_TRANSLATION_STYLE, isTranslationStyle } from '../prompt/style';
 import type {
   Formality,
   GlossaryEntry,
   TranslateOptions,
   TranslateSegment,
   TranslationChunk,
+  TranslationStyle,
 } from '../types';
 import { isModelStatus, type ModelStatus } from '../../shared/engine-status';
 import { MAX_GLOSSARY_MESSAGE_ENTRIES, MAX_GLOSSARY_TEXT } from '../../shared/glossary';
@@ -20,6 +22,7 @@ export interface SerializedTranslateOptions {
   src?: string;
   tgt: string;
   form: Formality;
+  style?: TranslationStyle;
   glossary?: GlossaryEntry[];
   context?: string;
   priority: number;
@@ -32,6 +35,9 @@ export function serializeTranslateOptions(options: TranslateOptions): Serialized
     form: options.form,
     priority: options.priority,
     ...(options.src !== undefined ? { src: options.src } : {}),
+    ...(options.style !== undefined && options.style !== DEFAULT_TRANSLATION_STYLE
+      ? { style: options.style }
+      : {}),
     ...(options.glossary && options.glossary.length > 0
       ? { glossary: options.glossary.map((entry) => ({ ...entry })) }
       : {}),
@@ -50,6 +56,7 @@ export function deserializeTranslateOptions(
     priority: serialized.priority,
     signal,
     ...(serialized.src !== undefined ? { src: serialized.src } : {}),
+    ...(serialized.style !== undefined ? { style: serialized.style } : {}),
     ...(serialized.glossary ? { glossary: serialized.glossary } : {}),
     ...(serialized.context !== undefined ? { context: serialized.context } : {}),
     ...(serialized.eager ? { eager: true } : {}),
@@ -271,6 +278,7 @@ export function isSerializedTranslateOptions(value: unknown): value is Serialize
   if (!isRecord(value)) return false;
   if (!isTargetLanguage(value.tgt)) return false;
   if (value.form !== 'polite' && value.form !== 'plain') return false;
+  if (value.style !== undefined && !isTranslationStyle(value.style)) return false;
   if (typeof value.priority !== 'number' || !Number.isFinite(value.priority)) return false;
   if (value.priority < -MAX_PRIORITY || value.priority > MAX_PRIORITY) return false;
   if (value.src !== undefined && !isBoundedText(value.src, MAX_LANGUAGE_TAG)) return false;

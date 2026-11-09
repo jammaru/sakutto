@@ -37,7 +37,9 @@ export class CachingEngine implements IdentifiedEngine {
         form: options.form,
         text: segment.text,
         src: options.src,
+        style: options.style,
         glossary: options.glossary,
+        context: options.context,
       });
       keys.set(segment.id, key);
 

@@ -92,6 +92,7 @@ function clickPanel(label: string): void {
 const defaultPrefs: ComposePreferences = {
   targetLanguage: 'ja',
   form: 'polite',
+  style: 'neutral',
   enabled: true,
   uiLanguage: 'en',
   showIcon: true,
@@ -149,6 +150,29 @@ describe('compose controller', () => {
     await vi.waitFor(() => {
       expect(field.value).toBe('See you tomorrow.');
     });
+  });
+
+  it('sends the saved writing style with the compose request', async () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const seen: Array<string | undefined> = [];
+    start(
+      {
+        async *translate(segments, options) {
+          seen.push(options.style);
+          for (const segment of segments) {
+            yield { id: segment.id, final: `§${options.tgt}§${segment.text}`, engine: 'plamo' };
+          }
+        },
+      },
+      { style: 'friendly' },
+    ).handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§See you tomorrow.');
+    });
+    expect(seen).toEqual(['friendly']);
   });
 
   it('replaces on a second shortcut once the preview is ready, and keeps undo', async () => {

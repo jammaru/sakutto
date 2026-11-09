@@ -13,6 +13,7 @@
     type SettingsPatch,
   } from '@/shared/settings';
   import LanguageField from './LanguageField.svelte';
+  import StyleFields from './StyleFields.svelte';
 
   interface Props {
     settings: Settings;
@@ -21,11 +22,6 @@
   }
 
   let { settings, uiLanguage, onChange }: Props = $props();
-
-  function updateForm(event: Event) {
-    const select = event.currentTarget as HTMLSelectElement;
-    onChange({ form: select.value === 'plain' ? 'plain' : 'polite' });
-  }
 
   function updateDisplay(event: Event) {
     const select = event.currentTarget as HTMLSelectElement;
@@ -68,15 +64,12 @@
     onChange={(targetLanguage) => onChange({ targetLanguage })}
   />
 
-  {#if settings.targetLanguage === 'ja'}
-    <label class="field">
-      <span>{t('formalityLabel')}</span>
-      <select value={settings.form} onchange={updateForm}>
-        <option value="polite">{t('formalityPolite')}</option>
-        <option value="plain">{t('formalityPlain')}</option>
-      </select>
-    </label>
-  {/if}
+  <StyleFields
+    targetLanguage={settings.targetLanguage}
+    form={settings.form}
+    style={settings.style}
+    onChange={(patch) => onChange(patch)}
+  />
 
   <label class="field">
     <span>{t('displayLabel')}</span>

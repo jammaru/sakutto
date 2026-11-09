@@ -39,6 +39,7 @@ function preferences(overrides: Partial<SessionPreferences> = {}): SessionPrefer
     targetLanguage: 'ja',
     targetExplicit: true,
     form: 'polite',
+    style: 'neutral',
     display: 'replace',
     auto: 'ask',
     host: 'example.com',
@@ -541,6 +542,29 @@ describe('page session', () => {
 
     expect(contexts.some((context) => context?.includes('Release notes'))).toBe(true);
     expect(contexts.some((context) => context?.includes('First paragraph'))).toBe(true);
+  });
+
+  it('passes the saved writing style on page and selection translation', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = `<p>${'Hello world about the release. '.repeat(8)}</p>`;
+    const styles: Array<string | undefined> = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments, options) {
+        styles.push(options.style);
+        for (const segment of segments) {
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+      { style: 'casual' },
+    );
+
+    await session.translate();
+    session.translateSelection('Selected phrase', new DOMRect(12, 12, 40, 16));
+    await session.whenIdle();
+
+    expect(styles.length).toBeGreaterThan(0);
+    expect(styles.every((style) => style === 'casual')).toBe(true);
   });
 
   it('splits a paragraph longer than a piece into runs of sentences', async () => {

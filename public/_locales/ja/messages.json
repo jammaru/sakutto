@@ -29,6 +29,33 @@
   "formalityPlain": {
     "message": "だ・である"
   },
+  "styleLabel": {
+    "message": "文章スタイル"
+  },
+  "styleHelp": {
+    "message": "「文体（日本語）」とは別に指定します。標準は、この設定が加わる前と同じ訳し方です。"
+  },
+  "styleFormal": {
+    "message": "フォーマル"
+  },
+  "stylePolite": {
+    "message": "丁寧"
+  },
+  "styleBusiness": {
+    "message": "ビジネス"
+  },
+  "styleNeutral": {
+    "message": "標準"
+  },
+  "styleCasual": {
+    "message": "カジュアル"
+  },
+  "styleFriendly": {
+    "message": "フレンドリー"
+  },
+  "styleLogical": {
+    "message": "論理的"
+  },
   "displayLabel": {
     "message": "表示"
   },

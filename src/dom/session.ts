@@ -16,7 +16,7 @@ import { PriorityQueue } from '@/engine/queue/priority-queue';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
 import { mergeGlossary } from '@/shared/glossary';
 import { chooseTargetLanguage, isTargetLanguage, type TargetLanguage } from '@/shared/languages';
-import type { Formality, Settings, TranslationPace } from '@/shared/settings';
+import type { Formality, Settings, TranslationPace, TranslationStyle } from '@/shared/settings';
 import { canonicalPageLanguage, isAlreadyTargetLanguage, languageOf } from './detect';
 import {
   collectDocuments,
@@ -92,6 +92,7 @@ export interface SessionPreferences {
   targetLanguage: string;
   targetExplicit: boolean;
   form: Formality;
+  style: TranslationStyle;
   display: 'replace' | 'bilingual';
   auto: SiteAuto;
   host: string;
@@ -194,6 +195,7 @@ export function preferencesFor(
     targetLanguage: rule.targetLanguage ?? settings.targetLanguage,
     targetExplicit: rule.targetLanguage !== undefined,
     form: settings.form,
+    style: settings.style,
     display: rule.display ?? settings.display,
     auto: rule.auto,
     host,
@@ -1371,6 +1373,7 @@ export class PageSession {
     return {
       tgt: this.prefs.targetLanguage,
       form: this.prefs.form,
+      style: this.prefs.style,
       priority,
       signal,
       ...(source ? { src: source } : {}),

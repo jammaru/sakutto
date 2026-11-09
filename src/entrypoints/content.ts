@@ -116,6 +116,7 @@ function composePreferencesFor(
   return {
     targetLanguage: composeTarget ?? rule.targetLanguage ?? settings.targetLanguage,
     form: settings.form,
+    style: settings.style,
     glossary: mergeGlossary(settings.glossary, rule.glossary),
     enabled: rule.auto !== 'never',
     uiLanguage: currentUiLanguage(),

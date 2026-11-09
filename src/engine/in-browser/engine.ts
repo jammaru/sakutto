@@ -5,6 +5,7 @@ import {
   sanitizeGlossary,
   type PromptInput,
 } from '../prompt/pfml3';
+import { resolvePromptContext } from '../prompt/style';
 import { ChunkStream } from '../queue/chunk-stream';
 import { JobScheduler, type ScheduledHandle } from '../queue/scheduler';
 import { DEFAULT_PLAN_CONFIG, planWork, type PlanConfig, type WorkItem } from '../text/plan';
@@ -415,13 +416,19 @@ export class InBrowserEngine implements IdentifiedEngine {
     const glossary = sanitizeGlossary(options.glossary ?? []).filter((entry) =>
       text.includes(entry.source),
     );
+    const context = resolvePromptContext({
+      style: options.style,
+      tgt,
+      ...(src !== null ? { src } : {}),
+      context: options.context,
+    });
     const promptInput: PromptInput = {
       text,
       tgt,
       ...(src !== null ? { src } : {}),
       ...(tgt === 'ja' ? { form: options.form } : {}),
       ...(glossary.length > 0 ? { glossary } : {}),
-      ...(options.context ? { context: options.context } : {}),
+      ...(context ? { context } : {}),
     };
     const prompt = buildTranslationPrompt(promptInput);
     const available = this.contextTokens - estimateTokens(prompt) - 8;

@@ -32,6 +32,9 @@ describe('translation cache keys', () => {
     expect(buildTranslationCacheKey({ ...base, model: 'chrome' })).not.toBe(key);
     expect(buildTranslationCacheKey({ ...base, tgt: 'en' })).not.toBe(key);
     expect(buildTranslationCacheKey({ ...base, form: 'plain' })).not.toBe(key);
+    expect(buildTranslationCacheKey({ ...base, style: 'neutral' })).toBe(key);
+    expect(buildTranslationCacheKey({ ...base, style: 'formal' })).not.toBe(key);
+    expect(buildTranslationCacheKey({ ...base, context: 'Release notes' })).not.toBe(key);
     expect(buildTranslationCacheKey({ ...base, src: undefined })).not.toBe(key);
     expect(buildTranslationCacheKey({ ...base, text: 'Sign in' })).not.toBe(key);
     expect(buildTranslationCacheKey({ ...base, src: 'en-US', tgt: 'ja-JP' })).toBe(key);

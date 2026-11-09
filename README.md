@@ -49,6 +49,11 @@ The popup has a **Translate typed text** button, and the options page has the sa
 
 PLaMo 3 Translate supports 53 languages in either direction. The source language is detected from the page. The default target language is the browser UI language, or English when that language is not one of the 53. The popup can set a different target language for the current site.
 
+For Japanese and English targets, settings (and the popup) can pick a writing style — Formal,
+Business, Casual, and so on — separate from Japanese です・ます / だ・である. The default is
+Neutral, which keeps the previous prompt. How that is encoded in PLaMo 3 Translate's PFML3
+format, and how to check it with local weights, is in [docs/TRANSLATION-STYLE.md](docs/TRANSLATION-STYLE.md).
+
 Eleven further languages (cs, da, el, fi, kn, no, pt, ro, sv, tr, uk) are translated only by Chrome's built-in translator. Languages that PLaMo supports and Chrome does not stay untranslated until the model is ready.
 
 The interface itself is translated into 14 languages: English, Japanese, Korean, Chinese (Simplified and Traditional), Spanish, Portuguese (Brazil), French, German, Italian, Russian, Vietnamese, Thai, and Indonesian. Chrome picks the catalog that matches the browser UI language and falls back to English. To add one, see [docs/TRANSLATING.md](docs/TRANSLATING.md).
@@ -86,6 +91,8 @@ pnpm test:e2e       # local fixtures; does not download the model
 `pnpm icons` regenerates the PNG icons from `scripts/generate-icons.mjs`.
 
 `pnpm i18n:check` compares every catalog in `public/_locales` against English for missing keys, placeholder tokens, and empty messages. `pnpm i18n:draft <catalog> <language>` drafts a catalog from English with the same PLaMo model the extension ships. Both are described in [docs/TRANSLATING.md](docs/TRANSLATING.md).
+
+`pnpm style:eval` prints the PFML3 prompt for each writing style and, when a local `llama-server` with PLaMo weights is listening, compares translations against Neutral. See [docs/TRANSLATION-STYLE.md](docs/TRANSLATION-STYLE.md).
 
 ## Permissions
 

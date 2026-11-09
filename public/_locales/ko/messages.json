@@ -29,6 +29,33 @@
   "formalityPlain": {
     "message": "Plain (だ・である)"
   },
+  "styleLabel": {
+    "message": "문장 스타일"
+  },
+  "styleHelp": {
+    "message": "일본어 톤 설정과는 별개입니다. 표준은 이 설정이 생기기 전과 같은 번역입니다."
+  },
+  "styleFormal": {
+    "message": "격식"
+  },
+  "stylePolite": {
+    "message": "정중"
+  },
+  "styleBusiness": {
+    "message": "비즈니스"
+  },
+  "styleNeutral": {
+    "message": "표준"
+  },
+  "styleCasual": {
+    "message": "캐주얼"
+  },
+  "styleFriendly": {
+    "message": "친근"
+  },
+  "styleLogical": {
+    "message": "논리적"
+  },
   "displayLabel": {
     "message": "읽기 스타일"
   },

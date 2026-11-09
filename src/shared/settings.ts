@@ -1,3 +1,8 @@
+import {
+  DEFAULT_TRANSLATION_STYLE,
+  isTranslationStyle,
+  type TranslationStyle,
+} from '@/engine/prompt/style';
 import type { GlossaryEntry } from '@/engine/types';
 import { normalizeGlossary } from './glossary';
 import {
@@ -33,6 +38,7 @@ export const PLAMO_LICENSE_VERSION = '2026-11-05';
 export const PLAMO_NOTICE_VERSION = '2026-11-06';
 
 export type Formality = 'polite' | 'plain';
+export type { TranslationStyle };
 export type DisplayMode = 'replace' | 'bilingual';
 export type TierPreference = 'auto' | 'g' | 'c8' | 'c4';
 export type TranslationPace = 'fast' | 'quality';
@@ -61,6 +67,8 @@ export interface Settings {
   schemaVersion: number;
   targetLanguage: TargetLanguage;
   form: Formality;
+  /** Writing style. Independent of `form`. Neutral matches the previous default prompt. */
+  style: TranslationStyle;
   display: DisplayMode;
   consent: LicenseConsent | null;
   highQualityDismissed: boolean;
@@ -92,6 +100,7 @@ export type SettingsPatch = Partial<
     Settings,
     | 'targetLanguage'
     | 'form'
+    | 'style'
     | 'display'
     | 'consent'
     | 'highQualityDismissed'
@@ -112,6 +121,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   schemaVersion: SETTINGS_SCHEMA_VERSION,
   targetLanguage: DEFAULT_TARGET_LANGUAGE,
   form: 'polite',
+  style: DEFAULT_TRANSLATION_STYLE,
   display: 'replace',
   consent: null,
   highQualityDismissed: false,
@@ -157,6 +167,7 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
       ? value.targetLanguage
       : defaults.targetLanguage,
     form: value.form === 'plain' ? 'plain' : 'polite',
+    style: isTranslationStyle(value.style) ? value.style : DEFAULT_TRANSLATION_STYLE,
     display: value.display === 'bilingual' ? 'bilingual' : 'replace',
     consent: normalizeConsent(value.consent),
     highQualityDismissed: value.highQualityDismissed === true,

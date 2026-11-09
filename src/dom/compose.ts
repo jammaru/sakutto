@@ -14,6 +14,7 @@ import {
   type ComposeFreePoint,
   type ComposePlacement,
   type Formality,
+  type TranslationStyle,
 } from '@/shared/settings';
 import {
   isTranslateShortcut,
@@ -79,6 +80,7 @@ export interface ComposeLabels {
 export interface ComposePreferences {
   targetLanguage: string;
   form: Formality;
+  style: TranslationStyle;
   glossary?: readonly GlossaryEntry[];
   enabled: boolean;
   uiLanguage: string;
@@ -1937,6 +1939,7 @@ export class ComposeController {
       const options: TranslateOptions = {
         tgt: target,
         form: this.prefs.form,
+        style: this.prefs.style,
         priority: 0,
         signal,
         eager: true,

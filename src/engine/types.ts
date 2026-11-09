@@ -1,4 +1,7 @@
+import type { TranslationStyle } from './prompt/style';
+
 export type Formality = 'polite' | 'plain';
+export type { TranslationStyle };
 
 export type EngineKind = 'plamo' | 'chrome';
 
@@ -16,6 +19,11 @@ export interface TranslateOptions {
   src?: string | undefined;
   tgt: string;
   form: Formality;
+  /**
+   * Writing style, independent of `form`. Neutral (or omitted) leaves the PFML3 prompt
+   * unchanged. Other values add a short situation sentence to the trained `context` field.
+   */
+  style?: TranslationStyle | undefined;
   glossary?: readonly GlossaryEntry[] | undefined;
   context?: string | undefined;
   priority: number;

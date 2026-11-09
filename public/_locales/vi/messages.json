@@ -29,6 +29,33 @@
   "formalityPlain": {
     "message": "Plain (だ・である)"
   },
+  "styleLabel": {
+    "message": "Phong cách viết"
+  },
+  "styleHelp": {
+    "message": "Tách biệt với tùy chọn です・ます / だ・である. Trung tính giữ cách dịch như trước khi có tùy chọn này."
+  },
+  "styleFormal": {
+    "message": "Trang trọng"
+  },
+  "stylePolite": {
+    "message": "Lịch sự"
+  },
+  "styleBusiness": {
+    "message": "Công việc"
+  },
+  "styleNeutral": {
+    "message": "Trung tính"
+  },
+  "styleCasual": {
+    "message": "Thân mật"
+  },
+  "styleFriendly": {
+    "message": "Thân thiện"
+  },
+  "styleLogical": {
+    "message": "Logic"
+  },
   "displayLabel": {
     "message": "Phong cách đọc"
   },

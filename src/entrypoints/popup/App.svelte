@@ -20,7 +20,7 @@
   } from '@/shared/messages';
   import { ensureContentScript } from '@/shared/page-bridge';
   import type { QualitySample } from '@/shared/quality';
-  import type { Settings } from '@/shared/settings';
+  import type { Settings, SettingsPatch } from '@/shared/settings';
   import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
   import {
     loadSiteRule,
@@ -43,6 +43,7 @@
   } from '@/shared/shortcuts';
   import { readDeviceHeadroom, type DeviceHeadroom } from '@/ui/device-headroom';
   import LanguageField from '@/ui/LanguageField.svelte';
+  import StyleFields from '@/ui/StyleFields.svelte';
   import { runtimeLabel } from '@/ui/runtime-label';
 
   type SettingsError = 'load' | 'save' | null;
@@ -201,6 +202,15 @@
       return;
     }
     void refreshEngine();
+  }
+
+  async function updateGlobal(patch: SettingsPatch) {
+    try {
+      settings = await saveSettings(patch);
+      settingsError = null;
+    } catch {
+      settingsError = 'save';
+    }
   }
 
   async function rememberSite(patch: Partial<SiteRule>) {
@@ -413,6 +423,16 @@
         {uiLanguage}
         onChange={(language: TargetLanguage) => rememberSite({ targetLanguage: language })}
       />
+      {#if targetLanguage === 'ja' || targetLanguage === 'en'}
+        <div class="style-block">
+          <StyleFields
+            {targetLanguage}
+            form={settings.form}
+            style={settings.style}
+            onChange={(patch) => void updateGlobal(patch)}
+          />
+        </div>
+      {/if}
       <label class="field">
         <span>{t('displayLabel')}</span>
         <span class="hint">{t('displaySiteHint')}</span>
@@ -531,6 +551,12 @@
 
   .hint {
     font-weight: 400;
+  }
+
+  .style-block {
+    display: grid;
+    gap: var(--space-3);
+    margin-top: var(--space-3);
   }
 
   .field,

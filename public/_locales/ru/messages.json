@@ -29,6 +29,33 @@
   "formalityPlain": {
     "message": "Простой (だ・である)"
   },
+  "styleLabel": {
+    "message": "Стиль текста"
+  },
+  "styleHelp": {
+    "message": "Не зависит от японского тона. «Нейтральный» совпадает с переводом до этого параметра."
+  },
+  "styleFormal": {
+    "message": "Официальный"
+  },
+  "stylePolite": {
+    "message": "Вежливый"
+  },
+  "styleBusiness": {
+    "message": "Деловой"
+  },
+  "styleNeutral": {
+    "message": "Нейтральный"
+  },
+  "styleCasual": {
+    "message": "Разговорный"
+  },
+  "styleFriendly": {
+    "message": "Дружелюбный"
+  },
+  "styleLogical": {
+    "message": "Логичный"
+  },
   "displayLabel": {
     "message": "Стиль чтения"
   },

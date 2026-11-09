@@ -29,6 +29,33 @@
   "formalityPlain": {
     "message": "Plain (だ・である)"
   },
+  "styleLabel": {
+    "message": "Gaya tulisan"
+  },
+  "styleHelp": {
+    "message": "Terpisah dari pengaturan nada Jepang. Netral sama dengan terjemahan sebelum pengaturan ini ada."
+  },
+  "styleFormal": {
+    "message": "Formal"
+  },
+  "stylePolite": {
+    "message": "Sopan"
+  },
+  "styleBusiness": {
+    "message": "Bisnis"
+  },
+  "styleNeutral": {
+    "message": "Netral"
+  },
+  "styleCasual": {
+    "message": "Kasual"
+  },
+  "styleFriendly": {
+    "message": "Ramah"
+  },
+  "styleLogical": {
+    "message": "Logis"
+  },
   "displayLabel": {
     "message": "Gaya baca"
   },

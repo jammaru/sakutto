@@ -39,6 +39,7 @@ describe('engine host protocol', () => {
       context: 'Greeting page',
       glossary: [{ source: 'Runner', target: 'ランナー機能' }],
     });
+    expect(serialized).not.toHaveProperty('style');
 
     const signal = new AbortController().signal;
     expect(deserializeTranslateOptions(serialized, signal)).toEqual({
@@ -50,6 +51,28 @@ describe('engine host protocol', () => {
       glossary: [{ source: 'Runner', target: 'ランナー機能' }],
       signal,
     });
+  });
+
+  it('serializes a non-neutral writing style and omits Neutral', () => {
+    const serialized = serializeTranslateOptions({ ...OPTIONS, style: 'business' });
+    expect(serialized.style).toBe('business');
+    expect(serializeTranslateOptions({ ...OPTIONS, style: 'neutral' })).not.toHaveProperty('style');
+    expect(
+      isEngineHostRequest({
+        type: 'translate',
+        requestId: 'r-style',
+        segments: SEGMENTS,
+        options: serialized,
+      }),
+    ).toBe(true);
+    expect(
+      isEngineHostRequest({
+        type: 'translate',
+        requestId: 'r-style-bad',
+        segments: SEGMENTS,
+        options: { ...serialized, style: 'theatrical' },
+      }),
+    ).toBe(false);
   });
 
   it('validates translate, status and model requests', () => {

@@ -52,16 +52,17 @@ pnpm build          # production build in .output/chrome-mv3
 
 ## Commands that exist
 
-| Command             | What it does                                        |
-| ------------------- | --------------------------------------------------- |
-| `pnpm lint`         | ESLint                                              |
-| `pnpm format`       | Prettier write                                      |
-| `pnpm format:check` | Prettier check (CI)                                 |
-| `pnpm typecheck`    | `wxt prepare` and `svelte-check`                    |
-| `pnpm test`         | Vitest                                              |
-| `pnpm test:e2e`     | Playwright fixtures; no model download              |
-| `pnpm i18n:check`   | Locale catalogs against English                     |
-| `pnpm build`        | Production extension, after a verified wllama build |
+| Command             | What it does                                                             |
+| ------------------- | ------------------------------------------------------------------------ |
+| `pnpm lint`         | ESLint                                                                   |
+| `pnpm format`       | Prettier write                                                           |
+| `pnpm format:check` | Prettier check (CI)                                                      |
+| `pnpm typecheck`    | `wxt prepare` and `svelte-check`                                         |
+| `pnpm test`         | Vitest                                                                   |
+| `pnpm test:e2e`     | Playwright fixtures; no model download                                   |
+| `pnpm i18n:check`   | Locale catalogs against English                                          |
+| `pnpm style:eval`   | Prompt checks, plus real-model style drift if a local PLaMo server is up |
+| `pnpm build`        | Production extension, after a verified wllama build                      |
 
 You do not need `pnpm bench`, `pnpm release`, or a Chrome Web Store upload for a normal contribution.
 

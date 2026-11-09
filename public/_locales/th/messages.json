@@ -29,6 +29,33 @@
   "formalityPlain": {
     "message": "เรียบ (だ・である)"
   },
+  "styleLabel": {
+    "message": "สไตล์การเขียน"
+  },
+  "styleHelp": {
+    "message": "แยกจากการตั้งค่าโทนภาษาญี่ปุ่น ค่ามาตรฐานเป็นการแปลแบบเดิมก่อนมีตัวเลือกนี้"
+  },
+  "styleFormal": {
+    "message": "เป็นทางการ"
+  },
+  "stylePolite": {
+    "message": "สุภาพ"
+  },
+  "styleBusiness": {
+    "message": "ธุรกิจ"
+  },
+  "styleNeutral": {
+    "message": "มาตรฐาน"
+  },
+  "styleCasual": {
+    "message": "เป็นกันเอง"
+  },
+  "styleFriendly": {
+    "message": "เป็นมิตร"
+  },
+  "styleLogical": {
+    "message": "เป็นเหตุเป็นผล"
+  },
   "displayLabel": {
     "message": "รูปแบบการอ่าน"
   },

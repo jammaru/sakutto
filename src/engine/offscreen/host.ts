@@ -687,7 +687,7 @@ export class EngineHost {
     const request = prewarmRequest(settings.targetLanguage);
     if (!request) return;
 
-    const key = `${this.activeModelId}|${settings.targetLanguage}|${settings.form}|${request.src}`;
+    const key = `${this.activeModelId}|${settings.targetLanguage}|${settings.form}|${settings.style}|${request.src}`;
     if (this.prewarmKey === key) return;
     this.prewarmKey = key;
 
@@ -706,6 +706,7 @@ export class EngineHost {
           src: request.src,
           tgt: settings.targetLanguage,
           form: settings.form,
+          style: settings.style,
           priority: 99,
           signal: controller.signal,
           ...(glossary.length > 0 ? { glossary } : {}),

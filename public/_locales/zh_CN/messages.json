@@ -29,6 +29,33 @@
   "formalityPlain": {
     "message": "Plain (だ・である)"
   },
+  "styleLabel": {
+    "message": "行文风格"
+  },
+  "styleHelp": {
+    "message": "与日语语气设置相互独立。标准与增加此设置之前的译法相同。"
+  },
+  "styleFormal": {
+    "message": "正式"
+  },
+  "stylePolite": {
+    "message": "礼貌"
+  },
+  "styleBusiness": {
+    "message": "商务"
+  },
+  "styleNeutral": {
+    "message": "标准"
+  },
+  "styleCasual": {
+    "message": "随意"
+  },
+  "styleFriendly": {
+    "message": "友好"
+  },
+  "styleLogical": {
+    "message": "条理"
+  },
   "displayLabel": {
     "message": "阅读风格"
   },

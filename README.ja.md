@@ -49,6 +49,8 @@ https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl
 
 PLaMo 3 Translate は 53 言語を双方向に翻訳します。訳元はページから判定します。訳先の既定は、ブラウザの表示言語です。表示言語が 53 言語にないときは英語になります。ポップアップでは、今開いているサイトの訳先を変えられます。
 
+訳先が日本語または英語のとき、設定（とポップアップ）で文章スタイル（フォーマル、ビジネス、カジュアルなど）を選べます。です・ます／だ・であるとは別です。既定は標準で、以前と同じプロンプトです。PLaMo 3 Translate の PFML3 での符号化と、手元の重みでの確認方法は [docs/TRANSLATION-STYLE.ja.md](docs/TRANSLATION-STYLE.ja.md) にあります。
+
 cs、da、el、fi、kn、no、pt、ro、sv、tr、uk の 11 言語は、Chrome 内蔵の翻訳だけで訳します。PLaMo だけが対応する言語は、モデルの準備ができるまで訳しません。
 
 画面の文言は、英語、日本語、韓国語、中国語（簡体字・繁体字）、スペイン語、ポルトガル語（ブラジル）、フランス語、ドイツ語、イタリア語、ロシア語、ベトナム語、タイ語、インドネシア語の 14 言語にあります。ブラウザの表示言語に合わせて選ばれ、どれにも当たらないときは英語になります。追加の方法は [docs/TRANSLATING.ja.md](docs/TRANSLATING.ja.md) にあります。
@@ -84,6 +86,8 @@ pnpm test:e2e       # ローカルのページで確認します。モデルは�
 `pnpm icons` は、`scripts/generate-icons.mjs` から PNG アイコンを作り直します。
 
 `pnpm i18n:check` は、`public/_locales` の全カタログを英語と突き合わせ、キー・`$TOKEN$`・空の文言を検査します。`pnpm i18n:draft <カタログ> <言語>` は、同梱しているのと同じ PLaMo で英語から下書きを作ります。どちらも [docs/TRANSLATING.ja.md](docs/TRANSLATING.ja.md) にあります。
+
+`pnpm style:eval` は、文章スタイルごとの PFML3 プロンプトを表示し、手元の `llama-server` に PLaMo の重みがあるときは標準との訳の差を見ます。[docs/TRANSLATION-STYLE.ja.md](docs/TRANSLATION-STYLE.ja.md) を参照してください。
 
 ## 権限
 

@@ -76,6 +76,25 @@ describe('InBrowserEngine', () => {
     expect(runtime.requests[0]?.maxTokens).toBeGreaterThanOrEqual(32);
   });
 
+  it('adds a situation context for a non-neutral style and leaves Neutral unchanged', async () => {
+    const runtime = new FakeRuntime(() => 'このシステムは便利です。');
+    const engine = new InBrowserEngine(runtime);
+    const text = 'This system is convenient.';
+
+    await collectChunks(engine.translate([{ id: 'a', text }], options()));
+    await collectChunks(engine.translate([{ id: 'b', text }], options({ style: 'neutral' })));
+    await collectChunks(
+      engine.translate([{ id: 'c', text }], options({ style: 'formal', src: 'en' })),
+    );
+
+    expect(runtime.requests[0]?.prompt).toBe(runtime.requests[1]?.prompt);
+    expect(runtime.requests[0]?.prompt).not.toContain('<|plamo:tag|>context');
+    expect(runtime.requests[2]?.prompt).toContain(
+      '<|plamo:tag|>context<|plamo:msg|>This is an official document.',
+    );
+    expect(runtime.requests[2]?.prompt).toContain('form<|plamo:val|>polite');
+  });
+
   it('omits the Japanese form option for other targets and forwards context', async () => {
     const runtime = new FakeRuntime(() => 'Hello.');
     const engine = new InBrowserEngine(runtime);

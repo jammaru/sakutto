@@ -91,6 +91,7 @@ export async function runFlow(input: {
     targetLanguage: 'ja',
     targetExplicit: true,
     form: 'polite',
+    style: 'neutral',
     display: 'replace',
     auto: 'ask',
     host: 'example.com',

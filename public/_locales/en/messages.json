@@ -29,6 +29,33 @@
   "formalityPlain": {
     "message": "Plain (だ・である)"
   },
+  "styleLabel": {
+    "message": "Writing style"
+  },
+  "styleHelp": {
+    "message": "Separate from the Japanese tone setting. Neutral matches how Sakutto translated before this setting existed."
+  },
+  "styleFormal": {
+    "message": "Formal"
+  },
+  "stylePolite": {
+    "message": "Polite"
+  },
+  "styleBusiness": {
+    "message": "Business"
+  },
+  "styleNeutral": {
+    "message": "Neutral"
+  },
+  "styleCasual": {
+    "message": "Casual"
+  },
+  "styleFriendly": {
+    "message": "Friendly"
+  },
+  "styleLogical": {
+    "message": "Logical"
+  },
   "displayLabel": {
     "message": "Reading style"
   },
