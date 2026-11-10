@@ -20,14 +20,18 @@ interface ExtensionChrome {
   };
 }
 
-export async function resetExtensionStorage(worker: Worker): Promise<void> {
-  await worker.evaluate(async () => {
+export async function resetExtensionStorage(
+  worker: Worker,
+  options: { targetLanguage?: string } = {},
+): Promise<void> {
+  const targetLanguage = options.targetLanguage ?? 'en';
+  await worker.evaluate(async (targetLanguage) => {
     const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
     await chrome.storage.local.set({
       siteRules: {},
       settings: {
         schemaVersion: 1,
-        targetLanguage: 'en',
+        targetLanguage,
         form: 'polite',
         display: 'replace',
         consent: null,
@@ -37,7 +41,7 @@ export async function resetExtensionStorage(worker: Worker): Promise<void> {
         tier: 'auto',
       },
     });
-  });
+  }, targetLanguage);
 }
 
 export async function commandPage(
