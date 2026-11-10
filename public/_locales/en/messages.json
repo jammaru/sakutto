@@ -178,13 +178,13 @@
     "message": "Privacy"
   },
   "privacyBody": {
-    "message": "This extension does not send page text to a server. There is no telemetry."
+    "message": "By default this extension does not send page text to a translation server. There is no telemetry."
   },
   "privacyDestinations": {
-    "message": "The extension's own request is the model download. It starts at huggingface.co and follows Hugging Face's redirect to its CDN. Page text is not included. Chrome downloads its language packs itself."
+    "message": "The extension's own request is the model download. It starts at huggingface.co and follows Hugging Face's redirect to its CDN. Page text is not included. Chrome downloads its language packs itself. A local server you enable is a separate, optional path to the address you set."
   },
   "privacyDestinationsFirefox": {
-    "message": "The extension's own request is the model download. It starts at huggingface.co and follows Hugging Face's redirect to its CDN. Page text is not included."
+    "message": "The extension's own request is the model download. It starts at huggingface.co and follows Hugging Face's redirect to its CDN. Page text is not included. A local server you enable is a separate, optional path to the address you set."
   },
   "privacyPolicyLink": {
     "message": "Privacy policy"
@@ -1046,5 +1046,83 @@
   },
   "tierCpu1": {
     "message": "CPU (1 thread)"
+  },
+  "runtimeLocalServer": {
+    "message": "Local server"
+  },
+  "engineSourceLabel": {
+    "message": "Translation engine"
+  },
+  "engineSourceInBrowser": {
+    "message": "Built-in (on this device)"
+  },
+  "engineSourceLocalServer": {
+    "message": "Local server (OpenAI-compatible)"
+  },
+  "engineSourceHelp": {
+    "message": "The built-in engine is the default. A local server such as mlx_lm.server or LM Studio can run PLaMo on Apple Silicon or a GPU. Text is sent only to the address you set."
+  },
+  "localServerUrlLabel": {
+    "message": "Server URL"
+  },
+  "localServerModelLabel": {
+    "message": "Model"
+  },
+  "localServerApiKeyLabel": {
+    "message": "API key (optional)"
+  },
+  "localServerTimeoutLabel": {
+    "message": "Timeout (seconds)"
+  },
+  "localServerTestButton": {
+    "message": "Test connection"
+  },
+  "localServerTestOk": {
+    "message": "Connected."
+  },
+  "localServerTestFail": {
+    "message": "Could not use this server."
+  },
+  "localServerModelsEmpty": {
+    "message": "(none listed — type a name)"
+  },
+  "localServerPresetMlx": {
+    "message": "mlx_lm.server"
+  },
+  "localServerPresetLmStudio": {
+    "message": "LM Studio"
+  },
+  "localServerPresetHelp": {
+    "message": "Presets fill the URL. PLaMo's own MLX serve.py often uses port 8000. Requests use raw /v1/completions with Sakutto's PLaMo prompt, not chat completions."
+  },
+  "localServerNonLocalWarning": {
+    "message": "This address is not this computer. Page text will be sent there. I understand."
+  },
+  "localServerPermissionDenied": {
+    "message": "The browser did not grant access to this address."
+  },
+  "localServerHelp": {
+    "message": "Start the server first, load a PLaMo 3 Translate model, then test the connection. If the server is down, the page keeps its original text."
+  },
+  "localServerUnreachable": {
+    "message": "Could not reach the local server. Open Settings and check that it is running."
+  },
+  "localServerModelMissing": {
+    "message": "The server has no matching model. Load a model or pick one in Settings."
+  },
+  "localServerTimeout": {
+    "message": "The local server timed out. The original text was kept."
+  },
+  "localServerFailed": {
+    "message": "The local server could not translate this. Open Settings. The original text was kept."
+  },
+  "diagBackendLocalServer": {
+    "message": "Local server"
+  },
+  "privacyBodyLocalServer": {
+    "message": "If you choose a local server, the text to translate is sent only to the address you set (by default this computer). The developer does not receive it."
+  },
+  "localServerLicenseNote": {
+    "message": "Other models you load on that server are yours to license. PLaMo weights stay under the PLaMo Community License."
   }
 }

@@ -34,6 +34,12 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     composeInstantReplace: false,
     composePlacement: 'above',
     selectedModelId: DEFAULT_MODEL_ID,
+    engineSource: 'in-browser',
+    localServerUrl: 'http://127.0.0.1:8080/v1',
+    localServerModel: '',
+    localServerApiKey: '',
+    localServerTimeoutMs: 120_000,
+    localServerAllowRemote: false,
     ...overrides,
   };
 }
@@ -160,6 +166,37 @@ describe('settings defaults', () => {
         'ja-JP',
       ).selectedModelId,
     ).toBe(DEFAULT_MODEL_ID);
+  });
+
+  it('defaults to the built-in engine and a loopback mlx_lm.server URL', () => {
+    const settings = normalizeSettings(
+      { schemaVersion: SETTINGS_SCHEMA_VERSION, targetLanguage: 'en' },
+      'en-US',
+    );
+    expect(settings.engineSource).toBe('in-browser');
+    expect(settings.localServerUrl).toBe('http://127.0.0.1:8080/v1');
+    expect(settings.localServerModel).toBe('');
+    expect(settings.localServerApiKey).toBe('');
+    expect(settings.localServerTimeoutMs).toBe(120_000);
+    expect(settings.localServerAllowRemote).toBe(false);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          engineSource: 'local-server',
+          localServerUrl: 'http://127.0.0.1:1234',
+          localServerModel: 'pfnet/plamo-3-translate-0.8b-MLX-4bit',
+          localServerAllowRemote: true,
+        },
+        'en-US',
+      ),
+    ).toMatchObject({
+      engineSource: 'local-server',
+      localServerUrl: 'http://127.0.0.1:1234/v1',
+      localServerModel: 'pfnet/plamo-3-translate-0.8b-MLX-4bit',
+      localServerAllowRemote: true,
+    });
   });
 
   it('defaults the compose icon on for a record that predates the setting', () => {

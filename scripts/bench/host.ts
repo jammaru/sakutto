@@ -55,6 +55,7 @@ export interface EngineStatus {
   threads: number | null;
   plamoReady: boolean;
   chromeSupported: boolean;
+  engineSource?: string;
 }
 
 export function arg(name: string): string | undefined {
@@ -74,7 +75,16 @@ export function log(scope: string, message: string): void {
 /** Settings the e2e and bench packages store before translating, with the license accepted. */
 export type BenchTier = 'auto' | 'g' | 'c8' | 'c4';
 
-export function settings(tier: BenchTier = 'auto'): Record<string, unknown> {
+export interface BenchLocalServer {
+  url: string;
+  model: string;
+}
+
+export function settings(
+  tier: BenchTier = 'auto',
+  extras: { localServer?: BenchLocalServer } = {},
+): Record<string, unknown> {
+  const localServer = extras.localServer;
   return {
     schemaVersion: 1,
     targetLanguage: 'ja',
@@ -91,6 +101,12 @@ export function settings(tier: BenchTier = 'auto'): Record<string, unknown> {
     idleMinutes: 15,
     tier,
     pace: 'quality',
+    engineSource: localServer ? 'local-server' : 'in-browser',
+    localServerUrl: localServer?.url ?? 'http://127.0.0.1:8080/v1',
+    localServerModel: localServer?.model ?? '',
+    localServerApiKey: '',
+    localServerTimeoutMs: 120_000,
+    localServerAllowRemote: false,
   };
 }
 
@@ -176,13 +192,28 @@ export async function routeModel(context: BrowserContext, modelPath: string): Pr
 export async function prepareModel(
   page: Page,
   tier: BenchTier = 'auto',
+  extras: { localServer?: BenchLocalServer } = {},
 ): Promise<{ downloadMs: number; warmMs: number; status: EngineStatus }> {
-  await page.evaluate(async (stored) => {
-    const chrome = (globalThis as unknown as { chrome: ChromeApi }).chrome;
-    await chrome.storage.local.set({ settings: stored, siteRules: {} });
-  }, settings(tier));
+  await page.evaluate(
+    async (stored) => {
+      const chrome = (globalThis as unknown as { chrome: ChromeApi }).chrome;
+      await chrome.storage.local.set({ settings: stored, siteRules: {} });
+    },
+    settings(tier, extras),
+  );
   // The engine may already be running on the probed tier, so the options page's switch is sent too.
   if (tier !== 'auto') await extensionCall(page, { type: 'engine:tier', tier });
+
+  const localServer = extras.localServer;
+  if (localServer) {
+    const warmStarted = Date.now();
+    const warmed = await extensionCall(page, { type: 'engine:warm' });
+    if (warmed !== true) throw new Error('The local-server warm-up failed.');
+    const status = await readStatus(page);
+    if (!status?.plamoReady)
+      throw new Error('PLaMo did not become ready after local-server warm-up.');
+    return { downloadMs: 0, warmMs: Date.now() - warmStarted, status };
+  }
 
   const downloadStarted = Date.now();
   const accepted = await extensionCall(page, { type: 'model:download', modelId: MODEL_ID });

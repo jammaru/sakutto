@@ -178,7 +178,7 @@
     "message": "Privasi"
   },
   "privacyBody": {
-    "message": "Ekstensi ini tidak mengirimkan teks halaman ke server. Tidak ada telemetry."
+    "message": "Secara bawaan, ekstensi ini tidak mengirimkan teks halaman ke server terjemahan. Tidak ada telemetry."
   },
   "privacyDestinations": {
     "message": "Permintaan dari ekstensi itu sendiri adalah pengunduhan model. Model tersebut dimulai dari huggingface.co dan mengikuti pengalihan Hugging Face ke CDN-nya. Teks halaman tidak disertakan. Chrome mengunduh paket bahasanya sendiri."
@@ -1046,5 +1046,83 @@
   },
   "tierCpu1": {
     "message": "CPU (1 thread)"
+  },
+  "runtimeLocalServer": {
+    "message": "Server lokal"
+  },
+  "engineSourceLabel": {
+    "message": "Mesin terjemahan"
+  },
+  "engineSourceInBrowser": {
+    "message": "Bawaan (di perangkat ini)"
+  },
+  "engineSourceLocalServer": {
+    "message": "Server lokal (kompatibel OpenAI)"
+  },
+  "engineSourceHelp": {
+    "message": "Mesin bawaan adalah default. Server lokal seperti mlx_lm.server atau LM Studio dapat menjalankan PLaMo di Apple Silicon atau GPU. Teks hanya dikirim ke alamat yang Anda atur."
+  },
+  "localServerUrlLabel": {
+    "message": "URL server"
+  },
+  "localServerModelLabel": {
+    "message": "Model"
+  },
+  "localServerApiKeyLabel": {
+    "message": "Kunci API (opsional)"
+  },
+  "localServerTimeoutLabel": {
+    "message": "Batas waktu (detik)"
+  },
+  "localServerTestButton": {
+    "message": "Uji koneksi"
+  },
+  "localServerTestOk": {
+    "message": "Terhubung."
+  },
+  "localServerTestFail": {
+    "message": "Server ini tidak dapat digunakan."
+  },
+  "localServerModelsEmpty": {
+    "message": "(tidak ada daftar — ketik nama)"
+  },
+  "localServerPresetMlx": {
+    "message": "mlx_lm.server"
+  },
+  "localServerPresetLmStudio": {
+    "message": "LM Studio"
+  },
+  "localServerPresetHelp": {
+    "message": "Preset mengisi URL. serve.py MLX PLaMo sering memakai port 8000. Permintaan memakai /v1/completions dengan prompt PLaMo Sakutto, bukan chat completions."
+  },
+  "localServerNonLocalWarning": {
+    "message": "Alamat ini bukan komputer ini. Teks halaman akan dikirim ke sana. Saya mengerti."
+  },
+  "localServerPermissionDenied": {
+    "message": "Peramban tidak memberi akses ke alamat ini."
+  },
+  "localServerHelp": {
+    "message": "Jalankan server dulu, muat model PLaMo 3 Translate, lalu uji koneksi. Jika server mati, halaman tetap memakai teks asli."
+  },
+  "localServerUnreachable": {
+    "message": "Tidak dapat menjangkau server lokal. Buka Pengaturan dan pastikan server berjalan."
+  },
+  "localServerModelMissing": {
+    "message": "Server tidak punya model yang cocok. Muat model atau pilih di Pengaturan."
+  },
+  "localServerTimeout": {
+    "message": "Server lokal kehabisan waktu. Teks asli dipertahankan."
+  },
+  "localServerFailed": {
+    "message": "Server lokal tidak dapat menerjemahkan ini. Buka Pengaturan. Teks asli dipertahankan."
+  },
+  "diagBackendLocalServer": {
+    "message": "Server lokal"
+  },
+  "privacyBodyLocalServer": {
+    "message": "Jika Anda memilih server lokal, teks yang diterjemahkan hanya dikirim ke alamat yang diatur (default komputer ini). Pengembang tidak menerimanya."
+  },
+  "localServerLicenseNote": {
+    "message": "Lisensi model lain yang Anda muat di server itu adalah tanggung jawab Anda. Bobot PLaMo tetap di bawah PLaMo Community License."
   }
 }

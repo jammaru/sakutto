@@ -50,7 +50,7 @@ export interface BenchMachine {
 }
 
 /** What actually ran the model. */
-export type BenchAccelerator = 'cpu' | 'webgpu' | 'mock' | 'unknown';
+export type BenchAccelerator = 'cpu' | 'webgpu' | 'local-server' | 'mock' | 'unknown';
 
 /**
  * The two summary numbers for a page. They are derived from the other metrics rather
@@ -128,7 +128,13 @@ export const TIMING_METRICS: readonly BenchMetricKey[] = [
 ];
 
 const MODES: ReadonlySet<string> = new Set(['mock', 'live']);
-const ACCELERATORS: ReadonlySet<string> = new Set(['cpu', 'webgpu', 'mock', 'unknown']);
+const ACCELERATORS: ReadonlySet<string> = new Set([
+  'cpu',
+  'webgpu',
+  'local-server',
+  'mock',
+  'unknown',
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -578,6 +584,9 @@ export function acceleratorFor(input: { mode: 'mock' | 'live'; backend: string |
   if (input.mode === 'mock') return { accelerator: 'mock', accelerateLabel: 'mock translator' };
   if (input.backend === 'webgpu') return { accelerator: 'webgpu', accelerateLabel: 'WebGPU' };
   if (input.backend === 'cpu-wasm') return { accelerator: 'cpu', accelerateLabel: 'CPU only' };
+  if (input.backend === 'local-server') {
+    return { accelerator: 'local-server', accelerateLabel: 'local server' };
+  }
   // A live run that did not report a backend cannot be quoted as either.
   return { accelerator: 'unknown', accelerateLabel: 'backend not reported' };
 }

@@ -178,13 +178,13 @@
     "message": "プライバシー"
   },
   "privacyBody": {
-    "message": "この拡張機能は、ページの本文をサーバーへ送りません。テレメトリはありません。"
+    "message": "既定では、この拡張機能はページの本文を翻訳サーバーへ送りません。テレメトリはありません。"
   },
   "privacyDestinations": {
-    "message": "拡張機能自身の通信はモデルの取得だけです。接続は huggingface.co から始まり、Hugging Face の CDN へ転送されます。本文は含めません。言語パックは Chrome 自身が取得します。"
+    "message": "拡張機能自身の通信はモデルの取得だけです。接続は huggingface.co から始まり、Hugging Face の CDN へ転送されます。本文は含めません。言語パックは Chrome 自身が取得します。有効にしたローカルサーバーは、設定したアドレスへの任意の別経路です。"
   },
   "privacyDestinationsFirefox": {
-    "message": "拡張機能自身の通信はモデルの取得だけです。接続は huggingface.co から始まり、Hugging Face の CDN へ転送されます。本文は含めません。"
+    "message": "拡張機能自身の通信はモデルの取得だけです。接続は huggingface.co から始まり、Hugging Face の CDN へ転送されます。本文は含めません。有効にしたローカルサーバーは、設定したアドレスへの任意の別経路です。"
   },
   "privacyPolicyLink": {
     "message": "プライバシーポリシー"
@@ -1046,5 +1046,83 @@
   },
   "tierCpu1": {
     "message": "CPU（1スレッド）"
+  },
+  "runtimeLocalServer": {
+    "message": "ローカルサーバー"
+  },
+  "engineSourceLabel": {
+    "message": "翻訳エンジン"
+  },
+  "engineSourceInBrowser": {
+    "message": "内蔵（この端末）"
+  },
+  "engineSourceLocalServer": {
+    "message": "ローカルサーバー（OpenAI互換）"
+  },
+  "engineSourceHelp": {
+    "message": "既定は内蔵エンジンです。mlx_lm.server や LM Studio などのローカルサーバーを選ぶと、Apple Silicon や GPU 上の PLaMo を使えます。本文が送られる先は、設定したアドレスだけです。"
+  },
+  "localServerUrlLabel": {
+    "message": "サーバー URL"
+  },
+  "localServerModelLabel": {
+    "message": "モデル"
+  },
+  "localServerApiKeyLabel": {
+    "message": "APIキー（任意）"
+  },
+  "localServerTimeoutLabel": {
+    "message": "タイムアウト（秒）"
+  },
+  "localServerTestButton": {
+    "message": "接続を試す"
+  },
+  "localServerTestOk": {
+    "message": "接続できました。"
+  },
+  "localServerTestFail": {
+    "message": "このサーバーは使えませんでした。"
+  },
+  "localServerModelsEmpty": {
+    "message": "（一覧なし。名前を入力）"
+  },
+  "localServerPresetMlx": {
+    "message": "mlx_lm.server"
+  },
+  "localServerPresetLmStudio": {
+    "message": "LM Studio"
+  },
+  "localServerPresetHelp": {
+    "message": "プリセットは URL を入れます。PLaMo 付属の MLX serve.py は多くの場合ポート 8000 です。翻訳は chat ではなく、Sakutto と同じ PLaMo プロンプトを /v1/completions に送ります。"
+  },
+  "localServerNonLocalWarning": {
+    "message": "このアドレスはこの端末ではありません。ページの本文がそこに送られます。了解しました。"
+  },
+  "localServerPermissionDenied": {
+    "message": "ブラウザがこのアドレスへのアクセスを許可しませんでした。"
+  },
+  "localServerHelp": {
+    "message": "先にサーバーを起動し、PLaMo 3 Translate のモデルを読み込んでから接続を試してください。届かないときは原文のままです。"
+  },
+  "localServerUnreachable": {
+    "message": "ローカルサーバーに届きませんでした。設定を開き、起動しているか確認してください。"
+  },
+  "localServerModelMissing": {
+    "message": "サーバーに該当するモデルがありません。モデルを読み込むか、設定で選んでください。"
+  },
+  "localServerTimeout": {
+    "message": "ローカルサーバーが時間切れになりました。原文のままにしています。"
+  },
+  "localServerFailed": {
+    "message": "ローカルサーバーでは翻訳できませんでした。設定を開いてください。原文のままにしています。"
+  },
+  "diagBackendLocalServer": {
+    "message": "ローカルサーバー"
+  },
+  "privacyBodyLocalServer": {
+    "message": "ローカルサーバーを選んだときは、翻訳する文字は設定したアドレスにだけ送られます（既定はこの端末です）。開発者には届きません。"
+  },
+  "localServerLicenseNote": {
+    "message": "そのサーバーに読み込む他のモデルのライセンスは利用者の責任です。PLaMo の重みは PLaMo Community License のままです。"
   }
 }

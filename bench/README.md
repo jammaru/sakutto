@@ -240,6 +240,48 @@ eight-page run, and a live run is not put next to the mock baseline; in both cas
 there is nothing to compare rather than printing a delta. `--baseline` / `--compare` still compare
 whatever you name, and the summary prints a warning when that pair spans modes.
 
+## Local server (MLX / LM Studio) on Apple Silicon
+
+The Linux CI environment cannot run MLX. Measure on a Mac, and do **not** claim MLX is faster
+without that measurement. Use the same fixtures as a live WebGPU run, then compare
+`firstVisibleTextMs` and `fullPageMs` on `long-article`.
+
+1. Start a Completions server with a PLaMo 3 Translate model. Recipe:
+   `mlx_lm.server --model pfnet/plamo-3-translate-0.8b-MLX-4bit` (default
+   `http://127.0.0.1:8080/v1`). LM Studio's local server is
+   `http://127.0.0.1:1234/v1`. PLaMo's own `serve.py` is often port 8000. See
+   [docs/design/mlx-backend.md](../docs/design/mlx-backend.md).
+2. Build the live extension: `pnpm bench:build:live`.
+3. Built-in WebGPU (baseline):
+
+```sh
+pnpm bench:live --run "mac-webgpu" --samples 3 --only long-article
+```
+
+4. Local server (same machine, same fixtures):
+
+```sh
+pnpm bench:live --run "mac-mlx" --samples 3 --only long-article \
+  --local-server-url http://127.0.0.1:8080/v1 \
+  --local-server-model pfnet/plamo-3-translate-0.8b-MLX-4bit
+```
+
+5. Compare the two run labels with `pnpm bench:history --baseline mac-webgpu --compare mac-mlx`.
+   The history warns when accelerators differ (`webgpu` vs `local-server`); that warning is
+   expected. Quote both numbers with the engine named.
+
+Translation equality (fixed sentence set, same PFML3 prompt as wllama):
+
+```sh
+pnpm bench:equality --url http://127.0.0.1:8080/v1 --model pfnet/plamo-3-translate-0.8b-MLX-4bit --out mlx.json
+pnpm bench:equality --url http://127.0.0.1:8080/v1 --model pfnet/plamo-3-translate-0.8b-MLX-4bit --compare other.json
+```
+
+Dump the built-in engine the same way if you expose it as a completions server, or paste
+outputs into the JSON by hand. **Prompt diffs are a client bug. Output diffs across GGUF
+Q4_K_M and MLX-4bit are expected** (different 4-bit codecs). Do not treat an output
+difference as a speed result.
+
 ## Relationship to the older model bench
 
 `pnpm bench` (`scripts/bench/run.ts`) is unchanged in purpose: it probes the raw model and its

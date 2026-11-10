@@ -178,7 +178,7 @@
     "message": "Конфиденциальность"
   },
   "privacyBody": {
-    "message": "Это расширение не отправляет текст страницы на сервер. Телеметрии нет."
+    "message": "По умолчанию это расширение не отправляет текст страницы на сервер перевода. Телеметрии нет."
   },
   "privacyDestinations": {
     "message": "Самым важным требованием расширения является скачивание модели. Оно начинается с huggingface.co и переходит на редирект к своему CDN от Hugging Face. Текст страницы в него не входит. Chrome самостоятельно скачивает языковые пакеты."
@@ -1046,5 +1046,83 @@
   },
   "tierCpu1": {
     "message": "CPU (1 thread)"
+  },
+  "runtimeLocalServer": {
+    "message": "Локальный сервер"
+  },
+  "engineSourceLabel": {
+    "message": "Движок перевода"
+  },
+  "engineSourceInBrowser": {
+    "message": "Встроенный (на этом устройстве)"
+  },
+  "engineSourceLocalServer": {
+    "message": "Локальный сервер (совместимый с OpenAI)"
+  },
+  "engineSourceHelp": {
+    "message": "По умолчанию используется встроенный движок. Локальный сервер вроде mlx_lm.server или LM Studio может запускать PLaMo на Apple Silicon или GPU. Текст уходит только на указанный адрес."
+  },
+  "localServerUrlLabel": {
+    "message": "URL сервера"
+  },
+  "localServerModelLabel": {
+    "message": "Модель"
+  },
+  "localServerApiKeyLabel": {
+    "message": "Ключ API (необязательно)"
+  },
+  "localServerTimeoutLabel": {
+    "message": "Таймаут (секунды)"
+  },
+  "localServerTestButton": {
+    "message": "Проверить соединение"
+  },
+  "localServerTestOk": {
+    "message": "Подключено."
+  },
+  "localServerTestFail": {
+    "message": "Не удалось использовать этот сервер."
+  },
+  "localServerModelsEmpty": {
+    "message": "(списка нет — введите имя)"
+  },
+  "localServerPresetMlx": {
+    "message": "mlx_lm.server"
+  },
+  "localServerPresetLmStudio": {
+    "message": "LM Studio"
+  },
+  "localServerPresetHelp": {
+    "message": "Пресеты подставляют URL. MLX serve.py у PLaMo часто слушает порт 8000. Запросы идут в /v1/completions с промптом PLaMo из Sakutto, не в chat completions."
+  },
+  "localServerNonLocalWarning": {
+    "message": "Этот адрес — не этот компьютер. Текст страницы будет отправлен туда. Понятно."
+  },
+  "localServerPermissionDenied": {
+    "message": "Браузер не дал доступ к этому адресу."
+  },
+  "localServerHelp": {
+    "message": "Сначала запустите сервер, загрузите модель PLaMo 3 Translate и проверьте соединение. Если сервер недоступен, страница остаётся с исходным текстом."
+  },
+  "localServerUnreachable": {
+    "message": "Не удалось связаться с локальным сервером. Откройте настройки и проверьте, что он запущен."
+  },
+  "localServerModelMissing": {
+    "message": "На сервере нет подходящей модели. Загрузите модель или выберите её в настройках."
+  },
+  "localServerTimeout": {
+    "message": "Локальный сервер не ответил вовремя. Исходный текст сохранён."
+  },
+  "localServerFailed": {
+    "message": "Локальный сервер не смог перевести это. Откройте настройки. Исходный текст сохранён."
+  },
+  "diagBackendLocalServer": {
+    "message": "Локальный сервер"
+  },
+  "privacyBodyLocalServer": {
+    "message": "Если выбран локальный сервер, текст для перевода уходит только на указанный адрес (по умолчанию этот компьютер). Разработчик его не получает."
+  },
+  "localServerLicenseNote": {
+    "message": "Лицензии других моделей на этом сервере — ваша ответственность. Веса PLaMo остаются под PLaMo Community License."
   }
 }

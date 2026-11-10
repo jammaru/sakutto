@@ -11,6 +11,10 @@ export type EngineErrorCode =
   | 'chrome-unavailable'
   | 'chrome-not-ready'
   | 'offscreen-unavailable'
+  | 'server-unavailable'
+  | 'server-timeout'
+  | 'server-model-missing'
+  | 'server-failed'
   | 'aborted'
   | 'unknown';
 
@@ -49,6 +53,10 @@ const ENGINE_ERROR_CODES: ReadonlySet<string> = new Set<EngineErrorCode>([
   'chrome-unavailable',
   'chrome-not-ready',
   'offscreen-unavailable',
+  'server-unavailable',
+  'server-timeout',
+  'server-model-missing',
+  'server-failed',
   'aborted',
   'unknown',
 ]);
@@ -66,6 +74,17 @@ export function isAbortError(value: unknown): boolean {
 
 export function abortError(message = 'The operation was aborted.'): EngineError {
   return new EngineError('aborted', message);
+}
+
+const LOCAL_SERVER_CODES: ReadonlySet<EngineErrorCode> = new Set([
+  'server-unavailable',
+  'server-timeout',
+  'server-model-missing',
+  'server-failed',
+]);
+
+export function isLocalServerError(value: unknown): value is EngineError {
+  return isEngineError(value) && LOCAL_SERVER_CODES.has(value.code);
 }
 
 export function toEngineError(value: unknown): EngineError {

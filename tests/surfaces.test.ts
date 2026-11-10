@@ -47,7 +47,7 @@ describe('start controls while the model downloads', () => {
   });
 
   it('gates the popup translate button on the model the same way', () => {
-    expect(popup).toContain('modelStartBlocked');
+    expect(popup).toContain('translationStartBlocked');
     expect(popup).toMatch(/canStart[\s\S]{0,200}isChromeOnlyLanguage\(targetLanguage\)/);
     expect(popup).toMatch(/disabled=\{[^}]*!canStart[^}]*\}/);
   });

@@ -3,10 +3,15 @@ import { hasLicenseConsent } from '@/shared/agreement';
 import { lastGpuDiagnostic, probeCapabilities } from '@/shared/capabilities';
 import { mergeGpuDiagnostic, type GpuDiagnostic } from '@/shared/gpu-diagnostic';
 import { canonicalLanguage } from '@/shared/languages';
-import { modelCanTranslate, type EngineStatus, type ModelStatus } from '@/shared/engine-status';
+import {
+  modelCanTranslate,
+  type EngineSource,
+  type EngineStatus,
+  type ModelStatus,
+} from '@/shared/engine-status';
 import { advanceModelStatus } from '@/shared/model-progress';
 import { loadSettings, saveSettings } from '@/shared/storage';
-import type { TierPreference } from '@/shared/settings';
+import type { Settings, TierPreference } from '@/shared/settings';
 import { MemoryTranslationCacheStore, IndexedDbTranslationCacheStore } from '../cache/store';
 import { CachingEngine } from '../cache/caching-engine';
 import { TranslationCache } from '../cache/cache';
@@ -21,8 +26,13 @@ import {
   selectionForTier,
   type BackendSelection,
 } from '../in-browser/backend';
+import { InBrowserEngine } from '../in-browser/engine';
 import { LazyInBrowserEngine } from '../in-browser/lazy-engine';
 import { createWllamaRuntime, lastWebGpuLoadLog, type LlamaRuntime } from '../in-browser/runtime';
+import { type LocalServerConfig } from '../local-server/client';
+import { LOCAL_SERVER_PARALLEL, LocalServerRuntime } from '../local-server/runtime';
+import { PlamoSourceEngine } from '../local-server/source';
+import { DEFAULT_LOCAL_SERVER_TIMEOUT_MS, DEFAULT_LOCAL_SERVER_URL } from '../local-server/url';
 import { DEFAULT_MODEL_ID, SELECTABLE_MODEL_IDS, getModel, type ModelId } from '../model/catalog';
 import { normalizeSelectedModelId, resolveActiveModel } from '../model/selection';
 import { OpfsModelFileStore } from '../model/file-store';
@@ -167,6 +177,8 @@ export class EngineHost {
   /** The probe offered WebGPU but the model could not be placed on it. */
   private gpuFallback = false;
   private gpuDiagnostic: GpuDiagnostic | null = null;
+  private engineSource: EngineSource = 'in-browser';
+  private localConfig: LocalServerConfig = defaultLocalServerConfig();
 
   constructor(options: EngineHostOptions = {}) {
     this.idleReleaseMs = options.idleReleaseMs ?? IDLE_RELEASE_MS;
@@ -174,7 +186,9 @@ export class EngineHost {
 
     if (browser.storage?.onChanged) {
       browser.storage.onChanged.addListener((changes, area) => {
-        if (area === 'local' && changes.settings) this.touch();
+        if (area === 'local' && changes.settings) {
+          void this.onSettingsChanged();
+        }
       });
     }
   }
@@ -229,6 +243,7 @@ export class EngineHost {
       sharedMemory: capabilities.crossOriginIsolated,
     };
     const stored = browser.storage?.local ? await loadSettings().catch(() => null) : null;
+    this.applyStoredSettings(stored);
     const selection = selectionForTier(stored?.tier ?? 'auto', probe);
     const selectionState = { current: selection };
     const store = await OpfsModelFileStore.open();
@@ -277,11 +292,13 @@ export class EngineHost {
       await manager.unload();
     };
     const lazy = new LazyInBrowserEngine({ loadRuntime: load, onGpuLost });
+    const localEngine = new InBrowserEngine(new LocalServerRuntime(() => this.localConfig));
+    const plamo = new PlamoSourceEngine(lazy, localEngine, () => this.engineSource);
 
     const chromeForCache = chrome.available ? new CachingEngine(chrome, cache, 'chrome') : null;
 
     const router = new RoutingEngine({
-      plamo: new CachingEngine(lazy, cache, () => this.activeModelId),
+      plamo: new CachingEngine(plamo, cache, () => this.cacheModelId()),
       chrome: chromeForCache,
       plamoSupports: (src, tgt) =>
         canonicalLanguage(tgt) !== null &&
@@ -433,6 +450,11 @@ export class EngineHost {
 
     try {
       const services = await this.services();
+      if (this.engineSource === 'local-server') {
+        this.plamoReady = true;
+        this.respond(port, requestId, await services.manager.status(this.activeModelId));
+        return;
+      }
       let loaded = services.manager.loadedModel;
       if (!loaded || loaded.id !== this.activeModelId) {
         loaded = await services.load(controller.signal);
@@ -630,20 +652,48 @@ export class EngineHost {
     this.plamoReady = modelCanTranslate(model);
     const loaded = services.manager.loadedModel;
     const selection = loaded?.selection ?? services.selection;
+    const local = this.engineSource === 'local-server';
 
     return {
       model,
-      backend: selection.backend,
-      tier: selection.tier,
-      threads: selection.nThreads,
-      parallel: selection.nParallel,
+      backend: local ? 'local-server' : selection.backend,
+      tier: local ? null : selection.tier,
+      threads: local ? 1 : selection.nThreads,
+      parallel: local ? LOCAL_SERVER_PARALLEL : selection.nParallel,
       gpuFallback: this.gpuFallback && selection.backend === 'cpu-wasm',
       ...(this.gpuDiagnostic ? { gpuDiagnostic: this.gpuDiagnostic } : {}),
-      plamoReady: this.plamoReady,
+      plamoReady: local ? true : this.plamoReady,
       chromeSupported: services.chrome.available,
       active: services.router.activeEngine,
+      engineSource: this.engineSource,
       ...(this.modelFallback ? { modelFallback: true } : {}),
     };
+  }
+
+  private cacheModelId(): string {
+    if (this.engineSource !== 'local-server') return this.activeModelId;
+    return `local:${this.localConfig.model.length > 0 ? this.localConfig.model : 'default'}`;
+  }
+
+  private applyStoredSettings(stored: Settings | null): void {
+    this.engineSource = stored?.engineSource ?? 'in-browser';
+    this.localConfig = localServerConfigFromSettings(stored);
+  }
+
+  private async onSettingsChanged(): Promise<void> {
+    const previous = this.engineSource;
+    const stored = await loadSettings().catch(() => null);
+    this.applyStoredSettings(stored);
+    if (previous === 'in-browser' && this.engineSource === 'local-server' && this.servicesTask) {
+      try {
+        const services = await this.services();
+        services.lazy.reset();
+        await services.manager.unload();
+      } catch {
+        // Unloading the in-browser runtime is best effort when switching away.
+      }
+    }
+    this.touch();
   }
 
   private async restoreActiveModel(manager: ModelManager, storedId: unknown): Promise<void> {
@@ -862,4 +912,18 @@ export class EngineHost {
       // The other end is gone; pending requests are settled by the disconnect handler.
     }
   }
+}
+
+function defaultLocalServerConfig(): LocalServerConfig {
+  return localServerConfigFromSettings(null);
+}
+
+function localServerConfigFromSettings(stored: Settings | null): LocalServerConfig {
+  return {
+    baseUrl: stored?.localServerUrl ?? DEFAULT_LOCAL_SERVER_URL,
+    model: stored?.localServerModel ?? '',
+    apiKey: stored?.localServerApiKey ?? '',
+    timeoutMs: stored?.localServerTimeoutMs ?? DEFAULT_LOCAL_SERVER_TIMEOUT_MS,
+    allowRemote: stored?.localServerAllowRemote === true,
+  };
 }

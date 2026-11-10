@@ -27,6 +27,7 @@ function overlayLabels(): OverlayLabels {
     barPartial: (blocks) => t('pagePartial', [String(blocks)]),
     barOriginal: t('restoreThisPage'),
     barAlways: t('alwaysTranslateSite'),
+    engineFailed: t('localServerFailed'),
     barAlwaysOn: t('pageAlwaysOn'),
   };
 }

@@ -31,6 +31,8 @@ async function main(): Promise<void> {
     );
   }
 
+  const localServerUrl = arg('--local-server-url');
+  const localServerModel = arg('--local-server-model') ?? '';
   const result = await runPageBench({
     mode: runMode,
     extension,
@@ -40,6 +42,9 @@ async function main(): Promise<void> {
     ...(arg('--compare') !== undefined ? { compare: arg('--compare') } : {}),
     ...(arg('--model') !== undefined ? { modelPath: arg('--model') } : {}),
     tier: tier(),
+    ...(localServerUrl === undefined
+      ? {}
+      : { localServer: { url: localServerUrl, model: localServerModel } }),
     ...(arg('--history') !== undefined ? { historyPath: resolve(arg('--history') ?? '') } : {}),
     writeHistory: !has('--no-history'),
     writeSummary: !has('--no-summary'),

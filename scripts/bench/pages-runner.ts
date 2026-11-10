@@ -15,6 +15,7 @@ import {
   readStatus,
   routeModel,
   settings,
+  type BenchLocalServer,
   type BenchTier,
   type ChromeApi,
 } from './host.ts';
@@ -98,6 +99,12 @@ export interface RunPageBenchOptions {
   modelPath?: string | undefined;
   /** Compute tier for live mode: `auto` keeps the probe, the others force GPU or a CPU size. */
   tier?: BenchTier | undefined;
+  /**
+   * When set, live mode talks to this OpenAI-compatible server instead of loading the GGUF.
+   * The server must already be running. Not a speed claim: record WebGPU and this run
+   * separately on the same Mac.
+   */
+  localServer?: BenchLocalServer | undefined;
   /** Called after every fixture so a caller can stream progress. */
   onRecord?: ((record: BenchRecord) => void) | undefined;
 }
@@ -201,6 +208,7 @@ async function openHarness(
   extension: string,
   modelPath: string,
   tier: BenchTier,
+  extras: { localServer?: BenchLocalServer } = {},
 ): Promise<ExtensionHarness> {
   await readFile(resolve(extension, 'manifest.json'));
 
@@ -227,7 +235,7 @@ async function openHarness(
     if (temporary !== null) await rm(temporary, { recursive: true, force: true });
   };
 
-  if (mode === 'live') await routeModel(context, modelPath);
+  if (mode === 'live' && extras.localServer === undefined) await routeModel(context, modelPath);
 
   const worker = await waitForServiceWorker(context).catch(async (error: unknown) => {
     await context.close();
@@ -240,7 +248,7 @@ async function openHarness(
 
   let engine: BenchEngine;
   if (mode === 'live') {
-    const prepared = await prepareModel(options, tier);
+    const prepared = await prepareModel(options, tier, extras);
     log(
       'page-bench',
       `download ${String(prepared.downloadMs)}ms warm ${String(prepared.warmMs)}ms ${
@@ -253,7 +261,7 @@ async function openHarness(
       tier: prepared.status.tier,
       threads: prepared.status.threads,
       chromeTranslator: prepared.status.chromeSupported,
-      model: MODEL_ID,
+      model: extras.localServer?.model ?? MODEL_ID,
       ...acceleratorFor({ mode: 'live', backend: prepared.status.backend }),
     };
   } else {
@@ -495,12 +503,15 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
     );
   }
 
-  if (mode === 'live') await ensureModel(modelPath);
+  const localServer = options.localServer;
+  if (mode === 'live' && localServer === undefined) await ensureModel(modelPath);
 
   const server = await startStaticServer({ directory: resolve(ROOT, 'bench/pages') });
   let harness: ExtensionHarness;
   try {
-    harness = await openHarness(mode, extension, modelPath, options.tier ?? 'auto');
+    harness = await openHarness(mode, extension, modelPath, options.tier ?? 'auto', {
+      ...(localServer === undefined ? {} : { localServer }),
+    });
   } catch (error) {
     // A rejected build must not leave the static server holding the process open.
     await server.close();

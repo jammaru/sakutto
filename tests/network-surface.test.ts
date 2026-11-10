@@ -8,8 +8,8 @@ import { describe, expect, it } from 'vitest';
  * by accident — one analytics import, one `sendBeacon` in an error path — so it is checked
  * here instead of being trusted to review.
  *
- * `download.ts` is the only file allowed to reach the network, and the request it builds
- * may not grow a body or credentials.
+ * `download.ts` is the only file allowed to reach Hugging Face. The local-server client
+ * may `fetch` only after the user enables that backend, and only to the address they set.
  */
 
 /** Resolved from this file, so the check reads the repository even from another directory. */
@@ -148,7 +148,10 @@ describe('network surface', () => {
         NETWORK_SINKS.some((pattern) => pattern.test(file.code)),
     );
 
-    expect(reaching.map((file) => file.path)).toEqual(['src/engine/model/download.ts']);
+    expect(reaching.map((file) => file.path).sort()).toEqual([
+      'src/engine/local-server/client.ts',
+      'src/engine/model/download.ts',
+    ]);
   });
 
   it('sends no body and no credentials with the model request', () => {

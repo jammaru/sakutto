@@ -178,7 +178,7 @@
     "message": "ความเป็นส่วนตัว"
   },
   "privacyBody": {
-    "message": "ส่วนขยายนี้ไม่ส่งข้อความหน้าเว็บไปยังเซิร์ฟเวอร์ ไม่มีการเก็บข้อมูลทางเทเลเมทรี"
+    "message": "ตามค่าเริ่มต้น ส่วนขยายนี้ไม่ส่งข้อความหน้าเว็บไปยังเซิร์ฟเวอร์แปล ไม่มีการเก็บข้อมูลทางเทเลเมทรี"
   },
   "privacyDestinations": {
     "message": "คำขอของส่วนขยายนี้คือการดาวน์โหลดโมเดล โดยจะเริ่มต้นที่ huggingface.co และดำเนินต่อไปจากการเปลี่ยนเส้นทางของ Hugging Face ไปยัง CDN ของมัน ไม่มีการรวมข้อความในหน้าเว็บไว้ด้วย ส่วน Chrome จะดาวน์โหลดแพ็กภาษาของตนเอง"
@@ -1046,5 +1046,83 @@
   },
   "tierCpu1": {
     "message": "CPU (1 thread)"
+  },
+  "runtimeLocalServer": {
+    "message": "เซิร์ฟเวอร์ในเครื่อง"
+  },
+  "engineSourceLabel": {
+    "message": "เอนจินแปล"
+  },
+  "engineSourceInBrowser": {
+    "message": "ในตัว (บนอุปกรณ์นี้)"
+  },
+  "engineSourceLocalServer": {
+    "message": "เซิร์ฟเวอร์ในเครื่อง (เข้ากันได้กับ OpenAI)"
+  },
+  "engineSourceHelp": {
+    "message": "ค่าเริ่มต้นคือเอนจินในตัว เซิร์ฟเวอร์ในเครื่องอย่าง mlx_lm.server หรือ LM Studio สามารถรัน PLaMo บน Apple Silicon หรือ GPU ได้ ข้อความถูกส่งไปยังที่อยู่ที่คุณตั้งเท่านั้น"
+  },
+  "localServerUrlLabel": {
+    "message": "URL ของเซิร์ฟเวอร์"
+  },
+  "localServerModelLabel": {
+    "message": "โมเดล"
+  },
+  "localServerApiKeyLabel": {
+    "message": "API key (ไม่บังคับ)"
+  },
+  "localServerTimeoutLabel": {
+    "message": "หมดเวลา (วินาที)"
+  },
+  "localServerTestButton": {
+    "message": "ทดสอบการเชื่อมต่อ"
+  },
+  "localServerTestOk": {
+    "message": "เชื่อมต่อแล้ว"
+  },
+  "localServerTestFail": {
+    "message": "ใช้เซิร์ฟเวอร์นี้ไม่ได้"
+  },
+  "localServerModelsEmpty": {
+    "message": "(ไม่มีรายการ — พิมพ์ชื่อ)"
+  },
+  "localServerPresetMlx": {
+    "message": "mlx_lm.server"
+  },
+  "localServerPresetLmStudio": {
+    "message": "LM Studio"
+  },
+  "localServerPresetHelp": {
+    "message": "พรีเซ็ตจะใส่ URL ให้ serve.py ของ PLaMo MLX มักใช้พอร์ต 8000 คำขอใช้ /v1/completions พร้อมพรอมต์ PLaMo ของ Sakutto ไม่ใช่ chat completions"
+  },
+  "localServerNonLocalWarning": {
+    "message": "ที่อยู่นี้ไม่ใช่คอมพิวเตอร์เครื่องนี้ ข้อความในหน้าจะถูกส่งไปที่นั่น เข้าใจแล้ว"
+  },
+  "localServerPermissionDenied": {
+    "message": "เบราว์เซอร์ไม่อนุญาตให้เข้าที่อยู่นี้"
+  },
+  "localServerHelp": {
+    "message": "เริ่มเซิร์ฟเวอร์ก่อน โหลดโมเดล PLaMo 3 Translate แล้วทดสอบการเชื่อมต่อ หากเซิร์ฟเวอร์ไม่ทำงาน หน้าจะคงข้อความต้นฉบับ"
+  },
+  "localServerUnreachable": {
+    "message": "ติดต่อเซิร์ฟเวอร์ในเครื่องไม่ได้ เปิดการตั้งค่าแล้วตรวจว่ากำลังทำงานอยู่"
+  },
+  "localServerModelMissing": {
+    "message": "เซิร์ฟเวอร์ไม่มีโมเดลที่ตรงกัน โหลดโมเดลหรือเลือกในการตั้งค่า"
+  },
+  "localServerTimeout": {
+    "message": "เซิร์ฟเวอร์ในเครื่องหมดเวลา คงข้อความต้นฉบับไว้"
+  },
+  "localServerFailed": {
+    "message": "เซิร์ฟเวอร์ในเครื่องแปลไม่ได้ เปิดการตั้งค่า คงข้อความต้นฉบับไว้"
+  },
+  "diagBackendLocalServer": {
+    "message": "เซิร์ฟเวอร์ในเครื่อง"
+  },
+  "privacyBodyLocalServer": {
+    "message": "ถ้าเลือกเซิร์ฟเวอร์ในเครื่อง ข้อความที่จะแปลจะถูกส่งไปยังที่อยู่ที่ตั้งไว้เท่านั้น (ค่าเริ่มต้นคือเครื่องนี้) ผู้พัฒนาจะไม่ได้รับ"
+  },
+  "localServerLicenseNote": {
+    "message": "โมเดลอื่นที่โหลดบนเซิร์ฟเวอร์นั้นเป็นความรับผิดชอบด้านสัญญาอนุญาตของคุณ น้ำหนัก PLaMo ยังอยู่ภายใต้ PLaMo Community License"
   }
 }

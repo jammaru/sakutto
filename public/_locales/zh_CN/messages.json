@@ -178,7 +178,7 @@
     "message": "隐私"
   },
   "privacyBody": {
-    "message": "此扩展不会向服务器发送页面文本。不提供遥测数据。"
+    "message": "默认情况下，此扩展不会将页面文本发送到翻译服务器。不提供遥测数据。"
   },
   "privacyDestinations": {
     "message": "该扩展本身的请求是模型下载。它从 huggingface.co 开始，随后跟随 Hugging Face 重定向至其 CDN。页面文本不包含在内。Chrome 自行下载其语言包。"
@@ -1046,5 +1046,83 @@
   },
   "tierCpu1": {
     "message": "CPU (1 thread)"
+  },
+  "runtimeLocalServer": {
+    "message": "本地服务器"
+  },
+  "engineSourceLabel": {
+    "message": "翻译引擎"
+  },
+  "engineSourceInBrowser": {
+    "message": "内置（本机）"
+  },
+  "engineSourceLocalServer": {
+    "message": "本地服务器（OpenAI 兼容）"
+  },
+  "engineSourceHelp": {
+    "message": "默认使用内置引擎。也可选择 mlx_lm.server 或 LM Studio 等本地服务器，在 Apple Silicon 或 GPU 上运行 PLaMo。文本只会发往你设置的地址。"
+  },
+  "localServerUrlLabel": {
+    "message": "服务器 URL"
+  },
+  "localServerModelLabel": {
+    "message": "模型"
+  },
+  "localServerApiKeyLabel": {
+    "message": "API 密钥（可选）"
+  },
+  "localServerTimeoutLabel": {
+    "message": "超时（秒）"
+  },
+  "localServerTestButton": {
+    "message": "测试连接"
+  },
+  "localServerTestOk": {
+    "message": "已连接。"
+  },
+  "localServerTestFail": {
+    "message": "无法使用此服务器。"
+  },
+  "localServerModelsEmpty": {
+    "message": "（列表为空 — 请输入名称）"
+  },
+  "localServerPresetMlx": {
+    "message": "mlx_lm.server"
+  },
+  "localServerPresetLmStudio": {
+    "message": "LM Studio"
+  },
+  "localServerPresetHelp": {
+    "message": "预设会填入 URL。PLaMo 自带的 MLX serve.py 常用端口 8000。请求使用 Sakutto 的 PLaMo 提示词调用 /v1/completions，而不是 chat completions。"
+  },
+  "localServerNonLocalWarning": {
+    "message": "此地址不是本机。页面文本将会发往那里。我了解。"
+  },
+  "localServerPermissionDenied": {
+    "message": "浏览器未授予访问此地址的权限。"
+  },
+  "localServerHelp": {
+    "message": "请先启动服务器并加载 PLaMo 3 Translate 模型，再测试连接。如果服务器不可用，页面会保留原文。"
+  },
+  "localServerUnreachable": {
+    "message": "无法连接本地服务器。请打开设置并确认它正在运行。"
+  },
+  "localServerModelMissing": {
+    "message": "服务器上没有匹配的模型。请加载模型或在设置中选择。"
+  },
+  "localServerTimeout": {
+    "message": "本地服务器超时。已保留原文。"
+  },
+  "localServerFailed": {
+    "message": "本地服务器无法翻译。请打开设置。已保留原文。"
+  },
+  "diagBackendLocalServer": {
+    "message": "本地服务器"
+  },
+  "privacyBodyLocalServer": {
+    "message": "若选择本地服务器，待译文本只会发往你设置的地址（默认是本机）。开发者不会收到。"
+  },
+  "localServerLicenseNote": {
+    "message": "你在该服务器上加载的其他模型的许可由你负责。PLaMo 权重仍适用 PLaMo Community License。"
   }
 }

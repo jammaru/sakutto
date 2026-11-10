@@ -13,6 +13,7 @@ import { DEFAULT_BATCHING } from '@/engine/text/plan';
 import { chunkForTranslation, joinTranslatedSentences } from '@/engine/text/sentences';
 import { isPlainAltS } from '@/shared/shortcuts';
 import { PriorityQueue } from '@/engine/queue/priority-queue';
+import { isLocalServerError } from '@/engine/errors';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
 import { mergeGlossary } from '@/shared/glossary';
 import {
@@ -1224,8 +1225,11 @@ export class PageSession {
           else this.queuePaint(item);
         }
       }
-    } catch {
+    } catch (error) {
       // Unfinished blocks are retried below. Abort keeps the previous text.
+      if (!signal.aborted && isLocalServerError(error) && this.labels.engineFailed) {
+        this.overlay.showStatus(this.labels.engineFailed);
+      }
     } finally {
       this.work.engineMs += Math.round(performance.now() - engineStarted);
       // The last `complete()` of this batch already ran inside the loop above, before this

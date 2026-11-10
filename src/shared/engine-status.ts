@@ -15,6 +15,8 @@ export interface ModelStatus {
   error?: string;
 }
 
+export type EngineSource = 'in-browser' | 'local-server';
+
 export interface EngineStatus {
   model: ModelStatus;
   backend: BackendKind | null;
@@ -30,6 +32,8 @@ export interface EngineStatus {
   active: EngineKind | null;
   /** True when the stored model was missing and another installed model is in use. */
   modelFallback?: boolean;
+  /** Where PLaMo requests are sent. Missing means the built-in engine. */
+  engineSource?: EngineSource;
 }
 
 const MODEL_STATES: ReadonlySet<string> = new Set<ModelState>([
@@ -43,7 +47,8 @@ const MODEL_STATES: ReadonlySet<string> = new Set<ModelState>([
   'error',
 ]);
 
-const BACKENDS: ReadonlySet<string> = new Set<BackendKind>(['webgpu', 'cpu-wasm']);
+const BACKENDS: ReadonlySet<string> = new Set<BackendKind>(['webgpu', 'cpu-wasm', 'local-server']);
+const ENGINE_SOURCES: ReadonlySet<string> = new Set<EngineSource>(['in-browser', 'local-server']);
 const TIERS: ReadonlySet<string> = new Set<ComputeTier>(['g', 'c8', 'c4', 'c1']);
 const ENGINES: ReadonlySet<string> = new Set<EngineKind>(['plamo', 'chrome']);
 
@@ -80,6 +85,18 @@ export function modelStartBlocked(status: Pick<ModelStatus, 'state'> | null | un
   return state !== 'ready' && state !== 'loaded' && state !== 'loading';
 }
 
+/**
+ * True when a control that starts a PLaMo translation should stay disabled. A local server
+ * does not need the GGUF file on disk; the request fails later if that server is down.
+ */
+export function translationStartBlocked(
+  status: Pick<EngineStatus, 'model' | 'engineSource'> | null | undefined,
+): boolean {
+  if (!status) return false;
+  if (status.engineSource === 'local-server') return false;
+  return modelStartBlocked(status.model);
+}
+
 export function isEngineStatus(value: unknown): value is EngineStatus {
   if (typeof value !== 'object' || value === null) return false;
   const record = value as Record<string, unknown>;
@@ -106,5 +123,11 @@ export function isEngineStatus(value: unknown): value is EngineStatus {
     return false;
   }
   if (record.modelFallback !== undefined && typeof record.modelFallback !== 'boolean') return false;
+  if (
+    record.engineSource !== undefined &&
+    (typeof record.engineSource !== 'string' || !ENGINE_SOURCES.has(record.engineSource))
+  ) {
+    return false;
+  }
   return true;
 }

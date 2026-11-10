@@ -178,7 +178,7 @@
     "message": "Privacidad"
   },
   "privacyBody": {
-    "message": "Esta extensión no envía texto de página a un servidor. No hay telemetría."
+    "message": "De forma predeterminada, esta extensión no envía el texto de la página a un servidor de traducción. No hay telemetría."
   },
   "privacyDestinations": {
     "message": "La solicitud propia de la extensión es la descarga del modelo. Comienza en huggingface.co y sigue el redireccionamiento de Hugging Face a su CDN. El texto de la página no se incluye. Chrome descarga sus paquetes de idiomas por sí mismo."
@@ -1046,5 +1046,83 @@
   },
   "tierCpu1": {
     "message": "CPU (1 thread)"
+  },
+  "runtimeLocalServer": {
+    "message": "Servidor local"
+  },
+  "engineSourceLabel": {
+    "message": "Motor de traducción"
+  },
+  "engineSourceInBrowser": {
+    "message": "Integrado (en este dispositivo)"
+  },
+  "engineSourceLocalServer": {
+    "message": "Servidor local (compatible con OpenAI)"
+  },
+  "engineSourceHelp": {
+    "message": "El motor integrado es el predeterminado. Un servidor local como mlx_lm.server o LM Studio puede ejecutar PLaMo en Apple Silicon o una GPU. El texto se envía solo a la dirección que indiques."
+  },
+  "localServerUrlLabel": {
+    "message": "URL del servidor"
+  },
+  "localServerModelLabel": {
+    "message": "Modelo"
+  },
+  "localServerApiKeyLabel": {
+    "message": "Clave API (opcional)"
+  },
+  "localServerTimeoutLabel": {
+    "message": "Tiempo de espera (segundos)"
+  },
+  "localServerTestButton": {
+    "message": "Probar conexión"
+  },
+  "localServerTestOk": {
+    "message": "Conectado."
+  },
+  "localServerTestFail": {
+    "message": "No se pudo usar este servidor."
+  },
+  "localServerModelsEmpty": {
+    "message": "(ninguno — escribe un nombre)"
+  },
+  "localServerPresetMlx": {
+    "message": "mlx_lm.server"
+  },
+  "localServerPresetLmStudio": {
+    "message": "LM Studio"
+  },
+  "localServerPresetHelp": {
+    "message": "Los ajustes rápidos rellenan la URL. El serve.py MLX de PLaMo suele usar el puerto 8000. Las peticiones usan /v1/completions con el prompt PLaMo de Sakutto, no chat completions."
+  },
+  "localServerNonLocalWarning": {
+    "message": "Esta dirección no es este equipo. El texto de la página se enviará allí. Lo entiendo."
+  },
+  "localServerPermissionDenied": {
+    "message": "El navegador no concedió acceso a esta dirección."
+  },
+  "localServerHelp": {
+    "message": "Arranca primero el servidor, carga un modelo PLaMo 3 Translate y prueba la conexión. Si no responde, la página conserva el original."
+  },
+  "localServerUnreachable": {
+    "message": "No se pudo contactar con el servidor local. Abre Ajustes y comprueba que esté en marcha."
+  },
+  "localServerModelMissing": {
+    "message": "El servidor no tiene un modelo coincidente. Carga un modelo o elige uno en Ajustes."
+  },
+  "localServerTimeout": {
+    "message": "El servidor local agotó el tiempo. Se conservó el texto original."
+  },
+  "localServerFailed": {
+    "message": "El servidor local no pudo traducir esto. Abre Ajustes. Se conservó el texto original."
+  },
+  "diagBackendLocalServer": {
+    "message": "Servidor local"
+  },
+  "privacyBodyLocalServer": {
+    "message": "Si eliges un servidor local, el texto a traducir se envía solo a la dirección que indiques (de forma predeterminada, este equipo). El desarrollador no lo recibe."
+  },
+  "localServerLicenseNote": {
+    "message": "Otros modelos que cargues en ese servidor son tu responsabilidad de licencia. Los pesos de PLaMo siguen bajo la PLaMo Community License."
   }
 }

@@ -223,6 +223,10 @@ describe('headline numbers', () => {
       accelerator: 'webgpu',
       accelerateLabel: 'WebGPU',
     });
+    expect(acceleratorFor({ mode: 'live', backend: 'local-server' })).toEqual({
+      accelerator: 'local-server',
+      accelerateLabel: 'local server',
+    });
     expect(acceleratorFor({ mode: 'mock', backend: null }).accelerator).toBe('mock');
     expect(acceleratorFor({ mode: 'live', backend: null }).accelerator).toBe('unknown');
   });

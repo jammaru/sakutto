@@ -30,6 +30,7 @@
   import { runtimeLabel } from '@/ui/runtime-label';
   import SettingsFields from '@/ui/SettingsFields.svelte';
   import ShortcutSettings from '@/ui/ShortcutSettings.svelte';
+  import LocalServerSettings from '@/ui/LocalServerSettings.svelte';
 
   type SettingsError = 'load' | 'save' | null;
   type CacheState = 'cleared' | 'failed' | null;
@@ -362,6 +363,7 @@
   <section class="panel">
     <h2>{t('engineHeading')}</h2>
     {#if settings}
+      <LocalServerSettings {settings} onUpdate={updateSettings} />
       <label class="field">
         <span>{t('tierLabel')}</span>
         <select value={settings.tier} onchange={changeTier}>
@@ -396,7 +398,9 @@
             ? t('diagBackendGpu')
             : engine?.backend === 'cpu-wasm'
               ? t('diagBackendCpu')
-              : t('diagBackendUnknown')}
+              : engine?.backend === 'local-server'
+                ? t('diagBackendLocalServer')
+                : t('diagBackendUnknown')}
         </dd>
       </div>
       <div>
@@ -416,6 +420,7 @@
   <section class="panel">
     <h2>{t('privacyHeading')}</h2>
     <p>{t('privacyBody')}</p>
+    <p class="muted">{t('privacyBodyLocalServer')}</p>
     <p class="muted">{tForBrowser('privacyDestinations', 'privacyDestinationsFirefox')}</p>
     <ul class="links">
       <li>

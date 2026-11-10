@@ -53,7 +53,16 @@ cs、da、el、fi、kn、no、pt、ro、sv、tr、uk の 11 言語は、Chrome �
 
 ## プライバシー
 
-翻訳は端末の中で行います。ページの本文、選択範囲、用語集、訳文を、開発者や翻訳サーバーへ送ることはありません。アカウント、広告、テレメトリもありません。拡張機能自身の通信は、Hugging Face からのモデルの取得だけです。ポリシーは [PRIVACY.md](PRIVACY.md) と https://jammaru.com/sakutto/privacy/ にあります。
+既定では翻訳は端末の中で行います。ページの本文、選択範囲、用語集、訳文を開発者へ送ることはありません。アカウント、広告、テレメトリもありません。内蔵エンジンについての拡張機能自身の通信は、Hugging Face からのモデルの取得です。設定で **ローカルサーバー**（mlx_lm.server、LM Studio など、この端末上の OpenAI 互換プロセス）をオンにすると、翻訳する文字は設定したアドレスにだけ送ります。開発者は受け取りません。ポリシーは [PRIVACY.md](PRIVACY.md) と https://jammaru.com/sakutto/privacy/ にあります。
+
+## ローカルサーバー（MLX / LM Studio）
+
+既定のエンジンは同梱の wllama（WebGPU または CPU）です。設定で、PLaMo のリクエストをこの端末の OpenAI 互換サーバーへ向けられます。Sakutto の PFML3 プロンプトを raw の `/v1/completions` に送ります。chat completions は使いません。手順の例:
+
+- `mlx_lm.server` — 既定 `http://127.0.0.1:8080/v1`。PLaMo の MLX-4bit は [PLaMo 3 Translate のコレクション](https://huggingface.co/collections/pfnet/plamo-3-translate)
+- LM Studio — 既定 `http://127.0.0.1:1234/v1`
+
+設計、モデル、Linux では測っていないこと: [docs/design/mlx-backend.md](docs/design/mlx-backend.md)。Mac での計測: [bench/README.md](bench/README.md)。
 
 ## ビルド
 

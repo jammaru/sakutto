@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
   import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
-  import { isEngineError } from '@/engine/errors';
+  import { isEngineError, isLocalServerError } from '@/engine/errors';
   import type { EngineStatus } from '@/shared/engine-status';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';
   import { currentUiLanguage, t } from '@/shared/i18n';
@@ -40,6 +40,13 @@
   let result = $state('');
   let translating = $state(false);
   let resultError = $state(false);
+  let resultErrorKey = $state<
+    | 'typedFailed'
+    | 'localServerUnreachable'
+    | 'localServerTimeout'
+    | 'localServerModelMissing'
+    | 'localServerFailed'
+  >('typedFailed');
   let copied = $state(false);
   let copyFailed = $state(false);
   let downloadBusy = $state(false);
@@ -95,8 +102,24 @@
   function resetResult() {
     result = '';
     resultError = false;
+    resultErrorKey = 'typedFailed';
     copied = false;
     copyFailed = false;
+  }
+
+  function typedServerErrorKey(
+    error: unknown,
+  ):
+    | 'typedFailed'
+    | 'localServerUnreachable'
+    | 'localServerTimeout'
+    | 'localServerModelMissing'
+    | 'localServerFailed' {
+    if (!isLocalServerError(error)) return 'typedFailed';
+    if (error.code === 'server-unavailable') return 'localServerUnreachable';
+    if (error.code === 'server-timeout') return 'localServerTimeout';
+    if (error.code === 'server-model-missing') return 'localServerModelMissing';
+    return 'localServerFailed';
   }
 
   function clearBoth() {
@@ -136,6 +159,7 @@
     } catch (error) {
       if (!controller.signal.aborted) {
         resultError = true;
+        resultErrorKey = typedServerErrorKey(error);
         if (isEngineError(error)) await refreshEngine();
       }
     } finally {
@@ -331,7 +355,7 @@
         {:else if readiness === 'model-error'}
           <p class="error note" role="alert">{t('typedModelError')}</p>
         {:else if resultError}
-          <p class="error note" role="alert">{t('typedFailed')}</p>
+          <p class="error note" role="alert">{t(resultErrorKey)}</p>
         {:else if result.trim().length > 0}
           <output class="result" lang={targetLanguage} aria-labelledby="typed-result-title"
             >{result}</output

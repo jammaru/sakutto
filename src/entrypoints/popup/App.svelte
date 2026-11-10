@@ -3,7 +3,11 @@
   import { browser } from 'wxt/browser';
   import { HIGH_QUALITY_MODEL_ID, getModel } from '@/engine/model/catalog';
   import { shouldSuggestHighQuality } from '@/engine/model/suggestion';
-  import { modelStartBlocked, type EngineStatus, type ModelStatus } from '@/shared/engine-status';
+  import {
+    translationStartBlocked,
+    type EngineStatus,
+    type ModelStatus,
+  } from '@/shared/engine-status';
   import { hasLicenseConsent } from '@/shared/agreement';
   import { currentUiLanguage, t, type MessageKey } from '@/shared/i18n';
   import {
@@ -125,7 +129,7 @@
   let canStart = $derived(
     translated ||
       (hasBuiltInTranslatorUi() && isChromeOnlyLanguage(targetLanguage)) ||
-      !modelStartBlocked(engine?.model ?? modelMark),
+      !translationStartBlocked(engine ?? (modelMark ? { model: modelMark } : null)),
   );
   let engineText = $derived.by(() => {
     const label = runtimeLabel({
@@ -391,7 +395,9 @@
         ? t('diagBackendGpu')
         : engine.backend === 'cpu-wasm'
           ? t('diagBackendCpu')
-          : t('diagBackendUnknown')) +
+          : engine.backend === 'local-server'
+            ? t('diagBackendLocalServer')
+            : t('diagBackendUnknown')) +
         (engine.threads !== null ? ` · ${t('diagThreads')} ${String(engine.threads)}` : '') +
         (engine.parallel !== null ? ` · n_parallel ${String(engine.parallel)}` : '')}
     </p>
