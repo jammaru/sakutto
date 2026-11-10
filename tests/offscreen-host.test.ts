@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DEFAULT_MODEL_ID, type ModelId } from '@/engine/model/catalog';
+import { DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID, type ModelId } from '@/engine/model/catalog';
 import type { DownloadProgress } from '@/engine/model/download';
 import type { BackendSelection } from '@/engine/in-browser/backend';
 import { EngineError } from '@/engine/errors';
@@ -186,6 +186,55 @@ describe('EngineHost', () => {
     await flushTasks();
 
     expect(port.sent).toHaveLength(0);
+  });
+
+  it('keeps a high-accuracy selection after Use instead of reverting to Standard', async () => {
+    const { services } = createServices();
+    services.manager.status = vi.fn(async (modelId: ModelId) =>
+      modelStatus({ id: modelId, state: 'ready' }),
+    );
+    const host = createHost(services);
+    const port = new FakePort();
+    host.handlePort(port.port);
+
+    port.emit({ type: 'model-use', requestId: 'u1', modelId: HIGH_QUALITY_MODEL_ID });
+    await flushTasks();
+    port.emit({ type: 'status', requestId: 's1' });
+    await flushTasks();
+
+    const status = port.messagesOfType('response').at(-1) as {
+      value?: { model?: { id?: string } };
+    };
+    expect(status.value?.model?.id).toBe(HIGH_QUALITY_MODEL_ID);
+  });
+
+  it('falls back to an installed model when the selected one is deleted', async () => {
+    const { services } = createServices();
+    const files = new Map<ModelId, ModelStatus['state']>([
+      [DEFAULT_MODEL_ID, 'ready'],
+      [HIGH_QUALITY_MODEL_ID, 'ready'],
+    ]);
+    services.manager.status = vi.fn(async (modelId: ModelId) =>
+      modelStatus({ id: modelId, state: files.get(modelId) ?? 'absent' }),
+    );
+    services.manager.deleteModel = vi.fn(async (modelId: ModelId) => {
+      files.set(modelId, 'absent');
+    });
+    const host = createHost(services);
+    const port = new FakePort();
+    host.handlePort(port.port);
+
+    port.emit({ type: 'model-delete', requestId: 'd1', modelId: DEFAULT_MODEL_ID });
+    await flushTasks();
+    port.emit({ type: 'status', requestId: 's1' });
+    await flushTasks();
+
+    const status = port.messagesOfType('response').at(-1) as {
+      value?: { model?: { id?: string }; modelFallback?: boolean; plamoReady?: boolean };
+    };
+    expect(status.value?.model?.id).toBe(HIGH_QUALITY_MODEL_ID);
+    expect(status.value?.modelFallback).toBe(true);
+    expect(status.value?.plamoReady).toBe(true);
   });
 });
 

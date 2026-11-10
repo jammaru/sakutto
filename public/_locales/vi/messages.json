@@ -644,6 +644,12 @@
   "modelDelete": {
     "message": "Xóa"
   },
+  "modelSelectionFallback": {
+    "message": "Mô hình đã chọn không có trên thiết bị này, nên Sakutto đã chuyển sang mô hình đã cài."
+  },
+  "modelSelectionMissing": {
+    "message": "Chưa có mô hình dịch. Tải một mô hình để dịch."
+  },
   "highQualityOffer": {
     "message": "Bạn có thể dùng thử mô hình có độ chính xác cao hơn (2B, khoảng 1,81 GB). Tốc độ tùy thuộc vào thiết bị này."
   },

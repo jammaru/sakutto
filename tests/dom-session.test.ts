@@ -1258,13 +1258,35 @@ describe('page session', () => {
     await session.translate();
     await session.whenIdle();
 
-    expect(patches).toEqual(['ja']);
+    expect(patches).toEqual([]);
     expect(document.documentElement.lang).toBe('ja');
     expect(document.body.textContent).toContain('訳:Hello world');
 
     session.restore();
     expect(document.documentElement.lang).toBe('en');
     expect(document.documentElement.hasAttribute('data-sakutto-source-lang')).toBe(false);
+  });
+
+  it('keeps a saved Japanese target on a Japanese page and does not store a site language', async () => {
+    document.documentElement.lang = 'ja';
+    document.body.innerHTML = '<p>こんにちは</p>';
+    const patches: Array<{ targetLanguage?: string }> = [];
+    const session = new PageSession(document, {
+      engine: immediate((text) => `EN:${text}`),
+      labels,
+      preferences: preferences({ targetLanguage: 'ja', targetExplicit: true }),
+      scheduleFrame: (callback) => callback(),
+      onSitePatch: (patch) => {
+        patches.push(patch);
+      },
+    });
+    sessions.push(session);
+
+    await session.translate();
+    await session.whenIdle();
+
+    expect(session.state().targetLanguage).toBe('ja');
+    expect(patches.some((patch) => patch.targetLanguage !== undefined)).toBe(false);
   });
 
   it('keeps navigation on one line in bilingual view and skips the original tooltip', async () => {

@@ -2,12 +2,12 @@
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
   import {
-    DEFAULT_MODEL_ID,
     HIGH_QUALITY_MODEL_ID,
+    SELECTABLE_MODEL_IDS,
     getModel,
     type ModelId,
   } from '@/engine/model/catalog';
-  import type { ModelStatus } from '@/shared/engine-status';
+  import { modelCanTranslate, type ModelStatus } from '@/shared/engine-status';
   import { hasLicenseConsent } from '@/shared/agreement';
   import { t } from '@/shared/i18n';
   import {
@@ -22,11 +22,18 @@
   import { loadSettings } from '@/shared/storage';
   import { formatByteSize } from './format';
 
-  const models: ModelId[] = [DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID];
+  const models: readonly ModelId[] = SELECTABLE_MODEL_IDS;
 
   let statuses = $state<Partial<Record<ModelId, ModelStatus>>>({});
-  let activeId = $state<ModelId>(DEFAULT_MODEL_ID);
+  let activeId = $state<ModelId | null>(null);
+  let fallback = $state(false);
   let busy = $state<ModelId | null>(null);
+  let anyInstalled = $derived(
+    models.some((id) => {
+      const state = statuses[id]?.state;
+      return state !== undefined && (modelCanTranslate({ state }) || state === 'loading');
+    }),
+  );
 
   function label(id: ModelId): string {
     return id === HIGH_QUALITY_MODEL_ID ? t('modelHigh') : t('modelStandard');
@@ -39,7 +46,10 @@
 
   async function refresh() {
     const engine = await requestEngineStatus();
-    if (engine) activeId = engine.model.id;
+    if (engine) {
+      activeId = engine.model.id;
+      fallback = engine.modelFallback === true;
+    }
     const next: Partial<Record<ModelId, ModelStatus>> = { ...statuses };
     for (const id of models) {
       const status = await requestModelInspect(id);
@@ -73,7 +83,7 @@
     busy = id;
     const status = await requestModelDelete(id);
     if (status) apply(status);
-    if (activeId === id) activeId = DEFAULT_MODEL_ID;
+    await refresh();
     busy = null;
   }
 
@@ -87,6 +97,12 @@
     return () => browser.runtime.onMessage.removeListener(listener);
   });
 </script>
+
+{#if fallback}
+  <p class="muted" role="status">{t('modelSelectionFallback')}</p>
+{:else if !anyInstalled && Object.keys(statuses).length > 0}
+  <p class="error" role="alert">{t('modelSelectionMissing')}</p>
+{/if}
 
 <ul class="models">
   {#each models as id (id)}

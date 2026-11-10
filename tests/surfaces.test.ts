@@ -40,10 +40,23 @@ describe('start controls while the model downloads', () => {
     expect(modelManager).toMatch(/state === 'loading'[\s\S]{0,400}runtimeLoading/);
   });
 
+  it('surfaces a fallback when the selected model is missing', () => {
+    expect(modelManager).toContain('modelSelectionFallback');
+    expect(modelManager).toContain('modelSelectionMissing');
+    expect(modelManager).not.toMatch(/if \(activeId === id\) activeId = DEFAULT_MODEL_ID/);
+  });
+
   it('gates the popup translate button on the model the same way', () => {
     expect(popup).toContain('modelStartBlocked');
     expect(popup).toMatch(/canStart[\s\S]{0,200}isChromeOnlyLanguage\(targetLanguage\)/);
     expect(popup).toMatch(/disabled=\{[^}]*!canStart[^}]*\}/);
+  });
+
+  it('uses the saved global target instead of flipping it from the page language', () => {
+    expect(popup).toContain('effectivePageTarget');
+    expect(popup).not.toContain('resolvePageTarget');
+    expect(popup).toContain('changeTarget');
+    expect(popup).toContain('saveSettings({ targetLanguage: language })');
   });
 });
 

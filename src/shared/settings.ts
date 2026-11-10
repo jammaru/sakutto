@@ -1,3 +1,5 @@
+import { DEFAULT_MODEL_ID, type ModelId } from '@/engine/model/catalog';
+import { normalizeSelectedModelId } from '@/engine/model/selection';
 import type { GlossaryEntry } from '@/engine/types';
 import { normalizeGlossary } from './glossary';
 import {
@@ -85,6 +87,8 @@ export interface Settings {
   composeInstantReplace: boolean;
   /** Where the compose preview bar sits. Sites may override this from the bar menu. */
   composePlacement: ComposePlacement;
+  /** Which PLaMo GGUF the engine should load. Survives service-worker and offscreen restarts. */
+  selectedModelId: ModelId;
 }
 
 export type SettingsPatch = Partial<
@@ -103,6 +107,7 @@ export type SettingsPatch = Partial<
     | 'composeTargetLanguage'
     | 'composeInstantReplace'
     | 'composePlacement'
+    | 'selectedModelId'
   >
 > & {
   shortcutsEnabled?: Partial<ShortcutEnabled>;
@@ -124,6 +129,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   composeTargetLanguage: null,
   composeInstantReplace: false,
   composePlacement: 'above',
+  selectedModelId: DEFAULT_MODEL_ID,
 });
 
 export function createDefaultSettings(uiLanguage: string): Settings {
@@ -169,6 +175,7 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     composeTargetLanguage: normalizeComposeTarget(value.composeTargetLanguage),
     composeInstantReplace: value.composeInstantReplace === true,
     composePlacement: isComposePlacement(value.composePlacement) ? value.composePlacement : 'above',
+    selectedModelId: normalizeSelectedModelId(value.selectedModelId),
   };
 }
 

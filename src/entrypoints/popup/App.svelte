@@ -31,7 +31,11 @@
     type SiteRule,
   } from '@/dom/sites';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';
-  import { isChromeOnlyLanguage, resolvePageTarget, type TargetLanguage } from '@/shared/languages';
+  import {
+    effectivePageTarget,
+    isChromeOnlyLanguage,
+    type TargetLanguage,
+  } from '@/shared/languages';
   import { advanceModelStatus } from '@/shared/model-progress';
   import { openShortcutEditor } from '@/shared/shortcut-editor';
   import {
@@ -105,9 +109,8 @@
     return shortcut.length > 0 ? displayShortcut(shortcut) : t('shortcutUnset');
   }
 
-  let storedTarget = $derived(rule?.targetLanguage ?? settings?.targetLanguage ?? 'en');
   let targetLanguage = $derived(
-    resolvePageTarget(view?.pageLanguage ?? null, storedTarget, rule?.targetLanguage !== undefined),
+    effectivePageTarget(settings?.targetLanguage ?? 'en', rule?.targetLanguage),
   );
   let display = $derived(rule?.display ?? settings?.display ?? 'replace');
   let translated = $derived(view?.active === true);
@@ -209,6 +212,21 @@
     try {
       const current = await loadSiteRule(host);
       rule = await saveSiteRule({ ...current, ...patch, host });
+      settingsError = null;
+    } catch {
+      settingsError = 'save';
+    }
+  }
+
+  async function changeTarget(language: TargetLanguage) {
+    try {
+      settings = await saveSettings({ targetLanguage: language });
+      if (host && rule?.targetLanguage !== undefined) {
+        const current = await loadSiteRule(host);
+        const next = { ...current, host };
+        delete next.targetLanguage;
+        rule = await saveSiteRule(next);
+      }
       settingsError = null;
     } catch {
       settingsError = 'save';
@@ -364,6 +382,9 @@
   {/if}
 
   <p class="engine" aria-live="polite">{engineText}</p>
+  {#if engine?.modelFallback}
+    <p class="muted" role="status">{t('modelSelectionFallback')}</p>
+  {/if}
   {#if engine}
     <p class="muted">
       {(engine.backend === 'webgpu'
@@ -412,7 +433,7 @@
       <LanguageField
         value={targetLanguage}
         {uiLanguage}
-        onChange={(language: TargetLanguage) => rememberSite({ targetLanguage: language })}
+        onChange={(language: TargetLanguage) => void changeTarget(language)}
       />
       <label class="field">
         <span>{t('displayLabel')}</span>

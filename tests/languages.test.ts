@@ -4,6 +4,7 @@ import {
   CHROME_SUPPORTED_LANGUAGES,
   canonicalLanguage,
   chooseTargetLanguage,
+  effectivePageTarget,
   resolvePageTarget,
   fromChromeLanguage,
   isChromeLanguage,
@@ -89,5 +90,12 @@ describe('default target language', () => {
     expect(resolvePageTarget(null, 'en', false)).toBe('en');
     expect(resolvePageTarget('en', 'pt', true)).toBe('pt');
     expect(resolvePageTarget('en', 'en', true)).toBe('en');
+  });
+
+  it('uses the saved global target on every site unless that site stored its own', () => {
+    expect(effectivePageTarget('ja', undefined)).toBe('ja');
+    expect(effectivePageTarget('ja', 'en')).toBe('en');
+    expect(effectivePageTarget('en', undefined)).toBe('en');
+    expect(effectivePageTarget('xx', undefined)).toBe('en');
   });
 });

@@ -644,6 +644,12 @@
   "modelDelete": {
     "message": "Hapus"
   },
+  "modelSelectionFallback": {
+    "message": "Model yang dipilih tidak ada di perangkat ini, jadi Sakutto beralih ke model yang terpasang."
+  },
+  "modelSelectionMissing": {
+    "message": "Tidak ada model terjemahan. Unduh satu untuk menerjemahkan."
+  },
   "highQualityOffer": {
     "message": "Anda bisa mencoba model dengan akurasi lebih tinggi (2B, sekitar 1,81 GB). Kecepatannya bergantung pada perangkat ini."
   },

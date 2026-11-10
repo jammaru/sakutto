@@ -3,9 +3,9 @@ import { hasLicenseConsent } from '@/shared/agreement';
 import { lastGpuDiagnostic, probeCapabilities } from '@/shared/capabilities';
 import { mergeGpuDiagnostic, type GpuDiagnostic } from '@/shared/gpu-diagnostic';
 import { canonicalLanguage } from '@/shared/languages';
-import type { EngineStatus, ModelStatus } from '@/shared/engine-status';
+import { modelCanTranslate, type EngineStatus, type ModelStatus } from '@/shared/engine-status';
 import { advanceModelStatus } from '@/shared/model-progress';
-import { loadSettings } from '@/shared/storage';
+import { loadSettings, saveSettings } from '@/shared/storage';
 import type { TierPreference } from '@/shared/settings';
 import { MemoryTranslationCacheStore, IndexedDbTranslationCacheStore } from '../cache/store';
 import { CachingEngine } from '../cache/caching-engine';
@@ -23,7 +23,8 @@ import {
 } from '../in-browser/backend';
 import { LazyInBrowserEngine } from '../in-browser/lazy-engine';
 import { createWllamaRuntime, lastWebGpuLoadLog, type LlamaRuntime } from '../in-browser/runtime';
-import { DEFAULT_MODEL_ID, getModel, type ModelId } from '../model/catalog';
+import { DEFAULT_MODEL_ID, SELECTABLE_MODEL_IDS, getModel, type ModelId } from '../model/catalog';
+import { normalizeSelectedModelId, resolveActiveModel } from '../model/selection';
 import { OpfsModelFileStore } from '../model/file-store';
 import { ModelManager, type LoadedModel } from '../model/manager';
 import type { DownloadProgress } from '../model/download';
@@ -156,6 +157,7 @@ export class EngineHost {
   private readonly requests = new Map<string, HostRequest>();
   private readonly downloads = new Map<ModelId, ActiveDownload>();
   private activeModelId: ModelId = DEFAULT_MODEL_ID;
+  private modelFallback = false;
   private plamoReady = false;
   private warming = false;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
@@ -231,6 +233,7 @@ export class EngineHost {
     const selectionState = { current: selection };
     const store = await OpfsModelFileStore.open();
     const manager = new ModelManager({ store, createRuntime: createWllamaRuntime });
+    await this.restoreActiveModel(manager, stored?.selectedModelId);
     const cache = await openCache();
     const chrome = new ChromeTranslatorEngine();
     const load = async (signal: AbortSignal): Promise<LoadedModel> => {
@@ -287,7 +290,7 @@ export class EngineHost {
     });
 
     const model = await manager.status(this.activeModelId);
-    this.plamoReady = model.state === 'ready' || model.state === 'loaded';
+    this.plamoReady = modelCanTranslate(model);
 
     return {
       manager,
@@ -528,7 +531,7 @@ export class EngineHost {
       const status = await services.manager.status(modelId);
       download.status = status;
       if (modelId === this.activeModelId) {
-        this.plamoReady = status.state === 'ready' || status.state === 'loaded';
+        this.plamoReady = modelCanTranslate(status);
       }
       return status;
     } finally {
@@ -561,9 +564,7 @@ export class EngineHost {
 
       if (request.modelId === this.activeModelId) {
         services.lazy.reset();
-        this.activeModelId = DEFAULT_MODEL_ID;
-        const fallback = await services.manager.status(DEFAULT_MODEL_ID);
-        this.plamoReady = fallback.state === 'ready' || fallback.state === 'loaded';
+        await this.applyResolvedModel(services.manager, this.activeModelId, true);
       }
 
       this.respond(port, request.requestId, await services.manager.status(request.modelId));
@@ -589,9 +590,11 @@ export class EngineHost {
       services.lazy.reset();
       await services.manager.unload();
       this.activeModelId = modelId;
+      this.modelFallback = false;
+      await this.persistActiveModel();
 
       const status = await services.manager.status(modelId);
-      this.plamoReady = status.state === 'ready' || status.state === 'loaded';
+      this.plamoReady = modelCanTranslate(status);
       this.respond(port, requestId, status);
     } catch (error) {
       this.respondError(port, requestId, error);
@@ -624,7 +627,7 @@ export class EngineHost {
       model = { ...model, state: 'loading' };
     }
 
-    this.plamoReady = model.state === 'ready' || model.state === 'loaded';
+    this.plamoReady = modelCanTranslate(model);
     const loaded = services.manager.loadedModel;
     const selection = loaded?.selection ?? services.selection;
 
@@ -639,7 +642,33 @@ export class EngineHost {
       plamoReady: this.plamoReady,
       chromeSupported: services.chrome.available,
       active: services.router.activeEngine,
+      ...(this.modelFallback ? { modelFallback: true } : {}),
     };
+  }
+
+  private async restoreActiveModel(manager: ModelManager, storedId: unknown): Promise<void> {
+    await this.applyResolvedModel(manager, normalizeSelectedModelId(storedId), false);
+  }
+
+  private async applyResolvedModel(
+    manager: ModelManager,
+    preferred: ModelId,
+    persist: boolean,
+  ): Promise<void> {
+    const statuses = await Promise.all(
+      SELECTABLE_MODEL_IDS.map((modelId) => manager.status(modelId)),
+    );
+    const resolved = resolveActiveModel(preferred, statuses);
+    this.activeModelId = resolved.modelId;
+    this.modelFallback = resolved.fallback;
+    const active = statuses.find((status) => status.id === resolved.modelId);
+    this.plamoReady = active ? modelCanTranslate(active) : false;
+    if (persist || resolved.fallback) await this.persistActiveModel();
+  }
+
+  private async persistActiveModel(): Promise<void> {
+    if (!browser.storage?.local) return;
+    await saveSettings({ selectedModelId: this.activeModelId }).catch(() => undefined);
   }
 
   private async handleModelStatus(

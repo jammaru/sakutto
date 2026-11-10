@@ -12,8 +12,8 @@ import {
 
 let extension: LoadedExtension;
 
-async function openFixture(path: string): Promise<Page> {
-  await resetExtensionStorage(extension.worker);
+async function openFixture(path: string, options: { targetLanguage?: string } = {}): Promise<Page> {
+  await resetExtensionStorage(extension.worker, options);
   const page = await extension.context.newPage();
   await page.goto(`${FIXTURE_ORIGIN}${path}`);
   await commandPage(extension.worker, page, 'toggle');
@@ -168,7 +168,7 @@ test.describe('in-page translation', () => {
   });
 
   test('translates a Wikipedia-like article without leaking markup', async () => {
-    const page = await openFixture('/wiki.html');
+    const page = await openFixture('/wiki.html', { targetLanguage: 'ja' });
     try {
       await expect(page.locator('#lead')).toContainText('§ja§');
       await expect(page.locator('#lead .IPA')).toHaveText('oːsaka');
@@ -211,7 +211,7 @@ test.describe('in-page translation', () => {
     // one request, and the translation was written into the whitespace between the cells.
     // Each of those runs became an anonymous grid item, so every cell after it moved one
     // slot along and the row became a vertical pile.
-    await resetExtensionStorage(extension.worker);
+    await resetExtensionStorage(extension.worker, { targetLanguage: 'ja' });
     const page = await extension.context.newPage();
     try {
       await page.goto(`${FIXTURE_ORIGIN}/ranking.html`);
@@ -260,7 +260,7 @@ test.describe('in-page translation', () => {
       );
 
       // Row text is PLaMo's, and no row was stamped as a Chrome translation. The fixture is
-      // English, so the target adjusts to Japanese and PLaMo's fake marker is `§ja§`.
+      // English; the test sets Japanese as the global target so the fake marker is `§ja§`.
       await expect(page.locator('#rows > li').first()).toContainText('§ja§');
       await expect(page.locator('[data-sakutto-engine="chrome"]')).toHaveCount(0);
       await expect(page.locator('sakutto-note')).toHaveCount(0);

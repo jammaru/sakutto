@@ -644,6 +644,12 @@
   "modelDelete": {
     "message": "Supprimer"
   },
+  "modelSelectionFallback": {
+    "message": "Le modèle choisi n’est pas sur cet appareil, Sakutto est donc passé à un modèle installé."
+  },
+  "modelSelectionMissing": {
+    "message": "Aucun modèle de traduction n’est installé. Téléchargez-en un pour traduire."
+  },
   "highQualityOffer": {
     "message": "Vous pouvez essayer le modèle de plus haute précision (2B, environ 1,81 Go). La vitesse dépend de cet appareil."
   },

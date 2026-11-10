@@ -644,6 +644,12 @@
   "modelDelete": {
     "message": "删除"
   },
+  "modelSelectionFallback": {
+    "message": "所选模型不在此设备上，因此 Sakutto 已改用已安装的模型。"
+  },
+  "modelSelectionMissing": {
+    "message": "尚未安装翻译模型。请先下载才能翻译。"
+  },
   "highQualityOffer": {
     "message": "你可以尝试精度更高的模型（2B，约 1.81 GB）。速度取决于这款设备。"
   },
