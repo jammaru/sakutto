@@ -1102,7 +1102,7 @@
     "message": "浏览器未授予访问此地址的权限。"
   },
   "localServerHelp": {
-    "message": "请先启动服务器并加载 PLaMo 3 Translate 模型，再测试连接。如果服务器不可用，页面会保留原文。"
+    "message": "请先启动服务器并加载 PLaMo 3 Translate 模型，再测试连接。如果服务器不可用，页面会保留原文。 In LM Studio, set temperature 0 / greedy. Prompt parity is measured against mlx_lm.server and PLaMo's serve.py; LM Studio's BOS handling is unverified."
   },
   "localServerUnreachable": {
     "message": "无法连接本地服务器。请打开设置并确认它正在运行。"
@@ -1124,5 +1124,14 @@
   },
   "localServerLicenseNote": {
     "message": "你在该服务器上加载的其他模型的许可由你负责。PLaMo 权重仍适用 PLaMo Community License。"
+  },
+  "localServerParallelLabel": {
+    "message": "Concurrent requests"
+  },
+  "localServerParallelHelp": {
+    "message": "How many completions the server may run at once (1–16). The page keeps extra requests ready so a finished slot is not left idle."
+  },
+  "localServerTestOkUnlisted": {
+    "message": "Connected. Completions work. The server listed no models — keep the model name you typed; it was not verified from /v1/models."
   }
 }

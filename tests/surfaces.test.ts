@@ -166,6 +166,49 @@ describe('WebGPU diagnostic on settings', () => {
   });
 });
 
+describe('local server settings', () => {
+  const options = source('entrypoints/options/App.svelte');
+  const panel = source('ui/LocalServerSettings.svelte');
+  const typed = source('entrypoints/typed/App.svelte');
+
+  it('hides the GPU/CPU tier picker while a local server is selected', () => {
+    expect(options).toContain("settings.engineSource !== 'local-server'");
+    expect(options).toContain('tierLabel');
+  });
+
+  it('resets remote confirmation when the origin changes, and asks for permission after the checkbox', () => {
+    expect(panel).toContain('serverOriginKey');
+    expect(panel).toContain('patch.localServerAllowRemote = false');
+    expect(panel).toContain('changeAllowRemote');
+    expect(panel).toContain('grantIfNeeded');
+    expect(panel).not.toContain('<select value={settings.localServerModel}');
+  });
+
+  it('passes engineSource into typed readiness so a GGUF download does not block local-server', () => {
+    expect(typed).toContain('engineSource:');
+    expect(typed).toContain('typedReadiness');
+  });
+
+  it('pushes engineSource from the service worker because Chrome offscreen has no chrome.storage', () => {
+    const client = source('background/engine-client.ts');
+    const host = source('engine/offscreen/host.ts');
+    const background = source('entrypoints/background.ts');
+    const firefox = source('background/firefox-engine-frame.ts');
+    expect(client).toContain("type: 'source-set'");
+    expect(client).toContain('ensureSource');
+    expect(background).toContain('client.setSource');
+    expect(host).toContain('new JobScheduler(localRuntime.parallel, false)');
+    expect(host).toContain('browser.storage?.local');
+    expect(firefox).toContain('source-set');
+  });
+
+  it('exposes a concurrent-request limit for the local HTTP server', () => {
+    expect(panel).toContain('localServerParallel');
+    expect(panel).toContain('sakutto-local-server-models');
+    expect(source('dom/session.ts')).toContain("this.prefs.engineSource === 'local-server' ? 1");
+  });
+});
+
 describe('offscreen debug profile wiring', () => {
   it('applies the URL param without reading chrome.storage', () => {
     const offscreen = source('entrypoints/offscreen/main.ts');

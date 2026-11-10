@@ -15,6 +15,7 @@ import {
   type ModelUseRequest,
   type ModelWarmRequest,
   type PingRequest,
+  type SourceSetRequest,
   type StatusRequest,
   type TierSetRequest,
   type TranslateRequest,
@@ -28,7 +29,8 @@ import {
   type EngineStatus,
   type ModelStatus,
 } from '@/shared/engine-status';
-import type { TierPreference } from '@/shared/settings';
+import type { Settings, TierPreference } from '@/shared/settings';
+import { loadSettings } from '@/shared/storage';
 import type { OffscreenController } from './offscreen-lifecycle';
 
 type RequestWithoutId =
@@ -41,6 +43,7 @@ type RequestWithoutId =
   | Omit<ModelStatusRequest, 'requestId'>
   | Omit<CacheClearRequest, 'requestId'>
   | Omit<TierSetRequest, 'requestId'>
+  | Omit<SourceSetRequest, 'requestId'>
   | Omit<BenchmarkRequest, 'requestId'>;
 
 const DOWNLOAD_ATTACH_ATTEMPTS = 3;
@@ -88,10 +91,12 @@ export class EngineClient {
   private readonly streams = new Map<string, ChunkStream<TranslationChunk>>();
   private readonly progress = new Map<string, (status: ModelStatus) => void>();
   private readonly modelMarks = new Map<string, ModelStatus>();
+  private sourceKey = '';
 
   constructor(private readonly controller: OffscreenController) {}
 
   async status(): Promise<EngineStatus> {
+    await this.ensureSource();
     const value = await this.request({ type: 'status' }, { timeoutMs: 15_000 });
     if (!isEngineStatus(value)) throw hostError('The engine host returned an invalid status.');
     return value;
@@ -102,6 +107,7 @@ export class EngineClient {
   }
 
   async ping(): Promise<void> {
+    await this.ensureSource();
     await this.request({ type: 'ping' }, { timeoutMs: 2_000, retry: false, recover: false });
   }
 
@@ -118,6 +124,7 @@ export class EngineClient {
   }
 
   async warmModel(): Promise<ModelStatus> {
+    await this.ensureSource();
     const value = await this.request({ type: 'model-warm' }, { timeoutMs: 120_000, retry: false });
     if (!isModelStatus(value)) throw hostError('The engine host returned an invalid status.');
     return value;
@@ -135,6 +142,25 @@ export class EngineClient {
 
   async setTier(tier: TierPreference): Promise<void> {
     await this.request({ type: 'tier-set', tier }, { timeoutMs: 30_000 });
+  }
+
+  async setSource(settings: Settings): Promise<void> {
+    const payload = sourceSetPayload(settings);
+    const key = sourceKeyOf(payload);
+    await this.request(payload, { timeoutMs: 15_000 });
+    this.sourceKey = key;
+  }
+
+  /**
+   * Chrome's offscreen document cannot read chrome.storage. Push the current source
+   * before any status, warm, or translate so local-server actually takes effect.
+   */
+  private async ensureSource(): Promise<void> {
+    const settings = await loadSettings().catch(() => null);
+    if (!settings) return;
+    const key = sourceKeyOf(sourceSetPayload(settings));
+    if (key === this.sourceKey && this.port) return;
+    await this.setSource(settings);
   }
 
   async benchmark(): Promise<number | null> {
@@ -210,6 +236,8 @@ export class EngineClient {
 
     try {
       const port = await this.connect();
+      if (cancelled || options.signal.aborted) return;
+      await this.ensureSource();
       if (cancelled || options.signal.aborted) return;
 
       port.postMessage({
@@ -356,6 +384,7 @@ export class EngineClient {
 
   private handleDisconnect(): void {
     this.port = null;
+    this.sourceKey = '';
     this.failAll(hostError('The translation host was closed.'));
   }
 
@@ -392,4 +421,32 @@ export class EngineClient {
 
 function isHostGone(error: unknown): boolean {
   return error instanceof EngineError && error.code === 'offscreen-unavailable';
+}
+
+function sourceSetPayload(settings: Settings): Omit<SourceSetRequest, 'requestId'> {
+  return {
+    type: 'source-set',
+    engineSource: settings.engineSource,
+    localServer: {
+      url: settings.localServerUrl,
+      model: settings.localServerModel,
+      apiKey: settings.localServerApiKey,
+      timeoutMs: settings.localServerTimeoutMs,
+      allowRemote: settings.localServerAllowRemote,
+      parallel: settings.localServerParallel,
+    },
+  };
+}
+
+function sourceKeyOf(payload: Omit<SourceSetRequest, 'requestId'>): string {
+  const local = payload.localServer;
+  return [
+    payload.engineSource,
+    local.url,
+    local.model,
+    local.apiKey,
+    String(local.timeoutMs),
+    local.allowRemote ? '1' : '0',
+    String(local.parallel),
+  ].join('\0');
 }

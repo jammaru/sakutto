@@ -43,8 +43,7 @@ import {
   bandForRect,
   contentKind,
   lookaheadScreens,
-  GPU_TRANSLATION_CONCURRENCY,
-  TRANSLATION_CONCURRENCY,
+  translationConcurrencyFor,
   translationPriority,
   type ContentKind,
   type VisibilityBand,
@@ -104,6 +103,8 @@ export interface SessionPreferences {
   context: boolean;
   tier: 'g' | 'c8' | 'c4' | 'c1' | null;
   pace: TranslationPace;
+  engineSource?: 'in-browser' | 'local-server';
+  localServerParallel?: number;
   glossary?: readonly GlossaryEntry[];
 }
 
@@ -208,6 +209,8 @@ export function preferencesFor(
     context: false,
     tier: null,
     pace: settings.pace,
+    engineSource: settings.engineSource,
+    localServerParallel: settings.localServerParallel,
     ...(glossary.length > 0 ? { glossary } : {}),
   };
 }
@@ -449,7 +452,8 @@ export class PageSession {
     const tier = next.tier ?? previous.tier;
     this.prefs = { ...next, tier };
     if (
-      lookaheadScreens(previous.tier, previous.pace) !== lookaheadScreens(tier, this.prefs.pace)
+      lookaheadScreens(previous.tier, previous.pace, previous.engineSource) !==
+      lookaheadScreens(tier, this.prefs.pace, this.prefs.engineSource)
     ) {
       this.bindVisibility();
     }
@@ -1064,8 +1068,11 @@ export class PageSession {
 
     this.startQueuedSelection();
 
-    const concurrency =
-      this.prefs.tier === 'g' ? GPU_TRANSLATION_CONCURRENCY : TRANSLATION_CONCURRENCY;
+    const concurrency = translationConcurrencyFor(
+      this.prefs.tier,
+      this.prefs.engineSource,
+      this.prefs.localServerParallel,
+    );
     while (this.running < concurrency && this.queue.size > 0) {
       const next = this.queue.peek();
       if (!next) break;
@@ -1128,7 +1135,8 @@ export class PageSession {
     let tokens = firstTokens;
     let placeholders = openPlaceholderCount(first.source);
     const firstPriority = this.priorityOf(first);
-    while (this.queue.size > 0 && batch.length < MAX_BATCH_SEGMENTS) {
+    const packLimit = this.prefs.engineSource === 'local-server' ? 1 : MAX_BATCH_SEGMENTS;
+    while (this.queue.size > 0 && batch.length < packLimit) {
       const peeked = this.queue.peek();
       if (!peeked) break;
       const next = peeked.value;
@@ -2070,7 +2078,7 @@ export class PageSession {
 
     const view = this.doc.defaultView;
     const height = this.doc.documentElement.clientHeight || view?.innerHeight || 800;
-    const screens = lookaheadScreens(this.prefs.tier, this.prefs.pace);
+    const screens = lookaheadScreens(this.prefs.tier, this.prefs.pace, this.prefs.engineSource);
     const ahead = Math.round(height * screens);
     const behind = Math.round(ahead * 0.25);
     const top = this.direction === 'down' ? behind : ahead;

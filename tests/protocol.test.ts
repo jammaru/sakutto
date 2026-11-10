@@ -110,6 +110,36 @@ describe('engine host protocol', () => {
     expect(isEngineHostRequest({ type: 'cache-clear', requestId: 'c1' })).toBe(true);
     expect(isEngineHostRequest({ type: 'tier-set', requestId: 't1', tier: 'auto' })).toBe(true);
     expect(isEngineHostRequest({ type: 'tier-set', requestId: 't1', tier: 'fast' })).toBe(false);
+    expect(
+      isEngineHostRequest({
+        type: 'source-set',
+        requestId: 's1',
+        engineSource: 'local-server',
+        localServer: {
+          url: 'http://127.0.0.1:8080/v1',
+          model: 'x',
+          apiKey: '',
+          timeoutMs: 120_000,
+          allowRemote: false,
+          parallel: 4,
+        },
+      }),
+    ).toBe(true);
+    expect(
+      isEngineHostRequest({
+        type: 'source-set',
+        requestId: 's1',
+        engineSource: 'remote',
+        localServer: {
+          url: 'http://127.0.0.1:8080/v1',
+          model: 'x',
+          apiKey: '',
+          timeoutMs: 120_000,
+          allowRemote: false,
+          parallel: 4,
+        },
+      }),
+    ).toBe(false);
     expect(isEngineHostRequest(request({ src: 'e'.repeat(36) }))).toBe(false);
     expect(isEngineHostRequest(request({ context: 'x'.repeat(20_001) }))).toBe(false);
     expect(

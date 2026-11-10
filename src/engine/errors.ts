@@ -20,20 +20,21 @@ export type EngineErrorCode =
 
 export class EngineError extends Error {
   override readonly name = 'EngineError';
+  readonly code: EngineErrorCode;
   readonly retryable: boolean;
+  readonly detail?: string;
 
   constructor(
-    readonly code: EngineErrorCode,
+    code: EngineErrorCode,
     message: string,
     options?: { cause?: unknown; retryable?: boolean; detail?: string },
   ) {
     super(message);
+    this.code = code;
     if (options && 'cause' in options) this.cause = options.cause;
     this.retryable = options?.retryable ?? true;
     if (typeof options?.detail === 'string') this.detail = options.detail;
   }
-
-  readonly detail?: string;
 }
 
 export function isEngineError(value: unknown): value is EngineError {

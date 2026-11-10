@@ -29,10 +29,10 @@ import {
 import { InBrowserEngine } from '../in-browser/engine';
 import { LazyInBrowserEngine } from '../in-browser/lazy-engine';
 import { createWllamaRuntime, lastWebGpuLoadLog, type LlamaRuntime } from '../in-browser/runtime';
-import { type LocalServerConfig } from '../local-server/client';
-import { LOCAL_SERVER_PARALLEL, LocalServerRuntime } from '../local-server/runtime';
+import { localServerConfigFromSettings, type LocalServerConfig } from '../local-server/client';
+import { LocalServerRuntime } from '../local-server/runtime';
 import { PlamoSourceEngine } from '../local-server/source';
-import { DEFAULT_LOCAL_SERVER_TIMEOUT_MS, DEFAULT_LOCAL_SERVER_URL } from '../local-server/url';
+import { JobScheduler } from '../queue/scheduler';
 import { DEFAULT_MODEL_ID, SELECTABLE_MODEL_IDS, getModel, type ModelId } from '../model/catalog';
 import { normalizeSelectedModelId, resolveActiveModel } from '../model/selection';
 import { OpfsModelFileStore } from '../model/file-store';
@@ -52,6 +52,7 @@ import {
   type ModelDeleteRequest,
   type ModelDownloadRequest,
   type ModelStatusRequest,
+  type SourceSetRequest,
   type TierSetRequest,
   type TranslateRequest,
 } from './protocol';
@@ -178,7 +179,8 @@ export class EngineHost {
   private gpuFallback = false;
   private gpuDiagnostic: GpuDiagnostic | null = null;
   private engineSource: EngineSource = 'in-browser';
-  private localConfig: LocalServerConfig = defaultLocalServerConfig();
+  private localConfig: LocalServerConfig = localServerConfigFromSettings(null);
+  private localScheduler: JobScheduler | null = null;
 
   constructor(options: EngineHostOptions = {}) {
     this.idleReleaseMs = options.idleReleaseMs ?? IDLE_RELEASE_MS;
@@ -243,7 +245,9 @@ export class EngineHost {
       sharedMemory: capabilities.crossOriginIsolated,
     };
     const stored = browser.storage?.local ? await loadSettings().catch(() => null) : null;
-    this.applyStoredSettings(stored);
+    // Chrome's offscreen document has no chrome.storage. The service worker pushes
+    // engineSource via source-set; only apply a record when this document can read one.
+    if (stored) this.applyStoredSettings(stored);
     const selection = selectionForTier(stored?.tier ?? 'auto', probe);
     const selectionState = { current: selection };
     const store = await OpfsModelFileStore.open();
@@ -292,7 +296,9 @@ export class EngineHost {
       await manager.unload();
     };
     const lazy = new LazyInBrowserEngine({ loadRuntime: load, onGpuLost });
-    const localEngine = new InBrowserEngine(new LocalServerRuntime(() => this.localConfig));
+    const localRuntime = new LocalServerRuntime(() => this.localConfig);
+    this.localScheduler = new JobScheduler(localRuntime.parallel, false);
+    const localEngine = new InBrowserEngine(localRuntime, { scheduler: this.localScheduler });
     const plamo = new PlamoSourceEngine(lazy, localEngine, () => this.engineSource);
 
     const chromeForCache = chrome.available ? new CachingEngine(chrome, cache, 'chrome') : null;
@@ -399,6 +405,9 @@ export class EngineHost {
         return;
       case 'tier-set':
         void this.handleTier(port, message);
+        return;
+      case 'source-set':
+        void this.handleSource(port, message);
         return;
       case 'benchmark':
         void this.handleBenchmark(port, message);
@@ -659,7 +668,7 @@ export class EngineHost {
       backend: local ? 'local-server' : selection.backend,
       tier: local ? null : selection.tier,
       threads: local ? 1 : selection.nThreads,
-      parallel: local ? LOCAL_SERVER_PARALLEL : selection.nParallel,
+      parallel: local ? this.localConfig.parallel : selection.nParallel,
       gpuFallback: this.gpuFallback && selection.backend === 'cpu-wasm',
       ...(this.gpuDiagnostic ? { gpuDiagnostic: this.gpuDiagnostic } : {}),
       plamoReady: local ? true : this.plamoReady,
@@ -676,23 +685,45 @@ export class EngineHost {
   }
 
   private applyStoredSettings(stored: Settings | null): void {
-    this.engineSource = stored?.engineSource ?? 'in-browser';
-    this.localConfig = localServerConfigFromSettings(stored);
+    this.applySource(stored?.engineSource ?? 'in-browser', localServerConfigFromSettings(stored));
+  }
+
+  private applySource(source: EngineSource, config: LocalServerConfig): void {
+    const previous = this.engineSource;
+    this.engineSource = source;
+    this.localConfig = config;
+    this.localScheduler?.setConcurrency(config.parallel);
+    if (previous === 'in-browser' && source === 'local-server' && this.servicesTask) {
+      void this.unloadInBrowserRuntime();
+    }
+  }
+
+  private async unloadInBrowserRuntime(): Promise<void> {
+    try {
+      const services = await this.services();
+      services.lazy.reset();
+      await services.manager.unload();
+    } catch {
+      // Unloading the in-browser runtime is best effort when switching away.
+    }
+  }
+
+  private async handleSource(port: Browser.runtime.Port, request: SourceSetRequest): Promise<void> {
+    this.applySource(request.engineSource, {
+      baseUrl: request.localServer.url,
+      model: request.localServer.model,
+      apiKey: request.localServer.apiKey,
+      timeoutMs: request.localServer.timeoutMs,
+      allowRemote: request.localServer.allowRemote,
+      parallel: request.localServer.parallel,
+    });
+    this.respond(port, request.requestId, null);
+    this.touch();
   }
 
   private async onSettingsChanged(): Promise<void> {
-    const previous = this.engineSource;
     const stored = await loadSettings().catch(() => null);
     this.applyStoredSettings(stored);
-    if (previous === 'in-browser' && this.engineSource === 'local-server' && this.servicesTask) {
-      try {
-        const services = await this.services();
-        services.lazy.reset();
-        await services.manager.unload();
-      } catch {
-        // Unloading the in-browser runtime is best effort when switching away.
-      }
-    }
     this.touch();
   }
 
@@ -912,18 +943,4 @@ export class EngineHost {
       // The other end is gone; pending requests are settled by the disconnect handler.
     }
   }
-}
-
-function defaultLocalServerConfig(): LocalServerConfig {
-  return localServerConfigFromSettings(null);
-}
-
-function localServerConfigFromSettings(stored: Settings | null): LocalServerConfig {
-  return {
-    baseUrl: stored?.localServerUrl ?? DEFAULT_LOCAL_SERVER_URL,
-    model: stored?.localServerModel ?? '',
-    apiKey: stored?.localServerApiKey ?? '',
-    timeoutMs: stored?.localServerTimeoutMs ?? DEFAULT_LOCAL_SERVER_TIMEOUT_MS,
-    allowRemote: stored?.localServerAllowRemote === true,
-  };
 }

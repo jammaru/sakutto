@@ -193,4 +193,15 @@ describe('CachingEngine', () => {
 
     expect(inner.calls).toBe(2);
   });
+
+  it('does not cache an empty completion', async () => {
+    const store = new MemoryTranslationCacheStore();
+    const inner = fakeEngine('plamo', [{ id: 'a', final: '', engine: 'plamo' }]);
+    const engine = new CachingEngine(inner, new TranslationCache(store), 'plamo-0.8b');
+    const segments = [{ id: 'a', text: 'Sign in' }];
+
+    await collectChunks(engine.translate(segments, options()));
+    await collectChunks(engine.translate(segments, options()));
+    expect(inner.calls).toBe(2);
+  });
 });

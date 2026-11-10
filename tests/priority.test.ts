@@ -1,6 +1,12 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { bandForRect, contentKind, lookaheadScreens, translationPriority } from '@/dom/priority';
+import {
+  bandForRect,
+  contentKind,
+  lookaheadScreens,
+  translationConcurrencyFor,
+  translationPriority,
+} from '@/dom/priority';
 
 describe('translation priority', () => {
   it('finishes article prose before navigation and infoboxes', () => {
@@ -125,5 +131,14 @@ describe('translation priority', () => {
     expect(lookaheadScreens('g', 'fast')).toBeGreaterThan(lookaheadScreens('g', 'quality'));
     expect(lookaheadScreens('c8', 'fast')).toBeGreaterThan(lookaheadScreens('c8', 'quality'));
     expect(lookaheadScreens(null, 'fast')).toBeGreaterThan(lookaheadScreens(null, 'quality'));
+    expect(lookaheadScreens(null, 'quality', 'local-server')).toBe(2);
+    expect(lookaheadScreens('c1', 'quality', 'local-server')).toBe(2);
+  });
+
+  it('keeps more page requests in flight toward a local HTTP server than a CPU tier', () => {
+    expect(translationConcurrencyFor(null, 'local-server', 4)).toBe(16);
+    expect(translationConcurrencyFor('c8', 'local-server', 4)).toBe(16);
+    expect(translationConcurrencyFor('c8', 'in-browser')).toBe(2);
+    expect(translationConcurrencyFor('g', 'in-browser')).toBe(32);
   });
 });

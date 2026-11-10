@@ -86,7 +86,12 @@ export class InBrowserEngine implements IdentifiedEngine {
     this.runtime = runtime;
     this.config = { ...DEFAULT_PLAN_CONFIG, ...options.config };
     this.contextTokens = options.contextTokens ?? CONTEXT_TOKENS;
-    this.scheduler = options.scheduler ?? new JobScheduler(runtime.parallel, runtime.parallel > 1);
+    this.scheduler =
+      options.scheduler ??
+      new JobScheduler(
+        runtime.parallel,
+        runtime.backend !== 'local-server' && runtime.parallel > 1,
+      );
   }
 
   async *translate(

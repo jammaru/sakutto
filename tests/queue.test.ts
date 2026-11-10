@@ -98,6 +98,21 @@ describe('JobScheduler', () => {
     expect(running).toBe(0);
   });
 
+  it('starts every free slot at once when waves are off', async () => {
+    const scheduler = new JobScheduler(4, false);
+    const gates = [deferred(), deferred(), deferred(), deferred()];
+    for (const gate of gates) {
+      scheduler.schedule({
+        priority: 10,
+        run: () => gate.promise,
+      });
+    }
+    expect(scheduler.runningCount).toBe(4);
+    for (const gate of gates) gate.resolve();
+    await scheduler.waitForIdle();
+    expect(scheduler.runningCount).toBe(0);
+  });
+
   it('runs no more jobs than the concurrency limit', async () => {
     const scheduler = new JobScheduler(2);
     let active = 0;

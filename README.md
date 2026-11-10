@@ -57,10 +57,12 @@ Translation runs on your device by default. The extension does not send page tex
 
 ## Local server (MLX / LM Studio)
 
-The default engine is the packaged wllama runtime (WebGPU or CPU). Settings can point PLaMo requests at an OpenAI-compatible server on this machine instead. Use raw `/v1/completions` with Sakutto's PFML3 prompt; chat completions are not used. Recipes:
+The default engine is the packaged wllama runtime (WebGPU or CPU). Settings can point PLaMo requests at an OpenAI-compatible server on this machine instead. That path is **opt-in**: translations may differ from the built-in engine. Use raw `/v1/completions` with Sakutto's PFML3 prompt; chat completions are not used. Recipes:
 
 - `mlx_lm.server` — default `http://127.0.0.1:8080/v1`, PLaMo MLX-4bit weights from [the PLaMo 3 Translate collection](https://huggingface.co/collections/pfnet/plamo-3-translate)
 - LM Studio — default `http://127.0.0.1:1234/v1`
+
+In LM Studio, set the server-side sampler to temperature 0 / greedy. Prompt parity is measured against `mlx_lm.server` and PLaMo's `serve.py`; LM Studio's BOS handling is unverified.
 
 Design, model pins, and what was not measured on Linux: [docs/design/mlx-backend.md](docs/design/mlx-backend.md). Mac timings: [bench/README.md](bench/README.md).
 

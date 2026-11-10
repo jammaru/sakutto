@@ -57,10 +57,12 @@ cs、da、el、fi、kn、no、pt、ro、sv、tr、uk の 11 言語は、Chrome �
 
 ## ローカルサーバー（MLX / LM Studio）
 
-既定のエンジンは同梱の wllama（WebGPU または CPU）です。設定で、PLaMo のリクエストをこの端末の OpenAI 互換サーバーへ向けられます。Sakutto の PFML3 プロンプトを raw の `/v1/completions` に送ります。chat completions は使いません。手順の例:
+既定のエンジンは同梱の wllama（WebGPU または CPU）です。設定で、PLaMo のリクエストをこの端末の OpenAI 互換サーバーへ向けられます。オプトインです。訳文は内蔵エンジンと異なることがあります。Sakutto の PFML3 プロンプトを raw の `/v1/completions` に送ります。chat completions は使いません。手順の例:
 
 - `mlx_lm.server` — 既定 `http://127.0.0.1:8080/v1`。PLaMo の MLX-4bit は [PLaMo 3 Translate のコレクション](https://huggingface.co/collections/pfnet/plamo-3-translate)
 - LM Studio — 既定 `http://127.0.0.1:1234/v1`
+
+LM Studio ではサーバー側のサンプラーを温度 0 / greedy にしてください。プロンプトの一致は `mlx_lm.server` と PLaMo の `serve.py` を基準にしています。LM Studio の BOS の扱いは未確認です。
 
 設計、モデル、Linux では測っていないこと: [docs/design/mlx-backend.md](docs/design/mlx-backend.md)。Mac での計測: [bench/README.md](bench/README.md)。
 

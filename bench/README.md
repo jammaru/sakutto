@@ -244,7 +244,9 @@ whatever you name, and the summary prints a warning when that pair spans modes.
 
 The Linux CI environment cannot run MLX. Measure on a Mac, and do **not** claim MLX is faster
 without that measurement. Use the same fixtures as a live WebGPU run, then compare
-`firstVisibleTextMs` and `fullPageMs` on `long-article`.
+`firstVisibleTextMs` and `fullPageMs` on `long-article`. A live `--local-server-*` run fails
+unless `engine:status` reports `backend`/`engineSource` `local-server` and the server
+receives `/v1/completions`. Translations may differ from the built-in engine.
 
 1. Start a Completions server with a PLaMo 3 Translate model. Recipe:
    `mlx_lm.server --model pfnet/plamo-3-translate-0.8b-MLX-4bit` (default

@@ -1,6 +1,13 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { access, mkdir } from 'node:fs/promises';
+import {
+  createServer,
+  request as httpRequest,
+  type IncomingMessage,
+  type ServerResponse,
+} from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { BrowserContext, Page } from '@playwright/test';
@@ -107,6 +114,63 @@ export function settings(
     localServerApiKey: '',
     localServerTimeoutMs: 120_000,
     localServerAllowRemote: false,
+    localServerParallel: 4,
+  };
+}
+
+export interface LocalServerTap {
+  url: string;
+  get completions(): number;
+  close(): Promise<void>;
+}
+
+/**
+ * Counts `/v1/completions` that actually reach the local server. Live benches must not
+ * label a run MLX/local-server from flags alone.
+ */
+export async function startLocalServerTap(upstreamUrl: string): Promise<LocalServerTap> {
+  const upstream = new URL(upstreamUrl);
+  const state = { completions: 0 };
+  const server = createServer((req: IncomingMessage, res: ServerResponse) => {
+    const path = req.url ?? '/';
+    if (path.includes('/completions')) state.completions += 1;
+    const target = new URL(path, `${upstream.protocol}//${upstream.host}`);
+    const send = target.protocol === 'https:' ? httpsRequest : httpRequest;
+    const proxy = send(
+      {
+        protocol: target.protocol,
+        hostname: target.hostname,
+        port: target.port,
+        path: `${target.pathname}${target.search}`,
+        method: req.method,
+        headers: { ...req.headers, host: target.host },
+      },
+      (upstreamRes) => {
+        res.writeHead(upstreamRes.statusCode ?? 502, upstreamRes.headers);
+        upstreamRes.pipe(res);
+      },
+    );
+    proxy.on('error', () => {
+      if (!res.headersSent) res.writeHead(502);
+      res.end();
+    });
+    req.pipe(proxy);
+  });
+  await new Promise<void>((resolveListen) => {
+    server.listen(0, '127.0.0.1', resolveListen);
+  });
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('expected a TCP address');
+  const prefix = upstream.pathname.replace(/\/+$/u, '') || '/v1';
+  return {
+    get completions() {
+      return state.completions;
+    },
+    url: `http://127.0.0.1:${String(address.port)}${prefix}`,
+    close: () =>
+      new Promise((resolveClose, reject) => {
+        server.close((error) => (error ? reject(error) : resolveClose()));
+      }),
   };
 }
 
@@ -121,6 +185,16 @@ export async function readStatus(page: Page): Promise<EngineStatus | null> {
   const value = await extensionCall(page, { type: 'engine:status' });
   if (!value || typeof value !== 'object') return null;
   return value as EngineStatus;
+}
+
+export function assertLocalServerBackend(status: EngineStatus | null): void {
+  if (status?.backend !== 'local-server' || status.engineSource !== 'local-server') {
+    throw new Error(
+      `Local-server bench expected engine:status backend=local-server, got backend=${
+        status?.backend ?? 'missing'
+      } engineSource=${status?.engineSource ?? 'missing'}`,
+    );
+  }
 }
 
 export async function sha256File(path: string): Promise<string> {
@@ -212,6 +286,7 @@ export async function prepareModel(
     const status = await readStatus(page);
     if (!status?.plamoReady)
       throw new Error('PLaMo did not become ready after local-server warm-up.');
+    assertLocalServerBackend(status);
     return { downloadMs: 0, warmMs: Date.now() - warmStarted, status };
   }
 

@@ -40,6 +40,7 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     localServerApiKey: '',
     localServerTimeoutMs: 120_000,
     localServerAllowRemote: false,
+    localServerParallel: 4,
     ...overrides,
   };
 }
@@ -179,6 +180,7 @@ describe('settings defaults', () => {
     expect(settings.localServerApiKey).toBe('');
     expect(settings.localServerTimeoutMs).toBe(120_000);
     expect(settings.localServerAllowRemote).toBe(false);
+    expect(settings.localServerParallel).toBe(4);
     expect(
       normalizeSettings(
         {

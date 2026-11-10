@@ -1102,7 +1102,7 @@
     "message": "브라우저가 이 주소 접근을 허용하지 않았습니다."
   },
   "localServerHelp": {
-    "message": "먼저 서버를 켜고 PLaMo 3 Translate 모델을 불러온 다음 연결을 시험하세요. 서버가 꺼져 있으면 원문이 유지됩니다."
+    "message": "먼저 서버를 켜고 PLaMo 3 Translate 모델을 불러온 다음 연결을 시험하세요. 서버가 꺼져 있으면 원문이 유지됩니다. In LM Studio, set temperature 0 / greedy. Prompt parity is measured against mlx_lm.server and PLaMo's serve.py; LM Studio's BOS handling is unverified."
   },
   "localServerUnreachable": {
     "message": "로컬 서버에 연결하지 못했습니다. 설정에서 실행 중인지 확인하세요."
@@ -1124,5 +1124,14 @@
   },
   "localServerLicenseNote": {
     "message": "그 서버에 불러오는 다른 모델의 라이선스는 사용자의 책임입니다. PLaMo 가중치는 PLaMo Community License를 따릅니다."
+  },
+  "localServerParallelLabel": {
+    "message": "Concurrent requests"
+  },
+  "localServerParallelHelp": {
+    "message": "How many completions the server may run at once (1–16). The page keeps extra requests ready so a finished slot is not left idle."
+  },
+  "localServerTestOkUnlisted": {
+    "message": "Connected. Completions work. The server listed no models — keep the model name you typed; it was not verified from /v1/models."
   }
 }

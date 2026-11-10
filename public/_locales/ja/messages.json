@@ -1060,7 +1060,7 @@
     "message": "ローカルサーバー（OpenAI互換）"
   },
   "engineSourceHelp": {
-    "message": "既定は内蔵エンジンです。mlx_lm.server や LM Studio などのローカルサーバーを選ぶと、Apple Silicon や GPU 上の PLaMo を使えます。本文が送られる先は、設定したアドレスだけです。"
+    "message": "既定は内蔵エンジンです。mlx_lm.server や LM Studio などのローカルサーバーを選ぶと、Apple Silicon や GPU 上の PLaMo を使えます。オプトインです。訳文は内蔵エンジンと異なることがあります。本文が送られる先は、設定したアドレスだけです。"
   },
   "localServerUrlLabel": {
     "message": "サーバー URL"
@@ -1102,7 +1102,7 @@
     "message": "ブラウザがこのアドレスへのアクセスを許可しませんでした。"
   },
   "localServerHelp": {
-    "message": "先にサーバーを起動し、PLaMo 3 Translate のモデルを読み込んでから接続を試してください。届かないときは原文のままです。"
+    "message": "先にサーバーを起動し、PLaMo 3 Translate のモデルを読み込んでから接続を試してください。確認は /v1/completions です。/v1/models が空でも問題ありません。モデル名を入力してください。届かないときは原文のままです。訳文は内蔵エンジンと異なることがあります。LM Studio では温度 0 / greedy にしてください。プロンプトの一致は mlx_lm.server と PLaMo の serve.py を基準にしています。LM Studio の BOS の扱いは未確認です。"
   },
   "localServerUnreachable": {
     "message": "ローカルサーバーに届きませんでした。設定を開き、起動しているか確認してください。"
@@ -1124,5 +1124,14 @@
   },
   "localServerLicenseNote": {
     "message": "そのサーバーに読み込む他のモデルのライセンスは利用者の責任です。PLaMo の重みは PLaMo Community License のままです。"
+  },
+  "localServerParallelLabel": {
+    "message": "同時リクエスト数"
+  },
+  "localServerParallelHelp": {
+    "message": "サーバーが同時に処理する補完の数（1〜16）です。ページ側は余裕を持って送り、空きスロットを待たせません。"
+  },
+  "localServerTestOkUnlisted": {
+    "message": "接続できました。Completions は使えます。/v1/models は空でした。入力したモデル名をそのまま使います（一覧では確認していません）。"
   }
 }

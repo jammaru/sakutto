@@ -1,7 +1,11 @@
 <script lang="ts">
   import { testLocalServer, type LocalServerModel } from '@/engine/local-server/client';
   import { requestServerPermission } from '@/engine/local-server/permissions';
-  import { isRemoteServerUrl, LOCAL_SERVER_PRESETS } from '@/engine/local-server/url';
+  import {
+    isRemoteServerUrl,
+    LOCAL_SERVER_PRESETS,
+    serverOriginKey,
+  } from '@/engine/local-server/url';
   import type { EngineError } from '@/engine/errors';
   import { t } from '@/shared/i18n';
   import type { EngineSource } from '@/shared/engine-status';
@@ -21,14 +25,23 @@
   let permissionDenied = $state(false);
   let remote = $derived(isRemoteServerUrl(settings.localServerUrl));
 
+  async function grantIfNeeded(url: string): Promise<boolean> {
+    const granted = await requestServerPermission(url);
+    if (!granted) {
+      permissionDenied = true;
+      return false;
+    }
+    permissionDenied = false;
+    return true;
+  }
+
   async function changeSource(event: Event) {
     const value = (event.currentTarget as HTMLSelectElement).value;
     const source: EngineSource = value === 'local-server' ? 'local-server' : 'in-browser';
     if (source === 'local-server') {
-      const granted = await requestServerPermission(settings.localServerUrl);
-      if (!granted) {
-        permissionDenied = true;
-        return;
+      const remoteUrl = isRemoteServerUrl(settings.localServerUrl);
+      if (!remoteUrl || settings.localServerAllowRemote) {
+        if (!(await grantIfNeeded(settings.localServerUrl))) return;
       }
     }
     permissionDenied = false;
@@ -39,30 +52,36 @@
     const url = (event.currentTarget as HTMLInputElement).value;
     testOk = false;
     testError = null;
+    const originChanged = serverOriginKey(url) !== serverOriginKey(settings.localServerUrl);
+    const remoteNext = isRemoteServerUrl(url);
+    const patch: SettingsPatch = { localServerUrl: url };
+    if (originChanged) patch.localServerAllowRemote = false;
+
+    if (remoteNext) {
+      permissionDenied = false;
+      await onUpdate(patch);
+      return;
+    }
+
     if (settings.engineSource === 'local-server') {
-      const granted = await requestServerPermission(url);
-      if (!granted) {
-        permissionDenied = true;
-        return;
-      }
+      if (!(await grantIfNeeded(url))) return;
     }
     permissionDenied = false;
-    await onUpdate({ localServerUrl: url });
+    await onUpdate(patch);
   }
 
   async function applyPreset(id: keyof typeof LOCAL_SERVER_PRESETS) {
     const url = LOCAL_SERVER_PRESETS[id].url;
     testOk = false;
     testError = null;
+    const originChanged = serverOriginKey(url) !== serverOriginKey(settings.localServerUrl);
+    const patch: SettingsPatch = { localServerUrl: url };
+    if (originChanged) patch.localServerAllowRemote = false;
     if (settings.engineSource === 'local-server') {
-      const granted = await requestServerPermission(url);
-      if (!granted) {
-        permissionDenied = true;
-        return;
-      }
+      if (!(await grantIfNeeded(url))) return;
     }
     permissionDenied = false;
-    await onUpdate({ localServerUrl: url });
+    await onUpdate(patch);
   }
 
   async function changeModel(event: Event) {
@@ -80,14 +99,25 @@
     await onUpdate({ localServerTimeoutMs: value * 1000 });
   }
 
+  async function changeParallel(event: Event) {
+    const value = Number((event.currentTarget as HTMLInputElement).value);
+    if (!Number.isFinite(value)) return;
+    await onUpdate({ localServerParallel: value });
+  }
+
   async function changeAllowRemote(event: Event) {
-    await onUpdate({
-      localServerAllowRemote: (event.currentTarget as HTMLInputElement).checked,
-    });
+    const checked = (event.currentTarget as HTMLInputElement).checked;
+    if (checked && settings.engineSource === 'local-server') {
+      if (!(await grantIfNeeded(settings.localServerUrl))) return;
+    }
+    permissionDenied = false;
+    await onUpdate({ localServerAllowRemote: checked });
   }
 
   function testMessage(error: EngineError | null): string {
-    if (!error) return t('localServerTestOk');
+    if (!error) {
+      return models.length > 0 ? t('localServerTestOk') : t('localServerTestOkUnlisted');
+    }
     if (error.code === 'server-unavailable') return t('localServerUnreachable');
     if (error.code === 'server-timeout') return t('localServerTimeout');
     if (error.code === 'server-model-missing') return t('localServerModelMissing');
@@ -99,11 +129,12 @@
     testOk = false;
     testError = null;
     permissionDenied = false;
-    const granted = await requestServerPermission(settings.localServerUrl);
-    if (!granted) {
-      permissionDenied = true;
-      testing = false;
-      return;
+    const remoteUrl = isRemoteServerUrl(settings.localServerUrl);
+    if (!remoteUrl || settings.localServerAllowRemote) {
+      if (!(await grantIfNeeded(settings.localServerUrl))) {
+        testing = false;
+        return;
+      }
     }
     const result = await testLocalServer({
       baseUrl: settings.localServerUrl,
@@ -111,6 +142,7 @@
       apiKey: settings.localServerApiKey,
       timeoutMs: settings.localServerTimeoutMs,
       allowRemote: settings.localServerAllowRemote,
+      parallel: settings.localServerParallel,
     });
     models = result.models;
     testOk = result.ok;
@@ -166,23 +198,23 @@
 
   <label class="field">
     <span>{t('localServerModelLabel')}</span>
-    {#if models.length > 0}
-      <select value={settings.localServerModel} onchange={changeModel}>
-        <option value="">{t('localServerModelsEmpty')}</option>
-        {#each models as model (model.id)}
-          <option value={model.id}>{model.id}</option>
-        {/each}
-      </select>
-    {:else}
-      <input
-        type="text"
-        value={settings.localServerModel}
-        onchange={changeModel}
-        autocomplete="off"
-        spellcheck="false"
-      />
-    {/if}
+    <input
+      type="text"
+      list="sakutto-local-server-models"
+      value={settings.localServerModel}
+      onchange={changeModel}
+      autocomplete="off"
+      spellcheck="false"
+    />
+    <datalist id="sakutto-local-server-models">
+      {#each models as model (model.id)}
+        <option value={model.id}>{model.id}</option>
+      {/each}
+    </datalist>
   </label>
+  {#if testOk && models.length === 0}
+    <p class="muted help">{t('localServerModelsEmpty')}</p>
+  {/if}
 
   <label class="field">
     <span>{t('localServerApiKeyLabel')}</span>
@@ -205,6 +237,19 @@
       onchange={changeTimeout}
     />
   </label>
+
+  <label class="field">
+    <span>{t('localServerParallelLabel')}</span>
+    <input
+      type="number"
+      min="1"
+      max="16"
+      step="1"
+      value={settings.localServerParallel}
+      onchange={changeParallel}
+    />
+  </label>
+  <p class="muted help">{t('localServerParallelHelp')}</p>
 
   <div class="test-row">
     <button

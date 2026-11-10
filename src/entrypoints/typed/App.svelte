@@ -62,6 +62,7 @@
       consent: hasLicenseConsent(settings),
       modelState: engineStatus?.model.state ?? 'absent',
       plamoReady: engineStatus?.plamoReady ?? false,
+      engineSource: settings?.engineSource ?? engineStatus?.engineSource ?? 'in-browser',
     }),
   );
   let chromeOnlyTarget = $derived(hasBuiltInTranslatorUi() && isChromeOnlyLanguage(targetLanguage));

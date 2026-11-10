@@ -1,5 +1,6 @@
 export const DEFAULT_LOCAL_SERVER_URL = 'http://127.0.0.1:8080/v1';
 export const DEFAULT_LOCAL_SERVER_TIMEOUT_MS = 120_000;
+export const DEFAULT_LOCAL_SERVER_PARALLEL = 4;
 
 export const LOCAL_SERVER_PRESETS = {
   mlx: {
@@ -23,15 +24,50 @@ export interface ParsedServerUrl {
   modelsUrl: string;
 }
 
-const LOOPBACK_NAMES = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+const LOOPBACK_NAMES = new Set(['localhost', '127.0.0.1', '::1']);
+
+function unbracket(hostname: string): string {
+  return hostname.replace(/^\[|\]$/gu, '');
+}
+
+function stripTrailingDots(host: string): string {
+  return host.replace(/\.+$/u, '');
+}
+
+function isLoopbackIpv4(host: string): boolean {
+  return /^127(?:\.(?:\d{1,3})){3}$/u.test(host);
+}
+
+/**
+ * IPv4-mapped IPv6 loopback, as the URL parser emits it (`[::ffff:7f00:1]`) and as typed
+ * (`[::ffff:127.0.0.1]`). Other mapped addresses are remote.
+ */
+function isIpv4MappedLoopback(host: string): boolean {
+  const dotted = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/iu.exec(host);
+  const dottedIp = dotted?.[1];
+  if (dottedIp) return isLoopbackIpv4(dottedIp);
+  const hex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/iu.exec(host);
+  const hiPart = hex?.[1];
+  const loPart = hex?.[2];
+  if (!hiPart || !loPart) return false;
+  const hi = Number.parseInt(hiPart, 16);
+  const lo = Number.parseInt(loPart, 16);
+  if (!Number.isFinite(hi) || !Number.isFinite(lo)) return false;
+  const a = (hi >> 8) & 0xff;
+  const b = hi & 0xff;
+  const c = (lo >> 8) & 0xff;
+  const d = lo & 0xff;
+  return isLoopbackIpv4(`${String(a)}.${String(b)}.${String(c)}.${String(d)}`);
+}
 
 export function isLoopbackHostname(hostname: string): boolean {
-  const host = hostname
-    .trim()
-    .toLowerCase()
-    .replace(/^\[|\]$/gu, '');
-  if (LOOPBACK_NAMES.has(host) || LOOPBACK_NAMES.has(hostname.trim().toLowerCase())) return true;
-  return /^127(?:\.(?:\d{1,3})){3}$/u.test(host);
+  const raw = hostname.trim().toLowerCase();
+  const host = stripTrailingDots(unbracket(raw));
+  if (LOOPBACK_NAMES.has(host) || LOOPBACK_NAMES.has(raw) || LOOPBACK_NAMES.has(unbracket(raw))) {
+    return true;
+  }
+  if (isLoopbackIpv4(host)) return true;
+  return isIpv4MappedLoopback(host);
 }
 
 export function parseServerUrl(value: string): ParsedServerUrl | null {
@@ -74,6 +110,11 @@ export function isRemoteServerUrl(value: string): boolean {
   return !isLoopbackHostname(parsed.hostname);
 }
 
+/** Origin identity used to decide whether a URL change needs a fresh remote confirmation. */
+export function serverOriginKey(url: string): string {
+  return parseServerUrl(url)?.origin ?? url.trim();
+}
+
 function hostMatchPattern(protocol: string, hostname: string): string {
   const host = hostname.includes(':') && !hostname.startsWith('[') ? `[${hostname}]` : hostname;
   return `${protocol}//${host}/*`;
@@ -90,10 +131,16 @@ export function originPatternsFor(url: string): string[] {
   const parsed = parseServerUrl(url);
   if (!parsed) return [];
   const protocol = parsed.protocol;
+  const primary = hostMatchPattern(protocol, parsed.hostname);
   if (isLoopbackHostname(parsed.hostname)) {
-    return [`${protocol}//127.0.0.1/*`, `${protocol}//localhost/*`, `${protocol}//[::1]/*`];
+    const aliases = [
+      `${protocol}//127.0.0.1/*`,
+      `${protocol}//localhost/*`,
+      `${protocol}//[::1]/*`,
+    ];
+    return [primary, ...aliases.filter((pattern) => pattern !== primary)];
   }
-  return [hostMatchPattern(protocol, parsed.hostname)];
+  return [primary];
 }
 
 export function normalizeTimeoutMs(
@@ -110,4 +157,12 @@ export function normalizeApiKey(value: unknown): string {
 
 export function normalizeModelName(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+export function normalizeParallel(
+  value: unknown,
+  fallback = DEFAULT_LOCAL_SERVER_PARALLEL,
+): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  return Math.min(16, Math.max(1, Math.round(value)));
 }

@@ -2,10 +2,12 @@ import { DEFAULT_MODEL_ID, type ModelId } from '@/engine/model/catalog';
 import { normalizeSelectedModelId } from '@/engine/model/selection';
 import type { GlossaryEntry } from '@/engine/types';
 import {
+  DEFAULT_LOCAL_SERVER_PARALLEL,
   DEFAULT_LOCAL_SERVER_TIMEOUT_MS,
   DEFAULT_LOCAL_SERVER_URL,
   normalizeApiKey,
   normalizeModelName,
+  normalizeParallel,
   normalizeServerUrl,
   normalizeTimeoutMs,
 } from '@/engine/local-server/url';
@@ -109,6 +111,8 @@ export interface Settings {
   localServerTimeoutMs: number;
   /** False keeps non-loopback URLs from receiving page text. */
   localServerAllowRemote: boolean;
+  /** How many completions the local server may run at once. */
+  localServerParallel: number;
 }
 
 export type SettingsPatch = Partial<
@@ -134,6 +138,7 @@ export type SettingsPatch = Partial<
     | 'localServerApiKey'
     | 'localServerTimeoutMs'
     | 'localServerAllowRemote'
+    | 'localServerParallel'
   >
 > & {
   shortcutsEnabled?: Partial<ShortcutEnabled>;
@@ -162,6 +167,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   localServerApiKey: '',
   localServerTimeoutMs: DEFAULT_LOCAL_SERVER_TIMEOUT_MS,
   localServerAllowRemote: false,
+  localServerParallel: DEFAULT_LOCAL_SERVER_PARALLEL,
 });
 
 export function createDefaultSettings(uiLanguage: string): Settings {
@@ -216,6 +222,7 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     localServerApiKey: normalizeApiKey(value.localServerApiKey),
     localServerTimeoutMs: normalizeTimeoutMs(value.localServerTimeoutMs),
     localServerAllowRemote: value.localServerAllowRemote === true,
+    localServerParallel: normalizeParallel(value.localServerParallel),
   };
 }
 

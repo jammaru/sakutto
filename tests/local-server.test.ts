@@ -1,5 +1,9 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { afterEach, describe, expect, it } from 'vitest';
+import { CachingEngine } from '@/engine/cache/caching-engine';
+import { TranslationCache } from '@/engine/cache/cache';
+import { buildTranslationCacheKey } from '@/engine/cache/key';
+import { MemoryTranslationCacheStore } from '@/engine/cache/store';
 import { InBrowserEngine } from '@/engine/in-browser/engine';
 import { EngineError, isLocalServerError } from '@/engine/errors';
 import {
@@ -19,8 +23,9 @@ import {
   originPatternsFor,
   parseServerUrl,
   primaryOriginPattern,
+  serverOriginKey,
 } from '@/engine/local-server/url';
-import { buildTranslationPrompt, TRANSLATION_STOP_TOKENS } from '@/engine/prompt/pfml3';
+import { buildTranslationPrompt, PFML3, TRANSLATION_STOP_TOKENS } from '@/engine/prompt/pfml3';
 import type { TranslateOptions } from '@/engine/types';
 import { collectChunks, FakeRuntime, fakeEngine } from './support/fakes';
 
@@ -76,6 +81,7 @@ function config(url: string, overrides: Partial<LocalServerConfig> = {}): LocalS
     apiKey: '',
     timeoutMs: 5_000,
     allowRemote: false,
+    parallel: 4,
     ...overrides,
   };
 }
@@ -89,6 +95,28 @@ function options(overrides: Partial<TranslateOptions> = {}): TranslateOptions {
     signal: new AbortController().signal,
     ...overrides,
   };
+}
+
+function jsonStop(text: string): string {
+  return JSON.stringify({ choices: [{ text, finish_reason: 'stop' }] });
+}
+
+function writeModels(response: ServerResponse, ids: readonly string[]): void {
+  response.writeHead(200, { 'Content-Type': 'application/json' });
+  response.end(JSON.stringify({ data: ids.map((id) => ({ id })) }));
+}
+
+function handleModelsAndCompletion(
+  response: ServerResponse,
+  request: IncomingMessage,
+  text = 'こんにちは',
+): void {
+  if ((request.url ?? '').includes('/models')) {
+    writeModels(response, ['pfnet/plamo-3-translate-0.8b-MLX-4bit', 'other']);
+    return;
+  }
+  response.writeHead(200, { 'Content-Type': 'application/json' });
+  response.end(jsonStop(text));
 }
 
 describe('local server URL', () => {
@@ -111,8 +139,48 @@ describe('local server URL', () => {
     expect(isRemoteServerUrl('https://example.test/v1')).toBe(true);
   });
 
+  it('rejects lookalike hosts, userinfo, and authority tricks', () => {
+    expect(isRemoteServerUrl('http://localhost.evil.com/v1')).toBe(true);
+    expect(isRemoteServerUrl('http://127.0.0.1.nip.io/v1')).toBe(true);
+    expect(parseServerUrl('http://user@127.0.0.1/v1')).toBeNull();
+    expect(parseServerUrl('http://127.0.0.1:8080@evil.com/v1')).toBeNull();
+    expect(isRemoteServerUrl('http://user@127.0.0.1/v1')).toBe(true);
+    expect(isRemoteServerUrl('http://127.0.0.1:8080@evil.com/v1')).toBe(true);
+  });
+
+  it('treats a trailing-dot localhost as loopback', () => {
+    expect(isLoopbackHostname('localhost.')).toBe(true);
+    expect(isRemoteServerUrl('http://localhost./v1')).toBe(false);
+    expect(parseServerUrl('http://localhost./v1')?.hostname).toBe('localhost.');
+  });
+
+  it('treats IPv4-mapped loopback as local', () => {
+    expect(isLoopbackHostname('[::ffff:127.0.0.1]')).toBe(true);
+    expect(isLoopbackHostname('[::ffff:7f00:1]')).toBe(true);
+    expect(isLoopbackHostname('::ffff:127.0.0.1')).toBe(true);
+    expect(isRemoteServerUrl('http://[::ffff:127.0.0.1]/v1')).toBe(false);
+    expect(isLoopbackHostname('[::ffff:c0a8:1]')).toBe(false);
+  });
+
+  it('accepts decimal, hex and compact spellings the URL parser canonicalises to 127.0.0.1', () => {
+    expect(parseServerUrl('http://2130706433/v1')?.hostname).toBe('127.0.0.1');
+    expect(isRemoteServerUrl('http://2130706433/v1')).toBe(false);
+    expect(parseServerUrl('http://0x7f000001/v1')?.hostname).toBe('127.0.0.1');
+    expect(isRemoteServerUrl('http://0x7f000001/v1')).toBe(false);
+    expect(parseServerUrl('http://0177.0.0.1/v1')?.hostname).toBe('127.0.0.1');
+    expect(isRemoteServerUrl('http://0177.0.0.1/v1')).toBe(false);
+    expect(parseServerUrl('http://127.1/v1')?.hostname).toBe('127.0.0.1');
+    expect(isRemoteServerUrl('http://127.1/v1')).toBe(false);
+  });
+
   it('asks for localhost patterns together so every loopback spelling is covered', () => {
     expect(originPatternsFor('http://127.0.0.1:8080/v1')).toEqual([
+      'http://127.0.0.1/*',
+      'http://localhost/*',
+      'http://[::1]/*',
+    ]);
+    expect(originPatternsFor('http://127.0.0.8:8080/v1')).toEqual([
+      'http://127.0.0.8/*',
       'http://127.0.0.1/*',
       'http://localhost/*',
       'http://[::1]/*',
@@ -120,6 +188,11 @@ describe('local server URL', () => {
     expect(originPatternsFor('http://192.168.1.5:1234/v1')).toEqual(['http://192.168.1.5/*']);
     expect(primaryOriginPattern('http://127.0.0.1:8080/v1')).toBe('http://127.0.0.1/*');
     expect(primaryOriginPattern('http://localhost:1234/v1')).toBe('http://localhost/*');
+    expect(primaryOriginPattern('http://127.0.0.8:8080/v1')).toBe('http://127.0.0.8/*');
+    expect(serverOriginKey('http://example.test:9/v1')).toBe('http://example.test:9');
+    expect(serverOriginKey('http://example.test:9/v1')).not.toBe(
+      serverOriginKey('http://other.test:9/v1'),
+    );
   });
 });
 
@@ -139,10 +212,9 @@ describe('local server completions', () => {
     expect(wllama.requests).toHaveLength(1);
     expect(wllama.requests[0]?.prompt).toBe(prompt);
 
-    const fake = await startFakeServer((_request, response, recorded) => {
-      expect(recorded.url).toBe('/v1/completions');
+    const fake = await startFakeServer((_request, response) => {
       response.writeHead(200, { 'Content-Type': 'application/json' });
-      response.end(JSON.stringify({ choices: [{ text: 'こんにちは' }] }));
+      response.end(jsonStop('こんにちは'));
     });
     servers.push(fake);
 
@@ -163,9 +235,122 @@ describe('local server completions', () => {
     expect(captured[0]?.temperature).toBe(0);
     expect(captured[0]?.stop).toEqual([...TRANSLATION_STOP_TOKENS]);
     expect(captured[0]?.stream).toBe(true);
+    expect(captured[0]?.max_tokens).toBe(wllama.requests[0]?.maxTokens);
     expect('top_p' in (captured[0] ?? {})).toBe(false);
     expect(fake.recorded[0]?.body?.prompt).toBe(prompt);
     expect(chunks.some((chunk) => chunk.final === 'こんにちは')).toBe(true);
+  });
+
+  it('runs several local-server completions at once instead of waiting for a WebGPU wave', async () => {
+    let inflight = 0;
+    let peak = 0;
+    const fake = await startFakeServer((request, response) => {
+      if ((request.url ?? '').includes('/models')) {
+        writeModels(response, ['pfnet/plamo-3-translate-0.8b-MLX-4bit']);
+        return;
+      }
+      inflight += 1;
+      peak = Math.max(peak, inflight);
+      setTimeout(() => {
+        inflight -= 1;
+        response.writeHead(200, { 'Content-Type': 'application/json' });
+        response.end(jsonStop('こんにちは'));
+      }, 40);
+    });
+    servers.push(fake);
+
+    const runtime = new LocalServerRuntime(() => config(fake.url, { parallel: 4 }));
+    const engine = new InBrowserEngine(runtime);
+    await Promise.all(
+      ['a', 'b', 'c', 'd'].map((id) =>
+        collectChunks(engine.translate([{ id, text: `Hello ${id}.` }], options({ priority: 10 }))),
+      ),
+    );
+    expect(peak).toBeGreaterThanOrEqual(4);
+  });
+
+  it('sends the same glossary prompt and max_tokens wllama would', async () => {
+    const glossary = [{ source: 'Runner', target: 'ランナー機能' }];
+    const promptInput = {
+      text: 'Open Runner.',
+      src: 'en',
+      tgt: 'ja',
+      form: 'polite' as const,
+      glossary,
+    };
+    const prompt = buildTranslationPrompt(promptInput);
+    expect(prompt).toContain(`${PFML3.tag}glossary`);
+
+    const wllama = new FakeRuntime(() => 'ランナー機能を開く。');
+    await collectChunks(
+      new InBrowserEngine(wllama).translate(
+        [{ id: 'a', text: 'Open Runner.' }],
+        options({ glossary }),
+      ),
+    );
+
+    const fake = await startFakeServer((_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(jsonStop('ランナー機能を開く。'));
+    });
+    servers.push(fake);
+
+    const captured: Record<string, unknown>[] = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      captured.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return fetch(input, init);
+    };
+    await collectChunks(
+      new InBrowserEngine(new LocalServerRuntime(() => config(fake.url), fetchImpl)).translate(
+        [{ id: 'a', text: 'Open Runner.' }],
+        options({ glossary }),
+      ),
+    );
+
+    expect(captured[0]?.prompt).toBe(prompt);
+    expect(captured[0]?.prompt).toBe(wllama.requests[0]?.prompt);
+    expect(captured[0]?.max_tokens).toBe(wllama.requests[0]?.maxTokens);
+  });
+
+  it('packs short segments into one prompt the same way wllama does', async () => {
+    const segments = [
+      { id: 'a', text: 'OK' },
+      { id: 'b', text: 'Hi' },
+    ];
+    const packed = 'OK\nHi';
+    const prompt = buildTranslationPrompt({
+      text: packed,
+      src: 'en',
+      tgt: 'ja',
+      form: 'polite',
+    });
+
+    const wllama = new FakeRuntime(() => 'はい\nこんにちは');
+    await collectChunks(new InBrowserEngine(wllama).translate(segments, options()));
+    expect(wllama.requests).toHaveLength(1);
+    expect(wllama.requests[0]?.prompt).toBe(prompt);
+
+    const fake = await startFakeServer((_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(jsonStop('はい\nこんにちは'));
+    });
+    servers.push(fake);
+
+    const captured: Record<string, unknown>[] = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      captured.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return fetch(input, init);
+    };
+    await collectChunks(
+      new InBrowserEngine(new LocalServerRuntime(() => config(fake.url), fetchImpl)).translate(
+        segments,
+        options(),
+      ),
+    );
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0]?.prompt).toBe(prompt);
+    expect(captured[0]?.max_tokens).toBe(wllama.requests[0]?.maxTokens);
   });
 
   it('builds the OpenAI completions body from the runtime request without wrapping chat roles', () => {
@@ -207,18 +392,9 @@ describe('local server completions', () => {
   it('does not fall back to chat completions when /v1/completions is missing', async () => {
     const fake = await startFakeServer((_request, response) => {
       response.writeHead(404, { 'Content-Type': 'application/json' });
-      response.end(JSON.stringify({ error: 'nope' }));
+      response.end(JSON.stringify({ detail: 'Not Found' }));
     });
     servers.push(fake);
-
-    await expect(
-      completeOnServer(config(fake.url), {
-        prompt: 'x',
-        maxTokens: 8,
-        signal: new AbortController().signal,
-        onToken: () => undefined,
-      }),
-    ).rejects.toBeInstanceOf(EngineError);
 
     await expect(
       completeOnServer(config(fake.url), {
@@ -232,16 +408,49 @@ describe('local server completions', () => {
       message: expect.stringMatching(/Completions API/u),
     });
     expect(fake.recorded.every((entry) => entry.url === '/v1/completions')).toBe(true);
+    expect(fake.recorded.some((entry) => entry.url.includes('chat'))).toBe(false);
+  });
+
+  it('does not call a 404 generation exception a missing Completions API', async () => {
+    const fake = await startFakeServer((_request, response) => {
+      response.writeHead(404, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ error: 'Exception during generation: shape mismatch' }));
+    });
+    servers.push(fake);
+
+    await expect(
+      completeOnServer(config(fake.url), {
+        prompt: 'x',
+        maxTokens: 8,
+        signal: new AbortController().signal,
+        onToken: () => undefined,
+      }),
+    ).rejects.toMatchObject({
+      code: 'server-failed',
+      message: expect.stringMatching(/rejected the request/u),
+    });
+  });
+
+  it('reports an unloaded model from a 404 body as a missing model', async () => {
+    const fake = await startFakeServer((_request, response) => {
+      response.writeHead(404, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ error: 'Model not loaded' }));
+    });
+    servers.push(fake);
+
+    await expect(
+      completeOnServer(config(fake.url), {
+        prompt: 'x',
+        maxTokens: 8,
+        signal: new AbortController().signal,
+        onToken: () => undefined,
+      }),
+    ).rejects.toMatchObject({ code: 'server-model-missing' });
   });
 
   it('lists models and flags a missing id', async () => {
-    const fake = await startFakeServer((_request, response) => {
-      response.writeHead(200, { 'Content-Type': 'application/json' });
-      response.end(
-        JSON.stringify({
-          data: [{ id: 'pfnet/plamo-3-translate-0.8b-MLX-4bit' }, { id: 'other' }],
-        }),
-      );
+    const fake = await startFakeServer((request, response) => {
+      handleModelsAndCompletion(response, request);
     });
     servers.push(fake);
 
@@ -254,11 +463,47 @@ describe('local server completions', () => {
     await expect(testLocalServer(config(fake.url))).resolves.toMatchObject({ ok: true });
   });
 
-  it('reads streamed completion tokens', async () => {
+  it('treats an empty /v1/models list as unlisted, not as a missing model, and still probes completions', async () => {
+    const fake = await startFakeServer((request, response) => {
+      if ((request.url ?? '').includes('/models')) {
+        response.writeHead(200, { 'Content-Type': 'application/json' });
+        response.end(JSON.stringify({ data: [] }));
+        return;
+      }
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(jsonStop('こんにちは'));
+    });
+    servers.push(fake);
+
+    await expect(
+      testLocalServer(config(fake.url, { model: 'pfnet/plamo-3-translate-0.8b-MLX-4bit' })),
+    ).resolves.toMatchObject({ ok: true, models: [] });
+    expect(fake.recorded.some((entry) => entry.url === '/v1/completions')).toBe(true);
+  });
+
+  it('fails the connection test when Completions is missing after /v1/models succeeds', async () => {
+    const fake = await startFakeServer((request, response) => {
+      if ((request.url ?? '').includes('/models')) {
+        writeModels(response, ['pfnet/plamo-3-translate-0.8b-MLX-4bit']);
+        return;
+      }
+      response.writeHead(404, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ detail: 'Not Found' }));
+    });
+    servers.push(fake);
+
+    const result = await testLocalServer(config(fake.url));
+    expect(result.ok).toBe(false);
+    expect(result.error?.message).toMatch(/Completions API/u);
+    expect(fake.recorded.some((entry) => entry.url === '/v1/completions')).toBe(true);
+    expect(fake.recorded.some((entry) => entry.url.includes('chat'))).toBe(false);
+  });
+
+  it('reads streamed completion tokens when the last event stops and [DONE] follows', async () => {
     const fake = await startFakeServer((_request, response) => {
       response.writeHead(200, { 'Content-Type': 'text/event-stream' });
       response.write('data: {"choices":[{"text":"Hel"}]}\n\n');
-      response.write('data: {"choices":[{"text":"lo"}]}\n\n');
+      response.write('data: {"choices":[{"text":"lo","finish_reason":"stop"}]}\n\n');
       response.write('data: [DONE]\n\n');
       response.end();
     });
@@ -274,6 +519,199 @@ describe('local server completions', () => {
       },
     });
     expect(output).toBe('Hello');
+  });
+
+  it('rejects a stream that ends without [DONE] or finish_reason stop', async () => {
+    const fake = await startFakeServer((_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      response.write('data: {"choices":[{"text":"Hel"}]}\n\n');
+      response.end();
+    });
+    servers.push(fake);
+
+    await expect(
+      completeOnServer(config(fake.url), {
+        prompt: 'x',
+        maxTokens: 8,
+        signal: new AbortController().signal,
+        onToken: () => undefined,
+      }),
+    ).rejects.toMatchObject({
+      code: 'server-failed',
+      message: expect.stringMatching(/ended the stream/u),
+    });
+  });
+
+  it('rejects a mid-stream disconnect', async () => {
+    const fake = await startFakeServer((_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      response.write('data: {"choices":[{"text":"Hel"}]}\n\n');
+      response.destroy();
+    });
+    servers.push(fake);
+
+    await expect(
+      completeOnServer(config(fake.url), {
+        prompt: 'x',
+        maxTokens: 8,
+        signal: new AbortController().signal,
+        onToken: () => undefined,
+      }),
+    ).rejects.toBeInstanceOf(EngineError);
+  });
+
+  it('rejects a malformed SSE JSON chunk', async () => {
+    const fake = await startFakeServer((_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      response.write('data: {not json}\n\n');
+      response.write('data: [DONE]\n\n');
+      response.end();
+    });
+    servers.push(fake);
+
+    await expect(
+      completeOnServer(config(fake.url), {
+        prompt: 'x',
+        maxTokens: 8,
+        signal: new AbortController().signal,
+        onToken: () => undefined,
+      }),
+    ).rejects.toMatchObject({
+      code: 'server-failed',
+      message: expect.stringMatching(/malformed/u),
+    });
+  });
+
+  it('rejects finish_reason length on SSE and JSON, and does not cache the truncated text', async () => {
+    const sse = await startFakeServer((_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      response.write('data: {"choices":[{"text":"Hel","finish_reason":"length"}]}\n\n');
+      response.write('data: [DONE]\n\n');
+      response.end();
+    });
+    servers.push(sse);
+    await expect(
+      completeOnServer(config(sse.url), {
+        prompt: 'x',
+        maxTokens: 8,
+        signal: new AbortController().signal,
+        onToken: () => undefined,
+      }),
+    ).rejects.toMatchObject({
+      code: 'server-failed',
+      message: expect.stringMatching(/length/u),
+    });
+
+    const json = await startFakeServer((_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ choices: [{ text: 'Hel', finish_reason: 'length' }] }));
+    });
+    servers.push(json);
+    await expect(
+      completeOnServer(config(json.url), {
+        prompt: 'x',
+        maxTokens: 8,
+        signal: new AbortController().signal,
+        onToken: () => undefined,
+      }),
+    ).rejects.toMatchObject({
+      code: 'server-failed',
+      message: expect.stringMatching(/length/u),
+    });
+
+    const store = new MemoryTranslationCacheStore();
+    const cache = new TranslationCache(store);
+    const segments = [{ id: 'a', text: 'Hello.' }];
+    const key = buildTranslationCacheKey({
+      model: 'local:test',
+      tgt: 'ja',
+      form: 'polite',
+      text: 'Hello.',
+      src: 'en',
+    });
+
+    const failing = await startFakeServer((_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ choices: [{ text: 'Hel', finish_reason: 'length' }] }));
+    });
+    servers.push(failing);
+    const missEngine = new CachingEngine(
+      new InBrowserEngine(new LocalServerRuntime(() => config(failing.url))),
+      cache,
+      'local:test',
+    );
+    await expect(collectChunks(missEngine.translate(segments, options()))).rejects.toBeInstanceOf(
+      EngineError,
+    );
+    expect(await cache.get(key)).toBeUndefined();
+
+    const ok = await startFakeServer((_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(jsonStop('こんにちは'));
+    });
+    servers.push(ok);
+    const hitEngine = new CachingEngine(
+      new InBrowserEngine(new LocalServerRuntime(() => config(ok.url))),
+      cache,
+      'local:test',
+    );
+    const chunks = await collectChunks(hitEngine.translate(segments, options()));
+    expect(chunks.some((chunk) => chunk.final === 'こんにちは')).toBe(true);
+    expect(await cache.get(key)).toEqual({ text: 'こんにちは', engine: 'plamo' });
+  });
+
+  it('rejects finish_reason content_filter', async () => {
+    const fake = await startFakeServer((_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ choices: [{ text: 'x', finish_reason: 'content_filter' }] }));
+    });
+    servers.push(fake);
+
+    await expect(
+      completeOnServer(config(fake.url), {
+        prompt: 'x',
+        maxTokens: 8,
+        signal: new AbortController().signal,
+        onToken: () => undefined,
+      }),
+    ).rejects.toMatchObject({
+      code: 'server-failed',
+      message: expect.stringMatching(/content_filter/u),
+    });
+  });
+
+  it('does not treat text/plain as SSE', async () => {
+    const fake = await startFakeServer((_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'text/plain' });
+      response.end('data: {"choices":[{"text":"Hi","finish_reason":"stop"}]}\n\ndata: [DONE]\n\n');
+    });
+    servers.push(fake);
+
+    await expect(
+      completeOnServer(config(fake.url), {
+        prompt: 'x',
+        maxTokens: 8,
+        signal: new AbortController().signal,
+        onToken: () => undefined,
+      }),
+    ).rejects.toBeInstanceOf(EngineError);
+  });
+
+  it('times out while the SSE body is still open', async () => {
+    const fake = await startFakeServer((_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      response.write('data: {"choices":[{"text":"Hel"}]}\n\n');
+    });
+    servers.push(fake);
+
+    await expect(
+      completeOnServer(config(fake.url, { timeoutMs: 80 }), {
+        prompt: 'x',
+        maxTokens: 8,
+        signal: new AbortController().signal,
+        onToken: () => undefined,
+      }),
+    ).rejects.toMatchObject({ code: 'server-timeout' });
   });
 });
 

@@ -11,13 +11,16 @@ import {
   clearCache,
   ensureModel,
   log,
+  assertLocalServerBackend,
   prepareModel,
   readStatus,
   routeModel,
   settings,
+  startLocalServerTap,
   type BenchLocalServer,
   type BenchTier,
   type ChromeApi,
+  type LocalServerTap,
 } from './host.ts';
 import {
   HEADLINE_PAGE,
@@ -166,6 +169,7 @@ interface ExtensionHarness {
   options: Page;
   engine: BenchEngine;
   machine: Omit<BenchMachine, 'viewport'>;
+  localServerTap: LocalServerTap | null;
   close: () => Promise<void>;
 }
 
@@ -212,6 +216,15 @@ async function openHarness(
 ): Promise<ExtensionHarness> {
   await readFile(resolve(extension, 'manifest.json'));
 
+  let localServerTap: LocalServerTap | null = null;
+  let preparedExtras = extras;
+  if (mode === 'live' && extras.localServer) {
+    localServerTap = await startLocalServerTap(extras.localServer.url);
+    preparedExtras = {
+      localServer: { ...extras.localServer, url: localServerTap.url },
+    };
+  }
+
   let profile = resolve(ROOT, 'bench/.chrome-profile');
   let temporary: string | null = null;
   if (mode === 'mock') {
@@ -240,6 +253,7 @@ async function openHarness(
   const worker = await waitForServiceWorker(context).catch(async (error: unknown) => {
     await context.close();
     await dropProfile();
+    await localServerTap?.close().catch(() => undefined);
     throw error;
   });
   const extensionId = new URL(worker.url()).host;
@@ -248,7 +262,7 @@ async function openHarness(
 
   let engine: BenchEngine;
   if (mode === 'live') {
-    const prepared = await prepareModel(options, tier, extras);
+    const prepared = await prepareModel(options, tier, preparedExtras);
     log(
       'page-bench',
       `download ${String(prepared.downloadMs)}ms warm ${String(prepared.warmMs)}ms ${
@@ -292,9 +306,11 @@ async function openHarness(
     options,
     engine,
     machine: { platform, cores, userAgent, crossOriginIsolated: isolated },
+    localServerTap,
     close: async () => {
       await context.close();
       await dropProfile();
+      await localServerTap?.close().catch(() => undefined);
     },
   };
 }
@@ -518,6 +534,7 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
     throw error;
   }
   const records: BenchRecord[] = [];
+  let completionsSeen = 0;
 
   try {
     for (let index = 0; index < samples; index += 1) {
@@ -533,6 +550,16 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
           tree,
         });
         records.push(record);
+        if (mode === 'live' && localServer) {
+          assertLocalServerBackend(await readStatus(harness.options));
+          const seen = harness.localServerTap?.completions ?? 0;
+          if (seen <= completionsSeen) {
+            throw new Error(
+              `Local-server bench expected /v1/completions after ${fixture.name}, saw ${String(seen)} (was ${String(completionsSeen)})`,
+            );
+          }
+          completionsSeen = seen;
+        }
         options.onRecord?.(record);
       }
     }

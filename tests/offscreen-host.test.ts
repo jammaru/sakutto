@@ -236,6 +236,36 @@ describe('EngineHost', () => {
     expect(status.value?.modelFallback).toBe(true);
     expect(status.value?.plamoReady).toBe(true);
   });
+
+  it('applies engineSource from source-set without reading chrome.storage', async () => {
+    const { services } = createServices();
+    const host = createHost(services);
+    const port = new FakePort();
+    host.handlePort(port.port);
+
+    port.emit({
+      type: 'source-set',
+      requestId: 'src1',
+      engineSource: 'local-server',
+      localServer: {
+        url: 'http://127.0.0.1:8080/v1',
+        model: 'pfnet/plamo-3-translate-0.8b-MLX-4bit',
+        apiKey: '',
+        timeoutMs: 120_000,
+        allowRemote: false,
+        parallel: 4,
+      },
+    });
+    await flushTasks();
+    port.emit({ type: 'status', requestId: 's1' });
+    await flushTasks();
+
+    const status = port.messagesOfType('response').at(-1) as {
+      value?: { engineSource?: string; backend?: string };
+    };
+    expect(status.value?.engineSource).toBe('local-server');
+    expect(status.value?.backend).toBe('local-server');
+  });
 });
 
 describe('model load on the GPU tier', () => {

@@ -1102,7 +1102,7 @@
     "message": "Le navigateur n’a pas autorisé l’accès à cette adresse."
   },
   "localServerHelp": {
-    "message": "Démarrez d’abord le serveur, chargez un modèle PLaMo 3 Translate, puis testez la connexion. S’il est indisponible, la page garde le texte d’origine."
+    "message": "Démarrez d’abord le serveur, chargez un modèle PLaMo 3 Translate, puis testez la connexion. S’il est indisponible, la page garde le texte d’origine. In LM Studio, set temperature 0 / greedy. Prompt parity is measured against mlx_lm.server and PLaMo's serve.py; LM Studio's BOS handling is unverified."
   },
   "localServerUnreachable": {
     "message": "Impossible d’atteindre le serveur local. Ouvrez les paramètres et vérifiez qu’il tourne."
@@ -1124,5 +1124,14 @@
   },
   "localServerLicenseNote": {
     "message": "Les autres modèles chargés sur ce serveur sont sous votre responsabilité de licence. Les poids PLaMo restent sous la PLaMo Community License."
+  },
+  "localServerParallelLabel": {
+    "message": "Concurrent requests"
+  },
+  "localServerParallelHelp": {
+    "message": "How many completions the server may run at once (1–16). The page keeps extra requests ready so a finished slot is not left idle."
+  },
+  "localServerTestOkUnlisted": {
+    "message": "Connected. Completions work. The server listed no models — keep the model name you typed; it was not verified from /v1/models."
   }
 }

@@ -364,20 +364,22 @@
     <h2>{t('engineHeading')}</h2>
     {#if settings}
       <LocalServerSettings {settings} onUpdate={updateSettings} />
-      <label class="field">
-        <span>{t('tierLabel')}</span>
-        <select value={settings.tier} onchange={changeTier}>
-          <option value="auto">{t('tierAuto')}</option>
-          <option value="g">{t('tierGpu')}</option>
-          {#if isFirefoxBuild()}
-            <option value="c1">{t('tierCpu1')}</option>
-          {:else}
-            <option value="c8">{t('tierCpu8')}</option>
-            <option value="c4">{t('tierCpu4')}</option>
-          {/if}
-        </select>
-      </label>
-      <p class="muted help">{t('tierHelp')}</p>
+      {#if settings.engineSource !== 'local-server'}
+        <label class="field">
+          <span>{t('tierLabel')}</span>
+          <select value={settings.tier} onchange={changeTier}>
+            <option value="auto">{t('tierAuto')}</option>
+            <option value="g">{t('tierGpu')}</option>
+            {#if isFirefoxBuild()}
+              <option value="c1">{t('tierCpu1')}</option>
+            {:else}
+              <option value="c8">{t('tierCpu8')}</option>
+              <option value="c4">{t('tierCpu4')}</option>
+            {/if}
+          </select>
+        </label>
+        <p class="muted help">{t('tierHelp')}</p>
+      {/if}
       <label class="field">
         <span>{t('idleLabel')}</span>
         <select value={String(settings.idleMinutes)} onchange={changeIdle}>

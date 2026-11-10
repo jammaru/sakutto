@@ -52,7 +52,8 @@ The extension keeps the following on your device and does not send it to the dev
 - your glossary and your per-site rules;
 - a record that you accepted the license;
 - the model file;
-- a local translation cache, so that the same text does not have to be translated twice.
+- a local translation cache, so that the same text does not have to be translated twice;
+- an optional local-server API key, stored in plain text in chrome.storage.local.
 
 You can delete the model and clear the translation cache in the extension's settings. Removing the extension removes the rest.
 
@@ -62,7 +63,7 @@ The extension tries not to translate text you are typing into a form field, and 
 
 ## Permissions
 
-The extension is not given access to every site when you install it. A one-time translation of the current tab uses the access the browser grants for that action. Access to a particular site is optional, and is requested only when you turn that site on, for automatic translation. Access to a local server is also optional, and is requested only when you turn that engine on or change its address.
+The extension is not given access to every site when you install it. A one-time translation of the current tab uses the access the browser grants for that action. Access to a particular site is optional, and is requested only when you turn that site on, for automatic translation. Access to a local server is also optional. It is requested when you turn that engine on or change a loopback address, and for a remote address only after you confirm the warning checkbox.
 
 ## Limited Use
 
@@ -127,6 +128,7 @@ Chrome ウェブストアまたは addons.mozilla.org から入れた場合、�
 - ライセンスに同意したことの記録
 - モデルのファイル
 - 翻訳キャッシュ（同じ文章を二度訳さずに済ませるための、端末内の保存）
+- 任意のローカルサーバー API キー（chrome.storage.local に平文で保存します）
 
 モデルの削除と翻訳キャッシュの消去は、拡張機能の設定画面から行えます。拡張機能を削除すると、残りも消えます。
 
@@ -136,7 +138,7 @@ Chrome ウェブストアまたは addons.mozilla.org から入れた場合、�
 
 ## 権限
 
-インストールした時点で、すべてのサイトへのアクセスが与えられるわけではありません。今開いているタブの一回だけの翻訳には、その操作に対してブラウザが与えるアクセスを使います。特定のサイトへのアクセスは任意で、そのサイトの自動翻訳をオンにしたときだけ要求します。ローカルサーバーへのアクセスも任意で、そのエンジンをオンにしたとき、またはアドレスを変えたときだけ要求します。
+インストールした時点で、すべてのサイトへのアクセスが与えられるわけではありません。今開いているタブの一回だけの翻訳には、その操作に対してブラウザが与えるアクセスを使います。特定のサイトへのアクセスは任意で、そのサイトの自動翻訳をオンにしたときだけ要求します。ローカルサーバーへのアクセスも任意です。そのエンジンをオンにしたときやループバックのアドレスを変えたときに要求し、この端末ではない URL では警告のチェックを確認したあとで要求します。
 
 ## 限定的な利用
 

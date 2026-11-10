@@ -131,8 +131,16 @@ export function translationPriority(
 export function lookaheadScreens(
   tier: 'g' | 'c8' | 'c4' | 'c1' | null,
   pace: 'fast' | 'quality' = 'quality',
+  engineSource?: 'in-browser' | 'local-server',
 ): number {
-  const base = tier === 'g' ? 2 : tier === 'c4' || tier === 'c1' ? 0.5 : 1;
+  const base =
+    engineSource === 'local-server'
+      ? 2
+      : tier === 'g'
+        ? 2
+        : tier === 'c4' || tier === 'c1'
+          ? 0.5
+          : 1;
   return pace === 'fast' ? base + 1 : base;
 }
 
@@ -145,3 +153,26 @@ export function lookaheadScreens(
 export const TRANSLATION_CONCURRENCY = 2;
 /** Enough requests in flight on the GPU tier to fill a wave and have the next one waiting. */
 export const GPU_TRANSLATION_CONCURRENCY = 32;
+/**
+ * Page requests kept in flight toward a local HTTP server. The server itself is limited by
+ * `localServerParallel`; the page sends several extra so a finished slot is never idle
+ * waiting on the next round trip. Waves are a WebGPU concern and are not used here.
+ */
+export const LOCAL_SERVER_TRANSLATION_CONCURRENCY = 16;
+
+export function localServerPageConcurrency(parallel: number): number {
+  return Math.min(GPU_TRANSLATION_CONCURRENCY, Math.max(8, Math.round(parallel) * 4));
+}
+
+export function translationConcurrencyFor(
+  tier: 'g' | 'c8' | 'c4' | 'c1' | null,
+  engineSource: 'in-browser' | 'local-server' | undefined,
+  parallel?: number,
+): number {
+  if (engineSource === 'local-server') {
+    return parallel === undefined
+      ? LOCAL_SERVER_TRANSLATION_CONCURRENCY
+      : localServerPageConcurrency(parallel);
+  }
+  return tier === 'g' ? GPU_TRANSLATION_CONCURRENCY : TRANSLATION_CONCURRENCY;
+}

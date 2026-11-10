@@ -10,19 +10,22 @@
  *   node scripts/bench/translation-equality.ts --url http://127.0.0.1:8080/v1 --model pfnet/plamo-3-translate-0.8b-MLX-4bit --out mlx.json
  *   node scripts/bench/translation-equality.ts --url http://127.0.0.1:8080/v1 --compare mlx.json
  *
- * Linux CI cannot run MLX. The unit suite (`tests/local-server.test.ts`) checks prompt
- * equality against a mock server instead.
+ * Linux CI cannot run MLX. `pnpm bench:equality --check` only loads the prompt builder and
+ * the same max_tokens budget as the extension. The unit suite (`tests/local-server.test.ts`)
+ * checks prompt equality against a mock server.
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { arg } from './host.ts';
+import { arg, has } from './host.ts';
+import { CONTEXT_TOKENS } from '../../src/engine/in-browser/backend.ts';
 import {
   buildTranslationPrompt,
   TRANSLATION_STOP_TOKENS,
   type PromptInput,
 } from '../../src/engine/prompt/pfml3.ts';
+import { completionTokenBudget, estimateTokens } from '../../src/engine/text/tokens.ts';
 
 interface SentenceFile {
   src: string;
@@ -50,6 +53,7 @@ interface EqualityDump {
 function usage(): never {
   console.error(`Usage:
   node scripts/bench/translation-equality.ts --url <http://127.0.0.1:8080/v1> [--model <id>] [--out <file>] [--compare <file>] [--sentences <json>]
+  node scripts/bench/translation-equality.ts --check
 `);
   process.exit(2);
 }
@@ -68,10 +72,16 @@ async function loadSentences(path: string): Promise<SentenceFile> {
   return parsed;
 }
 
+function completionMaxTokens(text: string, prompt: string): number {
+  const available = CONTEXT_TOKENS - estimateTokens(prompt) - 8;
+  return Math.min(completionTokenBudget(text), available);
+}
+
 async function complete(
   url: string,
   model: string,
   prompt: string,
+  maxTokens: number,
   apiKey: string,
 ): Promise<string> {
   const headers: Record<string, string> = {
@@ -86,7 +96,7 @@ async function complete(
     body: JSON.stringify({
       ...(model.length > 0 ? { model } : {}),
       prompt,
-      max_tokens: 128,
+      max_tokens: maxTokens,
       temperature: 0,
       stop: [...TRANSLATION_STOP_TOKENS],
       stream: false,
@@ -108,6 +118,14 @@ async function complete(
 }
 
 async function main(): Promise<void> {
+  if (has('--check')) {
+    const prompt = buildTranslationPrompt({ text: 'Hello.', src: 'en', tgt: 'ja', form: 'polite' });
+    const maxTokens = completionMaxTokens('Hello.', prompt);
+    if (maxTokens < 32) throw new Error(`unexpected max_tokens ${String(maxTokens)}`);
+    console.log(`ok max_tokens=${String(maxTokens)}`);
+    return;
+  }
+
   const url = requireUrl();
   const model = arg('--model') ?? '';
   const apiKey = arg('--api-key') ?? '';
@@ -128,7 +146,7 @@ async function main(): Promise<void> {
       ...(form !== undefined ? { form } : {}),
     };
     const prompt = buildTranslationPrompt(input);
-    const output = await complete(url, model, prompt, apiKey);
+    const output = await complete(url, model, prompt, completionMaxTokens(source, prompt), apiKey);
     rows.push({ source, prompt, output });
     console.log(`${source} → ${output}`);
   }

@@ -37,7 +37,7 @@ import {
   isWebGpuDebugProfile,
   type WebGpuDebugProfile,
 } from '@/shared/gpu-diagnostic';
-import { ensureSettings } from '@/shared/storage';
+import { ensureSettings, subscribeSettings } from '@/shared/storage';
 
 const CAPABILITIES_CACHE_KEY = 'engineCapabilities';
 
@@ -49,6 +49,9 @@ export default defineBackground(() => {
 
   broker.start();
   installPageActions(broker);
+  subscribeSettings((settings) => {
+    void client.setSource(settings).catch(() => undefined);
+  });
 
   async function readCachedCapabilities(): Promise<EngineCapabilities | null> {
     if (capabilitiesCache) return capabilitiesCache;

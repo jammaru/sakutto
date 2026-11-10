@@ -4,8 +4,9 @@ Research and design for adding Apple Silicon MLX as a selectable translation bac
 ([#59](https://github.com/jammaru/sakutto/issues/59)), sharing one OpenAI-compatible localhost
 path with LM Studio ([#56](https://github.com/jammaru/sakutto/issues/56)).
 
-This note names no issue authors. Default remains the built-in wllama engine. MLX is not
-claimed to be faster: this environment cannot run MLX, and no Mac measurement is included.
+This note names no issue authors. Default remains the built-in wllama engine. The local-server
+path is **opt-in**. Translations may differ from the built-in engine. MLX is not claimed to
+be faster: Linux CI cannot run MLX, and Mac timings are not product copy.
 
 ## Recommendation
 
@@ -225,18 +226,27 @@ changing piece boundaries would change translations even with a matching model.
 
 ### Sampling and stop handling
 
-| Knob                | Built-in                 | Local server                                        |
-| ------------------- | ------------------------ | --------------------------------------------------- |
-| Prompt              | `buildTranslationPrompt` | identical function                                  |
-| BOS                 | llama.cpp prepends       | mlx-lm prepends (vendor: do not add)                |
-| temperature         | `0`                      | `0` (explicit; some servers default 0.7 if omitted) |
-| top_p / penalties   | not sent                 | not sent (mlx-lm defaults are already greedy)       |
-| stop                | PFML3 tag + BOS          | same array                                          |
-| stream              | yes                      | yes (SSE); non-stream JSON accepted as fallback     |
-| extra chat template | none                     | none — Completions only                             |
+| Knob                | Built-in                    | Local server                                                                                                                                                                                               |
+| ------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Prompt              | `buildTranslationPrompt`    | identical function                                                                                                                                                                                         |
+| BOS                 | llama.cpp prepends          | mlx-lm prepends (vendor: do not add)                                                                                                                                                                       |
+| temperature         | `0`                         | `0` (explicit; some servers default 0.7 if omitted)                                                                                                                                                        |
+| top_p / penalties   | not sent                    | not sent (mlx-lm defaults are already greedy)                                                                                                                                                              |
+| stop                | PFML3 tag + BOS             | same array                                                                                                                                                                                                 |
+| stream              | yes                         | yes (`text/event-stream` only); JSON if that type is absent                                                                                                                                                |
+| extra chat template | none                        | none — Completions only                                                                                                                                                                                    |
+| finish              | wllama stops on stop tokens | `choices[0].finish_reason` must be `stop`. A cut-off SSE body, `[DONE]` without stop, `length`, `content_filter`, or malformed JSON is `EngineError`. Nothing is cached; the page keeps the original text. |
 
-If `/v1/completions` is missing (404), the client **does not** fall back to chat
-completions. That would be a silent prompt change.
+A 404 is **not** always "no Completions API". mlx-lm returns 404 on generation exceptions,
+and LM Studio can 404 for an unloaded model. The client reads the body: a missing-route
+shape (`Not Found`, empty 404) is Completions missing; `model not loaded` is
+`server-model-missing`; anything else is `server-failed`. Chat completions are never used.
+
+The AbortController deadline covers the SSE/JSON body, not only the response headers.
+
+In LM Studio, set the server-side sampler to temperature 0 / greedy. Prompt parity is
+measured against `mlx_lm.server` and PLaMo's `serve.py`. LM Studio's BOS handling is
+unverified. Speed is not claimed.
 
 ### Quantization versus the built-in GGUF
 
@@ -257,6 +267,21 @@ are small on those tables. **None of this is a speed claim.** The equality bench
 set; a difference is expected across codecs and is not treated as a client bug unless
 the **request prompt** also differs.
 
+On an Apple M4 Mac (Chromium 158 headless, mlx-lm 0.32.2,
+`pfnet/plamo-3-translate-0.8b-MLX-4bit`, client at 53f594d) MLX-4bit output differed
+textually from the built-in GGUF Q4_K_M on about **119 of 262** blocks, with
+mistranslations on both sides. Settings and README therefore say translations may
+differ from the built-in engine. That run is a quality observation, not a speed claim.
+
+Also observed on that Mac (fixed in this client; not re-measured here):
+
+- Chrome offscreen has no `chrome.storage` (`typeof chrome.storage === 'undefined'`), so
+  `engineSource` stayed `in-browser` until the service worker pushed `source-set`.
+- `mlx_lm.server` 0.32.2 `/v1/models` can return an empty list. The connection test
+  still probes `/v1/completions` and keeps a typed model name.
+- Page in-flight of 2 plus WebGPU wave scheduling starved HTTP concurrency. Local-server
+  now uses a non-wave scheduler and a configurable HTTP parallel limit.
+
 LM Studio may apply its own repeat-penalty / sampler UI on top of the HTTP body. The
 docs tell the user to set greedy / temperature 0 in the server app as well.
 
@@ -264,7 +289,11 @@ docs tell the user to set greedy / temperature 0 in the server app as well.
 
 - Setting `engineSource`: `in-browser` (default) \| `local-server`.
 - Local-server fields: `localServerUrl`, `localServerModel`, `localServerApiKey`,
-  `localServerTimeoutMs` (default 120s), `localServerAllowRemote` (default false).
+  `localServerTimeoutMs` (default 120s), `localServerAllowRemote` (default false),
+  `localServerParallel` (default 4, range 1–16).
+- Chrome's offscreen document has no `chrome.storage`. The service worker reads settings and
+  pushes `engineSource` plus the local-server config with `source-set` (same pattern as
+  `tier-set`). Firefox's event-page iframe of `offscreen.html` uses that same message path.
 - Presets only fill the URL; they are not a stored enum.
 - Chrome Translator remains the only engine for pairs PLaMo cannot do. No cross-engine
   fallback. A server failure keeps the source text.
@@ -294,11 +323,12 @@ Verified here (Linux VM, no Apple GPU, no MLX):
 
 Not verified here:
 
-- `mlx_lm.server` or PLaMo `serve.py` on Apple Silicon.
-- LM Studio MLX engine.
-- Speed of WebGPU-in-Chrome vs MLX (first visible ms, full page ms).
-- Token-for-token agreement between GGUF Q4_K_M and MLX-4bit on a Mac.
+- A re-bench of page throughput after the local-server concurrency fix (needs a Mac).
+- LM Studio MLX engine and its BOS handling.
 - Whether a future Chromium build applies LNA to extensions.
+
+A Mac quality check (see above) found textual differences versus GGUF Q4_K_M. Speed
+numbers from that machine are not quoted as product copy.
 
 Maintainer steps for those measurements: [bench/README.md](../../bench/README.md) (local
 server section) and `scripts/bench/translation-equality.ts`.
