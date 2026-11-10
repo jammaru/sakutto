@@ -271,6 +271,8 @@ export class PageSession {
    */
   private readonly skippedBlocks = new Map<Element, string>();
   private applying = 0;
+  /** Set when a local-server request fails, so the bar can keep the Settings hint. */
+  private serverFault = false;
   private historyUnpatch: (() => void) | null = null;
   private scanTimer: ReturnType<typeof setTimeout> | null = null;
   private direction: 'down' | 'up' = 'down';
@@ -541,6 +543,7 @@ export class PageSession {
   async translate(): Promise<void> {
     if (this.active) return;
     this.active = true;
+    this.serverFault = false;
     this.navigating = false;
     this.sweepLegacyNotes();
     this.startedAt = performance.now();
@@ -564,6 +567,7 @@ export class PageSession {
 
   restore(): void {
     this.active = false;
+    this.serverFault = false;
     this.targetAdjusted = false;
     const source = this.doc.documentElement.getAttribute('data-sakutto-source-lang');
     if (source !== null) {
@@ -1135,8 +1139,7 @@ export class PageSession {
     let tokens = firstTokens;
     let placeholders = openPlaceholderCount(first.source);
     const firstPriority = this.priorityOf(first);
-    const packLimit = this.prefs.engineSource === 'local-server' ? 1 : MAX_BATCH_SEGMENTS;
-    while (this.queue.size > 0 && batch.length < packLimit) {
+    while (this.queue.size > 0 && batch.length < MAX_BATCH_SEGMENTS) {
       const peeked = this.queue.peek();
       if (!peeked) break;
       const next = peeked.value;
@@ -1235,8 +1238,9 @@ export class PageSession {
       }
     } catch (error) {
       // Unfinished blocks are retried below. Abort keeps the previous text.
-      if (!signal.aborted && isLocalServerError(error) && this.labels.engineFailed) {
-        this.overlay.showStatus(this.labels.engineFailed);
+      if (!signal.aborted && isLocalServerError(error)) {
+        this.serverFault = true;
+        if (this.labels.engineFailed) this.overlay.showStatus(this.labels.engineFailed);
       }
     } finally {
       this.work.engineMs += Math.round(performance.now() - engineStarted);
@@ -1721,6 +1725,9 @@ export class PageSession {
   }
 
   private barText(view: PageViewState): string {
+    if (this.serverFault && this.labels.engineFailed && view.pending === 0) {
+      return this.labels.engineFailed;
+    }
     const base =
       view.pending > 0
         ? this.labels.barProgress(view.done, view.total)

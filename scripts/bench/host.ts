@@ -12,6 +12,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { BrowserContext, Page } from '@playwright/test';
 
+import { DEFAULT_LOCAL_SERVER_PARALLEL } from '../../src/engine/local-server/url.ts';
 import { DEFAULT_MODEL_ID, getModel } from '../../src/engine/model/catalog.ts';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -85,6 +86,7 @@ export type BenchTier = 'auto' | 'g' | 'c8' | 'c4';
 export interface BenchLocalServer {
   url: string;
   model: string;
+  parallel?: number;
 }
 
 export function settings(
@@ -114,7 +116,7 @@ export function settings(
     localServerApiKey: '',
     localServerTimeoutMs: 120_000,
     localServerAllowRemote: false,
-    localServerParallel: 4,
+    localServerParallel: localServer?.parallel ?? DEFAULT_LOCAL_SERVER_PARALLEL,
   };
 }
 
@@ -169,6 +171,7 @@ export async function startLocalServerTap(upstreamUrl: string): Promise<LocalSer
     url: `http://127.0.0.1:${String(address.port)}${prefix}`,
     close: () =>
       new Promise((resolveClose, reject) => {
+        server.closeAllConnections();
         server.close((error) => (error ? reject(error) : resolveClose()));
       }),
   };

@@ -200,12 +200,31 @@ describe('local server settings', () => {
     expect(host).toContain('new JobScheduler(localRuntime.parallel, false)');
     expect(host).toContain('browser.storage?.local');
     expect(firefox).toContain('source-set');
+    expect(client).toContain('bootSource');
+    expect(client).toContain('pushStoredSource');
+    expect(background).toContain('client.bootSource');
   });
 
   it('exposes a concurrent-request limit for the local HTTP server', () => {
     expect(panel).toContain('localServerParallel');
     expect(panel).toContain('sakutto-local-server-models');
-    expect(source('dom/session.ts')).toContain("this.prefs.engineSource === 'local-server' ? 1");
+    expect(source('dom/session.ts')).toContain('MAX_BATCH_SEGMENTS');
+    expect(source('dom/session.ts')).not.toContain(
+      "this.prefs.engineSource === 'local-server' ? 1",
+    );
+  });
+});
+
+describe('live bench local-server flags', () => {
+  const cli = readFileSync(new URL('../scripts/bench/pages-run.ts', import.meta.url), 'utf8');
+  const runner = readFileSync(new URL('../scripts/bench/pages-runner.ts', import.meta.url), 'utf8');
+  const host = readFileSync(new URL('../scripts/bench/host.ts', import.meta.url), 'utf8');
+
+  it('accepts --local-server-parallel and exits the process after a failed verification', () => {
+    expect(cli).toContain('--local-server-parallel');
+    expect(cli).toContain('process.exit(1)');
+    expect(host).toContain('closeAllConnections');
+    expect(runner).toContain('return abort(error)');
   });
 });
 

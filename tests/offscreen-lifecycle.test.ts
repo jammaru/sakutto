@@ -46,6 +46,17 @@ describe('OffscreenController', () => {
     expect(state.creates).toBe(0);
   });
 
+  it('closes an existing document without creating another', async () => {
+    const { api, state } = fakeApi(true);
+    const controller = new OffscreenController(api);
+
+    await controller.close();
+
+    expect(state.closes).toBe(1);
+    expect(state.creates).toBe(0);
+    expect(state.exists).toBe(false);
+  });
+
   it('closes and recreates the document after a crash', async () => {
     const { api, state } = fakeApi(true);
     const controller = new OffscreenController(api);

@@ -290,7 +290,7 @@ docs tell the user to set greedy / temperature 0 in the server app as well.
 - Setting `engineSource`: `in-browser` (default) \| `local-server`.
 - Local-server fields: `localServerUrl`, `localServerModel`, `localServerApiKey`,
   `localServerTimeoutMs` (default 120s), `localServerAllowRemote` (default false),
-  `localServerParallel` (default 4, range 1–16).
+  `localServerParallel` (default 8, range 1–16).
 - Chrome's offscreen document has no `chrome.storage`. The service worker reads settings and
   pushes `engineSource` plus the local-server config with `source-set` (same pattern as
   `tier-set`). Firefox's event-page iframe of `offscreen.html` uses that same message path.
@@ -323,12 +323,29 @@ Verified here (Linux VM, no Apple GPU, no MLX):
 
 Not verified here:
 
-- A re-bench of page throughput after the local-server concurrency fix (needs a Mac).
 - LM Studio MLX engine and its BOS handling.
 - Whether a future Chromium build applies LNA to extensions.
 
 A Mac quality check (see above) found textual differences versus GGUF Q4_K_M. Speed
 numbers from that machine are not quoted as product copy.
+
+### Mac page timings (not product copy)
+
+Recorded on Apple M4, headless Chromium 158, mlx-lm 0.32.2,
+`pfnet/plamo-3-translate-0.8b-MLX-4bit`, client at f97ab19. Medians of a 3-run
+`long-article` live bench. The 0.8B MLX-4bit weights are about 0.98 GB; mlx_lm.server
+shares them across in-flight completions, so parallel 8 is the default. Lower it if a
+larger model runs out of memory.
+
+| Engine                   | firstVisibleTextMs | viewportMs | fullPageMs |
+| ------------------------ | -----------------: | ---------: | ---------: |
+| Built-in WebGPU          |             0.93 s |     4.08 s |     15.3 s |
+| mlx_lm.server parallel 4 |             0.32 s |     5.95 s |     10.1 s |
+| mlx_lm.server parallel 8 |             0.53 s |     2.53 s |      8.6 s |
+
+Parallel 8 was faster than 4 on viewport and full page. First-visible was a little
+slower (0.53 s vs 0.32 s). That is why 8 is the starting point, not a claim that MLX
+is always faster than WebGPU.
 
 Maintainer steps for those measurements: [bench/README.md](../../bench/README.md) (local
 server section) and `scripts/bench/translation-equality.ts`.

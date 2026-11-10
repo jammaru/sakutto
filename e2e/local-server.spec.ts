@@ -132,4 +132,54 @@ test.describe('local server options', () => {
       await fake.close();
     }
   });
+
+  test('an upgraded profile that already stored local-server reports that backend', async () => {
+    const fake = await startFakeServer();
+    const extension = await loadExtension('en-US');
+    try {
+      const options = await extension.context.newPage();
+      await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await options.evaluate(
+        async (stored) => {
+          const chrome = (
+            globalThis as unknown as {
+              chrome: {
+                storage: { local: { set: (items: Record<string, unknown>) => Promise<void> } };
+              };
+            }
+          ).chrome;
+          await chrome.storage.local.set({ settings: stored });
+        },
+        {
+          schemaVersion: 1,
+          targetLanguage: 'en',
+          engineSource: 'local-server',
+          localServerUrl: fake.url,
+          localServerModel: 'pfnet/plamo-3-translate-0.8b-MLX-4bit',
+          consent: {
+            license: 'plamo-community',
+            version: '2026-11-05',
+            acceptedAt: '2026-11-05T00:00:00.000Z',
+            ageNoticeShown: true,
+          },
+        },
+      );
+      await expect
+        .poll(async () => {
+          return options.evaluate(async () => {
+            const chrome = (
+              globalThis as unknown as {
+                chrome: { runtime: { sendMessage(message: unknown): Promise<unknown> } };
+              }
+            ).chrome;
+            return chrome.runtime.sendMessage({ type: 'engine:status' });
+          });
+        })
+        .toMatchObject({ backend: 'local-server', engineSource: 'local-server' });
+      await options.close();
+    } finally {
+      await extension.close();
+      await fake.close();
+    }
+  });
 });

@@ -1,6 +1,6 @@
 export const DEFAULT_LOCAL_SERVER_URL = 'http://127.0.0.1:8080/v1';
 export const DEFAULT_LOCAL_SERVER_TIMEOUT_MS = 120_000;
-export const DEFAULT_LOCAL_SERVER_PARALLEL = 4;
+export const DEFAULT_LOCAL_SERVER_PARALLEL = 8;
 
 export const LOCAL_SERVER_PRESETS = {
   mlx: {

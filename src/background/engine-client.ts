@@ -131,6 +131,7 @@ export class EngineClient {
   }
 
   async modelStatus(modelId: ModelId): Promise<ModelStatus> {
+    await this.ensureSource();
     const value = await this.request({ type: 'model-status', modelId }, { timeoutMs: 15_000 });
     if (!isModelStatus(value)) throw hostError('The engine host returned an invalid status.');
     return value;
@@ -141,13 +142,16 @@ export class EngineClient {
   }
 
   async setTier(tier: TierPreference): Promise<void> {
+    await this.ensureSource();
     await this.request({ type: 'tier-set', tier }, { timeoutMs: 30_000 });
   }
 
   async setSource(settings: Settings): Promise<void> {
     const payload = sourceSetPayload(settings);
     const key = sourceKeyOf(payload);
-    await this.request(payload, { timeoutMs: 15_000 });
+    const port = await this.connect();
+    if (key === this.sourceKey && this.port === port) return;
+    await this.roundTrip(port, { ...payload, requestId: createRequestId() }, 15_000);
     this.sourceKey = key;
   }
 
@@ -160,6 +164,23 @@ export class EngineClient {
     if (!settings) return;
     const key = sourceKeyOf(sourceSetPayload(settings));
     if (key === this.sourceKey && this.port) return;
+    await this.setSource(settings);
+  }
+
+  /**
+   * Close a leftover offscreen document from a previous build, then push the stored
+   * engineSource. An upgraded profile can keep an old host that does not understand
+   * source-set, so `engine:status` would stay in-browser.
+   */
+  async bootSource(): Promise<void> {
+    this.dropPort();
+    try {
+      await this.controller.close();
+    } catch {
+      // No document yet.
+    }
+    const settings = await loadSettings().catch(() => null);
+    if (!settings) return;
     await this.setSource(settings);
   }
 
@@ -290,25 +311,47 @@ export class EngineClient {
 
     this.connecting ??= (async () => {
       await this.controller.ensure();
-
-      let port: Browser.runtime.Port;
-      try {
-        port = browser.runtime.connect({ name: ENGINE_HOST_PORT });
-      } catch (error) {
-        throw hostError('The translation host could not be opened.', error);
-      }
-
-      port.onMessage.addListener((message: unknown) => this.handleMessage(message));
-      port.onDisconnect.addListener(() => {
-        if (this.port === port) this.handleDisconnect();
-      });
+      const port = this.openPort();
       this.port = port;
-      return port;
+      try {
+        await this.pushStoredSource(port);
+        return port;
+      } catch (error) {
+        this.dropPort();
+        if (!isHostGone(error)) throw error;
+        await this.controller.recreate();
+        const retry = this.openPort();
+        this.port = retry;
+        await this.pushStoredSource(retry);
+        return retry;
+      }
     })().finally(() => {
       this.connecting = null;
     });
 
     return this.connecting;
+  }
+
+  private openPort(): Browser.runtime.Port {
+    let port: Browser.runtime.Port;
+    try {
+      port = browser.runtime.connect({ name: ENGINE_HOST_PORT });
+    } catch (error) {
+      throw hostError('The translation host could not be opened.', error);
+    }
+    port.onMessage.addListener((message: unknown) => this.handleMessage(message));
+    port.onDisconnect.addListener(() => {
+      if (this.port === port) this.handleDisconnect();
+    });
+    return port;
+  }
+
+  private async pushStoredSource(port: Browser.runtime.Port): Promise<void> {
+    const settings = await loadSettings().catch(() => null);
+    if (!settings) return;
+    const payload = sourceSetPayload(settings);
+    await this.roundTrip(port, { ...payload, requestId: createRequestId() }, 2_000);
+    this.sourceKey = sourceKeyOf(payload);
   }
 
   private roundTrip(
@@ -391,6 +434,7 @@ export class EngineClient {
   private dropPort(): void {
     const port = this.port;
     this.port = null;
+    this.sourceKey = '';
     try {
       port?.disconnect();
     } catch {

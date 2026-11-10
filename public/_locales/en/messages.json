@@ -1129,7 +1129,7 @@
     "message": "Concurrent requests"
   },
   "localServerParallelHelp": {
-    "message": "How many completions the server may run at once (1–16). The page keeps extra requests ready so a finished slot is not left idle."
+    "message": "How many completions the server may run at once (1–16). Default is 8. The page keeps extra requests ready so a finished slot is not left idle."
   },
   "localServerTestOkUnlisted": {
     "message": "Connected. Completions work. The server listed no models — keep the model name you typed; it was not verified from /v1/models."

@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
+import { uiShadow } from '@/dom/overlay';
 import { PageSession, type PageEngine, type SessionPreferences } from '@/dom/session';
+import { EngineError } from '@/engine/errors';
 import { estimateTokens } from '@/engine/text/tokens';
 
 const labels = {
@@ -22,6 +24,8 @@ const labels = {
   barOriginal: '原文に戻す',
   barAlways: 'このサイトを常に翻訳します',
   barAlwaysOn: 'このサイトは常に翻訳します。',
+  engineFailed:
+    'ローカルサーバーでは翻訳できませんでした。設定を開いてください。原文のままにしています。',
 };
 
 function preferences(overrides: Partial<SessionPreferences> = {}): SessionPreferences {
@@ -41,11 +45,15 @@ function preferences(overrides: Partial<SessionPreferences> = {}): SessionPrefer
 
 const sessions: PageSession[] = [];
 
-function start(doc: Document, engine: PageEngine): PageSession {
+function start(
+  doc: Document,
+  engine: PageEngine,
+  prefs: Partial<SessionPreferences> = {},
+): PageSession {
   const session = new PageSession(doc, {
     engine,
     labels,
-    preferences: preferences(),
+    preferences: preferences(prefs),
     scheduleFrame: (callback) => callback(),
     debounceMs: 20,
   });
@@ -224,6 +232,70 @@ describe('packed page requests', () => {
     for (const batch of requests) {
       expect(estimateTokens(batch.join('\n'))).toBeLessThanOrEqual(512);
     }
+  });
+
+  it('sends the same packed prompts for nav links under in-browser and local-server', async () => {
+    const html = `
+      <header>
+        <nav aria-label="Site">
+          <ul>
+            <li><a href="/about">About</a></li>
+            <li><a href="/docs">Docs</a></li>
+            <li><a href="/blog">Blog</a></li>
+            <li><a href="/help">Help</a></li>
+            <li><a href="/news">News</a></li>
+            <li><a href="/faq">FAQ</a></li>
+          </ul>
+        </nav>
+      </header>
+      <p>This is the lead paragraph of the article about Kyoto travel.</p>
+    `;
+
+    async function collect(engineSource: 'in-browser' | 'local-server'): Promise<string[][]> {
+      document.documentElement.lang = 'en';
+      document.body.innerHTML = html;
+      const requests: string[][] = [];
+      const session = start(document, recorder([], requests), { engineSource });
+      await session.translate();
+      await session.whenIdle();
+      session.dispose();
+      sessions.length = 0;
+      document.body.innerHTML = '';
+      return requests;
+    }
+
+    const inBrowser = await collect('in-browser');
+    const localServer = await collect('local-server');
+
+    expect(localServer).toEqual(inBrowser);
+    expect(inBrowser.some((batch) => batch.length > 1)).toBe(true);
+    expect(inBrowser.flat().some((text) => text.includes('About'))).toBe(true);
+    expect(inBrowser.flat().some((text) => text.includes('Docs'))).toBe(true);
+  });
+
+  it('keeps the local-server Settings hint on the bar when the server is down', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>About</p><p>Docs</p><p>A short lead paragraph.</p>';
+    const session = start(
+      document,
+      {
+        async *translate() {
+          throw new EngineError(
+            'server-unavailable',
+            'The local translation server could not be reached.',
+          );
+          yield { id: 'unused', final: '', engine: 'plamo' as const };
+        },
+      },
+      { engineSource: 'local-server' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    const bar = uiShadow(document.querySelector('sakutto-bar'))?.textContent ?? '';
+    expect(bar).toContain('設定を開いてください');
+    expect(bar).not.toContain('翻訳できない箇所が');
   });
 });
 

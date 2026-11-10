@@ -16,9 +16,11 @@ import {
 import { LocalServerRuntime } from '@/engine/local-server/runtime';
 import { PlamoSourceEngine } from '@/engine/local-server/source';
 import {
+  DEFAULT_LOCAL_SERVER_PARALLEL,
   DEFAULT_LOCAL_SERVER_URL,
   isLoopbackHostname,
   isRemoteServerUrl,
+  normalizeParallel,
   normalizeServerUrl,
   originPatternsFor,
   parseServerUrl,
@@ -127,6 +129,12 @@ describe('local server URL', () => {
       'http://localhost:1234/v1/completions',
     );
     expect(normalizeServerUrl('not a url')).toBe(DEFAULT_LOCAL_SERVER_URL);
+  });
+
+  it('defaults concurrent completions to 8', () => {
+    expect(DEFAULT_LOCAL_SERVER_PARALLEL).toBe(8);
+    expect(normalizeParallel(undefined)).toBe(8);
+    expect(normalizeParallel(4)).toBe(4);
   });
 
   it('treats loopback names as local and everything else as remote', () => {

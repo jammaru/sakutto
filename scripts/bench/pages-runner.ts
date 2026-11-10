@@ -218,101 +218,109 @@ async function openHarness(
 
   let localServerTap: LocalServerTap | null = null;
   let preparedExtras = extras;
-  if (mode === 'live' && extras.localServer) {
-    localServerTap = await startLocalServerTap(extras.localServer.url);
-    preparedExtras = {
-      localServer: { ...extras.localServer, url: localServerTap.url },
-    };
-  }
-
+  let context: BrowserContext | null = null;
   let profile = resolve(ROOT, 'bench/.chrome-profile');
   let temporary: string | null = null;
-  if (mode === 'mock') {
-    // A fresh profile per run keeps a stale site rule or a warm translation cache from
-    // making one sample faster than the next.
-    temporary = await mkdtemp(join(tmpdir(), 'sakutto-bench-'));
-    profile = temporary;
-  }
-  await mkdir(profile, { recursive: true });
-
-  const context = await chromium.launchPersistentContext(profile, {
-    headless: false,
-    locale: 'en-US',
-    viewport: VIEWPORT,
-    args: launchArgs(extension),
-  });
-  context.setDefaultTimeout(180_000);
-  context.setDefaultNavigationTimeout(60_000);
 
   const dropProfile = async (): Promise<void> => {
     if (temporary !== null) await rm(temporary, { recursive: true, force: true });
   };
-
-  if (mode === 'live' && extras.localServer === undefined) await routeModel(context, modelPath);
-
-  const worker = await waitForServiceWorker(context).catch(async (error: unknown) => {
-    await context.close();
+  const abort = async (error: unknown): Promise<never> => {
+    await context?.close().catch(() => undefined);
     await dropProfile();
     await localServerTap?.close().catch(() => undefined);
     throw error;
-  });
-  const extensionId = new URL(worker.url()).host;
-  const options = await context.newPage();
-  await options.goto(`chrome-extension://${extensionId}/options.html`);
-
-  let engine: BenchEngine;
-  if (mode === 'live') {
-    const prepared = await prepareModel(options, tier, preparedExtras);
-    log(
-      'page-bench',
-      `download ${String(prepared.downloadMs)}ms warm ${String(prepared.warmMs)}ms ${
-        prepared.status.backend ?? 'unknown'
-      } threads ${String(prepared.status.threads)}`,
-    );
-    engine = {
-      label: prepared.status.backend ?? 'plamo',
-      backend: prepared.status.backend,
-      tier: prepared.status.tier,
-      threads: prepared.status.threads,
-      chromeTranslator: prepared.status.chromeSupported,
-      model: extras.localServer?.model ?? MODEL_ID,
-      ...acceleratorFor({ mode: 'live', backend: prepared.status.backend }),
-    };
-  } else {
-    await options.evaluate(async (stored) => {
-      const chrome = (globalThis as unknown as { chrome: ChromeApi }).chrome;
-      await chrome.storage.local.set({ settings: stored, siteRules: {} });
-    }, settings());
-    const status = await readStatus(options).catch(() => null);
-    engine = {
-      label: 'mock',
-      backend: null,
-      tier: status?.tier ?? null,
-      threads: null,
-      chromeTranslator: false,
-      model: null,
-      ...acceleratorFor({ mode: 'mock', backend: null }),
-    };
-  }
-
-  const isolated = await options.evaluate(() => crossOriginIsolated);
-  const cores = await options.evaluate(() => navigator.hardwareConcurrency);
-  const userAgent = await options.evaluate(() => navigator.userAgent);
-  const platform = await options.evaluate(() => navigator.platform);
-
-  return {
-    context,
-    worker,
-    options,
-    engine,
-    machine: { platform, cores, userAgent, crossOriginIsolated: isolated },
-    localServerTap,
-    close: async () => {
-      await context.close();
-      await dropProfile();
-      await localServerTap?.close().catch(() => undefined);
-    },
   };
+
+  try {
+    if (mode === 'live' && extras.localServer) {
+      localServerTap = await startLocalServerTap(extras.localServer.url);
+      preparedExtras = {
+        localServer: { ...extras.localServer, url: localServerTap.url },
+      };
+    }
+
+    if (mode === 'mock') {
+      // A fresh profile per run keeps a stale site rule or a warm translation cache from
+      // making one sample faster than the next.
+      temporary = await mkdtemp(join(tmpdir(), 'sakutto-bench-'));
+      profile = temporary;
+    }
+    await mkdir(profile, { recursive: true });
+
+    context = await chromium.launchPersistentContext(profile, {
+      headless: false,
+      locale: 'en-US',
+      viewport: VIEWPORT,
+      args: launchArgs(extension),
+    });
+    context.setDefaultTimeout(180_000);
+    context.setDefaultNavigationTimeout(60_000);
+
+    if (mode === 'live' && extras.localServer === undefined) await routeModel(context, modelPath);
+
+    const worker = await waitForServiceWorker(context);
+    const extensionId = new URL(worker.url()).host;
+    const options = await context.newPage();
+    await options.goto(`chrome-extension://${extensionId}/options.html`);
+
+    let engine: BenchEngine;
+    if (mode === 'live') {
+      const prepared = await prepareModel(options, tier, preparedExtras);
+      log(
+        'page-bench',
+        `download ${String(prepared.downloadMs)}ms warm ${String(prepared.warmMs)}ms ${
+          prepared.status.backend ?? 'unknown'
+        } threads ${String(prepared.status.threads)}`,
+      );
+      engine = {
+        label: prepared.status.backend ?? 'plamo',
+        backend: prepared.status.backend,
+        tier: prepared.status.tier,
+        threads: prepared.status.threads,
+        chromeTranslator: prepared.status.chromeSupported,
+        model: extras.localServer?.model ?? MODEL_ID,
+        ...acceleratorFor({ mode: 'live', backend: prepared.status.backend }),
+      };
+    } else {
+      await options.evaluate(async (stored) => {
+        const chrome = (globalThis as unknown as { chrome: ChromeApi }).chrome;
+        await chrome.storage.local.set({ settings: stored, siteRules: {} });
+      }, settings());
+      const status = await readStatus(options).catch(() => null);
+      engine = {
+        label: 'mock',
+        backend: null,
+        tier: status?.tier ?? null,
+        threads: null,
+        chromeTranslator: false,
+        model: null,
+        ...acceleratorFor({ mode: 'mock', backend: null }),
+      };
+    }
+
+    const isolated = await options.evaluate(() => crossOriginIsolated);
+    const cores = await options.evaluate(() => navigator.hardwareConcurrency);
+    const userAgent = await options.evaluate(() => navigator.userAgent);
+    const platform = await options.evaluate(() => navigator.platform);
+    const launched = context;
+
+    return {
+      context: launched,
+      worker,
+      options,
+      engine,
+      machine: { platform, cores, userAgent, crossOriginIsolated: isolated },
+      localServerTap,
+      close: async () => {
+        await launched.close();
+        await dropProfile();
+        await localServerTap?.close().catch(() => undefined);
+      },
+    };
+  } catch (error) {
+    return abort(error);
+  }
 }
 
 /** Sends the same `page:command` message the popup and the Alt+A shortcut send. */

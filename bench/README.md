@@ -260,13 +260,25 @@ receives `/v1/completions`. Translations may differ from the built-in engine.
 pnpm bench:live --run "mac-webgpu" --samples 3 --only long-article
 ```
 
-4. Local server (same machine, same fixtures):
+4. Local server (same machine, same fixtures). Concurrent completions default to 8
+   (`--local-server-parallel`, range 1–16). That default is a starting point for the
+   0.8B MLX-4bit weights (~0.98 GB); lower it if a larger model runs out of memory.
 
 ```sh
 pnpm bench:live --run "mac-mlx" --samples 3 --only long-article \
   --local-server-url http://127.0.0.1:8080/v1 \
-  --local-server-model pfnet/plamo-3-translate-0.8b-MLX-4bit
+  --local-server-model pfnet/plamo-3-translate-0.8b-MLX-4bit \
+  --local-server-parallel 8
 ```
+
+Mac M4, headless Chromium 158, mlx-lm 0.32.2, `pfnet/plamo-3-translate-0.8b-MLX-4bit`,
+client f97ab19, `long-article` medians of 3 runs (not product copy):
+
+| Engine                   | firstVisibleTextMs | viewportMs | fullPageMs |
+| ------------------------ | -----------------: | ---------: | ---------: |
+| Built-in WebGPU          |             0.93 s |     4.08 s |     15.3 s |
+| mlx_lm.server parallel 4 |             0.32 s |     5.95 s |     10.1 s |
+| mlx_lm.server parallel 8 |             0.53 s |     2.53 s |      8.6 s |
 
 5. Compare the two run labels with `pnpm bench:history --baseline mac-webgpu --compare mac-mlx`.
    The history warns when accelerators differ (`webgpu` vs `local-server`); that warning is
