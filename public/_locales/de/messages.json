@@ -1166,5 +1166,8 @@
   },
   "diagConcurrent": {
     "message": "Gleichzeitige Anfragen"
+  },
+  "diagRuntime": {
+    "message": "Status"
   }
 }

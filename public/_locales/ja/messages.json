@@ -1166,5 +1166,8 @@
   },
   "diagConcurrent": {
     "message": "同時リクエスト"
+  },
+  "diagRuntime": {
+    "message": "状態"
   }
 }

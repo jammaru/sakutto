@@ -1166,5 +1166,8 @@
   },
   "diagConcurrent": {
     "message": "同時請求"
+  },
+  "diagRuntime": {
+    "message": "狀態"
   }
 }

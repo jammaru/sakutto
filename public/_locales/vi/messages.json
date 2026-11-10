@@ -1166,5 +1166,8 @@
   },
   "diagConcurrent": {
     "message": "Yêu cầu đồng thời"
+  },
+  "diagRuntime": {
+    "message": "Trạng thái"
   }
 }

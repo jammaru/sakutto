@@ -172,8 +172,11 @@ describe('local server settings', () => {
   const typed = source('entrypoints/typed/App.svelte');
 
   it('hides the GPU/CPU tier picker while a local server is selected', () => {
-    expect(options).toContain("settings.engineSource !== 'local-server'");
+    expect(panel).toContain('{:else if builtin}');
     expect(options).toContain('tierLabel');
+    expect(options).toContain('idleLabel');
+    expect(options).toContain('diagRuntime');
+    expect(options).not.toContain('engine-line');
     expect(options).toContain("settings?.engineSource === 'local-server'");
     expect(options).toContain('diagConcurrent');
     expect(options).toContain('requestEngineStatus');

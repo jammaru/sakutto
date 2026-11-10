@@ -1166,5 +1166,8 @@
   },
   "diagConcurrent": {
     "message": "Requêtes simultanées"
+  },
+  "diagRuntime": {
+    "message": "État"
   }
 }

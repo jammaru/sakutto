@@ -1166,5 +1166,8 @@
   },
   "diagConcurrent": {
     "message": "并发请求"
+  },
+  "diagRuntime": {
+    "message": "状态"
   }
 }

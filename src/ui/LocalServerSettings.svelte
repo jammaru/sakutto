@@ -11,13 +11,15 @@
   import type { EngineSource } from '@/shared/engine-status';
   import { PROJECT_LINKS } from '@/shared/plamo-license';
   import type { Settings, SettingsPatch } from '@/shared/settings';
+  import type { Snippet } from 'svelte';
 
   interface Props {
     settings: Settings;
     onUpdate: (patch: SettingsPatch) => Promise<void>;
+    builtin?: Snippet;
   }
 
-  let { settings, onUpdate }: Props = $props();
+  let { settings, onUpdate, builtin }: Props = $props();
 
   let models = $state<LocalServerModel[]>([]);
   let testing = $state(false);
@@ -357,6 +359,8 @@
       {/if}
       <p class="help">{t('localServerLicenseNote')}</p>
     </div>
+  {:else if builtin}
+    {@render builtin()}
   {/if}
 </div>
 
@@ -372,7 +376,7 @@
 
   .card {
     gap: var(--space-3);
-    margin-top: var(--space-3);
+    margin-top: var(--space-2);
     padding: var(--space-4);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
@@ -504,7 +508,7 @@
   }
 
   .confirm {
-    margin-top: var(--space-3);
+    margin-top: var(--space-2);
     padding: var(--space-3);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
