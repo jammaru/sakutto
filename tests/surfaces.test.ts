@@ -225,6 +225,9 @@ describe('live bench local-server flags', () => {
     expect(cli).toContain('process.exit(1)');
     expect(host).toContain('closeAllConnections');
     expect(runner).toContain('return abort(error)');
+    expect(host).toContain('probeLocalServer');
+    expect(host).toContain('isSuccessfulStatus');
+    expect(runner).toContain('history not written');
   });
 });
 

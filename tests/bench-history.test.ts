@@ -7,7 +7,9 @@ import {
   headlineFor,
   headlineSection,
   isBenchRecord,
+  isUnmeasuredRecord,
   markdownComparison,
+  measurableRecords,
   medianMetric,
   modeOfRun,
   parseHistory,
@@ -107,6 +109,22 @@ describe('bench history records', () => {
     const { records, problems } = parseHistory(text);
     expect(records.map((item) => item.page)).toEqual(['long-article', 'mixed-ui']);
     expect(problems).toHaveLength(1);
+  });
+
+  it('does not keep rows that have no timing', () => {
+    const empty = record({
+      metrics: {
+        ...record().metrics,
+        firstTextMs: null,
+        firstVisibleTextMs: null,
+        viewportDoneMs: null,
+        fullPageMs: null,
+        timedOut: true,
+      },
+    });
+    expect(isUnmeasuredRecord(empty)).toBe(true);
+    expect(isUnmeasuredRecord(record())).toBe(false);
+    expect(measurableRecords([empty, record()]).map((item) => item.page)).toEqual(['long-article']);
   });
 });
 

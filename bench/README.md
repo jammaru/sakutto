@@ -246,7 +246,9 @@ The Linux CI environment cannot run MLX. Measure on a Mac, and do **not** claim 
 without that measurement. Use the same fixtures as a live WebGPU run, then compare
 `firstVisibleTextMs` and `fullPageMs` on `long-article`. A live `--local-server-*` run fails
 unless `engine:status` reports `backend`/`engineSource` `local-server` and the server
-receives `/v1/completions`. Translations may differ from the built-in engine.
+accepts `/v1/completions` with a 2xx. A closed port fails before Chromium starts; a
+failed relay (502) is not counted as a completion, and empty metrics are not written to
+history. Translations may differ from the built-in engine.
 
 1. Start a Completions server with a PLaMo 3 Translate model. Recipe:
    `mlx_lm.server --model pfnet/plamo-3-translate-0.8b-MLX-4bit` (default

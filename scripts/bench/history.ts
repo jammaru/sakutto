@@ -258,9 +258,20 @@ export function serializeRecord(record: BenchRecord): string {
 }
 
 /** Appends in one write so a crashed run cannot leave a half line in the history. */
+/** True when a row has no timing the history should keep. */
+export function isUnmeasuredRecord(record: Pick<BenchRecord, 'metrics'>): boolean {
+  const { firstVisibleTextMs, viewportDoneMs, fullPageMs } = record.metrics;
+  return firstVisibleTextMs === null && viewportDoneMs === null && fullPageMs === null;
+}
+
+export function measurableRecords(records: readonly BenchRecord[]): BenchRecord[] {
+  return records.filter((record) => !isUnmeasuredRecord(record));
+}
+
 export async function appendHistory(path: string, records: readonly BenchRecord[]): Promise<void> {
-  if (records.length === 0) return;
-  await appendFile(path, records.map(serializeRecord).join(''), 'utf8');
+  const measured = measurableRecords(records);
+  if (measured.length === 0) return;
+  await appendFile(path, measured.map(serializeRecord).join(''), 'utf8');
 }
 
 export function runsInOrder(records: readonly BenchRecord[]): string[] {

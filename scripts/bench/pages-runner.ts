@@ -30,6 +30,8 @@ import {
   headlineFor,
   type BenchHeadline,
   comparisonRows,
+  isUnmeasuredRecord,
+  measurableRecords,
   medianMetric,
   parseHistory,
   recordsOfRun,
@@ -576,6 +578,20 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
     await server.close();
   }
 
+  if (
+    mode === 'live' &&
+    localServer &&
+    (completionsSeen === 0 || records.some(isUnmeasuredRecord))
+  ) {
+    throw new Error(
+      'Local-server bench recorded no successful /v1/completions; history not written.',
+    );
+  }
+  const measured = measurableRecords(records);
+  if (measured.length === 0) {
+    throw new Error('Bench produced empty metrics; history not written.');
+  }
+
   const history = await readHistory(historyPath);
   // An automatic comparison needs a run of the same mode over the same fixtures: mock and
   // live durations are on different scales, and a `--only` run has no row for the others.
@@ -586,7 +602,7 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
       history,
       run,
       mode,
-      records.map((record) => record.page),
+      measured.map((record) => record.page),
     );
 
   const summary = runSummary({
@@ -594,8 +610,8 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
     mode,
     commit: tree.commit,
     dirty: tree.dirty,
-    at: records[0]?.at ?? new Date().toISOString(),
-    records,
+    at: measured[0]?.at ?? new Date().toISOString(),
+    records: measured,
     ...(compareWith
       ? { before: { run: compareWith, records: recordsOfRun(history, compareWith) } }
       : {}),
@@ -611,13 +627,13 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
   }
   if (writeHistory) {
     await mkdir(resolve(historyPath, '..'), { recursive: true });
-    await appendHistory(historyPath, records);
+    await appendHistory(historyPath, measured);
   }
 
   const comparisons: { metric: BenchMetricKey; text: string }[] = [];
   if (compareWith) {
     for (const metric of TIMING_METRICS) {
-      const rows = comparisonRows(recordsOfRun(history, compareWith), records, metric).filter(
+      const rows = comparisonRows(recordsOfRun(history, compareWith), measured, metric).filter(
         (row) => row.before !== null && row.after !== null,
       );
       if (rows.length === 0) continue;
@@ -638,12 +654,12 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
     mode,
     commit: tree.commit,
     dirty: tree.dirty,
-    records,
-    headline: headlineFor(records),
+    records: measured,
+    headline: headlineFor(measured),
     summary,
     summaryPath,
     historyPath: writeHistory ? historyPath : null,
-    table: table(records),
+    table: table(measured),
     comparisons,
   };
 }

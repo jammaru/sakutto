@@ -12,7 +12,10 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { BrowserContext, Page } from '@playwright/test';
 
-import { DEFAULT_LOCAL_SERVER_PARALLEL } from '../../src/engine/local-server/url.ts';
+import {
+  DEFAULT_LOCAL_SERVER_PARALLEL,
+  parseServerUrl,
+} from '../../src/engine/local-server/url.ts';
 import { DEFAULT_MODEL_ID, getModel } from '../../src/engine/model/catalog.ts';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -126,16 +129,40 @@ export interface LocalServerTap {
   close(): Promise<void>;
 }
 
+const LOCAL_SERVER_PROBE_MS = 5_000;
+
 /**
- * Counts `/v1/completions` that actually reach the local server. Live benches must not
- * label a run MLX/local-server from flags alone.
+ * Fails before Chromium launches when `--local-server-url` points at a closed port.
+ * An empty `/v1/models` list still counts as reachable.
+ */
+export async function probeLocalServer(url: string): Promise<void> {
+  const parsed = parseServerUrl(url);
+  const target = parsed?.modelsUrl ?? `${url.replace(/\/+$/u, '')}/models`;
+  try {
+    const response = await fetch(target, { signal: AbortSignal.timeout(LOCAL_SERVER_PROBE_MS) });
+    await response.arrayBuffer();
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`Local-server bench could not reach ${url} (${detail})`, { cause: error });
+  }
+}
+
+function isSuccessfulStatus(status: number): boolean {
+  return status >= 200 && status < 300;
+}
+
+/**
+ * Counts `/v1/completions` that the upstream accepted (2xx). A 502 from a closed port
+ * is not a completion: live benches must not label a run MLX/local-server from flags
+ * or from failed relays.
  */
 export async function startLocalServerTap(upstreamUrl: string): Promise<LocalServerTap> {
+  await probeLocalServer(upstreamUrl);
   const upstream = new URL(upstreamUrl);
   const state = { completions: 0 };
   const server = createServer((req: IncomingMessage, res: ServerResponse) => {
     const path = req.url ?? '/';
-    if (path.includes('/completions')) state.completions += 1;
+    const completion = path.includes('/completions');
     const target = new URL(path, `${upstream.protocol}//${upstream.host}`);
     const send = target.protocol === 'https:' ? httpsRequest : httpRequest;
     const proxy = send(
@@ -148,7 +175,9 @@ export async function startLocalServerTap(upstreamUrl: string): Promise<LocalSer
         headers: { ...req.headers, host: target.host },
       },
       (upstreamRes) => {
-        res.writeHead(upstreamRes.statusCode ?? 502, upstreamRes.headers);
+        const status = upstreamRes.statusCode ?? 502;
+        if (completion && isSuccessfulStatus(status)) state.completions += 1;
+        res.writeHead(status, upstreamRes.headers);
         upstreamRes.pipe(res);
       },
     );
