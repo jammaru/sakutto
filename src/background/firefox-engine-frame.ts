@@ -38,6 +38,9 @@ async function engineFrameSrc(): Promise<string> {
  * Firefox has no offscreen documents. The event page can host DOM, so the engine page is an
  * iframe of `offscreen.html`. Message ports do not keep an event page alive; writing
  * `storage.session` on an interval does (bug 1851373).
+ *
+ * The iframe may be able to read storage, unlike Chrome's offscreen document, but engineSource
+ * still arrives through `source-set` from the service worker so both browsers share one path.
  */
 export function createFirefoxEngineFrameApi(): OffscreenDocumentApi {
   let keepAliveTimer: ReturnType<typeof setInterval> | null = null;

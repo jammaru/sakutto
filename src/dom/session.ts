@@ -13,6 +13,7 @@ import { DEFAULT_BATCHING } from '@/engine/text/plan';
 import { chunkForTranslation, joinTranslatedSentences } from '@/engine/text/sentences';
 import { isPlainAltS } from '@/shared/shortcuts';
 import { PriorityQueue } from '@/engine/queue/priority-queue';
+import { isLocalServerError } from '@/engine/errors';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
 import { mergeGlossary } from '@/shared/glossary';
 import {
@@ -42,8 +43,7 @@ import {
   bandForRect,
   contentKind,
   lookaheadScreens,
-  GPU_TRANSLATION_CONCURRENCY,
-  TRANSLATION_CONCURRENCY,
+  translationConcurrencyFor,
   translationPriority,
   type ContentKind,
   type VisibilityBand,
@@ -103,6 +103,8 @@ export interface SessionPreferences {
   context: boolean;
   tier: 'g' | 'c8' | 'c4' | 'c1' | null;
   pace: TranslationPace;
+  engineSource?: 'in-browser' | 'local-server';
+  localServerParallel?: number;
   glossary?: readonly GlossaryEntry[];
 }
 
@@ -207,6 +209,8 @@ export function preferencesFor(
     context: false,
     tier: null,
     pace: settings.pace,
+    engineSource: settings.engineSource,
+    localServerParallel: settings.localServerParallel,
     ...(glossary.length > 0 ? { glossary } : {}),
   };
 }
@@ -267,6 +271,8 @@ export class PageSession {
    */
   private readonly skippedBlocks = new Map<Element, string>();
   private applying = 0;
+  /** Set when a local-server request fails, so the bar can keep the Settings hint. */
+  private serverFault = false;
   private historyUnpatch: (() => void) | null = null;
   private scanTimer: ReturnType<typeof setTimeout> | null = null;
   private direction: 'down' | 'up' = 'down';
@@ -448,7 +454,8 @@ export class PageSession {
     const tier = next.tier ?? previous.tier;
     this.prefs = { ...next, tier };
     if (
-      lookaheadScreens(previous.tier, previous.pace) !== lookaheadScreens(tier, this.prefs.pace)
+      lookaheadScreens(previous.tier, previous.pace, previous.engineSource) !==
+      lookaheadScreens(tier, this.prefs.pace, this.prefs.engineSource)
     ) {
       this.bindVisibility();
     }
@@ -536,6 +543,7 @@ export class PageSession {
   async translate(): Promise<void> {
     if (this.active) return;
     this.active = true;
+    this.serverFault = false;
     this.navigating = false;
     this.sweepLegacyNotes();
     this.startedAt = performance.now();
@@ -559,6 +567,7 @@ export class PageSession {
 
   restore(): void {
     this.active = false;
+    this.serverFault = false;
     this.targetAdjusted = false;
     const source = this.doc.documentElement.getAttribute('data-sakutto-source-lang');
     if (source !== null) {
@@ -1063,8 +1072,11 @@ export class PageSession {
 
     this.startQueuedSelection();
 
-    const concurrency =
-      this.prefs.tier === 'g' ? GPU_TRANSLATION_CONCURRENCY : TRANSLATION_CONCURRENCY;
+    const concurrency = translationConcurrencyFor(
+      this.prefs.tier,
+      this.prefs.engineSource,
+      this.prefs.localServerParallel,
+    );
     while (this.running < concurrency && this.queue.size > 0) {
       const next = this.queue.peek();
       if (!next) break;
@@ -1224,8 +1236,12 @@ export class PageSession {
           else this.queuePaint(item);
         }
       }
-    } catch {
+    } catch (error) {
       // Unfinished blocks are retried below. Abort keeps the previous text.
+      if (!signal.aborted && isLocalServerError(error)) {
+        this.serverFault = true;
+        if (this.labels.engineFailed) this.overlay.showStatus(this.labels.engineFailed);
+      }
     } finally {
       this.work.engineMs += Math.round(performance.now() - engineStarted);
       // The last `complete()` of this batch already ran inside the loop above, before this
@@ -1709,6 +1725,9 @@ export class PageSession {
   }
 
   private barText(view: PageViewState): string {
+    if (this.serverFault && this.labels.engineFailed && view.pending === 0) {
+      return this.labels.engineFailed;
+    }
     const base =
       view.pending > 0
         ? this.labels.barProgress(view.done, view.total)
@@ -2066,7 +2085,7 @@ export class PageSession {
 
     const view = this.doc.defaultView;
     const height = this.doc.documentElement.clientHeight || view?.innerHeight || 800;
-    const screens = lookaheadScreens(this.prefs.tier, this.prefs.pace);
+    const screens = lookaheadScreens(this.prefs.tier, this.prefs.pace, this.prefs.engineSource);
     const ahead = Math.round(height * screens);
     const behind = Math.round(ahead * 0.25);
     const top = this.direction === 'down' ? behind : ahead;

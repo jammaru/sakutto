@@ -82,6 +82,29 @@ describe('typed readiness gate', () => {
     }
   });
 
+  it('translates when a local server is ready even if no GGUF file is on disk', () => {
+    expect(typedReadiness({ ...base, modelState: 'absent', plamoReady: true })).toBe('ready');
+  });
+
+  it('ignores a GGUF download when the engine source is a local server', () => {
+    expect(
+      typedReadiness({
+        consent: true,
+        modelState: 'downloading',
+        plamoReady: false,
+        engineSource: 'local-server',
+      }),
+    ).toBe('ready');
+    expect(
+      typedReadiness({
+        consent: false,
+        modelState: 'downloading',
+        plamoReady: false,
+        engineSource: 'local-server',
+      }),
+    ).toBe('no-consent');
+  });
+
   it('never offers the built-in translator for typed text', () => {
     // A Chrome-only target has no PLaMo path. The page is refused in the UI instead of
     // quietly switching engines, which would show a non-PLaMo translation in a PLaMo box.

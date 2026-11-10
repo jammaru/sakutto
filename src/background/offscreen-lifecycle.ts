@@ -27,17 +27,19 @@ export class OffscreenController {
     await this.creating;
   }
 
-  async recreate(): Promise<void> {
+  async close(): Promise<void> {
     const pending = this.creating;
     if (pending) await pending.catch(() => undefined);
     this.creating = null;
-
     try {
       await this.api.closeDocument();
     } catch {
       // The document is already gone.
     }
+  }
 
+  async recreate(): Promise<void> {
+    await this.close();
     await this.ensure();
   }
 }

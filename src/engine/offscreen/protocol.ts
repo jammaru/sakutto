@@ -8,10 +8,10 @@ import type {
   TranslateSegment,
   TranslationChunk,
 } from '../types';
-import { isModelStatus, type ModelStatus } from '../../shared/engine-status';
+import { isModelStatus, type EngineSource, type ModelStatus } from '../../shared/engine-status';
 import { MAX_GLOSSARY_MESSAGE_ENTRIES, MAX_GLOSSARY_TEXT } from '../../shared/glossary';
 import { isTargetLanguage } from '../../shared/languages';
-import { isTierPreference, type TierPreference } from '../../shared/settings';
+import { isEngineSource, isTierPreference, type TierPreference } from '../../shared/settings';
 
 export const ENGINE_HOST_PORT = 'sakutto:engine-host';
 export const TRANSLATION_PORT = 'sakutto:translate';
@@ -138,6 +138,22 @@ export interface TierSetRequest {
   tier: TierPreference;
 }
 
+export interface LocalServerHostConfig {
+  url: string;
+  model: string;
+  apiKey: string;
+  timeoutMs: number;
+  allowRemote: boolean;
+  parallel: number;
+}
+
+export interface SourceSetRequest {
+  type: 'source-set';
+  requestId: string;
+  engineSource: EngineSource;
+  localServer: LocalServerHostConfig;
+}
+
 export interface BenchmarkRequest {
   type: 'benchmark';
   requestId: string;
@@ -156,6 +172,7 @@ export type EngineHostRequest =
   | ModelStatusRequest
   | CacheClearRequest
   | TierSetRequest
+  | SourceSetRequest
   | BenchmarkRequest;
 
 export interface ChunkEvent {
@@ -280,6 +297,20 @@ export function isSerializedTranslateOptions(value: unknown): value is Serialize
   return true;
 }
 
+function isLocalServerHostConfig(value: unknown): value is LocalServerHostConfig {
+  return (
+    isRecord(value) &&
+    typeof value.url === 'string' &&
+    typeof value.model === 'string' &&
+    typeof value.apiKey === 'string' &&
+    typeof value.timeoutMs === 'number' &&
+    Number.isFinite(value.timeoutMs) &&
+    typeof value.allowRemote === 'boolean' &&
+    typeof value.parallel === 'number' &&
+    Number.isFinite(value.parallel)
+  );
+}
+
 function isRequestId(value: Record<string, unknown>): boolean {
   return typeof value.requestId === 'string' && value.requestId.length > 0;
 }
@@ -320,6 +351,8 @@ export function isEngineHostRequest(value: unknown): value is EngineHostRequest 
       return true;
     case 'tier-set':
       return isTierPreference(value.tier);
+    case 'source-set':
+      return isEngineSource(value.engineSource) && isLocalServerHostConfig(value.localServer);
     default:
       return false;
   }

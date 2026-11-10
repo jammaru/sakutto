@@ -30,6 +30,7 @@
   import { runtimeLabel } from '@/ui/runtime-label';
   import SettingsFields from '@/ui/SettingsFields.svelte';
   import ShortcutSettings from '@/ui/ShortcutSettings.svelte';
+  import LocalServerSettings from '@/ui/LocalServerSettings.svelte';
 
   type SettingsError = 'load' | 'save' | null;
   type CacheState = 'cleared' | 'failed' | null;
@@ -84,6 +85,13 @@
     try {
       settings = await saveSettings(patch);
       settingsError = null;
+      if (
+        patch.engineSource !== undefined ||
+        patch.localServerParallel !== undefined ||
+        patch.localServerUrl !== undefined
+      ) {
+        engine = await requestEngineStatus();
+      }
     } catch {
       settingsError = 'save';
     }
@@ -359,63 +367,91 @@
     {/if}
   </section>
 
-  <section class="panel">
+  <section class="panel" id="engine-settings">
     <h2>{t('engineHeading')}</h2>
     {#if settings}
-      <label class="field">
-        <span>{t('tierLabel')}</span>
-        <select value={settings.tier} onchange={changeTier}>
-          <option value="auto">{t('tierAuto')}</option>
-          <option value="g">{t('tierGpu')}</option>
-          {#if isFirefoxBuild()}
-            <option value="c1">{t('tierCpu1')}</option>
-          {:else}
-            <option value="c8">{t('tierCpu8')}</option>
-            <option value="c4">{t('tierCpu4')}</option>
-          {/if}
-        </select>
-      </label>
-      <p class="muted help">{t('tierHelp')}</p>
-      <label class="field">
-        <span>{t('idleLabel')}</span>
-        <select value={String(settings.idleMinutes)} onchange={changeIdle}>
-          <option value="1">{t('idle1')}</option>
-          <option value="5">{t('idle5')}</option>
-          <option value="15">{t('idle15')}</option>
-          <option value="0">{t('idleNever')}</option>
-        </select>
-      </label>
+      {@const current = settings}
+      <LocalServerSettings settings={current} onUpdate={updateSettings}>
+        {#snippet builtin()}
+          <div class="engine-card">
+            <label class="field">
+              <span>{t('tierLabel')}</span>
+              <select value={current.tier} onchange={changeTier}>
+                <option value="auto">{t('tierAuto')}</option>
+                <option value="g">{t('tierGpu')}</option>
+                {#if isFirefoxBuild()}
+                  <option value="c1">{t('tierCpu1')}</option>
+                {:else}
+                  <option value="c8">{t('tierCpu8')}</option>
+                  <option value="c4">{t('tierCpu4')}</option>
+                {/if}
+              </select>
+            </label>
+            <p class="note">{t('tierHelp')}</p>
+            <label class="field">
+              <span>{t('idleLabel')}</span>
+              <select value={String(current.idleMinutes)} onchange={changeIdle}>
+                <option value="1">{t('idle1')}</option>
+                <option value="5">{t('idle5')}</option>
+                <option value="15">{t('idle15')}</option>
+                <option value="0">{t('idleNever')}</option>
+              </select>
+            </label>
+          </div>
+        {/snippet}
+      </LocalServerSettings>
     {/if}
-    <p class="engine-line">{engineLine}</p>
     <h3>{t('diagHeading')}</h3>
-    <dl class="diag">
-      <div>
-        <dt>{t('diagBackend')}</dt>
-        <dd>
-          {engine?.backend === 'webgpu'
-            ? t('diagBackendGpu')
-            : engine?.backend === 'cpu-wasm'
-              ? t('diagBackendCpu')
-              : t('diagBackendUnknown')}
-        </dd>
-      </div>
-      <div>
-        <dt>{t('diagThreads')}</dt>
-        <dd>{engine?.threads ?? '—'}</dd>
-      </div>
-      <div>
-        <dt>{t('diagParallel')}</dt>
-        <dd>{engine?.parallel ?? '—'}</dd>
-      </div>
-    </dl>
-    <p class="muted help">{t('diagRateHint')}</p>
-    <EngineStatusView {capabilities} failed={capabilitiesFailed} detailed />
-    <GpuDiagnosticView diagnostic={engine?.gpuDiagnostic} />
+    {#if settings?.engineSource === 'local-server'}
+      <dl class="diag">
+        <div>
+          <dt>{t('diagBackend')}</dt>
+          <dd>{t('diagBackendLocalServer')}</dd>
+        </div>
+        <div>
+          <dt>{t('diagConcurrent')}</dt>
+          <dd>
+            {engine?.engineSource === 'local-server'
+              ? (engine.parallel ?? settings.localServerParallel)
+              : settings.localServerParallel}
+          </dd>
+        </div>
+      </dl>
+    {:else}
+      <dl class="diag">
+        <div>
+          <dt>{t('diagRuntime')}</dt>
+          <dd>{engineLine}</dd>
+        </div>
+        <div>
+          <dt>{t('diagBackend')}</dt>
+          <dd>
+            {engine?.backend === 'webgpu'
+              ? t('diagBackendGpu')
+              : engine?.backend === 'cpu-wasm'
+                ? t('diagBackendCpu')
+                : t('diagBackendUnknown')}
+          </dd>
+        </div>
+        <div>
+          <dt>{t('diagThreads')}</dt>
+          <dd>{engine?.threads ?? '—'}</dd>
+        </div>
+        <div>
+          <dt>{t('diagParallel')}</dt>
+          <dd>{engine?.parallel ?? '—'}</dd>
+        </div>
+      </dl>
+      <p class="muted help">{t('diagRateHint')}</p>
+      <EngineStatusView {capabilities} failed={capabilitiesFailed} detailed />
+      <GpuDiagnosticView diagnostic={engine?.gpuDiagnostic} />
+    {/if}
   </section>
 
   <section class="panel">
     <h2>{t('privacyHeading')}</h2>
     <p>{t('privacyBody')}</p>
+    <p class="muted">{t('privacyBodyLocalServer')}</p>
     <p class="muted">{tForBrowser('privacyDestinations', 'privacyDestinationsFirefox')}</p>
     <ul class="links">
       <li>
@@ -535,17 +571,34 @@
     color: var(--muted);
   }
 
-  .help,
-  .engine-line {
+  .help {
     margin-bottom: var(--space-3);
   }
 
-  .engine-line {
-    font-weight: 700;
+  .engine-card {
+    display: grid;
+    gap: var(--space-3);
+    margin-top: var(--space-2);
+    padding: var(--space-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-muted);
+  }
+
+  .engine-card .note {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+
+  .engine-card .field {
+    gap: var(--space-2);
   }
 
   h3 {
-    margin: var(--space-3) 0 var(--space-2);
+    margin: var(--space-4) 0 var(--space-2);
     font-size: 12px;
     font-weight: 700;
   }
@@ -601,6 +654,7 @@
 
   .diag dd {
     margin: 0;
+    text-align: right;
     font-variant-numeric: tabular-nums;
   }
 

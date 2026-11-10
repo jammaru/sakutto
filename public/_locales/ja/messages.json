@@ -178,13 +178,13 @@
     "message": "プライバシー"
   },
   "privacyBody": {
-    "message": "この拡張機能は、ページの本文をサーバーへ送りません。テレメトリはありません。"
+    "message": "既定では、この拡張機能はページの本文を翻訳サーバーへ送りません。テレメトリはありません。"
   },
   "privacyDestinations": {
-    "message": "拡張機能自身の通信はモデルの取得だけです。接続は huggingface.co から始まり、Hugging Face の CDN へ転送されます。本文は含めません。言語パックは Chrome 自身が取得します。"
+    "message": "拡張機能自身の通信はモデルの取得だけです。接続は huggingface.co から始まり、Hugging Face の CDN へ転送されます。本文は含めません。言語パックは Chrome 自身が取得します。有効にしたローカルサーバーは、設定したアドレスへの任意の別経路です。"
   },
   "privacyDestinationsFirefox": {
-    "message": "拡張機能自身の通信はモデルの取得だけです。接続は huggingface.co から始まり、Hugging Face の CDN へ転送されます。本文は含めません。"
+    "message": "拡張機能自身の通信はモデルの取得だけです。接続は huggingface.co から始まり、Hugging Face の CDN へ転送されます。本文は含めません。有効にしたローカルサーバーは、設定したアドレスへの任意の別経路です。"
   },
   "privacyPolicyLink": {
     "message": "プライバシーポリシー"
@@ -223,7 +223,7 @@
     "message": "はじめに"
   },
   "onboardingLead": {
-    "message": "ページ翻訳は端末内で動きます。PLaMo 3 のモデルは、この端末に保存されていないときだけダウンロードします。"
+    "message": "ページ翻訳の既定は端末内です。PLaMo 3 のモデルは、この端末に保存されていないときだけダウンロードします。"
   },
   "onboardingSetupHeading": {
     "message": "この拡張機能について"
@@ -238,7 +238,7 @@
     "message": "モデルの準備ができるまで、ページは原文のまま表示します。準備ができると PLaMo が訳します。"
   },
   "onboardingPrivacyNote": {
-    "message": "この拡張機能は、ページの本文をサーバーへ送りません。"
+    "message": "内蔵エンジンは、ページの本文をサーバーへ送りません。"
   },
   "onboardingClose": {
     "message": "閉じる"
@@ -1046,5 +1046,128 @@
   },
   "tierCpu1": {
     "message": "CPU（1スレッド）"
+  },
+  "runtimeLocalServer": {
+    "message": "ローカルサーバー（実験的）"
+  },
+  "engineSourceLabel": {
+    "message": "翻訳エンジン"
+  },
+  "engineSourceInBrowser": {
+    "message": "内蔵（この端末）"
+  },
+  "engineSourceLocalServer": {
+    "message": "ローカルサーバー（実験的）"
+  },
+  "engineSourceHelp": {
+    "message": "既定は、この端末の内蔵エンジンです。"
+  },
+  "localServerUrlLabel": {
+    "message": "サーバー URL"
+  },
+  "localServerModelLabel": {
+    "message": "モデル"
+  },
+  "localServerApiKeyLabel": {
+    "message": "APIキー（任意）"
+  },
+  "localServerTimeoutLabel": {
+    "message": "タイムアウト（秒）"
+  },
+  "localServerTestButton": {
+    "message": "接続を試す"
+  },
+  "localServerTestOk": {
+    "message": "接続できました。"
+  },
+  "localServerTestFail": {
+    "message": "このサーバーは使えませんでした。"
+  },
+  "localServerModelsEmpty": {
+    "message": "（一覧なし。名前を入力）"
+  },
+  "localServerPresetMlx": {
+    "message": "mlx_lm.server"
+  },
+  "localServerPresetLmStudio": {
+    "message": "LM Studio"
+  },
+  "localServerPresetHelp": {
+    "message": "プリセットは URL だけを入れます。"
+  },
+  "localServerNonLocalWarning": {
+    "message": "このアドレスはこの端末ではありません。ページの本文がそこに送られます。了解しました。"
+  },
+  "localServerPermissionDenied": {
+    "message": "ブラウザがこのアドレスへのアクセスを許可しませんでした。"
+  },
+  "localServerHelp": {
+    "message": "この端末の OpenAI 互換サーバー（mlx_lm.server または LM Studio）へ、Sakutto と同じプロンプトを送ります。"
+  },
+  "localServerUnreachable": {
+    "message": "ローカルサーバーに届きませんでした。設定を開き、起動しているか確認してください。"
+  },
+  "localServerModelMissing": {
+    "message": "サーバーに該当するモデルがありません。モデルを読み込むか、設定で選んでください。"
+  },
+  "localServerTimeout": {
+    "message": "ローカルサーバーが時間切れになりました。原文のままにしています。"
+  },
+  "localServerFailed": {
+    "message": "ローカルサーバーでは翻訳できませんでした。設定を開いてください。原文のままにしています。"
+  },
+  "diagBackendLocalServer": {
+    "message": "ローカルサーバー（実験的）"
+  },
+  "privacyBodyLocalServer": {
+    "message": "実験的機能です。ローカルサーバーを選ぶと、文字は設定したアドレス（既定はこの端末）にだけ送ります。翻訳の精度は保証せず、内蔵エンジンと訳が異なり、誤訳が出ることがあります。開発者は受け取りません。"
+  },
+  "localServerLicenseNote": {
+    "message": "そのサーバーに読み込む他のモデルのライセンスは利用者の責任です。PLaMo の重みは PLaMo Community License のままです。"
+  },
+  "localServerParallelLabel": {
+    "message": "同時リクエスト数"
+  },
+  "localServerParallelHelp": {
+    "message": "サーバーが同時に処理する補完の数（1〜16）です。初期値は 8 です。ページ側は余裕を持って送り、空きスロットを待たせません。"
+  },
+  "localServerTestOkUnlisted": {
+    "message": "接続できました。Completions は使えます。/v1/models は空でした。入力したモデル名をそのまま使います（一覧では確認していません）。"
+  },
+  "localServerExperimental": {
+    "message": "実験的機能：翻訳の精度は保証しません。内蔵エンジンと訳が異なり、誤訳が出ることがあります。"
+  },
+  "localServerExperimentalConfirm": {
+    "message": "このエンジンは実験的機能です。精度は保証せず、内蔵エンジンと訳が異なり、誤訳が出ることがあります。それでもローカルサーバーを使いますか？"
+  },
+  "localServerExperimentalUse": {
+    "message": "ローカルサーバーを使う"
+  },
+  "localServerExperimentalKeep": {
+    "message": "内蔵のまま"
+  },
+  "localServerDetails": {
+    "message": "詳しく"
+  },
+  "localServerAdvanced": {
+    "message": "詳細設定"
+  },
+  "localServerRemoteConfirmRequired": {
+    "message": "このアドレスはこの端末ではありません。接続を試す前に、下の確認にチェックしてください。"
+  },
+  "onboardingLocalServerNote": {
+    "message": "設定で実験的なローカルサーバーをオンにできます。そのときは本文を設定したアドレスにだけ送り、精度は保証しません。"
+  },
+  "localServerUrlHelp": {
+    "message": "mlx_lm.server の既定はポート 8080、LM Studio の既定はポート 1234 です。"
+  },
+  "localServerModelHelp": {
+    "message": "そのサーバーに読み込んだモデル名です。"
+  },
+  "diagConcurrent": {
+    "message": "同時リクエスト"
+  },
+  "diagRuntime": {
+    "message": "状態"
   }
 }

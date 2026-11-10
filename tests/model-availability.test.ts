@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
 import type { ModelStatus } from '@/shared/engine-status';
-import { modelCanTranslate, modelStartBlocked } from '@/shared/engine-status';
+import {
+  modelCanTranslate,
+  modelStartBlocked,
+  translationStartBlocked,
+} from '@/shared/engine-status';
 
 function status(state: ModelStatus['state']): Pick<ModelStatus, 'state'> {
   return { state };
@@ -54,5 +58,32 @@ describe('model availability', () => {
 
   it('only ever treats the pinned model id as a state of the model', () => {
     expect(DEFAULT_MODEL_ID).toBe('plamo-3-translate-0.8b-q4_k_m');
+  });
+
+  it('does not wait for a GGUF file when a local server is the selected engine', () => {
+    expect(
+      translationStartBlocked({
+        model: {
+          id: DEFAULT_MODEL_ID,
+          state: 'absent',
+          received: 0,
+          total: 1,
+          progress: 0,
+        },
+        engineSource: 'local-server',
+      }),
+    ).toBe(false);
+    expect(
+      translationStartBlocked({
+        model: {
+          id: DEFAULT_MODEL_ID,
+          state: 'absent',
+          received: 0,
+          total: 1,
+          progress: 0,
+        },
+        engineSource: 'in-browser',
+      }),
+    ).toBe(true);
   });
 });

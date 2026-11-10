@@ -295,6 +295,7 @@
           <li>{t('onboardingUseNow')}</li>
         {/if}
         <li>{t('onboardingPrivacyNote')}</li>
+        <li>{t('onboardingLocalServerNote')}</li>
       </ul>
     </section>
   {/if}

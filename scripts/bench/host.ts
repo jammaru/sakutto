@@ -1,10 +1,21 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { access, mkdir } from 'node:fs/promises';
+import {
+  createServer,
+  request as httpRequest,
+  type IncomingMessage,
+  type ServerResponse,
+} from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { BrowserContext, Page } from '@playwright/test';
 
+import {
+  DEFAULT_LOCAL_SERVER_PARALLEL,
+  parseServerUrl,
+} from '../../src/engine/local-server/url.ts';
 import { DEFAULT_MODEL_ID, getModel } from '../../src/engine/model/catalog.ts';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -55,6 +66,7 @@ export interface EngineStatus {
   threads: number | null;
   plamoReady: boolean;
   chromeSupported: boolean;
+  engineSource?: string;
 }
 
 export function arg(name: string): string | undefined {
@@ -74,7 +86,17 @@ export function log(scope: string, message: string): void {
 /** Settings the e2e and bench packages store before translating, with the license accepted. */
 export type BenchTier = 'auto' | 'g' | 'c8' | 'c4';
 
-export function settings(tier: BenchTier = 'auto'): Record<string, unknown> {
+export interface BenchLocalServer {
+  url: string;
+  model: string;
+  parallel?: number;
+}
+
+export function settings(
+  tier: BenchTier = 'auto',
+  extras: { localServer?: BenchLocalServer } = {},
+): Record<string, unknown> {
+  const localServer = extras.localServer;
   return {
     schemaVersion: 1,
     targetLanguage: 'ja',
@@ -91,6 +113,96 @@ export function settings(tier: BenchTier = 'auto'): Record<string, unknown> {
     idleMinutes: 15,
     tier,
     pace: 'quality',
+    engineSource: localServer ? 'local-server' : 'in-browser',
+    localServerUrl: localServer?.url ?? 'http://127.0.0.1:8080/v1',
+    localServerModel: localServer?.model ?? '',
+    localServerApiKey: '',
+    localServerTimeoutMs: 120_000,
+    localServerAllowRemote: false,
+    localServerParallel: localServer?.parallel ?? DEFAULT_LOCAL_SERVER_PARALLEL,
+  };
+}
+
+export interface LocalServerTap {
+  url: string;
+  get completions(): number;
+  close(): Promise<void>;
+}
+
+const LOCAL_SERVER_PROBE_MS = 5_000;
+
+/**
+ * Fails before Chromium launches when `--local-server-url` points at a closed port.
+ * An empty `/v1/models` list still counts as reachable.
+ */
+export async function probeLocalServer(url: string): Promise<void> {
+  const parsed = parseServerUrl(url);
+  const target = parsed?.modelsUrl ?? `${url.replace(/\/+$/u, '')}/models`;
+  try {
+    const response = await fetch(target, { signal: AbortSignal.timeout(LOCAL_SERVER_PROBE_MS) });
+    await response.arrayBuffer();
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`Local-server bench could not reach ${url} (${detail})`, { cause: error });
+  }
+}
+
+function isSuccessfulStatus(status: number): boolean {
+  return status >= 200 && status < 300;
+}
+
+/**
+ * Counts `/v1/completions` that the upstream accepted (2xx). A 502 from a closed port
+ * is not a completion: live benches must not label a run MLX/local-server from flags
+ * or from failed relays.
+ */
+export async function startLocalServerTap(upstreamUrl: string): Promise<LocalServerTap> {
+  await probeLocalServer(upstreamUrl);
+  const upstream = new URL(upstreamUrl);
+  const state = { completions: 0 };
+  const server = createServer((req: IncomingMessage, res: ServerResponse) => {
+    const path = req.url ?? '/';
+    const completion = path.includes('/completions');
+    const target = new URL(path, `${upstream.protocol}//${upstream.host}`);
+    const send = target.protocol === 'https:' ? httpsRequest : httpRequest;
+    const proxy = send(
+      {
+        protocol: target.protocol,
+        hostname: target.hostname,
+        port: target.port,
+        path: `${target.pathname}${target.search}`,
+        method: req.method,
+        headers: { ...req.headers, host: target.host },
+      },
+      (upstreamRes) => {
+        const status = upstreamRes.statusCode ?? 502;
+        if (completion && isSuccessfulStatus(status)) state.completions += 1;
+        res.writeHead(status, upstreamRes.headers);
+        upstreamRes.pipe(res);
+      },
+    );
+    proxy.on('error', () => {
+      if (!res.headersSent) res.writeHead(502);
+      res.end();
+    });
+    req.pipe(proxy);
+  });
+  await new Promise<void>((resolveListen) => {
+    server.listen(0, '127.0.0.1', resolveListen);
+  });
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('expected a TCP address');
+  const prefix = upstream.pathname.replace(/\/+$/u, '') || '/v1';
+  return {
+    get completions() {
+      return state.completions;
+    },
+    url: `http://127.0.0.1:${String(address.port)}${prefix}`,
+    close: () =>
+      new Promise((resolveClose, reject) => {
+        server.closeAllConnections();
+        server.close((error) => (error ? reject(error) : resolveClose()));
+      }),
   };
 }
 
@@ -105,6 +217,16 @@ export async function readStatus(page: Page): Promise<EngineStatus | null> {
   const value = await extensionCall(page, { type: 'engine:status' });
   if (!value || typeof value !== 'object') return null;
   return value as EngineStatus;
+}
+
+export function assertLocalServerBackend(status: EngineStatus | null): void {
+  if (status?.backend !== 'local-server' || status.engineSource !== 'local-server') {
+    throw new Error(
+      `Local-server bench expected engine:status backend=local-server, got backend=${
+        status?.backend ?? 'missing'
+      } engineSource=${status?.engineSource ?? 'missing'}`,
+    );
+  }
 }
 
 export async function sha256File(path: string): Promise<string> {
@@ -176,13 +298,29 @@ export async function routeModel(context: BrowserContext, modelPath: string): Pr
 export async function prepareModel(
   page: Page,
   tier: BenchTier = 'auto',
+  extras: { localServer?: BenchLocalServer } = {},
 ): Promise<{ downloadMs: number; warmMs: number; status: EngineStatus }> {
-  await page.evaluate(async (stored) => {
-    const chrome = (globalThis as unknown as { chrome: ChromeApi }).chrome;
-    await chrome.storage.local.set({ settings: stored, siteRules: {} });
-  }, settings(tier));
+  await page.evaluate(
+    async (stored) => {
+      const chrome = (globalThis as unknown as { chrome: ChromeApi }).chrome;
+      await chrome.storage.local.set({ settings: stored, siteRules: {} });
+    },
+    settings(tier, extras),
+  );
   // The engine may already be running on the probed tier, so the options page's switch is sent too.
   if (tier !== 'auto') await extensionCall(page, { type: 'engine:tier', tier });
+
+  const localServer = extras.localServer;
+  if (localServer) {
+    const warmStarted = Date.now();
+    const warmed = await extensionCall(page, { type: 'engine:warm' });
+    if (warmed !== true) throw new Error('The local-server warm-up failed.');
+    const status = await readStatus(page);
+    if (!status?.plamoReady)
+      throw new Error('PLaMo did not become ready after local-server warm-up.');
+    assertLocalServerBackend(status);
+    return { downloadMs: 0, warmMs: Date.now() - warmStarted, status };
+  }
 
   const downloadStarted = Date.now();
   const accepted = await extensionCall(page, { type: 'model:download', modelId: MODEL_ID });

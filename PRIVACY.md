@@ -1,15 +1,15 @@
 # Privacy policy
 
-Last updated: 2026-11-09
+Last updated: 2026-11-10
 
 Sakutto is an unofficial extension for Chrome and Firefox that translates web pages on your device. This page describes what the extension does with data in plain terms. It describes the kinds of data involved and who can see them, not the internals of the implementation.
 
 ## At a glance
 
-- Translation runs on your device. Page text is not sent to a translation server.
+- Translation runs on your device by default. Page text is not sent to a translation server unless you turn on a local server in Settings. In that case the text is sent only to the address you set, usually a process on this computer.
 - There is no account, no advertising, and no analytics or telemetry.
 - The developer does not receive the pages you translate, your selections, your glossary, or the translations.
-- The only file the extension downloads is the PLaMo model, from Hugging Face.
+- The only file the extension downloads is the PLaMo model, from Hugging Face. A local server you start is a separate optional path.
 - You can delete the model and clear the translation cache in the extension's settings, or remove the extension.
 
 ## About this extension
@@ -20,7 +20,7 @@ Sakutto is an unofficial extension. It is not a product of Preferred Networks, I
 
 When you ask it to translate a page, a selection, or text you type on its own typed-text page, or when a site is set to translate automatically, the extension reads the text it is about to translate, along with the settings you have entered.
 
-That text is used only to produce a translation on your device.
+That text is used only to produce a translation. By default that happens on your device. If you choose a local server in Settings, the same text is sent only to the address you set.
 
 ## What is not collected
 
@@ -34,9 +34,13 @@ On Chrome, for language pairs PLaMo does not support, the extension uses Chrome'
 
 On Firefox those Chrome APIs are not used. Only the language pairs PLaMo supports are translated.
 
+Settings can switch PLaMo requests from the built-in on-device engine to an experimental local OpenAI-compatible server you run yourself (for example mlx_lm.server or LM Studio). Translation accuracy is not guaranteed on that path. The developer does not operate that server. Text is sent only to the URL you enter. The default is this computer (`127.0.0.1` / `localhost`). A URL that is not this computer is blocked until you confirm a warning that page text will leave the machine.
+
 ## The download, and who can see it
 
-The extension's own network request is the model download from Hugging Face. Hugging Face, and the network that serves the file, can see your IP address and that a model file was requested. They do not receive the page text, your selections, your glossary, or your translations.
+The extension's own network request for the built-in engine is the model download from Hugging Face. Hugging Face, and the network that serves the file, can see your IP address and that a model file was requested. They do not receive the page text, your selections, your glossary, or your translations.
+
+If you enable a local server, the extension also sends translation requests to the address you set. That process can see the text being translated. The developer does not receive it.
 
 If you installed the extension from the Chrome Web Store or from addons.mozilla.org, the browser may update it. That is the browser's own request, not one this extension makes.
 
@@ -48,7 +52,8 @@ The extension keeps the following on your device and does not send it to the dev
 - your glossary and your per-site rules;
 - a record that you accepted the license;
 - the model file;
-- a local translation cache, so that the same text does not have to be translated twice.
+- a local translation cache, so that the same text does not have to be translated twice;
+- an optional local-server API key, stored in plain text in chrome.storage.local.
 
 You can delete the model and clear the translation cache in the extension's settings. Removing the extension removes the rest.
 
@@ -58,7 +63,7 @@ The extension tries not to translate text you are typing into a form field, and 
 
 ## Permissions
 
-The extension is not given access to every site when you install it. A one-time translation of the current tab uses the access the browser grants for that action. Access to a particular site is optional, and is requested only when you turn that site on, for automatic translation.
+The extension is not given access to every site when you install it. A one-time translation of the current tab uses the access the browser grants for that action. Access to a particular site is optional, and is requested only when you turn that site on, for automatic translation. Access to a local server is also optional. It is requested when you turn that engine on or change a loopback address, and for a remote address only after you confirm the warning checkbox.
 
 ## Limited Use
 
@@ -70,16 +75,16 @@ Questions about this policy can be opened as an issue at https://github.com/jamm
 
 # プライバシーポリシー
 
-最終更新: 2026-11-09
+最終更新: 2026-11-10
 
 Sakutto は、端末の中でウェブページを翻訳する、Chrome と Firefox 向けの非公式の拡張機能です。このページでは、拡張機能がデータをどう扱うかを平易に説明します。扱うデータの種類と、それを誰が見られるかに絞って書き、実装の細部には立ち入りません。
 
 ## 要点
 
-- 翻訳は端末の中で行います。ページの本文を翻訳サーバーへ送ることはありません。
+- 既定では翻訳は端末の中で行います。設定でローカルサーバーをオンにしない限り、ページの本文を翻訳サーバーへ送ることはありません。オンにした場合は、設定したアドレス（通常はこの端末上のプロセス）にだけ送ります。
 - アカウントはありません。広告も、分析も、テレメトリもありません。
 - 開発者は、翻訳したページ、選択範囲、用語集、訳文を受け取りません。
-- 拡張機能が取得するファイルは、Hugging Face から取る PLaMo のモデルだけです。
+- 拡張機能が取得するファイルは、Hugging Face から取る PLaMo のモデルだけです。自分で起動したローカルサーバーは、それとは別の任意の経路です。
 - 設定画面でモデルを削除し、翻訳キャッシュを消せます。拡張機能を削除する方法もあります。
 
 ## この拡張機能について
@@ -90,7 +95,7 @@ Sakutto は非公式の拡張機能です。Preferred Networks, Inc. の製品�
 
 ページ、選択範囲、または拡張機能のテキスト入力ページに入力した文字の翻訳を頼んだとき、あるいは自動翻訳をオンにしたサイトでは、翻訳する文字と、入力済みの設定を読みます。
 
-その文字は、端末の中で訳文を作るためだけに使います。
+その文字は、訳文を作るためだけに使います。既定では端末の中で処理します。設定でローカルサーバーを選んだときは、同じ文字を設定したアドレスにだけ送ります。
 
 ## 収集しないもの
 
@@ -104,9 +109,13 @@ Chrome では、PLaMo が対応していない言語の組み合わせに Chrome
 
 Firefox ではそれらの Chrome の機能は使いません。PLaMo が対応する言語の組み合わせだけを訳します。
 
+設定で、PLaMo のリクエストを内蔵エンジンから、自分で起動した実験的な OpenAI 互換のローカルサーバー（mlx_lm.server や LM Studio など）へ切り替えられます。この経路の翻訳精度は保証しません。そのサーバーを運営するのは開発者ではありません。文字は入力した URL にだけ送ります。既定はこの端末（`127.0.0.1` / `localhost`）です。この端末ではない URL は、本文が端末の外へ出る旨の警告を確認するまで送りません。
+
 ## ダウンロードと、それを見られる範囲
 
-この拡張機能自身が行う通信は、Hugging Face からのモデルの取得です。Hugging Face と、ファイルを配信するネットワークには、IP アドレスと、モデルのファイルが要求されたことが伝わります。ページの本文、選択範囲、用語集、訳文は伝わりません。
+内蔵エンジンについての、この拡張機能自身が行う通信は、Hugging Face からのモデルの取得です。Hugging Face と、ファイルを配信するネットワークには、IP アドレスと、モデルのファイルが要求されたことが伝わります。ページの本文、選択範囲、用語集、訳文は伝わりません。
+
+ローカルサーバーを有効にすると、設定したアドレスへ翻訳リクエストも送ります。そのプロセスは翻訳する文字を見られます。開発者は受け取りません。
 
 Chrome ウェブストアまたは addons.mozilla.org から入れた場合、ブラウザが拡張機能を更新することがあります。それはブラウザ自身の通信で、この拡張機能が行うものではありません。
 
@@ -119,6 +128,7 @@ Chrome ウェブストアまたは addons.mozilla.org から入れた場合、�
 - ライセンスに同意したことの記録
 - モデルのファイル
 - 翻訳キャッシュ（同じ文章を二度訳さずに済ませるための、端末内の保存）
+- 任意のローカルサーバー API キー（chrome.storage.local に平文で保存します）
 
 モデルの削除と翻訳キャッシュの消去は、拡張機能の設定画面から行えます。拡張機能を削除すると、残りも消えます。
 
@@ -128,7 +138,7 @@ Chrome ウェブストアまたは addons.mozilla.org から入れた場合、�
 
 ## 権限
 
-インストールした時点で、すべてのサイトへのアクセスが与えられるわけではありません。今開いているタブの一回だけの翻訳には、その操作に対してブラウザが与えるアクセスを使います。特定のサイトへのアクセスは任意で、そのサイトの自動翻訳をオンにしたときだけ要求します。
+インストールした時点で、すべてのサイトへのアクセスが与えられるわけではありません。今開いているタブの一回だけの翻訳には、その操作に対してブラウザが与えるアクセスを使います。特定のサイトへのアクセスは任意で、そのサイトの自動翻訳をオンにしたときだけ要求します。ローカルサーバーへのアクセスも任意です。そのエンジンをオンにしたときやループバックのアドレスを変えたときに要求し、この端末ではない URL では警告のチェックを確認したあとで要求します。
 
 ## 限定的な利用
 

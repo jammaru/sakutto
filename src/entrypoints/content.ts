@@ -191,20 +191,22 @@ function composeReadiness(
   ready: boolean,
   statusKnown: boolean,
 ) {
-  if (__SAKUTTO_FAKE_ENGINE__) return 'ready' as const;
+  if (__SAKUTTO_FAKE_ENGINE__ && settings.engineSource !== 'local-server') return 'ready' as const;
   if (!hasLicenseConsent(settings)) {
     return typedReadiness({
       consent: false,
       modelState: model?.state ?? 'absent',
       plamoReady: ready,
+      engineSource: settings.engineSource,
     });
   }
   // A failed status fetch is not "no model"; keep showing loading until we know.
-  if (!statusKnown) return 'model-busy' as const;
+  if (!statusKnown && settings.engineSource !== 'local-server') return 'model-busy' as const;
   return typedReadiness({
     consent: true,
     modelState: model?.state ?? 'absent',
     plamoReady: ready,
+    engineSource: settings.engineSource,
   });
 }
 
@@ -227,6 +229,7 @@ function overlayLabels(): OverlayLabels {
     barPartial: (blocks) => t('pagePartial', [String(blocks)]),
     barOriginal: t('restoreThisPage'),
     barAlways: t('alwaysTranslateSite'),
+    engineFailed: t('localServerFailed'),
     barAlwaysOn: t('pageAlwaysOn'),
   };
 }
@@ -269,10 +272,23 @@ export default defineContentScript({
     // to the page brings it into focus, which is the moment to read the new key.
     window.addEventListener('focus', refreshShortcuts);
 
-    const engine = { translate: __SAKUTTO_FAKE_ENGINE__ ? fakeTranslate : translateViaBackground };
+    let engineSource: Settings['engineSource'] = 'in-browser';
+    const engine = {
+      async *translate(
+        segments: Parameters<typeof translateViaBackground>[0],
+        options: Parameters<typeof translateViaBackground>[1],
+      ) {
+        if (__SAKUTTO_FAKE_ENGINE__ && engineSource !== 'local-server') {
+          yield* fakeTranslate(segments, options);
+          return;
+        }
+        yield* translateViaBackground(segments, options);
+      },
+    };
 
     const sessionPromise = (async () => {
       const settings = await loadSettings();
+      engineSource = settings.engineSource;
       const rule = await loadSiteRule(host);
       if (!__SAKUTTO_FAKE_ENGINE__) {
         const status = await requestEngineStatus().catch(() => null);
@@ -377,6 +393,7 @@ export default defineContentScript({
 
       const applyStored = async (): Promise<void> => {
         const [nextSettings, nextRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
+        engineSource = nextSettings.engineSource;
         shortcutsEnabled = nextSettings.shortcutsEnabled;
         session.setLabels(overlayLabels());
         session.setPreferences(preferencesFor(nextSettings, nextRule, host));

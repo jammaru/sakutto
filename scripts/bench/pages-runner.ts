@@ -11,12 +11,16 @@ import {
   clearCache,
   ensureModel,
   log,
+  assertLocalServerBackend,
   prepareModel,
   readStatus,
   routeModel,
   settings,
+  startLocalServerTap,
+  type BenchLocalServer,
   type BenchTier,
   type ChromeApi,
+  type LocalServerTap,
 } from './host.ts';
 import {
   HEADLINE_PAGE,
@@ -26,6 +30,8 @@ import {
   headlineFor,
   type BenchHeadline,
   comparisonRows,
+  isUnmeasuredRecord,
+  measurableRecords,
   medianMetric,
   parseHistory,
   recordsOfRun,
@@ -98,6 +104,12 @@ export interface RunPageBenchOptions {
   modelPath?: string | undefined;
   /** Compute tier for live mode: `auto` keeps the probe, the others force GPU or a CPU size. */
   tier?: BenchTier | undefined;
+  /**
+   * When set, live mode talks to this OpenAI-compatible server instead of loading the GGUF.
+   * The server must already be running. Not a speed claim: record WebGPU and this run
+   * separately on the same Mac.
+   */
+  localServer?: BenchLocalServer | undefined;
   /** Called after every fixture so a caller can stream progress. */
   onRecord?: ((record: BenchRecord) => void) | undefined;
 }
@@ -159,6 +171,7 @@ interface ExtensionHarness {
   options: Page;
   engine: BenchEngine;
   machine: Omit<BenchMachine, 'viewport'>;
+  localServerTap: LocalServerTap | null;
   close: () => Promise<void>;
 }
 
@@ -201,94 +214,115 @@ async function openHarness(
   extension: string,
   modelPath: string,
   tier: BenchTier,
+  extras: { localServer?: BenchLocalServer } = {},
 ): Promise<ExtensionHarness> {
   await readFile(resolve(extension, 'manifest.json'));
 
+  let localServerTap: LocalServerTap | null = null;
+  let preparedExtras = extras;
+  let context: BrowserContext | null = null;
   let profile = resolve(ROOT, 'bench/.chrome-profile');
   let temporary: string | null = null;
-  if (mode === 'mock') {
-    // A fresh profile per run keeps a stale site rule or a warm translation cache from
-    // making one sample faster than the next.
-    temporary = await mkdtemp(join(tmpdir(), 'sakutto-bench-'));
-    profile = temporary;
-  }
-  await mkdir(profile, { recursive: true });
-
-  const context = await chromium.launchPersistentContext(profile, {
-    headless: false,
-    locale: 'en-US',
-    viewport: VIEWPORT,
-    args: launchArgs(extension),
-  });
-  context.setDefaultTimeout(180_000);
-  context.setDefaultNavigationTimeout(60_000);
 
   const dropProfile = async (): Promise<void> => {
     if (temporary !== null) await rm(temporary, { recursive: true, force: true });
   };
-
-  if (mode === 'live') await routeModel(context, modelPath);
-
-  const worker = await waitForServiceWorker(context).catch(async (error: unknown) => {
-    await context.close();
+  const abort = async (error: unknown): Promise<never> => {
+    await context?.close().catch(() => undefined);
     await dropProfile();
+    await localServerTap?.close().catch(() => undefined);
     throw error;
-  });
-  const extensionId = new URL(worker.url()).host;
-  const options = await context.newPage();
-  await options.goto(`chrome-extension://${extensionId}/options.html`);
-
-  let engine: BenchEngine;
-  if (mode === 'live') {
-    const prepared = await prepareModel(options, tier);
-    log(
-      'page-bench',
-      `download ${String(prepared.downloadMs)}ms warm ${String(prepared.warmMs)}ms ${
-        prepared.status.backend ?? 'unknown'
-      } threads ${String(prepared.status.threads)}`,
-    );
-    engine = {
-      label: prepared.status.backend ?? 'plamo',
-      backend: prepared.status.backend,
-      tier: prepared.status.tier,
-      threads: prepared.status.threads,
-      chromeTranslator: prepared.status.chromeSupported,
-      model: MODEL_ID,
-      ...acceleratorFor({ mode: 'live', backend: prepared.status.backend }),
-    };
-  } else {
-    await options.evaluate(async (stored) => {
-      const chrome = (globalThis as unknown as { chrome: ChromeApi }).chrome;
-      await chrome.storage.local.set({ settings: stored, siteRules: {} });
-    }, settings());
-    const status = await readStatus(options).catch(() => null);
-    engine = {
-      label: 'mock',
-      backend: null,
-      tier: status?.tier ?? null,
-      threads: null,
-      chromeTranslator: false,
-      model: null,
-      ...acceleratorFor({ mode: 'mock', backend: null }),
-    };
-  }
-
-  const isolated = await options.evaluate(() => crossOriginIsolated);
-  const cores = await options.evaluate(() => navigator.hardwareConcurrency);
-  const userAgent = await options.evaluate(() => navigator.userAgent);
-  const platform = await options.evaluate(() => navigator.platform);
-
-  return {
-    context,
-    worker,
-    options,
-    engine,
-    machine: { platform, cores, userAgent, crossOriginIsolated: isolated },
-    close: async () => {
-      await context.close();
-      await dropProfile();
-    },
   };
+
+  try {
+    if (mode === 'live' && extras.localServer) {
+      localServerTap = await startLocalServerTap(extras.localServer.url);
+      preparedExtras = {
+        localServer: { ...extras.localServer, url: localServerTap.url },
+      };
+    }
+
+    if (mode === 'mock') {
+      // A fresh profile per run keeps a stale site rule or a warm translation cache from
+      // making one sample faster than the next.
+      temporary = await mkdtemp(join(tmpdir(), 'sakutto-bench-'));
+      profile = temporary;
+    }
+    await mkdir(profile, { recursive: true });
+
+    context = await chromium.launchPersistentContext(profile, {
+      headless: false,
+      locale: 'en-US',
+      viewport: VIEWPORT,
+      args: launchArgs(extension),
+    });
+    context.setDefaultTimeout(180_000);
+    context.setDefaultNavigationTimeout(60_000);
+
+    if (mode === 'live' && extras.localServer === undefined) await routeModel(context, modelPath);
+
+    const worker = await waitForServiceWorker(context);
+    const extensionId = new URL(worker.url()).host;
+    const options = await context.newPage();
+    await options.goto(`chrome-extension://${extensionId}/options.html`);
+
+    let engine: BenchEngine;
+    if (mode === 'live') {
+      const prepared = await prepareModel(options, tier, preparedExtras);
+      log(
+        'page-bench',
+        `download ${String(prepared.downloadMs)}ms warm ${String(prepared.warmMs)}ms ${
+          prepared.status.backend ?? 'unknown'
+        } threads ${String(prepared.status.threads)}`,
+      );
+      engine = {
+        label: prepared.status.backend ?? 'plamo',
+        backend: prepared.status.backend,
+        tier: prepared.status.tier,
+        threads: prepared.status.threads,
+        chromeTranslator: prepared.status.chromeSupported,
+        model: extras.localServer?.model ?? MODEL_ID,
+        ...acceleratorFor({ mode: 'live', backend: prepared.status.backend }),
+      };
+    } else {
+      await options.evaluate(async (stored) => {
+        const chrome = (globalThis as unknown as { chrome: ChromeApi }).chrome;
+        await chrome.storage.local.set({ settings: stored, siteRules: {} });
+      }, settings());
+      const status = await readStatus(options).catch(() => null);
+      engine = {
+        label: 'mock',
+        backend: null,
+        tier: status?.tier ?? null,
+        threads: null,
+        chromeTranslator: false,
+        model: null,
+        ...acceleratorFor({ mode: 'mock', backend: null }),
+      };
+    }
+
+    const isolated = await options.evaluate(() => crossOriginIsolated);
+    const cores = await options.evaluate(() => navigator.hardwareConcurrency);
+    const userAgent = await options.evaluate(() => navigator.userAgent);
+    const platform = await options.evaluate(() => navigator.platform);
+    const launched = context;
+
+    return {
+      context: launched,
+      worker,
+      options,
+      engine,
+      machine: { platform, cores, userAgent, crossOriginIsolated: isolated },
+      localServerTap,
+      close: async () => {
+        await launched.close();
+        await dropProfile();
+        await localServerTap?.close().catch(() => undefined);
+      },
+    };
+  } catch (error) {
+    return abort(error);
+  }
 }
 
 /** Sends the same `page:command` message the popup and the Alt+A shortcut send. */
@@ -495,18 +529,22 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
     );
   }
 
-  if (mode === 'live') await ensureModel(modelPath);
+  const localServer = options.localServer;
+  if (mode === 'live' && localServer === undefined) await ensureModel(modelPath);
 
   const server = await startStaticServer({ directory: resolve(ROOT, 'bench/pages') });
   let harness: ExtensionHarness;
   try {
-    harness = await openHarness(mode, extension, modelPath, options.tier ?? 'auto');
+    harness = await openHarness(mode, extension, modelPath, options.tier ?? 'auto', {
+      ...(localServer === undefined ? {} : { localServer }),
+    });
   } catch (error) {
     // A rejected build must not leave the static server holding the process open.
     await server.close();
     throw error;
   }
   const records: BenchRecord[] = [];
+  let completionsSeen = 0;
 
   try {
     for (let index = 0; index < samples; index += 1) {
@@ -522,12 +560,36 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
           tree,
         });
         records.push(record);
+        if (mode === 'live' && localServer) {
+          assertLocalServerBackend(await readStatus(harness.options));
+          const seen = harness.localServerTap?.completions ?? 0;
+          if (seen <= completionsSeen) {
+            throw new Error(
+              `Local-server bench expected /v1/completions after ${fixture.name}, saw ${String(seen)} (was ${String(completionsSeen)})`,
+            );
+          }
+          completionsSeen = seen;
+        }
         options.onRecord?.(record);
       }
     }
   } finally {
     await harness.close();
     await server.close();
+  }
+
+  if (
+    mode === 'live' &&
+    localServer &&
+    (completionsSeen === 0 || records.some(isUnmeasuredRecord))
+  ) {
+    throw new Error(
+      'Local-server bench recorded no successful /v1/completions; history not written.',
+    );
+  }
+  const measured = measurableRecords(records);
+  if (measured.length === 0) {
+    throw new Error('Bench produced empty metrics; history not written.');
   }
 
   const history = await readHistory(historyPath);
@@ -540,7 +602,7 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
       history,
       run,
       mode,
-      records.map((record) => record.page),
+      measured.map((record) => record.page),
     );
 
   const summary = runSummary({
@@ -548,8 +610,8 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
     mode,
     commit: tree.commit,
     dirty: tree.dirty,
-    at: records[0]?.at ?? new Date().toISOString(),
-    records,
+    at: measured[0]?.at ?? new Date().toISOString(),
+    records: measured,
     ...(compareWith
       ? { before: { run: compareWith, records: recordsOfRun(history, compareWith) } }
       : {}),
@@ -565,13 +627,13 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
   }
   if (writeHistory) {
     await mkdir(resolve(historyPath, '..'), { recursive: true });
-    await appendHistory(historyPath, records);
+    await appendHistory(historyPath, measured);
   }
 
   const comparisons: { metric: BenchMetricKey; text: string }[] = [];
   if (compareWith) {
     for (const metric of TIMING_METRICS) {
-      const rows = comparisonRows(recordsOfRun(history, compareWith), records, metric).filter(
+      const rows = comparisonRows(recordsOfRun(history, compareWith), measured, metric).filter(
         (row) => row.before !== null && row.after !== null,
       );
       if (rows.length === 0) continue;
@@ -592,12 +654,12 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
     mode,
     commit: tree.commit,
     dirty: tree.dirty,
-    records,
-    headline: headlineFor(records),
+    records: measured,
+    headline: headlineFor(measured),
     summary,
     summaryPath,
     historyPath: writeHistory ? historyPath : null,
-    table: table(records),
+    table: table(measured),
     comparisons,
   };
 }

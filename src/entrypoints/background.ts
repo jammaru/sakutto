@@ -37,7 +37,7 @@ import {
   isWebGpuDebugProfile,
   type WebGpuDebugProfile,
 } from '@/shared/gpu-diagnostic';
-import { ensureSettings } from '@/shared/storage';
+import { ensureSettings, subscribeSettings } from '@/shared/storage';
 
 const CAPABILITIES_CACHE_KEY = 'engineCapabilities';
 
@@ -49,6 +49,14 @@ export default defineBackground(() => {
 
   broker.start();
   installPageActions(broker);
+  subscribeSettings((settings) => {
+    void client.setSource(settings).catch(() => undefined);
+  });
+
+  async function syncSource(): Promise<void> {
+    const settings = await ensureSettings();
+    await client.setSource(settings);
+  }
 
   async function readCachedCapabilities(): Promise<EngineCapabilities | null> {
     if (capabilitiesCache) return capabilitiesCache;
@@ -167,11 +175,13 @@ export default defineBackground(() => {
 
   browser.runtime.onInstalled.addListener(({ reason }) => {
     void (async () => {
-      await ensureSettings();
+      if (reason === 'update') await client.bootSource();
+      else await syncSource();
       await recordCommandAssignments();
       if (reason === 'install') {
         await browser.tabs.create({ url: browser.runtime.getURL('/onboarding.html') });
       }
+      await warmStoredModel();
     })().catch(() => undefined);
   });
 
@@ -192,10 +202,14 @@ export default defineBackground(() => {
     if (warmed) await broadcast({ type: 'model:progress', status: warmed });
   }
 
-  void warmStoredModel();
+  void syncSource()
+    .then(() => warmStoredModel())
+    .catch(() => undefined);
   void recordCommandAssignments().catch(() => undefined);
   browser.runtime.onStartup.addListener(() => {
-    void warmStoredModel();
+    void syncSource()
+      .then(() => warmStoredModel())
+      .catch(() => undefined);
     void recordCommandAssignments().catch(() => undefined);
   });
 

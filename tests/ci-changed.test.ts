@@ -30,7 +30,8 @@ describe('CI change scope', () => {
 
   it('does not run the model bench from the workflow', () => {
     const workflow = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
-    expect(workflow).not.toContain('pnpm bench');
+    expect(workflow).toContain('pnpm bench:equality --check');
+    expect(workflow.replaceAll('pnpm bench:equality --check', '')).not.toContain('pnpm bench');
     expect(workflow).not.toContain('scripts/bench');
   });
 

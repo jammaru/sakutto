@@ -12,4 +12,5 @@ export const PLAMO_OFFICIAL_LINKS = {
 export const PROJECT_LINKS = {
   privacy: 'https://jammaru.com/sakutto/privacy/',
   source: 'https://github.com/jammaru/sakutto',
+  localServerDocs: 'https://github.com/jammaru/sakutto/blob/main/docs/design/mlx-backend.md',
 } as const;

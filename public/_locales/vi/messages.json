@@ -178,7 +178,7 @@
     "message": "Quyền riêng tư"
   },
   "privacyBody": {
-    "message": "Tiện ích mở rộng này không gửi văn bản trang đến máy chủ. Không có dữ liệu đo lường nào."
+    "message": "Theo mặc định, tiện ích này không gửi văn bản trang đến máy chủ dịch. Không có dữ liệu đo lường nào."
   },
   "privacyDestinations": {
     "message": "Yêu cầu của bản mở rộng là tải xuống mô hình. Nó bắt đầu tại huggingface.co và tiếp nối lối chuyển hướng của Hugging Face đến CDN của nó. Văn bản trang không được bao gồm. Chrome tự tải xuống các gói ngôn ngữ của chính nó."
@@ -223,7 +223,7 @@
     "message": "Bắt đầu"
   },
   "onboardingLead": {
-    "message": "Việc dịch trang diễn ra trên thiết bị của bạn. Mẫu PLaMo 3 chỉ tải xuống khi chưa được lưu trữ trên thiết bị này."
+    "message": "Dịch trang chạy trên thiết bị này theo mặc định. Mô hình PLaMo 3 chỉ được tải xuống khi chưa được lưu ở đây."
   },
   "onboardingSetupHeading": {
     "message": "Về tiện ích mở rộng này"
@@ -238,7 +238,7 @@
     "message": "Trang web tiếp tục giữ nguyên văn bản cho đến khi mô hình sẵn sàng, sau đó PLaMo sẽ dịch lại."
   },
   "onboardingPrivacyNote": {
-    "message": "Tiện ích mở rộng này không gửi văn bản trang đến máy chủ."
+    "message": "Công cụ tích hợp không gửi nội dung trang tới máy chủ."
   },
   "onboardingClose": {
     "message": "Đóng"
@@ -1046,5 +1046,128 @@
   },
   "tierCpu1": {
     "message": "CPU (1 thread)"
+  },
+  "runtimeLocalServer": {
+    "message": "Máy chủ cục bộ (thử nghiệm)"
+  },
+  "engineSourceLabel": {
+    "message": "Engine dịch"
+  },
+  "engineSourceInBrowser": {
+    "message": "Tích hợp (trên thiết bị này)"
+  },
+  "engineSourceLocalServer": {
+    "message": "Máy chủ cục bộ (thử nghiệm)"
+  },
+  "engineSourceHelp": {
+    "message": "Mặc định là công cụ tích hợp trên thiết bị này."
+  },
+  "localServerUrlLabel": {
+    "message": "URL máy chủ"
+  },
+  "localServerModelLabel": {
+    "message": "Mô hình"
+  },
+  "localServerApiKeyLabel": {
+    "message": "Khóa API (tuỳ chọn)"
+  },
+  "localServerTimeoutLabel": {
+    "message": "Hết giờ (giây)"
+  },
+  "localServerTestButton": {
+    "message": "Kiểm tra kết nối"
+  },
+  "localServerTestOk": {
+    "message": "Đã kết nối."
+  },
+  "localServerTestFail": {
+    "message": "Không dùng được máy chủ này."
+  },
+  "localServerModelsEmpty": {
+    "message": "(không có danh sách — nhập tên)"
+  },
+  "localServerPresetMlx": {
+    "message": "mlx_lm.server"
+  },
+  "localServerPresetLmStudio": {
+    "message": "LM Studio"
+  },
+  "localServerPresetHelp": {
+    "message": "Giá trị đặt sẵn chỉ điền URL."
+  },
+  "localServerNonLocalWarning": {
+    "message": "Địa chỉ này không phải máy này. Văn bản trang sẽ được gửi tới đó. Tôi hiểu."
+  },
+  "localServerPermissionDenied": {
+    "message": "Trình duyệt không cấp quyền truy cập địa chỉ này."
+  },
+  "localServerHelp": {
+    "message": "Gửi prompt của Sakutto tới máy chủ tương thích OpenAI trên máy tính này, chẳng hạn mlx_lm.server hoặc LM Studio."
+  },
+  "localServerUnreachable": {
+    "message": "Không liên lạc được máy chủ cục bộ. Mở Cài đặt và kiểm tra máy chủ đang chạy."
+  },
+  "localServerModelMissing": {
+    "message": "Máy chủ không có mô hình phù hợp. Tải mô hình hoặc chọn trong Cài đặt."
+  },
+  "localServerTimeout": {
+    "message": "Máy chủ cục bộ hết thời gian. Đã giữ nguyên bản."
+  },
+  "localServerFailed": {
+    "message": "Máy chủ cục bộ không dịch được. Mở Cài đặt. Đã giữ nguyên bản."
+  },
+  "diagBackendLocalServer": {
+    "message": "Máy chủ cục bộ (thử nghiệm)"
+  },
+  "privacyBodyLocalServer": {
+    "message": "Thử nghiệm. Nếu chọn máy chủ cục bộ, văn bản chỉ được gửi tới địa chỉ bạn đặt (mặc định là máy tính này). Độ chính xác không được đảm bảo, và bản dịch có thể khác công cụ tích hợp, kể cả dịch sai. Nhà phát triển không nhận văn bản."
+  },
+  "localServerLicenseNote": {
+    "message": "Giấy phép các mô hình khác trên máy chủ đó là trách nhiệm của bạn. Trọng số PLaMo vẫn theo PLaMo Community License."
+  },
+  "localServerParallelLabel": {
+    "message": "Concurrent requests"
+  },
+  "localServerParallelHelp": {
+    "message": "How many completions the server may run at once (1–16). The page keeps extra requests ready so a finished slot is not left idle."
+  },
+  "localServerTestOkUnlisted": {
+    "message": "Connected. Completions work. The server listed no models — keep the model name you typed; it was not verified from /v1/models."
+  },
+  "localServerExperimental": {
+    "message": "Thử nghiệm: không đảm bảo độ chính xác của bản dịch. Kết quả có thể khác công cụ tích hợp, kể cả dịch sai."
+  },
+  "localServerExperimentalConfirm": {
+    "message": "Công cụ này là thử nghiệm. Độ chính xác không được đảm bảo. Bản dịch có thể khác công cụ tích hợp, kể cả dịch sai. Vẫn dùng máy chủ cục bộ?"
+  },
+  "localServerExperimentalUse": {
+    "message": "Dùng máy chủ cục bộ"
+  },
+  "localServerExperimentalKeep": {
+    "message": "Giữ công cụ tích hợp"
+  },
+  "localServerDetails": {
+    "message": "Chi tiết"
+  },
+  "localServerAdvanced": {
+    "message": "Nâng cao"
+  },
+  "localServerRemoteConfirmRequired": {
+    "message": "Địa chỉ này không nằm trên máy tính này. Hãy chọn ô xác nhận bên dưới trước khi thử kết nối."
+  },
+  "onboardingLocalServerNote": {
+    "message": "Cài đặt có thể bật máy chủ cục bộ thử nghiệm. Khi đó nội dung trang chỉ đi tới địa chỉ bạn đặt, và độ chính xác không được đảm bảo."
+  },
+  "localServerUrlHelp": {
+    "message": "mlx_lm.server mặc định cổng 8080. LM Studio mặc định cổng 1234."
+  },
+  "localServerModelHelp": {
+    "message": "Tên mô hình đã nạp trên máy chủ đó."
+  },
+  "diagConcurrent": {
+    "message": "Yêu cầu đồng thời"
+  },
+  "diagRuntime": {
+    "message": "Trạng thái"
   }
 }

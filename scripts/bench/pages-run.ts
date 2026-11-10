@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { normalizeParallel } from '../../src/engine/local-server/url.ts';
 import { ROOT, arg, has, log, type BenchTier } from './host.ts';
 import { runPageBench, type BenchMode } from './pages-runner.ts';
 
@@ -31,6 +32,9 @@ async function main(): Promise<void> {
     );
   }
 
+  const localServerUrl = arg('--local-server-url');
+  const localServerModel = arg('--local-server-model') ?? '';
+  const localServerParallel = arg('--local-server-parallel');
   const result = await runPageBench({
     mode: runMode,
     extension,
@@ -40,6 +44,17 @@ async function main(): Promise<void> {
     ...(arg('--compare') !== undefined ? { compare: arg('--compare') } : {}),
     ...(arg('--model') !== undefined ? { modelPath: arg('--model') } : {}),
     tier: tier(),
+    ...(localServerUrl === undefined
+      ? {}
+      : {
+          localServer: {
+            url: localServerUrl,
+            model: localServerModel,
+            ...(localServerParallel === undefined
+              ? {}
+              : { parallel: normalizeParallel(Number(localServerParallel)) }),
+          },
+        }),
     ...(arg('--history') !== undefined ? { historyPath: resolve(arg('--history') ?? '') } : {}),
     writeHistory: !has('--no-history'),
     writeSummary: !has('--no-summary'),
@@ -61,5 +76,5 @@ async function main(): Promise<void> {
 
 main().catch((error: unknown) => {
   console.error(error);
-  process.exitCode = 1;
+  process.exit(1);
 });

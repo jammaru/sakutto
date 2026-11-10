@@ -178,7 +178,7 @@
     "message": "Privasi"
   },
   "privacyBody": {
-    "message": "Ekstensi ini tidak mengirimkan teks halaman ke server. Tidak ada telemetry."
+    "message": "Secara bawaan, ekstensi ini tidak mengirimkan teks halaman ke server terjemahan. Tidak ada telemetry."
   },
   "privacyDestinations": {
     "message": "Permintaan dari ekstensi itu sendiri adalah pengunduhan model. Model tersebut dimulai dari huggingface.co dan mengikuti pengalihan Hugging Face ke CDN-nya. Teks halaman tidak disertakan. Chrome mengunduh paket bahasanya sendiri."
@@ -223,7 +223,7 @@
     "message": "Memulai"
   },
   "onboardingLead": {
-    "message": "Terjemahan halaman berjalan di perangkat Anda. Model PLaMo 3 hanya diunduh jika belum tersimpan di perangkat tersebut."
+    "message": "Terjemahan halaman berjalan di perangkat ini secara default. Model PLaMo 3 diunduh hanya jika belum tersimpan di sini."
   },
   "onboardingSetupHeading": {
     "message": "Tentang ekstensi ini"
@@ -238,7 +238,7 @@
     "message": "Halaman tersebut tetap mempertahankan teks aslinya sampai model siap, kemudian PLaMo menerjemahkannya."
   },
   "onboardingPrivacyNote": {
-    "message": "Ekstensi ini tidak mengirimkan teks halaman ke server."
+    "message": "Mesin bawaan tidak mengirim teks halaman ke server."
   },
   "onboardingClose": {
     "message": "Tutup"
@@ -1046,5 +1046,128 @@
   },
   "tierCpu1": {
     "message": "CPU (1 thread)"
+  },
+  "runtimeLocalServer": {
+    "message": "Server lokal (eksperimental)"
+  },
+  "engineSourceLabel": {
+    "message": "Mesin terjemahan"
+  },
+  "engineSourceInBrowser": {
+    "message": "Bawaan (di perangkat ini)"
+  },
+  "engineSourceLocalServer": {
+    "message": "Server lokal (eksperimental)"
+  },
+  "engineSourceHelp": {
+    "message": "Default adalah mesin bawaan di perangkat ini."
+  },
+  "localServerUrlLabel": {
+    "message": "URL server"
+  },
+  "localServerModelLabel": {
+    "message": "Model"
+  },
+  "localServerApiKeyLabel": {
+    "message": "Kunci API (opsional)"
+  },
+  "localServerTimeoutLabel": {
+    "message": "Batas waktu (detik)"
+  },
+  "localServerTestButton": {
+    "message": "Uji koneksi"
+  },
+  "localServerTestOk": {
+    "message": "Terhubung."
+  },
+  "localServerTestFail": {
+    "message": "Server ini tidak dapat digunakan."
+  },
+  "localServerModelsEmpty": {
+    "message": "(tidak ada daftar — ketik nama)"
+  },
+  "localServerPresetMlx": {
+    "message": "mlx_lm.server"
+  },
+  "localServerPresetLmStudio": {
+    "message": "LM Studio"
+  },
+  "localServerPresetHelp": {
+    "message": "Preset hanya mengisi URL."
+  },
+  "localServerNonLocalWarning": {
+    "message": "Alamat ini bukan komputer ini. Teks halaman akan dikirim ke sana. Saya mengerti."
+  },
+  "localServerPermissionDenied": {
+    "message": "Peramban tidak memberi akses ke alamat ini."
+  },
+  "localServerHelp": {
+    "message": "Mengirim prompt Sakutto ke server yang kompatibel dengan OpenAI di komputer ini, seperti mlx_lm.server atau LM Studio."
+  },
+  "localServerUnreachable": {
+    "message": "Tidak dapat menjangkau server lokal. Buka Pengaturan dan pastikan server berjalan."
+  },
+  "localServerModelMissing": {
+    "message": "Server tidak punya model yang cocok. Muat model atau pilih di Pengaturan."
+  },
+  "localServerTimeout": {
+    "message": "Server lokal kehabisan waktu. Teks asli dipertahankan."
+  },
+  "localServerFailed": {
+    "message": "Server lokal tidak dapat menerjemahkan ini. Buka Pengaturan. Teks asli dipertahankan."
+  },
+  "diagBackendLocalServer": {
+    "message": "Server lokal (eksperimental)"
+  },
+  "privacyBodyLocalServer": {
+    "message": "Eksperimental. Jika Anda memilih server lokal, teks hanya dikirim ke alamat yang Anda atur (default komputer ini). Akurasi tidak dijamin, dan terjemahan dapat berbeda dari mesin bawaan, termasuk salah terjemah. Pengembang tidak menerima teks tersebut."
+  },
+  "localServerLicenseNote": {
+    "message": "Lisensi model lain yang Anda muat di server itu adalah tanggung jawab Anda. Bobot PLaMo tetap di bawah PLaMo Community License."
+  },
+  "localServerParallelLabel": {
+    "message": "Concurrent requests"
+  },
+  "localServerParallelHelp": {
+    "message": "How many completions the server may run at once (1–16). The page keeps extra requests ready so a finished slot is not left idle."
+  },
+  "localServerTestOkUnlisted": {
+    "message": "Connected. Completions work. The server listed no models — keep the model name you typed; it was not verified from /v1/models."
+  },
+  "localServerExperimental": {
+    "message": "Eksperimental: akurasi terjemahan tidak dijamin. Hasil dapat berbeda dari mesin bawaan, termasuk salah terjemah."
+  },
+  "localServerExperimentalConfirm": {
+    "message": "Mesin ini eksperimental. Akurasi tidak dijamin. Terjemahan dapat berbeda dari mesin bawaan, termasuk salah terjemah. Tetap gunakan server lokal?"
+  },
+  "localServerExperimentalUse": {
+    "message": "Gunakan server lokal"
+  },
+  "localServerExperimentalKeep": {
+    "message": "Tetap bawaan"
+  },
+  "localServerDetails": {
+    "message": "Detail"
+  },
+  "localServerAdvanced": {
+    "message": "Lanjutan"
+  },
+  "localServerRemoteConfirmRequired": {
+    "message": "Alamat ini bukan di komputer ini. Centang konfirmasi di bawah sebelum menguji koneksi."
+  },
+  "onboardingLocalServerNote": {
+    "message": "Setelan dapat mengaktifkan server lokal eksperimental. Teks halaman lalu hanya pergi ke alamat yang Anda atur, dan akurasi tidak dijamin."
+  },
+  "localServerUrlHelp": {
+    "message": "mlx_lm.server memakai port 8080 secara default. LM Studio memakai port 1234."
+  },
+  "localServerModelHelp": {
+    "message": "Nama model yang dimuat di server itu."
+  },
+  "diagConcurrent": {
+    "message": "Permintaan bersamaan"
+  },
+  "diagRuntime": {
+    "message": "Status"
   }
 }

@@ -1,6 +1,17 @@
 import { DEFAULT_MODEL_ID, type ModelId } from '@/engine/model/catalog';
 import { normalizeSelectedModelId } from '@/engine/model/selection';
 import type { GlossaryEntry } from '@/engine/types';
+import {
+  DEFAULT_LOCAL_SERVER_PARALLEL,
+  DEFAULT_LOCAL_SERVER_TIMEOUT_MS,
+  DEFAULT_LOCAL_SERVER_URL,
+  normalizeApiKey,
+  normalizeModelName,
+  normalizeParallel,
+  normalizeServerUrl,
+  normalizeTimeoutMs,
+} from '@/engine/local-server/url';
+import type { EngineSource } from './engine-status';
 import { normalizeGlossary } from './glossary';
 import {
   DEFAULT_TARGET_LANGUAGE,
@@ -89,6 +100,21 @@ export interface Settings {
   composePlacement: ComposePlacement;
   /** Which PLaMo GGUF the engine should load. Survives service-worker and offscreen restarts. */
   selectedModelId: ModelId;
+  /**
+   * Where PLaMo requests run. `in-browser` is the packaged wllama engine. `local-server` is
+   * an OpenAI-compatible process the user started (mlx_lm.server, LM Studio, …).
+   */
+  engineSource: EngineSource;
+  localServerUrl: string;
+  localServerModel: string;
+  localServerApiKey: string;
+  localServerTimeoutMs: number;
+  /** False keeps non-loopback URLs from receiving page text. */
+  localServerAllowRemote: boolean;
+  /** How many completions the local server may run at once. */
+  localServerParallel: number;
+  /** Set after the reader accepts the experimental-engine warning once. */
+  localServerExperimentalAck: boolean;
 }
 
 export type SettingsPatch = Partial<
@@ -108,6 +134,14 @@ export type SettingsPatch = Partial<
     | 'composeInstantReplace'
     | 'composePlacement'
     | 'selectedModelId'
+    | 'engineSource'
+    | 'localServerUrl'
+    | 'localServerModel'
+    | 'localServerApiKey'
+    | 'localServerTimeoutMs'
+    | 'localServerAllowRemote'
+    | 'localServerParallel'
+    | 'localServerExperimentalAck'
   >
 > & {
   shortcutsEnabled?: Partial<ShortcutEnabled>;
@@ -130,6 +164,14 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   composeInstantReplace: false,
   composePlacement: 'above',
   selectedModelId: DEFAULT_MODEL_ID,
+  engineSource: 'in-browser',
+  localServerUrl: DEFAULT_LOCAL_SERVER_URL,
+  localServerModel: '',
+  localServerApiKey: '',
+  localServerTimeoutMs: DEFAULT_LOCAL_SERVER_TIMEOUT_MS,
+  localServerAllowRemote: false,
+  localServerParallel: DEFAULT_LOCAL_SERVER_PARALLEL,
+  localServerExperimentalAck: false,
 });
 
 export function createDefaultSettings(uiLanguage: string): Settings {
@@ -176,7 +218,21 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     composeInstantReplace: value.composeInstantReplace === true,
     composePlacement: isComposePlacement(value.composePlacement) ? value.composePlacement : 'above',
     selectedModelId: normalizeSelectedModelId(value.selectedModelId),
+    engineSource: isEngineSource(value.engineSource) ? value.engineSource : 'in-browser',
+    localServerUrl: normalizeServerUrl(
+      typeof value.localServerUrl === 'string' ? value.localServerUrl : DEFAULT_LOCAL_SERVER_URL,
+    ),
+    localServerModel: normalizeModelName(value.localServerModel),
+    localServerApiKey: normalizeApiKey(value.localServerApiKey),
+    localServerTimeoutMs: normalizeTimeoutMs(value.localServerTimeoutMs),
+    localServerAllowRemote: value.localServerAllowRemote === true,
+    localServerParallel: normalizeParallel(value.localServerParallel),
+    localServerExperimentalAck: value.localServerExperimentalAck === true,
   };
+}
+
+export function isEngineSource(value: unknown): value is EngineSource {
+  return value === 'in-browser' || value === 'local-server';
 }
 
 export function isComposePlacement(value: unknown): value is ComposePlacement {

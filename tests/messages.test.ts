@@ -206,6 +206,19 @@ describe('message validation', () => {
         modelFallback: 'yes',
       }),
     ).toBe(false);
+    expect(
+      isEngineStatus({
+        model: modelStatus,
+        backend: 'local-server',
+        tier: null,
+        threads: 1,
+        parallel: 4,
+        plamoReady: true,
+        chromeSupported: true,
+        active: 'plamo',
+        engineSource: 'local-server',
+      }),
+    ).toBe(true);
   });
 
   it('validates model commands and progress broadcasts', () => {

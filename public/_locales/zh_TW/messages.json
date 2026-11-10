@@ -178,7 +178,7 @@
     "message": "隱私"
   },
   "privacyBody": {
-    "message": "此擴充功能不會將頁面文字傳送至伺服器。不提供行尾追蹤。"
+    "message": "預設情況下，此擴充功能不會將頁面文字傳送至翻譯伺服器。不提供遙測。"
   },
   "privacyDestinations": {
     "message": "該擴充功能本身的需求是模型下載。它從 huggingface.co 開始，隨後依循 Hugging Face 轉向其 CDN。頁面文字不包含在內。Chrome 則自行下載其語言包。"
@@ -223,7 +223,7 @@
     "message": "入門指南"
   },
   "onboardingLead": {
-    "message": "頁面翻譯將在您的裝置上執行。PLaMo 3 型號僅在尚未儲存於該裝置時才會下載。"
+    "message": "頁面翻譯預設在此裝置上進行。只有這裡還沒有儲存 PLaMo 3 模型時才會下載。"
   },
   "onboardingSetupHeading": {
     "message": "關於此擴充功能"
@@ -238,7 +238,7 @@
     "message": "頁面會保留原有文字直到模型準備就緒，接著由 PLaMo 進行翻譯。"
   },
   "onboardingPrivacyNote": {
-    "message": "此擴充功能不會將頁面文字傳送至伺服器。"
+    "message": "內建引擎不會把頁面正文送到伺服器。"
   },
   "onboardingClose": {
     "message": "關閉"
@@ -1046,5 +1046,128 @@
   },
   "tierCpu1": {
     "message": "CPU (1 thread)"
+  },
+  "runtimeLocalServer": {
+    "message": "本機伺服器（實驗性）"
+  },
+  "engineSourceLabel": {
+    "message": "翻譯引擎"
+  },
+  "engineSourceInBrowser": {
+    "message": "內建（此裝置）"
+  },
+  "engineSourceLocalServer": {
+    "message": "本機伺服器（實驗性）"
+  },
+  "engineSourceHelp": {
+    "message": "預設是此裝置上的內建引擎。"
+  },
+  "localServerUrlLabel": {
+    "message": "伺服器 URL"
+  },
+  "localServerModelLabel": {
+    "message": "模型"
+  },
+  "localServerApiKeyLabel": {
+    "message": "API 金鑰（選用）"
+  },
+  "localServerTimeoutLabel": {
+    "message": "逾時（秒）"
+  },
+  "localServerTestButton": {
+    "message": "測試連線"
+  },
+  "localServerTestOk": {
+    "message": "已連線。"
+  },
+  "localServerTestFail": {
+    "message": "無法使用此伺服器。"
+  },
+  "localServerModelsEmpty": {
+    "message": "（沒有清單 — 請輸入名稱）"
+  },
+  "localServerPresetMlx": {
+    "message": "mlx_lm.server"
+  },
+  "localServerPresetLmStudio": {
+    "message": "LM Studio"
+  },
+  "localServerPresetHelp": {
+    "message": "預設只填入 URL。"
+  },
+  "localServerNonLocalWarning": {
+    "message": "此位址不是這台電腦。頁面文字會送到那裡。我了解。"
+  },
+  "localServerPermissionDenied": {
+    "message": "瀏覽器未允許存取此位址。"
+  },
+  "localServerHelp": {
+    "message": "將 Sakutto 的提示送到這台電腦上的 OpenAI 相容伺服器，例如 mlx_lm.server 或 LM Studio。"
+  },
+  "localServerUnreachable": {
+    "message": "無法連到本機伺服器。請開啟設定並確認它正在執行。"
+  },
+  "localServerModelMissing": {
+    "message": "伺服器沒有符合的模型。請載入模型或在設定中選擇。"
+  },
+  "localServerTimeout": {
+    "message": "本機伺服器逾時。已保留原文。"
+  },
+  "localServerFailed": {
+    "message": "本機伺服器無法翻譯。請開啟設定。已保留原文。"
+  },
+  "diagBackendLocalServer": {
+    "message": "本機伺服器（實驗性）"
+  },
+  "privacyBodyLocalServer": {
+    "message": "實驗性功能。選擇本機伺服器後，文字只會送到你設定的位址（預設是這台電腦）。不保證翻譯準確，結果可能與內建引擎不同，包括誤譯。開發者不會收到這些文字。"
+  },
+  "localServerLicenseNote": {
+    "message": "你在該伺服器載入的其他模型授權由你負責。PLaMo 權重仍適用 PLaMo Community License。"
+  },
+  "localServerParallelLabel": {
+    "message": "Concurrent requests"
+  },
+  "localServerParallelHelp": {
+    "message": "How many completions the server may run at once (1–16). The page keeps extra requests ready so a finished slot is not left idle."
+  },
+  "localServerTestOkUnlisted": {
+    "message": "Connected. Completions work. The server listed no models — keep the model name you typed; it was not verified from /v1/models."
+  },
+  "localServerExperimental": {
+    "message": "實驗性功能：不保證翻譯準確。結果可能與內建引擎不同，並可能出現誤譯。"
+  },
+  "localServerExperimentalConfirm": {
+    "message": "此引擎是實驗性功能。不保證準確，結果可能與內建引擎不同，並可能出現誤譯。仍要使用本機伺服器嗎？"
+  },
+  "localServerExperimentalUse": {
+    "message": "使用本機伺服器"
+  },
+  "localServerExperimentalKeep": {
+    "message": "繼續用內建引擎"
+  },
+  "localServerDetails": {
+    "message": "詳細說明"
+  },
+  "localServerAdvanced": {
+    "message": "進階設定"
+  },
+  "localServerRemoteConfirmRequired": {
+    "message": "這個位址不在這台電腦上。測試連線前，請勾選下方的確認。"
+  },
+  "onboardingLocalServerNote": {
+    "message": "可以在設定中開啟實驗性的本機伺服器。那時正文只會送到你設定的位址，並且不保證準確。"
+  },
+  "localServerUrlHelp": {
+    "message": "mlx_lm.server 預設連接埠是 8080，LM Studio 預設連接埠是 1234。"
+  },
+  "localServerModelHelp": {
+    "message": "該伺服器上已載入的模型名稱。"
+  },
+  "diagConcurrent": {
+    "message": "同時請求"
+  },
+  "diagRuntime": {
+    "message": "狀態"
   }
 }

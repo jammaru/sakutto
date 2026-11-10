@@ -47,7 +47,7 @@ describe('start controls while the model downloads', () => {
   });
 
   it('gates the popup translate button on the model the same way', () => {
-    expect(popup).toContain('modelStartBlocked');
+    expect(popup).toContain('translationStartBlocked');
     expect(popup).toMatch(/canStart[\s\S]{0,200}isChromeOnlyLanguage\(targetLanguage\)/);
     expect(popup).toMatch(/disabled=\{[^}]*!canStart[^}]*\}/);
   });
@@ -163,6 +163,82 @@ describe('WebGPU diagnostic on settings', () => {
     expect(panel).toContain('diagGpuCopy');
     expect(panel).toContain('formatGpuDiagnostic');
     expect(panel).toContain('navigator.clipboard.writeText');
+  });
+});
+
+describe('local server settings', () => {
+  const options = source('entrypoints/options/App.svelte');
+  const panel = source('ui/LocalServerSettings.svelte');
+  const typed = source('entrypoints/typed/App.svelte');
+
+  it('hides the GPU/CPU tier picker while a local server is selected', () => {
+    expect(panel).toContain('{:else if builtin}');
+    expect(options).toContain('tierLabel');
+    expect(options).toContain('idleLabel');
+    expect(options).toContain('diagRuntime');
+    expect(options).not.toContain('engine-line');
+    expect(options).toContain("settings?.engineSource === 'local-server'");
+    expect(options).toContain('diagConcurrent');
+    expect(options).toContain('requestEngineStatus');
+  });
+
+  it('resets remote confirmation when the origin changes, and asks for permission after the checkbox', () => {
+    expect(panel).toContain('serverOriginKey');
+    expect(panel).toContain('patch.localServerAllowRemote = false');
+    expect(panel).toContain('changeAllowRemote');
+    expect(panel).toContain('grantIfNeeded');
+    expect(panel).not.toContain('<select value={settings.localServerModel}');
+  });
+
+  it('passes engineSource into typed readiness so a GGUF download does not block local-server', () => {
+    expect(typed).toContain('engineSource:');
+    expect(typed).toContain('typedReadiness');
+  });
+
+  it('pushes engineSource from the service worker because Chrome offscreen has no chrome.storage', () => {
+    const client = source('background/engine-client.ts');
+    const host = source('engine/offscreen/host.ts');
+    const background = source('entrypoints/background.ts');
+    const firefox = source('background/firefox-engine-frame.ts');
+    expect(client).toContain("type: 'source-set'");
+    expect(client).toContain('ensureSource');
+    expect(background).toContain('client.setSource');
+    expect(host).toContain('new JobScheduler(localRuntime.parallel, false)');
+    expect(host).toContain('browser.storage?.local');
+    expect(firefox).toContain('source-set');
+    expect(client).toContain('bootSource');
+    expect(client).toContain('pushStoredSource');
+    expect(background).toContain('client.bootSource');
+  });
+
+  it('exposes a concurrent-request limit for the local HTTP server', () => {
+    expect(panel).toContain('localServerParallel');
+    expect(panel).toContain('sakutto-local-server-models');
+    expect(panel).toContain('role="radiogroup"');
+    expect(panel).toContain('localServerExperimental');
+    expect(panel).toContain('localServerRemoteConfirmRequired');
+    expect(panel).toContain('localServerExperimentalAck');
+    expect(panel).toContain('PROJECT_LINKS.localServerDocs');
+    expect(source('dom/session.ts')).toContain('MAX_BATCH_SEGMENTS');
+    expect(source('dom/session.ts')).not.toContain(
+      "this.prefs.engineSource === 'local-server' ? 1",
+    );
+  });
+});
+
+describe('live bench local-server flags', () => {
+  const cli = readFileSync(new URL('../scripts/bench/pages-run.ts', import.meta.url), 'utf8');
+  const runner = readFileSync(new URL('../scripts/bench/pages-runner.ts', import.meta.url), 'utf8');
+  const host = readFileSync(new URL('../scripts/bench/host.ts', import.meta.url), 'utf8');
+
+  it('accepts --local-server-parallel and exits the process after a failed verification', () => {
+    expect(cli).toContain('--local-server-parallel');
+    expect(cli).toContain('process.exit(1)');
+    expect(host).toContain('closeAllConnections');
+    expect(runner).toContain('return abort(error)');
+    expect(host).toContain('probeLocalServer');
+    expect(host).toContain('isSuccessfulStatus');
+    expect(runner).toContain('history not written');
   });
 });
 

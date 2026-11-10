@@ -1,6 +1,6 @@
 export type ComputeTier = 'g' | 'c8' | 'c4' | 'c1';
 
-export type BackendKind = 'webgpu' | 'cpu-wasm';
+export type BackendKind = 'webgpu' | 'cpu-wasm' | 'local-server';
 
 export const CONTEXT_TOKENS = 2048;
 

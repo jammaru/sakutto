@@ -21,7 +21,7 @@ Single purpose: translating web pages.
 
 Privacy policy: https://jammaru.com/sakutto/privacy/
 
-data_collection_permissions: none. Translation runs on the device. The only network request this add-on makes is a PLaMo 3 Translate GGUF weight from huggingface.co. The URL is pinned to a commit. Bytes are hashed against a pinned SHA-256 before they are kept. Page text is not included. Hugging Face can see the IP address and the file request.
+data_collection_permissions: none. Translation runs on the device by default. The built-in engine's only network request is a PLaMo 3 Translate GGUF weight from huggingface.co. The URL is pinned to a commit. Bytes are hashed against a pinned SHA-256 before they are kept. Page text is not included. Hugging Face can see the IP address and the file request. Settings may enable an optional local-server engine; that path POSTs PFML3 to /v1/completions at a user-set URL (loopback by default). Optional host permission for that origin is requested only when the user enables it. The developer does not receive that text.
 
 Remote code: none. Every script, worker, and wasm the add-on executes is in the xpi under vendor/wllama/. Dynamic import() loads only vendor/wllama/wllama.js from the extension origin (src/engine/wllama/assets.ts, isExtensionAssetUrl). There is no external COOP/COEP page.
 
@@ -63,4 +63,4 @@ sha256 f36d0813dd95573a852ab5d76e374c543632d9e292929e922bcdbf7e53b494e0
 
 ## 日本語（所有者向け）
 
-Firefox 版の審査メモです。gecko id `sakutto@jammaru` は初回 listed の前に確認してください。対象はデスクトップの Firefox（Windows、macOS、Linux）です。確認したのは Windows。macOS と Linux をマニフェストで除外してはいません。Android 向けの `gecko_android` は付けていません。パッチを当てた wllama は「Sakutto 自身のコンパイル済みコード」として出し、ソース zip に手順を入れています。空 submit の WebGPU 回避策は既定オンです（計測は docs/FIREFOX.md）。Chrome 内蔵 Translator は Firefox では使いません。web-ext lint の innerHTML / dynamic import 警告は審査メモに理由を書いてあります。
+Firefox 版の審査メモです。gecko id `sakutto@jammaru` は初回 listed の前に確認してください。対象はデスクトップの Firefox（Windows、macOS、Linux）です。確認したのは Windows。macOS と Linux をマニフェストで除外してはいません。Android 向けの `gecko_android` は付けていません。パッチを当てた wllama は「Sakutto 自身のコンパイル済みコード」として出し、ソース zip に手順を入れています。空 submit の WebGPU 回避策は既定オンです（計測は docs/FIREFOX.md）。Chrome 内蔵 Translator は Firefox では使いません。web-ext lint の innerHTML / dynamic import 警告は審査メモに理由を書いてあります。設定のローカルサーバーは実験的な任意機能で、精度は保証しません。既定は内蔵エンジンです。

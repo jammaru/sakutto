@@ -1,0 +1,13 @@
+{
+  "description": "Fixed English sentences for comparing built-in GGUF Q4_K_M output with a local-server model. Original prose for this repository; not copied from elsewhere.",
+  "src": "en",
+  "tgt": "ja",
+  "form": "polite",
+  "sentences": [
+    "Good morning.",
+    "Please open the window.",
+    "The train arrives at platform three.",
+    "This setting saves automatically.",
+    "Keep the original text if the server cannot be reached."
+  ]
+}

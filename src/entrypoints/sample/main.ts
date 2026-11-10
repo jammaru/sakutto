@@ -27,6 +27,7 @@ function overlayLabels(): OverlayLabels {
     barPartial: (blocks) => t('pagePartial', [String(blocks)]),
     barOriginal: t('restoreThisPage'),
     barAlways: t('alwaysTranslateSite'),
+    engineFailed: t('localServerFailed'),
     barAlwaysOn: t('pageAlwaysOn'),
   };
 }
@@ -48,7 +49,15 @@ const targetLanguage = isTargetLanguage(requested) ? requested : settings.target
 if (!isTargetLanguage(requested)) showSample(targetLanguage);
 
 const session = new PageSession(document, {
-  engine: { translate: __SAKUTTO_FAKE_ENGINE__ ? fakeTranslate : translateViaBackground },
+  engine: {
+    async *translate(segments, options) {
+      if (__SAKUTTO_FAKE_ENGINE__ && settings.engineSource !== 'local-server') {
+        yield* fakeTranslate(segments, options);
+        return;
+      }
+      yield* translateViaBackground(segments, options);
+    },
+  },
   labels: overlayLabels(),
   preferences: preferencesFor(
     { ...settings, targetLanguage },

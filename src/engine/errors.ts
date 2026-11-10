@@ -11,25 +11,31 @@ export type EngineErrorCode =
   | 'chrome-unavailable'
   | 'chrome-not-ready'
   | 'offscreen-unavailable'
+  | 'server-unavailable'
+  | 'server-timeout'
+  | 'server-model-missing'
+  | 'server-failed'
+  | 'server-remote-unconfirmed'
   | 'aborted'
   | 'unknown';
 
 export class EngineError extends Error {
   override readonly name = 'EngineError';
+  readonly code: EngineErrorCode;
   readonly retryable: boolean;
+  readonly detail?: string;
 
   constructor(
-    readonly code: EngineErrorCode,
+    code: EngineErrorCode,
     message: string,
     options?: { cause?: unknown; retryable?: boolean; detail?: string },
   ) {
     super(message);
+    this.code = code;
     if (options && 'cause' in options) this.cause = options.cause;
     this.retryable = options?.retryable ?? true;
     if (typeof options?.detail === 'string') this.detail = options.detail;
   }
-
-  readonly detail?: string;
 }
 
 export function isEngineError(value: unknown): value is EngineError {
@@ -49,6 +55,11 @@ const ENGINE_ERROR_CODES: ReadonlySet<string> = new Set<EngineErrorCode>([
   'chrome-unavailable',
   'chrome-not-ready',
   'offscreen-unavailable',
+  'server-unavailable',
+  'server-timeout',
+  'server-model-missing',
+  'server-failed',
+  'server-remote-unconfirmed',
   'aborted',
   'unknown',
 ]);
@@ -66,6 +77,18 @@ export function isAbortError(value: unknown): boolean {
 
 export function abortError(message = 'The operation was aborted.'): EngineError {
   return new EngineError('aborted', message);
+}
+
+const LOCAL_SERVER_CODES: ReadonlySet<EngineErrorCode> = new Set([
+  'server-unavailable',
+  'server-timeout',
+  'server-model-missing',
+  'server-failed',
+  'server-remote-unconfirmed',
+]);
+
+export function isLocalServerError(value: unknown): value is EngineError {
+  return isEngineError(value) && LOCAL_SERVER_CODES.has(value.code);
 }
 
 export function toEngineError(value: unknown): EngineError {

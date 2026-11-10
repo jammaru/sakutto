@@ -17,6 +17,8 @@ export function runtimeLabel(input: {
   const { status, pageSimple, targetLanguage } = input;
   if (!status) return { key: 'runtimeChecking' };
 
+  if (status.engineSource === 'local-server') return { key: 'runtimeLocalServer' };
+
   const state = status.model.state;
   if (state === 'downloading') {
     const percent = String(Math.max(0, Math.min(100, Math.round(status.model.progress * 100))));

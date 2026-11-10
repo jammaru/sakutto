@@ -136,5 +136,23 @@ describe('runtime label', () => {
         targetLanguage: 'jv',
       }).key,
     ).toBe('runtimeWaiting');
+    expect(
+      runtimeLabel({
+        status: status({
+          engineSource: 'local-server',
+          backend: 'local-server',
+          plamoReady: true,
+          model: {
+            id: DEFAULT_MODEL_ID,
+            state: 'absent',
+            received: 0,
+            total: 1,
+            progress: 0,
+          },
+        }),
+        pageSimple: false,
+        targetLanguage: 'ja',
+      }).key,
+    ).toBe('runtimeLocalServer');
   });
 });

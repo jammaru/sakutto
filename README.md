@@ -53,7 +53,18 @@ The interface itself is translated into 14 languages: English, Japanese, Korean,
 
 ## Privacy
 
-Translation runs on your device. The extension does not send page text, selections, your glossary, or translations to the developer or to any translation server, and it has no account, ads, or telemetry. Its own network request is the model download from Hugging Face. Read the policy at [PRIVACY.md](PRIVACY.md) or https://jammaru.com/sakutto/privacy/.
+Translation runs on your device by default. The extension does not send page text, selections, your glossary, or translations to the developer. There is no account, ads, or telemetry. The built-in engine's own network request is the model download from Hugging Face. If you turn on the **experimental local server** in Settings (mlx_lm.server, LM Studio, or another OpenAI-compatible process on this computer), the text to translate is sent only to the address you set — not to the developer. Accuracy is not guaranteed. Read the policy at [PRIVACY.md](PRIVACY.md) or https://jammaru.com/sakutto/privacy/.
+
+## Local server (experimental)
+
+The default engine is the packaged wllama runtime (WebGPU or CPU). Settings can point PLaMo requests at an OpenAI-compatible server on this machine instead. That path is **experimental**: accuracy is not guaranteed, and translations can differ from the built-in engine, including mistranslations. A Mac check of MLX 4bit, 8bit, and bf16 showed errors the built-in engine did not; the difference comes from quantization numerics, not from a different request. Use raw `/v1/completions` with Sakutto's PFML3 prompt; chat completions are not used. Recipes:
+
+- `mlx_lm.server` — default `http://127.0.0.1:8080/v1`, PLaMo MLX-4bit weights from [the PLaMo 3 Translate collection](https://huggingface.co/collections/pfnet/plamo-3-translate)
+- LM Studio — default `http://127.0.0.1:1234/v1`
+
+In LM Studio, set the server-side sampler to temperature 0 / greedy. Prompt parity is measured against `mlx_lm.server` and PLaMo's `serve.py`; LM Studio's BOS handling is unverified.
+
+Design, model pins, and what was not measured on Linux: [docs/design/mlx-backend.md](docs/design/mlx-backend.md). Mac timings: [bench/README.md](bench/README.md).
 
 ## Build
 

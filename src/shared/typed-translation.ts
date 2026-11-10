@@ -1,4 +1,5 @@
 import { MAX_SEGMENT_TEXT } from '@/engine/offscreen/protocol';
+import type { EngineSource } from './engine-status';
 import { isChromeOnlyLanguage, isTargetLanguage, type TargetLanguage } from './languages';
 
 export type TypedDirection = 'to-ja' | 'to-other';
@@ -46,6 +47,8 @@ export interface TypedReadinessInput {
   modelState:
     'absent' | 'partial' | 'downloading' | 'verifying' | 'ready' | 'loading' | 'loaded' | 'error';
   plamoReady: boolean;
+  /** Local-server requests do not wait on the packaged GGUF file. */
+  engineSource?: EngineSource;
 }
 
 /**
@@ -57,9 +60,13 @@ export interface TypedReadinessInput {
  * only for languages PLaMo cannot translate, and typed text is not a page, so there is no
  * half-supported direction to cover. Returning `ready` for one would make this box look like
  * a PLaMo translation while another engine wrote it.
+ *
+ * A local server does not use the packaged GGUF file, so download state is ignored then —
+ * the same rule the popup uses via `translationStartBlocked`.
  */
 export function typedReadiness(input: TypedReadinessInput): TypedReadiness {
   if (!input.consent) return 'no-consent';
+  if (input.engineSource === 'local-server') return 'ready';
   if (input.modelState === 'error') return 'model-error';
   if (input.modelState === 'downloading' || input.modelState === 'verifying') return 'model-busy';
   if (input.modelState === 'loading') return 'model-busy';

@@ -20,6 +20,8 @@ export interface OverlayLabels {
   barOriginal: string;
   barAlways: string;
   barAlwaysOn: string;
+  /** Shown when a local-server request fails; original page text stays. */
+  engineFailed?: string;
 }
 
 /**

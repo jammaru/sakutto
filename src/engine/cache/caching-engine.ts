@@ -63,7 +63,7 @@ export class CachingEngine implements IdentifiedEngine {
       if (options.signal.aborted) return;
       const key = keys.get(chunk.id);
       const copies = key ? (aliases.get(key) ?? []) : [];
-      if (chunk.final !== undefined && key) {
+      if (chunk.final !== undefined && chunk.final.length > 0 && key) {
         await this.cache.put(key, chunk.final, chunk.engine ?? this.inner.kind);
       }
       yield chunk;

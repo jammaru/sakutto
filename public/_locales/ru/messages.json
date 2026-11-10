@@ -178,7 +178,7 @@
     "message": "Конфиденциальность"
   },
   "privacyBody": {
-    "message": "Это расширение не отправляет текст страницы на сервер. Телеметрии нет."
+    "message": "По умолчанию это расширение не отправляет текст страницы на сервер перевода. Телеметрии нет."
   },
   "privacyDestinations": {
     "message": "Самым важным требованием расширения является скачивание модели. Оно начинается с huggingface.co и переходит на редирект к своему CDN от Hugging Face. Текст страницы в него не входит. Chrome самостоятельно скачивает языковые пакеты."
@@ -223,7 +223,7 @@
     "message": "Начало работы"
   },
   "onboardingLead": {
-    "message": "Перевод страниц выполняется на вашем устройстве. Модель PLaMo 3 скачивается только в том случае, если она еще не хранится на этом устройстве."
+    "message": "Перевод страницы по умолчанию выполняется на этом устройстве. Модель PLaMo 3 скачивается, только если её здесь ещё нет."
   },
   "onboardingSetupHeading": {
     "message": "О данном расширении"
@@ -238,7 +238,7 @@
     "message": "Страница сохраняет исходный текст, пока модель не будет готова, после чего её переводит PLaMo."
   },
   "onboardingPrivacyNote": {
-    "message": "Это расширение не отправляет текст страницы на сервер."
+    "message": "Встроенный движок не отправляет текст страницы на сервер."
   },
   "onboardingClose": {
     "message": "Закрыть"
@@ -1046,5 +1046,128 @@
   },
   "tierCpu1": {
     "message": "CPU (1 thread)"
+  },
+  "runtimeLocalServer": {
+    "message": "Локальный сервер (экспериментально)"
+  },
+  "engineSourceLabel": {
+    "message": "Движок перевода"
+  },
+  "engineSourceInBrowser": {
+    "message": "Встроенный (на этом устройстве)"
+  },
+  "engineSourceLocalServer": {
+    "message": "Локальный сервер (экспериментально)"
+  },
+  "engineSourceHelp": {
+    "message": "По умолчанию используется встроенный движок на этом устройстве."
+  },
+  "localServerUrlLabel": {
+    "message": "URL сервера"
+  },
+  "localServerModelLabel": {
+    "message": "Модель"
+  },
+  "localServerApiKeyLabel": {
+    "message": "Ключ API (необязательно)"
+  },
+  "localServerTimeoutLabel": {
+    "message": "Таймаут (секунды)"
+  },
+  "localServerTestButton": {
+    "message": "Проверить соединение"
+  },
+  "localServerTestOk": {
+    "message": "Подключено."
+  },
+  "localServerTestFail": {
+    "message": "Не удалось использовать этот сервер."
+  },
+  "localServerModelsEmpty": {
+    "message": "(списка нет — введите имя)"
+  },
+  "localServerPresetMlx": {
+    "message": "mlx_lm.server"
+  },
+  "localServerPresetLmStudio": {
+    "message": "LM Studio"
+  },
+  "localServerPresetHelp": {
+    "message": "Пресеты заполняют только URL."
+  },
+  "localServerNonLocalWarning": {
+    "message": "Этот адрес — не этот компьютер. Текст страницы будет отправлен туда. Понятно."
+  },
+  "localServerPermissionDenied": {
+    "message": "Браузер не дал доступ к этому адресу."
+  },
+  "localServerHelp": {
+    "message": "Отправляет промпт Sakutto на совместимый с OpenAI сервер на этом компьютере, например mlx_lm.server или LM Studio."
+  },
+  "localServerUnreachable": {
+    "message": "Не удалось связаться с локальным сервером. Откройте настройки и проверьте, что он запущен."
+  },
+  "localServerModelMissing": {
+    "message": "На сервере нет подходящей модели. Загрузите модель или выберите её в настройках."
+  },
+  "localServerTimeout": {
+    "message": "Локальный сервер не ответил вовремя. Исходный текст сохранён."
+  },
+  "localServerFailed": {
+    "message": "Локальный сервер не смог перевести это. Откройте настройки. Исходный текст сохранён."
+  },
+  "diagBackendLocalServer": {
+    "message": "Локальный сервер (экспериментально)"
+  },
+  "privacyBodyLocalServer": {
+    "message": "Экспериментально. Если выбран локальный сервер, текст уходит только на указанный адрес (по умолчанию этот компьютер). Точность не гарантируется, перевод может отличаться от встроенного движка, включая ошибки. Разработчик текст не получает."
+  },
+  "localServerLicenseNote": {
+    "message": "Лицензии других моделей на этом сервере — ваша ответственность. Веса PLaMo остаются под PLaMo Community License."
+  },
+  "localServerParallelLabel": {
+    "message": "Concurrent requests"
+  },
+  "localServerParallelHelp": {
+    "message": "How many completions the server may run at once (1–16). The page keeps extra requests ready so a finished slot is not left idle."
+  },
+  "localServerTestOkUnlisted": {
+    "message": "Connected. Completions work. The server listed no models — keep the model name you typed; it was not verified from /v1/models."
+  },
+  "localServerExperimental": {
+    "message": "Экспериментально: точность перевода не гарантируется. Результат может отличаться от встроенного движка, включая ошибки перевода."
+  },
+  "localServerExperimentalConfirm": {
+    "message": "Этот движок экспериментальный. Точность не гарантируется. Перевод может отличаться от встроенного движка, включая ошибки. Всё равно использовать локальный сервер?"
+  },
+  "localServerExperimentalUse": {
+    "message": "Использовать локальный сервер"
+  },
+  "localServerExperimentalKeep": {
+    "message": "Оставить встроенный"
+  },
+  "localServerDetails": {
+    "message": "Подробнее"
+  },
+  "localServerAdvanced": {
+    "message": "Дополнительно"
+  },
+  "localServerRemoteConfirmRequired": {
+    "message": "Этот адрес не на этом компьютере. Отметьте подтверждение ниже, прежде чем проверять соединение."
+  },
+  "onboardingLocalServerNote": {
+    "message": "В настройках можно включить экспериментальный локальный сервер. Тогда текст страницы уходит только на указанный адрес, и точность не гарантируется."
+  },
+  "localServerUrlHelp": {
+    "message": "У mlx_lm.server по умолчанию порт 8080. У LM Studio — порт 1234."
+  },
+  "localServerModelHelp": {
+    "message": "Имя модели, загруженной на этом сервере."
+  },
+  "diagConcurrent": {
+    "message": "Одновременные запросы"
+  },
+  "diagRuntime": {
+    "message": "Состояние"
   }
 }
