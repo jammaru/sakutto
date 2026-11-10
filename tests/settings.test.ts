@@ -41,6 +41,7 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     localServerTimeoutMs: 120_000,
     localServerAllowRemote: false,
     localServerParallel: 8,
+    localServerExperimentalAck: false,
     ...overrides,
   };
 }
@@ -181,6 +182,7 @@ describe('settings defaults', () => {
     expect(settings.localServerTimeoutMs).toBe(120_000);
     expect(settings.localServerAllowRemote).toBe(false);
     expect(settings.localServerParallel).toBe(8);
+    expect(settings.localServerExperimentalAck).toBe(false);
     expect(
       normalizeSettings(
         {

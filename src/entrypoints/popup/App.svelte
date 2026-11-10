@@ -389,15 +389,18 @@
   {#if engine?.modelFallback}
     <p class="muted" role="status">{t('modelSelectionFallback')}</p>
   {/if}
-  {#if engine}
+  {#if engine?.engineSource === 'local-server'}
+    <p class="muted">{t('localServerExperimental')}</p>
+    {#if engine.parallel !== null}
+      <p class="muted">{t('diagConcurrent')} {String(engine.parallel)}</p>
+    {/if}
+  {:else if engine}
     <p class="muted">
       {(engine.backend === 'webgpu'
         ? t('diagBackendGpu')
         : engine.backend === 'cpu-wasm'
           ? t('diagBackendCpu')
-          : engine.backend === 'local-server'
-            ? t('diagBackendLocalServer')
-            : t('diagBackendUnknown')) +
+          : t('diagBackendUnknown')) +
         (engine.threads !== null ? ` · ${t('diagThreads')} ${String(engine.threads)}` : '') +
         (engine.parallel !== null ? ` · n_parallel ${String(engine.parallel)}` : '')}
     </p>

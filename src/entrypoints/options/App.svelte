@@ -85,6 +85,13 @@
     try {
       settings = await saveSettings(patch);
       settingsError = null;
+      if (
+        patch.engineSource !== undefined ||
+        patch.localServerParallel !== undefined ||
+        patch.localServerUrl !== undefined
+      ) {
+        engine = await requestEngineStatus();
+      }
     } catch {
       settingsError = 'save';
     }
@@ -360,7 +367,7 @@
     {/if}
   </section>
 
-  <section class="panel">
+  <section class="panel" id="engine-settings">
     <h2>{t('engineHeading')}</h2>
     {#if settings}
       <LocalServerSettings {settings} onUpdate={updateSettings} />
@@ -390,33 +397,50 @@
         </select>
       </label>
     {/if}
-    <p class="engine-line">{engineLine}</p>
+    <p class="engine-line">
+      {settings?.engineSource === 'local-server' ? t('runtimeLocalServer') : engineLine}
+    </p>
     <h3>{t('diagHeading')}</h3>
-    <dl class="diag">
-      <div>
-        <dt>{t('diagBackend')}</dt>
-        <dd>
-          {engine?.backend === 'webgpu'
-            ? t('diagBackendGpu')
-            : engine?.backend === 'cpu-wasm'
-              ? t('diagBackendCpu')
-              : engine?.backend === 'local-server'
-                ? t('diagBackendLocalServer')
+    {#if settings?.engineSource === 'local-server'}
+      <dl class="diag">
+        <div>
+          <dt>{t('diagBackend')}</dt>
+          <dd>{t('diagBackendLocalServer')}</dd>
+        </div>
+        <div>
+          <dt>{t('diagConcurrent')}</dt>
+          <dd>
+            {engine?.engineSource === 'local-server'
+              ? (engine.parallel ?? settings.localServerParallel)
+              : settings.localServerParallel}
+          </dd>
+        </div>
+      </dl>
+    {:else}
+      <dl class="diag">
+        <div>
+          <dt>{t('diagBackend')}</dt>
+          <dd>
+            {engine?.backend === 'webgpu'
+              ? t('diagBackendGpu')
+              : engine?.backend === 'cpu-wasm'
+                ? t('diagBackendCpu')
                 : t('diagBackendUnknown')}
-        </dd>
-      </div>
-      <div>
-        <dt>{t('diagThreads')}</dt>
-        <dd>{engine?.threads ?? '—'}</dd>
-      </div>
-      <div>
-        <dt>{t('diagParallel')}</dt>
-        <dd>{engine?.parallel ?? '—'}</dd>
-      </div>
-    </dl>
-    <p class="muted help">{t('diagRateHint')}</p>
-    <EngineStatusView {capabilities} failed={capabilitiesFailed} detailed />
-    <GpuDiagnosticView diagnostic={engine?.gpuDiagnostic} />
+          </dd>
+        </div>
+        <div>
+          <dt>{t('diagThreads')}</dt>
+          <dd>{engine?.threads ?? '—'}</dd>
+        </div>
+        <div>
+          <dt>{t('diagParallel')}</dt>
+          <dd>{engine?.parallel ?? '—'}</dd>
+        </div>
+      </dl>
+      <p class="muted help">{t('diagRateHint')}</p>
+      <EngineStatusView {capabilities} failed={capabilitiesFailed} detailed />
+      <GpuDiagnosticView diagnostic={engine?.gpuDiagnostic} />
+    {/if}
   </section>
 
   <section class="panel">

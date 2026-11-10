@@ -5,12 +5,15 @@ Research and design for adding Apple Silicon MLX as a selectable translation bac
 path with LM Studio ([#56](https://github.com/jammaru/sakutto/issues/56)).
 
 This note names no issue authors. Default remains the built-in wllama engine. The local-server
-path is **opt-in**. Translations may differ from the built-in engine. MLX is not claimed to
-be faster: Linux CI cannot run MLX, and Mac timings are not product copy.
+path is an **experimental opt-in** with **no accuracy guarantee**. A Mac evaluation found that
+MLX 4bit, 8bit, and bf16 all produce mistranslations the built-in engine does not, including
+some that reverse the meaning. The cause is quantization numerics, not the request: the
+client still sends the same PFML3 prompt. MLX is not claimed to be faster. Linux CI cannot
+run MLX, and Mac timings are not product copy.
 
 ## Recommendation
 
-Ship **one optional "local server" engine** that talks to any OpenAI-compatible HTTP server
+Ship **one experimental "local server" engine** that talks to any OpenAI-compatible HTTP server
 on the user's machine over `http://127.0.0.1` / `http://localhost`. Document two presets:
 
 | Preset        | Default base URL           | Typical process                                                     |
@@ -240,7 +243,9 @@ changing piece boundaries would change translations even with a matching model.
 A 404 is **not** always "no Completions API". mlx-lm returns 404 on generation exceptions,
 and LM Studio can 404 for an unloaded model. The client reads the body: a missing-route
 shape (`Not Found`, empty 404) is Completions missing; `model not loaded` is
-`server-model-missing`; anything else is `server-failed`. Chat completions are never used.
+`server-model-missing`; anything else is `server-failed`. A URL that is not this computer,
+and whose warning checkbox is still off, is `server-remote-unconfirmed` before any request
+is sent. Chat completions are never used.
 
 The AbortController deadline covers the SSE/JSON body, not only the response headers.
 
@@ -269,9 +274,11 @@ the **request prompt** also differs.
 
 On an Apple M4 Mac (Chromium 158 headless, mlx-lm 0.32.2,
 `pfnet/plamo-3-translate-0.8b-MLX-4bit`, client at 53f594d) MLX-4bit output differed
-textually from the built-in GGUF Q4_K_M on about **119 of 262** blocks, with
-mistranslations on both sides. Settings and README therefore say translations may
-differ from the built-in engine. That run is a quality observation, not a speed claim.
+textually from the built-in GGUF Q4_K_M on about **119 of 262** blocks. A later Mac
+evaluation of MLX 4bit, 8bit, and bf16 found mistranslations the built-in engine does
+not produce, including some that reverse the meaning. The cause is quantization
+numerics, not the request. The local-server path is therefore experimental and does
+not guarantee accuracy. That finding is a quality observation, not a speed claim.
 
 Also observed on that Mac (fixed in this client; not re-measured here):
 
@@ -287,7 +294,8 @@ docs tell the user to set greedy / temperature 0 in the server app as well.
 
 ## Product design (shared with #56)
 
-- Setting `engineSource`: `in-browser` (default) \| `local-server`.
+- Setting `engineSource`: `in-browser` (default) \| `local-server` (experimental, no accuracy guarantee).
+- The first switch to the local server asks for confirmation. `localServerExperimentalAck` remembers that choice.
 - Local-server fields: `localServerUrl`, `localServerModel`, `localServerApiKey`,
   `localServerTimeoutMs` (default 120s), `localServerAllowRemote` (default false),
   `localServerParallel` (default 8, range 1–16).
@@ -302,8 +310,9 @@ docs tell the user to set greedy / temperature 0 in the server app as well.
   `Engine.translate` path, so they keep working.
 - Host permission requested when the user enables the backend or changes the origin.
   Loopback URLs request `http://127.0.0.1/*`, `http://localhost/*`, and `http://[::1]/*`.
-- Non-loopback URL: blocked until `localServerAllowRemote` is confirmed. Warning copy
-  states that page text will leave this machine.
+- Non-loopback URL: blocked until `localServerAllowRemote` is confirmed. The connection
+  test says the checkbox is required (`server-remote-unconfirmed`) instead of a generic
+  failure. Warning copy states that page text will leave this machine.
 - Errors: original text stays; status / typed / selection surfaces name unreachable,
   missing model, or timeout, and point at Settings.
 - Privacy: text goes to the user-configured server only; the developer does not receive

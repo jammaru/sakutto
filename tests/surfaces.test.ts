@@ -174,6 +174,9 @@ describe('local server settings', () => {
   it('hides the GPU/CPU tier picker while a local server is selected', () => {
     expect(options).toContain("settings.engineSource !== 'local-server'");
     expect(options).toContain('tierLabel');
+    expect(options).toContain("settings?.engineSource === 'local-server'");
+    expect(options).toContain('diagConcurrent');
+    expect(options).toContain('requestEngineStatus');
   });
 
   it('resets remote confirmation when the origin changes, and asks for permission after the checkbox', () => {
@@ -208,6 +211,11 @@ describe('local server settings', () => {
   it('exposes a concurrent-request limit for the local HTTP server', () => {
     expect(panel).toContain('localServerParallel');
     expect(panel).toContain('sakutto-local-server-models');
+    expect(panel).toContain('role="radiogroup"');
+    expect(panel).toContain('localServerExperimental');
+    expect(panel).toContain('localServerRemoteConfirmRequired');
+    expect(panel).toContain('localServerExperimentalAck');
+    expect(panel).toContain('PROJECT_LINKS.localServerDocs');
     expect(source('dom/session.ts')).toContain('MAX_BATCH_SEGMENTS');
     expect(source('dom/session.ts')).not.toContain(
       "this.prefs.engineSource === 'local-server' ? 1",

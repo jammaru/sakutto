@@ -6,9 +6,10 @@
     LOCAL_SERVER_PRESETS,
     serverOriginKey,
   } from '@/engine/local-server/url';
-  import type { EngineError } from '@/engine/errors';
+  import { EngineError } from '@/engine/errors';
   import { t } from '@/shared/i18n';
   import type { EngineSource } from '@/shared/engine-status';
+  import { PROJECT_LINKS } from '@/shared/plamo-license';
   import type { Settings, SettingsPatch } from '@/shared/settings';
 
   interface Props {
@@ -23,7 +24,9 @@
   let testError = $state<EngineError | null>(null);
   let testOk = $state(false);
   let permissionDenied = $state(false);
+  let confirmOpen = $state(false);
   let remote = $derived(isRemoteServerUrl(settings.localServerUrl));
+  let local = $derived(settings.engineSource === 'local-server');
 
   async function grantIfNeeded(url: string): Promise<boolean> {
     const granted = await requestServerPermission(url);
@@ -35,9 +38,7 @@
     return true;
   }
 
-  async function changeSource(event: Event) {
-    const value = (event.currentTarget as HTMLSelectElement).value;
-    const source: EngineSource = value === 'local-server' ? 'local-server' : 'in-browser';
+  async function applySource(source: EngineSource, ack = false): Promise<void> {
     if (source === 'local-server') {
       const remoteUrl = isRemoteServerUrl(settings.localServerUrl);
       if (!remoteUrl || settings.localServerAllowRemote) {
@@ -45,7 +46,29 @@
       }
     }
     permissionDenied = false;
-    await onUpdate({ engineSource: source });
+    const patch: SettingsPatch = { engineSource: source };
+    if (ack) patch.localServerExperimentalAck = true;
+    await onUpdate(patch);
+  }
+
+  function chooseSource(source: EngineSource): void {
+    if (source === settings.engineSource) return;
+    testOk = false;
+    testError = null;
+    if (source === 'local-server' && !settings.localServerExperimentalAck) {
+      confirmOpen = true;
+      return;
+    }
+    void applySource(source);
+  }
+
+  function keepBuiltIn(): void {
+    confirmOpen = false;
+  }
+
+  function useLocalServer(): void {
+    confirmOpen = false;
+    void applySource('local-server', true);
   }
 
   async function changeUrl(event: Event) {
@@ -85,7 +108,7 @@
   }
 
   async function changeModel(event: Event) {
-    const target = event.currentTarget as HTMLInputElement | HTMLSelectElement;
+    const target = event.currentTarget as HTMLInputElement;
     await onUpdate({ localServerModel: target.value });
   }
 
@@ -107,6 +130,8 @@
 
   async function changeAllowRemote(event: Event) {
     const checked = (event.currentTarget as HTMLInputElement).checked;
+    testOk = false;
+    testError = null;
     if (checked && settings.engineSource === 'local-server') {
       if (!(await grantIfNeeded(settings.localServerUrl))) return;
     }
@@ -118,6 +143,7 @@
     if (!error) {
       return models.length > 0 ? t('localServerTestOk') : t('localServerTestOkUnlisted');
     }
+    if (error.code === 'server-remote-unconfirmed') return t('localServerRemoteConfirmRequired');
     if (error.code === 'server-unavailable') return t('localServerUnreachable');
     if (error.code === 'server-timeout') return t('localServerTimeout');
     if (error.code === 'server-model-missing') return t('localServerModelMissing');
@@ -129,12 +155,17 @@
     testOk = false;
     testError = null;
     permissionDenied = false;
-    const remoteUrl = isRemoteServerUrl(settings.localServerUrl);
-    if (!remoteUrl || settings.localServerAllowRemote) {
-      if (!(await grantIfNeeded(settings.localServerUrl))) {
-        testing = false;
-        return;
-      }
+    if (isRemoteServerUrl(settings.localServerUrl) && !settings.localServerAllowRemote) {
+      testError = new EngineError(
+        'server-remote-unconfirmed',
+        'The local server URL is not on this machine. Confirm the warning in Settings to send text there.',
+      );
+      testing = false;
+      return;
+    }
+    if (!(await grantIfNeeded(settings.localServerUrl))) {
+      testing = false;
+      return;
     }
     const result = await testLocalServer({
       baseUrl: settings.localServerUrl,
@@ -154,143 +185,338 @@
   }
 </script>
 
-<label class="field">
-  <span>{t('engineSourceLabel')}</span>
-  <select value={settings.engineSource} onchange={changeSource}>
-    <option value="in-browser">{t('engineSourceInBrowser')}</option>
-    <option value="local-server">{t('engineSourceLocalServer')}</option>
-  </select>
-</label>
-<p class="muted help">{t('engineSourceHelp')}</p>
-
-{#if settings.engineSource === 'local-server'}
-  <div class="presets">
-    <button class="button secondary" type="button" onclick={() => void applyPreset('mlx')}>
-      {t('localServerPresetMlx')}
-    </button>
-    <button class="button secondary" type="button" onclick={() => void applyPreset('lm-studio')}>
-      {t('localServerPresetLmStudio')}
-    </button>
-  </div>
-  <p class="muted help">{t('localServerPresetHelp')}</p>
-
-  <label class="field">
-    <span>{t('localServerUrlLabel')}</span>
-    <input
-      type="url"
-      value={settings.localServerUrl}
-      onchange={changeUrl}
-      autocomplete="off"
-      spellcheck="false"
-    />
-  </label>
-
-  {#if remote}
-    <label class="check">
+<div class="engine-choice">
+  <span class="label" id="engine-source-label">{t('engineSourceLabel')}</span>
+  <div class="segments" role="radiogroup" aria-labelledby="engine-source-label">
+    <label class:on={!local}>
       <input
-        type="checkbox"
-        checked={settings.localServerAllowRemote}
-        onchange={changeAllowRemote}
+        type="radio"
+        name="sakutto-engine-source"
+        value="in-browser"
+        checked={!local}
+        onchange={() => chooseSource('in-browser')}
       />
-      <span>{t('localServerNonLocalWarning')}</span>
+      <span>{t('engineSourceInBrowser')}</span>
     </label>
-  {/if}
-
-  <label class="field">
-    <span>{t('localServerModelLabel')}</span>
-    <input
-      type="text"
-      list="sakutto-local-server-models"
-      value={settings.localServerModel}
-      onchange={changeModel}
-      autocomplete="off"
-      spellcheck="false"
-    />
-    <datalist id="sakutto-local-server-models">
-      {#each models as model (model.id)}
-        <option value={model.id}>{model.id}</option>
-      {/each}
-    </datalist>
-  </label>
-  {#if testOk && models.length === 0}
-    <p class="muted help">{t('localServerModelsEmpty')}</p>
-  {/if}
-
-  <label class="field">
-    <span>{t('localServerApiKeyLabel')}</span>
-    <input
-      type="password"
-      value={settings.localServerApiKey}
-      onchange={changeApiKey}
-      autocomplete="off"
-    />
-  </label>
-
-  <label class="field">
-    <span>{t('localServerTimeoutLabel')}</span>
-    <input
-      type="number"
-      min="5"
-      max="600"
-      step="5"
-      value={Math.round(settings.localServerTimeoutMs / 1000)}
-      onchange={changeTimeout}
-    />
-  </label>
-
-  <label class="field">
-    <span>{t('localServerParallelLabel')}</span>
-    <input
-      type="number"
-      min="1"
-      max="16"
-      step="1"
-      value={settings.localServerParallel}
-      onchange={changeParallel}
-    />
-  </label>
-  <p class="muted help">{t('localServerParallelHelp')}</p>
-
-  <div class="test-row">
-    <button
-      class="button secondary"
-      type="button"
-      onclick={() => void runTest()}
-      disabled={testing}
-    >
-      {t('localServerTestButton')}
-    </button>
+    <label class:on={local}>
+      <input
+        type="radio"
+        name="sakutto-engine-source"
+        value="local-server"
+        checked={local}
+        onchange={(event) => {
+          if (!settings.localServerExperimentalAck && settings.engineSource !== 'local-server') {
+            (event.currentTarget as HTMLInputElement).checked = false;
+          }
+          chooseSource('local-server');
+        }}
+      />
+      <span>{t('engineSourceLocalServer')}</span>
+    </label>
   </div>
-  {#if permissionDenied}
-    <p class="error" role="alert">{t('localServerPermissionDenied')}</p>
-  {:else if testOk}
-    <p class="muted" role="status">{testMessage(null)}</p>
-  {:else if testError}
-    <p class="error" role="alert">{testMessage(testError)}</p>
+  <p class="help">{t('engineSourceHelp')}</p>
+
+  {#if confirmOpen}
+    <div class="confirm" role="dialog" aria-labelledby="local-experimental-title">
+      <p id="local-experimental-title">{t('localServerExperimentalConfirm')}</p>
+      <div class="confirm-actions">
+        <button class="button" type="button" onclick={useLocalServer}>
+          {t('localServerExperimentalUse')}
+        </button>
+        <button class="button secondary" type="button" onclick={keepBuiltIn}>
+          {t('localServerExperimentalKeep')}
+        </button>
+      </div>
+    </div>
   {/if}
-  <p class="muted help">{t('localServerHelp')}</p>
-  <p class="muted help">{t('localServerLicenseNote')}</p>
-{/if}
+
+  {#if local}
+    <div class="card">
+      <p class="experimental">{t('localServerExperimental')}</p>
+      <p class="help">
+        {t('localServerHelp')}
+        <a href={PROJECT_LINKS.localServerDocs} target="_blank" rel="noreferrer">
+          {t('localServerDetails')}
+        </a>
+      </p>
+
+      <div class="presets">
+        <button class="button secondary" type="button" onclick={() => void applyPreset('mlx')}>
+          {t('localServerPresetMlx')}
+        </button>
+        <button
+          class="button secondary"
+          type="button"
+          onclick={() => void applyPreset('lm-studio')}
+        >
+          {t('localServerPresetLmStudio')}
+        </button>
+      </div>
+      <p class="help">{t('localServerPresetHelp')}</p>
+
+      <label class="field">
+        <span>{t('localServerUrlLabel')}</span>
+        <input
+          type="url"
+          value={settings.localServerUrl}
+          onchange={changeUrl}
+          autocomplete="off"
+          spellcheck="false"
+          aria-describedby="local-server-url-help"
+        />
+      </label>
+      <p class="help" id="local-server-url-help">{t('localServerUrlHelp')}</p>
+
+      {#if remote}
+        <label class="check">
+          <input
+            type="checkbox"
+            checked={settings.localServerAllowRemote}
+            onchange={changeAllowRemote}
+          />
+          <span>{t('localServerNonLocalWarning')}</span>
+        </label>
+      {/if}
+
+      <label class="field">
+        <span>{t('localServerModelLabel')}</span>
+        <input
+          type="text"
+          list="sakutto-local-server-models"
+          value={settings.localServerModel}
+          onchange={changeModel}
+          autocomplete="off"
+          spellcheck="false"
+          aria-describedby="local-server-model-help"
+        />
+        <datalist id="sakutto-local-server-models">
+          {#each models as model (model.id)}
+            <option value={model.id}>{model.id}</option>
+          {/each}
+        </datalist>
+      </label>
+      <p class="help" id="local-server-model-help">{t('localServerModelHelp')}</p>
+
+      <details class="advanced">
+        <summary>{t('localServerAdvanced')}</summary>
+        <label class="field">
+          <span>{t('localServerApiKeyLabel')}</span>
+          <input
+            type="password"
+            value={settings.localServerApiKey}
+            onchange={changeApiKey}
+            autocomplete="off"
+          />
+        </label>
+        <label class="field">
+          <span>{t('localServerTimeoutLabel')}</span>
+          <input
+            type="number"
+            min="5"
+            max="600"
+            step="5"
+            value={Math.round(settings.localServerTimeoutMs / 1000)}
+            onchange={changeTimeout}
+          />
+        </label>
+        <label class="field">
+          <span>{t('localServerParallelLabel')}</span>
+          <input
+            type="number"
+            min="1"
+            max="16"
+            step="1"
+            value={settings.localServerParallel}
+            onchange={changeParallel}
+          />
+        </label>
+        <p class="help">{t('localServerParallelHelp')}</p>
+      </details>
+
+      <div class="test-row">
+        <button
+          class="button secondary"
+          type="button"
+          onclick={() => void runTest()}
+          disabled={testing}
+        >
+          {testing ? t('statusChecking') : t('localServerTestButton')}
+        </button>
+        {#if permissionDenied}
+          <span class="chip bad" role="alert">{t('localServerPermissionDenied')}</span>
+        {:else if testOk}
+          <span class="chip ok" role="status">{t('localServerTestOk')}</span>
+        {:else if testError}
+          <span class="chip bad" role="alert">{t('localServerTestFail')}</span>
+        {/if}
+      </div>
+      {#if testOk && models.length === 0}
+        <p class="help" role="status">{t('localServerTestOkUnlisted')}</p>
+      {:else if testError}
+        <p class="error" role="alert">{testMessage(testError)}</p>
+      {/if}
+      <p class="help">{t('localServerLicenseNote')}</p>
+    </div>
+  {/if}
+</div>
 
 <style>
+  .engine-choice,
+  .card,
+  .field,
+  .confirm {
+    display: grid;
+    gap: var(--space-2);
+    min-width: 0;
+  }
+
+  .card {
+    gap: var(--space-3);
+    margin-top: var(--space-3);
+    padding: var(--space-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-muted);
+  }
+
+  .label {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .segments {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+  }
+
+  .segments label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    padding: 6px 10px;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  .segments label + label {
+    border-left: 1px solid var(--border);
+  }
+
+  .segments label.on {
+    background: var(--accent);
+    color: var(--accent-contrast);
+    font-weight: 700;
+  }
+
+  .segments input {
+    margin: 0 8px 0 0;
+    accent-color: currentColor;
+  }
+
+  .help {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+
+  .experimental {
+    margin: 0;
+    font-weight: 700;
+    line-height: 1.45;
+  }
+
   .presets,
-  .test-row {
+  .test-row,
+  .confirm-actions {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: var(--space-2);
-    margin-bottom: var(--space-2);
+  }
+
+  .field > span:first-child {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .field input {
+    width: 100%;
+    min-width: 0;
+    padding: 7px 9px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
   }
 
   .check {
     display: flex;
     align-items: flex-start;
     gap: var(--space-2);
-    margin: var(--space-2) 0 var(--space-3);
     font-size: 13px;
+    line-height: 1.45;
   }
 
   .check input {
     width: auto;
     margin-top: 3px;
+  }
+
+  .advanced {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .advanced summary {
+    cursor: pointer;
+    color: var(--accent-strong);
+    font-weight: 600;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.4;
+  }
+
+  .chip.ok {
+    background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+    color: var(--accent-strong);
+  }
+
+  .chip.bad {
+    background: color-mix(in srgb, var(--danger) 18%, var(--surface));
+    color: var(--danger);
+  }
+
+  .confirm {
+    margin-top: var(--space-3);
+    padding: var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+  }
+
+  .confirm p {
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .error {
+    margin: 0;
   }
 </style>

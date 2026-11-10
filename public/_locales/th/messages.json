@@ -223,7 +223,7 @@
     "message": "เริ่มต้นใช้งาน"
   },
   "onboardingLead": {
-    "message": "การแปลหน้าเว็บจะทำงานบนอุปกรณ์ของคุณ รุ่น PLaMo 3 จะดาวน์โหลดได้ก็ต่อเมื่อยังไม่มีการจัดเก็บไว้ในอุปกรณ์นี้"
+    "message": "การแปลหน้าเว็บทำงานบนอุปกรณ์นี้เป็นค่าเริ่มต้น โมเดล PLaMo 3 จะถูกดาวน์โหลดเมื่อยังไม่ได้เก็บไว้ที่นี่เท่านั้น"
   },
   "onboardingSetupHeading": {
     "message": "เกี่ยวกับส่วนขยายนี้"
@@ -238,7 +238,7 @@
     "message": "หน้าเว็บจะคงข้อความเดิมไว้จนกว่าโมเดลจะพร้อมใช้งาน จากนั้น PLaMo จะแปลข้อความนั้น"
   },
   "onboardingPrivacyNote": {
-    "message": "ส่วนขยายนี้ไม่ส่งข้อความหน้าเว็บไปยังเซิร์ฟเวอร์"
+    "message": "เอนจินในตัวไม่ส่งข้อความของหน้าไปยังเซิร์ฟเวอร์"
   },
   "onboardingClose": {
     "message": "ปิด"
@@ -1048,7 +1048,7 @@
     "message": "CPU (1 thread)"
   },
   "runtimeLocalServer": {
-    "message": "เซิร์ฟเวอร์ในเครื่อง"
+    "message": "เซิร์ฟเวอร์ในเครื่อง (ทดลอง)"
   },
   "engineSourceLabel": {
     "message": "เอนจินแปล"
@@ -1057,10 +1057,10 @@
     "message": "ในตัว (บนอุปกรณ์นี้)"
   },
   "engineSourceLocalServer": {
-    "message": "เซิร์ฟเวอร์ในเครื่อง (เข้ากันได้กับ OpenAI)"
+    "message": "เซิร์ฟเวอร์ในเครื่อง (ทดลอง)"
   },
   "engineSourceHelp": {
-    "message": "ค่าเริ่มต้นคือเอนจินในตัว เซิร์ฟเวอร์ในเครื่องอย่าง mlx_lm.server หรือ LM Studio สามารถรัน PLaMo บน Apple Silicon หรือ GPU ได้ ข้อความถูกส่งไปยังที่อยู่ที่คุณตั้งเท่านั้น"
+    "message": "ค่าเริ่มต้นคือเอนจินในตัวบนอุปกรณ์นี้"
   },
   "localServerUrlLabel": {
     "message": "URL ของเซิร์ฟเวอร์"
@@ -1093,7 +1093,7 @@
     "message": "LM Studio"
   },
   "localServerPresetHelp": {
-    "message": "พรีเซ็ตจะใส่ URL ให้ serve.py ของ PLaMo MLX มักใช้พอร์ต 8000 คำขอใช้ /v1/completions พร้อมพรอมต์ PLaMo ของ Sakutto ไม่ใช่ chat completions"
+    "message": "พรีเซ็ตใส่เฉพาะ URL"
   },
   "localServerNonLocalWarning": {
     "message": "ที่อยู่นี้ไม่ใช่คอมพิวเตอร์เครื่องนี้ ข้อความในหน้าจะถูกส่งไปที่นั่น เข้าใจแล้ว"
@@ -1102,7 +1102,7 @@
     "message": "เบราว์เซอร์ไม่อนุญาตให้เข้าที่อยู่นี้"
   },
   "localServerHelp": {
-    "message": "เริ่มเซิร์ฟเวอร์ก่อน โหลดโมเดล PLaMo 3 Translate แล้วทดสอบการเชื่อมต่อ หากเซิร์ฟเวอร์ไม่ทำงาน หน้าจะคงข้อความต้นฉบับ In LM Studio, set temperature 0 / greedy. Prompt parity is measured against mlx_lm.server and PLaMo's serve.py; LM Studio's BOS handling is unverified."
+    "message": "ส่งพรอมต์ของ Sakutto ไปยังเซิร์ฟเวอร์ที่เข้ากันได้กับ OpenAI บนคอมพิวเตอร์นี้ เช่น mlx_lm.server หรือ LM Studio"
   },
   "localServerUnreachable": {
     "message": "ติดต่อเซิร์ฟเวอร์ในเครื่องไม่ได้ เปิดการตั้งค่าแล้วตรวจว่ากำลังทำงานอยู่"
@@ -1117,10 +1117,10 @@
     "message": "เซิร์ฟเวอร์ในเครื่องแปลไม่ได้ เปิดการตั้งค่า คงข้อความต้นฉบับไว้"
   },
   "diagBackendLocalServer": {
-    "message": "เซิร์ฟเวอร์ในเครื่อง"
+    "message": "เซิร์ฟเวอร์ในเครื่อง (ทดลอง)"
   },
   "privacyBodyLocalServer": {
-    "message": "ถ้าเลือกเซิร์ฟเวอร์ในเครื่อง ข้อความที่จะแปลจะถูกส่งไปยังที่อยู่ที่ตั้งไว้เท่านั้น (ค่าเริ่มต้นคือเครื่องนี้) ผู้พัฒนาจะไม่ได้รับ"
+    "message": "ทดลอง หากเลือกเซิร์ฟเวอร์ในเครื่อง ข้อความจะถูกส่งไปยังที่อยู่ที่ตั้งไว้เท่านั้น (ค่าเริ่มต้นคือคอมพิวเตอร์นี้) ไม่รับประกันความถูกต้อง และคำแปลอาจต่างจากเอนจินในตัว รวมถึงคำแปลผิด ผู้พัฒนาไม่ได้รับข้อความ"
   },
   "localServerLicenseNote": {
     "message": "โมเดลอื่นที่โหลดบนเซิร์ฟเวอร์นั้นเป็นความรับผิดชอบด้านสัญญาอนุญาตของคุณ น้ำหนัก PLaMo ยังอยู่ภายใต้ PLaMo Community License"
@@ -1133,5 +1133,38 @@
   },
   "localServerTestOkUnlisted": {
     "message": "Connected. Completions work. The server listed no models — keep the model name you typed; it was not verified from /v1/models."
+  },
+  "localServerExperimental": {
+    "message": "ทดลอง: ไม่รับประกันความถูกต้องของคำแปล ผลลัพธ์อาจต่างจากเอนจินในตัว รวมถึงคำแปลผิด"
+  },
+  "localServerExperimentalConfirm": {
+    "message": "เอนจินนี้เป็นฟีเจอร์ทดลอง ไม่รับประกันความถูกต้อง คำแปลอาจต่างจากเอนจินในตัว รวมถึงคำแปลผิด ยังต้องการใช้เซิร์ฟเวอร์ในเครื่องหรือไม่"
+  },
+  "localServerExperimentalUse": {
+    "message": "ใช้เซิร์ฟเวอร์ในเครื่อง"
+  },
+  "localServerExperimentalKeep": {
+    "message": "ใช้เอนจินในตัวต่อ"
+  },
+  "localServerDetails": {
+    "message": "รายละเอียด"
+  },
+  "localServerAdvanced": {
+    "message": "ขั้นสูง"
+  },
+  "localServerRemoteConfirmRequired": {
+    "message": "ที่อยู่นี้ไม่ได้อยู่บนคอมพิวเตอร์นี้ ติ๊กการยืนยันด้านล่างก่อนทดสอบการเชื่อมต่อ"
+  },
+  "onboardingLocalServerNote": {
+    "message": "การตั้งค่าสามารถเปิดเซิร์ฟเวอร์ในเครื่องแบบทดลองได้ เมื่อเปิดแล้วข้อความของหน้าจะไปยังที่อยู่ที่ตั้งไว้เท่านั้น และไม่รับประกันความถูกต้อง"
+  },
+  "localServerUrlHelp": {
+    "message": "mlx_lm.server ใช้พอร์ต 8080 เป็นค่าเริ่มต้น LM Studio ใช้พอร์ต 1234"
+  },
+  "localServerModelHelp": {
+    "message": "ชื่อโมเดลที่โหลดบนเซิร์ฟเวอร์นั้น"
+  },
+  "diagConcurrent": {
+    "message": "คำขอพร้อมกัน"
   }
 }

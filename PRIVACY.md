@@ -34,7 +34,7 @@ On Chrome, for language pairs PLaMo does not support, the extension uses Chrome'
 
 On Firefox those Chrome APIs are not used. Only the language pairs PLaMo supports are translated.
 
-Settings can switch PLaMo requests from the built-in on-device engine to a local OpenAI-compatible server you run yourself (for example mlx_lm.server or LM Studio). The developer does not operate that server. Text is sent only to the URL you enter. The default is this computer (`127.0.0.1` / `localhost`). A URL that is not this computer is blocked until you confirm a warning that page text will leave the machine.
+Settings can switch PLaMo requests from the built-in on-device engine to an experimental local OpenAI-compatible server you run yourself (for example mlx_lm.server or LM Studio). Translation accuracy is not guaranteed on that path. The developer does not operate that server. Text is sent only to the URL you enter. The default is this computer (`127.0.0.1` / `localhost`). A URL that is not this computer is blocked until you confirm a warning that page text will leave the machine.
 
 ## The download, and who can see it
 
@@ -109,7 +109,7 @@ Chrome では、PLaMo が対応していない言語の組み合わせに Chrome
 
 Firefox ではそれらの Chrome の機能は使いません。PLaMo が対応する言語の組み合わせだけを訳します。
 
-設定で、PLaMo のリクエストを内蔵エンジンから、自分で起動した OpenAI 互換のローカルサーバー（mlx_lm.server や LM Studio など）へ切り替えられます。そのサーバーを運営するのは開発者ではありません。文字は入力した URL にだけ送ります。既定はこの端末（`127.0.0.1` / `localhost`）です。この端末ではない URL は、本文が端末の外へ出る旨の警告を確認するまで送りません。
+設定で、PLaMo のリクエストを内蔵エンジンから、自分で起動した実験的な OpenAI 互換のローカルサーバー（mlx_lm.server や LM Studio など）へ切り替えられます。この経路の翻訳精度は保証しません。そのサーバーを運営するのは開発者ではありません。文字は入力した URL にだけ送ります。既定はこの端末（`127.0.0.1` / `localhost`）です。この端末ではない URL は、本文が端末の外へ出る旨の警告を確認するまで送りません。
 
 ## ダウンロードと、それを見られる範囲
 

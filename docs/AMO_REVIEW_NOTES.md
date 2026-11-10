@@ -63,4 +63,4 @@ sha256 f36d0813dd95573a852ab5d76e374c543632d9e292929e922bcdbf7e53b494e0
 
 ## 日本語（所有者向け）
 
-Firefox 版の審査メモです。gecko id `sakutto@jammaru` は初回 listed の前に確認してください。対象はデスクトップの Firefox（Windows、macOS、Linux）です。確認したのは Windows。macOS と Linux をマニフェストで除外してはいません。Android 向けの `gecko_android` は付けていません。パッチを当てた wllama は「Sakutto 自身のコンパイル済みコード」として出し、ソース zip に手順を入れています。空 submit の WebGPU 回避策は既定オンです（計測は docs/FIREFOX.md）。Chrome 内蔵 Translator は Firefox では使いません。web-ext lint の innerHTML / dynamic import 警告は審査メモに理由を書いてあります。設定のローカルサーバーは任意で、既定は内蔵エンジンです。
+Firefox 版の審査メモです。gecko id `sakutto@jammaru` は初回 listed の前に確認してください。対象はデスクトップの Firefox（Windows、macOS、Linux）です。確認したのは Windows。macOS と Linux をマニフェストで除外してはいません。Android 向けの `gecko_android` は付けていません。パッチを当てた wllama は「Sakutto 自身のコンパイル済みコード」として出し、ソース zip に手順を入れています。空 submit の WebGPU 回避策は既定オンです（計測は docs/FIREFOX.md）。Chrome 内蔵 Translator は Firefox では使いません。web-ext lint の innerHTML / dynamic import 警告は審査メモに理由を書いてあります。設定のローカルサーバーは実験的な任意機能で、精度は保証しません。既定は内蔵エンジンです。

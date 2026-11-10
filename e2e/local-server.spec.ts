@@ -67,7 +67,8 @@ test.describe('local server options', () => {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/options.html`);
       await expect(page.getByText('Translation engine')).toBeVisible();
-      await page.getByLabel('Translation engine').selectOption('local-server');
+      await page.getByRole('radio', { name: 'Local server (experimental)' }).click();
+      await page.getByRole('button', { name: 'Use local server' }).click();
       await page.getByLabel('Server URL').fill(fake.url);
       await page.getByLabel('Server URL').blur();
       await page.getByRole('button', { name: 'Test connection' }).click();
@@ -85,13 +86,14 @@ test.describe('local server options', () => {
     try {
       const options = await extension.context.newPage();
       await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
-      await options.getByLabel('Translation engine').selectOption('local-server');
+      await options.getByRole('radio', { name: 'Local server (experimental)' }).click();
+      await options.getByRole('button', { name: 'Use local server' }).click();
       await options.getByLabel('Server URL').fill(fake.url);
       await options.getByLabel('Server URL').blur();
       await options
-        .getByRole('combobox', { name: 'Model', exact: true })
+        .getByLabel('Model', { exact: true })
         .fill('pfnet/plamo-3-translate-0.8b-MLX-4bit');
-      await options.getByRole('combobox', { name: 'Model', exact: true }).blur();
+      await options.getByLabel('Model', { exact: true }).blur();
       await options.getByRole('button', { name: 'Test connection' }).click();
       await expect(options.getByRole('status')).toHaveText('Connected.');
 

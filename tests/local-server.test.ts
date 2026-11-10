@@ -206,6 +206,7 @@ describe('local server URL', () => {
 
 describe('local server completions', () => {
   const servers: Array<{ close: () => Promise<void> }> = [];
+
   afterEach(async () => {
     await Promise.all(servers.splice(0).map((server) => server.close()));
   });
@@ -383,16 +384,19 @@ describe('local server completions', () => {
 
   it('refuses a non-loopback URL until the user confirms it', async () => {
     await expect(
-      completeOnServer(config('http://example.test:1234/v1'), {
+      completeOnServer(config('http://192.168.1.20:8080/v1'), {
         prompt: 'x',
         maxTokens: 8,
         signal: new AbortController().signal,
         onToken: () => undefined,
       }),
-    ).rejects.toMatchObject({ code: 'server-failed' });
+    ).rejects.toMatchObject({ code: 'server-remote-unconfirmed' });
     expect(
       isLocalServerError(
-        new EngineError('server-unavailable', 'The local translation server could not be reached.'),
+        new EngineError(
+          'server-remote-unconfirmed',
+          'The local server URL is not on this machine. Confirm the warning in Settings to send text there.',
+        ),
       ),
     ).toBe(true);
   });

@@ -223,7 +223,7 @@
     "message": "Memulai"
   },
   "onboardingLead": {
-    "message": "Terjemahan halaman berjalan di perangkat Anda. Model PLaMo 3 hanya diunduh jika belum tersimpan di perangkat tersebut."
+    "message": "Terjemahan halaman berjalan di perangkat ini secara default. Model PLaMo 3 diunduh hanya jika belum tersimpan di sini."
   },
   "onboardingSetupHeading": {
     "message": "Tentang ekstensi ini"
@@ -238,7 +238,7 @@
     "message": "Halaman tersebut tetap mempertahankan teks aslinya sampai model siap, kemudian PLaMo menerjemahkannya."
   },
   "onboardingPrivacyNote": {
-    "message": "Ekstensi ini tidak mengirimkan teks halaman ke server."
+    "message": "Mesin bawaan tidak mengirim teks halaman ke server."
   },
   "onboardingClose": {
     "message": "Tutup"
@@ -1048,7 +1048,7 @@
     "message": "CPU (1 thread)"
   },
   "runtimeLocalServer": {
-    "message": "Server lokal"
+    "message": "Server lokal (eksperimental)"
   },
   "engineSourceLabel": {
     "message": "Mesin terjemahan"
@@ -1057,10 +1057,10 @@
     "message": "Bawaan (di perangkat ini)"
   },
   "engineSourceLocalServer": {
-    "message": "Server lokal (kompatibel OpenAI)"
+    "message": "Server lokal (eksperimental)"
   },
   "engineSourceHelp": {
-    "message": "Mesin bawaan adalah default. Server lokal seperti mlx_lm.server atau LM Studio dapat menjalankan PLaMo di Apple Silicon atau GPU. Teks hanya dikirim ke alamat yang Anda atur."
+    "message": "Default adalah mesin bawaan di perangkat ini."
   },
   "localServerUrlLabel": {
     "message": "URL server"
@@ -1093,7 +1093,7 @@
     "message": "LM Studio"
   },
   "localServerPresetHelp": {
-    "message": "Preset mengisi URL. serve.py MLX PLaMo sering memakai port 8000. Permintaan memakai /v1/completions dengan prompt PLaMo Sakutto, bukan chat completions."
+    "message": "Preset hanya mengisi URL."
   },
   "localServerNonLocalWarning": {
     "message": "Alamat ini bukan komputer ini. Teks halaman akan dikirim ke sana. Saya mengerti."
@@ -1102,7 +1102,7 @@
     "message": "Peramban tidak memberi akses ke alamat ini."
   },
   "localServerHelp": {
-    "message": "Jalankan server dulu, muat model PLaMo 3 Translate, lalu uji koneksi. Jika server mati, halaman tetap memakai teks asli. In LM Studio, set temperature 0 / greedy. Prompt parity is measured against mlx_lm.server and PLaMo's serve.py; LM Studio's BOS handling is unverified."
+    "message": "Mengirim prompt Sakutto ke server yang kompatibel dengan OpenAI di komputer ini, seperti mlx_lm.server atau LM Studio."
   },
   "localServerUnreachable": {
     "message": "Tidak dapat menjangkau server lokal. Buka Pengaturan dan pastikan server berjalan."
@@ -1117,10 +1117,10 @@
     "message": "Server lokal tidak dapat menerjemahkan ini. Buka Pengaturan. Teks asli dipertahankan."
   },
   "diagBackendLocalServer": {
-    "message": "Server lokal"
+    "message": "Server lokal (eksperimental)"
   },
   "privacyBodyLocalServer": {
-    "message": "Jika Anda memilih server lokal, teks yang diterjemahkan hanya dikirim ke alamat yang diatur (default komputer ini). Pengembang tidak menerimanya."
+    "message": "Eksperimental. Jika Anda memilih server lokal, teks hanya dikirim ke alamat yang Anda atur (default komputer ini). Akurasi tidak dijamin, dan terjemahan dapat berbeda dari mesin bawaan, termasuk salah terjemah. Pengembang tidak menerima teks tersebut."
   },
   "localServerLicenseNote": {
     "message": "Lisensi model lain yang Anda muat di server itu adalah tanggung jawab Anda. Bobot PLaMo tetap di bawah PLaMo Community License."
@@ -1133,5 +1133,38 @@
   },
   "localServerTestOkUnlisted": {
     "message": "Connected. Completions work. The server listed no models — keep the model name you typed; it was not verified from /v1/models."
+  },
+  "localServerExperimental": {
+    "message": "Eksperimental: akurasi terjemahan tidak dijamin. Hasil dapat berbeda dari mesin bawaan, termasuk salah terjemah."
+  },
+  "localServerExperimentalConfirm": {
+    "message": "Mesin ini eksperimental. Akurasi tidak dijamin. Terjemahan dapat berbeda dari mesin bawaan, termasuk salah terjemah. Tetap gunakan server lokal?"
+  },
+  "localServerExperimentalUse": {
+    "message": "Gunakan server lokal"
+  },
+  "localServerExperimentalKeep": {
+    "message": "Tetap bawaan"
+  },
+  "localServerDetails": {
+    "message": "Detail"
+  },
+  "localServerAdvanced": {
+    "message": "Lanjutan"
+  },
+  "localServerRemoteConfirmRequired": {
+    "message": "Alamat ini bukan di komputer ini. Centang konfirmasi di bawah sebelum menguji koneksi."
+  },
+  "onboardingLocalServerNote": {
+    "message": "Setelan dapat mengaktifkan server lokal eksperimental. Teks halaman lalu hanya pergi ke alamat yang Anda atur, dan akurasi tidak dijamin."
+  },
+  "localServerUrlHelp": {
+    "message": "mlx_lm.server memakai port 8080 secara default. LM Studio memakai port 1234."
+  },
+  "localServerModelHelp": {
+    "message": "Nama model yang dimuat di server itu."
+  },
+  "diagConcurrent": {
+    "message": "Permintaan bersamaan"
   }
 }

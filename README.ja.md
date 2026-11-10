@@ -53,11 +53,11 @@ cs、da、el、fi、kn、no、pt、ro、sv、tr、uk の 11 言語は、Chrome �
 
 ## プライバシー
 
-既定では翻訳は端末の中で行います。ページの本文、選択範囲、用語集、訳文を開発者へ送ることはありません。アカウント、広告、テレメトリもありません。内蔵エンジンについての拡張機能自身の通信は、Hugging Face からのモデルの取得です。設定で **ローカルサーバー**（mlx_lm.server、LM Studio など、この端末上の OpenAI 互換プロセス）をオンにすると、翻訳する文字は設定したアドレスにだけ送ります。開発者は受け取りません。ポリシーは [PRIVACY.md](PRIVACY.md) と https://jammaru.com/sakutto/privacy/ にあります。
+既定では翻訳は端末の中で行います。ページの本文、選択範囲、用語集、訳文を開発者へ送ることはありません。アカウント、広告、テレメトリもありません。内蔵エンジンについての拡張機能自身の通信は、Hugging Face からのモデルの取得です。設定で **実験的なローカルサーバー**（mlx_lm.server、LM Studio など、この端末上の OpenAI 互換プロセス）をオンにすると、翻訳する文字は設定したアドレスにだけ送ります。開発者は受け取りません。精度は保証しません。ポリシーは [PRIVACY.md](PRIVACY.md) と https://jammaru.com/sakutto/privacy/ にあります。
 
-## ローカルサーバー（MLX / LM Studio）
+## ローカルサーバー（実験的）
 
-既定のエンジンは同梱の wllama（WebGPU または CPU）です。設定で、PLaMo のリクエストをこの端末の OpenAI 互換サーバーへ向けられます。オプトインです。訳文は内蔵エンジンと異なることがあります。Sakutto の PFML3 プロンプトを raw の `/v1/completions` に送ります。chat completions は使いません。手順の例:
+既定のエンジンは同梱の wllama（WebGPU または CPU）です。設定で、PLaMo のリクエストをこの端末の OpenAI 互換サーバーへ向けられます。実験的機能です。翻訳の精度は保証せず、内蔵エンジンと訳が異なり、誤訳が出ることがあります。Mac での確認では MLX 4bit / 8bit / bf16 のいずれも、内蔵エンジンにはない誤訳が出ました。原因は量子化の数値で、リクエストの差ではありません。Sakutto の PFML3 プロンプトを raw の `/v1/completions` に送ります。chat completions は使いません。手順の例:
 
 - `mlx_lm.server` — 既定 `http://127.0.0.1:8080/v1`。PLaMo の MLX-4bit は [PLaMo 3 Translate のコレクション](https://huggingface.co/collections/pfnet/plamo-3-translate)
 - LM Studio — 既定 `http://127.0.0.1:1234/v1`

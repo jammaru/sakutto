@@ -223,7 +223,7 @@
     "message": "はじめに"
   },
   "onboardingLead": {
-    "message": "ページ翻訳は端末内で動きます。PLaMo 3 のモデルは、この端末に保存されていないときだけダウンロードします。"
+    "message": "ページ翻訳の既定は端末内です。PLaMo 3 のモデルは、この端末に保存されていないときだけダウンロードします。"
   },
   "onboardingSetupHeading": {
     "message": "この拡張機能について"
@@ -238,7 +238,7 @@
     "message": "モデルの準備ができるまで、ページは原文のまま表示します。準備ができると PLaMo が訳します。"
   },
   "onboardingPrivacyNote": {
-    "message": "この拡張機能は、ページの本文をサーバーへ送りません。"
+    "message": "内蔵エンジンは、ページの本文をサーバーへ送りません。"
   },
   "onboardingClose": {
     "message": "閉じる"
@@ -1048,7 +1048,7 @@
     "message": "CPU（1スレッド）"
   },
   "runtimeLocalServer": {
-    "message": "ローカルサーバー"
+    "message": "ローカルサーバー（実験的）"
   },
   "engineSourceLabel": {
     "message": "翻訳エンジン"
@@ -1057,10 +1057,10 @@
     "message": "内蔵（この端末）"
   },
   "engineSourceLocalServer": {
-    "message": "ローカルサーバー（OpenAI互換）"
+    "message": "ローカルサーバー（実験的）"
   },
   "engineSourceHelp": {
-    "message": "既定は内蔵エンジンです。mlx_lm.server や LM Studio などのローカルサーバーを選ぶと、Apple Silicon や GPU 上の PLaMo を使えます。オプトインです。訳文は内蔵エンジンと異なることがあります。本文が送られる先は、設定したアドレスだけです。"
+    "message": "既定は、この端末の内蔵エンジンです。"
   },
   "localServerUrlLabel": {
     "message": "サーバー URL"
@@ -1093,7 +1093,7 @@
     "message": "LM Studio"
   },
   "localServerPresetHelp": {
-    "message": "プリセットは URL を入れます。PLaMo 付属の MLX serve.py は多くの場合ポート 8000 です。翻訳は chat ではなく、Sakutto と同じ PLaMo プロンプトを /v1/completions に送ります。"
+    "message": "プリセットは URL だけを入れます。"
   },
   "localServerNonLocalWarning": {
     "message": "このアドレスはこの端末ではありません。ページの本文がそこに送られます。了解しました。"
@@ -1102,7 +1102,7 @@
     "message": "ブラウザがこのアドレスへのアクセスを許可しませんでした。"
   },
   "localServerHelp": {
-    "message": "先にサーバーを起動し、PLaMo 3 Translate のモデルを読み込んでから接続を試してください。確認は /v1/completions です。/v1/models が空でも問題ありません。モデル名を入力してください。届かないときは原文のままです。訳文は内蔵エンジンと異なることがあります。LM Studio では温度 0 / greedy にしてください。プロンプトの一致は mlx_lm.server と PLaMo の serve.py を基準にしています。LM Studio の BOS の扱いは未確認です。"
+    "message": "この端末の OpenAI 互換サーバー（mlx_lm.server または LM Studio）へ、Sakutto と同じプロンプトを送ります。"
   },
   "localServerUnreachable": {
     "message": "ローカルサーバーに届きませんでした。設定を開き、起動しているか確認してください。"
@@ -1117,10 +1117,10 @@
     "message": "ローカルサーバーでは翻訳できませんでした。設定を開いてください。原文のままにしています。"
   },
   "diagBackendLocalServer": {
-    "message": "ローカルサーバー"
+    "message": "ローカルサーバー（実験的）"
   },
   "privacyBodyLocalServer": {
-    "message": "ローカルサーバーを選んだときは、翻訳する文字は設定したアドレスにだけ送られます（既定はこの端末です）。開発者には届きません。"
+    "message": "実験的機能です。ローカルサーバーを選ぶと、文字は設定したアドレス（既定はこの端末）にだけ送ります。翻訳の精度は保証せず、内蔵エンジンと訳が異なり、誤訳が出ることがあります。開発者は受け取りません。"
   },
   "localServerLicenseNote": {
     "message": "そのサーバーに読み込む他のモデルのライセンスは利用者の責任です。PLaMo の重みは PLaMo Community License のままです。"
@@ -1133,5 +1133,38 @@
   },
   "localServerTestOkUnlisted": {
     "message": "接続できました。Completions は使えます。/v1/models は空でした。入力したモデル名をそのまま使います（一覧では確認していません）。"
+  },
+  "localServerExperimental": {
+    "message": "実験的機能：翻訳の精度は保証しません。内蔵エンジンと訳が異なり、誤訳が出ることがあります。"
+  },
+  "localServerExperimentalConfirm": {
+    "message": "このエンジンは実験的機能です。精度は保証せず、内蔵エンジンと訳が異なり、誤訳が出ることがあります。それでもローカルサーバーを使いますか？"
+  },
+  "localServerExperimentalUse": {
+    "message": "ローカルサーバーを使う"
+  },
+  "localServerExperimentalKeep": {
+    "message": "内蔵のまま"
+  },
+  "localServerDetails": {
+    "message": "詳しく"
+  },
+  "localServerAdvanced": {
+    "message": "詳細設定"
+  },
+  "localServerRemoteConfirmRequired": {
+    "message": "このアドレスはこの端末ではありません。接続を試す前に、下の確認にチェックしてください。"
+  },
+  "onboardingLocalServerNote": {
+    "message": "設定で実験的なローカルサーバーをオンにできます。そのときは本文を設定したアドレスにだけ送り、精度は保証しません。"
+  },
+  "localServerUrlHelp": {
+    "message": "mlx_lm.server の既定はポート 8080、LM Studio の既定はポート 1234 です。"
+  },
+  "localServerModelHelp": {
+    "message": "そのサーバーに読み込んだモデル名です。"
+  },
+  "diagConcurrent": {
+    "message": "同時リクエスト"
   }
 }

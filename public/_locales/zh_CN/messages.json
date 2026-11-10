@@ -223,7 +223,7 @@
     "message": "入门指南"
   },
   "onboardingLead": {
-    "message": "页面翻译在您的设备上运行。只有在 PLaMo 3 型号尚未存储在该设备上时，才会进行下载。"
+    "message": "页面翻译默认在此设备上进行。只有这里还没有保存 PLaMo 3 模型时才会下载。"
   },
   "onboardingSetupHeading": {
     "message": "关于此扩展"
@@ -238,7 +238,7 @@
     "message": "页面会保留原文本直到模型准备就绪，随后由 PLaMo 进行翻译。"
   },
   "onboardingPrivacyNote": {
-    "message": "此扩展不会将页面文本发送至服务器。"
+    "message": "内置引擎不会把页面正文发送到服务器。"
   },
   "onboardingClose": {
     "message": "关闭"
@@ -1048,7 +1048,7 @@
     "message": "CPU (1 thread)"
   },
   "runtimeLocalServer": {
-    "message": "本地服务器"
+    "message": "本地服务器（实验性）"
   },
   "engineSourceLabel": {
     "message": "翻译引擎"
@@ -1057,10 +1057,10 @@
     "message": "内置（本机）"
   },
   "engineSourceLocalServer": {
-    "message": "本地服务器（OpenAI 兼容）"
+    "message": "本地服务器（实验性）"
   },
   "engineSourceHelp": {
-    "message": "默认使用内置引擎。也可选择 mlx_lm.server 或 LM Studio 等本地服务器，在 Apple Silicon 或 GPU 上运行 PLaMo。文本只会发往你设置的地址。"
+    "message": "默认使用此设备上的内置引擎。"
   },
   "localServerUrlLabel": {
     "message": "服务器 URL"
@@ -1093,7 +1093,7 @@
     "message": "LM Studio"
   },
   "localServerPresetHelp": {
-    "message": "预设会填入 URL。PLaMo 自带的 MLX serve.py 常用端口 8000。请求使用 Sakutto 的 PLaMo 提示词调用 /v1/completions，而不是 chat completions。"
+    "message": "预设只填写 URL。"
   },
   "localServerNonLocalWarning": {
     "message": "此地址不是本机。页面文本将会发往那里。我了解。"
@@ -1102,7 +1102,7 @@
     "message": "浏览器未授予访问此地址的权限。"
   },
   "localServerHelp": {
-    "message": "请先启动服务器并加载 PLaMo 3 Translate 模型，再测试连接。如果服务器不可用，页面会保留原文。 In LM Studio, set temperature 0 / greedy. Prompt parity is measured against mlx_lm.server and PLaMo's serve.py; LM Studio's BOS handling is unverified."
+    "message": "把 Sakutto 的提示发送到这台电脑上的 OpenAI 兼容服务器，例如 mlx_lm.server 或 LM Studio。"
   },
   "localServerUnreachable": {
     "message": "无法连接本地服务器。请打开设置并确认它正在运行。"
@@ -1117,10 +1117,10 @@
     "message": "本地服务器无法翻译。请打开设置。已保留原文。"
   },
   "diagBackendLocalServer": {
-    "message": "本地服务器"
+    "message": "本地服务器（实验性）"
   },
   "privacyBodyLocalServer": {
-    "message": "若选择本地服务器，待译文本只会发往你设置的地址（默认是本机）。开发者不会收到。"
+    "message": "实验性功能。选择本地服务器后，文本只发到你设置的地址（默认是这台电脑）。不保证翻译准确，结果可能与内置引擎不同，包括误译。开发者不会收到这些文本。"
   },
   "localServerLicenseNote": {
     "message": "你在该服务器上加载的其他模型的许可由你负责。PLaMo 权重仍适用 PLaMo Community License。"
@@ -1133,5 +1133,38 @@
   },
   "localServerTestOkUnlisted": {
     "message": "Connected. Completions work. The server listed no models — keep the model name you typed; it was not verified from /v1/models."
+  },
+  "localServerExperimental": {
+    "message": "实验性功能：不保证翻译准确。结果可能与内置引擎不同，并可能出现误译。"
+  },
+  "localServerExperimentalConfirm": {
+    "message": "此引擎是实验性功能。不保证准确，结果可能与内置引擎不同，并可能出现误译。仍要使用本地服务器吗？"
+  },
+  "localServerExperimentalUse": {
+    "message": "使用本地服务器"
+  },
+  "localServerExperimentalKeep": {
+    "message": "继续用内置引擎"
+  },
+  "localServerDetails": {
+    "message": "详情"
+  },
+  "localServerAdvanced": {
+    "message": "高级设置"
+  },
+  "localServerRemoteConfirmRequired": {
+    "message": "这个地址不在这台电脑上。测试连接前，请勾选下方的确认。"
+  },
+  "onboardingLocalServerNote": {
+    "message": "可以在设置中打开实验性的本地服务器。那时正文只发到你设置的地址，并且不保证准确。"
+  },
+  "localServerUrlHelp": {
+    "message": "mlx_lm.server 默认端口是 8080，LM Studio 默认端口是 1234。"
+  },
+  "localServerModelHelp": {
+    "message": "该服务器上已加载的模型名称。"
+  },
+  "diagConcurrent": {
+    "message": "并发请求"
   }
 }

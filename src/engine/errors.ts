@@ -15,6 +15,7 @@ export type EngineErrorCode =
   | 'server-timeout'
   | 'server-model-missing'
   | 'server-failed'
+  | 'server-remote-unconfirmed'
   | 'aborted'
   | 'unknown';
 
@@ -58,6 +59,7 @@ const ENGINE_ERROR_CODES: ReadonlySet<string> = new Set<EngineErrorCode>([
   'server-timeout',
   'server-model-missing',
   'server-failed',
+  'server-remote-unconfirmed',
   'aborted',
   'unknown',
 ]);
@@ -82,6 +84,7 @@ const LOCAL_SERVER_CODES: ReadonlySet<EngineErrorCode> = new Set([
   'server-timeout',
   'server-model-missing',
   'server-failed',
+  'server-remote-unconfirmed',
 ]);
 
 export function isLocalServerError(value: unknown): value is EngineError {

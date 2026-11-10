@@ -223,7 +223,7 @@
     "message": "Bắt đầu"
   },
   "onboardingLead": {
-    "message": "Việc dịch trang diễn ra trên thiết bị của bạn. Mẫu PLaMo 3 chỉ tải xuống khi chưa được lưu trữ trên thiết bị này."
+    "message": "Dịch trang chạy trên thiết bị này theo mặc định. Mô hình PLaMo 3 chỉ được tải xuống khi chưa được lưu ở đây."
   },
   "onboardingSetupHeading": {
     "message": "Về tiện ích mở rộng này"
@@ -238,7 +238,7 @@
     "message": "Trang web tiếp tục giữ nguyên văn bản cho đến khi mô hình sẵn sàng, sau đó PLaMo sẽ dịch lại."
   },
   "onboardingPrivacyNote": {
-    "message": "Tiện ích mở rộng này không gửi văn bản trang đến máy chủ."
+    "message": "Công cụ tích hợp không gửi nội dung trang tới máy chủ."
   },
   "onboardingClose": {
     "message": "Đóng"
@@ -1048,7 +1048,7 @@
     "message": "CPU (1 thread)"
   },
   "runtimeLocalServer": {
-    "message": "Máy chủ cục bộ"
+    "message": "Máy chủ cục bộ (thử nghiệm)"
   },
   "engineSourceLabel": {
     "message": "Engine dịch"
@@ -1057,10 +1057,10 @@
     "message": "Tích hợp (trên thiết bị này)"
   },
   "engineSourceLocalServer": {
-    "message": "Máy chủ cục bộ (tương thích OpenAI)"
+    "message": "Máy chủ cục bộ (thử nghiệm)"
   },
   "engineSourceHelp": {
-    "message": "Engine tích hợp là mặc định. Máy chủ cục bộ như mlx_lm.server hoặc LM Studio có thể chạy PLaMo trên Apple Silicon hoặc GPU. Văn bản chỉ được gửi tới địa chỉ bạn đặt."
+    "message": "Mặc định là công cụ tích hợp trên thiết bị này."
   },
   "localServerUrlLabel": {
     "message": "URL máy chủ"
@@ -1093,7 +1093,7 @@
     "message": "LM Studio"
   },
   "localServerPresetHelp": {
-    "message": "Preset điền URL. serve.py MLX của PLaMo thường dùng cổng 8000. Yêu cầu dùng /v1/completions với prompt PLaMo của Sakutto, không dùng chat completions."
+    "message": "Giá trị đặt sẵn chỉ điền URL."
   },
   "localServerNonLocalWarning": {
     "message": "Địa chỉ này không phải máy này. Văn bản trang sẽ được gửi tới đó. Tôi hiểu."
@@ -1102,7 +1102,7 @@
     "message": "Trình duyệt không cấp quyền truy cập địa chỉ này."
   },
   "localServerHelp": {
-    "message": "Hãy chạy máy chủ trước, tải mô hình PLaMo 3 Translate, rồi kiểm tra kết nối. Nếu máy chủ tắt, trang giữ nguyên bản. In LM Studio, set temperature 0 / greedy. Prompt parity is measured against mlx_lm.server and PLaMo's serve.py; LM Studio's BOS handling is unverified."
+    "message": "Gửi prompt của Sakutto tới máy chủ tương thích OpenAI trên máy tính này, chẳng hạn mlx_lm.server hoặc LM Studio."
   },
   "localServerUnreachable": {
     "message": "Không liên lạc được máy chủ cục bộ. Mở Cài đặt và kiểm tra máy chủ đang chạy."
@@ -1117,10 +1117,10 @@
     "message": "Máy chủ cục bộ không dịch được. Mở Cài đặt. Đã giữ nguyên bản."
   },
   "diagBackendLocalServer": {
-    "message": "Máy chủ cục bộ"
+    "message": "Máy chủ cục bộ (thử nghiệm)"
   },
   "privacyBodyLocalServer": {
-    "message": "Nếu chọn máy chủ cục bộ, văn bản cần dịch chỉ gửi tới địa chỉ bạn đặt (mặc định là máy này). Nhà phát triển không nhận được."
+    "message": "Thử nghiệm. Nếu chọn máy chủ cục bộ, văn bản chỉ được gửi tới địa chỉ bạn đặt (mặc định là máy tính này). Độ chính xác không được đảm bảo, và bản dịch có thể khác công cụ tích hợp, kể cả dịch sai. Nhà phát triển không nhận văn bản."
   },
   "localServerLicenseNote": {
     "message": "Giấy phép các mô hình khác trên máy chủ đó là trách nhiệm của bạn. Trọng số PLaMo vẫn theo PLaMo Community License."
@@ -1133,5 +1133,38 @@
   },
   "localServerTestOkUnlisted": {
     "message": "Connected. Completions work. The server listed no models — keep the model name you typed; it was not verified from /v1/models."
+  },
+  "localServerExperimental": {
+    "message": "Thử nghiệm: không đảm bảo độ chính xác của bản dịch. Kết quả có thể khác công cụ tích hợp, kể cả dịch sai."
+  },
+  "localServerExperimentalConfirm": {
+    "message": "Công cụ này là thử nghiệm. Độ chính xác không được đảm bảo. Bản dịch có thể khác công cụ tích hợp, kể cả dịch sai. Vẫn dùng máy chủ cục bộ?"
+  },
+  "localServerExperimentalUse": {
+    "message": "Dùng máy chủ cục bộ"
+  },
+  "localServerExperimentalKeep": {
+    "message": "Giữ công cụ tích hợp"
+  },
+  "localServerDetails": {
+    "message": "Chi tiết"
+  },
+  "localServerAdvanced": {
+    "message": "Nâng cao"
+  },
+  "localServerRemoteConfirmRequired": {
+    "message": "Địa chỉ này không nằm trên máy tính này. Hãy chọn ô xác nhận bên dưới trước khi thử kết nối."
+  },
+  "onboardingLocalServerNote": {
+    "message": "Cài đặt có thể bật máy chủ cục bộ thử nghiệm. Khi đó nội dung trang chỉ đi tới địa chỉ bạn đặt, và độ chính xác không được đảm bảo."
+  },
+  "localServerUrlHelp": {
+    "message": "mlx_lm.server mặc định cổng 8080. LM Studio mặc định cổng 1234."
+  },
+  "localServerModelHelp": {
+    "message": "Tên mô hình đã nạp trên máy chủ đó."
+  },
+  "diagConcurrent": {
+    "message": "Yêu cầu đồng thời"
   }
 }

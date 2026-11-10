@@ -113,6 +113,8 @@ export interface Settings {
   localServerAllowRemote: boolean;
   /** How many completions the local server may run at once. */
   localServerParallel: number;
+  /** Set after the reader accepts the experimental-engine warning once. */
+  localServerExperimentalAck: boolean;
 }
 
 export type SettingsPatch = Partial<
@@ -139,6 +141,7 @@ export type SettingsPatch = Partial<
     | 'localServerTimeoutMs'
     | 'localServerAllowRemote'
     | 'localServerParallel'
+    | 'localServerExperimentalAck'
   >
 > & {
   shortcutsEnabled?: Partial<ShortcutEnabled>;
@@ -168,6 +171,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   localServerTimeoutMs: DEFAULT_LOCAL_SERVER_TIMEOUT_MS,
   localServerAllowRemote: false,
   localServerParallel: DEFAULT_LOCAL_SERVER_PARALLEL,
+  localServerExperimentalAck: false,
 });
 
 export function createDefaultSettings(uiLanguage: string): Settings {
@@ -223,6 +227,7 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     localServerTimeoutMs: normalizeTimeoutMs(value.localServerTimeoutMs),
     localServerAllowRemote: value.localServerAllowRemote === true,
     localServerParallel: normalizeParallel(value.localServerParallel),
+    localServerExperimentalAck: value.localServerExperimentalAck === true,
   };
 }
 

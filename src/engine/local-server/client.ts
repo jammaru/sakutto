@@ -206,7 +206,7 @@ function requireParsed(config: LocalServerConfig) {
 function guardRemote(config: LocalServerConfig, hostname: string): void {
   if (!isLoopbackHostname(hostname) && !config.allowRemote) {
     throw new EngineError(
-      'server-failed',
+      'server-remote-unconfirmed',
       'The local server URL is not on this machine. Confirm the warning in Settings to send text there.',
     );
   }

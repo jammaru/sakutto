@@ -223,7 +223,7 @@
     "message": "Primeiros passos"
   },
   "onboardingLead": {
-    "message": "A tradução de páginas roda no seu dispositivo. O modelo PLaMo 3 só é baixado quando ainda não está salvo neste dispositivo."
+    "message": "A tradução da página roda neste dispositivo por padrão. O modelo PLaMo 3 é baixado somente quando ainda não está salvo aqui."
   },
   "onboardingSetupHeading": {
     "message": "Sobre esta extensão"
@@ -238,7 +238,7 @@
     "message": "A página mantém o texto original até o modelo ficar pronto; depois o PLaMo traduz."
   },
   "onboardingPrivacyNote": {
-    "message": "Esta extensão não envia o texto das páginas a nenhum servidor."
+    "message": "O mecanismo integrado não envia o texto da página a um servidor."
   },
   "onboardingClose": {
     "message": "Fechar"
@@ -1048,7 +1048,7 @@
     "message": "CPU (1 thread)"
   },
   "runtimeLocalServer": {
-    "message": "Servidor local"
+    "message": "Servidor local (experimental)"
   },
   "engineSourceLabel": {
     "message": "Mecanismo de tradução"
@@ -1057,10 +1057,10 @@
     "message": "Integrado (neste dispositivo)"
   },
   "engineSourceLocalServer": {
-    "message": "Servidor local (compatível com OpenAI)"
+    "message": "Servidor local (experimental)"
   },
   "engineSourceHelp": {
-    "message": "O mecanismo integrado é o padrão. Um servidor local como mlx_lm.server ou LM Studio pode executar o PLaMo no Apple Silicon ou numa GPU. O texto vai só para o endereço que você definir."
+    "message": "O padrão é o mecanismo integrado neste dispositivo."
   },
   "localServerUrlLabel": {
     "message": "URL do servidor"
@@ -1093,7 +1093,7 @@
     "message": "LM Studio"
   },
   "localServerPresetHelp": {
-    "message": "Os presets preenchem a URL. O serve.py MLX do PLaMo costuma usar a porta 8000. As solicitações usam /v1/completions com o prompt PLaMo do Sakutto, não chat completions."
+    "message": "Os predefinidos preenchem apenas a URL."
   },
   "localServerNonLocalWarning": {
     "message": "Este endereço não é este computador. O texto da página será enviado para lá. Entendi."
@@ -1102,7 +1102,7 @@
     "message": "O navegador não concedeu acesso a este endereço."
   },
   "localServerHelp": {
-    "message": "Inicie o servidor, carregue um modelo PLaMo 3 Translate e teste a conexão. Se o servidor estiver fora, a página mantém o original. In LM Studio, set temperature 0 / greedy. Prompt parity is measured against mlx_lm.server and PLaMo's serve.py; LM Studio's BOS handling is unverified."
+    "message": "Envia o prompt do Sakutto a um servidor compatível com OpenAI neste computador, como mlx_lm.server ou LM Studio."
   },
   "localServerUnreachable": {
     "message": "Não foi possível alcançar o servidor local. Abra as Configurações e verifique se ele está em execução."
@@ -1117,10 +1117,10 @@
     "message": "O servidor local não pôde traduzir isto. Abra as Configurações. O texto original foi mantido."
   },
   "diagBackendLocalServer": {
-    "message": "Servidor local"
+    "message": "Servidor local (experimental)"
   },
   "privacyBodyLocalServer": {
-    "message": "Se você escolher um servidor local, o texto a traduzir é enviado só para o endereço definido (o padrão é este computador). O desenvolvedor não o recebe."
+    "message": "Experimental. Se você escolher um servidor local, o texto vai apenas ao endereço definido (por padrão, este computador). A precisão não é garantida, e a tradução pode diferir do mecanismo integrado, inclusive com erros. O desenvolvedor não recebe o texto."
   },
   "localServerLicenseNote": {
     "message": "Outros modelos que você carregar nesse servidor são da sua responsabilidade de licença. Os pesos do PLaMo continuam sob a PLaMo Community License."
@@ -1133,5 +1133,38 @@
   },
   "localServerTestOkUnlisted": {
     "message": "Connected. Completions work. The server listed no models — keep the model name you typed; it was not verified from /v1/models."
+  },
+  "localServerExperimental": {
+    "message": "Experimental: a precisão da tradução não é garantida. O resultado pode diferir do mecanismo integrado, inclusive com erros de tradução."
+  },
+  "localServerExperimentalConfirm": {
+    "message": "Este mecanismo é experimental. A precisão não é garantida. As traduções podem diferir do mecanismo integrado, inclusive com erros. Usar o servidor local mesmo assim?"
+  },
+  "localServerExperimentalUse": {
+    "message": "Usar servidor local"
+  },
+  "localServerExperimentalKeep": {
+    "message": "Manter o integrado"
+  },
+  "localServerDetails": {
+    "message": "Detalhes"
+  },
+  "localServerAdvanced": {
+    "message": "Avançado"
+  },
+  "localServerRemoteConfirmRequired": {
+    "message": "Este endereço não está neste computador. Marque a confirmação abaixo antes de testar a conexão."
+  },
+  "onboardingLocalServerNote": {
+    "message": "As configurações podem ativar um servidor local experimental. O texto da página vai apenas ao endereço definido, e a precisão não é garantida."
+  },
+  "localServerUrlHelp": {
+    "message": "mlx_lm.server usa a porta 8080 por padrão. O LM Studio usa a porta 1234."
+  },
+  "localServerModelHelp": {
+    "message": "O nome do modelo carregado nesse servidor."
+  },
+  "diagConcurrent": {
+    "message": "Solicitações simultâneas"
   }
 }
