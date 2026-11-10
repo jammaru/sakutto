@@ -2,6 +2,17 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
+## [1.2.1] - 2026-11-10
+
+### Improvements
+
+- After this update, per-site language overrides are reset once, and the global target language becomes the default on every site. You can set a language for one site again from the options site list. Changing the language in the popup now changes the global setting. (#58)
+
+### Bug Fixes
+
+- The target language no longer resets to English on each site when you had chosen another language globally, such as Japanese. (#58)
+- The model you selected, such as High accuracy, is remembered after a restart. If Standard had been deleted, the selection was forgotten and translation often did not start. (#58)
+
 ## [1.2.0] - 2026-11-10
 
 ### Features
