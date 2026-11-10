@@ -7,7 +7,8 @@ import { broadcastModelProgress, shouldWarmDownloadedModel } from '@/background/
 import { measureQuality } from '@/background/quality';
 import { TranslationBroker } from '@/background/translation-broker';
 import { grantOriginsFor } from '@/dom/sites';
-import { DEFAULT_MODEL_ID, getModel, type ModelId } from '@/engine/model/catalog';
+import { getModel, type ModelId } from '@/engine/model/catalog';
+import { normalizeSelectedModelId } from '@/engine/model/selection';
 import { hasLicenseConsent } from '@/shared/agreement';
 import type { EngineCapabilities } from '@/shared/capabilities';
 import { isEngineCapabilities } from '@/shared/capabilities';
@@ -183,7 +184,9 @@ export default defineBackground(() => {
     warmStarted = true;
     const settings = await ensureSettings();
     if (!hasLicenseConsent(settings)) return;
-    const status = await client.modelStatus(DEFAULT_MODEL_ID).catch(() => null);
+    const status = await client
+      .modelStatus(normalizeSelectedModelId(settings.selectedModelId))
+      .catch(() => null);
     if (!status || (status.state !== 'ready' && status.state !== 'loaded')) return;
     const warmed = await client.warmModel().catch(() => null);
     if (warmed) await broadcast({ type: 'model:progress', status: warmed });

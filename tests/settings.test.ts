@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID } from '@/engine/model/catalog';
 import { MAX_GLOSSARY_ENTRIES } from '@/shared/glossary';
 import { displayLanguage, resolveTargetLanguage } from '@/shared/languages';
 import { defaultShortcutEnabled } from '@/shared/shortcuts';
@@ -32,6 +33,7 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     composeTargetLanguage: null,
     composeInstantReplace: false,
     composePlacement: 'above',
+    selectedModelId: DEFAULT_MODEL_ID,
     ...overrides,
   };
 }
@@ -126,6 +128,38 @@ describe('settings defaults', () => {
         'en-US',
       ).composeTargetLanguage,
     ).toBeNull();
+  });
+
+  it('keeps a selected high-accuracy model and repairs a missing one', () => {
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'ja',
+        },
+        'ja-JP',
+      ).selectedModelId,
+    ).toBe(DEFAULT_MODEL_ID);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'ja',
+          selectedModelId: HIGH_QUALITY_MODEL_ID,
+        },
+        'ja-JP',
+      ).selectedModelId,
+    ).toBe(HIGH_QUALITY_MODEL_ID);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'ja',
+          selectedModelId: 'not-a-model',
+        },
+        'ja-JP',
+      ).selectedModelId,
+    ).toBe(DEFAULT_MODEL_ID);
   });
 
   it('defaults the compose icon on for a record that predates the setting', () => {

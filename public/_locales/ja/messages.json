@@ -644,6 +644,12 @@
   "modelDelete": {
     "message": "削除"
   },
+  "modelSelectionFallback": {
+    "message": "選んでいたモデルがこの端末にないため、インストール済みのモデルに切り替えました。"
+  },
+  "modelSelectionMissing": {
+    "message": "翻訳モデルがありません。ダウンロードすると翻訳できます。"
+  },
   "highQualityOffer": {
     "message": "高精度モデル（2B・約1.81GB）を試せます。速度は端末によって異なります。"
   },

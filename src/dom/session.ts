@@ -15,7 +15,12 @@ import { isPlainAltS } from '@/shared/shortcuts';
 import { PriorityQueue } from '@/engine/queue/priority-queue';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
 import { mergeGlossary } from '@/shared/glossary';
-import { chooseTargetLanguage, isTargetLanguage, type TargetLanguage } from '@/shared/languages';
+import {
+  chooseTargetLanguage,
+  effectivePageTarget,
+  isTargetLanguage,
+  type TargetLanguage,
+} from '@/shared/languages';
 import type { Formality, Settings, TranslationPace } from '@/shared/settings';
 import { canonicalPageLanguage, isAlreadyTargetLanguage, languageOf } from './detect';
 import {
@@ -191,8 +196,10 @@ export function preferencesFor(
 ): SessionPreferences {
   const glossary = mergeGlossary(settings.glossary, rule.glossary);
   return {
-    targetLanguage: rule.targetLanguage ?? settings.targetLanguage,
-    targetExplicit: rule.targetLanguage !== undefined,
+    targetLanguage: effectivePageTarget(settings.targetLanguage, rule.targetLanguage),
+    // The saved global language is the reader's choice. A site language is only an
+    // override when the site rule actually stores one, never because the page matched.
+    targetExplicit: true,
     form: settings.form,
     display: rule.display ?? settings.display,
     auto: rule.auto,
@@ -970,7 +977,6 @@ export class PageSession {
     if (next === this.prefs.targetLanguage) return;
     this.targetAdjusted = true;
     this.prefs = { ...this.prefs, targetLanguage: next, targetExplicit: true };
-    void this.onSitePatch?.({ targetLanguage: next });
   }
 
   private stopForNavigation(): void {

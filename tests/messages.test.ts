@@ -180,6 +180,32 @@ describe('message validation', () => {
         active: null,
       }),
     ).toBe(false);
+    expect(
+      isEngineStatus({
+        model: modelStatus,
+        backend: 'cpu-wasm',
+        tier: 'c8',
+        threads: 8,
+        parallel: 1,
+        plamoReady: true,
+        chromeSupported: true,
+        active: null,
+        modelFallback: true,
+      }),
+    ).toBe(true);
+    expect(
+      isEngineStatus({
+        model: modelStatus,
+        backend: 'cpu-wasm',
+        tier: 'c8',
+        threads: 8,
+        parallel: 1,
+        plamoReady: true,
+        chromeSupported: true,
+        active: null,
+        modelFallback: 'yes',
+      }),
+    ).toBe(false);
   });
 
   it('validates model commands and progress broadcasts', () => {

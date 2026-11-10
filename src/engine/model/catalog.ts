@@ -59,7 +59,9 @@ export const DEFAULT_MODEL_ID: ModelId = ZERO_EIGHT.id;
 
 export const HIGH_QUALITY_MODEL_ID: ModelId = TWO.id;
 
-const MODEL_IDS: ReadonlySet<string> = new Set<ModelId>([ZERO_EIGHT.id, TWO.id]);
+export const SELECTABLE_MODEL_IDS: readonly ModelId[] = [ZERO_EIGHT.id, TWO.id];
+
+const MODEL_IDS: ReadonlySet<string> = new Set<ModelId>(SELECTABLE_MODEL_IDS);
 
 export function isModelId(value: unknown): value is ModelId {
   return typeof value === 'string' && MODEL_IDS.has(value);

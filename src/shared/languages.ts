@@ -242,6 +242,18 @@ export function resolvePageTarget(
   return chooseTargetLanguage(pageLanguage, preferred, false);
 }
 
+/**
+ * The target a page should use. The saved global language is the default. A per-site
+ * language is used only when that site actually stores one.
+ */
+export function effectivePageTarget(
+  globalTarget: string,
+  siteTarget: string | undefined,
+): TargetLanguage {
+  if (isTargetLanguage(siteTarget)) return siteTarget;
+  return isTargetLanguage(globalTarget) ? globalTarget : DEFAULT_TARGET_LANGUAGE;
+}
+
 export function displayLanguage(tag: string, uiLanguage: string): string {
   const normalized = tag.trim();
   if (normalized.length === 0) return '';

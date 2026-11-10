@@ -12,6 +12,13 @@ import {
 } from '@/shared/settings';
 
 const SITE_RULES_KEY = 'siteRules';
+/**
+ * Site `targetLanguage` used to be written by the page-language heuristic, so a stored
+ * value is not a reliable "this site was chosen on purpose" flag. Version 1 drops those
+ * inferred languages once; a language set afterwards from the site list is kept.
+ */
+const SITE_TARGET_MIGRATION_KEY = 'siteTargetMigration';
+const SITE_TARGET_MIGRATION = 1;
 
 export type SiteAuto = 'ask' | 'always' | 'never';
 
@@ -67,9 +74,30 @@ export function normalizeSiteRules(value: unknown): Record<string, SiteRule> {
   return rules;
 }
 
+/** Drops per-site languages so the global target is the default again. */
+export function stripSiteTargetLanguages(
+  rules: Record<string, SiteRule>,
+): Record<string, SiteRule> {
+  const next: Record<string, SiteRule> = {};
+  for (const [host, rule] of Object.entries(rules)) {
+    const copy: SiteRule = { ...rule };
+    delete copy.targetLanguage;
+    next[host] = copy;
+  }
+  return next;
+}
+
 export async function loadSiteRules(): Promise<Record<string, SiteRule>> {
-  const stored = await browser.storage.local.get(SITE_RULES_KEY);
-  return normalizeSiteRules(stored[SITE_RULES_KEY]);
+  const stored = await browser.storage.local.get([SITE_RULES_KEY, SITE_TARGET_MIGRATION_KEY]);
+  const rules = normalizeSiteRules(stored[SITE_RULES_KEY]);
+  if (stored[SITE_TARGET_MIGRATION_KEY] === SITE_TARGET_MIGRATION) return rules;
+
+  const stripped = stripSiteTargetLanguages(rules);
+  await browser.storage.local.set({
+    [SITE_RULES_KEY]: stripped,
+    [SITE_TARGET_MIGRATION_KEY]: SITE_TARGET_MIGRATION,
+  });
+  return stripped;
 }
 
 export async function loadSiteRule(host: string): Promise<SiteRule> {

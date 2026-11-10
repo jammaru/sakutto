@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { grantOriginsFor, isSiteHost, normalizeSiteRule, siteAccessOrigins } from '@/dom/sites';
+import {
+  grantOriginsFor,
+  isSiteHost,
+  normalizeSiteRule,
+  siteAccessOrigins,
+  stripSiteTargetLanguages,
+} from '@/dom/sites';
 
 describe('site access origins', () => {
   it('asks for both schemes on the open host', () => {
@@ -43,5 +49,17 @@ describe('site access origins', () => {
     expect(
       normalizeSiteRule('discord.com', { auto: 'ask', composePlacement: 'side' })?.composePlacement,
     ).toBeUndefined();
+  });
+
+  it('drops inferred per-site languages so the global target is the default again', () => {
+    expect(
+      stripSiteTargetLanguages({
+        'news.example': { host: 'news.example', auto: 'always', targetLanguage: 'en' },
+        'docs.example': { host: 'docs.example', auto: 'ask', display: 'bilingual' },
+      }),
+    ).toEqual({
+      'news.example': { host: 'news.example', auto: 'always' },
+      'docs.example': { host: 'docs.example', auto: 'ask', display: 'bilingual' },
+    });
   });
 });

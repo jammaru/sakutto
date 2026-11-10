@@ -644,6 +644,12 @@
   "modelDelete": {
     "message": "Delete"
   },
+  "modelSelectionFallback": {
+    "message": "The selected model is not on this device, so Sakutto switched to an installed one."
+  },
+  "modelSelectionMissing": {
+    "message": "No translation model is installed. Download one to translate."
+  },
   "highQualityOffer": {
     "message": "You can try the higher-accuracy model (2B, about 1.81 GB). Speed depends on this device."
   },

@@ -28,6 +28,8 @@ export interface EngineStatus {
   plamoReady: boolean;
   chromeSupported: boolean;
   active: EngineKind | null;
+  /** True when the stored model was missing and another installed model is in use. */
+  modelFallback?: boolean;
 }
 
 const MODEL_STATES: ReadonlySet<string> = new Set<ModelState>([
@@ -103,5 +105,6 @@ export function isEngineStatus(value: unknown): value is EngineStatus {
   ) {
     return false;
   }
+  if (record.modelFallback !== undefined && typeof record.modelFallback !== 'boolean') return false;
   return true;
 }
