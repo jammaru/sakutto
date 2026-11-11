@@ -2,6 +2,18 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
+## [1.3.0] - 2026-11-11
+
+### Features
+
+- Experimental: from Settings, you can send translation to a local OpenAI-compatible server on this computer, such as an MLX server on a Mac or LM Studio. Only PLaMo models are supported. The built-in engine stays the default. Accuracy is not guaranteed. (#60)
+
+### Bug Fixes
+
+- On some GPUs, if GPU translation output becomes garbled, Sakutto now detects it and redoes that part on the CPU instead of showing broken text. (#63)
+- Switching models now drops the previous one, so translation uses the model you just chose. (#64)
+- The model you selected is now saved, so the choice is still there after a restart. (#62)
+
 ## [1.2.1] - 2026-11-10
 
 ### Improvements
