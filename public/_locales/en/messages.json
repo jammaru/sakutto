@@ -1241,5 +1241,11 @@
   },
   "videoCaptionsCustomHostDenied": {
     "message": "Access to that site was not granted."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "Reset position"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "Press and hold a translated caption to move it. YouTube and X remember their own spots, including fullscreen and theater. This puts the caption back at the bottom of the player."
   }
 }

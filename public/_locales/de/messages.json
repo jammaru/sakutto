@@ -1241,5 +1241,11 @@
   },
   "videoCaptionsCustomHostDenied": {
     "message": "Der Zugriff auf diese Website wurde nicht gewährt."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "Position zurücksetzen"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "Halte eine übersetzte Untertitelzeile gedrückt, um sie zu verschieben. YouTube und X merken sich jeweils die eigene Position, auch im Vollbild und im Theater-Modus. Diese Schaltfläche setzt sie wieder an den unteren Rand des Players."
   }
 }

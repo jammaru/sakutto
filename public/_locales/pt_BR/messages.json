@@ -1241,5 +1241,11 @@
   },
   "videoCaptionsCustomHostDenied": {
     "message": "O acesso a esse site não foi concedido."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "Redefinir posição"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "Pressione e segure uma legenda traduzida para movê-la. YouTube e X lembram cada um o próprio lugar, inclusive em tela cheia e no modo cinema. Este botão a devolve à parte inferior do player."
   }
 }

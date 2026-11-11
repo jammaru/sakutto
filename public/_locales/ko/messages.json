@@ -1241,5 +1241,11 @@
   },
   "videoCaptionsCustomHostDenied": {
     "message": "해당 사이트 접근이 허용되지 않았습니다."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "위치 재설정"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "번역 자막을 길게 누르면 플레이어 안에서 위치를 옮길 수 있습니다. YouTube와 X는 각각 위치를 기억하며 전체 화면과 시어터에서도 유지됩니다. 이 버튼은 자막을 플레이어 하단으로 되돌립니다."
   }
 }

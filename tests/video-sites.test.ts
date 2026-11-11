@@ -47,6 +47,7 @@ const {
   captionOriginsOverlap,
   clearCaptionEnableIntent,
   isCaptionAutoHost,
+  videoCaptionPositionSite,
   markCaptionEnableIntent,
   resolveCaptionToggle,
   settleCaptionEnableIntent,
@@ -121,6 +122,10 @@ describe('caption auto-run gating', () => {
     expect(origins.some((origin) => origin.includes('twitter.com'))).toBe(true);
     expect(origins.join(' ')).not.toContain('twimg.com');
     expect(isCaptionAutoHost('music.youtube.com')).toBe(true);
+    expect(videoCaptionPositionSite('www.youtube.com')).toBe('youtube');
+    expect(videoCaptionPositionSite('x.com')).toBe('x');
+    expect(videoCaptionPositionSite('twitter.com')).toBe('x');
+    expect(videoCaptionPositionSite('example.com')).toBe('other');
     expect(captionOriginsOverlap(['https://www.youtube.com/*'])).toBe(true);
     expect(captionOriginsOverlap(['https://example.com/*'])).toBe(false);
   });

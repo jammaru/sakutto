@@ -224,6 +224,77 @@ test.describe('video captions', () => {
     }
   });
 
+  test('lets a press-and-hold drag the caption and reset puts it back', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      const page = await extension.context.newPage();
+      await page.goto(`${FIXTURE_ORIGIN}/youtube-captions.html`);
+      await prepareVideo(page);
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      const host = page.locator('sakutto-captions');
+      await expect(host).toHaveAttribute('data-sakutto-caption', new RegExp(MARKER));
+      await expect(host).toHaveCSS('pointer-events', 'none');
+      const start = await host.evaluate((element) => ({
+        left: (element as HTMLElement).style.left,
+        top: (element as HTMLElement).style.top,
+        transform: (element as HTMLElement).style.transform,
+      }));
+      expect(start.left).toBe('50%');
+      expect(start.top).toBe('auto');
+      expect(start.transform).toBe('translateX(-50%)');
+
+      const box = await host.boundingBox();
+      if (!box) throw new Error('caption overlay had no box');
+      const fromX = box.x + box.width / 2;
+      const fromY = box.y + box.height / 2;
+      await page.mouse.move(fromX, fromY);
+      await page.mouse.down();
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      await page.mouse.up();
+      await expect(host).not.toHaveAttribute('data-sakutto-dragging', '1');
+      await expect
+        .poll(async () => host.evaluate((element) => (element as HTMLElement).style.transform))
+        .toBe('translateX(-50%)');
+
+      await page.mouse.move(fromX, fromY);
+      await page.mouse.down();
+      await new Promise((resolve) => setTimeout(resolve, 550));
+      await expect(host).toHaveAttribute('data-sakutto-dragging', '1');
+      await page.mouse.move(fromX, fromY - 90, { steps: 8 });
+      await page.mouse.up();
+      await expect(host).not.toHaveAttribute('data-sakutto-dragging', '1');
+      const moved = await host.evaluate((element) => ({
+        left: (element as HTMLElement).style.left,
+        top: (element as HTMLElement).style.top,
+        transform: (element as HTMLElement).style.transform,
+      }));
+      expect(moved.transform).toBe('translate(-50%, -50%)');
+      expect(moved.top).not.toBe('auto');
+      expect(Number.parseFloat(moved.top)).toBeLessThan(50);
+
+      const options = await extension.context.newPage();
+      await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      const toggle = options.locator('[data-sakutto="video-captions"]');
+      await expect(toggle).toBeVisible();
+      await expect(toggle).toBeChecked();
+      await options.locator('[data-sakutto="video-captions-position-reset"]').click();
+      await expect
+        .poll(async () => host.evaluate((element) => (element as HTMLElement).style.transform))
+        .toBe('translateX(-50%)');
+      await expect
+        .poll(async () => host.evaluate((element) => (element as HTMLElement).style.left))
+        .toBe('50%');
+      await expect
+        .poll(async () => host.evaluate((element) => (element as HTMLElement).style.top))
+        .toBe('auto');
+      await options.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
   test('translates a YouTube-style caption track from the player response', async () => {
     const extension = await loadExtension('en-US');
     try {
@@ -652,6 +723,10 @@ test.describe('video captions', () => {
             .evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize)),
         )
         .toBeLessThan(atDefault - 4);
+      await expect(options.locator('[data-sakutto="video-captions-position-reset"]')).toBeVisible();
+      await expect(options.locator('[data-sakutto="video-captions-position-reset"]')).toHaveText(
+        'Reset position',
+      );
       await options.locator('[data-sakutto="caption-custom-host"]').fill('file://example.com');
       await options.locator('[data-sakutto="caption-custom-host-add"]').click();
       await expect(options.locator('[data-sakutto="caption-custom-host-invalid"]')).toBeVisible();

@@ -3,6 +3,7 @@ import {
   VIDEO_CAPTION_SIZE_MAX,
   VIDEO_CAPTION_SIZE_MIN,
   type DisplayMode,
+  type VideoCaptionPosition,
 } from '@/shared/settings';
 
 export interface CaptionOverlayLabels {
@@ -26,6 +27,14 @@ export const CAPTION_TOGGLE_HIDE_MS = 2_000;
 
 const TOGGLE_EVENTS = ['pointerdown', 'mousedown', 'click', 'pointerup', 'mouseup'] as const;
 const HOVER_EVENTS = ['pointermove', 'pointerdown', 'mousemove'] as const;
+const DRAG_EVENTS = ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'click'] as const;
+
+/** Press-and-hold before the caption box can be moved. Short clicks still reach the player. */
+export const CAPTION_DRAG_HOLD_MS = 400;
+/** Pointer travel before the hold that cancels pickup (the reader is interacting with the player). */
+export const CAPTION_DRAG_CANCEL_PX = 8;
+/** Keep the overlay this far from player edges and above the control bar. */
+export const CAPTION_POSITION_MARGIN_PX = 8;
 
 const STYLE = `
 :host { all: initial; overflow: visible; }
@@ -37,7 +46,18 @@ const STYLE = `
   gap: 6px;
   justify-items: center;
   text-align: center;
+  user-select: none;
   font: var(--sakutto-caption-size, 22px)/1.35 "YouTube Noto", "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+}
+:host([data-sakutto-dragging]) {
+  touch-action: none;
+}
+:host([data-sakutto-dragging]) .wrap {
+  transform: scale(1.04);
+  filter: drop-shadow(0 8px 18px rgb(0 0 0 / 42%));
+}
+:host([data-sakutto-dragging]) .line {
+  box-shadow: 0 0 0 2px rgb(191 219 254 / 80%);
 }
 .line {
   box-sizing: border-box;
@@ -135,6 +155,57 @@ export function captionOverlayPlacement(
   return {
     width: Math.max(220, rect.width * 0.94),
     bottom: Math.max(0, padding),
+  };
+}
+
+export function pointHitsRect(
+  x: number,
+  y: number,
+  rect: Pick<DOMRect, 'left' | 'right' | 'top' | 'bottom' | 'width' | 'height'>,
+): boolean {
+  if (rect.width <= 0 || rect.height <= 0) return false;
+  return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}
+
+export function captionPercentFromClient(
+  clientX: number,
+  clientY: number,
+  player: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>,
+): VideoCaptionPosition {
+  const width = Math.max(1, player.width);
+  const height = Math.max(1, player.height);
+  return {
+    x: ((clientX - player.left) / width) * 100,
+    y: ((clientY - player.top) / height) * 100,
+  };
+}
+
+/**
+ * Clamp an overlay centre so the box stays inside the player and above chrome.
+ * Does not apply a minimum font-size; this is layout only.
+ */
+export function clampCaptionOverlayPercent(
+  x: number,
+  y: number,
+  overlay: { width: number; height: number },
+  player: { width: number; height: number },
+  chromeInset: number,
+): VideoCaptionPosition {
+  const width = Math.max(1, player.width);
+  const height = Math.max(1, player.height);
+  const inset = Math.max(0, chromeInset);
+  const margin = CAPTION_POSITION_MARGIN_PX;
+  const usableWidth = Math.max(0, width - margin * 2);
+  const usableHeight = Math.max(0, height - inset - margin * 2);
+  const halfW = Math.min(Math.max(0, overlay.width), usableWidth) / 2;
+  const halfH = Math.min(Math.max(0, overlay.height), usableHeight) / 2;
+  const minX = ((margin + halfW) / width) * 100;
+  const maxX = ((width - margin - halfW) / width) * 100;
+  const minY = ((margin + halfH) / height) * 100;
+  const maxY = ((height - inset - margin - halfH) / height) * 100;
+  return {
+    x: Math.min(Math.max(minX, maxX), Math.max(Math.min(minX, maxX), x)),
+    y: Math.min(Math.max(minY, maxY), Math.max(Math.min(minY, maxY), y)),
   };
 }
 
@@ -298,7 +369,17 @@ export class CaptionOverlay {
   private controlsVisible = false;
   private hideToggleTimer: number | null = null;
   private lastBottomInset = 18;
+  private lastPlayerSize = { width: 0, height: 0 };
   private toggleLabel = '';
+  private position: VideoCaptionPosition | null = null;
+  private onPositionChange: (point: VideoCaptionPosition) => void = () => undefined;
+  private dragBound = false;
+  private holdTimer: number | null = null;
+  private holdPointerId: number | null = null;
+  private holdOrigin = { x: 0, y: 0 };
+  private dragging = false;
+  private grabOffset = { x: 0, y: 0 };
+  private suppressClick = false;
 
   constructor(doc: Document, labels: CaptionOverlayLabels) {
     this.labels = labels;
@@ -340,6 +421,15 @@ export class CaptionOverlay {
     this.onDisplayToggle = handler;
   }
 
+  setOnPositionChange(handler: (point: VideoCaptionPosition) => void): void {
+    this.onPositionChange = handler;
+  }
+
+  setPosition(point: VideoCaptionPosition | null): void {
+    if (this.dragging) return;
+    this.position = point;
+  }
+
   setToggleEnabled(enabled: boolean): void {
     this.toggleEnabled = enabled;
     this.syncToggle();
@@ -357,9 +447,13 @@ export class CaptionOverlay {
     if (this.toggle.parentElement !== root) root.append(this.toggle);
     this.bindPlayerHover(root);
     this.bindToggleCapture();
+    this.bindDragCapture();
   }
 
   detach(): void {
+    this.cancelHold();
+    this.endDrag(false);
+    this.unbindDragCapture();
     this.unbindToggleCapture();
     this.unbindPlayerHover();
     this.clearHideToggleTimer();
@@ -371,17 +465,18 @@ export class CaptionOverlay {
     rect: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>,
     fontPx?: number,
     bottomInset = 18,
+    position?: VideoCaptionPosition | null,
   ): void {
     const box = captionOverlayPlacement(rect, bottomInset);
     this.lastBottomInset = box.bottom;
+    this.lastPlayerSize = { width: rect.width, height: rect.height };
+    if (!this.dragging && position !== undefined) this.position = position;
     this.host.style.position = 'absolute';
-    this.host.style.left = '50%';
     this.host.style.right = 'auto';
-    this.host.style.top = 'auto';
-    this.host.style.bottom = `${box.bottom}px`;
-    this.host.style.width = `${box.width}px`;
-    this.host.style.transform = 'translateX(-50%)';
+    this.host.style.maxWidth = `${box.width}px`;
+    this.host.style.width = 'max-content';
     this.host.style.overflow = 'visible';
+    this.applyPosition(box);
     const size = fontPx ?? captionOverlayFontPx(rect.height);
     this.host.style.setProperty('--sakutto-caption-size', `${size}px`);
     this.toggle.style.position = 'absolute';
@@ -422,6 +517,8 @@ export class CaptionOverlay {
   }
 
   hide(): void {
+    this.cancelHold();
+    this.endDrag(false);
     this.overlayActive = false;
     this.host.hidden = true;
     this.originalLine.textContent = '';
@@ -554,4 +651,238 @@ export class CaptionOverlay {
       clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
     );
   }
+
+  private applyPosition(box: { width: number; bottom: number }): void {
+    if (this.position) {
+      const overlay = {
+        width: Math.max(this.host.offsetWidth, 40),
+        height: Math.max(this.host.offsetHeight, 24),
+      };
+      const clamped = clampCaptionOverlayPercent(
+        this.position.x,
+        this.position.y,
+        overlay,
+        this.lastPlayerSize,
+        box.bottom,
+      );
+      this.host.style.left = `${String(clamped.x)}%`;
+      this.host.style.top = `${String(clamped.y)}%`;
+      this.host.style.bottom = 'auto';
+      this.host.style.transform = 'translate(-50%, -50%)';
+      return;
+    }
+    this.host.style.left = '50%';
+    this.host.style.top = 'auto';
+    this.host.style.bottom = `${box.bottom}px`;
+    this.host.style.transform = 'translateX(-50%)';
+  }
+
+  private bindDragCapture(): void {
+    if (this.dragBound) return;
+    this.dragBound = true;
+    for (const type of DRAG_EVENTS) {
+      this.captureDoc.addEventListener(type, this.onDragCapture, {
+        capture: true,
+        passive: false,
+      });
+    }
+    this.captureDoc.addEventListener('touchmove', this.onDragTouchMove, {
+      capture: true,
+      passive: false,
+    });
+  }
+
+  private unbindDragCapture(): void {
+    if (!this.dragBound) return;
+    this.dragBound = false;
+    for (const type of DRAG_EVENTS) {
+      this.captureDoc.removeEventListener(type, this.onDragCapture, true);
+    }
+    this.captureDoc.removeEventListener('touchmove', this.onDragTouchMove, true);
+  }
+
+  private onDragTouchMove = (event: Event): void => {
+    if (!this.dragging) return;
+    event.preventDefault();
+  };
+
+  private onDragCapture = (event: Event): void => {
+    if (this.eventHitsToggle(event)) return;
+    const type = event.type;
+    if (type === 'click') {
+      if (!this.suppressClick) return;
+      this.swallow(event);
+      this.suppressClick = false;
+      return;
+    }
+    const point = this.eventPoint(event);
+    if (!point) return;
+    if (type === 'pointerdown') {
+      this.onDragPointerDown(point);
+      return;
+    }
+    if (type === 'pointermove') {
+      this.onDragPointerMove(event, point);
+      return;
+    }
+    if (type === 'pointerup' || type === 'pointercancel') {
+      this.onDragPointerUp(event, point);
+    }
+  };
+
+  private onDragPointerDown(point: {
+    x: number;
+    y: number;
+    pointerId: number;
+    button: number;
+    isPrimary: boolean;
+  }): void {
+    if (this.dragging) return;
+    if (!point.isPrimary || point.button !== 0) return;
+    if (!this.overlayActive || this.host.hidden) return;
+    if (!this.eventHitsCaption(point.x, point.y)) return;
+    this.cancelHold();
+    this.holdPointerId = point.pointerId;
+    this.holdOrigin = { x: point.x, y: point.y };
+    const view = this.captureDoc.defaultView;
+    this.holdTimer =
+      view?.setTimeout(() => {
+        this.holdTimer = null;
+        if (this.holdPointerId !== point.pointerId) return;
+        this.beginDrag(point);
+      }, CAPTION_DRAG_HOLD_MS) ?? null;
+  }
+
+  private onDragPointerMove(
+    event: Event,
+    point: { x: number; y: number; pointerId: number },
+  ): void {
+    if (this.holdPointerId !== null && point.pointerId === this.holdPointerId && !this.dragging) {
+      const dx = point.x - this.holdOrigin.x;
+      const dy = point.y - this.holdOrigin.y;
+      if (dx * dx + dy * dy > CAPTION_DRAG_CANCEL_PX * CAPTION_DRAG_CANCEL_PX) {
+        this.cancelHold();
+      }
+      return;
+    }
+    if (!this.dragging || point.pointerId !== this.holdPointerId) return;
+    this.swallow(event);
+    this.moveDrag(point.x, point.y);
+  }
+
+  private onDragPointerUp(event: Event, point: { x: number; y: number; pointerId: number }): void {
+    if (point.pointerId !== this.holdPointerId) return;
+    if (this.dragging) {
+      this.swallow(event);
+      this.suppressClick = true;
+      this.endDrag(true);
+      return;
+    }
+    this.cancelHold();
+  }
+
+  private beginDrag(point: { x: number; y: number }): void {
+    if (this.dragging) return;
+    const overlay = this.host.getBoundingClientRect();
+    this.grabOffset = {
+      x: point.x - (overlay.left + overlay.width / 2),
+      y: point.y - (overlay.top + overlay.height / 2),
+    };
+    this.dragging = true;
+    this.host.setAttribute('data-sakutto-dragging', '1');
+    this.moveDrag(point.x, point.y);
+  }
+
+  private moveDrag(clientX: number, clientY: number): void {
+    const player = this.playerClientRect();
+    if (!player || player.width <= 0 || player.height <= 0) return;
+    const centreX = clientX - this.grabOffset.x;
+    const centreY = clientY - this.grabOffset.y;
+    const raw = captionPercentFromClient(centreX, centreY, player);
+    const overlay = {
+      width: Math.max(this.host.offsetWidth, overlayBoxWidth(this.host)),
+      height: Math.max(this.host.offsetHeight, overlayBoxHeight(this.host)),
+    };
+    this.position = clampCaptionOverlayPercent(
+      raw.x,
+      raw.y,
+      overlay,
+      { width: player.width, height: player.height },
+      this.lastBottomInset,
+    );
+    this.applyPosition({ width: 0, bottom: this.lastBottomInset });
+  }
+
+  private endDrag(commit: boolean): void {
+    const moved = this.dragging;
+    this.dragging = false;
+    this.host.removeAttribute('data-sakutto-dragging');
+    this.holdPointerId = null;
+    this.cancelHold();
+    if (!moved || !commit || !this.position) return;
+    this.onPositionChange(this.position);
+  }
+
+  private cancelHold(): void {
+    if (this.holdTimer !== null) {
+      this.captureDoc.defaultView?.clearTimeout(this.holdTimer);
+      this.holdTimer = null;
+    }
+    if (!this.dragging) this.holdPointerId = null;
+  }
+
+  private eventHitsCaption(x: number, y: number): boolean {
+    if (this.host.hidden) return false;
+    const wrap = this.shadow()?.querySelector('.wrap');
+    if (wrap instanceof HTMLElement && pointHitsRect(x, y, wrap.getBoundingClientRect())) {
+      return true;
+    }
+    for (const node of this.captionLineElements()) {
+      if (pointHitsRect(x, y, node.getBoundingClientRect())) return true;
+    }
+    return false;
+  }
+
+  private captionLineElements(): HTMLElement[] {
+    const lines: HTMLElement[] = [];
+    if (!this.originalLine.hidden) lines.push(this.originalLine);
+    if (!this.translatedLine.hidden) lines.push(this.translatedLine);
+    return lines;
+  }
+
+  private playerClientRect(): DOMRect | null {
+    const parent = this.host.parentElement;
+    if (!parent) return null;
+    return parent.getBoundingClientRect();
+  }
+
+  private eventPoint(
+    event: Event,
+  ): { x: number; y: number; pointerId: number; button: number; isPrimary: boolean } | null {
+    if (!('clientX' in event) || !('clientY' in event)) return null;
+    const pointer = event as PointerEvent;
+    const x = pointer.clientX;
+    const y = pointer.clientY;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    const pointerId = typeof pointer.pointerId === 'number' ? pointer.pointerId : 1;
+    const button = typeof pointer.button === 'number' ? pointer.button : 0;
+    const isPrimary = pointer.isPrimary !== false;
+    return { x, y, pointerId, button, isPrimary };
+  }
+
+  private swallow(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+  }
+}
+
+function overlayBoxWidth(host: HTMLElement): number {
+  const width = host.getBoundingClientRect().width;
+  return width > 0 ? width : 40;
+}
+
+function overlayBoxHeight(host: HTMLElement): number {
+  const height = host.getBoundingClientRect().height;
+  return height > 0 ? height : 24;
 }

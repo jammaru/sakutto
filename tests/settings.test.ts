@@ -12,6 +12,7 @@ import {
   createDefaultSettings,
   isTierPreference,
   normalizeVideoCaptionSize,
+  normalizeVideoCaptionPositions,
   needsLicenseReconsent,
   normalizeSettings,
   type Settings,
@@ -47,6 +48,7 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     videoCaptionDisplay: 'bilingual',
     videoCaptionSize: 80,
     videoCaptionOriginalToggle: true,
+    videoCaptionPositions: {},
     captionCustomHosts: [],
     ...overrides,
   };
@@ -221,6 +223,7 @@ describe('settings defaults', () => {
     expect(settings.videoCaptionDisplay).toBe('bilingual');
     expect(settings.videoCaptionSize).toBe(80);
     expect(settings.videoCaptionOriginalToggle).toBe(true);
+    expect(settings.videoCaptionPositions).toEqual({});
     expect(settings.captionCustomHosts).toEqual([]);
     expect(
       normalizeSettings(
@@ -263,6 +266,39 @@ describe('settings defaults', () => {
       videoCaptionSize: 91,
       captionCustomHosts: ['example.com', '*.ok.dev'],
     });
+  });
+
+  it('keeps caption overlay positions per site without bumping the schema', () => {
+    expect(SETTINGS_SCHEMA_VERSION).toBe(1);
+    expect(normalizeVideoCaptionPositions(undefined)).toEqual({});
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          videoCaptionPositions: {
+            youtube: { x: 25.44, y: 40.12 },
+            x: { x: -10, y: 180 },
+            other: { x: 'nope' },
+            vimeo: { x: 10, y: 10 },
+          },
+        },
+        'en-US',
+      ).videoCaptionPositions,
+    ).toEqual({
+      youtube: { x: 25.4, y: 40.1 },
+      x: { x: 0, y: 100 },
+    });
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          videoCaptionPositions: {},
+        },
+        'en-US',
+      ).videoCaptionPositions,
+    ).toEqual({});
   });
 
   it('defaults the on-player original toggle on for a record that predates the setting', () => {

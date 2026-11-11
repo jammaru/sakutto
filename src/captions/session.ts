@@ -2,7 +2,12 @@ import { pageHost } from '@/dom/sites';
 import type { PageEngine } from '@/dom/session';
 import type { GlossaryEntry } from '@/engine/types';
 import { canonicalLanguage } from '@/shared/languages';
-import { VIDEO_CAPTION_SIZE_DEFAULT, type DisplayMode, type Formality } from '@/shared/settings';
+import {
+  VIDEO_CAPTION_SIZE_DEFAULT,
+  type DisplayMode,
+  type Formality,
+  type VideoCaptionPosition,
+} from '@/shared/settings';
 import {
   cueAtTime,
   cuesFromPlayhead,
@@ -82,6 +87,7 @@ export interface CaptionSessionPreferences {
   tier: 'g' | 'c8' | 'c4' | 'c1' | null;
   size?: number | undefined;
   originalToggle?: boolean | undefined;
+  position?: VideoCaptionPosition | null | undefined;
 }
 
 export interface CaptionSessionOptions {
@@ -92,6 +98,7 @@ export interface CaptionSessionOptions {
   readPlayerResponse?: () => Promise<unknown>;
   now?: () => number;
   onDisplayToggle?: () => void;
+  onPositionChange?: (point: VideoCaptionPosition) => void;
 }
 
 interface LoadedTrack {
@@ -183,7 +190,9 @@ export class VideoCaptionSession {
     this.translator = new CaptionTranslator(options.engine);
     this.overlay = new CaptionOverlay(doc, options.labels);
     this.overlay.setOnDisplayToggle(() => options.onDisplayToggle?.());
+    this.overlay.setOnPositionChange((point) => options.onPositionChange?.(point));
     this.overlay.setToggleEnabled(this.prefs.originalToggle !== false);
+    this.overlay.setPosition(this.prefs.position ?? null);
   }
 
   setPreferences(preferences: CaptionSessionPreferences): void {
@@ -195,8 +204,10 @@ export class VideoCaptionSession {
       (preferences.size ?? VIDEO_CAPTION_SIZE_DEFAULT);
     const toggleChanged =
       (this.prefs.originalToggle !== false) !== (preferences.originalToggle !== false);
+    const positionChanged = !sameCaptionPosition(this.prefs.position, preferences.position);
     this.prefs = { ...preferences, tier: this.prefs.tier ?? preferences.tier };
     this.overlay.setToggleEnabled(this.prefs.originalToggle !== false);
+    this.overlay.setPosition(this.prefs.position ?? null);
     if (!preferences.enabled) {
       this.stop();
       return;
@@ -211,7 +222,7 @@ export class VideoCaptionSession {
       void this.sync(true);
       return;
     }
-    if (displayChanged || sizeChanged) {
+    if (displayChanged || sizeChanged || positionChanged) {
       this.place();
       this.repaintHold();
     }
@@ -1048,6 +1059,7 @@ export class VideoCaptionSession {
         this.prefs.size ?? VIDEO_CAPTION_SIZE_DEFAULT,
       ),
       captionChromeInset(root),
+      this.prefs.position ?? null,
     );
     this.releasePlayerMutations();
   }
@@ -1264,6 +1276,15 @@ function loadHtml5Track(
     return { cues: [], language: selected.language || undefined, restoreModes };
   }
   return { cues, language: selected.language || undefined, restoreModes };
+}
+
+function sameCaptionPosition(
+  left: VideoCaptionPosition | null | undefined,
+  right: VideoCaptionPosition | null | undefined,
+): boolean {
+  if (!left && !right) return true;
+  if (!left || !right) return false;
+  return left.x === right.x && left.y === right.y;
 }
 
 function uniqueUrls(urls: readonly string[]): string[] {

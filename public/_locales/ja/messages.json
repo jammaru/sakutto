@@ -1241,5 +1241,11 @@
   },
   "videoCaptionsCustomHostDenied": {
     "message": "そのサイトへのアクセスが許可されませんでした。"
+  },
+  "videoCaptionsPositionReset": {
+    "message": "位置をリセット"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "翻訳字幕を長押しすると、プレーヤー内で場所を変えられます。YouTube と X はそれぞれ位置を覚え、全画面やシアターでも保ちます。このボタンで下部の元の位置に戻します。"
   }
 }

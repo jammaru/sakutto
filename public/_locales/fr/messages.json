@@ -1241,5 +1241,11 @@
   },
   "videoCaptionsCustomHostDenied": {
     "message": "L’accès à ce site n’a pas été accordé."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "Réinitialiser la position"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "Maintenez une légende traduite pour la déplacer. YouTube et X mémorisent chacun leur emplacement, y compris en plein écran et en mode cinéma. Ce bouton la replace en bas du lecteur."
   }
 }

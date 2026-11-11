@@ -223,9 +223,12 @@ A typical caption is 8–15 English words (~12–25 output tokens in Japanese).
 - Overlay (`<sakutto-captions>`, closed shadow root) sits on the player, not in page prose.
   `<video>` stays in the frozen selector so page translation does not rewrite the media
   subtree. The host is a child of `#movie_player` (not `.html5-video-container`) so it
-  stacks above `.ytp-chrome-bottom`. Caption lines keep `pointer-events: none`; the
-  original-line toggle lives in the light DOM (slotted) at a 32px target and is armed by a
-  document capture listener so YouTube's player click handler cannot swallow it.
+  stacks above `.ytp-chrome-bottom`. Caption lines keep `pointer-events: none` so a normal
+  click still plays or pauses. A 400 ms press-and-hold on the caption box picks it up;
+  dragging stores the centre as a percent of the player (YouTube / X separately) and
+  clamps above the control bar. Settings has **位置をリセット**. The original-line toggle
+  lives in the light DOM at a 32px target and is armed by a document capture listener so
+  YouTube's player click handler cannot swallow it.
 - **Bilingual is the default** (`videoCaptionDisplay`). Side-by-side is what people use to
   study and to check accuracy. Replace mode is a setting and a control on the overlay.
 - The overlay shows **finalized units only** (original + translation together). It does

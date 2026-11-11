@@ -287,6 +287,17 @@
       <p class="muted help">{t('videoCaptionsSizeHelp')}</p>
     </div>
 
+    <div class="field caption-position" data-sakutto="video-captions-position">
+      <button
+        type="button"
+        data-sakutto="video-captions-position-reset"
+        onclick={() => onChange({ videoCaptionPositions: {} })}
+      >
+        {t('videoCaptionsPositionReset')}
+      </button>
+      <p class="muted help">{t('videoCaptionsPositionHelp')}</p>
+    </div>
+
     <div class="field custom-hosts" data-sakutto="caption-custom-hosts">
       <span>{t('videoCaptionsCustomSitesLabel')}</span>
       <p class="muted help">{t('videoCaptionsCustomSitesHelp')}</p>
@@ -441,6 +452,16 @@
 
   input[type='range'] {
     width: 100%;
+  }
+
+  .caption-position button {
+    justify-self: start;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
   }
 
   .custom-host-row {

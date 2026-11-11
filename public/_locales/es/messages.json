@@ -1241,5 +1241,11 @@
   },
   "videoCaptionsCustomHostDenied": {
     "message": "No se concedió acceso a ese sitio."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "Restablecer posición"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "Mantén pulsado un subtítulo traducido para moverlo. YouTube y X recuerdan cada uno su sitio, también a pantalla completa y en cine. Este botón lo devuelve a la parte inferior del reproductor."
   }
 }

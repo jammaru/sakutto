@@ -1241,5 +1241,11 @@
   },
   "videoCaptionsCustomHostDenied": {
     "message": "Akses ke situs itu tidak diberikan."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "Atur ulang posisi"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "Tekan lama teks terjemahan untuk memindahkannya. YouTube dan X masing-masing mengingat posisinya, termasuk layar penuh dan mode teater. Tombol ini mengembalikannya ke bagian bawah pemutar."
   }
 }

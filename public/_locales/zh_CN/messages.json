@@ -1241,5 +1241,11 @@
   },
   "videoCaptionsCustomHostDenied": {
     "message": "未授予对该网站的访问权限。"
+  },
+  "videoCaptionsPositionReset": {
+    "message": "重置位置"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "长按译文字幕即可在播放器内拖动。YouTube 和 X 会分别记住位置，全屏和剧场模式也会保持。此按钮会把字幕放回播放器底部。"
   }
 }

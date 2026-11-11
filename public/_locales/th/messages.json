@@ -1241,5 +1241,11 @@
   },
   "videoCaptionsCustomHostDenied": {
     "message": "ไม่ได้อนุญาตให้เข้าถึงไซต์นั้น"
+  },
+  "videoCaptionsPositionReset": {
+    "message": "รีเซ็ตตำแหน่ง"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "กดค้างคำบรรยายที่แปลแล้วเพื่อย้ายได้ YouTube และ X จำตำแหน่งของตัวเอง รวมทั้งโหมดเต็มจอและโรงภาพยนตร์ ปุ่มนี้จะนำคำบรรยายกลับไปด้านล่างของเครื่องเล่น"
   }
 }

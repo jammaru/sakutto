@@ -68,8 +68,10 @@ describe('start controls while the model downloads', () => {
     expect(popup).toContain('saveSettings({ translateVideoCaptions: result.on })');
     expect(popup).not.toContain('videoCaptionsSettingHelp');
     expect(popup).not.toContain('videoCaptionsSizeLabel');
+    expect(popup).not.toContain('videoCaptionsPositionReset');
     expect(popup).not.toContain('videoCaptionsCustomSitesLabel');
     expect(popup).not.toContain('video-captions-size-slider');
+    expect(popup).not.toContain('video-captions-position-reset');
     expect(popup).not.toMatch(/badge|notification/i);
   });
 

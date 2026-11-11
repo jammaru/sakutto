@@ -165,6 +165,83 @@ describe('video caption session', () => {
     session.stop();
   });
 
+  it('places the overlay from a stored per-site percent and returns to default when cleared', async () => {
+    document.body.innerHTML = `
+      <div id="movie_player" class="html5-video-player">
+        <div class="html5-video-container">
+          <video id="player" class="html5-main-video"></video>
+        </div>
+        <div class="ytp-chrome-bottom"></div>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "captions": {
+            "playerCaptionsTracklistRenderer": {
+              "captionTracks": [{
+                "baseUrl": "/youtube-timedtext.json",
+                "languageCode": "en",
+                "name": { "simpleText": "English" }
+              }]
+            }
+          }
+        };
+      </script>
+    `;
+    const player = document.getElementById('movie_player') as HTMLElement;
+    const video = document.querySelector('video') as HTMLVideoElement;
+    video.currentTime = 0.4;
+    const box = {
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 640,
+      bottom: 360,
+      width: 640,
+      height: 360,
+      toJSON() {
+        return {};
+      },
+    } as DOMRect;
+    player.getBoundingClientRect = () => box;
+    video.getBoundingClientRect = () => box;
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+        position: { x: 28, y: 36 },
+      },
+      readTrack: async () => JSON.stringify(TIMEDTEXT),
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('The station opens at dawn.', 'ja'),
+      );
+    });
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    expect(host.style.left).toBe('28%');
+    expect(host.style.top).toBe('36%');
+    expect(host.style.transform).toBe('translate(-50%, -50%)');
+    session.setPreferences({
+      enabled: true,
+      targetLanguage: 'ja',
+      form: 'polite',
+      display: 'bilingual',
+      tier: 'g',
+      position: null,
+    });
+    expect(host.style.left).toBe('50%');
+    expect(host.style.top).toBe('auto');
+    expect(host.style.transform).toBe('translateX(-50%)');
+    session.stop();
+  });
+
   it('shows the live original immediately and replaces it with the translation', async () => {
     document.body.innerHTML = `
       <div id="movie_player" class="html5-video-player ytp-live">

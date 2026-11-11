@@ -1241,5 +1241,11 @@
   },
   "videoCaptionsCustomHostDenied": {
     "message": "未授予該網站的存取權限。"
+  },
+  "videoCaptionsPositionReset": {
+    "message": "重設位置"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "長按譯文字幕即可在播放器內拖曳。YouTube 與 X 會分別記住位置，全螢幕與劇院模式也會保持。此按鈕會把字幕放回播放器底部。"
   }
 }

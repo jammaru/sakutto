@@ -1,10 +1,13 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   CaptionOverlay,
   captionChromeInset,
+  CAPTION_DRAG_HOLD_MS,
   CAPTION_FONT_MIN_PX,
+  CAPTION_POSITION_MARGIN_PX,
   captionOverlayFontPx,
+  clampCaptionOverlayPercent,
   pickCaptionLayoutRect,
   captionOverlayRoot,
   CAPTION_ORIGINAL_TOGGLE,
@@ -25,6 +28,7 @@ const labels = {
 
 describe('caption overlay', () => {
   afterEach(() => {
+    vi.useRealTimers();
     document.documentElement.innerHTML = '<head></head><body></body>';
   });
 
@@ -416,4 +420,226 @@ describe('caption overlay', () => {
     expect(first.height).toBe(0);
     expect(captionOverlayFontPx(first.height)).toBeGreaterThanOrEqual(CAPTION_FONT_MIN_PX);
   });
+
+  it('clamps a dragged overlay above the control bar and inside the player', () => {
+    const player = { width: 640, height: 360 };
+    const overlay = { width: 200, height: 48 };
+    const chrome = 72;
+    const high = clampCaptionOverlayPercent(50, 0, overlay, player, chrome);
+    const low = clampCaptionOverlayPercent(50, 100, overlay, player, chrome);
+    const left = clampCaptionOverlayPercent(0, 40, overlay, player, chrome);
+    const right = clampCaptionOverlayPercent(100, 40, overlay, player, chrome);
+    expect(high.y).toBeGreaterThan(0);
+    expect(low.y).toBeLessThan(100);
+    const maxBottom = 360 - chrome - CAPTION_POSITION_MARGIN_PX;
+    expect((low.y / 100) * 360 + overlay.height / 2).toBeLessThanOrEqual(maxBottom + 0.6);
+    expect(left.x).toBeGreaterThan(0);
+    expect(right.x).toBeLessThan(100);
+    expect(left.x).toBeLessThan(right.x);
+  });
+
+  it('keeps pointer-events off so a short click on the caption still reaches the player', () => {
+    const { overlay, host, player } = mountDraggableOverlay();
+    let playerSaw = 0;
+    player.addEventListener(
+      'pointerdown',
+      () => {
+        playerSaw += 1;
+      },
+      true,
+    );
+    dispatchPointer(player, 'pointerdown', 320, 310);
+    dispatchPointer(player, 'pointerup', 320, 310);
+    player.dispatchEvent(
+      new MouseEvent('click', {
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+        clientX: 320,
+        clientY: 310,
+      }),
+    );
+    expect(host.style.pointerEvents).toBe('none');
+    expect(host.hasAttribute('data-sakutto-dragging')).toBe(false);
+    expect(host.style.left).toBe('50%');
+    expect(host.style.transform).toBe('translateX(-50%)');
+    expect(playerSaw).toBe(1);
+    overlay.detach();
+  });
+
+  it('picks up the caption after a press-and-hold, then stores a percent position', () => {
+    vi.useFakeTimers();
+    const { overlay, host, player, lines } = mountDraggableOverlay();
+    const dropped: Array<{ x: number; y: number }> = [];
+    overlay.setOnPositionChange((point) => {
+      dropped.push(point);
+    });
+    dispatchPointer(player, 'pointerdown', 320, 310);
+    vi.advanceTimersByTime(CAPTION_DRAG_HOLD_MS);
+    expect(host.getAttribute('data-sakutto-dragging')).toBe('1');
+    stubRect(host, { left: 220, top: 80, width: 200, height: 48 });
+    stubRect(lines.translated, { left: 220, top: 96, width: 200, height: 32 });
+    dispatchPointer(player, 'pointermove', 320, 104);
+    dispatchPointer(player, 'pointerup', 320, 104);
+    expect(host.hasAttribute('data-sakutto-dragging')).toBe(false);
+    expect(host.style.transform).toBe('translate(-50%, -50%)');
+    expect(host.style.top).not.toBe('auto');
+    expect(dropped.length).toBe(1);
+    expect(dropped[0]?.x).toBeGreaterThan(40);
+    expect(dropped[0]?.x).toBeLessThan(60);
+    expect(dropped[0]?.y).toBeLessThan(50);
+    let swallowed = 0;
+    player.addEventListener(
+      'click',
+      () => {
+        swallowed += 1;
+      },
+      true,
+    );
+    document.dispatchEvent(
+      new MouseEvent('click', {
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+        clientX: 320,
+        clientY: 104,
+      }),
+    );
+    expect(swallowed).toBe(0);
+    overlay.place({ left: 0, top: 0, width: 1280, height: 720 }, 28, 72, dropped[0]);
+    expect(host.style.left).toBe(`${String(dropped[0]?.x)}%`);
+    expect(host.style.top).toBe(`${String(dropped[0]?.y)}%`);
+    overlay.setPosition(null);
+    overlay.place({ left: 0, top: 0, width: 1280, height: 720 }, 28, 72, null);
+    expect(host.style.left).toBe('50%');
+    expect(host.style.top).toBe('auto');
+    expect(host.style.transform).toBe('translateX(-50%)');
+    overlay.detach();
+    vi.useRealTimers();
+  });
+
+  it('cancels pickup if the pointer moves before the hold, and ignores the original-toggle', () => {
+    vi.useFakeTimers();
+    const { overlay, host, player } = mountDraggableOverlay();
+    dispatchPointer(player, 'pointerdown', 320, 310);
+    dispatchPointer(player, 'pointermove', 320, 330);
+    vi.advanceTimersByTime(CAPTION_DRAG_HOLD_MS);
+    expect(host.hasAttribute('data-sakutto-dragging')).toBe(false);
+    expect(host.style.transform).toBe('translateX(-50%)');
+    overlay.detach();
+    vi.useRealTimers();
+  });
+
+  it('picks up an X caption with a touch pointer', () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = `
+      <div data-testid="videoPlayer" style="position: relative; width: 640px; height: 360px">
+        <video></video>
+      </div>
+    `;
+    const player = document.querySelector('[data-testid="videoPlayer"]') as HTMLElement;
+    stubRect(player, { left: 0, top: 0, width: 640, height: 360 });
+    const overlay = new CaptionOverlay(document, labels);
+    overlay.attach(player);
+    overlay.show({
+      original: 'The station opens at dawn.',
+      translation: '駅は夜明けに開きます。',
+      display: 'replace',
+      pending: false,
+    });
+    overlay.place({ left: 0, top: 0, width: 640, height: 360 }, 28, X_CAPTION_CHROME_FALLBACK_PX);
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    const wrap = overlay.shadow()?.querySelector('.wrap') as HTMLElement;
+    const translated = overlay.shadow()?.querySelector('.line:not(.original)') as HTMLElement;
+    stubRect(host, { left: 220, top: 250, width: 200, height: 40 });
+    stubRect(wrap, { left: 220, top: 250, width: 200, height: 40 });
+    stubRect(translated, { left: 220, top: 250, width: 200, height: 40 });
+    dispatchPointer(player, 'pointerdown', 320, 270, { pointerType: 'touch' });
+    vi.advanceTimersByTime(CAPTION_DRAG_HOLD_MS);
+    expect(host.getAttribute('data-sakutto-dragging')).toBe('1');
+    overlay.detach();
+    vi.useRealTimers();
+  });
 });
+
+function fakeRect(box: { left: number; top: number; width: number; height: number }): DOMRect {
+  return {
+    x: box.left,
+    y: box.top,
+    left: box.left,
+    top: box.top,
+    right: box.left + box.width,
+    bottom: box.top + box.height,
+    width: box.width,
+    height: box.height,
+    toJSON() {
+      return {};
+    },
+  } as DOMRect;
+}
+
+function stubRect(
+  element: Element,
+  box: { left: number; top: number; width: number; height: number },
+): void {
+  element.getBoundingClientRect = () => fakeRect(box);
+}
+
+function dispatchPointer(
+  target: EventTarget,
+  type: string,
+  x: number,
+  y: number,
+  extra: PointerEventInit = {},
+): void {
+  target.dispatchEvent(
+    new PointerEvent(type, {
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y,
+      pointerId: 1,
+      isPrimary: true,
+      button: type === 'pointerdown' ? 0 : -1,
+      pointerType: 'mouse',
+      ...extra,
+    }),
+  );
+}
+
+function mountDraggableOverlay(): {
+  overlay: CaptionOverlay;
+  host: HTMLElement;
+  player: HTMLElement;
+  lines: { original: HTMLElement; translated: HTMLElement };
+} {
+  document.body.innerHTML = `
+    <div id="movie_player" class="html5-video-player" style="position: relative; width: 640px; height: 360px">
+      <video></video>
+      <div class="ytp-chrome-bottom"></div>
+    </div>
+  `;
+  const player = document.getElementById('movie_player') as HTMLElement;
+  stubRect(player, { left: 0, top: 0, width: 640, height: 360 });
+  const overlay = new CaptionOverlay(document, labels);
+  overlay.attach(player);
+  overlay.show({
+    original: 'The station opens at dawn.',
+    translation: '駅は夜明けに開きます。',
+    display: 'bilingual',
+    pending: false,
+  });
+  overlay.place({ left: 0, top: 0, width: 640, height: 360 }, 28, 72);
+  const host = document.querySelector('sakutto-captions') as HTMLElement;
+  const wrap = overlay.shadow()?.querySelector('.wrap') as HTMLElement;
+  const original = overlay.shadow()?.querySelector('.original') as HTMLElement;
+  const translated = overlay.shadow()?.querySelector('.line:not(.original)') as HTMLElement;
+  stubRect(host, { left: 220, top: 276, width: 200, height: 48 });
+  stubRect(wrap, { left: 220, top: 276, width: 200, height: 48 });
+  stubRect(original, { left: 240, top: 276, width: 160, height: 16 });
+  stubRect(translated, { left: 220, top: 296, width: 200, height: 28 });
+  Object.defineProperty(host, 'offsetWidth', { configurable: true, get: () => 200 });
+  Object.defineProperty(host, 'offsetHeight', { configurable: true, get: () => 48 });
+  return { overlay, host, player, lines: { original, translated } };
+}

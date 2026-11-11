@@ -9,6 +9,7 @@ import type { OverlayLabels } from '@/dom/overlay';
 import { PageSession, preferencesFor } from '@/dom/session';
 import { VideoCaptionSession, type CaptionSessionPreferences } from '@/captions/session';
 import type { CaptionOverlayLabels } from '@/captions/overlay';
+import { videoCaptionPositionSite } from '@/captions/sites';
 import {
   loadSiteRule,
   pageHost,
@@ -48,7 +49,7 @@ import {
   type ShortcutSnapshot,
 } from '@/shared/messages';
 import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
-import type { Settings } from '@/shared/settings';
+import type { Settings, VideoCaptionPosition } from '@/shared/settings';
 import { typedReadiness, type TypedReadiness } from '@/shared/typed-translation';
 import { translateViaBackground } from '@/shared/translation-client';
 
@@ -221,8 +222,13 @@ function captionLabels(): CaptionOverlayLabels {
   };
 }
 
-function captionPreferencesFor(settings: Settings, rule: SiteRule): CaptionSessionPreferences {
+function captionPreferencesFor(
+  settings: Settings,
+  rule: SiteRule,
+  host: string,
+): CaptionSessionPreferences {
   const glossary = mergeGlossary(settings.glossary, rule.glossary);
+  const site = videoCaptionPositionSite(host);
   return {
     enabled: settings.translateVideoCaptions && rule.auto !== 'never',
     targetLanguage: effectivePageTarget(settings.targetLanguage, rule.targetLanguage),
@@ -230,6 +236,7 @@ function captionPreferencesFor(settings: Settings, rule: SiteRule): CaptionSessi
     display: settings.videoCaptionDisplay,
     size: settings.videoCaptionSize,
     originalToggle: settings.videoCaptionOriginalToggle,
+    position: settings.videoCaptionPositions[site] ?? null,
     glossary: glossary.length > 0 ? glossary : undefined,
     tier: null,
   };
@@ -417,33 +424,55 @@ export default defineContentScript({
       let liveSettings = settings;
       let liveRule = rule;
       let captionDisplayWrite = 0;
+      let captionPositionWrite = 0;
+
+      const persistCaptionPosition = (point: VideoCaptionPosition): void => {
+        captionPositionWrite += 1;
+        const site = videoCaptionPositionSite(host);
+        liveSettings = {
+          ...liveSettings,
+          videoCaptionPositions: { ...liveSettings.videoCaptionPositions, [site]: point },
+        };
+        captions?.setPreferences(captionPreferencesFor(liveSettings, liveRule, host));
+        void saveSettings({ videoCaptionPositions: liveSettings.videoCaptionPositions });
+      };
 
       captions = new VideoCaptionSession(document, {
         engine,
         labels: captionLabels(),
-        preferences: captionPreferencesFor(liveSettings, liveRule),
+        preferences: captionPreferencesFor(liveSettings, liveRule, host),
         onDisplayToggle: () => {
           captionDisplayWrite += 1;
           const nextDisplay =
             liveSettings.videoCaptionDisplay === 'bilingual' ? 'replace' : 'bilingual';
           liveSettings = { ...liveSettings, videoCaptionDisplay: nextDisplay };
-          captions?.setPreferences(captionPreferencesFor(liveSettings, liveRule));
+          captions?.setPreferences(captionPreferencesFor(liveSettings, liveRule, host));
           void saveSettings({ videoCaptionDisplay: nextDisplay });
         },
+        onPositionChange: persistCaptionPosition,
       });
-      if (captionPreferencesFor(liveSettings, liveRule).enabled) captions.start();
+      if (captionPreferencesFor(liveSettings, liveRule, host).enabled) captions.start();
 
       const detected = await detectDocumentLanguage(document);
       session.setDetectedLanguage(detected);
 
       const applyStored = async (): Promise<void> => {
         const writeId = captionDisplayWrite;
+        const positionWriteId = captionPositionWrite;
         const [nextSettings, nextRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
         const display =
           writeId === captionDisplayWrite
             ? nextSettings.videoCaptionDisplay
             : liveSettings.videoCaptionDisplay;
-        liveSettings = { ...nextSettings, videoCaptionDisplay: display };
+        const positions =
+          positionWriteId === captionPositionWrite
+            ? nextSettings.videoCaptionPositions
+            : liveSettings.videoCaptionPositions;
+        liveSettings = {
+          ...nextSettings,
+          videoCaptionDisplay: display,
+          videoCaptionPositions: positions,
+        };
         liveRule = nextRule;
         engineSource = liveSettings.engineSource;
         shortcutsEnabled = liveSettings.shortcutsEnabled;
@@ -472,7 +501,7 @@ export default defineContentScript({
           ),
         );
         captions?.setLabels(captionLabels());
-        captions?.setPreferences(captionPreferencesFor(liveSettings, liveRule));
+        captions?.setPreferences(captionPreferencesFor(liveSettings, liveRule, host));
       };
 
       subscribeSettings(() => {
@@ -503,7 +532,7 @@ export default defineContentScript({
       lastCommandAt = now;
       const session = await sessionPromise;
       const [liveSettings, liveRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
-      captions?.setPreferences(captionPreferencesFor(liveSettings, liveRule));
+      captions?.setPreferences(captionPreferencesFor(liveSettings, liveRule, host));
       if (!commandEnabled(shortcutSnapshot, shortcutAssigned, shortcutsEnabled, command)) {
         return session.state();
       }

@@ -1241,5 +1241,11 @@
   },
   "videoCaptionsCustomHostDenied": {
     "message": "Không được cấp quyền truy cập trang đó."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "Đặt lại vị trí"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "Nhấn giữ phụ đề đã dịch để di chuyển. YouTube và X nhớ vị trí riêng, kể cả toàn màn hình và chế độ rạp. Nút này đưa phụ đề về cuối trình phát."
   }
 }

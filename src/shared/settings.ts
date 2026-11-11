@@ -40,6 +40,33 @@ export function normalizeVideoCaptionSize(value: unknown): number {
   return Math.round(Math.min(VIDEO_CAPTION_SIZE_MAX, Math.max(VIDEO_CAPTION_SIZE_MIN, n)));
 }
 
+/** Player families that remember their own caption overlay spot. */
+export const VIDEO_CAPTION_POSITION_SITES = ['youtube', 'x', 'other'] as const;
+export type VideoCaptionPositionSite = (typeof VIDEO_CAPTION_POSITION_SITES)[number];
+/** Centre of the overlay as a percent of the player box. */
+export type VideoCaptionPosition = { x: number; y: number };
+export type VideoCaptionPositions = Partial<Record<VideoCaptionPositionSite, VideoCaptionPosition>>;
+
+export function normalizeVideoCaptionPosition(value: unknown): VideoCaptionPosition | undefined {
+  if (!isRecord(value)) return undefined;
+  if (typeof value.x !== 'number' || typeof value.y !== 'number') return undefined;
+  if (!Number.isFinite(value.x) || !Number.isFinite(value.y)) return undefined;
+  return {
+    x: Math.round(Math.min(100, Math.max(0, value.x)) * 10) / 10,
+    y: Math.round(Math.min(100, Math.max(0, value.y)) * 10) / 10,
+  };
+}
+
+export function normalizeVideoCaptionPositions(value: unknown): VideoCaptionPositions {
+  if (!isRecord(value)) return {};
+  const next: VideoCaptionPositions = {};
+  for (const site of VIDEO_CAPTION_POSITION_SITES) {
+    const point = normalizeVideoCaptionPosition(value[site]);
+    if (point) next[site] = point;
+  }
+  return next;
+}
+
 /** Date the bundled PLaMo Community License text was copied into this repository. */
 export const PLAMO_LICENSE_VERSION = '2026-11-05';
 
@@ -144,6 +171,11 @@ export interface Settings {
    * movement (then auto-hides). Off: use this page or the popup instead.
    */
   videoCaptionOriginalToggle: boolean;
+  /**
+   * Per-site overlay centre, in percent of the player. Missing keys keep the
+   * default bottom-centre placement. YouTube and X are stored separately.
+   */
+  videoCaptionPositions: VideoCaptionPositions;
   /** Extra hosts that run the generic HTML5 caption adapter. YouTube and X stay built-in. */
   captionCustomHosts: string[];
 }
@@ -177,6 +209,7 @@ export type SettingsPatch = Partial<
     | 'videoCaptionDisplay'
     | 'videoCaptionSize'
     | 'videoCaptionOriginalToggle'
+    | 'videoCaptionPositions'
     | 'captionCustomHosts'
   >
 > & {
@@ -212,6 +245,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   videoCaptionDisplay: 'bilingual',
   videoCaptionSize: VIDEO_CAPTION_SIZE_DEFAULT,
   videoCaptionOriginalToggle: true,
+  videoCaptionPositions: {},
   captionCustomHosts: [],
 });
 
@@ -273,6 +307,7 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     videoCaptionDisplay: value.videoCaptionDisplay === 'replace' ? 'replace' : 'bilingual',
     videoCaptionSize: normalizeVideoCaptionSize(value.videoCaptionSize),
     videoCaptionOriginalToggle: value.videoCaptionOriginalToggle !== false,
+    videoCaptionPositions: normalizeVideoCaptionPositions(value.videoCaptionPositions),
     captionCustomHosts: normalizeCaptionCustomHosts(value.captionCustomHosts),
   };
 }

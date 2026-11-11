@@ -1,5 +1,6 @@
 import { browser } from 'wxt/browser';
 import { saveSettings } from '@/shared/storage';
+import type { VideoCaptionPositionSite } from '@/shared/settings';
 import { hostMatchesCaptionCustom } from './custom-hosts';
 import { isYouTubeHost } from './youtube';
 import { isXHost } from './x';
@@ -26,6 +27,13 @@ export const CAPTION_ENABLE_INTENT_KEY = 'captionEnableIntent';
 
 export function isCaptionAutoHost(host: string): boolean {
   return isYouTubeHost(host) || isXHost(host);
+}
+
+/** Which stored overlay spot this page uses. YouTube and X do not share a position. */
+export function videoCaptionPositionSite(host: string): VideoCaptionPositionSite {
+  if (isYouTubeHost(host)) return 'youtube';
+  if (isXHost(host)) return 'x';
+  return 'other';
 }
 
 /** Origins requested when the reader turns caption translation on. */
