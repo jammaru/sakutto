@@ -335,6 +335,25 @@ describe('ModelManager', () => {
     expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
   });
 
+  it('does not copy a digest-failed OPFS model again on the next adopt', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    await seedVerified(opfs);
+    const hashBlob = vi.fn(async () => 'f'.repeat(64));
+    const { manager } = createManager(shared, { fallbackStore: opfs, hashBlob });
+
+    await manager.adoptPresentModels();
+    await manager.adoptPresentModels();
+
+    expect(hashBlob).toHaveBeenCalledOnce();
+    expect(await manager.primaryReady(ENTRY.id)).toBe(false);
+    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
+
+    const { manager: restarted } = createManager(shared, { fallbackStore: opfs, hashBlob });
+    await restarted.adoptPresentModels();
+    expect(hashBlob).toHaveBeenCalledOnce();
+  });
+
   it('unloads an OPFS-backed runtime before deleting the browser copy', async () => {
     const opfs = new MemoryFileStore();
     const shared = new MemoryFileStore();

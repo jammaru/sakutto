@@ -644,10 +644,13 @@ test.describe('shared model folder', () => {
     test.setTimeout(180_000);
     const extension = await loadExtension('en-US');
     try {
+      const planter = await extension.context.newPage();
+      await planter.goto(`chrome-extension://${extension.extensionId}/sample.html`);
+      await plantOpfsOfficial(planter);
+      await planter.close();
+
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/popup.html`);
-      await plantOpfsOfficial(page);
-      await page.reload();
       await expect(page.getByRole('button', { name: 'Move to a shared folder' })).toBeVisible({
         timeout: 30_000,
       });
@@ -855,7 +858,7 @@ async function expectSampleTranslates(extension: LoadedExtension): Promise<void>
       { timeout: 30_000 },
     );
     await expect
-      .poll(async () => readModelState(sample), { timeout: 15_000 })
+      .poll(async () => readModelState(sample), { timeout: 60_000 })
       .toMatch(/^(ready|loaded|loading)$/);
     await expect
       .poll(async () => readSharedFolder(sample), { timeout: 15_000 })

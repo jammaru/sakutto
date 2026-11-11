@@ -1,4 +1,4 @@
-import { abortError, EngineError, isAbortError } from '../errors';
+import { abortError, EngineError, isAbortError, isEngineError } from '../errors';
 import type { BackendSelection } from '../in-browser/backend';
 import type { LlamaRuntime } from '../in-browser/runtime';
 import type { ModelState, ModelStatus } from '../../shared/engine-status';
@@ -431,6 +431,7 @@ export class ModelManager {
     const primary = await this.inspect(this.store, modelId);
     if (primary.state === 'ready' || primary.integrity === 'reject-size') return false;
     if (this.errors.get(modelId) === INTEGRITY_DIGEST_ERROR) return false;
+    if (await this.copyAlreadyRejected(modelId)) return false;
 
     let fallback = await this.inspect(this.fallbackStore, modelId);
     if (fallback.integrity === 'needs-hash') {
@@ -450,28 +451,41 @@ export class ModelManager {
       progress: 0,
     });
 
-    await copyModelFile({
-      blob,
-      store: this.store,
-      partPath: this.partPath(modelId),
-      finalPath: this.finalPath(modelId),
-      size: entry.size,
-      sha256: entry.sha256,
-      signal,
-      onProgress: (progress) => {
-        const state: ModelState = progress.phase === 'verify' ? 'verifying' : 'downloading';
-        this.notify({
-          id: modelId,
-          state,
-          received: progress.received,
-          total: entry.size,
-          progress: progress.ratio,
-        });
-        onProgress?.(progress);
-      },
-      ...(this.hashBlob ? { hashBlob: this.hashBlob } : {}),
-      ...(this.copyChunkBytes !== undefined ? { chunkBytes: this.copyChunkBytes } : {}),
-    });
+    try {
+      await copyModelFile({
+        blob,
+        store: this.store,
+        partPath: this.partPath(modelId),
+        finalPath: this.finalPath(modelId),
+        size: entry.size,
+        sha256: entry.sha256,
+        signal,
+        onProgress: (progress) => {
+          const state: ModelState = progress.phase === 'verify' ? 'verifying' : 'downloading';
+          this.notify({
+            id: modelId,
+            state,
+            received: progress.received,
+            total: entry.size,
+            progress: progress.ratio,
+          });
+          onProgress?.(progress);
+        },
+        ...(this.hashBlob ? { hashBlob: this.hashBlob } : {}),
+        ...(this.copyChunkBytes !== undefined ? { chunkBytes: this.copyChunkBytes } : {}),
+      });
+    } catch (error) {
+      if (isAbortError(error) || signal.aborted) throw abortError();
+      // A pinned-size OPFS file whose bytes do not match the catalog must not be
+      // copied again on every folder reload or offscreen start. Record the skip on
+      // OPFS so a new offscreen document does not hash hundreds of MB again.
+      if (isEngineError(error) && error.code === 'model-integrity') {
+        await this.rememberCopyRejection(modelId);
+        this.notify(await this.status(modelId));
+        return false;
+      }
+      throw error;
+    }
 
     this.errors.delete(modelId);
     await this.writeVerifiedManifest(this.store, modelId);
@@ -760,5 +774,52 @@ export class ModelManager {
 
   private manifestPath(modelId: ModelId): string {
     return `${this.modelDirectory(modelId)}/model.json`;
+  }
+
+  private copyRejectedPath(modelId: ModelId): string {
+    return `${this.modelDirectory(modelId)}/copy-rejected.json`;
+  }
+
+  private async copyAlreadyRejected(modelId: ModelId): Promise<boolean> {
+    if (!this.fallbackStore) return false;
+    const stat = await this.fallbackStore.stat(this.finalPath(modelId));
+    if (!stat) return false;
+    try {
+      const parsed: unknown = JSON.parse(
+        await (await this.fallbackStore.read(this.copyRejectedPath(modelId))).text(),
+      );
+      if (typeof parsed !== 'object' || parsed === null) return false;
+      const record = parsed as Record<string, unknown>;
+      const entry = this.entry(modelId);
+      return (
+        record.sha256 === entry.sha256 &&
+        record.size === entry.size &&
+        record.fileSize === stat.size &&
+        record.lastModified === stat.lastModified
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  private async rememberCopyRejection(modelId: ModelId): Promise<void> {
+    if (!this.fallbackStore) return;
+    const stat = await this.fallbackStore.stat(this.finalPath(modelId));
+    if (!stat) return;
+    const entry = this.entry(modelId);
+    const path = this.copyRejectedPath(modelId);
+    await this.fallbackStore.remove(path);
+    await this.fallbackStore.append(
+      path,
+      TEXT_ENCODER.encode(
+        JSON.stringify({
+          sha256: entry.sha256,
+          size: entry.size,
+          fileSize: stat.size,
+          lastModified: stat.lastModified,
+        }),
+      ),
+      0,
+    );
   }
 }
