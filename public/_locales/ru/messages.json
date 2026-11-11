@@ -1202,5 +1202,38 @@
   },
   "videoCaptionsPermissionDenied": {
     "message": "Доступ к YouTube и X не был предоставлен."
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "Показывать исходную строку"
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "Размер субтитров"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "Размер следует за проигрывателем, включая полноэкранный и театральный режимы. Перетащите ползунок для предпросмотра."
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "Свои сайты субтитров"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "Добавьте домен, который не является YouTube или X. Перевод работает только если сайт отдаёт субтитры как HTML5-дорожки, WebVTT или видимый элемент. Сайты, которые рисуют субтитры только своей графикой, не поддерживаются. При добавлении запрашивается доступ к этому домену."
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "Добавить"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "Удалить"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "Включать поддомены"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "Введите домен вроде example.com. Единственный допустимый шаблон — ведущая *."
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "Доступ к этому сайту не был предоставлен."
   }
 }

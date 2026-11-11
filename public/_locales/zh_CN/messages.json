@@ -1202,5 +1202,38 @@
   },
   "videoCaptionsPermissionDenied": {
     "message": "未获准访问 YouTube 和 X。"
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "显示原文行"
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "字幕大小"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "大小会随播放器变化，包括全屏和影院模式。拖动滑块可预览。"
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "自定义字幕网站"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "添加 YouTube 或 X 以外的域名。仅当网站以 HTML5 视频轨道、WebVTT 或可见字幕元素提供字幕时才会翻译。仅用自定义图形绘制字幕的网站不受支持。添加时会请求该域名的访问权限。"
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "添加"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "移除"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "包含子域名"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "请输入 example.com 这样的域名。唯一允许的通配符是开头的 *。"
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "未授予对该网站的访问权限。"
   }
 }

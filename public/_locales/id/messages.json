@@ -1202,5 +1202,38 @@
   },
   "videoCaptionsPermissionDenied": {
     "message": "Akses ke YouTube dan X tidak diberikan."
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "Tampilkan baris asli"
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "Ukuran subtitle"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "Ukuran mengikuti pemutar, termasuk layar penuh dan teater. Seret penggeser untuk pratinjau."
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "Situs subtitle kustom"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "Tambahkan domain yang bukan YouTube atau X. Terjemahan hanya berfungsi jika situs menampilkan subtitle sebagai trek video HTML5, WebVTT, atau elemen subtitle yang terlihat. Situs yang menggambar subtitle hanya sebagai grafis kustom tidak didukung. Akses ke domain itu diminta saat Anda menambahkannya."
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "Tambah"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "Hapus"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "Sertakan subdomain"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "Masukkan domain seperti example.com. Wildcard yang diizinkan hanyalah * di depan."
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "Akses ke situs itu tidak diberikan."
   }
 }

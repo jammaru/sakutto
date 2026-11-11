@@ -1,5 +1,6 @@
 import { browser } from 'wxt/browser';
 import { saveSettings } from '@/shared/storage';
+import { hostMatchesCaptionCustom } from './custom-hosts';
 import { isYouTubeHost } from './youtube';
 import { isXHost } from './x';
 
@@ -40,8 +41,11 @@ export function shouldAutoInjectCaptions(options: {
   settingOn: boolean;
   host: string;
   originAllowed: boolean;
+  customHosts?: readonly string[];
 }): boolean {
-  return options.settingOn && options.originAllowed && isCaptionAutoHost(options.host);
+  if (!options.settingOn || !options.originAllowed) return false;
+  if (isCaptionAutoHost(options.host)) return true;
+  return hostMatchesCaptionCustom(options.host, options.customHosts ?? []);
 }
 
 /**

@@ -1202,5 +1202,38 @@
   },
   "videoCaptionsPermissionDenied": {
     "message": "L’accesso a YouTube e X non è stato concesso."
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "Mostra la riga originale"
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "Dimensione dei sottotitoli"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "La dimensione segue il lettore, anche a schermo intero e in modalità teatro. Trascina il cursore per l’anteprima."
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "Siti di sottotitoli personalizzati"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "Aggiungi un dominio che non sia YouTube o X. La traduzione funziona solo se il sito espone i sottotitoli come tracce video HTML5, WebVTT o un elemento visibile. I siti che disegnano i sottotitoli solo come grafica personalizzata non sono supportati. All’aggiunta viene chiesto l’accesso a quel dominio."
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "Aggiungi"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "Rimuovi"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "Includi i sottodomini"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "Inserisci un dominio come example.com. L’unico jolly consentito è un * iniziale."
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "L’accesso a quel sito non è stato concesso."
   }
 }

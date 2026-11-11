@@ -19,10 +19,14 @@ export function isTwimgSubtitleUrl(url: string): boolean {
 
 /**
  * X pages embed many feed videos. Translate only the one that is actually playing.
- * Fullscreen wins, then an audible player, then the largest visible playing video.
+ * Fullscreen wins, then the video that just received `play` (inline / expanded), then
+ * an audible player, then the largest visible playing video.
  * If nothing is playing, return null so the overlay stays off — no fake captions.
  */
-export function pickPlayingXVideo(doc: Document): HTMLVideoElement | null {
+export function pickPlayingXVideo(
+  doc: Document,
+  preferred?: HTMLVideoElement | null,
+): HTMLVideoElement | null {
   const view = doc.defaultView;
   const fullscreen = view?.document.fullscreenElement ?? doc.fullscreenElement;
   if (fullscreen) {
@@ -31,7 +35,9 @@ export function pickPlayingXVideo(doc: Document): HTMLVideoElement | null {
     if (video && isPlayingVideo(video)) return video;
   }
 
-  const playing = [...doc.querySelectorAll('video')].filter(isPlayingVideo);
+  if (preferred && preferred.isConnected && isPlayingVideo(preferred, false)) return preferred;
+
+  const playing = [...doc.querySelectorAll('video')].filter((video) => isPlayingVideo(video));
   if (playing.length === 0) return null;
   const audible = playing.filter((video) => !video.muted && video.volume > 0);
   const pool = audible.length > 0 ? audible : playing;
@@ -61,9 +67,11 @@ export function resolveTwimgCaptionUrl(pageUrl: string, captionUrl: string): str
   }
 }
 
-function isPlayingVideo(video: HTMLVideoElement): boolean {
+function isPlayingVideo(video: HTMLVideoElement, requireVisible = true): boolean {
   if (video.paused || video.ended) return false;
-  if (video.readyState < 2) return false;
+  // HAVE_METADATA (1) is enough: X MSE streams often play before HAVE_CURRENT_DATA.
+  if (video.readyState < 1) return false;
+  if (!requireVisible) return true;
   return visibleArea(video) > 0;
 }
 

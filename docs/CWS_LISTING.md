@@ -117,10 +117,10 @@ Productivity。ウェブページを翻訳する用途に合います。
 任意のホスト権限（`https://*/*` と `http://*/*`）
 
 ```text
-インストール時には要求しません。あるサイトの自動翻訳をオンにしたときだけ、そのホストの https と http を要求します。すべてのサイトを一括では要求しません。
+インストール時には要求しません。あるサイトの自動翻訳をオンにしたとき、または字幕翻訳用のサイトを追加したときだけ、そのホストの https と http を要求します。すべてのサイトを一括では要求しません。
 ```
 
-文字数: 83
+文字数: 103
 
 `nativeMessaging` は要求していません。理由の欄は出ない想定です。出た場合も、使う権限としては記入しません。
 
@@ -249,10 +249,10 @@ Adds Translate page and Translate selection to the right-click menu.
 Optional host permission (`https://*/*` and `http://*/*`)
 
 ```text
-Not requested at install. Requested only for the host whose automatic translation you turn on, for both https and http. It is not a grant for every site at once.
+Not requested at install. Requested only for the host whose automatic translation you turn on, or a custom caption site you add, for both https and http. It is not a grant for every site at once.
 ```
 
-文字数: 161
+文字数: 195
 
 `nativeMessaging` is not requested. Leave that justification unused.
 

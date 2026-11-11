@@ -12,6 +12,7 @@ import {
   normalizeTimeoutMs,
 } from '@/engine/local-server/url';
 import type { EngineSource } from './engine-status';
+import { normalizeCaptionCustomHosts } from '@/captions/custom-hosts';
 import { normalizeGlossary } from './glossary';
 import {
   DEFAULT_TARGET_LANGUAGE,
@@ -28,6 +29,16 @@ import {
 } from './shortcuts';
 
 export const SETTINGS_SCHEMA_VERSION = 1;
+
+export const VIDEO_CAPTION_SIZE_MIN = 50;
+export const VIDEO_CAPTION_SIZE_MAX = 150;
+export const VIDEO_CAPTION_SIZE_DEFAULT = 80;
+
+export function normalizeVideoCaptionSize(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return VIDEO_CAPTION_SIZE_DEFAULT;
+  return Math.round(Math.min(VIDEO_CAPTION_SIZE_MAX, Math.max(VIDEO_CAPTION_SIZE_MIN, n)));
+}
 
 /** Date the bundled PLaMo Community License text was copied into this repository. */
 export const PLAMO_LICENSE_VERSION = '2026-11-05';
@@ -123,6 +134,13 @@ export interface Settings {
   translateVideoCaptions: boolean;
   /** How translated captions are shown over the player. */
   videoCaptionDisplay: DisplayMode;
+  /**
+   * Percent of the auto caption size (native or ~5% of player height). 80 is a bit
+   * smaller than the previous fixed size; 100 matches native.
+   */
+  videoCaptionSize: number;
+  /** Extra hosts that run the generic HTML5 caption adapter. YouTube and X stay built-in. */
+  captionCustomHosts: string[];
 }
 
 export type SettingsPatch = Partial<
@@ -152,6 +170,8 @@ export type SettingsPatch = Partial<
     | 'localServerExperimentalAck'
     | 'translateVideoCaptions'
     | 'videoCaptionDisplay'
+    | 'videoCaptionSize'
+    | 'captionCustomHosts'
   >
 > & {
   shortcutsEnabled?: Partial<ShortcutEnabled>;
@@ -184,6 +204,8 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   localServerExperimentalAck: false,
   translateVideoCaptions: false,
   videoCaptionDisplay: 'bilingual',
+  videoCaptionSize: VIDEO_CAPTION_SIZE_DEFAULT,
+  captionCustomHosts: [],
 });
 
 export function createDefaultSettings(uiLanguage: string): Settings {
@@ -242,6 +264,8 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     localServerExperimentalAck: value.localServerExperimentalAck === true,
     translateVideoCaptions: value.translateVideoCaptions === true,
     videoCaptionDisplay: value.videoCaptionDisplay === 'replace' ? 'replace' : 'bilingual',
+    videoCaptionSize: normalizeVideoCaptionSize(value.videoCaptionSize),
+    captionCustomHosts: normalizeCaptionCustomHosts(value.captionCustomHosts),
   };
 }
 

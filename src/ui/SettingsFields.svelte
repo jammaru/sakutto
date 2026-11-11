@@ -8,14 +8,28 @@
   } from '@/shared/languages';
   import {
     COMPOSE_PLACEMENTS,
+    VIDEO_CAPTION_SIZE_DEFAULT,
+    VIDEO_CAPTION_SIZE_MAX,
+    VIDEO_CAPTION_SIZE_MIN,
     isComposePlacement,
+    normalizeVideoCaptionSize,
     type Settings,
     type SettingsPatch,
   } from '@/shared/settings';
+  import { parseCaptionCustomHost } from '@/captions/custom-hosts';
+  import { captionOverlayFontPx } from '@/captions/overlay';
+  import {
+    requestCaptionCustomHostAccess,
+    revokeCaptionCustomHostAccess,
+  } from '@/captions/register-custom';
   import { resolveCaptionToggle } from '@/captions/sites';
   import LanguageField from './LanguageField.svelte';
 
   let captionDenied = $state(false);
+  let customHostInput = $state('');
+  let customHostWildcard = $state(false);
+  let customHostError = $state<'invalid' | 'denied' | null>(null);
+  let previewSize = $state(VIDEO_CAPTION_SIZE_DEFAULT);
 
   interface Props {
     settings: Settings;
@@ -25,6 +39,12 @@
   }
 
   let { settings, uiLanguage, onChange, onPermissionDenied }: Props = $props();
+
+  $effect(() => {
+    previewSize = settings.videoCaptionSize;
+  });
+
+  const previewFontPx = $derived(captionOverlayFontPx(220, undefined, previewSize));
 
   function updateForm(event: Event) {
     const select = event.currentTarget as HTMLSelectElement;
@@ -36,9 +56,46 @@
     onChange({ display: select.value === 'bilingual' ? 'bilingual' : 'replace' });
   }
 
-  function updateVideoCaptionDisplay(event: Event) {
-    const select = event.currentTarget as HTMLSelectElement;
-    onChange({ videoCaptionDisplay: select.value === 'replace' ? 'replace' : 'bilingual' });
+  function updateVideoCaptionSize(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const size = normalizeVideoCaptionSize(input.value);
+    previewSize = size;
+    onChange({ videoCaptionSize: size });
+  }
+
+  function addCustomHost(): void {
+    customHostError = null;
+    const raw = customHostInput.trim();
+    const withWildcard =
+      customHostWildcard && !raw.startsWith('*.') ? `*.${raw.replace(/^www\./, '')}` : raw;
+    const parsed = parseCaptionCustomHost(withWildcard);
+    if (!parsed) {
+      customHostError = 'invalid';
+      return;
+    }
+    if (settings.captionCustomHosts.includes(parsed)) {
+      customHostInput = '';
+      return;
+    }
+    void (async () => {
+      // User gesture: permissions.request must be the first extension call.
+      const granted = await requestCaptionCustomHostAccess(parsed);
+      if (!granted) {
+        customHostError = 'denied';
+        return;
+      }
+      onChange({ captionCustomHosts: [...settings.captionCustomHosts, parsed] });
+      customHostInput = '';
+    })();
+  }
+
+  function removeCustomHost(entry: string): void {
+    void (async () => {
+      await revokeCaptionCustomHostAccess(entry);
+      onChange({
+        captionCustomHosts: settings.captionCustomHosts.filter((host) => host !== entry),
+      });
+    })();
   }
 
   function updatePace(event: Event) {
@@ -182,14 +239,107 @@
   <p class="muted help">{t('videoCaptionsSettingHelp')}</p>
 
   {#if settings.translateVideoCaptions}
-    <label class="field">
-      <span>{t('videoCaptionsDisplayLabel')}</span>
-      <select value={settings.videoCaptionDisplay} onchange={updateVideoCaptionDisplay}>
-        <option value="bilingual">{t('videoCaptionsBilingual')}</option>
-        <option value="replace">{t('videoCaptionsReplace')}</option>
-      </select>
+    <label class="check">
+      <input
+        type="checkbox"
+        data-sakutto="video-captions-original"
+        checked={settings.videoCaptionDisplay === 'bilingual'}
+        onchange={(event) => {
+          const input = event.currentTarget as HTMLInputElement;
+          onChange({ videoCaptionDisplay: input.checked ? 'bilingual' : 'replace' });
+        }}
+      />
+      <span>{t('videoCaptionsShowOriginalSetting')}</span>
     </label>
     <p class="muted help">{t('videoCaptionsDisplayHelp')}</p>
+
+    <div class="field caption-size" data-sakutto="video-captions-size">
+      <span>{t('videoCaptionsSizeLabel')}</span>
+      <div class="caption-preview" aria-hidden="true">
+        <div class="caption-preview-player">
+          <div class="caption-preview-lines" style:font-size="{previewFontPx}px">
+            <div class="caption-preview-original">The north window sells tickets.</div>
+            <div class="caption-preview-translation">北側窓口では切符を売っています。</div>
+          </div>
+        </div>
+      </div>
+      <input
+        type="range"
+        min={VIDEO_CAPTION_SIZE_MIN}
+        max={VIDEO_CAPTION_SIZE_MAX}
+        step="1"
+        value={settings.videoCaptionSize}
+        aria-label={t('videoCaptionsSizeLabel')}
+        data-sakutto="video-captions-size-slider"
+        oninput={updateVideoCaptionSize}
+      />
+      <p class="muted help">{t('videoCaptionsSizeHelp')}</p>
+    </div>
+
+    <div class="field custom-hosts" data-sakutto="caption-custom-hosts">
+      <span>{t('videoCaptionsCustomSitesLabel')}</span>
+      <p class="muted help">{t('videoCaptionsCustomSitesHelp')}</p>
+      <label class="check">
+        <input
+          type="checkbox"
+          data-sakutto="caption-custom-host-subdomains"
+          checked={customHostWildcard}
+          onchange={(event) => {
+            customHostWildcard = (event.currentTarget as HTMLInputElement).checked;
+          }}
+        />
+        <span>{t('videoCaptionsCustomHostSubdomains')}</span>
+      </label>
+      <div class="custom-host-row">
+        <input
+          type="text"
+          value={customHostInput}
+          placeholder={t('videoCaptionsCustomHostPlaceholder')}
+          data-sakutto="caption-custom-host"
+          autocomplete="off"
+          spellcheck="false"
+          oninput={(event) => {
+            customHostInput = (event.currentTarget as HTMLInputElement).value;
+            customHostError = null;
+          }}
+          onkeydown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              addCustomHost();
+            }
+          }}
+        />
+        <button type="button" data-sakutto="caption-custom-host-add" onclick={addCustomHost}>
+          {t('videoCaptionsCustomHostAdd')}
+        </button>
+      </div>
+      {#if customHostError === 'invalid'}
+        <p class="error" role="alert" data-sakutto="caption-custom-host-invalid">
+          {t('videoCaptionsCustomHostInvalid')}
+        </p>
+      {/if}
+      {#if customHostError === 'denied'}
+        <p class="error" role="alert" data-sakutto="caption-custom-host-denied">
+          {t('videoCaptionsCustomHostDenied')}
+        </p>
+      {/if}
+      {#if settings.captionCustomHosts.length > 0}
+        <ul class="custom-host-list">
+          {#each settings.captionCustomHosts as host (host)}
+            <li>
+              <span>{host}</span>
+              <button
+                type="button"
+                data-sakutto="caption-custom-host-remove"
+                onclick={() => removeCustomHost(host)}
+              >
+                {t('videoCaptionsCustomHostRemove')}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </div>
   {/if}
 </div>
 
@@ -237,5 +387,89 @@
     margin: 0;
     color: var(--danger, #b91c1c);
     font-size: 12px;
+  }
+
+  .caption-preview-player {
+    box-sizing: border-box;
+    display: grid;
+    align-items: end;
+    justify-items: center;
+    min-height: 132px;
+    padding: 12px 10px 18px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    color: #fff;
+  }
+
+  .caption-preview-lines {
+    display: grid;
+    gap: 6px;
+    justify-items: center;
+    text-align: center;
+    line-height: 1.35;
+    font-family: 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  }
+
+  .caption-preview-original,
+  .caption-preview-translation {
+    max-width: 100%;
+    padding: 0.18em 0.55em;
+    border-radius: 0.28em;
+    background: rgb(8 8 8 / 92%);
+  }
+
+  .caption-preview-original {
+    font-size: 0.68em;
+    font-weight: 400;
+    background: rgb(8 8 8 / 82%);
+  }
+
+  .caption-preview-translation {
+    font-weight: 500;
+  }
+
+  input[type='range'] {
+    width: 100%;
+  }
+
+  .custom-host-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--space-2);
+  }
+
+  .custom-host-row input {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+  }
+
+  .custom-host-row button,
+  .custom-host-list button {
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  .custom-host-list {
+    display: grid;
+    gap: var(--space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .custom-host-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    font-size: 13px;
   }
 </style>

@@ -61,6 +61,7 @@ describe('caption auto-inject', () => {
     expect(actions).toContain('injectCaptionPages');
     expect(background).toContain('injectCaptionPages');
     expect(background).toContain('settings.translateVideoCaptions');
+    expect(background).toContain('syncCaptionCustomContentScripts');
   });
 
   it('requests optional YouTube and X origins from the caption setting checkbox', () => {
@@ -79,6 +80,19 @@ describe('caption auto-inject', () => {
     expect(popup).toContain('videoCaptionsSetting');
     expect(popup).toContain('data-sakutto="video-captions"');
     expect(fields).toContain('data-sakutto="video-captions"');
+    expect(fields).toContain('data-sakutto="video-captions-original"');
+    expect(fields).toContain('type="range"');
+    expect(fields).toContain('requestCaptionCustomHostAccess');
+    const addStart = fields.indexOf('function addCustomHost');
+    const addBody = fields.slice(addStart, fields.indexOf('function removeCustomHost'));
+    const beforeRequest = addBody.slice(0, addBody.indexOf('await requestCaptionCustomHostAccess'));
+    expect(beforeRequest).not.toMatch(/\bawait\b/);
+    const register = readFileSync(
+      new URL('../src/captions/register-custom.ts', import.meta.url),
+      'utf8',
+    );
+    expect(register).toContain('registerContentScripts');
+    expect(register).toContain('permissions.request');
     const background = readFileSync(
       new URL('../src/entrypoints/background.ts', import.meta.url),
       'utf8',

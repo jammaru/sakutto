@@ -3,6 +3,7 @@ import { defineBackground } from 'wxt/utils/define-background';
 import { EngineClient } from '@/background/engine-client';
 import { createEngineHostController } from '@/background/engine-host-document';
 import { injectCaptionPages, installPageActions } from '@/background/page-actions';
+import { syncCaptionCustomContentScripts } from '@/captions/register-custom';
 import { broadcastModelProgress, shouldWarmDownloadedModel } from '@/background/progress-broadcast';
 import { measureQuality } from '@/background/quality';
 import { TranslationBroker } from '@/background/translation-broker';
@@ -56,7 +57,11 @@ export default defineBackground(() => {
   installPageActions(broker);
   subscribeSettings((settings) => {
     client.syncStoredSettings(settings);
+    void syncCaptionCustomContentScripts(settings.captionCustomHosts);
     if (settings.translateVideoCaptions) void injectCaptionPages();
+  });
+  void ensureSettings().then((settings) => {
+    void syncCaptionCustomContentScripts(settings.captionCustomHosts);
   });
   browser.permissions.onAdded?.addListener((granted) => {
     void settleCaptionEnableIntent(

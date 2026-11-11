@@ -1,6 +1,12 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
-import { CaptionOverlay, captionOverlayRoot, CAPTION_ORIGINAL_TOGGLE } from '@/captions/overlay';
+import {
+  CaptionOverlay,
+  captionChromeInset,
+  captionOverlayFontPx,
+  captionOverlayRoot,
+  CAPTION_ORIGINAL_TOGGLE,
+} from '@/captions/overlay';
 
 const labels = {
   label: 'Translated captions',
@@ -106,5 +112,40 @@ describe('caption overlay', () => {
     const video = document.querySelector('video');
     expect(video).not.toBeNull();
     expect(captionOverlayRoot(document, video as HTMLVideoElement).id).toBe('movie_player');
+  });
+
+  it('reparents into the fullscreen element in every player mode', () => {
+    document.body.innerHTML = `
+      <div id="fs">
+        <div data-testid="videoPlayer"><video></video></div>
+      </div>
+    `;
+    const fullscreen = document.getElementById('fs');
+    const video = document.querySelector('video') as HTMLVideoElement;
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      get: () => fullscreen,
+    });
+    expect(captionOverlayRoot(document, video)).toBe(fullscreen);
+  });
+
+  it('attaches to the X player and lifts the overlay above the chrome', () => {
+    document.body.innerHTML = `
+      <div data-testid="videoPlayer">
+        <video></video>
+      </div>
+    `;
+    const video = document.querySelector('video') as HTMLVideoElement;
+    const root = captionOverlayRoot(document, video);
+    expect((root as HTMLElement).getAttribute('data-testid')).toBe('videoPlayer');
+    expect(captionChromeInset(root)).toBe(52);
+  });
+
+  it('scales caption type with player height and the size setting', () => {
+    const smaller = captionOverlayFontPx(400, undefined, 80);
+    const larger = captionOverlayFontPx(400, undefined, 150);
+    expect(smaller).toBeLessThan(captionOverlayFontPx(400, undefined, 100));
+    expect(larger).toBeGreaterThan(smaller);
+    expect(captionOverlayFontPx(900)).toBeGreaterThan(captionOverlayFontPx(180));
   });
 });

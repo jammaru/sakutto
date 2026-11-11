@@ -52,15 +52,39 @@ describe('X caption adapter', () => {
     stubVideo(idle, { paused: true, width: 800, height: 450 });
     expect(pickPlayingXVideo(document)).toBeNull();
   });
+
+  it('prefers the video that just received play over a larger neighbour', () => {
+    document.body.innerHTML = `
+      <video id="large"></video>
+      <video id="inline"></video>
+    `;
+    const large = document.querySelector('#large') as HTMLVideoElement;
+    const inline = document.querySelector('#inline') as HTMLVideoElement;
+    stubVideo(large, { paused: false, width: 800, height: 450 });
+    stubVideo(inline, { paused: false, width: 320, height: 180 });
+    expect(pickPlayingXVideo(document, inline)).toBe(inline);
+  });
+
+  it('treats HAVE_METADATA as playing so inline MSE streams are not skipped', () => {
+    document.body.innerHTML = '<video id="inline"></video>';
+    const inline = document.querySelector('#inline') as HTMLVideoElement;
+    stubVideo(inline, { paused: false, width: 320, height: 180, readyState: 1 });
+    expect(pickPlayingXVideo(document)).toBe(inline);
+    stubVideo(inline, { paused: false, width: 320, height: 180, readyState: 0 });
+    expect(pickPlayingXVideo(document)).toBeNull();
+  });
 });
 
 function stubVideo(
   video: HTMLVideoElement,
-  options: { paused: boolean; width: number; height: number },
+  options: { paused: boolean; width: number; height: number; readyState?: number },
 ): void {
   Object.defineProperty(video, 'paused', { configurable: true, get: () => options.paused });
   Object.defineProperty(video, 'ended', { configurable: true, get: () => false });
-  Object.defineProperty(video, 'readyState', { configurable: true, get: () => 4 });
+  Object.defineProperty(video, 'readyState', {
+    configurable: true,
+    get: () => options.readyState ?? 4,
+  });
   Object.defineProperty(video, 'muted', { configurable: true, get: () => true });
   Object.defineProperty(video, 'volume', { configurable: true, get: () => 1 });
   video.getBoundingClientRect = () =>

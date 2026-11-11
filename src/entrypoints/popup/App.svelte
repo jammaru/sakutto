@@ -34,6 +34,7 @@
     subscribeSiteRules,
     type SiteRule,
   } from '@/dom/sites';
+  import { hostMatchesCaptionCustom } from '@/captions/custom-hosts';
   import {
     isCaptionAutoHost,
     resolveCaptionToggle,
@@ -275,7 +276,12 @@
       input.checked = settings?.translateVideoCaptions === true;
       return;
     }
-    if (result.on && tabId !== undefined && host && isCaptionAutoHost(host)) {
+    if (
+      result.on &&
+      tabId !== undefined &&
+      host &&
+      (isCaptionAutoHost(host) || hostMatchesCaptionCustom(host, settings.captionCustomHosts))
+    ) {
       await ensureContentScript(tabId);
     }
   }

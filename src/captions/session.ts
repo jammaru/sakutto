@@ -2,7 +2,7 @@ import { pageHost } from '@/dom/sites';
 import type { PageEngine } from '@/dom/session';
 import type { GlossaryEntry } from '@/engine/types';
 import { canonicalLanguage } from '@/shared/languages';
-import type { DisplayMode, Formality } from '@/shared/settings';
+import { VIDEO_CAPTION_SIZE_DEFAULT, type DisplayMode, type Formality } from '@/shared/settings';
 import {
   cueAtTime,
   finalizeCaptionCues,
@@ -16,10 +16,14 @@ import {
   cuesFromTrack,
   listCaptionTracks,
   pickCaptionTrack,
+  pickPlayingOrPrimaryVideo,
   pickPrimaryVideo,
+  listVideoTrackUrls,
   revealTrackCues,
 } from './html5';
+import { readGenericCaptionDom } from './generic';
 import {
+  CAPTION_OVERLAY_HOST,
   CaptionOverlay,
   captionChromeInset,
   captionOverlayFontPx,
@@ -30,6 +34,7 @@ import { readTimedtext, TimedtextFetchGuard } from './timedtext';
 import { isXHost, listXSubtitleUrls, pickPlayingXVideo } from './x';
 import {
   captionTracksFromPlayerResponse,
+  isYouTubeHost,
   isYouTubeLiveDocument,
   nativeCaptionFontPx,
   parseTimedtextPayload,
@@ -51,6 +56,7 @@ export interface CaptionSessionPreferences {
   display: DisplayMode;
   glossary?: readonly GlossaryEntry[] | undefined;
   tier: 'g' | 'c8' | 'c4' | 'c1' | null;
+  size?: number | undefined;
 }
 
 export interface CaptionSessionOptions {
@@ -70,7 +76,36 @@ interface LoadedTrack {
   restoreModes: Array<{ track: TextTrack; mode: TextTrackMode }>;
 }
 
-const NATIVE_HIDE_STYLE = `${YOUTUBE_CAPTION_WINDOW_SELECTOR} { visibility: hidden !important; }`;
+const NATIVE_HIDE_STYLE = `
+${YOUTUBE_CAPTION_WINDOW_SELECTOR} { visibility: hidden !important; }
+video::cue,
+video::cue(i),
+video::cue(b) {
+  visibility: hidden !important;
+  color: transparent !important;
+  background: transparent !important;
+  text-shadow: none !important;
+}
+video::-webkit-media-text-track-display,
+video::-webkit-media-text-track-container,
+video::-webkit-media-text-track-background,
+::-webkit-media-text-track-display,
+::-webkit-media-text-track-container {
+  display: none !important;
+  visibility: hidden !important;
+}
+[data-testid="videoPlayer"] [aria-live="polite"]:not(${CAPTION_OVERLAY_HOST}),
+[data-testid="videoComponent"] [aria-live="polite"]:not(${CAPTION_OVERLAY_HOST}) {
+  visibility: hidden !important;
+}
+[data-testid="videoPlayer"] [style*="text-shadow"]:not(${CAPTION_OVERLAY_HOST}):not(button):not([role="button"]),
+[data-testid="videoComponent"] [style*="text-shadow"]:not(${CAPTION_OVERLAY_HOST}):not(button):not([role="button"]) {
+  visibility: hidden !important;
+}
+[data-sakutto-native-caption] {
+  visibility: hidden !important;
+}
+`;
 
 export class VideoCaptionSession {
   private readonly doc: Document;
@@ -102,6 +137,7 @@ export class VideoCaptionSession {
   } | null = null;
   private holdTimer: number | null = null;
   private liveJobId: string | null = null;
+  private lastPlayed: HTMLVideoElement | null = null;
 
   constructor(doc: Document, options: CaptionSessionOptions) {
     this.doc = doc;
@@ -117,6 +153,9 @@ export class VideoCaptionSession {
   setPreferences(preferences: CaptionSessionPreferences): void {
     const wasEnabled = this.prefs.enabled;
     const displayChanged = this.prefs.display !== preferences.display;
+    const sizeChanged =
+      (this.prefs.size ?? VIDEO_CAPTION_SIZE_DEFAULT) !==
+      (preferences.size ?? VIDEO_CAPTION_SIZE_DEFAULT);
     this.prefs = { ...preferences, tier: this.prefs.tier ?? preferences.tier };
     if (!preferences.enabled) {
       this.stop();
@@ -126,7 +165,10 @@ export class VideoCaptionSession {
       this.start();
       return;
     }
-    if (displayChanged) this.repaintHold();
+    if (displayChanged || sizeChanged) {
+      this.place();
+      this.repaintHold();
+    }
     void this.sync(true);
   }
 
@@ -147,6 +189,9 @@ export class VideoCaptionSession {
     view?.addEventListener('seeked', this.onSeek, true);
     view?.addEventListener('ratechange', this.onRate, true);
     view?.addEventListener('loadedmetadata', this.onMedia, true);
+    view?.addEventListener('play', this.onPlay, true);
+    view?.addEventListener('playing', this.onPlay, true);
+    view?.addEventListener('pause', this.onPlay, true);
     view?.addEventListener('resize', this.onPlace);
     view?.addEventListener('scroll', this.onPlace, true);
     videoTracksOf(this.doc)?.addEventListener('addtrack', this.onMedia);
@@ -185,6 +230,9 @@ export class VideoCaptionSession {
     view?.removeEventListener('seeked', this.onSeek, true);
     view?.removeEventListener('ratechange', this.onRate, true);
     view?.removeEventListener('loadedmetadata', this.onMedia, true);
+    view?.removeEventListener('play', this.onPlay, true);
+    view?.removeEventListener('playing', this.onPlay, true);
+    view?.removeEventListener('pause', this.onPlay, true);
     view?.removeEventListener('resize', this.onPlace);
     view?.removeEventListener('scroll', this.onPlace, true);
     videoTracksOf(this.doc)?.removeEventListener('addtrack', this.onMedia);
@@ -213,6 +261,7 @@ export class VideoCaptionSession {
     this.unbindVideo(this.video);
     this.loaded = null;
     this.video = null;
+    this.lastPlayed = null;
     this.liveJobId = null;
     this.overlay.hide();
     this.overlay.detach();
@@ -220,6 +269,12 @@ export class VideoCaptionSession {
 
   private readonly onMedia = (): void => {
     void this.paint(false);
+  };
+
+  private readonly onPlay = (event: Event): void => {
+    const target = event.target;
+    if (isHtmlVideo(target)) this.lastPlayed = target;
+    void this.sync(true);
   };
 
   private readonly onSeek = (): void => {
@@ -252,7 +307,7 @@ export class VideoCaptionSession {
 
   private async sync(forceLoad: boolean): Promise<void> {
     if (!this.running || !this.prefs.enabled) return;
-    const video = pickSessionVideo(this.doc);
+    const video = this.pickSessionVideo();
     if (video !== this.video) {
       this.unbindVideo(this.video);
       this.restoreTracks();
@@ -304,13 +359,22 @@ export class VideoCaptionSession {
         return;
       }
 
-      const html5 = loadHtml5Track(
-        video,
-        this.prefs.targetLanguage,
-        Number.isFinite(video.duration) ? video.duration * 1000 : undefined,
-      );
+      const durationMs = Number.isFinite(video.duration) ? video.duration * 1000 : undefined;
+      const html5 = loadHtml5Track(video, this.prefs.targetLanguage, durationMs);
       if (token !== this.loadToken) return;
-      this.loaded = html5 ? { key, ...html5 } : { key, cues: [], restoreModes: [] };
+      if (html5 && html5.cues.length > 0) {
+        this.loaded = { key, ...html5 };
+        this.prefetchFromPlayhead();
+        return;
+      }
+      const fromSrc = await this.loadTrackUrls(video, html5, durationMs);
+      if (token !== this.loadToken) return;
+      this.loaded = fromSrc
+        ? { key, ...fromSrc }
+        : html5
+          ? { key, ...html5 }
+          : { key, cues: [], restoreModes: [] };
+      this.useDomCaptions = (this.loaded.cues.length ?? 0) === 0 && this.allowsGenericDom();
       if ((this.loaded.cues.length ?? 0) > 0) this.prefetchFromPlayhead();
     } finally {
       if (token === this.loadToken) this.loadInFlight = false;
@@ -391,6 +455,25 @@ export class VideoCaptionSession {
       }
     }
     return html5;
+  }
+
+  private async loadTrackUrls(
+    video: HTMLVideoElement,
+    html5: Omit<LoadedTrack, 'key'> | null,
+    durationMs?: number,
+  ): Promise<Omit<LoadedTrack, 'key'> | null> {
+    for (const url of listVideoTrackUrls(video)) {
+      try {
+        const body = await this.readTrack(url);
+        const cues = finalizeCaptionCues(parseWebVtt(body), durationMs);
+        if (cues.length > 0) {
+          return { cues, restoreModes: html5?.restoreModes ?? [] };
+        }
+      } catch {
+        // Try the next published track URL; never invent captions.
+      }
+    }
+    return null;
   }
 
   private async paint(force: boolean): Promise<void> {
@@ -506,6 +589,7 @@ export class VideoCaptionSession {
     video.addEventListener('loadedmetadata', this.onMedia);
     video.addEventListener('cuechange', this.onMedia, true);
     video.textTracks.addEventListener('addtrack', this.onMedia);
+    hideShowingCaptionTracks(video);
   }
 
   private unbindVideo(video: HTMLVideoElement | null): void {
@@ -525,17 +609,66 @@ export class VideoCaptionSession {
     const rect = this.video.getBoundingClientRect();
     this.overlay.place(
       rect,
-      captionOverlayFontPx(rect.height, nativeCaptionFontPx(this.doc)),
+      captionOverlayFontPx(
+        rect.height,
+        nativeCaptionFontPx(this.doc),
+        this.prefs.size ?? VIDEO_CAPTION_SIZE_DEFAULT,
+      ),
       captionChromeInset(root),
     );
+    this.maskNativeCaptionNodes(root);
   }
 
   private readSourceCaptionDom(): string {
     const spoken = this.loaded?.language;
-    return readYoutubeCaptionDom(this.doc, {
+    const youtube = readYoutubeCaptionDom(this.doc, {
       targetLanguage: this.prefs.targetLanguage,
       spokenLanguage: spoken,
     });
+    if (youtube.length > 0) return youtube;
+    if (!this.allowsGenericDom()) return '';
+    return readGenericCaptionDom(this.doc, { targetLanguage: this.prefs.targetLanguage });
+  }
+
+  private allowsGenericDom(): boolean {
+    const host = pageHost(this.doc.defaultView?.location.href ?? '') ?? '';
+    return !isYouTubeHost(host) && !isXHost(host);
+  }
+
+  private pickSessionVideo(): HTMLVideoElement | null {
+    const host = pageHost(this.doc.defaultView?.location.href ?? '') ?? '';
+    if (isXHost(host)) return pickPlayingXVideo(this.doc, this.lastPlayed);
+    if (isYouTubeHost(host)) return pickPrimaryVideo(this.doc);
+    if (this.lastPlayed?.isConnected && !this.lastPlayed.paused && !this.lastPlayed.ended) {
+      return this.lastPlayed;
+    }
+    return pickPlayingOrPrimaryVideo(this.doc);
+  }
+
+  private maskNativeCaptionNodes(root: Element): void {
+    const host = pageHost(this.doc.defaultView?.location.href ?? '') ?? '';
+    if (!isXHost(host)) return;
+    const view = this.doc.defaultView;
+    if (!view) return;
+    try {
+      for (const node of root.querySelectorAll('*')) {
+        if (node.closest(CAPTION_OVERLAY_HOST)) continue;
+        if (node.tagName === 'VIDEO') continue;
+        if (node.closest('button, [role="button"], a, input, textarea, select')) continue;
+        const text = (node.textContent ?? '').replace(/\s+/g, ' ').trim();
+        if (text.length < 2 || text.length > 240) continue;
+        const style = view.getComputedStyle(node);
+        const shadow = style.textShadow;
+        const hasShadow = Boolean(shadow && shadow !== 'none');
+        const positioned = style.position === 'absolute' || style.position === 'fixed';
+        const captionClass = /caption|subtitle/i.test(node.className);
+        if (!hasShadow && !(positioned && captionClass)) continue;
+        if (!hasShadow && !captionClass) continue;
+        node.setAttribute('data-sakutto-native-caption', '');
+      }
+    } catch {
+      // Computed style is unavailable in some test documents.
+    }
   }
 
   private prefetchFromPlayhead(): void {
@@ -668,14 +801,28 @@ function trackKey(doc: Document, video: HTMLVideoElement): string {
 }
 
 function videoTracksOf(doc: Document): TextTrackList | null {
-  const video = pickSessionVideo(doc);
+  const video = pickPrimaryVideo(doc) ?? doc.querySelector('video');
   return video?.textTracks ?? null;
 }
 
-function pickSessionVideo(doc: Document): HTMLVideoElement | null {
-  const host = pageHost(doc.defaultView?.location.href ?? '') ?? '';
-  if (isXHost(host)) return pickPlayingXVideo(doc);
-  return pickPrimaryVideo(doc);
+function hideShowingCaptionTracks(video: HTMLVideoElement): void {
+  try {
+    for (const track of video.textTracks) {
+      if (track.kind !== 'captions' && track.kind !== 'subtitles') continue;
+      if (track.mode === 'showing') track.mode = 'hidden';
+    }
+  } catch {
+    // Some players throw when a track list is mutated during playback.
+  }
+}
+
+function isHtmlVideo(value: EventTarget | null): value is HTMLVideoElement {
+  return Boolean(
+    value &&
+    typeof value === 'object' &&
+    'tagName' in value &&
+    (value as HTMLElement).tagName === 'VIDEO',
+  );
 }
 
 function sameLanguage(source: string | undefined, target: string): boolean {

@@ -1,4 +1,9 @@
-import type { DisplayMode } from '@/shared/settings';
+import {
+  VIDEO_CAPTION_SIZE_DEFAULT,
+  VIDEO_CAPTION_SIZE_MAX,
+  VIDEO_CAPTION_SIZE_MIN,
+  type DisplayMode,
+} from '@/shared/settings';
 
 export interface CaptionOverlayLabels {
   label: string;
@@ -35,8 +40,9 @@ const STYLE = `
   max-width: 100%;
   padding: 0.18em 0.55em;
   border-radius: 0.28em;
-  background: rgb(8 8 8 / 80%);
+  background: rgb(8 8 8 / 92%);
   color: #fff;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 80%);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: 1em;
@@ -47,7 +53,7 @@ const STYLE = `
   font-size: 0.68em;
   font-weight: 400;
   color: #e8eef4;
-  background: rgb(8 8 8 / 62%);
+  background: rgb(8 8 8 / 82%);
 }
 ::slotted(.toggle) {
   pointer-events: auto;
@@ -106,11 +112,19 @@ export function captionOverlayBox(
 }
 
 /** Match YouTube's native caption size: native computed px, else ~5% of player height. */
-export function captionOverlayFontPx(playerHeight: number, nativePx?: number): number {
-  if (nativePx !== undefined && Number.isFinite(nativePx) && nativePx >= 14) {
-    return Math.round(Math.min(64, nativePx));
-  }
-  return Math.round(Math.min(56, Math.max(20, playerHeight * 0.05)));
+export function captionOverlayFontPx(
+  playerHeight: number,
+  nativePx?: number,
+  scale = VIDEO_CAPTION_SIZE_DEFAULT,
+): number {
+  const base =
+    nativePx !== undefined && Number.isFinite(nativePx) && nativePx >= 14
+      ? Math.min(64, nativePx)
+      : Math.min(56, Math.max(20, playerHeight * 0.05));
+  const factor = Number.isFinite(scale)
+    ? Math.min(VIDEO_CAPTION_SIZE_MAX, Math.max(VIDEO_CAPTION_SIZE_MIN, scale)) / 100
+    : VIDEO_CAPTION_SIZE_DEFAULT / 100;
+  return Math.round(Math.min(64, Math.max(12, base * factor)));
 }
 
 /**
@@ -121,17 +135,27 @@ export function captionOverlayRoot(doc: Document, video: HTMLVideoElement): Elem
   const view = doc.defaultView;
   const fullscreen = view?.document.fullscreenElement ?? doc.fullscreenElement;
   if (fullscreen && (fullscreen === video || fullscreen.contains(video))) return fullscreen;
-  const player = video.closest('#movie_player, .html5-video-player');
+  const player = video.closest(
+    '#movie_player, .html5-video-player, [data-testid="videoPlayer"], [data-testid="videoComponent"]',
+  );
   if (player) return player;
   return video.parentElement ?? doc.documentElement;
 }
 
 export function captionChromeInset(root: ParentNode): number {
   const chrome = root.querySelector('.ytp-chrome-bottom');
-  if (!(chrome instanceof HTMLElement)) return 18;
-  const height = chrome.getBoundingClientRect().height;
-  if (!Number.isFinite(height) || height <= 0) return 18;
-  return Math.max(18, Math.round(height));
+  if (chrome instanceof HTMLElement) {
+    const height = chrome.getBoundingClientRect().height;
+    if (Number.isFinite(height) && height > 0) return Math.max(18, Math.round(height));
+  }
+  if (
+    root instanceof Element &&
+    (root.matches('[data-testid="videoPlayer"], [data-testid="videoComponent"]') ||
+      root.closest('[data-testid="videoPlayer"], [data-testid="videoComponent"]'))
+  ) {
+    return 52;
+  }
+  return 18;
 }
 
 export class CaptionOverlay {

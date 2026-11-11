@@ -394,7 +394,8 @@ describe('caption overlay placement and priority', () => {
     expect(box.width).toBeGreaterThan(720);
     expect(box.width).toBeCloseTo(1280 * 0.94);
     expect(captionOverlayFontPx(720)).toBeGreaterThanOrEqual(20);
-    expect(captionOverlayFontPx(360, 32)).toBe(32);
+    expect(captionOverlayFontPx(360, 32, 100)).toBe(32);
+    expect(captionOverlayFontPx(360, 32)).toBeLessThan(32);
   });
 
   it('keeps live captions ahead of page prose and prefetch behind nearby prose', () => {

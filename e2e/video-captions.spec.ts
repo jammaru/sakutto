@@ -311,6 +311,51 @@ test.describe('video captions', () => {
     }
   });
 
+  test('shows caption size preview and custom site fields on the settings page', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker);
+      const options = await extension.context.newPage();
+      await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      const toggle = options.locator('[data-sakutto="video-captions"]');
+      await expect(toggle).toBeVisible();
+      await stubPopupCaptionPermission(options, true);
+      await toggle.click();
+      await expect(toggle).toBeChecked();
+      const slider = options.locator('[data-sakutto="video-captions-size-slider"]');
+      await expect(slider).toBeVisible();
+      await expect(options.locator('[data-sakutto="video-captions-original"]')).toBeVisible();
+      await expect(options.locator('[data-sakutto="caption-custom-hosts"]')).toBeVisible();
+      await expect(options.locator('.caption-preview-original')).toHaveText(
+        'The north window sells tickets.',
+      );
+      await expect(options.locator('.caption-preview-translation')).toHaveText(
+        '北側窓口では切符を売っています。',
+      );
+      const before = await options
+        .locator('.caption-preview-translation')
+        .evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
+      await slider.evaluate((element) => {
+        const input = element as HTMLInputElement;
+        input.value = '150';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await expect
+        .poll(async () =>
+          options
+            .locator('.caption-preview-translation')
+            .evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize)),
+        )
+        .toBeGreaterThan(before);
+      await options.locator('[data-sakutto="caption-custom-host"]').fill('file://example.com');
+      await options.locator('[data-sakutto="caption-custom-host-add"]').click();
+      await expect(options.locator('[data-sakutto="caption-custom-host-invalid"]')).toBeVisible();
+      await options.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
   test('reverts the settings page switch when host permission is denied', async () => {
     const extension = await loadExtension('en-US');
     try {
@@ -363,6 +408,52 @@ test.describe('video captions', () => {
       });
       expect(stored?.translateVideoCaptions).not.toBe(true);
       await popup.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('translates an inline X video after play without going fullscreen', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await mockXOrigin(extension.context);
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      const page = await extension.context.newPage();
+      await page.goto('https://x.com/i/status/fixture');
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      await expect(page.locator('sakutto-captions[data-sakutto-caption]')).toHaveCount(0);
+      await preparePlayingXVideo(page);
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-original',
+        /駅は夜明けに開きます|赤い列車|切符は北側/,
+      );
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-caption',
+        new RegExp(MARKER),
+      );
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('hides the native X caption while the overlay is shown', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await mockXOrigin(extension.context);
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      const page = await extension.context.newPage();
+      await page.goto('https://x.com/i/status/fixture');
+      await preparePlayingXVideo(page);
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-caption',
+        new RegExp(MARKER),
+      );
+      const native = page.locator('[data-sakutto="x-native-caption"]');
+      await expect(native).toHaveCSS('visibility', 'hidden');
+      await expect(page.locator('[data-testid="videoPlayer"] sakutto-captions')).toHaveCount(1);
     } finally {
       await extension.close();
     }

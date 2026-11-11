@@ -1202,5 +1202,38 @@
   },
   "videoCaptionsPermissionDenied": {
     "message": "O acesso ao YouTube e ao X não foi concedido."
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "Mostrar a linha original"
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "Tamanho das legendas"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "O tamanho acompanha o player, inclusive em tela cheia e teatro. Arraste o controle para pré-visualizar."
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "Sites de legendas personalizados"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "Adicione um domínio que não seja YouTube nem X. A tradução só funciona quando o site expõe legendas como faixas de vídeo HTML5, WebVTT ou um elemento visível. Sites que desenham legendas só como gráficos próprios não são suportados. O acesso a esse domínio é pedido ao adicionar."
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "Adicionar"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "Remover"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "Incluir subdomínios"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "Digite um domínio como example.com. O único curinga permitido é um * no início."
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "O acesso a esse site não foi concedido."
   }
 }

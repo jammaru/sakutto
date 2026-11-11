@@ -228,6 +228,7 @@ function captionPreferencesFor(settings: Settings, rule: SiteRule): CaptionSessi
     targetLanguage: effectivePageTarget(settings.targetLanguage, rule.targetLanguage),
     form: settings.form,
     display: settings.videoCaptionDisplay,
+    size: settings.videoCaptionSize,
     glossary: glossary.length > 0 ? glossary : undefined,
     tier: null,
   };

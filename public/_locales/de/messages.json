@@ -1202,5 +1202,38 @@
   },
   "videoCaptionsPermissionDenied": {
     "message": "Der Zugriff auf YouTube und X wurde nicht gewährt."
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "Originalzeile anzeigen"
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "Untertitelgröße"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "Die Größe folgt dem Player, auch im Vollbild und im Theater-Modus. Ziehen Sie den Schieberegler für eine Vorschau."
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "Eigene Untertitel-Websites"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "Fügen Sie eine Domain hinzu, die nicht YouTube oder X ist. Die Übersetzung funktioniert nur, wenn die Website Untertitel als HTML5-Video-Tracks, WebVTT oder ein sichtbares Untertitel-Element bereitstellt. Websites, die Untertitel nur als eigene Grafik zeichnen, werden nicht unterstützt. Beim Hinzufügen wird der Zugriff auf diese Domain angefordert."
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "Hinzufügen"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "Entfernen"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "Subdomains einschließen"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "Geben Sie eine Domain wie example.com ein. Der einzige erlaubte Platzhalter ist ein führendes *."
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "Der Zugriff auf diese Website wurde nicht gewährt."
   }
 }

@@ -1174,7 +1174,7 @@
     "message": "動画の字幕を翻訳する"
   },
   "videoCaptionsSettingHelp": {
-    "message": "オンにすると、YouTube（ライブを含む）と X の、字幕がある動画を再生中に端末内で翻訳します。設定を入れるときに、それらのサイトへのアクセス許可を求めます。字幕がない動画には何も出しません。確かな訳が出ない行は原文のまま残します。"
+    "message": "オンにすると、YouTube（ライブを含む）と X の、字幕がある動画を再生中に端末内で翻訳します。設定を入れるときに、それらのサイトへのアクセス許可を求めます。標準的な字幕がある別のサイトは、下の一覧に追加できます。字幕がない動画には何も出しません。確かな訳が出ない行は原文のまま残します。"
   },
   "videoCaptionsDisplayLabel": {
     "message": "字幕の表示"
@@ -1202,5 +1202,38 @@
   },
   "videoCaptionsPermissionDenied": {
     "message": "YouTube と X へのアクセスが許可されませんでした。"
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "原文の行を表示する"
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "字幕の大きさ"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "大きさはプレーヤーに合わせて変わります（全画面・シアターを含む）。スライダーを動かすとプレビューが変わります。"
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "独自の字幕サイト"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "YouTube と X 以外のドメインを追加できます。HTML5 の video トラック、WebVTT、または画面上の標準的な字幕要素がある場合にだけ翻訳します。独自の描画だけで字幕を出しているサイトには対応しません。追加するときに、そのドメインへのアクセスを求めます。"
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "追加"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "削除"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "サブドメインも含める"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "example.com のようなドメインを入力してください。使えるワイルドカードは先頭の * だけです。"
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "そのサイトへのアクセスが許可されませんでした。"
   }
 }

@@ -72,3 +72,41 @@ export function pickPrimaryVideo(doc: Document): HTMLVideoElement | null {
     return area > bestArea ? video : best;
   });
 }
+
+/** Same-origin or absolute http(s) URLs from `<track src>` on the video. */
+export function listVideoTrackUrls(video: HTMLVideoElement): string[] {
+  const urls: string[] = [];
+  const base = video.baseURI || video.ownerDocument?.baseURI || undefined;
+  for (const track of video.querySelectorAll('track')) {
+    const src = track.getAttribute('src') ?? '';
+    if (src.length === 0) continue;
+    try {
+      const url = new URL(src, base);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') continue;
+      const href = url.toString();
+      if (!urls.includes(href)) urls.push(href);
+    } catch {
+      // Ignore malformed track URLs.
+    }
+  }
+  return urls;
+}
+
+/** Custom sites: the playing video if any, otherwise the largest player. */
+export function pickPlayingOrPrimaryVideo(doc: Document): HTMLVideoElement | null {
+  const playing = [...doc.querySelectorAll('video')].filter((video) => {
+    if (video.paused || video.ended) return false;
+    if (video.readyState < 1) return false;
+    const rect = video.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  });
+  if (playing.length === 1) return playing[0] ?? null;
+  if (playing.length > 1) {
+    return playing.reduce((best, video) => {
+      const bestRect = best.getBoundingClientRect();
+      const rect = video.getBoundingClientRect();
+      return rect.width * rect.height > bestRect.width * bestRect.height ? video : best;
+    });
+  }
+  return pickPrimaryVideo(doc);
+}

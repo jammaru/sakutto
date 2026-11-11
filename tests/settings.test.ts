@@ -11,6 +11,7 @@ import {
   SETTINGS_SCHEMA_VERSION,
   createDefaultSettings,
   isTierPreference,
+  normalizeVideoCaptionSize,
   needsLicenseReconsent,
   normalizeSettings,
   type Settings,
@@ -44,6 +45,8 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     localServerExperimentalAck: false,
     translateVideoCaptions: false,
     videoCaptionDisplay: 'bilingual',
+    videoCaptionSize: 80,
+    captionCustomHosts: [],
     ...overrides,
   };
 }
@@ -215,6 +218,8 @@ describe('settings defaults', () => {
     );
     expect(settings.translateVideoCaptions).toBe(false);
     expect(settings.videoCaptionDisplay).toBe('bilingual');
+    expect(settings.videoCaptionSize).toBe(80);
+    expect(settings.captionCustomHosts).toEqual([]);
     expect(
       normalizeSettings(
         {
@@ -236,6 +241,26 @@ describe('settings defaults', () => {
         'en-US',
       ).videoCaptionDisplay,
     ).toBe('bilingual');
+  });
+
+  it('clamps caption size and keeps only valid custom hosts', () => {
+    expect(normalizeVideoCaptionSize(undefined)).toBe(80);
+    expect(normalizeVideoCaptionSize(200)).toBe(150);
+    expect(normalizeVideoCaptionSize(10)).toBe(50);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          videoCaptionSize: 91.4,
+          captionCustomHosts: ['Example.COM', 'file://nope', '*.ok.dev', 'https://ok.dev/path'],
+        },
+        'en-US',
+      ),
+    ).toMatchObject({
+      videoCaptionSize: 91,
+      captionCustomHosts: ['example.com', '*.ok.dev'],
+    });
   });
 
   it('defaults the compose icon on for a record that predates the setting', () => {

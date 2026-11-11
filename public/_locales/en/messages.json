@@ -1174,7 +1174,7 @@
     "message": "Translate video captions"
   },
   "videoCaptionsSettingHelp": {
-    "message": "When this is on, YouTube (including live) and X videos that already have captions are translated on your device as they play. Chrome asks for access to those sites when you turn the setting on. Videos with no captions stay silent. If a line cannot be translated reliably, the original stays."
+    "message": "When this is on, YouTube (including live) and X videos that already have captions are translated on your device as they play. Chrome asks for access to those sites when you turn the setting on. You can add other sites below if they expose captions in a standard way. Videos with no captions stay silent. If a line cannot be translated reliably, the original stays."
   },
   "videoCaptionsDisplayLabel": {
     "message": "Caption display"
@@ -1202,5 +1202,38 @@
   },
   "videoCaptionsPermissionDenied": {
     "message": "Access to YouTube and X was not granted."
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "Show original caption line"
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "Caption size"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "The size follows the player, including fullscreen and theater. Drag the slider to preview."
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "Custom caption sites"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "Add a domain that is not YouTube or X. Translation works only when the site exposes captions as HTML5 video tracks, WebVTT, or a visible caption element. Sites that draw captions only as custom graphics are not supported. Access is requested for that domain when you add it."
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "Add"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "Remove"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "Include subdomains"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "Enter a domain such as example.com. The only wildcard allowed is a leading *."
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "Access to that site was not granted."
   }
 }

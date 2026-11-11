@@ -96,6 +96,22 @@ describe('caption auto-run gating', () => {
         originAllowed: true,
       }),
     ).toBe(false);
+    expect(
+      shouldAutoInjectCaptions({
+        settingOn: true,
+        host: 'videos.example.com',
+        originAllowed: true,
+        customHosts: ['*.example.com'],
+      }),
+    ).toBe(true);
+    expect(
+      shouldAutoInjectCaptions({
+        settingOn: true,
+        host: 'other.test',
+        originAllowed: true,
+        customHosts: ['example.com'],
+      }),
+    ).toBe(false);
   });
 
   it('requests the existing optional page origins, not twimg', () => {

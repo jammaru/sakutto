@@ -132,6 +132,7 @@ async function injectIfCaptions(tabId: number, url: string): Promise<void> {
       settingOn: settings.translateVideoCaptions,
       host,
       originAllowed: allowed,
+      customHosts: settings.captionCustomHosts,
     })
   ) {
     return;
