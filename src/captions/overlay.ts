@@ -166,7 +166,6 @@ export class CaptionOverlay {
   private readonly captureDoc: Document;
   private labels: CaptionOverlayLabels;
   private onDisplayToggle: () => void = () => undefined;
-  private toggleArmed = false;
   private captureBound = false;
 
   constructor(doc: Document, labels: CaptionOverlayLabels) {
@@ -301,26 +300,18 @@ export class CaptionOverlay {
     }
   }
 
+  /**
+   * One toggle per gesture. Swallow pointer/mouse down/up so YouTube cannot steal them,
+   * but only `click` flips the setting. Toggling on pointerdown *and* click made a
+   * normal press flip twice (hide then immediately show); a long press suppressed
+   * `click` and appeared to work.
+   */
   private onToggleCapture = (event: Event): void => {
     if (!this.eventHitsToggle(event)) return;
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
-    if (event.type === 'pointerdown' || event.type === 'mousedown') {
-      if (this.toggleArmed) return;
-      this.toggleArmed = true;
-      this.onDisplayToggle();
-      return;
-    }
-    if (event.type === 'click') {
-      if (this.toggleArmed) {
-        this.toggleArmed = false;
-        return;
-      }
-      this.onDisplayToggle();
-      return;
-    }
-    this.toggleArmed = false;
+    if (event.type === 'click') this.onDisplayToggle();
   };
 
   private eventHitsToggle(event: Event): boolean {

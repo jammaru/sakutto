@@ -53,6 +53,40 @@ async function prepareVideo(page: Page): Promise<void> {
   });
 }
 
+async function seekVideo(page: Page, seconds: number): Promise<void> {
+  await page.locator('#player').evaluate((element, time) => {
+    (element as HTMLVideoElement).currentTime = time;
+  }, seconds);
+}
+
+async function installCapturingPlayerHandler(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const player = document.querySelector('#movie_player');
+    if (!player) throw new Error('movie_player missing');
+    const state = { count: 0 };
+    (globalThis as unknown as { __sakuttoPlayerStolen: { count: number } }).__sakuttoPlayerStolen =
+      state;
+    for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
+      player.addEventListener(
+        type,
+        (event) => {
+          state.count += 1;
+          event.stopPropagation();
+        },
+        true,
+      );
+    }
+  });
+}
+
+async function playerStolenCount(page: Page): Promise<number> {
+  return page.evaluate(
+    () =>
+      (globalThis as unknown as { __sakuttoPlayerStolen?: { count: number } }).__sakuttoPlayerStolen
+        ?.count ?? -1,
+  );
+}
+
 test.describe('video captions', () => {
   test('translates HTML5 subtitle cues over a dummy video', async () => {
     const extension = await loadExtension('en-US');
@@ -102,6 +136,72 @@ test.describe('video captions', () => {
         'data-sakutto-show-original',
         '1',
       );
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('keeps the original hidden after a real click through player chrome and later cues', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      const page = await extension.context.newPage();
+      await page.goto(`${FIXTURE_ORIGIN}/youtube-captions.html`);
+      await prepareVideo(page);
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      const host = page.locator('sakutto-captions');
+      await expect(host).toHaveAttribute('data-sakutto-show-original', '1');
+      await installCapturingPlayerHandler(page);
+      const toggle = page.locator('[data-sakutto="caption-original-toggle"]');
+      await expect(toggle).toBeVisible();
+      await toggle.click();
+      await expect(host).toHaveAttribute('data-sakutto-show-original', '0');
+      await expect.poll(() => playerStolenCount(page)).toBe(0);
+
+      await seekVideo(page, 2.7);
+      await expect(host).toHaveAttribute('data-sakutto-original', /赤い列車/);
+      await expect(host).toHaveAttribute('data-sakutto-show-original', '0');
+      await seekVideo(page, 5.5);
+      await expect(host).toHaveAttribute('data-sakutto-original', /切符は北側/);
+      await expect(host).toHaveAttribute('data-sakutto-show-original', '0');
+      await new Promise((resolve) => setTimeout(resolve, 1600));
+      await expect(host).toHaveAttribute('data-sakutto-show-original', '0');
+      await expect.poll(() => playerStolenCount(page)).toBe(0);
+
+      await toggle.click();
+      await expect(host).toHaveAttribute('data-sakutto-show-original', '1');
+      await new Promise((resolve) => setTimeout(resolve, 1600));
+      await expect(host).toHaveAttribute('data-sakutto-show-original', '1');
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('a long press on the original-caption pill does not flip twice', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      const page = await extension.context.newPage();
+      await page.goto(`${FIXTURE_ORIGIN}/youtube-captions.html`);
+      await prepareVideo(page);
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      const host = page.locator('sakutto-captions');
+      await expect(host).toHaveAttribute('data-sakutto-show-original', '1');
+      await installCapturingPlayerHandler(page);
+      const toggle = page.locator('[data-sakutto="caption-original-toggle"]');
+      await expect(toggle).toBeVisible();
+      const box = await toggle.boundingBox();
+      if (!box) throw new Error('caption toggle had no box');
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      await page.mouse.up();
+      await expect(host).toHaveAttribute('data-sakutto-show-original', '0');
+      await new Promise((resolve) => setTimeout(resolve, 1600));
+      await expect(host).toHaveAttribute('data-sakutto-show-original', '0');
+      await expect.poll(() => playerStolenCount(page)).toBe(0);
     } finally {
       await extension.close();
     }

@@ -413,32 +413,43 @@ export default defineContentScript({
         },
       });
 
+      let liveSettings = settings;
+      let liveRule = rule;
+      let captionDisplayWrite = 0;
+
       captions = new VideoCaptionSession(document, {
         engine,
         labels: captionLabels(),
-        preferences: captionPreferencesFor(settings, rule),
+        preferences: captionPreferencesFor(liveSettings, liveRule),
         onDisplayToggle: () => {
-          void loadSettings().then((current) =>
-            saveSettings({
-              videoCaptionDisplay:
-                current.videoCaptionDisplay === 'bilingual' ? 'replace' : 'bilingual',
-            }),
-          );
+          captionDisplayWrite += 1;
+          const nextDisplay =
+            liveSettings.videoCaptionDisplay === 'bilingual' ? 'replace' : 'bilingual';
+          liveSettings = { ...liveSettings, videoCaptionDisplay: nextDisplay };
+          captions?.setPreferences(captionPreferencesFor(liveSettings, liveRule));
+          void saveSettings({ videoCaptionDisplay: nextDisplay });
         },
       });
-      if (captionPreferencesFor(settings, rule).enabled) captions.start();
+      if (captionPreferencesFor(liveSettings, liveRule).enabled) captions.start();
 
       const detected = await detectDocumentLanguage(document);
       session.setDetectedLanguage(detected);
 
       const applyStored = async (): Promise<void> => {
+        const writeId = captionDisplayWrite;
         const [nextSettings, nextRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
-        engineSource = nextSettings.engineSource;
-        shortcutsEnabled = nextSettings.shortcutsEnabled;
+        const display =
+          writeId === captionDisplayWrite
+            ? nextSettings.videoCaptionDisplay
+            : liveSettings.videoCaptionDisplay;
+        liveSettings = { ...nextSettings, videoCaptionDisplay: display };
+        liveRule = nextRule;
+        engineSource = liveSettings.engineSource;
+        shortcutsEnabled = liveSettings.shortcutsEnabled;
         session.setLabels(overlayLabels());
-        session.setPreferences(preferencesFor(nextSettings, nextRule, host));
+        session.setPreferences(preferencesFor(liveSettings, liveRule, host));
         const readiness = composeReadiness(
-          nextSettings,
+          liveSettings,
           modelState ? { state: modelState } : null,
           plamoReady,
           modelStatusKnown,
@@ -446,8 +457,8 @@ export default defineContentScript({
         compose?.setLabels(composeLabels(readiness));
         compose?.setPreferences(
           composePreferencesFor(
-            nextSettings,
-            nextRule,
+            liveSettings,
+            liveRule,
             readiness,
             displayShortcut(
               shortcutFor(
@@ -460,7 +471,7 @@ export default defineContentScript({
           ),
         );
         captions?.setLabels(captionLabels());
-        captions?.setPreferences(captionPreferencesFor(nextSettings, nextRule));
+        captions?.setPreferences(captionPreferencesFor(liveSettings, liveRule));
       };
 
       subscribeSettings(() => {

@@ -102,6 +102,45 @@ describe('caption overlay', () => {
     overlay.detach();
   });
 
+  it('toggles once for a full pointerdown/mouseup/click gesture and not on down or up', () => {
+    const overlay = new CaptionOverlay(document, labels);
+    overlay.attach(document.body);
+    overlay.show({
+      original: 'The station opens at dawn.',
+      translation: '駅は夜明けに開きます。',
+      display: 'bilingual',
+      pending: false,
+    });
+    const button = document.querySelector(
+      `[data-sakutto="${CAPTION_ORIGINAL_TOGGLE}"]`,
+    ) as HTMLButtonElement;
+    let toggled = 0;
+    overlay.setOnDisplayToggle(() => {
+      toggled += 1;
+    });
+    let parentSaw = 0;
+    document.body.addEventListener(
+      'click',
+      () => {
+        parentSaw += 1;
+      },
+      true,
+    );
+
+    for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup'] as const) {
+      button.dispatchEvent(
+        new MouseEvent(type, { bubbles: true, composed: true, cancelable: true }),
+      );
+    }
+    expect(toggled).toBe(0);
+    button.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, composed: true, cancelable: true }),
+    );
+    expect(toggled).toBe(1);
+    expect(parentSaw).toBe(0);
+    overlay.detach();
+  });
+
   it('attaches to #movie_player instead of the inner video container', () => {
     document.body.innerHTML = `
       <div id="movie_player" class="html5-video-player">
