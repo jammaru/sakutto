@@ -1,10 +1,31 @@
+import { SELECTABLE_MODEL_IDS, getModel } from './catalog';
 import { isFirefoxBuild } from '@/shared/browser';
 import { isRecord } from '@/shared/object';
 
 export const SHARED_MODELS_DIRECTORY = 'sakutto-models';
+/** Well-known folder inside Documents. Windows and macOS both use this spelling. */
+export const SHARED_APP_DIRECTORY = 'Sakutto';
+export const SHARED_FOLDER_PICKER_ID = 'sakutto-models';
+export const SHARED_FOLDER_PICKER_START = 'documents' as const;
 export const SHARED_FOLDER_DB_NAME = 'sakutto-model-folder';
 export const SHARED_FOLDER_STORE = 'handles';
 export const SHARED_FOLDER_KEY = 'directory';
+
+const DOCUMENTS_FOLDER_NAMES = new Set([
+  'documents',
+  'ドキュメント',
+  '書類',
+  'documentos',
+  'documenti',
+  'dokumente',
+  'документы',
+  '문서',
+  '文档',
+  '文件',
+  'เอกสาร',
+  'tài liệu',
+  'dokumen',
+]);
 
 export type FolderPermission = 'granted' | 'denied' | 'prompt';
 
@@ -82,10 +103,78 @@ export async function pickSharedModelFolder(
     throw new Error('This browser cannot choose a folder for the translation model.');
   }
   return picker({
-    id: 'sakutto-models',
+    id: SHARED_FOLDER_PICKER_ID,
     mode: 'readwrite',
-    startIn: 'documents',
+    startIn: SHARED_FOLDER_PICKER_START,
   });
+}
+
+function folderNameKey(name: string): string {
+  return name.normalize('NFC').toLowerCase();
+}
+
+export function isDocumentsFolderName(name: string): boolean {
+  return DOCUMENTS_FOLDER_NAMES.has(folderNameKey(name));
+}
+
+export function isRecommendedSharedFolderName(name: string): boolean {
+  return folderNameKey(name) === folderNameKey(SHARED_APP_DIRECTORY);
+}
+
+async function directoryHasChild(
+  handle: FileSystemDirectoryHandle,
+  name: string,
+): Promise<boolean> {
+  try {
+    await handle.getDirectoryHandle(name);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function directoryHasOfficialGguf(
+  handle: FileSystemDirectoryHandle,
+): Promise<boolean> {
+  const getFile = (
+    handle as FileSystemDirectoryHandle & {
+      getFileHandle?: (name: string) => Promise<FileSystemFileHandle>;
+    }
+  ).getFileHandle;
+  if (typeof getFile !== 'function') return false;
+  for (const modelId of SELECTABLE_MODEL_IDS) {
+    try {
+      await getFile.call(handle, getModel(modelId).file);
+      return true;
+    } catch {
+      // Missing this pin; try the next official name.
+    }
+  }
+  return false;
+}
+
+/**
+ * Turns the picker result into the folder we persist: Documents/Sakutto when the user
+ * picked Documents, otherwise the folder that already holds sakutto-models or a GGUF.
+ */
+export async function resolveSharedFolderRoot(
+  picked: FileSystemDirectoryHandle,
+): Promise<FileSystemDirectoryHandle> {
+  if (await directoryHasChild(picked, SHARED_MODELS_DIRECTORY)) return picked;
+  if (await directoryHasOfficialGguf(picked)) return picked;
+  if (isRecommendedSharedFolderName(picked.name)) return picked;
+  if (isDocumentsFolderName(picked.name)) {
+    return picked.getDirectoryHandle(SHARED_APP_DIRECTORY, { create: true });
+  }
+  return picked;
+}
+
+/** Inner directory that actually holds official GGUF files. */
+export async function openSharedModelsDirectory(
+  directory: FileSystemDirectoryHandle,
+): Promise<FileSystemDirectoryHandle> {
+  if (await directoryHasOfficialGguf(directory)) return directory;
+  return directory.getDirectoryHandle(SHARED_MODELS_DIRECTORY, { create: true });
 }
 
 /**
@@ -235,27 +324,33 @@ export function isFolderPickerAbort(error: unknown): boolean {
 
 export type SharedFolderAdoptResult = 'granted' | 'cancelled' | 'denied' | 'failed';
 
+export type SharedFolderAdoptOutcome =
+  { status: 'granted'; name: string } | { status: 'cancelled' | 'denied' | 'failed' };
+
 export interface SharedFolderAdoptHooks {
   pick?: () => Promise<FileSystemDirectoryHandle>;
   requestPermission?: (handle: FileSystemDirectoryHandle) => Promise<FolderPermission>;
   persist?: (handle: FileSystemDirectoryHandle) => Promise<StoredSharedFolder>;
+  resolve?: (handle: FileSystemDirectoryHandle) => Promise<FileSystemDirectoryHandle>;
 }
 
 /** Picker + permission + IndexedDB persist. Reload of the engine host is left to the caller. */
 export async function adoptPickedSharedFolder(
   hooks: SharedFolderAdoptHooks = {},
-): Promise<SharedFolderAdoptResult> {
+): Promise<SharedFolderAdoptOutcome> {
   const pick = hooks.pick ?? pickSharedModelFolder;
   const requestPermission = hooks.requestPermission ?? requestFolderPermission;
   const persist = hooks.persist ?? persistSharedFolderHandle;
+  const resolve = hooks.resolve ?? resolveSharedFolderRoot;
   try {
     const handle = await pick();
     const permission = await requestPermission(handle);
-    if (permission !== 'granted') return 'denied';
-    await persist(handle);
-    return 'granted';
+    if (permission !== 'granted') return { status: 'denied' };
+    const resolved = await resolve(handle);
+    const stored = await persist(resolved);
+    return { status: 'granted', name: stored.name };
   } catch (error) {
-    if (isFolderPickerAbort(error)) return 'cancelled';
-    return 'failed';
+    if (isFolderPickerAbort(error)) return { status: 'cancelled' };
+    return { status: 'failed' };
   }
 }

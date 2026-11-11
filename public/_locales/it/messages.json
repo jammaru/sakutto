@@ -256,7 +256,7 @@
     "message": "Usa una cartella modelli condivisa"
   },
   "onboardingStoreFolderHelp": {
-    "message": "Chrome ed Edge possono condividere un file PLaMo ufficiale. Se la cartella ha già una copia verificata in sakutto-models, il download viene saltato."
+    "message": "Crea o scegli una cartella «Sakutto» in Documenti. Un secondo browser che sceglie la stessa cartella non deve scaricare di nuovo."
   },
   "onboardingStartFailed": {
     "message": "L'avvio non è avvenuto. Riprova."
@@ -666,7 +666,7 @@
     "message": "Shared model folder"
   },
   "modelFolderHelp": {
-    "message": "Chrome, Edge, and other Chromium browsers can keep official PLaMo files in a sakutto-models folder inside one you choose, and skip a second download. The default is still storage inside this browser. Firefox cannot use this option."
+    "message": "Tieni i file PLaMo ufficiali in una cartella Sakutto dentro Documenti. Chrome ed Edge che scelgono la stessa cartella non scaricano di nuovo. Il selettore si apre in Documenti e ricorda la posizione. L’impostazione predefinita resta questo browser. Firefox non può usare questa opzione."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"

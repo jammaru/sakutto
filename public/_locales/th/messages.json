@@ -256,7 +256,7 @@
     "message": "ใช้โฟลเดอร์โมเดลร่วมกัน"
   },
   "onboardingStoreFolderHelp": {
-    "message": "Chrome และ Edge สามารถใช้ไฟล์ PLaMo ทางการร่วมกันได้ หาก sakutto-models มีไฟล์ที่ตรวจแล้ว จะข้ามการดาวน์โหลด"
+    "message": "สร้างหรือเลือกโฟลเดอร์ “Sakutto” ในเอกสาร เบราว์เซอร์ที่สองที่เลือกโฟลเดอร์เดียวกันไม่ต้องดาวน์โหลดซ้ำ"
   },
   "onboardingStartFailed": {
     "message": "ไม่สามารถเริ่มการตั้งค่าได้ กรุณาลองอีกครั้ง"
@@ -666,7 +666,7 @@
     "message": "Shared model folder"
   },
   "modelFolderHelp": {
-    "message": "Chrome, Edge, and other Chromium browsers can keep official PLaMo files in a sakutto-models folder inside one you choose, and skip a second download. The default is still storage inside this browser. Firefox cannot use this option."
+    "message": "เก็บไฟล์ PLaMo ทางการไว้ในโฟลเดอร์ Sakutto ภายในเอกสาร Chrome และ Edge ที่เลือกโฟลเดอร์เดียวกันจะข้ามการดาวน์โหลดครั้งที่สอง ตัวเลือกเปิดที่เอกสารและจำตำแหน่ง ค่าเริ่มต้นยังเป็นการเก็บในเบราว์เซอร์นี้ Firefox ใช้ตัวเลือกนี้ไม่ได้"
   },
   "modelFolderChoose": {
     "message": "Choose model folder"

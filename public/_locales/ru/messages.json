@@ -256,7 +256,7 @@
     "message": "Использовать общую папку моделей"
   },
   "onboardingStoreFolderHelp": {
-    "message": "Chrome и Edge могут использовать один официальный файл PLaMo. Если в sakutto-models уже есть проверенная копия, загрузка не нужна."
+    "message": "Создайте или выберите папку «Sakutto» в «Документах». Второй браузер с той же папкой повторно скачивать не нужно."
   },
   "onboardingStartFailed": {
     "message": "Настройка не удалась. Попробуйте еще раз."
@@ -666,7 +666,7 @@
     "message": "Shared model folder"
   },
   "modelFolderHelp": {
-    "message": "Chrome, Edge, and other Chromium browsers can keep official PLaMo files in a sakutto-models folder inside one you choose, and skip a second download. The default is still storage inside this browser. Firefox cannot use this option."
+    "message": "Кладите официальные файлы PLaMo в папку Sakutto внутри «Документов». Chrome и Edge с той же папкой не скачивают повторно. Окно выбора открывается в «Документах» и запоминает место. По умолчанию по-прежнему хранение в этом браузере. Firefox этот пункт не поддерживает."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"

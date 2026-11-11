@@ -25,12 +25,23 @@ test.describe('shared model folder', () => {
         await writable.close();
         (
           globalThis as unknown as {
-            showDirectoryPicker: () => Promise<FileSystemDirectoryHandle>;
+            showDirectoryPicker: (options?: unknown) => Promise<FileSystemDirectoryHandle>;
+            __sakuttoPicker?: unknown;
           }
-        ).showDirectoryPicker = async () => chosen;
+        ).showDirectoryPicker = async (options) => {
+          (globalThis as unknown as { __sakuttoPicker?: unknown }).__sakuttoPicker = options;
+          return chosen;
+        };
       }, official);
 
       await choose.click();
+      expect(
+        await page.evaluate(() => (globalThis as { __sakuttoPicker?: unknown }).__sakuttoPicker),
+      ).toEqual({
+        id: 'sakutto-models',
+        mode: 'readwrite',
+        startIn: 'documents',
+      });
       const alert = page.getByRole('alert').filter({ hasText: 'is not the official PLaMo model' });
       await expect(alert).toHaveCount(1, { timeout: 30_000 });
       await expect(alert).toHaveText(
@@ -41,6 +52,35 @@ test.describe('shared model folder', () => {
       await stop.click();
       await expect(page.getByText('Models are stored inside this browser.')).toBeVisible();
       await expect(stop).toBeDisabled();
+      await page.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('options turns Documents into a Sakutto folder', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      const page = await extension.context.newPage();
+      await page.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await page.evaluate(async () => {
+        const root = await navigator.storage.getDirectory();
+        const documents = await root.getDirectoryHandle('Documents', { create: true });
+        (
+          globalThis as unknown as {
+            showDirectoryPicker: () => Promise<FileSystemDirectoryHandle>;
+          }
+        ).showDirectoryPicker = async () => documents;
+      });
+      await page.getByRole('button', { name: 'Choose model folder' }).click();
+      await expect(page.getByRole('status')).toHaveText('Using the folder Sakutto.', {
+        timeout: 15_000,
+      });
+      await expect
+        .poll(async () => directoryExists(page, ['Documents', 'Sakutto', 'sakutto-models']), {
+          timeout: 15_000,
+        })
+        .toBe(true);
       await page.close();
     } finally {
       await extension.close();
@@ -161,6 +201,66 @@ test.describe('shared model folder', () => {
     }
   });
 
+  test('onboarding creates Sakutto under Documents and shows that name', async () => {
+    const extension = await loadExtension('en-US');
+    await interceptGguf(extension, 'hang');
+    try {
+      const page = await extension.context.newPage();
+      await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
+      await page.evaluate(async () => {
+        const root = await navigator.storage.getDirectory();
+        const documents = await root.getDirectoryHandle('Documents', { create: true });
+        (
+          globalThis as unknown as {
+            showDirectoryPicker: (options?: unknown) => Promise<FileSystemDirectoryHandle>;
+          }
+        ).showDirectoryPicker = async (options) => {
+          (globalThis as unknown as { __sakuttoPicker?: unknown }).__sakuttoPicker = options;
+          return documents;
+        };
+      });
+      await page.getByRole('radio', { name: 'Use a shared model folder' }).check();
+      await page.getByRole('button', { name: 'Agree to the license and start' }).click();
+      await expect(page.getByRole('status')).toHaveText('Using the folder Sakutto.');
+      await expect
+        .poll(async () => directoryExists(page, ['Documents', 'Sakutto', 'sakutto-models']), {
+          timeout: 15_000,
+        })
+        .toBe(true);
+      expect(await listDirectory(page, ['sakutto', 'models'])).toEqual([]);
+      expect(
+        await page.evaluate(() => (globalThis as { __sakuttoPicker?: unknown }).__sakuttoPicker),
+      ).toEqual({
+        id: 'sakutto-models',
+        mode: 'readwrite',
+        startIn: 'documents',
+      });
+      await page.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('onboarding skips the download when Sakutto already has a verified file', async () => {
+    const extension = await loadExtension('en-US');
+    const hits = await interceptGguf(extension, 'hang');
+    try {
+      const page = await extension.context.newPage();
+      await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
+      await plantVerifiedSharedModel(page, 'Sakutto');
+      await page.getByRole('radio', { name: 'Use a shared model folder' }).check();
+      await page.getByRole('button', { name: 'Agree to the license and start' }).click();
+      await expect(page.getByRole('heading', { name: "You're ready." })).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(page.getByRole('status')).toHaveText('Using the folder Sakutto.');
+      expect(hits).toEqual([]);
+      await page.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
   test('hides the onboarding folder choice when the picker is missing', async () => {
     const extension = await loadExtension('en-US');
     try {
@@ -224,12 +324,12 @@ async function mockEmptySharedFolder(page: Page): Promise<void> {
   });
 }
 
-async function plantVerifiedSharedModel(page: Page): Promise<void> {
+async function plantVerifiedSharedModel(page: Page, folderName = 'e2e-shared'): Promise<void> {
   const entry = getModel(DEFAULT_MODEL_ID);
   const planted = await page.evaluate(
     async (payload) => {
       const root = await navigator.storage.getDirectory();
-      const chosen = await root.getDirectoryHandle('e2e-shared', { create: true });
+      const chosen = await root.getDirectoryHandle(payload.folderName, { create: true });
       const models = await chosen.getDirectoryHandle('sakutto-models', { create: true });
       const file = await models.getFileHandle(payload.file, { create: true });
       const writable = await file.createWritable();
@@ -258,6 +358,7 @@ async function plantVerifiedSharedModel(page: Page): Promise<void> {
       return (await file.getFile()).size;
     },
     {
+      folderName,
       id: entry.id,
       file: entry.file,
       size: entry.size,

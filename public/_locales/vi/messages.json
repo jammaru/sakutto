@@ -256,7 +256,7 @@
     "message": "Dùng thư mục mô hình dùng chung"
   },
   "onboardingStoreFolderHelp": {
-    "message": "Chrome và Edge có thể dùng chung một tệp PLaMo chính thức. Nếu sakutto-models đã có bản đã xác minh, sẽ bỏ qua tải xuống."
+    "message": "Tạo hoặc chọn thư mục “Sakutto” trong Tài liệu. Trình duyệt thứ hai chọn cùng thư mục thì không cần tải lại."
   },
   "onboardingStartFailed": {
     "message": "Không thể khởi động thiết lập. Vui lòng thử lại."
@@ -666,7 +666,7 @@
     "message": "Shared model folder"
   },
   "modelFolderHelp": {
-    "message": "Chrome, Edge, and other Chromium browsers can keep official PLaMo files in a sakutto-models folder inside one you choose, and skip a second download. The default is still storage inside this browser. Firefox cannot use this option."
+    "message": "Giữ tệp PLaMo chính thức trong thư mục Sakutto trong Tài liệu. Chrome và Edge chọn cùng thư mục thì bỏ qua lần tải thứ hai. Hộp chọn mở ở Tài liệu và nhớ vị trí. Mặc định vẫn lưu trong trình duyệt này. Firefox không dùng được tùy chọn này."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"

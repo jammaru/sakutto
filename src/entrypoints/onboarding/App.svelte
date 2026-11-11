@@ -68,6 +68,7 @@
   let storeChoice = $state<OnboardingStoreChoice>('browser');
   let pickError = $state<string | null>(null);
   let integrityAlert = $state<string | null>(null);
+  let resolvedFolderName = $state<string | null>(null);
   /**
    * True when a stored consent predates the clearer commercial summary. That user already
    * agreed to the same license; they are shown the new notice once more, and the click
@@ -181,11 +182,12 @@
     let skipDownload = modelState === 'ready' || modelState === 'loaded';
 
     if (!consentSaved && pickerAvailable && storeChoice === 'folder') {
-      const picked = await adoptPickedSharedFolder();
-      const folder = picked === 'granted' ? await requestModelFolderReload() : null;
+      const adopted = await adoptPickedSharedFolder();
+      if (adopted.status === 'granted') resolvedFolderName = adopted.name;
+      const folder = adopted.status === 'granted' ? await requestModelFolderReload() : null;
       const issue = folder?.integrityIssues.find((item) => item.modelId === DEFAULT_MODEL_ID);
       if (issue) integrityAlert = t('modelFolderIntegrityFailed', [issue.file]);
-      if (picked === 'granted' && !issue) {
+      if (adopted.status === 'granted' && !issue) {
         const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
         if (inspected && (inspected.state === 'ready' || inspected.state === 'loaded')) {
           skipDownload = true;
@@ -195,17 +197,18 @@
       const plan = planOnboardingDownload({
         pickerAvailable: true,
         choice: 'folder',
-        pick: picked,
+        pick: adopted.status,
         modelState: skipDownload ? 'ready' : modelState,
         integrityFailed: Boolean(issue),
       });
       if (plan === 'stay') {
-        if (picked === 'denied') pickError = t('modelFolderPermissionNeeded');
-        if (picked === 'failed') pickError = t('modelFolderPickFailed');
+        if (adopted.status === 'denied') pickError = t('modelFolderPermissionNeeded');
+        if (adopted.status === 'failed') pickError = t('modelFolderPickFailed');
         return;
       }
       skipDownload = plan === 'skip';
     } else if (!consentSaved && pickerAvailable && storeChoice === 'browser') {
+      resolvedFolderName = null;
       await clearStoredSharedFolder();
       await requestModelFolderReload();
     }
@@ -494,6 +497,9 @@
         <p class="error" role="alert">{pickError}</p>
       {/if}
       <p id="start-notice" class="start-note">{t('onboardingConsentSentence')}</p>
+    {/if}
+    {#if resolvedFolderName}
+      <p class="muted start-note" role="status">{t('modelFolderUsing', [resolvedFolderName])}</p>
     {/if}
     <div class="action-row">
       {#if showTryButton}

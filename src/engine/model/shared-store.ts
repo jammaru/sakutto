@@ -6,7 +6,7 @@ import {
   type ModelFileWriter,
   type StorageEstimate,
 } from './file-store';
-import { SHARED_MODELS_DIRECTORY } from './shared-folder';
+import { openSharedModelsDirectory } from './shared-folder';
 
 function modelIdFromManagerPath(path: string): ModelId | null {
   const parts = path.split('/').filter((part) => part.length > 0 && part !== '.');
@@ -50,7 +50,7 @@ export class SharedFolderModelFileStore implements ModelFileStore {
   constructor(private readonly inner: ModelFileStore) {}
 
   static async open(directory: FileSystemDirectoryHandle): Promise<SharedFolderModelFileStore> {
-    const root = await directory.getDirectoryHandle(SHARED_MODELS_DIRECTORY, { create: true });
+    const root = await openSharedModelsDirectory(directory);
     return new SharedFolderModelFileStore(OpfsModelFileStore.fromHandle(root));
   }
 

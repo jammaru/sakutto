@@ -48,12 +48,12 @@
     busy = true;
     try {
       const picked = await adoptPickedSharedFolder();
-      if (picked === 'cancelled') return;
-      if (picked === 'denied') {
+      if (picked.status === 'cancelled') return;
+      if (picked.status === 'denied') {
         pickError = t('modelFolderPermissionNeeded');
         return;
       }
-      if (picked === 'failed') {
+      if (picked.status === 'failed') {
         pickError = t('modelFolderPickFailed');
         return;
       }

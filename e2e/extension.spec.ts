@@ -31,6 +31,11 @@ test.describe('built extension', () => {
             page.getByRole('radio', { name: 'Use a shared model folder' }),
           ).not.toBeChecked();
           await expect(
+            page.getByText(
+              'Create or choose a “Sakutto” folder in Documents. A second browser that picks the same folder does not need to download again.',
+            ),
+          ).toBeVisible();
+          await expect(
             page.getByRole('button', { name: 'Agree to the license and start' }),
           ).toBeEnabled();
           await expect(page.locator('#start-notice')).toHaveText(
@@ -118,6 +123,11 @@ test.describe('built extension', () => {
           await expect(
             page.getByRole('radio', { name: '共有モデルフォルダを使う' }),
           ).not.toBeChecked();
+          await expect(
+            page.getByText(
+              'ドキュメントの中に「Sakutto」フォルダを作って（または選んで）ください。2つ目のブラウザでも同じフォルダを選ぶとダウンロード不要です',
+            ),
+          ).toBeVisible();
           await expect(
             page.getByRole('button', { name: 'ライセンスに同意して開始' }),
           ).toBeEnabled();

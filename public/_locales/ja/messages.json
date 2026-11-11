@@ -256,7 +256,7 @@
     "message": "共有モデルフォルダを使う"
   },
   "onboardingStoreFolderHelp": {
-    "message": "Chrome と Edge で同じ公式 PLaMo ファイルを共有できます。フォルダの sakutto-models に検証済みのファイルがあれば、ダウンロードは行いません。"
+    "message": "ドキュメントの中に「Sakutto」フォルダを作って（または選んで）ください。2つ目のブラウザでも同じフォルダを選ぶとダウンロード不要です"
   },
   "onboardingStartFailed": {
     "message": "準備を開始できませんでした。もう一度お試しください。"
@@ -666,7 +666,7 @@
     "message": "共有モデルフォルダ"
   },
   "modelFolderHelp": {
-    "message": "Chrome や Edge など Chromium 系ブラウザでは、選んだフォルダの中の sakutto-models に公式の PLaMo ファイルを置き、二重のダウンロードを避けられます。既定はこれまでどおり、このブラウザ内への保存です。Firefox ではこの項目は使えません。"
+    "message": "ドキュメントの中の「Sakutto」フォルダに公式の PLaMo ファイルを置きます。Chrome と Edge で同じフォルダを選ぶと、ダウンロードは不要です。フォルダの選択はドキュメントから開き、前回の場所を覚えます。既定はこれまでどおり、このブラウザ内への保存です。Firefox ではこの項目は使えません。"
   },
   "modelFolderChoose": {
     "message": "モデルフォルダを選ぶ"
