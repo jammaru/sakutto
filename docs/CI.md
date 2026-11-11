@@ -30,7 +30,7 @@ Measured on this change set (GitHub-hosted `ubuntu-latest`). The miss is the fir
 | Path                                                                    | CI run                                                                     | Wall clock | `wllama` | Package chrome | Package firefox | `checks` |
 | ----------------------------------------------------------------------- | -------------------------------------------------------------------------- | ---------: | -------: | -------------: | --------------: | -------: |
 | miss (before: chrome 12m21s + firefox 17m09s in parallel, wall ~18 min) | [43009192000](https://github.com/jammaru/sakutto/actions/runs/43009192000) |    11m 55s |  10m 18s |            52s |          1m 21s |   1m 59s |
-| hit                                                                     | pending                                                                    |            |          |                |                 |          |
+| hit (log: `Cache hit for: wllama-v2-0fa4b43e…`)                         | [43013048966](https://github.com/jammaru/sakutto/actions/runs/43013048966) |     2m 07s |       9s |         1m 18s |          1m 14s |   1m 55s |
 
 ## Workflows
 
@@ -49,13 +49,13 @@ Do not dispatch `chrome-web-store.yml` or `amo.yml` from a pull request.
 
 ### CI jobs
 
-| Job                                  | Typical duration             | When it runs                                                                                                                                      |
-| ------------------------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `changes`                            | ~10 s                        | Always. Classifies the diff (`scripts/ci-changed.ts`). Docs-only diffs set `code=false`.                                                          |
-| `checks`                             | ~2 min                       | Always. Full clone (`fetch-depth: 0`) so `tests/bench-fixtures.test.ts` can see history.                                                          |
-| `pinned-wllama`                      | ~10–20 s                     | Always. `node scripts/wllama/build.ts --check`.                                                                                                   |
-| `wllama`                             | ~1 min hit / ~12–15 min miss | Manual runs, PRs that touch zip/wllama inputs, and code pushes to `main`. One compile. Saves the cache before packaging.                          |
-| `Package chrome` / `Package firefox` | ~1–2 min after wllama        | Same condition as `wllama`. Restore the artifact; do not compile again. Firefox keeps `web-ext lint`, the second zip, and the source-zip rebuild. |
+| Job                                  | Typical duration               | When it runs                                                                                                                                      |
+| ------------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `changes`                            | ~10 s                          | Always. Classifies the diff (`scripts/ci-changed.ts`). Docs-only diffs set `code=false`.                                                          |
+| `checks`                             | ~2 min                         | Always. Full clone (`fetch-depth: 0`) so `tests/bench-fixtures.test.ts` can see history.                                                          |
+| `pinned-wllama`                      | ~10–20 s                       | Always. `node scripts/wllama/build.ts --check`.                                                                                                   |
+| `wllama`                             | measured 9s hit / 10m 18s miss | Manual runs, PRs that touch zip/wllama inputs, and code pushes to `main`. One compile. Saves the cache before packaging.                          |
+| `Package chrome` / `Package firefox` | ~1–2 min after wllama          | Same condition as `wllama`. Restore the artifact; do not compile again. Firefox keeps `web-ext lint`, the second zip, and the source-zip rebuild. |
 
 `checks` stays serial on one runner. Splitting lint/typecheck/unit/e2e would add extra `pnpm install` cost for about 40 s of wall-clock on the warm path, which is already under the p50 SLO.
 

@@ -21,6 +21,8 @@ GitHub-hosted の `ubuntu-latest`、キャッシュが生きている前提で�
 node scripts/ci-stats.ts jammaru/sakutto 200
 ```
 
+この変更一式での実測（`ubuntu-latest`）は [CI.md](CI.md) にあります。ミスは壁時計 11m 55s（コンパイル 1 回 10m 18s）、ヒットは 2m 07s（`wllama` 9s）。
+
 ## ワークフロー
 
 | ワークフロー                                      | きっかけ                                                         | 何のため                                                               |
