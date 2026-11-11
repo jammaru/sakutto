@@ -216,7 +216,8 @@ and mistranslate. **Sakutto always uses `/v1/completions` with the handwritten p
 
 No BOS. Stop tokens: `<|plamo:tag|>`, `<|plamo:bos|>`. wllama completion:
 
-- `temperature: 0`
+- `temperature: 0`, `samplers: ['temperature']`
+- WebGPU only: `backend_sampling: true` (CPU wasm omits it so greedy ties stay first-index)
 - `stop: TRANSLATION_STOP_TOKENS`
 - `max_tokens: min(completionTokenBudget(text), contextTokens - estimateTokens(prompt) - 8)`
 - stream on, `cache_prompt` only when `nParallel === 1`
@@ -234,6 +235,8 @@ changing piece boundaries would change translations even with a matching model.
 | Prompt              | `buildTranslationPrompt`    | identical function                                                                                                                                                                                         |
 | BOS                 | llama.cpp prepends          | mlx-lm prepends (vendor: do not add)                                                                                                                                                                       |
 | temperature         | `0`                         | `0` (explicit; some servers default 0.7 if omitted)                                                                                                                                                        |
+| samplers            | `['temperature']`           | not sent (mlx-lm defaults are already greedy)                                                                                                                                                              |
+| backend_sampling    | WebGPU only                 | not sent                                                                                                                                                                                                   |
 | top_p / penalties   | not sent                    | not sent (mlx-lm defaults are already greedy)                                                                                                                                                              |
 | stop                | PFML3 tag + BOS             | same array                                                                                                                                                                                                 |
 | stream              | yes                         | yes (`text/event-stream` only); JSON if that type is absent                                                                                                                                                |

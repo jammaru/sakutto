@@ -21,6 +21,12 @@ const WORKER_CODE = [
 const EXTENSION_ORIGIN = 'chrome-extension://abcdefghijklmnopqrstuvwxyzabcdef';
 
 describe('wllama artifact rendering', () => {
+  it('records the pending-result and greedy-argmax patches in verify:wllama', () => {
+    const verify = readFileSync(new URL('../scripts/verify-wllama.mjs', import.meta.url), 'utf8');
+    expect(verify).toContain('0009-return-pending-results.patch');
+    expect(verify).toContain('0010-webgpu-argmax-first-index.patch');
+  });
+
   it('boots the worker from the run options in its url', () => {
     const source = renderWorkerScript(WORKER_CODE);
 
@@ -89,6 +95,34 @@ describe('wllama artifact rendering', () => {
     expect(source).toContain(GLUE);
     expect(source).toContain('WebAssembly.Suspending');
     expect(source).not.toContain('wModuleInit');
+  });
+
+  it('returns a queued wllama result before stepping every slot', () => {
+    const patch = readFileSync(
+      new URL('../scripts/wllama/patches/0009-return-pending-results.patch', import.meta.url),
+      'utf8',
+    );
+    expect(patch).toContain('Return a pending result first');
+    expect(patch).toContain('auto pending_result = get_next_result(rd);');
+    expect(patch).toContain('if (!pending_result.first)');
+    expect(patch).toContain('run_loop();');
+    expect(patch).toContain('pending_result = get_next_result(rd);');
+    expect(patch).not.toContain(
+      '+    run_loop();\n+    auto [result, is_error] = get_next_result(rd);',
+    );
+  });
+
+  it('makes WebGPU argmax keep the first tied logit, like CPU greedy', () => {
+    const patch = readFileSync(
+      new URL('../scripts/wllama/patches/0010-webgpu-argmax-first-index.patch', import.meta.url),
+      'utf8',
+    );
+    expect(patch).toContain('if (val > local_pair.value)');
+    expect(patch).toContain('if (src[row_idx + col] > local_pair.value)');
+    expect(patch).toContain('b.value == a.value && b.index < a.index');
+    expect(patch).toContain('-            if (val >= local_pair.value) {');
+    expect(patch).toContain('-        if (src[row_idx + col] >= local_pair.value) {');
+    expect(patch).toContain('-            } else if (b.value == a.value && b.index > a.index) {');
   });
 
   it('keeps subgroups on WebGPU limit retries and re-derives them from the device', () => {

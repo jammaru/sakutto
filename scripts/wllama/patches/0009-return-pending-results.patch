@@ -1,0 +1,29 @@
+Return a finished slot's queued result before stepping every sequence.
+
+`get_result` used to call `run_loop()` first, so one poll always advanced
+every slot by one token and only then read that request's queue. With many
+parallel slots the queues filled with in-flight tokens, and a short paragraph
+that had already finished sat behind them. Drain a pending result first;
+step the batch only when that request has nothing waiting.
+
+diff --git a/cpp/wllama-context.h b/cpp/wllama-context.h
+index cae07f6..d52fed6 100644
+--- a/cpp/wllama-context.h
++++ b/cpp/wllama-context.h
+@@ -859,8 +859,14 @@ struct wllama_context
+     }
+     server_response_reader &rd = *it->second;
+ 
+-    run_loop();
+-    auto [result, is_error] = get_next_result(rd);
++    // Return a pending result first; step all slots only when nothing is queued.
++    auto pending_result = get_next_result(rd);
++    if (!pending_result.first)
++    {
++      run_loop();
++      pending_result = get_next_result(rd);
++    }
++    auto [result, is_error] = std::move(pending_result);
+     // the task queue can be empty while the request is still streaming, keep polling until we get the stop result
+     const bool has_more = rd.has_next();
+ 

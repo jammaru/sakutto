@@ -1,12 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { selectBackend } from '@/engine/in-browser/backend';
-import { createWllamaRuntime, gpuEvidence, isRuntimeDead } from '@/engine/in-browser/runtime';
+import {
+  createWllamaRuntime,
+  greedySamplingOptions,
+  gpuEvidence,
+  isRuntimeDead,
+} from '@/engine/in-browser/runtime';
 import type { WllamaLogger } from '@/engine/wllama/module';
 
 const native = vi.hoisted(() => ({
   log: [] as string[],
   loadModel: vi.fn(),
   exit: vi.fn(async () => undefined),
+  createCompletion: vi.fn(),
 }));
 
 vi.mock('@/engine/wllama', () => ({
@@ -16,6 +22,7 @@ vi.mock('@/engine/wllama', () => ({
       for (const line of native.log) options.logger.log(line);
     }),
     exit: native.exit,
+    createCompletion: native.createCompletion,
   })),
 }));
 
@@ -26,6 +33,7 @@ beforeEach(() => {
   native.log = [];
   native.loadModel.mockClear();
   native.exit.mockClear();
+  native.createCompletion.mockClear();
 });
 
 describe('gpu evidence in the llama.cpp load log', () => {
@@ -204,6 +212,60 @@ describe('wllama runtime load', () => {
     await expect(createWllamaRuntime(new Blob(), gpu)).resolves.toMatchObject({
       backend: 'webgpu',
     });
+  });
+});
+
+describe('greedy sampling options', () => {
+  it('samples on the GPU for WebGPU and keeps CPU on the host greedy sampler', () => {
+    expect(greedySamplingOptions('webgpu')).toEqual({
+      temperature: 0,
+      samplers: ['temperature'],
+      backend_sampling: true,
+    });
+    expect(greedySamplingOptions('cpu-wasm')).toEqual({
+      temperature: 0,
+      samplers: ['temperature'],
+    });
+    expect(greedySamplingOptions('cpu-wasm')).not.toHaveProperty('backend_sampling');
+  });
+});
+
+describe('wllama runtime completions', () => {
+  it('asks WebGPU for backend greedy sampling and the CPU path for the same sampler chain', async () => {
+    native.log = ['load_tensors: offloaded 29/29 layers to GPU'];
+    const gpuRuntime = await createWllamaRuntime(new Blob(), gpu);
+    await gpuRuntime.complete({
+      prompt: 'Hello.',
+      maxTokens: 8,
+      signal: new AbortController().signal,
+      onToken: () => undefined,
+    });
+    expect(native.createCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: 'Hello.',
+        temperature: 0,
+        samplers: ['temperature'],
+        backend_sampling: true,
+        stream: true,
+      }),
+    );
+
+    native.createCompletion.mockClear();
+    native.log = ['load_tensors: offloaded 0/29 layers to GPU'];
+    const cpuRuntime = await createWllamaRuntime(new Blob(), cpu);
+    await cpuRuntime.complete({
+      prompt: 'Hello.',
+      maxTokens: 8,
+      signal: new AbortController().signal,
+      onToken: () => undefined,
+    });
+    expect(native.createCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        temperature: 0,
+        samplers: ['temperature'],
+      }),
+    );
+    expect(native.createCompletion.mock.calls[0]?.[0]).not.toHaveProperty('backend_sampling');
   });
 });
 

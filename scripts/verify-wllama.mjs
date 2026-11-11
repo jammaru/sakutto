@@ -112,6 +112,15 @@ async function verifyPatches(patches) {
     return;
   }
 
+  for (const file of [
+    '0009-return-pending-results.patch',
+    '0010-webgpu-argmax-first-index.patch',
+  ]) {
+    if (!patches.some((patch) => patch?.file === file)) {
+      fail(`the manifest does not record ${file}. Rebuild with pnpm build:wllama.`);
+    }
+  }
+
   for (const patch of patches) {
     if (typeof patch?.file !== 'string' || typeof patch?.sha256 !== 'string') {
       fail('the manifest contains a malformed patch record.');
