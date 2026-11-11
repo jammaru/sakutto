@@ -182,6 +182,65 @@ describe('EngineClient', () => {
     }
   });
 
+  it('does not push a stale selected model when a settings change only sends runtime-set', async () => {
+    loadSettingsMock.mockResolvedValue(upgradedLocalServerSettings());
+    try {
+      const port = new FakePort();
+      connect.mockReturnValue(port.port);
+      const client = new EngineClient(controller());
+      const pending = client.status();
+
+      const pushed = await acceptStoredPush(port);
+      expect(pushed['model-set']).toMatchObject({ modelId: HIGH_QUALITY_MODEL_ID });
+
+      const status = await waitForMessage<{ requestId: string }>(port, 'status');
+      port.emit({
+        type: 'response',
+        requestId: status.requestId,
+        ok: true,
+        value: {
+          model: {
+            id: HIGH_QUALITY_MODEL_ID,
+            state: 'ready',
+            received: 1,
+            total: 1,
+            progress: 1,
+          },
+          backend: 'local-server',
+          tier: null,
+          threads: 1,
+          parallel: DEFAULT_LOCAL_SERVER_PARALLEL,
+          plamoReady: true,
+          chromeSupported: false,
+          active: null,
+          engineSource: 'local-server',
+        },
+      });
+      await pending;
+
+      const modelSetsBefore = port.messagesOfType('model-set').length;
+      const runtimeSetsBefore = port.messagesOfType('runtime-set').length;
+      client.syncStoredSettings({
+        ...upgradedLocalServerSettings(),
+        selectedModelId: DEFAULT_MODEL_ID,
+        idleMinutes: 0,
+      });
+      await flushTasks();
+
+      const runtime = port.messagesOfType('runtime-set').at(-1) as
+        { requestId?: string; idleMinutes?: number } | undefined;
+      expect(port.messagesOfType('runtime-set').length).toBeGreaterThan(runtimeSetsBefore);
+      expect(runtime?.idleMinutes).toBe(0);
+      expect(port.messagesOfType('model-set')).toHaveLength(modelSetsBefore);
+      if (runtime?.requestId) {
+        port.emit({ type: 'response', requestId: runtime.requestId, ok: true, value: null });
+      }
+    } finally {
+      loadSettingsMock.mockReset();
+      loadSettingsMock.mockRejectedValue(new Error('no settings'));
+    }
+  });
+
   it('saves a model-persist event before resolving the host response that follows it', async () => {
     let releaseSave: () => void = () => undefined;
     const gate = new Promise<void>((resolve) => {

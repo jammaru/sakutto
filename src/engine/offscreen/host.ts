@@ -765,13 +765,15 @@ export class EngineHost {
   ): Promise<void> {
     this.preferredModelId = request.modelId;
     try {
-      // A document that is already running must switch now. A new document records
+      // A document that is already running must switch now, including dropping the
+      // loaded runtime so the next translation cannot keep the old weights while
+      // status and cache keys already name the new id. A new document records
       // the id and applies it when services() first opens, which is after this
       // response, so connecting does not wait on the GPU probe.
       if (this.servicesTask) {
         const services = await this.services();
         if (this.preferredModelId === request.modelId) {
-          await this.applyResolvedModel(services.manager, request.modelId, false);
+          await this.applyResolvedModel(services.manager, request.modelId, false, services);
         }
       }
       this.respond(port, request.requestId, null);
@@ -781,6 +783,8 @@ export class EngineHost {
   }
 
   private handleRuntime(port: Browser.runtime.Port, request: RuntimeSetRequest): void {
+    // Idle, tier, and prewarm inputs only. The selected model is pushed separately
+    // with `model-set`; a settings change must not restore a stale id over it.
     this.runtimePrefs = {
       idleMinutes: request.idleMinutes,
       tier: request.tier,
@@ -808,8 +812,11 @@ export class EngineHost {
     manager: ModelManager,
     preferred: ModelId,
     persist: boolean,
+    runtime?: EngineServices,
   ): Promise<void> {
-    const run = this.selectionChain.then(() => this.resolveAndApply(manager, preferred, persist));
+    const run = this.selectionChain.then(() =>
+      this.resolveAndApply(manager, preferred, persist, runtime),
+    );
     this.selectionChain = run.catch(() => undefined);
     return run;
   }
@@ -818,16 +825,38 @@ export class EngineHost {
     manager: ModelManager,
     preferred: ModelId,
     persist: boolean,
+    runtime?: EngineServices,
   ): Promise<void> {
     const statuses = await Promise.all(
       SELECTABLE_MODEL_IDS.map((modelId) => manager.status(modelId)),
     );
     const resolved = resolveActiveModel(preferred, statuses);
+    const changed = resolved.modelId !== this.activeModelId;
+    if (changed && runtime) {
+      this.abortTranslationWork();
+      runtime.lazy.reset();
+    }
     this.activeModelId = resolved.modelId;
     this.modelFallback = resolved.fallback;
     const active = statuses.find((status) => status.id === resolved.modelId);
     this.plamoReady = active ? modelCanTranslate(active) : false;
+    if (changed && runtime) await runtime.manager.unload();
     if (persist || resolved.fallback) await this.persistActiveModel();
+  }
+
+  /**
+   * Stop work that was started under the previous model. An in-flight translation
+   * already snapshotted `cacheModelId()` at start; aborting it is what keeps that
+   * result from being written after the id has moved.
+   */
+  private abortTranslationWork(): void {
+    this.abortBenchmark();
+    this.warming = false;
+    for (const [id, request] of this.requests) {
+      if (request.kind === 'download') continue;
+      request.controller.abort();
+      this.requests.delete(id);
+    }
   }
 
   /**

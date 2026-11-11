@@ -1,13 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
+import { browser } from 'wxt/browser';
 import { DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID, type ModelId } from '@/engine/model/catalog';
 import type { DownloadProgress } from '@/engine/model/download';
 import type { BackendSelection } from '@/engine/in-browser/backend';
+import { CachingEngine } from '@/engine/cache/caching-engine';
+import { TranslationCache } from '@/engine/cache/cache';
+import { buildTranslationCacheKey } from '@/engine/cache/key';
+import { MemoryTranslationCacheStore } from '@/engine/cache/store';
 import { EngineError } from '@/engine/errors';
 import { selectBackend } from '@/engine/in-browser/backend';
 import { EngineHost, loadWithFallback, type EngineServices } from '@/engine/offscreen/host';
 import type { LoadedModel } from '@/engine/model/manager';
 import type { ModelStatus } from '@/shared/engine-status';
-import type { TranslateOptions } from '@/engine/types';
+import { normalizeSettings } from '@/shared/settings';
+import * as storage from '@/shared/storage';
+import type { IdentifiedEngine, TranslateOptions, TranslateSegment } from '@/engine/types';
 import { serializeTranslateOptions } from '@/engine/offscreen/protocol';
 import { FakePort, deferred, flushTasks } from './support/ports';
 
@@ -93,6 +100,49 @@ function runtimeSet(overrides: Record<string, unknown> = {}): Record<string, unk
 
 function createHost(services: EngineServices, idleReleaseMs = 60_000): EngineHost {
   return new EngineHost({ createServices: async () => services, idleReleaseMs });
+}
+
+function cacheModelIdOf(host: EngineHost): string {
+  return (host as unknown as { cacheModelId: () => string }).cacheModelId();
+}
+
+function lastStatus(port: FakePort): {
+  model?: { id?: string };
+  modelFallback?: boolean;
+  plamoReady?: boolean;
+} {
+  const response = port.messagesOfType('response').at(-1) as {
+    value?: {
+      model?: { id?: string };
+      modelFallback?: boolean;
+      plamoReady?: boolean;
+    };
+  };
+  return response.value ?? {};
+}
+
+async function openRunningHost(services: EngineServices): Promise<{
+  host: EngineHost;
+  port: FakePort;
+}> {
+  const host = createHost(services);
+  const port = new FakePort();
+  host.handlePort(port.port);
+  port.emit({ type: 'status', requestId: 's0' });
+  await flushTasks();
+  return { host, port };
+}
+
+function cacheRouter(
+  host: EngineHost,
+  cache: TranslationCache,
+  inner: IdentifiedEngine,
+): EngineServices['router'] {
+  return {
+    activeEngine: null,
+    translate: (segments: readonly TranslateSegment[], options: TranslateOptions) =>
+      new CachingEngine(inner, cache, () => cacheModelIdOf(host)).translate(segments, options),
+  } as unknown as EngineServices['router'];
 }
 
 describe('EngineHost', () => {
@@ -318,27 +368,185 @@ describe('EngineHost', () => {
   });
 
   it('switches an already open document when a saved model arrives', async () => {
-    const { services } = createServices();
+    const { services, unload, reset } = createServices();
     services.manager.status = installed({
       [DEFAULT_MODEL_ID]: 'ready',
       [HIGH_QUALITY_MODEL_ID]: 'ready',
     });
-    const host = createHost(services);
-    const port = new FakePort();
-    host.handlePort(port.port);
+    const { host, port } = await openRunningHost(services);
 
-    port.emit({ type: 'status', requestId: 's0' });
-    await flushTasks();
     port.emit({ type: 'model-set', requestId: 'm1', modelId: HIGH_QUALITY_MODEL_ID });
     await flushTasks();
     port.emit({ type: 'status', requestId: 's1' });
     await flushTasks();
 
-    const status = port.messagesOfType('response').at(-1) as {
-      value?: { model?: { id?: string } };
-    };
-    expect(status.value?.model?.id).toBe(HIGH_QUALITY_MODEL_ID);
+    expect(lastStatus(port).model?.id).toBe(HIGH_QUALITY_MODEL_ID);
+    expect(reset).toHaveBeenCalled();
+    expect(unload).toHaveBeenCalled();
     expect(port.messagesOfType('model-persist')).toHaveLength(0);
+    expect(cacheModelIdOf(host)).toBe(HIGH_QUALITY_MODEL_ID);
+  });
+
+  it('resets a loaded runtime when model-set changes the id, and caches the next translation under the new model', async () => {
+    const { services, unload, reset } = createServices();
+    services.manager.status = installed({
+      [DEFAULT_MODEL_ID]: 'ready',
+      [HIGH_QUALITY_MODEL_ID]: 'ready',
+    });
+    const cache = new TranslationCache(new MemoryTranslationCacheStore());
+    const { host, port } = await openRunningHost(services);
+    services.router = cacheRouter(host, cache, {
+      kind: 'plamo',
+      async *translate() {
+        yield { id: 'a', final: 'こんにちは', engine: 'plamo' as const };
+      },
+    });
+
+    port.emit({ type: 'model-set', requestId: 'm1', modelId: HIGH_QUALITY_MODEL_ID });
+    await flushTasks();
+    expect(reset).toHaveBeenCalled();
+    expect(unload).toHaveBeenCalled();
+
+    port.emit({
+      type: 'translate',
+      requestId: 't1',
+      segments: [{ id: 'a', text: 'Hello.' }],
+      options: serializeTranslateOptions(options()),
+    });
+    await flushTasks();
+
+    expect(port.messagesOfType('done')).toHaveLength(1);
+    const nextKey = buildTranslationCacheKey({
+      model: HIGH_QUALITY_MODEL_ID,
+      tgt: 'ja',
+      form: 'polite',
+      text: 'Hello.',
+    });
+    const previousKey = buildTranslationCacheKey({
+      model: DEFAULT_MODEL_ID,
+      tgt: 'ja',
+      form: 'polite',
+      text: 'Hello.',
+    });
+    expect(await cache.get(nextKey)).toEqual({ text: 'こんにちは', engine: 'plamo' });
+    expect(await cache.get(previousKey)).toBeUndefined();
+  });
+
+  it('does not reload when model-set repeats the active id', async () => {
+    const { services, unload, reset } = createServices();
+    services.manager.status = installed({
+      [DEFAULT_MODEL_ID]: 'ready',
+      [HIGH_QUALITY_MODEL_ID]: 'ready',
+    });
+    const { port } = await openRunningHost(services);
+
+    port.emit({ type: 'model-set', requestId: 'm1', modelId: HIGH_QUALITY_MODEL_ID });
+    await flushTasks();
+    reset.mockClear();
+    unload.mockClear();
+
+    port.emit({ type: 'model-set', requestId: 'm2', modelId: HIGH_QUALITY_MODEL_ID });
+    await flushTasks();
+
+    expect(reset).not.toHaveBeenCalled();
+    expect(unload).not.toHaveBeenCalled();
+    port.emit({ type: 'status', requestId: 's1' });
+    await flushTasks();
+    expect(lastStatus(port).model?.id).toBe(HIGH_QUALITY_MODEL_ID);
+  });
+
+  it('aborts an in-flight translation so it cannot write under the model-set id', async () => {
+    const { services, unload, reset } = createServices();
+    services.manager.status = installed({
+      [DEFAULT_MODEL_ID]: 'ready',
+      [HIGH_QUALITY_MODEL_ID]: 'ready',
+    });
+    const release = deferred<void>();
+    const cache = new TranslationCache(new MemoryTranslationCacheStore());
+    const { host, port } = await openRunningHost(services);
+    services.router = cacheRouter(host, cache, {
+      kind: 'plamo',
+      async *translate() {
+        yield { id: 'a', textDelta: 'こん', engine: 'plamo' as const };
+        await release.promise;
+        yield { id: 'a', final: 'こんにちは', engine: 'plamo' as const };
+      },
+    });
+
+    port.emit({
+      type: 'translate',
+      requestId: 't1',
+      segments: [{ id: 'a', text: 'Hello.' }],
+      options: serializeTranslateOptions(options()),
+    });
+    await flushTasks();
+    expect(port.messagesOfType('chunk')).toHaveLength(1);
+
+    port.emit({ type: 'model-set', requestId: 'm1', modelId: HIGH_QUALITY_MODEL_ID });
+    await flushTasks();
+    release.resolve();
+    await flushTasks();
+
+    expect(reset).toHaveBeenCalled();
+    expect(unload).toHaveBeenCalled();
+    expect(port.messagesOfType('done')).toHaveLength(0);
+    expect(port.messagesOfType('chunk')).toHaveLength(1);
+    const nextKey = buildTranslationCacheKey({
+      model: HIGH_QUALITY_MODEL_ID,
+      tgt: 'ja',
+      form: 'polite',
+      text: 'Hello.',
+    });
+    expect(await cache.get(nextKey)).toBeUndefined();
+  });
+
+  it('writes the selected model through chrome.storage and does not emit model-persist', async () => {
+    const { services } = createServices();
+    services.manager.status = installed({
+      [DEFAULT_MODEL_ID]: 'ready',
+      [HIGH_QUALITY_MODEL_ID]: 'ready',
+    });
+    const local = {
+      get: vi.fn(async () => ({})),
+      set: vi.fn(async () => undefined),
+    };
+    const mockedBrowser = browser as unknown as { storage?: { local: typeof local } };
+    mockedBrowser.storage = { local };
+    const saveMock = vi
+      .spyOn(storage, 'saveSettings')
+      .mockResolvedValue(normalizeSettings(null, 'en'));
+    try {
+      const host = createHost(services);
+      const port = new FakePort();
+      host.handlePort(port.port);
+
+      port.emit({ type: 'model-use', requestId: 'u1', modelId: HIGH_QUALITY_MODEL_ID });
+      await flushTasks();
+
+      expect(saveMock).toHaveBeenCalledWith({ selectedModelId: HIGH_QUALITY_MODEL_ID });
+      expect(port.messagesOfType('model-persist')).toHaveLength(0);
+    } finally {
+      saveMock.mockRestore();
+      delete mockedBrowser.storage;
+    }
+  });
+
+  it('does not replace the selected model when a settings change only pushes runtime-set', async () => {
+    const { services } = createServices();
+    services.manager.status = installed({
+      [DEFAULT_MODEL_ID]: 'ready',
+      [HIGH_QUALITY_MODEL_ID]: 'ready',
+    });
+    const { port } = await openRunningHost(services);
+
+    port.emit({ type: 'model-set', requestId: 'm1', modelId: HIGH_QUALITY_MODEL_ID });
+    await flushTasks();
+    port.emit(runtimeSet({ idleMinutes: 1, requestId: 'runtime-stale' }));
+    await flushTasks();
+    port.emit({ type: 'status', requestId: 's1' });
+    await flushTasks();
+
+    expect(lastStatus(port).model?.id).toBe(HIGH_QUALITY_MODEL_ID);
   });
 
   it('persists the installed model when the saved choice is missing', async () => {
