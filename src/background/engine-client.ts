@@ -15,6 +15,7 @@ import {
   type ModelUseRequest,
   type ModelWarmRequest,
   type PingRequest,
+  type RuntimeSetRequest,
   type SourceSetRequest,
   type StatusRequest,
   type TierSetRequest,
@@ -29,8 +30,9 @@ import {
   type EngineStatus,
   type ModelStatus,
 } from '@/shared/engine-status';
+import { hasLicenseConsent } from '@/shared/agreement';
 import type { Settings, TierPreference } from '@/shared/settings';
-import { loadSettings } from '@/shared/storage';
+import { loadSettings, saveSettings } from '@/shared/storage';
 import type { OffscreenController } from './offscreen-lifecycle';
 
 type RequestWithoutId =
@@ -92,6 +94,9 @@ export class EngineClient {
   private readonly progress = new Map<string, (status: ModelStatus) => void>();
   private readonly modelMarks = new Map<string, ModelStatus>();
   private sourceKey = '';
+  private runtimeKey = '';
+  private pushedModelId: ModelId | null = null;
+  private inbox: Promise<void> = Promise.resolve();
 
   constructor(private readonly controller: OffscreenController) {}
 
@@ -147,12 +152,8 @@ export class EngineClient {
   }
 
   async setSource(settings: Settings): Promise<void> {
-    const payload = sourceSetPayload(settings);
-    const key = sourceKeyOf(payload);
     const port = await this.connect();
-    if (key === this.sourceKey && this.port === port) return;
-    await this.roundTrip(port, { ...payload, requestId: createRequestId() }, 15_000);
-    this.sourceKey = key;
+    await this.pushSource(port, settings);
   }
 
   /**
@@ -162,9 +163,20 @@ export class EngineClient {
   private async ensureSource(): Promise<void> {
     const settings = await loadSettings().catch(() => null);
     if (!settings) return;
-    const key = sourceKeyOf(sourceSetPayload(settings));
-    if (key === this.sourceKey && this.port) return;
     await this.setSource(settings);
+  }
+
+  /**
+   * Apply a settings change to a host that is already open. Deferred so a save
+   * triggered by `model-persist` cannot wait on the same port inbox that is
+   * still processing that event.
+   */
+  syncStoredSettings(settings: Settings): void {
+    setTimeout(() => {
+      const port = this.port;
+      if (!port) return;
+      void this.pushLive(port, settings).catch(() => undefined);
+    }, 0);
   }
 
   /**
@@ -339,19 +351,59 @@ export class EngineClient {
     } catch (error) {
       throw hostError('The translation host could not be opened.', error);
     }
-    port.onMessage.addListener((message: unknown) => this.handleMessage(message));
+    port.onMessage.addListener((message: unknown) => {
+      this.inbox = this.inbox.then(() => this.handleMessage(message)).catch(() => undefined);
+    });
     port.onDisconnect.addListener(() => {
       if (this.port === port) this.handleDisconnect();
     });
     return port;
   }
 
+  /**
+   * Chrome's offscreen document cannot read chrome.storage. Push the source, the
+   * idle/prewarm snapshot, and the saved model before any other host message.
+   * Runtime settings go out before the model so the first service open sees them.
+   */
   private async pushStoredSource(port: Browser.runtime.Port): Promise<void> {
     const settings = await loadSettings().catch(() => null);
     if (!settings) return;
+    await this.pushSource(port, settings);
+    await this.pushRuntime(port, settings);
+    await this.pushModel(port, settings);
+  }
+
+  private async pushLive(port: Browser.runtime.Port, settings: Settings): Promise<void> {
+    if (this.port !== port) return;
+    await this.pushSource(port, settings);
+    await this.pushRuntime(port, settings);
+  }
+
+  private async pushSource(port: Browser.runtime.Port, settings: Settings): Promise<void> {
     const payload = sourceSetPayload(settings);
+    const key = sourceKeyOf(payload);
+    if (key === this.sourceKey && this.port === port) return;
     await this.roundTrip(port, { ...payload, requestId: createRequestId() }, 2_000);
-    this.sourceKey = sourceKeyOf(payload);
+    this.sourceKey = key;
+  }
+
+  private async pushRuntime(port: Browser.runtime.Port, settings: Settings): Promise<void> {
+    const payload = runtimeSetPayload(settings);
+    const key = runtimeKeyOf(settings);
+    if (key === this.runtimeKey && this.port === port) return;
+    await this.roundTrip(port, { ...payload, requestId: createRequestId() }, 2_000);
+    this.runtimeKey = key;
+  }
+
+  private async pushModel(port: Browser.runtime.Port, settings: Settings): Promise<void> {
+    if (settings.selectedModelId === this.pushedModelId && this.port === port) return;
+    // Re-applying on a document that is already open reads both model files.
+    await this.roundTrip(
+      port,
+      { type: 'model-set', requestId: createRequestId(), modelId: settings.selectedModelId },
+      15_000,
+    );
+    this.pushedModelId = settings.selectedModelId;
   }
 
   private roundTrip(
@@ -380,8 +432,13 @@ export class EngineClient {
     });
   }
 
-  private handleMessage(message: unknown): void {
+  private async handleMessage(message: unknown): Promise<void> {
     if (!isEngineHostMessage(message)) return;
+
+    if (message.type === 'model-persist') {
+      await saveSettings({ selectedModelId: message.modelId }).catch(() => undefined);
+      return;
+    }
 
     switch (message.type) {
       case 'chunk': {
@@ -427,19 +484,25 @@ export class EngineClient {
 
   private handleDisconnect(): void {
     this.port = null;
-    this.sourceKey = '';
+    this.clearPushedSettings();
     this.failAll(hostError('The translation host was closed.'));
   }
 
   private dropPort(): void {
     const port = this.port;
     this.port = null;
-    this.sourceKey = '';
+    this.clearPushedSettings();
     try {
       port?.disconnect();
     } catch {
       // Already disconnected.
     }
+  }
+
+  private clearPushedSettings(): void {
+    this.sourceKey = '';
+    this.runtimeKey = '';
+    this.pushedModelId = null;
   }
 
   private failAll(error: EngineError): void {
@@ -465,6 +528,29 @@ export class EngineClient {
 
 function isHostGone(error: unknown): boolean {
   return error instanceof EngineError && error.code === 'offscreen-unavailable';
+}
+
+function runtimeSetPayload(settings: Settings): Omit<RuntimeSetRequest, 'requestId'> {
+  return {
+    type: 'runtime-set',
+    idleMinutes: settings.idleMinutes,
+    tier: settings.tier,
+    targetLanguage: settings.targetLanguage,
+    form: settings.form,
+    glossary: settings.glossary.map((entry) => ({ source: entry.source, target: entry.target })),
+    consented: hasLicenseConsent(settings),
+  };
+}
+
+function runtimeKeyOf(settings: Settings): string {
+  return [
+    String(settings.idleMinutes),
+    settings.tier,
+    settings.targetLanguage,
+    settings.form,
+    hasLicenseConsent(settings) ? '1' : '0',
+    settings.glossary.map((entry) => `${entry.source}\u0000${entry.target}`).join('\u0001'),
+  ].join('\u0002');
 }
 
 function sourceSetPayload(settings: Settings): Omit<SourceSetRequest, 'requestId'> {

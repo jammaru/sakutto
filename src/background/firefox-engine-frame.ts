@@ -40,7 +40,8 @@ async function engineFrameSrc(): Promise<string> {
  * `storage.session` on an interval does (bug 1851373).
  *
  * The iframe may be able to read storage, unlike Chrome's offscreen document, but engineSource
- * still arrives through `source-set` from the service worker so both browsers share one path.
+ * still arrives through `source-set` from the service worker, along with the selected model
+ * and the idle/prewarm snapshot, so both browsers share one path.
  */
 export function createFirefoxEngineFrameApi(): OffscreenDocumentApi {
   let keepAliveTimer: ReturnType<typeof setInterval> | null = null;

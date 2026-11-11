@@ -2,7 +2,7 @@ import { browser, type Browser } from 'wxt/browser';
 import { hasLicenseConsent } from '@/shared/agreement';
 import { lastGpuDiagnostic, probeCapabilities } from '@/shared/capabilities';
 import { mergeGpuDiagnostic, type GpuDiagnostic } from '@/shared/gpu-diagnostic';
-import { canonicalLanguage } from '@/shared/languages';
+import { canonicalLanguage, type TargetLanguage } from '@/shared/languages';
 import {
   modelCanTranslate,
   type EngineSource,
@@ -11,7 +11,7 @@ import {
 } from '@/shared/engine-status';
 import { advanceModelStatus } from '@/shared/model-progress';
 import { loadSettings, saveSettings } from '@/shared/storage';
-import type { Settings, TierPreference } from '@/shared/settings';
+import type { Formality, IdleMinutes, Settings, TierPreference } from '@/shared/settings';
 import { MemoryTranslationCacheStore, IndexedDbTranslationCacheStore } from '../cache/store';
 import { CachingEngine } from '../cache/caching-engine';
 import { TranslationCache } from '../cache/cache';
@@ -41,6 +41,7 @@ import type { DownloadProgress } from '../model/download';
 import { QUALITY_PARAGRAPH } from '../model/suggestion';
 import { buildTranslationPrompt } from '../prompt/pfml3';
 import { RoutingEngine, type PairSupport } from '../router';
+import type { GlossaryEntry } from '../types';
 import {
   ENGINE_HOST_PORT,
   deserializeTranslateOptions,
@@ -51,7 +52,9 @@ import {
   type EngineHostMessage,
   type ModelDeleteRequest,
   type ModelDownloadRequest,
+  type ModelSetRequest,
   type ModelStatusRequest,
+  type RuntimeSetRequest,
   type SourceSetRequest,
   type TierSetRequest,
   type TranslateRequest,
@@ -59,6 +62,19 @@ import {
 
 const IDLE_RELEASE_MS = 5 * 60 * 1000;
 const WARMUP_TIMEOUT_MS = 20_000;
+
+interface RuntimePrefs {
+  idleMinutes: IdleMinutes;
+  tier: TierPreference;
+  targetLanguage: TargetLanguage;
+  form: Formality;
+  glossary: GlossaryEntry[];
+  consented: boolean;
+}
+
+function idleHoldMs(minutes: IdleMinutes): number {
+  return minutes === 0 ? 0 : minutes * 60_000;
+}
 
 export interface EngineServices {
   manager: ModelManager;
@@ -167,7 +183,14 @@ export class EngineHost {
   private servicesTask: Promise<EngineServices> | null = null;
   private readonly requests = new Map<string, HostRequest>();
   private readonly downloads = new Map<ModelId, ActiveDownload>();
+  private readonly ports = new Set<Browser.runtime.Port>();
   private activeModelId: ModelId = DEFAULT_MODEL_ID;
+  /** Set by `model-set` before services exist, so the first restore uses the saved id. */
+  private preferredModelId: ModelId | null = null;
+  /** Present only when this document can read `chrome.storage` (Firefox's engine frame). */
+  private storedModelId: ModelId | null = null;
+  private runtimePrefs: RuntimePrefs | null = null;
+  private selectionChain: Promise<void> = Promise.resolve();
   private modelFallback = false;
   private plamoReady = false;
   private warming = false;
@@ -200,11 +223,13 @@ export class EngineHost {
     if (port.sender?.id !== browser.runtime.id) return;
     if (port.sender?.tab) return;
 
+    this.ports.add(port);
     port.onMessage.addListener((message: unknown) => {
       void this.handleMessage(port, message).catch(() => undefined);
     });
 
     port.onDisconnect.addListener(() => {
+      this.ports.delete(port);
       this.detachPort(port);
     });
   }
@@ -216,10 +241,15 @@ export class EngineHost {
 
   private services(): Promise<EngineServices> {
     if (!this.servicesTask) {
-      const task = this.openServices().catch((error: unknown) => {
-        if (this.servicesTask === task) this.servicesTask = null;
-        throw error;
-      });
+      const task = this.openServices()
+        .then(async (services) => {
+          await this.restorePreferred(services);
+          return services;
+        })
+        .catch((error: unknown) => {
+          if (this.servicesTask === task) this.servicesTask = null;
+          throw error;
+        });
       this.servicesTask = task;
     }
 
@@ -246,13 +276,15 @@ export class EngineHost {
     };
     const stored = browser.storage?.local ? await loadSettings().catch(() => null) : null;
     // Chrome's offscreen document has no chrome.storage. The service worker pushes
-    // engineSource via source-set; only apply a record when this document can read one.
+    // engineSource, the selected model, and the idle/prewarm snapshot. A record read
+    // here only exists where storage is actually available (Firefox's engine frame).
     if (stored) this.applyStoredSettings(stored);
-    const selection = selectionForTier(stored?.tier ?? 'auto', probe);
+    this.storedModelId = stored ? normalizeSelectedModelId(stored.selectedModelId) : null;
+    const tier = stored?.tier ?? this.runtimePrefs?.tier ?? 'auto';
+    const selection = selectionForTier(tier, probe);
     const selectionState = { current: selection };
     const store = await OpfsModelFileStore.open();
     const manager = new ModelManager({ store, createRuntime: createWllamaRuntime });
-    await this.restoreActiveModel(manager, stored?.selectedModelId);
     const cache = await openCache();
     const chrome = new ChromeTranslatorEngine();
     const load = async (signal: AbortSignal): Promise<LoadedModel> => {
@@ -408,6 +440,12 @@ export class EngineHost {
         return;
       case 'source-set':
         void this.handleSource(port, message);
+        return;
+      case 'model-set':
+        void this.handleModelSet(port, message);
+        return;
+      case 'runtime-set':
+        this.handleRuntime(port, message);
         return;
       case 'benchmark':
         void this.handleBenchmark(port, message);
@@ -721,17 +759,62 @@ export class EngineHost {
     this.touch();
   }
 
+  private async handleModelSet(
+    port: Browser.runtime.Port,
+    request: ModelSetRequest,
+  ): Promise<void> {
+    this.preferredModelId = request.modelId;
+    try {
+      // A document that is already running must switch now. A new document records
+      // the id and applies it when services() first opens, which is after this
+      // response, so connecting does not wait on the GPU probe.
+      if (this.servicesTask) {
+        const services = await this.services();
+        if (this.preferredModelId === request.modelId) {
+          await this.applyResolvedModel(services.manager, request.modelId, false);
+        }
+      }
+      this.respond(port, request.requestId, null);
+    } catch (error) {
+      this.respondError(port, request.requestId, error);
+    }
+  }
+
+  private handleRuntime(port: Browser.runtime.Port, request: RuntimeSetRequest): void {
+    this.runtimePrefs = {
+      idleMinutes: request.idleMinutes,
+      tier: request.tier,
+      targetLanguage: request.targetLanguage,
+      form: request.form,
+      glossary: request.glossary.map((entry) => ({ source: entry.source, target: entry.target })),
+      consented: request.consented,
+    };
+    this.respond(port, request.requestId, null);
+    this.touch();
+  }
+
   private async onSettingsChanged(): Promise<void> {
     const stored = await loadSettings().catch(() => null);
     this.applyStoredSettings(stored);
     this.touch();
   }
 
-  private async restoreActiveModel(manager: ModelManager, storedId: unknown): Promise<void> {
-    await this.applyResolvedModel(manager, normalizeSelectedModelId(storedId), false);
+  private async restorePreferred(services: EngineServices): Promise<void> {
+    const preferred = this.preferredModelId ?? this.storedModelId ?? DEFAULT_MODEL_ID;
+    await this.applyResolvedModel(services.manager, preferred, false);
   }
 
-  private async applyResolvedModel(
+  private applyResolvedModel(
+    manager: ModelManager,
+    preferred: ModelId,
+    persist: boolean,
+  ): Promise<void> {
+    const run = this.selectionChain.then(() => this.resolveAndApply(manager, preferred, persist));
+    this.selectionChain = run.catch(() => undefined);
+    return run;
+  }
+
+  private async resolveAndApply(
     manager: ModelManager,
     preferred: ModelId,
     persist: boolean,
@@ -747,9 +830,19 @@ export class EngineHost {
     if (persist || resolved.fallback) await this.persistActiveModel();
   }
 
+  /**
+   * Chrome's offscreen document has no `chrome.storage`. Post the choice on the
+   * engine port so the service worker, which does have storage, can save it.
+   * Firefox's engine frame writes directly.
+   */
   private async persistActiveModel(): Promise<void> {
-    if (!browser.storage?.local) return;
-    await saveSettings({ selectedModelId: this.activeModelId }).catch(() => undefined);
+    if (browser.storage?.local) {
+      await saveSettings({ selectedModelId: this.activeModelId }).catch(() => undefined);
+      return;
+    }
+    for (const port of this.ports) {
+      this.post(port, { type: 'model-persist', modelId: this.activeModelId });
+    }
   }
 
   private async handleModelStatus(
@@ -836,9 +929,26 @@ export class EngineHost {
     }
   }
 
+  private async prewarmSnapshot(): Promise<RuntimePrefs | null> {
+    if (browser.storage?.local) {
+      const stored = await loadSettings().catch(() => null);
+      if (stored) {
+        return {
+          idleMinutes: stored.idleMinutes,
+          tier: stored.tier,
+          targetLanguage: stored.targetLanguage,
+          form: stored.form,
+          glossary: stored.glossary,
+          consented: hasLicenseConsent(stored),
+        };
+      }
+    }
+    return this.runtimePrefs;
+  }
+
   private async prewarmFrequent(services: EngineServices): Promise<void> {
-    const settings = await loadSettings().catch(() => null);
-    if (!hasLicenseConsent(settings)) return;
+    const settings = await this.prewarmSnapshot();
+    if (!settings?.consented) return;
 
     const request = prewarmRequest(settings.targetLanguage);
     if (!request) return;
@@ -901,10 +1011,17 @@ export class EngineHost {
   }
 
   private resolveIdleMs(): Promise<number> {
-    if (!browser.storage?.local) return Promise.resolve(this.idleReleaseMs);
-    return loadSettings()
-      .then((settings) => (settings.idleMinutes === 0 ? 0 : settings.idleMinutes * 60_000))
-      .catch(() => this.idleReleaseMs);
+    if (browser.storage?.local) {
+      return loadSettings()
+        .then((settings) => idleHoldMs(settings.idleMinutes))
+        .catch(() => this.idleFromPush());
+    }
+    return Promise.resolve(this.idleFromPush());
+  }
+
+  private idleFromPush(): number {
+    if (!this.runtimePrefs) return this.idleReleaseMs;
+    return idleHoldMs(this.runtimePrefs.idleMinutes);
   }
 
   private async releaseIdle(): Promise<void> {

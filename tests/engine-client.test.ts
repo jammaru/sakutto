@@ -3,10 +3,10 @@ import { browser } from 'wxt/browser';
 import { EngineClient } from '@/background/engine-client';
 import type { OffscreenController } from '@/background/offscreen-lifecycle';
 import { DEFAULT_LOCAL_SERVER_PARALLEL } from '@/engine/local-server/url';
-import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
+import { DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID } from '@/engine/model/catalog';
 import type { TranslateOptions, TranslationChunk } from '@/engine/types';
 import { normalizeSettings, SETTINGS_SCHEMA_VERSION } from '@/shared/settings';
-import { loadSettings } from '@/shared/storage';
+import { loadSettings, saveSettings } from '@/shared/storage';
 import { FakePort, flushTasks } from './support/ports';
 
 vi.mock('wxt/browser', () => ({
@@ -17,9 +17,11 @@ vi.mock('@/shared/storage', () => ({
   loadSettings: vi.fn(async () => {
     throw new Error('no settings');
   }),
+  saveSettings: vi.fn(async () => undefined),
 }));
 
 const loadSettingsMock = vi.mocked(loadSettings);
+const saveSettingsMock = vi.mocked(saveSettings);
 
 const connect = vi.mocked(browser.runtime.connect);
 
@@ -109,15 +111,18 @@ describe('EngineClient', () => {
       const client = new EngineClient(controller());
       const pending = client.status();
 
-      const source = await waitForMessage<{
-        requestId: string;
-        engineSource: string;
-        localServer: { parallel: number };
-      }>(port, 'source-set');
-      expect(source.engineSource).toBe('local-server');
-      expect(source.localServer.parallel).toBe(DEFAULT_LOCAL_SERVER_PARALLEL);
-      expect(port.messagesOfType('status')).toHaveLength(0);
-      port.emit({ type: 'response', requestId: source.requestId, ok: true, value: null });
+      const pushed = await acceptStoredPush(port);
+      expect(pushed['source-set']).toMatchObject({
+        engineSource: 'local-server',
+        localServer: { parallel: DEFAULT_LOCAL_SERVER_PARALLEL },
+      });
+      expect(pushed['model-set']).toMatchObject({ modelId: HIGH_QUALITY_MODEL_ID });
+      expect(pushed['runtime-set']).toMatchObject({
+        idleMinutes: 1,
+        tier: 'c4',
+        targetLanguage: 'en',
+        consented: false,
+      });
 
       const status = await waitForMessage<{ requestId: string }>(port, 'status');
       port.emit({
@@ -165,11 +170,73 @@ describe('EngineClient', () => {
       const source = await waitForMessage<{ requestId: string }>(port, 'source-set');
       expect(offscreen.close).toHaveBeenCalled();
       port.emit({ type: 'response', requestId: source.requestId, ok: true, value: null });
+      const runtime = await waitForMessage<{ requestId: string }>(port, 'runtime-set');
+      port.emit({ type: 'response', requestId: runtime.requestId, ok: true, value: null });
+      const model = await waitForMessage<{ requestId: string; modelId: string }>(port, 'model-set');
+      expect(model.modelId).toBe(HIGH_QUALITY_MODEL_ID);
+      port.emit({ type: 'response', requestId: model.requestId, ok: true, value: null });
       await pending;
     } finally {
       loadSettingsMock.mockReset();
       loadSettingsMock.mockRejectedValue(new Error('no settings'));
     }
+  });
+
+  it('saves a model-persist event before resolving the host response that follows it', async () => {
+    let releaseSave: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
+    saveSettingsMock.mockImplementation(() => gate.then(() => normalizeSettings(null, 'en')));
+
+    const port = new FakePort();
+    connect.mockReturnValue(port.port);
+    const client = new EngineClient(controller());
+    const pending = client.status();
+    await flushTasks();
+
+    const status = await waitForMessage<{ requestId: string }>(port, 'status');
+    port.emit({ type: 'model-persist', modelId: HIGH_QUALITY_MODEL_ID });
+    port.emit({
+      type: 'response',
+      requestId: status.requestId,
+      ok: true,
+      value: {
+        model: {
+          id: HIGH_QUALITY_MODEL_ID,
+          state: 'ready',
+          received: 1,
+          total: 1,
+          progress: 1,
+        },
+        backend: 'cpu-wasm',
+        tier: 'c8',
+        threads: 8,
+        parallel: 1,
+        plamoReady: true,
+        chromeSupported: false,
+        active: null,
+        engineSource: 'in-browser',
+      },
+    });
+
+    let settled = false;
+    void pending.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
+    await flushTasks();
+    expect(settled).toBe(false);
+    expect(saveSettingsMock).toHaveBeenCalledWith({ selectedModelId: HIGH_QUALITY_MODEL_ID });
+
+    releaseSave();
+    await expect(pending).resolves.toMatchObject({
+      model: { id: HIGH_QUALITY_MODEL_ID },
+    });
   });
 });
 
@@ -181,9 +248,28 @@ function upgradedLocalServerSettings() {
       engineSource: 'local-server',
       localServerUrl: 'http://127.0.0.1:8080/v1',
       localServerModel: 'pfnet/plamo-3-translate-0.8b-MLX-4bit',
+      selectedModelId: HIGH_QUALITY_MODEL_ID,
+      idleMinutes: 1,
+      tier: 'c4',
     },
     'en',
   );
+}
+
+async function acceptStoredPush(
+  port: FakePort,
+): Promise<Record<string, { requestId: string } & Record<string, unknown>>> {
+  const accepted: Record<string, { requestId: string } & Record<string, unknown>> = {};
+  for (const type of ['source-set', 'runtime-set', 'model-set']) {
+    const message = await waitForMessage<{ requestId: string } & Record<string, unknown>>(
+      port,
+      type,
+    );
+    accepted[type] = message;
+    if (type === 'model-set') expect(port.messagesOfType('status')).toHaveLength(0);
+    port.emit({ type: 'response', requestId: message.requestId, ok: true, value: null });
+  }
+  return accepted;
 }
 
 async function waitForMessage<T>(port: FakePort, type: string): Promise<T> {

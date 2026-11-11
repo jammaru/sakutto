@@ -33,6 +33,15 @@ export function isAllowedRequest(url: string): boolean {
 
 export async function loadExtension(lang: 'en-US' | 'ja'): Promise<LoadedExtension> {
   const profileDirectory = await mkdtemp(join(tmpdir(), 'sakutto-profile-'));
+  return launchExtension(lang, profileDirectory, true);
+}
+
+/** Opens the built extension in an existing profile. `close` leaves the profile on disk. */
+export async function launchExtension(
+  lang: 'en-US' | 'ja',
+  profileDirectory: string,
+  deleteProfile = false,
+): Promise<LoadedExtension> {
   const args = [
     `--disable-extensions-except=${extensionPath}`,
     `--load-extension=${extensionPath}`,
@@ -64,7 +73,7 @@ export async function loadExtension(lang: 'en-US' | 'ja'): Promise<LoadedExtensi
       .waitForEvent('serviceworker', { timeout: 30_000 })
       .catch(async (error: unknown) => {
         await context.close();
-        await rm(profileDirectory, { recursive: true, force: true });
+        if (deleteProfile) await rm(profileDirectory, { recursive: true, force: true });
         throw error;
       }));
 
@@ -75,7 +84,7 @@ export async function loadExtension(lang: 'en-US' | 'ja'): Promise<LoadedExtensi
     denied,
     close: async () => {
       await context.close();
-      await rm(profileDirectory, { recursive: true, force: true });
+      if (deleteProfile) await rm(profileDirectory, { recursive: true, force: true });
     },
   };
 }

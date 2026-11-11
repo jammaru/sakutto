@@ -9,9 +9,19 @@ import type {
   TranslationChunk,
 } from '../types';
 import { isModelStatus, type EngineSource, type ModelStatus } from '../../shared/engine-status';
-import { MAX_GLOSSARY_MESSAGE_ENTRIES, MAX_GLOSSARY_TEXT } from '../../shared/glossary';
-import { isTargetLanguage } from '../../shared/languages';
-import { isEngineSource, isTierPreference, type TierPreference } from '../../shared/settings';
+import {
+  MAX_GLOSSARY_ENTRIES,
+  MAX_GLOSSARY_MESSAGE_ENTRIES,
+  MAX_GLOSSARY_TEXT,
+} from '../../shared/glossary';
+import { isTargetLanguage, type TargetLanguage } from '../../shared/languages';
+import {
+  isEngineSource,
+  isIdleMinutes,
+  isTierPreference,
+  type IdleMinutes,
+  type TierPreference,
+} from '../../shared/settings';
 
 export const ENGINE_HOST_PORT = 'sakutto:engine-host';
 export const TRANSLATION_PORT = 'sakutto:translate';
@@ -159,6 +169,31 @@ export interface BenchmarkRequest {
   requestId: string;
 }
 
+/**
+ * The service worker's copy of `selectedModelId`. Chrome's offscreen document cannot
+ * read `chrome.storage`, so the worker sends the saved choice whenever it opens a port.
+ */
+export interface ModelSetRequest {
+  type: 'model-set';
+  requestId: string;
+  modelId: ModelId;
+}
+
+/**
+ * Settings the offscreen document otherwise reads from storage: idle unload, the
+ * performance tier, and the inputs for cache prewarm. Pushed with `model-set`.
+ */
+export interface RuntimeSetRequest {
+  type: 'runtime-set';
+  requestId: string;
+  idleMinutes: IdleMinutes;
+  tier: TierPreference;
+  targetLanguage: TargetLanguage;
+  form: Formality;
+  glossary: GlossaryEntry[];
+  consented: boolean;
+}
+
 export type EngineHostRequest =
   | TranslateRequest
   | CancelRequest
@@ -173,7 +208,9 @@ export type EngineHostRequest =
   | CacheClearRequest
   | TierSetRequest
   | SourceSetRequest
-  | BenchmarkRequest;
+  | BenchmarkRequest
+  | ModelSetRequest
+  | RuntimeSetRequest;
 
 export interface ChunkEvent {
   type: 'chunk';
@@ -212,8 +249,25 @@ export interface ResponseErrorEvent {
   error: EngineErrorPayload;
 }
 
+/**
+ * The host picked a model (an explicit Use, or a fallback because the saved one is
+ * not on disk) and cannot write `chrome.storage` itself. The service worker saves it.
+ * Posted on the engine port, ahead of the response for the request that caused it,
+ * so the save finishes before that request resolves.
+ */
+export interface ModelPersistEvent {
+  type: 'model-persist';
+  modelId: ModelId;
+}
+
 export type EngineHostMessage =
-  ChunkEvent | DoneEvent | ErrorEvent | ModelProgressEvent | ResponseEvent | ResponseErrorEvent;
+  | ChunkEvent
+  | DoneEvent
+  | ErrorEvent
+  | ModelProgressEvent
+  | ResponseEvent
+  | ResponseErrorEvent
+  | ModelPersistEvent;
 
 export interface TranslationStartRequest {
   type: 'start';
@@ -271,10 +325,13 @@ function isBoundedText(value: unknown, maximum: number): value is string {
   return typeof value === 'string' && value.length <= maximum;
 }
 
-function isGlossary(value: unknown): value is GlossaryEntry[] {
+function isGlossary(
+  value: unknown,
+  maximum = MAX_GLOSSARY_MESSAGE_ENTRIES,
+): value is GlossaryEntry[] {
   return (
     Array.isArray(value) &&
-    value.length <= MAX_GLOSSARY_MESSAGE_ENTRIES &&
+    value.length <= maximum &&
     value.every(
       (entry) =>
         isRecord(entry) &&
@@ -353,6 +410,17 @@ export function isEngineHostRequest(value: unknown): value is EngineHostRequest 
       return isTierPreference(value.tier);
     case 'source-set':
       return isEngineSource(value.engineSource) && isLocalServerHostConfig(value.localServer);
+    case 'model-set':
+      return isModelId(value.modelId);
+    case 'runtime-set':
+      return (
+        isIdleMinutes(value.idleMinutes) &&
+        isTierPreference(value.tier) &&
+        isTargetLanguage(value.targetLanguage) &&
+        (value.form === 'polite' || value.form === 'plain') &&
+        isGlossary(value.glossary, MAX_GLOSSARY_ENTRIES) &&
+        typeof value.consented === 'boolean'
+      );
     default:
       return false;
   }
@@ -377,7 +445,9 @@ function isErrorPayload(value: unknown): value is EngineErrorPayload {
 }
 
 export function isEngineHostMessage(value: unknown): value is EngineHostMessage {
-  if (!isRecord(value) || !isRequestId(value)) return false;
+  if (!isRecord(value)) return false;
+  if (value.type === 'model-persist') return isModelId(value.modelId);
+  if (!isRequestId(value)) return false;
 
   switch (value.type) {
     case 'chunk':

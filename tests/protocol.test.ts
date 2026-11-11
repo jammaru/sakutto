@@ -107,6 +107,40 @@ describe('engine host protocol', () => {
     // Draft and preview options are gone: the host never paints built-in page text.
     expect(isEngineHostRequest(request({ draft: true }))).toBe(true);
     expect(isEngineHostRequest({ type: 'benchmark', requestId: 'b1' })).toBe(true);
+    expect(
+      isEngineHostRequest({
+        type: 'model-set',
+        requestId: 'm1',
+        modelId: 'plamo-3-translate-2b-q4_k_m',
+      }),
+    ).toBe(true);
+    expect(isEngineHostRequest({ type: 'model-set', requestId: 'm1', modelId: 'nope' })).toBe(
+      false,
+    );
+    expect(
+      isEngineHostRequest({
+        type: 'runtime-set',
+        requestId: 'rt1',
+        idleMinutes: 0,
+        tier: 'c4',
+        targetLanguage: 'ja',
+        form: 'plain',
+        glossary: [],
+        consented: true,
+      }),
+    ).toBe(true);
+    expect(
+      isEngineHostRequest({
+        type: 'runtime-set',
+        requestId: 'rt1',
+        idleMinutes: 3,
+        tier: 'auto',
+        targetLanguage: 'ja',
+        form: 'polite',
+        glossary: [],
+        consented: false,
+      }),
+    ).toBe(false);
     expect(isEngineHostRequest({ type: 'cache-clear', requestId: 'c1' })).toBe(true);
     expect(isEngineHostRequest({ type: 'tier-set', requestId: 't1', tier: 'auto' })).toBe(true);
     expect(isEngineHostRequest({ type: 'tier-set', requestId: 't1', tier: 'fast' })).toBe(false);
@@ -215,6 +249,13 @@ describe('engine host protocol', () => {
       }),
     ).toBe(true);
     expect(isEngineHostMessage({ type: 'done', requestId: 'r1' })).toBe(true);
+    expect(
+      isEngineHostMessage({
+        type: 'model-persist',
+        modelId: 'plamo-3-translate-2b-q4_k_m',
+      }),
+    ).toBe(true);
+    expect(isEngineHostMessage({ type: 'model-persist', modelId: 'missing' })).toBe(false);
     expect(
       isEngineHostMessage({
         type: 'model-progress',
