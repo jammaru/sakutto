@@ -3,16 +3,47 @@
   <head>
     <meta charset="utf-8" />
     <title>Watch</title>
+    <style>
+      #movie_player {
+        position: relative;
+        width: 640px;
+        height: 360px;
+        background: #111;
+      }
+      .html5-video-container {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        height: 100%;
+      }
+      .html5-main-video {
+        width: 100%;
+        height: 100%;
+      }
+      .ytp-chrome-bottom {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 72px;
+        z-index: 40;
+        pointer-events: auto;
+        background: rgb(0 0 0 / 45%);
+      }
+    </style>
   </head>
   <body>
     <p>Synthetic YouTube-shaped player. No people and no copyrighted footage.</p>
     <div id="movie_player" class="html5-video-player">
-      <video id="player" class="html5-main-video" controls muted playsinline>
-        <source src="/dummy.mp4" type="video/mp4" />
-      </video>
+      <div class="html5-video-container">
+        <video id="player" class="html5-main-video" controls muted playsinline>
+          <source src="/dummy.mp4" type="video/mp4" />
+        </video>
+      </div>
       <div class="ytp-caption-window-container">
         <span class="ytp-caption-segment"></span>
       </div>
+      <div class="ytp-chrome-bottom" data-sakutto="fake-chrome"></div>
     </div>
     <!-- prettier-ignore -->
     <script>

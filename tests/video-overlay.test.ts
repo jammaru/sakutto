@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
-import { CaptionOverlay } from '@/captions/overlay';
+import { CaptionOverlay, captionOverlayRoot, CAPTION_ORIGINAL_TOGGLE } from '@/captions/overlay';
 
 const labels = {
   label: 'Translated captions',
@@ -50,6 +50,7 @@ describe('caption overlay', () => {
     expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
       'The station opens at dawn.',
     );
+    overlay.detach();
   });
 
   it('keeps the original when replace mode has no translation yet', () => {
@@ -67,5 +68,43 @@ describe('caption overlay', () => {
     expect(original?.hidden).toBe(true);
     expect(translated?.hidden).toBe(false);
     expect(translated?.textContent).toBe('Tickets are sold at the north window.');
+    overlay.detach();
+  });
+
+  it('puts the original-caption toggle in the light DOM and toggles on click', () => {
+    const overlay = new CaptionOverlay(document, labels);
+    overlay.attach(document.body);
+    overlay.show({
+      original: 'The station opens at dawn.',
+      translation: '駅は夜明けに開きます。',
+      display: 'bilingual',
+      pending: false,
+    });
+    const host = document.querySelector('sakutto-captions');
+    const button = document.querySelector(`[data-sakutto="${CAPTION_ORIGINAL_TOGGLE}"]`);
+    expect(button).toBeInstanceOf(HTMLButtonElement);
+    expect(button?.parentElement).toBe(host);
+    expect(host?.getAttribute('data-sakutto-show-original')).toBe('1');
+    expect((button as HTMLButtonElement).textContent).toBe('Hide original caption');
+
+    let toggled = 0;
+    overlay.setOnDisplayToggle(() => {
+      toggled += 1;
+    });
+    (button as HTMLButtonElement).click();
+    expect(toggled).toBe(1);
+    overlay.detach();
+  });
+
+  it('attaches to #movie_player instead of the inner video container', () => {
+    document.body.innerHTML = `
+      <div id="movie_player" class="html5-video-player">
+        <div class="html5-video-container"><video></video></div>
+        <div class="ytp-chrome-bottom"></div>
+      </div>
+    `;
+    const video = document.querySelector('video');
+    expect(video).not.toBeNull();
+    expect(captionOverlayRoot(document, video as HTMLVideoElement).id).toBe('movie_player');
   });
 });

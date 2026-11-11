@@ -77,6 +77,36 @@ test.describe('video captions', () => {
     }
   });
 
+  test('hides and shows the original caption line from the overlay button', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      const page = await extension.context.newPage();
+      await page.goto(`${FIXTURE_ORIGIN}/youtube-captions.html`);
+      await prepareVideo(page);
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-show-original',
+        '1',
+      );
+      const toggle = page.locator('[data-sakutto="caption-original-toggle"]');
+      await expect(toggle).toBeVisible();
+      await toggle.click();
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-show-original',
+        '0',
+      );
+      await toggle.click();
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-show-original',
+        '1',
+      );
+    } finally {
+      await extension.close();
+    }
+  });
+
   test('translates a YouTube-style caption track from the player response', async () => {
     const extension = await loadExtension('en-US');
     try {
@@ -227,6 +257,81 @@ test.describe('video captions', () => {
     }
   });
 
+  test('keeps the caption switch on after a permission prompt closes the popup', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker);
+      const page = await extension.context.newPage();
+      await page.goto(`${FIXTURE_ORIGIN}/video-captions.html`);
+      await prepareVideo(page);
+      await injectContentScript(extension.worker, page);
+
+      const popup = await extension.context.newPage();
+      await popup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
+      const toggle = popup.locator('[data-sakutto="video-captions"]');
+      await expect(toggle).toBeVisible();
+      await expect(toggle).not.toBeChecked();
+      await stubPopupCaptionPermission(popup, false, { hang: true });
+      await toggle.click();
+      await expect.poll(async () => readCaptionEnableIntent(extension.worker)).toBe(true);
+      await popup.close();
+
+      const again = await extension.context.newPage();
+      await stubCaptionPermissionBeforeLoad(again, true);
+      await again.goto(`chrome-extension://${extension.extensionId}/popup.html`);
+      await expect(again.locator('[data-sakutto="video-captions"]')).toBeChecked();
+      expect(await readTranslateVideoCaptions(extension.worker)).toBe(true);
+      await again.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('finishes enabling captions on the settings page after a grant', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker);
+      const options = await extension.context.newPage();
+      await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      const toggle = options.locator('[data-sakutto="video-captions"]');
+      await expect(toggle).toBeVisible();
+      await stubPopupCaptionPermission(options, false, { hang: true });
+      await toggle.click();
+      await expect.poll(async () => readCaptionEnableIntent(extension.worker)).toBe(true);
+      await options.close();
+
+      const again = await extension.context.newPage();
+      await stubCaptionPermissionBeforeLoad(again, true);
+      await again.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await expect(again.locator('[data-sakutto="video-captions"]')).toBeChecked();
+      expect(await readTranslateVideoCaptions(extension.worker)).toBe(true);
+      await again.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('reverts the settings page switch when host permission is denied', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker);
+      const options = await extension.context.newPage();
+      await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      const toggle = options.locator('[data-sakutto="video-captions"]');
+      await expect(toggle).toBeVisible();
+      await stubPopupCaptionPermission(options, false);
+      await toggle.click();
+      await expect(toggle).not.toBeChecked();
+      await expect(options.locator('[data-sakutto="video-captions-denied"]')).toHaveText(
+        'Access to YouTube and X was not granted.',
+      );
+      expect(await readTranslateVideoCaptions(extension.worker)).toBe(false);
+      await options.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
   test('reverts the popup switch when host permission is denied', async () => {
     const extension = await loadExtension('en-US');
     try {
@@ -285,19 +390,77 @@ test.describe('video captions', () => {
   });
 });
 
-async function stubPopupCaptionPermission(popup: Page, granted: boolean): Promise<void> {
-  await popup.evaluate((granted) => {
-    const apply = (api: unknown) => {
-      if (!api || typeof api !== 'object' || !('permissions' in api)) return;
-      const permissions = Reflect.get(api, 'permissions') as
-        { contains?: unknown; request?: unknown } | undefined;
-      if (!permissions) return;
-      permissions.contains = async () => false;
-      permissions.request = async () => granted;
+async function stubPopupCaptionPermission(
+  popup: Page,
+  granted: boolean,
+  options: { hang?: boolean } = {},
+): Promise<void> {
+  await popup.evaluate(
+    ({ granted, hang }) => {
+      const apply = (api: unknown) => {
+        if (!api || typeof api !== 'object' || !('permissions' in api)) return;
+        const permissions = Reflect.get(api, 'permissions') as
+          { contains?: unknown; request?: unknown } | undefined;
+        if (!permissions) return;
+        permissions.contains = async () => granted;
+        permissions.request = hang
+          ? () => new Promise<boolean>(() => undefined)
+          : async () => granted;
+      };
+      apply(Reflect.get(globalThis, 'chrome'));
+      apply(Reflect.get(globalThis, 'browser'));
+    },
+    { granted, hang: options.hang === true },
+  );
+}
+
+async function stubCaptionPermissionBeforeLoad(page: Page, granted: boolean): Promise<void> {
+  await page.addInitScript((granted) => {
+    const install = () => {
+      const apply = (api: unknown) => {
+        if (!api || typeof api !== 'object' || !('permissions' in api)) return;
+        const permissions = Reflect.get(api, 'permissions') as
+          { contains?: unknown; request?: unknown } | undefined;
+        if (!permissions) return;
+        permissions.contains = async () => granted;
+        permissions.request = async () => granted;
+      };
+      apply(Reflect.get(globalThis, 'chrome'));
+      apply(Reflect.get(globalThis, 'browser'));
     };
-    apply(Reflect.get(globalThis, 'chrome'));
-    apply(Reflect.get(globalThis, 'browser'));
+    install();
+    document.addEventListener('DOMContentLoaded', install);
   }, granted);
+}
+
+async function readTranslateVideoCaptions(
+  worker: import('@playwright/test').Worker,
+): Promise<boolean> {
+  const stored = await worker.evaluate(async () => {
+    const chrome = (
+      globalThis as unknown as {
+        chrome: { storage: { local: { get(key: string): Promise<Record<string, unknown>> } } };
+      }
+    ).chrome;
+    const value = await chrome.storage.local.get('settings');
+    return value.settings as { translateVideoCaptions?: boolean } | undefined;
+  });
+  return stored?.translateVideoCaptions === true;
+}
+
+async function readCaptionEnableIntent(
+  worker: import('@playwright/test').Worker,
+): Promise<boolean> {
+  const stored = await worker.evaluate(async () => {
+    const chrome = (
+      globalThis as unknown as {
+        chrome: { storage: { local: { get(key: string): Promise<Record<string, unknown>> } } };
+      }
+    ).chrome;
+    const value = await chrome.storage.local.get('captionEnableIntent');
+    return value.captionEnableIntent;
+  });
+  return stored === true;
 }
 
 async function mockXOrigin(

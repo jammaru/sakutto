@@ -222,7 +222,10 @@ A typical caption is 8–15 English words (~12–25 output tokens in Japanese).
 
 - Overlay (`<sakutto-captions>`, closed shadow root) sits on the player, not in page prose.
   `<video>` stays in the frozen selector so page translation does not rewrite the media
-  subtree.
+  subtree. The host is a child of `#movie_player` (not `.html5-video-container`) so it
+  stacks above `.ytp-chrome-bottom`. Caption lines keep `pointer-events: none`; the
+  original-line toggle lives in the light DOM (slotted) at a 32px target and is armed by a
+  document capture listener so YouTube's player click handler cannot swallow it.
 - **Bilingual is the default** (`videoCaptionDisplay`). Side-by-side is what people use to
   study and to check accuracy. Replace mode is a setting and a control on the overlay.
 - The overlay shows **finalized units only** (original + translation together). It does
@@ -238,9 +241,12 @@ A typical caption is 8–15 English words (~12–25 output tokens in Japanese).
   capture-phase `resize` / `scroll` / `fullscreenchange`.
 - The feature is off until the reader turns **Translate video captions** on in Settings
   (default OFF). Turning it on requests the existing optional host permission for
-  youtube.com / x.com (and twitter.com aliases). Once granted, those tabs auto-run caption
-  translation without pressing Translate. Other sites still need a user action or
-  always-translate. There is no install-time YouTube or X host permission.
+  youtube.com / x.com (and twitter.com aliases). Chrome closes the toolbar popup when that
+  prompt appears, so the click writes an enable intent _before_ `permissions.request` (no
+  prior `await`) and `settleCaptionEnableIntent` finishes the setting on popup/options
+  reopen or `permissions.onAdded`. A denial still reverts the switch. Once granted, those
+  tabs auto-run caption translation without pressing Translate. Other sites still need a
+  user action or always-translate. There is no install-time YouTube or X host permission.
 
 ## Phased plan
 
@@ -291,7 +297,7 @@ already looking at.
 | ToS / "downloading captions"                     | Only fetch the `baseUrl` already on the watch page; no bulk harvest                                                              |
 | Wrong translations                               | Bilingual default; original while pending; `isBrokenTranslation`; no cache on failure                                            |
 | Engine contention with page translation          | Caption live priority 2 + preempt, prefetch 24, abort on seek                                                                    |
-| Overlay vs YouTube controls / fullscreen         | Closed shadow, `pointer-events: none` except the bilingual toggle, reparent on fullscreen                                        |
+| Overlay vs YouTube controls / fullscreen         | Attach to `#movie_player`, light-DOM toggle, document capture clicks, reparent on fullscreen                                     |
 | HTML5 / twimg CORS-empty cues                    | Show nothing; do not add a twimg host permission                                                                                 |
 | Firefox                                          | TextTrack and script-tag parse work; `tabCapture` does not. Not a shipping target in this phase                                  |
 
@@ -300,14 +306,17 @@ already looking at.
 - **Unit:** WebVTT and json3 parsers; word-cue merge (no false sentences); VOD sentence
   merge from fragmentary cues; 1-hour X VTT offset; live buffer; spoken-language track
   choice (not the first translated track); timedtext fetch cap; X playing-video picker and
-  twimg allowlist; auto-inject gating; popup/options toggle permission-denied revert;
-  overlay bilingual/replace; translator cache, seek cancel, degenerate skip, live preempt;
+  twimg allowlist; auto-inject gating; popup/options toggle permission-denied revert and
+  enable-intent settle after a closed popup; overlay bilingual/replace and light-DOM
+  toggle click; translator cache, seek cancel, degenerate skip, live preempt;
   scheduler preemption; session live original-then-translation, empty-timedtext DOM
   fallback, setting-off overlay removal, and silent X.
 - **e2e:** HTML5 dummy clip; YouTube on-demand; YouTube live auto-run without Translate;
-  X-like DOM + VTT (playing video only); X with no captions → nothing; popup switch
-  on/off propagation and permission-denied revert. No real people, no personal info, no
-  copyrighted footage. Fake engine marker `§en§`. Setting off → no overlay.
+  X-like DOM + VTT (playing video only); X with no captions → nothing; overlay original
+  toggle click through a fake chrome bar; popup switch on/off propagation, permission
+  prompt that closes the popup still enabling on reopen, and permission-denied revert.
+  No real people, no personal info, no copyrighted footage. Fake engine marker `§en§`.
+  Setting off → no overlay.
 - Fixtures are served by `e2e/serve.mjs` with `text/vtt` and `video/mp4` types.
 
 ## Firefox

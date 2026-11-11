@@ -21,6 +21,7 @@
   import type { IdleMinutes, Settings, SettingsPatch, TierPreference } from '@/shared/settings';
   import { isIdleMinutes, isTierPreference } from '@/shared/settings';
   import type { TargetLanguage } from '@/shared/languages';
+  import { settleCaptionEnableIntent } from '@/captions/sites';
   import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
   import EngineStatusView from '@/ui/EngineStatus.svelte';
   import GpuDiagnosticView from '@/ui/GpuDiagnostic.svelte';
@@ -202,6 +203,9 @@
     });
     const unsubscribeRules = subscribeSiteRules((next) => {
       rules = next;
+    });
+    void settleCaptionEnableIntent().then((settled) => {
+      if (settled.applied) void loadStoredSettings();
     });
     void loadStoredSettings();
     void loadRules();

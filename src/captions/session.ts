@@ -21,6 +21,7 @@ import {
 } from './html5';
 import {
   CaptionOverlay,
+  captionChromeInset,
   captionOverlayFontPx,
   captionOverlayRoot,
   type CaptionOverlayLabels,
@@ -115,13 +116,18 @@ export class VideoCaptionSession {
 
   setPreferences(preferences: CaptionSessionPreferences): void {
     const wasEnabled = this.prefs.enabled;
+    const displayChanged = this.prefs.display !== preferences.display;
     this.prefs = { ...preferences, tier: this.prefs.tier ?? preferences.tier };
     if (!preferences.enabled) {
       this.stop();
       return;
     }
-    if (!wasEnabled) this.start();
-    else void this.sync(true);
+    if (!wasEnabled) {
+      this.start();
+      return;
+    }
+    if (displayChanged) this.repaintHold();
+    void this.sync(true);
   }
 
   setLabels(labels: CaptionOverlayLabels): void {
@@ -514,9 +520,14 @@ export class VideoCaptionSession {
 
   private place(): void {
     if (!this.video) return;
-    this.overlay.attach(captionOverlayRoot(this.doc, this.video));
+    const root = captionOverlayRoot(this.doc, this.video);
+    this.overlay.attach(root);
     const rect = this.video.getBoundingClientRect();
-    this.overlay.place(rect, captionOverlayFontPx(rect.height, nativeCaptionFontPx(this.doc)));
+    this.overlay.place(
+      rect,
+      captionOverlayFontPx(rect.height, nativeCaptionFontPx(this.doc)),
+      captionChromeInset(root),
+    );
   }
 
   private readSourceCaptionDom(): string {
@@ -541,6 +552,16 @@ export class VideoCaptionSession {
       this.prefs.tier,
       video.playbackRate || 1,
     );
+  }
+
+  private repaintHold(): void {
+    if (!this.hold) return;
+    this.overlay.show({
+      original: this.hold.original,
+      translation: this.hold.translation,
+      display: this.prefs.display,
+      pending: false,
+    });
   }
 
   private commitDisplay(cueId: string, original: string, translation: string): void {

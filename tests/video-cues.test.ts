@@ -384,6 +384,11 @@ describe('caption overlay placement and priority', () => {
     expect(box.width).toBeLessThanOrEqual(640);
   });
 
+  it('lifts further when YouTube chrome height is passed in', () => {
+    const box = captionOverlayBox({ left: 0, top: 0, width: 640, height: 360 }, 72);
+    expect(box.top).toBe(360 - 72);
+  });
+
   it('tracks a wide player instead of capping at 720px', () => {
     const box = captionOverlayBox({ left: 0, top: 0, width: 1280, height: 720 });
     expect(box.width).toBeGreaterThan(720);

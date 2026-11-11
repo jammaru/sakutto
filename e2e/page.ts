@@ -16,6 +16,7 @@ interface ExtensionChrome {
     local: {
       set(items: Record<string, unknown>): Promise<void>;
       get(key: string): Promise<Record<string, unknown>>;
+      remove(key: string): Promise<void>;
     };
   };
 }
@@ -70,6 +71,7 @@ export async function resetExtensionStorage(
       async ({ settings }) => {
         const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
         await chrome.storage.local.set({ siteRules: {}, settings });
+        await chrome.storage.local.remove('captionEnableIntent');
       },
       { settings },
     );

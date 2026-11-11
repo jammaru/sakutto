@@ -92,6 +92,62 @@ describe('video caption session', () => {
     session.stop();
   });
 
+  it('hides the original line when display switches to replace', async () => {
+    document.body.innerHTML = `
+      <div id="movie_player" class="html5-video-player">
+        <div class="html5-video-container">
+          <video id="player" class="html5-main-video"></video>
+        </div>
+        <div class="ytp-chrome-bottom"></div>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "captions": {
+            "playerCaptionsTracklistRenderer": {
+              "captionTracks": [{
+                "baseUrl": "/youtube-timedtext.json",
+                "languageCode": "en",
+                "name": { "simpleText": "English" }
+              }]
+            }
+          }
+        };
+      </script>
+    `;
+    const video = document.querySelector('video');
+    if (video) video.currentTime = 0.4;
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => JSON.stringify(TIMEDTEXT),
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-show-original'),
+      ).toBe('1');
+    });
+    expect(document.querySelector('sakutto-captions')?.parentElement?.id).toBe('movie_player');
+    session.setPreferences({
+      enabled: true,
+      targetLanguage: 'ja',
+      form: 'polite',
+      display: 'replace',
+      tier: 'g',
+    });
+    expect(
+      document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-show-original'),
+    ).toBe('0');
+    session.stop();
+  });
+
   it('shows the live original immediately and replaces it with the translation', async () => {
     document.body.innerHTML = `
       <div id="movie_player" class="html5-video-player ytp-live">

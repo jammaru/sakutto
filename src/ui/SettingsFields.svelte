@@ -15,6 +15,8 @@
   import { resolveCaptionToggle } from '@/captions/sites';
   import LanguageField from './LanguageField.svelte';
 
+  let captionDenied = $state(false);
+
   interface Props {
     settings: Settings;
     uiLanguage: string;
@@ -152,14 +154,17 @@
   <label class="check">
     <input
       type="checkbox"
+      data-sakutto="video-captions"
       checked={settings.translateVideoCaptions}
       onchange={(event) => {
         const input = event.currentTarget as HTMLInputElement;
+        captionDenied = false;
         void (async () => {
           // User gesture: resolveCaptionToggle must call permissions.request with no prior pause.
           const result = await resolveCaptionToggle(input.checked);
           input.checked = result.on;
           if (result.denied) {
+            captionDenied = true;
             onPermissionDenied?.();
             return;
           }
@@ -169,6 +174,11 @@
     />
     <span>{t('videoCaptionsSetting')}</span>
   </label>
+  {#if captionDenied}
+    <p class="error" role="alert" data-sakutto="video-captions-denied">
+      {t('videoCaptionsPermissionDenied')}
+    </p>
+  {/if}
   <p class="muted help">{t('videoCaptionsSettingHelp')}</p>
 
   {#if settings.translateVideoCaptions}
@@ -221,5 +231,11 @@
     gap: var(--space-2);
     color: var(--text);
     font-size: 13px;
+  }
+
+  .error {
+    margin: 0;
+    color: var(--danger, #b91c1c);
+    font-size: 12px;
   }
 </style>

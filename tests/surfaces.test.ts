@@ -73,13 +73,25 @@ describe('start controls while the model downloads', () => {
   it('calls permissions.request as the first await in the popup caption click', () => {
     const sites = source('captions/sites.ts');
     expect(sites).toContain('browser.permissions.request({ origins })');
-    expect(sites).not.toMatch(/permissions\.contains\s*\(/);
+    expect(sites).toContain('markCaptionEnableIntent');
+    expect(sites).toContain('settleCaptionEnableIntent');
+    const requestStart = sites.indexOf('export async function requestCaptionHostAccess');
+    const requestEnd = sites.indexOf('export interface CaptionToggleDecision');
+    const requestBody = sites.slice(requestStart, requestEnd);
+    expect(requestBody).toContain('permissions.request');
+    expect(requestBody).not.toMatch(/contains/);
+    const toggleStart = sites.indexOf('export async function resolveCaptionToggle');
+    const toggleBody = sites.slice(toggleStart);
+    const beforeRequest = toggleBody.slice(0, toggleBody.indexOf('await requestAccess()'));
+    expect(beforeRequest).toContain('markCaptionEnableIntent');
+    expect(beforeRequest).not.toMatch(/\bawait\b/);
     const start = popup.indexOf('async function setVideoCaptions');
     const end = popup.indexOf('async function setAlways');
     const body = popup.slice(start, end);
     const before = body.slice(0, body.indexOf('await resolveCaptionToggle'));
     expect(before).toContain('captionPermissionError = false');
     expect(before).not.toMatch(/\bawait\b/);
+    expect(popup).toContain('settleCaptionEnableIntent');
   });
 });
 

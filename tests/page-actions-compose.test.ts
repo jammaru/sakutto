@@ -75,7 +75,15 @@ describe('caption auto-inject', () => {
     expect(fields).toContain('resolveCaptionToggle');
     expect(fields).toContain('translateVideoCaptions');
     expect(popup).toContain('resolveCaptionToggle');
+    expect(popup).toContain('settleCaptionEnableIntent');
     expect(popup).toContain('videoCaptionsSetting');
     expect(popup).toContain('data-sakutto="video-captions"');
+    expect(fields).toContain('data-sakutto="video-captions"');
+    const background = readFileSync(
+      new URL('../src/entrypoints/background.ts', import.meta.url),
+      'utf8',
+    );
+    expect(background).toContain('permissions.onAdded');
+    expect(background).toContain('settleCaptionEnableIntent');
   });
 });

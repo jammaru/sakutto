@@ -34,7 +34,11 @@
     subscribeSiteRules,
     type SiteRule,
   } from '@/dom/sites';
-  import { isCaptionAutoHost, resolveCaptionToggle } from '@/captions/sites';
+  import {
+    isCaptionAutoHost,
+    resolveCaptionToggle,
+    settleCaptionEnableIntent,
+  } from '@/captions/sites';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';
   import {
     effectivePageTarget,
@@ -358,6 +362,9 @@
     };
     browser.runtime.onMessage.addListener(onMessage);
 
+    void settleCaptionEnableIntent().then((settled) => {
+      if (settled.applied) void refreshSettings();
+    });
     void refreshSettings();
     void refreshPage();
     void refreshEngine();

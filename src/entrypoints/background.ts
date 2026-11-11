@@ -6,6 +6,7 @@ import { injectCaptionPages, installPageActions } from '@/background/page-action
 import { broadcastModelProgress, shouldWarmDownloadedModel } from '@/background/progress-broadcast';
 import { measureQuality } from '@/background/quality';
 import { TranslationBroker } from '@/background/translation-broker';
+import { settleCaptionEnableIntent } from '@/captions/sites';
 import { grantOriginsFor } from '@/dom/sites';
 import { getModel, type ModelId } from '@/engine/model/catalog';
 import { normalizeSelectedModelId } from '@/engine/model/selection';
@@ -56,6 +57,11 @@ export default defineBackground(() => {
   subscribeSettings((settings) => {
     client.syncStoredSettings(settings);
     if (settings.translateVideoCaptions) void injectCaptionPages();
+  });
+  browser.permissions.onAdded?.addListener((granted) => {
+    void settleCaptionEnableIntent(
+      granted.origins ? { grantedOrigins: granted.origins } : undefined,
+    );
   });
 
   async function syncSource(): Promise<void> {

@@ -15,6 +15,9 @@ export interface CaptionOverlayState {
 }
 
 export const CAPTION_OVERLAY_HOST = 'sakutto-captions';
+export const CAPTION_ORIGINAL_TOGGLE = 'caption-original-toggle';
+
+const TOGGLE_EVENTS = ['pointerdown', 'mousedown', 'click', 'pointerup', 'mouseup'] as const;
 
 const STYLE = `
 :host { all: initial; }
@@ -38,6 +41,7 @@ const STYLE = `
   overflow-wrap: anywhere;
   font-size: 1em;
   font-weight: 500;
+  pointer-events: none;
 }
 .original {
   font-size: 0.68em;
@@ -45,19 +49,33 @@ const STYLE = `
   color: #e8eef4;
   background: rgb(8 8 8 / 62%);
 }
-.toggle {
+::slotted(.toggle) {
   pointer-events: auto;
-  margin-top: 2px;
-  padding: 2px 8px;
-  border: 0;
-  border-radius: 999px;
-  background: rgb(15 23 32 / 72%);
-  color: #e2e8f0;
-  font: 11px/1.3 "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
-  cursor: pointer;
 }
-.toggle:focus-visible { outline: 2px solid #67e8f9; outline-offset: 2px; }
 `;
+
+const TOGGLE_STYLE = [
+  'all: initial',
+  'pointer-events: auto',
+  'box-sizing: border-box',
+  'display: inline-flex',
+  'align-items: center',
+  'justify-content: center',
+  'min-height: 32px',
+  'min-width: 44px',
+  'margin-top: 6px',
+  'padding: 8px 14px',
+  'border: 0',
+  'border-radius: 999px',
+  'background: rgb(15 23 32 / 82%)',
+  'color: #e2e8f0',
+  'font: 600 13px/1.3 "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif',
+  'letter-spacing: 0',
+  'white-space: nowrap',
+  'cursor: pointer',
+  'user-select: none',
+  'z-index: 2147483647',
+].join('; ');
 
 const shadows = new WeakMap<Element, ShadowRoot>();
 
@@ -73,6 +91,7 @@ function attachCaptionShadow(host: HTMLElement): ShadowRoot {
  * Places the overlay just above the bottom edge of the video, centered.
  * `left` is the centre so the host can `translateX(-50%)`.
  * Width tracks the player (theater / fullscreen included); it is not capped at 720px.
+ * `padding` lifts the cluster above YouTube's control bar when that height is known.
  */
 export function captionOverlayBox(
   rect: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>,
@@ -94,11 +113,25 @@ export function captionOverlayFontPx(playerHeight: number, nativePx?: number): n
   return Math.round(Math.min(56, Math.max(20, playerHeight * 0.05)));
 }
 
+/**
+ * Attach to the player (not the inner video container) so the overlay stacks above
+ * `.ytp-chrome-bottom`. Fullscreen uses the fullscreen element.
+ */
 export function captionOverlayRoot(doc: Document, video: HTMLVideoElement): Element {
   const view = doc.defaultView;
   const fullscreen = view?.document.fullscreenElement ?? doc.fullscreenElement;
   if (fullscreen && (fullscreen === video || fullscreen.contains(video))) return fullscreen;
+  const player = video.closest('#movie_player, .html5-video-player');
+  if (player) return player;
   return video.parentElement ?? doc.documentElement;
+}
+
+export function captionChromeInset(root: ParentNode): number {
+  const chrome = root.querySelector('.ytp-chrome-bottom');
+  if (!(chrome instanceof HTMLElement)) return 18;
+  const height = chrome.getBoundingClientRect().height;
+  if (!Number.isFinite(height) || height <= 0) return 18;
+  return Math.max(18, Math.round(height));
 }
 
 export class CaptionOverlay {
@@ -106,17 +139,21 @@ export class CaptionOverlay {
   private readonly originalLine: HTMLElement;
   private readonly translatedLine: HTMLElement;
   private readonly toggle: HTMLButtonElement;
+  private readonly captureDoc: Document;
   private labels: CaptionOverlayLabels;
   private onDisplayToggle: () => void = () => undefined;
+  private toggleArmed = false;
+  private captureBound = false;
 
   constructor(doc: Document, labels: CaptionOverlayLabels) {
     this.labels = labels;
+    this.captureDoc = doc;
     this.host = doc.createElement(CAPTION_OVERLAY_HOST);
     this.host.setAttribute('translate', 'no');
     this.host.setAttribute('aria-live', 'polite');
     this.host.hidden = true;
     this.host.style.position = 'fixed';
-    this.host.style.zIndex = '2147483645';
+    this.host.style.zIndex = '2147483646';
     this.host.style.pointerEvents = 'none';
     this.host.style.transform = 'translate(-50%, -100%)';
 
@@ -129,16 +166,17 @@ export class CaptionOverlay {
     this.originalLine.className = 'line original';
     this.translatedLine = doc.createElement('div');
     this.translatedLine.className = 'line';
+    const slot = doc.createElement('slot');
+    slot.name = 'toggle';
     this.toggle = doc.createElement('button');
     this.toggle.type = 'button';
     this.toggle.className = 'toggle';
-    this.toggle.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      this.onDisplayToggle();
-    });
-    wrap.append(this.originalLine, this.translatedLine, this.toggle);
+    this.toggle.slot = 'toggle';
+    this.toggle.setAttribute('data-sakutto', CAPTION_ORIGINAL_TOGGLE);
+    this.toggle.style.cssText = TOGGLE_STYLE;
+    wrap.append(this.originalLine, this.translatedLine, slot);
     shadow.append(style, wrap);
+    this.host.append(this.toggle);
     this.setLabels(labels);
   }
 
@@ -153,16 +191,21 @@ export class CaptionOverlay {
   }
 
   attach(root: Element): void {
-    if (this.host.parentElement === root) return;
-    root.append(this.host);
+    if (this.host.parentElement !== root) root.append(this.host);
+    this.bindToggleCapture();
   }
 
   detach(): void {
+    this.unbindToggleCapture();
     this.host.remove();
   }
 
-  place(rect: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>, fontPx?: number): void {
-    const box = captionOverlayBox(rect);
+  place(
+    rect: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>,
+    fontPx?: number,
+    bottomInset = 18,
+  ): void {
+    const box = captionOverlayBox(rect, bottomInset);
     this.host.style.left = `${box.left}px`;
     this.host.style.top = `${box.top}px`;
     this.host.style.width = `${box.width}px`;
@@ -180,23 +223,25 @@ export class CaptionOverlay {
 
     const bilingual = state.display === 'bilingual';
     const showTranslation = translation.length > 0;
+    const showOriginal = bilingual && original.length > 0;
     this.originalLine.textContent = original;
     // Never paint "Translating…" over the video. Pending is a data flag only.
     this.translatedLine.textContent = showTranslation ? translation : original;
-    this.originalLine.hidden = !(bilingual && original.length > 0);
+    this.originalLine.hidden = !showOriginal;
     this.translatedLine.hidden = !showTranslation && bilingual;
     if (!bilingual) {
       this.translatedLine.hidden = false;
       this.translatedLine.textContent = showTranslation ? translation : original;
     }
-    this.toggle.textContent = bilingual ? this.labels.hideOriginal : this.labels.showOriginal;
-    this.toggle.setAttribute(
-      'aria-label',
-      bilingual ? this.labels.hideOriginal : this.labels.showOriginal,
-    );
+    const toggleLabel = bilingual ? this.labels.hideOriginal : this.labels.showOriginal;
+    if (this.toggle.textContent !== toggleLabel) this.toggle.textContent = toggleLabel;
+    if (this.toggle.getAttribute('aria-label') !== toggleLabel) {
+      this.toggle.setAttribute('aria-label', toggleLabel);
+    }
     const displayed = showTranslation ? translation : original;
     this.host.setAttribute('data-sakutto-caption', displayed);
     this.host.setAttribute('data-sakutto-original', original);
+    this.host.setAttribute('data-sakutto-show-original', showOriginal ? '1' : '0');
     if (state.pending) this.host.setAttribute('data-sakutto-pending', '1');
     else this.host.removeAttribute('data-sakutto-pending');
     this.host.hidden = false;
@@ -208,10 +253,63 @@ export class CaptionOverlay {
     this.translatedLine.textContent = '';
     this.host.removeAttribute('data-sakutto-caption');
     this.host.removeAttribute('data-sakutto-original');
+    this.host.removeAttribute('data-sakutto-show-original');
     this.host.removeAttribute('data-sakutto-pending');
   }
 
   shadow(): ShadowRoot | null {
     return shadows.get(this.host) ?? null;
+  }
+
+  private bindToggleCapture(): void {
+    if (this.captureBound) return;
+    this.captureBound = true;
+    for (const type of TOGGLE_EVENTS) {
+      this.captureDoc.addEventListener(type, this.onToggleCapture, true);
+    }
+  }
+
+  private unbindToggleCapture(): void {
+    if (!this.captureBound) return;
+    this.captureBound = false;
+    for (const type of TOGGLE_EVENTS) {
+      this.captureDoc.removeEventListener(type, this.onToggleCapture, true);
+    }
+  }
+
+  private onToggleCapture = (event: Event): void => {
+    if (!this.eventHitsToggle(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    if (event.type === 'pointerdown' || event.type === 'mousedown') {
+      if (this.toggleArmed) return;
+      this.toggleArmed = true;
+      this.onDisplayToggle();
+      return;
+    }
+    if (event.type === 'click') {
+      if (this.toggleArmed) {
+        this.toggleArmed = false;
+        return;
+      }
+      this.onDisplayToggle();
+      return;
+    }
+    this.toggleArmed = false;
+  };
+
+  private eventHitsToggle(event: Event): boolean {
+    if (this.host.hidden) return false;
+    const path = event.composedPath();
+    if (path.includes(this.toggle) || event.target === this.toggle) return true;
+    if (!('clientX' in event) || !('clientY' in event)) return false;
+    const { clientX, clientY } = event as PointerEvent;
+    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return false;
+    const rect = this.toggle.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    return (
+      clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
+    );
   }
 }
