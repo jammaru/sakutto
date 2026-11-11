@@ -382,6 +382,7 @@ export class CaptionOverlay {
   private captureBound = false;
   private playerRoot: Element | null = null;
   private toggleEnabled = true;
+  private toggleHovered = false;
   private overlayActive = false;
   private controlsVisible = false;
   private hideToggleTimer: number | null = null;
@@ -436,6 +437,8 @@ export class CaptionOverlay {
     this.toggle.style.cssText = TOGGLE_STYLE;
     this.toggle.hidden = true;
     this.toggle.style.display = 'none';
+    this.toggle.addEventListener('pointerenter', this.onTogglePointerEnter);
+    this.toggle.addEventListener('pointerleave', this.onTogglePointerLeave);
     this.setLabels(labels);
   }
 
@@ -484,6 +487,7 @@ export class CaptionOverlay {
     this.unbindToggleCapture();
     this.unbindPlayerHover();
     this.clearHideToggleTimer();
+    this.toggleHovered = false;
     this.host.remove();
     this.toggle.remove();
   }
@@ -597,8 +601,18 @@ export class CaptionOverlay {
     const next = 'relatedTarget' in event ? (event as PointerEvent).relatedTarget : null;
     if (next instanceof Node && this.playerRoot?.contains(next)) return;
     if (next === this.toggle || (next instanceof Node && this.toggle.contains(next))) return;
+    if (this.toggleHovered) return;
     this.controlsVisible = false;
     this.syncToggle();
+  };
+
+  private readonly onTogglePointerEnter = (): void => {
+    this.toggleHovered = true;
+    this.revealToggle();
+  };
+
+  private readonly onTogglePointerLeave = (): void => {
+    this.toggleHovered = false;
   };
 
   private revealToggle(): void {
@@ -613,9 +627,21 @@ export class CaptionOverlay {
     this.hideToggleTimer =
       view?.setTimeout(() => {
         this.hideToggleTimer = null;
+        if (this.toggleHovered || this.toggleMatchesHover()) {
+          this.scheduleHideToggle();
+          return;
+        }
         this.controlsVisible = false;
         this.syncToggle();
       }, CAPTION_TOGGLE_HIDE_MS) ?? null;
+  }
+
+  private toggleMatchesHover(): boolean {
+    try {
+      return this.toggle.matches(':hover');
+    } catch {
+      return false;
+    }
   }
 
   private clearHideToggleTimer(): void {

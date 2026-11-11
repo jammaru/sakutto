@@ -6,6 +6,7 @@ import {
   CAPTION_DRAG_HOLD_MS,
   CAPTION_FONT_MIN_PX,
   CAPTION_POSITION_MARGIN_PX,
+  CAPTION_TOGGLE_HIDE_MS,
   captionOverlayFontPx,
   clampCaptionOverlayPercent,
   pickCaptionLayoutRect,
@@ -176,6 +177,50 @@ describe('caption overlay', () => {
     );
     expect(toggled).toBe(1);
     expect(parentSaw).toBe(0);
+    overlay.detach();
+  });
+
+  it('keeps the original-caption toggle visible while the pointer is on it', () => {
+    vi.useFakeTimers();
+    const overlay = new CaptionOverlay(document, labels);
+    overlay.attach(document.body);
+    overlay.show({
+      original: 'The station opens at dawn.',
+      translation: '駅は夜明けに開きます。',
+      display: 'bilingual',
+      pending: false,
+    });
+    revealToggle();
+    const button = document.querySelector(
+      `[data-sakutto="${CAPTION_ORIGINAL_TOGGLE}"]`,
+    ) as HTMLButtonElement;
+    expect(button.hidden).toBe(false);
+    button.dispatchEvent(new Event('pointerenter', { bubbles: true }));
+    vi.advanceTimersByTime(CAPTION_TOGGLE_HIDE_MS * 2);
+    expect(button.hidden).toBe(false);
+    button.dispatchEvent(new Event('pointerleave', { bubbles: true }));
+    vi.advanceTimersByTime(CAPTION_TOGGLE_HIDE_MS + 50);
+    expect(button.hidden).toBe(true);
+    overlay.detach();
+  });
+
+  it('hides the original-caption toggle after idle when the pointer is not on it', () => {
+    vi.useFakeTimers();
+    const overlay = new CaptionOverlay(document, labels);
+    overlay.attach(document.body);
+    overlay.show({
+      original: 'The station opens at dawn.',
+      translation: '駅は夜明けに開きます。',
+      display: 'bilingual',
+      pending: false,
+    });
+    revealToggle();
+    const button = document.querySelector(
+      `[data-sakutto="${CAPTION_ORIGINAL_TOGGLE}"]`,
+    ) as HTMLButtonElement;
+    expect(button.hidden).toBe(false);
+    vi.advanceTimersByTime(CAPTION_TOGGLE_HIDE_MS + 50);
+    expect(button.hidden).toBe(true);
     overlay.detach();
   });
 

@@ -170,6 +170,7 @@ test.describe('video captions', () => {
       const toggle = page.locator('[data-sakutto="caption-original-toggle"]');
       await revealCaptionToggle(page);
       await expect(toggle).toBeVisible();
+      await toggle.hover();
       await toggle.click();
       await expect(host).toHaveAttribute('data-sakutto-show-original', '0');
       await expect.poll(() => playerStolenCount(page)).toBe(0);
@@ -185,6 +186,7 @@ test.describe('video captions', () => {
       await expect.poll(() => playerStolenCount(page)).toBe(0);
 
       await revealCaptionToggle(page);
+      await toggle.hover();
       await toggle.click();
       await expect(host).toHaveAttribute('data-sakutto-show-original', '1');
       await new Promise((resolve) => setTimeout(resolve, 1600));
