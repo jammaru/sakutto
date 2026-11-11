@@ -663,7 +663,7 @@
     "message": "翻訳モデルがありません。ダウンロードすると翻訳できます。"
   },
   "modelFolderHeading": {
-    "message": "共有モデルフォルダ"
+    "message": "ChromeとEdgeでモデルを共有する"
   },
   "modelFolderHelp": {
     "message": "既定はこれまでどおり、このブラウザ内への保存です。"
@@ -700,9 +700,6 @@
   "modelFolderPermissionPage": {
     "message": "Sakuttoのポップアップか設定を開いて、「フォルダへのアクセスを許可」を押してください。"
   },
-  "modelFolderOfferOpenSettings": {
-    "message": "設定でフォルダを選ぶ"
-  },
   "modelFolderPersistentHint": {
     "message": "設定タブで許可してください（ポップアップではなく）。Chromeなら「サイトアクセス時は常に許可」、Edgeなら「アクセスするたびに確認する」を選んでください。再起動のあとも使えます。出ないこともあります。あとでワンクリックの再許可が必要なこともあります。"
   },
@@ -728,12 +725,6 @@
   "modelFolderDeleteOpfs": {
     "message": "ブラウザ内のコピーを削除"
   },
-  "modelFolderOpenSettings": {
-    "message": "設定を開く"
-  },
-  "modelFolderOfferLead": {
-    "message": "共有フォルダに移すと："
-  },
   "modelFolderBenefitsLead": {
     "message": "共有フォルダを使うと："
   },
@@ -750,26 +741,6 @@
   },
   "modelFolderBenefitKeep": {
     "message": "ブラウザのデータを消してもファイルは残る。同じフォルダを選べば再ダウンロード不要"
-  },
-  "modelFolderOfferMove": {
-    "message": "共有フォルダに移す"
-  },
-  "modelFolderOfferLater": {
-    "message": "あとで"
-  },
-  "modelFolderOfferMoving": {
-    "message": "移動中 $PERCENT$%（$RECEIVED$ / $TOTAL$）",
-    "placeholders": {
-      "percent": {
-        "content": "$1"
-      },
-      "received": {
-        "content": "$2"
-      },
-      "total": {
-        "content": "$3"
-      }
-    }
   },
   "highQualityOffer": {
     "message": "高精度モデル（2B・約1.81GB）を試せます。速度は端末によって異なります。"

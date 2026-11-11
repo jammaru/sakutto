@@ -14,24 +14,23 @@ below are the reason Documents itself is not an advertised choice.
 ## What the user selects
 
 The picker opens in Documents (`startIn: 'documents'`, id `sakutto-models`).
-Copy on onboarding, Settings, and the one-time move card tells the user to
-create a folder named `Sakutto` there (or open it if it already exists) and
-select `Documents\Sakutto`. Selecting Documents itself cannot work in real
-Chrome. On Chromium onboarding, save in this browser is first, labelled
-recommended, and preselected. The shared-folder option is second, described
-as for Chrome and Edge together; the picker steps and the persistence hint
-sit under it. Grant from the Settings tab and pick “Allow on every visit”
-(Japanese Chrome: 「サイトアクセス時は常に許可」; Japanese Edge:
+Copy on onboarding and Settings tells the user to create a folder named
+`Sakutto` there (or open it if it already exists) and select
+`Documents\Sakutto`. Selecting Documents itself cannot work in real Chrome.
+On Chromium onboarding, save in this browser is first, labelled recommended,
+and preselected. The shared-folder option is second, described as for Chrome
+and Edge together; the picker steps and the persistence hint sit under it.
+The popup never asks an OPFS user to move. After first-run browser storage,
+the folder stays a quiet Settings option (“Share the model between Chrome
+and Edge” / 「ChromeとEdgeでモデルを共有する」). Grant from the Settings
+tab and pick “Allow on every visit” (Japanese Chrome:
+「サイトアクセス時は常に許可」; Japanese Edge:
 「アクセスするたびに確認する」). A one-click re-grant may sometimes be
 needed. Cancel or Chrome's block dialog stays on the screen with the same
-one-line hint and does not download. Choosing browser storage does not
-dismiss the later popup card: that card is for an official model already in
-OPFS with no folder configured, including a new user who saved in this
-browser and an existing user after update. The card persists as shown only
-after the popup actually rendered it.
+one-line hint and does not download.
 
-A popup-card move opens Settings as a tab so the picker and `requestPermission`
-run there (Chrome can offer “Allow on every visit”). The copy into the folder
+A Settings pick runs `showDirectoryPicker` and `requestPermission` on that
+tab (Chrome can offer “Allow on every visit”). The copy into the folder
 still verifies size and SHA-256, then deletes the OPFS original so disk holds
 one copy. Folder reload drops the previous runtime so the next request does
 not keep reading a deleted OPFS blob.

@@ -160,7 +160,9 @@
    * source text and read as broken, so the control is not rendered at all until then.
    */
   let showTryButton = $derived(onboardingCanTry(phase));
-  let showStartNotice = $derived(showStartButton && !consentSaved);
+  // Consent is stored before a folder is linked. A bad file in that folder must
+  // still show the store radios and the integrity alert, not a blank start screen.
+  let showStartNotice = $derived((showStartButton && !consentSaved) || Boolean(integrityAlert));
   let failureText = $derived(
     phase === 'error'
       ? onboardingErrorMessage({
@@ -189,14 +191,14 @@
     }
     if (next.state === 'error') {
       const integrity = isModelIntegrityError(next.error);
-      if (integrity && !startRequested && !consentSaved) {
+      if (integrity) {
         integrityAlert = t('modelFolderIntegrityFailed', [model.file]);
         if (status.state === 'downloading') noteBytes(next.received);
+        startRequested = false;
+        phase = 'consent';
         return;
       }
-      failureDetail = integrity
-        ? t('modelFolderIntegrityFailed', [model.file])
-        : (next.error ?? null);
+      failureDetail = next.error ?? null;
     } else if (next.state === 'downloading' || next.state === 'ready' || next.state === 'loaded') {
       failureDetail = null;
     }

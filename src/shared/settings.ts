@@ -78,9 +78,8 @@ export interface Settings {
   consent: LicenseConsent | null;
   highQualityDismissed: boolean;
   /**
-   * True after the popup actually rendered the shared-folder card. Choosing browser
-   * storage on onboarding does not set this: that is the case the card is for.
-   * The folder picker in Settings stays available.
+   * Kept so stored profiles still load. The popup no longer offers a move to a
+   * shared folder; Settings is the only place to opt in.
    */
   sharedFolderOfferDismissed: boolean;
   glossary: GlossaryEntry[];

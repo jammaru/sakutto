@@ -9,7 +9,8 @@ const PICKER_HINT =
   'The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto.';
 const FOLDER_RADIO = 'Use a shared model folder (Chrome and Edge)';
 const BROWSER_RADIO = 'Save in this browser (recommended)';
-const OFFER_OPEN_SETTINGS = 'Choose the folder in Settings';
+const FOLDER_HEADING = 'Share the model between Chrome and Edge';
+const MOVE_LEAD = 'Moving to a shared folder means:';
 const ALLOW_FOLDER_ACCESS = 'Allow folder access';
 
 test.describe('shared model folder', () => {
@@ -18,7 +19,7 @@ test.describe('shared model folder', () => {
     try {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/options.html`);
-      await expect(page.getByRole('heading', { name: 'Shared model folder' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: FOLDER_HEADING })).toBeVisible();
       await expect(page.getByText(PICKER_HINT)).toBeVisible();
       await expect(
         page.getByText('The default is still storage inside this browser.'),
@@ -386,8 +387,7 @@ test.describe('shared model folder', () => {
     }
   });
 
-  test('offers a one-time move after onboarding saves the model in this browser', async () => {
-    test.setTimeout(180_000);
+  test('does not prompt to move after onboarding saves the model in this browser', async () => {
     const extension = await loadExtension('en-US');
     const hits = await interceptGguf(extension, 'hang');
     try {
@@ -403,34 +403,19 @@ test.describe('shared model folder', () => {
       await expect(onboarding.getByRole('heading', { name: "You're ready." })).toBeVisible({
         timeout: 30_000,
       });
-      await expect.poll(async () => readOfferDismissed(onboarding)).toBe(false);
       expect(hits).toEqual([]);
       await onboarding.close();
 
       const popup = await extension.context.newPage();
       await popup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
-      const offer = popup.getByText('Moving to a shared folder means:');
-      await expect(offer).toBeVisible({ timeout: 30_000 });
-      const options = await pickFolderFromPopupOffer(extension, popup);
-      await expect
-        .poll(async () => readSharedFolder(options), { timeout: 180_000 })
-        .toMatchObject({ configured: true, permission: 'granted' });
-      await expect
-        .poll(async () => directoryExists(options, ['e2e-shared', 'sakutto-models']), {
-          timeout: 15_000,
-        })
-        .toBe(true);
-      expect(hits).toEqual([]);
-      await options.close();
+      await expect(popup.getByRole('button', { name: 'Translate this page' })).toBeVisible();
+      await expectNoPopupMovePrompt(popup);
       await popup.close();
 
       const again = await extension.context.newPage();
       await again.goto(`chrome-extension://${extension.extensionId}/popup.html`);
       await expect(again.getByRole('button', { name: 'Translate this page' })).toBeVisible();
-      await expect(again.getByText('Moving to a shared folder means:')).toHaveCount(0);
-      await expect(
-        again.getByRole('button', { name: 'Choose the folder in Settings' }),
-      ).toHaveCount(0);
+      await expectNoPopupMovePrompt(again);
       await again.close();
     } finally {
       await extension.close();
@@ -441,7 +426,7 @@ test.describe('shared model folder', () => {
   // FSA grants survive popup close or restart. One-copy-on-disk after a verified
   // move is covered in unit tests (real bytes + SHA-256). See
   // docs/design/fsa-permission-lifetime.md.
-  test('translates after a popup-card move, after the popup closes, and after a restart', async () => {
+  test('translates after a Settings folder pick, after the popup closes, and after a restart', async () => {
     test.setTimeout(180_000);
     const profileDirectory = await mkdtemp(join(tmpdir(), 'sakutto-folder-move-'));
     try {
@@ -464,10 +449,13 @@ test.describe('shared model folder', () => {
 
         const popup = await extension.context.newPage();
         await popup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
-        await expect(popup.getByText('Moving to a shared folder means:')).toBeVisible({
-          timeout: 30_000,
-        });
-        const options = await pickFolderFromPopupOffer(extension, popup);
+        await expectNoPopupMovePrompt(popup);
+        await popup.close();
+
+        const options = await extension.context.newPage();
+        await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
+        await expect(options.getByRole('heading', { name: FOLDER_HEADING })).toBeVisible();
+        await pickFolderInSettings(options);
         await expect
           .poll(async () => readSharedFolder(options), { timeout: 180_000 })
           .toMatchObject({
@@ -478,7 +466,6 @@ test.describe('shared model folder', () => {
           .toMatch(/^(ready|loaded|loading)$/);
         expect(hits).toEqual([]);
         await options.close();
-        await popup.close();
 
         await expectSampleTranslates(extension);
         expect(hits).toEqual([]);
@@ -501,45 +488,7 @@ test.describe('shared model folder', () => {
     }
   });
 
-  test('hides the onboarding browser-storage offer after the popup is closed', async () => {
-    const extension = await loadExtension('en-US');
-    try {
-      const planter = await extension.context.newPage();
-      await planter.goto(`chrome-extension://${extension.extensionId}/sample.html`);
-      await plantOpfsOfficial(planter);
-      await planter.close();
-
-      const onboarding = await extension.context.newPage();
-      await onboarding.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
-      await onboarding.getByRole('radio', { name: BROWSER_RADIO }).check();
-      await onboarding.getByRole('button', { name: 'Agree to the license and start' }).click();
-      await expect(onboarding.getByRole('heading', { name: "You're ready." })).toBeVisible({
-        timeout: 30_000,
-      });
-      await onboarding.close();
-
-      const first = await extension.context.newPage();
-      await first.goto(`chrome-extension://${extension.extensionId}/popup.html`);
-      await expect(first.getByText('Moving to a shared folder means:')).toBeVisible({
-        timeout: 30_000,
-      });
-      await expect.poll(async () => readOfferDismissed(first), { timeout: 10_000 }).toBe(true);
-      await first.close();
-
-      const again = await extension.context.newPage();
-      await again.goto(`chrome-extension://${extension.extensionId}/popup.html`);
-      await expect(again.getByRole('button', { name: 'Translate this page' })).toBeVisible();
-      await expect(again.getByText('Moving to a shared folder means:')).toHaveCount(0);
-      await expect(
-        again.getByRole('button', { name: 'Choose the folder in Settings' }),
-      ).toHaveCount(0);
-      await again.close();
-    } finally {
-      await extension.close();
-    }
-  });
-
-  test('offers a one-click move when an official model is already in OPFS', async () => {
+  test('does not prompt to move when an official model is already in OPFS', async () => {
     const extension = await loadExtension('en-US');
     try {
       const planter = await extension.context.newPage();
@@ -549,152 +498,30 @@ test.describe('shared model folder', () => {
 
       const popup = await extension.context.newPage();
       await popup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
-      const offer = popup.getByText('Moving to a shared folder means:');
-      await expect(offer).toBeVisible({ timeout: 30_000 });
-      await expect(popup.getByText(PICKER_HINT)).toBeVisible();
-      await expect(popup.getByText('サイトアクセス時は常に許可')).toBeVisible();
-      await expect(popup.getByText('アクセスするたびに確認する')).toBeVisible();
-      await expect(popup.getByText('One copy on disk, so you save space (573 MB).')).toBeVisible();
-      await expect(
-        popup.getByRole('button', { name: 'Choose the folder in Settings' }),
-      ).toBeVisible();
-      await expect(popup.getByRole('button', { name: 'Later' })).toBeVisible();
-      await expect(popup.getByRole('button', { name: "Don't show again" })).toHaveCount(0);
-      await expect(popup.locator('dialog')).toHaveCount(0);
-
-      await expect.poll(async () => readOfferDismissed(popup), { timeout: 10_000 }).toBe(true);
-      await popup.getByRole('button', { name: 'Later' }).click();
-      await expect(offer).toHaveCount(0);
-      await popup.reload();
-      await expect(offer).toHaveCount(0);
       await expect(popup.getByRole('button', { name: 'Translate this page' })).toBeVisible();
+      await expectNoPopupMovePrompt(popup);
+      await popup.reload();
+      await expectNoPopupMovePrompt(popup);
       await popup.close();
 
       const options = await extension.context.newPage();
       await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
-      await expect(
-        options.getByRole('button', { name: 'Choose the folder in Settings' }),
-      ).toHaveCount(0);
+      await expect(options.getByRole('heading', { name: FOLDER_HEADING })).toBeVisible();
       await expect(options.getByRole('button', { name: 'Choose model folder' })).toBeVisible();
+      await expectNoPopupMovePrompt(options);
       await options.close();
     } finally {
       await extension.close();
     }
   });
 
-  test('repeats the picker steps when the move offer picker is cancelled', async () => {
-    const extension = await loadExtension('en-US');
-    try {
-      const planter = await extension.context.newPage();
-      await planter.goto(`chrome-extension://${extension.extensionId}/sample.html`);
-      await plantOpfsOfficial(planter);
-      await planter.close();
-
-      const popup = await extension.context.newPage();
-      await popup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
-      await expect(popup.getByText('Moving to a shared folder means:')).toBeVisible({
-        timeout: 30_000,
-      });
-      const [options] = await Promise.all([
-        extension.context.waitForEvent('page'),
-        popup.getByRole('button', { name: OFFER_OPEN_SETTINGS }).click(),
-      ]);
-      await expect(options.getByRole('heading', { name: 'Shared model folder' })).toBeVisible({
-        timeout: 15_000,
-      });
-      await plantLicenseConsent(options);
-      await options.evaluate(() => {
-        (
-          globalThis as unknown as {
-            showDirectoryPicker: () => Promise<FileSystemDirectoryHandle>;
-          }
-        ).showDirectoryPicker = async () => {
-          throw new DOMException('The user aborted a request.', 'AbortError');
-        };
-      });
-      await options.getByRole('button', { name: 'Choose model folder' }).click();
-      await expect(options.locator('[data-folder-picker-hint]')).toHaveText(PICKER_HINT);
-      await expect(popup.getByRole('button', { name: OFFER_OPEN_SETTINGS })).toBeVisible();
-      await expect(popup.getByRole('button', { name: 'Later' })).toBeVisible();
-      await options.close();
-      await popup.close();
-    } finally {
-      await extension.close();
-    }
-  });
-
-  test('does not show the move offer again after the popup is closed', async () => {
-    const extension = await loadExtension('en-US');
-    try {
-      const planter = await extension.context.newPage();
-      await planter.goto(`chrome-extension://${extension.extensionId}/sample.html`);
-      await plantOpfsOfficial(planter);
-      await planter.close();
-
-      const first = await extension.context.newPage();
-      await first.goto(`chrome-extension://${extension.extensionId}/popup.html`);
-      await expect(first.getByText('Moving to a shared folder means:')).toBeVisible({
-        timeout: 30_000,
-      });
-      await expect.poll(async () => readOfferDismissed(first), { timeout: 10_000 }).toBe(true);
-      await first.close();
-
-      const again = await extension.context.newPage();
-      await again.goto(`chrome-extension://${extension.extensionId}/popup.html`);
-      await expect(again.getByRole('button', { name: 'Translate this page' })).toBeVisible();
-      await expect(again.getByText('Moving to a shared folder means:')).toHaveCount(0);
-      await expect(
-        again.getByRole('button', { name: 'Choose the folder in Settings' }),
-      ).toHaveCount(0);
-      await again.close();
-
-      const options = await extension.context.newPage();
-      await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
-      await expect(options.getByRole('button', { name: 'Choose model folder' })).toBeVisible();
-      await expect(
-        options.getByRole('button', { name: 'Choose the folder in Settings' }),
-      ).toHaveCount(0);
-      await options.close();
-    } finally {
-      await extension.close();
-    }
-  });
-
-  test('hides the move offer when the folder picker is missing', async () => {
-    const extension = await loadExtension('en-US');
-    try {
-      const planter = await extension.context.newPage();
-      await planter.goto(`chrome-extension://${extension.extensionId}/sample.html`);
-      await plantOpfsOfficial(planter);
-      await planter.close();
-
-      const page = await extension.context.newPage();
-      await page.addInitScript(() => {
-        Object.defineProperty(globalThis, 'showDirectoryPicker', {
-          configurable: true,
-          value: undefined,
-        });
-      });
-      await page.goto(`chrome-extension://${extension.extensionId}/popup.html`);
-      await expect(page.getByRole('button', { name: 'Translate this page' })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Choose the folder in Settings' })).toHaveCount(
-        0,
-      );
-      await page.close();
-    } finally {
-      await extension.close();
-    }
-  });
-
-  test('does not show the move offer without an installed official model', async () => {
+  test('does not show a move prompt without an installed official model', async () => {
     const extension = await loadExtension('en-US');
     try {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/popup.html`);
       await expect(page.getByRole('button', { name: 'Translate this page' })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Choose the folder in Settings' })).toHaveCount(
-        0,
-      );
+      await expectNoPopupMovePrompt(page);
       await page.close();
     } finally {
       await extension.close();
@@ -711,18 +538,16 @@ test.describe('shared model folder', () => {
 
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/options.html`);
-      await expect(page.getByRole('heading', { name: 'Shared model folder' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: FOLDER_HEADING })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Choose model folder' })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Choose the folder in Settings' })).toHaveCount(
-        0,
-      );
+      await expectNoPopupMovePrompt(page);
       await page.close();
     } finally {
       await extension.close();
     }
   });
 
-  test('moves from OPFS in one click after the folder picker', async () => {
+  test('moves from OPFS in one click after choosing the folder in Settings', async () => {
     test.setTimeout(180_000);
     const extension = await loadExtension('en-US');
     try {
@@ -731,12 +556,9 @@ test.describe('shared model folder', () => {
       await plantOpfsOfficial(planter);
       await planter.close();
 
-      const page = await extension.context.newPage();
-      await page.goto(`chrome-extension://${extension.extensionId}/popup.html`);
-      await expect(page.getByRole('button', { name: OFFER_OPEN_SETTINGS })).toBeVisible({
-        timeout: 30_000,
-      });
-      const options = await pickFolderFromPopupOffer(extension, page);
+      const options = await extension.context.newPage();
+      await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await pickFolderInSettings(options);
       expect(
         await options.evaluate(() => (globalThis as { __sakuttoPicker?: unknown }).__sakuttoPicker),
       ).toEqual({
@@ -748,7 +570,6 @@ test.describe('shared model folder', () => {
         .poll(async () => readSharedFolder(options), { timeout: 180_000 })
         .toMatchObject({ configured: true, permission: 'granted' });
       await options.close();
-      await page.close();
     } finally {
       await extension.close();
     }
@@ -795,7 +616,7 @@ test.describe('shared model folder', () => {
         .poll(async () => readSharedFolder(options), { timeout: 15_000 })
         .toMatchObject({ configured: true, permission: 'prompt' });
       await options.reload();
-      await expect(options.getByRole('heading', { name: 'Shared model folder' })).toBeVisible();
+      await expect(options.getByRole('heading', { name: FOLDER_HEADING })).toBeVisible();
       await expect(options.getByRole('button', { name: ALLOW_FOLDER_ACCESS })).toBeVisible();
       await options.getByRole('button', { name: ALLOW_FOLDER_ACCESS }).click();
       await expect
@@ -850,7 +671,7 @@ test.describe('shared model folder', () => {
         .poll(async () => readSharedFolder(options), { timeout: 15_000 })
         .toMatchObject({ permission: 'denied' });
       await options.reload();
-      await expect(options.getByRole('heading', { name: 'Shared model folder' })).toBeVisible();
+      await expect(options.getByRole('heading', { name: FOLDER_HEADING })).toBeVisible();
       await expect(options.getByRole('button', { name: ALLOW_FOLDER_ACCESS })).toBeVisible();
       await options.getByRole('button', { name: ALLOW_FOLDER_ACCESS }).click();
       await expect
@@ -908,18 +729,17 @@ async function mockEmptySharedFolder(page: Page): Promise<void> {
   });
 }
 
-async function pickFolderFromPopupOffer(extension: LoadedExtension, popup: Page): Promise<Page> {
-  const [options] = await Promise.all([
-    extension.context.waitForEvent('page'),
-    popup.getByRole('button', { name: OFFER_OPEN_SETTINGS }).click(),
-  ]);
-  await expect(options.getByRole('heading', { name: 'Shared model folder' })).toBeVisible({
-    timeout: 15_000,
-  });
-  await plantLicenseConsent(options);
-  await mockEmptySharedFolder(options);
-  await options.getByRole('button', { name: 'Choose model folder' }).click();
-  return options;
+async function expectNoPopupMovePrompt(page: Page): Promise<void> {
+  await expect(page.getByText(MOVE_LEAD)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Choose the folder in Settings' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Later' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Move to a shared folder' })).toHaveCount(0);
+}
+
+async function pickFolderInSettings(page: Page): Promise<void> {
+  await plantLicenseConsent(page);
+  await mockEmptySharedFolder(page);
+  await page.getByRole('button', { name: 'Choose model folder' }).click();
 }
 
 async function plantLicenseConsent(page: Page): Promise<void> {
@@ -1105,25 +925,6 @@ async function directoryExists(page: Page, parts: readonly string[]): Promise<bo
     }
     return true;
   }, parts);
-}
-
-async function readOfferDismissed(page: Page): Promise<boolean> {
-  return page.evaluate(async () => {
-    const chrome = (
-      globalThis as unknown as {
-        chrome: {
-          storage: { local: { get(key: string): Promise<Record<string, unknown>> } };
-        };
-      }
-    ).chrome;
-    const stored = await chrome.storage.local.get('settings');
-    const settings = stored.settings;
-    return (
-      typeof settings === 'object' &&
-      settings !== null &&
-      (settings as { sharedFolderOfferDismissed?: unknown }).sharedFolderOfferDismissed === true
-    );
-  });
 }
 
 async function expectSampleTranslates(extension: LoadedExtension): Promise<void> {

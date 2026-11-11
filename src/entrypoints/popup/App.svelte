@@ -57,7 +57,6 @@
   import { readDeviceHeadroom, type DeviceHeadroom } from '@/ui/device-headroom';
   import LanguageField from '@/ui/LanguageField.svelte';
   import FolderPermissionRestore from '@/ui/FolderPermissionRestore.svelte';
-  import SharedFolderOffer from '@/ui/SharedFolderOffer.svelte';
   import { runtimeLabel } from '@/ui/runtime-label';
 
   type SettingsError = 'load' | 'save' | null;
@@ -417,11 +416,6 @@
   {#if engine?.modelFallback}
     <p class="muted" role="status">{t('modelSelectionFallback')}</p>
   {/if}
-  <SharedFolderOffer
-    {engine}
-    dismissed={settings?.sharedFolderOfferDismissed === true}
-    translating={translated || (view?.pending ?? 0) > 0}
-  />
   <FolderPermissionRestore
     folder={engine?.sharedFolder}
     modelId={engine?.model.id}

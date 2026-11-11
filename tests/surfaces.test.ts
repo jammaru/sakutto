@@ -33,24 +33,15 @@ describe('start controls while the model downloads', () => {
     expect(onboarding).toContain('onclick={close}');
   });
 
-  it('offers a one-click shared-folder move without auto-opening the picker', () => {
-    const offer = source('ui/SharedFolderOffer.svelte');
-    expect(offer).toContain('shouldOfferSharedFolderMove');
-    expect(offer).toContain('shouldPersistSharedFolderOfferImpression');
-    expect(offer).toContain('sharedFolderSettingsHref');
-    expect(offer).not.toContain('adoptPickedSharedFolder');
-    expect(offer).not.toMatch(/onMount\([\s\S]{0,400}adoptPickedSharedFolder/);
-    expect(offer).not.toMatch(/<dialog|badge|notification/i);
-    expect(source('ui/SharedFolderOffer.svelte')).toContain('modelFolderOfferOpenSettings');
-    expect(source('entrypoints/popup/App.svelte')).toContain('SharedFolderOffer');
-    expect(source('entrypoints/popup/App.svelte')).toContain(
-      'translating={translated || (view?.pending ?? 0) > 0}',
-    );
+  it('does not prompt OPFS users to move to a shared folder from the popup', () => {
+    expect(popup).not.toContain('SharedFolderOffer');
+    expect(popup).not.toContain('shouldOfferSharedFolderMove');
+    expect(popup).not.toContain('modelFolderOfferLead');
+    expect(popup).not.toContain('modelFolderOfferOpenSettings');
+    expect(popup).not.toContain('modelFolderOfferLater');
     expect(source('entrypoints/options/App.svelte')).not.toContain('SharedFolderOffer');
     expect(source('entrypoints/onboarding/App.svelte')).not.toContain('SharedFolderOffer');
-    expect(source('entrypoints/onboarding/App.svelte')).not.toContain(
-      'sharedFolderOfferDismissed: true',
-    );
+    expect(source('entrypoints/options/App.svelte')).toContain('ModelFolderSettings');
   });
 
   it('records license consent before linking a folder or starting the engine', () => {
@@ -60,6 +51,7 @@ describe('start controls while the model downloads', () => {
     expect(start.indexOf('saveSettings')).toBeGreaterThan(-1);
     expect(start.indexOf('saveSettings')).toBeLessThan(start.indexOf('persistSharedFolderHandle'));
     expect(onboarding).toContain('warm={consentSaved}');
+    expect(onboarding).toContain('(showStartButton && !consentSaved) || Boolean(integrityAlert)');
     expect(source('ui/ModelFolderSettings.svelte')).toContain('hasLicenseConsent');
     expect(source('engine/offscreen/host.ts')).toContain('if (!snapshot?.consented)');
   });

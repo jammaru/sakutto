@@ -193,7 +193,6 @@ describe('locale messages', () => {
   });
 
   it('states shared-folder benefits that the implementation can keep', () => {
-    expect(ja.modelFolderOfferLead?.message).toBe('共有フォルダに移すと：');
     expect(ja.modelFolderBenefitsLead?.message).toBe('共有フォルダを使うと：');
     expect(ja.modelFolderBenefitShare?.message).toBe(
       '他のプロフィールやEdgeでもダウンロードなしですぐ使える',
@@ -203,8 +202,8 @@ describe('locale messages', () => {
       'ブラウザのデータを消してもファイルは残る。同じフォルダを選べば再ダウンロード不要',
     );
     expect(en.modelFolderBenefitKeep?.message).toMatch(/pick the same folder/i);
-    expect(en.modelFolderOfferMove?.message).toBe('Move to a shared folder');
-    expect(en.modelFolderOfferLater?.message).toBe('Later');
+    expect(en.modelFolderHeading?.message).toBe('Share the model between Chrome and Edge');
+    expect(ja.modelFolderHeading?.message).toBe('ChromeとEdgeでモデルを共有する');
     expect(en.modelFolderPickerHint?.message).toBe(
       'The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto.',
     );
@@ -230,6 +229,16 @@ describe('locale messages', () => {
     expect(en.modelFolderPickerHint?.message).not.toMatch(/select Documents itself/i);
     expect(en).not.toHaveProperty('modelFolderOfferHide');
     expect(ja).not.toHaveProperty('modelFolderOfferHide');
+    expect(en).not.toHaveProperty('modelFolderOfferLead');
+    expect(ja).not.toHaveProperty('modelFolderOfferLead');
+    expect(en).not.toHaveProperty('modelFolderOfferLater');
+    expect(ja).not.toHaveProperty('modelFolderOfferLater');
+    expect(en).not.toHaveProperty('modelFolderOfferOpenSettings');
+    expect(ja).not.toHaveProperty('modelFolderOfferOpenSettings');
+    expect(en).not.toHaveProperty('modelFolderOfferMove');
+    expect(ja).not.toHaveProperty('modelFolderOfferMove');
+    expect(en).not.toHaveProperty('modelFolderOfferMoving');
+    expect(ja).not.toHaveProperty('modelFolderOfferMoving');
     expect(ja.modelFolderPermissionGrant?.message).toBe('フォルダへのアクセスを許可');
     expect(en.modelFolderPermissionGrant?.message).toBe('Allow folder access');
     expect(ja.modelFolderPermissionPresent?.message).toBe(
@@ -238,8 +247,6 @@ describe('locale messages', () => {
     expect(en.modelFolderPermissionPresent?.message).toBe(
       'The model is already in the folder. Allow access to use it.',
     );
-    expect(ja.modelFolderOfferOpenSettings?.message).toBe('設定でフォルダを選ぶ');
-    expect(en.modelFolderOfferOpenSettings?.message).toBe('Choose the folder in Settings');
     expect(ja.modelFolderPermissionPage?.message).toContain('フォルダへのアクセスを許可');
     expect(en.modelFolderPersistentHint?.message).not.toMatch(/never need/i);
     expect(ja.modelFolderPersistentHint?.message).not.toMatch(/必ず|二度と|毎回クリック/);

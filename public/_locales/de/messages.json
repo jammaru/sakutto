@@ -663,7 +663,7 @@
     "message": "Kein Übersetzungsmodell installiert. Laden Sie eines herunter, um zu übersetzen."
   },
   "modelFolderHeading": {
-    "message": "Shared model folder"
+    "message": "Share the model between Chrome and Edge"
   },
   "modelFolderHelp": {
     "message": "The default is still storage inside this browser."
@@ -700,9 +700,6 @@
   "modelFolderPermissionPage": {
     "message": "Open the Sakutto popup or Settings and tap Allow folder access."
   },
-  "modelFolderOfferOpenSettings": {
-    "message": "Choose the folder in Settings"
-  },
   "modelFolderPersistentHint": {
     "message": "Grant access from the Settings tab, not the popup. If the browser offers “Allow on every visit”, pick that. Japanese Chrome labels it 「サイトアクセス時は常に許可」; Japanese Edge labels it 「アクセスするたびに確認する」. A one-click re-grant may sometimes be needed."
   },
@@ -728,12 +725,6 @@
   "modelFolderDeleteOpfs": {
     "message": "Delete browser copy"
   },
-  "modelFolderOpenSettings": {
-    "message": "Open settings"
-  },
-  "modelFolderOfferLead": {
-    "message": "Moving to a shared folder means:"
-  },
   "modelFolderBenefitsLead": {
     "message": "A shared folder means:"
   },
@@ -750,26 +741,6 @@
   },
   "modelFolderBenefitKeep": {
     "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
-  },
-  "modelFolderOfferMove": {
-    "message": "Move to a shared folder"
-  },
-  "modelFolderOfferLater": {
-    "message": "Later"
-  },
-  "modelFolderOfferMoving": {
-    "message": "Moving $PERCENT$% ($RECEIVED$ / $TOTAL$)",
-    "placeholders": {
-      "percent": {
-        "content": "$1"
-      },
-      "received": {
-        "content": "$2"
-      },
-      "total": {
-        "content": "$3"
-      }
-    }
   },
   "highQualityOffer": {
     "message": "Sie können das Modell mit höherer Genauigkeit ausprobieren (2B, ca. 1,81 GB). Die Geschwindigkeit hängt von diesem Gerät ab."

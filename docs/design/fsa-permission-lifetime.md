@@ -170,9 +170,8 @@ Missing permission never starts a network download.
 **B — first grant from a tab.** `showDirectoryPicker` and
 `requestPermission({ mode: 'readwrite' })` run on onboarding or Settings
 (`options.html`), which are real tabs. Chrome _may_ later show **Allow on every
-visit** on a tab restore prompt. The popup move card does not pick in the
-popup (that would auto-grant the visit and skip the restore prompt). It opens
-Settings at `?folder=pick#model-folder`. Copy does not say the user will never
+visit** on a tab restore prompt. The popup does not offer a move to a shared
+folder. Opt-in is Settings only. Copy does not say the user will never
 need to click again. Persistence is detected at runtime
 (`queryPermission === 'granted'` and a successful open), not assumed.
 
@@ -211,10 +210,10 @@ handles). Use a real GGUF (not the e2e sparse plant).
    click if needed. If Chrome did persist, translation may work with no
    click — that is detected, not promised.
 2. **Existing-user migration.** Profile that already has the model in OPFS
-   (browser storage). After update, open the popup. The move card must open
-   **Settings** (not pick in the popup). Choose `Documents\Sakutto` there.
-   After the copy finishes, OPFS `sakutto/models` should be empty (one copy).
-   Then the same close/restart checks as (1).
+   (browser storage). After update, the popup must **not** ask to move.
+   Choose `Documents\Sakutto` from Settings if the user wants a shared
+   folder. After the copy finishes, OPFS `sakutto/models` should be empty
+   (one copy). Then the same close/restart checks as (1).
 3. **Edge.** Repeat (1) from a **Settings tab**, not the popup. If Edge
    shows the three-way prompt, the persistent option is the middle one,
    labelled **Allow on every visit** in English and
