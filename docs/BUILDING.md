@@ -4,8 +4,8 @@ The extension runs PLaMo 3 Translate with a pinned wllama build. The published n
 (`@wllama/wllama` 3.8.1) cannot load the PLaMo 3 tokenizer, so the extension ships its own build of
 [ngxson/wllama](https://github.com/ngxson/wllama) at commit `d275dac` (llama.cpp `5aeac37`,
 2026-10-18) with two MV3 patches, one build-flag patch, two run-time patches, a Dawn
-download retry, two WebGPU adapter/device patches, a wave64 flash-attn patch, a
-pending-result drain, and a WebGPU greedy argmax tie-break.
+download retry, two WebGPU adapter/device patches, a wave64 flash-attn patch, and a
+pending-result drain.
 
 ## Requirements
 
@@ -336,7 +336,7 @@ uses the same check and leaves WebGPU. The cache key is `v2` and includes
 the backend. A short string such as 「こんにちは。」 twice is under the
 length cutoff and is left alone.
 
-## Pending results and GPU greedy sampling
+## Pending results (issue #61)
 
 `0010-return-pending-results.patch` changes wllama `get_result`. A poll used to step every
 slot by one token and only then read that request's queue, so a short paragraph that had
@@ -344,24 +344,23 @@ already finished sat behind in-flight tokens from the rest of the batch. Queued 
 returned first; `run_loop()` runs only when that request has nothing waiting. The generated
 tokens do not change.
 
-`0011-webgpu-argmax-first-index.patch` flips the WebGPU argmax tie-break. The CPU greedy
-sampler keeps the first of two equal logits; the shader kept the later index (`>=` in the
-local scan, larger index in the reduction). After the patch it keeps the first, so GPU
-greedy matches CPU greedy.
+GPU-side greedy sampling (`backend_sampling: true` plus `samplers: ['temperature']`) is
+**not** enabled. On RTX 4070 Ti SUPER it was about 4.1× slower than main; see
+`bench/results/pages/pr67-backend-sampling-20261111.md`. WebGPU has no
+`get_tensor_async`, so each sampled tensor is a full `CopyBufferToBuffer` + map/unmap.
+Temperature-0 still writes three 4-byte tensors per slot (token, logit, candidate), so 16
+parallel slots do 48 GPU round-trips per decode. `llama_set_sampler` also sets
+`sched_need_reserve` on every slot start and clear, which rebuilds the graph. Issue #61's
+2-2 (one batched token-id read) and 2-3 (keep a sampler on every slot) were not public and
+are not in this tree; 2-1 alone is the slow path. `samplers: ['temperature']` without
+`backend_sampling` is also off: that chain changed wording versus main (6–9 blocks).
 
-The in-browser runtime sends `temperature: 0` and `samplers: ['temperature']` on every
-completion. WebGPU also sends `backend_sampling: true`, so the GPU picks the token and
-only the id is read back. The CPU path does not set `backend_sampling`: ggml's CPU argmax
-keeps the last tied index, which would disagree with `llama_sampler_greedy`.
+The runtime still sends `temperature: 0` and the default llama.cpp sampler chain, same as
+main. WebGPU output already differs from CPU on main (17–18 of 45 `long-article` blocks);
+this change does not claim they match.
 
-Issue [#61](https://github.com/jammaru/sakutto/issues/61) also described two further
-llama.cpp changes (token-only batched readback, and keeping a sampler on every slot so
-`llama_set_sampler` does not rebuild the graph). Those patches were not public. They are
-not in this tree.
-
-**The owner must rebuild wllama** after these patches: `pnpm build:wllama` then
-`pnpm verify:wllama`. Speed numbers for this change are measured with `pnpm bench:live`
-on the machine that has the GPU; they are not recorded here.
+**The owner must rebuild wllama** after the pending-result patch: `pnpm build:wllama` then
+`pnpm verify:wllama`.
 
 ## Compatibility builds
 

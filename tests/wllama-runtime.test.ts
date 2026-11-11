@@ -1,11 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { selectBackend } from '@/engine/in-browser/backend';
-import {
-  createWllamaRuntime,
-  greedySamplingOptions,
-  gpuEvidence,
-  isRuntimeDead,
-} from '@/engine/in-browser/runtime';
+import { createWllamaRuntime, gpuEvidence, isRuntimeDead } from '@/engine/in-browser/runtime';
 import type { WllamaLogger } from '@/engine/wllama/module';
 
 const native = vi.hoisted(() => ({
@@ -215,23 +210,8 @@ describe('wllama runtime load', () => {
   });
 });
 
-describe('greedy sampling options', () => {
-  it('samples on the GPU for WebGPU and keeps CPU on the host greedy sampler', () => {
-    expect(greedySamplingOptions('webgpu')).toEqual({
-      temperature: 0,
-      samplers: ['temperature'],
-      backend_sampling: true,
-    });
-    expect(greedySamplingOptions('cpu-wasm')).toEqual({
-      temperature: 0,
-      samplers: ['temperature'],
-    });
-    expect(greedySamplingOptions('cpu-wasm')).not.toHaveProperty('backend_sampling');
-  });
-});
-
 describe('wllama runtime completions', () => {
-  it('asks WebGPU for backend greedy sampling and the CPU path for the same sampler chain', async () => {
+  it('keeps temperature 0 and does not send GPU sampling flags', async () => {
     native.log = ['load_tensors: offloaded 29/29 layers to GPU'];
     const gpuRuntime = await createWllamaRuntime(new Blob(), gpu);
     await gpuRuntime.complete({
@@ -244,11 +224,11 @@ describe('wllama runtime completions', () => {
       expect.objectContaining({
         prompt: 'Hello.',
         temperature: 0,
-        samplers: ['temperature'],
-        backend_sampling: true,
         stream: true,
       }),
     );
+    expect(native.createCompletion.mock.calls[0]?.[0]).not.toHaveProperty('backend_sampling');
+    expect(native.createCompletion.mock.calls[0]?.[0]).not.toHaveProperty('samplers');
 
     native.createCompletion.mockClear();
     native.log = ['load_tensors: offloaded 0/29 layers to GPU'];
@@ -262,10 +242,10 @@ describe('wllama runtime completions', () => {
     expect(native.createCompletion).toHaveBeenCalledWith(
       expect.objectContaining({
         temperature: 0,
-        samplers: ['temperature'],
       }),
     );
     expect(native.createCompletion.mock.calls[0]?.[0]).not.toHaveProperty('backend_sampling');
+    expect(native.createCompletion.mock.calls[0]?.[0]).not.toHaveProperty('samplers');
   });
 });
 

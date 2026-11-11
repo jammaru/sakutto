@@ -60,10 +60,6 @@ const PATCH_MARKERS: ReadonlyArray<readonly [string, string]> = [
   ],
   ['cpp/wllama-context.h', 'Return a pending result first'],
   ['cpp/wllama-context.h', 'auto pending_result = get_next_result(rd);'],
-  [
-    'llama.cpp/ggml/src/ggml-webgpu/wgsl-shaders/argmax.wgsl',
-    'b.value == a.value && b.index < a.index',
-  ],
 ];
 
 function git(args: readonly string[], cwd = CHECKOUT_DIR): Promise<string> {

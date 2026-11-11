@@ -112,10 +112,7 @@ async function verifyPatches(patches) {
     return;
   }
 
-  for (const file of [
-    '0010-return-pending-results.patch',
-    '0011-webgpu-argmax-first-index.patch',
-  ]) {
+  for (const file of ['0010-return-pending-results.patch']) {
     if (!patches.some((patch) => patch?.file === file)) {
       fail(`the manifest does not record ${file}. Rebuild with pnpm build:wllama.`);
     }

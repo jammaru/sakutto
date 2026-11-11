@@ -29,29 +29,6 @@ export interface LlamaRuntime {
 export type RuntimeFactory = (file: Blob, selection: BackendSelection) => Promise<LlamaRuntime>;
 
 /**
- * Temperature-0 greedy sampling for `createCompletion`.
- *
- * `samplers: ['temperature']` is greedy argmax: llama.cpp still appends its
- * greedy sampler, and at temperature 0 the default top-k / top-p sorts do not
- * change the chosen token. WebGPU also sets `backend_sampling` so the GPU
- * picks the token and only the id comes back. The CPU path does not: ggml's
- * CPU argmax keeps the *last* tied index, while `llama_sampler_greedy` (and
- * the WebGPU shader after patch 0011) keep the first.
- */
-export const GREEDY_SAMPLERS = ['temperature'] as const;
-
-export function greedySamplingOptions(backend: BackendKind): {
-  temperature: 0;
-  samplers: typeof GREEDY_SAMPLERS;
-  backend_sampling?: true;
-} {
-  if (backend === 'webgpu') {
-    return { temperature: 0, samplers: GREEDY_SAMPLERS, backend_sampling: true };
-  }
-  return { temperature: 0, samplers: GREEDY_SAMPLERS };
-}
-
-/**
  * A cancelled completion is left to finish. Aborting the WASM call wedges the
  * pthread, so the slot stays busy until that generation ends and then opens
  * for the next request. Width matches `n_parallel`.
@@ -274,7 +251,7 @@ export const createWllamaRuntime: RuntimeFactory = async (file, selection) => {
             wllama.createCompletion({
               prompt: request.prompt,
               max_tokens: request.maxTokens,
-              ...greedySamplingOptions(selection.backend),
+              temperature: 0,
               // A finished request that asks for no reuse gives back its cells (patch 0005); cells
               // left by idle slots would widen every attention step of the requests still running.
               cache_prompt: selection.nParallel === 1,

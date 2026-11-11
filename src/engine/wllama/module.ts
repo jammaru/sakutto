@@ -59,17 +59,6 @@ export interface WllamaCompletionParams {
   prompt: string;
   max_tokens?: number;
   temperature?: number;
-  /**
-   * llama.cpp sampler chain. Temperature 0 with only `temperature` is greedy
-   * (argmax) and skips the default top-k / top-p sorts, which do not change the
-   * chosen token at temperature 0.
-   */
-  samplers?: readonly string[];
-  /**
-   * Run the sampler chain on the GPU and read back the chosen token instead of
-   * the full logit row. WebGPU only: CPU ggml argmax breaks ties the other way.
-   */
-  backend_sampling?: boolean;
   cache_prompt?: boolean;
   stop?: string | readonly string[];
   stream?: boolean;

@@ -24,7 +24,8 @@ type Pair = { value: number; index: number };
 
 /**
  * Sequential stand-in for `argmax.wgsl`: one workgroup, strided local scan,
- * then a tree reduction. `firstIndex` is patch 0011; `false` is the old shader.
+ * then a tree reduction. `firstIndex` matches CPU greedy; `false` is the
+ * unpatched shader (last index). GPU sampling is not used in the runtime.
  */
 function webgpuArgmax(
   logits: readonly number[],
