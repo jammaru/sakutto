@@ -31,6 +31,8 @@ function createManager(
   options: {
     createRuntime?: (blob: Blob, selection: BackendSelection) => Promise<FakeRuntime>;
     fetchImpl?: typeof fetch;
+    fallbackStore?: MemoryFileStore;
+    copyChunkBytes?: number;
   } = {},
 ): { manager: ModelManager; createRuntime: ReturnType<typeof vi.fn> } {
   const createRuntime = vi.fn(
@@ -41,8 +43,17 @@ function createManager(
     entries: entryRecord(ENTRY),
     createRuntime,
     ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+    ...(options.fallbackStore ? { fallbackStore: options.fallbackStore } : {}),
+    ...(options.copyChunkBytes !== undefined ? { copyChunkBytes: options.copyChunkBytes } : {}),
   });
   return { manager, createRuntime };
+}
+
+async function seedVerified(store: MemoryFileStore): Promise<void> {
+  const { manager } = createManager(store, {
+    fetchImpl: async () => new Response(new Uint8Array(PAYLOAD), { status: 200 }),
+  });
+  await manager.download(ENTRY.id, { signal: new AbortController().signal });
 }
 
 async function downloadedManager(): Promise<{
@@ -256,6 +267,93 @@ describe('ModelManager', () => {
 
     await manager.deleteFallbackCopy(ENTRY.id);
     expect(await manager.fallbackCopyPresent(ENTRY.id)).toBe(false);
+  });
+
+  it('copies a verified OPFS model into an empty shared folder without fetching', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    await seedVerified(opfs);
+    const fetchImpl = vi.fn(async () => {
+      throw new Error('network download should not run');
+    });
+    const { manager } = createManager(shared, { fallbackStore: opfs, fetchImpl });
+
+    await manager.adoptPresentModels();
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(await manager.primaryReady(ENTRY.id)).toBe(true);
+    expect(await manager.status(ENTRY.id)).toMatchObject({ state: 'ready', progress: 1 });
+    expect(new Uint8Array(shared.files.get(`models/${ENTRY.id}/model.gguf`) ?? [])).toEqual(
+      PAYLOAD,
+    );
+    expect(shared.text(`models/${ENTRY.id}/model.json`)).toContain(ENTRY.sha256);
+    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
+  });
+
+  it('downloads by copying from OPFS instead of hitting the network', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    await seedVerified(opfs);
+    const fetchImpl = vi.fn(async () => {
+      throw new Error('network download should not run');
+    });
+    const { manager } = createManager(shared, { fallbackStore: opfs, fetchImpl });
+
+    await manager.download(ENTRY.id, { signal: new AbortController().signal });
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(await manager.primaryReady(ENTRY.id)).toBe(true);
+    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
+  });
+
+  it('leaves no valid shared file when an OPFS copy is interrupted', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    await seedVerified(opfs);
+    const fetchImpl = vi.fn(async () => {
+      throw new Error('network download should not run');
+    });
+    const { manager } = createManager(shared, {
+      fallbackStore: opfs,
+      fetchImpl,
+      copyChunkBytes: 4,
+    });
+    const controller = new AbortController();
+
+    await expect(
+      manager.download(ENTRY.id, {
+        signal: controller.signal,
+        onProgress: (progress) => {
+          if (progress.phase === 'download' && progress.received > 0) controller.abort();
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'aborted' });
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(shared.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(false);
+    expect(shared.files.has(`models/${ENTRY.id}/model.gguf.part`)).toBe(false);
+    expect(shared.files.has(`models/${ENTRY.id}/model.json`)).toBe(false);
+    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
+  });
+
+  it('does not copy an OPFS model over a wrong-sized file already in the folder', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    await seedVerified(opfs);
+    await shared.append(`models/${ENTRY.id}/model.gguf`, bytesOf('nope'), 0);
+    const fetchImpl = vi.fn(async () => {
+      throw new Error('network download should not run');
+    });
+    const { manager } = createManager(shared, { fallbackStore: opfs, fetchImpl });
+
+    await manager.adoptPresentModels();
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(new TextDecoder().decode(shared.files.get(`models/${ENTRY.id}/model.gguf`))).toBe(
+      'nope',
+    );
+    expect(await manager.primaryReady(ENTRY.id)).toBe(false);
+    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
   });
 
   it('adopts a correctly sized file already in the shared folder without fetching', async () => {

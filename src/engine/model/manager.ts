@@ -3,6 +3,7 @@ import type { BackendSelection } from '../in-browser/backend';
 import type { LlamaRuntime } from '../in-browser/runtime';
 import type { ModelState, ModelStatus } from '../../shared/engine-status';
 import { DEFAULT_MODEL_ID, MODEL_CATALOG, type ModelEntry, type ModelId } from './catalog';
+import { copyModelFile } from './copy';
 import { downloadModel, type DownloadProgress } from './download';
 import type { ModelFileStore } from './file-store';
 import { decideIntegrity, digestMatchesPin, type IntegrityManifest } from './integrity';
@@ -23,6 +24,8 @@ export interface ModelManagerOptions {
   hashBlob?: (blob: Blob, options?: HashOptions) => Promise<string>;
   entries?: Readonly<Record<ModelId, ModelEntry>>;
   onStatus?: (status: ModelStatus) => void;
+  /** Override the streamed OPFS→folder copy chunk size. Tests use a small value. */
+  copyChunkBytes?: number;
 }
 
 interface ModelManifest extends IntegrityManifest {
@@ -49,6 +52,7 @@ export class ModelManager {
   private readonly hashBlob: ((blob: Blob, options?: HashOptions) => Promise<string>) | undefined;
   private readonly entries: Readonly<Record<ModelId, ModelEntry>>;
   private readonly onStatus: ((status: ModelStatus) => void) | undefined;
+  private readonly copyChunkBytes: number | undefined;
   private readonly downloads = new Map<
     ModelId,
     { operation: Promise<void>; abort: AbortController }
@@ -66,6 +70,7 @@ export class ModelManager {
     this.hashBlob = options.hashBlob;
     this.entries = options.entries ?? MODEL_CATALOG;
     this.onStatus = options.onStatus;
+    this.copyChunkBytes = options.copyChunkBytes;
   }
 
   setStores(primary: ModelFileStore, fallback?: ModelFileStore): void {
@@ -160,9 +165,10 @@ export class ModelManager {
   }
 
   /**
-   * Hash any correctly-sized unofficial-looking files already in the primary store.
-   * Used after the user picks a shared folder so an existing official GGUF is adopted
-   * without hitting the network.
+   * Hash any correctly-sized files already in the primary store, then copy each
+   * verified official OPFS model that the folder does not already have. Used after
+   * the user picks a shared folder so Chrome profile A can share with Edge without
+   * a network download. The OPFS copy is left in place.
    */
   async adoptPresentModels(options: { signal?: AbortSignal } = {}): Promise<void> {
     const signal = options.signal ?? new AbortController().signal;
@@ -170,6 +176,13 @@ export class ModelManager {
       const inspected = await this.inspect(this.store, modelId);
       if (inspected.integrity !== 'needs-hash') continue;
       await this.runVerify(this.store, modelId, signal).catch(() => undefined);
+    }
+    for (const modelId of this.knownModelIds()) {
+      try {
+        await this.copyOneFallback(modelId, signal);
+      } catch (error) {
+        if (isAbortError(error) || signal.aborted) throw abortError();
+      }
     }
   }
 
@@ -338,6 +351,12 @@ export class ModelManager {
         return;
       }
 
+      try {
+        if (await this.copyOneFallback(modelId, signal, onProgress)) return;
+      } catch (error) {
+        if (isAbortError(error)) throw error;
+      }
+
       await this.ensureSpace(modelId);
 
       const resumedBytes = await this.store.size(this.partPath(modelId));
@@ -395,6 +414,75 @@ export class ModelManager {
       });
       throw error;
     }
+  }
+
+  /**
+   * Copy a verified official OPFS model into the primary (shared) store when that
+   * store does not already have a valid file. Never overwrites a wrong-sized folder
+   * file, and never deletes the OPFS copy.
+   */
+  private async copyOneFallback(
+    modelId: ModelId,
+    signal: AbortSignal,
+    onProgress?: (progress: DownloadProgress) => void,
+  ): Promise<boolean> {
+    if (!this.fallbackStore) return false;
+
+    const primary = await this.inspect(this.store, modelId);
+    if (primary.state === 'ready' || primary.integrity === 'reject-size') return false;
+    if (this.errors.get(modelId) === INTEGRITY_DIGEST_ERROR) return false;
+
+    let fallback = await this.inspect(this.fallbackStore, modelId);
+    if (fallback.integrity === 'needs-hash') {
+      await this.runVerify(this.fallbackStore, modelId, signal, onProgress).catch(() => undefined);
+      fallback = await this.inspect(this.fallbackStore, modelId);
+    }
+    if (fallback.state !== 'ready') return false;
+
+    const entry = this.entry(modelId);
+    const blob = await this.fallbackStore.read(this.finalPath(modelId));
+
+    this.notify({
+      id: modelId,
+      state: 'downloading',
+      received: 0,
+      total: entry.size,
+      progress: 0,
+    });
+
+    await copyModelFile({
+      blob,
+      store: this.store,
+      partPath: this.partPath(modelId),
+      finalPath: this.finalPath(modelId),
+      size: entry.size,
+      sha256: entry.sha256,
+      signal,
+      onProgress: (progress) => {
+        const state: ModelState = progress.phase === 'verify' ? 'verifying' : 'downloading';
+        this.notify({
+          id: modelId,
+          state,
+          received: progress.received,
+          total: entry.size,
+          progress: progress.ratio,
+        });
+        onProgress?.(progress);
+      },
+      ...(this.hashBlob ? { hashBlob: this.hashBlob } : {}),
+      ...(this.copyChunkBytes !== undefined ? { chunkBytes: this.copyChunkBytes } : {}),
+    });
+
+    this.errors.delete(modelId);
+    await this.writeVerifiedManifest(this.store, modelId);
+    this.notify({
+      id: modelId,
+      state: 'ready',
+      received: entry.size,
+      total: entry.size,
+      progress: 1,
+    });
+    return true;
   }
 
   private kickVerify(store: ModelFileStore, modelId: ModelId): void {
