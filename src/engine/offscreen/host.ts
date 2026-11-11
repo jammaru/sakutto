@@ -10,6 +10,7 @@ import {
   type ModelStatus,
 } from '@/shared/engine-status';
 import { advanceModelStatus } from '@/shared/model-progress';
+import type { ModelProgressMessage } from '@/shared/messages';
 import { loadSettings, saveSettings } from '@/shared/storage';
 import type { Formality, IdleMinutes, Settings, TierPreference } from '@/shared/settings';
 import { MemoryTranslationCacheStore, IndexedDbTranslationCacheStore } from '../cache/store';
@@ -338,7 +339,15 @@ export class EngineHost {
     const selection = selectionForTier(tier, probe);
     const selectionState = { current: selection };
     const store = await OpfsModelFileStore.open();
-    const manager = new ModelManager({ store, createRuntime: createWllamaRuntime });
+    const manager = new ModelManager({
+      store,
+      createRuntime: createWllamaRuntime,
+      onStatus: (status) => {
+        void browser.runtime
+          .sendMessage({ type: 'model:progress', status } satisfies ModelProgressMessage)
+          .catch(() => undefined);
+      },
+    });
     this.folderSession = new SharedFolderSession(store, manager);
     try {
       await this.folderSession.apply();

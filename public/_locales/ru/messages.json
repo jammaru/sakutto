@@ -716,6 +716,32 @@
   "modelFolderOpenSettings": {
     "message": "Open settings"
   },
+  "modelFolderOfferBody": {
+    "message": "Move the model to a shared folder so other profiles and Edge can use it without downloading again."
+  },
+  "modelFolderOfferMove": {
+    "message": "Move to a shared folder"
+  },
+  "modelFolderOfferLater": {
+    "message": "Later"
+  },
+  "modelFolderOfferHide": {
+    "message": "Don't show again"
+  },
+  "modelFolderOfferMoving": {
+    "message": "Moving $PERCENT$% ($RECEIVED$ / $TOTAL$)",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      },
+      "received": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
   "highQualityOffer": {
     "message": "Вы можете попробовать модель с более высокой точностью (2B, около 1,81 ГБ). Скорость зависит от этого устройства."
   },

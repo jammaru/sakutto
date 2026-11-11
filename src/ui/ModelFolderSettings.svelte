@@ -6,6 +6,7 @@
     type ModelId,
   } from '@/engine/model/catalog';
   import { emptySharedFolderStatus, type SharedFolderStatus } from '@/engine/model/folder-status';
+  import { SHARED_FOLDER_CHANGED_EVENT } from '@/engine/model/folder-offer';
   import {
     adoptPickedSharedFolder,
     clearStoredSharedFolder,
@@ -113,7 +114,12 @@
   }
 
   onMount(() => {
+    const onChanged = () => {
+      void refreshFromEngine();
+    };
+    window.addEventListener(SHARED_FOLDER_CHANGED_EVENT, onChanged);
     void refreshFromEngine();
+    return () => window.removeEventListener(SHARED_FOLDER_CHANGED_EVENT, onChanged);
   });
 </script>
 

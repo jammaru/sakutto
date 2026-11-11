@@ -49,7 +49,7 @@
       return;
     }
     statuses = { ...statuses, [status.id]: status };
-    if (status.state === 'loaded') activeId = status.id;
+    if (status.state === 'loaded') void syncActive();
   }
 
   async function applyIntegrityStatus(status: ModelStatus) {
@@ -59,7 +59,12 @@
     );
     folderBlocked = sharedFolderNeedsPermission(engine?.sharedFolder);
     statuses = { ...statuses, [status.id]: status };
-    if (status.state === 'loaded') activeId = status.id;
+    if (engine) activeId = engine.model.id;
+  }
+
+  async function syncActive() {
+    const engine = await requestEngineStatus();
+    if (engine) activeId = engine.model.id;
   }
 
   function errorText(id: ModelId, error: string): string | null {

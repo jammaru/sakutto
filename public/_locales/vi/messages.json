@@ -716,6 +716,32 @@
   "modelFolderOpenSettings": {
     "message": "Open settings"
   },
+  "modelFolderOfferBody": {
+    "message": "Move the model to a shared folder so other profiles and Edge can use it without downloading again."
+  },
+  "modelFolderOfferMove": {
+    "message": "Move to a shared folder"
+  },
+  "modelFolderOfferLater": {
+    "message": "Later"
+  },
+  "modelFolderOfferHide": {
+    "message": "Don't show again"
+  },
+  "modelFolderOfferMoving": {
+    "message": "Moving $PERCENT$% ($RECEIVED$ / $TOTAL$)",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      },
+      "received": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
   "highQualityOffer": {
     "message": "Bạn có thể dùng thử mô hình có độ chính xác cao hơn (2B, khoảng 1,81 GB). Tốc độ tùy thuộc vào thiết bị này."
   },

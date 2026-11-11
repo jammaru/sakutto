@@ -261,6 +261,140 @@ test.describe('shared model folder', () => {
     }
   });
 
+  test('offers a one-click move when an official model is already in OPFS', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      const planter = await extension.context.newPage();
+      await planter.goto(`chrome-extension://${extension.extensionId}/sample.html`);
+      await plantOpfsOfficial(planter);
+      await planter.close();
+
+      const options = await extension.context.newPage();
+      await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      const offer = options.getByText(
+        'Move the model to a shared folder so other profiles and Edge can use it without downloading again.',
+      );
+      await expect(offer).toBeVisible({ timeout: 30_000 });
+      await expect(options.getByRole('button', { name: 'Move to a shared folder' })).toBeVisible();
+      await expect(options.getByRole('button', { name: 'Later' })).toBeVisible();
+      await expect(options.getByRole('button', { name: "Don't show again" })).toBeVisible();
+
+      await options.getByRole('button', { name: 'Later' }).click();
+      await expect(offer).toHaveCount(0);
+      await options.reload();
+      await expect(offer).toHaveCount(0);
+      await options.close();
+
+      const popup = await extension.context.newPage();
+      await popup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
+      await expect(
+        popup.getByText(
+          'Move the model to a shared folder so other profiles and Edge can use it without downloading again.',
+        ),
+      ).toHaveCount(0);
+      await expect(popup.getByRole('button', { name: 'Translate this page' })).toBeVisible();
+      await popup.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('hides the move offer after Do not show again', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      const planter = await extension.context.newPage();
+      await planter.goto(`chrome-extension://${extension.extensionId}/sample.html`);
+      await plantOpfsOfficial(planter);
+      await planter.close();
+
+      const first = await extension.context.newPage();
+      await first.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await expect(first.getByRole('button', { name: 'Move to a shared folder' })).toBeVisible({
+        timeout: 30_000,
+      });
+      await first.getByRole('button', { name: "Don't show again" }).click();
+      await expect(first.getByRole('button', { name: 'Move to a shared folder' })).toHaveCount(0);
+      await first.close();
+
+      const again = await extension.context.newPage();
+      await again.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await expect(again.getByRole('button', { name: 'Move to a shared folder' })).toHaveCount(0);
+      await again.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('hides the move offer when the folder picker is missing', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      const planter = await extension.context.newPage();
+      await planter.goto(`chrome-extension://${extension.extensionId}/sample.html`);
+      await plantOpfsOfficial(planter);
+      await planter.close();
+
+      const page = await extension.context.newPage();
+      await page.addInitScript(() => {
+        Object.defineProperty(globalThis, 'showDirectoryPicker', {
+          configurable: true,
+          value: undefined,
+        });
+      });
+      await page.goto(`chrome-extension://${extension.extensionId}/popup.html`);
+      await expect(page.getByRole('button', { name: 'Translate this page' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Move to a shared folder' })).toHaveCount(0);
+      await page.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('does not show the move offer without an installed official model', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      const page = await extension.context.newPage();
+      await page.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await expect(page.getByRole('heading', { name: 'Shared model folder' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Move to a shared folder' })).toHaveCount(0);
+      await page.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('moves from OPFS in one click after the folder picker', async () => {
+    test.setTimeout(180_000);
+    const extension = await loadExtension('en-US');
+    try {
+      const page = await extension.context.newPage();
+      await page.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await plantOpfsOfficial(page);
+      await page.reload();
+      await expect(page.getByRole('button', { name: 'Move to a shared folder' })).toBeVisible({
+        timeout: 30_000,
+      });
+      await mockEmptySharedFolder(page);
+      await page.getByRole('button', { name: 'Move to a shared folder' }).click();
+      expect(
+        await page.evaluate(() => (globalThis as { __sakuttoPicker?: unknown }).__sakuttoPicker),
+      ).toEqual({
+        id: 'sakutto-models',
+        mode: 'readwrite',
+        startIn: 'documents',
+      });
+      await expect
+        .poll(async () => readSharedFolder(page), { timeout: 180_000 })
+        .toMatchObject({ configured: true, permission: 'granted' });
+      await expect(page.getByRole('status').filter({ hasText: 'Using the folder' })).toBeVisible({
+        timeout: 180_000,
+      });
+      await expect(page.getByRole('button', { name: 'Move to a shared folder' })).toHaveCount(0);
+      await page.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
   test('hides the onboarding folder choice when the picker is missing', async () => {
     const extension = await loadExtension('en-US');
     try {
@@ -318,10 +452,45 @@ async function mockEmptySharedFolder(page: Page): Promise<void> {
     const chosen = await root.getDirectoryHandle('e2e-shared', { create: true });
     (
       globalThis as unknown as {
-        showDirectoryPicker: () => Promise<FileSystemDirectoryHandle>;
+        showDirectoryPicker: (options?: unknown) => Promise<FileSystemDirectoryHandle>;
+        __sakuttoPicker?: unknown;
       }
-    ).showDirectoryPicker = async () => chosen;
+    ).showDirectoryPicker = async (options) => {
+      (globalThis as unknown as { __sakuttoPicker?: unknown }).__sakuttoPicker = options;
+      return chosen;
+    };
   });
+}
+
+async function plantOpfsOfficial(page: Page): Promise<void> {
+  const entry = getModel(DEFAULT_MODEL_ID);
+  const planted = await page.evaluate(async (payload) => {
+    const root = await navigator.storage.getDirectory();
+    const sakutto = await root.getDirectoryHandle('sakutto', { create: true });
+    const models = await sakutto.getDirectoryHandle('models', { create: true });
+    const modelDir = await models.getDirectoryHandle(payload.id, { create: true });
+    const file = await modelDir.getFileHandle('model.gguf', { create: true });
+    const writable = await file.createWritable();
+    if (payload.size > 0) {
+      await writable.seek(payload.size - 1);
+      await writable.write(new Uint8Array([0]));
+    }
+    await writable.close();
+    const manifest = await modelDir.getFileHandle('model.json', { create: true });
+    const manifestWriter = await manifest.createWritable();
+    await manifestWriter.write(
+      JSON.stringify({
+        id: payload.id,
+        sha256: payload.sha256,
+        size: payload.size,
+        commit: payload.commit,
+        verifiedAt: Date.now(),
+      }),
+    );
+    await manifestWriter.close();
+    return (await file.getFile()).size;
+  }, entry);
+  expect(planted).toBe(entry.size);
 }
 
 async function plantVerifiedSharedModel(page: Page, folderName = 'e2e-shared'): Promise<void> {

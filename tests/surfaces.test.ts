@@ -33,6 +33,16 @@ describe('start controls while the model downloads', () => {
     expect(onboarding).toContain('onclick={close}');
   });
 
+  it('offers a one-click shared-folder move without auto-opening the picker', () => {
+    const offer = source('ui/SharedFolderOffer.svelte');
+    expect(offer).toContain('shouldOfferSharedFolderMove');
+    expect(offer).toContain('completeSharedFolderOffer');
+    expect(offer).toContain('adoptPickedSharedFolder');
+    expect(offer).not.toMatch(/onMount\([\s\S]{0,400}adoptPickedSharedFolder/);
+    expect(source('entrypoints/popup/App.svelte')).toContain('SharedFolderOffer');
+    expect(source('entrypoints/options/App.svelte')).toContain('SharedFolderOffer');
+  });
+
   it('does not offer a download when the shared folder needs permission again', () => {
     expect(modelManager).toContain('sharedFolderNeedsPermission');
     expect(modelManager).toContain('folderBlocked');

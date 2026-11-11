@@ -50,8 +50,10 @@
     displayShortcut,
     type ShortcutCommand,
   } from '@/shared/shortcuts';
+  import { SHARED_FOLDER_CHANGED_EVENT } from '@/engine/model/folder-offer';
   import { readDeviceHeadroom, type DeviceHeadroom } from '@/ui/device-headroom';
   import LanguageField from '@/ui/LanguageField.svelte';
+  import SharedFolderOffer from '@/ui/SharedFolderOffer.svelte';
   import { runtimeLabel } from '@/ui/runtime-label';
 
   type SettingsError = 'load' | 'save' | null;
@@ -331,7 +333,11 @@
       if (!isModelProgressMessage(message)) return;
       applyProgress(message.status);
     };
+    const onFolderChanged = () => {
+      void refreshEngine();
+    };
     browser.runtime.onMessage.addListener(onMessage);
+    window.addEventListener(SHARED_FOLDER_CHANGED_EVENT, onFolderChanged);
 
     void refreshSettings();
     void refreshPage();
@@ -352,6 +358,7 @@
       unsubscribeRules();
       window.clearInterval(timer);
       browser.runtime.onMessage.removeListener(onMessage);
+      window.removeEventListener(SHARED_FOLDER_CHANGED_EVENT, onFolderChanged);
     };
   });
 </script>
@@ -364,6 +371,8 @@
       <p class="muted">{t('tagline')}</p>
     </div>
   </header>
+
+  <SharedFolderOffer {engine} dismissed={settings?.sharedFolderOfferDismissed === true} />
 
   <button
     class="button block"

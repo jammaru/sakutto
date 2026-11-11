@@ -77,6 +77,8 @@ export interface Settings {
   display: DisplayMode;
   consent: LicenseConsent | null;
   highQualityDismissed: boolean;
+  /** True when the user hid the Chromium “move OPFS models to a shared folder” offer. */
+  sharedFolderOfferDismissed: boolean;
   glossary: GlossaryEntry[];
   idleMinutes: IdleMinutes;
   tier: TierPreference;
@@ -125,6 +127,7 @@ export type SettingsPatch = Partial<
     | 'display'
     | 'consent'
     | 'highQualityDismissed'
+    | 'sharedFolderOfferDismissed'
     | 'glossary'
     | 'idleMinutes'
     | 'tier'
@@ -154,6 +157,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   display: 'replace',
   consent: null,
   highQualityDismissed: false,
+  sharedFolderOfferDismissed: false,
   glossary: [],
   idleMinutes: 5,
   tier: 'auto',
@@ -208,6 +212,7 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     display: value.display === 'bilingual' ? 'bilingual' : 'replace',
     consent: normalizeConsent(value.consent),
     highQualityDismissed: value.highQualityDismissed === true,
+    sharedFolderOfferDismissed: value.sharedFolderOfferDismissed === true,
     glossary: normalizeGlossary(value.glossary),
     idleMinutes: isIdleMinutes(value.idleMinutes) ? value.idleMinutes : defaults.idleMinutes,
     tier: isTierPreference(value.tier) ? value.tier : defaults.tier,

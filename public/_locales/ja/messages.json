@@ -716,6 +716,32 @@
   "modelFolderOpenSettings": {
     "message": "設定を開く"
   },
+  "modelFolderOfferBody": {
+    "message": "モデルを共有フォルダに移すと、他のプロフィールやEdgeでもダウンロードなしで使えます"
+  },
+  "modelFolderOfferMove": {
+    "message": "共有フォルダに移す"
+  },
+  "modelFolderOfferLater": {
+    "message": "あとで"
+  },
+  "modelFolderOfferHide": {
+    "message": "今後表示しない"
+  },
+  "modelFolderOfferMoving": {
+    "message": "移動中 $PERCENT$%（$RECEIVED$ / $TOTAL$）",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      },
+      "received": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
   "highQualityOffer": {
     "message": "高精度モデル（2B・約1.81GB）を試せます。速度は端末によって異なります。"
   },
