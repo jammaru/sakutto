@@ -92,9 +92,7 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ steps.playwright.outputs.key }}
 
-      # ubuntu-latest already has Chromium's shared libraries. --with-deps also
-      # apt-installs extra fonts and fails the job when Ubuntu mirrors do not resolve.
-      - run: pnpm exec playwright install chromium
+      - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
         env:
           PLAYWRIGHT_SKIP_INSTALL: '1'

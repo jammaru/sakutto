@@ -108,7 +108,7 @@ runs:
 
     - if: ${{ inputs.target != 'firefox' }}
       shell: bash
-      run: pnpm exec playwright install chromium
+      run: pnpm exec playwright install --with-deps chromium
 
     - if: ${{ inputs.target != 'firefox' }}
       shell: bash
