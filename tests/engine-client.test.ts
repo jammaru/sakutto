@@ -103,6 +103,91 @@ describe('EngineClient', () => {
     expect(chunks).toEqual([{ id: 'a', final: 'こんにちは', engine: 'chrome' }]);
   });
 
+  it('ends the translate generator when the host aborts for a model change', async () => {
+    const port = new FakePort();
+    connect.mockReturnValue(port.port);
+    const client = new EngineClient(controller());
+    const pending = (async () => {
+      const chunks: TranslationChunk[] = [];
+      for await (const chunk of client.translate([{ id: 'a', text: 'Hello.' }], options())) {
+        chunks.push(chunk);
+      }
+      return chunks;
+    })();
+    await flushTasks();
+
+    const requestId = (port.messagesOfType('translate')[0] as { requestId: string }).requestId;
+    port.emit({
+      type: 'chunk',
+      requestId,
+      chunk: { id: 'a', textDelta: 'こん', engine: 'plamo' },
+    });
+    port.emit({
+      type: 'error',
+      requestId,
+      error: { code: 'model-changed', message: 'The selected model changed.' },
+    });
+
+    await expect(pending).rejects.toMatchObject({ code: 'model-changed' });
+  });
+
+  it('posts translate before model-set finishes, and a host abort ends that stream', async () => {
+    loadSettingsMock.mockResolvedValue(upgradedLocalServerSettings());
+    try {
+      const port = new FakePort();
+      connect.mockReturnValue(port.port);
+      const client = new EngineClient(controller());
+      const statusPending = client.status();
+
+      const source = await waitForMessage<{ requestId: string }>(port, 'source-set');
+      port.emit({ type: 'response', requestId: source.requestId, ok: true, value: null });
+      const runtime = await waitForMessage<{ requestId: string }>(port, 'runtime-set');
+      port.emit({ type: 'response', requestId: runtime.requestId, ok: true, value: null });
+      const model = await waitForMessage<{ requestId: string }>(port, 'model-set');
+
+      const pending = client.translate([{ id: 'a', text: 'Hello.' }], options()).next();
+      await flushTasks();
+      expect(port.messagesOfType('status')).toHaveLength(0);
+      const translate = await waitForMessage<{ requestId: string }>(port, 'translate');
+
+      port.emit({
+        type: 'error',
+        requestId: translate.requestId,
+        error: { code: 'model-changed', message: 'The selected model changed.' },
+      });
+      await expect(pending).rejects.toMatchObject({ code: 'model-changed' });
+
+      port.emit({ type: 'response', requestId: model.requestId, ok: true, value: null });
+      const status = await waitForMessage<{ requestId: string }>(port, 'status');
+      port.emit({
+        type: 'response',
+        requestId: status.requestId,
+        ok: true,
+        value: {
+          model: {
+            id: HIGH_QUALITY_MODEL_ID,
+            state: 'ready',
+            received: 1,
+            total: 1,
+            progress: 1,
+          },
+          backend: 'local-server',
+          tier: null,
+          threads: 1,
+          parallel: DEFAULT_LOCAL_SERVER_PARALLEL,
+          plamoReady: true,
+          chromeSupported: false,
+          active: null,
+          engineSource: 'local-server',
+        },
+      });
+      await statusPending;
+    } finally {
+      loadSettingsMock.mockReset();
+      loadSettingsMock.mockRejectedValue(new Error('no settings'));
+    }
+  });
+
   it('pushes source-set from a pre-upgrade stored record before other host messages', async () => {
     loadSettingsMock.mockResolvedValue(upgradedLocalServerSettings());
     try {
@@ -176,6 +261,65 @@ describe('EngineClient', () => {
       expect(model.modelId).toBe(HIGH_QUALITY_MODEL_ID);
       port.emit({ type: 'response', requestId: model.requestId, ok: true, value: null });
       await pending;
+    } finally {
+      loadSettingsMock.mockReset();
+      loadSettingsMock.mockRejectedValue(new Error('no settings'));
+    }
+  });
+
+  it('does not push a stale selected model when a settings change only sends runtime-set', async () => {
+    loadSettingsMock.mockResolvedValue(upgradedLocalServerSettings());
+    try {
+      const port = new FakePort();
+      connect.mockReturnValue(port.port);
+      const client = new EngineClient(controller());
+      const pending = client.status();
+
+      const pushed = await acceptStoredPush(port);
+      expect(pushed['model-set']).toMatchObject({ modelId: HIGH_QUALITY_MODEL_ID });
+
+      const status = await waitForMessage<{ requestId: string }>(port, 'status');
+      port.emit({
+        type: 'response',
+        requestId: status.requestId,
+        ok: true,
+        value: {
+          model: {
+            id: HIGH_QUALITY_MODEL_ID,
+            state: 'ready',
+            received: 1,
+            total: 1,
+            progress: 1,
+          },
+          backend: 'local-server',
+          tier: null,
+          threads: 1,
+          parallel: DEFAULT_LOCAL_SERVER_PARALLEL,
+          plamoReady: true,
+          chromeSupported: false,
+          active: null,
+          engineSource: 'local-server',
+        },
+      });
+      await pending;
+
+      const modelSetsBefore = port.messagesOfType('model-set').length;
+      const runtimeSetsBefore = port.messagesOfType('runtime-set').length;
+      client.syncStoredSettings({
+        ...upgradedLocalServerSettings(),
+        selectedModelId: DEFAULT_MODEL_ID,
+        idleMinutes: 0,
+      });
+      await flushTasks();
+
+      const runtime = port.messagesOfType('runtime-set').at(-1) as
+        { requestId?: string; idleMinutes?: number } | undefined;
+      expect(port.messagesOfType('runtime-set').length).toBeGreaterThan(runtimeSetsBefore);
+      expect(runtime?.idleMinutes).toBe(0);
+      expect(port.messagesOfType('model-set')).toHaveLength(modelSetsBefore);
+      if (runtime?.requestId) {
+        port.emit({ type: 'response', requestId: runtime.requestId, ok: true, value: null });
+      }
     } finally {
       loadSettingsMock.mockReset();
       loadSettingsMock.mockRejectedValue(new Error('no settings'));

@@ -1,3 +1,4 @@
+import { isModelChangedError } from '@/engine/errors';
 import type { GlossaryEntry, TranslateOptions } from '@/engine/types';
 import {
   canonicalLanguage,
@@ -1931,6 +1932,7 @@ export class ComposeController {
     target: TargetLanguage,
     signal: AbortSignal,
     token: number,
+    attempt = 0,
   ): Promise<void> {
     let output = '';
     try {
@@ -1962,8 +1964,18 @@ export class ComposeController {
       this.render();
       if (this.failed) this.replaceWhenReady = false;
       else this.flushReplaceWhenReady();
-    } catch {
+    } catch (error) {
       if (signal.aborted || token !== this.generation) return;
+      // A host `model-changed` ends the generator with a partial (for example "こん").
+      // That is not a finished draft; drop it and retry once on the new runtime.
+      if (isModelChangedError(error) && attempt < 1) {
+        this.preview = '';
+        this.failed = false;
+        this.render();
+        await this.runTranslate(text, target, signal, token, attempt + 1);
+        return;
+      }
+      this.preview = '';
       this.pending = false;
       this.failed = true;
       this.replaceWhenReady = false;

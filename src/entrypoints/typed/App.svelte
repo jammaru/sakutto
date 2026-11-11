@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
   import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
-  import { isEngineError, isLocalServerError } from '@/engine/errors';
+  import { isEngineError, isLocalServerError, isModelChangedError } from '@/engine/errors';
   import type { EngineStatus } from '@/shared/engine-status';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';
   import { currentUiLanguage, t } from '@/shared/i18n';
@@ -160,6 +160,7 @@
     } catch (error) {
       if (!controller.signal.aborted) {
         resultError = true;
+        if (isModelChangedError(error)) result = '';
         resultErrorKey = typedServerErrorKey(error);
         if (isEngineError(error)) await refreshEngine();
       }

@@ -17,6 +17,7 @@ export type EngineErrorCode =
   | 'server-failed'
   | 'server-remote-unconfirmed'
   | 'aborted'
+  | 'model-changed'
   | 'unknown';
 
 export class EngineError extends Error {
@@ -61,6 +62,7 @@ const ENGINE_ERROR_CODES: ReadonlySet<string> = new Set<EngineErrorCode>([
   'server-failed',
   'server-remote-unconfirmed',
   'aborted',
+  'model-changed',
   'unknown',
 ]);
 
@@ -77,6 +79,14 @@ export function isAbortError(value: unknown): boolean {
 
 export function abortError(message = 'The operation was aborted.'): EngineError {
   return new EngineError('aborted', message);
+}
+
+export function modelChangedError(message = 'The selected model changed.'): EngineError {
+  return new EngineError('model-changed', message);
+}
+
+export function isModelChangedError(value: unknown): value is EngineError {
+  return isEngineError(value) && value.code === 'model-changed';
 }
 
 const LOCAL_SERVER_CODES: ReadonlySet<EngineErrorCode> = new Set([

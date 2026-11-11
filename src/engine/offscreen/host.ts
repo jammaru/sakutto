@@ -17,7 +17,7 @@ import { CachingEngine } from '../cache/caching-engine';
 import { TranslationCache } from '../cache/cache';
 import { prewarmRequest } from '../cache/prewarm';
 import { ChromeTranslatorEngine } from '../chrome/translator';
-import { isAbortError, isEngineError } from '../errors';
+import { isAbortError, isEngineError, modelChangedError } from '../errors';
 import {
   cpuFallback,
   isGpuLoadFallback,
@@ -198,6 +198,8 @@ export class EngineHost {
   private idleGeneration = 0;
   private benchmark: AbortController | null = null;
   private prewarmKey: string | null = null;
+  /** Resolves when an in-flight model switch has published the new id and finished unload. */
+  private switchTask: Promise<void> = Promise.resolve();
   /** The probe offered WebGPU but the model could not be placed on it. */
   private gpuFallback = false;
   private gpuDiagnostic: GpuDiagnostic | null = null;
@@ -457,6 +459,7 @@ export class EngineHost {
     port: Browser.runtime.Port,
     request: TranslateRequest,
   ): Promise<void> {
+    await this.switchTask;
     const controller = new AbortController();
     this.requests.set(request.requestId, { controller, port, kind: 'translate' });
     this.touch();
@@ -472,9 +475,8 @@ export class EngineHost {
         this.post(port, { type: 'chunk', requestId: request.requestId, chunk });
       }
 
-      if (!controller.signal.aborted) {
-        this.post(port, { type: 'done', requestId: request.requestId });
-      }
+      if (controller.signal.aborted) return;
+      this.post(port, { type: 'done', requestId: request.requestId });
     } catch (error) {
       if (!controller.signal.aborted && !isAbortError(error)) {
         this.post(port, {
@@ -490,6 +492,7 @@ export class EngineHost {
   }
 
   private async handleWarm(port: Browser.runtime.Port, requestId: string): Promise<void> {
+    await this.switchTask;
     const controller = new AbortController();
     this.requests.set(requestId, { controller, port, kind: 'warm' });
     this.warming = true;
@@ -497,6 +500,7 @@ export class EngineHost {
 
     try {
       const services = await this.services();
+      if (controller.signal.aborted) return;
       if (this.engineSource === 'local-server') {
         this.plamoReady = true;
         this.respond(port, requestId, await services.manager.status(this.activeModelId));
@@ -506,11 +510,14 @@ export class EngineHost {
       if (!loaded || loaded.id !== this.activeModelId) {
         loaded = await services.load(controller.signal);
       }
+      if (controller.signal.aborted) return;
       try {
         await warmup(loaded.runtime, 'ja');
       } catch {
+        if (controller.signal.aborted) return;
         // The short warm-up is optional; translation still runs.
       }
+      if (controller.signal.aborted) return;
       this.plamoReady = true;
       this.respond(port, requestId, await services.manager.status(this.activeModelId));
       void this.prewarmFrequent(services);
@@ -652,8 +659,7 @@ export class EngineHost {
 
       for (const [id, request] of this.requests) {
         if (request.kind !== 'warm') continue;
-        request.controller.abort();
-        this.requests.delete(id);
+        this.abortLiveRequest(id, request);
       }
 
       services.lazy.reset();
@@ -765,13 +771,15 @@ export class EngineHost {
   ): Promise<void> {
     this.preferredModelId = request.modelId;
     try {
-      // A document that is already running must switch now. A new document records
+      // A document that is already running must switch now, including dropping the
+      // loaded runtime so the next translation cannot keep the old weights while
+      // status and cache keys already name the new id. A new document records
       // the id and applies it when services() first opens, which is after this
       // response, so connecting does not wait on the GPU probe.
       if (this.servicesTask) {
         const services = await this.services();
         if (this.preferredModelId === request.modelId) {
-          await this.applyResolvedModel(services.manager, request.modelId, false);
+          await this.applyResolvedModel(services.manager, request.modelId, false, services);
         }
       }
       this.respond(port, request.requestId, null);
@@ -781,6 +789,8 @@ export class EngineHost {
   }
 
   private handleRuntime(port: Browser.runtime.Port, request: RuntimeSetRequest): void {
+    // Idle, tier, and prewarm inputs only. The selected model is pushed separately
+    // with `model-set`; a settings change must not restore a stale id over it.
     this.runtimePrefs = {
       idleMinutes: request.idleMinutes,
       tier: request.tier,
@@ -808,8 +818,11 @@ export class EngineHost {
     manager: ModelManager,
     preferred: ModelId,
     persist: boolean,
+    runtime?: EngineServices,
   ): Promise<void> {
-    const run = this.selectionChain.then(() => this.resolveAndApply(manager, preferred, persist));
+    const run = this.selectionChain.then(() =>
+      this.resolveAndApply(manager, preferred, persist, runtime),
+    );
     this.selectionChain = run.catch(() => undefined);
     return run;
   }
@@ -818,16 +831,85 @@ export class EngineHost {
     manager: ModelManager,
     preferred: ModelId,
     persist: boolean,
+    runtime?: EngineServices,
   ): Promise<void> {
     const statuses = await Promise.all(
       SELECTABLE_MODEL_IDS.map((modelId) => manager.status(modelId)),
     );
     const resolved = resolveActiveModel(preferred, statuses);
+    const changed = resolved.modelId !== this.activeModelId;
+    if (changed && runtime) {
+      const switchRun = this.runModelSwitch(runtime, resolved, statuses, persist);
+      this.switchTask = switchRun.catch(() => undefined);
+      await switchRun;
+      return;
+    }
     this.activeModelId = resolved.modelId;
     this.modelFallback = resolved.fallback;
     const active = statuses.find((status) => status.id === resolved.modelId);
     this.plamoReady = active ? modelCanTranslate(active) : false;
     if (persist || resolved.fallback) await this.persistActiveModel();
+  }
+
+  /**
+   * Abort in-flight controllers, drop the lazy runtime, publish the new id, then
+   * tell callers the previous work is gone (`model-changed`). Unload may yield;
+   * `handleTranslate` waits on `switchTask` so a retry cannot snapshot the old
+   * id or call `ensureLoaded(old)` after `lazy.reset()`.
+   */
+  private async runModelSwitch(
+    runtime: EngineServices,
+    resolved: { modelId: ModelId; fallback: boolean },
+    statuses: readonly ModelStatus[],
+    persist: boolean,
+  ): Promise<void> {
+    const live: Array<[string, HostRequest]> = [];
+    this.abortBenchmark();
+    this.warming = false;
+    this.prewarmKey = null;
+    for (const [id, request] of this.requests) {
+      if (request.kind === 'download') continue;
+      request.controller.abort();
+      live.push([id, request]);
+    }
+
+    runtime.lazy.reset();
+    this.activeModelId = resolved.modelId;
+    this.modelFallback = resolved.fallback;
+    const active = statuses.find((status) => status.id === resolved.modelId);
+    this.plamoReady = active ? modelCanTranslate(active) : false;
+
+    for (const [id, request] of live) this.failLiveForModelChange(id, request);
+    if (persist || resolved.fallback) await this.persistActiveModel();
+    await runtime.manager.unload();
+  }
+
+  /**
+   * Drop in-flight translate/warm work before the loaded runtime is replaced.
+   * The caller still has a ChunkStream (or a pending warm round-trip) open, so
+   * each request gets an `error` / failed response; a silent abort would hang
+   * the client. A client-initiated cancel already ended its stream and ignores
+   * a late error.
+   */
+  private abortLiveRequest(id: string, request: HostRequest): void {
+    request.controller.abort();
+    this.failLiveForModelChange(id, request);
+  }
+
+  private failLiveForModelChange(id: string, request: HostRequest): void {
+    if (request.port) {
+      const error = modelChangedError();
+      if (request.kind === 'translate') {
+        this.post(request.port, {
+          type: 'error',
+          requestId: id,
+          error: errorPayload(error),
+        });
+      } else if (request.kind === 'warm') {
+        this.respondError(request.port, id, error);
+      }
+    }
+    this.requests.delete(id);
   }
 
   /**
@@ -984,6 +1066,7 @@ export class EngineHost {
     } catch {
       this.prewarmKey = null;
     } finally {
+      if (controller.signal.aborted) this.prewarmKey = null;
       this.requests.delete(requestId);
       this.touch();
     }

@@ -14,6 +14,7 @@ import {
 } from '@/dom/compose';
 import type { PageEngine } from '@/dom/session';
 import type { ComposePreferences } from '@/dom/compose';
+import { modelChangedError } from '@/engine/errors';
 
 const labels: ComposeLabels = {
   title: 'Draft translation',
@@ -434,6 +435,64 @@ describe('compose controller', () => {
     field.dispatchEvent(new InputEvent('input', { bubbles: true }));
     expect(panelButton('Replace').disabled).toBe(true);
     expect(panelText()).toContain('The draft changed');
+  });
+
+  it('retries compose after a model-changed error and never offers the partial as Replace', async () => {
+    document.body.innerHTML = '<textarea id="box">Hello.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    let calls = 0;
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        calls += 1;
+        if (calls === 1) {
+          yield { id: segments[0]!.id, textDelta: 'こん', engine: 'plamo' };
+          throw modelChangedError();
+        }
+        await gate;
+        for (const segment of segments) {
+          yield { id: segment.id, final: `§${options.tgt}§${segment.text}`, engine: 'plamo' };
+        }
+      },
+    };
+    const controller = start(engine);
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(calls).toBe(2);
+    });
+    expect(panelButton('Replace').disabled).toBe(true);
+    expect(panelText()).not.toContain('こん');
+    expect(panelText()).toContain('Translating');
+    release?.();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§Hello.');
+    });
+    expect(panelButton('Replace').disabled).toBe(false);
+  });
+
+  it('marks compose failed when a model-changed retry also fails', async () => {
+    document.body.innerHTML = '<textarea id="box">Hello.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const engine: PageEngine = {
+      async *translate(segments) {
+        yield { id: segments[0]!.id, textDelta: 'こん', engine: 'plamo' };
+        throw modelChangedError();
+      },
+    };
+    const controller = start(engine);
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('Could not translate this draft.');
+    });
+    expect(panelText()).not.toContain('こん');
+    expect(panelButton('Replace').disabled).toBe(true);
   });
 
   it('ignores input events while an IME composition is in progress', async () => {

@@ -345,5 +345,10 @@ describe('engine host protocol', () => {
       message: 'digest mismatch',
     });
     expect(errorPayload('plain')).toEqual({ code: 'unknown', message: 'plain' });
+    const changed = new EngineError('model-changed', 'The selected model changed.');
+    expect(errorPayload(changed)).toEqual({
+      code: 'model-changed',
+      message: 'The selected model changed.',
+    });
   });
 });

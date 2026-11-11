@@ -10,6 +10,7 @@ import {
   uiShadow,
 } from '@/dom/overlay';
 import { PageSession, type PageEngine, type SessionPreferences } from '@/dom/session';
+import { modelChangedError } from '@/engine/errors';
 import { JobScheduler } from '@/engine/queue/scheduler';
 import type { TranslateOptions } from '@/engine/types';
 
@@ -263,6 +264,40 @@ describe('page session', () => {
     await session.whenIdle();
     expect(document.body.textContent).toContain('完了');
     expect(document.querySelector('a')?.textContent).toBe('docs');
+  });
+
+  it('clears unfinished page paint immediately when the model changes', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello</p>';
+    let calls = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        calls += 1;
+        const segment = segments[0];
+        if (!segment) return;
+        if (calls === 1) {
+          yield { id: segment.id, textDelta: 'こん', engine: 'plamo' as const };
+          throw modelChangedError();
+        }
+        await gate;
+        yield { id: segment.id, final: 'こんにちは', engine: 'plamo' as const };
+      }),
+    );
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(calls).toBe(2);
+    });
+    expect(document.body.textContent).not.toContain('こん');
+    expect(document.body.textContent).toContain('Hello');
+    release();
+    await session.whenIdle();
+    expect(document.body.textContent).toContain('こんにちは');
   });
 
   it('shows a bilingual line without rewriting the original nodes', async () => {
