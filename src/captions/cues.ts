@@ -17,6 +17,11 @@ export const WORD_CUE_MERGE_MAX_CHARS = 96;
 export const SENTENCE_CUE_MERGE_GAP_MS = 1_500;
 export const SENTENCE_CUE_MERGE_MAX_MS = 12_000;
 export const SENTENCE_CUE_MERGE_MAX_CHARS = 280;
+/** Japanese ASR rarely punctuates; cap merged phrases so they stay translatable. */
+export const CJK_SENTENCE_CUE_MERGE_MAX_MS = 6_000;
+export const CJK_SENTENCE_CUE_MERGE_MAX_CHARS = 80;
+/** Fill short ASR silences so `cueAtTime` does not drop to native captions. */
+export const ASR_CUE_GAP_FILL_MS = 2_500;
 export const WEBVTT_HOUR_OFFSET_MS = 3_600_000;
 
 const VTT_TIMESTAMP =
@@ -218,7 +223,7 @@ export function mergeWordCues(cues: readonly CaptionCue[]): CaptionCue[] {
 
     const gap = cue.startMs - current.endMs;
     const duration = cue.endMs - current.startMs;
-    const joined = normalizeCaptionText(`${current.text} ${cue.text}`);
+    const joined = joinCaptionFragments(current.text, cue.text);
     const shouldMerge =
       gap <= WORD_CUE_MERGE_GAP_MS &&
       duration <= WORD_CUE_MERGE_MAX_MS &&
@@ -251,8 +256,96 @@ export function mergeWordCues(cues: readonly CaptionCue[]): CaptionCue[] {
 function isWordFragment(cue: CaptionCue): boolean {
   const trimmed = cue.text.trim();
   if (trimmed.length === 0 || trimmed.length > 16) return false;
-  if (/\s/u.test(trimmed)) return false;
-  return cue.endMs - cue.startMs <= WORD_CUE_MERGE_GAP_MS;
+  const cjk = isMostlyCjk(trimmed);
+  if (/\s/u.test(trimmed) && !cjk) return false;
+  const maxMs = cjk ? 1_800 : WORD_CUE_MERGE_GAP_MS;
+  return cue.endMs - cue.startMs <= maxMs;
+}
+
+function isCjkChar(character: string): boolean {
+  const code = character.codePointAt(0) ?? 0;
+  return (
+    (code >= 0x3040 && code <= 0x30ff) ||
+    (code >= 0x31f0 && code <= 0x31ff) ||
+    (code >= 0x4e00 && code <= 0x9fff) ||
+    (code >= 0xac00 && code <= 0xd7af)
+  );
+}
+
+function isMostlyCjk(text: string): boolean {
+  let cjk = 0;
+  let other = 0;
+  for (const character of text) {
+    if (/\s/u.test(character)) continue;
+    if (isCjkChar(character)) cjk += 1;
+    else other += 1;
+  }
+  return cjk >= 2 && cjk >= other;
+}
+
+/** Japanese ASR has no spaces; do not insert ASCII gaps that become empty/huge segments. */
+export function joinCaptionFragments(left: string, right: string): string {
+  const a = left.trimEnd();
+  const b = right.trimStart();
+  if (a.length === 0) return normalizeCaptionText(b);
+  if (b.length === 0) return normalizeCaptionText(a);
+  const leftChar = a[a.length - 1] ?? '';
+  const rightChar = b[0] ?? '';
+  const space = isCjkChar(leftChar) && isCjkChar(rightChar) ? '' : ' ';
+  return normalizeCaptionText(`${a}${space}${b}`);
+}
+
+/**
+ * YouTube ja ASR json3 often repeats a growing line as overlapping events
+ * (`駅は` → `駅は夜明けに`). Concatenating those duplicates yields untranslatable text.
+ */
+export function collapseGrowingCaptionCues(cues: readonly CaptionCue[]): CaptionCue[] {
+  if (cues.length === 0) return [];
+  const merged: CaptionCue[] = [];
+  for (const cue of cues) {
+    const text = normalizeCaptionText(cue.text);
+    if (text.length === 0) continue;
+    const previous = merged.at(-1);
+    if (!previous) {
+      merged.push({ ...cue, text });
+      continue;
+    }
+    const previousText = normalizeCaptionText(previous.text);
+    const overlaps = cue.startMs <= previous.endMs + 80;
+    const grows =
+      text.startsWith(previousText) ||
+      previousText.startsWith(text) ||
+      (previousText.length >= 2 && text.includes(previousText));
+    if (overlaps && grows) {
+      const nextText = text.length >= previousText.length ? text : previousText;
+      merged[merged.length - 1] = makeMergedCue(
+        Math.min(previous.startMs, cue.startMs),
+        Math.max(previous.endMs, cue.endMs),
+        nextText,
+        cue.language ?? previous.language,
+      );
+      continue;
+    }
+    merged.push({ ...cue, text });
+  }
+  return merged;
+}
+
+export function closeCaptionGaps(cues: readonly CaptionCue[], maxGapMs: number): CaptionCue[] {
+  if (cues.length === 0) return [];
+  const closed: CaptionCue[] = [];
+  for (let index = 0; index < cues.length; index += 1) {
+    const cue = cues[index];
+    if (!cue) continue;
+    const next = cues[index + 1];
+    const gap = next ? next.startMs - cue.endMs : 0;
+    if (next && gap > 0 && gap <= maxGapMs) {
+      closed.push(makeMergedCue(cue.startMs, next.startMs, cue.text, cue.language));
+    } else {
+      closed.push({ ...cue });
+    }
+  }
+  return closed;
 }
 
 function splitCueSentences(text: string): string[] {
@@ -289,7 +382,11 @@ export function mergeSentenceCues(cues: readonly CaptionCue[]): CaptionCue[] {
   let language: string | undefined;
   let parts: string[] = [];
 
-  const currentText = (): string => normalizeCaptionText(parts.join(' '));
+  const currentText = (): string => {
+    let text = '';
+    for (const part of parts) text = joinCaptionFragments(text, part);
+    return text;
+  };
 
   const commit = (): void => {
     const text = currentText();
@@ -312,11 +409,13 @@ export function mergeSentenceCues(cues: readonly CaptionCue[]): CaptionCue[] {
       } else {
         const gap = cue.startMs - endMs;
         const duration = Math.max(endMs, cue.endMs) - startMs;
-        const joined = normalizeCaptionText(`${currentText()} ${piece}`);
+        const joined = joinCaptionFragments(currentText(), piece);
+        const cjk = isMostlyCjk(joined);
         const canMerge =
           gap <= SENTENCE_CUE_MERGE_GAP_MS &&
-          duration <= SENTENCE_CUE_MERGE_MAX_MS &&
-          joined.length <= SENTENCE_CUE_MERGE_MAX_CHARS &&
+          duration <= (cjk ? CJK_SENTENCE_CUE_MERGE_MAX_MS : SENTENCE_CUE_MERGE_MAX_MS) &&
+          joined.length <=
+            (cjk ? CJK_SENTENCE_CUE_MERGE_MAX_CHARS : SENTENCE_CUE_MERGE_MAX_CHARS) &&
           !hasSentenceTerminator(currentText());
         if (!canMerge) {
           commit();
@@ -326,10 +425,11 @@ export function mergeSentenceCues(cues: readonly CaptionCue[]): CaptionCue[] {
           parts.push(piece);
         }
       }
-      if (
-        hasSentenceTerminator(currentText()) ||
-        currentText().length >= SENTENCE_CUE_MERGE_MAX_CHARS
-      ) {
+      const built = currentText();
+      const maxChars = isMostlyCjk(built)
+        ? CJK_SENTENCE_CUE_MERGE_MAX_CHARS
+        : SENTENCE_CUE_MERGE_MAX_CHARS;
+      if (hasSentenceTerminator(built) || built.length >= maxChars) {
         commit();
       }
     }
@@ -387,9 +487,11 @@ export function finalizeCaptionCues(
   durationMs?: number,
   options?: { asr?: boolean },
 ): CaptionCue[] {
-  const words = mergeWordCues(cues);
+  const collapsed = options?.asr === true ? collapseGrowingCaptionCues(cues) : cues;
+  const words = mergeWordCues(collapsed);
   const prepared = options?.asr === true ? mergeSentenceCues(words) : words;
-  return alignCaptionCuesToMedia(prepared, durationMs);
+  const aligned = alignCaptionCuesToMedia(prepared, durationMs);
+  return options?.asr === true ? closeCaptionGaps(aligned, ASR_CUE_GAP_FILL_MS) : aligned;
 }
 
 /** Current cue at `timeMs`, then the next cues in timeline order. */

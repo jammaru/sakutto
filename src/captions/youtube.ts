@@ -101,6 +101,8 @@ export function withTimedtextFormat(baseUrl: string, fmt: 'json3' | 'vtt'): stri
   const absolute = /^[a-z][a-z0-9+.-]*:/iu.test(baseUrl);
   const url = new URL(baseUrl, 'https://www.youtube.com/');
   url.searchParams.set('fmt', fmt);
+  // YouTube auto-translate (`tlang`) is the player's overlay, not the spoken ASR line.
+  url.searchParams.delete('tlang');
   if (absolute) return url.toString();
   return `${url.pathname}${url.search}${url.hash}`;
 }
@@ -183,8 +185,12 @@ export function spokenLanguageFromPlayerResponse(value: unknown): string | null 
 }
 
 function languageMatches(track: YoutubeCaptionTrack, language: string): boolean {
-  const prefix = targetPrefix(language);
-  return prefix.length > 0 && track.languageCode.toLowerCase().startsWith(prefix);
+  const prefix = captionLanguagePrefix(language);
+  if (prefix.length === 0) return false;
+  return (
+    captionLanguagePrefix(track.languageCode) === prefix ||
+    captionLanguagePrefix(track.vssId) === prefix
+  );
 }
 
 /**
@@ -207,10 +213,10 @@ export function selectCaptionTrack(
     (spoken.length > 0
       ? pick((track) => !track.asr && languageMatches(track, spoken))
       : undefined) ??
-    pick((track) => !track.asr && languageMatches(track, 'en')) ??
     (spoken.length > 0
       ? pick((track) => track.asr && languageMatches(track, spoken))
       : undefined) ??
+    pick((track) => !track.asr && languageMatches(track, 'en')) ??
     pick((track) => track.asr && languageMatches(track, 'en')) ??
     pick((track) => track.asr) ??
     (manuals.length === 1 ? manuals[0] : null) ??
@@ -236,10 +242,7 @@ export function selectLiveCaptionTrack(
 }
 
 function targetPrefix(targetLanguage: string): string {
-  const lower = targetLanguage.trim().toLowerCase();
-  if (lower.startsWith('zh-hant')) return 'zh';
-  if (lower.startsWith('zh-hans')) return 'zh';
-  return lower.split('-')[0] ?? '';
+  return captionLanguagePrefix(targetLanguage);
 }
 
 export function extractJsonObject(source: string): string | null {
@@ -381,9 +384,20 @@ function normalizeDomCaption(value: string): string {
 }
 
 function languagePrefix(value: string | null | undefined): string {
-  const lower = value?.trim().toLowerCase() ?? '';
+  return captionLanguagePrefix(value);
+}
+
+/**
+ * Spoken/ASR language from a YouTube `languageCode` or `vssId` (`ja`, `a.ja`, `.ja`).
+ * `a.ja` must not be treated as a different language from `ja`.
+ */
+export function captionLanguagePrefix(value: string | null | undefined): string {
+  let lower = value?.trim().toLowerCase() ?? '';
+  if (lower.length === 0) return '';
+  if (lower.startsWith('a.')) lower = lower.slice(2);
+  else if (lower.startsWith('.')) lower = lower.slice(1);
   if (lower.startsWith('zh-hant') || lower.startsWith('zh-hans')) return 'zh';
-  return lower.split('-')[0] ?? '';
+  return lower.split(/[-_.]/u)[0] ?? '';
 }
 
 /**
@@ -397,8 +411,8 @@ export function captionSourceIsTargetLanguage(
   text: string | undefined,
   targetLanguage: string,
 ): boolean {
-  const source = languagePrefix(sourceLanguage);
-  const target = languagePrefix(targetLanguage);
+  const source = captionLanguagePrefix(sourceLanguage);
+  const target = captionLanguagePrefix(targetLanguage);
   if (source.length > 0 && target.length > 0) return source === target;
   if (!text) return false;
   return captionTextIsTargetLanguage(text, targetLanguage);

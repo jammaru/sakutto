@@ -64,9 +64,12 @@ visible and also goes stale on SPA navigation. Script-tag text is parsed instead
 
 **Track choice:** the video's original/spoken language from the player
 (`videoDetails.defaultAudioLanguage`, then `audioTracks[].audioTrackId` /
-`defaultCaptionTrackIndex`), then English manual, then English ASR. Never the first
-translated track in the list (those lists often start at Afrikaans). A track that is
-already in the target language is shown as-is.
+`defaultCaptionTrackIndex`). Prefer a spoken **manual** track, then spoken **ASR**
+(`kind=asr` / `vssId` `a.ja`, treated as `ja`), then English manual, then English ASR.
+Never the first translated track in the list (those lists often start at Afrikaans). A
+track that is already in the target language is shown as-is. ja→en must keep translating
+the spoken Japanese line; picking an English track would passthrough while YouTube still
+paints native ja auto-captions.
 
 **Empty timedtext:** a missing `pot=` often yields HTTP 200 with an empty body. v1 does
 not POST InnerTube. It reads the player's live `getPlayerResponse()` in the page world
@@ -83,7 +86,17 @@ glued onto English is not sent to the model.
 
 **VOD sentence assembly:** consecutive cues are merged at sentence-end punctuation (with
 a max span and character cap) and translated once. The overlay covers the combined time
-span. Mid-sentence fragments are not sent to the model.
+span. Mid-sentence fragments are not sent to the model. Japanese ASR (`kind=asr` /
+`vssId` `a.ja`) has almost no spaces or punctuation: growing overlapping json3 events are
+collapsed, CJK fragments are joined without ASCII spaces, and short silences are filled so
+the playhead still has a cue. `tlang` is stripped from timedtext URLs so YouTube
+auto-translate is not fetched as the source.
+
+**Native vs overlay:** native captions stay only until the first translated overlay line,
+and again only when the overlay truly has nothing for the current time (passthrough of a
+same-language track, or no cue and no hold). A new uncached cue or a seek must not flash
+YouTube’s ja auto-captions over a ja→en overlay; the previous translated line stays until
+the next one lands. `localStorage.sakuttoCaptionDebug = '1'` logs why native is shown.
 
 **ToS / fragility.** YouTube's terms restrict automated access and downloading of content.
 Reading a caption URL the player itself embedded on a page the user opened, then
