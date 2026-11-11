@@ -9,18 +9,20 @@ device, on the same engine queue as page translation.
 
 ## Recommendation
 
-**v1 (this prototype, behind an off-by-default setting):**
+**v1 (headline of the next release: real-time captions, behind an off-by-default setting):**
 
-| Include                                                                                                   | Skip                                                     |
-| --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| On-demand YouTube videos that already have a caption track, using the full timedtext payload and prefetch | YouTube live / real-time ASR as a primary path           |
-| Generic HTML5 `<video>` `textTracks` (WebVTT)                                                             | X as a dedicated adapter                                 |
-| Overlay on the player, bilingual by default, fullscreen-aware                                             | On-device speech recognition (Whisper / tab audio)       |
-| Degenerate-output reuse: keep the original line rather than paint garbage                                 | New host permissions, `tabCapture`, or `getDisplayMedia` |
+| Include                                                                                    | Skip                                                 |
+| ------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| YouTube on-demand (player-embedded timedtext GET + prefetch)                               | InnerTube POST / inventing a player client           |
+| YouTube Live as a first-class path (`.ytp-caption-segment` + recent ASR timedtext)         | On-device speech recognition (Whisper / tab audio)   |
+| Dedicated X adapter (`video.twimg.com/subtitles/*.vtt` / `textTracks`, playing video only) | Fake captions when a video has none                  |
+| Auto-run on youtube.com and x.com when the setting is on, via optional host permission     | New required host permissions, `tabCapture`          |
+| Overlay on the player, bilingual by default, original immediately then translation         | Firefox as a shipping target in this phase           |
+| Degenerate-output reuse: keep the original line; never cache garbage                       | Merging finished caption lines into a false sentence |
 
-This is the highest-value slice that is also the most robust: the captions already exist as
-text, so the model only has to translate, and on-demand video can be translated _ahead_ of
-the playhead. Live streams, X, and captionless video are later phases.
+Captions already exist as text, so the model only has to translate. On-demand video can be
+translated _ahead_ of the playhead. Live cannot prefetch far; it shows the original now and
+replaces it when the translation lands. X stays silent when there is no VTT / textTrack.
 
 ## Per-platform approach
 
@@ -53,8 +55,8 @@ YouTube exposes captions in three layers. v1 uses (1) and (2); (3) is the live f
    ([yt research notes](https://github.com/zemse/yt/blob/fd92fb17c6693d677038c8e329e4daf3ccaaf69a/RESEARCH.md)).
 
 3. **Caption DOM.** `.ytp-caption-segment` inside `.ytp-caption-window-container` is what
-   the player paints. Auto-captions grow word by word in that node. The prototype observes
-   it only when a full track cannot be fetched (live / empty timedtext).
+   the player paints. Auto-captions grow word by word in that node. On live this is the
+   first-class current line; rolling ASR timedtext is the backup when the DOM is empty.
 
 The content script runs in the isolated world, so `window.ytInitialPlayerResponse` is not
 visible and also goes stale on SPA navigation. Script-tag text is parsed instead.
@@ -72,27 +74,38 @@ change. Tests therefore use **local fixtures**, not live youtube.com.
 
 ### YouTube live
 
-Live captions are not a stable VTT file. They show up as:
+Live captions are not a stable VTT file. v1 treats them as first-class:
 
-- Growing `.ytp-caption-segment` text (word by word).
-- ASR timedtext that only covers recent time, not the future.
+- Growing `.ytp-caption-segment` text (word by word) is the current line.
+- ASR timedtext covers only recent time (`selectLiveCaptionTrack` prefers ASR that is not
+  already the target). The session refreshes that window about every 2.5 s; it is not a VOD
+  track.
 - In some streams, XML `<timedtext>` payloads inside media segments
   ([youtube-transcript-api#98](https://github.com/jdepoix/youtube-transcript-api/issues/98),
-  [yt-dlp#2039](https://github.com/yt-dlp/yt-dlp/issues/2039)).
+  [yt-dlp#2039](https://github.com/yt-dlp/yt-dlp/issues/2039)). v1 does not parse media
+  segments.
 
-v1 does not parse media segments. The live DOM buffer (`LiveCaptionBuffer`) is implemented
-and unit-tested so a later phase can turn it on without inventing a new pipeline: wait for
-a sentence / pause / character cap, then translate. That path cannot prefetch.
+`LiveCaptionBuffer` waits for a sentence terminator, a pause (`LIVE_CAPTION_MAX_WAIT_MS` =
+1.2 s), or `LIVE_CAPTION_MAX_CHARS` (96), then translates the committed line. Growing
+fragments stay on screen as original text and are not sent to the model. When a translation
+is ready it replaces that line. Live jobs use priority `2` with `eager` and `preempt`, so a
+page-translation batch can be cancelled to keep live latency low.
 
 ### X (Twitter)
 
-Some X videos ship WebVTT from `video.twimg.com/subtitles/…`
+Dedicated adapter (`src/captions/x.ts`). Some X videos ship WebVTT from
+`video.twimg.com/subtitles/…`
 ([TwitterMediaHarvest#336](https://github.com/EltonChou/TwitterMediaHarvest/issues/336)).
-When the player attaches that file as an HTML5 `textTrack`, the generic v1 adapter already
-picks it up. Many videos have no captions at all. There is no public first-party subtitle
-API, and the DOM player is an implementation detail. A dedicated X adapter is later:
-discover VTT URLs (textTracks, then `video.twimg.com` responses already made by the page),
-and only then consider speech recognition.
+
+- Discover: HTML5 `textTracks` on the playing video, then `<track src>` URLs that match
+  `https://video.twimg.com/subtitles/*.vtt`.
+- Player surfaces: timeline, post detail, fullscreen. `pickPlayingXVideo` prefers
+  fullscreen, then an audible player, then the largest visible playing video. Idle feed
+  neighbours are ignored.
+- No captions → show nothing. No speech recognition.
+- Fetch: same MAIN-world GET as YouTube timedtext, allowlisted to twimg VTT **only when
+  the tab host is X**. This uses the page's CORS, not an extension host permission for
+  `video.twimg.com`. If the GET fails, the overlay stays empty.
 
 ### Generic HTML5
 
@@ -177,8 +190,9 @@ A typical caption is 8–15 English words (~12–25 output tokens in Japanese).
   `LIVE_CAPTION_MAX_CHARS` (96). Auto-caption json3 events are merged the same way
   (`mergeWordCues`).
 - **Queue:** live captions use priority `2` (after selection `0`, before visible page prose
-  `~10`). Prefetch uses `24` (after nearby prose `~22`, before far chrome `~34`). Cancel on
-  seek. Page translation keeps running; captions do not take the selection slot.
+  `~10`) with `preempt: true`, so a running page batch is cancelled and the live line can
+  start. Prefetch uses `24` (after nearby prose `~22`, before far chrome `~34`). Cancel on
+  seek. Captions do not take the selection slot.
 
 ## UX
 
@@ -195,18 +209,18 @@ A typical caption is 8–15 English words (~12–25 output tokens in Japanese).
 - Fullscreen: the host is re-parented into `document.fullscreenElement` when that node
   contains the video, then placed from `getBoundingClientRect()`. `position: fixed` plus
   capture-phase `resize` / `scroll` / `fullscreenchange`.
-- The feature is off until the reader turns **Translate video captions** on in Settings.
-  The content script still injects only after a user action (`activeTab` + `scripting`) or
-  on a site already granted for always-translate. There is no install-time YouTube host
-  permission.
+- The feature is off until the reader turns **Translate video captions** on in Settings
+  (default OFF). Turning it on requests the existing optional host permission for
+  youtube.com / x.com (and twitter.com aliases). Once granted, those tabs auto-run caption
+  translation without pressing Translate. Other sites still need a user action or
+  always-translate. There is no install-time YouTube or X host permission.
 
 ## Phased plan
 
-| Phase            | Contents                                                                                                                                                                                                                    |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **v1 (this PR)** | Setting + overlay + bilingual. YouTube on-demand via player-response timedtext and prefetch. Generic HTML5 `textTracks`. Degenerate-output reuse. Unit tests and e2e on synthetic VTT + a dummy colour video.               |
-| **v1.x**         | YouTube live via the DOM buffer (and, if it stays stable, incremental timedtext). Hide/show native captions more reliably. Optional always-on for youtube.com through the existing optional host permission, not a new one. |
-| **Later**        | Dedicated X adapter when a VTT URL is present. Speech recognition only with a separate opt-in, Chrome `tabCapture` justification, and a second on-device model. Firefox ship decision.                                      |
+| Phase            | Contents                                                                                                                                                                                                                                                                                                                                               |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **v1 (this PR)** | Setting (default off) + overlay + bilingual. YouTube on-demand timedtext + prefetch. YouTube Live DOM buffer + recent ASR timedtext, original-then-translation, live preemption. X adapter (playing video, VTT/textTracks, silent if none). Auto-run on youtube.com / x.com via optional host permission. Degenerate-output reuse. Synthetic fixtures. |
+| **Later**        | Speech recognition only with a separate opt-in, Chrome `tabCapture` justification, and a second on-device model. Firefox ship decision. Media-segment live XML.                                                                                                                                                                                        |
 
 ## Permissions and store review
 
@@ -214,8 +228,9 @@ A typical caption is 8–15 English words (~12–25 output tokens in Japanese).
 
 `offscreen`, `storage`, `unlimitedStorage`, `activeTab`, `scripting`, `contextMenus`
 
-Optional host permissions stay `https://*/*` and `http://*/*`, requested only for
-always-translate or a local server, as today.
+Optional host permissions stay `https://*/*` and `http://*/*`. They are requested for
+always-translate, a local server, **or** when the reader turns caption translation on
+(youtube.com / x.com / twitter.com page origins only). `video.twimg.com` is not requested.
 
 Same-origin `fetch` of a YouTube `timedtext` `baseUrl` does not need an extra host
 permission. Isolated-world `fetch` is the extension origin, so the GET runs in the page
@@ -227,12 +242,13 @@ that host).
 
 ```text
 Sakutto translates web pages on the device. An optional setting also translates captions
-already present on a video the user is watching (YouTube caption tracks, and HTML5
-subtitle tracks). Caption text is read from the page the user opened and translated by
-the same on-device model as page text. It is not sent to the developer or to a third-party
-translation server. The extension does not capture tab audio and does not add host
-permissions for this feature. The content script is still injected only after the user
-asks to translate, or after they grant always-translate for that site.
+already present on a video the user is watching (YouTube including live, X when a VTT
+track is published, and HTML5 subtitle tracks). Caption text is read from the page the
+user opened and translated by the same on-device model as page text. It is not sent to
+the developer or to a third-party translation server. The extension does not capture tab
+audio. When the setting is turned on, Chrome asks for access to YouTube and X using the
+same optional host permission as always-translate; those sites then auto-run caption
+translation. Videos with no captions are left alone.
 ```
 
 Do not add `tabCapture`, `desktopCapture`, or `getDisplayMedia` without a new review pass
@@ -247,20 +263,21 @@ already looking at.
 | Empty timedtext body (bot / PO token)            | Treat as no track, keep original, do not retry in a loop                                                                         |
 | ToS / "downloading captions"                     | Only fetch the `baseUrl` already on the watch page; no bulk harvest                                                              |
 | Wrong translations                               | Bilingual default; original while pending; `isBrokenTranslation`; no cache on failure                                            |
-| Engine contention with page translation          | Caption live priority 2, prefetch 24, abort on seek                                                                              |
+| Engine contention with page translation          | Caption live priority 2 + preempt, prefetch 24, abort on seek                                                                    |
 | Overlay vs YouTube controls / fullscreen         | Closed shadow, `pointer-events: none` except the bilingual toggle, reparent on fullscreen                                        |
-| HTML5 CORS-empty cues                            | Document; do not add host permissions to scrape the VTT in v1                                                                    |
-| Firefox                                          | TextTrack and script-tag parse work; `tabCapture` does not. Prototype is Chrome-first                                            |
+| HTML5 / twimg CORS-empty cues                    | Show nothing; do not add a twimg host permission                                                                                 |
+| Firefox                                          | TextTrack and script-tag parse work; `tabCapture` does not. Not a shipping target in this phase                                  |
 
 ## Test plan
 
-- **Unit:** WebVTT and json3 parsers; word-cue merge; live buffer; player-response and
-  `fmt` replacement; overlay bilingual/replace; translator cache, seek cancel, degenerate
-  skip; session paints from a mocked timedtext fetch.
-- **e2e:** `e2e/fixtures/video-captions.html` (dummy H.264 colour clip + synthetic VTT) and
-  `e2e/fixtures/youtube-captions.html` (synthetic `ytInitialPlayerResponse` + local json3).
-  No real people, no personal info, no copyrighted footage. Fake engine marker `§en§`.
-  Setting off → no overlay.
+- **Unit:** WebVTT and json3 parsers; word-cue merge (no false sentences); live buffer;
+  player-response / live track choice; X playing-video picker and twimg allowlist;
+  auto-inject gating; overlay bilingual/replace; translator cache, seek cancel, degenerate
+  skip, live preempt; scheduler preemption; session live original-then-translation and
+  silent X.
+- **e2e:** HTML5 dummy clip; YouTube on-demand; YouTube live auto-run without Translate;
+  X-like DOM + VTT (playing video only); X with no captions → nothing. No real people, no
+  personal info, no copyrighted footage. Fake engine marker `§en§`. Setting off → no overlay.
 - Fixtures are served by `e2e/serve.mjs` with `text/vtt` and `video/mp4` types.
 
 ## Firefox
@@ -276,29 +293,21 @@ captions will lag unless WebGPU is up. No `tabCapture` later either.
   `bilingual`).
 - Content script starts `VideoCaptionSession` when the setting is on and the site is not
   `never`.
-- Modules: `src/captions/` (`cues.ts`, `youtube.ts`, `html5.ts`, `engine.ts`, `overlay.ts`,
-  `session.ts`, `timedtext.ts`). Named `captions` rather than `video` so git does not ignore
-  the tree (`video/` is in `.gitignore` for local clips).
+- Modules: `src/captions/` (`cues.ts`, `youtube.ts`, `html5.ts`, `x.ts`, `sites.ts`,
+  `engine.ts`, `overlay.ts`, `session.ts`, `timedtext.ts`). Named `captions` rather than
+  `video` so git does not ignore the tree (`video/` is in `.gitignore` for local clips).
 
-## Open questions for the maintainer
+## Open questions (remaining)
 
-1. **Injection:** should caption translation start only after the reader invokes Translate
-   on that tab (current, no new permission), or auto-inject on youtube.com when the setting
-   is on (uses the existing optional host permission, one extra prompt)?
-2. **timedtext vs DOM-only:** is fetching the player-provided `baseUrl` acceptable for
-   store / ToS, or should v1 stay on `.ytp-caption-segment` + HTML5 tracks even if that
-   kills prefetch?
-3. **Default display:** bilingual is the prototype default because accuracy checking was
-   requested. Should shipping v1 follow the page-translation display setting instead?
-4. **Live in the same release:** the DOM buffer is already there. Worth enabling on YouTube
-   live in v1, or keep it dark until prefetch has shipped and settled?
-5. **Priority vs in-flight page batches:** live captions are priority 2, like a calmer
-   selection. Should they preempt a streaming page batch the way selection does?
-6. **Shortcut / popup control:** Settings-only for the prototype. A popup toggle or a key
+1. **Shortcut / popup control:** Settings-only for this prototype. A popup toggle or a key
    before shipping?
-7. **Speech recognition:** confirm it stays out of v1 even as a hidden flag.
-8. **Firefox:** ship HTML5 + YouTube when Chrome v1 lands, or wait for a live path that
-   does not need `tabCapture`?
+2. **Default display vs page display:** bilingual stays the caption default. Should shipping
+   v1 follow the page-translation display setting instead?
+3. **twimg CORS:** if X attaches no `textTrack` and the page-world GET is blocked, v1 shows
+   nothing. Is that the right product answer, or should a later phase ask for a twimg
+   origin (still optional, still not v1)?
+4. **music.youtube.com / youtube-nocookie:** auto-run requests those origins with the
+   setting. Trim the prompt to www.youtube.com + x.com only?
 
 ## Sources
 

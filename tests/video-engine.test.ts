@@ -121,4 +121,30 @@ describe('caption translator', () => {
     expect(captionPrefetchWindowMs('g')).toBeGreaterThan(captionPrefetchWindowMs('c4'));
     expect(captionPrefetchWindowMs('c8')).toBeGreaterThan(captionPrefetchWindowMs(null));
   });
+
+  it('asks live caption jobs to preempt a page batch', async () => {
+    let seenPriority: number | undefined;
+    let seenPreempt: boolean | undefined;
+    let seenEager: boolean | undefined;
+    const translator = new CaptionTranslator(
+      engineOf((segments, options) => {
+        seenPriority = options.priority;
+        seenPreempt = options.preempt;
+        seenEager = options.eager;
+        return segments.map((segment) => ({
+          id: segment.id,
+          final: `訳:${segment.text}`,
+          engine: 'plamo' as const,
+        }));
+      }),
+    );
+    await translator.translateCue(
+      cue('The station opens at dawn.'),
+      { tgt: 'ja', form: 'polite' },
+      CAPTION_LIVE_PRIORITY,
+    );
+    expect(seenPriority).toBe(CAPTION_LIVE_PRIORITY);
+    expect(seenPreempt).toBe(true);
+    expect(seenEager).toBe(true);
+  });
 });

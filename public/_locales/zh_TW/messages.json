@@ -1174,7 +1174,7 @@
     "message": "翻譯影片字幕"
   },
   "videoCaptionsSettingHelp": {
-    "message": "早期版本：已有字幕的 YouTube 影片，以及帶字幕軌道的一般 HTML5 影片。翻譯在本機進行。直播、X 以及沒有字幕的影片尚未包含。如果某一行無法可靠翻譯，則保留原字幕。"
+    "message": "開啟後，會在裝置上即時翻譯已有字幕的 YouTube（含直播）與 X 影片。打開此設定時，Chrome 會要求存取這些網站。沒有字幕的影片不會顯示任何內容。無法可靠翻譯的一行會保留原文。"
   },
   "videoCaptionsDisplayLabel": {
     "message": "字幕顯示"

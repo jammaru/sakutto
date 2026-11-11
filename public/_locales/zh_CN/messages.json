@@ -1174,7 +1174,7 @@
     "message": "翻译视频字幕"
   },
   "videoCaptionsSettingHelp": {
-    "message": "早期版本：已有字幕的 YouTube 视频，以及带字幕轨道的普通 HTML5 视频。翻译在本机进行。直播、X 以及没有字幕的视频暂未包含。如果某一行无法可靠翻译，则保留原字幕。"
+    "message": "开启后，会在设备上实时翻译已有字幕的 YouTube（含直播）和 X 视频。打开此设置时，Chrome 会请求访问这些网站。没有字幕的视频不会显示任何内容。无法可靠翻译的一行会保留原文。"
   },
   "videoCaptionsDisplayLabel": {
     "message": "字幕显示"

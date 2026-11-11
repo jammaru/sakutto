@@ -2,6 +2,8 @@ import { PriorityQueue } from './priority-queue';
 
 export interface SchedulerJob {
   priority: number;
+  /** When true, running worse-priority jobs are cancelled so this one can start. */
+  preempt?: boolean;
   run: () => Promise<void>;
   cancel?: () => void;
 }
@@ -60,6 +62,7 @@ export class JobScheduler {
 
   schedule(job: SchedulerJob): ScheduledHandle {
     const entry: QueuedJob = { job, state: 'queued' };
+    if (job.preempt === true) this.preemptWorse(job.priority);
     this.queue.enqueue(entry, job.priority);
     this.pump();
 
@@ -81,6 +84,12 @@ export class JobScheduler {
     return new Promise((resolve) => {
       this.idleWaiters.push(resolve);
     });
+  }
+
+  private preemptWorse(priority: number): void {
+    for (const running of this.active) {
+      if (running.job.priority > priority) running.job.cancel?.();
+    }
   }
 
   private pump(): void {

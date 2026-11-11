@@ -1174,7 +1174,7 @@
     "message": "Videountertitel übersetzen"
   },
   "videoCaptionsSettingHelp": {
-    "message": "Frühe Version: YouTube-Videos mit vorhandenen Untertiteln und gewöhnliche HTML5-Videos mit Untertitelspuren. Die Übersetzung läuft auf diesem Gerät. Livestreams, X und Videos ohne Untertitel sind noch nicht enthalten. Wenn eine Zeile nicht zuverlässig übersetzt werden kann, bleibt der Originaluntertitel stehen."
+    "message": "Wenn diese Option aktiv ist, werden YouTube-Videos (auch Live) und X-Videos mit vorhandenen Untertiteln auf dem Gerät übersetzt. Chrome fragt beim Einschalten nach Zugriff auf diese Websites. Videos ohne Untertitel bleiben leer. Eine unsichere Übersetzung wird durch den Originaltext ersetzt."
   },
   "videoCaptionsDisplayLabel": {
     "message": "Untertitelanzeige"

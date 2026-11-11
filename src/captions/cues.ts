@@ -180,7 +180,8 @@ export function mergeWordCues(cues: readonly CaptionCue[]): CaptionCue[] {
       gap <= WORD_CUE_MERGE_GAP_MS &&
       duration <= WORD_CUE_MERGE_MAX_MS &&
       joined.length <= WORD_CUE_MERGE_MAX_CHARS &&
-      !hasSentenceTerminator(current.text);
+      !hasSentenceTerminator(current.text) &&
+      isWordFragment(cue);
 
     if (!shouldMerge) {
       commit();
@@ -201,6 +202,14 @@ export function mergeWordCues(cues: readonly CaptionCue[]): CaptionCue[] {
 
   commit();
   return merged;
+}
+
+/** Word-level ASR tokens only. Full caption lines must not be glued into a false sentence. */
+function isWordFragment(cue: CaptionCue): boolean {
+  const trimmed = cue.text.trim();
+  if (trimmed.length === 0 || trimmed.length > 16) return false;
+  if (/\s/u.test(trimmed)) return false;
+  return cue.endMs - cue.startMs <= WORD_CUE_MERGE_GAP_MS;
 }
 
 export function cueAtTime(cues: readonly CaptionCue[], timeMs: number): CaptionCue | null {

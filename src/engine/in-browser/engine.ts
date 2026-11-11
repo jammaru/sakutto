@@ -155,6 +155,7 @@ export class InBrowserEngine implements IdentifiedEngine {
       handles.push(
         this.scheduler.schedule({
           priority: options.priority,
+          ...(options.preempt === true ? { preempt: true } : {}),
           run: async () => {
             try {
               await job();

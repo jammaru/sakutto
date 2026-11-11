@@ -26,6 +26,33 @@ export function isYouTubeHost(host: string): boolean {
   return normalized.endsWith('.youtube.com') || normalized.endsWith('.youtube-nocookie.com');
 }
 
+export function isYouTubeLivePlayer(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const details = value.videoDetails;
+  if (isRecord(details) && details.isLive === true) return true;
+  const micro = value.microformat;
+  if (isRecord(micro) && isRecord(micro.playerMicroformatRenderer)) {
+    const live = micro.playerMicroformatRenderer.liveBroadcastDetails;
+    if (isRecord(live) && live.isLiveNow === true) return true;
+  }
+  return false;
+}
+
+export function isYouTubeLiveDocument(doc: Document): boolean {
+  if (isYouTubeLivePlayer(playerResponseFromDocument(doc))) return true;
+  const href = doc.defaultView?.location.href ?? '';
+  try {
+    const parsed = new URL(href);
+    const parts = parsed.pathname.split('/').filter((part) => part.length > 0);
+    if (parts[0] === 'live') return true;
+  } catch {
+    // Invalid href.
+  }
+  return Boolean(
+    doc.querySelector('#movie_player.ytp-live, .html5-video-player.ytp-live, .ytp-live'),
+  );
+}
+
 export function youtubeVideoId(url: string): string | null {
   let parsed: URL;
   try {
@@ -114,6 +141,22 @@ export function selectCaptionTrack(
     tracks.find((track) => track.asr && notTarget(track)) ??
     tracks[0] ??
     null
+  );
+}
+
+/** Live streams usually only have a rolling ASR track. */
+export function selectLiveCaptionTrack(
+  tracks: readonly YoutubeCaptionTrack[],
+  targetLanguage: string,
+): YoutubeCaptionTrack | null {
+  if (tracks.length === 0) return null;
+  const target = targetPrefix(targetLanguage);
+  const notTarget = (track: YoutubeCaptionTrack): boolean =>
+    target.length === 0 || !track.languageCode.toLowerCase().startsWith(target);
+  return (
+    tracks.find((track) => track.asr && notTarget(track)) ??
+    tracks.find((track) => track.asr) ??
+    selectCaptionTrack(tracks, targetLanguage)
   );
 }
 

@@ -1174,7 +1174,7 @@
     "message": "Traduzir legendas de vídeo"
   },
   "videoCaptionsSettingHelp": {
-    "message": "Versão inicial: vídeos do YouTube que já têm legendas e vídeos HTML5 comuns com faixas de legendas. A tradução roda no dispositivo. Transmissões ao vivo, o X e vídeos sem legendas ainda não entram. Se uma linha não puder ser traduzida com segurança, a legenda original permanece."
+    "message": "Quando ativada, vídeos do YouTube (incluindo ao vivo) e do X que já têm legendas são traduzidos no dispositivo durante a reprodução. O Chrome pede acesso a esses sites ao ligar a opção. Vídeos sem legendas não mostram nada. Se uma linha não puder ser traduzida com segurança, o original permanece."
   },
   "videoCaptionsDisplayLabel": {
     "message": "Exibição das legendas"

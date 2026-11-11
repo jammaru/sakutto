@@ -232,7 +232,14 @@
   <section class="panel">
     <h2>{t('settingsLabel')}</h2>
     {#if settings}
-      <SettingsFields {settings} {uiLanguage} onChange={updateSettings} />
+      <SettingsFields
+        {settings}
+        {uiLanguage}
+        onChange={updateSettings}
+        onPermissionDenied={() => {
+          permissionError = true;
+        }}
+      />
       <p class="muted help">{t('optionsDefaultHint')}</p>
       {#if settingsError === 'save'}
         <p class="error" role="alert">{t('errorSaveSettings')}</p>

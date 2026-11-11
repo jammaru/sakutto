@@ -52,6 +52,22 @@ describe('engine host protocol', () => {
     });
   });
 
+  it('round-trips live caption preemption', () => {
+    const serialized = serializeTranslateOptions({
+      ...OPTIONS,
+      eager: true,
+      preempt: true,
+    });
+    expect(serialized.eager).toBe(true);
+    expect(serialized.preempt).toBe(true);
+    const signal = new AbortController().signal;
+    expect(deserializeTranslateOptions(serialized, signal)).toMatchObject({
+      eager: true,
+      preempt: true,
+      signal,
+    });
+  });
+
   it('validates translate, status and model requests', () => {
     expect(
       isEngineHostRequest({
@@ -104,6 +120,8 @@ describe('engine host protocol', () => {
     expect(isEngineHostRequest(request({ tgt: 'pt' }))).toBe(true);
     expect(isEngineHostRequest(request({ eager: true }))).toBe(true);
     expect(isEngineHostRequest(request({ eager: 'yes' }))).toBe(false);
+    expect(isEngineHostRequest(request({ preempt: true }))).toBe(true);
+    expect(isEngineHostRequest(request({ preempt: 'yes' }))).toBe(false);
     // Draft and preview options are gone: the host never paints built-in page text.
     expect(isEngineHostRequest(request({ draft: true }))).toBe(true);
     expect(isEngineHostRequest({ type: 'benchmark', requestId: 'b1' })).toBe(true);

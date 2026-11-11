@@ -1174,7 +1174,7 @@
     "message": "Translate video captions"
   },
   "videoCaptionsSettingHelp": {
-    "message": "Early version: YouTube videos that already have captions, and ordinary HTML5 videos with subtitle tracks. Translation runs on your device. Live streams, X, and videos with no captions are not included yet. If a line cannot be translated reliably, the original caption stays."
+    "message": "When this is on, YouTube (including live) and X videos that already have captions are translated on your device as they play. Chrome asks for access to those sites when you turn the setting on. Videos with no captions stay silent. If a line cannot be translated reliably, the original stays."
   },
   "videoCaptionsDisplayLabel": {
     "message": "Caption display"

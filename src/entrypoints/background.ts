@@ -2,7 +2,7 @@ import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
 import { EngineClient } from '@/background/engine-client';
 import { createEngineHostController } from '@/background/engine-host-document';
-import { installPageActions } from '@/background/page-actions';
+import { injectCaptionPages, installPageActions } from '@/background/page-actions';
 import { broadcastModelProgress, shouldWarmDownloadedModel } from '@/background/progress-broadcast';
 import { measureQuality } from '@/background/quality';
 import { TranslationBroker } from '@/background/translation-broker';
@@ -12,7 +12,7 @@ import { normalizeSelectedModelId } from '@/engine/model/selection';
 import { hasLicenseConsent } from '@/shared/agreement';
 import type { EngineCapabilities } from '@/shared/capabilities';
 import { isEngineCapabilities } from '@/shared/capabilities';
-import { pageFetchTimedtext, resolveSameOriginCaptionUrl } from '@/captions/timedtext';
+import { pageFetchTimedtext, resolveCaptionFetchUrl } from '@/captions/timedtext';
 import {
   isCacheClearRequest,
   isCaptionTimedtextRequest,
@@ -53,6 +53,7 @@ export default defineBackground(() => {
   installPageActions(broker);
   subscribeSettings((settings) => {
     client.syncStoredSettings(settings);
+    if (settings.translateVideoCaptions) void injectCaptionPages();
   });
 
   async function syncSource(): Promise<void> {
@@ -222,7 +223,7 @@ export default defineBackground(() => {
       const tabId = sender.tab?.id;
       const tabUrl = sender.tab?.url ?? sender.url;
       const resolved =
-        tabId !== undefined && tabUrl ? resolveSameOriginCaptionUrl(tabUrl, message.url) : null;
+        tabId !== undefined && tabUrl ? resolveCaptionFetchUrl(tabUrl, message.url) : null;
       if (tabId === undefined || !resolved) {
         sendResponse('');
         return true;

@@ -45,3 +45,30 @@ describe('compose command routing', () => {
     expect(content).toContain('shouldHandleComposeCommand(document)');
   });
 });
+
+describe('caption auto-inject', () => {
+  it('injects youtube.com and x.com tabs when the caption setting is on', () => {
+    const actions = readFileSync(
+      new URL('../src/background/page-actions.ts', import.meta.url),
+      'utf8',
+    );
+    const background = readFileSync(
+      new URL('../src/entrypoints/background.ts', import.meta.url),
+      'utf8',
+    );
+    expect(actions).toContain('injectIfCaptions');
+    expect(actions).toContain('shouldAutoInjectCaptions');
+    expect(actions).toContain('injectCaptionPages');
+    expect(background).toContain('injectCaptionPages');
+    expect(background).toContain('settings.translateVideoCaptions');
+  });
+
+  it('requests optional YouTube and X origins from the caption setting checkbox', () => {
+    const fields = readFileSync(
+      new URL('../src/ui/SettingsFields.svelte', import.meta.url),
+      'utf8',
+    );
+    expect(fields).toContain('requestCaptionHostAccess');
+    expect(fields).toContain('translateVideoCaptions');
+  });
+});

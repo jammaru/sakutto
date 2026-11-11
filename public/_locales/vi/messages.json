@@ -1174,7 +1174,7 @@
     "message": "Dịch phụ đề video"
   },
   "videoCaptionsSettingHelp": {
-    "message": "Phiên bản sớm: video YouTube đã có phụ đề và video HTML5 thông thường có track phụ đề. Bản dịch chạy trên thiết bị của bạn. Livestream, X và video không có phụ đề chưa được đưa vào. Nếu một dòng không dịch được một cách đáng tin, phụ đề gốc sẽ được giữ lại."
+    "message": "Khi bật, video YouTube (kể cả trực tiếp) và X đã có phụ đề được dịch trên thiết bị khi phát. Chrome sẽ hỏi quyền truy cập các trang đó lúc bạn bật tùy chọn. Video không có phụ đề sẽ không hiện gì. Nếu một dòng không dịch được đáng tin, phụ đề gốc được giữ lại."
   },
   "videoCaptionsDisplayLabel": {
     "message": "Cách hiện phụ đề"

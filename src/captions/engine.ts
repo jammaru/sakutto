@@ -45,6 +45,10 @@ export class CaptionTranslator {
     return this.cache.get(this.cacheKey(text, options))?.translation;
   }
 
+  hasInflight(text: string, options: CaptionTranslateOptions): boolean {
+    return this.inflight.has(this.cacheKey(text, options));
+  }
+
   clear(): void {
     this.seek();
     this.cache.clear();
@@ -114,6 +118,7 @@ export class CaptionTranslator {
         priority,
         signal,
         eager: priority <= CAPTION_LIVE_PRIORITY,
+        preempt: priority <= CAPTION_LIVE_PRIORITY,
       })) {
         const next = applyChunk(output, chunk);
         output = next.text;

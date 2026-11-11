@@ -1,8 +1,9 @@
+import { pageHost } from '@/dom/sites';
 import type { PageEngine } from '@/dom/session';
 import type { GlossaryEntry } from '@/engine/types';
 import { canonicalLanguage } from '@/shared/languages';
 import type { DisplayMode, Formality } from '@/shared/settings';
-import { cueAtTime, LiveCaptionBuffer, mergeWordCues, type CaptionCue } from './cues';
+import { cueAtTime, LiveCaptionBuffer, mergeWordCues, parseWebVtt, type CaptionCue } from './cues';
 import { CAPTION_LIVE_PRIORITY, CaptionTranslator, type CaptionTranslateOptions } from './engine';
 import {
   cuesFromTrack,
@@ -13,12 +14,15 @@ import {
 } from './html5';
 import { CaptionOverlay, captionOverlayRoot, type CaptionOverlayLabels } from './overlay';
 import { readTimedtext } from './timedtext';
+import { isXHost, listXSubtitleUrls, pickPlayingXVideo } from './x';
 import {
   captionTracksFromPlayerResponse,
+  isYouTubeLiveDocument,
   parseTimedtextPayload,
   playerResponseFromDocument,
   readYoutubeCaptionDom,
   selectCaptionTrack,
+  selectLiveCaptionTrack,
   withTimedtextFormat,
   youtubeVideoId,
   YOUTUBE_CAPTION_WINDOW_SELECTOR,
@@ -66,6 +70,8 @@ export class VideoCaptionSession {
   private nativeStyle: HTMLStyleElement | null = null;
   private observer: MutationObserver | null = null;
   private liveTimer: number | null = null;
+  private liveTrackTimer: number | null = null;
+  private liveMode = false;
   private shownCueId: string | null = null;
   private shownText: string | null = null;
 
@@ -119,6 +125,10 @@ export class VideoCaptionSession {
       view?.setInterval(() => {
         this.pollLive();
       }, 200) ?? null;
+    this.liveTrackTimer =
+      view?.setInterval(() => {
+        if (this.liveMode && this.video) void this.refreshLiveTrack(this.video);
+      }, 2_500) ?? null;
     void this.sync(true);
   }
 
@@ -139,6 +149,11 @@ export class VideoCaptionSession {
       view?.clearInterval(this.liveTimer);
       this.liveTimer = null;
     }
+    if (this.liveTrackTimer !== null) {
+      view?.clearInterval(this.liveTrackTimer);
+      this.liveTrackTimer = null;
+    }
+    this.liveMode = false;
     this.restoreTracks();
     this.hideNativeCaptions(false);
     this.translator.clear();
@@ -177,7 +192,7 @@ export class VideoCaptionSession {
 
   private async sync(forceLoad: boolean): Promise<void> {
     if (!this.running || !this.prefs.enabled) return;
-    const video = pickPrimaryVideo(this.doc);
+    const video = pickSessionVideo(this.doc);
     if (video !== this.video) {
       this.unbindVideo(this.video);
       this.restoreTracks();
@@ -193,7 +208,9 @@ export class VideoCaptionSession {
     }
     this.overlay.attach(captionOverlayRoot(this.doc, video));
     this.place();
-    if (forceLoad || !this.loaded || this.loaded.cues.length === 0) await this.loadTrack(video);
+    if (forceLoad || !this.loaded || (this.loaded.cues.length === 0 && !this.liveMode)) {
+      await this.loadTrack(video);
+    }
     await this.paint(false);
   }
 
@@ -205,7 +222,17 @@ export class VideoCaptionSession {
     const youtube = await this.loadYouTubeTrack();
     if (token !== this.loadToken) return;
     if (youtube) {
+      this.liveMode = youtube.live;
       this.loaded = { key, ...youtube, restoreModes: [] };
+      return;
+    }
+    this.liveMode = false;
+
+    const host = pageHost(this.doc.defaultView?.location.href ?? '') ?? '';
+    if (isXHost(host)) {
+      const xTrack = await this.loadXTrack(video);
+      if (token !== this.loadToken) return;
+      this.loaded = xTrack ? { key, ...xTrack } : { key, cues: [], restoreModes: [] };
       return;
     }
 
@@ -214,20 +241,56 @@ export class VideoCaptionSession {
     this.loaded = html5 ? { key, ...html5 } : { key, cues: [], restoreModes: [] };
   }
 
-  private async loadYouTubeTrack(): Promise<Omit<LoadedTrack, 'key' | 'restoreModes'> | null> {
+  private async loadYouTubeTrack(): Promise<
+    (Omit<LoadedTrack, 'key' | 'restoreModes'> & { live: boolean }) | null
+  > {
+    const live = isYouTubeLiveDocument(this.doc);
     const response = playerResponseFromDocument(this.doc);
     const tracks = captionTracksFromPlayerResponse(response);
-    const selected = selectCaptionTrack(tracks, this.prefs.targetLanguage);
-    if (!selected) return null;
+    const selected = live
+      ? selectLiveCaptionTrack(tracks, this.prefs.targetLanguage)
+      : selectCaptionTrack(tracks, this.prefs.targetLanguage);
+    if (!selected) return live ? { cues: [], live: true } : null;
     const url = withTimedtextFormat(selected.baseUrl, 'json3');
     try {
       const body = await this.readTrack(url);
       const cues = mergeWordCues(parseTimedtextPayload(body, 'json3', selected.languageCode));
-      if (cues.length === 0) return null;
-      return { cues, language: selected.languageCode };
+      if (cues.length === 0 && !live) return null;
+      return { cues, language: selected.languageCode, live };
     } catch {
-      return null;
+      return live ? { cues: [], live: true } : null;
     }
+  }
+
+  private async refreshLiveTrack(video: HTMLVideoElement): Promise<void> {
+    if (!this.running || !this.liveMode) return;
+    const youtube = await this.loadYouTubeTrack();
+    if (!youtube || !this.running) return;
+    this.loaded = {
+      key: trackKey(this.doc, video),
+      cues: youtube.cues,
+      language: youtube.language,
+      restoreModes: [],
+    };
+  }
+
+  private async loadXTrack(video: HTMLVideoElement): Promise<Omit<LoadedTrack, 'key'> | null> {
+    const html5 = loadHtml5Track(video, this.prefs.targetLanguage);
+    if (html5 && html5.cues.length > 0) return html5;
+
+    const urls = listXSubtitleUrls(video);
+    for (const url of urls) {
+      try {
+        const body = await this.readTrack(url);
+        const cues = mergeWordCues(parseWebVtt(body));
+        if (cues.length > 0) {
+          return { cues, restoreModes: html5?.restoreModes ?? [] };
+        }
+      } catch {
+        // Try the next published VTT URL; never invent captions.
+      }
+    }
+    return html5;
   }
 
   private async paint(force: boolean): Promise<void> {
@@ -245,11 +308,30 @@ export class VideoCaptionSession {
     const timeMs = Math.round((video.currentTime || 0) * 1000);
     const cues = this.loaded?.cues ?? [];
     const cue = cueAtTime(cues, timeMs);
+    if (this.liveMode) {
+      if (readYoutubeCaptionDom(this.doc).length > 0) {
+        this.pollLive();
+        return;
+      }
+      if (cue) {
+        await this.paintCue(cue, cues, timeMs, force);
+        return;
+      }
+      return;
+    }
     if (!cue) {
       this.pollLive();
       return;
     }
+    await this.paintCue(cue, cues, timeMs, force);
+  }
 
+  private async paintCue(
+    cue: CaptionCue,
+    cues: readonly CaptionCue[],
+    timeMs: number,
+    force: boolean,
+  ): Promise<void> {
     const language = cue.language ?? this.loaded?.language;
     const options = this.translateOptions(language);
     this.shownCueId = cue.id;
@@ -298,20 +380,23 @@ export class VideoCaptionSession {
   private pollLive(): void {
     if (!this.running) return;
     const visible = readYoutubeCaptionDom(this.doc);
-    if (visible.length === 0 && (this.loaded?.cues.length ?? 0) > 0) return;
     if (visible.length === 0) {
-      if (this.shownText !== null && this.loaded?.cues.length === 0) {
+      if (this.liveMode) return;
+      if ((this.loaded?.cues.length ?? 0) > 0) return;
+      if (this.shownText !== null) {
         this.overlay.hide();
         this.shownText = null;
       }
       return;
     }
-    if ((this.loaded?.cues.length ?? 0) > 0) return;
+    if (!this.liveMode && (this.loaded?.cues.length ?? 0) > 0) return;
 
     const lines = this.liveBuffer.update(visible, this.now());
     const current = this.liveBuffer.peek() || visible;
-    const options = this.translateOptions();
-    if (sameLanguage(undefined, this.prefs.targetLanguage)) {
+    const options = this.translateOptions(this.loaded?.language);
+    this.shownCueId = `live:${current}`;
+    this.shownText = current;
+    if (sameLanguage(this.loaded?.language, this.prefs.targetLanguage)) {
       this.overlay.show({
         original: current,
         translation: null,
@@ -320,22 +405,25 @@ export class VideoCaptionSession {
       });
       return;
     }
+    const cached = this.translator.getCached(current, options);
     this.overlay.show({
       original: current,
-      translation: this.translator.getCached(current, options) ?? null,
+      translation: cached ?? null,
       display: this.prefs.display,
-      pending: this.translator.getCached(current, options) === undefined,
+      pending: cached === undefined && this.translator.hasInflight(current, options),
     });
     for (const line of lines) {
+      if (sameLanguage(this.loaded?.language, this.prefs.targetLanguage)) continue;
       const cue: CaptionCue = {
         id: `live:${line}`,
         startMs: this.now(),
         endMs: this.now() + 2_000,
         text: line,
+        language: this.loaded?.language,
       };
       void this.translator.translateCue(cue, options, CAPTION_LIVE_PRIORITY).then((translation) => {
         if (!this.running) return;
-        if (this.liveBuffer.peek() !== line && readYoutubeCaptionDom(this.doc) !== line) return;
+        if (this.shownText !== line && this.liveBuffer.peek() !== line) return;
         this.overlay.show({
           original: line,
           translation,
@@ -434,8 +522,14 @@ function trackKey(doc: Document, video: HTMLVideoElement): string {
 }
 
 function videoTracksOf(doc: Document): TextTrackList | null {
-  const video = pickPrimaryVideo(doc);
+  const video = pickSessionVideo(doc);
   return video?.textTracks ?? null;
+}
+
+function pickSessionVideo(doc: Document): HTMLVideoElement | null {
+  const host = pageHost(doc.defaultView?.location.href ?? '') ?? '';
+  if (isXHost(host)) return pickPlayingXVideo(doc);
+  return pickPrimaryVideo(doc);
 }
 
 function sameLanguage(source: string | undefined, target: string): boolean {

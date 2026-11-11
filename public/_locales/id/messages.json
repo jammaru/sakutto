@@ -1174,7 +1174,7 @@
     "message": "Terjemahkan teks video"
   },
   "videoCaptionsSettingHelp": {
-    "message": "Versi awal: video YouTube yang sudah punya teks, dan video HTML5 biasa dengan trek subtitle. Terjemahan berjalan di perangkat Anda. Siaran langsung, X, dan video tanpa teks belum termasuk. Jika sebuah baris tidak dapat diterjemahkan dengan andal, teks aslinya tetap ditampilkan."
+    "message": "Jika aktif, video YouTube (termasuk siaran langsung) dan X yang sudah punya teks diterjemahkan di perangkat saat diputar. Chrome meminta akses ke situs itu saat Anda mengaktifkan pengaturan. Video tanpa teks tidak menampilkan apa pun. Jika suatu baris tidak bisa diterjemahkan andal, teks asli tetap ditampilkan."
   },
   "videoCaptionsDisplayLabel": {
     "message": "Tampilan teks"

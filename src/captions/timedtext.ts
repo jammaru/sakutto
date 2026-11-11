@@ -1,4 +1,5 @@
 import { browser } from 'wxt/browser';
+import { resolveTwimgCaptionUrl } from './x';
 
 /**
  * Same-origin GET of a caption URL the player already embedded on the page.
@@ -11,6 +12,12 @@ export async function pageFetchTimedtext(url: string): Promise<string> {
   const response = await fetch(url, { credentials: 'same-origin' });
   if (!response.ok) return '';
   return response.text();
+}
+
+export function resolveCaptionFetchUrl(pageUrl: string, captionUrl: string): string | null {
+  return (
+    resolveSameOriginCaptionUrl(pageUrl, captionUrl) ?? resolveTwimgCaptionUrl(pageUrl, captionUrl)
+  );
 }
 
 export function resolveSameOriginCaptionUrl(pageUrl: string, captionUrl: string): string | null {

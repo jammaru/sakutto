@@ -12,15 +12,17 @@
     type Settings,
     type SettingsPatch,
   } from '@/shared/settings';
+  import { requestCaptionHostAccess } from '@/captions/sites';
   import LanguageField from './LanguageField.svelte';
 
   interface Props {
     settings: Settings;
     uiLanguage: string;
     onChange: (patch: SettingsPatch) => void;
+    onPermissionDenied?: () => void;
   }
 
-  let { settings, uiLanguage, onChange }: Props = $props();
+  let { settings, uiLanguage, onChange, onPermissionDenied }: Props = $props();
 
   function updateForm(event: Event) {
     const select = event.currentTarget as HTMLSelectElement;
@@ -153,7 +155,17 @@
       checked={settings.translateVideoCaptions}
       onchange={(event) => {
         const input = event.currentTarget as HTMLInputElement;
-        onChange({ translateVideoCaptions: input.checked });
+        void (async () => {
+          if (input.checked) {
+            const granted = await requestCaptionHostAccess();
+            if (!granted) {
+              input.checked = false;
+              onPermissionDenied?.();
+              return;
+            }
+          }
+          onChange({ translateVideoCaptions: input.checked });
+        })();
       }}
     />
     <span>{t('videoCaptionsSetting')}</span>

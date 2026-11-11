@@ -1174,7 +1174,7 @@
     "message": "Traduci i sottotitoli video"
   },
   "videoCaptionsSettingHelp": {
-    "message": "Versione iniziale: video YouTube che hanno già i sottotitoli e video HTML5 normali con tracce di sottotitoli. La traduzione viene eseguita sul dispositivo. Le dirette, X e i video senza sottotitoli non sono ancora inclusi. Se una riga non può essere tradotta in modo affidabile, resta il sottotitolo originale."
+    "message": "Se attiva, i video YouTube (anche in diretta) e X che hanno già i sottotitoli vengono tradotti sul dispositivo durante la riproduzione. Chrome chiede l'accesso a quei siti quando attivi l'impostazione. I video senza sottotitoli non mostrano nulla. Se una riga non può essere tradotta in modo affidabile, resta l'originale."
   },
   "videoCaptionsDisplayLabel": {
     "message": "Visualizzazione dei sottotitoli"

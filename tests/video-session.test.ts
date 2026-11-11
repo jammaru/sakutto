@@ -83,4 +83,169 @@ describe('video caption session', () => {
     );
     session.stop();
   });
+
+  it('shows the live original immediately and replaces it with the translation', async () => {
+    document.body.innerHTML = `
+      <div id="movie_player" class="html5-video-player ytp-live">
+        <video id="player" class="html5-main-video"></video>
+        <div class="ytp-caption-window-container">
+          <span class="ytp-caption-segment">The station opens at dawn.</span>
+        </div>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "videoDetails": { "videoId": "fixturelive01", "isLive": true }
+        };
+      </script>
+    `;
+    const video = document.querySelector('video');
+    if (video) video.currentTime = 0.4;
+
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = new VideoCaptionSession(document, {
+      engine: delayedEngine(gate),
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => '',
+    });
+    session.start();
+    await vi.waitFor(() => {
+      const host = document.querySelector('sakutto-captions');
+      expect(host?.getAttribute('data-sakutto-original')).toBe('The station opens at dawn.');
+      expect(host?.getAttribute('data-sakutto-caption')).toBe('The station opens at dawn.');
+    });
+    release?.();
+    await vi.waitFor(() => {
+      expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('The station opens at dawn.', 'ja'),
+      );
+    });
+    session.stop();
+  });
+
+  it('translates a synthetic X VTT on the playing video only', async () => {
+    const { Window } = await import('happy-dom');
+    const view = new Window({ url: 'https://x.com/i/status/1' });
+    const doc = view.document;
+    doc.body.innerHTML = `
+      <video id="idle"></video>
+      <video id="playing">
+        <track kind="subtitles" src="https://video.twimg.com/subtitles/fixture.vtt" srclang="en" />
+      </video>
+    `;
+    const idle = doc.querySelector('#idle') as unknown as HTMLVideoElement;
+    const playing = doc.querySelector('#playing') as unknown as HTMLVideoElement;
+    stubMedia(idle, { paused: true, width: 800, height: 450 });
+    stubMedia(playing, { paused: false, width: 320, height: 180, currentTime: 0.4 });
+
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => `WEBVTT
+
+00:00:00.000 --> 00:00:02.000
+The station opens at dawn.
+`,
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+        'The station opens at dawn.',
+      );
+    });
+    session.stop();
+    view.close();
+  });
+
+  it('paints nothing when the playing X video has no captions', async () => {
+    const { Window } = await import('happy-dom');
+    const view = new Window({ url: 'https://x.com/i/status/1' });
+    const doc = view.document;
+    doc.body.innerHTML = '<video id="playing"></video>';
+    const playing = doc.querySelector('#playing') as unknown as HTMLVideoElement;
+    stubMedia(playing, { paused: false, width: 320, height: 180, currentTime: 0.4 });
+
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => {
+        throw new Error('no captions should be fetched');
+      },
+    });
+    session.start();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const host = doc.querySelector('sakutto-captions');
+    expect(host?.hasAttribute('data-sakutto-caption')).toBeFalsy();
+    expect(host?.hasAttribute('hidden')).toBe(true);
+    session.stop();
+    view.close();
+  });
 });
+
+function delayedEngine(gate: Promise<void>): PageEngine {
+  return {
+    async *translate(segments, options) {
+      await gate;
+      for (const segment of segments) {
+        yield {
+          id: segment.id,
+          final: fakeTranslateText(segment.text, options.tgt),
+          engine: 'plamo',
+        };
+      }
+    },
+  };
+}
+
+function stubMedia(
+  video: HTMLVideoElement,
+  options: { paused: boolean; width: number; height: number; currentTime?: number },
+): void {
+  Object.defineProperty(video, 'paused', { configurable: true, get: () => options.paused });
+  Object.defineProperty(video, 'ended', { configurable: true, get: () => false });
+  Object.defineProperty(video, 'readyState', { configurable: true, get: () => 4 });
+  Object.defineProperty(video, 'muted', { configurable: true, get: () => true });
+  Object.defineProperty(video, 'volume', { configurable: true, get: () => 1 });
+  Object.defineProperty(video, 'currentTime', {
+    configurable: true,
+    get: () => options.currentTime ?? 0,
+    set: () => undefined,
+  });
+  video.getBoundingClientRect = () =>
+    ({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: options.width,
+      bottom: options.height,
+      width: options.width,
+      height: options.height,
+      toJSON() {
+        return {};
+      },
+    }) as DOMRect;
+}

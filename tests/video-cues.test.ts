@@ -13,10 +13,13 @@ import {
 import {
   captionTracksFromPlayerResponse,
   parsePlayerResponseScript,
+  isYouTubeLivePlayer,
   selectCaptionTrack,
+  selectLiveCaptionTrack,
   withTimedtextFormat,
   youtubeVideoId,
 } from '@/captions/youtube';
+import { resolveCaptionFetchUrl } from '@/captions/timedtext';
 import { captionOverlayBox } from '@/captions/overlay';
 import { CAPTION_LIVE_PRIORITY, CAPTION_PREFETCH_PRIORITY } from '@/captions/engine';
 import { pickCaptionTrack, revealTrackCues } from '@/captions/html5';
@@ -89,6 +92,17 @@ describe('word-cue merging', () => {
     ]);
     expect(merged.map((cue) => cue.text)).toEqual(['The train left.', 'Later']);
     expect(merged[0]?.endMs).toBe(1400);
+  });
+
+  it('does not glue two finished captions into a misleading sentence', () => {
+    const merged = mergeWordCues([
+      { id: 'a', startMs: 0, endMs: 2000, text: 'The station opens at dawn.' },
+      { id: 'b', startMs: 2100, endMs: 4200, text: 'A red train waits at platform two.' },
+    ]);
+    expect(merged.map((cue) => cue.text)).toEqual([
+      'The station opens at dawn.',
+      'A red train waits at platform two.',
+    ]);
   });
 });
 
@@ -171,6 +185,41 @@ describe('YouTube player response', () => {
     expect(youtubeVideoId('https://www.youtube.com/watch?v=abcdefghijk')).toBe('abcdefghijk');
     expect(youtubeVideoId('https://youtu.be/abcdefghijk')).toBe('abcdefghijk');
     expect(youtubeVideoId('https://www.youtube.com/embed/abcdefghijk')).toBe('abcdefghijk');
+    expect(youtubeVideoId('https://www.youtube.com/live/abcdefghijk')).toBe('abcdefghijk');
+  });
+
+  it('detects a live player and prefers the ASR track', () => {
+    expect(
+      isYouTubeLivePlayer({
+        videoDetails: { isLive: true },
+        captions: { playerCaptionsTracklistRenderer: { captionTracks: [] } },
+      }),
+    ).toBe(true);
+    const tracks = captionTracksFromPlayerResponse({
+      captions: {
+        playerCaptionsTracklistRenderer: {
+          captionTracks: [
+            {
+              baseUrl: 'https://www.youtube.com/api/timedtext?v=live&lang=en',
+              languageCode: 'en',
+              name: { simpleText: 'English' },
+              vssId: '.en',
+            },
+            {
+              baseUrl: 'https://www.youtube.com/api/timedtext?v=live&lang=ja&kind=asr',
+              languageCode: 'ja',
+              kind: 'asr',
+              name: { simpleText: 'Japanese (auto)' },
+              vssId: 'a.ja',
+            },
+          ],
+        },
+      },
+    });
+    expect(selectLiveCaptionTrack(tracks, 'en')).toMatchObject({
+      languageCode: 'ja',
+      asr: true,
+    });
   });
 });
 
@@ -213,5 +262,11 @@ describe('HTML5 caption tracks', () => {
     );
     expect(resolveSameOriginCaptionUrl(page, 'https://evil.example/steal')).toBeNull();
     expect(resolveSameOriginCaptionUrl(page, 'javascript:alert(1)')).toBeNull();
+  });
+
+  it('allows a twimg VTT URL only from an X watch tab', () => {
+    const twimg = 'https://video.twimg.com/subtitles/fixture.vtt';
+    expect(resolveCaptionFetchUrl('https://x.com/i/status/1', twimg)).toBe(twimg);
+    expect(resolveCaptionFetchUrl('https://www.youtube.com/watch?v=abcdefghijk', twimg)).toBeNull();
   });
 });
