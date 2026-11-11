@@ -385,8 +385,24 @@ export function alignCaptionCuesToMedia(
 export function finalizeCaptionCues(
   cues: readonly CaptionCue[],
   durationMs?: number,
+  options?: { asr?: boolean },
 ): CaptionCue[] {
-  return alignCaptionCuesToMedia(mergeSentenceCues(mergeWordCues(cues)), durationMs);
+  const words = mergeWordCues(cues);
+  const prepared = options?.asr === true ? mergeSentenceCues(words) : words;
+  return alignCaptionCuesToMedia(prepared, durationMs);
+}
+
+/** Current cue at `timeMs`, then the next cues in timeline order. */
+export function cuesFromPlayhead(
+  cues: readonly CaptionCue[],
+  timeMs: number,
+  limit: number,
+): CaptionCue[] {
+  if (limit <= 0 || cues.length === 0) return [];
+  let index = cues.findIndex((cue) => timeMs >= cue.startMs && timeMs < cue.endMs);
+  if (index < 0) index = cues.findIndex((cue) => cue.startMs >= timeMs);
+  if (index < 0) return [];
+  return cues.slice(index, index + limit);
 }
 
 export function cueAtTime(cues: readonly CaptionCue[], timeMs: number): CaptionCue | null {

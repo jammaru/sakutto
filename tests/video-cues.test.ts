@@ -4,7 +4,9 @@ import { describe, expect, it } from 'vitest';
 import {
   alignCaptionCuesToMedia,
   cueAtTime,
+  cuesFromPlayhead,
   cuesInWindow,
+  finalizeCaptionCues,
   LiveCaptionBuffer,
   LIVE_CAPTION_MAX_WAIT_MS,
   mergeSentenceCues,
@@ -27,7 +29,11 @@ import {
   youtubeVideoId,
 } from '@/captions/youtube';
 import { captionOverlayBox, captionOverlayFontPx } from '@/captions/overlay';
-import { CAPTION_LIVE_PRIORITY, CAPTION_PREFETCH_PRIORITY } from '@/captions/engine';
+import {
+  CAPTION_LIVE_PRIORITY,
+  CAPTION_PLAYHEAD_PRIORITY,
+  CAPTION_PREFETCH_PRIORITY,
+} from '@/captions/engine';
 import { pickCaptionTrack, revealTrackCues } from '@/captions/html5';
 import {
   resolveCaptionFetchUrl,
@@ -179,6 +185,45 @@ describe('sentence-cue merging', () => {
       'With the first train leaving.',
     ]);
   });
+
+  it('keeps creator-track cue text as-is and only sentence-merges ASR', () => {
+    const fragments = [
+      {
+        id: 'a',
+        startMs: 0,
+        endMs: 1800,
+        text: 'the north window sells tickets that do not',
+      },
+      {
+        id: 'b',
+        startMs: 1800,
+        endMs: 3600,
+        text: 'require a reservation for the red train.',
+      },
+    ];
+    expect(finalizeCaptionCues(fragments).map((cue) => cue.text)).toEqual([
+      'the north window sells tickets that do not',
+      'require a reservation for the red train.',
+    ]);
+    expect(finalizeCaptionCues(fragments, undefined, { asr: true }).map((cue) => cue.text)).toEqual(
+      ['the north window sells tickets that do not require a reservation for the red train.'],
+    );
+  });
+
+  it('returns the playhead cue then the next few in order', () => {
+    const cues = [
+      { id: 'a', startMs: 0, endMs: 2000, text: 'one' },
+      { id: 'b', startMs: 2000, endMs: 4000, text: 'two' },
+      { id: 'c', startMs: 4000, endMs: 6000, text: 'three' },
+      { id: 'd', startMs: 6000, endMs: 8000, text: 'four' },
+    ];
+    expect(cuesFromPlayhead(cues, 2500, 3).map((cue) => cue.text)).toEqual([
+      'two',
+      'three',
+      'four',
+    ]);
+    expect(cuesFromPlayhead(cues, 0, 1).map((cue) => cue.text)).toEqual(['one']);
+  });
 });
 
 describe('live caption buffer', () => {
@@ -290,6 +335,28 @@ describe('YouTube player response', () => {
     });
     expect(selectCaptionTrack(tracks, 'ja')).toMatchObject({ languageCode: 'en', asr: false });
     expect(selectCaptionTrack(tracks, 'ja')?.languageCode).not.toBe('af');
+    expect(
+      selectCaptionTrack(
+        [
+          {
+            baseUrl: '/asr',
+            languageCode: 'en',
+            name: 'English (auto)',
+            asr: true,
+            vssId: 'a.en',
+          },
+          {
+            baseUrl: '/manual',
+            languageCode: 'en',
+            name: 'English',
+            asr: false,
+            vssId: '.en',
+          },
+        ],
+        'ja',
+        'en',
+      ),
+    ).toMatchObject({ baseUrl: '/manual', asr: false });
   });
 
   it('parses the e2e YouTube fixture as quoted JSON, the way the watch page ships it', () => {
@@ -406,13 +473,14 @@ describe('caption overlay placement and priority', () => {
     const box = captionOverlayBox({ left: 0, top: 0, width: 1280, height: 720 });
     expect(box.width).toBeGreaterThan(720);
     expect(box.width).toBeCloseTo(1280 * 0.94);
-    expect(captionOverlayFontPx(720)).toBeGreaterThanOrEqual(20);
+    expect(captionOverlayFontPx(720)).toBeGreaterThanOrEqual(22);
     expect(captionOverlayFontPx(360, 32, 100)).toBe(32);
     expect(captionOverlayFontPx(360, 32)).toBeLessThan(32);
   });
 
   it('keeps live captions ahead of page prose and prefetch behind nearby prose', () => {
-    expect(CAPTION_LIVE_PRIORITY).toBeGreaterThan(0);
+    expect(CAPTION_PLAYHEAD_PRIORITY).toBeGreaterThan(0);
+    expect(CAPTION_PLAYHEAD_PRIORITY).toBeLessThan(CAPTION_LIVE_PRIORITY);
     expect(CAPTION_LIVE_PRIORITY).toBeLessThan(10);
     expect(CAPTION_PREFETCH_PRIORITY).toBeGreaterThan(22);
     expect(CAPTION_PREFETCH_PRIORITY).toBeLessThan(34);

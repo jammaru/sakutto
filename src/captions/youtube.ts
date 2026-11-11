@@ -519,7 +519,7 @@ export function nativeCaptionFontPx(doc: Document): number | undefined {
   if (!(segment instanceof Element)) return undefined;
   const view = doc.defaultView;
   const size = Number.parseFloat(view?.getComputedStyle(segment).fontSize ?? '');
-  return Number.isFinite(size) && size >= 12 ? size : undefined;
+  return Number.isFinite(size) && size >= 22 ? size : undefined;
 }
 
 export function parseTimedtextPayload(

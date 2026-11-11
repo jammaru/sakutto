@@ -3,7 +3,9 @@ import { isBrokenTranslation } from '@/engine/text/degenerate';
 import type { Formality, GlossaryEntry, TranslationChunk } from '@/engine/types';
 import { cuesInWindow, type CaptionCue } from './cues';
 
-/** After a selection (0), before visible page prose (~10). */
+/** Current playhead cue: ahead of other caption work, still after a selection (0). */
+export const CAPTION_PLAYHEAD_PRIORITY = 1;
+/** Next 1–2 cues after the playhead, before visible page prose (~10). */
 export const CAPTION_LIVE_PRIORITY = 2;
 /** After nearby page prose (~22), before far chrome (~34). */
 export const CAPTION_PREFETCH_PRIORITY = 24;
@@ -15,8 +17,6 @@ export function captionPrefetchWindowMs(
   const base = tier === 'g' ? 36_000 : tier === 'c8' ? 16_000 : 8_000;
   return Math.round(base * Math.min(3, Math.max(1, playbackRate)));
 }
-
-const NEAR_PLAYHEAD_MS = 8_000;
 
 export interface CaptionTranslateOptions {
   tgt: string;
@@ -106,16 +106,16 @@ export class CaptionTranslator {
     options: CaptionTranslateOptions,
     tier: 'g' | 'c8' | 'c4' | 'c1' | null,
     playbackRate = 1,
+    skipIds: ReadonlySet<string> = new Set(),
   ): void {
     const rate = Number.isFinite(playbackRate) && playbackRate > 0 ? playbackRate : 1;
     const windowMs = captionPrefetchWindowMs(tier, rate);
     const upcoming = cuesInWindow(cues, timeMs, timeMs + windowMs);
-    const nearMs = timeMs + NEAR_PLAYHEAD_MS * Math.min(3, Math.max(1, rate));
     for (const cue of upcoming) {
+      if (skipIds.has(cue.id)) continue;
       if (this.getCached(cue.text, options) !== undefined) continue;
       if (this.inflight.has(this.cacheKey(cue.text, options))) continue;
-      const priority = cue.startMs <= nearMs ? CAPTION_LIVE_PRIORITY : CAPTION_PREFETCH_PRIORITY;
-      void this.translateCue(cue, options, priority);
+      void this.translateCue(cue, options, CAPTION_PREFETCH_PRIORITY);
     }
   }
 
@@ -137,7 +137,7 @@ export class CaptionTranslator {
         priority,
         signal,
         eager: priority <= CAPTION_LIVE_PRIORITY,
-        preempt: priority <= CAPTION_LIVE_PRIORITY,
+        preempt: priority <= CAPTION_PLAYHEAD_PRIORITY,
       })) {
         const next = applyChunk(output, chunk);
         output = next.text;

@@ -111,20 +111,64 @@ export function captionOverlayBox(
   };
 }
 
-/** Match YouTube's native caption size: native computed px, else ~5% of player height. */
+/** Floor after scale: never drop below a typical YouTube caption. */
+export const CAPTION_FONT_MIN_PX = 22;
+export const CAPTION_FONT_MAX_PX = 64;
+/** Player/video boxes below this are treated as unset (0, collapsed, mid-transition). */
+export const CAPTION_LAYOUT_MIN_PX = 160;
+const CAPTION_FONT_BASE_MIN_PX = 28;
+
+/** Match YouTube's native caption size: ~5.5% of a settled player, never a 0×0 box. */
 export function captionOverlayFontPx(
   playerHeight: number,
   nativePx?: number,
   scale = VIDEO_CAPTION_SIZE_DEFAULT,
 ): number {
-  const base =
-    nativePx !== undefined && Number.isFinite(nativePx) && nativePx >= 14
-      ? Math.min(64, nativePx)
-      : Math.min(56, Math.max(20, playerHeight * 0.05));
   const factor = Number.isFinite(scale)
     ? Math.min(VIDEO_CAPTION_SIZE_MAX, Math.max(VIDEO_CAPTION_SIZE_MIN, scale)) / 100
     : VIDEO_CAPTION_SIZE_DEFAULT / 100;
-  return Math.round(Math.min(64, Math.max(12, base * factor)));
+  const height = Number.isFinite(playerHeight) ? playerHeight : 0;
+  const fromPlayer =
+    height >= CAPTION_LAYOUT_MIN_PX
+      ? Math.min(CAPTION_FONT_MAX_PX, Math.max(CAPTION_FONT_BASE_MIN_PX, height * 0.055))
+      : CAPTION_FONT_BASE_MIN_PX;
+  const nativeOk =
+    nativePx !== undefined &&
+    Number.isFinite(nativePx) &&
+    nativePx >= CAPTION_FONT_MIN_PX &&
+    nativePx <= CAPTION_FONT_MAX_PX;
+  const base = nativeOk ? Math.max(nativePx, fromPlayer) : fromPlayer;
+  return Math.round(Math.min(CAPTION_FONT_MAX_PX, Math.max(CAPTION_FONT_MIN_PX, base * factor)));
+}
+
+export type CaptionLayoutRect = Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>;
+
+/**
+ * Prefer a laid-out player/video box. A 0×0 or collapsed rect (theater/miniplayer
+ * transition) must not shrink type: reuse the last good box instead.
+ */
+export function pickCaptionLayoutRect(
+  video: CaptionLayoutRect,
+  player: CaptionLayoutRect | null | undefined,
+  previous?: CaptionLayoutRect | null,
+): CaptionLayoutRect {
+  const width = Math.max(video.width, player?.width ?? 0);
+  const height = Math.max(video.height, player?.height ?? 0);
+  const origin =
+    video.width >= CAPTION_LAYOUT_MIN_PX && video.height >= CAPTION_LAYOUT_MIN_PX
+      ? video
+      : (player ?? video);
+  if (width >= CAPTION_LAYOUT_MIN_PX && height >= CAPTION_LAYOUT_MIN_PX) {
+    return { left: origin.left, top: origin.top, width, height };
+  }
+  if (
+    previous &&
+    previous.width >= CAPTION_LAYOUT_MIN_PX &&
+    previous.height >= CAPTION_LAYOUT_MIN_PX
+  ) {
+    return previous;
+  }
+  return { left: origin.left, top: origin.top, width, height };
 }
 
 /**

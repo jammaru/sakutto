@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   CaptionOverlay,
   captionChromeInset,
+  CAPTION_FONT_MIN_PX,
   captionOverlayFontPx,
+  pickCaptionLayoutRect,
   captionOverlayRoot,
   CAPTION_ORIGINAL_TOGGLE,
 } from '@/captions/overlay';
@@ -186,5 +188,31 @@ describe('caption overlay', () => {
     expect(smaller).toBeLessThan(captionOverlayFontPx(400, undefined, 100));
     expect(larger).toBeGreaterThan(smaller);
     expect(captionOverlayFontPx(900)).toBeGreaterThan(captionOverlayFontPx(180));
+  });
+
+  it('does not shrink type from a 0 or collapsed player rect', () => {
+    const settled = captionOverlayFontPx(540);
+    expect(captionOverlayFontPx(0)).toBeGreaterThanOrEqual(CAPTION_FONT_MIN_PX);
+    expect(captionOverlayFontPx(40)).toBeGreaterThanOrEqual(CAPTION_FONT_MIN_PX);
+    expect(captionOverlayFontPx(0)).toBe(captionOverlayFontPx(40));
+    expect(settled).toBeGreaterThanOrEqual(CAPTION_FONT_MIN_PX);
+    expect(captionOverlayFontPx(0)).toBeLessThanOrEqual(settled);
+  });
+
+  it('ignores a tiny native font-size that is smaller than the player-based size', () => {
+    const fromPlayer = captionOverlayFontPx(540);
+    expect(captionOverlayFontPx(540, 14)).toBe(fromPlayer);
+    expect(captionOverlayFontPx(540, 14)).toBeGreaterThanOrEqual(CAPTION_FONT_MIN_PX);
+  });
+
+  it('reuses the last laid-out player box when the video collapses mid-transition', () => {
+    const good = { left: 0, top: 0, width: 960, height: 540 };
+    const collapsed = { left: 0, top: 0, width: 0, height: 0 };
+    const tiny = { left: 10, top: 20, width: 80, height: 45 };
+    expect(pickCaptionLayoutRect(collapsed, tiny, good)).toEqual(good);
+    expect(pickCaptionLayoutRect(good, good, collapsed).height).toBe(540);
+    const first = pickCaptionLayoutRect(collapsed, null);
+    expect(first.height).toBe(0);
+    expect(captionOverlayFontPx(first.height)).toBeGreaterThanOrEqual(CAPTION_FONT_MIN_PX);
   });
 });

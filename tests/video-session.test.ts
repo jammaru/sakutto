@@ -3,6 +3,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PageEngine } from '@/dom/session';
 import { fakeTranslateText } from '@/dom/fake-engine';
 import { VideoCaptionSession } from '@/captions/session';
+import { CAPTION_FONT_MIN_PX } from '@/captions/overlay';
+import {
+  CAPTION_LIVE_PRIORITY,
+  CAPTION_PLAYHEAD_PRIORITY,
+  CAPTION_PREFETCH_PRIORITY,
+} from '@/captions/engine';
 
 const labels = {
   label: 'Translated captions',
@@ -199,6 +205,11 @@ describe('video caption session', () => {
       'The station opens at dawn.',
     );
     expect(pendingHost?.textContent ?? '').not.toContain('Translating');
+    expect(document.querySelector('style[data-sakutto="captions"]')).toBeNull();
+    expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('waiting');
+    expect(document.querySelector('.ytp-caption-segment')?.textContent).toBe(
+      'The station opens at dawn.',
+    );
     release?.();
     await vi.waitFor(() => {
       expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
@@ -1166,6 +1177,239 @@ The station opens at dawn.
     expect(
       document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption'),
     ).not.toMatch(/§ja§/);
+    session.stop();
+  });
+
+  it('keeps native captions visible until the first translated overlay line', async () => {
+    document.body.innerHTML = `
+      <div id="movie_player">
+        <video id="player" class="html5-main-video"></video>
+        <div class="ytp-caption-window-container">
+          <span class="ytp-caption-segment">The station opens at dawn.</span>
+        </div>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "captions": {
+            "playerCaptionsTracklistRenderer": {
+              "captionTracks": [{
+                "baseUrl": "/youtube-timedtext.json",
+                "languageCode": "en",
+                "name": { "simpleText": "English" }
+              }]
+            }
+          }
+        };
+      </script>
+    `;
+    const video = document.querySelector('video');
+    if (video) video.currentTime = 0.4;
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = new VideoCaptionSession(document, {
+      engine: delayedEngine(gate),
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => JSON.stringify(TIMEDTEXT),
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('waiting');
+    });
+    expect(document.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-caption')).toBe(
+      false,
+    );
+    expect(document.querySelector('style[data-sakutto="captions"]')).toBeNull();
+    expect(document.querySelector('.ytp-caption-segment')?.textContent).toBe(
+      'The station opens at dawn.',
+    );
+    release?.();
+    await vi.waitFor(() => {
+      expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('The station opens at dawn.', 'ja'),
+      );
+    });
+    expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('overlay');
+    expect(document.querySelector('style[data-sakutto="captions"]')).not.toBeNull();
+    session.stop();
+  });
+
+  it('translates the playhead cue before nearby or prefetch lines', async () => {
+    const events: Array<{ tStartMs: number; dDurationMs: number; segs: Array<{ utf8: string }> }> =
+      [];
+    const lines = [
+      'The station opens at dawn.',
+      'A red train waits at platform two.',
+      'Tickets are sold at the north window.',
+      'The clock above the gate reads noon.',
+      'Passengers wait on the second platform.',
+    ];
+    for (const [index, text] of lines.entries()) {
+      events.push({ tStartMs: index * 2000, dDurationMs: 2000, segs: [{ utf8: text }] });
+    }
+    document.body.innerHTML = `
+      <div id="movie_player">
+        <video id="player" class="html5-main-video"></video>
+        <div class="ytp-caption-window-container">
+          <span class="ytp-caption-segment">${lines[0]}</span>
+        </div>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "captions": {
+            "playerCaptionsTracklistRenderer": {
+              "captionTracks": [{
+                "baseUrl": "/youtube-timedtext.json",
+                "languageCode": "en",
+                "name": { "simpleText": "English" }
+              }]
+            }
+          }
+        };
+      </script>
+    `;
+    const video = document.querySelector('video');
+    if (video) video.currentTime = 0.4;
+    const started: Array<{ text: string; priority: number; at: number }> = [];
+    const origin = Date.now();
+    let chain = Promise.resolve();
+    const serial: PageEngine = {
+      async *translate(segments, options) {
+        const text = segments[0]?.text ?? '';
+        const run = chain.then(async () => {
+          started.push({ text, priority: options.priority, at: Date.now() - origin });
+          await new Promise((resolve) => setTimeout(resolve, 40));
+        });
+        chain = run.then(
+          () => undefined,
+          () => undefined,
+        );
+        await run;
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine: serial,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => JSON.stringify({ events }),
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original'),
+      ).toBe(lines[0]);
+    });
+    const firstTranslatedAt = Date.now() - origin;
+    expect(started[0]?.text).toBe(lines[0]);
+    expect(started[0]?.priority).toBe(CAPTION_PLAYHEAD_PRIORITY);
+    expect(started.filter((entry) => entry.text === lines[0])).toHaveLength(1);
+    await vi.waitFor(() => {
+      expect(
+        started.some(
+          (entry) => entry.text === lines[1] && entry.priority === CAPTION_LIVE_PRIORITY,
+        ),
+      ).toBe(true);
+      expect(started.some((entry) => entry.priority === CAPTION_PREFETCH_PRIORITY)).toBe(true);
+    });
+    expect(
+      started.findIndex((entry) => entry.priority === CAPTION_PREFETCH_PRIORITY),
+    ).toBeGreaterThan(0);
+    expect(firstTranslatedAt).toBeLessThan(400);
+    session.stop();
+  });
+
+  it('keeps overlay type at YouTube size when the video rect collapses', async () => {
+    document.body.innerHTML = `
+      <div id="movie_player" class="html5-video-player">
+        <video id="player" class="html5-main-video"></video>
+        <div class="ytp-caption-window-container">
+          <span class="ytp-caption-segment">The station opens at dawn.</span>
+        </div>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "captions": {
+            "playerCaptionsTracklistRenderer": {
+              "captionTracks": [{
+                "baseUrl": "/youtube-timedtext.json",
+                "languageCode": "en",
+                "name": { "simpleText": "English" }
+              }]
+            }
+          }
+        };
+      </script>
+    `;
+    const video = document.querySelector('video');
+    if (!video) throw new Error('video');
+    const box = { width: 960, height: 540 };
+    stubMedia(video, { paused: false, width: box.width, height: box.height, currentTime: 0.4 });
+    video.getBoundingClientRect = () =>
+      ({
+        x: 0,
+        y: 0,
+        left: 0,
+        top: 0,
+        right: box.width,
+        bottom: box.height,
+        width: box.width,
+        height: box.height,
+        toJSON() {
+          return {};
+        },
+      }) as DOMRect;
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => JSON.stringify(TIMEDTEXT),
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('The station opens at dawn.', 'ja'),
+      );
+    });
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    const settled = Number.parseFloat(host.style.getPropertyValue('--sakutto-caption-size'));
+    expect(settled).toBeGreaterThanOrEqual(CAPTION_FONT_MIN_PX);
+    box.width = 0;
+    box.height = 0;
+    video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+    await vi.waitFor(() => {
+      const next = Number.parseFloat(host.style.getPropertyValue('--sakutto-caption-size'));
+      expect(next).toBe(settled);
+    });
+    expect(
+      Number.parseFloat(host.style.getPropertyValue('--sakutto-caption-size')),
+    ).toBeGreaterThanOrEqual(CAPTION_FONT_MIN_PX);
     session.stop();
   });
 });

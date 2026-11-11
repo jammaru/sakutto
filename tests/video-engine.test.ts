@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { isBrokenTranslation } from '@/engine/text/degenerate';
 import type { PageEngine } from '@/dom/session';
 import type { TranslateOptions, TranslateSegment, TranslationChunk } from '@/engine/types';
 import {
   CAPTION_LIVE_PRIORITY,
+  CAPTION_PLAYHEAD_PRIORITY,
+  CAPTION_PREFETCH_PRIORITY,
   CaptionTranslator,
   captionPrefetchWindowMs,
 } from '@/captions/engine';
@@ -177,7 +179,7 @@ describe('caption translator', () => {
     expect(started).toBeGreaterThanOrEqual(2);
   });
 
-  it('asks live caption jobs to preempt a page batch', async () => {
+  it('asks the playhead cue to preempt a page batch', async () => {
     let seenPriority: number | undefined;
     let seenPreempt: boolean | undefined;
     let seenEager: boolean | undefined;
@@ -196,10 +198,94 @@ describe('caption translator', () => {
     await translator.translateCue(
       cue('The station opens at dawn.'),
       { tgt: 'ja', form: 'polite' },
-      CAPTION_LIVE_PRIORITY,
+      CAPTION_PLAYHEAD_PRIORITY,
     );
-    expect(seenPriority).toBe(CAPTION_LIVE_PRIORITY);
+    expect(seenPriority).toBe(CAPTION_PLAYHEAD_PRIORITY);
     expect(seenPreempt).toBe(true);
     expect(seenEager).toBe(true);
+  });
+
+  it('prefetches later cues at prefetch priority, never live', async () => {
+    const seen: number[] = [];
+    const translator = new CaptionTranslator(
+      engineOf((segments, options) => {
+        seen.push(options.priority);
+        return segments.map((segment) => ({
+          id: segment.id,
+          final: `訳:${segment.text}`,
+          engine: 'plamo' as const,
+        }));
+      }),
+    );
+    translator.prefetch(
+      [
+        cue('The station opens at dawn.', 0),
+        cue('A red train waits at platform two.', 2000),
+        cue('Tickets are sold at the north window.', 4000),
+      ],
+      400,
+      { tgt: 'ja', form: 'polite' },
+      'g',
+      1,
+      new Set(),
+    );
+    await vi.waitFor(() => {
+      expect(seen.length).toBe(3);
+    });
+    expect(seen.every((priority) => priority === CAPTION_PREFETCH_PRIORITY)).toBe(true);
+  });
+
+  it('finishes the playhead line first when later cues would otherwise share the first batch', async () => {
+    const delayMs = 25;
+    const lines = Array.from({ length: 12 }, (_, index) => `line ${String(index)}`);
+    const pack = async (submit: (translator: CaptionTranslator) => Promise<string | null>) => {
+      let batch: Array<() => void> = [];
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const engine = engineOf(async function* (segments) {
+        await new Promise<void>((resolve) => {
+          batch.push(resolve);
+          if (timer !== null) return;
+          timer = setTimeout(() => {
+            const size = batch.length;
+            const waiting = batch;
+            batch = [];
+            timer = null;
+            const wait = delayMs * Math.max(1, size);
+            setTimeout(() => {
+              for (const resume of waiting) resume();
+            }, wait);
+          }, 0);
+        });
+        yield {
+          id: segments[0]?.id ?? 'x',
+          final: `訳:${segments[0]?.text ?? ''}`,
+          engine: 'plamo' as const,
+        };
+      });
+      const translator = new CaptionTranslator(engine);
+      const started = Date.now();
+      const result = await submit(translator);
+      return { result, elapsed: Date.now() - started };
+    };
+
+    const cues = lines.map((text, index) => cue(text, index * 2000));
+    const packed = await pack(async (translator) => {
+      translator.prefetch(cues, 400, { tgt: 'ja', form: 'polite' }, 'g');
+      return translator.translateCue(
+        cues[0]!,
+        { tgt: 'ja', form: 'polite' },
+        CAPTION_LIVE_PRIORITY,
+      );
+    });
+    const playhead = await pack(async (translator) =>
+      translator.translateCue(cues[0]!, { tgt: 'ja', form: 'polite' }, CAPTION_PLAYHEAD_PRIORITY),
+    );
+    expect(packed.result).toContain('line 0');
+    expect(playhead.result).toContain('line 0');
+    expect(playhead.elapsed).toBeLessThan(packed.elapsed);
+    expect(playhead.elapsed).toBeLessThan(delayMs * 3);
+    expect(packed.elapsed).toBeGreaterThan(delayMs * 8);
+    // Packed 12-line window vs playhead-only, 25ms/job fake engine (see TTF report).
+    expect(playhead.elapsed).toBeGreaterThan(0);
   });
 });
