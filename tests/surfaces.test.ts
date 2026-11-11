@@ -33,6 +33,13 @@ describe('start controls while the model downloads', () => {
     expect(onboarding).toContain('onclick={close}');
   });
 
+  it('does not offer a download when the shared folder needs permission again', () => {
+    expect(modelManager).toContain('sharedFolderNeedsPermission');
+    expect(modelManager).toContain('folderBlocked');
+    expect(typed).toContain('modelFolderPermissionNeeded');
+    expect(popup).toContain('modelFolderPermissionNeeded');
+  });
+
   it('does not offer a download button for a model that is already loading', () => {
     // `loading` means the file is on disk and the runtime is reading it: a Download control
     // there is a start action for work that is already running.

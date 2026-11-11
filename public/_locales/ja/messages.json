@@ -703,7 +703,7 @@
     }
   },
   "modelFolderOpfsCopy": {
-    "message": "$MODEL$ のコピーがこのブラウザ内にもあります。容量を空けるために削除できます。Sakutto が自動では消しません。",
+    "message": "$MODEL$ のコピーがこのブラウザ内にも残っています。容量を空けるために削除できます。",
     "placeholders": {
       "model": {
         "content": "$1"

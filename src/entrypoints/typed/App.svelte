@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
   import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
+  import { sharedFolderNeedsPermission } from '@/engine/model/folder-status';
   import { isEngineError, isLocalServerError, isModelChangedError } from '@/engine/errors';
   import type { EngineStatus } from '@/shared/engine-status';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';
@@ -67,6 +68,7 @@
       engineSource: settings?.engineSource ?? engineStatus?.engineSource ?? 'in-browser',
     }),
   );
+  let folderBlocked = $derived(sharedFolderNeedsPermission(engineStatus?.sharedFolder));
   let chromeOnlyTarget = $derived(hasBuiltInTranslatorUi() && isChromeOnlyLanguage(targetLanguage));
   let canTranslate = $derived(
     !translating && trimmed.length > 0 && !tooLong && !chromeOnlyTarget && readiness === 'ready',
@@ -211,7 +213,7 @@
   }
 
   async function startDownload() {
-    if (downloadBusy) return;
+    if (downloadBusy || folderBlocked) return;
     downloadBusy = true;
     downloadFailed = false;
     try {
@@ -340,6 +342,13 @@
             <p>{t('typedNeedsConsent')}</p>
             <button class="button" type="button" onclick={openOnboarding}>
               {t('typedOpenOnboarding')}
+            </button>
+          </div>
+        {:else if folderBlocked}
+          <div class="gate">
+            <p>{t('modelFolderPermissionNeeded')}</p>
+            <button class="button" type="button" onclick={openOptions}>
+              {t('modelFolderOpenSettings')}
             </button>
           </div>
         {:else if readiness === 'model-absent' || readiness === 'model-partial'}

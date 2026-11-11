@@ -33,6 +33,7 @@ function createManager(
     fetchImpl?: typeof fetch;
     fallbackStore?: MemoryFileStore;
     copyChunkBytes?: number;
+    hashBlob?: (blob: Blob) => Promise<string>;
   } = {},
 ): { manager: ModelManager; createRuntime: ReturnType<typeof vi.fn> } {
   const createRuntime = vi.fn(
@@ -45,6 +46,7 @@ function createManager(
     ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
     ...(options.fallbackStore ? { fallbackStore: options.fallbackStore } : {}),
     ...(options.copyChunkBytes !== undefined ? { copyChunkBytes: options.copyChunkBytes } : {}),
+    ...(options.hashBlob ? { hashBlob: options.hashBlob } : {}),
   });
   return { manager, createRuntime };
 }
@@ -269,7 +271,7 @@ describe('ModelManager', () => {
     expect(await manager.fallbackCopyPresent(ENTRY.id)).toBe(false);
   });
 
-  it('copies a verified OPFS model into an empty shared folder without fetching', async () => {
+  it('moves a verified OPFS model into an empty shared folder without fetching', async () => {
     const opfs = new MemoryFileStore();
     const shared = new MemoryFileStore();
     await seedVerified(opfs);
@@ -287,10 +289,15 @@ describe('ModelManager', () => {
       PAYLOAD,
     );
     expect(shared.text(`models/${ENTRY.id}/model.json`)).toContain(ENTRY.sha256);
-    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
+    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(false);
+    expect(await manager.fallbackCopyPresent(ENTRY.id)).toBe(false);
+    await manager.ensureLoaded(ENTRY.id, SELECTION);
+    expect(new Uint8Array(await (await manager.modelBlob(ENTRY.id)).arrayBuffer())).toEqual(
+      PAYLOAD,
+    );
   });
 
-  it('downloads by copying from OPFS instead of hitting the network', async () => {
+  it('downloads by moving from OPFS instead of hitting the network', async () => {
     const opfs = new MemoryFileStore();
     const shared = new MemoryFileStore();
     await seedVerified(opfs);
@@ -303,7 +310,48 @@ describe('ModelManager', () => {
 
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(await manager.primaryReady(ENTRY.id)).toBe(true);
+    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(false);
+  });
+
+  it('keeps the OPFS copy when folder verification fails', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    await seedVerified(opfs);
+    const fetchImpl = vi.fn(async () => {
+      throw new Error('network download should not run');
+    });
+    const { manager } = createManager(shared, {
+      fallbackStore: opfs,
+      fetchImpl,
+      hashBlob: async () => 'f'.repeat(64),
+    });
+
+    await manager.adoptPresentModels();
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(await manager.primaryReady(ENTRY.id)).toBe(false);
+    expect(shared.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(false);
+    expect(shared.files.has(`models/${ENTRY.id}/model.gguf.part`)).toBe(false);
     expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
+  });
+
+  it('unloads an OPFS-backed runtime before deleting the browser copy', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    await seedVerified(opfs);
+    const { manager, createRuntime } = createManager(shared, { fallbackStore: opfs });
+    await manager.ensureLoaded(ENTRY.id, SELECTION);
+    expect(createRuntime).toHaveBeenCalledOnce();
+    expect(manager.loadedModel?.id).toBe(ENTRY.id);
+
+    await manager.adoptPresentModels();
+
+    expect(manager.loadedModel).toBeNull();
+    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(false);
+    expect(await manager.primaryReady(ENTRY.id)).toBe(true);
+    await manager.ensureLoaded(ENTRY.id, SELECTION);
+    expect(createRuntime).toHaveBeenCalledTimes(2);
+    expect(manager.loadedModel?.id).toBe(ENTRY.id);
   });
 
   it('leaves no valid shared file when an OPFS copy is interrupted', async () => {

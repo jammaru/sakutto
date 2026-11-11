@@ -52,7 +52,8 @@ async function discardPart(store: ModelFileStore, partPath: string): Promise<voi
 /**
  * Streams an already-installed official GGUF into the primary store as a temp `.part`
  * file, verifies size and SHA-256, then renames it. Abort or a failed check deletes the
- * `.part` so a partial copy is never treated as valid.
+ * `.part` so a partial copy is never treated as valid. Callers delete the OPFS source
+ * only after this returns.
  */
 export async function copyModelFile(request: CopyModelRequest): Promise<CopyModelResult> {
   const chunkBytes = Math.max(1, request.chunkBytes ?? DEFAULT_COPY_CHUNK_BYTES);

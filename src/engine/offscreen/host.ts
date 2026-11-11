@@ -35,7 +35,7 @@ import { PlamoSourceEngine } from '../local-server/source';
 import { JobScheduler } from '../queue/scheduler';
 import { DEFAULT_MODEL_ID, SELECTABLE_MODEL_IDS, getModel, type ModelId } from '../model/catalog';
 import { normalizeSelectedModelId, resolveActiveModel } from '../model/selection';
-import { emptySharedFolderStatus } from '../model/folder-status';
+import { emptySharedFolderStatus, sharedFolderNeedsPermission } from '../model/folder-status';
 import { SharedFolderSession } from '../model/folder-session';
 import { OpfsModelFileStore } from '../model/file-store';
 import { ModelManager, type LoadedModel } from '../model/manager';
@@ -712,6 +712,12 @@ export class EngineHost {
 
       if (services.manager.loadedModel?.id === modelId) {
         return services.manager.status(modelId);
+      }
+
+      if (sharedFolderNeedsPermission(this.folderSession?.status())) {
+        throw new EngineError('model-missing', 'The shared model folder needs permission.', {
+          retryable: false,
+        });
       }
 
       await services.manager.download(modelId, {

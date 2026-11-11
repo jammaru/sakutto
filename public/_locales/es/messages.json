@@ -703,7 +703,7 @@
     }
   },
   "modelFolderOpfsCopy": {
-    "message": "A copy of $MODEL$ is also in this browser's storage. You can delete that copy to free space. Sakutto will not delete it on its own.",
+    "message": "A leftover copy of $MODEL$ is still in this browser's storage. You can delete it to free space.",
     "placeholders": {
       "model": {
         "content": "$1"

@@ -7,6 +7,7 @@
     getModel,
     type ModelId,
   } from '@/engine/model/catalog';
+  import { sharedFolderNeedsPermission } from '@/engine/model/folder-status';
   import { isModelIntegrityError } from '@/engine/model/manager';
   import { modelCanTranslate, type ModelStatus } from '@/shared/engine-status';
   import { hasLicenseConsent } from '@/shared/agreement';
@@ -30,6 +31,7 @@
   let fallback = $state(false);
   let busy = $state<ModelId | null>(null);
   let folderIntegrity = $state<ReadonlySet<ModelId>>(new Set());
+  let folderBlocked = $state(false);
   let anyInstalled = $derived(
     models.some((id) => {
       const state = statuses[id]?.state;
@@ -52,9 +54,10 @@
 
   async function applyIntegrityStatus(status: ModelStatus) {
     const engine = await requestEngineStatus();
-    if (engine?.sharedFolder) {
-      folderIntegrity = new Set(engine.sharedFolder.integrityIssues.map((issue) => issue.modelId));
-    }
+    folderIntegrity = new Set(
+      engine?.sharedFolder?.integrityIssues.map((issue) => issue.modelId) ?? [],
+    );
+    folderBlocked = sharedFolderNeedsPermission(engine?.sharedFolder);
     statuses = { ...statuses, [status.id]: status };
     if (status.state === 'loaded') activeId = status.id;
   }
@@ -81,6 +84,7 @@
       folderIntegrity = new Set(
         engine.sharedFolder?.integrityIssues.map((issue) => issue.modelId) ?? [],
       );
+      folderBlocked = sharedFolderNeedsPermission(engine.sharedFolder);
     }
     statuses = next;
   }
@@ -127,7 +131,7 @@
 
 {#if fallback}
   <p class="muted" role="status">{t('modelSelectionFallback')}</p>
-{:else if !anyInstalled && Object.keys(statuses).length > 0}
+{:else if !folderBlocked && !anyInstalled && Object.keys(statuses).length > 0}
   <p class="error" role="alert">{t('modelSelectionMissing')}</p>
 {/if}
 
@@ -181,7 +185,7 @@
           <!-- The file is here and the runtime is reading it. A Download button in this
                state is a start control for something that is already under way. -->
           <p class="muted">{t('runtimeLoading')}</p>
-        {:else}
+        {:else if !folderBlocked}
           <button
             class="button"
             type="button"

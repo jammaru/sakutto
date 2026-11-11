@@ -75,7 +75,7 @@ export class SharedFolderSession {
 
     const shared = await SharedFolderModelFileStore.open(stored.handle);
     this.manager.setStores(shared, this.opfs);
-    // Hash files already in the folder, then copy verified OPFS models into it.
+    // Hash files already in the folder, then move verified OPFS models into it.
     await this.manager.adoptPresentModels();
     this.snapshot = await this.collect(stored.name, permission);
     return this.snapshot;

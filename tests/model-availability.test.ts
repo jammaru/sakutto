@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
+import { sharedFolderNeedsPermission } from '@/engine/model/folder-status';
 import type { ModelStatus } from '@/shared/engine-status';
 import {
   modelCanTranslate,
@@ -85,5 +86,13 @@ describe('model availability', () => {
         engineSource: 'in-browser',
       }),
     ).toBe(true);
+  });
+
+  it('treats a configured shared folder without access as permission-needed, not a missing file', () => {
+    expect(sharedFolderNeedsPermission({ configured: true, permission: 'prompt' })).toBe(true);
+    expect(sharedFolderNeedsPermission({ configured: true, permission: 'denied' })).toBe(true);
+    expect(sharedFolderNeedsPermission({ configured: true, permission: 'granted' })).toBe(false);
+    expect(sharedFolderNeedsPermission({ configured: false, permission: 'unknown' })).toBe(false);
+    expect(sharedFolderNeedsPermission(undefined)).toBe(false);
   });
 });

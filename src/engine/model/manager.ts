@@ -17,7 +17,7 @@ export interface LoadedModel {
 
 export interface ModelManagerOptions {
   store: ModelFileStore;
-  /** Browser OPFS copy, used when a shared folder is active so translation can still start. */
+  /** Browser OPFS copy, used as fallback until a verified move into the shared folder. */
   fallbackStore?: ModelFileStore;
   createRuntime: (blob: Blob, selection: BackendSelection) => Promise<LlamaRuntime>;
   fetchImpl?: typeof fetch;
@@ -165,10 +165,10 @@ export class ModelManager {
   }
 
   /**
-   * Hash any correctly-sized files already in the primary store, then copy each
+   * Hash any correctly-sized files already in the primary store, then move each
    * verified official OPFS model that the folder does not already have. Used after
    * the user picks a shared folder so Chrome profile A can share with Edge without
-   * a network download. The OPFS copy is left in place.
+   * a network download. The OPFS file is deleted only after the folder copy verifies.
    */
   async adoptPresentModels(options: { signal?: AbortSignal } = {}): Promise<void> {
     const signal = options.signal ?? new AbortController().signal;
@@ -220,7 +220,7 @@ export class ModelManager {
     return store.read(this.finalPath(modelId));
   }
 
-  /** Deletes the OPFS copy only. Never used automatically when a shared folder is set. */
+  /** Deletes the OPFS copy only. Migration calls this after a verified folder copy. */
   async deleteFallbackCopy(modelId: ModelId): Promise<void> {
     if (!this.fallbackStore) return;
     if (this.loaded?.id === modelId) {
@@ -417,9 +417,9 @@ export class ModelManager {
   }
 
   /**
-   * Copy a verified official OPFS model into the primary (shared) store when that
+   * Move a verified official OPFS model into the primary (shared) store when that
    * store does not already have a valid file. Never overwrites a wrong-sized folder
-   * file, and never deletes the OPFS copy.
+   * file. The OPFS copy is removed only after size and SHA-256 succeed.
    */
   private async copyOneFallback(
     modelId: ModelId,
@@ -475,6 +475,7 @@ export class ModelManager {
 
     this.errors.delete(modelId);
     await this.writeVerifiedManifest(this.store, modelId);
+    await this.dropFallbackAfterVerifiedMove(modelId);
     this.notify({
       id: modelId,
       state: 'ready',
@@ -483,6 +484,24 @@ export class ModelManager {
       progress: 1,
     });
     return true;
+  }
+
+  /**
+   * Drop the OPFS file only after the folder copy is verified. Unload first so an
+   * in-flight runtime cannot keep reading the OPFS blob while it is removed.
+   */
+  private async dropFallbackAfterVerifiedMove(modelId: ModelId): Promise<void> {
+    if (!this.fallbackStore) return;
+    const drop = async (): Promise<void> => {
+      if (this.loaded?.id === modelId) await this.unload();
+      await this.fallbackStore?.removeDirectory(this.modelDirectory(modelId));
+    };
+    const run = this.loadChain.then(drop, drop);
+    this.loadChain = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    await run;
   }
 
   private kickVerify(store: ModelFileStore, modelId: ModelId): void {

@@ -17,9 +17,15 @@ export interface SharedFolderStatus {
   configured: boolean;
   permission: SharedFolderPermission;
   name?: string;
-  /** Models verified in the shared folder and also present in OPFS. Never auto-deleted. */
+  /** Models still present in OPFS after a shared folder is set (migration leftovers). */
   opfsCopies: readonly ModelId[];
   integrityIssues: readonly SharedFolderIntegrityIssue[];
+}
+
+export function sharedFolderNeedsPermission(
+  folder: Pick<SharedFolderStatus, 'configured' | 'permission'> | null | undefined,
+): boolean {
+  return folder?.configured === true && folder.permission !== 'granted';
 }
 
 export function emptySharedFolderStatus(supported: boolean): SharedFolderStatus {

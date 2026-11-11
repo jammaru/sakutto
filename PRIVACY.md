@@ -51,7 +51,7 @@ The extension keeps the following on your device and does not send it to the dev
 - your settings, such as the target language and the reading style;
 - your glossary and your per-site rules;
 - a record that you accepted the license;
-- the model file (by default in this browser; optionally, in Chrome, Edge, and other Chromium browsers, in a folder you choose on this computer). Choosing a shared folder copies a model already in this browser into that folder so another profile can use it without downloading again. The browser copy stays unless you delete it;
+- the model file (by default in this browser; optionally, in Chrome, Edge, and other Chromium browsers, in a folder you choose on this computer). Choosing a shared folder moves a model already in this browser into that folder so another profile can use it without downloading again;
 - a local translation cache, so that the same text does not have to be translated twice;
 - an optional local-server API key, stored in plain text in chrome.storage.local.
 
@@ -126,7 +126,7 @@ Chrome ウェブストアまたは addons.mozilla.org から入れた場合、�
 - 翻訳先の言語や文体などの設定
 - 用語集とサイトごとの規則
 - ライセンスに同意したことの記録
-- モデルのファイル（既定はこのブラウザ内。Chrome や Edge など Chromium 系ブラウザでは、このパソコン上で選んだフォルダにも置けます）。共有フォルダを選ぶと、すでにこのブラウザ内にあるモデルをそのフォルダへコピーするので、別のプロファイルは再ダウンロードなしで使えます。ブラウザ内のコピーは、削除しない限り残します
+- モデルのファイル（既定はこのブラウザ内。Chrome や Edge など Chromium 系ブラウザでは、このパソコン上で選んだフォルダにも置けます）。共有フォルダを選ぶと、すでにこのブラウザ内にあるモデルをそのフォルダへ移すので、別のプロファイルは再ダウンロードなしで使えます
 - 翻訳キャッシュ（同じ文章を二度訳さずに済ませるための、端末内の保存）
 - 任意のローカルサーバー API キー（chrome.storage.local に平文で保存します）
 
