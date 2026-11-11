@@ -3,6 +3,7 @@ import {
   completeSharedFolderOffer,
   opfsHasOfficialModel,
   shouldOfferSharedFolderMove,
+  shouldPersistSharedFolderOfferImpression,
   type SharedFolderOfferInput,
 } from '@/engine/model/folder-offer';
 
@@ -25,9 +26,26 @@ describe('shared folder offer', () => {
     expect(shouldOfferSharedFolderMove(ready({ opfsHasOfficialModel: false }))).toBe(false);
   });
 
-  it('hides after Later and never during translation', () => {
+  it('hides on a later visit after the card was shown, and never during translation', () => {
     expect(shouldOfferSharedFolderMove(ready({ dismissed: true }))).toBe(false);
     expect(shouldOfferSharedFolderMove(ready({ translating: true }))).toBe(false);
+    expect(shouldOfferSharedFolderMove(ready({ closedThisVisit: true }))).toBe(false);
+  });
+
+  it('keeps the card for the visit that already rendered it after persist', () => {
+    expect(shouldOfferSharedFolderMove(ready({ dismissed: true, shownThisVisit: true }))).toBe(
+      true,
+    );
+  });
+
+  it('records an impression only when the card would actually render', () => {
+    expect(shouldPersistSharedFolderOfferImpression(ready())).toBe(true);
+    expect(shouldPersistSharedFolderOfferImpression(ready({ translating: true }))).toBe(false);
+    expect(shouldPersistSharedFolderOfferImpression(ready({ pickerAvailable: false }))).toBe(false);
+    expect(shouldPersistSharedFolderOfferImpression(ready({ folderConfigured: true }))).toBe(false);
+    expect(shouldPersistSharedFolderOfferImpression(ready({ opfsHasOfficialModel: false }))).toBe(
+      false,
+    );
   });
 
   it('treats a ready official file as present and ignores a leftover partial', () => {

@@ -6,6 +6,7 @@
     notifySharedFolderChanged,
     opfsHasOfficialModel,
     shouldOfferSharedFolderMove,
+    shouldPersistSharedFolderOfferImpression,
   } from '@/engine/model/folder-offer';
   import {
     adoptPickedSharedFolder,
@@ -33,6 +34,8 @@
   let { engine, dismissed, translating = false }: Props = $props();
 
   let dismissedNow = $state(false);
+  let shownThisVisit = $state(false);
+  let persistStarted = false;
   let folderTaken = $state(false);
   let inspected = $state<ModelStatus[]>([]);
   let moving = $state(false);
@@ -54,8 +57,30 @@
       dismissed: dismissed || dismissedNow,
       translating,
       opfsHasOfficialModel: opfsReady,
+      shownThisVisit,
+      closedThisVisit: dismissedNow,
     }),
   );
+
+  $effect(() => {
+    if (
+      !shouldPersistSharedFolderOfferImpression({
+        pickerAvailable,
+        folderConfigured,
+        translating,
+        opfsHasOfficialModel: opfsReady,
+      })
+    ) {
+      return;
+    }
+    if ((dismissed || dismissedNow) && !shownThisVisit) return;
+    shownThisVisit = true;
+    if (persistStarted) return;
+    persistStarted = true;
+    void saveSettings({ sharedFolderOfferDismissed: true }).catch(() => {
+      persistStarted = false;
+    });
+  });
   let sizeLabel = $derived.by(() => {
     const present: string[] = [];
     const sizes: number[] = [];
@@ -121,8 +146,9 @@
   }
 
   async function later() {
-    await saveSettings({ sharedFolderOfferDismissed: true });
+    shownThisVisit = false;
     dismissedNow = true;
+    await saveSettings({ sharedFolderOfferDismissed: true });
   }
 
   onMount(() => {

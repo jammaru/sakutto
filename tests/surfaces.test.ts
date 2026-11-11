@@ -36,6 +36,7 @@ describe('start controls while the model downloads', () => {
   it('offers a one-click shared-folder move without auto-opening the picker', () => {
     const offer = source('ui/SharedFolderOffer.svelte');
     expect(offer).toContain('shouldOfferSharedFolderMove');
+    expect(offer).toContain('shouldPersistSharedFolderOfferImpression');
     expect(offer).toContain('completeSharedFolderOffer');
     expect(offer).toContain('adoptPickedSharedFolder');
     expect(offer).not.toMatch(/onMount\([\s\S]{0,400}adoptPickedSharedFolder/);

@@ -78,8 +78,8 @@ export interface Settings {
   consent: LicenseConsent | null;
   highQualityDismissed: boolean;
   /**
-   * True after Later on the popup card, or after onboarding already offered the store
-   * choice. The folder picker in Settings stays available.
+   * True after the popup actually rendered the shared-folder card, or after onboarding
+   * already offered the store choice. The folder picker in Settings stays available.
    */
   sharedFolderOfferDismissed: boolean;
   glossary: GlossaryEntry[];

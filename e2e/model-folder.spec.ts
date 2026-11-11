@@ -283,6 +283,7 @@ test.describe('shared model folder', () => {
       await expect(popup.getByRole('button', { name: "Don't show again" })).toHaveCount(0);
       await expect(popup.locator('dialog')).toHaveCount(0);
 
+      await expect.poll(async () => readOfferDismissed(popup), { timeout: 10_000 }).toBe(true);
       await popup.getByRole('button', { name: 'Later' }).click();
       await expect(offer).toHaveCount(0);
       await popup.reload();
@@ -294,6 +295,39 @@ test.describe('shared model folder', () => {
       await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
       await expect(options.getByRole('button', { name: 'Move to a shared folder' })).toHaveCount(0);
       await expect(options.getByRole('button', { name: 'Choose model folder' })).toBeVisible();
+      await options.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('does not show the move offer again after the popup is closed', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      const planter = await extension.context.newPage();
+      await planter.goto(`chrome-extension://${extension.extensionId}/sample.html`);
+      await plantOpfsOfficial(planter);
+      await planter.close();
+
+      const first = await extension.context.newPage();
+      await first.goto(`chrome-extension://${extension.extensionId}/popup.html`);
+      await expect(first.getByText('Moving to a shared folder means:')).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect.poll(async () => readOfferDismissed(first), { timeout: 10_000 }).toBe(true);
+      await first.close();
+
+      const again = await extension.context.newPage();
+      await again.goto(`chrome-extension://${extension.extensionId}/popup.html`);
+      await expect(again.getByRole('button', { name: 'Translate this page' })).toBeVisible();
+      await expect(again.getByText('Moving to a shared folder means:')).toHaveCount(0);
+      await expect(again.getByRole('button', { name: 'Move to a shared folder' })).toHaveCount(0);
+      await again.close();
+
+      const options = await extension.context.newPage();
+      await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await expect(options.getByRole('button', { name: 'Choose model folder' })).toBeVisible();
+      await expect(options.getByRole('button', { name: 'Move to a shared folder' })).toHaveCount(0);
       await options.close();
     } finally {
       await extension.close();
@@ -541,6 +575,25 @@ async function directoryExists(page: Page, parts: readonly string[]): Promise<bo
     }
     return true;
   }, parts);
+}
+
+async function readOfferDismissed(page: Page): Promise<boolean> {
+  return page.evaluate(async () => {
+    const chrome = (
+      globalThis as unknown as {
+        chrome: {
+          storage: { local: { get(key: string): Promise<Record<string, unknown>> } };
+        };
+      }
+    ).chrome;
+    const stored = await chrome.storage.local.get('settings');
+    const settings = stored.settings;
+    return (
+      typeof settings === 'object' &&
+      settings !== null &&
+      (settings as { sharedFolderOfferDismissed?: unknown }).sharedFolderOfferDismissed === true
+    );
+  });
 }
 
 async function readSharedFolder(
