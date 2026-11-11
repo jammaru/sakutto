@@ -41,6 +41,7 @@
   let moving = $state(false);
   let progress = $state<ModelStatus | null>(null);
   let pickError = $state<string | null>(null);
+  let pickHint = $state<string | null>(null);
   let pickerAvailable = $derived(sharedFolderPickerAvailable());
   let folderConfigured = $derived(folderTaken || engine?.sharedFolder?.configured === true);
   let opfsReady = $derived(
@@ -120,6 +121,7 @@
 
   async function moveToFolder() {
     pickError = null;
+    pickHint = null;
     moving = true;
     progress = null;
     try {
@@ -127,7 +129,10 @@
         pick: adoptPickedSharedFolder,
         reload: requestModelFolderReload,
       });
-      if (result === 'cancelled') return;
+      if (result === 'cancelled') {
+        pickHint = t('modelFolderPickerHint');
+        return;
+      }
       if (result === 'denied') {
         pickError = t('modelFolderPermissionNeeded');
         return;
@@ -164,6 +169,7 @@
 
 {#if visible}
   <section class="offer" aria-label={t('modelFolderHeading')}>
+    <p class="muted">{t('modelFolderPickerHint')}</p>
     <SharedFolderBenefits leadKey="modelFolderOfferLead" {sizeLabel} compact />
     {#if moving}
       <p class="muted" role="status">{movingLabel}</p>
@@ -188,6 +194,9 @@
           {t('modelFolderOfferLater')}
         </button>
       </div>
+    {/if}
+    {#if pickHint}
+      <p class="muted" data-folder-picker-hint role="status">{pickHint}</p>
     {/if}
     {#if pickError}
       <p class="error" role="alert">{pickError}</p>

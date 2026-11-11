@@ -256,7 +256,7 @@
     "message": "共有モデルフォルダを使う"
   },
   "onboardingStoreFolderHelp": {
-    "message": "ドキュメントの中に「Sakutto」フォルダを作って（または選んで）ください。"
+    "message": "フォルダ選択はドキュメントで開きます。「Sakutto」を新規作成するか、すでにあれば開いて、そのフォルダを選んでください。"
   },
   "onboardingStartFailed": {
     "message": "準備を開始できませんでした。もう一度お試しください。"
@@ -666,7 +666,10 @@
     "message": "共有モデルフォルダ"
   },
   "modelFolderHelp": {
-    "message": "ドキュメントの中の「Sakutto」フォルダに公式の PLaMo ファイルを置きます。フォルダの選択はドキュメントから開き、前回の場所を覚えます。既定はこれまでどおり、このブラウザ内への保存です。"
+    "message": "既定はこれまでどおり、このブラウザ内への保存です。"
+  },
+  "modelFolderPickerHint": {
+    "message": "フォルダ選択はドキュメントで開きます。「Sakutto」を新規作成するか、すでにあれば開いて、そのフォルダを選んでください。"
   },
   "modelFolderChoose": {
     "message": "モデルフォルダを選ぶ"

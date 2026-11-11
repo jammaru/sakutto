@@ -256,7 +256,7 @@
     "message": "使用共用模型資料夾"
   },
   "onboardingStoreFolderHelp": {
-    "message": "Create or choose a “Sakutto” folder in Documents."
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder."
   },
   "onboardingStartFailed": {
     "message": "無法啟動設定。請再試一次。"
@@ -666,7 +666,10 @@
     "message": "Shared model folder"
   },
   "modelFolderHelp": {
-    "message": "Keep official PLaMo files in a Sakutto folder inside Documents. The picker opens in Documents and remembers it. The default is still storage inside this browser."
+    "message": "The default is still storage inside this browser."
+  },
+  "modelFolderPickerHint": {
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"

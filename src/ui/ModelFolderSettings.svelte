@@ -29,6 +29,7 @@
   let folder = $state<SharedFolderStatus>(emptySharedFolderStatus(sharedFolderPickerAvailable()));
   let busy = $state(false);
   let pickError = $state<string | null>(null);
+  let pickHint = $state<string | null>(null);
   let granting = $state(false);
   let pickerAvailable = $derived(sharedFolderPickerAvailable());
   const folderSizeLabel = formatByteSizeList([
@@ -54,10 +55,14 @@
 
   async function chooseFolder() {
     pickError = null;
+    pickHint = null;
     busy = true;
     try {
       const picked = await adoptPickedSharedFolder();
-      if (picked.status === 'cancelled') return;
+      if (picked.status === 'cancelled') {
+        pickHint = t('modelFolderPickerHint');
+        return;
+      }
       if (picked.status === 'denied') {
         pickError = t('modelFolderPermissionNeeded');
         return;
@@ -74,6 +79,7 @@
 
   async function grantAccess() {
     pickError = null;
+    pickHint = null;
     granting = true;
     try {
       const engine = await requestEngineStatus();
@@ -101,6 +107,7 @@
 
   async function stopUsing() {
     pickError = null;
+    pickHint = null;
     busy = true;
     try {
       await clearStoredSharedFolder();
@@ -134,6 +141,7 @@
 {#if pickerAvailable || folder.configured}
   <div class="folder">
     <h3>{t('modelFolderHeading')}</h3>
+    <p class="muted help">{t('modelFolderPickerHint')}</p>
     <p class="muted help">{t('modelFolderHelp')}</p>
     <SharedFolderBenefits leadKey="modelFolderBenefitsLead" sizeLabel={folderSizeLabel} />
 
@@ -177,6 +185,9 @@
       </button>
     </div>
 
+    {#if pickHint}
+      <p class="muted help" data-folder-picker-hint role="status">{pickHint}</p>
+    {/if}
     {#if pickError}
       <p class="error" role="alert">{pickError}</p>
     {/if}

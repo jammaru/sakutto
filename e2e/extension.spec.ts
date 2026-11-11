@@ -31,7 +31,9 @@ test.describe('built extension', () => {
             page.getByRole('radio', { name: 'Use a shared model folder' }),
           ).not.toBeChecked();
           await expect(
-            page.getByText('Create or choose a “Sakutto” folder in Documents.'),
+            page.getByText(
+              'The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder.',
+            ),
           ).toBeVisible();
           await expect(page.getByText('A shared folder means:')).toBeVisible();
           await expect(
@@ -137,7 +139,7 @@ test.describe('built extension', () => {
           ).not.toBeChecked();
           await expect(
             page.getByText(
-              'ドキュメントの中に「Sakutto」フォルダを作って（または選んで）ください。',
+              'フォルダ選択はドキュメントで開きます。「Sakutto」を新規作成するか、すでにあれば開いて、そのフォルダを選んでください。',
             ),
           ).toBeVisible();
           await expect(page.getByText('共有フォルダを使うと：')).toBeVisible();

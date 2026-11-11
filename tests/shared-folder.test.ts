@@ -186,6 +186,13 @@ describe('recommended Documents/Sakutto location', () => {
     expect(documents.dirs.has(SHARED_APP_DIRECTORY)).toBe(true);
   });
 
+  it('does not nest Sakutto under an ordinary allowed folder', async () => {
+    const projects = fakeDir('Projects');
+    const resolved = await resolveSharedFolderRoot(fakeHandleFrom(projects));
+    expect(resolved.name).toBe('Projects');
+    expect(projects.dirs.has(SHARED_APP_DIRECTORY)).toBe(false);
+  });
+
   it('keeps a Sakutto folder, a sakutto-models folder, or a folder with an official GGUF', async () => {
     const sakutto = fakeDir(SHARED_APP_DIRECTORY);
     expect((await resolveSharedFolderRoot(fakeHandleFrom(sakutto))).name).toBe(

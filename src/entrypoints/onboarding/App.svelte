@@ -72,6 +72,7 @@
   let pickerAvailable = $derived(sharedFolderPickerAvailable());
   let storeChoice = $state<OnboardingStoreChoice>('browser');
   let pickError = $state<string | null>(null);
+  let pickHint = $state<string | null>(null);
   let integrityAlert = $state<string | null>(null);
   let resolvedFolderName = $state<string | null>(null);
   /**
@@ -182,6 +183,7 @@
     if (startRequested && phase !== 'paused' && phase !== 'error') return;
     failureDetail = null;
     pickError = null;
+    pickHint = null;
     integrityAlert = null;
 
     let skipDownload = modelState === 'ready' || modelState === 'loaded';
@@ -207,6 +209,7 @@
         integrityFailed: Boolean(issue),
       });
       if (plan === 'stay') {
+        if (adopted.status === 'cancelled') pickHint = t('modelFolderPickerHint');
         if (adopted.status === 'denied') pickError = t('modelFolderPermissionNeeded');
         if (adopted.status === 'failed') pickError = t('modelFolderPickFailed');
         return;
@@ -493,12 +496,15 @@
             <input type="radio" name="onboarding-store" value="folder" bind:group={storeChoice} />
             <span>{t('onboardingStoreFolder')}</span>
           </label>
-          <p class="muted start-note">{t('onboardingStoreFolderHelp')}</p>
+          <p class="muted start-note">{t('modelFolderPickerHint')}</p>
           <SharedFolderBenefits leadKey="modelFolderBenefitsLead" sizeLabel={folderSizeLabel} />
         </fieldset>
       {/if}
       {#if integrityAlert}
         <p class="error" role="alert">{integrityAlert}</p>
+      {/if}
+      {#if pickHint}
+        <p class="muted start-note" data-folder-picker-hint role="status">{pickHint}</p>
       {/if}
       {#if pickError}
         <p class="error" role="alert">{pickError}</p>

@@ -3,7 +3,7 @@ import { isFirefoxBuild } from '@/shared/browser';
 import { isRecord } from '@/shared/object';
 
 export const SHARED_MODELS_DIRECTORY = 'sakutto-models';
-/** Well-known folder inside Documents. Windows and macOS both use this spelling. */
+/** Folder name the user creates in Documents. Same spelling on Windows and macOS. */
 export const SHARED_APP_DIRECTORY = 'Sakutto';
 export const SHARED_FOLDER_PICKER_ID = 'sakutto-models';
 export const SHARED_FOLDER_PICKER_START = 'documents' as const;
@@ -154,8 +154,14 @@ export async function directoryHasOfficialGguf(
 }
 
 /**
- * Turns the picker result into the folder we persist: Documents/Sakutto when the user
- * picked Documents, otherwise the folder that already holds sakutto-models or a GGUF.
+ * Turns the picker result into the folder we persist.
+ *
+ * Chromium will not grant Documents, Desktop, home, or Downloads themselves
+ * (`kDontBlockChildren` in chrome_file_system_access_permission_context.cc). Nesting
+ * `Sakutto` under a Documents-named parent is only a silent fallback when that handle
+ * is somehow granted (tests, or a policy change). Do not advertise picking Documents.
+ * A folder that already is Sakutto, holds `sakutto-models`, or holds an official GGUF
+ * is kept as-is.
  */
 export async function resolveSharedFolderRoot(
   picked: FileSystemDirectoryHandle,
@@ -316,6 +322,7 @@ export async function clearStoredSharedFolder(bucket?: SharedFolderHandleBucket)
   await store.clear();
 }
 
+/** User cancel and Chrome's blocked-directory dialog both reject as `AbortError`. */
 export function isFolderPickerAbort(error: unknown): boolean {
   return (
     typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError'

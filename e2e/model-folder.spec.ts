@@ -2,6 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 import { loadExtension, type LoadedExtension } from './extension';
 import { DEFAULT_MODEL_ID, getModel } from '../src/engine/model/catalog';
 
+const PICKER_HINT =
+  'The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder.';
+
 test.describe('shared model folder', () => {
   test('shows the Chromium folder controls and rejects a wrong-sized file', async () => {
     const extension = await loadExtension('en-US');
@@ -9,6 +12,10 @@ test.describe('shared model folder', () => {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/options.html`);
       await expect(page.getByRole('heading', { name: 'Shared model folder' })).toBeVisible();
+      await expect(page.getByText(PICKER_HINT)).toBeVisible();
+      await expect(
+        page.getByText('The default is still storage inside this browser.'),
+      ).toBeVisible();
       await expect(page.getByText('A shared folder means:')).toBeVisible();
       await expect(
         page.getByText('One copy on disk, so you save space (573 MB / 1.81 GB).'),
@@ -198,7 +205,32 @@ test.describe('shared model folder', () => {
       ).toBeVisible();
       await expect(page.getByRole('heading', { name: "You're ready." })).toHaveCount(0);
       await expect(page.getByRole('radio', { name: 'Use a shared model folder' })).toBeChecked();
+      await expect(page.locator('[data-folder-picker-hint]')).toHaveText(PICKER_HINT);
       expect(hits).toEqual([]);
+      await page.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('options stays put and repeats the picker steps when cancelled', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      const page = await extension.context.newPage();
+      await page.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await page.evaluate(() => {
+        (
+          globalThis as unknown as {
+            showDirectoryPicker: () => Promise<FileSystemDirectoryHandle>;
+          }
+        ).showDirectoryPicker = async () => {
+          throw new DOMException('The user aborted a request.', 'AbortError');
+        };
+      });
+      await page.getByRole('button', { name: 'Choose model folder' }).click();
+      await expect(page.locator('[data-folder-picker-hint]')).toHaveText(PICKER_HINT);
+      await expect(page.getByText('Models are stored inside this browser.')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Stop using shared folder' })).toBeDisabled();
       await page.close();
     } finally {
       await extension.close();
@@ -277,6 +309,7 @@ test.describe('shared model folder', () => {
       await popup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
       const offer = popup.getByText('Moving to a shared folder means:');
       await expect(offer).toBeVisible({ timeout: 30_000 });
+      await expect(popup.getByText(PICKER_HINT)).toBeVisible();
       await expect(popup.getByText('One copy on disk, so you save space (573 MB).')).toBeVisible();
       await expect(popup.getByRole('button', { name: 'Move to a shared folder' })).toBeVisible();
       await expect(popup.getByRole('button', { name: 'Later' })).toBeVisible();
@@ -296,6 +329,38 @@ test.describe('shared model folder', () => {
       await expect(options.getByRole('button', { name: 'Move to a shared folder' })).toHaveCount(0);
       await expect(options.getByRole('button', { name: 'Choose model folder' })).toBeVisible();
       await options.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('repeats the picker steps when the move offer picker is cancelled', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      const planter = await extension.context.newPage();
+      await planter.goto(`chrome-extension://${extension.extensionId}/sample.html`);
+      await plantOpfsOfficial(planter);
+      await planter.close();
+
+      const popup = await extension.context.newPage();
+      await popup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
+      await expect(popup.getByText('Moving to a shared folder means:')).toBeVisible({
+        timeout: 30_000,
+      });
+      await popup.evaluate(() => {
+        (
+          globalThis as unknown as {
+            showDirectoryPicker: () => Promise<FileSystemDirectoryHandle>;
+          }
+        ).showDirectoryPicker = async () => {
+          throw new DOMException('The user aborted a request.', 'AbortError');
+        };
+      });
+      await popup.getByRole('button', { name: 'Move to a shared folder' }).click();
+      await expect(popup.locator('[data-folder-picker-hint]')).toHaveText(PICKER_HINT);
+      await expect(popup.getByRole('button', { name: 'Move to a shared folder' })).toBeVisible();
+      await expect(popup.getByRole('button', { name: 'Later' })).toBeVisible();
+      await popup.close();
     } finally {
       await extension.close();
     }
