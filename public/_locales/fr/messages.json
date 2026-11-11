@@ -1199,5 +1199,8 @@
   },
   "videoCaptionsHideOriginal": {
     "message": "Masquer le sous-titre d’origine"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "L’accès à YouTube et X n’a pas été accordé."
   }
 }

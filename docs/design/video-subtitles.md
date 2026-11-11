@@ -272,12 +272,13 @@ already looking at.
 
 - **Unit:** WebVTT and json3 parsers; word-cue merge (no false sentences); live buffer;
   player-response / live track choice; X playing-video picker and twimg allowlist;
-  auto-inject gating; overlay bilingual/replace; translator cache, seek cancel, degenerate
-  skip, live preempt; scheduler preemption; session live original-then-translation and
-  silent X.
+  auto-inject gating; popup/options toggle permission-denied revert; overlay bilingual/replace;
+  translator cache, seek cancel, degenerate skip, live preempt; scheduler preemption;
+  session live original-then-translation, setting-off overlay removal, and silent X.
 - **e2e:** HTML5 dummy clip; YouTube on-demand; YouTube live auto-run without Translate;
-  X-like DOM + VTT (playing video only); X with no captions → nothing. No real people, no
-  personal info, no copyrighted footage. Fake engine marker `§en§`. Setting off → no overlay.
+  X-like DOM + VTT (playing video only); X with no captions → nothing; popup switch
+  on/off propagation and permission-denied revert. No real people, no personal info, no
+  copyrighted footage. Fake engine marker `§en§`. Setting off → no overlay.
 - Fixtures are served by `e2e/serve.mjs` with `text/vtt` and `video/mp4` types.
 
 ## Firefox
@@ -290,7 +291,11 @@ captions will lag unless WebGPU is up. No `tabCapture` later either.
 ## Prototype in this tree
 
 - Settings: `translateVideoCaptions` (default false), `videoCaptionDisplay` (default
-  `bilingual`).
+  `bilingual`). The popup has one compact switch for the same setting; Options stays the
+  detailed page. Turning the switch on asks for optional YouTube/X host access in that
+  click. A denial reverts the switch and shows a one-line hint. Open tabs pick the change
+  up live (off removes the overlay; on starts on the current YouTube/X video without a
+  reload when the content script can inject).
 - Content script starts `VideoCaptionSession` when the setting is on and the site is not
   `never`.
 - Modules: `src/captions/` (`cues.ts`, `youtube.ts`, `html5.ts`, `x.ts`, `sites.ts`,
@@ -299,8 +304,8 @@ captions will lag unless WebGPU is up. No `tabCapture` later either.
 
 ## Open questions (remaining)
 
-1. **Shortcut / popup control:** Settings-only for this prototype. A popup toggle or a key
-   before shipping?
+1. **Shortcut:** the popup now has the on/off switch. A dedicated keyboard command is still
+   open if shipping v1 wants one besides the setting.
 2. **Default display vs page display:** bilingual stays the caption default. Should shipping
    v1 follow the page-translation display setting instead?
 3. **twimg CORS:** if X attaches no `textTrack` and the page-world GET is blocked, v1 shows

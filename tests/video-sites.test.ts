@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   captionPermissionOrigins,
   isCaptionAutoHost,
+  resolveCaptionToggle,
   shouldAutoInjectCaptions,
 } from '@/captions/sites';
 
@@ -51,5 +52,32 @@ describe('caption auto-run gating', () => {
     expect(origins.some((origin) => origin.includes('twitter.com'))).toBe(true);
     expect(origins.join(' ')).not.toContain('twimg.com');
     expect(isCaptionAutoHost('music.youtube.com')).toBe(true);
+  });
+});
+
+describe('caption toggle permission gate', () => {
+  it('turns off without requesting host access', async () => {
+    let requested = 0;
+    await expect(
+      resolveCaptionToggle(false, async () => {
+        requested += 1;
+        return true;
+      }),
+    ).resolves.toEqual({ on: false, denied: false });
+    expect(requested).toBe(0);
+  });
+
+  it('turns on after host access is granted', async () => {
+    await expect(resolveCaptionToggle(true, async () => true)).resolves.toEqual({
+      on: true,
+      denied: false,
+    });
+  });
+
+  it('reverts to off when the permission request is denied', async () => {
+    await expect(resolveCaptionToggle(true, async () => false)).resolves.toEqual({
+      on: false,
+      denied: true,
+    });
   });
 });

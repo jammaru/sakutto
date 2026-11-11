@@ -1199,5 +1199,8 @@
   },
   "videoCaptionsHideOriginal": {
     "message": "원문 자막 숨기기"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "YouTube와 X에 대한 액세스가 허용되지 않았습니다."
   }
 }

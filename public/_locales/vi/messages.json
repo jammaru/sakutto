@@ -1199,5 +1199,8 @@
   },
   "videoCaptionsHideOriginal": {
     "message": "Ẩn phụ đề gốc"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "Quyền truy cập YouTube và X không được cấp."
   }
 }

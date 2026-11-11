@@ -68,7 +68,14 @@ describe('caption auto-inject', () => {
       new URL('../src/ui/SettingsFields.svelte', import.meta.url),
       'utf8',
     );
-    expect(fields).toContain('requestCaptionHostAccess');
+    const popup = readFileSync(
+      new URL('../src/entrypoints/popup/App.svelte', import.meta.url),
+      'utf8',
+    );
+    expect(fields).toContain('resolveCaptionToggle');
     expect(fields).toContain('translateVideoCaptions');
+    expect(popup).toContain('resolveCaptionToggle');
+    expect(popup).toContain('videoCaptionsSetting');
+    expect(popup).toContain('data-sakutto="video-captions"');
   });
 });

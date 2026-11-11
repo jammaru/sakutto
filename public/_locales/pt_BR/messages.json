@@ -1199,5 +1199,8 @@
   },
   "videoCaptionsHideOriginal": {
     "message": "Ocultar legenda original"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "O acesso ao YouTube e ao X não foi concedido."
   }
 }

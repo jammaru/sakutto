@@ -1199,5 +1199,8 @@
   },
   "videoCaptionsHideOriginal": {
     "message": "Originaluntertitel ausblenden"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "Der Zugriff auf YouTube und X wurde nicht gewährt."
   }
 }

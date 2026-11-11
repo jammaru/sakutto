@@ -1199,5 +1199,8 @@
   },
   "videoCaptionsHideOriginal": {
     "message": "原文の字幕を隠す"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "YouTube と X へのアクセスが許可されませんでした。"
   }
 }

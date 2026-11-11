@@ -12,7 +12,7 @@
     type Settings,
     type SettingsPatch,
   } from '@/shared/settings';
-  import { requestCaptionHostAccess } from '@/captions/sites';
+  import { resolveCaptionToggle } from '@/captions/sites';
   import LanguageField from './LanguageField.svelte';
 
   interface Props {
@@ -156,15 +156,13 @@
       onchange={(event) => {
         const input = event.currentTarget as HTMLInputElement;
         void (async () => {
-          if (input.checked) {
-            const granted = await requestCaptionHostAccess();
-            if (!granted) {
-              input.checked = false;
-              onPermissionDenied?.();
-              return;
-            }
+          const result = await resolveCaptionToggle(input.checked);
+          input.checked = result.on;
+          if (result.denied) {
+            onPermissionDenied?.();
+            return;
           }
-          onChange({ translateVideoCaptions: input.checked });
+          onChange({ translateVideoCaptions: result.on });
         })();
       }}
     />

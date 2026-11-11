@@ -58,6 +58,17 @@ describe('start controls while the model downloads', () => {
     expect(popup).toContain('changeTarget');
     expect(popup).toContain('saveSettings({ targetLanguage: language })');
   });
+
+  it('exposes a compact video-caption switch on the same setting', () => {
+    expect(popup).toContain('setVideoCaptions');
+    expect(popup).toContain('resolveCaptionToggle');
+    expect(popup).toContain("t('videoCaptionsSetting')");
+    expect(popup).toContain('data-sakutto="video-captions"');
+    expect(popup).toContain('videoCaptionsPermissionDenied');
+    expect(popup).toContain('saveSettings({ translateVideoCaptions: result.on })');
+    expect(popup).not.toContain('videoCaptionsSettingHelp');
+    expect(popup).not.toMatch(/badge|notification/i);
+  });
 });
 
 /**

@@ -1199,5 +1199,8 @@
   },
   "videoCaptionsHideOriginal": {
     "message": "ซ่อนคำบรรยายต้นฉบับ"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "ไม่ได้รับสิทธิ์เข้าถึง YouTube และ X"
   }
 }

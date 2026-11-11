@@ -1199,5 +1199,8 @@
   },
   "videoCaptionsHideOriginal": {
     "message": "Скрыть исходный субтитр"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "Доступ к YouTube и X не был предоставлен."
   }
 }

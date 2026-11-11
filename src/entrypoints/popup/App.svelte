@@ -34,6 +34,7 @@
     subscribeSiteRules,
     type SiteRule,
   } from '@/dom/sites';
+  import { isCaptionAutoHost, resolveCaptionToggle } from '@/captions/sites';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';
   import {
     effectivePageTarget,
@@ -76,6 +77,7 @@
   let pageMessage = $state<'ready' | 'unsupported' | 'unread'>('unsupported');
   let commandBusy = $state(false);
   let permissionError = $state(false);
+  let captionPermissionError = $state(false);
   let engine = $state<EngineStatus | null>(null);
   let modelMark = $state<ModelStatus | null>(null);
   let quality = $state<QualitySample | null>(null);
@@ -248,6 +250,28 @@
       view = await requestPageCommand(tabId, view?.active ? 'restore' : 'toggle');
     } finally {
       commandBusy = false;
+    }
+  }
+
+  async function setVideoCaptions(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    captionPermissionError = false;
+    const result = await resolveCaptionToggle(input.checked);
+    input.checked = result.on;
+    if (result.denied) {
+      captionPermissionError = true;
+      return;
+    }
+    try {
+      settings = await saveSettings({ translateVideoCaptions: result.on });
+      settingsError = null;
+    } catch {
+      settingsError = 'save';
+      input.checked = settings?.translateVideoCaptions === true;
+      return;
+    }
+    if (result.on && tabId !== undefined && host && isCaptionAutoHost(host)) {
+      await ensureContentScript(tabId);
     }
   }
 
@@ -472,6 +496,23 @@
     <p class="muted">
       {pageMessage === 'unread' ? t('errorPage') : t('pageStatusUnavailable')}
     </p>
+  {/if}
+
+  {#if settings}
+    <label class="check">
+      <input
+        type="checkbox"
+        data-sakutto="video-captions"
+        checked={settings.translateVideoCaptions}
+        onchange={setVideoCaptions}
+      />
+      <span>{t('videoCaptionsSetting')}</span>
+    </label>
+    {#if captionPermissionError}
+      <p class="error" role="alert" data-sakutto="video-captions-denied">
+        {t('videoCaptionsPermissionDenied')}
+      </p>
+    {/if}
   {/if}
 
   {#if settingsError}

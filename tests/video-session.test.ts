@@ -81,6 +81,14 @@ describe('video caption session', () => {
     expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
       'The station opens at dawn.',
     );
+    session.setPreferences({
+      enabled: false,
+      targetLanguage: 'ja',
+      form: 'polite',
+      display: 'bilingual',
+      tier: 'g',
+    });
+    expect(document.querySelector('sakutto-captions')).toBeNull();
     session.stop();
   });
 

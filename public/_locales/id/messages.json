@@ -1199,5 +1199,8 @@
   },
   "videoCaptionsHideOriginal": {
     "message": "Sembunyikan teks asli"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "Akses ke YouTube dan X tidak diberikan."
   }
 }

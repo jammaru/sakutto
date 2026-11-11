@@ -1199,5 +1199,8 @@
   },
   "videoCaptionsHideOriginal": {
     "message": "隱藏原字幕"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "未獲准存取 YouTube 和 X。"
   }
 }

@@ -1199,5 +1199,8 @@
   },
   "videoCaptionsHideOriginal": {
     "message": "Hide original caption"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "Access to YouTube and X was not granted."
   }
 }

@@ -162,6 +162,74 @@ test.describe('video captions', () => {
     }
   });
 
+  test('starts and stops captions from the popup switch without a reload', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker);
+      const page = await extension.context.newPage();
+      await page.goto(`${FIXTURE_ORIGIN}/video-captions.html`);
+      await prepareVideo(page);
+      await injectContentScript(extension.worker, page);
+      await expect(page.locator('sakutto-captions')).toHaveCount(0);
+
+      const popup = await extension.context.newPage();
+      await popup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
+      const toggle = popup.locator('[data-sakutto="video-captions"]');
+      await expect(toggle).toBeVisible();
+      await expect(toggle).not.toBeChecked();
+      await stubPopupCaptionPermission(popup, true);
+      await toggle.click();
+      await expect(toggle).toBeChecked();
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-caption',
+        new RegExp(MARKER),
+      );
+
+      await toggle.click();
+      await expect(toggle).not.toBeChecked();
+      await expect(page.locator('sakutto-captions')).toHaveCount(0);
+      await popup.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('reverts the popup switch when host permission is denied', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker);
+      const page = await extension.context.newPage();
+      await page.goto(`${FIXTURE_ORIGIN}/video-captions.html`);
+      await prepareVideo(page);
+      await injectContentScript(extension.worker, page);
+
+      const popup = await extension.context.newPage();
+      await popup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
+      const toggle = popup.locator('[data-sakutto="video-captions"]');
+      await expect(toggle).toBeVisible();
+      await stubPopupCaptionPermission(popup, false);
+      await toggle.click();
+      await expect(toggle).not.toBeChecked();
+      await expect(popup.locator('[data-sakutto="video-captions-denied"]')).toHaveText(
+        'Access to YouTube and X was not granted.',
+      );
+      await expect(page.locator('sakutto-captions')).toHaveCount(0);
+      const stored = await extension.worker.evaluate(async () => {
+        const chrome = (
+          globalThis as unknown as {
+            chrome: { storage: { local: { get(key: string): Promise<Record<string, unknown>> } } };
+          }
+        ).chrome;
+        const value = await chrome.storage.local.get('settings');
+        return value.settings as { translateVideoCaptions?: boolean } | undefined;
+      });
+      expect(stored?.translateVideoCaptions).not.toBe(true);
+      await popup.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
   test('shows nothing on an X video with no captions', async () => {
     const extension = await loadExtension('en-US');
     try {
@@ -183,6 +251,21 @@ test.describe('video captions', () => {
     }
   });
 });
+
+async function stubPopupCaptionPermission(popup: Page, granted: boolean): Promise<void> {
+  await popup.evaluate((granted) => {
+    const apply = (api: unknown) => {
+      if (!api || typeof api !== 'object' || !('permissions' in api)) return;
+      const permissions = Reflect.get(api, 'permissions') as
+        { contains?: unknown; request?: unknown } | undefined;
+      if (!permissions) return;
+      permissions.contains = async () => false;
+      permissions.request = async () => granted;
+    };
+    apply(Reflect.get(globalThis, 'chrome'));
+    apply(Reflect.get(globalThis, 'browser'));
+  }, granted);
+}
 
 async function mockXOrigin(
   context: import('@playwright/test').BrowserContext,

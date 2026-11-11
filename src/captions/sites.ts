@@ -47,3 +47,22 @@ export async function requestCaptionHostAccess(): Promise<boolean> {
   if (already) return true;
   return browser.permissions.request({ origins }).catch(() => false);
 }
+
+export interface CaptionToggleDecision {
+  on: boolean;
+  denied: boolean;
+}
+
+/**
+ * Turns caption translation on only after optional host access is granted in this click.
+ * A denial leaves the setting off so the switch can revert.
+ */
+export async function resolveCaptionToggle(
+  nextOn: boolean,
+  requestAccess: () => Promise<boolean> = requestCaptionHostAccess,
+): Promise<CaptionToggleDecision> {
+  if (!nextOn) return { on: false, denied: false };
+  const granted = await requestAccess();
+  if (!granted) return { on: false, denied: true };
+  return { on: true, denied: false };
+}
