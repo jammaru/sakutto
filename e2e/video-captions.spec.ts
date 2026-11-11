@@ -137,15 +137,12 @@ test.describe('video captions', () => {
         '1',
       );
       const toggle = page.locator('[data-sakutto="caption-original-toggle"]');
-      await revealCaptionToggle(page);
-      await expect(toggle).toBeVisible();
-      await toggle.click();
+      await clickCaptionToggle(page, toggle);
       await expect(page.locator('sakutto-captions')).toHaveAttribute(
         'data-sakutto-show-original',
         '0',
       );
-      await revealCaptionToggle(page);
-      await toggle.click();
+      await clickCaptionToggle(page, toggle);
       await expect(page.locator('sakutto-captions')).toHaveAttribute(
         'data-sakutto-show-original',
         '1',
