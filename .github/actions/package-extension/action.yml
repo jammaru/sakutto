@@ -68,7 +68,8 @@ runs:
 
     - if: ${{ inputs.target != 'firefox' }}
       shell: bash
-      run: pnpm exec playwright install --with-deps chromium
+      # Skip `--with-deps`: ubuntu-latest apt often fails DNS for archive.ubuntu.com.
+      run: pnpm exec playwright install chromium
 
     - if: ${{ inputs.target != 'firefox' }}
       shell: bash

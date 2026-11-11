@@ -126,7 +126,10 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ steps.playwright.outputs.key }}
 
-      - run: pnpm exec playwright install --with-deps chromium
+      # Skip `--with-deps`: ubuntu-latest (Resolute) apt often fails DNS for
+      # archive.ubuntu.com, and GitHub-hosted images already ship the libs
+      # Chromium needs. Browser binaries still come from the cache above.
+      - run: pnpm exec playwright install chromium
       - run: pnpm test:e2e
         env:
           PLAYWRIGHT_SKIP_INSTALL: '1'
