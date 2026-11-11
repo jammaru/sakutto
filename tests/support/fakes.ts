@@ -18,6 +18,7 @@ export class MemoryFileStore implements ModelFileStore {
   readonly files = new Map<string, Uint8Array>();
   readonly modified = new Map<string, number>();
   quota = 4 * 1024 * 1024 * 1024;
+  ephemeralAccess = false;
   now = () => Date.now();
 
   async size(path: string): Promise<number> {

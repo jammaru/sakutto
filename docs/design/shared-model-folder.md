@@ -23,6 +23,14 @@ official model already in OPFS with no folder configured, including a new
 user who saved in this browser and an existing user after update. The card
 persists as shown only after the popup actually rendered it.
 
+A popup-card move copies the official GGUF into the chosen folder and verifies
+it. Chrome can drop the directory grant when that popup closes, and the
+offscreen document cannot call `requestPermission`. The OPFS file is therefore
+kept as a fallback so translation still works after the popup closes and after
+a browser restart; Settings can delete the leftover OPFS copy. Folder reload
+drops the previous runtime so the next request loads from a store it can still
+read.
+
 Layout after a successful pick:
 
 `<chosen>/sakutto-models/<official GGUF>`

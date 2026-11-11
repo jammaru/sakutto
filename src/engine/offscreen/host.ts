@@ -865,10 +865,19 @@ export class EngineHost {
     request: FolderReloadRequest,
   ): Promise<void> {
     try {
-      await this.services();
+      const services = await this.services();
+      for (const [id, live] of this.requests) {
+        if (live.kind === 'download') continue;
+        this.abortLiveRequest(id, live);
+      }
+      services.lazy.reset();
+      await services.disposeRetryRuntime?.();
+      await services.manager.unload();
       const status = this.folderSession
         ? await this.folderSession.apply()
         : emptySharedFolderStatus(false);
+      const model = await services.manager.status(this.activeModelId);
+      this.plamoReady = modelCanTranslate(model);
       this.respond(port, request.requestId, status);
     } catch (error) {
       this.respondError(port, request.requestId, error);

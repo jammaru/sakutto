@@ -63,6 +63,7 @@ function createServices() {
   const unload = vi.fn(async () => undefined);
   const reset = vi.fn();
   const dispose = vi.fn(async () => undefined);
+  const disposeRetry = vi.fn(async () => undefined);
   const download = vi.fn<DownloadFn>(async () => undefined);
 
   const services = {
@@ -79,9 +80,10 @@ function createServices() {
     lazy: { kind: 'plamo', reset, translate: vi.fn() },
     load: vi.fn(async () => ({})),
     selection: SELECTION,
+    disposeRetryRuntime: disposeRetry,
   } as unknown as EngineServices;
 
-  return { services, unload, reset, dispose, download };
+  return { services, unload, reset, dispose, disposeRetry, download };
 }
 
 function installed(
@@ -397,6 +399,26 @@ describe('EngineHost', () => {
     expect(unload).toHaveBeenCalled();
     expect(port.messagesOfType('model-persist')).toHaveLength(0);
     expect(cacheModelIdOf(host)).toBe(HIGH_QUALITY_MODEL_ID);
+  });
+
+  it('drops a loaded runtime when the shared folder is reloaded after a move', async () => {
+    const { services, unload, reset, disposeRetry } = createServices();
+    const { port } = await openRunningHost(services);
+    reset.mockClear();
+    unload.mockClear();
+    disposeRetry.mockClear();
+
+    port.emit({ type: 'folder-reload', requestId: 'f1' });
+    await flushTasks();
+
+    expect(reset).toHaveBeenCalled();
+    expect(disposeRetry).toHaveBeenCalled();
+    expect(unload).toHaveBeenCalled();
+    const response = port.messagesOfType('response').at(-1) as {
+      requestId?: string;
+      ok?: boolean;
+    };
+    expect(response).toMatchObject({ requestId: 'f1', ok: true });
   });
 
   it('resets a loaded runtime when model-set changes the id, and caches the next translation under the new model', async () => {

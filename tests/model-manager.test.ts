@@ -335,6 +335,26 @@ describe('ModelManager', () => {
     expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
   });
 
+  it('keeps the OPFS copy when the shared folder grant can disappear', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    shared.ephemeralAccess = true;
+    await seedVerified(opfs);
+    const { manager, createRuntime } = createManager(shared, { fallbackStore: opfs });
+    await manager.ensureLoaded(ENTRY.id, SELECTION);
+    expect(createRuntime).toHaveBeenCalledOnce();
+
+    await manager.adoptPresentModels();
+
+    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
+    expect(await manager.primaryReady(ENTRY.id)).toBe(true);
+    expect(await manager.fallbackCopyPresent(ENTRY.id)).toBe(true);
+    await manager.ensureLoaded(ENTRY.id, SELECTION);
+    expect(new Uint8Array(await (await manager.modelBlob(ENTRY.id)).arrayBuffer())).toEqual(
+      PAYLOAD,
+    );
+  });
+
   it('unloads an OPFS-backed runtime before deleting the browser copy', async () => {
     const opfs = new MemoryFileStore();
     const shared = new MemoryFileStore();

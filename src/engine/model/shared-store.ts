@@ -47,6 +47,8 @@ function requireMapped(path: string): string {
  * only place those paths become official PFN filenames.
  */
 export class SharedFolderModelFileStore implements ModelFileStore {
+  readonly ephemeralAccess = true;
+
   constructor(private readonly inner: ModelFileStore) {}
 
   static async open(directory: FileSystemDirectoryHandle): Promise<SharedFolderModelFileStore> {

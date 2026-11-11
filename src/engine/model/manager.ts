@@ -492,6 +492,7 @@ export class ModelManager {
    */
   private async dropFallbackAfterVerifiedMove(modelId: ModelId): Promise<void> {
     if (!this.fallbackStore) return;
+    if (this.store.ephemeralAccess) return;
     const drop = async (): Promise<void> => {
       if (this.loaded?.id === modelId) await this.unload();
       await this.fallbackStore?.removeDirectory(this.modelDirectory(modelId));
@@ -585,30 +586,26 @@ export class ModelManager {
     modelId: ModelId,
     signal?: AbortSignal,
   ): Promise<ModelFileStore | null> {
-    const primary = await this.inspect(this.store, modelId);
-    if (primary.integrity === 'needs-hash') {
-      await this.runVerify(this.store, modelId, signal ?? new AbortController().signal).catch(
-        () => undefined,
-      );
-      const verified = await this.inspect(this.store, modelId);
-      if (verified.state === 'ready') return this.store;
-    } else if (primary.state === 'ready') {
-      return this.store;
+    const abort = signal ?? new AbortController().signal;
+    const pick = async (store: ModelFileStore): Promise<ModelFileStore | null> => {
+      const inspected = await this.inspect(store, modelId);
+      if (inspected.integrity === 'needs-hash') {
+        await this.runVerify(store, modelId, abort).catch(() => undefined);
+        const verified = await this.inspect(store, modelId);
+        return verified.state === 'ready' ? store : null;
+      }
+      return inspected.state === 'ready' ? store : null;
+    };
+
+    if (this.fallbackStore && this.store.ephemeralAccess) {
+      const fallback = await pick(this.fallbackStore);
+      if (fallback) return fallback;
     }
 
-    if (!this.fallbackStore) return null;
-    const fallback = await this.inspect(this.fallbackStore, modelId);
-    if (fallback.integrity === 'needs-hash') {
-      await this.runVerify(
-        this.fallbackStore,
-        modelId,
-        signal ?? new AbortController().signal,
-      ).catch(() => undefined);
-      const verified = await this.inspect(this.fallbackStore, modelId);
-      if (verified.state === 'ready') return this.fallbackStore;
-      return null;
-    }
-    return fallback.state === 'ready' ? this.fallbackStore : null;
+    const primary = await pick(this.store);
+    if (primary) return primary;
+    if (!this.fallbackStore || this.store.ephemeralAccess) return null;
+    return pick(this.fallbackStore);
   }
 
   private async inspect(

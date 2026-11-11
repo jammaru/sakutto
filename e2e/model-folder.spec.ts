@@ -1,5 +1,8 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { loadExtension, type LoadedExtension } from './extension';
+import { launchExtension, loadExtension, type LoadedExtension } from './extension';
 import { DEFAULT_MODEL_ID, getModel } from '../src/engine/model/catalog';
 
 const PICKER_HINT =
@@ -373,6 +376,69 @@ test.describe('shared model folder', () => {
       await again.close();
     } finally {
       await extension.close();
+    }
+  });
+
+  test('translates after a popup-card move, after the popup closes, and after a restart', async () => {
+    test.setTimeout(180_000);
+    const profileDirectory = await mkdtemp(join(tmpdir(), 'sakutto-folder-move-'));
+    try {
+      const extension = await launchExtension('en-US', profileDirectory, false);
+      const hits = await interceptGguf(extension, 'hang');
+      try {
+        const planter = await extension.context.newPage();
+        await planter.goto(`chrome-extension://${extension.extensionId}/sample.html`);
+        await plantOpfsOfficial(planter);
+        await planter.close();
+
+        const onboarding = await extension.context.newPage();
+        await onboarding.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
+        await onboarding.getByRole('radio', { name: BROWSER_RADIO }).check();
+        await onboarding.getByRole('button', { name: 'Agree to the license and start' }).click();
+        await expect(onboarding.getByRole('heading', { name: "You're ready." })).toBeVisible({
+          timeout: 30_000,
+        });
+        await onboarding.close();
+
+        const popup = await extension.context.newPage();
+        await popup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
+        await expect(popup.getByText('Moving to a shared folder means:')).toBeVisible({
+          timeout: 30_000,
+        });
+        await mockEmptySharedFolder(popup);
+        await popup.getByRole('button', { name: 'Move to a shared folder' }).click();
+        await expect(popup.getByText('Moving to a shared folder means:')).toHaveCount(0, {
+          timeout: 180_000,
+        });
+        await expect
+          .poll(async () => readSharedFolder(popup), { timeout: 15_000 })
+          .toMatchObject({
+            configured: true,
+          });
+        await expect
+          .poll(async () => readModelState(popup), { timeout: 15_000 })
+          .toMatch(/^(ready|loaded|loading)$/);
+        expect(hits).toEqual([]);
+        await popup.close();
+
+        await expectSampleTranslates(extension);
+        expect(hits).toEqual([]);
+      } finally {
+        await extension.close();
+      }
+
+      const extensionId = extension.extensionId;
+      const restarted = await launchExtension('en-US', profileDirectory, false);
+      expect(restarted.extensionId).toBe(extensionId);
+      const restartHits = await interceptGguf(restarted, 'hang');
+      try {
+        await expectSampleTranslates(restarted);
+        expect(restartHits).toEqual([]);
+      } finally {
+        await restarted.close();
+      }
+    } finally {
+      await rm(profileDirectory, { recursive: true, force: true });
     }
   });
 
@@ -773,6 +839,39 @@ async function readOfferDismissed(page: Page): Promise<boolean> {
       settings !== null &&
       (settings as { sharedFolderOfferDismissed?: unknown }).sharedFolderOfferDismissed === true
     );
+  });
+}
+
+async function expectSampleTranslates(extension: LoadedExtension): Promise<void> {
+  const sample = await extension.context.newPage();
+  try {
+    await sample.goto(`chrome-extension://${extension.extensionId}/sample.html?to=ja`);
+    await expect(sample.locator('article[data-sample="en"] h1')).toContainText(
+      '§ja§Morning at the station',
+      { timeout: 30_000 },
+    );
+    await expect
+      .poll(async () => readModelState(sample), { timeout: 15_000 })
+      .toMatch(/^(ready|loaded|loading)$/);
+    await expect
+      .poll(async () => readSharedFolder(sample), { timeout: 15_000 })
+      .toMatchObject({ configured: true });
+  } finally {
+    await sample.close();
+  }
+}
+
+async function readModelState(page: Page): Promise<string | undefined> {
+  return page.evaluate(async () => {
+    const chrome = (
+      globalThis as unknown as {
+        chrome: { runtime: { sendMessage(message: unknown): Promise<unknown> } };
+      }
+    ).chrome;
+    const response = (await chrome.runtime.sendMessage({ type: 'engine:status' })) as {
+      model?: { state?: string };
+    } | null;
+    return response?.model?.state;
   });
 }
 

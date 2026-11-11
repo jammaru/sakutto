@@ -17,9 +17,9 @@ import { SharedFolderModelFileStore } from './shared-store';
  * Resolves the stored directory handle for the engine host.
  *
  * The picker and `requestPermission` run in the options page. This session only calls
- * `queryPermission`. When that is `granted`, the offscreen document (same origin) reads
- * the GGUF through the handle. When it is `prompt` or `denied`, the host keeps OPFS so
- * translation does not fail silently, and the UI asks the user to re-grant.
+ * `queryPermission`. Offscreen then tries to open the stored handle anyway: Chrome may
+ * report `prompt` in that document while the handle still reads. When the open fails,
+ * the host keeps OPFS so translation does not fail silently, and the UI asks to re-grant.
  */
 export class SharedFolderSession {
   private snapshot: SharedFolderStatus = emptySharedFolderStatus(sharedFolderSupported());
@@ -60,7 +60,8 @@ export class SharedFolderSession {
     }
 
     const permission = await queryFolderPermission(stored.handle);
-    if (permission !== 'granted') {
+    const shared = await SharedFolderModelFileStore.open(stored.handle).catch(() => null);
+    if (!shared) {
       this.manager.setStores(this.opfs);
       this.snapshot = {
         supported: true,
@@ -73,17 +74,7 @@ export class SharedFolderSession {
       return this.snapshot;
     }
 
-    const shared = await SharedFolderModelFileStore.open(stored.handle);
     this.manager.setStores(shared, this.opfs);
-    this.snapshot = {
-      supported: true,
-      configured: true,
-      permission,
-      name: stored.name,
-      opfsCopies: [],
-      integrityIssues: [],
-    };
-    // Hash files already in the folder, then move verified OPFS models into it.
     await this.manager.adoptPresentModels();
     this.snapshot = await this.collect(stored.name, permission);
     return this.snapshot;
