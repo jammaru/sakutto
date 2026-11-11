@@ -14,6 +14,7 @@ import {
   sentenceSeparator,
   splitForTranslation,
 } from '../text/sentences';
+import { isDegenerateOutput, isRepeatInProgress } from '../text/degenerate';
 import { completionTokenBudget, estimateTokens } from '../text/tokens';
 import type {
   IdentifiedEngine,
@@ -435,17 +436,53 @@ export class InBrowserEngine implements IdentifiedEngine {
       throw new EngineError('invalid-input', 'The segment does not fit in the context window.');
     }
 
+    // Hold tokens only while they are still one repeated short unit. Four
+    // characters that are not that pattern are enough to stream, so a normal
+    // sentence is not kept until the segment ends. A string that stays a
+    // repeat is never passed to onDelta.
+    const held: string[] = [];
     let output = '';
-    await this.runtime.complete({
-      prompt,
-      maxTokens: Math.min(completionTokenBudget(text), available),
-      signal,
-      onToken: (delta) => {
-        output += delta;
-        onDelta(delta);
-      },
-    });
+    let live = false;
+    const flush = (): void => {
+      for (const part of held) onDelta(part);
+      held.length = 0;
+    };
 
+    try {
+      await this.runtime.complete({
+        prompt,
+        maxTokens: Math.min(completionTokenBudget(text), available),
+        signal,
+        onToken: (delta) => {
+          output += delta;
+          if (live) {
+            onDelta(delta);
+            return;
+          }
+          held.push(delta);
+          const compact = output.replace(/\s+/gu, '');
+          if (isRepeatInProgress(compact)) return;
+          if (compact.length >= 4) {
+            live = true;
+            flush();
+          }
+        },
+      });
+    } catch (error) {
+      if (!(isEngineError(error) && error.code === 'degenerate-output')) {
+        const compact = output.replace(/\s+/gu, '');
+        if (!isRepeatInProgress(compact)) flush();
+      }
+      throw error;
+    }
+
+    if (isDegenerateOutput(output) || isDegenerateOutput(cleanModelOutput(output))) {
+      throw new EngineError('degenerate-output', 'The model repeated one token.', {
+        retryable: this.runtime.backend === 'webgpu',
+        detail: this.runtime.backend,
+      });
+    }
+    flush();
     return output;
   }
 }

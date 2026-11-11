@@ -1,3 +1,5 @@
+import { EngineError } from '../errors';
+import { isDegenerateOutput } from '../text/degenerate';
 import type {
   Engine,
   IdentifiedEngine,
@@ -13,6 +15,7 @@ export class CachingEngine implements IdentifiedEngine {
     private readonly inner: IdentifiedEngine,
     private readonly cache: TranslationCache,
     private readonly modelId: string | (() => string),
+    private readonly backend: string | (() => string) = 'unspecified',
   ) {}
 
   get kind() {
@@ -27,12 +30,14 @@ export class CachingEngine implements IdentifiedEngine {
     const keys = new Map<string, string>();
     const aliases = new Map<string, string[]>();
     const model = typeof this.modelId === 'function' ? this.modelId() : this.modelId;
+    const backend = typeof this.backend === 'function' ? this.backend() : this.backend;
 
     for (const segment of segments) {
       if (options.signal.aborted) return;
 
       const key = buildTranslationCacheKey({
         model,
+        backend,
         tgt: options.tgt,
         form: options.form,
         text: segment.text,
@@ -63,6 +68,11 @@ export class CachingEngine implements IdentifiedEngine {
       if (options.signal.aborted) return;
       const key = keys.get(chunk.id);
       const copies = key ? (aliases.get(key) ?? []) : [];
+      if (chunk.final !== undefined && isDegenerateOutput(chunk.final)) {
+        throw new EngineError('degenerate-output', 'The model repeated one token.', {
+          retryable: false,
+        });
+      }
       if (chunk.final !== undefined && chunk.final.length > 0 && key) {
         await this.cache.put(key, chunk.final, chunk.engine ?? this.inner.kind);
       }

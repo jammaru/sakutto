@@ -17,7 +17,7 @@ import { CachingEngine } from '../cache/caching-engine';
 import { TranslationCache } from '../cache/cache';
 import { prewarmRequest } from '../cache/prewarm';
 import { ChromeTranslatorEngine } from '../chrome/translator';
-import { isAbortError, isEngineError, modelChangedError } from '../errors';
+import { EngineError, abortError, isAbortError, isEngineError, modelChangedError } from '../errors';
 import {
   cpuFallback,
   isGpuLoadFallback,
@@ -39,7 +39,8 @@ import { OpfsModelFileStore } from '../model/file-store';
 import { ModelManager, type LoadedModel } from '../model/manager';
 import type { DownloadProgress } from '../model/download';
 import { QUALITY_PARAGRAPH } from '../model/suggestion';
-import { buildTranslationPrompt } from '../prompt/pfml3';
+import { buildTranslationPrompt, cleanModelOutput } from '../prompt/pfml3';
+import { isDegenerateOutput } from '../text/degenerate';
 import { RoutingEngine, type PairSupport } from '../router';
 import type { GlossaryEntry } from '../types';
 import {
@@ -115,11 +116,19 @@ async function openCache(): Promise<TranslationCache> {
   }
 }
 
-async function warmup(runtime: LlamaRuntime, tgt: string): Promise<void> {
+export async function warmup(
+  runtime: LlamaRuntime,
+  tgt: string,
+  signal?: AbortSignal,
+): Promise<void> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), WARMUP_TIMEOUT_MS);
+  const onAbort = (): void => controller.abort();
+  signal?.addEventListener('abort', onAbort);
+  let output = '';
 
   try {
+    if (signal?.aborted) throw abortError();
     const language = canonicalLanguage(tgt) ?? 'ja';
     await runtime.complete({
       prompt: buildTranslationPrompt({
@@ -130,11 +139,31 @@ async function warmup(runtime: LlamaRuntime, tgt: string): Promise<void> {
       }),
       maxTokens: 16,
       signal: controller.signal,
-      onToken: () => undefined,
+      onToken: (token) => {
+        output += token;
+      },
     });
+  } catch (error) {
+    if (signal?.aborted) throw abortError();
+    // The timer gave up. Translation still runs, and a repeated token there is rejected.
+    if (isAbortError(error)) return;
+    throw error;
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener('abort', onAbort);
   }
+
+  if (isDegenerateOutput(cleanModelOutput(output))) {
+    throw new EngineError(
+      runtime.backend === 'webgpu' ? 'gpu-unavailable' : 'model-load-failed',
+      'The model repeated one token during warm-up.',
+      { detail: 'degenerate warmup', retryable: runtime.backend === 'webgpu' },
+    );
+  }
+}
+
+function isDegenerateWarmup(error: unknown): boolean {
+  return isEngineError(error) && error.detail === 'degenerate warmup';
 }
 
 /**
@@ -145,7 +174,7 @@ export function skipRemainingWebGpuAttempts(error: unknown): boolean {
   if (!isEngineError(error)) return false;
   if (error.code === 'gpu-unavailable') return true;
   const text = `${error.detail ?? ''}\n${error.message}`;
-  return /Failed to get an adapter|adapter lacks shader-f16|no adapter with shader-f16|Failed to get a device after retries|giving up on WebGPU|Error while parsing WGSL|extension 'subgroups' is not allowed|correctness probe failed|WebGPU backend disabled/iu.test(
+  return /Failed to get an adapter|adapter lacks shader-f16|no adapter with shader-f16|Failed to get a device after retries|giving up on WebGPU|Error while parsing WGSL|extension 'subgroups' is not allowed|correctness probe failed|WebGPU backend disabled|degenerate warmup/iu.test(
     text,
   );
 }
@@ -292,12 +321,21 @@ export class EngineHost {
     const load = async (signal: AbortSignal): Promise<LoadedModel> => {
       const result = await loadWithFallback(
         async (selection) => {
+          let loaded: LoadedModel;
           try {
-            return await manager.ensureLoaded(this.activeModelId, selection, { signal });
+            loaded = await manager.ensureLoaded(this.activeModelId, selection, { signal });
           } catch (error) {
             this.noteGpuError(error);
             throw error;
           }
+          try {
+            await warmup(loaded.runtime, 'ja', signal);
+          } catch (error) {
+            this.noteGpuError(error);
+            await manager.unload();
+            throw error;
+          }
+          return loaded;
         },
         selectionState.current,
         signal,
@@ -316,7 +354,21 @@ export class EngineHost {
       return result.loaded;
     };
     let lastGpuLossAt = Number.NEGATIVE_INFINITY;
-    const onGpuLost = async (): Promise<void> => {
+    const onGpuLost = async (reason: 'lost' | 'degenerate' = 'lost'): Promise<void> => {
+      if (reason === 'degenerate') {
+        const next = cpuFallback(selectionState.current);
+        if (next && next !== selectionState.current) {
+          if (isGpuLoadFallback(selectionState.current, next)) this.gpuFallback = true;
+          selectionState.current = next;
+        }
+        this.gpuDiagnostic = mergeGpuDiagnostic(
+          lastGpuDiagnostic(),
+          'degenerate output',
+          lastWebGpuLoadLog(),
+        );
+        await manager.unload();
+        return;
+      }
       const now = Date.now();
       const next = selectionAfterGpuLoss(selectionState.current, now - lastGpuLossAt);
       lastGpuLossAt = now;
@@ -335,10 +387,18 @@ export class EngineHost {
     const localEngine = new InBrowserEngine(localRuntime, { scheduler: this.localScheduler });
     const plamo = new PlamoSourceEngine(lazy, localEngine, () => this.engineSource);
 
-    const chromeForCache = chrome.available ? new CachingEngine(chrome, cache, 'chrome') : null;
+    const chromeForCache = chrome.available
+      ? new CachingEngine(chrome, cache, 'chrome', 'chrome')
+      : null;
 
     const router = new RoutingEngine({
-      plamo: new CachingEngine(plamo, cache, () => this.cacheModelId()),
+      plamo: new CachingEngine(
+        plamo,
+        cache,
+        () => this.cacheModelId(),
+        () =>
+          this.engineSource === 'local-server' ? 'local-server' : selectionState.current.backend,
+      ),
       chrome: chromeForCache,
       plamoSupports: (src, tgt) =>
         canonicalLanguage(tgt) !== null &&
@@ -509,13 +569,13 @@ export class EngineHost {
       let loaded = services.manager.loadedModel;
       if (!loaded || loaded.id !== this.activeModelId) {
         loaded = await services.load(controller.signal);
-      }
-      if (controller.signal.aborted) return;
-      try {
-        await warmup(loaded.runtime, 'ja');
-      } catch {
+      } else {
         if (controller.signal.aborted) return;
-        // The short warm-up is optional; translation still runs.
+        try {
+          await warmup(loaded.runtime, 'ja', controller.signal);
+        } catch (error) {
+          if (isDegenerateWarmup(error) || controller.signal.aborted) throw error;
+        }
       }
       if (controller.signal.aborted) return;
       this.plamoReady = true;

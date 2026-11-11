@@ -9,13 +9,14 @@ import { buildTranslationCacheKey } from '@/engine/cache/key';
 import { MemoryTranslationCacheStore } from '@/engine/cache/store';
 import { EngineError } from '@/engine/errors';
 import { selectBackend } from '@/engine/in-browser/backend';
-import { EngineHost, loadWithFallback, type EngineServices } from '@/engine/offscreen/host';
+import { EngineHost, loadWithFallback, warmup, type EngineServices } from '@/engine/offscreen/host';
 import type { LoadedModel } from '@/engine/model/manager';
 import type { ModelStatus } from '@/shared/engine-status';
 import { normalizeSettings } from '@/shared/settings';
 import * as storage from '@/shared/storage';
 import type { IdentifiedEngine, TranslateOptions, TranslateSegment } from '@/engine/types';
 import { serializeTranslateOptions } from '@/engine/offscreen/protocol';
+import { FakeRuntime } from './support/fakes';
 import { FakePort, deferred, flushTasks } from './support/ports';
 
 vi.mock('wxt/browser', () => ({
@@ -965,6 +966,23 @@ describe('model load on the GPU tier', () => {
     ]);
   });
 
+  it('goes straight to the CPU when warm-up repeated a token', async () => {
+    const tried: Array<[string, number]> = [];
+    const ensureLoaded = vi.fn(async (selection: BackendSelection) => {
+      tried.push([selection.backend, selection.nParallel]);
+      if (selection.backend === 'webgpu') {
+        throw new EngineError('model-load-failed', 'repeated', { detail: 'degenerate warmup' });
+      }
+      return loaded;
+    });
+    await loadWithFallback(ensureLoaded, wide, new AbortController().signal);
+
+    expect(tried).toEqual([
+      ['webgpu', 16],
+      ['cpu-wasm', 1],
+    ]);
+  });
+
   it('goes straight to the CPU when the correctness probe fails', async () => {
     const tried: Array<[string, number]> = [];
     const ensureLoaded = vi.fn(async (selection: BackendSelection) => {
@@ -1012,5 +1030,21 @@ describe('model load on the GPU tier', () => {
 
     await expect(loadWithFallback(ensureLoaded, gpu, controller.signal)).rejects.toThrow();
     expect(ensureLoaded).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('warmup', () => {
+  it('rejects a repeated token on WebGPU and on the CPU', async () => {
+    await expect(
+      warmup(new FakeRuntime(() => ',3'.repeat(12), 1, 'webgpu'), 'ja'),
+    ).rejects.toMatchObject({ code: 'gpu-unavailable', detail: 'degenerate warmup' });
+    await expect(warmup(new FakeRuntime(() => ',3'.repeat(12)), 'ja')).rejects.toMatchObject({
+      code: 'model-load-failed',
+      detail: 'degenerate warmup',
+    });
+  });
+
+  it('accepts a short translation', async () => {
+    await expect(warmup(new FakeRuntime(() => 'こんにちは。'), 'ja')).resolves.toBeUndefined();
   });
 });

@@ -97,15 +97,20 @@ export function streamOf(chunks: readonly Uint8Array[]): ReadableStream<Uint8Arr
 }
 
 export class FakeRuntime implements LlamaRuntime {
-  readonly backend: BackendKind = 'cpu-wasm';
+  readonly backend: BackendKind;
   readonly threads = 8;
   readonly parallel: number;
   readonly requests: CompletionRequest[] = [];
   handler: (prompt: string) => string;
 
-  constructor(handler: (prompt: string) => string, parallel = 1) {
+  constructor(
+    handler: (prompt: string) => string,
+    parallel = 1,
+    backend: BackendKind = 'cpu-wasm',
+  ) {
     this.handler = handler;
     this.parallel = parallel;
+    this.backend = backend;
   }
 
   async complete(request: CompletionRequest): Promise<void> {

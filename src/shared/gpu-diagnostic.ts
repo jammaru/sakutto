@@ -3,6 +3,8 @@ import { isRecord } from './object';
 export type WebGpuDebugProfile = 'off' | 'amd-rdna3' | 'intel-arc' | 'no-f16' | 'reject-max-limits';
 
 export type CorrectnessProbeStatus = 'ok' | 'failed' | 'subgroups-disabled';
+export type WideShuffleStatus = 'ok' | 'bad' | 'skip';
+export type FlashAttnVecStatus = 'on' | 'off';
 
 export const WEBGPU_DEBUG_STORAGE_KEY = 'sakuttoWebGpuDebug';
 export const WEBGPU_DEBUG_QUERY_PARAM = 'webgpuDebug';
@@ -74,6 +76,8 @@ export interface GpuDiagnostic {
   correctnessProbe: CorrectnessProbeStatus | null;
   correctnessProbeMs: number | null;
   correctnessProbeSubgroupSize: number | null;
+  correctnessProbeWideShuffle: WideShuffleStatus | null;
+  correctnessProbeVec: FlashAttnVecStatus | null;
 }
 
 export const EMPTY_GPU_DIAGNOSTIC: GpuDiagnostic = {
@@ -102,6 +106,8 @@ export const EMPTY_GPU_DIAGNOSTIC: GpuDiagnostic = {
   correctnessProbe: null,
   correctnessProbeMs: null,
   correctnessProbeSubgroupSize: null,
+  correctnessProbeWideShuffle: null,
+  correctnessProbeVec: null,
 };
 
 /**
@@ -292,6 +298,14 @@ function isCorrectnessProbeStatus(value: unknown): value is CorrectnessProbeStat
   return value === 'ok' || value === 'failed' || value === 'subgroups-disabled';
 }
 
+function isWideShuffleStatus(value: unknown): value is WideShuffleStatus {
+  return value === 'ok' || value === 'bad' || value === 'skip';
+}
+
+function isFlashAttnVecStatus(value: unknown): value is FlashAttnVecStatus {
+  return value === 'on' || value === 'off';
+}
+
 export function isGpuDiagnostic(value: unknown): value is GpuDiagnostic {
   if (!isRecord(value)) return false;
   if (!isStringOrNull(value.vendor)) return false;
@@ -344,6 +358,20 @@ export function isGpuDiagnostic(value: unknown): value is GpuDiagnostic {
   }
   if (!isNumberOrNull(value.correctnessProbeMs)) return false;
   if (!isNumberOrNull(value.correctnessProbeSubgroupSize)) return false;
+  if (
+    value.correctnessProbeWideShuffle !== null &&
+    value.correctnessProbeWideShuffle !== undefined &&
+    !isWideShuffleStatus(value.correctnessProbeWideShuffle)
+  ) {
+    return false;
+  }
+  if (
+    value.correctnessProbeVec !== null &&
+    value.correctnessProbeVec !== undefined &&
+    !isFlashAttnVecStatus(value.correctnessProbeVec)
+  ) {
+    return false;
+  }
   return true;
 }
 
@@ -377,6 +405,12 @@ export function gpuDiagnosticFromUnknown(value: unknown): GpuDiagnostic {
       : null,
     correctnessProbeMs: optionalNumber(value.correctnessProbeMs),
     correctnessProbeSubgroupSize: optionalNumber(value.correctnessProbeSubgroupSize),
+    correctnessProbeWideShuffle: isWideShuffleStatus(value.correctnessProbeWideShuffle)
+      ? value.correctnessProbeWideShuffle
+      : null,
+    correctnessProbeVec: isFlashAttnVecStatus(value.correctnessProbeVec)
+      ? value.correctnessProbeVec
+      : null,
   };
 }
 
@@ -402,6 +436,8 @@ export function parseWebGpuLog(text: string | readonly string[] | null | undefin
   correctnessProbe: CorrectnessProbeStatus | null;
   correctnessProbeMs: number | null;
   correctnessProbeSubgroupSize: number | null;
+  correctnessProbeWideShuffle: WideShuffleStatus | null;
+  correctnessProbeVec: FlashAttnVecStatus | null;
 } {
   const joined = typeof text === 'string' ? text : Array.isArray(text) ? text.join('\n') : '';
   const ready = /ggml_webgpu: device ready \(([^)]+)\)/iu.exec(joined);
@@ -415,6 +451,9 @@ export function parseWebGpuLog(text: string | readonly string[] | null | undefin
     /ggml_webgpu: correctness probe: ok subgroups=(true|false) subgroup_size=(\d+) add=\d+ ms=([0-9.]+)/iu.exec(
       joined,
     );
+  const probeExtra = /f16=\d+ matmul=\d+ sgadd=\d+ wide_shuffle=(ok|bad|skip) vec=(on|off)/iu.exec(
+    joined,
+  );
   const probeFailed = /ggml_webgpu: correctness probe failed/iu.test(joined);
   const probeDisabled = /ggml_webgpu: correctness probe: disabling subgroups/iu.test(joined);
   const deviceFeatures: string[] = [];
@@ -434,6 +473,8 @@ export function parseWebGpuLog(text: string | readonly string[] | null | undefin
     correctnessProbe,
     correctnessProbeMs: probeOk ? Number(probeOk[3]) : null,
     correctnessProbeSubgroupSize: probeOk ? Number(probeOk[2]) : null,
+    correctnessProbeWideShuffle: isWideShuffleStatus(probeExtra?.[1]) ? probeExtra[1] : null,
+    correctnessProbeVec: isFlashAttnVecStatus(probeExtra?.[2]) ? probeExtra[2] : null,
   };
 }
 
@@ -479,6 +520,10 @@ export function mergeGpuDiagnostic(
   if (parsed.correctnessProbeSubgroupSize !== null) {
     base.correctnessProbeSubgroupSize = parsed.correctnessProbeSubgroupSize;
   }
+  if (parsed.correctnessProbeWideShuffle) {
+    base.correctnessProbeWideShuffle = parsed.correctnessProbeWideShuffle;
+  }
+  if (parsed.correctnessProbeVec) base.correctnessProbeVec = parsed.correctnessProbeVec;
   if (error && error.length > 0) base.error = error;
   if (looksIntegratedGpu(base)) base.hint = INTEGRATED_GPU_HINT;
   return applyDebugOverlay(base);
@@ -568,6 +613,8 @@ export function formatGpuDiagnostic(diagnostic: GpuDiagnostic): string {
     line('correctnessProbe', diagnostic.correctnessProbe),
     line('correctnessProbeMs', diagnostic.correctnessProbeMs),
     line('correctnessProbeSubgroupSize', diagnostic.correctnessProbeSubgroupSize),
+    line('correctnessProbeWideShuffle', diagnostic.correctnessProbeWideShuffle),
+    line('correctnessProbeVec', diagnostic.correctnessProbeVec),
     diagnostic.hint ? `hint: ${diagnostic.hint}` : null,
     diagnostic.error ? `error:\n${diagnostic.error}` : null,
   ].filter((item): item is string => item !== null);

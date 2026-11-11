@@ -195,6 +195,33 @@ describe('LazyInBrowserEngine after the GPU is lost', () => {
     expect(loadRuntime).toHaveBeenCalledTimes(4);
   });
 
+  it('reloads on the CPU when WebGPU repeats one token and does not show it', async () => {
+    const bad = new FakeRuntime(() => ',3'.repeat(12), 1, 'webgpu');
+    const good = new FakeRuntime(() => 'こんにちは');
+    const { engine, onGpuLost, loadRuntime } = engineOver([bad, good]);
+
+    const chunks = await collectChunks(engine.translate([a], options()));
+
+    expect(
+      chunks.some((chunk) => `${chunk.textDelta ?? ''}${chunk.final ?? ''}`.includes(',3')),
+    ).toBe(false);
+    expect(chunks.at(-1)).toEqual({ id: 'a', final: 'こんにちは', engine: 'plamo' });
+    expect(onGpuLost).toHaveBeenCalledOnce();
+    expect(onGpuLost).toHaveBeenCalledWith('degenerate');
+    expect(loadRuntime).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not retry a repeated token from the CPU', async () => {
+    const bad = new FakeRuntime(() => ',3'.repeat(12));
+    const { engine, onGpuLost, loadRuntime } = engineOver([bad]);
+
+    await expect(collectChunks(engine.translate([a], options()))).rejects.toMatchObject({
+      code: 'degenerate-output',
+    });
+    expect(onGpuLost).not.toHaveBeenCalled();
+    expect(loadRuntime).toHaveBeenCalledOnce();
+  });
+
   it('leaves any other failure to the caller', async () => {
     const broken = new FakeRuntime(() => '');
     broken.complete = async () => {

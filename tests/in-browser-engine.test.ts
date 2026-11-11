@@ -451,7 +451,7 @@ describe('InBrowserEngine', () => {
   });
 
   it('stops without a final result when aborted mid-stream', async () => {
-    const runtime = new FakeRuntime(() => 'abcdef');
+    const runtime = new FakeRuntime(() => 'abcdefghijklmnopqrstuvwxyz');
     const engine = new InBrowserEngine(runtime);
     const controller = new AbortController();
     const iterator = engine

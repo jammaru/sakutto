@@ -106,4 +106,18 @@ describe('wllama artifact rendering', () => {
     expect(patch).not.toContain('min_sg = 32');
     expect(patch).not.toContain('max_sg = 64');
   });
+
+  it('turns vec flash-attn off for a subgroup wider than 32 and checks an f16 matmul', () => {
+    const patch = readFileSync(
+      new URL('../scripts/wllama/patches/0009-webgpu-wave64-flash-attn.patch', import.meta.url),
+      'utf8',
+    );
+    expect(patch).toContain('caps.flash_attn_vec');
+    expect(patch).toContain('subgroup_size > 32u');
+    expect(patch).toContain('ggml_webgpu_probe_f16_matmul_wgsl');
+    expect(patch).toContain('GGML_WEBGPU_PROBE_F16_MATMUL = 10');
+    expect(patch).toContain('subgroupShuffleDown');
+    expect(patch).toContain('tile attention needs');
+    expect(patch).toContain('not a claim that a Radeon was retested');
+  });
 });

@@ -1,0 +1,207 @@
+Skip flash-attn vec when the subgroup is wider than 32.
+
+flash_attn_vec_split.wgsl reduces P*V with subgroupShuffleDown. The first
+delta is subgroup_size/2 (32 on a 64-wide subgroup when D_SPLIT is 4), and
+the Q*K broadcast shuffles from a lane up to subgroup_size-D_SPLIT. That
+pattern is the one GCN (wave64) D3D12 paths have miscompiled. The tile
+shader uses scalar subgroupAdd / subgroupMax and does not shuffle across
+the 32-lane boundary, so decode stays on WebGPU.
+
+The correctness probe also checks a small f16 matmul and an f16 workgroup
+reduction (known answers 10 and 72) and a scalar subgroupAdd of lane ids.
+Those failures disable the device. A shuffle-down by 32 is only logged;
+vec stays off for every subgroup wider than 32 even if that one shuffle
+matches. If the tile shader cannot hold Q_TILE subgroups, the probe
+disables WebGPU instead of letting attention return without writing.
+
+A probed size of 32 keeps the vec path, which is the NVIDIA measurement
+from 2026-11-09. This is not a claim that a Radeon was retested.
+
+diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp b/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp
+--- a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp
++++ b/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp
+@@ -182,6 +182,11 @@
+     uint32_t subgroup_size     = 0;
+     uint32_t min_subgroup_size = 0;
+     uint32_t max_subgroup_size = 0;
++    // Correctness probe. Vec flash-attn shuffles by subgroup_size/2; that is
++    // 32 on wave64, so the probe turns the vec path off and decode uses the
++    // tile shader. A size of 32 leaves both flags at the defaults.
++    bool     flash_attn_vec        = true;
++    bool     wide_subgroup_shuffle = true;
+     size_t   memset_bytes_per_thread;
+ };
+ 
+@@ -1973,6 +1978,12 @@
+         ggml_is_quantized(V->type) ? ggml_blck_size(V->type) : GGML_WEBGPU_FLASH_ATTN_TILE_KV_VEC_WIDTH;
+     const bool kv_vec_head_dims_aligned = Q->ne[0] % k_vec_head_align == 0 && V->ne[0] % v_vec_head_align == 0;
+ 
++    // flash_attn_vec_split.wgsl: first P*V subgroupShuffleDown delta is
++    // subgroup_size/2. On a 64-wide subgroup that reads 32 lanes away.
++    // The tile path (scalar subgroupAdd) does not.
++    if (!global_ctx->capabilities.flash_attn_vec || !global_ctx->capabilities.wide_subgroup_shuffle) {
++        return false;
++    }
+     return global_ctx->capabilities.supports_subgroups && (Q->ne[1] < GGML_WEBGPU_FLASH_ATTN_VEC_MAX_SEQ_LEN) &&
+            kv_vec_head_dims_aligned && k_float_vec4_aligned && v_float_vec4_aligned;
+ }
+@@ -4377,6 +4388,8 @@
+ static constexpr uint32_t GGML_WEBGPU_PROBE_ADD_WG  = 16;
+ static constexpr uint32_t GGML_WEBGPU_PROBE_ADD_SUM = 136;  // 1+...+16
+ static constexpr uint32_t GGML_WEBGPU_PROBE_BUF_U32 = 16;
++static constexpr uint32_t GGML_WEBGPU_PROBE_F16_SUM    = 72;  // (1+...+8)*2, exact in f16
++static constexpr uint32_t GGML_WEBGPU_PROBE_F16_MATMUL = 10;  // dot((1,2,3,4),(1,1,1,1))
+ 
+ static const char * ggml_webgpu_probe_add_wgsl() {
+     return R"(
+@@ -4475,6 +4488,75 @@
+     caps.supports_subgroup_matrix = false;
+     caps.min_subgroup_size        = 0;
+     caps.max_subgroup_size        = 0;
++    caps.flash_attn_vec           = false;
++    caps.subgroup_size            = 0;
++}
++
++
++// Workgroup f16 reduction. 72 is exact in f16, so a broken f16 shared-memory
++// path cannot pass by rounding.
++static const char * ggml_webgpu_probe_f16_sum_wgsl() {
++    return R"(
++enable f16;
++@group(0) @binding(0) var<storage, read_write> out: array<u32>;
++var<workgroup> tmp: array<f16, 8>;
++@compute @workgroup_size(8)
++fn main(@builtin(local_invocation_index) li: u32) {
++    tmp[li] = f16(li + 1u) * 2.0h;
++    workgroupBarrier();
++    if (li == 0u) {
++        var s = 0.0h;
++        for (var i = 0u; i < 8u; i++) {
++            s += tmp[i];
++        }
++        out[0] = u32(s);
++    }
++}
++)";
++}
++
++// One f16 dot, the same arithmetic as a 1x4 by 4x1 matmul.
++static const char * ggml_webgpu_probe_f16_matmul_wgsl() {
++    return R"(
++enable f16;
++@group(0) @binding(0) var<storage, read_write> out: array<u32>;
++@compute @workgroup_size(1)
++fn main() {
++    let m = dot(vec4<f16>(1.0h, 2.0h, 3.0h, 4.0h), vec4<f16>(1.0h, 1.0h, 1.0h, 1.0h));
++    out[0] = u32(m);
++}
++)";
++}
++
++// Scalar subgroupAdd. The tile flash-attn shader depends on this, not on shuffle.
++static const char * ggml_webgpu_probe_subgroup_add_wgsl() {
++    return R"(
++enable subgroups;
++@group(0) @binding(0) var<storage, read_write> out: array<u32>;
++@compute @workgroup_size(128)
++fn main(@builtin(subgroup_invocation_id) id: u32, @builtin(subgroup_id) sgid: u32) {
++    let sum = subgroupAdd(id + 1u);
++    if (sgid == 0u && id == 0u) {
++        out[0] = sum;
++    }
++}
++)";
++}
++
++// Lane 0 shuffled down by 32 must read lane 32 (value 33). Only dispatched
++// when the probed subgroup is wider than 32, so the delta is in range.
++static const char * ggml_webgpu_probe_shuffle_down_wgsl() {
++    return R"(
++enable subgroups;
++@group(0) @binding(0) var<storage, read_write> out: array<u32>;
++@compute @workgroup_size(128)
++fn main(@builtin(subgroup_invocation_id) id: u32, @builtin(subgroup_id) sgid: u32) {
++    let down = subgroupShuffleDown(f32(id + 1u), 32u);
++    if (sgid == 0u && id == 0u) {
++        out[0] = u32(down);
++    }
++}
++)";
+ }
+ 
+ // Known-answer workgroup add plus, when subgroups are enabled, a readback of
+@@ -4519,13 +4601,72 @@
+         }
+     }
+ 
++    caps.subgroup_size = caps.supports_subgroups ? subgroup_size : 0;
++
++    uint32_t f16_sum = 0;
++    if (!ggml_webgpu_run_u32_probe(ctx, ggml_webgpu_probe_f16_sum_wgsl(), "correctness_f16_sum", &f16_sum) ||
++        f16_sum != GGML_WEBGPU_PROBE_F16_SUM) {
++        GGML_LOG_ERROR("ggml_webgpu: correctness probe failed; f16 sum %u != %u\n", f16_sum, GGML_WEBGPU_PROBE_F16_SUM);
++        return false;
++    }
++
++    uint32_t f16_matmul = 0;
++    if (!ggml_webgpu_run_u32_probe(ctx, ggml_webgpu_probe_f16_matmul_wgsl(), "correctness_f16_matmul", &f16_matmul) ||
++        f16_matmul != GGML_WEBGPU_PROBE_F16_MATMUL) {
++        GGML_LOG_ERROR("ggml_webgpu: correctness probe failed; f16 matmul %u != %u\n", f16_matmul,
++                       GGML_WEBGPU_PROBE_F16_MATMUL);
++        return false;
++    }
++
++    uint32_t     sg_add       = 0;
++    const char * wide_shuffle = "skip";
++    if (caps.supports_subgroups && subgroup_size > 0) {
++        const uint32_t expect = subgroup_size * (subgroup_size + 1u) / 2u;
++        if (!ggml_webgpu_run_u32_probe(ctx, ggml_webgpu_probe_subgroup_add_wgsl(), "correctness_sgadd", &sg_add) ||
++            sg_add != expect) {
++            GGML_LOG_ERROR("ggml_webgpu: correctness probe failed; subgroupAdd %u != %u\n", sg_add, expect);
++            return false;
++        }
++        // Wider than 32: do not use vec flash-attn. A single in-range shuffle
++        // matching 33 does not prove the vec kernel's variable delta is safe,
++        // so vec stays off either way. The tile shader needs Q_TILE subgroups
++        // in one workgroup; if they do not fit it would return without writing.
++        if (subgroup_size > 32u || caps.min_subgroup_size > 32u) {
++            caps.flash_attn_vec = false;
++            uint32_t shuffled   = 0;
++            if (subgroup_size > 32u &&
++                ggml_webgpu_run_u32_probe(ctx, ggml_webgpu_probe_shuffle_down_wgsl(), "correctness_shuffle",
++                                          &shuffled) &&
++                shuffled == 33u) {
++                wide_shuffle = "ok";
++            } else if (subgroup_size > 32u) {
++                caps.wide_subgroup_shuffle = false;
++                wide_shuffle               = "bad";
++                GGML_LOG_INFO("ggml_webgpu: wide subgroupShuffleDown %u != 33; vec flash-attn stays off\n", shuffled);
++            }
++            const uint32_t sg   = subgroup_size > caps.max_subgroup_size ? subgroup_size : caps.max_subgroup_size;
++            const uint32_t need = GGML_WEBGPU_FLASH_ATTN_TILE_Q_TILE * sg;
++            if (caps.limits.maxComputeInvocationsPerWorkgroup < need) {
++                GGML_LOG_ERROR(
++                    "ggml_webgpu: correctness probe failed; tile attention needs %u invocations, device has %u\n", need,
++                    caps.limits.maxComputeInvocationsPerWorkgroup);
++                return false;
++            }
++        }
++    }
++
++    const char * vec = (caps.flash_attn_vec && caps.supports_subgroups) ? "on" : "off";
++
+ #ifdef __EMSCRIPTEN__
+     const double ms = emscripten_get_now() - t0;
+ #else
+     const double ms = 0;
+ #endif
+-    GGML_LOG_INFO("ggml_webgpu: correctness probe: ok subgroups=%s subgroup_size=%u add=%u ms=%.1f\n",
+-                  caps.supports_subgroups ? "true" : "false", subgroup_size, add_sum, ms);
++    GGML_LOG_INFO(
++        "ggml_webgpu: correctness probe: ok subgroups=%s subgroup_size=%u add=%u ms=%.1f f16=%u matmul=%u sgadd=%u "
++        "wide_shuffle=%s vec=%s\n",
++        caps.supports_subgroups ? "true" : "false", subgroup_size, add_sum, ms, f16_sum, f16_matmul, sg_add,
++        wide_shuffle, vec);
+     return true;
+ }
+ 
