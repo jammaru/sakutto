@@ -168,10 +168,7 @@ test.describe('video captions', () => {
       await expect(host).toHaveAttribute('data-sakutto-show-original', '1');
       await installCapturingPlayerHandler(page);
       const toggle = page.locator('[data-sakutto="caption-original-toggle"]');
-      await revealCaptionToggle(page);
-      await expect(toggle).toBeVisible();
-      await toggle.hover();
-      await toggle.click();
+      await clickCaptionToggle(page, toggle);
       await expect(host).toHaveAttribute('data-sakutto-show-original', '0');
       await expect.poll(() => playerStolenCount(page)).toBe(0);
 
@@ -185,9 +182,7 @@ test.describe('video captions', () => {
       await expect(host).toHaveAttribute('data-sakutto-show-original', '0');
       await expect.poll(() => playerStolenCount(page)).toBe(0);
 
-      await revealCaptionToggle(page);
-      await toggle.hover();
-      await toggle.click();
+      await clickCaptionToggle(page, toggle);
       await expect(host).toHaveAttribute('data-sakutto-show-original', '1');
       await new Promise((resolve) => setTimeout(resolve, 1600));
       await expect(host).toHaveAttribute('data-sakutto-show-original', '1');
@@ -1338,6 +1333,15 @@ async function readCaptionEnableIntent(
 async function revealCaptionToggle(page: Page): Promise<void> {
   const player = page.locator('#movie_player, [data-testid="videoPlayer"]').first();
   await player.hover();
+}
+
+/** Real mouse click. Locator.click can wait out the 90s test timeout on CI. */
+async function clickCaptionToggle(page: Page, toggle: ReturnType<Page['locator']>): Promise<void> {
+  await revealCaptionToggle(page);
+  await expect(toggle).toBeVisible();
+  const box = await toggle.boundingBox();
+  if (!box) throw new Error('caption toggle had no box');
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 }
 
 async function mockXOrigin(

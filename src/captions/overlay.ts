@@ -679,16 +679,15 @@ export class CaptionOverlay {
   }
 
   /**
-   * One toggle per gesture. Swallow pointer/mouse down/up so YouTube cannot steal them,
-   * but only `click` flips the setting. Toggling on pointerdown *and* click made a
-   * normal press flip twice (hide then immediately show); a long press suppressed
-   * `click` and appeared to work.
+   * One toggle per gesture. Stop the event from reaching the player so YouTube cannot
+   * steal it, but only `click` flips the setting. Toggling on pointerdown *and* click
+   * made a normal press flip twice (hide then immediately show); a long press
+   * suppressed `click` and appeared to work.
    */
   private onToggleCapture = (event: Event): void => {
     if (!this.eventHitsToggle(event)) return;
     event.preventDefault();
     event.stopPropagation();
-    event.stopImmediatePropagation();
     if (event.type === 'click') this.onDisplayToggle();
   };
 
