@@ -36,7 +36,7 @@ export type RuntimeFactory = (file: Blob, selection: BackendSelection) => Promis
  * change the chosen token. WebGPU also sets `backend_sampling` so the GPU
  * picks the token and only the id comes back. The CPU path does not: ggml's
  * CPU argmax keeps the *last* tied index, while `llama_sampler_greedy` (and
- * the WebGPU shader after patch 0010) keep the first.
+ * the WebGPU shader after patch 0011) keep the first.
  */
 export const GREEDY_SAMPLERS = ['temperature'] as const;
 

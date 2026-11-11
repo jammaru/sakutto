@@ -338,13 +338,13 @@ length cutoff and is left alone.
 
 ## Pending results and GPU greedy sampling
 
-`0009-return-pending-results.patch` changes wllama `get_result`. A poll used to step every
+`0010-return-pending-results.patch` changes wllama `get_result`. A poll used to step every
 slot by one token and only then read that request's queue, so a short paragraph that had
 already finished sat behind in-flight tokens from the rest of the batch. Queued results are
 returned first; `run_loop()` runs only when that request has nothing waiting. The generated
 tokens do not change.
 
-`0010-webgpu-argmax-first-index.patch` flips the WebGPU argmax tie-break. The CPU greedy
+`0011-webgpu-argmax-first-index.patch` flips the WebGPU argmax tie-break. The CPU greedy
 sampler keeps the first of two equal logits; the shader kept the later index (`>=` in the
 local scan, larger index in the reduction). After the patch it keeps the first, so GPU
 greedy matches CPU greedy.
