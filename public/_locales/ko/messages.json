@@ -650,6 +650,60 @@
   "modelSelectionMissing": {
     "message": "번역 모델이 없습니다. 다운로드하면 번역할 수 있습니다."
   },
+  "modelFolderHeading": {
+    "message": "Shared model folder"
+  },
+  "modelFolderHelp": {
+    "message": "Chrome, Edge, and other Chromium browsers can keep official PLaMo files in a sakutto-models folder inside one you choose, and skip a second download. The default is still storage inside this browser. Firefox cannot use this option."
+  },
+  "modelFolderChoose": {
+    "message": "Choose model folder"
+  },
+  "modelFolderStop": {
+    "message": "Stop using shared folder"
+  },
+  "modelFolderUsing": {
+    "message": "Using the folder $NAME$.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderNotUsing": {
+    "message": "Models are stored inside this browser."
+  },
+  "modelFolderPermissionNeeded": {
+    "message": "Sakutto needs permission to read the shared model folder again. Translation will keep using a copy inside this browser when one is available."
+  },
+  "modelFolderPermissionGrant": {
+    "message": "Allow folder access"
+  },
+  "modelFolderPickFailed": {
+    "message": "The folder could not be selected."
+  },
+  "modelFolderIntegrityFailed": {
+    "message": "The file $FILE$ is not the official PLaMo model, so Sakutto will not use it.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderOpfsCopy": {
+    "message": "A copy of $MODEL$ is also in this browser's storage. You can delete that copy to free space. Sakutto will not delete it on its own.",
+    "placeholders": {
+      "model": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderDeleteOpfs": {
+    "message": "Delete browser copy"
+  },
+  "modelFolderOpenSettings": {
+    "message": "Open settings"
+  },
   "highQualityOffer": {
     "message": "더 정확도가 높은 모델(2B, 약 1.81 GB)을 시도해 보세요. 속도는 이 기기에 따라 다릅니다."
   },

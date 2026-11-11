@@ -9,6 +9,8 @@ import {
   type EngineHostRequest,
   type BenchmarkRequest,
   type CacheClearRequest,
+  type FolderDeleteOpfsRequest,
+  type FolderReloadRequest,
   type ModelDeleteRequest,
   type ModelDownloadRequest,
   type ModelStatusRequest,
@@ -24,6 +26,7 @@ import {
 import { ChunkStream } from '@/engine/queue/chunk-stream';
 import type { TranslateOptions, TranslateSegment, TranslationChunk } from '@/engine/types';
 import { advanceModelStatus } from '@/shared/model-progress';
+import { isSharedFolderStatus, type SharedFolderStatus } from '@/engine/model/folder-status';
 import {
   isEngineStatus,
   isModelStatus,
@@ -46,7 +49,9 @@ type RequestWithoutId =
   | Omit<CacheClearRequest, 'requestId'>
   | Omit<TierSetRequest, 'requestId'>
   | Omit<SourceSetRequest, 'requestId'>
-  | Omit<BenchmarkRequest, 'requestId'>;
+  | Omit<BenchmarkRequest, 'requestId'>
+  | Omit<FolderReloadRequest, 'requestId'>
+  | Omit<FolderDeleteOpfsRequest, 'requestId'>;
 
 const DOWNLOAD_ATTACH_ATTEMPTS = 3;
 const DOWNLOAD_ATTACH_DELAY_MS = 500;
@@ -139,6 +144,27 @@ export class EngineClient {
     await this.ensureSource();
     const value = await this.request({ type: 'model-status', modelId }, { timeoutMs: 15_000 });
     if (!isModelStatus(value)) throw hostError('The engine host returned an invalid status.');
+    return value;
+  }
+
+  async reloadModelFolder(): Promise<SharedFolderStatus> {
+    await this.ensureSource();
+    const value = await this.request({ type: 'folder-reload' }, { timeoutMs: 180_000 });
+    if (!isSharedFolderStatus(value)) {
+      throw hostError('The engine host returned an invalid folder status.');
+    }
+    return value;
+  }
+
+  async deleteOpfsCopy(modelId: ModelId): Promise<SharedFolderStatus> {
+    await this.ensureSource();
+    const value = await this.request(
+      { type: 'folder-delete-opfs', modelId },
+      { timeoutMs: 30_000 },
+    );
+    if (!isSharedFolderStatus(value)) {
+      throw hostError('The engine host returned an invalid folder status.');
+    }
     return value;
   }
 

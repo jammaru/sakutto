@@ -53,7 +53,7 @@ The interface itself is translated into 14 languages: English, Japanese, Korean,
 
 ## Privacy
 
-Translation runs on your device by default. The extension does not send page text, selections, your glossary, or translations to the developer. There is no account, ads, or telemetry. The built-in engine's own network request is the model download from Hugging Face. If you turn on the **experimental local server** in Settings (mlx_lm.server, LM Studio, or another OpenAI-compatible process on this computer), the text to translate is sent only to the address you set — not to the developer. Accuracy is not guaranteed. Read the policy at [PRIVACY.md](PRIVACY.md) or https://jammaru.com/sakutto/privacy/.
+Translation runs on your device by default. The extension does not send page text, selections, your glossary, or translations to the developer. There is no account, ads, or telemetry. The built-in engine's own network request is the model download from Hugging Face. The model stays in this browser unless you choose a shared folder in Settings (Chrome, Edge, and other Chromium browsers); that folder stays on this computer. If you turn on the **experimental local server** in Settings (mlx_lm.server, LM Studio, or another OpenAI-compatible process on this computer), the text to translate is sent only to the address you set — not to the developer. Accuracy is not guaranteed. Read the policy at [PRIVACY.md](PRIVACY.md) or https://jammaru.com/sakutto/privacy/.
 
 ## Local server (experimental)
 

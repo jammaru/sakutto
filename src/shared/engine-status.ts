@@ -1,6 +1,7 @@
 import { isModelId, type ModelId } from '../engine/model/catalog';
 import type { BackendKind, ComputeTier } from '../engine/in-browser/backend';
 import type { EngineKind } from '../engine/types';
+import { isSharedFolderStatus, type SharedFolderStatus } from '../engine/model/folder-status';
 import { isGpuDiagnostic, type GpuDiagnostic } from './gpu-diagnostic';
 
 export type ModelState =
@@ -34,6 +35,8 @@ export interface EngineStatus {
   modelFallback?: boolean;
   /** Where PLaMo requests are sent. Missing means the built-in engine. */
   engineSource?: EngineSource;
+  /** Chromium-only opt-in shared model folder. Missing on Firefox and older hosts. */
+  sharedFolder?: SharedFolderStatus;
 }
 
 const MODEL_STATES: ReadonlySet<string> = new Set<ModelState>([
@@ -127,6 +130,9 @@ export function isEngineStatus(value: unknown): value is EngineStatus {
     record.engineSource !== undefined &&
     (typeof record.engineSource !== 'string' || !ENGINE_SOURCES.has(record.engineSource))
   ) {
+    return false;
+  }
+  if (record.sharedFolder !== undefined && !isSharedFolderStatus(record.sharedFolder)) {
     return false;
   }
   return true;

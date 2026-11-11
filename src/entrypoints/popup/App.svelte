@@ -389,6 +389,14 @@
   {#if engine?.modelFallback}
     <p class="muted" role="status">{t('modelSelectionFallback')}</p>
   {/if}
+  {#if engine?.sharedFolder?.configured && engine.sharedFolder.permission !== 'granted'}
+    <div class="panel gate" role="alert">
+      <p class="muted">{t('modelFolderPermissionNeeded')}</p>
+      <button class="link-button" type="button" onclick={openOptions}>
+        {t('modelFolderOpenSettings')}
+      </button>
+    </div>
+  {/if}
   {#if engine?.engineSource === 'local-server'}
     <p class="muted">{t('localServerExperimental')}</p>
     {#if engine.parallel !== null}

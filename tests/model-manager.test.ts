@@ -168,4 +168,96 @@ describe('ModelManager', () => {
       false,
     );
   });
+
+  it('skips a second hash when size and lastModified still match the sidecar', async () => {
+    const store = new MemoryFileStore();
+    const hashBlob = vi.fn(async (blob: Blob) =>
+      sha256Hex(new Uint8Array(await blob.arrayBuffer())),
+    );
+    const hashing = new ModelManager({
+      store,
+      entries: entryRecord(ENTRY),
+      createRuntime: async () => new FakeRuntime(() => 'こんにちは'),
+      fetchImpl: async () => new Response(new Uint8Array(PAYLOAD), { status: 200 }),
+      hashBlob,
+    });
+
+    await hashing.download(ENTRY.id, { signal: new AbortController().signal });
+    const afterDownload = hashBlob.mock.calls.length;
+    expect(await hashing.status(ENTRY.id)).toMatchObject({ state: 'ready' });
+    expect(hashBlob.mock.calls.length).toBe(afterDownload);
+
+    await hashing.ensureLoaded(ENTRY.id, SELECTION);
+    expect(hashBlob.mock.calls.length).toBe(afterDownload);
+  });
+
+  it('rehashes when lastModified changes and rejects a digest mismatch', async () => {
+    const store = new MemoryFileStore();
+    const hashing = new ModelManager({
+      store,
+      entries: entryRecord(ENTRY),
+      createRuntime: async () => new FakeRuntime(() => 'こんにちは'),
+      fetchImpl: async () => new Response(new Uint8Array(PAYLOAD), { status: 200 }),
+    });
+    await hashing.download(ENTRY.id, { signal: new AbortController().signal });
+
+    store.files.set(`models/${ENTRY.id}/model.gguf`, bytesOf('tampered!!!!'));
+    store.modified.set(`models/${ENTRY.id}/model.gguf`, Date.now() + 10_000);
+
+    await expect(
+      hashing.download(ENTRY.id, { signal: new AbortController().signal }),
+    ).rejects.toMatchObject({ code: 'model-integrity' });
+    expect(await hashing.status(ENTRY.id)).toMatchObject({
+      state: 'error',
+      error: expect.stringMatching(/digest/i),
+    });
+  });
+
+  it('refuses a file whose size is not the pin, and does not download over it', async () => {
+    const store = new MemoryFileStore();
+    await store.append(`models/${ENTRY.id}/model.gguf`, bytesOf('nope'), 0);
+    const fetchImpl = vi.fn(async () => new Response(new Uint8Array(PAYLOAD), { status: 200 }));
+    const { manager } = createManager(store, { fetchImpl });
+
+    await expect(
+      manager.download(ENTRY.id, { signal: new AbortController().signal }),
+    ).rejects.toMatchObject({ code: 'model-integrity' });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('loads from the OPFS fallback when the shared folder has no file yet', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    const { manager, createRuntime } = createManager(opfs, {
+      fetchImpl: async () => new Response(new Uint8Array(PAYLOAD), { status: 200 }),
+    });
+    await manager.download(ENTRY.id, { signal: new AbortController().signal });
+    manager.setStores(shared, opfs);
+
+    expect(await manager.status(ENTRY.id)).toMatchObject({ state: 'ready' });
+    await manager.ensureLoaded(ENTRY.id, SELECTION);
+    expect(createRuntime).toHaveBeenCalledOnce();
+    expect(new Uint8Array(await (await manager.modelBlob(ENTRY.id)).arrayBuffer())).toEqual(
+      PAYLOAD,
+    );
+
+    await manager.deleteModel(ENTRY.id);
+    expect(shared.files.size).toBe(0);
+    expect(await manager.fallbackCopyPresent(ENTRY.id)).toBe(true);
+
+    await manager.deleteFallbackCopy(ENTRY.id);
+    expect(await manager.fallbackCopyPresent(ENTRY.id)).toBe(false);
+  });
+
+  it('adopts a correctly sized file already in the shared folder without fetching', async () => {
+    const store = new MemoryFileStore();
+    await store.append(`models/${ENTRY.id}/model.gguf`, PAYLOAD, 0);
+    const fetchImpl = vi.fn(async () => new Response(new Uint8Array(PAYLOAD), { status: 200 }));
+    const { manager } = createManager(store, { fetchImpl });
+
+    await manager.adoptPresentModels();
+    expect(await manager.status(ENTRY.id)).toMatchObject({ state: 'ready' });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(store.text(`models/${ENTRY.id}/model.json`)).toContain(ENTRY.sha256);
+  });
 });

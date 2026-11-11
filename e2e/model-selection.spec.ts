@@ -124,7 +124,7 @@ function modelRow(page: Page, name: string) {
 async function openOptions(extension: LoadedExtension): Promise<Page> {
   const page = await extension.context.newPage();
   await page.goto(`chrome-extension://${extension.extensionId}/options.html`);
-  await expect(page.getByRole('heading', { name: 'モデル' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'モデル', exact: true })).toBeVisible();
   return page;
 }
 

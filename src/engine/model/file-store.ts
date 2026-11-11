@@ -5,6 +5,11 @@ export interface StorageEstimate {
   quota: number;
 }
 
+export interface ModelFileStat {
+  size: number;
+  lastModified: number;
+}
+
 export interface ModelFileWriter {
   write(chunk: Uint8Array): Promise<void>;
   close(): Promise<void>;
@@ -12,6 +17,7 @@ export interface ModelFileWriter {
 
 export interface ModelFileStore {
   size(path: string): Promise<number>;
+  stat(path: string): Promise<ModelFileStat | null>;
   append(path: string, chunk: Uint8Array, offset: number): Promise<void>;
   createWriter(path: string, offset: number): Promise<ModelFileWriter>;
   read(path: string): Promise<Blob>;
@@ -46,6 +52,11 @@ function splitPath(path: string): { directories: string[]; name: string } {
 export class OpfsModelFileStore implements ModelFileStore {
   private constructor(private readonly root: FileSystemDirectoryHandle) {}
 
+  /** Wraps an already-opened directory, including a user-chosen Folder Access handle. */
+  static fromHandle(root: FileSystemDirectoryHandle): OpfsModelFileStore {
+    return new OpfsModelFileStore(root);
+  }
+
   static async open(directoryName = 'sakutto'): Promise<OpfsModelFileStore> {
     // Firefox treats OPFS as evictable unless the origin is persistent. Chrome already
     // grants this through unlimitedStorage; calling persist() there is a no-op for us,
@@ -59,12 +70,17 @@ export class OpfsModelFileStore implements ModelFileStore {
   }
 
   async size(path: string): Promise<number> {
+    const info = await this.stat(path);
+    return info?.size ?? 0;
+  }
+
+  async stat(path: string): Promise<ModelFileStat | null> {
     try {
       const handle = await this.fileHandle(path, false);
       const file = await handle.getFile();
-      return file.size;
+      return { size: file.size, lastModified: file.lastModified };
     } catch (error) {
-      if (isMissingEntry(error)) return 0;
+      if (isMissingEntry(error)) return null;
       throw error;
     }
   }

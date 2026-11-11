@@ -122,6 +122,9 @@
           {formatByteSize(status.received)} / {formatByteSize(status.total)}
         </p>
       {/if}
+      {#if status?.error}
+        <p class="error" role="alert">{status.error}</p>
+      {/if}
       <div class="actions">
         {#if downloading}
           <button

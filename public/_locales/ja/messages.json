@@ -650,6 +650,60 @@
   "modelSelectionMissing": {
     "message": "翻訳モデルがありません。ダウンロードすると翻訳できます。"
   },
+  "modelFolderHeading": {
+    "message": "共有モデルフォルダ"
+  },
+  "modelFolderHelp": {
+    "message": "Chrome や Edge など Chromium 系ブラウザでは、選んだフォルダの中の sakutto-models に公式の PLaMo ファイルを置き、二重のダウンロードを避けられます。既定はこれまでどおり、このブラウザ内への保存です。Firefox ではこの項目は使えません。"
+  },
+  "modelFolderChoose": {
+    "message": "モデルフォルダを選ぶ"
+  },
+  "modelFolderStop": {
+    "message": "共有フォルダの使用をやめる"
+  },
+  "modelFolderUsing": {
+    "message": "フォルダ $NAME$ を使っています。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderNotUsing": {
+    "message": "モデルはこのブラウザ内に保存します。"
+  },
+  "modelFolderPermissionNeeded": {
+    "message": "共有モデルフォルダを読む許可が必要です。このブラウザ内にコピーがある場合は、そちらで翻訳を続けます。"
+  },
+  "modelFolderPermissionGrant": {
+    "message": "フォルダへのアクセスを許可"
+  },
+  "modelFolderPickFailed": {
+    "message": "フォルダを選べませんでした。"
+  },
+  "modelFolderIntegrityFailed": {
+    "message": "ファイル $FILE$ は公式の PLaMo モデルではないため、使いません。",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderOpfsCopy": {
+    "message": "$MODEL$ のコピーがこのブラウザ内にもあります。容量を空けるために削除できます。Sakutto が自動では消しません。",
+    "placeholders": {
+      "model": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderDeleteOpfs": {
+    "message": "ブラウザ内のコピーを削除"
+  },
+  "modelFolderOpenSettings": {
+    "message": "設定を開く"
+  },
   "highQualityOffer": {
     "message": "高精度モデル（2B・約1.81GB）を試せます。速度は端末によって異なります。"
   },

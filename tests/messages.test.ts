@@ -8,6 +8,8 @@ import {
   isModelCancelRequest,
   isModelDeleteRequest,
   isModelDownloadRequest,
+  isModelFolderDeleteOpfsRequest,
+  isModelFolderReloadRequest,
   isModelProgressMessage,
   isModelUseRequest,
   isPageInfo,
@@ -219,6 +221,39 @@ describe('message validation', () => {
         engineSource: 'local-server',
       }),
     ).toBe(true);
+    expect(
+      isEngineStatus({
+        model: modelStatus,
+        backend: 'cpu-wasm',
+        tier: 'c8',
+        threads: 8,
+        parallel: 1,
+        plamoReady: true,
+        chromeSupported: true,
+        active: null,
+        sharedFolder: {
+          supported: true,
+          configured: true,
+          permission: 'prompt',
+          name: 'Models',
+          opfsCopies: [],
+          integrityIssues: [],
+        },
+      }),
+    ).toBe(true);
+    expect(
+      isEngineStatus({
+        model: modelStatus,
+        backend: 'cpu-wasm',
+        tier: 'c8',
+        threads: 8,
+        parallel: 1,
+        plamoReady: true,
+        chromeSupported: true,
+        active: null,
+        sharedFolder: { supported: true },
+      }),
+    ).toBe(false);
   });
 
   it('validates model commands and progress broadcasts', () => {
@@ -236,6 +271,16 @@ describe('message validation', () => {
 
     expect(isModelUseRequest({ type: 'model:use', modelId: modelStatus.id })).toBe(true);
     expect(isModelUseRequest({ type: 'model:use' })).toBe(false);
+
+    expect(isModelFolderReloadRequest({ type: 'model-folder:reload' })).toBe(true);
+    expect(isModelFolderReloadRequest({ type: 'model-folder:clear' })).toBe(false);
+    expect(
+      isModelFolderDeleteOpfsRequest({
+        type: 'model-folder:delete-opfs',
+        modelId: modelStatus.id,
+      }),
+    ).toBe(true);
+    expect(isModelFolderDeleteOpfsRequest({ type: 'model-folder:delete-opfs' })).toBe(false);
 
     expect(isModelProgressMessage({ type: 'model:progress', status: modelStatus })).toBe(true);
     expect(

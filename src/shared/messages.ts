@@ -1,5 +1,6 @@
 import { browser } from 'wxt/browser';
 import { isModelId, type ModelId } from '@/engine/model/catalog';
+import { isSharedFolderStatus, type SharedFolderStatus } from '@/engine/model/folder-status';
 import {
   isEngineStatus,
   isModelStatus,
@@ -162,6 +163,15 @@ export interface ModelInspectRequest {
   modelId: ModelId;
 }
 
+export interface ModelFolderReloadRequest {
+  type: 'model-folder:reload';
+}
+
+export interface ModelFolderDeleteOpfsRequest {
+  type: 'model-folder:delete-opfs';
+  modelId: ModelId;
+}
+
 export interface CacheClearRequest {
   type: 'cache:clear';
 }
@@ -301,6 +311,16 @@ export function isModelProgressMessage(value: unknown): value is ModelProgressMe
 
 export function isModelInspectRequest(value: unknown): value is ModelInspectRequest {
   return isRecord(value) && value.type === 'model:inspect' && isModelId(value.modelId);
+}
+
+export function isModelFolderReloadRequest(value: unknown): value is ModelFolderReloadRequest {
+  return isRecord(value) && value.type === 'model-folder:reload';
+}
+
+export function isModelFolderDeleteOpfsRequest(
+  value: unknown,
+): value is ModelFolderDeleteOpfsRequest {
+  return isRecord(value) && value.type === 'model-folder:delete-opfs' && isModelId(value.modelId);
 }
 
 export function isCacheClearRequest(value: unknown): value is CacheClearRequest {
@@ -514,6 +534,31 @@ export async function requestModelUse(modelId: ModelId): Promise<ModelStatus | n
       modelId,
     } satisfies ModelUseRequest);
     return isModelStatus(response) ? response : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function requestModelFolderReload(): Promise<SharedFolderStatus | null> {
+  try {
+    const response: unknown = await browser.runtime.sendMessage({
+      type: 'model-folder:reload',
+    } satisfies ModelFolderReloadRequest);
+    return isSharedFolderStatus(response) ? response : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function requestModelFolderDeleteOpfs(
+  modelId: ModelId,
+): Promise<SharedFolderStatus | null> {
+  try {
+    const response: unknown = await browser.runtime.sendMessage({
+      type: 'model-folder:delete-opfs',
+      modelId,
+    } satisfies ModelFolderDeleteOpfsRequest);
+    return isSharedFolderStatus(response) ? response : null;
   } catch {
     return null;
   }

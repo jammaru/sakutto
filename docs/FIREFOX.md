@@ -58,8 +58,9 @@ the bound keys (and the Alt+Shift+S / Alt+Shift+T defaults before the background
 Page translation, bilingual view, selection, compose (live preview bar, あA button, input-field
 context menu), context menu, popup, options, typed translation (up to 100,000 characters), site
 grant window, always-translate site. Chrome built-in translator languages and copy must stay
-hidden. Private windows: default off; note what happens to the model store if the add-on is
-allowed there.
+hidden. The shared model folder control (`showDirectoryPicker`) must stay hidden: Firefox has
+no File System Access directory picker, and the model stays in OPFS. Private windows: default
+off; note what happens to the model store if the add-on is allowed there.
 
 ## Learnings — 2026-11-09 (Windows Firefox 159, RTX 4070 Ti SUPER)
 

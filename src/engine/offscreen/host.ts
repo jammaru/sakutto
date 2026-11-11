@@ -35,6 +35,8 @@ import { PlamoSourceEngine } from '../local-server/source';
 import { JobScheduler } from '../queue/scheduler';
 import { DEFAULT_MODEL_ID, SELECTABLE_MODEL_IDS, getModel, type ModelId } from '../model/catalog';
 import { normalizeSelectedModelId, resolveActiveModel } from '../model/selection';
+import { emptySharedFolderStatus } from '../model/folder-status';
+import { SharedFolderSession } from '../model/folder-session';
 import { OpfsModelFileStore } from '../model/file-store';
 import { ModelManager, type LoadedModel } from '../model/manager';
 import type { DownloadProgress } from '../model/download';
@@ -52,6 +54,8 @@ import {
   type BenchmarkRequest,
   type CacheClearRequest,
   type EngineHostMessage,
+  type FolderDeleteOpfsRequest,
+  type FolderReloadRequest,
   type ModelDeleteRequest,
   type ModelDownloadRequest,
   type ModelSetRequest,
@@ -253,6 +257,7 @@ export class EngineHost {
   private engineSource: EngineSource = 'in-browser';
   private localConfig: LocalServerConfig = localServerConfigFromSettings(null);
   private localScheduler: JobScheduler | null = null;
+  private folderSession: SharedFolderSession | null = null;
 
   constructor(options: EngineHostOptions = {}) {
     this.idleReleaseMs = options.idleReleaseMs ?? IDLE_RELEASE_MS;
@@ -334,6 +339,12 @@ export class EngineHost {
     const selectionState = { current: selection };
     const store = await OpfsModelFileStore.open();
     const manager = new ModelManager({ store, createRuntime: createWllamaRuntime });
+    this.folderSession = new SharedFolderSession(store, manager);
+    try {
+      await this.folderSession.apply();
+    } catch {
+      manager.setStores(store);
+    }
     const cache = await openCache();
     const chrome = new ChromeTranslatorEngine();
     const load = async (signal: AbortSignal): Promise<LoadedModel> => {
@@ -538,6 +549,12 @@ export class EngineHost {
         return;
       case 'runtime-set':
         this.handleRuntime(port, message);
+        return;
+      case 'folder-reload':
+        void this.handleFolderReload(port, message);
+        return;
+      case 'folder-delete-opfs':
+        void this.handleFolderDeleteOpfs(port, message);
         return;
       case 'benchmark':
         void this.handleBenchmark(port, message);
@@ -807,6 +824,9 @@ export class EngineHost {
     const loaded = services.manager.loadedModel;
     const selection = loaded?.selection ?? services.selection;
     const local = this.engineSource === 'local-server';
+    const sharedFolder = this.folderSession
+      ? await this.folderSession.refresh().catch(() => this.folderSession?.status())
+      : undefined;
 
     return {
       model,
@@ -821,7 +841,39 @@ export class EngineHost {
       active: services.router.activeEngine,
       engineSource: this.engineSource,
       ...(this.modelFallback ? { modelFallback: true } : {}),
+      ...(sharedFolder ? { sharedFolder } : {}),
     };
+  }
+
+  private async handleFolderReload(
+    port: Browser.runtime.Port,
+    request: FolderReloadRequest,
+  ): Promise<void> {
+    try {
+      await this.services();
+      const status = this.folderSession
+        ? await this.folderSession.apply()
+        : emptySharedFolderStatus(false);
+      this.respond(port, request.requestId, status);
+    } catch (error) {
+      this.respondError(port, request.requestId, error);
+    }
+  }
+
+  private async handleFolderDeleteOpfs(
+    port: Browser.runtime.Port,
+    request: FolderDeleteOpfsRequest,
+  ): Promise<void> {
+    try {
+      const services = await this.services();
+      await services.manager.deleteFallbackCopy(request.modelId);
+      const status = this.folderSession
+        ? await this.folderSession.refresh()
+        : emptySharedFolderStatus(false);
+      this.respond(port, request.requestId, status);
+    } catch (error) {
+      this.respondError(port, request.requestId, error);
+    }
   }
 
   private cacheModelId(): string {
