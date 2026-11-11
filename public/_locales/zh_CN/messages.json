@@ -250,13 +250,13 @@
     "message": "模型保存位置"
   },
   "onboardingStoreBrowser": {
-    "message": "保存在此浏览器中（默认）"
+    "message": "保存在此浏览器中"
   },
   "onboardingStoreFolder": {
-    "message": "使用共享模型文件夹"
+    "message": "使用共享模型文件夹（推荐）"
   },
   "onboardingStoreFolderHelp": {
-    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder."
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
   },
   "onboardingStartFailed": {
     "message": "无法启动设置。请重试。"
@@ -669,7 +669,7 @@
     "message": "The default is still storage inside this browser."
   },
   "modelFolderPickerHint": {
-    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder."
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"

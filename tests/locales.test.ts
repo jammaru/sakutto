@@ -206,17 +206,22 @@ describe('locale messages', () => {
     expect(en.modelFolderOfferMove?.message).toBe('Move to a shared folder');
     expect(en.modelFolderOfferLater?.message).toBe('Later');
     expect(en.modelFolderPickerHint?.message).toBe(
-      'The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder.',
+      'The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto.',
     );
     expect(ja.modelFolderPickerHint?.message).toBe(
-      'フォルダ選択はドキュメントで開きます。「Sakutto」を新規作成するか、すでにあれば開いて、そのフォルダを選んでください。',
+      'フォルダ選択はドキュメントで開きます。「Sakutto」を新規作成するか、すでにあれば開いて、ドキュメント\\Sakutto を選んでください。',
     );
     expect(en.onboardingStoreFolderHelp?.message).toBe(en.modelFolderPickerHint?.message);
     expect(ja.onboardingStoreFolderHelp?.message).toBe(ja.modelFolderPickerHint?.message);
+    expect(en.onboardingStoreFolder?.message).toBe('Use a shared model folder (recommended)');
+    expect(ja.onboardingStoreFolder?.message).toBe('共有モデルフォルダを使う（おすすめ）');
+    expect(en.onboardingStoreBrowser?.message).toBe('Save in this browser');
+    expect(ja.onboardingStoreBrowser?.message).toBe('このブラウザ内に保存する');
     expect(en.modelFolderHelp?.message).toBe('The default is still storage inside this browser.');
     expect(ja.modelFolderHelp?.message).toBe('既定はこれまでどおり、このブラウザ内への保存です。');
-    expect(en.modelFolderPickerHint?.message).not.toMatch(/select Documents/i);
-    expect(ja.modelFolderPickerHint?.message).not.toContain('ドキュメントそのもの');
+    expect(en.modelFolderPickerHint?.message).toContain('Documents\\Sakutto');
+    expect(ja.modelFolderPickerHint?.message).toContain('ドキュメント\\Sakutto');
+    expect(en.modelFolderPickerHint?.message).not.toMatch(/select Documents itself/i);
     expect(en).not.toHaveProperty('modelFolderOfferHide');
     expect(ja).not.toHaveProperty('modelFolderOfferHide');
     for (const locale of catalogs) {

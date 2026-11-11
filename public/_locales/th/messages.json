@@ -250,13 +250,13 @@
     "message": "ตำแหน่งบันทึกโมเดล"
   },
   "onboardingStoreBrowser": {
-    "message": "บันทึกในเบราว์เซอร์นี้ (ค่าเริ่มต้น)"
+    "message": "บันทึกในเบราว์เซอร์นี้"
   },
   "onboardingStoreFolder": {
-    "message": "ใช้โฟลเดอร์โมเดลร่วมกัน"
+    "message": "ใช้โฟลเดอร์โมเดลร่วมกัน (แนะนำ)"
   },
   "onboardingStoreFolderHelp": {
-    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder."
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
   },
   "onboardingStartFailed": {
     "message": "ไม่สามารถเริ่มการตั้งค่าได้ กรุณาลองอีกครั้ง"
@@ -669,7 +669,7 @@
     "message": "The default is still storage inside this browser."
   },
   "modelFolderPickerHint": {
-    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder."
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"

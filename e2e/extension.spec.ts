@@ -24,16 +24,20 @@ test.describe('built extension', () => {
         await expect(page.locator('h1')).toHaveText('Sakutto - Local AI translation');
         if (path === 'onboarding.html') {
           await expect(page.getByRole('checkbox')).toHaveCount(0);
+          const radios = page.getByRole('radio');
+          await expect(radios).toHaveCount(2);
+          await expect(radios.nth(0)).toHaveAccessibleName(
+            'Use a shared model folder (recommended)',
+          );
+          await expect(radios.nth(0)).toBeChecked();
+          await expect(radios.nth(1)).toHaveAccessibleName('Save in this browser');
+          await expect(radios.nth(1)).not.toBeChecked();
           await expect(
-            page.getByRole('radio', { name: 'Save in this browser (default)' }),
-          ).toBeChecked();
-          await expect(
-            page.getByRole('radio', { name: 'Use a shared model folder' }),
-          ).not.toBeChecked();
-          await expect(
-            page.getByText(
-              'The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder.',
-            ),
+            page
+              .locator('[data-store-recommended]')
+              .getByText(
+                'The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto.',
+              ),
           ).toBeVisible();
           await expect(page.getByText('A shared folder means:')).toBeVisible();
           await expect(
@@ -131,16 +135,18 @@ test.describe('built extension', () => {
         await expect(page.locator('h1')).toHaveText('Sakutto - ローカルAI翻訳');
         if (path === 'onboarding.html') {
           await expect(page.getByRole('checkbox')).toHaveCount(0);
+          const radios = page.getByRole('radio');
+          await expect(radios).toHaveCount(2);
+          await expect(radios.nth(0)).toHaveAccessibleName('共有モデルフォルダを使う（おすすめ）');
+          await expect(radios.nth(0)).toBeChecked();
+          await expect(radios.nth(1)).toHaveAccessibleName('このブラウザ内に保存する');
+          await expect(radios.nth(1)).not.toBeChecked();
           await expect(
-            page.getByRole('radio', { name: 'このブラウザ内に保存する（既定）' }),
-          ).toBeChecked();
-          await expect(
-            page.getByRole('radio', { name: '共有モデルフォルダを使う' }),
-          ).not.toBeChecked();
-          await expect(
-            page.getByText(
-              'フォルダ選択はドキュメントで開きます。「Sakutto」を新規作成するか、すでにあれば開いて、そのフォルダを選んでください。',
-            ),
+            page
+              .locator('[data-store-recommended]')
+              .getByText(
+                'フォルダ選択はドキュメントで開きます。「Sakutto」を新規作成するか、すでにあれば開いて、ドキュメント\\Sakutto を選んでください。',
+              ),
           ).toBeVisible();
           await expect(page.getByText('共有フォルダを使うと：')).toBeVisible();
           await expect(

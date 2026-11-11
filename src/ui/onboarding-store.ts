@@ -5,6 +5,11 @@ export type OnboardingStoreChoice = 'browser' | 'folder';
 
 export type OnboardingDownloadPlan = 'download' | 'skip' | 'stay';
 
+/** Chromium first-run recommends a shared folder. No picker means OPFS, with no choice. */
+export function defaultOnboardingStoreChoice(pickerAvailable: boolean): OnboardingStoreChoice {
+  return pickerAvailable ? 'folder' : 'browser';
+}
+
 /**
  * What onboarding should do after the license click, before any network fetch.
  * A cancelled picker or a denied permission stays on the choice screen.

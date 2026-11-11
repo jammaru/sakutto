@@ -250,13 +250,13 @@
     "message": "Emplacement du modèle"
   },
   "onboardingStoreBrowser": {
-    "message": "Enregistrer dans ce navigateur (par défaut)"
+    "message": "Enregistrer dans ce navigateur"
   },
   "onboardingStoreFolder": {
-    "message": "Utiliser un dossier de modèles partagé"
+    "message": "Utiliser un dossier de modèles partagé (recommandé)"
   },
   "onboardingStoreFolderHelp": {
-    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder."
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
   },
   "onboardingStartFailed": {
     "message": "La configuration n'a pas pu démarrer. Veuillez réessayer."
@@ -669,7 +669,7 @@
     "message": "The default is still storage inside this browser."
   },
   "modelFolderPickerHint": {
-    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder."
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"

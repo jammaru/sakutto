@@ -250,13 +250,13 @@
     "message": "모델 저장 위치"
   },
   "onboardingStoreBrowser": {
-    "message": "이 브라우저에 저장 (기본값)"
+    "message": "이 브라우저에 저장"
   },
   "onboardingStoreFolder": {
-    "message": "공유 모델 폴더 사용"
+    "message": "공유 모델 폴더 사용 (권장)"
   },
   "onboardingStoreFolderHelp": {
-    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder."
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
   },
   "onboardingStartFailed": {
     "message": "설정을 시작할 수 없습니다. 다시 시도해 주세요."
@@ -669,7 +669,7 @@
     "message": "The default is still storage inside this browser."
   },
   "modelFolderPickerHint": {
-    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder."
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"

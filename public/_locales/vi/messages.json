@@ -250,13 +250,13 @@
     "message": "Nơi lưu mô hình"
   },
   "onboardingStoreBrowser": {
-    "message": "Lưu trong trình duyệt này (mặc định)"
+    "message": "Lưu trong trình duyệt này"
   },
   "onboardingStoreFolder": {
-    "message": "Dùng thư mục mô hình dùng chung"
+    "message": "Dùng thư mục mô hình dùng chung (khuyến nghị)"
   },
   "onboardingStoreFolderHelp": {
-    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder."
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
   },
   "onboardingStartFailed": {
     "message": "Không thể khởi động thiết lập. Vui lòng thử lại."
@@ -669,7 +669,7 @@
     "message": "The default is still storage inside this browser."
   },
   "modelFolderPickerHint": {
-    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder."
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"

@@ -250,13 +250,13 @@
     "message": "モデルの保存先"
   },
   "onboardingStoreBrowser": {
-    "message": "このブラウザ内に保存する（既定）"
+    "message": "このブラウザ内に保存する"
   },
   "onboardingStoreFolder": {
-    "message": "共有モデルフォルダを使う"
+    "message": "共有モデルフォルダを使う（おすすめ）"
   },
   "onboardingStoreFolderHelp": {
-    "message": "フォルダ選択はドキュメントで開きます。「Sakutto」を新規作成するか、すでにあれば開いて、そのフォルダを選んでください。"
+    "message": "フォルダ選択はドキュメントで開きます。「Sakutto」を新規作成するか、すでにあれば開いて、ドキュメント\\Sakutto を選んでください。"
   },
   "onboardingStartFailed": {
     "message": "準備を開始できませんでした。もう一度お試しください。"
@@ -669,7 +669,7 @@
     "message": "既定はこれまでどおり、このブラウザ内への保存です。"
   },
   "modelFolderPickerHint": {
-    "message": "フォルダ選択はドキュメントで開きます。「Sakutto」を新規作成するか、すでにあれば開いて、そのフォルダを選んでください。"
+    "message": "フォルダ選択はドキュメントで開きます。「Sakutto」を新規作成するか、すでにあれば開いて、ドキュメント\\Sakutto を選んでください。"
   },
   "modelFolderChoose": {
     "message": "モデルフォルダを選ぶ"

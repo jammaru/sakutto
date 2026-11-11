@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { planOnboardingDownload } from '@/ui/onboarding-store';
+import { defaultOnboardingStoreChoice, planOnboardingDownload } from '@/ui/onboarding-store';
+
+describe('defaultOnboardingStoreChoice', () => {
+  it('recommends a shared folder when the picker exists, and OPFS when it does not', () => {
+    expect(defaultOnboardingStoreChoice(true)).toBe('folder');
+    expect(defaultOnboardingStoreChoice(false)).toBe('browser');
+  });
+});
 
 describe('planOnboardingDownload', () => {
   it('downloads into the browser when the shared folder is not offered', () => {

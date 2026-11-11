@@ -8,7 +8,11 @@
     clearStoredSharedFolder,
     sharedFolderPickerAvailable,
   } from '@/engine/model/shared-folder';
-  import { planOnboardingDownload, type OnboardingStoreChoice } from '@/ui/onboarding-store';
+  import {
+    defaultOnboardingStoreChoice,
+    planOnboardingDownload,
+    type OnboardingStoreChoice,
+  } from '@/ui/onboarding-store';
   import type { ModelStatus } from '@/shared/engine-status';
   import { agreementFromStorage } from '@/shared/agreement';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';
@@ -70,7 +74,9 @@
   let startRequested = $state(false);
   let consentSaved = $state(false);
   let pickerAvailable = $derived(sharedFolderPickerAvailable());
-  let storeChoice = $state<OnboardingStoreChoice>('browser');
+  let storeChoice = $state<OnboardingStoreChoice>(
+    defaultOnboardingStoreChoice(sharedFolderPickerAvailable()),
+  );
   let pickError = $state<string | null>(null);
   let pickHint = $state<string | null>(null);
   let integrityAlert = $state<string | null>(null);
@@ -488,15 +494,17 @@
       {#if pickerAvailable}
         <fieldset class="store">
           <legend>{t('onboardingStoreLegend')}</legend>
+          <div class="store-recommended" data-store-recommended>
+            <label class="store-choice">
+              <input type="radio" name="onboarding-store" value="folder" bind:group={storeChoice} />
+              <span>{t('onboardingStoreFolder')}</span>
+            </label>
+            <p class="muted start-note">{t('modelFolderPickerHint')}</p>
+          </div>
           <label class="store-choice">
             <input type="radio" name="onboarding-store" value="browser" bind:group={storeChoice} />
             <span>{t('onboardingStoreBrowser')}</span>
           </label>
-          <label class="store-choice">
-            <input type="radio" name="onboarding-store" value="folder" bind:group={storeChoice} />
-            <span>{t('onboardingStoreFolder')}</span>
-          </label>
-          <p class="muted start-note">{t('modelFolderPickerHint')}</p>
           <SharedFolderBenefits leadKey="modelFolderBenefitsLead" sizeLabel={folderSizeLabel} />
         </fieldset>
       {/if}
@@ -706,6 +714,15 @@
     gap: var(--space-2);
     align-items: flex-start;
     font-size: 14px;
+  }
+
+  .store-recommended {
+    display: grid;
+    gap: var(--space-1);
+  }
+
+  .store-recommended .start-note {
+    margin-left: 1.6em;
   }
 
   .consent {

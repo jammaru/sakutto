@@ -250,13 +250,13 @@
     "message": "Tempat menyimpan model"
   },
   "onboardingStoreBrowser": {
-    "message": "Simpan di peramban ini (bawaan)"
+    "message": "Simpan di peramban ini"
   },
   "onboardingStoreFolder": {
-    "message": "Gunakan folder model bersama"
+    "message": "Gunakan folder model bersama (disarankan)"
   },
   "onboardingStoreFolderHelp": {
-    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder."
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
   },
   "onboardingStartFailed": {
     "message": "Setup tidak dapat dimulai. Silakan coba lagi."
@@ -669,7 +669,7 @@
     "message": "The default is still storage inside this browser."
   },
   "modelFolderPickerHint": {
-    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder."
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"

@@ -250,13 +250,13 @@
     "message": "Speicherort des Modells"
   },
   "onboardingStoreBrowser": {
-    "message": "In diesem Browser speichern (Standard)"
+    "message": "In diesem Browser speichern"
   },
   "onboardingStoreFolder": {
-    "message": "Gemeinsamen Modellordner verwenden"
+    "message": "Gemeinsamen Modellordner verwenden (empfohlen)"
   },
   "onboardingStoreFolderHelp": {
-    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder."
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
   },
   "onboardingStartFailed": {
     "message": "Die Einrichtung konnte nicht gestartet werden. Bitte versuchen Sie es erneut."
@@ -669,7 +669,7 @@
     "message": "The default is still storage inside this browser."
   },
   "modelFolderPickerHint": {
-    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder."
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"

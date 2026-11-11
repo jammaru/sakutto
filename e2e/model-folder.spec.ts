@@ -3,7 +3,9 @@ import { loadExtension, type LoadedExtension } from './extension';
 import { DEFAULT_MODEL_ID, getModel } from '../src/engine/model/catalog';
 
 const PICKER_HINT =
-  'The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder.';
+  'The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto.';
+const FOLDER_RADIO = 'Use a shared model folder (recommended)';
+const BROWSER_RADIO = 'Save in this browser';
 
 test.describe('shared model folder', () => {
   test('shows the Chromium folder controls and rejects a wrong-sized file', async () => {
@@ -105,7 +107,6 @@ test.describe('shared model folder', () => {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
       await plantVerifiedSharedModel(page);
-      await page.getByRole('radio', { name: 'Use a shared model folder' }).check();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(page.getByRole('heading', { name: "You're ready." })).toBeVisible({
         timeout: 30_000,
@@ -125,7 +126,7 @@ test.describe('shared model folder', () => {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
       await mockEmptySharedFolder(page);
-      await page.getByRole('radio', { name: 'Use a shared model folder' }).check();
+      await expect(page.getByRole('radio', { name: FOLDER_RADIO })).toBeChecked();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(page.getByText('Downloading 0% (0 MB / 573 MB)')).toBeVisible({
         timeout: 30_000,
@@ -166,7 +167,6 @@ test.describe('shared model folder', () => {
           }
         ).showDirectoryPicker = async () => chosen;
       }, official);
-      await page.getByRole('radio', { name: 'Use a shared model folder' }).check();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       const alert = page.getByRole('alert').filter({ hasText: 'is not the official PLaMo model' });
       await expect(alert).toHaveCount(1, { timeout: 30_000 });
@@ -198,15 +198,46 @@ test.describe('shared model folder', () => {
           throw new DOMException('The user aborted a request.', 'AbortError');
         };
       });
-      await page.getByRole('radio', { name: 'Use a shared model folder' }).check();
+      await expect(page.getByRole('radio', { name: FOLDER_RADIO })).toBeChecked();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(
         page.getByRole('button', { name: 'Agree to the license and start' }),
       ).toBeVisible();
       await expect(page.getByRole('heading', { name: "You're ready." })).toHaveCount(0);
-      await expect(page.getByRole('radio', { name: 'Use a shared model folder' })).toBeChecked();
+      await expect(page.getByRole('radio', { name: FOLDER_RADIO })).toBeChecked();
       await expect(page.locator('[data-folder-picker-hint]')).toHaveText(PICKER_HINT);
       expect(hits).toEqual([]);
+      await page.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('onboarding can switch to browser storage after a cancelled picker', async () => {
+    const extension = await loadExtension('en-US');
+    await interceptGguf(extension, 'hang');
+    try {
+      const page = await extension.context.newPage();
+      await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
+      await page.evaluate(() => {
+        (
+          globalThis as unknown as {
+            showDirectoryPicker: () => Promise<FileSystemDirectoryHandle>;
+          }
+        ).showDirectoryPicker = async () => {
+          throw new DOMException('The user aborted a request.', 'AbortError');
+        };
+      });
+      await page.getByRole('button', { name: 'Agree to the license and start' }).click();
+      await expect(page.locator('[data-folder-picker-hint]')).toHaveText(PICKER_HINT);
+      await page.getByRole('radio', { name: BROWSER_RADIO }).check();
+      await page.getByRole('button', { name: 'Agree to the license and start' }).click();
+      await expect(page.getByText('Downloading 0% (0 MB / 573 MB)')).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect
+        .poll(async () => readSharedFolder(page), { timeout: 15_000 })
+        .toMatchObject({ configured: false });
       await page.close();
     } finally {
       await extension.close();
@@ -255,7 +286,6 @@ test.describe('shared model folder', () => {
           return documents;
         };
       });
-      await page.getByRole('radio', { name: 'Use a shared model folder' }).check();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(page.getByRole('status')).toHaveText('Using the folder Sakutto.');
       await expect
@@ -284,7 +314,6 @@ test.describe('shared model folder', () => {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
       await plantVerifiedSharedModel(page, 'Sakutto');
-      await page.getByRole('radio', { name: 'Use a shared model folder' }).check();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(page.getByRole('heading', { name: "You're ready." })).toBeVisible({
         timeout: 30_000,
@@ -500,7 +529,7 @@ test.describe('shared model folder', () => {
         page.getByRole('button', { name: 'Agree to the license and start' }),
       ).toBeVisible();
       await expect(page.getByRole('radio')).toHaveCount(0);
-      await expect(page.getByText('Use a shared model folder')).toHaveCount(0);
+      await expect(page.getByText(FOLDER_RADIO)).toHaveCount(0);
       await page.close();
     } finally {
       await extension.close();

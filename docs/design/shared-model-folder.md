@@ -1,8 +1,9 @@
 # Shared model folder (Chromium File System Access)
 
 Opt-in storage for official PFN GGUF files on Chromium, via
-`showDirectoryPicker`. Default storage stays OPFS. Firefox hides this UI.
-Proposal 2 (a native helper) is out of scope.
+`showDirectoryPicker`. Firefox and pages without a picker keep OPFS and show
+no choice. Chromium first-run recommends a shared folder so a new user sets
+it up before any download. Proposal 2 (a native helper) is out of scope.
 
 This note names no issue authors. The picker copy and the Chromium blocklist
 below are the reason Documents itself is not an advertised choice.
@@ -12,7 +13,11 @@ below are the reason Documents itself is not an advertised choice.
 The picker opens in Documents (`startIn: 'documents'`, id `sakutto-models`).
 Copy on onboarding, Settings, and the one-time move card tells the user to
 create a folder named `Sakutto` there (or open it if it already exists) and
-select **that** folder. Selecting Documents itself cannot work in real Chrome.
+select `Documents\Sakutto`. Selecting Documents itself cannot work in real
+Chrome. On Chromium onboarding that shared-folder option is first, labelled
+recommended, and preselected; the picker steps sit directly under it. Save in
+this browser remains the other choice. Cancel or Chrome's block dialog stays
+on the screen with the same one-line hint and does not download.
 
 Layout after a successful pick:
 

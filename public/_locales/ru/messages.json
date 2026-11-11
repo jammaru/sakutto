@@ -250,13 +250,13 @@
     "message": "Куда сохранить модель"
   },
   "onboardingStoreBrowser": {
-    "message": "Сохранить в этом браузере (по умолчанию)"
+    "message": "Сохранить в этом браузере"
   },
   "onboardingStoreFolder": {
-    "message": "Использовать общую папку моделей"
+    "message": "Использовать общую папку моделей (рекомендуется)"
   },
   "onboardingStoreFolderHelp": {
-    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder."
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
   },
   "onboardingStartFailed": {
     "message": "Настройка не удалась. Попробуйте еще раз."
@@ -669,7 +669,7 @@
     "message": "The default is still storage inside this browser."
   },
   "modelFolderPickerHint": {
-    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select that folder."
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"
