@@ -6,6 +6,7 @@ import type { DisplayMode, Formality } from '@/shared/settings';
 import {
   cueAtTime,
   finalizeCaptionCues,
+  LIVE_CAPTION_MIN_DISPLAY_MS,
   LiveCaptionBuffer,
   parseWebVtt,
   type CaptionCue,
@@ -18,18 +19,25 @@ import {
   pickPrimaryVideo,
   revealTrackCues,
 } from './html5';
-import { CaptionOverlay, captionOverlayRoot, type CaptionOverlayLabels } from './overlay';
+import {
+  CaptionOverlay,
+  captionOverlayFontPx,
+  captionOverlayRoot,
+  type CaptionOverlayLabels,
+} from './overlay';
 import { readTimedtext, TimedtextFetchGuard } from './timedtext';
 import { isXHost, listXSubtitleUrls, pickPlayingXVideo } from './x';
 import {
   captionTracksFromPlayerResponse,
   isYouTubeLiveDocument,
+  nativeCaptionFontPx,
   parseTimedtextPayload,
   playerResponseFromDocument,
   readYoutubeCaptionDom,
   selectCaptionTrack,
   selectLiveCaptionTrack,
   spokenLanguageFromPlayerResponse,
+  stripTargetLanguageFromCaption,
   withTimedtextFormat,
   youtubeVideoId,
   YOUTUBE_CAPTION_WINDOW_SELECTOR,
@@ -49,6 +57,7 @@ export interface CaptionSessionOptions {
   labels: CaptionOverlayLabels;
   preferences: CaptionSessionPreferences;
   readTrack?: (url: string) => Promise<string>;
+  readPlayerResponse?: () => Promise<unknown>;
   now?: () => number;
   onDisplayToggle?: () => void;
 }
@@ -67,6 +76,7 @@ export class VideoCaptionSession {
   private readonly overlay: CaptionOverlay;
   private readonly translator: CaptionTranslator;
   private readonly readTrack: (url: string) => Promise<string>;
+  private readonly readPlayerResponse: () => Promise<unknown>;
   private readonly now: () => number;
   private readonly liveBuffer = new LiveCaptionBuffer();
   private readonly timedtextGuard = new TimedtextFetchGuard();
@@ -83,13 +93,20 @@ export class VideoCaptionSession {
   private liveMode = false;
   private useDomCaptions = false;
   private timedtextKey = '';
-  private shownCueId: string | null = null;
-  private shownText: string | null = null;
+  private hold: {
+    cueId: string;
+    original: string;
+    translation: string;
+    shownAt: number;
+  } | null = null;
+  private holdTimer: number | null = null;
+  private liveJobId: string | null = null;
 
   constructor(doc: Document, options: CaptionSessionOptions) {
     this.doc = doc;
     this.prefs = options.preferences;
     this.readTrack = options.readTrack ?? readTimedtext;
+    this.readPlayerResponse = options.readPlayerResponse ?? defaultReadPlayerResponse;
     this.now = options.now ?? (() => Date.now());
     this.translator = new CaptionTranslator(options.engine);
     this.overlay = new CaptionOverlay(doc, options.labels);
@@ -122,6 +139,7 @@ export class VideoCaptionSession {
     const view = this.doc.defaultView;
     view?.addEventListener('timeupdate', this.onMedia, true);
     view?.addEventListener('seeked', this.onSeek, true);
+    view?.addEventListener('ratechange', this.onRate, true);
     view?.addEventListener('loadedmetadata', this.onMedia, true);
     view?.addEventListener('resize', this.onPlace);
     view?.addEventListener('scroll', this.onPlace, true);
@@ -159,6 +177,7 @@ export class VideoCaptionSession {
     const view = this.doc.defaultView;
     view?.removeEventListener('timeupdate', this.onMedia, true);
     view?.removeEventListener('seeked', this.onSeek, true);
+    view?.removeEventListener('ratechange', this.onRate, true);
     view?.removeEventListener('loadedmetadata', this.onMedia, true);
     view?.removeEventListener('resize', this.onPlace);
     view?.removeEventListener('scroll', this.onPlace, true);
@@ -184,11 +203,11 @@ export class VideoCaptionSession {
     this.hideNativeCaptions(false);
     this.translator.clear();
     this.liveBuffer.reset();
+    this.clearHold();
     this.unbindVideo(this.video);
     this.loaded = null;
     this.video = null;
-    this.shownCueId = null;
-    this.shownText = null;
+    this.liveJobId = null;
     this.overlay.hide();
     this.overlay.detach();
   }
@@ -200,9 +219,14 @@ export class VideoCaptionSession {
   private readonly onSeek = (): void => {
     this.translator.seek();
     this.liveBuffer.reset();
-    this.shownCueId = null;
-    this.shownText = null;
+    this.clearHold();
+    this.liveJobId = null;
+    this.overlay.hide();
     void this.paint(true);
+  };
+
+  private readonly onRate = (): void => {
+    this.prefetchFromPlayhead();
   };
 
   private readonly onPlace = (): void => {
@@ -216,6 +240,7 @@ export class VideoCaptionSession {
     this.timedtextGuard.reset();
     this.translator.clear();
     this.liveBuffer.reset();
+    this.clearHold();
     void this.sync(true);
   };
 
@@ -231,6 +256,7 @@ export class VideoCaptionSession {
       this.timedtextKey = '';
       this.timedtextGuard.reset();
       this.liveBuffer.reset();
+      this.clearHold();
       this.bindVideo(video);
     }
     if (!video) {
@@ -258,6 +284,7 @@ export class VideoCaptionSession {
       if (youtube) {
         this.liveMode = youtube.live;
         this.loaded = { key, ...youtube, restoreModes: [] };
+        if (!youtube.live && youtube.cues.length > 0) this.prefetchFromPlayhead();
         return;
       }
       this.liveMode = false;
@@ -267,6 +294,7 @@ export class VideoCaptionSession {
         const xTrack = await this.loadXTrack(video);
         if (token !== this.loadToken) return;
         this.loaded = xTrack ? { key, ...xTrack } : { key, cues: [], restoreModes: [] };
+        if ((this.loaded.cues.length ?? 0) > 0) this.prefetchFromPlayhead();
         return;
       }
 
@@ -277,6 +305,7 @@ export class VideoCaptionSession {
       );
       if (token !== this.loadToken) return;
       this.loaded = html5 ? { key, ...html5 } : { key, cues: [], restoreModes: [] };
+      if ((this.loaded.cues.length ?? 0) > 0) this.prefetchFromPlayhead();
     } finally {
       if (token === this.loadToken) this.loadInFlight = false;
     }
@@ -286,7 +315,8 @@ export class VideoCaptionSession {
     (Omit<LoadedTrack, 'key' | 'restoreModes'> & { live: boolean }) | null
   > {
     const live = isYouTubeLiveDocument(this.doc);
-    const response = playerResponseFromDocument(this.doc);
+    const liveResponse = await this.readPlayerResponse().catch(() => null);
+    const response = liveResponse ?? playerResponseFromDocument(this.doc);
     const tracks = captionTracksFromPlayerResponse(response);
     if (tracks.length === 0 && !live) return null;
     const spoken = spokenLanguageFromPlayerResponse(response);
@@ -308,10 +338,8 @@ export class VideoCaptionSession {
       }
     }
 
-    const url = withTimedtextFormat(selected.baseUrl, 'json3');
     try {
-      const body = await this.readTrack(url);
-      const cues = finalizeCaptionCues(parseTimedtextPayload(body, 'json3', selected.languageCode));
+      const cues = await this.readYouTubeCues(selected.baseUrl, selected.languageCode);
       if (cues.length > 0) {
         if (!live) this.timedtextGuard.succeed(fetchKey);
         this.useDomCaptions = live;
@@ -379,12 +407,12 @@ export class VideoCaptionSession {
     const cues = this.loaded?.cues ?? [];
     const cue = cueAtTime(cues, timeMs);
     if (this.liveMode || this.useDomCaptions) {
-      if (readYoutubeCaptionDom(this.doc).length > 0) {
+      if (this.readSourceCaptionDom().length > 0) {
         this.pollLive();
         return;
       }
       if (cue) {
-        await this.paintCue(cue, cues, timeMs, force);
+        await this.paintCue(cue, force);
         return;
       }
       if (this.useDomCaptions) this.pollLive();
@@ -394,121 +422,81 @@ export class VideoCaptionSession {
       this.pollLive();
       return;
     }
-    await this.paintCue(cue, cues, timeMs, force);
+    await this.paintCue(cue, force);
   }
 
-  private async paintCue(
-    cue: CaptionCue,
-    cues: readonly CaptionCue[],
-    timeMs: number,
-    force: boolean,
-  ): Promise<void> {
+  private async paintCue(cue: CaptionCue, force: boolean): Promise<void> {
     const language = cue.language ?? this.loaded?.language;
     const options = this.translateOptions(language);
-    this.shownCueId = cue.id;
-    this.shownText = cue.text;
+    const original = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
+    if (original.length === 0) return;
     if (sameLanguage(language, this.prefs.targetLanguage)) {
-      this.overlay.show({
-        original: cue.text,
-        translation: null,
-        display: this.prefs.display,
-        pending: false,
-      });
+      this.commitDisplay(cue.id, original, original);
       return;
     }
 
-    const cached = this.translator.getCached(cue.text, options);
-    if (cached !== undefined && !force) {
-      this.overlay.show({
-        original: cue.text,
-        translation: cached,
-        display: this.prefs.display,
-        pending: false,
-      });
-      this.translator.prefetch(cues, timeMs, options, this.prefs.tier);
+    this.prefetchFromPlayhead();
+    const cached = this.translator.getCached(original, options);
+    if (cached) {
+      this.commitDisplay(cue.id, original, cached);
       return;
     }
-
-    this.overlay.show({
-      original: cue.text,
-      translation: cached ?? null,
-      display: this.prefs.display,
-      pending: cached === undefined,
-    });
-    if (cached === undefined) {
-      const translated = await this.translator.translateCue(cue, options, CAPTION_LIVE_PRIORITY);
-      if (this.shownCueId !== cue.id) return;
-      this.overlay.show({
-        original: cue.text,
-        translation: translated,
-        display: this.prefs.display,
-        pending: false,
-      });
-    }
-    this.translator.prefetch(cues, timeMs, options, this.prefs.tier);
+    if (force) this.clearHold();
+    const translated = await this.translator.translateCue(
+      { ...cue, text: original },
+      options,
+      CAPTION_LIVE_PRIORITY,
+    );
+    if (!this.running) return;
+    if (translated) this.commitDisplay(cue.id, original, translated);
   }
 
   private pollLive(): void {
     if (!this.running) return;
-    const visible = readYoutubeCaptionDom(this.doc);
+    const visible = this.readSourceCaptionDom();
     if (visible.length === 0) {
       if (this.liveMode) return;
       if ((this.loaded?.cues.length ?? 0) > 0) return;
-      if (this.shownText !== null) {
-        this.overlay.hide();
-        this.shownText = null;
-      }
       return;
     }
     if (!this.liveMode && (this.loaded?.cues.length ?? 0) > 0) return;
 
     const lines = this.liveBuffer.update(visible, this.now());
-    const current = this.liveBuffer.peek() || visible;
     const options = this.translateOptions(this.loaded?.language);
-    this.shownCueId = `live:${current}`;
-    this.shownText = current;
     if (sameLanguage(this.loaded?.language, this.prefs.targetLanguage)) {
-      this.overlay.show({
-        original: current,
-        translation: null,
-        display: this.prefs.display,
-        pending: false,
-      });
+      const current = this.liveBuffer.peek() || visible;
+      if (current.length > 0) this.commitDisplay(`live:${current}`, current, current);
       return;
     }
-    const cached = this.translator.getCached(current, options);
-    this.overlay.show({
-      original: current,
-      translation: cached ?? null,
-      display: this.prefs.display,
-      pending: cached === undefined && this.translator.hasInflight(current, options),
-    });
-    for (const line of lines) {
-      if (sameLanguage(this.loaded?.language, this.prefs.targetLanguage)) continue;
-      const cue: CaptionCue = {
-        id: `live:${line}`,
-        startMs: this.now(),
-        endMs: this.now() + 2_000,
-        text: line,
-        language: this.loaded?.language,
-      };
-      void this.translator.translateCue(cue, options, CAPTION_LIVE_PRIORITY).then((translation) => {
-        if (!this.running) return;
-        if (this.shownText !== line && this.liveBuffer.peek() !== line) return;
-        this.overlay.show({
-          original: line,
-          translation,
-          display: this.prefs.display,
-          pending: false,
-        });
-      });
+
+    const newest = lines.at(-1);
+    if (!newest) return;
+    const cached = this.translator.getCached(newest, options);
+    if (cached) {
+      this.commitDisplay(`live:${newest}`, newest, cached);
+      return;
     }
+    this.translator.keepOnly(newest, options);
+    this.liveJobId = newest;
+    const cue: CaptionCue = {
+      id: `live:${newest}`,
+      startMs: this.now(),
+      endMs: this.now() + 2_000,
+      text: newest,
+      language: this.loaded?.language,
+    };
+    void this.translator.translateCue(cue, options, CAPTION_LIVE_PRIORITY).then((translation) => {
+      if (!this.running || !translation) return;
+      if (this.liveJobId !== newest) return;
+      this.commitDisplay(cue.id, newest, translation);
+    });
   }
 
   private bindVideo(video: HTMLVideoElement | null): void {
     if (!video) return;
     video.addEventListener('timeupdate', this.onMedia);
     video.addEventListener('seeked', this.onSeek);
+    video.addEventListener('ratechange', this.onRate);
     video.addEventListener('loadedmetadata', this.onMedia);
     video.addEventListener('cuechange', this.onMedia, true);
     video.textTracks.addEventListener('addtrack', this.onMedia);
@@ -518,6 +506,7 @@ export class VideoCaptionSession {
     if (!video) return;
     video.removeEventListener('timeupdate', this.onMedia);
     video.removeEventListener('seeked', this.onSeek);
+    video.removeEventListener('ratechange', this.onRate);
     video.removeEventListener('loadedmetadata', this.onMedia);
     video.removeEventListener('cuechange', this.onMedia, true);
     video.textTracks.removeEventListener('addtrack', this.onMedia);
@@ -526,7 +515,71 @@ export class VideoCaptionSession {
   private place(): void {
     if (!this.video) return;
     this.overlay.attach(captionOverlayRoot(this.doc, this.video));
-    this.overlay.place(this.video.getBoundingClientRect());
+    const rect = this.video.getBoundingClientRect();
+    this.overlay.place(rect, captionOverlayFontPx(rect.height, nativeCaptionFontPx(this.doc)));
+  }
+
+  private readSourceCaptionDom(): string {
+    const spoken = this.loaded?.language;
+    return readYoutubeCaptionDom(this.doc, {
+      targetLanguage: this.prefs.targetLanguage,
+      spokenLanguage: spoken,
+    });
+  }
+
+  private prefetchFromPlayhead(): void {
+    const video = this.video;
+    const cues = this.loaded?.cues ?? [];
+    if (!video || cues.length === 0) return;
+    const language = this.loaded?.language;
+    if (sameLanguage(language, this.prefs.targetLanguage)) return;
+    const timeMs = Math.round((video.currentTime || 0) * 1000);
+    this.translator.prefetch(
+      cues,
+      timeMs,
+      this.translateOptions(language),
+      this.prefs.tier,
+      video.playbackRate || 1,
+    );
+  }
+
+  private commitDisplay(cueId: string, original: string, translation: string): void {
+    if (!this.running) return;
+    if (this.hold?.cueId === cueId && this.hold.translation === translation) return;
+    const apply = (): void => {
+      this.holdTimer = null;
+      this.hold = { cueId, original, translation, shownAt: this.now() };
+      this.overlay.show({
+        original,
+        translation,
+        display: this.prefs.display,
+        pending: false,
+      });
+    };
+    const elapsed = this.hold ? this.now() - this.hold.shownAt : LIVE_CAPTION_MIN_DISPLAY_MS;
+    const wait = Math.max(0, LIVE_CAPTION_MIN_DISPLAY_MS - elapsed);
+    if (this.holdTimer !== null) this.doc.defaultView?.clearTimeout(this.holdTimer);
+    if (wait === 0 || !this.hold) {
+      apply();
+      return;
+    }
+    this.holdTimer = this.doc.defaultView?.setTimeout(apply, wait) ?? null;
+  }
+
+  private clearHold(): void {
+    if (this.holdTimer !== null) {
+      this.doc.defaultView?.clearTimeout(this.holdTimer);
+      this.holdTimer = null;
+    }
+    this.hold = null;
+  }
+
+  private async readYouTubeCues(baseUrl: string, language: string): Promise<CaptionCue[]> {
+    const json3 = await this.readTrack(withTimedtextFormat(baseUrl, 'json3'));
+    const fromJson = finalizeCaptionCues(parseTimedtextPayload(json3, 'json3', language));
+    if (fromJson.length > 0) return fromJson;
+    const vtt = await this.readTrack(withTimedtextFormat(baseUrl, 'vtt'));
+    return finalizeCaptionCues(parseTimedtextPayload(vtt, 'vtt', language));
   }
 
   private translateOptions(language?: string): CaptionTranslateOptions {
@@ -609,4 +662,16 @@ function sameLanguage(source: string | undefined, target: string): boolean {
   const left = canonicalLanguage(source);
   const right = canonicalLanguage(target);
   return left !== null && right !== null && left === right;
+}
+
+async function defaultReadPlayerResponse(): Promise<unknown> {
+  try {
+    const { browser } = await import('wxt/browser');
+    const response: unknown = await browser.runtime.sendMessage({
+      type: 'captions:player-response',
+    });
+    return response ?? null;
+  } catch {
+    return null;
+  }
 }

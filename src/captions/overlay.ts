@@ -14,7 +14,7 @@ export interface CaptionOverlayState {
   pending: boolean;
 }
 
-const HOST_TAG = 'sakutto-captions';
+export const CAPTION_OVERLAY_HOST = 'sakutto-captions';
 
 const STYLE = `
 :host { all: initial; }
@@ -22,25 +22,28 @@ const STYLE = `
   box-sizing: border-box;
   pointer-events: none;
   display: grid;
-  gap: 4px;
+  gap: 6px;
   justify-items: center;
   text-align: center;
-  font: 16px/1.35 "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  font: var(--sakutto-caption-size, 22px)/1.35 "YouTube Noto", "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
 }
 .line {
   box-sizing: border-box;
   max-width: 100%;
-  padding: 4px 10px;
-  border-radius: 6px;
-  background: rgb(15 23 32 / 78%);
-  color: #f8fafc;
+  padding: 0.18em 0.55em;
+  border-radius: 0.28em;
+  background: rgb(8 8 8 / 80%);
+  color: #fff;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  font-size: 1em;
+  font-weight: 500;
 }
 .original {
-  font-size: 13px;
-  color: #dbe4ee;
-  background: rgb(15 23 32 / 62%);
+  font-size: 0.68em;
+  font-weight: 400;
+  color: #e8eef4;
+  background: rgb(8 8 8 / 62%);
 }
 .toggle {
   pointer-events: auto;
@@ -69,17 +72,26 @@ function attachCaptionShadow(host: HTMLElement): ShadowRoot {
 /**
  * Places the overlay just above the bottom edge of the video, centered.
  * `left` is the centre so the host can `translateX(-50%)`.
+ * Width tracks the player (theater / fullscreen included); it is not capped at 720px.
  */
 export function captionOverlayBox(
   rect: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>,
-  padding = 14,
+  padding = 18,
 ): { left: number; top: number; width: number } {
-  const width = Math.max(160, Math.min(rect.width * 0.92, 720));
+  const width = Math.max(220, rect.width * 0.94);
   return {
     left: rect.left + rect.width / 2,
     top: rect.top + rect.height - padding,
     width,
   };
+}
+
+/** Match YouTube's native caption size: native computed px, else ~5% of player height. */
+export function captionOverlayFontPx(playerHeight: number, nativePx?: number): number {
+  if (nativePx !== undefined && Number.isFinite(nativePx) && nativePx >= 14) {
+    return Math.round(Math.min(64, nativePx));
+  }
+  return Math.round(Math.min(56, Math.max(20, playerHeight * 0.05)));
 }
 
 export function captionOverlayRoot(doc: Document, video: HTMLVideoElement): Element {
@@ -99,7 +111,7 @@ export class CaptionOverlay {
 
   constructor(doc: Document, labels: CaptionOverlayLabels) {
     this.labels = labels;
-    this.host = doc.createElement(HOST_TAG);
+    this.host = doc.createElement(CAPTION_OVERLAY_HOST);
     this.host.setAttribute('translate', 'no');
     this.host.setAttribute('aria-live', 'polite');
     this.host.hidden = true;
@@ -149,11 +161,13 @@ export class CaptionOverlay {
     this.host.remove();
   }
 
-  place(rect: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>): void {
+  place(rect: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>, fontPx?: number): void {
     const box = captionOverlayBox(rect);
     this.host.style.left = `${box.left}px`;
     this.host.style.top = `${box.top}px`;
     this.host.style.width = `${box.width}px`;
+    const size = fontPx ?? captionOverlayFontPx(rect.height);
+    this.host.style.setProperty('--sakutto-caption-size', `${size}px`);
   }
 
   show(state: CaptionOverlayState): void {
@@ -167,16 +181,13 @@ export class CaptionOverlay {
     const bilingual = state.display === 'bilingual';
     const showTranslation = translation.length > 0;
     this.originalLine.textContent = original;
-    this.translatedLine.textContent = showTranslation
-      ? translation
-      : state.pending
-        ? this.labels.pending
-        : original;
+    // Never paint "Translating…" over the video. Pending is a data flag only.
+    this.translatedLine.textContent = showTranslation ? translation : original;
     this.originalLine.hidden = !(bilingual && original.length > 0);
-    this.translatedLine.hidden = !showTranslation && !state.pending && bilingual;
-    if (!bilingual && !showTranslation) {
+    this.translatedLine.hidden = !showTranslation && bilingual;
+    if (!bilingual) {
       this.translatedLine.hidden = false;
-      this.translatedLine.textContent = original;
+      this.translatedLine.textContent = showTranslation ? translation : original;
     }
     this.toggle.textContent = bilingual ? this.labels.hideOriginal : this.labels.showOriginal;
     this.toggle.setAttribute(
@@ -186,6 +197,8 @@ export class CaptionOverlay {
     const displayed = showTranslation ? translation : original;
     this.host.setAttribute('data-sakutto-caption', displayed);
     this.host.setAttribute('data-sakutto-original', original);
+    if (state.pending) this.host.setAttribute('data-sakutto-pending', '1');
+    else this.host.removeAttribute('data-sakutto-pending');
     this.host.hidden = false;
   }
 
@@ -195,6 +208,7 @@ export class CaptionOverlay {
     this.translatedLine.textContent = '';
     this.host.removeAttribute('data-sakutto-caption');
     this.host.removeAttribute('data-sakutto-original');
+    this.host.removeAttribute('data-sakutto-pending');
   }
 
   shadow(): ShadowRoot | null {

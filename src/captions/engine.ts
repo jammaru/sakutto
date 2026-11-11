@@ -8,11 +8,15 @@ export const CAPTION_LIVE_PRIORITY = 2;
 /** After nearby page prose (~22), before far chrome (~34). */
 export const CAPTION_PREFETCH_PRIORITY = 24;
 
-export function captionPrefetchWindowMs(tier: 'g' | 'c8' | 'c4' | 'c1' | null): number {
-  if (tier === 'g') return 30_000;
-  if (tier === 'c8') return 12_000;
-  return 6_000;
+export function captionPrefetchWindowMs(
+  tier: 'g' | 'c8' | 'c4' | 'c1' | null,
+  playbackRate = 1,
+): number {
+  const base = tier === 'g' ? 36_000 : tier === 'c8' ? 16_000 : 8_000;
+  return Math.round(base * Math.min(3, Math.max(1, playbackRate)));
 }
+
+const NEAR_PLAYHEAD_MS = 8_000;
 
 export interface CaptionTranslateOptions {
   tgt: string;
@@ -85,18 +89,33 @@ export class CaptionTranslator {
     return result;
   }
 
+  /** Drop every in-flight job except `text` so live/DOM never builds a backlog. */
+  keepOnly(text: string, options: CaptionTranslateOptions): void {
+    const keep = this.cacheKey(text, options);
+    for (const [key, controller] of [...this.controllers.entries()]) {
+      if (key === keep) continue;
+      controller.abort();
+      this.controllers.delete(key);
+      this.inflight.delete(key);
+    }
+  }
+
   prefetch(
     cues: readonly CaptionCue[],
     timeMs: number,
     options: CaptionTranslateOptions,
     tier: 'g' | 'c8' | 'c4' | 'c1' | null,
+    playbackRate = 1,
   ): void {
-    const windowMs = captionPrefetchWindowMs(tier);
+    const rate = Number.isFinite(playbackRate) && playbackRate > 0 ? playbackRate : 1;
+    const windowMs = captionPrefetchWindowMs(tier, rate);
     const upcoming = cuesInWindow(cues, timeMs, timeMs + windowMs);
+    const nearMs = timeMs + NEAR_PLAYHEAD_MS * Math.min(3, Math.max(1, rate));
     for (const cue of upcoming) {
       if (this.getCached(cue.text, options) !== undefined) continue;
       if (this.inflight.has(this.cacheKey(cue.text, options))) continue;
-      void this.translateCue(cue, options, CAPTION_PREFETCH_PRIORITY);
+      const priority = cue.startMs <= nearMs ? CAPTION_LIVE_PRIORITY : CAPTION_PREFETCH_PRIORITY;
+      void this.translateCue(cue, options, priority);
     }
   }
 

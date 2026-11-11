@@ -69,11 +69,17 @@ translated track in the list (those lists often start at Afrikaans). A track tha
 already in the target language is shown as-is.
 
 **Empty timedtext:** a missing `pot=` often yields HTTP 200 with an empty body. v1 does
-not POST InnerTube. It GETs the embedded `baseUrl` at most three times per video+track
-(exponential backoff; never on DOM mutations). If every attempt is empty, VOD falls
-through to the same `.ytp-caption-segment` path live uses, with `LiveCaptionBuffer`
-sentence assembly. The native caption window stays in the DOM so the player keeps
-updating it; CSS only hides it from view.
+not POST InnerTube. It reads the player's live `getPlayerResponse()` in the page world
+(often the `baseUrl` already has `pot=`), GETs that URL at most three times per
+video+track (exponential backoff; never on DOM mutations), and tries `fmt=vtt` if
+`json3` is empty. If every attempt is empty, VOD falls through to the DOM caption
+path live uses, with `LiveCaptionBuffer` sentence assembly. The native caption window
+stays in the DOM so the player keeps updating it; CSS only hides it from view.
+
+**DOM source window:** YouTube may paint a spoken/ASR window and an auto-translate
+window. v1 reads one source window (spoken `lang`, then not-the-target), never
+`<sakutto-captions>`, and strips target-language script from mixed lines. Japanese
+glued onto English is not sent to the model.
 
 **VOD sentence assembly:** consecutive cues are merged at sentence-end punctuation (with
 a max span and character cap) and translated once. The overlay covers the combined time
@@ -100,10 +106,12 @@ Live captions are not a stable VTT file. v1 treats them as first-class:
   segments.
 
 `LiveCaptionBuffer` waits for a sentence terminator, a pause (`LIVE_CAPTION_MAX_WAIT_MS` =
-1.2 s), or `LIVE_CAPTION_MAX_CHARS` (96), then translates the committed line. Growing
-fragments stay on screen as original text and are not sent to the model. When a translation
-is ready it replaces that line. Live jobs use priority `2` with `eager` and `preempt`, so a
-page-translation batch can be cancelled to keep live latency low.
+0.9 s), or `LIVE_CAPTION_MAX_CHARS` (72), then translates **only the newest** committed
+line (older in-flight jobs are aborted). Growing fragments are not shown and are not
+sent to the model. The overlay paints a finalized pair only, held for
+`LIVE_CAPTION_MIN_DISPLAY_MS` (1.4 s) so the line does not jitter. The
+"translating captions…" status is not drawn over the video. Live jobs use priority `2`
+with `eager` and `preempt`.
 
 ### X (Twitter)
 
@@ -198,14 +206,13 @@ A typical caption is 8–15 English words (~12–25 output tokens in Japanese).
 
 **Design that follows from the budget:**
 
-- **On-demand:** translate the full track ahead of the playhead (`captionPrefetchWindowMs`:
-  30 s on GPU, 12 s on `c8`, 6 s on smaller CPU tiers). Seeking aborts in-flight work and
-  prefetches around the new time. Repeated lines hit an in-memory map; the engine's
-  IndexedDB cache still applies underneath.
-- **Live / ASR word-by-word:** do not send each word. `LiveCaptionBuffer` waits for a
-  sentence terminator, a pause (`LIVE_CAPTION_MAX_WAIT_MS` = 1.2 s), or
-  `LIVE_CAPTION_MAX_CHARS` (96). Auto-caption json3 events are merged the same way
-  (`mergeWordCues`).
+- **On-demand:** translate the track ahead of the playhead (`captionPrefetchWindowMs`:
+  36 s on GPU, 16 s on `c8`, 8 s on smaller CPU tiers, multiplied by `playbackRate`).
+  Cues inside 8 s use live priority. Seeking aborts in-flight work and prefetches around
+  the new time. Rate changes widen the window. Repeated lines hit an in-memory map.
+- **Live / ASR / empty-timedtext DOM:** do not send each word and do not build a backlog.
+  `LiveCaptionBuffer` waits for a sentence terminator, a pause (`LIVE_CAPTION_MAX_WAIT_MS`
+  = 0.9 s), or `LIVE_CAPTION_MAX_CHARS` (72). Only the newest finalized line is translated.
 - **Queue:** live captions use priority `2` (after selection `0`, before visible page prose
   `~10`) with `preempt: true`, so a running page batch is cancelled and the live line can
   start. Prefetch uses `24` (after nearby prose `~22`, before far chrome `~34`). Cancel on
@@ -218,9 +225,12 @@ A typical caption is 8–15 English words (~12–25 output tokens in Japanese).
   subtree.
 - **Bilingual is the default** (`videoCaptionDisplay`). Side-by-side is what people use to
   study and to check accuracy. Replace mode is a setting and a control on the overlay.
-- While a line is in flight, **the original stays on screen**. A broken or
-  `error: true` result is not cached and is not painted; `isBrokenTranslation` from
-  `src/engine/text/degenerate.ts` is the gate.
+- The overlay shows **finalized units only** (original + translation together). It does
+  not re-render growing ASR text. A broken or `error: true` result is not cached and is
+  not painted; `isBrokenTranslation` from `src/engine/text/degenerate.ts` is the gate.
+- Translation type is at least native YouTube caption size: native `.ytp-caption-segment`
+  computed `font-size` when present, else ~5% of player height. Overlay width is 94% of
+  the player (theater / fullscreen included). The original line is smaller (~0.68em).
 - Native YouTube captions are hidden with a CSS rule on `.ytp-caption-window-container`
   while the overlay is active (fragile; documented). HTML5 tracks are set to `hidden`.
 - Fullscreen: the host is re-parented into `document.fullscreenElement` when that node

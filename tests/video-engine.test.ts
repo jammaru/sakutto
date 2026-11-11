@@ -120,6 +120,42 @@ describe('caption translator', () => {
   it('prefetches a longer window on the GPU tier than on CPU', () => {
     expect(captionPrefetchWindowMs('g')).toBeGreaterThan(captionPrefetchWindowMs('c4'));
     expect(captionPrefetchWindowMs('c8')).toBeGreaterThan(captionPrefetchWindowMs(null));
+    expect(captionPrefetchWindowMs('g', 2)).toBeGreaterThan(captionPrefetchWindowMs('g', 1));
+  });
+
+  it('drops stale live jobs so only the newest line is in flight', async () => {
+    let started = 0;
+    let finished = 0;
+    const translator = new CaptionTranslator(
+      engineOf(async function* (segments, options) {
+        started += 1;
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(resolve, 40);
+          options.signal.addEventListener(
+            'abort',
+            () => {
+              clearTimeout(timer);
+              reject(new DOMException('Aborted', 'AbortError'));
+            },
+            { once: true },
+          );
+        });
+        finished += 1;
+        yield {
+          id: segments[0]?.id ?? 'x',
+          final: `訳:${segments[0]?.text}`,
+          engine: 'plamo' as const,
+        };
+      }),
+    );
+    const options = { tgt: 'ja', form: 'polite' as const };
+    const first = translator.translateCue(cue('The station opens at dawn.'), options, 2);
+    translator.keepOnly('A red train waits.', options);
+    const second = translator.translateCue(cue('A red train waits.'), options, 2);
+    await expect(first).resolves.toBeNull();
+    await expect(second).resolves.toBe('訳:A red train waits.');
+    expect(finished).toBe(1);
+    expect(started).toBeGreaterThanOrEqual(2);
   });
 
   it('asks live caption jobs to preempt a page batch', async () => {

@@ -18,12 +18,14 @@ import {
   parsePlayerResponseScript,
   isYouTubeLivePlayer,
   selectCaptionTrack,
+  captionTextIsTargetLanguage,
   selectLiveCaptionTrack,
   spokenLanguageFromPlayerResponse,
+  stripTargetLanguageFromCaption,
   withTimedtextFormat,
   youtubeVideoId,
 } from '@/captions/youtube';
-import { captionOverlayBox } from '@/captions/overlay';
+import { captionOverlayBox, captionOverlayFontPx } from '@/captions/overlay';
 import { CAPTION_LIVE_PRIORITY, CAPTION_PREFETCH_PRIORITY } from '@/captions/engine';
 import { pickCaptionTrack, revealTrackCues } from '@/captions/html5';
 import {
@@ -346,13 +348,48 @@ describe('YouTube player response', () => {
   });
 });
 
+describe('target-language caption filter', () => {
+  it('cuts Japanese glued onto an English source line', () => {
+    expect(
+      stripTargetLanguageFromCaption(
+        'the north window sells tickets, 北側窓口では予約不要の切符を売っています',
+        'ja',
+      ),
+    ).toBe('the north window sells tickets,');
+  });
+
+  it('rejects a Japanese-only caption when the target is Japanese', () => {
+    expect(captionTextIsTargetLanguage('北側窓口では予約不要の切符を売っています。', 'ja')).toBe(
+      true,
+    );
+    expect(stripTargetLanguageFromCaption('北側窓口では予約不要の切符を売っています。', 'ja')).toBe(
+      '',
+    );
+  });
+
+  it('keeps English when the target is Japanese', () => {
+    expect(captionTextIsTargetLanguage('a red train waits at platform two.', 'ja')).toBe(false);
+    expect(stripTargetLanguageFromCaption('a red train waits at platform two.', 'ja')).toBe(
+      'a red train waits at platform two.',
+    );
+  });
+});
+
 describe('caption overlay placement and priority', () => {
   it('sits above the bottom edge of the video', () => {
     const box = captionOverlayBox({ left: 100, top: 40, width: 640, height: 360 });
     expect(box.left).toBe(420);
-    expect(box.top).toBe(40 + 360 - 14);
+    expect(box.top).toBe(40 + 360 - 18);
     expect(box.width).toBeGreaterThan(160);
     expect(box.width).toBeLessThanOrEqual(640);
+  });
+
+  it('tracks a wide player instead of capping at 720px', () => {
+    const box = captionOverlayBox({ left: 0, top: 0, width: 1280, height: 720 });
+    expect(box.width).toBeGreaterThan(720);
+    expect(box.width).toBeCloseTo(1280 * 0.94);
+    expect(captionOverlayFontPx(720)).toBeGreaterThanOrEqual(20);
+    expect(captionOverlayFontPx(360, 32)).toBe(32);
   });
 
   it('keeps live captions ahead of page prose and prefetch behind nearby prose', () => {

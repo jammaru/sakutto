@@ -12,9 +12,11 @@ import { normalizeSelectedModelId } from '@/engine/model/selection';
 import { hasLicenseConsent } from '@/shared/agreement';
 import type { EngineCapabilities } from '@/shared/capabilities';
 import { isEngineCapabilities } from '@/shared/capabilities';
+import { pageReadPlayerResponse } from '@/captions/youtube';
 import { pageFetchTimedtext, resolveCaptionFetchUrl } from '@/captions/timedtext';
 import {
   isCacheClearRequest,
+  isCaptionPlayerResponseRequest,
   isCaptionTimedtextRequest,
   isEngineCapabilitiesRequest,
   isEngineStatusRequest,
@@ -218,6 +220,25 @@ export default defineBackground(() => {
 
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.id !== browser.runtime.id) return false;
+
+    if (isCaptionPlayerResponseRequest(message)) {
+      const tabId = sender.tab?.id;
+      if (tabId === undefined) {
+        sendResponse(null);
+        return true;
+      }
+      void browser.scripting
+        .executeScript({
+          target: { tabId },
+          world: 'MAIN',
+          func: pageReadPlayerResponse,
+        })
+        .then(
+          (results) => sendResponse(results[0]?.result ?? null),
+          () => sendResponse(null),
+        );
+      return true;
+    }
 
     if (isCaptionTimedtextRequest(message)) {
       const tabId = sender.tab?.id;

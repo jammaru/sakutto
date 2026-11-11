@@ -112,6 +112,39 @@ test.describe('video captions', () => {
     }
   });
 
+  test('does not send YouTube auto-translate Japanese as the source line', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'ja',
+      });
+      const page = await extension.context.newPage();
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await page.goto(`${FIXTURE_ORIGIN}/youtube-mixed.html`);
+      await prepareVideo(page);
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'ja',
+      });
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-original',
+        'the north window sells tickets that do not require a reservation.',
+      );
+      await expect(page.locator('sakutto-captions')).not.toHaveAttribute(
+        'data-sakutto-original',
+        /北側|切符|予約/,
+      );
+      await expect(page.locator('sakutto-captions')).not.toHaveAttribute(
+        'data-sakutto-pending',
+        '1',
+      );
+    } finally {
+      await extension.close();
+    }
+  });
+
   test('auto-runs on a YouTube-shaped live player without pressing translate', async () => {
     const extension = await loadExtension('en-US');
     try {

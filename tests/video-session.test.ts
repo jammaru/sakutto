@@ -126,16 +126,20 @@ describe('video caption session', () => {
       readTrack: async () => '',
     });
     session.start();
-    await vi.waitFor(() => {
-      const host = document.querySelector('sakutto-captions');
-      expect(host?.getAttribute('data-sakutto-original')).toBe('The station opens at dawn.');
-      expect(host?.getAttribute('data-sakutto-caption')).toBe('The station opens at dawn.');
-    });
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    const pendingHost = document.querySelector('sakutto-captions');
+    expect(pendingHost?.getAttribute('data-sakutto-caption')).not.toBe(
+      'The station opens at dawn.',
+    );
+    expect(pendingHost?.textContent ?? '').not.toContain('Translating');
     release?.();
     await vi.waitFor(() => {
       expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
         fakeTranslateText('The station opens at dawn.', 'ja'),
       );
+      expect(
+        document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original'),
+      ).toBe('The station opens at dawn.');
     });
     session.stop();
   });
@@ -194,7 +198,8 @@ describe('video caption session', () => {
     }
     await new Promise((resolve) => setTimeout(resolve, 80));
     expect(fetches).toBeLessThanOrEqual(3);
-    expect(fetches).toBe(1);
+    // json3 then vtt on the first empty attempt; mutations must not add more.
+    expect(fetches).toBe(2);
     session.stop();
   });
 
@@ -275,6 +280,81 @@ The station opens at dawn.
     });
     session.stop();
     view.close();
+  });
+
+  it('ignores a YouTube auto-translate window so Japanese cannot leak into the source', async () => {
+    document.body.innerHTML = `
+      <div id="movie_player">
+        <video id="player" class="html5-main-video"></video>
+        <div class="ytp-caption-window-container">
+          <div class="caption-window" lang="en">
+            <span class="ytp-caption-segment">the north window sells tickets that do not require a reservation.</span>
+          </div>
+          <div class="caption-window" lang="ja">
+            <span class="ytp-caption-segment">北側窓口では予約不要の切符を売っています。</span>
+          </div>
+        </div>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "videoDetails": { "defaultAudioLanguage": "en" },
+          "captions": {
+            "playerCaptionsTracklistRenderer": {
+              "captionTracks": [{
+                "baseUrl": "/youtube-timedtext.json",
+                "languageCode": "en",
+                "name": { "simpleText": "English" }
+              }]
+            }
+          }
+        };
+      </script>
+    `;
+    const video = document.querySelector('video');
+    if (video) video.currentTime = 0.4;
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => '',
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original'),
+      ).toBe('the north window sells tickets that do not require a reservation.');
+    });
+    const original = document
+      .querySelector('sakutto-captions')
+      ?.getAttribute('data-sakutto-original');
+    expect(original).not.toMatch(/北側|切符|予約/);
+    expect(
+      document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption'),
+    ).not.toMatch(/北側窓口では/);
+
+    const english = document.querySelector('.caption-window[lang="en"] .ytp-caption-segment');
+    if (english) {
+      english.textContent = 'a red train waits at platform two.';
+    }
+    await vi.waitFor(
+      () => {
+        const next = document
+          .querySelector('sakutto-captions')
+          ?.getAttribute('data-sakutto-original');
+        expect(next).toBe('a red train waits at platform two.');
+      },
+      { timeout: 3_000 },
+    );
+    expect(
+      document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original'),
+    ).not.toMatch(/北側|切符|予約/);
+    session.stop();
   });
 
   it('paints nothing when the playing X video has no captions', async () => {

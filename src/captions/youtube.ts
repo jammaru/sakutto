@@ -285,13 +285,190 @@ export function playerResponseFromDocument(doc: Document): unknown | null {
   return null;
 }
 
-export function readYoutubeCaptionDom(root: ParentNode): string {
-  const segments = [...root.querySelectorAll(YOUTUBE_CAPTION_SEGMENT_SELECTOR)];
-  return segments
-    .map((segment) => segment.textContent ?? '')
-    .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+const CAPTION_HOST_TAG = 'sakutto-captions';
+
+export interface YoutubeCaptionDomOptions {
+  targetLanguage?: string | undefined;
+  spokenLanguage?: string | undefined;
+}
+
+/**
+ * YouTube can paint more than one caption window: the spoken/ASR line and an
+ * auto-translate line (often the target language). Joining every
+ * `.ytp-caption-segment` mixed those together, so Japanese leaked into the English
+ * source and was sent to the model. Read one source window, never our overlay, and
+ * drop target-language script.
+ */
+export function readYoutubeCaptionDom(
+  root: ParentNode,
+  options: YoutubeCaptionDomOptions = {},
+): string {
+  const windows = captionDomWindows(root);
+  const spoken = languagePrefix(options.spokenLanguage);
+  const target = languagePrefix(options.targetLanguage);
+  const candidates = windows
+    .map((window) => ({
+      lang: languagePrefix(window.getAttribute('lang')),
+      text: captionWindowText(window),
+    }))
+    .filter((entry) => entry.text.length > 0);
+
+  const preferred =
+    (spoken.length > 0
+      ? candidates.find((entry) => entry.lang === spoken && entry.lang !== target)
+      : undefined) ??
+    candidates.find((entry) => {
+      if (entry.lang.length > 0 && entry.lang === target) return false;
+      return !captionTextIsTargetLanguage(entry.text, target);
+    }) ??
+    candidates.find((entry) => stripTargetLanguageFromCaption(entry.text, target).length > 0);
+
+  if (!preferred) return '';
+  const source = stripTargetLanguageFromCaption(preferred.text, target);
+  return captionTextIsTargetLanguage(source, target) ? '' : source;
+}
+
+function captionDomWindows(root: ParentNode): Element[] {
+  const elements =
+    'querySelectorAll' in root
+      ? [...root.querySelectorAll(`${YOUTUBE_CAPTION_WINDOW_SELECTOR} .caption-window`)]
+      : [];
+  const windows = elements.filter((node) => !node.closest(CAPTION_HOST_TAG));
+  if (windows.length > 0) return windows;
+  const container =
+    'querySelector' in root ? root.querySelector(YOUTUBE_CAPTION_WINDOW_SELECTOR) : null;
+  if (container instanceof Element && !container.closest(CAPTION_HOST_TAG)) return [container];
+  return [];
+}
+
+function captionWindowText(window: Element): string {
+  const segments = [...window.querySelectorAll(YOUTUBE_CAPTION_SEGMENT_SELECTOR)].filter(
+    (segment) => !segment.closest(CAPTION_HOST_TAG),
+  );
+  if (segments.length === 0 && window.matches(YOUTUBE_CAPTION_SEGMENT_SELECTOR)) {
+    return normalizeDomCaption(window.textContent ?? '');
+  }
+  return normalizeDomCaption(segments.map((segment) => segment.textContent ?? '').join(' '));
+}
+
+function normalizeDomCaption(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function languagePrefix(value: string | null | undefined): string {
+  const lower = value?.trim().toLowerCase() ?? '';
+  if (lower.startsWith('zh-hant') || lower.startsWith('zh-hans')) return 'zh';
+  return lower.split('-')[0] ?? '';
+}
+
+export function captionTextIsTargetLanguage(text: string, targetLanguage: string): boolean {
+  const script = targetScript(targetLanguage);
+  if (!script) return false;
+  let latin = 0;
+  let target = 0;
+  for (const character of text) {
+    const code = character.codePointAt(0) ?? 0;
+    if ((code >= 0x41 && code <= 0x5a) || (code >= 0x61 && code <= 0x7a)) latin += 1;
+    else if (script(character)) target += 1;
+  }
+  if (target < 2) return false;
+  if (latin === 0) return true;
+  return target >= latin;
+}
+
+/**
+ * Cut a mixed caption at the first target-script run so an auto-translate window
+ * glued onto English (`…businesses, では、なぜ…`) cannot be re-translated.
+ */
+export function stripTargetLanguageFromCaption(text: string, targetLanguage: string): string {
+  const script = targetScript(targetLanguage);
+  if (!script) return normalizeDomCaption(text);
+  const characters = [...text];
+  let cut = -1;
+  for (let index = 0; index < characters.length; index += 1) {
+    if (script(characters[index] ?? '')) {
+      cut = index;
+      break;
+    }
+  }
+  if (cut <= 0) {
+    return captionTextIsTargetLanguage(text, targetLanguage) ? '' : normalizeDomCaption(text);
+  }
+  return normalizeDomCaption(characters.slice(0, cut).join(''));
+}
+
+function targetScript(targetLanguage: string): ((character: string) => boolean) | null {
+  const prefix = languagePrefix(targetLanguage);
+  if (prefix === 'ja') {
+    return (character) => {
+      const code = character.codePointAt(0) ?? 0;
+      return (
+        (code >= 0x3040 && code <= 0x30ff) ||
+        (code >= 0x31f0 && code <= 0x31ff) ||
+        (code >= 0x4e00 && code <= 0x9fff)
+      );
+    };
+  }
+  if (prefix === 'ko') {
+    return (character) => {
+      const code = character.codePointAt(0) ?? 0;
+      return code >= 0xac00 && code <= 0xd7af;
+    };
+  }
+  if (prefix === 'zh') {
+    return (character) => {
+      const code = character.codePointAt(0) ?? 0;
+      return code >= 0x4e00 && code <= 0x9fff;
+    };
+  }
+  if (prefix === 'ru') {
+    return (character) => {
+      const code = character.codePointAt(0) ?? 0;
+      return code >= 0x0400 && code <= 0x04ff;
+    };
+  }
+  if (prefix === 'ar') {
+    return (character) => {
+      const code = character.codePointAt(0) ?? 0;
+      return code >= 0x0600 && code <= 0x06ff;
+    };
+  }
+  return null;
+}
+
+/**
+ * MAIN-world only. Reads the player's live `getPlayerResponse()` (often includes `pot=`
+ * on caption `baseUrl`) then `window.ytInitialPlayerResponse`. No InnerTube POST.
+ */
+export function pageReadPlayerResponse(): unknown {
+  try {
+    const player = document.getElementById('movie_player') as {
+      getPlayerResponse?: () => unknown;
+    } | null;
+    const read = player?.getPlayerResponse;
+    if (typeof read === 'function') {
+      const value = read.call(player);
+      if (value && typeof value === 'object') return value;
+    }
+  } catch {
+    // Player API is not always present.
+  }
+  try {
+    const value = (window as unknown as { ytInitialPlayerResponse?: unknown })
+      .ytInitialPlayerResponse;
+    if (value && typeof value === 'object') return value;
+  } catch {
+    // Isolated-world tests have no page player.
+  }
+  return null;
+}
+
+export function nativeCaptionFontPx(doc: Document): number | undefined {
+  const segment = doc.querySelector(YOUTUBE_CAPTION_SEGMENT_SELECTOR);
+  if (!(segment instanceof Element)) return undefined;
+  const view = doc.defaultView;
+  const size = Number.parseFloat(view?.getComputedStyle(segment).fontSize ?? '');
+  return Number.isFinite(size) && size >= 12 ? size : undefined;
 }
 
 export function parseTimedtextPayload(

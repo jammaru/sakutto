@@ -30,7 +30,11 @@ describe('caption overlay', () => {
     const translated = shadow?.querySelector('.line:not(.original)') as HTMLElement | null;
     expect(original?.hidden).toBe(false);
     expect(original?.textContent).toBe('The station opens at dawn.');
-    expect(translated?.textContent).toBe('Translating caption…');
+    // Pending must not paint the status sentence over the video.
+    expect(translated?.textContent).not.toBe('Translating caption…');
+    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-pending')).toBe(
+      '1',
+    );
 
     overlay.show({
       original: 'The station opens at dawn.',

@@ -8,8 +8,9 @@ export interface CaptionCue {
   language?: string | undefined;
 }
 
-export const LIVE_CAPTION_MAX_WAIT_MS = 1_200;
-export const LIVE_CAPTION_MAX_CHARS = 96;
+export const LIVE_CAPTION_MAX_WAIT_MS = 900;
+export const LIVE_CAPTION_MAX_CHARS = 72;
+export const LIVE_CAPTION_MIN_DISPLAY_MS = 1_400;
 export const WORD_CUE_MERGE_GAP_MS = 800;
 export const WORD_CUE_MERGE_MAX_MS = 3_500;
 export const WORD_CUE_MERGE_MAX_CHARS = 96;
