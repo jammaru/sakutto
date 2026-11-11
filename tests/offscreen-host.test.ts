@@ -9,7 +9,14 @@ import { buildTranslationCacheKey } from '@/engine/cache/key';
 import { MemoryTranslationCacheStore } from '@/engine/cache/store';
 import { EngineError } from '@/engine/errors';
 import { selectBackend } from '@/engine/in-browser/backend';
-import { EngineHost, loadWithFallback, warmup, type EngineServices } from '@/engine/offscreen/host';
+import {
+  EngineHost,
+  RETRY_RUNTIME_IDLE_MS,
+  canReuseLoadedRuntimeForRetry,
+  loadWithFallback,
+  warmup,
+  type EngineServices,
+} from '@/engine/offscreen/host';
 import type { LoadedModel } from '@/engine/model/manager';
 import type { ModelStatus } from '@/shared/engine-status';
 import { normalizeSettings } from '@/shared/settings';
@@ -1051,5 +1058,64 @@ describe('warmup', () => {
 
   it('accepts a short translation', async () => {
     await expect(warmup(new FakeRuntime(() => 'こんにちは。'), 'ja')).resolves.toBeUndefined();
+  });
+});
+
+describe('CPU retry runtime', () => {
+  it('reuses a loaded CPU runtime instead of allocating a second copy', () => {
+    const runtime = new FakeRuntime(() => 'こんにちは');
+    expect(
+      canReuseLoadedRuntimeForRetry(
+        { id: DEFAULT_MODEL_ID, runtime, selection: SELECTION },
+        DEFAULT_MODEL_ID,
+      ),
+    ).toBe(true);
+  });
+
+  it('does not reuse a WebGPU runtime for the CPU retry', () => {
+    const runtime = new FakeRuntime(() => 'こんにちは', 1, 'webgpu');
+    expect(
+      canReuseLoadedRuntimeForRetry(
+        {
+          id: DEFAULT_MODEL_ID,
+          runtime,
+          selection: { ...SELECTION, backend: 'webgpu', nGpuLayers: 99 },
+        },
+        DEFAULT_MODEL_ID,
+      ),
+    ).toBe(false);
+  });
+
+  it('drops the extra CPU copy after a short idle without unloading the model', async () => {
+    vi.useFakeTimers();
+    try {
+      const { services, unload, reset } = createServices();
+      const disposeRetry = vi.fn(async () => undefined);
+      services.disposeRetryRuntime = disposeRetry;
+      services.router.translate = async function* () {
+        yield { id: 'a', final: 'x', engine: 'plamo' };
+      } as never;
+      const host = createHost(services, 5 * 60 * 1000);
+      const port = new FakePort();
+      host.handlePort(port.port);
+
+      port.emit({ type: 'status', requestId: 's0' });
+      await vi.advanceTimersByTimeAsync(0);
+      port.emit({
+        type: 'translate',
+        requestId: 'r1',
+        segments: [{ id: 'a', text: 'Hello.' }],
+        options: serializeTranslateOptions(options()),
+      });
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(disposeRetry).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(RETRY_RUNTIME_IDLE_MS);
+      expect(disposeRetry).toHaveBeenCalled();
+      expect(unload).not.toHaveBeenCalled();
+      expect(reset).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

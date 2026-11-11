@@ -19,6 +19,16 @@ function options(): TranslateOptions {
   return { tgt: 'ja', form: 'polite', priority: 10, signal: new AbortController().signal };
 }
 
+function displayed(chunks: Awaited<ReturnType<typeof collectChunks>>): string {
+  return chunks.reduce((text, chunk) => {
+    if (chunk.textDelta !== undefined) {
+      return chunk.restart === true ? chunk.textDelta : text + chunk.textDelta;
+    }
+    if (chunk.final !== undefined) return chunk.final;
+    return text;
+  }, '');
+}
+
 const COLLAPSED = ',3'.repeat(200);
 
 const TABLE_RULE = '|---|---|---|---|---|---|---|---|';
@@ -50,7 +60,7 @@ describe('isDegenerateOutput', () => {
     expect(isDegenerateOutput('a'.repeat(16))).toBe(true);
   });
 
-  it('keeps holding a repeat that has not finished its unit', () => {
+  it('recognizes a repeat that has not finished its unit', () => {
     expect(isRepeatInProgress(',3,')).toBe(true);
     expect(isRepeatInProgress(',3,3')).toBe(true);
     expect(isRepeatInProgress('abcd')).toBe(false);
@@ -90,16 +100,15 @@ describe('isBrokenTranslation', () => {
 });
 
 describe('InBrowserEngine repeated output', () => {
-  it('does not stream a collapsed token and retries that piece on CPU', async () => {
+  it('streams immediately and replaces a collapsed token after the CPU retry', async () => {
     const gpu = new FakeRuntime(() => COLLAPSED, 1, 'webgpu');
     gpu.fillBudget = true;
     const cpu = new FakeRuntime(() => 'こんにちは');
     const engine = new InBrowserEngine(gpu, { loadRetryRuntime: async () => cpu });
     const chunks = await collectChunks(engine.translate([{ id: 'a', text: 'Hello.' }], options()));
 
-    expect(
-      chunks.some((chunk) => `${chunk.textDelta ?? ''}${chunk.final ?? ''}`.includes(',3')),
-    ).toBe(false);
+    expect(chunks.some((chunk) => chunk.restart === true)).toBe(true);
+    expect(displayed(chunks)).toBe('こんにちは');
     expect(chunks.at(-1)).toEqual({ id: 'a', final: 'こんにちは', engine: 'plamo' });
     expect(cpu.requests).toHaveLength(1);
   });
@@ -156,7 +165,8 @@ describe('InBrowserEngine repeated output', () => {
     const chunks = await collectChunks(engine.translate([{ id: 'a', text: 'Hello.' }], options()));
 
     expect(chunks.some((chunk) => (chunk.final ?? '').includes(',3'))).toBe(false);
-    expect(chunks.at(-1)).toEqual({ id: 'a', final: 'Hello.', engine: 'plamo' });
+    expect(displayed(chunks)).toBe('Hello.');
+    expect(chunks.at(-1)).toEqual({ id: 'a', final: 'Hello.', engine: 'plamo', error: true });
   });
 
   it('finishes a collapsed CPU piece with the original text instead of hanging', async () => {
@@ -164,7 +174,26 @@ describe('InBrowserEngine repeated output', () => {
     runtime.fillBudget = true;
     const engine = new InBrowserEngine(runtime);
     const chunks = await collectChunks(engine.translate([{ id: 'a', text: 'Hello.' }], options()));
-    expect(chunks.at(-1)).toEqual({ id: 'a', final: 'Hello.', engine: 'plamo' });
+    expect(displayed(chunks)).toBe('Hello.');
+    expect(chunks.at(-1)).toEqual({ id: 'a', final: 'Hello.', engine: 'plamo', error: true });
+  });
+
+  it('does not cache a block that fell back to the original text', async () => {
+    const gpu = new FakeRuntime(() => COLLAPSED, 1, 'webgpu');
+    gpu.fillBudget = true;
+    const cpu = new FakeRuntime(() => COLLAPSED);
+    cpu.fillBudget = true;
+    const store = new MemoryTranslationCacheStore();
+    const inner = new InBrowserEngine(gpu, { loadRetryRuntime: async () => cpu });
+    const engine = new CachingEngine(inner, new TranslationCache(store), 'plamo', 'webgpu');
+    const segments = [{ id: 'a', text: 'Hello.' }];
+
+    const first = await collectChunks(engine.translate(segments, options()));
+    const second = await collectChunks(engine.translate(segments, options()));
+
+    expect(first.at(-1)).toEqual({ id: 'a', final: 'Hello.', engine: 'plamo', error: true });
+    expect(second.at(-1)?.error).toBe(true);
+    expect(gpu.requests.length).toBeGreaterThan(1);
   });
 });
 

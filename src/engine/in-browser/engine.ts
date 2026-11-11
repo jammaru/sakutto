@@ -14,11 +14,7 @@ import {
   sentenceSeparator,
   splitForTranslation,
 } from '../text/sentences';
-import {
-  DEGENERATE_SESSION_BLOCKS,
-  isBrokenTranslation,
-  isRepeatInProgress,
-} from '../text/degenerate';
+import { DEGENERATE_SESSION_BLOCKS, isBrokenTranslation } from '../text/degenerate';
 import { completionTokenBudget, estimateTokens } from '../text/tokens';
 import type {
   IdentifiedEngine,
@@ -44,6 +40,13 @@ function throwIfAborted(signal: AbortSignal): void {
   if (signal.aborted) throw new EngineError('aborted', 'The request was aborted.');
 }
 
+interface PieceOutput {
+  text: string;
+  error?: boolean;
+}
+
+type DeltaSink = (delta: string, restart?: boolean) => void;
+
 /**
  * Streams pieces translated at the same time in reading order. The earliest unfinished
  * piece streams live; a later piece is held until every piece before it is done.
@@ -56,16 +59,16 @@ class PieceAssembler {
   constructor(
     count: number,
     private readonly separator: string,
-    private readonly onDelta: (delta: string) => void,
+    private readonly onDelta: DeltaSink,
     private readonly onFinal: (parts: string[]) => void,
   ) {
     this.raw = new Array<string>(count).fill('');
     this.done = new Array<string | null>(count).fill(null);
   }
 
-  delta(index: number, delta: string): void {
-    this.raw[index] += delta;
-    if (index === this.current) this.onDelta(delta);
+  delta(index: number, delta: string, restart = false): void {
+    this.raw[index] = restart ? delta : this.raw[index] + delta;
+    if (index === this.current) this.onDelta(delta, restart);
   }
 
   finish(index: number, text: string): void {
@@ -92,8 +95,6 @@ export class InBrowserEngine implements IdentifiedEngine {
   private readonly scheduler: JobScheduler;
   private readonly loadRetryRuntime: InBrowserEngineOptions['loadRetryRuntime'];
   private readonly onDegenerateBlock: InBrowserEngineOptions['onDegenerateBlock'];
-  private retryRuntime: LlamaRuntime | null | undefined;
-  private retryTask: Promise<LlamaRuntime | null> | null = null;
   private degenerateHits = 0;
 
   constructor(runtime: LlamaRuntime, options: InBrowserEngineOptions = {}) {
@@ -182,23 +183,38 @@ export class InBrowserEngine implements IdentifiedEngine {
     const pieces = chunkForTranslation(segment.text, this.config.pieceChars);
     if (pieces.length <= 1) return [whole];
 
+    const failed = pieces.map(() => false);
     const assembler = new PieceAssembler(
       pieces.length,
       sentenceSeparator(options.tgt),
-      (delta) => stream.push({ id: segment.id, textDelta: delta, engine: this.kind }),
-      (parts) =>
+      (delta, restart) =>
         stream.push({
           id: segment.id,
-          final: joinTranslatedSentences(parts, options.tgt),
+          textDelta: delta,
           engine: this.kind,
+          ...(restart ? { restart: true } : {}),
         }),
+      (parts) => {
+        const error = failed.every(Boolean);
+        stream.push({
+          id: segment.id,
+          final: error ? segment.text : joinTranslatedSentences(parts, options.tgt),
+          engine: this.kind,
+          ...(error ? { error: true } : {}),
+        });
+      },
     );
     return pieces.map((piece, index) => async () => {
       throwIfAborted(signal);
-      const output = await this.completeRecover(piece, options, signal, (delta) =>
-        assembler.delta(index, delta),
+      const output = await this.completeRecover(piece, options, signal, (delta, restart) =>
+        assembler.delta(index, delta, restart === true),
       );
-      const cleaned = cleanModelOutput(output);
+      if (output.error) {
+        failed[index] = true;
+        assembler.finish(index, piece);
+        return;
+      }
+      const cleaned = cleanModelOutput(output.text);
       assembler.finish(index, cleaned.length > 0 ? cleaned : piece);
     });
   }
@@ -228,9 +244,20 @@ export class InBrowserEngine implements IdentifiedEngine {
         pieces[0] ?? segment.text.trim(),
         options,
         signal,
-        (delta) => stream.push({ id: segment.id, textDelta: delta, engine: this.kind }),
+        (delta, restart) =>
+          stream.push({
+            id: segment.id,
+            textDelta: delta,
+            engine: this.kind,
+            ...(restart ? { restart: true } : {}),
+          }),
       );
-      stream.push({ id: segment.id, final: cleanModelOutput(output), engine: this.kind });
+      stream.push({
+        id: segment.id,
+        final: output.error ? segment.text : cleanModelOutput(output.text),
+        engine: this.kind,
+        ...(output.error ? { error: true } : {}),
+      });
       return;
     }
 
@@ -251,23 +278,36 @@ export class InBrowserEngine implements IdentifiedEngine {
   ): Promise<void> {
     const translated: string[] = [];
     const separator = sentenceSeparator(options.tgt);
+    let failed = 0;
 
     for (const [index, piece] of pieces.entries()) {
       throwIfAborted(signal);
       if (index > 0 && separator.length > 0) {
         stream.push({ id: segment.id, textDelta: separator, engine: this.kind });
       }
-      const output = await this.completeRecover(piece, options, signal, (delta) =>
-        stream.push({ id: segment.id, textDelta: delta, engine: this.kind }),
+      const output = await this.completeRecover(piece, options, signal, (delta, restart) =>
+        stream.push({
+          id: segment.id,
+          textDelta: delta,
+          engine: this.kind,
+          ...(restart ? { restart: true } : {}),
+        }),
       );
-      const cleaned = cleanModelOutput(output);
+      if (output.error) {
+        failed += 1;
+        translated.push(piece);
+        continue;
+      }
+      const cleaned = cleanModelOutput(output.text);
       translated.push(cleaned.length > 0 ? cleaned : piece);
     }
 
+    const error = failed === pieces.length;
     stream.push({
       id: segment.id,
-      final: joinTranslatedSentences(translated, options.tgt),
+      final: error ? segment.text : joinTranslatedSentences(translated, options.tgt),
       engine: this.kind,
+      ...(error ? { error: true } : {}),
     });
   }
 
@@ -281,6 +321,7 @@ export class InBrowserEngine implements IdentifiedEngine {
     let shown = 0;
     let pending = '';
     let opened = false;
+    let restartNext = false;
 
     const takeLine = (): void => {
       const line = cleanModelOutput(pending);
@@ -290,9 +331,15 @@ export class InBrowserEngine implements IdentifiedEngine {
       shown += 1;
     };
 
-    let output: string;
+    let output: PieceOutput;
     try {
-      output = await this.complete(text, options, signal, (delta) => {
+      output = await this.complete(text, options, signal, (delta, restart) => {
+        if (restart) {
+          shown = 0;
+          pending = '';
+          opened = false;
+          restartNext = true;
+        }
         let rest = delta;
         while (rest.length > 0) {
           const newlineAt = rest.indexOf('\n');
@@ -301,7 +348,15 @@ export class InBrowserEngine implements IdentifiedEngine {
             pending += chunk;
             opened = true;
             const segment = segments[shown];
-            if (segment) stream.push({ id: segment.id, textDelta: chunk, engine: this.kind });
+            if (segment) {
+              stream.push({
+                id: segment.id,
+                textDelta: chunk,
+                engine: this.kind,
+                ...(restartNext ? { restart: true } : {}),
+              });
+              restartNext = false;
+            }
           }
           if (newlineAt === -1) break;
           takeLine();
@@ -314,7 +369,12 @@ export class InBrowserEngine implements IdentifiedEngine {
       return;
     }
 
-    const cleaned = cleanModelOutput(output);
+    if (output.error) {
+      await this.completeIndividually(segments, options, signal, stream, shown + (opened ? 1 : 0));
+      return;
+    }
+
+    const cleaned = cleanModelOutput(output.text);
     const lines =
       cleaned.length === 0 ? [] : cleaned.split('\n').map((line) => cleanModelOutput(line));
 
@@ -352,20 +412,31 @@ export class InBrowserEngine implements IdentifiedEngine {
       // A line the packed attempt already painted starts over, so the retry replaces the
       // misaligned text instead of being appended to it.
       let restart = index < alreadyShown;
-      const output = await this.completeRecover(segment.text.trim(), options, signal, (delta) => {
-        stream.push({
-          id: segment.id,
-          textDelta: delta,
-          engine: this.kind,
-          ...(restart ? { restart: true } : {}),
-        });
-        restart = false;
-      });
-      const cleaned = cleanModelOutput(output);
+      const output = await this.completeRecover(
+        segment.text.trim(),
+        options,
+        signal,
+        (delta, next) => {
+          stream.push({
+            id: segment.id,
+            textDelta: delta,
+            engine: this.kind,
+            ...(restart || next ? { restart: true } : {}),
+          });
+          restart = false;
+        },
+      );
+      const cleaned = output.error ? '' : cleanModelOutput(output.text);
       // An empty retry sends no delta to restart with, and an empty final paints nothing, so
       // a line that was shown would keep the misaligned text. The source replaces it instead.
-      const final = cleaned.length === 0 && index < alreadyShown ? segment.text : cleaned;
-      stream.push({ id: segment.id, final, engine: this.kind });
+      const final =
+        output.error || (cleaned.length === 0 && index < alreadyShown) ? segment.text : cleaned;
+      stream.push({
+        id: segment.id,
+        final,
+        engine: this.kind,
+        ...(output.error ? { error: true } : {}),
+      });
     }
   }
 
@@ -377,8 +448,8 @@ export class InBrowserEngine implements IdentifiedEngine {
     text: string,
     options: TranslateOptions,
     signal: AbortSignal,
-    onDelta: (delta: string) => void,
-  ): Promise<string> {
+    onDelta: DeltaSink,
+  ): Promise<PieceOutput> {
     try {
       return await this.complete(text, options, signal, onDelta);
     } catch (error) {
@@ -388,7 +459,7 @@ export class InBrowserEngine implements IdentifiedEngine {
         maxChunkChars: Math.min(160, this.config.maxChunkChars),
       }).filter((piece) => piece.trim().length > 0);
       const unchanged = smaller.length <= 1 && (smaller[0] ?? '') === text.trim();
-      if (unchanged) return text;
+      if (unchanged) return { text };
 
       const parts: string[] = [];
       for (const piece of smaller) {
@@ -399,7 +470,12 @@ export class InBrowserEngine implements IdentifiedEngine {
         }
         try {
           const output = await this.complete(piece, options, signal, onDelta);
-          const cleaned = cleanModelOutput(output);
+          if (output.error) {
+            parts.push(piece);
+            onDelta(piece, true);
+            continue;
+          }
+          const cleaned = cleanModelOutput(output.text);
           parts.push(cleaned.length > 0 ? cleaned : piece);
         } catch (inner) {
           if (signal.aborted || isAbortError(inner) || !isOversized(inner)) throw inner;
@@ -407,7 +483,7 @@ export class InBrowserEngine implements IdentifiedEngine {
           onDelta(piece);
         }
       }
-      return parts.join(sentenceSeparator(options.tgt));
+      return { text: parts.join(sentenceSeparator(options.tgt)) };
     }
   }
 
@@ -415,8 +491,8 @@ export class InBrowserEngine implements IdentifiedEngine {
     text: string,
     options: TranslateOptions,
     signal: AbortSignal,
-    onDelta: (delta: string) => void = () => undefined,
-  ): Promise<string> {
+    onDelta: DeltaSink = () => undefined,
+  ): Promise<PieceOutput> {
     const tgt = canonicalLanguage(options.tgt);
     if (!tgt) {
       throw new EngineError(
@@ -451,58 +527,31 @@ export class InBrowserEngine implements IdentifiedEngine {
       throw new EngineError('invalid-input', 'The segment does not fit in the context window.');
     }
 
-    // Hold tokens only while they are still one repeated short unit. Four
-    // characters that are not that pattern are enough to stream, so a normal
-    // sentence is not kept until the segment ends. A string that stays a
-    // repeat is never passed to onDelta.
-    const held: string[] = [];
+    // Stream immediately so first-visible-text is not delayed. A collapsed
+    // kernel is only certain at the end (it fills maxTokens), so a bad prefix
+    // is retracted there rather than held here.
     let output = '';
-    let live = false;
-    const flush = (): void => {
-      for (const part of held) onDelta(part);
-      held.length = 0;
-    };
-
+    let streamed = false;
     const maxTokens = Math.min(completionTokenBudget(text), available);
     const skipGpu =
       this.degenerateHits >= DEGENERATE_SESSION_BLOCKS && this.runtime.backend === 'webgpu';
 
-    try {
-      if (!skipGpu) {
-        const result = await this.runtime.complete({
-          prompt,
-          maxTokens,
-          signal,
-          onToken: (delta) => {
-            output += delta;
-            if (live) {
-              onDelta(delta);
-              return;
-            }
-            held.push(delta);
-            const compact = output.replace(/\s+/gu, '');
-            if (isRepeatInProgress(compact)) return;
-            if (compact.length >= 4) {
-              live = true;
-              flush();
-            }
-          },
-        });
-        const hitMaxTokens = result?.hitMaxTokens === true;
-        if (!this.isBroken(text, output, hitMaxTokens)) {
-          flush();
-          return output;
-        }
-      }
-    } catch (error) {
-      if (!(isEngineError(error) && error.code === 'degenerate-output')) {
-        const compact = output.replace(/\s+/gu, '');
-        if (!isRepeatInProgress(compact)) flush();
-      }
-      throw error;
+    if (!skipGpu) {
+      const result = await this.runtime.complete({
+        prompt,
+        maxTokens,
+        signal,
+        onToken: (delta) => {
+          output += delta;
+          streamed = true;
+          onDelta(delta);
+        },
+      });
+      const hitMaxTokens = result?.hitMaxTokens === true;
+      if (!this.isBroken(text, output, hitMaxTokens)) return { text: output };
     }
 
-    return this.recoverBroken(text, prompt, maxTokens, signal, onDelta);
+    return this.recoverBroken(text, prompt, maxTokens, signal, onDelta, streamed);
   }
 
   private isBroken(source: string, output: string, hitMaxTokens: boolean): boolean {
@@ -514,16 +563,20 @@ export class InBrowserEngine implements IdentifiedEngine {
 
   /**
    * A collapsed GPU piece retries on CPU. The rest of the page stays on WebGPU.
-   * If that retry is also a collapsed string, the source is shown so the block
-   * never stays "translating".
+   * Broken tokens that already painted are replaced with the source immediately,
+   * so they never stay on screen while the retry loads. If that retry is also a
+   * collapsed string, the source stays and the chunk is marked untranslated.
    */
   private async recoverBroken(
     text: string,
     prompt: string,
     maxTokens: number,
     signal: AbortSignal,
-    onDelta: (delta: string) => void,
-  ): Promise<string> {
+    onDelta: DeltaSink,
+    streamed: boolean,
+  ): Promise<PieceOutput> {
+    if (streamed) onDelta(text, true);
+
     if (this.runtime.backend === 'webgpu') {
       this.degenerateHits += 1;
       this.onDegenerateBlock?.();
@@ -545,8 +598,8 @@ export class InBrowserEngine implements IdentifiedEngine {
             },
           });
           if (!this.isBroken(text, recovered, result?.hitMaxTokens === true)) {
-            if (recovered.length > 0) onDelta(recovered);
-            return recovered;
+            if (recovered.length > 0) onDelta(recovered, true);
+            return { text: recovered };
           }
         } catch (error) {
           if (signal.aborted || isAbortError(error)) throw error;
@@ -554,23 +607,14 @@ export class InBrowserEngine implements IdentifiedEngine {
       }
     }
 
-    if (text.length > 0) onDelta(text);
-    return text;
+    if (!streamed && text.length > 0) onDelta(text, true);
+    return { text, error: true };
   }
 
   private getRetryRuntime(signal: AbortSignal): Promise<LlamaRuntime | null> {
-    if (this.retryRuntime !== undefined) return Promise.resolve(this.retryRuntime);
-    if (!this.loadRetryRuntime) {
-      this.retryRuntime = null;
-      return Promise.resolve(null);
-    }
-    if (!this.retryTask) {
-      this.retryTask = this.loadRetryRuntime(signal).then((runtime) => {
-        this.retryRuntime = runtime;
-        return runtime;
-      });
-    }
-    return this.retryTask;
+    if (this.runtime.backend !== 'webgpu') return Promise.resolve(this.runtime);
+    if (!this.loadRetryRuntime) return Promise.resolve(null);
+    return this.loadRetryRuntime(signal);
   }
 }
 

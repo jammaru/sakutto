@@ -209,9 +209,7 @@ describe('LazyInBrowserEngine after the GPU is lost', () => {
 
     const chunks = await collectChunks(engine.translate([a], options()));
 
-    expect(
-      chunks.some((chunk) => `${chunk.textDelta ?? ''}${chunk.final ?? ''}`.includes(',3')),
-    ).toBe(false);
+    expect(chunks.some((chunk) => chunk.restart === true)).toBe(true);
     expect(chunks.at(-1)).toEqual({ id: 'a', final: 'こんにちは', engine: 'plamo' });
     expect(onGpuLost).not.toHaveBeenCalled();
     expect(loadRuntime).toHaveBeenCalledOnce();
@@ -223,7 +221,7 @@ describe('LazyInBrowserEngine after the GPU is lost', () => {
     const { engine, onGpuLost, loadRuntime } = engineOver([bad]);
 
     const chunks = await collectChunks(engine.translate([a], options()));
-    expect(chunks.at(-1)).toEqual({ id: 'a', final: 'Hello.', engine: 'plamo' });
+    expect(chunks.at(-1)).toEqual({ id: 'a', final: 'Hello.', engine: 'plamo', error: true });
     expect(onGpuLost).not.toHaveBeenCalled();
     expect(loadRuntime).toHaveBeenCalledOnce();
   });

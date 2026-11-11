@@ -38,8 +38,18 @@ export type TranslationChunk =
        * alignment) and this delta starts it over.
        */
       restart?: boolean | undefined;
+      error?: undefined;
     })
-  | (TranslationChunkBase & { textDelta?: undefined; final: string; restart?: undefined });
+  | (TranslationChunkBase & {
+      textDelta?: undefined;
+      final: string;
+      restart?: undefined;
+      /**
+       * This id could not be translated. `final` is the source text so the block is not
+       * left hanging; the caller must not cache it or treat it as a finished translation.
+       */
+      error?: boolean | undefined;
+    });
 
 export interface Engine {
   translate(
@@ -62,6 +72,8 @@ export function isTranslationChunk(value: unknown): value is TranslationChunk {
   if (final !== undefined && typeof final !== 'string') return false;
   const restart = 'restart' in value ? value.restart : undefined;
   if (restart !== undefined && (typeof restart !== 'boolean' || delta === undefined)) return false;
+  const error = 'error' in value ? value.error : undefined;
+  if (error !== undefined && (typeof error !== 'boolean' || final === undefined)) return false;
   const engine = 'engine' in value ? value.engine : undefined;
   return engine === undefined || engine === 'plamo' || engine === 'chrome';
 }

@@ -63,6 +63,14 @@ import {
 
 const IDLE_RELEASE_MS = 5 * 60 * 1000;
 const WARMUP_TIMEOUT_MS = 20_000;
+/**
+ * Extra CPU wllama copy used to retry a collapsed WebGPU piece. About +0.6GB.
+ * Kept only while a page is still translating, then dropped so a healthy GPU
+ * session does not pin two model copies for the full `idleMinutes`. Reloading
+ * it on a later hit costs a few seconds; reusing the loaded CPU runtime avoids
+ * the copy entirely.
+ */
+export const RETRY_RUNTIME_IDLE_MS = 60_000;
 
 interface RuntimePrefs {
   idleMinutes: IdleMinutes;
@@ -75,6 +83,17 @@ interface RuntimePrefs {
 
 function idleHoldMs(minutes: IdleMinutes): number {
   return minutes === 0 ? 0 : minutes * 60_000;
+}
+
+/**
+ * True when the loaded runtime can retry a collapsed piece itself. A second
+ * wllama instance is only created while WebGPU is still the live backend.
+ */
+export function canReuseLoadedRuntimeForRetry(
+  loaded: LoadedModel | null,
+  activeModelId: ModelId,
+): boolean {
+  return loaded !== null && loaded.id === activeModelId && loaded.runtime.backend !== 'webgpu';
 }
 
 export interface EngineServices {
@@ -229,6 +248,7 @@ export class EngineHost {
   private warming = false;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private idleGeneration = 0;
+  private retryIdleTimer: ReturnType<typeof setTimeout> | null = null;
   private benchmark: AbortController | null = null;
   private prewarmKey: string | null = null;
   /** Resolves when an in-flight model switch has published the new id and finished unload. */
@@ -354,19 +374,31 @@ export class EngineHost {
     };
     let lastGpuLossAt = Number.NEGATIVE_INFINITY;
     let cpuRetryRuntime: LlamaRuntime | null = null;
+    let cpuRetryTask: Promise<LlamaRuntime | null> | null = null;
     const disposeCpuRetry = async (): Promise<void> => {
       const runtime = cpuRetryRuntime;
       cpuRetryRuntime = null;
+      cpuRetryTask = null;
       if (runtime) await runtime.dispose().catch(() => undefined);
     };
     const loadRetryRuntime = async (signal: AbortSignal): Promise<LlamaRuntime | null> => {
+      const loaded = manager.loadedModel;
+      if (canReuseLoadedRuntimeForRetry(loaded, this.activeModelId) && loaded) {
+        return loaded.runtime;
+      }
+      if (cpuRetryRuntime) return cpuRetryRuntime;
+      if (cpuRetryTask) return cpuRetryTask;
       const cpu = cpuFallback(selectionState.current);
       if (!cpu) return null;
-      if (cpuRetryRuntime) return cpuRetryRuntime;
       if (signal.aborted) throw abortError();
-      const blob = await manager.modelBlob(this.activeModelId);
-      cpuRetryRuntime = await createWllamaRuntime(blob, cpu);
-      return cpuRetryRuntime;
+      cpuRetryTask = (async () => {
+        const blob = await manager.modelBlob(this.activeModelId);
+        cpuRetryRuntime = await createWllamaRuntime(blob, cpu);
+        return cpuRetryRuntime;
+      })().finally(() => {
+        cpuRetryTask = null;
+      });
+      return cpuRetryTask;
     };
     const onGpuLost = async (reason: 'lost' | 'degenerate' = 'lost'): Promise<void> => {
       if (reason === 'degenerate') {
@@ -740,6 +772,7 @@ export class EngineHost {
       }
 
       services.lazy.reset();
+      await services.disposeRetryRuntime?.();
       await services.manager.unload();
       this.activeModelId = modelId;
       this.modelFallback = false;
@@ -823,6 +856,7 @@ export class EngineHost {
     try {
       const services = await this.services();
       services.lazy.reset();
+      await services.disposeRetryRuntime?.();
       await services.manager.unload();
     } catch {
       // Unloading the in-browser runtime is best effort when switching away.
@@ -951,6 +985,7 @@ export class EngineHost {
     }
 
     runtime.lazy.reset();
+    await runtime.disposeRetryRuntime?.();
     this.activeModelId = resolved.modelId;
     this.modelFallback = resolved.fallback;
     const active = statuses.find((status) => status.id === resolved.modelId);
@@ -1160,6 +1195,7 @@ export class EngineHost {
       clearTimeout(this.idleTimer);
       this.idleTimer = null;
     }
+    this.armRetryIdle();
 
     void this.resolveIdleMs().then((ms) => {
       if (generation !== this.idleGeneration || ms <= 0) return;
@@ -1168,6 +1204,30 @@ export class EngineHost {
         void this.releaseIdle();
       }, ms);
     });
+  }
+
+  private armRetryIdle(): void {
+    if (this.retryIdleTimer) {
+      clearTimeout(this.retryIdleTimer);
+      this.retryIdleTimer = null;
+    }
+    this.retryIdleTimer = setTimeout(() => {
+      this.retryIdleTimer = null;
+      void this.releaseRetryRuntime();
+    }, RETRY_RUNTIME_IDLE_MS);
+  }
+
+  private async releaseRetryRuntime(): Promise<void> {
+    if (this.requests.size > 0) {
+      this.armRetryIdle();
+      return;
+    }
+    try {
+      const services = await this.services();
+      await services.disposeRetryRuntime?.();
+    } catch {
+      // Dropping the extra CPU copy is best effort; the next retry loads again.
+    }
   }
 
   private resolveIdleMs(): Promise<number> {
