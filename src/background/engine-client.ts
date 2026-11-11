@@ -282,7 +282,7 @@ export class EngineClient {
 
       for await (const chunk of stream) yield chunk;
     } catch (error) {
-      if (cancelled || options.signal.aborted || isAbortError(error)) return;
+      if (cancelled || options.signal.aborted) return;
       throw error instanceof EngineError ? error : hostError('The translation host failed.', error);
     } finally {
       options.signal.removeEventListener('abort', cancel);

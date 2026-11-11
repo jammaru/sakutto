@@ -17,7 +17,7 @@ import { CachingEngine } from '../cache/caching-engine';
 import { TranslationCache } from '../cache/cache';
 import { prewarmRequest } from '../cache/prewarm';
 import { ChromeTranslatorEngine } from '../chrome/translator';
-import { isAbortError, isEngineError } from '../errors';
+import { abortError, isAbortError, isEngineError } from '../errors';
 import {
   cpuFallback,
   isGpuLoadFallback,
@@ -472,9 +472,8 @@ export class EngineHost {
         this.post(port, { type: 'chunk', requestId: request.requestId, chunk });
       }
 
-      if (!controller.signal.aborted) {
-        this.post(port, { type: 'done', requestId: request.requestId });
-      }
+      if (controller.signal.aborted) return;
+      this.post(port, { type: 'done', requestId: request.requestId });
     } catch (error) {
       if (!controller.signal.aborted && !isAbortError(error)) {
         this.post(port, {
@@ -497,6 +496,7 @@ export class EngineHost {
 
     try {
       const services = await this.services();
+      if (controller.signal.aborted) return;
       if (this.engineSource === 'local-server') {
         this.plamoReady = true;
         this.respond(port, requestId, await services.manager.status(this.activeModelId));
@@ -506,11 +506,14 @@ export class EngineHost {
       if (!loaded || loaded.id !== this.activeModelId) {
         loaded = await services.load(controller.signal);
       }
+      if (controller.signal.aborted) return;
       try {
         await warmup(loaded.runtime, 'ja');
       } catch {
+        if (controller.signal.aborted) return;
         // The short warm-up is optional; translation still runs.
       }
+      if (controller.signal.aborted) return;
       this.plamoReady = true;
       this.respond(port, requestId, await services.manager.status(this.activeModelId));
       void this.prewarmFrequent(services);
@@ -652,8 +655,7 @@ export class EngineHost {
 
       for (const [id, request] of this.requests) {
         if (request.kind !== 'warm') continue;
-        request.controller.abort();
-        this.requests.delete(id);
+        this.abortLiveRequest(id, request);
       }
 
       services.lazy.reset();
@@ -835,28 +837,47 @@ export class EngineHost {
     if (changed && runtime) {
       this.abortTranslationWork();
       runtime.lazy.reset();
+      await runtime.manager.unload();
     }
     this.activeModelId = resolved.modelId;
     this.modelFallback = resolved.fallback;
     const active = statuses.find((status) => status.id === resolved.modelId);
     this.plamoReady = active ? modelCanTranslate(active) : false;
-    if (changed && runtime) await runtime.manager.unload();
     if (persist || resolved.fallback) await this.persistActiveModel();
   }
 
   /**
-   * Stop work that was started under the previous model. An in-flight translation
-   * already snapshotted `cacheModelId()` at start; aborting it is what keeps that
-   * result from being written after the id has moved.
+   * Drop in-flight translate/warm work before the loaded runtime is replaced.
+   * The caller still has a ChunkStream (or a pending warm round-trip) open, so
+   * each request gets an `error` / failed response; a silent abort would hang
+   * the client. A client-initiated cancel already ended its stream and ignores
+   * a late error.
    */
   private abortTranslationWork(): void {
     this.abortBenchmark();
     this.warming = false;
+    this.prewarmKey = null;
     for (const [id, request] of this.requests) {
       if (request.kind === 'download') continue;
-      request.controller.abort();
-      this.requests.delete(id);
+      this.abortLiveRequest(id, request);
     }
+  }
+
+  private abortLiveRequest(id: string, request: HostRequest): void {
+    request.controller.abort();
+    if (request.port) {
+      const error = abortError('The selected model changed.');
+      if (request.kind === 'translate') {
+        this.post(request.port, {
+          type: 'error',
+          requestId: id,
+          error: errorPayload(error),
+        });
+      } else if (request.kind === 'warm') {
+        this.respondError(request.port, id, error);
+      }
+    }
+    this.requests.delete(id);
   }
 
   /**
@@ -1013,6 +1034,7 @@ export class EngineHost {
     } catch {
       this.prewarmKey = null;
     } finally {
+      if (controller.signal.aborted) this.prewarmKey = null;
       this.requests.delete(requestId);
       this.touch();
     }

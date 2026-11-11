@@ -106,6 +106,10 @@ function cacheModelIdOf(host: EngineHost): string {
   return (host as unknown as { cacheModelId: () => string }).cacheModelId();
 }
 
+function prewarmKeyOf(host: EngineHost): string | null {
+  return (host as unknown as { prewarmKey: string | null }).prewarmKey;
+}
+
 function lastStatus(port: FakePort): {
   model?: { id?: string };
   modelFallback?: boolean;
@@ -455,7 +459,7 @@ describe('EngineHost', () => {
     expect(lastStatus(port).model?.id).toBe(HIGH_QUALITY_MODEL_ID);
   });
 
-  it('aborts an in-flight translation so it cannot write under the model-set id', async () => {
+  it('aborts an in-flight translation with an error so the client stream can finish', async () => {
     const { services, unload, reset } = createServices();
     services.manager.status = installed({
       [DEFAULT_MODEL_ID]: 'ready',
@@ -489,6 +493,13 @@ describe('EngineHost', () => {
 
     expect(reset).toHaveBeenCalled();
     expect(unload).toHaveBeenCalled();
+    expect(port.messagesOfType('error')).toEqual([
+      {
+        type: 'error',
+        requestId: 't1',
+        error: { code: 'aborted', message: 'The selected model changed.' },
+      },
+    ]);
     expect(port.messagesOfType('done')).toHaveLength(0);
     expect(port.messagesOfType('chunk')).toHaveLength(1);
     const nextKey = buildTranslationCacheKey({
@@ -498,6 +509,80 @@ describe('EngineHost', () => {
       text: 'Hello.',
     });
     expect(await cache.get(nextKey)).toBeUndefined();
+  });
+
+  it('fails an in-flight warm when model-set changes the id', async () => {
+    const { services, unload, reset } = createServices();
+    services.manager.status = installed({
+      [DEFAULT_MODEL_ID]: 'ready',
+      [HIGH_QUALITY_MODEL_ID]: 'ready',
+    });
+    const { port } = await openRunningHost(services);
+    services.load = vi.fn(async (signal: AbortSignal) => {
+      await new Promise<never>((_, reject) => {
+        const fail = (): void => reject(new DOMException('aborted', 'AbortError'));
+        if (signal.aborted) fail();
+        else signal.addEventListener('abort', fail, { once: true });
+      });
+    }) as never;
+
+    port.emit({ type: 'model-warm', requestId: 'w1' });
+    await flushTasks();
+    port.emit({ type: 'model-set', requestId: 'm1', modelId: HIGH_QUALITY_MODEL_ID });
+    await flushTasks();
+
+    expect(reset).toHaveBeenCalled();
+    expect(unload).toHaveBeenCalled();
+    expect(
+      port.sent.filter(
+        (message) =>
+          typeof message === 'object' &&
+          message !== null &&
+          (message as { requestId?: string }).requestId === 'w1',
+      ),
+    ).toEqual([
+      {
+        type: 'response',
+        requestId: 'w1',
+        ok: false,
+        error: { code: 'aborted', message: 'The selected model changed.' },
+      },
+    ]);
+  });
+
+  it('clears a prewarm in progress when model-set changes the id', async () => {
+    const { services } = createServices();
+    services.manager.status = installed({
+      [DEFAULT_MODEL_ID]: 'ready',
+      [HIGH_QUALITY_MODEL_ID]: 'ready',
+    });
+    const release = deferred<void>();
+    const translate = vi.fn(async function* () {
+      yield { id: 'ui-0', final: 'x', engine: 'plamo' as const };
+      await release.promise;
+    });
+    services.router.translate = translate as never;
+    services.load = vi.fn(async () => ({
+      id: DEFAULT_MODEL_ID,
+      selection: SELECTION,
+      runtime: { complete: vi.fn(async () => undefined) },
+    })) as never;
+    const { host, port } = await openRunningHost(services);
+
+    port.emit(runtimeSet({ consented: true, requestId: 'runtime-on' }));
+    await flushTasks();
+    port.emit({ type: 'model-warm', requestId: 'w1' });
+    await vi.waitFor(() => {
+      expect(translate).toHaveBeenCalled();
+    });
+    expect(prewarmKeyOf(host)).not.toBeNull();
+
+    port.emit({ type: 'model-set', requestId: 'm1', modelId: HIGH_QUALITY_MODEL_ID });
+    await flushTasks();
+    release.resolve();
+    await flushTasks();
+
+    expect(prewarmKeyOf(host)).toBeNull();
   });
 
   it('writes the selected model through chrome.storage and does not emit model-persist', async () => {
