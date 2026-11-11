@@ -125,10 +125,10 @@ describe('EngineClient', () => {
     port.emit({
       type: 'error',
       requestId,
-      error: { code: 'aborted', message: 'The selected model changed.' },
+      error: { code: 'model-changed', message: 'The selected model changed.' },
     });
 
-    await expect(pending).rejects.toMatchObject({ code: 'aborted' });
+    await expect(pending).rejects.toMatchObject({ code: 'model-changed' });
   });
 
   it('posts translate before model-set finishes, and a host abort ends that stream', async () => {
@@ -153,9 +153,9 @@ describe('EngineClient', () => {
       port.emit({
         type: 'error',
         requestId: translate.requestId,
-        error: { code: 'aborted', message: 'The selected model changed.' },
+        error: { code: 'model-changed', message: 'The selected model changed.' },
       });
-      await expect(pending).rejects.toMatchObject({ code: 'aborted' });
+      await expect(pending).rejects.toMatchObject({ code: 'model-changed' });
 
       port.emit({ type: 'response', requestId: model.requestId, ok: true, value: null });
       const status = await waitForMessage<{ requestId: string }>(port, 'status');

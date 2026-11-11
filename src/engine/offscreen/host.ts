@@ -17,7 +17,7 @@ import { CachingEngine } from '../cache/caching-engine';
 import { TranslationCache } from '../cache/cache';
 import { prewarmRequest } from '../cache/prewarm';
 import { ChromeTranslatorEngine } from '../chrome/translator';
-import { abortError, isAbortError, isEngineError } from '../errors';
+import { isAbortError, isEngineError, modelChangedError } from '../errors';
 import {
   cpuFallback,
   isGpuLoadFallback,
@@ -198,6 +198,8 @@ export class EngineHost {
   private idleGeneration = 0;
   private benchmark: AbortController | null = null;
   private prewarmKey: string | null = null;
+  /** Resolves when an in-flight model switch has published the new id and finished unload. */
+  private switchTask: Promise<void> = Promise.resolve();
   /** The probe offered WebGPU but the model could not be placed on it. */
   private gpuFallback = false;
   private gpuDiagnostic: GpuDiagnostic | null = null;
@@ -457,6 +459,7 @@ export class EngineHost {
     port: Browser.runtime.Port,
     request: TranslateRequest,
   ): Promise<void> {
+    await this.switchTask;
     const controller = new AbortController();
     this.requests.set(request.requestId, { controller, port, kind: 'translate' });
     this.touch();
@@ -489,6 +492,7 @@ export class EngineHost {
   }
 
   private async handleWarm(port: Browser.runtime.Port, requestId: string): Promise<void> {
+    await this.switchTask;
     const controller = new AbortController();
     this.requests.set(requestId, { controller, port, kind: 'warm' });
     this.warming = true;
@@ -835,9 +839,10 @@ export class EngineHost {
     const resolved = resolveActiveModel(preferred, statuses);
     const changed = resolved.modelId !== this.activeModelId;
     if (changed && runtime) {
-      this.abortTranslationWork();
-      runtime.lazy.reset();
-      await runtime.manager.unload();
+      const switchRun = this.runModelSwitch(runtime, resolved, statuses, persist);
+      this.switchTask = switchRun.catch(() => undefined);
+      await switchRun;
+      return;
     }
     this.activeModelId = resolved.modelId;
     this.modelFallback = resolved.fallback;
@@ -847,26 +852,53 @@ export class EngineHost {
   }
 
   /**
+   * Abort in-flight controllers, drop the lazy runtime, publish the new id, then
+   * tell callers the previous work is gone (`model-changed`). Unload may yield;
+   * `handleTranslate` waits on `switchTask` so a retry cannot snapshot the old
+   * id or call `ensureLoaded(old)` after `lazy.reset()`.
+   */
+  private async runModelSwitch(
+    runtime: EngineServices,
+    resolved: { modelId: ModelId; fallback: boolean },
+    statuses: readonly ModelStatus[],
+    persist: boolean,
+  ): Promise<void> {
+    const live: Array<[string, HostRequest]> = [];
+    this.abortBenchmark();
+    this.warming = false;
+    this.prewarmKey = null;
+    for (const [id, request] of this.requests) {
+      if (request.kind === 'download') continue;
+      request.controller.abort();
+      live.push([id, request]);
+    }
+
+    runtime.lazy.reset();
+    this.activeModelId = resolved.modelId;
+    this.modelFallback = resolved.fallback;
+    const active = statuses.find((status) => status.id === resolved.modelId);
+    this.plamoReady = active ? modelCanTranslate(active) : false;
+
+    for (const [id, request] of live) this.failLiveForModelChange(id, request);
+    if (persist || resolved.fallback) await this.persistActiveModel();
+    await runtime.manager.unload();
+  }
+
+  /**
    * Drop in-flight translate/warm work before the loaded runtime is replaced.
    * The caller still has a ChunkStream (or a pending warm round-trip) open, so
    * each request gets an `error` / failed response; a silent abort would hang
    * the client. A client-initiated cancel already ended its stream and ignores
    * a late error.
    */
-  private abortTranslationWork(): void {
-    this.abortBenchmark();
-    this.warming = false;
-    this.prewarmKey = null;
-    for (const [id, request] of this.requests) {
-      if (request.kind === 'download') continue;
-      this.abortLiveRequest(id, request);
-    }
-  }
-
   private abortLiveRequest(id: string, request: HostRequest): void {
     request.controller.abort();
+    this.failLiveForModelChange(id, request);
+  }
+
+  private failLiveForModelChange(id: string, request: HostRequest): void {
     if (request.port) {
-      const error = abortError('The selected model changed.');
+      const error = modelChangedError();
       if (request.kind === 'translate') {
         this.post(request.port, {
           type: 'error',

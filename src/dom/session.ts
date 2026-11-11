@@ -13,7 +13,7 @@ import { DEFAULT_BATCHING } from '@/engine/text/plan';
 import { chunkForTranslation, joinTranslatedSentences } from '@/engine/text/sentences';
 import { isPlainAltS } from '@/shared/shortcuts';
 import { PriorityQueue } from '@/engine/queue/priority-queue';
-import { isLocalServerError } from '@/engine/errors';
+import { isLocalServerError, isModelChangedError } from '@/engine/errors';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
 import { mergeGlossary } from '@/shared/glossary';
 import {
@@ -1238,7 +1238,12 @@ export class PageSession {
       }
     } catch (error) {
       // Unfinished blocks are retried below. Abort keeps the previous text.
-      if (!signal.aborted && isLocalServerError(error)) {
+      if (isModelChangedError(error)) {
+        for (const item of batch) {
+          if (item.batchToken !== token || item.state !== 'running') continue;
+          this.discardUnfinishedPaint(item);
+        }
+      } else if (!signal.aborted && isLocalServerError(error)) {
         this.serverFault = true;
         if (this.labels.engineFailed) this.overlay.showStatus(this.labels.engineFailed);
       }
@@ -1281,6 +1286,24 @@ export class PageSession {
         this.settleFailed(item);
       }
     }
+  }
+
+  /**
+   * Drop half-decoded fragments as soon as the host reports a model change. Finished
+   * pieces stay; they were cached under the previous model id. Unfinished paint is
+   * restored immediately so the page does not keep showing "こん" until the retry.
+   */
+  private discardUnfinishedPaint(item: Live): void {
+    const pieces = expandSource(item);
+    item.partText = pieces.map((_, index) =>
+      item.partFinal[index] === true ? (item.partText[index] ?? '') : '',
+    );
+    this.dirty.delete(item);
+    if (item.partFinal.some(Boolean) && item.partText.some((part) => part.trim().length > 0)) {
+      this.paint(item, true);
+      return;
+    }
+    if (item.model) this.resetLive(item);
   }
 
   /**

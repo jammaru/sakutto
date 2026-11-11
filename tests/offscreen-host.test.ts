@@ -497,7 +497,7 @@ describe('EngineHost', () => {
       {
         type: 'error',
         requestId: 't1',
-        error: { code: 'aborted', message: 'The selected model changed.' },
+        error: { code: 'model-changed', message: 'The selected model changed.' },
       },
     ]);
     expect(port.messagesOfType('done')).toHaveLength(0);
@@ -509,6 +509,101 @@ describe('EngineHost', () => {
       text: 'Hello.',
     });
     expect(await cache.get(nextKey)).toBeUndefined();
+  });
+
+  it('holds a translate retry during unload and caches it under the new model', async () => {
+    const { services, unload, reset } = createServices();
+    services.manager.status = installed({
+      [DEFAULT_MODEL_ID]: 'ready',
+      [HIGH_QUALITY_MODEL_ID]: 'ready',
+    });
+    const unloadHold = deferred<void>();
+    let unloaded = false;
+    unload.mockImplementation(async () => {
+      await unloadHold.promise;
+      unloaded = true;
+    });
+    const first = deferred<void>();
+    const seen: string[] = [];
+    const cache = new TranslationCache(new MemoryTranslationCacheStore());
+    const { host, port } = await openRunningHost(services);
+    services.router = cacheRouter(host, cache, {
+      kind: 'plamo',
+      async *translate() {
+        const model = cacheModelIdOf(host);
+        seen.push(model);
+        if (seen.length === 1) {
+          yield { id: 'a', textDelta: 'こん', engine: 'plamo' as const };
+          await first.promise;
+          return;
+        }
+        expect(unloaded).toBe(true);
+        yield { id: 'a', final: `via:${model}`, engine: 'plamo' as const };
+      },
+    });
+
+    port.emit({
+      type: 'translate',
+      requestId: 't1',
+      segments: [{ id: 'a', text: 'Hello.' }],
+      options: serializeTranslateOptions(options()),
+    });
+    await flushTasks();
+    expect(port.messagesOfType('chunk')).toHaveLength(1);
+
+    port.emit({ type: 'model-set', requestId: 'm1', modelId: HIGH_QUALITY_MODEL_ID });
+    await flushTasks();
+    expect(reset).toHaveBeenCalled();
+    expect(unload).toHaveBeenCalled();
+    expect(cacheModelIdOf(host)).toBe(HIGH_QUALITY_MODEL_ID);
+    expect(port.messagesOfType('error')).toEqual([
+      {
+        type: 'error',
+        requestId: 't1',
+        error: { code: 'model-changed', message: 'The selected model changed.' },
+      },
+    ]);
+
+    port.emit({
+      type: 'translate',
+      requestId: 't2',
+      segments: [{ id: 'a', text: 'Hello.' }],
+      options: serializeTranslateOptions(options()),
+    });
+    await flushTasks();
+    expect(port.messagesOfType('done')).toHaveLength(0);
+    expect(
+      port
+        .messagesOfType('chunk')
+        .filter((message) => (message as { requestId?: string }).requestId === 't2'),
+    ).toHaveLength(0);
+    expect(seen).toEqual([DEFAULT_MODEL_ID]);
+
+    unloadHold.resolve();
+    await vi.waitFor(() => {
+      expect(port.messagesOfType('done')).toEqual([{ type: 'done', requestId: 't2' }]);
+    });
+    first.resolve();
+    await flushTasks();
+
+    expect(seen).toEqual([DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID]);
+    const previousKey = buildTranslationCacheKey({
+      model: DEFAULT_MODEL_ID,
+      tgt: 'ja',
+      form: 'polite',
+      text: 'Hello.',
+    });
+    const nextKey = buildTranslationCacheKey({
+      model: HIGH_QUALITY_MODEL_ID,
+      tgt: 'ja',
+      form: 'polite',
+      text: 'Hello.',
+    });
+    expect(await cache.get(previousKey)).toBeUndefined();
+    expect(await cache.get(nextKey)).toEqual({
+      text: `via:${HIGH_QUALITY_MODEL_ID}`,
+      engine: 'plamo',
+    });
   });
 
   it('fails an in-flight warm when model-set changes the id', async () => {
@@ -545,7 +640,7 @@ describe('EngineHost', () => {
         type: 'response',
         requestId: 'w1',
         ok: false,
-        error: { code: 'aborted', message: 'The selected model changed.' },
+        error: { code: 'model-changed', message: 'The selected model changed.' },
       },
     ]);
   });
