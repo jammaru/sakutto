@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { SELECTABLE_MODEL_IDS } from '@/engine/model/catalog';
+  import { DEFAULT_MODEL_ID, SELECTABLE_MODEL_IDS, getModel } from '@/engine/model/catalog';
   import {
     completeSharedFolderOffer,
     notifySharedFolderChanged,
@@ -14,7 +14,8 @@
     sharedFolderPickerAvailable,
   } from '@/engine/model/shared-folder';
   import type { EngineStatus, ModelStatus } from '@/shared/engine-status';
-  import { formatByteSize } from '@/ui/format';
+  import { formatByteSize, formatByteSizeList } from '@/ui/format';
+  import SharedFolderBenefits from '@/ui/SharedFolderBenefits.svelte';
   import { t } from '@/shared/i18n';
   import {
     isModelProgressMessage,
@@ -57,6 +58,20 @@
       opfsHasOfficialModel: opfsReady,
     }),
   );
+  let sizeLabel = $derived.by(() => {
+    const present: string[] = [];
+    const sizes: number[] = [];
+    for (const status of [
+      ...(engine?.model ? [engine.model] : []),
+      ...inspected,
+      ...(progress ? [progress] : []),
+    ]) {
+      if (!opfsHasOfficialModel([status]) || present.includes(status.id)) continue;
+      present.push(status.id);
+      sizes.push(getModel(status.id).size);
+    }
+    return formatByteSizeList(sizes.length > 0 ? sizes : [getModel(DEFAULT_MODEL_ID).size]);
+  });
   let movingLabel = $derived.by(() => {
     if (!progress) return t('runtimeLoading');
     if (progress.state === 'verifying') return t('runtimeVerifying');
@@ -113,8 +128,8 @@
   }
 
   async function hideForever() {
-    dismissedNow = true;
     await saveSettings({ sharedFolderOfferDismissed: true });
+    dismissedNow = true;
   }
 
   onMount(() => {
@@ -135,7 +150,7 @@
 
 {#if visible}
   <section class="offer" aria-label={t('modelFolderHeading')}>
-    <p>{t('modelFolderOfferBody')}</p>
+    <SharedFolderBenefits leadKey="modelFolderOfferLead" {sizeLabel} />
     {#if moving}
       <p class="muted" role="status">{movingLabel}</p>
       {#if progress && progress.total > 0}

@@ -31,8 +31,20 @@ test.describe('built extension', () => {
             page.getByRole('radio', { name: 'Use a shared model folder' }),
           ).not.toBeChecked();
           await expect(
+            page.getByText('Create or choose a “Sakutto” folder in Documents.'),
+          ).toBeVisible();
+          await expect(page.getByText('A shared folder means:')).toBeVisible();
+          await expect(
             page.getByText(
-              'Create or choose a “Sakutto” folder in Documents. A second browser that picks the same folder does not need to download again.',
+              'Other profiles and Edge can use it right away, with no extra download.',
+            ),
+          ).toBeVisible();
+          await expect(
+            page.getByText('One copy on disk, so you save space (573 MB / 1.81 GB).'),
+          ).toBeVisible();
+          await expect(
+            page.getByText(
+              "The file stays if you clear this browser's data. Pick the same folder again and you skip the download.",
             ),
           ).toBeVisible();
           await expect(
@@ -125,7 +137,19 @@ test.describe('built extension', () => {
           ).not.toBeChecked();
           await expect(
             page.getByText(
-              'ドキュメントの中に「Sakutto」フォルダを作って（または選んで）ください。2つ目のブラウザでも同じフォルダを選ぶとダウンロード不要です',
+              'ドキュメントの中に「Sakutto」フォルダを作って（または選んで）ください。',
+            ),
+          ).toBeVisible();
+          await expect(page.getByText('共有フォルダを使うと：')).toBeVisible();
+          await expect(
+            page.getByText('他のプロフィールやEdgeでもダウンロードなしですぐ使える'),
+          ).toBeVisible();
+          await expect(
+            page.getByText('モデルは1つだけなので容量を節約（573 MB / 1.81 GB）'),
+          ).toBeVisible();
+          await expect(
+            page.getByText(
+              'ブラウザのデータを消してもファイルは残る。同じフォルダを選べば再ダウンロード不要',
             ),
           ).toBeVisible();
           await expect(

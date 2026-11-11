@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
-  import { DEFAULT_MODEL_ID, getModel } from '@/engine/model/catalog';
+  import { DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID, getModel } from '@/engine/model/catalog';
   import { isModelIntegrityError } from '@/engine/model/manager';
   import {
     adoptPickedSharedFolder,
@@ -38,8 +38,9 @@
   } from '@/shared/settings';
   import { loadSettings, saveSettings } from '@/shared/storage';
   import { prepareTranslatorPack } from '@/shared/translator-pack';
+  import SharedFolderBenefits from '@/ui/SharedFolderBenefits.svelte';
   import { estimateRemainingMs, type ByteMark } from '@/ui/download-eta';
-  import { formatByteSize } from '@/ui/format';
+  import { formatByteSize, formatByteSizeList } from '@/ui/format';
   import {
     onboardingCanTry,
     onboardingErrorMessage,
@@ -58,6 +59,10 @@
   const projectLinks = PROJECT_LINKS;
 
   const model = getModel(DEFAULT_MODEL_ID);
+  const folderSizeLabel = formatByteSizeList([
+    getModel(DEFAULT_MODEL_ID).size,
+    getModel(HIGH_QUALITY_MODEL_ID).size,
+  ]);
 
   type Phase = OnboardingPhase;
 
@@ -488,6 +493,7 @@
             <span>{t('onboardingStoreFolder')}</span>
           </label>
           <p class="muted start-note">{t('onboardingStoreFolderHelp')}</p>
+          <SharedFolderBenefits leadKey="modelFolderBenefitsLead" sizeLabel={folderSizeLabel} />
         </fieldset>
       {/if}
       {#if integrityAlert}

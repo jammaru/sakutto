@@ -256,7 +256,7 @@
     "message": "Gemeinsamen Modellordner verwenden"
   },
   "onboardingStoreFolderHelp": {
-    "message": "Legen Sie im Ordner Dokumente einen Ordner „Sakutto“ an oder wählen Sie ihn. Ein zweiter Browser mit demselben Ordner muss nicht erneut herunterladen."
+    "message": "Create or choose a “Sakutto” folder in Documents."
   },
   "onboardingStartFailed": {
     "message": "Die Einrichtung konnte nicht gestartet werden. Bitte versuchen Sie es erneut."
@@ -666,7 +666,7 @@
     "message": "Shared model folder"
   },
   "modelFolderHelp": {
-    "message": "Legen Sie offizielle PLaMo-Dateien in einen Ordner „Sakutto“ unter Dokumente. Chrome und Edge mit demselben Ordner überspringen den zweiten Download. Die Auswahl öffnet sich in Dokumente und merkt sich den Ort. Standard bleibt der Speicher in diesem Browser. Firefox kann diese Option nicht nutzen."
+    "message": "Keep official PLaMo files in a Sakutto folder inside Documents. The picker opens in Documents and remembers it. The default is still storage inside this browser."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"
@@ -716,8 +716,25 @@
   "modelFolderOpenSettings": {
     "message": "Open settings"
   },
-  "modelFolderOfferBody": {
-    "message": "Move the model to a shared folder so other profiles and Edge can use it without downloading again."
+  "modelFolderOfferLead": {
+    "message": "Moving to a shared folder means:"
+  },
+  "modelFolderBenefitsLead": {
+    "message": "A shared folder means:"
+  },
+  "modelFolderBenefitShare": {
+    "message": "Other profiles and Edge can use it right away, with no extra download."
+  },
+  "modelFolderBenefitSpace": {
+    "message": "One copy on disk, so you save space ($SIZE$).",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderBenefitKeep": {
+    "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
   },
   "modelFolderOfferMove": {
     "message": "Move to a shared folder"

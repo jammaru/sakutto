@@ -256,7 +256,7 @@
     "message": "共有モデルフォルダを使う"
   },
   "onboardingStoreFolderHelp": {
-    "message": "ドキュメントの中に「Sakutto」フォルダを作って（または選んで）ください。2つ目のブラウザでも同じフォルダを選ぶとダウンロード不要です"
+    "message": "ドキュメントの中に「Sakutto」フォルダを作って（または選んで）ください。"
   },
   "onboardingStartFailed": {
     "message": "準備を開始できませんでした。もう一度お試しください。"
@@ -666,7 +666,7 @@
     "message": "共有モデルフォルダ"
   },
   "modelFolderHelp": {
-    "message": "ドキュメントの中の「Sakutto」フォルダに公式の PLaMo ファイルを置きます。Chrome と Edge で同じフォルダを選ぶと、ダウンロードは不要です。フォルダの選択はドキュメントから開き、前回の場所を覚えます。既定はこれまでどおり、このブラウザ内への保存です。Firefox ではこの項目は使えません。"
+    "message": "ドキュメントの中の「Sakutto」フォルダに公式の PLaMo ファイルを置きます。フォルダの選択はドキュメントから開き、前回の場所を覚えます。既定はこれまでどおり、このブラウザ内への保存です。"
   },
   "modelFolderChoose": {
     "message": "モデルフォルダを選ぶ"
@@ -716,8 +716,25 @@
   "modelFolderOpenSettings": {
     "message": "設定を開く"
   },
-  "modelFolderOfferBody": {
-    "message": "モデルを共有フォルダに移すと、他のプロフィールやEdgeでもダウンロードなしで使えます"
+  "modelFolderOfferLead": {
+    "message": "共有フォルダに移すと："
+  },
+  "modelFolderBenefitsLead": {
+    "message": "共有フォルダを使うと："
+  },
+  "modelFolderBenefitShare": {
+    "message": "他のプロフィールやEdgeでもダウンロードなしですぐ使える"
+  },
+  "modelFolderBenefitSpace": {
+    "message": "モデルは1つだけなので容量を節約（$SIZE$）",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderBenefitKeep": {
+    "message": "ブラウザのデータを消してもファイルは残る。同じフォルダを選べば再ダウンロード不要"
   },
   "modelFolderOfferMove": {
     "message": "共有フォルダに移す"

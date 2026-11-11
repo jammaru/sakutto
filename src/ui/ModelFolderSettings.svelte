@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import {
+    DEFAULT_MODEL_ID,
     HIGH_QUALITY_MODEL_ID,
     SELECTABLE_MODEL_IDS,
+    getModel,
     type ModelId,
   } from '@/engine/model/catalog';
   import { emptySharedFolderStatus, type SharedFolderStatus } from '@/engine/model/folder-status';
@@ -16,6 +18,8 @@
     type FolderPermission,
   } from '@/engine/model/shared-folder';
   import { t } from '@/shared/i18n';
+  import { formatByteSizeList } from '@/ui/format';
+  import SharedFolderBenefits from '@/ui/SharedFolderBenefits.svelte';
   import {
     requestEngineStatus,
     requestModelFolderDeleteOpfs,
@@ -27,6 +31,10 @@
   let pickError = $state<string | null>(null);
   let granting = $state(false);
   let pickerAvailable = $derived(sharedFolderPickerAvailable());
+  const folderSizeLabel = formatByteSizeList([
+    getModel(DEFAULT_MODEL_ID).size,
+    getModel(HIGH_QUALITY_MODEL_ID).size,
+  ]);
 
   function modelLabel(id: ModelId): string {
     return id === HIGH_QUALITY_MODEL_ID ? t('modelHigh') : t('modelStandard');
@@ -127,6 +135,7 @@
   <div class="folder">
     <h3>{t('modelFolderHeading')}</h3>
     <p class="muted help">{t('modelFolderHelp')}</p>
+    <SharedFolderBenefits leadKey="modelFolderBenefitsLead" sizeLabel={folderSizeLabel} />
 
     {#if folder.configured && folder.name}
       <p class="muted" role="status">{t('modelFolderUsing', [folder.name])}</p>

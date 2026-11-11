@@ -256,7 +256,7 @@
     "message": "Dùng thư mục mô hình dùng chung"
   },
   "onboardingStoreFolderHelp": {
-    "message": "Tạo hoặc chọn thư mục “Sakutto” trong Tài liệu. Trình duyệt thứ hai chọn cùng thư mục thì không cần tải lại."
+    "message": "Create or choose a “Sakutto” folder in Documents."
   },
   "onboardingStartFailed": {
     "message": "Không thể khởi động thiết lập. Vui lòng thử lại."
@@ -666,7 +666,7 @@
     "message": "Shared model folder"
   },
   "modelFolderHelp": {
-    "message": "Giữ tệp PLaMo chính thức trong thư mục Sakutto trong Tài liệu. Chrome và Edge chọn cùng thư mục thì bỏ qua lần tải thứ hai. Hộp chọn mở ở Tài liệu và nhớ vị trí. Mặc định vẫn lưu trong trình duyệt này. Firefox không dùng được tùy chọn này."
+    "message": "Keep official PLaMo files in a Sakutto folder inside Documents. The picker opens in Documents and remembers it. The default is still storage inside this browser."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"
@@ -716,8 +716,25 @@
   "modelFolderOpenSettings": {
     "message": "Open settings"
   },
-  "modelFolderOfferBody": {
-    "message": "Move the model to a shared folder so other profiles and Edge can use it without downloading again."
+  "modelFolderOfferLead": {
+    "message": "Moving to a shared folder means:"
+  },
+  "modelFolderBenefitsLead": {
+    "message": "A shared folder means:"
+  },
+  "modelFolderBenefitShare": {
+    "message": "Other profiles and Edge can use it right away, with no extra download."
+  },
+  "modelFolderBenefitSpace": {
+    "message": "One copy on disk, so you save space ($SIZE$).",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderBenefitKeep": {
+    "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
   },
   "modelFolderOfferMove": {
     "message": "Move to a shared folder"

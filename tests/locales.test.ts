@@ -192,13 +192,26 @@ describe('locale messages', () => {
     }
   });
 
-  it('explains the one-click shared-folder move for existing OPFS users', () => {
-    expect(ja.modelFolderOfferBody?.message).toBe(
-      'モデルを共有フォルダに移すと、他のプロフィールやEdgeでもダウンロードなしで使えます',
+  it('states shared-folder benefits that the implementation can keep', () => {
+    expect(ja.modelFolderOfferLead?.message).toBe('共有フォルダに移すと：');
+    expect(ja.modelFolderBenefitsLead?.message).toBe('共有フォルダを使うと：');
+    expect(ja.modelFolderBenefitShare?.message).toBe(
+      '他のプロフィールやEdgeでもダウンロードなしですぐ使える',
     );
+    expect(ja.modelFolderBenefitSpace?.message).toBe('モデルは1つだけなので容量を節約（$SIZE$）');
+    expect(ja.modelFolderBenefitKeep?.message).toBe(
+      'ブラウザのデータを消してもファイルは残る。同じフォルダを選べば再ダウンロード不要',
+    );
+    expect(en.modelFolderBenefitKeep?.message).toMatch(/pick the same folder/i);
     expect(en.modelFolderOfferMove?.message).toBe('Move to a shared folder');
     expect(en.modelFolderOfferLater?.message).toBe('Later');
     expect(en.modelFolderOfferHide?.message).toBe("Don't show again");
+    for (const locale of catalogs) {
+      expect(readMessages(locale).modelFolderBenefitSpace?.message, locale).toContain('$SIZE$');
+      expect(readMessages(locale).modelFolderBenefitSpace?.message, locale).not.toMatch(
+        /573|1\.81/,
+      );
+    }
   });
 
   it('keeps Firefox-facing copy free of Chrome-only claims', () => {

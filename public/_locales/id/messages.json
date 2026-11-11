@@ -256,7 +256,7 @@
     "message": "Gunakan folder model bersama"
   },
   "onboardingStoreFolderHelp": {
-    "message": "Buat atau pilih folder “Sakutto” di Dokumen. Peramban kedua yang memilih folder yang sama tidak perlu mengunduh lagi."
+    "message": "Create or choose a “Sakutto” folder in Documents."
   },
   "onboardingStartFailed": {
     "message": "Setup tidak dapat dimulai. Silakan coba lagi."
@@ -666,7 +666,7 @@
     "message": "Shared model folder"
   },
   "modelFolderHelp": {
-    "message": "Simpan berkas PLaMo resmi di folder Sakutto di dalam Dokumen. Chrome dan Edge yang memilih folder yang sama melewati unduhan kedua. Pemilih terbuka di Dokumen dan mengingat lokasinya. Bawaan tetap penyimpanan di peramban ini. Firefox tidak dapat memakai opsi ini."
+    "message": "Keep official PLaMo files in a Sakutto folder inside Documents. The picker opens in Documents and remembers it. The default is still storage inside this browser."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"
@@ -716,8 +716,25 @@
   "modelFolderOpenSettings": {
     "message": "Open settings"
   },
-  "modelFolderOfferBody": {
-    "message": "Move the model to a shared folder so other profiles and Edge can use it without downloading again."
+  "modelFolderOfferLead": {
+    "message": "Moving to a shared folder means:"
+  },
+  "modelFolderBenefitsLead": {
+    "message": "A shared folder means:"
+  },
+  "modelFolderBenefitShare": {
+    "message": "Other profiles and Edge can use it right away, with no extra download."
+  },
+  "modelFolderBenefitSpace": {
+    "message": "One copy on disk, so you save space ($SIZE$).",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderBenefitKeep": {
+    "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
   },
   "modelFolderOfferMove": {
     "message": "Move to a shared folder"

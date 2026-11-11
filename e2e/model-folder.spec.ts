@@ -9,6 +9,10 @@ test.describe('shared model folder', () => {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/options.html`);
       await expect(page.getByRole('heading', { name: 'Shared model folder' })).toBeVisible();
+      await expect(page.getByText('A shared folder means:')).toBeVisible();
+      await expect(
+        page.getByText('One copy on disk, so you save space (573 MB / 1.81 GB).'),
+      ).toBeVisible();
       const choose = page.getByRole('button', { name: 'Choose model folder' });
       const stop = page.getByRole('button', { name: 'Stop using shared folder' });
       await expect(choose).toBeVisible();
@@ -271,10 +275,11 @@ test.describe('shared model folder', () => {
 
       const options = await extension.context.newPage();
       await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
-      const offer = options.getByText(
-        'Move the model to a shared folder so other profiles and Edge can use it without downloading again.',
-      );
+      const offer = options.getByText('Moving to a shared folder means:');
       await expect(offer).toBeVisible({ timeout: 30_000 });
+      await expect(
+        options.getByText('One copy on disk, so you save space (573 MB).'),
+      ).toBeVisible();
       await expect(options.getByRole('button', { name: 'Move to a shared folder' })).toBeVisible();
       await expect(options.getByRole('button', { name: 'Later' })).toBeVisible();
       await expect(options.getByRole('button', { name: "Don't show again" })).toBeVisible();
@@ -287,11 +292,7 @@ test.describe('shared model folder', () => {
 
       const popup = await extension.context.newPage();
       await popup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
-      await expect(
-        popup.getByText(
-          'Move the model to a shared folder so other profiles and Edge can use it without downloading again.',
-        ),
-      ).toHaveCount(0);
+      await expect(popup.getByText('Moving to a shared folder means:')).toHaveCount(0);
       await expect(popup.getByRole('button', { name: 'Translate this page' })).toBeVisible();
       await popup.close();
     } finally {
