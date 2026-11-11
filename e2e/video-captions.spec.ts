@@ -16,6 +16,18 @@ const CAPTIONS_VTT = readFileSync(join(FIXTURE_DIR, 'captions.vtt'));
 const IDLE_VTT = readFileSync(join(FIXTURE_DIR, 'idle-captions.vtt'));
 const X_CAPTIONS_HTML = readFileSync(join(FIXTURE_DIR, 'x-captions.html'));
 const X_EMPTY_HTML = readFileSync(join(FIXTURE_DIR, 'x-empty.html'));
+const X_INLINE_HTML = readFileSync(join(FIXTURE_DIR, 'x-inline.html'));
+const X_HLS_VTT = `WEBVTT
+
+00:00:00.000 --> 00:00:02.500
+The station opens at dawn.
+
+00:00:02.500 --> 00:00:05.000
+A red train waits at platform two.
+
+00:00:05.000 --> 00:00:08.000
+Tickets are sold at the north window.
+`;
 
 async function prepareVideo(page: Page): Promise<void> {
   await page.locator('#player').evaluate(async (element) => {
@@ -850,6 +862,121 @@ test.describe('video captions', () => {
       await extension.close();
     }
   });
+
+  test('translates an inline overflow-hidden X player from an HLS subtitle playlist', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await mockXOrigin(extension.context, { inline: true });
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'ja',
+      });
+      const page = await extension.context.newPage();
+      await page.goto('https://x.com/i/status/inline');
+      await preparePlayingXVideo(page);
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'ja',
+      });
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-original',
+        'The station opens at dawn.',
+      );
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-caption',
+        /§ja§The station opens at dawn/,
+      );
+      const inside = await page.evaluate(() => {
+        const player = document.querySelector('[data-testid="videoPlayer"]');
+        const overlay = document.querySelector('sakutto-captions');
+        if (!(player instanceof HTMLElement) || !(overlay instanceof HTMLElement)) return false;
+        const playerBox = player.getBoundingClientRect();
+        const overlayBox = overlay.getBoundingClientRect();
+        return (
+          overlayBox.width > 0 &&
+          overlayBox.height > 0 &&
+          overlayBox.left >= playerBox.left - 2 &&
+          overlayBox.right <= playerBox.right + 2 &&
+          overlayBox.top >= playerBox.top - 2 &&
+          overlayBox.bottom <= playerBox.bottom + 2
+        );
+      });
+      expect(inside).toBe(true);
+      const toggleAboveControls = await page.evaluate(() => {
+        const toggle = document.querySelector('[data-sakutto="caption-original-toggle"]');
+        const controls = document.querySelector('[data-sakutto="x-controls"]');
+        if (!(toggle instanceof HTMLElement) || !(controls instanceof HTMLElement)) return false;
+        const toggleBox = toggle.getBoundingClientRect();
+        const controlsBox = controls.getBoundingClientRect();
+        return toggleBox.bottom <= controlsBox.top + 4;
+      });
+      expect(toggleAboveControls).toBe(true);
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('seeking an inline X video shows native captions until the new playhead cue is ready', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await mockXOrigin(extension.context, { inline: true });
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'ja',
+      });
+      const page = await extension.context.newPage();
+      await page.goto('https://x.com/i/status/inline');
+      await preparePlayingXVideo(page);
+      await page.evaluate(() => {
+        document.documentElement.setAttribute(
+          'data-bench-pace',
+          JSON.stringify({ ttfbMs: 700, msPerChar: 0, deltas: 0 }),
+        );
+      });
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'ja',
+      });
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-original',
+        'The station opens at dawn.',
+      );
+      const afterSeek = await page.evaluate(() => {
+        const video = document.querySelector('#playing') as HTMLVideoElement | null;
+        const native = document.querySelector('.native-caption');
+        if (!video) return { waiting: false, nativeVisible: false, stamped: true };
+        video.currentTime = 3;
+        video.dispatchEvent(new Event('seeking', { bubbles: true }));
+        video.dispatchEvent(new Event('seeked', { bubbles: true }));
+        const nativeVisible =
+          native instanceof HTMLElement && getComputedStyle(native).visibility !== 'hidden';
+        return {
+          waiting: document.documentElement.getAttribute('data-sakutto-captions') === 'waiting',
+          nativeVisible,
+          stamped: Boolean(
+            document
+              .querySelector('[data-sakutto="x-native-caption"]')
+              ?.hasAttribute('data-sakutto-native-caption'),
+          ),
+        };
+      });
+      expect(afterSeek.waiting).toBe(true);
+      expect(afterSeek.nativeVisible).toBe(true);
+      expect(afterSeek.stamped).toBe(false);
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-original',
+        'A red train waits at platform two.',
+      );
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-caption',
+        /§ja§A red train waits at platform two/,
+      );
+    } finally {
+      await extension.close();
+    }
+  });
 });
 
 async function stubPopupCaptionPermission(
@@ -927,9 +1054,9 @@ async function readCaptionEnableIntent(
 
 async function mockXOrigin(
   context: import('@playwright/test').BrowserContext,
-  options: { empty?: boolean } = {},
+  options: { empty?: boolean; inline?: boolean } = {},
 ): Promise<void> {
-  const html = options.empty ? X_EMPTY_HTML : X_CAPTIONS_HTML;
+  const html = options.empty ? X_EMPTY_HTML : options.inline ? X_INLINE_HTML : X_CAPTIONS_HTML;
   await context.route('https://video.twimg.com/**', async (route) => {
     if (route.request().method() === 'OPTIONS') {
       await route.fulfill({
@@ -941,11 +1068,29 @@ async function mockXOrigin(
       });
       return;
     }
+    const url = route.request().url();
+    if (url.includes('.m3u8')) {
+      const media = /en\.m3u8|\/subs\//iu.test(url);
+      const body = media
+        ? `#EXTM3U\n#EXTINF:10,\nhttps://video.twimg.com/subtitles/en-hls.vtt\n`
+        : `#EXTM3U
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",LANGUAGE="en",DEFAULT=YES,URI="https://video.twimg.com/amplify_video/fixture/pl/en.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360,SUBTITLES="subs"
+https://video.twimg.com/amplify_video/fixture/pl/video.m3u8
+`;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/vnd.apple.mpegurl',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body,
+      });
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: 'text/vtt; charset=utf-8',
       headers: { 'Access-Control-Allow-Origin': '*' },
-      body: CAPTIONS_VTT,
+      body: url.includes('en-hls.vtt') ? X_HLS_VTT : CAPTIONS_VTT,
     });
   });
   await context.route('https://x.com/**', async (route) => {

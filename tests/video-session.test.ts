@@ -1412,6 +1412,197 @@ The station opens at dawn.
     ).toBeGreaterThanOrEqual(CAPTION_FONT_MIN_PX);
     session.stop();
   });
+
+  it('loads X captions from an HLS subtitle playlist without a track element', async () => {
+    const { Window } = await import('happy-dom');
+    const view = new Window({ url: 'https://x.com/i/status/1' });
+    const doc = view.document;
+    doc.body.innerHTML = `
+      <div data-testid="videoPlayer" style="overflow: hidden; transform: translateZ(0)">
+        <video id="playing">
+          <source src="https://video.twimg.com/amplify_video/1/pl/playlist.m3u8" />
+        </video>
+      </div>
+    `;
+    const playing = doc.querySelector('#playing') as unknown as HTMLVideoElement;
+    stubMedia(playing, { paused: false, width: 640, height: 360, currentTime: 0.4 });
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async (url) => {
+        if (url.endsWith('playlist.m3u8')) {
+          return `#EXTM3U
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",LANGUAGE="en",DEFAULT=YES,URI="en.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=800000,SUBTITLES="subs"
+video.m3u8
+`;
+        }
+        if (url.endsWith('en.m3u8')) {
+          return `#EXTM3U
+#EXTINF:10,
+https://video.twimg.com/subtitles/en.vtt
+`;
+        }
+        if (url.endsWith('en.vtt')) {
+          return `WEBVTT
+
+00:00:00.000 --> 00:00:02.000
+The station opens at dawn.
+`;
+        }
+        return '';
+      },
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+        'The station opens at dawn.',
+      );
+    });
+    const host = doc.querySelector('sakutto-captions') as unknown as HTMLElement;
+    expect(host.parentElement?.getAttribute('data-testid')).toBe('videoPlayer');
+    expect(host.style.position).toBe('absolute');
+    session.stop();
+    view.close();
+  });
+
+  it('does not disable an X textTrack and does not stamp native caption nodes', async () => {
+    const { Window } = await import('happy-dom');
+    const view = new Window({ url: 'https://x.com/i/status/1' });
+    const doc = view.document;
+    doc.body.innerHTML = `
+      <div data-testid="videoPlayer">
+        <video id="playing">
+          <track kind="subtitles" src="https://video.twimg.com/subtitles/fixture.vtt" srclang="en" default />
+        </video>
+        <div class="native-caption" aria-live="polite" data-sakutto="x-native">The station opens at dawn.</div>
+      </div>
+    `;
+    const playing = doc.querySelector('#playing') as unknown as HTMLVideoElement;
+    stubMedia(playing, { paused: false, width: 320, height: 180, currentTime: 0.4 });
+    const track = playing.textTracks[0];
+    if (track) track.mode = 'showing';
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => `WEBVTT
+
+00:00:00.000 --> 00:00:02.000
+The station opens at dawn.
+`,
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toMatch(
+        /§ja§The station opens at dawn/,
+      );
+    });
+    expect(playing.textTracks[0]?.mode).toBe('showing');
+    expect(
+      doc.querySelector('[data-sakutto="x-native"]')?.getAttribute('data-sakutto-native-caption'),
+    ).toBeNull();
+    session.stop();
+    view.close();
+  });
+
+  it('on X seek aborts in-flight work, keeps cache, and shows native until the new playhead cue is ready', async () => {
+    const { Window } = await import('happy-dom');
+    const view = new Window({ url: 'https://x.com/i/status/1' });
+    const doc = view.document;
+    doc.body.innerHTML = `
+      <div data-testid="videoPlayer">
+        <video id="playing">
+          <track kind="subtitles" src="https://video.twimg.com/subtitles/fixture.vtt" srclang="en" />
+        </video>
+        <div class="native-caption" aria-live="polite">native line</div>
+      </div>
+    `;
+    const playing = doc.querySelector('#playing') as unknown as HTMLVideoElement;
+    const media = { paused: false, currentTime: 0.4 };
+    stubMedia(playing, { paused: false, width: 320, height: 180, currentTime: 0.4 });
+    Object.defineProperty(playing, 'currentTime', {
+      configurable: true,
+      get: () => media.currentTime,
+      set: (value: number) => {
+        media.currentTime = value;
+      },
+    });
+    let delayMs = 120;
+    const paced: PageEngine = {
+      async *translate(segments, options) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine: paced,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => `WEBVTT
+
+00:00:00.000 --> 00:00:02.000
+The station opens at dawn.
+
+00:00:03.000 --> 00:00:06.000
+A red train waits at platform two.
+`,
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+        'The station opens at dawn.',
+      );
+    });
+    media.currentTime = 3.2;
+    delayMs = 200;
+    (view as unknown as { dispatchEvent(event: unknown): boolean }).dispatchEvent(
+      new view.Event('seeked', { bubbles: true }),
+    );
+    (view as unknown as { dispatchEvent(event: unknown): boolean }).dispatchEvent(
+      new view.Event('seeked', { bubbles: true }),
+    );
+    await vi.waitFor(() => {
+      expect(doc.documentElement.getAttribute('data-sakutto-captions')).toBe('waiting');
+    });
+    expect(doc.querySelector('style[data-sakutto="captions"]')).toBeNull();
+    await vi.waitFor(
+      () => {
+        expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+          'A red train waits at platform two.',
+        );
+      },
+      { timeout: 3_000 },
+    );
+    expect(doc.documentElement.getAttribute('data-sakutto-captions')).toBe('overlay');
+    session.stop();
+    view.close();
+  });
 });
 
 function youtubeWatchMarkup(videoId: string, captions: boolean): string {
@@ -1468,7 +1659,9 @@ function stubMedia(
   Object.defineProperty(video, 'currentTime', {
     configurable: true,
     get: () => options.currentTime ?? 0,
-    set: () => undefined,
+    set: (value: number) => {
+      options.currentTime = value;
+    },
   });
   Object.defineProperty(video, 'duration', {
     configurable: true,

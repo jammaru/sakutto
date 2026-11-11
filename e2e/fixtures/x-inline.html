@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Inline station clip</title>
+  </head>
+  <body>
+    <p>Synthetic X inline / expanded player. Overflow hidden and a transform layer. No people.</p>
+    <div data-testid="videoComponent" style="width: 640px">
+      <div
+        data-testid="videoPlayer"
+        style="
+          position: relative;
+          width: 640px;
+          height: 360px;
+          overflow: hidden;
+          transform: translateZ(0);
+          background: #102030;
+        "
+      >
+        <div style="overflow: hidden; transform: scale(1); width: 100%; height: 100%">
+          <video
+            id="playing"
+            muted
+            playsinline
+            loop
+            width="640"
+            height="360"
+            style="width: 640px; height: 360px; object-fit: contain"
+          >
+            <source src="/dummy.mp4" type="video/mp4" />
+            <source
+              src="https://video.twimg.com/amplify_video/fixture/pl/playlist.m3u8"
+              type="application/vnd.apple.mpegurl"
+            />
+          </video>
+        </div>
+        <div
+          data-sakutto="x-controls"
+          style="
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 64px;
+            background: rgb(0 0 0 / 45%);
+          "
+        >
+          <button type="button">Play</button>
+          <input type="range" min="0" max="100" value="10" aria-label="Seek" />
+        </div>
+        <div
+          class="native-caption"
+          aria-live="polite"
+          data-sakutto="x-native-caption"
+          style="
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 8px;
+            color: #fff;
+            text-align: center;
+            text-shadow: rgb(0, 0, 0) 1px 1px 2px;
+            pointer-events: none;
+          "
+        >
+          The station opens at dawn.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

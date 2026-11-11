@@ -8,6 +8,7 @@ import {
   pickCaptionLayoutRect,
   captionOverlayRoot,
   CAPTION_ORIGINAL_TOGGLE,
+  X_CAPTION_CHROME_FALLBACK_PX,
 } from '@/captions/overlay';
 
 const labels = {
@@ -158,7 +159,7 @@ describe('caption overlay', () => {
   it('reparents into the fullscreen element in every player mode', () => {
     document.body.innerHTML = `
       <div id="fs">
-        <div data-testid="videoPlayer"><video></video></div>
+        <div id="movie_player"><video></video></div>
       </div>
     `;
     const fullscreen = document.getElementById('fs');
@@ -170,6 +171,23 @@ describe('caption overlay', () => {
     expect(captionOverlayRoot(document, video)).toBe(fullscreen);
   });
 
+  it('keeps the X overlay inside videoPlayer even when that player is fullscreened', () => {
+    document.body.innerHTML = `
+      <div id="fs">
+        <div data-testid="videoPlayer"><video></video></div>
+      </div>
+    `;
+    const fullscreen = document.getElementById('fs');
+    const video = document.querySelector('video') as HTMLVideoElement;
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      get: () => fullscreen,
+    });
+    expect((captionOverlayRoot(document, video) as HTMLElement).getAttribute('data-testid')).toBe(
+      'videoPlayer',
+    );
+  });
+
   it('attaches to the X player and lifts the overlay above the chrome', () => {
     document.body.innerHTML = `
       <div data-testid="videoPlayer">
@@ -179,7 +197,55 @@ describe('caption overlay', () => {
     const video = document.querySelector('video') as HTMLVideoElement;
     const root = captionOverlayRoot(document, video);
     expect((root as HTMLElement).getAttribute('data-testid')).toBe('videoPlayer');
-    expect(captionChromeInset(root)).toBe(52);
+    expect(captionChromeInset(root)).toBe(X_CAPTION_CHROME_FALLBACK_PX);
+  });
+
+  it('mounts absolutely inside an overflow-hidden transformed X player', () => {
+    document.body.innerHTML = `
+      <div data-testid="videoPlayer" style="position: relative; overflow: hidden; transform: translateZ(0); width: 640px; height: 360px">
+        <div style="overflow: hidden; transform: scale(1)">
+          <video></video>
+        </div>
+        <div data-sakutto="x-controls" style="position: absolute; bottom: 0; height: 64px">
+          <button type="button">Play</button>
+        </div>
+      </div>
+    `;
+    const video = document.querySelector('video') as HTMLVideoElement;
+    const root = captionOverlayRoot(document, video);
+    const overlay = new CaptionOverlay(document, labels);
+    overlay.attach(root);
+    overlay.show({
+      original: 'The station opens at dawn.',
+      translation: '駅は夜明けに開きます。',
+      display: 'bilingual',
+      pending: false,
+    });
+    overlay.place({ left: 0, top: 0, width: 640, height: 360 }, 28, captionChromeInset(root));
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    expect(host.parentElement).toBe(root);
+    expect(host.style.position).toBe('absolute');
+    expect(host.style.top).toBe('auto');
+    expect(host.style.transform).toBe('translateX(-50%)');
+    expect(Number.parseFloat(host.style.bottom)).toBeGreaterThanOrEqual(
+      X_CAPTION_CHROME_FALLBACK_PX,
+    );
+    const wrap = overlay.shadow()?.querySelector('.wrap');
+    const first = wrap?.firstElementChild;
+    expect(first?.tagName.toLowerCase()).toBe('slot');
+    overlay.detach();
+  });
+
+  it('attaches to the X player inside an expanded media dialog', () => {
+    document.body.innerHTML = `
+      <div role="dialog" aria-modal="true">
+        <div data-testid="videoPlayer"><video></video></div>
+      </div>
+    `;
+    const video = document.querySelector('video') as HTMLVideoElement;
+    expect((captionOverlayRoot(document, video) as HTMLElement).getAttribute('data-testid')).toBe(
+      'videoPlayer',
+    );
   });
 
   it('scales caption type with player height and the size setting', () => {

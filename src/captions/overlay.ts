@@ -25,7 +25,7 @@ export const CAPTION_ORIGINAL_TOGGLE = 'caption-original-toggle';
 const TOGGLE_EVENTS = ['pointerdown', 'mousedown', 'click', 'pointerup', 'mouseup'] as const;
 
 const STYLE = `
-:host { all: initial; }
+:host { all: initial; overflow: visible; }
 .wrap {
   box-sizing: border-box;
   pointer-events: none;
@@ -69,7 +69,7 @@ const TOGGLE_STYLE = [
   'justify-content: center',
   'min-height: 32px',
   'min-width: 44px',
-  'margin-top: 6px',
+  'margin: 0 0 6px',
   'padding: 8px 14px',
   'border: 0',
   'border-radius: 999px',
@@ -108,6 +108,19 @@ export function captionOverlayBox(
     left: rect.left + rect.width / 2,
     top: rect.top + rect.height - padding,
     width,
+  };
+}
+
+/** Absolute placement inside the player; grows up from `bottom` so overflow:hidden cannot clip it. */
+export const X_CAPTION_CHROME_FALLBACK_PX = 88;
+
+export function captionOverlayPlacement(
+  rect: Pick<DOMRect, 'width'>,
+  padding = 18,
+): { width: number; bottom: number } {
+  return {
+    width: Math.max(220, rect.width * 0.94),
+    bottom: Math.max(0, padding),
   };
 }
 
@@ -171,19 +184,41 @@ export function pickCaptionLayoutRect(
   return { left: origin.left, top: origin.top, width, height };
 }
 
+const X_PLAYER_ROOT_SELECTOR = '[data-testid="videoPlayer"], [data-testid="videoComponent"]';
+
 /**
  * Attach to the player (not the inner video container) so the overlay stacks above
  * `.ytp-chrome-bottom`. Fullscreen uses the fullscreen element.
+ * Prefer the outer X `videoPlayer` over an overflow-hidden inner wrapper.
  */
 export function captionOverlayRoot(doc: Document, video: HTMLVideoElement): Element {
   const view = doc.defaultView;
   const fullscreen = view?.document.fullscreenElement ?? doc.fullscreenElement;
-  if (fullscreen && (fullscreen === video || fullscreen.contains(video))) return fullscreen;
-  const player = video.closest(
-    '#movie_player, .html5-video-player, [data-testid="videoPlayer"], [data-testid="videoComponent"]',
-  );
-  if (player) return player;
+  if (fullscreen && (fullscreen === video || fullscreen.contains(video))) {
+    const nested = video.closest(X_PLAYER_ROOT_SELECTOR);
+    if (nested && fullscreen.contains(nested)) return nested;
+    return fullscreen;
+  }
+  const player = video.closest(`#movie_player, .html5-video-player, ${X_PLAYER_ROOT_SELECTOR}`);
+  if (player) {
+    const outer = player.closest(X_PLAYER_ROOT_SELECTOR);
+    return outer ?? player;
+  }
+  const modal = video.closest('[role="dialog"], [aria-modal="true"]');
+  if (modal) {
+    const nested = modal.querySelector(X_PLAYER_ROOT_SELECTOR);
+    if (nested) return nested;
+    return modal;
+  }
   return video.parentElement ?? doc.documentElement;
+}
+
+/** Make the player a containing block so absolute overlay coords stay inside it. */
+export function prepareCaptionOverlayRoot(root: Element): void {
+  if (!(root instanceof HTMLElement)) return;
+  const view = root.ownerDocument.defaultView;
+  const position = view?.getComputedStyle(root).position ?? root.style.position;
+  if (!position || position === 'static') root.style.position = 'relative';
 }
 
 export function captionChromeInset(root: ParentNode): number {
@@ -192,14 +227,36 @@ export function captionChromeInset(root: ParentNode): number {
     const height = chrome.getBoundingClientRect().height;
     if (Number.isFinite(height) && height > 0) return Math.max(18, Math.round(height));
   }
-  if (
-    root instanceof Element &&
-    (root.matches('[data-testid="videoPlayer"], [data-testid="videoComponent"]') ||
-      root.closest('[data-testid="videoPlayer"], [data-testid="videoComponent"]'))
-  ) {
-    return 52;
+  if (isXPlayerRoot(root)) {
+    return measureXChromeInset(root) ?? X_CAPTION_CHROME_FALLBACK_PX;
   }
   return 18;
+}
+
+function isXPlayerRoot(root: ParentNode): boolean {
+  return (
+    root instanceof Element &&
+    (root.matches(X_PLAYER_ROOT_SELECTOR) || Boolean(root.closest(X_PLAYER_ROOT_SELECTOR)))
+  );
+}
+
+function measureXChromeInset(root: ParentNode): number | null {
+  if (!(root instanceof Element)) return null;
+  const playerRect = root.getBoundingClientRect();
+  if (playerRect.height <= 0) return null;
+  let inset = 0;
+  for (const node of root.querySelectorAll(
+    'button, [role="button"], [role="slider"], [role="progressbar"], input[type="range"]',
+  )) {
+    if (node.closest(CAPTION_OVERLAY_HOST)) continue;
+    const rect = node.getBoundingClientRect();
+    if (rect.height <= 0 || rect.width <= 0) continue;
+    const fromBottom = playerRect.bottom - rect.top;
+    if (fromBottom > 12 && fromBottom < playerRect.height * 0.5) {
+      inset = Math.max(inset, fromBottom);
+    }
+  }
+  return inset > 0 ? Math.max(X_CAPTION_CHROME_FALLBACK_PX, Math.round(inset + 10)) : null;
 }
 
 export class CaptionOverlay {
@@ -219,10 +276,11 @@ export class CaptionOverlay {
     this.host.setAttribute('translate', 'no');
     this.host.setAttribute('aria-live', 'polite');
     this.host.hidden = true;
-    this.host.style.position = 'fixed';
+    this.host.style.position = 'absolute';
     this.host.style.zIndex = '2147483646';
     this.host.style.pointerEvents = 'none';
-    this.host.style.transform = 'translate(-50%, -100%)';
+    this.host.style.overflow = 'visible';
+    this.host.style.transform = 'translateX(-50%)';
 
     const shadow = attachCaptionShadow(this.host);
     const style = doc.createElement('style');
@@ -241,7 +299,7 @@ export class CaptionOverlay {
     this.toggle.slot = 'toggle';
     this.toggle.setAttribute('data-sakutto', CAPTION_ORIGINAL_TOGGLE);
     this.toggle.style.cssText = TOGGLE_STYLE;
-    wrap.append(this.originalLine, this.translatedLine, slot);
+    wrap.append(slot, this.originalLine, this.translatedLine);
     shadow.append(style, wrap);
     this.host.append(this.toggle);
     this.setLabels(labels);
@@ -258,6 +316,7 @@ export class CaptionOverlay {
   }
 
   attach(root: Element): void {
+    prepareCaptionOverlayRoot(root);
     if (this.host.parentElement !== root) root.append(this.host);
     this.bindToggleCapture();
   }
@@ -272,10 +331,15 @@ export class CaptionOverlay {
     fontPx?: number,
     bottomInset = 18,
   ): void {
-    const box = captionOverlayBox(rect, bottomInset);
-    this.host.style.left = `${box.left}px`;
-    this.host.style.top = `${box.top}px`;
+    const box = captionOverlayPlacement(rect, bottomInset);
+    this.host.style.position = 'absolute';
+    this.host.style.left = '50%';
+    this.host.style.right = 'auto';
+    this.host.style.top = 'auto';
+    this.host.style.bottom = `${box.bottom}px`;
     this.host.style.width = `${box.width}px`;
+    this.host.style.transform = 'translateX(-50%)';
+    this.host.style.overflow = 'visible';
     const size = fontPx ?? captionOverlayFontPx(rect.height);
     this.host.style.setProperty('--sakutto-caption-size', `${size}px`);
   }

@@ -40,7 +40,17 @@ import {
   type CaptionOverlayLabels,
 } from './overlay';
 import { readTimedtext, TimedtextFetchGuard } from './timedtext';
-import { isXHost, listXSubtitleUrls, pickPlayingXVideo } from './x';
+import {
+  isTwimgCaptionAssetUrl,
+  isXHost,
+  listXCaptionSourceUrls,
+  listXSubtitleUrls,
+  parseHlsMediaSegments,
+  parseHlsSubtitleRenditions,
+  pickPlayingXVideo,
+  pickXSubtitleRendition,
+  readXCaptionDom,
+} from './x';
 import {
   captionSourceIsTargetLanguage,
   captionTracksFromPlayerResponse,
@@ -157,6 +167,7 @@ export class VideoCaptionSession {
   private resizeObserver: ResizeObserver | null = null;
   private placeFrame: number | null = null;
   private placeSettleTimer: number | null = null;
+  private seekPaintTimer: number | null = null;
 
   constructor(doc: Document, options: CaptionSessionOptions) {
     this.doc = doc;
@@ -211,6 +222,7 @@ export class VideoCaptionSession {
     this.running = true;
     const view = this.doc.defaultView;
     view?.addEventListener('timeupdate', this.onMedia, true);
+    view?.addEventListener('seeking', this.onSeek, true);
     view?.addEventListener('seeked', this.onSeek, true);
     view?.addEventListener('ratechange', this.onRate, true);
     view?.addEventListener('loadedmetadata', this.onMedia, true);
@@ -256,6 +268,7 @@ export class VideoCaptionSession {
     this.running = false;
     const view = this.doc.defaultView;
     view?.removeEventListener('timeupdate', this.onMedia, true);
+    view?.removeEventListener('seeking', this.onSeek, true);
     view?.removeEventListener('seeked', this.onSeek, true);
     view?.removeEventListener('ratechange', this.onRate, true);
     view?.removeEventListener('loadedmetadata', this.onMedia, true);
@@ -318,11 +331,20 @@ export class VideoCaptionSession {
   };
 
   private readonly onSeek = (): void => {
-    this.translator.seek();
     this.liveBuffer.reset();
     this.liveJobId = null;
     this.fallbackToNative();
-    void this.paint(true);
+    const view = this.doc.defaultView;
+    if (this.seekPaintTimer !== null) {
+      view?.clearTimeout(this.seekPaintTimer);
+    } else {
+      this.translator.seek();
+    }
+    this.seekPaintTimer =
+      view?.setTimeout(() => {
+        this.seekPaintTimer = null;
+        void this.paint(true);
+      }, 64) ?? null;
   };
 
   private readonly onRate = (): void => {
@@ -443,6 +465,7 @@ export class VideoCaptionSession {
       if (isXHost(host)) {
         const xTrack = await this.loadXTrack(video);
         if (token !== this.sourceToken) return;
+        this.useDomCaptions = (xTrack?.cues.length ?? 0) === 0;
         this.finishLoadedTrack(xTrack ? { key, ...xTrack } : { key, cues: [], restoreModes: [] });
         return;
       }
@@ -553,22 +576,63 @@ export class VideoCaptionSession {
 
   private async loadXTrack(video: HTMLVideoElement): Promise<Omit<LoadedTrack, 'key'> | null> {
     const durationMs = Number.isFinite(video.duration) ? video.duration * 1000 : undefined;
-    const html5 = loadHtml5Track(video, this.prefs.targetLanguage, durationMs);
+    const html5 = loadHtml5Track(video, this.prefs.targetLanguage, durationMs, {
+      mutateMode: false,
+    });
     if (html5 && html5.cues.length > 0) return html5;
 
-    const urls = listXSubtitleUrls(video);
+    const urls = uniqueUrls([...listXSubtitleUrls(video), ...listXCaptionSourceUrls(video)]);
+    const visited = new Set<string>();
     for (const url of urls) {
-      try {
-        const body = await this.readTrack(url);
-        const cues = finalizeCaptionCues(parseWebVtt(body), durationMs);
-        if (cues.length > 0) {
-          return { cues, restoreModes: html5?.restoreModes ?? [] };
-        }
-      } catch {
-        // Try the next published VTT URL; never invent captions.
+      const loaded = await this.loadXCaptionUrl(url, durationMs, visited);
+      if (loaded && loaded.cues.length > 0) {
+        return { ...loaded, restoreModes: html5?.restoreModes ?? [] };
       }
     }
     return html5;
+  }
+
+  private async loadXCaptionUrl(
+    url: string,
+    durationMs: number | undefined,
+    visited: Set<string>,
+    depth = 0,
+  ): Promise<Omit<LoadedTrack, 'key'> | null> {
+    if (depth > 4 || visited.has(url) || !isTwimgCaptionAssetUrl(url)) return null;
+    visited.add(url);
+    let body: string;
+    try {
+      body = await this.readTrack(url);
+    } catch {
+      return null;
+    }
+    if (body.trim().length === 0) return null;
+    if (body.trimStart().startsWith('WEBVTT')) {
+      const cues = finalizeCaptionCues(parseWebVtt(body), durationMs);
+      return cues.length > 0 ? { cues, restoreModes: [] } : null;
+    }
+
+    const renditions = parseHlsSubtitleRenditions(body, url);
+    const selected = pickXSubtitleRendition(renditions, this.prefs.targetLanguage);
+    if (selected) {
+      const nested = await this.loadXCaptionUrl(selected.uri, durationMs, visited, depth + 1);
+      if (nested && nested.cues.length > 0) {
+        return { ...nested, language: nested.language ?? selected.language };
+      }
+    }
+
+    const segments = parseHlsMediaSegments(body, url).slice(0, 40);
+    if (segments.length === 0) return null;
+    const cues: CaptionCue[] = [];
+    let language: string | undefined;
+    for (const segment of segments) {
+      const nested = await this.loadXCaptionUrl(segment, durationMs, visited, depth + 1);
+      if (!nested) continue;
+      cues.push(...nested.cues);
+      language = language ?? nested.language;
+    }
+    const finalized = finalizeCaptionCues(cues, durationMs);
+    return finalized.length > 0 ? { cues: finalized, language, restoreModes: [] } : null;
   }
 
   private async loadTrackUrls(
@@ -637,7 +701,7 @@ export class VideoCaptionSession {
       return;
     }
     this.hideNativeCaptions(true);
-    if (this.video) hideShowingCaptionTracks(this.video);
+    if (this.video && !this.isXPage()) hideShowingCaptionTracks(this.video);
     this.doc.documentElement.setAttribute('data-sakutto-captions', 'overlay');
   }
 
@@ -801,7 +865,6 @@ export class VideoCaptionSession {
   private bindVideo(video: HTMLVideoElement | null): void {
     if (!video) return;
     video.addEventListener('timeupdate', this.onMedia);
-    video.addEventListener('seeked', this.onSeek);
     video.addEventListener('ratechange', this.onRate);
     video.addEventListener('loadedmetadata', this.onMedia);
     video.addEventListener('emptied', this.onMediaSource);
@@ -816,7 +879,6 @@ export class VideoCaptionSession {
     this.disconnectLayout();
     if (!video) return;
     video.removeEventListener('timeupdate', this.onMedia);
-    video.removeEventListener('seeked', this.onSeek);
     video.removeEventListener('ratechange', this.onRate);
     video.removeEventListener('loadedmetadata', this.onMedia);
     video.removeEventListener('emptied', this.onMediaSource);
@@ -846,6 +908,10 @@ export class VideoCaptionSession {
     if (this.placeSettleTimer !== null) {
       view?.clearTimeout(this.placeSettleTimer);
       this.placeSettleTimer = null;
+    }
+    if (this.seekPaintTimer !== null) {
+      view?.clearTimeout(this.seekPaintTimer);
+      this.seekPaintTimer = null;
     }
   }
 
@@ -888,7 +954,6 @@ export class VideoCaptionSession {
       ),
       captionChromeInset(root),
     );
-    this.maskNativeCaptionNodes(root);
   }
 
   private readSourceCaptionDom(): string {
@@ -898,8 +963,16 @@ export class VideoCaptionSession {
       spokenLanguage: spoken,
     });
     if (youtube.length > 0) return youtube;
+    if (this.isXPage()) {
+      return readXCaptionDom(this.doc, this.prefs.targetLanguage);
+    }
     if (!this.allowsGenericDom()) return '';
     return readGenericCaptionDom(this.doc, { targetLanguage: this.prefs.targetLanguage });
+  }
+
+  private isXPage(): boolean {
+    const host = pageHost(this.doc.defaultView?.location.href ?? '') ?? '';
+    return isXHost(host);
   }
 
   private allowsGenericDom(): boolean {
@@ -915,33 +988,6 @@ export class VideoCaptionSession {
       return this.lastPlayed;
     }
     return pickPlayingOrPrimaryVideo(this.doc);
-  }
-
-  private maskNativeCaptionNodes(root: Element): void {
-    if (this.passthroughNative || !this.overlayShowingTranslation()) return;
-    const host = pageHost(this.doc.defaultView?.location.href ?? '') ?? '';
-    if (!isXHost(host)) return;
-    const view = this.doc.defaultView;
-    if (!view) return;
-    try {
-      for (const node of root.querySelectorAll('*')) {
-        if (node.closest(CAPTION_OVERLAY_HOST)) continue;
-        if (node.tagName === 'VIDEO') continue;
-        if (node.closest('button, [role="button"], a, input, textarea, select')) continue;
-        const text = (node.textContent ?? '').replace(/\s+/g, ' ').trim();
-        if (text.length < 2 || text.length > 240) continue;
-        const style = view.getComputedStyle(node);
-        const shadow = style.textShadow;
-        const hasShadow = Boolean(shadow && shadow !== 'none');
-        const positioned = style.position === 'absolute' || style.position === 'fixed';
-        const captionClass = /caption|subtitle/i.test(node.className);
-        if (!hasShadow && !(positioned && captionClass)) continue;
-        if (!hasShadow && !captionClass) continue;
-        node.setAttribute('data-sakutto-native-caption', '');
-      }
-    } catch {
-      // Computed style is unavailable in some test documents.
-    }
   }
 
   private scheduleAroundPlayhead(current: CaptionCue): void {
@@ -1084,22 +1130,39 @@ function loadHtml5Track(
   video: HTMLVideoElement,
   targetLanguage: string,
   durationMs?: number,
+  options?: { mutateMode?: boolean },
 ): Omit<LoadedTrack, 'key'> | null {
   const tracks = listCaptionTracks(video);
   const selected = pickCaptionTrack(tracks, targetLanguage);
   if (!selected) return null;
-  const restoreModes = tracks
-    .filter((track) => track.mode === 'showing' || track === selected)
-    .map((track) => ({ track, mode: track.mode }));
-  revealTrackCues(selected);
-  for (const track of tracks) {
-    if (track !== selected && track.mode === 'showing') track.mode = 'hidden';
+  const mutate = options?.mutateMode !== false;
+  const restoreModes = mutate
+    ? tracks
+        .filter((track) => track.mode === 'showing' || track === selected)
+        .map((track) => ({ track, mode: track.mode }))
+    : [];
+  if (mutate) {
+    revealTrackCues(selected);
+    for (const track of tracks) {
+      if (track !== selected && track.mode === 'showing') track.mode = 'hidden';
+    }
   }
   const cues = finalizeCaptionCues(cuesFromTrack(selected), durationMs);
   if (cues.length === 0 && selected.cues === null) {
     return { cues: [], language: selected.language || undefined, restoreModes };
   }
   return { cues, language: selected.language || undefined, restoreModes };
+}
+
+function uniqueUrls(urls: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const url of urls) {
+    if (seen.has(url)) continue;
+    seen.add(url);
+    result.push(url);
+  }
+  return result;
 }
 
 function trackKey(doc: Document, video: HTMLVideoElement): string {

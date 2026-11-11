@@ -1,10 +1,16 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  isTwimgCaptionAssetUrl,
   isTwimgSubtitleUrl,
   isXHost,
+  listXCaptionSourceUrls,
   listXSubtitleUrls,
+  parseHlsMediaSegments,
+  parseHlsSubtitleRenditions,
   pickPlayingXVideo,
+  pickXSubtitleRendition,
+  readXCaptionDom,
   resolveTwimgCaptionUrl,
 } from '@/captions/x';
 
@@ -21,6 +27,9 @@ describe('X caption adapter', () => {
     expect(isTwimgSubtitleUrl('https://video.twimg.com/subtitles/fixture.vtt?token=1')).toBe(true);
     expect(isTwimgSubtitleUrl('https://evil.example/subtitles/fixture.vtt')).toBe(false);
     expect(isTwimgSubtitleUrl('https://video.twimg.com/ext_tw_video/1.mp4')).toBe(false);
+    expect(isTwimgCaptionAssetUrl('https://video.twimg.com/subtitles/fixture.vtt')).toBe(true);
+    expect(isTwimgCaptionAssetUrl('https://video.twimg.com/amplify_video/1/pl/en.m3u8')).toBe(true);
+    expect(isTwimgCaptionAssetUrl('https://video.twimg.com/ext_tw_video/1.mp4')).toBe(false);
   });
 
   it('resolves twimg captions only from an X page', () => {
@@ -63,6 +72,77 @@ describe('X caption adapter', () => {
     stubVideo(large, { paused: false, width: 800, height: 450 });
     stubVideo(inline, { paused: false, width: 320, height: 180 });
     expect(pickPlayingXVideo(document, inline)).toBe(inline);
+  });
+
+  it('lists HLS playlist URLs from the playing video and resource timing', () => {
+    document.body.innerHTML = `
+      <div data-testid="videoPlayer">
+        <video id="playing">
+          <source src="https://video.twimg.com/amplify_video/1/pl/playlist.m3u8" />
+          <source src="/dummy.mp4" />
+        </video>
+      </div>
+    `;
+    const playing = document.querySelector('#playing') as HTMLVideoElement;
+    expect(listXCaptionSourceUrls(playing)).toContain(
+      'https://video.twimg.com/amplify_video/1/pl/playlist.m3u8',
+    );
+  });
+
+  it('does not inherit leftover twimg resource timing when the video has no caption URLs', () => {
+    document.body.innerHTML = '<video id="playing" src="/dummy.mp4"></video>';
+    const playing = document.querySelector('#playing') as HTMLVideoElement;
+    const view = playing.ownerDocument.defaultView;
+    const original = view?.performance.getEntriesByType.bind(view.performance);
+    if (view) {
+      view.performance.getEntriesByType = (type: string) => {
+        if (type !== 'resource') return original?.(type) ?? [];
+        return [
+          {
+            name: 'https://video.twimg.com/subtitles/stale.vtt',
+            duration: 0,
+            entryType: 'resource',
+            startTime: 0,
+            toJSON() {
+              return {};
+            },
+          },
+        ] as PerformanceEntryList;
+      };
+    }
+    expect(listXCaptionSourceUrls(playing)).toEqual([]);
+    if (view && original) view.performance.getEntriesByType = original;
+  });
+
+  it('picks a spoken HLS subtitle rendition and reads native X caption DOM without mutating it', () => {
+    const master = `#EXTM3U
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",LANGUAGE="en",DEFAULT=YES,URI="en.m3u8"
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Japanese",LANGUAGE="ja",URI="ja.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=800000,SUBTITLES="subs"
+video.m3u8
+`;
+    const renditions = parseHlsSubtitleRenditions(
+      master,
+      'https://video.twimg.com/amplify_video/1/pl/playlist.m3u8',
+    );
+    expect(renditions).toHaveLength(2);
+    expect(pickXSubtitleRendition(renditions, 'ja')?.language).toBe('en');
+    expect(
+      parseHlsMediaSegments(
+        '#EXTM3U\n#EXTINF:10,\nsegment.vtt\n',
+        'https://video.twimg.com/subtitles/pl.m3u8',
+      ),
+    ).toEqual(['https://video.twimg.com/subtitles/segment.vtt']);
+
+    document.body.innerHTML = `
+      <div data-testid="videoPlayer">
+        <div aria-live="polite" data-sakutto="x-native">The station opens at dawn.</div>
+        <button type="button">Captions</button>
+      </div>
+    `;
+    const native = document.querySelector('[data-sakutto="x-native"]') as HTMLElement;
+    expect(readXCaptionDom(document)).toBe('The station opens at dawn.');
+    expect(native.getAttribute('data-sakutto-native-caption')).toBeNull();
   });
 
   it('treats HAVE_METADATA as playing so inline MSE streams are not skipped', () => {

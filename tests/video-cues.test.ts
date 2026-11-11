@@ -515,6 +515,14 @@ describe('HTML5 caption tracks', () => {
     const twimg = 'https://video.twimg.com/subtitles/fixture.vtt';
     expect(resolveCaptionFetchUrl('https://x.com/i/status/1', twimg)).toBe(twimg);
     expect(resolveCaptionFetchUrl('https://www.youtube.com/watch?v=abcdefghijk', twimg)).toBeNull();
+    const hls = 'https://video.twimg.com/amplify_video/1/pl/en.m3u8';
+    expect(resolveCaptionFetchUrl('https://x.com/i/status/1', hls)).toBe(hls);
+    expect(
+      resolveCaptionFetchUrl(
+        'https://x.com/i/status/1',
+        'https://video.twimg.com/ext_tw_video/1.mp4',
+      ),
+    ).toBeNull();
   });
 });
 
