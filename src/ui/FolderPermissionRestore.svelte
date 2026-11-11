@@ -17,10 +17,12 @@
     folder: SharedFolderStatus | null | undefined;
     compact?: boolean;
     modelId?: ModelId | undefined;
+    /** Load the model after a grant. Off during onboarding until the license click. */
+    warm?: boolean;
     onRestored?: () => Promise<void> | void;
   }
 
-  let { folder, compact = false, modelId, onRestored }: Props = $props();
+  let { folder, compact = false, modelId, warm = true, onRestored }: Props = $props();
 
   let granting = $state(false);
   let grantError = $state(false);
@@ -31,7 +33,7 @@
   async function afterGrant(): Promise<void> {
     await requestModelFolderReload();
     notifySharedFolderChanged();
-    await requestEngineWarm();
+    if (warm) await requestEngineWarm();
     await onRestored?.();
   }
 

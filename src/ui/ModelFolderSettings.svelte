@@ -20,7 +20,9 @@
     sharedFolderPickerAvailable,
   } from '@/engine/model/shared-folder';
   import FolderPermissionRestore from '@/ui/FolderPermissionRestore.svelte';
+  import { hasLicenseConsent } from '@/shared/agreement';
   import { t } from '@/shared/i18n';
+  import { loadSettings } from '@/shared/storage';
   import { formatByteSizeList } from '@/ui/format';
   import SharedFolderBenefits from '@/ui/SharedFolderBenefits.svelte';
   import {
@@ -63,6 +65,13 @@
     pickHint = null;
     busy = true;
     try {
+      const settings = await loadSettings().catch(() => null);
+      if (!hasLicenseConsent(settings)) {
+        await browser.tabs
+          .create({ url: browser.runtime.getURL('/onboarding.html') })
+          .catch(() => undefined);
+        return;
+      }
       const picked = await adoptPickedSharedFolder();
       if (picked.status === 'cancelled') {
         pickHint = t('modelFolderPickerHint');

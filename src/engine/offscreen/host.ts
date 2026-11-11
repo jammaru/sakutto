@@ -630,6 +630,12 @@ export class EngineHost {
     this.touch();
 
     try {
+      const snapshot = await this.prewarmSnapshot();
+      if (!snapshot?.consented) {
+        const services = await this.services();
+        this.respond(port, requestId, await services.manager.status(this.activeModelId));
+        return;
+      }
       const services = await this.services();
       if (controller.signal.aborted) return;
       if (this.engineSource === 'local-server') {
@@ -740,6 +746,11 @@ export class EngineHost {
 
       if (sharedFolderNeedsPermission(this.folderSession?.status())) {
         throw folderPermissionError();
+      }
+
+      const snapshot = await this.prewarmSnapshot();
+      if (!snapshot?.consented) {
+        return services.manager.status(modelId);
       }
 
       await services.manager.download(modelId, {

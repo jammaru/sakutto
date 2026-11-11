@@ -10,8 +10,9 @@
   } from '@/engine/model/folder-status';
   import { isModelIntegrityError } from '@/engine/model/manager';
   import {
-    adoptPickedSharedFolder,
     clearStoredSharedFolder,
+    persistSharedFolderHandle,
+    preparePickedSharedFolder,
     sharedFolderPickerAvailable,
   } from '@/engine/model/shared-folder';
   import {
@@ -86,6 +87,7 @@
   let storeChoice = $state<OnboardingStoreChoice>(
     defaultOnboardingStoreChoice(sharedFolderPickerAvailable()),
   );
+  let storeTouched = $state(false);
   let pickError = $state<string | null>(null);
   let pickHint = $state<string | null>(null);
   let integrityAlert = $state<string | null>(null);
@@ -149,7 +151,9 @@
     }
     return `${formatByteSize(received)} / ${formatByteSize(total)}`;
   });
-  let showStartButton = $derived(!consentSaved || phase === 'paused' || phase === 'error');
+  let showStartButton = $derived(
+    !consentSaved || phase === 'paused' || phase === 'error' || Boolean(integrityAlert),
+  );
   /**
    * A sample page is only offered once the model is on disk. While the file is still
    * downloading, verifying, or loading there is nothing to sample: the page would keep its
@@ -210,56 +214,55 @@
     marks = next.length > 40 ? next.slice(-40) : next;
   }
 
+  function chooseStore(choice: OnboardingStoreChoice) {
+    storeTouched = true;
+    storeChoice = choice;
+  }
+
   async function start() {
     if (phase === 'downloading') return;
     if (startRequested && phase !== 'paused' && phase !== 'error') return;
     failureDetail = null;
     pickError = null;
     pickHint = null;
+    const retryPick = Boolean(integrityAlert);
     integrityAlert = null;
 
-    let skipDownload = modelState === 'ready' || modelState === 'loaded';
+    if (!storeTouched) {
+      const latest = await requestEngineStatus().catch(() => null);
+      if (latest?.sharedFolder) engineFolder = latest.sharedFolder;
+      storeChoice = defaultOnboardingStoreChoice(pickerAvailable, engineFolder.configured);
+    }
 
-    if (!consentSaved && pickerAvailable && storeChoice === 'folder') {
-      const adopted = await adoptPickedSharedFolder();
-      if (adopted.status === 'granted') resolvedFolderName = adopted.name;
-      const folder = adopted.status === 'granted' ? await requestModelFolderReload() : null;
-      const issue = folder?.integrityIssues.find((item) => item.modelId === DEFAULT_MODEL_ID);
-      if (issue) integrityAlert = t('modelFolderIntegrityFailed', [issue.file]);
-      if (adopted.status === 'granted' && !issue) {
-        await requestEngineWarm();
-        const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
-        if (inspected && (inspected.state === 'ready' || inspected.state === 'loaded')) {
-          skipDownload = true;
-          modelState = inspected.state;
-        }
+    let skipDownload = modelState === 'ready' || modelState === 'loaded';
+    let pendingFolder: { handle: FileSystemDirectoryHandle; name: string } | null = null;
+    const keepExistingFolder =
+      pickerAvailable && storeChoice === 'folder' && engineFolder.configured && !retryPick;
+
+    if (pickerAvailable && storeChoice === 'folder' && !keepExistingFolder) {
+      const prepared = await preparePickedSharedFolder();
+      if (prepared.status === 'granted') {
+        pendingFolder = { handle: prepared.handle, name: prepared.name };
+        resolvedFolderName = prepared.name;
       }
       const plan = planOnboardingDownload({
         pickerAvailable: true,
         choice: 'folder',
-        pick: adopted.status,
+        pick: prepared.status,
         modelState: skipDownload ? 'ready' : modelState,
-        integrityFailed: Boolean(issue),
+        integrityFailed: false,
       });
       if (plan === 'stay') {
-        if (adopted.status === 'cancelled') pickHint = t('modelFolderPickerHint');
-        if (adopted.status === 'denied') pickError = t('modelFolderPermissionNeeded');
-        if (adopted.status === 'failed') pickError = t('modelFolderPickFailed');
-        // Folder reload broadcasts model:progress error for a bad GGUF. Stay on
-        // consent with the one integrity line; do not also open the error panel.
-        if (issue) phase = 'consent';
+        if (prepared.status === 'cancelled') pickHint = t('modelFolderPickerHint');
+        if (prepared.status === 'denied') pickError = t('modelFolderPermissionNeeded');
+        if (prepared.status === 'failed') pickError = t('modelFolderPickFailed');
         return;
       }
-      skipDownload = plan === 'skip';
-    } else if (!consentSaved && pickerAvailable && storeChoice === 'browser') {
+    } else if (pickerAvailable && storeChoice === 'browser') {
       resolvedFolderName = null;
-      await clearStoredSharedFolder();
-      await requestModelFolderReload();
     }
 
-    const alreadyReady = skipDownload;
     startRequested = true;
-    if (!alreadyReady) phase = 'downloading';
 
     const source = targetLanguage === 'en' ? 'ja' : 'en';
     const pack = prepareTranslatorPack(source, targetLanguage);
@@ -281,6 +284,51 @@
       startRequested = false;
       return;
     }
+
+    if (pickerAvailable && storeChoice === 'browser') {
+      await clearStoredSharedFolder();
+      await requestModelFolderReload();
+      const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
+      skipDownload = Boolean(
+        inspected && (inspected.state === 'ready' || inspected.state === 'loaded'),
+      );
+      if (inspected) modelState = inspected.state;
+    }
+
+    if (pendingFolder) {
+      await persistSharedFolderHandle(pendingFolder.handle);
+      const folder = await requestModelFolderReload();
+      const issue = folder?.integrityIssues.find((item) => item.modelId === DEFAULT_MODEL_ID);
+      if (issue) {
+        await clearStoredSharedFolder();
+        await requestModelFolderReload();
+        integrityAlert = t('modelFolderIntegrityFailed', [issue.file]);
+        startRequested = false;
+        phase = 'consent';
+        return;
+      }
+      await requestEngineWarm();
+      const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
+      if (inspected && (inspected.state === 'ready' || inspected.state === 'loaded')) {
+        skipDownload = true;
+        modelState = inspected.state;
+      }
+    } else if (keepExistingFolder) {
+      await requestEngineWarm();
+      const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
+      if (inspected && (inspected.state === 'ready' || inspected.state === 'loaded')) {
+        skipDownload = true;
+        modelState = inspected.state;
+      }
+    }
+
+    const alreadyReady =
+      planOnboardingDownload({
+        pickerAvailable,
+        choice: storeChoice,
+        ...(pendingFolder ? { pick: 'granted' as const } : {}),
+        modelState: skipDownload ? 'ready' : modelState,
+      }) === 'skip';
 
     if (received > 0) continued = true;
 
@@ -352,7 +400,17 @@
       .catch(() => undefined)
       .then(() => requestEngineStatus())
       .then((status) => {
-        if (status?.sharedFolder) engineFolder = status.sharedFolder;
+        if (!status?.sharedFolder) return;
+        engineFolder = status.sharedFolder;
+        if (!storeTouched && !startRequested) {
+          storeChoice = defaultOnboardingStoreChoice(
+            pickerAvailable,
+            status.sharedFolder.configured,
+          );
+        }
+        if (status.sharedFolder.configured && status.sharedFolder.name) {
+          resolvedFolderName = status.sharedFolder.name;
+        }
       })
       .catch(() => undefined)
       .then(() => requestModelInspect(DEFAULT_MODEL_ID))
@@ -530,16 +588,31 @@
           <legend>{t('onboardingStoreLegend')}</legend>
           <div class="store-recommended" data-store-recommended>
             <label class="store-choice">
-              <input type="radio" name="onboarding-store" value="folder" bind:group={storeChoice} />
+              <input
+                type="radio"
+                name="onboarding-store"
+                value="browser"
+                bind:group={storeChoice}
+                onchange={() => chooseStore('browser')}
+              />
+              <span>{t('onboardingStoreBrowser')}</span>
+            </label>
+          </div>
+          <div class="store-opt-in">
+            <label class="store-choice">
+              <input
+                type="radio"
+                name="onboarding-store"
+                value="folder"
+                bind:group={storeChoice}
+                onchange={() => chooseStore('folder')}
+              />
               <span>{t('onboardingStoreFolder')}</span>
             </label>
+            <p class="muted start-note">{t('onboardingStoreFolderHelp')}</p>
             <p class="muted start-note">{t('modelFolderPickerHint')}</p>
             <p class="muted start-note">{t('modelFolderPersistentHint')}</p>
           </div>
-          <label class="store-choice">
-            <input type="radio" name="onboarding-store" value="browser" bind:group={storeChoice} />
-            <span>{t('onboardingStoreBrowser')}</span>
-          </label>
           <SharedFolderBenefits leadKey="modelFolderBenefitsLead" sizeLabel={folderSizeLabel} />
         </fieldset>
       {/if}
@@ -558,6 +631,7 @@
       <FolderPermissionRestore
         folder={engineFolder}
         modelId={DEFAULT_MODEL_ID}
+        warm={consentSaved}
         onRestored={async () => {
           const next = await requestEngineStatus();
           if (next?.sharedFolder) engineFolder = next.sharedFolder;
@@ -763,12 +837,13 @@
     font-size: 14px;
   }
 
-  .store-recommended {
+  .store-recommended,
+  .store-opt-in {
     display: grid;
     gap: var(--space-1);
   }
 
-  .store-recommended .start-note {
+  .store-opt-in .start-note {
     margin-left: 1.6em;
   }
 

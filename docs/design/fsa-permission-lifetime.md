@@ -198,23 +198,30 @@ always-open document.
 Playwright cannot prove FSA grant lifetime (the picker is mocked with OPFS
 handles). Use a real GGUF (not the e2e sparse plant).
 
-1. **Chrome, new profile.** Install the unpacked build. First-run: pick
-   `Documents\Sakutto` on onboarding (a tab). Watch whether Chrome offers
-   **Allow on every visit**; it may not. Translate a page. Close every
-   Sakutto tab and the popup. Translate again. If it stops, the popup must
-   show 「フォルダへのアクセスを許可」 (no download). One click should resume.
-   Restart Chrome. Same: no silent failure, no re-download, one click if
-   needed. If Chrome did persist, translation may work with no click — that
-   is detected, not promised.
+1. **Chrome, new profile.** Install the unpacked build. First-run keeps
+   browser storage preselected. To try the folder, opt in on onboarding or
+   pick `Documents\Sakutto` from the Settings tab. Watch whether Chrome
+   offers **Allow on every visit** (Japanese Chrome:
+   「サイトアクセス時は常に許可」; the three options are
+   「今回のみ許可」 / 「サイトアクセス時は常に許可」 / 「許可しない」);
+   it may not. Translate a page. Close
+   every Sakutto tab and the popup. Translate again. If it stops, the popup
+   must show 「フォルダへのアクセスを許可」 (no download). One click should
+   resume. Restart Chrome. Same: no silent failure, no re-download, one
+   click if needed. If Chrome did persist, translation may work with no
+   click — that is detected, not promised.
 2. **Existing-user migration.** Profile that already has the model in OPFS
    (browser storage). After update, open the popup. The move card must open
    **Settings** (not pick in the popup). Choose `Documents\Sakutto` there.
    After the copy finishes, OPFS `sakutto/models` should be empty (one copy).
    Then the same close/restart checks as (1).
-3. **Edge.** Repeat (1) from a **Settings / onboarding tab**, not the popup.
-   If Edge shows **Allow on every visit**, pick it and restart. If it does
-   not, the popup must show 「フォルダへのアクセスを許可」 after restart
-   (no download card). One click is enough for that visit. See §8.
+3. **Edge.** Repeat (1) from a **Settings tab**, not the popup. If Edge
+   shows the three-way prompt, the persistent option is the middle one,
+   labelled **Allow on every visit** in English and
+   「アクセスするたびに確認する」 in Japanese Edge. Pick that and restart.
+   If it does not persist, the popup must show 「フォルダへのアクセスを許可」
+   after restart (no download card). One click is enough for that visit.
+   See §8.
 
 4. **Second Chrome profile.** Profile A has a persistent grant on
    `Documents\Sakutto`. Profile B picks the same folder. Profile A must not
@@ -287,7 +294,12 @@ gesture: [electron#41957](https://github.com/electron/electron/issues/41957).
    `chrome-extension://` without the three-way prompt (same as Chrome;
    `FileSystemAccessPermissionRequestManager` needs
    `tabs::TabInterface`). A popup click is this-visit only.
-2. If Edge shows **Allow on every visit**, pick it. That sets
+2. If Edge shows **Allow on every visit**, pick it (Japanese Edge, verified
+   from a real screenshot: 「この時間を許可する」 /
+   「アクセスするたびに確認する」 / 「許可しない」 — pick the middle
+   option). Japanese Chrome’s matching prompt (also a real screenshot) is
+   「今回のみ許可」 / 「サイトアクセス時は常に許可」 / 「許可しない」.
+   That sets
    `FILE_SYSTEM_ACCESS_EXTENDED_PERMISSION` ALLOW. After restart,
    offscreen can auto-grant with no click. This is the only no-click
    restart path. It does not always appear (same as Chrome).
@@ -316,13 +328,17 @@ gesture: [electron#41957](https://github.com/electron/electron/issues/41957).
    automatically” path (same Chromium `OriginHasExtendedPermission` as
    Chrome).
 
-**Detect Edge and default to browser storage?** We can detect Chromium
-Edge (`navigator.userAgentData` brand `Microsoft Edge`, or `Edg/` in
-`userAgent`; `isMicrosoftEdge()`). We do **not** default Edge to OPFS.
-The shared folder exists so Chrome and Edge can share one GGUF. Edge 122+
-can persist if the tab restore prompt appears (Kiwix). After restart we
-already detect a missing grant and show one-click restore. Defaulting
-Edge to browser storage would create a second copy and hide the sharing
-path. Keep the folder optional; default remains “this browser” in
-Settings copy (`modelFolderHelp`) and first-run still recommends the
-folder when the picker exists.
+**Default is browser storage for everyone.** First-run on Chrome and Edge
+preselects OPFS (`defaultOnboardingStoreChoice`). The shared folder is
+opt-in for people who use both browsers (one GGUF). Existing folder users
+keep the folder; there is no forced migration. Grant from a Settings tab
+and pick **Allow on every visit**. Verified Japanese labels from real
+screenshots: Chrome 「サイトアクセス時は常に許可」 (options:
+「今回のみ許可」 / 「サイトアクセス時は常に許可」 / 「許可しない」);
+Edge 「アクセスするたびに確認する」 (options: 「この時間を許可する」 /
+「アクセスするたびに確認する」 / 「許可しない」). Edge 122+ can persist
+if that tab prompt appears and the middle option is chosen (confirmed on
+a real Japanese Edge restart). After restart we already detect a missing grant
+and show one-click restore. A re-grant may sometimes be needed; copy says
+so. `isMicrosoftEdge()` is still used for runtime labels, not for a
+different storage default.

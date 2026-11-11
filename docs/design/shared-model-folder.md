@@ -2,8 +2,11 @@
 
 Opt-in storage for official PFN GGUF files on Chromium, via
 `showDirectoryPicker`. Firefox and pages without a picker keep OPFS and show
-no choice. Chromium first-run recommends a shared folder so a new user sets
-it up before any download. Proposal 2 (a native helper) is out of scope.
+no choice. Chromium first-run (Chrome and Edge alike) recommends browser
+storage (OPFS). The shared folder is an opt-in for people who use both
+Chrome and Edge, so one GGUF copy is shared between them. A profile that
+already uses a folder keeps it; there is no forced migration. Proposal 2 (a
+native helper) is out of scope.
 
 This note names no issue authors. The picker copy and the Chromium blocklist
 below are the reason Documents itself is not an advertised choice.
@@ -14,14 +17,18 @@ The picker opens in Documents (`startIn: 'documents'`, id `sakutto-models`).
 Copy on onboarding, Settings, and the one-time move card tells the user to
 create a folder named `Sakutto` there (or open it if it already exists) and
 select `Documents\Sakutto`. Selecting Documents itself cannot work in real
-Chrome. On Chromium onboarding that shared-folder option is first, labelled
-recommended, and preselected; the picker steps sit directly under it. Save in
-this browser remains the other choice. Cancel or Chrome's block dialog stays
-on the screen with the same one-line hint and does not download. Choosing
-browser storage does not dismiss the later popup card: that card is for an
-official model already in OPFS with no folder configured, including a new
-user who saved in this browser and an existing user after update. The card
-persists as shown only after the popup actually rendered it.
+Chrome. On Chromium onboarding, save in this browser is first, labelled
+recommended, and preselected. The shared-folder option is second, described
+as for Chrome and Edge together; the picker steps and the persistence hint
+sit under it. Grant from the Settings tab and pick “Allow on every visit”
+(Japanese Chrome: 「サイトアクセス時は常に許可」; Japanese Edge:
+「アクセスするたびに確認する」). A one-click re-grant may sometimes be
+needed. Cancel or Chrome's block dialog stays on the screen with the same
+one-line hint and does not download. Choosing browser storage does not
+dismiss the later popup card: that card is for an official model already in
+OPFS with no folder configured, including a new user who saved in this
+browser and an existing user after update. The card persists as shown only
+after the popup actually rendered it.
 
 A popup-card move opens Settings as a tab so the picker and `requestPermission`
 run there (Chrome can offer “Allow on every visit”). The copy into the folder

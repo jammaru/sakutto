@@ -211,12 +211,18 @@ describe('locale messages', () => {
     expect(ja.modelFolderPickerHint?.message).toBe(
       'フォルダ選択はドキュメントで開きます。「Sakutto」を新規作成するか、すでにあれば開いて、ドキュメント\\Sakutto を選んでください。',
     );
-    expect(en.onboardingStoreFolderHelp?.message).toBe(en.modelFolderPickerHint?.message);
-    expect(ja.onboardingStoreFolderHelp?.message).toBe(ja.modelFolderPickerHint?.message);
-    expect(en.onboardingStoreFolder?.message).toBe('Use a shared model folder (recommended)');
-    expect(ja.onboardingStoreFolder?.message).toBe('共有モデルフォルダを使う（おすすめ）');
-    expect(en.onboardingStoreBrowser?.message).toBe('Save in this browser');
-    expect(ja.onboardingStoreBrowser?.message).toBe('このブラウザ内に保存する');
+    expect(en.onboardingStoreFolderHelp?.message).toBe(
+      'For people who use both Chrome and Edge: one copy of the model is shared between them.',
+    );
+    expect(ja.onboardingStoreFolderHelp?.message).toBe(
+      'ChromeとEdgeの両方で使う人向けです。モデルは1つで済みます。',
+    );
+    expect(en.onboardingStoreFolder?.message).toBe('Use a shared model folder (Chrome and Edge)');
+    expect(ja.onboardingStoreFolder?.message).toBe(
+      '共有モデルフォルダを使う（ChromeとEdgeで共用）',
+    );
+    expect(en.onboardingStoreBrowser?.message).toBe('Save in this browser (recommended)');
+    expect(ja.onboardingStoreBrowser?.message).toBe('このブラウザ内に保存する（おすすめ）');
     expect(en.modelFolderHelp?.message).toBe('The default is still storage inside this browser.');
     expect(ja.modelFolderHelp?.message).toBe('既定はこれまでどおり、このブラウザ内への保存です。');
     expect(en.modelFolderPickerHint?.message).toContain('Documents\\Sakutto');
@@ -238,6 +244,12 @@ describe('locale messages', () => {
     expect(en.modelFolderPersistentHint?.message).not.toMatch(/never need/i);
     expect(ja.modelFolderPersistentHint?.message).not.toMatch(/必ず|二度と|毎回クリック/);
     expect(ja.modelFolderPersistentHint?.message).toContain('出ないこともあります');
+    expect(en.modelFolderPersistentHint?.message).toContain('サイトアクセス時は常に許可');
+    expect(en.modelFolderPersistentHint?.message).toContain('アクセスするたびに確認する');
+    expect(en.modelFolderPersistentHint?.message).not.toContain('アクセスするたびに許可する');
+    expect(ja.modelFolderPersistentHint?.message).toContain('サイトアクセス時は常に許可');
+    expect(ja.modelFolderPersistentHint?.message).toContain('アクセスするたびに確認する');
+    expect(ja.modelFolderPersistentHint?.message).not.toContain('アクセスするたびに許可する');
     for (const locale of catalogs) {
       expect(readMessages(locale).modelFolderBenefitSpace?.message, locale).toContain('$SIZE$');
       expect(readMessages(locale).modelFolderBenefitSpace?.message, locale).not.toMatch(

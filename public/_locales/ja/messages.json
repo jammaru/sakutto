@@ -250,13 +250,13 @@
     "message": "モデルの保存先"
   },
   "onboardingStoreBrowser": {
-    "message": "このブラウザ内に保存する"
+    "message": "このブラウザ内に保存する（おすすめ）"
   },
   "onboardingStoreFolder": {
-    "message": "共有モデルフォルダを使う（おすすめ）"
+    "message": "共有モデルフォルダを使う（ChromeとEdgeで共用）"
   },
   "onboardingStoreFolderHelp": {
-    "message": "フォルダ選択はドキュメントで開きます。「Sakutto」を新規作成するか、すでにあれば開いて、ドキュメント\\Sakutto を選んでください。"
+    "message": "ChromeとEdgeの両方で使う人向けです。モデルは1つで済みます。"
   },
   "onboardingStartFailed": {
     "message": "準備を開始できませんでした。もう一度お試しください。"
@@ -704,7 +704,7 @@
     "message": "設定でフォルダを選ぶ"
   },
   "modelFolderPersistentHint": {
-    "message": "Chromeが「毎回許可する」と聞いてきたら、それを選ぶと再起動のあとも使えます。出ないこともあります。"
+    "message": "設定タブで許可してください（ポップアップではなく）。Chromeなら「サイトアクセス時は常に許可」、Edgeなら「アクセスするたびに確認する」を選んでください。再起動のあとも使えます。出ないこともあります。あとでワンクリックの再許可が必要なこともあります。"
   },
   "modelFolderPickFailed": {
     "message": "フォルダを選べませんでした。"

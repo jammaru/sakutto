@@ -473,7 +473,8 @@ export function isFolderPickerAbort(error: unknown): boolean {
 export type SharedFolderAdoptResult = 'granted' | 'cancelled' | 'denied' | 'failed';
 
 export type SharedFolderAdoptOutcome =
-  { status: 'granted'; name: string } | { status: 'cancelled' | 'denied' | 'failed' };
+  | { status: 'granted'; handle: FileSystemDirectoryHandle; name: string }
+  | { status: 'cancelled' | 'denied' | 'failed' };
 
 export interface SharedFolderAdoptHooks {
   pick?: () => Promise<FileSystemDirectoryHandle>;
@@ -482,23 +483,39 @@ export interface SharedFolderAdoptHooks {
   resolve?: (handle: FileSystemDirectoryHandle) => Promise<FileSystemDirectoryHandle>;
 }
 
-/** Picker + permission + IndexedDB persist. Reload of the engine host is left to the caller. */
-export async function adoptPickedSharedFolder(
-  hooks: SharedFolderAdoptHooks = {},
+/**
+ * Picker + permission, no IndexedDB write. Onboarding uses this so a folder is not
+ * linked until the license click has been recorded.
+ */
+export async function preparePickedSharedFolder(
+  hooks: Omit<SharedFolderAdoptHooks, 'persist'> = {},
 ): Promise<SharedFolderAdoptOutcome> {
   const pick = hooks.pick ?? pickSharedModelFolder;
   const requestPermission = hooks.requestPermission ?? requestFolderPermission;
-  const persist = hooks.persist ?? persistSharedFolderHandle;
   const resolve = hooks.resolve ?? resolveSharedFolderRoot;
   try {
     const handle = await pick();
     const permission = await requestPermission(handle);
     if (permission !== 'granted') return { status: 'denied' };
     const resolved = await resolve(handle);
-    const stored = await persist(resolved);
-    return { status: 'granted', name: stored.name };
+    return { status: 'granted', handle: resolved, name: resolved.name };
   } catch (error) {
     if (isFolderPickerAbort(error)) return { status: 'cancelled' };
+    return { status: 'failed' };
+  }
+}
+
+/** Picker + permission + IndexedDB persist. Reload of the engine host is left to the caller. */
+export async function adoptPickedSharedFolder(
+  hooks: SharedFolderAdoptHooks = {},
+): Promise<SharedFolderAdoptOutcome> {
+  const persist = hooks.persist ?? persistSharedFolderHandle;
+  const prepared = await preparePickedSharedFolder(hooks);
+  if (prepared.status !== 'granted') return prepared;
+  try {
+    const stored = await persist(prepared.handle);
+    return { status: 'granted', handle: stored.handle, name: stored.name };
+  } catch {
     return { status: 'failed' };
   }
 }

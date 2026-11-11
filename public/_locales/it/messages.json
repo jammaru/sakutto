@@ -250,13 +250,13 @@
     "message": "Dove salvare il modello"
   },
   "onboardingStoreBrowser": {
-    "message": "Salva in questo browser"
+    "message": "Salva in questo browser (consigliato)"
   },
   "onboardingStoreFolder": {
-    "message": "Usa una cartella modelli condivisa (consigliato)"
+    "message": "Usa una cartella modelli condivisa (Chrome ed Edge)"
   },
   "onboardingStoreFolderHelp": {
-    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
+    "message": "For people who use both Chrome and Edge: one copy of the model is shared between them."
   },
   "onboardingStartFailed": {
     "message": "L'avvio non è avvenuto. Riprova."
@@ -704,7 +704,7 @@
     "message": "Choose the folder in Settings"
   },
   "modelFolderPersistentHint": {
-    "message": "Chrome may ask whether to remember this folder. If it offers “Allow on every visit”, that keeps access after a restart. It does not always appear."
+    "message": "Grant access from the Settings tab, not the popup. If the browser offers “Allow on every visit”, pick that. Japanese Chrome labels it 「サイトアクセス時は常に許可」; Japanese Edge labels it 「アクセスするたびに確認する」. A one-click re-grant may sometimes be needed."
   },
   "modelFolderPickFailed": {
     "message": "The folder could not be selected."

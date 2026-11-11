@@ -7,8 +7,8 @@ import { DEFAULT_MODEL_ID, getModel } from '../src/engine/model/catalog';
 
 const PICKER_HINT =
   'The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto.';
-const FOLDER_RADIO = 'Use a shared model folder (recommended)';
-const BROWSER_RADIO = 'Save in this browser';
+const FOLDER_RADIO = 'Use a shared model folder (Chrome and Edge)';
+const BROWSER_RADIO = 'Save in this browser (recommended)';
 const OFFER_OPEN_SETTINGS = 'Choose the folder in Settings';
 const ALLOW_FOLDER_ACCESS = 'Allow folder access';
 
@@ -27,6 +27,7 @@ test.describe('shared model folder', () => {
       await expect(
         page.getByText('One copy on disk, so you save space (573 MB / 1.81 GB).'),
       ).toBeVisible();
+      await plantLicenseConsent(page);
       const choose = page.getByRole('button', { name: 'Choose model folder' });
       const stop = page.getByRole('button', { name: 'Stop using shared folder' });
       await expect(choose).toBeVisible();
@@ -81,6 +82,7 @@ test.describe('shared model folder', () => {
     try {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await plantLicenseConsent(page);
       await page.evaluate(async () => {
         const root = await navigator.storage.getDirectory();
         const documents = await root.getDirectoryHandle('Documents', { create: true });
@@ -112,12 +114,59 @@ test.describe('shared model folder', () => {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
       await plantVerifiedSharedModel(page);
+      await page.getByRole('radio', { name: FOLDER_RADIO }).check();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(page.getByRole('heading', { name: "You're ready." })).toBeVisible({
         timeout: 30_000,
       });
       await expect(page.getByRole('button', { name: 'Try a sample page' })).toBeVisible();
       expect(hits).toEqual([]);
+      await page.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('onboarding stays on the license screen when a folder already has a verified file', async () => {
+    const extension = await loadExtension('en-US');
+    const hits = await interceptGguf(extension, 'hang');
+    try {
+      const planter = await extension.context.newPage();
+      await planter.goto(`chrome-extension://${extension.extensionId}/sample.html`);
+      await plantVerifiedSharedModel(planter);
+      await persistPlantedSharedFolder(planter);
+      await reloadFolder(planter);
+      await planter.close();
+
+      const page = await extension.context.newPage();
+      await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
+      await expect(
+        page.getByRole('button', { name: 'Agree to the license and start' }),
+      ).toBeVisible();
+      await expect(page.getByRole('heading', { name: "You're ready." })).toHaveCount(0);
+      await expect(page.getByRole('radio', { name: FOLDER_RADIO })).toBeChecked();
+      expect(hits).toEqual([]);
+      await page.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('onboarding downloads into the browser when the recommended option is left selected', async () => {
+    const extension = await loadExtension('en-US');
+    await interceptGguf(extension, 'hang');
+    try {
+      const page = await extension.context.newPage();
+      await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
+      await mockEmptySharedFolder(page);
+      await expect(page.getByRole('radio', { name: BROWSER_RADIO })).toBeChecked();
+      await page.getByRole('button', { name: 'Agree to the license and start' }).click();
+      await expect(page.getByText('Downloading 0% (0 MB / 573 MB)')).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect
+        .poll(async () => readSharedFolder(page), { timeout: 15_000 })
+        .toMatchObject({ configured: false });
       await page.close();
     } finally {
       await extension.close();
@@ -131,7 +180,8 @@ test.describe('shared model folder', () => {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
       await mockEmptySharedFolder(page);
-      await expect(page.getByRole('radio', { name: FOLDER_RADIO })).toBeChecked();
+      await expect(page.getByRole('radio', { name: BROWSER_RADIO })).toBeChecked();
+      await page.getByRole('radio', { name: FOLDER_RADIO }).check();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(page.getByText('Downloading 0% (0 MB / 573 MB)')).toBeVisible({
         timeout: 30_000,
@@ -158,6 +208,7 @@ test.describe('shared model folder', () => {
     try {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
+      await page.getByRole('radio', { name: FOLDER_RADIO }).check();
       await page.evaluate(async (fileName) => {
         const root = await navigator.storage.getDirectory();
         const chosen = await root.getDirectoryHandle('e2e-shared', { create: true });
@@ -178,9 +229,8 @@ test.describe('shared model folder', () => {
       await expect(alert).toHaveText(
         `The file ${official} is not the official PLaMo model, so Sakutto will not use it.`,
       );
-      await expect(
-        page.getByRole('button', { name: 'Agree to the license and start' }),
-      ).toBeVisible();
+      await expect(page.getByRole('heading', { name: "You're ready." })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Resume' })).toBeVisible();
       expect(hits).toEqual([]);
       await page.close();
     } finally {
@@ -203,7 +253,8 @@ test.describe('shared model folder', () => {
           throw new DOMException('The user aborted a request.', 'AbortError');
         };
       });
-      await expect(page.getByRole('radio', { name: FOLDER_RADIO })).toBeChecked();
+      await expect(page.getByRole('radio', { name: BROWSER_RADIO })).toBeChecked();
+      await page.getByRole('radio', { name: FOLDER_RADIO }).check();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(
         page.getByRole('button', { name: 'Agree to the license and start' }),
@@ -233,6 +284,7 @@ test.describe('shared model folder', () => {
           throw new DOMException('The user aborted a request.', 'AbortError');
         };
       });
+      await page.getByRole('radio', { name: FOLDER_RADIO }).check();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(page.locator('[data-folder-picker-hint]')).toHaveText(PICKER_HINT);
       await page.getByRole('radio', { name: BROWSER_RADIO }).check();
@@ -254,6 +306,7 @@ test.describe('shared model folder', () => {
     try {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await plantLicenseConsent(page);
       await page.evaluate(() => {
         (
           globalThis as unknown as {
@@ -279,6 +332,7 @@ test.describe('shared model folder', () => {
     try {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
+      await page.getByRole('radio', { name: FOLDER_RADIO }).check();
       await page.evaluate(async () => {
         const root = await navigator.storage.getDirectory();
         const documents = await root.getDirectoryHandle('Documents', { create: true });
@@ -319,6 +373,7 @@ test.describe('shared model folder', () => {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
       await plantVerifiedSharedModel(page, 'Sakutto');
+      await page.getByRole('radio', { name: FOLDER_RADIO }).check();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(page.getByRole('heading', { name: "You're ready." })).toBeVisible({
         timeout: 30_000,
@@ -497,9 +552,8 @@ test.describe('shared model folder', () => {
       const offer = popup.getByText('Moving to a shared folder means:');
       await expect(offer).toBeVisible({ timeout: 30_000 });
       await expect(popup.getByText(PICKER_HINT)).toBeVisible();
-      await expect(
-        popup.getByText('Chrome may ask whether to remember this folder.'),
-      ).toBeVisible();
+      await expect(popup.getByText('サイトアクセス時は常に許可')).toBeVisible();
+      await expect(popup.getByText('アクセスするたびに確認する')).toBeVisible();
       await expect(popup.getByText('One copy on disk, so you save space (573 MB).')).toBeVisible();
       await expect(
         popup.getByRole('button', { name: 'Choose the folder in Settings' }),
@@ -548,6 +602,7 @@ test.describe('shared model folder', () => {
       await expect(options.getByRole('heading', { name: 'Shared model folder' })).toBeVisible({
         timeout: 15_000,
       });
+      await plantLicenseConsent(options);
       await options.evaluate(() => {
         (
           globalThis as unknown as {
@@ -727,6 +782,7 @@ test.describe('shared model folder', () => {
     try {
       const options = await extension.context.newPage();
       await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await plantLicenseConsent(options);
       await mockEmptySharedFolder(options);
       await options.getByRole('button', { name: 'Choose model folder' }).click();
       await expect
@@ -781,6 +837,7 @@ test.describe('shared model folder', () => {
     try {
       const options = await extension.context.newPage();
       await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await plantLicenseConsent(options);
       await mockEmptySharedFolder(options);
       await options.getByRole('button', { name: 'Choose model folder' }).click();
       await expect
@@ -859,9 +916,70 @@ async function pickFolderFromPopupOffer(extension: LoadedExtension, popup: Page)
   await expect(options.getByRole('heading', { name: 'Shared model folder' })).toBeVisible({
     timeout: 15_000,
   });
+  await plantLicenseConsent(options);
   await mockEmptySharedFolder(options);
   await options.getByRole('button', { name: 'Choose model folder' }).click();
   return options;
+}
+
+async function plantLicenseConsent(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const chrome = (
+      globalThis as unknown as {
+        chrome: {
+          storage: {
+            local: {
+              get(key: string): Promise<Record<string, unknown>>;
+              set(items: Record<string, unknown>): Promise<void>;
+            };
+          };
+        };
+      }
+    ).chrome;
+    const stored = await chrome.storage.local.get('settings');
+    const previous =
+      stored.settings && typeof stored.settings === 'object'
+        ? (stored.settings as Record<string, unknown>)
+        : {};
+    await chrome.storage.local.set({
+      settings: {
+        ...previous,
+        schemaVersion: 1,
+        consent: {
+          license: 'plamo-community',
+          version: '2026-11-05',
+          notice: '2026-11-06',
+          acceptedAt: '2026-11-05T00:00:00.000Z',
+          ageNoticeShown: true,
+        },
+      },
+    });
+  });
+}
+
+async function persistPlantedSharedFolder(page: Page, folderName = 'e2e-shared'): Promise<void> {
+  await page.evaluate(async (name) => {
+    const root = await navigator.storage.getDirectory();
+    const chosen = await root.getDirectoryHandle(name);
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('sakutto-model-folder', 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains('handles')) db.createObjectStore('handles');
+      };
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction('handles', 'readwrite');
+        tx.objectStore('handles').put(
+          { handle: chosen, name: chosen.name, savedAt: Date.now() },
+          'directory',
+        );
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error ?? new Error('persist failed'));
+      };
+      request.onerror = () => reject(request.error ?? new Error('open failed'));
+    });
+  }, folderName);
 }
 
 async function setPermissionOverride(

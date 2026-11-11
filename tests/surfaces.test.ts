@@ -53,6 +53,27 @@ describe('start controls while the model downloads', () => {
     );
   });
 
+  it('records license consent before linking a folder or starting the engine', () => {
+    const start = onboarding.slice(onboarding.indexOf('async function start()'));
+    expect(onboarding).toContain('preparePickedSharedFolder');
+    expect(start).not.toContain('adoptPickedSharedFolder');
+    expect(start.indexOf('saveSettings')).toBeGreaterThan(-1);
+    expect(start.indexOf('saveSettings')).toBeLessThan(start.indexOf('persistSharedFolderHandle'));
+    expect(onboarding).toContain('warm={consentSaved}');
+    expect(source('ui/ModelFolderSettings.svelte')).toContain('hasLicenseConsent');
+    expect(source('engine/offscreen/host.ts')).toContain('if (!snapshot?.consented)');
+  });
+
+  it('preselects browser storage on onboarding when no folder is already configured', () => {
+    expect(source('ui/onboarding-store.ts')).toContain("return 'browser'");
+    expect(onboarding).toContain('value="browser"');
+    expect(onboarding.indexOf('value="browser"')).toBeLessThan(
+      onboarding.indexOf('value="folder"'),
+    );
+    expect(onboarding).toContain('data-store-recommended');
+    expect(onboarding).toContain('onboardingStoreFolderHelp');
+  });
+
   it('does not offer a download when the shared folder needs permission again', () => {
     expect(modelManager).toContain('sharedFolderNeedsPermission');
     expect(modelManager).toContain('folderBlocked');

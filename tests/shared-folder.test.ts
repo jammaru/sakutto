@@ -8,6 +8,7 @@ import {
   SHARED_MODELS_DIRECTORY,
   isStoredSharedFolder,
   adoptPickedSharedFolder,
+  preparePickedSharedFolder,
   isDocumentsFolderName,
   isRecommendedSharedFolderName,
   openSharedModelsDirectory,
@@ -265,7 +266,7 @@ describe('adoptPickedSharedFolder', () => {
         pick: async () => handle,
         persist,
       }),
-    ).toEqual({ status: 'granted', name: 'Models' });
+    ).toEqual({ status: 'granted', handle, name: 'Models' });
     expect(persist).toHaveBeenCalledOnce();
   });
 
@@ -276,12 +277,15 @@ describe('adoptPickedSharedFolder', () => {
       name: handle.name,
       savedAt: 1,
     }));
-    expect(
-      await adoptPickedSharedFolder({
-        pick: async () => fakeHandleFrom(documents),
-        persist,
-      }),
-    ).toEqual({ status: 'granted', name: SHARED_APP_DIRECTORY });
+    const granted = await adoptPickedSharedFolder({
+      pick: async () => fakeHandleFrom(documents),
+      persist,
+    });
+    expect(granted.status).toBe('granted');
+    if (granted.status === 'granted') {
+      expect(granted.name).toBe(SHARED_APP_DIRECTORY);
+      expect(granted.handle.name).toBe(SHARED_APP_DIRECTORY);
+    }
     expect(persist.mock.calls[0]?.[0]?.name).toBe(SHARED_APP_DIRECTORY);
   });
 
@@ -302,6 +306,19 @@ describe('adoptPickedSharedFolder', () => {
         persist,
       }),
     ).toEqual({ status: 'denied' });
+    expect(persist).not.toHaveBeenCalled();
+  });
+});
+
+describe('preparePickedSharedFolder', () => {
+  it('returns the handle without persisting', async () => {
+    const handle = fakeHandle({ permission: 'granted' });
+    const persist = vi.fn();
+    expect(
+      await preparePickedSharedFolder({
+        pick: async () => handle,
+      }),
+    ).toEqual({ status: 'granted', handle, name: handle.name });
     expect(persist).not.toHaveBeenCalled();
   });
 });

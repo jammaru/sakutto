@@ -250,6 +250,8 @@ describe('EngineHost', () => {
     const port = new FakePort();
     host.handlePort(port.port);
 
+    port.emit(runtimeSet({ consented: true, requestId: 'runtime-on' }));
+    await flushTasks();
     port.emit({ type: 'model-download', requestId: 'd1', modelId: DEFAULT_MODEL_ID });
     await flushTasks();
     expect(port.messagesOfType('model-progress')).toHaveLength(1);
@@ -651,6 +653,8 @@ describe('EngineHost', () => {
       });
     }) as never;
 
+    port.emit(runtimeSet({ consented: true, requestId: 'runtime-on' }));
+    await flushTasks();
     port.emit({ type: 'model-warm', requestId: 'w1' });
     await flushTasks();
     port.emit({ type: 'model-set', requestId: 'm1', modelId: HIGH_QUALITY_MODEL_ID });
@@ -870,6 +874,7 @@ describe('EngineHost', () => {
     });
     await flushTasks();
     expect(translate).not.toHaveBeenCalled();
+    expect(services.load).not.toHaveBeenCalled();
 
     port.emit(
       runtimeSet({
@@ -1108,6 +1113,8 @@ describe('warm-up session fallback', () => {
     services.load = vi.fn(async () => services.manager.loadedModel) as never;
 
     const { port } = await openRunningHost(services);
+    port.emit(runtimeSet({ consented: true, requestId: 'runtime-on' }));
+    await flushTasks();
     port.emit({ type: 'model-warm', requestId: 'w1' });
     await vi.waitFor(() => {
       expect(leaveWebGpu).toHaveBeenCalledWith('degenerate');

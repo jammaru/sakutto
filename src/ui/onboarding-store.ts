@@ -5,9 +5,16 @@ export type OnboardingStoreChoice = 'browser' | 'folder';
 
 export type OnboardingDownloadPlan = 'download' | 'skip' | 'stay';
 
-/** Chromium first-run recommends a shared folder. No picker means OPFS, with no choice. */
-export function defaultOnboardingStoreChoice(pickerAvailable: boolean): OnboardingStoreChoice {
-  return pickerAvailable ? 'folder' : 'browser';
+/**
+ * First-run recommends browser storage (OPFS) on every Chromium, including Edge.
+ * A profile that already has a shared folder keeps it. No picker means OPFS, with no choice.
+ */
+export function defaultOnboardingStoreChoice(
+  pickerAvailable: boolean,
+  folderAlreadyConfigured = false,
+): OnboardingStoreChoice {
+  if (pickerAvailable && folderAlreadyConfigured) return 'folder';
+  return 'browser';
 }
 
 /**
