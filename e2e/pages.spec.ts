@@ -158,6 +158,21 @@ test.describe('in-page translation', () => {
     }
   });
 
+  test('translates laughs, chants, marks and a table rule without stalling the page', async () => {
+    const page = await openFixture('/repeats.html', { targetLanguage: 'ja' });
+    try {
+      const translated = ['haha', 'no', 'go', 'aaah', 'normal'];
+      for (const id of translated) {
+        await expect(page.locator(`#${id}`)).toHaveAttribute('data-sakutto-engine', 'plamo');
+        await expect(page.locator(`#${id}`)).toContainText('§ja§');
+      }
+      await expect(page.locator('[data-sakutto-pending="1"]')).toHaveCount(0);
+      await expect(page.locator('html')).toHaveAttribute('data-sakutto-state', 'translated');
+    } finally {
+      await page.close();
+    }
+  });
+
   test('translates a Chinese page', async () => {
     const page = await openFixture('/cjk.html');
     try {

@@ -1035,10 +1035,15 @@ describe('model load on the GPU tier', () => {
 
 describe('warmup', () => {
   it('rejects a repeated token on WebGPU and on the CPU', async () => {
-    await expect(
-      warmup(new FakeRuntime(() => ',3'.repeat(12), 1, 'webgpu'), 'ja'),
-    ).rejects.toMatchObject({ code: 'gpu-unavailable', detail: 'degenerate warmup' });
-    await expect(warmup(new FakeRuntime(() => ',3'.repeat(12)), 'ja')).rejects.toMatchObject({
+    const gpu = new FakeRuntime(() => ',3'.repeat(200), 1, 'webgpu');
+    gpu.fillBudget = true;
+    const cpu = new FakeRuntime(() => ',3'.repeat(200));
+    cpu.fillBudget = true;
+    await expect(warmup(gpu, 'ja')).rejects.toMatchObject({
+      code: 'gpu-unavailable',
+      detail: 'degenerate warmup',
+    });
+    await expect(warmup(cpu, 'ja')).rejects.toMatchObject({
       code: 'model-load-failed',
       detail: 'degenerate warmup',
     });

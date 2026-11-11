@@ -145,6 +145,14 @@ export class ModelManager {
     });
   }
 
+  async modelBlob(modelId: ModelId = DEFAULT_MODEL_ID): Promise<Blob> {
+    const status = await this.status(modelId);
+    if (status.state !== 'ready' && status.state !== 'loaded') {
+      throw new EngineError('model-missing', 'The translation model is not downloaded yet.');
+    }
+    return this.store.read(this.finalPath(modelId));
+  }
+
   async unload(): Promise<void> {
     const current = this.loaded;
     this.loaded = null;

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { CachingEngine } from '@/engine/cache/caching-engine';
-import { EngineError } from '@/engine/errors';
 import { TranslationCache } from '@/engine/cache/cache';
 import { buildTranslationCacheKey, glossaryVersion } from '@/engine/cache/key';
 import { MemoryTranslationCacheStore } from '@/engine/cache/store';
@@ -209,17 +208,16 @@ describe('CachingEngine', () => {
     expect(inner.calls).toBe(2);
   });
 
-  it('does not store a repeated token', async () => {
+  it('caches a legitimate repeated Chrome translation', async () => {
     const store = new MemoryTranslationCacheStore();
     const cache = new TranslationCache(store);
-    const repeated = ',3'.repeat(12);
-    const inner = fakeEngine('plamo', [{ id: 'a', final: repeated, engine: 'plamo' }]);
-    const engine = new CachingEngine(inner, cache, 'plamo-0.8b', 'webgpu');
-    const segments = [{ id: 'a', text: 'Sign in' }];
+    const repeated = 'ハ'.repeat(18);
+    const inner = fakeEngine('chrome', [{ id: 'a', final: repeated, engine: 'chrome' }]);
+    const engine = new CachingEngine(inner, cache, 'chrome', 'chrome');
+    const segments = [{ id: 'a', text: 'Hahaha…' }];
 
-    await expect(collectChunks(engine.translate(segments, options()))).rejects.toBeInstanceOf(
-      EngineError,
-    );
-    expect(store.size).toBe(0);
+    const chunks = await collectChunks(engine.translate(segments, options()));
+    expect(chunks.at(-1)?.final).toBe(repeated);
+    expect(store.size).toBe(1);
   });
 });

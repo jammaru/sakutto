@@ -14,7 +14,11 @@ import {
   sentenceSeparator,
   splitForTranslation,
 } from '../text/sentences';
-import { isDegenerateOutput, isRepeatInProgress } from '../text/degenerate';
+import {
+  DEGENERATE_SESSION_BLOCKS,
+  isBrokenTranslation,
+  isRepeatInProgress,
+} from '../text/degenerate';
 import { completionTokenBudget, estimateTokens } from '../text/tokens';
 import type {
   IdentifiedEngine,
@@ -30,6 +34,10 @@ export interface InBrowserEngineOptions {
   config?: Partial<PlanConfig>;
   contextTokens?: number;
   scheduler?: JobScheduler;
+  /** CPU runtime used to retry one broken WebGPU piece without leaving the GPU session. */
+  loadRetryRuntime?: (signal: AbortSignal) => Promise<LlamaRuntime | null>;
+  /** Fired once per piece that looked like a collapsed kernel. */
+  onDegenerateBlock?: () => void;
 }
 
 function throwIfAborted(signal: AbortSignal): void {
@@ -82,11 +90,18 @@ export class InBrowserEngine implements IdentifiedEngine {
   private readonly config: PlanConfig;
   private readonly contextTokens: number;
   private readonly scheduler: JobScheduler;
+  private readonly loadRetryRuntime: InBrowserEngineOptions['loadRetryRuntime'];
+  private readonly onDegenerateBlock: InBrowserEngineOptions['onDegenerateBlock'];
+  private retryRuntime: LlamaRuntime | null | undefined;
+  private retryTask: Promise<LlamaRuntime | null> | null = null;
+  private degenerateHits = 0;
 
   constructor(runtime: LlamaRuntime, options: InBrowserEngineOptions = {}) {
     this.runtime = runtime;
     this.config = { ...DEFAULT_PLAN_CONFIG, ...options.config };
     this.contextTokens = options.contextTokens ?? CONTEXT_TOKENS;
+    this.loadRetryRuntime = options.loadRetryRuntime;
+    this.onDegenerateBlock = options.onDegenerateBlock;
     this.scheduler =
       options.scheduler ??
       new JobScheduler(
@@ -448,26 +463,37 @@ export class InBrowserEngine implements IdentifiedEngine {
       held.length = 0;
     };
 
+    const maxTokens = Math.min(completionTokenBudget(text), available);
+    const skipGpu =
+      this.degenerateHits >= DEGENERATE_SESSION_BLOCKS && this.runtime.backend === 'webgpu';
+
     try {
-      await this.runtime.complete({
-        prompt,
-        maxTokens: Math.min(completionTokenBudget(text), available),
-        signal,
-        onToken: (delta) => {
-          output += delta;
-          if (live) {
-            onDelta(delta);
-            return;
-          }
-          held.push(delta);
-          const compact = output.replace(/\s+/gu, '');
-          if (isRepeatInProgress(compact)) return;
-          if (compact.length >= 4) {
-            live = true;
-            flush();
-          }
-        },
-      });
+      if (!skipGpu) {
+        const result = await this.runtime.complete({
+          prompt,
+          maxTokens,
+          signal,
+          onToken: (delta) => {
+            output += delta;
+            if (live) {
+              onDelta(delta);
+              return;
+            }
+            held.push(delta);
+            const compact = output.replace(/\s+/gu, '');
+            if (isRepeatInProgress(compact)) return;
+            if (compact.length >= 4) {
+              live = true;
+              flush();
+            }
+          },
+        });
+        const hitMaxTokens = result?.hitMaxTokens === true;
+        if (!this.isBroken(text, output, hitMaxTokens)) {
+          flush();
+          return output;
+        }
+      }
     } catch (error) {
       if (!(isEngineError(error) && error.code === 'degenerate-output')) {
         const compact = output.replace(/\s+/gu, '');
@@ -476,14 +502,75 @@ export class InBrowserEngine implements IdentifiedEngine {
       throw error;
     }
 
-    if (isDegenerateOutput(output) || isDegenerateOutput(cleanModelOutput(output))) {
-      throw new EngineError('degenerate-output', 'The model repeated one token.', {
-        retryable: this.runtime.backend === 'webgpu',
-        detail: this.runtime.backend,
+    return this.recoverBroken(text, prompt, maxTokens, signal, onDelta);
+  }
+
+  private isBroken(source: string, output: string, hitMaxTokens: boolean): boolean {
+    return (
+      isBrokenTranslation(source, output, hitMaxTokens) ||
+      isBrokenTranslation(source, cleanModelOutput(output), hitMaxTokens)
+    );
+  }
+
+  /**
+   * A collapsed GPU piece retries on CPU. The rest of the page stays on WebGPU.
+   * If that retry is also a collapsed string, the source is shown so the block
+   * never stays "translating".
+   */
+  private async recoverBroken(
+    text: string,
+    prompt: string,
+    maxTokens: number,
+    signal: AbortSignal,
+    onDelta: (delta: string) => void,
+  ): Promise<string> {
+    if (this.runtime.backend === 'webgpu') {
+      this.degenerateHits += 1;
+      this.onDegenerateBlock?.();
+      let retry: LlamaRuntime | null = null;
+      try {
+        retry = await this.getRetryRuntime(signal);
+      } catch (error) {
+        if (signal.aborted || isAbortError(error)) throw error;
+      }
+      if (retry) {
+        try {
+          let recovered = '';
+          const result = await retry.complete({
+            prompt,
+            maxTokens,
+            signal,
+            onToken: (delta) => {
+              recovered += delta;
+            },
+          });
+          if (!this.isBroken(text, recovered, result?.hitMaxTokens === true)) {
+            if (recovered.length > 0) onDelta(recovered);
+            return recovered;
+          }
+        } catch (error) {
+          if (signal.aborted || isAbortError(error)) throw error;
+        }
+      }
+    }
+
+    if (text.length > 0) onDelta(text);
+    return text;
+  }
+
+  private getRetryRuntime(signal: AbortSignal): Promise<LlamaRuntime | null> {
+    if (this.retryRuntime !== undefined) return Promise.resolve(this.retryRuntime);
+    if (!this.loadRetryRuntime) {
+      this.retryRuntime = null;
+      return Promise.resolve(null);
+    }
+    if (!this.retryTask) {
+      this.retryTask = this.loadRetryRuntime(signal).then((runtime) => {
+        this.retryRuntime = runtime;
+        return runtime;
       });
     }
-    flush();
-    return output;
+    return this.retryTask;
   }
 }
 

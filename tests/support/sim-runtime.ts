@@ -1,5 +1,9 @@
 import type { BackendKind } from '@/engine/in-browser/backend';
-import type { CompletionRequest, LlamaRuntime } from '@/engine/in-browser/runtime';
+import type {
+  CompletionRequest,
+  CompletionResult,
+  LlamaRuntime,
+} from '@/engine/in-browser/runtime';
 import { abortError } from '@/engine/errors';
 import { PFML3 } from '@/engine/prompt/pfml3';
 import { estimateTokens } from '@/engine/text/tokens';
@@ -83,19 +87,18 @@ export class SimRuntime implements LlamaRuntime {
     this.parallel = costs.parallel;
   }
 
-  complete(request: CompletionRequest): Promise<void> {
+  complete(request: CompletionRequest): Promise<CompletionResult> {
     this.prompts.push(request.prompt);
     return new Promise((resolve, reject) => {
-      const output = tokensOf(this.translate(promptSource(request.prompt))).slice(
-        0,
-        request.maxTokens,
-      );
+      const tokens = tokensOf(this.translate(promptSource(request.prompt)));
+      const output = tokens.slice(0, request.maxTokens);
+      const hitMaxTokens = tokens.length > request.maxTokens;
       this.waiting.push({
         request,
         promptTokens: this.uncachedTokens(request.prompt),
         output,
         prefilled: false,
-        resolve,
+        resolve: () => resolve({ hitMaxTokens }),
         reject,
       });
       void this.loop();

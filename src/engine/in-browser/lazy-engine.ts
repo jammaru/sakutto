@@ -1,4 +1,5 @@
 import { abortError, isEngineError } from '../errors';
+import { DEGENERATE_SESSION_BLOCKS } from '../text/degenerate';
 import type {
   IdentifiedEngine,
   TranslateOptions,
@@ -17,8 +18,13 @@ export interface LoadedRuntime {
 export interface LazyInBrowserEngineOptions {
   loadRuntime: (signal: AbortSignal) => Promise<LoadedRuntime>;
   /**
+   * CPU runtime for one broken WebGPU piece. The GPU session stays up until
+   * several distinct pieces fail, or until warm-up already left WebGPU.
+   */
+  loadRetryRuntime?: (signal: AbortSignal) => Promise<LlamaRuntime | null>;
+  /**
    * Runs once before the next load. `lost` reloads the same selection the first
-   * time. `degenerate` must leave WebGPU; the output was a repeated token.
+   * time. `degenerate` leaves WebGPU after several distinct collapsed pieces.
    */
   onGpuLost?: (reason: 'lost' | 'degenerate') => Promise<void>;
   config?: InBrowserEngineOptions['config'];
@@ -36,6 +42,8 @@ export class LazyInBrowserEngine implements IdentifiedEngine {
   private generation = 0;
   private waiting = 0;
   private recovery: Promise<void> | null = null;
+  private degenerateBlocks = 0;
+  private needSessionFallback = false;
 
   constructor(private readonly options: LazyInBrowserEngineOptions) {}
 
@@ -70,15 +78,14 @@ export class LazyInBrowserEngine implements IdentifiedEngine {
           }
           yield chunk;
         }
+        if (this.needSessionFallback) await this.recover(engine, 'degenerate');
         return;
       } catch (error) {
         const lost = isEngineError(error) && error.code === 'gpu-lost';
-        const degenerate =
-          isEngineError(error) && error.code === 'degenerate-output' && error.retryable;
-        if ((!lost && !degenerate) || options.signal.aborted || recoveries >= MAX_GPU_RECOVERIES) {
+        if (!lost || options.signal.aborted || recoveries >= MAX_GPU_RECOVERIES) {
           throw error;
         }
-        await this.recover(engine, degenerate ? 'degenerate' : 'lost');
+        await this.recover(engine, 'lost');
         if (pending.length === 0) return;
       }
     }
@@ -159,6 +166,11 @@ export class LazyInBrowserEngine implements IdentifiedEngine {
     return new InBrowserEngine(loaded.runtime, {
       contextTokens: Math.floor(loaded.selection.nCtx / Math.max(1, loaded.selection.nParallel)),
       ...(this.options.config ? { config: this.options.config } : {}),
+      ...(this.options.loadRetryRuntime ? { loadRetryRuntime: this.options.loadRetryRuntime } : {}),
+      onDegenerateBlock: () => {
+        this.degenerateBlocks += 1;
+        if (this.degenerateBlocks >= DEGENERATE_SESSION_BLOCKS) this.needSessionFallback = true;
+      },
     });
   }
 }

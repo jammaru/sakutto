@@ -1,6 +1,10 @@
 import type { ModelEntry, ModelId } from '@/engine/model/catalog';
 import type { ModelFileStore, ModelFileWriter, StorageEstimate } from '@/engine/model/file-store';
-import type { CompletionRequest, LlamaRuntime } from '@/engine/in-browser/runtime';
+import type {
+  CompletionRequest,
+  CompletionResult,
+  LlamaRuntime,
+} from '@/engine/in-browser/runtime';
 import type { BackendKind } from '@/engine/in-browser/backend';
 import type { IdentifiedEngine, TranslationChunk } from '@/engine/types';
 import { abortError } from '@/engine/errors';
@@ -102,6 +106,8 @@ export class FakeRuntime implements LlamaRuntime {
   readonly parallel: number;
   readonly requests: CompletionRequest[] = [];
   handler: (prompt: string) => string;
+  /** When true, stop at maxTokens and report a length finish, like a collapsed kernel. */
+  fillBudget = false;
 
   constructor(
     handler: (prompt: string) => string,
@@ -113,14 +119,18 @@ export class FakeRuntime implements LlamaRuntime {
     this.backend = backend;
   }
 
-  async complete(request: CompletionRequest): Promise<void> {
+  async complete(request: CompletionRequest): Promise<CompletionResult | void> {
     this.requests.push(request);
     const output = this.handler(request.prompt);
+    let emitted = 0;
     for (const character of output) {
       if (request.signal.aborted) throw abortError();
+      if (this.fillBudget && emitted >= request.maxTokens) return { hitMaxTokens: true };
       request.onToken(character);
+      emitted += 1;
       await Promise.resolve();
     }
+    return { hitMaxTokens: false };
   }
 
   async dispose(): Promise<void> {

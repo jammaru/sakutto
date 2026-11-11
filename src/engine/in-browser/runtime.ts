@@ -12,11 +12,17 @@ export interface CompletionRequest {
   onToken: (text: string) => void;
 }
 
+/** Present when the runtime can tell how generation stopped. */
+export interface CompletionResult {
+  /** True when decoding stopped at maxTokens instead of EOS or a stop token. */
+  hitMaxTokens?: boolean;
+}
+
 export interface LlamaRuntime {
   readonly backend: BackendKind;
   readonly threads: number;
   readonly parallel: number;
-  complete(request: CompletionRequest): Promise<void>;
+  complete(request: CompletionRequest): Promise<CompletionResult | void>;
   dispose(): Promise<void>;
 }
 
@@ -233,10 +239,13 @@ export const createWllamaRuntime: RuntimeFactory = async (file, selection) => {
     backend: selection.backend,
     threads: selection.nThreads,
     parallel: selection.nParallel,
-    async complete(request: CompletionRequest): Promise<void> {
+    async complete(request: CompletionRequest): Promise<CompletionResult> {
+      let hitMaxTokens = false;
       await gate.exclusive(async () => {
         if (request.signal.aborted) throw abortError();
         try {
+          let emitted = 0;
+          let finishReason: string | null = null;
           await Promise.race([
             lost,
             wllama.createCompletion({
@@ -249,11 +258,17 @@ export const createWllamaRuntime: RuntimeFactory = async (file, selection) => {
               stop: [...TRANSLATION_STOP_TOKENS],
               stream: true,
               onData: (chunk) => {
-                forwardCompletionToken(request.signal, chunk.choices?.[0]?.text, request.onToken);
+                const choice = chunk.choices?.[0];
+                const reason = choice?.finish_reason;
+                if (typeof reason === 'string' && reason.length > 0) finishReason = reason;
+                if (choice?.text) emitted += 1;
+                forwardCompletionToken(request.signal, choice?.text, request.onToken);
               },
             }),
           ]);
           if (request.signal.aborted) throw abortError();
+          hitMaxTokens =
+            finishReason === 'length' || (finishReason !== 'stop' && emitted >= request.maxTokens);
         } catch (error) {
           if (isAbortError(error) || request.signal.aborted) throw abortError();
           if (selection.backend === 'webgpu' && isRuntimeDead(error)) {
@@ -265,6 +280,7 @@ export const createWllamaRuntime: RuntimeFactory = async (file, selection) => {
           });
         }
       });
+      return { hitMaxTokens };
     },
     async dispose(): Promise<void> {
       await wllama.exit();

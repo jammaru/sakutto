@@ -195,10 +195,17 @@ describe('LazyInBrowserEngine after the GPU is lost', () => {
     expect(loadRuntime).toHaveBeenCalledTimes(4);
   });
 
-  it('reloads on the CPU when WebGPU repeats one token and does not show it', async () => {
-    const bad = new FakeRuntime(() => ',3'.repeat(12), 1, 'webgpu');
-    const good = new FakeRuntime(() => 'こんにちは');
-    const { engine, onGpuLost, loadRuntime } = engineOver([bad, good]);
+  it('retries a collapsed WebGPU piece on CPU without leaving the session', async () => {
+    const bad = new FakeRuntime(() => ',3'.repeat(200), 1, 'webgpu');
+    bad.fillBudget = true;
+    const cpu = new FakeRuntime(() => 'こんにちは');
+    const onGpuLost = vi.fn(async () => undefined);
+    const loadRuntime = vi.fn(async () => ({ runtime: bad, selection: SELECTION }));
+    const engine = new LazyInBrowserEngine({
+      loadRuntime,
+      loadRetryRuntime: async () => cpu,
+      onGpuLost,
+    });
 
     const chunks = await collectChunks(engine.translate([a], options()));
 
@@ -206,18 +213,17 @@ describe('LazyInBrowserEngine after the GPU is lost', () => {
       chunks.some((chunk) => `${chunk.textDelta ?? ''}${chunk.final ?? ''}`.includes(',3')),
     ).toBe(false);
     expect(chunks.at(-1)).toEqual({ id: 'a', final: 'こんにちは', engine: 'plamo' });
-    expect(onGpuLost).toHaveBeenCalledOnce();
-    expect(onGpuLost).toHaveBeenCalledWith('degenerate');
-    expect(loadRuntime).toHaveBeenCalledTimes(2);
+    expect(onGpuLost).not.toHaveBeenCalled();
+    expect(loadRuntime).toHaveBeenCalledOnce();
   });
 
-  it('does not retry a repeated token from the CPU', async () => {
-    const bad = new FakeRuntime(() => ',3'.repeat(12));
+  it('does not leave a collapsed CPU piece untranslated', async () => {
+    const bad = new FakeRuntime(() => ',3'.repeat(200));
+    bad.fillBudget = true;
     const { engine, onGpuLost, loadRuntime } = engineOver([bad]);
 
-    await expect(collectChunks(engine.translate([a], options()))).rejects.toMatchObject({
-      code: 'degenerate-output',
-    });
+    const chunks = await collectChunks(engine.translate([a], options()));
+    expect(chunks.at(-1)).toEqual({ id: 'a', final: 'Hello.', engine: 'plamo' });
     expect(onGpuLost).not.toHaveBeenCalled();
     expect(loadRuntime).toHaveBeenCalledOnce();
   });

@@ -40,7 +40,7 @@ import { ModelManager, type LoadedModel } from '../model/manager';
 import type { DownloadProgress } from '../model/download';
 import { QUALITY_PARAGRAPH } from '../model/suggestion';
 import { buildTranslationPrompt, cleanModelOutput } from '../prompt/pfml3';
-import { isDegenerateOutput } from '../text/degenerate';
+import { isBrokenTranslation } from '../text/degenerate';
 import { RoutingEngine, type PairSupport } from '../router';
 import type { GlossaryEntry } from '../types';
 import {
@@ -87,6 +87,7 @@ export interface EngineServices {
   readonly selection: BackendSelection;
   clearCache: () => Promise<void>;
   setTier: (tier: TierPreference) => Promise<void>;
+  disposeRetryRuntime?: () => Promise<void>;
 }
 
 export interface EngineHostOptions {
@@ -130,7 +131,7 @@ export async function warmup(
   try {
     if (signal?.aborted) throw abortError();
     const language = canonicalLanguage(tgt) ?? 'ja';
-    await runtime.complete({
+    const result = await runtime.complete({
       prompt: buildTranslationPrompt({
         text: 'Hello.',
         src: language === 'ja' ? 'en' : 'ja',
@@ -143,6 +144,17 @@ export async function warmup(
         output += token;
       },
     });
+    const hitMaxTokens = result?.hitMaxTokens === true;
+    const broken =
+      isBrokenTranslation('Hello.', output, hitMaxTokens) ||
+      isBrokenTranslation('Hello.', cleanModelOutput(output), hitMaxTokens);
+    if (broken) {
+      throw new EngineError(
+        runtime.backend === 'webgpu' ? 'gpu-unavailable' : 'model-load-failed',
+        'The model repeated one token during warm-up.',
+        { detail: 'degenerate warmup', retryable: runtime.backend === 'webgpu' },
+      );
+    }
   } catch (error) {
     if (signal?.aborted) throw abortError();
     // The timer gave up. Translation still runs, and a repeated token there is rejected.
@@ -151,14 +163,6 @@ export async function warmup(
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener('abort', onAbort);
-  }
-
-  if (isDegenerateOutput(cleanModelOutput(output))) {
-    throw new EngineError(
-      runtime.backend === 'webgpu' ? 'gpu-unavailable' : 'model-load-failed',
-      'The model repeated one token during warm-up.',
-      { detail: 'degenerate warmup', retryable: runtime.backend === 'webgpu' },
-    );
   }
 }
 
@@ -321,21 +325,16 @@ export class EngineHost {
     const load = async (signal: AbortSignal): Promise<LoadedModel> => {
       const result = await loadWithFallback(
         async (selection) => {
-          let loaded: LoadedModel;
           try {
-            loaded = await manager.ensureLoaded(this.activeModelId, selection, { signal });
+            // Warm-up is not run here. A Hello. completion before the first page
+            // changed parallel-slot batching and later greedy decoding (garbled
+            // p15 on the second translate of a session). Kernel collapse is
+            // caught on the first real piece and by handleWarm.
+            return await manager.ensureLoaded(this.activeModelId, selection, { signal });
           } catch (error) {
             this.noteGpuError(error);
             throw error;
           }
-          try {
-            await warmup(loaded.runtime, 'ja', signal);
-          } catch (error) {
-            this.noteGpuError(error);
-            await manager.unload();
-            throw error;
-          }
-          return loaded;
         },
         selectionState.current,
         signal,
@@ -354,6 +353,21 @@ export class EngineHost {
       return result.loaded;
     };
     let lastGpuLossAt = Number.NEGATIVE_INFINITY;
+    let cpuRetryRuntime: LlamaRuntime | null = null;
+    const disposeCpuRetry = async (): Promise<void> => {
+      const runtime = cpuRetryRuntime;
+      cpuRetryRuntime = null;
+      if (runtime) await runtime.dispose().catch(() => undefined);
+    };
+    const loadRetryRuntime = async (signal: AbortSignal): Promise<LlamaRuntime | null> => {
+      const cpu = cpuFallback(selectionState.current);
+      if (!cpu) return null;
+      if (cpuRetryRuntime) return cpuRetryRuntime;
+      if (signal.aborted) throw abortError();
+      const blob = await manager.modelBlob(this.activeModelId);
+      cpuRetryRuntime = await createWllamaRuntime(blob, cpu);
+      return cpuRetryRuntime;
+    };
     const onGpuLost = async (reason: 'lost' | 'degenerate' = 'lost'): Promise<void> => {
       if (reason === 'degenerate') {
         const next = cpuFallback(selectionState.current);
@@ -366,6 +380,7 @@ export class EngineHost {
           'degenerate output',
           lastWebGpuLoadLog(),
         );
+        await disposeCpuRetry();
         await manager.unload();
         return;
       }
@@ -379,9 +394,10 @@ export class EngineHost {
         selectionState.current = next;
       }
       this.gpuDiagnostic = mergeGpuDiagnostic(lastGpuDiagnostic(), this.gpuDiagnostic?.error);
+      await disposeCpuRetry();
       await manager.unload();
     };
-    const lazy = new LazyInBrowserEngine({ loadRuntime: load, onGpuLost });
+    const lazy = new LazyInBrowserEngine({ loadRuntime: load, loadRetryRuntime, onGpuLost });
     const localRuntime = new LocalServerRuntime(() => this.localConfig);
     this.localScheduler = new JobScheduler(localRuntime.parallel, false);
     const localEngine = new InBrowserEngine(localRuntime, { scheduler: this.localScheduler });
@@ -424,8 +440,10 @@ export class EngineHost {
         this.gpuFallback = false;
         this.gpuDiagnostic = mergeGpuDiagnostic(lastGpuDiagnostic(), null);
         lazy.reset();
+        await disposeCpuRetry();
         await manager.unload();
       },
+      disposeRetryRuntime: disposeCpuRetry,
     };
   }
 
@@ -569,13 +587,12 @@ export class EngineHost {
       let loaded = services.manager.loadedModel;
       if (!loaded || loaded.id !== this.activeModelId) {
         loaded = await services.load(controller.signal);
-      } else {
-        if (controller.signal.aborted) return;
-        try {
-          await warmup(loaded.runtime, 'ja', controller.signal);
-        } catch (error) {
-          if (isDegenerateWarmup(error) || controller.signal.aborted) throw error;
-        }
+      }
+      if (controller.signal.aborted) return;
+      try {
+        await warmup(loaded.runtime, 'ja', controller.signal);
+      } catch (error) {
+        if (isDegenerateWarmup(error) || controller.signal.aborted) throw error;
       }
       if (controller.signal.aborted) return;
       this.plamoReady = true;
@@ -1181,6 +1198,7 @@ export class EngineHost {
       }
 
       services.lazy.reset();
+      await services.disposeRetryRuntime?.();
       await services.manager.unload();
       await services.chrome.dispose();
     } catch {
