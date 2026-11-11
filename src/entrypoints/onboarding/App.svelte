@@ -165,7 +165,13 @@
     progress = next.progress;
     modelState = next.state;
     if (next.state === 'error') {
-      failureDetail = isModelIntegrityError(next.error)
+      const integrity = isModelIntegrityError(next.error);
+      if (integrity && !startRequested && !consentSaved) {
+        integrityAlert = t('modelFolderIntegrityFailed', [model.file]);
+        if (status.state === 'downloading') noteBytes(next.received);
+        return;
+      }
+      failureDetail = integrity
         ? t('modelFolderIntegrityFailed', [model.file])
         : (next.error ?? null);
     } else if (next.state === 'downloading' || next.state === 'ready' || next.state === 'loaded') {
@@ -199,10 +205,10 @@
       const adopted = await adoptPickedSharedFolder();
       if (adopted.status === 'granted') resolvedFolderName = adopted.name;
       const folder = adopted.status === 'granted' ? await requestModelFolderReload() : null;
-      if (adopted.status === 'granted') await requestEngineWarm();
       const issue = folder?.integrityIssues.find((item) => item.modelId === DEFAULT_MODEL_ID);
       if (issue) integrityAlert = t('modelFolderIntegrityFailed', [issue.file]);
       if (adopted.status === 'granted' && !issue) {
+        await requestEngineWarm();
         const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
         if (inspected && (inspected.state === 'ready' || inspected.state === 'loaded')) {
           skipDownload = true;
@@ -220,6 +226,9 @@
         if (adopted.status === 'cancelled') pickHint = t('modelFolderPickerHint');
         if (adopted.status === 'denied') pickError = t('modelFolderPermissionNeeded');
         if (adopted.status === 'failed') pickError = t('modelFolderPickFailed');
+        // Folder reload broadcasts model:progress error for a bad GGUF. Stay on
+        // consent with the one integrity line; do not also open the error panel.
+        if (issue) phase = 'consent';
         return;
       }
       skipDownload = plan === 'skip';
