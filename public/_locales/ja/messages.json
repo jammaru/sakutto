@@ -1169,5 +1169,35 @@
   },
   "diagRuntime": {
     "message": "状態"
+  },
+  "videoCaptionsSetting": {
+    "message": "動画の字幕を翻訳する"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "試作版です。字幕トラックがある YouTube の動画と、字幕付きの HTML5 動画が対象です。翻訳は端末内で行います。ライブ、X、字幕のない動画はまだ対象外です。確かな訳が出ない行は原文のまま残します。"
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "字幕の表示"
+  },
+  "videoCaptionsBilingual": {
+    "message": "原文と訳を並べる"
+  },
+  "videoCaptionsReplace": {
+    "message": "訳だけを表示する"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "原文を残すと学習しやすく、誤訳にも気づきやすくなります。"
+  },
+  "videoCaptionsLabel": {
+    "message": "翻訳字幕"
+  },
+  "videoCaptionsPending": {
+    "message": "字幕を翻訳しています…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "原文の字幕を表示"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "原文の字幕を隠す"
   }
 }

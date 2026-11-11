@@ -34,8 +34,19 @@ const server = createServer(async (request, response) => {
 
   try {
     const body = await readFile(file);
+    const extension = extname(file);
     const type =
-      extname(file) === '.html' ? 'text/html; charset=utf-8' : 'text/plain; charset=utf-8';
+      extension === '.html'
+        ? 'text/html; charset=utf-8'
+        : extension === '.vtt'
+          ? 'text/vtt; charset=utf-8'
+          : extension === '.json'
+            ? 'application/json; charset=utf-8'
+            : extension === '.mp4'
+              ? 'video/mp4'
+              : extension === '.webm'
+                ? 'video/webm'
+                : 'text/plain; charset=utf-8';
     response.writeHead(200, { 'content-type': type });
     response.end(body);
   } catch {

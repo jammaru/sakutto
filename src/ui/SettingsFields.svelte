@@ -32,6 +32,11 @@
     onChange({ display: select.value === 'bilingual' ? 'bilingual' : 'replace' });
   }
 
+  function updateVideoCaptionDisplay(event: Event) {
+    const select = event.currentTarget as HTMLSelectElement;
+    onChange({ videoCaptionDisplay: select.value === 'replace' ? 'replace' : 'bilingual' });
+  }
+
   function updatePace(event: Event) {
     const select = event.currentTarget as HTMLSelectElement;
     onChange({ pace: select.value === 'quality' ? 'quality' : 'fast' });
@@ -141,6 +146,30 @@
     </select>
   </label>
   <p class="muted help">{t('composePlacementSettingHelp')}</p>
+
+  <label class="check">
+    <input
+      type="checkbox"
+      checked={settings.translateVideoCaptions}
+      onchange={(event) => {
+        const input = event.currentTarget as HTMLInputElement;
+        onChange({ translateVideoCaptions: input.checked });
+      }}
+    />
+    <span>{t('videoCaptionsSetting')}</span>
+  </label>
+  <p class="muted help">{t('videoCaptionsSettingHelp')}</p>
+
+  {#if settings.translateVideoCaptions}
+    <label class="field">
+      <span>{t('videoCaptionsDisplayLabel')}</span>
+      <select value={settings.videoCaptionDisplay} onchange={updateVideoCaptionDisplay}>
+        <option value="bilingual">{t('videoCaptionsBilingual')}</option>
+        <option value="replace">{t('videoCaptionsReplace')}</option>
+      </select>
+    </label>
+    <p class="muted help">{t('videoCaptionsDisplayHelp')}</p>
+  {/if}
 </div>
 
 <style>

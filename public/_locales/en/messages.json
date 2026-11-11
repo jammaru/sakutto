@@ -1169,5 +1169,35 @@
   },
   "diagRuntime": {
     "message": "Status"
+  },
+  "videoCaptionsSetting": {
+    "message": "Translate video captions"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "Early version: YouTube videos that already have captions, and ordinary HTML5 videos with subtitle tracks. Translation runs on your device. Live streams, X, and videos with no captions are not included yet. If a line cannot be translated reliably, the original caption stays."
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "Caption display"
+  },
+  "videoCaptionsBilingual": {
+    "message": "Original and translation"
+  },
+  "videoCaptionsReplace": {
+    "message": "Translated captions only"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "Keeping the original line makes it easier to study and to catch a bad translation."
+  },
+  "videoCaptionsLabel": {
+    "message": "Translated captions"
+  },
+  "videoCaptionsPending": {
+    "message": "Translating caption…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "Show original caption"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "Hide original caption"
   }
 }

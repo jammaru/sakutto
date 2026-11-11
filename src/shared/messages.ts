@@ -101,6 +101,11 @@ export interface OpenSetupRequest {
   type: 'ui:open-setup';
 }
 
+export interface CaptionTimedtextRequest {
+  type: 'captions:timedtext';
+  url: string;
+}
+
 /**
  * The key each rebindable command holds right now, as the browser reports it: `Alt+A`,
  * `⌥⇧P` on a Mac, or `''` for a command with no key. `null` means the command was not listed.
@@ -243,6 +248,15 @@ export function isShortcutQuery(value: unknown): value is ShortcutQuery {
 
 export function isOpenSetupRequest(value: unknown): value is OpenSetupRequest {
   return isRecord(value) && value.type === 'ui:open-setup';
+}
+
+export function isCaptionTimedtextRequest(value: unknown): value is CaptionTimedtextRequest {
+  return (
+    isRecord(value) &&
+    value.type === 'captions:timedtext' &&
+    typeof value.url === 'string' &&
+    value.url.length > 0
+  );
 }
 
 function isShortcutBinding(value: unknown): value is string | null {

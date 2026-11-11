@@ -2,6 +2,7 @@ node_modules/
 video/
 launch-video/
 *.mp4
+!e2e/fixtures/dummy.mp4
 *.webm
 *.mov
 *.mkv

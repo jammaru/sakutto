@@ -1169,5 +1169,35 @@
   },
   "diagRuntime": {
     "message": "狀態"
+  },
+  "videoCaptionsSetting": {
+    "message": "翻譯影片字幕"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "早期版本：已有字幕的 YouTube 影片，以及帶字幕軌道的一般 HTML5 影片。翻譯在本機進行。直播、X 以及沒有字幕的影片尚未包含。如果某一行無法可靠翻譯，則保留原字幕。"
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "字幕顯示"
+  },
+  "videoCaptionsBilingual": {
+    "message": "原文與譯文"
+  },
+  "videoCaptionsReplace": {
+    "message": "只顯示譯文"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "保留原文便於學習，也更容易發現誤譯。"
+  },
+  "videoCaptionsLabel": {
+    "message": "翻譯字幕"
+  },
+  "videoCaptionsPending": {
+    "message": "正在翻譯字幕…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "顯示原字幕"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "隱藏原字幕"
   }
 }

@@ -1169,5 +1169,35 @@
   },
   "diagRuntime": {
     "message": "สถานะ"
+  },
+  "videoCaptionsSetting": {
+    "message": "แปลคำบรรยายวิดีโอ"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "รุ่นต้น: วิดีโอ YouTube ที่มีคำบรรยายอยู่แล้ว และวิดีโอ HTML5 ทั่วไปที่มีแทร็กคำบรรยาย การแปลทำงานบนอุปกรณ์ของคุณ ไลฟ์สตรีม, X และวิดีโอที่ไม่มีคำบรรยายยังไม่รวม หากแปลบรรทัดใดไม่น่าเชื่อถือ จะคงคำบรรยายต้นฉบับไว้"
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "การแสดงคำบรรยาย"
+  },
+  "videoCaptionsBilingual": {
+    "message": "ต้นฉบับและคำแปล"
+  },
+  "videoCaptionsReplace": {
+    "message": "แสดงเฉพาะคำบรรยายที่แปลแล้ว"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "การคงบรรทัดต้นฉบับช่วยให้เรียนง่ายขึ้นและจับคำแปลที่ผิดได้"
+  },
+  "videoCaptionsLabel": {
+    "message": "คำบรรยายที่แปลแล้ว"
+  },
+  "videoCaptionsPending": {
+    "message": "กำลังแปลคำบรรยาย…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "แสดงคำบรรยายต้นฉบับ"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "ซ่อนคำบรรยายต้นฉบับ"
   }
 }

@@ -114,6 +114,7 @@ const OWN_UI_TAGS: ReadonlySet<string> = new Set([
   'SAKUTTO-PERF',
   'SAKUTTO-STATUS',
   'SAKUTTO-BAR',
+  'SAKUTTO-CAPTIONS',
 ]);
 
 const FROZEN_SELECTOR = [

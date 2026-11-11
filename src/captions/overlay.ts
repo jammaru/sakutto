@@ -1,0 +1,203 @@
+import type { DisplayMode } from '@/shared/settings';
+
+export interface CaptionOverlayLabels {
+  label: string;
+  pending: string;
+  showOriginal: string;
+  hideOriginal: string;
+}
+
+export interface CaptionOverlayState {
+  original: string;
+  translation: string | null;
+  display: DisplayMode;
+  pending: boolean;
+}
+
+const HOST_TAG = 'sakutto-captions';
+
+const STYLE = `
+:host { all: initial; }
+.wrap {
+  box-sizing: border-box;
+  pointer-events: none;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  text-align: center;
+  font: 16px/1.35 "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+}
+.line {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgb(15 23 32 / 78%);
+  color: #f8fafc;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.original {
+  font-size: 13px;
+  color: #dbe4ee;
+  background: rgb(15 23 32 / 62%);
+}
+.toggle {
+  pointer-events: auto;
+  margin-top: 2px;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(15 23 32 / 72%);
+  color: #e2e8f0;
+  font: 11px/1.3 "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  cursor: pointer;
+}
+.toggle:focus-visible { outline: 2px solid #67e8f9; outline-offset: 2px; }
+`;
+
+const shadows = new WeakMap<Element, ShadowRoot>();
+
+function attachCaptionShadow(host: HTMLElement): ShadowRoot {
+  const existing = shadows.get(host);
+  if (existing) return existing;
+  const shadow = host.attachShadow({ mode: 'closed' });
+  shadows.set(host, shadow);
+  return shadow;
+}
+
+/**
+ * Places the overlay just above the bottom edge of the video, centered.
+ * `left` is the centre so the host can `translateX(-50%)`.
+ */
+export function captionOverlayBox(
+  rect: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>,
+  padding = 14,
+): { left: number; top: number; width: number } {
+  const width = Math.max(160, Math.min(rect.width * 0.92, 720));
+  return {
+    left: rect.left + rect.width / 2,
+    top: rect.top + rect.height - padding,
+    width,
+  };
+}
+
+export function captionOverlayRoot(doc: Document, video: HTMLVideoElement): Element {
+  const view = doc.defaultView;
+  const fullscreen = view?.document.fullscreenElement ?? doc.fullscreenElement;
+  if (fullscreen && (fullscreen === video || fullscreen.contains(video))) return fullscreen;
+  return video.parentElement ?? doc.documentElement;
+}
+
+export class CaptionOverlay {
+  private readonly host: HTMLElement;
+  private readonly originalLine: HTMLElement;
+  private readonly translatedLine: HTMLElement;
+  private readonly toggle: HTMLButtonElement;
+  private labels: CaptionOverlayLabels;
+  private onDisplayToggle: () => void = () => undefined;
+
+  constructor(doc: Document, labels: CaptionOverlayLabels) {
+    this.labels = labels;
+    this.host = doc.createElement(HOST_TAG);
+    this.host.setAttribute('translate', 'no');
+    this.host.setAttribute('aria-live', 'polite');
+    this.host.hidden = true;
+    this.host.style.position = 'fixed';
+    this.host.style.zIndex = '2147483645';
+    this.host.style.pointerEvents = 'none';
+    this.host.style.transform = 'translate(-50%, -100%)';
+
+    const shadow = attachCaptionShadow(this.host);
+    const style = doc.createElement('style');
+    style.textContent = STYLE;
+    const wrap = doc.createElement('div');
+    wrap.className = 'wrap';
+    this.originalLine = doc.createElement('div');
+    this.originalLine.className = 'line original';
+    this.translatedLine = doc.createElement('div');
+    this.translatedLine.className = 'line';
+    this.toggle = doc.createElement('button');
+    this.toggle.type = 'button';
+    this.toggle.className = 'toggle';
+    this.toggle.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.onDisplayToggle();
+    });
+    wrap.append(this.originalLine, this.translatedLine, this.toggle);
+    shadow.append(style, wrap);
+    this.setLabels(labels);
+  }
+
+  setOnDisplayToggle(handler: () => void): void {
+    this.onDisplayToggle = handler;
+  }
+
+  setLabels(labels: CaptionOverlayLabels): void {
+    this.labels = labels;
+    this.host.setAttribute('aria-label', labels.label);
+    this.toggle.setAttribute('aria-label', labels.showOriginal);
+  }
+
+  attach(root: Element): void {
+    if (this.host.parentElement === root) return;
+    root.append(this.host);
+  }
+
+  detach(): void {
+    this.host.remove();
+  }
+
+  place(rect: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>): void {
+    const box = captionOverlayBox(rect);
+    this.host.style.left = `${box.left}px`;
+    this.host.style.top = `${box.top}px`;
+    this.host.style.width = `${box.width}px`;
+  }
+
+  show(state: CaptionOverlayState): void {
+    const translation = state.translation?.trim() ?? '';
+    const original = state.original.trim();
+    if (original.length === 0 && translation.length === 0) {
+      this.hide();
+      return;
+    }
+
+    const bilingual = state.display === 'bilingual';
+    const showTranslation = translation.length > 0;
+    this.originalLine.textContent = original;
+    this.translatedLine.textContent = showTranslation
+      ? translation
+      : state.pending
+        ? this.labels.pending
+        : original;
+    this.originalLine.hidden = !(bilingual && original.length > 0);
+    this.translatedLine.hidden = !showTranslation && !state.pending && bilingual;
+    if (!bilingual && !showTranslation) {
+      this.translatedLine.hidden = false;
+      this.translatedLine.textContent = original;
+    }
+    this.toggle.textContent = bilingual ? this.labels.hideOriginal : this.labels.showOriginal;
+    this.toggle.setAttribute(
+      'aria-label',
+      bilingual ? this.labels.hideOriginal : this.labels.showOriginal,
+    );
+    const displayed = showTranslation ? translation : original;
+    this.host.setAttribute('data-sakutto-caption', displayed);
+    this.host.setAttribute('data-sakutto-original', original);
+    this.host.hidden = false;
+  }
+
+  hide(): void {
+    this.host.hidden = true;
+    this.originalLine.textContent = '';
+    this.translatedLine.textContent = '';
+    this.host.removeAttribute('data-sakutto-caption');
+    this.host.removeAttribute('data-sakutto-original');
+  }
+
+  shadow(): ShadowRoot | null {
+    return shadows.get(this.host) ?? null;
+  }
+}

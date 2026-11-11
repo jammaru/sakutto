@@ -22,26 +22,93 @@ interface ExtensionChrome {
 
 export async function resetExtensionStorage(
   worker: Worker,
-  options: { targetLanguage?: string } = {},
+  options: {
+    targetLanguage?: string;
+    translateVideoCaptions?: boolean;
+    videoCaptionDisplay?: 'replace' | 'bilingual';
+  } = {},
 ): Promise<void> {
   const targetLanguage = options.targetLanguage ?? 'en';
-  await worker.evaluate(async (targetLanguage) => {
-    const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
-    await chrome.storage.local.set({
-      siteRules: {},
-      settings: {
-        schemaVersion: 1,
-        targetLanguage,
-        form: 'polite',
-        display: 'replace',
-        consent: null,
-        highQualityDismissed: false,
-        glossary: [],
-        idleMinutes: 5,
-        tier: 'auto',
+  const translateVideoCaptions = options.translateVideoCaptions === true;
+  const videoCaptionDisplay = options.videoCaptionDisplay ?? 'bilingual';
+  const settings = {
+    schemaVersion: 1,
+    targetLanguage,
+    form: 'polite',
+    display: 'replace',
+    consent: null,
+    highQualityDismissed: false,
+    glossary: [],
+    idleMinutes: 5,
+    tier: 'auto',
+    pace: 'quality',
+    composeIcon: true,
+    shortcutsEnabled: {
+      'translate-page': true,
+      'toggle-bilingual': true,
+      'translate-selection': true,
+      'translate-compose': true,
+    },
+    composeTargetLanguage: null,
+    composeInstantReplace: false,
+    composePlacement: 'above',
+    selectedModelId: 'plamo-3-translate-0.8b-q4_k_m',
+    engineSource: 'in-browser',
+    localServerUrl: 'http://127.0.0.1:8080/v1',
+    localServerModel: '',
+    localServerApiKey: '',
+    localServerTimeoutMs: 120_000,
+    localServerAllowRemote: false,
+    localServerParallel: 8,
+    localServerExperimentalAck: false,
+    translateVideoCaptions,
+    videoCaptionDisplay,
+  };
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await worker.evaluate(
+      async ({ settings }) => {
+        const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
+        await chrome.storage.local.set({ siteRules: {}, settings });
       },
+      { settings },
+    );
+    const stored = await worker.evaluate(async () => {
+      const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
+      const value = await chrome.storage.local.get('settings');
+      return value.settings as
+        { translateVideoCaptions?: boolean; targetLanguage?: string } | undefined;
     });
-  }, targetLanguage);
+    if (
+      stored?.translateVideoCaptions === translateVideoCaptions &&
+      stored.targetLanguage === targetLanguage
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      const again = await worker.evaluate(async () => {
+        const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
+        const value = await chrome.storage.local.get('settings');
+        return value.settings as { translateVideoCaptions?: boolean } | undefined;
+      });
+      if (again?.translateVideoCaptions === translateVideoCaptions) return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 40));
+  }
+  throw new Error('extension settings did not stick');
+}
+
+export async function injectContentScript(worker: Worker, page: Page): Promise<void> {
+  const url = page.url();
+  await worker.evaluate(async (url) => {
+    const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
+    const matched = await chrome.tabs.query({ url });
+    const active = await chrome.tabs.query({ active: true, currentWindow: true });
+    const tabId = matched[0]?.id ?? active[0]?.id;
+    if (tabId === undefined) throw new Error('fixture tab was not found');
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['/content-scripts/content.js'],
+    });
+  }, url);
 }
 
 export async function commandPage(

@@ -7,6 +7,8 @@ import { detectDocumentLanguage } from '@/dom/detect';
 import { fakeTranslate } from '@/dom/fake-engine';
 import type { OverlayLabels } from '@/dom/overlay';
 import { PageSession, preferencesFor } from '@/dom/session';
+import { VideoCaptionSession, type CaptionSessionPreferences } from '@/captions/session';
+import type { CaptionOverlayLabels } from '@/captions/overlay';
 import {
   loadSiteRule,
   pageHost,
@@ -19,7 +21,7 @@ import { hasLicenseConsent } from '@/shared/agreement';
 import type { ModelStatus } from '@/shared/engine-status';
 import { mergeGlossary } from '@/shared/glossary';
 import { currentUiLanguage, t } from '@/shared/i18n';
-import { isTargetLanguage, type TargetLanguage } from '@/shared/languages';
+import { effectivePageTarget, isTargetLanguage, type TargetLanguage } from '@/shared/languages';
 import {
   boundShortcut,
   DEFAULT_SHORTCUTS,
@@ -210,6 +212,27 @@ function composeReadiness(
   });
 }
 
+function captionLabels(): CaptionOverlayLabels {
+  return {
+    label: t('videoCaptionsLabel'),
+    pending: t('videoCaptionsPending'),
+    showOriginal: t('videoCaptionsShowOriginal'),
+    hideOriginal: t('videoCaptionsHideOriginal'),
+  };
+}
+
+function captionPreferencesFor(settings: Settings, rule: SiteRule): CaptionSessionPreferences {
+  const glossary = mergeGlossary(settings.glossary, rule.glossary);
+  return {
+    enabled: settings.translateVideoCaptions && rule.auto !== 'never',
+    targetLanguage: effectivePageTarget(settings.targetLanguage, rule.targetLanguage),
+    form: settings.form,
+    display: settings.videoCaptionDisplay,
+    glossary: glossary.length > 0 ? glossary : undefined,
+    tier: null,
+  };
+}
+
 function overlayLabels(): OverlayLabels {
   return {
     original: t('originalLabel'),
@@ -257,6 +280,7 @@ export default defineContentScript({
     let lastCommand = '';
     let lastCommandAt = 0;
     let compose: ComposeController | null = null;
+    let captions: VideoCaptionSession | null = null;
     let modelState: ModelStatus['state'] | null = null;
     let plamoReady = false;
     let modelStatusKnown = false;
@@ -388,6 +412,21 @@ export default defineContentScript({
         },
       });
 
+      captions = new VideoCaptionSession(document, {
+        engine,
+        labels: captionLabels(),
+        preferences: captionPreferencesFor(settings, rule),
+        onDisplayToggle: () => {
+          void loadSettings().then((current) =>
+            saveSettings({
+              videoCaptionDisplay:
+                current.videoCaptionDisplay === 'bilingual' ? 'replace' : 'bilingual',
+            }),
+          );
+        },
+      });
+      if (captionPreferencesFor(settings, rule).enabled) captions.start();
+
       const detected = await detectDocumentLanguage(document);
       session.setDetectedLanguage(detected);
 
@@ -419,6 +458,8 @@ export default defineContentScript({
             ),
           ),
         );
+        captions?.setLabels(captionLabels());
+        captions?.setPreferences(captionPreferencesFor(nextSettings, nextRule));
       };
 
       subscribeSettings(() => {
@@ -431,7 +472,7 @@ export default defineContentScript({
       if (rule.auto === 'always') {
         if (!__SAKUTTO_FAKE_ENGINE__) {
           void requestEngineWarm();
-          void requestEngineTier(session);
+          void requestEngineTier(session, false, captions);
         }
         void session.translate();
       }
@@ -448,12 +489,14 @@ export default defineContentScript({
       lastCommand = command;
       lastCommandAt = now;
       const session = await sessionPromise;
+      const [liveSettings, liveRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
+      captions?.setPreferences(captionPreferencesFor(liveSettings, liveRule));
       if (!commandEnabled(shortcutSnapshot, shortcutAssigned, shortcutsEnabled, command)) {
         return session.state();
       }
       if (!__SAKUTTO_FAKE_ENGINE__) {
         void requestEngineWarm();
-        void requestEngineTier(session);
+        void requestEngineTier(session, false, captions);
       }
       if (command === 'compose') {
         if (shouldHandleComposeCommand(document)) compose?.handleShortcut();
@@ -493,7 +536,7 @@ export default defineContentScript({
             ),
           );
           if (message.status.state === 'loaded' && !__SAKUTTO_FAKE_ENGINE__) {
-            void requestEngineTier(session, true);
+            void requestEngineTier(session, true, captions);
           }
         });
         return;
@@ -512,10 +555,17 @@ export default defineContentScript({
   },
 });
 
-async function requestEngineTier(session: PageSession, retry = false): Promise<void> {
+async function requestEngineTier(
+  session: PageSession,
+  retry = false,
+  captions: VideoCaptionSession | null = null,
+): Promise<void> {
   try {
     const status = await requestEngineStatus();
-    if (status?.tier) session.setTier(status.tier);
+    if (status?.tier) {
+      session.setTier(status.tier);
+      captions?.setTier(status.tier);
+    }
     if (retry || status?.model.state === 'loaded') session.retryUntranslated();
   } catch {
     // A load broadcast still re-queues the blocks that failed while the model loaded.

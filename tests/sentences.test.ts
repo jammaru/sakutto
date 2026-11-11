@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   chunkForTranslation,
+  hasSentenceTerminator,
   joinTranslatedSentences,
   sentenceSeparator,
   splitForTranslation,
@@ -117,5 +118,16 @@ describe('sentence splitting', () => {
       expect(piece.split('. ').length).toBeGreaterThan(2);
     }
     expect(pieces.join(' ')).toBe(text);
+  });
+});
+
+describe('sentence terminators', () => {
+  it('detects a finished caption line, ignoring trailing closers', () => {
+    expect(hasSentenceTerminator('The train left.')).toBe(true);
+    expect(hasSentenceTerminator('The train left."')).toBe(true);
+    expect(hasSentenceTerminator('駅を出た。')).toBe(true);
+    expect(hasSentenceTerminator('駅を出た。」')).toBe(true);
+    expect(hasSentenceTerminator('The train left')).toBe(false);
+    expect(hasSentenceTerminator('')).toBe(false);
   });
 });

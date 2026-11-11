@@ -42,6 +42,8 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     localServerAllowRemote: false,
     localServerParallel: 8,
     localServerExperimentalAck: false,
+    translateVideoCaptions: false,
+    videoCaptionDisplay: 'bilingual',
     ...overrides,
   };
 }
@@ -201,6 +203,39 @@ describe('settings defaults', () => {
       localServerModel: 'pfnet/plamo-3-translate-0.8b-MLX-4bit',
       localServerAllowRemote: true,
     });
+  });
+
+  it('defaults video caption translation off and bilingual display on', () => {
+    const settings = normalizeSettings(
+      {
+        schemaVersion: SETTINGS_SCHEMA_VERSION,
+        targetLanguage: 'en',
+      },
+      'en-US',
+    );
+    expect(settings.translateVideoCaptions).toBe(false);
+    expect(settings.videoCaptionDisplay).toBe('bilingual');
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          translateVideoCaptions: true,
+          videoCaptionDisplay: 'replace',
+        },
+        'en-US',
+      ),
+    ).toMatchObject({ translateVideoCaptions: true, videoCaptionDisplay: 'replace' });
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          videoCaptionDisplay: 'side-by-side',
+        },
+        'en-US',
+      ).videoCaptionDisplay,
+    ).toBe('bilingual');
   });
 
   it('defaults the compose icon on for a record that predates the setting', () => {

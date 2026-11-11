@@ -1169,5 +1169,35 @@
   },
   "diagRuntime": {
     "message": "Состояние"
+  },
+  "videoCaptionsSetting": {
+    "message": "Переводить субтитры видео"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "Ранняя версия: видео YouTube, у которых уже есть субтитры, и обычные HTML5-видео с дорожками субтитров. Перевод выполняется на устройстве. Прямые трансляции, X и видео без субтитров пока не входят. Если строку нельзя надёжно перевести, остаётся исходный субтитр."
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "Отображение субтитров"
+  },
+  "videoCaptionsBilingual": {
+    "message": "Оригинал и перевод"
+  },
+  "videoCaptionsReplace": {
+    "message": "Только перевод субтитров"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "Сохранение исходной строки помогает учиться и замечать плохой перевод."
+  },
+  "videoCaptionsLabel": {
+    "message": "Переведённые субтитры"
+  },
+  "videoCaptionsPending": {
+    "message": "Перевод субтитра…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "Показать исходный субтитр"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "Скрыть исходный субтитр"
   }
 }

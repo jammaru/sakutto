@@ -115,6 +115,14 @@ export interface Settings {
   localServerParallel: number;
   /** Set after the reader accepts the experimental-engine warning once. */
   localServerExperimentalAck: boolean;
+  /**
+   * When true, captions on the current page are translated on the device after the
+   * content script is present. Off by default: this is the first slice (YouTube
+   * on-demand tracks and HTML5 `textTracks`).
+   */
+  translateVideoCaptions: boolean;
+  /** How translated captions are shown over the player. */
+  videoCaptionDisplay: DisplayMode;
 }
 
 export type SettingsPatch = Partial<
@@ -142,6 +150,8 @@ export type SettingsPatch = Partial<
     | 'localServerAllowRemote'
     | 'localServerParallel'
     | 'localServerExperimentalAck'
+    | 'translateVideoCaptions'
+    | 'videoCaptionDisplay'
   >
 > & {
   shortcutsEnabled?: Partial<ShortcutEnabled>;
@@ -172,6 +182,8 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   localServerAllowRemote: false,
   localServerParallel: DEFAULT_LOCAL_SERVER_PARALLEL,
   localServerExperimentalAck: false,
+  translateVideoCaptions: false,
+  videoCaptionDisplay: 'bilingual',
 });
 
 export function createDefaultSettings(uiLanguage: string): Settings {
@@ -228,6 +240,8 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     localServerAllowRemote: value.localServerAllowRemote === true,
     localServerParallel: normalizeParallel(value.localServerParallel),
     localServerExperimentalAck: value.localServerExperimentalAck === true,
+    translateVideoCaptions: value.translateVideoCaptions === true,
+    videoCaptionDisplay: value.videoCaptionDisplay === 'replace' ? 'replace' : 'bilingual',
   };
 }
 

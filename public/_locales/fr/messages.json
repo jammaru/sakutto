@@ -1169,5 +1169,35 @@
   },
   "diagRuntime": {
     "message": "État"
+  },
+  "videoCaptionsSetting": {
+    "message": "Traduire les sous-titres vidéo"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "Version initiale : vidéos YouTube qui ont déjà des sous-titres, et vidéos HTML5 ordinaires avec des pistes de sous-titres. La traduction s’effectue sur l’appareil. Les directs, X et les vidéos sans sous-titres ne sont pas encore inclus. Si une ligne ne peut pas être traduite de façon fiable, le sous-titre d’origine reste affiché."
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "Affichage des sous-titres"
+  },
+  "videoCaptionsBilingual": {
+    "message": "Original et traduction"
+  },
+  "videoCaptionsReplace": {
+    "message": "Sous-titres traduits uniquement"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "Garder la ligne d’origine facilite l’apprentissage et permet de repérer une mauvaise traduction."
+  },
+  "videoCaptionsLabel": {
+    "message": "Sous-titres traduits"
+  },
+  "videoCaptionsPending": {
+    "message": "Traduction du sous-titre…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "Afficher le sous-titre d’origine"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "Masquer le sous-titre d’origine"
   }
 }

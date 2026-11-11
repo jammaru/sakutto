@@ -1169,5 +1169,35 @@
   },
   "diagRuntime": {
     "message": "Estado"
+  },
+  "videoCaptionsSetting": {
+    "message": "Traduzir legendas de vídeo"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "Versão inicial: vídeos do YouTube que já têm legendas e vídeos HTML5 comuns com faixas de legendas. A tradução roda no dispositivo. Transmissões ao vivo, o X e vídeos sem legendas ainda não entram. Se uma linha não puder ser traduzida com segurança, a legenda original permanece."
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "Exibição das legendas"
+  },
+  "videoCaptionsBilingual": {
+    "message": "Original e tradução"
+  },
+  "videoCaptionsReplace": {
+    "message": "Somente legendas traduzidas"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "Manter a linha original facilita o estudo e a identificação de uma tradução ruim."
+  },
+  "videoCaptionsLabel": {
+    "message": "Legendas traduzidas"
+  },
+  "videoCaptionsPending": {
+    "message": "Traduzindo legenda…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "Mostrar legenda original"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "Ocultar legenda original"
   }
 }

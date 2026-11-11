@@ -1169,5 +1169,35 @@
   },
   "diagRuntime": {
     "message": "Stato"
+  },
+  "videoCaptionsSetting": {
+    "message": "Traduci i sottotitoli video"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "Versione iniziale: video YouTube che hanno già i sottotitoli e video HTML5 normali con tracce di sottotitoli. La traduzione viene eseguita sul dispositivo. Le dirette, X e i video senza sottotitoli non sono ancora inclusi. Se una riga non può essere tradotta in modo affidabile, resta il sottotitolo originale."
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "Visualizzazione dei sottotitoli"
+  },
+  "videoCaptionsBilingual": {
+    "message": "Originale e traduzione"
+  },
+  "videoCaptionsReplace": {
+    "message": "Solo sottotitoli tradotti"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "Tenere la riga originale aiuta a studiare e a notare una traduzione sbagliata."
+  },
+  "videoCaptionsLabel": {
+    "message": "Sottotitoli tradotti"
+  },
+  "videoCaptionsPending": {
+    "message": "Traduzione del sottotitolo…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "Mostra il sottotitolo originale"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "Nascondi il sottotitolo originale"
   }
 }

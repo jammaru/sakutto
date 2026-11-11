@@ -1169,5 +1169,35 @@
   },
   "diagRuntime": {
     "message": "Trạng thái"
+  },
+  "videoCaptionsSetting": {
+    "message": "Dịch phụ đề video"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "Phiên bản sớm: video YouTube đã có phụ đề và video HTML5 thông thường có track phụ đề. Bản dịch chạy trên thiết bị của bạn. Livestream, X và video không có phụ đề chưa được đưa vào. Nếu một dòng không dịch được một cách đáng tin, phụ đề gốc sẽ được giữ lại."
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "Cách hiện phụ đề"
+  },
+  "videoCaptionsBilingual": {
+    "message": "Gốc và bản dịch"
+  },
+  "videoCaptionsReplace": {
+    "message": "Chỉ phụ đề đã dịch"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "Giữ dòng gốc giúp học dễ hơn và phát hiện bản dịch sai."
+  },
+  "videoCaptionsLabel": {
+    "message": "Phụ đề đã dịch"
+  },
+  "videoCaptionsPending": {
+    "message": "Đang dịch phụ đề…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "Hiện phụ đề gốc"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "Ẩn phụ đề gốc"
   }
 }

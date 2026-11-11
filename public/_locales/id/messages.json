@@ -1169,5 +1169,35 @@
   },
   "diagRuntime": {
     "message": "Status"
+  },
+  "videoCaptionsSetting": {
+    "message": "Terjemahkan teks video"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "Versi awal: video YouTube yang sudah punya teks, dan video HTML5 biasa dengan trek subtitle. Terjemahan berjalan di perangkat Anda. Siaran langsung, X, dan video tanpa teks belum termasuk. Jika sebuah baris tidak dapat diterjemahkan dengan andal, teks aslinya tetap ditampilkan."
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "Tampilan teks"
+  },
+  "videoCaptionsBilingual": {
+    "message": "Asli dan terjemahan"
+  },
+  "videoCaptionsReplace": {
+    "message": "Hanya teks terjemahan"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "Menyimpan baris asli memudahkan belajar dan menangkap terjemahan yang buruk."
+  },
+  "videoCaptionsLabel": {
+    "message": "Teks terjemahan"
+  },
+  "videoCaptionsPending": {
+    "message": "Menerjemahkan teks…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "Tampilkan teks asli"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "Sembunyikan teks asli"
   }
 }

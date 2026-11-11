@@ -1169,5 +1169,35 @@
   },
   "diagRuntime": {
     "message": "状态"
+  },
+  "videoCaptionsSetting": {
+    "message": "翻译视频字幕"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "早期版本：已有字幕的 YouTube 视频，以及带字幕轨道的普通 HTML5 视频。翻译在本机进行。直播、X 以及没有字幕的视频暂未包含。如果某一行无法可靠翻译，则保留原字幕。"
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "字幕显示"
+  },
+  "videoCaptionsBilingual": {
+    "message": "原文和译文"
+  },
+  "videoCaptionsReplace": {
+    "message": "仅显示译文"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "保留原文便于学习，也更容易发现误译。"
+  },
+  "videoCaptionsLabel": {
+    "message": "翻译字幕"
+  },
+  "videoCaptionsPending": {
+    "message": "正在翻译字幕…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "显示原字幕"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "隐藏原字幕"
   }
 }

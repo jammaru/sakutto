@@ -12,8 +12,10 @@ import { normalizeSelectedModelId } from '@/engine/model/selection';
 import { hasLicenseConsent } from '@/shared/agreement';
 import type { EngineCapabilities } from '@/shared/capabilities';
 import { isEngineCapabilities } from '@/shared/capabilities';
+import { pageFetchTimedtext, resolveSameOriginCaptionUrl } from '@/captions/timedtext';
 import {
   isCacheClearRequest,
+  isCaptionTimedtextRequest,
   isEngineCapabilitiesRequest,
   isEngineStatusRequest,
   isEngineTierRequest,
@@ -215,6 +217,32 @@ export default defineBackground(() => {
 
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.id !== browser.runtime.id) return false;
+
+    if (isCaptionTimedtextRequest(message)) {
+      const tabId = sender.tab?.id;
+      const tabUrl = sender.tab?.url ?? sender.url;
+      const resolved =
+        tabId !== undefined && tabUrl ? resolveSameOriginCaptionUrl(tabUrl, message.url) : null;
+      if (tabId === undefined || !resolved) {
+        sendResponse('');
+        return true;
+      }
+      void browser.scripting
+        .executeScript({
+          target: { tabId },
+          world: 'MAIN',
+          func: pageFetchTimedtext,
+          args: [resolved],
+        })
+        .then(
+          (results) => {
+            const value = results[0]?.result;
+            sendResponse(typeof value === 'string' ? value : '');
+          },
+          () => sendResponse(''),
+        );
+      return true;
+    }
 
     if (isEngineCapabilitiesRequest(message)) {
       void getEngineCapabilities().then(sendResponse, () => sendResponse(null));

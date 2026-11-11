@@ -1169,5 +1169,35 @@
   },
   "diagRuntime": {
     "message": "Status"
+  },
+  "videoCaptionsSetting": {
+    "message": "Videountertitel übersetzen"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "Frühe Version: YouTube-Videos mit vorhandenen Untertiteln und gewöhnliche HTML5-Videos mit Untertitelspuren. Die Übersetzung läuft auf diesem Gerät. Livestreams, X und Videos ohne Untertitel sind noch nicht enthalten. Wenn eine Zeile nicht zuverlässig übersetzt werden kann, bleibt der Originaluntertitel stehen."
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "Untertitelanzeige"
+  },
+  "videoCaptionsBilingual": {
+    "message": "Original und Übersetzung"
+  },
+  "videoCaptionsReplace": {
+    "message": "Nur übersetzte Untertitel"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "Das Original daneben zu behalten hilft beim Lernen und beim Erkennen einer schlechten Übersetzung."
+  },
+  "videoCaptionsLabel": {
+    "message": "Übersetzte Untertitel"
+  },
+  "videoCaptionsPending": {
+    "message": "Untertitel wird übersetzt…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "Originaluntertitel anzeigen"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "Originaluntertitel ausblenden"
   }
 }
