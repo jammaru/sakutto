@@ -13,7 +13,9 @@ import {
   openSharedModelsDirectory,
   persistSharedFolderHandle,
   pickSharedModelFolder,
+  probeStoredFolderReadable,
   queryFolderPermission,
+  rememberSharedFolderPresentModels,
   requestFolderPermission,
   restoreStoredFolderPermission,
   resolveSharedFolderRoot,
@@ -77,6 +79,10 @@ function fakeHandleFrom(dir: FakeDir): FileSystemDirectoryHandle {
       }
       return { kind: 'file', name } as FileSystemFileHandle;
     },
+    keys: async function* () {
+      yield* dir.dirs.keys();
+      yield* dir.files.keys();
+    },
   } as unknown as FileSystemDirectoryHandle;
 }
 
@@ -134,6 +140,25 @@ describe('folder permission', () => {
     const handle = fakeHandle({ permission: 'prompt', request: 'granted' });
     await persistSharedFolderHandle(handle, bucket);
     expect(await restoreStoredFolderPermission()).toBe('granted');
+  });
+
+  it('probes a leftover readable handle without calling requestPermission', async () => {
+    const bucket = new MemorySharedFolderBucket();
+    setSharedFolderBucketForTests(bucket);
+    const handle = fakeHandle({ permission: 'prompt', request: 'denied' });
+    await persistSharedFolderHandle(handle, bucket);
+    expect(await probeStoredFolderReadable()).toBe(true);
+  });
+
+  it('remembers which official models were last verified in the folder', async () => {
+    const bucket = new MemorySharedFolderBucket();
+    setSharedFolderBucketForTests(bucket);
+    const handle = fakeHandle({ name: 'Sakutto' });
+    await persistSharedFolderHandle(handle, bucket);
+    await rememberSharedFolderPresentModels([DEFAULT_MODEL_ID], bucket);
+    const stored = await bucket.get();
+    expect(stored?.presentModels).toEqual([DEFAULT_MODEL_ID]);
+    expect(isStoredSharedFolder(stored)).toBe(true);
   });
 });
 

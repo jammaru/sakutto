@@ -20,12 +20,25 @@ export interface SharedFolderStatus {
   /** Models still present in OPFS after a shared folder is set (migration leftovers). */
   opfsCopies: readonly ModelId[];
   integrityIssues: readonly SharedFolderIntegrityIssue[];
+  /**
+   * Official models last seen ready in this folder. Kept in IndexedDB so a missing
+   * grant can still say the GGUF is on disk without reading it.
+   */
+  recordedModels?: readonly ModelId[];
 }
 
 export function sharedFolderNeedsPermission(
   folder: Pick<SharedFolderStatus, 'configured' | 'permission'> | null | undefined,
 ): boolean {
   return folder?.configured === true && folder.permission !== 'granted';
+}
+
+/** True when a previous successful inspect recorded this model in the folder. */
+export function folderRecordsModel(
+  folder: Pick<SharedFolderStatus, 'recordedModels'> | null | undefined,
+  modelId: ModelId | undefined,
+): boolean {
+  return Boolean(modelId && folder?.recordedModels?.includes(modelId));
 }
 
 export function emptySharedFolderStatus(supported: boolean): SharedFolderStatus {
@@ -64,6 +77,14 @@ export function isSharedFolderStatus(value: unknown): value is SharedFolderStatu
     !value.integrityIssues.every((issue) => isSharedFolderIntegrityIssue(issue))
   ) {
     return false;
+  }
+  if (value.recordedModels !== undefined) {
+    if (
+      !Array.isArray(value.recordedModels) ||
+      !value.recordedModels.every((id) => isModelId(id))
+    ) {
+      return false;
+    }
   }
   return true;
 }

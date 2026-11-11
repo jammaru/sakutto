@@ -13,10 +13,12 @@
   import {
     requestCacheClear,
     requestEngineCapabilities,
+    isModelProgressMessage,
     requestEngineStatus,
     requestEngineTier,
     requestQualitySample,
   } from '@/shared/messages';
+  import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
   import type { QualitySample } from '@/shared/quality';
   import { PLAMO_OFFICIAL_LINKS, PROJECT_LINKS } from '@/shared/plamo-license';
   import type { IdleMinutes, Settings, SettingsPatch, TierPreference } from '@/shared/settings';
@@ -207,15 +209,28 @@
     });
     void loadStoredSettings();
     void loadRules();
-    const onFolderChanged = () => {
+    const refreshEngine = () => {
       void requestEngineStatus().then((status) => {
         if (status) engine = status;
       });
     };
+    const onFolderChanged = () => {
+      refreshEngine();
+    };
+    const onMessage = (message: unknown) => {
+      if (!isModelProgressMessage(message)) return;
+      if (
+        message.status.error === FOLDER_PERMISSION_ERROR ||
+        message.status.state === 'ready' ||
+        message.status.state === 'loaded' ||
+        message.status.state === 'loading'
+      ) {
+        refreshEngine();
+      }
+    };
     window.addEventListener(SHARED_FOLDER_CHANGED_EVENT, onFolderChanged);
-    void requestEngineStatus().then((status) => {
-      engine = status;
-    });
+    browser.runtime.onMessage.addListener(onMessage);
+    refreshEngine();
     void requestEngineCapabilities().then((value) => {
       capabilities = value;
       capabilitiesFailed = value === null;
@@ -227,6 +242,7 @@
       unsubscribe();
       unsubscribeRules();
       window.removeEventListener(SHARED_FOLDER_CHANGED_EVENT, onFolderChanged);
+      browser.runtime.onMessage.removeListener(onMessage);
     };
   });
 </script>

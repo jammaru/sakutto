@@ -691,6 +691,9 @@
   "modelFolderPermissionNeeded": {
     "message": "共有モデルフォルダを読む許可が必要です。"
   },
+  "modelFolderPermissionPresent": {
+    "message": "モデルはフォルダにあります。許可するとすぐ使えます。"
+  },
   "modelFolderPermissionGrant": {
     "message": "フォルダへのアクセスを許可"
   },

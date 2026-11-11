@@ -58,7 +58,14 @@ describe('start controls while the model downloads', () => {
     expect(modelManager).toContain('folderBlocked');
     expect(typed).toContain('FolderPermissionRestore');
     expect(popup).toContain('FolderPermissionRestore');
+    expect(popup).toContain('shouldShowModelDownloadGate');
+    expect(popup).toContain('showDownloadGate');
+    expect(popup).not.toMatch(/\{#if !canStart\}/);
+    expect(source('entrypoints/onboarding/App.svelte')).toContain('FolderPermissionRestore');
+    expect(source('entrypoints/onboarding/App.svelte')).toContain('FOLDER_PERMISSION_ERROR');
     expect(source('ui/FolderPermissionRestore.svelte')).toContain('modelFolderPermissionGrant');
+    expect(source('ui/FolderPermissionRestore.svelte')).toContain('modelFolderPermissionPresent');
+    expect(source('ui/FolderPermissionRestore.svelte')).toContain('probeStoredFolderReadable');
   });
 
   it('does not offer a download button for a model that is already loading', () => {

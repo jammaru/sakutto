@@ -691,6 +691,9 @@
   "modelFolderPermissionNeeded": {
     "message": "Sakutto needs permission to read the shared model folder."
   },
+  "modelFolderPermissionPresent": {
+    "message": "The model is already in the folder. Allow access to use it."
+  },
   "modelFolderPermissionGrant": {
     "message": "Allow folder access"
   },

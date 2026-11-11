@@ -1,7 +1,11 @@
 import { isModelId, type ModelId } from '../engine/model/catalog';
 import type { BackendKind, ComputeTier } from '../engine/in-browser/backend';
 import type { EngineKind } from '../engine/types';
-import { isSharedFolderStatus, type SharedFolderStatus } from '../engine/model/folder-status';
+import {
+  isSharedFolderStatus,
+  sharedFolderNeedsPermission,
+  type SharedFolderStatus,
+} from '../engine/model/folder-status';
 import { isGpuDiagnostic, type GpuDiagnostic } from './gpu-diagnostic';
 
 export type ModelState =
@@ -98,6 +102,17 @@ export function translationStartBlocked(
   if (!status) return false;
   if (status.engineSource === 'local-server') return false;
   return modelStartBlocked(status.model);
+}
+
+/**
+ * The popup/onboarding "model is still downloading" gate. A missing folder grant is
+ * not a missing file: that state has its own restore card, so this gate stays hidden.
+ */
+export function shouldShowModelDownloadGate(
+  status: Pick<EngineStatus, 'model' | 'engineSource' | 'sharedFolder'> | null | undefined,
+): boolean {
+  if (sharedFolderNeedsPermission(status?.sharedFolder)) return false;
+  return translationStartBlocked(status);
 }
 
 export function isEngineStatus(value: unknown): value is EngineStatus {

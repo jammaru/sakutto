@@ -418,6 +418,25 @@ describe('ModelManager', () => {
     expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
   });
 
+  it('does not copy an OPFS model over a pin-sized folder file that only needs a hash', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    await seedVerified(opfs);
+    await shared.append(`models/${ENTRY.id}/model.gguf`, PAYLOAD, 0);
+    const before = shared.files.get(`models/${ENTRY.id}/model.gguf`);
+    const fetchImpl = vi.fn(async () => {
+      throw new Error('network download should not run');
+    });
+    const { manager } = createManager(shared, { fallbackStore: opfs, fetchImpl });
+
+    await manager.adoptPresentModels();
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(shared.files.get(`models/${ENTRY.id}/model.gguf`)).toBe(before);
+    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
+    expect(await manager.primaryReady(ENTRY.id)).toBe(true);
+  });
+
   it('does not copy an OPFS model over a wrong-sized file already in the folder', async () => {
     const opfs = new MemoryFileStore();
     const shared = new MemoryFileStore();

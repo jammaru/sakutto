@@ -226,6 +226,12 @@ describe('locale messages', () => {
     expect(ja).not.toHaveProperty('modelFolderOfferHide');
     expect(ja.modelFolderPermissionGrant?.message).toBe('フォルダへのアクセスを許可');
     expect(en.modelFolderPermissionGrant?.message).toBe('Allow folder access');
+    expect(ja.modelFolderPermissionPresent?.message).toBe(
+      'モデルはフォルダにあります。許可するとすぐ使えます。',
+    );
+    expect(en.modelFolderPermissionPresent?.message).toBe(
+      'The model is already in the folder. Allow access to use it.',
+    );
     expect(ja.modelFolderOfferOpenSettings?.message).toBe('設定でフォルダを選ぶ');
     expect(en.modelFolderOfferOpenSettings?.message).toBe('Choose the folder in Settings');
     expect(ja.modelFolderPermissionPage?.message).toContain('フォルダへのアクセスを許可');

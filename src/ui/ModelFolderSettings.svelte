@@ -112,7 +112,13 @@
     };
     const onMessage = (message: unknown) => {
       if (!isModelProgressMessage(message)) return;
-      if (message.status.error === FOLDER_PERMISSION_ERROR) void refreshFromEngine();
+      if (
+        message.status.error === FOLDER_PERMISSION_ERROR ||
+        message.status.state === 'ready' ||
+        message.status.state === 'loaded'
+      ) {
+        void refreshFromEngine();
+      }
     };
     window.addEventListener(SHARED_FOLDER_CHANGED_EVENT, onChanged);
     browser.runtime.onMessage.addListener(onMessage);
@@ -141,7 +147,7 @@
       <p class="muted">{t('modelFolderNotUsing')}</p>
     {/if}
 
-    <FolderPermissionRestore {folder} />
+    <FolderPermissionRestore {folder} modelId={DEFAULT_MODEL_ID} onRestored={refreshFromEngine} />
 
     {#each folder.integrityIssues as issue (issue.modelId)}
       <p class="error" role="alert">

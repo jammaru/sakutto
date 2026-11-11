@@ -347,7 +347,11 @@
           </div>
         {:else if folderBlocked}
           <div class="gate">
-            <FolderPermissionRestore folder={engineStatus?.sharedFolder} />
+            <FolderPermissionRestore
+              folder={engineStatus?.sharedFolder}
+              modelId={DEFAULT_MODEL_ID}
+              onRestored={refreshEngine}
+            />
           </div>
         {:else if readiness === 'model-absent' || readiness === 'model-partial'}
           <div class="gate">

@@ -757,6 +757,13 @@ test.describe('shared model folder', () => {
         .toMatchObject({ permission: 'prompt' });
       await popup.reload();
       await expect(popup.getByRole('button', { name: ALLOW_FOLDER_ACCESS })).toBeVisible();
+      await expect(
+        popup.getByText(
+          'Page translation waits until the PLaMo model finishes downloading and loads.',
+        ),
+      ).toHaveCount(0);
+      await expect(popup.getByRole('button', { name: 'Open onboarding' })).toHaveCount(0);
+      await expect(popup.getByText('The model could not be loaded')).toHaveCount(0);
       await popup.getByRole('button', { name: ALLOW_FOLDER_ACCESS }).click();
       await expect
         .poll(async () => readSharedFolder(popup), { timeout: 15_000 })

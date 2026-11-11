@@ -1,6 +1,7 @@
-import { SELECTABLE_MODEL_IDS, getModel } from './catalog';
+import { SELECTABLE_MODEL_IDS, getModel, isModelId, type ModelId } from './catalog';
 import { isFirefoxBuild } from '@/shared/browser';
 import { isRecord } from '@/shared/object';
+import { isPermissionDenied } from './file-store';
 
 export const SHARED_MODELS_DIRECTORY = 'sakutto-models';
 /** Folder name the user creates in Documents. Same spelling on Windows and macOS. */
@@ -34,6 +35,8 @@ export interface StoredSharedFolder {
   handle: FileSystemDirectoryHandle;
   name: string;
   savedAt: number;
+  /** Last known official models in this folder. Not a live read of the GGUF. */
+  presentModels?: readonly ModelId[];
 }
 
 export interface SharedFolderHandleBucket {
@@ -261,6 +264,49 @@ export async function requestFolderPermission(
   return current;
 }
 
+/**
+ * Try to read the stored directory without prompting. A leftover active grant can
+ * still open while `queryPermission` is `prompt`. Fake-engine overrides stay
+ * authoritative so e2e can keep the restore button on screen.
+ */
+export async function probeStoredFolderReadable(): Promise<boolean> {
+  const stored = await loadStoredSharedFolder();
+  if (!stored) return false;
+  if (await folderPermissionOverrideActive()) {
+    return (await queryFolderPermission(stored.handle)) === 'granted';
+  }
+  const queried = await queryFolderPermission(stored.handle);
+  if (queried === 'granted') return true;
+  if (queried === 'denied') return false;
+  try {
+    await stored.handle.getDirectoryHandle(SHARED_MODELS_DIRECTORY);
+    return true;
+  } catch (error) {
+    if (isPermissionDenied(error)) return false;
+    return error instanceof DOMException && error.name === 'NotFoundError';
+  }
+}
+
+/** Persist which official models were last verified in this folder. */
+export async function rememberSharedFolderPresentModels(
+  modelIds: readonly ModelId[],
+  bucket?: SharedFolderHandleBucket,
+): Promise<void> {
+  const store = bucket ?? (await openSharedFolderBucket().catch(() => null));
+  if (!store) return;
+  const stored = await store.get();
+  if (!stored) return;
+  const presentModels = [...new Set(modelIds)].sort();
+  const previous = stored.presentModels ?? [];
+  if (
+    presentModels.length === previous.length &&
+    presentModels.every((id, index) => id === previous[index])
+  ) {
+    return;
+  }
+  await store.set({ ...stored, presentModels });
+}
+
 /** One-click restore of a handle already in IndexedDB. */
 export async function restoreStoredFolderPermission(
   hooks: {
@@ -278,6 +324,11 @@ export function isStoredSharedFolder(value: unknown): value is StoredSharedFolde
   if (!isRecord(value)) return false;
   if (typeof value.name !== 'string' || value.name.length === 0) return false;
   if (typeof value.savedAt !== 'number' || !Number.isFinite(value.savedAt)) return false;
+  if (value.presentModels !== undefined) {
+    if (!Array.isArray(value.presentModels) || !value.presentModels.every((id) => isModelId(id))) {
+      return false;
+    }
+  }
   return isDirectoryHandle(value.handle);
 }
 

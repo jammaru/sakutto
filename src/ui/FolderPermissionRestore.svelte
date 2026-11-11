@@ -1,24 +1,39 @@
 <script lang="ts">
+  import type { ModelId } from '@/engine/model/catalog';
   import {
+    folderRecordsModel,
     sharedFolderNeedsPermission,
     type SharedFolderStatus,
   } from '@/engine/model/folder-status';
   import { notifySharedFolderChanged } from '@/engine/model/folder-offer';
-  import { restoreStoredFolderPermission } from '@/engine/model/shared-folder';
+  import {
+    probeStoredFolderReadable,
+    restoreStoredFolderPermission,
+  } from '@/engine/model/shared-folder';
   import { t } from '@/shared/i18n';
   import { requestEngineWarm, requestModelFolderReload } from '@/shared/messages';
 
   interface Props {
     folder: SharedFolderStatus | null | undefined;
     compact?: boolean;
+    modelId?: ModelId | undefined;
     onRestored?: () => Promise<void> | void;
   }
 
-  let { folder, compact = false, onRestored }: Props = $props();
+  let { folder, compact = false, modelId, onRestored }: Props = $props();
 
   let granting = $state(false);
   let grantError = $state(false);
+  let probed = $state(false);
   let visible = $derived(sharedFolderNeedsPermission(folder));
+  let presentHint = $derived(folderRecordsModel(folder, modelId));
+
+  async function afterGrant(): Promise<void> {
+    await requestModelFolderReload();
+    notifySharedFolderChanged();
+    await requestEngineWarm();
+    await onRestored?.();
+  }
 
   async function grantAccess() {
     grantError = false;
@@ -29,21 +44,34 @@
         grantError = true;
         return;
       }
-      await requestModelFolderReload();
-      notifySharedFolderChanged();
-      await requestEngineWarm();
-      await onRestored?.();
+      await afterGrant();
     } catch {
       grantError = true;
     } finally {
       granting = false;
     }
   }
+
+  $effect(() => {
+    if (!visible) {
+      probed = false;
+      return;
+    }
+    if (probed) return;
+    probed = true;
+    void probeStoredFolderReadable().then(async (readable) => {
+      if (!readable) return;
+      await afterGrant();
+    });
+  });
 </script>
 
 {#if visible}
   <div class="restore" class:compact role="alert">
     <p class:muted={compact}>{t('modelFolderPermissionNeeded')}</p>
+    {#if presentHint}
+      <p class:muted={compact}>{t('modelFolderPermissionPresent')}</p>
+    {/if}
     <button class="button" type="button" disabled={granting} onclick={() => void grantAccess()}>
       {t('modelFolderPermissionGrant')}
     </button>

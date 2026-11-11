@@ -441,7 +441,10 @@ export class ModelManager {
     if (!this.fallbackStore) return false;
 
     const primary = await this.inspect(this.store, modelId);
-    if (primary.state === 'ready' || primary.integrity === 'reject-size') return false;
+    // Another Chrome/Edge profile may already hold a pin-sized GGUF here. Never
+    // replace it: `removeEntry` + rewrite is how one profile can invalidate the
+    // file another profile's handle still points at. Only fill an empty slot.
+    if (primary.integrity !== 'missing') return false;
     if (this.errors.get(modelId) === INTEGRITY_DIGEST_ERROR) return false;
     if (await this.copyAlreadyRejected(modelId)) return false;
 
@@ -760,8 +763,9 @@ export class ModelManager {
     manifest: ModelManifest,
   ): Promise<void> {
     const path = this.manifestPath(modelId);
-    await store.remove(path);
-    await store.append(path, TEXT_ENCODER.encode(JSON.stringify(manifest)), 0);
+    const writer = await store.createWriter(path, 0);
+    await writer.write(TEXT_ENCODER.encode(JSON.stringify(manifest)));
+    await writer.close();
   }
 
   private notify(status: ModelStatus): void {

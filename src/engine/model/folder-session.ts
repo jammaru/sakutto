@@ -15,6 +15,7 @@ import {
   folderPermissionOverrideActive,
   loadStoredSharedFolder,
   queryFolderPermission,
+  rememberSharedFolderPresentModels,
   sharedFolderSupported,
 } from './shared-folder';
 import { SharedFolderModelFileStore } from './shared-store';
@@ -102,6 +103,7 @@ export class SharedFolderSession {
       name: stored.name,
       opfsCopies: [],
       integrityIssues: [],
+      recordedModels: stored.presentModels ?? [],
     };
     return this.snapshot;
   }
@@ -111,17 +113,17 @@ export class SharedFolderSession {
     permission: SharedFolderStatus['permission'],
   ): Promise<SharedFolderStatus> {
     const opfsCopies: ModelId[] = [];
+    const recordedModels: ModelId[] = [];
     const integrityIssues: SharedFolderIntegrityIssue[] = [];
     for (const modelId of SELECTABLE_MODEL_IDS) {
       const issue = await this.manager.sharedIntegrityIssue(modelId);
       if (issue) integrityIssues.push({ modelId, kind: issue.kind, file: issue.file });
-      if (
-        (await this.manager.primaryReady(modelId)) &&
-        (await this.manager.fallbackCopyPresent(modelId))
-      ) {
+      if (await this.manager.primaryReady(modelId)) recordedModels.push(modelId);
+      if (recordedModels.includes(modelId) && (await this.manager.fallbackCopyPresent(modelId))) {
         opfsCopies.push(modelId);
       }
     }
+    await rememberSharedFolderPresentModels(recordedModels);
     return {
       supported: true,
       configured: true,
@@ -129,6 +131,7 @@ export class SharedFolderSession {
       name,
       opfsCopies,
       integrityIssues,
+      recordedModels,
     };
   }
 }

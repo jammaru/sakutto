@@ -2,6 +2,12 @@
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
   import { DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID, getModel } from '@/engine/model/catalog';
+  import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
+  import {
+    emptySharedFolderStatus,
+    sharedFolderNeedsPermission,
+    type SharedFolderStatus,
+  } from '@/engine/model/folder-status';
   import { isModelIntegrityError } from '@/engine/model/manager';
   import {
     adoptPickedSharedFolder,
@@ -24,6 +30,7 @@
     requestModelDownload,
     requestEngineWarm,
     requestModelFolderReload,
+    requestEngineStatus,
     requestModelInspect,
     requestShortcutSnapshot,
   } from '@/shared/messages';
@@ -43,6 +50,7 @@
   } from '@/shared/settings';
   import { loadSettings, saveSettings } from '@/shared/storage';
   import { prepareTranslatorPack } from '@/shared/translator-pack';
+  import FolderPermissionRestore from '@/ui/FolderPermissionRestore.svelte';
   import SharedFolderBenefits from '@/ui/SharedFolderBenefits.svelte';
   import { estimateRemainingMs, type ByteMark } from '@/ui/download-eta';
   import { formatByteSize, formatByteSizeList } from '@/ui/format';
@@ -95,6 +103,9 @@
   let progress = $state(0);
   let modelState = $state<ModelStatus['state']>('absent');
   let lastStatus = $state<ModelStatus | null>(null);
+  let engineFolder = $state<SharedFolderStatus>(
+    emptySharedFolderStatus(sharedFolderPickerAvailable()),
+  );
   let closing = $state(false);
   let closeFailed = $state(false);
   let tryFailed = $state(false);
@@ -155,6 +166,9 @@
         })
       : null,
   );
+  let folderBlocked = $derived(
+    sharedFolderNeedsPermission(engineFolder) || lastStatus?.error === FOLDER_PERMISSION_ERROR,
+  );
 
   function applyStatus(status: ModelStatus) {
     if (status.id !== DEFAULT_MODEL_ID) return;
@@ -164,6 +178,11 @@
     total = next.total || model.size;
     progress = next.progress;
     modelState = next.state;
+    if (next.error === FOLDER_PERMISSION_ERROR) {
+      failureDetail = null;
+      phase = 'consent';
+      return;
+    }
     if (next.state === 'error') {
       const integrity = isModelIntegrityError(next.error);
       if (integrity && !startRequested && !consentSaved) {
@@ -329,6 +348,11 @@
         });
         if (stored === null) return;
         consentSaved = stored && !reconsent;
+      })
+      .catch(() => undefined)
+      .then(() => requestEngineStatus())
+      .then((status) => {
+        if (status?.sharedFolder) engineFolder = status.sharedFolder;
       })
       .catch(() => undefined)
       .then(() => requestModelInspect(DEFAULT_MODEL_ID))
@@ -529,6 +553,18 @@
         <p class="error" role="alert">{pickError}</p>
       {/if}
       <p id="start-notice" class="start-note">{t('onboardingConsentSentence')}</p>
+    {/if}
+    {#if folderBlocked}
+      <FolderPermissionRestore
+        folder={engineFolder}
+        modelId={DEFAULT_MODEL_ID}
+        onRestored={async () => {
+          const next = await requestEngineStatus();
+          if (next?.sharedFolder) engineFolder = next.sharedFolder;
+          const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
+          if (inspected) applyStatus(inspected);
+        }}
+      />
     {/if}
     {#if resolvedFolderName}
       <p class="muted start-note" role="status">{t('modelFolderUsing', [resolvedFolderName])}</p>

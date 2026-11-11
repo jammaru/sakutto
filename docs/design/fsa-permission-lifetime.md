@@ -211,11 +211,118 @@ handles). Use a real GGUF (not the e2e sparse plant).
    **Settings** (not pick in the popup). Choose `Documents\Sakutto` there.
    After the copy finishes, OPFS `sakutto/models` should be empty (one copy).
    Then the same close/restart checks as (1).
-3. **Edge.** Repeat (1). Edge often has no persistent FSA grant. Closing the
-   last extension page should always need the restore button. One click in
-   the popup must be enough for that visit. Do not expect a restart to keep
-   access.
+3. **Edge.** Repeat (1) from a **Settings / onboarding tab**, not the popup.
+   If Edge shows **Allow on every visit**, pick it and restart. If it does
+   not, the popup must show 「フォルダへのアクセスを許可」 after restart
+   (no download card). One click is enough for that visit. See §8.
+
+4. **Second Chrome profile.** Profile A has a persistent grant on
+   `Documents\Sakutto`. Profile B picks the same folder. Profile A must not
+   be asked again after a restart. If it is, note whether B recopied the
+   GGUF (mtime change) or A’s extension reloaded.
 
 Never: notifications, badges, or a tab that opens by itself. Never a second
 copy kept “just in case”. Never a download when the GGUF is already in the
 folder and only permission is missing.
+
+## 7. Second Chrome profile, same `Documents\Sakutto`
+
+Findings (code + Chromium, not a guess about the maintainer’s machine):
+
+**What our code could do.** `copyOneFallback` used to treat a pin-sized
+folder file with a stale sidecar (`needs-hash`) as an empty slot and copy
+from OPFS on top of it. `ModelFileStore.move` deletes the destination first
+(`removeEntry`) then writes a new GGUF. Chromium revokes the **writing
+origin’s** file-path grant on `removeEntry`
+([NotifyEntryRemoved / `FileSystemAccessRevokeReadOnRemove`](https://github.com/marklove5102/supermium/commit/d9b1ba060eb32ee690fc5c9f2b8ab5c0e6a5a73d);
+parent directory grants stay). Sidecar writes used `remove` then `append`.
+A second profile that hashed a lastModified mismatch would rewrite
+`.verified.json` and, before this change, could replace the GGUF.
+
+**What our code now does.** A folder file that is not `missing` is never
+replaced. Sidecar writes overwrite in place (`createWriter` at offset 0).
+`adoptPresentModels` may still hash a `needs-hash` file and refresh the
+sidecar; it does not delete or rewrite the GGUF. Recorded model ids are
+stored on the IndexedDB handle so a missing grant can say “the model is in
+the folder” without reading it. Restore UI tries a silent directory read
+before showing the button (`probeStoredFolderReadable`);
+`queryPermission === 'prompt'` alone is not enough.
+
+**What we cannot control (per-profile Chromium).**
+`HostContentSettingsMap` / `FILE_SYSTEM_ACCESS_EXTENDED_PERMISSION` is
+**per Profile**. Profile B granting the same path cannot flip profile A’s
+content setting. Directory grants are keyed by **path**, not inode
+([`PathAsPermissionKey`](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/chrome/browser/file_system_access/chrome_file_system_access_permission_context.cc)).
+Documented cases that _do_ clear an origin’s persisted FSA objects in the
+same profile: last page of the origin closed without extended permission
+(`CleanupPermissions` → `RevokeObjectPermissions`); user reset in site
+settings; extension update/reload (Chromium-extensions thread: file
+permissions “auto-remove on each update”). Loading the same unpacked
+directory in profile B can reload that unpacked extension for other
+profiles that pointed at the same files — that is Chrome, not Sakutto.
+
+## 8. Edge: can an extension FSA grant persist across restarts?
+
+Sources only. Current stable Edge is Chromium-based; there is no
+Edge-only File System Access API.
+
+**Chrome 122 persistent permissions** (“Allow this time” / “Allow on every
+visit” / site-settings file list) are documented for Chrome, not as an
+Edge feature page:
+[Persistent permissions for the File System Access API](https://developer.chrome.com/blog/persistent-permissions-for-the-file-system-access-api).
+The flag `kFileSystemAccessPersistentPermissions` is
+**enabled by default** in Chromium
+([`file_system_access_features.cc`](https://chromium.googlesource.com/chromium/src/+/5f26a56181d7bb9e2ead30b4cdd9d12b6e7ac58a/chrome/browser/file_system_access/file_system_access_features.cc)).
+A Chromium Edge **extension** did get “Allow on every visit” in 122+:
+[Kiwix JS, r/Kiwix, 2024-03-03](https://www.reddit.com/r/Kiwix/comments/1b5n2qc/new_you_can_now_automatically_reopen_a_zim_in_the/)
+(author: works in Chrome, Edge, Brave > 122 if the user picks that option;
+often on the second or third restore). Electron’s tracker treats
+“Chrome/Edge 122+” as the browsers where persisted handles need no
+gesture: [electron#41957](https://github.com/electron/electron/issues/41957).
+
+**Ordinary user, realistically**
+
+1. Grant from a **tab** (Settings / onboarding), not the popup. Chromium
+   auto-grants popup/side-panel `requestPermission` for
+   `chrome-extension://` without the three-way prompt (same as Chrome;
+   `FileSystemAccessPermissionRequestManager` needs
+   `tabs::TabInterface`). A popup click is this-visit only.
+2. If Edge shows **Allow on every visit**, pick it. That sets
+   `FILE_SYSTEM_ACCESS_EXTENDED_PERMISSION` ALLOW. After restart,
+   offscreen can auto-grant with no click. This is the only no-click
+   restart path. It does not always appear (same as Chrome).
+3. Site settings: `edge://settings/content/fileEditing` (File editing —
+   “Ask when a site wants to edit files or folders”) exists in Edge since
+   83 ([Tech Community, 2020-04-07](https://techcommunity.microsoft.com/discussions/edgeinsiderdiscussions/new-option-file-editing-permission-in-edge/1289541)).
+   Chromium’s launch icon next to File editing that lists granted
+   files/folders is the Chrome 122 UI; Edge’s page is the older Ask/Block
+   toggle. There is no documented `edge://settings/content` control that
+   forces persistence for `chrome-extension://`.
+4. **Enterprise policies** (Microsoft Learn):
+   [`FileSystemReadAskForUrls`](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-policies/filesystemreadaskforurls),
+   `FileSystemReadBlockedForUrls`,
+   [`FileSystemWriteAskForUrls`](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-policies/filesystemwriteaskforurls),
+   `FileSystemWriteBlockedForUrls`,
+   [`DefaultFileSystemWriteGuardSetting`](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-policies/defaultfilesystemwriteguardsetting)
+   (2 = block, 3 = ask). Official Edge and Chrome enterprise lists have
+   **no** `FileSystemReadAllowedForUrls` / `FileSystemWriteAllowedForUrls`
+   that silently allow. Ask-for-URLs only lets the origin **prompt**; it
+   does not persist a grant across restarts.
+5. **Flags.** Chrome 120–121 used
+   `chrome://flags/#file-system-access-persistent-permission`. The feature
+   is default-on in current Chromium. Edge does not publish a matching
+   `edge://flags` article. An ordinary user should not need a flag.
+6. Installing the extension is **not** the PWA “installed app, persist
+   automatically” path (same Chromium `OriginHasExtendedPermission` as
+   Chrome).
+
+**Detect Edge and default to browser storage?** We can detect Chromium
+Edge (`navigator.userAgentData` brand `Microsoft Edge`, or `Edg/` in
+`userAgent`; `isMicrosoftEdge()`). We do **not** default Edge to OPFS.
+The shared folder exists so Chrome and Edge can share one GGUF. Edge 122+
+can persist if the tab restore prompt appears (Kiwix). After restart we
+already detect a missing grant and show one-click restore. Defaulting
+Edge to browser storage would create a second copy and hide the sharing
+path. Keep the folder optional; default remains “this browser” in
+Settings copy (`modelFolderHelp`) and first-run still recommends the
+folder when the picker exists.
