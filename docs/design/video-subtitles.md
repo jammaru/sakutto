@@ -223,8 +223,9 @@ A typical caption is 8–15 English words (~12–25 output tokens in Japanese).
 - Overlay (`<sakutto-captions>`, closed shadow root) sits on the player, not in page prose.
   `<video>` stays in the frozen selector so page translation does not rewrite the media
   subtree. The host is a child of `#movie_player` (not `.html5-video-container`) so it
-  stacks above `.ytp-chrome-bottom`. Caption lines keep `pointer-events: none` so a normal
-  click still plays or pauses. A 400 ms press-and-hold on the caption box picks it up;
+  stacks above `.ytp-chrome-bottom`. Caption lines keep `pointer-events: none`. A press on
+  the caption box is captured so YouTube/X cannot start hold-to-2x; a short click
+  programmatically toggles play/pause. A 400 ms press-and-hold on the caption box picks it up;
   dragging stores the centre as a percent of the player (YouTube / X separately) and
   clamps above the control bar. Settings has **位置をリセット**. The original-line toggle
   lives in the light DOM at a 32px target and is armed by a document capture listener so

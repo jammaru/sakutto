@@ -438,17 +438,67 @@ describe('caption overlay', () => {
     expect(left.x).toBeLessThan(right.x);
   });
 
-  it('keeps pointer-events off so a short click on the caption still reaches the player', () => {
+  it('swallows a caption press so the player cannot start hold-to-2x, and short-clicks play/pause', () => {
     const { overlay, host, player } = mountDraggableOverlay();
-    let playerSaw = 0;
+    const video = player.querySelector('video') as HTMLVideoElement;
+    Object.defineProperty(video, 'paused', {
+      configurable: true,
+      get: () => video.dataset.paused === '1',
+    });
+    video.dataset.paused = '0';
+    video.pause = () => {
+      video.dataset.paused = '1';
+    };
+    video.play = async () => {
+      video.dataset.paused = '0';
+    };
+    video.playbackRate = 1;
+    let playerDown = 0;
+    let playerClick = 0;
+    let twoXArmed = false;
     player.addEventListener(
       'pointerdown',
       () => {
-        playerSaw += 1;
+        playerDown += 1;
+        twoXArmed = true;
+        video.playbackRate = 2;
       },
       true,
     );
+    player.addEventListener(
+      'mousedown',
+      () => {
+        playerDown += 1;
+      },
+      true,
+    );
+    player.addEventListener(
+      'click',
+      () => {
+        playerClick += 1;
+      },
+      true,
+    );
+    let clicks = 0;
+    overlay.setOnShortClick(() => {
+      clicks += 1;
+      video.pause();
+    });
+
     dispatchPointer(player, 'pointerdown', 320, 310);
+    player.dispatchEvent(
+      new MouseEvent('mousedown', {
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+        clientX: 320,
+        clientY: 310,
+        button: 0,
+      }),
+    );
+    expect(playerDown).toBe(0);
+    expect(twoXArmed).toBe(false);
+    expect(video.playbackRate).toBe(1);
     dispatchPointer(player, 'pointerup', 320, 310);
     player.dispatchEvent(
       new MouseEvent('click', {
@@ -459,11 +509,64 @@ describe('caption overlay', () => {
         clientY: 310,
       }),
     );
+    expect(clicks).toBe(1);
+    expect(video.dataset.paused).toBe('1');
+    expect(playerClick).toBe(0);
     expect(host.style.pointerEvents).toBe('none');
     expect(host.hasAttribute('data-sakutto-dragging')).toBe(false);
-    expect(host.style.left).toBe('50%');
-    expect(host.style.transform).toBe('translateX(-50%)');
-    expect(playerSaw).toBe(1);
+    overlay.detach();
+  });
+
+  it('does not change playbackRate or toggle play during a caption hold-and-drag', () => {
+    vi.useFakeTimers();
+    const { overlay, host, player } = mountDraggableOverlay();
+    const video = player.querySelector('video') as HTMLVideoElement;
+    video.playbackRate = 1;
+    let clicks = 0;
+    overlay.setOnShortClick(() => {
+      clicks += 1;
+    });
+    let playerDown = 0;
+    player.addEventListener(
+      'pointerdown',
+      () => {
+        playerDown += 1;
+        video.playbackRate = 2;
+      },
+      true,
+    );
+    dispatchPointer(player, 'pointerdown', 320, 310);
+    vi.advanceTimersByTime(CAPTION_DRAG_HOLD_MS);
+    expect(host.getAttribute('data-sakutto-dragging')).toBe('1');
+    expect(playerDown).toBe(0);
+    expect(video.playbackRate).toBe(1);
+    dispatchPointer(player, 'pointerup', 320, 310);
+    expect(clicks).toBe(0);
+    expect(video.playbackRate).toBe(1);
+    overlay.detach();
+    vi.useRealTimers();
+  });
+
+  it('swallows contextmenu on the caption box', () => {
+    const { overlay, player } = mountDraggableOverlay();
+    let menus = 0;
+    player.addEventListener(
+      'contextmenu',
+      () => {
+        menus += 1;
+      },
+      true,
+    );
+    const event = new MouseEvent('contextmenu', {
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+      clientX: 320,
+      clientY: 310,
+    });
+    player.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(menus).toBe(0);
     overlay.detach();
   });
 

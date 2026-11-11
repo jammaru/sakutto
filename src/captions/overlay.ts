@@ -27,9 +27,26 @@ export const CAPTION_TOGGLE_HIDE_MS = 2_000;
 
 const TOGGLE_EVENTS = ['pointerdown', 'mousedown', 'click', 'pointerup', 'mouseup'] as const;
 const HOVER_EVENTS = ['pointermove', 'pointerdown', 'mousemove'] as const;
-const DRAG_EVENTS = ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'click'] as const;
+const DRAG_EVENTS = [
+  'pointerdown',
+  'mousedown',
+  'touchstart',
+  'pointermove',
+  'mousemove',
+  'touchmove',
+  'pointerup',
+  'mouseup',
+  'touchend',
+  'pointercancel',
+  'touchcancel',
+  'click',
+  'contextmenu',
+] as const;
+const DRAG_DOWN = new Set(['pointerdown', 'mousedown', 'touchstart']);
+const DRAG_MOVE = new Set(['pointermove', 'mousemove', 'touchmove']);
+const DRAG_UP = new Set(['pointerup', 'mouseup', 'touchend', 'pointercancel', 'touchcancel']);
 
-/** Press-and-hold before the caption box can be moved. Short clicks still reach the player. */
+/** Press-and-hold before the caption box can be moved. Short clicks toggle play/pause. */
 export const CAPTION_DRAG_HOLD_MS = 400;
 /** Pointer travel before the hold that cancels pickup (the reader is interacting with the player). */
 export const CAPTION_DRAG_CANCEL_PX = 8;
@@ -373,6 +390,7 @@ export class CaptionOverlay {
   private toggleLabel = '';
   private position: VideoCaptionPosition | null = null;
   private onPositionChange: (point: VideoCaptionPosition) => void = () => undefined;
+  private onShortClick: () => void = () => undefined;
   private dragBound = false;
   private holdTimer: number | null = null;
   private holdPointerId: number | null = null;
@@ -380,6 +398,10 @@ export class CaptionOverlay {
   private dragging = false;
   private grabOffset = { x: 0, y: 0 };
   private suppressClick = false;
+  private suppressClickTimer: number | null = null;
+  private gestureActive = false;
+  private gestureMoved = false;
+  private shortClickArmed = false;
 
   constructor(doc: Document, labels: CaptionOverlayLabels) {
     this.labels = labels;
@@ -425,6 +447,10 @@ export class CaptionOverlay {
     this.onPositionChange = handler;
   }
 
+  setOnShortClick(handler: () => void): void {
+    this.onShortClick = handler;
+  }
+
   setPosition(point: VideoCaptionPosition | null): void {
     if (this.dragging) return;
     this.position = point;
@@ -453,6 +479,7 @@ export class CaptionOverlay {
   detach(): void {
     this.cancelHold();
     this.endDrag(false);
+    this.resetGesture();
     this.unbindDragCapture();
     this.unbindToggleCapture();
     this.unbindPlayerHover();
@@ -519,6 +546,7 @@ export class CaptionOverlay {
   hide(): void {
     this.cancelHold();
     this.endDrag(false);
+    this.resetGesture();
     this.overlayActive = false;
     this.host.hidden = true;
     this.originalLine.textContent = '';
@@ -686,10 +714,6 @@ export class CaptionOverlay {
         passive: false,
       });
     }
-    this.captureDoc.addEventListener('touchmove', this.onDragTouchMove, {
-      capture: true,
-      passive: false,
-    });
   }
 
   private unbindDragCapture(): void {
@@ -698,49 +722,58 @@ export class CaptionOverlay {
     for (const type of DRAG_EVENTS) {
       this.captureDoc.removeEventListener(type, this.onDragCapture, true);
     }
-    this.captureDoc.removeEventListener('touchmove', this.onDragTouchMove, true);
   }
-
-  private onDragTouchMove = (event: Event): void => {
-    if (!this.dragging) return;
-    event.preventDefault();
-  };
 
   private onDragCapture = (event: Event): void => {
     if (this.eventHitsToggle(event)) return;
     const type = event.type;
+    if (type === 'contextmenu') {
+      const point = this.eventPoint(event);
+      if (this.gestureActive || (point && this.eventHitsCaption(point.x, point.y))) {
+        this.swallow(event);
+      }
+      return;
+    }
     if (type === 'click') {
       if (!this.suppressClick) return;
       this.swallow(event);
-      this.suppressClick = false;
+      this.clearClickSuppress();
+      return;
+    }
+    if (!this.gestureActive && this.suppressClick && DRAG_UP.has(type)) {
+      this.swallow(event);
       return;
     }
     const point = this.eventPoint(event);
-    if (!point) return;
-    if (type === 'pointerdown') {
-      this.onDragPointerDown(point);
+    if (DRAG_DOWN.has(type)) {
+      if (point) this.onDragPointerDown(event, point);
       return;
     }
-    if (type === 'pointermove') {
-      this.onDragPointerMove(event, point);
+    if (DRAG_MOVE.has(type)) {
+      if (this.gestureActive) this.swallow(event);
+      if (point) this.onDragPointerMove(point);
       return;
     }
-    if (type === 'pointerup' || type === 'pointercancel') {
-      this.onDragPointerUp(event, point);
-    }
+    if (DRAG_UP.has(type) && point) this.onDragPointerUp(event, point);
   };
 
-  private onDragPointerDown(point: {
-    x: number;
-    y: number;
-    pointerId: number;
-    button: number;
-    isPrimary: boolean;
-  }): void {
-    if (this.dragging) return;
+  private onDragPointerDown(
+    event: Event,
+    point: { x: number; y: number; pointerId: number; button: number; isPrimary: boolean },
+  ): void {
+    if (this.gestureActive) {
+      this.swallow(event);
+      return;
+    }
     if (!point.isPrimary || point.button !== 0) return;
     if (!this.overlayActive || this.host.hidden) return;
     if (!this.eventHitsCaption(point.x, point.y)) return;
+    this.swallow(event);
+    this.gestureActive = true;
+    this.gestureMoved = false;
+    this.shortClickArmed = true;
+    this.clearSuppressClickTimer();
+    this.suppressClick = true;
     this.cancelHold();
     this.holdPointerId = point.pointerId;
     this.holdOrigin = { x: point.x, y: point.y };
@@ -748,37 +781,72 @@ export class CaptionOverlay {
     this.holdTimer =
       view?.setTimeout(() => {
         this.holdTimer = null;
-        if (this.holdPointerId !== point.pointerId) return;
+        if (!this.gestureActive) return;
+        this.shortClickArmed = false;
         this.beginDrag(point);
       }, CAPTION_DRAG_HOLD_MS) ?? null;
   }
 
-  private onDragPointerMove(
-    event: Event,
-    point: { x: number; y: number; pointerId: number },
-  ): void {
-    if (this.holdPointerId !== null && point.pointerId === this.holdPointerId && !this.dragging) {
-      const dx = point.x - this.holdOrigin.x;
-      const dy = point.y - this.holdOrigin.y;
-      if (dx * dx + dy * dy > CAPTION_DRAG_CANCEL_PX * CAPTION_DRAG_CANCEL_PX) {
-        this.cancelHold();
-      }
+  private onDragPointerMove(point: { x: number; y: number; pointerId: number }): void {
+    if (!this.gestureActive) return;
+    if (this.dragging) {
+      this.moveDrag(point.x, point.y);
       return;
     }
-    if (!this.dragging || point.pointerId !== this.holdPointerId) return;
-    this.swallow(event);
-    this.moveDrag(point.x, point.y);
+    const dx = point.x - this.holdOrigin.x;
+    const dy = point.y - this.holdOrigin.y;
+    if (dx * dx + dy * dy > CAPTION_DRAG_CANCEL_PX * CAPTION_DRAG_CANCEL_PX) {
+      this.gestureMoved = true;
+      this.shortClickArmed = false;
+      this.cancelHold();
+    }
   }
 
   private onDragPointerUp(event: Event, point: { x: number; y: number; pointerId: number }): void {
-    if (point.pointerId !== this.holdPointerId) return;
-    if (this.dragging) {
+    if (!this.gestureActive) return;
+    if (this.holdPointerId !== null && point.pointerId !== this.holdPointerId) {
       this.swallow(event);
-      this.suppressClick = true;
-      this.endDrag(true);
       return;
     }
-    this.cancelHold();
+    this.swallow(event);
+    this.armClickSuppress();
+    const shouldClick = this.shortClickArmed && !this.dragging && !this.gestureMoved;
+    if (this.dragging) this.endDrag(true);
+    else this.cancelHold();
+    this.gestureActive = false;
+    this.gestureMoved = false;
+    this.shortClickArmed = false;
+    this.holdPointerId = null;
+    if (shouldClick) this.onShortClick();
+  }
+
+  private resetGesture(): void {
+    this.gestureActive = false;
+    this.shortClickArmed = false;
+    this.gestureMoved = false;
+    this.clearClickSuppress();
+  }
+
+  private armClickSuppress(): void {
+    this.suppressClick = true;
+    this.clearSuppressClickTimer();
+    const view = this.captureDoc.defaultView;
+    this.suppressClickTimer =
+      view?.setTimeout(() => {
+        this.suppressClickTimer = null;
+        this.suppressClick = false;
+      }, 80) ?? null;
+  }
+
+  private clearClickSuppress(): void {
+    this.suppressClick = false;
+    this.clearSuppressClickTimer();
+  }
+
+  private clearSuppressClickTimer(): void {
+    if (this.suppressClickTimer === null) return;
+    this.captureDoc.defaultView?.clearTimeout(this.suppressClickTimer);
+    this.suppressClickTimer = null;
   }
 
   private beginDrag(point: { x: number; y: number }): void {
@@ -859,6 +927,19 @@ export class CaptionOverlay {
   private eventPoint(
     event: Event,
   ): { x: number; y: number; pointerId: number; button: number; isPrimary: boolean } | null {
+    if ('changedTouches' in event || 'touches' in event) {
+      const touchEvent = event as TouchEvent;
+      const touch = touchEvent.changedTouches[0] ?? touchEvent.touches[0];
+      if (touch && Number.isFinite(touch.clientX) && Number.isFinite(touch.clientY)) {
+        return {
+          x: touch.clientX,
+          y: touch.clientY,
+          pointerId: touch.identifier,
+          button: 0,
+          isPrimary: true,
+        };
+      }
+    }
     if (!('clientX' in event) || !('clientY' in event)) return null;
     const pointer = event as PointerEvent;
     const x = pointer.clientX;

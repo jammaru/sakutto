@@ -191,6 +191,7 @@ export class VideoCaptionSession {
     this.overlay = new CaptionOverlay(doc, options.labels);
     this.overlay.setOnDisplayToggle(() => options.onDisplayToggle?.());
     this.overlay.setOnPositionChange((point) => options.onPositionChange?.(point));
+    this.overlay.setOnShortClick(() => this.togglePlayback());
     this.overlay.setToggleEnabled(this.prefs.originalToggle !== false);
     this.overlay.setPosition(this.prefs.position ?? null);
   }
@@ -1223,6 +1224,13 @@ export class VideoCaptionSession {
       glossary: this.prefs.glossary,
       src: language,
     };
+  }
+
+  private togglePlayback(): void {
+    const video = this.video;
+    if (!video) return;
+    if (video.paused || video.ended) void video.play().catch(() => undefined);
+    else video.pause();
   }
 
   private hideNativeCaptions(hide: boolean): void {

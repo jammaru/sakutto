@@ -249,19 +249,37 @@ test.describe('video captions', () => {
       if (!box) throw new Error('caption overlay had no box');
       const fromX = box.x + box.width / 2;
       const fromY = box.y + box.height / 2;
-      await page.mouse.move(fromX, fromY);
-      await page.mouse.down();
-      await new Promise((resolve) => setTimeout(resolve, 80));
-      await page.mouse.up();
-      await expect(host).not.toHaveAttribute('data-sakutto-dragging', '1');
-      await expect
-        .poll(async () => host.evaluate((element) => (element as HTMLElement).style.transform))
-        .toBe('translateX(-50%)');
-
+      await page.evaluate(() => {
+        const player = document.querySelector('#movie_player');
+        const video = document.querySelector('#player') as HTMLVideoElement | null;
+        if (!player || !video) throw new Error('player missing');
+        let hold: number | null = null;
+        player.addEventListener(
+          'pointerdown',
+          () => {
+            hold = window.setTimeout(() => {
+              video.playbackRate = 2;
+            }, 400);
+          },
+          true,
+        );
+        player.addEventListener(
+          'pointerup',
+          () => {
+            if (hold !== null) window.clearTimeout(hold);
+          },
+          true,
+        );
+      });
       await page.mouse.move(fromX, fromY);
       await page.mouse.down();
       await new Promise((resolve) => setTimeout(resolve, 550));
       await expect(host).toHaveAttribute('data-sakutto-dragging', '1');
+      expect(
+        await page
+          .locator('#player')
+          .evaluate((element) => (element as HTMLVideoElement).playbackRate),
+      ).toBe(1);
       await page.mouse.move(fromX, fromY - 90, { steps: 8 });
       await page.mouse.up();
       await expect(host).not.toHaveAttribute('data-sakutto-dragging', '1');
@@ -290,6 +308,21 @@ test.describe('video captions', () => {
         .poll(async () => host.evaluate((element) => (element as HTMLElement).style.top))
         .toBe('auto');
       await options.close();
+
+      const playingBefore = await page.locator('#player').evaluate((element) => {
+        const video = element as HTMLVideoElement;
+        return !video.paused;
+      });
+      await page.mouse.move(fromX, fromY);
+      await page.mouse.down();
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      await page.mouse.up();
+      await expect(host).not.toHaveAttribute('data-sakutto-dragging', '1');
+      await expect
+        .poll(async () =>
+          page.locator('#player').evaluate((element) => (element as HTMLVideoElement).paused),
+        )
+        .toBe(playingBefore);
     } finally {
       await extension.close();
     }
