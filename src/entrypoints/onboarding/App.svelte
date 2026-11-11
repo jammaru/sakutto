@@ -243,7 +243,6 @@
           acceptedAt: new Date().toISOString(),
           ageNoticeShown: true,
         },
-        sharedFolderOfferDismissed: true,
       });
       consentSaved = true;
       reconsent = false;

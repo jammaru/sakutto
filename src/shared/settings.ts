@@ -78,8 +78,9 @@ export interface Settings {
   consent: LicenseConsent | null;
   highQualityDismissed: boolean;
   /**
-   * True after the popup actually rendered the shared-folder card, or after onboarding
-   * already offered the store choice. The folder picker in Settings stays available.
+   * True after the popup actually rendered the shared-folder card. Choosing browser
+   * storage on onboarding does not set this: that is the case the card is for.
+   * The folder picker in Settings stays available.
    */
   sharedFolderOfferDismissed: boolean;
   glossary: GlossaryEntry[];

@@ -47,7 +47,7 @@ describe('start controls while the model downloads', () => {
     );
     expect(source('entrypoints/options/App.svelte')).not.toContain('SharedFolderOffer');
     expect(source('entrypoints/onboarding/App.svelte')).not.toContain('SharedFolderOffer');
-    expect(source('entrypoints/onboarding/App.svelte')).toContain(
+    expect(source('entrypoints/onboarding/App.svelte')).not.toContain(
       'sharedFolderOfferDismissed: true',
     );
   });

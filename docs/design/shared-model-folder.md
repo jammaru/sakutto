@@ -17,7 +17,11 @@ select `Documents\Sakutto`. Selecting Documents itself cannot work in real
 Chrome. On Chromium onboarding that shared-folder option is first, labelled
 recommended, and preselected; the picker steps sit directly under it. Save in
 this browser remains the other choice. Cancel or Chrome's block dialog stays
-on the screen with the same one-line hint and does not download.
+on the screen with the same one-line hint and does not download. Choosing
+browser storage does not dismiss the later popup card: that card is for an
+official model already in OPFS with no folder configured, including a new
+user who saved in this browser and an existing user after update. The card
+persists as shown only after the popup actually rendered it.
 
 Layout after a successful pick:
 
