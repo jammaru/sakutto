@@ -50,7 +50,7 @@ export default defineBackground(() => {
   broker.start();
   installPageActions(broker);
   subscribeSettings((settings) => {
-    void client.setSource(settings).catch(() => undefined);
+    client.syncStoredSettings(settings);
   });
 
   async function syncSource(): Promise<void> {

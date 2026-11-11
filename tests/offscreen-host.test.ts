@@ -69,6 +69,28 @@ function createServices() {
   return { services, unload, reset, dispose, download };
 }
 
+function installed(
+  states: Partial<Record<ModelId, ModelStatus['state']>>,
+): (modelId: ModelId) => Promise<ModelStatus> {
+  return vi.fn(async (modelId: ModelId) =>
+    modelStatus({ id: modelId, state: states[modelId] ?? 'absent' }),
+  );
+}
+
+function runtimeSet(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    type: 'runtime-set',
+    requestId: 'runtime',
+    idleMinutes: 5,
+    tier: 'auto',
+    targetLanguage: 'ja',
+    form: 'polite',
+    glossary: [],
+    consented: false,
+    ...overrides,
+  };
+}
+
 function createHost(services: EngineServices, idleReleaseMs = 60_000): EngineHost {
   return new EngineHost({ createServices: async () => services, idleReleaseMs });
 }
@@ -235,6 +257,9 @@ describe('EngineHost', () => {
     expect(status.value?.model?.id).toBe(HIGH_QUALITY_MODEL_ID);
     expect(status.value?.modelFallback).toBe(true);
     expect(status.value?.plamoReady).toBe(true);
+    expect(port.messagesOfType('model-persist')).toEqual([
+      { type: 'model-persist', modelId: HIGH_QUALITY_MODEL_ID },
+    ]);
   });
 
   it('applies engineSource from source-set without reading chrome.storage', async () => {
@@ -265,6 +290,186 @@ describe('EngineHost', () => {
     };
     expect(status.value?.engineSource).toBe('local-server');
     expect(status.value?.backend).toBe('local-server');
+  });
+
+  it('restores a pushed model on the first status when storage is unavailable', async () => {
+    const { services } = createServices();
+    services.manager.status = installed({
+      [DEFAULT_MODEL_ID]: 'ready',
+      [HIGH_QUALITY_MODEL_ID]: 'ready',
+    });
+    const host = createHost(services);
+    const port = new FakePort();
+    host.handlePort(port.port);
+
+    port.emit({ type: 'model-set', requestId: 'm1', modelId: HIGH_QUALITY_MODEL_ID });
+    await flushTasks();
+    expect(services.manager.status).not.toHaveBeenCalled();
+
+    port.emit({ type: 'status', requestId: 's1' });
+    await flushTasks();
+
+    const status = port.messagesOfType('response').at(-1) as {
+      value?: { model?: { id?: string }; modelFallback?: boolean };
+    };
+    expect(status.value?.model?.id).toBe(HIGH_QUALITY_MODEL_ID);
+    expect(status.value?.modelFallback).toBeUndefined();
+    expect(port.messagesOfType('model-persist')).toHaveLength(0);
+  });
+
+  it('switches an already open document when a saved model arrives', async () => {
+    const { services } = createServices();
+    services.manager.status = installed({
+      [DEFAULT_MODEL_ID]: 'ready',
+      [HIGH_QUALITY_MODEL_ID]: 'ready',
+    });
+    const host = createHost(services);
+    const port = new FakePort();
+    host.handlePort(port.port);
+
+    port.emit({ type: 'status', requestId: 's0' });
+    await flushTasks();
+    port.emit({ type: 'model-set', requestId: 'm1', modelId: HIGH_QUALITY_MODEL_ID });
+    await flushTasks();
+    port.emit({ type: 'status', requestId: 's1' });
+    await flushTasks();
+
+    const status = port.messagesOfType('response').at(-1) as {
+      value?: { model?: { id?: string } };
+    };
+    expect(status.value?.model?.id).toBe(HIGH_QUALITY_MODEL_ID);
+    expect(port.messagesOfType('model-persist')).toHaveLength(0);
+  });
+
+  it('persists the installed model when the saved choice is missing', async () => {
+    const { services } = createServices();
+    services.manager.status = installed({
+      [DEFAULT_MODEL_ID]: 'absent',
+      [HIGH_QUALITY_MODEL_ID]: 'ready',
+    });
+    const host = createHost(services);
+    const port = new FakePort();
+    host.handlePort(port.port);
+
+    port.emit({ type: 'model-set', requestId: 'm1', modelId: DEFAULT_MODEL_ID });
+    await flushTasks();
+    port.emit({ type: 'status', requestId: 's1' });
+    await flushTasks();
+
+    const status = port.messagesOfType('response').at(-1) as {
+      value?: { model?: { id?: string }; modelFallback?: boolean; plamoReady?: boolean };
+    };
+    expect(status.value?.model?.id).toBe(HIGH_QUALITY_MODEL_ID);
+    expect(status.value?.modelFallback).toBe(true);
+    expect(status.value?.plamoReady).toBe(true);
+    expect(port.messagesOfType('model-persist')).toEqual([
+      { type: 'model-persist', modelId: HIGH_QUALITY_MODEL_ID },
+    ]);
+  });
+
+  it('does not persist a choice when no model file is installed', async () => {
+    const { services } = createServices();
+    services.manager.status = installed({});
+    const host = createHost(services);
+    const port = new FakePort();
+    host.handlePort(port.port);
+
+    port.emit({ type: 'model-set', requestId: 'm1', modelId: HIGH_QUALITY_MODEL_ID });
+    await flushTasks();
+    port.emit({ type: 'status', requestId: 's1' });
+    await flushTasks();
+
+    const status = port.messagesOfType('response').at(-1) as {
+      value?: { model?: { id?: string }; modelFallback?: boolean };
+    };
+    expect(status.value?.model?.id).toBe(HIGH_QUALITY_MODEL_ID);
+    expect(status.value?.modelFallback).toBeUndefined();
+    expect(port.messagesOfType('model-persist')).toHaveLength(0);
+  });
+
+  it('asks the service worker to save an explicit Use', async () => {
+    const { services } = createServices();
+    services.manager.status = installed({
+      [DEFAULT_MODEL_ID]: 'ready',
+      [HIGH_QUALITY_MODEL_ID]: 'ready',
+    });
+    const host = createHost(services);
+    const port = new FakePort();
+    host.handlePort(port.port);
+
+    port.emit({ type: 'model-use', requestId: 'u1', modelId: HIGH_QUALITY_MODEL_ID });
+    await flushTasks();
+
+    expect(port.messagesOfType('model-persist')).toEqual([
+      { type: 'model-persist', modelId: HIGH_QUALITY_MODEL_ID },
+    ]);
+  });
+
+  it('uses the pushed idle timeout when chrome.storage is missing', async () => {
+    const { services, unload, reset } = createServices();
+    services.router.translate = async function* () {
+      yield { id: 'a', final: 'x', engine: 'plamo' };
+    } as never;
+    const host = createHost(services, 5);
+    const port = new FakePort();
+    host.handlePort(port.port);
+
+    port.emit(runtimeSet({ idleMinutes: 0, requestId: 'idle' }));
+    await flushTasks();
+    port.emit({
+      type: 'translate',
+      requestId: 'r1',
+      segments: [{ id: 'a', text: 'Hello.' }],
+      options: serializeTranslateOptions(options()),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    expect(reset).not.toHaveBeenCalled();
+    expect(unload).not.toHaveBeenCalled();
+  });
+
+  it('prewarms from the pushed snapshot when chrome.storage is missing', async () => {
+    const { services } = createServices();
+    const translate = vi.fn(async function* () {
+      yield { id: 'ui-0', final: 'x', engine: 'plamo' as const };
+    });
+    services.router.translate = translate as never;
+    services.load = vi.fn(async () => ({
+      id: DEFAULT_MODEL_ID,
+      selection: SELECTION,
+      runtime: { complete: vi.fn(async () => undefined) },
+    })) as never;
+    const host = createHost(services);
+    const port = new FakePort();
+    host.handlePort(port.port);
+
+    port.emit(runtimeSet({ consented: false, requestId: 'runtime-off' }));
+    await flushTasks();
+    const responsesBeforeWarm = port.messagesOfType('response').length;
+    port.emit({ type: 'model-warm', requestId: 'w1' });
+    await vi.waitFor(() => {
+      expect(port.messagesOfType('response').length).toBeGreaterThan(responsesBeforeWarm);
+    });
+    await flushTasks();
+    expect(translate).not.toHaveBeenCalled();
+
+    port.emit(
+      runtimeSet({
+        consented: true,
+        requestId: 'runtime-on',
+        glossary: [{ source: 'Runner', target: 'ランナー' }],
+      }),
+    );
+    await flushTasks();
+    port.emit({ type: 'model-warm', requestId: 'w2' });
+    await vi.waitFor(() => {
+      expect(translate).toHaveBeenCalled();
+    });
+    const warmOptions = (
+      translate.mock.calls as unknown as Array<[unknown, { tgt?: string; glossary?: unknown }]>
+    )[0]?.[1];
+    expect(warmOptions?.tgt).toBe('ja');
+    expect(warmOptions?.glossary).toEqual([{ source: 'Runner', target: 'ランナー' }]);
   });
 });
 

@@ -201,10 +201,16 @@ describe('local server settings', () => {
     const background = source('entrypoints/background.ts');
     const firefox = source('background/firefox-engine-frame.ts');
     expect(client).toContain("type: 'source-set'");
+    expect(client).toContain("type: 'model-set'");
+    expect(client).toContain("type: 'runtime-set'");
+    expect(client).toContain("message.type === 'model-persist'");
     expect(client).toContain('ensureSource');
-    expect(background).toContain('client.setSource');
+    expect(client).toContain('syncStoredSettings');
+    expect(background).toContain('client.syncStoredSettings');
     expect(host).toContain('new JobScheduler(localRuntime.parallel, false)');
     expect(host).toContain('browser.storage?.local');
+    expect(host).toContain("type: 'model-persist'");
+    expect(host).toContain('preferredModelId');
     expect(firefox).toContain('source-set');
     expect(client).toContain('bootSource');
     expect(client).toContain('pushStoredSource');
