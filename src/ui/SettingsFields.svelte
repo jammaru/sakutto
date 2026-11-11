@@ -8,7 +8,6 @@
   } from '@/shared/languages';
   import {
     COMPOSE_PLACEMENTS,
-    VIDEO_CAPTION_SIZE_DEFAULT,
     VIDEO_CAPTION_SIZE_MAX,
     VIDEO_CAPTION_SIZE_MIN,
     isComposePlacement,
@@ -29,7 +28,6 @@
   let customHostInput = $state('');
   let customHostWildcard = $state(false);
   let customHostError = $state<'invalid' | 'denied' | null>(null);
-  let previewSize = $state(VIDEO_CAPTION_SIZE_DEFAULT);
 
   interface Props {
     settings: Settings;
@@ -40,10 +38,7 @@
 
   let { settings, uiLanguage, onChange, onPermissionDenied }: Props = $props();
 
-  $effect(() => {
-    previewSize = settings.videoCaptionSize;
-  });
-
+  let previewSize = $derived(settings.videoCaptionSize);
   const previewFontPx = $derived(captionOverlayFontPx(220, undefined, previewSize));
 
   function updateForm(event: Event) {
