@@ -248,6 +248,20 @@
     </label>
     <p class="muted help">{t('videoCaptionsDisplayHelp')}</p>
 
+    <label class="check">
+      <input
+        type="checkbox"
+        data-sakutto="video-captions-original-toggle"
+        checked={settings.videoCaptionOriginalToggle}
+        onchange={(event) => {
+          const input = event.currentTarget as HTMLInputElement;
+          onChange({ videoCaptionOriginalToggle: input.checked });
+        }}
+      />
+      <span>{t('videoCaptionsOriginalToggleSetting')}</span>
+    </label>
+    <p class="muted help">{t('videoCaptionsOriginalToggleHelp')}</p>
+
     <div class="field caption-size" data-sakutto="video-captions-size">
       <span>{t('videoCaptionsSizeLabel')}</span>
       <div class="caption-preview" aria-hidden="true">

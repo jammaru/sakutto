@@ -137,12 +137,14 @@ test.describe('video captions', () => {
         '1',
       );
       const toggle = page.locator('[data-sakutto="caption-original-toggle"]');
+      await revealCaptionToggle(page);
       await expect(toggle).toBeVisible();
       await toggle.click();
       await expect(page.locator('sakutto-captions')).toHaveAttribute(
         'data-sakutto-show-original',
         '0',
       );
+      await revealCaptionToggle(page);
       await toggle.click();
       await expect(page.locator('sakutto-captions')).toHaveAttribute(
         'data-sakutto-show-original',
@@ -166,6 +168,7 @@ test.describe('video captions', () => {
       await expect(host).toHaveAttribute('data-sakutto-show-original', '1');
       await installCapturingPlayerHandler(page);
       const toggle = page.locator('[data-sakutto="caption-original-toggle"]');
+      await revealCaptionToggle(page);
       await expect(toggle).toBeVisible();
       await toggle.click();
       await expect(host).toHaveAttribute('data-sakutto-show-original', '0');
@@ -181,6 +184,7 @@ test.describe('video captions', () => {
       await expect(host).toHaveAttribute('data-sakutto-show-original', '0');
       await expect.poll(() => playerStolenCount(page)).toBe(0);
 
+      await revealCaptionToggle(page);
       await toggle.click();
       await expect(host).toHaveAttribute('data-sakutto-show-original', '1');
       await new Promise((resolve) => setTimeout(resolve, 1600));
@@ -203,6 +207,7 @@ test.describe('video captions', () => {
       await expect(host).toHaveAttribute('data-sakutto-show-original', '1');
       await installCapturingPlayerHandler(page);
       const toggle = page.locator('[data-sakutto="caption-original-toggle"]');
+      await revealCaptionToggle(page);
       await expect(toggle).toBeVisible();
       const box = await toggle.boundingBox();
       if (!box) throw new Error('caption toggle had no box');
@@ -610,6 +615,9 @@ test.describe('video captions', () => {
       const slider = options.locator('[data-sakutto="video-captions-size-slider"]');
       await expect(slider).toBeVisible();
       await expect(options.locator('[data-sakutto="video-captions-original"]')).toBeVisible();
+      await expect(
+        options.locator('[data-sakutto="video-captions-original-toggle"]'),
+      ).toBeVisible();
       await expect(options.locator('[data-sakutto="caption-custom-hosts"]')).toBeVisible();
       await expect(options.locator('.caption-preview-original')).toHaveText(
         'The north window sells tickets.',
@@ -903,6 +911,7 @@ test.describe('video captions', () => {
         );
       });
       expect(inside).toBe(true);
+      await revealCaptionToggle(page);
       const toggleAboveControls = await page.evaluate(() => {
         const toggle = document.querySelector('[data-sakutto="caption-original-toggle"]');
         const controls = document.querySelector('[data-sakutto="x-controls"]');
@@ -965,6 +974,112 @@ test.describe('video captions', () => {
       expect(afterSeek.waiting).toBe(true);
       expect(afterSeek.nativeVisible).toBe(true);
       expect(afterSeek.stamped).toBe(false);
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-original',
+        'A red train waits at platform two.',
+      );
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-caption',
+        /§ja§A red train waits at platform two/,
+      );
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('starts X captions with target ja already set, without changing language', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await mockXOrigin(extension.context, { inline: true, failTwimg: true });
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'ja',
+      });
+      const page = await extension.context.newPage();
+      await page.goto('https://x.com/i/status/inline');
+      await preparePlayingXVideo(page);
+      await injectContentScript(extension.worker, page);
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-original',
+        'The station opens at dawn.',
+      );
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-caption',
+        /§ja§The station opens at dawn/,
+      );
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('hides the original-toggle until the X player is hovered and never paints empty boxes', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await mockXOrigin(extension.context, { inline: true });
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'ja',
+      });
+      const page = await extension.context.newPage();
+      await page.goto('https://x.com/i/status/inline');
+      await preparePlayingXVideo(page);
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'ja',
+      });
+      const host = page.locator('sakutto-captions');
+      await expect(host).toHaveAttribute('data-sakutto-caption', /§ja§The station opens at dawn/);
+      const toggle = page.locator('[data-sakutto="caption-original-toggle"]');
+      await page.locator('p').first().hover();
+      await expect(toggle).toBeHidden();
+      const emptyPaint = await page.evaluate(() => {
+        const overlay = document.querySelector('sakutto-captions');
+        if (!(overlay instanceof HTMLElement)) return 'missing';
+        if (overlay.hidden) {
+          const style = getComputedStyle(overlay);
+          return style.display === 'none' || style.visibility === 'hidden'
+            ? 'hidden'
+            : 'visible-while-hidden';
+        }
+        const caption = overlay.getAttribute('data-sakutto-caption') ?? '';
+        return caption.trim().length > 0 ? 'showing' : 'empty-visible';
+      });
+      expect(emptyPaint).toBe('showing');
+      await revealCaptionToggle(page);
+      await expect(toggle).toBeVisible();
+      await page.locator('p').first().hover();
+      await expect(toggle).toBeHidden();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('translates the native X caption after seek when twimg cues are missing', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await mockXOrigin(extension.context, { inline: true, failTwimg: true });
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'ja',
+      });
+      const page = await extension.context.newPage();
+      await page.goto('https://x.com/i/status/inline');
+      await preparePlayingXVideo(page);
+      await injectContentScript(extension.worker, page);
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-original',
+        'The station opens at dawn.',
+      );
+      await page.evaluate(() => {
+        const video = document.querySelector('#playing') as HTMLVideoElement | null;
+        const native = document.querySelector('.native-caption');
+        if (native) native.textContent = 'A red train waits at platform two.';
+        if (!video) return;
+        video.currentTime = 3;
+        video.dispatchEvent(new Event('seeking', { bubbles: true }));
+        video.dispatchEvent(new Event('seeked', { bubbles: true }));
+      });
       await expect(page.locator('sakutto-captions')).toHaveAttribute(
         'data-sakutto-original',
         'A red train waits at platform two.',
@@ -1052,12 +1167,21 @@ async function readCaptionEnableIntent(
   return stored === true;
 }
 
+async function revealCaptionToggle(page: Page): Promise<void> {
+  const player = page.locator('#movie_player, [data-testid="videoPlayer"]').first();
+  await player.hover();
+}
+
 async function mockXOrigin(
   context: import('@playwright/test').BrowserContext,
-  options: { empty?: boolean; inline?: boolean } = {},
+  options: { empty?: boolean; inline?: boolean; failTwimg?: boolean } = {},
 ): Promise<void> {
   const html = options.empty ? X_EMPTY_HTML : options.inline ? X_INLINE_HTML : X_CAPTIONS_HTML;
   await context.route('https://video.twimg.com/**', async (route) => {
+    if (options.failTwimg) {
+      await route.fulfill({ status: 404, body: 'missing' });
+      return;
+    }
     if (route.request().method() === 'OPTIONS') {
       await route.fulfill({
         status: 204,

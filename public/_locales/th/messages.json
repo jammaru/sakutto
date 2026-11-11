@@ -1206,6 +1206,12 @@
   "videoCaptionsShowOriginalSetting": {
     "message": "แสดงบรรทัดต้นฉบับ"
   },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "แสดงปุ่มซ่อนคำบรรยายต้นฉบับบนเครื่องเล่น"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "ถ้าปิด ปุ่มจะไม่อยู่บนวิดีโอ คุณยังสลับต้นฉบับกับคำแปลได้จากหน้านี้"
+  },
   "videoCaptionsSizeLabel": {
     "message": "ขนาดคำบรรยาย"
   },

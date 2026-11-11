@@ -1206,6 +1206,12 @@
   "videoCaptionsShowOriginalSetting": {
     "message": "Mostra la riga originale"
   },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Mostra il pulsante Nascondi originale sul lettore"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "Se è disattivo, il pulsante resta fuori dal video. Puoi comunque passare da originale a traduzione in questa pagina."
+  },
   "videoCaptionsSizeLabel": {
     "message": "Dimensione dei sottotitoli"
   },

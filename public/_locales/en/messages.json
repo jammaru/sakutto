@@ -1206,6 +1206,12 @@
   "videoCaptionsShowOriginalSetting": {
     "message": "Show original caption line"
   },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Show the hide-original button on the player"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "When this is off, the button stays off the video. You can still switch original and translation from this page."
+  },
   "videoCaptionsSizeLabel": {
     "message": "Caption size"
   },

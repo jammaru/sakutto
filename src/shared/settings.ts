@@ -139,6 +139,11 @@ export interface Settings {
    * smaller than the previous fixed size; 100 matches native.
    */
   videoCaptionSize: number;
+  /**
+   * When true, a small hide-original control appears on the player after mouse
+   * movement (then auto-hides). Off: use this page or the popup instead.
+   */
+  videoCaptionOriginalToggle: boolean;
   /** Extra hosts that run the generic HTML5 caption adapter. YouTube and X stay built-in. */
   captionCustomHosts: string[];
 }
@@ -171,6 +176,7 @@ export type SettingsPatch = Partial<
     | 'translateVideoCaptions'
     | 'videoCaptionDisplay'
     | 'videoCaptionSize'
+    | 'videoCaptionOriginalToggle'
     | 'captionCustomHosts'
   >
 > & {
@@ -205,6 +211,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   translateVideoCaptions: false,
   videoCaptionDisplay: 'bilingual',
   videoCaptionSize: VIDEO_CAPTION_SIZE_DEFAULT,
+  videoCaptionOriginalToggle: true,
   captionCustomHosts: [],
 });
 
@@ -265,6 +272,7 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     translateVideoCaptions: value.translateVideoCaptions === true,
     videoCaptionDisplay: value.videoCaptionDisplay === 'replace' ? 'replace' : 'bilingual',
     videoCaptionSize: normalizeVideoCaptionSize(value.videoCaptionSize),
+    videoCaptionOriginalToggle: value.videoCaptionOriginalToggle !== false,
     captionCustomHosts: normalizeCaptionCustomHosts(value.captionCustomHosts),
   };
 }

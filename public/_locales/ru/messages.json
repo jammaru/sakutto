@@ -1206,6 +1206,12 @@
   "videoCaptionsShowOriginalSetting": {
     "message": "Показывать исходную строку"
   },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Показывать на плеере кнопку «скрыть оригинал»"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "Если выключить, кнопка не появится на видео. Оригинал и перевод по-прежнему переключаются на этой странице."
+  },
   "videoCaptionsSizeLabel": {
     "message": "Размер субтитров"
   },

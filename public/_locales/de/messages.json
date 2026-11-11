@@ -1206,6 +1206,12 @@
   "videoCaptionsShowOriginalSetting": {
     "message": "Originalzeile anzeigen"
   },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Schaltfläche „Original ausblenden“ im Player zeigen"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "Ist dies aus, bleibt die Schaltfläche vom Video fern. Original und Übersetzung stellst du weiter auf dieser Seite um."
+  },
   "videoCaptionsSizeLabel": {
     "message": "Untertitelgröße"
   },

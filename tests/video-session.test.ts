@@ -1603,6 +1603,144 @@ A red train waits at platform two.
     session.stop();
     view.close();
   });
+
+  it('starts X translation from the native DOM line when the timeline is empty', async () => {
+    const { Window } = await import('happy-dom');
+    const view = new Window({ url: 'https://x.com/i/status/1' });
+    const doc = view.document;
+    doc.body.innerHTML = `
+      <div data-testid="videoPlayer">
+        <video id="playing"></video>
+        <div class="native-caption" aria-live="polite" style="position:absolute;color:#fff;text-shadow:0 0 2px #000">
+          The station opens at dawn.
+        </div>
+      </div>
+    `;
+    const playing = doc.querySelector('#playing') as unknown as HTMLVideoElement;
+    stubMedia(playing, { paused: false, width: 320, height: 180, currentTime: 0.4 });
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => {
+        throw new Error('twimg cors');
+      },
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+        'The station opens at dawn.',
+      );
+    });
+    expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toMatch(
+      /§ja§The station opens at dawn/,
+    );
+    session.stop();
+    view.close();
+  });
+
+  it('does not passthrough an empty ja-language X track when the native line is English', async () => {
+    const { Window } = await import('happy-dom');
+    const view = new Window({ url: 'https://x.com/i/status/1' });
+    const doc = view.document;
+    doc.body.innerHTML = `
+      <div data-testid="videoPlayer">
+        <video id="playing">
+          <track kind="subtitles" srclang="ja" src="https://video.twimg.com/subtitles/fixture.vtt" />
+        </video>
+        <div class="native-caption" aria-live="polite">The station opens at dawn.</div>
+      </div>
+    `;
+    const playing = doc.querySelector('#playing') as unknown as HTMLVideoElement;
+    stubMedia(playing, { paused: false, width: 320, height: 180, currentTime: 0.4 });
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => {
+        throw new Error('twimg cors');
+      },
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toMatch(
+        /§ja§The station opens at dawn/,
+      );
+    });
+    expect(doc.documentElement.getAttribute('data-sakutto-captions')).not.toBe('native');
+    session.stop();
+    view.close();
+  });
+
+  it('re-syncs X translation from the native line after seek when cues miss the playhead', async () => {
+    const { Window } = await import('happy-dom');
+    const view = new Window({ url: 'https://x.com/i/status/1' });
+    const doc = view.document;
+    doc.body.innerHTML = `
+      <div data-testid="videoPlayer">
+        <video id="playing"></video>
+        <div class="native-caption" aria-live="polite">The station opens at dawn.</div>
+      </div>
+    `;
+    const playing = doc.querySelector('#playing') as unknown as HTMLVideoElement;
+    const native = doc.querySelector('.native-caption') as unknown as HTMLElement;
+    const media = { paused: false, currentTime: 0.4 };
+    stubMedia(playing, { paused: false, width: 320, height: 180, currentTime: 0.4 });
+    Object.defineProperty(playing, 'currentTime', {
+      configurable: true,
+      get: () => media.currentTime,
+      set: (value: number) => {
+        media.currentTime = value;
+      },
+    });
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => {
+        throw new Error('twimg cors');
+      },
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+        'The station opens at dawn.',
+      );
+    });
+    media.currentTime = 4;
+    native.textContent = 'A red train waits at platform two.';
+    (view as unknown as { dispatchEvent(event: unknown): boolean }).dispatchEvent(
+      new view.Event('seeked', { bubbles: true }),
+    );
+    await vi.waitFor(() => {
+      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+        'A red train waits at platform two.',
+      );
+    });
+    expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toMatch(
+      /§ja§A red train waits at platform two/,
+    );
+    session.stop();
+    view.close();
+  });
 });
 
 function youtubeWatchMarkup(videoId: string, captions: boolean): string {

@@ -1206,6 +1206,12 @@
   "videoCaptionsShowOriginalSetting": {
     "message": "Mostrar la línea original"
   },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Mostrar el botón para ocultar el original en el reproductor"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "Si está desactivado, el botón no aparece en el vídeo. Sigue pudiendo cambiar original y traducción en esta página."
+  },
   "videoCaptionsSizeLabel": {
     "message": "Tamaño de los subtítulos"
   },

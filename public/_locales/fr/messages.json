@@ -1206,6 +1206,12 @@
   "videoCaptionsShowOriginalSetting": {
     "message": "Afficher la ligne d’origine"
   },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Afficher le bouton « masquer l’original » sur le lecteur"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "Désactivé, le bouton reste hors de la vidéo. Vous pouvez toujours basculer original et traduction depuis cette page."
+  },
   "videoCaptionsSizeLabel": {
     "message": "Taille des sous-titres"
   },

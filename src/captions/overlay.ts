@@ -21,11 +21,15 @@ export interface CaptionOverlayState {
 
 export const CAPTION_OVERLAY_HOST = 'sakutto-captions';
 export const CAPTION_ORIGINAL_TOGGLE = 'caption-original-toggle';
+/** Hide the on-player control after this idle window, like native player chrome. */
+export const CAPTION_TOGGLE_HIDE_MS = 2_000;
 
 const TOGGLE_EVENTS = ['pointerdown', 'mousedown', 'click', 'pointerup', 'mouseup'] as const;
+const HOVER_EVENTS = ['pointermove', 'pointerdown', 'mousemove'] as const;
 
 const STYLE = `
 :host { all: initial; overflow: visible; }
+:host([hidden]) { display: none !important; visibility: hidden !important; }
 .wrap {
   box-sizing: border-box;
   pointer-events: none;
@@ -49,14 +53,17 @@ const STYLE = `
   font-weight: 500;
   pointer-events: none;
 }
+.line[hidden],
+.line:empty {
+  display: none !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
 .original {
   font-size: 0.68em;
   font-weight: 400;
   color: #e8eef4;
   background: rgb(8 8 8 / 82%);
-}
-::slotted(.toggle) {
-  pointer-events: auto;
 }
 `;
 
@@ -64,23 +71,28 @@ const TOGGLE_STYLE = [
   'all: initial',
   'pointer-events: auto',
   'box-sizing: border-box',
+  'position: absolute',
+  'right: 8px',
+  'left: auto',
+  'top: auto',
   'display: inline-flex',
   'align-items: center',
   'justify-content: center',
-  'min-height: 32px',
-  'min-width: 44px',
-  'margin: 0 0 6px',
-  'padding: 8px 14px',
+  'min-height: 22px',
+  'min-width: 0',
+  'margin: 0',
+  'padding: 4px 8px',
   'border: 0',
   'border-radius: 999px',
-  'background: rgb(15 23 32 / 82%)',
+  'background: rgb(15 23 32 / 78%)',
   'color: #e2e8f0',
-  'font: 600 13px/1.3 "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif',
+  'font: 600 11px/1.2 "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif',
   'letter-spacing: 0',
   'white-space: nowrap',
   'cursor: pointer',
   'user-select: none',
   'z-index: 2147483647',
+  'transform: none',
 ].join('; ');
 
 const shadows = new WeakMap<Element, ShadowRoot>();
@@ -113,6 +125,8 @@ export function captionOverlayBox(
 
 /** Absolute placement inside the player; grows up from `bottom` so overflow:hidden cannot clip it. */
 export const X_CAPTION_CHROME_FALLBACK_PX = 88;
+/** Only count chrome in this band from the bottom; mid-player play/mute buttons are not chrome. */
+export const X_CAPTION_CHROME_BAND = 0.22;
 
 export function captionOverlayPlacement(
   rect: Pick<DOMRect, 'width'>,
@@ -244,15 +258,17 @@ function measureXChromeInset(root: ParentNode): number | null {
   if (!(root instanceof Element)) return null;
   const playerRect = root.getBoundingClientRect();
   if (playerRect.height <= 0) return null;
+  const band = Math.min(playerRect.height * X_CAPTION_CHROME_BAND, 96);
   let inset = 0;
   for (const node of root.querySelectorAll(
     'button, [role="button"], [role="slider"], [role="progressbar"], input[type="range"]',
   )) {
     if (node.closest(CAPTION_OVERLAY_HOST)) continue;
+    if (node.closest(`[data-sakutto="${CAPTION_ORIGINAL_TOGGLE}"]`)) continue;
     const rect = node.getBoundingClientRect();
     if (rect.height <= 0 || rect.width <= 0) continue;
     const fromBottom = playerRect.bottom - rect.top;
-    if (fromBottom > 12 && fromBottom < playerRect.height * 0.5) {
+    if (fromBottom > 12 && fromBottom <= band + 12) {
       inset = Math.max(inset, fromBottom);
     }
   }
@@ -268,6 +284,13 @@ export class CaptionOverlay {
   private labels: CaptionOverlayLabels;
   private onDisplayToggle: () => void = () => undefined;
   private captureBound = false;
+  private playerRoot: Element | null = null;
+  private toggleEnabled = true;
+  private overlayActive = false;
+  private controlsVisible = false;
+  private hideToggleTimer: number | null = null;
+  private lastBottomInset = 18;
+  private toggleLabel = '';
 
   constructor(doc: Document, labels: CaptionOverlayLabels) {
     this.labels = labels;
@@ -289,24 +312,29 @@ export class CaptionOverlay {
     wrap.className = 'wrap';
     this.originalLine = doc.createElement('div');
     this.originalLine.className = 'line original';
+    this.originalLine.hidden = true;
     this.translatedLine = doc.createElement('div');
     this.translatedLine.className = 'line';
-    const slot = doc.createElement('slot');
-    slot.name = 'toggle';
+    this.translatedLine.hidden = true;
+    wrap.append(this.originalLine, this.translatedLine);
+    shadow.append(style, wrap);
     this.toggle = doc.createElement('button');
     this.toggle.type = 'button';
     this.toggle.className = 'toggle';
-    this.toggle.slot = 'toggle';
     this.toggle.setAttribute('data-sakutto', CAPTION_ORIGINAL_TOGGLE);
     this.toggle.style.cssText = TOGGLE_STYLE;
-    wrap.append(slot, this.originalLine, this.translatedLine);
-    shadow.append(style, wrap);
-    this.host.append(this.toggle);
+    this.toggle.hidden = true;
+    this.toggle.style.display = 'none';
     this.setLabels(labels);
   }
 
   setOnDisplayToggle(handler: () => void): void {
     this.onDisplayToggle = handler;
+  }
+
+  setToggleEnabled(enabled: boolean): void {
+    this.toggleEnabled = enabled;
+    this.syncToggle();
   }
 
   setLabels(labels: CaptionOverlayLabels): void {
@@ -318,12 +346,17 @@ export class CaptionOverlay {
   attach(root: Element): void {
     prepareCaptionOverlayRoot(root);
     if (this.host.parentElement !== root) root.append(this.host);
+    if (this.toggle.parentElement !== root) root.append(this.toggle);
+    this.bindPlayerHover(root);
     this.bindToggleCapture();
   }
 
   detach(): void {
     this.unbindToggleCapture();
+    this.unbindPlayerHover();
+    this.clearHideToggleTimer();
     this.host.remove();
+    this.toggle.remove();
   }
 
   place(
@@ -332,6 +365,7 @@ export class CaptionOverlay {
     bottomInset = 18,
   ): void {
     const box = captionOverlayPlacement(rect, bottomInset);
+    this.lastBottomInset = box.bottom;
     this.host.style.position = 'absolute';
     this.host.style.left = '50%';
     this.host.style.right = 'auto';
@@ -342,54 +376,131 @@ export class CaptionOverlay {
     this.host.style.overflow = 'visible';
     const size = fontPx ?? captionOverlayFontPx(rect.height);
     this.host.style.setProperty('--sakutto-caption-size', `${size}px`);
+    this.toggle.style.position = 'absolute';
+    this.toggle.style.right = '8px';
+    this.toggle.style.left = 'auto';
+    this.toggle.style.top = 'auto';
+    this.toggle.style.bottom = `${Math.max(8, box.bottom)}px`;
+    this.toggle.style.transform = 'none';
   }
 
   show(state: CaptionOverlayState): void {
     const translation = state.translation?.trim() ?? '';
     const original = state.original.trim();
-    if (original.length === 0 && translation.length === 0) {
+    // Native captions stay until a translation exists. Never paint empty black boxes.
+    if (translation.length === 0) {
       this.hide();
       return;
     }
 
     const bilingual = state.display === 'bilingual';
-    const showTranslation = translation.length > 0;
     const showOriginal = bilingual && original.length > 0;
-    this.originalLine.textContent = original;
-    // Never paint "Translating…" over the video. Pending is a data flag only.
-    this.translatedLine.textContent = showTranslation ? translation : original;
+    this.originalLine.textContent = showOriginal ? original : '';
+    this.translatedLine.textContent = translation;
     this.originalLine.hidden = !showOriginal;
-    this.translatedLine.hidden = !showTranslation && bilingual;
-    if (!bilingual) {
-      this.translatedLine.hidden = false;
-      this.translatedLine.textContent = showTranslation ? translation : original;
+    this.translatedLine.hidden = false;
+    this.toggleLabel = bilingual ? this.labels.hideOriginal : this.labels.showOriginal;
+    if (this.toggle.getAttribute('aria-label') !== this.toggleLabel) {
+      this.toggle.setAttribute('aria-label', this.toggleLabel);
     }
-    const toggleLabel = bilingual ? this.labels.hideOriginal : this.labels.showOriginal;
-    if (this.toggle.textContent !== toggleLabel) this.toggle.textContent = toggleLabel;
-    if (this.toggle.getAttribute('aria-label') !== toggleLabel) {
-      this.toggle.setAttribute('aria-label', toggleLabel);
-    }
-    const displayed = showTranslation ? translation : original;
-    this.host.setAttribute('data-sakutto-caption', displayed);
+    this.host.setAttribute('data-sakutto-caption', translation);
     this.host.setAttribute('data-sakutto-original', original);
     this.host.setAttribute('data-sakutto-show-original', showOriginal ? '1' : '0');
     if (state.pending) this.host.setAttribute('data-sakutto-pending', '1');
     else this.host.removeAttribute('data-sakutto-pending');
+    this.overlayActive = true;
     this.host.hidden = false;
+    this.syncToggle();
   }
 
   hide(): void {
+    this.overlayActive = false;
     this.host.hidden = true;
     this.originalLine.textContent = '';
     this.translatedLine.textContent = '';
+    this.originalLine.hidden = true;
+    this.translatedLine.hidden = true;
     this.host.removeAttribute('data-sakutto-caption');
     this.host.removeAttribute('data-sakutto-original');
     this.host.removeAttribute('data-sakutto-show-original');
     this.host.removeAttribute('data-sakutto-pending');
+    this.syncToggle();
   }
 
   shadow(): ShadowRoot | null {
     return shadows.get(this.host) ?? null;
+  }
+
+  private bindPlayerHover(root: Element): void {
+    if (this.playerRoot === root) return;
+    this.unbindPlayerHover();
+    this.playerRoot = root;
+    for (const type of HOVER_EVENTS) {
+      root.addEventListener(type, this.onPlayerPointer, true);
+    }
+    root.addEventListener('pointerleave', this.onPlayerLeave, true);
+    try {
+      if (root instanceof Element && root.matches(':hover')) this.revealToggle();
+    } catch {
+      // :hover is not always queryable.
+    }
+  }
+
+  private unbindPlayerHover(): void {
+    const root = this.playerRoot;
+    if (!root) return;
+    for (const type of HOVER_EVENTS) {
+      root.removeEventListener(type, this.onPlayerPointer, true);
+    }
+    root.removeEventListener('pointerleave', this.onPlayerLeave, true);
+    this.playerRoot = null;
+  }
+
+  private readonly onPlayerPointer = (): void => {
+    this.revealToggle();
+  };
+
+  private readonly onPlayerLeave = (event: Event): void => {
+    const next = 'relatedTarget' in event ? (event as PointerEvent).relatedTarget : null;
+    if (next instanceof Node && this.playerRoot?.contains(next)) return;
+    if (next === this.toggle || (next instanceof Node && this.toggle.contains(next))) return;
+    this.controlsVisible = false;
+    this.syncToggle();
+  };
+
+  private revealToggle(): void {
+    this.controlsVisible = true;
+    this.syncToggle();
+    this.scheduleHideToggle();
+  }
+
+  private scheduleHideToggle(): void {
+    this.clearHideToggleTimer();
+    const view = this.captureDoc.defaultView;
+    this.hideToggleTimer =
+      view?.setTimeout(() => {
+        this.hideToggleTimer = null;
+        this.controlsVisible = false;
+        this.syncToggle();
+      }, CAPTION_TOGGLE_HIDE_MS) ?? null;
+  }
+
+  private clearHideToggleTimer(): void {
+    if (this.hideToggleTimer === null) return;
+    this.captureDoc.defaultView?.clearTimeout(this.hideToggleTimer);
+    this.hideToggleTimer = null;
+  }
+
+  private syncToggle(): void {
+    const show = this.overlayActive && this.toggleEnabled && this.controlsVisible;
+    this.toggle.hidden = !show;
+    this.toggle.style.display = show ? 'inline-flex' : 'none';
+    this.toggle.style.pointerEvents = show ? 'auto' : 'none';
+    this.toggle.setAttribute('aria-hidden', show ? 'false' : 'true');
+    this.toggle.style.bottom = `${Math.max(8, this.lastBottomInset)}px`;
+    if (show && this.toggleLabel.length > 0 && this.toggle.textContent !== this.toggleLabel) {
+      this.toggle.textContent = this.toggleLabel;
+    }
   }
 
   private bindToggleCapture(): void {
@@ -423,7 +534,7 @@ export class CaptionOverlay {
   };
 
   private eventHitsToggle(event: Event): boolean {
-    if (this.host.hidden) return false;
+    if (this.toggle.hidden || this.host.hidden) return false;
     const path = event.composedPath();
     if (path.includes(this.toggle) || event.target === this.toggle) return true;
     if (!('clientX' in event) || !('clientY' in event)) return false;

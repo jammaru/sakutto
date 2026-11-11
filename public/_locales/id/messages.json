@@ -1206,6 +1206,12 @@
   "videoCaptionsShowOriginalSetting": {
     "message": "Tampilkan baris asli"
   },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Tampilkan tombol sembunyikan asli di pemutar"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "Jika dimatikan, tombol tidak muncul di video. Anda tetap dapat mengganti asli dan terjemahan dari halaman ini."
+  },
   "videoCaptionsSizeLabel": {
     "message": "Ukuran subtitle"
   },

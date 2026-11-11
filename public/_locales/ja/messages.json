@@ -1206,6 +1206,12 @@
   "videoCaptionsShowOriginalSetting": {
     "message": "原文の行を表示する"
   },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "プレーヤー上の原文ボタンを表示"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "オフにすると動画の上には出しません。原文の表示はこの画面から切り替えられます。"
+  },
   "videoCaptionsSizeLabel": {
     "message": "字幕の大きさ"
   },

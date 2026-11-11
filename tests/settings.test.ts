@@ -46,6 +46,7 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     translateVideoCaptions: false,
     videoCaptionDisplay: 'bilingual',
     videoCaptionSize: 80,
+    videoCaptionOriginalToggle: true,
     captionCustomHosts: [],
     ...overrides,
   };
@@ -219,6 +220,7 @@ describe('settings defaults', () => {
     expect(settings.translateVideoCaptions).toBe(false);
     expect(settings.videoCaptionDisplay).toBe('bilingual');
     expect(settings.videoCaptionSize).toBe(80);
+    expect(settings.videoCaptionOriginalToggle).toBe(true);
     expect(settings.captionCustomHosts).toEqual([]);
     expect(
       normalizeSettings(
@@ -261,6 +263,28 @@ describe('settings defaults', () => {
       videoCaptionSize: 91,
       captionCustomHosts: ['example.com', '*.ok.dev'],
     });
+  });
+
+  it('defaults the on-player original toggle on for a record that predates the setting', () => {
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+        },
+        'en-US',
+      ).videoCaptionOriginalToggle,
+    ).toBe(true);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          videoCaptionOriginalToggle: false,
+        },
+        'en-US',
+      ).videoCaptionOriginalToggle,
+    ).toBe(false);
   });
 
   it('defaults the compose icon on for a record that predates the setting', () => {

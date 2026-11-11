@@ -1206,6 +1206,12 @@
   "videoCaptionsShowOriginalSetting": {
     "message": "Hiện dòng gốc"
   },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Hiện nút ẩn bản gốc trên trình phát"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "Khi tắt, nút không hiện trên video. Bạn vẫn đổi bản gốc và bản dịch từ trang này."
+  },
   "videoCaptionsSizeLabel": {
     "message": "Cỡ phụ đề"
   },

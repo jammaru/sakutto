@@ -10,6 +10,7 @@ import {
   parseHlsSubtitleRenditions,
   pickPlayingXVideo,
   pickXSubtitleRendition,
+  readXActiveCues,
   readXCaptionDom,
   resolveTwimgCaptionUrl,
 } from '@/captions/x';
@@ -143,6 +144,33 @@ video.m3u8
     const native = document.querySelector('[data-sakutto="x-native"]') as HTMLElement;
     expect(readXCaptionDom(document)).toBe('The station opens at dawn.');
     expect(native.getAttribute('data-sakutto-native-caption')).toBeNull();
+
+    document.body.innerHTML = `
+      <div data-testid="videoPlayer" style="position:relative;width:320px;height:180px">
+        <div
+          class="css-hash"
+          style="position:absolute;bottom:12px;color:rgb(255,255,255);text-shadow:rgb(0,0,0) 1px 1px 2px"
+        >Tickets are sold at the north window.</div>
+        <button type="button">Play</button>
+      </div>
+    `;
+    expect(readXCaptionDom(document)).toBe('Tickets are sold at the north window.');
+  });
+
+  it('reads the active HTML5 cue when X paints captions off-DOM', () => {
+    document.body.innerHTML = '<video id="player"></video>';
+    const video = document.querySelector('#player') as HTMLVideoElement;
+    const cue = { text: 'The station opens at dawn.' };
+    Object.defineProperty(video, 'textTracks', {
+      configurable: true,
+      get: () => [
+        {
+          kind: 'subtitles',
+          activeCues: [cue],
+        },
+      ],
+    });
+    expect(readXActiveCues(video)).toBe('The station opens at dawn.');
   });
 
   it('treats HAVE_METADATA as playing so inline MSE streams are not skipped', () => {

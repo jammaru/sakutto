@@ -1206,6 +1206,12 @@
   "videoCaptionsShowOriginalSetting": {
     "message": "Mostrar a linha original"
   },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Mostrar o botão de ocultar o original no player"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "Se estiver desligado, o botão não aparece no vídeo. Você ainda pode alternar original e tradução nesta página."
+  },
   "videoCaptionsSizeLabel": {
     "message": "Tamanho das legendas"
   },

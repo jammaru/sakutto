@@ -29,6 +29,7 @@ import {
 } from './html5';
 import { readGenericCaptionDom } from './generic';
 import {
+  CAPTION_ORIGINAL_TOGGLE,
   CAPTION_OVERLAY_HOST,
   CaptionOverlay,
   captionChromeInset,
@@ -40,6 +41,7 @@ import {
   type CaptionOverlayLabels,
 } from './overlay';
 import { readTimedtext, TimedtextFetchGuard } from './timedtext';
+import { captionDebug } from './debug';
 import {
   isTwimgCaptionAssetUrl,
   isXHost,
@@ -49,6 +51,7 @@ import {
   parseHlsSubtitleRenditions,
   pickPlayingXVideo,
   pickXSubtitleRendition,
+  readXActiveCues,
   readXCaptionDom,
 } from './x';
 import {
@@ -58,7 +61,6 @@ import {
   isYouTubeLiveDocument,
   nativeCaptionFontPx,
   parseTimedtextPayload,
-  peekYoutubeCaptionDom,
   playerResponseForPage,
   playerResponseFromDocument,
   readYoutubeCaptionDom,
@@ -79,6 +81,7 @@ export interface CaptionSessionPreferences {
   glossary?: readonly GlossaryEntry[] | undefined;
   tier: 'g' | 'c8' | 'c4' | 'c1' | null;
   size?: number | undefined;
+  originalToggle?: boolean | undefined;
 }
 
 export interface CaptionSessionOptions {
@@ -145,6 +148,8 @@ export class VideoCaptionSession {
   private loadInFlight = false;
   private nativeStyle: HTMLStyleElement | null = null;
   private observer: MutationObserver | null = null;
+  private playerObserver: MutationObserver | null = null;
+  private ignorePlayerMutations = false;
   private liveTimer: number | null = null;
   private liveTrackTimer: number | null = null;
   private liveMode = false;
@@ -178,6 +183,7 @@ export class VideoCaptionSession {
     this.translator = new CaptionTranslator(options.engine);
     this.overlay = new CaptionOverlay(doc, options.labels);
     this.overlay.setOnDisplayToggle(() => options.onDisplayToggle?.());
+    this.overlay.setToggleEnabled(this.prefs.originalToggle !== false);
   }
 
   setPreferences(preferences: CaptionSessionPreferences): void {
@@ -187,7 +193,10 @@ export class VideoCaptionSession {
     const sizeChanged =
       (this.prefs.size ?? VIDEO_CAPTION_SIZE_DEFAULT) !==
       (preferences.size ?? VIDEO_CAPTION_SIZE_DEFAULT);
+    const toggleChanged =
+      (this.prefs.originalToggle !== false) !== (preferences.originalToggle !== false);
     this.prefs = { ...preferences, tier: this.prefs.tier ?? preferences.tier };
+    this.overlay.setToggleEnabled(this.prefs.originalToggle !== false);
     if (!preferences.enabled) {
       this.stop();
       return;
@@ -206,6 +215,7 @@ export class VideoCaptionSession {
       this.place();
       this.repaintHold();
     }
+    if (toggleChanged) this.place();
     void this.sync(true);
   }
 
@@ -259,8 +269,14 @@ export class VideoCaptionSession {
           this.timedtextGuard.allow(this.timedtextKey, this.now())
         ) {
           void this.loadTrack(this.video);
+          return;
+        }
+        if (this.isXPage() && (this.loaded?.cues.length ?? 0) === 0 && !this.passthroughNative) {
+          void this.loadTrack(this.video);
         }
       }, 2_500) ?? null;
+    // Same full selection path as a target-language change: never skip the first attach.
+    this.resetCaptionSource();
     void this.sync(true);
   }
 
@@ -287,6 +303,8 @@ export class VideoCaptionSession {
     this.historyUnpatch = null;
     this.observer?.disconnect();
     this.observer = null;
+    this.playerObserver?.disconnect();
+    this.playerObserver = null;
     this.disconnectLayout();
     if (this.liveTimer !== null) {
       view?.clearInterval(this.liveTimer);
@@ -465,7 +483,15 @@ export class VideoCaptionSession {
       if (isXHost(host)) {
         const xTrack = await this.loadXTrack(video);
         if (token !== this.sourceToken) return;
-        this.useDomCaptions = (xTrack?.cues.length ?? 0) === 0;
+        const cueCount = xTrack?.cues.length ?? 0;
+        this.useDomCaptions = cueCount === 0;
+        captionDebug('x-load', {
+          currentSrc: video.currentSrc || video.src || '',
+          cueCount,
+          language: xTrack?.language ?? '',
+          useDomCaptions: this.useDomCaptions,
+          readyState: video.readyState,
+        });
         this.finishLoadedTrack(xTrack ? { key, ...xTrack } : { key, cues: [], restoreModes: [] });
         return;
       }
@@ -579,16 +605,33 @@ export class VideoCaptionSession {
     const html5 = loadHtml5Track(video, this.prefs.targetLanguage, durationMs, {
       mutateMode: false,
     });
-    if (html5 && html5.cues.length > 0) return html5;
+    if (html5 && html5.cues.length > 0) {
+      captionDebug('x-html5', { cueCount: html5.cues.length, language: html5.language ?? '' });
+      return html5;
+    }
 
     const urls = uniqueUrls([...listXSubtitleUrls(video), ...listXCaptionSourceUrls(video)]);
+    captionDebug('x-urls', {
+      currentSrc: video.currentSrc || '',
+      src: video.src || '',
+      urls,
+    });
     const visited = new Set<string>();
     for (const url of urls) {
       const loaded = await this.loadXCaptionUrl(url, durationMs, visited);
       if (loaded && loaded.cues.length > 0) {
+        captionDebug('x-vtt', {
+          url,
+          cueCount: loaded.cues.length,
+          language: loaded.language ?? '',
+        });
         return { ...loaded, restoreModes: html5?.restoreModes ?? [] };
       }
     }
+    captionDebug('x-empty-timeline', {
+      html5Language: html5?.language ?? '',
+      urlCount: urls.length,
+    });
     return html5;
   }
 
@@ -603,7 +646,8 @@ export class VideoCaptionSession {
     let body: string;
     try {
       body = await this.readTrack(url);
-    } catch {
+    } catch (error) {
+      captionDebug('x-fetch', { url, error: String(error) });
       return null;
     }
     if (body.trim().length === 0) return null;
@@ -669,12 +713,30 @@ export class VideoCaptionSession {
   }
 
   private sourceMatchesTarget(): boolean {
-    const sample =
-      this.loaded?.cues.find((cue) => cue.text.trim().length > 0)?.text ??
-      peekYoutubeCaptionDom(this.doc);
+    const visible = this.readSourceCaptionDom();
+    if (visible.length > 0) {
+      if (captionSourceIsTargetLanguage(undefined, visible, this.prefs.targetLanguage)) return true;
+      // X native English must win over an empty ja-language track.
+      if (this.isXPage()) return false;
+      return captionSourceIsTargetLanguage(
+        this.loaded?.language,
+        visible,
+        this.prefs.targetLanguage,
+      );
+    }
+    const sample = this.loaded?.cues.find((cue) => cue.text.trim().length > 0)?.text ?? '';
+    if (sample.length > 0) {
+      return captionSourceIsTargetLanguage(
+        this.loaded?.language,
+        sample,
+        this.prefs.targetLanguage,
+      );
+    }
+    // X: an empty ja-language track must not lock passthrough before native text exists.
+    if (this.isXPage()) return false;
     return captionSourceIsTargetLanguage(
       this.loaded?.language,
-      sample.length > 0 ? sample : undefined,
+      undefined,
       this.prefs.targetLanguage,
     );
   }
@@ -707,8 +769,10 @@ export class VideoCaptionSession {
 
   private fallbackToNative(): void {
     this.clearHold();
+    this.ignorePlayerMutations = true;
     this.overlay.hide();
     this.applyNativeVisibility();
+    this.releasePlayerMutations();
   }
 
   private clearNativeCaptionMasks(): void {
@@ -748,7 +812,7 @@ export class VideoCaptionSession {
     const timeMs = Math.round((video.currentTime || 0) * 1000);
     const cues = this.loaded?.cues ?? [];
     const cue = cueAtTime(cues, timeMs);
-    if (this.liveMode || this.useDomCaptions) {
+    if (this.liveMode) {
       if (this.readSourceCaptionDom().length > 0) {
         this.pollLive();
         return;
@@ -757,16 +821,24 @@ export class VideoCaptionSession {
         await this.paintCue(cue, force);
         return;
       }
-      if (this.useDomCaptions) this.pollLive();
-      if (token === this.sourceToken && !this.hold) this.fallbackToNative();
-      return;
-    }
-    if (!cue) {
       this.pollLive();
       if (token === this.sourceToken && !this.hold) this.fallbackToNative();
       return;
     }
-    await this.paintCue(cue, force);
+    if (cue) {
+      await this.paintCue(cue, force);
+      return;
+    }
+    if (this.useDomCaptions || this.isXPage()) {
+      const visible = this.readSourceCaptionDom();
+      if (visible.length > 0) {
+        captionDebug('x-dom-fallback', { visible, timeMs, cueCount: cues.length });
+        this.pollLive(true);
+        return;
+      }
+    }
+    this.pollLive();
+    if (token === this.sourceToken && !this.hold) this.fallbackToNative();
   }
 
   private async paintCue(cue: CaptionCue, force: boolean): Promise<void> {
@@ -807,24 +879,24 @@ export class VideoCaptionSession {
     this.scheduleAroundPlayhead(cue);
   }
 
-  private pollLive(): void {
+  private pollLive(forceDom = false): void {
     if (!this.running) return;
     if (this.passthroughNative) {
       this.overlay.hide();
       return;
     }
-    if (!this.liveMode && !this.useDomCaptions) return;
+    if (!forceDom && !this.liveMode && !this.useDomCaptions) return;
     const visible = this.readSourceCaptionDom();
     if (visible.length === 0) {
       if (this.liveMode) return;
-      if ((this.loaded?.cues.length ?? 0) > 0) return;
+      if (!forceDom && (this.loaded?.cues.length ?? 0) > 0) return;
       return;
     }
-    if (!this.liveMode && (this.loaded?.cues.length ?? 0) > 0) return;
+    if (!forceDom && !this.liveMode && (this.loaded?.cues.length ?? 0) > 0) return;
 
     const lines = this.liveBuffer.update(visible, this.now());
-    const options = this.translateOptions(this.loaded?.language);
-    if (sameLanguage(this.loaded?.language, this.prefs.targetLanguage)) {
+    const options = this.translateOptions(this.liveMode ? this.loaded?.language : undefined);
+    if (captionSourceIsTargetLanguage(undefined, visible, this.prefs.targetLanguage)) {
       this.passthroughNative = true;
       this.applyNativeVisibility();
       this.overlay.hide();
@@ -866,25 +938,47 @@ export class VideoCaptionSession {
     if (!video) return;
     video.addEventListener('timeupdate', this.onMedia);
     video.addEventListener('ratechange', this.onRate);
-    video.addEventListener('loadedmetadata', this.onMedia);
+    video.addEventListener('loadedmetadata', this.onMediaSource);
     video.addEventListener('emptied', this.onMediaSource);
     video.addEventListener('loadstart', this.onMediaSource);
     video.addEventListener('cuechange', this.onMedia, true);
     video.textTracks.addEventListener('addtrack', this.onMedia);
     this.observeLayout(video);
+    this.observePlayer(video);
     this.applyNativeVisibility();
   }
 
   private unbindVideo(video: HTMLVideoElement | null): void {
     this.disconnectLayout();
+    this.playerObserver?.disconnect();
+    this.playerObserver = null;
     if (!video) return;
     video.removeEventListener('timeupdate', this.onMedia);
     video.removeEventListener('ratechange', this.onRate);
-    video.removeEventListener('loadedmetadata', this.onMedia);
+    video.removeEventListener('loadedmetadata', this.onMediaSource);
     video.removeEventListener('emptied', this.onMediaSource);
     video.removeEventListener('loadstart', this.onMediaSource);
     video.removeEventListener('cuechange', this.onMedia, true);
     video.textTracks.removeEventListener('addtrack', this.onMedia);
+  }
+
+  private observePlayer(video: HTMLVideoElement): void {
+    this.playerObserver?.disconnect();
+    const root = captionOverlayRoot(this.doc, video);
+    const view = this.doc.defaultView;
+    if (!view || typeof view.MutationObserver !== 'function') return;
+    this.playerObserver = new view.MutationObserver((records) => {
+      if (!this.running || this.ignorePlayerMutations) return;
+      for (const record of records) {
+        const node = record.target instanceof Element ? record.target : record.target.parentElement;
+        if (!node) continue;
+        if (node.closest(CAPTION_OVERLAY_HOST)) continue;
+        if (node.closest(`[data-sakutto="${CAPTION_ORIGINAL_TOGGLE}"]`)) continue;
+        void this.sync(false);
+        return;
+      }
+    });
+    this.playerObserver.observe(root, { childList: true, subtree: true });
   }
 
   private observeLayout(video: HTMLVideoElement): void {
@@ -938,6 +1032,7 @@ export class VideoCaptionSession {
   private place(): void {
     if (!this.video) return;
     const root = captionOverlayRoot(this.doc, this.video);
+    this.ignorePlayerMutations = true;
     this.overlay.attach(root);
     const videoRect = this.video.getBoundingClientRect();
     const playerRect = root instanceof Element ? root.getBoundingClientRect() : null;
@@ -954,6 +1049,18 @@ export class VideoCaptionSession {
       ),
       captionChromeInset(root),
     );
+    this.releasePlayerMutations();
+  }
+
+  private releasePlayerMutations(): void {
+    const view = this.doc.defaultView;
+    if (!view) {
+      this.ignorePlayerMutations = false;
+      return;
+    }
+    view.queueMicrotask(() => {
+      this.ignorePlayerMutations = false;
+    });
   }
 
   private readSourceCaptionDom(): string {
@@ -964,7 +1071,10 @@ export class VideoCaptionSession {
     });
     if (youtube.length > 0) return youtube;
     if (this.isXPage()) {
-      return readXCaptionDom(this.doc, this.prefs.targetLanguage);
+      const fromDom = readXCaptionDom(this.doc, this.prefs.targetLanguage);
+      if (fromDom.length > 0) return fromDom;
+      if (this.video) return readXActiveCues(this.video, this.prefs.targetLanguage);
+      return '';
     }
     if (!this.allowsGenericDom()) return '';
     return readGenericCaptionDom(this.doc, { targetLanguage: this.prefs.targetLanguage });
@@ -1048,6 +1158,7 @@ export class VideoCaptionSession {
       if (!this.running || token !== this.sourceToken) return;
       this.holdTimer = null;
       this.hold = { cueId, original, translation, shownAt: this.now() };
+      this.ignorePlayerMutations = true;
       this.overlay.show({
         original,
         translation,
@@ -1055,6 +1166,7 @@ export class VideoCaptionSession {
         pending: false,
       });
       this.applyNativeVisibility();
+      this.releasePlayerMutations();
     };
     const elapsed = this.hold ? this.now() - this.hold.shownAt : LIVE_CAPTION_MIN_DISPLAY_MS;
     const wait = Math.max(0, LIVE_CAPTION_MIN_DISPLAY_MS - elapsed);

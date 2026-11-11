@@ -1206,6 +1206,12 @@
   "videoCaptionsShowOriginalSetting": {
     "message": "顯示原文行"
   },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "在播放器上顯示「隱藏原文」按鈕"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "關閉後按鈕不會出現在影片上。仍可在此頁面切換原文與譯文。"
+  },
   "videoCaptionsSizeLabel": {
     "message": "字幕大小"
   },

@@ -1,6 +1,6 @@
 import { pageHost } from '@/dom/sites';
 import { canonicalLanguage } from '@/shared/languages';
-import { CAPTION_OVERLAY_HOST } from './overlay';
+import { CAPTION_ORIGINAL_TOGGLE, CAPTION_OVERLAY_HOST } from './overlay';
 import { stripTargetLanguageFromCaption } from './youtube';
 
 const X_HOSTS = new Set(['x.com', 'twitter.com', 'mobile.x.com', 'mobile.twitter.com']);
@@ -184,24 +184,102 @@ export function pickXSubtitleRendition(
   );
 }
 
+const X_CAPTION_SKIP = /^(play|pause|mute|unmute|captions|subtitles|再生|一時停止)$/iu;
+
 /** One visible X caption line. Never mutates player nodes. */
 export function readXCaptionDom(root: ParentNode, targetLanguage = ''): string {
   const scopes = 'querySelectorAll' in root ? [...root.querySelectorAll(X_PLAYER_SELECTOR)] : [];
   const search = scopes.length > 0 ? scopes : [root];
   for (const scope of search) {
     if (!('querySelectorAll' in scope)) continue;
-    for (const node of scope.querySelectorAll(
-      '[aria-live], [style*="text-shadow"], [class*="caption" i], [class*="subtitle" i]',
-    )) {
-      if (node.closest(CAPTION_OVERLAY_HOST)) continue;
-      if (node.closest('button, [role="button"], a, input, textarea, select')) continue;
-      const text = stripTargetLanguageFromCaption(node.textContent ?? '', targetLanguage)
-        .replace(/\s+/g, ' ')
-        .trim();
-      if (text.length >= 2 && text.length <= 240) return text;
-    }
+    const explicit = readXCaptionFromNodes(
+      scope.querySelectorAll(
+        '[aria-live], [style*="text-shadow"], [class*="caption" i], [class*="subtitle" i]',
+      ),
+      targetLanguage,
+    );
+    if (explicit.length > 0) return explicit;
+    const guessed = readXCaptionByStyle(scope, targetLanguage);
+    if (guessed.length > 0) return guessed;
   }
   return '';
+}
+
+/** Currently showing HTML5 cue text when X paints captions as ::cue / MSE tracks. */
+export function readXActiveCues(video: HTMLVideoElement, targetLanguage = ''): string {
+  try {
+    const parts: string[] = [];
+    for (const track of video.textTracks) {
+      if (track.kind !== 'captions' && track.kind !== 'subtitles') continue;
+      const active = track.activeCues;
+      if (!active) continue;
+      for (let index = 0; index < active.length; index += 1) {
+        const cue = active[index];
+        const raw = cue && 'text' in cue ? String(cue.text) : '';
+        const text = normalizeXCaptionText(raw, targetLanguage);
+        if (text.length > 0) parts.push(text);
+      }
+    }
+    return parts.join(' ').replace(/\s+/g, ' ').trim();
+  } catch {
+    return '';
+  }
+}
+
+function readXCaptionFromNodes(nodes: Iterable<Element>, targetLanguage: string): string {
+  for (const node of nodes) {
+    const text = captionTextFromNode(node, targetLanguage);
+    if (text.length > 0) return text;
+  }
+  return '';
+}
+
+function readXCaptionByStyle(scope: ParentNode, targetLanguage: string): string {
+  if (!(scope instanceof Element)) return '';
+  const view = scope.ownerDocument.defaultView;
+  if (!view) return '';
+  const playerRect = scope.getBoundingClientRect();
+  if (playerRect.height <= 0) return '';
+  for (const node of scope.querySelectorAll('*')) {
+    if (!(node instanceof HTMLElement)) continue;
+    const text = captionTextFromNode(node, targetLanguage);
+    if (text.length === 0) continue;
+    const rect = node.getBoundingClientRect();
+    if (rect.height <= 0 || rect.width <= 0) continue;
+    const fromBottom = playerRect.bottom - rect.bottom;
+    if (fromBottom < -8 || fromBottom > playerRect.height * 0.45) continue;
+    let style: CSSStyleDeclaration;
+    try {
+      style = view.getComputedStyle(node);
+    } catch {
+      continue;
+    }
+    if (style.visibility === 'hidden' || style.display === 'none') continue;
+    const shadow = style.textShadow;
+    const hasShadow = Boolean(shadow) && shadow !== 'none';
+    const absolute = style.position === 'absolute' || style.position === 'fixed';
+    const light =
+      /rgb\(\s*255\s*,\s*255\s*,\s*255/iu.test(style.color) ||
+      style.color === '#fff' ||
+      style.color === 'white';
+    if (hasShadow || (absolute && light)) return text;
+  }
+  return '';
+}
+
+function captionTextFromNode(node: Element, targetLanguage: string): string {
+  if (node.closest(CAPTION_OVERLAY_HOST)) return '';
+  if (node.closest(`[data-sakutto="${CAPTION_ORIGINAL_TOGGLE}"]`)) return '';
+  if (node.closest('button, [role="button"], a, input, textarea, select')) return '';
+  if (node.querySelector('button, [role="button"], video, input, textarea, select')) return '';
+  const text = normalizeXCaptionText(node.textContent ?? '', targetLanguage);
+  if (text.length < 2 || text.length > 240) return '';
+  if (X_CAPTION_SKIP.test(text)) return '';
+  return text;
+}
+
+function normalizeXCaptionText(value: string, targetLanguage: string): string {
+  return stripTargetLanguageFromCaption(value, targetLanguage).replace(/\s+/g, ' ').trim();
 }
 
 function isPlayingVideo(video: HTMLVideoElement, requireVisible = true): boolean {

@@ -229,6 +229,7 @@ function captionPreferencesFor(settings: Settings, rule: SiteRule): CaptionSessi
     form: settings.form,
     display: settings.videoCaptionDisplay,
     size: settings.videoCaptionSize,
+    originalToggle: settings.videoCaptionOriginalToggle,
     glossary: glossary.length > 0 ? glossary : undefined,
     tier: null,
   };
