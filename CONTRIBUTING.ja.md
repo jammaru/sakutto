@@ -87,6 +87,10 @@ pull request の本文は [`.github/pull_request_template.md`](.github/pull_requ
 
 `licenses/` の PLaMo Community License は原文の写しです。書き直さないでください。モデルはそのライセンスのまま、実行時にダウンロードされます。
 
+## CI
+
+pull request と `main` のチェックは [docs/CI.ja.md](docs/CI.ja.md) です。ドキュメントだけの変更はパッケージジョブを飛ばします。マージコンフリクトのある PR では、rebase するまで `pull_request` のワークフローは動きません。
+
 ## リリース
 
 メンテナがきれいな `main` で `pnpm release patch`（または `minor` / `major`）を実行します。コマンドはバージョンを上げ、`CHANGELOG.md` を更新し、コミットし、注釈付きタグを作ります。push はしません。貢献者はバージョンを上げたり、git タグを付けたり、リリース用ワークフローを実行したりしないでください。手順は [docs/RELEASING.md](docs/RELEASING.md) です。

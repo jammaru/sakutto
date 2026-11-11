@@ -36,8 +36,8 @@ git push origin main vX.Y.Z
 [`.github/workflows/release.yml`](../.github/workflows/release.yml) が `v*` のタグで動きます。通常の pull request ではこのワークフローは動きません。
 
 1. タグ名が `package.json` の version に `v` を付けたものと一致することを確認します。`CHANGELOG.md` にその版の節があることも確認します。
-2. 既存の CI と同じく、lint、format、typecheck、unit test、e2e を実行します。
-3. 既存の package アクション（[`.github/actions/package-extension`](../.github/actions/package-extension/action.yml)）で、wllama の復元またはビルド、`pnpm zip`、パッケージ検査（`scripts/verify-package.ts`）、worker のスモークテストを行います。
+2. 既存の CI と同じく、lint、format、typecheck、unit test、e2e を実行します。Checks の checkout は `fetch-depth: 0` です（`tests/bench-fixtures.test.ts` が履歴のコミットを参照するため）。
+3. 既存の package アクション（[`.github/actions/package-extension`](../.github/actions/package-extension/action.yml)）で、wllama を **ソースから** ビルドします（`from-source: true`。CI の wasm キャッシュは使いません）。`pnpm zip`、パッケージ検査（`scripts/verify-package.ts`）、worker のスモークテストを行います。
 4. ビルドした `manifest.json` の version が `package.json` と一致することを確認します。
 5. GitHub Release を下書きで作り、ストア用 zip を添付し、`CHANGELOG.md` のその節を本文にします。下書きは自動では公開しません。
 6. Chrome ウェブストア用のシークレットが揃っているときだけ、パッケージをアップロードします。タグの push では公開しません。

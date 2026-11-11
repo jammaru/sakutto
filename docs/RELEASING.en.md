@@ -16,7 +16,7 @@ The command refuses a dirty tree, including untracked files, and any branch othe
 git push origin main vX.Y.Z
 ```
 
-Pushing that tag runs `.github/workflows/release.yml`. Pull requests do not run it. The workflow checks the tag against `package.json` and `CHANGELOG.md`, runs the same lint, format, typecheck, unit, and e2e checks as CI, then runs the existing package action. That action restores or builds wllama, runs `pnpm zip` (including the package audit), and smoke-tests the worker. The workflow then checks the built manifest version and opens a draft GitHub Release with the store zip attached and the changelog section as the notes.
+Pushing that tag runs `.github/workflows/release.yml`. Pull requests do not run it. The workflow checks the tag against `package.json` and `CHANGELOG.md`, runs the same lint, format, typecheck, unit, and e2e checks as CI (with `fetch-depth: 0` so `tests/bench-fixtures.test.ts` can see history), then runs the existing package action with `from-source: true`. That action compiles wllama from source rather than restoring the CI wasm cache, runs `pnpm zip` (including the package audit), and smoke-tests the worker. The workflow then checks the built manifest version and opens a draft GitHub Release with the store zip attached and the changelog section as the notes. See [CI.md](CI.md).
 
 Chrome Web Store upload uses the official API v2. It runs only when every repository secret below is set. Otherwise it logs a skip line and the draft release still proceeds. A tag push uploads only. It does not publish. Publishing submits the item for review:
 

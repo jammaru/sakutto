@@ -87,6 +87,10 @@ The UI strings live in `public/_locales/<lang>/messages.json`. Adding a language
 
 The PLaMo Community License texts in `licenses/` are verbatim copies. Do not rewrite them. The model stays under that license and is downloaded at runtime.
 
+## CI
+
+Pull request and `main` checks are described in [docs/CI.md](docs/CI.md). Docs-only changes skip the package jobs. A PR with merge conflicts does not get `pull_request` workflows until it is rebased.
+
 ## Releases
 
 Maintainers ship from a clean `main` checkout with `pnpm release patch` (or `minor` / `major`). That command bumps the version, updates `CHANGELOG.md`, commits, and creates an annotated tag. It does not push. Contributors should not bump the version, add a git tag, or run the release workflow. See [docs/RELEASING.en.md](docs/RELEASING.en.md).

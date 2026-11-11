@@ -47,6 +47,26 @@ describe('pinned model URL check', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
+  it('retries a 500 and then accepts the pin', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(response(500))
+      .mockResolvedValueOnce(response(206, { 'content-range': 'bytes 0-0/12' }));
+
+    await expect(
+      checkModelPin(TARGET, fetchImpl, { retries: 2, sleep: async () => undefined }),
+    ).resolves.toBeUndefined();
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not retry HTTP 403', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => response(403));
+    await expect(
+      checkModelPin(TARGET, fetchImpl, { retries: 2, sleep: async () => undefined }),
+    ).rejects.toThrow(/HTTP 403/);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects a range whose total does not match the pin', async () => {
     await expect(
       checkModelPin(TARGET, async () => response(206, { 'content-range': 'bytes 0-0/99' })),
@@ -59,8 +79,10 @@ describe('pinned model URL check', () => {
       'utf8',
     );
     expect(workflow).toContain('pull_request:');
+    expect(workflow).toContain('types: [opened, synchronize, reopened, ready_for_review]');
     expect(workflow).toContain('schedule:');
     expect(workflow).toContain('node scripts/check-model-pins.ts');
     expect(workflow).not.toContain('pnpm bench');
+    expect(workflow).not.toContain('github.event.pull_request.draft == false');
   });
 });
