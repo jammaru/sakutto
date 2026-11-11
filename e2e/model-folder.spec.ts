@@ -31,8 +31,11 @@ test.describe('shared model folder', () => {
       }, official);
 
       await choose.click();
-      await expect(page.getByText(official, { exact: false })).toBeVisible({ timeout: 30_000 });
-      await expect(page.getByText('is not the official PLaMo model')).toBeVisible();
+      const alert = page.getByRole('alert').filter({ hasText: 'is not the official PLaMo model' });
+      await expect(alert).toHaveCount(1, { timeout: 30_000 });
+      await expect(alert).toHaveText(
+        `The file ${official} is not the official PLaMo model, so Sakutto will not use it.`,
+      );
       await expect(stop).toBeEnabled();
 
       await stop.click();

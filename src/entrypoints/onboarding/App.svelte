@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
   import { DEFAULT_MODEL_ID, getModel } from '@/engine/model/catalog';
+  import { isModelIntegrityError } from '@/engine/model/manager';
   import type { ModelStatus } from '@/shared/engine-status';
   import { agreementFromStorage } from '@/shared/agreement';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';
@@ -138,8 +139,11 @@
     total = next.total || model.size;
     progress = next.progress;
     modelState = next.state;
-    if (next.state === 'error') failureDetail = next.error ?? null;
-    else if (next.state === 'downloading' || next.state === 'ready' || next.state === 'loaded') {
+    if (next.state === 'error') {
+      failureDetail = isModelIntegrityError(next.error)
+        ? t('modelFolderIntegrityFailed', [model.file])
+        : (next.error ?? null);
+    } else if (next.state === 'downloading' || next.state === 'ready' || next.state === 'loaded') {
       failureDetail = null;
     }
     if (status.state === 'downloading') noteBytes(next.received);

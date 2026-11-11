@@ -1,13 +1,17 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { normalizeEol } from './support/eol';
 
-const workflow = readFileSync(new URL('../.github/workflows/amo.yml', import.meta.url), 'utf8');
-const action = readFileSync(
-  new URL('../.github/actions/package-extension/action.yml', import.meta.url),
-  'utf8',
+const workflow = normalizeEol(
+  readFileSync(new URL('../.github/workflows/amo.yml', import.meta.url), 'utf8'),
 );
-const ci = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
-const packageJson = readFileSync(new URL('../package.json', import.meta.url), 'utf8');
+const action = normalizeEol(
+  readFileSync(new URL('../.github/actions/package-extension/action.yml', import.meta.url), 'utf8'),
+);
+const ci = normalizeEol(
+  readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8'),
+);
+const packageJson = normalizeEol(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
 describe('AMO workflow', () => {
   it('signs only from workflow_dispatch and never from push', () => {

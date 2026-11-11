@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { normalizeEol } from './support/eol';
 
 const AMO_SUMMARY_LIMIT = 250;
 
@@ -9,11 +10,19 @@ const metadata = JSON.parse(
   summary: Record<string, string>;
   description: Record<string, string>;
 };
-const listing = readFileSync(new URL('../docs/AMO_LISTING.md', import.meta.url), 'utf8');
-const notes = readFileSync(new URL('../docs/AMO_REVIEW_NOTES.md', import.meta.url), 'utf8');
-const upload = readFileSync(new URL('../docs/AMO_UPLOAD.md', import.meta.url), 'utf8');
-const manifest = readFileSync(new URL('../src/shared/manifest.ts', import.meta.url), 'utf8');
-const config = readFileSync(new URL('../wxt.config.ts', import.meta.url), 'utf8');
+const listing = normalizeEol(
+  readFileSync(new URL('../docs/AMO_LISTING.md', import.meta.url), 'utf8'),
+);
+const notes = normalizeEol(
+  readFileSync(new URL('../docs/AMO_REVIEW_NOTES.md', import.meta.url), 'utf8'),
+);
+const upload = normalizeEol(
+  readFileSync(new URL('../docs/AMO_UPLOAD.md', import.meta.url), 'utf8'),
+);
+const manifest = normalizeEol(
+  readFileSync(new URL('../src/shared/manifest.ts', import.meta.url), 'utf8'),
+);
+const config = normalizeEol(readFileSync(new URL('../wxt.config.ts', import.meta.url), 'utf8'));
 
 describe('AMO listing copy', () => {
   it('keeps summaries within the AMO 250-character limit', () => {

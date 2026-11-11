@@ -7,6 +7,7 @@
     getModel,
     type ModelId,
   } from '@/engine/model/catalog';
+  import { isModelIntegrityError } from '@/engine/model/manager';
   import { modelCanTranslate, type ModelStatus } from '@/shared/engine-status';
   import { hasLicenseConsent } from '@/shared/agreement';
   import { t } from '@/shared/i18n';
@@ -28,6 +29,7 @@
   let activeId = $state<ModelId | null>(null);
   let fallback = $state(false);
   let busy = $state<ModelId | null>(null);
+  let folderIntegrity = $state<ReadonlySet<ModelId>>(new Set());
   let anyInstalled = $derived(
     models.some((id) => {
       const state = statuses[id]?.state;
@@ -40,20 +42,45 @@
   }
 
   function apply(status: ModelStatus) {
+    if (isModelIntegrityError(status.error)) {
+      void applyIntegrityStatus(status);
+      return;
+    }
     statuses = { ...statuses, [status.id]: status };
     if (status.state === 'loaded') activeId = status.id;
   }
 
-  async function refresh() {
+  async function applyIntegrityStatus(status: ModelStatus) {
     const engine = await requestEngineStatus();
-    if (engine) {
-      activeId = engine.model.id;
-      fallback = engine.modelFallback === true;
+    if (engine?.sharedFolder) {
+      folderIntegrity = new Set(engine.sharedFolder.integrityIssues.map((issue) => issue.modelId));
     }
+    statuses = { ...statuses, [status.id]: status };
+    if (status.state === 'loaded') activeId = status.id;
+  }
+
+  function errorText(id: ModelId, error: string): string | null {
+    if (isModelIntegrityError(error)) {
+      // Shared-folder failures are shown once under the folder settings.
+      if (folderIntegrity.has(id)) return null;
+      return t('modelFolderIntegrityFailed', [getModel(id).file]);
+    }
+    return error;
+  }
+
+  async function refresh() {
     const next: Partial<Record<ModelId, ModelStatus>> = { ...statuses };
     for (const id of models) {
       const status = await requestModelInspect(id);
       if (status) next[id] = status;
+    }
+    const engine = await requestEngineStatus();
+    if (engine) {
+      activeId = engine.model.id;
+      fallback = engine.modelFallback === true;
+      folderIntegrity = new Set(
+        engine.sharedFolder?.integrityIssues.map((issue) => issue.modelId) ?? [],
+      );
     }
     statuses = next;
   }
@@ -123,7 +150,10 @@
         </p>
       {/if}
       {#if status?.error}
-        <p class="error" role="alert">{status.error}</p>
+        {@const message = errorText(id, status.error)}
+        {#if message}
+          <p class="error" role="alert">{message}</p>
+        {/if}
       {/if}
       <div class="actions">
         {#if downloading}

@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ModelManager } from '@/engine/model/manager';
+import {
+  INTEGRITY_DIGEST_ERROR,
+  INTEGRITY_SIZE_ERROR,
+  isModelIntegrityError,
+  ModelManager,
+} from '@/engine/model/manager';
 import { sha256Hex } from '@/engine/model/sha256';
 import type { BackendSelection } from '@/engine/in-browser/backend';
 import { bytesOf, FakeRuntime, MemoryFileStore, entryRecord, makeEntry } from './support/fakes';
@@ -209,7 +214,7 @@ describe('ModelManager', () => {
     ).rejects.toMatchObject({ code: 'model-integrity' });
     expect(await hashing.status(ENTRY.id)).toMatchObject({
       state: 'error',
-      error: expect.stringMatching(/digest/i),
+      error: INTEGRITY_DIGEST_ERROR,
     });
   });
 
@@ -221,8 +226,12 @@ describe('ModelManager', () => {
 
     await expect(
       manager.download(ENTRY.id, { signal: new AbortController().signal }),
-    ).rejects.toMatchObject({ code: 'model-integrity' });
+    ).rejects.toMatchObject({ code: 'model-integrity', message: INTEGRITY_SIZE_ERROR });
     expect(fetchImpl).not.toHaveBeenCalled();
+    expect(await manager.status(ENTRY.id)).toMatchObject({
+      state: 'error',
+      error: INTEGRITY_SIZE_ERROR,
+    });
   });
 
   it('loads from the OPFS fallback when the shared folder has no file yet', async () => {
@@ -259,5 +268,13 @@ describe('ModelManager', () => {
     expect(await manager.status(ENTRY.id)).toMatchObject({ state: 'ready' });
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(store.text(`models/${ENTRY.id}/model.json`)).toContain(ENTRY.sha256);
+  });
+
+  it('keeps integrity failures as tokens, not user-facing English', () => {
+    expect(isModelIntegrityError(INTEGRITY_SIZE_ERROR)).toBe(true);
+    expect(isModelIntegrityError(INTEGRITY_DIGEST_ERROR)).toBe(true);
+    expect(isModelIntegrityError('The file is not the official PLaMo model')).toBe(false);
+    expect(INTEGRITY_SIZE_ERROR).toBe('integrity-size');
+    expect(INTEGRITY_DIGEST_ERROR).toBe('integrity-digest');
   });
 });

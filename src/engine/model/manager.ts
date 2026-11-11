@@ -32,10 +32,14 @@ interface ModelManifest extends IntegrityManifest {
 
 const FREE_SPACE_MARGIN = 64 * 1024 * 1024;
 const TEXT_ENCODER = new TextEncoder();
-const SIZE_MISMATCH_MESSAGE =
-  'The file is not the official PLaMo model (size mismatch). Sakutto will not load it.';
-const DIGEST_MISMATCH_MESSAGE =
-  'The file failed its digest check, so Sakutto will not load it. Wrong translations are not acceptable.';
+
+/** Internal status.error tokens. The UI maps these to `modelFolderIntegrityFailed`. */
+export const INTEGRITY_SIZE_ERROR = 'integrity-size';
+export const INTEGRITY_DIGEST_ERROR = 'integrity-digest';
+
+export function isModelIntegrityError(error: string | undefined): boolean {
+  return error === INTEGRITY_SIZE_ERROR || error === INTEGRITY_DIGEST_ERROR;
+}
 
 export class ModelManager {
   private store: ModelFileStore;
@@ -231,7 +235,7 @@ export class ModelManager {
     if (inspected.integrity === 'reject-size') {
       return { kind: 'size', file: this.entry(modelId).file };
     }
-    if (this.errors.get(modelId) === DIGEST_MISMATCH_MESSAGE) {
+    if (this.errors.get(modelId) === INTEGRITY_DIGEST_ERROR) {
       return { kind: 'digest', file: this.entry(modelId).file };
     }
     return null;
@@ -326,7 +330,7 @@ export class ModelManager {
 
     try {
       if (current.integrity === 'reject-size') {
-        throw new EngineError('model-integrity', SIZE_MISMATCH_MESSAGE, { retryable: false });
+        throw new EngineError('model-integrity', INTEGRITY_SIZE_ERROR, { retryable: false });
       }
 
       if (current.integrity === 'needs-hash') {
@@ -455,8 +459,8 @@ export class ModelManager {
     if (signal.aborted) throw abortError();
 
     if (!digestMatchesPin(digest, entry)) {
-      this.errors.set(modelId, DIGEST_MISMATCH_MESSAGE);
-      throw new EngineError('model-integrity', DIGEST_MISMATCH_MESSAGE, { retryable: false });
+      this.errors.set(modelId, INTEGRITY_DIGEST_ERROR);
+      throw new EngineError('model-integrity', INTEGRITY_DIGEST_ERROR, { retryable: false });
     }
 
     this.errors.delete(modelId);
@@ -532,7 +536,7 @@ export class ModelManager {
         received: fileStat?.size ?? 0,
         total: entry.size,
         progress: 0,
-        error: SIZE_MISMATCH_MESSAGE,
+        error: INTEGRITY_SIZE_ERROR,
         integrity,
       };
     }
