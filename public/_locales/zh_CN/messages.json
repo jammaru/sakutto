@@ -246,6 +246,18 @@
   "onboardingStart": {
     "message": "同意许可协议并开始"
   },
+  "onboardingStoreLegend": {
+    "message": "模型保存位置"
+  },
+  "onboardingStoreBrowser": {
+    "message": "保存在此浏览器中（默认）"
+  },
+  "onboardingStoreFolder": {
+    "message": "使用共享模型文件夹"
+  },
+  "onboardingStoreFolderHelp": {
+    "message": "Chrome 和 Edge 可以共用一份官方 PLaMo 文件。若 sakutto-models 中已有通过校验的文件，将跳过下载。"
+  },
   "onboardingStartFailed": {
     "message": "无法启动设置。请重试。"
   },

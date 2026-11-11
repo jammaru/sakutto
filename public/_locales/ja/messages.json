@@ -246,6 +246,18 @@
   "onboardingStart": {
     "message": "ライセンスに同意して開始"
   },
+  "onboardingStoreLegend": {
+    "message": "モデルの保存先"
+  },
+  "onboardingStoreBrowser": {
+    "message": "このブラウザ内に保存する（既定）"
+  },
+  "onboardingStoreFolder": {
+    "message": "共有モデルフォルダを使う"
+  },
+  "onboardingStoreFolderHelp": {
+    "message": "Chrome と Edge で同じ公式 PLaMo ファイルを共有できます。フォルダの sakutto-models に検証済みのファイルがあれば、ダウンロードは行いません。"
+  },
   "onboardingStartFailed": {
     "message": "準備を開始できませんでした。もう一度お試しください。"
   },

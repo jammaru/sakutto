@@ -25,6 +25,12 @@ test.describe('built extension', () => {
         if (path === 'onboarding.html') {
           await expect(page.getByRole('checkbox')).toHaveCount(0);
           await expect(
+            page.getByRole('radio', { name: 'Save in this browser (default)' }),
+          ).toBeChecked();
+          await expect(
+            page.getByRole('radio', { name: 'Use a shared model folder' }),
+          ).not.toBeChecked();
+          await expect(
             page.getByRole('button', { name: 'Agree to the license and start' }),
           ).toBeEnabled();
           await expect(page.locator('#start-notice')).toHaveText(
@@ -106,6 +112,12 @@ test.describe('built extension', () => {
         await expect(page.locator('h1')).toHaveText('Sakutto - ローカルAI翻訳');
         if (path === 'onboarding.html') {
           await expect(page.getByRole('checkbox')).toHaveCount(0);
+          await expect(
+            page.getByRole('radio', { name: 'このブラウザ内に保存する（既定）' }),
+          ).toBeChecked();
+          await expect(
+            page.getByRole('radio', { name: '共有モデルフォルダを使う' }),
+          ).not.toBeChecked();
           await expect(
             page.getByRole('button', { name: 'ライセンスに同意して開始' }),
           ).toBeEnabled();

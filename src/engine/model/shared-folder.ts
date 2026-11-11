@@ -226,3 +226,36 @@ export async function clearStoredSharedFolder(bucket?: SharedFolderHandleBucket)
   if (!store) return;
   await store.clear();
 }
+
+export function isFolderPickerAbort(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError'
+  );
+}
+
+export type SharedFolderAdoptResult = 'granted' | 'cancelled' | 'denied' | 'failed';
+
+export interface SharedFolderAdoptHooks {
+  pick?: () => Promise<FileSystemDirectoryHandle>;
+  requestPermission?: (handle: FileSystemDirectoryHandle) => Promise<FolderPermission>;
+  persist?: (handle: FileSystemDirectoryHandle) => Promise<StoredSharedFolder>;
+}
+
+/** Picker + permission + IndexedDB persist. Reload of the engine host is left to the caller. */
+export async function adoptPickedSharedFolder(
+  hooks: SharedFolderAdoptHooks = {},
+): Promise<SharedFolderAdoptResult> {
+  const pick = hooks.pick ?? pickSharedModelFolder;
+  const requestPermission = hooks.requestPermission ?? requestFolderPermission;
+  const persist = hooks.persist ?? persistSharedFolderHandle;
+  try {
+    const handle = await pick();
+    const permission = await requestPermission(handle);
+    if (permission !== 'granted') return 'denied';
+    await persist(handle);
+    return 'granted';
+  } catch (error) {
+    if (isFolderPickerAbort(error)) return 'cancelled';
+    return 'failed';
+  }
+}

@@ -3,6 +3,12 @@
   import { browser } from 'wxt/browser';
   import { DEFAULT_MODEL_ID, getModel } from '@/engine/model/catalog';
   import { isModelIntegrityError } from '@/engine/model/manager';
+  import {
+    adoptPickedSharedFolder,
+    clearStoredSharedFolder,
+    sharedFolderPickerAvailable,
+  } from '@/engine/model/shared-folder';
+  import { planOnboardingDownload, type OnboardingStoreChoice } from '@/ui/onboarding-store';
   import type { ModelStatus } from '@/shared/engine-status';
   import { agreementFromStorage } from '@/shared/agreement';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';
@@ -12,6 +18,7 @@
     isModelProgressMessage,
     requestModelCancel,
     requestModelDownload,
+    requestModelFolderReload,
     requestModelInspect,
     requestShortcutSnapshot,
   } from '@/shared/messages';
@@ -57,6 +64,10 @@
   let targetLanguage = $state<TargetLanguage>(resolveTargetLanguage(currentUiLanguage()));
   let startRequested = $state(false);
   let consentSaved = $state(false);
+  let pickerAvailable = $derived(sharedFolderPickerAvailable());
+  let storeChoice = $state<OnboardingStoreChoice>('browser');
+  let pickError = $state<string | null>(null);
+  let integrityAlert = $state<string | null>(null);
   /**
    * True when a stored consent predates the clearer commercial summary. That user already
    * agreed to the same license; they are shown the new notice once more, and the click
@@ -164,7 +175,42 @@
     if (phase === 'downloading') return;
     if (startRequested && phase !== 'paused' && phase !== 'error') return;
     failureDetail = null;
-    const alreadyReady = modelState === 'ready' || modelState === 'loaded';
+    pickError = null;
+    integrityAlert = null;
+
+    let skipDownload = modelState === 'ready' || modelState === 'loaded';
+
+    if (!consentSaved && pickerAvailable && storeChoice === 'folder') {
+      const picked = await adoptPickedSharedFolder();
+      const folder = picked === 'granted' ? await requestModelFolderReload() : null;
+      const issue = folder?.integrityIssues.find((item) => item.modelId === DEFAULT_MODEL_ID);
+      if (issue) integrityAlert = t('modelFolderIntegrityFailed', [issue.file]);
+      if (picked === 'granted' && !issue) {
+        const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
+        if (inspected && (inspected.state === 'ready' || inspected.state === 'loaded')) {
+          skipDownload = true;
+          modelState = inspected.state;
+        }
+      }
+      const plan = planOnboardingDownload({
+        pickerAvailable: true,
+        choice: 'folder',
+        pick: picked,
+        modelState: skipDownload ? 'ready' : modelState,
+        integrityFailed: Boolean(issue),
+      });
+      if (plan === 'stay') {
+        if (picked === 'denied') pickError = t('modelFolderPermissionNeeded');
+        if (picked === 'failed') pickError = t('modelFolderPickFailed');
+        return;
+      }
+      skipDownload = plan === 'skip';
+    } else if (!consentSaved && pickerAvailable && storeChoice === 'browser') {
+      await clearStoredSharedFolder();
+      await requestModelFolderReload();
+    }
+
+    const alreadyReady = skipDownload;
     startRequested = true;
     if (!alreadyReady) phase = 'downloading';
 
@@ -191,7 +237,7 @@
 
     if (received > 0) continued = true;
 
-    if (alreadyReady || modelState === 'ready' || modelState === 'loaded') {
+    if (alreadyReady) {
       phase = 'ready';
       void pack;
       return;
@@ -427,6 +473,26 @@
           </ul>
         </details>
       </section>
+      {#if pickerAvailable}
+        <fieldset class="store">
+          <legend>{t('onboardingStoreLegend')}</legend>
+          <label class="store-choice">
+            <input type="radio" name="onboarding-store" value="browser" bind:group={storeChoice} />
+            <span>{t('onboardingStoreBrowser')}</span>
+          </label>
+          <label class="store-choice">
+            <input type="radio" name="onboarding-store" value="folder" bind:group={storeChoice} />
+            <span>{t('onboardingStoreFolder')}</span>
+          </label>
+          <p class="muted start-note">{t('onboardingStoreFolderHelp')}</p>
+        </fieldset>
+      {/if}
+      {#if integrityAlert}
+        <p class="error" role="alert">{integrityAlert}</p>
+      {/if}
+      {#if pickError}
+        <p class="error" role="alert">{pickError}</p>
+      {/if}
       <p id="start-notice" class="start-note">{t('onboardingConsentSentence')}</p>
     {/if}
     <div class="action-row">
@@ -599,6 +665,28 @@
     color: var(--muted);
     font-size: 13px;
     line-height: 1.5;
+  }
+
+  .store {
+    display: grid;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .store legend {
+    padding: 0;
+    margin-bottom: var(--space-1);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .store-choice {
+    display: flex;
+    gap: var(--space-2);
+    align-items: flex-start;
+    font-size: 14px;
   }
 
   .consent {

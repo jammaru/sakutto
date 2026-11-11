@@ -246,6 +246,18 @@
   "onboardingStart": {
     "message": "ตกลงยอมรับใบอนุญาตและเริ่มต้น"
   },
+  "onboardingStoreLegend": {
+    "message": "ตำแหน่งบันทึกโมเดล"
+  },
+  "onboardingStoreBrowser": {
+    "message": "บันทึกในเบราว์เซอร์นี้ (ค่าเริ่มต้น)"
+  },
+  "onboardingStoreFolder": {
+    "message": "ใช้โฟลเดอร์โมเดลร่วมกัน"
+  },
+  "onboardingStoreFolderHelp": {
+    "message": "Chrome และ Edge สามารถใช้ไฟล์ PLaMo ทางการร่วมกันได้ หาก sakutto-models มีไฟล์ที่ตรวจแล้ว จะข้ามการดาวน์โหลด"
+  },
   "onboardingStartFailed": {
     "message": "ไม่สามารถเริ่มการตั้งค่าได้ กรุณาลองอีกครั้ง"
   },

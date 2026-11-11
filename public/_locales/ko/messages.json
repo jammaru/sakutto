@@ -246,6 +246,18 @@
   "onboardingStart": {
     "message": "라이선스에 동의하고 시작하기"
   },
+  "onboardingStoreLegend": {
+    "message": "모델 저장 위치"
+  },
+  "onboardingStoreBrowser": {
+    "message": "이 브라우저에 저장 (기본값)"
+  },
+  "onboardingStoreFolder": {
+    "message": "공유 모델 폴더 사용"
+  },
+  "onboardingStoreFolderHelp": {
+    "message": "Chrome과 Edge에서 공식 PLaMo 파일을 공유할 수 있습니다. sakutto-models에 검증된 파일이 있으면 다운로드를 건너뜁니다."
+  },
   "onboardingStartFailed": {
     "message": "설정을 시작할 수 없습니다. 다시 시도해 주세요."
   },

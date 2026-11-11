@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   MemorySharedFolderBucket,
   isStoredSharedFolder,
+  adoptPickedSharedFolder,
   persistSharedFolderHandle,
   pickSharedModelFolder,
   queryFolderPermission,
@@ -99,5 +100,39 @@ describe('pickSharedModelFolder', () => {
 
   it('throws when this page has no picker', async () => {
     await expect(pickSharedModelFolder(null)).rejects.toThrow(/cannot choose a folder/i);
+  });
+});
+
+describe('adoptPickedSharedFolder', () => {
+  it('persists the handle only when permission is granted', async () => {
+    const handle = fakeHandle({ permission: 'granted' });
+    const persist = vi.fn(async () => ({ handle, name: 'Models', savedAt: 1 }));
+    expect(
+      await adoptPickedSharedFolder({
+        pick: async () => handle,
+        persist,
+      }),
+    ).toBe('granted');
+    expect(persist).toHaveBeenCalledOnce();
+  });
+
+  it('does not persist when the picker is cancelled or permission is denied', async () => {
+    const persist = vi.fn();
+    const cancelled = new DOMException('The user aborted a request.', 'AbortError');
+    expect(
+      await adoptPickedSharedFolder({
+        pick: async () => {
+          throw cancelled;
+        },
+        persist,
+      }),
+    ).toBe('cancelled');
+    expect(
+      await adoptPickedSharedFolder({
+        pick: async () => fakeHandle({ permission: 'denied', request: 'denied' }),
+        persist,
+      }),
+    ).toBe('denied');
+    expect(persist).not.toHaveBeenCalled();
   });
 });

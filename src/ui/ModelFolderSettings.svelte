@@ -7,10 +7,9 @@
   } from '@/engine/model/catalog';
   import { emptySharedFolderStatus, type SharedFolderStatus } from '@/engine/model/folder-status';
   import {
+    adoptPickedSharedFolder,
     clearStoredSharedFolder,
     loadStoredSharedFolder,
-    persistSharedFolderHandle,
-    pickSharedModelFolder,
     requestFolderPermission,
     sharedFolderPickerAvailable,
     type FolderPermission,
@@ -48,17 +47,17 @@
     pickError = null;
     busy = true;
     try {
-      const handle = await pickSharedModelFolder();
-      const permission = await requestFolderPermission(handle);
-      if (permission !== 'granted') {
+      const picked = await adoptPickedSharedFolder();
+      if (picked === 'cancelled') return;
+      if (picked === 'denied') {
         pickError = t('modelFolderPermissionNeeded');
         return;
       }
-      await persistSharedFolderHandle(handle);
+      if (picked === 'failed') {
+        pickError = t('modelFolderPickFailed');
+        return;
+      }
       await reloadHost();
-    } catch (error) {
-      if (isAbort(error)) return;
-      pickError = t('modelFolderPickFailed');
     } finally {
       busy = false;
     }
@@ -111,12 +110,6 @@
     } finally {
       busy = false;
     }
-  }
-
-  function isAbort(error: unknown): boolean {
-    return (
-      typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError'
-    );
   }
 
   onMount(() => {

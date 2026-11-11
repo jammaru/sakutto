@@ -246,6 +246,18 @@
   "onboardingStart": {
     "message": "Setuju dengan lisensi dan mulai"
   },
+  "onboardingStoreLegend": {
+    "message": "Tempat menyimpan model"
+  },
+  "onboardingStoreBrowser": {
+    "message": "Simpan di peramban ini (bawaan)"
+  },
+  "onboardingStoreFolder": {
+    "message": "Gunakan folder model bersama"
+  },
+  "onboardingStoreFolderHelp": {
+    "message": "Chrome dan Edge dapat memakai satu berkas PLaMo resmi. Jika sakutto-models sudah berisi salinan terverifikasi, unduhan dilewati."
+  },
   "onboardingStartFailed": {
     "message": "Setup tidak dapat dimulai. Silakan coba lagi."
   },

@@ -246,6 +246,18 @@
   "onboardingStart": {
     "message": "Согласиться с лицензией и начать"
   },
+  "onboardingStoreLegend": {
+    "message": "Куда сохранить модель"
+  },
+  "onboardingStoreBrowser": {
+    "message": "Сохранить в этом браузере (по умолчанию)"
+  },
+  "onboardingStoreFolder": {
+    "message": "Использовать общую папку моделей"
+  },
+  "onboardingStoreFolderHelp": {
+    "message": "Chrome и Edge могут использовать один официальный файл PLaMo. Если в sakutto-models уже есть проверенная копия, загрузка не нужна."
+  },
   "onboardingStartFailed": {
     "message": "Настройка не удалась. Попробуйте еще раз."
   },

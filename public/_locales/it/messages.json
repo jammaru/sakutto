@@ -246,6 +246,18 @@
   "onboardingStart": {
     "message": "Accetta la licenza e inizia"
   },
+  "onboardingStoreLegend": {
+    "message": "Dove salvare il modello"
+  },
+  "onboardingStoreBrowser": {
+    "message": "Salva in questo browser (predefinito)"
+  },
+  "onboardingStoreFolder": {
+    "message": "Usa una cartella modelli condivisa"
+  },
+  "onboardingStoreFolderHelp": {
+    "message": "Chrome ed Edge possono condividere un file PLaMo ufficiale. Se la cartella ha già una copia verificata in sakutto-models, il download viene saltato."
+  },
   "onboardingStartFailed": {
     "message": "L'avvio non è avvenuto. Riprova."
   },

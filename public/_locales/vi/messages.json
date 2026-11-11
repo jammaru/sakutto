@@ -246,6 +246,18 @@
   "onboardingStart": {
     "message": "Đồng ý với giấy phép và bắt đầu"
   },
+  "onboardingStoreLegend": {
+    "message": "Nơi lưu mô hình"
+  },
+  "onboardingStoreBrowser": {
+    "message": "Lưu trong trình duyệt này (mặc định)"
+  },
+  "onboardingStoreFolder": {
+    "message": "Dùng thư mục mô hình dùng chung"
+  },
+  "onboardingStoreFolderHelp": {
+    "message": "Chrome và Edge có thể dùng chung một tệp PLaMo chính thức. Nếu sakutto-models đã có bản đã xác minh, sẽ bỏ qua tải xuống."
+  },
   "onboardingStartFailed": {
     "message": "Không thể khởi động thiết lập. Vui lòng thử lại."
   },
