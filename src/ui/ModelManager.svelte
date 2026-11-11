@@ -7,6 +7,7 @@
     getModel,
     type ModelId,
   } from '@/engine/model/catalog';
+  import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
   import { sharedFolderNeedsPermission } from '@/engine/model/folder-status';
   import { isModelIntegrityError } from '@/engine/model/manager';
   import { modelCanTranslate, type ModelStatus } from '@/shared/engine-status';
@@ -44,6 +45,7 @@
   }
 
   function apply(status: ModelStatus) {
+    if (status.error === FOLDER_PERMISSION_ERROR) folderBlocked = true;
     if (isModelIntegrityError(status.error)) {
       void applyIntegrityStatus(status);
       return;
@@ -68,6 +70,7 @@
   }
 
   function errorText(id: ModelId, error: string): string | null {
+    if (error === FOLDER_PERMISSION_ERROR) return null;
     if (isModelIntegrityError(error)) {
       // Shared-folder failures are shown once under the folder settings.
       if (folderIntegrity.has(id)) return null;

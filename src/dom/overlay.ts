@@ -22,6 +22,8 @@ export interface OverlayLabels {
   barAlwaysOn: string;
   /** Shown when a local-server request fails; original page text stays. */
   engineFailed?: string;
+  /** Shown when the shared folder grant is missing; points at the popup restore button. */
+  folderPermission?: string;
 }
 
 /**

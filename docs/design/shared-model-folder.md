@@ -23,17 +23,17 @@ official model already in OPFS with no folder configured, including a new
 user who saved in this browser and an existing user after update. The card
 persists as shown only after the popup actually rendered it.
 
-A popup-card move copies the official GGUF into the chosen folder, verifies it,
-then deletes the OPFS original so disk holds one copy. Folder reload drops the
-previous runtime so the next request does not keep reading a deleted OPFS blob.
+A popup-card move opens Settings as a tab so the picker and `requestPermission`
+run there (Chrome can offer “Allow on every visit”). The copy into the folder
+still verifies size and SHA-256, then deletes the OPFS original so disk holds
+one copy. Folder reload drops the previous runtime so the next request does
+not keep reading a deleted OPFS blob.
 
-Chrome can drop the directory grant when the picker page (popup or onboarding
-tab) closes, and the offscreen document cannot call `requestPermission`. That
-means a verified one-copy folder is not enough for translation after the page
-closes or after a restart. The permission lifetime, why persistent “allow on
-every visit” is not a guaranteed extension default, and the product options
-are in `docs/design/fsa-permission-lifetime.md`. No replacement flow is
-checked in until that choice is made.
+Chrome can drop the directory grant when the last tracked page of the origin
+closes. Offscreen cannot call `requestPermission`. The product flow is B + C:
+grant from a tab, then a one-click restore in the popup or Settings when the
+grant is gone. Details and Chromium sources are in
+`docs/design/fsa-permission-lifetime.md`. Persistence is detected, not claimed.
 
 Layout after a successful pick:
 

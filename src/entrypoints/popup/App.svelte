@@ -51,8 +51,10 @@
     type ShortcutCommand,
   } from '@/shared/shortcuts';
   import { SHARED_FOLDER_CHANGED_EVENT } from '@/engine/model/folder-offer';
+  import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
   import { readDeviceHeadroom, type DeviceHeadroom } from '@/ui/device-headroom';
   import LanguageField from '@/ui/LanguageField.svelte';
+  import FolderPermissionRestore from '@/ui/FolderPermissionRestore.svelte';
   import SharedFolderOffer from '@/ui/SharedFolderOffer.svelte';
   import { runtimeLabel } from '@/ui/runtime-label';
 
@@ -204,6 +206,10 @@
   }
 
   function applyProgress(status: ModelStatus) {
+    if (status.error === FOLDER_PERMISSION_ERROR) {
+      void refreshEngine();
+      return;
+    }
     const next = rememberModel(status);
     if (!next) return;
     if (engine && engine.model.id === next.id) {
@@ -401,14 +407,7 @@
     dismissed={settings?.sharedFolderOfferDismissed === true}
     translating={translated || (view?.pending ?? 0) > 0}
   />
-  {#if engine?.sharedFolder?.configured && engine.sharedFolder.permission !== 'granted'}
-    <div class="panel gate" role="alert">
-      <p class="muted">{t('modelFolderPermissionNeeded')}</p>
-      <button class="link-button" type="button" onclick={openOptions}>
-        {t('modelFolderOpenSettings')}
-      </button>
-    </div>
-  {/if}
+  <FolderPermissionRestore folder={engine?.sharedFolder} compact />
   {#if engine?.engineSource === 'local-server'}
     <p class="muted">{t('localServerExperimental')}</p>
     {#if engine.parallel !== null}

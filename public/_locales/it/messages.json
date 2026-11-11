@@ -689,10 +689,19 @@
     "message": "Models are stored inside this browser."
   },
   "modelFolderPermissionNeeded": {
-    "message": "Sakutto needs permission to read the shared model folder again."
+    "message": "Sakutto needs permission to read the shared model folder."
   },
   "modelFolderPermissionGrant": {
     "message": "Allow folder access"
+  },
+  "modelFolderPermissionPage": {
+    "message": "Open the Sakutto popup or Settings and tap Allow folder access."
+  },
+  "modelFolderOfferOpenSettings": {
+    "message": "Choose the folder in Settings"
+  },
+  "modelFolderPersistentHint": {
+    "message": "Chrome may ask whether to remember this folder. If it offers “Allow on every visit”, that keeps access after a restart. It does not always appear."
   },
   "modelFolderPickFailed": {
     "message": "The folder could not be selected."

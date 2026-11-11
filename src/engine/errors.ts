@@ -2,6 +2,7 @@ export type EngineErrorCode =
   | 'invalid-input'
   | 'unsupported-language'
   | 'model-missing'
+  | 'model-folder-permission'
   | 'model-integrity'
   | 'model-load-failed'
   | 'gpu-unavailable'
@@ -48,6 +49,7 @@ const ENGINE_ERROR_CODES: ReadonlySet<string> = new Set<EngineErrorCode>([
   'invalid-input',
   'unsupported-language',
   'model-missing',
+  'model-folder-permission',
   'model-integrity',
   'model-load-failed',
   'gpu-unavailable',
@@ -101,6 +103,16 @@ const LOCAL_SERVER_CODES: ReadonlySet<EngineErrorCode> = new Set([
 
 export function isLocalServerError(value: unknown): value is EngineError {
   return isEngineError(value) && LOCAL_SERVER_CODES.has(value.code);
+}
+
+export function isFolderPermissionError(value: unknown): value is EngineError {
+  return isEngineError(value) && value.code === 'model-folder-permission';
+}
+
+export function folderPermissionError(
+  message = 'The shared model folder needs permission.',
+): EngineError {
+  return new EngineError('model-folder-permission', message, { retryable: true });
 }
 
 export function toEngineError(value: unknown): EngineError {

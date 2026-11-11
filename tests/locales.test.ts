@@ -224,6 +224,14 @@ describe('locale messages', () => {
     expect(en.modelFolderPickerHint?.message).not.toMatch(/select Documents itself/i);
     expect(en).not.toHaveProperty('modelFolderOfferHide');
     expect(ja).not.toHaveProperty('modelFolderOfferHide');
+    expect(ja.modelFolderPermissionGrant?.message).toBe('フォルダへのアクセスを許可');
+    expect(en.modelFolderPermissionGrant?.message).toBe('Allow folder access');
+    expect(ja.modelFolderOfferOpenSettings?.message).toBe('設定でフォルダを選ぶ');
+    expect(en.modelFolderOfferOpenSettings?.message).toBe('Choose the folder in Settings');
+    expect(ja.modelFolderPermissionPage?.message).toContain('フォルダへのアクセスを許可');
+    expect(en.modelFolderPersistentHint?.message).not.toMatch(/never need/i);
+    expect(ja.modelFolderPersistentHint?.message).not.toMatch(/必ず|二度と|毎回クリック/);
+    expect(ja.modelFolderPersistentHint?.message).toContain('出ないこともあります');
     for (const locale of catalogs) {
       expect(readMessages(locale).modelFolderBenefitSpace?.message, locale).toContain('$SIZE$');
       expect(readMessages(locale).modelFolderBenefitSpace?.message, locale).not.toMatch(

@@ -35,7 +35,7 @@ function isMissingEntry(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'NotFoundError';
 }
 
-function isPermissionDenied(error: unknown): boolean {
+export function isPermissionDenied(error: unknown): boolean {
   return (
     error instanceof DOMException &&
     (error.name === 'NotAllowedError' || error.name === 'SecurityError')

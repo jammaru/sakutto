@@ -15,6 +15,7 @@ import {
   pickSharedModelFolder,
   queryFolderPermission,
   requestFolderPermission,
+  restoreStoredFolderPermission,
   resolveSharedFolderRoot,
   setSharedFolderBucketForTests,
   sharedFolderPickerAvailable,
@@ -125,6 +126,14 @@ describe('folder permission', () => {
     expect(
       await requestFolderPermission(fakeHandle({ permission: 'prompt', request: 'denied' })),
     ).toBe('denied');
+  });
+
+  it('restores a stored handle from a user gesture', async () => {
+    const bucket = new MemorySharedFolderBucket();
+    setSharedFolderBucketForTests(bucket);
+    const handle = fakeHandle({ permission: 'prompt', request: 'granted' });
+    await persistSharedFolderHandle(handle, bucket);
+    expect(await restoreStoredFolderPermission()).toBe('granted');
   });
 });
 

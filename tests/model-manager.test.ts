@@ -162,6 +162,21 @@ describe('ModelManager', () => {
     });
   });
 
+  it('maps a NotAllowedError on read to model-folder-permission, not a missing file', async () => {
+    const { manager, store } = await downloadedManager();
+    const original = store.read.bind(store);
+    store.read = async (path: string) => {
+      if (path.endsWith('model.gguf')) {
+        throw new DOMException('Permission denied.', 'NotAllowedError');
+      }
+      return original(path);
+    };
+
+    await expect(manager.ensureLoaded(ENTRY.id, SELECTION)).rejects.toMatchObject({
+      code: 'model-folder-permission',
+    });
+  });
+
   it('propagates load failures and retries on the next call', async () => {
     const { manager, createRuntime } = await downloadedManager();
     createRuntime.mockRejectedValueOnce(new Error('out of memory'));

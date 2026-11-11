@@ -373,5 +373,10 @@ describe('engine host protocol', () => {
       code: 'model-changed',
       message: 'The selected model changed.',
     });
+    const folder = new EngineError('model-folder-permission', 'needs permission');
+    expect(errorPayload(folder)).toEqual({
+      code: 'model-folder-permission',
+      message: 'needs permission',
+    });
   });
 });

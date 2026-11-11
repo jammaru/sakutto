@@ -1,12 +1,18 @@
 import { SELECTABLE_MODEL_IDS, type ModelId } from './catalog';
 import type { ModelFileStore } from './file-store';
 import {
+  folderAccessNeedsRestore,
+  folderPermissionForStatus,
+  resolveFolderAccessState,
+} from './folder-permission';
+import {
   emptySharedFolderStatus,
   type SharedFolderIntegrityIssue,
   type SharedFolderStatus,
 } from './folder-status';
 import type { ModelManager } from './manager';
 import {
+  folderPermissionOverrideActive,
   loadStoredSharedFolder,
   queryFolderPermission,
   sharedFolderSupported,
@@ -16,11 +22,12 @@ import { SharedFolderModelFileStore } from './shared-store';
 /**
  * Resolves the stored directory handle for the engine host.
  *
- * The picker and `requestPermission` run in a page with UI. This session only calls
- * `queryPermission`. Offscreen then tries to open the stored handle anyway: Chrome may
- * report `prompt` in that document while the handle still reads. When the open fails,
- * the host points at OPFS (empty after a verified move) and the UI asks to re-grant.
- * See `docs/design/fsa-permission-lifetime.md`.
+ * The picker and `requestPermission` run in a page with UI (a settings/onboarding
+ * tab for the first grant, popup or settings for a later restore). This session
+ * only calls `queryPermission` and tries to open the handle. Chrome may report
+ * `prompt` while the handle still reads (an extension page still holds the grant).
+ * When the open fails, the host does not treat that as a missing file and does
+ * not download again. See `docs/design/fsa-permission-lifetime.md`.
  */
 export class SharedFolderSession {
   private snapshot: SharedFolderStatus = emptySharedFolderStatus(sharedFolderSupported());
@@ -35,15 +42,19 @@ export class SharedFolderSession {
   }
 
   async refresh(): Promise<SharedFolderStatus> {
-    if (
-      !this.snapshot.configured ||
-      this.snapshot.permission !== 'granted' ||
-      !this.snapshot.name
-    ) {
+    if (!this.snapshot.configured || !this.snapshot.name) return this.snapshot;
+    const stored = await loadStoredSharedFolder();
+    if (!stored) {
+      this.manager.setStores(this.opfs);
+      this.snapshot = emptySharedFolderStatus(true);
       return this.snapshot;
     }
-    this.snapshot = await this.collect(this.snapshot.name, this.snapshot.permission);
-    return this.snapshot;
+    const queried = await queryFolderPermission(stored.handle);
+    if (this.snapshot.permission === 'granted' && queried === 'granted') {
+      this.snapshot = await this.collect(stored.name, 'granted');
+      return this.snapshot;
+    }
+    return this.apply();
   }
 
   async apply(): Promise<SharedFolderStatus> {
@@ -60,24 +71,38 @@ export class SharedFolderSession {
       return this.snapshot;
     }
 
-    const permission = await queryFolderPermission(stored.handle);
-    const shared = await SharedFolderModelFileStore.open(stored.handle).catch(() => null);
-    if (!shared) {
-      this.manager.setStores(this.opfs);
-      this.snapshot = {
-        supported: true,
-        configured: true,
-        permission,
-        name: stored.name,
-        opfsCopies: [],
-        integrityIssues: [],
-      };
+    const queried = await queryFolderPermission(stored.handle);
+    const opened = await SharedFolderModelFileStore.open(stored.handle)
+      .then((store) => store)
+      .catch((error: unknown) => error);
+
+    const openError = opened instanceof SharedFolderModelFileStore ? undefined : opened;
+    const store = opened instanceof SharedFolderModelFileStore ? opened : null;
+    const access = resolveFolderAccessState({
+      configured: true,
+      queried,
+      opened: store !== null,
+      ...(openError !== undefined ? { readError: openError } : {}),
+      queryAuthoritative: await folderPermissionOverrideActive(),
+    });
+    const permission = folderPermissionForStatus(access);
+
+    if (store && !folderAccessNeedsRestore(access)) {
+      this.manager.setStores(store, this.opfs);
+      await this.manager.adoptPresentModels();
+      this.snapshot = await this.collect(stored.name, permission);
       return this.snapshot;
     }
 
-    this.manager.setStores(shared, this.opfs);
-    await this.manager.adoptPresentModels();
-    this.snapshot = await this.collect(stored.name, permission);
+    this.manager.setStores(this.opfs);
+    this.snapshot = {
+      supported: true,
+      configured: true,
+      permission,
+      name: stored.name,
+      opfsCopies: [],
+      integrityIssues: [],
+    };
     return this.snapshot;
   }
 

@@ -37,10 +37,11 @@ describe('start controls while the model downloads', () => {
     const offer = source('ui/SharedFolderOffer.svelte');
     expect(offer).toContain('shouldOfferSharedFolderMove');
     expect(offer).toContain('shouldPersistSharedFolderOfferImpression');
-    expect(offer).toContain('completeSharedFolderOffer');
-    expect(offer).toContain('adoptPickedSharedFolder');
+    expect(offer).toContain('sharedFolderSettingsHref');
+    expect(offer).not.toContain('adoptPickedSharedFolder');
     expect(offer).not.toMatch(/onMount\([\s\S]{0,400}adoptPickedSharedFolder/);
-    expect(offer).not.toMatch(/<dialog|badge|notification|createTab/i);
+    expect(offer).not.toMatch(/<dialog|badge|notification/i);
+    expect(source('ui/SharedFolderOffer.svelte')).toContain('modelFolderOfferOpenSettings');
     expect(source('entrypoints/popup/App.svelte')).toContain('SharedFolderOffer');
     expect(source('entrypoints/popup/App.svelte')).toContain(
       'translating={translated || (view?.pending ?? 0) > 0}',
@@ -55,8 +56,9 @@ describe('start controls while the model downloads', () => {
   it('does not offer a download when the shared folder needs permission again', () => {
     expect(modelManager).toContain('sharedFolderNeedsPermission');
     expect(modelManager).toContain('folderBlocked');
-    expect(typed).toContain('modelFolderPermissionNeeded');
-    expect(popup).toContain('modelFolderPermissionNeeded');
+    expect(typed).toContain('FolderPermissionRestore');
+    expect(popup).toContain('FolderPermissionRestore');
+    expect(source('ui/FolderPermissionRestore.svelte')).toContain('modelFolderPermissionGrant');
   });
 
   it('does not offer a download button for a model that is already loading', () => {

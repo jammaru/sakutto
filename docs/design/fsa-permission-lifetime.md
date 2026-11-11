@@ -3,8 +3,11 @@
 This note answers how long a `FileSystemDirectoryHandle` grant lasts for a
 `chrome-extension://` origin, whether Chrome 122+ persistent permissions help,
 and whether the offscreen engine can keep reading after the picker page closes.
-It does **not** pick a product flow. A verified one-copy folder plus a no-click
-experience after restart cannot be guaranteed for this architecture.
+The product flow is **B + C**: first grant from a real extension tab (so Chrome
+can offer “Allow on every visit”), then a one-click restore whenever the grant
+is not active. A verified one-copy folder plus a no-click restart is still not
+something Sakutto can promise; the UI detects the live grant and never claims
+persistence.
 
 Environment for this write-up: Chromium `main` (permission context, tracker,
 and request manager as fetched 2026-11-11), Google Chrome 156.0.8078.47 on
@@ -159,39 +162,60 @@ in the engine host. That host often still has the grant (the popup is open
 for the picker click), so “readable from the load context” is true at delete
 time and false moments later. The confirmation is not durable.
 
-## 5. Options (not chosen)
+## 5. Chosen flow: B + C
 
-A single on-disk copy **and** a guaranteed no-click restart is not something
-this extension can promise. Extended permission is the only no-click path, and
-it is a user choice on a tab restore prompt that the popup path never shows.
+One copy on disk after a verified move. Dual-copy (option A) stays rejected.
+Missing permission never starts a network download.
 
-| Option                                                                                                                         | One copy                   | After popup closes                                                                                                                  | After restart                                                                                                    | Cost                                                                                                                             |
-| ------------------------------------------------------------------------------------------------------------------------------ | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| **A. Keep OPFS as fallback** (reverted)                                                                                        | No                         | Works                                                                                                                               | Works                                                                                                            | Two copies. Owner rejected.                                                                                                      |
-| **B. Rely on “Allow on every visit”**                                                                                          | Yes, after a verified move | Works only if extended is already on, or the picker tab is still open                                                               | No-click only after the user has accepted the restore prompt **from a tab**                                      | Cannot force it. Popup auto-grant skips the prompt forever if the user never opens Options as a tab. First visit never shows it. |
-| **C. Re-grant click** (popup 「モデルフォルダへのアクセスを許可」, or Settings which already has `modelFolderPermissionGrant`) | Yes                        | Fails unless the model is already loaded in offscreen memory **before** the popup closes. A later lazy load cannot read the folder. | One click per session (popup auto-grants, usually no Chrome dialog). Then load the GGUF before the popup closes. | Honest. Breaks “click Translate on a page with no extension UI”. Offscreen idle-kill / browser restart needs the click again.    |
-| **D. Read the GGUF from a page that holds the grant** (popup/options as engine host, or a sticky tab)                          | Yes                        | Works while that page stays open                                                                                                    | Dies when it closes, unless extended permission                                                                  | Popup is destroyed on close. A hidden tab is hostile UX and still needs extended permission for restart.                         |
-| **E. Load into WASM while the grant is live, then drop the file handle**                                                       | Yes                        | Works until offscreen is discarded                                                                                                  | Needs a re-grant (C) to reload ~573 MB / 1.81 GB                                                                 | Session can survive popup close; restart cannot. Chrome may still kill the offscreen document.                                   |
-| **F. Proposal 2 (native helper)**                                                                                              | Yes                        | Yes                                                                                                                                 | Yes                                                                                                              | Out of scope.                                                                                                                    |
+**B — first grant from a tab.** `showDirectoryPicker` and
+`requestPermission({ mode: 'readwrite' })` run on onboarding or Settings
+(`options.html`), which are real tabs. Chrome _may_ later show **Allow on every
+visit** on a tab restore prompt. The popup move card does not pick in the
+popup (that would auto-grant the visit and skip the restore prompt). It opens
+Settings at `?folder=pick#model-folder`. Copy does not say the user will never
+need to click again. Persistence is detected at runtime
+(`queryPermission === 'granted'` and a successful open), not assumed.
 
-Rules that any later choice still has to meet:
+**C — one-click restore.** Whenever `queryPermission !== 'granted'`, or a read
+throws `NotAllowedError` / `SecurityError`, the engine stops with
+`model-folder-permission` (not `model-missing`). Popup and Settings show
+「フォルダへのアクセスを許可」. The in-page / sample overlay points at that
+button. One click runs `requestPermission` in that document, reloads the
+folder session, warms the engine, and retries empty page blocks. No
+notifications, badges, or tabs opened by themselves.
 
-- Do not delete the OPFS original until the **engine** context has actually
-  read the verified folder copy. That check is not a substitute for a grant
-  that outlives the picker page.
-- If permission is missing, show a restore path. Do not fail silently.
-- Do not download the model again because the grant expired.
+**D, cheap only.** While any extension page of this origin still holds an
+active grant, offscreen can read the same handle. The engine tries to open
+the stored handle even when `queryPermission` is `prompt`. There is no hidden
+always-open document.
 
-Settings already has `Allow folder access` (`requestFolderPermission` on the
-stored handle). The popup currently only links to Settings. That is not a
-chosen flow; it is leftover UI from the original design.
+| After last tab/popup closes                                                         | After restart, no click                                                     | After one restore click                                                |
+| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Fails unless a tab is still open or the model is already loaded in offscreen memory | Works only if the user previously chose **Allow on every visit** from a tab | Popup auto-grants this visit; Settings tab can show the restore prompt |
 
-## 6. What to decide
+## 6. What to retest on a real PC
 
-Need a product pick among B–E (or F). Until then:
+Playwright cannot prove FSA grant lifetime (the picker is mocked with OPFS
+handles). Use a real GGUF (not the e2e sparse plant).
 
-- Move is one copy on disk after verify (owner requirement).
-- Translation after the picker page closes, and after restart, is **not**
-  guaranteed for a shared folder. That matches real Chrome (Windows) after
-  `d699eab`.
-- e2e that mocks `showDirectoryPicker` with OPFS cannot catch this.
+1. **Chrome, new profile.** Install the unpacked build. First-run: pick
+   `Documents\Sakutto` on onboarding (a tab). Watch whether Chrome offers
+   **Allow on every visit**; it may not. Translate a page. Close every
+   Sakutto tab and the popup. Translate again. If it stops, the popup must
+   show 「フォルダへのアクセスを許可」 (no download). One click should resume.
+   Restart Chrome. Same: no silent failure, no re-download, one click if
+   needed. If Chrome did persist, translation may work with no click — that
+   is detected, not promised.
+2. **Existing-user migration.** Profile that already has the model in OPFS
+   (browser storage). After update, open the popup. The move card must open
+   **Settings** (not pick in the popup). Choose `Documents\Sakutto` there.
+   After the copy finishes, OPFS `sakutto/models` should be empty (one copy).
+   Then the same close/restart checks as (1).
+3. **Edge.** Repeat (1). Edge often has no persistent FSA grant. Closing the
+   last extension page should always need the restore button. One click in
+   the popup must be enough for that visit. Do not expect a restart to keep
+   access.
+
+Never: notifications, badges, or a tab that opens by itself. Never a second
+copy kept “just in case”. Never a download when the GGUF is already in the
+folder and only permission is missing.

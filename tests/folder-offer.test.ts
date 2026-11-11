@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  completeSharedFolderOffer,
   opfsHasOfficialModel,
+  sharedFolderSettingsHref,
+  shouldHighlightFolderPicker,
   shouldOfferSharedFolderMove,
   shouldPersistSharedFolderOfferImpression,
   type SharedFolderOfferInput,
@@ -58,23 +59,10 @@ describe('shared folder offer', () => {
     expect(opfsHasOfficialModel([])).toBe(false);
   });
 
-  it('runs the picker then the verified move in one flow', async () => {
-    const reload = vi.fn(async () => undefined);
-    await expect(
-      completeSharedFolderOffer({
-        pick: async () => ({ status: 'granted' }),
-        reload,
-      }),
-    ).resolves.toBe('moved');
-    expect(reload).toHaveBeenCalledOnce();
-
-    reload.mockClear();
-    await expect(
-      completeSharedFolderOffer({
-        pick: async () => ({ status: 'cancelled' }),
-        reload,
-      }),
-    ).resolves.toBe('cancelled');
-    expect(reload).not.toHaveBeenCalled();
+  it('sends a popup move to the settings tab instead of picking in the popup', () => {
+    const href = sharedFolderSettingsHref((path) => `chrome-extension://id${path}`);
+    expect(href).toContain('/options.html?folder=pick#model-folder');
+    expect(shouldHighlightFolderPicker(href)).toBe(true);
+    expect(shouldHighlightFolderPicker('chrome-extension://id/popup.html')).toBe(false);
   });
 });

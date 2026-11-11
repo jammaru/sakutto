@@ -3,6 +3,7 @@
   import { browser } from 'wxt/browser';
   import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
   import { sharedFolderNeedsPermission } from '@/engine/model/folder-status';
+  import FolderPermissionRestore from '@/ui/FolderPermissionRestore.svelte';
   import { isEngineError, isLocalServerError, isModelChangedError } from '@/engine/errors';
   import type { EngineStatus } from '@/shared/engine-status';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';
@@ -346,10 +347,7 @@
           </div>
         {:else if folderBlocked}
           <div class="gate">
-            <p>{t('modelFolderPermissionNeeded')}</p>
-            <button class="button" type="button" onclick={openOptions}>
-              {t('modelFolderOpenSettings')}
-            </button>
+            <FolderPermissionRestore folder={engineStatus?.sharedFolder} />
           </div>
         {:else if readiness === 'model-absent' || readiness === 'model-partial'}
           <div class="gate">

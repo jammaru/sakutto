@@ -53,20 +53,25 @@ export function shouldOfferSharedFolderMove(input: SharedFolderOfferInput): bool
   return true;
 }
 
-export type SharedFolderOfferPick = 'moved' | 'cancelled' | 'denied' | 'failed';
+export const FOLDER_SETTINGS_PICK_QUERY = 'folder';
+export const FOLDER_SETTINGS_PICK_VALUE = 'pick';
+export const FOLDER_SETTINGS_HASH = 'model-folder';
 
-/**
- * One click: open the picker (caller must do that from a gesture), then reload the
- * engine so the verified OPFS → folder move runs. Cancel/deny leave OPFS as-is.
- */
-export async function completeSharedFolderOffer(deps: {
-  pick: () => Promise<{ status: 'granted' | 'cancelled' | 'denied' | 'failed' }>;
-  reload: () => Promise<unknown>;
-}): Promise<SharedFolderOfferPick> {
-  const picked = await deps.pick();
-  if (picked.status !== 'granted') return picked.status;
-  await deps.reload();
-  return 'moved';
+/** Settings tab URL for the first grant. Chrome can offer “Allow on every visit” there. */
+export function sharedFolderSettingsHref(extensionUrl: (path: '/options.html') => string): string {
+  return `${extensionUrl('/options.html')}?${FOLDER_SETTINGS_PICK_QUERY}=${FOLDER_SETTINGS_PICK_VALUE}#${FOLDER_SETTINGS_HASH}`;
+}
+
+export function shouldHighlightFolderPicker(href: string): boolean {
+  try {
+    const url = new URL(href);
+    return (
+      url.searchParams.get(FOLDER_SETTINGS_PICK_QUERY) === FOLDER_SETTINGS_PICK_VALUE ||
+      url.hash === `#${FOLDER_SETTINGS_HASH}`
+    );
+  } catch {
+    return false;
+  }
 }
 
 /** Same-page notice after a picker/reload so options, popup, and folder settings refresh. */

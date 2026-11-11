@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { browser } from 'wxt/browser';
   import {
     DEFAULT_MODEL_ID,
     HIGH_QUALITY_MODEL_ID,
@@ -7,21 +8,25 @@
     getModel,
     type ModelId,
   } from '@/engine/model/catalog';
+  import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
   import { emptySharedFolderStatus, type SharedFolderStatus } from '@/engine/model/folder-status';
-  import { SHARED_FOLDER_CHANGED_EVENT } from '@/engine/model/folder-offer';
+  import {
+    SHARED_FOLDER_CHANGED_EVENT,
+    shouldHighlightFolderPicker,
+  } from '@/engine/model/folder-offer';
   import {
     adoptPickedSharedFolder,
     clearStoredSharedFolder,
-    loadStoredSharedFolder,
-    requestFolderPermission,
     sharedFolderPickerAvailable,
-    type FolderPermission,
   } from '@/engine/model/shared-folder';
+  import FolderPermissionRestore from '@/ui/FolderPermissionRestore.svelte';
   import { t } from '@/shared/i18n';
   import { formatByteSizeList } from '@/ui/format';
   import SharedFolderBenefits from '@/ui/SharedFolderBenefits.svelte';
   import {
+    isModelProgressMessage,
     requestEngineStatus,
+    requestEngineWarm,
     requestModelFolderDeleteOpfs,
     requestModelFolderReload,
   } from '@/shared/messages';
@@ -30,8 +35,8 @@
   let busy = $state(false);
   let pickError = $state<string | null>(null);
   let pickHint = $state<string | null>(null);
-  let granting = $state(false);
   let pickerAvailable = $derived(sharedFolderPickerAvailable());
+  let highlightPick = $derived(shouldHighlightFolderPicker(location.href));
   const folderSizeLabel = formatByteSizeList([
     getModel(DEFAULT_MODEL_ID).size,
     getModel(HIGH_QUALITY_MODEL_ID).size,
@@ -72,37 +77,10 @@
         return;
       }
       await reloadHost();
+      await requestEngineWarm();
     } finally {
       busy = false;
     }
-  }
-
-  async function grantAccess() {
-    pickError = null;
-    pickHint = null;
-    granting = true;
-    try {
-      const engine = await requestEngineStatus();
-      const current = engine?.sharedFolder;
-      if (!current?.configured) return;
-      // Re-pick is the reliable way to restore permission after a restart when
-      // `requestPermission` is not enough; the stored handle is tried first.
-      const granted = await grantStoredHandle();
-      if (!granted) {
-        pickError = t('modelFolderPermissionNeeded');
-        return;
-      }
-      await reloadHost();
-    } finally {
-      granting = false;
-    }
-  }
-
-  async function grantStoredHandle(): Promise<boolean> {
-    const stored = await loadStoredSharedFolder();
-    if (!stored) return false;
-    const permission: FolderPermission = await requestFolderPermission(stored.handle);
-    return permission === 'granted';
   }
 
   async function stopUsing() {
@@ -132,17 +110,29 @@
     const onChanged = () => {
       void refreshFromEngine();
     };
+    const onMessage = (message: unknown) => {
+      if (!isModelProgressMessage(message)) return;
+      if (message.status.error === FOLDER_PERMISSION_ERROR) void refreshFromEngine();
+    };
     window.addEventListener(SHARED_FOLDER_CHANGED_EVENT, onChanged);
+    browser.runtime.onMessage.addListener(onMessage);
     void refreshFromEngine();
-    return () => window.removeEventListener(SHARED_FOLDER_CHANGED_EVENT, onChanged);
+    if (highlightPick) {
+      queueMicrotask(() => document.getElementById('model-folder')?.scrollIntoView());
+    }
+    return () => {
+      window.removeEventListener(SHARED_FOLDER_CHANGED_EVENT, onChanged);
+      browser.runtime.onMessage.removeListener(onMessage);
+    };
   });
 </script>
 
 {#if pickerAvailable || folder.configured}
-  <div class="folder">
+  <div class="folder" id="model-folder">
     <h3>{t('modelFolderHeading')}</h3>
     <p class="muted help">{t('modelFolderPickerHint')}</p>
     <p class="muted help">{t('modelFolderHelp')}</p>
+    <p class="muted help">{t('modelFolderPersistentHint')}</p>
     <SharedFolderBenefits leadKey="modelFolderBenefitsLead" sizeLabel={folderSizeLabel} />
 
     {#if folder.configured && folder.name}
@@ -151,17 +141,7 @@
       <p class="muted">{t('modelFolderNotUsing')}</p>
     {/if}
 
-    {#if folder.configured && folder.permission !== 'granted'}
-      <p class="error" role="alert">{t('modelFolderPermissionNeeded')}</p>
-      <button
-        class="button"
-        type="button"
-        disabled={granting || busy}
-        onclick={() => void grantAccess()}
-      >
-        {t('modelFolderPermissionGrant')}
-      </button>
-    {/if}
+    <FolderPermissionRestore {folder} />
 
     {#each folder.integrityIssues as issue (issue.modelId)}
       <p class="error" role="alert">

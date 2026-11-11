@@ -10,6 +10,7 @@ export const SHARED_FOLDER_PICKER_START = 'documents' as const;
 export const SHARED_FOLDER_DB_NAME = 'sakutto-model-folder';
 export const SHARED_FOLDER_STORE = 'handles';
 export const SHARED_FOLDER_KEY = 'directory';
+export const SHARED_FOLDER_PERMISSION_OVERRIDE_KEY = 'test-permission';
 
 const DOCUMENTS_FOLDER_NAMES = new Set([
   'documents',
@@ -39,6 +40,9 @@ export interface SharedFolderHandleBucket {
   get(): Promise<StoredSharedFolder | null>;
   set(value: StoredSharedFolder): Promise<void>;
   clear(): Promise<void>;
+  /** Fake-engine e2e only: force queryPermission so the restore button can be exercised. */
+  getPermissionOverride(): Promise<FolderPermission | null>;
+  setPermissionOverride(value: FolderPermission | null): Promise<void>;
 }
 
 export type DirectoryPicker = (options?: {
@@ -183,31 +187,91 @@ export async function openSharedModelsDirectory(
   return directory.getDirectoryHandle(SHARED_MODELS_DIRECTORY, { create: true });
 }
 
+function fakeEngineEnabled(): boolean {
+  return typeof __SAKUTTO_FAKE_ENGINE__ !== 'undefined' && __SAKUTTO_FAKE_ENGINE__;
+}
+
+async function readPermissionOverride(): Promise<FolderPermission | null> {
+  if (!fakeEngineEnabled()) return null;
+  const store = await openSharedFolderBucket().catch(() => null);
+  if (!store) return null;
+  return store.getPermissionOverride();
+}
+
+async function writePermissionOverride(value: FolderPermission | null): Promise<void> {
+  if (!fakeEngineEnabled()) return;
+  const store = await openSharedFolderBucket().catch(() => null);
+  if (!store) return;
+  await store.setPermissionOverride(value);
+}
+
+/** Fake-engine e2e: make the next queryPermission return this state. */
+export async function setFolderPermissionOverrideForTests(
+  value: FolderPermission | null,
+): Promise<void> {
+  await writePermissionOverride(value);
+}
+
+export async function folderPermissionOverrideActive(): Promise<boolean> {
+  return (await readPermissionOverride()) !== null;
+}
+
+function asFolderPermission(state: PermissionState): FolderPermission {
+  return state === 'granted' || state === 'denied' ? state : 'prompt';
+}
+
 /**
  * Offscreen documents and the service worker cannot show a permission prompt. A missing
- * `queryPermission` (OPFS-like handles) is treated as already granted.
+ * `queryPermission` (OPFS-like handles) is treated as already granted unless a fake-engine
+ * test override is set.
  */
 export async function queryFolderPermission(
   handle: FileSystemDirectoryHandle,
   mode: 'read' | 'readwrite' = 'readwrite',
 ): Promise<FolderPermission> {
+  const override = await readPermissionOverride();
+  if (override) return override;
   const query = asPermissioned(handle).queryPermission;
   if (typeof query !== 'function') return 'granted';
-  const state = await query.call(handle, { mode });
-  return state === 'granted' || state === 'denied' ? state : 'prompt';
+  return asFolderPermission(await query.call(handle, { mode }));
 }
 
-/** Must run from a document with a user gesture (options page, not offscreen or the worker). */
+/**
+ * Must run from a document with a user gesture. A settings/onboarding **tab** can show
+ * Chrome's "Allow on every visit" restore prompt. A popup auto-grants for this visit
+ * only. Offscreen cannot call this.
+ */
 export async function requestFolderPermission(
   handle: FileSystemDirectoryHandle,
   mode: 'read' | 'readwrite' = 'readwrite',
 ): Promise<FolderPermission> {
+  const override = await readPermissionOverride();
+  if (override === 'denied') return 'denied';
+  if (override === 'granted') return 'granted';
+  if (override === 'prompt') {
+    await writePermissionOverride(null);
+    return 'granted';
+  }
   const current = await queryFolderPermission(handle, mode);
   if (current === 'granted') return current;
   const request = asPermissioned(handle).requestPermission;
-  if (typeof request !== 'function') return current;
-  const state = await request.call(handle, { mode });
-  return state === 'granted' || state === 'denied' ? state : 'prompt';
+  if (typeof request === 'function') {
+    return asFolderPermission(await request.call(handle, { mode }));
+  }
+  return current;
+}
+
+/** One-click restore of a handle already in IndexedDB. */
+export async function restoreStoredFolderPermission(
+  hooks: {
+    load?: () => Promise<StoredSharedFolder | null>;
+    requestPermission?: (handle: FileSystemDirectoryHandle) => Promise<FolderPermission>;
+  } = {},
+): Promise<FolderPermission | null> {
+  const stored = await (hooks.load ?? loadStoredSharedFolder)();
+  if (!stored) return null;
+  const request = hooks.requestPermission ?? requestFolderPermission;
+  return request(stored.handle);
 }
 
 export function isStoredSharedFolder(value: unknown): value is StoredSharedFolder {
@@ -225,6 +289,7 @@ function isDirectoryHandle(value: unknown): value is FileSystemDirectoryHandle {
 
 export class MemorySharedFolderBucket implements SharedFolderHandleBucket {
   private value: StoredSharedFolder | null = null;
+  private permissionOverride: FolderPermission | null = null;
 
   async get(): Promise<StoredSharedFolder | null> {
     return this.value;
@@ -236,6 +301,14 @@ export class MemorySharedFolderBucket implements SharedFolderHandleBucket {
 
   async clear(): Promise<void> {
     this.value = null;
+  }
+
+  async getPermissionOverride(): Promise<FolderPermission | null> {
+    return this.permissionOverride;
+  }
+
+  async setPermissionOverride(value: FolderPermission | null): Promise<void> {
+    this.permissionOverride = value;
   }
 }
 
@@ -277,6 +350,23 @@ export class IndexedDbSharedFolderBucket implements SharedFolderHandleBucket {
     const transaction = this.db.transaction(SHARED_FOLDER_STORE, 'readwrite');
     const done = transactionDone(transaction);
     transaction.objectStore(SHARED_FOLDER_STORE).delete(SHARED_FOLDER_KEY);
+    await done;
+  }
+
+  async getPermissionOverride(): Promise<FolderPermission | null> {
+    const transaction = this.db.transaction(SHARED_FOLDER_STORE, 'readonly');
+    const stored = await promisify<unknown>(
+      transaction.objectStore(SHARED_FOLDER_STORE).get(SHARED_FOLDER_PERMISSION_OVERRIDE_KEY),
+    );
+    return stored === 'granted' || stored === 'denied' || stored === 'prompt' ? stored : null;
+  }
+
+  async setPermissionOverride(value: FolderPermission | null): Promise<void> {
+    const transaction = this.db.transaction(SHARED_FOLDER_STORE, 'readwrite');
+    const done = transactionDone(transaction);
+    const store = transaction.objectStore(SHARED_FOLDER_STORE);
+    if (value) store.put(value, SHARED_FOLDER_PERMISSION_OVERRIDE_KEY);
+    else store.delete(SHARED_FOLDER_PERMISSION_OVERRIDE_KEY);
     await done;
   }
 }

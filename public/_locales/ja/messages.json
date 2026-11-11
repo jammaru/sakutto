@@ -694,6 +694,15 @@
   "modelFolderPermissionGrant": {
     "message": "フォルダへのアクセスを許可"
   },
+  "modelFolderPermissionPage": {
+    "message": "Sakuttoのポップアップか設定を開いて、「フォルダへのアクセスを許可」を押してください。"
+  },
+  "modelFolderOfferOpenSettings": {
+    "message": "設定でフォルダを選ぶ"
+  },
+  "modelFolderPersistentHint": {
+    "message": "Chromeが「毎回許可する」と聞いてきたら、それを選ぶと再起動のあとも使えます。出ないこともあります。"
+  },
   "modelFolderPickFailed": {
     "message": "フォルダを選べませんでした。"
   },

@@ -22,6 +22,7 @@
     isModelProgressMessage,
     requestModelCancel,
     requestModelDownload,
+    requestEngineWarm,
     requestModelFolderReload,
     requestModelInspect,
     requestShortcutSnapshot,
@@ -198,6 +199,7 @@
       const adopted = await adoptPickedSharedFolder();
       if (adopted.status === 'granted') resolvedFolderName = adopted.name;
       const folder = adopted.status === 'granted' ? await requestModelFolderReload() : null;
+      if (adopted.status === 'granted') await requestEngineWarm();
       const issue = folder?.integrityIssues.find((item) => item.modelId === DEFAULT_MODEL_ID);
       if (issue) integrityAlert = t('modelFolderIntegrityFailed', [issue.file]);
       if (adopted.status === 'granted' && !issue) {
@@ -499,6 +501,7 @@
               <span>{t('onboardingStoreFolder')}</span>
             </label>
             <p class="muted start-note">{t('modelFolderPickerHint')}</p>
+            <p class="muted start-note">{t('modelFolderPersistentHint')}</p>
           </div>
           <label class="store-choice">
             <input type="radio" name="onboarding-store" value="browser" bind:group={storeChoice} />

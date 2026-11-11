@@ -1,11 +1,17 @@
-import { abortError, EngineError, isAbortError, isEngineError } from '../errors';
+import {
+  abortError,
+  EngineError,
+  folderPermissionError,
+  isAbortError,
+  isEngineError,
+} from '../errors';
 import type { BackendSelection } from '../in-browser/backend';
 import type { LlamaRuntime } from '../in-browser/runtime';
 import type { ModelState, ModelStatus } from '../../shared/engine-status';
 import { DEFAULT_MODEL_ID, MODEL_CATALOG, type ModelEntry, type ModelId } from './catalog';
 import { copyModelFile } from './copy';
 import { downloadModel, type DownloadProgress } from './download';
-import type { ModelFileStore } from './file-store';
+import { isPermissionDenied, type ModelFileStore } from './file-store';
 import { decideIntegrity, digestMatchesPin, type IntegrityManifest } from './integrity';
 import { sha256OfBlob, type HashOptions } from './sha256';
 
@@ -301,7 +307,13 @@ export class ModelManager {
         total: this.entry(modelId).size,
         progress: 1,
       });
-      const blob = await store.read(this.finalPath(modelId));
+      let blob: Blob;
+      try {
+        blob = await store.read(this.finalPath(modelId));
+      } catch (error) {
+        if (isPermissionDenied(error)) throw folderPermissionError();
+        throw error;
+      }
       const runtime = await this.createRuntime(blob, selection);
       const loaded: LoadedModel = { id: modelId, runtime, selection };
       this.loaded = loaded;
