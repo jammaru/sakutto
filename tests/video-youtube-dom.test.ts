@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   playerResponseForPage,
   playerResponseFromDocument,
+  captionSourceIsTargetLanguage,
+  peekYoutubeCaptionDom,
   readYoutubeCaptionDom,
   videoIdFromPlayerResponse,
 } from '@/captions/youtube';
@@ -40,6 +42,22 @@ describe('YouTube caption DOM source', () => {
     expect(readYoutubeCaptionDom(document, { targetLanguage: 'ja' })).toBe(
       'the north window sells tickets,',
     );
+  });
+
+  it('peeks raw native text without treating a known English track as Japanese', () => {
+    document.body.innerHTML = `
+      <div class="ytp-caption-window-container">
+        <div class="caption-window" lang="en">
+          <span class="ytp-caption-segment">the north window sells tickets.</span>
+        </div>
+        <div class="caption-window" lang="ja">
+          <span class="ytp-caption-segment">北側窓口では切符を売っています。</span>
+        </div>
+      </div>
+    `;
+    expect(peekYoutubeCaptionDom(document)).toContain('the north window sells tickets.');
+    expect(peekYoutubeCaptionDom(document)).toContain('北側窓口では切符を売っています。');
+    expect(captionSourceIsTargetLanguage('en', peekYoutubeCaptionDom(document), 'ja')).toBe(false);
   });
 
   it('ignores a player response that belongs to a different watch URL', async () => {

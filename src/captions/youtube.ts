@@ -386,6 +386,32 @@ function languagePrefix(value: string | null | undefined): string {
   return lower.split('-')[0] ?? '';
 }
 
+/**
+ * True when the caption *source* is already the target language. A known English
+ * track must not be treated as Japanese just because an auto-translate window is
+ * on screen (that leak is stripped separately). Unknown-language text may use
+ * script detection.
+ */
+export function captionSourceIsTargetLanguage(
+  sourceLanguage: string | undefined,
+  text: string | undefined,
+  targetLanguage: string,
+): boolean {
+  const source = languagePrefix(sourceLanguage);
+  const target = languagePrefix(targetLanguage);
+  if (source.length > 0 && target.length > 0) return source === target;
+  if (!text) return false;
+  return captionTextIsTargetLanguage(text, targetLanguage);
+}
+
+/** Raw native YouTube caption text, including auto-translate windows. Overlay never included. */
+export function peekYoutubeCaptionDom(root: ParentNode): string {
+  if (!('querySelector' in root)) return '';
+  const container = root.querySelector(YOUTUBE_CAPTION_WINDOW_SELECTOR);
+  if (!(container instanceof Element) || container.closest(CAPTION_HOST_TAG)) return '';
+  return normalizeDomCaption(container.textContent ?? '');
+}
+
 export function captionTextIsTargetLanguage(text: string, targetLanguage: string): boolean {
   const script = targetScript(targetLanguage);
   if (!script) return false;

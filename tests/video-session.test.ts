@@ -33,8 +33,19 @@ const TIMEDTEXT = {
   ],
 };
 
+const JA_TIMEDTEXT = {
+  events: [
+    {
+      tStartMs: 0,
+      dDurationMs: 4000,
+      segs: [{ utf8: '駅は夜明けに開きます。' }],
+    },
+  ],
+};
+
 describe('video caption session', () => {
   afterEach(() => {
+    document.documentElement.removeAttribute('data-sakutto-captions');
     document.documentElement.innerHTML = '<head></head><body></body>';
   });
 
@@ -868,6 +879,294 @@ The station opens at dawn.
     });
     session.stop();
     view.close();
+  });
+
+  it('leaves native YouTube captions in place when the source is already the target language', async () => {
+    document.body.innerHTML = `
+      <div id="movie_player">
+        <video id="player" class="html5-main-video"></video>
+        <div class="ytp-caption-window-container">
+          <span class="ytp-caption-segment">駅は夜明けに開きます。</span>
+        </div>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "captions": {
+            "playerCaptionsTracklistRenderer": {
+              "captionTracks": [{
+                "baseUrl": "/youtube-timedtext.json",
+                "languageCode": "ja",
+                "name": { "simpleText": "Japanese" }
+              }]
+            }
+          }
+        };
+      </script>
+    `;
+    const video = document.querySelector('video');
+    if (video) video.currentTime = 0.4;
+    let fetches = 0;
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => {
+        fetches += 1;
+        return JSON.stringify(JA_TIMEDTEXT);
+      },
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('native');
+    });
+    expect(
+      document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption'),
+    ).toBeNull();
+    expect(document.querySelector('style[data-sakutto="captions"]')).toBeNull();
+    expect(document.querySelector('.ytp-caption-segment')?.textContent).toBe(
+      '駅は夜明けに開きます。',
+    );
+    expect(fetches).toBe(0);
+    session.stop();
+  });
+
+  it('still hides native captions and strips auto-translate when the source is English', async () => {
+    document.body.innerHTML = `
+      <div id="movie_player">
+        <video id="player" class="html5-main-video"></video>
+        <div class="ytp-caption-window-container">
+          <div class="caption-window" lang="en">
+            <span class="ytp-caption-segment">The station opens at dawn.</span>
+          </div>
+          <div class="caption-window" lang="ja">
+            <span class="ytp-caption-segment">駅は夜明けに開きます。</span>
+          </div>
+        </div>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "videoDetails": { "defaultAudioLanguage": "en" },
+          "captions": {
+            "playerCaptionsTracklistRenderer": {
+              "captionTracks": [{
+                "baseUrl": "/youtube-timedtext.json",
+                "languageCode": "en",
+                "name": { "simpleText": "English" }
+              }]
+            }
+          }
+        };
+      </script>
+    `;
+    const video = document.querySelector('video');
+    if (video) video.currentTime = 0.4;
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => JSON.stringify(TIMEDTEXT),
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('The station opens at dawn.', 'ja'),
+      );
+    });
+    expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('overlay');
+    expect(document.querySelector('style[data-sakutto="captions"]')).not.toBeNull();
+    expect(
+      document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original'),
+    ).not.toMatch(/駅は夜明け/);
+    session.stop();
+  });
+
+  it('falls back to native captions when the target language is switched to the source', async () => {
+    document.body.innerHTML = `
+      <div id="movie_player">
+        <video id="player" class="html5-main-video"></video>
+        <div class="ytp-caption-window-container">
+          <span class="ytp-caption-segment">The station opens at dawn.</span>
+        </div>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "captions": {
+            "playerCaptionsTracklistRenderer": {
+              "captionTracks": [{
+                "baseUrl": "/youtube-timedtext.json",
+                "languageCode": "en",
+                "name": { "simpleText": "English" }
+              }]
+            }
+          }
+        };
+      </script>
+    `;
+    const video = document.querySelector('video');
+    if (video) video.currentTime = 0.4;
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => JSON.stringify(TIMEDTEXT),
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('The station opens at dawn.', 'ja'),
+      );
+    });
+    expect(document.querySelector('style[data-sakutto="captions"]')).not.toBeNull();
+    session.setPreferences({
+      enabled: true,
+      targetLanguage: 'en',
+      form: 'polite',
+      display: 'bilingual',
+      tier: 'g',
+    });
+    await vi.waitFor(() => {
+      expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('native');
+    });
+    expect(
+      document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption'),
+    ).toBeNull();
+    expect(document.querySelector('style[data-sakutto="captions"]')).toBeNull();
+    session.stop();
+  });
+
+  it('retranslates from the playhead into the new target and drops the old language', async () => {
+    document.body.innerHTML = `
+      <div id="movie_player">
+        <video id="player" class="html5-main-video"></video>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "captions": {
+            "playerCaptionsTracklistRenderer": {
+              "captionTracks": [{
+                "baseUrl": "/youtube-timedtext.json",
+                "languageCode": "en",
+                "name": { "simpleText": "English" }
+              }]
+            }
+          }
+        };
+      </script>
+    `;
+    const video = document.querySelector('video');
+    if (video) video.currentTime = 0.4;
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => JSON.stringify(TIMEDTEXT),
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('The station opens at dawn.', 'ja'),
+      );
+    });
+    session.setPreferences({
+      enabled: true,
+      targetLanguage: 'zh-hans',
+      form: 'polite',
+      display: 'bilingual',
+      tier: 'g',
+    });
+    await vi.waitFor(() => {
+      expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('The station opens at dawn.', 'zh-hans'),
+      );
+    });
+    const caption = document
+      .querySelector('sakutto-captions')
+      ?.getAttribute('data-sakutto-caption');
+    expect(caption).not.toMatch(/§ja§/);
+    expect(caption).toContain('§zh-hans§');
+    session.stop();
+  });
+
+  it('ignores an in-flight translation after the target language changes', async () => {
+    document.body.innerHTML = `
+      <div id="movie_player">
+        <video id="player" class="html5-main-video"></video>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "captions": {
+            "playerCaptionsTracklistRenderer": {
+              "captionTracks": [{
+                "baseUrl": "/youtube-timedtext.json",
+                "languageCode": "en",
+                "name": { "simpleText": "English" }
+              }]
+            }
+          }
+        };
+      </script>
+    `;
+    const video = document.querySelector('video');
+    if (video) video.currentTime = 0.4;
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = new VideoCaptionSession(document, {
+      engine: delayedEngine(gate),
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => JSON.stringify(TIMEDTEXT),
+    });
+    session.start();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    session.setPreferences({
+      enabled: true,
+      targetLanguage: 'zh-hans',
+      form: 'polite',
+      display: 'bilingual',
+      tier: 'g',
+    });
+    release?.();
+    await vi.waitFor(() => {
+      expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('The station opens at dawn.', 'zh-hans'),
+      );
+    });
+    expect(
+      document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption'),
+    ).not.toMatch(/§ja§/);
+    session.stop();
   });
 });
 

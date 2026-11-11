@@ -33,11 +33,13 @@ import {
 import { readTimedtext, TimedtextFetchGuard } from './timedtext';
 import { isXHost, listXSubtitleUrls, pickPlayingXVideo } from './x';
 import {
+  captionSourceIsTargetLanguage,
   captionTracksFromPlayerResponse,
   isYouTubeHost,
   isYouTubeLiveDocument,
   nativeCaptionFontPx,
   parseTimedtextPayload,
+  peekYoutubeCaptionDom,
   playerResponseForPage,
   playerResponseFromDocument,
   readYoutubeCaptionDom,
@@ -140,6 +142,7 @@ export class VideoCaptionSession {
   private lastPlayed: HTMLVideoElement | null = null;
   private sourceKey = '';
   private sourceToken = 0;
+  private passthroughNative = false;
   private historyUnpatch: (() => void) | null = null;
 
   constructor(doc: Document, options: CaptionSessionOptions) {
@@ -155,6 +158,7 @@ export class VideoCaptionSession {
 
   setPreferences(preferences: CaptionSessionPreferences): void {
     const wasEnabled = this.prefs.enabled;
+    const targetChanged = this.prefs.targetLanguage !== preferences.targetLanguage;
     const displayChanged = this.prefs.display !== preferences.display;
     const sizeChanged =
       (this.prefs.size ?? VIDEO_CAPTION_SIZE_DEFAULT) !==
@@ -166,6 +170,12 @@ export class VideoCaptionSession {
     }
     if (!wasEnabled) {
       this.start();
+      return;
+    }
+    if (targetChanged) {
+      this.resetCaptionSource();
+      this.passthroughNative = false;
+      void this.sync(true);
       return;
     }
     if (displayChanged || sizeChanged) {
@@ -186,7 +196,6 @@ export class VideoCaptionSession {
   start(): void {
     if (!this.prefs.enabled || this.running) return;
     this.running = true;
-    this.hideNativeCaptions(true);
     const view = this.doc.defaultView;
     view?.addEventListener('timeupdate', this.onMedia, true);
     view?.addEventListener('seeked', this.onSeek, true);
@@ -276,6 +285,8 @@ export class VideoCaptionSession {
     this.lastPlayed = null;
     this.sourceKey = '';
     this.sourceToken += 1;
+    this.passthroughNative = false;
+    this.doc.documentElement.removeAttribute('data-sakutto-captions');
     this.liveJobId = null;
     this.overlay.hide();
     this.overlay.detach();
@@ -386,6 +397,7 @@ export class VideoCaptionSession {
     this.liveBuffer.reset();
     this.clearHold();
     this.liveJobId = null;
+    this.passthroughNative = false;
     this.overlay.hide();
   }
 
@@ -393,7 +405,10 @@ export class VideoCaptionSession {
     if (this.loadInFlight) return;
     const token = this.sourceToken;
     const key = trackKey(this.doc, video);
-    if (this.loaded?.key === key && this.loaded.cues.length > 0) return;
+    if (this.loaded?.key === key && (this.loaded.cues.length > 0 || this.passthroughNative)) {
+      this.applyNativeVisibility();
+      return;
+    }
     this.loadInFlight = true;
     try {
       const host = pageHost(this.doc.defaultView?.location.href ?? '') ?? '';
@@ -401,24 +416,22 @@ export class VideoCaptionSession {
       if (token !== this.sourceToken) return;
       if (youtube) {
         this.liveMode = youtube.live;
-        this.loaded = { key, ...youtube, restoreModes: [] };
-        if (!youtube.live && youtube.cues.length === 0) this.overlay.hide();
-        if (!youtube.live && youtube.cues.length > 0) this.prefetchFromPlayhead();
+        this.finishLoadedTrack({ key, ...youtube, restoreModes: [] }, !youtube.live);
         return;
       }
       this.liveMode = false;
       if (isYouTubeHost(host)) {
-        this.loaded = { key, cues: [], restoreModes: [] };
-        this.overlay.hide();
+        this.finishLoadedTrack({ key, cues: [], restoreModes: [] }, false);
         return;
       }
 
       if (isXHost(host)) {
         const xTrack = await this.loadXTrack(video);
         if (token !== this.sourceToken) return;
-        this.loaded = xTrack ? { key, ...xTrack } : { key, cues: [], restoreModes: [] };
-        if ((this.loaded.cues.length ?? 0) === 0) this.overlay.hide();
-        if ((this.loaded.cues.length ?? 0) > 0) this.prefetchFromPlayhead();
+        this.finishLoadedTrack(
+          xTrack ? { key, ...xTrack } : { key, cues: [], restoreModes: [] },
+          true,
+        );
         return;
       }
 
@@ -426,8 +439,7 @@ export class VideoCaptionSession {
       const html5 = loadHtml5Track(video, this.prefs.targetLanguage, durationMs);
       if (token !== this.sourceToken) return;
       if (html5 && html5.cues.length > 0) {
-        this.loaded = { key, ...html5 };
-        this.prefetchFromPlayhead();
+        this.finishLoadedTrack({ key, ...html5 }, true);
         return;
       }
       const fromSrc = await this.loadTrackUrls(video, html5, durationMs);
@@ -438,8 +450,7 @@ export class VideoCaptionSession {
           ? { key, ...html5 }
           : { key, cues: [], restoreModes: [] };
       this.useDomCaptions = (this.loaded.cues.length ?? 0) === 0 && this.allowsGenericDom();
-      if ((this.loaded.cues.length ?? 0) === 0 && !this.useDomCaptions) this.overlay.hide();
-      if ((this.loaded.cues.length ?? 0) > 0) this.prefetchFromPlayhead();
+      this.finishLoadedTrack(this.loaded, true);
     } finally {
       if (token === this.sourceToken) this.loadInFlight = false;
     }
@@ -465,6 +476,12 @@ export class VideoCaptionSession {
       ? selectLiveCaptionTrack(tracks, this.prefs.targetLanguage, spoken)
       : selectCaptionTrack(tracks, this.prefs.targetLanguage, spoken);
     if (!selected) return live ? { cues: [], live: true } : null;
+    if (
+      captionSourceIsTargetLanguage(selected.languageCode, undefined, this.prefs.targetLanguage)
+    ) {
+      this.useDomCaptions = false;
+      return { cues: [], language: selected.languageCode, live };
+    }
 
     const fetchKey = `${youtubeVideoId(this.doc.defaultView?.location.href ?? '') ?? 'yt'}:${selected.baseUrl}`;
     if (!stillCurrent()) return null;
@@ -510,12 +527,15 @@ export class VideoCaptionSession {
     const token = this.sourceToken;
     const youtube = await this.loadYouTubeTrack();
     if (!youtube || !this.running || token !== this.sourceToken) return;
-    this.loaded = {
-      key: trackKey(this.doc, video),
-      cues: youtube.cues,
-      language: youtube.language,
-      restoreModes: [],
-    };
+    this.finishLoadedTrack(
+      {
+        key: trackKey(this.doc, video),
+        cues: youtube.cues,
+        language: youtube.language,
+        restoreModes: [],
+      },
+      false,
+    );
   }
 
   private async loadXTrack(video: HTMLVideoElement): Promise<Omit<LoadedTrack, 'key'> | null> {
@@ -557,11 +577,71 @@ export class VideoCaptionSession {
     return null;
   }
 
+  private finishLoadedTrack(loaded: LoadedTrack, prefetch: boolean): void {
+    this.loaded = loaded;
+    this.passthroughNative = this.sourceMatchesTarget();
+    if (this.passthroughNative) this.useDomCaptions = false;
+    this.applyNativeVisibility();
+    if (this.passthroughNative) {
+      this.overlay.hide();
+      return;
+    }
+    if ((loaded.cues.length ?? 0) === 0 && !this.useDomCaptions && !this.liveMode) {
+      this.overlay.hide();
+    }
+    if (prefetch && loaded.cues.length > 0) this.prefetchFromPlayhead();
+  }
+
+  private sourceMatchesTarget(): boolean {
+    const sample =
+      this.loaded?.cues.find((cue) => cue.text.trim().length > 0)?.text ??
+      peekYoutubeCaptionDom(this.doc);
+    return captionSourceIsTargetLanguage(
+      this.loaded?.language,
+      sample.length > 0 ? sample : undefined,
+      this.prefs.targetLanguage,
+    );
+  }
+
+  private hasOverlaySource(): boolean {
+    if (this.passthroughNative) return false;
+    if ((this.loaded?.cues.length ?? 0) > 0) return true;
+    return this.useDomCaptions || this.liveMode;
+  }
+
+  private applyNativeVisibility(): void {
+    if (!this.hasOverlaySource()) {
+      this.hideNativeCaptions(false);
+      this.restoreTracks();
+      this.clearNativeCaptionMasks();
+      this.doc.documentElement.setAttribute(
+        'data-sakutto-captions',
+        this.passthroughNative ? 'native' : 'off',
+      );
+      if (this.passthroughNative) this.overlay.hide();
+      return;
+    }
+    this.hideNativeCaptions(true);
+    if (this.video) hideShowingCaptionTracks(this.video);
+    this.doc.documentElement.setAttribute('data-sakutto-captions', 'overlay');
+  }
+
+  private clearNativeCaptionMasks(): void {
+    for (const node of this.doc.querySelectorAll('[data-sakutto-native-caption]')) {
+      node.removeAttribute('data-sakutto-native-caption');
+    }
+  }
+
   private async paint(force: boolean): Promise<void> {
     if (!this.running) return;
     const token = this.sourceToken;
     const video = this.video;
     if (!video) return;
+    if (this.passthroughNative) {
+      this.applyNativeVisibility();
+      this.overlay.hide();
+      return;
+    }
     this.place();
     if (this.loaded && this.loaded.cues.length === 0 && this.allowsGenericDom()) {
       const html5 = loadHtml5Track(
@@ -571,6 +651,12 @@ export class VideoCaptionSession {
       );
       if (html5 && html5.cues.length > 0) {
         this.loaded = { ...this.loaded, ...html5 };
+        this.passthroughNative = this.sourceMatchesTarget();
+        if (this.passthroughNative) {
+          this.applyNativeVisibility();
+          this.overlay.hide();
+          return;
+        }
       }
     }
 
@@ -599,13 +685,16 @@ export class VideoCaptionSession {
   }
 
   private async paintCue(cue: CaptionCue, force: boolean): Promise<void> {
+    if (this.passthroughNative) return;
     const token = this.sourceToken;
     const language = cue.language ?? this.loaded?.language;
     const options = this.translateOptions(language);
     const original = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
     if (original.length === 0) return;
     if (sameLanguage(language, this.prefs.targetLanguage)) {
-      this.commitDisplay(cue.id, original, original);
+      this.passthroughNative = true;
+      this.applyNativeVisibility();
+      this.overlay.hide();
       return;
     }
 
@@ -627,6 +716,10 @@ export class VideoCaptionSession {
 
   private pollLive(): void {
     if (!this.running) return;
+    if (this.passthroughNative) {
+      this.overlay.hide();
+      return;
+    }
     if (!this.liveMode && !this.useDomCaptions) return;
     const visible = this.readSourceCaptionDom();
     if (visible.length === 0) {
@@ -639,8 +732,9 @@ export class VideoCaptionSession {
     const lines = this.liveBuffer.update(visible, this.now());
     const options = this.translateOptions(this.loaded?.language);
     if (sameLanguage(this.loaded?.language, this.prefs.targetLanguage)) {
-      const current = this.liveBuffer.peek() || visible;
-      if (current.length > 0) this.commitDisplay(`live:${current}`, current, current);
+      this.passthroughNative = true;
+      this.applyNativeVisibility();
+      this.overlay.hide();
       return;
     }
 
@@ -679,7 +773,7 @@ export class VideoCaptionSession {
     video.addEventListener('loadstart', this.onMediaSource);
     video.addEventListener('cuechange', this.onMedia, true);
     video.textTracks.addEventListener('addtrack', this.onMedia);
-    hideShowingCaptionTracks(video);
+    this.applyNativeVisibility();
   }
 
   private unbindVideo(video: HTMLVideoElement | null): void {
@@ -738,6 +832,7 @@ export class VideoCaptionSession {
   }
 
   private maskNativeCaptionNodes(root: Element): void {
+    if (this.passthroughNative) return;
     const host = pageHost(this.doc.defaultView?.location.href ?? '') ?? '';
     if (!isXHost(host)) return;
     const view = this.doc.defaultView;

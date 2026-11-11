@@ -242,6 +242,107 @@ test.describe('video captions', () => {
     }
   });
 
+  test('leaves native Japanese captions visible when the target is Japanese', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'ja',
+      });
+      const page = await extension.context.newPage();
+      await page.goto(`${FIXTURE_ORIGIN}/youtube-captions.html`);
+      await prepareVideo(page);
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'ja',
+      });
+      await expect(page.locator('html')).toHaveAttribute('data-sakutto-captions', 'native');
+      await expect(page.locator('sakutto-captions[data-sakutto-caption]')).toHaveCount(0);
+      await expect(page.locator('.ytp-caption-window-container')).toHaveCSS(
+        'visibility',
+        'visible',
+      );
+      await expect(page.locator('.ytp-caption-segment')).toContainText('駅は夜明けに開きます。');
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('falls back to native English captions when the target switches to English mid-play', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'ja',
+      });
+      const page = await extension.context.newPage();
+      await page.goto(`${FIXTURE_ORIGIN}/youtube-en.html`);
+      await prepareVideo(page);
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'ja',
+      });
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-caption',
+        /§ja§/,
+      );
+      await expect(page.locator('.ytp-caption-window-container')).toHaveCSS('visibility', 'hidden');
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'en',
+      });
+      await expect(page.locator('html')).toHaveAttribute('data-sakutto-captions', 'native');
+      await expect(page.locator('sakutto-captions[data-sakutto-caption]')).toHaveCount(0);
+      await expect(page.locator('.ytp-caption-window-container')).toHaveCSS(
+        'visibility',
+        'visible',
+      );
+      await expect(page.locator('.ytp-caption-segment')).toContainText(
+        'The station opens at dawn.',
+      );
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('retranslates mid-play into a new target language and drops the old lines', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'ja',
+      });
+      const page = await extension.context.newPage();
+      await page.goto(`${FIXTURE_ORIGIN}/youtube-en.html`);
+      await prepareVideo(page);
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'ja',
+      });
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-caption',
+        /§ja§/,
+      );
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'zh-hans',
+      });
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-caption',
+        /§zh-hans§/,
+      );
+      await expect(page.locator('sakutto-captions')).not.toHaveAttribute(
+        'data-sakutto-caption',
+        /§ja§/,
+      );
+    } finally {
+      await extension.close();
+    }
+  });
+
   test('does not send YouTube auto-translate Japanese as the source line', async () => {
     const extension = await loadExtension('en-US');
     try {

@@ -18,6 +18,7 @@ import {
   parsePlayerResponseScript,
   isYouTubeLivePlayer,
   selectCaptionTrack,
+  captionSourceIsTargetLanguage,
   captionTextIsTargetLanguage,
   selectLiveCaptionTrack,
   spokenLanguageFromPlayerResponse,
@@ -372,6 +373,18 @@ describe('target-language caption filter', () => {
     expect(stripTargetLanguageFromCaption('a red train waits at platform two.', 'ja')).toBe(
       'a red train waits at platform two.',
     );
+  });
+
+  it('treats a known source language as the target only when prefixes match', () => {
+    expect(captionSourceIsTargetLanguage('ja', '駅は夜明けに開きます。', 'ja')).toBe(true);
+    expect(captionSourceIsTargetLanguage('ja-JP', undefined, 'ja')).toBe(true);
+    expect(
+      captionSourceIsTargetLanguage('en', '北側窓口では予約不要の切符を売っています。', 'ja'),
+    ).toBe(false);
+    expect(captionSourceIsTargetLanguage(undefined, '駅は夜明けに開きます。', 'ja')).toBe(true);
+    expect(
+      captionSourceIsTargetLanguage(undefined, 'a red train waits at platform two.', 'ja'),
+    ).toBe(false);
   });
 });
 
