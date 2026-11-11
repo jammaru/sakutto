@@ -742,9 +742,6 @@
   "modelFolderOfferLater": {
     "message": "あとで"
   },
-  "modelFolderOfferHide": {
-    "message": "今後表示しない"
-  },
   "modelFolderOfferMoving": {
     "message": "移動中 $PERCENT$%（$RECEIVED$ / $TOTAL$）",
     "placeholders": {

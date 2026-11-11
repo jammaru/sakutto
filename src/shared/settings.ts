@@ -77,7 +77,10 @@ export interface Settings {
   display: DisplayMode;
   consent: LicenseConsent | null;
   highQualityDismissed: boolean;
-  /** True when the user hid the Chromium “move OPFS models to a shared folder” offer. */
+  /**
+   * True after Later on the popup card, or after onboarding already offered the store
+   * choice. The folder picker in Settings stays available.
+   */
   sharedFolderOfferDismissed: boolean;
   glossary: GlossaryEntry[];
   idleMinutes: IdleMinutes;

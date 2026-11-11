@@ -205,7 +205,8 @@ describe('locale messages', () => {
     expect(en.modelFolderBenefitKeep?.message).toMatch(/pick the same folder/i);
     expect(en.modelFolderOfferMove?.message).toBe('Move to a shared folder');
     expect(en.modelFolderOfferLater?.message).toBe('Later');
-    expect(en.modelFolderOfferHide?.message).toBe("Don't show again");
+    expect(en).not.toHaveProperty('modelFolderOfferHide');
+    expect(ja).not.toHaveProperty('modelFolderOfferHide');
     for (const locale of catalogs) {
       expect(readMessages(locale).modelFolderBenefitSpace?.message, locale).toContain('$SIZE$');
       expect(readMessages(locale).modelFolderBenefitSpace?.message, locale).not.toMatch(

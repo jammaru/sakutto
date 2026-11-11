@@ -742,9 +742,6 @@
   "modelFolderOfferLater": {
     "message": "Later"
   },
-  "modelFolderOfferHide": {
-    "message": "Don't show again"
-  },
   "modelFolderOfferMoving": {
     "message": "Moving $PERCENT$% ($RECEIVED$ / $TOTAL$)",
     "placeholders": {

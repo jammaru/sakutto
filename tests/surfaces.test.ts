@@ -39,8 +39,16 @@ describe('start controls while the model downloads', () => {
     expect(offer).toContain('completeSharedFolderOffer');
     expect(offer).toContain('adoptPickedSharedFolder');
     expect(offer).not.toMatch(/onMount\([\s\S]{0,400}adoptPickedSharedFolder/);
+    expect(offer).not.toMatch(/<dialog|badge|notification|createTab/i);
     expect(source('entrypoints/popup/App.svelte')).toContain('SharedFolderOffer');
-    expect(source('entrypoints/options/App.svelte')).toContain('SharedFolderOffer');
+    expect(source('entrypoints/popup/App.svelte')).toContain(
+      'translating={translated || (view?.pending ?? 0) > 0}',
+    );
+    expect(source('entrypoints/options/App.svelte')).not.toContain('SharedFolderOffer');
+    expect(source('entrypoints/onboarding/App.svelte')).not.toContain('SharedFolderOffer');
+    expect(source('entrypoints/onboarding/App.svelte')).toContain(
+      'sharedFolderOfferDismissed: true',
+    );
   });
 
   it('does not offer a download when the shared folder needs permission again', () => {

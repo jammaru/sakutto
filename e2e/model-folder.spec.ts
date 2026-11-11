@@ -273,54 +273,28 @@ test.describe('shared model folder', () => {
       await plantOpfsOfficial(planter);
       await planter.close();
 
-      const options = await extension.context.newPage();
-      await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
-      const offer = options.getByText('Moving to a shared folder means:');
-      await expect(offer).toBeVisible({ timeout: 30_000 });
-      await expect(
-        options.getByText('One copy on disk, so you save space (573 MB).'),
-      ).toBeVisible();
-      await expect(options.getByRole('button', { name: 'Move to a shared folder' })).toBeVisible();
-      await expect(options.getByRole('button', { name: 'Later' })).toBeVisible();
-      await expect(options.getByRole('button', { name: "Don't show again" })).toBeVisible();
-
-      await options.getByRole('button', { name: 'Later' }).click();
-      await expect(offer).toHaveCount(0);
-      await options.reload();
-      await expect(offer).toHaveCount(0);
-      await options.close();
-
       const popup = await extension.context.newPage();
       await popup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
-      await expect(popup.getByText('Moving to a shared folder means:')).toHaveCount(0);
+      const offer = popup.getByText('Moving to a shared folder means:');
+      await expect(offer).toBeVisible({ timeout: 30_000 });
+      await expect(popup.getByText('One copy on disk, so you save space (573 MB).')).toBeVisible();
+      await expect(popup.getByRole('button', { name: 'Move to a shared folder' })).toBeVisible();
+      await expect(popup.getByRole('button', { name: 'Later' })).toBeVisible();
+      await expect(popup.getByRole('button', { name: "Don't show again" })).toHaveCount(0);
+      await expect(popup.locator('dialog')).toHaveCount(0);
+
+      await popup.getByRole('button', { name: 'Later' }).click();
+      await expect(offer).toHaveCount(0);
+      await popup.reload();
+      await expect(offer).toHaveCount(0);
       await expect(popup.getByRole('button', { name: 'Translate this page' })).toBeVisible();
       await popup.close();
-    } finally {
-      await extension.close();
-    }
-  });
 
-  test('hides the move offer after Do not show again', async () => {
-    const extension = await loadExtension('en-US');
-    try {
-      const planter = await extension.context.newPage();
-      await planter.goto(`chrome-extension://${extension.extensionId}/sample.html`);
-      await plantOpfsOfficial(planter);
-      await planter.close();
-
-      const first = await extension.context.newPage();
-      await first.goto(`chrome-extension://${extension.extensionId}/options.html`);
-      await expect(first.getByRole('button', { name: 'Move to a shared folder' })).toBeVisible({
-        timeout: 30_000,
-      });
-      await first.getByRole('button', { name: "Don't show again" }).click();
-      await expect(first.getByRole('button', { name: 'Move to a shared folder' })).toHaveCount(0);
-      await first.close();
-
-      const again = await extension.context.newPage();
-      await again.goto(`chrome-extension://${extension.extensionId}/options.html`);
-      await expect(again.getByRole('button', { name: 'Move to a shared folder' })).toHaveCount(0);
-      await again.close();
+      const options = await extension.context.newPage();
+      await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await expect(options.getByRole('button', { name: 'Move to a shared folder' })).toHaveCount(0);
+      await expect(options.getByRole('button', { name: 'Choose model folder' })).toBeVisible();
+      await options.close();
     } finally {
       await extension.close();
     }
@@ -354,8 +328,27 @@ test.describe('shared model folder', () => {
     const extension = await loadExtension('en-US');
     try {
       const page = await extension.context.newPage();
+      await page.goto(`chrome-extension://${extension.extensionId}/popup.html`);
+      await expect(page.getByRole('button', { name: 'Translate this page' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Move to a shared folder' })).toHaveCount(0);
+      await page.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('keeps the folder option in settings without a move prompt', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      const planter = await extension.context.newPage();
+      await planter.goto(`chrome-extension://${extension.extensionId}/sample.html`);
+      await plantOpfsOfficial(planter);
+      await planter.close();
+
+      const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/options.html`);
       await expect(page.getByRole('heading', { name: 'Shared model folder' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Choose model folder' })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Move to a shared folder' })).toHaveCount(0);
       await page.close();
     } finally {
@@ -368,7 +361,7 @@ test.describe('shared model folder', () => {
     const extension = await loadExtension('en-US');
     try {
       const page = await extension.context.newPage();
-      await page.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await page.goto(`chrome-extension://${extension.extensionId}/popup.html`);
       await plantOpfsOfficial(page);
       await page.reload();
       await expect(page.getByRole('button', { name: 'Move to a shared folder' })).toBeVisible({
@@ -386,9 +379,6 @@ test.describe('shared model folder', () => {
       await expect
         .poll(async () => readSharedFolder(page), { timeout: 180_000 })
         .toMatchObject({ configured: true, permission: 'granted' });
-      await expect(page.getByRole('status').filter({ hasText: 'Using the folder' })).toBeVisible({
-        timeout: 180_000,
-      });
       await expect(page.getByRole('button', { name: 'Move to a shared folder' })).toHaveCount(0);
       await page.close();
     } finally {

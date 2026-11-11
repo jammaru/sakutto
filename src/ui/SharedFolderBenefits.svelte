@@ -4,12 +4,13 @@
   interface Props {
     leadKey: MessageKey;
     sizeLabel: string;
+    compact?: boolean;
   }
 
-  let { leadKey, sizeLabel }: Props = $props();
+  let { leadKey, sizeLabel, compact = false }: Props = $props();
 </script>
 
-<div class="benefits">
+<div class="benefits" class:compact>
   <p>{t(leadKey)}</p>
   <ul>
     <li>{t('modelFolderBenefitShare')}</li>
@@ -34,5 +35,14 @@
     margin: 0;
     padding-left: 1.2em;
     list-style: disc;
+  }
+
+  .compact {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .compact ul {
+    gap: 1px;
   }
 </style>

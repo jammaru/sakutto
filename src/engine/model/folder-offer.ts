@@ -1,14 +1,12 @@
-import { browser } from 'wxt/browser';
 import type { ModelStatus } from '@/shared/engine-status';
 
-const SESSION_KEY = 'sharedFolderOfferLater';
 export const SHARED_FOLDER_CHANGED_EVENT = 'sakutto:shared-folder';
 
 export interface SharedFolderOfferInput {
   pickerAvailable: boolean;
   folderConfigured: boolean;
   dismissed: boolean;
-  laterHidden: boolean;
+  translating: boolean;
   opfsHasOfficialModel: boolean;
 }
 
@@ -24,28 +22,16 @@ export function opfsHasOfficialModel(statuses: readonly Pick<ModelStatus, 'state
 }
 
 /**
- * Chromium-only, once, and only when an official model already lives in OPFS.
- * Declining leaves "save in this browser" unchanged. The picker never opens by itself.
+ * Chromium popup only, once, and only when an official model already lives in OPFS.
+ * Later persists the hide. Settings keep the folder picker. Declining leaves
+ * "save in this browser" unchanged. The picker never opens by itself.
  */
 export function shouldOfferSharedFolderMove(input: SharedFolderOfferInput): boolean {
   if (!input.pickerAvailable) return false;
   if (input.folderConfigured) return false;
   if (input.dismissed) return false;
-  if (input.laterHidden) return false;
+  if (input.translating) return false;
   return input.opfsHasOfficialModel;
-}
-
-export async function readSharedFolderOfferLater(): Promise<boolean> {
-  try {
-    const stored = await browser.storage.session.get(SESSION_KEY);
-    return stored[SESSION_KEY] === true;
-  } catch {
-    return false;
-  }
-}
-
-export async function writeSharedFolderOfferLater(): Promise<void> {
-  await browser.storage.session.set({ [SESSION_KEY]: true });
 }
 
 export type SharedFolderOfferPick = 'moved' | 'cancelled' | 'denied' | 'failed';

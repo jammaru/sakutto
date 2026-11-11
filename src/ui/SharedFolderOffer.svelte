@@ -5,9 +5,7 @@
     completeSharedFolderOffer,
     notifySharedFolderChanged,
     opfsHasOfficialModel,
-    readSharedFolderOfferLater,
     shouldOfferSharedFolderMove,
-    writeSharedFolderOfferLater,
   } from '@/engine/model/folder-offer';
   import {
     adoptPickedSharedFolder,
@@ -29,11 +27,11 @@
   interface Props {
     engine: EngineStatus | null;
     dismissed: boolean;
+    translating?: boolean;
   }
 
-  let { engine, dismissed }: Props = $props();
+  let { engine, dismissed, translating = false }: Props = $props();
 
-  let laterHidden = $state(false);
   let dismissedNow = $state(false);
   let folderTaken = $state(false);
   let inspected = $state<ModelStatus[]>([]);
@@ -54,7 +52,7 @@
       pickerAvailable,
       folderConfigured,
       dismissed: dismissed || dismissedNow,
-      laterHidden,
+      translating,
       opfsHasOfficialModel: opfsReady,
     }),
   );
@@ -123,11 +121,6 @@
   }
 
   async function later() {
-    laterHidden = true;
-    await writeSharedFolderOfferLater().catch(() => undefined);
-  }
-
-  async function hideForever() {
     await saveSettings({ sharedFolderOfferDismissed: true });
     dismissedNow = true;
   }
@@ -138,11 +131,6 @@
       progress = message.status;
     };
     browser.runtime.onMessage.addListener(onMessage);
-    void readSharedFolderOfferLater()
-      .then((hidden) => {
-        laterHidden = hidden;
-      })
-      .catch(() => undefined);
     void refreshModels();
     return () => browser.runtime.onMessage.removeListener(onMessage);
   });
@@ -150,7 +138,7 @@
 
 {#if visible}
   <section class="offer" aria-label={t('modelFolderHeading')}>
-    <SharedFolderBenefits leadKey="modelFolderOfferLead" {sizeLabel} />
+    <SharedFolderBenefits leadKey="modelFolderOfferLead" {sizeLabel} compact />
     {#if moving}
       <p class="muted" role="status">{movingLabel}</p>
       {#if progress && progress.total > 0}
@@ -173,9 +161,6 @@
         <button class="button secondary" type="button" onclick={() => void later()}>
           {t('modelFolderOfferLater')}
         </button>
-        <button class="button secondary" type="button" onclick={() => void hideForever()}>
-          {t('modelFolderOfferHide')}
-        </button>
       </div>
     {/if}
     {#if pickError}
@@ -187,11 +172,12 @@
 <style>
   .offer {
     display: grid;
-    gap: var(--space-2);
-    padding: var(--space-3);
+    gap: 6px;
+    padding: 8px 10px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background: var(--surface);
+    font-size: 12px;
   }
 
   .offer p {
@@ -205,7 +191,7 @@
   }
 
   .track {
-    height: 6px;
+    height: 4px;
     overflow: hidden;
     border-radius: 999px;
     background: var(--border);

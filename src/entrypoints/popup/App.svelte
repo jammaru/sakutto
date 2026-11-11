@@ -372,8 +372,6 @@
     </div>
   </header>
 
-  <SharedFolderOffer {engine} dismissed={settings?.sharedFolderOfferDismissed === true} />
-
   <button
     class="button block"
     type="button"
@@ -398,6 +396,11 @@
   {#if engine?.modelFallback}
     <p class="muted" role="status">{t('modelSelectionFallback')}</p>
   {/if}
+  <SharedFolderOffer
+    {engine}
+    dismissed={settings?.sharedFolderOfferDismissed === true}
+    translating={translated || (view?.pending ?? 0) > 0}
+  />
   {#if engine?.sharedFolder?.configured && engine.sharedFolder.permission !== 'granted'}
     <div class="panel gate" role="alert">
       <p class="muted">{t('modelFolderPermissionNeeded')}</p>

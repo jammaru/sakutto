@@ -29,7 +29,6 @@
   import GlossaryEditor from '@/ui/GlossaryEditor.svelte';
   import ModelFolderSettings from '@/ui/ModelFolderSettings.svelte';
   import ModelManager from '@/ui/ModelManager.svelte';
-  import SharedFolderOffer from '@/ui/SharedFolderOffer.svelte';
   import { runtimeLabel } from '@/ui/runtime-label';
   import SettingsFields from '@/ui/SettingsFields.svelte';
   import ShortcutSettings from '@/ui/ShortcutSettings.svelte';
@@ -238,8 +237,6 @@
     <h1>{t('extensionName')}</h1>
     <p class="muted">{t('optionsLead')}</p>
   </header>
-
-  <SharedFolderOffer {engine} dismissed={settings?.sharedFolderOfferDismissed === true} />
 
   <section class="panel">
     <h2>{t('settingsLabel')}</h2>

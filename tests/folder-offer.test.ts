@@ -11,7 +11,7 @@ function ready(overrides: Partial<SharedFolderOfferInput> = {}): SharedFolderOff
     pickerAvailable: true,
     folderConfigured: false,
     dismissed: false,
-    laterHidden: false,
+    translating: false,
     opfsHasOfficialModel: true,
     ...overrides,
   };
@@ -25,9 +25,9 @@ describe('shared folder offer', () => {
     expect(shouldOfferSharedFolderMove(ready({ opfsHasOfficialModel: false }))).toBe(false);
   });
 
-  it('hides after Later or Do not show again', () => {
-    expect(shouldOfferSharedFolderMove(ready({ laterHidden: true }))).toBe(false);
+  it('hides after Later and never during translation', () => {
     expect(shouldOfferSharedFolderMove(ready({ dismissed: true }))).toBe(false);
+    expect(shouldOfferSharedFolderMove(ready({ translating: true }))).toBe(false);
   });
 
   it('treats a ready official file as present and ignores a leftover partial', () => {
