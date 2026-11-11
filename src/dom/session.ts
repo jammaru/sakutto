@@ -154,6 +154,7 @@ interface Live {
   originalChildren: ChildNode[];
   partText: string[];
   partFinal: boolean[];
+  partError: boolean[];
   rect: DOMRect | null;
   batchToken: number;
 }
@@ -909,6 +910,7 @@ export class PageSession {
       originalChildren: [...block.childNodes],
       partText: [],
       partFinal: [],
+      partError: [],
       rect: null,
       batchToken: 0,
     };
@@ -943,6 +945,7 @@ export class PageSession {
       originalChildren: [],
       partText: [],
       partFinal: [],
+      partError: [],
       rect,
       batchToken: 0,
     };
@@ -1184,6 +1187,9 @@ export class PageSession {
       item.partFinal = pieces.map((_, index) =>
         preserve ? item.partFinal[index] === true : false,
       );
+      item.partError = pieces.map((_, index) =>
+        preserve ? item.partError[index] === true : false,
+      );
       if (preserve) {
         // A retry restarts unfinished pieces, so their half-decoded text must go;
         // otherwise attempt two appends onto the fragment attempt one left behind.
@@ -1224,7 +1230,7 @@ export class PageSession {
         const index = partIndex(chunk.id);
         if (item.state !== 'running') continue;
         if (chunk.engine) item.engine = chunk.engine;
-        if (chunk.textDelta) {
+        if (chunk.textDelta !== undefined) {
           const before = chunk.restart === true ? '' : (item.partText[index] ?? '');
           item.partText[index] = before + chunk.textDelta;
           this.queuePaint(item);
@@ -1232,8 +1238,14 @@ export class PageSession {
         if (chunk.final !== undefined) {
           item.partText[index] = chunk.final;
           item.partFinal[index] = true;
-          if (item.partFinal.every(Boolean)) this.complete(item);
-          else this.queuePaint(item);
+          if (chunk.error === true) item.partError[index] = true;
+          if (item.partFinal.every(Boolean)) {
+            if (item.partError.length > 0 && item.partError.every(Boolean)) {
+              this.markUntranslated(item, signal);
+            } else {
+              this.complete(item);
+            }
+          } else this.queuePaint(item);
         }
       }
     } catch (error) {
@@ -1328,6 +1340,7 @@ export class PageSession {
       item.translation = '';
       item.partText = [];
       item.partFinal = [];
+      item.partError = [];
       item.engine = null;
       item.model?.block.removeAttribute('data-sakutto-pending');
       this.publishState();
@@ -1339,6 +1352,27 @@ export class PageSession {
     });
     item.partFinal = item.partText.map(() => true);
     this.complete(item);
+  }
+
+  /**
+   * A piece whose CPU retry was also collapsed keeps its source text. That is
+   * not a translation, so the block is counted like any other failed job and
+   * the bar uses `pagePartial` / selectionFailed.
+   */
+  private markUntranslated(item: Live, signal: AbortSignal): void {
+    if (item.role === 'page' && item.model) {
+      this.skippedBlocks.set(item.model.block, item.model.block.textContent ?? '');
+      this.resetLive(item);
+    }
+    item.state = 'done';
+    item.translation = '';
+    item.partText = [];
+    item.partFinal = [];
+    item.partError = [];
+    item.engine = null;
+    item.model?.block.removeAttribute('data-sakutto-pending');
+    this.showSelectionFailure(item, signal);
+    this.publishState();
   }
 
   private showSelectionFailure(item: Live, signal: AbortSignal): void {
@@ -1384,6 +1418,7 @@ export class PageSession {
       item.flatten = true;
       item.partText = [];
       item.partFinal = [];
+      item.partError = [];
       item.translation = '';
       item.state = 'idle';
       item.model.block.setAttribute('data-sakutto-pending', '1');
@@ -1557,6 +1592,7 @@ export class PageSession {
       item.failures = 0;
       item.partText = [];
       item.partFinal = [];
+      item.partError = [];
       item.state = 'idle';
       this.enqueue(item, true);
     }
@@ -1622,6 +1658,7 @@ export class PageSession {
         item.state = 'idle';
         item.partText = [];
         item.partFinal = [];
+        item.partError = [];
         item.model?.block.removeAttribute('data-sakutto-pending');
         if (requeue && this.active && !this.navigating) this.enqueue(item);
       }

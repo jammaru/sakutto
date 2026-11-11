@@ -17,7 +17,7 @@ import { CachingEngine } from '../cache/caching-engine';
 import { TranslationCache } from '../cache/cache';
 import { prewarmRequest } from '../cache/prewarm';
 import { ChromeTranslatorEngine } from '../chrome/translator';
-import { isAbortError, isEngineError, modelChangedError } from '../errors';
+import { EngineError, abortError, isAbortError, isEngineError, modelChangedError } from '../errors';
 import {
   cpuFallback,
   isGpuLoadFallback,
@@ -39,7 +39,9 @@ import { OpfsModelFileStore } from '../model/file-store';
 import { ModelManager, type LoadedModel } from '../model/manager';
 import type { DownloadProgress } from '../model/download';
 import { QUALITY_PARAGRAPH } from '../model/suggestion';
-import { buildTranslationPrompt } from '../prompt/pfml3';
+import { buildTranslationPrompt, cleanModelOutput } from '../prompt/pfml3';
+import { isBrokenTranslation } from '../text/degenerate';
+import { CpuRetryRuntimeSlot } from './retry-runtime';
 import { RoutingEngine, type PairSupport } from '../router';
 import type { GlossaryEntry } from '../types';
 import {
@@ -62,6 +64,14 @@ import {
 
 const IDLE_RELEASE_MS = 5 * 60 * 1000;
 const WARMUP_TIMEOUT_MS = 20_000;
+/**
+ * Extra CPU wllama copy used to retry a collapsed WebGPU piece. About +0.6GB.
+ * Kept only while a page is still translating, then dropped so a healthy GPU
+ * session does not pin two model copies for the full `idleMinutes`. Reloading
+ * it on a later hit costs a few seconds; reusing the loaded CPU runtime avoids
+ * the copy entirely.
+ */
+export const RETRY_RUNTIME_IDLE_MS = 60_000;
 
 interface RuntimePrefs {
   idleMinutes: IdleMinutes;
@@ -76,6 +86,8 @@ function idleHoldMs(minutes: IdleMinutes): number {
   return minutes === 0 ? 0 : minutes * 60_000;
 }
 
+export { canReuseLoadedRuntimeForRetry } from './retry-runtime';
+
 export interface EngineServices {
   manager: ModelManager;
   router: RoutingEngine;
@@ -86,6 +98,9 @@ export interface EngineServices {
   readonly selection: BackendSelection;
   clearCache: () => Promise<void>;
   setTier: (tier: TierPreference) => Promise<void>;
+  disposeRetryRuntime?: () => Promise<void>;
+  /** Session-wide leave of WebGPU after a lost device or a collapsed warm-up. */
+  leaveWebGpu?: (reason: 'lost' | 'degenerate') => Promise<void>;
 }
 
 export interface EngineHostOptions {
@@ -115,13 +130,21 @@ async function openCache(): Promise<TranslationCache> {
   }
 }
 
-async function warmup(runtime: LlamaRuntime, tgt: string): Promise<void> {
+export async function warmup(
+  runtime: LlamaRuntime,
+  tgt: string,
+  signal?: AbortSignal,
+): Promise<void> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), WARMUP_TIMEOUT_MS);
+  const onAbort = (): void => controller.abort();
+  signal?.addEventListener('abort', onAbort);
+  let output = '';
 
   try {
+    if (signal?.aborted) throw abortError();
     const language = canonicalLanguage(tgt) ?? 'ja';
-    await runtime.complete({
+    const result = await runtime.complete({
       prompt: buildTranslationPrompt({
         text: 'Hello.',
         src: language === 'ja' ? 'en' : 'ja',
@@ -130,11 +153,34 @@ async function warmup(runtime: LlamaRuntime, tgt: string): Promise<void> {
       }),
       maxTokens: 16,
       signal: controller.signal,
-      onToken: () => undefined,
+      onToken: (token) => {
+        output += token;
+      },
     });
+    const hitMaxTokens = result?.hitMaxTokens === true;
+    const broken =
+      isBrokenTranslation('Hello.', output, hitMaxTokens) ||
+      isBrokenTranslation('Hello.', cleanModelOutput(output), hitMaxTokens);
+    if (broken) {
+      throw new EngineError(
+        runtime.backend === 'webgpu' ? 'gpu-unavailable' : 'model-load-failed',
+        'The model repeated one token during warm-up.',
+        { detail: 'degenerate warmup', retryable: runtime.backend === 'webgpu' },
+      );
+    }
+  } catch (error) {
+    if (signal?.aborted) throw abortError();
+    // The timer gave up. Translation still runs, and a repeated token there is rejected.
+    if (isAbortError(error)) return;
+    throw error;
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener('abort', onAbort);
   }
+}
+
+function isDegenerateWarmup(error: unknown): boolean {
+  return isEngineError(error) && error.detail === 'degenerate warmup';
 }
 
 /**
@@ -196,6 +242,7 @@ export class EngineHost {
   private warming = false;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private idleGeneration = 0;
+  private retryIdleTimer: ReturnType<typeof setTimeout> | null = null;
   private benchmark: AbortController | null = null;
   private prewarmKey: string | null = null;
   /** Resolves when an in-flight model switch has published the new id and finished unload. */
@@ -293,6 +340,10 @@ export class EngineHost {
       const result = await loadWithFallback(
         async (selection) => {
           try {
+            // Warm-up is not run here. A Hello. completion before the first page
+            // changed parallel-slot batching and later greedy decoding (garbled
+            // p15 on the second translate of a session). Kernel collapse is
+            // caught on the first real piece and by handleWarm.
             return await manager.ensureLoaded(this.activeModelId, selection, { signal });
           } catch (error) {
             this.noteGpuError(error);
@@ -316,7 +367,34 @@ export class EngineHost {
       return result.loaded;
     };
     let lastGpuLossAt = Number.NEGATIVE_INFINITY;
-    const onGpuLost = async (): Promise<void> => {
+    const cpuRetry = new CpuRetryRuntimeSlot({
+      create: createWllamaRuntime,
+      modelBlob: (modelId) => manager.modelBlob(modelId),
+      activeModelId: () => this.activeModelId,
+      loaded: () => manager.loadedModel,
+      cpuSelection: () => cpuFallback(selectionState.current),
+    });
+    const disposeCpuRetry = async (): Promise<void> => {
+      cpuRetry.dispose();
+    };
+    const loadRetryRuntime = (signal: AbortSignal): Promise<LlamaRuntime | null> =>
+      cpuRetry.load(signal);
+    const onGpuLost = async (reason: 'lost' | 'degenerate' = 'lost'): Promise<void> => {
+      if (reason === 'degenerate') {
+        const next = cpuFallback(selectionState.current);
+        if (next && next !== selectionState.current) {
+          if (isGpuLoadFallback(selectionState.current, next)) this.gpuFallback = true;
+          selectionState.current = next;
+        }
+        this.gpuDiagnostic = mergeGpuDiagnostic(
+          lastGpuDiagnostic(),
+          'degenerate output',
+          lastWebGpuLoadLog(),
+        );
+        await disposeCpuRetry();
+        await manager.unload();
+        return;
+      }
       const now = Date.now();
       const next = selectionAfterGpuLoss(selectionState.current, now - lastGpuLossAt);
       lastGpuLossAt = now;
@@ -327,18 +405,27 @@ export class EngineHost {
         selectionState.current = next;
       }
       this.gpuDiagnostic = mergeGpuDiagnostic(lastGpuDiagnostic(), this.gpuDiagnostic?.error);
+      await disposeCpuRetry();
       await manager.unload();
     };
-    const lazy = new LazyInBrowserEngine({ loadRuntime: load, onGpuLost });
+    const lazy = new LazyInBrowserEngine({ loadRuntime: load, loadRetryRuntime, onGpuLost });
     const localRuntime = new LocalServerRuntime(() => this.localConfig);
     this.localScheduler = new JobScheduler(localRuntime.parallel, false);
     const localEngine = new InBrowserEngine(localRuntime, { scheduler: this.localScheduler });
     const plamo = new PlamoSourceEngine(lazy, localEngine, () => this.engineSource);
 
-    const chromeForCache = chrome.available ? new CachingEngine(chrome, cache, 'chrome') : null;
+    const chromeForCache = chrome.available
+      ? new CachingEngine(chrome, cache, 'chrome', 'chrome')
+      : null;
 
     const router = new RoutingEngine({
-      plamo: new CachingEngine(plamo, cache, () => this.cacheModelId()),
+      plamo: new CachingEngine(
+        plamo,
+        cache,
+        () => this.cacheModelId(),
+        () =>
+          this.engineSource === 'local-server' ? 'local-server' : selectionState.current.backend,
+      ),
       chrome: chromeForCache,
       plamoSupports: (src, tgt) =>
         canonicalLanguage(tgt) !== null &&
@@ -364,8 +451,11 @@ export class EngineHost {
         this.gpuFallback = false;
         this.gpuDiagnostic = mergeGpuDiagnostic(lastGpuDiagnostic(), null);
         lazy.reset();
+        await disposeCpuRetry();
         await manager.unload();
       },
+      disposeRetryRuntime: disposeCpuRetry,
+      leaveWebGpu: onGpuLost,
     };
   }
 
@@ -512,10 +602,20 @@ export class EngineHost {
       }
       if (controller.signal.aborted) return;
       try {
-        await warmup(loaded.runtime, 'ja');
-      } catch {
-        if (controller.signal.aborted) return;
-        // The short warm-up is optional; translation still runs.
+        await warmup(loaded.runtime, 'ja', controller.signal);
+      } catch (error) {
+        if (controller.signal.aborted) throw error;
+        if (!isDegenerateWarmup(error)) {
+          // The short warm-up is optional when it is not a collapsed kernel.
+        } else if (!services.leaveWebGpu) {
+          throw error;
+        } else {
+          services.lazy.reset();
+          await services.leaveWebGpu('degenerate');
+          if (controller.signal.aborted) throw error;
+          loaded = await services.load(controller.signal);
+          await warmup(loaded.runtime, 'ja', controller.signal);
+        }
       }
       if (controller.signal.aborted) return;
       this.plamoReady = true;
@@ -663,6 +763,7 @@ export class EngineHost {
       }
 
       services.lazy.reset();
+      await services.disposeRetryRuntime?.();
       await services.manager.unload();
       this.activeModelId = modelId;
       this.modelFallback = false;
@@ -746,6 +847,7 @@ export class EngineHost {
     try {
       const services = await this.services();
       services.lazy.reset();
+      await services.disposeRetryRuntime?.();
       await services.manager.unload();
     } catch {
       // Unloading the in-browser runtime is best effort when switching away.
@@ -874,6 +976,7 @@ export class EngineHost {
     }
 
     runtime.lazy.reset();
+    await runtime.disposeRetryRuntime?.();
     this.activeModelId = resolved.modelId;
     this.modelFallback = resolved.fallback;
     const active = statuses.find((status) => status.id === resolved.modelId);
@@ -1083,6 +1186,7 @@ export class EngineHost {
       clearTimeout(this.idleTimer);
       this.idleTimer = null;
     }
+    this.armRetryIdle();
 
     void this.resolveIdleMs().then((ms) => {
       if (generation !== this.idleGeneration || ms <= 0) return;
@@ -1091,6 +1195,30 @@ export class EngineHost {
         void this.releaseIdle();
       }, ms);
     });
+  }
+
+  private armRetryIdle(): void {
+    if (this.retryIdleTimer) {
+      clearTimeout(this.retryIdleTimer);
+      this.retryIdleTimer = null;
+    }
+    this.retryIdleTimer = setTimeout(() => {
+      this.retryIdleTimer = null;
+      void this.releaseRetryRuntime();
+    }, RETRY_RUNTIME_IDLE_MS);
+  }
+
+  private async releaseRetryRuntime(): Promise<void> {
+    if (this.requests.size > 0) {
+      this.armRetryIdle();
+      return;
+    }
+    try {
+      const services = await this.services();
+      await services.disposeRetryRuntime?.();
+    } catch {
+      // Dropping the extra CPU copy is best effort; the next retry loads again.
+    }
   }
 
   private resolveIdleMs(): Promise<number> {
@@ -1121,6 +1249,7 @@ export class EngineHost {
       }
 
       services.lazy.reset();
+      await services.disposeRetryRuntime?.();
       await services.manager.unload();
       await services.chrome.dispose();
     } catch {

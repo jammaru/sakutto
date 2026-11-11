@@ -1084,6 +1084,34 @@ describe('page session', () => {
     expect(text).not.toContain('途中');
   });
 
+  it('marks a collapsed selection retry as failed instead of offering the source', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello world</p>';
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        const segment = segments[0];
+        if (!segment) return;
+        yield { id: segment.id, textDelta: ',3', engine: 'plamo' as const };
+        yield {
+          id: segment.id,
+          textDelta: segment.text,
+          engine: 'plamo' as const,
+          restart: true,
+        };
+        yield { id: segment.id, final: segment.text, engine: 'plamo' as const, error: true };
+      }),
+    );
+
+    session.translateSelection('Selected phrase', new DOMRect(8, 8, 24, 12));
+    await session.whenIdle();
+
+    const text = uiShadow(document.querySelector('sakutto-pop'))?.textContent ?? '';
+    expect(text).toContain('この選択範囲を翻訳できませんでした。');
+    expect(text).not.toContain('Selected phrase');
+    expect(text).not.toContain(',3');
+  });
+
   it('reports an empty selection translation as a failure', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML = '<p>Hello world</p>';
@@ -2784,6 +2812,48 @@ describe('whole-page coverage', () => {
     expect(document.querySelector('#odd')?.textContent).toContain(
       'This paragraph never translates',
     );
+
+    const bar = document.querySelector('sakutto-bar');
+    expect(uiShadow(bar)?.textContent).toContain('翻訳できない箇所が 1 件残っています。');
+  });
+
+  it('counts a collapsed retry that fell back to the source as untranslated', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = `
+      <p id="ok">Readable sentence</p>
+      <p id="odd">This paragraph never translates</p>
+    `;
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          if (segment.text.includes('never translates')) {
+            yield { id: segment.id, textDelta: ',3', engine: 'plamo' as const };
+            yield {
+              id: segment.id,
+              textDelta: segment.text,
+              engine: 'plamo' as const,
+              restart: true,
+            };
+            yield { id: segment.id, final: segment.text, engine: 'plamo' as const, error: true };
+            continue;
+          }
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    expect(session.state().pending).toBe(0);
+    expect(session.state().skipped).toBe(1);
+    expect(document.documentElement.dataset.sakuttoState).toBe('partial');
+    expect(document.querySelector('#ok')?.textContent).toContain('訳:');
+    expect(document.querySelector('#odd')?.textContent).toContain(
+      'This paragraph never translates',
+    );
+    expect(document.querySelector('#odd')?.textContent).not.toContain(',3');
 
     const bar = document.querySelector('sakutto-bar');
     expect(uiShadow(bar)?.textContent).toContain('翻訳できない箇所が 1 件残っています。');

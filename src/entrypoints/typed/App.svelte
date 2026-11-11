@@ -23,6 +23,8 @@
   import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
   import {
     MAX_TYPED_CHARS,
+    applyTypedChunk,
+    canCopyTypedResult,
     copyTranslation,
     isTranslateShortcut,
     normalizeTypedInput,
@@ -138,7 +140,7 @@
     abortController = controller;
     translating = true;
     resetResult();
-    let text = '';
+    let folded = { text: '', failed: false };
     try {
       const segments = [{ id: 'typed', text: trimmed }];
       for await (const chunk of typedEngine.translate(segments, {
@@ -148,15 +150,11 @@
         signal: controller.signal,
         ...(settings && settings.glossary.length > 0 ? { glossary: settings.glossary } : {}),
       })) {
-        if (chunk.textDelta !== undefined) {
-          text = chunk.restart === true ? chunk.textDelta : text + chunk.textDelta;
-          result = text;
-        } else if (chunk.final !== undefined) {
-          text = chunk.final;
-          result = text;
-        }
+        folded = applyTypedChunk(folded, chunk);
+        result = folded.text;
+        if (folded.failed) resultError = true;
       }
-      if (text.trim().length === 0) resultError = true;
+      if (folded.text.trim().length === 0) resultError = true;
     } catch (error) {
       if (!controller.signal.aborted) {
         resultError = true;
@@ -186,11 +184,13 @@
   }
 
   async function copyResult() {
+    if (!canCopyTypedResult(result, resultError)) return;
     copyFailed = false;
     copied = false;
     const ok = await copyTranslation(
       result,
       typeof navigator === 'undefined' ? null : navigator.clipboard,
+      resultError,
     );
     if (ok) copied = true;
     else copyFailed = true;
@@ -327,7 +327,7 @@
             class="pane-action"
             type="button"
             onclick={copyResult}
-            disabled={result.trim().length === 0}
+            disabled={!canCopyTypedResult(result, resultError)}
           >
             {copied ? t('typedCopied') : t('typedCopy')}
           </button>

@@ -34,6 +34,9 @@ describe('translation cache keys', () => {
     expect(buildTranslationCacheKey({ ...base, form: 'plain' })).not.toBe(key);
     expect(buildTranslationCacheKey({ ...base, src: undefined })).not.toBe(key);
     expect(buildTranslationCacheKey({ ...base, text: 'Sign in' })).not.toBe(key);
+    expect(buildTranslationCacheKey({ ...base, backend: 'webgpu' })).not.toBe(
+      buildTranslationCacheKey({ ...base, backend: 'cpu-wasm' }),
+    );
     expect(buildTranslationCacheKey({ ...base, src: 'en-US', tgt: 'ja-JP' })).toBe(key);
     expect(
       buildTranslationCacheKey({
@@ -52,9 +55,9 @@ describe('translation cache keys', () => {
     });
     const segments = key.split('|');
 
-    expect(segments).toHaveLength(7);
+    expect(segments).toHaveLength(8);
     expect(segments.at(-1)).toMatch(/^[0-9a-f]{64}$/);
-    expect(segments.slice(0, 3)).toEqual(['v1', 'model', 'auto']);
+    expect(segments.slice(0, 4)).toEqual(['v2', 'model', 'unspecified', 'auto']);
   });
 
   it('fingerprints the glossary independently of the cache key', () => {
@@ -203,5 +206,18 @@ describe('CachingEngine', () => {
     await collectChunks(engine.translate(segments, options()));
     await collectChunks(engine.translate(segments, options()));
     expect(inner.calls).toBe(2);
+  });
+
+  it('caches a legitimate repeated Chrome translation', async () => {
+    const store = new MemoryTranslationCacheStore();
+    const cache = new TranslationCache(store);
+    const repeated = 'ハ'.repeat(18);
+    const inner = fakeEngine('chrome', [{ id: 'a', final: repeated, engine: 'chrome' }]);
+    const engine = new CachingEngine(inner, cache, 'chrome', 'chrome');
+    const segments = [{ id: 'a', text: 'Hahaha…' }];
+
+    const chunks = await collectChunks(engine.translate(segments, options()));
+    expect(chunks.at(-1)?.final).toBe(repeated);
+    expect(store.size).toBe(1);
   });
 });

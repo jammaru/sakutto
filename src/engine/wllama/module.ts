@@ -52,7 +52,7 @@ export interface WllamaLoadParams {
 }
 
 export interface WllamaCompletionChunk {
-  choices?: ReadonlyArray<{ text?: string }>;
+  choices?: ReadonlyArray<{ text?: string; finish_reason?: string | null }>;
 }
 
 export interface WllamaCompletionParams {

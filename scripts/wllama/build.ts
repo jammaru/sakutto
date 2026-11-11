@@ -5,6 +5,7 @@ import { emitArtifacts, type BuildInputs } from './artifacts.ts';
 import { buildWasm, emsdkTag } from './docker.ts';
 import { LLAMA_CPP_COMMIT, WLLAMA_COMMIT, WLLAMA_REPOSITORY } from './pins.ts';
 import { exists, log, readText, run, sha256 } from './support.ts';
+import { assertWave64ProbePlacement } from './webgpu-patch.ts';
 
 const ROOT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const VENDOR_DIR = join(ROOT_DIR, 'vendor', 'wllama');
@@ -44,6 +45,11 @@ const PATCH_MARKERS: ReadonlyArray<readonly [string, string]> = [
   ['llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp', 'ggml_webgpu_try_request_device'],
   ['llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp', 'ggml_webgpu: device features:'],
   ['llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp', 'ggml_webgpu_apply_granted_device_caps'],
+  ['llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp', 'caps.flash_attn_vec'],
+  [
+    'llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp',
+    'static const char * ggml_webgpu_probe_f16_sum_wgsl()',
+  ],
   ['src/utils.ts', 'webgpuDebug?: string'],
   ['src/worker.ts', '__SAKUTTO_WEBGPU_DEBUG__'],
   ['cpp/wllama-context.h', 'params.n_ctx_checkpoints = 0;'],
@@ -67,7 +73,7 @@ function git(args: readonly string[], cwd = CHECKOUT_DIR): Promise<string> {
 
 async function ensureCheckout(): Promise<void> {
   if (await exists(join(CHECKOUT_DIR, '.git'))) {
-    const origin = await git(['remote', 'get-url', 'origin']).catch(() => '');
+    const origin = await git(['config', '--get', 'remote.origin.url']).catch(() => '');
     if (origin && origin !== WLLAMA_REPOSITORY) {
       throw new Error(
         `${CHECKOUT_DIR} points at ${origin}, expected ${WLLAMA_REPOSITORY}. Remove the directory and retry.`,
@@ -178,6 +184,11 @@ async function applyPatches(): Promise<void> {
       );
     }
   }
+
+  const webgpu = await readText(
+    join(CHECKOUT_DIR, 'llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp'),
+  );
+  assertWave64ProbePlacement(webgpu);
 }
 
 async function runNpm(args: readonly string[], env: NodeJS.ProcessEnv): Promise<void> {

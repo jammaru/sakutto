@@ -206,6 +206,20 @@ describe('gpu diagnostic', () => {
     ]);
     expect(formatGpuDiagnostic(merged)).toContain('correctnessProbe: ok');
     expect(formatGpuDiagnostic(merged)).toContain('correctnessProbeMs: 12.4');
+    const wide = parseWebGpuLog([
+      'ggml_webgpu: correctness probe: ok subgroups=true subgroup_size=64 add=136 ms=9.0 f16=72 matmul=10 sgadd=2080 wide_shuffle=bad vec=off',
+    ]);
+    expect(wide.correctnessProbe).toBe('ok');
+    expect(wide.correctnessProbeSubgroupSize).toBe(64);
+    expect(wide.correctnessProbeWideShuffle).toBe('bad');
+    expect(wide.correctnessProbeVec).toBe('off');
+    expect(
+      formatGpuDiagnostic(
+        mergeGpuDiagnostic(amdLike, null, [
+          'ggml_webgpu: correctness probe: ok subgroups=true subgroup_size=64 add=136 ms=9.0 f16=72 matmul=10 sgadd=2080 wide_shuffle=bad vec=off',
+        ]),
+      ),
+    ).toContain('correctnessProbeVec: off');
   });
 
   it('treats Intel UHD and AMD Radeon Graphics as integrated', () => {

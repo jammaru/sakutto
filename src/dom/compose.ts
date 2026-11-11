@@ -1953,8 +1953,14 @@ export class ComposeController {
           this.preview = output;
           this.render();
         } else if (chunk.final !== undefined) {
-          output = chunk.final;
-          this.preview = output;
+          if (chunk.error === true) {
+            output = '';
+            this.failed = true;
+            this.preview = '';
+          } else {
+            output = chunk.final;
+            this.preview = output;
+          }
         }
       }
       if (signal.aborted || token !== this.generation) return;

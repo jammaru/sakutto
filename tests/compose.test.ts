@@ -495,6 +495,33 @@ describe('compose controller', () => {
     expect(panelButton('Replace').disabled).toBe(true);
   });
 
+  it('marks compose failed when a block could not be translated', async () => {
+    document.body.innerHTML = '<textarea id="box">Hello.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const engine: PageEngine = {
+      async *translate(segments) {
+        yield { id: segments[0]!.id, textDelta: ',3', engine: 'plamo' };
+        yield {
+          id: segments[0]!.id,
+          textDelta: 'Hello.',
+          engine: 'plamo',
+          restart: true,
+        };
+        yield { id: segments[0]!.id, final: 'Hello.', engine: 'plamo', error: true };
+      },
+    };
+    const controller = start(engine);
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('Could not translate this draft.');
+    });
+    expect(panelText()).not.toContain(',3');
+    expect(field.value).toBe('Hello.');
+    expect(panelButton('Replace').disabled).toBe(true);
+  });
+
   it('ignores input events while an IME composition is in progress', async () => {
     document.body.innerHTML = '<textarea id="box">あ</textarea>';
     const field = document.querySelector('#box');

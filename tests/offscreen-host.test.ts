@@ -9,13 +9,21 @@ import { buildTranslationCacheKey } from '@/engine/cache/key';
 import { MemoryTranslationCacheStore } from '@/engine/cache/store';
 import { EngineError } from '@/engine/errors';
 import { selectBackend } from '@/engine/in-browser/backend';
-import { EngineHost, loadWithFallback, type EngineServices } from '@/engine/offscreen/host';
+import {
+  EngineHost,
+  RETRY_RUNTIME_IDLE_MS,
+  canReuseLoadedRuntimeForRetry,
+  loadWithFallback,
+  warmup,
+  type EngineServices,
+} from '@/engine/offscreen/host';
 import type { LoadedModel } from '@/engine/model/manager';
 import type { ModelStatus } from '@/shared/engine-status';
 import { normalizeSettings } from '@/shared/settings';
 import * as storage from '@/shared/storage';
 import type { IdentifiedEngine, TranslateOptions, TranslateSegment } from '@/engine/types';
 import { serializeTranslateOptions } from '@/engine/offscreen/protocol';
+import { FakeRuntime } from './support/fakes';
 import { FakePort, deferred, flushTasks } from './support/ports';
 
 vi.mock('wxt/browser', () => ({
@@ -965,6 +973,27 @@ describe('model load on the GPU tier', () => {
     ]);
   });
 
+  it('does not treat a degenerate warm-up as a load skip', async () => {
+    // Warm-up runs after load, in handleWarm, so a collapsed Hello. must not
+    // burn the remaining WebGPU slot attempts inside loadWithFallback.
+    const tried: Array<[string, number]> = [];
+    const ensureLoaded = vi.fn(async (selection: BackendSelection) => {
+      tried.push([selection.backend, selection.nParallel]);
+      if (selection.backend === 'webgpu') {
+        throw new EngineError('model-load-failed', 'repeated', { detail: 'degenerate warmup' });
+      }
+      return loaded;
+    });
+    await loadWithFallback(ensureLoaded, wide, new AbortController().signal);
+
+    expect(tried).toEqual([
+      ['webgpu', 16],
+      ['webgpu', 4],
+      ['webgpu', 1],
+      ['cpu-wasm', 1],
+    ]);
+  });
+
   it('goes straight to the CPU when the correctness probe fails', async () => {
     const tried: Array<[string, number]> = [];
     const ensureLoaded = vi.fn(async (selection: BackendSelection) => {
@@ -1012,5 +1041,125 @@ describe('model load on the GPU tier', () => {
 
     await expect(loadWithFallback(ensureLoaded, gpu, controller.signal)).rejects.toThrow();
     expect(ensureLoaded).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('warmup', () => {
+  it('rejects a repeated token on WebGPU and on the CPU', async () => {
+    const gpu = new FakeRuntime(() => ',3'.repeat(200), 1, 'webgpu');
+    gpu.fillBudget = true;
+    const cpu = new FakeRuntime(() => ',3'.repeat(200));
+    cpu.fillBudget = true;
+    await expect(warmup(gpu, 'ja')).rejects.toMatchObject({
+      code: 'gpu-unavailable',
+      detail: 'degenerate warmup',
+    });
+    await expect(warmup(cpu, 'ja')).rejects.toMatchObject({
+      code: 'model-load-failed',
+      detail: 'degenerate warmup',
+    });
+  });
+
+  it('accepts a short translation', async () => {
+    await expect(warmup(new FakeRuntime(() => 'こんにちは。'), 'ja')).resolves.toBeUndefined();
+  });
+});
+
+describe('warm-up session fallback', () => {
+  it('leaves WebGPU when warm-up repeats a token', async () => {
+    const gpu = new FakeRuntime(() => ',3'.repeat(200), 1, 'webgpu');
+    gpu.fillBudget = true;
+    const cpu = new FakeRuntime(() => 'こんにちは。');
+    const { services, reset } = createServices();
+    const gpuModel = {
+      id: DEFAULT_MODEL_ID,
+      runtime: gpu,
+      selection: { ...SELECTION, backend: 'webgpu' as const, nGpuLayers: 99 },
+    };
+    const cpuModel = { id: DEFAULT_MODEL_ID, runtime: cpu, selection: SELECTION };
+    const manager = services.manager as { loadedModel: LoadedModel | null };
+    manager.loadedModel = gpuModel as LoadedModel;
+    const leaveWebGpu = vi.fn(async () => {
+      manager.loadedModel = cpuModel as LoadedModel;
+    });
+    services.leaveWebGpu = leaveWebGpu;
+    services.load = vi.fn(async () => services.manager.loadedModel) as never;
+
+    const { port } = await openRunningHost(services);
+    port.emit({ type: 'model-warm', requestId: 'w1' });
+    await vi.waitFor(() => {
+      expect(leaveWebGpu).toHaveBeenCalledWith('degenerate');
+    });
+    expect(reset).toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(
+        port.sent.some(
+          (message) =>
+            typeof message === 'object' &&
+            message !== null &&
+            (message as { requestId?: string; ok?: boolean }).requestId === 'w1' &&
+            (message as { ok?: boolean }).ok === true,
+        ),
+      ).toBe(true);
+    });
+  });
+});
+
+describe('CPU retry runtime', () => {
+  it('reuses a loaded CPU runtime instead of allocating a second copy', () => {
+    const runtime = new FakeRuntime(() => 'こんにちは');
+    expect(
+      canReuseLoadedRuntimeForRetry(
+        { id: DEFAULT_MODEL_ID, runtime, selection: SELECTION },
+        DEFAULT_MODEL_ID,
+      ),
+    ).toBe(true);
+  });
+
+  it('does not reuse a WebGPU runtime for the CPU retry', () => {
+    const runtime = new FakeRuntime(() => 'こんにちは', 1, 'webgpu');
+    expect(
+      canReuseLoadedRuntimeForRetry(
+        {
+          id: DEFAULT_MODEL_ID,
+          runtime,
+          selection: { ...SELECTION, backend: 'webgpu', nGpuLayers: 99 },
+        },
+        DEFAULT_MODEL_ID,
+      ),
+    ).toBe(false);
+  });
+
+  it('drops the extra CPU copy after a short idle without unloading the model', async () => {
+    vi.useFakeTimers();
+    try {
+      const { services, unload, reset } = createServices();
+      const disposeRetry = vi.fn(async () => undefined);
+      services.disposeRetryRuntime = disposeRetry;
+      services.router.translate = async function* () {
+        yield { id: 'a', final: 'x', engine: 'plamo' };
+      } as never;
+      const host = createHost(services, 5 * 60 * 1000);
+      const port = new FakePort();
+      host.handlePort(port.port);
+
+      port.emit({ type: 'status', requestId: 's0' });
+      await vi.advanceTimersByTimeAsync(0);
+      port.emit({
+        type: 'translate',
+        requestId: 'r1',
+        segments: [{ id: 'a', text: 'Hello.' }],
+        options: serializeTranslateOptions(options()),
+      });
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(disposeRetry).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(RETRY_RUNTIME_IDLE_MS);
+      expect(disposeRetry).toHaveBeenCalled();
+      expect(unload).not.toHaveBeenCalled();
+      expect(reset).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -5,6 +5,7 @@ import { LazyInBrowserEngine } from '@/engine/in-browser/lazy-engine';
 import type { TranslateOptions } from '@/engine/types';
 import { collectChunks, FakeRuntime } from './support/fakes';
 import { deferred, flushTasks } from './support/ports';
+import { promptSource } from './support/sim-runtime';
 
 const SELECTION: BackendSelection = {
   tier: 'c8',
@@ -195,6 +196,37 @@ describe('LazyInBrowserEngine after the GPU is lost', () => {
     expect(loadRuntime).toHaveBeenCalledTimes(4);
   });
 
+  it('retries a collapsed WebGPU piece on CPU without leaving the session', async () => {
+    const bad = new FakeRuntime(() => ',3'.repeat(200), 1, 'webgpu');
+    bad.fillBudget = true;
+    const cpu = new FakeRuntime(() => 'こんにちは');
+    const onGpuLost = vi.fn(async () => undefined);
+    const loadRuntime = vi.fn(async () => ({ runtime: bad, selection: SELECTION }));
+    const engine = new LazyInBrowserEngine({
+      loadRuntime,
+      loadRetryRuntime: async () => cpu,
+      onGpuLost,
+    });
+
+    const chunks = await collectChunks(engine.translate([a], options()));
+
+    expect(chunks.some((chunk) => chunk.restart === true)).toBe(true);
+    expect(chunks.at(-1)).toEqual({ id: 'a', final: 'こんにちは', engine: 'plamo' });
+    expect(onGpuLost).not.toHaveBeenCalled();
+    expect(loadRuntime).toHaveBeenCalledOnce();
+  });
+
+  it('does not leave a collapsed CPU piece untranslated', async () => {
+    const bad = new FakeRuntime(() => ',3'.repeat(200));
+    bad.fillBudget = true;
+    const { engine, onGpuLost, loadRuntime } = engineOver([bad]);
+
+    const chunks = await collectChunks(engine.translate([a], options()));
+    expect(chunks.at(-1)).toEqual({ id: 'a', final: 'Hello.', engine: 'plamo', error: true });
+    expect(onGpuLost).not.toHaveBeenCalled();
+    expect(loadRuntime).toHaveBeenCalledOnce();
+  });
+
   it('leaves any other failure to the caller', async () => {
     const broken = new FakeRuntime(() => '');
     broken.complete = async () => {
@@ -205,6 +237,79 @@ describe('LazyInBrowserEngine after the GPU is lost', () => {
     await expect(collectChunks(engine.translate([a], options()))).rejects.toMatchObject({
       code: 'model-load-failed',
     });
+    expect(onGpuLost).not.toHaveBeenCalled();
+  });
+
+  it('does not leave WebGPU again after reset', async () => {
+    const gpu = new FakeRuntime(
+      (prompt) => {
+        const source = promptSource(prompt);
+        return source.startsWith('Bad') ? ',3'.repeat(200) : `訳:${source}`;
+      },
+      1,
+      'webgpu',
+    );
+    gpu.fillBudget = true;
+    const cpu = new FakeRuntime(() => 'こんにちは');
+    const onGpuLost = vi.fn(async () => undefined);
+    const engine = new LazyInBrowserEngine({
+      loadRuntime: async () => ({ runtime: gpu, selection: SELECTION }),
+      loadRetryRuntime: async () => cpu,
+      onGpuLost,
+      config: { maxSegmentTokens: 1 },
+    });
+
+    await collectChunks(
+      engine.translate(
+        [
+          { id: 'a', text: 'Bad sentence about the harbour lights one.' },
+          { id: 'b', text: 'Bad sentence about the harbour lights two.' },
+          { id: 'c', text: 'Bad sentence about the harbour lights three.' },
+        ],
+        options(),
+      ),
+    );
+    expect(onGpuLost).toHaveBeenCalledOnce();
+    expect(onGpuLost).toHaveBeenCalledWith('degenerate');
+
+    onGpuLost.mockClear();
+    const afterReset = await collectChunks(
+      engine.translate([{ id: 'ok', text: 'Hello.' }], options()),
+    );
+    expect(afterReset.at(-1)?.final).toBe('訳:Hello.');
+    expect(onGpuLost).not.toHaveBeenCalled();
+  });
+
+  it('starts the collapsed-block count over after an explicit model-switch reset', async () => {
+    const gpu = new FakeRuntime(() => ',3'.repeat(200), 1, 'webgpu');
+    gpu.fillBudget = true;
+    const cpu = new FakeRuntime(() => 'こんにちは');
+    const onGpuLost = vi.fn(async () => undefined);
+    const engine = new LazyInBrowserEngine({
+      loadRuntime: async () => ({ runtime: gpu, selection: SELECTION }),
+      loadRetryRuntime: async () => cpu,
+      onGpuLost,
+      config: { maxSegmentTokens: 1 },
+    });
+
+    await collectChunks(
+      engine.translate(
+        [
+          { id: 'a', text: 'One sentence about the harbour lights.' },
+          { id: 'b', text: 'Another sentence about the harbour lights.' },
+        ],
+        options(),
+      ),
+    );
+    expect(onGpuLost).not.toHaveBeenCalled();
+
+    engine.reset();
+    await collectChunks(
+      engine.translate(
+        [{ id: 'c', text: 'A third sentence about the harbour lights.' }],
+        options(),
+      ),
+    );
     expect(onGpuLost).not.toHaveBeenCalled();
   });
 });

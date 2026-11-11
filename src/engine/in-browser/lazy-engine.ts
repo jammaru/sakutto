@@ -1,4 +1,5 @@
 import { abortError, isEngineError } from '../errors';
+import { DEGENERATE_SESSION_BLOCKS } from '../text/degenerate';
 import type {
   IdentifiedEngine,
   TranslateOptions,
@@ -16,8 +17,16 @@ export interface LoadedRuntime {
 
 export interface LazyInBrowserEngineOptions {
   loadRuntime: (signal: AbortSignal) => Promise<LoadedRuntime>;
-  /** Runs once per lost GPU, before anything loads again. */
-  onGpuLost?: () => Promise<void>;
+  /**
+   * CPU runtime for one broken WebGPU piece. The GPU session stays up until
+   * several distinct pieces fail, or until warm-up already left WebGPU.
+   */
+  loadRetryRuntime?: (signal: AbortSignal) => Promise<LlamaRuntime | null>;
+  /**
+   * Runs once before the next load. `lost` reloads the same selection the first
+   * time. `degenerate` leaves WebGPU after several distinct collapsed pieces.
+   */
+  onGpuLost?: (reason: 'lost' | 'degenerate') => Promise<void>;
   config?: InBrowserEngineOptions['config'];
 }
 
@@ -33,6 +42,8 @@ export class LazyInBrowserEngine implements IdentifiedEngine {
   private generation = 0;
   private waiting = 0;
   private recovery: Promise<void> | null = null;
+  private degenerateBlocks = 0;
+  private needSessionFallback = false;
 
   constructor(private readonly options: LazyInBrowserEngineOptions) {}
 
@@ -43,6 +54,8 @@ export class LazyInBrowserEngine implements IdentifiedEngine {
     this.loadController = null;
     this.engine = null;
     this.engineTask = null;
+    this.degenerateBlocks = 0;
+    this.needSessionFallback = false;
   }
 
   async *translate(
@@ -67,21 +80,24 @@ export class LazyInBrowserEngine implements IdentifiedEngine {
           }
           yield chunk;
         }
+        if (this.needSessionFallback) await this.recover(engine, 'degenerate');
         return;
       } catch (error) {
         const lost = isEngineError(error) && error.code === 'gpu-lost';
-        if (!lost || options.signal.aborted || recoveries >= MAX_GPU_RECOVERIES) throw error;
-        await this.recover(engine);
+        if (!lost || options.signal.aborted || recoveries >= MAX_GPU_RECOVERIES) {
+          throw error;
+        }
+        await this.recover(engine, 'lost');
         if (pending.length === 0) return;
       }
     }
   }
 
   /** Every request running on the lost GPU lands here; only the first one does the work. */
-  private recover(lost: InBrowserEngine): Promise<void> {
+  private recover(lost: InBrowserEngine, reason: 'lost' | 'degenerate'): Promise<void> {
     if (this.engine === lost && this.options.onGpuLost) {
       this.reset();
-      this.recovery = this.options.onGpuLost().finally(() => {
+      this.recovery = this.options.onGpuLost(reason).finally(() => {
         this.recovery = null;
       });
     }
@@ -152,6 +168,11 @@ export class LazyInBrowserEngine implements IdentifiedEngine {
     return new InBrowserEngine(loaded.runtime, {
       contextTokens: Math.floor(loaded.selection.nCtx / Math.max(1, loaded.selection.nParallel)),
       ...(this.options.config ? { config: this.options.config } : {}),
+      ...(this.options.loadRetryRuntime ? { loadRetryRuntime: this.options.loadRetryRuntime } : {}),
+      onDegenerateBlock: () => {
+        this.degenerateBlocks += 1;
+        if (this.degenerateBlocks >= DEGENERATE_SESSION_BLOCKS) this.needSessionFallback = true;
+      },
     });
   }
 }

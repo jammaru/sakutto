@@ -258,6 +258,83 @@ NVIDIA machine already reports 2 GiB−4 adapter limits, so `amd-rdna3` may not
 reject `requestDevice`. A Radeon-only Dawn/D3D12 mismatch, or a WGSL/pipeline
 failure after a device exists, is still possible for issue #48.
 
+## Wide subgroups and flash-attn vec
+
+`0009-webgpu-wave64-flash-attn.patch` is aimed at a Radeon iGPU of the Vega
+generation (GCN, 64-lane wavefronts). It has not been run on that GPU. What
+follows is what the pinned shaders do, and what this tree changed.
+
+### What the shaders do
+
+Decode (query length under 20) uses `flash_attn_vec_split.wgsl`. Prefill of a
+longer prompt already uses `flash_attn_tile.wgsl`. In the vec shader the first
+P\*V `subgroupShuffleDown` delta is `subgroup_size / 2`. With `D_SPLIT` 4 that
+delta is 32 on a 64-wide subgroup, and the Q\*K broadcast can read a lane up
+to `subgroup_size - D_SPLIT`. The tile shader reduces with scalar
+`subgroupAdd` / `subgroupMax` and does not shuffle across that boundary.
+llama.cpp master, as of this writing, still has that vec reduction.
+`#25418` (2026-07-08) only retuned `D_SPLIT`; it is already in the pin
+(`5aeac37`, 2026-10-18) and does not remove the wide shuffle. A newer wllama
+does not contain a Vega fix for this.
+
+The same shape of failure is already reported around AMD D3D12 subgroups:
+scalar f32 `subgroupAdd` / `subgroupMax` can be fine while a wide shuffle or a
+vector f16 reduction is not (ONNX Runtime #34078 was `subgroupMax` on
+`vec4<f16>` on RDNA1; the scalar f32 case there was fine). Treating a GCN
+wave as 32-wide has also produced an endless token loop on the Vulkan backend
+(llama.cpp #21556). None of those reports were reproduced on the Vega iGPU
+this change is for. The link is the shader, not a measurement.
+
+A probed subgroup size of 32 leaves the vec path on. That is the NVIDIA run
+from 2026-11-09 (`subgroup_size` 32). A device whose probed size is 32 and
+whose advertised maximum is higher still uses vec; if a later dispatch is
+64-wide, the repetition check below is what sends that request to the CPU.
+
+### What the patch changes
+
+After the existing uint32 add, the probe also runs:
+
+- an f16 workgroup reduction, known answer 72
+- one f16 dot (`dot(vec4(1,2,3,4), vec4(1,1,1,1))`), known answer 10
+- when subgroups are on, `subgroupAdd` of the lane ids, known answer
+  `N*(N+1)/2`
+
+A mismatch disables WebGPU, same as the uint32 add. When the probed size is
+above 32, vec flash-attn is turned off even if a single `subgroupShuffleDown`
+by 32 returns 33. That result is only logged (`wide_shuffle=ok|bad`). The
+log line keeps the old prefix and adds `f16=… matmul=… sgadd=… wide_shuffle=…
+vec=on|off`. If four subgroups do not fit in `maxComputeInvocationsPerWorkgroup`
+(256 invocations are required for a subgroup of 64), the tile shader would
+return without writing, so the probe disables WebGPU instead.
+
+### What was not measured
+
+No Radeon ran this patch. The wasm in the tree is not rebuilt by the tests;
+CI rebuilds it when the patch changes. The f16 and subgroup probes have not
+been executed on a GPU here. If one of those shaders fails to compile, the
+existing ladder disables WebGPU and the model loads on the CPU. That is
+fail-closed, and it is not a result from a Radeon.
+
+Switching decode from the vec shader to the tile shader on a subgroup wider
+than 32 was not timed. Prefill of a prompt whose query length is already 20
+or more was already on the tile shader, so the change is the decode of each
+new token. The 2026-11-09 numbers are a different change (subgroups fully
+disabled, workgroup reduction, still WebGPU): about 0.79 s versus 0.82 s with
+subgroups, on an RTX 4070 Ti SUPER. They do not describe the tile path on Vega.
+
+### Repetition check
+
+Independently of the wasm, a completion that is eight or more copies of the
+same 1–8 character piece, covering at least 80% of a string of 16 characters
+or more, is treated as a collapsed kernel when the source is not itself a
+laugh, chant, or run of marks, and generation hit `maxTokens` (or the output
+is far longer than the source). Tokens stream immediately. If the finished
+string is broken, the painted prefix is replaced and the piece is retried on
+CPU; broken text is not cached. A warm-up of "Hello." (at most 16 tokens)
+uses the same check and leaves WebGPU. The cache key is `v2` and includes
+the backend. A short string such as 「こんにちは。」 twice is under the
+length cutoff and is left alone.
+
 ## Compatibility builds
 
 `needCompat()` (missing JSPI or memory64) selects the compat files automatically. The compat build

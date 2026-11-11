@@ -10,6 +10,8 @@ export interface CacheKeyInput {
   text: string;
   src?: string | undefined;
   glossary?: readonly GlossaryEntry[] | undefined;
+  /** webgpu, cpu-wasm, local-server, or chrome. Keeps a bad GPU string from being replayed on CPU. */
+  backend?: string | undefined;
 }
 
 function fnv1a(value: string): string {
@@ -33,8 +35,9 @@ function languagePart(value: string | undefined): string {
 
 export function buildTranslationCacheKey(input: CacheKeyInput): string {
   return [
-    'v1',
+    'v2',
     input.model,
+    input.backend && input.backend.length > 0 ? input.backend : 'unspecified',
     languagePart(input.src),
     languagePart(input.tgt),
     input.form,
