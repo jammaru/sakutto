@@ -25,12 +25,6 @@ export interface ModelFileStore {
   remove(path: string): Promise<void>;
   removeDirectory(path: string): Promise<void>;
   estimate(): Promise<StorageEstimate>;
-  /**
-   * When true, a verified OPFS → folder copy must keep the OPFS file. Chrome can
-   * revoke a directory grant as soon as the picker document (the popup) closes,
-   * and the offscreen engine cannot call `requestPermission`.
-   */
-  ephemeralAccess?: boolean;
 }
 
 interface MovableFileHandle extends FileSystemFileHandle {

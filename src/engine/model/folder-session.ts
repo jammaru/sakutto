@@ -16,10 +16,11 @@ import { SharedFolderModelFileStore } from './shared-store';
 /**
  * Resolves the stored directory handle for the engine host.
  *
- * The picker and `requestPermission` run in the options page. This session only calls
+ * The picker and `requestPermission` run in a page with UI. This session only calls
  * `queryPermission`. Offscreen then tries to open the stored handle anyway: Chrome may
  * report `prompt` in that document while the handle still reads. When the open fails,
- * the host keeps OPFS so translation does not fail silently, and the UI asks to re-grant.
+ * the host points at OPFS (empty after a verified move) and the UI asks to re-grant.
+ * See `docs/design/fsa-permission-lifetime.md`.
  */
 export class SharedFolderSession {
   private snapshot: SharedFolderStatus = emptySharedFolderStatus(sharedFolderSupported());

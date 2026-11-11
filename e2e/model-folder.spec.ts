@@ -379,6 +379,10 @@ test.describe('shared model folder', () => {
     }
   });
 
+  // Picker is mocked with an OPFS directory handle, so this cannot prove Chromium
+  // FSA grants survive popup close or restart. One-copy-on-disk after a verified
+  // move is covered in unit tests (real bytes + SHA-256). See
+  // docs/design/fsa-permission-lifetime.md.
   test('translates after a popup-card move, after the popup closes, and after a restart', async () => {
     test.setTimeout(180_000);
     const profileDirectory = await mkdtemp(join(tmpdir(), 'sakutto-folder-move-'));

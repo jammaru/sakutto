@@ -689,7 +689,7 @@
     "message": "Models are stored inside this browser."
   },
   "modelFolderPermissionNeeded": {
-    "message": "Sakutto needs permission to read the shared model folder again. Translation will keep using a copy inside this browser when one is available."
+    "message": "Sakutto needs permission to read the shared model folder again."
   },
   "modelFolderPermissionGrant": {
     "message": "Allow folder access"

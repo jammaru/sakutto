@@ -689,7 +689,7 @@
     "message": "モデルはこのブラウザ内に保存します。"
   },
   "modelFolderPermissionNeeded": {
-    "message": "共有モデルフォルダを読む許可が必要です。このブラウザ内にコピーがある場合は、そちらで翻訳を続けます。"
+    "message": "共有モデルフォルダを読む許可が必要です。"
   },
   "modelFolderPermissionGrant": {
     "message": "フォルダへのアクセスを許可"

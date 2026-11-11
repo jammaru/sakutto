@@ -492,7 +492,6 @@ export class ModelManager {
    */
   private async dropFallbackAfterVerifiedMove(modelId: ModelId): Promise<void> {
     if (!this.fallbackStore) return;
-    if (this.store.ephemeralAccess) return;
     const drop = async (): Promise<void> => {
       if (this.loaded?.id === modelId) await this.unload();
       await this.fallbackStore?.removeDirectory(this.modelDirectory(modelId));
@@ -597,14 +596,9 @@ export class ModelManager {
       return inspected.state === 'ready' ? store : null;
     };
 
-    if (this.fallbackStore && this.store.ephemeralAccess) {
-      const fallback = await pick(this.fallbackStore);
-      if (fallback) return fallback;
-    }
-
     const primary = await pick(this.store);
     if (primary) return primary;
-    if (!this.fallbackStore || this.store.ephemeralAccess) return null;
+    if (!this.fallbackStore) return null;
     return pick(this.fallbackStore);
   }
 
