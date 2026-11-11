@@ -1,6 +1,11 @@
 # Install scripts are allowlisted per package. esbuild needs its postinstall to fetch the
-# platform binary that Vite and WXT use. spawn-sync arrives with web-ext's fx-runner; its
-# install script is not needed for `web-ext lint` or `web-ext sign`.
+# platform binary that Vite and WXT use.
 allowBuilds:
   esbuild: true
-  spawn-sync: false
+
+# GHSA-g3hv-75wg-m249 is patched only in minimatch >=11.0.1. eslint 10 and
+# typescript-eslint still declare ^10.x. Limit the override to that range so
+# minimatch 3 (glob / addons-linter) is left alone. The 11.x API that eslint
+# actually calls (Minimatch + .match) is unchanged.
+overrides:
+  'minimatch@>=7.0.0 <11.0.1': '>=11.0.1 <12'
