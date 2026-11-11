@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { EngineError } from '@/engine/errors';
 import { InBrowserEngine } from '@/engine/in-browser/engine';
 import { LazyInBrowserEngine } from '@/engine/in-browser/lazy-engine';
 import type { BackendSelection } from '@/engine/in-browser/backend';
@@ -8,7 +9,6 @@ import { MemoryTranslationCacheStore } from '@/engine/cache/store';
 import {
   isBrokenTranslation,
   isDegenerateOutput,
-  isRepeatInProgress,
   isRepetitiveSource,
 } from '@/engine/text/degenerate';
 import type { TranslateOptions, TranslateSegment } from '@/engine/types';
@@ -30,6 +30,13 @@ function displayed(chunks: Awaited<ReturnType<typeof collectChunks>>): string {
 }
 
 const COLLAPSED = ',3'.repeat(200);
+
+const FIRST_PIECE =
+  'The harbour lights were visible from the hill after sunset on a quiet evening.';
+const SECOND_PIECE =
+  'The cost model uses a wider buffer than the previous design documents suggested.';
+const TWO_PIECES = `${FIRST_PIECE} ${SECOND_PIECE}`;
+const PIECE_CONFIG = { pieceChars: 80 } as const;
 
 const TABLE_RULE = '|---|---|---|---|---|---|---|---|';
 
@@ -58,13 +65,6 @@ describe('isDegenerateOutput', () => {
     expect(isDegenerateOutput(',3'.repeat(8))).toBe(true);
     expect(isDegenerateOutput(`${',3'.repeat(20)}です`)).toBe(true);
     expect(isDegenerateOutput('a'.repeat(16))).toBe(true);
-  });
-
-  it('recognizes a repeat that has not finished its unit', () => {
-    expect(isRepeatInProgress(',3,')).toBe(true);
-    expect(isRepeatInProgress(',3,3')).toBe(true);
-    expect(isRepeatInProgress('abcd')).toBe(false);
-    expect(isRepeatInProgress('ああ')).toBe(true);
   });
 
   it('does not flag a short or ordinary sentence', () => {
@@ -96,6 +96,13 @@ describe('isBrokenTranslation', () => {
   it('does not flag a short laugh that stopped before the token budget', () => {
     expect(isBrokenTranslation('Hahaha…', 'ハ'.repeat(18), false)).toBe(false);
     expect(isBrokenTranslation('AAAAH!', 'あ'.repeat(16), false)).toBe(false);
+  });
+
+  it('does not flag a laugh that fills the token budget from a repetitive source', () => {
+    expect(isRepetitiveSource('Hahaha…')).toBe(true);
+    expect(isRepetitiveSource('AAAAH!')).toBe(true);
+    expect(isBrokenTranslation('Hahaha…', 'ハ'.repeat(40), true)).toBe(false);
+    expect(isBrokenTranslation('Hello.', COLLAPSED, true)).toBe(true);
   });
 });
 
@@ -176,6 +183,148 @@ describe('InBrowserEngine repeated output', () => {
     const chunks = await collectChunks(engine.translate([{ id: 'a', text: 'Hello.' }], options()));
     expect(displayed(chunks)).toBe('Hello.');
     expect(chunks.at(-1)).toEqual({ id: 'a', final: 'Hello.', engine: 'plamo', error: true });
+  });
+
+  it('keeps an earlier piece when a later piece in the same paragraph restarts', async () => {
+    class DelayedSecond extends FakeRuntime {
+      override async complete(request: Parameters<FakeRuntime['complete']>[0]) {
+        const source = promptSource(request.prompt);
+        if (source.includes('cost model')) await new Promise((resolve) => setTimeout(resolve, 20));
+        return super.complete(request);
+      }
+    }
+    const gpu = new DelayedSecond(
+      (prompt) => {
+        const source = promptSource(prompt);
+        return source.includes('cost model') ? COLLAPSED : '訳A';
+      },
+      4,
+      'webgpu',
+    );
+    gpu.fillBudget = true;
+    const cpu = new FakeRuntime(() => '訳B');
+    const engine = new InBrowserEngine(gpu, {
+      loadRetryRuntime: async () => cpu,
+      config: PIECE_CONFIG,
+    });
+    const chunks = await collectChunks(
+      engine.translate([{ id: 'p', text: TWO_PIECES }], options()),
+    );
+
+    let painted = '';
+    for (const chunk of chunks) {
+      if (chunk.textDelta !== undefined) {
+        painted = chunk.restart === true ? chunk.textDelta : painted + chunk.textDelta;
+        if (chunk.restart === true) expect(painted).toContain('訳A');
+      }
+    }
+    expect(displayed(chunks)).toContain('訳A');
+    expect(displayed(chunks)).toContain('訳B');
+    expect(chunks.some((chunk) => chunk.restart === true)).toBe(true);
+  });
+
+  it('keeps an earlier piece on the sequential path too', async () => {
+    const gpu = new FakeRuntime(
+      (prompt) => {
+        const source = promptSource(prompt);
+        return source.includes('cost model') ? COLLAPSED : '訳A';
+      },
+      1,
+      'webgpu',
+    );
+    gpu.fillBudget = true;
+    const cpu = new FakeRuntime(() => '訳B');
+    const engine = new InBrowserEngine(gpu, {
+      loadRetryRuntime: async () => cpu,
+      config: PIECE_CONFIG,
+    });
+    const chunks = await collectChunks(
+      engine.translate([{ id: 'p', text: TWO_PIECES }], options()),
+    );
+
+    let painted = '';
+    for (const chunk of chunks) {
+      if (chunk.textDelta !== undefined) {
+        painted = chunk.restart === true ? chunk.textDelta : painted + chunk.textDelta;
+        if (chunk.restart === true) expect(painted).toContain('訳A');
+      }
+    }
+    expect(displayed(chunks)).toContain('訳A');
+    expect(displayed(chunks)).toContain('訳B');
+  });
+
+  it('does not cache a mixed paragraph when only some pieces recovered', async () => {
+    const gpu = new FakeRuntime(
+      (prompt) => {
+        const source = promptSource(prompt);
+        return source.includes('cost model') ? COLLAPSED : '訳A';
+      },
+      1,
+      'webgpu',
+    );
+    gpu.fillBudget = true;
+    const cpu = new FakeRuntime((prompt) => {
+      const source = promptSource(prompt);
+      return source.includes('cost model') ? COLLAPSED : '訳A';
+    });
+    cpu.fillBudget = true;
+    const store = new MemoryTranslationCacheStore();
+    const inner = new InBrowserEngine(gpu, {
+      loadRetryRuntime: async () => cpu,
+      config: PIECE_CONFIG,
+    });
+    const engine = new CachingEngine(inner, new TranslationCache(store), 'plamo', 'webgpu');
+    const segments = [{ id: 'a', text: TWO_PIECES }];
+
+    const firstRun = await collectChunks(engine.translate(segments, options()));
+    const gpuCalls = gpu.requests.length;
+    const secondRun = await collectChunks(engine.translate(segments, options()));
+
+    expect(firstRun.at(-1)?.error).toBe(true);
+    expect(secondRun.at(-1)?.error).toBe(true);
+    expect(gpu.requests.length).toBeGreaterThan(gpuCalls);
+  });
+
+  it('propagates error when an oversized split still has a broken piece', async () => {
+    const text =
+      'First sentence about the harbour lights tonight. Second sentence about the harbour too.';
+    const runtime = new FakeRuntime(() => '訳');
+    runtime.complete = async (request) => {
+      const source = promptSource(request.prompt);
+      if (source.includes('First') && source.includes('Second')) {
+        throw new EngineError('invalid-input', 'The segment does not fit in the context window.');
+      }
+      if (source.includes('Second')) {
+        runtime.fillBudget = true;
+        let emitted = 0;
+        for (const character of COLLAPSED) {
+          if (emitted >= request.maxTokens) return { hitMaxTokens: true };
+          request.onToken(character);
+          emitted += 1;
+        }
+        return { hitMaxTokens: true };
+      }
+      request.onToken('訳1');
+      return { hitMaxTokens: false };
+    };
+    const engine = new InBrowserEngine(runtime);
+    const chunks = await collectChunks(engine.translate([{ id: 'a', text }], options()));
+    expect(chunks.at(-1)?.error).toBe(true);
+    expect(displayed(chunks)).toContain('訳1');
+  });
+
+  it('streams a laugh that fills the token budget instead of treating it as broken', async () => {
+    const runtime = new FakeRuntime(() => 'ハ'.repeat(40), 1, 'webgpu');
+    runtime.fillBudget = true;
+    const onDegenerateBlock = vi.fn();
+    const engine = new InBrowserEngine(runtime, {
+      onDegenerateBlock,
+      config: { maxSegmentTokens: 1 },
+    });
+    const chunks = await collectChunks(engine.translate([{ id: 'a', text: 'Hahaha…' }], options()));
+    expect(chunks.at(-1)?.final?.includes('ハ')).toBe(true);
+    expect(chunks.at(-1)?.error).toBeUndefined();
+    expect(onDegenerateBlock).not.toHaveBeenCalled();
   });
 
   it('does not cache a block that fell back to the original text', async () => {

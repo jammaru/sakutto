@@ -68,7 +68,22 @@ class PieceAssembler {
 
   delta(index: number, delta: string, restart = false): void {
     this.raw[index] = restart ? delta : this.raw[index] + delta;
-    if (index === this.current) this.onDelta(delta, restart);
+    if (index !== this.current) return;
+    if (!restart) {
+      this.onDelta(delta);
+      return;
+    }
+    // A later piece's retry must not blank the pieces already painted.
+    this.onDelta(this.committedPrefix() + delta, true);
+  }
+
+  private committedPrefix(): string {
+    if (this.current === 0) return '';
+    const parts: string[] = [];
+    for (let index = 0; index < this.current; index += 1) {
+      parts.push(this.done[index] ?? '');
+    }
+    return parts.join(this.separator) + this.separator;
   }
 
   finish(index: number, text: string): void {
@@ -195,10 +210,10 @@ export class InBrowserEngine implements IdentifiedEngine {
           ...(restart ? { restart: true } : {}),
         }),
       (parts) => {
-        const error = failed.every(Boolean);
+        const error = failed.some(Boolean);
         stream.push({
           id: segment.id,
-          final: error ? segment.text : joinTranslatedSentences(parts, options.tgt),
+          final: failed.every(Boolean) ? segment.text : joinTranslatedSentences(parts, options.tgt),
           engine: this.kind,
           ...(error ? { error: true } : {}),
         });
@@ -252,9 +267,10 @@ export class InBrowserEngine implements IdentifiedEngine {
             ...(restart ? { restart: true } : {}),
           }),
       );
+      const cleaned = cleanModelOutput(output.text);
       stream.push({
         id: segment.id,
-        final: output.error ? segment.text : cleanModelOutput(output.text),
+        final: cleaned.length > 0 ? cleaned : segment.text,
         engine: this.kind,
         ...(output.error ? { error: true } : {}),
       });
@@ -279,16 +295,19 @@ export class InBrowserEngine implements IdentifiedEngine {
     const translated: string[] = [];
     const separator = sentenceSeparator(options.tgt);
     let failed = 0;
+    let committed = '';
 
     for (const [index, piece] of pieces.entries()) {
       throwIfAborted(signal);
       if (index > 0 && separator.length > 0) {
         stream.push({ id: segment.id, textDelta: separator, engine: this.kind });
+        committed += separator;
       }
+      const prefix = committed;
       const output = await this.completeRecover(piece, options, signal, (delta, restart) =>
         stream.push({
           id: segment.id,
-          textDelta: delta,
+          textDelta: restart === true ? prefix + delta : delta,
           engine: this.kind,
           ...(restart ? { restart: true } : {}),
         }),
@@ -296,16 +315,20 @@ export class InBrowserEngine implements IdentifiedEngine {
       if (output.error) {
         failed += 1;
         translated.push(piece);
+        committed += piece;
         continue;
       }
       const cleaned = cleanModelOutput(output.text);
-      translated.push(cleaned.length > 0 ? cleaned : piece);
+      const text = cleaned.length > 0 ? cleaned : piece;
+      translated.push(text);
+      committed += text;
     }
 
-    const error = failed === pieces.length;
+    const error = failed > 0;
     stream.push({
       id: segment.id,
-      final: error ? segment.text : joinTranslatedSentences(translated, options.tgt),
+      final:
+        failed === pieces.length ? segment.text : joinTranslatedSentences(translated, options.tgt),
       engine: this.kind,
       ...(error ? { error: true } : {}),
     });
@@ -462,28 +485,43 @@ export class InBrowserEngine implements IdentifiedEngine {
       if (unchanged) return { text };
 
       const parts: string[] = [];
+      let failed = false;
+      let committed = '';
+      const separator = sentenceSeparator(options.tgt);
       for (const piece of smaller) {
         throwIfAborted(signal);
-        if (parts.length > 0) {
-          const separator = sentenceSeparator(options.tgt);
-          if (separator.length > 0) onDelta(separator);
+        if (parts.length > 0 && separator.length > 0) {
+          onDelta(separator);
+          committed += separator;
         }
+        const prefix = committed;
         try {
-          const output = await this.complete(piece, options, signal, onDelta);
+          const output = await this.complete(piece, options, signal, (delta, restart) =>
+            onDelta(restart === true ? prefix + delta : delta, restart),
+          );
           if (output.error) {
+            failed = true;
             parts.push(piece);
-            onDelta(piece, true);
+            committed += piece;
+            onDelta(prefix + piece, true);
             continue;
           }
           const cleaned = cleanModelOutput(output.text);
-          parts.push(cleaned.length > 0 ? cleaned : piece);
+          const text = cleaned.length > 0 ? cleaned : piece;
+          parts.push(text);
+          committed += text;
         } catch (inner) {
           if (signal.aborted || isAbortError(inner) || !isOversized(inner)) throw inner;
+          failed = true;
           parts.push(piece);
-          onDelta(piece);
+          committed += piece;
+          onDelta(prefix + piece, true);
         }
       }
-      return { text: parts.join(sentenceSeparator(options.tgt)) };
+      return {
+        text: parts.join(sentenceSeparator(options.tgt)),
+        ...(failed ? { error: true } : {}),
+      };
     }
   }
 

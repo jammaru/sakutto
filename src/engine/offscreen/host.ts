@@ -41,6 +41,7 @@ import type { DownloadProgress } from '../model/download';
 import { QUALITY_PARAGRAPH } from '../model/suggestion';
 import { buildTranslationPrompt, cleanModelOutput } from '../prompt/pfml3';
 import { isBrokenTranslation } from '../text/degenerate';
+import { CpuRetryRuntimeSlot } from './retry-runtime';
 import { RoutingEngine, type PairSupport } from '../router';
 import type { GlossaryEntry } from '../types';
 import {
@@ -85,16 +86,7 @@ function idleHoldMs(minutes: IdleMinutes): number {
   return minutes === 0 ? 0 : minutes * 60_000;
 }
 
-/**
- * True when the loaded runtime can retry a collapsed piece itself. A second
- * wllama instance is only created while WebGPU is still the live backend.
- */
-export function canReuseLoadedRuntimeForRetry(
-  loaded: LoadedModel | null,
-  activeModelId: ModelId,
-): boolean {
-  return loaded !== null && loaded.id === activeModelId && loaded.runtime.backend !== 'webgpu';
-}
+export { canReuseLoadedRuntimeForRetry } from './retry-runtime';
 
 export interface EngineServices {
   manager: ModelManager;
@@ -107,6 +99,8 @@ export interface EngineServices {
   clearCache: () => Promise<void>;
   setTier: (tier: TierPreference) => Promise<void>;
   disposeRetryRuntime?: () => Promise<void>;
+  /** Session-wide leave of WebGPU after a lost device or a collapsed warm-up. */
+  leaveWebGpu?: (reason: 'lost' | 'degenerate') => Promise<void>;
 }
 
 export interface EngineHostOptions {
@@ -197,7 +191,7 @@ export function skipRemainingWebGpuAttempts(error: unknown): boolean {
   if (!isEngineError(error)) return false;
   if (error.code === 'gpu-unavailable') return true;
   const text = `${error.detail ?? ''}\n${error.message}`;
-  return /Failed to get an adapter|adapter lacks shader-f16|no adapter with shader-f16|Failed to get a device after retries|giving up on WebGPU|Error while parsing WGSL|extension 'subgroups' is not allowed|correctness probe failed|WebGPU backend disabled|degenerate warmup/iu.test(
+  return /Failed to get an adapter|adapter lacks shader-f16|no adapter with shader-f16|Failed to get a device after retries|giving up on WebGPU|Error while parsing WGSL|extension 'subgroups' is not allowed|correctness probe failed|WebGPU backend disabled/iu.test(
     text,
   );
 }
@@ -373,33 +367,18 @@ export class EngineHost {
       return result.loaded;
     };
     let lastGpuLossAt = Number.NEGATIVE_INFINITY;
-    let cpuRetryRuntime: LlamaRuntime | null = null;
-    let cpuRetryTask: Promise<LlamaRuntime | null> | null = null;
+    const cpuRetry = new CpuRetryRuntimeSlot({
+      create: createWllamaRuntime,
+      modelBlob: (modelId) => manager.modelBlob(modelId),
+      activeModelId: () => this.activeModelId,
+      loaded: () => manager.loadedModel,
+      cpuSelection: () => cpuFallback(selectionState.current),
+    });
     const disposeCpuRetry = async (): Promise<void> => {
-      const runtime = cpuRetryRuntime;
-      cpuRetryRuntime = null;
-      cpuRetryTask = null;
-      if (runtime) await runtime.dispose().catch(() => undefined);
+      cpuRetry.dispose();
     };
-    const loadRetryRuntime = async (signal: AbortSignal): Promise<LlamaRuntime | null> => {
-      const loaded = manager.loadedModel;
-      if (canReuseLoadedRuntimeForRetry(loaded, this.activeModelId) && loaded) {
-        return loaded.runtime;
-      }
-      if (cpuRetryRuntime) return cpuRetryRuntime;
-      if (cpuRetryTask) return cpuRetryTask;
-      const cpu = cpuFallback(selectionState.current);
-      if (!cpu) return null;
-      if (signal.aborted) throw abortError();
-      cpuRetryTask = (async () => {
-        const blob = await manager.modelBlob(this.activeModelId);
-        cpuRetryRuntime = await createWllamaRuntime(blob, cpu);
-        return cpuRetryRuntime;
-      })().finally(() => {
-        cpuRetryTask = null;
-      });
-      return cpuRetryTask;
-    };
+    const loadRetryRuntime = (signal: AbortSignal): Promise<LlamaRuntime | null> =>
+      cpuRetry.load(signal);
     const onGpuLost = async (reason: 'lost' | 'degenerate' = 'lost'): Promise<void> => {
       if (reason === 'degenerate') {
         const next = cpuFallback(selectionState.current);
@@ -476,6 +455,7 @@ export class EngineHost {
         await manager.unload();
       },
       disposeRetryRuntime: disposeCpuRetry,
+      leaveWebGpu: onGpuLost,
     };
   }
 
@@ -624,7 +604,18 @@ export class EngineHost {
       try {
         await warmup(loaded.runtime, 'ja', controller.signal);
       } catch (error) {
-        if (isDegenerateWarmup(error) || controller.signal.aborted) throw error;
+        if (controller.signal.aborted) throw error;
+        if (!isDegenerateWarmup(error)) {
+          // The short warm-up is optional when it is not a collapsed kernel.
+        } else if (!services.leaveWebGpu) {
+          throw error;
+        } else {
+          services.lazy.reset();
+          await services.leaveWebGpu('degenerate');
+          if (controller.signal.aborted) throw error;
+          loaded = await services.load(controller.signal);
+          await warmup(loaded.runtime, 'ja', controller.signal);
+        }
       }
       if (controller.signal.aborted) return;
       this.plamoReady = true;

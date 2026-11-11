@@ -1,4 +1,5 @@
 import { MAX_SEGMENT_TEXT } from '@/engine/offscreen/protocol';
+import type { TranslationChunk } from '@/engine/types';
 import type { EngineSource } from './engine-status';
 import { isChromeOnlyLanguage, isTargetLanguage, type TargetLanguage } from './languages';
 
@@ -122,12 +123,36 @@ export interface CopyTarget {
   writeText(text: string): Promise<void>;
 }
 
+/** Apply one engine chunk to the typed box. An `error` final is a failure, not a result. */
+export function applyTypedChunk(
+  state: { text: string; failed: boolean },
+  chunk: TranslationChunk,
+): { text: string; failed: boolean } {
+  if (chunk.textDelta !== undefined) {
+    return {
+      text: chunk.restart === true ? chunk.textDelta : state.text + chunk.textDelta,
+      failed: false,
+    };
+  }
+  if (chunk.final !== undefined) {
+    if (chunk.error === true) return { text: '', failed: true };
+    return { text: chunk.final, failed: false };
+  }
+  return state;
+}
+
+/** True when the typed box has a translation that is allowed to be copied. */
+export function canCopyTypedResult(text: string, failed: boolean): boolean {
+  return !failed && text.trim().length > 0;
+}
+
 /** Copies the result, reporting failure instead of throwing so the button can show it. */
 export async function copyTranslation(
   text: string,
   clipboard: CopyTarget | null | undefined,
+  failed = false,
 ): Promise<boolean> {
-  if (text.trim().length === 0) return false;
+  if (!canCopyTypedResult(text, failed)) return false;
   if (!clipboard) return false;
   try {
     await clipboard.writeText(text);

@@ -1084,6 +1084,34 @@ describe('page session', () => {
     expect(text).not.toContain('途中');
   });
 
+  it('marks a collapsed selection retry as failed instead of offering the source', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello world</p>';
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        const segment = segments[0];
+        if (!segment) return;
+        yield { id: segment.id, textDelta: ',3', engine: 'plamo' as const };
+        yield {
+          id: segment.id,
+          textDelta: segment.text,
+          engine: 'plamo' as const,
+          restart: true,
+        };
+        yield { id: segment.id, final: segment.text, engine: 'plamo' as const, error: true };
+      }),
+    );
+
+    session.translateSelection('Selected phrase', new DOMRect(8, 8, 24, 12));
+    await session.whenIdle();
+
+    const text = uiShadow(document.querySelector('sakutto-pop'))?.textContent ?? '';
+    expect(text).toContain('この選択範囲を翻訳できませんでした。');
+    expect(text).not.toContain('Selected phrase');
+    expect(text).not.toContain(',3');
+  });
+
   it('reports an empty selection translation as a failure', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML = '<p>Hello world</p>';

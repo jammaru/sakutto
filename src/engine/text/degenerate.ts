@@ -15,31 +15,8 @@ interface RepeatPattern {
 }
 
 const OUTPUT_REPEAT: RepeatPattern = { minLength: 16, minCopies: 8, coverage: 0.8 };
-const SOURCE_REPEAT: RepeatPattern = { minLength: 8, minCopies: 4, coverage: 0.7 };
-
-/**
- * True while `value` is still only copies of one 1–8 character unit, including
- * a copy that has not finished (`,3,3,` is still `,3`). A string that has
- * broken every such unit is safe to show.
- */
-export function isRepeatInProgress(value: string): boolean {
-  const text = compact(value);
-  if (text.length === 0) return false;
-  const longest = Math.min(8, text.length);
-  for (let size = 1; size <= longest; size += 1) {
-    const unit = text.slice(0, size);
-    let index = 0;
-    let copies = 0;
-    while (index + size <= text.length && text.startsWith(unit, index)) {
-      copies += 1;
-      index += size;
-    }
-    const rest = text.slice(index);
-    if (rest.length > 0 && !unit.startsWith(rest)) continue;
-    if (copies >= 2 || (copies === 1 && rest.length > 0)) return true;
-  }
-  return false;
-}
+/** Short laughs and interjections ("Hahaha…", "AAAAH!") still count as source repeats. */
+const SOURCE_REPEAT: RepeatPattern = { minLength: 4, minCopies: 3, coverage: 0.5 };
 
 /**
  * A broken WebGPU kernel can collapse every logit onto one id. Greedy sampling
@@ -52,7 +29,7 @@ export function isDegenerateOutput(value: string): boolean {
 
 /** Source that is itself a chant, laugh, table rule, or run of marks. */
 export function isRepetitiveSource(value: string): boolean {
-  return matchesRepeatPattern(value, SOURCE_REPEAT);
+  return matchesRepeatPattern(value.toLocaleLowerCase(), SOURCE_REPEAT);
 }
 
 function matchesRepeatPattern(value: string, pattern: RepeatPattern): boolean {

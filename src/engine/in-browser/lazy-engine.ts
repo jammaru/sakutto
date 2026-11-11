@@ -54,6 +54,8 @@ export class LazyInBrowserEngine implements IdentifiedEngine {
     this.loadController = null;
     this.engine = null;
     this.engineTask = null;
+    this.degenerateBlocks = 0;
+    this.needSessionFallback = false;
   }
 
   async *translate(

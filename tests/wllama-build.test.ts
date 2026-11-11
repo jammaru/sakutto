@@ -6,6 +6,7 @@ import {
   renderPthreadScript,
   renderWorkerScript,
 } from '../scripts/wllama/artifacts';
+import { assertWave64ProbePlacement } from '../scripts/wllama/webgpu-patch';
 
 const GLUE =
   'var Module=typeof Module!="undefined"?Module:{};var ENVIRONMENT_IS_PTHREAD=false;var mainScriptUrlOrBlob="/wllama-pthread.js";';
@@ -119,5 +120,35 @@ describe('wllama artifact rendering', () => {
     expect(patch).toContain('subgroupShuffleDown');
     expect(patch).toContain('tile attention needs');
     expect(patch).toContain('not a claim that a Radeon was retested');
+    expect(patch).toContain('+    caps.subgroup_size            = 0;\n+}');
+  });
+
+  it('accepts the applied 0009 brace shape and rejects a stray extra closer', () => {
+    const valid = `
+void ggml_webgpu_disable_subgroups(webgpu_context ctx) {
+    caps.max_subgroup_size        = 0;
+    caps.flash_attn_vec           = false;
+    caps.subgroup_size            = 0;
+}
+
+static const char * ggml_webgpu_probe_f16_sum_wgsl() {
+    return "";
+}
+
+static const char * ggml_webgpu_probe_shuffle_down_wgsl() {
+    return "";
+}
+
+bool ggml_webgpu_correctness_probe(webgpu_context ctx) {
+    return true;
+}
+`;
+    expect(() => assertWave64ProbePlacement(valid)).not.toThrow();
+
+    const extraCloser = valid.replace(
+      'caps.subgroup_size            = 0;\n}',
+      'caps.subgroup_size            = 0;\n}\n}',
+    );
+    expect(() => assertWave64ProbePlacement(extraCloser)).toThrow(/extra closing brace/);
   });
 });

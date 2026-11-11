@@ -326,16 +326,13 @@ subgroups, on an RTX 4070 Ti SUPER. They do not describe the tile path on Vega.
 
 Independently of the wasm, a completion that is eight or more copies of the
 same 1–8 character piece, covering at least 80% of a string of 16 characters
-or more, is not shown and is not cached. Tokens stay held while the text
-so far is still that unit, including a copy that has only partly started
-(`,3,3,` is still `,3`). Once four non-space characters break every such
-unit, the rest streams as before, so a normal sentence is delayed by a few
-decode steps and not by the whole segment. That delay was not measured on
-a GPU. On WebGPU the request is run
-again on the CPU. The cache key is `v2` and includes the backend, so an older
-entry from before this check is not reused. A warm-up of "Hello." (at most 16
-tokens) uses the same check; a repeated token there skips the remaining
-WebGPU loads. A short string such as 「こんにちは。」 twice is under the
+or more, is treated as a collapsed kernel when the source is not itself a
+laugh, chant, or run of marks, and generation hit `maxTokens` (or the output
+is far longer than the source). Tokens stream immediately. If the finished
+string is broken, the painted prefix is replaced and the piece is retried on
+CPU; broken text is not cached. A warm-up of "Hello." (at most 16 tokens)
+uses the same check and leaves WebGPU. The cache key is `v2` and includes
+the backend. A short string such as 「こんにちは。」 twice is under the
 length cutoff and is left alone.
 
 ## Compatibility builds

@@ -973,7 +973,9 @@ describe('model load on the GPU tier', () => {
     ]);
   });
 
-  it('goes straight to the CPU when warm-up repeated a token', async () => {
+  it('does not treat a degenerate warm-up as a load skip', async () => {
+    // Warm-up runs after load, in handleWarm, so a collapsed Hello. must not
+    // burn the remaining WebGPU slot attempts inside loadWithFallback.
     const tried: Array<[string, number]> = [];
     const ensureLoaded = vi.fn(async (selection: BackendSelection) => {
       tried.push([selection.backend, selection.nParallel]);
@@ -986,6 +988,8 @@ describe('model load on the GPU tier', () => {
 
     expect(tried).toEqual([
       ['webgpu', 16],
+      ['webgpu', 4],
+      ['webgpu', 1],
       ['cpu-wasm', 1],
     ]);
   });
@@ -1058,6 +1062,46 @@ describe('warmup', () => {
 
   it('accepts a short translation', async () => {
     await expect(warmup(new FakeRuntime(() => 'こんにちは。'), 'ja')).resolves.toBeUndefined();
+  });
+});
+
+describe('warm-up session fallback', () => {
+  it('leaves WebGPU when warm-up repeats a token', async () => {
+    const gpu = new FakeRuntime(() => ',3'.repeat(200), 1, 'webgpu');
+    gpu.fillBudget = true;
+    const cpu = new FakeRuntime(() => 'こんにちは。');
+    const { services, reset } = createServices();
+    const gpuModel = {
+      id: DEFAULT_MODEL_ID,
+      runtime: gpu,
+      selection: { ...SELECTION, backend: 'webgpu' as const, nGpuLayers: 99 },
+    };
+    const cpuModel = { id: DEFAULT_MODEL_ID, runtime: cpu, selection: SELECTION };
+    const manager = services.manager as { loadedModel: LoadedModel | null };
+    manager.loadedModel = gpuModel as LoadedModel;
+    const leaveWebGpu = vi.fn(async () => {
+      manager.loadedModel = cpuModel as LoadedModel;
+    });
+    services.leaveWebGpu = leaveWebGpu;
+    services.load = vi.fn(async () => services.manager.loadedModel) as never;
+
+    const { port } = await openRunningHost(services);
+    port.emit({ type: 'model-warm', requestId: 'w1' });
+    await vi.waitFor(() => {
+      expect(leaveWebGpu).toHaveBeenCalledWith('degenerate');
+    });
+    expect(reset).toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(
+        port.sent.some(
+          (message) =>
+            typeof message === 'object' &&
+            message !== null &&
+            (message as { requestId?: string; ok?: boolean }).requestId === 'w1' &&
+            (message as { ok?: boolean }).ok === true,
+        ),
+      ).toBe(true);
+    });
   });
 });
 

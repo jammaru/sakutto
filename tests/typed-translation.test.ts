@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { MAX_SEGMENT_TEXT } from '@/engine/offscreen/protocol';
 import {
   MAX_TYPED_CHARS,
+  applyTypedChunk,
+  canCopyTypedResult,
   copyTranslation,
   isTranslateShortcut,
   normalizeTypedInput,
@@ -181,5 +183,34 @@ describe('copying a translation', () => {
     ).toBe(false);
     expect(await copyTranslation('訳文', null)).toBe(false);
     expect(await copyTranslation('   ', { writeText: async () => undefined })).toBe(false);
+    expect(await copyTranslation('Hello.', { writeText: async () => undefined }, true)).toBe(false);
+  });
+});
+
+describe('typed error chunks', () => {
+  it('treats an error final as a failure instead of a translation', () => {
+    const streamed = applyTypedChunk(
+      { text: '', failed: false },
+      { id: 'typed', textDelta: 'Hello.', engine: 'plamo' },
+    );
+    expect(streamed).toEqual({ text: 'Hello.', failed: false });
+
+    const failed = applyTypedChunk(streamed, {
+      id: 'typed',
+      final: 'Hello.',
+      engine: 'plamo',
+      error: true,
+    });
+    expect(failed).toEqual({ text: '', failed: true });
+    expect(canCopyTypedResult(failed.text, failed.failed)).toBe(false);
+  });
+
+  it('keeps a successful final copyable', () => {
+    const done = applyTypedChunk(
+      { text: 'こん', failed: false },
+      { id: 'typed', final: 'こんにちは', engine: 'plamo' },
+    );
+    expect(done).toEqual({ text: 'こんにちは', failed: false });
+    expect(canCopyTypedResult(done.text, done.failed)).toBe(true);
   });
 });
