@@ -437,6 +437,104 @@ test.describe('video captions', () => {
     }
   });
 
+  test('clears YouTube captions after SPA navigation to a video without captions', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      const page = await extension.context.newPage();
+      await page.goto(`${FIXTURE_ORIGIN}/youtube-spa.html?v=fixtureA0001`);
+      await prepareVideo(page);
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-original',
+        /駅は夜明けに開きます/,
+      );
+      await page.evaluate(() => {
+        (
+          globalThis as unknown as {
+            __sakuttoShow: (id: string, timedtext: string | null) => void;
+          }
+        ).__sakuttoShow('fixtureB0002', null);
+      });
+      await expect(page.locator('sakutto-captions[data-sakutto-caption]')).toHaveCount(0);
+      await expect(page.locator('sakutto-captions[data-sakutto-original]')).toHaveCount(0);
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('does not keep the previous YouTube line after SPA navigation to another captioned video', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      const page = await extension.context.newPage();
+      await page.goto(`${FIXTURE_ORIGIN}/youtube-spa.html?v=fixtureA0001`);
+      await prepareVideo(page);
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-original',
+        /駅は夜明けに開きます/,
+      );
+      await page.evaluate(() => {
+        (
+          globalThis as unknown as {
+            __sakuttoShow: (id: string, timedtext: string | null) => void;
+          }
+        ).__sakuttoShow('fixtureB0002', '/youtube-timedtext-b.json');
+      });
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-original',
+        /ホームの時計は正午を指しています/,
+      );
+      await expect(page.locator('sakutto-captions')).not.toHaveAttribute(
+        'data-sakutto-original',
+        /駅は夜明けに開きます/,
+      );
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('clears X captions when a later video without tracks starts', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await mockXOrigin(extension.context);
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      const page = await extension.context.newPage();
+      await page.goto('https://x.com/i/status/fixture');
+      await preparePlayingXVideo(page);
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-original',
+        /駅は夜明けに開きます|赤い列車|切符は北側/,
+      );
+      await page.evaluate(async () => {
+        const previous = document.querySelector('#playing') as HTMLVideoElement | null;
+        previous?.pause();
+        const root = document.querySelector('[data-testid="videoPlayer"]');
+        if (!root) return;
+        const next = document.createElement('video');
+        next.id = 'next';
+        next.muted = true;
+        next.loop = true;
+        next.playsInline = true;
+        const source = document.createElement('source');
+        source.src = '/dummy.mp4';
+        source.type = 'video/mp4';
+        next.append(source);
+        root.replaceChildren(next);
+        next.currentTime = 0.4;
+        await next.play().catch(() => undefined);
+      });
+      await expect(page.locator('sakutto-captions[data-sakutto-caption]')).toHaveCount(0);
+    } finally {
+      await extension.close();
+    }
+  });
+
   test('hides the native X caption while the overlay is shown', async () => {
     const extension = await loadExtension('en-US');
     try {

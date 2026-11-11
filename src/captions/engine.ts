@@ -85,7 +85,7 @@ export class CaptionTranslator {
     });
     this.inflight.set(key, work);
     const result = await work;
-    if (generation !== this.seekGeneration) return result;
+    if (generation !== this.seekGeneration) return null;
     return result;
   }
 
@@ -148,6 +148,7 @@ export class CaptionTranslator {
     }
     if (failed || output.trim().length === 0) return null;
     if (isBrokenTranslation(cue.text, output)) return null;
+    if (signal.aborted) return null;
     this.cache.set(this.cacheKey(cue.text, options), { translation: output });
     return output;
   }

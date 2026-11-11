@@ -117,6 +117,25 @@ describe('caption translator', () => {
     await expect(pending).resolves.toBeNull();
   });
 
+  it('does not cache a translation that finished after clear', async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const translator = new CaptionTranslator(
+      engineOf(async function* (segments) {
+        await gate;
+        yield { id: segments[0]?.id ?? 'x', final: 'too late', engine: 'plamo' as const };
+      }),
+    );
+    const options = { tgt: 'ja', form: 'polite' as const };
+    const pending = translator.translateCue(cue('The station opens at dawn.'), options, 2);
+    translator.clear();
+    release();
+    await expect(pending).resolves.toBeNull();
+    expect(translator.getCached('The station opens at dawn.', options)).toBeUndefined();
+  });
+
   it('prefetches a longer window on the GPU tier than on CPU', () => {
     expect(captionPrefetchWindowMs('g')).toBeGreaterThan(captionPrefetchWindowMs('c4'));
     expect(captionPrefetchWindowMs('c8')).toBeGreaterThan(captionPrefetchWindowMs(null));

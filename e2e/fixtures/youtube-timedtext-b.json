@@ -1,0 +1,9 @@
+{
+  "events": [
+    {
+      "tStartMs": 0,
+      "dDurationMs": 4000,
+      "segs": [{ "utf8": "ホームの時計は正午を指しています。" }]
+    }
+  ]
+}

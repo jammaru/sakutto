@@ -53,6 +53,25 @@ export function isYouTubeLiveDocument(doc: Document): boolean {
   );
 }
 
+export function videoIdFromPlayerResponse(value: unknown): string | null {
+  if (!isRecord(value)) return null;
+  const details = value.videoDetails;
+  if (isRecord(details) && typeof details.videoId === 'string' && details.videoId.length > 0) {
+    return details.videoId;
+  }
+  return null;
+}
+
+/** Ignore a player JSON blob that belongs to a different watch URL. */
+export function playerResponseForPage(doc: Document, value: unknown): unknown | null {
+  if (value == null) return null;
+  const wanted = youtubeVideoId(doc.defaultView?.location.href ?? '');
+  if (!wanted) return value;
+  const id = videoIdFromPlayerResponse(value);
+  if (id && id !== wanted) return null;
+  return value;
+}
+
 export function youtubeVideoId(url: string): string | null {
   let parsed: URL;
   try {
@@ -276,13 +295,19 @@ export function parsePlayerResponseScript(source: string): unknown | null {
  * SPA navigation, so the script text is the source of truth.
  */
 export function playerResponseFromDocument(doc: Document): unknown | null {
+  const wanted = youtubeVideoId(doc.defaultView?.location.href ?? '');
+  const found: unknown[] = [];
   for (const script of doc.querySelectorAll('script')) {
     const source = script.textContent ?? '';
     if (!source.includes('ytInitialPlayerResponse')) continue;
     const parsed = parsePlayerResponseScript(source);
-    if (parsed) return parsed;
+    if (parsed) found.push(parsed);
   }
-  return null;
+  if (wanted) {
+    const match = found.find((entry) => videoIdFromPlayerResponse(entry) === wanted);
+    return match ?? null;
+  }
+  return found.at(-1) ?? null;
 }
 
 const CAPTION_HOST_TAG = 'sakutto-captions';

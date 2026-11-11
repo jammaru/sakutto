@@ -595,7 +595,302 @@ The station opens at dawn.
     session.stop();
     view.close();
   });
+
+  it('clears the overlay when YouTube navigates to a video with no captions', async () => {
+    const { Window } = await import('happy-dom');
+    const view = new Window({ url: 'https://www.youtube.com/watch?v=videoA00001' });
+    const doc = view.document;
+    doc.body.innerHTML = youtubeWatchMarkup('videoA00001', true);
+    const video = doc.querySelector('video') as unknown as HTMLVideoElement;
+    stubMedia(video, { paused: false, width: 640, height: 360, currentTime: 0.4 });
+
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => JSON.stringify(TIMEDTEXT),
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+        'The station opens at dawn.',
+      );
+    });
+
+    view.history.pushState({}, '', 'https://www.youtube.com/watch?v=videoB00002');
+    doc.body.innerHTML = youtubeWatchMarkup('videoB00002', false);
+    stubMedia(doc.querySelector('video') as unknown as HTMLVideoElement, {
+      paused: false,
+      width: 640,
+      height: 360,
+      currentTime: 0.4,
+    });
+    doc.dispatchEvent(new view.Event('yt-navigate-finish'));
+    await vi.waitFor(() => {
+      const host = doc.querySelector('sakutto-captions');
+      expect(host?.hasAttribute('data-sakutto-caption')).toBeFalsy();
+      expect(host?.hasAttribute('data-sakutto-original')).toBeFalsy();
+      expect(host?.hasAttribute('hidden') || host == null).toBeTruthy();
+    });
+    session.stop();
+    view.close();
+  });
+
+  it('clears captions when the YouTube watch id changes without a navigate event', async () => {
+    const { Window } = await import('happy-dom');
+    const view = new Window({ url: 'https://www.youtube.com/watch?v=videoA00001' });
+    const doc = view.document;
+    doc.body.innerHTML = youtubeWatchMarkup('videoA00001', true);
+    const video = doc.querySelector('video') as unknown as HTMLVideoElement;
+    stubMedia(video, { paused: false, width: 640, height: 360, currentTime: 0.4 });
+
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => JSON.stringify(TIMEDTEXT),
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+        'The station opens at dawn.',
+      );
+    });
+
+    view.history.pushState({}, '', 'https://www.youtube.com/watch?v=videoB00002');
+    const script = doc.querySelector('script');
+    if (script) {
+      script.textContent = `var ytInitialPlayerResponse = {
+        "videoDetails": { "videoId": "videoB00002" }
+      };`;
+    }
+    (video as unknown as { dispatchEvent(event: unknown): boolean }).dispatchEvent(
+      new view.Event('timeupdate'),
+    );
+    await vi.waitFor(() => {
+      const host = doc.querySelector('sakutto-captions');
+      expect(host?.hasAttribute('data-sakutto-caption')).toBeFalsy();
+      expect(host?.hasAttribute('data-sakutto-original')).toBeFalsy();
+    });
+    session.stop();
+    view.close();
+  });
+
+  it('does not paint the previous YouTube cues after navigating to another captioned video', async () => {
+    const { Window } = await import('happy-dom');
+    const view = new Window({ url: 'https://www.youtube.com/watch?v=videoA00001' });
+    const doc = view.document;
+    doc.body.innerHTML = youtubeWatchMarkup('videoA00001', true);
+    stubMedia(doc.querySelector('video') as unknown as HTMLVideoElement, {
+      paused: false,
+      width: 640,
+      height: 360,
+      currentTime: 0.4,
+    });
+
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async (url) => {
+        if (url.includes('videoB')) {
+          return JSON.stringify({
+            events: [
+              {
+                tStartMs: 0,
+                dDurationMs: 4000,
+                segs: [{ utf8: 'Tickets are sold at the north window.' }],
+              },
+            ],
+          });
+        }
+        return JSON.stringify(TIMEDTEXT);
+      },
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+        'The station opens at dawn.',
+      );
+    });
+
+    view.history.pushState({}, '', 'https://www.youtube.com/watch?v=videoB00002');
+    doc.body.innerHTML = youtubeWatchMarkup('videoB00002', true);
+    stubMedia(doc.querySelector('video') as unknown as HTMLVideoElement, {
+      paused: false,
+      width: 640,
+      height: 360,
+      currentTime: 0.4,
+    });
+    doc.dispatchEvent(new view.Event('yt-navigate-finish'));
+    await vi.waitFor(() => {
+      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+        'Tickets are sold at the north window.',
+      );
+    });
+    expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).not.toBe(
+      'The station opens at dawn.',
+    );
+    session.stop();
+    view.close();
+  });
+
+  it('drops an in-flight translation from the previous X video', async () => {
+    const { Window } = await import('happy-dom');
+    const view = new Window({ url: 'https://x.com/i/status/1' });
+    const doc = view.document;
+    doc.body.innerHTML = `
+      <div data-testid="videoPlayer">
+        <video id="first">
+          <track kind="subtitles" src="https://video.twimg.com/subtitles/a.vtt" srclang="en" />
+        </video>
+      </div>
+    `;
+    const first = doc.querySelector('#first') as unknown as HTMLVideoElement;
+    const media = { paused: false };
+    stubMedia(first, { paused: false, width: 320, height: 180, currentTime: 0.4 });
+    Object.defineProperty(first, 'paused', { configurable: true, get: () => media.paused });
+
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine: delayedEngine(gate),
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async (url) =>
+        url.includes('a.vtt')
+          ? `WEBVTT
+
+00:00:00.000 --> 00:00:02.000
+The station opens at dawn.
+`
+          : '',
+    });
+    session.start();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    media.paused = true;
+    doc.body.innerHTML = `
+      <div data-testid="videoPlayer">
+        <video id="second"></video>
+      </div>
+    `;
+    const second = doc.querySelector('#second') as unknown as HTMLVideoElement;
+    stubMedia(second, { paused: false, width: 320, height: 180, currentTime: 0.4 });
+    (second as unknown as { dispatchEvent(event: unknown): boolean }).dispatchEvent(
+      new view.Event('play', { bubbles: true }),
+    );
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    const host = doc.querySelector('sakutto-captions');
+    expect(host?.getAttribute('data-sakutto-original')).not.toBe('The station opens at dawn.');
+    expect(host?.hasAttribute('data-sakutto-caption')).toBeFalsy();
+    session.stop();
+    view.close();
+  });
+
+  it('clears the overlay when a generic player src changes to a file without tracks', async () => {
+    const { Window } = await import('happy-dom');
+    const view = new Window({ url: 'https://videos.example.com/watch' });
+    const doc = view.document;
+    doc.body.innerHTML = `
+      <video id="player" src="https://videos.example.com/a.mp4">
+        <track kind="subtitles" src="/captions.vtt" srclang="en" />
+      </video>
+    `;
+    const player = doc.querySelector('#player') as unknown as HTMLVideoElement;
+    stubMedia(player, { paused: false, width: 640, height: 360, currentTime: 0.4 });
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async (url) =>
+        url.includes('captions.vtt')
+          ? `WEBVTT
+
+00:00:00.000 --> 00:00:02.000
+The station opens at dawn.
+`
+          : '',
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+        'The station opens at dawn.',
+      );
+    });
+
+    player.removeAttribute('src');
+    player.src = 'https://videos.example.com/b.mp4';
+    player.querySelector('track')?.remove();
+    (player as unknown as { dispatchEvent(event: unknown): boolean }).dispatchEvent(
+      new view.Event('emptied'),
+    );
+    (player as unknown as { dispatchEvent(event: unknown): boolean }).dispatchEvent(
+      new view.Event('loadstart'),
+    );
+    await vi.waitFor(() => {
+      const host = doc.querySelector('sakutto-captions');
+      expect(host?.hasAttribute('data-sakutto-caption')).toBeFalsy();
+      expect(host?.hasAttribute('data-sakutto-original')).toBeFalsy();
+    });
+    session.stop();
+    view.close();
+  });
 });
+
+function youtubeWatchMarkup(videoId: string, captions: boolean): string {
+  const tracks = captions
+    ? `"captions": { "playerCaptionsTracklistRenderer": { "captionTracks": [{
+        "baseUrl": "/youtube-timedtext.json?v=${videoId}",
+        "languageCode": "en",
+        "name": { "simpleText": "English" }
+      }] } }`
+    : '"captions": { "playerCaptionsTracklistRenderer": { "captionTracks": [] } }';
+  return `
+      <div id="movie_player">
+        <video id="player" class="html5-main-video"></video>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "videoDetails": { "videoId": "${videoId}" },
+          ${tracks}
+        };
+      </script>
+    `;
+}
 
 function delayedEngine(gate: Promise<void>): PageEngine {
   return {
