@@ -16,7 +16,7 @@
     type SettingsPatch,
   } from '@/shared/settings';
   import { parseCaptionCustomHost } from '@/captions/custom-hosts';
-  import { captionOverlayFontPx } from '@/captions/overlay';
+  import { CAPTION_PREVIEW_PLAYER_PX, captionOverlayFontPx } from '@/captions/overlay';
   import {
     requestCaptionCustomHostAccess,
     revokeCaptionCustomHostAccess,
@@ -39,7 +39,9 @@
   let { settings, uiLanguage, onChange, onPermissionDenied }: Props = $props();
 
   let previewSize = $derived(settings.videoCaptionSize);
-  const previewFontPx = $derived(captionOverlayFontPx(220, undefined, previewSize));
+  const previewFontPx = $derived(
+    captionOverlayFontPx(CAPTION_PREVIEW_PLAYER_PX, undefined, previewSize),
+  );
 
   function updateForm(event: Event) {
     const select = event.currentTarget as HTMLSelectElement;

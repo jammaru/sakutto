@@ -375,6 +375,22 @@ describe('caption overlay', () => {
     expect(captionOverlayFontPx(900)).toBeGreaterThan(captionOverlayFontPx(180));
   });
 
+  it('lets the size slider shrink below the YouTube-normal floor', () => {
+    const atDefault = captionOverlayFontPx(540, undefined, 80);
+    const atMin = captionOverlayFontPx(540, undefined, 50);
+    const atMax = captionOverlayFontPx(540, undefined, 150);
+    const previewDefault = captionOverlayFontPx(220, undefined, 80);
+    const previewMin = captionOverlayFontPx(220, undefined, 50);
+    expect(atDefault).toBeGreaterThanOrEqual(CAPTION_FONT_MIN_PX);
+    expect(previewDefault).toBeGreaterThanOrEqual(CAPTION_FONT_MIN_PX);
+    expect(atMin).toBeLessThan(CAPTION_FONT_MIN_PX);
+    expect(previewMin).toBeLessThan(previewDefault);
+    expect(previewMin).toBeLessThan(CAPTION_FONT_MIN_PX);
+    expect(atMin).toBeLessThan(atDefault);
+    expect(atMax).toBeGreaterThan(atDefault);
+    expect(atMax - atMin).toBeGreaterThan(12);
+  });
+
   it('does not shrink type from a 0 or collapsed player rect', () => {
     const settled = captionOverlayFontPx(540);
     expect(captionOverlayFontPx(0)).toBeGreaterThanOrEqual(CAPTION_FONT_MIN_PX);

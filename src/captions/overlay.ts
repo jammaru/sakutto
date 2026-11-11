@@ -138,12 +138,18 @@ export function captionOverlayPlacement(
   };
 }
 
-/** Floor after scale: never drop below a typical YouTube caption. */
+/**
+ * YouTube-normal size at the default 80% scale. Used as the auto/base floor, not as a
+ * clamp on an explicitly smaller slider setting.
+ */
 export const CAPTION_FONT_MIN_PX = 22;
 export const CAPTION_FONT_MAX_PX = 64;
 /** Player/video boxes below this are treated as unset (0, collapsed, mid-transition). */
 export const CAPTION_LAYOUT_MIN_PX = 160;
+/** Unscaled auto size so default 80% stays YouTube-normal (~22px). */
 const CAPTION_FONT_BASE_MIN_PX = 28;
+/** Typical watch-page height so the settings preview matches a real player. */
+export const CAPTION_PREVIEW_PLAYER_PX = 540;
 
 /** Match YouTube's native caption size: ~5.5% of a settled player, never a 0×0 box. */
 export function captionOverlayFontPx(
@@ -155,6 +161,8 @@ export function captionOverlayFontPx(
     ? Math.min(VIDEO_CAPTION_SIZE_MAX, Math.max(VIDEO_CAPTION_SIZE_MIN, scale)) / 100
     : VIDEO_CAPTION_SIZE_DEFAULT / 100;
   const height = Number.isFinite(playerHeight) ? playerHeight : 0;
+  // Tiny/collapsed rects keep a YouTube-normal *base* so theater transitions cannot
+  // shrink type to 0. The user's scale is applied after that, without a 22px clamp.
   const fromPlayer =
     height >= CAPTION_LAYOUT_MIN_PX
       ? Math.min(CAPTION_FONT_MAX_PX, Math.max(CAPTION_FONT_BASE_MIN_PX, height * 0.055))
@@ -165,7 +173,7 @@ export function captionOverlayFontPx(
     nativePx >= CAPTION_FONT_MIN_PX &&
     nativePx <= CAPTION_FONT_MAX_PX;
   const base = nativeOk ? Math.max(nativePx, fromPlayer) : fromPlayer;
-  return Math.round(Math.min(CAPTION_FONT_MAX_PX, Math.max(CAPTION_FONT_MIN_PX, base * factor)));
+  return Math.round(Math.min(CAPTION_FONT_MAX_PX, base * factor));
 }
 
 export type CaptionLayoutRect = Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>;

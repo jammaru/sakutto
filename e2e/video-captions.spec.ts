@@ -625,7 +625,7 @@ test.describe('video captions', () => {
       await expect(options.locator('.caption-preview-translation')).toHaveText(
         '北側窓口では切符を売っています。',
       );
-      const before = await options
+      const atDefault = await options
         .locator('.caption-preview-translation')
         .evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
       await slider.evaluate((element) => {
@@ -639,7 +639,19 @@ test.describe('video captions', () => {
             .locator('.caption-preview-translation')
             .evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize)),
         )
-        .toBeGreaterThan(before);
+        .toBeGreaterThan(atDefault);
+      await slider.evaluate((element) => {
+        const input = element as HTMLInputElement;
+        input.value = '50';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await expect
+        .poll(async () =>
+          options
+            .locator('.caption-preview-translation')
+            .evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize)),
+        )
+        .toBeLessThan(atDefault - 4);
       await options.locator('[data-sakutto="caption-custom-host"]').fill('file://example.com');
       await options.locator('[data-sakutto="caption-custom-host-add"]').click();
       await expect(options.locator('[data-sakutto="caption-custom-host-invalid"]')).toBeVisible();

@@ -562,7 +562,7 @@ The station opens at dawn.
       );
     });
     const host = doc.querySelector('sakutto-captions') as unknown as HTMLElement;
-    const atDefault = host.style.getPropertyValue('--sakutto-caption-size');
+    const atDefault = Number.parseFloat(host.style.getPropertyValue('--sakutto-caption-size'));
     session.setPreferences({
       enabled: true,
       targetLanguage: 'ja',
@@ -572,7 +572,22 @@ The station opens at dawn.
       size: 150,
     });
     await vi.waitFor(() => {
-      expect(host.style.getPropertyValue('--sakutto-caption-size')).not.toBe(atDefault);
+      expect(
+        Number.parseFloat(host.style.getPropertyValue('--sakutto-caption-size')),
+      ).toBeGreaterThan(atDefault);
+    });
+    session.setPreferences({
+      enabled: true,
+      targetLanguage: 'ja',
+      form: 'polite',
+      display: 'bilingual',
+      tier: 'g',
+      size: 50,
+    });
+    await vi.waitFor(() => {
+      expect(Number.parseFloat(host.style.getPropertyValue('--sakutto-caption-size'))).toBeLessThan(
+        atDefault,
+      );
     });
     const hide = doc.querySelector('style[data-sakutto="captions"]')?.textContent ?? '';
     expect(hide).toContain('::cue');
