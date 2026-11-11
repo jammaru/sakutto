@@ -25,6 +25,13 @@ They are goals, not gates.
 node scripts/ci-stats.ts jammaru/sakutto 200
 ```
 
+Measured on this change set (GitHub-hosted `ubuntu-latest`). The miss is the first PR run after the `wllama-v2-` key; the hit is the next push with the same wasm inputs.
+
+| Path                                                                    | CI run                                                                     | Wall clock | `wllama` | Package chrome | Package firefox | `checks` |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------- | ---------: | -------: | -------------: | --------------: | -------: |
+| miss (before: chrome 12m21s + firefox 17m09s in parallel, wall ~18 min) | [43009192000](https://github.com/jammaru/sakutto/actions/runs/43009192000) |    11m 55s |  10m 18s |            52s |          1m 21s |   1m 59s |
+| hit                                                                     | pending                                                                    |            |          |                |                 |          |
+
 ## Workflows
 
 | Workflow               | Trigger                                                                                         | Purpose                                                                                                          | Needed on           |
