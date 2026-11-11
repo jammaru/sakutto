@@ -1,0 +1,150 @@
+name: Build wllama
+description: Restore the pinned wllama build or compile it once, then save the cache.
+
+inputs:
+  from-source:
+    description: Ignore the wasm cache and compile. Tag releases must set this.
+    required: false
+    default: 'false'
+
+outputs:
+  cache-hit:
+    description: true when the wasm cache was restored and verified
+    value: ${{ steps.result.outputs.cache-hit }}
+  key:
+    description: Actions cache key for the wasm artifacts
+    value: ${{ steps.inputs.outputs.key }}
+  reason:
+    description: cache-hit, cache-miss, from-source, or verify-failed
+    value: ${{ steps.result.outputs.reason }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v7
+      with:
+        node-version: 24
+
+    - id: inputs
+      shell: bash
+      run: node scripts/wllama-cache-key.ts --github >> "$GITHUB_OUTPUT"
+
+    - id: wasm
+      if: inputs.from-source != 'true'
+      uses: actions/cache/restore@v6
+      with:
+        path: |
+          vendor/wllama/dist
+          public/vendor/wllama
+        key: ${{ steps.inputs.outputs.key }}
+
+    - id: verify-cached
+      if: inputs.from-source != 'true' && steps.wasm.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        set +e
+        node scripts/verify-wllama.mjs
+        status=$?
+        set -e
+        if [ "$status" -eq 0 ]; then
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "cached wllama failed verification; rebuilding from source" >&2
+          rm -rf vendor/wllama/dist public/vendor/wllama
+          echo "ok=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - id: plan
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ "${{ inputs.from-source }}" = "true" ]; then
+          echo "build=true" >> "$GITHUB_OUTPUT"
+          echo "reason=from-source" >> "$GITHUB_OUTPUT"
+        elif [ "${{ steps.wasm.outputs.cache-hit }}" != "true" ]; then
+          echo "build=true" >> "$GITHUB_OUTPUT"
+          echo "reason=cache-miss" >> "$GITHUB_OUTPUT"
+        elif [ "${{ steps.verify-cached.outputs.ok }}" != "true" ]; then
+          echo "build=true" >> "$GITHUB_OUTPUT"
+          echo "reason=verify-failed" >> "$GITHUB_OUTPUT"
+        else
+          echo "build=false" >> "$GITHUB_OUTPUT"
+          echo "reason=cache-hit" >> "$GITHUB_OUTPUT"
+        fi
+
+    - id: image
+      if: steps.plan.outputs.build == 'true'
+      uses: actions/cache/restore@v6
+      with:
+        path: /tmp/emsdk-image.tar
+        key: emsdk-${{ steps.inputs.outputs.tag }}-${{ runner.arch }}
+
+    - if: steps.plan.outputs.build == 'true' && steps.image.outputs.cache-hit == 'true'
+      shell: bash
+      run: docker load --input /tmp/emsdk-image.tar
+
+    - if: steps.plan.outputs.build == 'true' && steps.image.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        EMSDK_TAG: ${{ steps.inputs.outputs.tag }}
+      run: |
+        set -euo pipefail
+        image="emscripten/emsdk:${EMSDK_TAG}"
+        for attempt in 1 2 3; do
+          if docker pull "$image"; then
+            exit 0
+          fi
+          echo "docker pull failed (attempt ${attempt})" >&2
+          sleep $((attempt * 8))
+        done
+        exit 1
+
+    - if: steps.plan.outputs.build == 'true'
+      shell: bash
+      run: node scripts/wllama/build.ts
+
+    - if: steps.plan.outputs.build == 'true'
+      shell: bash
+      run: node scripts/verify-wllama.mjs
+
+    - if: steps.plan.outputs.build == 'true' && steps.image.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        rm -rf vendor/wllama/.checkout/build vendor/wllama/.checkout/build-compat
+        docker save "emscripten/emsdk:${{ steps.inputs.outputs.tag }}" --output /tmp/emsdk-image.tar
+
+    - if: steps.plan.outputs.build == 'true' && steps.image.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      continue-on-error: true
+      with:
+        path: /tmp/emsdk-image.tar
+        key: ${{ steps.image.outputs.cache-primary-key }}
+
+    - if: steps.plan.outputs.build == 'true'
+      uses: actions/cache/save@v6
+      continue-on-error: true
+      with:
+        path: |
+          vendor/wllama/dist
+          public/vendor/wllama
+        key: ${{ steps.inputs.outputs.key }}
+
+    - id: result
+      shell: bash
+      run: |
+        set -euo pipefail
+        hit=false
+        if [ "${{ steps.plan.outputs.reason }}" = "cache-hit" ]; then
+          hit=true
+        fi
+        echo "cache-hit=${hit}" >> "$GITHUB_OUTPUT"
+        echo "reason=${{ steps.plan.outputs.reason }}" >> "$GITHUB_OUTPUT"
+        {
+          echo "## wllama"
+          echo ""
+          echo "- key: \`${{ steps.inputs.outputs.key }}\`"
+          echo "- result: ${{ steps.plan.outputs.reason }}"
+          echo "- from-source: \`${{ inputs.from-source }}\`"
+          echo "- emsdk tag: \`${{ steps.inputs.outputs.tag }}\`"
+        } >> "$GITHUB_STEP_SUMMARY"

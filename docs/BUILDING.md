@@ -357,14 +357,19 @@ Node, tsup, the SHA-256 of the checkout `package-lock.json`) and the SHA-256 of 
 The zip, the zip contents check, and the worker smoke test run on pushes to `main`, on `v*` tags,
 from a manual run, when `scripts/wllama` changes, and when the package action or
 `.github/workflows/ci.yml` changes. Tag pushes run `.github/workflows/release.yml`, which calls the
-same package action. A pull request that only edits that workflow does not build the zip. Those
-runs restore `vendor/wllama/dist` from the Actions cache when the
-pin, patches, build scripts, and emsdk tag are unchanged. The emsdk image is cached the same way. A
-cache miss compiles with `emscripten/emsdk:4.0.20` and then saves both caches. The job uploads
-`chrome-mv3-zip` (the store zip from `pnpm zip`) and `chrome-mv3` (the unpacked extension), and
-fails if the zip is missing or smaller than 1 MiB. A sibling `firefox` job runs `pnpm zip:firefox`,
-`web-ext lint` (0 errors), a second build compared with `scripts/compare-extension-builds.ts`, and
-a rebuild from `pnpm source:firefox`.
+same package action with `from-source: true` so a release never ships a restored CI cache. A pull
+request that only edits that workflow does not build the zip.
+
+CI compiles wllama in one `wllama` job and reuses that artifact for Chrome and Firefox. The cache
+key is `wllama-v2-<hash>` from `scripts/wllama-cache-key.ts` (applied patches, build scripts, and
+`firefox-webgpu-kick.ts`; not `patches/optional/`). A restored cache is verified before packaging.
+The emsdk image is cached the same way. A cache miss compiles with `emscripten/emsdk:4.0.20` and
+then saves both caches from the `wllama` job, before packaging, so a later package failure does not
+lose the compile. The Chrome job uploads `chrome-mv3-zip` (the store zip from `pnpm zip`) and
+`chrome-mv3` (the unpacked extension), and fails if the zip is missing or smaller than 1 MiB. The
+Firefox job runs `pnpm zip:firefox`, `web-ext lint` (0 errors), a second build compared with
+`scripts/compare-extension-builds.ts`, and a rebuild from `pnpm source:firefox`. See
+[docs/CI.md](CI.md).
 
 ## Troubleshooting
 

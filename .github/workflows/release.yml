@@ -26,7 +26,11 @@ jobs:
       contents: read
       actions: write
     steps:
+      # `tests/bench-fixtures.test.ts` needs every commit named in
+      # `bench/history/pages.jsonl`. A shallow clone does not have those objects.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v6
         with:
@@ -72,6 +76,8 @@ jobs:
       - uses: actions/checkout@v7
 
       - uses: ./.github/actions/package-extension
+        with:
+          from-source: true
 
       - name: Check the packaged manifest version
         run: node scripts/release/cli.ts check --manifest .output/chrome-mv3/manifest.json
