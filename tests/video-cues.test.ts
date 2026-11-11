@@ -2,13 +2,16 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  alignCaptionCuesToMedia,
   cueAtTime,
   cuesInWindow,
   LiveCaptionBuffer,
   LIVE_CAPTION_MAX_WAIT_MS,
+  mergeSentenceCues,
   mergeWordCues,
   parseTimedtextJson3,
   parseWebVtt,
+  WEBVTT_HOUR_OFFSET_MS,
 } from '@/captions/cues';
 import {
   captionTracksFromPlayerResponse,
@@ -16,14 +19,19 @@ import {
   isYouTubeLivePlayer,
   selectCaptionTrack,
   selectLiveCaptionTrack,
+  spokenLanguageFromPlayerResponse,
   withTimedtextFormat,
   youtubeVideoId,
 } from '@/captions/youtube';
-import { resolveCaptionFetchUrl } from '@/captions/timedtext';
 import { captionOverlayBox } from '@/captions/overlay';
 import { CAPTION_LIVE_PRIORITY, CAPTION_PREFETCH_PRIORITY } from '@/captions/engine';
 import { pickCaptionTrack, revealTrackCues } from '@/captions/html5';
-import { resolveSameOriginCaptionUrl } from '@/captions/timedtext';
+import {
+  resolveCaptionFetchUrl,
+  resolveSameOriginCaptionUrl,
+  TimedtextFetchGuard,
+  TIMEDTEXT_MAX_ATTEMPTS,
+} from '@/captions/timedtext';
 
 const VTT = `WEBVTT
 
@@ -40,6 +48,32 @@ Tickets are sold at the north window.
 `;
 
 describe('WebVTT parser', () => {
+  it('shifts a 1-hour HLS offset onto the media timeline', () => {
+    const vtt = `WEBVTT
+X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:324000000
+
+01:00:01.583 --> 01:00:04.000
+The station opens at dawn.
+`;
+    const cues = parseWebVtt(vtt, 'en');
+    expect(cues).toHaveLength(1);
+    expect(cues[0]?.startMs).toBe(1_583);
+    expect(cues[0]?.endMs).toBe(4_000);
+    expect(cues[0]?.text).toBe('The station opens at dawn.');
+  });
+
+  it('aligns cues that start past the media duration without a timestamp map', () => {
+    const cues = parseWebVtt(`WEBVTT
+
+01:00:01.583 --> 01:00:04.000
+The station opens at dawn.
+`);
+    expect(cues[0]?.startMs).toBe(1_583);
+    const aligned = alignCaptionCuesToMedia(cues, 86_700);
+    expect(aligned[0]?.startMs).toBe(1_583);
+    expect(WEBVTT_HOUR_OFFSET_MS).toBe(3_600_000);
+  });
+
   it('reads cue times and text from a synthetic track', () => {
     const cues = parseWebVtt(VTT, 'en');
     expect(cues).toHaveLength(3);
@@ -106,6 +140,44 @@ describe('word-cue merging', () => {
   });
 });
 
+describe('sentence-cue merging', () => {
+  it('joins mid-sentence VOD fragments and translates the sentence once across their span', () => {
+    const merged = mergeSentenceCues([
+      {
+        id: 'a',
+        startMs: 0,
+        endMs: 1800,
+        text: 'the north window sells tickets that do not',
+      },
+      {
+        id: 'b',
+        startMs: 1800,
+        endMs: 3600,
+        text: 'require a reservation for the red train.',
+      },
+      { id: 'c', startMs: 3700, endMs: 5000, text: 'After dawn it' },
+      { id: 'd', startMs: 5000, endMs: 7200, text: 'opens again.' },
+    ]);
+    expect(merged.map((cue) => cue.text)).toEqual([
+      'the north window sells tickets that do not require a reservation for the red train.',
+      'After dawn it opens again.',
+    ]);
+    expect(merged[0]).toMatchObject({ startMs: 0, endMs: 3600 });
+    expect(merged[1]).toMatchObject({ startMs: 3700, endMs: 7200 });
+  });
+
+  it('splits a cue that already contains a sentence end plus leftover words', () => {
+    const merged = mergeSentenceCues([
+      { id: 'a', startMs: 0, endMs: 2000, text: 'only the beginning. With' },
+      { id: 'b', startMs: 2000, endMs: 4200, text: 'the first train leaving.' },
+    ]);
+    expect(merged.map((cue) => cue.text)).toEqual([
+      'only the beginning.',
+      'With the first train leaving.',
+    ]);
+  });
+});
+
 describe('live caption buffer', () => {
   it('commits a growing auto-caption when the line finishes or sits still', () => {
     const buffer = new LiveCaptionBuffer();
@@ -164,6 +236,57 @@ describe('YouTube player response', () => {
     expect(withTimedtextFormat('/youtube-timedtext.json', 'json3')).toBe(
       '/youtube-timedtext.json?fmt=json3',
     );
+  });
+
+  it('prefers the spoken language and English, never the first translated track', () => {
+    const parsed = parsePlayerResponseScript(`
+      var ytInitialPlayerResponse = {
+        "videoDetails": { "defaultAudioLanguage": "en" },
+        "captions": {
+          "playerCaptionsTracklistRenderer": {
+            "captionTracks": [
+              {
+                "baseUrl": "https://www.youtube.com/api/timedtext?v=fixture&lang=af",
+                "languageCode": "af",
+                "name": { "simpleText": "Afrikaans" },
+                "vssId": ".af"
+              },
+              {
+                "baseUrl": "https://www.youtube.com/api/timedtext?v=fixture&lang=de",
+                "languageCode": "de",
+                "name": { "simpleText": "German" },
+                "vssId": ".de"
+              },
+              {
+                "baseUrl": "https://www.youtube.com/api/timedtext?v=fixture&lang=en",
+                "languageCode": "en",
+                "name": { "simpleText": "English" },
+                "vssId": ".en"
+              },
+              {
+                "baseUrl": "https://www.youtube.com/api/timedtext?v=fixture&lang=en&kind=asr",
+                "languageCode": "en",
+                "kind": "asr",
+                "name": { "simpleText": "English (auto)" },
+                "vssId": "a.en"
+              }
+            ],
+            "audioTracks": [{ "audioTrackId": "en.0", "defaultCaptionTrackIndex": 2 }],
+            "defaultAudioTrackIndex": 0
+          }
+        }
+      };
+    `);
+    const tracks = captionTracksFromPlayerResponse(parsed);
+    expect(spokenLanguageFromPlayerResponse(parsed)).toBe('en');
+    expect(
+      selectCaptionTrack(tracks, 'ja', spokenLanguageFromPlayerResponse(parsed)),
+    ).toMatchObject({
+      languageCode: 'en',
+      asr: false,
+    });
+    expect(selectCaptionTrack(tracks, 'ja')).toMatchObject({ languageCode: 'en', asr: false });
+    expect(selectCaptionTrack(tracks, 'ja')?.languageCode).not.toBe('af');
   });
 
   it('parses the e2e YouTube fixture as quoted JSON, the way the watch page ships it', () => {
@@ -268,5 +391,27 @@ describe('HTML5 caption tracks', () => {
     const twimg = 'https://video.twimg.com/subtitles/fixture.vtt';
     expect(resolveCaptionFetchUrl('https://x.com/i/status/1', twimg)).toBe(twimg);
     expect(resolveCaptionFetchUrl('https://www.youtube.com/watch?v=abcdefghijk', twimg)).toBeNull();
+  });
+});
+
+describe('timedtext fetch guard', () => {
+  it('allows at most three attempts per video+track with backoff between them', () => {
+    const guard = new TimedtextFetchGuard();
+    const key = 'yt:fixture:/timedtext';
+    expect(guard.allow(key, 0)).toBe(true);
+    expect(guard.begin(key)).toBe(true);
+    expect(guard.allow(key, 0)).toBe(false);
+    guard.fail(key, 0);
+    expect(guard.allow(key, 0)).toBe(false);
+    expect(guard.allow(key, 999)).toBe(false);
+    expect(guard.allow(key, 1_000)).toBe(true);
+    guard.begin(key);
+    guard.fail(key, 1_000);
+    expect(guard.allow(key, 4_999)).toBe(false);
+    expect(guard.allow(key, 5_000)).toBe(true);
+    guard.begin(key);
+    guard.fail(key, 5_000);
+    expect(guard.allow(key, 60_000)).toBe(false);
+    expect(TIMEDTEXT_MAX_ATTEMPTS).toBe(3);
   });
 });

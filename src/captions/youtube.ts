@@ -123,23 +123,78 @@ function captionName(value: unknown): string {
 }
 
 /**
- * Prefer a human-written track that is not already in the target language, then any
- * manual track, then auto-generated (ASR). Translating a track that is already in the
- * target language is wasted work.
+ * Spoken / original caption language from the player, not the first translated track.
+ * Audio-track id (`en.0`) and `defaultAudioLanguage` beat captionTracks list order
+ * (translated-track lists often start at Afrikaans).
+ */
+export function spokenLanguageFromPlayerResponse(value: unknown): string | null {
+  if (!isRecord(value)) return null;
+  const details = value.videoDetails;
+  if (isRecord(details) && typeof details.defaultAudioLanguage === 'string') {
+    const prefix = targetPrefix(details.defaultAudioLanguage);
+    if (prefix.length > 0) return prefix;
+  }
+
+  const captions = value.captions;
+  if (!isRecord(captions)) return null;
+  const renderer = captions.playerCaptionsTracklistRenderer;
+  if (!isRecord(renderer)) return null;
+
+  const audioTracks = Array.isArray(renderer.audioTracks) ? renderer.audioTracks : [];
+  const defaultIndex =
+    typeof renderer.defaultAudioTrackIndex === 'number' ? renderer.defaultAudioTrackIndex : 0;
+  const audio = isRecord(audioTracks[defaultIndex])
+    ? audioTracks[defaultIndex]
+    : isRecord(audioTracks[0])
+      ? audioTracks[0]
+      : null;
+  if (audio) {
+    if (typeof audio.audioTrackId === 'string') {
+      const prefix = targetPrefix(audio.audioTrackId.split('.')[0] ?? '');
+      if (prefix.length > 0) return prefix;
+    }
+    if (typeof audio.defaultCaptionTrackIndex === 'number') {
+      const tracks = captionTracksFromPlayerResponse(value);
+      const track = tracks[audio.defaultCaptionTrackIndex];
+      const prefix = track ? targetPrefix(track.languageCode) : '';
+      if (prefix.length > 0) return prefix;
+    }
+  }
+  return null;
+}
+
+function languageMatches(track: YoutubeCaptionTrack, language: string): boolean {
+  const prefix = targetPrefix(language);
+  return prefix.length > 0 && track.languageCode.toLowerCase().startsWith(prefix);
+}
+
+/**
+ * Prefer the video's original/spoken language (player default / audio track), then English
+ * manual, then English ASR. Never the first translated track in the list.
  */
 export function selectCaptionTrack(
   tracks: readonly YoutubeCaptionTrack[],
-  targetLanguage: string,
+  _targetLanguage: string,
+  spokenLanguage?: string | null,
 ): YoutubeCaptionTrack | null {
   if (tracks.length === 0) return null;
-  const target = targetPrefix(targetLanguage);
-  const notTarget = (track: YoutubeCaptionTrack): boolean =>
-    target.length === 0 || !track.languageCode.toLowerCase().startsWith(target);
+  const spoken = spokenLanguage ? targetPrefix(spokenLanguage) : '';
+  const pick = (
+    predicate: (track: YoutubeCaptionTrack) => boolean,
+  ): YoutubeCaptionTrack | undefined => tracks.find(predicate);
+
+  const manuals = tracks.filter((track) => !track.asr);
   return (
-    tracks.find((track) => !track.asr && notTarget(track)) ??
-    tracks.find((track) => !track.asr) ??
-    tracks.find((track) => track.asr && notTarget(track)) ??
-    tracks[0] ??
+    (spoken.length > 0
+      ? pick((track) => !track.asr && languageMatches(track, spoken))
+      : undefined) ??
+    pick((track) => !track.asr && languageMatches(track, 'en')) ??
+    (spoken.length > 0
+      ? pick((track) => track.asr && languageMatches(track, spoken))
+      : undefined) ??
+    pick((track) => track.asr && languageMatches(track, 'en')) ??
+    pick((track) => track.asr) ??
+    (manuals.length === 1 ? manuals[0] : null) ??
     null
   );
 }
@@ -148,15 +203,16 @@ export function selectCaptionTrack(
 export function selectLiveCaptionTrack(
   tracks: readonly YoutubeCaptionTrack[],
   targetLanguage: string,
+  spokenLanguage?: string | null,
 ): YoutubeCaptionTrack | null {
   if (tracks.length === 0) return null;
-  const target = targetPrefix(targetLanguage);
-  const notTarget = (track: YoutubeCaptionTrack): boolean =>
-    target.length === 0 || !track.languageCode.toLowerCase().startsWith(target);
+  const spoken = spokenLanguage ? targetPrefix(spokenLanguage) : '';
   return (
-    tracks.find((track) => track.asr && notTarget(track)) ??
+    (spoken.length > 0
+      ? tracks.find((track) => track.asr && languageMatches(track, spoken))
+      : undefined) ??
     tracks.find((track) => track.asr) ??
-    selectCaptionTrack(tracks, targetLanguage)
+    selectCaptionTrack(tracks, targetLanguage, spokenLanguage)
   );
 }
 

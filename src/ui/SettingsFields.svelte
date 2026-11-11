@@ -156,6 +156,7 @@
       onchange={(event) => {
         const input = event.currentTarget as HTMLInputElement;
         void (async () => {
+          // User gesture: resolveCaptionToggle must call permissions.request with no prior pause.
           const result = await resolveCaptionToggle(input.checked);
           input.checked = result.on;
           if (result.denied) {

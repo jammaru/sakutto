@@ -3,7 +3,13 @@ import type { PageEngine } from '@/dom/session';
 import type { GlossaryEntry } from '@/engine/types';
 import { canonicalLanguage } from '@/shared/languages';
 import type { DisplayMode, Formality } from '@/shared/settings';
-import { cueAtTime, LiveCaptionBuffer, mergeWordCues, parseWebVtt, type CaptionCue } from './cues';
+import {
+  cueAtTime,
+  finalizeCaptionCues,
+  LiveCaptionBuffer,
+  parseWebVtt,
+  type CaptionCue,
+} from './cues';
 import { CAPTION_LIVE_PRIORITY, CaptionTranslator, type CaptionTranslateOptions } from './engine';
 import {
   cuesFromTrack,
@@ -13,7 +19,7 @@ import {
   revealTrackCues,
 } from './html5';
 import { CaptionOverlay, captionOverlayRoot, type CaptionOverlayLabels } from './overlay';
-import { readTimedtext } from './timedtext';
+import { readTimedtext, TimedtextFetchGuard } from './timedtext';
 import { isXHost, listXSubtitleUrls, pickPlayingXVideo } from './x';
 import {
   captionTracksFromPlayerResponse,
@@ -23,6 +29,7 @@ import {
   readYoutubeCaptionDom,
   selectCaptionTrack,
   selectLiveCaptionTrack,
+  spokenLanguageFromPlayerResponse,
   withTimedtextFormat,
   youtubeVideoId,
   YOUTUBE_CAPTION_WINDOW_SELECTOR,
@@ -62,16 +69,20 @@ export class VideoCaptionSession {
   private readonly readTrack: (url: string) => Promise<string>;
   private readonly now: () => number;
   private readonly liveBuffer = new LiveCaptionBuffer();
+  private readonly timedtextGuard = new TimedtextFetchGuard();
   private prefs: CaptionSessionPreferences;
   private running = false;
   private video: HTMLVideoElement | null = null;
   private loaded: LoadedTrack | null = null;
   private loadToken = 0;
+  private loadInFlight = false;
   private nativeStyle: HTMLStyleElement | null = null;
   private observer: MutationObserver | null = null;
   private liveTimer: number | null = null;
   private liveTrackTimer: number | null = null;
   private liveMode = false;
+  private useDomCaptions = false;
+  private timedtextKey = '';
   private shownCueId: string | null = null;
   private shownText: string | null = null;
 
@@ -127,7 +138,18 @@ export class VideoCaptionSession {
       }, 200) ?? null;
     this.liveTrackTimer =
       view?.setInterval(() => {
-        if (this.liveMode && this.video) void this.refreshLiveTrack(this.video);
+        if (!this.video) return;
+        if (this.liveMode) {
+          void this.refreshLiveTrack(this.video);
+          return;
+        }
+        if (
+          (this.loaded?.cues.length ?? 0) === 0 &&
+          this.timedtextKey.length > 0 &&
+          this.timedtextGuard.allow(this.timedtextKey, this.now())
+        ) {
+          void this.loadTrack(this.video);
+        }
       }, 2_500) ?? null;
     void this.sync(true);
   }
@@ -154,6 +176,10 @@ export class VideoCaptionSession {
       this.liveTrackTimer = null;
     }
     this.liveMode = false;
+    this.useDomCaptions = false;
+    this.timedtextKey = '';
+    this.loadInFlight = false;
+    this.timedtextGuard.reset();
     this.restoreTracks();
     this.hideNativeCaptions(false);
     this.translator.clear();
@@ -185,6 +211,9 @@ export class VideoCaptionSession {
 
   private readonly onNavigate = (): void => {
     this.loaded = null;
+    this.useDomCaptions = false;
+    this.timedtextKey = '';
+    this.timedtextGuard.reset();
     this.translator.clear();
     this.liveBuffer.reset();
     void this.sync(true);
@@ -198,6 +227,9 @@ export class VideoCaptionSession {
       this.restoreTracks();
       this.video = video;
       this.loaded = null;
+      this.useDomCaptions = false;
+      this.timedtextKey = '';
+      this.timedtextGuard.reset();
       this.liveBuffer.reset();
       this.bindVideo(video);
     }
@@ -208,37 +240,46 @@ export class VideoCaptionSession {
     }
     this.overlay.attach(captionOverlayRoot(this.doc, video));
     this.place();
-    if (forceLoad || !this.loaded || (this.loaded.cues.length === 0 && !this.liveMode)) {
+    if (forceLoad || !this.loaded) {
       await this.loadTrack(video);
     }
     await this.paint(false);
   }
 
   private async loadTrack(video: HTMLVideoElement): Promise<void> {
+    if (this.loadInFlight) return;
     const token = ++this.loadToken;
     const key = trackKey(this.doc, video);
     if (this.loaded?.key === key && this.loaded.cues.length > 0) return;
-
-    const youtube = await this.loadYouTubeTrack();
-    if (token !== this.loadToken) return;
-    if (youtube) {
-      this.liveMode = youtube.live;
-      this.loaded = { key, ...youtube, restoreModes: [] };
-      return;
-    }
-    this.liveMode = false;
-
-    const host = pageHost(this.doc.defaultView?.location.href ?? '') ?? '';
-    if (isXHost(host)) {
-      const xTrack = await this.loadXTrack(video);
+    this.loadInFlight = true;
+    try {
+      const youtube = await this.loadYouTubeTrack();
       if (token !== this.loadToken) return;
-      this.loaded = xTrack ? { key, ...xTrack } : { key, cues: [], restoreModes: [] };
-      return;
-    }
+      if (youtube) {
+        this.liveMode = youtube.live;
+        this.loaded = { key, ...youtube, restoreModes: [] };
+        return;
+      }
+      this.liveMode = false;
 
-    const html5 = loadHtml5Track(video, this.prefs.targetLanguage);
-    if (token !== this.loadToken) return;
-    this.loaded = html5 ? { key, ...html5 } : { key, cues: [], restoreModes: [] };
+      const host = pageHost(this.doc.defaultView?.location.href ?? '') ?? '';
+      if (isXHost(host)) {
+        const xTrack = await this.loadXTrack(video);
+        if (token !== this.loadToken) return;
+        this.loaded = xTrack ? { key, ...xTrack } : { key, cues: [], restoreModes: [] };
+        return;
+      }
+
+      const html5 = loadHtml5Track(
+        video,
+        this.prefs.targetLanguage,
+        Number.isFinite(video.duration) ? video.duration * 1000 : undefined,
+      );
+      if (token !== this.loadToken) return;
+      this.loaded = html5 ? { key, ...html5 } : { key, cues: [], restoreModes: [] };
+    } finally {
+      if (token === this.loadToken) this.loadInFlight = false;
+    }
   }
 
   private async loadYouTubeTrack(): Promise<
@@ -247,18 +288,42 @@ export class VideoCaptionSession {
     const live = isYouTubeLiveDocument(this.doc);
     const response = playerResponseFromDocument(this.doc);
     const tracks = captionTracksFromPlayerResponse(response);
+    if (tracks.length === 0 && !live) return null;
+    const spoken = spokenLanguageFromPlayerResponse(response);
     const selected = live
-      ? selectLiveCaptionTrack(tracks, this.prefs.targetLanguage)
-      : selectCaptionTrack(tracks, this.prefs.targetLanguage);
+      ? selectLiveCaptionTrack(tracks, this.prefs.targetLanguage, spoken)
+      : selectCaptionTrack(tracks, this.prefs.targetLanguage, spoken);
     if (!selected) return live ? { cues: [], live: true } : null;
+
+    const fetchKey = `${youtubeVideoId(this.doc.defaultView?.location.href ?? '') ?? 'yt'}:${selected.baseUrl}`;
+    this.timedtextKey = fetchKey;
+    if (!live) {
+      const now = this.now();
+      if (!this.timedtextGuard.allow(fetchKey, now) || !this.timedtextGuard.begin(fetchKey)) {
+        return {
+          cues: this.loaded?.cues ?? [],
+          language: selected.languageCode,
+          live,
+        };
+      }
+    }
+
     const url = withTimedtextFormat(selected.baseUrl, 'json3');
     try {
       const body = await this.readTrack(url);
-      const cues = mergeWordCues(parseTimedtextPayload(body, 'json3', selected.languageCode));
-      if (cues.length === 0 && !live) return null;
-      return { cues, language: selected.languageCode, live };
+      const cues = finalizeCaptionCues(parseTimedtextPayload(body, 'json3', selected.languageCode));
+      if (cues.length > 0) {
+        if (!live) this.timedtextGuard.succeed(fetchKey);
+        this.useDomCaptions = live;
+        return { cues, language: selected.languageCode, live };
+      }
+      if (!live) this.timedtextGuard.fail(fetchKey, this.now());
+      this.useDomCaptions = true;
+      return { cues: [], language: selected.languageCode, live };
     } catch {
-      return live ? { cues: [], live: true } : null;
+      if (!live) this.timedtextGuard.fail(fetchKey, this.now());
+      this.useDomCaptions = true;
+      return { cues: [], language: selected.languageCode, live };
     }
   }
 
@@ -275,14 +340,15 @@ export class VideoCaptionSession {
   }
 
   private async loadXTrack(video: HTMLVideoElement): Promise<Omit<LoadedTrack, 'key'> | null> {
-    const html5 = loadHtml5Track(video, this.prefs.targetLanguage);
+    const durationMs = Number.isFinite(video.duration) ? video.duration * 1000 : undefined;
+    const html5 = loadHtml5Track(video, this.prefs.targetLanguage, durationMs);
     if (html5 && html5.cues.length > 0) return html5;
 
     const urls = listXSubtitleUrls(video);
     for (const url of urls) {
       try {
         const body = await this.readTrack(url);
-        const cues = mergeWordCues(parseWebVtt(body));
+        const cues = finalizeCaptionCues(parseWebVtt(body), durationMs);
         if (cues.length > 0) {
           return { cues, restoreModes: html5?.restoreModes ?? [] };
         }
@@ -299,7 +365,11 @@ export class VideoCaptionSession {
     if (!video) return;
     this.place();
     if (this.loaded && this.loaded.cues.length === 0) {
-      const html5 = loadHtml5Track(video, this.prefs.targetLanguage);
+      const html5 = loadHtml5Track(
+        video,
+        this.prefs.targetLanguage,
+        Number.isFinite(video.duration) ? video.duration * 1000 : undefined,
+      );
       if (html5 && html5.cues.length > 0) {
         this.loaded = { ...this.loaded, ...html5 };
       }
@@ -308,7 +378,7 @@ export class VideoCaptionSession {
     const timeMs = Math.round((video.currentTime || 0) * 1000);
     const cues = this.loaded?.cues ?? [];
     const cue = cueAtTime(cues, timeMs);
-    if (this.liveMode) {
+    if (this.liveMode || this.useDomCaptions) {
       if (readYoutubeCaptionDom(this.doc).length > 0) {
         this.pollLive();
         return;
@@ -317,6 +387,7 @@ export class VideoCaptionSession {
         await this.paintCue(cue, cues, timeMs, force);
         return;
       }
+      if (this.useDomCaptions) this.pollLive();
       return;
     }
     if (!cue) {
@@ -495,6 +566,7 @@ export class VideoCaptionSession {
 function loadHtml5Track(
   video: HTMLVideoElement,
   targetLanguage: string,
+  durationMs?: number,
 ): Omit<LoadedTrack, 'key'> | null {
   const tracks = listCaptionTracks(video);
   const selected = pickCaptionTrack(tracks, targetLanguage);
@@ -506,7 +578,7 @@ function loadHtml5Track(
   for (const track of tracks) {
     if (track !== selected && track.mode === 'showing') track.mode = 'hidden';
   }
-  const cues = mergeWordCues(cuesFromTrack(selected));
+  const cues = finalizeCaptionCues(cuesFromTrack(selected), durationMs);
   if (cues.length === 0 && selected.cues === null) {
     return { cues: [], language: selected.language || undefined, restoreModes };
   }

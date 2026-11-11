@@ -1,6 +1,58 @@
 import { browser } from 'wxt/browser';
 import { resolveTwimgCaptionUrl } from './x';
 
+export const TIMEDTEXT_MAX_ATTEMPTS = 3;
+export const TIMEDTEXT_BACKOFF_MS = [1_000, 4_000] as const;
+
+/**
+ * Caps empty timedtext GETs per video+track. DOM mutations must not fetch; retries
+ * use exponential backoff and stop after {@link TIMEDTEXT_MAX_ATTEMPTS}.
+ */
+export class TimedtextFetchGuard {
+  private readonly attempts = new Map<string, { count: number; nextAt: number }>();
+  private readonly inflight = new Set<string>();
+
+  allow(key: string, now: number): boolean {
+    if (this.inflight.has(key)) return false;
+    const state = this.attempts.get(key);
+    if (!state) return true;
+    if (state.count >= TIMEDTEXT_MAX_ATTEMPTS) return false;
+    return now >= state.nextAt;
+  }
+
+  begin(key: string): boolean {
+    if (this.inflight.has(key)) return false;
+    this.inflight.add(key);
+    return true;
+  }
+
+  succeed(key: string): void {
+    this.inflight.delete(key);
+    this.attempts.delete(key);
+  }
+
+  fail(key: string, now: number): void {
+    this.inflight.delete(key);
+    const count = (this.attempts.get(key)?.count ?? 0) + 1;
+    const delayIndex = Math.min(count - 1, TIMEDTEXT_BACKOFF_MS.length - 1);
+    const delay = TIMEDTEXT_BACKOFF_MS[delayIndex] ?? 4_000;
+    this.attempts.set(key, {
+      count,
+      nextAt: count >= TIMEDTEXT_MAX_ATTEMPTS ? Number.POSITIVE_INFINITY : now + delay,
+    });
+  }
+
+  reset(key?: string): void {
+    if (key) {
+      this.attempts.delete(key);
+      this.inflight.delete(key);
+      return;
+    }
+    this.attempts.clear();
+    this.inflight.clear();
+  }
+}
+
 /**
  * Same-origin GET of a caption URL the player already embedded on the page.
  * No body: this is not a request that carries page text to a server.

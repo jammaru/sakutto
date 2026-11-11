@@ -40,11 +40,13 @@ export function shouldAutoInjectCaptions(options: {
   return options.settingOn && options.originAllowed && isCaptionAutoHost(options.host);
 }
 
-/** Optional host access for youtube.com / x.com, requested when the setting is turned on. */
+/**
+ * Optional host access for youtube.com / x.com. `permissions.request` must be the first
+ * awaited extension call in the click that turns the setting on — a prior `await`
+ * (including `permissions.contains`) drops the user gesture and Chrome shows no prompt.
+ */
 export async function requestCaptionHostAccess(): Promise<boolean> {
   const origins = captionPermissionOrigins();
-  const already = await browser.permissions.contains({ origins }).catch(() => false);
-  if (already) return true;
   return browser.permissions.request({ origins }).catch(() => false);
 }
 

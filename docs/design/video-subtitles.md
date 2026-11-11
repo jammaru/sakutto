@@ -62,8 +62,22 @@ The content script runs in the isolated world, so `window.ytInitialPlayerRespons
 visible and also goes stale on SPA navigation. Script-tag text is parsed instead.
 `yt-navigate-finish` reloads the track.
 
-**Track choice:** a human-written track whose language is not the translation target, then
-any manual track, then ASR. A track that is already in the target language is shown as-is.
+**Track choice:** the video's original/spoken language from the player
+(`videoDetails.defaultAudioLanguage`, then `audioTracks[].audioTrackId` /
+`defaultCaptionTrackIndex`), then English manual, then English ASR. Never the first
+translated track in the list (those lists often start at Afrikaans). A track that is
+already in the target language is shown as-is.
+
+**Empty timedtext:** a missing `pot=` often yields HTTP 200 with an empty body. v1 does
+not POST InnerTube. It GETs the embedded `baseUrl` at most three times per video+track
+(exponential backoff; never on DOM mutations). If every attempt is empty, VOD falls
+through to the same `.ytp-caption-segment` path live uses, with `LiveCaptionBuffer`
+sentence assembly. The native caption window stays in the DOM so the player keeps
+updating it; CSS only hides it from view.
+
+**VOD sentence assembly:** consecutive cues are merged at sentence-end punctuation (with
+a max span and character cap) and translated once. The overlay covers the combined time
+span. Mid-sentence fragments are not sent to the model.
 
 **ToS / fragility.** YouTube's terms restrict automated access and downloading of content.
 Reading a caption URL the player itself embedded on a page the user opened, then
@@ -106,6 +120,9 @@ Dedicated adapter (`src/captions/x.ts`). Some X videos ship WebVTT from
 - Fetch: same MAIN-world GET as YouTube timedtext, allowlisted to twimg VTT **only when
   the tab host is X**. This uses the page's CORS, not an extension host permission for
   `video.twimg.com`. If the GET fails, the overlay stays empty.
+- Timestamps: some X VTTs start at `01:00:01` (HLS 1-hour origin / `X-TIMESTAMP-MAP`).
+  Cue times are shifted onto the media timeline when the first cue is past the duration
+  or matches that 1-hour pattern.
 
 ### Generic HTML5
 
@@ -270,11 +287,13 @@ already looking at.
 
 ## Test plan
 
-- **Unit:** WebVTT and json3 parsers; word-cue merge (no false sentences); live buffer;
-  player-response / live track choice; X playing-video picker and twimg allowlist;
-  auto-inject gating; popup/options toggle permission-denied revert; overlay bilingual/replace;
-  translator cache, seek cancel, degenerate skip, live preempt; scheduler preemption;
-  session live original-then-translation, setting-off overlay removal, and silent X.
+- **Unit:** WebVTT and json3 parsers; word-cue merge (no false sentences); VOD sentence
+  merge from fragmentary cues; 1-hour X VTT offset; live buffer; spoken-language track
+  choice (not the first translated track); timedtext fetch cap; X playing-video picker and
+  twimg allowlist; auto-inject gating; popup/options toggle permission-denied revert;
+  overlay bilingual/replace; translator cache, seek cancel, degenerate skip, live preempt;
+  scheduler preemption; session live original-then-translation, empty-timedtext DOM
+  fallback, setting-off overlay removal, and silent X.
 - **e2e:** HTML5 dummy clip; YouTube on-demand; YouTube live auto-run without Translate;
   X-like DOM + VTT (playing video only); X with no captions → nothing; popup switch
   on/off propagation and permission-denied revert. No real people, no personal info, no

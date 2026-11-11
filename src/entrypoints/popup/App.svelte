@@ -256,6 +256,7 @@
   async function setVideoCaptions(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
     captionPermissionError = false;
+    // User gesture: resolveCaptionToggle must call permissions.request with no prior pause.
     const result = await resolveCaptionToggle(input.checked);
     input.checked = result.on;
     if (result.denied) {

@@ -1,4 +1,4 @@
-import { hasSentenceTerminator } from '@/engine/text/sentences';
+import { hasSentenceTerminator, splitForTranslation } from '@/engine/text/sentences';
 
 export interface CaptionCue {
   id: string;
@@ -13,6 +13,10 @@ export const LIVE_CAPTION_MAX_CHARS = 96;
 export const WORD_CUE_MERGE_GAP_MS = 800;
 export const WORD_CUE_MERGE_MAX_MS = 3_500;
 export const WORD_CUE_MERGE_MAX_CHARS = 96;
+export const SENTENCE_CUE_MERGE_GAP_MS = 1_500;
+export const SENTENCE_CUE_MERGE_MAX_MS = 12_000;
+export const SENTENCE_CUE_MERGE_MAX_CHARS = 280;
+export const WEBVTT_HOUR_OFFSET_MS = 3_600_000;
 
 const VTT_TIMESTAMP =
   /^(?:(\d{2,}):)?(\d{2}):(\d{2})\.(\d{3})\s*-->\s*(?:(\d{2,}):)?(\d{2}):(\d{2})\.(\d{3})/;
@@ -63,6 +67,25 @@ export function parseWebVtt(source: string, language?: string): CaptionCue[] {
 
   if (lines[0]?.startsWith('WEBVTT')) index = 1;
 
+  let mapOffsetMs = 0;
+  while (index < lines.length) {
+    const header = (lines[index] ?? '').trim();
+    if (header.length === 0) {
+      index += 1;
+      continue;
+    }
+    if (header.startsWith('NOTE') || header.startsWith('STYLE') || header.startsWith('REGION')) {
+      index += 1;
+      continue;
+    }
+    if (header.toUpperCase().startsWith('X-TIMESTAMP-MAP=')) {
+      mapOffsetMs = parseXTimestampMap(header) ?? mapOffsetMs;
+      index += 1;
+      continue;
+    }
+    break;
+  }
+
   while (index < lines.length) {
     const line = lines[index] ?? '';
     if (line.trim().length === 0 || line.startsWith('NOTE') || line.startsWith('STYLE')) {
@@ -101,7 +124,26 @@ export function parseWebVtt(source: string, language?: string): CaptionCue[] {
     });
   }
 
-  return cues;
+  return alignCaptionCuesToMedia(cues, undefined, mapOffsetMs);
+}
+
+function parseXTimestampMap(header: string): number | null {
+  const match = /X-TIMESTAMP-MAP=LOCAL:([^,]+),MPEGTS:(\d+)/iu.exec(header);
+  if (!match) return null;
+  const localMs = parseVttClock(match[1] ?? '');
+  const mpegts = Number(match[2]);
+  if (localMs === null || !Number.isFinite(mpegts)) return null;
+  return Math.round(mpegts / 90 - localMs);
+}
+
+function parseVttClock(value: string): number | null {
+  const match = /^(?:(\d{2,}):)?(\d{2}):(\d{2})\.(\d{3})$/u.exec(value.trim());
+  if (!match) {
+    const short = /^(\d{2}):(\d{2})\.(\d{3})$/u.exec(value.trim());
+    if (!short) return null;
+    return timestampToMs(undefined, short[1] ?? '00', short[2] ?? '00', short[3] ?? '000');
+  }
+  return timestampToMs(match[1], match[2] ?? '00', match[3] ?? '00', match[4] ?? '000');
 }
 
 interface Json3Segment {
@@ -210,6 +252,140 @@ function isWordFragment(cue: CaptionCue): boolean {
   if (trimmed.length === 0 || trimmed.length > 16) return false;
   if (/\s/u.test(trimmed)) return false;
   return cue.endMs - cue.startMs <= WORD_CUE_MERGE_GAP_MS;
+}
+
+function splitCueSentences(text: string): string[] {
+  const trimmed = normalizeCaptionText(text);
+  if (trimmed.length === 0) return [];
+  const parts = splitForTranslation(trimmed, { sentenceThreshold: 1 });
+  return parts.length > 0 ? parts : [trimmed];
+}
+
+function makeMergedCue(
+  startMs: number,
+  endMs: number,
+  text: string,
+  language: string | undefined,
+): CaptionCue {
+  return {
+    id: captionCueId(startMs, text),
+    startMs,
+    endMs,
+    text,
+    ...(language ? { language } : {}),
+  };
+}
+
+/**
+ * Join consecutive VOD cues into full sentences so the model is not asked to
+ * translate mid-phrase fragments. Display uses the combined time span.
+ */
+export function mergeSentenceCues(cues: readonly CaptionCue[]): CaptionCue[] {
+  if (cues.length === 0) return [];
+  const merged: CaptionCue[] = [];
+  let startMs = 0;
+  let endMs = 0;
+  let language: string | undefined;
+  let parts: string[] = [];
+
+  const currentText = (): string => normalizeCaptionText(parts.join(' '));
+
+  const commit = (): void => {
+    const text = currentText();
+    if (text.length === 0) return;
+    merged.push(makeMergedCue(startMs, endMs, text, language));
+    parts = [];
+  };
+
+  const startGroup = (cue: CaptionCue, text: string): void => {
+    startMs = cue.startMs;
+    endMs = cue.endMs;
+    language = cue.language;
+    parts = [text];
+  };
+
+  for (const cue of cues) {
+    for (const piece of splitCueSentences(cue.text)) {
+      if (parts.length === 0) {
+        startGroup(cue, piece);
+      } else {
+        const gap = cue.startMs - endMs;
+        const duration = Math.max(endMs, cue.endMs) - startMs;
+        const joined = normalizeCaptionText(`${currentText()} ${piece}`);
+        const canMerge =
+          gap <= SENTENCE_CUE_MERGE_GAP_MS &&
+          duration <= SENTENCE_CUE_MERGE_MAX_MS &&
+          joined.length <= SENTENCE_CUE_MERGE_MAX_CHARS &&
+          !hasSentenceTerminator(currentText());
+        if (!canMerge) {
+          commit();
+          startGroup(cue, piece);
+        } else {
+          endMs = Math.max(endMs, cue.endMs);
+          parts.push(piece);
+        }
+      }
+      if (
+        hasSentenceTerminator(currentText()) ||
+        currentText().length >= SENTENCE_CUE_MERGE_MAX_CHARS
+      ) {
+        commit();
+      }
+    }
+  }
+  commit();
+  return merged;
+}
+
+export function captionTimeOffsetMs(
+  cues: readonly CaptionCue[],
+  durationMs?: number,
+  mapOffsetMs = 0,
+): number {
+  if (mapOffsetMs > 0) {
+    const first = cues[0]?.startMs ?? 0;
+    if (first + 1_000 >= mapOffsetMs) return mapOffsetMs;
+  }
+  const first = cues[0]?.startMs;
+  if (first === undefined) return 0;
+  if (durationMs !== undefined && durationMs > 0 && first >= durationMs) {
+    if (first >= WEBVTT_HOUR_OFFSET_MS && first - WEBVTT_HOUR_OFFSET_MS < durationMs + 1_000) {
+      return WEBVTT_HOUR_OFFSET_MS;
+    }
+    return first;
+  }
+  if (first >= WEBVTT_HOUR_OFFSET_MS && first < WEBVTT_HOUR_OFFSET_MS + 120_000) {
+    return WEBVTT_HOUR_OFFSET_MS;
+  }
+  return 0;
+}
+
+export function shiftCaptionCues(cues: readonly CaptionCue[], offsetMs: number): CaptionCue[] {
+  if (offsetMs === 0) return [...cues];
+  const shifted: CaptionCue[] = [];
+  for (const cue of cues) {
+    const startMs = Math.max(0, cue.startMs - offsetMs);
+    const endMs = cue.endMs - offsetMs;
+    if (endMs <= startMs) continue;
+    shifted.push(makeMergedCue(startMs, endMs, cue.text, cue.language));
+  }
+  return shifted;
+}
+
+/** Shift HLS/X cues that start at 1h (or beyond the media duration) onto the playhead. */
+export function alignCaptionCuesToMedia(
+  cues: readonly CaptionCue[],
+  durationMs?: number,
+  mapOffsetMs = 0,
+): CaptionCue[] {
+  return shiftCaptionCues(cues, captionTimeOffsetMs(cues, durationMs, mapOffsetMs));
+}
+
+export function finalizeCaptionCues(
+  cues: readonly CaptionCue[],
+  durationMs?: number,
+): CaptionCue[] {
+  return alignCaptionCuesToMedia(mergeSentenceCues(mergeWordCues(cues)), durationMs);
 }
 
 export function cueAtTime(cues: readonly CaptionCue[], timeMs: number): CaptionCue | null {

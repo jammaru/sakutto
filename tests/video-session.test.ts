@@ -140,6 +140,64 @@ describe('video caption session', () => {
     session.stop();
   });
 
+  it('does not refetch empty timedtext on DOM mutations', async () => {
+    document.body.innerHTML = `
+      <div id="movie_player">
+        <video id="player" class="html5-main-video"></video>
+        <div class="ytp-caption-window-container">
+          <span class="ytp-caption-segment">The station opens at dawn.</span>
+        </div>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "videoDetails": { "defaultAudioLanguage": "en" },
+          "captions": {
+            "playerCaptionsTracklistRenderer": {
+              "captionTracks": [{
+                "baseUrl": "/youtube-timedtext.json",
+                "languageCode": "en",
+                "name": { "simpleText": "English" }
+              }]
+            }
+          }
+        };
+      </script>
+    `;
+    const video = document.querySelector('video');
+    if (video) video.currentTime = 0.4;
+    let fetches = 0;
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => {
+        fetches += 1;
+        return '';
+      },
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original'),
+      ).toBe('The station opens at dawn.');
+    });
+    const segment = document.querySelector('.ytp-caption-segment');
+    for (let index = 0; index < 40; index += 1) {
+      if (segment) segment.textContent = `The station opens at dawn. ${String(index)}`;
+      document.body.append(document.createElement('div'));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(fetches).toBeLessThanOrEqual(3);
+    expect(fetches).toBe(1);
+    session.stop();
+  });
+
   it('translates a synthetic X VTT on the playing video only', async () => {
     const { Window } = await import('happy-dom');
     const view = new Window({ url: 'https://x.com/i/status/1' });
@@ -168,6 +226,44 @@ describe('video caption session', () => {
       readTrack: async () => `WEBVTT
 
 00:00:00.000 --> 00:00:02.000
+The station opens at dawn.
+`,
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+        'The station opens at dawn.',
+      );
+    });
+    session.stop();
+    view.close();
+  });
+
+  it('paints an X VTT whose cues start one hour in', async () => {
+    const { Window } = await import('happy-dom');
+    const view = new Window({ url: 'https://x.com/i/status/1' });
+    const doc = view.document;
+    doc.body.innerHTML = `
+      <video id="playing">
+        <track kind="subtitles" src="https://video.twimg.com/subtitles/fixture.vtt" srclang="en" />
+      </video>
+    `;
+    const playing = doc.querySelector('#playing') as unknown as HTMLVideoElement;
+    stubMedia(playing, { paused: false, width: 320, height: 180, currentTime: 2, duration: 86.7 });
+
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => `WEBVTT
+
+01:00:01.583 --> 01:00:04.000
 The station opens at dawn.
 `,
     });
@@ -230,7 +326,13 @@ function delayedEngine(gate: Promise<void>): PageEngine {
 
 function stubMedia(
   video: HTMLVideoElement,
-  options: { paused: boolean; width: number; height: number; currentTime?: number },
+  options: {
+    paused: boolean;
+    width: number;
+    height: number;
+    currentTime?: number;
+    duration?: number;
+  },
 ): void {
   Object.defineProperty(video, 'paused', { configurable: true, get: () => options.paused });
   Object.defineProperty(video, 'ended', { configurable: true, get: () => false });
@@ -241,6 +343,10 @@ function stubMedia(
     configurable: true,
     get: () => options.currentTime ?? 0,
     set: () => undefined,
+  });
+  Object.defineProperty(video, 'duration', {
+    configurable: true,
+    get: () => options.duration ?? 10,
   });
   video.getBoundingClientRect = () =>
     ({

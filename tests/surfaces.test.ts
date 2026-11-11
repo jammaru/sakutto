@@ -69,6 +69,18 @@ describe('start controls while the model downloads', () => {
     expect(popup).not.toContain('videoCaptionsSettingHelp');
     expect(popup).not.toMatch(/badge|notification/i);
   });
+
+  it('calls permissions.request as the first await in the popup caption click', () => {
+    const sites = source('captions/sites.ts');
+    expect(sites).toContain('browser.permissions.request({ origins })');
+    expect(sites).not.toMatch(/permissions\.contains\s*\(/);
+    const start = popup.indexOf('async function setVideoCaptions');
+    const end = popup.indexOf('async function setAlways');
+    const body = popup.slice(start, end);
+    const before = body.slice(0, body.indexOf('await resolveCaptionToggle'));
+    expect(before).toContain('captionPermissionError = false');
+    expect(before).not.toMatch(/\bawait\b/);
+  });
 });
 
 /**
