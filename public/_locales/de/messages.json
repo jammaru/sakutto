@@ -399,10 +399,10 @@
     "message": "Tastenkürzel"
   },
   "shortcutHelp": {
-    "message": "Entfernen Sie das Häkchen, um einen Befehl in Sakutto auszuschalten. „Tastenkürzel ändern“ öffnet den Editor von Chrome. Eine dort gelöschte Taste verwendet Sakutto nicht mehr. Die Standardtaste gilt auf Seiten nur, wenn Chrome sie bei der Installation nie zugewiesen hat, etwa wegen eines Konflikts."
+    "message": "Entfernen Sie das Häkchen, um einen Befehl in Sakutto auszuschalten. „Tastenkürzel ändern“ öffnet den Editor von Chrome. Eine dort festgelegte Taste wird unverändert verwendet. Ist ein Befehl nicht zugewiesen, gilt die Standardtaste auf Webseiten — nicht auf chrome://-Seiten oder anderen Seiten, die Sakutto nicht betreten kann."
   },
   "shortcutHelpFirefox": {
-    "message": "Entfernen Sie das Häkchen, um einen Befehl in Sakutto auszuschalten. „Tastenkürzel ändern“ öffnet den Editor von Firefox. Eine dort gelöschte Taste verwendet Sakutto nicht mehr. Die Standardtaste gilt auf Seiten nur, wenn Firefox sie bei der Installation nie zugewiesen hat, etwa wegen eines Konflikts."
+    "message": "Entfernen Sie das Häkchen, um einen Befehl in Sakutto auszuschalten. „Tastenkürzel ändern“ öffnet den Editor von Firefox. Eine dort festgelegte Taste wird unverändert verwendet. Ist ein Befehl nicht zugewiesen, stellt Firefox die Standardtaste wieder her, wenn möglich; sonst gilt sie auf Seiten."
   },
   "shortcutChange": {
     "message": "Tastenkürzel ändern"
@@ -417,10 +417,26 @@
     "message": "Aus"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome hat diesem Befehl bei der Installation keine Taste zugewiesen. Auf Seiten gilt die Standardtaste."
+    "message": "Dieser Befehl hat im Chrome-Editor keine Taste, daher gilt die Standardtaste auf Webseiten. Auf chrome://-Seiten und anderen Seiten, die Sakutto nicht betreten kann, funktioniert sie nicht."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox hat diesem Befehl bei der Installation keine Taste zugewiesen. Auf Seiten gilt die Standardtaste."
+    "message": "Dieser Befehl hat im Firefox-Editor keine Taste, daher gilt die Standardtaste auf Seiten."
+  },
+  "shortcutFallbackKey": {
+    "message": "$KEY$ (auf Seiten)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutFallbackKeyFirefox": {
+    "message": "$KEY$ (auf Seiten)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutTranslate": {
     "message": "$KEY$ übersetzt die Seite oder stellt das Original wieder her.",

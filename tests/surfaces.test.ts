@@ -160,11 +160,13 @@ describe('shortcut settings', () => {
   const options = source('entrypoints/options/App.svelte');
   const background = source('entrypoints/background.ts');
 
-  it('reads the keys the browser has bound, and falls back only after an install conflict', () => {
+  it('reads the keys the browser has bound, and falls back when a command is empty', () => {
     expect(shortcuts).toContain('requestShortcutSnapshot');
     expect(shortcuts).toContain('displayShortcut');
     expect(shortcuts).toContain('boundShortcut');
     expect(shortcuts).toContain('usesInPageFallback');
+    expect(shortcuts).toContain('shortcutFallbackKey');
+    expect(shortcuts).toContain('data-sakutto="shortcut-fallback"');
     expect(shortcuts).not.toContain("'Alt+A'");
   });
 
@@ -187,14 +189,16 @@ describe('shortcut settings', () => {
     expect(options).toContain('shortcutHeading');
   });
 
-  it('records the browser’s first command bindings so a later clear is not a conflict', () => {
+  it('records the browser’s command bindings on install, update, and startup', () => {
     expect(background).toContain('resolveShortcutQuery');
+    expect(background).toContain('restoreEmptyCommandShortcuts');
     expect(background).toContain('onInstalled');
+    expect(background).toContain('onStartup');
   });
 });
 
 describe('popup shortcut hints', () => {
-  it('names the live binding and says when Chrome never assigned the suggested key', () => {
+  it('names the live binding and says when the in-page default is filling in', () => {
     expect(popup).toContain('usesInPageFallback');
     expect(popup).toContain('shortcutFallbackNote');
     expect(popup).toContain('data-sakutto="shortcut-fallback"');

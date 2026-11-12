@@ -399,10 +399,10 @@
     "message": "Atajos de teclado"
   },
   "shortcutHelp": {
-    "message": "Desmarque un comando para desactivarlo en Sakutto. Cambiar atajos abre el editor de Chrome. Si borra una tecla ahí, Sakutto deja de usarla. La tecla predeterminada se usa en las páginas solo si Chrome no asignó ninguna al instalar, por ejemplo por un conflicto."
+    "message": "Desmarque un comando para desactivarlo en Sakutto. Cambiar atajos abre el editor de Chrome. La tecla que asigne allí se usa tal cual. Si un comando no está asignado, la tecla predeterminada sigue funcionando en páginas web, no en páginas chrome:// ni en otras que Sakutto no puede abrir."
   },
   "shortcutHelpFirefox": {
-    "message": "Desmarque un comando para desactivarlo en Sakutto. Cambiar atajos abre el editor de Firefox. Si borra una tecla ahí, Sakutto deja de usarla. La tecla predeterminada se usa en las páginas solo si Firefox no asignó ninguna al instalar, por ejemplo por un conflicto."
+    "message": "Desmarque un comando para desactivarlo en Sakutto. Cambiar atajos abre el editor de Firefox. La tecla que asigne allí se usa tal cual. Si un comando no está asignado, Firefox restaura la predeterminada cuando puede; si no, sigue funcionando en las páginas."
   },
   "shortcutChange": {
     "message": "Cambiar atajos"
@@ -417,10 +417,26 @@
     "message": "Desactivado"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome no asignó una tecla a este comando al instalar, así que en las páginas se usa la predeterminada."
+    "message": "Este comando no tiene tecla en el editor de atajos de Chrome, así que la predeterminada se usa en páginas web. No funciona en páginas chrome:// ni en otras que Sakutto no puede abrir."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox no asignó una tecla a este comando al instalar, así que en las páginas se usa la predeterminada."
+    "message": "Este comando no tiene tecla en el editor de atajos de Firefox, así que la predeterminada se usa en las páginas."
+  },
+  "shortcutFallbackKey": {
+    "message": "$KEY$ (en páginas)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutFallbackKeyFirefox": {
+    "message": "$KEY$ (en páginas)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutTranslate": {
     "message": "$KEY$ traduce la página o restaura la original.",

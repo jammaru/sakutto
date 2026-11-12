@@ -37,7 +37,7 @@ import {
   requestEngineProbe,
   type ModelProgressMessage,
 } from '@/shared/messages';
-import { resolveShortcutQuery } from '@/shared/shortcut-assignment';
+import { resolveShortcutQuery, restoreEmptyCommandShortcuts } from '@/shared/shortcut-assignment';
 import {
   WEBGPU_DEBUG_STORAGE_KEY,
   isWebGpuDebugProfile,
@@ -186,7 +186,8 @@ export default defineBackground(() => {
 
   async function recordCommandAssignments(): Promise<void> {
     const commands = await browser.commands.getAll().catch(() => []);
-    await resolveShortcutQuery(commands);
+    const next = await restoreEmptyCommandShortcuts(commands);
+    await resolveShortcutQuery(next);
   }
 
   browser.runtime.onInstalled.addListener(({ reason }) => {

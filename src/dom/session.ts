@@ -33,6 +33,7 @@ import {
   isFrozenInline,
   isOwnUi,
   isScreenReaderOnly,
+  isTypingShortcutTarget,
   isTranslationExcluded,
   isTypedTextSelection,
 } from './blocks';
@@ -413,18 +414,21 @@ export class PageSession {
         return;
       }
       if (this.pageKey?.(event)) {
+        if (isTypingShortcutTarget(event)) return;
         event.preventDefault();
         event.stopPropagation();
         void this.handle('toggle');
         return;
       }
       if (this.bilingualKey?.(event)) {
+        if (isTypingShortcutTarget(event)) return;
         event.preventDefault();
         event.stopPropagation();
         void this.handle('bilingual');
         return;
       }
       if (!this.selectionKey(event)) return;
+      if (isTypingShortcutTarget(event)) return;
       const selected = this.readSelection();
       if (!selected) return;
       event.preventDefault();

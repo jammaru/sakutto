@@ -399,10 +399,10 @@
     "message": "鍵盤快速鍵"
   },
   "shortcutHelp": {
-    "message": "取消勾選即可在 Sakutto 中關閉該命令。「變更快捷鍵」會開啟 Chrome 自己的編輯器。在那裡清除按鍵後，Sakutto 也不再使用它。僅當安裝時 Chrome 從未指定快捷鍵（例如衝突）時，頁面上才使用預設鍵。"
+    "message": "取消勾選即可在 Sakutto 中關閉該命令。「變更快捷鍵」會開啟 Chrome 自己的編輯器。你在那裡設定的按鍵會原樣使用。若命令未指定，預設按鍵仍可在網頁上使用，但不能用於 chrome:// 頁面或其他 Sakutto 無法進入的頁面。"
   },
   "shortcutHelpFirefox": {
-    "message": "取消勾選即可在 Sakutto 中關閉該命令。「變更快捷鍵」會開啟 Firefox 自己的編輯器。在那裡清除按鍵後，Sakutto 也不再使用它。僅當安裝時 Firefox 從未指定快捷鍵（例如衝突）時，頁面上才使用預設鍵。"
+    "message": "取消勾選即可在 Sakutto 中關閉該命令。「變更快捷鍵」會開啟 Firefox 自己的編輯器。你在那裡設定的按鍵會原樣使用。若命令未指定，Firefox 會在允許時還原預設；否則預設按鍵仍可在頁面上使用。"
   },
   "shortcutChange": {
     "message": "變更快速鍵"
@@ -417,10 +417,26 @@
     "message": "關閉"
   },
   "shortcutFallbackNote": {
-    "message": "安裝時 Chrome 未為此命令指定快捷鍵，因此頁面上使用預設鍵。"
+    "message": "Chrome 的快捷鍵編輯器未指定此命令，因此網頁上使用預設按鍵。不能用於 chrome:// 頁面或其他 Sakutto 無法進入的頁面。"
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "安裝時 Firefox 未為此命令指定快捷鍵，因此頁面上使用預設鍵。"
+    "message": "Firefox 的快捷鍵編輯器未指定此命令，因此頁面上使用預設按鍵。"
+  },
+  "shortcutFallbackKey": {
+    "message": "$KEY$（在頁面中有效）",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutFallbackKeyFirefox": {
+    "message": "$KEY$（在頁面中有效）",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutTranslate": {
     "message": "$KEY$ 可轉換頁面或還原原始頁面。",

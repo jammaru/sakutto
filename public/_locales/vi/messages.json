@@ -399,10 +399,10 @@
     "message": "Phím tắt"
   },
   "shortcutHelp": {
-    "message": "Bỏ chọn lệnh để tắt trong Sakutto. Đổi phím tắt mở trình sửa của Chrome. Xóa phím ở đó thì Sakutto ngừng dùng phím đó. Phím mặc định chỉ dùng trên trang khi Chrome không gán phím lúc cài, ví dụ vì xung đột."
+    "message": "Bỏ chọn lệnh để tắt trong Sakutto. Đổi phím tắt mở trình sửa của Chrome. Phím bạn đặt ở đó được dùng nguyên. Nếu lệnh chưa gán, phím mặc định vẫn dùng được trên trang web — không trên trang chrome:// hay trang khác mà Sakutto không vào được."
   },
   "shortcutHelpFirefox": {
-    "message": "Bỏ chọn lệnh để tắt trong Sakutto. Đổi phím tắt mở trình sửa của Firefox. Xóa phím ở đó thì Sakutto ngừng dùng phím đó. Phím mặc định chỉ dùng trên trang khi Firefox không gán phím lúc cài, ví dụ vì xung đột."
+    "message": "Bỏ chọn lệnh để tắt trong Sakutto. Đổi phím tắt mở trình sửa của Firefox. Phím bạn đặt ở đó được dùng nguyên. Nếu lệnh chưa gán, Firefox khôi phục mặc định khi được; nếu không, phím mặc định vẫn dùng được trên trang."
   },
   "shortcutChange": {
     "message": "Đổi phím tắt"
@@ -417,10 +417,26 @@
     "message": "Tắt"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome không gán phím cho lệnh này lúc cài nên trên trang sẽ dùng phím mặc định."
+    "message": "Lệnh này không có phím trong trình sửa của Chrome, nên phím mặc định được dùng trên trang web. Không hoạt động trên trang chrome:// hay trang khác mà Sakutto không vào được."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox không gán phím cho lệnh này lúc cài nên trên trang sẽ dùng phím mặc định."
+    "message": "Lệnh này không có phím trong trình sửa của Firefox, nên phím mặc định được dùng trên trang."
+  },
+  "shortcutFallbackKey": {
+    "message": "$KEY$ (trên trang)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutFallbackKeyFirefox": {
+    "message": "$KEY$ (trên trang)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutTranslate": {
     "message": "$KEY$ chuyển đổi trang hoặc khôi phục bản gốc.",

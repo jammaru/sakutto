@@ -45,7 +45,12 @@
   function keyText(command: ShortcutCommand): string {
     if (!isOn(command)) return t('shortcutOff');
     const shortcut = keyFor(command);
-    return shortcut.length > 0 ? displayShortcut(shortcut) : t('shortcutUnset');
+    if (shortcut.length === 0) return t('shortcutUnset');
+    const displayed = displayShortcut(shortcut);
+    if (showsFallback(command)) {
+      return tForBrowser('shortcutFallbackKey', 'shortcutFallbackKeyFirefox', [displayed]);
+    }
+    return displayed;
   }
 
   function aria(command: ShortcutCommand): string | undefined {
@@ -56,10 +61,7 @@
   }
 
   function showsFallback(command: ShortcutCommand): boolean {
-    return (
-      isOn(command) &&
-      usesInPageFallback(shortcutState?.snapshot ?? null, command, shortcutState?.assigned[command])
-    );
+    return isOn(command) && usesInPageFallback(shortcutState?.snapshot ?? null, command);
   }
 
   function refresh(): void {
@@ -71,8 +73,8 @@
   /**
    * The browser owns the key bindings, so the only honest control is a button that opens
    * its editor. The rows are read again when the reader comes back from that tab. Sakutto's
-   * own checkbox is one off switch; clearing a key in the browser is another. The in-page
-   * default only fills in when the browser never assigned the suggested key.
+   * own checkbox is the off switch. An empty browser binding uses the per-OS default on
+   * pages; a key set in the editor is used as-is.
    */
   async function openEditor(): Promise<void> {
     openFailed = !(await openShortcutEditor());
@@ -110,7 +112,9 @@
       </dd>
     </div>
     {#if showsFallback(command)}
-      <p class="fallback">{tForBrowser('shortcutFallbackNote', 'shortcutFallbackNoteFirefox')}</p>
+      <p class="fallback" data-sakutto="shortcut-fallback">
+        {tForBrowser('shortcutFallbackNote', 'shortcutFallbackNoteFirefox')}
+      </p>
     {/if}
   {/each}
 </dl>

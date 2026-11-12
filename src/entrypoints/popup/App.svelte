@@ -92,9 +92,8 @@
   let shortcutError = $state(false);
 
   /**
-   * The key each command actually uses on a page. A browser-assigned key wins. The
-   * manifest default fills in only when the browser never assigned one. Sakutto's own
-   * setting, or a key the user cleared in the browser, turns the command off.
+   * The key each command actually uses on a page. A browser-assigned key wins. An empty
+   * binding uses the per-OS default on pages. Sakutto's own checkbox turns a command off.
    */
   let bound = $derived.by((): Record<ShortcutCommand, string> => {
     const enabled = settings?.shortcutsEnabled;
@@ -114,9 +113,7 @@
     })),
   );
   let shortcutFallback = $derived(
-    SHORTCUT_COMMANDS.some((command) =>
-      usesInPageFallback(shortcuts?.snapshot ?? null, command, shortcuts?.assigned[command]),
-    )
+    SHORTCUT_COMMANDS.some((command) => usesInPageFallback(shortcuts?.snapshot ?? null, command))
       ? tForBrowser('shortcutFallbackNote', 'shortcutFallbackNoteFirefox')
       : '',
   );
@@ -388,15 +385,22 @@
     void readDeviceHeadroom().then((value) => {
       headroom = value;
     });
-    void requestShortcutSnapshot().then((snapshot) => {
-      shortcuts = snapshot;
-    });
+    const refreshShortcuts = (): void => {
+      void requestShortcutSnapshot().then((snapshot) => {
+        if (snapshot) shortcuts = snapshot;
+      });
+    };
+    refreshShortcuts();
+    window.addEventListener('focus', refreshShortcuts);
+    document.addEventListener('visibilitychange', refreshShortcuts);
 
     return () => {
       unsubscribe();
       unsubscribeRules();
       window.clearInterval(timer);
       browser.runtime.onMessage.removeListener(onMessage);
+      window.removeEventListener('focus', refreshShortcuts);
+      document.removeEventListener('visibilitychange', refreshShortcuts);
     };
   });
 </script>

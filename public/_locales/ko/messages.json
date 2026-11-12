@@ -399,10 +399,10 @@
     "message": "키보드 단축키"
   },
   "shortcutHelp": {
-    "message": "명령을 끄려면 체크를 해제하세요. 단축키 변경은 Chrome의 편집기를 엽니다. 거기서 키를 지우면 Sakutto도 그 단축키를 쓰지 않습니다. 설치 때 Chrome이 키를 지정하지 않은 경우(충돌 등)에만 페이지에서 기본 키를 씁니다."
+    "message": "Sakutto에서 끄려면 해당 명령의 체크를 해제하세요. 바로 가기 변경은 Chrome 편집기를 엽니다. 거기서 지정한 키는 그대로 사용합니다. 할당되지 않은 명령은 웹 페이지에서 기본 키가 동작합니다. chrome:// 페이지 등 Sakutto가 들어갈 수 없는 페이지에서는 동작하지 않습니다."
   },
   "shortcutHelpFirefox": {
-    "message": "명령을 끄려면 체크를 해제하세요. 단축키 변경은 Firefox의 편집기를 엽니다. 거기서 키를 지우면 Sakutto도 그 단축키를 쓰지 않습니다. 설치 때 Firefox이 키를 지정하지 않은 경우(충돌 등)에만 페이지에서 기본 키를 씁니다."
+    "message": "Sakutto에서 끄려면 해당 명령의 체크를 해제하세요. 바로 가기 변경은 Firefox 편집기를 엽니다. 거기서 지정한 키는 그대로 사용합니다. 할당되지 않은 명령은 가능하면 Firefox가 기본값으로 되돌리고, 그렇지 않으면 페이지에서 기본 키가 동작합니다."
   },
   "shortcutChange": {
     "message": "단축키 변경"
@@ -417,10 +417,26 @@
     "message": "끄기"
   },
   "shortcutFallbackNote": {
-    "message": "설치 때 Chrome가 이 명령에 키를 지정하지 않아 페이지에서는 기본 키를 씁니다."
+    "message": "Chrome 바로 가기 편집기에 키가 없어 웹 페이지에서 기본 키를 사용합니다. chrome:// 페이지 등 Sakutto가 들어갈 수 없는 페이지에서는 동작하지 않습니다."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "설치 때 Firefox가 이 명령에 키를 지정하지 않아 페이지에서는 기본 키를 씁니다."
+    "message": "Firefox 바로 가기 편집기에 키가 없어 페이지에서 기본 키를 사용합니다."
+  },
+  "shortcutFallbackKey": {
+    "message": "$KEY$ (페이지에서 사용)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutFallbackKeyFirefox": {
+    "message": "$KEY$ (페이지에서 사용)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutTranslate": {
     "message": "$KEY$를 누르면 페이지가 변환되거나 원본으로 복원됩니다.",

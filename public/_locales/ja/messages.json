@@ -399,10 +399,10 @@
     "message": "キーボードショートカット"
   },
   "shortcutHelp": {
-    "message": "オフにするには下のチェックを外してください。Chrome 側の割り当てを変えるには「ショートカットキーを変更」を押します。そこでキーを消すと、Sakutto でもそのショートカットは使いません。インストール時に Chrome がキーを割り当てなかった場合（競合など）に限り、ページ上では既定のキーを使います。"
+    "message": "オフにするには下のチェックを外してください。Chrome 側の割り当てを変えるには「ショートカットキーを変更」を押します。そこで設定したキーはそのまま使います。未設定のコマンドは、ウェブページ上では既定のキーが使えます（chrome:// など、Sakutto が入れないページでは使えません）。"
   },
   "shortcutHelpFirefox": {
-    "message": "オフにするには下のチェックを外してください。「ショートカットキーを変更」は Firefox 自身の設定を開きます。そこでキーを消すと Sakutto は使いません。既定のキーがページで使われるのは、Firefox がインストール時に一度も割り当てなかった場合だけです（ほかの拡張機能と衝突したときなど）。"
+    "message": "オフにするには下のチェックを外してください。「ショートカットキーを変更」は Firefox 自身の設定を開きます。そこで設定したキーはそのまま使います。未設定のコマンドは、可能な場合 Firefox が既定に戻し、そうでなければページ上で既定のキーが使えます。"
   },
   "shortcutChange": {
     "message": "ショートカットキーを変更"
@@ -417,10 +417,26 @@
     "message": "オフ"
   },
   "shortcutFallbackNote": {
-    "message": "インストール時に Chrome がこのコマンドにキーを割り当てなかったため、ページ上では既定のキーを使います。"
+    "message": "Chrome のショートカット設定では未設定のため、ウェブページ上では既定のキーが使えます。chrome:// など、Sakutto が入れないページでは動きません。"
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "インストール時に Firefox がこの操作にキーを割り当てなかったため、ページでは既定のキーを使います。"
+    "message": "Firefox のショートカット設定では未設定のため、ページ上では既定のキーが使えます。"
+  },
+  "shortcutFallbackKey": {
+    "message": "$KEY$（ページ内で有効）",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutFallbackKeyFirefox": {
+    "message": "$KEY$（ページ内で有効）",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutTranslate": {
     "message": "「$KEY$」で翻訳と原文を切り替えます",

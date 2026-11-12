@@ -199,6 +199,7 @@ describe('locale messages', () => {
       'onboardingBridgeNoteFirefox',
       'shortcutHelpFirefox',
       'shortcutFallbackNoteFirefox',
+      'shortcutFallbackKeyFirefox',
     ];
     for (const key of firefoxKeys) {
       expect(en[key]?.message, key).not.toMatch(/Chrome/i);

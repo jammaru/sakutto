@@ -399,10 +399,10 @@
     "message": "Keyboard shortcuts"
   },
   "shortcutHelp": {
-    "message": "Uncheck a command to turn it off in Sakutto. Change shortcuts opens Chrome’s own editor. Clearing a key there stops Sakutto from using it. The default key is used on pages only when Chrome never assigned one, for example because of a conflict."
+    "message": "Uncheck a command to turn it off in Sakutto. Change shortcuts opens Chrome’s own editor. A key you set there is used as-is. If a command is unassigned, the default still works on web pages — not on chrome:// pages or other pages Sakutto cannot enter."
   },
   "shortcutHelpFirefox": {
-    "message": "Uncheck a command to turn it off in Sakutto. Change shortcuts opens Firefox’s own editor. Clearing a key there stops Sakutto from using it. The default key is used on pages only when Firefox never assigned one, for example because of a conflict."
+    "message": "Uncheck a command to turn it off in Sakutto. Change shortcuts opens Firefox’s own editor. A key you set there is used as-is. If a command is unassigned, Firefox restores the default when it can; otherwise the default still works on pages."
   },
   "shortcutChange": {
     "message": "Change shortcuts"
@@ -417,10 +417,26 @@
     "message": "Off"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+    "message": "This command has no key in Chrome’s shortcut editor, so the default is handled on web pages. It does not work on chrome:// pages or other pages Sakutto cannot enter."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
+    "message": "This command has no key in Firefox’s shortcut editor, so the default is handled on pages."
+  },
+  "shortcutFallbackKey": {
+    "message": "$KEY$ (on pages)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutFallbackKeyFirefox": {
+    "message": "$KEY$ (on pages)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutTranslate": {
     "message": "$KEY$ translates the page or restores the original.",

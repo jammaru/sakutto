@@ -1986,6 +1986,40 @@ describe('page translation corrections', () => {
     await session.handle('toggle');
     expect(session.state().active).toBe(false);
   });
+
+  it('does not steal Option+letter while the reader is typing in a field', async () => {
+    document.body.innerHTML = '<textarea id="draft">hello</textarea><p>Hello world</p>';
+    let calls = 0;
+    const session = new PageSession(document, {
+      engine: engineOf(async function* (segments) {
+        calls += 1;
+        for (const segment of segments) {
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' };
+        }
+      }),
+      labels,
+      preferences: preferences(),
+      scheduleFrame: (callback) => callback(),
+      pageKey: (event) => event.altKey && event.code === 'KeyA',
+    });
+    sessions.push(session);
+
+    const field = document.querySelector('#draft');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    field.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'å',
+        code: 'KeyA',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toBe(0);
+    expect(field.value).toBe('hello');
+  });
 });
 
 function overlapsRect(

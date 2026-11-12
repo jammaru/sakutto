@@ -173,6 +173,25 @@ export async function readCommandBindings(
   });
 }
 
+/** Overrides `commands.getAll()` in the service worker so tests can force empty or rebound keys. */
+export async function stubCommandBindings(
+  worker: Worker,
+  bindings: Array<{ name: string; shortcut: string }>,
+): Promise<void> {
+  await worker.evaluate((bindings) => {
+    const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
+    const stub = async (): Promise<Array<{ name: string; shortcut: string }>> => bindings;
+    try {
+      chrome.commands.getAll = stub;
+    } catch {
+      Object.defineProperty(chrome.commands, 'getAll', {
+        configurable: true,
+        value: stub,
+      });
+    }
+  }, bindings);
+}
+
 export async function commandPage(
   worker: Worker,
   page: Page,

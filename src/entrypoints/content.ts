@@ -59,8 +59,10 @@ const bridge = globalThis as typeof globalThis & ContentBridgeGlobal;
 
 /**
  * The browser only tells a page which keys are bound through the background worker. An
- * empty snapshot keeps the manifest defaults until that answer arrives. A command the
- * browser never assigned still uses the default; one the user cleared does not.
+ * empty snapshot keeps the manifest defaults until that answer arrives. A command with no
+ * browser key uses the per-OS default on this page; a key the user set is used as-is.
+ * The fallback cannot run on chrome:// pages or the PDF viewer, where this script is not
+ * injected.
  */
 async function readShortcutState(): Promise<ShortcutQueryResult | null> {
   const response: unknown = await browser.runtime
@@ -269,8 +271,8 @@ export default defineContentScript({
     bridge.__sakuttoContentBridgeReady = true;
 
     const host = pageHost(location.href) ?? '';
-    // The browser's bindings, or the manifest defaults until the background answers. A
-    // command the browser never assigned still uses its default; a user-cleared one does not.
+    // The browser's bindings, or the manifest defaults until the background answers. An
+    // empty command uses the per-OS default here; a customized key replaces it.
     let shortcutSnapshot: ShortcutSnapshot | null = null;
     let shortcutAssigned = emptyShortcutAssigned();
     let shortcutsEnabled = defaultShortcutEnabled();
@@ -289,9 +291,10 @@ export default defineContentScript({
       });
     };
     refreshShortcuts();
-    // The browser has no event for a changed binding. A reader who rebinds and comes back
-    // to the page brings it into focus, which is the moment to read the new key.
+    // Chrome has no commands.onChanged on older builds, and no way to write a shortcut.
+    // Re-read when the tab is shown so a change in chrome://extensions/shortcuts lands.
     window.addEventListener('focus', refreshShortcuts);
+    document.addEventListener('visibilitychange', refreshShortcuts);
 
     let engineSource: Settings['engineSource'] = 'in-browser';
     const engine = {

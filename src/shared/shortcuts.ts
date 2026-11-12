@@ -199,8 +199,9 @@ function hasShortcutKey(binding: string | null | undefined): binding is string {
  *
  * A command the map has never seen is recorded as assigned only when the browser reported a
  * key. An unassigned command becomes assigned if a key appears later. Assigned never goes
- * back to false, so clearing the key in the browser's shortcut editor is not mistaken for
- * the install-time conflict that still needs the in-page default.
+ * back to false. That map is still recorded (onCommand can land before the first snapshot),
+ * but an empty live binding always uses the in-page default — Chrome cannot write shortcuts
+ * (`commands.update` is Firefox-only).
  */
 export function rememberShortcutAssignments(
   recorded: ShortcutAssignment,
@@ -226,23 +227,20 @@ export interface BoundShortcutOptions {
   readonly enabled?: boolean;
   readonly mac?: boolean | undefined;
   /**
-   * Whether the browser has assigned a key to this command at least once. `true` means a
-   * later empty snapshot is a user clear — no in-page fallback. `false` means the first
-   * observation was empty (a conflict at install), so the manifest default stays on the
-   * page. Omitted until that observation is recorded, which also keeps the default so
-   * first-run still works before `onInstalled` finishes.
+   * Whether the browser has assigned a key to this command at least once. Callers still
+   * pass the persisted map; an empty live binding always falls back regardless of this
+   * flag, because Chrome cannot restore a shortcut (`commands.update` is Firefox-only).
    */
   readonly assigned?: boolean | undefined;
 }
 
 /**
- * The key a page should listen for. A key the user set in the browser wins. An empty
- * binding is a user clear when that command was assigned at least once, and the in-page
- * default only when the browser never assigned the suggested key (another extension already
- * holds it, a command added in an update, a second copy of this extension). Sakutto's own
- * setting is a separate off switch. `null` on the snapshot (the command was not listed)
- * follows the same empty-binding rule. No snapshot at all keeps the default so a page can
- * answer before the background replies.
+ * The key a page should listen for. A key the user set in the browser wins, so a
+ * customized shortcut is the only one that fires (onCommand plus in-page still share a
+ * short dedup). An empty or missing binding uses the per-OS default on pages — Chrome
+ * leaves an existing 未設定 command empty across updates, and has no API to write it
+ * back. Sakutto's own checkbox is the off switch. No snapshot at all keeps the default
+ * so a page can answer before the background replies.
  */
 export function boundShortcut(
   snapshot: ShortcutSnapshot | null,
@@ -254,23 +252,21 @@ export function boundShortcut(
   if (!snapshot) return fallback;
   const binding = snapshot[command];
   if (hasShortcutKey(binding)) return binding;
-  if (options.assigned === true) return '';
   return fallback;
 }
 
 /**
- * True when the in-page default is filling in because the browser never assigned a key.
- * A user-cleared command is empty in the snapshot too, but `assigned` is then true and
- * this is false, so the settings screen can say "Not set" instead of advertising a fallback.
+ * True when the page is listening for the OS default because `commands.getAll()` reported
+ * no key. A customized (or Chrome-assigned default) shortcut in the snapshot turns this
+ * off so the in-page handler does not steal a different key. Unknown until a snapshot
+ * arrives, so the settings row does not claim a fallback before the worker answers.
  */
 export function usesInPageFallback(
   snapshot: ShortcutSnapshot | null,
   command: ShortcutCommand,
-  assigned?: boolean | undefined,
 ): boolean {
   if (!snapshot) return false;
-  if (hasShortcutKey(snapshot[command])) return false;
-  return assigned !== true;
+  return !hasShortcutKey(snapshot[command]);
 }
 
 /** The shape `browser.commands.getAll()` returns, without depending on its declared type. */

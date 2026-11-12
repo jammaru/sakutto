@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { loadExtension } from './extension';
 import {
   FIXTURE_ORIGIN,
@@ -7,9 +7,56 @@ import {
   invokeOnCommandPath,
   readCommandBindings,
   resetExtensionStorage,
+  stubCommandBindings,
   waitForContentSession,
   waitTranslated,
 } from './page';
+
+const EMPTY_BINDINGS = [
+  { name: 'translate-page', shortcut: '' },
+  { name: 'toggle-bilingual', shortcut: '' },
+  { name: 'translate-selection', shortcut: '' },
+  { name: 'translate-compose', shortcut: '' },
+];
+
+const CUSTOM_PAGE_BINDINGS = [
+  { name: 'translate-page', shortcut: 'Alt+Q' },
+  { name: 'toggle-bilingual', shortcut: 'Alt+B' },
+  { name: 'translate-selection', shortcut: 'Alt+S' },
+  { name: 'translate-compose', shortcut: 'Alt+T' },
+];
+
+const ASSIGNED_DEFAULT_BINDINGS = [
+  { name: 'translate-page', shortcut: 'Alt+A' },
+  { name: 'toggle-bilingual', shortcut: 'Alt+B' },
+  { name: 'translate-selection', shortcut: 'Alt+S' },
+  { name: 'translate-compose', shortcut: 'Alt+T' },
+];
+
+async function pressAltLetter(page: Page, code: string, key: string) {
+  await page.evaluate(
+    ({ code, key }) => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key,
+          code,
+          altKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    },
+    { code, key },
+  );
+}
+
+async function waitForShortcutRefresh(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('focus'));
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect.poll(async () => page.evaluate(() => document.visibilityState)).toBe('visible');
+}
 
 test.describe('translate-page command', () => {
   test('starts translation through the onCommand handler path', async () => {
@@ -70,9 +117,85 @@ test.describe('translate-page command', () => {
       if (pageCommand?.shortcut) {
         await expect(kbd).toHaveText(pageCommand.shortcut);
       } else {
-        await expect(options.locator('[class="fallback"]').first()).toBeVisible();
+        await expect(options.locator('[data-sakutto="shortcut-fallback"]').first()).toBeVisible();
       }
       await options.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('unassigned commands use the in-page default', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker);
+      await stubCommandBindings(extension.worker, EMPTY_BINDINGS);
+      const options = await extension.context.newPage();
+      await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await expect(options.locator('kbd').first()).toHaveText('Alt+A (on pages)');
+      await expect(options.locator('[data-sakutto="shortcut-fallback"]').first()).toBeVisible();
+      await options.close();
+
+      const page = await extension.context.newPage();
+      await page.goto(`${FIXTURE_ORIGIN}/article.html`);
+      await injectContentScript(extension.worker, page);
+      await waitForContentSession(extension.worker, page);
+      await waitForShortcutRefresh(page);
+      await pressAltLetter(page, 'KeyA', 'a');
+      await waitTranslated(page);
+      await expect(page.locator('#lead')).toContainText(MARKER);
+      await page.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('a customized shortcut turns the in-page default off', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker);
+      await stubCommandBindings(extension.worker, CUSTOM_PAGE_BINDINGS);
+      const options = await extension.context.newPage();
+      await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await expect(options.locator('kbd').first()).toHaveText('Alt+Q');
+      await expect(options.locator('[data-sakutto="shortcut-fallback"]')).toHaveCount(0);
+      await options.close();
+
+      const page = await extension.context.newPage();
+      await page.goto(`${FIXTURE_ORIGIN}/article.html`);
+      await injectContentScript(extension.worker, page);
+      await waitForContentSession(extension.worker, page);
+      await waitForShortcutRefresh(page);
+      await pressAltLetter(page, 'KeyA', 'a');
+      await page.waitForTimeout(300);
+      await expect(page.locator('#lead')).not.toContainText(MARKER);
+      await pressAltLetter(page, 'KeyQ', 'q');
+      await waitTranslated(page);
+      await expect(page.locator('#lead')).toContainText(MARKER);
+      await page.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('an assigned default does not double-toggle from onCommand plus in-page Alt+A', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker);
+      await stubCommandBindings(extension.worker, ASSIGNED_DEFAULT_BINDINGS);
+      const page = await extension.context.newPage();
+      await page.goto(`${FIXTURE_ORIGIN}/article.html`);
+      await injectContentScript(extension.worker, page);
+      await waitForContentSession(extension.worker, page);
+      await waitForShortcutRefresh(page);
+      await pressAltLetter(page, 'KeyA', 'a');
+      await invokeOnCommandPath(extension.worker, page, 'toggle');
+      await waitTranslated(page);
+      await expect(page.locator('#lead')).toContainText(MARKER);
+      await expect
+        .poll(async () => page.evaluate(() => document.documentElement.dataset.sakuttoState))
+        .toBe('translated');
+      await page.close();
     } finally {
       await extension.close();
     }

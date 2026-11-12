@@ -168,6 +168,20 @@ export function focusedEditableField(active: Element | null | undefined): Elemen
   return null;
 }
 
+/**
+ * True when a page/bilingual/selection shortcut would steal a key that is also a character
+ * in the focused field. Option+letter on a Mac inserts å / ∫ / ß / †; the in-page fallback
+ * must not preventDefault that. Compose keeps its own shortcut in eligible fields. Sakutto
+ * chrome is excluded so overlay controls still hear the page keys.
+ */
+export function isTypingShortcutTarget(event: KeyboardEvent): boolean {
+  const fromEvent = event.target instanceof Element ? event.target : null;
+  const doc = event.view?.document ?? fromEvent?.ownerDocument ?? null;
+  const field = focusedEditableField(fromEvent) ?? focusedEditableField(doc?.activeElement);
+  if (!field) return false;
+  return !isOwnUi(field);
+}
+
 /** What the reader has typed into a field. Duck-typed: an iframe field is another realm. */
 function fieldValue(field: Element): string {
   if ('value' in field && typeof (field as HTMLInputElement).value === 'string') {

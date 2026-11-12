@@ -399,10 +399,10 @@
     "message": "Raccourcis clavier"
   },
   "shortcutHelp": {
-    "message": "Décochez une commande pour la désactiver dans Sakutto. Modifier les raccourcis ouvre l’éditeur de Chrome. Si vous y effacez une touche, Sakutto cesse de l’utiliser. La touche par défaut s’applique sur les pages seulement si Chrome n’en a jamais assigné une à l’installation, par exemple à cause d’un conflit."
+    "message": "Décochez une commande pour la désactiver dans Sakutto. Modifier les raccourcis ouvre l’éditeur de Chrome. Une touche définie là est utilisée telle quelle. Si une commande n’est pas attribuée, le raccourci par défaut fonctionne sur les pages web — pas sur les pages chrome:// ni sur les autres pages où Sakutto ne peut pas s’exécuter."
   },
   "shortcutHelpFirefox": {
-    "message": "Décochez une commande pour la désactiver dans Sakutto. Modifier les raccourcis ouvre l’éditeur de Firefox. Si vous y effacez une touche, Sakutto cesse de l’utiliser. La touche par défaut s’applique sur les pages seulement si Firefox n’en a jamais assigné une à l’installation, par exemple à cause d’un conflit."
+    "message": "Décochez une commande pour la désactiver dans Sakutto. Modifier les raccourcis ouvre l’éditeur de Firefox. Une touche définie là est utilisée telle quelle. Si une commande n’est pas attribuée, Firefox rétablit le raccourci par défaut quand il le peut ; sinon il fonctionne sur les pages."
   },
   "shortcutChange": {
     "message": "Modifier les raccourcis"
@@ -417,10 +417,26 @@
     "message": "Désactivé"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome n’a pas assigné de touche à cette commande à l’installation ; la touche par défaut s’applique sur les pages."
+    "message": "Cette commande n’a pas de touche dans l’éditeur de Chrome, donc le raccourci par défaut s’applique aux pages web. Il ne fonctionne pas sur les pages chrome:// ni sur les autres pages où Sakutto ne peut pas s’exécuter."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox n’a pas assigné de touche à cette commande à l’installation ; la touche par défaut s’applique sur les pages."
+    "message": "Cette commande n’a pas de touche dans l’éditeur de Firefox, donc le raccourci par défaut s’applique aux pages."
+  },
+  "shortcutFallbackKey": {
+    "message": "$KEY$ (sur les pages)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutFallbackKeyFirefox": {
+    "message": "$KEY$ (sur les pages)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutTranslate": {
     "message": "$KEY$ traduit la page ou rétablit l’original.",
