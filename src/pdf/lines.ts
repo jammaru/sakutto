@@ -128,7 +128,7 @@ function gapBetween(left: Box, right: Box): number {
  * A run written vertically is joined without spaces: its pieces are one letter each, stacked,
  * and a space between them would be a space between the letters of a word.
  */
-function joinPieces(pieces: readonly TextPiece[]): string {
+export function joinPieces(pieces: readonly TextPiece[]): string {
   let output = '';
   let previous: TextPiece | null = null;
 

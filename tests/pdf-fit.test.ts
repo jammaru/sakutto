@@ -35,9 +35,11 @@ describe('wrapText', () => {
   });
 
   it('never puts 。 at the start of a line, even in a column narrower than the mark', () => {
-    const lines = wrapText('です。次は本文', 10, (value) => measure(value, 10), true);
+    const width = 10;
+    const lines = wrapText('です。次は本文', width, (value) => measure(value, 10), true);
     expect(lines.join('')).toBe('です。次は本文');
     expect(lines.some((line) => line.startsWith('。'))).toBe(false);
+    for (const line of lines) expect(measure(line, 10)).toBeLessThanOrEqual(width);
   });
 
   it('keeps a URL unbroken when it fits', () => {

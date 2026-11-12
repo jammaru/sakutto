@@ -3,12 +3,12 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { extractPage, placeTextItem, type PdfPage } from '@/pdf/extract';
-import { layoutPage } from '@/pdf/layout';
+import { layoutPage, orphanLineCount } from '@/pdf/layout';
 import { clippedPaintWidth, placePage } from '@/pdf/place';
 import { stubExpand } from '@/pdf/stub';
 import { measure } from './support/pdf-pieces';
 import { openPdfBytes } from './support/open-fixture-pdf';
-import { rotatedBodyPdf } from './support/rotated-body-pdf';
+import { rotatedBodyPdf } from '../scripts/bench/rotated-body-pdf';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -224,8 +224,31 @@ describe('committed layout fixtures', () => {
       ).toBe(true);
       expect(layout.blocks.some((block) => /\bcontinue\b/u.test(block.text))).toBe(false);
       expect(layout.blocks.some((block) => /St\s*=/.test(block.text))).toBe(false);
+      expect(orphanLineCount(extracted.lines, layout)).toBe(0);
     } finally {
       await document.destroy();
+    }
+  });
+
+  it('assigns every extracted line on the committed fixtures', async () => {
+    for (const name of ['paper.pdf', 'scan.pdf'] as const) {
+      const bytes = new Uint8Array(await readFile(resolve(root, `bench/pdf/${name}`)));
+      const document = await openPdfBytes(bytes);
+      try {
+        for (let number = 1; number <= document.numPages; number += 1) {
+          const page = (await document.getPage(number)) as PdfPage;
+          const extracted = await extractPage(page, number - 1, null);
+          if (extracted.empty) continue;
+          const layout = layoutPage(extracted.lines, extracted.figures, {
+            width: extracted.width,
+            height: extracted.height,
+            index: number - 1,
+          });
+          expect(orphanLineCount(extracted.lines, layout), `${name} p${String(number)}`).toBe(0);
+        }
+      } finally {
+        await document.destroy();
+      }
     }
   });
 
@@ -244,6 +267,7 @@ describe('committed layout fixtures', () => {
           index: number - 1,
         });
         expect(layout.bodySize, `page ${String(number)}`).toBe(10);
+        expect(orphanLineCount(extracted.lines, layout), `page ${String(number)}`).toBe(0);
         const placed = placePage({
           layout,
           translationOf: (block) => stubExpand(block.text),

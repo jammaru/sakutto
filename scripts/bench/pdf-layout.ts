@@ -17,7 +17,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
-import { rotatedBodyPdf } from '../../tests/support/rotated-body-pdf.ts';
+import { rotatedBodyPdf } from './rotated-body-pdf.ts';
 
 const require = createRequire(import.meta.url);
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -48,7 +48,9 @@ const { extractPage } = (await import(pathToFileURL(resolve(ROOT, 'src/pdf/extra
     empty: boolean;
   }>;
 };
-const { layoutPage } = (await import(pathToFileURL(resolve(ROOT, 'src/pdf/layout.ts')).href)) as {
+const { layoutPage, orphanLineCount } = (await import(
+  pathToFileURL(resolve(ROOT, 'src/pdf/layout.ts')).href
+)) as {
   layoutPage: (
     lines: unknown[],
     figures: unknown,
@@ -61,14 +63,16 @@ const { layoutPage } = (await import(pathToFileURL(resolve(ROOT, 'src/pdf/layout
       box: object;
       room: object;
       lineHeight: number;
+      lines?: unknown[];
     }>;
-    skipped: unknown[];
+    skipped: Array<{ lines?: unknown[] }>;
     bodySize: number;
     pageHeight: number;
     pageWidth?: number;
     pageIndex?: number;
     obstacles?: unknown[];
   };
+  orphanLineCount: (extracted: unknown[], layout: unknown) => number;
 };
 const { placePage, clippedPaintWidth, verticalCut } = (await import(
   pathToFileURL(resolve(ROOT, 'src/pdf/place.ts')).href
@@ -203,10 +207,12 @@ async function checkBytes(name: string, bytes: Uint8Array): Promise<void> {
       clipped += clippedPaintWidth(entry, (text, size) => measure(text, size));
       vCut += verticalCut(entry);
     }
+    const orphans = extracted.empty ? 0 : orphanLineCount(extracted.lines, layout);
     const pass =
       (extracted.empty ? metrics.painted === 0 : metricsPass(metrics)) &&
       clipped <= 0.01 &&
-      vCut <= 0.5;
+      vCut <= 0.5 &&
+      orphans === 0;
     if (!pass) failed = true;
     console.log(
       `  page ${String(number)}: ${extracted.empty ? 'image-only' : 'text'}  ` +
@@ -215,7 +221,8 @@ async function checkBytes(name: string, bytes: Uint8Array): Promise<void> {
         `skipped=${String(metrics.skipped)} withheld=${String(metrics.withheld)} ` +
         `overlap=${String(metrics.overlapPairs)} minpt=${metrics.minFontSize === null ? '-' : metrics.minFontSize.toFixed(1)} ` +
         `prose=${(metrics.prosePainted * 100).toFixed(0)}% cover=${(metrics.proseCovered * 100).toFixed(0)}% ` +
-        `overflowed=${String(metrics.overflowed)} clipped=${clipped.toFixed(1)} vCut=${vCut.toFixed(1)} ${pass ? 'ok' : 'FAIL'}`,
+        `overflowed=${String(metrics.overflowed)} clipped=${clipped.toFixed(1)} vCut=${vCut.toFixed(1)} ` +
+        `orphans=${String(orphans)} ${pass ? 'ok' : 'FAIL'}`,
     );
     reports.push({
       file: name,
@@ -224,6 +231,7 @@ async function checkBytes(name: string, bytes: Uint8Array): Promise<void> {
       lines: extracted.lines.length,
       bodySize: layout.bodySize,
       ...metrics,
+      orphans,
       pass,
     });
   }

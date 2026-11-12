@@ -1,5 +1,6 @@
+import { boxRight } from './geometry';
 import type { LayoutBlock } from './layout';
-import type { TextLine, TextPiece } from './lines';
+import { joinPieces, type TextLine, type TextPiece } from './lines';
 
 /**
  * Inline mathematics kept out of the model.
@@ -55,18 +56,29 @@ function protectLine(line: TextLine, slots: string[]): string {
     return line.text;
   }
 
-  let output = '';
+  const replaced: TextPiece[] = [];
   for (const run of runs) {
-    const joined = run.pieces.map((piece) => piece.text).join('');
     if (!run.protect) {
-      output += joined;
+      replaced.push(...run.pieces);
       continue;
     }
+    const first = run.pieces[0];
+    const last = run.pieces.at(-1);
+    if (!first || !last) continue;
     const index = slots.length;
-    slots.push(joined);
-    output += PLACEHOLDER(index);
+    slots.push(joinPieces(run.pieces));
+    replaced.push({
+      ...first,
+      text: PLACEHOLDER(index),
+      box: {
+        x: first.box.x,
+        y: first.box.y,
+        width: Math.max(first.box.width, boxRight(last.box) - first.box.x),
+        height: Math.max(first.box.height, last.box.height),
+      },
+    });
   }
-  return output.replace(/\s+/gu, ' ').trim();
+  return joinPieces(replaced);
 }
 
 interface PieceRun {
@@ -136,21 +148,24 @@ function isFormulaRun(pieces: readonly TextPiece[], lineHeight: number): boolean
 }
 
 /**
- * Puts the original formula fragments back. Returns null when the model dropped or added a
- * placeholder, which is the case that must not be shown: a sentence with a hole where a
- * variable was is a wrong translation.
+ * Puts the original formula fragments back. Each slot must appear exactly once; Japanese
+ * may reorder them. Dropping, duplicating, or inventing a tag is a wrong translation.
  */
 export function restoreInlineMath(translated: string, slots: readonly string[]): string | null {
   if (slots.length === 0) return translated;
   const seen = new Set<number>();
+  let count = 0;
   const restored = translated.replace(PLACEHOLDER_PATTERN, (_match, raw: string) => {
     const index = Number(raw);
     if (!Number.isInteger(index) || index < 0 || index >= slots.length) return '\u0000';
+    count += 1;
     seen.add(index);
     return slots[index] ?? '\u0000';
   });
   if (restored.includes('\u0000')) return null;
-  if (seen.size !== slots.length) return null;
+  // Each slot exactly once. Japanese may reorder them; dropping, duplicating, or inventing
+  // a tag is a wrong translation.
+  if (count !== slots.length || seen.size !== slots.length) return null;
   if (PLACEHOLDER_PATTERN.test(restored)) return null;
   return restored;
 }

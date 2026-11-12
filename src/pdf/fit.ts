@@ -218,10 +218,6 @@ export function wrapText(
     // A trailing space hangs at the end of a line in CSS, so it must not decide the break.
     if (current.length > 0 && measure(candidate.trimEnd()) > width) {
       const next = token.trimStart();
-      if (kinsoku && next.length > 0 && KINSOKU_NO_START.test(next[0] ?? '')) {
-        place(candidate);
-        continue;
-      }
       lines.push(current.trimEnd());
       place(next);
       continue;
@@ -258,11 +254,17 @@ function applyKinsoku(
     while ((next[index]?.length ?? 0) > 0 && KINSOKU_NO_START.test(next[index]?.[0] ?? '')) {
       const mark = next[index]?.[0] ?? '';
       const dest = `${next[index - 1] ?? ''}${mark}`;
-      // A line must not start with `。` even when moving the mark overflows the wrap: the
-      // caller re-breaks an over-wide previous line without splitting before the mark.
-      next[index - 1] = dest;
-      next[index] = next[index]?.slice(1) ?? '';
-      if (measure(dest) > width) break;
+      if (measure(dest) <= width) {
+        next[index - 1] = dest;
+        next[index] = next[index]?.slice(1) ?? '';
+        continue;
+      }
+      // The mark does not fit on the previous line. Take the previous character with it so
+      // the next line does not start with `。` and the previous line does not overflow.
+      const previous = next[index - 1] ?? '';
+      if (previous.length <= 1) break;
+      next[index - 1] = previous.slice(0, -1);
+      next[index] = `${previous.slice(-1)}${next[index] ?? ''}`;
     }
     if ((next[index]?.length ?? 0) === 0) {
       next.splice(index, 1);
@@ -332,8 +334,9 @@ function breakToken(
   for (const character of token) {
     const candidate = current + character;
     if (current.length > 0 && measure(candidate) > width) {
-      if (kinsoku && KINSOKU_NO_START.test(character)) {
-        current = candidate;
+      if (kinsoku && KINSOKU_NO_START.test(character) && current.length > 1) {
+        pieces.push(current.slice(0, -1));
+        current = current.slice(-1) + character;
         continue;
       }
       pieces.push(current);

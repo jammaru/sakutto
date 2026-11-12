@@ -32,10 +32,30 @@ describe('protectInlineMath', () => {
     expect(restored).toBe('クエリ q, k および値ベクトル v、加えて状態。');
   });
 
-  it('refuses a translation that dropped a placeholder', () => {
+  it('keeps the source spaces around a replaced variable', () => {
+    const lines = groupLines([
+      piece('the', 40, 100, 16),
+      piece('vector', 60, 100, 32),
+      piece('q', 96, 100, 6, { math: true, italic: true }),
+      piece('that', 106, 100, 22),
+    ]);
+    const layout = layoutPage(lines);
+    const block = layout.blocks[0];
+    if (!block) throw new Error('expected a block');
+    const protectedText = protectInlineMath(block);
+    expect(protectedText.text).toContain('vector <i0> that');
+    expect(protectedText.text).not.toContain('vector<i0>that');
+  });
+
+  it('allows reordering placeholders and refuses drop, duplicate, invent, and malformed tags', () => {
+    expect(restoreInlineMath('値 <i1> とクエリ <i0>', ['q', 'k'])).toBe('値 k とクエリ q');
     expect(restoreInlineMath('クエリとキー', ['q', 'k'])).toBeNull();
     expect(restoreInlineMath('クエリ <i0> だけ', ['q', 'k'])).toBeNull();
+    expect(restoreInlineMath('クエリ <i0> <i0>', ['q', 'k'])).toBeNull();
+    expect(restoreInlineMath('クエリ <i0> <i1> <i0>', ['q', 'k'])).toBeNull();
+    expect(restoreInlineMath('クエリ <i0> <i1> <i2>', ['q', 'k'])).toBeNull();
     expect(restoreInlineMath('クエリ <i0> <i9>', ['q'])).toBeNull();
+    expect(restoreInlineMath('クエリ <ix> <i1>', ['q', 'k'])).toBeNull();
   });
 
   it('protects a subscript that is set smaller than the line', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { groupLines, type TextPiece } from '@/pdf/lines';
-import { isCodeToken, isNumericCell, layoutPage } from '@/pdf/layout';
+import { isCodeToken, isNumericCell, layoutPage, orphanLineCount } from '@/pdf/layout';
 
 /** A synthetic piece: a run of text at a position, in top-left space. */
 function piece(
@@ -217,6 +217,44 @@ describe('layoutPage', () => {
     );
     expect(texts.some((text) => text.includes('kens') && !text.includes('maxSegment'))).toBe(false);
     expect(texts.some((text) => /\b600\b/u.test(text) && text !== '600')).toBe(false);
+  });
+
+  it('keeps justified body as one prose block, not word-sized cells', () => {
+    const em = 10;
+    const gap = 0.62 * em;
+    const words = (row: string, y: number): ReturnType<typeof piece>[] => {
+      let x = 40;
+      return row.split(' ').map((word) => {
+        const width = word.length * em * 0.5;
+        const run = piece(word, x, y, width, { em });
+        x += width + gap;
+        return run;
+      });
+    };
+    const lines = groupLines([
+      ...words('Justified body text keeps its word gaps inside one paragraph block.', 100),
+      ...words('A second line of the same paragraph continues at the same measure.', 114),
+    ]);
+    const layout = layoutPage(lines);
+    expect(layout.blocks).toHaveLength(1);
+    expect(layout.blocks[0]?.role).toBe('prose');
+    expect(orphanLineCount(lines, layout)).toBe(0);
+    expect(layout.blocks[0]?.text).toContain('Justified body text');
+    expect(layout.blocks[0]?.text).toContain('second line');
+  });
+
+  it('keeps a bold run-in heading on the same line as its sentence', () => {
+    const lines = groupLines([
+      piece('Reported completion over untranslated prose.', 40, 100, 260, { bold: true }),
+      piece('A page that still shows English has no cover on that line.', 306, 100, 280),
+      piece('The next line continues the same paragraph without a new heading.', 40, 114, 320),
+    ]);
+    const layout = layoutPage(lines);
+    expect(layout.blocks).toHaveLength(1);
+    expect(layout.blocks[0]?.role).toBe('prose');
+    expect(layout.blocks[0]?.text).toContain('Reported completion over untranslated prose.');
+    expect(layout.blocks[0]?.text).toContain('A page that still shows English');
+    expect(orphanLineCount(lines, layout)).toBe(0);
   });
 
   it('keeps each bulleted list item as its own block', () => {

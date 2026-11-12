@@ -2,7 +2,7 @@ import { boxBottom, boxRight, median, unionBox, type Box } from './geometry';
 import { insideFigure, type FigureAreas } from './figures';
 import { gutterCandidates, horizontalGaps, groupByBaseline } from './gaps';
 import { isFirstPageIdentity } from './identity';
-import { SEGMENT_GAP, isRotated, lineFrom, type TextLine } from './lines';
+import { SEGMENT_GAP, isRotated, lineFrom, type TextLine, type TextPiece } from './lines';
 
 /** What kind of thing a block is, which decides its priority and how tightly it is fitted. */
 export type BlockRole = 'heading' | 'prose' | 'cell' | 'caption' | 'label';
@@ -119,6 +119,14 @@ const TABLE_ROW_SHARE = 0.5;
 /** The widest text a table cell may hold, in characters. */
 const CELL_MAX_CHARS = 44;
 /**
+ * Cell padding inside a table, in ems. Narrower than a justified word space (~0.62em), so
+ * it must only be used after the region is already a table. Applying it to prose splits a
+ * paragraph word by word.
+ */
+const CELL_SPLIT_GAP = 0.42;
+/** A table has this many columns at most; more short runs on a row are words, not cells. */
+const MAX_TABLE_CELLS = 8;
+/**
  * Text this much smaller than the body belongs to a figure, not to the page's prose.
  *
  * A paper's body is 9–10pt, a footnote 7.5–8pt and a reference list 8pt; a diagram's labels are
@@ -188,16 +196,25 @@ export function layoutPage(
     obstacles,
   });
   const clean = lines.filter((line) => line.text.trim().length > 0 && !isRotated(line));
-  if (clean.length === 0) {
-    return empty();
-  }
-
-  const unit = Math.max(1, median(clean.map((line) => line.height)));
-  const bodySize = bodySizeOf(clean);
+  const unit = clean.length > 0 ? Math.max(1, median(clean.map((line) => line.height))) : 10;
+  const bodySize = clean.length > 0 ? bodySizeOf(clean) : 0;
   const blocks: LayoutBlock[] = [];
 
-  for (const region of cutRegions(clean, unit)) {
-    appendRegionBlocks(region, bodySize, blocks, figures, pageHeight, pageIndex);
+  if (clean.length > 0) {
+    for (const region of cutRegions(clean, unit)) {
+      appendRegionBlocks(region, bodySize, blocks, figures, pageHeight, pageIndex);
+    }
+  }
+  assignLeftoverLines(
+    lines,
+    blocks,
+    figures,
+    bodySize > 0 ? bodySize : unit,
+    pageHeight,
+    pageIndex,
+  );
+  if (blocks.length === 0) {
+    return empty();
   }
 
   // A figure's labels — axis ticks, a legend, the words inside a diagram — are set much smaller
@@ -268,6 +285,61 @@ export function layoutPage(
     pageIndex,
     obstacles,
   };
+}
+
+/**
+ * Lines the cut dropped: rotated stamps, and any run whose pieces never joined a block.
+ * They are appended so every extracted line belongs to `blocks` or `skipped`.
+ */
+function assignLeftoverLines(
+  extracted: readonly TextLine[],
+  blocks: LayoutBlock[],
+  figures: FigureAreas,
+  bodySize: number,
+  pageHeight: number,
+  pageIndex: number,
+): void {
+  const assigned = assignedPieces(blocks);
+  for (const line of extracted) {
+    if (line.text.trim().length === 0) continue;
+    const missing = line.pieces.filter((piece) => !assigned.has(piece));
+    if (missing.length === 0) continue;
+    const leftover = missing.length === line.pieces.length ? line : lineFrom(missing);
+    const block = buildBlock(
+      [leftover],
+      leftover.box,
+      0,
+      bodySize,
+      figures,
+      leftover.box.x,
+      pageHeight,
+      pageIndex,
+    );
+    if (!block) continue;
+    blocks.push(isRotated(line) ? { ...block, role: 'furniture' } : block);
+    for (const piece of leftover.pieces) assigned.add(piece);
+  }
+}
+
+function assignedPieces(blocks: readonly LayoutBlock[]): Set<TextPiece> {
+  const assigned = new Set<TextPiece>();
+  for (const block of blocks) {
+    for (const line of block.lines) {
+      for (const piece of line.pieces) assigned.add(piece);
+    }
+  }
+  return assigned;
+}
+
+/** Extracted lines whose pieces never landed in a translatable or skipped block. */
+export function orphanLineCount(extracted: readonly TextLine[], layout: PageLayout): number {
+  const assigned = assignedPieces([...layout.blocks, ...layout.skipped]);
+  let orphans = 0;
+  for (const line of extracted) {
+    if (line.text.trim().length === 0 || line.pieces.length === 0) continue;
+    if (line.pieces.some((piece) => !assigned.has(piece))) orphans += 1;
+  }
+  return orphans;
 }
 
 /** Roles the reader never translates; the page's own typesetting is the rendering. */
@@ -475,13 +547,28 @@ function looksLikeTable(lines: readonly TextLine[]): boolean {
   if (rows.length < 2) return false;
 
   let wide = 0;
+  const cellCounts: number[] = [];
+  const secondXs: number[] = [];
   for (const row of rows) {
-    const cells = splitRowCells(row);
+    const cells = splitRowCells(row, true, true);
+    cellCounts.push(cells.length);
     if (cells.length < 2) continue;
     if (!cells.every((cell) => cellText(cell).length <= CELL_MAX_CHARS)) return false;
+    const second = cells[1]?.[0];
+    if (second) secondXs.push(second.box.x);
     wide += 1;
   }
-  return wide >= Math.max(2, rows.length * TABLE_ROW_SHARE);
+  if (wide < Math.max(2, rows.length * TABLE_ROW_SHARE)) return false;
+  if (median(cellCounts) > MAX_TABLE_CELLS) return false;
+  // Justified words do not share a second-column x; a table's values do. One wrapped or
+  // hyphenated row may sit off the grid without making the region stop being a table.
+  if (secondXs.length >= 2) {
+    const scale = Math.max(1, rows[0]?.[0]?.height ?? 10);
+    const centre = median(secondXs);
+    const aligned = secondXs.filter((x) => Math.abs(x - centre) <= scale * 3).length;
+    if (aligned < Math.max(2, secondXs.length * TABLE_ROW_SHARE)) return false;
+  }
+  return true;
 }
 
 function cellText(cell: readonly TextLine[]): string {
@@ -492,11 +579,11 @@ function cellText(cell: readonly TextLine[]): string {
 }
 
 /** Splits one row where a gap is wider than a word space. */
-function splitRowCells(row: readonly TextLine[]): TextLine[][] {
+function splitRowCells(row: readonly TextLine[], tight = false, probe = false): TextLine[][] {
   const cells: TextLine[][] = [];
   let current: TextLine[] = [];
 
-  for (const line of splitLinesOnCellGaps(row)) {
+  for (const line of splitLinesOnCellGaps(row, tight, probe)) {
     const previous = current[current.length - 1];
     if (previous) {
       const gap = line.box.x - boxRight(previous.box);
@@ -515,13 +602,9 @@ function splitRowCells(row: readonly TextLine[]): TextLine[][] {
       const scale = Math.max(previous.height, line.height);
       const bothShort =
         previous.text.trim().length <= CELL_MAX_CHARS && line.text.trim().length <= CELL_MAX_CHARS;
-      // A table's cell padding is often under a word-space of a justified line. Using the
-      // prose gap there glued a number onto the identifier beside it. Short runs may split
-      // at a narrower gap; a sentence still has to accumulate more than `CELL_MAX_CHARS`
-      // before the tighter threshold applies, so a justified paragraph stays one line.
-      const minGap = bothShort ? scale * 0.42 : SEGMENT_GAP * scale;
-      const splits =
-        gap > minGap && !startsRunIn(line) && (previous.text.trim().length > 3 || gap > scale * 3);
+      const minGap = cellMinGap(scale, tight, bothShort);
+      const glueShort = !probe && previous.text.trim().length <= 3 && gap <= scale * 3;
+      const splits = gap > minGap && !startsRunIn(line) && !glueShort;
       if (splits) {
         cells.push(current);
         current = [line];
@@ -534,12 +617,18 @@ function splitRowCells(row: readonly TextLine[]): TextLine[][] {
   return cells;
 }
 
+function cellMinGap(scale: number, tight: boolean, bothShort: boolean): number {
+  return tight && bothShort ? CELL_SPLIT_GAP * scale : SEGMENT_GAP * scale;
+}
+
 /**
  * A table's cell padding is often narrower than a word-space, so two short runs on one
  * baseline can still be one `TextLine`. Split those runs into their own lines so a number
- * does not glue onto the identifier beside it.
+ * does not glue onto the identifier beside it. Only a table uses the narrow gap: justified
+ * body text sits around 0.62em and must stay one line.
  */
-function splitLinesOnCellGaps(row: readonly TextLine[]): TextLine[] {
+function splitLinesOnCellGaps(row: readonly TextLine[], tight: boolean, probe = false): TextLine[] {
+  if (!tight) return [...row];
   const out: TextLine[] = [];
   for (const line of row) {
     if (line.pieces.length <= 1) {
@@ -560,8 +649,9 @@ function splitLinesOnCellGaps(row: readonly TextLine[]): TextLine[] {
         const bothShort =
           previous.text.trim().length <= CELL_MAX_CHARS &&
           piece.text.trim().length <= CELL_MAX_CHARS;
-        const minGap = bothShort ? scale * 0.42 : SEGMENT_GAP * scale;
-        if (gap > minGap && (previous.text.trim().length > 3 || gap > scale * 3)) {
+        const minGap = cellMinGap(scale, true, bothShort);
+        const glueShort = !probe && previous.text.trim().length <= 3 && gap <= scale * 3;
+        if (gap > minGap && !glueShort) {
           groups.push(current);
           current = [piece];
           continue;
@@ -667,7 +757,7 @@ function appendRegionBlocks(
   const isTable = looksLikeTable(rest.flat());
   const cells: RegionCell[] = [];
   for (const [index, row] of rest.entries()) {
-    const rowCells = splitRowCells(row);
+    const rowCells = splitRowCells(row, isTable);
     for (const cell of rowCells) {
       cells.push({ lines: cell, row: index, shared: isTable && rowCells.length > 1 });
     }
@@ -923,14 +1013,9 @@ function gapStartsBlock(previous: TextLine, line: TextLine, leading: number): bo
   const sizeChange = Math.abs(line.height - previous.height) / Math.max(previous.height, 1);
   if (sizeChange > SIZE_CHANGE) return true;
 
-  const previousBold = previous.pieces.length > 0 && previous.pieces.every((piece) => piece.bold);
-  const lineBold = line.pieces.length > 0 && line.pieces.every((piece) => piece.bold);
-  // A weight change splits a block only when the two lines are on different rows. A run-in
-  // heading — `Attention variants` set in bold, then the sentence it introduces, on the same
-  // line — is one paragraph with a bold opening, and splitting it put a heading block and a
-  // body block at the same y: both then claimed the column's measure and printed over each
-  // other. `gap` is the baseline distance in ems, so a value near zero means the same row.
-  if (previousBold && !lineBold && gap > 0.4) return true;
+  // Weight changes do not split a block. A run-in heading is bold only on its opening
+  // words, on the same line as the sentence it introduces; cutting there left a heading, a
+  // label and a prose fragment, and one of those lines had no cover.
 
   // A numbered caption followed by a table header is two blocks, even when the leading
   // between them is no wider than a wrapped line.
@@ -944,7 +1029,11 @@ function isListBoundary(previous: TextLine, line: TextLine): boolean {
   if (isListItemStart(line.text) && previous.text.trim().length > 0) return true;
   const previousBold = previous.pieces.length > 0 && previous.pieces.every((piece) => piece.bold);
   const lineBold = line.pieces.length > 0 && line.pieces.every((piece) => piece.bold);
-  // A bold run-in title after a completed sentence is the next list item, not a wrap.
+  const scale = Math.max(previous.height, line.height, 1);
+  const gap = (line.baseline - previous.baseline) / scale;
+  // A bold run-in on the same line as body text is one paragraph. Only a following line
+  // that is bold in every piece starts the next list item.
+  if (gap <= 0.4) return false;
   return /[.!?]$/u.test(previous.text.trim()) && lineBold && !previousBold;
 }
 
