@@ -194,8 +194,9 @@ function languageMatches(track: YoutubeCaptionTrack, language: string): boolean 
 }
 
 /**
- * Prefer the video's original/spoken language (player default / audio track), then English
- * manual, then English ASR. Never the first translated track in the list.
+ * Prefer a human-authored track in the spoken language, then spoken ASR (so ja→en uses
+ * `a.ja` instead of an English manual CC), then English manual, then English ASR.
+ * Never the first translated track in the list.
  */
 export function selectCaptionTrack(
   tracks: readonly YoutubeCaptionTrack[],

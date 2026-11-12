@@ -352,6 +352,22 @@ describe('YouTube player response', () => {
       asr: true,
       vssId: 'a.ja',
     });
+    expect(
+      selectCaptionTrack(
+        [
+          ...tracks,
+          {
+            baseUrl: '/ja-manual',
+            languageCode: 'ja',
+            name: 'Japanese',
+            asr: false,
+            vssId: '.ja',
+          },
+        ],
+        'en',
+        'ja',
+      ),
+    ).toMatchObject({ languageCode: 'ja', asr: false });
     expect(withTimedtextFormat('/youtube-timedtext.json', 'json3')).toBe(
       '/youtube-timedtext.json?fmt=json3',
     );
