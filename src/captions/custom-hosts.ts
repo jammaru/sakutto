@@ -36,6 +36,8 @@ export function parseCaptionCustomHost(raw: string): string | null {
   candidate = candidate.replace(/^www\./, '');
   if (candidate.startsWith('*.')) return null;
   if (!SITE_HOST.test(candidate)) return null;
+  // `*.com` / `*.jp` would match every host under that TLD.
+  if (wildcard && !candidate.includes('.')) return null;
   return wildcard ? `*.${candidate}` : candidate;
 }
 

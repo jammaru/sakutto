@@ -46,6 +46,7 @@ const {
   captionPermissionOrigins,
   captionOriginsOverlap,
   clearCaptionEnableIntent,
+  captionsAllowedOnPage,
   isCaptionAutoHost,
   videoCaptionPositionSite,
   markCaptionEnableIntent,
@@ -127,7 +128,24 @@ describe('caption auto-run gating', () => {
     expect(videoCaptionPositionSite('twitter.com')).toBe('x');
     expect(videoCaptionPositionSite('example.com')).toBe('other');
     expect(captionOriginsOverlap(['https://www.youtube.com/*'])).toBe(true);
+    expect(captionOriginsOverlap(['http://www.youtube.com/*'])).toBe(false);
     expect(captionOriginsOverlap(['https://example.com/*'])).toBe(false);
+    expect(origins.every((origin) => origin.startsWith('https://'))).toBe(true);
+    expect(origins.some((origin) => origin.startsWith('http://'))).toBe(false);
+  });
+
+  it('allows YouTube, X, a YouTube player document, and listed custom hosts', () => {
+    expect(captionsAllowedOnPage('www.youtube.com')).toBe(true);
+    expect(captionsAllowedOnPage('x.com')).toBe(true);
+    expect(captionsAllowedOnPage('twitter.com')).toBe(true);
+    expect(captionsAllowedOnPage('news.example.net')).toBe(false);
+    expect(captionsAllowedOnPage('videos.example.com', ['*.example.com'])).toBe(true);
+    const youtubeShaped = {
+      getElementById: (id: string) => (id === 'movie_player' ? {} : null),
+    } as unknown as Document;
+    expect(captionsAllowedOnPage('127.0.0.1', [], youtubeShaped)).toBe(true);
+    const article = { getElementById: () => null } as unknown as Document;
+    expect(captionsAllowedOnPage('127.0.0.1', [], article)).toBe(false);
   });
 });
 

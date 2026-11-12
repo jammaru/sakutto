@@ -29,6 +29,20 @@ export function isCaptionAutoHost(host: string): boolean {
   return isYouTubeHost(host) || isXHost(host);
 }
 
+/**
+ * Caption overlay auto-run: YouTube, X, a YouTube player document (fixtures and
+ * youtube.com), or a host the reader listed. Random article origins stay off.
+ */
+export function captionsAllowedOnPage(
+  host: string,
+  customHosts: readonly string[] = [],
+  document?: Document | null,
+): boolean {
+  if (isCaptionAutoHost(host)) return true;
+  if (document?.getElementById('movie_player')) return true;
+  return hostMatchesCaptionCustom(host, customHosts);
+}
+
 /** Which stored overlay spot this page uses. YouTube and X do not share a position. */
 export function videoCaptionPositionSite(host: string): VideoCaptionPositionSite {
   if (isYouTubeHost(host)) return 'youtube';
@@ -36,11 +50,11 @@ export function videoCaptionPositionSite(host: string): VideoCaptionPositionSite
   return 'other';
 }
 
-/** Origins requested when the reader turns caption translation on. */
+/** Origins requested when the reader turns caption translation on. YouTube/X are https only. */
 export function captionPermissionOrigins(): string[] {
   const origins: string[] = [];
   for (const host of CAPTION_AUTO_HOSTS) {
-    origins.push(`https://${host}/*`, `http://${host}/*`);
+    origins.push(`https://${host}/*`);
   }
   return origins;
 }
@@ -52,8 +66,7 @@ export function shouldAutoInjectCaptions(options: {
   customHosts?: readonly string[];
 }): boolean {
   if (!options.settingOn || !options.originAllowed) return false;
-  if (isCaptionAutoHost(options.host)) return true;
-  return hostMatchesCaptionCustom(options.host, options.customHosts ?? []);
+  return captionsAllowedOnPage(options.host, options.customHosts);
 }
 
 /**

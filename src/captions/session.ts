@@ -32,6 +32,7 @@ import {
   listVideoTrackUrls,
   revealTrackCues,
 } from './html5';
+import { hostMatchesCaptionCustom } from './custom-hosts';
 import { readGenericCaptionDom } from './generic';
 import {
   CAPTION_ORIGINAL_TOGGLE,
@@ -88,7 +89,13 @@ export interface CaptionSessionPreferences {
   size?: number | undefined;
   originalToggle?: boolean | undefined;
   position?: VideoCaptionPosition | null | undefined;
+  customHosts?: readonly string[] | undefined;
 }
+
+/** Re-read an empty X timeline this often; stop after `X_EMPTY_TRACK_MAX_ATTEMPTS`. */
+export const X_EMPTY_TRACK_POLL_MS = 2_500;
+/** Give up polling an X video that never publishes captions. A new video resets the count. */
+export const X_EMPTY_TRACK_MAX_ATTEMPTS = 6;
 
 export interface CaptionSessionOptions {
   engine: PageEngine;
@@ -178,6 +185,8 @@ export class VideoCaptionSession {
   private lastLayout: CaptionLayoutRect | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private placeFrame: number | null = null;
+  private boundTrackList: TextTrackList | null = null;
+  private emptyTrackAttempts = 0;
   private placeSettleTimer: number | null = null;
   private seekPaintTimer: number | null = null;
 
@@ -253,7 +262,7 @@ export class VideoCaptionSession {
     view?.addEventListener('pause', this.onPlay, true);
     view?.addEventListener('resize', this.onPlace);
     view?.addEventListener('scroll', this.onPlace, true);
-    videoTracksOf(this.doc)?.addEventListener('addtrack', this.onMedia);
+    this.listenForTracks(videoTracksOf(this.doc));
     this.doc.addEventListener('fullscreenchange', this.onPlace);
     this.doc.addEventListener('yt-navigate-start', this.onNavigate);
     this.doc.addEventListener('yt-navigate-finish', this.onNavigate);
@@ -284,9 +293,11 @@ export class VideoCaptionSession {
           return;
         }
         if (this.isXPage() && (this.loaded?.cues.length ?? 0) === 0 && !this.passthroughNative) {
+          if (this.emptyTrackAttempts >= X_EMPTY_TRACK_MAX_ATTEMPTS) return;
+          this.emptyTrackAttempts += 1;
           void this.loadTrack(this.video);
         }
-      }, 2_500) ?? null;
+      }, X_EMPTY_TRACK_POLL_MS) ?? null;
     // Same full selection path as a target-language change: never skip the first attach.
     this.resetCaptionSource();
     void this.sync(true);
@@ -305,7 +316,7 @@ export class VideoCaptionSession {
     view?.removeEventListener('pause', this.onPlay, true);
     view?.removeEventListener('resize', this.onPlace);
     view?.removeEventListener('scroll', this.onPlace, true);
-    videoTracksOf(this.doc)?.removeEventListener('addtrack', this.onMedia);
+    this.listenForTracks(null);
     this.doc.removeEventListener('fullscreenchange', this.onPlace);
     this.doc.removeEventListener('yt-navigate-start', this.onNavigate);
     this.doc.removeEventListener('yt-navigate-finish', this.onNavigate);
@@ -465,6 +476,7 @@ export class VideoCaptionSession {
     this.liveJobId = null;
     this.passthroughNative = false;
     this.lastLayout = null;
+    this.emptyTrackAttempts = 0;
     this.overlay.hide();
   }
 
@@ -954,7 +966,7 @@ export class VideoCaptionSession {
     video.addEventListener('emptied', this.onMediaSource);
     video.addEventListener('loadstart', this.onMediaSource);
     video.addEventListener('cuechange', this.onMedia, true);
-    video.textTracks.addEventListener('addtrack', this.onMedia);
+    this.listenForTracks(video.textTracks);
     this.observeLayout(video);
     this.observePlayer(video);
     this.applyNativeVisibility();
@@ -971,7 +983,7 @@ export class VideoCaptionSession {
     video.removeEventListener('emptied', this.onMediaSource);
     video.removeEventListener('loadstart', this.onMediaSource);
     video.removeEventListener('cuechange', this.onMedia, true);
-    video.textTracks.removeEventListener('addtrack', this.onMedia);
+    this.listenForTracks(null);
   }
 
   private observePlayer(video: HTMLVideoElement): void {
@@ -1098,9 +1110,17 @@ export class VideoCaptionSession {
     return isXHost(host);
   }
 
+  private listenForTracks(list: TextTrackList | null): void {
+    if (this.boundTrackList === list) return;
+    this.boundTrackList?.removeEventListener('addtrack', this.onMedia);
+    this.boundTrackList = list;
+    list?.addEventListener('addtrack', this.onMedia);
+  }
+
   private allowsGenericDom(): boolean {
     const host = pageHost(this.doc.defaultView?.location.href ?? '') ?? '';
-    return !isYouTubeHost(host) && !isXHost(host);
+    if (isYouTubeHost(host) || isXHost(host)) return false;
+    return hostMatchesCaptionCustom(host, this.prefs.customHosts ?? []);
   }
 
   private pickSessionVideo(): HTMLVideoElement | null {

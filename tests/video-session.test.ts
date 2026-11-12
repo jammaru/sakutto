@@ -2,7 +2,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PageEngine } from '@/dom/session';
 import { fakeTranslateText } from '@/dom/fake-engine';
-import { VideoCaptionSession } from '@/captions/session';
+import {
+  VideoCaptionSession,
+  X_EMPTY_TRACK_MAX_ATTEMPTS,
+  X_EMPTY_TRACK_POLL_MS,
+} from '@/captions/session';
 import { CAPTION_FONT_MIN_PX } from '@/captions/overlay';
 import {
   CAPTION_LIVE_PRIORITY,
@@ -693,12 +697,80 @@ The station opens at dawn.
         form: 'polite',
         display: 'bilingual',
         tier: 'g',
+        customHosts: ['videos.example.com'],
       },
       readTrack: async () => `WEBVTT
 
 00:00:00.000 --> 00:00:02.000
 The station opens at dawn.
 `,
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+        'The station opens at dawn.',
+      );
+    });
+    session.stop();
+    view.close();
+  });
+
+  it('does not translate a photo caption on an article host', async () => {
+    const { Window } = await import('happy-dom');
+    const view = new Window({ url: 'https://news.example.net/story' });
+    const doc = view.document;
+    doc.body.innerHTML = `
+      <article>
+        <img alt="station platform">
+        <p class="caption">The station opens at dawn.</p>
+        <video id="related"></video>
+      </article>
+    `;
+    const video = doc.querySelector('#related') as unknown as HTMLVideoElement;
+    stubMedia(video, { paused: false, width: 640, height: 360, currentTime: 0.4 });
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+    });
+    session.start();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    const host = doc.querySelector('sakutto-captions');
+    expect(host?.getAttribute('data-sakutto-original')).not.toBe('The station opens at dawn.');
+    expect(host?.getAttribute('data-sakutto-caption')).not.toBe(
+      fakeTranslateText('The station opens at dawn.', 'ja'),
+    );
+    session.stop();
+    view.close();
+  });
+
+  it('translates a generic DOM caption only on an allowed custom host', async () => {
+    const { Window } = await import('happy-dom');
+    const view = new Window({ url: 'https://videos.example.com/watch' });
+    const doc = view.document;
+    doc.body.innerHTML = `
+      <video id="player"></video>
+      <div class="caption">The station opens at dawn.</div>
+    `;
+    const player = doc.querySelector('#player') as unknown as HTMLVideoElement;
+    stubMedia(player, { paused: false, width: 640, height: 360, currentTime: 0.4 });
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+        customHosts: ['*.example.com'],
+      },
     });
     session.start();
     await vi.waitFor(() => {
@@ -949,6 +1021,7 @@ The station opens at dawn.
         form: 'polite',
         display: 'bilingual',
         tier: 'g',
+        customHosts: ['videos.example.com'],
       },
       readTrack: async (url) =>
         url.includes('captions.vtt')
@@ -1831,6 +1904,118 @@ A red train waits at platform two.
       /§ja§A red train waits at platform two/,
     );
     session.stop();
+    view.close();
+  });
+
+  it('stops polling an X video that never publishes captions', async () => {
+    const { Window } = await import('happy-dom');
+    const view = new Window({ url: 'https://x.com/i/status/silent' });
+    const doc = view.document;
+    doc.body.innerHTML = `
+      <div data-testid="videoPlayer">
+        <video id="playing" src="https://video.twimg.com/silent.mp4"></video>
+      </div>
+    `;
+    const playing = doc.querySelector('#playing') as unknown as HTMLVideoElement;
+    stubMedia(playing, { paused: false, width: 320, height: 180, currentTime: 0.4 });
+    const polls: Array<() => void> = [];
+    const originalSetInterval = view.setInterval.bind(view);
+    view.setInterval = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+      if (typeof handler !== 'function') {
+        return originalSetInterval(() => undefined, timeout, ...args);
+      }
+      if (timeout === X_EMPTY_TRACK_POLL_MS) polls.push(handler as () => void);
+      return originalSetInterval(handler, timeout, ...args);
+    }) as typeof view.setInterval;
+
+    const proto = VideoCaptionSession.prototype as unknown as {
+      loadTrack(video: HTMLVideoElement): Promise<void>;
+    };
+    const originalLoad = proto.loadTrack;
+    let loads = 0;
+    proto.loadTrack = async function loadTrack(this: VideoCaptionSession, video: HTMLVideoElement) {
+      loads += 1;
+      return originalLoad.call(this, video);
+    };
+
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => '',
+    });
+    try {
+      session.start();
+      await vi.waitFor(() => expect(loads).toBeGreaterThan(0));
+      const afterStart = loads;
+      const poll = polls[0];
+      if (!poll) throw new Error('missing empty-track poll');
+      for (let attempt = 0; attempt < X_EMPTY_TRACK_MAX_ATTEMPTS + 8; attempt += 1) {
+        poll();
+        await Promise.resolve();
+      }
+      const afterPoll = loads;
+      expect(afterPoll - afterStart).toBeLessThanOrEqual(X_EMPTY_TRACK_MAX_ATTEMPTS);
+      poll();
+      await Promise.resolve();
+      expect(loads).toBe(afterPoll);
+    } finally {
+      proto.loadTrack = originalLoad;
+      session.stop();
+      view.close();
+    }
+  });
+
+  it('removes addtrack from the same TextTrackList it subscribed to', async () => {
+    const { Window } = await import('happy-dom');
+    const view = new Window({ url: 'https://www.youtube.com/watch?v=aaaaaaaaaaa' });
+    const doc = view.document;
+    doc.body.innerHTML = youtubeWatchMarkup('aaaaaaaaaaa', true);
+    const video = doc.querySelector('video') as unknown as HTMLVideoElement;
+    stubMedia(video, { paused: false, width: 640, height: 360, currentTime: 0.4 });
+    const list = video.textTracks;
+    Object.defineProperty(video, 'textTracks', { configurable: true, get: () => list });
+    const added: EventListener[] = [];
+    const removed: EventListener[] = [];
+    const originalAdd = list.addEventListener.bind(list);
+    const originalRemove = list.removeEventListener.bind(list);
+    Object.defineProperty(list, 'addEventListener', {
+      configurable: true,
+      value: (type: string, listener: EventListenerOrEventListenerObject) => {
+        if (type === 'addtrack' && typeof listener === 'function') added.push(listener);
+        return originalAdd(type, listener);
+      },
+    });
+    Object.defineProperty(list, 'removeEventListener', {
+      configurable: true,
+      value: (type: string, listener: EventListenerOrEventListenerObject) => {
+        if (type === 'addtrack' && typeof listener === 'function') removed.push(listener);
+        return originalRemove(type, listener);
+      },
+    });
+
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => JSON.stringify(TIMEDTEXT),
+    });
+    session.start();
+    expect(added.length).toBeGreaterThan(0);
+    session.stop();
+    expect(removed).toEqual(added);
     view.close();
   });
 });

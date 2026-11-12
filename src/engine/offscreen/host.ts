@@ -568,13 +568,12 @@ export class EngineHost {
       if (controller.signal.aborted) return;
       this.post(port, { type: 'done', requestId: request.requestId });
     } catch (error) {
-      if (!controller.signal.aborted && !isAbortError(error)) {
-        this.post(port, {
-          type: 'error',
-          requestId: request.requestId,
-          error: errorPayload(error),
-        });
-      }
+      if (controller.signal.aborted) return;
+      this.post(port, {
+        type: 'error',
+        requestId: request.requestId,
+        error: errorPayload(error),
+      });
     } finally {
       this.requests.delete(request.requestId);
       this.touch();

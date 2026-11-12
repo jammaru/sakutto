@@ -103,12 +103,18 @@ test.describe('video captions', () => {
   test('translates HTML5 subtitle cues over a dummy video', async () => {
     const extension = await loadExtension('en-US');
     try {
-      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        captionCustomHosts: ['127.0.0.1'],
+      });
       const page = await extension.context.newPage();
       await page.goto(`${FIXTURE_ORIGIN}/video-captions.html`);
       await prepareVideo(page);
       await injectContentScript(extension.worker, page);
-      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        captionCustomHosts: ['127.0.0.1'],
+      });
       await commandPage(extension.worker, page, 'toggle');
       await expect(page.locator('sakutto-captions')).toHaveAttribute(
         'data-sakutto-caption',
@@ -336,6 +342,31 @@ test.describe('video captions', () => {
         'data-sakutto-caption',
         new RegExp(MARKER),
       );
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('does not paint an article photo caption when video captions are on', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      const page = await extension.context.newPage();
+      await page.goto(`${FIXTURE_ORIGIN}/article.html`);
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, { translateVideoCaptions: true });
+      await page.evaluate(() => {
+        const caption = document.createElement('p');
+        caption.className = 'caption';
+        caption.textContent = 'The station opens at dawn.';
+        const video = document.createElement('video');
+        video.id = 'related';
+        video.setAttribute('width', '320');
+        video.setAttribute('height', '180');
+        document.body.append(caption, video);
+      });
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      await expect(page.locator('sakutto-captions')).toHaveCount(0);
     } finally {
       await extension.close();
     }
@@ -618,7 +649,7 @@ test.describe('video captions', () => {
     try {
       await resetExtensionStorage(extension.worker);
       const page = await extension.context.newPage();
-      await page.goto(`${FIXTURE_ORIGIN}/video-captions.html`);
+      await page.goto(`${FIXTURE_ORIGIN}/youtube-captions.html`);
       await prepareVideo(page);
       await injectContentScript(extension.worker, page);
       await expect(page.locator('sakutto-captions')).toHaveCount(0);

@@ -23,6 +23,9 @@ describe('custom caption hosts', () => {
     expect(parseCaptionCustomHost('*.*')).toBeNull();
     expect(parseCaptionCustomHost('**')).toBeNull();
     expect(parseCaptionCustomHost('foo.*.example.com')).toBeNull();
+    expect(parseCaptionCustomHost('*.com')).toBeNull();
+    expect(parseCaptionCustomHost('*.jp')).toBeNull();
+    expect(parseCaptionCustomHost('*.org')).toBeNull();
   });
 
   it('matches apex and subdomains only when requested', () => {

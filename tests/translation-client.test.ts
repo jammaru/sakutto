@@ -54,6 +54,23 @@ describe('translateViaBackground', () => {
     await expect(first).rejects.toMatchObject({ code: 'offscreen-unavailable' });
   });
 
+  it('rethrows an abort the engine sent without the caller cancelling', async () => {
+    const port = new FakePort({ name: 'sakutto:translate' });
+    connect.mockReturnValue(port.port);
+
+    const pending = collect(translateViaBackground([{ id: 'a', text: 'Hello.' }], options()));
+    await flushTasks();
+
+    const start = port.messagesOfType('start')[0] as { requestId: string };
+    port.emit({
+      type: 'error',
+      requestId: start.requestId,
+      error: { code: 'aborted', message: 'The operation was aborted.' },
+    });
+
+    await expect(pending).rejects.toMatchObject({ code: 'aborted' });
+  });
+
   it('cancels the request when the caller aborts', async () => {
     const port = new FakePort({ name: 'sakutto:translate' });
     connect.mockReturnValue(port.port);

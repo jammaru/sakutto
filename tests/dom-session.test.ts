@@ -10,7 +10,8 @@ import {
   uiShadow,
 } from '@/dom/overlay';
 import { PageSession, type PageEngine, type SessionPreferences } from '@/dom/session';
-import { modelChangedError } from '@/engine/errors';
+import { CAPTION_PLAYHEAD_PRIORITY } from '@/captions/engine';
+import { abortError, modelChangedError } from '@/engine/errors';
 import { JobScheduler } from '@/engine/queue/scheduler';
 import type { TranslateOptions } from '@/engine/types';
 
@@ -2392,6 +2393,77 @@ describe('long page translation', () => {
     // `translated` here is the false completion the reported page hit.
     expect(session.state().skipped).toBe(1);
     expect(document.documentElement.dataset.sakuttoState).toBe('partial');
+  });
+
+  it('finishes a page block after a live caption preempts it', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML =
+      '<p id="lead">Hello world from the article that needs a translation.</p>';
+    const scheduler = new JobScheduler(1);
+    let pageStarts = 0;
+    let holdFirstPage = true;
+    const engine = engineOf(async function* (segments, options) {
+      const local = new AbortController();
+      const forward = (): void => local.abort();
+      options.signal.addEventListener('abort', forward, { once: true });
+      try {
+        await new Promise<void>((resolve, reject) => {
+          scheduler.schedule({
+            priority: options.priority,
+            ...(options.preempt === true ? { preempt: true } : {}),
+            cancel: () => local.abort(),
+            run: async () => {
+              try {
+                if (options.preempt !== true && holdFirstPage) {
+                  holdFirstPage = false;
+                  pageStarts += 1;
+                  await new Promise<void>((_, fail) => {
+                    const onAbort = (): void => fail(abortError());
+                    if (local.signal.aborted) {
+                      onAbort();
+                      return;
+                    }
+                    local.signal.addEventListener('abort', onAbort, { once: true });
+                  });
+                }
+                if (local.signal.aborted) throw abortError();
+                resolve();
+              } catch (error) {
+                reject(error);
+              }
+            },
+          });
+        });
+        for (const segment of segments) {
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      } finally {
+        options.signal.removeEventListener('abort', forward);
+      }
+    });
+
+    const session = start(document, engine);
+    const pending = session.translate();
+    await vi.waitFor(() => expect(pageStarts).toBe(1));
+
+    for await (const chunk of engine.translate(
+      [{ id: 'cue', text: 'The station opens at dawn.' }],
+      {
+        tgt: 'ja',
+        form: 'polite',
+        priority: CAPTION_PLAYHEAD_PRIORITY,
+        preempt: true,
+        signal: new AbortController().signal,
+      },
+    )) {
+      void chunk;
+    }
+
+    await pending;
+    await session.whenIdle();
+    expect(document.querySelector('#lead')?.textContent).toContain('訳:');
+    expect(session.state().skipped).toBe(0);
+    expect(session.state().done).toBe(1);
   });
 
   it('keeps a recent rate instead of a lifetime average that collapses during a pause', async () => {

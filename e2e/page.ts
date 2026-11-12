@@ -27,11 +27,13 @@ export async function resetExtensionStorage(
     targetLanguage?: string;
     translateVideoCaptions?: boolean;
     videoCaptionDisplay?: 'replace' | 'bilingual';
+    captionCustomHosts?: string[];
   } = {},
 ): Promise<void> {
   const targetLanguage = options.targetLanguage ?? 'en';
   const translateVideoCaptions = options.translateVideoCaptions === true;
   const videoCaptionDisplay = options.videoCaptionDisplay ?? 'bilingual';
+  const captionCustomHosts = options.captionCustomHosts ?? [];
   const settings = {
     schemaVersion: 1,
     targetLanguage,
@@ -64,6 +66,7 @@ export async function resetExtensionStorage(
     localServerExperimentalAck: false,
     translateVideoCaptions,
     videoCaptionDisplay,
+    captionCustomHosts,
   };
 
   for (let attempt = 0; attempt < 20; attempt += 1) {

@@ -9,7 +9,7 @@ import type { OverlayLabels } from '@/dom/overlay';
 import { PageSession, preferencesFor } from '@/dom/session';
 import { VideoCaptionSession, type CaptionSessionPreferences } from '@/captions/session';
 import type { CaptionOverlayLabels } from '@/captions/overlay';
-import { videoCaptionPositionSite } from '@/captions/sites';
+import { captionsAllowedOnPage, videoCaptionPositionSite } from '@/captions/sites';
 import {
   loadSiteRule,
   pageHost,
@@ -230,7 +230,10 @@ function captionPreferencesFor(
   const glossary = mergeGlossary(settings.glossary, rule.glossary);
   const site = videoCaptionPositionSite(host);
   return {
-    enabled: settings.translateVideoCaptions && rule.auto !== 'never',
+    enabled:
+      settings.translateVideoCaptions &&
+      rule.auto !== 'never' &&
+      captionsAllowedOnPage(host, settings.captionCustomHosts, document),
     targetLanguage: effectivePageTarget(settings.targetLanguage, rule.targetLanguage),
     form: settings.form,
     display: settings.videoCaptionDisplay,
@@ -238,6 +241,7 @@ function captionPreferencesFor(
     originalToggle: settings.videoCaptionOriginalToggle,
     position: settings.videoCaptionPositions[site] ?? null,
     glossary: glossary.length > 0 ? glossary : undefined,
+    customHosts: settings.captionCustomHosts,
     tier: null,
   };
 }

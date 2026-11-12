@@ -13,7 +13,7 @@ import { DEFAULT_BATCHING } from '@/engine/text/plan';
 import { chunkForTranslation, joinTranslatedSentences } from '@/engine/text/sentences';
 import { isPlainAltS } from '@/shared/shortcuts';
 import { PriorityQueue } from '@/engine/queue/priority-queue';
-import { isLocalServerError, isModelChangedError } from '@/engine/errors';
+import { isAbortError, isLocalServerError, isModelChangedError } from '@/engine/errors';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
 import { mergeGlossary } from '@/shared/glossary';
 import {
@@ -1217,6 +1217,7 @@ export class PageSession {
     this.work.batches += 1;
     this.work.pieces += requests.length;
     const engineStarted = performance.now();
+    let abortedByEngine = false;
 
     try {
       for await (const chunk of this.engine.translate(
@@ -1250,7 +1251,9 @@ export class PageSession {
       }
     } catch (error) {
       // Unfinished blocks are retried below. Abort keeps the previous text.
-      if (isModelChangedError(error)) {
+      if (isAbortError(error)) {
+        abortedByEngine = true;
+      } else if (isModelChangedError(error)) {
         for (const item of batch) {
           if (item.batchToken !== token || item.state !== 'running') continue;
           this.discardUnfinishedPaint(item);
@@ -1264,9 +1267,22 @@ export class PageSession {
       // The last `complete()` of this batch already ran inside the loop above, before this
       // time was added, so the payload has to be rewritten once the batch's cost is known.
       this.writePerf();
+      const sessionStopped = this.pageController?.signal.aborted === true;
       for (const item of batch) {
         if (item.batchToken !== token || item.state !== 'running') {
           if (item.batchToken === token) this.showSelectionFailure(item, signal);
+          continue;
+        }
+        if (signal.aborted && (sessionStopped || !abortedByEngine)) {
+          item.state = item.translation.length > 0 ? 'done' : 'idle';
+          item.model?.block.removeAttribute('data-sakutto-pending');
+          this.showSelectionFailure(item, signal);
+          continue;
+        }
+        if (abortedByEngine && !sessionStopped && item.role === 'page') {
+          // Caption preemption (and other engine aborts) must not burn page retries.
+          item.state = 'idle';
+          this.enqueue(item, true);
           continue;
         }
         if (signal.aborted) {
