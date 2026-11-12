@@ -33,6 +33,7 @@ import {
   isFrozenInline,
   isOwnUi,
   isScreenReaderOnly,
+  isTypingShortcutTarget,
   isTranslationExcluded,
   isTypedTextSelection,
 } from './blocks';
@@ -80,6 +81,12 @@ const MAX_PAGE_FAILURES = 2;
 const SELECTION_SETTLE_MS = 48;
 /** A selectionchange that follows pointerup is the same gesture and should not wait out the keyboard delay. */
 const POINTER_RELEASE_WINDOW_MS = 80;
+/**
+ * Chrome's `commands.onCommand` and the in-page keydown can both arrive for one keypress
+ * (the compose bar already dedupes for the same reason). Toggle would otherwise translate
+ * and immediately restore, which looks like the shortcut doing nothing.
+ */
+export const PAGE_SHORTCUT_DEDUP_MS = 200;
 /**
  * The rate only needs a few observations per second, so the whole page is not re-counted
  * for every finished segment. Each count walks every translated character.
@@ -304,6 +311,8 @@ export class PageSession {
   private readonly onResize: () => void;
   private readonly onSelectionChange: () => void;
   private readonly onPointerUp: () => void;
+  private lastShortcutCommand: 'toggle' | 'bilingual' | 'selection' | null = null;
+  private lastShortcutAt = 0;
 
   constructor(
     private readonly doc: Document,
@@ -404,19 +413,24 @@ export class PageSession {
         this.dismissSelection();
         return;
       }
+      // In-page fallback (unassigned commands): skip when a field is focused so Option+letter
+      // can type. Chrome-assigned commands still run via onCommand inside fields.
       if (this.pageKey?.(event)) {
+        if (isTypingShortcutTarget(event)) return;
         event.preventDefault();
         event.stopPropagation();
         void this.handle('toggle');
         return;
       }
       if (this.bilingualKey?.(event)) {
+        if (isTypingShortcutTarget(event)) return;
         event.preventDefault();
         event.stopPropagation();
         void this.handle('bilingual');
         return;
       }
       if (!this.selectionKey(event)) return;
+      if (isTypingShortcutTarget(event)) return;
       const selected = this.readSelection();
       if (!selected) return;
       event.preventDefault();
@@ -517,6 +531,17 @@ export class PageSession {
   async handle(
     command: 'toggle' | 'restore' | 'bilingual' | 'selection' | 'compose',
   ): Promise<void> {
+    if (command === 'toggle' || command === 'bilingual' || command === 'selection') {
+      const now = Date.now();
+      if (
+        this.lastShortcutCommand === command &&
+        now - this.lastShortcutAt < PAGE_SHORTCUT_DEDUP_MS
+      ) {
+        return;
+      }
+      this.lastShortcutCommand = command;
+      this.lastShortcutAt = now;
+    }
     switch (command) {
       case 'toggle':
         await this.toggle();

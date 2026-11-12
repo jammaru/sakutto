@@ -2,6 +2,12 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
+## Unreleased
+
+### Bug Fixes
+
+- After an update, a command Chrome never assigned uses the per-OS default on web pages. A key you cleared in Chrome's or Firefox's shortcut editor stays off. Chrome-assigned shortcuts still translate the page from a text field; an unassigned default's keydown reaches the field and is left unprevented so Option+letter can type. (#72)
+
 ## [1.3.0] - 2026-11-11
 
 ### Features

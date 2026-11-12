@@ -168,6 +168,21 @@ export function focusedEditableField(active: Element | null | undefined): Elemen
   return null;
 }
 
+/**
+ * True when an in-page page/bilingual/selection shortcut would steal a key that is also a
+ * character in the focused field. Real Alt/Option+letter is delivered to the page when the
+ * command is unassigned; returning here leaves the event unprevented so it can type.
+ * Chrome-assigned commands do not use this path: they arrive as onCommand even in a field.
+ * Compose keeps its own shortcut in eligible fields. Sakutto chrome is excluded.
+ */
+export function isTypingShortcutTarget(event: KeyboardEvent): boolean {
+  const fromEvent = event.target instanceof Element ? event.target : null;
+  const doc = event.view?.document ?? fromEvent?.ownerDocument ?? null;
+  const field = focusedEditableField(fromEvent) ?? focusedEditableField(doc?.activeElement);
+  if (!field) return false;
+  return !isOwnUi(field);
+}
+
 /** What the reader has typed into a field. Duck-typed: an iframe field is another realm. */
 function fieldValue(field: Element): string {
   if ('value' in field && typeof (field as HTMLInputElement).value === 'string') {

@@ -25,12 +25,11 @@ import { currentUiLanguage, t } from '@/shared/i18n';
 import { effectivePageTarget, isTargetLanguage, type TargetLanguage } from '@/shared/languages';
 import {
   boundShortcut,
-  DEFAULT_SHORTCUTS,
   defaultShortcutEnabled,
   displayShortcut,
   emptyShortcutAssigned,
+  isMacPlatform,
   matchesShortcut,
-  SHORTCUT_PAGE_COMMANDS,
   type ShortcutAssigned,
   type ShortcutCommand,
   type ShortcutEnabled,
@@ -62,7 +61,9 @@ const bridge = globalThis as typeof globalThis & ContentBridgeGlobal;
 /**
  * The browser only tells a page which keys are bound through the background worker. An
  * empty snapshot keeps the manifest defaults until that answer arrives. A command the
- * browser never assigned still uses the default; one the user cleared does not.
+ * browser never assigned uses the per-OS default on this page; one the user cleared does
+ * not. The fallback cannot run on chrome:// pages or the PDF viewer, where this script is
+ * not injected. A key Chrome did assign is delivered as onCommand even inside a text field.
  */
 async function readShortcutState(): Promise<ShortcutQueryResult | null> {
   const response: unknown = await browser.runtime
@@ -78,9 +79,9 @@ function shortcutFor(
   command: ShortcutCommand,
 ): string {
   return boundShortcut(snapshot, command, {
-    fallback: DEFAULT_SHORTCUTS[command],
     enabled: enabled[command],
     assigned: assigned[command],
+    mac: isMacPlatform(),
   });
 }
 
@@ -94,19 +95,6 @@ function listensFor(
     const shortcut = shortcutFor(snapshot, assigned, enabled, command);
     return shortcut.length > 0 && matchesShortcut(event, shortcut);
   };
-}
-
-function commandEnabled(
-  snapshot: ShortcutSnapshot | null,
-  assigned: ShortcutAssigned,
-  enabled: ShortcutEnabled,
-  command: PageCommandName,
-): boolean {
-  const name = (Object.keys(SHORTCUT_PAGE_COMMANDS) as ShortcutCommand[]).find(
-    (entry) => SHORTCUT_PAGE_COMMANDS[entry] === command,
-  );
-  if (!name) return true;
-  return shortcutFor(snapshot, assigned, enabled, name).length > 0;
 }
 
 function composePreferencesFor(
@@ -286,7 +274,7 @@ export default defineContentScript({
 
     const host = pageHost(location.href) ?? '';
     // The browser's bindings, or the manifest defaults until the background answers. A
-    // command the browser never assigned still uses its default; a user-cleared one does not.
+    // command the browser never assigned still uses its default; one the user cleared does not.
     let shortcutSnapshot: ShortcutSnapshot | null = null;
     let shortcutAssigned = emptyShortcutAssigned();
     let shortcutsEnabled = defaultShortcutEnabled();
@@ -297,17 +285,36 @@ export default defineContentScript({
     let modelState: ModelStatus['state'] | null = null;
     let plamoReady = false;
     let modelStatusKnown = false;
+    const publishPageShortcut = (): void => {
+      if (!shortcutSnapshot) {
+        delete document.documentElement.dataset.sakuttoPageShortcut;
+        return;
+      }
+      document.documentElement.dataset.sakuttoPageShortcut = shortcutFor(
+        shortcutSnapshot,
+        shortcutAssigned,
+        shortcutsEnabled,
+        'translate-page',
+      );
+    };
     const refreshShortcuts = (): void => {
       void readShortcutState().then((state) => {
         if (!state) return;
         shortcutSnapshot = state.snapshot;
         shortcutAssigned = state.assigned;
+        publishPageShortcut();
       });
     };
+    let shortcutRefreshTimer = 0;
+    const scheduleShortcutRefresh = (): void => {
+      window.clearTimeout(shortcutRefreshTimer);
+      shortcutRefreshTimer = window.setTimeout(refreshShortcuts, 80);
+    };
     refreshShortcuts();
-    // The browser has no event for a changed binding. A reader who rebinds and comes back
-    // to the page brings it into focus, which is the moment to read the new key.
-    window.addEventListener('focus', refreshShortcuts);
+    // Chrome has no commands.onChanged on older builds, and no way to write a shortcut.
+    // Re-read when the tab is shown so a change in chrome://extensions/shortcuts lands.
+    window.addEventListener('focus', scheduleShortcutRefresh);
+    document.addEventListener('visibilitychange', scheduleShortcutRefresh);
 
     let engineSource: Settings['engineSource'] = 'in-browser';
     const engine = {
@@ -336,6 +343,7 @@ export default defineContentScript({
         }
       }
       shortcutsEnabled = settings.shortcutsEnabled;
+      publishPageShortcut();
       const session = new PageSession(document, {
         engine,
         labels: overlayLabels(),
@@ -480,6 +488,7 @@ export default defineContentScript({
         liveRule = nextRule;
         engineSource = liveSettings.engineSource;
         shortcutsEnabled = liveSettings.shortcutsEnabled;
+        publishPageShortcut();
         session.setLabels(overlayLabels());
         session.setPreferences(preferencesFor(liveSettings, liveRule, host));
         const readiness = composeReadiness(
@@ -537,9 +546,8 @@ export default defineContentScript({
       const session = await sessionPromise;
       const [liveSettings, liveRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
       captions?.setPreferences(captionPreferencesFor(liveSettings, liveRule, host));
-      if (!commandEnabled(shortcutSnapshot, shortcutAssigned, shortcutsEnabled, command)) {
-        return session.state();
-      }
+      // Keyboard assignment is enforced on the in-page listener and in
+      // `commands.onCommand`. This path also serves the popup and context menu.
       if (!__SAKUTTO_FAKE_ENGINE__) {
         void requestEngineWarm();
         void requestEngineTier(session, false, captions);

@@ -9,7 +9,7 @@
     type ModelStatus,
   } from '@/shared/engine-status';
   import { hasLicenseConsent } from '@/shared/agreement';
-  import { currentUiLanguage, t, type MessageKey } from '@/shared/i18n';
+  import { currentUiLanguage, t, tForBrowser, type MessageKey } from '@/shared/i18n';
   import {
     isModelProgressMessage,
     requestEngineStatus,
@@ -49,11 +49,12 @@
   import { advanceModelStatus } from '@/shared/model-progress';
   import { openShortcutEditor } from '@/shared/shortcut-editor';
   import {
-    DEFAULT_SHORTCUTS,
     SHORTCUT_COMMANDS,
     ariaShortcut,
     boundShortcut,
+    defaultShortcuts,
     displayShortcut,
+    usesInPageFallback,
     type ShortcutCommand,
   } from '@/shared/shortcuts';
   import { readDeviceHeadroom, type DeviceHeadroom } from '@/ui/device-headroom';
@@ -97,10 +98,9 @@
    */
   let bound = $derived.by((): Record<ShortcutCommand, string> => {
     const enabled = settings?.shortcutsEnabled;
-    const next: Record<ShortcutCommand, string> = { ...DEFAULT_SHORTCUTS };
+    const next: Record<ShortcutCommand, string> = { ...defaultShortcuts() };
     for (const command of SHORTCUT_COMMANDS) {
       next[command] = boundShortcut(shortcuts?.snapshot ?? null, command, {
-        fallback: DEFAULT_SHORTCUTS[command],
         enabled: enabled?.[command] !== false,
         assigned: shortcuts?.assigned[command],
       });
@@ -112,6 +112,13 @@
       label: hint.label,
       text: t(hint.label, [keyText(hint.command)]),
     })),
+  );
+  let shortcutFallback = $derived(
+    SHORTCUT_COMMANDS.some((command) =>
+      usesInPageFallback(shortcuts?.snapshot ?? null, command, shortcuts?.assigned[command]),
+    )
+      ? tForBrowser('shortcutFallbackNote', 'shortcutFallbackNoteFirefox')
+      : '',
   );
   let toggleKeys = $derived(ariaShortcut(bound['translate-page']) ?? undefined);
 
@@ -381,15 +388,28 @@
     void readDeviceHeadroom().then((value) => {
       headroom = value;
     });
-    void requestShortcutSnapshot().then((snapshot) => {
-      shortcuts = snapshot;
-    });
+    const refreshShortcuts = (): void => {
+      void requestShortcutSnapshot().then((snapshot) => {
+        if (snapshot) shortcuts = snapshot;
+      });
+    };
+    let shortcutRefreshTimer = 0;
+    const scheduleShortcutRefresh = (): void => {
+      window.clearTimeout(shortcutRefreshTimer);
+      shortcutRefreshTimer = window.setTimeout(refreshShortcuts, 80);
+    };
+    refreshShortcuts();
+    window.addEventListener('focus', scheduleShortcutRefresh);
+    document.addEventListener('visibilitychange', scheduleShortcutRefresh);
 
     return () => {
       unsubscribe();
       unsubscribeRules();
       window.clearInterval(timer);
       browser.runtime.onMessage.removeListener(onMessage);
+      window.clearTimeout(shortcutRefreshTimer);
+      window.removeEventListener('focus', scheduleShortcutRefresh);
+      document.removeEventListener('visibilitychange', scheduleShortcutRefresh);
     };
   });
 </script>
@@ -552,6 +572,9 @@
       <li>{line.text}</li>
     {/each}
   </ul>
+  {#if shortcutFallback}
+    <p class="muted" data-sakutto="shortcut-fallback">{shortcutFallback}</p>
+  {/if}
   <button class="link-button shortcut-change" type="button" onclick={changeShortcuts}>
     {t('shortcutChange')}
   </button>

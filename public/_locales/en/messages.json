@@ -399,10 +399,10 @@
     "message": "Keyboard shortcuts"
   },
   "shortcutHelp": {
-    "message": "Uncheck a command to turn it off in Sakutto. Change shortcuts opens Chrome’s own editor. Clearing a key there stops Sakutto from using it. The default key is used on pages only when Chrome never assigned one, for example because of a conflict."
+    "message": "Uncheck a command to turn it off in Sakutto. Change shortcuts opens Chrome’s own editor. A key Chrome assigned is used as-is, including while a text field is focused (the page still translates). If Chrome never assigned a command, the default still works on web pages — not on chrome:// pages or other pages Sakutto cannot enter. In a text field that unassigned keydown is delivered and left unprevented, so Option+letter can type a character."
   },
   "shortcutHelpFirefox": {
-    "message": "Uncheck a command to turn it off in Sakutto. Change shortcuts opens Firefox’s own editor. Clearing a key there stops Sakutto from using it. The default key is used on pages only when Firefox never assigned one, for example because of a conflict."
+    "message": "Uncheck a command to turn it off in Sakutto. Change shortcuts opens Firefox’s own editor. A key you set there is used as-is, including while a text field is focused. An update restores a command that was never assigned, when Firefox allows it; a key you cleared stays cleared. Never-assigned commands still work on pages until then. In a text field that unassigned keydown is left unprevented so it can type."
   },
   "shortcutChange": {
     "message": "Change shortcuts"
@@ -417,10 +417,26 @@
     "message": "Off"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome did not assign a key to this command at install, so the default is used on pages."
+    "message": "Chrome never assigned a key to this command, so the default is handled on web pages. It does not work on chrome:// pages or other pages Sakutto cannot enter. In a text field the keydown is left unprevented."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox did not assign a key to this command at install, so the default is used on pages."
+    "message": "Firefox never assigned a key to this command, so the default is handled on pages. In a text field the keydown is left unprevented."
+  },
+  "shortcutFallbackKey": {
+    "message": "$KEY$ (on pages)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutFallbackKeyFirefox": {
+    "message": "$KEY$ (on pages)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutTranslate": {
     "message": "$KEY$ translates the page or restores the original.",

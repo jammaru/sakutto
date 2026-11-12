@@ -37,7 +37,7 @@ import {
   requestEngineProbe,
   type ModelProgressMessage,
 } from '@/shared/messages';
-import { resolveShortcutQuery } from '@/shared/shortcut-assignment';
+import { resolveShortcutQuery, restoreEmptyCommandShortcuts } from '@/shared/shortcut-assignment';
 import {
   WEBGPU_DEBUG_STORAGE_KEY,
   isWebGpuDebugProfile,
@@ -184,16 +184,17 @@ export default defineBackground(() => {
     return client.deleteModel(modelId).catch(() => null);
   }
 
-  async function recordCommandAssignments(): Promise<void> {
+  async function recordCommandAssignments(restoreEmpty = false): Promise<void> {
     const commands = await browser.commands.getAll().catch(() => []);
-    await resolveShortcutQuery(commands);
+    const next = restoreEmpty ? await restoreEmptyCommandShortcuts(commands) : commands;
+    await resolveShortcutQuery(next);
   }
 
   browser.runtime.onInstalled.addListener(({ reason }) => {
     void (async () => {
       if (reason === 'update') await client.bootSource();
       else await syncSource();
-      await recordCommandAssignments();
+      await recordCommandAssignments(reason === 'install' || reason === 'update');
       if (reason === 'install') {
         await browser.tabs.create({ url: browser.runtime.getURL('/onboarding.html') });
       }

@@ -16,9 +16,9 @@
   } from '@/shared/messages';
   import { advanceModelStatus } from '@/shared/model-progress';
   import {
-    DEFAULT_SHORTCUTS,
     SHORTCUT_COMMANDS,
     boundShortcut,
+    defaultShortcuts,
     displayShortcut,
     type ShortcutCommand,
   } from '@/shared/shortcuts';
@@ -80,7 +80,7 @@
    * The keys Chrome has bound right now, so the "you are ready" checklist names the keys the
    * reader will actually press rather than the values the manifest shipped with.
    */
-  let bound = $state<Record<ShortcutCommand, string>>({ ...DEFAULT_SHORTCUTS });
+  let bound = $state<Record<ShortcutCommand, string>>({ ...defaultShortcuts() });
 
   function keyText(command: ShortcutCommand): string {
     const shortcut = bound[command];

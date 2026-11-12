@@ -165,6 +165,8 @@ describe('shortcut settings', () => {
     expect(shortcuts).toContain('displayShortcut');
     expect(shortcuts).toContain('boundShortcut');
     expect(shortcuts).toContain('usesInPageFallback');
+    expect(shortcuts).toContain('shortcutFallbackKey');
+    expect(shortcuts).toContain('data-sakutto="shortcut-fallback"');
     expect(shortcuts).not.toContain("'Alt+A'");
   });
 
@@ -187,9 +189,33 @@ describe('shortcut settings', () => {
     expect(options).toContain('shortcutHeading');
   });
 
-  it('records the browser’s first command bindings so a later clear is not a conflict', () => {
+  it('records the browser’s command bindings on install, update, and startup', () => {
     expect(background).toContain('resolveShortcutQuery');
+    expect(background).toContain('restoreEmptyCommandShortcuts');
     expect(background).toContain('onInstalled');
+    expect(background).toContain('onStartup');
+    expect(background).toContain("reason === 'install' || reason === 'update'");
+  });
+});
+
+describe('popup shortcut hints', () => {
+  it('names the live binding and says when the in-page default is filling in', () => {
+    expect(popup).toContain('usesInPageFallback');
+    expect(popup).toContain('shortcutFallbackNote');
+    expect(popup).toContain('data-sakutto="shortcut-fallback"');
+    expect(popup).toContain('requestShortcutSnapshot');
+    expect(popup).toContain('defaultShortcuts');
+    expect(popup).not.toContain("'Alt+A'");
+  });
+});
+
+describe('onboarding shortcut hints', () => {
+  it('names the keys this OS actually uses, then the keys Chrome reported', () => {
+    expect(onboarding).toContain('defaultShortcuts');
+    expect(onboarding).toContain('boundShortcut');
+    expect(onboarding).toContain('displayShortcut');
+    expect(onboarding).toContain('requestShortcutSnapshot');
+    expect(onboarding).not.toContain("'Alt+A'");
   });
 });
 

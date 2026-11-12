@@ -399,10 +399,10 @@
     "message": "Phím tắt"
   },
   "shortcutHelp": {
-    "message": "Bỏ chọn lệnh để tắt trong Sakutto. Đổi phím tắt mở trình sửa của Chrome. Xóa phím ở đó thì Sakutto ngừng dùng phím đó. Phím mặc định chỉ dùng trên trang khi Chrome không gán phím lúc cài, ví dụ vì xung đột."
+    "message": "Bỏ chọn lệnh để tắt trong Sakutto. Đổi phím tắt mở trình sửa của Chrome. Phím Chrome đã gán được dùng nguyên, kể cả khi ô nhập đang focus (trang vẫn được dịch). Nếu Chrome chưa từng gán lệnh, phím mặc định vẫn dùng được trên trang web — không trên trang chrome:// hay trang khác mà Sakutto không vào được. Trong ô nhập, keydown đó vẫn tới và không bị chặn, nên Option+chữ gõ được."
   },
   "shortcutHelpFirefox": {
-    "message": "Bỏ chọn lệnh để tắt trong Sakutto. Đổi phím tắt mở trình sửa của Firefox. Xóa phím ở đó thì Sakutto ngừng dùng phím đó. Phím mặc định chỉ dùng trên trang khi Firefox không gán phím lúc cài, ví dụ vì xung đột."
+    "message": "Bỏ chọn lệnh để tắt trong Sakutto. Đổi phím tắt mở trình sửa của Firefox. Phím bạn đặt ở đó được dùng nguyên, kể cả trong ô nhập. Bản cập nhật khôi phục lệnh chưa từng được gán khi Firefox cho phép; phím bạn xóa vẫn trống. Trong ô nhập, keydown đó không bị chặn."
   },
   "shortcutChange": {
     "message": "Đổi phím tắt"
@@ -417,10 +417,26 @@
     "message": "Tắt"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome không gán phím cho lệnh này lúc cài nên trên trang sẽ dùng phím mặc định."
+    "message": "Chrome chưa từng gán phím cho lệnh này, nên phím mặc định được dùng trên trang web. Không hoạt động trên trang chrome:// hay trang khác mà Sakutto không vào được. Trong ô nhập, keydown không bị chặn."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox không gán phím cho lệnh này lúc cài nên trên trang sẽ dùng phím mặc định."
+    "message": "Firefox chưa từng gán phím cho lệnh này, nên phím mặc định được dùng trên trang. Trong ô nhập, keydown không bị chặn."
+  },
+  "shortcutFallbackKey": {
+    "message": "$KEY$ (trên trang)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutFallbackKeyFirefox": {
+    "message": "$KEY$ (trên trang)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutTranslate": {
     "message": "$KEY$ chuyển đổi trang hoặc khôi phục bản gốc.",

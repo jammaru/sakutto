@@ -399,10 +399,10 @@
     "message": "Pintasan papan kekunci"
   },
   "shortcutHelp": {
-    "message": "Hapus centang perintah untuk mematikannya di Sakutto. Ubah pintasan membuka editor Chrome. Menghapus tombol di sana membuat Sakutto berhenti menggunakannya. Tombol bawaan dipakai di halaman hanya jika Chrome tidak pernah menetapkannya saat pemasangan, misalnya karena konflik."
+    "message": "Hapus centang perintah untuk mematikannya di Sakutto. Ubah pintasan membuka editor Chrome. Tombol yang Chrome tetapkan dipakai apa adanya, termasuk saat kotak teks fokus (halaman tetap diterjemahkan). Jika Chrome tidak pernah menetapkan perintah, tombol bawaan tetap bekerja di halaman web — bukan di halaman chrome:// atau halaman lain yang tidak bisa dimasuki Sakutto. Di kotak teks, keydown itu sampai dan tidak dicegah, jadi Option+huruf bisa mengetik."
   },
   "shortcutHelpFirefox": {
-    "message": "Hapus centang perintah untuk mematikannya di Sakutto. Ubah pintasan membuka editor Firefox. Menghapus tombol di sana membuat Sakutto berhenti menggunakannya. Tombol bawaan dipakai di halaman hanya jika Firefox tidak pernah menetapkannya saat pemasangan, misalnya karena konflik."
+    "message": "Hapus centang perintah untuk mematikannya di Sakutto. Ubah pintasan membuka editor Firefox. Tombol yang Anda atur di sana dipakai apa adanya, termasuk saat kotak teks fokus. Pembaruan mengembalikan perintah yang tidak pernah ditetapkan, jika Firefox mengizinkan; tombol yang Anda hapus tetap kosong. Di kotak teks, keydown itu tidak dicegah."
   },
   "shortcutChange": {
     "message": "Ubah pintasan"
@@ -417,10 +417,26 @@
     "message": "Nonaktif"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome tidak menetapkan tombol untuk perintah ini saat pemasangan, jadi tombol bawaan dipakai di halaman."
+    "message": "Chrome tidak pernah menetapkan tombol untuk perintah ini, jadi tombol bawaan dipakai di halaman web. Tidak bekerja di halaman chrome:// atau halaman lain yang tidak bisa dimasuki Sakutto. Di kotak teks, keydown tidak dicegah."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox tidak menetapkan tombol untuk perintah ini saat pemasangan, jadi tombol bawaan dipakai di halaman."
+    "message": "Firefox tidak pernah menetapkan tombol untuk perintah ini, jadi tombol bawaan dipakai di halaman. Di kotak teks, keydown tidak dicegah."
+  },
+  "shortcutFallbackKey": {
+    "message": "$KEY$ (di halaman)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutFallbackKeyFirefox": {
+    "message": "$KEY$ (di halaman)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutTranslate": {
     "message": "$KEY$ menerjemahkan halaman atau mengembalikan versi aslinya.",

@@ -399,10 +399,10 @@
     "message": "Raccourcis clavier"
   },
   "shortcutHelp": {
-    "message": "Décochez une commande pour la désactiver dans Sakutto. Modifier les raccourcis ouvre l’éditeur de Chrome. Si vous y effacez une touche, Sakutto cesse de l’utiliser. La touche par défaut s’applique sur les pages seulement si Chrome n’en a jamais assigné une à l’installation, par exemple à cause d’un conflit."
+    "message": "Décochez une commande pour la désactiver dans Sakutto. Modifier les raccourcis ouvre l’éditeur de Chrome. Une touche assignée par Chrome est utilisée telle quelle, y compris quand un champ de texte a le focus (la page est quand même traduite). Si Chrome n’a jamais assigné une commande, le raccourci par défaut fonctionne sur les pages web — pas sur les pages chrome:// ni sur les autres pages où Sakutto ne peut pas s’exécuter. Dans un champ, ce keydown arrive et n’est pas empêché, pour qu’Option+lettre puisse taper."
   },
   "shortcutHelpFirefox": {
-    "message": "Décochez une commande pour la désactiver dans Sakutto. Modifier les raccourcis ouvre l’éditeur de Firefox. Si vous y effacez une touche, Sakutto cesse de l’utiliser. La touche par défaut s’applique sur les pages seulement si Firefox n’en a jamais assigné une à l’installation, par exemple à cause d’un conflit."
+    "message": "Décochez une commande pour la désactiver dans Sakutto. Modifier les raccourcis ouvre l’éditeur de Firefox. Une touche définie là est utilisée telle quelle, y compris dans un champ de texte. Une mise à jour rétablit une commande jamais assignée, si Firefox le permet ; une touche effacée le reste. Dans un champ, ce keydown n’est pas empêché."
   },
   "shortcutChange": {
     "message": "Modifier les raccourcis"
@@ -417,10 +417,26 @@
     "message": "Désactivé"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome n’a pas assigné de touche à cette commande à l’installation ; la touche par défaut s’applique sur les pages."
+    "message": "Chrome n’a jamais assigné de touche à cette commande, donc le raccourci par défaut s’applique aux pages web. Il ne fonctionne pas sur les pages chrome:// ni sur les autres pages où Sakutto ne peut pas s’exécuter. Dans un champ, le keydown n’est pas empêché."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox n’a pas assigné de touche à cette commande à l’installation ; la touche par défaut s’applique sur les pages."
+    "message": "Firefox n’a jamais assigné de touche à cette commande, donc le raccourci par défaut s’applique aux pages. Dans un champ, le keydown n’est pas empêché."
+  },
+  "shortcutFallbackKey": {
+    "message": "$KEY$ (sur les pages)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutFallbackKeyFirefox": {
+    "message": "$KEY$ (sur les pages)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutTranslate": {
     "message": "$KEY$ traduit la page ou rétablit l’original.",

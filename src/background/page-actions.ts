@@ -4,7 +4,12 @@ import { originPattern, pageHost, loadSiteRule } from '@/dom/sites';
 import { ensureContentScript } from '@/shared/page-bridge';
 import { requestPageCommand, type PageCommandName } from '@/shared/messages';
 import { noteShortcutCommandAssigned } from '@/shared/shortcut-assignment';
-import { isShortcutCommand, SHORTCUT_PAGE_COMMANDS } from '@/shared/shortcuts';
+import {
+  isShortcutCommand,
+  SHORTCUT_PAGE_COMMANDS,
+  type ShortcutCommand,
+  type ShortcutEnabled,
+} from '@/shared/shortcuts';
 import { loadSettings } from '@/shared/storage';
 
 interface PageTranslationCanceller {
@@ -14,10 +19,8 @@ interface PageTranslationCanceller {
 export function installPageActions(translations?: PageTranslationCanceller): void {
   installMenus();
 
-  browser.commands.onCommand.addListener((command) => {
-    if (!isShortcutCommand(command)) return;
-    void noteShortcutCommandAssigned(command);
-    void runOnActiveTab(SHORTCUT_PAGE_COMMANDS[command]);
+  browser.commands.onCommand.addListener((command, tab) => {
+    void handleShortcutCommand(command, tab);
   });
 
   browser.contextMenus.onClicked.addListener((info, tab) => {
@@ -70,11 +73,49 @@ function installMenus(): void {
   });
 }
 
-async function runOnActiveTab(command: PageCommandName): Promise<void> {
-  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-  const tabId = tabs[0]?.id;
+/**
+ * True when this Chrome/Edge/Firefox command should run. Sakutto's own off switch
+ * applies only to the keyboard command; the popup and context menu still translate.
+ */
+export function shouldHandleShortcutCommand(
+  command: string,
+  enabled: ShortcutEnabled,
+): command is ShortcutCommand {
+  return isShortcutCommand(command) && enabled[command] !== false;
+}
+
+/**
+ * The tab Chrome delivered with `onCommand`, or the focused window's active tab.
+ * A service worker has no "current window", so `currentWindow: true` alone can miss
+ * the page the reader is looking at.
+ */
+export function resolveShortcutTabId(
+  delivered: { id?: number | undefined } | undefined,
+  lastFocused: ReadonlyArray<{ id?: number | undefined }>,
+  currentWindow: ReadonlyArray<{ id?: number | undefined }> = [],
+): number | undefined {
+  return delivered?.id ?? lastFocused[0]?.id ?? currentWindow[0]?.id;
+}
+
+/** Same path `commands.onCommand` uses: record the binding, then tell the content script. */
+export async function handleShortcutCommand(
+  command: string,
+  tab?: { id?: number | undefined },
+): Promise<void> {
+  if (!isShortcutCommand(command)) return;
+  void noteShortcutCommandAssigned(command);
+  const settings = await loadSettings();
+  if (!shouldHandleShortcutCommand(command, settings.shortcutsEnabled)) return;
+  const tabId =
+    tab?.id !== undefined
+      ? tab.id
+      : resolveShortcutTabId(
+          undefined,
+          await browser.tabs.query({ active: true, lastFocusedWindow: true }),
+          await browser.tabs.query({ active: true, currentWindow: true }),
+        );
   if (tabId === undefined) return;
-  await runCommand(tabId, command);
+  await runCommand(tabId, SHORTCUT_PAGE_COMMANDS[command]);
 }
 
 /** The frame whose document has a real focused control, if scripting can see it. */

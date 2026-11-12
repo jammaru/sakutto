@@ -23,10 +23,24 @@ export const SHORTCUT_PAGE_COMMANDS: Readonly<Record<ShortcutCommand, PageComman
 };
 
 /**
- * Chrome defaults. Alt+letter is the historical binding; Firefox cannot use those on
- * Windows because they collide with the menu bar.
+ * Chrome `suggested_key.default` (Windows, Linux, ChromeOS). Alt+letter is the historical
+ * binding; Firefox cannot use those on Windows because they collide with the menu bar.
  */
 export const CHROME_DEFAULT_SHORTCUTS: Readonly<Record<ShortcutCommand, string>> = {
+  'translate-page': 'Alt+A',
+  'toggle-bilingual': 'Alt+B',
+  'translate-selection': 'Alt+S',
+  'translate-compose': 'Alt+T',
+};
+
+/**
+ * Chrome `suggested_key.mac`. `Alt` is Option on macOS. A brand-new macOS
+ * Chrome profile has been observed to auto-assign Option+A/B/S/T; this file
+ * does not treat Chromium accelerator tables as proof of that. An existing
+ * install that already had empty bindings stays empty across updates because
+ * Chrome keeps user-cleared prefs for the same extension id.
+ */
+export const CHROME_MAC_DEFAULT_SHORTCUTS: Readonly<Record<ShortcutCommand, string>> = {
   'translate-page': 'Alt+A',
   'toggle-bilingual': 'Alt+B',
   'translate-selection': 'Alt+S',
@@ -41,19 +55,64 @@ export const FIREFOX_DEFAULT_SHORTCUTS: Readonly<Record<ShortcutCommand, string>
   'translate-compose': 'Alt+Shift+T',
 };
 
+/** One command's `suggested_key` object. Chrome allows at most four of these per extension. */
+export type SuggestedKey = {
+  readonly default: string;
+  readonly mac?: string | undefined;
+};
+
+export function suggestedKeyFor(browser: ExtensionBrowser, command: ShortcutCommand): SuggestedKey {
+  if (browser === 'firefox') return { default: FIREFOX_DEFAULT_SHORTCUTS[command] };
+  return {
+    default: CHROME_DEFAULT_SHORTCUTS[command],
+    mac: CHROME_MAC_DEFAULT_SHORTCUTS[command],
+  };
+}
+
 export function defaultShortcutsFor(
   browser: ExtensionBrowser,
 ): Readonly<Record<ShortcutCommand, string>> {
   return browser === 'firefox' ? FIREFOX_DEFAULT_SHORTCUTS : CHROME_DEFAULT_SHORTCUTS;
 }
 
+/** True when this machine's Chrome treats `Ctrl` as Command, as it does on a Mac. */
+export function isMacPlatform(): boolean {
+  const nav = globalThis.navigator as
+    (Navigator & { userAgentData?: { platform?: string } }) | undefined;
+  if (!nav) return false;
+  const platform = nav.userAgentData?.platform ?? nav.platform ?? nav.userAgent ?? '';
+  return /mac/i.test(platform);
+}
+
+export interface ShortcutPlatform {
+  readonly mac?: boolean | undefined;
+  readonly browser?: ExtensionBrowser | undefined;
+}
+
+/** The keys this browser and OS should start with, including Chrome's Mac Option+letter set. */
+export function defaultShortcuts(
+  platform: ShortcutPlatform = {},
+): Readonly<Record<ShortcutCommand, string>> {
+  const browser = platform.browser ?? extensionBrowser();
+  if (browser === 'firefox') return FIREFOX_DEFAULT_SHORTCUTS;
+  return (platform.mac ?? isMacPlatform())
+    ? CHROME_MAC_DEFAULT_SHORTCUTS
+    : CHROME_DEFAULT_SHORTCUTS;
+}
+
+export function defaultShortcutFor(
+  command: ShortcutCommand,
+  platform: ShortcutPlatform = {},
+): string {
+  return defaultShortcuts(platform)[command];
+}
+
 /**
- * The key the manifest suggests for each command. A page or a settings screen uses these
- * until the browser answers with the keys the user actually bound, and keeps them if it never
- * answers. Chrome reports the same bindings with its own spelling on a Mac.
+ * The key a page or settings screen uses until the browser answers with the keys the user
+ * actually bound, and keeps if it never answers. Chrome reports the same bindings with its
+ * own spelling on a Mac.
  */
-export const DEFAULT_SHORTCUTS: Readonly<Record<ShortcutCommand, string>> =
-  defaultShortcutsFor(extensionBrowser());
+export const DEFAULT_SHORTCUTS: Readonly<Record<ShortcutCommand, string>> = defaultShortcuts();
 
 /** The key the selection command has until the browser answers. */
 export const DEFAULT_SELECTION_SHORTCUT = DEFAULT_SHORTCUTS['translate-selection'];
@@ -135,8 +194,10 @@ function hasShortcutKey(binding: string | null | undefined): binding is string {
  *
  * A command the map has never seen is recorded as assigned only when the browser reported a
  * key. An unassigned command becomes assigned if a key appears later. Assigned never goes
- * back to false, so clearing the key in the browser's shortcut editor is not mistaken for
- * the install-time conflict that still needs the in-page default.
+ * back to false, so a later empty binding is a user clear — no in-page fallback, and
+ * Firefox must not `commands.update` it back. Existing installs from before this map
+ * already stored it (#52): empty-from-the-start stays `false` (fallback); a key that
+ * later vanished is `true` (leave off).
  */
 export function rememberShortcutAssignments(
   recorded: ShortcutAssignment,
@@ -160,31 +221,29 @@ export function markCommandAssigned(
 export interface BoundShortcutOptions {
   readonly fallback?: string;
   readonly enabled?: boolean;
+  readonly mac?: boolean | undefined;
   /**
-   * Whether the browser has assigned a key to this command at least once. `true` means a
-   * later empty snapshot is a user clear — no in-page fallback. `false` means the first
-   * observation was empty (a conflict at install), so the manifest default stays on the
-   * page. Omitted until that observation is recorded, which also keeps the default so
-   * first-run still works before `onInstalled` finishes.
+   * Whether the browser has assigned a key to this command at least once. `true` plus an
+   * empty snapshot is a user clear: no in-page fallback. `false` or omitted plus empty is
+   * "never assigned" (install conflict, or an old install that stayed 未設定): use the
+   * per-OS default on pages.
    */
   readonly assigned?: boolean | undefined;
 }
 
 /**
  * The key a page should listen for. A key the user set in the browser wins. An empty
- * binding is a user clear when that command was assigned at least once, and the in-page
- * default only when the browser never assigned the suggested key (another extension already
- * holds it, a command added in an update, a second copy of this extension). Sakutto's own
- * setting is a separate off switch. `null` on the snapshot (the command was not listed)
- * follows the same empty-binding rule. No snapshot at all keeps the default so a page can
- * answer before the background replies.
+ * binding uses the per-OS default only when that command was never assigned; a user
+ * clear (`assigned === true`) stays off. Sakutto's own checkbox is a separate off
+ * switch. No snapshot at all keeps the default so a page can answer before the
+ * background replies.
  */
 export function boundShortcut(
   snapshot: ShortcutSnapshot | null,
   command: ShortcutCommand,
   options: BoundShortcutOptions = {},
 ): string {
-  const fallback = options.fallback ?? DEFAULT_SHORTCUTS[command];
+  const fallback = options.fallback ?? defaultShortcutFor(command, { mac: options.mac });
   if (options.enabled === false) return '';
   if (!snapshot) return fallback;
   const binding = snapshot[command];
@@ -194,9 +253,9 @@ export function boundShortcut(
 }
 
 /**
- * True when the in-page default is filling in because the browser never assigned a key.
- * A user-cleared command is empty in the snapshot too, but `assigned` is then true and
- * this is false, so the settings screen can say "Not set" instead of advertising a fallback.
+ * True when the page is listening for the OS default because `commands.getAll()` reported
+ * no key and that command was never assigned. A user-cleared command is empty too, but
+ * `assigned` is then true and this is false.
  */
 export function usesInPageFallback(
   snapshot: ShortcutSnapshot | null,
@@ -218,12 +277,35 @@ export function isShortcutCommand(value: string): value is ShortcutCommand {
   return (SHORTCUT_COMMANDS as readonly string[]).includes(value);
 }
 
+/**
+ * Chrome's `commands.getAll()` spells the Control key as `Ctrl` on every OS
+ * (`ui::Command::AcceleratorToString`). On Mac a manifest `Ctrl` means Command, so a
+ * snapshot `Ctrl+Shift+A` from a `MacCtrl` suggestion would otherwise be heard as
+ * Command+Shift+A. Reported `Ctrl` becomes `MacCtrl`; `Command` / `⌘` stay Command, and
+ * `⌃` already parses as Control.
+ */
+export function normalizeReportedShortcut(
+  shortcut: string,
+  platform: ShortcutPlatform = {},
+): string {
+  const mac = platform.mac ?? isMacPlatform();
+  if (!mac || shortcut.length === 0) return shortcut;
+  if (/(?:^|\+)MacCtrl(?:\+|$)/.test(shortcut)) return shortcut;
+  if (/[⌘⌃⌥]/.test(shortcut) || /(?:^|\+)(?:Command|Cmd|Option)(?:\+|$)/i.test(shortcut)) {
+    return shortcut;
+  }
+  return shortcut.replace(/(^|\+)Ctrl(?=\+|$)/g, '$1MacCtrl');
+}
+
 /** Reads the commands a user can rebind into the keys a page cares about. */
-export function readShortcutSnapshot(commands: readonly CommandBinding[]): ShortcutSnapshot {
+export function readShortcutSnapshot(
+  commands: readonly CommandBinding[],
+  platform: ShortcutPlatform = {},
+): ShortcutSnapshot {
   const shortcutOf = (name: ShortcutCommand): string | null => {
     const command = commands.find((entry) => entry.name === name);
     if (command === undefined) return null;
-    return command.shortcut ?? '';
+    return normalizeReportedShortcut(command.shortcut ?? '', platform);
   };
   return {
     'translate-page': shortcutOf('translate-page'),
@@ -337,15 +419,6 @@ export function parseShortcut(shortcut: string): ParsedShortcut | null {
   return { modifiers, key };
 }
 
-/** True when this machine's Chrome treats `Ctrl` as Command, as it does on a Mac. */
-export function isMacPlatform(): boolean {
-  const nav = globalThis.navigator as
-    (Navigator & { userAgentData?: { platform?: string } }) | undefined;
-  if (!nav) return false;
-  const platform = nav.userAgentData?.platform ?? nav.platform ?? nav.userAgent ?? '';
-  return /mac/i.test(platform);
-}
-
 /**
  * True when the key event is the key the user bound to this command. `Ctrl` means Command on
  * a Mac, as it does in a manifest, and `MacCtrl` is the Control key there.
@@ -353,7 +426,7 @@ export function isMacPlatform(): boolean {
 export function matchesShortcut(
   event: KeyboardEvent,
   shortcut: string,
-  platform: { readonly mac?: boolean } = {},
+  platform: ShortcutPlatform = {},
 ): boolean {
   const parsed = parseShortcut(shortcut);
   if (parsed === null) return false;
@@ -384,10 +457,7 @@ export function isPlainAltS(event: KeyboardEvent): boolean {
  * The binding in the `aria-keyshortcuts` spelling, which names modifiers `Control`, `Meta`,
  * `Alt` and `Shift` whatever key the platform draws. `null` when the binding cannot be read.
  */
-export function ariaShortcut(
-  shortcut: string,
-  platform: { readonly mac?: boolean } = {},
-): string | null {
+export function ariaShortcut(shortcut: string, platform: ShortcutPlatform = {}): string | null {
   const parsed = parseShortcut(shortcut);
   if (parsed === null) return null;
 
@@ -406,16 +476,22 @@ const DISPLAY_GLYPHS: ReadonlyMap<string, string> = new Map<string, string>([
   ['⌘', 'Cmd'],
   ['⌥', 'Option'],
   ['⇧', 'Shift'],
-  ['⌃', 'Ctrl'],
+  ['⌃', 'Control'],
   ['⌫', 'Backspace'],
   ['↵', 'Enter'],
+]);
+
+const DISPLAY_TOKENS: ReadonlyMap<string, string> = new Map<string, string>([
+  ['MacCtrl', 'Control'],
+  ['macctrl', 'Control'],
 ]);
 
 /**
  * The binding as a reader should see it. Chrome reports `⌥⇧P` on a Mac; `Option+Shift+P`
  * names the same keys in words, next to the `Alt+Shift+P` a Windows Chrome reports.
+ * `MacCtrl` is Control. On a Mac, `Alt` is Option.
  */
-export function displayShortcut(shortcut: string): string {
+export function displayShortcut(shortcut: string, platform: ShortcutPlatform = {}): string {
   const parts: string[] = [];
   let word = '';
   const flush = (): void => {
@@ -439,5 +515,13 @@ export function displayShortcut(shortcut: string): string {
   }
   flush();
 
-  return parts.join('+');
+  const mac = platform.mac ?? isMacPlatform();
+  return parts
+    .map((part) => {
+      const renamed = DISPLAY_TOKENS.get(part);
+      if (renamed !== undefined) return renamed;
+      if (mac && part === 'Alt') return 'Option';
+      return part;
+    })
+    .join('+');
 }

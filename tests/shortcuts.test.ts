@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CHROME_DEFAULT_SHORTCUTS,
+  CHROME_MAC_DEFAULT_SHORTCUTS,
   DEFAULT_COMPOSE_SHORTCUT,
   DEFAULT_SELECTION_SHORTCUT,
   DEFAULT_SHORTCUTS,
@@ -8,15 +9,19 @@ import {
   SHORTCUT_COMMANDS,
   ariaShortcut,
   boundShortcut,
+  defaultShortcutFor,
+  defaultShortcuts,
   defaultShortcutsFor,
   displayShortcut,
   isPlainAltS,
   markCommandAssigned,
   matchesShortcut,
+  normalizeReportedShortcut,
   parseShortcut,
   readShortcutSnapshot,
   rememberShortcutAssignments,
   shortcutAssignedRecord,
+  suggestedKeyFor,
   usesInPageFallback,
   type ShortcutAssigned,
 } from '@/shared/shortcuts';
@@ -56,6 +61,15 @@ describe('selection shortcut', () => {
     expect(DEFAULT_SELECTION_SHORTCUT).toBe('Alt+S');
     expect(DEFAULT_COMPOSE_SHORTCUT).toBe('Alt+T');
     expect(CHROME_DEFAULT_SHORTCUTS).toEqual(DEFAULT_SHORTCUTS);
+    expect(defaultShortcutsFor('chrome')).toEqual(CHROME_DEFAULT_SHORTCUTS);
+    expect(defaultShortcuts({ mac: false })).toEqual(CHROME_DEFAULT_SHORTCUTS);
+    expect(defaultShortcuts({ mac: true })).toEqual(CHROME_MAC_DEFAULT_SHORTCUTS);
+    expect(defaultShortcutFor('translate-page', { mac: true })).toBe('Alt+A');
+    expect(suggestedKeyFor('chrome', 'translate-page')).toEqual({
+      default: 'Alt+A',
+      mac: 'Alt+A',
+    });
+    expect(suggestedKeyFor('firefox', 'translate-page')).toEqual({ default: 'Alt+Shift+A' });
     expect(defaultShortcutsFor('firefox')).toEqual(FIREFOX_DEFAULT_SHORTCUTS);
     expect(FIREFOX_DEFAULT_SHORTCUTS).toEqual({
       'translate-page': 'Alt+Shift+A',
@@ -110,6 +124,34 @@ describe('matchesShortcut', () => {
     expect(matchesShortcut(key({ altKey: true, code: 'KeyY', key: '†' }), 'Alt+T')).toBe(false);
   });
 
+  it('matches Option+letter on a Mac from event.code when the layout inserts a character', () => {
+    const optionA = key({ altKey: true, code: 'KeyA', key: 'å' });
+    expect(matchesShortcut(optionA, 'Alt+A', { mac: true })).toBe(true);
+    expect(matchesShortcut(optionA, '⌥A', { mac: true })).toBe(true);
+    expect(matchesShortcut(optionA, 'MacCtrl+Shift+A', { mac: true })).toBe(false);
+  });
+
+  it('matches MacCtrl+Shift as Control+Shift, not Command+Shift or Option', () => {
+    const controlShiftA = key({
+      ctrlKey: true,
+      shiftKey: true,
+      code: 'KeyA',
+      key: 'a',
+    });
+    expect(matchesShortcut(controlShiftA, 'MacCtrl+Shift+A', { mac: true })).toBe(true);
+    expect(
+      matchesShortcut(controlShiftA, CHROME_MAC_DEFAULT_SHORTCUTS['translate-page'], { mac: true }),
+    ).toBe(false);
+    expect(matchesShortcut(controlShiftA, 'Alt+A', { mac: true })).toBe(false);
+    expect(
+      matchesShortcut(
+        key({ metaKey: true, shiftKey: true, code: 'KeyA', key: 'a' }),
+        'MacCtrl+Shift+A',
+        { mac: true },
+      ),
+    ).toBe(false);
+  });
+
   it('matches Firefox compose Alt+Shift+T and not Alt+T', () => {
     const shifted = key({ altKey: true, shiftKey: true, code: 'KeyT', key: 't' });
     expect(matchesShortcut(shifted, FIREFOX_DEFAULT_SHORTCUTS['translate-compose'])).toBe(true);
@@ -131,6 +173,10 @@ describe('parseShortcut', () => {
     expect(parseShortcut('Ctrl+Shift+5')?.key.code).toBe('Digit5');
     expect(parseShortcut('Alt+Comma')?.key.code).toBe('Comma');
     expect(parseShortcut('Alt+PageDown')?.key.code).toBe('PageDown');
+    expect(parseShortcut('MacCtrl+Shift+A')).toEqual({
+      modifiers: ['macctrl', 'shift'],
+      key: { code: 'KeyA', keys: ['a'] },
+    });
   });
 
   it('returns nothing for a binding it cannot read', () => {
@@ -191,6 +237,21 @@ describe('readShortcutSnapshot', () => {
       'translate-compose': null,
     });
   });
+
+  it('rewrites a Mac getAll Ctrl binding to MacCtrl so the page hears Control, not Command', () => {
+    expect(normalizeReportedShortcut('Ctrl+Shift+A', { mac: true })).toBe('MacCtrl+Shift+A');
+    expect(normalizeReportedShortcut('Command+Shift+A', { mac: true })).toBe('Command+Shift+A');
+    expect(normalizeReportedShortcut('⌃⇧A', { mac: true })).toBe('⌃⇧A');
+    expect(normalizeReportedShortcut('Ctrl+Shift+A', { mac: false })).toBe('Ctrl+Shift+A');
+    expect(
+      readShortcutSnapshot([{ name: 'translate-page', shortcut: 'Ctrl+Shift+A' }], { mac: true }),
+    ).toEqual({
+      'translate-page': 'MacCtrl+Shift+A',
+      'toggle-bilingual': null,
+      'translate-selection': null,
+      'translate-compose': null,
+    });
+  });
 });
 
 describe('shortcut assignment and in-page fallback', () => {
@@ -206,6 +267,29 @@ describe('shortcut assignment and in-page fallback', () => {
     }
     expect(boundShortcut(null, 'translate-page')).toBe('Alt+A');
     expect(boundShortcut(null, 'translate-compose')).toBe(DEFAULT_COMPOSE_SHORTCUT);
+    expect(boundShortcut(null, 'translate-page', { mac: true })).toBe('Alt+A');
+    expect(boundShortcut(null, 'translate-compose', { mac: true })).toBe('Alt+T');
+  });
+
+  it('keeps the Mac Option default when Chrome never assigned the suggested key', () => {
+    const conflict = snapshot({
+      'translate-page': '',
+      'toggle-bilingual': '',
+      'translate-selection': '',
+      'translate-compose': '',
+    });
+    const ever = rememberShortcutAssignments({}, conflict);
+    expect(ever['translate-page']).toBe(false);
+    const binding = boundShortcut(conflict, 'translate-page', {
+      assigned: ever['translate-page'],
+      mac: true,
+    });
+    expect(binding).toBe('Alt+A');
+    expect(usesInPageFallback(conflict, 'translate-page', ever['translate-page'])).toBe(true);
+    expect(
+      matchesShortcut(key({ altKey: true, code: 'KeyA', key: 'å' }), binding, { mac: true }),
+    ).toBe(true);
+    expect(displayShortcut(binding, { mac: true })).toBe('Option+A');
   });
 
   it('stops handling a command the user cleared in Chrome', () => {
@@ -244,7 +328,7 @@ describe('shortcut assignment and in-page fallback', () => {
     ).toBe(false);
   });
 
-  it('falls back to the default only when Chrome never assigned the key at install', () => {
+  it('falls back per command: empty uses the default, a live key does not', () => {
     const conflict = snapshot({ 'translate-compose': '' });
     const ever = rememberShortcutAssignments({}, conflict);
     expect(ever['translate-compose']).toBe(false);
@@ -285,6 +369,15 @@ describe('shortcut assignment and in-page fallback', () => {
     expect(
       boundShortcut(snapshot({ 'translate-page': '' }), 'translate-page', { assigned: true }),
     ).toBe('');
+    expect(usesInPageFallback(snapshot({ 'translate-page': '' }), 'translate-page', true)).toBe(
+      false,
+    );
+  });
+
+  it('does not treat an assigned default as an in-page fallback', () => {
+    const live = snapshot();
+    expect(boundShortcut(live, 'translate-page', { assigned: true })).toBe('Alt+A');
+    expect(usesInPageFallback(live, 'translate-page', true)).toBe(false);
   });
 
   it('treats a command the browser later delivers as assigned', () => {
@@ -319,11 +412,21 @@ describe('displayShortcut', () => {
   it('names the keys a Mac reports with glyphs', () => {
     expect(displayShortcut('⌥⇧P')).toBe('Option+Shift+P');
     expect(displayShortcut('⌘A')).toBe('Cmd+A');
+    expect(displayShortcut('⌃⇧A')).toBe('Control+Shift+A');
   });
 
   it('leaves the spelling a Windows or Linux Chrome reports alone', () => {
     expect(displayShortcut('Alt+A')).toBe('Alt+A');
     expect(displayShortcut('Ctrl+Shift+5')).toBe('Ctrl+Shift+5');
     expect(displayShortcut('')).toBe('');
+  });
+
+  it('names Mac Alt defaults as Option', () => {
+    expect(displayShortcut('MacCtrl+Shift+A')).toBe('Control+Shift+A');
+    expect(displayShortcut('Alt+A', { mac: true })).toBe('Option+A');
+    expect(displayShortcut('Alt+B', { mac: true })).toBe('Option+B');
+    expect(displayShortcut('Alt+S', { mac: true })).toBe('Option+S');
+    expect(displayShortcut('Alt+T', { mac: true })).toBe('Option+T');
+    expect(displayShortcut('Alt+A', { mac: false })).toBe('Alt+A');
   });
 });
