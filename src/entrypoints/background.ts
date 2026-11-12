@@ -184,9 +184,9 @@ export default defineBackground(() => {
     return client.deleteModel(modelId).catch(() => null);
   }
 
-  async function recordCommandAssignments(): Promise<void> {
+  async function recordCommandAssignments(restoreEmpty = false): Promise<void> {
     const commands = await browser.commands.getAll().catch(() => []);
-    const next = await restoreEmptyCommandShortcuts(commands);
+    const next = restoreEmpty ? await restoreEmptyCommandShortcuts(commands) : commands;
     await resolveShortcutQuery(next);
   }
 
@@ -194,7 +194,7 @@ export default defineBackground(() => {
     void (async () => {
       if (reason === 'update') await client.bootSource();
       else await syncSource();
-      await recordCommandAssignments();
+      await recordCommandAssignments(reason === 'install' || reason === 'update');
       if (reason === 'install') {
         await browser.tabs.create({ url: browser.runtime.getURL('/onboarding.html') });
       }

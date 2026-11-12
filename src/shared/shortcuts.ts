@@ -34,16 +34,11 @@ export const CHROME_DEFAULT_SHORTCUTS: Readonly<Record<ShortcutCommand, string>>
 };
 
 /**
- * Chrome `suggested_key.mac`. `Alt` is Option on macOS (docs; Chromium
- * `NormalizeShortcutSuggestion` maps `Option`→`Alt`). Auto-assign is
- * `CommandService::CanAutoAssign` → `!IsChromeAccelerator`. Mac
- * `IsChromeAccelerator` (`accelerator_utils_cocoa.mm`) only matches Chrome
- * menu / hidden shortcuts; Option+A/B/S/T are not among them
- * (`global_keyboard_shortcuts_mac.mm`). Chrome's own Alt+letter table is
- * `#if !IS_MAC` because Option types non-ASCII characters — that does not
- * reject extension commands. A previous unpacked load that left every
- * command 未設定 is explained by user-cleared prefs for the same extension
- * id (`IsCommandShortcutUserModified`), not by a Mac ban on Option+letter.
+ * Chrome `suggested_key.mac`. `Alt` is Option on macOS. A brand-new macOS
+ * Chrome profile has been observed to auto-assign Option+A/B/S/T; this file
+ * does not treat Chromium accelerator tables as proof of that. An existing
+ * install that already had empty bindings stays empty across updates because
+ * Chrome keeps user-cleared prefs for the same extension id.
  */
 export const CHROME_MAC_DEFAULT_SHORTCUTS: Readonly<Record<ShortcutCommand, string>> = {
   'translate-page': 'Alt+A',
@@ -199,9 +194,10 @@ function hasShortcutKey(binding: string | null | undefined): binding is string {
  *
  * A command the map has never seen is recorded as assigned only when the browser reported a
  * key. An unassigned command becomes assigned if a key appears later. Assigned never goes
- * back to false. That map is still recorded (onCommand can land before the first snapshot),
- * but an empty live binding always uses the in-page default — Chrome cannot write shortcuts
- * (`commands.update` is Firefox-only).
+ * back to false, so a later empty binding is a user clear — no in-page fallback, and
+ * Firefox must not `commands.update` it back. Existing installs from before this map
+ * already stored it (#52): empty-from-the-start stays `false` (fallback); a key that
+ * later vanished is `true` (leave off).
  */
 export function rememberShortcutAssignments(
   recorded: ShortcutAssignment,
@@ -227,20 +223,20 @@ export interface BoundShortcutOptions {
   readonly enabled?: boolean;
   readonly mac?: boolean | undefined;
   /**
-   * Whether the browser has assigned a key to this command at least once. Callers still
-   * pass the persisted map; an empty live binding always falls back regardless of this
-   * flag, because Chrome cannot restore a shortcut (`commands.update` is Firefox-only).
+   * Whether the browser has assigned a key to this command at least once. `true` plus an
+   * empty snapshot is a user clear: no in-page fallback. `false` or omitted plus empty is
+   * "never assigned" (install conflict, or an old install that stayed 未設定): use the
+   * per-OS default on pages.
    */
   readonly assigned?: boolean | undefined;
 }
 
 /**
- * The key a page should listen for. A key the user set in the browser wins, so a
- * customized shortcut is the only one that fires (onCommand plus in-page still share a
- * short dedup). An empty or missing binding uses the per-OS default on pages — Chrome
- * leaves an existing 未設定 command empty across updates, and has no API to write it
- * back. Sakutto's own checkbox is the off switch. No snapshot at all keeps the default
- * so a page can answer before the background replies.
+ * The key a page should listen for. A key the user set in the browser wins. An empty
+ * binding uses the per-OS default only when that command was never assigned; a user
+ * clear (`assigned === true`) stays off. Sakutto's own checkbox is a separate off
+ * switch. No snapshot at all keeps the default so a page can answer before the
+ * background replies.
  */
 export function boundShortcut(
   snapshot: ShortcutSnapshot | null,
@@ -252,21 +248,23 @@ export function boundShortcut(
   if (!snapshot) return fallback;
   const binding = snapshot[command];
   if (hasShortcutKey(binding)) return binding;
+  if (options.assigned === true) return '';
   return fallback;
 }
 
 /**
  * True when the page is listening for the OS default because `commands.getAll()` reported
- * no key. A customized (or Chrome-assigned default) shortcut in the snapshot turns this
- * off so the in-page handler does not steal a different key. Unknown until a snapshot
- * arrives, so the settings row does not claim a fallback before the worker answers.
+ * no key and that command was never assigned. A user-cleared command is empty too, but
+ * `assigned` is then true and this is false.
  */
 export function usesInPageFallback(
   snapshot: ShortcutSnapshot | null,
   command: ShortcutCommand,
+  assigned?: boolean | undefined,
 ): boolean {
   if (!snapshot) return false;
-  return !hasShortcutKey(snapshot[command]);
+  if (hasShortcutKey(snapshot[command])) return false;
+  return assigned !== true;
 }
 
 /** The shape `browser.commands.getAll()` returns, without depending on its declared type. */

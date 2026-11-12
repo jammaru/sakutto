@@ -1987,6 +1987,13 @@ describe('page translation corrections', () => {
     expect(session.state().active).toBe(false);
   });
 
+  /**
+   * When an unassigned command's keydown reaches the page (verified with Playwright
+   * `keyboard.press`, not this dispatch), the session must not preventDefault it in a
+   * field. `dispatchEvent` here only exercises that guard; it cannot prove Chrome
+   * delivery. Chrome-assigned commands skip this path and arrive as onCommand even
+   * inside a textarea.
+   */
   it('does not steal Option+letter while the reader is typing in a field', async () => {
     document.body.innerHTML = '<textarea id="draft">hello</textarea><p>Hello world</p>';
     let calls = 0;

@@ -78,6 +78,7 @@ export async function resetExtensionStorage(
         const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
         await chrome.storage.local.set({ siteRules: {}, settings });
         await chrome.storage.local.remove('captionEnableIntent');
+        await chrome.storage.local.remove('shortcutAssigned');
       },
       { settings },
     );
@@ -190,6 +191,42 @@ export async function stubCommandBindings(
       });
     }
   }, bindings);
+}
+
+const NEVER_ASSIGNED = {
+  'translate-page': false,
+  'toggle-bilingual': false,
+  'translate-selection': false,
+  'translate-compose': false,
+} as const;
+
+/**
+ * Simulates an old install that never received Chrome's suggested keys: empty `getAll()`
+ * and `shortcutAssigned` all false. A later `onInstalled` write of `true` is overwritten
+ * until the false map sticks.
+ */
+export async function simulateNeverAssignedShortcuts(worker: Worker): Promise<void> {
+  const empty = [
+    { name: 'translate-page', shortcut: '' },
+    { name: 'toggle-bilingual', shortcut: '' },
+    { name: 'translate-selection', shortcut: '' },
+    { name: 'translate-compose', shortcut: '' },
+  ];
+  await stubCommandBindings(worker, empty);
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await worker.evaluate(async (assigned) => {
+      const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
+      await chrome.storage.local.set({ shortcutAssigned: assigned });
+    }, NEVER_ASSIGNED);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    const stored = await worker.evaluate(async () => {
+      const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
+      const value = await chrome.storage.local.get('shortcutAssigned');
+      return value.shortcutAssigned as Record<string, boolean> | undefined;
+    });
+    if (stored?.['translate-page'] === false) return;
+  }
+  throw new Error('never-assigned shortcut map did not stick');
 }
 
 export async function commandPage(

@@ -399,10 +399,10 @@
     "message": "Atalhos de teclado"
   },
   "shortcutHelp": {
-    "message": "Desmarque um comando para desativá-lo no Sakutto. Alterar atalhos abre o editor do Chrome. A tecla definida lá é usada como está. Se um comando não estiver atribuído, o padrão ainda funciona em páginas da web — não em páginas chrome:// nem em outras que o Sakutto não pode abrir."
+    "message": "Desmarque um comando para desativá-lo no Sakutto. Alterar atalhos abre o editor do Chrome. Uma tecla que o Chrome atribuiu é usada como está, inclusive com um campo de texto focado (a página ainda é traduzida). Se o Chrome nunca atribuiu um comando, o padrão ainda funciona em páginas da web — não em páginas chrome:// nem em outras que o Sakutto não pode abrir. Num campo, esse keydown chega e não é impedido, para Option+letra poder digitar."
   },
   "shortcutHelpFirefox": {
-    "message": "Desmarque um comando para desativá-lo no Sakutto. Alterar atalhos abre o editor do Firefox. A tecla definida lá é usada como está. Se um comando não estiver atribuído, o Firefox restaura o padrão quando pode; senão o padrão ainda funciona nas páginas."
+    "message": "Desmarque um comando para desativá-lo no Sakutto. Alterar atalhos abre o editor do Firefox. A tecla definida lá é usada como está, inclusive num campo de texto. Uma atualização restaura um comando que nunca foi atribuído, quando o Firefox permite; uma tecla apagada permanece vazia. Num campo, esse keydown não é impedido."
   },
   "shortcutChange": {
     "message": "Alterar atalhos"
@@ -417,10 +417,10 @@
     "message": "Desativado"
   },
   "shortcutFallbackNote": {
-    "message": "Este comando não tem tecla no editor de atalhos do Chrome, então o padrão vale em páginas da web. Não funciona em páginas chrome:// nem em outras que o Sakutto não pode abrir."
+    "message": "O Chrome nunca atribuiu uma tecla a este comando, então o padrão vale em páginas da web. Não funciona em páginas chrome:// nem em outras que o Sakutto não pode abrir. Num campo, o keydown não é impedido."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Este comando não tem tecla no editor de atalhos do Firefox, então o padrão vale nas páginas."
+    "message": "O Firefox nunca atribuiu uma tecla a este comando, então o padrão vale nas páginas. Num campo, o keydown não é impedido."
   },
   "shortcutFallbackKey": {
     "message": "$KEY$ (nas páginas)",

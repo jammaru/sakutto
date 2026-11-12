@@ -399,10 +399,10 @@
     "message": "Tastenkürzel"
   },
   "shortcutHelp": {
-    "message": "Entfernen Sie das Häkchen, um einen Befehl in Sakutto auszuschalten. „Tastenkürzel ändern“ öffnet den Editor von Chrome. Eine dort festgelegte Taste wird unverändert verwendet. Ist ein Befehl nicht zugewiesen, gilt die Standardtaste auf Webseiten — nicht auf chrome://-Seiten oder anderen Seiten, die Sakutto nicht betreten kann."
+    "message": "Entfernen Sie das Häkchen, um einen Befehl in Sakutto auszuschalten. „Tastenkürzel ändern“ öffnet den Editor von Chrome. Eine von Chrome zugewiesene Taste gilt auch, wenn ein Textfeld fokussiert ist (die Seite wird trotzdem übersetzt). Hat Chrome einen Befehl nie zugewiesen, gilt die Standardtaste auf Webseiten — nicht auf chrome://-Seiten oder anderen Seiten, die Sakutto nicht betreten kann. In einem Textfeld kommt dieser Tastendruck an und wird nicht verhindert, damit Option+Buchstabe tippen kann."
   },
   "shortcutHelpFirefox": {
-    "message": "Entfernen Sie das Häkchen, um einen Befehl in Sakutto auszuschalten. „Tastenkürzel ändern“ öffnet den Editor von Firefox. Eine dort festgelegte Taste wird unverändert verwendet. Ist ein Befehl nicht zugewiesen, stellt Firefox die Standardtaste wieder her, wenn möglich; sonst gilt sie auf Seiten."
+    "message": "Entfernen Sie das Häkchen, um einen Befehl in Sakutto auszuschalten. „Tastenkürzel ändern“ öffnet den Editor von Firefox. Eine dort festgelegte Taste gilt auch bei fokussiertem Textfeld. Ein Update stellt einen nie zugewiesenen Befehl wieder her, wenn Firefox das zulässt; eine gelöschte Taste bleibt weg. In einem Textfeld wird dieser Tastendruck nicht verhindert."
   },
   "shortcutChange": {
     "message": "Tastenkürzel ändern"
@@ -417,10 +417,10 @@
     "message": "Aus"
   },
   "shortcutFallbackNote": {
-    "message": "Dieser Befehl hat im Chrome-Editor keine Taste, daher gilt die Standardtaste auf Webseiten. Auf chrome://-Seiten und anderen Seiten, die Sakutto nicht betreten kann, funktioniert sie nicht."
+    "message": "Chrome hat diesem Befehl nie eine Taste zugewiesen, daher gilt die Standardtaste auf Webseiten. Auf chrome://-Seiten und anderen Seiten, die Sakutto nicht betreten kann, funktioniert sie nicht. In einem Textfeld wird der Tastendruck nicht verhindert."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Dieser Befehl hat im Firefox-Editor keine Taste, daher gilt die Standardtaste auf Seiten."
+    "message": "Firefox hat diesem Befehl nie eine Taste zugewiesen, daher gilt die Standardtaste auf Seiten. In einem Textfeld wird der Tastendruck nicht verhindert."
   },
   "shortcutFallbackKey": {
     "message": "$KEY$ (auf Seiten)",

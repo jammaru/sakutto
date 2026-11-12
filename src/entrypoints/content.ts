@@ -28,6 +28,7 @@ import {
   defaultShortcutEnabled,
   displayShortcut,
   emptyShortcutAssigned,
+  isMacPlatform,
   matchesShortcut,
   type ShortcutAssigned,
   type ShortcutCommand,
@@ -59,10 +60,10 @@ const bridge = globalThis as typeof globalThis & ContentBridgeGlobal;
 
 /**
  * The browser only tells a page which keys are bound through the background worker. An
- * empty snapshot keeps the manifest defaults until that answer arrives. A command with no
- * browser key uses the per-OS default on this page; a key the user set is used as-is.
- * The fallback cannot run on chrome:// pages or the PDF viewer, where this script is not
- * injected.
+ * empty snapshot keeps the manifest defaults until that answer arrives. A command the
+ * browser never assigned uses the per-OS default on this page; one the user cleared does
+ * not. The fallback cannot run on chrome:// pages or the PDF viewer, where this script is
+ * not injected. A key Chrome did assign is delivered as onCommand even inside a text field.
  */
 async function readShortcutState(): Promise<ShortcutQueryResult | null> {
   const response: unknown = await browser.runtime
@@ -80,6 +81,7 @@ function shortcutFor(
   return boundShortcut(snapshot, command, {
     enabled: enabled[command],
     assigned: assigned[command],
+    mac: isMacPlatform(),
   });
 }
 
@@ -271,8 +273,8 @@ export default defineContentScript({
     bridge.__sakuttoContentBridgeReady = true;
 
     const host = pageHost(location.href) ?? '';
-    // The browser's bindings, or the manifest defaults until the background answers. An
-    // empty command uses the per-OS default here; a customized key replaces it.
+    // The browser's bindings, or the manifest defaults until the background answers. A
+    // command the browser never assigned still uses its default; one the user cleared does not.
     let shortcutSnapshot: ShortcutSnapshot | null = null;
     let shortcutAssigned = emptyShortcutAssigned();
     let shortcutsEnabled = defaultShortcutEnabled();
@@ -283,18 +285,36 @@ export default defineContentScript({
     let modelState: ModelStatus['state'] | null = null;
     let plamoReady = false;
     let modelStatusKnown = false;
+    const publishPageShortcut = (): void => {
+      if (!shortcutSnapshot) {
+        delete document.documentElement.dataset.sakuttoPageShortcut;
+        return;
+      }
+      document.documentElement.dataset.sakuttoPageShortcut = shortcutFor(
+        shortcutSnapshot,
+        shortcutAssigned,
+        shortcutsEnabled,
+        'translate-page',
+      );
+    };
     const refreshShortcuts = (): void => {
       void readShortcutState().then((state) => {
         if (!state) return;
         shortcutSnapshot = state.snapshot;
         shortcutAssigned = state.assigned;
+        publishPageShortcut();
       });
+    };
+    let shortcutRefreshTimer = 0;
+    const scheduleShortcutRefresh = (): void => {
+      window.clearTimeout(shortcutRefreshTimer);
+      shortcutRefreshTimer = window.setTimeout(refreshShortcuts, 80);
     };
     refreshShortcuts();
     // Chrome has no commands.onChanged on older builds, and no way to write a shortcut.
     // Re-read when the tab is shown so a change in chrome://extensions/shortcuts lands.
-    window.addEventListener('focus', refreshShortcuts);
-    document.addEventListener('visibilitychange', refreshShortcuts);
+    window.addEventListener('focus', scheduleShortcutRefresh);
+    document.addEventListener('visibilitychange', scheduleShortcutRefresh);
 
     let engineSource: Settings['engineSource'] = 'in-browser';
     const engine = {
@@ -323,6 +343,7 @@ export default defineContentScript({
         }
       }
       shortcutsEnabled = settings.shortcutsEnabled;
+      publishPageShortcut();
       const session = new PageSession(document, {
         engine,
         labels: overlayLabels(),
@@ -467,6 +488,7 @@ export default defineContentScript({
         liveRule = nextRule;
         engineSource = liveSettings.engineSource;
         shortcutsEnabled = liveSettings.shortcutsEnabled;
+        publishPageShortcut();
         session.setLabels(overlayLabels());
         session.setPreferences(preferencesFor(liveSettings, liveRule, host));
         const readiness = composeReadiness(

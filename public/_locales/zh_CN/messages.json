@@ -399,10 +399,10 @@
     "message": "键盘快捷键"
   },
   "shortcutHelp": {
-    "message": "取消勾选即可在 Sakutto 中关闭该命令。“更改快捷键”会打开 Chrome 自己的编辑器。你在那里设置的按键会原样使用。若命令未指定，默认按键仍可在网页上使用，但不能用于 chrome:// 页面或其他 Sakutto 无法进入的页面。"
+    "message": "取消勾选即可在 Sakutto 中关闭该命令。“更改快捷键”会打开 Chrome 自己的编辑器。Chrome 已指定的按键会原样使用，即使焦点在输入框里（页面仍会翻译）。若 Chrome 从未指定某命令，默认按键仍可在网页上使用，但不能用于 chrome:// 页面或其他 Sakutto 无法进入的页面。该未指定的 keydown 也会到达输入框，且不会被 preventDefault，因此 Option+字母可以输入。"
   },
   "shortcutHelpFirefox": {
-    "message": "取消勾选即可在 Sakutto 中关闭该命令。“更改快捷键”会打开 Firefox 自己的编辑器。你在那里设置的按键会原样使用。若命令未指定，Firefox 会在允许时恢复默认；否则默认按键仍可在页面上使用。"
+    "message": "取消勾选即可在 Sakutto 中关闭该命令。“更改快捷键”会打开 Firefox 自己的编辑器。你在那里设置的按键会原样使用，即使焦点在输入框里。更新时，从未指定过的命令会在 Firefox 允许时恢复默认；你清除的按键保持为空。输入框里不会拦截该未指定的 keydown。"
   },
   "shortcutChange": {
     "message": "更改快捷键"
@@ -417,10 +417,10 @@
     "message": "关闭"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome 的快捷键编辑器未指定此命令，因此网页上使用默认按键。不能用于 chrome:// 页面或其他 Sakutto 无法进入的页面。"
+    "message": "Chrome 从未为此命令指定按键，因此网页上使用默认按键。不能用于 chrome:// 页面或其他 Sakutto 无法进入的页面。输入框里不会拦截该 keydown。"
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox 的快捷键编辑器未指定此命令，因此页面上使用默认按键。"
+    "message": "Firefox 从未为此命令指定按键，因此页面上使用默认按键。输入框里不会拦截该 keydown。"
   },
   "shortcutFallbackKey": {
     "message": "$KEY$（在页面中有效）",

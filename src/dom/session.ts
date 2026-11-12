@@ -413,6 +413,8 @@ export class PageSession {
         this.dismissSelection();
         return;
       }
+      // In-page fallback (unassigned commands): skip when a field is focused so Option+letter
+      // can type. Chrome-assigned commands still run via onCommand inside fields.
       if (this.pageKey?.(event)) {
         if (isTypingShortcutTarget(event)) return;
         event.preventDefault();

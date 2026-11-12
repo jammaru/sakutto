@@ -92,8 +92,9 @@
   let shortcutError = $state(false);
 
   /**
-   * The key each command actually uses on a page. A browser-assigned key wins. An empty
-   * binding uses the per-OS default on pages. Sakutto's own checkbox turns a command off.
+   * The key each command actually uses on a page. A browser-assigned key wins. The
+   * manifest default fills in only when the browser never assigned one. Sakutto's own
+   * setting, or a key the user cleared in the browser, turns the command off.
    */
   let bound = $derived.by((): Record<ShortcutCommand, string> => {
     const enabled = settings?.shortcutsEnabled;
@@ -113,7 +114,9 @@
     })),
   );
   let shortcutFallback = $derived(
-    SHORTCUT_COMMANDS.some((command) => usesInPageFallback(shortcuts?.snapshot ?? null, command))
+    SHORTCUT_COMMANDS.some((command) =>
+      usesInPageFallback(shortcuts?.snapshot ?? null, command, shortcuts?.assigned[command]),
+    )
       ? tForBrowser('shortcutFallbackNote', 'shortcutFallbackNoteFirefox')
       : '',
   );
@@ -390,17 +393,23 @@
         if (snapshot) shortcuts = snapshot;
       });
     };
+    let shortcutRefreshTimer = 0;
+    const scheduleShortcutRefresh = (): void => {
+      window.clearTimeout(shortcutRefreshTimer);
+      shortcutRefreshTimer = window.setTimeout(refreshShortcuts, 80);
+    };
     refreshShortcuts();
-    window.addEventListener('focus', refreshShortcuts);
-    document.addEventListener('visibilitychange', refreshShortcuts);
+    window.addEventListener('focus', scheduleShortcutRefresh);
+    document.addEventListener('visibilitychange', scheduleShortcutRefresh);
 
     return () => {
       unsubscribe();
       unsubscribeRules();
       window.clearInterval(timer);
       browser.runtime.onMessage.removeListener(onMessage);
-      window.removeEventListener('focus', refreshShortcuts);
-      document.removeEventListener('visibilitychange', refreshShortcuts);
+      window.clearTimeout(shortcutRefreshTimer);
+      window.removeEventListener('focus', scheduleShortcutRefresh);
+      document.removeEventListener('visibilitychange', scheduleShortcutRefresh);
     };
   });
 </script>

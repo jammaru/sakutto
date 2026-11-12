@@ -124,8 +124,7 @@ export interface ShortcutSnapshot {
 
 /**
  * Whether the browser has assigned a key to each command at least once since we first
- * observed `commands.getAll()`. Recorded for onCommand-before-snapshot; an empty live
- * binding still uses the in-page default.
+ * observed `commands.getAll()`. `true` means a later empty binding is a user clear.
  */
 export interface ShortcutAssigned {
   'translate-page': boolean;
@@ -135,8 +134,8 @@ export interface ShortcutAssigned {
 }
 
 /**
- * Live bindings plus the persisted "ever assigned" map. The page keys off the snapshot:
- * a present shortcut is the user's (or Chrome's) choice; an empty one uses the OS default.
+ * Live bindings plus the persisted "ever assigned" map a page needs to decide whether the
+ * in-page default should still run.
  */
 export interface ShortcutQueryResult {
   snapshot: ShortcutSnapshot;

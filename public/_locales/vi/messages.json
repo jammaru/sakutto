@@ -399,10 +399,10 @@
     "message": "Phím tắt"
   },
   "shortcutHelp": {
-    "message": "Bỏ chọn lệnh để tắt trong Sakutto. Đổi phím tắt mở trình sửa của Chrome. Phím bạn đặt ở đó được dùng nguyên. Nếu lệnh chưa gán, phím mặc định vẫn dùng được trên trang web — không trên trang chrome:// hay trang khác mà Sakutto không vào được."
+    "message": "Bỏ chọn lệnh để tắt trong Sakutto. Đổi phím tắt mở trình sửa của Chrome. Phím Chrome đã gán được dùng nguyên, kể cả khi ô nhập đang focus (trang vẫn được dịch). Nếu Chrome chưa từng gán lệnh, phím mặc định vẫn dùng được trên trang web — không trên trang chrome:// hay trang khác mà Sakutto không vào được. Trong ô nhập, keydown đó vẫn tới và không bị chặn, nên Option+chữ gõ được."
   },
   "shortcutHelpFirefox": {
-    "message": "Bỏ chọn lệnh để tắt trong Sakutto. Đổi phím tắt mở trình sửa của Firefox. Phím bạn đặt ở đó được dùng nguyên. Nếu lệnh chưa gán, Firefox khôi phục mặc định khi được; nếu không, phím mặc định vẫn dùng được trên trang."
+    "message": "Bỏ chọn lệnh để tắt trong Sakutto. Đổi phím tắt mở trình sửa của Firefox. Phím bạn đặt ở đó được dùng nguyên, kể cả trong ô nhập. Bản cập nhật khôi phục lệnh chưa từng được gán khi Firefox cho phép; phím bạn xóa vẫn trống. Trong ô nhập, keydown đó không bị chặn."
   },
   "shortcutChange": {
     "message": "Đổi phím tắt"
@@ -417,10 +417,10 @@
     "message": "Tắt"
   },
   "shortcutFallbackNote": {
-    "message": "Lệnh này không có phím trong trình sửa của Chrome, nên phím mặc định được dùng trên trang web. Không hoạt động trên trang chrome:// hay trang khác mà Sakutto không vào được."
+    "message": "Chrome chưa từng gán phím cho lệnh này, nên phím mặc định được dùng trên trang web. Không hoạt động trên trang chrome:// hay trang khác mà Sakutto không vào được. Trong ô nhập, keydown không bị chặn."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Lệnh này không có phím trong trình sửa của Firefox, nên phím mặc định được dùng trên trang."
+    "message": "Firefox chưa từng gán phím cho lệnh này, nên phím mặc định được dùng trên trang. Trong ô nhập, keydown không bị chặn."
   },
   "shortcutFallbackKey": {
     "message": "$KEY$ (trên trang)",

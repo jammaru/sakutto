@@ -160,7 +160,7 @@ describe('shortcut settings', () => {
   const options = source('entrypoints/options/App.svelte');
   const background = source('entrypoints/background.ts');
 
-  it('reads the keys the browser has bound, and falls back when a command is empty', () => {
+  it('reads the keys the browser has bound, and falls back only after an install conflict', () => {
     expect(shortcuts).toContain('requestShortcutSnapshot');
     expect(shortcuts).toContain('displayShortcut');
     expect(shortcuts).toContain('boundShortcut');
@@ -194,6 +194,7 @@ describe('shortcut settings', () => {
     expect(background).toContain('restoreEmptyCommandShortcuts');
     expect(background).toContain('onInstalled');
     expect(background).toContain('onStartup');
+    expect(background).toContain("reason === 'install' || reason === 'update'");
   });
 });
 

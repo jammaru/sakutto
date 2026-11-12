@@ -262,7 +262,7 @@ describe('shortcut assignment and in-page fallback', () => {
     for (const command of SHORTCUT_COMMANDS) {
       const binding = boundShortcut(live, command, { assigned: ever[command] });
       expect(binding, command).toBe(DEFAULT_SHORTCUTS[command]);
-      expect(usesInPageFallback(live, command), command).toBe(false);
+      expect(usesInPageFallback(live, command, ever[command]), command).toBe(false);
       expect(binding.length, command).toBeGreaterThan(0);
     }
     expect(boundShortcut(null, 'translate-page')).toBe('Alt+A');
@@ -285,35 +285,26 @@ describe('shortcut assignment and in-page fallback', () => {
       mac: true,
     });
     expect(binding).toBe('Alt+A');
-    expect(usesInPageFallback(conflict, 'translate-page')).toBe(true);
+    expect(usesInPageFallback(conflict, 'translate-page', ever['translate-page'])).toBe(true);
     expect(
       matchesShortcut(key({ altKey: true, code: 'KeyA', key: 'å' }), binding, { mac: true }),
     ).toBe(true);
     expect(displayShortcut(binding, { mac: true })).toBe('Option+A');
   });
 
-  it('uses the OS default when a previously assigned command is empty', () => {
+  it('stops handling a command the user cleared in Chrome', () => {
     const installed = rememberShortcutAssignments({}, snapshot());
     const cleared = snapshot({ 'translate-page': '' });
     const ever = rememberShortcutAssignments(installed, cleared);
     expect(ever['translate-page']).toBe(true);
-    expect(boundShortcut(cleared, 'translate-page', { assigned: ever['translate-page'] })).toBe(
-      'Alt+A',
-    );
-    expect(usesInPageFallback(cleared, 'translate-page')).toBe(true);
+    expect(boundShortcut(cleared, 'translate-page', { assigned: ever['translate-page'] })).toBe('');
+    expect(usesInPageFallback(cleared, 'translate-page', ever['translate-page'])).toBe(false);
     expect(
       matchesShortcut(
         alt('KeyA', 'a'),
         boundShortcut(cleared, 'translate-page', { assigned: true }),
       ),
-    ).toBe(true);
-    expect(
-      matchesShortcut(
-        key({ altKey: true, code: 'KeyA', key: 'å' }),
-        boundShortcut(cleared, 'translate-page', { assigned: true, mac: true }),
-        { mac: true },
-      ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('uses only the Chrome-rebound key, not the old default', () => {
@@ -323,7 +314,7 @@ describe('shortcut assignment and in-page fallback', () => {
     expect(binding).toBe('Alt+Q');
     expect(matchesShortcut(alt('KeyQ', 'q'), binding)).toBe(true);
     expect(matchesShortcut(alt('KeyA', 'a'), binding)).toBe(false);
-    expect(usesInPageFallback(rebound, 'translate-page')).toBe(false);
+    expect(usesInPageFallback(rebound, 'translate-page', true)).toBe(false);
   });
 
   it('keeps a Sakutto-disabled command off even when Chrome still has a key', () => {
@@ -346,8 +337,8 @@ describe('shortcut assignment and in-page fallback', () => {
       assigned: ever['translate-compose'],
     });
     expect(binding).toBe(DEFAULT_COMPOSE_SHORTCUT);
-    expect(usesInPageFallback(conflict, 'translate-compose')).toBe(true);
-    expect(usesInPageFallback(conflict, 'translate-page')).toBe(false);
+    expect(usesInPageFallback(conflict, 'translate-compose', ever['translate-compose'])).toBe(true);
+    expect(usesInPageFallback(conflict, 'translate-page', ever['translate-page'])).toBe(false);
     expect(matchesShortcut(alt('KeyT', 't'), binding)).toBe(true);
   });
 
@@ -377,14 +368,16 @@ describe('shortcut assignment and in-page fallback', () => {
     expect(cleared['translate-page']).toBe(true);
     expect(
       boundShortcut(snapshot({ 'translate-page': '' }), 'translate-page', { assigned: true }),
-    ).toBe('Alt+A');
-    expect(usesInPageFallback(snapshot({ 'translate-page': '' }), 'translate-page')).toBe(true);
+    ).toBe('');
+    expect(usesInPageFallback(snapshot({ 'translate-page': '' }), 'translate-page', true)).toBe(
+      false,
+    );
   });
 
   it('does not treat an assigned default as an in-page fallback', () => {
     const live = snapshot();
     expect(boundShortcut(live, 'translate-page', { assigned: true })).toBe('Alt+A');
-    expect(usesInPageFallback(live, 'translate-page')).toBe(false);
+    expect(usesInPageFallback(live, 'translate-page', true)).toBe(false);
   });
 
   it('treats a command the browser later delivers as assigned', () => {

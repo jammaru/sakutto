@@ -61,7 +61,10 @@
   }
 
   function showsFallback(command: ShortcutCommand): boolean {
-    return isOn(command) && usesInPageFallback(shortcutState?.snapshot ?? null, command);
+    return (
+      isOn(command) &&
+      usesInPageFallback(shortcutState?.snapshot ?? null, command, shortcutState?.assigned[command])
+    );
   }
 
   function refresh(): void {
@@ -73,8 +76,8 @@
   /**
    * The browser owns the key bindings, so the only honest control is a button that opens
    * its editor. The rows are read again when the reader comes back from that tab. Sakutto's
-   * own checkbox is the off switch. An empty browser binding uses the per-OS default on
-   * pages; a key set in the editor is used as-is.
+   * own checkbox is one off switch; clearing a key in the browser is another. The in-page
+   * default only fills in when the browser never assigned the suggested key.
    */
   async function openEditor(): Promise<void> {
     openFailed = !(await openShortcutEditor());
@@ -82,10 +85,15 @@
 
   onMount(() => {
     refresh();
-    const onFocus = (): void => refresh();
+    let timer = 0;
+    const onFocus = (): void => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(refresh, 80);
+    };
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onFocus);
     return () => {
+      window.clearTimeout(timer);
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onFocus);
     };
@@ -94,9 +102,9 @@
 
 <dl class="bindings">
   {#each SHORTCUT_COMMANDS as command (command)}
-    <div>
-      <dt>{t(LABELS[command])}</dt>
-      <dd>
+    <dt>{t(LABELS[command])}</dt>
+    <dd>
+      <div class="row">
         <label class="use">
           <input
             type="checkbox"
@@ -109,13 +117,13 @@
           <span>{t('shortcutUse')}</span>
         </label>
         <kbd aria-keyshortcuts={aria(command)}>{keyText(command)}</kbd>
-      </dd>
-    </div>
-    {#if showsFallback(command)}
-      <p class="fallback" data-sakutto="shortcut-fallback">
-        {tForBrowser('shortcutFallbackNote', 'shortcutFallbackNoteFirefox')}
-      </p>
-    {/if}
+      </div>
+      {#if showsFallback(command)}
+        <p class="fallback" data-sakutto="shortcut-fallback">
+          {tForBrowser('shortcutFallbackNote', 'shortcutFallbackNoteFirefox')}
+        </p>
+      {/if}
+    </dd>
   {/each}
 </dl>
 <button class="button secondary" type="button" onclick={openEditor}>{t('shortcutChange')}</button>
@@ -126,15 +134,16 @@
 <style>
   .bindings {
     display: grid;
-    gap: var(--space-2);
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-3);
+    row-gap: var(--space-2);
     margin-bottom: var(--space-3);
   }
 
-  .bindings div {
+  .row {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--space-3);
+    align-items: center;
+    gap: var(--space-2);
   }
 
   dt {
@@ -144,8 +153,9 @@
 
   dd {
     display: flex;
-    align-items: center;
-    gap: var(--space-2);
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
     margin: 0;
   }
 
@@ -158,10 +168,12 @@
   }
 
   .fallback {
-    margin: -4px 0 4px;
+    margin: 0;
+    max-width: 28em;
     color: var(--muted);
     font-size: 11px;
     line-height: 1.45;
+    text-align: right;
   }
 
   kbd {

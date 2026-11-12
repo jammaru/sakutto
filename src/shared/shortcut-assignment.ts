@@ -41,40 +41,45 @@ function commandsUpdate(): CommandsUpdate | undefined {
 }
 
 /**
- * Firefox can write shortcuts (`browser.commands.update`). Chrome cannot — its commands
- * API is getAll / onCommand / onChanged; `commands.update` is Firefox-only (MDN). Empty
- * commands are restored to the build's per-OS default; a key the user set is left alone.
- * A conflict still leaves the command empty, and the in-page fallback covers that.
+ * Firefox can write shortcuts (`browser.commands.update`). Chrome cannot. Call only from
+ * `onInstalled` (install or update). Restores the build default for a command that is
+ * empty and was never assigned (`assigned !== true`). A key the user cleared after it
+ * had been assigned stays empty. A conflict still leaves the command empty; the in-page
+ * fallback covers never-assigned empties.
  */
-export async function restoreEmptyCommandShortcuts(
+export function restoreEmptyCommandShortcuts(
   commands: readonly CommandBinding[],
 ): Promise<readonly CommandBinding[]> {
-  const update = commandsUpdate();
-  if (!update) return commands;
+  return enqueueWrite(async () => {
+    const update = commandsUpdate();
+    if (!update) return commands;
 
-  let restored = false;
-  for (const command of SHORTCUT_COMMANDS) {
-    const current = commands.find((entry) => entry.name === command)?.shortcut ?? '';
-    if (typeof current === 'string' && current.length > 0) continue;
-    try {
-      await update({ name: command, shortcut: defaultShortcutFor(command) });
-      restored = true;
-    } catch {
-      // Another add-on already owns this key, or the browser refused the binding.
+    const recorded = await loadShortcutAssignmentUnlocked();
+    let restored = false;
+    for (const command of SHORTCUT_COMMANDS) {
+      if (recorded[command] === true) continue;
+      const current = commands.find((entry) => entry.name === command)?.shortcut ?? '';
+      if (typeof current === 'string' && current.length > 0) continue;
+      try {
+        await update({ name: command, shortcut: defaultShortcutFor(command) });
+        restored = true;
+      } catch {
+        // Another add-on already owns this key, or the browser refused the binding.
+      }
     }
-  }
-  if (!restored) return commands;
-  try {
-    return await browser.commands.getAll();
-  } catch {
-    return commands;
-  }
+    if (!restored) return commands;
+    try {
+      return await browser.commands.getAll();
+    } catch {
+      return commands;
+    }
+  });
 }
 
 /**
  * Reads the live command list, records which commands the browser has assigned at least
  * once, and returns both. Writes are queued so an `onInstalled` snapshot and a later
- * `onCommand` cannot drop each other. An empty live binding still uses the in-page default.
+ * `onCommand` cannot drop each other.
  */
 export function resolveShortcutQuery(
   commands: readonly CommandBinding[],
@@ -91,8 +96,8 @@ export function resolveShortcutQuery(
 }
 
 /**
- * Records that the browser delivered this command. Kept so a late first snapshot still
- * knows the key existed; empty bindings now fall back regardless.
+ * Records that the browser delivered this command, so a later empty `getAll()` is a user
+ * clear even if the first snapshot ran before the suggested key landed.
  */
 export function noteShortcutCommandAssigned(command: ShortcutCommand): Promise<ShortcutAssigned> {
   return enqueueWrite(async () => {

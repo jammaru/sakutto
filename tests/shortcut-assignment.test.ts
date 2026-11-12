@@ -155,6 +155,26 @@ describe('restoreEmptyCommandShortcuts', () => {
       throw new Error('already in use');
     };
     const commands = [{ name: 'translate-page', shortcut: '' }];
-    await expect(restoreEmptyCommandShortcuts(commands)).resolves.toBe(commands);
+    await expect(restoreEmptyCommandShortcuts(commands)).resolves.toEqual(commands);
+  });
+
+  it('does not restore a command the user cleared after it was assigned', async () => {
+    const updated: Array<{ name: string; shortcut: string }> = [];
+    state.update = async (details) => {
+      updated.push(details);
+    };
+    await resolveShortcutQuery([
+      { name: 'translate-page', shortcut: 'Alt+A' },
+      { name: 'toggle-bilingual', shortcut: 'Alt+B' },
+      { name: 'translate-selection', shortcut: 'Alt+S' },
+      { name: 'translate-compose', shortcut: 'Alt+T' },
+    ]);
+    await restoreEmptyCommandShortcuts([
+      { name: 'translate-page', shortcut: '' },
+      { name: 'toggle-bilingual', shortcut: 'Alt+B' },
+      { name: 'translate-selection', shortcut: '' },
+      { name: 'translate-compose', shortcut: 'Alt+T' },
+    ]);
+    expect(updated).toEqual([]);
   });
 });

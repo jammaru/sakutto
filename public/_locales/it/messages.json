@@ -399,10 +399,10 @@
     "message": "Scorciatoie da tastiera"
   },
   "shortcutHelp": {
-    "message": "Deseleziona un comando per disattivarlo in Sakutto. Cambia scorciatoie apre l’editor di Chrome. Un tasto impostato lì viene usato così com’è. Se un comando non è assegnato, il tasto predefinito funziona ancora sulle pagine web, non sulle pagine chrome:// né su altre che Sakutto non può aprire."
+    "message": "Deseleziona un comando per disattivarlo in Sakutto. Cambia scorciatoie apre l’editor di Chrome. Un tasto assegnato da Chrome è usato così com’è, anche con un campo di testo attivo (la pagina viene comunque tradotta). Se Chrome non ha mai assegnato un comando, il tasto predefinito funziona sulle pagine web, non sulle pagine chrome:// né su altre che Sakutto non può aprire. In un campo quel keydown arriva e non viene impedito, così Option+lettera può digitare."
   },
   "shortcutHelpFirefox": {
-    "message": "Deseleziona un comando per disattivarlo in Sakutto. Cambia scorciatoie apre l’editor di Firefox. Un tasto impostato lì viene usato così com’è. Se un comando non è assegnato, Firefox ripristina il predefinito quando può; altrimenti il tasto funziona sulle pagine."
+    "message": "Deseleziona un comando per disattivarlo in Sakutto. Cambia scorciatoie apre l’editor di Firefox. Un tasto impostato lì è usato così com’è, anche in un campo di testo. Un aggiornamento ripristina un comando mai assegnato, se Firefox lo consente; un tasto cancellato resta vuoto. In un campo quel keydown non viene impedito."
   },
   "shortcutChange": {
     "message": "Modifica le scorciatoie"
@@ -417,10 +417,10 @@
     "message": "Disattivato"
   },
   "shortcutFallbackNote": {
-    "message": "Questo comando non ha un tasto nell’editor di Chrome, quindi il predefinito vale sulle pagine web. Non funziona sulle pagine chrome:// né su altre che Sakutto non può aprire."
+    "message": "Chrome non ha mai assegnato un tasto a questo comando, quindi il predefinito vale sulle pagine web. Non funziona sulle pagine chrome:// né su altre che Sakutto non può aprire. In un campo il keydown non viene impedito."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Questo comando non ha un tasto nell’editor di Firefox, quindi il predefinito vale sulle pagine."
+    "message": "Firefox non ha mai assegnato un tasto a questo comando, quindi il predefinito vale sulle pagine. In un campo il keydown non viene impedito."
   },
   "shortcutFallbackKey": {
     "message": "$KEY$ (nelle pagine)",
