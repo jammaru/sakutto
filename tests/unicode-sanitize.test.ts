@@ -223,6 +223,21 @@ describe('translatable / runaway detection', () => {
     expect(isInvisibleRunawayOutput('Hello.', truncated)).toBe(false);
     expect(isInvisibleRunawayOutput('Hello.', truncated, true)).toBe(true);
   });
+
+  it('flags an RTL joiner storm that the output sanitizer keeps', () => {
+    const storm = `\u0645${'\u200C\u200D'.repeat(100)}\u0631`;
+    expect(isInvisibleRunawayOutput('Hello world.', `Hello ${storm}`)).toBe(true);
+    expect(isInvisibleRunawayOutput('Hello world.', `Hello ${storm}`, true)).toBe(true);
+
+    const bidi = [0x200c, 0x200d, 0x200f, 0x202b, 0x202e, 0x2067];
+    let mixed = '\u0645';
+    for (let index = 0; index < 120; index += 1) {
+      mixed += String.fromCodePoint(bidi[index % bidi.length]!);
+    }
+    mixed += '\u0631';
+    expect(isInvisibleRunawayOutput('Hello world.', `Hi ${mixed}`)).toBe(true);
+    expect(isInvisibleRunawayOutput('Hello world.', `Hi ${mixed}`, true)).toBe(true);
+  });
 });
 
 describe('InBrowserEngine Unicode input (wllama and local-server share this path)', () => {
