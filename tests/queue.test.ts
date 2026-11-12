@@ -224,4 +224,32 @@ describe('JobScheduler', () => {
     await scheduler.waitForIdle();
     expect(order).toEqual(['page', 'selection', 'later']);
   });
+
+  it('cancels a running worse-priority job when a live caption preempts', async () => {
+    const scheduler = new JobScheduler(1);
+    const order: string[] = [];
+    const pageGate = deferred();
+
+    scheduler.schedule({
+      priority: 10,
+      cancel: () => pageGate.resolve(),
+      run: async () => {
+        order.push('page-start');
+        await pageGate.promise;
+        order.push('page-end');
+      },
+    });
+    await tick();
+    expect(order).toEqual(['page-start']);
+
+    scheduler.schedule({
+      priority: 2,
+      preempt: true,
+      run: async () => {
+        order.push('live');
+      },
+    });
+    await scheduler.waitForIdle();
+    expect(order).toEqual(['page-start', 'page-end', 'live']);
+  });
 });

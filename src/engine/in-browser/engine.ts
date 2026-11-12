@@ -1,4 +1,4 @@
-import { isAbortError, isEngineError, EngineError, toEngineError } from '../errors';
+import { abortError, isAbortError, isEngineError, EngineError, toEngineError } from '../errors';
 import {
   buildTranslationPrompt,
   cleanModelOutput,
@@ -147,14 +147,24 @@ export class InBrowserEngine implements IdentifiedEngine {
     const finishOne = (): void => {
       remaining -= 1;
       if (remaining > 0) return;
-      if (failed) stream.fail(failed);
-      else stream.end();
+      if (failed) {
+        stream.fail(failed);
+        return;
+      }
+      // Preemption aborts this engine controller without the caller's signal. End
+      // that as an abort so the page session can retry instead of counting a failure.
+      if (controller.signal.aborted && !options.signal.aborted) {
+        stream.fail(abortError());
+        return;
+      }
+      stream.end();
     };
 
     for (const job of jobs) {
       handles.push(
         this.scheduler.schedule({
           priority: options.priority,
+          ...(options.preempt === true ? { preempt: true } : {}),
           run: async () => {
             try {
               await job();

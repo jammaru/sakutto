@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { isEngineCapabilities } from '@/shared/capabilities';
 import { isEngineStatus } from '@/shared/engine-status';
 import {
+  isCaptionPlayerResponseRequest,
+  isCaptionTimedtextRequest,
   isEngineProbeResponse,
   isEngineStatusRequest,
   isWebGpuDebugQuery,
@@ -118,6 +120,13 @@ describe('message validation', () => {
   });
 
   it('validates the engine status request and payload', () => {
+    expect(isCaptionTimedtextRequest({ type: 'captions:timedtext', url: '/api/timedtext' })).toBe(
+      true,
+    );
+    expect(isCaptionTimedtextRequest({ type: 'captions:timedtext', url: '' })).toBe(false);
+    expect(isCaptionTimedtextRequest({ type: 'engine:status' })).toBe(false);
+    expect(isCaptionPlayerResponseRequest({ type: 'captions:player-response' })).toBe(true);
+    expect(isCaptionPlayerResponseRequest({ type: 'captions:timedtext' })).toBe(false);
     expect(isEngineStatusRequest({ type: 'engine:status' })).toBe(true);
     expect(isEngineStatusRequest({ type: 'engine:status', extra: true })).toBe(true);
     expect(isEngineStatusRequest({ type: 'engine:probe' })).toBe(false);

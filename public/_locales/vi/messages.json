@@ -1169,5 +1169,83 @@
   },
   "diagRuntime": {
     "message": "Trạng thái"
+  },
+  "videoCaptionsSetting": {
+    "message": "Dịch phụ đề video"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "Khi bật, video YouTube (kể cả trực tiếp) và X đã có phụ đề được dịch trên thiết bị khi phát. Chrome sẽ hỏi quyền truy cập các trang đó lúc bạn bật tùy chọn. Video không có phụ đề sẽ không hiện gì. Nếu một dòng không dịch được đáng tin, phụ đề gốc được giữ lại."
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "Cách hiện phụ đề"
+  },
+  "videoCaptionsBilingual": {
+    "message": "Gốc và bản dịch"
+  },
+  "videoCaptionsReplace": {
+    "message": "Chỉ phụ đề đã dịch"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "Giữ dòng gốc giúp học dễ hơn và phát hiện bản dịch sai."
+  },
+  "videoCaptionsLabel": {
+    "message": "Phụ đề đã dịch"
+  },
+  "videoCaptionsPending": {
+    "message": "Đang dịch phụ đề…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "Hiện phụ đề gốc"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "Ẩn phụ đề gốc"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "Quyền truy cập YouTube và X không được cấp."
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "Hiện dòng gốc"
+  },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Hiện nút ẩn bản gốc trên trình phát"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "Khi tắt, nút không hiện trên video. Bạn vẫn đổi bản gốc và bản dịch từ trang này."
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "Cỡ phụ đề"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "Cỡ theo trình phát, gồm toàn màn hình và chế độ rạp. Kéo thanh để xem trước."
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "Trang phụ đề tùy chỉnh"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "Thêm một tên miền không phải YouTube hay X. Bản dịch chỉ chạy khi trang cung cấp phụ đề dạng rãnh HTML5, WebVTT, hoặc phần tử phụ đề hiện trên màn hình. Trang chỉ vẽ phụ đề bằng đồ họa riêng thì không hỗ trợ. Khi thêm sẽ xin quyền truy cập tên miền đó."
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "Thêm"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "Xóa"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "Gồm cả tên miền phụ"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "Nhập tên miền như example.com. Ký tự đại diện duy nhất được phép là * ở đầu."
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "Không được cấp quyền truy cập trang đó."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "Đặt lại vị trí"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "Nhấn giữ phụ đề đã dịch để di chuyển. YouTube và X nhớ vị trí riêng, kể cả toàn màn hình và chế độ rạp. Nút này đưa phụ đề về cuối trình phát."
   }
 }

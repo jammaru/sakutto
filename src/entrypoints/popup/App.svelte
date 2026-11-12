@@ -34,6 +34,12 @@
     subscribeSiteRules,
     type SiteRule,
   } from '@/dom/sites';
+  import { hostMatchesCaptionCustom } from '@/captions/custom-hosts';
+  import {
+    isCaptionAutoHost,
+    resolveCaptionToggle,
+    settleCaptionEnableIntent,
+  } from '@/captions/sites';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';
   import {
     effectivePageTarget,
@@ -76,6 +82,7 @@
   let pageMessage = $state<'ready' | 'unsupported' | 'unread'>('unsupported');
   let commandBusy = $state(false);
   let permissionError = $state(false);
+  let captionPermissionError = $state(false);
   let engine = $state<EngineStatus | null>(null);
   let modelMark = $state<ModelStatus | null>(null);
   let quality = $state<QualitySample | null>(null);
@@ -251,6 +258,34 @@
     }
   }
 
+  async function setVideoCaptions(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    captionPermissionError = false;
+    // User gesture: resolveCaptionToggle must call permissions.request with no prior pause.
+    const result = await resolveCaptionToggle(input.checked);
+    input.checked = result.on;
+    if (result.denied) {
+      captionPermissionError = true;
+      return;
+    }
+    try {
+      settings = await saveSettings({ translateVideoCaptions: result.on });
+      settingsError = null;
+    } catch {
+      settingsError = 'save';
+      input.checked = settings?.translateVideoCaptions === true;
+      return;
+    }
+    if (
+      result.on &&
+      tabId !== undefined &&
+      host &&
+      (isCaptionAutoHost(host) || hostMatchesCaptionCustom(host, settings.captionCustomHosts))
+    ) {
+      await ensureContentScript(tabId);
+    }
+  }
+
   async function setAlways(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
     if (!host) return;
@@ -333,6 +368,9 @@
     };
     browser.runtime.onMessage.addListener(onMessage);
 
+    void settleCaptionEnableIntent().then((settled) => {
+      if (settled.applied) void refreshSettings();
+    });
     void refreshSettings();
     void refreshPage();
     void refreshEngine();
@@ -472,6 +510,23 @@
     <p class="muted">
       {pageMessage === 'unread' ? t('errorPage') : t('pageStatusUnavailable')}
     </p>
+  {/if}
+
+  {#if settings}
+    <label class="check">
+      <input
+        type="checkbox"
+        data-sakutto="video-captions"
+        checked={settings.translateVideoCaptions}
+        onchange={setVideoCaptions}
+      />
+      <span>{t('videoCaptionsSetting')}</span>
+    </label>
+    {#if captionPermissionError}
+      <p class="error" role="alert" data-sakutto="video-captions-denied">
+        {t('videoCaptionsPermissionDenied')}
+      </p>
+    {/if}
   {/if}
 
   {#if settingsError}

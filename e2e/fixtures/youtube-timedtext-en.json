@@ -1,0 +1,19 @@
+{
+  "events": [
+    {
+      "tStartMs": 0,
+      "dDurationMs": 2500,
+      "segs": [{ "utf8": "The station opens at dawn." }]
+    },
+    {
+      "tStartMs": 2500,
+      "dDurationMs": 2500,
+      "segs": [{ "utf8": "A red train waits at platform two." }]
+    },
+    {
+      "tStartMs": 5000,
+      "dDurationMs": 3000,
+      "segs": [{ "utf8": "Tickets are sold at the north window." }]
+    }
+  ]
+}

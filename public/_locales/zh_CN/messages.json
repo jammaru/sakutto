@@ -1169,5 +1169,83 @@
   },
   "diagRuntime": {
     "message": "状态"
+  },
+  "videoCaptionsSetting": {
+    "message": "翻译视频字幕"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "开启后，会在设备上实时翻译已有字幕的 YouTube（含直播）和 X 视频。打开此设置时，Chrome 会请求访问这些网站。没有字幕的视频不会显示任何内容。无法可靠翻译的一行会保留原文。"
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "字幕显示"
+  },
+  "videoCaptionsBilingual": {
+    "message": "原文和译文"
+  },
+  "videoCaptionsReplace": {
+    "message": "仅显示译文"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "保留原文便于学习，也更容易发现误译。"
+  },
+  "videoCaptionsLabel": {
+    "message": "翻译字幕"
+  },
+  "videoCaptionsPending": {
+    "message": "正在翻译字幕…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "显示原字幕"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "隐藏原字幕"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "未获准访问 YouTube 和 X。"
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "显示原文行"
+  },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "在播放器上显示“隐藏原文”按钮"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "关闭后按钮不会出现在视频上。仍可在此页面切换原文和译文。"
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "字幕大小"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "大小会随播放器变化，包括全屏和影院模式。拖动滑块可预览。"
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "自定义字幕网站"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "添加 YouTube 或 X 以外的域名。仅当网站以 HTML5 视频轨道、WebVTT 或可见字幕元素提供字幕时才会翻译。仅用自定义图形绘制字幕的网站不受支持。添加时会请求该域名的访问权限。"
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "添加"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "移除"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "包含子域名"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "请输入 example.com 这样的域名。唯一允许的通配符是开头的 *。"
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "未授予对该网站的访问权限。"
+  },
+  "videoCaptionsPositionReset": {
+    "message": "重置位置"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "长按译文字幕即可在播放器内拖动。YouTube 和 X 会分别记住位置，全屏和剧场模式也会保持。此按钮会把字幕放回播放器底部。"
   }
 }

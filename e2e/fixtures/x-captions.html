@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>Station post</title>
+  </head>
+  <body>
+    <p>Synthetic X-shaped timeline. No people and no copyrighted footage.</p>
+    <article data-testid="timeline">
+      <div data-testid="videoComponent">
+        <video
+          id="idle"
+          controls
+          muted
+          playsinline
+          crossorigin="anonymous"
+          width="800"
+          height="450"
+          style="width: 800px; height: 450px"
+        >
+          <source src="/dummy.mp4" type="video/mp4" />
+          <track kind="subtitles" src="/idle-captions.vtt" srclang="ja" label="Idle" />
+        </video>
+      </div>
+      <div data-testid="videoPlayer" style="position: relative; width: 320px; height: 180px">
+        <video
+          id="playing"
+          controls
+          muted
+          playsinline
+          loop
+          crossorigin="anonymous"
+          width="320"
+          height="180"
+          style="width: 320px; height: 180px"
+        >
+          <source src="/dummy.mp4" type="video/mp4" />
+          <track
+            kind="subtitles"
+            src="https://video.twimg.com/subtitles/fixture.vtt"
+            srclang="ja"
+            label="Japanese"
+            default
+          />
+        </video>
+        <div
+          class="native-caption"
+          aria-live="polite"
+          data-sakutto="x-native-caption"
+          style="
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 8px;
+            color: #fff;
+            text-align: center;
+            text-shadow: rgb(0, 0, 0) 1px 1px 2px;
+            pointer-events: none;
+          "
+        >
+          駅は夜明けに開きます。
+        </div>
+      </div>
+    </article>
+  </body>
+</html>

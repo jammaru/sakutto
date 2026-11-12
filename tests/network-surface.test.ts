@@ -10,6 +10,8 @@ import { describe, expect, it } from 'vitest';
  *
  * `download.ts` is the only file allowed to reach Hugging Face. The local-server client
  * may `fetch` only after the user enables that backend, and only to the address they set.
+ * Caption timedtext is a same-origin GET of a URL the player already embedded on the
+ * watch page; it has no body and does not send page text to the developer.
  */
 
 /** Resolved from this file, so the check reads the repository even from another directory. */
@@ -149,9 +151,26 @@ describe('network surface', () => {
     );
 
     expect(reaching.map((file) => file.path).sort()).toEqual([
+      'src/captions/timedtext.ts',
       'src/engine/local-server/client.ts',
       'src/engine/model/download.ts',
     ]);
+  });
+
+  it('fetches timedtext without a body and only same-origin credentials', () => {
+    const timedtext = files.find((file) => file.path === 'src/captions/timedtext.ts');
+    if (!timedtext) throw new Error('timedtext.ts was not found');
+
+    const calls = [...timedtext.code.matchAll(/\bfetch\(([^;]*?)\);/gu)].map(
+      (match) => match[1] ?? '',
+    );
+    expect(calls.length).toBeGreaterThan(0);
+    for (const call of calls) {
+      expect(call).toContain('url');
+      expect(call).toContain("credentials: 'same-origin'");
+      expect(call).not.toMatch(/\bbody\s*:/u);
+      expect(call).not.toMatch(/\bmethod\s*:/u);
+    }
   });
 
   it('sends no body and no credentials with the model request', () => {

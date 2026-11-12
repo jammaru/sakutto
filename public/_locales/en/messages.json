@@ -1169,5 +1169,83 @@
   },
   "diagRuntime": {
     "message": "Status"
+  },
+  "videoCaptionsSetting": {
+    "message": "Translate video captions"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "When this is on, YouTube (including live) and X videos that already have captions are translated on your device as they play. Chrome asks for access to those sites when you turn the setting on. You can add other sites below if they expose captions in a standard way. Videos with no captions stay silent. If a line cannot be translated reliably, the original stays."
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "Caption display"
+  },
+  "videoCaptionsBilingual": {
+    "message": "Original and translation"
+  },
+  "videoCaptionsReplace": {
+    "message": "Translated captions only"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "Keeping the original line makes it easier to study and to catch a bad translation."
+  },
+  "videoCaptionsLabel": {
+    "message": "Translated captions"
+  },
+  "videoCaptionsPending": {
+    "message": "Translating caption…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "Show original caption"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "Hide original caption"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "Access to YouTube and X was not granted."
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "Show original caption line"
+  },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Show the hide-original button on the player"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "When this is off, the button stays off the video. You can still switch original and translation from this page."
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "Caption size"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "The size follows the player, including fullscreen and theater. Drag the slider to preview."
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "Custom caption sites"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "Add a domain that is not YouTube or X. Translation works only when the site exposes captions as HTML5 video tracks, WebVTT, or a visible caption element. Sites that draw captions only as custom graphics are not supported. Access is requested for that domain when you add it."
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "Add"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "Remove"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "Include subdomains"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "Enter a domain such as example.com. The only wildcard allowed is a leading *."
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "Access to that site was not granted."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "Reset position"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "Press and hold a translated caption to move it. YouTube and X remember their own spots, including fullscreen and theater. This puts the caption back at the bottom of the player."
   }
 }

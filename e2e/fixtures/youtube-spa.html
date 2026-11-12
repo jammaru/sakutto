@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>Watch</title>
+  </head>
+  <body>
+    <p>Synthetic YouTube SPA navigation. No people and no copyrighted footage.</p>
+    <div id="movie_player" class="html5-video-player">
+      <div class="html5-video-container">
+        <video id="player" class="html5-main-video" controls muted playsinline>
+          <source src="/dummy.mp4" type="video/mp4" />
+        </video>
+      </div>
+      <div class="ytp-caption-window-container">
+        <span class="ytp-caption-segment"></span>
+      </div>
+    </div>
+    <script id="player-response">
+      var ytInitialPlayerResponse = {
+        videoDetails: { videoId: 'fixtureA0001' },
+        captions: {
+          playerCaptionsTracklistRenderer: {
+            captionTracks: [
+              {
+                baseUrl: '/youtube-timedtext.json',
+                languageCode: 'ja',
+                name: { simpleText: 'Japanese' },
+                vssId: '.ja',
+              },
+            ],
+          },
+        },
+      };
+    </script>
+    <script>
+      window.__sakuttoShow = function (id, timedtext) {
+        var response = timedtext
+          ? {
+              videoDetails: { videoId: id },
+              captions: {
+                playerCaptionsTracklistRenderer: {
+                  captionTracks: [
+                    {
+                      baseUrl: timedtext,
+                      languageCode: 'ja',
+                      name: { simpleText: 'Japanese' },
+                      vssId: '.ja',
+                    },
+                  ],
+                },
+              },
+            }
+          : { videoDetails: { videoId: id } };
+        var script = document.getElementById('player-response');
+        script.textContent = 'var ytInitialPlayerResponse = ' + JSON.stringify(response) + ';';
+        var segment = document.querySelector('.ytp-caption-segment');
+        if (segment) segment.textContent = '';
+        history.replaceState(null, '', '/youtube-spa.html?v=' + id);
+        document.dispatchEvent(new Event('yt-navigate-start', { bubbles: true }));
+        document.dispatchEvent(new Event('yt-navigate-finish', { bubbles: true }));
+      };
+    </script>
+  </body>
+</html>

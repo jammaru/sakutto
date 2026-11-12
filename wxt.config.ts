@@ -9,7 +9,7 @@ import {
 
 const fixtureHostPermissions =
   process.env.SAKUTTO_FAKE_ENGINE === '1' || process.env.SAKUTTO_E2E_REAL === '1'
-    ? ['http://127.0.0.1/*', 'http://localhost/*']
+    ? ['http://127.0.0.1/*', 'http://localhost/*', 'https://x.com/*', 'https://www.x.com/*']
     : null;
 
 export default defineConfig({

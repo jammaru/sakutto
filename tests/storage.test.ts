@@ -42,7 +42,8 @@ vi.mock('wxt/browser', () => {
   };
 });
 
-const { loadSettings, saveSettings, subscribeSettings } = await import('@/shared/storage');
+const { ensureSettings, loadSettings, saveSettings, subscribeSettings } =
+  await import('@/shared/storage');
 
 beforeEach(() => {
   state.values.clear();
@@ -71,6 +72,20 @@ describe('settings storage', () => {
 
     await expect(loadSettings()).rejects.toThrow('storage unavailable');
     await expect(saveSettings({ form: 'plain' })).rejects.toThrow('storage unavailable');
+  });
+
+  it('does not seed defaults over settings written while the first read is in flight', async () => {
+    state.getDelay = 25;
+    const pending = ensureSettings();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    state.values.set('settings', {
+      schemaVersion: 1,
+      targetLanguage: 'en',
+      translateVideoCaptions: true,
+    });
+    const settings = await pending;
+    expect(settings.translateVideoCaptions).toBe(true);
+    expect(state.values.get('settings')).toMatchObject({ translateVideoCaptions: true });
   });
 
   it('notifies subscribers only for local settings changes', () => {

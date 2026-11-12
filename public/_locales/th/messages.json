@@ -1169,5 +1169,83 @@
   },
   "diagRuntime": {
     "message": "สถานะ"
+  },
+  "videoCaptionsSetting": {
+    "message": "แปลคำบรรยายวิดีโอ"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "เมื่อเปิด วิดีโอ YouTube (รวมไลฟ์) และ X ที่มีคำบรรยายอยู่แล้วจะถูกแปลบนอุปกรณ์ขณะเล่น Chrome จะขอสิทธิ์เข้าถึงไซต์เหล่านั้นตอนเปิดการตั้งค่า วิดีโอที่ไม่มีคำบรรยายจะไม่แสดงอะไร หากแปลบรรทัดใดไม่น่าเชื่อถือ จะคงต้นฉบับไว้"
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "การแสดงคำบรรยาย"
+  },
+  "videoCaptionsBilingual": {
+    "message": "ต้นฉบับและคำแปล"
+  },
+  "videoCaptionsReplace": {
+    "message": "แสดงเฉพาะคำบรรยายที่แปลแล้ว"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "การคงบรรทัดต้นฉบับช่วยให้เรียนง่ายขึ้นและจับคำแปลที่ผิดได้"
+  },
+  "videoCaptionsLabel": {
+    "message": "คำบรรยายที่แปลแล้ว"
+  },
+  "videoCaptionsPending": {
+    "message": "กำลังแปลคำบรรยาย…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "แสดงคำบรรยายต้นฉบับ"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "ซ่อนคำบรรยายต้นฉบับ"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "ไม่ได้รับสิทธิ์เข้าถึง YouTube และ X"
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "แสดงบรรทัดต้นฉบับ"
+  },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "แสดงปุ่มซ่อนคำบรรยายต้นฉบับบนเครื่องเล่น"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "ถ้าปิด ปุ่มจะไม่อยู่บนวิดีโอ คุณยังสลับต้นฉบับกับคำแปลได้จากหน้านี้"
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "ขนาดคำบรรยาย"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "ขนาดตามเครื่องเล่น รวมทั้งเต็มจอและโหมดโรงภาพยนตร์ ลากแถบเพื่อดูตัวอย่าง"
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "ไซต์คำบรรยายที่กำหนดเอง"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "เพิ่มโดเมนที่ไม่ใช่ YouTube หรือ X การแปลใช้ได้เมื่อไซต์เปิดเผยคำบรรยายเป็นแทร็กวิดีโอ HTML5, WebVTT หรือองค์ประกอบคำบรรยายที่มองเห็นได้ ไซต์ที่วาดคำบรรยายเป็นกราฟิกของตัวเองอย่างเดียวไม่รองรับ จะขอสิทธิ์เข้าถึงโดเมนนั้นเมื่อเพิ่ม"
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "เพิ่ม"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "ลบ"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "รวมโดเมนย่อย"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "ใส่โดเมนเช่น example.com ไวลด์การ์ดที่ใช้ได้คือ * นำหน้าเท่านั้น"
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "ไม่ได้อนุญาตให้เข้าถึงไซต์นั้น"
+  },
+  "videoCaptionsPositionReset": {
+    "message": "รีเซ็ตตำแหน่ง"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "กดค้างคำบรรยายที่แปลแล้วเพื่อย้ายได้ YouTube และ X จำตำแหน่งของตัวเอง รวมทั้งโหมดเต็มจอและโรงภาพยนตร์ ปุ่มนี้จะนำคำบรรยายกลับไปด้านล่างของเครื่องเล่น"
   }
 }

@@ -7,6 +7,9 @@ import { detectDocumentLanguage } from '@/dom/detect';
 import { fakeTranslate } from '@/dom/fake-engine';
 import type { OverlayLabels } from '@/dom/overlay';
 import { PageSession, preferencesFor } from '@/dom/session';
+import { VideoCaptionSession, type CaptionSessionPreferences } from '@/captions/session';
+import type { CaptionOverlayLabels } from '@/captions/overlay';
+import { captionsAllowedOnPage, videoCaptionPositionSite } from '@/captions/sites';
 import {
   loadSiteRule,
   pageHost,
@@ -19,7 +22,7 @@ import { hasLicenseConsent } from '@/shared/agreement';
 import type { ModelStatus } from '@/shared/engine-status';
 import { mergeGlossary } from '@/shared/glossary';
 import { currentUiLanguage, t } from '@/shared/i18n';
-import { isTargetLanguage, type TargetLanguage } from '@/shared/languages';
+import { effectivePageTarget, isTargetLanguage, type TargetLanguage } from '@/shared/languages';
 import {
   boundShortcut,
   DEFAULT_SHORTCUTS,
@@ -46,7 +49,7 @@ import {
   type ShortcutSnapshot,
 } from '@/shared/messages';
 import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
-import type { Settings } from '@/shared/settings';
+import type { Settings, VideoCaptionPosition } from '@/shared/settings';
 import { typedReadiness, type TypedReadiness } from '@/shared/typed-translation';
 import { translateViaBackground } from '@/shared/translation-client';
 
@@ -210,6 +213,39 @@ function composeReadiness(
   });
 }
 
+function captionLabels(): CaptionOverlayLabels {
+  return {
+    label: t('videoCaptionsLabel'),
+    pending: t('videoCaptionsPending'),
+    showOriginal: t('videoCaptionsShowOriginal'),
+    hideOriginal: t('videoCaptionsHideOriginal'),
+  };
+}
+
+function captionPreferencesFor(
+  settings: Settings,
+  rule: SiteRule,
+  host: string,
+): CaptionSessionPreferences {
+  const glossary = mergeGlossary(settings.glossary, rule.glossary);
+  const site = videoCaptionPositionSite(host);
+  return {
+    enabled:
+      settings.translateVideoCaptions &&
+      rule.auto !== 'never' &&
+      captionsAllowedOnPage(host, settings.captionCustomHosts, document),
+    targetLanguage: effectivePageTarget(settings.targetLanguage, rule.targetLanguage),
+    form: settings.form,
+    display: settings.videoCaptionDisplay,
+    size: settings.videoCaptionSize,
+    originalToggle: settings.videoCaptionOriginalToggle,
+    position: settings.videoCaptionPositions[site] ?? null,
+    glossary: glossary.length > 0 ? glossary : undefined,
+    customHosts: settings.captionCustomHosts,
+    tier: null,
+  };
+}
+
 function overlayLabels(): OverlayLabels {
   return {
     original: t('originalLabel'),
@@ -257,6 +293,7 @@ export default defineContentScript({
     let lastCommand = '';
     let lastCommandAt = 0;
     let compose: ComposeController | null = null;
+    let captions: VideoCaptionSession | null = null;
     let modelState: ModelStatus['state'] | null = null;
     let plamoReady = false;
     let modelStatusKnown = false;
@@ -388,17 +425,65 @@ export default defineContentScript({
         },
       });
 
+      let liveSettings = settings;
+      let liveRule = rule;
+      let captionDisplayWrite = 0;
+      let captionPositionWrite = 0;
+
+      const persistCaptionPosition = (point: VideoCaptionPosition): void => {
+        captionPositionWrite += 1;
+        const site = videoCaptionPositionSite(host);
+        liveSettings = {
+          ...liveSettings,
+          videoCaptionPositions: { ...liveSettings.videoCaptionPositions, [site]: point },
+        };
+        captions?.setPreferences(captionPreferencesFor(liveSettings, liveRule, host));
+        void saveSettings({ videoCaptionPositions: liveSettings.videoCaptionPositions });
+      };
+
+      captions = new VideoCaptionSession(document, {
+        engine,
+        labels: captionLabels(),
+        preferences: captionPreferencesFor(liveSettings, liveRule, host),
+        onDisplayToggle: () => {
+          captionDisplayWrite += 1;
+          const nextDisplay =
+            liveSettings.videoCaptionDisplay === 'bilingual' ? 'replace' : 'bilingual';
+          liveSettings = { ...liveSettings, videoCaptionDisplay: nextDisplay };
+          captions?.setPreferences(captionPreferencesFor(liveSettings, liveRule, host));
+          void saveSettings({ videoCaptionDisplay: nextDisplay });
+        },
+        onPositionChange: persistCaptionPosition,
+      });
+      if (captionPreferencesFor(liveSettings, liveRule, host).enabled) captions.start();
+
       const detected = await detectDocumentLanguage(document);
       session.setDetectedLanguage(detected);
 
       const applyStored = async (): Promise<void> => {
+        const writeId = captionDisplayWrite;
+        const positionWriteId = captionPositionWrite;
         const [nextSettings, nextRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
-        engineSource = nextSettings.engineSource;
-        shortcutsEnabled = nextSettings.shortcutsEnabled;
+        const display =
+          writeId === captionDisplayWrite
+            ? nextSettings.videoCaptionDisplay
+            : liveSettings.videoCaptionDisplay;
+        const positions =
+          positionWriteId === captionPositionWrite
+            ? nextSettings.videoCaptionPositions
+            : liveSettings.videoCaptionPositions;
+        liveSettings = {
+          ...nextSettings,
+          videoCaptionDisplay: display,
+          videoCaptionPositions: positions,
+        };
+        liveRule = nextRule;
+        engineSource = liveSettings.engineSource;
+        shortcutsEnabled = liveSettings.shortcutsEnabled;
         session.setLabels(overlayLabels());
-        session.setPreferences(preferencesFor(nextSettings, nextRule, host));
+        session.setPreferences(preferencesFor(liveSettings, liveRule, host));
         const readiness = composeReadiness(
-          nextSettings,
+          liveSettings,
           modelState ? { state: modelState } : null,
           plamoReady,
           modelStatusKnown,
@@ -406,8 +491,8 @@ export default defineContentScript({
         compose?.setLabels(composeLabels(readiness));
         compose?.setPreferences(
           composePreferencesFor(
-            nextSettings,
-            nextRule,
+            liveSettings,
+            liveRule,
             readiness,
             displayShortcut(
               shortcutFor(
@@ -419,6 +504,8 @@ export default defineContentScript({
             ),
           ),
         );
+        captions?.setLabels(captionLabels());
+        captions?.setPreferences(captionPreferencesFor(liveSettings, liveRule, host));
       };
 
       subscribeSettings(() => {
@@ -431,7 +518,7 @@ export default defineContentScript({
       if (rule.auto === 'always') {
         if (!__SAKUTTO_FAKE_ENGINE__) {
           void requestEngineWarm();
-          void requestEngineTier(session);
+          void requestEngineTier(session, false, captions);
         }
         void session.translate();
       }
@@ -448,12 +535,14 @@ export default defineContentScript({
       lastCommand = command;
       lastCommandAt = now;
       const session = await sessionPromise;
+      const [liveSettings, liveRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
+      captions?.setPreferences(captionPreferencesFor(liveSettings, liveRule, host));
       if (!commandEnabled(shortcutSnapshot, shortcutAssigned, shortcutsEnabled, command)) {
         return session.state();
       }
       if (!__SAKUTTO_FAKE_ENGINE__) {
         void requestEngineWarm();
-        void requestEngineTier(session);
+        void requestEngineTier(session, false, captions);
       }
       if (command === 'compose') {
         if (shouldHandleComposeCommand(document)) compose?.handleShortcut();
@@ -493,7 +582,7 @@ export default defineContentScript({
             ),
           );
           if (message.status.state === 'loaded' && !__SAKUTTO_FAKE_ENGINE__) {
-            void requestEngineTier(session, true);
+            void requestEngineTier(session, true, captions);
           }
         });
         return;
@@ -512,10 +601,17 @@ export default defineContentScript({
   },
 });
 
-async function requestEngineTier(session: PageSession, retry = false): Promise<void> {
+async function requestEngineTier(
+  session: PageSession,
+  retry = false,
+  captions: VideoCaptionSession | null = null,
+): Promise<void> {
   try {
     const status = await requestEngineStatus();
-    if (status?.tier) session.setTier(status.tier);
+    if (status?.tier) {
+      session.setTier(status.tier);
+      captions?.setTier(status.tier);
+    }
     if (retry || status?.model.state === 'loaded') session.retryUntranslated();
   } catch {
     // A load broadcast still re-queues the blocks that failed while the model loaded.

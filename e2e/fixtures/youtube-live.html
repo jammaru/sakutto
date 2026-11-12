@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>Watch live</title>
+  </head>
+  <body>
+    <p>Synthetic YouTube live player. No people and no copyrighted footage.</p>
+    <div id="movie_player" class="html5-video-player ytp-live">
+      <video id="player" class="html5-main-video" controls muted playsinline>
+        <source src="/dummy.mp4" type="video/mp4" />
+      </video>
+      <div class="ytp-caption-window-container">
+        <span class="ytp-caption-segment">駅は夜明けに開きます。</span>
+      </div>
+    </div>
+    <!-- prettier-ignore -->
+    <script>
+      var ytInitialPlayerResponse = {"videoDetails":{"videoId":"fixturelive01","isLive":true},"microformat":{"playerMicroformatRenderer":{"liveBroadcastDetails":{"isLiveNow":true}}},"captions":{"playerCaptionsTracklistRenderer":{"captionTracks":[{"baseUrl":"/youtube-live-timedtext.json","languageCode":"ja","kind":"asr","name":{"simpleText":"Japanese (auto)"},"vssId":"a.ja"}]}}};
+    </script>
+  </body>
+</html>

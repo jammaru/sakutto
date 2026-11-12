@@ -1169,5 +1169,83 @@
   },
   "diagRuntime": {
     "message": "Status"
+  },
+  "videoCaptionsSetting": {
+    "message": "Terjemahkan teks video"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "Jika aktif, video YouTube (termasuk siaran langsung) dan X yang sudah punya teks diterjemahkan di perangkat saat diputar. Chrome meminta akses ke situs itu saat Anda mengaktifkan pengaturan. Video tanpa teks tidak menampilkan apa pun. Jika suatu baris tidak bisa diterjemahkan andal, teks asli tetap ditampilkan."
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "Tampilan teks"
+  },
+  "videoCaptionsBilingual": {
+    "message": "Asli dan terjemahan"
+  },
+  "videoCaptionsReplace": {
+    "message": "Hanya teks terjemahan"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "Menyimpan baris asli memudahkan belajar dan menangkap terjemahan yang buruk."
+  },
+  "videoCaptionsLabel": {
+    "message": "Teks terjemahan"
+  },
+  "videoCaptionsPending": {
+    "message": "Menerjemahkan teks…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "Tampilkan teks asli"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "Sembunyikan teks asli"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "Akses ke YouTube dan X tidak diberikan."
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "Tampilkan baris asli"
+  },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Tampilkan tombol sembunyikan asli di pemutar"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "Jika dimatikan, tombol tidak muncul di video. Anda tetap dapat mengganti asli dan terjemahan dari halaman ini."
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "Ukuran subtitle"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "Ukuran mengikuti pemutar, termasuk layar penuh dan teater. Seret penggeser untuk pratinjau."
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "Situs subtitle kustom"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "Tambahkan domain yang bukan YouTube atau X. Terjemahan hanya berfungsi jika situs menampilkan subtitle sebagai trek video HTML5, WebVTT, atau elemen subtitle yang terlihat. Situs yang menggambar subtitle hanya sebagai grafis kustom tidak didukung. Akses ke domain itu diminta saat Anda menambahkannya."
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "Tambah"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "Hapus"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "Sertakan subdomain"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "Masukkan domain seperti example.com. Wildcard yang diizinkan hanyalah * di depan."
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "Akses ke situs itu tidak diberikan."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "Atur ulang posisi"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "Tekan lama teks terjemahan untuk memindahkannya. YouTube dan X masing-masing mengingat posisinya, termasuk layar penuh dan mode teater. Tombol ini mengembalikannya ke bagian bawah pemutar."
   }
 }

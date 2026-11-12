@@ -1169,5 +1169,83 @@
   },
   "diagRuntime": {
     "message": "Stato"
+  },
+  "videoCaptionsSetting": {
+    "message": "Traduci i sottotitoli video"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "Se attiva, i video YouTube (anche in diretta) e X che hanno già i sottotitoli vengono tradotti sul dispositivo durante la riproduzione. Chrome chiede l'accesso a quei siti quando attivi l'impostazione. I video senza sottotitoli non mostrano nulla. Se una riga non può essere tradotta in modo affidabile, resta l'originale."
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "Visualizzazione dei sottotitoli"
+  },
+  "videoCaptionsBilingual": {
+    "message": "Originale e traduzione"
+  },
+  "videoCaptionsReplace": {
+    "message": "Solo sottotitoli tradotti"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "Tenere la riga originale aiuta a studiare e a notare una traduzione sbagliata."
+  },
+  "videoCaptionsLabel": {
+    "message": "Sottotitoli tradotti"
+  },
+  "videoCaptionsPending": {
+    "message": "Traduzione del sottotitolo…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "Mostra il sottotitolo originale"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "Nascondi il sottotitolo originale"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "L’accesso a YouTube e X non è stato concesso."
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "Mostra la riga originale"
+  },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Mostra il pulsante Nascondi originale sul lettore"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "Se è disattivo, il pulsante resta fuori dal video. Puoi comunque passare da originale a traduzione in questa pagina."
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "Dimensione dei sottotitoli"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "La dimensione segue il lettore, anche a schermo intero e in modalità teatro. Trascina il cursore per l’anteprima."
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "Siti di sottotitoli personalizzati"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "Aggiungi un dominio che non sia YouTube o X. La traduzione funziona solo se il sito espone i sottotitoli come tracce video HTML5, WebVTT o un elemento visibile. I siti che disegnano i sottotitoli solo come grafica personalizzata non sono supportati. All’aggiunta viene chiesto l’accesso a quel dominio."
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "Aggiungi"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "Rimuovi"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "Includi i sottodomini"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "Inserisci un dominio come example.com. L’unico jolly consentito è un * iniziale."
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "L’accesso a quel sito non è stato concesso."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "Reimposta posizione"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "Tieni premuto un sottotitolo tradotto per spostarlo. YouTube e X ricordano ciascuno la propria posizione, anche a schermo intero e in modalità cinema. Questo pulsante lo riporta in basso nel lettore."
   }
 }

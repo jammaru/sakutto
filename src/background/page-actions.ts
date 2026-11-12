@@ -1,9 +1,11 @@
 import { browser } from 'wxt/browser';
+import { shouldAutoInjectCaptions } from '@/captions/sites';
 import { originPattern, pageHost, loadSiteRule } from '@/dom/sites';
 import { ensureContentScript } from '@/shared/page-bridge';
 import { requestPageCommand, type PageCommandName } from '@/shared/messages';
 import { noteShortcutCommandAssigned } from '@/shared/shortcut-assignment';
 import { isShortcutCommand, SHORTCUT_PAGE_COMMANDS } from '@/shared/shortcuts';
+import { loadSettings } from '@/shared/storage';
 
 interface PageTranslationCanceller {
   cancelTab(tabId: number): void;
@@ -37,6 +39,7 @@ export function installPageActions(translations?: PageTranslationCanceller): voi
     if (changeInfo.status === 'loading') translations?.cancelTab(tabId);
     if (changeInfo.status !== 'complete' || !tab.url) return;
     void injectIfAlways(tabId, tab.url);
+    void injectIfCaptions(tabId, tab.url);
   });
 
   browser.tabs.onRemoved.addListener((tabId) => {
@@ -115,4 +118,35 @@ async function injectIfAlways(tabId: number, url: string): Promise<void> {
   const allowed = await browser.permissions.contains({ origins: [pattern] }).catch(() => false);
   if (!allowed) return;
   await ensureContentScript(tabId);
+}
+
+async function injectIfCaptions(tabId: number, url: string): Promise<void> {
+  const host = pageHost(url);
+  const pattern = originPattern(url);
+  if (!host || !pattern) return;
+
+  const settings = await loadSettings();
+  const allowed = await browser.permissions.contains({ origins: [pattern] }).catch(() => false);
+  if (
+    !shouldAutoInjectCaptions({
+      settingOn: settings.translateVideoCaptions,
+      host,
+      originAllowed: allowed,
+      customHosts: settings.captionCustomHosts,
+    })
+  ) {
+    return;
+  }
+  await ensureContentScript(tabId);
+}
+
+/** Re-injects youtube.com / x.com tabs after the caption setting is turned on. */
+export async function injectCaptionPages(): Promise<void> {
+  const settings = await loadSettings();
+  if (!settings.translateVideoCaptions) return;
+  const tabs = await browser.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id === undefined || !tab.url) continue;
+    void injectIfCaptions(tab.id, tab.url);
+  }
 }

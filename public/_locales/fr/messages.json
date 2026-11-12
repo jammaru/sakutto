@@ -1169,5 +1169,83 @@
   },
   "diagRuntime": {
     "message": "État"
+  },
+  "videoCaptionsSetting": {
+    "message": "Traduire les sous-titres vidéo"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "Une fois activée, les vidéos YouTube (y compris en direct) et X qui ont déjà des sous-titres sont traduites sur l’appareil pendant la lecture. Chrome demande l’accès à ces sites lorsque vous activez le réglage. Les vidéos sans sous-titres n’affichent rien. Si une ligne ne peut pas être traduite de façon fiable, l’original reste affiché."
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "Affichage des sous-titres"
+  },
+  "videoCaptionsBilingual": {
+    "message": "Original et traduction"
+  },
+  "videoCaptionsReplace": {
+    "message": "Sous-titres traduits uniquement"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "Garder la ligne d’origine facilite l’apprentissage et permet de repérer une mauvaise traduction."
+  },
+  "videoCaptionsLabel": {
+    "message": "Sous-titres traduits"
+  },
+  "videoCaptionsPending": {
+    "message": "Traduction du sous-titre…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "Afficher le sous-titre d’origine"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "Masquer le sous-titre d’origine"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "L’accès à YouTube et X n’a pas été accordé."
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "Afficher la ligne d’origine"
+  },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Afficher le bouton « masquer l’original » sur le lecteur"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "Désactivé, le bouton reste hors de la vidéo. Vous pouvez toujours basculer original et traduction depuis cette page."
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "Taille des sous-titres"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "La taille suit le lecteur, y compris en plein écran et en mode théâtre. Faites glisser le curseur pour prévisualiser."
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "Sites de sous-titres personnalisés"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "Ajoutez un domaine autre que YouTube ou X. La traduction ne fonctionne que si le site expose des sous-titres en pistes vidéo HTML5, WebVTT ou un élément de sous-titres visible. Les sites qui dessinent les sous-titres uniquement en graphismes personnalisés ne sont pas pris en charge. L’accès à ce domaine est demandé lors de l’ajout."
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "Ajouter"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "Retirer"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "Inclure les sous-domaines"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "Saisissez un domaine tel que example.com. Le seul joker autorisé est un * en tête."
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "L’accès à ce site n’a pas été accordé."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "Réinitialiser la position"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "Maintenez une légende traduite pour la déplacer. YouTube et X mémorisent chacun leur emplacement, y compris en plein écran et en mode cinéma. Ce bouton la replace en bas du lecteur."
   }
 }

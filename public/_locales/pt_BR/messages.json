@@ -1169,5 +1169,83 @@
   },
   "diagRuntime": {
     "message": "Estado"
+  },
+  "videoCaptionsSetting": {
+    "message": "Traduzir legendas de vídeo"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "Quando ativada, vídeos do YouTube (incluindo ao vivo) e do X que já têm legendas são traduzidos no dispositivo durante a reprodução. O Chrome pede acesso a esses sites ao ligar a opção. Vídeos sem legendas não mostram nada. Se uma linha não puder ser traduzida com segurança, o original permanece."
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "Exibição das legendas"
+  },
+  "videoCaptionsBilingual": {
+    "message": "Original e tradução"
+  },
+  "videoCaptionsReplace": {
+    "message": "Somente legendas traduzidas"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "Manter a linha original facilita o estudo e a identificação de uma tradução ruim."
+  },
+  "videoCaptionsLabel": {
+    "message": "Legendas traduzidas"
+  },
+  "videoCaptionsPending": {
+    "message": "Traduzindo legenda…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "Mostrar legenda original"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "Ocultar legenda original"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "O acesso ao YouTube e ao X não foi concedido."
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "Mostrar a linha original"
+  },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Mostrar o botão de ocultar o original no player"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "Se estiver desligado, o botão não aparece no vídeo. Você ainda pode alternar original e tradução nesta página."
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "Tamanho das legendas"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "O tamanho acompanha o player, inclusive em tela cheia e teatro. Arraste o controle para pré-visualizar."
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "Sites de legendas personalizados"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "Adicione um domínio que não seja YouTube nem X. A tradução só funciona quando o site expõe legendas como faixas de vídeo HTML5, WebVTT ou um elemento visível. Sites que desenham legendas só como gráficos próprios não são suportados. O acesso a esse domínio é pedido ao adicionar."
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "Adicionar"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "Remover"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "Incluir subdomínios"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "Digite um domínio como example.com. O único curinga permitido é um * no início."
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "O acesso a esse site não foi concedido."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "Redefinir posição"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "Pressione e segure uma legenda traduzida para movê-la. YouTube e X lembram cada um o próprio lugar, inclusive em tela cheia e no modo cinema. Este botão a devolve à parte inferior do player."
   }
 }
