@@ -2,13 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { defaultShortcutEnabled } from '@/shared/shortcuts';
 
 const tabsQuery = vi.fn();
-const requestPageCommand = vi.fn(async (_tabId: number, _command: string, _frameId?: number) => ({
-  active: true,
-}));
-const ensureContentScript = vi.fn(
-  async (_tabId: number, _options?: { allFrames?: boolean }) => true,
+const requestPageCommand = vi.fn<
+  (tabId: number, command: string, frameId?: number) => Promise<{ active: boolean }>
+>(async () => ({ active: true }));
+const ensureContentScript = vi.fn<
+  (tabId: number, options?: { allFrames?: boolean }) => Promise<boolean>
+>(async () => true);
+const noteShortcutCommandAssigned = vi.fn<(command: string) => Promise<void>>(
+  async () => undefined,
 );
-const noteShortcutCommandAssigned = vi.fn(async (_command: string) => undefined);
 const loadSettings = vi.fn(async () => ({ shortcutsEnabled: defaultShortcutEnabled() }));
 
 vi.mock('wxt/browser', () => ({
