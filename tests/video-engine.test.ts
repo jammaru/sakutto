@@ -115,8 +115,10 @@ describe('caption translator', () => {
       { tgt: 'ja', form: 'polite' },
       2,
     );
+    const generation = translator.translateGeneration();
     translator.seek();
     await expect(pending).resolves.toBeNull();
+    expect(translator.abortedSince(generation)).toBe(true);
   });
 
   it('does not cache a translation that finished after clear', async () => {
