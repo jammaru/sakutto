@@ -156,6 +156,13 @@ describe('sanitizeTranslationInput table', () => {
     expect(Date.now() - started).toBeLessThan(500);
   });
 
+  it('skips neighbor tables when the text has no joiners or placeholders', () => {
+    const input = `${'Hello world. '.repeat(2000)}Fine.`;
+    const started = Date.now();
+    expect(sanitizeTranslationInput(input).startsWith('Hello world.')).toBe(true);
+    expect(Date.now() - started).toBeLessThan(250);
+  });
+
   it('strips a lone surrogate without throwing on NFC', () => {
     const broken = `A${String.fromCharCode(0xd800)}B`;
     expect(stripLoneSurrogates(broken)).toBe('AB');
@@ -193,11 +200,20 @@ describe('translatable / runaway detection', () => {
     expect(isInvisibleRunawayOutput('Hello.', `設定${'\u2060'.repeat(8)}`)).toBe(false);
   });
 
+  it('flags a short translation buried under a joiner storm', () => {
+    expect(isInvisibleRunawayOutput('Hello.', `設定${'\u200D'.repeat(16)}`)).toBe(true);
+    expect(isInvisibleRunawayOutput('Hello.', `設定${'\u200D'.repeat(40)}`)).toBe(true);
+    expect(isInvisibleRunawayOutput('Hello.', `あ${'\u200D'.repeat(200)}`)).toBe(true);
+    expect(isInvisibleRunawayOutput('Hello.', '\u200D'.repeat(80))).toBe(true);
+  });
+
   it('does not treat a subdivision flag tag sequence as a runaway', () => {
     expect(isInvisibleRunawayOutput('Hello.', ENGLAND_FLAG)).toBe(false);
     expect(isInvisibleRunawayOutput('Hello.', ENGLAND_FLAG, true)).toBe(false);
     expect(isInvisibleRunawayOutput('Hello.', SCOTLAND_FLAG)).toBe(false);
     expect(isInvisibleRunawayOutput('Hello.', SCOTLAND_FLAG, true)).toBe(false);
+    expect(isInvisibleRunawayOutput('Hello.', ENGLAND_FLAG.repeat(3))).toBe(false);
+    expect(isInvisibleRunawayOutput('Hello.', ENGLAND_FLAG.repeat(5))).toBe(false);
   });
 });
 
@@ -319,8 +335,110 @@ describe('InBrowserEngine Unicode input (wllama and local-server share this path
     const engine = new InBrowserEngine(runtime);
     const chunks = await collectChunks(engine.translate([{ id: 'a', text: 'Hello.' }], options()));
     expect(runtime.requests).toHaveLength(1);
-    expect(displayed(chunks)).toBe(`設定${'\u200D'.repeat(8)}`);
+    expect(displayed(chunks)).toBe('設定');
     expect(chunks.at(-1)?.error).toBeUndefined();
+  });
+
+  it('salvages a real translation buried under joiners instead of failing', async () => {
+    const runtime = new FakeRuntime(() => `設定${'\u200D'.repeat(40)}`);
+    const engine = new InBrowserEngine(runtime);
+    const chunks = await collectChunks(engine.translate([{ id: 'a', text: 'Hello.' }], options()));
+    expect(runtime.requests).toHaveLength(1);
+    expect(displayed(chunks)).toBe('設定');
+    expect(chunks.at(-1)?.error).toBeUndefined();
+  });
+
+  it('salvages a good translation followed by the #73 fixture', async () => {
+    const runtime = new FakeRuntime(() => `こんにちは、世界。${ISSUE_73_HIDDEN.repeat(3)}`);
+    const engine = new InBrowserEngine(runtime);
+    const chunks = await collectChunks(engine.translate([{ id: 'a', text: 'Hello.' }], options()));
+    expect(displayed(chunks)).toBe('こんにちは、世界。');
+    expect(chunks.at(-1)?.error).toBeUndefined();
+  });
+
+  it('does not pack U+2028 or CRLF into a one-line batch', async () => {
+    const runtime = new FakeRuntime((prompt) => {
+      const source = promptSource(prompt);
+      if (source === 'First\nSecond') return '訳A';
+      if (source === 'Other') return '訳B';
+      return `unexpected:${source}`;
+    });
+    const engine = new InBrowserEngine(runtime);
+    const chunks = await collectChunks(
+      engine.translate(
+        [
+          { id: 'a', text: 'First\u2028Second' },
+          { id: 'b', text: 'Other' },
+        ],
+        options(),
+      ),
+    );
+    expect(chunks.filter((chunk) => chunk.final !== undefined)).toEqual([
+      { id: 'a', final: '訳A', engine: 'plamo' },
+      { id: 'b', final: '訳B', engine: 'plamo' },
+    ]);
+
+    runtime.handler = (prompt) => {
+      const source = promptSource(prompt);
+      if (source === 'Alpha\nBeta') return '訳C';
+      if (source === 'Gamma') return '訳D';
+      return `unexpected:${source}`;
+    };
+    const crlf = await collectChunks(
+      engine.translate(
+        [
+          { id: 'c', text: 'Alpha\r\nBeta' },
+          { id: 'd', text: 'Gamma' },
+        ],
+        options(),
+      ),
+    );
+    expect(crlf.filter((chunk) => chunk.final !== undefined)).toEqual([
+      { id: 'c', final: '訳C', engine: 'plamo' },
+      { id: 'd', final: '訳D', engine: 'plamo' },
+    ]);
+  });
+
+  it('falls back to the page original bytes on a failed batch', async () => {
+    const runtime = new FakeRuntime(() => '\u200D'.repeat(8));
+    const engine = new InBrowserEngine(runtime);
+    const first = 'Hello\u00A0there.';
+    const second = 'Hi\u00A0you.';
+    const chunks = await collectChunks(
+      engine.translate(
+        [
+          { id: 'a', text: first },
+          { id: 'b', text: second },
+        ],
+        options(),
+      ),
+    );
+    const finals = chunks.filter((chunk) => chunk.final !== undefined);
+    expect(finals).toEqual([
+      { id: 'a', final: first, engine: 'plamo', error: true },
+      { id: 'b', final: second, engine: 'plamo', error: true },
+    ]);
+  });
+
+  it('falls back to original NBSP bytes after an oversized recover', async () => {
+    const first = 'Hello\u00A0there tonight around the harbour lights.';
+    const second = 'Next\u00A0line stays here for the recover path.';
+    const text = `${first} ${second}`;
+    const runtime = new FakeRuntime(() => '\u200D'.repeat(8));
+    runtime.complete = async (request) => {
+      runtime.requests.push(request);
+      const source = promptSource(request.prompt);
+      if (source.includes('Hello') && source.includes('Next')) {
+        throw new EngineError('invalid-input', 'The segment does not fit in the context window.');
+      }
+      request.onToken('\u200D'.repeat(8));
+      return { hitMaxTokens: true };
+    };
+    const engine = new InBrowserEngine(runtime);
+    const chunks = await collectChunks(engine.translate([{ id: 'a', text }], options()));
+    expect(chunks.at(-1)?.error).toBe(true);
+    expect(chunks.at(-1)?.final).toContain('\u00A0');
+    expect(chunks.at(-1)?.final).not.toBe(text.replaceAll('\u00A0', ' '));
   });
 
   it('keeps a subdivision flag in model output', async () => {
@@ -328,6 +446,22 @@ describe('InBrowserEngine Unicode input (wllama and local-server share this path
     const engine = new InBrowserEngine(runtime);
     const chunks = await collectChunks(engine.translate([{ id: 'a', text: 'England' }], options()));
     expect(displayed(chunks)).toBe(ENGLAND_FLAG);
+    expect(chunks.at(-1)?.error).toBeUndefined();
+  });
+
+  it('keeps several subdivision flags in model output', async () => {
+    const runtime = new FakeRuntime(() => ENGLAND_FLAG.repeat(3));
+    const engine = new InBrowserEngine(runtime);
+    const chunks = await collectChunks(engine.translate([{ id: 'a', text: 'UK' }], options()));
+    expect(displayed(chunks)).toBe(ENGLAND_FLAG.repeat(3));
+    expect(chunks.at(-1)?.error).toBeUndefined();
+  });
+
+  it('strips a copied #73 fixture off a good translation', async () => {
+    const runtime = new FakeRuntime(() => `こんにちは、世界。${ISSUE_73_HIDDEN.repeat(2)}`);
+    const engine = new InBrowserEngine(runtime);
+    const chunks = await collectChunks(engine.translate([{ id: 'a', text: 'Hello.' }], options()));
+    expect(displayed(chunks)).toBe('こんにちは、世界。');
     expect(chunks.at(-1)?.error).toBeUndefined();
   });
 
@@ -488,6 +622,30 @@ describe('cache, captions, typed input, cleanModelOutput', () => {
     expect(cleanModelOutput(MALAYALAM_CHILLU_ZWJ)).toBe(MALAYALAM_CHILLU_ZWJ);
     expect(cleanModelOutput(`${MALAYALAM_CHILLU_ZWJ}<|plamo:tag|>`)).toBe(MALAYALAM_CHILLU_ZWJ);
     expect(cleanModelOutput(MALAYALAM_CHILLU)).toBe(MALAYALAM_CHILLU);
+  });
+
+  it('strips Latin bidi overrides and junk tags from model output', () => {
+    expect(sanitizeModelOutput('こんにちは\u202E世界')).toBe('こんにちは世界');
+    expect(sanitizeModelOutput('Hi\u2066there')).toBe('Hithere');
+    expect(sanitizeModelOutput('Hi\u{E0020}there')).toBe('Hithere');
+    expect(sanitizeModelOutput(ENGLAND_FLAG)).toBe(ENGLAND_FLAG);
+    expect(sanitizeModelOutput(`設定${'\u200D'.repeat(16)}`)).toBe('設定');
+    expect(sanitizeModelOutput('\u0633\u0644\u0627\u0645\u200F')).toBe(
+      '\u0633\u0644\u0627\u0645\u200F',
+    );
+  });
+
+  it('keeps Khmer inherent vowels after a Khmer base', () => {
+    const khmer = '\u1780\u17B4';
+    expect(sanitizeTranslationInput(khmer)).toBe(khmer);
+    expect(sanitizeModelOutput(khmer)).toBe(khmer);
+    expect(sanitizeTranslationInput('a\u17B4b')).toBe('ab');
+    expect(sanitizeModelOutput('a\u17B4b')).toBe('ab');
+  });
+
+  it('trims trailing joiner runs except a chillu ZWJ', () => {
+    expect(cleanModelOutput(`こんにちは${'\u200D'.repeat(8)}`)).toBe('こんにちは');
+    expect(cleanModelOutput(MALAYALAM_CHILLU_ZWJ)).toBe(MALAYALAM_CHILLU_ZWJ);
   });
 });
 
