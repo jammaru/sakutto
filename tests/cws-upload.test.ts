@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { normalizeEol } from './support/eol';
 import {
   CWS_CLI_BIN,
   CWS_CLI_SPEC,
@@ -254,11 +255,12 @@ describe('Chrome Web Store workflow', () => {
   const root = fileURLToPath(new URL('..', import.meta.url));
 
   it('packages with the existing action and publishes only from the dispatch input', () => {
-    const workflow = readFileSync(
-      new URL('../.github/workflows/chrome-web-store.yml', import.meta.url),
-      'utf8',
+    const workflow = normalizeEol(
+      readFileSync(new URL('../.github/workflows/chrome-web-store.yml', import.meta.url), 'utf8'),
     );
-    const ci = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
+    const ci = normalizeEol(
+      readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8'),
+    );
     const trigger = workflow.slice(workflow.indexOf('on:'), workflow.indexOf('concurrency:'));
     expect(trigger).toContain('workflow_dispatch:');
     expect(trigger).toContain('publish:');

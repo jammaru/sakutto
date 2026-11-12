@@ -87,6 +87,11 @@ describe('auditPackage', () => {
     expect(problems).toContain('unexpected scripts/bench/fixtures/kyoto.html');
   });
 
+  it('rejects a tests path so fixtures cannot ship in the zip', () => {
+    const problems = auditPackage([...COMPLETE, 'tests/support/rotated-body-pdf.ts'], manifest());
+    expect(problems).toContain('unexpected tests/support/rotated-body-pdf.ts');
+  });
+
   it('rejects install-time host permissions', () => {
     const problems = auditPackage(COMPLETE, manifest({ host_permissions: ['https://*/*'] }));
     expect(problems).toContain('host_permissions must stay empty');
