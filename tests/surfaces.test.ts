@@ -199,7 +199,18 @@ describe('popup shortcut hints', () => {
     expect(popup).toContain('shortcutFallbackNote');
     expect(popup).toContain('data-sakutto="shortcut-fallback"');
     expect(popup).toContain('requestShortcutSnapshot');
+    expect(popup).toContain('defaultShortcuts');
     expect(popup).not.toContain("'Alt+A'");
+  });
+});
+
+describe('onboarding shortcut hints', () => {
+  it('names the keys this OS actually uses, then the keys Chrome reported', () => {
+    expect(onboarding).toContain('defaultShortcuts');
+    expect(onboarding).toContain('boundShortcut');
+    expect(onboarding).toContain('displayShortcut');
+    expect(onboarding).toContain('requestShortcutSnapshot');
+    expect(onboarding).not.toContain("'Alt+A'");
   });
 });
 

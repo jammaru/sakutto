@@ -49,10 +49,10 @@
   import { advanceModelStatus } from '@/shared/model-progress';
   import { openShortcutEditor } from '@/shared/shortcut-editor';
   import {
-    DEFAULT_SHORTCUTS,
     SHORTCUT_COMMANDS,
     ariaShortcut,
     boundShortcut,
+    defaultShortcuts,
     displayShortcut,
     usesInPageFallback,
     type ShortcutCommand,
@@ -98,10 +98,9 @@
    */
   let bound = $derived.by((): Record<ShortcutCommand, string> => {
     const enabled = settings?.shortcutsEnabled;
-    const next: Record<ShortcutCommand, string> = { ...DEFAULT_SHORTCUTS };
+    const next: Record<ShortcutCommand, string> = { ...defaultShortcuts() };
     for (const command of SHORTCUT_COMMANDS) {
       next[command] = boundShortcut(shortcuts?.snapshot ?? null, command, {
-        fallback: DEFAULT_SHORTCUTS[command],
         enabled: enabled?.[command] !== false,
         assigned: shortcuts?.assigned[command],
       });

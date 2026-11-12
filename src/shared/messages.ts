@@ -112,7 +112,8 @@ export interface CaptionPlayerResponseRequest {
 
 /**
  * The key each rebindable command holds right now, as the browser reports it: `Alt+A`,
- * `⌥⇧P` on a Mac, or `''` for a command with no key. `null` means the command was not listed.
+ * `Ctrl+Shift+A` / `⌃⇧A` on a Mac, or `''` for a command with no key. `null` means the
+ * command was not listed.
  */
 export interface ShortcutSnapshot {
   'translate-page': string | null;

@@ -83,7 +83,7 @@ const POINTER_RELEASE_WINDOW_MS = 80;
 /**
  * Chrome's `commands.onCommand` and the in-page keydown can both arrive for one keypress
  * (the compose bar already dedupes for the same reason). Toggle would otherwise translate
- * and immediately restore, which looks like Alt+A doing nothing.
+ * and immediately restore, which looks like the shortcut doing nothing.
  */
 export const PAGE_SHORTCUT_DEDUP_MS = 200;
 /**

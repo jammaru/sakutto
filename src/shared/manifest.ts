@@ -3,7 +3,7 @@ import {
   FIREFOX_STRICT_MIN_VERSION,
   type ExtensionBrowser,
 } from './browser.ts';
-import { defaultShortcutsFor, SHORTCUT_COMMANDS } from './shortcuts.ts';
+import { suggestedKeyFor, SHORTCUT_COMMANDS } from './shortcuts.ts';
 
 export const CHROME_PERMISSIONS = [
   'offscreen',
@@ -35,24 +35,23 @@ export function commandSuggestions(
   browser: ExtensionBrowser,
 ): Record<
   (typeof SHORTCUT_COMMANDS)[number],
-  { suggested_key: { default: string }; description: string }
+  { suggested_key: { default: string; mac?: string | undefined }; description: string }
 > {
-  const shortcuts = defaultShortcutsFor(browser);
   return {
     'translate-page': {
-      suggested_key: { default: shortcuts['translate-page'] },
+      suggested_key: suggestedKeyFor(browser, 'translate-page'),
       description: COMMAND_MESSAGES['translate-page'],
     },
     'toggle-bilingual': {
-      suggested_key: { default: shortcuts['toggle-bilingual'] },
+      suggested_key: suggestedKeyFor(browser, 'toggle-bilingual'),
       description: COMMAND_MESSAGES['toggle-bilingual'],
     },
     'translate-selection': {
-      suggested_key: { default: shortcuts['translate-selection'] },
+      suggested_key: suggestedKeyFor(browser, 'translate-selection'),
       description: COMMAND_MESSAGES['translate-selection'],
     },
     'translate-compose': {
-      suggested_key: { default: shortcuts['translate-compose'] },
+      suggested_key: suggestedKeyFor(browser, 'translate-compose'),
       description: COMMAND_MESSAGES['translate-compose'],
     },
   };

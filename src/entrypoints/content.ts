@@ -25,7 +25,6 @@ import { currentUiLanguage, t } from '@/shared/i18n';
 import { effectivePageTarget, isTargetLanguage, type TargetLanguage } from '@/shared/languages';
 import {
   boundShortcut,
-  DEFAULT_SHORTCUTS,
   defaultShortcutEnabled,
   displayShortcut,
   emptyShortcutAssigned,
@@ -77,7 +76,6 @@ function shortcutFor(
   command: ShortcutCommand,
 ): string {
   return boundShortcut(snapshot, command, {
-    fallback: DEFAULT_SHORTCUTS[command],
     enabled: enabled[command],
     assigned: assigned[command],
   });
