@@ -90,7 +90,8 @@ Draft PRs should receive the same `pull_request` checks. GitHub does **not** run
 ### pnpm and Playwright
 
 - `actions/setup-node` `cache: pnpm` on install jobs.
-- Playwright browsers: `playwright-chromium-${RUNNER_OS}-<pnpm-lock sha256>`.
+- Playwright browsers: `playwright-chromium-${RUNNER_OS}-${ImageOS}-<pnpm-lock sha256>`. `ImageOS` is in the key so an `ubuntu-latest` roll-forward cannot restore a browser built for an older image.
+- Do not install apt fonts in CI (`playwright install chromium` without `--with-deps`). Do not write tests that depend on CJK font metrics.
 
 ### What not to cache
 

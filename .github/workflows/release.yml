@@ -52,14 +52,15 @@ jobs:
 
       - id: playwright
         shell: bash
-        run: echo "key=playwright-chromium-${RUNNER_OS}-$(sha256sum pnpm-lock.yaml | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+        run: echo "key=playwright-chromium-${RUNNER_OS}-${ImageOS:-unknown}-$(sha256sum pnpm-lock.yaml | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: ${{ steps.playwright.outputs.key }}
 
-      - run: pnpm exec playwright install --with-deps chromium
+      # Invariant: same recipe as CI. Browser only, never `--with-deps`.
+      - run: pnpm exec playwright install chromium
       - run: pnpm test:e2e
         env:
           PLAYWRIGHT_SKIP_INSTALL: '1'
