@@ -1,5 +1,5 @@
 import type { Formality } from '@/shared/settings';
-import type { LayoutBlock } from './layout';
+import { verticalWriting, type LayoutBlock } from './layout';
 import { layoutPage } from './layout';
 import { coverStyle, READER_STYLE, TextMeasurer } from './render';
 import { extractPage, renderPage, type PdfDocument } from './extract';
@@ -23,6 +23,8 @@ export interface ReaderLabels {
   translated: string;
   progress: (done: number, total: number) => string;
   emptyPage: string;
+  /** Shown on a page whose canvas could not be drawn. */
+  renderFailed: string;
   noText: string;
   scanning: (page: number, of: number) => string;
   failed: string;
@@ -375,6 +377,9 @@ export class PdfReader {
       const missing = document.createElement('div');
       missing.className = 'sakutto-page__missing';
       missing.textContent = this.labels.emptyPage;
+      const broken = document.createElement('div');
+      broken.className = 'sakutto-page__render-failed';
+      broken.textContent = this.labels.renderFailed;
 
       // The selection's own translation, shown beside the selection rather than over it: a
       // reader who asks for one paragraph wants to compare it with the original, and a box
@@ -386,7 +391,7 @@ export class PdfReader {
       note.className = 'sakutto-select sakutto-note';
       note.hidden = true;
 
-      host.append(canvas, layer, text, missing, popover, note);
+      host.append(canvas, layer, text, missing, broken, popover, note);
       this.root.append(host);
       this.pageElements.set(geometry.index, {
         host,
@@ -666,16 +671,35 @@ export class PdfReader {
     const sourceHeight = block.box.height;
     const textHeight = fit.height * scale;
     const height = Math.max(sourceHeight * scale, textHeight) + pad;
-    // Layout wraps to `fit.width` (the column plus a modest gutter). Painting to the source
-    // box or the room alone, with `white-space:pre` and `overflow:hidden`, cuts the line ends
-    // that wrapping already fitted.
-    const width = Math.max(block.box.width, fit.width) * scale + pad;
-    const box = {
-      x: Math.min(block.box.x, block.room.x) * scale - pad / 2,
-      y: block.box.y * scale - pad / 2,
-      width,
-      height: sourceHeight * scale,
-    };
+    // Layout wraps to `fit.width` (the writing-direction advance on a rotated page, else the
+    // column plus a modest gutter). Painting to `box.width` alone, with `white-space:pre` and
+    // `overflow:hidden`, cuts the line ends that wrapping already fitted — on `/Rotate 90`
+    // that width is the em, about 10pt.
+    const along = Math.max(block.advance, fit.width) * scale + pad;
+    const width = verticalWriting(block) ? along : Math.max(block.box.width * scale, along);
+    const box = verticalWriting(block)
+      ? {
+          x:
+            (block.writing === 270
+              ? block.box.x
+              : block.box.x + Math.max(block.box.width, fit.height)) *
+              scale -
+            pad / 2,
+          y:
+            (block.writing === 270
+              ? block.box.y + Math.max(block.box.height, block.advance)
+              : block.box.y) *
+              scale -
+            pad / 2,
+          width: along,
+          height: Math.max(block.box.width, fit.height) * scale + pad,
+        }
+      : {
+          x: Math.min(block.box.x, block.room.x) * scale - pad / 2,
+          y: block.box.y * scale - pad / 2,
+          width,
+          height: sourceHeight * scale,
+        };
 
     node.dataset.fitWidth = fit.width.toFixed(2);
     node.textContent = visible.join('\n');
@@ -687,7 +711,14 @@ export class PdfReader {
       block.align,
       scriptOf(this.target),
     );
-    node.style.height = `${height.toFixed(2)}px`;
+    if (verticalWriting(block)) {
+      node.style.height = `${(Math.max(block.box.width, fit.height) * scale + pad).toFixed(2)}px`;
+      node.style.transformOrigin = '0 0';
+      node.style.transform = block.writing === 270 ? 'rotate(-90deg)' : 'rotate(90deg)';
+    } else {
+      node.style.height = `${height.toFixed(2)}px`;
+      node.style.transform = '';
+    }
     node.dataset.state = state.state === 'done' ? 'done' : 'running';
     node.dataset.clipped = 'false';
     // The source box, in page units, so a test can check the geometry without re-parsing.

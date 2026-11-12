@@ -927,6 +927,10 @@
   "pdfPageNoText": {
     "message": "此頁是掃描件或圖片，沒有可選取的文字，因此無法翻譯。"
   },
+  "pdfRenderFailed": {
+    "message": "無法繪製此頁。",
+    "description": "Shown on a page whose canvas could not be drawn."
+  },
   "pdfNoText": {
     "message": "此文件是掃描件或一組圖片，沒有可翻譯的文字層。請開啟含真實文字的 PDF，或先進行文字辨識。"
   },

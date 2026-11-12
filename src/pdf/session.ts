@@ -8,8 +8,16 @@ import type { Formality } from '@/shared/settings';
 import { pageRates, type ThroughputSample } from '@/dom/throughput';
 import { translationConcurrencyFor } from '@/dom/priority';
 import { fitText, type FitResult } from './fit';
-import type { LayoutBlock, PageLayout } from './layout';
-import { drawnBox, exceedsPage, pageGrowBudget, resolveOverlaps, wrapWidth } from './place';
+import { verticalWriting, type LayoutBlock, type PageLayout } from './layout';
+import {
+  drawnBox,
+  exceedsPage,
+  fitBox,
+  lineOverflows,
+  pageGrowBudget,
+  resolveOverlaps,
+  wrapWidth,
+} from './place';
 import { protectInlineMath, restoreInlineMath } from './protect';
 
 /** What the reader shows about how fast the document is being translated. */
@@ -502,26 +510,32 @@ export class PdfSession {
     }
     const block = state.block;
     const obstacles = this.neighbourBoxes(state, page);
+    const pageWidth = this.pageWidths.get(page) ?? 0;
+    const width = wrapWidth(block, obstacles, pageWidth);
+    const measureAt = (text: string, size: number) => this.measure(text, size, traitsOf(block));
     state.fit = fitText(
       {
-        box: block.box,
-        growBudget: this.growBudget(state, page),
+        box: fitBox(block, width),
+        growBudget: verticalWriting(block) ? 0 : this.growBudget(state, page),
         fontSize: block.fontSize,
         lineHeight: block.lineHeight,
-        width: wrapWidth(block, obstacles, this.pageWidths.get(page) ?? 0),
-        measure: (text, size) => this.measure(text, size, traitsOf(block)),
+        width,
+        measure: measureAt,
         role: block.role,
       },
       state.translation,
       targetScript(this.target),
     );
-    const pageWidth = this.pageWidths.get(page) ?? 0;
     const pageHeight = this.pageHeights.get(page) ?? 0;
+    const tooWide = lineOverflows(state.fit, width, (text) =>
+      measureAt(text, state.fit?.fontSize ?? block.fontSize),
+    );
     const drawn =
-      state.fit.fits === true
-        ? drawnBox(state.block, state.fit, wrapWidth(state.block, obstacles, pageWidth), pageWidth)
+      state.fit.fits === true && !tooWide
+        ? drawnBox(state.block, state.fit, width, pageWidth)
         : null;
-    state.paint = state.fit.fits && drawn !== null && !exceedsPage(drawn, pageWidth, pageHeight);
+    state.paint =
+      state.fit.fits && !tooWide && drawn !== null && !exceedsPage(drawn, pageWidth, pageHeight);
     state.overflow = !state.paint;
     this.overlapDirty.add(page);
   }

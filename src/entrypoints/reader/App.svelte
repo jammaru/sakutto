@@ -228,6 +228,7 @@
         translated: t('pageTranslated'),
         progress: (done, total) => t('pageProgress', [String(done), String(total)]),
         emptyPage: t('pdfPageNoText'),
+        renderFailed: t('pdfRenderFailed'),
         noText: t('pdfNoText'),
         scanning: (page, of) => t('pdfReading', [String(page), String(of)]),
         failed: t('pdfTranslateFailed'),

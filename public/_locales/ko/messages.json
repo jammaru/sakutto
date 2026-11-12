@@ -927,6 +927,10 @@
   "pdfPageNoText": {
     "message": "이 페이지는 스캔이거나 이미지라서 선택할 텍스트가 없어 번역할 수 없습니다."
   },
+  "pdfRenderFailed": {
+    "message": "이 페이지를 그릴 수 없습니다.",
+    "description": "Shown on a page whose canvas could not be drawn."
+  },
   "pdfNoText": {
     "message": "이 문서는 스캔이거나 이미지뿐이라 번역할 텍스트 레이어가 없습니다. 실제 텍스트가 있는 PDF를 열거나 먼저 문자 인식을 실행하세요."
   },

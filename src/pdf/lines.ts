@@ -41,6 +41,14 @@ export interface TextPiece {
    * grouping by that height would treat a column as one line.
    */
   size: number;
+  /**
+   * Writing direction after the page viewport is applied, in degrees clockwise.
+   *
+   * Distinct from `orientation`, which is the text matrix alone so a page `/Rotate` does not
+   * mark body text as a stamp. `displayed` is what wrapping and painting use: 90 and 270 mean
+   * the line's advance sits on the box's height.
+   */
+  displayed: number;
 }
 
 /** A run of pieces a reader reads as one line, left to right. */

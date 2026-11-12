@@ -1,6 +1,6 @@
 import { fitText, growBudgetFor, type FitResult } from './fit';
 import { intersectionArea, type Box } from './geometry';
-import type { AnyBlockRole, LayoutBlock, PageLayout } from './layout';
+import { verticalWriting, type AnyBlockRole, type LayoutBlock, type PageLayout } from './layout';
 
 /** Space kept clear at the foot of a page, in points, so a last paragraph cannot run off it. */
 export const PAGE_FOOT_MARGIN = 28;
@@ -55,14 +55,17 @@ export function placePage(request: PlaceRequest): PlacedBlock[] {
       return { block, translation: '', fit: null, paint: false, overflow: false, drawn: null };
     }
     const width = wrapWidth(block, obstacles, pageWidth);
+    const measureAt = (text: string, size: number) => request.measure(block, text, size);
     const fit = fitText(
       {
-        box: block.box,
-        growBudget: pageGrowBudget(block, obstacles, request.pageHeight),
+        box: fitBox(block, width),
+        growBudget: verticalWriting(block)
+          ? 0
+          : pageGrowBudget(block, obstacles, request.pageHeight),
         fontSize: block.fontSize,
         lineHeight: block.lineHeight,
         width,
-        measure: (text, size) => request.measure(block, text, size),
+        measure: measureAt,
         role: block.role,
       },
       translation,
@@ -70,7 +73,7 @@ export function placePage(request: PlaceRequest): PlacedBlock[] {
     );
     // A translation that does not fit is not shown in place. Cutting it short would be a
     // wrong translation. The full text is kept for a marker the reader can open.
-    if (!fit.fits) {
+    if (!fit.fits || lineOverflows(fit, width, (text) => measureAt(text, fit.fontSize))) {
       return { block, translation, fit, paint: false, overflow: true, drawn: null };
     }
     const drawn = drawnBox(block, fit, width, pageWidth);
@@ -124,11 +127,12 @@ export function pageGrowBudget(
  * not have to wrap to a second line.
  */
 export function wrapWidth(
-  block: Pick<LayoutBlock, 'box' | 'room' | 'role'>,
+  block: Pick<LayoutBlock, 'box' | 'room' | 'role' | 'advance' | 'writing'>,
   obstacles: readonly Box[] = [],
   pageWidth = 0,
 ): number {
-  const base = Math.max(1, block.room.width, block.box.width);
+  if (verticalWriting(block)) return Math.max(1, block.advance);
+  const base = Math.max(1, block.room.width, block.box.width, block.advance);
   const tight = Math.max(1, base * 0.96);
   if (block.role !== 'prose' && block.role !== 'caption' && block.role !== 'heading') {
     return tight;
@@ -154,17 +158,69 @@ export function wrapWidth(
 }
 
 export function drawnBox(block: LayoutBlock, fit: FitResult, wrap = 0, pageWidth = 0): Box {
+  if (verticalWriting(block)) {
+    const cross = Math.max(block.box.width, fit.height);
+    const along = Math.max(block.box.height, wrap, block.advance);
+    return { x: block.box.x, y: block.box.y, width: cross, height: along };
+  }
   const height = fit.fits
     ? Math.max(block.box.height, fit.height)
     : Math.max(block.box.height, fit.visibleLines.length * fit.lineHeight);
   const x = Math.min(block.box.x, block.room.x);
-  const width = capToPage(Math.max(block.room.width, block.box.width, wrap), x, pageWidth);
+  const width = capToPage(
+    Math.max(block.room.width, block.box.width, wrap, block.advance),
+    x,
+    pageWidth,
+  );
   return {
     x,
     y: block.box.y,
     width,
     height,
   };
+}
+
+/** Box `fitText` measures against: for a page-rotated line the em is the height budget. */
+export function fitBox(block: LayoutBlock, wrap: number): Box {
+  if (!verticalWriting(block)) return block.box;
+  const em = Math.min(block.box.width, block.box.height);
+  return { x: block.box.x, y: block.box.y, width: wrap, height: Math.max(0.1, em) };
+}
+
+const WIDTH_SLACK = 1;
+
+/** True when a fitted line is wider than the width wrapping was asked to honour. */
+export function lineOverflows(
+  fit: FitResult,
+  width: number,
+  measure: (text: string) => number,
+): boolean {
+  const lines = fit.fits ? fit.lines : fit.visibleLines;
+  for (const line of lines) {
+    if (measure(line) > width + WIDTH_SLACK) return true;
+  }
+  return false;
+}
+
+/**
+ * Extra width painted lines occupy beyond the box they are drawn in, in points.
+ *
+ * Horizontal writing is clipped by `drawn.width`. Vertical writing is wrapped to `fit.width`
+ * and then rotated, so that wrap width is the edge that must not be crossed.
+ */
+export function clippedPaintWidth(
+  entry: PlacedBlock,
+  measure: (text: string, fontSize: number) => number,
+): number {
+  if (!entry.paint || !entry.fit || entry.fit.lines.length === 0) return 0;
+  const along = verticalWriting(entry.block)
+    ? entry.fit.width
+    : (entry.drawn?.width ?? entry.fit.width);
+  let extra = 0;
+  for (const line of entry.fit.lines) {
+    extra += Math.max(0, measure(line, entry.fit.fontSize) - along - WIDTH_SLACK);
+  }
+  return extra;
 }
 
 function capToPage(width: number, x: number, pageWidth: number): number {

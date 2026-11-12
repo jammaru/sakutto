@@ -4,8 +4,11 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { extractPage, placeTextItem, type PdfPage } from '@/pdf/extract';
 import { layoutPage } from '@/pdf/layout';
+import { clippedPaintWidth, placePage } from '@/pdf/place';
+import { stubExpand } from '@/pdf/stub';
+import { measure } from './support/pdf-pieces';
 import { openPdfBytes } from './support/open-fixture-pdf';
-import { rotatedBodyPdf } from './support/rotated-body-pdf';
+import { rotatedBodyPdf } from '../scripts/bench/rotated-body-pdf';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -236,6 +239,21 @@ describe('committed layout fixtures', () => {
           index: number - 1,
         });
         expect(layout.bodySize, `page ${String(number)}`).toBe(10);
+        const placed = placePage({
+          layout,
+          translationOf: (block) => stubExpand(block.text),
+          target: 'ja',
+          measure: (_block, text, size) => measure(text, size),
+          pageHeight: extracted.height,
+          pageWidth: extracted.width,
+        });
+        expect(placed.length).toBeGreaterThan(0);
+        for (const entry of placed) {
+          expect(clippedPaintWidth(entry, measure)).toBeLessThanOrEqual(0.01);
+          if (entry.translation.trim().length > 0) {
+            expect(entry.paint || entry.overflow).toBe(true);
+          }
+        }
       }
     } finally {
       await document.destroy();

@@ -927,6 +927,10 @@
   "pdfPageNoText": {
     "message": "Esta página é um escaneamento ou uma imagem sem texto selecionável, então não pode ser traduzida."
   },
+  "pdfRenderFailed": {
+    "message": "Não foi possível desenhar esta página.",
+    "description": "Shown on a page whose canvas could not be drawn."
+  },
   "pdfNoText": {
     "message": "Este documento é um escaneamento ou um conjunto de imagens, sem camada de texto. Abra um PDF com texto real ou execute primeiro o reconhecimento óptico de caracteres."
   },

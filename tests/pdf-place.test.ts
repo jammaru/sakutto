@@ -3,7 +3,7 @@ import { groupLines } from '@/pdf/lines';
 import { layoutPage } from '@/pdf/layout';
 import { BODY_MIN_FONT_SIZE, BODY_MIN_SCALE, MIN_FONT_SIZE, MIN_SCALE } from '@/pdf/fit';
 import { pageMetrics, metricsPass } from '@/pdf/metrics';
-import { placePage } from '@/pdf/place';
+import { clippedPaintWidth, placePage } from '@/pdf/place';
 import { stubExpand } from '@/pdf/stub';
 import { measure, piece } from './support/pdf-pieces';
 
@@ -196,5 +196,24 @@ describe('placePage', () => {
     const metrics = pageMetrics(layout, placed, { x: 0, y: 0, width: 600, height: 800 });
     expect(metrics.figureAreaShare).toBeGreaterThan(0.5);
     expect(metricsPass(metrics)).toBe(false);
+  });
+
+  it('does not clip a narrow table cell; overflow goes to a marker', () => {
+    const lines = groupLines([piece('Maximum', 40, 100, 18, { em: 10 })]);
+    const { placed } = place(lines);
+    expect(placed.length).toBeGreaterThan(0);
+    for (const entry of placed) {
+      expect(clippedPaintWidth(entry, measure)).toBeLessThanOrEqual(0.01);
+      if (entry.translation.trim().length > 0) {
+        expect(entry.paint || entry.overflow).toBe(true);
+      }
+      if (entry.paint && entry.fit) {
+        for (const line of entry.fit.lines) {
+          expect(measure(line, entry.fit.fontSize)).toBeLessThanOrEqual(
+            (entry.drawn?.width ?? 0) + 1,
+          );
+        }
+      }
+    }
   });
 });

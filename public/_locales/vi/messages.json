@@ -927,6 +927,10 @@
   "pdfPageNoText": {
     "message": "Trang này là bản quét hoặc hình ảnh, không có chữ để chọn nên không dịch được."
   },
+  "pdfRenderFailed": {
+    "message": "Không vẽ được trang này.",
+    "description": "Shown on a page whose canvas could not be drawn."
+  },
   "pdfNoText": {
     "message": "Tài liệu này là bản quét hoặc tập hình ảnh, không có lớp chữ để dịch. Hãy mở PDF có chữ thật, hoặc chạy nhận dạng chữ trước."
   },

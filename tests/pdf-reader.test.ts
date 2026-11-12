@@ -11,6 +11,7 @@ const labels: ReaderLabels = {
   translated: 'Translated',
   progress: (done, total) => `${String(done)}/${String(total)}`,
   emptyPage: 'Empty',
+  renderFailed: 'Could not draw',
   noText: 'No text',
   scanning: (page, of) => `${String(page)}/${String(of)}`,
   failed: 'Failed',
@@ -303,6 +304,7 @@ describe('PdfReader viewport observer', () => {
     expect(host.dataset.renderFailed).toBe('true');
     expect(host.dataset.pageEmpty).toBeUndefined();
     expect(host.hasAttribute('data-empty')).toBe(false);
+    expect(host.querySelector('.sakutto-page__render-failed')?.textContent).toBe('Could not draw');
 
     reader.destroy();
   });

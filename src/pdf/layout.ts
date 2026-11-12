@@ -53,6 +53,19 @@ export interface LayoutBlock {
   italic: boolean;
   /** Reading column this block belongs to, counted from the left of its region. */
   column: number;
+  /**
+   * Length of the source along its writing direction, in points.
+   *
+   * After `/Rotate 90` or `/Rotate 270` the axis-aligned box has `width` equal to the em and
+   * `height` equal to the advance. Wrapping to `box.width` would set one character per line.
+   */
+  advance: number;
+  /** Writing direction after the viewport transform: 90 and 270 run down or up the page. */
+  writing: 0 | 90 | 180 | 270;
+}
+
+export function verticalWriting(block: Pick<LayoutBlock, 'writing'>): boolean {
+  return block.writing === 90 || block.writing === 270;
 }
 
 export interface PageLayout {
@@ -912,7 +925,38 @@ function buildBlock(
     bold,
     italic: sharesWeight(lines, 'italic'),
     column,
+    writing: writingOf(lines),
+    advance: advanceOf(lines),
   };
+}
+
+function writingOf(lines: readonly TextLine[]): 0 | 90 | 180 | 270 {
+  const votes = new Map<number, number>();
+  for (const line of lines) {
+    for (const piece of line.pieces) {
+      const angle = piece.displayed;
+      votes.set(angle, (votes.get(angle) ?? 0) + Math.max(1, piece.text.length));
+    }
+  }
+  let best = 0;
+  let bestWeight = -1;
+  for (const [angle, weight] of votes) {
+    if (weight > bestWeight) {
+      best = angle;
+      bestWeight = weight;
+    }
+  }
+  return best === 90 || best === 270 || best === 180 ? best : 0;
+}
+
+function advanceOf(lines: readonly TextLine[]): number {
+  let best = 1;
+  for (const line of lines) {
+    const displayed = line.pieces[0]?.displayed ?? 0;
+    const along = displayed === 90 || displayed === 270 ? line.box.height : line.box.width;
+    best = Math.max(best, along);
+  }
+  return best;
 }
 
 /**

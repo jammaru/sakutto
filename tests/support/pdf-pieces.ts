@@ -13,6 +13,8 @@ export function piece(
     math?: boolean;
     family?: TextPiece['family'];
     orientation?: number;
+    displayed?: number;
+    size?: number;
   } = {},
 ): TextPiece {
   const em = options.em ?? 10;
@@ -26,7 +28,8 @@ export function piece(
     italic: options.italic === true,
     math: options.math === true,
     orientation: options.orientation ?? 0,
-    size: em,
+    size: options.size ?? em,
+    displayed: options.displayed ?? 0,
   };
 }
 

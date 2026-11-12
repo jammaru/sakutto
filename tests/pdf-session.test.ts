@@ -16,6 +16,8 @@ function block(text: string): LayoutBlock {
     bold: false,
     italic: false,
     column: 0,
+    advance: 220,
+    writing: 0,
   };
 }
 
@@ -161,6 +163,19 @@ describe('PdfSession stream handling', () => {
     session.retryFailed();
     await waitFor(() => session.pageBlocks(0)[0]?.state === 'done');
     expect(session.pageBlocks(0)[0]?.translation).toBe('訳');
+  });
+
+  it('does not count a failed block as overflow', async () => {
+    const engine = engineOf(async function* (segments) {
+      const id = segments[0]?.id ?? 'b1';
+      yield { id, final: segments[0]?.text ?? '', error: true };
+    });
+    const session = sessionOf(engine);
+    session.addPage(0, layoutOf('A short paragraph of source text.'));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'failed');
+    expect(session.pageBlocks(0)[0]?.overflow).toBe(false);
+    expect(session.progress().failed).toBe(1);
+    expect(session.progress().overflowed).toBe(0);
   });
 
   it('fails a block with no translation pieces instead of marking it done', async () => {

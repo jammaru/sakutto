@@ -927,6 +927,10 @@
   "pdfPageNoText": {
     "message": "Diese Seite ist ein Scan oder ein Bild ohne auswählbaren Text und kann nicht übersetzt werden."
   },
+  "pdfRenderFailed": {
+    "message": "Diese Seite konnte nicht gezeichnet werden.",
+    "description": "Shown on a page whose canvas could not be drawn."
+  },
   "pdfNoText": {
     "message": "Dieses Dokument ist ein Scan oder besteht nur aus Bildern und hat keine Textebene. Öffnen Sie eine PDF mit echtem Text oder führen Sie zuerst eine Texterkennung aus."
   },

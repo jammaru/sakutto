@@ -931,6 +931,10 @@
     "message": "このページはスキャンまたは画像で、選べる文字がないため翻訳できません。",
     "description": "スキャンや画像のみのページで、翻訳の代わりに表示する文。"
   },
+  "pdfRenderFailed": {
+    "message": "このページを描画できませんでした。",
+    "description": "Shown on a page whose canvas could not be drawn."
+  },
   "pdfNoText": {
     "message": "この文書はスキャンまたは画像のみで、翻訳できる文字がありません。文字情報のある PDF を開くか、先に OCR をかけてください。"
   },

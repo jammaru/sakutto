@@ -232,6 +232,23 @@ export const READER_STYLE = `
   display: grid;
 }
 
+.sakutto-page__render-failed {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: none;
+  place-content: center;
+  padding: 24px;
+  background: rgb(255 255 255 / 82%);
+  color: #1f2937;
+  font: 13px/1.55 "Segoe UI", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  text-align: center;
+}
+
+.sakutto-page[data-render-failed="true"]:not([data-page-empty="true"]) .sakutto-page__render-failed {
+  display: grid;
+}
+
 /*
  * Marker for a translation that did not fit in place. It sits on the source box so a reader
  * can open the full text without the page painting a cut sentence over the original.

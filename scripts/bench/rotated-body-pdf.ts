@@ -1,9 +1,8 @@
 /**
- * A synthetic multi-line PDF whose pages carry `/Rotate`, for grouping tests.
+ * A synthetic multi-line PDF whose pages carry `/Rotate`, for grouping and wrap tests.
  *
- * Each page is 12 lines of 10 pt body text. The file is generated in memory so the suite
- * does not depend on a committed binary, and the same bytes are what `bench:pdf:layout`
- * reads as its rotated fixture.
+ * Each page is 12 lines of 10 pt body text. Generated in memory so the suite and
+ * `bench:pdf:layout` share one fixture without a committed binary.
  */
 export function rotatedBodyPdf(rotations: readonly number[] = [90, 270]): Uint8Array {
   const lines = Array.from({ length: 12 }, (_, index) => {

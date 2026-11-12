@@ -190,33 +190,47 @@ export function wrapText(
 ): string[] {
   const trimmed = text.trim();
   if (trimmed.length === 0) return [];
-  if (width <= 0) return [trimmed];
 
   const tokens = tokenize(trimmed);
   const lines: string[] = [];
   let current = '';
+
+  const place = (value: string): void => {
+    if (value.length === 0) {
+      current = '';
+      return;
+    }
+    // A trailing space hangs at the end of a line in CSS, so it must not decide the break.
+    if (measure(value.trimEnd()) <= width) {
+      current = value;
+      return;
+    }
+    const pieces = breakToken(value.trimEnd(), width, measure);
+    const last = pieces.pop() ?? '';
+    for (const piece of pieces) {
+      if (piece.length > 0) lines.push(piece);
+    }
+    current = last;
+  };
 
   for (const token of tokens) {
     const candidate = current.length === 0 ? token : current + token;
     // A trailing space hangs at the end of a line in CSS, so it must not decide the break.
     if (current.length > 0 && measure(candidate.trimEnd()) > width) {
       lines.push(current.trimEnd());
-      current = token.trimStart();
+      place(token.trimStart());
       continue;
     }
-    // One token wider than the whole column: break inside it rather than overflow.
-    if (current.length === 0 && measure(token) > width) {
-      const pieces = breakToken(token, width, measure);
-      const last = pieces.pop() ?? '';
-      lines.push(...pieces);
-      current = last;
-      continue;
-    }
-    current = candidate;
+    place(candidate);
   }
 
   if (current.trim().length > 0) lines.push(current.trimEnd());
-  return kinsoku ? applyKinsoku(lines) : lines;
+  const wrapped = kinsoku ? applyKinsoku(lines, width, measure) : lines;
+  return wrapped.flatMap((line) => {
+    if (line.length === 0 || measure(line) <= width) return line.length > 0 ? [line] : [];
+    const pieces = breakToken(line, width, measure);
+    return pieces.length > 0 ? pieces : [line.slice(0, 1)];
+  });
 }
 
 /**
@@ -228,11 +242,18 @@ const KINSOKU_NO_START =
   /[、。，．・？！）\]｝」』】ゝゞ々ーァィゥェォッャュョヮぁぃぅぇぉっゃゅょゎ]/u;
 const KINSOKU_NO_END = /[[（［｛「『【]/u;
 
-function applyKinsoku(lines: readonly string[]): string[] {
+function applyKinsoku(
+  lines: readonly string[],
+  width: number,
+  measure: (value: string) => number,
+): string[] {
   const next = [...lines];
   for (let index = 1; index < next.length; index += 1) {
     while ((next[index]?.length ?? 0) > 0 && KINSOKU_NO_START.test(next[index]?.[0] ?? '')) {
-      next[index - 1] = `${next[index - 1] ?? ''}${next[index]?.[0] ?? ''}`;
+      const mark = next[index]?.[0] ?? '';
+      const dest = `${next[index - 1] ?? ''}${mark}`;
+      if (measure(dest) > width) break;
+      next[index - 1] = dest;
       next[index] = next[index]?.slice(1) ?? '';
     }
     if ((next[index]?.length ?? 0) === 0) {
@@ -243,8 +264,11 @@ function applyKinsoku(lines: readonly string[]): string[] {
   for (let index = 0; index < next.length - 1; index += 1) {
     while ((next[index]?.length ?? 0) > 0 && KINSOKU_NO_END.test(next[index]?.at(-1) ?? '')) {
       const mark = next[index]?.at(-1) ?? '';
-      next[index] = next[index]?.slice(0, -1) ?? '';
-      next[index + 1] = `${mark}${next[index + 1] ?? ''}`;
+      const dest = `${mark}${next[index + 1] ?? ''}`;
+      const kept = next[index]?.slice(0, -1) ?? '';
+      if (kept.length === 0 || measure(dest) > width) break;
+      next[index] = kept;
+      next[index + 1] = dest;
     }
     if ((next[index]?.length ?? 0) === 0) {
       next.splice(index, 1);
@@ -289,6 +313,7 @@ function tokenize(text: string): string[] {
 
 /** Breaks one over-wide token into pieces that each fit. */
 function breakToken(token: string, width: number, measure: (value: string) => number): string[] {
+  if (token.length === 0) return [];
   const pieces: string[] = [];
   let current = '';
   for (const character of token) {
@@ -301,7 +326,9 @@ function breakToken(token: string, width: number, measure: (value: string) => nu
     current = candidate;
   }
   if (current.length > 0) pieces.push(current);
-  return pieces;
+  // A glyph wider than the column still occupies a line of its own: never emit an empty
+  // piece, which would loop, and never skip the character.
+  return pieces.length > 0 ? pieces : [token.slice(0, 1)];
 }
 
 /** The distance from a block's bottom to the next thing below it in its column. */

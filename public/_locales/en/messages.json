@@ -931,6 +931,10 @@
     "message": "This page is a scan or a picture — it has no selectable text, so nothing here can be translated.",
     "description": "Shown on a scanned or image-only page instead of a translation."
   },
+  "pdfRenderFailed": {
+    "message": "This page could not be drawn.",
+    "description": "Shown on a page whose canvas could not be drawn."
+  },
   "pdfNoText": {
     "message": "This document is a scan or a set of pictures, with no text layer to translate. Open a PDF that contains real text, or run optical character recognition first."
   },

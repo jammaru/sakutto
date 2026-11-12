@@ -147,6 +147,7 @@ export async function extractPage(
       math: font.math,
       orientation: placed.orientation,
       size: placed.size,
+      displayed: placed.displayed,
     });
   }
 
@@ -218,7 +219,7 @@ export function isImageOnlyPage(
 export function placeTextItem(
   item: PdfTextItem,
   viewport: PdfViewport,
-): { box: Box; baseline: number; orientation: number; size: number } {
+): { box: Box; baseline: number; orientation: number; size: number; displayed: number } {
   const [a = 1, b = 0, c = 0, d = 0, e = 0, f = 0] = item.transform;
   const height = Math.hypot(c, d) || item.height || 1;
   const orientation = orientationOf(a, b);
@@ -230,6 +231,7 @@ export function placeTextItem(
       baseline,
       orientation,
       size: height,
+      displayed: orientation,
     };
   }
   const origin = applyViewport(matrix, e, f);
@@ -251,6 +253,7 @@ export function placeTextItem(
     baseline: displayed === 90 || displayed === 270 ? origin.x : origin.y,
     orientation,
     size,
+    displayed,
   };
 }
 

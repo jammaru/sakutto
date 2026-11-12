@@ -927,6 +927,10 @@
   "pdfPageNoText": {
     "message": "此页是扫描件或图片，没有可选择的文字，因此无法翻译。"
   },
+  "pdfRenderFailed": {
+    "message": "无法绘制此页。",
+    "description": "Shown on a page whose canvas could not be drawn."
+  },
   "pdfNoText": {
     "message": "此文档是扫描件或一组图片，没有可翻译的文字层。请打开含真实文字的 PDF，或先进行文字识别。"
   },

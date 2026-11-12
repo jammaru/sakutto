@@ -22,6 +22,7 @@ function piece(
     math: options.math === true,
     orientation: 0,
     size: em,
+    displayed: 0,
   };
 }
 

@@ -28,7 +28,7 @@ describe('wrapText', () => {
   });
 
   it('does not start a Japanese line with a closing mark', () => {
-    const lines = wrapText('です。次は本文', 10, (value) => measure(value, 10), true);
+    const lines = wrapText('です。次は本文', 20, (value) => measure(value, 10), true);
     expect(lines.join('')).toBe('です。次は本文');
     expect(lines.some((line) => line.startsWith('。'))).toBe(false);
     expect(lines[0]?.includes('。')).toBe(true);
@@ -45,7 +45,26 @@ describe('wrapText', () => {
     for (const line of lines) expect(measure(line, 10)).toBeLessThanOrEqual(40);
     expect(lines.join('')).toBe('abcdefghijklmnop');
   });
+
+  it('width-checks a token that starts a new line, including narrow columns', () => {
+    for (const width of [8, 12, 20, 40]) {
+      const lines = wrapText('aa bbbbbbbbbbbbb cccc', width, (value) => measure(value, 10));
+      expect(lines.length).toBeGreaterThan(0);
+      for (const line of lines) {
+        expect(line.length).toBeGreaterThan(0);
+        expect(measure(line, 10)).toBeLessThanOrEqual(width);
+      }
+      expect(lines.join('').replace(/\s+/g, '')).toBe('aabbbbbbbbbbbbbcccc');
+    }
+  });
 });
+
+function expectLinesFit(lines: readonly string[], width: number, size: number): void {
+  for (const line of lines) {
+    expect(line.length).toBeGreaterThan(0);
+    expect(measure(line, size)).toBeLessThanOrEqual(width);
+  }
+}
 
 describe('fitText', () => {
   it('keeps the source size when the translation is short', () => {
@@ -67,6 +86,7 @@ describe('fitText', () => {
     expect(result.lines).toHaveLength(1);
     expect(result.grown).toBe(false);
     expect(result.width).toBe(200);
+    expectLinesFit(result.lines, 200, result.fontSize);
   });
 
   it('records the wrap width the layout fitted against', () => {
@@ -101,6 +121,7 @@ describe('fitText', () => {
     );
     expect(result.fontSize).toBeLessThan(10);
     expect(result.fontSize).toBeGreaterThanOrEqual(10 * 0.72 - 1e-9);
+    expectLinesFit(result.lines, 120, result.fontSize);
   });
 
   it('uses room below before shrinking', () => {
@@ -210,6 +231,7 @@ describe('fitText', () => {
     );
     expect(result.fontSize).toBeGreaterThanOrEqual(6 - 1e-9);
     expect(result.fontSize).toBeLessThan(6.5);
+    for (const line of result.lines) expect(measure(line, result.fontSize)).toBeLessThanOrEqual(90);
   });
 
   it('grows a last one-line paragraph by at least one Japanese line when the page has room', () => {

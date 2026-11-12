@@ -927,6 +927,10 @@
   "pdfPageNoText": {
     "message": "หน้านี้เป็นสแกนหรือรูปภาพ ไม่มีข้อความให้เลือก จึงแปลไม่ได้"
   },
+  "pdfRenderFailed": {
+    "message": "ไม่สามารถวาดหน้านี้ได้",
+    "description": "Shown on a page whose canvas could not be drawn."
+  },
   "pdfNoText": {
     "message": "เอกสารนี้เป็นสแกนหรือชุดรูปภาพ ไม่มีชั้นข้อความให้แปล โปรดเปิด PDF ที่มีข้อความจริง หรือรัน OCR ก่อน"
   },

@@ -17,7 +17,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
-import { rotatedBodyPdf } from '../../tests/support/rotated-body-pdf.ts';
+import { rotatedBodyPdf } from './rotated-body-pdf.ts';
 
 const require = createRequire(import.meta.url);
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -70,7 +70,9 @@ const { layoutPage } = (await import(pathToFileURL(resolve(ROOT, 'src/pdf/layout
     obstacles?: unknown[];
   };
 };
-const { placePage } = (await import(pathToFileURL(resolve(ROOT, 'src/pdf/place.ts')).href)) as {
+const { placePage, clippedPaintWidth } = (await import(
+  pathToFileURL(resolve(ROOT, 'src/pdf/place.ts')).href
+)) as {
   placePage: (request: {
     layout: unknown;
     translationOf: (block: { text: string }) => string;
@@ -78,7 +80,23 @@ const { placePage } = (await import(pathToFileURL(resolve(ROOT, 'src/pdf/place.t
     measure: (block: unknown, text: string, fontSize: number) => number;
     pageHeight: number;
     pageWidth?: number;
-  }) => unknown[];
+  }) => Array<{
+    paint: boolean;
+    overflow: boolean;
+    translation: string;
+    fit: { lines: string[]; fontSize: number; width: number } | null;
+    drawn: { width: number } | null;
+    block: { writing?: number };
+  }>;
+  clippedPaintWidth: (
+    entry: {
+      paint: boolean;
+      fit: { lines: string[]; fontSize: number; width: number } | null;
+      drawn: { width: number } | null;
+      block: { writing?: number };
+    },
+    measure: (text: string, fontSize: number) => number,
+  ) => number;
 };
 const { pageMetrics, metricsPass } = (await import(
   pathToFileURL(resolve(ROOT, 'src/pdf/metrics.ts')).href
@@ -173,7 +191,12 @@ async function checkBytes(name: string, bytes: Uint8Array): Promise<void> {
       width: extracted.width,
       height: extracted.height,
     });
-    const pass = extracted.empty ? metrics.painted === 0 : metricsPass(metrics);
+    let clipped = 0;
+    for (const entry of placed) {
+      clipped += clippedPaintWidth(entry, (text, size) => measure(text, size));
+    }
+    const pass =
+      (extracted.empty ? metrics.painted === 0 : metricsPass(metrics)) && clipped <= 0.01;
     if (!pass) failed = true;
     console.log(
       `  page ${String(number)}: ${extracted.empty ? 'image-only' : 'text'}  ` +
@@ -182,7 +205,7 @@ async function checkBytes(name: string, bytes: Uint8Array): Promise<void> {
         `skipped=${String(metrics.skipped)} withheld=${String(metrics.withheld)} ` +
         `overlap=${String(metrics.overlapPairs)} minpt=${metrics.minFontSize === null ? '-' : metrics.minFontSize.toFixed(1)} ` +
         `prose=${(metrics.prosePainted * 100).toFixed(0)}% cover=${(metrics.proseCovered * 100).toFixed(0)}% ` +
-        `overflowed=${String(metrics.overflowed)} ${pass ? 'ok' : 'FAIL'}`,
+        `overflowed=${String(metrics.overflowed)} clipped=${clipped.toFixed(1)} ${pass ? 'ok' : 'FAIL'}`,
     );
     reports.push({
       file: name,

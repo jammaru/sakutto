@@ -927,6 +927,10 @@
   "pdfPageNoText": {
     "message": "Halaman ini hasil pindai atau gambar tanpa teks yang dapat dipilih, jadi tidak bisa diterjemahkan."
   },
+  "pdfRenderFailed": {
+    "message": "Halaman ini tidak dapat digambar.",
+    "description": "Shown on a page whose canvas could not be drawn."
+  },
   "pdfNoText": {
     "message": "Dokumen ini hasil pindai atau kumpulan gambar, tanpa lapisan teks. Buka PDF yang berisi teks asli, atau jalankan OCR terlebih dahulu."
   },
