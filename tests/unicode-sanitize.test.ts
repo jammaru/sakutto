@@ -26,9 +26,10 @@ import {
   stripLoneSurrogates,
   visibleContent,
 } from '@/engine/text/sanitize';
+import { completionTokenBudget } from '@/engine/text/tokens';
 import type { PageEngine } from '@/dom/session';
 import type { TranslateOptions, TranslateSegment, TranslationChunk } from '@/engine/types';
-import { normalizeTypedInput } from '@/shared/typed-translation';
+import { applyTypedChunk, normalizeTypedInput } from '@/shared/typed-translation';
 import { collectChunks, FakeRuntime } from './support/fakes';
 import { promptSource } from './support/sim-runtime';
 
@@ -55,7 +56,12 @@ function displayed(chunks: readonly TranslationChunk[]): string {
 const ENGLAND_FLAG = '\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}';
 const SCOTLAND_FLAG =
   '\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E006C}\u{E0061}\u{E006E}\u{E0064}\u{E007F}';
+const SCOTLAND_GBSCT = '\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}';
+const PIRATE_FLAG = '\u{1F3F4}\u200D\u2620\uFE0F';
 const FAMILY = '👨\u200D👩\u200D👧\u200D👦';
+const FROM_ENGLAND = `I am from England ${ENGLAND_FLAG} and I love tea.`;
+const GO_ENGLAND = `Go England! ${ENGLAND_FLAG}`;
+const FROM_SCOTLAND = `I am from Scotland ${SCOTLAND_GBSCT}.`;
 const PERSIAN = '\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u0645';
 const PERSIAN_TAG = '\u06a9\u062a\u0627\u0628\u200c<i1>\u0647\u0627</i1>';
 const EMOJI_TAG = '👨\u200d<i1>👩</i1>';
@@ -519,6 +525,104 @@ describe('InBrowserEngine Unicode input (wllama and local-server share this path
     expect(chunks.at(-1)?.error).toBeUndefined();
   });
 
+  it('asks for enough completion tokens on flag and emoji sentences', async () => {
+    const runtime = new FakeRuntime(() => '訳');
+    const engine = new InBrowserEngine(runtime);
+    for (const text of [FROM_ENGLAND, GO_ENGLAND, FROM_SCOTLAND, `The ${FAMILY} waved.`]) {
+      runtime.requests.length = 0;
+      await collectChunks(engine.translate([{ id: 'a', text }], options()));
+      expect(runtime.requests[0]?.maxTokens).toBeGreaterThan(32);
+      expect(runtime.requests[0]?.maxTokens).toBe(completionTokenBudget(text));
+    }
+  });
+
+  it('retries a visible hitMaxTokens completion with a larger budget', async () => {
+    const truncated = `イングランド出身です ${ENGLAND_FLAG} お茶`;
+    const finished = `イングランド出身です ${ENGLAND_FLAG} お茶が大好きです。`;
+    class RetryRuntime extends FakeRuntime {
+      override async complete(request: CompletionRequest): Promise<CompletionResult | void> {
+        this.requests.push(request);
+        if (this.requests.length === 1) {
+          request.onToken(truncated);
+          return { hitMaxTokens: true };
+        }
+        request.onToken(finished);
+        return { hitMaxTokens: false };
+      }
+    }
+    const runtime = new RetryRuntime(() => truncated);
+    const engine = new InBrowserEngine(runtime);
+    const chunks = await collectChunks(
+      engine.translate([{ id: 'a', text: FROM_ENGLAND }], options()),
+    );
+    expect(runtime.requests).toHaveLength(2);
+    expect(runtime.requests[1]?.maxTokens).toBeGreaterThan(runtime.requests[0]?.maxTokens ?? 0);
+    expect(displayed(chunks)).toBe(finished);
+    expect(chunks.at(-1)?.error).toBeUndefined();
+  });
+
+  it('does not show or cache a visible-only hitMaxTokens truncation', async () => {
+    const truncated = `イングランド出身です ${ENGLAND_FLAG} お茶`;
+    class TruncatedRuntime extends FakeRuntime {
+      override async complete(request: CompletionRequest): Promise<CompletionResult | void> {
+        this.requests.push(request);
+        request.onToken(truncated);
+        return { hitMaxTokens: true };
+      }
+    }
+    const store = new MemoryTranslationCacheStore();
+    const cache = new TranslationCache(store);
+    const runtime = new TruncatedRuntime(() => truncated);
+    const engine = new CachingEngine(new InBrowserEngine(runtime), cache, 'plamo-test');
+    const key = buildTranslationCacheKey({
+      model: 'plamo-test',
+      tgt: 'ja',
+      form: 'polite',
+      text: FROM_ENGLAND,
+      src: 'en',
+    });
+    const chunks = await collectChunks(
+      engine.translate([{ id: 'a', text: FROM_ENGLAND }], options({ src: 'en' })),
+    );
+    expect(runtime.requests.length).toBeGreaterThanOrEqual(1);
+    expect(displayed(chunks)).toBe(FROM_ENGLAND);
+    expect(chunks.at(-1)).toMatchObject({
+      id: 'a',
+      final: FROM_ENGLAND,
+      engine: 'plamo',
+      error: true,
+    });
+    expect(await cache.get(key)).toBeUndefined();
+
+    const typed = chunks.reduce((state, chunk) => applyTypedChunk(state, chunk), {
+      text: '',
+      failed: false,
+    });
+    expect(typed.failed).toBe(true);
+    expect(typed.text).toBe('');
+  });
+
+  it('does not keep a truncated visible completion in captions', async () => {
+    const truncated = `私はイギリス出身で\u{1F3F4}`;
+    class TruncatedRuntime extends FakeRuntime {
+      override async complete(request: CompletionRequest): Promise<CompletionResult | void> {
+        this.requests.push(request);
+        request.onToken(truncated);
+        return { hitMaxTokens: true };
+      }
+    }
+    const translator = new CaptionTranslator(
+      new InBrowserEngine(new TruncatedRuntime(() => truncated)),
+    );
+    const result = await translator.translateCue(
+      { id: 'c', startMs: 0, endMs: 1000, text: FROM_ENGLAND },
+      { tgt: 'ja', form: 'polite' },
+      2,
+    );
+    expect(result).toBeNull();
+    expect(translator.getCached(FROM_ENGLAND, { tgt: 'ja', form: 'polite' })).toBeUndefined();
+  });
+
   it('rethrows a visible length truncation after tokens were forwarded', async () => {
     const error = new EngineError(
       'server-failed',
@@ -687,6 +791,16 @@ describe('cache, captions, typed input, cleanModelOutput', () => {
     expect(sanitizeModelOutput('\u0633\u0644\u0627\u0645\u200F')).toBe(
       '\u0633\u0644\u0627\u0645\u200F',
     );
+  });
+
+  it('does not paint a broken or partial emoji tag sequence', () => {
+    const partial = `\u{1F3F4}\u{E0067}\u{E0062}`;
+    expect(sanitizeModelOutput(`私はイギリス出身で${partial}`)).toBe('私はイギリス出身で');
+    expect(sanitizeModelOutput(`私はイギリス出身で${partial}`)).not.toContain('\u{1F3F4}');
+    expect(cleanModelOutput(`私はイギリス出身で${partial}`)).toBe('私はイギリス出身で');
+    expect(sanitizeModelOutput(ENGLAND_FLAG)).toBe(ENGLAND_FLAG);
+    expect(sanitizeModelOutput(SCOTLAND_GBSCT)).toBe(SCOTLAND_GBSCT);
+    expect(sanitizeModelOutput(PIRATE_FLAG)).toBe(PIRATE_FLAG);
   });
 
   it('keeps Khmer inherent vowels after a Khmer base', () => {

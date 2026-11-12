@@ -626,18 +626,24 @@ export class InBrowserEngine implements IdentifiedEngine {
     const skipGpu =
       this.degenerateHits >= DEGENERATE_SESSION_BLOCKS && this.runtime.backend === 'webgpu';
 
-    if (!skipGpu) {
+    const generate = async (
+      budget: number,
+      restart: boolean,
+    ): Promise<{ lengthError: unknown; hitMaxTokens: boolean }> => {
+      output = '';
+      let first = true;
       let lengthError: unknown = null;
       let hitMaxTokens: boolean;
       try {
         const result = await this.runtime.complete({
           prompt,
-          maxTokens,
+          maxTokens: budget,
           signal,
           onToken: (delta) => {
             output += delta;
             streamed = true;
-            onDelta(delta);
+            onDelta(delta, restart && first);
+            first = false;
           },
         });
         hitMaxTokens = result?.hitMaxTokens === true;
@@ -647,11 +653,36 @@ export class InBrowserEngine implements IdentifiedEngine {
         lengthError = error;
         hitMaxTokens = true;
       }
+      return { lengthError, hitMaxTokens };
+    };
+
+    const failVisibleTruncation = (): PieceOutput => {
+      if (streamed) onDelta(text, true);
+      return { text, error: true };
+    };
+
+    if (!skipGpu) {
+      let { lengthError, hitMaxTokens } = await generate(maxTokens, false);
 
       if (!this.isUnusable(source, output, hitMaxTokens)) {
         if (lengthError) throw lengthError;
-        return { text: output };
+        if (!hitMaxTokens) return { text: output };
+
+        const larger = Math.min(available, Math.max(maxTokens * 4, 128));
+        if (larger > maxTokens) {
+          const retry = await generate(larger, true);
+          lengthError = retry.lengthError;
+          hitMaxTokens = retry.hitMaxTokens;
+          if (!this.isUnusable(source, output, hitMaxTokens)) {
+            if (lengthError) throw lengthError;
+            if (!hitMaxTokens) return { text: output };
+            return failVisibleTruncation();
+          }
+        } else {
+          return failVisibleTruncation();
+        }
       }
+
       const salvaged = this.salvageInvisible(source, output, hitMaxTokens);
       if (salvaged !== null) {
         if (streamed) onDelta(salvaged, true);

@@ -527,6 +527,15 @@ export function sanitizeModelOutput(text: string): string {
     }
     if (isTagCharacter(point)) return inEmojiTagSequence(points, tagged ?? [], index);
     if (isDefaultIgnorable(point)) return false;
+    if (point === 0x1f3f4) {
+      for (let cursor = index + 1; cursor < points.length; cursor += 1) {
+        if (tagged?.[cursor] === true) continue;
+        const next = points[cursor];
+        if (next === undefined) break;
+        if (isTagCharacter(next)) return inEmojiTagSequence(points, tagged ?? [], cursor);
+        break;
+      }
+    }
     return true;
   });
 

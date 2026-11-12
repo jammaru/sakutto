@@ -3,23 +3,39 @@ const CJK_CHARACTER =
 
 const WHITESPACE = /\s/u;
 
+const EXTENDED_PICTOGRAPHIC = /\p{Extended_Pictographic}/u;
+
+/**
+ * PLaMo byte-falls back on emoji tag sequences (England/Scotland flags ~33
+ * tokens), other non-BMP emoji, and pictographs. A common-vocab heuristic of
+ * 1/4 token per code point under-counts those as ~2 tokens and the completion
+ * hits max_tokens. Eight tokens per such code point is ~2× UTF-8 bytes.
+ */
+const BYTE_FALLBACK_TOKENS = 8;
+
+function isByteFallbackHeavy(character: string, point: number): boolean {
+  if (point > 0xffff) return true;
+  return EXTENDED_PICTOGRAPHIC.test(character);
+}
+
 /**
  * Approximates the tokenizer count. CJK characters are counted at half a token and other
- * characters at a quarter of a token, which stays slightly above the measured PLaMo ratio.
+ * common-vocab characters at a quarter of a token. Emoji, tags, and other non-BMP code
+ * points use a byte-fallback cost so a subdivision flag is not treated as two tokens.
  */
 export function estimateTokens(text: string): number {
-  let cjk = 0;
-  let other = 0;
+  let tokens = 0;
 
   for (const character of text) {
-    if (CJK_CHARACTER.test(character)) {
-      cjk += 1;
-    } else if (!WHITESPACE.test(character)) {
-      other += 1;
-    }
+    if (WHITESPACE.test(character)) continue;
+    const point = character.codePointAt(0);
+    if (point === undefined) continue;
+    if (isByteFallbackHeavy(character, point)) tokens += BYTE_FALLBACK_TOKENS;
+    else if (CJK_CHARACTER.test(character)) tokens += 0.5;
+    else tokens += 0.25;
   }
 
-  return Math.max(1, Math.ceil(cjk / 2 + other / 4));
+  return Math.max(1, Math.ceil(tokens));
 }
 
 export function completionTokenBudget(text: string): number {
