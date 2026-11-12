@@ -67,5 +67,8 @@ describe('page rates', () => {
     expect(formatProgressCount(12)).toBe('12');
     expect(formatProgressCount(12.44)).toBe('12.4');
     expect(outputTokenCount(['あいうえお'])).toBe(3);
+    const england = '\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}';
+    expect(outputTokenCount([england])).toBe(2);
+    expect(outputTokenCount(['©®™♥☀✈⚠★'])).toBe(2);
   });
 });

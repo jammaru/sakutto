@@ -125,4 +125,10 @@ describe('PFML3 prompt', () => {
     expect(cleanModelOutput(' こんにちは <|plamo:tag|>')).toBe('こんにちは');
     expect(cleanModelOutput('Hello<|plamo:bos|>')).toBe('Hello');
   });
+
+  it('keeps a Malayalam chillu ZWJ in generated text', () => {
+    expect(cleanModelOutput('\u0d05\u0d35\u0d28\u0d4d\u200d')).toBe(
+      '\u0d05\u0d35\u0d28\u0d4d\u200d',
+    );
+  });
 });

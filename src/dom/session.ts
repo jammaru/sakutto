@@ -1,3 +1,4 @@
+import { hasTranslatableText } from '@/engine/text/sanitize';
 import { estimateTokens } from '@/engine/text/tokens';
 import {
   coveredBlocks,
@@ -689,7 +690,7 @@ export class PageSession {
       const selection = doc.getSelection?.() ?? doc.defaultView?.getSelection() ?? null;
       if (!selection || selection.isCollapsed || selection.rangeCount === 0) continue;
       const text = selection.toString().trim();
-      if (text.length === 0) continue;
+      if (text.length === 0 || !hasTranslatableText(text)) continue;
       const endpoint = selection.anchorNode ?? selection.focusNode;
       if (endpoint && this.overlay.contains(endpoint)) continue;
       // A field the reader is typing in reports its value as the document selection.

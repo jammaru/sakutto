@@ -1,4 +1,5 @@
 import { EngineError } from '../errors';
+import { sanitizeModelOutput } from '../text/sanitize';
 import type { Formality, GlossaryEntry } from '../types';
 
 export const PFML3 = {
@@ -115,5 +116,5 @@ export function cleanModelOutput(value: string): string {
     const index = output.indexOf(marker);
     if (index !== -1) output = output.slice(0, index);
   }
-  return output.trim();
+  return sanitizeModelOutput(output).trim();
 }

@@ -10,6 +10,8 @@ export interface GlossaryEntry {
 export interface TranslateSegment {
   id: string;
   text: string;
+  /** Page bytes to restore on failure. Planning/prompts use `text`. */
+  original?: string;
 }
 
 export interface TranslateOptions {

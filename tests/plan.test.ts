@@ -108,4 +108,28 @@ describe('translation planning', () => {
     expect(completionTokenBudget('こんにちは世界')).toBe(32);
     expect(completionTokenBudget('a'.repeat(200))).toBe(2 * estimateTokens('a'.repeat(200)) + 16);
   });
+
+  it('budgets byte-fallback-heavy flags and emoji so completions can finish', () => {
+    const england = '\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}';
+    const scotland = '\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}';
+    const family = '👨\u200D👩\u200D👧\u200D👦';
+    const fromEngland = `I am from England ${england} and I love tea.`;
+    const goEngland = `Go England! ${england}`;
+    const fromScotland = `I am from Scotland ${scotland}.`;
+    const familySentence = `The ${family} waved.`;
+    const mixed = `I am from England ${england} with my ${family}.`;
+    const bmpSymbols = '©®™♥☀✈⚠★';
+
+    expect(estimateTokens(england)).toBe(2);
+    expect(estimateTokens(scotland)).toBe(2);
+    expect(estimateTokens(family)).toBe(2);
+    expect(estimateTokens(bmpSymbols)).toBe(2);
+    expect(completionTokenBudget(fromEngland)).toBeGreaterThanOrEqual(80);
+    expect(completionTokenBudget(goEngland)).toBeGreaterThan(32);
+    expect(completionTokenBudget(fromScotland)).toBeGreaterThanOrEqual(80);
+    expect(completionTokenBudget(familySentence)).toBeGreaterThan(32);
+    expect(completionTokenBudget(mixed)).toBeGreaterThanOrEqual(80);
+    expect(completionTokenBudget(bmpSymbols)).toBeLessThan(completionTokenBudget(england));
+    expect(completionTokenBudget('★'.repeat(40))).toBeLessThan(200);
+  });
 });
