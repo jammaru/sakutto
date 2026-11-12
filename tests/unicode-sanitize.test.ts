@@ -214,6 +214,8 @@ describe('translatable / runaway detection', () => {
     expect(isInvisibleRunawayOutput('Hello.', SCOTLAND_FLAG, true)).toBe(false);
     expect(isInvisibleRunawayOutput('Hello.', ENGLAND_FLAG.repeat(3))).toBe(false);
     expect(isInvisibleRunawayOutput('Hello.', ENGLAND_FLAG.repeat(5))).toBe(false);
+    expect(isInvisibleRunawayOutput('UK nations', ENGLAND_FLAG.repeat(3), true)).toBe(false);
+    expect(isInvisibleRunawayOutput('UK nations', ENGLAND_FLAG.repeat(10), true)).toBe(false);
   });
 
   it('uses hitMaxTokens as an extra runaway signal for a joiner tail', () => {

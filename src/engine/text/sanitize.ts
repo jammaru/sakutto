@@ -616,10 +616,10 @@ export function visibleContent(text: string): string {
 /**
  * True when the model produced no (or almost no) visible text from a real source.
  * No visible text plus leftover non-space characters is always a runaway.
- * Otherwise a hidden-code-point count of at least max(16, visible×8) is.
- * Hitting the token budget is an extra signal: hidden ≥ 16 and more than
- * four times the visible count. Subdivision flags stay under that line
- * unless they fill the budget with a long tag tail.
+ * Otherwise count code points the output sanitizer actually removes, so a
+ * subdivision flag (tags the sanitizer keeps) is not a joiner storm.
+ * Runaway if removed ≥ max(16, visible×8), or if the token budget filled
+ * with removed ≥ 16 and more than four times the visible count.
  */
 export function isInvisibleRunawayOutput(
   source: string,
@@ -630,10 +630,10 @@ export function isInvisibleRunawayOutput(
   const visible = visibleContent(output);
   const compact = [...output.replace(/\s+/gu, '')];
   const visibleCount = [...visible].length;
-  const hidden = Math.max(0, compact.length - visibleCount);
   if (visibleCount === 0) return compact.length > 0;
-  if (hidden >= Math.max(16, visibleCount * 8)) return true;
-  return hitMaxTokens && hidden >= 16 && hidden > visibleCount * 4;
+  const removed = Math.max(0, [...output].length - [...sanitizeModelOutput(output)].length);
+  if (removed >= Math.max(16, visibleCount * 8)) return true;
+  return hitMaxTokens && removed >= 16 && removed > visibleCount * 4;
 }
 
 /** The #73 fixture: WORD JOINER, ZWNJ and ZWJ stuffed into Latin text. */
