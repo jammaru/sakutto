@@ -409,6 +409,10 @@ function mapSpace(point: number): string | null {
   return null;
 }
 
+function needsJoinerTables(text: string): boolean {
+  return text.includes('\u200d') || text.includes('\u200c') || text.includes('<i');
+}
+
 /**
  * NFC + the careful (or aggressive) format-character policy. Idempotent.
  * Does not collapse newlines or placeholder tags.
@@ -416,8 +420,10 @@ function mapSpace(point: number): string | null {
 export function sanitizeTranslationInput(text: string, mode: SanitizeMode = 'careful'): string {
   const normalized = stripLoneSurrogates(text.replace(/\r\n?/gu, '\n')).normalize('NFC');
   const points = toPoints(normalized);
-  const needsTables =
-    normalized.includes('\u200d') || normalized.includes('\u200c') || normalized.includes('<i');
+  // Neighbor tables are omitted when there is no ZWJ/ZWNJ and no `<i` placeholder.
+  // Tag-only strings (subdivision flags) take this path; inEmojiTagSequence walks
+  // the points directly. keepJoiner is unreachable without a joiner in the text.
+  const needsTables = needsJoinerTables(normalized);
   const tagged = needsTables ? placeholderTagMask(points) : undefined;
   const neighbors = needsTables && tagged ? buildNeighborTables(points, tagged) : undefined;
   let hasRtl = false;
@@ -450,6 +456,7 @@ export function sanitizeTranslationInput(text: string, mode: SanitizeMode = 'car
     const previous = neighbors?.prevImmediate[index] ?? (index > 0 ? points[index - 1] : undefined);
 
     if (point === ZWJ || point === ZWNJ) {
+      // `neighbors` is defined iff the text contained a joiner or `<i`.
       if (neighbors && keepJoiner(point, index, neighbors, mode)) output += character(point);
       continue;
     }
@@ -492,11 +499,13 @@ export function sanitizeTranslationInput(text: string, mode: SanitizeMode = 'car
 export function sanitizeModelOutput(text: string): string {
   const normalized = stripLoneSurrogates(text.replace(/\r\n?/gu, '\n')).normalize('NFC');
   const points = toPoints(normalized);
-  const tagged = placeholderTagMask(points);
-  const neighbors = buildNeighborTables(points, tagged);
+  // Same fast path as input: flags and other tag-only strings skip the tables.
+  const needsTables = needsJoinerTables(normalized);
+  const tagged = needsTables ? placeholderTagMask(points) : undefined;
+  const neighbors = needsTables && tagged ? buildNeighborTables(points, tagged) : undefined;
   let hasRtl = false;
   for (let index = 0; index < points.length; index += 1) {
-    if (tagged[index] === true) continue;
+    if (tagged?.[index] === true) continue;
     if (isRtlLetter(points[index]!)) {
       hasRtl = true;
       break;
@@ -504,17 +513,19 @@ export function sanitizeModelOutput(text: string): string {
   }
 
   const keep = points.map((point, index) => {
-    if (tagged[index] === true) return true;
+    if (tagged?.[index] === true) return true;
     if (point === 0x09 || point === 0x0a) return true;
     if (isC0OrC1(point) || isPrivateUse(point) || ALWAYS_DROP.has(point)) return false;
-    const previous = neighbors.prevImmediate[index];
+    const previous = neighbors?.prevImmediate[index] ?? (index > 0 ? points[index - 1] : undefined);
     if (isKhmerInherentVowel(point)) return previous !== undefined && isKhmer(previous);
-    if (point === ZWJ || point === ZWNJ) return keepJoiner(point, index, neighbors, 'careful');
+    if (point === ZWJ || point === ZWNJ) {
+      return neighbors !== undefined && keepJoiner(point, index, neighbors, 'careful');
+    }
     if (BIDI.has(point)) return hasRtl;
     if (isVariationSelector(point)) {
       return keepVariationSelector(point, previous, 'careful');
     }
-    if (isTagCharacter(point)) return inEmojiTagSequence(points, tagged, index);
+    if (isTagCharacter(point)) return inEmojiTagSequence(points, tagged ?? [], index);
     if (isDefaultIgnorable(point)) return false;
     return true;
   });
@@ -606,23 +617,23 @@ export function visibleContent(text: string): string {
  * True when the model produced no (or almost no) visible text from a real source.
  * No visible text plus leftover non-space characters is always a runaway.
  * Otherwise a hidden-code-point count of at least max(16, visible×8) is.
- * Several subdivision flags stay under that threshold; a short translation
- * with a joiner storm does not, and the engine may still salvage the cleaned
- * visible text.
+ * Hitting the token budget is an extra signal: hidden ≥ 16 and more than
+ * four times the visible count. Subdivision flags stay under that line
+ * unless they fill the budget with a long tag tail.
  */
 export function isInvisibleRunawayOutput(
   source: string,
   output: string,
   hitMaxTokens = false,
 ): boolean {
-  void hitMaxTokens;
   if (!hasTranslatableText(source)) return false;
   const visible = visibleContent(output);
   const compact = [...output.replace(/\s+/gu, '')];
   const visibleCount = [...visible].length;
   const hidden = Math.max(0, compact.length - visibleCount);
   if (visibleCount === 0) return compact.length > 0;
-  return hidden >= Math.max(16, visibleCount * 8);
+  if (hidden >= Math.max(16, visibleCount * 8)) return true;
+  return hitMaxTokens && hidden >= 16 && hidden > visibleCount * 4;
 }
 
 /** The #73 fixture: WORD JOINER, ZWNJ and ZWJ stuffed into Latin text. */

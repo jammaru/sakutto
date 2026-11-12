@@ -215,6 +215,12 @@ describe('translatable / runaway detection', () => {
     expect(isInvisibleRunawayOutput('Hello.', ENGLAND_FLAG.repeat(3))).toBe(false);
     expect(isInvisibleRunawayOutput('Hello.', ENGLAND_FLAG.repeat(5))).toBe(false);
   });
+
+  it('uses hitMaxTokens as an extra runaway signal for a joiner tail', () => {
+    const truncated = `Hel${'\u200D'.repeat(20)}`;
+    expect(isInvisibleRunawayOutput('Hello.', truncated)).toBe(false);
+    expect(isInvisibleRunawayOutput('Hello.', truncated, true)).toBe(true);
+  });
 });
 
 describe('InBrowserEngine Unicode input (wllama and local-server share this path)', () => {
@@ -354,6 +360,37 @@ describe('InBrowserEngine Unicode input (wllama and local-server share this path
     const chunks = await collectChunks(engine.translate([{ id: 'a', text: 'Hello.' }], options()));
     expect(displayed(chunks)).toBe('こんにちは、世界。');
     expect(chunks.at(-1)?.error).toBeUndefined();
+  });
+
+  it('does not salvage a truncated translation that hit max tokens', async () => {
+    const truncated = `これは途中で切れた翻訳です${ISSUE_73_HIDDEN.repeat(4)}`;
+    class TruncatedRuntime extends FakeRuntime {
+      override async complete(request: CompletionRequest): Promise<CompletionResult | void> {
+        this.requests.push(request);
+        request.onToken(truncated);
+        return { hitMaxTokens: true };
+      }
+    }
+    const store = new MemoryTranslationCacheStore();
+    const cache = new TranslationCache(store);
+    const engine = new CachingEngine(
+      new InBrowserEngine(new TruncatedRuntime(() => truncated)),
+      cache,
+      'plamo-test',
+    );
+    const key = buildTranslationCacheKey({
+      model: 'plamo-test',
+      tgt: 'ja',
+      form: 'polite',
+      text: 'Hello.',
+      src: 'en',
+    });
+    const chunks = await collectChunks(
+      engine.translate([{ id: 'a', text: 'Hello.' }], options({ src: 'en' })),
+    );
+    expect(chunks.at(-1)?.error).toBe(true);
+    expect(chunks.at(-1)?.final).not.toBe('これは途中で切れた翻訳です');
+    expect(await cache.get(key)).toBeUndefined();
   });
 
   it('does not pack U+2028 or CRLF into a one-line batch', async () => {
@@ -636,11 +673,20 @@ describe('cache, captions, typed input, cleanModelOutput', () => {
   });
 
   it('keeps Khmer inherent vowels after a Khmer base', () => {
-    const khmer = '\u1780\u17B4';
-    expect(sanitizeTranslationInput(khmer)).toBe(khmer);
-    expect(sanitizeModelOutput(khmer)).toBe(khmer);
+    const khmerAq = '\u1780\u17B4';
+    const khmerAa = '\u1780\u17B5';
+    expect(sanitizeTranslationInput(khmerAq)).toBe(khmerAq);
+    expect(sanitizeTranslationInput(khmerAa)).toBe(khmerAa);
+    expect(sanitizeModelOutput(khmerAq)).toBe(khmerAq);
+    expect(sanitizeModelOutput(khmerAa)).toBe(khmerAa);
     expect(sanitizeTranslationInput('a\u17B4b')).toBe('ab');
+    expect(sanitizeTranslationInput('a\u17B5b')).toBe('ab');
     expect(sanitizeModelOutput('a\u17B4b')).toBe('ab');
+  });
+
+  it('keeps Khmer U+17B4 and U+17B5 in km input', () => {
+    const km = '\u1780\u17B4\u1781\u17B5';
+    expect(sanitizeTranslationInput(km)).toBe(km);
   });
 
   it('trims trailing joiner runs except a chillu ZWJ', () => {

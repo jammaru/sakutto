@@ -65,8 +65,7 @@ interface EngineSegment extends TranslateSegment {
 }
 
 function pageOriginal(segment: TranslateSegment): string {
-  const extra = segment as TranslateSegment & { original?: string };
-  return typeof extra.original === 'string' ? extra.original : segment.text;
+  return segment.original ?? segment.text;
 }
 
 /**
@@ -670,8 +669,9 @@ export class InBrowserEngine implements IdentifiedEngine {
         onDelta,
         streamed,
       );
-      if (retried) return retried;
+      if (retried && retried.error !== true) return retried;
       if (lengthError) throw lengthError;
+      if (retried) return retried;
     }
 
     return this.recoverBroken(text, prompt, maxTokens, signal, onDelta, streamed);
@@ -693,9 +693,12 @@ export class InBrowserEngine implements IdentifiedEngine {
 
   /**
    * A joiner storm on top of a real translation is still a runaway, but the
-   * cleaned visible text can be shown instead of failing the piece.
+   * cleaned visible text can be shown instead of failing the piece. Truncated
+   * completions (`length` / hitMaxTokens) are not salvaged: they would look
+   * finished and get cached.
    */
   private salvageInvisible(source: string, output: string, hitMaxTokens: boolean): string | null {
+    if (hitMaxTokens) return null;
     if (this.isBroken(source, output, hitMaxTokens)) return null;
     if (!isInvisibleRunawayOutput(source, output, hitMaxTokens)) return null;
     const cleaned = cleanModelOutput(output);
