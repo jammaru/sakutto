@@ -460,6 +460,52 @@ test.describe('video captions', () => {
     }
   });
 
+  test('translates Japanese ASR to English through later cues and after seek', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'en',
+      });
+      const page = await extension.context.newPage();
+      await page.goto(`${FIXTURE_ORIGIN}/youtube-ja-asr.html`);
+      await prepareVideo(page);
+      await page.evaluate(() => {
+        document.documentElement.setAttribute(
+          'data-bench-pace',
+          JSON.stringify({ ttfbMs: 400, msPerChar: 0, deltas: 0 }),
+        );
+      });
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, {
+        translateVideoCaptions: true,
+        targetLanguage: 'en',
+      });
+      const host = page.locator('sakutto-captions');
+      await expect(host).toHaveAttribute('data-sakutto-original', '駅は夜明けに開きます');
+      await expect(host).toHaveAttribute('data-sakutto-caption', /§en§駅は夜明けに開きます/);
+      await expect(page.locator('html')).toHaveAttribute('data-sakutto-captions', 'overlay');
+      await expect(page.locator('.ytp-caption-window-container')).toHaveCSS('visibility', 'hidden');
+
+      await seekVideo(page, 4.5);
+      await expect(page.locator('html')).not.toHaveAttribute('data-sakutto-captions', 'native');
+      await expect(host).toHaveAttribute('data-sakutto-caption', /§en§/);
+      await expect(host).toHaveAttribute('data-sakutto-original', '赤い列車が2番線で待っています');
+      await expect(page.locator('html')).toHaveAttribute('data-sakutto-captions', 'overlay');
+      await expect(page.locator('.ytp-caption-window-container')).toHaveCSS('visibility', 'hidden');
+
+      await seekVideo(page, 7.4);
+      await expect(host).toHaveAttribute('data-sakutto-original', '切符は北側の窓口で売っています');
+      await expect(host).toHaveAttribute(
+        'data-sakutto-caption',
+        /§en§切符は北側の窓口で売っています/,
+      );
+      await expect(page.locator('html')).toHaveAttribute('data-sakutto-captions', 'overlay');
+    } finally {
+      await extension.close();
+    }
+  });
+
   test('leaves native Japanese captions visible when the target is Japanese', async () => {
     const extension = await loadExtension('en-US');
     try {
@@ -1071,7 +1117,7 @@ test.describe('video captions', () => {
     }
   });
 
-  test('seeking an inline X video shows native captions until the new playhead cue is ready', async () => {
+  test('seeking an inline X video keeps the overlay until the new playhead cue is ready', async () => {
     const extension = await loadExtension('en-US');
     try {
       await mockXOrigin(extension.context, { inline: true });
@@ -1116,8 +1162,8 @@ test.describe('video captions', () => {
           ),
         };
       });
-      expect(afterSeek.waiting).toBe(true);
-      expect(afterSeek.nativeVisible).toBe(true);
+      expect(afterSeek.waiting).toBe(false);
+      expect(afterSeek.nativeVisible).toBe(false);
       expect(afterSeek.stamped).toBe(false);
       await expect(page.locator('sakutto-captions')).toHaveAttribute(
         'data-sakutto-original',

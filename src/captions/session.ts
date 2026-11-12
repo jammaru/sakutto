@@ -61,6 +61,7 @@ import {
   readXCaptionDom,
 } from './x';
 import {
+  captionLanguagePrefix,
   captionSourceIsTargetLanguage,
   captionTracksFromPlayerResponse,
   isYouTubeHost,
@@ -374,7 +375,10 @@ export class VideoCaptionSession {
   private readonly onSeek = (): void => {
     this.liveBuffer.reset();
     this.liveJobId = null;
-    this.fallbackToNative();
+    captionDebug('seek', {
+      timeMs: Math.round((this.video?.currentTime || 0) * 1000),
+      hold: this.hold?.cueId ?? '',
+    });
     const view = this.doc.defaultView;
     if (this.seekPaintTimer !== null) {
       view?.clearTimeout(this.seekPaintTimer);
@@ -737,6 +741,13 @@ export class VideoCaptionSession {
   }
 
   private sourceMatchesTarget(): boolean {
+    const language = this.loaded?.language;
+    const knownMismatch =
+      Boolean(language) &&
+      captionLanguagePrefix(language).length > 0 &&
+      !captionSourceIsTargetLanguage(language, undefined, this.prefs.targetLanguage);
+    // YouTube ja ASR → en must keep translating. An empty X ja track still defers to DOM.
+    if (knownMismatch && (!this.isXPage() || (this.loaded?.cues.length ?? 0) > 0)) return false;
     const visible = this.readSourceCaptionDom();
     if (visible.length > 0) {
       if (captionSourceIsTargetLanguage(undefined, visible, this.prefs.targetLanguage)) return true;
@@ -770,7 +781,23 @@ export class VideoCaptionSession {
     return this.hold.translation.trim().length > 0;
   }
 
-  private applyNativeVisibility(): void {
+  private applyNativeVisibility(reason?: string): void {
+    const mode = this.passthroughNative
+      ? 'native'
+      : this.overlayShowingTranslation()
+        ? 'overlay'
+        : 'waiting';
+    if (mode !== 'overlay') {
+      captionDebug('native', {
+        reason: reason ?? (this.passthroughNative ? 'passthrough' : 'waiting'),
+        mode,
+        language: this.loaded?.language ?? '',
+        target: this.prefs.targetLanguage,
+        hold: this.hold?.cueId ?? '',
+        timeMs: Math.round((this.video?.currentTime || 0) * 1000),
+        cueCount: this.loaded?.cues.length ?? 0,
+      });
+    }
     if (this.passthroughNative) {
       this.hideNativeCaptions(false);
       this.restoreTracks();
@@ -791,11 +818,12 @@ export class VideoCaptionSession {
     this.doc.documentElement.setAttribute('data-sakutto-captions', 'overlay');
   }
 
-  private fallbackToNative(): void {
+  /** Native YouTube/X captions only when the overlay has nothing for this playhead. */
+  private showNative(reason: string): void {
     this.clearHold();
     this.ignorePlayerMutations = true;
     this.overlay.hide();
-    this.applyNativeVisibility();
+    this.applyNativeVisibility(reason);
     this.releasePlayerMutations();
   }
 
@@ -846,7 +874,7 @@ export class VideoCaptionSession {
         return;
       }
       this.pollLive();
-      if (token === this.sourceToken && !this.hold) this.fallbackToNative();
+      if (token === this.sourceToken && !this.hold) this.showNative('no-cue');
       return;
     }
     if (cue) {
@@ -862,7 +890,7 @@ export class VideoCaptionSession {
       }
     }
     this.pollLive();
-    if (token === this.sourceToken && !this.hold) this.fallbackToNative();
+    if (token === this.sourceToken && !this.hold) this.showNative('no-cue');
   }
 
   private async paintCue(cue: CaptionCue, force: boolean): Promise<void> {
@@ -870,14 +898,15 @@ export class VideoCaptionSession {
     const token = this.sourceToken;
     const language = cue.language ?? this.loaded?.language;
     const options = this.translateOptions(language);
-    const original = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
+    const stripped = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
+    const original = stripped.length > 0 ? stripped : cue.text.trim();
     if (original.length === 0) {
-      this.fallbackToNative();
+      if (!this.hold) this.showNative('empty-source');
       return;
     }
     if (sameLanguage(language, this.prefs.targetLanguage)) {
       this.passthroughNative = true;
-      this.applyNativeVisibility();
+      this.applyNativeVisibility('same-language');
       return;
     }
 
@@ -887,8 +916,9 @@ export class VideoCaptionSession {
       this.scheduleAroundPlayhead(cue);
       return;
     }
-    if (this.hold?.cueId !== cue.id) this.fallbackToNative();
-    if (force) this.clearHold();
+    // Keep the previous translated line until this cue lands. Flashing native ja ASR
+    // mid-video is what made ja→en look like the overlay had disappeared.
+    if (!this.hold) this.showNative('waiting-first');
     const translated = await this.translator.translateCue(
       { ...cue, text: original },
       options,
@@ -899,7 +929,10 @@ export class VideoCaptionSession {
     const current = cueAtTime(this.loaded?.cues ?? [], timeMs);
     if (current && current.id !== cue.id) return;
     if (translated) this.commitDisplay(cue.id, original, translated);
-    else this.fallbackToNative();
+    else if (!this.hold) this.showNative('translate-failed');
+    else {
+      captionDebug('translate-failed', { cueId: cue.id, original, force });
+    }
     this.scheduleAroundPlayhead(cue);
   }
 
@@ -920,16 +953,17 @@ export class VideoCaptionSession {
 
     const lines = this.liveBuffer.update(visible, this.now());
     const options = this.translateOptions(this.liveMode ? this.loaded?.language : undefined);
-    if (captionSourceIsTargetLanguage(undefined, visible, this.prefs.targetLanguage)) {
+    const sourceLanguage = (this.loaded?.cues.length ?? 0) > 0 ? this.loaded?.language : undefined;
+    if (captionSourceIsTargetLanguage(sourceLanguage, visible, this.prefs.targetLanguage)) {
       this.passthroughNative = true;
-      this.applyNativeVisibility();
+      this.applyNativeVisibility('same-language-dom');
       this.overlay.hide();
       return;
     }
 
-    const newest = lines.at(-1);
+    const newest = lines.at(-1) ?? (forceDom ? visible : undefined);
     if (!newest) {
-      this.fallbackToNative();
+      if (!this.hold) this.showNative('live-empty');
       return;
     }
     const cached = this.translator.getCached(newest, options);
@@ -937,7 +971,7 @@ export class VideoCaptionSession {
       this.commitDisplay(`live:${newest}`, newest, cached);
       return;
     }
-    this.fallbackToNative();
+    if (!this.hold) this.showNative('waiting-live');
     this.translator.keepOnly(newest, options);
     this.liveJobId = newest;
     const cue: CaptionCue = {
@@ -954,7 +988,7 @@ export class VideoCaptionSession {
         if (!this.running || token !== this.sourceToken) return;
         if (this.liveJobId !== newest) return;
         if (translation) this.commitDisplay(cue.id, newest, translation);
-        else this.fallbackToNative();
+        else if (!this.hold) this.showNative('translate-failed');
       });
   }
 
@@ -1204,7 +1238,9 @@ export class VideoCaptionSession {
     const elapsed = this.hold ? this.now() - this.hold.shownAt : LIVE_CAPTION_MIN_DISPLAY_MS;
     const wait = Math.max(0, LIVE_CAPTION_MIN_DISPLAY_MS - elapsed);
     if (this.holdTimer !== null) this.doc.defaultView?.clearTimeout(this.holdTimer);
-    if (wait === 0 || !this.hold) {
+    // A new playhead cue must replace the previous translated line immediately.
+    // Min-display only debounce refinements of the same live/ASR line.
+    if (wait === 0 || !this.hold || this.hold.cueId !== cueId) {
       apply();
       return;
     }
@@ -1238,11 +1274,12 @@ export class VideoCaptionSession {
   }
 
   private translateOptions(language?: string): CaptionTranslateOptions {
+    const src = captionLanguagePrefix(language) || undefined;
     return {
       tgt: this.prefs.targetLanguage,
       form: this.prefs.form,
       glossary: this.prefs.glossary,
-      src: language,
+      ...(src ? { src } : {}),
     };
   }
 
@@ -1367,8 +1404,8 @@ function isHtmlVideo(value: EventTarget | null): value is HTMLVideoElement {
 
 function sameLanguage(source: string | undefined, target: string): boolean {
   if (!source) return false;
-  const left = canonicalLanguage(source);
-  const right = canonicalLanguage(target);
+  const left = canonicalLanguage(captionLanguagePrefix(source) || source);
+  const right = canonicalLanguage(captionLanguagePrefix(target) || target);
   return left !== null && right !== null && left === right;
 }
 

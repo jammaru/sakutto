@@ -57,6 +57,7 @@ describe('video caption session', () => {
   afterEach(() => {
     document.documentElement.removeAttribute('data-sakutto-captions');
     document.documentElement.innerHTML = '<head></head><body></body>';
+    window.localStorage.removeItem('sakuttoCaptionDebug');
   });
 
   it('prefetches a YouTube-style timedtext track and paints the overlay', async () => {
@@ -1407,6 +1408,295 @@ The station opens at dawn.
     session.stop();
   });
 
+  it('keeps ja ASR → en overlay translating through later cues and after seek', async () => {
+    const asr = {
+      events: [
+        { tStartMs: 0, dDurationMs: 2500, segs: [{ utf8: '駅は' }] },
+        { tStartMs: 400, dDurationMs: 2100, segs: [{ utf8: '駅は夜明けに' }] },
+        { tStartMs: 800, dDurationMs: 1700, segs: [{ utf8: '駅は夜明けに開きます' }] },
+        { tStartMs: 4200, dDurationMs: 1300, segs: [{ utf8: '赤い列車が2番線で待っています' }] },
+        { tStartMs: 7200, dDurationMs: 2500, segs: [{ utf8: '切符は北側の窓口で売っています' }] },
+      ],
+    };
+    document.body.innerHTML = `
+      <div id="movie_player">
+        <video id="player" class="html5-main-video"></video>
+        <div class="ytp-caption-window-container" lang="ja">
+          <span class="ytp-caption-segment">駅は夜明けに開きます</span>
+        </div>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "videoDetails": { "videoId": "fixtureasrja1", "defaultAudioLanguage": "ja" },
+          "captions": {
+            "playerCaptionsTracklistRenderer": {
+              "captionTracks": [{
+                "baseUrl": "/youtube-timedtext-ja-asr.json?lang=ja&kind=asr&tlang=en",
+                "languageCode": "ja",
+                "kind": "asr",
+                "name": { "simpleText": "Japanese (auto-generated)" },
+                "vssId": "a.ja"
+              }],
+              "audioTracks": [{ "audioTrackId": "ja.0", "defaultCaptionTrackIndex": 0 }],
+              "defaultAudioTrackIndex": 0
+            }
+          }
+        };
+      </script>
+    `;
+    const video = document.querySelector('video');
+    if (video) {
+      stubMedia(video, { paused: false, width: 640, height: 360, currentTime: 0.4, duration: 20 });
+    }
+    let translations = 0;
+    const sources: Array<string | undefined> = [];
+    const paced: PageEngine = {
+      async *translate(segments, options) {
+        translations += 1;
+        sources.push(options.src);
+        if (translations > 1) {
+          await new Promise((resolve) => setTimeout(resolve, 120));
+        }
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine: paced,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'en',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => JSON.stringify(asr),
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('駅は夜明けに開きます', 'en'),
+      );
+    });
+    expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('overlay');
+    expect(document.querySelector('style[data-sakutto="captions"]')).not.toBeNull();
+
+    if (video) video.currentTime = 4.5;
+    video?.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+    window.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('overlay');
+    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+      fakeTranslateText('駅は夜明けに開きます', 'en'),
+    );
+    expect(document.querySelector('style[data-sakutto="captions"]')).not.toBeNull();
+    await vi.waitFor(() => {
+      expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('赤い列車が2番線で待っています', 'en'),
+      );
+    });
+    expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('overlay');
+
+    if (video) video.currentTime = 7.4;
+    window.dispatchEvent(new Event('seeking', { bubbles: true }));
+    window.dispatchEvent(new Event('seeked', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(document.documentElement.getAttribute('data-sakutto-captions')).not.toBe('native');
+    expect(
+      document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption'),
+    ).toMatch(/§en§/);
+    await vi.waitFor(() => {
+      expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('切符は北側の窓口で売っています', 'en'),
+      );
+    });
+    expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('overlay');
+    expect(sources.some((src) => src === 'ja')).toBe(true);
+    expect(sources.every((src) => src === 'ja' || src === undefined)).toBe(true);
+    session.stop();
+  });
+
+  it('logs why native captions are shown when sakuttoCaptionDebug is on', async () => {
+    window.localStorage.setItem('sakuttoCaptionDebug', '1');
+    const debug = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+    document.body.innerHTML = `
+      <div id="movie_player">
+        <video id="player" class="html5-main-video"></video>
+        <div class="ytp-caption-window-container" lang="ja">
+          <span class="ytp-caption-segment">駅は夜明けに開きます</span>
+        </div>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "videoDetails": { "videoId": "fixtureasrja2", "defaultAudioLanguage": "ja" },
+          "captions": {
+            "playerCaptionsTracklistRenderer": {
+              "captionTracks": [{
+                "baseUrl": "/youtube-timedtext-ja-asr.json?lang=ja&kind=asr",
+                "languageCode": "a.ja",
+                "kind": "asr",
+                "name": { "simpleText": "Japanese (auto-generated)" },
+                "vssId": "a.ja"
+              }]
+            }
+          }
+        };
+      </script>
+    `;
+    const video = document.querySelector('video');
+    if (video) {
+      stubMedia(video, { paused: false, width: 640, height: 360, currentTime: 0.4, duration: 20 });
+    }
+    const sources: Array<string | undefined> = [];
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = new VideoCaptionSession(document, {
+      engine: {
+        async *translate(segments, options) {
+          sources.push(options.src);
+          await gate;
+          for (const segment of segments) {
+            yield {
+              id: segment.id,
+              final: fakeTranslateText(segment.text, options.tgt),
+              engine: 'plamo',
+            };
+          }
+        },
+      },
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'en',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () =>
+        JSON.stringify({
+          events: [{ tStartMs: 0, dDurationMs: 4000, segs: [{ utf8: '駅は夜明けに開きます' }] }],
+        }),
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('waiting');
+    });
+    expect(document.querySelector('style[data-sakutto="captions"]')).toBeNull();
+    expect(debug.mock.calls.some((call) => call[1] === 'native')).toBe(true);
+    const nativeCall = debug.mock.calls.find((call) => call[1] === 'native');
+    expect(nativeCall?.[2]).toEqual(
+      expect.objectContaining({
+        reason: expect.stringMatching(/waiting|waiting-first/),
+        target: 'en',
+      }),
+    );
+    release?.();
+    await vi.waitFor(() => {
+      expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('駅は夜明けに開きます', 'en'),
+      );
+    });
+    expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('overlay');
+    expect(sources).toContain('ja');
+    expect(sources).not.toContain('a.ja');
+    session.stop();
+    debug.mockRestore();
+    window.localStorage.removeItem('sakuttoCaptionDebug');
+  });
+
+  it('keeps the previous ja→en overlay when a later cue translation fails', async () => {
+    document.body.innerHTML = `
+      <div id="movie_player">
+        <video id="player" class="html5-main-video"></video>
+        <div class="ytp-caption-window-container" lang="ja">
+          <span class="ytp-caption-segment">駅は夜明けに開きます</span>
+        </div>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "videoDetails": { "videoId": "fixtureasrja3", "defaultAudioLanguage": "ja" },
+          "captions": {
+            "playerCaptionsTracklistRenderer": {
+              "captionTracks": [{
+                "baseUrl": "/youtube-timedtext-ja-asr.json?lang=ja&kind=asr",
+                "languageCode": "ja",
+                "kind": "asr",
+                "name": { "simpleText": "Japanese (auto-generated)" },
+                "vssId": "a.ja"
+              }]
+            }
+          }
+        };
+      </script>
+    `;
+    const video = document.querySelector('video');
+    if (video) {
+      stubMedia(video, { paused: false, width: 640, height: 360, currentTime: 0.4, duration: 20 });
+    }
+    let translations = 0;
+    const session = new VideoCaptionSession(document, {
+      engine: {
+        async *translate(segments, options) {
+          translations += 1;
+          if (translations > 1) {
+            yield { id: segments[0]?.id ?? 'failed', final: '', error: true, engine: 'plamo' };
+            return;
+          }
+          for (const segment of segments) {
+            yield {
+              id: segment.id,
+              final: fakeTranslateText(segment.text, options.tgt),
+              engine: 'plamo',
+            };
+          }
+        },
+      },
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'en',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () =>
+        JSON.stringify({
+          events: [
+            { tStartMs: 0, dDurationMs: 2500, segs: [{ utf8: '駅は夜明けに開きます' }] },
+            {
+              tStartMs: 4200,
+              dDurationMs: 2500,
+              segs: [{ utf8: '赤い列車が2番線で待っています' }],
+            },
+          ],
+        }),
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('駅は夜明けに開きます', 'en'),
+      );
+    });
+    if (video) video.currentTime = 4.5;
+    video?.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+    window.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('overlay');
+    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+      fakeTranslateText('駅は夜明けに開きます', 'en'),
+    );
+    expect(document.querySelector('style[data-sakutto="captions"]')).not.toBeNull();
+    session.stop();
+  });
+
   it('translates the playhead cue before nearby or prefetch lines', async () => {
     const events: Array<{ tStartMs: number; dDurationMs: number; segs: Array<{ utf8: string }> }> =
       [];
@@ -1684,7 +1974,7 @@ The station opens at dawn.
     view.close();
   });
 
-  it('on X seek aborts in-flight work, keeps cache, and shows native until the new playhead cue is ready', async () => {
+  it('on X seek aborts in-flight work, keeps cache, and keeps the overlay until the new playhead cue is ready', async () => {
     const { Window } = await import('happy-dom');
     const view = new Window({ url: 'https://x.com/i/status/1' });
     const doc = view.document;
@@ -1753,9 +2043,11 @@ A red train waits at platform two.
       new view.Event('seeked', { bubbles: true }),
     );
     await vi.waitFor(() => {
-      expect(doc.documentElement.getAttribute('data-sakutto-captions')).toBe('waiting');
+      expect(doc.documentElement.getAttribute('data-sakutto-captions')).toBe('overlay');
     });
-    expect(doc.querySelector('style[data-sakutto="captions"]')).toBeNull();
+    expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+      'The station opens at dawn.',
+    );
     await vi.waitFor(
       () => {
         expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
