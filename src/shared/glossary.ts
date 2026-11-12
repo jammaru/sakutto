@@ -78,6 +78,19 @@ export function parseGlossary(csv: string): GlossaryEntry[] {
   return entries;
 }
 
+/** A stable fingerprint of glossary contents, so two equal lists compare as equal. */
+export function glossaryKey(glossary: readonly GlossaryEntry[] | undefined): string {
+  return (glossary ?? []).map((entry) => `${entry.source}\u0000${entry.target}`).join('\u0001');
+}
+
+/** True when two glossaries contain the same pairs in the same order. */
+export function glossaryEquals(
+  left: readonly GlossaryEntry[] | undefined,
+  right: readonly GlossaryEntry[] | undefined,
+): boolean {
+  return glossaryKey(left) === glossaryKey(right);
+}
+
 export function serializeGlossary(entries: readonly GlossaryEntry[]): string {
   const lines = ['source,target'];
   for (const entry of entries) lines.push(`${csvCell(entry.source)},${csvCell(entry.target)}`);

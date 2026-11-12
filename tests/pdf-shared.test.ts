@@ -3,6 +3,7 @@ import { traitsOfName, traitsOfStyle } from '@/pdf/fonts';
 import {
   looksLikePdfBytes,
   looksLikePdfUrl,
+  isPdfForgetRequest,
   isPdfOpenResult,
   pdfFileName,
   readerUrl,
@@ -127,6 +128,12 @@ describe('PDF URL and bytes', () => {
     expect(pdfFileName('https://example.org/a/paper.pdf')).toBe('paper.pdf');
     expect(pdfFileName('https://example.org/download')).toBe('download.pdf');
     expect(readerUrl('abc-123')).toBe('/reader.html?id=abc-123');
+  });
+
+  it('accepts a forget request only with a stored id', () => {
+    expect(isPdfForgetRequest({ type: 'pdf:forget', id: 'abc' })).toBe(true);
+    expect(isPdfForgetRequest({ type: 'pdf:forget' })).toBe(false);
+    expect(isPdfForgetRequest({ type: 'pdf:open', tabId: 1 })).toBe(false);
   });
 
   it('accepts only the shapes the background sends back', () => {

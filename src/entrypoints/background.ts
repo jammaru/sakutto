@@ -8,7 +8,8 @@ import {
   openPdfForTabReason,
 } from '@/background/page-actions';
 import { syncCaptionCustomContentScripts } from '@/captions/register-custom';
-import { isPdfOpenRequest, type PdfOpenResult } from '@/shared/pdf';
+import { deleteStoredPdf } from '@/background/pdf-store';
+import { isPdfForgetRequest, isPdfOpenRequest, type PdfOpenResult } from '@/shared/pdf';
 import { broadcastModelProgress, shouldWarmDownloadedModel } from '@/background/progress-broadcast';
 import { measureQuality } from '@/background/quality';
 import { TranslationBroker } from '@/background/translation-broker';
@@ -286,6 +287,11 @@ export default defineBackground(() => {
     if (isEngineCapabilitiesRequest(message)) {
       void getEngineCapabilities().then(sendResponse, () => sendResponse(null));
       return true;
+    }
+
+    if (isPdfForgetRequest(message)) {
+      void deleteStoredPdf(message.id);
+      return;
     }
 
     if (isPdfOpenRequest(message)) {

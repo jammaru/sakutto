@@ -23,10 +23,16 @@ const source = join(root, 'node_modules', 'pdfjs-dist');
 const target = join(root, 'public', 'vendor', 'pdfjs');
 
 /**
- * Files the reader loads directly. The minified builds are used, and the source maps are
- * skipped: a map is not loaded at runtime and the release package refuses them.
+ * Files the reader loads directly. The minified *legacy* builds are used: the modern build
+ * of pdf.js 4.10.38 calls `Promise.withResolvers`, which Chrome only has from 119, while the
+ * packaged manifest still supports 116. The destination path stays `build/` so the reader's
+ * URLs do not change. Source maps are skipped: a map is not loaded at runtime and the
+ * release package refuses them.
  */
-const FILES = ['build/pdf.min.mjs', 'build/pdf.worker.min.mjs'];
+const FILES = [
+  ['legacy/build/pdf.min.mjs', 'build/pdf.min.mjs'],
+  ['legacy/build/pdf.worker.min.mjs', 'build/pdf.worker.min.mjs'],
+];
 
 /** Licence texts that travel with the library. */
 const LICENSES = [
@@ -66,10 +72,10 @@ await mkdir(target, { recursive: true });
 
 const copied = [];
 
-for (const file of FILES) {
+for (const [from, file] of FILES) {
   const to = join(target, file);
   await mkdir(dirname(to), { recursive: true });
-  await copyFile(join(source, file), to);
+  await copyFile(join(source, from), to);
   copied.push(file);
 }
 
@@ -100,7 +106,7 @@ for (const file of copied.sort()) {
 
 await writeFile(
   join(target, 'pdfjs-build.json'),
-  `${JSON.stringify({ version, source: `pdfjs-dist@${version}`, files }, null, 2)}\n`,
+  `${JSON.stringify({ version, source: `pdfjs-dist@${version}/legacy`, files }, null, 2)}\n`,
 );
 
 console.log(

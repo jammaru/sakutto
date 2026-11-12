@@ -78,10 +78,19 @@ function unitSquare(matrix: Matrix): Box {
  * The transform is tracked through `save`/`restore`/`transform` exactly as a renderer would,
  * so the rectangles are the ones finally drawn on the page.
  */
+/**
+ * A path cluster larger than this share of the page is a background, a rule grid or a
+ * full-page frame, not a figure. Treating it as a figure would mark the title and the body
+ * as labels with no room to grow.
+ */
+export const MAX_FIGURE_PAGE_SHARE = 0.35;
+
 export function figureAreas(
   operators: PdfOperatorList | null,
   ops: Record<string, number> | null,
   pageHeight: number,
+  pageWidth = 0,
+  lines: readonly TextLine[] = [],
 ): FigureAreas {
   if (!operators || !ops) return { images: [] };
 
@@ -135,7 +144,42 @@ export function figureAreas(
     images.push(flip(rect, pageHeight));
   }
 
-  return { images: mergeContained([...images, ...figureClusters(paths)]) };
+  const clusters = figureClusters(paths).filter(
+    (box) => isPlausibleFigure(box, pageWidth, pageHeight) && !coversMostText(box, lines),
+  );
+  return { images: mergeContained([...images, ...clusters]) };
+}
+
+/** True when a cluster is small enough to be a drawing rather than the page itself. */
+export function isPlausibleFigure(box: Box, pageWidth: number, pageHeight: number): boolean {
+  if (pageWidth > 0 && box.width > pageWidth * 1.05) return false;
+  if (pageHeight > 0 && box.height > pageHeight * 1.05) return false;
+  const pageArea = pageWidth * pageHeight;
+  if (pageArea > 0 && box.width * box.height > pageArea * MAX_FIGURE_PAGE_SHARE) return false;
+  return true;
+}
+
+/**
+ * True when a box contains most of the page's text. A cluster that large is a frame around
+ * the article, not a figure, and the body inside it must stay prose.
+ */
+export function coversMostText(box: Box, lines: readonly TextLine[]): boolean {
+  const readable = lines.filter((line) => line.text.trim().length > 0);
+  if (readable.length < 4) return false;
+  let inside = 0;
+  for (const line of readable) {
+    const centreX = line.box.x + line.box.width / 2;
+    const centreY = line.box.y + line.box.height / 2;
+    if (
+      centreX >= box.x &&
+      centreX <= box.x + box.width &&
+      centreY >= box.y &&
+      centreY <= box.y + box.height
+    ) {
+      inside += 1;
+    }
+  }
+  return inside > readable.length * 0.5;
 }
 
 /** A path smaller than this in either direction is a rule, a tick or a glyph outline. */

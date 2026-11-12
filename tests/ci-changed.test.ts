@@ -31,7 +31,12 @@ describe('CI change scope', () => {
   it('does not run the model bench from the workflow', () => {
     const workflow = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
     expect(workflow).toContain('pnpm bench:equality --check');
-    expect(workflow.replaceAll('pnpm bench:equality --check', '')).not.toContain('pnpm bench');
+    expect(workflow).toContain('pnpm bench:pdf:layout');
+    expect(
+      workflow
+        .replaceAll('pnpm bench:equality --check', '')
+        .replaceAll('pnpm bench:pdf:layout', ''),
+    ).not.toContain('pnpm bench');
     expect(workflow).not.toContain('scripts/bench');
     expect(workflow).toContain("cancel-in-progress: ${{ github.event_name == 'pull_request' }}");
     expect(workflow).toContain('types: [opened, synchronize, reopened, ready_for_review]');

@@ -9,7 +9,7 @@ Sakutto is an unofficial extension for Chrome and Firefox that translates web pa
 - Translation runs on your device by default. Page text is not sent to a translation server unless you turn on a local server in Settings. In that case the text is sent only to the address you set, usually a process on this computer.
 - There is no account, no advertising, and no analytics or telemetry.
 - The developer does not receive the pages you translate, your selections, your glossary, or the translations.
-- The only file the extension downloads is the PLaMo model, from Hugging Face. A local server you start is a separate optional path.
+- The only file the extension downloads from a third-party host is the PLaMo model, from Hugging Face. A local server you start is a separate optional path.
 - To translate a PDF, the extension reads the PDF file from the site the tab is already showing. That request goes to that site and nowhere else.
 - You can delete the model and clear the translation cache in the extension's settings, or remove the extension.
 
@@ -23,7 +23,7 @@ When you ask it to translate a page, a selection, or text you type on its own ty
 
 That text is used only to produce a translation. By default that happens on your device. If you choose a local server in Settings, the same text is sent only to the address you set.
 
-When you open a PDF in the extension's reader, the extension reads the PDF file, not the page text: Chrome draws a PDF in its own viewer, which no extension can read. The file is fetched once from the address the tab already shows, stored inside the extension on your device, and deleted when the reader tab closes. It is not uploaded anywhere.
+When you open a PDF in the extension's reader, the extension reads the PDF file, not the page text: Chrome draws a PDF in its own viewer, which no extension can read. The file is fetched once from the address the tab already shows, with the cookies that tab already has, stored inside the extension on your device, and deleted when the reader tab closes. Reloading the reader tab is a close-and-open of that page, so the original PDF tab (or a file you pick) is needed again. If a tab cannot report that it closed, a leftover copy is removed within a day. It is not uploaded anywhere.
 
 ## What is not collected
 
@@ -43,7 +43,7 @@ Settings can switch PLaMo requests from the built-in on-device engine to an expe
 
 The extension's own network request for the built-in engine is the model download from Hugging Face. Hugging Face, and the network that serves the file, can see your IP address and that a model file was requested. They do not receive the page text, your selections, your glossary, or your translations.
 
-Opening a PDF makes one request to the site the PDF tab is already on, asking for the same address the tab is showing. That site already served you that file, so it learns nothing new from the request; the extension adds no parameters and sends no body. The file is never passed on to the developer or to any other server.
+Opening a PDF makes one request to the site the PDF tab is already on, asking for the same address the tab is showing, with the cookies that tab already has. That site already served you that file, so it learns nothing new from the request; the extension adds no parameters and sends no body. The file is never passed on to the developer or to any other server.
 
 If you enable a local server, the extension also sends translation requests to the address you set. That process can see the text being translated. The developer does not receive it.
 
@@ -59,7 +59,7 @@ The extension keeps the following on your device and does not send it to the dev
 - the model file;
 - a local translation cache, so that the same text does not have to be translated twice;
 - an optional local-server API key, stored in plain text in chrome.storage.local;
-- a copy of a PDF you opened in the reader, until that tab closes.
+- a copy of a PDF you opened in the reader, until that tab closes (a leftover is removed within a day).
 
 You can delete the model and clear the translation cache in the extension's settings. Removing the extension removes the rest.
 
@@ -104,7 +104,7 @@ Sakutto は非公式の拡張機能です。Preferred Networks, Inc. の製品�
 
 その文字は、訳文を作るためだけに使います。既定では端末の中で処理します。設定でローカルサーバーを選んだときは、同じ文字を設定したアドレスにだけ送ります。
 
-PDF を拡張機能のリーダーで開いたときは、ページの文字ではなく PDF ファイルそのものを読みます。Chrome は PDF を専用のビューアで描くため、拡張機能からは本文を読めないからです。ファイルは、そのタブがすでに表示しているアドレスから一度だけ取得し、端末の拡張機能の中に保存し、リーダーのタブを閉じたときに削除します。どこかへ送ることはありません。
+PDF を拡張機能のリーダーで開いたときは、ページの文字ではなく PDF ファイルそのものを読みます。Chrome は PDF を専用のビューアで描くため、拡張機能からは本文を読めないからです。ファイルは、そのタブがすでに表示しているアドレスから一度だけ、そのタブがすでに持っている Cookie 付きで取得し、端末の拡張機能の中に保存し、リーダーのタブを閉じたときに削除します。リーダーを再読み込みするとそのコピーは消えるので、元の PDF のタブ（またはファイルの選択）から開き直します。タブが閉じたことを伝えられなかった残りは、1日以内に消します。どこかへ送ることはありません。
 
 ## 収集しないもの
 
@@ -124,7 +124,7 @@ Firefox ではそれらの Chrome の機能は使いません。PLaMo が対応�
 
 内蔵エンジンについての、この拡張機能自身が行う通信は、Hugging Face からのモデルの取得です。Hugging Face と、ファイルを配信するネットワークには、IP アドレスと、モデルのファイルが要求されたことが伝わります。ページの本文、選択範囲、用語集、訳文は伝わりません。
 
-PDF を開くときは、その PDF のタブがすでに表示しているサイトへ 1 回だけ、同じアドレスを要求します。そのサイトは元々そのファイルを配信しているので、この要求で新たに分かることはありません。拡張機能はパラメータを足さず、本文も送りません。取得したファイルを開発者や他のサーバーへ渡すこともありません。
+PDF を開くときは、その PDF のタブがすでに表示しているサイトへ 1 回だけ、同じアドレスを、そのタブがすでに持っている Cookie 付きで要求します。そのサイトは元々そのファイルを配信しているので、この要求で新たに分かることはありません。拡張機能はパラメータを足さず、本文も送りません。取得したファイルを開発者や他のサーバーへ渡すこともありません。
 
 ローカルサーバーを有効にすると、設定したアドレスへ翻訳リクエストも送ります。そのプロセスは翻訳する文字を見られます。開発者は受け取りません。
 
@@ -140,7 +140,7 @@ Chrome ウェブストアまたは addons.mozilla.org から入れた場合、�
 - モデルのファイル
 - 翻訳キャッシュ（同じ文章を二度訳さずに済ませるための、端末内の保存）
 - 任意のローカルサーバー API キー（chrome.storage.local に平文で保存します）
-- リーダーで開いた PDF の写し（そのタブを閉じるまで）
+- リーダーで開いた PDF の写し（そのタブを閉じるまで。残りは1日以内に消します）
 
 モデルの削除と翻訳キャッシュの消去は、拡張機能の設定画面から行えます。拡張機能を削除すると、残りも消えます。
 

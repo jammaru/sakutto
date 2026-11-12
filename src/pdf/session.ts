@@ -2,6 +2,7 @@ import { PriorityQueue } from '@/engine/queue/priority-queue';
 import { chunkForTranslation } from '@/engine/text/sentences';
 import { estimateTokens } from '@/engine/text/tokens';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
+import { glossaryEquals } from '@/shared/glossary';
 import { canonicalLanguage, isTargetLanguage } from '@/shared/languages';
 import type { Formality } from '@/shared/settings';
 import { pageRates, type ThroughputSample } from '@/dom/throughput';
@@ -134,7 +135,14 @@ export class PdfSession {
   >();
   private readonly queue = new PriorityQueue<Job>();
   private running = 0;
+  /**
+   * Bumped on every `stop()` / `retranslateAll()`. An aborted run's `finally` must not
+   * decrement `running` or mark blocks idle after a newer round has already started.
+   */
+  private generation = 0;
   private controller = new AbortController();
+  /** Pages whose painted boxes still need an overlap pass, coalesced to one run per frame. */
+  private overlapDirty = new Set<number>();
   private target: string;
   private form: Formality;
   private glossary: readonly GlossaryEntry[];
@@ -272,6 +280,7 @@ export class PdfSession {
   }
 
   setGlossary(glossary: readonly GlossaryEntry[]): void {
+    if (glossaryEquals(this.glossary, glossary)) return;
     this.glossary = glossary;
     this.retranslateAll();
   }
@@ -303,10 +312,12 @@ export class PdfSession {
 
   /** Drops every in-flight request and returns the finished blocks to the queue. */
   stop(): void {
+    this.generation += 1;
     this.controller.abort();
     this.controller = new AbortController();
     this.queue.clear();
     this.running = 0;
+    this.overlapDirty.clear();
     for (const states of this.pages.values()) {
       for (const state of states) {
         if (state.state === 'running' || state.state === 'queued') state.state = 'idle';
@@ -357,6 +368,7 @@ export class PdfSession {
 
   private pump(): void {
     const signal = this.controller.signal;
+    const generation = this.generation;
     while (this.running < this.concurrency) {
       const next = this.queue.dequeue();
       if (!next) break;
@@ -364,7 +376,8 @@ export class PdfSession {
       if (job.state.state !== 'queued') continue;
       job.state.state = 'running';
       this.running += 1;
-      void this.run(job, signal).finally(() => {
+      void this.run(job, signal, generation).finally(() => {
+        if (this.generation !== generation) return;
         this.running = Math.max(0, this.running - 1);
         this.pump();
         this.scheduleNotify();
@@ -373,7 +386,19 @@ export class PdfSession {
     this.scheduleNotify();
   }
 
-  private async run(job: Job, signal: AbortSignal): Promise<void> {
+  private stale(generation: number, signal: AbortSignal): boolean {
+    return this.generation !== generation || signal.aborted;
+  }
+
+  private failBlock(state: BlockState): void {
+    state.translation = '';
+    state.fit = null;
+    state.paint = false;
+    state.overflow = true;
+    state.state = 'failed';
+  }
+
+  private async run(job: Job, signal: AbortSignal, generation: number): Promise<void> {
     const { state } = job;
     // Inline mathematics is replaced with the same numbered placeholders the page translator
     // uses, so a variable comes back exactly. A translation that drops a placeholder is
@@ -387,7 +412,9 @@ export class PdfSession {
       id: pieces.length === 1 ? id : `${id}#${String(index)}`,
       text,
     }));
-    const parts: string[] = [];
+    const parts: string[] = Array.from({ length: pieces.length }, () => '');
+    const finals = Array.from({ length: pieces.length }, () => false);
+    const errors = Array.from({ length: pieces.length }, () => false);
 
     try {
       for await (const chunk of this.engine.translate(segments, {
@@ -397,12 +424,22 @@ export class PdfSession {
         signal,
         ...(this.glossary.length > 0 ? { glossary: this.glossary } : {}),
       })) {
-        if (signal.aborted) return;
+        if (this.stale(generation, signal)) return;
         if (chunk.engine) state.engine = chunk.engine;
         const index = pieceIndex(chunk.id);
+        if (index < 0 || index >= pieces.length) continue;
         if (chunk.textDelta !== undefined) {
-          parts[index] = (parts[index] ?? '') + chunk.textDelta;
+          const before = chunk.restart === true ? '' : (parts[index] ?? '');
+          parts[index] = before + chunk.textDelta;
         } else if (chunk.final !== undefined) {
+          finals[index] = true;
+          if (chunk.error === true) {
+            // `final` on an error chunk is the source text. It must not be shown as a
+            // translation or cached; the original stays on the page.
+            errors[index] = true;
+            parts[index] = '';
+            continue;
+          }
           parts[index] = chunk.final;
         } else {
           continue;
@@ -423,14 +460,23 @@ export class PdfSession {
         this.scheduleNotify();
       }
     } catch {
-      // A failed block keeps whatever it had; the reader shows the source underneath.
+      if (this.stale(generation, signal)) return;
+      this.failBlock(state);
+      return;
     }
 
-    if (signal.aborted) {
-      state.state = 'idle';
+    if (this.stale(generation, signal)) return;
+    const allFinal = pieces.length === 0 || finals.every(Boolean);
+    const anyError = errors.some(Boolean);
+    if (!allFinal || anyError) {
+      this.failBlock(state);
       return;
     }
     state.state = state.translation.trim().length > 0 ? 'done' : 'failed';
+    if (state.state === 'failed') {
+      this.failBlock(state);
+      return;
+    }
     this.layout(state, job.page);
   }
 
@@ -465,7 +511,7 @@ export class PdfSession {
         : null;
     state.paint = state.fit.fits && drawn !== null && !exceedsPage(drawn, pageWidth, pageHeight);
     state.overflow = !state.paint;
-    this.resolvePageOverlaps(page);
+    this.overlapDirty.add(page);
   }
 
   /**
@@ -509,6 +555,10 @@ export class PdfSession {
    * After a block is fitted, drop any painted box that now covers another on the same page.
    * The original typesetting of the dropped block stays visible; that is better than two
    * translations printed over each other.
+   *
+   * Called once per notify rather than on every streamed delta: a page of N blocks is
+   * quadratic in N, and a token-by-token pass would redo that work dozens of times per
+   * paragraph.
    */
   private resolvePageOverlaps(page: number): void {
     const states = this.pages.get(page);
@@ -550,6 +600,11 @@ export class PdfSession {
     this.notifyQueued = true;
     queueMicrotask(() => {
       this.notifyQueued = false;
+      if (this.overlapDirty.size > 0) {
+        const pages = [...this.overlapDirty];
+        this.overlapDirty.clear();
+        for (const page of pages) this.resolvePageOverlaps(page);
+      }
       this.onChange();
     });
   }

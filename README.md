@@ -52,7 +52,7 @@ The reader keeps the page as it is. Each page is drawn once by pdf.js and the tr
 
 The reader translates the page you are looking at first and the rest as you reach it, so opening a 40-page report at page 30 does not wait for 29 pages of work. A PDF with no text layer (a scan, or a page that is only an image) is shown with a note that there is nothing to translate. Image-only pages are not transcribed: a guessed transcription would be translated as if it were the source, which is worse than leaving the image.
 
-The PDF is never written to your Downloads folder. The file is fetched from the site the tab already shows, stored inside the extension, and deleted when the reader tab closes.
+The PDF is never written to your Downloads folder. The file is fetched from the site the tab already shows (same-origin, with the cookies that tab already has), stored inside the extension, and deleted when the reader tab closes. Reloading the reader tab needs the original PDF tab, or a file you pick, because that copy is gone. A leftover from a crash is removed within a day.
 
 ## Languages
 

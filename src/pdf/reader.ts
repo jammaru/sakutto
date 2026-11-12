@@ -1,3 +1,4 @@
+import type { Formality } from '@/shared/settings';
 import type { LayoutBlock } from './layout';
 import { layoutPage } from './layout';
 import { coverStyle, READER_STYLE, TextMeasurer } from './render';
@@ -38,7 +39,7 @@ export interface ReaderOptions {
   engine: PdfEngine;
   labels: ReaderLabels;
   targetLanguage: string;
-  form: 'polite' | 'plain';
+  form: Formality;
   /**
    * pdf.js's operator codes, so a page's drawing areas can be read. Empty when the module
    * does not expose them; the reader then translates the page as it did before that rule.
@@ -123,6 +124,7 @@ export class PdfReader {
   /** Blocks left in the page's own typesetting: equations and the text inside figures. */
   private skippedBlocks = 0;
   private target: string;
+  private form: Formality;
   private style: HTMLStyleElement | null = null;
   private destroyed = false;
 
@@ -136,6 +138,7 @@ export class PdfReader {
       options.pageLimit !== undefined && options.pageLimit > 0 ? options.pageLimit : null;
     this.ops = options.ops ?? null;
     this.target = options.targetLanguage;
+    this.form = options.form;
     this.engine = options.engine;
     this.glossary = options.glossary ?? [];
 
@@ -156,9 +159,10 @@ export class PdfReader {
 
     this.observer = new IntersectionObserver(
       (entries) => this.onIntersect(entries),
-      // A page one screen away is drawn before the reader reaches it, so scrolling finds a
-      // finished page instead of a blank one.
-      { root: this.scrollRoot(), rootMargin: '120% 0px 120% 0px', threshold: 0 },
+      // `root: null` is the viewport. `#pages` does not scroll — its overflow is visible and
+      // the window is the scroller — so using it as root never fires on scroll, never updates
+      // focus, never releases far canvases, and draws every page at once.
+      { root: null, rootMargin: '120% 0px 120% 0px', threshold: 0 },
     );
     for (const element of this.pageElements.values()) this.observer.observe(element.host);
 
@@ -176,6 +180,11 @@ export class PdfReader {
   /** Re-queues blocks that never got a translation, once the model is ready. */
   retryUntranslated(): void {
     this.session.retryUntranslated();
+  }
+
+  /** Re-queues blocks whose stream failed or was cut off, so a retry can finish them. */
+  retryFailed(): void {
+    this.session.retryFailed();
   }
 
   /**
@@ -208,13 +217,19 @@ export class PdfReader {
       let translated = '';
       for await (const chunk of this.engine.translate([{ id: 'selection', text }], {
         tgt: this.target,
-        form: 'polite',
+        form: this.form,
         priority: 0,
         signal: controller.signal,
         ...(this.glossary.length > 0 ? { glossary: this.glossary } : {}),
       })) {
         if (controller.signal.aborted) return false;
-        if (chunk.textDelta !== undefined) translated += chunk.textDelta;
+        if (chunk.error === true) {
+          translated = '';
+          break;
+        }
+        if (chunk.textDelta !== undefined) {
+          translated = chunk.restart === true ? chunk.textDelta : translated + chunk.textDelta;
+        }
         if (chunk.final !== undefined) translated = chunk.final;
         popover.textContent = translated;
         this.placePopover(popover, host);
@@ -288,10 +303,11 @@ export class PdfReader {
     popover.style.top = `${(below + height < page.height - 8 || above < 8 ? below : above).toFixed(0)}px`;
   }
 
-  setTargetLanguage(language: string): void {
-    if (language === this.target) return;
+  setTargetLanguage(language: string, form: Formality = this.form): void {
+    if (language === this.target && form === this.form) return;
     this.target = language;
-    this.session.setTargetLanguage(language, 'polite');
+    this.form = form;
+    this.session.setTargetLanguage(language, form);
     this.paint();
   }
 
@@ -316,10 +332,6 @@ export class PdfReader {
     this.style = null;
     this.root.replaceChildren();
     void this.document.destroy().catch(() => undefined);
-  }
-
-  private scrollRoot(): Element | null {
-    return this.root;
   }
 
   private installStyle(): void {
@@ -416,7 +428,28 @@ export class PdfReader {
       element.drawn = false;
     }
     this.paint();
+    this.redrawVisiblePages();
     void this.parseNext();
+  }
+
+  /** True when a page host sits in or near the window, so a resize can redraw it. */
+  private pageNearViewport(host: HTMLElement): boolean {
+    const rect = host.getBoundingClientRect();
+    const view = globalThis.innerHeight || 0;
+    const margin = view * 1.2;
+    return rect.bottom >= -margin && rect.top <= view + margin;
+  }
+
+  /**
+   * IntersectionObserver only fires when a page *crosses* the viewport. A window resize
+   * changes the canvas CSS size without that crossing, so visible pages have to be redrawn
+   * here or they keep the bitmap from the previous width.
+   */
+  private redrawVisiblePages(): void {
+    for (const [index, element] of this.pageElements) {
+      if (!this.pageNearViewport(element.host)) continue;
+      void this.drawPage(index);
+    }
   }
 
   private onIntersect(entries: IntersectionObserverEntry[]): void {
@@ -567,9 +600,7 @@ export class PdfReader {
       const marked = new Set<BlockState>();
 
       for (const state of states) {
-        if (state.translation.trim().length === 0) continue;
-        if (state.state === 'failed') continue;
-        if (state.paint && state.fit?.fits === true) {
+        if (state.paint && state.fit?.fits === true && state.translation.trim().length > 0) {
           live.add(state);
           this.paintBlock(element, state);
           continue;
@@ -620,7 +651,10 @@ export class PdfReader {
     const sourceHeight = block.box.height;
     const textHeight = fit.height * scale;
     const height = Math.max(sourceHeight * scale, textHeight) + pad;
-    const width = Math.max(block.room.width, block.box.width) * scale + pad;
+    // Layout wraps to `fit.width` (the column plus a modest gutter). Painting to the source
+    // box or the room alone, with `white-space:pre` and `overflow:hidden`, cuts the line ends
+    // that wrapping already fitted.
+    const width = Math.max(block.box.width, fit.width) * scale + pad;
     const box = {
       x: Math.min(block.box.x, block.room.x) * scale - pad / 2,
       y: block.box.y * scale - pad / 2,
@@ -628,6 +662,7 @@ export class PdfReader {
       height: sourceHeight * scale,
     };
 
+    node.dataset.fitWidth = fit.width.toFixed(2);
     node.textContent = visible.join('\n');
     node.style.cssText = coverStyle(
       box,
@@ -691,7 +726,8 @@ export class PdfReader {
     }
     this.hideOverflowNote();
     element.note.hidden = false;
-    element.note.textContent = state.translation;
+    element.note.textContent =
+      state.translation.trim().length > 0 ? state.translation : this.labels.failed;
     const host = element.host.getBoundingClientRect();
     const mark = marker.getBoundingClientRect();
     const width = Math.min(360, Math.max(200, host.width - 24));

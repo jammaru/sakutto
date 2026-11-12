@@ -16,7 +16,7 @@
     requestEngineWarm,
     requestModelDownload,
   } from '@/shared/messages';
-  import { PDF_ID_PARAM } from '@/shared/pdf';
+  import { MAX_PDF_BYTES, PDF_ID_PARAM } from '@/shared/pdf';
   import type { Settings } from '@/shared/settings';
   import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
   import { readStoredPdf, storedPdfName } from '@/background/pdf-store';
@@ -94,7 +94,7 @@
     } catch {
       return;
     }
-    reader?.setTargetLanguage(language);
+    reader?.setTargetLanguage(language, settings?.form ?? 'polite');
   }
 
   /** True when the reader has a non-empty selection, which decides the toolbar button. */
@@ -246,7 +246,15 @@
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
+    if (file.size > MAX_PDF_BYTES) {
+      phase = 'broken';
+      return;
+    }
     const bytes = new Uint8Array(await file.arrayBuffer());
+    if (bytes.byteLength > MAX_PDF_BYTES) {
+      phase = 'broken';
+      return;
+    }
     phase = 'loading';
     await boot(bytes, file.name);
   }
@@ -297,12 +305,13 @@
     const unsubscribe = subscribeSettings((next) => {
       settings = next;
       reader?.setGlossary(next.glossary);
-      reader?.setTargetLanguage(next.targetLanguage);
+      reader?.setTargetLanguage(next.targetLanguage, next.form);
     });
 
     const onMessage = (message: unknown) => {
       if (!isModelProgressMessage(message)) return;
       if (message.status.state !== 'loaded') return;
+      reader?.retryFailed();
       reader?.retryUntranslated();
       if (phase === 'model-missing') phase = 'loading';
     };
@@ -333,11 +342,12 @@
         phase = 'broken';
       });
 
-    // A reader tab that closes leaves its copy of the document behind; the background sweeps
-    // anything older than a day when it stores the next one. Deleting it here would also
-    // delete it on a reload, which is a normal thing for a reader to do.
+    // Drop the stored copy when this tab goes away. A reload is a close-and-open of the
+    // reader page, so the original PDF tab (or a file pick) is needed again; leftovers that
+    // never get this event are swept after a day.
     const onUnload = () => {
       if (retryTimer !== null) clearTimeout(retryTimer);
+      if (id) void browser.runtime.sendMessage({ type: 'pdf:forget', id });
       reader?.destroy();
       reader = null;
     };

@@ -66,6 +66,23 @@ describe('fitText', () => {
     expect(result.fontSize).toBe(10);
     expect(result.lines).toHaveLength(1);
     expect(result.grown).toBe(false);
+    expect(result.width).toBe(200);
+  });
+
+  it('records the wrap width the layout fitted against', () => {
+    const result = fitText(
+      {
+        box: box(0, 0, 100, 40),
+        growBudget: 20,
+        fontSize: 10,
+        lineHeight: 1.2,
+        width: 128,
+        measure,
+      },
+      '短い訳',
+      'ja',
+    );
+    expect(result.width).toBe(128);
   });
 
   it('shrinks a translation that would overflow, but never below the floor', () => {

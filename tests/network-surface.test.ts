@@ -215,9 +215,12 @@ describe('network surface', () => {
     expect(calls).toHaveLength(1);
     const call = calls[0] ?? '';
     expect(call).toContain('url');
+    expect(call).toContain("credentials: 'include'");
     expect(call).not.toMatch(/\bbody\s*:/u);
     expect(call).not.toMatch(/\bmethod\s*:/u);
     expect(call).not.toMatch(/https?:\/\//u);
+    expect(store.code).toMatch(/JSON\.stringify\(\{\s*name\s*\}\)/u);
+    expect(store.code).not.toMatch(/JSON\.stringify\(\{\s*name\s*,\s*url\s*\}\)/u);
 
     // Nothing in the reader may post the document, or anything about it, to a server.
     expect(store.code).not.toMatch(/\bsendBeacon\b/u);

@@ -172,4 +172,29 @@ describe('placePage', () => {
       placed.every((entry) => entry.paint || entry.overflow || entry.translation.length === 0),
     ).toBe(true);
   });
+
+  it('fails metrics when a page-sized figure cluster turns the body into labels', () => {
+    const lines = groupLines([
+      piece('Fitting Translated Text Into a Page Layout', 40, 80, 400, { em: 16, bold: true }),
+      piece('Encoder', 80, 200, 50),
+      piece('Decoder', 80, 230, 50),
+      piece('Loss', 80, 260, 40),
+    ]);
+    const layout = layoutPage(
+      lines,
+      { images: [{ x: 0, y: 0, width: 600, height: 800 }] },
+      { width: 600, height: 800 },
+    );
+    const placed = placePage({
+      layout,
+      translationOf: (block) => stubExpand(block.text),
+      target: 'ja',
+      measure: (_block, text, size) => measure(text, size),
+      pageHeight: 800,
+      pageWidth: 600,
+    });
+    const metrics = pageMetrics(layout, placed, { x: 0, y: 0, width: 600, height: 800 });
+    expect(metrics.figureAreaShare).toBeGreaterThan(0.5);
+    expect(metricsPass(metrics)).toBe(false);
+  });
 });

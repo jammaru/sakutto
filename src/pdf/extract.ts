@@ -25,8 +25,19 @@ export interface PdfTextContent {
   styles: Record<string, { fontFamily?: string } | undefined>;
 }
 
+export interface PdfViewport {
+  width: number;
+  height: number;
+  /**
+   * pdf.js's 6-number page transform. `/Rotate 90` and `/Rotate 270` swap the page's axes,
+   * and glyph positions in `item.transform` are still in unrotated PDF space; multiplying
+   * through this matrix is what puts a cover on the canvas the reader actually drew.
+   */
+  transform?: number[];
+}
+
 export interface PdfPage {
-  getViewport: (options: { scale: number }) => { width: number; height: number };
+  getViewport: (options: { scale: number }) => PdfViewport;
   getTextContent: () => Promise<PdfTextContent>;
   getOperatorList: () => Promise<PdfOperatorList>;
   commonObjs: { get: (name: string) => unknown };
@@ -111,11 +122,7 @@ export async function extractPage(
   for (const item of content.items) {
     if (!('str' in item)) continue;
     if (item.str.length === 0) continue;
-    const [, , c = 0, d = 0, e = 0, f = 0] = item.transform;
-    const [a = 1, b = 0] = item.transform;
-    // The font size from the text matrix, so a scaled glyph run keeps the size the page set.
-    const height = Math.hypot(c, d) || item.height || 1;
-    const baseline = viewport.height - f;
+    const placed = placeTextItem(item, viewport);
     const font = traits.get(item.fontName) ?? {
       family: 'serif',
       bold: false,
@@ -125,14 +132,14 @@ export async function extractPage(
 
     pieces.push({
       text: item.str,
-      box: { x: e, y: baseline - height, width: item.width, height },
-      baseline,
+      box: placed.box,
+      baseline: placed.baseline,
       fontName: item.fontName,
       family: font.family,
       bold: font.bold,
       italic: font.italic,
       math: font.math,
-      orientation: orientationOf(a, b),
+      orientation: placed.orientation,
     });
   }
 
@@ -143,7 +150,10 @@ export async function extractPage(
     .getOperatorList()
     .then((value) => value as PdfOperatorList)
     .catch(() => null);
-  const figures = codes === null ? { images: [] } : figureAreas(operators, codes, viewport.height);
+  const figures =
+    codes === null
+      ? { images: [] }
+      : figureAreas(operators, codes, viewport.height, viewport.width, lines);
 
   return {
     index,
@@ -190,6 +200,57 @@ export function isImageOnlyPage(
  * reported as rotated, because the reader treats it the same way whatever the angle — a
  * rotated stamp is not prose, and its box spans the column the body text is in.
  */
+/**
+ * Maps one glyph run from PDF user space into the viewport the canvas was drawn in.
+ *
+ * pdf.js reports `item.transform` in unrotated page space. The viewport's own 6-number
+ * matrix (`Util.transform` in pdf.js) includes `/Rotate`, so the three corners of the run
+ * — origin, end of the advance, top of the em — become the axis-aligned box the overlay
+ * paints. Without that multiply, a 90° page places covers off the canvas while the toolbar
+ * still says the page is translated.
+ */
+export function placeTextItem(
+  item: PdfTextItem,
+  viewport: PdfViewport,
+): { box: Box; baseline: number; orientation: number } {
+  const [a = 1, b = 0, c = 0, d = 0, e = 0, f = 0] = item.transform;
+  const height = Math.hypot(c, d) || item.height || 1;
+  const orientation = orientationOf(a, b);
+  const matrix = viewport.transform;
+  if (!matrix || matrix.length < 6) {
+    const baseline = viewport.height - f;
+    return {
+      box: { x: e, y: baseline - height, width: item.width, height },
+      baseline,
+      orientation,
+    };
+  }
+  const origin = applyViewport(matrix, e, f);
+  const end = applyViewport(matrix, e + item.width, f);
+  const top = applyViewport(matrix, e, f + height);
+  const xs = [origin.x, end.x, top.x];
+  const ys = [origin.y, end.y, top.y];
+  const left = Math.min(...xs);
+  const north = Math.min(...ys);
+  return {
+    box: {
+      x: left,
+      y: north,
+      width: Math.max(...xs) - left,
+      height: Math.max(...ys) - north,
+    },
+    baseline: origin.y,
+    orientation,
+  };
+}
+
+function applyViewport(matrix: readonly number[], x: number, y: number): { x: number; y: number } {
+  return {
+    x: (matrix[0] ?? 0) * x + (matrix[2] ?? 0) * y + (matrix[4] ?? 0),
+    y: (matrix[1] ?? 0) * x + (matrix[3] ?? 0) * y + (matrix[5] ?? 0),
+  };
+}
+
 function orientationOf(a: number, b: number): number {
   if (a === 0 && b === 0) return 0;
   const degrees = (Math.atan2(b, a) * 180) / Math.PI;

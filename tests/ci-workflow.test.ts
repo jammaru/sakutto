@@ -49,8 +49,11 @@ describe('CI workflow guardrails', () => {
     expect(ci).toContain('pnpm test');
     expect(ci).toContain('pnpm test:e2e');
     expect(ci).toContain('pnpm bench:equality --check');
+    expect(ci).toContain('pnpm bench:pdf:layout');
     expect(ci).toContain('node scripts/wllama/build.ts --check');
-    expect(ci.replaceAll('pnpm bench:equality --check', '')).not.toContain('pnpm bench');
+    expect(
+      ci.replaceAll('pnpm bench:equality --check', '').replaceAll('pnpm bench:pdf:layout', ''),
+    ).not.toContain('pnpm bench');
   });
 
   it('documents SLOs, cache busting, and the merge-conflict skip', () => {

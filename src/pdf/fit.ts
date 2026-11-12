@@ -41,6 +41,8 @@ export type FitResult =
       height: number;
       /** True when the block had to grow past the source box to fit. */
       grown: boolean;
+      /** Wrap width the layout used, so the cover is as wide as the fitted lines. */
+      width: number;
     }
   | {
       /** Even the smallest size overflows; the caller must clip or offer the full text. */
@@ -51,6 +53,8 @@ export type FitResult =
       height: number;
       /** Lines that fit in the space available, for the clipped rendering. */
       visibleLines: string[];
+      /** Wrap width the layout used, so a clipped cover does not cut a line short. */
+      width: number;
     };
 
 /** Never shrink below this fraction of the source size; below it the text is unreadable. */
@@ -132,6 +136,7 @@ export function fitText(
       lines: best.lines,
       height: best.height,
       grown: best.height > request.box.height + 0.5,
+      width: request.width,
     };
   }
   const fontSize = minimum;
@@ -145,6 +150,7 @@ export function fitText(
     lines,
     height: layout.height,
     visibleLines: lines.slice(0, count),
+    width: request.width,
   };
 }
 

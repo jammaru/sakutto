@@ -471,7 +471,10 @@ async function main(): Promise<void> {
             );
           }
         }
-        const cutOff = boxes.filter((node) => node.scrollHeight > node.clientHeight + 2).length;
+        const cutOff = boxes.filter(
+          (node) =>
+            node.scrollHeight > node.clientHeight + 2 || node.scrollWidth > node.clientWidth + 2,
+        ).length;
 
         return {
           page: index,

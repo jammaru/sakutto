@@ -24,7 +24,9 @@ Single purpose: translating web pages.
 Privacy policy: https://jammaru.com/sakutto/privacy/
 
 Remote code: モデル重み（GGUF データ）のみを huggingface.co から DL。実行コードはすべて同梱。
-The built-in engine's only fetch is a PLaMo 3 Translate GGUF weight from huggingface.co. The URL is pinned to a commit. Bytes are written to a `.part` file in the same OPFS directory, then read back and hashed against the pinned SHA-256; only a match is moved to its final name, and a mismatch is deleted and retried once from the start. An interrupted download keeps its `.part` file so the next attempt resumes. A later launch uses the stored file when its size and the recorded digest still match the pin. The bytes are not hashed again on every launch. The request has no body. Page text is not included. Hugging Face can see the IP address and the file request. Redirects are followed. credentials is omitted. Every script, worker, and wasm the extension executes is in the zip under vendor/wllama/. The extension does not request nativeMessaging.
+The built-in engine's fetch is a PLaMo 3 Translate GGUF weight from huggingface.co. The URL is pinned to a commit. Bytes are written to a `.part` file in the same OPFS directory, then read back and hashed against the pinned SHA-256; only a match is moved to its final name, and a mismatch is deleted and retried once from the start. An interrupted download keeps its `.part` file so the next attempt resumes. A later launch uses the stored file when its size and the recorded digest still match the pin. The bytes are not hashed again on every launch. The request has no body. Page text is not included. Hugging Face can see the IP address and the file request. Redirects are followed. credentials is omitted. Every script, worker, and wasm the extension executes is in the zip under vendor/wllama/. The extension does not request nativeMessaging.
+
+The PDF reader makes one additional fetch: the same URL the PDF tab is already showing, to the same origin, with credentials: 'include' so a document behind a login can be read. There is no body and no extra query. Bytes stay in the extension's OPFS and are deleted when the reader tab closes. The stored sidecar is the file name only, not the URL. This is not a third-party download.
 
 Settings may enable an experimental local-server engine (mlx_lm.server, LM Studio, or any OpenAI-compatible process the user starts). Accuracy is not guaranteed. That path POSTs raw PFML3 to /v1/completions at the URL the user set. Default is loopback only (http://127.0.0.1:8080/v1). A non-loopback URL is blocked until the user confirms a warning. Optional host permission for that origin is requested only when the user turns the engine on or changes the address. Page text then goes only to that address. The developer does not receive it. Chat completions are not used.
 
@@ -123,6 +125,7 @@ content script は `src/entrypoints/content.ts` の `registration: 'runtime'` �
 - `chrome.storage.local` の `qualitySample`: 固定段落のモデル id、所要時間、時刻。ページ本文は入れません（`src/shared/quality.ts`、段落は `src/engine/model/suggestion.ts` の `QUALITY_PARAGRAPH`）
 - `chrome.storage.session`: WebGPU の可否、cross-origin isolation、ハードウェア並列数の短いキャッシュ
 - OPFS の `sakutto` ディレクトリ: モデルファイル（`src/engine/model/file-store.ts`）
+- OPFS の `pdf` ディレクトリ: リーダーで開いた PDF の写し。タブを閉じると削除し、残りは 24 時間で掃きます。サイドカーはファイル名のみで、URL は残しません（`src/background/pdf-store.ts`）
 - IndexedDB `sakutto-translations`: 訳文、エンジン種別、時刻。最大 5,000 件。キーは原文の SHA-256 と用語集のハッシュで、原文そのものはキーに入れません（`src/engine/cache/store.ts`、`src/engine/cache/key.ts`）
 
 入力翻訳（`typed.html`）は1リクエストあたり最大 100,000 文字です（`src/shared/typed-translation.ts` の `MAX_TYPED_CHARS`、offscreen プロトコルの `MAX_SEGMENT_TEXT`）。この上限は文字課金ではなく、1件の chrome.runtime メッセージを抑えるためのものです。モデルは従来どおり段落サイズに分割して訳します。ページの周辺文脈（`context`）はこれまで通り最大 20,000 文字です。
@@ -131,7 +134,7 @@ content script は `src/entrypoints/content.ts` の `registration: 'runtime'` �
 
 ## 翻訳が端末内であることの範囲
 
-内蔵エンジンについての拡張機能自身の通信は、上の GGUF 取得です。ページ本文、選択範囲、用語集、訳文を載せるリクエストはありません。設定でローカルサーバーをオンにしたときだけ、設定したアドレスへ `/v1/completions` で PFML3 を送ります（既定は loopback）。`chrome.runtime.requestUpdateCheck` と `chrome.storage.sync` は使いません。
+内蔵エンジンについての拡張機能自身の通信は、上の GGUF 取得です。ページ本文、選択範囲、用語集、訳文を載せるリクエストはありません。PDF リーダーは、その PDF のタブが表示している同じアドレスへ、同じオリジンで `credentials: 'include'` の GET を 1 回だけ送ります。本文も追加のクエリもなく、バイト列は拡張機能の OPFS に置き、リーダータブを閉じると消します。設定でローカルサーバーをオンにしたときだけ、設定したアドレスへ `/v1/completions` で PFML3 を送ります（既定は loopback）。`chrome.runtime.requestUpdateCheck` と `chrome.storage.sync` は使いません。
 
 Chrome の Translator API を使うのは、PLaMo のモデルが対応していない言語の組み合わせで、かつ Chrome が言語パックを `available` と報告しているときだけです（`src/engine/router.ts`、`src/engine/chrome/translator.ts`）。モデルが対応する組み合わせを Chrome に回すことはないため、モデルが描画するまでは原文のまま表示します。言語パックの取得は Chrome です。「はじめる」は、パックが `downloadable` でもクリック中に `Translator.create()` を呼ぶことがあります（`src/shared/translator-pack.ts`）。この呼び出しにページ本文はありません。ページに言語タグがないとき、content script が本文から最大 1,200 文字を Chrome の端末内 Language Detector に渡します（`src/dom/detect.ts`）。PLaMo が対応しない組み合わせでソース言語がまだ空のときは、最大 1,000 文字を同じ API に渡します（`src/engine/offscreen/host.ts`、`src/engine/chrome/translator.ts`）。これらは、この拡張機能がサーバーへ送るリクエストではありません。
 

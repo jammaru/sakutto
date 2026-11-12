@@ -4,7 +4,9 @@
  * pdf.js is loaded from a packaged file rather than imported through the bundler because it
  * resolves its worker, its CMaps and its standard fonts relative to its own URL. An import
  * through the bundler would move the module into `chunks/` and every one of those lookups
- * would then point at a directory that does not exist.
+ * would then point at a directory that does not exist. The packaged files are the *legacy*
+ * build: the modern one needs `Promise.withResolvers` (Chrome 119+), and the manifest still
+ * supports Chrome 116.
  */
 export const PDFJS_ASSET_DIRECTORY = 'vendor/pdfjs';
 

@@ -1,0 +1,176 @@
+// @vitest-environment happy-dom
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { PdfReader, type ReaderLabels } from '@/pdf/reader';
+import type { PdfDocument, PdfPage } from '@/pdf/extract';
+import type { PdfEngine } from '@/pdf/session';
+
+const labels: ReaderLabels = {
+  translate: 'Translate',
+  restore: 'Restore',
+  translating: 'Translating',
+  translated: 'Translated',
+  progress: (done, total) => `${String(done)}/${String(total)}`,
+  emptyPage: 'Empty',
+  noText: 'No text',
+  scanning: (page, of) => `${String(page)}/${String(of)}`,
+  failed: 'Failed',
+  selectionTranslating: '…',
+  selectionFailed: 'failed',
+  overflowOpen: 'Open',
+};
+
+type ObserverRecord = {
+  root: unknown;
+  rootMargin: string | undefined;
+  callback: IntersectionObserverCallback;
+};
+
+const observerRecords: ObserverRecord[] = [];
+let resizeCallback: ResizeObserverCallback | null = null;
+
+class FakeIntersectionObserver {
+  readonly records: Element[] = [];
+  constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+    observerRecords.push({
+      root: options?.root ?? null,
+      rootMargin: options?.rootMargin,
+      callback,
+    });
+  }
+  observe(target: Element): void {
+    this.records.push(target);
+  }
+  unobserve(): void {}
+  disconnect(): void {}
+  takeRecords(): IntersectionObserverEntry[] {
+    return [];
+  }
+}
+
+class FakeResizeObserver {
+  constructor(callback: ResizeObserverCallback) {
+    resizeCallback = callback;
+  }
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+
+function fakePage(renders: { count: number }): PdfPage {
+  return {
+    getViewport: ({ scale }) => ({
+      width: 200 * scale,
+      height: 280 * scale,
+      transform: [scale, 0, 0, -scale, 0, 280 * scale],
+    }),
+    getTextContent: async () => ({ items: [], styles: {} }),
+    getOperatorList: async () => ({ fnArray: [], argsArray: [] }),
+    commonObjs: { get: () => null },
+    render: () => {
+      renders.count += 1;
+      return { promise: Promise.resolve() };
+    },
+  };
+}
+
+function fakeDocument(renders: { count: number }, pages = 3): PdfDocument {
+  return {
+    numPages: pages,
+    getPage: async () => fakePage(renders),
+    getMetadata: async () => null,
+    destroy: async () => undefined,
+  };
+}
+
+const silentEngine: PdfEngine = {
+  async *translate() {
+    /* no chunks */
+  },
+};
+
+function geometries(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    index,
+    width: 200,
+    height: 280,
+  }));
+}
+
+describe('PdfReader viewport observer', () => {
+  afterEach(() => {
+    observerRecords.length = 0;
+    resizeCallback = null;
+    vi.unstubAllGlobals();
+    document.head.replaceChildren();
+    document.body.replaceChildren();
+  });
+
+  it('observes the window, not #pages, and redraws visible pages on resize', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+
+    const renders = { count: 0 };
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 240 });
+    document.body.append(root);
+
+    HTMLCanvasElement.prototype.getContext = (() => ({
+      setTransform: () => undefined,
+      fillRect: () => undefined,
+    })) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+
+    const reader = new PdfReader(root, geometries(3), {
+      document: fakeDocument(renders, 3),
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+    });
+
+    expect(observerRecords.length).toBeGreaterThan(0);
+    expect(observerRecords[0]?.root).toBeNull();
+
+    const firstHost = root.querySelector('.sakutto-page');
+    if (!(firstHost instanceof HTMLElement)) throw new Error('expected a page host');
+    firstHost.getBoundingClientRect = () =>
+      ({
+        top: 20,
+        bottom: 300,
+        left: 0,
+        right: 200,
+        width: 200,
+        height: 280,
+        x: 0,
+        y: 20,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    observerRecords[0]?.callback(
+      [
+        {
+          target: firstHost,
+          isIntersecting: true,
+          boundingClientRect: firstHost.getBoundingClientRect(),
+        } as unknown as IntersectionObserverEntry,
+      ],
+      observerRecords[0] as unknown as IntersectionObserver,
+    );
+    const started = Date.now();
+    while (renders.count === 0 && Date.now() - started < 1000) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    const afterDraw = renders.count;
+    expect(afterDraw).toBeGreaterThan(0);
+
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 });
+    resizeCallback?.([], {} as ResizeObserver);
+    const resized = Date.now();
+    while (renders.count === afterDraw && Date.now() - resized < 1000) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(renders.count).toBeGreaterThan(afterDraw);
+
+    reader.destroy();
+  });
+});

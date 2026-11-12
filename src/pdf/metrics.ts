@@ -1,4 +1,4 @@
-import { intersectionArea, type Box } from './geometry';
+import { intersectionArea, unionBox, type Box } from './geometry';
 import type { PageLayout } from './layout';
 import { OVERLAP_AREA, type PlacedBlock } from './place';
 
@@ -36,6 +36,10 @@ export interface PageMetrics {
   nonProsePainted: number;
   /** Painted boxes that extend past the page's own box. */
   overflow: number;
+  /** Union of figure obstacles as a share of the page area, 0–1. */
+  figureAreaShare: number;
+  /** Share of all classified blocks that are labels or figure-labels, 0–1. */
+  labelShare: number;
 }
 
 export const METRIC_LIMITS = {
@@ -56,6 +60,13 @@ export const METRIC_LIMITS = {
   maxNonProsePainted: 0,
   /** A painted box may not run off the page. */
   maxOverflow: 0,
+  /**
+   * A cluster that covers more of the page than this, together with a high label share,
+   * is a page frame treated as a figure — titles and prose then get no grow budget.
+   */
+  maxFigureAreaShare: 0.5,
+  /** When figures are that large, labels may not be this share of every classified block. */
+  maxLabelShareWhenFigureHeavy: 0.35,
 } as const;
 
 /** Roles whose translation is the point of the page: body, titles, captions, table values. */
@@ -118,6 +129,18 @@ export function pageMetrics(
     }
   }
 
+  const pageArea = pageBox ? pageBox.width * pageBox.height : 0;
+  const figureUnion = unionBox(layout.obstacles ?? []);
+  const figureAreaShare =
+    pageArea > 0 && figureUnion !== null
+      ? Math.min(1, (figureUnion.width * figureUnion.height) / pageArea)
+      : 0;
+  const classified = [...layout.blocks, ...layout.skipped];
+  const labelCount = classified.filter(
+    (block) => block.role === 'label' || block.role === 'figure-label',
+  ).length;
+  const labelShare = classified.length === 0 ? 0 : labelCount / classified.length;
+
   return {
     blocks: layout.blocks.length,
     skipped: layout.skipped.length,
@@ -136,6 +159,8 @@ export function pageMetrics(
     proseCovered: translatable.length === 0 ? 1 : coveredProse / translatable.length,
     nonProsePainted: layout.skipped.length === 0 ? 0 : skippedPainted / layout.skipped.length,
     overflow,
+    figureAreaShare,
+    labelShare,
   };
 }
 
@@ -147,5 +172,11 @@ export function metricsPass(metrics: PageMetrics): boolean {
   if (metrics.proseCovered < METRIC_LIMITS.minProseCovered) return false;
   if (metrics.nonProsePainted > METRIC_LIMITS.maxNonProsePainted) return false;
   if (metrics.overflow > METRIC_LIMITS.maxOverflow) return false;
+  if (
+    metrics.figureAreaShare > METRIC_LIMITS.maxFigureAreaShare &&
+    metrics.labelShare > METRIC_LIMITS.maxLabelShareWhenFigureHeavy
+  ) {
+    return false;
+  }
   return true;
 }

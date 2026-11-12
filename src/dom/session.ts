@@ -16,7 +16,7 @@ import { isPlainAltS } from '@/shared/shortcuts';
 import { PriorityQueue } from '@/engine/queue/priority-queue';
 import { isAbortError, isLocalServerError, isModelChangedError } from '@/engine/errors';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
-import { mergeGlossary } from '@/shared/glossary';
+import { glossaryKey, mergeGlossary } from '@/shared/glossary';
 import {
   chooseTargetLanguage,
   effectivePageTarget,
@@ -2317,10 +2317,6 @@ function locationChanged(before: string, url: string | URL | null | undefined): 
 
 function openPlaceholderCount(source: string): number {
   return [...source.matchAll(/<i\d+>/g)].length;
-}
-
-function glossaryKey(glossary: readonly GlossaryEntry[] | undefined): string {
-  return (glossary ?? []).map((entry) => `${entry.source}\u0000${entry.target}`).join('\u0001');
 }
 
 function expandSource(item: Live): { id: string; text: string }[] {

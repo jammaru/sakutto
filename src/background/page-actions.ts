@@ -116,7 +116,9 @@ export async function openPdfForTab(
 export async function openPdfForTabReason(
   tab: { id?: number | undefined; url?: string | undefined } | undefined,
   pages = 0,
-): Promise<'no-tab' | 'not-pdf' | 'fetch-failed' | 'open-failed' | null> {
+): Promise<
+  'no-tab' | 'not-pdf' | 'fetch-failed' | 'too-large' | 'store-failed' | 'open-failed' | null
+> {
   const tabId = tab?.id;
   const url = tab?.url;
   if (tabId === undefined || typeof url !== 'string') return 'no-tab';
@@ -124,7 +126,7 @@ export async function openPdfForTabReason(
 
   await sweepStoredPdfs();
   const stored = await openPdfFromUrl(url);
-  if (!stored) return 'fetch-failed';
+  if (!stored.ok) return stored.reason;
 
   try {
     await browser.tabs.create({

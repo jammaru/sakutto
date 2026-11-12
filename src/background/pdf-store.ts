@@ -11,26 +11,49 @@ import { MAX_PDF_BYTES, PDF_STORE_DIRECTORY, looksLikePdfBytes } from '@/shared/
  * The copy is keyed by a random id, because a PDF's URL is not unique enough: the same paper
  * can be open from two places, and two tabs must not read each other's document.
  */
-export async function openPdfFromUrl(url: string): Promise<{ id: string; name: string } | null> {
+export type PdfStoreReason = 'fetch-failed' | 'too-large' | 'store-failed' | 'not-pdf';
+
+export type PdfStoreResult =
+  { ok: true; id: string; name: string } | { ok: false; reason: PdfStoreReason };
+
+/** Sidecar written next to the bytes: the file name only, never the URL (signed tokens). */
+export function storedPdfRecord(name: string): string {
+  return JSON.stringify({ name });
+}
+
+export function classifyFetchedPdf(
+  bytes: Uint8Array,
+  contentLength: number | null,
+): 'ok' | 'too-large' | 'not-pdf' {
+  if (contentLength !== null && Number.isFinite(contentLength) && contentLength > MAX_PDF_BYTES) {
+    return 'too-large';
+  }
+  if (bytes.byteLength > MAX_PDF_BYTES) return 'too-large';
+  if (!looksLikePdfBytes(bytes)) return 'not-pdf';
+  return 'ok';
+}
+
+export async function openPdfFromUrl(url: string): Promise<PdfStoreResult> {
   let response: Response;
   try {
     response = await fetch(url, { credentials: 'include' });
   } catch {
-    return null;
+    return { ok: false, reason: 'fetch-failed' };
   }
-  if (!response.ok) return null;
+  if (!response.ok) return { ok: false, reason: 'fetch-failed' };
 
-  const length = Number(response.headers.get('content-length') ?? '0');
-  if (Number.isFinite(length) && length > MAX_PDF_BYTES) return null;
+  const headerLength = Number(response.headers.get('content-length') ?? '');
+  const announced = Number.isFinite(headerLength) && headerLength > 0 ? headerLength : null;
+  if (announced !== null && announced > MAX_PDF_BYTES) return { ok: false, reason: 'too-large' };
 
   let bytes: Uint8Array;
   try {
     bytes = new Uint8Array(await response.arrayBuffer());
   } catch {
-    return null;
+    return { ok: false, reason: 'fetch-failed' };
   }
-  if (bytes.byteLength > MAX_PDF_BYTES) return null;
-  if (!looksLikePdfBytes(bytes)) return null;
+  const kind = classifyFetchedPdf(bytes, announced);
+  if (kind !== 'ok') return { ok: false, reason: kind };
 
   const id = crypto.randomUUID();
   const name = fileNameFrom(url, response);
@@ -44,19 +67,20 @@ export async function openPdfFromUrl(url: string): Promise<{ id: string; name: s
     await writable.close();
 
     // The reader shows the name from the store rather than from the URL, so a redirect or a
-    // signed link does not decide what the document is called.
+    // signed link does not decide what the document is called. The URL itself is not stored:
+    // it can carry a signed token that would otherwise sit in OPFS until the copy is swept.
     const meta = await directory.getFileHandle(`${id}.json`, { create: true });
     const metaWriter = await meta.createWritable();
-    await metaWriter.write(JSON.stringify({ name, url }));
+    await metaWriter.write(storedPdfRecord(name));
     await metaWriter.close();
 
     const index = await readIndex(directory);
     await writeIndex(directory, [...index, { id, at: Date.now() }]);
   } catch {
-    return null;
+    return { ok: false, reason: 'store-failed' };
   }
 
-  return { id, name };
+  return { ok: true, id, name };
 }
 
 interface IndexEntry {
@@ -125,12 +149,30 @@ export async function storedPdfName(id: string): Promise<string | null> {
   }
 }
 
+/** Removes one stored document. The reader calls this when its tab closes. */
+export async function deleteStoredPdf(id: string): Promise<void> {
+  if (!/^[0-9a-f-]{36}$/iu.test(id)) return;
+  try {
+    const root = await navigator.storage.getDirectory();
+    const directory = await root.getDirectoryHandle(PDF_STORE_DIRECTORY, { create: false });
+    await directory.removeEntry(`${id}.pdf`).catch(() => undefined);
+    await directory.removeEntry(`${id}.json`).catch(() => undefined);
+    const index = await readIndex(directory);
+    await writeIndex(
+      directory,
+      index.filter((entry) => entry.id !== id),
+    );
+  } catch {
+    // Nothing stored, or the origin has no OPFS: there is nothing to delete.
+  }
+}
+
 /**
  * Removes documents nobody is reading.
  *
- * The reader page keeps its copy for as long as it is open, and a closed tab leaves it behind.
- * Chrome gives no event for a closed tab, so the store keeps an index of what it wrote and
- * when, and the popup sweeps anything older than a day before it stores a new document.
+ * The reader page deletes its copy when the tab closes. A crash or a killed process can
+ * leave a file behind, so the store also keeps an index of what it wrote and when, and the
+ * popup sweeps anything older than a day before it stores a new document.
  */
 export async function sweepStoredPdfs(maxAgeMs = 24 * 60 * 60 * 1000): Promise<void> {
   try {

@@ -14,6 +14,11 @@ export const PDF_STORE_DIRECTORY = 'pdf';
 /** Longest PDF the extension will accept, in bytes. */
 export const MAX_PDF_BYTES = 200 * 1024 * 1024;
 
+export interface PdfForgetRequest {
+  type: 'pdf:forget';
+  id: string;
+}
+
 export interface PdfOpenRequest {
   type: 'pdf:open';
   tabId: number;
@@ -109,6 +114,12 @@ export function pdfFileName(url: string): string {
   } catch {
     return 'document.pdf';
   }
+}
+
+export function isPdfForgetRequest(value: unknown): value is PdfForgetRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const record = value as { type?: unknown; id?: unknown };
+  return record.type === 'pdf:forget' && typeof record.id === 'string' && record.id.length > 0;
 }
 
 export function isPdfOpenRequest(value: unknown): value is PdfOpenRequest {
