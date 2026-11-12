@@ -889,6 +889,89 @@
       }
     }
   },
+  "openPdf": {
+    "message": "Translate this PDF",
+    "description": "Button that opens the PDF the current tab shows in the extension's reader."
+  },
+  "openPdfHint": {
+    "message": "Opens the PDF in Sakutto and translates it in place, keeping the page layout."
+  },
+  "contextTranslatePdf": {
+    "message": "Translate this PDF with Sakutto",
+    "description": "Right-click menu item on a PDF tab."
+  },
+  "commandPdf": {
+    "message": "Open the PDF in Sakutto",
+    "description": "Name of the keyboard shortcut that opens a PDF."
+  },
+  "pdfReaderTitle": {
+    "message": "PDF"
+  },
+  "pdfUntitled": {
+    "message": "Document.pdf"
+  },
+  "pdfPreparing": {
+    "message": "Reading the document…"
+  },
+  "pdfReading": {
+    "message": "Reading page $PAGE$ of $TOTAL$",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfTranslated": {
+    "message": "Translated"
+  },
+  "pdfPageNoText": {
+    "message": "This page is a scan or a picture — it has no selectable text, so nothing here can be translated.",
+    "description": "Shown on a scanned or image-only page instead of a translation."
+  },
+  "pdfNoText": {
+    "message": "This document is a scan or a set of pictures, with no text layer to translate. Open a PDF that contains real text, or run optical character recognition first."
+  },
+  "pdfTranslateFailed": {
+    "message": "This part could not be translated."
+  },
+  "pdfMissing": {
+    "message": "The document is no longer available. Open the PDF again from its tab."
+  },
+  "pdfBroken": {
+    "message": "The document could not be opened. It may be damaged, or protected by a password."
+  },
+  "pdfModelMissing": {
+    "message": "The pages are shown, but translating them needs the PLaMo model. Download it to translate this document."
+  },
+  "pdfOpenFailed": {
+    "message": "Could not open this PDF. Reload the page and try again."
+  },
+  "pdfChooseFile": {
+    "message": "Choose a PDF file"
+  },
+  "pdfKeptAsIs": {
+    "message": "$COUNT$ parts were left as the page set them: equations, axis ticks, and code keep their original typesetting.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfSelectHint": {
+    "message": "Select text on a page to translate just that part."
+  },
+  "pdfSelectTranslate": {
+    "message": "Translate the selection"
+  },
+  "pdfSelectFailed": {
+    "message": "This selection could not be translated."
+  },
+  "pdfSelectClear": {
+    "message": "Show the original"
+  },
   "commandCompose": {
     "message": "Translate the text you are writing"
   },
@@ -1263,5 +1346,17 @@
   },
   "videoCaptionsPositionHelp": {
     "message": "Press and hold a translated caption to move it. YouTube and X remember their own spots, including fullscreen and theater. This puts the caption back at the bottom of the player."
+  },
+  "pdfOverflow": {
+    "message": "$COUNT$ parts did not fit on the page. Open the marker to read the translation.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "Toolbar note when some translations are offered on a marker instead of in place."
+  },
+  "pdfOverflowOpen": {
+    "message": "Show translation"
   }
 }

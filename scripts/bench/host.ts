@@ -37,6 +37,10 @@ export interface ChromeApi {
   runtime: {
     sendMessage(message: unknown): Promise<unknown>;
   };
+  permissions: {
+    request(request: { origins: string[] }): Promise<boolean>;
+    contains(request: { origins: string[] }): Promise<boolean>;
+  };
   storage: {
     local: {
       set(items: Record<string, unknown>): Promise<void>;
@@ -45,6 +49,7 @@ export interface ChromeApi {
   tabs: {
     query(query: Record<string, unknown>): Promise<Array<{ id?: number }>>;
     sendMessage(tabId: number, message: unknown): Promise<unknown>;
+    get(tabId: number): Promise<{ id?: number; url?: string }>;
   };
   scripting: {
     executeScript(options: { target: { tabId: number }; files: string[] }): Promise<unknown>;

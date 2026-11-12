@@ -26,6 +26,7 @@
   import type { QualitySample } from '@/shared/quality';
   import type { Settings } from '@/shared/settings';
   import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
+  import { isPdfOpenResult, looksLikePdfUrl, type PdfOpenRequest } from '@/shared/pdf';
   import {
     loadSiteRule,
     pageHost,
@@ -84,6 +85,9 @@
   let commandBusy = $state(false);
   let permissionError = $state(false);
   let captionPermissionError = $state(false);
+  let pdfUrl = $state('');
+  let pdfBusy = $state(false);
+  let pdfFailed = $state(false);
   let engine = $state<EngineStatus | null>(null);
   let modelMark = $state<ModelStatus | null>(null);
   let quality = $state<QualitySample | null>(null);
@@ -120,6 +124,13 @@
       ? tForBrowser('shortcutFallbackNote', 'shortcutFallbackNoteFirefox')
       : '',
   );
+  /**
+   * The hints under the shortcut button. A PDF tab shows the reader instead of page
+   * translation, so none of the page commands apply there. The PDF command has no suggested
+   * key either — Chrome allows four and the page commands use them all — so the list is
+   * empty on a PDF tab rather than naming a key the browser never bound.
+   */
+  let visibleShortcutLines = $derived(pdfUrl.length > 0 ? [] : shortcutLines);
   let toggleKeys = $derived(ariaShortcut(bound['translate-page']) ?? undefined);
 
   function keyText(command: ShortcutCommand): string {
@@ -178,11 +189,15 @@
 
   async function refreshPage() {
     permissionError = false;
+    pdfFailed = false;
     try {
       const tabs = await browser.tabs.query({ active: true, currentWindow: true });
       const tab = tabs[0];
       tabId = tab?.id;
       pageUrl = tab?.url ?? '';
+      // A PDF tab shows Chrome's own viewer, which no content script can reach, so the popup
+      // offers the reader instead of the page controls.
+      pdfUrl = tab?.url && looksLikePdfUrl(tab.url) ? tab.url : '';
       host = pageUrl ? pageHost(pageUrl) : null;
       pageReady = tabId !== undefined && host !== null;
       if (!pageReady || !host || tabId === undefined) {
@@ -262,6 +277,29 @@
       view = await requestPageCommand(tabId, view?.active ? 'restore' : 'toggle');
     } finally {
       commandBusy = false;
+    }
+  }
+
+  /**
+   * Opens the PDF the tab shows in the extension's reader.
+   *
+   * The background reads the bytes, stores them and opens the reader tab, because a popup
+   * closes as soon as it loses focus and a fetch from here would be cancelled halfway.
+   */
+  async function openPdf() {
+    if (pdfBusy || tabId === undefined || pdfUrl.length === 0) return;
+    pdfBusy = true;
+    pdfFailed = false;
+    try {
+      const response: unknown = await browser.runtime.sendMessage({
+        type: 'pdf:open',
+        tabId,
+      } satisfies PdfOpenRequest);
+      if (!isPdfOpenResult(response) || !response.opened) pdfFailed = true;
+    } catch {
+      pdfFailed = true;
+    } finally {
+      pdfBusy = false;
     }
   }
 
@@ -423,18 +461,34 @@
     </div>
   </header>
 
-  <button
-    class="button block"
-    type="button"
-    aria-keyshortcuts={toggleKeys}
-    aria-busy={view?.pending ? 'true' : 'false'}
-    disabled={!pageReady || commandBusy || !canStart}
-    onclick={translatePage}
-  >
-    {primaryLabel}
-  </button>
+  {#if pdfUrl.length > 0}
+    <button
+      class="button block"
+      type="button"
+      aria-busy={pdfBusy ? 'true' : 'false'}
+      disabled={pdfBusy}
+      onclick={openPdf}
+    >
+      {t('openPdf')}
+    </button>
+    <p class="muted hint-text">{t('openPdfHint')}</p>
+    {#if pdfFailed}
+      <p class="error" role="alert">{t('pdfOpenFailed')}</p>
+    {/if}
+  {:else}
+    <button
+      class="button block"
+      type="button"
+      aria-keyshortcuts={toggleKeys}
+      aria-busy={view?.pending ? 'true' : 'false'}
+      disabled={!pageReady || commandBusy || !canStart}
+      onclick={translatePage}
+    >
+      {primaryLabel}
+    </button>
+  {/if}
 
-  {#if !canStart}
+  {#if !canStart && pdfUrl.length === 0}
     <div class="panel gate" role="status">
       <p class="muted">{t('pageStartBlocked')}</p>
       <button class="link-button" type="button" onclick={openOnboarding}>
@@ -502,22 +556,24 @@
         {uiLanguage}
         onChange={(language: TargetLanguage) => void changeTarget(language)}
       />
-      <label class="field">
-        <span>{t('displayLabel')}</span>
-        <span class="hint">{t('displaySiteHint')}</span>
-        <select
-          value={display}
-          onchange={(event) => {
-            const select = event.currentTarget as HTMLSelectElement;
-            void rememberSite({
-              display: select.value === 'bilingual' ? 'bilingual' : 'replace',
-            });
-          }}
-        >
-          <option value="replace">{t('displayReplace')}</option>
-          <option value="bilingual">{t('displayBilingual')}</option>
-        </select>
-      </label>
+      {#if pdfUrl.length === 0}
+        <label class="field">
+          <span>{t('displayLabel')}</span>
+          <span class="hint">{t('displaySiteHint')}</span>
+          <select
+            value={display}
+            onchange={(event) => {
+              const select = event.currentTarget as HTMLSelectElement;
+              void rememberSite({
+                display: select.value === 'bilingual' ? 'bilingual' : 'replace',
+              });
+            }}
+          >
+            <option value="replace">{t('displayReplace')}</option>
+            <option value="bilingual">{t('displayBilingual')}</option>
+          </select>
+        </label>
+      {/if}
       <label class="check">
         <input type="checkbox" checked={rule?.auto === 'always'} onchange={setAlways} />
         <span>{t('alwaysTranslateSite')}</span>
@@ -568,7 +624,7 @@
   {/if}
 
   <ul class="shortcuts">
-    {#each shortcutLines as line (line.label)}
+    {#each visibleShortcutLines as line (line.label)}
       <li>{line.text}</li>
     {/each}
   </ul>
@@ -640,6 +696,11 @@
 
   .hint {
     font-weight: 400;
+  }
+
+  .hint-text {
+    font-size: 12px;
+    line-height: 1.5;
   }
 
   .field,

@@ -889,6 +889,85 @@
       }
     }
   },
+  "openPdf": {
+    "message": "翻译此 PDF"
+  },
+  "openPdfHint": {
+    "message": "在 Sakutto 中打开该 PDF，并在原位翻译，保留页面版式。"
+  },
+  "contextTranslatePdf": {
+    "message": "用 Sakutto 翻译此 PDF"
+  },
+  "commandPdf": {
+    "message": "在 Sakutto 中打开 PDF"
+  },
+  "pdfReaderTitle": {
+    "message": "PDF"
+  },
+  "pdfUntitled": {
+    "message": "文档.pdf"
+  },
+  "pdfPreparing": {
+    "message": "正在读取文档…"
+  },
+  "pdfReading": {
+    "message": "正在读取第 $PAGE$ 页，共 $TOTAL$ 页",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfTranslated": {
+    "message": "已翻译"
+  },
+  "pdfPageNoText": {
+    "message": "此页是扫描件或图片，没有可选择的文字，因此无法翻译。"
+  },
+  "pdfNoText": {
+    "message": "此文档是扫描件或一组图片，没有可翻译的文字层。请打开含真实文字的 PDF，或先进行文字识别。"
+  },
+  "pdfTranslateFailed": {
+    "message": "此部分无法翻译。"
+  },
+  "pdfMissing": {
+    "message": "文档已不可用。请从对应的标签页重新打开 PDF。"
+  },
+  "pdfBroken": {
+    "message": "无法打开文档。文件可能已损坏，或受到密码保护。"
+  },
+  "pdfModelMissing": {
+    "message": "页面已显示，但翻译需要 PLaMo 模型。下载模型即可翻译此文档。"
+  },
+  "pdfOpenFailed": {
+    "message": "无法打开此 PDF。请重新加载页面后再试。"
+  },
+  "pdfChooseFile": {
+    "message": "选择 PDF 文件"
+  },
+  "pdfKeptAsIs": {
+    "message": "有 $COUNT$ 处保持页面原有排版：公式、坐标刻度和代码仍按原文排版。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfSelectHint": {
+    "message": "在页面上选择文字，即可只翻译该部分。"
+  },
+  "pdfSelectTranslate": {
+    "message": "翻译所选内容"
+  },
+  "pdfSelectFailed": {
+    "message": "无法翻译此部分。"
+  },
+  "pdfSelectClear": {
+    "message": "显示原文"
+  },
   "commandCompose": {
     "message": "翻译正在输入的文本"
   },
@@ -1263,5 +1342,16 @@
   },
   "videoCaptionsPositionHelp": {
     "message": "长按译文字幕即可在播放器内拖动。YouTube 和 X 会分别记住位置，全屏和剧场模式也会保持。此按钮会把字幕放回播放器底部。"
+  },
+  "pdfOverflow": {
+    "message": "有 $COUNT$ 处无法排进页面。打开标记即可阅读译文。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfOverflowOpen": {
+    "message": "显示译文"
   }
 }

@@ -889,6 +889,89 @@
       }
     }
   },
+  "openPdf": {
+    "message": "この PDF を翻訳",
+    "description": "現在のタブが表示している PDF を拡張機能のリーダーで開くボタン。"
+  },
+  "openPdfHint": {
+    "message": "PDF を Sakutto で開き、ページのレイアウトを保ったまま翻訳します。"
+  },
+  "contextTranslatePdf": {
+    "message": "この PDF を Sakutto で翻訳",
+    "description": "PDF のタブで右クリックしたときのメニュー。"
+  },
+  "commandPdf": {
+    "message": "PDF を Sakutto で開く",
+    "description": "PDF を開くキーボードショートカットの名前。"
+  },
+  "pdfReaderTitle": {
+    "message": "PDF"
+  },
+  "pdfUntitled": {
+    "message": "document.pdf"
+  },
+  "pdfPreparing": {
+    "message": "文書を読み込んでいます…"
+  },
+  "pdfReading": {
+    "message": "$TOTAL$ ページ中 $PAGE$ ページ目を読み込み中",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfTranslated": {
+    "message": "翻訳しました"
+  },
+  "pdfPageNoText": {
+    "message": "このページはスキャンまたは画像で、選べる文字がないため翻訳できません。",
+    "description": "スキャンや画像のみのページで、翻訳の代わりに表示する文。"
+  },
+  "pdfNoText": {
+    "message": "この文書はスキャンまたは画像のみで、翻訳できる文字がありません。文字情報のある PDF を開くか、先に OCR をかけてください。"
+  },
+  "pdfTranslateFailed": {
+    "message": "この部分は翻訳できませんでした。"
+  },
+  "pdfMissing": {
+    "message": "文書が見つかりません。PDF のタブからもう一度開いてください。"
+  },
+  "pdfBroken": {
+    "message": "文書を開けませんでした。壊れているか、パスワードで保護されている可能性があります。"
+  },
+  "pdfModelMissing": {
+    "message": "ページは表示していますが、翻訳には PLaMo のモデルが必要です。ダウンロードするとこの文書を翻訳できます。"
+  },
+  "pdfOpenFailed": {
+    "message": "この PDF を開けませんでした。ページを再読み込みしてから試してください。"
+  },
+  "pdfChooseFile": {
+    "message": "PDF ファイルを選ぶ"
+  },
+  "pdfKeptAsIs": {
+    "message": "$COUNT$ か所はページの組版のまま残しました。数式、軸の目盛り、コードは元の組版のままです。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfSelectHint": {
+    "message": "ページ上の文字を選ぶと、その部分だけを翻訳できます。"
+  },
+  "pdfSelectTranslate": {
+    "message": "選択した部分を翻訳"
+  },
+  "pdfSelectFailed": {
+    "message": "この部分は翻訳できませんでした。"
+  },
+  "pdfSelectClear": {
+    "message": "原文を表示"
+  },
   "commandCompose": {
     "message": "入力中のテキストを翻訳します"
   },
@@ -1263,5 +1346,16 @@
   },
   "videoCaptionsPositionHelp": {
     "message": "翻訳字幕を長押しすると、プレーヤー内で場所を変えられます。YouTube と X はそれぞれ位置を覚え、全画面やシアターでも保ちます。このボタンで下部の元の位置に戻します。"
+  },
+  "pdfOverflow": {
+    "message": "$COUNT$ か所は枠に入りませんでした。印を開くと訳を読めます。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfOverflowOpen": {
+    "message": "訳を表示"
   }
 }

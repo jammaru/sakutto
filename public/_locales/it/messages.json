@@ -889,6 +889,85 @@
       }
     }
   },
+  "openPdf": {
+    "message": "Traduci questo PDF"
+  },
+  "openPdfHint": {
+    "message": "Apre il PDF in Sakutto e lo traduce sul posto, mantenendo l'impaginazione."
+  },
+  "contextTranslatePdf": {
+    "message": "Traduci questo PDF con Sakutto"
+  },
+  "commandPdf": {
+    "message": "Apri il PDF in Sakutto"
+  },
+  "pdfReaderTitle": {
+    "message": "PDF"
+  },
+  "pdfUntitled": {
+    "message": "Documento.pdf"
+  },
+  "pdfPreparing": {
+    "message": "Lettura del documento…"
+  },
+  "pdfReading": {
+    "message": "Lettura della pagina $PAGE$ di $TOTAL$",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfTranslated": {
+    "message": "Tradotto"
+  },
+  "pdfPageNoText": {
+    "message": "Questa pagina è una scansione o un’immagine senza testo selezionabile, quindi non può essere tradotta."
+  },
+  "pdfNoText": {
+    "message": "Questo documento è una scansione o un insieme di immagini, senza livello di testo. Apri un PDF con testo reale oppure esegui prima il riconoscimento ottico dei caratteri."
+  },
+  "pdfTranslateFailed": {
+    "message": "Questa parte non è stata tradotta."
+  },
+  "pdfMissing": {
+    "message": "Il documento non è più disponibile. Riapri il PDF dalla sua scheda."
+  },
+  "pdfBroken": {
+    "message": "Il documento non è stato aperto. Potrebbe essere danneggiato o protetto da password."
+  },
+  "pdfModelMissing": {
+    "message": "Le pagine sono visibili, ma per tradurle serve il modello PLaMo. Scaricalo per tradurre questo documento."
+  },
+  "pdfOpenFailed": {
+    "message": "Questo PDF non è stato aperto. Ricarica la pagina e riprova."
+  },
+  "pdfChooseFile": {
+    "message": "Scegli un file PDF"
+  },
+  "pdfKeptAsIs": {
+    "message": "$COUNT$ parti sono rimaste come le ha impaginate la pagina: equazioni, tacche degli assi e codice restano nella composizione originale.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfSelectHint": {
+    "message": "Seleziona il testo su una pagina per tradurre solo quella parte."
+  },
+  "pdfSelectTranslate": {
+    "message": "Traduci la selezione"
+  },
+  "pdfSelectFailed": {
+    "message": "Questa selezione non è stata tradotta."
+  },
+  "pdfSelectClear": {
+    "message": "Mostra l’originale"
+  },
   "commandCompose": {
     "message": "Traduci il testo che stai scrivendo"
   },
@@ -1263,5 +1342,16 @@
   },
   "videoCaptionsPositionHelp": {
     "message": "Tieni premuto un sottotitolo tradotto per spostarlo. YouTube e X ricordano ciascuno la propria posizione, anche a schermo intero e in modalità cinema. Questo pulsante lo riporta in basso nel lettore."
+  },
+  "pdfOverflow": {
+    "message": "$COUNT$ parti non sono entrate nella pagina. Apri il contrassegno per leggere la traduzione.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfOverflowOpen": {
+    "message": "Mostra traduzione"
   }
 }

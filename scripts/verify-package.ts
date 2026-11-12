@@ -39,6 +39,7 @@ export const REQUIRED_ENTRIES = [
   'onboarding.html',
   'sample.html',
   'typed.html',
+  'reader.html',
   'gpu-probe.js',
   'grant.html',
   'offscreen.html',
@@ -65,6 +66,14 @@ export const REQUIRED_ENTRIES = [
   'vendor/wllama/wllama-compat-module.js',
   'vendor/wllama/wllama-compat-pthread.js',
   'vendor/wllama/wllama-build.json',
+  // The PDF reader's build. A document that declares a CJK font needs the CMaps, and one
+  // that leaves a standard font undeclared needs the substitute beside it.
+  'vendor/pdfjs/build/pdf.min.mjs',
+  'vendor/pdfjs/build/pdf.worker.min.mjs',
+  'vendor/pdfjs/pdfjs-build.json',
+  'vendor/pdfjs/LICENSE-pdfjs.txt',
+  'vendor/pdfjs/cmaps/UniJIS-UCS2-H.bcmap',
+  'vendor/pdfjs/standard_fonts/FoxitSerif.pfb',
 ] as const;
 
 /**

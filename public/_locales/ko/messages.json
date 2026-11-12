@@ -889,6 +889,85 @@
       }
     }
   },
+  "openPdf": {
+    "message": "이 PDF 번역"
+  },
+  "openPdfHint": {
+    "message": "PDF를 Sakutto에서 열고 페이지 레이아웃을 유지한 채 그 자리에서 번역합니다."
+  },
+  "contextTranslatePdf": {
+    "message": "이 PDF를 Sakutto로 번역"
+  },
+  "commandPdf": {
+    "message": "Sakutto에서 PDF 열기"
+  },
+  "pdfReaderTitle": {
+    "message": "PDF"
+  },
+  "pdfUntitled": {
+    "message": "문서.pdf"
+  },
+  "pdfPreparing": {
+    "message": "문서를 읽는 중…"
+  },
+  "pdfReading": {
+    "message": "$TOTAL$쪽 중 $PAGE$쪽 읽는 중",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfTranslated": {
+    "message": "번역됨"
+  },
+  "pdfPageNoText": {
+    "message": "이 페이지는 스캔이거나 이미지라서 선택할 텍스트가 없어 번역할 수 없습니다."
+  },
+  "pdfNoText": {
+    "message": "이 문서는 스캔이거나 이미지뿐이라 번역할 텍스트 레이어가 없습니다. 실제 텍스트가 있는 PDF를 열거나 먼저 문자 인식을 실행하세요."
+  },
+  "pdfTranslateFailed": {
+    "message": "이 부분은 번역할 수 없습니다."
+  },
+  "pdfMissing": {
+    "message": "문서를 더 이상 사용할 수 없습니다. PDF 탭에서 다시 열어 주세요."
+  },
+  "pdfBroken": {
+    "message": "문서를 열 수 없습니다. 손상되었거나 비밀번호로 보호되어 있을 수 있습니다."
+  },
+  "pdfModelMissing": {
+    "message": "페이지는 표시되지만 번역하려면 PLaMo 모델이 필요합니다. 내려받으면 이 문서를 번역할 수 있습니다."
+  },
+  "pdfOpenFailed": {
+    "message": "이 PDF를 열 수 없습니다. 페이지를 새로 고친 뒤 다시 시도하세요."
+  },
+  "pdfChooseFile": {
+    "message": "PDF 파일 선택"
+  },
+  "pdfKeptAsIs": {
+    "message": "$COUNT$곳은 페이지의 조판을 그대로 두었습니다. 수식, 축 눈금, 코드는 원래 조판 그대로입니다.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfSelectHint": {
+    "message": "페이지에서 글자를 선택하면 그 부분만 번역합니다."
+  },
+  "pdfSelectTranslate": {
+    "message": "선택한 부분 번역"
+  },
+  "pdfSelectFailed": {
+    "message": "이 부분은 번역할 수 없습니다."
+  },
+  "pdfSelectClear": {
+    "message": "원문 보기"
+  },
   "commandCompose": {
     "message": "작성 중인 텍스트를 번역합니다"
   },
@@ -1263,5 +1342,16 @@
   },
   "videoCaptionsPositionHelp": {
     "message": "번역 자막을 길게 누르면 플레이어 안에서 위치를 옮길 수 있습니다. YouTube와 X는 각각 위치를 기억하며 전체 화면과 시어터에서도 유지됩니다. 이 버튼은 자막을 플레이어 하단으로 되돌립니다."
+  },
+  "pdfOverflow": {
+    "message": "$COUNT$곳은 페이지에 들어가지 않았습니다. 표시를 열어 번역을 읽으세요.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfOverflowOpen": {
+    "message": "번역 보기"
   }
 }

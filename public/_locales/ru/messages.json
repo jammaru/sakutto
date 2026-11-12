@@ -889,6 +889,85 @@
       }
     }
   },
+  "openPdf": {
+    "message": "Перевести этот PDF"
+  },
+  "openPdfHint": {
+    "message": "Открывает PDF в Sakutto и переводит его на месте, сохраняя вёрстку страницы."
+  },
+  "contextTranslatePdf": {
+    "message": "Перевести этот PDF в Sakutto"
+  },
+  "commandPdf": {
+    "message": "Открыть PDF в Sakutto"
+  },
+  "pdfReaderTitle": {
+    "message": "PDF"
+  },
+  "pdfUntitled": {
+    "message": "Документ.pdf"
+  },
+  "pdfPreparing": {
+    "message": "Чтение документа…"
+  },
+  "pdfReading": {
+    "message": "Чтение страницы $PAGE$ из $TOTAL$",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfTranslated": {
+    "message": "Переведено"
+  },
+  "pdfPageNoText": {
+    "message": "Эта страница — скан или изображение без выделяемого текста, поэтому её нельзя перевести."
+  },
+  "pdfNoText": {
+    "message": "Этот документ — скан или набор изображений без текстового слоя. Откройте PDF с настоящим текстом или сначала выполните распознавание."
+  },
+  "pdfTranslateFailed": {
+    "message": "Эту часть перевести не удалось."
+  },
+  "pdfMissing": {
+    "message": "Документ больше недоступен. Откройте PDF заново из его вкладки."
+  },
+  "pdfBroken": {
+    "message": "Документ не удалось открыть. Возможно, он повреждён или защищён паролем."
+  },
+  "pdfModelMissing": {
+    "message": "Страницы показаны, но для перевода нужна модель PLaMo. Скачайте её, чтобы перевести этот документ."
+  },
+  "pdfOpenFailed": {
+    "message": "Не удалось открыть этот PDF. Перезагрузите страницу и попробуйте снова."
+  },
+  "pdfChooseFile": {
+    "message": "Выбрать файл PDF"
+  },
+  "pdfKeptAsIs": {
+    "message": "$COUNT$ фрагментов оставлены как на странице: формулы, деления осей и код сохраняют исходную вёрстку.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfSelectHint": {
+    "message": "Выделите текст на странице, чтобы перевести только эту часть."
+  },
+  "pdfSelectTranslate": {
+    "message": "Перевести выделенное"
+  },
+  "pdfSelectFailed": {
+    "message": "Эту часть перевести не удалось."
+  },
+  "pdfSelectClear": {
+    "message": "Показать оригинал"
+  },
   "commandCompose": {
     "message": "Перевести текст, который вы пишете"
   },
@@ -1263,5 +1342,16 @@
   },
   "videoCaptionsPositionHelp": {
     "message": "Нажмите и удерживайте перевод субтитров, чтобы переместить их. YouTube и X запоминают положение отдельно, в том числе в полноэкранном и театральном режимах. Эта кнопка возвращает субтитры вниз плеера."
+  },
+  "pdfOverflow": {
+    "message": "$COUNT$ фрагментов не поместились на странице. Откройте метку, чтобы прочитать перевод.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfOverflowOpen": {
+    "message": "Показать перевод"
   }
 }

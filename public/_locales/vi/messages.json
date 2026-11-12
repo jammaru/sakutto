@@ -889,6 +889,85 @@
       }
     }
   },
+  "openPdf": {
+    "message": "Dịch PDF này"
+  },
+  "openPdfHint": {
+    "message": "Mở PDF trong Sakutto và dịch ngay tại chỗ, giữ nguyên bố cục trang."
+  },
+  "contextTranslatePdf": {
+    "message": "Dịch PDF này bằng Sakutto"
+  },
+  "commandPdf": {
+    "message": "Mở PDF trong Sakutto"
+  },
+  "pdfReaderTitle": {
+    "message": "PDF"
+  },
+  "pdfUntitled": {
+    "message": "Tài liệu.pdf"
+  },
+  "pdfPreparing": {
+    "message": "Đang đọc tài liệu…"
+  },
+  "pdfReading": {
+    "message": "Đang đọc trang $PAGE$ trên $TOTAL$",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfTranslated": {
+    "message": "Đã dịch"
+  },
+  "pdfPageNoText": {
+    "message": "Trang này là bản quét hoặc hình ảnh, không có chữ để chọn nên không dịch được."
+  },
+  "pdfNoText": {
+    "message": "Tài liệu này là bản quét hoặc tập hình ảnh, không có lớp chữ để dịch. Hãy mở PDF có chữ thật, hoặc chạy nhận dạng chữ trước."
+  },
+  "pdfTranslateFailed": {
+    "message": "Không thể dịch phần này."
+  },
+  "pdfMissing": {
+    "message": "Tài liệu không còn khả dụng. Hãy mở lại PDF từ thẻ của nó."
+  },
+  "pdfBroken": {
+    "message": "Không thể mở tài liệu. Có thể tệp bị hỏng hoặc được bảo vệ bằng mật khẩu."
+  },
+  "pdfModelMissing": {
+    "message": "Các trang đã được hiển thị, nhưng muốn dịch cần có mô hình PLaMo. Hãy tải mô hình để dịch tài liệu này."
+  },
+  "pdfOpenFailed": {
+    "message": "Không thể mở PDF này. Hãy tải lại trang rồi thử lại."
+  },
+  "pdfChooseFile": {
+    "message": "Chọn tệp PDF"
+  },
+  "pdfKeptAsIs": {
+    "message": "$COUNT$ phần được giữ nguyên như trang đã sắp: phương trình, vạch trục và mã nguồn giữ cách sắp ban đầu.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfSelectHint": {
+    "message": "Chọn văn bản trên trang để chỉ dịch phần đó."
+  },
+  "pdfSelectTranslate": {
+    "message": "Dịch phần đã chọn"
+  },
+  "pdfSelectFailed": {
+    "message": "Không thể dịch phần này."
+  },
+  "pdfSelectClear": {
+    "message": "Hiện bản gốc"
+  },
   "commandCompose": {
     "message": "Dịch văn bản bạn đang viết"
   },
@@ -1263,5 +1342,16 @@
   },
   "videoCaptionsPositionHelp": {
     "message": "Nhấn giữ phụ đề đã dịch để di chuyển. YouTube và X nhớ vị trí riêng, kể cả toàn màn hình và chế độ rạp. Nút này đưa phụ đề về cuối trình phát."
+  },
+  "pdfOverflow": {
+    "message": "$COUNT$ đoạn không vừa trang. Mở dấu để đọc bản dịch.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfOverflowOpen": {
+    "message": "Hiện bản dịch"
   }
 }

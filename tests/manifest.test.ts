@@ -4,6 +4,7 @@ import {
   CHROME_DEFAULT_SHORTCUTS,
   CHROME_MAC_DEFAULT_SHORTCUTS,
   FIREFOX_DEFAULT_SHORTCUTS,
+  MAX_SUGGESTED_SHORTCUTS,
 } from '@/shared/shortcuts';
 import config from '../wxt.config';
 
@@ -73,14 +74,30 @@ describe('extension manifest', () => {
         suggested_key: { default: 'Alt+T', mac: 'Alt+T' },
         description: '__MSG_commandCompose__',
       },
+      // Opening a PDF is a separate action: Chrome's viewer has no page the content script
+      // could reach, so the background opens the document in the extension's own reader. It
+      // carries no suggested key, which is the one way Chrome accepts a fifth command.
+      'translate-pdf': {
+        description: '__MSG_commandPdf__',
+      },
     });
     expect(chromeManifest.permissions).toContain('contextMenus');
     const commands = chromeManifest.commands as Record<string, { suggested_key?: unknown }>;
-    const withSuggested = Object.values(commands).filter(
-      (command) => command.suggested_key !== undefined,
-    );
-    expect(withSuggested).toHaveLength(4);
     expect(commands).not.toHaveProperty('_execute_action');
+  });
+
+  /**
+   * Chrome refuses to load the whole extension when a fifth command asks for a key:
+   * `Too many shortcuts specified for 'commands': The maximum is 4`. That is not a warning —
+   * the add-on simply does not start — so the count is pinned here rather than left to a
+   * reviewer to notice. The PDF command is the fifth command and carries no key for exactly
+   * this reason.
+   */
+  it('asks for a key on no more commands than Chrome allows', () => {
+    const commands = Object.values(
+      chromeManifest.commands as Record<string, { suggested_key?: unknown }>,
+    ).filter((command) => command.suggested_key !== undefined);
+    expect(commands).toHaveLength(MAX_SUGGESTED_SHORTCUTS);
   });
 
   /**
@@ -148,6 +165,11 @@ describe('Firefox manifest', () => {
       expect(commands[name]?.suggested_key.default, name).toBe(shortcut);
       expect(commands[name]?.suggested_key, name).not.toHaveProperty('mac');
     }
+    // The PDF command is declared for Firefox too, and likewise carries no key: the four page
+    // commands use up Chrome's allowance of four, and one manifest shape is easier to keep
+    // correct than two that differ only in a limit one of them has.
+    expect(commands['translate-pdf']).not.toHaveProperty('suggested_key');
+    expect(commands['translate-pdf']).toHaveProperty('description', '__MSG_commandPdf__');
   });
 
   it('keeps the same CSP as Chrome so wasm can compile', () => {

@@ -47,10 +47,17 @@ function withoutComments(code: string): string {
  * Every file that can execute. `public` is read too: `public/gpu-probe.js` is loaded into an
  * `about:srcdoc` frame on the offscreen page (`src/shared/capabilities.ts`), so a `fetch`
  * added there would sit outside the `src` tree the first version of this check scanned.
+ *
+ * `public/vendor` holds third-party builds — wllama and pdf.js — copied in by their own build
+ * scripts. They are not this project's code, they are reviewed as pinned artifacts with a
+ * hash manifest, and their compiled output contains the libraries' own networking helpers.
+ * What matters about them is that the extension never asks them to load anything remote, and
+ * that is what the asset checks below cover.
  */
-const files = [...sources('src', /\.(?:ts|svelte)$/u), ...sources('public', /\.(?:js|ts)$/u)].map(
-  (file) => ({ ...file, code: withoutComments(file.code) }),
-);
+const files = [
+  ...sources('src', /\.(?:ts|svelte)$/u),
+  ...sources('public', /\.(?:js|ts)$/u).filter((file) => !file.path.startsWith('public/vendor/')),
+].map((file) => ({ ...file, code: withoutComments(file.code) }));
 
 /**
  * Markup and stylesheets, where a remote script, stylesheet or font is actually declared.
@@ -63,7 +70,9 @@ const files = [...sources('src', /\.(?:ts|svelte)$/u), ...sources('public', /\.(
  */
 const markup = [
   ...sources('src', /\.(?:ts|html|css|svelte)$/u),
-  ...sources('public', /\.(?:html|css|js)$/u),
+  ...sources('public', /\.(?:html|css|js)$/u).filter(
+    (file) => !file.path.startsWith('public/vendor/'),
+  ),
 ].map((file) => ({ ...file, code: withoutComments(file.code) }));
 
 /** A URL that leaves the extension's own origin, including a protocol-relative one. */
@@ -143,7 +152,17 @@ const NETWORK_SINKS = [
 ];
 
 describe('network surface', () => {
-  it('keeps every network sink in the model download', () => {
+  /**
+   * The two files allowed to reach the network, and nothing else.
+   *
+   * `download.ts` is the model. `pdf-store.ts` is the PDF reader, and it is the one place a
+   * page's own address is requested: a PDF is drawn in Chrome's viewer, which no content
+   * script can read, so the extension asks for the same URL the tab is showing. That request
+   * goes to the site the reader is already on, with the credentials the tab already has, and
+   * the bytes go no further than the extension's own storage. Its own test below pins that
+   * shape — no upload, no third-party host, nothing sent anywhere but that one origin.
+   */
+  it('keeps every network sink in the model download and the PDF reader', () => {
     const reaching = files.filter(
       (file) =>
         /\bfetch\w*\s*\(/u.test(file.code) ||
@@ -151,6 +170,7 @@ describe('network surface', () => {
     );
 
     expect(reaching.map((file) => file.path).sort()).toEqual([
+      'src/background/pdf-store.ts',
       'src/captions/timedtext.ts',
       'src/engine/local-server/client.ts',
       'src/engine/model/download.ts',
@@ -182,6 +202,26 @@ describe('network surface', () => {
     expect(call).not.toMatch(/\bbody\s*:/u);
     expect(call).not.toMatch(/\bcredentials\s*:/u);
     expect(call).not.toMatch(/\bmethod\s*:/u);
+  });
+
+  it('asks the PDF reader’s own origin for a document, and uploads nothing', () => {
+    const store = files.find((file) => file.path === 'src/background/pdf-store.ts');
+    if (!store) throw new Error('pdf-store.ts was not found');
+
+    // One request, for the URL the tab is showing. The `credentials: 'include'` is what lets
+    // a paper behind a login be read at all; it sends the cookies the tab already has to the
+    // host that already set them, and it is the only option this call may pass.
+    const calls = [...store.code.matchAll(/\bfetch\(([^;]*?)\)/gu)].map((match) => match[1] ?? '');
+    expect(calls).toHaveLength(1);
+    const call = calls[0] ?? '';
+    expect(call).toContain('url');
+    expect(call).not.toMatch(/\bbody\s*:/u);
+    expect(call).not.toMatch(/\bmethod\s*:/u);
+    expect(call).not.toMatch(/https?:\/\//u);
+
+    // Nothing in the reader may post the document, or anything about it, to a server.
+    expect(store.code).not.toMatch(/\bsendBeacon\b/u);
+    expect(store.code).not.toMatch(/\bXMLHttpRequest\b/u);
   });
 
   it('loads the model into the runtime from memory, not from a url', () => {

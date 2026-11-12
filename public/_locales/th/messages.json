@@ -889,6 +889,85 @@
       }
     }
   },
+  "openPdf": {
+    "message": "แปล PDF นี้"
+  },
+  "openPdfHint": {
+    "message": "เปิด PDF ใน Sakutto แล้วแปลในตำแหน่งเดิม โดยคงเค้าโครงของหน้าไว้"
+  },
+  "contextTranslatePdf": {
+    "message": "แปล PDF นี้ด้วย Sakutto"
+  },
+  "commandPdf": {
+    "message": "เปิด PDF ใน Sakutto"
+  },
+  "pdfReaderTitle": {
+    "message": "PDF"
+  },
+  "pdfUntitled": {
+    "message": "เอกสาร.pdf"
+  },
+  "pdfPreparing": {
+    "message": "กำลังอ่านเอกสาร…"
+  },
+  "pdfReading": {
+    "message": "กำลังอ่านหน้า $PAGE$ จาก $TOTAL$",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfTranslated": {
+    "message": "แปลแล้ว"
+  },
+  "pdfPageNoText": {
+    "message": "หน้านี้เป็นสแกนหรือรูปภาพ ไม่มีข้อความให้เลือก จึงแปลไม่ได้"
+  },
+  "pdfNoText": {
+    "message": "เอกสารนี้เป็นสแกนหรือชุดรูปภาพ ไม่มีชั้นข้อความให้แปล โปรดเปิด PDF ที่มีข้อความจริง หรือรัน OCR ก่อน"
+  },
+  "pdfTranslateFailed": {
+    "message": "ส่วนนี้แปลไม่ได้"
+  },
+  "pdfMissing": {
+    "message": "ไม่พบเอกสารนี้อีกแล้ว เปิด PDF ใหม่จากแท็บของเอกสาร"
+  },
+  "pdfBroken": {
+    "message": "เปิดเอกสารไม่ได้ อาจเสียหายหรือมีการป้องกันด้วยรหัสผ่าน"
+  },
+  "pdfModelMissing": {
+    "message": "แสดงหน้าไว้แล้ว แต่การแปลต้องใช้โมเดล PLaMo ดาวน์โหลดโมเดลเพื่อแปลเอกสารนี้"
+  },
+  "pdfOpenFailed": {
+    "message": "เปิด PDF นี้ไม่ได้ โหลดหน้าใหม่แล้วลองอีกครั้ง"
+  },
+  "pdfChooseFile": {
+    "message": "เลือกไฟล์ PDF"
+  },
+  "pdfKeptAsIs": {
+    "message": "เหลือ $COUNT$ ส่วนตามที่หน้าจัดวางไว้ สมการ ขีดแกน และโค้ดคงการจัดวางเดิม",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfSelectHint": {
+    "message": "เลือกข้อความบนหน้าเพื่อแปลเฉพาะส่วนนั้น"
+  },
+  "pdfSelectTranslate": {
+    "message": "แปลส่วนที่เลือก"
+  },
+  "pdfSelectFailed": {
+    "message": "แปลส่วนนี้ไม่ได้"
+  },
+  "pdfSelectClear": {
+    "message": "แสดงต้นฉบับ"
+  },
   "commandCompose": {
     "message": "แปลข้อความที่กำลังพิมพ์"
   },
@@ -1263,5 +1342,16 @@
   },
   "videoCaptionsPositionHelp": {
     "message": "กดค้างคำบรรยายที่แปลแล้วเพื่อย้ายได้ YouTube และ X จำตำแหน่งของตัวเอง รวมทั้งโหมดเต็มจอและโรงภาพยนตร์ ปุ่มนี้จะนำคำบรรยายกลับไปด้านล่างของเครื่องเล่น"
+  },
+  "pdfOverflow": {
+    "message": "$COUNT$ ส่วนใส่ในหน้าไม่พอ เปิดเครื่องหมายเพื่ออ่านคำแปล",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfOverflowOpen": {
+    "message": "แสดงคำแปล"
   }
 }

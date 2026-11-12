@@ -889,6 +889,85 @@
       }
     }
   },
+  "openPdf": {
+    "message": "Diese PDF übersetzen"
+  },
+  "openPdfHint": {
+    "message": "Öffnet die PDF in Sakutto und übersetzt sie an Ort und Stelle, ohne das Seitenlayout zu verändern."
+  },
+  "contextTranslatePdf": {
+    "message": "Diese PDF mit Sakutto übersetzen"
+  },
+  "commandPdf": {
+    "message": "PDF in Sakutto öffnen"
+  },
+  "pdfReaderTitle": {
+    "message": "PDF"
+  },
+  "pdfUntitled": {
+    "message": "Dokument.pdf"
+  },
+  "pdfPreparing": {
+    "message": "Dokument wird gelesen…"
+  },
+  "pdfReading": {
+    "message": "Seite $PAGE$ von $TOTAL$ wird gelesen",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfTranslated": {
+    "message": "Übersetzt"
+  },
+  "pdfPageNoText": {
+    "message": "Diese Seite ist ein Scan oder ein Bild ohne auswählbaren Text und kann nicht übersetzt werden."
+  },
+  "pdfNoText": {
+    "message": "Dieses Dokument ist ein Scan oder besteht nur aus Bildern und hat keine Textebene. Öffnen Sie eine PDF mit echtem Text oder führen Sie zuerst eine Texterkennung aus."
+  },
+  "pdfTranslateFailed": {
+    "message": "Dieser Teil konnte nicht übersetzt werden."
+  },
+  "pdfMissing": {
+    "message": "Das Dokument ist nicht mehr verfügbar. Öffnen Sie die PDF erneut aus ihrem Tab."
+  },
+  "pdfBroken": {
+    "message": "Das Dokument konnte nicht geöffnet werden. Es ist möglicherweise beschädigt oder passwortgeschützt."
+  },
+  "pdfModelMissing": {
+    "message": "Die Seiten werden angezeigt, aber zum Übersetzen wird das PLaMo-Modell benötigt. Laden Sie es herunter, um dieses Dokument zu übersetzen."
+  },
+  "pdfOpenFailed": {
+    "message": "Diese PDF konnte nicht geöffnet werden. Laden Sie die Seite neu und versuchen Sie es erneut."
+  },
+  "pdfChooseFile": {
+    "message": "PDF-Datei auswählen"
+  },
+  "pdfKeptAsIs": {
+    "message": "$COUNT$ Stellen blieben im Satz der Seite: Formeln, Achsenbeschriftungen und Code behalten ihre ursprüngliche Gestaltung.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfSelectHint": {
+    "message": "Text auf einer Seite auswählen, um nur diesen Teil zu übersetzen."
+  },
+  "pdfSelectTranslate": {
+    "message": "Auswahl übersetzen"
+  },
+  "pdfSelectFailed": {
+    "message": "Diese Auswahl konnte nicht übersetzt werden."
+  },
+  "pdfSelectClear": {
+    "message": "Original anzeigen"
+  },
   "commandCompose": {
     "message": "Den Text übersetzen, den Sie gerade schreiben"
   },
@@ -1263,5 +1342,16 @@
   },
   "videoCaptionsPositionHelp": {
     "message": "Halte eine übersetzte Untertitelzeile gedrückt, um sie zu verschieben. YouTube und X merken sich jeweils die eigene Position, auch im Vollbild und im Theater-Modus. Diese Schaltfläche setzt sie wieder an den unteren Rand des Players."
+  },
+  "pdfOverflow": {
+    "message": "$COUNT$ Stellen passten nicht auf die Seite. Öffnen Sie die Markierung, um die Übersetzung zu lesen.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfOverflowOpen": {
+    "message": "Übersetzung anzeigen"
   }
 }
