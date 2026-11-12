@@ -118,14 +118,18 @@ describe('translation planning', () => {
     const fromScotland = `I am from Scotland ${scotland}.`;
     const familySentence = `The ${family} waved.`;
     const mixed = `I am from England ${england} with my ${family}.`;
+    const bmpSymbols = '©®™♥☀✈⚠★';
 
-    expect(estimateTokens(england)).toBeGreaterThanOrEqual(33);
-    expect(estimateTokens(scotland)).toBeGreaterThanOrEqual(33);
-    expect(estimateTokens(family)).toBeGreaterThanOrEqual(16);
+    expect(estimateTokens(england)).toBe(2);
+    expect(estimateTokens(scotland)).toBe(2);
+    expect(estimateTokens(family)).toBe(2);
+    expect(estimateTokens(bmpSymbols)).toBe(2);
     expect(completionTokenBudget(fromEngland)).toBeGreaterThanOrEqual(80);
     expect(completionTokenBudget(goEngland)).toBeGreaterThan(32);
     expect(completionTokenBudget(fromScotland)).toBeGreaterThanOrEqual(80);
     expect(completionTokenBudget(familySentence)).toBeGreaterThan(32);
     expect(completionTokenBudget(mixed)).toBeGreaterThanOrEqual(80);
+    expect(completionTokenBudget(bmpSymbols)).toBeLessThan(completionTokenBudget(england));
+    expect(completionTokenBudget('★'.repeat(40))).toBeLessThan(200);
   });
 });

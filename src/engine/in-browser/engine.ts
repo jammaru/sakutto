@@ -27,7 +27,7 @@ import {
   isInvisibleRunawayOutput,
   sanitizeTranslationInput,
 } from '../text/sanitize';
-import { completionTokenBudget, estimateTokens } from '../text/tokens';
+import { budgetTokens, completionTokenBudget, estimateTokens } from '../text/tokens';
 import type {
   IdentifiedEngine,
   TranslateOptions,
@@ -409,6 +409,18 @@ export class InBrowserEngine implements IdentifiedEngine {
     try {
       output = await this.complete(text, options, signal, (delta, restart) => {
         if (restart) {
+          const already = opened ? shown + 1 : shown;
+          for (let index = 0; index < already; index += 1) {
+            const painted = segments[index];
+            if (painted) {
+              stream.push({
+                id: painted.id,
+                textDelta: '',
+                engine: this.kind,
+                restart: true,
+              });
+            }
+          }
           shown = 0;
           pending = '';
           opened = false;
@@ -611,7 +623,7 @@ export class InBrowserEngine implements IdentifiedEngine {
       ...(options.context ? { context: options.context } : {}),
     };
     const prompt = buildTranslationPrompt(promptInput);
-    const available = this.contextTokens - estimateTokens(prompt) - 8;
+    const available = this.contextTokens - (await this.tokenCount(prompt, 'prompt')) - 8;
 
     if (available < 16) {
       throw new EngineError('invalid-input', 'The segment does not fit in the context window.');
@@ -622,7 +634,10 @@ export class InBrowserEngine implements IdentifiedEngine {
     // is retracted there rather than held here.
     let output = '';
     let streamed = false;
-    const maxTokens = Math.min(completionTokenBudget(source), available);
+    const maxTokens = Math.min(
+      completionTokenBudget(source, await this.tokenCount(source, 'source')),
+      available,
+    );
     const skipGpu =
       this.degenerateHits >= DEGENERATE_SESSION_BLOCKS && this.runtime.backend === 'webgpu';
 
@@ -708,6 +723,19 @@ export class InBrowserEngine implements IdentifiedEngine {
     return this.recoverBroken(text, prompt, maxTokens, signal, onDelta, streamed);
   }
 
+  private async tokenCount(text: string, purpose: 'prompt' | 'source'): Promise<number> {
+    const tokenize = this.runtime.tokenize;
+    if (tokenize) {
+      try {
+        const counted = await tokenize(text);
+        if (Number.isFinite(counted) && counted >= 1) return Math.ceil(counted);
+      } catch {
+        // Heuristic below.
+      }
+    }
+    return purpose === 'source' ? budgetTokens(text) : estimateTokens(text);
+  }
+
   private isBroken(source: string, output: string, hitMaxTokens: boolean): boolean {
     return (
       isBrokenTranslation(source, output, hitMaxTokens) ||
@@ -776,14 +804,17 @@ export class InBrowserEngine implements IdentifiedEngine {
       ...(glossary.length > 0 ? { glossary } : {}),
       ...(options.context ? { context: options.context } : {}),
     });
-    const available = this.contextTokens - estimateTokens(prompt) - 8;
+    const available = this.contextTokens - (await this.tokenCount(prompt, 'prompt')) - 8;
     if (available < 16) return { text: original, error: true };
 
     let recovered = '';
     try {
       const result = await this.runtime.complete({
         prompt,
-        maxTokens: Math.min(completionTokenBudget(aggressive), available),
+        maxTokens: Math.min(
+          completionTokenBudget(aggressive, await this.tokenCount(aggressive, 'source')),
+          available,
+        ),
         signal,
         onToken: (delta) => {
           recovered += delta;

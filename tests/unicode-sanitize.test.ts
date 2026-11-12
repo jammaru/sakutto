@@ -536,6 +536,53 @@ describe('InBrowserEngine Unicode input (wllama and local-server share this path
     }
   });
 
+  it('restarts every painted batch segment when a packed retry starts over', async () => {
+    const first = 'イングランド\nスコットランド\nウェールズ';
+    const second = 'イングランドです\nスコットランドです\nウェールズです';
+    class BatchRetryRuntime extends FakeRuntime {
+      override async complete(request: CompletionRequest): Promise<CompletionResult | void> {
+        this.requests.push(request);
+        if (this.requests.length === 1) {
+          request.onToken(first);
+          return { hitMaxTokens: true };
+        }
+        request.onToken(second);
+        return { hitMaxTokens: false };
+      }
+    }
+    const runtime = new BatchRetryRuntime(() => first);
+    const engine = new InBrowserEngine(runtime);
+    const chunks = await collectChunks(
+      engine.translate(
+        [
+          { id: 'a', text: 'England' },
+          { id: 'b', text: 'Scotland' },
+          { id: 'c', text: 'Wales' },
+        ],
+        options(),
+      ),
+    );
+
+    expect(runtime.requests).toHaveLength(2);
+    const painted: Record<string, string> = { a: '', b: '', c: '' };
+    const restarted = new Set<string>();
+    for (const chunk of chunks) {
+      if (chunk.textDelta === undefined) continue;
+      if (chunk.restart === true) restarted.add(chunk.id);
+      painted[chunk.id] =
+        chunk.restart === true ? chunk.textDelta : (painted[chunk.id] ?? '') + chunk.textDelta;
+      expect(painted[chunk.id]).not.toContain('イングランドイングランド');
+      expect(painted[chunk.id]).not.toContain('スコットランドスコットランド');
+      expect(painted[chunk.id]).not.toContain('ウェールズウェールズ');
+    }
+    expect(restarted).toEqual(new Set(['a', 'b', 'c']));
+    expect(chunks.filter((chunk) => chunk.final !== undefined)).toEqual([
+      { id: 'a', final: 'イングランドです', engine: 'plamo' },
+      { id: 'b', final: 'スコットランドです', engine: 'plamo' },
+      { id: 'c', final: 'ウェールズです', engine: 'plamo' },
+    ]);
+  });
+
   it('retries a visible hitMaxTokens completion with a larger budget', async () => {
     const truncated = `イングランド出身です ${ENGLAND_FLAG} お茶`;
     const finished = `イングランド出身です ${ENGLAND_FLAG} お茶が大好きです。`;

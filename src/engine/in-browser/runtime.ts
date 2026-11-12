@@ -23,6 +23,8 @@ export interface LlamaRuntime {
   readonly threads: number;
   readonly parallel: number;
   complete(request: CompletionRequest): Promise<CompletionResult | void>;
+  /** Real tokenizer length when the runtime can provide it (wllama `tokenize`). */
+  tokenize?(text: string): Promise<number>;
   dispose(): Promise<void>;
 }
 
@@ -235,10 +237,20 @@ export const createWllamaRuntime: RuntimeFactory = async (file, selection) => {
   });
   lost.catch(() => undefined);
 
+  const tokenize = wllama.tokenize
+    ? async (text: string): Promise<number> => {
+        const ids = await wllama.tokenize!(text);
+        if (Array.isArray(ids)) return Math.max(1, ids.length);
+        const counted = Number(ids);
+        return Number.isFinite(counted) && counted >= 1 ? Math.ceil(counted) : 1;
+      }
+    : undefined;
+
   return {
     backend: selection.backend,
     threads: selection.nThreads,
     parallel: selection.nParallel,
+    ...(tokenize ? { tokenize } : {}),
     async complete(request: CompletionRequest): Promise<CompletionResult> {
       let hitMaxTokens = false;
       await gate.exclusive(async () => {
