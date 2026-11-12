@@ -1,13 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { normalizeEol } from './support/eol';
 
-const workflow = readFileSync(new URL('../.github/workflows/amo.yml', import.meta.url), 'utf8');
-const action = readFileSync(
-  new URL('../.github/actions/package-extension/action.yml', import.meta.url),
-  'utf8',
-);
-const ci = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
-const packageJson = readFileSync(new URL('../package.json', import.meta.url), 'utf8');
+function readUtf8(name: string): string {
+  return normalizeEol(readFileSync(new URL(name, import.meta.url), 'utf8'));
+}
+
+const workflow = readUtf8('../.github/workflows/amo.yml');
+const action = readUtf8('../.github/actions/package-extension/action.yml');
+const ci = readUtf8('../.github/workflows/ci.yml');
+const packageJson = readUtf8('../package.json');
 
 describe('AMO workflow', () => {
   it('signs only from workflow_dispatch and never from push', () => {
@@ -33,10 +35,7 @@ describe('AMO workflow', () => {
     expect(action).toContain('scripts/compare-extension-builds.ts');
     expect(action).toContain('skip-wllama:');
     expect(action).toContain('from-source:');
-    const cacheKey = readFileSync(
-      new URL('../scripts/wllama-cache-key.ts', import.meta.url),
-      'utf8',
-    );
+    const cacheKey = readUtf8('../scripts/wllama-cache-key.ts');
     expect(cacheKey).toContain('src/engine/wllama/firefox-webgpu-kick.ts');
     expect(cacheKey).toContain('patches/optional');
     expect(ci).toContain('target: [chrome, firefox]');
