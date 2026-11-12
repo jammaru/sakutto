@@ -64,10 +64,10 @@ describe('selection shortcut', () => {
     expect(defaultShortcutsFor('chrome')).toEqual(CHROME_DEFAULT_SHORTCUTS);
     expect(defaultShortcuts({ mac: false })).toEqual(CHROME_DEFAULT_SHORTCUTS);
     expect(defaultShortcuts({ mac: true })).toEqual(CHROME_MAC_DEFAULT_SHORTCUTS);
-    expect(defaultShortcutFor('translate-page', { mac: true })).toBe('MacCtrl+Shift+A');
+    expect(defaultShortcutFor('translate-page', { mac: true })).toBe('Alt+A');
     expect(suggestedKeyFor('chrome', 'translate-page')).toEqual({
       default: 'Alt+A',
-      mac: 'MacCtrl+Shift+A',
+      mac: 'Alt+A',
     });
     expect(suggestedKeyFor('firefox', 'translate-page')).toEqual({ default: 'Alt+Shift+A' });
     expect(defaultShortcutsFor('firefox')).toEqual(FIREFOX_DEFAULT_SHORTCUTS);
@@ -131,7 +131,7 @@ describe('matchesShortcut', () => {
     expect(matchesShortcut(optionA, 'MacCtrl+Shift+A', { mac: true })).toBe(false);
   });
 
-  it('matches the Mac Control+Shift default, not Command+Shift or Option', () => {
+  it('matches MacCtrl+Shift as Control+Shift, not Command+Shift or Option', () => {
     const controlShiftA = key({
       ctrlKey: true,
       shiftKey: true,
@@ -141,7 +141,7 @@ describe('matchesShortcut', () => {
     expect(matchesShortcut(controlShiftA, 'MacCtrl+Shift+A', { mac: true })).toBe(true);
     expect(
       matchesShortcut(controlShiftA, CHROME_MAC_DEFAULT_SHORTCUTS['translate-page'], { mac: true }),
-    ).toBe(true);
+    ).toBe(false);
     expect(matchesShortcut(controlShiftA, 'Alt+A', { mac: true })).toBe(false);
     expect(
       matchesShortcut(
@@ -267,11 +267,11 @@ describe('shortcut assignment and in-page fallback', () => {
     }
     expect(boundShortcut(null, 'translate-page')).toBe('Alt+A');
     expect(boundShortcut(null, 'translate-compose')).toBe(DEFAULT_COMPOSE_SHORTCUT);
-    expect(boundShortcut(null, 'translate-page', { mac: true })).toBe('MacCtrl+Shift+A');
-    expect(boundShortcut(null, 'translate-compose', { mac: true })).toBe('MacCtrl+Shift+T');
+    expect(boundShortcut(null, 'translate-page', { mac: true })).toBe('Alt+A');
+    expect(boundShortcut(null, 'translate-compose', { mac: true })).toBe('Alt+T');
   });
 
-  it('keeps the Mac Control+Shift default when Chrome never assigned the suggested key', () => {
+  it('keeps the Mac Option default when Chrome never assigned the suggested key', () => {
     const conflict = snapshot({
       'translate-page': '',
       'toggle-bilingual': '',
@@ -284,14 +284,12 @@ describe('shortcut assignment and in-page fallback', () => {
       assigned: ever['translate-page'],
       mac: true,
     });
-    expect(binding).toBe('MacCtrl+Shift+A');
+    expect(binding).toBe('Alt+A');
     expect(usesInPageFallback(conflict, 'translate-page', ever['translate-page'])).toBe(true);
     expect(
-      matchesShortcut(key({ ctrlKey: true, shiftKey: true, code: 'KeyA', key: 'a' }), binding, {
-        mac: true,
-      }),
+      matchesShortcut(key({ altKey: true, code: 'KeyA', key: 'å' }), binding, { mac: true }),
     ).toBe(true);
-    expect(displayShortcut(binding, { mac: true })).toBe('Control+Shift+A');
+    expect(displayShortcut(binding, { mac: true })).toBe('Option+A');
   });
 
   it('stops handling a command the user cleared in Chrome', () => {
@@ -414,9 +412,12 @@ describe('displayShortcut', () => {
     expect(displayShortcut('')).toBe('');
   });
 
-  it('names Mac defaults as Control+Shift and Alt as Option', () => {
+  it('names Mac Alt defaults as Option', () => {
     expect(displayShortcut('MacCtrl+Shift+A')).toBe('Control+Shift+A');
     expect(displayShortcut('Alt+A', { mac: true })).toBe('Option+A');
+    expect(displayShortcut('Alt+B', { mac: true })).toBe('Option+B');
+    expect(displayShortcut('Alt+S', { mac: true })).toBe('Option+S');
+    expect(displayShortcut('Alt+T', { mac: true })).toBe('Option+T');
     expect(displayShortcut('Alt+A', { mac: false })).toBe('Alt+A');
   });
 });

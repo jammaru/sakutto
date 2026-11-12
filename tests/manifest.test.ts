@@ -58,19 +58,19 @@ describe('extension manifest', () => {
   it('declares the Chrome translation shortcuts', () => {
     expect(chromeManifest.commands).toEqual({
       'translate-page': {
-        suggested_key: { default: 'Alt+A', mac: 'MacCtrl+Shift+A' },
+        suggested_key: { default: 'Alt+A', mac: 'Alt+A' },
         description: '__MSG_commandTranslate__',
       },
       'toggle-bilingual': {
-        suggested_key: { default: 'Alt+B', mac: 'MacCtrl+Shift+B' },
+        suggested_key: { default: 'Alt+B', mac: 'Alt+B' },
         description: '__MSG_commandBilingual__',
       },
       'translate-selection': {
-        suggested_key: { default: 'Alt+S', mac: 'MacCtrl+Shift+S' },
+        suggested_key: { default: 'Alt+S', mac: 'Alt+S' },
         description: '__MSG_commandSelection__',
       },
       'translate-compose': {
-        suggested_key: { default: 'Alt+T', mac: 'MacCtrl+Shift+T' },
+        suggested_key: { default: 'Alt+T', mac: 'Alt+T' },
         description: '__MSG_commandCompose__',
       },
     });
@@ -86,8 +86,8 @@ describe('extension manifest', () => {
   /**
    * Chrome starts every user on the manifest key, and the hints a page shows before the
    * background answers name that same key. A default that moved in one place only would make
-   * the popup advertise a shortcut Chrome never bound. `mac` is required: Option+letter from
-   * a default-only Alt suggestion is not auto-assigned, and MacCtrl is illegal in `default`.
+   * the popup advertise a shortcut Chrome never bound. `mac` is explicit even when it matches
+   * `default`, so a Mac Chrome does not have to fall back through platform lookup.
    */
   it('suggests the same Chrome default the page falls back to', () => {
     const commands = chromeManifest.commands as Record<

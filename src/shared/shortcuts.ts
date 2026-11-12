@@ -34,17 +34,22 @@ export const CHROME_DEFAULT_SHORTCUTS: Readonly<Record<ShortcutCommand, string>>
 };
 
 /**
- * Chrome `suggested_key.mac`. Option+letter is a valid Alt synonym on Mac, but it types a
- * composed character (å, ∫, ß, †) and Chrome often leaves it unassigned. Command+Shift+A/B/S/T
- * collide with Chrome itself (tab search, bookmarks bar, screenshot/save, reopen tab).
- * `MacCtrl` is the documented Control key on macOS; Control+Shift+letter is not a Chrome
- * accelerator, so a fresh install can auto-assign it. `MacCtrl` is illegal in `default`.
+ * Chrome `suggested_key.mac`. `Alt` is Option on macOS (docs; Chromium
+ * `NormalizeShortcutSuggestion` maps `Option`→`Alt`). Auto-assign is
+ * `CommandService::CanAutoAssign` → `!IsChromeAccelerator`. Mac
+ * `IsChromeAccelerator` (`accelerator_utils_cocoa.mm`) only matches Chrome
+ * menu / hidden shortcuts; Option+A/B/S/T are not among them
+ * (`global_keyboard_shortcuts_mac.mm`). Chrome's own Alt+letter table is
+ * `#if !IS_MAC` because Option types non-ASCII characters — that does not
+ * reject extension commands. A previous unpacked load that left every
+ * command 未設定 is explained by user-cleared prefs for the same extension
+ * id (`IsCommandShortcutUserModified`), not by a Mac ban on Option+letter.
  */
 export const CHROME_MAC_DEFAULT_SHORTCUTS: Readonly<Record<ShortcutCommand, string>> = {
-  'translate-page': 'MacCtrl+Shift+A',
-  'toggle-bilingual': 'MacCtrl+Shift+B',
-  'translate-selection': 'MacCtrl+Shift+S',
-  'translate-compose': 'MacCtrl+Shift+T',
+  'translate-page': 'Alt+A',
+  'toggle-bilingual': 'Alt+B',
+  'translate-selection': 'Alt+S',
+  'translate-compose': 'Alt+T',
 };
 
 /** Firefox defaults. Alt+Shift+letter avoids the Windows menu-bar access keys. */
@@ -89,7 +94,7 @@ export interface ShortcutPlatform {
   readonly browser?: ExtensionBrowser | undefined;
 }
 
-/** The keys this browser and OS should start with, including Chrome's Mac Control+Shift set. */
+/** The keys this browser and OS should start with, including Chrome's Mac Option+letter set. */
 export function defaultShortcuts(
   platform: ShortcutPlatform = {},
 ): Readonly<Record<ShortcutCommand, string>> {
