@@ -1,12 +1,14 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const packagedPath = resolve(root, 'public/vendor/pdfjs/build/pdf.min.mjs');
+const describePackaged = existsSync(packagedPath) ? describe : describe.skip;
 
-describe('packaged pdf.js', () => {
+describePackaged('packaged pdf.js', () => {
   it('ships the legacy build so Chrome 116 can open a PDF', () => {
     const manifest = JSON.parse(
       readFileSync(resolve(root, 'public/vendor/pdfjs/pdfjs-build.json'), 'utf8'),

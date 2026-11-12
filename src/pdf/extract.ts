@@ -41,7 +41,13 @@ export interface PdfPage {
   getTextContent: () => Promise<PdfTextContent>;
   getOperatorList: () => Promise<PdfOperatorList>;
   commonObjs: { get: (name: string) => unknown };
-  render: (options: Record<string, unknown>) => { promise: Promise<void> };
+  render: (options: Record<string, unknown>) => PdfRenderTask;
+}
+
+/** What `page.render` returns: the draw, and a way to abandon it when a newer draw starts. */
+export interface PdfRenderTask {
+  promise: Promise<void>;
+  cancel?: () => void;
 }
 
 /** The operator list pdf.js builds for a page, as far as the reader reads it. */
@@ -140,6 +146,7 @@ export async function extractPage(
       italic: font.italic,
       math: font.math,
       orientation: placed.orientation,
+      size: placed.size,
     });
   }
 
@@ -193,14 +200,6 @@ export function isImageOnlyPage(
 }
 
 /**
- * The angle a glyph run is written at, in degrees clockwise.
- *
- * PDF's text matrix carries a direction in its first two entries: `a` is 1 for text running
- * across the page, and `b` is 1 for text running up it. Anything that is not upright is
- * reported as rotated, because the reader treats it the same way whatever the angle — a
- * rotated stamp is not prose, and its box spans the column the body text is in.
- */
-/**
  * Maps one glyph run from PDF user space into the viewport the canvas was drawn in.
  *
  * pdf.js reports `item.transform` in unrotated page space. The viewport's own 6-number
@@ -208,11 +207,18 @@ export function isImageOnlyPage(
  * — origin, end of the advance, top of the em — become the axis-aligned box the overlay
  * paints. Without that multiply, a 90° page places covers off the canvas while the toolbar
  * still says the page is translated.
+ *
+ * Line grouping keys off the baseline perpendicular to the writing direction *after* that
+ * rotation: `/Rotate 90` and `/Rotate 270` put a column of body lines on the same `origin.y`,
+ * so the grouping coordinate has to be `origin.x` or every line in the column collapses into
+ * one. The piece's `orientation` stays the text matrix's own angle — a page rotate does not
+ * turn body text into a stamp — while `orientationOf` still sees the composed writing
+ * direction so it can pick that axis.
  */
 export function placeTextItem(
   item: PdfTextItem,
   viewport: PdfViewport,
-): { box: Box; baseline: number; orientation: number } {
+): { box: Box; baseline: number; orientation: number; size: number } {
   const [a = 1, b = 0, c = 0, d = 0, e = 0, f = 0] = item.transform;
   const height = Math.hypot(c, d) || item.height || 1;
   const orientation = orientationOf(a, b);
@@ -223,6 +229,7 @@ export function placeTextItem(
       box: { x: e, y: baseline - height, width: item.width, height },
       baseline,
       orientation,
+      size: height,
     };
   }
   const origin = applyViewport(matrix, e, f);
@@ -232,6 +239,8 @@ export function placeTextItem(
   const ys = [origin.y, end.y, top.y];
   const left = Math.min(...xs);
   const north = Math.min(...ys);
+  const displayed = orientationOf(a, b, matrix);
+  const size = Math.hypot(top.x - origin.x, top.y - origin.y) || height;
   return {
     box: {
       x: left,
@@ -239,8 +248,9 @@ export function placeTextItem(
       width: Math.max(...xs) - left,
       height: Math.max(...ys) - north,
     },
-    baseline: origin.y,
+    baseline: displayed === 90 || displayed === 270 ? origin.x : origin.y,
     orientation,
+    size,
   };
 }
 
@@ -251,9 +261,15 @@ function applyViewport(matrix: readonly number[], x: number, y: number): { x: nu
   };
 }
 
-function orientationOf(a: number, b: number): number {
-  if (a === 0 && b === 0) return 0;
-  const degrees = (Math.atan2(b, a) * 180) / Math.PI;
+function orientationOf(a: number, b: number, matrix?: readonly number[]): number {
+  let dx = a;
+  let dy = b;
+  if (matrix && matrix.length >= 6) {
+    dx = (matrix[0] ?? 0) * a + (matrix[2] ?? 0) * b;
+    dy = (matrix[1] ?? 0) * a + (matrix[3] ?? 0) * b;
+  }
+  if (dx === 0 && dy === 0) return 0;
+  const degrees = (Math.atan2(dy, dx) * 180) / Math.PI;
   const normalized = ((degrees % 360) + 360) % 360;
   if (normalized < 45 || normalized >= 315) return 0;
   return normalized < 135 ? 90 : normalized < 225 ? 180 : 270;
@@ -295,14 +311,10 @@ async function readFontTraits(
 }
 
 /** Renders one page into a canvas at the given scale. */
-export async function renderPage(
-  page: PdfPage,
-  scale: number,
-  canvas: HTMLCanvasElement,
-): Promise<void> {
+export function renderPage(page: PdfPage, scale: number, canvas: HTMLCanvasElement): PdfRenderTask {
   const viewport = page.getViewport({ scale });
   const context = canvas.getContext('2d', { alpha: false });
-  if (!context) return;
+  if (!context) return { promise: Promise.resolve() };
 
   // The page is drawn at the device's own resolution so a zoomed page stays sharp, and the
   // CSS size keeps it at the scale the reader asked for.
@@ -312,11 +324,15 @@ export async function renderPage(
   canvas.style.width = `${String(viewport.width)}px`;
   canvas.style.height = `${String(viewport.height)}px`;
 
-  await page.render({
+  const task = page.render({
     canvasContext: context,
     viewport,
     ...(ratio === 1 ? {} : { transform: [ratio, 0, 0, ratio, 0, 0] }),
-  }).promise;
+  });
+  return {
+    promise: task.promise,
+    ...(typeof task.cancel === 'function' ? { cancel: () => task.cancel?.() } : {}),
+  };
 }
 
 /** The box the page's text occupies, used for the reader's own layout decisions. */

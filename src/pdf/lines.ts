@@ -34,6 +34,13 @@ export interface TextPiece {
    * line grouping is what reads a stamp into the middle of a paragraph.
    */
   orientation: number;
+  /**
+   * Font size in viewport space, from the text matrix rather than the axis-aligned box.
+   *
+   * `/Rotate 90` and `/Rotate 270` swap the box so `height` is the advance, not the em, and
+   * grouping by that height would treat a column as one line.
+   */
+  size: number;
 }
 
 /** A run of pieces a reader reads as one line, left to right. */
@@ -94,7 +101,10 @@ const SAME_BASELINE = 0.4;
 export const SEGMENT_GAP = 0.8;
 
 function em(piece: TextPiece): number {
-  return Math.max(0.1, piece.box.height);
+  const { width, height } = piece.box;
+  // Prefer the text-matrix size. After a page rotate the AABB swaps, so `height` is the
+  // advance; fall back to the shorter side when a fixture omitted `size`.
+  return Math.max(0.1, piece.size || Math.min(width, height) || height);
 }
 
 function gapBetween(left: Box, right: Box): number {

@@ -939,6 +939,10 @@
   "pdfBroken": {
     "message": "Il documento non è stato aperto. Potrebbe essere danneggiato o protetto da password."
   },
+  "pdfTooLarge": {
+    "message": "Questo file supera i 200 MB, la dimensione massima che il lettore può aprire.",
+    "description": "Shown when a local PDF is larger than the reader will open."
+  },
   "pdfModelMissing": {
     "message": "Le pagine sono visibili, ma per tradurle serve il modello PLaMo. Scaricalo per tradurre questo documento."
   },
@@ -1350,6 +1354,15 @@
         "content": "$1"
       }
     }
+  },
+  "pdfFailedCount": {
+    "message": "Non è stato possibile tradurre $COUNT$ parti.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "Toolbar note when some blocks could not be translated."
   },
   "pdfOverflowOpen": {
     "message": "Mostra traduzione"

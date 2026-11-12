@@ -939,6 +939,10 @@
   "pdfBroken": {
     "message": "Không thể mở tài liệu. Có thể tệp bị hỏng hoặc được bảo vệ bằng mật khẩu."
   },
+  "pdfTooLarge": {
+    "message": "Tệp này lớn hơn 200 MB, giới hạn lớn nhất trình đọc có thể mở.",
+    "description": "Shown when a local PDF is larger than the reader will open."
+  },
   "pdfModelMissing": {
     "message": "Các trang đã được hiển thị, nhưng muốn dịch cần có mô hình PLaMo. Hãy tải mô hình để dịch tài liệu này."
   },
@@ -1350,6 +1354,15 @@
         "content": "$1"
       }
     }
+  },
+  "pdfFailedCount": {
+    "message": "$COUNT$ phần không dịch được.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "Toolbar note when some blocks could not be translated."
   },
   "pdfOverflowOpen": {
     "message": "Hiện bản dịch"

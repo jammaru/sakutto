@@ -228,7 +228,7 @@ export const READER_STYLE = `
 /* Only a page with no text layer shows the notice; every other page keeps it out of the way
    without having to remove the node. The default is none so a page that never sets the flag
    cannot leave the notice on screen. */
-.sakutto-page[data-empty="true"] .sakutto-page__missing {
+.sakutto-page[data-page-empty="true"] .sakutto-page__missing {
   display: grid;
 }
 

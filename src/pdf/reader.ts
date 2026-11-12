@@ -81,6 +81,8 @@ export interface ReaderProgress {
   keptAsIs: number;
   /** Translations that did not fit in place and are offered on a marker instead. */
   overflowed: number;
+  /** Blocks whose translation stream failed, counted apart from ones that did not fit. */
+  failed: number;
 }
 
 /**
@@ -395,6 +397,7 @@ export class PdfReader {
         popover,
         note,
         drawn: false,
+        drawGeneration: 0,
         covers: new Map(),
         markers: new Map(),
       });
@@ -426,6 +429,7 @@ export class PdfReader {
       element.host.style.height = `${(geometry.height * this.scale).toFixed(2)}px`;
       // A canvas drawn at the old scale has the wrong size for the new one.
       element.drawn = false;
+      cancelPageDraw(element);
     }
     this.paint();
     this.redrawVisiblePages();
@@ -482,7 +486,8 @@ export class PdfReader {
   private releaseFarPages(): void {
     for (const [index, element] of this.pageElements) {
       if (Math.abs(index - this.focus) <= 4) continue;
-      if (!element.drawn) continue;
+      if (!element.drawn && element.renderTask === undefined) continue;
+      cancelPageDraw(element);
       element.canvas.width = 0;
       element.canvas.height = 0;
       element.drawn = false;
@@ -494,14 +499,24 @@ export class PdfReader {
     if (!element || this.destroyed) return;
     if (element.drawn) return;
 
+    const generation = element.drawGeneration + 1;
+    element.drawGeneration = generation;
+    cancelPageDraw(element);
+
     try {
       const page = await this.document.getPage(index + 1);
-      if (this.destroyed) return;
-      await renderPage(page, this.scale, element.canvas);
+      if (this.destroyed || element.drawGeneration !== generation) return;
+      const task = renderPage(page, this.scale, element.canvas);
+      element.renderTask = task;
+      await task.promise;
+      if (this.destroyed || element.drawGeneration !== generation) return;
       element.drawn = true;
-      element.host.removeAttribute('data-empty');
+      delete element.renderTask;
+      element.host.removeAttribute('data-render-failed');
     } catch {
-      element.host.dataset.empty = 'true';
+      if (this.destroyed || element.drawGeneration !== generation) return;
+      delete element.renderTask;
+      element.host.dataset.renderFailed = 'true';
     }
   }
 
@@ -527,7 +542,7 @@ export class PdfReader {
 
         if (extracted.empty) {
           this.emptyPages += 1;
-          if (element) element.host.dataset.empty = 'true';
+          if (element) element.host.dataset.pageEmpty = 'true';
           this.session.addPage(
             next,
             {
@@ -800,6 +815,7 @@ export class PdfReader {
       segmentsPerSecond: rates.segmentsPerSecond,
       keptAsIs: this.skippedBlocks,
       overflowed: progress.overflowed,
+      failed: progress.failed,
     });
   }
 
@@ -883,8 +899,16 @@ interface PageElement {
   /** The box a marker's translation is shown in. */
   note: HTMLElement;
   drawn: boolean;
+  /** Bumped when a newer draw replaces an in-flight one, so the stale render is ignored. */
+  drawGeneration: number;
+  renderTask?: { cancel?: () => void };
   covers: Map<BlockState, HTMLElement>;
   markers: Map<BlockState, HTMLButtonElement>;
+}
+
+function cancelPageDraw(element: PageElement): void {
+  element.renderTask?.cancel?.();
+  delete element.renderTask;
 }
 
 function scriptOf(target: string): 'ja' | 'en' | 'other' {

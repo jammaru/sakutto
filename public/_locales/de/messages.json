@@ -939,6 +939,10 @@
   "pdfBroken": {
     "message": "Das Dokument konnte nicht geöffnet werden. Es ist möglicherweise beschädigt oder passwortgeschützt."
   },
+  "pdfTooLarge": {
+    "message": "Diese Datei ist größer als 200 MB, die Obergrenze für Dokumente, die der Reader öffnen kann.",
+    "description": "Shown when a local PDF is larger than the reader will open."
+  },
   "pdfModelMissing": {
     "message": "Die Seiten werden angezeigt, aber zum Übersetzen wird das PLaMo-Modell benötigt. Laden Sie es herunter, um dieses Dokument zu übersetzen."
   },
@@ -1350,6 +1354,15 @@
         "content": "$1"
       }
     }
+  },
+  "pdfFailedCount": {
+    "message": "$COUNT$ Stellen konnten nicht übersetzt werden.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "Toolbar note when some blocks could not be translated."
   },
   "pdfOverflowOpen": {
     "message": "Übersetzung anzeigen"

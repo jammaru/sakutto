@@ -70,7 +70,9 @@ describe('PdfSession stream handling', () => {
     const state = session.pageBlocks(0)[0];
     expect(state?.translation).toBe('');
     expect(state?.paint).toBe(false);
-    expect(state?.overflow).toBe(true);
+    expect(state?.overflow).toBe(false);
+    expect(session.progress().failed).toBe(1);
+    expect(session.progress().overflowed).toBe(0);
   });
 
   it('restarts a piece when the engine says the stream so far was wrong', async () => {
@@ -96,7 +98,8 @@ describe('PdfSession stream handling', () => {
     session.addPage(0, layoutOf('A short paragraph of source text.'));
     await waitFor(() => session.pageBlocks(0)[0]?.state === 'failed');
     expect(session.pageBlocks(0)[0]?.translation).toBe('');
-    expect(session.pageBlocks(0)[0]?.overflow).toBe(true);
+    expect(session.pageBlocks(0)[0]?.overflow).toBe(false);
+    expect(session.progress().failed).toBe(1);
   });
 
   it('does not retranslate when the glossary contents have not changed', async () => {
@@ -158,5 +161,21 @@ describe('PdfSession stream handling', () => {
     session.retryFailed();
     await waitFor(() => session.pageBlocks(0)[0]?.state === 'done');
     expect(session.pageBlocks(0)[0]?.translation).toBe('訳');
+  });
+
+  it('fails a block with no translation pieces instead of marking it done', async () => {
+    let calls = 0;
+    const engine = engineOf(async function* (segments) {
+      calls += 1;
+      const id = segments[0]?.id ?? 'b1';
+      yield { id, final: 'should not run' };
+    });
+    const session = sessionOf(engine);
+    session.addPage(0, layoutOf('   '));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'failed');
+    expect(calls).toBe(0);
+    expect(session.pageBlocks(0)[0]?.overflow).toBe(false);
+    expect(session.progress().failed).toBe(1);
+    expect(session.progress().overflowed).toBe(0);
   });
 });

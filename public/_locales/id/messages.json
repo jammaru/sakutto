@@ -939,6 +939,10 @@
   "pdfBroken": {
     "message": "Dokumen tidak dapat dibuka. Mungkin rusak atau dilindungi kata sandi."
   },
+  "pdfTooLarge": {
+    "message": "File ini lebih dari 200 MB, ukuran terbesar yang dapat dibuka pembaca.",
+    "description": "Shown when a local PDF is larger than the reader will open."
+  },
   "pdfModelMissing": {
     "message": "Halaman ditampilkan, tetapi untuk menerjemahkannya diperlukan model PLaMo. Unduh modelnya untuk menerjemahkan dokumen ini."
   },
@@ -1350,6 +1354,15 @@
         "content": "$1"
       }
     }
+  },
+  "pdfFailedCount": {
+    "message": "$COUNT$ bagian tidak dapat diterjemahkan.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "Toolbar note when some blocks could not be translated."
   },
   "pdfOverflowOpen": {
     "message": "Tampilkan terjemahan"

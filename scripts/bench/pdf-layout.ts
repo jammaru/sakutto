@@ -17,6 +17,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
+import { rotatedBodyPdf } from '../../tests/support/rotated-body-pdf.ts';
 
 const require = createRequire(import.meta.url);
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -127,19 +128,18 @@ function measure(text: string, size: number): number {
 const started = Date.now();
 const reports: object[] = [];
 let failed = false;
+const pagesFlag = process.argv.indexOf('--pages');
+const pageLimit = pagesFlag >= 0 ? Number(process.argv[pagesFlag + 1] ?? '0') : 0;
 
-for (const file of files) {
-  const bytes = new Uint8Array(await readFile(file));
+async function checkBytes(name: string, bytes: Uint8Array): Promise<void> {
   const doc = await pdfjs.getDocument({
     data: bytes,
     useSystemFonts: false,
     isEvalSupported: false,
     standardFontDataUrl,
   }).promise;
-  const pagesFlag = process.argv.indexOf('--pages');
-  const pageLimit = pagesFlag >= 0 ? Number(process.argv[pagesFlag + 1] ?? '0') : 0;
   const last = pageLimit > 0 ? Math.min(pageLimit, doc.numPages) : doc.numPages;
-  console.log(`${basename(file)}: ${String(doc.numPages)} pages, checking ${String(last)}`);
+  console.log(`${name}: ${String(doc.numPages)} pages, checking ${String(last)}`);
 
   for (let number = 1; number <= last; number += 1) {
     const page = await doc.getPage(number);
@@ -177,15 +177,31 @@ for (const file of files) {
     if (!pass) failed = true;
     console.log(
       `  page ${String(number)}: ${extracted.empty ? 'image-only' : 'text'}  ` +
+        `lines=${String(extracted.lines.length)} body=${String(layout.bodySize)} ` +
         `blocks=${String(metrics.blocks)} painted=${String(metrics.painted)} ` +
         `skipped=${String(metrics.skipped)} withheld=${String(metrics.withheld)} ` +
         `overlap=${String(metrics.overlapPairs)} minpt=${metrics.minFontSize === null ? '-' : metrics.minFontSize.toFixed(1)} ` +
         `prose=${(metrics.prosePainted * 100).toFixed(0)}% cover=${(metrics.proseCovered * 100).toFixed(0)}% ` +
         `overflowed=${String(metrics.overflowed)} ${pass ? 'ok' : 'FAIL'}`,
     );
-    reports.push({ file: basename(file), page: number, empty: extracted.empty, ...metrics, pass });
+    reports.push({
+      file: name,
+      page: number,
+      empty: extracted.empty,
+      lines: extracted.lines.length,
+      bodySize: layout.bodySize,
+      ...metrics,
+      pass,
+    });
   }
   await doc.destroy();
+}
+
+for (const file of files) {
+  await checkBytes(basename(file), new Uint8Array(await readFile(file)));
+}
+if (!fileArg) {
+  await checkBytes('rotated.pdf', rotatedBodyPdf([90, 270]));
 }
 
 const elapsed = Date.now() - started;

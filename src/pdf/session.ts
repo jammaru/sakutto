@@ -224,20 +224,28 @@ export class PdfSession {
     return this.pages.get(index) ?? [];
   }
 
-  progress(): { done: number; total: number; pending: number; overflowed: number } {
+  progress(): {
+    done: number;
+    total: number;
+    pending: number;
+    overflowed: number;
+    failed: number;
+  } {
     let done = 0;
     let total = 0;
     let pending = 0;
     let overflowed = 0;
+    let failed = 0;
     for (const states of this.pages.values()) {
       for (const state of states) {
         total += 1;
         if (state.state === 'done') done += 1;
         else if (state.state === 'queued' || state.state === 'running') pending += 1;
+        else if (state.state === 'failed') failed += 1;
         if (state.overflow) overflowed += 1;
       }
     }
-    return { done, total, pending, overflowed };
+    return { done, total, pending, overflowed, failed };
   }
 
   /** Live rates, computed from the output that has arrived rather than a whole-run average. */
@@ -394,7 +402,7 @@ export class PdfSession {
     state.translation = '';
     state.fit = null;
     state.paint = false;
-    state.overflow = true;
+    state.overflow = false;
     state.state = 'failed';
   }
 
@@ -407,6 +415,10 @@ export class PdfSession {
     // A block longer than a paragraph is chunked here rather than in the engine, so a long
     // paragraph shows its first sentences while the rest is still decoding.
     const pieces = chunkForTranslation(protectedText.text);
+    if (pieces.length === 0) {
+      this.failBlock(state);
+      return;
+    }
     const id = `b${String(job.id)}`;
     const segments = pieces.map((text, index) => ({
       id: pieces.length === 1 ? id : `${id}#${String(index)}`,

@@ -173,4 +173,231 @@ describe('PdfReader viewport observer', () => {
 
     reader.destroy();
   });
+
+  it('keeps the scanned-page notice after a resize redraws the canvas', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+
+    const renders = { count: 0 };
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 240 });
+    document.body.append(root);
+    HTMLCanvasElement.prototype.getContext = (() => ({
+      setTransform: () => undefined,
+      fillRect: () => undefined,
+    })) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+
+    const reader = new PdfReader(root, geometries(1), {
+      document: fakeDocument(renders, 1),
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+    });
+    const host = root.querySelector('.sakutto-page');
+    if (!(host instanceof HTMLElement)) throw new Error('expected a page host');
+    host.getBoundingClientRect = () =>
+      ({
+        top: 20,
+        bottom: 300,
+        left: 0,
+        right: 200,
+        width: 200,
+        height: 280,
+        x: 0,
+        y: 20,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    reader.start();
+    const parsed = Date.now();
+    while (host.dataset.pageEmpty !== 'true' && Date.now() - parsed < 1000) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(host.dataset.pageEmpty).toBe('true');
+    expect(host.querySelector('.sakutto-page__missing')?.textContent).toBe('Empty');
+
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 });
+    resizeCallback?.([], {} as ResizeObserver);
+    const resized = Date.now();
+    while (Date.now() - resized < 50) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(host.dataset.pageEmpty).toBe('true');
+    expect(host.dataset.renderFailed).toBeUndefined();
+    expect(host.hasAttribute('data-empty')).toBe(false);
+
+    reader.destroy();
+  });
+
+  it('does not show the scanned-page notice when a page with text fails to render', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 240 });
+    document.body.append(root);
+    HTMLCanvasElement.prototype.getContext = (() => ({
+      setTransform: () => undefined,
+      fillRect: () => undefined,
+    })) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+
+    const page: PdfPage = {
+      getViewport: ({ scale }) => ({
+        width: 200 * scale,
+        height: 280 * scale,
+        transform: [scale, 0, 0, -scale, 0, 280 * scale],
+      }),
+      getTextContent: async () => ({
+        items: [
+          {
+            str: 'A paragraph of selectable source text on this page.',
+            transform: [10, 0, 0, 10, 40, 200],
+            width: 160,
+            height: 10,
+            fontName: 'F1',
+          },
+        ],
+        styles: {},
+      }),
+      getOperatorList: async () => ({ fnArray: [], argsArray: [] }),
+      commonObjs: { get: () => null },
+      render: () => ({ promise: Promise.reject(new Error('draw failed')) }),
+    };
+    const document_: PdfDocument = {
+      numPages: 1,
+      getPage: async () => page,
+      getMetadata: async () => null,
+      destroy: async () => undefined,
+    };
+
+    const reader = new PdfReader(root, geometries(1), {
+      document: document_,
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+    });
+    const host = root.querySelector('.sakutto-page');
+    if (!(host instanceof HTMLElement)) throw new Error('expected a page host');
+    host.getBoundingClientRect = () =>
+      ({
+        top: 20,
+        bottom: 300,
+        left: 0,
+        right: 200,
+        width: 200,
+        height: 280,
+        x: 0,
+        y: 20,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    reader.start();
+    const started = Date.now();
+    while (host.dataset.renderFailed !== 'true' && Date.now() - started < 1000) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(host.dataset.renderFailed).toBe('true');
+    expect(host.dataset.pageEmpty).toBeUndefined();
+    expect(host.hasAttribute('data-empty')).toBe(false);
+
+    reader.destroy();
+  });
+
+  it('cancels an in-flight page render when a newer draw starts', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+
+    const renders = { started: 0, cancelled: 0 };
+    let release: (() => void) | null = null;
+    const page: PdfPage = {
+      getViewport: ({ scale }) => ({
+        width: 200 * scale,
+        height: 280 * scale,
+        transform: [scale, 0, 0, -scale, 0, 280 * scale],
+      }),
+      getTextContent: async () => ({ items: [], styles: {} }),
+      getOperatorList: async () => ({ fnArray: [], argsArray: [] }),
+      commonObjs: { get: () => null },
+      render: () => {
+        renders.started += 1;
+        let cancelled = false;
+        const promise = new Promise<void>((resolve, reject) => {
+          release = () => {
+            if (cancelled) reject(new Error('cancelled'));
+            else resolve();
+          };
+        });
+        return {
+          promise,
+          cancel: () => {
+            renders.cancelled += 1;
+            cancelled = true;
+            release?.();
+          },
+        };
+      },
+    };
+    const document_: PdfDocument = {
+      numPages: 1,
+      getPage: async () => page,
+      getMetadata: async () => null,
+      destroy: async () => undefined,
+    };
+
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 240 });
+    document.body.append(root);
+    HTMLCanvasElement.prototype.getContext = (() => ({
+      setTransform: () => undefined,
+      fillRect: () => undefined,
+    })) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+
+    const reader = new PdfReader(root, geometries(1), {
+      document: document_,
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+    });
+    const host = root.querySelector('.sakutto-page');
+    if (!(host instanceof HTMLElement)) throw new Error('expected a page host');
+    host.getBoundingClientRect = () =>
+      ({
+        top: 20,
+        bottom: 300,
+        left: 0,
+        right: 200,
+        width: 200,
+        height: 280,
+        x: 0,
+        y: 20,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    const waiting = Date.now();
+    while (renders.started === 0 && Date.now() - waiting < 1000) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(renders.started).toBeGreaterThan(0);
+
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 });
+    resizeCallback?.([], {} as ResizeObserver);
+    const resized = Date.now();
+    while (renders.cancelled === 0 && Date.now() - resized < 1000) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(renders.cancelled).toBeGreaterThan(0);
+    const second = Date.now();
+    while (renders.started <= 1 && Date.now() - second < 1000) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(renders.started).toBeGreaterThan(1);
+
+    reader.destroy();
+  });
 });

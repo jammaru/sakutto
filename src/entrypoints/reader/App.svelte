@@ -23,7 +23,14 @@
   import LanguageField from '@/ui/LanguageField.svelte';
 
   type Phase =
-    'loading' | 'ready' | 'missing' | 'broken' | 'no-consent' | 'model-missing' | 'model-error';
+    | 'loading'
+    | 'ready'
+    | 'missing'
+    | 'broken'
+    | 'too-large'
+    | 'no-consent'
+    | 'model-missing'
+    | 'model-error';
 
   let settings = $state<Settings | null>(null);
   let uiLanguage = $state(currentUiLanguage());
@@ -86,6 +93,9 @@
   );
   let overflowText = $derived(
     (progress?.overflowed ?? 0) > 0 ? t('pdfOverflow', [String(progress?.overflowed ?? 0)]) : '',
+  );
+  let failedText = $derived(
+    (progress?.failed ?? 0) > 0 ? t('pdfFailedCount', [String(progress?.failed ?? 0)]) : '',
   );
 
   async function changeTarget(language: TargetLanguage) {
@@ -247,12 +257,12 @@
     const file = input.files?.[0];
     if (!file) return;
     if (file.size > MAX_PDF_BYTES) {
-      phase = 'broken';
+      phase = 'too-large';
       return;
     }
     const bytes = new Uint8Array(await file.arrayBuffer());
     if (bytes.byteLength > MAX_PDF_BYTES) {
-      phase = 'broken';
+      phase = 'too-large';
       return;
     }
     phase = 'loading';
@@ -433,6 +443,18 @@
       <p>{t('pdfBroken')}</p>
       <button class="button" type="button" onclick={pickFile}>{t('pdfChooseFile')}</button>
     </div>
+  {:else if phase === 'too-large'}
+    <div class="notice-panel">
+      <p>{t('pdfTooLarge')}</p>
+      <input
+        id="pdf-file"
+        class="visually-hidden"
+        type="file"
+        accept="application/pdf,.pdf"
+        onchange={openLocalFile}
+      />
+      <button class="button" type="button" onclick={pickFile}>{t('pdfChooseFile')}</button>
+    </div>
   {:else if phase === 'loading'}
     <div class="notice-panel">
       <p>{t('pdfPreparing')}</p>
@@ -446,6 +468,9 @@
   {/if}
   {#if overflowText.length > 0}
     <p class="kept">{overflowText}</p>
+  {/if}
+  {#if failedText.length > 0}
+    <p class="kept">{failedText}</p>
   {/if}
 
   {#if progress && progress.total > 0}

@@ -943,6 +943,10 @@
   "pdfBroken": {
     "message": "文書を開けませんでした。壊れているか、パスワードで保護されている可能性があります。"
   },
+  "pdfTooLarge": {
+    "message": "このファイルは 200 MB を超えているため開けません。読み取れる文書の上限です。",
+    "description": "Shown when a local PDF is larger than the reader will open."
+  },
   "pdfModelMissing": {
     "message": "ページは表示していますが、翻訳には PLaMo のモデルが必要です。ダウンロードするとこの文書を翻訳できます。"
   },
@@ -1354,6 +1358,15 @@
         "content": "$1"
       }
     }
+  },
+  "pdfFailedCount": {
+    "message": "$COUNT$ か所は翻訳できませんでした。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "Toolbar note when some blocks could not be translated."
   },
   "pdfOverflowOpen": {
     "message": "訳を表示"

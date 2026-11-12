@@ -26,6 +26,7 @@ export function piece(
     italic: options.italic === true,
     math: options.math === true,
     orientation: options.orientation ?? 0,
+    size: em,
   };
 }
 

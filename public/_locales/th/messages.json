@@ -939,6 +939,10 @@
   "pdfBroken": {
     "message": "เปิดเอกสารไม่ได้ อาจเสียหายหรือมีการป้องกันด้วยรหัสผ่าน"
   },
+  "pdfTooLarge": {
+    "message": "ไฟล์นี้ใหญ่กว่า 200 MB ซึ่งเป็นขนาดสูงสุดที่โปรแกรมอ่านเปิดได้",
+    "description": "Shown when a local PDF is larger than the reader will open."
+  },
   "pdfModelMissing": {
     "message": "แสดงหน้าไว้แล้ว แต่การแปลต้องใช้โมเดล PLaMo ดาวน์โหลดโมเดลเพื่อแปลเอกสารนี้"
   },
@@ -1350,6 +1354,15 @@
         "content": "$1"
       }
     }
+  },
+  "pdfFailedCount": {
+    "message": "แปลไม่ได้ $COUNT$ ส่วน",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "Toolbar note when some blocks could not be translated."
   },
   "pdfOverflowOpen": {
     "message": "แสดงคำแปล"

@@ -21,6 +21,7 @@ function piece(
     italic: options.italic === true,
     math: options.math === true,
     orientation: 0,
+    size: em,
   };
 }
 

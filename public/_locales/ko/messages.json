@@ -939,6 +939,10 @@
   "pdfBroken": {
     "message": "문서를 열 수 없습니다. 손상되었거나 비밀번호로 보호되어 있을 수 있습니다."
   },
+  "pdfTooLarge": {
+    "message": "이 파일은 200 MB를 초과하여 열 수 없습니다. 리더가 열 수 있는 최대 크기입니다.",
+    "description": "Shown when a local PDF is larger than the reader will open."
+  },
   "pdfModelMissing": {
     "message": "페이지는 표시되지만 번역하려면 PLaMo 모델이 필요합니다. 내려받으면 이 문서를 번역할 수 있습니다."
   },
@@ -1350,6 +1354,15 @@
         "content": "$1"
       }
     }
+  },
+  "pdfFailedCount": {
+    "message": "$COUNT$곳은 번역할 수 없었습니다.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "Toolbar note when some blocks could not be translated."
   },
   "pdfOverflowOpen": {
     "message": "번역 보기"

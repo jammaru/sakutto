@@ -939,6 +939,10 @@
   "pdfBroken": {
     "message": "无法打开文档。文件可能已损坏，或受到密码保护。"
   },
+  "pdfTooLarge": {
+    "message": "此文件超过 200 MB，这是阅读器可打开的最大文档大小。",
+    "description": "Shown when a local PDF is larger than the reader will open."
+  },
   "pdfModelMissing": {
     "message": "页面已显示，但翻译需要 PLaMo 模型。下载模型即可翻译此文档。"
   },
@@ -1350,6 +1354,15 @@
         "content": "$1"
       }
     }
+  },
+  "pdfFailedCount": {
+    "message": "有 $COUNT$ 处无法翻译。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "Toolbar note when some blocks could not be translated."
   },
   "pdfOverflowOpen": {
     "message": "显示译文"
