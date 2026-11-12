@@ -28,6 +28,8 @@ describe('wrapText', () => {
   });
 
   it('does not start a Japanese line with a closing mark', () => {
+    // 20pt, not 10pt: at 10pt a character is 5pt, so 'です。' is 15pt. A 10pt column would
+    // make moving '。' onto the first line overflow; kinsoku must refuse that move.
     const lines = wrapText('です。次は本文', 20, (value) => measure(value, 10), true);
     expect(lines.join('')).toBe('です。次は本文');
     expect(lines.some((line) => line.startsWith('。'))).toBe(false);

@@ -97,6 +97,53 @@ function geometries(count: number) {
   }));
 }
 
+function viewportRect(top: number): DOMRect {
+  return {
+    top,
+    bottom: top + 280,
+    left: 0,
+    right: 200,
+    width: 200,
+    height: 280,
+    x: 0,
+    y: top,
+    toJSON: () => ({}),
+  } as DOMRect;
+}
+
+function cancelledError(): Error {
+  const error = new Error('Rendering cancelled');
+  error.name = 'RenderingCancelledException';
+  return error;
+}
+
+function intersect(host: HTMLElement, top = 20): void {
+  const record = observerRecords[0];
+  record?.callback(
+    [
+      {
+        target: host,
+        isIntersecting: true,
+        boundingClientRect: viewportRect(top),
+      } as unknown as IntersectionObserverEntry,
+    ],
+    record as unknown as IntersectionObserver,
+  );
+}
+
+function stubCanvas(): void {
+  HTMLCanvasElement.prototype.getContext = (() => ({
+    setTransform: () => undefined,
+    fillRect: () => undefined,
+  })) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+}
+
+function pageHost(root: HTMLElement, index: number): HTMLElement {
+  const host = root.querySelector(`[data-page="${String(index)}"]`);
+  if (!(host instanceof HTMLElement)) throw new Error(`expected page ${String(index)}`);
+  return host;
+}
+
 describe('PdfReader viewport observer', () => {
   afterEach(() => {
     observerRecords.length = 0;
@@ -239,11 +286,9 @@ describe('PdfReader viewport observer', () => {
     const root = document.createElement('div');
     Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 240 });
     document.body.append(root);
-    HTMLCanvasElement.prototype.getContext = (() => ({
-      setTransform: () => undefined,
-      fillRect: () => undefined,
-    })) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+    stubCanvas();
 
+    let draws = 0;
     const page: PdfPage = {
       getViewport: ({ scale }) => ({
         width: 200 * scale,
@@ -264,7 +309,10 @@ describe('PdfReader viewport observer', () => {
       }),
       getOperatorList: async () => ({ fnArray: [], argsArray: [] }),
       commonObjs: { get: () => null },
-      render: () => ({ promise: Promise.reject(new Error('draw failed')) }),
+      render: () => {
+        draws += 1;
+        return { promise: Promise.reject(new Error('draw failed')) };
+      },
     };
     const document_: PdfDocument = {
       numPages: 1,
@@ -301,6 +349,7 @@ describe('PdfReader viewport observer', () => {
     while (host.dataset.renderFailed !== 'true' && Date.now() - started < 1000) {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
+    expect(draws).toBeGreaterThanOrEqual(2);
     expect(host.dataset.renderFailed).toBe('true');
     expect(host.dataset.pageEmpty).toBeUndefined();
     expect(host.hasAttribute('data-empty')).toBe(false);
@@ -329,7 +378,7 @@ describe('PdfReader viewport observer', () => {
         let cancelled = false;
         const promise = new Promise<void>((resolve, reject) => {
           release = () => {
-            if (cancelled) reject(new Error('cancelled'));
+            if (cancelled) reject(cancelledError());
             else resolve();
           };
         });
@@ -399,6 +448,105 @@ describe('PdfReader viewport observer', () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
     expect(renders.started).toBeGreaterThan(1);
+    const settled = Date.now();
+    while (Date.now() - settled < 50) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(host.dataset.renderFailed).toBeUndefined();
+
+    reader.destroy();
+  });
+
+  it('redraws a page whose in-flight draw was evicted, without a render-failed notice', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    stubCanvas();
+
+    const pages = 10;
+    const started = Array.from({ length: pages }, () => 0);
+    const cancelled = Array.from({ length: pages }, () => 0);
+    const succeed = new Set<number>();
+    const releases: Array<(() => void) | undefined> = Array.from({ length: pages });
+
+    const hungPage = (index: number): PdfPage => ({
+      getViewport: ({ scale }) => ({
+        width: 200 * scale,
+        height: 280 * scale,
+        transform: [scale, 0, 0, -scale, 0, 280 * scale],
+      }),
+      getTextContent: async () => ({ items: [], styles: {} }),
+      getOperatorList: async () => ({ fnArray: [], argsArray: [] }),
+      commonObjs: { get: () => null },
+      render: () => {
+        started[index] = (started[index] ?? 0) + 1;
+        if (succeed.has(index)) return { promise: Promise.resolve() };
+        const promise = new Promise<void>((_, reject) => {
+          releases[index] = () => {
+            reject(cancelledError());
+          };
+        });
+        return {
+          promise,
+          cancel: () => {
+            cancelled[index] = (cancelled[index] ?? 0) + 1;
+            releases[index]?.();
+          },
+        };
+      },
+    });
+
+    const document_: PdfDocument = {
+      numPages: pages,
+      getPage: async (number) => hungPage(number - 1),
+      getMetadata: async () => null,
+      destroy: async () => undefined,
+    };
+
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 240 });
+    document.body.append(root);
+
+    const reader = new PdfReader(root, geometries(pages), {
+      document: document_,
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+    });
+
+    const waiting = Date.now();
+    while (started[2] === 0 && Date.now() - waiting < 1000) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(started[2]).toBeGreaterThan(0);
+
+    intersect(pageHost(root, 9), 10);
+    const dropped = Date.now();
+    while (cancelled[2] === 0 && Date.now() - dropped < 1000) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(cancelled[2]).toBeGreaterThan(0);
+    const afterCancel = Date.now();
+    while (Date.now() - afterCancel < 50) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(pageHost(root, 2).dataset.renderFailed).toBeUndefined();
+
+    const beforeRedraw = started[2] ?? 0;
+    succeed.add(2);
+    intersect(pageHost(root, 2), 20);
+    const redrawn = Date.now();
+    while ((started[2] ?? 0) === beforeRedraw && Date.now() - redrawn < 1000) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(started[2] ?? 0).toBeGreaterThan(beforeRedraw);
+    const painted = Date.now();
+    while (Date.now() - painted < 50) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(pageHost(root, 2).dataset.renderFailed).toBeUndefined();
+    expect(pageHost(root, 2).querySelector('canvas')).toBeInstanceOf(HTMLCanvasElement);
 
     reader.destroy();
   });

@@ -8,7 +8,7 @@ import { clippedPaintWidth, placePage } from '@/pdf/place';
 import { stubExpand } from '@/pdf/stub';
 import { measure } from './support/pdf-pieces';
 import { openPdfBytes } from './support/open-fixture-pdf';
-import { rotatedBodyPdf } from '../scripts/bench/rotated-body-pdf';
+import { rotatedBodyPdf } from './support/rotated-body-pdf';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 

@@ -432,7 +432,8 @@ export class PdfReader {
       if (!geometry) continue;
       element.host.style.width = `${(geometry.width * this.scale).toFixed(2)}px`;
       element.host.style.height = `${(geometry.height * this.scale).toFixed(2)}px`;
-      // A canvas drawn at the old scale has the wrong size for the new one.
+      // A canvas drawn at the old scale has the wrong size for the new one. Cancelling
+      // bumps the draw generation so the abandoned render cannot mark this as a failure.
       element.drawn = false;
       cancelPageDraw(element);
     }
@@ -493,20 +494,22 @@ export class PdfReader {
       if (Math.abs(index - this.focus) <= 4) continue;
       if (!element.drawn && element.renderTask === undefined) continue;
       cancelPageDraw(element);
+      // The cancelled task, if any, still owns the detached canvas. This one is unused.
       element.canvas.width = 0;
       element.canvas.height = 0;
       element.drawn = false;
     }
   }
 
-  private async drawPage(index: number): Promise<void> {
+  private async drawPage(index: number, attempt = 0): Promise<void> {
     const element = this.pageElements.get(index);
     if (!element || this.destroyed) return;
     if (element.drawn) return;
 
-    const generation = element.drawGeneration + 1;
-    element.drawGeneration = generation;
+    // Capture the generation *after* cancelling so an in-flight draw from a previous
+    // call cannot share this number and write `data-render-failed` when it is dropped.
     cancelPageDraw(element);
+    const generation = element.drawGeneration;
 
     try {
       const page = await this.document.getPage(index + 1);
@@ -518,9 +521,14 @@ export class PdfReader {
       element.drawn = true;
       delete element.renderTask;
       element.host.removeAttribute('data-render-failed');
-    } catch {
+    } catch (error) {
       if (this.destroyed || element.drawGeneration !== generation) return;
       delete element.renderTask;
+      if (isRenderCancelled(error)) return;
+      if (attempt < 1) {
+        void this.drawPage(index, attempt + 1);
+        return;
+      }
       element.host.dataset.renderFailed = 'true';
     }
   }
@@ -932,14 +940,31 @@ interface PageElement {
   drawn: boolean;
   /** Bumped when a newer draw replaces an in-flight one, so the stale render is ignored. */
   drawGeneration: number;
-  renderTask?: { cancel?: () => void };
+  renderTask?: { promise: Promise<void>; cancel?: () => void };
   covers: Map<BlockState, HTMLElement>;
   markers: Map<BlockState, HTMLButtonElement>;
 }
 
 function cancelPageDraw(element: PageElement): void {
-  element.renderTask?.cancel?.();
+  element.drawGeneration += 1;
+  const task = element.renderTask;
+  if (!task) return;
+  task.cancel?.();
   delete element.renderTask;
+  // pdf.js may still write to the canvas until the cancelled promise settles. Detach it
+  // so shrinking the bitmap or starting a new draw cannot race with that write.
+  const next = document.createElement('canvas');
+  next.className = element.canvas.className;
+  next.setAttribute('aria-hidden', 'true');
+  element.canvas.replaceWith(next);
+  element.canvas = next;
+  void task.promise.catch(() => undefined);
+}
+
+function isRenderCancelled(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const name = 'name' in error ? String(error.name) : '';
+  return name === 'RenderingCancelledException' || name === 'AbortException';
 }
 
 function scriptOf(target: string): 'ja' | 'en' | 'other' {
