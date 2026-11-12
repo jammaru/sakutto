@@ -98,11 +98,12 @@ export const X_EMPTY_TRACK_POLL_MS = 2_500;
 /** Give up polling an X video that never publishes captions. A new video resets the count. */
 export const X_EMPTY_TRACK_MAX_ATTEMPTS = 6;
 /**
- * Keep the last translated line this long after its cue ends. Bridges short gaps
- * between consecutive cues and the wait for the next translation, without leaving
- * a finished line on screen through silence. 4s sits in the 3–5s range: longer
- * than typical on-device caption latency and ASR gap-fill (2.5s), short enough
- * that a pause in speech is not a stuck overlay.
+ * Keep the last translated line this long after its cue ends, or after a live DOM
+ * caption disappears. Bridges short gaps and in-flight next-line work. Expiry
+ * applies only to real silence (no current cue / no on-screen DOM caption), not
+ * while a line is still being spoken. 4s sits in the 3–5s range: longer than
+ * typical on-device caption latency and ASR gap-fill (2.5s), short enough that a
+ * pause in speech is not a stuck overlay.
  */
 export const CAPTION_HOLD_MAX_MS = 4_000;
 
@@ -183,6 +184,7 @@ export class VideoCaptionSession {
     original: string;
     translation: string;
     shownAt: number;
+    startMs: number;
     endMs: number;
   } | null = null;
   private holdTimer: number | null = null;
@@ -384,8 +386,13 @@ export class VideoCaptionSession {
   private readonly onSeek = (): void => {
     this.liveBuffer.reset();
     this.liveJobId = null;
+    const timeMs = this.playheadMs();
+    // A jump before the held line (loop, ad, rewind) must not keep a future
+    // translation. Do not showNative here: a seek must not flash native while
+    // the new playhead cue is still translating.
+    if (this.hold && timeMs < this.hold.startMs) this.clearHold();
     captionDebug('seek', {
-      timeMs: Math.round((this.video?.currentTime || 0) * 1000),
+      timeMs,
       hold: this.hold?.cueId ?? '',
     });
     const view = this.doc.defaultView;
@@ -921,28 +928,27 @@ export class VideoCaptionSession {
 
     const cached = this.translator.getCached(original, options);
     if (cached) {
-      this.commitDisplay(cue.id, original, cached, cue.endMs);
+      this.commitDisplay(cue.id, original, cached, cue.startMs, cue.endMs);
       this.scheduleAroundPlayhead(cue);
       return;
     }
-    // Keep the previous translated line until this cue lands, but never past the
-    // hold cap. Flashing native ja ASR mid-video is what made ja→en look like the
-    // overlay had disappeared; a finished line must not stick through silence.
-    if (!this.holdActiveAt(this.playheadMs())) {
-      this.showNative(this.hold ? 'hold-expired' : 'waiting-first');
-    }
+    // Keep the previous translated line until this cue lands. A current cue whose
+    // translation is in flight is not silence — expiry is only for a real gap.
+    if (!this.hold) this.showNative('waiting-first');
+    const generation = this.translator.translateGeneration();
     const translated = await this.translator.translateCue(
       { ...cue, text: original },
       options,
       CAPTION_PLAYHEAD_PRIORITY,
     );
     if (!this.running || token !== this.sourceToken) return;
+    if (this.translator.abortedSince(generation)) return;
     const timeMs = this.playheadMs();
     const current = cueAtTime(this.loaded?.cues ?? [], timeMs);
     if (current && current.id !== cue.id) return;
     if (translated) {
       if (!current && timeMs > cue.endMs + CAPTION_HOLD_MAX_MS) return;
-      this.commitDisplay(cue.id, original, translated, cue.endMs);
+      this.commitDisplay(cue.id, original, translated, cue.startMs, cue.endMs);
     } else if (current) {
       this.showNative('translate-failed');
     } else if (!this.holdActiveAt(timeMs)) {
@@ -968,6 +974,10 @@ export class VideoCaptionSession {
     }
     if (!forceDom && !this.liveMode && (this.loaded?.cues.length ?? 0) > 0) return;
 
+    const timeMs = this.playheadMs();
+    // The on-screen line is still being spoken. Do not treat buffer-idle as silence.
+    this.extendHold(timeMs);
+
     const lines = this.liveBuffer.update(visible, this.now());
     const options = this.translateOptions(this.liveMode ? this.loaded?.language : undefined);
     const sourceLanguage = (this.loaded?.cues.length ?? 0) > 0 ? this.loaded?.language : undefined;
@@ -979,33 +989,31 @@ export class VideoCaptionSession {
     }
 
     const newest = lines.at(-1) ?? (forceDom ? visible : undefined);
-    const timeMs = this.playheadMs();
-    if (!newest) {
-      if (!this.holdActiveAt(timeMs)) this.showNative('live-empty');
-      return;
-    }
+    if (!newest) return;
     const cached = this.translator.getCached(newest, options);
     if (cached) {
-      this.commitDisplay(`live:${newest}`, newest, cached, timeMs + 2_000);
+      this.commitDisplay(`live:${newest}`, newest, cached, 0, timeMs);
       return;
     }
-    if (!this.holdActiveAt(timeMs)) this.showNative('waiting-live');
+    if (!this.hold) this.showNative('waiting-live');
     this.translator.keepOnly(newest, options);
     this.liveJobId = newest;
     const cue: CaptionCue = {
       id: `live:${newest}`,
-      startMs: timeMs,
-      endMs: timeMs + 2_000,
+      startMs: 0,
+      endMs: timeMs,
       text: newest,
       language: this.loaded?.language,
     };
     const token = this.sourceToken;
+    const generation = this.translator.translateGeneration();
     void this.translator
       .translateCue(cue, options, CAPTION_PLAYHEAD_PRIORITY)
       .then((translation) => {
         if (!this.running || token !== this.sourceToken) return;
+        if (this.translator.abortedSince(generation)) return;
         if (this.liveJobId !== newest) return;
-        if (translation) this.commitDisplay(cue.id, newest, translation, cue.endMs);
+        if (translation) this.commitDisplay(cue.id, newest, translation, cue.startMs, cue.endMs);
         else this.showNative('translate-failed');
       });
   }
@@ -1227,7 +1235,7 @@ export class VideoCaptionSession {
 
   private repaintHold(): void {
     const hold = this.hold;
-    if (!hold || !this.holdActiveAt(this.playheadMs())) return;
+    if (!hold) return;
     this.overlay.show({
       original: hold.original,
       translation: hold.translation,
@@ -1240,20 +1248,40 @@ export class VideoCaptionSession {
     return Math.round((this.video?.currentTime || 0) * 1000);
   }
 
-  /** True while the held line is still being spoken, or within {@link CAPTION_HOLD_MAX_MS} after it ends. */
+  /**
+   * True while the held line still belongs at this playhead: not before its start
+   * (rewind / loop), and not more than {@link CAPTION_HOLD_MAX_MS} after it ended.
+   * A current cue with an in-flight translation is handled by the caller, not here.
+   */
   private holdActiveAt(timeMs: number): boolean {
     if (!this.hold) return false;
+    if (timeMs < this.hold.startMs) return false;
     return timeMs <= this.hold.endMs + CAPTION_HOLD_MAX_MS;
   }
 
-  private commitDisplay(cueId: string, original: string, translation: string, endMs: number): void {
+  /** Push the hold window forward while a live/DOM line is still on screen. */
+  private extendHold(timeMs: number): void {
+    if (!this.hold) return;
+    this.hold.endMs = Math.max(this.hold.endMs, timeMs);
+  }
+
+  private commitDisplay(
+    cueId: string,
+    original: string,
+    translation: string,
+    startMs: number,
+    endMs: number,
+  ): void {
     if (!this.running) return;
     const token = this.sourceToken;
-    if (this.hold?.cueId === cueId && this.hold.translation === translation) return;
+    if (this.hold?.cueId === cueId && this.hold.translation === translation) {
+      this.hold.endMs = Math.max(this.hold.endMs, endMs);
+      return;
+    }
     const apply = (): void => {
       if (!this.running || token !== this.sourceToken) return;
       this.holdTimer = null;
-      this.hold = { cueId, original, translation, shownAt: this.now(), endMs };
+      this.hold = { cueId, original, translation, shownAt: this.now(), startMs, endMs };
       this.ignorePlayerMutations = true;
       this.overlay.show({
         original,

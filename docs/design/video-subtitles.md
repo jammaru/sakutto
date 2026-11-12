@@ -96,9 +96,12 @@ auto-translate is not fetched as the source.
 and again only when the overlay truly has nothing for the current time (passthrough of a
 same-language track, or no cue and no hold). A new uncached cue or a seek must not flash
 YouTube’s ja auto-captions over a ja→en overlay; the previous translated line stays until
-the next one lands, but only through the cue’s own end plus `CAPTION_HOLD_MAX_MS` (4 s).
-That window bridges short gaps and in-flight next-line work. After it, silence clears the
-overlay; a new cue whose translation is not ready or has failed shows the original
+the next one lands. The hold cap (`CAPTION_HOLD_MAX_MS`, 4 s) applies only to **real
+silence** (no current cue, and for live no on-screen `.ytp-caption-segment`). A current
+cue whose translation is still in flight is not silence. Live holds extend while the DOM
+line remains; they expire only after that line has been gone for 4 s. Seek/abort must not
+be treated as a failed translation. A jump before the held cue’s start (loop, ad, rewind)
+drops the hold so a future line is not shown. After a true failure, show the original
 (`showNative`) instead of a stale line. `localStorage.sakuttoCaptionDebug = '1'` logs why
 native is shown.
 

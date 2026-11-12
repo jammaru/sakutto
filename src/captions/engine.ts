@@ -65,6 +65,15 @@ export class CaptionTranslator {
     this.inflight.clear();
   }
 
+  /** Snapshot before `translateCue`; {@link abortedSince} is true after `seek` / `clear`. */
+  translateGeneration(): number {
+    return this.seekGeneration;
+  }
+
+  abortedSince(generation: number): boolean {
+    return generation !== this.seekGeneration;
+  }
+
   async translateCue(
     cue: CaptionCue,
     options: CaptionTranslateOptions,
