@@ -96,7 +96,11 @@ auto-translate is not fetched as the source.
 and again only when the overlay truly has nothing for the current time (passthrough of a
 same-language track, or no cue and no hold). A new uncached cue or a seek must not flash
 YouTube’s ja auto-captions over a ja→en overlay; the previous translated line stays until
-the next one lands. `localStorage.sakuttoCaptionDebug = '1'` logs why native is shown.
+the next one lands, but only through the cue’s own end plus `CAPTION_HOLD_MAX_MS` (4 s).
+That window bridges short gaps and in-flight next-line work. After it, silence clears the
+overlay; a new cue whose translation is not ready or has failed shows the original
+(`showNative`) instead of a stale line. `localStorage.sakuttoCaptionDebug = '1'` logs why
+native is shown.
 
 **ToS / fragility.** YouTube's terms restrict automated access and downloading of content.
 Reading a caption URL the player itself embedded on a page the user opened, then
