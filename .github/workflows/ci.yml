@@ -119,16 +119,16 @@ jobs:
 
       - id: playwright
         shell: bash
-        run: echo "key=playwright-chromium-${RUNNER_OS}-$(sha256sum pnpm-lock.yaml | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+        run: echo "key=playwright-chromium-${RUNNER_OS}-${ImageOS:-unknown}-$(sha256sum pnpm-lock.yaml | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: ${{ steps.playwright.outputs.key }}
 
-      # Skip `--with-deps`: ubuntu-latest (Resolute) apt often fails DNS for
-      # archive.ubuntu.com, and GitHub-hosted images already ship the libs
-      # Chromium needs. Browser binaries still come from the cache above.
+      # Invariant: browser only, never `--with-deps`. CI does not apt-get fonts;
+      # GitHub-hosted Ubuntu already ships Chromium's shared libraries. Tests
+      # must not depend on CJK font metrics. Binaries still come from the cache.
       - run: pnpm exec playwright install chromium
       - run: pnpm test:e2e
         env:
