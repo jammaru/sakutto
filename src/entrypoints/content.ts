@@ -30,7 +30,6 @@ import {
   displayShortcut,
   emptyShortcutAssigned,
   matchesShortcut,
-  SHORTCUT_PAGE_COMMANDS,
   type ShortcutAssigned,
   type ShortcutCommand,
   type ShortcutEnabled,
@@ -94,19 +93,6 @@ function listensFor(
     const shortcut = shortcutFor(snapshot, assigned, enabled, command);
     return shortcut.length > 0 && matchesShortcut(event, shortcut);
   };
-}
-
-function commandEnabled(
-  snapshot: ShortcutSnapshot | null,
-  assigned: ShortcutAssigned,
-  enabled: ShortcutEnabled,
-  command: PageCommandName,
-): boolean {
-  const name = (Object.keys(SHORTCUT_PAGE_COMMANDS) as ShortcutCommand[]).find(
-    (entry) => SHORTCUT_PAGE_COMMANDS[entry] === command,
-  );
-  if (!name) return true;
-  return shortcutFor(snapshot, assigned, enabled, name).length > 0;
 }
 
 function composePreferencesFor(
@@ -537,9 +523,8 @@ export default defineContentScript({
       const session = await sessionPromise;
       const [liveSettings, liveRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
       captions?.setPreferences(captionPreferencesFor(liveSettings, liveRule, host));
-      if (!commandEnabled(shortcutSnapshot, shortcutAssigned, shortcutsEnabled, command)) {
-        return session.state();
-      }
+      // Keyboard assignment is enforced on the in-page listener and in
+      // `commands.onCommand`. This path also serves the popup and context menu.
       if (!__SAKUTTO_FAKE_ENGINE__) {
         void requestEngineWarm();
         void requestEngineTier(session, false, captions);

@@ -9,7 +9,12 @@ import {
   translationStyleKeepsContrast,
   uiShadow,
 } from '@/dom/overlay';
-import { PageSession, type PageEngine, type SessionPreferences } from '@/dom/session';
+import {
+  PAGE_SHORTCUT_DEDUP_MS,
+  PageSession,
+  type PageEngine,
+  type SessionPreferences,
+} from '@/dom/session';
 import { CAPTION_PLAYHEAD_PRIORITY } from '@/captions/engine';
 import { abortError, modelChangedError } from '@/engine/errors';
 import { JobScheduler } from '@/engine/queue/scheduler';
@@ -875,6 +880,7 @@ describe('page session', () => {
     expect(document.querySelector('sakutto-line')?.textContent).toContain('訳:Hello world');
     expect(document.body.textContent).toContain('Hello world');
 
+    await new Promise((resolve) => setTimeout(resolve, PAGE_SHORTCUT_DEDUP_MS + 1));
     await session.handle('bilingual');
     expect(document.querySelector('sakutto-line')).toBeNull();
     expect(calls).toBe(1);
@@ -1941,6 +1947,44 @@ describe('page translation corrections', () => {
     );
     await session.whenIdle();
     expect(calls).toBeGreaterThan(0);
+  });
+
+  it('does not restore the page when Chrome command and in-page Alt+A arrive together', async () => {
+    document.body.innerHTML = '<p>Hello world</p>';
+    let calls = 0;
+    const session = new PageSession(document, {
+      engine: engineOf(async function* (segments) {
+        calls += 1;
+        for (const segment of segments) {
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' };
+        }
+      }),
+      labels,
+      preferences: preferences(),
+      scheduleFrame: (callback) => callback(),
+      pageKey: (event) => event.altKey && event.code === 'KeyA',
+    });
+    sessions.push(session);
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'a',
+        code: 'KeyA',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await session.handle('toggle');
+    await session.whenIdle();
+
+    expect(calls).toBeGreaterThan(0);
+    expect(session.state().active).toBe(true);
+    expect(document.body.textContent).toContain('訳:Hello world');
+
+    await new Promise((resolve) => setTimeout(resolve, PAGE_SHORTCUT_DEDUP_MS + 1));
+    await session.handle('toggle');
+    expect(session.state().active).toBe(false);
   });
 });
 

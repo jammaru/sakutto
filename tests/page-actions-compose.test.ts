@@ -35,6 +35,8 @@ describe('compose command routing', () => {
     const bridge = readFileSync(new URL('../src/shared/page-bridge.ts', import.meta.url), 'utf8');
     const content = readFileSync(new URL('../src/entrypoints/content.ts', import.meta.url), 'utf8');
     expect(actions).toContain('noteShortcutCommandAssigned');
+    expect(actions).toContain('handleShortcutCommand');
+    expect(actions).toContain('lastFocusedWindow');
     expect(actions).toContain("const allFrames = command === 'compose'");
     expect(actions).toContain('allFrames: true');
     expect(actions).toContain('document.hasFocus()');
@@ -43,6 +45,12 @@ describe('compose command routing', () => {
     expect(messages).toContain('{ frameId }');
     expect(bridge).toContain('allFrames?: boolean');
     expect(content).toContain('shouldHandleComposeCommand(document)');
+  });
+
+  it('does not let a cleared Chrome binding block popup or context-menu page commands', () => {
+    const content = readFileSync(new URL('../src/entrypoints/content.ts', import.meta.url), 'utf8');
+    expect(content).not.toContain('commandEnabled(');
+    expect(content).toContain('commands.onCommand');
   });
 });
 

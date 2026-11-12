@@ -193,6 +193,16 @@ describe('shortcut settings', () => {
   });
 });
 
+describe('popup shortcut hints', () => {
+  it('names the live binding and says when Chrome never assigned the suggested key', () => {
+    expect(popup).toContain('usesInPageFallback');
+    expect(popup).toContain('shortcutFallbackNote');
+    expect(popup).toContain('data-sakutto="shortcut-fallback"');
+    expect(popup).toContain('requestShortcutSnapshot');
+    expect(popup).not.toContain("'Alt+A'");
+  });
+});
+
 describe('WebGPU diagnostic on settings', () => {
   const options = source('entrypoints/options/App.svelte');
   const panel = source('ui/GpuDiagnostic.svelte');

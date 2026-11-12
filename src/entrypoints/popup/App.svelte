@@ -9,7 +9,7 @@
     type ModelStatus,
   } from '@/shared/engine-status';
   import { hasLicenseConsent } from '@/shared/agreement';
-  import { currentUiLanguage, t, type MessageKey } from '@/shared/i18n';
+  import { currentUiLanguage, t, tForBrowser, type MessageKey } from '@/shared/i18n';
   import {
     isModelProgressMessage,
     requestEngineStatus,
@@ -54,6 +54,7 @@
     ariaShortcut,
     boundShortcut,
     displayShortcut,
+    usesInPageFallback,
     type ShortcutCommand,
   } from '@/shared/shortcuts';
   import { readDeviceHeadroom, type DeviceHeadroom } from '@/ui/device-headroom';
@@ -112,6 +113,13 @@
       label: hint.label,
       text: t(hint.label, [keyText(hint.command)]),
     })),
+  );
+  let shortcutFallback = $derived(
+    SHORTCUT_COMMANDS.some((command) =>
+      usesInPageFallback(shortcuts?.snapshot ?? null, command, shortcuts?.assigned[command]),
+    )
+      ? tForBrowser('shortcutFallbackNote', 'shortcutFallbackNoteFirefox')
+      : '',
   );
   let toggleKeys = $derived(ariaShortcut(bound['translate-page']) ?? undefined);
 
@@ -552,6 +560,9 @@
       <li>{line.text}</li>
     {/each}
   </ul>
+  {#if shortcutFallback}
+    <p class="muted" data-sakutto="shortcut-fallback">{shortcutFallback}</p>
+  {/if}
   <button class="link-button shortcut-change" type="button" onclick={changeShortcuts}>
     {t('shortcutChange')}
   </button>
