@@ -147,9 +147,8 @@ export class InBrowserEngine implements IdentifiedEngine {
     const skipped: TranslateSegment[] = [];
     const ready: TranslateSegment[] = [];
     for (const segment of segments) {
-      const cleaned = sanitizeTranslationInput(segment.text);
-      if (!hasTranslatableText(cleaned)) skipped.push(segment);
-      else ready.push({ ...segment, text: cleaned });
+      if (!hasTranslatableText(segment.text)) skipped.push(segment);
+      else ready.push(segment);
     }
 
     const work = planWork(ready, this.config, options.eager === true);
@@ -291,19 +290,16 @@ export class InBrowserEngine implements IdentifiedEngine {
 
     const pieces = chunkForTranslation(segment.text, this.config.pieceChars);
     if (pieces.length <= 1) {
-      const output = await this.completeRecover(
-        pieces[0] ?? segment.text.trim(),
-        options,
-        signal,
-        (delta, restart) =>
-          stream.push({
-            id: segment.id,
-            textDelta: delta,
-            engine: this.kind,
-            ...(restart ? { restart: true } : {}),
-          }),
+      const source = pieces[0] ?? segment.text.trim();
+      const output = await this.completeRecover(source, options, signal, (delta, restart) =>
+        stream.push({
+          id: segment.id,
+          textDelta: delta,
+          engine: this.kind,
+          ...(restart ? { restart: true } : {}),
+        }),
       );
-      const cleaned = cleanModelOutput(output.text);
+      const cleaned = output.error ? output.text : cleanModelOutput(output.text);
       stream.push({
         id: segment.id,
         final: cleaned.length > 0 ? cleaned : segment.text,
@@ -668,8 +664,11 @@ export class InBrowserEngine implements IdentifiedEngine {
   }
 
   private isUnusable(source: string, output: string, hitMaxTokens: boolean): boolean {
+    if (this.isBroken(source, output, hitMaxTokens)) return true;
+    const cleaned = cleanModelOutput(output);
+    if (isInvisibleRunawayOutput(source, cleaned, hitMaxTokens)) return true;
     return (
-      this.isBroken(source, output, hitMaxTokens) ||
+      cleaned.replace(/\s+/gu, '').length === 0 &&
       isInvisibleRunawayOutput(source, output, hitMaxTokens)
     );
   }
@@ -687,18 +686,16 @@ export class InBrowserEngine implements IdentifiedEngine {
     onDelta: DeltaSink,
     streamed: boolean,
   ): Promise<PieceOutput | null> {
-    if (!isInvisibleRunawayOutput(careful, output, true)) {
+    if (!this.isUnusable(careful, output, true)) {
       return null;
     }
 
     const aggressive = sanitizeTranslationInput(original, 'aggressive');
-    if (aggressive === careful || !hasTranslatableText(aggressive)) {
-      if (streamed) onDelta(original, true);
-      else if (original.length > 0) onDelta(original, true);
+    const canRetry = aggressive !== careful && hasTranslatableText(aggressive);
+    if (streamed || (!canRetry && original.length > 0)) onDelta(original, true);
+    if (!canRetry) {
       return { text: original, error: true };
     }
-
-    if (streamed) onDelta(original, true);
 
     const tgt = canonicalLanguage(options.tgt);
     if (!tgt) return { text: original, error: true };

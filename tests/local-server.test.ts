@@ -602,17 +602,21 @@ describe('local server completions', () => {
       response.end();
     });
     servers.push(sse);
+    const sseTokens: string[] = [];
     await expect(
       completeOnServer(config(sse.url), {
         prompt: 'x',
         maxTokens: 8,
         signal: new AbortController().signal,
-        onToken: () => undefined,
+        onToken: (token) => {
+          sseTokens.push(token);
+        },
       }),
     ).rejects.toMatchObject({
       code: 'server-failed',
       message: expect.stringMatching(/length/u),
     });
+    expect(sseTokens.join('')).toBe('Hel');
 
     const json = await startFakeServer((_request, response) => {
       response.writeHead(200, { 'Content-Type': 'application/json' });

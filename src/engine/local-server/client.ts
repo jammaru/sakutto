@@ -304,12 +304,14 @@ async function readSse(
       } catch {
         throw malformedEventError();
       }
+      // Forward first so the engine can tell a truncated visible sentence from a
+      // format-character collapse before `length` is raised as a hard failure.
+      forwardCompletionToken(request.signal, completionText(payload), request.onToken);
       const reason = choiceFinishReason(payload);
       if (reason !== null) {
-        assertStopReason(reason, false);
         finishReason = reason;
+        assertStopReason(reason, false);
       }
-      forwardCompletionToken(request.signal, completionText(payload), request.onToken);
     }
     return false;
   };

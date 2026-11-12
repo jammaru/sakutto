@@ -13,12 +13,15 @@ import {
   type TranslatorConstructor,
   type TranslatorInstance,
 } from '@/engine/chrome/translator';
+import { EngineError, isLengthTruncation } from '@/engine/errors';
 import { InBrowserEngine } from '@/engine/in-browser/engine';
+import type { CompletionRequest, CompletionResult } from '@/engine/in-browser/runtime';
 import { cleanModelOutput } from '@/engine/prompt/pfml3';
 import {
   ISSUE_73_HIDDEN,
   hasTranslatableText,
   isInvisibleRunawayOutput,
+  sanitizeModelOutput,
   sanitizeTranslationInput,
   stripLoneSurrogates,
   visibleContent,
@@ -50,9 +53,15 @@ function displayed(chunks: readonly TranslationChunk[]): string {
 }
 
 const ENGLAND_FLAG = '\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}';
+const SCOTLAND_FLAG =
+  '\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E006C}\u{E0061}\u{E006E}\u{E0064}\u{E007F}';
 const FAMILY = '👨\u200D👩\u200D👧\u200D👦';
 const PERSIAN = '\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u0645';
+const PERSIAN_TAG = '\u06a9\u062a\u0627\u0628\u200c<i1>\u0647\u0627</i1>';
+const EMOJI_TAG = '👨\u200d<i1>👩</i1>';
 const HINDI_ZWNJ = '\u0915\u094D\u200C\u0937';
+const MALAYALAM_CHILLU = '\u0d05\u0d35\u0d7b';
+const MALAYALAM_CHILLU_ZWJ = '\u0d05\u0d35\u0d28\u0d4d\u200d';
 const CJK_IVS = '\u845B\u{E0100}';
 
 const CASES: ReadonlyArray<{ name: string; input: string; expected: string }> = [
@@ -94,7 +103,19 @@ const CASES: ReadonlyArray<{ name: string; input: string; expected: string }> = 
   { name: 'England flag tag sequence', input: ENGLAND_FLAG, expected: ENGLAND_FLAG },
   { name: 'lone tag in Latin', input: 'Hi\u{E0020}there', expected: 'Hithere' },
   { name: 'Persian ZWNJ', input: PERSIAN, expected: PERSIAN },
+  { name: 'Persian ZWNJ across a placeholder tag', input: PERSIAN_TAG, expected: PERSIAN_TAG },
+  { name: 'emoji ZWJ across a placeholder tag', input: EMOJI_TAG, expected: EMOJI_TAG },
   { name: 'Hindi virama + ZWNJ', input: HINDI_ZWNJ, expected: HINDI_ZWNJ },
+  {
+    name: 'Malayalam chillu precomposed',
+    input: MALAYALAM_CHILLU,
+    expected: MALAYALAM_CHILLU,
+  },
+  {
+    name: 'Malayalam chillu virama + ZWJ at word end',
+    input: MALAYALAM_CHILLU_ZWJ,
+    expected: MALAYALAM_CHILLU_ZWJ,
+  },
   { name: 'ZWJ between Latin letters dropped', input: 'ab\u200Dcd', expected: 'abcd' },
   { name: 'ZWNJ between Latin letters dropped', input: 'ab\u200Ccd', expected: 'abcd' },
   { name: 'NFC Japanese dakuten', input: 'か\u3099', expected: 'が' },
@@ -124,6 +145,15 @@ describe('sanitizeTranslationInput table', () => {
     expect(sanitizeTranslationInput(PERSIAN, 'aggressive')).toBe(
       '\u0645\u06CC\u062E\u0648\u0627\u0647\u0645',
     );
+    expect(sanitizeTranslationInput(MALAYALAM_CHILLU_ZWJ, 'aggressive')).toBe(MALAYALAM_CHILLU_ZWJ);
+    expect(sanitizeTranslationInput(EMOJI_TAG, 'aggressive')).toBe(EMOJI_TAG);
+  });
+
+  it('scans a long joiner run in linear time', () => {
+    const input = `aa${'\u200D'.repeat(32_000)}bb`;
+    const started = Date.now();
+    expect(sanitizeTranslationInput(input)).toBe('aabb');
+    expect(Date.now() - started).toBeLessThan(500);
   });
 
   it('strips a lone surrogate without throwing on NFC', () => {
@@ -142,12 +172,32 @@ describe('translatable / runaway detection', () => {
     expect(hasTranslatableText(FAMILY)).toBe(true);
   });
 
+  it('ignores placeholder tags when deciding whether text is translatable', () => {
+    expect(hasTranslatableText('<i1></i1>')).toBe(false);
+    expect(hasTranslatableText('</i12>')).toBe(false);
+    expect(hasTranslatableText('<i1>Hi</i1>')).toBe(true);
+    expect(hasTranslatableText('<i1></i1>Hello')).toBe(true);
+  });
+
   it('flags output that is only or mostly invisible', () => {
     expect(isInvisibleRunawayOutput('Hello.', '\u200D'.repeat(8))).toBe(true);
     expect(isInvisibleRunawayOutput('Hello.', '\u200D'.repeat(40), true)).toBe(true);
     expect(isInvisibleRunawayOutput('Hello.', 'こんにちは')).toBe(false);
     expect(isInvisibleRunawayOutput(ISSUE_73_HIDDEN, '\u200D'.repeat(8))).toBe(false);
     expect(visibleContent('\u200Dこんにちは\u2060')).toBe('こんにちは');
+  });
+
+  it('does not treat a short translation plus a few trailing joiners as a runaway', () => {
+    expect(isInvisibleRunawayOutput('Hello.', `設定${'\u200D'.repeat(8)}`)).toBe(false);
+    expect(isInvisibleRunawayOutput('Hello.', `設定${'\u200D'.repeat(8)}`, true)).toBe(false);
+    expect(isInvisibleRunawayOutput('Hello.', `設定${'\u2060'.repeat(8)}`)).toBe(false);
+  });
+
+  it('does not treat a subdivision flag tag sequence as a runaway', () => {
+    expect(isInvisibleRunawayOutput('Hello.', ENGLAND_FLAG)).toBe(false);
+    expect(isInvisibleRunawayOutput('Hello.', ENGLAND_FLAG, true)).toBe(false);
+    expect(isInvisibleRunawayOutput('Hello.', SCOTLAND_FLAG)).toBe(false);
+    expect(isInvisibleRunawayOutput('Hello.', SCOTLAND_FLAG, true)).toBe(false);
   });
 });
 
@@ -182,6 +232,31 @@ describe('InBrowserEngine Unicode input (wllama and local-server share this path
       engine.translate([{ id: 'a', text: PERSIAN }], options({ tgt: 'en', src: 'fa' })),
     );
     expect(promptSource(runtime.requests[0]?.prompt ?? '')).toBe(PERSIAN);
+  });
+
+  it('keeps a Malayalam chillu ZWJ in the prompt', async () => {
+    const runtime = new FakeRuntime(() => 'he');
+    const engine = new InBrowserEngine(runtime);
+    await collectChunks(
+      engine.translate(
+        [{ id: 'a', text: MALAYALAM_CHILLU_ZWJ }],
+        options({ tgt: 'en', src: 'ml' }),
+      ),
+    );
+    expect(promptSource(runtime.requests[0]?.prompt ?? '')).toBe(MALAYALAM_CHILLU_ZWJ);
+  });
+
+  it('keeps joiners adjacent to placeholder tags in the prompt', async () => {
+    const runtime = new FakeRuntime(() => 'book');
+    const engine = new InBrowserEngine(runtime);
+    await collectChunks(
+      engine.translate([{ id: 'a', text: PERSIAN_TAG }], options({ tgt: 'en', src: 'fa' })),
+    );
+    expect(promptSource(runtime.requests[0]?.prompt ?? '')).toBe(PERSIAN_TAG);
+
+    runtime.handler = () => 'family';
+    await collectChunks(engine.translate([{ id: 'b', text: EMOJI_TAG }], options()));
+    expect(promptSource(runtime.requests.at(-1)?.prompt ?? '')).toBe(EMOJI_TAG);
   });
 
   it('does not call the model for a segment that is only invisible characters', async () => {
@@ -227,6 +302,57 @@ describe('InBrowserEngine Unicode input (wllama and local-server share this path
     expect(runtime.requests.length).toBeGreaterThanOrEqual(2);
     expect(displayed(chunks)).toBe('I want');
     expect(chunks.at(-1)?.error).toBeUndefined();
+  });
+
+  it('falls back to the untouched original when Latin runaway cannot retry', async () => {
+    const runtime = new FakeRuntime(() => '\u200D'.repeat(8));
+    const engine = new InBrowserEngine(runtime);
+    const text = `Hello${ISSUE_73_HIDDEN}.`;
+    const chunks = await collectChunks(engine.translate([{ id: 'a', text }], options()));
+    expect(runtime.requests).toHaveLength(1);
+    expect(displayed(chunks)).toBe(text);
+    expect(chunks.at(-1)).toMatchObject({ id: 'a', final: text, engine: 'plamo', error: true });
+  });
+
+  it('keeps a short translation that only has a few trailing joiners', async () => {
+    const runtime = new FakeRuntime(() => `設定${'\u200D'.repeat(8)}`);
+    const engine = new InBrowserEngine(runtime);
+    const chunks = await collectChunks(engine.translate([{ id: 'a', text: 'Hello.' }], options()));
+    expect(runtime.requests).toHaveLength(1);
+    expect(displayed(chunks)).toBe(`設定${'\u200D'.repeat(8)}`);
+    expect(chunks.at(-1)?.error).toBeUndefined();
+  });
+
+  it('keeps a subdivision flag in model output', async () => {
+    const runtime = new FakeRuntime(() => ENGLAND_FLAG);
+    const engine = new InBrowserEngine(runtime);
+    const chunks = await collectChunks(engine.translate([{ id: 'a', text: 'England' }], options()));
+    expect(displayed(chunks)).toBe(ENGLAND_FLAG);
+    expect(chunks.at(-1)?.error).toBeUndefined();
+  });
+
+  it('rethrows a visible length truncation after tokens were forwarded', async () => {
+    const error = new EngineError(
+      'server-failed',
+      'The local translation server stopped early (length).',
+      { detail: 'length' },
+    );
+    expect(isLengthTruncation(error)).toBe(true);
+
+    class LengthRuntime extends FakeRuntime {
+      override async complete(request: CompletionRequest): Promise<CompletionResult | void> {
+        this.requests.push(request);
+        request.onToken('Hel');
+        throw error;
+      }
+    }
+
+    const runtime = new LengthRuntime(() => 'Hel');
+    const engine = new InBrowserEngine(runtime);
+    await expect(
+      collectChunks(engine.translate([{ id: 'a', text: 'Hello.' }], options())),
+    ).rejects.toMatchObject({ code: 'server-failed', detail: 'length' });
+    expect(runtime.requests).toHaveLength(1);
   });
 
   it('packs short segments after stripping joiners so line alignment stays 1:1', async () => {
@@ -355,6 +481,13 @@ describe('cache, captions, typed input, cleanModelOutput', () => {
 
   it('strips runaway joiners from model output after the PFML stop token', () => {
     expect(cleanModelOutput(`こんにちは\u2060 <|plamo:tag|>`)).toBe('こんにちは');
+  });
+
+  it('does not strip a Malayalam chillu ZWJ from model output', () => {
+    expect(sanitizeModelOutput(MALAYALAM_CHILLU_ZWJ)).toBe(MALAYALAM_CHILLU_ZWJ);
+    expect(cleanModelOutput(MALAYALAM_CHILLU_ZWJ)).toBe(MALAYALAM_CHILLU_ZWJ);
+    expect(cleanModelOutput(`${MALAYALAM_CHILLU_ZWJ}<|plamo:tag|>`)).toBe(MALAYALAM_CHILLU_ZWJ);
+    expect(cleanModelOutput(MALAYALAM_CHILLU)).toBe(MALAYALAM_CHILLU);
   });
 });
 

@@ -2,12 +2,6 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
-## Unreleased
-
-### Bug Fixes
-
-- Invisible Unicode format characters in a page, selection, typed draft, or caption no longer make translation fail. Sakutto strips word joiners, zero-width spaces, and similar default-ignorables before the model, while keeping emoji ZWJ sequences, Persian and Indic ZWNJ, bidi marks in RTL text, and variation selectors that change meaning. If the model still emits only invisible characters or hits the token limit with no visible text, that piece is retried once and then left as the original instead of showing garbage. (#73)
-
 ## [1.4.0] - 2026-11-12
 
 ### Features

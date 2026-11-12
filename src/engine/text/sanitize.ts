@@ -1,5 +1,7 @@
 /**
- * Prepares source (and model output) for translation.
+ * Prepares source for translation. Model output is cleaned separately by
+ * `sanitizeModelOutput` — that path only removes runaway invisibles / control
+ * characters, and never rewrites meaningful joiners, bidi, VS, or tags.
  *
  * The model, especially PLaMo 3 Translate on llama.cpp, can copy invisible format
  * characters until max_tokens (`finish_reason: length`). That is issue #73: a Latin
@@ -12,9 +14,13 @@
  *   deprecated format, C0/C1 except TAB/LF (CRLF becomes newline), lone surrogates,
  *   private-use, annotation chars, and other default-ignorables that are not
  *   listed as kept below.
- * - Keep ZWJ inside emoji ZWJ sequences (family, role, flags-as-ZWJ).
+ * - Keep ZWJ inside emoji ZWJ sequences (family, role, flags-as-ZWJ), including
+ *   when a DOM placeholder `<iN>` sits between the parts.
  * - Keep ZWNJ/ZWJ between letters of scripts that use them (Arabic/Persian,
- *   Hebrew, Indic, and other joining scripts).
+ *   Hebrew, Indic, and other joining scripts), including across a placeholder.
+ * - Keep ZWJ/ZWNJ when the immediately preceding code point is a virama or
+ *   combining mark in a joining script, even at word end (Malayalam chillu,
+ *   Hindi halant+ZWJ).
  * - Keep bidi controls (U+200E/200F, U+202A–202E, U+2066–2069) when the text
  *   contains an RTL script; drop them in Latin/CJK-only text.
  * - Keep variation selectors attached to a symbol, emoji, or Han ideograph
@@ -27,11 +33,17 @@
  *   precomposed form the model expects. Combining marks that remain are kept.
  *
  * Placeholder tags (`<i1>…</i1>`) are ASCII and pass through, so DOM gap
- * alignment is unchanged. Callers must sanitize only the text sent to the model,
- * never the live Text nodes: restore still uses `slot.original`.
+ * alignment is unchanged. Neighbor scans treat those tokens as transparent.
+ * Callers must sanitize only the text sent to the model, never the live Text
+ * nodes: restore still uses `slot.original`.
  *
- * Aggressive mode is a retry: it also drops ZWNJ/ZWJ/bidi that careful mode
- * kept, but still preserves emoji ZWJ sequences, emoji VS, and tag flags.
+ * Aggressive mode is a retry after an invisible-character runaway: it also
+ * drops ZWNJ/ZWJ/bidi that careful mode kept, but still preserves emoji ZWJ
+ * sequences, emoji VS, tag flags, and virama+ZWJ chillu forms. For RTL source
+ * that retry therefore drops bidi embeddings / isolates / marks the first
+ * (careful) attempt had preserved, so the translation may lose intended
+ * directionality. Latin source is unchanged between modes, so the retry is
+ * skipped and the original is shown as a failure.
  */
 
 export type SanitizeMode = 'careful' | 'aggressive';
@@ -188,6 +200,10 @@ function isJoiningLetter(point: number): boolean {
   return /\p{L}/u.test(ch) && JOINING_LETTER.test(ch);
 }
 
+function isJoiningMark(point: number): boolean {
+  return isMark(point) && JOINING_LETTER.test(character(point));
+}
+
 function isMark(point: number): boolean {
   return /\p{M}/u.test(character(point));
 }
@@ -208,38 +224,113 @@ function isKeycapBase(point: number): boolean {
   return point === 0x23 || point === 0x2a || (point >= 0x30 && point <= 0x39);
 }
 
-function skipIgnorable(points: readonly number[], start: number, step: 1 | -1): number | undefined {
-  for (let index = start; index >= 0 && index < points.length; index += step) {
-    const point = points[index];
-    if (point === undefined) continue;
-    if (point === ZWJ || point === ZWNJ) continue;
-    if (isMark(point) || isDefaultIgnorable(point) || isC0OrC1(point)) continue;
-    return point;
-  }
-  return undefined;
+function isSkippableForLetters(point: number, tagged: boolean): boolean {
+  if (tagged) return true;
+  if (point === ZWJ || point === ZWNJ) return true;
+  return isMark(point) || isDefaultIgnorable(point) || isC0OrC1(point);
 }
 
-function skipEmoji(points: readonly number[], start: number, step: 1 | -1): number | undefined {
-  for (let index = start; index >= 0 && index < points.length; index += step) {
-    const point = points[index];
-    if (point === undefined) continue;
-    if (
-      point === ZWJ ||
-      isEmojiPresentationSelector(point) ||
-      isSkinTone(point) ||
-      isTagCharacter(point)
-    ) {
+function isSkippableForEmoji(point: number, tagged: boolean): boolean {
+  if (tagged) return true;
+  if (point === ZWJ) return true;
+  return isEmojiPresentationSelector(point) || isSkinTone(point) || isTagCharacter(point);
+}
+
+/**
+ * Marks code points that belong to a DOM placeholder `<iN>` / `</iN>`.
+ * Neighbor scans treat those tokens as transparent so a joiner on either
+ * side of a slot still sees the letters / emoji around it.
+ */
+function placeholderTagMask(points: readonly number[]): boolean[] {
+  const mask = Array.from({ length: points.length }, () => false);
+  let index = 0;
+  while (index < points.length) {
+    if (points[index] !== 0x3c) {
+      index += 1;
       continue;
     }
-    if (isEmojiZWJNeighbor(point)) return point;
-    return undefined;
+    let cursor = index + 1;
+    if (cursor < points.length && points[cursor] === 0x2f) cursor += 1;
+    if (cursor >= points.length || points[cursor] !== 0x69) {
+      index += 1;
+      continue;
+    }
+    cursor += 1;
+    const digitStart = cursor;
+    while (cursor < points.length && points[cursor]! >= 0x30 && points[cursor]! <= 0x39) {
+      cursor += 1;
+    }
+    if (cursor === digitStart || cursor >= points.length || points[cursor] !== 0x3e) {
+      index += 1;
+      continue;
+    }
+    for (let filled = index; filled <= cursor; filled += 1) mask[filled] = true;
+    index = cursor + 1;
   }
-  return undefined;
+  return mask;
 }
 
-function inEmojiTagSequence(points: readonly number[], index: number): boolean {
+interface NeighborTables {
+  prevImmediate: Array<number | undefined>;
+  prevLetter: Array<number | undefined>;
+  nextLetter: Array<number | undefined>;
+  prevEmoji: Array<number | undefined>;
+  nextEmoji: Array<number | undefined>;
+}
+
+function buildNeighborTables(
+  points: readonly number[],
+  tagged: readonly boolean[],
+): NeighborTables {
+  const count = points.length;
+  const prevImmediate: Array<number | undefined> = Array.from({ length: count });
+  const prevLetter: Array<number | undefined> = Array.from({ length: count });
+  const nextLetter: Array<number | undefined> = Array.from({ length: count });
+  const prevEmoji: Array<number | undefined> = Array.from({ length: count });
+  const nextEmoji: Array<number | undefined> = Array.from({ length: count });
+
+  let lastImmediate: number | undefined;
+  let lastAfterLetters: number | undefined;
+  let lastAfterEmoji: number | undefined;
+  for (let index = 0; index < count; index += 1) {
+    prevImmediate[index] = lastImmediate;
+    prevLetter[index] = lastAfterLetters;
+    prevEmoji[index] =
+      lastAfterEmoji !== undefined && isEmojiZWJNeighbor(lastAfterEmoji)
+        ? lastAfterEmoji
+        : undefined;
+    const point = points[index]!;
+    const tag = tagged[index] === true;
+    if (!tag) lastImmediate = point;
+    if (!isSkippableForLetters(point, tag)) lastAfterLetters = point;
+    if (!isSkippableForEmoji(point, tag)) lastAfterEmoji = point;
+  }
+
+  let nextAfterLetters: number | undefined;
+  let nextAfterEmoji: number | undefined;
+  for (let index = count - 1; index >= 0; index -= 1) {
+    nextLetter[index] = nextAfterLetters;
+    nextEmoji[index] =
+      nextAfterEmoji !== undefined && isEmojiZWJNeighbor(nextAfterEmoji)
+        ? nextAfterEmoji
+        : undefined;
+    const point = points[index]!;
+    const tag = tagged[index] === true;
+    if (!isSkippableForLetters(point, tag)) nextAfterLetters = point;
+    if (!isSkippableForEmoji(point, tag)) nextAfterEmoji = point;
+  }
+
+  return { prevImmediate, prevLetter, nextLetter, prevEmoji, nextEmoji };
+}
+
+function inEmojiTagSequence(
+  points: readonly number[],
+  tagged: readonly boolean[],
+  index: number,
+): boolean {
   let seenFlag = false;
   for (let cursor = index; cursor >= 0; cursor -= 1) {
+    if (tagged[cursor] === true) continue;
     const point = points[cursor];
     if (point === undefined) return false;
     if (isTagCharacter(point)) continue;
@@ -248,6 +339,7 @@ function inEmojiTagSequence(points: readonly number[], index: number): boolean {
   }
   if (!seenFlag) return false;
   for (let cursor = index; cursor < points.length; cursor += 1) {
+    if (tagged[cursor] === true) continue;
     const point = points[cursor];
     if (point === undefined) return false;
     if (point === 0xe007f) return true;
@@ -273,23 +365,25 @@ function keepVariationSelector(
 
 function keepJoiner(
   point: number,
-  points: readonly number[],
   index: number,
+  neighbors: NeighborTables,
   mode: SanitizeMode,
 ): boolean {
-  const prevEmoji = skipEmoji(points, index - 1, -1);
-  const nextEmoji = skipEmoji(points, index + 1, 1);
-  if (point === ZWJ && prevEmoji !== undefined && nextEmoji !== undefined) return true;
-
-  if (mode === 'aggressive') return false;
-
-  const prev = skipIgnorable(points, index - 1, -1);
-  const next = skipIgnorable(points, index + 1, 1);
-  if (prev === undefined || next === undefined) return false;
-  if (point === ZWNJ || point === ZWJ) {
-    return isJoiningLetter(prev) && isJoiningLetter(next);
+  if (point !== ZWJ && point !== ZWNJ) return false;
+  if (
+    point === ZWJ &&
+    neighbors.prevEmoji[index] !== undefined &&
+    neighbors.nextEmoji[index] !== undefined
+  ) {
+    return true;
   }
-  return false;
+  const previous = neighbors.prevImmediate[index];
+  if (previous !== undefined && isJoiningMark(previous)) return true;
+  if (mode === 'aggressive') return false;
+  const prev = neighbors.prevLetter[index];
+  const next = neighbors.nextLetter[index];
+  if (prev === undefined || next === undefined) return false;
+  return isJoiningLetter(prev) && isJoiningLetter(next);
 }
 
 function mapSpace(point: number): string | null {
@@ -308,9 +402,12 @@ function mapSpace(point: number): string | null {
 export function sanitizeTranslationInput(text: string, mode: SanitizeMode = 'careful'): string {
   const normalized = stripLoneSurrogates(text.replace(/\r\n?/gu, '\n')).normalize('NFC');
   const points = toPoints(normalized);
+  const tagged = placeholderTagMask(points);
+  const neighbors = buildNeighborTables(points, tagged);
   let hasRtl = false;
-  for (const point of points) {
-    if (isRtlLetter(point)) {
+  for (let index = 0; index < points.length; index += 1) {
+    if (tagged[index] === true) continue;
+    if (isRtlLetter(points[index]!)) {
       hasRtl = true;
       break;
     }
@@ -321,6 +418,11 @@ export function sanitizeTranslationInput(text: string, mode: SanitizeMode = 'car
     const point = points[index];
     if (point === undefined) continue;
 
+    if (tagged[index] === true) {
+      output += character(point);
+      continue;
+    }
+
     const space = mapSpace(point);
     if (space !== null) {
       output += space;
@@ -330,7 +432,7 @@ export function sanitizeTranslationInput(text: string, mode: SanitizeMode = 'car
     if (isC0OrC1(point) || isPrivateUse(point)) continue;
 
     if (point === ZWJ || point === ZWNJ) {
-      if (keepJoiner(point, points, index, mode)) output += character(point);
+      if (keepJoiner(point, index, neighbors, mode)) output += character(point);
       continue;
     }
 
@@ -340,13 +442,13 @@ export function sanitizeTranslationInput(text: string, mode: SanitizeMode = 'car
     }
 
     if (isVariationSelector(point)) {
-      const previous = points[index - 1];
+      const previous = neighbors.prevImmediate[index];
       if (keepVariationSelector(point, previous, mode)) output += character(point);
       continue;
     }
 
     if (isTagCharacter(point)) {
-      if (inEmojiTagSequence(points, index)) output += character(point);
+      if (inEmojiTagSequence(points, tagged, index)) output += character(point);
       continue;
     }
 
@@ -358,16 +460,74 @@ export function sanitizeTranslationInput(text: string, mode: SanitizeMode = 'car
   return output;
 }
 
-/** True when the string has a letter, number, punctuation, symbol, or mark after sanitizing. */
+/**
+ * Strip runaway invisibles and control characters from model output.
+ * Never rewrite ZWJ / ZWNJ / bidi / variation selectors / tag characters —
+ * those can be meaningful in the translation itself.
+ */
+export function sanitizeModelOutput(text: string): string {
+  const normalized = stripLoneSurrogates(text.replace(/\r\n?/gu, '\n')).normalize('NFC');
+  let output = '';
+  for (const ch of normalized) {
+    const point = ch.codePointAt(0)!;
+    if (point === 0x09 || point === 0x0a) {
+      output += ch;
+      continue;
+    }
+    if (isC0OrC1(point) || isPrivateUse(point) || ALWAYS_DROP.has(point)) continue;
+    output += ch;
+  }
+  return output;
+}
+
+function placeholderTagLength(text: string, index: number): number {
+  if (text.charCodeAt(index) !== 0x3c) return 0;
+  let cursor = index + 1;
+  if (text.charCodeAt(cursor) === 0x2f) cursor += 1;
+  if (text.charCodeAt(cursor) !== 0x69) return 0;
+  cursor += 1;
+  const digitStart = cursor;
+  while (cursor < text.length) {
+    const code = text.charCodeAt(cursor);
+    if (code < 0x30 || code > 0x39) break;
+    cursor += 1;
+  }
+  if (cursor === digitStart || text.charCodeAt(cursor) !== 0x3e) return 0;
+  return cursor + 1 - index;
+}
+
+/**
+ * True when the string has a letter, number, punctuation, symbol, or mark
+ * after dropping placeholder tags and invisibles. Stops at the first visible
+ * character so a large selection is not fully copied.
+ */
 export function hasTranslatableText(text: string): boolean {
-  return visibleContent(text).length > 0;
+  const stripped = stripLoneSurrogates(text);
+  for (let index = 0; index < stripped.length;) {
+    const tagLength = placeholderTagLength(stripped, index);
+    if (tagLength > 0) {
+      index += tagLength;
+      continue;
+    }
+    const point = stripped.codePointAt(index);
+    if (point === undefined) break;
+    index += point > 0xffff ? 2 : 1;
+    if (point === 0x09 || point === 0x0a || point === 0x0d) continue;
+    if (isC0OrC1(point) || isPrivateUse(point) || ALWAYS_DROP.has(point)) continue;
+    if (point === ZWJ || point === ZWNJ || BIDI.has(point)) continue;
+    if (isVariationSelector(point) || isTagCharacter(point)) continue;
+    if (isDefaultIgnorable(point)) continue;
+    if (mapSpace(point) !== null) continue;
+    if (VISIBLE_CONTENT.test(character(point))) return true;
+  }
+  return false;
 }
 
 /** Visible letters/marks/punctuation after careful sanitizing; used to detect empty output. */
 export function visibleContent(text: string): string {
   let output = '';
-  for (const character of sanitizeTranslationInput(text)) {
-    if (VISIBLE_CONTENT.test(character)) output += character;
+  for (const ch of sanitizeTranslationInput(text)) {
+    if (VISIBLE_CONTENT.test(ch)) output += ch;
   }
   return output;
 }
@@ -375,18 +535,27 @@ export function visibleContent(text: string): string {
 /**
  * True when the model produced no (or almost no) visible text from a real source:
  * a run of format chars, or a length finish with nothing the reader can see.
+ *
+ * A handful of trailing joiners on an otherwise real translation is not a
+ * runaway: once there is visible text, fewer than 16 hidden code points are
+ * left alone. Empty or whitespace-only compact output that still had non-space
+ * characters is always a runaway. Hidden counts use code points so a
+ * subdivision flag (England, Scotland) is not mistaken for a joiner storm.
  */
 export function isInvisibleRunawayOutput(
   source: string,
   output: string,
   hitMaxTokens = false,
 ): boolean {
-  if (visibleContent(source).length === 0) return false;
+  if (!hasTranslatableText(source)) return false;
   const visible = visibleContent(output);
-  if (visible.length === 0) return output.replace(/\s+/gu, '').length > 0;
-  const compact = output.replace(/\s+/gu, '');
-  if (compact.length >= 16 && visible.length / compact.length < 0.2) return true;
-  if (hitMaxTokens && visible.length < 8 && compact.length > visible.length * 4) return true;
+  const compact = [...output.replace(/\s+/gu, '')];
+  const visibleCount = [...visible].length;
+  const hidden = Math.max(0, compact.length - visibleCount);
+  if (visibleCount > 0 && hidden < 16) return false;
+  if (visibleCount === 0) return compact.length > 0;
+  if (visibleCount / compact.length < 0.2) return true;
+  if (hitMaxTokens && visibleCount < 8 && compact.length > visibleCount * 4) return true;
   return false;
 }
 
