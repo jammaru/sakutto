@@ -1,4 +1,5 @@
 import { MAX_SEGMENT_TEXT } from '@/engine/offscreen/protocol';
+import { sanitizeTranslationInput } from '@/engine/text/sanitize';
 import type { TranslationChunk } from '@/engine/types';
 import type { EngineSource } from './engine-status';
 import { isChromeOnlyLanguage, isTargetLanguage, type TargetLanguage } from './languages';
@@ -113,8 +114,7 @@ export const MAX_TYPED_CHARS = MAX_SEGMENT_TEXT;
  * line break because the user typed it as structure.
  */
 export function normalizeTypedInput(value: string): string {
-  return value
-    .replace(/\r\n?/gu, '\n')
+  return sanitizeTranslationInput(value)
     .replace(/[ \t]+/gu, ' ')
     .trim();
 }

@@ -1,4 +1,11 @@
-import { abortError, isAbortError, isEngineError, EngineError, toEngineError } from '../errors';
+import {
+  abortError,
+  isAbortError,
+  isEngineError,
+  isLengthTruncation,
+  EngineError,
+  toEngineError,
+} from '../errors';
 import {
   buildTranslationPrompt,
   cleanModelOutput,
@@ -15,6 +22,11 @@ import {
   splitForTranslation,
 } from '../text/sentences';
 import { DEGENERATE_SESSION_BLOCKS, isBrokenTranslation } from '../text/degenerate';
+import {
+  hasTranslatableText,
+  isInvisibleRunawayOutput,
+  sanitizeTranslationInput,
+} from '../text/sanitize';
 import { completionTokenBudget, estimateTokens } from '../text/tokens';
 import type {
   IdentifiedEngine,
@@ -132,13 +144,25 @@ export class InBrowserEngine implements IdentifiedEngine {
   ): AsyncIterable<TranslationChunk> {
     if (options.signal.aborted) return;
 
-    const work = planWork(segments, this.config, options.eager === true);
-    if (work.length === 0) return;
+    const skipped: TranslateSegment[] = [];
+    const ready: TranslateSegment[] = [];
+    for (const segment of segments) {
+      const cleaned = sanitizeTranslationInput(segment.text);
+      if (!hasTranslatableText(cleaned)) skipped.push(segment);
+      else ready.push({ ...segment, text: cleaned });
+    }
+
+    const work = planWork(ready, this.config, options.eager === true);
+    if (work.length === 0 && skipped.length === 0) return;
 
     const stream = new ChunkStream<TranslationChunk>();
     const controller = new AbortController();
     const forwardAbort = (): void => controller.abort();
     options.signal.addEventListener('abort', forwardAbort, { once: true });
+
+    for (const segment of skipped) {
+      stream.push({ id: segment.id, final: segment.text, engine: this.kind });
+    }
 
     const jobs = work.flatMap((item) => this.jobsFor(item, options, controller.signal, stream));
     let remaining = jobs.length;
@@ -180,6 +204,8 @@ export class InBrowserEngine implements IdentifiedEngine {
         }),
       );
     }
+
+    if (jobs.length === 0) stream.end();
 
     try {
       for await (const chunk of stream) yield chunk;
@@ -557,11 +583,16 @@ export class InBrowserEngine implements IdentifiedEngine {
       );
     }
 
+    const source = sanitizeTranslationInput(text);
+    if (!hasTranslatableText(source)) {
+      return { text };
+    }
+
     const glossary = sanitizeGlossary(options.glossary ?? []).filter((entry) =>
-      text.includes(entry.source),
+      source.includes(entry.source),
     );
     const promptInput: PromptInput = {
-      text,
+      text: source,
       tgt,
       ...(src !== null ? { src } : {}),
       ...(tgt === 'ja' ? { form: options.form } : {}),
@@ -580,23 +611,50 @@ export class InBrowserEngine implements IdentifiedEngine {
     // is retracted there rather than held here.
     let output = '';
     let streamed = false;
-    const maxTokens = Math.min(completionTokenBudget(text), available);
+    const maxTokens = Math.min(completionTokenBudget(source), available);
     const skipGpu =
       this.degenerateHits >= DEGENERATE_SESSION_BLOCKS && this.runtime.backend === 'webgpu';
 
     if (!skipGpu) {
-      const result = await this.runtime.complete({
-        prompt,
-        maxTokens,
+      let lengthError: unknown = null;
+      let hitMaxTokens: boolean;
+      try {
+        const result = await this.runtime.complete({
+          prompt,
+          maxTokens,
+          signal,
+          onToken: (delta) => {
+            output += delta;
+            streamed = true;
+            onDelta(delta);
+          },
+        });
+        hitMaxTokens = result?.hitMaxTokens === true;
+      } catch (error) {
+        if (signal.aborted || isAbortError(error)) throw error;
+        if (!isLengthTruncation(error)) throw error;
+        lengthError = error;
+        hitMaxTokens = true;
+      }
+
+      if (!this.isUnusable(source, output, hitMaxTokens)) {
+        if (lengthError) throw lengthError;
+        return { text: output };
+      }
+      if (this.isBroken(source, output, hitMaxTokens)) {
+        return this.recoverBroken(text, prompt, maxTokens, signal, onDelta, streamed);
+      }
+      const retried = await this.retryInvisible(
+        text,
+        source,
+        output,
+        options,
         signal,
-        onToken: (delta) => {
-          output += delta;
-          streamed = true;
-          onDelta(delta);
-        },
-      });
-      const hitMaxTokens = result?.hitMaxTokens === true;
-      if (!this.isBroken(text, output, hitMaxTokens)) return { text: output };
+        onDelta,
+        streamed,
+      );
+      if (retried) return retried;
+      if (lengthError) throw lengthError;
     }
 
     return this.recoverBroken(text, prompt, maxTokens, signal, onDelta, streamed);
@@ -607,6 +665,80 @@ export class InBrowserEngine implements IdentifiedEngine {
       isBrokenTranslation(source, output, hitMaxTokens) ||
       isBrokenTranslation(source, cleanModelOutput(output), hitMaxTokens)
     );
+  }
+
+  private isUnusable(source: string, output: string, hitMaxTokens: boolean): boolean {
+    return (
+      this.isBroken(source, output, hitMaxTokens) ||
+      isInvisibleRunawayOutput(source, output, hitMaxTokens)
+    );
+  }
+
+  /**
+   * A format-character collapse that is not a GPU kernel repeat retries once with a
+   * stricter strip. The already-painted garbage is replaced with the source first.
+   */
+  private async retryInvisible(
+    original: string,
+    careful: string,
+    output: string,
+    options: TranslateOptions,
+    signal: AbortSignal,
+    onDelta: DeltaSink,
+    streamed: boolean,
+  ): Promise<PieceOutput | null> {
+    if (!isInvisibleRunawayOutput(careful, output, true)) {
+      return null;
+    }
+
+    const aggressive = sanitizeTranslationInput(original, 'aggressive');
+    if (aggressive === careful || !hasTranslatableText(aggressive)) {
+      if (streamed) onDelta(original, true);
+      else if (original.length > 0) onDelta(original, true);
+      return { text: original, error: true };
+    }
+
+    if (streamed) onDelta(original, true);
+
+    const tgt = canonicalLanguage(options.tgt);
+    if (!tgt) return { text: original, error: true };
+    const src = options.src === undefined ? null : canonicalLanguage(options.src);
+    const glossary = sanitizeGlossary(options.glossary ?? []).filter((entry) =>
+      aggressive.includes(entry.source),
+    );
+    const prompt = buildTranslationPrompt({
+      text: aggressive,
+      tgt,
+      ...(src !== null ? { src } : {}),
+      ...(tgt === 'ja' ? { form: options.form } : {}),
+      ...(glossary.length > 0 ? { glossary } : {}),
+      ...(options.context ? { context: options.context } : {}),
+    });
+    const available = this.contextTokens - estimateTokens(prompt) - 8;
+    if (available < 16) return { text: original, error: true };
+
+    let recovered = '';
+    try {
+      const result = await this.runtime.complete({
+        prompt,
+        maxTokens: Math.min(completionTokenBudget(aggressive), available),
+        signal,
+        onToken: (delta) => {
+          recovered += delta;
+        },
+      });
+      if (!this.isUnusable(aggressive, recovered, result?.hitMaxTokens === true)) {
+        if (recovered.length > 0) onDelta(recovered, true);
+        return { text: recovered };
+      }
+    } catch (error) {
+      if (signal.aborted || isAbortError(error)) throw error;
+      if (!isLengthTruncation(error)) throw error;
+      if (!this.isUnusable(aggressive, recovered, true)) throw error;
+    }
+
+    onDelta(original, true);
+    return { text: original, error: true };
   }
 
   /**
@@ -645,7 +777,13 @@ export class InBrowserEngine implements IdentifiedEngine {
               recovered += delta;
             },
           });
-          if (!this.isBroken(text, recovered, result?.hitMaxTokens === true)) {
+          if (
+            !this.isUnusable(
+              sanitizeTranslationInput(text),
+              recovered,
+              result?.hitMaxTokens === true,
+            )
+          ) {
             if (recovered.length > 0) onDelta(recovered, true);
             return { text: recovered };
           }

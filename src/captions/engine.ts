@@ -1,5 +1,6 @@
 import type { PageEngine } from '@/dom/session';
 import { isBrokenTranslation } from '@/engine/text/degenerate';
+import { hasTranslatableText, isInvisibleRunawayOutput } from '@/engine/text/sanitize';
 import type { Formality, GlossaryEntry, TranslationChunk } from '@/engine/types';
 import { cuesInWindow, type CaptionCue } from './cues';
 
@@ -134,7 +135,7 @@ export class CaptionTranslator {
     priority: number,
     signal: AbortSignal,
   ): Promise<string | null> {
-    if (signal.aborted || cue.text.trim().length === 0) return null;
+    if (signal.aborted || !hasTranslatableText(cue.text)) return null;
     let output = '';
     let failed = false;
     try {
@@ -156,7 +157,9 @@ export class CaptionTranslator {
       return null;
     }
     if (failed || output.trim().length === 0) return null;
-    if (isBrokenTranslation(cue.text, output)) return null;
+    if (isBrokenTranslation(cue.text, output) || isInvisibleRunawayOutput(cue.text, output)) {
+      return null;
+    }
     if (signal.aborted) return null;
     this.cache.set(this.cacheKey(cue.text, options), { translation: output });
     return output;
