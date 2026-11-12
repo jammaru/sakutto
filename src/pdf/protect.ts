@@ -50,7 +50,7 @@ export function protectInlineMath(block: LayoutBlock): ProtectedText {
 }
 
 function protectLine(line: TextLine, slots: string[]): string {
-  const runs = mathRuns(line.pieces);
+  const runs = mathRuns(line.pieces, line.height);
   if (runs.every((run) => !run.protect)) {
     return line.text;
   }
@@ -81,20 +81,20 @@ interface PieceRun {
  * italic variables that contains a real formula signal — a math font or an operator — so an
  * italicised English word is not pulled out of a sentence.
  */
-function mathRuns(pieces: readonly TextPiece[]): PieceRun[] {
+function mathRuns(pieces: readonly TextPiece[], lineHeight: number): PieceRun[] {
   const runs: PieceRun[] = [];
   let current: TextPiece[] = [];
   let currentMath = false;
 
   const flush = (): void => {
     if (current.length === 0) return;
-    runs.push({ pieces: current, protect: currentMath && isFormulaRun(current) });
+    runs.push({ pieces: current, protect: currentMath && isFormulaRun(current, lineHeight) });
     current = [];
     currentMath = false;
   };
 
   for (const piece of pieces) {
-    const kind = kindOf(piece);
+    const kind = kindOf(piece, lineHeight);
     if (kind === 'text') {
       flush();
       current = [piece];
@@ -102,27 +102,36 @@ function mathRuns(pieces: readonly TextPiece[]): PieceRun[] {
       continue;
     }
     current.push(piece);
-    if (kind === 'math' || kind === 'op') currentMath = true;
+    if (kind === 'math' || kind === 'op' || kind === 'var') currentMath = true;
   }
   flush();
   return runs;
 }
 
-function kindOf(piece: TextPiece): 'math' | 'op' | 'var' | 'text' {
+function kindOf(piece: TextPiece, lineHeight: number): 'math' | 'op' | 'var' | 'text' {
   const text = piece.text.trim();
   if (text.length === 0) return 'text';
   if (piece.math) return 'math';
   if (OPERATOR.test(text)) return 'op';
   if (piece.italic && text.length <= 2 && /^\p{L}+$/u.test(text)) return 'var';
+  // A subscript is set smaller than the line: `S_t` draws `t` at ~70% of the em.
+  if (
+    lineHeight > 0 &&
+    piece.size < lineHeight * 0.78 &&
+    text.length <= 3 &&
+    /^[\p{L}\p{N}]+$/u.test(text)
+  ) {
+    return 'var';
+  }
   return 'text';
 }
 
-function isFormulaRun(pieces: readonly TextPiece[]): boolean {
+function isFormulaRun(pieces: readonly TextPiece[], lineHeight: number): boolean {
   const joined = pieces.map((piece) => piece.text).join('');
   if (joined.trim().length === 0) return false;
   return pieces.some((piece) => {
-    const kind = kindOf(piece);
-    return kind === 'math' || kind === 'op';
+    const kind = kindOf(piece, lineHeight);
+    return kind === 'math' || kind === 'op' || (kind === 'var' && piece.size < lineHeight * 0.78);
   });
 }
 
@@ -144,4 +153,20 @@ export function restoreInlineMath(translated: string, slots: readonly string[]):
   if (seen.size !== slots.length) return null;
   if (PLACEHOLDER_PATTERN.test(restored)) return null;
   return restored;
+}
+
+/**
+ * True when a sentence is more formula than prose. Translating it garbles the symbols;
+ * leaving the source typesetting is the honest rendering.
+ */
+export function shouldSkipInlineMath(protectedText: ProtectedText, source: string): boolean {
+  if (protectedText.slots.length === 0) return false;
+  const slotChars = protectedText.slots.join('').replace(/\s+/gu, '').length;
+  const sourceChars = source.replace(/\s+/gu, '').length;
+  const remaining = protectedText.text.replace(/<i\d+>/gu, '').replace(/\s+/gu, '');
+  if (sourceChars > 0 && slotChars >= sourceChars * 0.25 && protectedText.slots.length >= 2) {
+    return true;
+  }
+  if (remaining.length < 24 && protectedText.slots.length >= 3) return true;
+  return remaining.length < 24 && slotChars >= Math.max(8, remaining.length);
 }

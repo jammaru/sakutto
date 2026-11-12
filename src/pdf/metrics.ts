@@ -1,6 +1,6 @@
 import { intersectionArea, unionBox, type Box } from './geometry';
 import type { PageLayout } from './layout';
-import { OVERLAP_AREA, type PlacedBlock } from './place';
+import { OVERLAP_AREA, overlapRegion, type PlacedBlock } from './place';
 
 /**
  * What a layout-only run reports about one page.
@@ -83,10 +83,12 @@ export function pageMetrics(
   let overlapPairs = 0;
   let overlapArea = 0;
   for (let left = 0; left < painted.length; left += 1) {
-    const first = painted[left]?.drawn;
+    const leftEntry = painted[left];
+    const first = leftEntry ? overlapRegion(leftEntry) : null;
     if (!first) continue;
     for (let right = left + 1; right < painted.length; right += 1) {
-      const second = painted[right]?.drawn;
+      const rightEntry = painted[right];
+      const second = rightEntry ? overlapRegion(rightEntry) : null;
       if (!second) continue;
       const area = intersectionArea(first, second);
       if (area < OVERLAP_AREA) continue;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { groupLines, type TextPiece } from '@/pdf/lines';
-import { layoutPage } from '@/pdf/layout';
+import { isCodeToken, isNumericCell, layoutPage } from '@/pdf/layout';
 
 /** A synthetic piece: a run of text at a position, in top-left space. */
 function piece(
@@ -8,7 +8,14 @@ function piece(
   x: number,
   baseline: number,
   width: number,
-  options: { em?: number; bold?: boolean; italic?: boolean; math?: boolean } = {},
+  options: {
+    em?: number;
+    bold?: boolean;
+    italic?: boolean;
+    math?: boolean;
+    family?: TextPiece['family'];
+    size?: number;
+  } = {},
 ): TextPiece {
   const em = options.em ?? 10;
   return {
@@ -16,12 +23,12 @@ function piece(
     box: { x, y: baseline - em, width, height: em },
     baseline,
     fontName: options.bold === true ? 'bold' : 'regular',
-    family: 'serif',
+    family: options.family ?? 'serif',
     bold: options.bold === true,
     italic: options.italic === true,
     math: options.math === true,
     orientation: 0,
-    size: em,
+    size: options.size ?? em,
     displayed: 0,
   };
 }
@@ -156,10 +163,75 @@ describe('layoutPage', () => {
     ]);
     const layout = layoutPage(lines);
     const texts = layout.blocks.map((block) => block.text);
-    expect(texts).toContain('maxSegmenttokens');
-    expect(texts).toContain('48');
+    const skipped = layout.skipped.map((block) => block.text);
+    expect(skipped).toContain('maxSegmenttokens');
+    expect(skipped).toContain('48');
+    expect(texts).not.toContain('maxSegmenttokens');
+    expect(texts).not.toContain('48');
     expect(texts).toContain('Constant');
     expect(texts).toContain('Value');
+  });
+
+  it('keeps indented continuation lines of a monospace listing as code', () => {
+    const lines = groupLines([
+      piece('1  emit(token);', 50, 100, 90, { family: 'monospace' }),
+      piece('    continue', 90, 112, 50, { family: 'monospace' }),
+      piece('    more();', 90, 124, 48, { family: 'monospace' }),
+    ]);
+    const layout = layoutPage(lines);
+    expect(layout.blocks.some((block) => /\bcontinue\b/u.test(block.text))).toBe(false);
+    const code = layout.skipped.filter((block) => block.role === 'code');
+    expect(code.length).toBeGreaterThanOrEqual(1);
+    expect(code.some((block) => block.text.includes('continue'))).toBe(true);
+    expect(code.some((block) => block.text.includes('emit(token)'))).toBe(true);
+  });
+
+  it('splits a table per cell and per row, and leaves numbers and identifiers alone', () => {
+    const lines = groupLines([
+      piece('Setting', 40, 100, 50),
+      piece('Value', 200, 100, 30),
+      piece('maxSegmentTo-', 40, 114, 72),
+      piece('48', 200, 114, 14),
+      piece('kens', 170, 126, 28),
+      piece('pieceChars', 40, 140, 55),
+      piece('600', 101, 140, 22),
+      piece('CPU, 8 threads', 40, 160, 78),
+      piece('34.8', 200, 160, 22),
+      piece('CPU, 4 threads', 40, 174, 78),
+      piece('18.1', 200, 174, 22),
+    ]);
+    const layout = layoutPage(lines);
+    const texts = layout.blocks.map((block) => block.text);
+    const skipped = layout.skipped.map((block) => block.text);
+    expect(texts.some((text) => text.includes('CPU, 8') && text.includes('CPU, 4'))).toBe(false);
+    expect(texts.filter((text) => text.startsWith('CPU,'))).toEqual([
+      'CPU, 8 threads',
+      'CPU, 4 threads',
+    ]);
+    expect(skipped).toContain('48');
+    expect(skipped).toContain('600');
+    expect(skipped).toContain('34.8');
+    expect(skipped).toContain('18.1');
+    expect(skipped.some((text) => /maxSegmentTo-?kens/iu.test(text.replace(/\s/gu, '')))).toBe(
+      true,
+    );
+    expect(texts.some((text) => text.includes('kens') && !text.includes('maxSegment'))).toBe(false);
+    expect(texts.some((text) => /\b600\b/u.test(text) && text !== '600')).toBe(false);
+  });
+
+  it('keeps each bulleted list item as its own block', () => {
+    const lines = groupLines([
+      piece('• Latency is the time to the first token.', 40, 100, 240),
+      piece('• Memory is the resident size of the run.', 40, 114, 240),
+      piece('• Quality is the share of fitted boxes.', 40, 128, 240),
+    ]);
+    const layout = layoutPage(lines);
+    const items = layout.blocks.map((block) => block.text);
+    expect(items).toHaveLength(3);
+    expect(items[0]?.startsWith('•')).toBe(true);
+    expect(items[1]?.startsWith('•')).toBe(true);
+    expect(items[2]?.startsWith('•')).toBe(true);
+    expect(items.some((text) => text.includes('•') && text.indexOf('•') > 0)).toBe(false);
   });
 
   it('makes a larger line a heading and marks it', () => {
@@ -315,5 +387,22 @@ describe('layoutPage', () => {
     expect(
       layout.skipped.some((block) => block.text === '0.5' && block.role === 'figure-label'),
     ).toBe(true);
+  });
+});
+
+describe('isCodeToken / isNumericCell', () => {
+  it('treats camelCase, snake_case, hyphen-broken identifiers, and numbers as untranslatable', () => {
+    expect(isCodeToken('maxSegmentTokens')).toBe(true);
+    expect(isCodeToken('maxSegmentTo-')).toBe(true);
+    expect(isCodeToken('maxSegmentTo-kens')).toBe(true);
+    expect(isCodeToken('piece_chars')).toBe(true);
+    expect(isCodeToken('kens')).toBe(false);
+    expect(isCodeToken('Constant')).toBe(false);
+    expect(isCodeToken('Router')).toBe(false);
+    expect(isCodeToken('Maximum')).toBe(false);
+    expect(isNumericCell('48')).toBe(true);
+    expect(isNumericCell('600')).toBe(true);
+    expect(isNumericCell('1.9 s')).toBe(true);
+    expect(isNumericCell('CPU, 8 threads')).toBe(false);
   });
 });

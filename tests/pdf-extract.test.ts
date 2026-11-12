@@ -206,7 +206,7 @@ describe('extractPage rotation', () => {
 });
 
 describe('committed layout fixtures', () => {
-  it('keeps paper.pdf page 1 at 85 lines and 21 blocks', async () => {
+  it('keeps paper.pdf page 1 at 85 lines and skips numeric table cells', async () => {
     const bytes = new Uint8Array(await readFile(resolve(root, 'bench/pdf/paper.pdf')));
     const document = await openPdfBytes(bytes);
     try {
@@ -218,7 +218,12 @@ describe('committed layout fixtures', () => {
         height: extracted.height,
         index: 0,
       });
-      expect(layout.blocks).toHaveLength(21);
+      expect(layout.blocks).toHaveLength(17);
+      expect(
+        layout.skipped.some((block) => block.role === 'code' && /\bcontinue\b/u.test(block.text)),
+      ).toBe(true);
+      expect(layout.blocks.some((block) => /\bcontinue\b/u.test(block.text))).toBe(false);
+      expect(layout.blocks.some((block) => /St\s*=/.test(block.text))).toBe(false);
     } finally {
       await document.destroy();
     }

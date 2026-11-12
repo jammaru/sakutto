@@ -70,7 +70,7 @@ const { layoutPage } = (await import(pathToFileURL(resolve(ROOT, 'src/pdf/layout
     obstacles?: unknown[];
   };
 };
-const { placePage, clippedPaintWidth } = (await import(
+const { placePage, clippedPaintWidth, verticalCut } = (await import(
   pathToFileURL(resolve(ROOT, 'src/pdf/place.ts')).href
 )) as {
   placePage: (request: {
@@ -84,9 +84,9 @@ const { placePage, clippedPaintWidth } = (await import(
     paint: boolean;
     overflow: boolean;
     translation: string;
-    fit: { lines: string[]; fontSize: number; width: number } | null;
-    drawn: { width: number } | null;
-    block: { writing?: number };
+    fit: { lines: string[]; fontSize: number; width: number; height: number } | null;
+    drawn: { width: number; height: number } | null;
+    block: { writing?: number; box: { width: number; height: number }; fontSize: number };
   }>;
   clippedPaintWidth: (
     entry: {
@@ -97,6 +97,12 @@ const { placePage, clippedPaintWidth } = (await import(
     },
     measure: (text: string, fontSize: number) => number,
   ) => number;
+  verticalCut: (entry: {
+    paint: boolean;
+    fit: { height: number } | null;
+    drawn: { width: number; height: number } | null;
+    block: { writing?: number; box: { width: number; height: number }; fontSize: number };
+  }) => number;
 };
 const { pageMetrics, metricsPass } = (await import(
   pathToFileURL(resolve(ROOT, 'src/pdf/metrics.ts')).href
@@ -192,11 +198,15 @@ async function checkBytes(name: string, bytes: Uint8Array): Promise<void> {
       height: extracted.height,
     });
     let clipped = 0;
+    let vCut = 0;
     for (const entry of placed) {
       clipped += clippedPaintWidth(entry, (text, size) => measure(text, size));
+      vCut += verticalCut(entry);
     }
     const pass =
-      (extracted.empty ? metrics.painted === 0 : metricsPass(metrics)) && clipped <= 0.01;
+      (extracted.empty ? metrics.painted === 0 : metricsPass(metrics)) &&
+      clipped <= 0.01 &&
+      vCut <= 0.5;
     if (!pass) failed = true;
     console.log(
       `  page ${String(number)}: ${extracted.empty ? 'image-only' : 'text'}  ` +
@@ -205,7 +215,7 @@ async function checkBytes(name: string, bytes: Uint8Array): Promise<void> {
         `skipped=${String(metrics.skipped)} withheld=${String(metrics.withheld)} ` +
         `overlap=${String(metrics.overlapPairs)} minpt=${metrics.minFontSize === null ? '-' : metrics.minFontSize.toFixed(1)} ` +
         `prose=${(metrics.prosePainted * 100).toFixed(0)}% cover=${(metrics.proseCovered * 100).toFixed(0)}% ` +
-        `overflowed=${String(metrics.overflowed)} clipped=${clipped.toFixed(1)} ${pass ? 'ok' : 'FAIL'}`,
+        `overflowed=${String(metrics.overflowed)} clipped=${clipped.toFixed(1)} vCut=${vCut.toFixed(1)} ${pass ? 'ok' : 'FAIL'}`,
     );
     reports.push({
       file: name,

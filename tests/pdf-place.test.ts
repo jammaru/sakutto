@@ -3,7 +3,7 @@ import { groupLines } from '@/pdf/lines';
 import { layoutPage } from '@/pdf/layout';
 import { BODY_MIN_FONT_SIZE, BODY_MIN_SCALE, MIN_FONT_SIZE, MIN_SCALE } from '@/pdf/fit';
 import { pageMetrics, metricsPass } from '@/pdf/metrics';
-import { clippedPaintWidth, placePage } from '@/pdf/place';
+import { clippedPaintWidth, placePage, verticalCut } from '@/pdf/place';
 import { stubExpand } from '@/pdf/stub';
 import { measure, piece } from './support/pdf-pieces';
 
@@ -196,6 +196,27 @@ describe('placePage', () => {
     const metrics = pageMetrics(layout, placed, { x: 0, y: 0, width: 600, height: 800 });
     expect(metrics.figureAreaShare).toBeGreaterThan(0.5);
     expect(metricsPass(metrics)).toBe(false);
+  });
+
+  it('covers the source line box including descenders', () => {
+    const lines = groupLines([
+      piece('A heading that hangs glyphs', 40, 80, 220, { em: 14, bold: true }),
+      piece(
+        'A body paragraph under the heading that keeps going across the column of the page.',
+        40,
+        110,
+        260,
+      ),
+    ]);
+    const { placed } = place(lines);
+    const painted = placed.filter((entry) => entry.paint && entry.drawn);
+    expect(painted.length).toBeGreaterThan(0);
+    for (const entry of painted) {
+      expect(verticalCut(entry)).toBeLessThanOrEqual(0.5);
+      expect(entry.drawn?.height ?? 0).toBeGreaterThanOrEqual(
+        entry.block.box.height + entry.block.fontSize * 0.32 - 0.01,
+      );
+    }
   });
 
   it('does not clip a narrow table cell; overflow goes to a marker', () => {

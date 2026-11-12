@@ -159,13 +159,15 @@ export function wrapWidth(
 
 export function drawnBox(block: LayoutBlock, fit: FitResult, wrap = 0, pageWidth = 0): Box {
   if (verticalWriting(block)) {
-    const cross = Math.max(block.box.width, fit.height);
+    const descender = block.fontSize * 0.32;
+    const cross = Math.max(block.box.width, fit.height) + descender;
     const along = Math.max(block.box.height, wrap, block.advance);
     return { x: block.box.x, y: block.box.y, width: cross, height: along };
   }
+  const descender = block.fontSize * 0.32;
   const height = fit.fits
-    ? Math.max(block.box.height, fit.height)
-    : Math.max(block.box.height, fit.visibleLines.length * fit.lineHeight);
+    ? Math.max(block.box.height + descender, fit.height)
+    : Math.max(block.box.height + descender, fit.visibleLines.length * fit.lineHeight);
   const x = Math.min(block.box.x, block.room.x);
   const width = capToPage(
     Math.max(block.room.width, block.box.width, wrap, block.advance),
@@ -261,7 +263,10 @@ export function resolveOverlaps(placed: readonly PlacedBlock[]): PlacedBlock[] {
     for (let right = left + 1; right < next.length; right += 1) {
       const second = next[right];
       if (!second?.paint || !second.drawn) continue;
-      if (intersectionArea(first.drawn, second.drawn) < OVERLAP_AREA) continue;
+      const firstCore = overlapRegion(first);
+      const secondCore = overlapRegion(second);
+      if (!firstCore || !secondCore) continue;
+      if (intersectionArea(firstCore, secondCore) < OVERLAP_AREA) continue;
       const drop = whichToHide(first, second);
       if (drop === 'left') {
         first.paint = false;
@@ -275,6 +280,29 @@ export function resolveOverlaps(placed: readonly PlacedBlock[]): PlacedBlock[] {
     }
   }
   return next;
+}
+
+/**
+ * Box used to decide whether two covers collide. Descender padding is left out so a cover
+ * that only hangs below its source line to hide `g`/`p` does not knock out the row under it.
+ */
+export function overlapRegion(entry: PlacedBlock): Box | null {
+  if (!entry.drawn) return null;
+  if (verticalWriting(entry.block)) return entry.drawn;
+  const core = Math.max(entry.block.box.height, entry.fit?.height ?? 0);
+  return { ...entry.drawn, height: Math.max(0.1, Math.min(entry.drawn.height, core)) };
+}
+
+/** How far a painted cover falls short of hiding the source line box, including descenders. */
+export function verticalCut(entry: PlacedBlock): number {
+  if (!entry.paint || !entry.drawn) return 0;
+  const descender = entry.block.fontSize * 0.32;
+  if (verticalWriting(entry.block)) {
+    const need = Math.max(entry.block.box.width, entry.fit?.height ?? 0) + descender;
+    return Math.max(0, need - entry.drawn.width);
+  }
+  const need = entry.block.box.height + descender;
+  return Math.max(0, need - entry.drawn.height);
 }
 
 function whichToHide(left: PlacedBlock, right: PlacedBlock): 'left' | 'right' {

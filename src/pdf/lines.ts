@@ -159,7 +159,7 @@ function joinPieces(pieces: readonly TextPiece[]): string {
   return output.replace(/\s+/gu, ' ').trim();
 }
 
-function lineFrom(pieces: TextPiece[]): TextLine {
+export function lineFrom(pieces: TextPiece[]): TextLine {
   let left = Infinity;
   let right = -Infinity;
   let top = Infinity;

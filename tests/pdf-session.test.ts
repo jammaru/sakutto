@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LayoutBlock, PageLayout } from '@/pdf/layout';
 import { PdfSession, type PdfEngine } from '@/pdf/session';
-import type { TranslationChunk } from '@/engine/types';
+import type { TranslateOptions, TranslationChunk } from '@/engine/types';
 
 function block(text: string): LayoutBlock {
   return {
@@ -34,14 +34,17 @@ function layoutOf(text: string): PageLayout {
   };
 }
 
-function sessionOf(engine: PdfEngine): PdfSession {
+function sessionOf(
+  engine: PdfEngine,
+  extras: { target?: string; concurrency?: number } = {},
+): PdfSession {
   return new PdfSession({
     engine,
-    targetLanguage: 'ja',
+    targetLanguage: extras.target ?? 'ja',
     form: 'polite',
     onChange: () => undefined,
     measure: (text, size) => text.length * size * 0.5,
-    concurrency: 1,
+    concurrency: extras.concurrency ?? 1,
   });
 }
 
@@ -54,7 +57,10 @@ async function waitFor(check: () => boolean, timeoutMs = 1000): Promise<void> {
 }
 
 function engineOf(
-  translate: (segments: { id: string; text: string }[]) => AsyncIterable<TranslationChunk>,
+  translate: (
+    segments: { id: string; text: string }[],
+    options: TranslateOptions,
+  ) => AsyncIterable<TranslationChunk>,
 ): PdfEngine {
   return { translate };
 }
@@ -192,5 +198,80 @@ describe('PdfSession stream handling', () => {
     expect(session.pageBlocks(0)[0]?.overflow).toBe(false);
     expect(session.progress().failed).toBe(1);
     expect(session.progress().overflowed).toBe(0);
+  });
+
+  it('does not rewrite a block that is already in the target language', async () => {
+    let calls = 0;
+    const engine = engineOf(async function* (segments) {
+      calls += 1;
+      const id = segments[0]?.id ?? 'b1';
+      yield { id, final: 'paraphrase' };
+    });
+    const session = sessionOf(engine, { target: 'en' });
+    session.addPage(
+      0,
+      layoutOf('The collector walks the document rather than selecting tags on this page.'),
+    );
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'done');
+    expect(calls).toBe(0);
+    expect(session.pageBlocks(0)[0]?.translation).toBe('');
+    expect(session.pageBlocks(0)[0]?.paint).toBe(false);
+  });
+
+  it('keeps the previous cover until the new translation arrives', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let calls = 0;
+    const engine = engineOf(async function* (segments) {
+      calls += 1;
+      const id = segments[0]?.id ?? 'b1';
+      if (calls === 1) {
+        yield { id, final: '訳' };
+        return;
+      }
+      await gate;
+      yield { id, final: '译文' };
+    });
+    const session = sessionOf(engine);
+    session.addPage(0, layoutOf('A short paragraph of source text for the cover to keep.'));
+    await waitFor(() => session.pageBlocks(0)[0]?.translation === '訳');
+    session.setTargetLanguage('zh-hans', 'polite');
+    expect(session.pageBlocks(0)[0]?.translation).toBe('訳');
+    expect(session.pageBlocks(0)[0]?.paint).toBe(true);
+    release();
+    await waitFor(() => session.pageBlocks(0)[0]?.translation === '译文');
+  });
+
+  it('schedules a visible-page label ahead of later-page prose', async () => {
+    const seen: { text: string; priority: number; eager: boolean; preempt: boolean }[] = [];
+    const engine = engineOf(async function* (segments, options) {
+      seen.push({
+        text: segments[0]?.text ?? '',
+        priority: options.priority,
+        eager: options.eager === true,
+        preempt: options.preempt === true,
+      });
+      const id = segments[0]?.id ?? 'b1';
+      yield { id, final: '訳' };
+    });
+    const session = sessionOf(engine, { concurrency: 8 });
+    const later = layoutOf('A later page paragraph of source text for the scheduler.');
+    const labelLayout = layoutOf('Abstract');
+    const label = labelLayout.blocks[0];
+    if (!label) throw new Error('expected a label block');
+    labelLayout.blocks[0] = { ...label, role: 'label', text: 'Abstract' };
+    session.addPage(2, later);
+    session.addPage(0, labelLayout);
+    await waitFor(() => seen.length >= 2);
+    const focus = seen.find((entry) => entry.text === 'Abstract');
+    const other = seen.find((entry) => entry.text.startsWith('A later page'));
+    expect(focus).toBeDefined();
+    expect(other).toBeDefined();
+    expect(focus?.priority ?? 0).toBeLessThan(other?.priority ?? 0);
+    expect(focus?.eager).toBe(true);
+    expect(focus?.preempt).toBe(true);
+    expect(other?.eager).toBe(false);
   });
 });

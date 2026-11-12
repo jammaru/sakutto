@@ -2,7 +2,7 @@ import { boxBottom, boxRight, median, unionBox, type Box } from './geometry';
 import { insideFigure, type FigureAreas } from './figures';
 import { gutterCandidates, horizontalGaps, groupByBaseline } from './gaps';
 import { isFirstPageIdentity } from './identity';
-import { SEGMENT_GAP, isRotated, type TextLine } from './lines';
+import { SEGMENT_GAP, isRotated, lineFrom, type TextLine } from './lines';
 
 /** What kind of thing a block is, which decides its priority and how tightly it is fitted. */
 export type BlockRole = 'heading' | 'prose' | 'cell' | 'caption' | 'label';
@@ -218,19 +218,18 @@ export function layoutPage(
 
   // A run of notation is not prose either. `p_η  p_θ` beside a diagram's labels came back as
   // transliterated nonsense painted onto the drawing, and the row of it was what put a second
-  // box on top of the first. A table cell like `48` is a value the reader wants translated with
-  // its column, so the test needs more than "few words": notation has no word at all and is set
-  // smaller than the body.
+  // box on top of the first. A table cell like `48` is a value that must stay as drawn:
+  // translating it glues the number onto the neighbour's words. Notation has no word at all
+  // and is set smaller than the body.
   const isProse = (block: LayoutBlock): boolean => {
     if (block.role === 'caption' || block.role === 'heading' || block.role === 'prose') {
       return true;
     }
+    if (isNumericCell(block.text)) return false;
+    if (isCodeToken(block.text)) return false;
     if (isTick(block.text) && block.role !== 'cell' && block.role !== 'label') return false;
     if (block.role === 'label') {
       if (hasWord(block.text)) return true;
-      // A table value such as `48` is a one-word label at body size; it still belongs on
-      // the translated page. An axis tick inside a figure has already been classified as
-      // figure-label and never reaches this test.
       return bodySize <= 0 || block.fontSize >= bodySize * 0.9;
     }
     return hasWords(block.text) || block.fontSize >= bodySize * 0.9;
@@ -252,6 +251,10 @@ export function layoutPage(
       return false;
     }
     if (block.lines.some((line) => contentsRows.has(line.baseline))) return false;
+    if (isNumericCell(block.text) || isCodeToken(block.text)) return false;
+    // A one-line formula set as a label (`St = (I − βt) St−1`) is not a heading: translating
+    // it garbles the symbols. Leave the page's own typesetting.
+    if (block.role === 'label' && /[=∈≈]/.test(block.text) && !hasWords(block.text)) return false;
     return isProse(block);
   };
 
@@ -493,7 +496,7 @@ function splitRowCells(row: readonly TextLine[]): TextLine[][] {
   const cells: TextLine[][] = [];
   let current: TextLine[] = [];
 
-  for (const line of row) {
+  for (const line of splitLinesOnCellGaps(row)) {
     const previous = current[current.length - 1];
     if (previous) {
       const gap = line.box.x - boxRight(previous.box);
@@ -510,10 +513,15 @@ function splitRowCells(row: readonly TextLine[]): TextLine[][] {
       // word on each side and the right-hand run starts a sentence or a value rather than
       // continuing a clause.
       const scale = Math.max(previous.height, line.height);
+      const bothShort =
+        previous.text.trim().length <= CELL_MAX_CHARS && line.text.trim().length <= CELL_MAX_CHARS;
+      // A table's cell padding is often under a word-space of a justified line. Using the
+      // prose gap there glued a number onto the identifier beside it. Short runs may split
+      // at a narrower gap; a sentence still has to accumulate more than `CELL_MAX_CHARS`
+      // before the tighter threshold applies, so a justified paragraph stays one line.
+      const minGap = bothShort ? scale * 0.42 : SEGMENT_GAP * scale;
       const splits =
-        gap > SEGMENT_GAP * scale &&
-        !startsRunIn(line) &&
-        (previous.text.trim().length > 3 || gap > scale * 3);
+        gap > minGap && !startsRunIn(line) && (previous.text.trim().length > 3 || gap > scale * 3);
       if (splits) {
         cells.push(current);
         current = [line];
@@ -524,6 +532,53 @@ function splitRowCells(row: readonly TextLine[]): TextLine[][] {
   }
   if (current.length > 0) cells.push(current);
   return cells;
+}
+
+/**
+ * A table's cell padding is often narrower than a word-space, so two short runs on one
+ * baseline can still be one `TextLine`. Split those runs into their own lines so a number
+ * does not glue onto the identifier beside it.
+ */
+function splitLinesOnCellGaps(row: readonly TextLine[]): TextLine[] {
+  const out: TextLine[] = [];
+  for (const line of row) {
+    if (line.pieces.length <= 1) {
+      out.push(line);
+      continue;
+    }
+    const groups: (typeof line.pieces)[] = [];
+    let current: typeof line.pieces = [];
+    for (const piece of line.pieces) {
+      const previous = current[current.length - 1];
+      if (previous) {
+        const gap = piece.box.x - boxRight(previous.box);
+        const scale = Math.max(
+          previous.size || previous.box.height,
+          piece.size || piece.box.height,
+          1,
+        );
+        const bothShort =
+          previous.text.trim().length <= CELL_MAX_CHARS &&
+          piece.text.trim().length <= CELL_MAX_CHARS;
+        const minGap = bothShort ? scale * 0.42 : SEGMENT_GAP * scale;
+        if (gap > minGap && (previous.text.trim().length > 3 || gap > scale * 3)) {
+          groups.push(current);
+          current = [piece];
+          continue;
+        }
+      }
+      current.push(piece);
+    }
+    if (current.length > 0) groups.push(current);
+    if (groups.length <= 1) {
+      out.push(line);
+      continue;
+    }
+    for (const group of groups) {
+      if (group.length > 0) out.push(lineFrom(group));
+    }
+  }
+  return out;
 }
 
 /**
@@ -631,11 +686,17 @@ function appendRegionBlocks(
       const previous = current[current.length - 1];
       const next = cell.lines[0];
       // A table cell always starts a block: its row ends there, so the next row's value in the
-      // same column is a different thing however evenly the rows are pitched. A wrapped cell
-      // is a continuation row with one cell, so it joins the block above it.
-      const starts =
-        cell.shared ||
-        (previous !== undefined && next !== undefined && gapStartsBlock(previous, next, leading));
+      // same column is a different thing however evenly the rows are pitched. A hyphenated
+      // wrap (`maxSegmentTo-` then `kens`) is the one continuation that must stay in the cell.
+      const hyphenWrap =
+        previous !== undefined && next !== undefined && isHyphenWrap(previous, next);
+      const starts = isTable
+        ? previous !== undefined && !hyphenWrap
+        : Boolean(
+            previous &&
+            next &&
+            (gapStartsBlock(previous, next, leading) || isListBoundary(previous, next)),
+          );
       if (previous && next && starts) {
         emit(current, room, region.column, columnLeft);
         current = [];
@@ -712,13 +773,21 @@ function clusterColumns(cells: readonly RegionCell[]): { cells: RegionCell[]; ro
 
     let best: (typeof columns)[number] | null = null;
     let bestOverlap = 0;
+    const first = cell.lines[0];
     for (const column of columns) {
       const left = median(column.lefts);
       const right = median(column.rights);
       const shared = Math.min(right, boxRight(box)) - Math.max(left, box.x);
-      if (shared <= 0) continue;
+      const last = column.cells.at(-1)?.lines.at(-1);
+      const hyphenJoin = first !== undefined && last !== undefined && isHyphenWrap(last, first);
+      if (shared <= 0 && !hyphenJoin) continue;
       const narrower = Math.min(right - left, box.width);
       const ratio = narrower > 0 ? shared / narrower : 0;
+      if (hyphenJoin && (ratio > bestOverlap || best === null)) {
+        best = column;
+        bestOverlap = Math.max(ratio, MIN_COLUMN_OVERLAP);
+        continue;
+      }
       if (ratio >= MIN_COLUMN_OVERLAP && ratio > bestOverlap) {
         best = column;
         bestOverlap = ratio;
@@ -835,6 +904,7 @@ function gapStartsBlock(previous: TextLine, line: TextLine, leading: number): bo
   const previousMath = previous.mathRatio >= EQUATION_LINE_SHARE;
   const lineMath = line.mathRatio >= EQUATION_LINE_SHARE;
   if (previousMath !== lineMath) return true;
+  const monoRun = isMostlyMono(previous) && isMostlyMono(line);
   // A formula whose function names are set in the text face does not reach the math share, so
   // the boundary is also drawn where a line is indented away from the column's left edge and
   // its predecessor was not: typesetting centres a display equation, and a paragraph does not
@@ -842,12 +912,13 @@ function gapStartsBlock(previous: TextLine, line: TextLine, leading: number): bo
   // Display formulas sit several ems in from the column. A hanging indent (a wrapped
   // reference, a first-line paragraph indent) is one or two ems and must stay in the block;
   // cutting there left each wrapped line as its own 8pt box with no room to grow.
+  // A monospaced listing indents continuation lines by more than that; those must stay code.
   const indent = Math.max(previous.height, line.height) * 3;
-  if (line.box.x > previous.box.x + indent) return true;
+  if (!monoRun && line.box.x > previous.box.x + indent) return true;
   // The reverse: a centred formula is followed by a line that returns to the column wall.
   // Without this, the sentence under the formula joined it and the whole block was then
   // either translated (replacing the mathematics) or skipped (taking the sentence with it).
-  if (previous.box.x > line.box.x + indent) return true;
+  if (!monoRun && previous.box.x > line.box.x + indent) return true;
 
   const sizeChange = Math.abs(line.height - previous.height) / Math.max(previous.height, 1);
   if (sizeChange > SIZE_CHANGE) return true;
@@ -864,8 +935,55 @@ function gapStartsBlock(previous: TextLine, line: TextLine, leading: number): bo
   // A numbered caption followed by a table header is two blocks, even when the leading
   // between them is no wider than a wrapped line.
   if (isCaptionLine(previous.text) && isTableHeaderLine(line.text)) return true;
+  if (isListBoundary(previous, line)) return true;
 
   return false;
+}
+
+function isListBoundary(previous: TextLine, line: TextLine): boolean {
+  if (isListItemStart(line.text) && previous.text.trim().length > 0) return true;
+  const previousBold = previous.pieces.length > 0 && previous.pieces.every((piece) => piece.bold);
+  const lineBold = line.pieces.length > 0 && line.pieces.every((piece) => piece.bold);
+  // A bold run-in title after a completed sentence is the next list item, not a wrap.
+  return /[.!?]$/u.test(previous.text.trim()) && lineBold && !previousBold;
+}
+
+function isListItemStart(text: string): boolean {
+  return /^(?:[\u2022\u2023\u25E6\u2043•·‣▪◦●○*]|[-–—]|\d+[.)]|[a-z][.)])\s/u.test(text.trim());
+}
+
+function isHyphenWrap(previous: TextLine, next: TextLine): boolean {
+  return /[\u002d\u2010\u2011]$/u.test(previous.text.trim()) && /^[\p{Ll}]/u.test(next.text.trim());
+}
+
+function isMostlyMono(line: TextLine): boolean {
+  if (line.pieces.length === 0) return false;
+  const mono = line.pieces.filter((piece) => piece.family === 'monospace').length;
+  return mono * 2 >= line.pieces.length;
+}
+
+/**
+ * A code identifier rather than a phrase: camelCase, snake_case, or a hyphen-broken token
+ * from a wrapped cell. Translating one of these produces a wrong program.
+ */
+export function isCodeToken(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length < 3 || /\s/u.test(trimmed)) return false;
+  if (/^(?:[-–—]|[\u002d\u2010\u2011])+$/u.test(trimmed)) return false;
+  // An internal capital, not just an initial one: `pieceChars`, `maxSegmentTokens`.
+  if (/^[A-Za-z][a-z0-9]*[A-Z][A-Za-z0-9]*$/u.test(trimmed)) return true;
+  if (/^[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+$/u.test(trimmed)) return true;
+  if (/^[A-Za-z][A-Za-z0-9]*[\u002d\u2010\u2011][A-Za-z][A-Za-z0-9]*$/u.test(trimmed)) return true;
+  if (/^[A-Za-z][A-Za-z0-9]*[\u002d\u2010\u2011]$/u.test(trimmed)) return true;
+  return false;
+}
+
+/** A table value that must stay as drawn: `48`, `1.9 s`, `34.8`. */
+export function isNumericCell(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return false;
+  if (isTick(trimmed)) return true;
+  return /^[\d.,]+(?:\s*(?:s|ms|µs|us|ns|%|pt|px|tok\/s))?$/iu.test(trimmed);
 }
 
 function buildBlock(
@@ -1041,14 +1159,29 @@ function roleOf(
  * which is worse than leaving the listing as drawn.
  */
 function isCodeBlock(lines: readonly TextLine[]): boolean {
-  if (lines.length < 2) return false;
+  if (lines.length === 0) return false;
   const pieces = lines.flatMap((line) => line.pieces);
   if (pieces.length === 0) return false;
   const mono = pieces.filter((piece) => piece.family === 'monospace').length;
   if (mono * 2 < pieces.length) return false;
   const text = lines.map((line) => line.text).join(' ');
   if (isCaptionLine(text)) return false;
-  return true;
+  if (lines.length >= 2) return true;
+  return looksLikeCodeLine(lines[0]?.text ?? '');
+}
+
+function looksLikeCodeLine(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return false;
+  if (/\b(?:continue|return|break|yield)\b/u.test(trimmed)) return true;
+  if (/^\d+\s+\S/u.test(trimmed)) return true;
+  if (
+    /[_.=(){}[\];]/u.test(trimmed) &&
+    /\b(?:if|for|while|def|emit|function|const|let|var)\b/u.test(trimmed)
+  ) {
+    return true;
+  }
+  return /^[A-Za-z_][\w.]*\(/u.test(trimmed);
 }
 
 /**

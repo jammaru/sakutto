@@ -244,13 +244,14 @@ async function prepareModel(
   threads: string,
   tier: 'auto' | 'g' | 'c8' | 'c4' = 'g',
 ): Promise<boolean> {
-  await control.evaluate(
-    async (stored) => {
-      const chrome = (globalThis as unknown as { chrome: ChromeApi }).chrome;
-      await chrome.storage.local.set({ settings: stored, siteRules: {} });
-    },
-    { ...settings(), tier: tier === 'auto' ? (threads === '4' ? 'c4' : 'c8') : tier },
-  );
+  const resolvedTier = tier === 'auto' ? (threads === '4' ? 'c4' : 'c8') : tier;
+  await control.evaluate(async (stored) => {
+    const chrome = (globalThis as unknown as { chrome: ChromeApi }).chrome;
+    await chrome.storage.local.set({ settings: stored, siteRules: {} });
+  }, settings(resolvedTier));
+  // Apply the tier before any load: `engine:status` may start the model, and a profile that
+  // last ran on CPU would otherwise stay on CPU for the whole first warm.
+  await call(control, { type: 'engine:tier', tier: resolvedTier });
 
   const status = await call<{ model?: { state?: string; progress?: number } }>(control, {
     type: 'engine:status',
@@ -415,7 +416,10 @@ async function main(): Promise<void> {
           total: document.querySelectorAll('.sakutto-page').length,
           blocks: all.length,
           done: all.filter(
-            (entry) => entry.translation.trim().length > 0 || entry.state === 'failed',
+            (entry) =>
+              entry.state === 'done' ||
+              entry.state === 'failed' ||
+              entry.translation.trim().length > 0,
           ).length,
         };
       }, translateLimit);

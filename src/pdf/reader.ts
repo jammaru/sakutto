@@ -675,15 +675,16 @@ export class PdfReader {
     // shorter: the page image underneath still holds the original glyphs, and a box that
     // stopped early would leave the end of the source paragraph showing through the
     // translation. A little padding hides descenders the source box did not report.
-    const pad = Math.max(0.6, block.fontSize * 0.08) * scale;
+    const padTop = Math.max(0.8, block.fontSize * 0.1) * scale;
+    const padBottom = Math.max(2.4, block.fontSize * 0.32) * scale;
     const sourceHeight = block.box.height;
     const textHeight = fit.height * scale;
-    const height = Math.max(sourceHeight * scale, textHeight) + pad;
+    const height = Math.max(sourceHeight * scale, textHeight) + padTop + padBottom;
     // Layout wraps to `fit.width` (the writing-direction advance on a rotated page, else the
     // column plus a modest gutter). Painting to `box.width` alone, with `white-space:pre` and
     // `overflow:hidden`, cuts the line ends that wrapping already fitted — on `/Rotate 90`
     // that width is the em, about 10pt.
-    const along = Math.max(block.advance, fit.width) * scale + pad;
+    const along = Math.max(block.advance, fit.width) * scale + padTop + padBottom;
     const width = verticalWriting(block) ? along : Math.max(block.box.width * scale, along);
     const box = verticalWriting(block)
       ? {
@@ -692,21 +693,21 @@ export class PdfReader {
               ? block.box.x
               : block.box.x + Math.max(block.box.width, fit.height)) *
               scale -
-            pad / 2,
+            padTop,
           y:
             (block.writing === 270
               ? block.box.y + Math.max(block.box.height, block.advance)
               : block.box.y) *
               scale -
-            pad / 2,
+            padTop,
           width: along,
-          height: Math.max(block.box.width, fit.height) * scale + pad,
+          height: Math.max(block.box.width, fit.height) * scale + padTop + padBottom,
         }
       : {
-          x: Math.min(block.box.x, block.room.x) * scale - pad / 2,
-          y: block.box.y * scale - pad / 2,
+          x: Math.min(block.box.x, block.room.x) * scale - padTop,
+          y: block.box.y * scale - padTop,
           width,
-          height: sourceHeight * scale,
+          height,
         };
 
     node.dataset.fitWidth = fit.width.toFixed(2);
@@ -720,7 +721,7 @@ export class PdfReader {
       scriptOf(this.target),
     );
     if (verticalWriting(block)) {
-      node.style.height = `${(Math.max(block.box.width, fit.height) * scale + pad).toFixed(2)}px`;
+      node.style.height = `${(Math.max(block.box.width, fit.height) * scale + padTop + padBottom).toFixed(2)}px`;
       node.style.transformOrigin = '0 0';
       node.style.transform = block.writing === 270 ? 'rotate(-90deg)' : 'rotate(90deg)';
     } else {

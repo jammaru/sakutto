@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { groupLines } from '@/pdf/lines';
 import { layoutPage } from '@/pdf/layout';
-import { protectInlineMath, restoreInlineMath } from '@/pdf/protect';
+import { protectInlineMath, restoreInlineMath, shouldSkipInlineMath } from '@/pdf/protect';
 import { piece } from './support/pdf-pieces';
 
 describe('protectInlineMath', () => {
@@ -36,6 +36,49 @@ describe('protectInlineMath', () => {
     expect(restoreInlineMath('クエリとキー', ['q', 'k'])).toBeNull();
     expect(restoreInlineMath('クエリ <i0> だけ', ['q', 'k'])).toBeNull();
     expect(restoreInlineMath('クエリ <i0> <i9>', ['q'])).toBeNull();
+  });
+
+  it('protects a subscript that is set smaller than the line', () => {
+    const lines = groupLines([
+      piece('Let ', 49, 100, 18),
+      piece('S', 67, 100, 8, { italic: true }),
+      piece('t', 74, 100, 6, { size: 7, em: 10 }),
+      piece(' = (I − β)', 80, 100, 48),
+      piece('k', 128, 100, 6, { italic: true }),
+      piece(' hold the recurrent state of the layer.', 134, 100, 200),
+    ]);
+    const layout = layoutPage(lines);
+    const block = layout.blocks[0];
+    if (!block) throw new Error('expected a block');
+    const protectedText = protectInlineMath(block);
+    expect(protectedText.slots.length).toBeGreaterThan(0);
+    expect(protectedText.text).toContain('<i0>');
+    expect(protectedText.slots.some((slot) => slot.includes('t'))).toBe(true);
+  });
+
+  it('skips a sentence that is mostly inline mathematics', () => {
+    const lines = groupLines([
+      piece('where ', 49, 100, 30),
+      piece('S', 80, 100, 8, { math: true, italic: true }),
+      piece('t', 88, 100, 6, { math: true, size: 7, em: 10 }),
+      piece(' = (I − ', 94, 100, 36, { math: true }),
+      piece('β', 130, 100, 8, { math: true }),
+      piece('t', 138, 100, 6, { math: true, size: 7, em: 10 }),
+      piece(') ', 144, 100, 8, { math: true }),
+      piece('k', 152, 100, 6, { math: true, italic: true }),
+      piece(' Diag(', 158, 100, 28, { math: true }),
+      piece('α', 186, 100, 8, { math: true }),
+      piece('t', 194, 100, 6, { math: true, size: 7, em: 10 }),
+      piece(') ', 200, 100, 8, { math: true }),
+      piece('S', 208, 100, 8, { math: true, italic: true }),
+      piece('t−1', 216, 100, 16, { math: true, size: 7, em: 10 }),
+      piece('.', 232, 100, 4),
+    ]);
+    const layout = layoutPage(lines);
+    const block = layout.blocks[0] ?? layout.skipped[0];
+    if (!block) throw new Error('expected a block');
+    const protectedText = protectInlineMath(block);
+    expect(shouldSkipInlineMath(protectedText, block.text)).toBe(true);
   });
 
   it('leaves a sentence with no mathematics unchanged', () => {

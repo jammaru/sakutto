@@ -205,7 +205,7 @@ export function wrapText(
       current = value;
       return;
     }
-    const pieces = breakToken(value.trimEnd(), width, measure);
+    const pieces = breakToken(value.trimEnd(), width, measure, kinsoku);
     const last = pieces.pop() ?? '';
     for (const piece of pieces) {
       if (piece.length > 0) lines.push(piece);
@@ -217,8 +217,13 @@ export function wrapText(
     const candidate = current.length === 0 ? token : current + token;
     // A trailing space hangs at the end of a line in CSS, so it must not decide the break.
     if (current.length > 0 && measure(candidate.trimEnd()) > width) {
+      const next = token.trimStart();
+      if (kinsoku && next.length > 0 && KINSOKU_NO_START.test(next[0] ?? '')) {
+        place(candidate);
+        continue;
+      }
       lines.push(current.trimEnd());
-      place(token.trimStart());
+      place(next);
       continue;
     }
     place(candidate);
@@ -227,8 +232,9 @@ export function wrapText(
   if (current.trim().length > 0) lines.push(current.trimEnd());
   const wrapped = kinsoku ? applyKinsoku(lines, width, measure) : lines;
   return wrapped.flatMap((line) => {
-    if (line.length === 0 || measure(line) <= width) return line.length > 0 ? [line] : [];
-    const pieces = breakToken(line, width, measure);
+    if (line.length === 0) return [];
+    if (measure(line) <= width) return [line];
+    const pieces = breakToken(line, width, measure, kinsoku);
     return pieces.length > 0 ? pieces : [line.slice(0, 1)];
   });
 }
@@ -252,9 +258,11 @@ function applyKinsoku(
     while ((next[index]?.length ?? 0) > 0 && KINSOKU_NO_START.test(next[index]?.[0] ?? '')) {
       const mark = next[index]?.[0] ?? '';
       const dest = `${next[index - 1] ?? ''}${mark}`;
-      if (measure(dest) > width) break;
+      // A line must not start with `。` even when moving the mark overflows the wrap: the
+      // caller re-breaks an over-wide previous line without splitting before the mark.
       next[index - 1] = dest;
       next[index] = next[index]?.slice(1) ?? '';
+      if (measure(dest) > width) break;
     }
     if ((next[index]?.length ?? 0) === 0) {
       next.splice(index, 1);
@@ -312,13 +320,22 @@ function tokenize(text: string): string[] {
 }
 
 /** Breaks one over-wide token into pieces that each fit. */
-function breakToken(token: string, width: number, measure: (value: string) => number): string[] {
+function breakToken(
+  token: string,
+  width: number,
+  measure: (value: string) => number,
+  kinsoku = false,
+): string[] {
   if (token.length === 0) return [];
   const pieces: string[] = [];
   let current = '';
   for (const character of token) {
     const candidate = current + character;
     if (current.length > 0 && measure(candidate) > width) {
+      if (kinsoku && KINSOKU_NO_START.test(character)) {
+        current = candidate;
+        continue;
+      }
       pieces.push(current);
       current = character;
       continue;

@@ -18,7 +18,8 @@ import {
   resolveOverlaps,
   wrapWidth,
 } from './place';
-import { protectInlineMath, restoreInlineMath } from './protect';
+import { isSameLanguage, pdfPageLanguage } from './language';
+import { protectInlineMath, restoreInlineMath, shouldSkipInlineMath } from './protect';
 
 /** What the reader shows about how fast the document is being translated. */
 export interface PdfRates {
@@ -167,6 +168,8 @@ export class PdfSession {
   private tokensSoFar = 0;
   private segmentsSoFar = 0;
   private rates: PdfRates = { tokensPerSecond: null, segmentsPerSecond: null };
+  /** Detected language of each page's prose, used to skip same-language rewriting. */
+  private readonly pageLanguages = new Map<number, string | null>();
 
   constructor(options: PdfSessionOptions) {
     this.engine = options.engine;
@@ -189,6 +192,7 @@ export class PdfSession {
     if (height > 0) this.pageHeights.set(index, height);
     if ((layout.pageWidth ?? 0) > 0) this.pageWidths.set(index, layout.pageWidth);
     this.obstacles.set(index, layout.obstacles ?? []);
+    this.pageLanguages.set(index, pdfPageLanguage(layout.blocks));
     const states: BlockState[] = layout.blocks.map((block) => ({
       block,
       state: 'idle',
@@ -317,8 +321,8 @@ export class PdfSession {
   retryUntranslated(): void {
     for (const [page, states] of this.pages) {
       for (const state of states) {
+        if (state.state === 'done' || state.state === 'running') continue;
         if (state.translation.trim().length > 0) continue;
-        if (state.state === 'running') continue;
         state.state = 'idle';
         this.enqueue(state, page);
       }
@@ -352,11 +356,9 @@ export class PdfSession {
     this.stop();
     for (const [page, states] of this.pages) {
       for (const state of states) {
-        state.translation = '';
+        // Keep the previous cover until the new text arrives. Blanking it first flashes
+        // the source glyphs through a box the reader already trusted.
         state.engine = null;
-        state.fit = null;
-        state.paint = false;
-        state.overflow = false;
         this.enqueue(state, page);
       }
     }
@@ -364,22 +366,22 @@ export class PdfSession {
   }
 
   private enqueue(state: BlockState, page: number): void {
-    if (state.state === 'running' || state.translation.trim().length > 0) return;
+    if (state.state === 'running' || state.state === 'queued') return;
     this.nextJob += 1;
     state.state = 'queued';
     this.queue.enqueue({ state, id: this.nextJob, page }, this.priorityOf(state.block, page));
   }
 
   /**
-   * Lower runs first. Prose and headings before captions and table cells, then the page
-   * nearest the reader, then the order the page put them in — the queue is stable, so equal
-   * priorities keep their insertion order.
+   * Lower runs first. Distance to the page the reader can see dominates: a label on the
+   * focused page must beat a paragraph two pages away, or a 30-character heading sits
+   * `running` while later pages finish. Kind only orders work on the same page.
    */
   private priorityOf(block: LayoutBlock, page: number): number {
     const kind =
       block.role === 'heading' || block.role === 'prose' ? 10 : block.role === 'caption' ? 30 : 50;
-    const distance = Math.min(Math.abs(page - this.focus), 40) * 0.1;
-    return Number((kind + distance).toFixed(3));
+    const distance = Math.min(Math.abs(page - this.focus), 40);
+    return distance * 100 + kind;
   }
 
   private pump(): void {
@@ -414,12 +416,30 @@ export class PdfSession {
     state.state = 'failed';
   }
 
+  /** Leave the source typesetting: same-language text, or a sentence that is mostly formula. */
+  private keepOriginal(state: BlockState): void {
+    state.translation = '';
+    state.fit = null;
+    state.paint = false;
+    state.overflow = false;
+    state.state = 'done';
+  }
+
   private async run(job: Job, signal: AbortSignal, generation: number): Promise<void> {
     const { state } = job;
+    const pageLanguage = this.pageLanguages.get(job.page) ?? null;
+    if (isSameLanguage(state.block.text, this.target, pageLanguage)) {
+      this.keepOriginal(state);
+      return;
+    }
     // Inline mathematics is replaced with the same numbered placeholders the page translator
     // uses, so a variable comes back exactly. A translation that drops a placeholder is
     // refused below and the source stays on the page.
     const protectedText = protectInlineMath(state.block);
+    if (shouldSkipInlineMath(protectedText, state.block.text)) {
+      this.keepOriginal(state);
+      return;
+    }
     // A block longer than a paragraph is chunked here rather than in the engine, so a long
     // paragraph shows its first sentences while the rest is still decoding.
     const pieces = chunkForTranslation(protectedText.text);
@@ -442,6 +462,8 @@ export class PdfSession {
         form: this.form,
         priority: this.priorityOf(state.block, job.page),
         signal,
+        eager: job.page === this.focus,
+        preempt: job.page === this.focus,
         ...(this.glossary.length > 0 ? { glossary: this.glossary } : {}),
       })) {
         if (this.stale(generation, signal)) return;
