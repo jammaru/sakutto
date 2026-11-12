@@ -13,13 +13,6 @@ import {
   waitTranslated,
 } from './page';
 
-const EMPTY_BINDINGS = [
-  { name: 'translate-page', shortcut: '' },
-  { name: 'toggle-bilingual', shortcut: '' },
-  { name: 'translate-selection', shortcut: '' },
-  { name: 'translate-compose', shortcut: '' },
-];
-
 const CUSTOM_PAGE_BINDINGS = [
   { name: 'translate-page', shortcut: 'Alt+Q' },
   { name: 'toggle-bilingual', shortcut: 'Alt+B' },
