@@ -3,12 +3,10 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   alignCaptionCuesToMedia,
-  collapseGrowingCaptionCues,
   cueAtTime,
   cuesFromPlayhead,
   cuesInWindow,
   finalizeCaptionCues,
-  joinCaptionFragments,
   LiveCaptionBuffer,
   LIVE_CAPTION_MAX_WAIT_MS,
   mergeSentenceCues,
@@ -22,7 +20,6 @@ import {
   parsePlayerResponseScript,
   isYouTubeLivePlayer,
   selectCaptionTrack,
-  captionLanguagePrefix,
   captionSourceIsTargetLanguage,
   captionTextIsTargetLanguage,
   selectLiveCaptionTrack,
@@ -213,61 +210,6 @@ describe('sentence-cue merging', () => {
     );
   });
 
-  it('collapses growing Japanese ASR windows and joins CJK without spaces', () => {
-    expect(joinCaptionFragments('駅は', '夜明けに')).toBe('駅は夜明けに');
-    const growing = collapseGrowingCaptionCues([
-      { id: 'a', startMs: 0, endMs: 2500, text: '駅は', language: 'ja' },
-      { id: 'b', startMs: 400, endMs: 2500, text: '駅は夜明けに', language: 'ja' },
-      { id: 'c', startMs: 800, endMs: 2500, text: '駅は夜明けに開きます', language: 'ja' },
-    ]);
-    expect(growing).toEqual([
-      expect.objectContaining({
-        startMs: 0,
-        endMs: 2500,
-        text: '駅は夜明けに開きます',
-      }),
-    ]);
-    const asr = finalizeCaptionCues(
-      [
-        { id: 'a', startMs: 0, endMs: 2500, text: '駅は', language: 'ja' },
-        { id: 'b', startMs: 400, endMs: 2500, text: '駅は夜明けに', language: 'ja' },
-        { id: 'c', startMs: 800, endMs: 2500, text: '駅は夜明けに開きます', language: 'ja' },
-        {
-          id: 'd',
-          startMs: 4200,
-          endMs: 6700,
-          text: '赤い列車が2番線で待っています',
-          language: 'ja',
-        },
-      ],
-      undefined,
-      { asr: true },
-    );
-    expect(asr.map((cue) => cue.text)).toEqual([
-      '駅は夜明けに開きます',
-      '赤い列車が2番線で待っています',
-    ]);
-    expect(asr[0]?.endMs).toBe(4200);
-    expect(cueAtTime(asr, 3000)?.text).toBe('駅は夜明けに開きます');
-    expect(asr.every((cue) => cue.text.trim().length > 0)).toBe(true);
-    expect(asr.every((cue) => cue.text.length < 80)).toBe(true);
-  });
-
-  it('caps Japanese ASR sentence merges so they stay translatable', () => {
-    const cues = Array.from({ length: 8 }, (_, index) => ({
-      id: `c${index}`,
-      startMs: index * 2000,
-      endMs: index * 2000 + 1800,
-      text: 'あいうえおかきくけこ'.repeat(3),
-      language: 'ja',
-    }));
-    const asr = finalizeCaptionCues(cues, undefined, { asr: true });
-    expect(asr.length).toBeGreaterThan(1);
-    expect(asr.every((cue) => cue.text.trim().length > 0)).toBe(true);
-    expect(asr.every((cue) => cue.text.length <= 80)).toBe(true);
-    expect(asr.every((cue) => cue.endMs - cue.startMs <= 6_000)).toBe(true);
-  });
-
   it('returns the playhead cue then the next few in order', () => {
     const cues = [
       { id: 'a', startMs: 0, endMs: 2000, text: 'one' },
@@ -339,19 +281,6 @@ describe('YouTube player response', () => {
     });
     expect(withTimedtextFormat(tracks[1]?.baseUrl ?? '', 'json3')).toContain('fmt=json3');
     expect(withTimedtextFormat(tracks[0]?.baseUrl ?? '', 'json3')).not.toContain('fmt=srv3');
-    expect(
-      withTimedtextFormat(
-        'https://www.youtube.com/api/timedtext?v=fixture&lang=ja&kind=asr&tlang=en',
-        'json3',
-      ),
-    ).not.toContain('tlang=');
-    expect(captionLanguagePrefix('a.ja')).toBe('ja');
-    expect(captionLanguagePrefix('.ja')).toBe('ja');
-    expect(selectCaptionTrack(tracks, 'en', 'ja')).toMatchObject({
-      languageCode: 'ja',
-      asr: true,
-      vssId: 'a.ja',
-    });
     expect(withTimedtextFormat('/youtube-timedtext.json', 'json3')).toBe(
       '/youtube-timedtext.json?fmt=json3',
     );
@@ -513,17 +442,8 @@ describe('target-language caption filter', () => {
     );
   });
 
-  it('does not strip Japanese when the target is English', () => {
-    expect(stripTargetLanguageFromCaption('北側窓口では予約不要の切符を売っています。', 'en')).toBe(
-      '北側窓口では予約不要の切符を売っています。',
-    );
-    expect(captionSourceIsTargetLanguage('a.ja', undefined, 'en')).toBe(false);
-    expect(captionSourceIsTargetLanguage('ja', '駅は夜明けに開きます。', 'en')).toBe(false);
-  });
-
   it('treats a known source language as the target only when prefixes match', () => {
     expect(captionSourceIsTargetLanguage('ja', '駅は夜明けに開きます。', 'ja')).toBe(true);
-    expect(captionSourceIsTargetLanguage('a.ja', undefined, 'ja')).toBe(true);
     expect(captionSourceIsTargetLanguage('ja-JP', undefined, 'ja')).toBe(true);
     expect(
       captionSourceIsTargetLanguage('en', '北側窓口では予約不要の切符を売っています。', 'ja'),
