@@ -244,7 +244,39 @@ describe('PdfSession stream handling', () => {
     expect(progress.total).toBe(24);
   });
 
-  it('keeps short labels, numbers and headers instead of failing them', async () => {
+  it('reports painted-only prose coverage on every page of a multi-page document', async () => {
+    const engine = engineOf(async function* (segments) {
+      const id = segments[0]?.id ?? 'b1';
+      yield { id, final: '評価用の訳文です。' };
+    });
+    const session = sessionOf(engine, { concurrency: 3 });
+    for (let page = 0; page < 3; page += 1) {
+      const blocks = Array.from({ length: 4 }, (_, index) =>
+        block(`Synthetic paragraph ${String(index)} on page ${String(page)} for coverage.`, {
+          box: { x: 40, y: 80 + index * 40, width: 240, height: 24 },
+          room: { x: 40, y: 80 + index * 40, width: 240, height: 24 },
+        }),
+      );
+      session.addPage(page, {
+        ...layoutOf('Synthetic prose.'),
+        blocks,
+      });
+    }
+
+    await waitFor(
+      () => session.progress().pending === 0 && session.progress().failed === 0,
+      3000,
+    );
+    for (let page = 0; page < 3; page += 1) {
+      const prose = session.pageBlocks(page).filter((state) => state.block.role === 'prose');
+      const painted = prose.filter((state) => state.paint === true).length;
+      expect(prose.length).toBeGreaterThan(0);
+      expect(painted / prose.length).toBeGreaterThanOrEqual(0.97);
+    }
+    expect(session.progress().failed).toBe(0);
+  });
+
+  it('keeps short labels, numbers and furniture instead of failing them', async () => {
     const engine = engineOf(async function* (segments) {
       const id = segments[0]?.id ?? 'b1';
       yield { id, final: segments[0]?.text ?? '' };
@@ -255,7 +287,7 @@ describe('PdfSession stream handling', () => {
       blocks: [
         block('Data quality', { role: 'label' }),
         block('48', { role: 'cell' }),
-        block('INTRODUCTION', { role: 'heading' }),
+        block('Page 3', { role: 'furniture' }),
       ],
     });
 
@@ -265,6 +297,58 @@ describe('PdfSession stream handling', () => {
     expect(states.every((state) => state.intentionallyKept === true)).toBe(true);
     expect(session.progress().failed).toBe(0);
     expect(session.progress().done).toBe(3);
+  });
+
+  it('fails a three-word prose echo instead of keeping it as done', async () => {
+    const source = 'Method baseline comparison';
+    const engine = engineOf(async function* (segments) {
+      const id = segments[0]?.id ?? 'b1';
+      yield { id, final: source };
+    });
+    const session = sessionOf(engine);
+    session.addPage(0, layoutOf(source));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'failed');
+    const state = session.pageBlocks(0)[0];
+    expect(state?.state).toBe('failed');
+    expect(state?.intentionallyKept).not.toBe(true);
+    expect(session.progress().failed).toBe(1);
+    expect(session.progress().done).toBe(0);
+  });
+
+  it('counts a finished but invisible block separately from pending', async () => {
+    const engine = engineOf(async function* (segments) {
+      const id = segments[0]?.id ?? 'b1';
+      yield { id, final: '評価訳' };
+    });
+    const session = sessionOf(engine);
+    session.addPage(0, layoutOf('A synthetic paragraph that should be painted normally.'));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'done');
+    const state = session.pageBlocks(0)[0];
+    if (!state) throw new Error('expected a block');
+    state.paint = false;
+    state.overflow = false;
+    state.intentionallyKept = false;
+    const progress = session.progress();
+    expect(progress.invisible).toBe(1);
+    expect(progress.pending).toBe(0);
+    expect(progress.done).toBe(0);
+  });
+
+  it('sweeps an unpainted prose block even when it was marked kept', async () => {
+    const engine = engineOf(async function* (segments) {
+      const id = segments[0]?.id ?? 'b1';
+      yield { id, final: '評価訳' };
+    });
+    const session = sessionOf(engine);
+    session.addPage(0, layoutOf('A synthetic paragraph that should be painted normally.'));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'done');
+    const state = session.pageBlocks(0)[0];
+    if (!state) throw new Error('expected a block');
+    state.paint = false;
+    state.intentionallyKept = true;
+    expect(session.sweepIncompleteBlocks()).toBe(1);
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'done' && state.paint);
+    expect(state.intentionallyKept).toBe(false);
   });
 
   it('does not count a failed block as overflow', async () => {
@@ -383,7 +467,7 @@ describe('PdfSession stream handling', () => {
 
   it('fails a block whose output still echoes the English source', async () => {
     const source =
-      'BAN considers each configuration separately when the stream of tokens is classified.';
+      'Method A compares each synthetic configuration when the stream is classified.';
     const engine = engineOf(async function* (segments) {
       const id = segments[0]?.id ?? 'b1';
       yield { id, final: source };

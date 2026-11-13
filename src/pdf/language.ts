@@ -56,6 +56,44 @@ function normalizedText(text: string): string {
   return text.replace(/\s+/gu, ' ').trim();
 }
 
+/**
+ * Languages written with Latin letters. `pdfBlockLanguage` can only say "English" for a
+ * Latin run, so comparing an English-looking output with an English-looking source would
+ * reject a correct German or French translation. For these targets the reliable echo test is
+ * the text itself: identical, or opening with the same long prefix.
+ */
+const LATIN_SCRIPT_LANGUAGES: ReadonlySet<string> = new Set([
+  'az',
+  'ca',
+  'ceb',
+  'de',
+  'en',
+  'es',
+  'et',
+  'eu',
+  'fr',
+  'hr',
+  'hu',
+  'id',
+  'it',
+  'jv',
+  'lt',
+  'lv',
+  'ms',
+  'nl',
+  'pl',
+  'sk',
+  'sl',
+  'sw',
+  'tl',
+  'uz',
+  'vi',
+]);
+
+function isLatinScriptTarget(language: string | null): boolean {
+  return language !== null && LATIN_SCRIPT_LANGUAGES.has(language);
+}
+
 /** True when the output is the source text, or starts with the same long opening. */
 export function translationRepeatsSource(source: string, output: string): boolean {
   const trimmedOut = normalizedText(output);
@@ -72,11 +110,17 @@ export function translationRepeatsSource(source: string, output: string): boolea
  * True when a prose output stayed in the source language, without needing the requested
  * target. The cache uses this to refuse to store an echo even though it sees only a segment.
  */
-export function translationStaysInSourceLanguage(source: string, output: string): boolean {
+export function translationStaysInSourceLanguage(
+  source: string,
+  output: string,
+  target = '',
+): boolean {
   const trimmedOut = normalizedText(output);
   const trimmedSrc = normalizedText(source);
   if (!hasSourceProse(trimmedSrc)) return false;
   if (trimmedOut.length === 0 || translationRepeatsSource(trimmedSrc, trimmedOut)) return true;
+  const canonicalTarget = canonicalLanguage(target);
+  if (isLatinScriptTarget(canonicalTarget)) return false;
   const outLang = pdfBlockLanguage(trimmedOut);
   const srcLang = pdfBlockLanguage(trimmedSrc);
   return outLang !== null && srcLang !== null && outLang === srcLang;
@@ -93,11 +137,17 @@ export function translationEchoesSource(source: string, output: string, target: 
   const trimmedOut = normalizedText(output);
   const trimmedSrc = normalizedText(source);
   // The bench fake engine prefixes every translated segment so fixtures can see that work ran.
-  if (trimmedOut.startsWith(`§${canonicalTarget}§`)) return false;
+  // Outside that build the prefix is ordinary source text and must not buy an exemption.
+  if (__SAKUTTO_FAKE_ENGINE__ && trimmedOut.startsWith(`§${canonicalTarget}§`)) return false;
   // A label, a number, a header or a formula cannot be an echo of prose. Treating it as one
   // failed a row of table numbers and retried it forever.
   if (!hasSourceProse(trimmedSrc)) return false;
   if (trimmedOut.length === 0) return true;
+  // Latin targets cannot be compared by script: a correct German translation may still look
+  // English to the heuristic. Only the text itself can prove that nothing was translated.
+  if (isLatinScriptTarget(canonicalTarget)) {
+    return translationRepeatsSource(trimmedSrc, trimmedOut);
+  }
   if (trimmedOut === trimmedSrc) return true;
   const outLang = pdfBlockLanguage(trimmedOut);
   const srcLang = pdfBlockLanguage(trimmedSrc);

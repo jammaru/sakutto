@@ -42,12 +42,12 @@ function engineStub(final: string): PdfEngine {
 function syntheticLetterPage(): ReturnType<typeof layoutPage> {
   const y = (row: number) => 100 + row * 14;
   const pieces: TextPiece[] = [
-    piece('2. Selection of Detection Tool Configuration', 72, y(0), 220),
-    piece('Naive Method: the baseline counts every token as a positive.', 72, y(2), 210, {
+    piece('2. Selection of a Detection Method', 72, y(0), 220),
+    piece('Method A: the baseline counts every token as a positive.', 72, y(2), 210, {
       bold: true,
     }),
     piece(
-      'Left column opening sentence with enough English words to classify as prose.',
+      'Left column opening sentence with enough synthetic words to classify as prose.',
       72,
       y(4),
       210,

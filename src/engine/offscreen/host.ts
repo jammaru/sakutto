@@ -417,8 +417,8 @@ export class EngineHost {
 
     // A translation that still reads as the source must not become the cached answer for
     // every later retry. The PDF session also marks retries with `bypassCache`.
-    const acceptCachedTranslation: CacheAccept = (text, source) =>
-      !translationStaysInSourceLanguage(source, text);
+    const acceptCachedTranslation: CacheAccept = (text, source, options) =>
+      !translationStaysInSourceLanguage(source, text, options.tgt);
 
     const chromeForCache = chrome.available
       ? new CachingEngine(chrome, cache, 'chrome', 'chrome', acceptCachedTranslation)

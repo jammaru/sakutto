@@ -76,6 +76,8 @@ export interface ReaderProgress {
   done: number;
   total: number;
   pending: number;
+  /** Finished blocks with no painted cover, marker or deliberate keep. */
+  invisible: number;
   /** Pages whose text has been parsed, out of the document's total. */
   parsed: number;
   pages: number;
@@ -380,6 +382,7 @@ export class PdfReader {
 
   setGlossary(glossary: readonly { source: string; target: string }[]): void {
     this.glossary = glossary;
+    this.coverageSweepPass = 0;
     this.session.setGlossary(glossary);
   }
 
@@ -666,6 +669,8 @@ export class PdfReader {
         const extracted = await extractPage(page, next, this.ops);
         if (this.destroyed) return;
         this.parsed.add(next);
+        // A new page brings new unpainted prose, so the coverage sweep starts over for it.
+        this.coverageSweepPass = 0;
         const element = this.pageElements.get(next);
 
         if (extracted.empty) {

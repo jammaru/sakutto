@@ -21,6 +21,7 @@ import {
   wrapWidth,
 } from './place';
 import {
+  hasSourceProse,
   isSameLanguage,
   pdfPageLanguage,
   translationEchoesSource,
@@ -77,6 +78,22 @@ export function hasDeliverableTranslation(state: BlockState): boolean {
 export function countsTowardProgress(state: BlockState): boolean {
   if (state.state !== 'done') return false;
   return state.intentionallyKept === true || isTranslated(state);
+}
+
+/** Roles whose source text is typesetting the reader can safely keep as drawn. */
+const KEEP_ORIGINAL_ROLES: ReadonlySet<string> = new Set([
+  'label',
+  'cell',
+  'figure-label',
+  'furniture',
+]);
+/** Roles that always represent the prose the reader asked to translate. */
+const PROSE_ROLES: ReadonlySet<string> = new Set(['prose', 'caption', 'heading']);
+
+/** True when an unchanged output may be kept in place instead of retried as an echo. */
+function mayKeepOriginal(block: LayoutBlock, source: string): boolean {
+  if (KEEP_ORIGINAL_ROLES.has(block.role)) return true;
+  return !PROSE_ROLES.has(block.role) && !hasSourceProse(source);
 }
 
 /**
@@ -346,12 +363,15 @@ export class PdfSession {
     done: number;
     total: number;
     pending: number;
+    /** Finished blocks with no painted cover, marker or deliberate keep. */
+    invisible: number;
     overflowed: number;
     failed: number;
   } {
     let done = 0;
     let total = 0;
     let pending = 0;
+    let invisible = 0;
     let overflowed = 0;
     let failed = 0;
     for (const states of this.pages.values()) {
@@ -361,11 +381,20 @@ export class PdfSession {
         else if (state.state === 'queued' || state.state === 'running') pending += 1;
         else if (state.state === 'failed') failed += 1;
         else if (state.state === 'idle') pending += 1;
-        else if (state.state === 'done' && !state.overflow) pending += 1;
+        else if (
+          state.state === 'done' &&
+          !state.paint &&
+          !state.overflow &&
+          state.intentionallyKept !== true
+        ) {
+          // Finished but nothing is on the page. That is not waiting work, so counting it as
+          // pending left the toolbar busy forever after an invisible finish.
+          invisible += 1;
+        }
         if (state.overflow) overflowed += 1;
       }
     }
-    return { done, total, pending, overflowed, failed };
+    return { done, total, pending, invisible, overflowed, failed };
   }
 
   /** Live rates, computed from the output that has arrived rather than a whole-run average. */
@@ -448,9 +477,14 @@ export class PdfSession {
     let requeued = 0;
     for (const [page, states] of this.pages) {
       for (const state of states) {
-        if (state.intentionallyKept === true || state.state === 'running') continue;
+        if (state.state === 'running') continue;
+        // Prose is the point of the page: a prose block that is not painted is incomplete
+        // even if it was previously marked kept. Never let an echo hide behind that flag.
+        const unpaintedProse = state.block.role === 'prose' && !state.paint;
+        if (!unpaintedProse && state.intentionallyKept === true) continue;
         const text = state.translation.trim();
         const needs =
+          unpaintedProse ||
           state.state === 'failed' ||
           (text.length > 0 && translationEchoesSource(state.block.text, text, this.target)) ||
           (state.state === 'done' && !hasDeliverableTranslation(state));
@@ -690,19 +724,18 @@ export class PdfSession {
     }
     const sourceText = state.block.text;
     if (translationEchoesSource(sourceText, state.translation, this.target)) {
-      // A heading or a label is typesetting the page already shows correctly. Only a prose
-      // block whose translation stayed in the source language is a failure worth retrying.
-      if (state.block.role === 'prose' || state.block.role === 'caption') {
-        this.failBlock(state);
-      } else {
-        this.keepOriginal(state);
-      }
+      // An echo of prose, a caption or a heading is a failed translation, not a deliberate
+      // keep. Short prose was slipping through the word-count gate above and was counted as
+      // finished with no cover on the page.
+      if (mayKeepOriginal(state.block, sourceText)) this.keepOriginal(state);
+      else this.failBlock(state);
       return;
     }
     if (translationRepeatsSource(sourceText, state.translation)) {
       // Short labels, numeric rows, headers and notation come back as themselves. Keeping the
       // source is honest and avoids failed retries on strings that have nothing to translate.
-      this.keepOriginal(state);
+      if (mayKeepOriginal(state.block, sourceText)) this.keepOriginal(state);
+      else this.failBlock(state);
       return;
     }
     if (state.translation.trim().length === 0) {

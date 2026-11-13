@@ -12,7 +12,7 @@ import { buildTranslationCacheKey } from './key';
  * Decides whether a finished translation may be stored or served from the cache.
  * `source` is the original segment text.
  */
-export type CacheAccept = (text: string, source: string) => boolean;
+export type CacheAccept = (text: string, source: string, options: TranslateOptions) => boolean;
 
 export class CachingEngine implements IdentifiedEngine {
   constructor(
@@ -56,7 +56,7 @@ export class CachingEngine implements IdentifiedEngine {
 
       if (!bypass) {
         const hit = await this.cache.get(key);
-        if (hit && this.accepts(hit.text, segment.text)) {
+        if (hit && this.accepts(hit.text, segment.text, options)) {
           yield { id: segment.id, final: hit.text, engine: hit.engine };
           continue;
         }
@@ -85,7 +85,7 @@ export class CachingEngine implements IdentifiedEngine {
         chunk.final.length > 0 &&
         key &&
         chunk.error !== true &&
-        this.accepts(chunk.final, source)
+        this.accepts(chunk.final, source, options)
       ) {
         await this.cache.put(key, chunk.final, chunk.engine ?? this.inner.kind);
       }
@@ -96,7 +96,7 @@ export class CachingEngine implements IdentifiedEngine {
     }
   }
 
-  private accepts(text: string, source: string): boolean {
-    return this.accept?.(text, source) ?? true;
+  private accepts(text: string, source: string, options: TranslateOptions): boolean {
+    return this.accept?.(text, source, options) ?? true;
   }
 }
