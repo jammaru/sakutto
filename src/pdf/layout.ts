@@ -284,7 +284,8 @@ export function layoutPage(
       block.fontSize < bodySize * FIGURE_LABEL_RATIO &&
       block.role !== 'label' &&
       block.role !== 'caption' &&
-      block.role !== 'heading'
+      block.role !== 'heading' &&
+      block.role !== 'prose'
     ) {
       return false;
     }
@@ -579,6 +580,13 @@ function looksLikeTable(lines: readonly TextLine[]): boolean {
   const cellCounts: number[] = [];
   const secondXs: number[] = [];
   for (const row of rows) {
+    // A justified body line is one TextLine whose word gaps can split it into many short
+    // cells. A table row starts as several TextLines, one per cell. Counting the melted
+    // line as table rows made every paragraph line its own painted block.
+    if (row.length === 1 && cellText(row).length > CELL_MAX_CHARS) {
+      cellCounts.push(1);
+      continue;
+    }
     const cells = splitRowCells(row, true, true);
     cellCounts.push(cells.length);
     if (cells.length < 2) continue;
@@ -616,24 +624,76 @@ function mergeRowCells(
   bodySize: number,
 ): TextLine[][] {
   if (isTable || cells.length <= 1) return cells.map((cell) => [...cell]);
-  if (row.some((line) => isReferenceLine(line.text))) return [[...row]];
   // A listing's line number and code run are already handled by the cell splitter; merging
   // them back into a sentence would fuse the listing with prose on the same baseline.
   if (hasListingLine(row)) return cells.map((cell) => [...cell]);
   const bodyRow = isBodyFontRow(row, bodySize);
+  const heights = row.map((line) => line.height);
+  const uniformRow =
+    heights.length > 0 &&
+    Math.max(...heights) - Math.min(...heights) <= Math.max(...heights) * SIZE_CHANGE;
+  // A row of short runs is a table header or a citation title. Its cells can be a column
+  // apart and still be one line of the page, so a wide gap must not leave them as separate
+  // blocks that then paint over each other.
+  const shortRow = uniformRow && cells.every((cell) => cellText(cell).length <= CELL_MAX_CHARS);
+  const cellBox = (cell: readonly TextLine[]) => unionBox(cell.map((line) => line.box));
   const merged: TextLine[][] = [];
+  let reference = false;
   for (const cell of cells) {
     const previous = merged[merged.length - 1];
     const before = previous?.at(-1);
     const next = cell[0];
+    if (next && isReferenceLine(next.text)) {
+      // `[8]` at the end of a body line is an inline citation, not a bibliography entry.
+      // A real entry in the next column starts after the gutter, so a small gap means the
+      // marker belongs to the run before it.
+      const scale = Math.max(before?.height ?? next.height, next.height, 1);
+      const previousBox = previous ? cellBox(previous) : null;
+      const nextBox = cellBox(cell);
+      const gap =
+        previousBox && nextBox ? nextBox.x - boxRight(previousBox) : Number.POSITIVE_INFINITY;
+      if (previous && reference === false && gap <= scale * 2.5) {
+        previous.push(...cell);
+      } else {
+        merged.push([...cell]);
+        reference = true;
+      }
+      continue;
+    }
     if (previous && before && next) {
-      const gap = next.box.x - boxRight(before.box);
+      // Everything after a reference marker on this row belongs to that entry.
+      if (reference) {
+        previous.push(...cell);
+        continue;
+      }
+      // A footnote or affiliation marker starts a new small block. Its wrapped tail is
+      // lower case and merges normally, but the next dagger is a different affiliation.
+      if (startsAffiliationEntry(before.text, next.text)) {
+        merged.push([...cell]);
+        continue;
+      }
+      const previousBox = previous ? cellBox(previous) : null;
+      const nextBox = cellBox(cell);
+      const gap =
+        previousBox && nextBox ? nextBox.x - boxRight(previousBox) : Number.POSITIVE_INFINITY;
       const scale = Math.max(before.height, next.height, 1);
       const sentenceContinues = continuesProseText(before.text, next.text) && gap <= scale * 1.5;
       // A justified body line can lose every word boundary to the extractor. At body size
       // the runs are words of one line even when the next word is capitalised (`BANC's`).
-      const wordFragments = bodyRow && gap <= scale * 1.75;
-      if (sentenceContinues || wordFragments) {
+      // A justified line and a citation title can lose their word gaps. A run on the same
+      // baseline and at the same size, close enough to be a word space, is one line.
+      // Two full lines on one baseline are usually two columns, even when the gutter is
+      // narrow. A fragment is short; a column line is not.
+      const shortSide =
+        cellText(previous).length <= CELL_MAX_CHARS || cellText(cell).length <= CELL_MAX_CHARS;
+      // A superscript or an inline formula directly abuts the prose around it. Its type is
+      // smaller, so the size tests above miss it even though it is the same source line.
+      const inline = shortSide && gap <= scale * 0.5;
+      const wordFragments =
+        (bodyRow && shortSide && gap <= scale * 1.5) ||
+        (uniformRow && gap <= scale * 1.15) ||
+        (shortRow && gap <= scale * 3);
+      if (sentenceContinues || inline || wordFragments) {
         previous.push(...cell);
         continue;
       }
@@ -700,7 +760,7 @@ function splitRowCells(row: readonly TextLine[], tight = false, probe = false): 
       const bothShort =
         previous.text.trim().length <= CELL_MAX_CHARS && line.text.trim().length <= CELL_MAX_CHARS;
       const minGap = cellMinGap(scale, tight, bothShort);
-      const glueShort = !probe && previous.text.trim().length <= 3 && gap <= scale * 3;
+      const glueShort = !probe && previous.text.trim().length <= 3 && gap <= scale * 1.5;
       const splits = gap > minGap && !startsRunIn(line) && !glueShort;
       if (splits) {
         cells.push(current);
@@ -747,7 +807,7 @@ function splitLinesOnCellGaps(row: readonly TextLine[], tight: boolean, probe = 
           previous.text.trim().length <= CELL_MAX_CHARS &&
           piece.text.trim().length <= CELL_MAX_CHARS;
         const minGap = cellMinGap(scale, true, bothShort);
-        const glueShort = !probe && previous.text.trim().length <= 3 && gap <= scale * 3;
+        const glueShort = !probe && previous.text.trim().length <= 3 && gap <= scale * 1.5;
         if (gap > minGap && !glueShort) {
           groups.push(current);
           current = [piece];
@@ -908,18 +968,19 @@ function appendRegionBlocks(
         return;
       }
       for (;;) {
-        const boundary = overlongProseBoundary(current);
-        if (boundary <= 0 || boundary >= current.length) return;
-        emit(current.slice(0, boundary), room, region.column, columnLeft, currentFragments);
-        current = current.slice(boundary);
+        const split = overlongProseSplit(current);
+        if (!split) return;
+        emit(split.head, room, region.column, columnLeft, currentFragments);
+        current = split.tail;
       }
     };
 
     for (const cell of column.cells) {
       const next = cell.lines[0];
-      splitLongProse();
-
       const previous = current[current.length - 1];
+      // A superscript can be the last fragment on a row. Measure the gap from the line that
+      // carries the row's text, not from a two-character marker above the baseline.
+      const gapPrevious = dominantLastLine(current) ?? previous;
       // A table cell always starts a block: its row ends there, so the next row's value in the
       // same column is a different thing however evenly the rows are pitched. A hyphenated
       // wrap (`maxSegmentTo-` then `kens`) is the one continuation that must stay in the cell.
@@ -938,10 +999,11 @@ function appendRegionBlocks(
             next &&
             (nextStartsReference ||
               (!referenceContinues &&
-                (gapStartsBlock(previous, next, leading, columnLeft) ||
-                  isListBoundary(previous, next)))),
+                (gapStartsBlock(gapPrevious ?? previous, next, leading, columnLeft) ||
+                  isListBoundary(gapPrevious ?? previous, next)))),
           );
       if (previous && next && starts) {
+        splitLongProse();
         emit(current, room, region.column, columnLeft, currentFragments);
         current = [];
         currentFragments = false;
@@ -983,7 +1045,8 @@ function peelLeadingCaptions(rows: readonly TextLine[][]): {
       !isCaptionLine(text) &&
       (text.length > 24 || /^[\p{Ll}]/u.test(text))
     ) {
-      captions.push(row);
+      // A wrapped caption stays one caption, not one caption block per line.
+      captions[captions.length - 1]?.push(...row);
       index += 1;
       continue;
     }
@@ -1135,6 +1198,20 @@ function columnLeading(cells: readonly RegionCell[]): number {
   return ratios.length > 0 ? median(ratios) : 1.35;
 }
 
+/** The line carrying the most text in the last baseline row of a run. */
+function dominantLastLine(lines: readonly TextLine[]): TextLine | undefined {
+  const last = lines[lines.length - 1];
+  if (!last) return undefined;
+  let best = last;
+  for (const line of lines) {
+    if (Math.abs(line.baseline - last.baseline) > Math.max(line.height, last.height) * 0.7 + 0.6) {
+      continue;
+    }
+    if (line.text.trim().length > best.text.trim().length) best = line;
+  }
+  return best;
+}
+
 /**
  * True when the line cannot be a continuation of the previous one: the baseline jumped by
  * more than the column's own leading allows, the type size changed, the weight changed, the
@@ -1169,7 +1246,9 @@ function gapStartsBlock(
 
   const previousMath = previous.mathRatio >= EQUATION_LINE_SHARE;
   const lineMath = line.mathRatio >= EQUATION_LINE_SHARE;
-  if (previousMath !== lineMath) return true;
+  // A superscript or an inline formula is on the same baseline as the prose around it.
+  // Only a line change can be the boundary between prose and a display equation.
+  if (Math.abs(gap) >= 0.4 && previousMath !== lineMath) return true;
   const monoRun = isMostlyMono(previous) && isMostlyMono(line);
   // Indent-only paragraph typesetting does this: the previous line sits on the column wall and
   // ends a sentence, then the next paragraph starts one or two ems in. That is a paragraph
@@ -1205,13 +1284,22 @@ function gapStartsBlock(
   // Display formulas sit several ems in from the column, beyond the paragraph-indent band.
   // A monospaced listing indents continuation lines too; those must stay code.
   const indent = Math.max(previous.height, line.height) * 3;
-  if (!monoRun && line.box.x > previous.box.x + indent) return true;
+  // A line that starts far right is a centred formula only when it reads like one. A long
+  // prose line can start mid-column after an inline formula was extracted as its own piece;
+  // treating that as a display formula cut the paragraph at every superscript.
+  const centred = (value: TextLine): boolean =>
+    value.mathRatio >= 0.2 || value.text.trim().length <= 24;
+  if (!monoRun && centred(line) && line.box.x > previous.box.x + indent) return true;
   // The reverse: a centred formula is followed by a line that returns to the column wall.
   // Without this, the sentence under the formula joined it and the whole block was then
   // either translated (replacing the mathematics) or skipped (taking the sentence with it).
-  if (!monoRun && previous.box.x > line.box.x + indent) return true;
+  if (!monoRun && centred(previous) && previous.box.x > line.box.x + indent) return true;
 
-  const sizeChange = Math.abs(line.height - previous.height) / Math.max(previous.height, 1);
+  // A superscript on one piece makes `line.height` larger than the type the line is set in.
+  // Comparing the dominant sizes keeps a formula from cutting the paragraph around it.
+  const previousSize = textSize(previous);
+  const lineSizeValue = textSize(line);
+  const sizeChange = Math.abs(lineSizeValue - previousSize) / Math.max(previousSize, 1);
   if (sizeChange > SIZE_CHANGE) return true;
 
   // Weight changes do not split a block. A run-in heading is bold only on its opening
@@ -1224,8 +1312,29 @@ function gapStartsBlock(
   if (isListBoundary(previous, line)) return true;
   if (isSectionHeading(previous.text) || isSectionHeading(line.text)) return true;
   if (isBylineLabel(previous.text) || isBylineLabel(line.text)) return true;
+  if (startsAffiliationEntry(previous.text, line.text)) return true;
+  if (isKeywordLine(line.text) && !isKeywordLine(previous.text)) return true;
 
   return false;
+}
+
+/** Font size most of a line's characters are set in, ignoring a lone superscript. */
+function textSize(line: TextLine): number {
+  const weights = new Map<number, number>();
+  for (const piece of line.pieces) {
+    if (piece.text.trim().length === 0) continue;
+    const size = Math.round(piece.size * 2) / 2;
+    weights.set(size, (weights.get(size) ?? 0) + piece.text.length);
+  }
+  let best = line.height;
+  let bestWeight = -1;
+  for (const [size, weight] of weights) {
+    if (weight > bestWeight) {
+      best = size;
+      bestWeight = weight;
+    }
+  }
+  return best;
 }
 
 /** True when the text closes a sentence, with optional closing quotes or brackets after it. */
@@ -1233,9 +1342,36 @@ function endsSentence(text: string): boolean {
   return /[.!?:]["'”’»)\]]*$/u.test(text.trim());
 }
 
+/** A keywords / index-terms line belongs to the abstract's metadata, not to its prose. */
+function isKeywordLine(text: string): boolean {
+  return /^(?:key\s*words?|index\s+terms|ccs\s+concepts)\b/iu.test(text.trim());
+}
+
 /** A bibliography entry or numbered reference, whose continuation is a hanging indent. */
 function isReferenceLine(text: string): boolean {
-  return /^\s*\[\d+\]/u.test(text);
+  return /^\s*\[\d+\](?=\s|$)/u.test(text);
+}
+
+/** A footnote or affiliation entry starts with a dagger, an asterisk or an email label. */
+function isAffiliationLine(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return false;
+  if (isAffiliationMarker(trimmed)) return true;
+  return /^(?:the authors? (?:are|is) with|e-?mail(?:\s+address)?\s*:|corresponding author\b)/iu.test(
+    trimmed,
+  );
+}
+
+/** A dagger or star that marks a footnote, without the text it introduces. */
+function isAffiliationMarker(text: string): boolean {
+  return /^\s*[\u2020\u2021\u2217\u22C6\u22C7\u2731*]/u.test(text);
+}
+
+/** True when `line` opens a new affiliation entry rather than continuing the previous one. */
+function startsAffiliationEntry(previous: string, line: string): boolean {
+  if (!isAffiliationLine(line)) return false;
+  if (isAffiliationMarker(line)) return !isAffiliationMarker(previous);
+  return !isAffiliationLine(previous);
 }
 
 /** True when a run of lines starts a numbered bibliography entry. */
@@ -1384,16 +1520,30 @@ function splitAtFigures(lines: readonly TextLine[], figures: FigureAreas): TextL
   const groups: TextLine[][] = [];
   let current: TextLine[] = [];
   let previousInside: boolean | null = null;
+  let previous: TextLine | undefined;
+  let carryProse = false;
   for (const line of lines) {
     // A numbered caption stays outside the artwork even when an over-wide drawing bbox
     // reaches under it; `roleOf` then marks it as a caption rather than a figure label.
-    const inside = !isCaptionLine(line.text) && insideFigure(line, figures);
+    const drawn = !isCaptionLine(line.text) && insideFigure(line, figures);
+    if (!drawn) carryProse = false;
+    else if (
+      !carryProse &&
+      (previous === undefined || !endsSentence(previous.text)) &&
+      /^[\p{Ll}\d,;:.…)\]}]/u.test(line.text.trim())
+    ) {
+      // A lower-case line that continues the sentence above is body prose crossing an
+      // over-wide drawing bbox, not a label drawn inside the artwork.
+      carryProse = true;
+    }
+    const inside = drawn && !carryProse;
     if (previousInside !== null && inside !== previousInside) {
       groups.push(current);
       current = [];
     }
     current.push(line);
     previousInside = inside;
+    previous = line;
   }
   if (current.length > 0) groups.push(current);
   return groups;
@@ -1590,26 +1740,74 @@ function joinLines(lines: readonly TextLine[]): string {
 }
 
 /**
- * Index just past the last complete sentence in a run of lines, or -1 when the run has none.
- * Only the text up to that boundary counts toward the long-block backstop: a trailing
- * mid-sentence line is not a place where a block may be cut.
+ * Splits an overlong run at the last complete sentence inside the cap.
+ *
+ * A long paragraph does not usually end its sentences at line boundaries: the sentence stops
+ * in the middle of a line and the next one starts there. Splitting only between lines left a
+ * 1300-character summary as one block that no fit could paint. The head keeps the sentence
+ * that closes before the cap; a mid-line remainder starts the tail on the next line slot so
+ * the two painted boxes never share a baseline.
  */
-function overlongProseBoundary(lines: readonly TextLine[]): number {
+function overlongProseSplit(
+  lines: readonly TextLine[],
+): { head: TextLine[]; tail: TextLine[] } | null {
   let length = 0;
-  let before = -1;
-  let after = -1;
+  const candidates: { index: number; end: number; at: number }[] = [];
   for (let index = 0; index < lines.length; index += 1) {
-    const text = lines[index]?.text.trim() ?? '';
+    const line = lines[index];
+    if (!line) continue;
+    const text = line.text.trim();
     if (text.length === 0) continue;
-    length += (length > 0 ? 1 : 0) + text.length;
-    if (!endsSentence(text)) continue;
-    if (length <= MAX_PROSE_BLOCK_CHARS) before = index + 1;
-    else if (after < 0) after = index + 1;
+    const offset = length > 0 ? 1 : 0;
+    for (const match of text.matchAll(/[.!?]["'”’»)\]]*(?=\s|$)/gu)) {
+      const end = (match.index ?? 0) + match[0].length;
+      candidates.push({ index, end, at: length + offset + end });
+    }
+    length += offset + text.length;
   }
-  if (length <= MAX_PROSE_BLOCK_CHARS) return -1;
-  // Prefer the last whole sentence inside the cap, so the emitted block is one engine piece.
-  // A single sentence longer than the cap has no earlier boundary; cut it at its end.
-  return before > 0 ? before : after;
+  if (length <= MAX_PROSE_BLOCK_CHARS) return null;
+  // Balance two chunks instead of filling the first to the cap and leaving a one-line tail:
+  // a short tail cannot absorb the extra line a translation needs, and has no gap to grow in.
+  const target = length > MAX_PROSE_BLOCK_CHARS * 2 ? MAX_PROSE_BLOCK_CHARS : length / 2;
+  let split: { index: number; end: number } | null = null;
+  let after: { index: number; end: number } | null = null;
+  for (const candidate of candidates) {
+    if (candidate.at <= target) split = { index: candidate.index, end: candidate.end };
+    else if (after === null) after = { index: candidate.index, end: candidate.end };
+  }
+  split ??= after;
+  if (!split) return null;
+  const line = lines[split.index];
+  if (!line) return null;
+  const text = line.text.trim();
+  const head = lines.slice(0, split.index);
+  let tail: TextLine[];
+  if (split.end >= text.length) {
+    head.push(line);
+    tail = [...lines.slice(split.index + 1)];
+  } else {
+    // Keep the original pieces on the head so every extracted piece still belongs to a block.
+    // The head's cover is the whole source line. The remainder logically precedes the next
+    // line, so it rides on that line's box instead of sharing the head's baseline; the next
+    // source line is hidden by the tail's translation, not by a compressed extra line.
+    head.push({ ...line, text: text.slice(0, split.end).trimEnd() });
+    const remainder = text.slice(split.end).trimStart();
+    if (remainder.length === 0) return null;
+    const next = lines[split.index + 1];
+    tail = next
+      ? [{ ...next, text: `${remainder} ${next.text.trim()}` }, ...lines.slice(split.index + 2)]
+      : [
+          {
+            ...line,
+            text: remainder,
+            box: { ...line.box, y: line.box.y + line.box.height },
+            baseline: line.baseline + line.box.height,
+            pieces: [],
+          },
+        ];
+  }
+  if (head.length === 0 || tail.length === 0) return null;
+  return { head, tail };
 }
 
 function roleOf(
@@ -1632,10 +1830,16 @@ function roleOf(
   const insideFigureArea = lines.length > 0 && insideLines * 2 > lines.length;
   // A caption under a drawing stays a caption even when the drawing's bbox covers it.
   if (isCaptionLine(text)) return 'caption';
+  // Footnote affiliations are identity furniture, not body prose. Keeping each one on its
+  // own line stops a run of `† The author is with …` from becoming a paragraph.
+  if (isAffiliationLine(text)) return 'furniture';
   // Other text drawn inside a picture belongs to the artwork. It must never be classified as
   // prose, or the reader would paint a translation over the diagram; even a full sentence is
-  // a figure label, offered only through the selection/marker path.
-  if (insideFigureArea) return 'figure-label';
+  // a figure label, offered only through the selection/marker path. The exception is a long
+  // lower-case run: it is the continuation of a body paragraph that an over-wide figure bbox
+  // happens to cover, not a label drawn into the artwork.
+  const continuesBody = /^\p{Ll}/u.test(text.trim()) && text.trim().length >= 60;
+  if (insideFigureArea && !continuesBody) return 'figure-label';
   if (isCodeBlock(lines)) return 'code';
   // Section titles are headings even in all caps and even when they sit in the header band.
   if (isSectionHeading(text) && lines.length <= 2) return 'heading';

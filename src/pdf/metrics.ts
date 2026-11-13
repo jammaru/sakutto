@@ -1,5 +1,5 @@
 import { CJK_MAJORITY, cjkRatio } from './fonts';
-import { intersectionArea, unionBox, type Box } from './geometry';
+import { intersectionArea, type Box } from './geometry';
 import type { LayoutBlock, PageLayout } from './layout';
 import { OVERLAP_AREA, overlapRegion, type PlacedBlock } from './place';
 
@@ -118,6 +118,40 @@ function isDiagramLabel(block: LayoutBlock, layout: PageLayout): boolean {
   return layout.bodySize > 0 && block.fontSize < layout.bodySize * 0.85;
 }
 
+/** Area covered by a set of rectangles, counting overlaps once rather than their bounding box. */
+function coveredArea(boxes: readonly Box[]): number {
+  const xs = [...new Set(boxes.flatMap((box) => [box.x, box.x + box.width]))].sort(
+    (left, right) => left - right,
+  );
+  let area = 0;
+  for (let index = 1; index < xs.length; index += 1) {
+    const left = xs[index - 1] ?? 0;
+    const right = xs[index] ?? 0;
+    if (right <= left) continue;
+    const spans: [number, number][] = [];
+    for (const box of boxes) {
+      if (box.x > left + 1e-9 || box.x + box.width < right - 1e-9) continue;
+      spans.push([box.y, box.y + box.height]);
+    }
+    spans.sort((a, b) => a[0] - b[0]);
+    let covered = 0;
+    let start = -Infinity;
+    let end = -Infinity;
+    for (const [top, bottom] of spans) {
+      if (top > end) {
+        if (end > start) covered += end - start;
+        start = top;
+        end = bottom;
+      } else {
+        end = Math.max(end, bottom);
+      }
+    }
+    if (end > start) covered += end - start;
+    area += (right - left) * covered;
+  }
+  return area;
+}
+
 export function pageMetrics(
   layout: PageLayout,
   placed: readonly PlacedBlock[],
@@ -188,11 +222,8 @@ export function pageMetrics(
   }
 
   const pageArea = pageBox ? pageBox.width * pageBox.height : 0;
-  const figureUnion = unionBox(layout.obstacles ?? []);
   const figureAreaShare =
-    pageArea > 0 && figureUnion !== null
-      ? Math.min(1, (figureUnion.width * figureUnion.height) / pageArea)
-      : 0;
+    pageArea > 0 ? Math.min(1, coveredArea(layout.obstacles ?? []) / pageArea) : 0;
   const classified = [...layout.blocks, ...layout.skipped];
   const labelCount = classified.filter(
     (block) => block.role === 'label' || block.role === 'figure-label',
