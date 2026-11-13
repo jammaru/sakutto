@@ -130,6 +130,35 @@ describe('layoutPage', () => {
     expect(captions[0]?.lines).toHaveLength(1);
   });
 
+  it('merges a run-in section paragraph split by diagram cells in one column', () => {
+    const lines = groupLines([
+      piece('Fig. 2 Example caption for a wide figure block.', 48, 100, 200, { em: 8 }),
+      piece(
+        'highest among arms with the probability 1 - ε. When the value of ε is 0, arms are always selected randomly.',
+        48,
+        120,
+        240,
+      ),
+      piece(
+        'Related work: In the domain of software engineering, BAs have been utilized for defect prediction and',
+        48,
+        134,
+        240,
+      ),
+      piece(
+        'configuration of clone detection methods [7]. In the other domains, BAs also have been used.',
+        48,
+        148,
+        240,
+      ),
+    ]);
+    const layout = layoutPage(lines, { images: [] }, { width: 595, height: 842, index: 2 });
+    const related = layout.blocks.filter((block) => /Related work/i.test(block.text));
+    expect(related).toHaveLength(1);
+    expect(related[0]?.text).toContain('configuration of clone detection');
+    expect(related[0]?.text).toContain('other domains');
+  });
+
   it('keeps column-top body prose inside a figure bbox as translatable prose', () => {
     const figures: FigureAreas = {
       images: [{ x: 30, y: 70, width: 280, height: 220 }],

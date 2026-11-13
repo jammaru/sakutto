@@ -1,7 +1,7 @@
 import { CJK_MAJORITY, cjkRatio } from './fonts';
 import { intersectionArea, unionBox, type Box } from './geometry';
 import type { LayoutBlock, PageLayout } from './layout';
-import { OVERLAP_AREA, overlapRegion, type PlacedBlock } from './place';
+import { OVERLAP_AREA, overlapRegion, underCoveredProse, type PlacedBlock } from './place';
 
 /**
  * What a layout-only run reports about one page.
@@ -54,6 +54,8 @@ export interface PageMetrics {
   equationShare: number;
   /** Share of letters in classified blocks that are Han / Hiragana / Katakana, 0–1. */
   cjkShare: number;
+  /** Prose blocks painted without fully covering the source box vertically. */
+  underCoveredProse: number;
 }
 
 export const METRIC_LIMITS = {
@@ -88,6 +90,7 @@ export const METRIC_LIMITS = {
   /** A CJK-majority page is body text; a listing should be a small share of it. */
   maxCodeShareWhenCjk: 0.25,
   maxEquationShareWhenCjk: 0.25,
+  maxUnderCoveredProse: 0,
 } as const;
 
 /** Roles whose translation is the point of the page: body, titles, captions, table values. */
@@ -267,6 +270,7 @@ export function pageMetrics(
     codeShare,
     equationShare,
     cjkShare,
+    underCoveredProse: underCoveredProse(placed),
   };
 }
 
@@ -277,6 +281,7 @@ export function metricsPass(metrics: PageMetrics): boolean {
   }
   if (metrics.proseCovered < METRIC_LIMITS.minProseCovered) return false;
   if (metrics.prosePaintedOnly < METRIC_LIMITS.minProsePaintedOnly) return false;
+  if (metrics.underCoveredProse > METRIC_LIMITS.maxUnderCoveredProse) return false;
   if (metrics.nonProsePainted > METRIC_LIMITS.maxNonProsePainted) return false;
   if (metrics.overflow > METRIC_LIMITS.maxOverflow) return false;
   if (

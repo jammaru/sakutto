@@ -77,6 +77,25 @@ export interface PlacedBlock {
  * This is the layout-only path the tests run: no engine, no DOM. The reader uses the same
  * grow and overlap rules so a green unit test is the same decision a painted page makes.
  */
+/** Painted blocks whose cover stops short of the source box bottom (original glyphs show through). */
+export function underCoveredProse(placed: readonly PlacedBlock[]): number {
+  let count = 0;
+  for (const entry of placed) {
+    if (!entry.paint || !entry.drawn) continue;
+    if (
+      entry.block.role !== 'prose' &&
+      entry.block.role !== 'heading' &&
+      entry.block.role !== 'caption'
+    ) {
+      continue;
+    }
+    const sourceBottom = entry.block.box.y + entry.block.box.height;
+    const coverBottom = entry.drawn.y + entry.drawn.height;
+    if (coverBottom + 1.5 < sourceBottom) count += 1;
+  }
+  return count;
+}
+
 export function placePage(request: PlaceRequest): PlacedBlock[] {
   const obstacles = pageObstacles(request.layout);
   const pageWidth = request.pageWidth ?? request.layout.pageWidth ?? 0;

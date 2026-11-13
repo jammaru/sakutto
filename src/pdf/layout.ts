@@ -298,7 +298,13 @@ export function layoutPage(
     return isProse(block);
   };
 
-  const kept = blocks.filter(translatable);
+  const kept = splitMergedOverlongProse(
+    mergeAdjacentProseBlocks(blocks.filter(translatable), bodySize, figures, pageHeight, pageIndex),
+    bodySize,
+    figures,
+    pageHeight,
+    pageIndex,
+  );
   return {
     blocks: mergeLabelFragments(kept, bodySize, figures, pageHeight, pageIndex),
     bodySize,
@@ -715,6 +721,9 @@ function continuesProseText(previous: string, next: string): boolean {
   if (endsSentence(previous)) return false;
   const trimmed = next.trimStart();
   if (trimmed.length === 0) return false;
+  if (isNumericCell(trimmed) || isNumericCell(previous.trim())) return false;
+  if (isBylineLabel(trimmed) || isBylineLabel(previous.trim())) return false;
+  if (trimmed.length < 8 && previous.trim().length < 50) return false;
   // A lower-case word, a number or leading punctuation continues the previous run. An
   // upper-case word may be a proper noun inside the sentence, but it is also how a new
   // column or a table header starts, so it is left as a boundary.
@@ -1247,6 +1256,7 @@ function gapStartsBlock(
   leading: number,
   columnLeft: number,
 ): boolean {
+  if (isCaptionLine(previous.text)) return true;
   const scale = Math.max(line.height, previous.height, 1);
   const gap = (line.baseline - previous.baseline) / scale;
   // Wrapped pseudocode (`devEval = … by a` / `developer;`) must stay one listing. Splitting
@@ -1328,7 +1338,9 @@ function gapStartsBlock(
   // between them is no wider than a wrapped line.
   if (isCaptionLine(previous.text) && isTableHeaderLine(line.text)) return true;
   if (isListBoundary(previous, line)) return true;
-  if (isSectionHeading(previous.text) || isSectionHeading(line.text)) return true;
+  if (isStandaloneSectionHeading(previous.text) || isStandaloneSectionHeading(line.text)) {
+    return true;
+  }
   if (isBylineLabel(previous.text) || isBylineLabel(line.text)) return true;
   if (startsAffiliationEntry(previous.text, line.text)) return true;
   if (isKeywordLine(line.text) && !isKeywordLine(previous.text)) return true;
@@ -1583,6 +1595,115 @@ function splitAtFigures(lines: readonly TextLine[], figures: FigureAreas): TextL
  * short label block, and the translation of each fragment is too long for its tiny box. The
  * fragments share a baseline and body type, so they can be put back into one prose block.
  */
+/** A run-in section title such as `Related work:` on the same line as the opening sentence. */
+function runInSectionHeadingPrefix(text: string): boolean {
+  return /^Related\s+[Ww]ork\s*:\s*\S/u.test(text.trimStart());
+}
+
+/** True when the whole trimmed line is a section title, not a title plus body on one line. */
+function isStandaloneSectionHeading(text: string): boolean {
+  return isSectionHeading(text.trim());
+}
+
+function shouldMergeAdjacentProse(left: LayoutBlock, right: LayoutBlock): boolean {
+  if (left.role !== 'prose' || right.role !== 'prose') return false;
+  if (left.column !== right.column) return false;
+  if (Math.abs(left.box.x - right.box.x) > 12) return false;
+  const gap = right.box.y - (left.box.y + left.box.height);
+  if (gap > Math.max(left.fontSize, right.fontSize) * 4) return false;
+  const tail = left.text.trimEnd();
+  const head = right.text.trimStart();
+  if (continuesProseText(tail, head)) return true;
+  if (/[,;]\s*$/.test(tail) || /\band\s*$/i.test(tail)) return true;
+  if (runInSectionHeadingPrefix(left.text) && !endsSentence(left.text)) return true;
+  if (
+    /Related\s+[Ww]ork\s*:/i.test(left.text) &&
+    gap < Math.max(left.fontSize, right.fontSize) * 12
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function mergeAdjacentProseBlocks(
+  blocks: readonly LayoutBlock[],
+  bodySize: number,
+  figures: FigureAreas,
+  pageHeight: number,
+  pageIndex: number,
+): LayoutBlock[] {
+  const merged: LayoutBlock[] = [];
+  for (const block of blocks) {
+    const previous = merged[merged.length - 1];
+    if (previous && shouldMergeAdjacentProse(previous, block)) {
+      const lines = [...previous.lines, ...block.lines].sort(
+        (a, b) => a.baseline - b.baseline || a.box.x - b.box.x,
+      );
+      const room = unionBox([previous.room, block.room]) ?? previous.room;
+      const rebuilt = buildBlock(
+        lines,
+        room,
+        previous.column,
+        bodySize,
+        figures,
+        Math.min(previous.box.x, block.box.x),
+        pageHeight,
+        pageIndex,
+      );
+      if (rebuilt) merged[merged.length - 1] = { ...rebuilt, role: 'prose' };
+      else merged.push(block);
+      continue;
+    }
+    merged.push(block);
+  }
+  return merged;
+}
+
+function splitMergedOverlongProse(
+  blocks: readonly LayoutBlock[],
+  bodySize: number,
+  figures: FigureAreas,
+  pageHeight: number,
+  pageIndex: number,
+): LayoutBlock[] {
+  const out: LayoutBlock[] = [];
+  for (const block of blocks) {
+    if (block.role !== 'prose' || block.text.length <= MAX_PROSE_BLOCK_CHARS) {
+      out.push(block);
+      continue;
+    }
+    let lines = [...block.lines];
+    for (;;) {
+      const split = overlongProseSplit(lines);
+      if (!split) break;
+      const headBlock = buildBlock(
+        split.head,
+        block.room,
+        block.column,
+        bodySize,
+        figures,
+        block.box.x,
+        pageHeight,
+        pageIndex,
+      );
+      if (headBlock) out.push({ ...headBlock, role: 'prose' });
+      lines = split.tail;
+    }
+    const tailBlock = buildBlock(
+      lines,
+      block.room,
+      block.column,
+      bodySize,
+      figures,
+      block.box.x,
+      pageHeight,
+      pageIndex,
+    );
+    if (tailBlock) out.push({ ...tailBlock, role: 'prose' });
+  }
+  return out;
+}
+
 function mergeLabelFragments(
   blocks: readonly LayoutBlock[],
   bodySize: number,
