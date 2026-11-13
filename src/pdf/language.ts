@@ -44,10 +44,27 @@ export function isSameLanguage(text: string, target: string, pageLanguage: strin
   if (!canonicalTarget) return false;
   const own = pdfBlockLanguage(text);
   if (own !== null) return own === canonicalTarget;
+  // Short English labels (`Data quality`, `Table 2`) inherit an English page. They must still
+  // be translated into another language: `contradictsScript` needs 24 letters, so without this
+  // they would follow the page and be marked done.
+  if (pageLanguage === 'en' && isShortLatinLabel(text)) return canonicalTarget === 'en';
   // A Latin paragraph on a page whose running header is Japanese is still English. The page
   // language is a hint for short labels, not a licence to skip the body and mark it done.
   if (pageLanguage !== null && contradictsScript(pageLanguage, text)) return false;
   return pageLanguage !== null && pageLanguage === canonicalTarget;
+}
+
+/** A brief Latin caption or table tag, too short for `looksLikeEnglish`. */
+function isShortLatinLabel(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length === 0 || trimmed.length >= 24) return false;
+  let latin = 0;
+  for (const character of trimmed) {
+    const code = character.codePointAt(0) ?? 0;
+    if ((code >= 0x41 && code <= 0x5a) || (code >= 0x61 && code <= 0x7a)) latin += 1;
+    else if (code > 0x7f && /\p{L}/u.test(character)) return false;
+  }
+  return latin > 0;
 }
 
 function looksLikeEnglish(text: string): boolean {

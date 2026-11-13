@@ -33,6 +33,13 @@ describe('pdf language', () => {
     expect(isSameLanguage('Abstract', 'ja', 'en')).toBe(false);
   });
 
+  it('translates short English labels on an English page instead of marking them done', () => {
+    expect(isSameLanguage('Data quality', 'ja', 'en')).toBe(false);
+    expect(isSameLanguage('Table 2', 'ja', 'en')).toBe(false);
+    expect(isSameLanguage('Data quality', 'en', 'en')).toBe(true);
+    expect(isSameLanguage('Table 2', 'en', 'en')).toBe(true);
+  });
+
   it('does not treat Latin body as Japanese because a running header is Japanese', () => {
     const body =
       'Methodological evaluation uses cyclomatic complexity metrics across sampled modules.';

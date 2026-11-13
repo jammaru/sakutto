@@ -239,6 +239,13 @@ export class PdfReader {
     if (this.compare === on) return;
     this.compare = on;
     this.root.dataset.compare = on ? 'true' : 'false';
+    if (on) {
+      for (const element of this.pageElements.values()) {
+        if (element.drawn) copyOriginalCanvas(element, true);
+      }
+    } else {
+      for (const element of this.pageElements.values()) copyOriginalCanvas(element, false);
+    }
     this.applyScale();
   }
 
@@ -599,6 +606,7 @@ export class PdfReader {
       // The cancelled task, if any, still owns the detached canvas. This one is unused.
       element.canvas.width = 0;
       element.canvas.height = 0;
+      copyOriginalCanvas(element, false);
       element.drawn = false;
     }
   }
@@ -623,7 +631,7 @@ export class PdfReader {
       element.drawn = true;
       delete element.renderTask;
       element.host.removeAttribute('data-render-failed');
-      copyOriginalCanvas(element);
+      copyOriginalCanvas(element, this.compare);
     } catch (error) {
       if (this.destroyed || element.drawGeneration !== generation) return;
       delete element.renderTask;
@@ -1048,9 +1056,16 @@ interface PageElement {
   markers: Map<BlockState, HTMLButtonElement>;
 }
 
-function copyOriginalCanvas(element: PageElement): void {
-  const source = element.canvas;
+function copyOriginalCanvas(element: PageElement, compare: boolean): void {
   const target = element.originalCanvas;
+  if (!compare) {
+    if (target.width !== 0 || target.height !== 0) {
+      target.width = 0;
+      target.height = 0;
+    }
+    return;
+  }
+  const source = element.canvas;
   if (source.width === 0 || source.height === 0) return;
   target.width = source.width;
   target.height = source.height;

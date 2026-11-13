@@ -1271,10 +1271,20 @@ function isCodeBlock(lines: readonly TextLine[]): boolean {
   const text = lines.map((line) => line.text).join(' ');
   if (isCaptionLine(text)) return false;
   if (cjkRatio(text) >= CJK_MAJORITY) return false;
-  const codeish = lines.filter(
-    (line) => looksLikeCodeLine(line.text) || looksLikeCodeContinuation(line.text),
-  ).length;
-  if (lines.length >= 2 && codeish * 2 >= lines.length) return true;
+  // A wrapped `developer;` only counts once a real listing line is already in this
+  // block. Counting continuations on their own turned `pages;` / `forms;` and a
+  // two-line bibliography wrap into `code`.
+  let codeish = 0;
+  let sawCodeLine = false;
+  for (const line of lines) {
+    if (looksLikeCodeLine(line.text)) {
+      sawCodeLine = true;
+      codeish += 1;
+      continue;
+    }
+    if (sawCodeLine && looksLikeCodeContinuation(line.text)) codeish += 1;
+  }
+  if (lines.length >= 2 && sawCodeLine && codeish * 2 >= lines.length) return true;
   const mono = pieces.filter((piece) => piece.family === 'monospace').length;
   if (mono * 2 >= pieces.length) {
     if (lines.length >= 2) {
@@ -1324,8 +1334,8 @@ export function looksLikeCodeLine(text: string): boolean {
     return true;
   }
   if (
-    (/[_=(){}[\];]/u.test(trimmed) || /\w\.\w/u.test(trimmed)) &&
-    /\b(?:if|for|while|def|emit|function|const|let|var)\b/u.test(trimmed)
+    /[_=(){}[\];]/u.test(trimmed) &&
+    /\b(?:if|while|def|emit|function|const|let|var|for\s+each|for\s*\()\b/u.test(trimmed)
   ) {
     return true;
   }

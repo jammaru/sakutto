@@ -243,6 +243,8 @@ describe('network surface', () => {
     }
     expect(detect.code).not.toMatch(/\bsendBeacon\b/u);
     expect(detect.code).not.toMatch(/\bXMLHttpRequest\b/u);
+    expect(detect.code).toMatch(/AbortController/);
+    expect(detect.code).toMatch(/body\?\.cancel/);
   });
 
   it('loads the model into the runtime from memory, not from a url', () => {

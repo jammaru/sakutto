@@ -777,4 +777,48 @@ describe('PdfReader viewport observer', () => {
 
     reader.destroy();
   });
+
+  it('copies the original canvas only while compare is on', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    stubCanvas();
+
+    const renders = { count: 0 };
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 });
+    document.body.append(root);
+
+    const reader = new PdfReader(root, geometries(1), {
+      document: fakeDocument(renders, 1),
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+    });
+
+    const host = pageHost(root, 0);
+    placeHost(host, 20);
+    intersect(host, 20);
+    const started = Date.now();
+    while (renders.count === 0 && Date.now() - started < 1000) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(renders.count).toBeGreaterThan(0);
+    const original = host.querySelector('.sakutto-page__canvas--original');
+    if (!(original instanceof HTMLCanvasElement)) throw new Error('expected original canvas');
+    expect(original.width).toBe(0);
+
+    reader.setCompare(true);
+    const copied = Date.now();
+    while (original.width === 0 && Date.now() - copied < 1000) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(original.width).toBeGreaterThan(0);
+
+    reader.setCompare(false);
+    expect(original.width).toBe(0);
+
+    reader.destroy();
+  });
 });

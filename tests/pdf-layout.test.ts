@@ -1,4 +1,8 @@
+import { readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { extractPage, type PdfPage } from '@/pdf/extract';
 import { groupLines, type TextPiece } from '@/pdf/lines';
 import {
   isCodeToken,
@@ -7,6 +11,9 @@ import {
   looksLikeCodeLine,
   orphanLineCount,
 } from '@/pdf/layout';
+import { openPdfBytes } from './support/open-fixture-pdf';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** A synthetic piece: a run of text at a position, in top-left space. */
 function piece(
@@ -510,5 +517,48 @@ describe('pseudocode line shapes', () => {
     );
     expect(looksLikeCodeLine('5. Conclusions and next steps for the study')).toBe(false);
     expect(looksLikeCodeLine('For each module the reader records a score.')).toBe(false);
+    expect(
+      looksLikeCodeLine(
+        '[3] A. Author. “wllama: WebAssembly bindings for llama.cpp.” Software, 2024–2026.',
+      ),
+    ).toBe(false);
+  });
+
+  it('keeps two-line English prose that wraps on pages; / forms; as prose, not code', () => {
+    const lines = groupLines([
+      piece('A translation that still does not fit is offered on two', 40, 100, 260),
+      piece('pages;', 40, 112, 40),
+      piece('The GPU path packs short blocks into one of several', 40, 140, 250),
+      piece('forms;', 40, 152, 40),
+      piece('A following paragraph continues in the body face.', 40, 180, 240),
+    ]);
+    const layout = layoutPage(lines);
+    expect(layout.skipped.some((block) => block.role === 'code')).toBe(false);
+    expect(layout.blocks.some((block) => block.text.includes('pages;'))).toBe(true);
+    expect(layout.blocks.some((block) => block.text.includes('forms;'))).toBe(true);
+    expect(layout.blocks.every((block) => block.role === 'prose')).toBe(true);
+  });
+
+  it('keeps paper.pdf page 3 bibliography entries as prose', async () => {
+    const bytes = new Uint8Array(await readFile(resolve(root, 'bench/pdf/paper.pdf')));
+    const document = await openPdfBytes(bytes);
+    try {
+      const page = (await document.getPage(3)) as PdfPage;
+      const extracted = await extractPage(page, 2, null);
+      const layout = layoutPage(extracted.lines, extracted.figures, {
+        width: extracted.width,
+        height: extracted.height,
+        index: 2,
+      });
+      const code = layout.skipped.filter((block) => block.role === 'code');
+      expect(code).toHaveLength(0);
+      expect(layout.blocks).toHaveLength(6);
+      const three = layout.blocks.find((block) => block.text.includes('[3]'));
+      const six = layout.blocks.find((block) => block.text.includes('[6]'));
+      expect(three?.role).toBe('prose');
+      expect(six?.role).toBe('prose');
+    } finally {
+      await document.destroy();
+    }
   });
 });

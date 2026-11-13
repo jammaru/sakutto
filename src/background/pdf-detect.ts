@@ -72,18 +72,27 @@ async function probePdfContentType(url: string): Promise<string | null> {
   } catch {
     // Some hosts refuse HEAD; a short GET still names the type.
   }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4000);
   try {
     const peek = await fetch(url, {
       credentials: 'include',
       headers: { Range: 'bytes=0-1023' },
+      signal: controller.signal,
     });
     const type = peek.headers.get('content-type');
+    // Headers are enough. Cancel the body so a host that ignored Range cannot send the
+    // whole file a second time.
+    await peek.body?.cancel();
+    controller.abort();
     if (isPdfContentType(type)) return type;
     if (pdfDocumentLooksLikePdf({ contentType: type ?? '', embedType: '', embedSrc: '' })) {
       return type;
     }
   } catch {
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
   return null;
 }
