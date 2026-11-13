@@ -184,12 +184,12 @@ export function isPlamoOnlyTarget(value: string): boolean {
 
 /**
  * The target the PLaMo prompt should name. Easy Japanese is passed through as its own
- * tag; every other language falls back to its model code, or to the normalized tag when
- * the model has no code for it and the prompt builder is expected to reject it.
+ * tag; every other language falls back to its model code. Unsupported tags return '',
+ * so the engine's unsupported-language guard rejects them.
  */
 export function plamoPromptTargetLanguage(tgt: string): string {
   if (isPlamoOnlyTarget(tgt)) return JA_EASY_TARGET;
-  return canonicalLanguage(tgt) ?? normalizeTag(tgt);
+  return canonicalLanguage(tgt) ?? '';
 }
 
 export function toChromeLanguage(code: string): string {

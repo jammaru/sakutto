@@ -1,5 +1,14 @@
-import { describe, expect, it } from 'vitest';
-import { displayTargetLanguage } from '@/ui/language-label';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('wxt/browser', () => ({
+  browser: {
+    i18n: {
+      getMessage: () => '',
+    },
+  },
+}));
+
+const { displayTargetLanguage } = await import('@/ui/language-label');
 
 describe('target language labels', () => {
   it('uses the catalog name for Easy Japanese instead of its raw tag', () => {

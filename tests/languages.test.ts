@@ -121,12 +121,17 @@ describe('Easy Japanese', () => {
     expect(isPlamoOnlyTarget('en')).toBe(false);
   });
 
-  it('names ja-easy in the PLaMo prompt and keeps other targets canonical', () => {
+  it('names ja-easy in the PLaMo prompt and keeps supported targets canonical', () => {
     expect(plamoPromptTargetLanguage('ja-easy')).toBe('ja-easy');
     expect(plamoPromptTargetLanguage('JA_EASY')).toBe('ja-easy');
     expect(plamoPromptTargetLanguage('en-US')).toBe('en');
     expect(plamoPromptTargetLanguage('zh-TW')).toBe('zh-hant');
-    expect(plamoPromptTargetLanguage('pt-BR')).toBe('pt-br');
+  });
+
+  it('drops targets the PLaMo model does not support', () => {
+    expect(plamoPromptTargetLanguage('xx')).toBe('');
+    expect(plamoPromptTargetLanguage('pt-BR')).toBe('');
+    expect(plamoPromptTargetLanguage('cs')).toBe('');
   });
 
   it('keeps a Japanese page translating when Easy Japanese is the target', () => {

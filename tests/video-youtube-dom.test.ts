@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
+import { pickCaptionTrack } from '@/captions/html5';
 import {
   playerResponseForPage,
   playerResponseFromDocument,
@@ -8,6 +9,7 @@ import {
   readYoutubeCaptionDom,
   videoIdFromPlayerResponse,
 } from '@/captions/youtube';
+import { pickXSubtitleRendition } from '@/captions/x';
 
 describe('YouTube caption DOM source', () => {
   afterEach(() => {
@@ -84,5 +86,64 @@ describe('YouTube caption DOM source', () => {
       'videoB00002',
     );
     view.close();
+  });
+});
+
+describe('Easy Japanese caption sources', () => {
+  afterEach(() => {
+    document.documentElement.innerHTML = '<head></head><body></body>';
+  });
+
+  it('reads a Japanese-only caption window instead of dropping it', () => {
+    document.body.innerHTML = `
+      <div class="ytp-caption-window-container">
+        <div class="caption-window" lang="ja">
+          <span class="ytp-caption-segment">北側窓口では切符を売っています。</span>
+        </div>
+      </div>
+    `;
+    expect(readYoutubeCaptionDom(document, { targetLanguage: 'ja-easy' })).toBe(
+      '北側窓口では切符を売っています。',
+    );
+  });
+
+  it('prefers the Japanese window over an English auto-translate window', () => {
+    document.body.innerHTML = `
+      <div class="ytp-caption-window-container">
+        <div class="caption-window" lang="ja">
+          <span class="ytp-caption-segment">北側窓口では切符を売っています。</span>
+        </div>
+        <div class="caption-window" lang="en">
+          <span class="ytp-caption-segment">Tickets are sold at the north window.</span>
+        </div>
+      </div>
+    `;
+    expect(readYoutubeCaptionDom(document, { targetLanguage: 'ja-easy' })).toBe(
+      '北側窓口では切符を売っています。',
+    );
+  });
+
+  it('keeps a Japanese HTML5 track instead of treating it as the target', () => {
+    const tracks = [
+      { kind: 'subtitles', language: 'ja', mode: 'disabled' },
+      { kind: 'subtitles', language: 'en', mode: 'disabled' },
+    ] as TextTrack[];
+    expect(pickCaptionTrack(tracks, 'ja-easy')?.language).toBe('ja');
+  });
+
+  it('keeps a default Japanese X subtitle rendition for Easy Japanese', () => {
+    const renditions = [
+      {
+        uri: 'https://video.twimg.com/subtitles/ja.vtt',
+        language: 'ja',
+        isDefault: true,
+      },
+      {
+        uri: 'https://video.twimg.com/subtitles/en.vtt',
+        language: 'en',
+        isDefault: false,
+      },
+    ];
+    expect(pickXSubtitleRendition(renditions, 'ja-easy')?.language).toBe('ja');
   });
 });

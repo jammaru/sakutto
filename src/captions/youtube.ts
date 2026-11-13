@@ -335,7 +335,7 @@ export function readYoutubeCaptionDom(
 ): string {
   const windows = captionDomWindows(root);
   const spoken = languagePrefix(options.spokenLanguage);
-  const target = languagePrefix(options.targetLanguage);
+  const target = captionTargetPrefix(options.targetLanguage);
   const candidates = windows
     .map((window) => ({
       lang: languagePrefix(window.getAttribute('lang')),
@@ -390,6 +390,14 @@ function languagePrefix(value: string | null | undefined): string {
 }
 
 /**
+ * The target prefix used to filter caption windows and tracks. A PLaMo-only style such as
+ * ja-easy is not a language a caption can already be in, so it must not exclude Japanese.
+ */
+function captionTargetPrefix(targetLanguage: string | null | undefined): string {
+  return targetLanguage && isPlamoOnlyTarget(targetLanguage) ? '' : languagePrefix(targetLanguage);
+}
+
+/**
  * Spoken/ASR language from a YouTube `languageCode` or `vssId` (`ja`, `a.ja`, `.ja`).
  * `a.ja` must not be treated as a different language from `ja`.
  */
@@ -416,7 +424,7 @@ export function captionSourceIsTargetLanguage(
   // Easy Japanese is never the language a caption track is already in.
   if (isPlamoOnlyTarget(targetLanguage)) return false;
   const source = captionLanguagePrefix(sourceLanguage);
-  const target = captionLanguagePrefix(targetLanguage);
+  const target = captionTargetPrefix(targetLanguage);
   if (source.length > 0 && target.length > 0) return source === target;
   if (!text) return false;
   return captionTextIsTargetLanguage(text, targetLanguage);
@@ -469,7 +477,7 @@ export function stripTargetLanguageFromCaption(text: string, targetLanguage: str
 function targetScript(targetLanguage: string): ((character: string) => boolean) | null {
   // A ja-easy target must not strip Japanese text; it is the source, not the output style.
   if (isPlamoOnlyTarget(targetLanguage)) return null;
-  const prefix = languagePrefix(targetLanguage);
+  const prefix = captionTargetPrefix(targetLanguage);
   if (prefix === 'ja') {
     return (character) => {
       const code = character.codePointAt(0) ?? 0;
