@@ -105,6 +105,15 @@ describe('wrapText', () => {
       expect(line.length).toBeLessThanOrEqual(4);
     }
   });
+
+  it('does not leave a two-character Japanese tail when the column has room', () => {
+    const text = '予測する示します。抽出型質問応答';
+    const lines = wrapText(text, 5, (value) => value.length, true);
+    expect(lines.join('')).toBe(text);
+    for (const line of lines) {
+      expect(line.length).toBeGreaterThanOrEqual(3);
+    }
+  });
 });
 
 function expectLinesFit(lines: readonly string[], width: number, size: number): void {

@@ -7,6 +7,7 @@ import {
   PdfSession,
   type PdfEngine,
 } from '@/pdf/session';
+import { abortError } from '@/engine/errors';
 import {
   MAX_PRIORITY,
   isEngineHostRequest,
@@ -255,6 +256,45 @@ describe('PdfSession stream handling', () => {
     await waitFor(() => session.pageBlocks(0)[0]?.translation === '译文');
   });
 
+  it('re-queues a block when the engine preempts instead of failing it', async () => {
+    let calls = 0;
+    const engine = engineOf(async function* (segments) {
+      calls += 1;
+      if (calls === 1) throw abortError();
+      const id = segments[0]?.id ?? 'b1';
+      yield { id, final: '訳' };
+    });
+    const session = sessionOf(engine);
+    session.addPage(0, layoutOf('A short paragraph of source text on the visible page.'));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'done');
+    expect(calls).toBe(2);
+    expect(session.pageBlocks(0)[0]?.translation).toBe('訳');
+    expect(session.progress().failed).toBe(0);
+  });
+
+  it('keeps remaining visible-page work ahead after later pages join the queue', async () => {
+    const started: string[] = [];
+    const engine = engineOf(async function* (segments) {
+      const text = segments[0]?.text ?? '';
+      started.push(text);
+      const id = segments[0]?.id ?? 'b1';
+      yield { id, final: '訳' };
+    });
+    const session = sessionOf(engine, { concurrency: 1 });
+    session.addPage(0, {
+      ...layoutOf('First paragraph on the page the reader can see.'),
+      blocks: [
+        block('First paragraph on the page the reader can see.'),
+        block('Second paragraph on the same visible page.'),
+      ],
+    });
+    session.addPage(4, layoutOf('A paragraph many pages away from the reader.'));
+    await waitFor(() => started.length >= 3);
+    expect(started[0]).toContain('First paragraph');
+    expect(started[1]).toContain('Second paragraph');
+    expect(started[2]).toContain('many pages away');
+  });
+
   it('schedules a visible-page label ahead of later-page prose', async () => {
     const seen: { text: string; priority: number; eager: boolean; preempt: boolean }[] = [];
     const engine = engineOf(async function* (segments, options) {
@@ -335,6 +375,8 @@ describe('PDF request priority', () => {
   it('keeps a nearer page ahead of a farther one', () => {
     expect(pdfRequestPriority(0, 'label')).toBeLessThan(pdfRequestPriority(1, 'prose'));
     expect(pdfRequestPriority(1, 'heading')).toBeLessThan(pdfRequestPriority(2, 'caption'));
+    expect(pdfRequestPriority(0, 'prose')).toBeLessThan(pdfRequestPriority(9, 'heading'));
+    expect(pdfRequestPriority(0, 'prose')).toBeLessThan(pdfRequestPriority(50, 'prose'));
   });
 
   it('treats a non-finite distance as the focused page', () => {

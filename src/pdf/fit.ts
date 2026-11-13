@@ -374,10 +374,10 @@ export function applyKinsoku(
 }
 
 /**
- * Avoid a one-character Japanese line when a neighbour can take the glyph without overflowing.
+ * Avoid a one- or two-character Japanese line when a neighbour can take the glyphs.
  *
- * A wrap that leaves `モ` or `な` alone is the stray 1-character line a reader sees in the
- * middle of a paragraph. Merge it, or steal one more character so the short line has two.
+ * A wrap that leaves `モ` or `す。` or `測す` alone is the stray tail a reader sees in the
+ * middle of a paragraph. Merge it, or steal one more character so the short line is longer.
  */
 function collapseLoneGlyphs(
   lines: readonly string[],
@@ -387,28 +387,33 @@ function collapseLoneGlyphs(
   const next = [...lines];
   let guard = 0;
   const limit = next.reduce((count, line) => count + line.length, 0) + 8;
+  const skip = new Set<number>();
   while (guard < limit) {
     guard += 1;
-    const index = next.findIndex((line) => line.length === 1);
+    const index = next.findIndex(
+      (line, at) => line.length > 0 && line.length <= 2 && !skip.has(at),
+    );
     if (index < 0) break;
     const glyph = next[index] ?? '';
     const previous = next[index - 1];
     if (previous !== undefined && measure(`${previous}${glyph}`) <= width) {
       next[index - 1] = `${previous}${glyph}`;
       next.splice(index, 1);
+      skip.clear();
       continue;
     }
     const following = next[index + 1];
     if (
       following !== undefined &&
-      !KINSOKU_NO_START.test(glyph) &&
+      !KINSOKU_NO_START.test(glyph[0] ?? '') &&
       measure(`${glyph}${following}`) <= width
     ) {
       next[index + 1] = `${glyph}${following}`;
       next.splice(index, 1);
+      skip.clear();
       continue;
     }
-    if (previous !== undefined && previous.length >= 2) {
+    if (previous !== undefined && previous.length > glyph.length) {
       const stolen = previous.slice(-1);
       const kept = previous.slice(0, -1);
       const pair = `${stolen}${glyph}`;
@@ -420,10 +425,11 @@ function collapseLoneGlyphs(
       ) {
         next[index - 1] = kept;
         next[index] = pair;
+        skip.clear();
         continue;
       }
     }
-    break;
+    skip.add(index);
   }
   return next;
 }

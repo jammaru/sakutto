@@ -1,4 +1,5 @@
 import { PriorityQueue } from '@/engine/queue/priority-queue';
+import { isAbortError } from '@/engine/errors';
 import { chunkForTranslation } from '@/engine/text/sentences';
 import { estimateTokens } from '@/engine/text/tokens';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
@@ -81,10 +82,10 @@ export const PDF_PRIORITY_ROLES: readonly AnyBlockRole[] = Object.keys(
 ) as AnyBlockRole[];
 
 /**
- * Queue priority for one PDF block. Lower runs first.
- *
- * Distance to the focused page dominates; kind only orders work on the same page. The value
- * must stay inside `0..MAX_PRIORITY` or the offscreen host silently drops the request.
+ * Queue priority for one PDF block. Lower runs first — the same rule as the engine
+ * scheduler (`0` is the page on screen, `100` is farthest). Distance to the focused page
+ * dominates; kind only orders work on the same page. The value must stay inside
+ * `0..MAX_PRIORITY` or the offscreen host silently drops the request.
  */
 export function pdfRequestPriority(distance: number, role: AnyBlockRole): number {
   const kind = PDF_PRIORITY_KIND[role] ?? 50;
@@ -542,8 +543,16 @@ export class PdfSession {
         this.noteOutput(chunk.final ?? chunk.textDelta ?? '', 1);
         this.scheduleNotify();
       }
-    } catch {
+    } catch (error) {
       if (this.stale(generation, signal)) return;
+      // Engine preemption aborts this request without the session signal. The page translator
+      // re-queues that work; treating it as failed leaves English on the page the reader is
+      // looking at while later pages keep finishing.
+      if (isAbortError(error) && !signal.aborted) {
+        state.state = 'idle';
+        this.enqueue(state, job.page);
+        return;
+      }
       this.failBlock(state);
       return;
     }

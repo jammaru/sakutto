@@ -349,6 +349,33 @@ describe('layoutPage', () => {
     expect(right.length).toBeGreaterThan(0);
   });
 
+  it('translates numbered lead-ins and body paragraphs, not as code or identity', () => {
+    const lines = groupLines([
+      piece('4) Encoder-Decoder: a diagram of the two stacks.', 40, 100, 280, { italic: true }),
+      piece(
+        'Data quality is crucial for training a model that generalizes to new tasks.',
+        40,
+        160,
+        300,
+      ),
+      piece('The research team published a comparison of chat models.', 40, 220, 280),
+      piece('as a chat model that follows instructions written in the prompt.', 40, 280, 300),
+    ]);
+    const layout = layoutPage(lines, { images: [] }, { width: 400, height: 600, index: 2 });
+    const texts = layout.blocks.map((block) => block.text);
+    const skippedRoles = layout.skipped.map((block) => block.role);
+    expect(skippedRoles).not.toContain('code');
+    expect(skippedRoles).not.toContain('identity');
+    expect(texts.some((text) => text.includes('Encoder-Decoder'))).toBe(true);
+    expect(texts.some((text) => text.includes('Data quality is crucial'))).toBe(true);
+    expect(texts.some((text) => text.includes('research team published'))).toBe(true);
+    expect(texts.some((text) => text.includes('follows instructions'))).toBe(true);
+    expect(layout.blocks.every((block) => block.role !== 'code' && block.role !== 'identity')).toBe(
+      true,
+    );
+    expect(orphanLineCount(lines, layout)).toBe(0);
+  });
+
   it('keeps a section number with its title', () => {
     // `I.` and `INTRODUCTION` are set with a wide gap, which is not a table cell boundary.
     const lines = groupLines([piece('I.', 134, 200, 6), piece('INTRODUCTION', 150, 200, 66)]);

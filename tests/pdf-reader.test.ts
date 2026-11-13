@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { PdfReader, type ReaderLabels } from '@/pdf/reader';
+import { focusedPdfPage, PdfReader, type ReaderLabels } from '@/pdf/reader';
 import type { PdfDocument, PdfPage } from '@/pdf/extract';
 import type { PdfEngine } from '@/pdf/session';
 
@@ -74,10 +74,17 @@ function fakePage(renders: { count: number }): PdfPage {
   };
 }
 
-function fakeDocument(renders: { count: number }, pages = 3): PdfDocument {
+function fakeDocument(
+  renders: { count: number },
+  pages = 3,
+  requested: number[] = [],
+): PdfDocument {
   return {
     numPages: pages,
-    getPage: async () => fakePage(renders),
+    getPage: async (number) => {
+      requested.push(number);
+      return fakePage(renders);
+    },
     getMetadata: async () => null,
     destroy: async () => undefined,
   };
@@ -117,7 +124,12 @@ function cancelledError(): Error {
   return error;
 }
 
+function placeHost(host: HTMLElement, top: number): void {
+  host.getBoundingClientRect = () => viewportRect(top);
+}
+
 function intersect(host: HTMLElement, top = 20): void {
+  placeHost(host, top);
   const record = observerRecords[0];
   record?.callback(
     [
@@ -143,6 +155,40 @@ function pageHost(root: HTMLElement, index: number): HTMLElement {
   if (!(host instanceof HTMLElement)) throw new Error(`expected page ${String(index)}`);
   return host;
 }
+
+describe('focusedPdfPage', () => {
+  it('picks the page covering the viewport, not a far page in the parse band', () => {
+    expect(
+      focusedPdfPage(
+        [
+          { index: 0, top: 20, bottom: 400 },
+          { index: 1, top: 420, bottom: 800 },
+          { index: 4, top: 1800, bottom: 2200 },
+        ],
+        600,
+      ),
+    ).toBe(0);
+    expect(
+      focusedPdfPage(
+        [
+          { index: 0, top: -200, bottom: 80 },
+          { index: 1, top: 100, bottom: 480 },
+          { index: 2, top: 900, bottom: 1280 },
+        ],
+        600,
+      ),
+    ).toBe(1);
+    expect(
+      focusedPdfPage(
+        [
+          { index: 3, top: 1400, bottom: 1780 },
+          { index: 4, top: 1800, bottom: 2180 },
+        ],
+        600,
+      ),
+    ).toBeNull();
+  });
+});
 
 describe('PdfReader viewport observer', () => {
   afterEach(() => {
@@ -219,6 +265,57 @@ describe('PdfReader viewport observer', () => {
     }
     expect(renders.count).toBeGreaterThan(afterDraw);
 
+    reader.destroy();
+  });
+
+  it('does not parse a far page first when only that page entered the observer band', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    vi.stubGlobal('innerHeight', 600);
+
+    const renders = { count: 0 };
+    const requested: number[] = [];
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 240 });
+    document.body.append(root);
+    stubCanvas();
+
+    const reader = new PdfReader(root, geometries(5), {
+      document: fakeDocument(renders, 5, requested),
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+    });
+
+    const hosts = [...root.querySelectorAll('.sakutto-page')];
+    expect(hosts).toHaveLength(5);
+    hosts.forEach((host, index) => {
+      if (!(host instanceof HTMLElement)) return;
+      const top = index === 0 ? 20 : 400 + index * 400;
+      host.getBoundingClientRect = () => viewportRect(top);
+    });
+    const far = hosts[4];
+    if (!(far instanceof HTMLElement)) throw new Error('expected a far page');
+
+    observerRecords[0]?.callback(
+      [
+        {
+          target: far,
+          isIntersecting: true,
+          boundingClientRect: far.getBoundingClientRect(),
+        } as unknown as IntersectionObserverEntry,
+      ],
+      observerRecords[0] as unknown as IntersectionObserver,
+    );
+    reader.start();
+    const started = Date.now();
+    while (requested.length < 2 && Date.now() - started < 1000) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(requested[0]).toBe(1);
+    expect(requested.slice(0, 2)).not.toContain(5);
     reader.destroy();
   });
 
@@ -457,6 +554,85 @@ describe('PdfReader viewport observer', () => {
     reader.destroy();
   });
 
+  it('does not evict a nearby in-flight draw when a far page enters the parse band', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    vi.stubGlobal('innerHeight', 600);
+    stubCanvas();
+
+    const pages = 10;
+    const started = Array.from({ length: pages }, () => 0);
+    const cancelled = Array.from({ length: pages }, () => 0);
+
+    const hungPage = (index: number): PdfPage => ({
+      getViewport: ({ scale }) => ({
+        width: 200 * scale,
+        height: 280 * scale,
+        transform: [scale, 0, 0, -scale, 0, 280 * scale],
+      }),
+      getTextContent: async () => ({ items: [], styles: {} }),
+      getOperatorList: async () => ({ fnArray: [], argsArray: [] }),
+      commonObjs: { get: () => null },
+      render: () => {
+        started[index] = (started[index] ?? 0) + 1;
+        return {
+          promise: new Promise<void>(() => undefined),
+          cancel: () => {
+            cancelled[index] = (cancelled[index] ?? 0) + 1;
+          },
+        };
+      },
+    });
+
+    const document_: PdfDocument = {
+      numPages: pages,
+      getPage: async (number) => hungPage(number - 1),
+      getMetadata: async () => null,
+      destroy: async () => undefined,
+    };
+
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 240 });
+    document.body.append(root);
+
+    const reader = new PdfReader(root, geometries(pages), {
+      document: document_,
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+    });
+
+    for (let index = 0; index < pages; index += 1) {
+      placeHost(pageHost(root, index), index <= 1 ? 20 + index * 280 : 1800 + index * 400);
+    }
+    intersect(pageHost(root, 0), 20);
+    const waiting = Date.now();
+    while (started[0] === 0 && Date.now() - waiting < 1000) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(started[0]).toBeGreaterThan(0);
+
+    observerRecords[0]?.callback(
+      [
+        {
+          target: pageHost(root, 9),
+          isIntersecting: true,
+          boundingClientRect: viewportRect(2200),
+        } as unknown as IntersectionObserverEntry,
+      ],
+      observerRecords[0] as unknown as IntersectionObserver,
+    );
+    const delayed = Date.now();
+    while (Date.now() - delayed < 50) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(cancelled[0]).toBe(0);
+
+    reader.destroy();
+  });
+
   it('redraws a page whose in-flight draw was evicted, without a render-failed notice', async () => {
     vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
     vi.stubGlobal('ResizeObserver', FakeResizeObserver);
@@ -515,12 +691,16 @@ describe('PdfReader viewport observer', () => {
       onProgress: () => undefined,
     });
 
+    vi.stubGlobal('innerHeight', 600);
     const waiting = Date.now();
     while (started[2] === 0 && Date.now() - waiting < 1000) {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
     expect(started[2]).toBeGreaterThan(0);
 
+    for (let index = 0; index < pages; index += 1) {
+      placeHost(pageHost(root, index), index === 9 ? 10 : 2400 + index * 400);
+    }
     intersect(pageHost(root, 9), 10);
     const dropped = Date.now();
     while (cancelled[2] === 0 && Date.now() - dropped < 1000) {
@@ -535,6 +715,9 @@ describe('PdfReader viewport observer', () => {
 
     const beforeRedraw = started[2] ?? 0;
     succeed.add(2);
+    for (let index = 0; index < pages; index += 1) {
+      placeHost(pageHost(root, index), index === 2 ? 20 : 2400 + index * 400);
+    }
     intersect(pageHost(root, 2), 20);
     const redrawn = Date.now();
     while ((started[2] ?? 0) === beforeRedraw && Date.now() - redrawn < 1000) {

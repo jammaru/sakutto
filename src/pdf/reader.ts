@@ -89,6 +89,32 @@ export interface ReaderProgress {
 }
 
 /**
+ * Page whose box covers the most of the actual viewport, or `null` when none does.
+ *
+ * Used for translation focus. Nearby pages in a parse/draw margin are ignored on purpose.
+ */
+export function focusedPdfPage(
+  pages: readonly { index: number; top: number; bottom: number }[],
+  viewHeight: number,
+): number | null {
+  if (viewHeight <= 0) return null;
+  let best: number | null = null;
+  let bestVisible = 0;
+  let bestTop = Infinity;
+  for (const page of pages) {
+    const visible = Math.min(page.bottom, viewHeight) - Math.max(page.top, 0);
+    if (visible <= 0) continue;
+    const top = Math.abs(page.top);
+    if (visible > bestVisible + 1 || (Math.abs(visible - bestVisible) <= 1 && top < bestTop)) {
+      bestVisible = visible;
+      bestTop = top;
+      best = page.index;
+    }
+  }
+  return best;
+}
+
+/**
  * Renders a PDF as page images with translated text laid over them.
  *
  * The page image is the page's own appearance, drawn once by pdf.js, and the translation is
@@ -442,6 +468,7 @@ export class PdfReader {
     }
     this.paint();
     this.redrawVisiblePages();
+    this.updateFocus();
     void this.parseNext();
   }
 
@@ -466,25 +493,36 @@ export class PdfReader {
   }
 
   private onIntersect(entries: IntersectionObserverEntry[]): void {
-    let nearest = -1;
-    let nearestDistance = Infinity;
     for (const entry of entries) {
       if (!entry.isIntersecting) continue;
       const index = Number((entry.target as HTMLElement).dataset.page);
       if (!Number.isFinite(index)) continue;
-      const distance = Math.abs(entry.boundingClientRect.top);
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearest = index;
-      }
       void this.drawPage(index);
       void this.parseNext();
     }
-    if (nearest >= 0 && nearest !== this.focus) {
-      this.focus = nearest;
-      this.session.focusPage(nearest);
-      this.releaseFarPages();
+    this.updateFocus();
+  }
+
+  /**
+   * Translation focus follows the page that actually covers the viewport.
+   *
+   * The observer's 120% margin is only for drawing and parsing nearby pages. A page that
+   * merely entered that band must not steal the queue: IntersectionObserver callbacks list
+   * only the pages that crossed, so a far page would otherwise become `focus` while the
+   * page on screen still has untranslated paragraphs.
+   */
+  private updateFocus(): void {
+    const view = globalThis.innerHeight || this.root.clientHeight || 0;
+    const pages: { index: number; top: number; bottom: number }[] = [];
+    for (const [index, element] of this.pageElements) {
+      const rect = element.host.getBoundingClientRect();
+      pages.push({ index, top: rect.top, bottom: rect.bottom });
     }
+    const nearest = focusedPdfPage(pages, view);
+    if (nearest === null || nearest === this.focus) return;
+    this.focus = nearest;
+    this.session.focusPage(nearest);
+    this.releaseFarPages();
   }
 
   /**
