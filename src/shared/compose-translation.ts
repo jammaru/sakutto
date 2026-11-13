@@ -1,5 +1,10 @@
 import { inferLanguage } from '@/dom/detect';
-import { canonicalLanguage, isTargetLanguage, type TargetLanguage } from './languages';
+import {
+  canonicalLanguage,
+  isPlamoOnlyTarget,
+  isTargetLanguage,
+  type TargetLanguage,
+} from './languages';
 import { PRIMARY_PAIR_TARGET, typedTargetNeedsChrome } from './typed-translation';
 
 export type ComposePlan = {
@@ -36,6 +41,8 @@ export function composePairOther(
  * with an English target must not be treated as "already English" and sent to Japanese.
  */
 export function draftLooksLikeTarget(text: string, target: string): boolean {
+  // Easy Japanese is an output style: Japanese source text still needs simplifying.
+  if (isPlamoOnlyTarget(target)) return false;
   const inferred = inferLanguage(text);
   if (!inferred) return false;
   const canonical = canonicalLanguage(target) ?? (isTargetLanguage(target) ? target : null);

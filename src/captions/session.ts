@@ -1,7 +1,7 @@
 import { pageHost } from '@/dom/sites';
 import type { PageEngine } from '@/dom/session';
 import type { GlossaryEntry } from '@/engine/types';
-import { canonicalLanguage } from '@/shared/languages';
+import { canonicalLanguage, isPlamoOnlyTarget } from '@/shared/languages';
 import {
   VIDEO_CAPTION_SIZE_DEFAULT,
   type DisplayMode,
@@ -1461,6 +1461,8 @@ function isHtmlVideo(value: EventTarget | null): value is HTMLVideoElement {
 
 function sameLanguage(source: string | undefined, target: string): boolean {
   if (!source) return false;
+  // Easy Japanese is an output style, so a Japanese caption still needs translating.
+  if (isPlamoOnlyTarget(target)) return false;
   const left = canonicalLanguage(captionLanguagePrefix(source) || source);
   const right = canonicalLanguage(captionLanguagePrefix(target) || target);
   return left !== null && right !== null && left === right;

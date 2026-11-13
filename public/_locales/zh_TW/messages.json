@@ -514,6 +514,12 @@
   "chromeOnlySuffix": {
     "message": "(Chrome 內建)"
   },
+  "jaEasyName": {
+    "message": "簡易日語"
+  },
+  "plamoOnlySuffix": {
+    "message": "（PLaMo）"
+  },
   "onboardingStartNotice": {
     "message": "按下「同意授權並開始」，即表示您同意整個 PLaMo 社群授權。"
   },

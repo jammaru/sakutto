@@ -514,6 +514,12 @@
   "chromeOnlySuffix": {
     "message": "(Tích hợp sẵn trong Chrome)"
   },
+  "jaEasyName": {
+    "message": "Tiếng Nhật đơn giản"
+  },
+  "plamoOnlySuffix": {
+    "message": " (PLaMo)"
+  },
   "onboardingStartNotice": {
     "message": "Nhấn \"Đồng ý với bản quyền và bắt đầu\" có nghĩa là bạn đồng ý với toàn bộ Bản quyền Cộng đồng PLaMo."
   },

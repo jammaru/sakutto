@@ -1,6 +1,7 @@
 import { abortError, EngineError, isAbortError, isEngineError } from '../errors';
 import { buildTranslationPrompt, TRANSLATION_STOP_TOKENS } from '../prompt/pfml3';
 import { forwardCompletionToken, type CompletionRequest } from '../in-browser/runtime';
+import { plamoPromptTargetLanguage } from '@/shared/languages';
 import { isRecord } from '@/shared/object';
 import type { Settings } from '@/shared/settings';
 import {
@@ -437,7 +438,7 @@ function connectionProbeRequest(signal: AbortSignal): CompletionRequest {
     prompt: buildTranslationPrompt({
       text: CONNECTION_PROBE_TEXT,
       src: 'en',
-      tgt: 'ja',
+      tgt: plamoPromptTargetLanguage('ja'),
       form: 'polite',
     }),
     maxTokens: CONNECTION_PROBE_MAX_TOKENS,

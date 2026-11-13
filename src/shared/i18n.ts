@@ -18,7 +18,7 @@ function formatFallback(message: string, substitutions: string | string[] | unde
 }
 
 export function t(key: MessageKey, substitutions?: string | string[]): string {
-  const message = browser.i18n.getMessage(key, substitutions);
+  const message = browser?.i18n?.getMessage?.(key, substitutions);
   if (message) return message;
   return formatFallback(enMessages[key].message, substitutions);
 }

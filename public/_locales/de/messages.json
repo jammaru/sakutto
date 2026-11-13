@@ -514,6 +514,12 @@
   "chromeOnlySuffix": {
     "message": "(Chrome-Einbettung)"
   },
+  "jaEasyName": {
+    "message": "Einfaches Japanisch"
+  },
+  "plamoOnlySuffix": {
+    "message": " (PLaMo)"
+  },
   "onboardingStartNotice": {
     "message": "Mit dem Drücken von „Agree to the license and start“ erklären Sie sich mit der gesamten PLaMo Community License einverstanden."
   },

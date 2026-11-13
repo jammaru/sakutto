@@ -1,3 +1,4 @@
+import { JA_EASY_TARGET } from '@/shared/languages';
 import { EngineError } from '../errors';
 import { sanitizeModelOutput } from '../text/sanitize';
 import type { Formality, GlossaryEntry } from '../types';
@@ -77,8 +78,8 @@ export function buildTranslationPrompt(input: PromptInput): string {
   const text = checkText(input.text, 'text');
   const tgt = checkLanguageTag(input.tgt, 'target_lang');
 
-  if (input.form !== undefined && tgt !== 'ja') {
-    throw new EngineError('invalid-input', 'form requires target_lang ja.');
+  if (input.form !== undefined && tgt !== 'ja' && tgt !== JA_EASY_TARGET) {
+    throw new EngineError('invalid-input', 'form requires target_lang ja or ja-easy.');
   }
 
   let prompt = `${PFML3.tag}dataset${PFML3.msg}translation`;

@@ -1,4 +1,5 @@
 import { isRecord } from '@/shared/object';
+import { isPlamoOnlyTarget } from '@/shared/languages';
 import { parseTimedtextJson3, parseWebVtt, type CaptionCue } from './cues';
 
 export interface YoutubeCaptionTrack {
@@ -412,6 +413,8 @@ export function captionSourceIsTargetLanguage(
   text: string | undefined,
   targetLanguage: string,
 ): boolean {
+  // Easy Japanese is never the language a caption track is already in.
+  if (isPlamoOnlyTarget(targetLanguage)) return false;
   const source = captionLanguagePrefix(sourceLanguage);
   const target = captionLanguagePrefix(targetLanguage);
   if (source.length > 0 && target.length > 0) return source === target;
@@ -464,6 +467,8 @@ export function stripTargetLanguageFromCaption(text: string, targetLanguage: str
 }
 
 function targetScript(targetLanguage: string): ((character: string) => boolean) | null {
+  // A ja-easy target must not strip Japanese text; it is the source, not the output style.
+  if (isPlamoOnlyTarget(targetLanguage)) return null;
   const prefix = languagePrefix(targetLanguage);
   if (prefix === 'ja') {
     return (character) => {

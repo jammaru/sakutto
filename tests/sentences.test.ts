@@ -99,7 +99,11 @@ describe('sentence splitting', () => {
   it('joins translated sentences with the target language spacing', () => {
     expect(joinTranslatedSentences([' First.', 'Second. '], 'en')).toBe('First. Second.');
     expect(joinTranslatedSentences(['最初。', '次。'], 'ja')).toBe('最初。次。');
+    expect(joinTranslatedSentences(['短くします。', '次です。'], 'ja-easy')).toBe(
+      '短くします。次です。',
+    );
     expect(sentenceSeparator('zh-hant')).toBe('');
+    expect(sentenceSeparator('ja-easy')).toBe('');
     expect(sentenceSeparator('ko')).toBe(' ');
   });
 

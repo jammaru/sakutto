@@ -34,7 +34,7 @@ import type {
   TranslateSegment,
   TranslationChunk,
 } from '../types';
-import { canonicalLanguage } from '@/shared/languages';
+import { canonicalLanguage, JA_EASY_TARGET, plamoPromptTargetLanguage } from '@/shared/languages';
 import { CONTEXT_TOKENS } from './backend';
 import type { LlamaRuntime } from './runtime';
 
@@ -590,8 +590,8 @@ export class InBrowserEngine implements IdentifiedEngine {
     signal: AbortSignal,
     onDelta: DeltaSink = () => undefined,
   ): Promise<PieceOutput> {
-    const tgt = canonicalLanguage(options.tgt);
-    if (!tgt) {
+    const tgt = plamoPromptTargetLanguage(options.tgt);
+    if (tgt.length === 0) {
       throw new EngineError(
         'unsupported-language',
         'The translation model does not support the target language.',
@@ -618,7 +618,7 @@ export class InBrowserEngine implements IdentifiedEngine {
       text: source,
       tgt,
       ...(src !== null ? { src } : {}),
-      ...(tgt === 'ja' ? { form: options.form } : {}),
+      ...(tgt === 'ja' || tgt === JA_EASY_TARGET ? { form: options.form } : {}),
       ...(glossary.length > 0 ? { glossary } : {}),
       ...(options.context ? { context: options.context } : {}),
     };
@@ -790,8 +790,8 @@ export class InBrowserEngine implements IdentifiedEngine {
       return { text: original, error: true };
     }
 
-    const tgt = canonicalLanguage(options.tgt);
-    if (!tgt) return { text: original, error: true };
+    const tgt = plamoPromptTargetLanguage(options.tgt);
+    if (tgt.length === 0) return { text: original, error: true };
     const src = options.src === undefined ? null : canonicalLanguage(options.src);
     const glossary = sanitizeGlossary(options.glossary ?? []).filter((entry) =>
       aggressive.includes(entry.source),
@@ -800,7 +800,7 @@ export class InBrowserEngine implements IdentifiedEngine {
       text: aggressive,
       tgt,
       ...(src !== null ? { src } : {}),
-      ...(tgt === 'ja' ? { form: options.form } : {}),
+      ...(tgt === 'ja' || tgt === JA_EASY_TARGET ? { form: options.form } : {}),
       ...(glossary.length > 0 ? { glossary } : {}),
       ...(options.context ? { context: options.context } : {}),
     });

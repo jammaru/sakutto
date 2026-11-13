@@ -113,6 +113,10 @@ export const CHROME_SUPPORTED_LANGUAGES = [
 const CHROME_SET: ReadonlySet<string> = new Set(CHROME_SUPPORTED_LANGUAGES);
 const CHROME_ONLY_SET: ReadonlySet<string> = new Set(CHROME_ONLY_LANGUAGES);
 
+/** A PLaMo output style rather than a language Chrome's translator can produce. */
+export const JA_EASY_TARGET = 'ja-easy' as const;
+const PLAMO_ONLY_SET: ReadonlySet<string> = new Set([JA_EASY_TARGET]);
+
 const displayNamesCache = new Map<string, Intl.DisplayNames>();
 
 function normalizeTag(tag: string): string {
@@ -154,6 +158,9 @@ export function canonicalLanguage(tag: string): LanguageCode | null {
  * languages that the on-device model does not support.
  */
 export function canonicalChromeLanguage(tag: string): string | null {
+  // PLaMo-only styles are not a language Chrome's translator can produce.
+  if (isPlamoOnlyTarget(tag)) return null;
+
   const canonical = canonicalLanguage(tag);
   if (canonical !== null && CHROME_SET.has(canonical)) return canonical;
 
@@ -168,6 +175,21 @@ export function isChromeLanguage(value: unknown): boolean {
 export function isChromeOnlyLanguage(value: string): boolean {
   const canonical = canonicalChromeLanguage(value);
   return canonical !== null && CHROME_ONLY_SET.has(canonical);
+}
+
+/** True for a target only the PLaMo model can produce. */
+export function isPlamoOnlyTarget(value: string): boolean {
+  return PLAMO_ONLY_SET.has(normalizeTag(value));
+}
+
+/**
+ * The target the PLaMo prompt should name. Easy Japanese is passed through as its own
+ * tag; every other language falls back to its model code, or to the normalized tag when
+ * the model has no code for it and the prompt builder is expected to reject it.
+ */
+export function plamoPromptTargetLanguage(tgt: string): string {
+  if (isPlamoOnlyTarget(tgt)) return JA_EASY_TARGET;
+  return canonicalLanguage(tgt) ?? normalizeTag(tgt);
 }
 
 export function toChromeLanguage(code: string): string {
@@ -199,11 +221,15 @@ export function isLanguageCode(value: unknown): value is LanguageCode {
   return typeof value === 'string' && SUPPORTED_SET.has(value);
 }
 
-export type TargetLanguage = LanguageCode | (typeof CHROME_ONLY_LANGUAGES)[number];
+export type TargetLanguage =
+  LanguageCode | (typeof CHROME_ONLY_LANGUAGES)[number] | typeof JA_EASY_TARGET;
 
 /** A translation target the page can request: a PLaMo language, or a Chrome-only one. */
 export function isTargetLanguage(value: unknown): value is TargetLanguage {
-  return isLanguageCode(value) || (typeof value === 'string' && CHROME_ONLY_SET.has(value));
+  return (
+    isLanguageCode(value) ||
+    (typeof value === 'string' && (CHROME_ONLY_SET.has(value) || isPlamoOnlyTarget(value)))
+  );
 }
 
 export function resolveTargetLanguage(
@@ -221,11 +247,15 @@ export function chooseTargetLanguage(
   pageLanguage: string | null,
   preferred: string,
   explicit: boolean,
-): LanguageCode {
-  const target = canonicalLanguage(preferred) ?? DEFAULT_TARGET_LANGUAGE;
+): TargetLanguage {
+  const plamoOnly = isPlamoOnlyTarget(preferred);
+  const target: TargetLanguage = plamoOnly
+    ? JA_EASY_TARGET
+    : (canonicalLanguage(preferred) ?? DEFAULT_TARGET_LANGUAGE);
   if (explicit) return target;
   const page = pageLanguage ? canonicalLanguage(pageLanguage) : null;
-  if (!page || page !== target) return target;
+  // Easy Japanese is a different style, so even a Japanese page needs this target.
+  if (!page || plamoOnly || page !== target) return target;
   return target === 'ja' ? 'en' : 'ja';
 }
 

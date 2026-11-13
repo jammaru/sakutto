@@ -529,6 +529,13 @@ describe('target-language caption filter', () => {
     );
   });
 
+  it('keeps Japanese captions when the target is Easy Japanese', () => {
+    const japanese = '北側窓口では予約不要の切符を売っています。';
+    expect(captionTextIsTargetLanguage(japanese, 'ja-easy')).toBe(false);
+    expect(stripTargetLanguageFromCaption(japanese, 'ja-easy')).toBe(japanese);
+    expect(captionSourceIsTargetLanguage('ja', japanese, 'ja-easy')).toBe(false);
+  });
+
   it('does not strip Japanese when the target is English', () => {
     expect(stripTargetLanguageFromCaption('北側窓口では予約不要の切符を売っています。', 'en')).toBe(
       '北側窓口では予約不要の切符を売っています。',

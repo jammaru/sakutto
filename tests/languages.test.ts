@@ -9,6 +9,11 @@ import {
   fromChromeLanguage,
   isChromeLanguage,
   isChromeOnlyLanguage,
+  isPlamoOnlyTarget,
+  isTargetLanguage,
+  JA_EASY_TARGET,
+  plamoPromptTargetLanguage,
+  SUPPORTED_LANGUAGES,
   toChromeLanguage,
 } from '@/shared/languages';
 
@@ -97,5 +102,36 @@ describe('default target language', () => {
     expect(effectivePageTarget('ja', 'en')).toBe('en');
     expect(effectivePageTarget('en', undefined)).toBe('en');
     expect(effectivePageTarget('xx', undefined)).toBe('en');
+  });
+});
+
+describe('Easy Japanese', () => {
+  it('is a PLaMo target outside the language and Chrome lists', () => {
+    expect(JA_EASY_TARGET).toBe('ja-easy');
+    expect(SUPPORTED_LANGUAGES).not.toContain(JA_EASY_TARGET);
+    expect(CHROME_SUPPORTED_LANGUAGES).not.toContain(JA_EASY_TARGET);
+    expect(isTargetLanguage('ja-easy')).toBe(true);
+    expect(isTargetLanguage('JA_EASY')).toBe(true);
+    expect(isTargetLanguage('ja-easy-extra')).toBe(false);
+    expect(isChromeLanguage('ja-easy')).toBe(false);
+    expect(isChromeOnlyLanguage('ja-easy')).toBe(false);
+    expect(isPlamoOnlyTarget('ja-easy')).toBe(true);
+    expect(isPlamoOnlyTarget('JA_EASY')).toBe(true);
+    expect(isPlamoOnlyTarget('ja')).toBe(false);
+    expect(isPlamoOnlyTarget('en')).toBe(false);
+  });
+
+  it('names ja-easy in the PLaMo prompt and keeps other targets canonical', () => {
+    expect(plamoPromptTargetLanguage('ja-easy')).toBe('ja-easy');
+    expect(plamoPromptTargetLanguage('JA_EASY')).toBe('ja-easy');
+    expect(plamoPromptTargetLanguage('en-US')).toBe('en');
+    expect(plamoPromptTargetLanguage('zh-TW')).toBe('zh-hant');
+    expect(plamoPromptTargetLanguage('pt-BR')).toBe('pt-br');
+  });
+
+  it('keeps a Japanese page translating when Easy Japanese is the target', () => {
+    expect(chooseTargetLanguage('ja', 'ja-easy', false)).toBe('ja-easy');
+    expect(resolvePageTarget('ja', 'ja-easy', true)).toBe('ja-easy');
+    expect(effectivePageTarget('ja-easy', undefined)).toBe('ja-easy');
   });
 });
