@@ -76,6 +76,22 @@ describe('InBrowserEngine', () => {
     expect(runtime.requests[0]?.maxTokens).toBeGreaterThanOrEqual(32);
   });
 
+  it('keeps Easy Japanese as the prompt target and applies the Japanese tone', async () => {
+    const runtime = new FakeRuntime(() => 'この機能は便利です。');
+    const engine = new InBrowserEngine(runtime);
+
+    await collectChunks(
+      engine.translate(
+        [{ id: 'a', text: 'この機能はとても便利です。' }],
+        options({ tgt: 'ja-easy', src: 'ja', form: 'plain' }),
+      ),
+    );
+
+    expect(runtime.requests[0]?.prompt).toContain(
+      '<|plamo:tag|>output<|plamo:key|>lang<|plamo:val|>ja-easy<|plamo:key|>form<|plamo:val|>plain<|plamo:msg|>',
+    );
+  });
+
   it('omits the Japanese form option for other targets and forwards context', async () => {
     const runtime = new FakeRuntime(() => 'Hello.');
     const engine = new InBrowserEngine(runtime);

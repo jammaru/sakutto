@@ -33,6 +33,7 @@
     type TypedReadiness,
   } from '@/shared/typed-translation';
   import LanguageField from '@/ui/LanguageField.svelte';
+  import { displayTargetLanguage } from '@/ui/language-label';
   import { typedEngine } from './engine';
 
   let settings = $state<Settings | null>(null);
@@ -71,7 +72,7 @@
   let canTranslate = $derived(
     !translating && trimmed.length > 0 && !tooLong && !chromeOnlyTarget && readiness === 'ready',
   );
-  let targetLabel = $derived(displayLanguage(targetLanguage, uiLanguage));
+  let targetLabel = $derived(displayTargetLanguage(targetLanguage, uiLanguage));
   let hasAnything = $derived(sourceText.length > 0 || result.length > 0);
 
   async function refreshEngine() {

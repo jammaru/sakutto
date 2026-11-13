@@ -1,5 +1,5 @@
 import { pageHost } from '@/dom/sites';
-import { canonicalLanguage } from '@/shared/languages';
+import { canonicalLanguage, isPlamoOnlyTarget } from '@/shared/languages';
 import { CAPTION_ORIGINAL_TOGGLE, CAPTION_OVERLAY_HOST } from './overlay';
 import { stripTargetLanguageFromCaption } from './youtube';
 
@@ -169,7 +169,7 @@ export function pickXSubtitleRendition(
   targetLanguage: string,
 ): XSubtitleRendition | null {
   if (renditions.length === 0) return null;
-  const target = canonicalLanguage(targetLanguage);
+  const target = isPlamoOnlyTarget(targetLanguage) ? null : canonicalLanguage(targetLanguage);
   const notTarget = renditions.filter((entry) => {
     if (!entry.language) return true;
     const language = canonicalLanguage(entry.language);

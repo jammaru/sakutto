@@ -1,3 +1,4 @@
+import { isPlamoOnlyTarget } from '@/shared/languages';
 import { captionCueId, normalizeCaptionText, type CaptionCue } from './cues';
 
 const TRACK_KINDS = new Set(['captions', 'subtitles']);
@@ -17,7 +18,10 @@ export function pickCaptionTrack(
   if (tracks.length === 0) return null;
   const showing = tracks.find((track) => track.mode === 'showing');
   if (showing) return showing;
-  const target = targetLanguage.trim().toLowerCase().split('-')[0] ?? '';
+  // Easy Japanese has no track of its own, so a Japanese track is still a valid source.
+  const target = isPlamoOnlyTarget(targetLanguage)
+    ? ''
+    : (targetLanguage.trim().toLowerCase().split('-')[0] ?? '');
   const notTarget = (track: TextTrack): boolean => {
     const language = track.language.trim().toLowerCase();
     return target.length === 0 || language.length === 0 || !language.startsWith(target);

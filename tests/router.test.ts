@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { EngineError } from '@/engine/errors';
 import { RoutingEngine, type PairSupport } from '@/engine/router';
 import type { TranslateOptions, TranslationChunk } from '@/engine/types';
+import { canonicalLanguage, isPlamoOnlyTarget } from '@/shared/languages';
 import { collectChunks, fakeEngine } from './support/fakes';
 
 function options(overrides: Partial<TranslateOptions> = {}): TranslateOptions {
@@ -75,6 +76,33 @@ describe('RoutingEngine', () => {
     expect(chunks).toEqual([{ id: 'a', final: 'translated', engine: 'plamo' }]);
     expect(plamo.calls).toBe(1);
     expect(chrome.calls).toBe(0);
+  });
+
+  it('routes Easy Japanese to PLaMo without asking the built-in translator', async () => {
+    const plamoChunks: TranslationChunk[] = [{ id: 'a', final: 'やさしい日本語', engine: 'plamo' }];
+    const plamo = fakeEngine('plamo', plamoChunks);
+    const chrome = fakeEngine('chrome', [{ id: 'a', final: 'chrome', engine: 'chrome' }]);
+    let chromeProbes = 0;
+    const router = new RoutingEngine({
+      plamo,
+      chrome,
+      // The same support rule the offscreen host uses for PLaMo.
+      plamoSupports: (_src, tgt) => canonicalLanguage(tgt) !== null || isPlamoOnlyTarget(tgt),
+      chromeSupport: async () => {
+        chromeProbes += 1;
+        return 'available';
+      },
+    });
+
+    const chunks = await collectChunks(
+      router.translate([{ id: 'a', text: 'この機能は便利です。' }], options({ tgt: 'ja-easy' })),
+    );
+
+    expect(chunks).toEqual(plamoChunks);
+    expect(router.activeEngine).toBe('plamo');
+    expect(plamo.calls).toBe(1);
+    expect(chrome.calls).toBe(0);
+    expect(chromeProbes).toBe(0);
   });
 
   it('routes languages PLaMo does not support to the built-in translator', async () => {

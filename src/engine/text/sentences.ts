@@ -7,7 +7,13 @@ export const DEFAULT_MAX_CHUNK_CHARS = 450;
  */
 export const DEFAULT_PIECE_CHARS = 600;
 
-const NO_SPACE_TARGETS: ReadonlySet<string> = new Set(['ja', 'zh-hans', 'zh-hant', 'th']);
+const NO_SPACE_TARGETS: ReadonlySet<string> = new Set([
+  'ja',
+  'ja-easy',
+  'zh-hans',
+  'zh-hant',
+  'th',
+]);
 
 const TERMINATORS: ReadonlySet<string> = new Set(['.', '!', '?', '。', '！', '？', '…']);
 const CLOSERS: ReadonlySet<string> = new Set([

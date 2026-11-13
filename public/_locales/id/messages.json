@@ -514,6 +514,12 @@
   "chromeOnlySuffix": {
     "message": "(tertanam di Chrome)"
   },
+  "jaEasyName": {
+    "message": "Bahasa Jepang mudah"
+  },
+  "plamoOnlySuffix": {
+    "message": " (PLaMo)"
+  },
   "onboardingStartNotice": {
     "message": "Menekan \"Agree to the license and start\" berarti Anda menyetujui seluruh Lisensi Komunitas PLaMo."
   },

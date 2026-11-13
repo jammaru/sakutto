@@ -210,7 +210,7 @@ and mistranslate. **Sakutto always uses `/v1/completions` with the handwritten p
   [optional <|plamo:key|>lang<|plamo:val|>src]
 <|plamo:msg|>TEXT
 <|plamo:tag|>output<|plamo:key|>lang<|plamo:val|>tgt
-  [optional <|plamo:key|>form<|plamo:val|>polite|plain  — ja only]
+  [optional <|plamo:key|>form<|plamo:val|>polite|plain  — ja / ja-easy only]
 <|plamo:msg|>
 ```
 

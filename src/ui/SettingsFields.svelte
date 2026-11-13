@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t, tForBrowser } from '@/shared/i18n';
   import {
-    displayLanguage,
+    JA_EASY_TARGET,
     isTargetLanguage,
     SUPPORTED_LANGUAGES,
     type TargetLanguage,
@@ -23,6 +23,7 @@
   } from '@/captions/register-custom';
   import { resolveCaptionToggle } from '@/captions/sites';
   import LanguageField from './LanguageField.svelte';
+  import { displayTargetLanguage } from './language-label';
 
   let captionDenied = $state(false);
   let customHostInput = $state('');
@@ -131,7 +132,7 @@
     onChange={(targetLanguage) => onChange({ targetLanguage })}
   />
 
-  {#if settings.targetLanguage === 'ja'}
+  {#if settings.targetLanguage === 'ja' || settings.targetLanguage === JA_EASY_TARGET}
     <label class="field">
       <span>{t('formalityLabel')}</span>
       <select value={settings.form} onchange={updateForm}>
@@ -175,8 +176,8 @@
     <span>{t('composeTargetSetting')}</span>
     <select value={settings.composeTargetLanguage ?? ''} onchange={updateComposeTarget}>
       <option value="">{t('composeTargetAuto')}</option>
-      {#each SUPPORTED_LANGUAGES as language (language)}
-        <option value={language}>{displayLanguage(language, uiLanguage)}</option>
+      {#each [...SUPPORTED_LANGUAGES.slice(0, 1), JA_EASY_TARGET, ...SUPPORTED_LANGUAGES.slice(1)] as language (language)}
+        <option value={language}>{displayTargetLanguage(language, uiLanguage)}</option>
       {/each}
     </select>
   </label>

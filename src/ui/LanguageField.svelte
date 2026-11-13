@@ -3,12 +3,13 @@
   import { t } from '@/shared/i18n';
   import {
     CHROME_ONLY_LANGUAGES,
+    JA_EASY_TARGET,
     SUPPORTED_LANGUAGES,
-    displayLanguage,
     isChromeOnlyLanguage,
     isTargetLanguage,
     type TargetLanguage,
   } from '@/shared/languages';
+  import { displayTargetLanguage } from './language-label';
 
   interface Props {
     value: string;
@@ -18,9 +19,12 @@
 
   let { value, uiLanguage, onChange }: Props = $props();
 
-  const languages = hasBuiltInTranslatorUi()
-    ? [...SUPPORTED_LANGUAGES, ...CHROME_ONLY_LANGUAGES]
-    : [...SUPPORTED_LANGUAGES];
+  const languages = [
+    ...SUPPORTED_LANGUAGES.slice(0, 1),
+    JA_EASY_TARGET,
+    ...SUPPORTED_LANGUAGES.slice(1),
+    ...(hasBuiltInTranslatorUi() ? CHROME_ONLY_LANGUAGES : []),
+  ];
 
   function update(event: Event) {
     const select = event.currentTarget as HTMLSelectElement;
@@ -34,7 +38,7 @@
   <select {value} onchange={update}>
     {#each languages as language (language)}
       <option value={language}>
-        {displayLanguage(language, uiLanguage)}{isChromeOnlyLanguage(language)
+        {displayTargetLanguage(language, uiLanguage)}{isChromeOnlyLanguage(language)
           ? t('chromeOnlySuffix')
           : ''}
       </option>
