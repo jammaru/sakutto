@@ -38,19 +38,9 @@ export function pdfPageLanguage(blocks: readonly LayoutBlock[]): string | null {
   return best;
 }
 
-/** A word long enough to be prose rather than a label, unit or notation mark. */
-const PROSE_WORD = /\p{L}{3,}/gu;
-const PROSE_WORDS = 3;
+import { hasSourceProse } from './prose-detect';
 
-/**
- * True when a block carries enough real words to be prose. Short labels (`Data quality`),
- * table rows (`48`, `1.9 s`), running headers (`INTRODUCTION`) and notation (`α = β`) are
- * typesetting, not sentences; when the model returns them unchanged the reader should keep
- * the page as drawn instead of retrying them as failed translations.
- */
-export function hasSourceProse(text: string): boolean {
-  return (text.match(PROSE_WORD)?.length ?? 0) >= PROSE_WORDS;
-}
+export { hasSourceProse } from './prose-detect';
 
 function normalizedText(text: string): string {
   return text.replace(/\s+/gu, ' ').trim();

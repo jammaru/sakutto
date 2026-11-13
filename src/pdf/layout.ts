@@ -8,7 +8,7 @@ import {
   isSectionHeading,
 } from './identity';
 import { CJK_MAJORITY, cjkRatio } from './fonts';
-import { hasSourceProse } from './language';
+import { hasSourceProse } from './prose-detect';
 import { SEGMENT_GAP, isRotated, lineFrom, type TextLine, type TextPiece } from './lines';
 
 /** What kind of thing a block is, which decides its priority and how tightly it is fitted. */
