@@ -1,5 +1,5 @@
 import { fitText, growBudgetFor, type FitResult } from './fit';
-import { intersectionArea, type Box } from './geometry';
+import { boxRight, intersectionArea, type Box } from './geometry';
 import {
   verticalWriting,
   type AnyBlockRole,
@@ -141,7 +141,7 @@ export function placePage(request: PlaceRequest): PlacedBlock[] {
     };
   });
 
-  return resolveOverlaps(placed);
+  return resolveOverlaps(placed, pageWidth);
 }
 
 /** Every box that occupies space on the page: translatable blocks, skipped blocks, figures. */
@@ -226,9 +226,10 @@ export function drawnBox(block: LayoutBlock, fit: FitResult, wrap = 0, pageWidth
     ? Math.max(block.box.height + descender, fit.height)
     : Math.max(block.box.height + descender, fit.visibleLines.length * fit.lineHeight);
   const x = Math.min(block.box.x, block.room.x);
-  const width = capToPage(
+  const width = capToColumn(
     Math.max(block.room.width, block.box.width, wrap, block.advance),
     x,
+    block,
     pageWidth,
   );
   return {
@@ -354,6 +355,26 @@ function capToPage(width: number, x: number, pageWidth: number): number {
   return Math.max(1, Math.min(width, pageWidth - x - GUTTER_CLEARANCE));
 }
 
+/** Caps cover width so a translation cannot paint over the neighbour column. */
+function capToColumn(
+  width: number,
+  x: number,
+  block: Pick<LayoutBlock, 'column'>,
+  pageWidth: number,
+): number {
+  const capped = capToPage(width, x, pageWidth);
+  if (pageWidth <= 0) return capped;
+  const gutter = pageWidth * 0.49;
+  if (block.column === 0) {
+    return Math.max(1, Math.min(capped, gutter - GUTTER_CLEARANCE - x));
+  }
+  if (block.column > 0) {
+    const left = Math.max(x, gutter + GUTTER_CLEARANCE);
+    return Math.max(1, Math.min(capped, pageWidth - GUTTER_CLEARANCE - left));
+  }
+  return capped;
+}
+
 export function exceedsPage(box: Box, pageWidth: number, pageHeight: number): boolean {
   if (pageWidth > 0 && box.x + box.width > pageWidth + 1) return true;
   if (pageHeight > 0 && box.y + box.height > pageHeight + 1) return true;
@@ -380,7 +401,25 @@ const ROLE_PRIORITY: Record<AnyBlockRole, number> = {
  * keeps the page readable without withholding both translations. The dropped translation is
  * kept as overflow so the reader can still open it.
  */
-export function resolveOverlaps(placed: readonly PlacedBlock[]): PlacedBlock[] {
+/** True when overlap is only a sliver across the column gutter between neighbours. */
+export function gutterSliverOverlap(
+  firstCore: Box,
+  secondCore: Box,
+  firstColumn: number,
+  secondColumn: number,
+  pageWidth: number,
+): boolean {
+  if (pageWidth <= 0 || firstColumn === secondColumn) return false;
+  const gutter = pageWidth * 0.49;
+  const x1 = Math.max(firstCore.x, secondCore.x);
+  const x2 = Math.min(boxRight(firstCore), boxRight(secondCore));
+  const y1 = Math.max(firstCore.y, secondCore.y);
+  const y2 = Math.min(firstCore.y + firstCore.height, secondCore.y + secondCore.height);
+  if (x2 <= x1 || y2 <= y1) return false;
+  return x1 >= gutter - 8 && x2 <= gutter + 12;
+}
+
+export function resolveOverlaps(placed: readonly PlacedBlock[], pageWidth = 0): PlacedBlock[] {
   const next = placed.map((entry) => ({ ...entry }));
   for (let left = 0; left < next.length; left += 1) {
     const first = next[left];
@@ -391,6 +430,17 @@ export function resolveOverlaps(placed: readonly PlacedBlock[]): PlacedBlock[] {
       const firstCore = overlapRegion(first);
       const secondCore = overlapRegion(second);
       if (!firstCore || !secondCore) continue;
+      if (
+        gutterSliverOverlap(
+          firstCore,
+          secondCore,
+          first.block.column,
+          second.block.column,
+          pageWidth,
+        )
+      ) {
+        continue;
+      }
       if (intersectionArea(firstCore, secondCore) < OVERLAP_AREA) continue;
       const drop = whichToHide(first, second);
       if (drop === 'left') {

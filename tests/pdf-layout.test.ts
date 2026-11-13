@@ -716,6 +716,20 @@ describe('layoutPage', () => {
    * the font — LaTeX sets math in CMMI/CMSY/CMEX and nothing else uses them — so a synthetic
    * page can reproduce it by marking those pieces as `math`.
    */
+  it('keeps body words on a diagram row out of Related work prose', () => {
+    const lines = groupLines([
+      piece('Related work: In the domain of software engineering, BAs', 48, 280, 238),
+      piece('methods', 48, 292, 36),
+      piece('for', 88, 292, 14),
+      piece('feature', 120, 292, 30),
+    ]);
+    const layout = layoutPage(lines, { images: [] }, { width: 595, height: 800, index: 2 });
+    const related = layout.blocks.find((block) => block.text.includes('Related work'));
+    expect(related?.text.includes('methods')).toBe(true);
+    expect(related?.text.includes('for')).toBe(true);
+    expect(related?.text.includes('feature')).toBe(true);
+  });
+
   it('splits prose that was merged across display equation lines in another region', () => {
     const lines = groupLines([
       piece('of correctness of results, using Bayesian inference.', 309, 410, 238),

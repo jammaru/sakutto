@@ -629,6 +629,20 @@ function looksLikeTable(lines: readonly TextLine[]): boolean {
   return true;
 }
 
+/** True when a split cell reads as a diagram label, not a sentence. */
+function isDiagramLabelCell(cell: readonly TextLine[]): boolean {
+  const text = cellText(cell).trim();
+  if (text.length === 0) return true;
+  if (text.length > 26) return false;
+  if (/^Related\s+[Ww]ork\s*:/u.test(text)) return false;
+  if (/[.!?]["'”’»)\]]*$/u.test(text) && hasWords(text)) return false;
+  if (/^\p{Ll}{5,}$/u.test(text)) return false;
+  if (/^\p{Lu}/u.test(text) && text.length > 4) return false;
+  const words = text.match(/\p{L}{3,}/gu)?.length ?? 0;
+  if (words >= 3) return false;
+  return words <= 2;
+}
+
 /**
  * Joins the cells of one row that are really one run of text.
  *
@@ -648,6 +662,10 @@ function mergeRowCells(
   // A listing's line number and code run are already handled by the cell splitter; merging
   // them back into a sentence would fuse the listing with prose on the same baseline.
   if (hasListingLine(row)) return cells.map((cell) => [...cell]);
+  const diagramRow =
+    cells.length >= 4 &&
+    cells.filter((cell) => isDiagramLabelCell(cell)).length >= Math.ceil(cells.length * 0.6);
+  if (diagramRow) return cells.map((cell) => [...cell]);
   const bodyRow = isBodyFontRow(row, bodySize);
   const heights = row.map((line) => line.height);
   const uniformRow =

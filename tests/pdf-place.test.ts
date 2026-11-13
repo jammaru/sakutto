@@ -14,6 +14,7 @@ import {
   hintingPadPt,
   overlapRegion,
   paintedCoverOverlaps,
+  gutterSliverOverlap,
   placePage,
   resolveOverlaps,
   verticalCut,
@@ -400,6 +401,14 @@ describe('placePage', () => {
     expect(dropped?.paint).toBe(false);
     expect(dropped?.drawn).toBeNull();
     expect(dropped?.overflow).toBe(true);
+  });
+
+  it('ignores gutter slivers when two columns barely touch', () => {
+    const left = { x: 48, y: 100, width: 248, height: 12 };
+    const right = { x: 294, y: 100, width: 250, height: 12 };
+    expect(gutterSliverOverlap(left, right, 0, 1, 595)).toBe(true);
+    const separated = { x: 320, y: 100, width: 250, height: 12 };
+    expect(gutterSliverOverlap(left, separated, 0, 1, 595)).toBe(false);
   });
 
   it('does not clip a narrow table cell; overflow goes to a marker', () => {
