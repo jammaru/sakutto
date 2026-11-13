@@ -293,6 +293,9 @@
   "selectionIcon": {
     "message": "Traduir el texto seleccionado"
   },
+  "selectionResizeHandle": {
+    "message": "Cambiar el ancho de la ventana de traducción (doble clic para restablecer)"
+  },
   "close": {
     "message": "Cerrar"
   },
@@ -1341,6 +1344,12 @@
   },
   "videoCaptionsSizeHelp": {
     "message": "El tamaño sigue al reproductor, también en pantalla completa y teatro. Arrastre el control para previsualizar."
+  },
+  "translationPopupSizeLabel": {
+    "message": "Tamaño del texto de las ventanas de traducción"
+  },
+  "translationPopupSizeHelp": {
+    "message": "Cambia el tamaño del texto en las ventanas de traducción al pasar el cursor, al seleccionar y al redactar. Los subtítulos de vídeo tienen su propio ajuste de tamaño."
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "Sitios de subtítulos personalizados"

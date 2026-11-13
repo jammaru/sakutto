@@ -293,6 +293,9 @@
   "selectionIcon": {
     "message": "翻译所选文本"
   },
+  "selectionResizeHandle": {
+    "message": "调整翻译弹窗的宽度（双击重置）"
+  },
   "close": {
     "message": "关闭"
   },
@@ -1341,6 +1344,12 @@
   },
   "videoCaptionsSizeHelp": {
     "message": "大小会随播放器变化，包括全屏和影院模式。拖动滑块可预览。"
+  },
+  "translationPopupSizeLabel": {
+    "message": "翻译弹窗文字大小"
+  },
+  "translationPopupSizeHelp": {
+    "message": "调整悬停、划词和写作翻译弹窗中的文字大小。视频字幕使用单独的字幕大小设置。"
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "自定义字幕网站"

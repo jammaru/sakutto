@@ -293,6 +293,9 @@
   "selectionIcon": {
     "message": "แปลข้อความที่เลือก"
   },
+  "selectionResizeHandle": {
+    "message": "ปรับความกว้างของป๊อปอัปการแปล (ดับเบิลคลิกเพื่อรีเซ็ต)"
+  },
   "close": {
     "message": "ปิด"
   },
@@ -1341,6 +1344,12 @@
   },
   "videoCaptionsSizeHelp": {
     "message": "ขนาดตามเครื่องเล่น รวมทั้งเต็มจอและโหมดโรงภาพยนตร์ ลากแถบเพื่อดูตัวอย่าง"
+  },
+  "translationPopupSizeLabel": {
+    "message": "ขนาดตัวอักษรของป๊อปอัปแปล"
+  },
+  "translationPopupSizeHelp": {
+    "message": "เปลี่ยนขนาดตัวอักษรในป๊อปอัปแปลเมื่อชี้เมาส์ เมื่อเลือกข้อความ และเมื่อเขียนข้อความ คำบรรยายวิดีโอมีการตั้งค่าขนาดแยกต่างหาก"
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "ไซต์คำบรรยายที่กำหนดเอง"

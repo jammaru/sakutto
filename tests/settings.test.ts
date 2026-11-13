@@ -11,6 +11,8 @@ import {
   SETTINGS_SCHEMA_VERSION,
   createDefaultSettings,
   isTierPreference,
+  normalizeTranslationPopupSize,
+  normalizeTranslationPopupWidth,
   normalizeVideoCaptionSize,
   normalizeVideoCaptionPositions,
   needsLicenseReconsent,
@@ -24,6 +26,8 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     targetLanguage: 'en',
     form: 'polite',
     display: 'replace',
+    translationPopupSize: 100,
+    translationPopupWidth: 0,
     consent: null,
     highQualityDismissed: false,
     glossary: [],
@@ -266,6 +270,52 @@ describe('settings defaults', () => {
       videoCaptionSize: 91,
       captionCustomHosts: ['example.com', '*.ok.dev'],
     });
+  });
+
+  it('defaults translation popup text to 100% and clamps stored values', () => {
+    expect(DEFAULT_SETTINGS.translationPopupSize).toBe(100);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+        },
+        'en-US',
+      ).translationPopupSize,
+    ).toBe(100);
+    expect(normalizeTranslationPopupSize(undefined)).toBe(100);
+    expect(normalizeTranslationPopupSize(50)).toBe(80);
+    expect(normalizeTranslationPopupSize(250)).toBe(200);
+    expect(normalizeTranslationPopupSize('135.6')).toBe(136);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          translationPopupSize: 165,
+        },
+        'en-US',
+      ).translationPopupSize,
+    ).toBe(165);
+  });
+
+  it('stores a selection popup width in em and treats zero as automatic', () => {
+    expect(DEFAULT_SETTINGS.translationPopupWidth).toBe(0);
+    expect(normalizeTranslationPopupWidth(undefined)).toBe(0);
+    expect(normalizeTranslationPopupWidth('nope')).toBe(0);
+    expect(normalizeTranslationPopupWidth(0)).toBe(0);
+    expect(normalizeTranslationPopupWidth(8)).toBe(14);
+    expect(normalizeTranslationPopupWidth('21.456')).toBe(21.46);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          translationPopupWidth: 18,
+        },
+        'en-US',
+      ).translationPopupWidth,
+    ).toBe(18);
   });
 
   it('keeps caption overlay positions per site without bumping the schema', () => {

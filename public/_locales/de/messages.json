@@ -293,6 +293,9 @@
   "selectionIcon": {
     "message": "Ausgewählten Text übersetzen"
   },
+  "selectionResizeHandle": {
+    "message": "Übersetzungs-Popup in der Breite ziehen (Doppelklick zum Zurücksetzen)"
+  },
   "close": {
     "message": "Schließen"
   },
@@ -1341,6 +1344,12 @@
   },
   "videoCaptionsSizeHelp": {
     "message": "Die Größe folgt dem Player, auch im Vollbild und im Theater-Modus. Ziehen Sie den Schieberegler für eine Vorschau."
+  },
+  "translationPopupSizeLabel": {
+    "message": "Textgröße der Übersetzungs-Pop-ups"
+  },
+  "translationPopupSizeHelp": {
+    "message": "Ändert die Textgröße in Übersetzungs-Pop-ups beim Überfahren, bei Auswahl und beim Verfassen. Untertitel haben eine eigene Größenoption."
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "Eigene Untertitel-Websites"
