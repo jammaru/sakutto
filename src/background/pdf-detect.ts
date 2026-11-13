@@ -82,8 +82,12 @@ async function probePdfContentType(url: string): Promise<string | null> {
     });
     const type = peek.headers.get('content-type');
     // Headers are enough. Cancel the body so a host that ignored Range cannot send the
-    // whole file a second time.
-    await peek.body?.cancel();
+    // whole file a second time. A cancel error must not drop a type we already read.
+    try {
+      await peek.body?.cancel();
+    } catch {
+      // Keep `type`.
+    }
     controller.abort();
     if (isPdfContentType(type)) return type;
     if (pdfDocumentLooksLikePdf({ contentType: type ?? '', embedType: '', embedSrc: '' })) {

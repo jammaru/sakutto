@@ -524,6 +524,72 @@ describe('pseudocode line shapes', () => {
     ).toBe(false);
   });
 
+  it('keeps English prose with a parenthetical reference as prose, not code', () => {
+    expect(
+      looksLikeCodeLine('Translation quality improves (Table 2) if the model sees the heading.'),
+    ).toBe(false);
+    expect(
+      looksLikeCodeLine('The queue grows (Figure 2) while the reader keeps scrolling down.'),
+    ).toBe(false);
+    expect(looksLikeCodeLine('The update is written (Eq. 2) if the step is accepted.')).toBe(false);
+    expect(
+      looksLikeCodeLine('The appendix cites the result (Section 3) while the body continues.'),
+    ).toBe(false);
+
+    const lines = groupLines([
+      piece('Translation quality improves (Table 2) if the model sees the heading.', 40, 100, 400),
+      piece('The queue grows (Figure 2) while the reader keeps scrolling down.', 40, 128, 400),
+      piece(
+        'A later paragraph cites the same table (Table 2) if the reader asks for it.',
+        40,
+        160,
+        400,
+      ),
+      piece(
+        'The appendix points at the figure (Section 3) while the body continues.',
+        40,
+        188,
+        400,
+      ),
+      piece('The fitted cover is compared (Eq. 2) if the block still overflows.', 40, 216, 400),
+    ]);
+    const layout = layoutPage(lines);
+    expect(layout.skipped.some((block) => block.role === 'code')).toBe(false);
+    expect(layout.blocks.length).toBeGreaterThanOrEqual(3);
+    expect(layout.blocks.every((block) => block.role === 'prose')).toBe(true);
+    expect(layout.blocks.some((block) => block.text.includes('Translation quality improves'))).toBe(
+      true,
+    );
+    expect(layout.blocks.some((block) => block.text.includes('queue grows'))).toBe(true);
+  });
+
+  it('still treats real listing lines as code', () => {
+    expect(looksLikeCodeLine('if (x) {')).toBe(true);
+    expect(looksLikeCodeLine('const y = 1;')).toBe(true);
+    expect(looksLikeCodeLine('for each (m : evalModules) {')).toBe(true);
+    expect(looksLikeCodeLine('1 for each (m) {')).toBe(true);
+    expect(looksLikeCodeLine('emit(translate(block))')).toBe(true);
+
+    const lines = groupLines([
+      piece('evalModules = modules for the evaluation;', 80, 200, 220),
+      piece('for each (m : evalModules) {', 80, 214, 180),
+      piece('if (m.ready) {', 80, 228, 120),
+      piece('const y = calibModel.predict(m);', 80, 242, 200),
+      piece('}', 80, 256, 10),
+      piece('The listing is the procedure a reader follows on each module.', 49, 300, 400),
+    ]);
+    const layout = layoutPage(lines);
+    const code = layout.skipped.filter((block) => block.role === 'code');
+    expect(code.length).toBeGreaterThan(0);
+    const joined = code.map((block) => block.text).join(' ');
+    expect(joined).toContain('for each');
+    expect(joined).toContain('if (m.ready)');
+    expect(joined).toContain('const y =');
+    expect(layout.blocks.some((block) => block.text.includes('listing is the procedure'))).toBe(
+      true,
+    );
+  });
+
   it('keeps two-line English prose that wraps on pages; / forms; as prose, not code', () => {
     const lines = groupLines([
       piece('A translation that still does not fit is offered on two', 40, 100, 260),

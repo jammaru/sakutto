@@ -1335,7 +1335,9 @@ export function looksLikeCodeLine(text: string): boolean {
   }
   if (
     /[_=(){}[\];]/u.test(trimmed) &&
-    /\b(?:if|while|def|emit|function|const|let|var|for\s+each|for\s*\()\b/u.test(trimmed)
+    (/\b(?:if|while|for|switch|catch)\s*\(/u.test(trimmed) ||
+      /\b(?:def|function|const|let|var|class)\s+[A-Za-z_$][\w$]*\s*[=(:]/u.test(trimmed) ||
+      /\b(?:emit|print)\s*\(/u.test(trimmed))
   ) {
     return true;
   }
