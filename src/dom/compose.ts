@@ -13,6 +13,8 @@ import { displayTargetLanguage } from '@/ui/language-label';
 import {
   COMPOSE_PLACEMENTS,
   isComposePlacement,
+  normalizeTranslationPopupSize,
+  TRANSLATION_POPUP_SIZE_DEFAULT,
   type ComposeFreePoint,
   type ComposePlacement,
   type Formality,
@@ -45,7 +47,7 @@ import {
 } from './compose-field';
 import { isRecord } from '@/shared/object';
 import type { PageEngine } from './session';
-import { uiShadow } from './overlay';
+import { POPUP_TEXT_SCALE_VAR, uiShadow } from './overlay';
 
 export interface ComposeLabels {
   title: string;
@@ -90,6 +92,8 @@ export interface ComposePreferences {
   explicitTarget: boolean;
   /** One shortcut press translates and replaces, without waiting for the preview button. */
   instantReplace: boolean;
+  /** Percent text size for the translation preview in the compose panel. */
+  popupSize?: number;
   /** Shown on the Replace button, e.g. `Alt+T`. Empty when the command is off. */
   replaceShortcut: string;
   /** Global default from settings. */
@@ -166,7 +170,7 @@ const PANEL_STYLE = `
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: 14px;
+  font-size: calc(14px * var(${POPUP_TEXT_SCALE_VAR}, 1));
   line-height: 1.45;
 }
 .body:empty, .card.undo .body:empty { display: none; }
@@ -707,6 +711,14 @@ class ComposeOverlay {
     if (this.uiLanguage === language) return;
     this.uiLanguage = language;
     this.fillLanguages();
+  }
+
+  /** Resize only the translation preview; the toolbar keeps its chrome size. */
+  setPopupTextScale(percent: number): void {
+    this.panelHost.style.setProperty(
+      POPUP_TEXT_SCALE_VAR,
+      String(normalizeTranslationPopupSize(percent) / 100),
+    );
   }
 
   showIcon(anchor: DOMRect): void {
@@ -1331,6 +1343,7 @@ export class ComposeController {
     this.overlay = new ComposeOverlay(doc, options.labels);
     this.overlay.setReplaceShortcut(this.prefs.replaceShortcut);
     this.overlay.setUiLanguage(this.prefs.uiLanguage);
+    this.overlay.setPopupTextScale(this.prefs.popupSize ?? TRANSLATION_POPUP_SIZE_DEFAULT);
     this.overlay.setHandlers({
       onIcon: () => this.openFromIcon(),
       onReplace: () => {
@@ -1372,6 +1385,7 @@ export class ComposeController {
     this.prefs = prefs;
     this.overlay.setReplaceShortcut(prefs.replaceShortcut);
     this.overlay.setUiLanguage(prefs.uiLanguage);
+    this.overlay.setPopupTextScale(prefs.popupSize ?? TRANSLATION_POPUP_SIZE_DEFAULT);
     if (!prefs.enabled) {
       this.dismiss();
       this.overlay.hideIcon();

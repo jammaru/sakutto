@@ -1215,4 +1215,19 @@ describe('compose controller', () => {
     if (!(host instanceof HTMLElement)) throw new Error('missing panel');
     expect(host.dataset.placement).toBe('below');
   });
+
+  it('scales only the translation preview with the popup size setting', () => {
+    const controller = start(undefined, { popupSize: 150 });
+    const host = document.querySelector('sakutto-compose');
+    if (!(host instanceof HTMLElement)) throw new Error('missing panel');
+    expect(host.style.getPropertyValue('--sakutto-popup-scale')).toBe('1.5');
+    const style = composeShadow(host)?.querySelector('style')?.textContent ?? '';
+    expect(style).toContain('font-size: calc(14px * var(--sakutto-popup-scale, 1))');
+
+    controller.setPreferences({ ...defaultPrefs, popupSize: 80 });
+    expect(host.style.getPropertyValue('--sakutto-popup-scale')).toBe('0.8');
+
+    controller.setPreferences({ ...defaultPrefs, popupSize: 300 });
+    expect(host.style.getPropertyValue('--sakutto-popup-scale')).toBe('2');
+  });
 });

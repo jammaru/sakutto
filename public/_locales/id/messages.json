@@ -1243,6 +1243,12 @@
   "videoCaptionsSizeHelp": {
     "message": "Ukuran mengikuti pemutar, termasuk layar penuh dan teater. Seret penggeser untuk pratinjau."
   },
+  "translationPopupSizeLabel": {
+    "message": "Ukuran teks popup terjemahan"
+  },
+  "translationPopupSizeHelp": {
+    "message": "Mengubah ukuran teks di popup terjemahan saat mengarahkan kursor, memilih teks, dan menulis. Subtitle video memiliki pengaturan ukuran tersendiri."
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "Situs subtitle kustom"
   },

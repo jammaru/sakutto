@@ -24,7 +24,12 @@ import {
   isTargetLanguage,
   type TargetLanguage,
 } from '@/shared/languages';
-import type { Formality, Settings, TranslationPace } from '@/shared/settings';
+import {
+  TRANSLATION_POPUP_SIZE_DEFAULT,
+  type Formality,
+  type Settings,
+  type TranslationPace,
+} from '@/shared/settings';
 import { canonicalPageLanguage, isAlreadyTargetLanguage, languageOf } from './detect';
 import {
   collectDocuments,
@@ -107,6 +112,8 @@ export interface SessionPreferences {
   targetExplicit: boolean;
   form: Formality;
   display: 'replace' | 'bilingual';
+  /** Percent text size for the hover, selection, and status popups. */
+  popupSize?: number;
   auto: SiteAuto;
   host: string;
   context: boolean;
@@ -214,6 +221,7 @@ export function preferencesFor(
     targetExplicit: true,
     form: settings.form,
     display: rule.display ?? settings.display,
+    popupSize: settings.translationPopupSize,
     auto: rule.auto,
     host,
     context: false,
@@ -337,6 +345,7 @@ export class PageSession {
         else callback();
       });
     this.overlay = new PageOverlay(doc, options.labels);
+    this.overlay.setPopupTextScale(this.prefs.popupSize ?? TRANSLATION_POPUP_SIZE_DEFAULT);
     this.overlay.setOnClose(() => this.dismissSelection());
     this.overlay.setOnSelectionIcon(() => this.activateSelectionIcon());
     this.overlay.setBarActions({
@@ -477,6 +486,12 @@ export class PageSession {
       this.bindVisibility();
     }
     if (next.display !== previous.display) this.repaintAll();
+    if (
+      (next.popupSize ?? TRANSLATION_POPUP_SIZE_DEFAULT) !==
+      (previous.popupSize ?? TRANSLATION_POPUP_SIZE_DEFAULT)
+    ) {
+      this.overlay.setPopupTextScale(this.prefs.popupSize ?? TRANSLATION_POPUP_SIZE_DEFAULT);
+    }
     if (next.auto !== previous.auto && this.active) this.publishState();
     const languageChanged =
       next.targetLanguage !== previous.targetLanguage ||

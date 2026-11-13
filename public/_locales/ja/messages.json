@@ -1243,6 +1243,12 @@
   "videoCaptionsSizeHelp": {
     "message": "大きさはプレーヤーに合わせて変わります（全画面・シアターを含む）。スライダーを動かすとプレビューが変わります。"
   },
+  "translationPopupSizeLabel": {
+    "message": "翻訳ポップアップの文字サイズ"
+  },
+  "translationPopupSizeHelp": {
+    "message": "ホバー・選択・作文の翻訳ポップアップの文字サイズを変更します。動画の字幕は字幕用の設定で変更します。"
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "独自の字幕サイト"
   },

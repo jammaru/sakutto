@@ -1,4 +1,8 @@
 import type { EngineKind } from '@/engine/types';
+import { normalizeTranslationPopupSize, TRANSLATION_POPUP_SIZE_DEFAULT } from '@/shared/settings';
+
+/** Custom property carrying the popup text scale on each popup host. */
+export const POPUP_TEXT_SCALE_VAR = '--sakutto-popup-scale';
 
 export interface OverlayLabels {
   original: string;
@@ -65,7 +69,9 @@ sakutto-status {
   border: 1px solid #d5dde6;
   background: #ffffff;
   color: #18202d;
-  font: 12px/1.45 "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  font-size: calc(12px * var(${POPUP_TEXT_SCALE_VAR}, 1));
+  line-height: 1.45;
   box-shadow: 0 8px 24px rgb(15 23 32 / 16%);
 }
 @media (prefers-color-scheme: dark) {
@@ -82,18 +88,22 @@ const BUBBLE_STYLE = `
 .card {
   box-sizing: border-box;
   max-width: min(360px, 70vw);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
   padding: 8px 10px;
   border-radius: 10px;
   border: 1px solid #d5dde6;
   background: #ffffff;
   color: #18202d;
-  font: 12px/1.45 "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  font-size: calc(12px * var(${POPUP_TEXT_SCALE_VAR}, 1));
+  line-height: 1.45;
   box-shadow: 0 8px 24px rgb(15 23 32 / 16%);
 }
 .kicker {
   margin: 0 0 4px;
   color: #5b6675;
-  font-size: 10px;
+  font-size: calc(10px * var(${POPUP_TEXT_SCALE_VAR}, 1));
   font-weight: 700;
   letter-spacing: 0.04em;
 }
@@ -105,7 +115,7 @@ const BUBBLE_STYLE = `
 .note {
   margin: 6px 0 0;
   color: #5b6675;
-  font-size: 10px;
+  font-size: calc(10px * var(${POPUP_TEXT_SCALE_VAR}, 1));
 }
 button {
   margin-top: 8px;
@@ -420,6 +430,7 @@ export class PageOverlay {
     row.append(this.barText, actions);
     shadow.append(style, row);
     doc.documentElement.append(this.bar);
+    this.setPopupTextScale(TRANSLATION_POPUP_SIZE_DEFAULT);
   }
 
   private onOriginal: () => void = () => undefined;
@@ -470,6 +481,14 @@ export class PageOverlay {
     this.iconButton.setAttribute('aria-label', labels.selectionIcon);
     this.iconButton.title = labels.selectionIcon;
     this.bar.setAttribute('aria-label', labels.barLabel);
+  }
+
+  /** Resize the hover, selection, and status text. Style-only, safe to call on any change. */
+  setPopupTextScale(percent: number): void {
+    const scale = String(normalizeTranslationPopupSize(percent) / 100);
+    for (const host of [this.tipHost, this.popHost, this.status]) {
+      host.style.setProperty(POPUP_TEXT_SCALE_VAR, scale);
+    }
   }
 
   showBar(state: { text: string; original: string; always: string; alwaysEnabled: boolean }): void {

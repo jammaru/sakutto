@@ -1243,6 +1243,12 @@
   "videoCaptionsSizeHelp": {
     "message": "The size follows the player, including fullscreen and theater. Drag the slider to preview."
   },
+  "translationPopupSizeLabel": {
+    "message": "Translation popup text size"
+  },
+  "translationPopupSizeHelp": {
+    "message": "Changes the text size in hover, selection, and compose translation popups. Video captions use their own size setting."
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "Custom caption sites"
   },

@@ -114,6 +114,7 @@ function composePreferencesFor(
     readiness,
     explicitTarget: composeTarget !== null,
     instantReplace: settings.composeInstantReplace,
+    popupSize: settings.translationPopupSize,
     replaceShortcut,
     placement: settings.composePlacement,
     sitePlacement: rule.composePlacement ?? null,

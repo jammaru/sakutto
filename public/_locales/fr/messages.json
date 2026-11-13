@@ -1243,6 +1243,12 @@
   "videoCaptionsSizeHelp": {
     "message": "La taille suit le lecteur, y compris en plein écran et en mode théâtre. Faites glisser le curseur pour prévisualiser."
   },
+  "translationPopupSizeLabel": {
+    "message": "Taille du texte des fenêtres de traduction"
+  },
+  "translationPopupSizeHelp": {
+    "message": "Modifie la taille du texte dans les fenêtres de traduction au survol, à la sélection et lors de la rédaction. Les sous-titres vidéo ont leur propre réglage de taille."
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "Sites de sous-titres personnalisés"
   },

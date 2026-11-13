@@ -11,6 +11,7 @@ import {
   SETTINGS_SCHEMA_VERSION,
   createDefaultSettings,
   isTierPreference,
+  normalizeTranslationPopupSize,
   normalizeVideoCaptionSize,
   normalizeVideoCaptionPositions,
   needsLicenseReconsent,
@@ -24,6 +25,7 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     targetLanguage: 'en',
     form: 'polite',
     display: 'replace',
+    translationPopupSize: 100,
     consent: null,
     highQualityDismissed: false,
     glossary: [],
@@ -266,6 +268,33 @@ describe('settings defaults', () => {
       videoCaptionSize: 91,
       captionCustomHosts: ['example.com', '*.ok.dev'],
     });
+  });
+
+  it('defaults translation popup text to 100% and clamps stored values', () => {
+    expect(DEFAULT_SETTINGS.translationPopupSize).toBe(100);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+        },
+        'en-US',
+      ).translationPopupSize,
+    ).toBe(100);
+    expect(normalizeTranslationPopupSize(undefined)).toBe(100);
+    expect(normalizeTranslationPopupSize(50)).toBe(80);
+    expect(normalizeTranslationPopupSize(250)).toBe(200);
+    expect(normalizeTranslationPopupSize('135.6')).toBe(136);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          translationPopupSize: 165,
+        },
+        'en-US',
+      ).translationPopupSize,
+    ).toBe(165);
   });
 
   it('keeps caption overlay positions per site without bumping the schema', () => {

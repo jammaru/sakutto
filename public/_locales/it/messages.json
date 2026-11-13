@@ -1243,6 +1243,12 @@
   "videoCaptionsSizeHelp": {
     "message": "La dimensione segue il lettore, anche a schermo intero e in modalità teatro. Trascina il cursore per l’anteprima."
   },
+  "translationPopupSizeLabel": {
+    "message": "Dimensione del testo dei popup di traduzione"
+  },
+  "translationPopupSizeHelp": {
+    "message": "Cambia la dimensione del testo nei popup di traduzione al passaggio del mouse, alla selezione e durante la composizione. I sottotitoli video hanno un'impostazione di dimensione separata."
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "Siti di sottotitoli personalizzati"
   },

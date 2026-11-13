@@ -1243,6 +1243,12 @@
   "videoCaptionsSizeHelp": {
     "message": "Cỡ theo trình phát, gồm toàn màn hình và chế độ rạp. Kéo thanh để xem trước."
   },
+  "translationPopupSizeLabel": {
+    "message": "Cỡ chữ trong cửa sổ dịch"
+  },
+  "translationPopupSizeHelp": {
+    "message": "Thay đổi cỡ chữ trong cửa sổ dịch khi di chuột, khi bôi đen và khi soạn thảo. Phụ đề video có cài đặt cỡ chữ riêng."
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "Trang phụ đề tùy chỉnh"
   },

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildSegment } from '@/dom/segment';
 import { applyTranslation, restoreSegment } from '@/dom/render';
 import {
+  POPUP_TEXT_SCALE_VAR,
   SELECTION_ICON_PX,
   selectionIconBox,
   translationPageStyle,
@@ -3125,5 +3126,42 @@ describe('coverage reporting does not over-report', () => {
 
     expect(session.state().skipped).toBe(0);
     expect(document.documentElement.dataset.sakuttoState).toBe('translated');
+  });
+});
+
+describe('translation popup text size', () => {
+  it('scales the tooltip, selection popover, and status without translating again', () => {
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+      { popupSize: 150 },
+    );
+    const hosts = ['sakutto-tip', 'sakutto-pop', 'sakutto-status'].map((tag) => {
+      const host = document.querySelector<HTMLElement>(tag);
+      if (!host) throw new Error(`missing ${tag}`);
+      return host;
+    });
+
+    for (const host of hosts) {
+      expect(host.style.getPropertyValue(POPUP_TEXT_SCALE_VAR)).toBe('1.5');
+    }
+    const bubbleStyle =
+      uiShadow(document.querySelector('sakutto-tip'))?.querySelector('style')?.textContent ?? '';
+    expect(bubbleStyle).toContain(`var(${POPUP_TEXT_SCALE_VAR}, 1)`);
+
+    session.setPreferences(preferences({ popupSize: 80 }));
+    for (const host of hosts) {
+      expect(host.style.getPropertyValue(POPUP_TEXT_SCALE_VAR)).toBe('0.8');
+    }
+
+    // The setting is clamped and a record saved before the setting existed means 100%.
+    session.setPreferences(preferences({ popupSize: 400 }));
+    for (const host of hosts) {
+      expect(host.style.getPropertyValue(POPUP_TEXT_SCALE_VAR)).toBe('2');
+    }
+    session.setPreferences(preferences({}));
+    for (const host of hosts) {
+      expect(host.style.getPropertyValue(POPUP_TEXT_SCALE_VAR)).toBe('1');
+    }
   });
 });
