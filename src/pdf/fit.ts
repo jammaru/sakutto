@@ -121,6 +121,9 @@ export function fitText(
   let best: { fontSize: number; lines: string[]; height: number; lineHeight: number } | null = null;
   for (const size of candidates) {
     const lines = wrapText(text, request.width, (value) => request.measure(value, size), kinsoku);
+    // A wrap that still starts a line on `。` (or another head-forbidden mark) is not a fit:
+    // painting it would show a broken line, so the block goes to a marker instead.
+    if (kinsoku && hasKinsokuHeadViolation(lines)) continue;
     const layout = lineLayout(lines.length, size, leading, ceiling);
     if (layout.height <= ceiling + SLACK) {
       best = { fontSize: size, lines, height: layout.height, lineHeight: layout.lineHeight };
@@ -260,6 +263,11 @@ const KINSOKU_NO_START =
   /[、。，．・？！）\]｝」』】ゝゞ々ーァィゥェォッャュョヮぁぃぅぇぉっゃゅょゎ]/u;
 const KINSOKU_NO_END = /[[（［｛「『【]/u;
 
+/** True when a wrap still starts a line on a mark that must not begin a Japanese line. */
+export function hasKinsokuHeadViolation(lines: readonly string[]): boolean {
+  return lines.some((line) => line.length > 0 && KINSOKU_NO_START.test(line[0] ?? ''));
+}
+
 function applyKinsoku(
   lines: readonly string[],
   width: number,
@@ -334,6 +342,8 @@ function applyKinsoku(
       index -= 1;
     }
   }
+  // Hitting the budget with a line still starting on a forbidden mark is left as-is.
+  // `fitText` then fails closed (`fits: false`) rather than painting that wrap.
   return next.filter((line) => line.length > 0);
 }
 

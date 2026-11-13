@@ -1,7 +1,7 @@
 import type { Formality } from '@/shared/settings';
 import { verticalWriting, type LayoutBlock } from './layout';
 import { layoutPage } from './layout';
-import { COVER_PAD_TOP_EM, drawnBox } from './place';
+import { COVER_PAD_TOP_EM, coverPaintWidth, drawnBox } from './place';
 import { coverStyle, READER_STYLE, TextMeasurer } from './render';
 import { extractPage, renderPage, type PdfDocument } from './extract';
 import type { TextLine } from './lines';
@@ -118,6 +118,7 @@ export class PdfReader {
   private readonly observer: IntersectionObserver;
   private readonly resizeObserver: ResizeObserver | null;
   private readonly geometries: PageGeometry[];
+  private readonly geometryByIndex: ReadonlyMap<number, PageGeometry>;
   private readonly pageLimit: number | null;
   private readonly ops: Record<string, number> | null;
   private readonly parsed = new Set<number>();
@@ -139,6 +140,7 @@ export class PdfReader {
     this.labels = options.labels;
     this.onProgress = options.onProgress;
     this.geometries = [...geometries];
+    this.geometryByIndex = new Map(geometries.map((geometry) => [geometry.index, geometry]));
     this.pageLimit =
       options.pageLimit !== undefined && options.pageLimit > 0 ? options.pageLimit : null;
     this.ops = options.ops ?? null;
@@ -429,7 +431,7 @@ export class PdfReader {
 
   private applyScale(): void {
     for (const [index, element] of this.pageElements) {
-      const geometry = this.geometries[index];
+      const geometry = this.geometryByIndex.get(index);
       if (!geometry) continue;
       element.host.style.width = `${(geometry.width * this.scale).toFixed(2)}px`;
       element.host.style.height = `${(geometry.height * this.scale).toFixed(2)}px`;
@@ -671,15 +673,15 @@ export class PdfReader {
     const traits = traitsOf(block);
     const scale = this.scale;
     const visible = fit.lines;
-    const pageWidth = this.geometries.find((geometry) => geometry.index === pageIndex)?.width ?? 0;
+    const pageWidth = this.geometryByIndex.get(pageIndex)?.width ?? 0;
     const drawn = drawnBox(block, fit, fit.width, pageWidth);
     const padTop = block.fontSize * COVER_PAD_TOP_EM * scale;
+    const paintWidth = coverPaintWidth(fit.width, drawn.width);
 
     // Layout wraps to `fit.width` (the writing-direction advance on a rotated page, else the
-    // column plus a modest gutter). Painting to `box.width` alone, with `white-space:pre` and
-    // `overflow:hidden`, cuts the line ends that wrapping already fitted — on `/Rotate 90`
-    // that width is the em, about 10pt. Height follows `drawnBox` so descender padding is not
-    // stacked on top of a grown translation, which is what put two covers on top of each other.
+    // column plus a modest gutter). Painting to a `capToPage` box narrower than that wrap,
+    // with `white-space:pre` and `overflow:hidden`, cuts the last glyph. Height follows
+    // `drawnBox` so descender padding is not stacked on top of a grown translation.
     const along = Math.max(block.advance, fit.width, drawn.height) * scale;
     const box = verticalWriting(block)
       ? {
@@ -701,7 +703,7 @@ export class PdfReader {
       : {
           x: drawn.x * scale,
           y: drawn.y * scale - padTop,
-          width: drawn.width * scale,
+          width: paintWidth * scale,
           height: drawn.height * scale + padTop,
         };
 

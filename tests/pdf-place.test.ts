@@ -6,6 +6,8 @@ import { pageMetrics, metricsPass } from '@/pdf/metrics';
 import {
   COVER_DESCENDER_EM,
   clippedPaintWidth,
+  coverPaintWidth,
+  overlapRegion,
   paintedCoverOverlaps,
   placePage,
   verticalCut,
@@ -205,7 +207,8 @@ describe('placePage', () => {
     expect(metricsPass(metrics)).toBe(false);
   });
 
-  it('covers the source line box including descenders', () => {
+  it('covers 0.22em of descenders without counting that pad as overlap', () => {
+    expect(COVER_DESCENDER_EM).toBe(0.22);
     const lines = groupLines([
       piece('A heading that hangs glyphs', 40, 80, 220, { em: 14, bold: true }),
       piece(
@@ -218,11 +221,39 @@ describe('placePage', () => {
     const { placed } = place(lines);
     const painted = placed.filter((entry) => entry.paint && entry.drawn);
     expect(painted.length).toBeGreaterThan(0);
+    expect(paintedCoverOverlaps(placed)).toBe(0);
     for (const entry of painted) {
-      expect(verticalCut(entry)).toBeLessThanOrEqual(0.5);
-      expect(entry.drawn?.height ?? 0).toBeGreaterThanOrEqual(
-        entry.block.box.height + entry.block.fontSize * COVER_DESCENDER_EM - 0.01,
+      const need = entry.block.box.height + entry.block.fontSize * 0.22;
+      expect(verticalCut(entry)).toBe(0);
+      expect(entry.drawn?.height ?? 0).toBeGreaterThanOrEqual(need - 0.01);
+      const region = overlapRegion(entry);
+      expect(region?.height ?? 0).toBeLessThanOrEqual(
+        Math.max(entry.block.box.height, entry.fit?.height ?? 0) + 0.01,
       );
+    }
+  });
+
+  it('paints at least the wrap width when capToPage trims the drawn box', () => {
+    const fitWidth = 120;
+    const drawnWidth = 119.4;
+    expect(coverPaintWidth(fitWidth, drawnWidth)).toBe(fitWidth);
+    const lines = groupLines([
+      piece(
+        'A body paragraph that fills the column and continues across the page with more words.',
+        40,
+        100,
+        260,
+      ),
+    ]);
+    const { placed } = place(lines);
+    const painted = placed.filter((entry) => entry.paint && entry.fit && entry.drawn);
+    expect(painted.length).toBeGreaterThan(0);
+    for (const entry of painted) {
+      if (!entry.fit || !entry.drawn) continue;
+      expect(coverPaintWidth(entry.fit.width, entry.drawn.width)).toBeGreaterThanOrEqual(
+        entry.fit.width,
+      );
+      expect(clippedPaintWidth(entry, measure)).toBeLessThanOrEqual(0.01);
     }
   });
 
@@ -235,11 +266,10 @@ describe('placePage', () => {
       if (entry.translation.trim().length > 0) {
         expect(entry.paint || entry.overflow).toBe(true);
       }
-      if (entry.paint && entry.fit) {
+      if (entry.paint && entry.fit && entry.drawn) {
+        const painted = coverPaintWidth(entry.fit.width, entry.drawn.width);
         for (const line of entry.fit.lines) {
-          expect(measure(line, entry.fit.fontSize)).toBeLessThanOrEqual(
-            (entry.drawn?.width ?? 0) + 1,
-          );
+          expect(measure(line, entry.fit.fontSize)).toBeLessThanOrEqual(painted + 1);
         }
       }
     }

@@ -292,6 +292,21 @@ describe('PdfSession stream handling', () => {
 });
 
 describe('PDF request priority', () => {
+  it('covers every block role', () => {
+    expect(PDF_PRIORITY_ROLES).toEqual([
+      'heading',
+      'prose',
+      'caption',
+      'cell',
+      'label',
+      'equation',
+      'figure-label',
+      'code',
+      'furniture',
+      'identity',
+    ]);
+  });
+
   it('stays inside 0..MAX_PRIORITY for every distance and role', () => {
     const options = serializeTranslateOptions({
       tgt: 'ja',
@@ -320,6 +335,29 @@ describe('PDF request priority', () => {
   it('keeps a nearer page ahead of a farther one', () => {
     expect(pdfRequestPriority(0, 'label')).toBeLessThan(pdfRequestPriority(1, 'prose'));
     expect(pdfRequestPriority(1, 'heading')).toBeLessThan(pdfRequestPriority(2, 'caption'));
+  });
+
+  it('treats a non-finite distance as the focused page', () => {
+    const options = serializeTranslateOptions({
+      tgt: 'ja',
+      form: 'polite',
+      priority: 0,
+      signal: new AbortController().signal,
+    });
+    for (const distance of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      const priority = pdfRequestPriority(distance, 'prose');
+      expect(priority).toBe(pdfRequestPriority(0, 'prose'));
+      expect(priority).toBeGreaterThanOrEqual(0);
+      expect(priority).toBeLessThanOrEqual(MAX_PRIORITY);
+      expect(
+        isEngineHostRequest({
+          type: 'translate',
+          requestId: 'r1',
+          segments: [{ id: 'a', text: 'Hello.' }],
+          options: { ...options, priority },
+        }),
+      ).toBe(true);
+    }
   });
 });
 

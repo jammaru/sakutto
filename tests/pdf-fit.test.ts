@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fitText, growBudgetFor, wrapText } from '@/pdf/fit';
+import { fitText, growBudgetFor, hasKinsokuHeadViolation, wrapText } from '@/pdf/fit';
 import type { Box } from '@/pdf/geometry';
 
 /** A monospace-ish measure: one character is `size * 0.5` wide. */
@@ -107,6 +107,25 @@ function expectLinesFit(lines: readonly string[], width: number, size: number): 
 }
 
 describe('fitText', () => {
+  it('fails closed when kinsoku cannot clear a head-forbidden mark', () => {
+    expect(hasKinsokuHeadViolation(['あ', '。', 'か'])).toBe(true);
+    const wrapped = wrapText('あ。か', 5, (value) => measure(value, 10), true);
+    expect(hasKinsokuHeadViolation(wrapped)).toBe(true);
+    const result = fitText(
+      {
+        box: box(0, 0, 5, 40),
+        growBudget: 20,
+        fontSize: 10,
+        lineHeight: 1.2,
+        width: 5,
+        measure,
+      },
+      'あ。か',
+      'ja',
+    );
+    expect(result.fits).toBe(false);
+  });
+
   it('keeps the source size when the translation is short', () => {
     const result = fitText(
       {

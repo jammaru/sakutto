@@ -4,7 +4,13 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { extractPage, placeTextItem, type PdfPage } from '@/pdf/extract';
 import { layoutPage, orphanLineCount } from '@/pdf/layout';
-import { clippedPaintWidth, paintedCoverOverlaps, placePage, verticalCut } from '@/pdf/place';
+import {
+  clippedPaintWidth,
+  coverPaintWidth,
+  paintedCoverOverlaps,
+  placePage,
+  verticalCut,
+} from '@/pdf/place';
 import { stubExpand } from '@/pdf/stub';
 import { measure } from './support/pdf-pieces';
 import { openPdfBytes } from './support/open-fixture-pdf';
@@ -266,6 +272,12 @@ describe('committed layout fixtures', () => {
       expect(paintedCoverOverlaps(placed, extracted.width)).toBe(0);
       for (const entry of placed) {
         expect(verticalCut(entry)).toBeLessThanOrEqual(0.5);
+        if (entry.paint && entry.fit && entry.drawn) {
+          expect(coverPaintWidth(entry.fit.width, entry.drawn.width)).toBeGreaterThanOrEqual(
+            entry.fit.width,
+          );
+          expect(clippedPaintWidth(entry, measure)).toBeLessThanOrEqual(0.01);
+        }
         if (!entry.paint || !entry.fit || entry.fit.lines.length < 2) continue;
         for (const line of entry.fit.lines) {
           expect(line.length, line).toBeGreaterThanOrEqual(2);

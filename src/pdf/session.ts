@@ -62,14 +62,23 @@ export function isPdfBlockSettled(entry: { state: string }): boolean {
   return entry.state === 'done' || entry.state === 'failed';
 }
 
+const PDF_PRIORITY_KIND = {
+  heading: 10,
+  prose: 10,
+  caption: 30,
+  cell: 50,
+  label: 50,
+  equation: 50,
+  'figure-label': 50,
+  code: 50,
+  furniture: 50,
+  identity: 50,
+} as const satisfies Record<AnyBlockRole, number>;
+
 /** Roles a PDF request can carry; used to pin every generated priority inside the protocol. */
-export const PDF_PRIORITY_ROLES: readonly AnyBlockRole[] = [
-  'heading',
-  'prose',
-  'caption',
-  'cell',
-  'label',
-];
+export const PDF_PRIORITY_ROLES: readonly AnyBlockRole[] = Object.keys(
+  PDF_PRIORITY_KIND,
+) as AnyBlockRole[];
 
 /**
  * Queue priority for one PDF block. Lower runs first.
@@ -78,8 +87,10 @@ export const PDF_PRIORITY_ROLES: readonly AnyBlockRole[] = [
  * must stay inside `0..MAX_PRIORITY` or the offscreen host silently drops the request.
  */
 export function pdfRequestPriority(distance: number, role: AnyBlockRole): number {
-  const kind = role === 'heading' || role === 'prose' ? 10 : role === 'caption' ? 30 : 50;
-  const steps = Math.min(9, Math.max(0, Math.abs(Math.trunc(distance))));
+  const kind = PDF_PRIORITY_KIND[role] ?? 50;
+  const steps = Number.isFinite(distance)
+    ? Math.min(9, Math.max(0, Math.abs(Math.trunc(distance))))
+    : 0;
   const rank = Math.min(9, Math.floor(kind / 10));
   return Math.min(MAX_PRIORITY, steps * 10 + rank);
 }

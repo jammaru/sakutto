@@ -12,9 +12,9 @@ const GUTTER_CLEARANCE = 4;
 /**
  * Extra cover below the source box, as a fraction of em, to hide Latin descenders.
  *
- * 0.2em covers `g`/`p`/`y` without the 0.32em pad that grew covers into the next block.
+ * 0.22em covers `g`/`p`/`y` without the 0.32em pad that grew covers into the next block.
  */
-export const COVER_DESCENDER_EM = 0.12;
+export const COVER_DESCENDER_EM = 0.22;
 /** Tiny extra above the source box, as a fraction of em. Keep small so covers do not collide. */
 export const COVER_PAD_TOP_EM = 0.02;
 
@@ -217,10 +217,22 @@ export function lineOverflows(
 }
 
 /**
+ * CSS width of a horizontally-written cover, in page points.
+ *
+ * `drawnBox` may come out a fraction of a point narrower than the wrap after `capToPage`.
+ * Painting to that trimmed width with `overflow: hidden` clips the last glyph, so the cover
+ * is at least as wide as the wrap that fitted the lines.
+ */
+export function coverPaintWidth(fitWidth: number, drawnWidth: number): number {
+  return Math.max(fitWidth, drawnWidth);
+}
+
+/**
  * Extra width painted lines occupy beyond the box they are drawn in, in points.
  *
- * Horizontal writing is clipped by `drawn.width`. Vertical writing is wrapped to `fit.width`
- * and then rotated, so that wrap width is the edge that must not be crossed.
+ * Horizontal writing is clipped by the painted cover width (`max(fit.width, drawn.width)`).
+ * Vertical writing is wrapped to `fit.width` and then rotated, so that wrap width is the
+ * edge that must not be crossed. A `drawn.width` trimmed below `fit.width` counts as clip.
  */
 export function clippedPaintWidth(
   entry: PlacedBlock,
@@ -229,8 +241,11 @@ export function clippedPaintWidth(
   if (!entry.paint || !entry.fit || entry.fit.lines.length === 0) return 0;
   const along = verticalWriting(entry.block)
     ? entry.fit.width
-    : (entry.drawn?.width ?? entry.fit.width);
+    : coverPaintWidth(entry.fit.width, entry.drawn?.width ?? entry.fit.width);
   let extra = 0;
+  if (!verticalWriting(entry.block) && along < entry.fit.width) {
+    extra += entry.fit.width - along;
+  }
   for (const line of entry.fit.lines) {
     extra += Math.max(0, measure(line, entry.fit.fontSize) - along - WIDTH_SLACK);
   }
@@ -295,25 +310,40 @@ export function resolveOverlaps(placed: readonly PlacedBlock[]): PlacedBlock[] {
 }
 
 /**
- * Box used to decide whether two covers collide. Descender padding is left out so a cover
- * that only hangs below its source line to hide `g`/`p` does not knock out the row under it.
- */
-/**
- * Box the reader paints, including the tiny pad above the source. Used to pin that covers
- * do not sit on top of each other after descender padding is applied.
+ * Box the reader paints, including the tiny pad above the source and the painted width.
  */
 export function paintedCoverBox(block: LayoutBlock, fit: FitResult, wrap = 0, pageWidth = 0): Box {
   const drawn = drawnBox(block, fit, wrap, pageWidth);
   if (verticalWriting(block)) return drawn;
   const padTop = block.fontSize * COVER_PAD_TOP_EM;
-  return { x: drawn.x, y: drawn.y - padTop, width: drawn.width, height: drawn.height + padTop };
+  return {
+    x: drawn.x,
+    y: drawn.y - padTop,
+    width: coverPaintWidth(fit.width, drawn.width),
+    height: drawn.height + padTop,
+  };
 }
 
+/**
+ * Count of painted covers that sit on top of each other, ignoring descender padding.
+ *
+ * The hang below a line that hides `g`/`p` is supposed to overlap the gap, not the next
+ * cover's type. `overlapRegion` leaves that pad out so a 0.22em descender does not fail
+ * a page whose cores do not collide. Width follows the painted cover, not the capped box.
+ */
 export function paintedCoverOverlaps(placed: readonly PlacedBlock[], pageWidth = 0): number {
   const boxes: Box[] = [];
   for (const entry of placed) {
     if (!entry.paint || !entry.fit || !entry.drawn) continue;
-    boxes.push(paintedCoverBox(entry.block, entry.fit, entry.fit.width, pageWidth));
+    const region = overlapRegion(entry);
+    if (!region) continue;
+    const painted = paintedCoverBox(entry.block, entry.fit, entry.fit.width, pageWidth);
+    boxes.push({
+      x: painted.x,
+      y: region.y,
+      width: painted.width,
+      height: region.height,
+    });
   }
   let count = 0;
   for (let left = 0; left < boxes.length; left += 1) {
@@ -328,6 +358,10 @@ export function paintedCoverOverlaps(placed: readonly PlacedBlock[], pageWidth =
   return count;
 }
 
+/**
+ * Box used to decide whether two covers collide. Descender padding is left out so a cover
+ * that only hangs below its source line to hide `g`/`p` does not knock out the row under it.
+ */
 export function overlapRegion(entry: PlacedBlock): Box | null {
   if (!entry.drawn) return null;
   if (verticalWriting(entry.block)) return entry.drawn;
