@@ -9,6 +9,7 @@ import {
   folderPermissionForStatus,
   resolveFolderAccessState,
 } from '@/engine/model/folder-permission';
+import { requestFolderPermission } from '@/engine/model/shared-folder';
 
 describe('folder grant surface', () => {
   it('treats settings and onboarding as tabs that can show the restore prompt', () => {
@@ -22,6 +23,25 @@ describe('folder grant surface', () => {
     expect(folderGrantSurface('chrome-extension://id/offscreen.html')).toBe('offscreen');
     expect(folderGrantCanOfferPersistentPrompt('popup')).toBe(false);
     expect(folderGrantCanOfferPersistentPrompt('offscreen')).toBe(false);
+  });
+
+  it('queries and requests the readwrite mode a persistent grant needs', async () => {
+    const modes: string[] = [];
+    const handle = {
+      kind: 'directory',
+      name: 'Models',
+      queryPermission: async (descriptor?: { mode?: string }) => {
+        modes.push(`query:${descriptor?.mode ?? ''}`);
+        return 'prompt';
+      },
+      requestPermission: async (descriptor?: { mode?: string }) => {
+        modes.push(`request:${descriptor?.mode ?? ''}`);
+        return 'granted';
+      },
+    } as unknown as FileSystemDirectoryHandle;
+
+    expect(await requestFolderPermission(handle)).toBe('granted');
+    expect(modes).toEqual(['query:readwrite', 'request:readwrite']);
   });
 });
 

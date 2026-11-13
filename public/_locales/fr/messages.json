@@ -767,6 +767,52 @@
   "modelFolderBenefitKeep": {
     "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
   },
+  "modelImportHeading": {
+    "message": "Importer un fichier de modèle"
+  },
+  "modelImportHelp": {
+    "message": "Choisissez le fichier .gguf officiel de PLaMo. Il est transféré dans le stockage du navigateur et vérifié avant utilisation ; ensuite Sakutto ne redemandera plus le fichier."
+  },
+  "modelImportModelLabel": {
+    "message": "Modèle"
+  },
+  "modelImportChoose": {
+    "message": "Importer un fichier .gguf"
+  },
+  "modelImportExport": {
+    "message": "Exporter le fichier de modèle"
+  },
+  "modelImportExportDone": {
+    "message": "Le fichier de modèle est en cours de téléchargement."
+  },
+  "modelImportDone": {
+    "message": "Le fichier de modèle a été importé et vérifié."
+  },
+  "modelImportWrongFile": {
+    "message": "Ce fichier n’est pas le modèle PLaMo officiel ($FILE$). Choisissez le fichier .gguf officiel correspondant.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelImportFailed": {
+    "message": "Le fichier de modèle n’a pas pu être importé."
+  },
+  "modelExportMissing": {
+    "message": "Aucun fichier de modèle n’est encore disponible à l’export."
+  },
+  "modelExportFailed": {
+    "message": "Le fichier de modèle n’a pas pu être exporté."
+  },
+  "modelFolderLocationHint": {
+    "message": "Les fichiers du dossier partagé se trouvent dans <chosen>/$PATH$.",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
+  },
   "highQualityOffer": {
     "message": "Vous pouvez essayer le modèle de plus haute précision (2B, environ 1,81 Go). La vitesse dépend de cet appareil."
   },

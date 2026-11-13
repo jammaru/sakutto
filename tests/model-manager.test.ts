@@ -322,7 +322,7 @@ describe('ModelManager', () => {
     expect(await manager.fallbackCopyPresent(ENTRY.id)).toBe(false);
   });
 
-  it('moves a verified OPFS model into an empty shared folder without fetching', async () => {
+  it('copies a verified OPFS model into an empty shared folder without fetching', async () => {
     const opfs = new MemoryFileStore();
     const shared = new MemoryFileStore();
     await seedVerified(opfs);
@@ -340,8 +340,8 @@ describe('ModelManager', () => {
       PAYLOAD,
     );
     expect(shared.text(`models/${ENTRY.id}/model.json`)).toContain(ENTRY.sha256);
-    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(false);
-    expect(await manager.fallbackCopyPresent(ENTRY.id)).toBe(false);
+    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
+    expect(await manager.fallbackCopyPresent(ENTRY.id)).toBe(true);
     await manager.ensureLoaded(ENTRY.id, SELECTION);
     expect(new Uint8Array(await (await manager.modelBlob(ENTRY.id)).arrayBuffer())).toEqual(
       PAYLOAD,
@@ -361,7 +361,7 @@ describe('ModelManager', () => {
 
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(await manager.primaryReady(ENTRY.id)).toBe(true);
-    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(false);
+    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
   });
 
   it('keeps the OPFS copy when folder verification fails', async () => {
@@ -405,7 +405,7 @@ describe('ModelManager', () => {
     expect(hashBlob).toHaveBeenCalledOnce();
   });
 
-  it('unloads an OPFS-backed runtime before deleting the browser copy', async () => {
+  it('keeps the loaded OPFS runtime and browser copy after sharing the model', async () => {
     const opfs = new MemoryFileStore();
     const shared = new MemoryFileStore();
     await seedVerified(opfs);
@@ -416,12 +416,35 @@ describe('ModelManager', () => {
 
     await manager.adoptPresentModels();
 
-    expect(manager.loadedModel).toBeNull();
-    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(false);
+    expect(manager.loadedModel?.id).toBe(ENTRY.id);
+    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
     expect(await manager.primaryReady(ENTRY.id)).toBe(true);
     await manager.ensureLoaded(ENTRY.id, SELECTION);
-    expect(createRuntime).toHaveBeenCalledTimes(2);
+    expect(createRuntime).toHaveBeenCalledOnce();
     expect(manager.loadedModel?.id).toBe(ENTRY.id);
+  });
+
+  it('falls back to the retained OPFS copy when the shared folder is revoked', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    await seedVerified(opfs);
+    const { manager, createRuntime } = createManager(shared, { fallbackStore: opfs });
+    await manager.adoptPresentModels();
+    expect(await manager.primaryReady(ENTRY.id)).toBe(true);
+
+    const originalStat = shared.stat.bind(shared);
+    shared.stat = async () => null;
+    shared.read = async () => {
+      throw new DOMException('Permission denied.', 'NotAllowedError');
+    };
+    try {
+      expect(await manager.status(ENTRY.id)).toMatchObject({ state: 'ready' });
+      await manager.ensureLoaded(ENTRY.id, SELECTION);
+      expect(createRuntime).toHaveBeenCalledOnce();
+      expect(manager.loadedModel?.id).toBe(ENTRY.id);
+    } finally {
+      shared.stat = originalStat;
+    }
   });
 
   it('leaves no valid shared file when an OPFS copy is interrupted', async () => {

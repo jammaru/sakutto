@@ -767,6 +767,52 @@
   "modelFolderBenefitKeep": {
     "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
   },
+  "modelImportHeading": {
+    "message": "导入模型文件"
+  },
+  "modelImportHelp": {
+    "message": "选择官方 PLaMo .gguf 文件。它会以流式写入浏览器存储，并在使用前校验；之后 Sakutto 不会再要求选择文件。"
+  },
+  "modelImportModelLabel": {
+    "message": "模型"
+  },
+  "modelImportChoose": {
+    "message": "导入 .gguf 文件"
+  },
+  "modelImportExport": {
+    "message": "导出模型文件"
+  },
+  "modelImportExportDone": {
+    "message": "正在下载模型文件。"
+  },
+  "modelImportDone": {
+    "message": "模型文件已导入并通过校验。"
+  },
+  "modelImportWrongFile": {
+    "message": "该文件不是官方 PLaMo 模型（$FILE$）。请选择匹配的官方 .gguf 文件。",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelImportFailed": {
+    "message": "无法导入模型文件。"
+  },
+  "modelExportMissing": {
+    "message": "尚无可导出的模型文件。"
+  },
+  "modelExportFailed": {
+    "message": "无法导出模型文件。"
+  },
+  "modelFolderLocationHint": {
+    "message": "共享文件夹中的文件位于 <chosen>/$PATH$",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
+  },
   "highQualityOffer": {
     "message": "你可以尝试精度更高的模型（2B，约 1.81 GB）。速度取决于这款设备。"
   },

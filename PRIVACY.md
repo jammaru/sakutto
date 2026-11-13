@@ -28,7 +28,7 @@ The developer does not receive your page text, your selections, your glossary, o
 
 ## How translation works
 
-PLaMo 3 Translate runs inside the extension on your device. The model file is not bundled with the extension: the extension downloads it from Hugging Face the first time it needs it, and keeps it on your device. After that, PLaMo translation does not need a network connection. By default that file stays in this browser. In Chrome, Edge, and other Chromium browsers you can choose a folder on this computer instead, so more than one of those browsers can use the same file. The folder stays on your device. Nothing is sent. Firefox keeps the model in the browser.
+PLaMo 3 Translate runs inside the extension on your device. The model file is not bundled with the extension: the extension downloads it from Hugging Face the first time it needs it, and keeps it on your device. After that, PLaMo translation does not need a network connection. By default that file stays in this browser. Firefox, and Chromium users who prefer not to use a shared folder, can import the official `.gguf` file once; it is streamed into browser storage and checked before use. In Chrome, Edge, and other Chromium browsers you can also choose a folder on this computer, so more than one of those browsers can use the same file. The folder and the browser copy stay on your device. Nothing is sent.
 
 On Chrome, for language pairs PLaMo does not support, the extension uses Chrome's built-in translator, which also runs on the device. Chrome downloads the language packs for those pairs itself. When a page does not say what language it is in, Chrome's built-in language detector may look at some of the page text to work it out. These are Chrome features running on your device. They are not uploads that this extension sends to the developer or to Preferred Networks.
 
@@ -51,7 +51,7 @@ The extension keeps the following on your device and does not send it to the dev
 - your settings, such as the target language and the reading style;
 - your glossary and your per-site rules;
 - a record that you accepted the license;
-- the model file (by default in this browser; optionally, in Chrome, Edge, and other Chromium browsers, in a folder you choose on this computer). Choosing a shared folder moves a model already in this browser into that folder so another profile can use it without downloading again;
+- the model file (by default in this browser; optionally, in Chrome, Edge, and other Chromium browsers, in a folder you choose on this computer). Choosing a shared folder copies a model already in this browser into that folder so another profile can use it without downloading again; the browser copy stays as a fallback until you delete it in Settings;
 - a local translation cache, so that the same text does not have to be translated twice;
 - an optional local-server API key, stored in plain text in chrome.storage.local.
 
@@ -103,7 +103,7 @@ Sakutto は非公式の拡張機能です。Preferred Networks, Inc. の製品�
 
 ## 翻訳のしくみ
 
-PLaMo 3 Translate は、拡張機能の中で、端末上で動きます。モデルのファイルは拡張機能に同梱しておらず、最初に必要になったときに Hugging Face から取得して端末に保存します。そのあとは、PLaMo の翻訳に通信は要りません。既定では、そのファイルはこのブラウザ内に置きます。Chrome や Edge など Chromium 系ブラウザでは、このパソコン上のフォルダを選んで、複数のブラウザで同じファイルを使えます。フォルダは端末の中にあります。どこかへ送ることはありません。Firefox では、モデルはこのブラウザ内のままです。
+PLaMo 3 Translate は、拡張機能の中で、端末上で動きます。モデルのファイルは拡張機能に同梱しておらず、最初に必要になったときに Hugging Face から取得して端末に保存します。そのあとは、PLaMo の翻訳に通信は要りません。既定では、そのファイルはこのブラウザ内に置きます。Firefox や、共有フォルダを使わない Chromium 系ブラウザでは、公式の `.gguf` ファイルを一度だけインポートできます。ファイルはブラウザー内のストレージへ分割して保存し、使用前に検証します。Chrome や Edge など Chromium 系ブラウザでは、このパソコン上のフォルダを選んで、複数のブラウザで同じファイルを使うこともできます。フォルダもブラウザー内のコピーも端末の中にあり、どこかへ送ることはありません。
 
 Chrome では、PLaMo が対応していない言語の組み合わせに Chrome 内蔵の翻訳を使います。これも端末の中で動きます。その言語の言語パックは Chrome 自身が取得します。ページが言語を示していないときは、Chrome 内蔵の言語判定が、ページの文字の一部を見ることがあります。いずれも端末上で動く Chrome の機能です。この拡張機能が開発者や Preferred Networks へ送るものではありません。
 
@@ -126,7 +126,7 @@ Chrome ウェブストアまたは addons.mozilla.org から入れた場合、�
 - 翻訳先の言語や文体などの設定
 - 用語集とサイトごとの規則
 - ライセンスに同意したことの記録
-- モデルのファイル（既定はこのブラウザ内。Chrome や Edge など Chromium 系ブラウザでは、このパソコン上で選んだフォルダにも置けます）。共有フォルダを選ぶと、すでにこのブラウザ内にあるモデルをそのフォルダへ移すので、別のプロファイルは再ダウンロードなしで使えます
+- モデルのファイル（既定はこのブラウザ内。Chrome や Edge など Chromium 系ブラウザでは、このパソコン上で選んだフォルダにも置けます）。共有フォルダを選ぶと、すでにこのブラウザ内にあるモデルをそのフォルダへコピーするので、別のプロファイルは再ダウンロードなしで使えます。ブラウザー内のコピーは、設定で削除するまでフォールバックとして残ります
 - 翻訳キャッシュ（同じ文章を二度訳さずに済ませるための、端末内の保存）
 - 任意のローカルサーバー API キー（chrome.storage.local に平文で保存します）
 

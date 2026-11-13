@@ -767,6 +767,52 @@
   "modelFolderBenefitKeep": {
     "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
   },
+  "modelImportHeading": {
+    "message": "นำเข้าไฟล์โมเดล"
+  },
+  "modelImportHelp": {
+    "message": "เลือกไฟล์ .gguf ทางการของ PLaMo ไฟล์จะถูกสตรีมไปยังพื้นที่จัดเก็บของเบราว์เซอร์และตรวจสอบก่อนใช้งาน หลังจากนั้น Sakutto จะไม่ขอไฟล์อีก"
+  },
+  "modelImportModelLabel": {
+    "message": "โมเดล"
+  },
+  "modelImportChoose": {
+    "message": "นำเข้าไฟล์ .gguf"
+  },
+  "modelImportExport": {
+    "message": "ส่งออกไฟล์โมเดล"
+  },
+  "modelImportExportDone": {
+    "message": "กำลังดาวน์โหลดไฟล์โมเดล"
+  },
+  "modelImportDone": {
+    "message": "นำเข้าและตรวจสอบไฟล์โมเดลแล้ว"
+  },
+  "modelImportWrongFile": {
+    "message": "ไฟล์นี้ไม่ใช่โมเดล PLaMo ทางการ ($FILE$) โปรดเลือกไฟล์ .gguf ทางการที่ตรงกัน",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelImportFailed": {
+    "message": "นำเข้าไฟล์โมเดลไม่สำเร็จ"
+  },
+  "modelExportMissing": {
+    "message": "ยังไม่มีไฟล์โมเดลให้ส่งออก"
+  },
+  "modelExportFailed": {
+    "message": "ส่งออกไฟล์โมเดลไม่สำเร็จ"
+  },
+  "modelFolderLocationHint": {
+    "message": "ไฟล์ในโฟลเดอร์ที่แชร์อยู่ที่ <chosen>/$PATH$",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
+  },
   "highQualityOffer": {
     "message": "คุณสามารถลองใช้โมเดลที่มีความแม่นยำสูงกว่า (2B, ประมาณ 1.81 GB) ได้ ความเร็วจะขึ้นอยู่กับอุปกรณ์นี้"
   },

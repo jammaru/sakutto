@@ -1,12 +1,13 @@
 # Shared model folder (Chromium File System Access)
 
 Opt-in storage for official PFN GGUF files on Chromium, via
-`showDirectoryPicker`. Firefox and pages without a picker keep OPFS and show
-no choice. Chromium first-run (Chrome and Edge alike) recommends browser
-storage (OPFS). The shared folder is an opt-in for people who use both
-Chrome and Edge, so one GGUF copy is shared between them. A profile that
-already uses a folder keeps it; there is no forced migration. Proposal 2 (a
-native helper) is out of scope.
+`showDirectoryPicker`. Chromium first-run (Chrome and Edge alike) recommends
+browser storage (OPFS). The shared folder is an opt-in for people who use
+both Chrome and Edge, so one GGUF copy is shared between them. A profile that
+already uses a folder keeps it; there is no forced migration. Firefox and
+pages without a picker keep OPFS and show no folder choice; Firefox users can
+import the official `.gguf` file once from Settings or onboarding instead.
+Proposal 2 (a native helper) is out of scope.
 
 This note names no issue authors. The picker copy and the Chromium blocklist
 below are the reason Documents itself is not an advertised choice.
@@ -23,17 +24,21 @@ and Edge together; the picker steps and the persistence hint sit under it.
 The popup never asks an OPFS user to move. After first-run browser storage,
 the folder stays a quiet Settings option (“Share the model between Chrome
 and Edge” / 「ChromeとEdgeでモデルを共有する」). Grant from the Settings
-tab and pick “Allow on every visit” (Japanese Chrome:
-「サイトアクセス時は常に許可」; Japanese Edge:
-「アクセスするたびに確認する」). A one-click re-grant may sometimes be
-needed. Cancel or Chrome's block dialog stays on the screen with the same
+tab and pick “Allow on every visit” when the browser offers it (Japanese
+Chrome: 「サイトアクセス時は常に許可」; Japanese Edge: 「常に許可」). A
+one-click re-grant may sometimes be needed, and the OPFS copy stays as a
+fallback until you delete it. Cancel or Chrome's block dialog stays on the screen with the same
 one-line hint and does not download.
 
-A Settings pick runs `showDirectoryPicker` and `requestPermission` on that
-tab (Chrome can offer “Allow on every visit”). The copy into the folder
-still verifies size and SHA-256, then deletes the OPFS original so disk holds
-one copy. Folder reload drops the previous runtime so the next request does
-not keep reading a deleted OPFS blob.
+A Settings pick runs `showDirectoryPicker` and
+`requestPermission({ mode: 'readwrite' })` on that tab, so Chrome can offer
+“Allow on every visit” (Japanese Chrome: 「サイトアクセス時は常に許可」;
+Japanese Edge: 「常に許可」). A popup click is this-visit only, and offscreen
+never calls `requestPermission`. The copy into the folder verifies size and
+SHA-256. The verified OPFS copy is retained as a fallback, because a read
+that succeeds now does not prove Chrome stored extended permission; it is
+deleted only by the user's **Delete browser copy** control. Folder reload
+drops the previous runtime so the next request reopens the chosen store.
 
 Chrome can drop the directory grant when the last tracked page of the origin
 closes. Offscreen cannot call `requestPermission`. The product flow is B + C:
@@ -45,8 +50,26 @@ Layout after a successful pick:
 
 `<chosen>/sakutto-models/<official GGUF>`
 
-The usual chosen folder is `Documents/Sakutto`. Integrity sidecars are
-`<official name>.verified.json`. In-flight downloads use `.part`.
+The usual chosen folder is `Documents/Sakutto`. The Settings copy names this
+path. Integrity sidecars are `<official name>.verified.json`. In-flight
+imports and downloads use `.part`.
+
+## One-time file import (Firefox and optional Chromium)
+
+Settings and onboarding accept a local `.gguf` file with
+`<input type="file" accept=".gguf">`. Sakutto streams it into
+`OpfsModelFileStore` at `sakutto/models/<modelId>/model.gguf`, writing a
+`.part` file while hashing the chunks, then checks the pinned size and
+SHA-256 from `catalog.ts`. A wrong file is rejected and the `.part` is
+removed; progress and cancel stay available for files up to ~1.7 GB, and the
+whole file is never loaded into memory. Once the import verifies, the same
+OPFS model is used without another file prompt. Chromium shows the same
+control for people who prefer not to use a shared folder.
+
+**Export model file** opens the browser's normal download for the installed
+GGUF. Chromium reads the OPFS copy first and falls back to the chosen shared
+folder when OPFS was deleted; Firefox uses the OPFS file. No extra manifest
+permission is involved.
 
 ## Chromium will not grant well-known roots
 

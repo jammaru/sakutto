@@ -252,11 +252,11 @@ describe('locale messages', () => {
     expect(ja.modelFolderPersistentHint?.message).not.toMatch(/必ず|二度と|毎回クリック/);
     expect(ja.modelFolderPersistentHint?.message).toContain('出ないこともあります');
     expect(en.modelFolderPersistentHint?.message).toContain('サイトアクセス時は常に許可');
-    expect(en.modelFolderPersistentHint?.message).toContain('アクセスするたびに確認する');
-    expect(en.modelFolderPersistentHint?.message).not.toContain('アクセスするたびに許可する');
+    expect(en.modelFolderPersistentHint?.message).toContain('常に許可');
+    expect(en.modelFolderPersistentHint?.message).not.toContain('アクセスするたびに確認する');
     expect(ja.modelFolderPersistentHint?.message).toContain('サイトアクセス時は常に許可');
-    expect(ja.modelFolderPersistentHint?.message).toContain('アクセスするたびに確認する');
-    expect(ja.modelFolderPersistentHint?.message).not.toContain('アクセスするたびに許可する');
+    expect(ja.modelFolderPersistentHint?.message).toContain('常に許可');
+    expect(ja.modelFolderPersistentHint?.message).not.toContain('アクセスするたびに確認する');
     for (const locale of catalogs) {
       expect(readMessages(locale).modelFolderBenefitSpace?.message, locale).toContain('$SIZE$');
       expect(readMessages(locale).modelFolderBenefitSpace?.message, locale).not.toMatch(

@@ -85,6 +85,23 @@ describe('start controls while the model downloads', () => {
     expect(modelManager).toMatch(/downloading \|\| verifying[\s\S]{0,800}downloadCancel/);
   });
 
+  it('offers the one-time model file import on settings and onboarding', () => {
+    const tools = source('ui/ModelFileTools.svelte');
+    expect(tools).toContain('accept=".gguf"');
+    expect(tools).toContain('importModelFile');
+    expect(tools).toContain('exportModelFile');
+    expect(source('entrypoints/options/App.svelte')).toContain('ModelFileTools');
+    expect(source('entrypoints/onboarding/App.svelte')).toContain('ModelFileTools');
+    expect(source('ui/ModelFolderSettings.svelte')).toContain('modelFolderLocationHint');
+  });
+
+  it('never asks for folder permission from the engine host or a content script', () => {
+    expect(source('engine/offscreen/host.ts')).not.toContain('requestFolderPermission');
+    expect(source('engine/offscreen/host.ts')).not.toContain('requestPermission');
+    expect(source('entrypoints/content.ts')).not.toContain('requestPermission');
+    expect(source('engine/model/folder-session.ts')).not.toContain('requestPermission(');
+  });
+
   it('does not offer a download button for a model that is already loading', () => {
     // `loading` means the file is on disk and the runtime is reading it: a Download control
     // there is a start action for work that is already running.

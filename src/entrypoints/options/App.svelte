@@ -30,6 +30,7 @@
   import GpuDiagnosticView from '@/ui/GpuDiagnostic.svelte';
   import LanguageField from '@/ui/LanguageField.svelte';
   import GlossaryEditor from '@/ui/GlossaryEditor.svelte';
+  import ModelFileTools from '@/ui/ModelFileTools.svelte';
   import ModelFolderSettings from '@/ui/ModelFolderSettings.svelte';
   import ModelManager from '@/ui/ModelManager.svelte';
   import { runtimeLabel } from '@/ui/runtime-label';
@@ -392,6 +393,7 @@
   <section class="panel">
     <h2>{t('modelHeading')}</h2>
     <ModelManager />
+    <ModelFileTools />
     <ModelFolderSettings />
     {#if showSlow}
       <p class="muted help">{t('slowDeviceHint')}</p>

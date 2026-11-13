@@ -15,6 +15,7 @@
     shouldHighlightFolderPicker,
   } from '@/engine/model/folder-offer';
   import {
+    SHARED_MODELS_DIRECTORY,
     adoptPickedSharedFolder,
     clearStoredSharedFolder,
     sharedFolderPickerAvailable,
@@ -147,6 +148,11 @@
     <h3>{t('modelFolderHeading')}</h3>
     <p class="muted help">{t('modelFolderPickerHint')}</p>
     <p class="muted help">{t('modelFolderHelp')}</p>
+    <p class="muted help">
+      {t('modelFolderLocationHint', [
+        `${SHARED_MODELS_DIRECTORY}/${getModel(DEFAULT_MODEL_ID).file}`,
+      ])}
+    </p>
     <p class="muted help">{t('modelFolderPersistentHint')}</p>
     <SharedFolderBenefits leadKey="modelFolderBenefitsLead" sizeLabel={folderSizeLabel} />
 

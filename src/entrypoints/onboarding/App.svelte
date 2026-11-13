@@ -52,6 +52,7 @@
   import { loadSettings, saveSettings } from '@/shared/storage';
   import { prepareTranslatorPack } from '@/shared/translator-pack';
   import FolderPermissionRestore from '@/ui/FolderPermissionRestore.svelte';
+  import ModelFileTools from '@/ui/ModelFileTools.svelte';
   import SharedFolderBenefits from '@/ui/SharedFolderBenefits.svelte';
   import { estimateRemainingMs, type ByteMark } from '@/ui/download-eta';
   import { formatByteSize, formatByteSizeList } from '@/ui/format';
@@ -629,6 +630,14 @@
       {#if pickError}
         <p class="error" role="alert">{pickError}</p>
       {/if}
+      <ModelFileTools
+        onImported={async (imported) => {
+          if (imported === DEFAULT_MODEL_ID) {
+            const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
+            if (inspected) applyStatus(inspected);
+          }
+        }}
+      />
       <p id="start-notice" class="start-note">{t('onboardingConsentSentence')}</p>
     {/if}
     {#if folderBlocked}

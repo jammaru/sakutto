@@ -176,10 +176,10 @@ export class ModelManager {
   }
 
   /**
-   * Hash any correctly-sized files already in the primary store, then move each
-   * verified official OPFS model that the folder does not already have. Used after
-   * the user picks a shared folder so Chrome profile A can share with Edge without
-   * a network download. The OPFS file is deleted only after the folder copy verifies.
+   * Hash any correctly-sized files already in the primary store, then copy each verified
+   * official OPFS model that the folder does not already have. Used after the user picks a
+   * shared folder so Chrome profile A can share with Edge without a network download.
+   * The OPFS copy is kept as a fallback until the user deletes it from Settings.
    */
   async adoptPresentModels(options: { signal?: AbortSignal } = {}): Promise<void> {
     const signal = options.signal ?? new AbortController().signal;
@@ -436,9 +436,9 @@ export class ModelManager {
   }
 
   /**
-   * Move a verified official OPFS model into the primary (shared) store when that
-   * store does not already have a valid file. Never overwrites a wrong-sized folder
-   * file. The OPFS copy is removed only after size and SHA-256 succeed.
+   * Copy a verified official OPFS model into the primary (shared) store when that store
+   * does not already have a valid file. Never overwrites a wrong-sized folder file. The
+   * OPFS copy is retained as a fallback for a later lost-folder-permission visit.
    */
   private async copyOneFallback(
     modelId: ModelId,
@@ -511,7 +511,6 @@ export class ModelManager {
 
     this.errors.delete(modelId);
     await this.writeVerifiedManifest(this.store, modelId);
-    await this.dropFallbackAfterVerifiedMove(modelId);
     this.notify({
       id: modelId,
       state: 'ready',
@@ -520,24 +519,6 @@ export class ModelManager {
       progress: 1,
     });
     return true;
-  }
-
-  /**
-   * Drop the OPFS file only after the folder copy is verified. Unload first so an
-   * in-flight runtime cannot keep reading the OPFS blob while it is removed.
-   */
-  private async dropFallbackAfterVerifiedMove(modelId: ModelId): Promise<void> {
-    if (!this.fallbackStore) return;
-    const drop = async (): Promise<void> => {
-      if (this.loaded?.id === modelId) await this.unload();
-      await this.fallbackStore?.removeDirectory(this.modelDirectory(modelId));
-    };
-    const run = this.loadChain.then(drop, drop);
-    this.loadChain = run.then(
-      () => undefined,
-      () => undefined,
-    );
-    await run;
   }
 
   private kickVerify(store: ModelFileStore, modelId: ModelId): void {

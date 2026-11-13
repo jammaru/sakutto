@@ -767,6 +767,52 @@
   "modelFolderBenefitKeep": {
     "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
   },
+  "modelImportHeading": {
+    "message": "Impor file model"
+  },
+  "modelImportHelp": {
+    "message": "Pilih file .gguf PLaMo resmi. File dialirkan ke penyimpanan browser dan diperiksa sebelum digunakan; setelah itu Sakutto tidak akan meminta file lagi."
+  },
+  "modelImportModelLabel": {
+    "message": "Model"
+  },
+  "modelImportChoose": {
+    "message": "Impor file .gguf"
+  },
+  "modelImportExport": {
+    "message": "Ekspor file model"
+  },
+  "modelImportExportDone": {
+    "message": "File model sedang diunduh."
+  },
+  "modelImportDone": {
+    "message": "File model berhasil diimpor dan diverifikasi."
+  },
+  "modelImportWrongFile": {
+    "message": "File itu bukan model PLaMo resmi ($FILE$). Pilih file .gguf resmi yang cocok.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelImportFailed": {
+    "message": "File model tidak dapat diimpor."
+  },
+  "modelExportMissing": {
+    "message": "Belum ada file model untuk diekspor."
+  },
+  "modelExportFailed": {
+    "message": "File model tidak dapat diekspor."
+  },
+  "modelFolderLocationHint": {
+    "message": "File folder bersama berada di <chosen>/$PATH$.",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
+  },
   "highQualityOffer": {
     "message": "Anda bisa mencoba model dengan akurasi lebih tinggi (2B, sekitar 1,81 GB). Kecepatannya bergantung pada perangkat ini."
   },

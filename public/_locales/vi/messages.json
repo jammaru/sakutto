@@ -767,6 +767,52 @@
   "modelFolderBenefitKeep": {
     "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
   },
+  "modelImportHeading": {
+    "message": "Nhập tệp mô hình"
+  },
+  "modelImportHelp": {
+    "message": "Chọn tệp .gguf chính thức của PLaMo. Tệp được truyền vào bộ nhớ trình duyệt và kiểm tra trước khi dùng; sau đó Sakutto sẽ không yêu cầu tệp lại nữa."
+  },
+  "modelImportModelLabel": {
+    "message": "Mô hình"
+  },
+  "modelImportChoose": {
+    "message": "Nhập tệp .gguf"
+  },
+  "modelImportExport": {
+    "message": "Xuất tệp mô hình"
+  },
+  "modelImportExportDone": {
+    "message": "Tệp mô hình đang được tải xuống."
+  },
+  "modelImportDone": {
+    "message": "Tệp mô hình đã được nhập và xác minh."
+  },
+  "modelImportWrongFile": {
+    "message": "Tệp này không phải mô hình PLaMo chính thức ($FILE$). Hãy chọn tệp .gguf chính thức tương ứng.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelImportFailed": {
+    "message": "Không thể nhập tệp mô hình."
+  },
+  "modelExportMissing": {
+    "message": "Chưa có tệp mô hình để xuất."
+  },
+  "modelExportFailed": {
+    "message": "Không thể xuất tệp mô hình."
+  },
+  "modelFolderLocationHint": {
+    "message": "Tệp trong thư mục chia sẻ nằm tại <chosen>/$PATH$.",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
+  },
   "highQualityOffer": {
     "message": "Bạn có thể dùng thử mô hình có độ chính xác cao hơn (2B, khoảng 1,81 GB). Tốc độ tùy thuộc vào thiết bị này."
   },

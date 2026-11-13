@@ -726,7 +726,7 @@
     "message": "Open the Sakutto popup or Settings and tap Allow folder access."
   },
   "modelFolderPersistentHint": {
-    "message": "Grant access from the Settings tab, not the popup. If the browser offers “Allow on every visit”, pick that. Japanese Chrome labels it 「サイトアクセス時は常に許可」; Japanese Edge labels it 「アクセスするたびに確認する」. A one-click re-grant may sometimes be needed."
+    "message": "Grant access from the Settings tab, not the popup. If the browser offers “Allow on every visit”, pick that. Japanese Chrome labels it 「サイトアクセス時は常に許可」; Japanese Edge labels it 「常に許可」. A one-click re-grant may sometimes be needed."
   },
   "modelFolderPickFailed": {
     "message": "The folder could not be selected."
@@ -766,6 +766,52 @@
   },
   "modelFolderBenefitKeep": {
     "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
+  },
+  "modelImportHeading": {
+    "message": "Import a model file"
+  },
+  "modelImportHelp": {
+    "message": "Choose the official PLaMo .gguf file. It is streamed into browser storage and checked before use; after that Sakutto will not ask for the file again."
+  },
+  "modelImportModelLabel": {
+    "message": "Model"
+  },
+  "modelImportChoose": {
+    "message": "Import .gguf file"
+  },
+  "modelImportExport": {
+    "message": "Export model file"
+  },
+  "modelImportExportDone": {
+    "message": "The model file is downloading."
+  },
+  "modelImportDone": {
+    "message": "The model file was imported and verified."
+  },
+  "modelImportWrongFile": {
+    "message": "That file is not the official PLaMo model ($FILE$). Choose the matching official .gguf file.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelImportFailed": {
+    "message": "The model file could not be imported."
+  },
+  "modelExportMissing": {
+    "message": "There is no model file to export yet."
+  },
+  "modelExportFailed": {
+    "message": "The model file could not be exported."
+  },
+  "modelFolderLocationHint": {
+    "message": "Shared folder files live in <chosen>/$PATH$.",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
   },
   "highQualityOffer": {
     "message": "You can try the higher-accuracy model (2B, about 1.81 GB). Speed depends on this device."

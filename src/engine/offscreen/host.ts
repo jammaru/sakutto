@@ -754,11 +754,7 @@ export class EngineHost {
         throw folderPermissionError();
       }
 
-      const snapshot = await this.prewarmSnapshot();
-      if (!snapshot?.consented) {
-        return services.manager.status(modelId);
-      }
-
+      // The service worker checks license consent before it forwards model:download.
       await services.manager.download(modelId, {
         signal: controller.signal,
         onProgress: (progress) => {

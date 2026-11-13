@@ -767,6 +767,52 @@
   "modelFolderBenefitKeep": {
     "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
   },
+  "modelImportHeading": {
+    "message": "Modelldatei importieren"
+  },
+  "modelImportHelp": {
+    "message": "Wähle die offizielle PLaMo-.gguf-Datei. Sie wird in den Browser-Speicher gestreamt und vor der Verwendung geprüft; danach fragt Sakutto nicht erneut nach der Datei."
+  },
+  "modelImportModelLabel": {
+    "message": "Modell"
+  },
+  "modelImportChoose": {
+    "message": ".gguf-Datei importieren"
+  },
+  "modelImportExport": {
+    "message": "Modelldatei exportieren"
+  },
+  "modelImportExportDone": {
+    "message": "Die Modelldatei wird heruntergeladen."
+  },
+  "modelImportDone": {
+    "message": "Die Modelldatei wurde importiert und geprüft."
+  },
+  "modelImportWrongFile": {
+    "message": "Diese Datei ist nicht das offizielle PLaMo-Modell ($FILE$). Wähle die passende offizielle .gguf-Datei.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelImportFailed": {
+    "message": "Die Modelldatei konnte nicht importiert werden."
+  },
+  "modelExportMissing": {
+    "message": "Es ist noch keine Modelldatei zum Exportieren vorhanden."
+  },
+  "modelExportFailed": {
+    "message": "Die Modelldatei konnte nicht exportiert werden."
+  },
+  "modelFolderLocationHint": {
+    "message": "Dateien im geteilten Ordner liegen unter <chosen>/$PATH$.",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
+  },
   "highQualityOffer": {
     "message": "Sie können das Modell mit höherer Genauigkeit ausprobieren (2B, ca. 1,81 GB). Die Geschwindigkeit hängt von diesem Gerät ab."
   },

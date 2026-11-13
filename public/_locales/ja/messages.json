@@ -726,7 +726,7 @@
     "message": "Sakuttoのポップアップか設定を開いて、「フォルダへのアクセスを許可」を押してください。"
   },
   "modelFolderPersistentHint": {
-    "message": "設定タブで許可してください（ポップアップではなく）。Chromeなら「サイトアクセス時は常に許可」、Edgeなら「アクセスするたびに確認する」を選んでください。再起動のあとも使えます。出ないこともあります。あとでワンクリックの再許可が必要なこともあります。"
+    "message": "設定タブで許可してください（ポップアップではなく）。Chromeなら「サイトアクセス時は常に許可」、Edgeなら「常に許可」を選んでください。再起動のあとも使えます。出ないこともあります。あとでワンクリックの再許可が必要なこともあります。"
   },
   "modelFolderPickFailed": {
     "message": "フォルダを選べませんでした。"
@@ -766,6 +766,52 @@
   },
   "modelFolderBenefitKeep": {
     "message": "ブラウザのデータを消してもファイルは残る。同じフォルダを選べば再ダウンロード不要"
+  },
+  "modelImportHeading": {
+    "message": "モデルファイルをインポート"
+  },
+  "modelImportHelp": {
+    "message": "公式のPLaMo .ggufファイルを選んでください。ブラウザー内のストレージに分割して保存し、使用前に検証します。以後、ファイルを再度求められることはありません。"
+  },
+  "modelImportModelLabel": {
+    "message": "モデル"
+  },
+  "modelImportChoose": {
+    "message": ".ggufファイルをインポート"
+  },
+  "modelImportExport": {
+    "message": "モデルファイルをエクスポート"
+  },
+  "modelImportExportDone": {
+    "message": "モデルファイルをダウンロードしています。"
+  },
+  "modelImportDone": {
+    "message": "モデルファイルをインポートして検証しました。"
+  },
+  "modelImportWrongFile": {
+    "message": "このファイルは公式のPLaMoモデル（$FILE$）ではありません。対応する公式の.ggufファイルを選んでください。",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelImportFailed": {
+    "message": "モデルファイルをインポートできませんでした。"
+  },
+  "modelExportMissing": {
+    "message": "エクスポートできるモデルファイルがまだありません。"
+  },
+  "modelExportFailed": {
+    "message": "モデルファイルをエクスポートできませんでした。"
+  },
+  "modelFolderLocationHint": {
+    "message": "共有フォルダ内の保存先：<chosen>/$PATH$",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
   },
   "highQualityOffer": {
     "message": "高精度モデル（2B・約1.81GB）を試せます。速度は端末によって異なります。"
