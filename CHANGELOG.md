@@ -8,16 +8,11 @@ Release sections are added by `pnpm release`. Each section lists commit subjects
 
 - When a PDF is open in the browser, the popup and right-click menu offer Translate this PDF. Sakutto fetches the file the tab is showing, opens it in its own reader tab, and translates each page in order starting from the first, including multi-column body text, figure captions, tables, lists, and rotated pages, with layout-aware placement so translations stay in the boxes their source text occupied. (#75)
 - Settings has a slider for in-page translation popup text size (80–200%, default 100%) for hover tips, the selection popup, status toasts, and the typed-text preview; open tabs pick it up live. The selection popup can be widened or narrowed by dragging the left or right edge (minimum width 14em), double-clicking either edge returns automatic width, and arrow keys nudge the width when a handle is focused. (#81)
+- Add Easy Japanese (やさしい日本語, `ja-easy`) as a PLaMo-only target language, so a page already in Japanese can still be translated into simpler Japanese. Chrome's built-in translator is not used for this target. (#79)
 
 ### Improvements
 
 - Model download now verifies the pinned SHA-256 digest while bytes are still streaming in, using a background worker, so finishing setup after a large download is much faster and the progress bar shows verifying separately from downloading. (#78)
-
-## Unreleased
-
-### Features
-
-- Add Easy Japanese (やさしい日本語, `ja-easy`) as a PLaMo-only target language, so a page already in Japanese can still be translated into simpler Japanese. Chrome's built-in translator is not used for this target. (#79)
 
 ## [1.4.1] - 2026-11-13
 
