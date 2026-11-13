@@ -1,7 +1,7 @@
 import { browser } from 'wxt/browser';
 import type { EngineSource } from '@/shared/engine-status';
 import type { Settings, SettingsPatch } from '@/shared/settings';
-import { isRemoteServerUrl, originPatternsFor, parseServerUrl } from './url';
+import { isRemoteServerUrl, parseServerUrl, primaryOriginPattern } from './url';
 
 /**
  * Optional host access for the local-server origin. `permissions.request` must be the
@@ -10,11 +10,15 @@ import { isRemoteServerUrl, originPatternsFor, parseServerUrl } from './url';
  * "permissions.request may only be called from a user input handler" and Settings stays
  * on the built-in engine. Chrome is more lenient for `contains`, but `request` still
  * returns true without a prompt when the origin is already granted.
+ *
+ * Request only the URL's own origin. Loopback aliases (`localhost`, `[::1]`) are extra
+ * optional hosts; asking for them in the same call re-prompts Chrome when they are not
+ * already granted, even if `127.0.0.1` is, and the Settings click then never finishes.
  */
 export async function requestServerPermission(url: string): Promise<boolean> {
-  const origins = originPatternsFor(url);
-  if (origins.length === 0) return false;
-  return browser.permissions.request({ origins }).catch(() => false);
+  const origin = primaryOriginPattern(url);
+  if (!origin) return false;
+  return browser.permissions.request({ origins: [origin] }).catch(() => false);
 }
 
 export type EngineSourceSwitchResult = { denied: false; patch: SettingsPatch } | { denied: true };

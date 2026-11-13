@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_LOCAL_SERVER_URL, originPatternsFor } from '@/engine/local-server/url';
+import {
+  DEFAULT_LOCAL_SERVER_URL,
+  originPatternsFor,
+  primaryOriginPattern,
+} from '@/engine/local-server/url';
 
 /**
  * Firefox drops the user-gesture flag after any awaited extension call. Chrome still
@@ -76,8 +80,17 @@ describe('requestServerPermission user-gesture', () => {
     await expect(requestServerPermission(DEFAULT_LOCAL_SERVER_URL)).resolves.toBe(true);
     expect(state.awaitedCalls).toBe(0);
     expect(state.requestCalls).toBe(1);
-    expect(state.requestOrigins[0]).toEqual(originPatternsFor(DEFAULT_LOCAL_SERVER_URL));
+    expect(state.requestOrigins[0]).toEqual([primaryOriginPattern(DEFAULT_LOCAL_SERVER_URL)]);
     expect(state.granted.has('http://127.0.0.1/*')).toBe(true);
+  });
+
+  it('asks only for the URL origin so an already-granted 127.0.0.1 does not re-prompt for aliases', async () => {
+    reset('chrome');
+    state.granted.add('http://127.0.0.1/*');
+    state.granted.add('http://localhost/*');
+    await expect(requestServerPermission(DEFAULT_LOCAL_SERVER_URL)).resolves.toBe(true);
+    expect(state.requestOrigins[0]).toEqual(['http://127.0.0.1/*']);
+    expect(state.requestOrigins[0]).not.toEqual(originPatternsFor(DEFAULT_LOCAL_SERVER_URL));
   });
 
   it('Chrome: contains-then-request still grants, and request-first also grants', async () => {

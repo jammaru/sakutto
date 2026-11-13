@@ -302,8 +302,10 @@ describe('local server settings', () => {
     const requestStart = permissions.indexOf('export async function requestServerPermission');
     const requestEnd = permissions.indexOf('export type EngineSourceSwitchResult');
     const requestBody = permissions.slice(requestStart, requestEnd);
-    expect(requestBody).toContain('permissions.request({ origins })');
+    expect(requestBody).toContain('permissions.request({ origins: [origin] })');
+    expect(requestBody).toContain('primaryOriginPattern');
     expect(requestBody).not.toMatch(/contains/);
+    expect(requestBody).not.toContain('originPatternsFor');
 
     const switchStart = permissions.indexOf('export async function resolveEngineSourceSwitch');
     const switchBody = permissions.slice(switchStart);
