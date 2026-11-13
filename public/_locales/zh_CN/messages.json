@@ -657,6 +657,9 @@
   "modelDownload": {
     "message": "下载"
   },
+  "modelVerifying": {
+    "message": "正在检查下载的文件…"
+  },
   "modelDelete": {
     "message": "删除"
   },

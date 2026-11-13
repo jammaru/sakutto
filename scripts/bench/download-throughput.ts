@@ -345,7 +345,6 @@ async function runParallel(
     retryDelayMs: 100,
     segmentBytes: Math.floor(options.segmentMb * 1024 * 1024),
     concurrency: options.concurrency,
-    hashBlob: nodeHash,
   });
   const seconds = (performance.now() - startedAt) / 1000;
   return {

@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { EngineError } from '@/engine/errors';
-import { downloadModel, type DownloadProgress } from '@/engine/model/download';
+import {
+  downloadModel,
+  takeSharedRefreshResponse,
+  type DownloadProgress,
+} from '@/engine/model/download';
 import { sha256Hex } from '@/engine/model/sha256';
 import { bytesOf, MemoryFileStore, streamOf } from './support/fakes';
 
@@ -486,7 +490,7 @@ describe('resumable model download', () => {
     expect(store.files.get(FINAL)).toEqual(payload);
   });
 
-  it('rejects a segment whose Content-Range end does not match the request', async () => {
+  it('rejects a segment that starts at the wrong offset', async () => {
     const payload = bytesOf('0123456789abcdef');
     const store = new MemoryFileStore();
     const controller = new AbortController();
@@ -496,7 +500,7 @@ describe('resumable model download', () => {
           status: 206,
           headers: {
             'Content-Length': '8',
-            'Content-Range': `bytes 0-6/${String(payload.length)}`,
+            'Content-Range': `bytes 1-8/${String(payload.length)}`,
           },
         }),
     );
@@ -507,10 +511,151 @@ describe('resumable model download', () => {
         source: sourceOf(payload),
         fetchImpl,
         segmentBytes: 8,
-        concurrency: 2,
+        concurrency: 1,
       }),
     ).rejects.toThrow(/wrong byte range/);
     expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
+  it('accepts a shorter legal Content-Range and fetches the remainder', async () => {
+    const payload = bytesOf('0123456789abcdef');
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const ranges: Range[] = [];
+    let first = true;
+
+    const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      const range = rangeOf(init?.headers);
+      ranges.push(range);
+      if (first) {
+        first = false;
+        return new Response(payload.slice(0, 5), {
+          status: 206,
+          headers: {
+            'Content-Length': '5',
+            'Content-Range': `bytes 0-4/${String(payload.length)}`,
+          },
+        });
+      }
+      return rangeResponse(payload, range);
+    };
+
+    const result = await downloadModel({
+      ...baseRequest(store, controller.signal),
+      source: sourceOf(payload),
+      fetchImpl,
+      segmentBytes: 8,
+      concurrency: 2,
+    });
+
+    expect(result.resumedFrom).toBe(0);
+    expect(ranges).toContainEqual({ start: 5, end: 8 });
+    expect(store.files.get(FINAL)).toEqual(payload);
+  });
+
+  it('retries the remainder of a legally short range', async () => {
+    const payload = bytesOf('0123456789abcdef');
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    let first = true;
+    let remainderAttempts = 0;
+
+    const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      const range = rangeOf(init?.headers);
+      if (first) {
+        first = false;
+        return new Response(payload.slice(0, 5), {
+          status: 206,
+          headers: {
+            'Content-Length': '5',
+            'Content-Range': `bytes 0-4/${String(payload.length)}`,
+          },
+        });
+      }
+      if (range.start === 5) {
+        remainderAttempts += 1;
+        if (remainderAttempts === 1) throw new TypeError('network down');
+      }
+      return rangeResponse(payload, range);
+    };
+
+    const result = await downloadModel({
+      ...baseRequest(store, controller.signal),
+      source: sourceOf(payload),
+      fetchImpl,
+      attempts: 2,
+      retryDelayMs: 0,
+      segmentBytes: 8,
+      concurrency: 1,
+    });
+
+    expect(result.resumedFrom).toBe(0);
+    expect(remainderAttempts).toBe(2);
+    expect(store.files.get(FINAL)).toEqual(payload);
+  });
+
+  it('hashes the existing partial prefix when resuming and avoids a second read', async () => {
+    const store = new MemoryFileStore();
+    await store.append(PART, PAYLOAD.slice(0, 4), 0);
+    const controller = new AbortController();
+    const progress: DownloadProgress[] = [];
+    const read = vi.spyOn(store, 'read');
+    const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      const range = rangeOf(init?.headers);
+      return rangeResponse(PAYLOAD, range);
+    };
+
+    const result = await downloadModel({
+      ...baseRequest(store, controller.signal),
+      fetchImpl,
+      onProgress: (event) => progress.push(event),
+    });
+
+    expect(result).toMatchObject({ resumedFrom: 4, sha256: sha256Hex(PAYLOAD) });
+    expect(progress.some((event) => event.phase === 'verify' && event.received === 4)).toBe(true);
+    expect(read).toHaveBeenCalledOnce();
+    expect(store.files.get(FINAL)).toEqual(PAYLOAD);
+  });
+
+  it('verifies during the transfer without reading the finished file again', async () => {
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const read = vi.spyOn(store, 'read');
+    const fetchImpl = async () => new Response(new Uint8Array(PAYLOAD), { status: 200 });
+
+    const result = await downloadModel({ ...baseRequest(store, controller.signal), fetchImpl });
+
+    expect(result.sha256).toBe(sha256Hex(PAYLOAD));
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it('cancels a shared refresh body another segment owns', async () => {
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const shared = new Response(body);
+
+    await expect(
+      takeSharedRefreshResponse(
+        { url: 'https://cdn.example.test/model.gguf', response: shared, owner: 2 },
+        1,
+      ),
+    ).resolves.toBeNull();
+    expect(cancelled).toBe(true);
+
+    const owned = new Response('owned');
+    await expect(
+      takeSharedRefreshResponse(
+        { url: 'https://cdn.example.test/model.gguf', response: owned, owner: 1 },
+        1,
+      ),
+    ).resolves.toBe(owned);
   });
 
   it('refreshes an expired CDN URL once and completes the remaining segments', async () => {

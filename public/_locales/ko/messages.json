@@ -657,6 +657,9 @@
   "modelDownload": {
     "message": "다운로드"
   },
+  "modelVerifying": {
+    "message": "다운로드한 파일을 확인하는 중…"
+  },
   "modelDelete": {
     "message": "삭제"
   },

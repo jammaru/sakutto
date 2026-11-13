@@ -1,4 +1,5 @@
 import { abortError } from '../errors';
+import { SHA256_WASM_BASE64 } from './sha256-wasm';
 
 const DEFAULT_CHUNK_SIZE = 4 * 1024 * 1024;
 const PROGRESS_BYTES = 32 * 1024 * 1024;
@@ -20,19 +21,35 @@ const INITIAL_STATE = new Uint32Array([
 ]);
 
 const BLOCK_SIZE = 64;
+const WASM_INPUT_BYTES = 64 * 1024;
 const textEncoder = new TextEncoder();
 
 function rotateRight(value: number, bits: number): number {
   return (value >>> bits) | (value << (32 - bits));
 }
 
-export class Sha256 {
+export interface Sha256Hasher {
+  update(data: Uint8Array): void;
+  reset(): void;
+  digest(): Uint8Array;
+  hex(): string;
+}
+
+export class Sha256 implements Sha256Hasher {
   private state = new Uint32Array(INITIAL_STATE);
   private readonly block = new Uint8Array(BLOCK_SIZE);
   private readonly words = new Uint32Array(64);
   private blockLength = 0;
   private bytesHashed = 0;
   private finished = false;
+
+  reset(): this {
+    this.state.set(INITIAL_STATE);
+    this.blockLength = 0;
+    this.bytesHashed = 0;
+    this.finished = false;
+    return this;
+  }
 
   update(data: Uint8Array): this {
     if (this.finished) throw new Error('SHA-256 digest already finalized.');
@@ -154,6 +171,88 @@ export class Sha256 {
   }
 }
 
+interface Sha256WasmExports {
+  memory: WebAssembly.Memory;
+  sha256_input(): number;
+  sha256_init(): void;
+  sha256_update(length: number): void;
+  sha256_final(output: number): void;
+}
+
+class WasmSha256 implements Sha256Hasher {
+  private readonly exports: Sha256WasmExports;
+  private readonly inputPtr: number;
+  private finished = false;
+
+  constructor(module: WebAssembly.Module) {
+    const instance = new WebAssembly.Instance(module);
+    this.exports = instance.exports as unknown as Sha256WasmExports;
+    this.inputPtr = this.exports.sha256_input();
+    this.exports.sha256_init();
+  }
+
+  reset(): void {
+    this.exports.sha256_init();
+    this.finished = false;
+  }
+
+  update(data: Uint8Array): void {
+    if (this.finished) throw new Error('SHA-256 digest already finalized.');
+
+    for (let offset = 0; offset < data.length; offset += WASM_INPUT_BYTES) {
+      const take = Math.min(WASM_INPUT_BYTES, data.length - offset);
+      const input = new Uint8Array(this.exports.memory.buffer, this.inputPtr, take);
+      input.set(data.subarray(offset, offset + take));
+      this.exports.sha256_update(take);
+    }
+  }
+
+  digest(): Uint8Array {
+    if (this.finished) throw new Error('SHA-256 digest already finalized.');
+    this.finished = true;
+    this.exports.sha256_final(this.inputPtr);
+    return new Uint8Array(this.exports.memory.buffer, this.inputPtr, 32).slice();
+  }
+
+  hex(): string {
+    return toHex(this.digest());
+  }
+}
+
+let wasmModule: Promise<WebAssembly.Module> | null = null;
+
+function loadWasmModule(): Promise<WebAssembly.Module> {
+  wasmModule ??= (async () => {
+    const binary = atob(SHA256_WASM_BASE64);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return WebAssembly.compile(bytes);
+  })();
+  return wasmModule;
+}
+
+export interface CreateSha256Options {
+  /** Tests pass false to exercise the pure-JS fallback used when WebAssembly is unavailable. */
+  preferWasm?: boolean;
+}
+
+/**
+ * Creates a streaming hasher. The WebAssembly core is small and fast enough to keep up with a
+ * parallel transfer; the pure-JS `Sha256` remains the fallback for a CSP or runtime that
+ * refuses to compile WebAssembly.
+ */
+export async function createSha256(options: CreateSha256Options = {}): Promise<Sha256Hasher> {
+  if (options.preferWasm === false) return new Sha256();
+  try {
+    if (typeof WebAssembly === 'undefined') return new Sha256();
+    return new WasmSha256(await loadWasmModule());
+  } catch {
+    return new Sha256();
+  }
+}
+
 export function toHex(bytes: Uint8Array): string {
   let hex = '';
   for (const byte of bytes) hex += byte.toString(16).padStart(2, '0');
@@ -186,7 +285,8 @@ function yieldToEventLoop(): Promise<void> {
  */
 export async function sha256OfBlob(blob: Blob, options: HashOptions = {}): Promise<string> {
   const chunkSize = options.chunkSize ?? DEFAULT_CHUNK_SIZE;
-  const hasher = new Sha256();
+  throwIfAborted(options.signal);
+  const hasher = await createSha256();
   let reported = 0;
   let lastYield = Date.now();
 

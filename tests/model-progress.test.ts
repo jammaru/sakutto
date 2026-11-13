@@ -23,16 +23,35 @@ describe('model progress', () => {
     expect(next.progress).toBeCloseTo(0.73);
   });
 
-  it('keeps a full bar while the downloaded file is checked', () => {
+  it('shows the hashed position while the downloaded file is checked', () => {
     const downloaded = advanceModelStatus(null, status({ received: 100, total: 100, progress: 1 }));
     const verifying = advanceModelStatus(
       downloaded,
-      status({ state: 'verifying', received: 0, progress: 0 }),
+      status({ state: 'verifying', received: 37, total: 100, progress: 0.37 }),
     );
 
     expect(verifying.state).toBe('verifying');
-    expect(verifying.progress).toBe(1);
-    expect(verifying.received).toBe(100);
+    expect(verifying.progress).toBeCloseTo(0.37);
+    expect(verifying.received).toBe(37);
+
+    const finished = advanceModelStatus(
+      verifying,
+      status({ state: 'verifying', received: 100, total: 100, progress: 1 }),
+    );
+    expect(finished.progress).toBe(1);
+    expect(finished.received).toBe(100);
+  });
+
+  it('keeps the full bar once the file is on disk and loading', () => {
+    const downloaded = advanceModelStatus(null, status({ received: 100, total: 100, progress: 1 }));
+    const loading = advanceModelStatus(
+      downloaded,
+      status({ state: 'loading', received: 0, progress: 0 }),
+    );
+
+    expect(loading.state).toBe('loading');
+    expect(loading.progress).toBe(1);
+    expect(loading.received).toBe(100);
   });
 
   it('allows a download that starts again from an empty file', () => {

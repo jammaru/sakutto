@@ -1,6 +1,6 @@
 import { abortError, EngineError, isAbortError, isEngineError } from '../errors';
 import type { ModelFileStore } from './file-store';
-import { sha256OfBlob, type HashOptions } from './sha256';
+import { createSha256, sha256OfBlob, type HashOptions, type Sha256Hasher } from './sha256';
 
 export interface DownloadSource {
   url: string;
@@ -62,6 +62,8 @@ export const DEFAULT_SEGMENT_BYTES = 4 * 1024 * 1024;
 export const DEFAULT_CONCURRENCY = 6;
 // Four progress updates per second keep the UI smooth without flooding the offscreen channel.
 const PROGRESS_INTERVAL_MS = 250;
+// Reading the resumed .part prefix in small slices keeps peak memory bounded on multi-GB files.
+const HASH_READ_BYTES = 4 * 1024 * 1024;
 
 /** A later ranged request was answered with 200, so ranges are not supported. */
 class SegmentRangeIgnoredError extends Error {}
@@ -144,16 +146,21 @@ function parseContentRange(value: string | null): ContentRange | null {
   return { start, end, total };
 }
 
-function validateSegment(response: Response, segment: DownloadSegment, size: number): void {
+/**
+ * Checks the Content-Range on a 206. Returns how many bytes the response actually carries.
+ * Some CDNs legitimately answer with a shorter range than requested, so the caller keeps the
+ * prefix and requests the remainder instead of failing the whole download as non-retryable.
+ */
+function validateSegment(response: Response, segment: DownloadSegment, size: number): number {
   const range = parseContentRange(response.headers.get('content-range'));
-  if (!range) return;
+  if (!range) return segment.end - segment.start;
 
   if (range.start !== segment.start) {
     throw new EngineError('download-failed', 'The server returned the wrong byte range.', {
       retryable: false,
     });
   }
-  if (range.end !== segment.end - 1) {
+  if (range.end < range.start || range.end > segment.end - 1) {
     throw new EngineError('download-failed', 'The server returned the wrong byte range.', {
       retryable: false,
     });
@@ -164,6 +171,50 @@ function validateSegment(response: Response, segment: DownloadSegment, size: num
       `The server reported ${String(range.total)} bytes but the pinned size is ${String(size)}.`,
       { retryable: false },
     );
+  }
+  return range.end - range.start + 1;
+}
+
+interface SharedRefreshResponse {
+  url: string;
+  response: Response;
+  owner: number;
+}
+
+/**
+ * A refresh is shared by all workers. Only its owner may read the fetched body; every other
+ * caller has to cancel its unused view so the connection is not held open while it retries
+ * against the refreshed URL.
+ */
+export async function takeSharedRefreshResponse(
+  refresh: SharedRefreshResponse,
+  index: number,
+): Promise<Response | null> {
+  if (refresh.owner === index) return refresh.response;
+  await refresh.response.body?.cancel().catch(() => undefined);
+  return null;
+}
+
+async function hashPartPrefix(
+  request: DownloadRequest,
+  length: number,
+  hasher: Sha256Hasher,
+): Promise<void> {
+  const blob = await request.store.read(request.partPath);
+  const size = Math.min(length, blob.size);
+  let hashed = 0;
+  let lastReportedAt = Date.now() - PROGRESS_INTERVAL_MS;
+
+  while (hashed < size) {
+    throwIfAborted(request.signal);
+    const end = Math.min(hashed + HASH_READ_BYTES, size);
+    hasher.update(new Uint8Array(await blob.slice(hashed, end).arrayBuffer()));
+    hashed = end;
+
+    const now = Date.now();
+    if (hashed < size && now - lastReportedAt < PROGRESS_INTERVAL_MS) continue;
+    lastReportedAt = now;
+    emitProgress(request, progressOf(hashed, request.source.size, length, 'verify'));
   }
 }
 
@@ -245,7 +296,11 @@ async function readSegment(
   return data;
 }
 
-async function transfer(request: DownloadRequest, fetchImpl: typeof fetch): Promise<number> {
+async function transfer(
+  request: DownloadRequest,
+  fetchImpl: typeof fetch,
+  hasher: Sha256Hasher | null,
+): Promise<number> {
   const { source, store, partPath, signal } = request;
   let offset = await store.size(partPath);
 
@@ -256,6 +311,13 @@ async function transfer(request: DownloadRequest, fetchImpl: typeof fetch): Prom
 
   const resumedFrom = offset;
   emitProgress(request, progressOf(offset, source.size, resumedFrom, 'download'));
+
+  if (offset > 0 && hasher) {
+    await hashPartPrefix(request, offset, hasher);
+    // Switch the UI back to the transfer as soon as the prefix is hashed. The bytes shown do
+    // not rewind: the download continues from the same offset.
+    emitProgress(request, progressOf(offset, source.size, resumedFrom, 'download'));
+  }
 
   if (offset === source.size) return resumedFrom;
 
@@ -277,7 +339,7 @@ async function transfer(request: DownloadRequest, fetchImpl: typeof fetch): Prom
   }
 
   if (response.status === 200) {
-    return transferSingle(request, response, offset, resumedFrom);
+    return transferSingle(request, response, offset, resumedFrom, false, resumedFrom, hasher);
   }
 
   if (response.status !== 206) throw statusError(response);
@@ -291,6 +353,7 @@ async function transfer(request: DownloadRequest, fetchImpl: typeof fetch): Prom
       resumedFrom,
       stop,
       combined,
+      hasher,
     );
   } catch (error) {
     if (isAbortError(error) || signal.aborted) throw abortError();
@@ -305,6 +368,8 @@ async function transfer(request: DownloadRequest, fetchImpl: typeof fetch): Prom
       redirect: 'follow',
     });
     const preserved = await store.size(partPath);
+    // The single stream starts at byte 0 again, so discard the partial prefix digest.
+    hasher?.reset();
     return transferSingle(
       request,
       fallback,
@@ -312,6 +377,7 @@ async function transfer(request: DownloadRequest, fetchImpl: typeof fetch): Prom
       resumedFrom,
       true,
       Math.max(resumedFrom, preserved),
+      hasher,
     );
   }
 }
@@ -323,6 +389,7 @@ async function transferSingle(
   resumedFrom: number,
   preserveExisting = false,
   progressFloor = resumedFrom,
+  hasher: Sha256Hasher | null = null,
 ): Promise<number> {
   const { source, store, partPath, signal } = request;
   let offset = initialOffset;
@@ -342,6 +409,7 @@ async function transferSingle(
     // old valid bytes behind the new prefix, so a cancel or retry does not lose the resume point.
     offset = 0;
     keepExistingData = true;
+    hasher?.reset();
   }
 
   if (!response.body) {
@@ -379,6 +447,7 @@ async function transferSingle(
       }
 
       await writer.write(value);
+      hasher?.update(value);
       received += value.byteLength;
       report(received);
     }
@@ -407,6 +476,7 @@ async function transferSegments(
   resumedFrom: number,
   stop: AbortController,
   combined: AbortSignal,
+  hasher: Sha256Hasher | null,
 ): Promise<number> {
   const { source, store, partPath } = request;
   const attempts = Math.max(1, request.attempts ?? DEFAULT_ATTEMPTS);
@@ -414,7 +484,6 @@ async function transferSegments(
   const segments = segmentsOf(initialOffset, source.size, segmentSize(request.segmentBytes));
   const firstSegment = segments[0];
   if (!firstSegment) return resumedFrom;
-  validateSegment(firstResponse, firstSegment, source.size);
 
   let resolvedUrl = firstResponse.url || source.url;
   let refreshedUrl = false;
@@ -481,6 +550,7 @@ async function transferSegments(
 
       ready.delete(nextWrite);
       await writer.write(block);
+      hasher?.update(block);
       received += block.byteLength;
       nextWrite += 1;
       releaseSlot();
@@ -491,7 +561,7 @@ async function transferSegments(
   const refreshResolvedUrl = (
     owner: number,
     segment: DownloadSegment,
-  ): Promise<{ url: string; response: Response; owner: number }> => {
+  ): Promise<SharedRefreshResponse> => {
     if (!refreshTask) {
       refreshedUrl = true;
       refreshTask = (async () => {
@@ -525,6 +595,8 @@ async function transferSegments(
     segment: DownloadSegment,
     first: Response | undefined,
   ): Promise<Uint8Array> => {
+    const data = new Uint8Array(segment.end - segment.start);
+    let filled = 0;
     let candidate = first;
     let lastError: unknown;
     let attempt = 1;
@@ -534,48 +606,57 @@ async function transferSegments(
       let active: Response | undefined;
 
       try {
-        const requestedUrl = resolvedUrl;
-        let response =
-          candidate ??
-          (await fetchImpl(requestedUrl, {
-            headers: { Range: `bytes=${String(segment.start)}-${String(segment.end - 1)}` },
-            signal: combined,
-            cache: 'no-store',
-            redirect: 'follow',
-          }));
-        candidate = undefined;
-        active = response;
+        while (filled < data.length) {
+          throwIfAborted(combined);
+          const start = segment.start + filled;
+          const end = segment.end;
+          const requestedUrl = resolvedUrl;
+          let response =
+            candidate ??
+            (await fetchImpl(requestedUrl, {
+              headers: { Range: `bytes=${String(start)}-${String(end - 1)}` },
+              signal: combined,
+              cache: 'no-store',
+              redirect: 'follow',
+            }));
+          candidate = undefined;
+          active = response;
 
-        if (response.status === 401 || response.status === 403 || response.status === 410) {
-          await response.body?.cancel().catch(() => undefined);
+          if (response.status === 401 || response.status === 403 || response.status === 410) {
+            await response.body?.cancel().catch(() => undefined);
+            active = undefined;
 
-          if (!refreshedUrl) {
-            const refresh = await refreshResolvedUrl(index, segment);
-            resolvedUrl = refresh.url;
-            if (refresh.owner !== index) continue;
+            if (!refreshedUrl) {
+              const refresh = await refreshResolvedUrl(index, { start, end });
+              resolvedUrl = refresh.url;
+              const owned = await takeSharedRefreshResponse(refresh, index);
+              if (!owned) continue;
 
-            response = refresh.response;
-            active = response;
-          } else {
-            // A sibling already refreshed the URL. Requests sent with the stale URL may retry
-            // once against the new one; a request that already used the new URL gives up.
-            if (refreshTask) resolvedUrl = (await refreshTask).url;
-            if (requestedUrl !== resolvedUrl) continue;
-            throw statusError(response);
+              response = owned;
+              active = response;
+            } else {
+              // A sibling already refreshed the URL. Requests sent with the stale URL may retry
+              // once against the new one; a request that already used the new URL gives up.
+              if (refreshTask) resolvedUrl = (await refreshTask).url;
+              if (requestedUrl !== resolvedUrl) continue;
+              throw statusError(response);
+            }
           }
-        }
 
-        if (response.status === 200) throw new SegmentRangeIgnoredError();
-        if (response.status === 416) {
-          throw new EngineError('download-failed', 'The server rejected the segment range.', {
-            retryable: false,
-          });
-        }
-        if (response.status !== 206) throw statusError(response);
+          if (response.status === 200) throw new SegmentRangeIgnoredError();
+          if (response.status === 416) {
+            throw new EngineError('download-failed', 'The server rejected the segment range.', {
+              retryable: false,
+            });
+          }
+          if (response.status !== 206) throw statusError(response);
 
-        validateSegment(response, segment, source.size);
-        const data = await readSegment(response, segment.end - segment.start, combined);
-        active = undefined;
+          const length = validateSegment(response, { start, end }, source.size);
+          const piece = await readSegment(response, length, combined);
+          active = undefined;
+          data.set(piece, filled);
+          filled += piece.length;
+        }
         return data;
       } catch (error) {
         if (!(error instanceof SegmentRangeIgnoredError)) {
@@ -665,10 +746,12 @@ async function transferSegments(
  * When the server supports ranges, the remaining bytes are fetched as parallel multi-megabyte
  * segments. Blocks are committed to OPFS in order so the `.part` file always ends at a real
  * contiguous prefix, which keeps resume correct even when a later segment finishes first.
+ * The same ordered write also feeds the streaming digest. A resumed `.part` prefix is hashed
+ * before the transfer continues, so completing a download never needs a second full-file pass.
  */
 export async function downloadModel(request: DownloadRequest): Promise<DownloadResult> {
   const fetchImpl = request.fetchImpl ?? fetch;
-  const hashBlob = request.hashBlob ?? sha256OfBlob;
+  const customHash = request.hashBlob;
   const attempts = Math.max(1, request.attempts ?? DEFAULT_ATTEMPTS);
   const retryDelay = request.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
   let lastError: unknown;
@@ -679,17 +762,31 @@ export async function downloadModel(request: DownloadRequest): Promise<DownloadR
     throwIfAborted(request.signal);
 
     try {
-      const resumedFrom = await transfer(request, fetchImpl);
-      const blob = await request.store.read(request.partPath);
-      const digest = await hashBlob(blob, {
-        signal: request.signal,
-        onProgress: (hashed, total) => {
-          const now = Date.now();
-          if (hashed < total && now - lastVerifyAt < PROGRESS_INTERVAL_MS) return;
-          lastVerifyAt = now;
-          emitProgress(request, progressOf(hashed, request.source.size, resumedFrom, 'verify'));
-        },
-      });
+      // The normal path hashes while the ordered writer commits blocks, so the final digest
+      // needs no second pass over a multi-GB file. An injected `hashBlob` keeps the old
+      // end-of-download behaviour for callers and tests that need a custom verifier.
+      const hasher = customHash ? null : await createSha256();
+      const resumedFrom = await transfer(request, fetchImpl, hasher);
+      let digest: string;
+      let bytes: number;
+
+      if (hasher) {
+        digest = hasher.hex();
+        bytes = request.source.size;
+        emitProgress(request, progressOf(bytes, request.source.size, resumedFrom, 'verify'));
+      } else {
+        const blob = await request.store.read(request.partPath);
+        digest = await (customHash ?? sha256OfBlob)(blob, {
+          signal: request.signal,
+          onProgress: (hashed, total) => {
+            const now = Date.now();
+            if (hashed < total && now - lastVerifyAt < PROGRESS_INTERVAL_MS) return;
+            lastVerifyAt = now;
+            emitProgress(request, progressOf(hashed, request.source.size, resumedFrom, 'verify'));
+          },
+        });
+        bytes = blob.size;
+      }
       throwIfAborted(request.signal);
 
       if (digest !== request.source.sha256) {
@@ -698,7 +795,7 @@ export async function downloadModel(request: DownloadRequest): Promise<DownloadR
       }
 
       await request.store.move(request.partPath, request.finalPath);
-      return { bytes: blob.size, sha256: digest, resumedFrom };
+      return { bytes, sha256: digest, resumedFrom };
     } catch (error) {
       if (isAbortError(error) || request.signal.aborted) throw abortError();
 

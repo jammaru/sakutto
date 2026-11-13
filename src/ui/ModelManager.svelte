@@ -108,7 +108,8 @@
   {#each models as id (id)}
     {@const status = statuses[id]}
     {@const state = status?.state ?? 'absent'}
-    {@const downloading = state === 'downloading' || state === 'verifying'}
+    {@const downloading = state === 'downloading'}
+    {@const verifying = state === 'verifying'}
     <li>
       <div class="summary">
         <strong>{label(id)}</strong>
@@ -117,7 +118,7 @@
           <span class="badge">{t('modelInUse')}</span>
         {/if}
       </div>
-      {#if status && (downloading || state === 'partial' || state === 'loading')}
+      {#if status && (downloading || verifying || state === 'partial' || state === 'loading')}
         <p class="muted">
           {formatByteSize(status.received)} / {formatByteSize(status.total)}
         </p>
@@ -144,6 +145,10 @@
               {t('modelUse')}
             </button>
           {/if}
+        {:else if verifying}
+          <!-- The file is complete and the digest is being checked. There is no transfer to
+               pause; only the pending status belongs here. -->
+          <p class="muted" role="status">{t('modelVerifying')}</p>
         {:else if state === 'loading'}
           <!-- The file is here and the runtime is reading it. A Download button in this
                state is a start control for something that is already under way. -->

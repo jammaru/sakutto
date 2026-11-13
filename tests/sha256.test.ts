@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
-import { Sha256, sha256Hex, sha256OfBlob } from '@/engine/model/sha256';
+import { describe, expect, it, vi } from 'vitest';
+import { Sha256, createSha256, sha256Hex, sha256OfBlob } from '@/engine/model/sha256';
 
 const encoder = new TextEncoder();
 
@@ -41,6 +41,53 @@ describe('SHA-256', () => {
 
     const blob = new Blob([encoder.encode(text)]);
     expect(await sha256OfBlob(blob, { chunkSize: 7 })).toBe(nodeDigest(encoder.encode(text)));
+  });
+
+  it('streams the WASM core and the pure-JS fallback across arbitrary chunks', async () => {
+    const data = new Uint8Array(2 * 1024 * 1024 + 17);
+    for (let index = 0; index < data.length; index += 1) data[index] = (index * 31 + 11) % 256;
+    const expected = nodeDigest(data);
+
+    for (const preferWasm of [true, false]) {
+      const hasher = await createSha256({ preferWasm });
+      for (let offset = 0, step = 1; offset < data.length; step = (step * 7) % 65_537) {
+        const end = Math.min(offset + Math.max(1, step), data.length);
+        hasher.update(data.subarray(offset, end));
+        offset = end;
+      }
+      expect(hasher.hex(), `preferWasm=${String(preferWasm)}`).toBe(expected);
+    }
+  });
+
+  it('resets a streaming hasher without recreating it', async () => {
+    const first = encoder.encode('first message');
+    const second = encoder.encode('second message');
+    const hasher = await createSha256();
+
+    hasher.update(first);
+    hasher.reset();
+    hasher.update(second);
+
+    expect(hasher.hex()).toBe(nodeDigest(second));
+  });
+
+  it('hashes much larger chunked input with sha256OfBlob', async () => {
+    const data = new Uint8Array(1024 * 1024);
+    for (let index = 0; index < data.length; index += 1) data[index] = (index * 7 + 3) % 256;
+    const blob = new Blob([data]);
+
+    await expect(sha256OfBlob(blob, { chunkSize: 8 * 1024 })).resolves.toBe(nodeDigest(data));
+  });
+
+  it('falls back to pure JS when WebAssembly is unavailable', async () => {
+    const data = encoder.encode('fallback without wasm');
+    vi.stubGlobal('WebAssembly', undefined);
+    try {
+      const blob = new Blob([data]);
+      await expect(sha256OfBlob(blob, { chunkSize: 5 })).resolves.toBe(nodeDigest(data));
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('reports hash progress and stops when the signal aborts', async () => {
