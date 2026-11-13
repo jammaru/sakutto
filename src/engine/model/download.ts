@@ -1,7 +1,11 @@
 import { abortError, EngineError, isAbortError, isEngineError } from '../errors';
 import type { ModelFileStore } from './file-store';
 import { sha256OfBlob, type HashOptions } from './sha256';
-import { createOrderedSha256, type OrderedSha256Hasher } from './sha256-worker-client';
+import {
+  createOrderedSha256,
+  type CreateOrderedSha256Options,
+  type OrderedSha256Hasher,
+} from './sha256-worker-client';
 
 export interface DownloadSource {
   url: string;
@@ -36,6 +40,8 @@ export interface DownloadRequest {
   concurrency?: number;
   /** Benchmark override. Production uses the default (WASM in a dedicated worker). */
   hash?: 'wasm' | 'js' | 'none';
+  /** Test hook for supplying the worker behind the streaming hasher. */
+  workerFactory?: CreateOrderedSha256Options['workerFactory'];
 }
 
 export interface DownloadResult {
@@ -444,10 +450,11 @@ async function transferSingle(
         throw new EngineError('download-failed', 'The model is larger than the pinned size.');
       }
 
+      const chunkBytes = value.byteLength;
       await writer.write(value);
       hasher?.update(value);
       await hasher?.waitForCapacity();
-      received += value.byteLength;
+      received += chunkBytes;
       report(received);
     }
   } finally {
@@ -548,10 +555,11 @@ async function transferSegments(
       }
 
       ready.delete(nextWrite);
+      const blockBytes = block.byteLength;
       await writer.write(block);
       hasher?.update(block);
       await hasher?.waitForCapacity();
-      received += block.byteLength;
+      received += blockBytes;
       nextWrite += 1;
       releaseSlot();
       report(received);
@@ -779,7 +787,10 @@ export async function downloadModel(request: DownloadRequest): Promise<DownloadR
       // hash never stalls the transfer. An injected `hashBlob` keeps the old end-of-download
       // behaviour for callers and tests that need a custom verifier.
       if (!customHash && hashMode !== 'none') {
-        hasher = await createOrderedSha256({ preferWasm: hashMode !== 'js' });
+        hasher = await createOrderedSha256({
+          preferWasm: hashMode !== 'js',
+          ...(request.workerFactory ? { workerFactory: request.workerFactory } : {}),
+        });
       }
       const resumedFrom = await transfer(request, fetchImpl, hasher);
       let digest: string;

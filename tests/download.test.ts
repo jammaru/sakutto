@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { EngineError } from '@/engine/errors';
 import { downloadModel, type DownloadProgress } from '@/engine/model/download';
+import {
+  createHasherWorker,
+  type HasherWorkerRequest,
+  type HasherWorkerResponse,
+} from '@/engine/model/sha256-worker-core';
 import { sha256Hex } from '@/engine/model/sha256';
 import { advanceModelStatus } from '@/shared/model-progress';
 import type { ModelStatus } from '@/shared/engine-status';
@@ -69,6 +74,31 @@ function baseRequest(store: MemoryFileStore, signal: AbortSignal) {
     attempts: 1,
     retryDelayMs: 0,
   };
+}
+
+/**
+ * A loopback hashing worker with browser-like transfer semantics: cloning with a transfer list
+ * detaches the sender's ArrayBuffers, so later reads of the original view report zero bytes.
+ */
+class TransferringWorker {
+  onmessage: ((event: MessageEvent<HasherWorkerResponse>) => void) | null = null;
+  onerror: ((event: ErrorEvent) => void) | null = null;
+  transfers = 0;
+  private readonly handle = createHasherWorker({
+    postMessage: (message: HasherWorkerResponse) => {
+      queueMicrotask(() =>
+        this.onmessage?.({ data: message } as MessageEvent<HasherWorkerResponse>),
+      );
+    },
+  });
+
+  postMessage(message: HasherWorkerRequest, transfer?: Transferable[]): void {
+    const delivered = transfer ? structuredClone(message, { transfer }) : structuredClone(message);
+    if (transfer && transfer.length > 0) this.transfers += 1;
+    queueMicrotask(() => this.handle(delivered));
+  }
+
+  terminate(): void {}
 }
 
 describe('resumable model download', () => {
@@ -1040,5 +1070,60 @@ describe('resumable model download', () => {
 
     expect(store.files.get(PART)?.length).toBe(4);
     expect(store.files.has(FINAL)).toBe(false);
+  });
+
+  it('counts a 200 stream after the hashing worker detaches every chunk', async () => {
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const worker = new TransferringWorker();
+    const workerFactory = vi.fn(() => worker);
+    const fetchImpl = vi.fn(
+      async () => new Response(streamOf([PAYLOAD.slice(0, 5), PAYLOAD.slice(5)]), { status: 200 }),
+    );
+
+    const result = await downloadModel({
+      ...baseRequest(store, controller.signal),
+      fetchImpl,
+      workerFactory,
+    });
+
+    expect(workerFactory).toHaveBeenCalledOnce();
+    expect(worker.transfers).toBe(2);
+    expect(result).toEqual({
+      bytes: PAYLOAD.length,
+      sha256: sha256Hex(PAYLOAD),
+      resumedFrom: 0,
+    });
+    expect(store.files.get(FINAL)).toEqual(PAYLOAD);
+  });
+
+  it('counts 206 segment blocks after the hashing worker detaches every block', async () => {
+    const payload = Uint8Array.from({ length: 30 }, (_value, index) => index);
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const worker = new TransferringWorker();
+    const workerFactory = vi.fn(() => worker);
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      return rangeResponse(payload, rangeOf(init?.headers));
+    });
+
+    const result = await downloadModel({
+      ...baseRequest(store, controller.signal),
+      source: sourceOf(payload),
+      fetchImpl,
+      segmentBytes: 8,
+      concurrency: 3,
+      workerFactory,
+    });
+
+    expect(workerFactory).toHaveBeenCalledOnce();
+    expect(worker.transfers).toBe(4);
+    expect(result).toEqual({
+      bytes: payload.length,
+      sha256: sha256Hex(payload),
+      resumedFrom: 0,
+    });
+    expect(store.files.get(FINAL)).toEqual(payload);
   });
 });

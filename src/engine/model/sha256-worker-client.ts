@@ -4,7 +4,11 @@ import type { HasherWorkerRequest, HasherWorkerResponse } from './sha256-worker-
 const DEFAULT_QUEUE_BYTES = 32 * 1024 * 1024;
 
 export interface OrderedSha256Hasher {
-  /** Enqueues an ordered chunk. Large buffers are transferred to the worker. */
+  /**
+   * Enqueues an ordered chunk. Large buffers are transferred to the worker, which detaches
+   * their backing `ArrayBuffer`s. Capture `data.byteLength` before calling this method and do
+   * not read the buffer or reuse it afterwards.
+   */
   update(data: Uint8Array): void;
   /** Resolves once the worker queue has drained below its bound. */
   waitForCapacity(): Promise<void>;
