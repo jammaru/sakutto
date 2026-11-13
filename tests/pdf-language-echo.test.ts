@@ -23,6 +23,12 @@ describe('translationEchoesSource', () => {
     );
   });
 
+  it('does not treat the bench fake prefix as an echo', () => {
+    const source =
+      'Therefore it is essential to evaluate the detector with multiple configurations.';
+    expect(translationEchoesSource(source, `§ja§${source}`, 'ja')).toBe(false);
+  });
+
   it('does not call a short label, row, header or notation an echo', () => {
     for (const source of ['Data quality', '48', '1.9 s', 'INTRODUCTION', 'α = β']) {
       expect(translationEchoesSource(source, source, 'ja'), source).toBe(false);

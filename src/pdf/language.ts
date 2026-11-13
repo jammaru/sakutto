@@ -92,6 +92,8 @@ export function translationEchoesSource(source: string, output: string, target: 
   if (!canonicalTarget) return false;
   const trimmedOut = normalizedText(output);
   const trimmedSrc = normalizedText(source);
+  // The bench fake engine prefixes every translated segment so fixtures can see that work ran.
+  if (trimmedOut.startsWith(`§${canonicalTarget}§`)) return false;
   // A label, a number, a header or a formula cannot be an echo of prose. Treating it as one
   // failed a row of table numbers and retried it forever.
   if (!hasSourceProse(trimmedSrc)) return false;
