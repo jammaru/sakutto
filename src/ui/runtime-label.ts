@@ -1,3 +1,4 @@
+import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
 import { hasBuiltInTranslatorUi } from '@/shared/browser';
 import type { EngineStatus } from '@/shared/engine-status';
 import type { MessageKey } from '@/shared/i18n';
@@ -49,6 +50,10 @@ export function runtimeLabel(input: {
     return { key: status.gpuFallback === true ? 'runtimePlamoGpuFallback' : 'runtimePlamoCpu' };
   }
 
-  if (state === 'error') return { key: 'runtimeError' };
+  // A missing folder grant has its own restore card. Do not also say the model
+  // failed to load — the GGUF is typically still on disk.
+  if (state === 'error' && status.model.error !== FOLDER_PERMISSION_ERROR) {
+    return { key: 'runtimeError' };
+  }
   return { key: 'runtimeWaiting' };
 }

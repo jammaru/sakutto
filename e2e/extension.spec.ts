@@ -24,6 +24,43 @@ test.describe('built extension', () => {
         await expect(page.locator('h1')).toHaveText('Sakutto - Local AI translation');
         if (path === 'onboarding.html') {
           await expect(page.getByRole('checkbox')).toHaveCount(0);
+          const radios = page.getByRole('radio');
+          await expect(radios).toHaveCount(2);
+          await expect(radios.nth(0)).toHaveAccessibleName('Save in this browser (recommended)');
+          await expect(radios.nth(0)).toBeChecked();
+          await expect(radios.nth(1)).toHaveAccessibleName(
+            'Use a shared model folder (Chrome and Edge)',
+          );
+          await expect(radios.nth(1)).not.toBeChecked();
+          await expect(page.locator('[data-store-recommended]')).toContainText(
+            'Save in this browser (recommended)',
+          );
+          await expect(
+            page.getByText(
+              'For people who use both Chrome and Edge: one copy of the model is shared between them.',
+            ),
+          ).toBeVisible();
+          await expect(
+            page.getByText(
+              'The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto.',
+            ),
+          ).toBeVisible();
+          await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
+          await expect(page.getByText('Japanese Edge labels it 「常に許可」')).toBeVisible();
+          await expect(page.getByText('A shared folder means:')).toBeVisible();
+          await expect(
+            page.getByText(
+              'Other profiles and Edge can use it right away, with no extra download.',
+            ),
+          ).toBeVisible();
+          await expect(
+            page.getByText('One copy on disk, so you save space (573 MB / 1.81 GB).'),
+          ).toBeVisible();
+          await expect(
+            page.getByText(
+              "The file stays if you clear this browser's data. Pick the same folder again and you skip the download.",
+            ),
+          ).toBeVisible();
           await expect(
             page.getByRole('button', { name: 'Agree to the license and start' }),
           ).toBeEnabled();
@@ -106,6 +143,39 @@ test.describe('built extension', () => {
         await expect(page.locator('h1')).toHaveText('Sakutto - ローカルAI翻訳');
         if (path === 'onboarding.html') {
           await expect(page.getByRole('checkbox')).toHaveCount(0);
+          const radios = page.getByRole('radio');
+          await expect(radios).toHaveCount(2);
+          await expect(radios.nth(0)).toHaveAccessibleName('このブラウザ内に保存する（おすすめ）');
+          await expect(radios.nth(0)).toBeChecked();
+          await expect(radios.nth(1)).toHaveAccessibleName(
+            '共有モデルフォルダを使う（ChromeとEdgeで共用）',
+          );
+          await expect(radios.nth(1)).not.toBeChecked();
+          await expect(page.locator('[data-store-recommended]')).toContainText(
+            'このブラウザ内に保存する（おすすめ）',
+          );
+          await expect(
+            page.getByText('ChromeとEdgeの両方で使う人向けです。モデルは1つで済みます。'),
+          ).toBeVisible();
+          await expect(
+            page.getByText(
+              'フォルダ選択はドキュメントで開きます。「Sakutto」を新規作成するか、すでにあれば開いて、ドキュメント\\Sakutto を選んでください。',
+            ),
+          ).toBeVisible();
+          await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
+          await expect(page.getByText('Edgeなら「常に許可」')).toBeVisible();
+          await expect(page.getByText('共有フォルダを使うと：')).toBeVisible();
+          await expect(
+            page.getByText('他のプロフィールやEdgeでもダウンロードなしですぐ使える'),
+          ).toBeVisible();
+          await expect(
+            page.getByText('モデルは1つだけなので容量を節約（573 MB / 1.81 GB）'),
+          ).toBeVisible();
+          await expect(
+            page.getByText(
+              'ブラウザのデータを消してもファイルは残る。同じフォルダを選べば再ダウンロード不要',
+            ),
+          ).toBeVisible();
           await expect(
             page.getByRole('button', { name: 'ライセンスに同意して開始' }),
           ).toBeEnabled();

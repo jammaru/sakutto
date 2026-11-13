@@ -30,6 +30,8 @@ import {
   isSiteGrantRequest,
   isModelDeleteRequest,
   isModelDownloadRequest,
+  isModelFolderDeleteOpfsRequest,
+  isModelFolderReloadRequest,
   isModelInspectRequest,
   isModelUseRequest,
   isQualitySampleRequest,
@@ -425,6 +427,16 @@ export default defineBackground(() => {
         },
         () => sendResponse(null),
       );
+      return true;
+    }
+
+    if (isModelFolderReloadRequest(message)) {
+      void client.reloadModelFolder().then(sendResponse, () => sendResponse(null));
+      return true;
+    }
+
+    if (isModelFolderDeleteOpfsRequest(message)) {
+      void client.deleteOpfsCopy(message.modelId).then(sendResponse, () => sendResponse(null));
       return true;
     }
 

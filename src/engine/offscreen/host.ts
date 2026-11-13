@@ -16,6 +16,7 @@ import {
   type ModelStatus,
 } from '@/shared/engine-status';
 import { advanceModelStatus } from '@/shared/model-progress';
+import type { ModelProgressMessage } from '@/shared/messages';
 import { loadSettings, saveSettings } from '@/shared/storage';
 import type { Formality, IdleMinutes, Settings, TierPreference } from '@/shared/settings';
 import { MemoryTranslationCacheStore, IndexedDbTranslationCacheStore } from '../cache/store';
@@ -23,7 +24,14 @@ import { CachingEngine } from '../cache/caching-engine';
 import { TranslationCache } from '../cache/cache';
 import { prewarmRequest } from '../cache/prewarm';
 import { ChromeTranslatorEngine } from '../chrome/translator';
-import { EngineError, abortError, isAbortError, isEngineError, modelChangedError } from '../errors';
+import {
+  EngineError,
+  abortError,
+  folderPermissionError,
+  isAbortError,
+  isEngineError,
+  modelChangedError,
+} from '../errors';
 import {
   cpuFallback,
   isGpuLoadFallback,
@@ -41,6 +49,9 @@ import { PlamoSourceEngine } from '../local-server/source';
 import { JobScheduler } from '../queue/scheduler';
 import { DEFAULT_MODEL_ID, SELECTABLE_MODEL_IDS, getModel, type ModelId } from '../model/catalog';
 import { normalizeSelectedModelId, resolveActiveModel } from '../model/selection';
+import { emptySharedFolderStatus, sharedFolderNeedsPermission } from '../model/folder-status';
+import { FOLDER_PERMISSION_ERROR, isFolderAccessError } from '../model/folder-permission';
+import { SharedFolderSession } from '../model/folder-session';
 import { OpfsModelFileStore } from '../model/file-store';
 import { ModelManager, type LoadedModel } from '../model/manager';
 import type { DownloadProgress } from '../model/download';
@@ -58,6 +69,8 @@ import {
   type BenchmarkRequest,
   type CacheClearRequest,
   type EngineHostMessage,
+  type FolderDeleteOpfsRequest,
+  type FolderReloadRequest,
   type ModelDeleteRequest,
   type ModelDownloadRequest,
   type ModelSetRequest,
@@ -260,6 +273,7 @@ export class EngineHost {
   private engineSource: EngineSource = 'in-browser';
   private localConfig: LocalServerConfig = localServerConfigFromSettings(null);
   private localScheduler: JobScheduler | null = null;
+  private folderSession: SharedFolderSession | null = null;
 
   constructor(options: EngineHostOptions = {}) {
     this.idleReleaseMs = options.idleReleaseMs ?? IDLE_RELEASE_MS;
@@ -340,10 +354,27 @@ export class EngineHost {
     const selection = selectionForTier(tier, probe);
     const selectionState = { current: selection };
     const store = await OpfsModelFileStore.open();
-    const manager = new ModelManager({ store, createRuntime: createWllamaRuntime });
+    const manager = new ModelManager({
+      store,
+      createRuntime: createWllamaRuntime,
+      onStatus: (status) => {
+        void browser.runtime
+          .sendMessage({ type: 'model:progress', status } satisfies ModelProgressMessage)
+          .catch(() => undefined);
+      },
+    });
+    this.folderSession = new SharedFolderSession(store, manager);
+    try {
+      await this.folderSession.apply();
+    } catch {
+      manager.setStores(store);
+    }
     const cache = await openCache();
     const chrome = new ChromeTranslatorEngine();
     const load = async (signal: AbortSignal): Promise<LoadedModel> => {
+      if (sharedFolderNeedsPermission(this.folderSession?.status())) {
+        throw folderPermissionError();
+      }
       const result = await loadWithFallback(
         async (selection) => {
           try {
@@ -353,6 +384,10 @@ export class EngineHost {
             // caught on the first real piece and by handleWarm.
             return await manager.ensureLoaded(this.activeModelId, selection, { signal });
           } catch (error) {
+            if (isFolderAccessError(error)) {
+              await this.folderSession?.apply().catch(() => undefined);
+              throw folderPermissionError();
+            }
             this.noteGpuError(error);
             throw error;
           }
@@ -546,6 +581,12 @@ export class EngineHost {
       case 'runtime-set':
         this.handleRuntime(port, message);
         return;
+      case 'folder-reload':
+        void this.handleFolderReload(port, message);
+        return;
+      case 'folder-delete-opfs':
+        void this.handleFolderDeleteOpfs(port, message);
+        return;
       case 'benchmark':
         void this.handleBenchmark(port, message);
         return;
@@ -595,6 +636,12 @@ export class EngineHost {
     this.touch();
 
     try {
+      const snapshot = await this.prewarmSnapshot();
+      if (!snapshot?.consented) {
+        const services = await this.services();
+        this.respond(port, requestId, await services.manager.status(this.activeModelId));
+        return;
+      }
       const services = await this.services();
       if (controller.signal.aborted) return;
       if (this.engineSource === 'local-server') {
@@ -703,6 +750,11 @@ export class EngineHost {
         return services.manager.status(modelId);
       }
 
+      if (sharedFolderNeedsPermission(this.folderSession?.status())) {
+        throw folderPermissionError();
+      }
+
+      // The service worker checks license consent before it forwards model:download.
       await services.manager.download(modelId, {
         signal: controller.signal,
         onProgress: (progress) => {
@@ -804,15 +856,19 @@ export class EngineHost {
   private async statusOf(services: EngineServices): Promise<EngineStatus> {
     const download = this.downloads.get(this.activeModelId);
     let model = download?.status ?? (await services.manager.status(this.activeModelId));
+    const loaded = services.manager.loadedModel;
+    const selection = loaded?.selection ?? services.selection;
+    const local = this.engineSource === 'local-server';
+    const sharedFolder = this.folderSession
+      ? await this.folderSession.refresh().catch(() => this.folderSession?.status())
+      : undefined;
+    model = this.modelStatusWithFolder(model, sharedFolder);
 
-    if (this.warming && model.state !== 'loaded') {
+    if (this.warming && model.state !== 'loaded' && model.state !== 'error') {
       model = { ...model, state: 'loading' };
     }
 
     this.plamoReady = modelCanTranslate(model);
-    const loaded = services.manager.loadedModel;
-    const selection = loaded?.selection ?? services.selection;
-    const local = this.engineSource === 'local-server';
 
     return {
       model,
@@ -827,7 +883,68 @@ export class EngineHost {
       active: services.router.activeEngine,
       engineSource: this.engineSource,
       ...(this.modelFallback ? { modelFallback: true } : {}),
+      ...(sharedFolder ? { sharedFolder } : {}),
     };
+  }
+
+  private async handleFolderReload(
+    port: Browser.runtime.Port,
+    request: FolderReloadRequest,
+  ): Promise<void> {
+    try {
+      const services = await this.services();
+      for (const [id, live] of this.requests) {
+        if (live.kind === 'download') continue;
+        this.abortLiveRequest(id, live);
+      }
+      services.lazy.reset();
+      await services.disposeRetryRuntime?.();
+      await services.manager.unload();
+      const status = this.folderSession
+        ? await this.folderSession.apply()
+        : emptySharedFolderStatus(false);
+      const model = this.modelStatusWithFolder(
+        await services.manager.status(this.activeModelId),
+        status,
+      );
+      this.plamoReady = modelCanTranslate(model);
+      void browser.runtime
+        .sendMessage?.({ type: 'model:progress', status: model } satisfies ModelProgressMessage)
+        ?.catch(() => undefined);
+      this.respond(port, request.requestId, status);
+    } catch (error) {
+      this.respondError(port, request.requestId, error);
+    }
+  }
+
+  private modelStatusWithFolder(
+    model: ModelStatus,
+    folder: ReturnType<SharedFolderSession['status']> | undefined,
+  ): ModelStatus {
+    if (
+      sharedFolderNeedsPermission(folder) &&
+      !modelCanTranslate(model) &&
+      model.state !== 'loading'
+    ) {
+      return { ...model, state: 'error', error: FOLDER_PERMISSION_ERROR };
+    }
+    return model;
+  }
+
+  private async handleFolderDeleteOpfs(
+    port: Browser.runtime.Port,
+    request: FolderDeleteOpfsRequest,
+  ): Promise<void> {
+    try {
+      const services = await this.services();
+      await services.manager.deleteFallbackCopy(request.modelId);
+      const status = this.folderSession
+        ? await this.folderSession.refresh()
+        : emptySharedFolderStatus(false);
+      this.respond(port, request.requestId, status);
+    } catch (error) {
+      this.respondError(port, request.requestId, error);
+    }
   }
 
   private cacheModelId(): string {

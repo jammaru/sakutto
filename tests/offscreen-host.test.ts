@@ -63,6 +63,7 @@ function createServices() {
   const unload = vi.fn(async () => undefined);
   const reset = vi.fn();
   const dispose = vi.fn(async () => undefined);
+  const disposeRetry = vi.fn(async () => undefined);
   const download = vi.fn<DownloadFn>(async () => undefined);
 
   const services = {
@@ -79,9 +80,10 @@ function createServices() {
     lazy: { kind: 'plamo', reset, translate: vi.fn() },
     load: vi.fn(async () => ({})),
     selection: SELECTION,
+    disposeRetryRuntime: disposeRetry,
   } as unknown as EngineServices;
 
-  return { services, unload, reset, dispose, download };
+  return { services, unload, reset, dispose, disposeRetry, download };
 }
 
 function installed(
@@ -270,6 +272,8 @@ describe('EngineHost', () => {
     const port = new FakePort();
     host.handlePort(port.port);
 
+    port.emit(runtimeSet({ consented: true, requestId: 'runtime-on' }));
+    await flushTasks();
     port.emit({ type: 'model-download', requestId: 'd1', modelId: DEFAULT_MODEL_ID });
     await flushTasks();
     expect(port.messagesOfType('model-progress')).toHaveLength(1);
@@ -419,6 +423,26 @@ describe('EngineHost', () => {
     expect(unload).toHaveBeenCalled();
     expect(port.messagesOfType('model-persist')).toHaveLength(0);
     expect(cacheModelIdOf(host)).toBe(HIGH_QUALITY_MODEL_ID);
+  });
+
+  it('drops a loaded runtime when the shared folder is reloaded after a move', async () => {
+    const { services, unload, reset, disposeRetry } = createServices();
+    const { port } = await openRunningHost(services);
+    reset.mockClear();
+    unload.mockClear();
+    disposeRetry.mockClear();
+
+    port.emit({ type: 'folder-reload', requestId: 'f1' });
+    await flushTasks();
+
+    expect(reset).toHaveBeenCalled();
+    expect(disposeRetry).toHaveBeenCalled();
+    expect(unload).toHaveBeenCalled();
+    const response = port.messagesOfType('response').at(-1) as {
+      requestId?: string;
+      ok?: boolean;
+    };
+    expect(response).toMatchObject({ requestId: 'f1', ok: true });
   });
 
   it('resets a loaded runtime when model-set changes the id, and caches the next translation under the new model', async () => {
@@ -651,6 +675,8 @@ describe('EngineHost', () => {
       });
     }) as never;
 
+    port.emit(runtimeSet({ consented: true, requestId: 'runtime-on' }));
+    await flushTasks();
     port.emit({ type: 'model-warm', requestId: 'w1' });
     await flushTasks();
     port.emit({ type: 'model-set', requestId: 'm1', modelId: HIGH_QUALITY_MODEL_ID });
@@ -870,6 +896,7 @@ describe('EngineHost', () => {
     });
     await flushTasks();
     expect(translate).not.toHaveBeenCalled();
+    expect(services.load).not.toHaveBeenCalled();
 
     port.emit(
       runtimeSet({
@@ -1108,6 +1135,8 @@ describe('warm-up session fallback', () => {
     services.load = vi.fn(async () => services.manager.loadedModel) as never;
 
     const { port } = await openRunningHost(services);
+    port.emit(runtimeSet({ consented: true, requestId: 'runtime-on' }));
+    await flushTasks();
     port.emit({ type: 'model-warm', requestId: 'w1' });
     await vi.waitFor(() => {
       expect(leaveWebGpu).toHaveBeenCalledWith('degenerate');

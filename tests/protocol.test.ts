@@ -93,6 +93,15 @@ describe('engine host protocol', () => {
         modelId: 'plamo-3-translate-2b-q4_k_m',
       }),
     ).toBe(true);
+    expect(isEngineHostRequest({ type: 'folder-reload', requestId: 'f1' })).toBe(true);
+    expect(
+      isEngineHostRequest({
+        type: 'folder-delete-opfs',
+        requestId: 'f2',
+        modelId: 'plamo-3-translate-0.8b-q4_k_m',
+      }),
+    ).toBe(true);
+    expect(isEngineHostRequest({ type: 'folder-delete-opfs', requestId: 'f2' })).toBe(false);
 
     expect(isEngineHostRequest({ type: 'status' })).toBe(false);
     expect(
@@ -381,6 +390,11 @@ describe('engine host protocol', () => {
     expect(errorPayload(changed)).toEqual({
       code: 'model-changed',
       message: 'The selected model changed.',
+    });
+    const folder = new EngineError('model-folder-permission', 'needs permission');
+    expect(errorPayload(folder)).toEqual({
+      code: 'model-folder-permission',
+      message: 'needs permission',
     });
   });
 });

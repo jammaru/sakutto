@@ -197,6 +197,17 @@ export interface RuntimeSetRequest {
   consented: boolean;
 }
 
+export interface FolderReloadRequest {
+  type: 'folder-reload';
+  requestId: string;
+}
+
+export interface FolderDeleteOpfsRequest {
+  type: 'folder-delete-opfs';
+  requestId: string;
+  modelId: ModelId;
+}
+
 export type EngineHostRequest =
   | TranslateRequest
   | CancelRequest
@@ -213,7 +224,9 @@ export type EngineHostRequest =
   | SourceSetRequest
   | BenchmarkRequest
   | ModelSetRequest
-  | RuntimeSetRequest;
+  | RuntimeSetRequest
+  | FolderReloadRequest
+  | FolderDeleteOpfsRequest;
 
 export interface ChunkEvent {
   type: 'chunk';
@@ -415,6 +428,10 @@ export function isEngineHostRequest(value: unknown): value is EngineHostRequest 
     case 'source-set':
       return isEngineSource(value.engineSource) && isLocalServerHostConfig(value.localServer);
     case 'model-set':
+      return isModelId(value.modelId);
+    case 'folder-reload':
+      return true;
+    case 'folder-delete-opfs':
       return isModelId(value.modelId);
     case 'runtime-set':
       return (

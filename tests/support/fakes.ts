@@ -1,5 +1,10 @@
 import type { ModelEntry, ModelId } from '@/engine/model/catalog';
-import type { ModelFileStore, ModelFileWriter, StorageEstimate } from '@/engine/model/file-store';
+import type {
+  ModelFileStat,
+  ModelFileStore,
+  ModelFileWriter,
+  StorageEstimate,
+} from '@/engine/model/file-store';
 import type {
   CompletionRequest,
   CompletionResult,
@@ -11,10 +16,18 @@ import { abortError } from '@/engine/errors';
 
 export class MemoryFileStore implements ModelFileStore {
   readonly files = new Map<string, Uint8Array>();
+  readonly modified = new Map<string, number>();
   quota = 4 * 1024 * 1024 * 1024;
+  now = () => Date.now();
 
   async size(path: string): Promise<number> {
     return this.files.get(path)?.length ?? 0;
+  }
+
+  async stat(path: string): Promise<ModelFileStat | null> {
+    const data = this.files.get(path);
+    if (!data) return null;
+    return { size: data.length, lastModified: this.modified.get(path) ?? 0 };
   }
 
   async append(path: string, chunk: Uint8Array, offset: number): Promise<void> {
@@ -23,6 +36,7 @@ export class MemoryFileStore implements ModelFileStore {
     next.set(existing);
     next.set(chunk, offset);
     this.files.set(path, next);
+    this.modified.set(path, this.now());
   }
 
   async createWriter(
@@ -52,9 +66,11 @@ export class MemoryFileStore implements ModelFileStore {
         buffer.set(chunk, position);
         position += chunk.length;
         this.files.set(path, buffer.slice(0, visibleLength()));
+        this.modified.set(path, this.now());
       },
       close: async () => {
         this.files.set(path, buffer.slice(0, visibleLength()));
+        this.modified.set(path, this.now());
       },
     };
   }
@@ -69,16 +85,22 @@ export class MemoryFileStore implements ModelFileStore {
     const data = this.files.get(from);
     if (!data) throw new DOMException(`Missing ${from}`, 'NotFoundError');
     this.files.set(to, data);
+    this.modified.set(to, this.modified.get(from) ?? this.now());
     this.files.delete(from);
+    this.modified.delete(from);
   }
 
   async remove(path: string): Promise<void> {
     this.files.delete(path);
+    this.modified.delete(path);
   }
 
   async removeDirectory(path: string): Promise<void> {
     for (const key of [...this.files.keys()]) {
-      if (key === path || key.startsWith(`${path}/`)) this.files.delete(key);
+      if (key === path || key.startsWith(`${path}/`)) {
+        this.files.delete(key);
+        this.modified.delete(key);
+      }
     }
   }
 

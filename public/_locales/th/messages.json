@@ -246,6 +246,18 @@
   "onboardingStart": {
     "message": "ตกลงยอมรับใบอนุญาตและเริ่มต้น"
   },
+  "onboardingStoreLegend": {
+    "message": "ตำแหน่งบันทึกโมเดล"
+  },
+  "onboardingStoreBrowser": {
+    "message": "บันทึกในเบราว์เซอร์นี้ (แนะนำ)"
+  },
+  "onboardingStoreFolder": {
+    "message": "ใช้โฟลเดอร์โมเดลร่วมกัน (Chrome และ Edge)"
+  },
+  "onboardingStoreFolderHelp": {
+    "message": "For people who use both Chrome and Edge: one copy of the model is shared between them."
+  },
   "onboardingStartFailed": {
     "message": "ไม่สามารถเริ่มการตั้งค่าได้ กรุณาลองอีกครั้ง"
   },
@@ -674,6 +686,132 @@
   },
   "modelSelectionMissing": {
     "message": "ยังไม่มีโมเดลแปลภาษา ดาวน์โหลดก่อนจึงจะแปลได้"
+  },
+  "modelFolderHeading": {
+    "message": "Share the model between Chrome and Edge"
+  },
+  "modelFolderHelp": {
+    "message": "The default is still storage inside this browser."
+  },
+  "modelFolderPickerHint": {
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
+  },
+  "modelFolderChoose": {
+    "message": "Choose model folder"
+  },
+  "modelFolderStop": {
+    "message": "Stop using shared folder"
+  },
+  "modelFolderUsing": {
+    "message": "Using the folder $NAME$.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderNotUsing": {
+    "message": "Models are stored inside this browser."
+  },
+  "modelFolderPermissionNeeded": {
+    "message": "Sakutto needs permission to read the shared model folder."
+  },
+  "modelFolderPermissionPresent": {
+    "message": "The model is already in the folder. Allow access to use it."
+  },
+  "modelFolderPermissionGrant": {
+    "message": "Allow folder access"
+  },
+  "modelFolderPermissionPage": {
+    "message": "Open the Sakutto popup or Settings and tap Allow folder access."
+  },
+  "modelFolderPersistentHint": {
+    "message": "Grant access from the Settings tab, not the popup. If the browser offers “Allow on every visit”, pick that. Japanese Chrome labels it 「サイトアクセス時は常に許可」; Japanese Edge labels it 「常に許可」. A one-click re-grant may sometimes be needed."
+  },
+  "modelFolderPickFailed": {
+    "message": "The folder could not be selected."
+  },
+  "modelFolderIntegrityFailed": {
+    "message": "The file $FILE$ is not the official PLaMo model, so Sakutto will not use it.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderOpfsCopy": {
+    "message": "A leftover copy of $MODEL$ is still in this browser's storage. You can delete it to free space.",
+    "placeholders": {
+      "model": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderDeleteOpfs": {
+    "message": "Delete browser copy"
+  },
+  "modelFolderBenefitsLead": {
+    "message": "A shared folder means:"
+  },
+  "modelFolderBenefitShare": {
+    "message": "Other profiles and Edge can use it right away, with no extra download."
+  },
+  "modelFolderBenefitSpace": {
+    "message": "One copy on disk, so you save space ($SIZE$).",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderBenefitKeep": {
+    "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
+  },
+  "modelImportHeading": {
+    "message": "นำเข้าไฟล์โมเดล"
+  },
+  "modelImportHelp": {
+    "message": "เลือกไฟล์ .gguf ทางการของ PLaMo ไฟล์จะถูกสตรีมไปยังพื้นที่จัดเก็บของเบราว์เซอร์และตรวจสอบก่อนใช้งาน หลังจากนั้น Sakutto จะไม่ขอไฟล์อีก"
+  },
+  "modelImportModelLabel": {
+    "message": "โมเดล"
+  },
+  "modelImportChoose": {
+    "message": "นำเข้าไฟล์ .gguf"
+  },
+  "modelImportExport": {
+    "message": "ส่งออกไฟล์โมเดล"
+  },
+  "modelImportExportDone": {
+    "message": "กำลังดาวน์โหลดไฟล์โมเดล"
+  },
+  "modelImportDone": {
+    "message": "นำเข้าและตรวจสอบไฟล์โมเดลแล้ว"
+  },
+  "modelImportWrongFile": {
+    "message": "ไฟล์นี้ไม่ใช่โมเดล PLaMo ทางการ ($FILE$) โปรดเลือกไฟล์ .gguf ทางการที่ตรงกัน",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelImportFailed": {
+    "message": "นำเข้าไฟล์โมเดลไม่สำเร็จ"
+  },
+  "modelExportMissing": {
+    "message": "ยังไม่มีไฟล์โมเดลให้ส่งออก"
+  },
+  "modelExportFailed": {
+    "message": "ส่งออกไฟล์โมเดลไม่สำเร็จ"
+  },
+  "modelFolderLocationHint": {
+    "message": "ไฟล์ในโฟลเดอร์ที่แชร์อยู่ที่ <chosen>/$PATH$",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
   },
   "highQualityOffer": {
     "message": "คุณสามารถลองใช้โมเดลที่มีความแม่นยำสูงกว่า (2B, ประมาณ 1.81 GB) ได้ ความเร็วจะขึ้นอยู่กับอุปกรณ์นี้"

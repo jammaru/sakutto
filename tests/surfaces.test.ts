@@ -33,8 +33,73 @@ describe('start controls while the model downloads', () => {
     expect(onboarding).toContain('onclick={close}');
   });
 
+  it('does not prompt OPFS users to move to a shared folder from the popup', () => {
+    expect(popup).not.toContain('SharedFolderOffer');
+    expect(popup).not.toContain('shouldOfferSharedFolderMove');
+    expect(popup).not.toContain('modelFolderOfferLead');
+    expect(popup).not.toContain('modelFolderOfferOpenSettings');
+    expect(popup).not.toContain('modelFolderOfferLater');
+    expect(source('entrypoints/options/App.svelte')).not.toContain('SharedFolderOffer');
+    expect(source('entrypoints/onboarding/App.svelte')).not.toContain('SharedFolderOffer');
+    expect(source('entrypoints/options/App.svelte')).toContain('ModelFolderSettings');
+  });
+
+  it('records license consent before linking a folder or starting the engine', () => {
+    const start = onboarding.slice(onboarding.indexOf('async function start()'));
+    expect(onboarding).toContain('preparePickedSharedFolder');
+    expect(start).not.toContain('adoptPickedSharedFolder');
+    expect(start.indexOf('saveSettings')).toBeGreaterThan(-1);
+    expect(start.indexOf('saveSettings')).toBeLessThan(start.indexOf('persistSharedFolderHandle'));
+    expect(onboarding).toContain('warm={consentSaved}');
+    expect(onboarding).toContain('(showStartButton && !consentSaved) || Boolean(integrityAlert)');
+    expect(source('ui/ModelFolderSettings.svelte')).toContain('hasLicenseConsent');
+    expect(source('engine/offscreen/host.ts')).toContain('if (!snapshot?.consented)');
+  });
+
+  it('preselects browser storage on onboarding when no folder is already configured', () => {
+    expect(source('ui/onboarding-store.ts')).toContain("return 'browser'");
+    expect(onboarding).toContain('value="browser"');
+    expect(onboarding.indexOf('value="browser"')).toBeLessThan(
+      onboarding.indexOf('value="folder"'),
+    );
+    expect(onboarding).toContain('data-store-recommended');
+    expect(onboarding).toContain('onboardingStoreFolderHelp');
+  });
+
+  it('does not offer a download when the shared folder needs permission again', () => {
+    expect(modelManager).toContain('sharedFolderNeedsPermission');
+    expect(modelManager).toContain('folderBlocked');
+    expect(typed).toContain('FolderPermissionRestore');
+    expect(popup).toContain('FolderPermissionRestore');
+    expect(popup).toContain('shouldShowModelDownloadGate');
+    expect(popup).toContain('showDownloadGate');
+    expect(popup).not.toMatch(/\{#if !canStart\}/);
+    expect(source('entrypoints/onboarding/App.svelte')).toContain('FolderPermissionRestore');
+    expect(source('entrypoints/onboarding/App.svelte')).toContain('FOLDER_PERMISSION_ERROR');
+    expect(source('ui/FolderPermissionRestore.svelte')).toContain('modelFolderPermissionGrant');
+    expect(source('ui/FolderPermissionRestore.svelte')).toContain('modelFolderPermissionPresent');
+    expect(source('ui/FolderPermissionRestore.svelte')).toContain('probeStoredFolderReadable');
+  });
+
   it('keeps the cancel control visible while verifying', () => {
     expect(modelManager).toMatch(/downloading \|\| verifying[\s\S]{0,800}downloadCancel/);
+  });
+
+  it('offers the one-time model file import on settings and onboarding', () => {
+    const tools = source('ui/ModelFileTools.svelte');
+    expect(tools).toContain('accept=".gguf"');
+    expect(tools).toContain('importModelFile');
+    expect(tools).toContain('exportModelFile');
+    expect(source('entrypoints/options/App.svelte')).toContain('ModelFileTools');
+    expect(source('entrypoints/onboarding/App.svelte')).toContain('ModelFileTools');
+    expect(source('ui/ModelFolderSettings.svelte')).toContain('modelFolderLocationHint');
+  });
+
+  it('never asks for folder permission from the engine host or a content script', () => {
+    expect(source('engine/offscreen/host.ts')).not.toContain('requestFolderPermission');
+    expect(source('engine/offscreen/host.ts')).not.toContain('requestPermission');
+    expect(source('entrypoints/content.ts')).not.toContain('requestPermission');
+    expect(source('engine/model/folder-session.ts')).not.toContain('requestPermission(');
   });
 
   it('does not offer a download button for a model that is already loading', () => {

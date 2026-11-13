@@ -4,10 +4,12 @@
   import { HIGH_QUALITY_MODEL_ID, getModel } from '@/engine/model/catalog';
   import { shouldSuggestHighQuality } from '@/engine/model/suggestion';
   import {
+    shouldShowModelDownloadGate,
     translationStartBlocked,
     type EngineStatus,
     type ModelStatus,
   } from '@/shared/engine-status';
+  import { sharedFolderNeedsPermission } from '@/engine/model/folder-status';
   import { hasLicenseConsent } from '@/shared/agreement';
   import { currentUiLanguage, t, tForBrowser, type MessageKey } from '@/shared/i18n';
   import {
@@ -57,8 +59,11 @@
     usesInPageFallback,
     type ShortcutCommand,
   } from '@/shared/shortcuts';
+  import { SHARED_FOLDER_CHANGED_EVENT } from '@/engine/model/folder-offer';
+  import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
   import { readDeviceHeadroom, type DeviceHeadroom } from '@/ui/device-headroom';
   import LanguageField from '@/ui/LanguageField.svelte';
+  import FolderPermissionRestore from '@/ui/FolderPermissionRestore.svelte';
   import { runtimeLabel } from '@/ui/runtime-label';
 
   type SettingsError = 'load' | 'save' | null;
@@ -145,6 +150,10 @@
       (hasBuiltInTranslatorUi() && isChromeOnlyLanguage(targetLanguage)) ||
       !translationStartBlocked(engine ?? (modelMark ? { model: modelMark } : null)),
   );
+  let folderNeedsPermission = $derived(sharedFolderNeedsPermission(engine?.sharedFolder));
+  let showDownloadGate = $derived(
+    !canStart && shouldShowModelDownloadGate(engine ?? (modelMark ? { model: modelMark } : null)),
+  );
   let engineText = $derived.by(() => {
     const label = runtimeLabel({
       status: engine,
@@ -216,6 +225,17 @@
   }
 
   function applyProgress(status: ModelStatus) {
+    if (
+      status.error === FOLDER_PERMISSION_ERROR ||
+      status.state === 'ready' ||
+      status.state === 'loaded' ||
+      status.state === 'loading'
+    ) {
+      // Re-query the full engine snapshot. Patching only `model` leaves
+      // `plamoReady` / `sharedFolder` stale, so the popup stays on "waiting".
+      void refreshEngine();
+      return;
+    }
     const next = rememberModel(status);
     if (!next) return;
     if (engine && engine.model.id === next.id) {
@@ -373,7 +393,11 @@
       if (!isModelProgressMessage(message)) return;
       applyProgress(message.status);
     };
+    const onFolderChanged = () => {
+      void refreshEngine();
+    };
     browser.runtime.onMessage.addListener(onMessage);
+    window.addEventListener(SHARED_FOLDER_CHANGED_EVENT, onFolderChanged);
 
     void settleCaptionEnableIntent().then((settled) => {
       if (settled.applied) void refreshSettings();
@@ -410,6 +434,7 @@
       window.clearTimeout(shortcutRefreshTimer);
       window.removeEventListener('focus', scheduleShortcutRefresh);
       document.removeEventListener('visibilitychange', scheduleShortcutRefresh);
+      window.removeEventListener(SHARED_FOLDER_CHANGED_EVENT, onFolderChanged);
     };
   });
 </script>
@@ -434,7 +459,7 @@
     {primaryLabel}
   </button>
 
-  {#if !canStart}
+  {#if showDownloadGate}
     <div class="panel gate" role="status">
       <p class="muted">{t('pageStartBlocked')}</p>
       <button class="link-button" type="button" onclick={openOnboarding}>
@@ -443,10 +468,18 @@
     </div>
   {/if}
 
-  <p class="engine" aria-live="polite">{engineText}</p>
+  {#if !folderNeedsPermission}
+    <p class="engine" aria-live="polite">{engineText}</p>
+  {/if}
   {#if engine?.modelFallback}
     <p class="muted" role="status">{t('modelSelectionFallback')}</p>
   {/if}
+  <FolderPermissionRestore
+    folder={engine?.sharedFolder}
+    modelId={engine?.model.id}
+    compact
+    onRestored={refreshEngine}
+  />
   {#if engine?.engineSource === 'local-server'}
     <p class="muted">{t('localServerExperimental')}</p>
     {#if engine.parallel !== null}

@@ -1,2 +1,5 @@
 # Unified diffs are applied with `git apply`, so they must keep LF endings and are not source code.
 *.patch text eol=lf -whitespace
+# Windows core.autocrlf=true would otherwise check these out as CRLF and break
+# tests that compare file text (amo-listing, amo-workflow, release).
+* text=auto eol=lf

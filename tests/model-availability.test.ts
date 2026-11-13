@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
+import { folderRecordsModel, sharedFolderNeedsPermission } from '@/engine/model/folder-status';
 import type { ModelStatus } from '@/shared/engine-status';
 import {
   modelCanTranslate,
   modelStartBlocked,
+  shouldShowModelDownloadGate,
   translationStartBlocked,
 } from '@/shared/engine-status';
 
@@ -85,5 +87,38 @@ describe('model availability', () => {
         engineSource: 'in-browser',
       }),
     ).toBe(true);
+  });
+
+  it('treats a configured shared folder without access as permission-needed, not a missing file', () => {
+    expect(sharedFolderNeedsPermission({ configured: true, permission: 'prompt' })).toBe(true);
+    expect(sharedFolderNeedsPermission({ configured: true, permission: 'denied' })).toBe(true);
+    expect(sharedFolderNeedsPermission({ configured: true, permission: 'granted' })).toBe(false);
+    expect(sharedFolderNeedsPermission({ configured: false, permission: 'unknown' })).toBe(false);
+    expect(sharedFolderNeedsPermission(undefined)).toBe(false);
+  });
+
+  it('hides the download gate when the shared folder only needs permission', () => {
+    const absent = {
+      model: {
+        id: DEFAULT_MODEL_ID,
+        state: 'error' as const,
+        received: 0,
+        total: 1,
+        progress: 0,
+        error: 'model-folder-permission',
+      },
+      sharedFolder: {
+        supported: true,
+        configured: true,
+        permission: 'prompt' as const,
+        opfsCopies: [],
+        integrityIssues: [],
+        recordedModels: [DEFAULT_MODEL_ID],
+      },
+    };
+    expect(shouldShowModelDownloadGate(absent)).toBe(false);
+    expect(translationStartBlocked(absent)).toBe(true);
+    expect(folderRecordsModel(absent.sharedFolder, DEFAULT_MODEL_ID)).toBe(true);
+    expect(folderRecordsModel(absent.sharedFolder, 'plamo-3-translate-2b-q4_k_m')).toBe(false);
   });
 });

@@ -246,6 +246,18 @@
   "onboardingStart": {
     "message": "Setuju dengan lisensi dan mulai"
   },
+  "onboardingStoreLegend": {
+    "message": "Tempat menyimpan model"
+  },
+  "onboardingStoreBrowser": {
+    "message": "Simpan di peramban ini (disarankan)"
+  },
+  "onboardingStoreFolder": {
+    "message": "Gunakan folder model bersama (Chrome dan Edge)"
+  },
+  "onboardingStoreFolderHelp": {
+    "message": "For people who use both Chrome and Edge: one copy of the model is shared between them."
+  },
   "onboardingStartFailed": {
     "message": "Setup tidak dapat dimulai. Silakan coba lagi."
   },
@@ -674,6 +686,132 @@
   },
   "modelSelectionMissing": {
     "message": "Tidak ada model terjemahan. Unduh satu untuk menerjemahkan."
+  },
+  "modelFolderHeading": {
+    "message": "Share the model between Chrome and Edge"
+  },
+  "modelFolderHelp": {
+    "message": "The default is still storage inside this browser."
+  },
+  "modelFolderPickerHint": {
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
+  },
+  "modelFolderChoose": {
+    "message": "Choose model folder"
+  },
+  "modelFolderStop": {
+    "message": "Stop using shared folder"
+  },
+  "modelFolderUsing": {
+    "message": "Using the folder $NAME$.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderNotUsing": {
+    "message": "Models are stored inside this browser."
+  },
+  "modelFolderPermissionNeeded": {
+    "message": "Sakutto needs permission to read the shared model folder."
+  },
+  "modelFolderPermissionPresent": {
+    "message": "The model is already in the folder. Allow access to use it."
+  },
+  "modelFolderPermissionGrant": {
+    "message": "Allow folder access"
+  },
+  "modelFolderPermissionPage": {
+    "message": "Open the Sakutto popup or Settings and tap Allow folder access."
+  },
+  "modelFolderPersistentHint": {
+    "message": "Grant access from the Settings tab, not the popup. If the browser offers “Allow on every visit”, pick that. Japanese Chrome labels it 「サイトアクセス時は常に許可」; Japanese Edge labels it 「常に許可」. A one-click re-grant may sometimes be needed."
+  },
+  "modelFolderPickFailed": {
+    "message": "The folder could not be selected."
+  },
+  "modelFolderIntegrityFailed": {
+    "message": "The file $FILE$ is not the official PLaMo model, so Sakutto will not use it.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderOpfsCopy": {
+    "message": "A leftover copy of $MODEL$ is still in this browser's storage. You can delete it to free space.",
+    "placeholders": {
+      "model": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderDeleteOpfs": {
+    "message": "Delete browser copy"
+  },
+  "modelFolderBenefitsLead": {
+    "message": "A shared folder means:"
+  },
+  "modelFolderBenefitShare": {
+    "message": "Other profiles and Edge can use it right away, with no extra download."
+  },
+  "modelFolderBenefitSpace": {
+    "message": "One copy on disk, so you save space ($SIZE$).",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderBenefitKeep": {
+    "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
+  },
+  "modelImportHeading": {
+    "message": "Impor file model"
+  },
+  "modelImportHelp": {
+    "message": "Pilih file .gguf PLaMo resmi. File dialirkan ke penyimpanan browser dan diperiksa sebelum digunakan; setelah itu Sakutto tidak akan meminta file lagi."
+  },
+  "modelImportModelLabel": {
+    "message": "Model"
+  },
+  "modelImportChoose": {
+    "message": "Impor file .gguf"
+  },
+  "modelImportExport": {
+    "message": "Ekspor file model"
+  },
+  "modelImportExportDone": {
+    "message": "File model sedang diunduh."
+  },
+  "modelImportDone": {
+    "message": "File model berhasil diimpor dan diverifikasi."
+  },
+  "modelImportWrongFile": {
+    "message": "File itu bukan model PLaMo resmi ($FILE$). Pilih file .gguf resmi yang cocok.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelImportFailed": {
+    "message": "File model tidak dapat diimpor."
+  },
+  "modelExportMissing": {
+    "message": "Belum ada file model untuk diekspor."
+  },
+  "modelExportFailed": {
+    "message": "File model tidak dapat diekspor."
+  },
+  "modelFolderLocationHint": {
+    "message": "File folder bersama berada di <chosen>/$PATH$.",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
   },
   "highQualityOffer": {
     "message": "Anda bisa mencoba model dengan akurasi lebih tinggi (2B, sekitar 1,81 GB). Kecepatannya bergantung pada perangkat ini."

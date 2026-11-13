@@ -246,6 +246,18 @@
   "onboardingStart": {
     "message": "同意许可协议并开始"
   },
+  "onboardingStoreLegend": {
+    "message": "模型保存位置"
+  },
+  "onboardingStoreBrowser": {
+    "message": "保存在此浏览器中（推荐）"
+  },
+  "onboardingStoreFolder": {
+    "message": "使用共享模型文件夹（Chrome 和 Edge）"
+  },
+  "onboardingStoreFolderHelp": {
+    "message": "For people who use both Chrome and Edge: one copy of the model is shared between them."
+  },
   "onboardingStartFailed": {
     "message": "无法启动设置。请重试。"
   },
@@ -674,6 +686,132 @@
   },
   "modelSelectionMissing": {
     "message": "尚未安装翻译模型。请先下载才能翻译。"
+  },
+  "modelFolderHeading": {
+    "message": "Share the model between Chrome and Edge"
+  },
+  "modelFolderHelp": {
+    "message": "The default is still storage inside this browser."
+  },
+  "modelFolderPickerHint": {
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
+  },
+  "modelFolderChoose": {
+    "message": "Choose model folder"
+  },
+  "modelFolderStop": {
+    "message": "Stop using shared folder"
+  },
+  "modelFolderUsing": {
+    "message": "Using the folder $NAME$.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderNotUsing": {
+    "message": "Models are stored inside this browser."
+  },
+  "modelFolderPermissionNeeded": {
+    "message": "Sakutto needs permission to read the shared model folder."
+  },
+  "modelFolderPermissionPresent": {
+    "message": "The model is already in the folder. Allow access to use it."
+  },
+  "modelFolderPermissionGrant": {
+    "message": "Allow folder access"
+  },
+  "modelFolderPermissionPage": {
+    "message": "Open the Sakutto popup or Settings and tap Allow folder access."
+  },
+  "modelFolderPersistentHint": {
+    "message": "Grant access from the Settings tab, not the popup. If the browser offers “Allow on every visit”, pick that. Japanese Chrome labels it 「サイトアクセス時は常に許可」; Japanese Edge labels it 「常に許可」. A one-click re-grant may sometimes be needed."
+  },
+  "modelFolderPickFailed": {
+    "message": "The folder could not be selected."
+  },
+  "modelFolderIntegrityFailed": {
+    "message": "The file $FILE$ is not the official PLaMo model, so Sakutto will not use it.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderOpfsCopy": {
+    "message": "A leftover copy of $MODEL$ is still in this browser's storage. You can delete it to free space.",
+    "placeholders": {
+      "model": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderDeleteOpfs": {
+    "message": "Delete browser copy"
+  },
+  "modelFolderBenefitsLead": {
+    "message": "A shared folder means:"
+  },
+  "modelFolderBenefitShare": {
+    "message": "Other profiles and Edge can use it right away, with no extra download."
+  },
+  "modelFolderBenefitSpace": {
+    "message": "One copy on disk, so you save space ($SIZE$).",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderBenefitKeep": {
+    "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
+  },
+  "modelImportHeading": {
+    "message": "导入模型文件"
+  },
+  "modelImportHelp": {
+    "message": "选择官方 PLaMo .gguf 文件。它会以流式写入浏览器存储，并在使用前校验；之后 Sakutto 不会再要求选择文件。"
+  },
+  "modelImportModelLabel": {
+    "message": "模型"
+  },
+  "modelImportChoose": {
+    "message": "导入 .gguf 文件"
+  },
+  "modelImportExport": {
+    "message": "导出模型文件"
+  },
+  "modelImportExportDone": {
+    "message": "正在下载模型文件。"
+  },
+  "modelImportDone": {
+    "message": "模型文件已导入并通过校验。"
+  },
+  "modelImportWrongFile": {
+    "message": "该文件不是官方 PLaMo 模型（$FILE$）。请选择匹配的官方 .gguf 文件。",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelImportFailed": {
+    "message": "无法导入模型文件。"
+  },
+  "modelExportMissing": {
+    "message": "尚无可导出的模型文件。"
+  },
+  "modelExportFailed": {
+    "message": "无法导出模型文件。"
+  },
+  "modelFolderLocationHint": {
+    "message": "共享文件夹中的文件位于 <chosen>/$PATH$",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
   },
   "highQualityOffer": {
     "message": "你可以尝试精度更高的模型（2B，约 1.81 GB）。速度取决于这款设备。"

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
+  import { SHARED_FOLDER_CHANGED_EVENT } from '@/engine/model/folder-offer';
   import { shouldHintBuiltInFallback } from '@/engine/model/suggestion';
   import type { GlossaryEntry } from '@/engine/types';
   import type { SiteAuto, SiteRule } from '@/dom/sites';
@@ -12,10 +13,12 @@
   import {
     requestCacheClear,
     requestEngineCapabilities,
+    isModelProgressMessage,
     requestEngineStatus,
     requestEngineTier,
     requestQualitySample,
   } from '@/shared/messages';
+  import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
   import type { QualitySample } from '@/shared/quality';
   import { PLAMO_OFFICIAL_LINKS, PROJECT_LINKS } from '@/shared/plamo-license';
   import type { IdleMinutes, Settings, SettingsPatch, TierPreference } from '@/shared/settings';
@@ -27,6 +30,8 @@
   import GpuDiagnosticView from '@/ui/GpuDiagnostic.svelte';
   import LanguageField from '@/ui/LanguageField.svelte';
   import GlossaryEditor from '@/ui/GlossaryEditor.svelte';
+  import ModelFileTools from '@/ui/ModelFileTools.svelte';
+  import ModelFolderSettings from '@/ui/ModelFolderSettings.svelte';
   import ModelManager from '@/ui/ModelManager.svelte';
   import { runtimeLabel } from '@/ui/runtime-label';
   import SettingsFields from '@/ui/SettingsFields.svelte';
@@ -209,9 +214,28 @@
     });
     void loadStoredSettings();
     void loadRules();
-    void requestEngineStatus().then((status) => {
-      engine = status;
-    });
+    const refreshEngine = () => {
+      void requestEngineStatus().then((status) => {
+        if (status) engine = status;
+      });
+    };
+    const onFolderChanged = () => {
+      refreshEngine();
+    };
+    const onMessage = (message: unknown) => {
+      if (!isModelProgressMessage(message)) return;
+      if (
+        message.status.error === FOLDER_PERMISSION_ERROR ||
+        message.status.state === 'ready' ||
+        message.status.state === 'loaded' ||
+        message.status.state === 'loading'
+      ) {
+        refreshEngine();
+      }
+    };
+    window.addEventListener(SHARED_FOLDER_CHANGED_EVENT, onFolderChanged);
+    browser.runtime.onMessage.addListener(onMessage);
+    refreshEngine();
     void requestEngineCapabilities().then((value) => {
       capabilities = value;
       capabilitiesFailed = value === null;
@@ -222,6 +246,8 @@
     return () => {
       unsubscribe();
       unsubscribeRules();
+      window.removeEventListener(SHARED_FOLDER_CHANGED_EVENT, onFolderChanged);
+      browser.runtime.onMessage.removeListener(onMessage);
     };
   });
 </script>
@@ -367,6 +393,8 @@
   <section class="panel">
     <h2>{t('modelHeading')}</h2>
     <ModelManager />
+    <ModelFileTools />
+    <ModelFolderSettings />
     {#if showSlow}
       <p class="muted help">{t('slowDeviceHint')}</p>
     {/if}

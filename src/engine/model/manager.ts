@@ -1,16 +1,24 @@
-import { abortError, EngineError, isAbortError } from '../errors';
+import {
+  abortError,
+  EngineError,
+  folderPermissionError,
+  isAbortError,
+  isEngineError,
+} from '../errors';
 import type { BackendSelection } from '../in-browser/backend';
 import type { LlamaRuntime } from '../in-browser/runtime';
 import type { ModelState, ModelStatus } from '../../shared/engine-status';
 import { DEFAULT_MODEL_ID, MODEL_CATALOG, type ModelEntry, type ModelId } from './catalog';
+import { copyModelFile } from './copy';
 import {
   DEFAULT_CONCURRENCY,
   DEFAULT_SEGMENT_BYTES,
   downloadModel,
   type DownloadProgress,
 } from './download';
-import type { ModelFileStore } from './file-store';
-import type { HashOptions } from './sha256';
+import { isPermissionDenied, type ModelFileStore } from './file-store';
+import { decideIntegrity, digestMatchesPin, type IntegrityManifest } from './integrity';
+import { sha256OfBlob, type HashOptions } from './sha256';
 
 export interface LoadedModel {
   id: ModelId;
@@ -20,46 +28,65 @@ export interface LoadedModel {
 
 export interface ModelManagerOptions {
   store: ModelFileStore;
+  /** Browser OPFS copy, used as fallback until a verified move into the shared folder. */
+  fallbackStore?: ModelFileStore;
   createRuntime: (blob: Blob, selection: BackendSelection) => Promise<LlamaRuntime>;
   fetchImpl?: typeof fetch;
   hashBlob?: (blob: Blob, options?: HashOptions) => Promise<string>;
   entries?: Readonly<Record<ModelId, ModelEntry>>;
   onStatus?: (status: ModelStatus) => void;
+  /** Override the streamed OPFS→folder copy chunk size. Tests use a small value. */
+  copyChunkBytes?: number;
 }
 
-interface ModelManifest {
+interface ModelManifest extends IntegrityManifest {
   id: ModelId;
-  sha256: string;
-  size: number;
-  commit: string;
   verifiedAt: number;
 }
 
 const FREE_SPACE_MARGIN = 64 * 1024 * 1024;
 const TEXT_ENCODER = new TextEncoder();
 
+/** Internal status.error tokens. The UI maps these to `modelFolderIntegrityFailed`. */
+export const INTEGRITY_SIZE_ERROR = 'integrity-size';
+export const INTEGRITY_DIGEST_ERROR = 'integrity-digest';
+
+export function isModelIntegrityError(error: string | undefined): boolean {
+  return error === INTEGRITY_SIZE_ERROR || error === INTEGRITY_DIGEST_ERROR;
+}
+
 export class ModelManager {
-  private readonly store: ModelFileStore;
+  private store: ModelFileStore;
+  private fallbackStore: ModelFileStore | undefined;
   private readonly createRuntime: ModelManagerOptions['createRuntime'];
   private readonly fetchImpl: typeof fetch | undefined;
   private readonly hashBlob: ((blob: Blob, options?: HashOptions) => Promise<string>) | undefined;
   private readonly entries: Readonly<Record<ModelId, ModelEntry>>;
   private readonly onStatus: ((status: ModelStatus) => void) | undefined;
+  private readonly copyChunkBytes: number | undefined;
   private readonly downloads = new Map<
     ModelId,
     { operation: Promise<void>; abort: AbortController }
   >();
+  private readonly verifies = new Map<ModelId, Promise<void>>();
   private readonly errors = new Map<ModelId, string>();
   private loaded: LoadedModel | null = null;
   private loadChain: Promise<void> = Promise.resolve();
 
   constructor(options: ModelManagerOptions) {
     this.store = options.store;
+    this.fallbackStore = options.fallbackStore;
     this.createRuntime = options.createRuntime;
     this.fetchImpl = options.fetchImpl;
     this.hashBlob = options.hashBlob;
     this.entries = options.entries ?? MODEL_CATALOG;
     this.onStatus = options.onStatus;
+    this.copyChunkBytes = options.copyChunkBytes;
+  }
+
+  setStores(primary: ModelFileStore, fallback?: ModelFileStore): void {
+    this.store = primary;
+    this.fallbackStore = fallback === primary ? undefined : fallback;
   }
 
   private entry(modelId: ModelId): ModelEntry {
@@ -70,47 +97,65 @@ export class ModelManager {
     return this.loaded;
   }
 
+  get primaryStore(): ModelFileStore {
+    return this.store;
+  }
+
+  get secondaryStore(): ModelFileStore | undefined {
+    return this.fallbackStore;
+  }
+
   async status(modelId: ModelId = DEFAULT_MODEL_ID): Promise<ModelStatus> {
     const entry = this.entry(modelId);
-    const failure = this.errors.get(modelId);
-    const [fileSize, partSize] = await Promise.all([
-      this.store.size(this.finalPath(modelId)),
-      this.store.size(this.partPath(modelId)),
-    ]);
-    const received = Math.min(partSize, entry.size);
 
     if (this.loaded?.id === modelId) {
       return { id: modelId, state: 'loaded', received: entry.size, total: entry.size, progress: 1 };
     }
 
+    const primary = await this.inspect(this.store, modelId);
+    if (primary.state === 'ready') {
+      this.errors.delete(modelId);
+      return primary;
+    }
+
+    if (primary.integrity === 'needs-hash' && !this.errors.has(modelId)) {
+      this.kickVerify(this.store, modelId);
+    }
+
+    if (this.fallbackStore) {
+      const fallback = await this.inspect(this.fallbackStore, modelId);
+      if (fallback.state === 'ready') return fallback;
+    }
+
+    const failure = this.errors.get(modelId);
     if (failure) {
       return {
         id: modelId,
         state: 'error',
-        received,
+        received: primary.received,
         total: entry.size,
-        progress: received / entry.size,
+        progress: primary.progress,
         error: failure,
       };
     }
 
-    const manifest = await this.readManifest(modelId);
-    if (
-      manifest &&
-      manifest.sha256 === entry.sha256 &&
-      manifest.size === entry.size &&
-      fileSize === entry.size
-    ) {
-      return { id: modelId, state: 'ready', received: entry.size, total: entry.size, progress: 1 };
+    if (this.verifies.has(modelId) || primary.integrity === 'needs-hash') {
+      return {
+        id: modelId,
+        state: 'verifying',
+        received: entry.size,
+        total: entry.size,
+        progress: 0,
+      };
     }
 
-    const state: ModelState = partSize > 0 ? 'partial' : 'absent';
     return {
       id: modelId,
-      state,
-      received,
+      state: primary.state,
+      received: primary.received,
       total: entry.size,
-      progress: received / entry.size,
+      progress: primary.progress,
+      ...(primary.error ? { error: primary.error } : {}),
     };
   }
 
@@ -128,6 +173,28 @@ export class ModelManager {
     });
     this.downloads.set(modelId, { operation, abort });
     return operation;
+  }
+
+  /**
+   * Hash any correctly-sized files already in the primary store, then copy each verified
+   * official OPFS model that the folder does not already have. Used after the user picks a
+   * shared folder so Chrome profile A can share with Edge without a network download.
+   * The OPFS copy is kept as a fallback until the user deletes it from Settings.
+   */
+  async adoptPresentModels(options: { signal?: AbortSignal } = {}): Promise<void> {
+    const signal = options.signal ?? new AbortController().signal;
+    for (const modelId of this.knownModelIds()) {
+      const inspected = await this.inspect(this.store, modelId);
+      if (inspected.integrity !== 'needs-hash') continue;
+      await this.runVerify(this.store, modelId, signal).catch(() => undefined);
+    }
+    for (const modelId of this.knownModelIds()) {
+      try {
+        await this.copyOneFallback(modelId, signal);
+      } catch (error) {
+        if (isAbortError(error) || signal.aborted) throw abortError();
+      }
+    }
   }
 
   async deleteModel(modelId: ModelId): Promise<void> {
@@ -150,12 +217,52 @@ export class ModelManager {
     });
   }
 
+  /**
+   * Bytes for a second wllama instance (WebGPU collapse retry). Reads the shared
+   * folder when it is verified, otherwise the OPFS copy.
+   */
   async modelBlob(modelId: ModelId = DEFAULT_MODEL_ID): Promise<Blob> {
-    const status = await this.status(modelId);
-    if (status.state !== 'ready' && status.state !== 'loaded') {
+    const store = await this.resolveReadStore(modelId);
+    if (!store) {
+      const failure = this.errors.get(modelId);
+      if (failure) throw new EngineError('model-integrity', failure, { retryable: false });
       throw new EngineError('model-missing', 'The translation model is not downloaded yet.');
     }
-    return this.store.read(this.finalPath(modelId));
+    return store.read(this.finalPath(modelId));
+  }
+
+  /** Deletes the OPFS copy only. Migration calls this after a verified folder copy. */
+  async deleteFallbackCopy(modelId: ModelId): Promise<void> {
+    if (!this.fallbackStore) return;
+    if (this.loaded?.id === modelId) {
+      const source = await this.resolveReadStore(modelId);
+      if (source === this.fallbackStore) await this.unload();
+    }
+    await this.fallbackStore.removeDirectory(this.modelDirectory(modelId));
+  }
+
+  async fallbackCopyPresent(modelId: ModelId): Promise<boolean> {
+    if (!this.fallbackStore) return false;
+    const inspected = await this.inspect(this.fallbackStore, modelId);
+    return inspected.state === 'ready';
+  }
+
+  async primaryReady(modelId: ModelId): Promise<boolean> {
+    const inspected = await this.inspect(this.store, modelId);
+    return inspected.state === 'ready';
+  }
+
+  async sharedIntegrityIssue(
+    modelId: ModelId,
+  ): Promise<{ kind: 'size' | 'digest'; file: string } | null> {
+    const inspected = await this.inspect(this.store, modelId);
+    if (inspected.integrity === 'reject-size') {
+      return { kind: 'size', file: this.entry(modelId).file };
+    }
+    if (this.errors.get(modelId) === INTEGRITY_DIGEST_ERROR) {
+      return { kind: 'digest', file: this.entry(modelId).file };
+    }
+    return null;
   }
 
   async unload(): Promise<void> {
@@ -190,17 +297,38 @@ export class ModelManager {
 
       await this.unload();
 
-      const status = await this.status(modelId);
-      if (status.state !== 'ready') {
+      const store = await this.resolveReadStore(modelId, options.signal);
+      if (!store) {
+        const failure = this.errors.get(modelId);
+        if (failure) throw new EngineError('model-integrity', failure, { retryable: false });
         throw new EngineError('model-missing', 'The translation model is not downloaded yet.');
       }
 
-      this.notify({ ...status, state: 'loading' });
-      const blob = await this.store.read(this.finalPath(modelId));
+      const status = await this.inspect(store, modelId);
+      this.notify({
+        id: modelId,
+        state: 'loading',
+        received: status.received,
+        total: this.entry(modelId).size,
+        progress: 1,
+      });
+      let blob: Blob;
+      try {
+        blob = await store.read(this.finalPath(modelId));
+      } catch (error) {
+        if (isPermissionDenied(error)) throw folderPermissionError();
+        throw error;
+      }
       const runtime = await this.createRuntime(blob, selection);
       const loaded: LoadedModel = { id: modelId, runtime, selection };
       this.loaded = loaded;
-      this.notify({ ...status, state: 'loaded' });
+      this.notify({
+        id: modelId,
+        state: 'loaded',
+        received: this.entry(modelId).size,
+        total: this.entry(modelId).size,
+        progress: 1,
+      });
       return loaded;
     };
 
@@ -212,6 +340,10 @@ export class ModelManager {
     return result;
   }
 
+  private knownModelIds(): readonly ModelId[] {
+    return Object.keys(this.entries) as ModelId[];
+  }
+
   private async runDownload(
     modelId: ModelId,
     signal: AbortSignal,
@@ -220,13 +352,28 @@ export class ModelManager {
     const entry = this.entry(modelId);
     this.errors.delete(modelId);
 
-    const current = await this.status(modelId);
-    if (current.state === 'ready' || current.state === 'loaded') {
-      this.notify(current);
+    const current = await this.inspect(this.store, modelId);
+    if (current.state === 'ready' || this.loaded?.id === modelId) {
+      this.notify(await this.status(modelId));
       return;
     }
 
     try {
+      if (current.integrity === 'reject-size') {
+        throw new EngineError('model-integrity', INTEGRITY_SIZE_ERROR, { retryable: false });
+      }
+
+      if (current.integrity === 'needs-hash') {
+        await this.runVerify(this.store, modelId, signal, onProgress);
+        return;
+      }
+
+      try {
+        if (await this.copyOneFallback(modelId, signal, onProgress)) return;
+      } catch (error) {
+        if (isAbortError(error)) throw error;
+      }
+
       await this.ensureSpace(modelId);
 
       const resumedBytes = await this.store.size(this.partPath(modelId));
@@ -262,13 +409,7 @@ export class ModelManager {
         },
       });
 
-      await this.writeManifest(modelId, {
-        id: modelId,
-        sha256: entry.sha256,
-        size: entry.size,
-        commit: entry.commit,
-        verifiedAt: Date.now(),
-      });
+      await this.writeVerifiedManifest(this.store, modelId);
 
       this.notify({
         id: modelId,
@@ -292,6 +433,238 @@ export class ModelManager {
       });
       throw error;
     }
+  }
+
+  /**
+   * Copy a verified official OPFS model into the primary (shared) store when that store
+   * does not already have a valid file. Never overwrites a wrong-sized folder file. The
+   * OPFS copy is retained as a fallback for a later lost-folder-permission visit.
+   */
+  private async copyOneFallback(
+    modelId: ModelId,
+    signal: AbortSignal,
+    onProgress?: (progress: DownloadProgress) => void,
+  ): Promise<boolean> {
+    if (!this.fallbackStore) return false;
+
+    const primary = await this.inspect(this.store, modelId);
+    // Another Chrome/Edge profile may already hold a pin-sized GGUF here. Never
+    // replace it: `removeEntry` + rewrite is how one profile can invalidate the
+    // file another profile's handle still points at. Only fill an empty slot.
+    if (primary.integrity !== 'missing') return false;
+    if (this.errors.get(modelId) === INTEGRITY_DIGEST_ERROR) return false;
+    if (await this.copyAlreadyRejected(modelId)) return false;
+
+    let fallback = await this.inspect(this.fallbackStore, modelId);
+    if (fallback.integrity === 'needs-hash') {
+      await this.runVerify(this.fallbackStore, modelId, signal, onProgress).catch(() => undefined);
+      fallback = await this.inspect(this.fallbackStore, modelId);
+    }
+    if (fallback.state !== 'ready') return false;
+
+    const entry = this.entry(modelId);
+    const blob = await this.fallbackStore.read(this.finalPath(modelId));
+
+    this.notify({
+      id: modelId,
+      state: 'downloading',
+      received: 0,
+      total: entry.size,
+      progress: 0,
+    });
+
+    try {
+      await copyModelFile({
+        blob,
+        store: this.store,
+        partPath: this.partPath(modelId),
+        finalPath: this.finalPath(modelId),
+        size: entry.size,
+        sha256: entry.sha256,
+        signal,
+        onProgress: (progress) => {
+          const state: ModelState = progress.phase === 'verify' ? 'verifying' : 'downloading';
+          this.notify({
+            id: modelId,
+            state,
+            received: progress.received,
+            total: entry.size,
+            progress: progress.ratio,
+          });
+          onProgress?.(progress);
+        },
+        ...(this.hashBlob ? { hashBlob: this.hashBlob } : {}),
+        ...(this.copyChunkBytes !== undefined ? { chunkBytes: this.copyChunkBytes } : {}),
+      });
+    } catch (error) {
+      if (isAbortError(error) || signal.aborted) throw abortError();
+      // A pinned-size OPFS file whose bytes do not match the catalog must not be
+      // copied again on every folder reload or offscreen start. Record the skip on
+      // OPFS so a new offscreen document does not hash hundreds of MB again.
+      if (isEngineError(error) && error.code === 'model-integrity') {
+        await this.rememberCopyRejection(modelId);
+        this.notify(await this.status(modelId));
+        return false;
+      }
+      throw error;
+    }
+
+    this.errors.delete(modelId);
+    await this.writeVerifiedManifest(this.store, modelId);
+    this.notify({
+      id: modelId,
+      state: 'ready',
+      received: entry.size,
+      total: entry.size,
+      progress: 1,
+    });
+    return true;
+  }
+
+  private kickVerify(store: ModelFileStore, modelId: ModelId): void {
+    if (this.downloads.has(modelId)) return;
+    void this.runVerify(store, modelId, new AbortController().signal).catch(() => undefined);
+  }
+
+  private runVerify(
+    store: ModelFileStore,
+    modelId: ModelId,
+    signal: AbortSignal,
+    onProgress?: (progress: DownloadProgress) => void,
+  ): Promise<void> {
+    const existing = this.verifies.get(modelId);
+    if (existing) return existing;
+    const operation = this.verifyExisting(store, modelId, signal, onProgress).finally(() => {
+      if (this.verifies.get(modelId) === operation) this.verifies.delete(modelId);
+    });
+    this.verifies.set(modelId, operation);
+    return operation;
+  }
+
+  private async verifyExisting(
+    store: ModelFileStore,
+    modelId: ModelId,
+    signal: AbortSignal,
+    onProgress?: (progress: DownloadProgress) => void,
+  ): Promise<void> {
+    const entry = this.entry(modelId);
+
+    this.notify({
+      id: modelId,
+      state: 'verifying',
+      received: 0,
+      total: entry.size,
+      progress: 0,
+    });
+
+    const blob = await store.read(this.finalPath(modelId));
+    const hashBlob = this.hashBlob ?? sha256OfBlob;
+    const digest = await hashBlob(blob, {
+      signal,
+      onProgress: (hashed) => {
+        const progress = {
+          received: hashed,
+          total: entry.size,
+          ratio: entry.size > 0 ? Math.min(1, hashed / entry.size) : 0,
+          resumedFrom: 0,
+          phase: 'verify' as const,
+        };
+        this.notify({
+          id: modelId,
+          state: 'verifying',
+          received: hashed,
+          total: entry.size,
+          progress: progress.ratio,
+        });
+        onProgress?.(progress);
+      },
+    });
+
+    if (signal.aborted) throw abortError();
+
+    if (!digestMatchesPin(digest, entry)) {
+      this.errors.set(modelId, INTEGRITY_DIGEST_ERROR);
+      throw new EngineError('model-integrity', INTEGRITY_DIGEST_ERROR, { retryable: false });
+    }
+
+    this.errors.delete(modelId);
+    await this.writeVerifiedManifest(store, modelId, digest);
+    this.notify({
+      id: modelId,
+      state: 'ready',
+      received: entry.size,
+      total: entry.size,
+      progress: 1,
+    });
+  }
+
+  private async resolveReadStore(
+    modelId: ModelId,
+    signal?: AbortSignal,
+  ): Promise<ModelFileStore | null> {
+    const abort = signal ?? new AbortController().signal;
+    const pick = async (store: ModelFileStore): Promise<ModelFileStore | null> => {
+      const inspected = await this.inspect(store, modelId);
+      if (inspected.integrity === 'needs-hash') {
+        await this.runVerify(store, modelId, abort).catch(() => undefined);
+        const verified = await this.inspect(store, modelId);
+        return verified.state === 'ready' ? store : null;
+      }
+      return inspected.state === 'ready' ? store : null;
+    };
+
+    const primary = await pick(this.store);
+    if (primary) return primary;
+    if (!this.fallbackStore) return null;
+    return pick(this.fallbackStore);
+  }
+
+  private async inspect(
+    store: ModelFileStore,
+    modelId: ModelId,
+  ): Promise<ModelStatus & { integrity: ReturnType<typeof decideIntegrity> }> {
+    const entry = this.entry(modelId);
+    const [fileStat, partSize] = await Promise.all([
+      store.stat(this.finalPath(modelId)),
+      store.size(this.partPath(modelId)),
+    ]);
+    const received = Math.min(partSize, entry.size);
+    const manifest = await this.readManifest(store, modelId);
+    const file = fileStat ? { size: fileStat.size, lastModified: fileStat.lastModified } : null;
+    const integrity = decideIntegrity(entry, file, manifest);
+
+    if (integrity === 'verified') {
+      return {
+        id: modelId,
+        state: 'ready',
+        received: entry.size,
+        total: entry.size,
+        progress: 1,
+        integrity,
+      };
+    }
+
+    if (integrity === 'reject-size') {
+      return {
+        id: modelId,
+        state: 'error',
+        received: fileStat?.size ?? 0,
+        total: entry.size,
+        progress: 0,
+        error: INTEGRITY_SIZE_ERROR,
+        integrity,
+      };
+    }
+
+    const state: ModelState = partSize > 0 ? 'partial' : 'absent';
+    return {
+      id: modelId,
+      state,
+      received,
+      total: entry.size,
+      progress: received / entry.size,
+      integrity,
+    };
   }
 
   private async ensureSpace(modelId: ModelId): Promise<void> {
@@ -324,9 +697,12 @@ export class ModelManager {
     );
   }
 
-  private async readManifest(modelId: ModelId): Promise<ModelManifest | null> {
+  private async readManifest(
+    store: ModelFileStore,
+    modelId: ModelId,
+  ): Promise<ModelManifest | null> {
     try {
-      const blob = await this.store.read(this.manifestPath(modelId));
+      const blob = await store.read(this.manifestPath(modelId));
       const parsed: unknown = JSON.parse(await blob.text());
       if (typeof parsed !== 'object' || parsed === null) return null;
       const record = parsed as Record<string, unknown>;
@@ -345,16 +721,39 @@ export class ModelManager {
         size: record.size,
         commit: record.commit,
         verifiedAt: record.verifiedAt,
+        ...(typeof record.lastModified === 'number' ? { lastModified: record.lastModified } : {}),
       };
     } catch {
       return null;
     }
   }
 
-  private async writeManifest(modelId: ModelId, manifest: ModelManifest): Promise<void> {
+  private async writeVerifiedManifest(
+    store: ModelFileStore,
+    modelId: ModelId,
+    sha256: string = this.entry(modelId).sha256,
+  ): Promise<void> {
+    const entry = this.entry(modelId);
+    const info = await store.stat(this.finalPath(modelId));
+    await this.writeManifest(store, modelId, {
+      id: modelId,
+      sha256,
+      size: entry.size,
+      commit: entry.commit,
+      verifiedAt: Date.now(),
+      ...(info ? { lastModified: info.lastModified } : {}),
+    });
+  }
+
+  private async writeManifest(
+    store: ModelFileStore,
+    modelId: ModelId,
+    manifest: ModelManifest,
+  ): Promise<void> {
     const path = this.manifestPath(modelId);
-    await this.store.remove(path);
-    await this.store.append(path, TEXT_ENCODER.encode(JSON.stringify(manifest)), 0);
+    const writer = await store.createWriter(path, 0);
+    await writer.write(TEXT_ENCODER.encode(JSON.stringify(manifest)));
+    await writer.close();
   }
 
   private notify(status: ModelStatus): void {
@@ -379,5 +778,52 @@ export class ModelManager {
 
   private manifestPath(modelId: ModelId): string {
     return `${this.modelDirectory(modelId)}/model.json`;
+  }
+
+  private copyRejectedPath(modelId: ModelId): string {
+    return `${this.modelDirectory(modelId)}/copy-rejected.json`;
+  }
+
+  private async copyAlreadyRejected(modelId: ModelId): Promise<boolean> {
+    if (!this.fallbackStore) return false;
+    const stat = await this.fallbackStore.stat(this.finalPath(modelId));
+    if (!stat) return false;
+    try {
+      const parsed: unknown = JSON.parse(
+        await (await this.fallbackStore.read(this.copyRejectedPath(modelId))).text(),
+      );
+      if (typeof parsed !== 'object' || parsed === null) return false;
+      const record = parsed as Record<string, unknown>;
+      const entry = this.entry(modelId);
+      return (
+        record.sha256 === entry.sha256 &&
+        record.size === entry.size &&
+        record.fileSize === stat.size &&
+        record.lastModified === stat.lastModified
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  private async rememberCopyRejection(modelId: ModelId): Promise<void> {
+    if (!this.fallbackStore) return;
+    const stat = await this.fallbackStore.stat(this.finalPath(modelId));
+    if (!stat) return;
+    const entry = this.entry(modelId);
+    const path = this.copyRejectedPath(modelId);
+    await this.fallbackStore.remove(path);
+    await this.fallbackStore.append(
+      path,
+      TEXT_ENCODER.encode(
+        JSON.stringify({
+          sha256: entry.sha256,
+          size: entry.size,
+          fileSize: stat.size,
+          lastModified: stat.lastModified,
+        }),
+      ),
+      0,
+    );
   }
 }

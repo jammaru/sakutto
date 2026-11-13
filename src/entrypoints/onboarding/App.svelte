@@ -1,7 +1,25 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
-  import { DEFAULT_MODEL_ID, getModel } from '@/engine/model/catalog';
+  import { DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID, getModel } from '@/engine/model/catalog';
+  import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
+  import {
+    emptySharedFolderStatus,
+    sharedFolderNeedsPermission,
+    type SharedFolderStatus,
+  } from '@/engine/model/folder-status';
+  import { isModelIntegrityError } from '@/engine/model/manager';
+  import {
+    clearStoredSharedFolder,
+    persistSharedFolderHandle,
+    preparePickedSharedFolder,
+    sharedFolderPickerAvailable,
+  } from '@/engine/model/shared-folder';
+  import {
+    defaultOnboardingStoreChoice,
+    planOnboardingDownload,
+    type OnboardingStoreChoice,
+  } from '@/ui/onboarding-store';
   import type { ModelStatus } from '@/shared/engine-status';
   import { agreementFromStorage } from '@/shared/agreement';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';
@@ -11,6 +29,9 @@
     isModelProgressMessage,
     requestModelCancel,
     requestModelDownload,
+    requestEngineWarm,
+    requestModelFolderReload,
+    requestEngineStatus,
     requestModelInspect,
     requestShortcutSnapshot,
   } from '@/shared/messages';
@@ -30,8 +51,11 @@
   } from '@/shared/settings';
   import { loadSettings, saveSettings } from '@/shared/storage';
   import { prepareTranslatorPack } from '@/shared/translator-pack';
+  import FolderPermissionRestore from '@/ui/FolderPermissionRestore.svelte';
+  import ModelFileTools from '@/ui/ModelFileTools.svelte';
+  import SharedFolderBenefits from '@/ui/SharedFolderBenefits.svelte';
   import { estimateRemainingMs, type ByteMark } from '@/ui/download-eta';
-  import { formatByteSize } from '@/ui/format';
+  import { formatByteSize, formatByteSizeList } from '@/ui/format';
   import {
     onboardingCanTry,
     onboardingErrorMessage,
@@ -50,12 +74,25 @@
   const projectLinks = PROJECT_LINKS;
 
   const model = getModel(DEFAULT_MODEL_ID);
+  const folderSizeLabel = formatByteSizeList([
+    getModel(DEFAULT_MODEL_ID).size,
+    getModel(HIGH_QUALITY_MODEL_ID).size,
+  ]);
 
   type Phase = OnboardingPhase;
 
   let targetLanguage = $state<TargetLanguage>(resolveTargetLanguage(currentUiLanguage()));
   let startRequested = $state(false);
   let consentSaved = $state(false);
+  let pickerAvailable = $derived(sharedFolderPickerAvailable());
+  let storeChoice = $state<OnboardingStoreChoice>(
+    defaultOnboardingStoreChoice(sharedFolderPickerAvailable()),
+  );
+  let storeTouched = $state(false);
+  let pickError = $state<string | null>(null);
+  let pickHint = $state<string | null>(null);
+  let integrityAlert = $state<string | null>(null);
+  let resolvedFolderName = $state<string | null>(null);
   /**
    * True when a stored consent predates the clearer commercial summary. That user already
    * agreed to the same license; they are shown the new notice once more, and the click
@@ -69,6 +106,9 @@
   let progress = $state(0);
   let modelState = $state<ModelStatus['state']>('absent');
   let lastStatus = $state<ModelStatus | null>(null);
+  let engineFolder = $state<SharedFolderStatus>(
+    emptySharedFolderStatus(sharedFolderPickerAvailable()),
+  );
   let closing = $state(false);
   let closeFailed = $state(false);
   let tryFailed = $state(false);
@@ -114,14 +154,18 @@
     }
     return `${formatByteSize(received)} / ${formatByteSize(total)}`;
   });
-  let showStartButton = $derived(!consentSaved || phase === 'paused' || phase === 'error');
+  let showStartButton = $derived(
+    !consentSaved || phase === 'paused' || phase === 'error' || Boolean(integrityAlert),
+  );
   /**
    * A sample page is only offered once the model is on disk. While the file is still
    * downloading, verifying, or loading there is nothing to sample: the page would keep its
    * source text and read as broken, so the control is not rendered at all until then.
    */
   let showTryButton = $derived(onboardingCanTry(phase));
-  let showStartNotice = $derived(showStartButton && !consentSaved);
+  // Consent is stored before a folder is linked. A bad file in that folder must
+  // still show the store radios and the integrity alert, not a blank start screen.
+  let showStartNotice = $derived((showStartButton && !consentSaved) || Boolean(integrityAlert));
   let failureText = $derived(
     phase === 'error'
       ? onboardingErrorMessage({
@@ -130,6 +174,9 @@
           http: (status) => t('onboardingHttpError', [status]),
         })
       : null,
+  );
+  let folderBlocked = $derived(
+    sharedFolderNeedsPermission(engineFolder) || lastStatus?.error === FOLDER_PERMISSION_ERROR,
   );
 
   function applyStatus(status: ModelStatus) {
@@ -140,8 +187,22 @@
     total = next.total || model.size;
     progress = next.progress;
     modelState = next.state;
-    if (next.state === 'error') failureDetail = next.error ?? null;
-    else if (next.state === 'downloading' || next.state === 'ready' || next.state === 'loaded') {
+    if (next.error === FOLDER_PERMISSION_ERROR) {
+      failureDetail = null;
+      phase = 'consent';
+      return;
+    }
+    if (next.state === 'error') {
+      const integrity = isModelIntegrityError(next.error);
+      if (integrity) {
+        integrityAlert = t('modelFolderIntegrityFailed', [model.file]);
+        if (status.state === 'downloading') noteBytes(next.received);
+        startRequested = false;
+        phase = 'consent';
+        return;
+      }
+      failureDetail = next.error ?? null;
+    } else if (next.state === 'downloading' || next.state === 'ready' || next.state === 'loaded') {
       failureDetail = null;
     }
     if (status.state === 'downloading') noteBytes(next.received);
@@ -158,13 +219,55 @@
     marks = next.length > 40 ? next.slice(-40) : next;
   }
 
+  function chooseStore(choice: OnboardingStoreChoice) {
+    storeTouched = true;
+    storeChoice = choice;
+  }
+
   async function start() {
     if (phase === 'downloading') return;
     if (startRequested && phase !== 'paused' && phase !== 'error') return;
     failureDetail = null;
-    const alreadyReady = modelState === 'ready' || modelState === 'loaded';
+    pickError = null;
+    pickHint = null;
+    const retryPick = Boolean(integrityAlert);
+    integrityAlert = null;
+
+    if (!storeTouched) {
+      const latest = await requestEngineStatus().catch(() => null);
+      if (latest?.sharedFolder) engineFolder = latest.sharedFolder;
+      storeChoice = defaultOnboardingStoreChoice(pickerAvailable, engineFolder.configured);
+    }
+
+    let skipDownload = modelState === 'ready' || modelState === 'loaded';
+    let pendingFolder: { handle: FileSystemDirectoryHandle; name: string } | null = null;
+    const keepExistingFolder =
+      pickerAvailable && storeChoice === 'folder' && engineFolder.configured && !retryPick;
+
+    if (pickerAvailable && storeChoice === 'folder' && !keepExistingFolder) {
+      const prepared = await preparePickedSharedFolder();
+      if (prepared.status === 'granted') {
+        pendingFolder = { handle: prepared.handle, name: prepared.name };
+        resolvedFolderName = prepared.name;
+      }
+      const plan = planOnboardingDownload({
+        pickerAvailable: true,
+        choice: 'folder',
+        pick: prepared.status,
+        modelState: skipDownload ? 'ready' : modelState,
+        integrityFailed: false,
+      });
+      if (plan === 'stay') {
+        if (prepared.status === 'cancelled') pickHint = t('modelFolderPickerHint');
+        if (prepared.status === 'denied') pickError = t('modelFolderPermissionNeeded');
+        if (prepared.status === 'failed') pickError = t('modelFolderPickFailed');
+        return;
+      }
+    } else if (pickerAvailable && storeChoice === 'browser') {
+      resolvedFolderName = null;
+    }
+
     startRequested = true;
-    if (!alreadyReady) phase = 'downloading';
 
     const source = targetLanguage === 'en' ? 'ja' : 'en';
     const pack = prepareTranslatorPack(source, targetLanguage);
@@ -187,9 +290,54 @@
       return;
     }
 
+    if (pickerAvailable && storeChoice === 'browser') {
+      await clearStoredSharedFolder();
+      await requestModelFolderReload();
+      const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
+      skipDownload = Boolean(
+        inspected && (inspected.state === 'ready' || inspected.state === 'loaded'),
+      );
+      if (inspected) modelState = inspected.state;
+    }
+
+    if (pendingFolder) {
+      await persistSharedFolderHandle(pendingFolder.handle);
+      const folder = await requestModelFolderReload();
+      const issue = folder?.integrityIssues.find((item) => item.modelId === DEFAULT_MODEL_ID);
+      if (issue) {
+        await clearStoredSharedFolder();
+        await requestModelFolderReload();
+        integrityAlert = t('modelFolderIntegrityFailed', [issue.file]);
+        startRequested = false;
+        phase = 'consent';
+        return;
+      }
+      await requestEngineWarm();
+      const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
+      if (inspected && (inspected.state === 'ready' || inspected.state === 'loaded')) {
+        skipDownload = true;
+        modelState = inspected.state;
+      }
+    } else if (keepExistingFolder) {
+      await requestEngineWarm();
+      const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
+      if (inspected && (inspected.state === 'ready' || inspected.state === 'loaded')) {
+        skipDownload = true;
+        modelState = inspected.state;
+      }
+    }
+
+    const alreadyReady =
+      planOnboardingDownload({
+        pickerAvailable,
+        choice: storeChoice,
+        ...(pendingFolder ? { pick: 'granted' as const } : {}),
+        modelState: skipDownload ? 'ready' : modelState,
+      }) === 'skip';
+
     if (received > 0) continued = true;
 
-    if (alreadyReady || modelState === 'ready' || modelState === 'loaded') {
+    if (alreadyReady) {
       phase = 'ready';
       void pack;
       return;
@@ -253,6 +401,21 @@
         });
         if (stored === null) return;
         consentSaved = stored && !reconsent;
+      })
+      .catch(() => undefined)
+      .then(() => requestEngineStatus())
+      .then((status) => {
+        if (!status?.sharedFolder) return;
+        engineFolder = status.sharedFolder;
+        if (!storeTouched && !startRequested) {
+          storeChoice = defaultOnboardingStoreChoice(
+            pickerAvailable,
+            status.sharedFolder.configured,
+          );
+        }
+        if (status.sharedFolder.configured && status.sharedFolder.name) {
+          resolvedFolderName = status.sharedFolder.name;
+        }
       })
       .catch(() => undefined)
       .then(() => requestModelInspect(DEFAULT_MODEL_ID))
@@ -425,7 +588,73 @@
           </ul>
         </details>
       </section>
+      {#if pickerAvailable}
+        <fieldset class="store">
+          <legend>{t('onboardingStoreLegend')}</legend>
+          <div class="store-recommended" data-store-recommended>
+            <label class="store-choice">
+              <input
+                type="radio"
+                name="onboarding-store"
+                value="browser"
+                bind:group={storeChoice}
+                onchange={() => chooseStore('browser')}
+              />
+              <span>{t('onboardingStoreBrowser')}</span>
+            </label>
+          </div>
+          <div class="store-opt-in">
+            <label class="store-choice">
+              <input
+                type="radio"
+                name="onboarding-store"
+                value="folder"
+                bind:group={storeChoice}
+                onchange={() => chooseStore('folder')}
+              />
+              <span>{t('onboardingStoreFolder')}</span>
+            </label>
+            <p class="muted start-note">{t('onboardingStoreFolderHelp')}</p>
+            <p class="muted start-note">{t('modelFolderPickerHint')}</p>
+            <p class="muted start-note">{t('modelFolderPersistentHint')}</p>
+          </div>
+          <SharedFolderBenefits leadKey="modelFolderBenefitsLead" sizeLabel={folderSizeLabel} />
+        </fieldset>
+      {/if}
+      {#if integrityAlert}
+        <p class="error" role="alert">{integrityAlert}</p>
+      {/if}
+      {#if pickHint}
+        <p class="muted start-note" data-folder-picker-hint role="status">{pickHint}</p>
+      {/if}
+      {#if pickError}
+        <p class="error" role="alert">{pickError}</p>
+      {/if}
+      <ModelFileTools
+        onImported={async (imported) => {
+          if (imported === DEFAULT_MODEL_ID) {
+            const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
+            if (inspected) applyStatus(inspected);
+          }
+        }}
+      />
       <p id="start-notice" class="start-note">{t('onboardingConsentSentence')}</p>
+    {/if}
+    {#if folderBlocked}
+      <FolderPermissionRestore
+        folder={engineFolder}
+        modelId={DEFAULT_MODEL_ID}
+        warm={consentSaved}
+        onRestored={async () => {
+          const next = await requestEngineStatus();
+          if (next?.sharedFolder) engineFolder = next.sharedFolder;
+          const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
+          if (inspected) applyStatus(inspected);
+        }}
+      />
+    {/if}
+    {#if resolvedFolderName}
+      <p class="muted start-note" role="status">{t('modelFolderUsing', [resolvedFolderName])}</p>
     {/if}
     <div class="action-row">
       {#if showTryButton}
@@ -597,6 +826,38 @@
     color: var(--muted);
     font-size: 13px;
     line-height: 1.5;
+  }
+
+  .store {
+    display: grid;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .store legend {
+    padding: 0;
+    margin-bottom: var(--space-1);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .store-choice {
+    display: flex;
+    gap: var(--space-2);
+    align-items: flex-start;
+    font-size: 14px;
+  }
+
+  .store-recommended,
+  .store-opt-in {
+    display: grid;
+    gap: var(--space-1);
+  }
+
+  .store-opt-in .start-note {
+    margin-left: 1.6em;
   }
 
   .consent {

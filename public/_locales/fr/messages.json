@@ -246,6 +246,18 @@
   "onboardingStart": {
     "message": "Acceptez la licence et commencez"
   },
+  "onboardingStoreLegend": {
+    "message": "Emplacement du modèle"
+  },
+  "onboardingStoreBrowser": {
+    "message": "Enregistrer dans ce navigateur (recommandé)"
+  },
+  "onboardingStoreFolder": {
+    "message": "Utiliser un dossier de modèles partagé (Chrome et Edge)"
+  },
+  "onboardingStoreFolderHelp": {
+    "message": "For people who use both Chrome and Edge: one copy of the model is shared between them."
+  },
   "onboardingStartFailed": {
     "message": "La configuration n'a pas pu démarrer. Veuillez réessayer."
   },
@@ -674,6 +686,132 @@
   },
   "modelSelectionMissing": {
     "message": "Aucun modèle de traduction n’est installé. Téléchargez-en un pour traduire."
+  },
+  "modelFolderHeading": {
+    "message": "Share the model between Chrome and Edge"
+  },
+  "modelFolderHelp": {
+    "message": "The default is still storage inside this browser."
+  },
+  "modelFolderPickerHint": {
+    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
+  },
+  "modelFolderChoose": {
+    "message": "Choose model folder"
+  },
+  "modelFolderStop": {
+    "message": "Stop using shared folder"
+  },
+  "modelFolderUsing": {
+    "message": "Using the folder $NAME$.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderNotUsing": {
+    "message": "Models are stored inside this browser."
+  },
+  "modelFolderPermissionNeeded": {
+    "message": "Sakutto needs permission to read the shared model folder."
+  },
+  "modelFolderPermissionPresent": {
+    "message": "The model is already in the folder. Allow access to use it."
+  },
+  "modelFolderPermissionGrant": {
+    "message": "Allow folder access"
+  },
+  "modelFolderPermissionPage": {
+    "message": "Open the Sakutto popup or Settings and tap Allow folder access."
+  },
+  "modelFolderPersistentHint": {
+    "message": "Grant access from the Settings tab, not the popup. If the browser offers “Allow on every visit”, pick that. Japanese Chrome labels it 「サイトアクセス時は常に許可」; Japanese Edge labels it 「常に許可」. A one-click re-grant may sometimes be needed."
+  },
+  "modelFolderPickFailed": {
+    "message": "The folder could not be selected."
+  },
+  "modelFolderIntegrityFailed": {
+    "message": "The file $FILE$ is not the official PLaMo model, so Sakutto will not use it.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderOpfsCopy": {
+    "message": "A leftover copy of $MODEL$ is still in this browser's storage. You can delete it to free space.",
+    "placeholders": {
+      "model": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderDeleteOpfs": {
+    "message": "Delete browser copy"
+  },
+  "modelFolderBenefitsLead": {
+    "message": "A shared folder means:"
+  },
+  "modelFolderBenefitShare": {
+    "message": "Other profiles and Edge can use it right away, with no extra download."
+  },
+  "modelFolderBenefitSpace": {
+    "message": "One copy on disk, so you save space ($SIZE$).",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderBenefitKeep": {
+    "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
+  },
+  "modelImportHeading": {
+    "message": "Importer un fichier de modèle"
+  },
+  "modelImportHelp": {
+    "message": "Choisissez le fichier .gguf officiel de PLaMo. Il est transféré dans le stockage du navigateur et vérifié avant utilisation ; ensuite Sakutto ne redemandera plus le fichier."
+  },
+  "modelImportModelLabel": {
+    "message": "Modèle"
+  },
+  "modelImportChoose": {
+    "message": "Importer un fichier .gguf"
+  },
+  "modelImportExport": {
+    "message": "Exporter le fichier de modèle"
+  },
+  "modelImportExportDone": {
+    "message": "Le fichier de modèle est en cours de téléchargement."
+  },
+  "modelImportDone": {
+    "message": "Le fichier de modèle a été importé et vérifié."
+  },
+  "modelImportWrongFile": {
+    "message": "Ce fichier n’est pas le modèle PLaMo officiel ($FILE$). Choisissez le fichier .gguf officiel correspondant.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelImportFailed": {
+    "message": "Le fichier de modèle n’a pas pu être importé."
+  },
+  "modelExportMissing": {
+    "message": "Aucun fichier de modèle n’est encore disponible à l’export."
+  },
+  "modelExportFailed": {
+    "message": "Le fichier de modèle n’a pas pu être exporté."
+  },
+  "modelFolderLocationHint": {
+    "message": "Les fichiers du dossier partagé se trouvent dans <chosen>/$PATH$.",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
   },
   "highQualityOffer": {
     "message": "Vous pouvez essayer le modèle de plus haute précision (2B, environ 1,81 Go). La vitesse dépend de cet appareil."

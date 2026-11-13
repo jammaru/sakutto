@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { repoRoot } from '../scripts/release/cli.ts';
+import { normalizeEol } from './support/eol';
 import {
   CHANGELOG_HEADER,
   USAGE,
@@ -90,7 +91,7 @@ describe('version and tag', () => {
   });
 
   it('keeps the extension version in package.json', () => {
-    const config = readFileSync(new URL('../wxt.config.ts', import.meta.url), 'utf8');
+    const config = normalizeEol(readFileSync(new URL('../wxt.config.ts', import.meta.url), 'utf8'));
     expect(() => assertWxtUsesPackageVersion(config)).not.toThrow();
     expect(() => assertWxtUsesPackageVersion('minimum_chrome_version: "116"\n')).not.toThrow();
     expect(() => assertWxtUsesPackageVersion('// version: "1.0.0"\n')).not.toThrow();
@@ -175,7 +176,7 @@ describe('release command', () => {
     // `pnpm release` prepends a section every time, so this repository's
     // changelog no longer equals the starter template once it has shipped.
     // Release runs must keep the template header and only add sections below it.
-    const changelog = readFileSync(join(repoRoot(), 'CHANGELOG.md'), 'utf8');
+    const changelog = normalizeEol(readFileSync(join(repoRoot(), 'CHANGELOG.md'), 'utf8'));
     const head = changelog.split(/^## /m)[0] ?? '';
     expect(head.trim()).toBe(CHANGELOG_HEADER.trim());
 
@@ -344,11 +345,12 @@ describe('release command', () => {
 
 describe('release workflow', () => {
   it('reuses the package action and publishes to the store only from the workflow input', () => {
-    const workflow = readFileSync(
-      new URL('../.github/workflows/release.yml', import.meta.url),
-      'utf8',
+    const workflow = normalizeEol(
+      readFileSync(new URL('../.github/workflows/release.yml', import.meta.url), 'utf8'),
     );
-    const ci = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
+    const ci = normalizeEol(
+      readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8'),
+    );
     expect(workflow).toContain("tags: ['v*']");
     expect(workflow).toContain('workflow_dispatch:');
     expect(workflow).toContain('publish:');
@@ -378,14 +380,20 @@ describe('release workflow', () => {
     expect(workflow).not.toMatch(/run:.*\$\{\{\s*secrets\./);
     expect(ci).not.toContain('pnpm release');
     expect(ci).not.toContain('chrome-web-store');
-    const runSource = readFileSync(new URL('../scripts/release/run.ts', import.meta.url), 'utf8');
+    const runSource = normalizeEol(
+      readFileSync(new URL('../scripts/release/run.ts', import.meta.url), 'utf8'),
+    );
     expect(runSource).not.toContain("'push'");
     expect(runSource).not.toContain('"push"');
   });
 
   it('documents the command, the secrets, and OPFS in both languages', () => {
-    const japanese = readFileSync(new URL('../docs/RELEASING.md', import.meta.url), 'utf8');
-    const english = readFileSync(new URL('../docs/RELEASING.en.md', import.meta.url), 'utf8');
+    const japanese = normalizeEol(
+      readFileSync(new URL('../docs/RELEASING.md', import.meta.url), 'utf8'),
+    );
+    const english = normalizeEol(
+      readFileSync(new URL('../docs/RELEASING.en.md', import.meta.url), 'utf8'),
+    );
     expect(japanese).toContain('pnpm release patch');
     expect(japanese).toContain('git push origin main vX.Y.Z');
     expect(japanese).toContain('CWS_REFRESH_TOKEN');

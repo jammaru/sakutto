@@ -18,6 +18,8 @@ import {
   subscribeSiteRules,
   type SiteRule,
 } from '@/dom/sites';
+import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
+import { sharedFolderNeedsPermission } from '@/engine/model/folder-status';
 import { hasLicenseConsent } from '@/shared/agreement';
 import type { ModelStatus } from '@/shared/engine-status';
 import { mergeGlossary } from '@/shared/glossary';
@@ -254,6 +256,7 @@ function overlayLabels(): OverlayLabels {
     barOriginal: t('restoreThisPage'),
     barAlways: t('alwaysTranslateSite'),
     engineFailed: t('localServerFailed'),
+    folderPermission: t('modelFolderPermissionPage'),
     barAlwaysOn: t('pageAlwaysOn'),
   };
 }
@@ -334,12 +337,14 @@ export default defineContentScript({
       const settings = await loadSettings();
       engineSource = settings.engineSource;
       const rule = await loadSiteRule(host);
+      let folderNeedsPermission = false;
       if (!__SAKUTTO_FAKE_ENGINE__) {
         const status = await requestEngineStatus().catch(() => null);
         if (status) {
           modelState = status.model.state;
           plamoReady = status.plamoReady;
           modelStatusKnown = true;
+          folderNeedsPermission = sharedFolderNeedsPermission(status.sharedFolder);
         }
       }
       shortcutsEnabled = settings.shortcutsEnabled;
@@ -524,6 +529,7 @@ export default defineContentScript({
         void applyStored();
       });
 
+      if (folderNeedsPermission) session.noteFolderPermission();
       if (rule.auto === 'always') {
         if (!__SAKUTTO_FAKE_ENGINE__) {
           void requestEngineWarm();
@@ -589,7 +595,13 @@ export default defineContentScript({
               ),
             ),
           );
-          if (message.status.state === 'loaded' && !__SAKUTTO_FAKE_ENGINE__) {
+          if (message.status.error === FOLDER_PERMISSION_ERROR) {
+            session.noteFolderPermission();
+          }
+          if (
+            (message.status.state === 'loaded' || message.status.state === 'ready') &&
+            !__SAKUTTO_FAKE_ENGINE__
+          ) {
             void requestEngineTier(session, true, captions);
           }
         });

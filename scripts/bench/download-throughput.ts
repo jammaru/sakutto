@@ -22,6 +22,7 @@ import {
   type DownloadSource,
 } from '../../src/engine/model/download.ts';
 import type {
+  ModelFileStat,
   ModelFileStore,
   ModelFileWriter,
   StorageEstimate,
@@ -61,6 +62,11 @@ class BenchFileStore implements ModelFileStore {
 
   async size(path: string): Promise<number> {
     return this.lengths.get(path) ?? 0;
+  }
+
+  async stat(path: string): Promise<ModelFileStat | null> {
+    const size = this.lengths.get(path);
+    return size === undefined ? null : { size, lastModified: 0 };
   }
 
   async append(path: string, chunk: Uint8Array, offset: number): Promise<void> {

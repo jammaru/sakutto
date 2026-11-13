@@ -192,6 +192,84 @@ describe('locale messages', () => {
     }
   });
 
+  it('states shared-folder benefits that the implementation can keep', () => {
+    expect(ja.modelFolderBenefitsLead?.message).toBe('共有フォルダを使うと：');
+    expect(ja.modelFolderBenefitShare?.message).toBe(
+      '他のプロフィールやEdgeでもダウンロードなしですぐ使える',
+    );
+    expect(ja.modelFolderBenefitSpace?.message).toBe('モデルは1つだけなので容量を節約（$SIZE$）');
+    expect(ja.modelFolderBenefitKeep?.message).toBe(
+      'ブラウザのデータを消してもファイルは残る。同じフォルダを選べば再ダウンロード不要',
+    );
+    expect(en.modelFolderBenefitKeep?.message).toMatch(/pick the same folder/i);
+    expect(en.modelFolderHeading?.message).toBe('Share the model between Chrome and Edge');
+    expect(ja.modelFolderHeading?.message).toBe('ChromeとEdgeでモデルを共有する');
+    expect(en.modelFolderPickerHint?.message).toBe(
+      'The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto.',
+    );
+    expect(ja.modelFolderPickerHint?.message).toBe(
+      'フォルダ選択はドキュメントで開きます。「Sakutto」を新規作成するか、すでにあれば開いて、ドキュメント\\Sakutto を選んでください。',
+    );
+    expect(en.onboardingStoreFolderHelp?.message).toBe(
+      'For people who use both Chrome and Edge: one copy of the model is shared between them.',
+    );
+    expect(ja.onboardingStoreFolderHelp?.message).toBe(
+      'ChromeとEdgeの両方で使う人向けです。モデルは1つで済みます。',
+    );
+    expect(en.onboardingStoreFolder?.message).toBe('Use a shared model folder (Chrome and Edge)');
+    expect(ja.onboardingStoreFolder?.message).toBe(
+      '共有モデルフォルダを使う（ChromeとEdgeで共用）',
+    );
+    expect(en.onboardingStoreBrowser?.message).toBe('Save in this browser (recommended)');
+    expect(ja.onboardingStoreBrowser?.message).toBe('このブラウザ内に保存する（おすすめ）');
+    expect(en.modelFolderHelp?.message).toBe('The default is still storage inside this browser.');
+    expect(ja.modelFolderHelp?.message).toBe('既定はこれまでどおり、このブラウザ内への保存です。');
+    expect(en.modelFolderPickerHint?.message).toContain('Documents\\Sakutto');
+    expect(ja.modelFolderPickerHint?.message).toContain('ドキュメント\\Sakutto');
+    expect(en.modelFolderPickerHint?.message).not.toMatch(/select Documents itself/i);
+    expect(en).not.toHaveProperty('modelFolderOfferHide');
+    expect(ja).not.toHaveProperty('modelFolderOfferHide');
+    expect(en).not.toHaveProperty('modelFolderOfferLead');
+    expect(ja).not.toHaveProperty('modelFolderOfferLead');
+    expect(en).not.toHaveProperty('modelFolderOfferLater');
+    expect(ja).not.toHaveProperty('modelFolderOfferLater');
+    expect(en).not.toHaveProperty('modelFolderOfferOpenSettings');
+    expect(ja).not.toHaveProperty('modelFolderOfferOpenSettings');
+    expect(en).not.toHaveProperty('modelFolderOfferMove');
+    expect(ja).not.toHaveProperty('modelFolderOfferMove');
+    expect(en).not.toHaveProperty('modelFolderOfferMoving');
+    expect(ja).not.toHaveProperty('modelFolderOfferMoving');
+    expect(ja.modelFolderPermissionGrant?.message).toBe('フォルダへのアクセスを許可');
+    expect(en.modelFolderPermissionGrant?.message).toBe('Allow folder access');
+    expect(ja.modelFolderPermissionPresent?.message).toBe(
+      'モデルはフォルダにあります。許可するとすぐ使えます。',
+    );
+    expect(en.modelFolderPermissionPresent?.message).toBe(
+      'The model is already in the folder. Allow access to use it.',
+    );
+    expect(ja.modelFolderPermissionPage?.message).toContain('フォルダへのアクセスを許可');
+    expect(en.modelFolderPersistentHint?.message).not.toMatch(/never need/i);
+    expect(ja.modelFolderPersistentHint?.message).not.toMatch(/必ず|二度と|毎回クリック/);
+    expect(ja.modelFolderPersistentHint?.message).toContain('出ないこともあります');
+    expect(en.modelFolderPersistentHint?.message).toContain('サイトアクセス時は常に許可');
+    expect(en.modelFolderPersistentHint?.message).toContain('常に許可');
+    expect(en.modelFolderPersistentHint?.message).not.toContain('アクセスするたびに確認する');
+    expect(ja.modelFolderPersistentHint?.message).toContain('サイトアクセス時は常に許可');
+    expect(ja.modelFolderPersistentHint?.message).toContain('常に許可');
+    expect(ja.modelFolderPersistentHint?.message).not.toContain('アクセスするたびに確認する');
+    for (const locale of catalogs) {
+      expect(readMessages(locale).modelFolderPersistentHint?.message, locale).not.toContain(
+        'アクセスするたびに確認する',
+      );
+    }
+    for (const locale of catalogs) {
+      expect(readMessages(locale).modelFolderBenefitSpace?.message, locale).toContain('$SIZE$');
+      expect(readMessages(locale).modelFolderBenefitSpace?.message, locale).not.toMatch(
+        /573|1\.81/,
+      );
+    }
+  });
+
   it('keeps Firefox-facing copy free of Chrome-only claims', () => {
     const firefoxKeys = [
       'paceHelpFirefox',

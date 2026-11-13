@@ -1,6 +1,11 @@
 import { isModelId, type ModelId } from '../engine/model/catalog';
 import type { BackendKind, ComputeTier } from '../engine/in-browser/backend';
 import type { EngineKind } from '../engine/types';
+import {
+  isSharedFolderStatus,
+  sharedFolderNeedsPermission,
+  type SharedFolderStatus,
+} from '../engine/model/folder-status';
 import { isGpuDiagnostic, type GpuDiagnostic } from './gpu-diagnostic';
 
 export type ModelState =
@@ -34,6 +39,8 @@ export interface EngineStatus {
   modelFallback?: boolean;
   /** Where PLaMo requests are sent. Missing means the built-in engine. */
   engineSource?: EngineSource;
+  /** Chromium-only opt-in shared model folder. Missing on Firefox and older hosts. */
+  sharedFolder?: SharedFolderStatus;
 }
 
 const MODEL_STATES: ReadonlySet<string> = new Set<ModelState>([
@@ -97,6 +104,17 @@ export function translationStartBlocked(
   return modelStartBlocked(status.model);
 }
 
+/**
+ * The popup/onboarding "model is still downloading" gate. A missing folder grant is
+ * not a missing file: that state has its own restore card, so this gate stays hidden.
+ */
+export function shouldShowModelDownloadGate(
+  status: Pick<EngineStatus, 'model' | 'engineSource' | 'sharedFolder'> | null | undefined,
+): boolean {
+  if (sharedFolderNeedsPermission(status?.sharedFolder)) return false;
+  return translationStartBlocked(status);
+}
+
 export function isEngineStatus(value: unknown): value is EngineStatus {
   if (typeof value !== 'object' || value === null) return false;
   const record = value as Record<string, unknown>;
@@ -127,6 +145,9 @@ export function isEngineStatus(value: unknown): value is EngineStatus {
     record.engineSource !== undefined &&
     (typeof record.engineSource !== 'string' || !ENGINE_SOURCES.has(record.engineSource))
   ) {
+    return false;
+  }
+  if (record.sharedFolder !== undefined && !isSharedFolderStatus(record.sharedFolder)) {
     return false;
   }
   return true;

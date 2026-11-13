@@ -14,7 +14,12 @@ import { DEFAULT_BATCHING } from '@/engine/text/plan';
 import { chunkForTranslation, joinTranslatedSentences } from '@/engine/text/sentences';
 import { isPlainAltS } from '@/shared/shortcuts';
 import { PriorityQueue } from '@/engine/queue/priority-queue';
-import { isAbortError, isLocalServerError, isModelChangedError } from '@/engine/errors';
+import {
+  isAbortError,
+  isFolderPermissionError,
+  isLocalServerError,
+  isModelChangedError,
+} from '@/engine/errors';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
 import { mergeGlossary } from '@/shared/glossary';
 import {
@@ -283,6 +288,7 @@ export class PageSession {
   private applying = 0;
   /** Set when a local-server request fails, so the bar can keep the Settings hint. */
   private serverFault = false;
+  private folderPermissionFault = false;
   private historyUnpatch: (() => void) | null = null;
   private scanTimer: ReturnType<typeof setTimeout> | null = null;
   private direction: 'down' | 'up' = 'down';
@@ -573,6 +579,7 @@ export class PageSession {
     if (this.active) return;
     this.active = true;
     this.serverFault = false;
+    this.folderPermissionFault = false;
     this.navigating = false;
     this.sweepLegacyNotes();
     this.startedAt = performance.now();
@@ -597,6 +604,7 @@ export class PageSession {
   restore(): void {
     this.active = false;
     this.serverFault = false;
+    this.folderPermissionFault = false;
     this.targetAdjusted = false;
     const source = this.doc.documentElement.getAttribute('data-sakutto-source-lang');
     if (source !== null) {
@@ -818,7 +826,13 @@ export class PageSession {
    * model is ready those blocks are queued again; nothing was painted in their place, so
    * there is no draft to replace — only missing text to translate.
    */
+  noteFolderPermission(): void {
+    this.folderPermissionFault = true;
+    if (this.labels.folderPermission) this.overlay.showStatus(this.labels.folderPermission);
+  }
+
   retryUntranslated(): void {
+    this.folderPermissionFault = false;
     if (!this.active) return;
     for (const item of this.live.values()) {
       if (item.role !== 'page' || item.state === 'running') continue;
@@ -1296,6 +1310,8 @@ export class PageSession {
       } else if (!signal.aborted && isLocalServerError(error)) {
         this.serverFault = true;
         if (this.labels.engineFailed) this.overlay.showStatus(this.labels.engineFailed);
+      } else if (!signal.aborted && isFolderPermissionError(error)) {
+        this.noteFolderPermission();
       }
     } finally {
       this.work.engineMs += Math.round(performance.now() - engineStarted);
@@ -1324,6 +1340,11 @@ export class PageSession {
           item.state = item.translation.length > 0 ? 'done' : 'idle';
           item.model?.block.removeAttribute('data-sakutto-pending');
           this.showSelectionFailure(item, signal);
+          continue;
+        }
+        if (this.folderPermissionFault) {
+          item.state = 'idle';
+          item.model?.block.removeAttribute('data-sakutto-pending');
           continue;
         }
         if (item.partFinal.length > 0 && item.partFinal.every(Boolean)) {
@@ -1838,6 +1859,9 @@ export class PageSession {
   }
 
   private barText(view: PageViewState): string {
+    if (this.folderPermissionFault && this.labels.folderPermission && view.pending === 0) {
+      return this.labels.folderPermission;
+    }
     if (this.serverFault && this.labels.engineFailed && view.pending === 0) {
       return this.labels.engineFailed;
     }

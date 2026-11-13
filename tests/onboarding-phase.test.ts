@@ -15,7 +15,9 @@ describe('onboardingPhaseAfterStatus', () => {
   it('follows the download until the file is ready', () => {
     expect(onboardingPhaseAfterStatus('downloading', 'verifying', true)).toBe('downloading');
     expect(onboardingPhaseAfterStatus('downloading', 'loading', true)).toBe('downloading');
-    expect(onboardingPhaseAfterStatus('consent', 'ready', false)).toBe('ready');
+    expect(onboardingPhaseAfterStatus('consent', 'ready', false)).toBe('consent');
+    expect(onboardingPhaseAfterStatus('consent', 'loaded', false)).toBe('consent');
+    expect(onboardingPhaseAfterStatus('consent', 'ready', true)).toBe('ready');
     expect(onboardingPhaseAfterStatus('downloading', 'partial', true)).toBe('paused');
     expect(onboardingPhaseAfterStatus('consent', 'partial', false)).toBe('consent');
   });

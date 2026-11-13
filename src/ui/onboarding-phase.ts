@@ -14,13 +14,15 @@ export function onboardingCanTry(phase: OnboardingPhase): boolean {
 export function onboardingPhaseAfterStatus(
   phase: OnboardingPhase,
   state: ModelStatus['state'],
-  canPause: boolean,
+  started: boolean,
 ): OnboardingPhase {
+  // A verified file already in a folder (or OPFS) must not skip the license click.
+  if (phase === 'consent' && !started) return 'consent';
   if (state === 'error') return 'error';
   if (state === 'ready' || state === 'loaded') return 'ready';
   if (phase === 'ready' || phase === 'error') return phase;
   if (state === 'downloading' || state === 'verifying' || state === 'loading') return 'downloading';
-  if (state === 'partial' && canPause) return 'paused';
+  if (state === 'partial' && started) return 'paused';
   if (phase !== 'consent') return 'paused';
   return phase;
 }
