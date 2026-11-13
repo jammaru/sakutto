@@ -1353,8 +1353,9 @@ const ENGLISH_FUNCTION_WORDS = new Set([
   'over',
 ]);
 
+/** Keywords that mark a listing step. `set` / `end` are ordinary nouns (`Training set`) and are not here. */
 const LISTING_STEP_WORD =
-  /\b(?:if|then|else|while|for|each|repeat|until|do|end|return|emit|print|procedure|begin|break|continue|yield|init|set|def)\b/iu;
+  /\b(?:if|then|else|while|for|each|repeat|until|do|return|emit|print|procedure|begin|break|continue|yield|init|def)\b/iu;
 
 const LISTING_STEP_WORDS = new Set([
   'if',
@@ -1427,8 +1428,39 @@ function englishClauseAfterComma(bare: string): boolean {
 }
 
 /**
+ * `Set threshold` / `End if` / `End procedure` at the start of the line. `Set of blocks`,
+ * `End of document`, and `End to end latency` are English (`set`/`end` + of/to/for/the/a).
+ */
+function isSetOrEndStep(rest: string): boolean {
+  const match = /^(?:set|end)\b(.*)$/iu.exec(rest.trim());
+  if (!match) return false;
+  const after = (match[1] ?? '').trim();
+  if (after.length === 0) return true;
+  if (/^(?:of|to|for|the|a)\b/iu.test(after)) return false;
+  return /^(?:if|while|for|procedure|repeat|until|do|else|then|[A-Za-z_][\w]*)\b/u.test(after);
+}
+
+/**
+ * One- or two-token algorithm steps: `Repeat`, `If ready`, `While queue`, `Until done`,
+ * `Procedure Run`, `Set threshold`. Not `While loading` (gerund), `Repeat runs` (plural
+ * English), or `Set of` / `End of` / `End to`.
+ */
+function isBareListingStep(tokens: readonly string[]): boolean {
+  if (tokens.length === 0 || tokens.length > 2) return false;
+  const first = tokens[0]?.toLowerCase() ?? '';
+  if (!LISTING_STEP_WORDS.has(first)) return false;
+  if (tokens.length === 1) return true;
+  const second = tokens[1]?.toLowerCase() ?? '';
+  if (/^(?:of|to|for|the|a)$/u.test(second) || ENGLISH_FUNCTION_WORDS.has(second)) return false;
+  if (/ing$/u.test(second)) return false;
+  if (first === 'repeat' && /s$/u.test(second)) return false;
+  return true;
+}
+
+/**
  * Numbered English, including a semicolon or colon that ends a sentence, not a listing.
- * Needs four or more words, no operators outside brackets, and either a 30% function-word
+ * Needs four or more words (checked before a comma clause, so `2 for each block, emit it`
+ * is not saved by the clause), no operators outside brackets, and either a 30% function-word
  * share with three content words, a `.!?` ending with three content words, or a function-word
  * clause after the last bare comma. `1  for i in range(0, n):` has too few content words.
  */
@@ -1436,18 +1468,18 @@ function looksLikeEnglishProse(rest: string): boolean {
   const bare = withoutBracketSpans(rest);
   if (hasCodeOperators(rest, bare)) return false;
   const words = wordsOf(bare);
-  if (englishClauseAfterComma(bare)) return true;
   if (words.length < 4) return false;
+  if (englishClauseAfterComma(bare)) return true;
   const content = contentWordCount(words);
   if (content < 3) return false;
   return functionWordShare(words) >= 0.3 || /[.!?]\s*$/u.test(rest);
 }
 
 /**
- * Numbered short labels (`1 Introduction`, `3 If the model is cold`).
- * Title-case, at most six words, no listing punctuation. A listing keyword (`If`, `While`,
- * `Init`, `Repeat`) is an algorithm step unless the line is already English (≥4 words and a
- * function-word share): `3 If the model is cold` stays a heading, `1 If ready` does not.
+ * Numbered short labels (`1 Introduction`, `3 If the model is cold`, `2 While loading`).
+ * Title-case, at most six words, no listing punctuation. A bare algorithm step (`1 If ready`,
+ * `1 While queue`, `2 Repeat`, `4 Until done`) is not a label; a gerund or longer Title-case
+ * phrase (`2 While loading`, `4 For further details`, `6 Repeat runs`) is.
  */
 function isNumberedShortLabel(rest: string): boolean {
   const words = rest
@@ -1458,9 +1490,11 @@ function isNumberedShortLabel(rest: string): boolean {
   if (!/^\p{Lu}/u.test(words[0] ?? '')) return false;
   if (/[:{(=;]\s*$/u.test(rest) || /\b(?:then|do)\s*$/iu.test(rest)) return false;
   if (/[=()[\]{}]/u.test(rest)) return false;
-  if (LISTING_STEP_WORD.test(rest)) {
-    const tokens = wordsOf(rest);
-    return tokens.length >= 4 && functionWordShare(tokens) >= 0.25;
+  if (isSetOrEndStep(rest)) return false;
+  const tokens = wordsOf(rest);
+  if (LISTING_STEP_WORD.test(rest) || /^(?:set|end)\b/iu.test(rest)) {
+    if (isBareListingStep(tokens)) return false;
+    return tokens.length >= 2;
   }
   return true;
 }
@@ -1485,11 +1519,14 @@ function numberedLineIsCode(rest: string): boolean {
   if (looksLikeEnglishProse(trimmed)) return false;
 
   const bare = withoutBracketSpans(trimmed);
+  const listingLead =
+    /^(?:for|if|while|def|repeat|until|init|procedure|begin)\b/iu.test(trimmed) ||
+    isSetOrEndStep(trimmed);
   const trailingCode =
     /[:{(=;]\s*$/u.test(trimmed) ||
     /\)\s*;?\s*$/u.test(trimmed) ||
     /\b(?:then|do)\s*$/iu.test(trimmed);
-  const sentence = /[.!?]\s*$/u.test(trimmed) || (/,/u.test(bare) && !trailingCode);
+  const sentence = /[.!?]\s*$/u.test(trimmed) || (/,/u.test(bare) && !trailingCode && !listingLead);
   if (sentence) return isIdentifierTupleAssign(trimmed);
 
   if (trailingCode) return true;
@@ -1501,8 +1538,7 @@ function numberedLineIsCode(rest: string): boolean {
   ) {
     return true;
   }
-  if (/^(?:for|if|while|def|repeat|until)\b/iu.test(trimmed)) return true;
-  if (LISTING_STEP_WORD.test(trimmed) && wordsOf(trimmed).length <= 6) return true;
+  if (listingLead) return true;
   if (/^[A-Za-z_][\w.]*\(/u.test(trimmed) && /[);{]\s*$/u.test(trimmed)) return true;
   return isIdentifierTupleAssign(trimmed);
 }
@@ -1512,7 +1548,7 @@ export function looksLikeCodeLine(text: string): boolean {
   const trimmed = text.trim();
   if (trimmed.length === 0) return false;
   if (
-    /^(?:for\s+each\s*[{(]|foreach\b|for\s*\(|while\s*\(|if\s*\(|else\b|repeat\b|until\b|end\s+(?:for|if|while)\b)/iu.test(
+    /^(?:for\s+each\s*[{(]|foreach\b|for\s*\(|while\s*\(|if\s*\(|else\b|repeat\b|until\b|end\s+(?:for|if|while|procedure)\b)/iu.test(
       trimmed,
     )
   ) {

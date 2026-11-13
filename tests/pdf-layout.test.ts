@@ -19,6 +19,7 @@ import {
   DISCUSSION_PROSE,
   ENUM_SEMI_PROSE,
   LC_NUMBERED_PROSE,
+  LEGEND_PROSE,
   LISTING_LINES,
   NUMBERED_CODE,
 } from './support/pdf-code-line-corpus';
@@ -741,7 +742,7 @@ describe('pseudocode line shapes', () => {
     }
   });
 
-  it('matches the round 16–21 prose and listing corpus, line by line and as a block', () => {
+  it('matches the round 16–22 prose and listing corpus, line by line and as a block', () => {
     expect(LISTING_LINES.filter((entry) => entry.code).length).toBeGreaterThanOrEqual(16);
     expect(LC_NUMBERED_PROSE).toHaveLength(10);
     expect(DISCUSSION_PROSE.length).toBeGreaterThanOrEqual(18);
@@ -749,6 +750,7 @@ describe('pseudocode line shapes', () => {
     expect(CITE_RICH_PROSE.length).toBeGreaterThanOrEqual(18);
     expect(NUMBERED_CODE.length).toBeGreaterThanOrEqual(9);
     expect(ENUM_SEMI_PROSE.length).toBeGreaterThanOrEqual(5);
+    expect(LEGEND_PROSE.length).toBeGreaterThanOrEqual(6);
 
     const compact = (value: string): string => value.replace(/\s+/gu, ' ').trim();
     for (const entry of CODE_LINE_CORPUS) {
@@ -760,23 +762,30 @@ describe('pseudocode line shapes', () => {
       const compactText = compact(entry.text);
       const needle = compactText.length < 24 ? compactText : compactText.slice(0, 24);
       const hit = painted.find((block) => compact(block.text).includes(needle));
+      const paintedSummary = painted
+        .map((block) => `${block.role}:${JSON.stringify(compact(block.text))}`)
+        .join(' | ');
+      const where = `${entry.tag}: expected ${entry.role} for ${JSON.stringify(entry.text)}; needle=${JSON.stringify(needle)}; painted=[${paintedSummary}]`;
       if (entry.code) {
-        expect(skipped.length, entry.tag).toBeGreaterThan(0);
-        expect(hit?.role, entry.tag).toBe('code');
+        expect(skipped.length, where).toBeGreaterThan(0);
+        expect(hit, `${where} (missing hit)`).toBeTruthy();
+        expect(hit?.role, where).toBe('code');
       } else {
-        expect(skipped, entry.tag).toHaveLength(0);
-        expect(hit?.role, entry.tag).toBe(entry.role);
+        expect(skipped, where).toHaveLength(0);
+        expect(hit, `${where} (missing hit)`).toBeTruthy();
+        expect(hit?.role, where).toBe(entry.role);
       }
     }
   });
 
-  it('keeps discussion, big-prose, cite-rich, lowercase-numbered, and enum-semi pages free of code', () => {
+  it('keeps discussion, big-prose, cite-rich, lowercase-numbered, enum-semi, and legend pages free of code', () => {
     const pages = [
       DISCUSSION_PROSE,
       BIG_PROSE,
       CITE_RICH_PROSE,
       LC_NUMBERED_PROSE,
       ENUM_SEMI_PROSE,
+      LEGEND_PROSE,
     ];
     for (const corpus of pages) {
       const page = groupLines(

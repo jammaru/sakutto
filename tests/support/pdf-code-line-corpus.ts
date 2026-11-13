@@ -1,5 +1,5 @@
 /**
- * Synthetic prose vs listing lines reported across PDF layout rounds 16–21.
+ * Synthetic prose vs listing lines reported across PDF layout rounds 16–22.
  * Used by one table-driven test so a later keyword tweak cannot drop an old case.
  */
 
@@ -235,6 +235,21 @@ export const NUMBERED_PROSE: CodeLineCase[] = [
   prose('10 for brevity the stub translator expands each block in place.', 'r19-for-brevity'),
   prose('11 if ready the compare pane copies the original canvas.', 'r19-if-ready-prose'),
   prose('3 If the model is cold', 'r20-If-cold', 'heading'),
+  prose('2 While loading', 'r20-While-loading', 'heading'),
+  prose('4 For further details', 'r22-For-further', 'heading'),
+  prose('7 For each backend', 'r22-For-each-backend', 'heading'),
+  prose('6 Repeat runs', 'r22-Repeat-runs', 'heading'),
+];
+
+/** Round 22: numbered legend / noun `set` / `end`, not algorithm steps. */
+export const LEGEND_PROSE: CodeLineCase[] = [
+  prose('1 Training set', 'r22-training-set', 'heading'),
+  prose('2 Validation set', 'r22-validation-set', 'heading'),
+  prose('3 Test set', 'r22-test-set', 'heading'),
+  prose('1 Data set', 'r22-data-set', 'heading'),
+  prose('2 End of document', 'r22-end-of-document', 'heading'),
+  prose('1 Set of blocks', 'r22-set-of-blocks', 'heading'),
+  prose('1 End to end latency', 'r22-end-to-end', 'heading'),
 ];
 
 /** Round 21: semicolon/colon-terminated enumerated English. Title-case lines are headings. */
@@ -358,6 +373,8 @@ export const NUMBERED_CODE: CodeLineCase[] = [
   code('1 If ready', 'r21-If-ready'),
   code('1 Procedure Run', 'r21-Procedure'),
   code('1 Set threshold', 'r21-Set'),
+  code('3 End if', 'r22-End-if'),
+  code('2 for each block, emit it', 'r22-for-each-emit'),
 ];
 
 export const CODE_LINE_CORPUS: CodeLineCase[] = [
@@ -367,6 +384,7 @@ export const CODE_LINE_CORPUS: CodeLineCase[] = [
   ...NUMBERED_PROSE,
   ...CITE_RICH_PROSE,
   ...ENUM_SEMI_PROSE,
+  ...LEGEND_PROSE,
   ...LISTING_LINES,
   ...NUMBERED_CODE,
 ];
