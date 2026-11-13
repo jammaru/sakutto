@@ -219,11 +219,13 @@ export class PdfReader {
 
   /** Re-queues blocks that never got a translation, once the model is ready. */
   retryUntranslated(): void {
+    this.coverageSweepPass = 0;
     this.session.retryUntranslated();
   }
 
   /** Re-queues blocks whose stream failed or was cut off, so a retry can finish them. */
   retryFailed(): void {
+    this.coverageSweepPass = 0;
     this.session.retryFailed();
   }
 
@@ -371,6 +373,7 @@ export class PdfReader {
     if (language === this.target && form === this.form) return;
     this.target = language;
     this.form = form;
+    this.coverageSweepPass = 0;
     this.session.setTargetLanguage(language, form);
     this.paint();
   }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { groupLines, type TextPiece } from '@/pdf/lines';
 import { layoutPage } from '@/pdf/layout';
-import { countsTowardProgress, PdfSession, type PdfEngine } from '@/pdf/session';
+import { hasDeliverableTranslation, PdfSession, type PdfEngine } from '@/pdf/session';
 import type { TranslationChunk } from '@/engine/types';
 
 function piece(
@@ -104,7 +104,7 @@ describe('synthetic two-column letter coverage', () => {
     const proseStates = states.filter(
       (state) => state.block.role === 'prose' || state.block.role === 'heading',
     );
-    const covered = proseStates.filter((state) => countsTowardProgress(state)).length;
+    const covered = proseStates.filter((state) => hasDeliverableTranslation(state)).length;
     expect(covered / Math.max(1, proseStates.length)).toBeGreaterThanOrEqual(0.97);
     expect(layout.skipped.filter((block) => block.role === 'code')).toHaveLength(0);
   });

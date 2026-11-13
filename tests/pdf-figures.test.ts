@@ -17,6 +17,7 @@ const OPS = {
   paintInlineImageXObject: 5,
   paintImageMaskXObject: 6,
   constructPath: 7,
+  rectangle: 8,
 };
 
 function path(x: number, y: number, width: number, height: number): unknown[] {
@@ -59,6 +60,54 @@ describe('figure cluster caps', () => {
     const areas = figureAreas({ fnArray, argsArray }, OPS, 800, 600);
     expect(areas.images.length).toBeGreaterThan(0);
     expect(areas.images.some((box) => box.width >= 100)).toBe(true);
+  });
+
+  it('detects figures drawn with rectangle operators and ignores full-page clips', () => {
+    const fnArray: number[] = [];
+    const argsArray: unknown[][] = [];
+    for (let index = 0; index < 6; index += 1) {
+      fnArray.push(OPS.rectangle);
+      argsArray.push([80 + index * 2, 480 + index * 2, 200, 100]);
+    }
+    const areas = figureAreas({ fnArray, argsArray }, OPS, 800, 600);
+    expect(areas.images.length).toBeGreaterThan(0);
+    expect(areas.images.some((box) => box.width >= 180 && box.height >= 90)).toBe(true);
+
+    const pageClips: number[] = [];
+    const pageArgs: unknown[][] = [];
+    for (let index = 0; index < 6; index += 1) {
+      pageClips.push(OPS.rectangle);
+      pageArgs.push([0, 0, 600, 800]);
+    }
+    expect(figureAreas({ fnArray: pageClips, argsArray: pageArgs }, OPS, 800, 600).images).toEqual(
+      [],
+    );
+  });
+
+  it('prefers a path minMax and leaves code inside a rectangle figure as figure-label', () => {
+    const fnArray: number[] = [];
+    const argsArray: unknown[][] = [];
+    for (let index = 0; index < 6; index += 1) {
+      fnArray.push(OPS.constructPath);
+      // The coordinate list is tiny; pdf.js's minMax is the painted area that must win.
+      argsArray.push([0, [0, 0, 1, 0, 1, 1], [80, 480, 280, 580]]);
+    }
+    const lines = groupLines([
+      piece('The model routes each token to two of its experts.', 49, 100, 250),
+      piece('Router', 150, 280, 40),
+      piece('emit(token);', 150, 300, 70),
+    ]);
+    const areas = figureAreas({ fnArray, argsArray }, OPS, 800, 600, lines);
+    expect(areas.images.some((box) => box.width >= 180 && box.height >= 90)).toBe(true);
+    const layout = layoutPage(lines, areas, { width: 600, height: 800 });
+    expect(layout.blocks.map((block) => block.text)).toContain(
+      'The model routes each token to two of its experts.',
+    );
+    expect(layout.blocks.map((block) => block.text)).not.toContain('Router');
+    expect(layout.blocks.map((block) => block.text)).not.toContain('emit(token);');
+    const labels = layout.skipped.filter((block) => block.role === 'figure-label');
+    expect(labels.some((block) => block.text.includes('Router'))).toBe(true);
+    expect(labels.some((block) => block.text.includes('emit(token);'))).toBe(true);
   });
 
   it('does not treat a page frame as a figure, so a title stays a heading', () => {

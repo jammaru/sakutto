@@ -18,7 +18,7 @@ import {
 } from '@/engine/offscreen/protocol';
 import type { TranslateOptions, TranslationChunk } from '@/engine/types';
 
-function block(text: string): LayoutBlock {
+function block(text: string, overrides: Partial<LayoutBlock> = {}): LayoutBlock {
   return {
     box: { x: 40, y: 80, width: 220, height: 24 },
     room: { x: 40, y: 80, width: 220, height: 24 },
@@ -33,6 +33,7 @@ function block(text: string): LayoutBlock {
     column: 0,
     advance: 220,
     writing: 0,
+    ...overrides,
   };
 }
 
@@ -167,10 +168,12 @@ describe('PdfSession stream handling', () => {
     expect(session.pageBlocks(0)[0]?.translation).toBe('NEW');
   });
 
-  it('re-queues a failed block from retryFailed', async () => {
+  it('re-queues a failed block from retryFailed and bypasses its cached answer', async () => {
     let calls = 0;
-    const engine = engineOf(async function* (segments) {
+    const bypass: boolean[] = [];
+    const engine = engineOf(async function* (segments, options) {
       calls += 1;
+      bypass.push(options.bypassCache === true);
       const id = segments[0]?.id ?? 'b1';
       if (calls === 1) {
         yield { id, final: segments[0]?.text ?? '', error: true };
@@ -184,6 +187,84 @@ describe('PdfSession stream handling', () => {
     session.retryFailed();
     await waitFor(() => session.pageBlocks(0)[0]?.state === 'done');
     expect(session.pageBlocks(0)[0]?.translation).toBe('訳');
+    expect(bypass).toEqual([false, true]);
+  });
+
+  it('finishes every other page when one block keeps failing, and still sweeps', async () => {
+    let failures = 0;
+    const engine = engineOf(async function* (segments) {
+      const id = segments[0]?.id ?? 'b1';
+      const text = segments[0]?.text ?? '';
+      if (text.includes('permanently broken')) {
+        failures += 1;
+        yield { id, final: text, error: true };
+        return;
+      }
+      yield { id, final: '訳' };
+    });
+    const session = sessionOf(engine, { concurrency: 1 });
+    session.addPage(0, layoutOf('The first page describes the detector and its configuration.'));
+    session.addPage(
+      1,
+      layoutOf('This permanently broken paragraph has the words and was never translated.'),
+    );
+    session.addPage(2, layoutOf('The third page also describes the detector and its settings.'));
+
+    await waitFor(() => session.progress().pending === 0 && session.progress().failed === 1);
+    expect(session.pageBlocks(0)[0]?.state).toBe('done');
+    expect(session.pageBlocks(1)[0]?.state).toBe('failed');
+    expect(session.pageBlocks(2)[0]?.state).toBe('done');
+
+    const requeued = session.sweepIncompleteBlocks();
+    expect(requeued).toBe(1);
+    await waitFor(() => session.progress().pending === 0);
+    expect(failures).toBeGreaterThanOrEqual(2);
+    expect(session.pageBlocks(0)[0]?.state).toBe('done');
+    expect(session.pageBlocks(2)[0]?.state).toBe('done');
+  });
+
+  it('finishes a 24-page document when the focus moves to the last page', async () => {
+    const engine = engineOf(async function* (segments) {
+      const id = segments[0]?.id ?? 'b1';
+      yield { id, final: '訳' };
+    });
+    const session = sessionOf(engine, { concurrency: 4 });
+    for (let page = 0; page < 24; page += 1) {
+      session.addPage(
+        page,
+        layoutOf(`The paragraph on page ${String(page)} describes the detector in detail.`),
+      );
+    }
+    session.focusPage(23);
+
+    await waitFor(() => session.progress().pending === 0 && session.progress().failed === 0, 3000);
+    const progress = session.progress();
+    expect(progress.failed).toBe(0);
+    expect(progress.done).toBe(progress.total);
+    expect(progress.total).toBe(24);
+  });
+
+  it('keeps short labels, numbers and headers instead of failing them', async () => {
+    const engine = engineOf(async function* (segments) {
+      const id = segments[0]?.id ?? 'b1';
+      yield { id, final: segments[0]?.text ?? '' };
+    });
+    const session = sessionOf(engine);
+    session.addPage(0, {
+      ...layoutOf('Data quality'),
+      blocks: [
+        block('Data quality', { role: 'label' }),
+        block('48', { role: 'cell' }),
+        block('INTRODUCTION', { role: 'heading' }),
+      ],
+    });
+
+    await waitFor(() => session.progress().pending === 0);
+    const states = session.pageBlocks(0);
+    expect(states.every((state) => state.state === 'done')).toBe(true);
+    expect(states.every((state) => state.intentionallyKept === true)).toBe(true);
+    expect(session.progress().failed).toBe(0);
+    expect(session.progress().done).toBe(3);
   });
 
   it('does not count a failed block as overflow', async () => {

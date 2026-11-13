@@ -159,6 +159,44 @@ describe('layoutPage', () => {
     ]);
   });
 
+  it('splits indent-only paragraphs in both columns instead of fusing each column', () => {
+    const em = 10;
+    const y = (row: number) => 100 + row * 12;
+    const column = (x: number): ReturnType<typeof piece>[] => [
+      piece('Opening paragraph in this column begins with an indented line', x + em, y(0), 250),
+      piece('and continues on the column wall without any extra leading here', x, y(1), 250),
+      piece('before closing the first paragraph with a full sentence.', x, y(2), 250),
+      piece('The second paragraph also starts with an indented first line', x + em, y(3), 250),
+      piece('and continues on the same column wall for another whole line', x, y(4), 250),
+      piece('before closing the second paragraph with a full sentence.', x, y(5), 250),
+      piece('A third paragraph starts indented and keeps the same leading', x + em, y(6), 250),
+      piece('and continues on the column wall just like the paragraphs above', x, y(7), 250),
+      piece('before closing the third paragraph with a full sentence.', x, y(8), 250),
+    ];
+    const lines = groupLines([...column(40), ...column(320)]);
+    const layout = layoutPage(lines, { images: [] }, { width: 600, height: 800 });
+    const prose = layout.blocks.filter(
+      (block) => block.role === 'prose' || block.role === 'heading',
+    );
+    expect(prose).toHaveLength(6);
+    expect(prose.every((block) => block.lines.length <= 3)).toBe(true);
+    expect(prose.some((block) => block.text.includes('first paragraph'))).toBe(true);
+    expect(prose.some((block) => block.text.includes('second paragraph'))).toBe(true);
+    expect(prose.some((block) => block.text.includes('third paragraph'))).toBe(true);
+  });
+
+  it('caps an overlong prose block at a sentence boundary', () => {
+    const sentence = 'The detector compares each configuration on the same stream of tokens.';
+    const lines = groupLines(
+      Array.from({ length: 20 }, (_, index) => piece(sentence, 40, 100 + index * 12, 320)),
+    );
+    const layout = layoutPage(lines);
+    const prose = layout.blocks.filter((block) => block.role === 'prose');
+    expect(prose.length).toBeGreaterThan(1);
+    expect(prose.every((block) => block.text.length <= 1400)).toBe(true);
+    expect(prose.every((block) => /[.!?]$/u.test(block.text.trim()))).toBe(true);
+  });
+
   it('reads the left column before the right one', () => {
     // Long lines, as prose has: two short cells per row would be a table, and a table is read
     // cell by cell.

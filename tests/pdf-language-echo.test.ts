@@ -22,4 +22,10 @@ describe('translationEchoesSource', () => {
       true,
     );
   });
+
+  it('does not call a short label, row, header or notation an echo', () => {
+    for (const source of ['Data quality', '48', '1.9 s', 'INTRODUCTION', 'α = β']) {
+      expect(translationEchoesSource(source, source, 'ja'), source).toBe(false);
+    }
+  });
 });

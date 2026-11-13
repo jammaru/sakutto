@@ -68,7 +68,7 @@
       if (!readingMore && progress.pages > 0) return t('pdfNoText');
       return t('pdfReading', [String(progress.parsed), String(progress.pages)]);
     }
-    if (progress.pending > 0 || readingMore || progress.failed > 0) {
+    if (progress.pending > 0 || readingMore || progress.failed > 0 || progress.overflowed > 0) {
       return t('pageProgress', [String(progress.done), String(progress.total)]);
     }
     return t('pdfTranslated');

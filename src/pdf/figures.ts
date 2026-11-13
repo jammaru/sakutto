@@ -67,9 +67,9 @@ function unitSquare(matrix: Matrix): Box {
  * says "this is the figure", so the areas are inferred from what the page actually draws:
  *
  * - a raster image's drawn rectangle, which is exact;
- * - the union of path rectangles that are large enough to be part of a drawing rather than a
- *   rule, a table border or an underline. A rule is one path that is thin in one direction;
- *   a diagram is many paths that overlap in both.
+ * - the union of path rectangles and explicit `rectangle` operators that are large enough to
+ *   be part of a drawing rather than a rule, a table border or an underline. A rule is one
+ *   path that is thin in one direction; a diagram is many paths that overlap in both.
  *
  * A single large path does not count on purpose: a table's outer border is one rectangle
  * drawn round a block of prose, and treating it as a figure would hide the table's text. A
@@ -106,9 +106,10 @@ export function figureAreas(
   const paintInline = ops.paintInlineImageXObject;
   const paintJpeg = ops.paintImageMaskXObject;
   const constructPath = ops.constructPath;
+  const rectangle = ops.rectangle;
 
   const codes = new Set(
-    [save, restore, transform, paintImage, paintInline, paintJpeg, constructPath].filter(
+    [save, restore, transform, paintImage, paintInline, paintJpeg, constructPath, rectangle].filter(
       (code): code is number => typeof code === 'number',
     ),
   );
@@ -130,9 +131,26 @@ export function figureAreas(
       if (next) ctm = multiply(ctm, next);
       continue;
     }
+    if (fn === rectangle) {
+      const rect = rectangleBounds(operators.argsArray[index], ctm);
+      if (
+        rect &&
+        rect.width >= MIN_PATH_SIZE &&
+        rect.height >= MIN_PATH_SIZE &&
+        !coversAlmostPage(rect, pageWidth, pageHeight)
+      ) {
+        paths.push(flip(rect, pageHeight));
+      }
+      continue;
+    }
     if (fn === constructPath) {
       const rect = pathBounds(operators.argsArray[index], ctm);
-      if (rect && rect.width >= MIN_PATH_SIZE && rect.height >= MIN_PATH_SIZE) {
+      if (
+        rect &&
+        rect.width >= MIN_PATH_SIZE &&
+        rect.height >= MIN_PATH_SIZE &&
+        !coversAlmostPage(rect, pageWidth, pageHeight)
+      ) {
         paths.push(flip(rect, pageHeight));
       }
       continue;
@@ -244,9 +262,38 @@ function union(left: Box, right: Box): Box {
   };
 }
 
-/** The box a path's coordinates cover, after the transform in force. */
+/** A path's bounds from two opposite corners, after the transform in force. */
+function boundsOfCorners(x1: number, y1: number, x2: number, y2: number, ctm: Matrix): Box {
+  const first = apply(ctm, x1, y1);
+  const second = apply(ctm, x2, y2);
+  const left = Math.min(first.x, second.x);
+  const top = Math.min(first.y, second.y);
+  return {
+    x: left,
+    y: top,
+    width: Math.abs(second.x - first.x),
+    height: Math.abs(second.y - first.y),
+  };
+}
+
+/**
+ * The box a path's coordinates cover, after the transform in force.
+ *
+ * pdf.js passes the path's own min/max as the third argument. Prefer it when present: it is
+ * the bounds of the painted path, whereas the coordinate list can contain control points and
+ * points from a clip that extend past the visible drawing.
+ */
 function pathBounds(value: unknown, ctm: Matrix): Box | null {
-  const coords = Array.isArray(value) ? value[1] : null;
+  if (!Array.isArray(value)) return null;
+  const minMax = value[2];
+  if (Array.isArray(minMax) && minMax.length >= 4) {
+    const [x1, y1, x2, y2] = minMax.slice(0, 4).map(Number);
+    if ([x1, y1, x2, y2].every((entry) => Number.isFinite(entry))) {
+      return boundsOfCorners(x1 as number, y1 as number, x2 as number, y2 as number, ctm);
+    }
+  }
+
+  const coords = value[1];
   if (!Array.isArray(coords) || coords.length < 4) return null;
 
   let minX = Infinity;
@@ -265,6 +312,28 @@ function pathBounds(value: unknown, ctm: Matrix): Box | null {
   }
   if (!Number.isFinite(minX) || !Number.isFinite(minY)) return null;
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+/** An explicit rectangle operator, whose arguments are `x, y, width, height`. */
+function rectangleBounds(value: unknown, ctm: Matrix): Box | null {
+  if (!Array.isArray(value) || value.length < 4) return null;
+  const [x, y, width, height] = value.slice(0, 4).map(Number);
+  if (![x, y, width, height].every((entry) => Number.isFinite(entry) && entry !== undefined)) {
+    return null;
+  }
+  return boundsOfCorners(
+    x as number,
+    y as number,
+    (x as number) + (width as number),
+    (y as number) + (height as number),
+    ctm,
+  );
+}
+
+/** A clip rectangle that covers essentially the whole page is a frame, not a figure. */
+function coversAlmostPage(box: Box, pageWidth: number, pageHeight: number): boolean {
+  if (pageWidth <= 0 || pageHeight <= 0) return false;
+  return box.width * box.height >= pageWidth * pageHeight * 0.95;
 }
 
 function toMatrix(value: unknown): Matrix | null {

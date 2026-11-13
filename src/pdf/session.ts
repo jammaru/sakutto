@@ -20,7 +20,12 @@ import {
   resolveOverlaps,
   wrapWidth,
 } from './place';
-import { isSameLanguage, pdfPageLanguage, translationEchoesSource } from './language';
+import {
+  isSameLanguage,
+  pdfPageLanguage,
+  translationEchoesSource,
+  translationRepeatsSource,
+} from './language';
 import { protectInlineMath, restoreInlineMath, shouldSkipInlineMath } from './protect';
 
 /** What the reader shows about how fast the document is being translated. */
@@ -62,10 +67,16 @@ export function hasDeliverableTranslation(state: BlockState): boolean {
   return state.overflow && state.translation.trim().length > 0;
 }
 
-/** A block the progress bar may count as finished once its queue state is `done`. */
+/**
+ * A block the progress bar may count as finished once its queue state is `done`.
+ *
+ * A marker is a deliverable translation but not a finished one: the text is still offered
+ * through the marker, and counting it as `done` made the bar reach 100% while boxes were
+ * withheld. The session reports those separately as `overflowed`.
+ */
 export function countsTowardProgress(state: BlockState): boolean {
   if (state.state !== 'done') return false;
-  return hasDeliverableTranslation(state);
+  return state.intentionallyKept === true || isTranslated(state);
 }
 
 /**
@@ -112,14 +123,26 @@ export function pdfRequestPriority(distance: number, role: AnyBlockRole): number
 }
 
 /**
- * Page index dominates so earlier pages finish before later ones. Within a page the focused
- * page still runs first — the previous distance-only rule let page 4 finish while page 1 prose
- * was still English.
+ * Page index is the primary key so earlier pages always finish before later ones, even in a
+ * document with hundreds of pages. The band is deliberately unbounded here: the queue can
+ * order a page 40 job below a page 3 job, and only the protocol boundary is clamped to
+ * `MAX_PRIORITY`. Saturation inside this function was what made page order meaningless past
+ * page 9 and left eligible work sitting behind a far-page head.
+ *
+ * Distance to the focused page only orders work inside a page. Kind breaks the remaining tie,
+ * and the queue's sequence (preserved when `focusPage` re-enqueues) keeps that stable.
  */
 export function pdfPageOrderedPriority(page: number, focus: number, role: AnyBlockRole): number {
-  const pageBand = Math.min(9, Math.max(0, page)) * 11;
-  const local = pdfRequestPriority(page - focus, role);
-  return Math.min(MAX_PRIORITY, pageBand + local);
+  const normalizedPage = Number.isFinite(page) ? Math.max(0, Math.trunc(page)) : 0;
+  const normalizedFocus = Number.isFinite(focus) ? Math.max(0, Math.trunc(focus)) : 0;
+  const local = pdfRequestPriority(normalizedPage - normalizedFocus, role);
+  return normalizedPage * (MAX_PRIORITY + 1) + local;
+}
+
+/** The value the offscreen host accepts: the internal queue priority clamped to its range. */
+export function pdfEnginePriority(priority: number): number {
+  if (!Number.isFinite(priority)) return 0;
+  return Math.min(MAX_PRIORITY, Math.max(0, priority));
 }
 
 export interface PdfEngine {
@@ -292,14 +315,25 @@ export class PdfSession {
     // Re-queue everything still waiting so the new distance is applied. The queue is a heap
     // with no decrease-key, and the number of waiting blocks is small enough that rebuilding
     // it is cheaper than reasoning about which entries to move.
-    const waiting: { state: BlockState; page: number }[] = [];
+    const waiting: { state: BlockState; page: number; id: number; bypassCache: boolean }[] = [];
     this.queue.remove((job) => {
       if (job.state.state !== 'queued') return false;
       job.state.state = 'idle';
-      waiting.push({ state: job.state, page: job.page });
+      waiting.push({
+        state: job.state,
+        page: job.page,
+        id: job.id,
+        bypassCache: job.bypassCache === true,
+      });
       return true;
     });
-    for (const entry of waiting) this.enqueue(entry.state, entry.page);
+    // The heap has no decrease-key, so every waiting job is re-inserted. Re-inserting in the
+    // order the jobs were first created keeps the queue's sequence tie-break stable instead
+    // of reshuffling equal-priority blocks every time the reader scrolls.
+    waiting.sort((left, right) => left.id - right.id);
+    for (const entry of waiting) {
+      this.enqueue(entry.state, entry.page, entry.bypassCache);
+    }
     this.pump();
   }
 
@@ -326,7 +360,8 @@ export class PdfSession {
         if (countsTowardProgress(state)) done += 1;
         else if (state.state === 'queued' || state.state === 'running') pending += 1;
         else if (state.state === 'failed') failed += 1;
-        else if (state.state === 'done' || state.state === 'idle') pending += 1;
+        else if (state.state === 'idle') pending += 1;
+        else if (state.state === 'done' && !state.overflow) pending += 1;
         if (state.overflow) overflowed += 1;
       }
     }
@@ -384,7 +419,7 @@ export class PdfSession {
       for (const state of states) {
         if (state.state !== 'failed' && state.state !== 'idle') continue;
         state.state = 'idle';
-        this.enqueue(state, page);
+        this.enqueue(state, page, true);
       }
     }
     this.pump();
@@ -399,7 +434,7 @@ export class PdfSession {
         if (state.state === 'done' && hasDeliverableTranslation(state)) continue;
         state.state = 'idle';
         state.intentionallyKept = false;
-        this.enqueue(state, page);
+        this.enqueue(state, page, true);
       }
     }
     this.pump();
@@ -420,13 +455,11 @@ export class PdfSession {
           (text.length > 0 && translationEchoesSource(state.block.text, text, this.target)) ||
           (state.state === 'done' && !hasDeliverableTranslation(state));
         if (!needs) continue;
-        state.translation = '';
-        state.fit = null;
-        state.paint = false;
-        state.overflow = false;
+        // Keep the previous cover until the replacement arrives. Blanking it on every sweep
+        // flashed the source through a box the reader was already reading.
         state.state = 'idle';
         state.intentionallyKept = false;
-        this.enqueue(state, page);
+        this.enqueue(state, page, true);
         requeued += 1;
       }
     }
@@ -469,17 +502,19 @@ export class PdfSession {
     this.pump();
   }
 
-  private enqueue(state: BlockState, page: number): void {
+  private enqueue(state: BlockState, page: number, bypassCache = false): void {
     if (state.state === 'running' || state.state === 'queued') return;
     this.nextJob += 1;
     state.state = 'queued';
-    this.queue.enqueue({ state, id: this.nextJob, page }, this.priorityOf(state.block, page));
+    this.queue.enqueue(
+      { state, id: this.nextJob, page, bypassCache },
+      this.priorityOf(state.block, page),
+    );
   }
 
   /**
-   * Lower runs first. Distance to the page the reader can see dominates: a label on the
-   * focused page must beat a paragraph two pages away, or a 30-character heading sits
-   * `running` while later pages finish. Kind only orders work on the same page.
+   * Lower runs first. Page order is primary, so every block on page 2 beats every block on
+   * page 3. Distance to the focused page and the block kind only order work within that page.
    */
   private priorityOf(block: LayoutBlock, page: number): number {
     return pdfPageOrderedPriority(page, this.focus, block.role);
@@ -492,10 +527,9 @@ export class PdfSession {
       for (const state of states) {
         if (state.intentionallyKept === true) continue;
         if (state.state === 'done' && hasDeliverableTranslation(state)) continue;
-        if (state.state === 'failed') {
-          gate = Math.min(gate, page);
-          continue;
-        }
+        // A failed block is settled for scheduling. It stays visible as failed with a retry,
+        // but it must not hold every later page behind the gate forever.
+        if (state.state === 'failed') continue;
         if (state.state !== 'done') gate = Math.min(gate, page);
       }
     }
@@ -506,15 +540,21 @@ export class PdfSession {
     const signal = this.controller.signal;
     const generation = this.generation;
     const gate = this.gatePage();
-    while (this.running < this.concurrency) {
+    // The heap can have out-of-gate jobs above in-gate ones when the focus moved. Inspect the
+    // jobs that were queued at entry, putting out-of-gate jobs back, and keep looking for
+    // eligible work rather than stopping at the first one. Re-enqueueing and breaking here
+    // left the session idle with startable work still in the queue.
+    const inspect = this.queue.size;
+    for (let examined = 0; examined < inspect && this.running < this.concurrency;) {
       const next = this.queue.dequeue();
       if (!next) break;
+      examined += 1;
       const job = next;
+      if (job.state.state !== 'queued') continue;
       if (job.page > gate) {
         this.queue.enqueue(job, this.priorityOf(job.state.block, job.page));
-        break;
+        continue;
       }
-      if (job.state.state !== 'queued') continue;
       job.state.state = 'running';
       this.running += 1;
       void this.run(job, signal, generation).finally(() => {
@@ -585,10 +625,11 @@ export class PdfSession {
       for await (const chunk of this.engine.translate(segments, {
         tgt: this.target,
         form: this.form,
-        priority: this.priorityOf(state.block, job.page),
+        priority: pdfEnginePriority(this.priorityOf(state.block, job.page)),
         signal,
         eager: job.page === this.focus,
         preempt: job.page === this.focus,
+        ...(job.bypassCache ? { bypassCache: true } : {}),
         ...(this.glossary.length > 0 ? { glossary: this.glossary } : {}),
       })) {
         if (this.stale(generation, signal)) return;
@@ -649,7 +690,19 @@ export class PdfSession {
     }
     const sourceText = state.block.text;
     if (translationEchoesSource(sourceText, state.translation, this.target)) {
-      this.failBlock(state);
+      // A heading or a label is typesetting the page already shows correctly. Only a prose
+      // block whose translation stayed in the source language is a failure worth retrying.
+      if (state.block.role === 'prose' || state.block.role === 'caption') {
+        this.failBlock(state);
+      } else {
+        this.keepOriginal(state);
+      }
+      return;
+    }
+    if (translationRepeatsSource(sourceText, state.translation)) {
+      // Short labels, numeric rows, headers and notation come back as themselves. Keeping the
+      // source is honest and avoids failed retries on strings that have nothing to translate.
+      this.keepOriginal(state);
       return;
     }
     if (state.translation.trim().length === 0) {
@@ -802,6 +855,8 @@ interface Job {
   state: BlockState;
   id: number;
   page: number;
+  /** A retry of a failed block must not be answered by the translation it already failed on. */
+  bypassCache: boolean;
 }
 
 function pieceIndex(id: string): number {

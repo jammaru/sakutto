@@ -38,15 +38,63 @@ export function pdfPageLanguage(blocks: readonly LayoutBlock[]): string | null {
   return best;
 }
 
+/** A word long enough to be prose rather than a label, unit or notation mark. */
+const PROSE_WORD = /\p{L}{4,}/gu;
+const PROSE_WORDS = 4;
+
+/**
+ * True when a block carries enough real words to be prose. Short labels (`Data quality`),
+ * table rows (`48`, `1.9 s`), running headers (`INTRODUCTION`) and notation (`α = β`) are
+ * typesetting, not sentences; when the model returns them unchanged the reader should keep
+ * the page as drawn instead of retrying them as failed translations.
+ */
+export function hasSourceProse(text: string): boolean {
+  return (text.match(PROSE_WORD)?.length ?? 0) >= PROSE_WORDS;
+}
+
+function normalizedText(text: string): string {
+  return text.replace(/\s+/gu, ' ').trim();
+}
+
+/** True when the output is the source text, or starts with the same long opening. */
+export function translationRepeatsSource(source: string, output: string): boolean {
+  const trimmedOut = normalizedText(output);
+  const trimmedSrc = normalizedText(source);
+  if (trimmedOut.length > 0 && trimmedOut === trimmedSrc) return true;
+  if (trimmedSrc.length >= 32 && trimmedOut.length >= 32) {
+    const prefix = trimmedSrc.slice(0, Math.min(48, trimmedSrc.length));
+    if (trimmedOut.startsWith(prefix)) return true;
+  }
+  return false;
+}
+
+/**
+ * True when a prose output stayed in the source language, without needing the requested
+ * target. The cache uses this to refuse to store an echo even though it sees only a segment.
+ */
+export function translationStaysInSourceLanguage(source: string, output: string): boolean {
+  const trimmedOut = normalizedText(output);
+  const trimmedSrc = normalizedText(source);
+  if (!hasSourceProse(trimmedSrc)) return false;
+  if (trimmedOut.length === 0 || translationRepeatsSource(trimmedSrc, trimmedOut)) return true;
+  const outLang = pdfBlockLanguage(trimmedOut);
+  const srcLang = pdfBlockLanguage(trimmedSrc);
+  return outLang !== null && srcLang !== null && outLang === srcLang;
+}
+
 /**
  * True when the model output is still the source (or the same language as the source) while
- * the reader asked for another language. Cached and counted only after this check passes.
+ * the reader asked for another language. Only real prose counts: a short label that comes
+ * back unchanged is intentionally kept by the session, not a failed translation.
  */
 export function translationEchoesSource(source: string, output: string, target: string): boolean {
   const canonicalTarget = canonicalLanguage(target);
   if (!canonicalTarget) return false;
-  const trimmedOut = output.replace(/\s+/gu, ' ').trim();
-  const trimmedSrc = source.replace(/\s+/gu, ' ').trim();
+  const trimmedOut = normalizedText(output);
+  const trimmedSrc = normalizedText(source);
+  // A label, a number, a header or a formula cannot be an echo of prose. Treating it as one
+  // failed a row of table numbers and retried it forever.
+  if (!hasSourceProse(trimmedSrc)) return false;
   if (trimmedOut.length === 0) return true;
   if (trimmedOut === trimmedSrc) return true;
   const outLang = pdfBlockLanguage(trimmedOut);
@@ -54,11 +102,7 @@ export function translationEchoesSource(source: string, output: string, target: 
   if (outLang !== null && srcLang !== null && outLang === srcLang && outLang !== canonicalTarget) {
     return true;
   }
-  if (trimmedSrc.length >= 32 && trimmedOut.length >= 32) {
-    const prefix = trimmedSrc.slice(0, Math.min(48, trimmedSrc.length));
-    if (trimmedOut.startsWith(prefix)) return true;
-  }
-  return false;
+  return translationRepeatsSource(trimmedSrc, trimmedOut);
 }
 
 /** True when this block is already in the language the reader asked for. */

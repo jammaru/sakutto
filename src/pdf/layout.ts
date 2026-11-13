@@ -111,6 +111,18 @@ const MIN_GUTTER_SUPPORT = 0.34;
  * a little more, so the threshold has to be relative to the leading the source used.
  */
 const PARAGRAPH_RATIO = 1.18;
+/**
+ * A first line indented by this much from its column starts a paragraph when the line above
+ * finished a sentence. Below the minimum it is a normal word space; at the maximum it is a
+ * display formula, which the equation rule handles.
+ */
+const PARAGRAPH_INDENT_MIN_EM = 0.8;
+const PARAGRAPH_INDENT_MAX_EM = 3;
+/**
+ * A prose block longer than this is split at a sentence boundary. One failed translation then
+ * costs one paragraph instead of taking a whole page's fused column with it.
+ */
+const MAX_PROSE_BLOCK_CHARS = 1200;
 /** A type size change of this fraction is a different kind of thing. */
 const SIZE_CHANGE = 0.12;
 /** Two cells belong to the same column when this much of the narrower one is shared. */
@@ -781,12 +793,19 @@ function appendRegionBlocks(
       // wrap (`maxSegmentTo-` then `kens`) is the one continuation that must stay in the cell.
       const hyphenWrap =
         previous !== undefined && next !== undefined && isHyphenWrap(previous, next);
+      const longProse =
+        previous !== undefined &&
+        next !== undefined &&
+        endsSentence(previous.text) &&
+        joinLines(current).length >= MAX_PROSE_BLOCK_CHARS;
       const starts = isTable
         ? previous !== undefined && !hyphenWrap
         : Boolean(
             previous &&
             next &&
-            (gapStartsBlock(previous, next, leading) || isListBoundary(previous, next)),
+            (gapStartsBlock(previous, next, leading, columnLeft) ||
+              isListBoundary(previous, next) ||
+              longProse),
           );
       if (previous && next && starts) {
         emit(current, room, region.column, columnLeft);
@@ -986,7 +1005,12 @@ function columnLeading(cells: readonly RegionCell[]): number {
  * which replaces typeset mathematics with a paragraph — or left alone, taking the sentence
  * with it. A change from text to math is always a block boundary.
  */
-function gapStartsBlock(previous: TextLine, line: TextLine, leading: number): boolean {
+function gapStartsBlock(
+  previous: TextLine,
+  line: TextLine,
+  leading: number,
+  columnLeft: number,
+): boolean {
   const scale = Math.max(line.height, previous.height, 1);
   const gap = (line.baseline - previous.baseline) / scale;
   // Wrapped pseudocode (`devEval = … by a` / `developer;`) must stay one listing. Splitting
@@ -994,6 +1018,8 @@ function gapStartsBlock(previous: TextLine, line: TextLine, leading: number): bo
   if (gap <= leading * PARAGRAPH_RATIO * 1.8 && codeListingContinues(previous.text, line.text)) {
     return false;
   }
+  // `leading` is measured from this column's own cells, so the paragraph rule compares like
+  // with like instead of using a page-wide pitch that could never be exceeded.
   if (gap > leading * PARAGRAPH_RATIO) return true;
   if (gap < -0.7) return true;
 
@@ -1001,14 +1027,28 @@ function gapStartsBlock(previous: TextLine, line: TextLine, leading: number): bo
   const lineMath = line.mathRatio >= EQUATION_LINE_SHARE;
   if (previousMath !== lineMath) return true;
   const monoRun = isMostlyMono(previous) && isMostlyMono(line);
+  // Indent-only paragraph typesetting does this: the previous line sits on the column wall and
+  // ends a sentence, then the next paragraph starts one or two ems in. That is a paragraph
+  // break even when the leading is the same as a wrapped line. A hanging reference or list
+  // continuation is indented the same way and stays in its block.
+  const em = Math.max(line.height, previous.height, 1);
+  const stepIn = line.box.x - columnLeft;
+  if (
+    !monoRun &&
+    stepIn > em * PARAGRAPH_INDENT_MIN_EM &&
+    stepIn < em * PARAGRAPH_INDENT_MAX_EM &&
+    endsSentence(previous.text) &&
+    !isReferenceLine(previous.text) &&
+    !isListItemStart(previous.text)
+  ) {
+    return true;
+  }
   // A formula whose function names are set in the text face does not reach the math share, so
   // the boundary is also drawn where a line is indented away from the column's left edge and
   // its predecessor was not: typesetting centres a display equation, and a paragraph does not
   // start in the middle of its column.
-  // Display formulas sit several ems in from the column. A hanging indent (a wrapped
-  // reference, a first-line paragraph indent) is one or two ems and must stay in the block;
-  // cutting there left each wrapped line as its own 8pt box with no room to grow.
-  // A monospaced listing indents continuation lines by more than that; those must stay code.
+  // Display formulas sit several ems in from the column, beyond the paragraph-indent band.
+  // A monospaced listing indents continuation lines too; those must stay code.
   const indent = Math.max(previous.height, line.height) * 3;
   if (!monoRun && line.box.x > previous.box.x + indent) return true;
   // The reverse: a centred formula is followed by a line that returns to the column wall.
@@ -1031,6 +1071,16 @@ function gapStartsBlock(previous: TextLine, line: TextLine, leading: number): bo
   if (isBylineLabel(previous.text) || isBylineLabel(line.text)) return true;
 
   return false;
+}
+
+/** True when the text closes a sentence, with optional closing quotes or brackets after it. */
+function endsSentence(text: string): boolean {
+  return /[.!?:]["'”’»)\]]*$/u.test(text.trim());
+}
+
+/** A bibliography entry or numbered reference, whose continuation is a hanging indent. */
+function isReferenceLine(text: string): boolean {
+  return /^\s*\[\d+\]/u.test(text);
 }
 
 function isListBoundary(previous: TextLine, line: TextLine): boolean {
@@ -1217,6 +1267,15 @@ function roleOf(
   // fractions and the subscripts correctly, and replacing them with translated characters
   // puts running prose where the mathematics was.
   if (isEquation(lines, columnLeft)) return 'equation';
+  const insideFigureArea = lines.length > 0 && lines.every((line) => insideFigure(line, figures));
+  // A listing or a label drawn inside a picture belongs to the artwork. Classifying it as
+  // ordinary code first still painted a translation over the diagram; it is a figure-label.
+  if (
+    insideFigureArea &&
+    (isCodeBlock(lines) || lines.some((line) => looksLikeCodeLine(line.text)))
+  ) {
+    return 'figure-label';
+  }
   if (isCodeBlock(lines)) return 'code';
   // Section titles are headings even in all caps and even when they sit in the header band.
   if (isSectionHeading(text) && lines.length <= 2) return 'heading';
@@ -1243,13 +1302,8 @@ function roleOf(
   // words stay on the drawing: translating them overwrites adjacent boxes. Only a full
   // sentence inside a figure is treated as a label, and even then it must fit without
   // growing or it is offered on a marker instead of painted.
-  if (lines.length > 0 && lines.every((line) => insideFigure(line, figures))) {
-    if (
-      isTick(text) ||
-      fontSize < MIN_TRANSLATE_PT ||
-      !isFigureSentence(text) ||
-      lines.some((line) => looksLikeCodeLine(line.text))
-    ) {
+  if (insideFigureArea) {
+    if (isTick(text) || fontSize < MIN_TRANSLATE_PT || !isFigureSentence(text)) {
       return 'figure-label';
     }
     return 'label';
