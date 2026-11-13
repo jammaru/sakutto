@@ -8,9 +8,12 @@
   } from '@/shared/languages';
   import {
     COMPOSE_PLACEMENTS,
+    TRANSLATION_POPUP_SIZE_MAX,
+    TRANSLATION_POPUP_SIZE_MIN,
     VIDEO_CAPTION_SIZE_MAX,
     VIDEO_CAPTION_SIZE_MIN,
     isComposePlacement,
+    normalizeTranslationPopupSize,
     normalizeVideoCaptionSize,
     type Settings,
     type SettingsPatch,
@@ -43,6 +46,8 @@
   const previewFontPx = $derived(
     captionOverlayFontPx(CAPTION_PREVIEW_PLAYER_PX, undefined, previewSize),
   );
+  let popupPreviewSize = $derived(settings.translationPopupSize);
+  const popupPreviewFontPx = $derived((popupPreviewSize / 100) * 12);
 
   function updateForm(event: Event) {
     const select = event.currentTarget as HTMLSelectElement;
@@ -59,6 +64,13 @@
     const size = normalizeVideoCaptionSize(input.value);
     previewSize = size;
     onChange({ videoCaptionSize: size });
+  }
+
+  function updateTranslationPopupSize(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const size = normalizeTranslationPopupSize(input.value);
+    popupPreviewSize = size;
+    onChange({ translationPopupSize: size });
   }
 
   function addCustomHost(): void {
@@ -158,6 +170,32 @@
     </select>
   </label>
   <p class="muted help">{tForBrowser('paceHelp', 'paceHelpFirefox')}</p>
+
+  <div class="field popup-size" data-sakutto="translation-popup-size">
+    <div class="field-heading">
+      <span>{t('translationPopupSizeLabel')}</span>
+      <span class="popup-size-value" aria-hidden="true">{popupPreviewSize}%</span>
+    </div>
+    <div class="popup-preview" aria-hidden="true">
+      <div class="popup-preview-card" style:font-size="{popupPreviewFontPx}px">
+        <p class="popup-preview-kicker">翻訳</p>
+        <p class="popup-preview-body">これは翻訳ポップアップのプレビューです。</p>
+        <p class="popup-preview-note">PLaMo</p>
+      </div>
+    </div>
+    <input
+      id="translation-popup-size-slider"
+      type="range"
+      min={TRANSLATION_POPUP_SIZE_MIN}
+      max={TRANSLATION_POPUP_SIZE_MAX}
+      step="1"
+      value={settings.translationPopupSize}
+      aria-label={t('translationPopupSizeLabel')}
+      data-sakutto="translation-popup-size-slider"
+      oninput={updateTranslationPopupSize}
+    />
+    <p class="muted help">{t('translationPopupSizeHelp')}</p>
+  </div>
 
   <label class="check">
     <input
@@ -378,10 +416,66 @@
   }
 
   .field > span,
+  .field-heading > span,
   .help {
     color: var(--muted);
     font-size: 11px;
     font-weight: 600;
+  }
+
+  .field-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+
+  .field-heading output {
+    color: var(--muted);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .popup-preview {
+    display: flex;
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-muted);
+  }
+
+  .popup-preview-card {
+    box-sizing: border-box;
+    max-width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+    line-height: 1.45;
+    box-shadow: 0 8px 24px rgb(15 23 32 / 12%);
+  }
+
+  .popup-preview-kicker,
+  .popup-preview-body,
+  .popup-preview-note {
+    margin: 0;
+  }
+
+  .popup-preview-kicker,
+  .popup-preview-note {
+    color: var(--muted);
+    font-size: 0.8333em;
+  }
+
+  .popup-preview-kicker {
+    margin-bottom: 4px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .popup-preview-note {
+    margin-top: 6px;
   }
 
   .help {

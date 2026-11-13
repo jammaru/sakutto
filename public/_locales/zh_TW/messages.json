@@ -293,6 +293,9 @@
   "selectionIcon": {
     "message": "翻譯所選文本"
   },
+  "selectionResizeHandle": {
+    "message": "調整翻譯彈出視窗的寬度（按兩下重設）"
+  },
   "close": {
     "message": "關閉"
   },
@@ -1242,6 +1245,12 @@
   },
   "videoCaptionsSizeHelp": {
     "message": "大小會隨播放器變化，包括全螢幕與劇院模式。拖曳滑桿可預覽。"
+  },
+  "translationPopupSizeLabel": {
+    "message": "翻譯彈窗文字大小"
+  },
+  "translationPopupSizeHelp": {
+    "message": "調整懸停、選取和撰寫翻譯彈窗中的文字大小。影片字幕使用個別的字幕大小設定。"
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "自訂字幕網站"

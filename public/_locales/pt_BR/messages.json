@@ -293,6 +293,9 @@
   "selectionIcon": {
     "message": "Traduzir o texto selecionado"
   },
+  "selectionResizeHandle": {
+    "message": "Redimensionar o pop-up de tradução (clique duplo para redefinir)"
+  },
   "close": {
     "message": "Fechar"
   },
@@ -1242,6 +1245,12 @@
   },
   "videoCaptionsSizeHelp": {
     "message": "O tamanho acompanha o player, inclusive em tela cheia e teatro. Arraste o controle para pré-visualizar."
+  },
+  "translationPopupSizeLabel": {
+    "message": "Tamanho do texto das janelas de tradução"
+  },
+  "translationPopupSizeHelp": {
+    "message": "Altera o tamanho do texto nas janelas de tradução ao passar o mouse, ao selecionar e ao escrever. As legendas de vídeo têm um ajuste de tamanho próprio."
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "Sites de legendas personalizados"

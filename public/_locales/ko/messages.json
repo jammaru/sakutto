@@ -293,6 +293,9 @@
   "selectionIcon": {
     "message": "선택한 텍스트를 번역하세요"
   },
+  "selectionResizeHandle": {
+    "message": "번역 팝업의 너비를 조절합니다(두 번 클릭하여 재설정)"
+  },
   "close": {
     "message": "닫기"
   },
@@ -1242,6 +1245,12 @@
   },
   "videoCaptionsSizeHelp": {
     "message": "크기는 전체 화면과 시어터를 포함해 플레이어를 따릅니다. 슬라이더를 끌면 미리보기가 바뀝니다."
+  },
+  "translationPopupSizeLabel": {
+    "message": "번역 팝업 글자 크기"
+  },
+  "translationPopupSizeHelp": {
+    "message": "마우스 오버, 선택, 작문 번역 팝업의 글자 크기를 변경합니다. 동영상 자막은 자막 설정에서 따로 변경합니다."
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "사용자 지정 자막 사이트"

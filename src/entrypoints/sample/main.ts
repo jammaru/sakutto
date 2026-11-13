@@ -17,6 +17,7 @@ function overlayLabels(): OverlayLabels {
     selectionFailed: t('selectionFailed'),
     selectionTitle: t('selectionTitle'),
     selectionIcon: t('selectionIcon'),
+    selectionResize: t('selectionResizeHandle'),
     close: t('close'),
     bilingualOn: t('displayNowBilingual'),
     replaceOn: t('displayNowReplace'),
