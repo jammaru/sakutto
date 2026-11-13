@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type Server } from 'node:http';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { loadExtension } from './extension';
 import { FIXTURE_ORIGIN, commandPage, waitTranslated } from './page';
 
@@ -184,4 +184,90 @@ test.describe('local server options', () => {
       await fake.close();
     }
   });
+
+  test('denying host permission after experimental ack keeps the built-in radio checked', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      const page = await extension.context.newPage();
+      await page.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await expect(page.getByText('Translation engine')).toBeVisible();
+      await page.evaluate(async () => {
+        const chrome = (
+          globalThis as unknown as {
+            chrome: {
+              storage: {
+                local: {
+                  get: (key: string) => Promise<Record<string, unknown>>;
+                  set: (items: Record<string, unknown>) => Promise<void>;
+                };
+              };
+            };
+          }
+        ).chrome;
+        const stored = await chrome.storage.local.get('settings');
+        const current = (stored.settings ?? {}) as Record<string, unknown>;
+        await chrome.storage.local.set({
+          settings: {
+            ...current,
+            engineSource: 'in-browser',
+            localServerExperimentalAck: true,
+          },
+        });
+      });
+      await page.reload();
+      await expect(page.getByText('Translation engine')).toBeVisible();
+      await stubHostPermission(page, false);
+
+      const builtin = page.getByRole('radio', { name: 'Built-in (on this device)' });
+      const local = page.getByRole('radio', { name: 'Local server (experimental)' });
+      await expect(builtin).toBeChecked();
+      await expect(local).not.toBeChecked();
+
+      await local.click();
+
+      await expect(page.getByRole('button', { name: 'Use local server' })).toHaveCount(0);
+      await expect(
+        page.getByRole('alert').filter({
+          hasText: 'The browser did not grant access to this address.',
+        }),
+      ).toBeVisible();
+      await expect(builtin).toBeChecked();
+      await expect(local).not.toBeChecked();
+      await expect(page.locator('label.on')).toContainText('Built-in (on this device)');
+
+      const stored = await page.evaluate(async () => {
+        const chrome = (
+          globalThis as unknown as {
+            chrome: {
+              storage: { local: { get: (key: string) => Promise<Record<string, unknown>> } };
+            };
+          }
+        ).chrome;
+        const value = await chrome.storage.local.get('settings');
+        return value.settings as { engineSource?: string; localServerExperimentalAck?: boolean };
+      });
+      expect(stored).toMatchObject({
+        engineSource: 'in-browser',
+        localServerExperimentalAck: true,
+      });
+      await page.close();
+    } finally {
+      await extension.close();
+    }
+  });
 });
+
+async function stubHostPermission(page: Page, granted: boolean): Promise<void> {
+  await page.evaluate((granted) => {
+    const apply = (api: unknown) => {
+      if (!api || typeof api !== 'object' || !('permissions' in api)) return;
+      const permissions = Reflect.get(api, 'permissions') as
+        { contains?: unknown; request?: unknown } | undefined;
+      if (!permissions) return;
+      permissions.contains = async () => granted;
+      permissions.request = async () => granted;
+    };
+    apply(Reflect.get(globalThis, 'chrome'));
+    apply(Reflect.get(globalThis, 'browser'));
+  }, granted);
+}
