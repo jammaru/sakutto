@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { fitText, growBudgetFor, hasKinsokuHeadViolation, wrapText } from '@/pdf/fit';
+import {
+  applyKinsoku,
+  fitText,
+  growBudgetFor,
+  hasKinsokuHeadViolation,
+  HINTING_WRAP,
+  wrapBudget,
+  wrapText,
+} from '@/pdf/fit';
 import type { Box } from '@/pdf/geometry';
 
 /** A monospace-ish measure: one character is `size * 0.5` wide. */
@@ -124,6 +132,33 @@ describe('fitText', () => {
       'ja',
     );
     expect(result.fits).toBe(false);
+    if (result.fits) return;
+    expect(result.visibleLines.join('')).toBe(
+      applyKinsoku(result.lines.slice(0, result.visibleLines.length), wrapBudget(5), (value) =>
+        measure(value, result.fontSize),
+      ).join(''),
+    );
+  });
+
+  it('wraps inside the hinting budget so CSS at paint scale can grow', () => {
+    expect(wrapBudget(100)).toBeCloseTo(100 * HINTING_WRAP, 8);
+    const result = fitText(
+      {
+        box: box(0, 0, 100, 40),
+        growBudget: 20,
+        fontSize: 10,
+        lineHeight: 1.2,
+        width: 100,
+        measure,
+      },
+      'a'.repeat(20),
+      'en',
+    );
+    expect(result.fits).toBe(true);
+    expect(result.width).toBe(100);
+    for (const line of result.lines) {
+      expect(measure(line, result.fontSize)).toBeLessThanOrEqual(wrapBudget(100) + 1e-6);
+    }
   });
 
   it('keeps the source size when the translation is short', () => {

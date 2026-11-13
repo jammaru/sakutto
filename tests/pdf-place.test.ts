@@ -3,15 +3,21 @@ import { groupLines } from '@/pdf/lines';
 import { layoutPage } from '@/pdf/layout';
 import { BODY_MIN_FONT_SIZE, BODY_MIN_SCALE, MIN_FONT_SIZE, MIN_SCALE } from '@/pdf/fit';
 import { pageMetrics, metricsPass } from '@/pdf/metrics';
+import { HINTING_WRAP } from '@/pdf/fit';
 import {
   COVER_DESCENDER_EM,
+  DEFAULT_PAINT_SCALE,
+  HINTING_GROWTH,
   clippedPaintWidth,
+  coverPaintOriginX,
   coverPaintWidth,
+  hintingPadPt,
   overlapRegion,
   paintedCoverOverlaps,
   placePage,
   verticalCut,
 } from '@/pdf/place';
+import { coverInkOverflowPx } from '@/pdf/render';
 import { stubExpand } from '@/pdf/stub';
 import { measure, piece } from './support/pdf-pieces';
 
@@ -236,7 +242,11 @@ describe('placePage', () => {
   it('paints at least the wrap width when capToPage trims the drawn box', () => {
     const fitWidth = 120;
     const drawnWidth = 119.4;
-    expect(coverPaintWidth(fitWidth, drawnWidth)).toBe(fitWidth);
+    expect(coverPaintWidth(fitWidth, drawnWidth)).toBeGreaterThan(fitWidth);
+    expect(coverPaintWidth(fitWidth, drawnWidth)).toBeCloseTo(
+      fitWidth + hintingPadPt(DEFAULT_PAINT_SCALE),
+      5,
+    );
     const lines = groupLines([
       piece(
         'A body paragraph that fills the column and continues across the page with more words.',
@@ -255,6 +265,20 @@ describe('placePage', () => {
       );
       expect(clippedPaintWidth(entry, measure)).toBeLessThanOrEqual(0.01);
     }
+  });
+
+  it('leaves hinting headroom so a scaled CSS line is not clipped', () => {
+    expect(HINTING_WRAP * HINTING_GROWTH).toBeLessThanOrEqual(1);
+    const wrap = 200;
+    const line = wrap * HINTING_WRAP;
+    const hinted = line * HINTING_GROWTH;
+    const painted = coverPaintWidth(wrap, wrap);
+    expect(hinted).toBeLessThanOrEqual(painted);
+    expect(coverPaintOriginX(40, 100, 103, 'left')).toBe(40);
+    expect(coverPaintOriginX(40, 100, 103, 'right')).toBe(37);
+    expect(coverPaintOriginX(40, 100, 103, 'center')).toBe(38.5);
+    expect(coverInkOverflowPx({ scrollWidth: 100, clientWidth: 100 })).toBe(0);
+    expect(coverInkOverflowPx({ scrollWidth: 102.4, clientWidth: 100 })).toBeCloseTo(2.4, 5);
   });
 
   it('does not clip a narrow table cell; overflow goes to a marker', () => {

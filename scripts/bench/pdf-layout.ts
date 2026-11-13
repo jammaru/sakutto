@@ -232,7 +232,7 @@ async function checkBytes(name: string, bytes: Uint8Array): Promise<void> {
         `skipped=${String(metrics.skipped)} withheld=${String(metrics.withheld)} ` +
         `overlap=${String(metrics.overlapPairs)} minpt=${metrics.minFontSize === null ? '-' : metrics.minFontSize.toFixed(1)} ` +
         `prose=${(metrics.prosePainted * 100).toFixed(0)}% cover=${(metrics.proseCovered * 100).toFixed(0)}% ` +
-        `overflowed=${String(metrics.overflowed)} clipped=${clipped.toFixed(1)} vCut=${vCut.toFixed(1)} ` +
+        `overflowed=${String(metrics.overflowed)} clipped=${clipped.toFixed(1)} inkOver=${clipped.toFixed(1)} vCut=${vCut.toFixed(1)} ` +
         `orphans=${String(orphans)} covers=${String(coverOverlaps)} code=${(metrics.codeShare * 100).toFixed(0)}% ` +
         `eq=${(metrics.equationShare * 100).toFixed(0)}% cjk=${(metrics.cjkShare * 100).toFixed(0)}% ` +
         `${pass ? 'ok' : 'FAIL'}`,

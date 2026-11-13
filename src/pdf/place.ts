@@ -1,6 +1,12 @@
 import { fitText, growBudgetFor, type FitResult } from './fit';
 import { intersectionArea, type Box } from './geometry';
-import { verticalWriting, type AnyBlockRole, type LayoutBlock, type PageLayout } from './layout';
+import {
+  verticalWriting,
+  type AnyBlockRole,
+  type BlockAlign,
+  type LayoutBlock,
+  type PageLayout,
+} from './layout';
 
 /** Space kept clear at the foot of a page, in points, so a last paragraph cannot run off it. */
 export const PAGE_FOOT_MARGIN = 28;
@@ -17,6 +23,20 @@ const GUTTER_CLEARANCE = 4;
 export const COVER_DESCENDER_EM = 0.22;
 /** Tiny extra above the source box, as a fraction of em. Keep small so covers do not collide. */
 export const COVER_PAD_TOP_EM = 0.02;
+/**
+ * How much a CSS line at `fontSize * scale` px can grow past the canvas measure at the
+ * source point size, as a fraction. Font hinting at the painted size is the usual cause.
+ */
+export const HINTING_GROWTH = 1.015;
+/** Extra cover width, in CSS pixels, so a hinted last glyph is not clipped. */
+export const HINTING_PAD_PX = 2;
+/** Largest scale the reader uses; the layout-only clip check assumes this worst case. */
+export const DEFAULT_PAINT_SCALE = 1.6;
+
+/** Hinting pad in page points at the given paint scale. */
+export function hintingPadPt(scale = DEFAULT_PAINT_SCALE): number {
+  return HINTING_PAD_PX / Math.max(0.4, scale);
+}
 
 export function descenderPad(fontSize: number): number {
   return fontSize * COVER_DESCENDER_EM;
@@ -132,7 +152,8 @@ export function pageGrowBudget(
 /**
  * Width the translation wraps to. A little narrower than the room, so a canvas measurement
  * that disagrees with the CSS shaper by a hair still lands inside the painted box instead of
- * overflowing it and being clipped.
+ * overflowing it and being clipped. `fitText` then wraps to `HINTING_WRAP` of this width so
+ * font hinting at the painted CSS size cannot clip the last glyph.
  *
  * Body text may also use unused space to the right — a column gutter, the side of a short
  * last line — up to the next obstacle, so a translation that is only slightly longer does
@@ -221,33 +242,85 @@ export function lineOverflows(
  *
  * `drawnBox` may come out a fraction of a point narrower than the wrap after `capToPage`.
  * Painting to that trimmed width with `overflow: hidden` clips the last glyph, so the cover
- * is at least as wide as the wrap that fitted the lines.
+ * is at least as wide as the wrap, plus a small hinting pad for the CSS size.
  */
-export function coverPaintWidth(fitWidth: number, drawnWidth: number): number {
-  return Math.max(fitWidth, drawnWidth);
+export function coverPaintWidth(
+  fitWidth: number,
+  drawnWidth: number,
+  scale = DEFAULT_PAINT_SCALE,
+): number {
+  return Math.max(fitWidth, drawnWidth) + hintingPadPt(scale);
+}
+
+/**
+ * Left edge of a widened cover, in page points, so centre/right alignment stays on the
+ * original box. Extra width from the wrap or the hinting pad hangs off the opposite side.
+ */
+export function coverPaintOriginX(
+  drawnX: number,
+  drawnWidth: number,
+  paintWidth: number,
+  align: BlockAlign,
+): number {
+  const extra = paintWidth - drawnWidth;
+  if (align === 'right') return drawnX - extra;
+  if (align === 'center') return drawnX - extra / 2;
+  return drawnX;
+}
+
+/**
+ * Painted cover in page points: wrap width, hinting pad, and alignment offset, capped to
+ * the page so a pad cannot walk into the next column's gutter.
+ */
+export function coverPaintLayout(
+  block: Pick<LayoutBlock, 'align' | 'writing'>,
+  fitWidth: number,
+  drawn: Box,
+  scale = DEFAULT_PAINT_SCALE,
+  pageWidth = 0,
+): { x: number; width: number } {
+  if (verticalWriting(block)) return { x: drawn.x, width: drawn.width };
+  const width = coverPaintWidth(fitWidth, drawn.width, scale);
+  const x = coverPaintOriginX(drawn.x, drawn.width, width, block.align);
+  const left = Math.max(0, x);
+  let painted = width + Math.min(0, x);
+  if (pageWidth > 0) {
+    const maxWidth = pageWidth - GUTTER_CLEARANCE - left;
+    painted = Math.max(1, Math.min(painted, maxWidth));
+  }
+  return { x: left, width: painted };
 }
 
 /**
  * Extra width painted lines occupy beyond the box they are drawn in, in points.
  *
- * Horizontal writing is clipped by the painted cover width (`max(fit.width, drawn.width)`).
- * Vertical writing is wrapped to `fit.width` and then rotated, so that wrap width is the
- * edge that must not be crossed. A `drawn.width` trimmed below `fit.width` counts as clip.
+ * Horizontal writing is clipped by the painted cover width (wrap, plus hinting pad). A line
+ * is compared at `HINTING_GROWTH` so a canvas measure at the source point size is not treated
+ * as identical to CSS at `fontSize * scale` px. Vertical writing is wrapped to `fit.width`
+ * and then rotated, so that wrap width is the edge that must not be crossed.
  */
 export function clippedPaintWidth(
   entry: PlacedBlock,
   measure: (text: string, fontSize: number) => number,
+  scale = DEFAULT_PAINT_SCALE,
 ): number {
   if (!entry.paint || !entry.fit || entry.fit.lines.length === 0) return 0;
   const along = verticalWriting(entry.block)
-    ? entry.fit.width
-    : coverPaintWidth(entry.fit.width, entry.drawn?.width ?? entry.fit.width);
+    ? entry.fit.width + hintingPadPt(scale)
+    : coverPaintLayout(
+        entry.block,
+        entry.fit.width,
+        entry.drawn ?? { x: 0, y: 0, width: entry.fit.width, height: 0 },
+        scale,
+      ).width;
   let extra = 0;
-  if (!verticalWriting(entry.block) && along < entry.fit.width) {
-    extra += entry.fit.width - along;
-  }
+  const core = verticalWriting(entry.block)
+    ? entry.fit.width
+    : Math.max(entry.fit.width, entry.drawn?.width ?? entry.fit.width);
+  if (along + 1e-9 < core) extra += core - along;
   for (const line of entry.fit.lines) {
-    extra += Math.max(0, measure(line, entry.fit.fontSize) - along - WIDTH_SLACK);
+    const hinted = measure(line, entry.fit.fontSize) * HINTING_GROWTH;
+    extra += Math.max(0, hinted - along);
   }
   return extra;
 }
@@ -332,16 +405,17 @@ export function paintedCoverBox(block: LayoutBlock, fit: FitResult, wrap = 0, pa
  * a page whose cores do not collide. Width follows the painted cover, not the capped box.
  */
 export function paintedCoverOverlaps(placed: readonly PlacedBlock[], pageWidth = 0): number {
+  void pageWidth;
   const boxes: Box[] = [];
   for (const entry of placed) {
     if (!entry.paint || !entry.fit || !entry.drawn) continue;
     const region = overlapRegion(entry);
     if (!region) continue;
-    const painted = paintedCoverBox(entry.block, entry.fit, entry.fit.width, pageWidth);
     boxes.push({
-      x: painted.x,
+      x: region.x,
       y: region.y,
-      width: painted.width,
+      // Hinting pad hangs into the gutter; it must not count as two covers colliding.
+      width: region.width,
       height: region.height,
     });
   }

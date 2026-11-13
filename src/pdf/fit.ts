@@ -87,6 +87,19 @@ const MAX_GROWTH = 2.2;
 const CJK_MIN_LEADING = 1.22;
 /** A fit is allowed to miss the space available by this much, in points. */
 const SLACK = 1;
+/**
+ * Fraction of the paint width that wrapping uses.
+ *
+ * Canvas `measureText` at the source point size and CSS at `fontSize * scale` px do not
+ * agree by a hair: hinting at the painted size can grow a line by ~1%. Wrapping to 98.5%
+ * of the cover leaves that room, so the last glyph is not clipped under `overflow: hidden`.
+ */
+export const HINTING_WRAP = 0.985;
+
+/** Width wrapping actually honours, in points. */
+export function wrapBudget(width: number): number {
+  return Math.max(1, width * HINTING_WRAP);
+}
 
 /**
  * Picks the largest font size at which the wrapped text fits the space available.
@@ -118,9 +131,18 @@ export function fitText(
     candidates.push(request.fontSize - ((request.fontSize - minimum) * step) / 6);
   }
 
+  const wrap = wrapBudget(request.width);
+  const wrapAt = (size: number): string[] => {
+    const measureAt = (value: string) => request.measure(value, size);
+    const lines = wrapText(text, wrap, measureAt, kinsoku);
+    // wrapText already applies kinsoku. A second pass keeps marker text clean when every
+    // candidate failed a head-forbidden start and we return `fits: false`.
+    return kinsoku ? applyKinsoku(lines, wrap, measureAt) : lines;
+  };
+
   let best: { fontSize: number; lines: string[]; height: number; lineHeight: number } | null = null;
   for (const size of candidates) {
-    const lines = wrapText(text, request.width, (value) => request.measure(value, size), kinsoku);
+    const lines = wrapAt(size);
     // A wrap that still starts a line on `。` (or another head-forbidden mark) is not a fit:
     // painting it would show a broken line, so the block goes to a marker instead.
     if (kinsoku && hasKinsokuHeadViolation(lines)) continue;
@@ -143,16 +165,19 @@ export function fitText(
     };
   }
   const fontSize = minimum;
-  const lines = wrapText(text, request.width, (value) => request.measure(value, fontSize), kinsoku);
+  const lines = wrapAt(fontSize);
   const layout = lineLayout(lines.length, fontSize, leading, ceiling);
   const count = Math.max(1, Math.floor((ceiling + SLACK) / Math.max(1, layout.lineHeight)));
+  const visibleLines = kinsoku
+    ? applyKinsoku(lines.slice(0, count), wrap, (value) => request.measure(value, fontSize))
+    : lines.slice(0, count);
   return {
     fits: false,
     fontSize,
     lineHeight: layout.lineHeight,
     lines,
     height: layout.height,
-    visibleLines: lines.slice(0, count),
+    visibleLines,
     width: request.width,
   };
 }
@@ -268,7 +293,8 @@ export function hasKinsokuHeadViolation(lines: readonly string[]): boolean {
   return lines.some((line) => line.length > 0 && KINSOKU_NO_START.test(line[0] ?? ''));
 }
 
-function applyKinsoku(
+/** Moves marks that landed on the wrong side of a break onto the neighbouring line. */
+export function applyKinsoku(
   lines: readonly string[],
   width: number,
   measure: (value: string) => number,

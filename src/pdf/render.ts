@@ -95,6 +95,16 @@ export function coverStyle(
 }
 
 /**
+ * Horizontal ink that overflowed a painted cover, in CSS pixels.
+ *
+ * `scrollWidth > clientWidth` is the check Chromium uses when `white-space: pre` and
+ * `overflow: hidden` clip a last glyph that canvas `measureText` thought would fit.
+ */
+export function coverInkOverflowPx(node: Pick<HTMLElement, 'scrollWidth' | 'clientWidth'>): number {
+  return Math.max(0, node.scrollWidth - node.clientWidth);
+}
+
+/**
  * The stylesheet the reader injects for its pages and the boxes over them.
  *
  * Colours are literal rather than custom properties: the reader page owns its own palette,

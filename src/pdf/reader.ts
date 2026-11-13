@@ -1,7 +1,7 @@
 import type { Formality } from '@/shared/settings';
 import { verticalWriting, type LayoutBlock } from './layout';
 import { layoutPage } from './layout';
-import { COVER_PAD_TOP_EM, coverPaintWidth, drawnBox } from './place';
+import { COVER_PAD_TOP_EM, HINTING_PAD_PX, coverPaintLayout, drawnBox } from './place';
 import { coverStyle, READER_STYLE, TextMeasurer } from './render';
 import { extractPage, renderPage, type PdfDocument } from './extract';
 import type { TextLine } from './lines';
@@ -676,13 +676,13 @@ export class PdfReader {
     const pageWidth = this.geometryByIndex.get(pageIndex)?.width ?? 0;
     const drawn = drawnBox(block, fit, fit.width, pageWidth);
     const padTop = block.fontSize * COVER_PAD_TOP_EM * scale;
-    const paintWidth = coverPaintWidth(fit.width, drawn.width);
+    const painted = coverPaintLayout(block, fit.width, drawn, scale, pageWidth);
 
-    // Layout wraps to `fit.width` (the writing-direction advance on a rotated page, else the
-    // column plus a modest gutter). Painting to a `capToPage` box narrower than that wrap,
-    // with `white-space:pre` and `overflow:hidden`, cuts the last glyph. Height follows
-    // `drawnBox` so descender padding is not stacked on top of a grown translation.
-    const along = Math.max(block.advance, fit.width, drawn.height) * scale;
+    // Layout wraps to `HINTING_WRAP` of `fit.width` so canvas measure at the source point
+    // size and CSS at `fontSize * scale` px can disagree by a hair. The cover is at least
+    // that wrap, plus `HINTING_PAD_PX`, with centre/right alignment kept on the source box.
+    // Height follows `drawnBox` so descender padding is not stacked on a grown translation.
+    const along = Math.max(block.advance, fit.width, drawn.height) * scale + HINTING_PAD_PX;
     const box = verticalWriting(block)
       ? {
           x:
@@ -701,9 +701,9 @@ export class PdfReader {
           height: drawn.width * scale,
         }
       : {
-          x: drawn.x * scale,
+          x: painted.x * scale,
           y: drawn.y * scale - padTop,
-          width: paintWidth * scale,
+          width: painted.width * scale,
           height: drawn.height * scale + padTop,
         };
 
