@@ -35,7 +35,7 @@ import {
   type ChromeApi,
 } from './host.ts';
 import { startStaticServer } from './static.ts';
-import { isPdfBenchBlockFinished } from './pdf-complete.ts';
+import { pdfBenchFinishedCount } from './pdf-complete.ts';
 import { stageExtension } from './stable-extension.ts';
 
 const MODEL_PATH = resolve(ROOT, 'bench/.cache', MODEL_FILE);
@@ -407,7 +407,9 @@ async function main(): Promise<void> {
     const translateLimit = Number(arg('--pages') ?? '0');
     let summary: { blocks: number; done: number; pages: number; total: number } | null = null;
     for (;;) {
-      summary = await reader.evaluate((limit) => {
+      // Playwright runs this callback in the page. Node helpers are not in that scope, so
+      // coverage states come back as data and `pdfBenchFinishedCount` runs here.
+      const snapshot = await reader.evaluate((limit) => {
         const api = (globalThis as { __sakuttoPdf?: ReaderApi }).__sakuttoPdf;
         if (!api) return null;
         const parsed = api.parsedPages().slice(0, limit > 0 ? limit : undefined);
@@ -415,11 +417,16 @@ async function main(): Promise<void> {
         return {
           pages: parsed.length,
           total: document.querySelectorAll('.sakutto-page').length,
-          blocks: all.length,
-          done: all.filter((entry) => isPdfBenchBlockFinished(entry)).length,
+          entries: all.map((entry) => ({ state: entry.state, translation: entry.translation })),
         };
       }, translateLimit);
-      if (summary) {
+      if (snapshot) {
+        summary = {
+          pages: snapshot.pages,
+          total: snapshot.total,
+          blocks: snapshot.entries.length,
+          done: pdfBenchFinishedCount(snapshot.entries),
+        };
         const wanted = translateLimit > 0 ? Math.min(translateLimit, summary.total) : summary.total;
         if (summary.pages >= wanted && summary.done >= summary.blocks) break;
       }
