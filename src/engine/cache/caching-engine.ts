@@ -8,12 +8,19 @@ import type {
 import { TranslationCache } from './cache';
 import { buildTranslationCacheKey } from './key';
 
+/**
+ * Decides whether a finished translation may be stored or served from the cache.
+ * `source` is the original segment text.
+ */
+export type CacheAccept = (text: string, source: string, options: TranslateOptions) => boolean;
+
 export class CachingEngine implements IdentifiedEngine {
   constructor(
     private readonly inner: IdentifiedEngine,
     private readonly cache: TranslationCache,
     private readonly modelId: string | (() => string),
     private readonly backend: string | (() => string) = 'unspecified',
+    private readonly accept?: CacheAccept,
   ) {}
 
   get kind() {
@@ -26,9 +33,11 @@ export class CachingEngine implements IdentifiedEngine {
   ): AsyncIterable<TranslationChunk> {
     const misses: TranslateSegment[] = [];
     const keys = new Map<string, string>();
+    const sources = new Map<string, string>();
     const aliases = new Map<string, string[]>();
     const model = typeof this.modelId === 'function' ? this.modelId() : this.modelId;
     const backend = typeof this.backend === 'function' ? this.backend() : this.backend;
+    const bypass = options.bypassCache === true;
 
     for (const segment of segments) {
       if (options.signal.aborted) return;
@@ -43,11 +52,14 @@ export class CachingEngine implements IdentifiedEngine {
         glossary: options.glossary,
       });
       keys.set(segment.id, key);
+      sources.set(segment.id, segment.text);
 
-      const hit = await this.cache.get(key);
-      if (hit) {
-        yield { id: segment.id, final: hit.text, engine: hit.engine };
-        continue;
+      if (!bypass) {
+        const hit = await this.cache.get(key);
+        if (hit && this.accepts(hit.text, segment.text, options)) {
+          yield { id: segment.id, final: hit.text, engine: hit.engine };
+          continue;
+        }
       }
 
       const copies = aliases.get(key);
@@ -66,7 +78,15 @@ export class CachingEngine implements IdentifiedEngine {
       if (options.signal.aborted) return;
       const key = keys.get(chunk.id);
       const copies = key ? (aliases.get(key) ?? []) : [];
-      if (chunk.final !== undefined && chunk.final.length > 0 && key && chunk.error !== true) {
+      const source = sources.get(chunk.id) ?? '';
+      if (
+        !bypass &&
+        chunk.final !== undefined &&
+        chunk.final.length > 0 &&
+        key &&
+        chunk.error !== true &&
+        this.accepts(chunk.final, source, options)
+      ) {
         await this.cache.put(key, chunk.final, chunk.engine ?? this.inner.kind);
       }
       yield chunk;
@@ -74,5 +94,9 @@ export class CachingEngine implements IdentifiedEngine {
         yield { ...chunk, id };
       }
     }
+  }
+
+  private accepts(text: string, source: string, options: TranslateOptions): boolean {
+    return this.accept?.(text, source, options) ?? true;
   }
 }

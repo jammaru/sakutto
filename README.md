@@ -33,6 +33,7 @@ To build and load it yourself instead:
 | Switch between replaced text and bilingual text | Alt+B (Firefox: Alt+Shift+B) | Option (⌥)+B (Firefox: Alt+Shift+B) |
 | Translate the selection                         | Alt+S (Firefox: Alt+Shift+S) | Option (⌥)+S (Firefox: Alt+Shift+S) |
 | Translate the text you are writing              | Alt+T (Firefox: Alt+Shift+T) | Option (⌥)+T (Firefox: Alt+Shift+T) |
+| Open the PDF the tab shows in the reader        | Not set — bind one           | Not set                             |
 | Translate typed text (on the typed text page)   | Ctrl+Enter                   | ⌘+Enter                             |
 
 The same actions are in the toolbar popup and the right-click menu. Chrome keeps these keys, so you change them in Chrome's own editor: the settings page has a **Keyboard shortcuts** panel, and the popup has a **Change shortcuts** link, both of which open `chrome://extensions/shortcuts`. Firefox uses Alt+Shift+letter by default so the Windows menu bar is not taken, and **Change shortcuts** opens Firefox's own editor. The key list in the popup and the hint on the translate button follow whatever you bind there. A key Chrome has assigned is delivered as an extension command even while a text field is focused, so the page still translates. If Chrome never assigned a command, the default is handled on the page instead: the keydown does reach the page (including in a textarea), and Sakutto leaves it unprevented there so Option+letter can type a character. That in-page default does not run on `chrome://` pages or in the PDF viewer, where the content script is not injected. A key you cleared in Chrome's editor stays off; an old install that never received a key still gets the in-page default. Chrome reads Alt in an extension shortcut as Option on a Mac, so the keys are the same letters. Reloading an unpacked build from the same folder can keep a previously cleared binding in Chrome's editor. Alt+D is not a default, because Chrome on Windows and Linux uses it for the address bar.
@@ -42,6 +43,16 @@ The same actions are in the toolbar popup and the right-click menu. Chrome keeps
 While a message box, a textarea, or another editable field is focused, Alt+T (Option+T on a Mac; Alt+Shift+T on Firefox) or the あA button next to the field previews an on-device translation of what you are typing. Press the same shortcut again, or Ctrl+Enter (⌘+Enter on a Mac), to replace; Restore original puts the draft back. The preview has a language menu, and settings can skip the preview so one shortcut press translates and replaces. Japanese drafts go to English (or to your saved target if that is not Japanese); other drafts use the saved target, until you pick another language. Password fields and sites set to never translate are left alone. You can hide the あA button in settings. A Chrome-assigned page shortcut still translates the page from a field (`onCommand`). An unassigned default's keydown still reaches the field; Sakutto does not prevent it, so Option+letter can type. Compose keeps its shortcut in the field. The same PLaMo model as page translation is used; the built-in translator is not.
 
 The popup has a **Translate typed text** button, and the options page has the same button. It opens a small extension page with a source box and a result box, so you can type or paste a paragraph and translate it without touching a page. It uses the same PLaMo model, the same licence consent, and the same load flow as page translation, and the direction follows the same target-language setting. The built-in translator is not used there: typed text is translated by PLaMo only, and a language PLaMo does not support is refused in the page rather than quietly handed to Chrome. The result has a Copy button.
+
+## PDFs
+
+Chrome draws a PDF in its own viewer, and no extension can read that viewer's document — so page translation cannot attach to it. Sakutto reads the PDF itself instead. With a PDF open, the popup offers **Translate this PDF** (the right-click menu has the same item): the extension fetches the same file the tab is showing, opens it in its own reader in a new tab, and translates it there. Chrome allows four commands with a default key and the four page commands use them, so opening a PDF ships without one; bind it in the browser's shortcut editor if you want a key.
+
+The reader keeps the page as it is. Each page is drawn once by pdf.js and the translation is placed inside the box its source text filled, so a two-column paper stays two columns, a table's numbers stay under their headings, and a figure's caption stays under its figure. A block whose translation is longer than its source grows into empty space beside and below it, stops at the next block or figure, and shrinks the type only as a last resort — never below about 67% of the source size (and never below 6pt for body text, 6.5pt otherwise), where it would be unreadable. A block that still does not fit is left in the original typesetting, with a marker that opens the full translation, rather than shown cut short. Names, affiliations, and emails on the first page stay in the original spelling.
+
+The reader translates the page you are looking at first and the rest as you reach it, so opening a 40-page report at page 30 does not wait for 29 pages of work. A PDF with no text layer (a scan, or a page that is only an image) is shown with a note that there is nothing to translate. Image-only pages are not transcribed: a guessed transcription would be translated as if it were the source, which is worse than leaving the image.
+
+The PDF is never written to your Downloads folder. The file is fetched from the site the tab already shows (same-origin, with the cookies that tab already has), stored inside the extension, and deleted when the reader tab closes. Reloading the reader tab needs the original PDF tab, or a file you pick, because that copy is gone. A leftover from a crash is removed within a day.
 
 ## Languages
 
@@ -53,7 +64,7 @@ The interface itself is translated into 14 languages: English, Japanese, Korean,
 
 ## Privacy
 
-Translation runs on your device by default. The extension does not send page text, selections, your glossary, or translations to the developer. There is no account, ads, or telemetry. The built-in engine's own network request is the model download from Hugging Face. If you turn on the **experimental local server** in Settings (mlx_lm.server, LM Studio, or another OpenAI-compatible process on this computer), the text to translate is sent only to the address you set — not to the developer. Accuracy is not guaranteed. Read the policy at [PRIVACY.md](PRIVACY.md) or https://jammaru.com/sakutto/privacy/.
+Translation runs on your device by default. The extension does not send page text, selections, your glossary, or translations to the developer. There is no account, ads, or telemetry. The built-in engine's own network request is the model download from Hugging Face, and, for a PDF, the file from the site the tab already shows. If you turn on the **experimental local server** in Settings (mlx_lm.server, LM Studio, or another OpenAI-compatible process on this computer), the text to translate is sent only to the address you set — not to the developer. Accuracy is not guaranteed. Read the policy at [PRIVACY.md](PRIVACY.md) or https://jammaru.com/sakutto/privacy/.
 
 ## Local server (experimental)
 
@@ -80,6 +91,8 @@ pnpm zip:firefox    # Firefox zip in .output; then pnpm source:firefox for the A
 
 `pnpm build:wllama` compiles the pinned wllama commit `d275dac` inside the `emscripten/emsdk:4.0.20` container. The wasm, workers, and model weights are not committed. `pnpm build` and `pnpm zip` refuse to run until that build has been verified. `pnpm zip` also checks that the package contains the runtime and the license texts, and that it does not contain model weights, source maps, or install-time host permissions.
 
+`pnpm build` copies the pinned `pdfjs-dist` build into the package first (`pnpm pdfjs` runs that step alone). The reader loads it from a packaged file, because pdf.js resolves its worker, its CMaps and its standard font substitutes relative to itself; a bundled copy would lose that base and go looking on a CDN. The PDF fixtures and the reader's own checks are described next.
+
 ```bash
 pnpm dev            # development build
 pnpm lint
@@ -98,6 +111,27 @@ pnpm test:e2e       # local fixtures; does not download the model
 
 `pnpm i18n:check` compares every catalog in `public/_locales` against English for missing keys, placeholder tokens, and empty messages. `pnpm i18n:draft <catalog> <language>` drafts a catalog from English with the same PLaMo model the extension ships. Both are described in [docs/TRANSLATING.md](docs/TRANSLATING.md).
 
+## PDF bench
+
+`bench/pdf/paper.html` is an original two-column academic paper written for this repository, and `scripts/bench/build-pdf-fixtures.ts` prints it to `bench/pdf/paper.pdf` with a real text layer (font subsets, per-glyph positions, a table and a figure), plus `bench/pdf/scan.pdf`, the same layout as one bitmap per page with no text layer. Both are committed: they are our own text, so they are small and stay under the MIT license.
+
+Layout quality is checked in two speeds:
+
+- **Fast, in CI.** `pnpm test` runs synthetic pages (two-column prose, display equations, figure labels versus axis ticks, tables, listings, running footers, image-only pages) through the same cut, fit and overlap rules the reader uses, with a deterministic stub translator that expands like Japanese. No model is loaded. `pnpm bench:pdf:layout` runs that path on the committed PDF fixtures; it should finish in a few seconds.
+- **Slow, on a machine with the model.** `pnpm bench:pdf` loads the built extension, opens a fixture through the real `pdf:open` path, and translates with PLaMo. Use `--pages N` to bound a long file, `--shot-page N` to screenshot one page, and `--keep-cache` to reuse translations already in the profile so a re-run is only the pages that changed.
+
+```bash
+pnpm test                 # includes the layout-only PDF checks
+pnpm bench:pdf:layout     # committed fixtures, stub translator, no model
+pnpm bench:build:live     # the build the live bench loads
+pnpm bench:pdf            # 8 threads, real model
+pnpm bench:pdf --threads 4
+pnpm bench:pdf --page scan   # the bitmap fixture, which must report no text
+pnpm bench:pdf --keep-cache  # reuse translations already in the profile
+```
+
+**One model, downloaded once.** The profile at `bench/.cache/pdf-profile` keeps what the extension stored in it, so the 546 MB model is fetched on the first run and loaded from disk afterwards; a later run prints `loaded from the profile` and requests nothing. The extension is always staged at `bench/.cache/ext-live` because an unpacked extension's ID comes from its path, and its private file system is keyed by that ID — loading a build from a second path would put a second copy of the model in the same profile. The run reports how many copies it found (`1 copy of the model on disk`) and warns when it is more. Delete the profile directory to start from nothing.
+
 ## Permissions
 
 | Permission         | Why it is requested                                                                  |
@@ -107,9 +141,9 @@ pnpm test:e2e       # local fixtures; does not download the model
 | `offscreen`        | Runs the translation runtime in a document whose workers outlive the service worker. |
 | `activeTab`        | Reads the current page after you open the popup or use a command.                    |
 | `scripting`        | Injects the content script into the active tab after you ask for a translation.      |
-| `contextMenus`     | Adds Translate page and Translate selection to the right-click menu.                 |
+| `contextMenus`     | Adds Translate page, Translate selection and Translate PDF to the right-click menu.  |
 
-Optional host permissions (`https://*/*` and `http://*/*`) are requested only when you turn on automatic translation for a site. Nothing is requested for every site at install time.
+Optional host permissions (`https://*/*` and `http://*/*`) are requested only when you turn on automatic translation for a site. Nothing is requested for every site at install time. The PDF reader adds no permission: it reads the file from the origin the `activeTab` grant already covers.
 
 ## Support
 
@@ -137,6 +171,7 @@ Open an [Issue](https://github.com/jammaru/sakutto/issues) first, then a pull re
 
 - Project code: MIT. See [LICENSE](LICENSE). Copyright 2026 jammaru.
 - PLaMo 3 Translate: PLaMo Community License. The texts are in `licenses/PLaMo-Community-License-ja.txt` and `licenses/PLaMo-Community-License-en.txt`, and the same copies are packed into the extension. Personal and academic use needs no registration. Under Article 3 the model's license allows commercial use only with prior registration on PFN's form (https://forms.gle/mTL8tBLrMYXKNZD56) and income or sales for you or your affiliates of no more than 1 billion yen in the most recent fiscal year; otherwise commercial use needs a separate commercial license from PFN. This repository's MIT license covers Sakutto's own code, not the model weights.
+- pdf.js (`pdfjs-dist`): Apache-2.0. The packaged copy is pinned in `package.json`, its files and their SHA-256 hashes are recorded in `public/vendor/pdfjs/pdfjs-build.json`, and its licence is packed as `vendor/pdfjs/LICENSE-pdfjs.txt` together with the CMaps' and the standard fonts' own licences.
 - llama.cpp, wllama, the Emscripten runtime, the Dawn WebGPU library, and Svelte: see [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 - `scripts/bench/fixtures/kyoto.html` is a CC BY-SA 4.0 Wikipedia derivative. It is not covered by the MIT license and is not part of the extension package.
 

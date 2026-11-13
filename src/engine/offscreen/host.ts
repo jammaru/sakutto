@@ -19,7 +19,7 @@ import { advanceModelStatus } from '@/shared/model-progress';
 import { loadSettings, saveSettings } from '@/shared/storage';
 import type { Formality, IdleMinutes, Settings, TierPreference } from '@/shared/settings';
 import { MemoryTranslationCacheStore, IndexedDbTranslationCacheStore } from '../cache/store';
-import { CachingEngine } from '../cache/caching-engine';
+import { CachingEngine, type CacheAccept } from '../cache/caching-engine';
 import { TranslationCache } from '../cache/cache';
 import { prewarmRequest } from '../cache/prewarm';
 import { ChromeTranslatorEngine } from '../chrome/translator';
@@ -48,6 +48,7 @@ import { QUALITY_PARAGRAPH } from '../model/suggestion';
 import { buildTranslationPrompt, cleanModelOutput } from '../prompt/pfml3';
 import { isBrokenTranslation } from '../text/degenerate';
 import { CpuRetryRuntimeSlot } from './retry-runtime';
+import { translationStaysInSourceLanguage } from '@/pdf/language';
 import { RoutingEngine, type PairSupport } from '../router';
 import type { GlossaryEntry } from '../types';
 import {
@@ -421,8 +422,13 @@ export class EngineHost {
     const localEngine = new InBrowserEngine(localRuntime, { scheduler: this.localScheduler });
     const plamo = new PlamoSourceEngine(lazy, localEngine, () => this.engineSource);
 
+    // A translation that still reads as the source must not become the cached answer for
+    // every later retry. The PDF session also marks retries with `bypassCache`.
+    const acceptCachedTranslation: CacheAccept = (text, source, options) =>
+      !translationStaysInSourceLanguage(source, text, options.tgt);
+
     const chromeForCache = chrome.available
-      ? new CachingEngine(chrome, cache, 'chrome', 'chrome')
+      ? new CachingEngine(chrome, cache, 'chrome', 'chrome', acceptCachedTranslation)
       : null;
 
     const router = new RoutingEngine({
@@ -432,6 +438,7 @@ export class EngineHost {
         () => this.cacheModelId(),
         () =>
           this.engineSource === 'local-server' ? 'local-server' : selectionState.current.backend,
+        acceptCachedTranslation,
       ),
       chrome: chromeForCache,
       plamoSupports: (src, tgt) =>

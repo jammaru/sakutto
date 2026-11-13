@@ -236,4 +236,52 @@ describe('CachingEngine', () => {
     expect(chunks.at(-1)?.final).toBe(repeated);
     expect(store.size).toBe(1);
   });
+
+  it('does not cache an output the accept predicate rejects', async () => {
+    const store = new MemoryTranslationCacheStore();
+    const source = 'The detector compares every configuration on the same tokens.';
+    const inner = fakeEngine('plamo', [{ id: 'a', final: source, engine: 'plamo' }]);
+    const engine = new CachingEngine(
+      inner,
+      new TranslationCache(store),
+      'plamo-0.8b',
+      'unspecified',
+      (text, original) => text !== original,
+    );
+
+    await collectChunks(engine.translate([{ id: 'a', text: source }], options()));
+    await collectChunks(engine.translate([{ id: 'a', text: source }], options()));
+    expect(inner.calls).toBe(2);
+    expect(store.size).toBe(0);
+  });
+
+  it('bypasses a cached echo when a failed block is retried', async () => {
+    const store = new MemoryTranslationCacheStore();
+    const cache = new TranslationCache(store);
+    const source = 'The detector compares every configuration on the same tokens.';
+    const key = buildTranslationCacheKey({
+      model: 'plamo-0.8b',
+      tgt: 'ja',
+      form: 'polite',
+      text: source,
+    });
+    await cache.put(key, source, 'plamo');
+
+    const inner = fakeEngine('plamo', [
+      { id: 'a', final: '評価器は同じトークンで比較します。', engine: 'plamo' },
+    ]);
+    const engine = new CachingEngine(
+      inner,
+      cache,
+      'plamo-0.8b',
+      'unspecified',
+      (text, original) => text !== original,
+    );
+
+    const retried = await collectChunks(
+      engine.translate([{ id: 'a', text: source }], options({ bypassCache: true })),
+    );
+    expect(retried.at(-1)?.final).toBe('評価器は同じトークンで比較します。');
+    expect(inner.calls).toBe(1);
+  });
 });

@@ -19,11 +19,11 @@
   },
   "packageManager": "pnpm@12.15.0",
   "scripts": {
-    "dev": "node scripts/sync-licenses.mjs && wxt",
-    "build": "node scripts/verify-wllama.mjs && node scripts/sync-licenses.mjs && wxt build",
-    "build:firefox": "node scripts/verify-wllama.mjs && node scripts/sync-licenses.mjs && wxt build -b firefox",
-    "zip": "node scripts/verify-wllama.mjs && node scripts/sync-licenses.mjs && wxt zip && node scripts/verify-package.ts",
-    "zip:firefox": "node scripts/verify-wllama.mjs && node scripts/sync-licenses.mjs && wxt zip -b firefox && node scripts/verify-package.ts --browser firefox",
+    "dev": "node scripts/sync-pdfjs.mjs && node scripts/sync-licenses.mjs && wxt",
+    "build": "node scripts/verify-wllama.mjs && node scripts/sync-pdfjs.mjs && node scripts/sync-licenses.mjs && wxt build",
+    "build:firefox": "node scripts/verify-wllama.mjs && node scripts/sync-pdfjs.mjs && node scripts/sync-licenses.mjs && wxt build -b firefox",
+    "zip": "node scripts/verify-wllama.mjs && node scripts/sync-pdfjs.mjs && node scripts/sync-licenses.mjs && wxt zip && node scripts/verify-package.ts",
+    "zip:firefox": "node scripts/verify-wllama.mjs && node scripts/sync-pdfjs.mjs && node scripts/sync-licenses.mjs && wxt zip -b firefox && node scripts/verify-package.ts --browser firefox",
     "source:firefox": "node scripts/amo-source-package.ts",
     "lint:firefox": "node scripts/web-ext-lint.ts",
     "icons": "node scripts/generate-icons.mjs",
@@ -34,14 +34,14 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "node scripts/sync-licenses.mjs && wxt prepare && svelte-check --tsconfig ./tsconfig.json --threshold error",
+    "typecheck": "node scripts/sync-licenses.mjs && node scripts/sync-pdfjs.mjs && wxt prepare && svelte-check --tsconfig ./tsconfig.json --threshold error",
     "test": "vitest run --configLoader runner",
     "test:e2e": "node scripts/run-e2e.mjs",
     "bench": "node scripts/bench/run.ts",
     "bench:mock": "node scripts/bench/pages-run.ts --mode mock",
     "bench:live": "node scripts/bench/pages-run.ts --mode live",
-    "bench:build:mock": "node scripts/sync-licenses.mjs && SAKUTTO_FAKE_ENGINE=1 wxt build",
-    "bench:build:live": "node scripts/verify-wllama.mjs && node scripts/sync-licenses.mjs && SAKUTTO_E2E_REAL=1 wxt build",
+    "bench:build:mock": "node scripts/sync-pdfjs.mjs && node scripts/sync-licenses.mjs && SAKUTTO_FAKE_ENGINE=1 wxt build",
+    "bench:build:live": "node scripts/verify-wllama.mjs && node scripts/sync-pdfjs.mjs && node scripts/sync-licenses.mjs && SAKUTTO_E2E_REAL=1 wxt build",
     "bench:serve": "node scripts/bench/static.ts",
     "bench:history": "node scripts/bench/report.ts",
     "bench:download": "node --experimental-strip-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/download-throughput.ts",
@@ -49,7 +49,10 @@
     "bench:sha256": "node --experimental-strip-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/sha256-throughput.ts",
     "i18n:check": "node scripts/i18n/check-locales.mjs",
     "i18n:draft": "node scripts/i18n/generate-locale.mjs",
-    "release": "node scripts/release/cli.ts"
+    "release": "node scripts/release/cli.ts",
+    "pdfjs": "node scripts/sync-pdfjs.mjs",
+    "bench:pdf": "node scripts/bench/pdf-run.ts",
+    "bench:pdf:layout": "node --experimental-strip-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/pdf-layout.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -72,5 +75,8 @@
     "vitest": "^5.1.0",
     "web-ext": "^10.8.0",
     "wxt": "^0.21.5"
+  },
+  "dependencies": {
+    "pdfjs-dist": "4.10.38"
   }
 }

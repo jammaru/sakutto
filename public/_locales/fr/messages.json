@@ -901,6 +901,105 @@
       }
     }
   },
+  "openPdf": {
+    "message": "Traduire ce PDF"
+  },
+  "openPdfHint": {
+    "message": "Ouvre le PDF dans Sakutto et le traduit sur place, en conservant la mise en page."
+  },
+  "contextTranslatePdf": {
+    "message": "Traduire ce PDF avec Sakutto"
+  },
+  "commandPdf": {
+    "message": "Ouvrir le PDF dans Sakutto"
+  },
+  "pdfReaderTitle": {
+    "message": "PDF"
+  },
+  "pdfUntitled": {
+    "message": "Document.pdf"
+  },
+  "pdfPreparing": {
+    "message": "Lecture du document…"
+  },
+  "pdfReading": {
+    "message": "Lecture de la page $PAGE$ sur $TOTAL$",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfTranslated": {
+    "message": "Traduit"
+  },
+  "pdfPageNoText": {
+    "message": "Cette page est un scan ou une image sans texte sélectionnable, rien ici ne peut être traduit."
+  },
+  "pdfRenderFailed": {
+    "message": "Cette page n’a pas pu être affichée.",
+    "description": "Shown on a page whose canvas could not be drawn."
+  },
+  "pdfNoText": {
+    "message": "Ce document est un scan ou un ensemble d’images, sans couche de texte. Ouvrez un PDF contenant du vrai texte, ou lancez d’abord une reconnaissance optique de caractères."
+  },
+  "pdfTranslateFailed": {
+    "message": "Cette partie n’a pas pu être traduite."
+  },
+  "pdfMissing": {
+    "message": "Le document n’est plus disponible. Rouvrez le PDF depuis son onglet."
+  },
+  "pdfBroken": {
+    "message": "Le document n’a pas pu être ouvert. Il est peut-être endommagé ou protégé par un mot de passe."
+  },
+  "pdfTooLarge": {
+    "message": "Ce fichier dépasse 200 Mo, la taille maximale que le lecteur peut ouvrir.",
+    "description": "Shown when a local PDF is larger than the reader will open."
+  },
+  "pdfModelMissing": {
+    "message": "Les pages sont affichées, mais leur traduction nécessite le modèle PLaMo. Téléchargez-le pour traduire ce document."
+  },
+  "pdfOpenFailed": {
+    "message": "Ce PDF n’a pas pu être ouvert. Rechargez la page et réessayez."
+  },
+  "pdfFileAccessDenied": {
+    "message": "Ce PDF est un fichier sur cet ordinateur. Autorisez l'extension à accéder aux URL de fichiers dans les paramètres d'extensions, ou choisissez le fichier dans le lecteur."
+  },
+  "pdfCompare": {
+    "message": "Comparer"
+  },
+  "pdfOriginalPane": {
+    "message": "Original"
+  },
+  "pdfTranslatedPane": {
+    "message": "Traduction"
+  },
+  "pdfChooseFile": {
+    "message": "Choisir un fichier PDF"
+  },
+  "pdfKeptAsIs": {
+    "message": "$COUNT$ parties ont été laissées telles que la page les a composées : équations, graduations et code gardent leur composition d’origine.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfSelectHint": {
+    "message": "Sélectionnez du texte sur une page pour ne traduire que cette partie."
+  },
+  "pdfSelectTranslate": {
+    "message": "Traduire la sélection"
+  },
+  "pdfSelectFailed": {
+    "message": "Cette sélection n’a pas pu être traduite."
+  },
+  "pdfSelectClear": {
+    "message": "Afficher l’original"
+  },
   "commandCompose": {
     "message": "Traduire le texte en cours de saisie"
   },
@@ -1281,5 +1380,25 @@
   },
   "videoCaptionsPositionHelp": {
     "message": "Maintenez une légende traduite pour la déplacer. YouTube et X mémorisent chacun leur emplacement, y compris en plein écran et en mode cinéma. Ce bouton la replace en bas du lecteur."
+  },
+  "pdfOverflow": {
+    "message": "$COUNT$ passages n’ont pas tenu sur la page. Ouvrez le marqueur pour lire la traduction.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfFailedCount": {
+    "message": "$COUNT$ passages n’ont pas pu être traduits.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "Toolbar note when some blocks could not be translated."
+  },
+  "pdfOverflowOpen": {
+    "message": "Afficher la traduction"
   }
 }

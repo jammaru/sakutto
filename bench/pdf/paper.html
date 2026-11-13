@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model</title>
+    <style>
+      /* Print-oriented stylesheet: a two-column academic paper. Everything here is
+         deliberately ordinary — a serif body, a narrow measure, numbered sections,
+         a figure, a table and a reference list — because the point of the fixture is
+         to look like a paper a reader would actually want translated. */
+      @page {
+        size: A4;
+        margin: 18mm 16mm 20mm;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        font-size: 9.4pt;
+      }
+
+      body {
+        margin: 0;
+        color: #111;
+        font-family: 'Liberation Serif', 'Times New Roman', serif;
+        line-height: 1.36;
+        text-align: justify;
+        hyphens: auto;
+      }
+
+      .title-block {
+        grid-column: 1 / -1;
+        margin-bottom: 6mm;
+        text-align: center;
+      }
+
+      h1 {
+        margin: 0 0 3mm;
+        font-size: 17pt;
+        font-weight: 700;
+        line-height: 1.2;
+      }
+
+      .authors {
+        margin: 0 0 1.5mm;
+        font-size: 11pt;
+      }
+
+      .affiliation,
+      .contact {
+        margin: 0;
+        color: #333;
+        font-size: 8.6pt;
+        text-align: center;
+      }
+
+      .abstract {
+        margin: 0 0 5mm;
+        padding: 0 12mm;
+        font-size: 8.8pt;
+      }
+
+      .abstract h2 {
+        margin: 0 0 1.5mm;
+        font-size: 9.4pt;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .columns {
+        column-count: 2;
+        column-gap: 7mm;
+      }
+
+      h2 {
+        margin: 4mm 0 1.5mm;
+        font-size: 10pt;
+        font-weight: 700;
+      }
+
+      h3 {
+        margin: 3mm 0 1mm;
+        font-size: 9.4pt;
+        font-style: italic;
+        font-weight: 700;
+      }
+
+      p {
+        margin: 0 0 1.6mm;
+        orphans: 2;
+        widows: 2;
+      }
+
+      .lead {
+        text-indent: 0;
+      }
+
+      p + p {
+        text-indent: 4mm;
+      }
+
+      ul,
+      ol {
+        margin: 0 0 1.6mm;
+        padding-left: 5mm;
+      }
+
+      li {
+        margin-bottom: 0.8mm;
+      }
+
+      code,
+      .mono {
+        font-family: 'Liberation Mono', 'Courier New', monospace;
+        font-size: 8.4pt;
+      }
+
+      figure {
+        margin: 2.5mm 0;
+        break-inside: avoid;
+      }
+
+      figcaption {
+        margin-top: 1.2mm;
+        color: #222;
+        font-size: 8.2pt;
+        line-height: 1.3;
+        text-align: left;
+      }
+
+      .figure-label,
+      .table-label {
+        font-weight: 700;
+      }
+
+      table {
+        width: 100%;
+        margin: 2mm 0;
+        border-collapse: collapse;
+        font-size: 8.2pt;
+        break-inside: avoid;
+      }
+
+      caption {
+        margin-bottom: 1.2mm;
+        color: #222;
+        font-size: 8.2pt;
+        text-align: left;
+        caption-side: top;
+      }
+
+      th,
+      td {
+        padding: 0.9mm 1.4mm;
+        border-top: 0.5pt solid #999;
+        border-bottom: 0.5pt solid #999;
+        text-align: left;
+      }
+
+      thead th {
+        border-bottom: 1pt solid #333;
+      }
+
+      tbody td.num,
+      thead th.num {
+        text-align: right;
+      }
+
+      .equation {
+        display: block;
+        margin: 2mm 0;
+        font-style: italic;
+        text-align: center;
+      }
+
+      .footnote {
+        margin-top: 4mm;
+        padding-top: 1.5mm;
+        border-top: 0.5pt solid #bbb;
+        font-size: 7.6pt;
+        line-height: 1.3;
+      }
+
+      .references {
+        column-count: 2;
+        column-gap: 7mm;
+        margin-top: 5mm;
+        font-size: 8pt;
+        line-height: 1.28;
+      }
+
+      .references h2 {
+        column-span: all;
+        margin-top: 0;
+      }
+
+      .references p {
+        margin: 0 0 1.4mm;
+        padding-left: 4mm;
+        text-indent: -4mm;
+        text-align: left;
+      }
+
+      /* A bar chart drawn with divs, so the fixture needs no image file and still has a
+         graphic whose labels must survive translation untouched. */
+      .chart {
+        display: flex;
+        align-items: end;
+        gap: 3mm;
+        height: 26mm;
+        padding: 0 1mm;
+        border-bottom: 0.5pt solid #333;
+      }
+
+      .bar {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        justify-content: end;
+        gap: 0.6mm;
+        text-align: center;
+      }
+
+      .bar span {
+        font-size: 7pt;
+      }
+
+      .bar .fill {
+        display: block;
+        background: #4b5563;
+        border-radius: 0.6mm 0.6mm 0 0;
+      }
+
+      .axis {
+        display: flex;
+        gap: 3mm;
+        padding: 1mm 1mm 0;
+      }
+
+      .axis span {
+        flex: 1;
+        font-size: 7pt;
+        text-align: center;
+      }
+
+      .theorem {
+        margin: 2mm 0 3mm;
+        padding: 1.5mm 2.5mm;
+        border-left: 1.5pt solid #444;
+        background: #f6f6f6;
+        font-size: 9pt;
+      }
+
+      .theorem p {
+        text-indent: 0;
+        margin: 0;
+      }
+
+      pre.algorithm {
+        margin: 2mm 0 3mm;
+        padding: 1.5mm 2.5mm;
+        background: #f3f3f3;
+        border: 0.4pt solid #ccc;
+        font-family: 'Liberation Mono', 'Courier New', monospace;
+        font-size: 8pt;
+        line-height: 1.35;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="title-block">
+      <h1>Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model</h1>
+      <p class="authors">J. Ammaru</p>
+      <p class="affiliation">Independent researcher</p>
+      <p class="contact">sakutto@example.org</p>
+    </header>
+
+    <section class="abstract">
+      <h2>Abstract</h2>
+      <p>
+        Machine translation of web pages is usually a client of a remote service. This paper
+        describes Sakutto, a browser extension that translates a page entirely on the reader's own
+        machine, and reports what moving a 0.8-billion-parameter instruction-tuned model into a
+        browser tab costs and what it buys. The extension runs PLaMo 3 Translate through a
+        WebAssembly build of llama.cpp, keeps the model weights in the browser's private file
+        system, and translates a page block by block as the reader scrolls. On a four-core laptop
+        with a discrete GPU the model reaches 34.8 tokens per second and finishes a 1,900-word
+        article in 41 seconds; on the same machine's CPU it reaches 9.1 tokens per second. We
+        describe the scheduling rules that keep the first paragraph visible within two seconds, the
+        cache that makes a revisited page free, and the failure modes that a page collector has to
+        handle before a reader will accept the result.
+      </p>
+    </section>
+
+    <div class="columns">
+      <h2>1. Introduction</h2>
+      <p class="lead">
+        A reader who wants an English article in Japanese has three choices: paste it into a
+        translation website, install a browser extension that forwards the page to a server, or read
+        the English. The first two send the page, and every selection the reader makes afterwards,
+        to a third party. For a research paper under review, a private issue tracker or a medical
+        record this is often unacceptable, and it is frequently prohibited by the terms the reader
+        is bound by.
+      </p>
+      <p>
+        Running the model in the browser removes that transfer. The page text never leaves the
+        process, no account is needed, and the extension works offline once the weights are
+        downloaded. The cost is latency and memory: a transformer that a server would run on an
+        accelerator has to fit in a tab, compete with the page for the GPU, and produce tokens one
+        at a time in front of a reader who is already looking at the text.
+      </p>
+      <p>
+        This paper reports a working system rather than a new model. Section 2 describes the
+        runtime, Section 3 the scheduling rules that decide what to translate first, and Section 4
+        the measurements. Section 5 discusses the failure modes we could not design away, and
+        Section 6 lists the work that remains.
+      </p>
+
+      <h2>2. System Design</h2>
+      <p>
+        The extension is a Manifest V3 package with four processes. A service worker owns the
+        lifetime of everything else. An offscreen document hosts the runtime, because a service
+        worker cannot hold a WebAssembly heap across a suspension. A content script walks the page
+        and writes translations back into the document. Popup, options and onboarding pages render
+        the settings.
+      </p>
+
+      <h3>2.1 Runtime</h3>
+      <p>
+        The model is PLaMo 3 Translate, an 0.8-billion-parameter decoder trained for translation in
+        53 languages in either direction, quantised to four bits per weight. The published
+        WebAssembly build of llama.cpp cannot load its tokenizer, so the extension ships its own
+        build of the runtime at a pinned commit, patched in two places so that workers and the
+        WebAssembly module load from packaged files rather than from blob URLs, which Manifest V3
+        forbids.
+      </p>
+      <p>
+        The runtime offers two backends. The WebGPU backend keeps two sequences resident and decodes
+        a batch of up to eight short segments in a single completion. The CPU backend keeps one
+        sequence and uses four to eight threads, depending on the machine. A probe runs at startup,
+        and a failed GPU load falls back to the CPU path rather than failing the translation.
+      </p>
+
+      <p class="equation">S<sub>t</sub> = (I − β<sub>t</sub>) S<sub>t−1</sub></p>
+      <div class="theorem">
+        <p>
+          <strong>Proposition 1.</strong> A block whose translation does not fit its own box is left
+          in the source typesetting rather than shown cut short.
+        </p>
+      </div>
+      <pre class="algorithm">
+1  for block in page:
+2      if is_equation(block): continue
+3      emit(translate(block))</pre>
+
+      <h3>2.2 Page model</h3>
+      <p>
+        A page is not a list of paragraphs. The collector therefore walks the document rather than
+        selecting a fixed set of tags, and it treats four shapes differently: ordinary prose, an
+        item of a grid or flex container, a cell of a repeating data row, and a container that owns
+        text of its own beside its children. The distinction matters because a translation is
+        written back into the text nodes the source already had. A row laid out as a grid becomes a
+        vertical pile if its translation lands between the cells instead of inside them.
+      </p>
+      <p>
+        Inline elements that are not prose — code, keyboard keys, sample output, pronunciation and
+        citation markers — stay in the document untouched and become numbered placeholders in the
+        text the model sees. The model is asked to keep each placeholder where the sentence had it,
+        and a translation that moves or drops one is rejected and retried without placeholders.
+      </p>
+
+      <figure>
+        <div class="chart">
+          <div class="bar"><span>41 s</span><span class="fill" style="height: 26mm"></span></div>
+          <div class="bar"><span>58 s</span><span class="fill" style="height: 19mm"></span></div>
+          <div class="bar"><span>96 s</span><span class="fill" style="height: 11mm"></span></div>
+          <div class="bar"><span>155 s</span><span class="fill" style="height: 7mm"></span></div>
+        </div>
+        <div class="axis">
+          <span>WebGPU, 2 seq.</span>
+          <span>WebGPU, 1 seq.</span>
+          <span>CPU, 8 threads</span>
+          <span>CPU, 4 threads</span>
+        </div>
+        <figcaption>
+          <span class="figure-label">Figure 1.</span> Time to translate the whole fixture article,
+          by backend. The GPU path is not only faster per token; it also packs short blocks into one
+          completion, so it issues roughly a third as many requests.
+        </figcaption>
+      </figure>
+
+      <h2>3. Scheduling</h2>
+      <p>
+        A reader does not read a page in document order, so the extension does not translate in
+        document order either. Every block gets a priority from its distance to the viewport, its
+        kind, and its position in the document. Blocks on screen are translated first, then blocks
+        within about two screens in the direction the reader is scrolling. Scrolling up re-ranks the
+        queue, which is why a reader who jumps to the conclusion gets the conclusion rather than the
+        introduction.
+      </p>
+      <p>
+        Short blocks — a label, a table cell, a one-line list item — are packed into one request, up
+        to eight per completion and 160 source tokens in total. Packing is not applied to
+        paragraphs. A paragraph is as long as the prompt template, so packing saves almost nothing,
+        and it delays every block in the pack behind the prefill of the whole pack. The rule is
+        measured rather than assumed: Section 4.2 reports a run in which packing paragraphs made the
+        median time to first text 18% worse.
+      </p>
+
+      <table>
+        <caption>
+          <span class="table-label">Table 1.</span>
+          Default planning constants. The token budget is per sequence, so the two-sequence GPU path
+          and the one-sequence CPU path share it.
+        </caption>
+        <thead>
+          <tr>
+            <th>Constant</th>
+            <th class="num">Value</th>
+            <th>Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>maxSegmentTokens</td>
+            <td class="num">48</td>
+            <td>Longest block that may share a completion</td>
+          </tr>
+          <tr>
+            <td>maxBatchTokens</td>
+            <td class="num">160</td>
+            <td>Source tokens in one packed request</td>
+          </tr>
+          <tr>
+            <td>maxBatchSegments</td>
+            <td class="num">8</td>
+            <td>Blocks in one packed request</td>
+          </tr>
+          <tr>
+            <td>pieceChars</td>
+            <td class="num">600</td>
+            <td>Longest run of sentences sent as one prompt</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>4. Measurements</h2>
+      <p>
+        All numbers come from one laptop: eight cores, 32 GB of memory, an integrated GPU, and a
+        browser build that supports WebGPU. The fixture is a 1,900-word article with a sidebar, a
+        code block and a navigation bar. Every run translates the page from a cold cache, three
+        times, and the median is reported.
+      </p>
+
+      <h3>4.1 Throughput</h3>
+      <p>
+        Table 2 separates the two costs a reader feels. Time to first visible paragraph is dominated
+        by prefill and by loading the weights; full page time is dominated by decoding. The GPU path
+        decodes 3.8 times faster than the four-thread CPU path, but it is only 2.4 times faster on
+        the first paragraph, because the weight upload happens before either backend can produce a
+        token.
+      </p>
+
+      <table>
+        <caption>
+          <span class="table-label">Table 2.</span>
+          Median of three cold runs on the fixture article.
+        </caption>
+        <thead>
+          <tr>
+            <th>Backend</th>
+            <th class="num">tok/s</th>
+            <th class="num">First paragraph</th>
+            <th class="num">Full page</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>WebGPU, 2 sequences</td>
+            <td class="num">34.8</td>
+            <td class="num">1.9 s</td>
+            <td class="num">41 s</td>
+          </tr>
+          <tr>
+            <td>WebGPU, 1 sequence</td>
+            <td class="num">28.1</td>
+            <td class="num">2.1 s</td>
+            <td class="num">58 s</td>
+          </tr>
+          <tr>
+            <td>CPU, 8 threads</td>
+            <td class="num">14.6</td>
+            <td class="num">2.8 s</td>
+            <td class="num">96 s</td>
+          </tr>
+          <tr>
+            <td>CPU, 4 threads</td>
+            <td class="num">9.1</td>
+            <td class="num">3.4 s</td>
+            <td class="num">155 s</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>4.2 What packing costs</h3>
+      <p>
+        We packed paragraphs as well as labels in an early build. The change looked harmless, since
+        every request carried text the reader had asked for. It was not: a paragraph in a pack
+        waited behind the prefill of every earlier paragraph, and the median time to first text rose
+        by 18%. Restricting packing to blocks under 48 tokens recovered the loss and reduced the
+        total number of requests by 61%.
+      </p>
+
+      <h2>5. Failure Modes</h2>
+      <p>Three failures shaped the current design more than any feature did.</p>
+      <ul>
+        <li>
+          <strong>Reported completion over untranslated prose.</strong> A page that skipped blocks
+          it could not segment still said it was translated. The bar now counts blocks that never
+          got a job and reports the page as partial instead.
+        </li>
+        <li>
+          <strong>Layout collapse in slot containers.</strong> Writing a translation between the
+          cells of a grid row created an anonymous item and pushed every following cell one place
+          along. Such a container is now descended into, and each cell is translated into its own
+          text node.
+        </li>
+        <li>
+          <strong>Stale text after a model reload.</strong> Blocks that failed while the model was
+          loading kept their source text forever. They are now queued again when the model reports
+          itself loaded.
+        </li>
+      </ul>
+
+      <p>
+        Each of these was found by a reader, not by a test, and each now has a fixture that fails
+        without the fix. We take this as evidence that page translation is a systems problem: the
+        model is the easy part, and the document is the hard one.
+      </p>
+
+      <h2>6. Remaining Work</h2>
+      <p>
+        Two shapes of document are still out of reach. The first is the PDF that a reader opens in
+        the browser's own viewer, whose text is laid out by a PDF engine rather than by the DOM. The
+        second is the scanned document, where the only text is a bitmap. Both need the same thing
+        from this system: a translation that keeps the original geometry, so that a figure's caption
+        stays under the figure and a table's column widths survive. We report on the first of these
+        in a companion note.
+      </p>
+
+      <div class="footnote">
+        <p>
+          <strong>Acknowledgements.</strong> The model weights are published by Preferred Networks
+          under the PLaMo Community License. The runtime is a patched build of llama.cpp compiled
+          with Emscripten. Neither is affiliated with this work.
+        </p>
+      </div>
+    </div>
+
+    <section class="references">
+      <h2>References</h2>
+      <p>
+        [1] A. Author and others. “PLaMo 3 Translate: a compact translation model.” Technical
+        report, 2026.
+      </p>
+      <p>
+        [2] A. Author. “llama.cpp: inference of large language models in C and C++.” Software,
+        2023–2026.
+      </p>
+      <p>[3] A. Author. “wllama: WebAssembly bindings for llama.cpp.” Software, 2024–2026.</p>
+      <p>[4] World Wide Web Consortium. “WebGPU specification.” Candidate recommendation, 2025.</p>
+      <p>
+        [5] A. Author and others. “Sequence models with learned alignments.” In a workshop on neural
+        computation, 2017.
+      </p>
+      <p>
+        [6] A. Author and others. “Retrieving passages for open-domain questions.” In a workshop on
+        neural computation, 2020.
+      </p>
+    </section>
+  </body>
+</html>

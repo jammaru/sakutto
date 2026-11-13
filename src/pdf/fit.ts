@@ -1,0 +1,563 @@
+import type { Box } from './geometry';
+import type { AnyBlockRole } from './layout';
+
+/**
+ * How a translated block is set inside the box its source filled.
+ *
+ * The hard part of laying a translation back onto a PDF page is that the two languages are
+ * not the same length. Japanese set from English is typically 10–25% shorter in characters
+ * but needs more line height, and German set from English is 20% longer outright. So the
+ * translation can neither be drawn at the source's exact size and allowed to overflow, nor
+ * be shrunk until it is unreadable.
+ */
+export interface FitRequest {
+  /** The box the source text occupied, in points. */
+  box: Box;
+  /**
+   * The room the block may grow down into, in points. This is the distance to the next block
+   * below it in the same column, so growth never covers a following paragraph.
+   */
+  growBudget: number;
+  /** Font size of the source text, in points. */
+  fontSize: number;
+  /** Line height the source used, as a multiple of the font size. */
+  lineHeight: number;
+  /** Width the text is wrapped to, in points. Normally the column's own width. */
+  width: number;
+  /** Measures one line of wrapped text at a candidate size, in points. */
+  measure: (text: string, fontSize: number) => number;
+  /** Role of the block, which decides how small body type may go. */
+  role?: AnyBlockRole;
+}
+
+export type FitResult =
+  | {
+      fits: true;
+      /** Font size to draw at, in points. */
+      fontSize: number;
+      /** Line height to draw at, in points. */
+      lineHeight: number;
+      lines: string[];
+      height: number;
+      /** True when the block had to grow past the source box to fit. */
+      grown: boolean;
+      /** Wrap width the layout used, so the cover is as wide as the fitted lines. */
+      width: number;
+    }
+  | {
+      /** Even the smallest size overflows; the caller must clip or offer the full text. */
+      fits: false;
+      fontSize: number;
+      lineHeight: number;
+      lines: string[];
+      height: number;
+      /** Lines that fit in the space available, for the clipped rendering. */
+      visibleLines: string[];
+      /** Wrap width the layout used, so a clipped cover does not cut a line short. */
+      width: number;
+    };
+
+/** Never shrink below this fraction of the source size; below it the text is unreadable. */
+export const MIN_SCALE = 0.72;
+/** An absolute floor, in points: CJK below this is a grey smear even when the scale allows it. */
+export const MIN_FONT_SIZE = 6.5;
+/**
+ * Body type originally set at 9pt or larger may shrink a little further than the general
+ * floor, because a 9pt paragraph that wraps to Japanese still has to fit two lines into a
+ * box that was one Latin line. Labels, captions and headings keep the stricter 6.5pt floor.
+ */
+export const BODY_MIN_FONT_SIZE = 6;
+/** Scale floor for that same body case: 9pt × 0.67 is just over 6pt. */
+export const BODY_MIN_SCALE = 0.67;
+/**
+ * A block may grow by at most this multiple of its own height, even with empty space below.
+ * The free-space model already stops at the next obstacle; this only caps a last paragraph
+ * that would otherwise become a tall column of its own.
+ */
+const MAX_GROWTH = 2.2;
+/**
+ * Minimum leading for Japanese set from a Latin source. Its glyphs fill the em box, so a
+ * leading that was comfortable for Times looks cramped in a Gothic face; a source that
+ * already set a generous leading keeps it, which is why this is a floor and not a multiplier.
+ *
+ * 1.22 sits in the 1.15–1.25 range used for Japanese body type: tight enough that a
+ * paragraph can wrap to one extra line inside the source box, loose enough that glyphs do
+ * not collide.
+ */
+const CJK_MIN_LEADING = 1.22;
+/** A fit is allowed to miss the space available by this much, in points. */
+const SLACK = 1;
+/**
+ * Fraction of the paint width that wrapping uses.
+ *
+ * Canvas `measureText` at the source point size and CSS at `fontSize * scale` px do not
+ * agree by a hair: hinting at the painted size can grow a line by ~1%. Wrapping to 98.5%
+ * of the cover leaves that room, so the last glyph is not clipped under `overflow: hidden`.
+ */
+export const HINTING_WRAP = 0.985;
+
+/** Width wrapping actually honours, in points. */
+export function wrapBudget(width: number): number {
+  return Math.max(1, width * HINTING_WRAP);
+}
+
+/**
+ * Picks the largest font size at which the wrapped text fits the space available.
+ *
+ * The search is over a handful of candidate sizes rather than a binary search, because
+ * wrapping is not monotonic in size — a word that fits on one line at 8.6pt can push a whole
+ * line down, and a binary search can then accept a size that overflows. Six candidates
+ * between the smallest allowed size and the source size are enough for a box whose height is
+ * fixed, and each is measured exactly.
+ */
+export function fitText(
+  request: FitRequest,
+  text: string,
+  target: 'ja' | 'en' | 'other',
+): FitResult {
+  const leading =
+    target === 'ja'
+      ? request.fontSize < 8
+        ? CJK_MIN_LEADING
+        : Math.max(request.lineHeight, CJK_MIN_LEADING)
+      : request.lineHeight;
+  // Trust the free-space budget as the wall. Cap only so a last paragraph cannot become a
+  // tall column of its own; one extra Japanese line is always allowed when any room exists,
+  // because an 8pt source line that wraps once is the common case.
+  const extraLine = request.fontSize * leading;
+  const growthCap = Math.max(request.box.height * MAX_GROWTH, extraLine);
+  const ceiling = request.box.height + Math.min(request.growBudget, growthCap);
+  const minimum = minFontFor(request);
+  const kinsoku = target === 'ja';
+
+  const candidates: number[] = [];
+  for (let step = 0; step <= 6; step += 1) {
+    candidates.push(request.fontSize - ((request.fontSize - minimum) * step) / 6);
+  }
+
+  const wrap = wrapBudget(request.width);
+  const wrapAt = (size: number): string[] => {
+    const measureAt = (value: string) => request.measure(value, size);
+    const lines = wrapText(text, wrap, measureAt, kinsoku);
+    // wrapText already applies kinsoku. A second pass keeps marker text clean when every
+    // candidate failed a head-forbidden start and we return `fits: false`.
+    return kinsoku ? applyKinsoku(lines, wrap, measureAt) : lines;
+  };
+
+  let best: { fontSize: number; lines: string[]; height: number; lineHeight: number } | null = null;
+  for (const size of candidates) {
+    const lines = wrapAt(size);
+    // A wrap that still starts a line on `。` (or another head-forbidden mark) is not a fit:
+    // painting it would show a broken line, so the block goes to a marker instead.
+    if (kinsoku && hasKinsokuHeadViolation(lines)) continue;
+    const layout = lineLayout(lines.length, size, leading, ceiling);
+    if (layout.height <= ceiling + SLACK) {
+      best = { fontSize: size, lines, height: layout.height, lineHeight: layout.lineHeight };
+      break;
+    }
+  }
+
+  if (best) {
+    return {
+      fits: true,
+      fontSize: best.fontSize,
+      lineHeight: best.lineHeight,
+      lines: best.lines,
+      height: best.height,
+      grown: best.height > request.box.height + 0.5,
+      width: request.width,
+    };
+  }
+  const fontSize = minimum;
+  const lines = wrapAt(fontSize);
+  const layout = lineLayout(lines.length, fontSize, leading, ceiling);
+  const count = Math.max(1, Math.floor((ceiling + SLACK) / Math.max(1, layout.lineHeight)));
+  const visibleLines = kinsoku
+    ? applyKinsoku(lines.slice(0, count), wrap, (value) => request.measure(value, fontSize))
+    : lines.slice(0, count);
+  return {
+    fits: false,
+    fontSize,
+    lineHeight: layout.lineHeight,
+    lines,
+    height: layout.height,
+    visibleLines,
+    width: request.width,
+  };
+}
+
+/**
+ * Height a wrapped block occupies, and the CSS line-height to draw it at.
+ *
+ * Leading only stacks between lines. A one-line Japanese label in an 8pt Latin box cannot
+ * pay 1.34× leading — that would make even a single glyph taller than the source — so the
+ * line-height is clamped to the space the fit is allowed to use.
+ */
+function lineLayout(
+  lineCount: number,
+  size: number,
+  leading: number,
+  ceiling: number,
+): { height: number; lineHeight: number } {
+  const stacked = size * leading;
+  if (lineCount <= 1) {
+    const lineHeight = Math.min(stacked, Math.max(size, ceiling));
+    return { height: size, lineHeight };
+  }
+  return { height: lineCount * stacked, lineHeight: stacked };
+}
+
+/**
+ * Wraps text to a width that may change with the font size.
+ *
+ * Wrapping is by word for a script that separates words and by character for one that does
+ * not, because a Japanese paragraph has no spaces and treating it as one unbreakable word
+ * would draw a single line off the side of the page. Both cases keep the text's own spaces.
+ */
+export function wrapText(
+  text: string,
+  width: number,
+  measure: (value: string) => number,
+  kinsoku = false,
+): string[] {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return [];
+
+  const tokens = tokenize(trimmed);
+  const lines: string[] = [];
+  let current = '';
+
+  const place = (value: string): void => {
+    if (value.length === 0) {
+      current = '';
+      return;
+    }
+    // A trailing space hangs at the end of a line in CSS, so it must not decide the break.
+    if (measure(value.trimEnd()) <= width) {
+      current = value;
+      return;
+    }
+    const pieces = breakToken(value.trimEnd(), width, measure, kinsoku);
+    const last = pieces.pop() ?? '';
+    for (const piece of pieces) {
+      if (piece.length > 0) lines.push(piece);
+    }
+    current = last;
+  };
+
+  for (const token of tokens) {
+    const candidate = current.length === 0 ? token : current + token;
+    // A trailing space hangs at the end of a line in CSS, so it must not decide the break.
+    if (current.length > 0 && measure(candidate.trimEnd()) > width) {
+      const next = token.trimStart();
+      lines.push(current.trimEnd());
+      place(next);
+      continue;
+    }
+    place(candidate);
+  }
+
+  if (current.trim().length > 0) lines.push(current.trimEnd());
+  let wrapped = kinsoku ? applyKinsoku(lines, width, measure) : lines;
+  wrapped = breakOverflow(wrapped, width, measure, kinsoku);
+  if (kinsoku) {
+    wrapped = collapseLoneGlyphs(wrapped, width, measure);
+    wrapped = applyKinsoku(wrapped, width, measure);
+    wrapped = breakOverflow(wrapped, width, measure, kinsoku);
+    wrapped = collapseLoneGlyphs(wrapped, width, measure);
+  }
+  return wrapped.filter((line) => line.length > 0);
+}
+
+function breakOverflow(
+  lines: readonly string[],
+  width: number,
+  measure: (value: string) => number,
+  kinsoku: boolean,
+): string[] {
+  return lines.flatMap((line) => {
+    if (line.length === 0) return [];
+    if (measure(line) <= width) return [line];
+    const pieces = breakToken(line, width, measure, kinsoku);
+    return pieces.length > 0 ? pieces : [line.slice(0, 1)];
+  });
+}
+
+/**
+ * Japanese line-break rules: a line must not start with closing punctuation, and must not
+ * end with opening punctuation. Characters that would land on the wrong side of a break are
+ * moved to the neighbouring line.
+ */
+const KINSOKU_NO_START =
+  /[、。，．・？！）\]｝」』】ゝゞ々ーァィゥェォッャュョヮぁぃぅぇぉっゃゅょゎ]/u;
+const KINSOKU_NO_END = /[[（［｛「『【]/u;
+
+/** True when a wrap still starts a line on a mark that must not begin a Japanese line. */
+export function hasKinsokuHeadViolation(lines: readonly string[]): boolean {
+  return lines.some((line) => line.length > 0 && KINSOKU_NO_START.test(line[0] ?? ''));
+}
+
+/** Moves marks that landed on the wrong side of a break onto the neighbouring line. */
+export function applyKinsoku(
+  lines: readonly string[],
+  width: number,
+  measure: (value: string) => number,
+): string[] {
+  const next = lines.filter((line) => line.length > 0);
+  const budget = Math.max(16, next.reduce((count, line) => count + line.length, 0) * 4 + 8);
+  let steps = 0;
+  const seenHead = new Set<string>();
+
+  for (let index = 1; index < next.length && steps < budget; index += 1) {
+    while (
+      (next[index]?.length ?? 0) > 0 &&
+      KINSOKU_NO_START.test(next[index]?.[0] ?? '') &&
+      steps < budget
+    ) {
+      steps += 1;
+      const key = `${String(index)}:${next[index - 1] ?? ''}|${next[index] ?? ''}`;
+      if (seenHead.has(key)) break;
+      seenHead.add(key);
+
+      const mark = next[index]?.[0] ?? '';
+      const dest = `${next[index - 1] ?? ''}${mark}`;
+      if (measure(dest) <= width) {
+        next[index - 1] = dest;
+        next[index] = next[index]?.slice(1) ?? '';
+        continue;
+      }
+      // The mark does not fit on the previous line. Steal a suffix so the next line does
+      // not start with a forbidden mark. Do not steal a suffix that is itself forbidden
+      // at the head — that bounces `ー。` back and forth forever.
+      const previous = next[index - 1] ?? '';
+      if (previous.length <= 1) break;
+      let take = 1;
+      while (
+        take < previous.length &&
+        KINSOKU_NO_START.test(previous.slice(previous.length - take)[0] ?? '')
+      ) {
+        take += 1;
+      }
+      if (take >= previous.length) break;
+      next[index - 1] = previous.slice(0, -take);
+      next[index] = `${previous.slice(-take)}${next[index] ?? ''}`;
+      break;
+    }
+    if ((next[index]?.length ?? 0) === 0) {
+      next.splice(index, 1);
+      index -= 1;
+    }
+  }
+
+  const seenTail = new Set<string>();
+  for (let index = 0; index < next.length - 1 && steps < budget; index += 1) {
+    while (
+      (next[index]?.length ?? 0) > 0 &&
+      KINSOKU_NO_END.test(next[index]?.at(-1) ?? '') &&
+      steps < budget
+    ) {
+      steps += 1;
+      const key = `${String(index)}:${next[index] ?? ''}|${next[index + 1] ?? ''}`;
+      if (seenTail.has(key)) break;
+      seenTail.add(key);
+      const mark = next[index]?.at(-1) ?? '';
+      const dest = `${mark}${next[index + 1] ?? ''}`;
+      const kept = next[index]?.slice(0, -1) ?? '';
+      if (kept.length === 0 || measure(dest) > width) break;
+      next[index] = kept;
+      next[index + 1] = dest;
+    }
+    if ((next[index]?.length ?? 0) === 0) {
+      next.splice(index, 1);
+      index -= 1;
+    }
+  }
+  // Hitting the budget with a line still starting on a forbidden mark is left as-is.
+  // `fitText` then fails closed (`fits: false`) rather than painting that wrap.
+  return next.filter((line) => line.length > 0);
+}
+
+/**
+ * Avoid a one- or two-character Japanese line when a neighbour can take the glyphs.
+ *
+ * A wrap that leaves `モ` or `す。` or `測す` alone is the stray tail a reader sees in the
+ * middle of a paragraph. Merge it, or steal one more character so the short line is longer.
+ */
+function collapseLoneGlyphs(
+  lines: readonly string[],
+  width: number,
+  measure: (value: string) => number,
+): string[] {
+  const next = [...lines];
+  let guard = 0;
+  const limit = next.reduce((count, line) => count + line.length, 0) + 8;
+  const skip = new Set<number>();
+  while (guard < limit) {
+    guard += 1;
+    const index = next.findIndex(
+      (line, at) => line.length > 0 && line.length <= 2 && !skip.has(at),
+    );
+    if (index < 0) break;
+    const glyph = next[index] ?? '';
+    const previous = next[index - 1];
+    if (previous !== undefined && measure(`${previous}${glyph}`) <= width) {
+      next[index - 1] = `${previous}${glyph}`;
+      next.splice(index, 1);
+      skip.clear();
+      continue;
+    }
+    const following = next[index + 1];
+    if (
+      following !== undefined &&
+      !KINSOKU_NO_START.test(glyph[0] ?? '') &&
+      measure(`${glyph}${following}`) <= width
+    ) {
+      next[index + 1] = `${glyph}${following}`;
+      next.splice(index, 1);
+      skip.clear();
+      continue;
+    }
+    if (previous !== undefined && previous.length > glyph.length) {
+      const stolen = previous.slice(-1);
+      const kept = previous.slice(0, -1);
+      const pair = `${stolen}${glyph}`;
+      if (
+        kept.length > 0 &&
+        measure(pair) <= width &&
+        !KINSOKU_NO_START.test(stolen) &&
+        !KINSOKU_NO_END.test(kept.at(-1) ?? '')
+      ) {
+        next[index - 1] = kept;
+        next[index] = pair;
+        skip.clear();
+        continue;
+      }
+    }
+    skip.add(index);
+  }
+  return next;
+}
+
+/** Smallest type a block may use, in points. Body paragraphs originally ≥9pt may go to 6pt. */
+function minFontFor(request: FitRequest): number {
+  const body = request.role === 'prose' && request.fontSize >= 9 - 1e-9;
+  const floor = body ? BODY_MIN_FONT_SIZE : MIN_FONT_SIZE;
+  const scale = body ? BODY_MIN_SCALE : MIN_SCALE;
+  return Math.max(request.fontSize * scale, Math.min(request.fontSize, floor));
+}
+
+/**
+ * Splits text into wrap units: a word with its trailing space for a script that separates
+ * words, and single characters for one that does not. A run of Latin characters inside a
+ * Japanese line stays a word, so a URL or an identifier is never broken in the middle.
+ */
+function tokenize(text: string): string[] {
+  const tokens: string[] = [];
+  const pattern = /[\p{Script=Latin}\p{N}\p{P}\p{S}]+|\s+|[^\s]/gu;
+  let pending = '';
+  for (const match of text.matchAll(pattern)) {
+    const value = match[0];
+    if (/^\s+$/u.test(value)) {
+      // A space belongs to the token before it, so a line that breaks after a word keeps the
+      // space at the end of the previous line where it is invisible.
+      if (tokens.length > 0) tokens[tokens.length - 1] += ' ';
+      else pending += value;
+      continue;
+    }
+    tokens.push(pending + value);
+    pending = '';
+  }
+  if (pending.length > 0) tokens.push(pending);
+  return tokens;
+}
+
+/** Breaks one over-wide token into pieces that each fit. */
+function breakToken(
+  token: string,
+  width: number,
+  measure: (value: string) => number,
+  kinsoku = false,
+): string[] {
+  if (token.length === 0) return [];
+  const pieces: string[] = [];
+  let current = '';
+  for (const character of token) {
+    const candidate = current + character;
+    if (current.length > 0 && measure(candidate) > width) {
+      if (kinsoku && KINSOKU_NO_START.test(character) && current.length > 1) {
+        pieces.push(current.slice(0, -1));
+        current = current.slice(-1) + character;
+        continue;
+      }
+      pieces.push(current);
+      current = character;
+      continue;
+    }
+    current = candidate;
+  }
+  if (current.length > 0) pieces.push(current);
+  if (kinsoku && pieces.length >= 2) {
+    const last = pieces[pieces.length - 1] ?? '';
+    const previous = pieces[pieces.length - 2] ?? '';
+    if (last.length === 1 && previous.length >= 2) {
+      const stolen = previous.slice(-1);
+      const pair = stolen + last;
+      const kept = previous.slice(0, -1);
+      if (
+        kept.length > 0 &&
+        measure(pair) <= width &&
+        !KINSOKU_NO_START.test(stolen) &&
+        !KINSOKU_NO_END.test(kept.at(-1) ?? '')
+      ) {
+        pieces[pieces.length - 2] = kept;
+        pieces[pieces.length - 1] = pair;
+      }
+    }
+  }
+  // A glyph wider than the column still occupies a line of its own: never emit an empty
+  // piece, which would loop, and never skip the character.
+  return pieces.length > 0 ? pieces : [token.slice(0, 1)];
+}
+
+/** The distance from a block's bottom to the next thing below it in its column. */
+export function growBudgetFor(
+  block: Box,
+  below: readonly Box[],
+  columnRight: number,
+  pageBottom = Infinity,
+): number {
+  let nearest = pageBottom;
+  for (const candidate of below) {
+    // A box that starts beyond this column's right edge is in another column.
+    if (candidate.x > columnRight - 0.5) continue;
+    // A box that ends before this column starts is in another column too.
+    if (candidate.x + candidate.width < block.x + 0.5) continue;
+
+    // A neighbour that begins above this block's bottom is not *below* it: the two share a
+    // row. Growing into it would put this block's text on top of that one's — but only when
+    // the neighbour actually occupies this block's own measure. A figure to the side of a
+    // paragraph, or a cell in the next column of the same table, must not zero the budget;
+    // the paragraph can still grow into the empty space under its own words.
+    const overlapX =
+      Math.min(block.x + block.width, candidate.x + candidate.width) -
+      Math.max(block.x, candidate.x);
+    if (candidate.y < block.y + block.height - 0.5) {
+      if (candidate.y + candidate.height > block.y + block.height + 0.5 && overlapX > 4) {
+        return 0;
+      }
+      continue;
+    }
+    nearest = Math.min(nearest, candidate.y);
+  }
+  // Growth is measured from the block's own bottom edge with a small margin taken off, because
+  // a translated box that ended exactly at the next block's top edge reads as touching it.
+  const CLEARANCE = 2;
+  if (!Number.isFinite(nearest)) return DEFAULT_GROWTH;
+  return Math.max(0, nearest - (block.y + block.height) - CLEARANCE);
+}
+
+/**
+ * Room a block may take when nothing follows it in its column: the foot of the page, in
+ * practice. A fixed allowance keeps a last paragraph from growing past the page's margin.
+ */
+const DEFAULT_GROWTH = 120;

@@ -14,6 +14,7 @@ vendor/build/
 vendor/*/build/
 vendor/wllama/
 public/vendor/wllama/
+public/vendor/pdfjs/
 .orchestrator/
 .tools/
 *.log
@@ -24,6 +25,7 @@ bench/.cache/
 bench/.chrome-profile/
 bench/.engine-profile/
 bench/.quant-profile/
+bench/results/pdf/
 coverage/
 .env*
 *.tsbuildinfo
@@ -37,3 +39,4 @@ public/licenses/wllama-LICENSE.txt
 public/licenses/emscripten-LICENSE.txt
 public/licenses/dawn-LICENSE.txt
 public/licenses/svelte-LICENSE.txt
+en.pdf

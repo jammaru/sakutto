@@ -3,7 +3,12 @@ import {
   FIREFOX_STRICT_MIN_VERSION,
   type ExtensionBrowser,
 } from './browser.ts';
-import { suggestedKeyFor, SHORTCUT_COMMANDS } from './shortcuts.ts';
+import {
+  suggestedKeyFor,
+  PDF_COMMAND,
+  type PdfCommand,
+  type ShortcutCommand,
+} from './shortcuts.ts';
 
 export const CHROME_PERMISSIONS = [
   'offscreen',
@@ -29,13 +34,14 @@ const COMMAND_MESSAGES = {
   'toggle-bilingual': '__MSG_commandBilingual__',
   'translate-selection': '__MSG_commandSelection__',
   'translate-compose': '__MSG_commandCompose__',
+  'translate-pdf': '__MSG_commandPdf__',
 } as const;
 
 export function commandSuggestions(
   browser: ExtensionBrowser,
 ): Record<
-  (typeof SHORTCUT_COMMANDS)[number],
-  { suggested_key: { default: string; mac?: string | undefined }; description: string }
+  ShortcutCommand | PdfCommand,
+  { suggested_key?: { default: string; mac?: string | undefined }; description: string }
 > {
   return {
     'translate-page': {
@@ -53,6 +59,16 @@ export function commandSuggestions(
     'translate-compose': {
       suggested_key: suggestedKeyFor(browser, 'translate-compose'),
       description: COMMAND_MESSAGES['translate-compose'],
+    },
+    // Chrome's viewer is a browser-internal page, so no content script can reach a PDF. The
+    // key goes straight to the background, which opens the document in Sakutto's reader.
+    //
+    // No `suggested_key`: Chrome allows four, the page commands use all four
+    // (`MAX_SUGGESTED_SHORTCUTS`), and a fifth makes the browser refuse the extension
+    // outright. The command is still listed in the browser's shortcut editor for a reader
+    // who wants to bind one.
+    [PDF_COMMAND]: {
+      description: COMMAND_MESSAGES['translate-pdf'],
     },
   };
 }

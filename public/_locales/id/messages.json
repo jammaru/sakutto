@@ -901,6 +901,105 @@
       }
     }
   },
+  "openPdf": {
+    "message": "Terjemahkan PDF ini"
+  },
+  "openPdfHint": {
+    "message": "Membuka PDF di Sakutto dan menerjemahkannya di tempat, dengan tata letak halaman tetap."
+  },
+  "contextTranslatePdf": {
+    "message": "Terjemahkan PDF ini dengan Sakutto"
+  },
+  "commandPdf": {
+    "message": "Buka PDF di Sakutto"
+  },
+  "pdfReaderTitle": {
+    "message": "PDF"
+  },
+  "pdfUntitled": {
+    "message": "Dokumen.pdf"
+  },
+  "pdfPreparing": {
+    "message": "Membaca dokumen…"
+  },
+  "pdfReading": {
+    "message": "Membaca halaman $PAGE$ dari $TOTAL$",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfTranslated": {
+    "message": "Diterjemahkan"
+  },
+  "pdfPageNoText": {
+    "message": "Halaman ini hasil pindai atau gambar tanpa teks yang dapat dipilih, jadi tidak bisa diterjemahkan."
+  },
+  "pdfRenderFailed": {
+    "message": "Halaman ini tidak dapat digambar.",
+    "description": "Shown on a page whose canvas could not be drawn."
+  },
+  "pdfNoText": {
+    "message": "Dokumen ini hasil pindai atau kumpulan gambar, tanpa lapisan teks. Buka PDF yang berisi teks asli, atau jalankan OCR terlebih dahulu."
+  },
+  "pdfTranslateFailed": {
+    "message": "Bagian ini tidak dapat diterjemahkan."
+  },
+  "pdfMissing": {
+    "message": "Dokumen ini sudah tidak tersedia. Buka lagi PDF-nya dari tab."
+  },
+  "pdfBroken": {
+    "message": "Dokumen tidak dapat dibuka. Mungkin rusak atau dilindungi kata sandi."
+  },
+  "pdfTooLarge": {
+    "message": "File ini lebih dari 200 MB, ukuran terbesar yang dapat dibuka pembaca.",
+    "description": "Shown when a local PDF is larger than the reader will open."
+  },
+  "pdfModelMissing": {
+    "message": "Halaman ditampilkan, tetapi untuk menerjemahkannya diperlukan model PLaMo. Unduh modelnya untuk menerjemahkan dokumen ini."
+  },
+  "pdfOpenFailed": {
+    "message": "PDF ini tidak dapat dibuka. Muat ulang halaman lalu coba lagi."
+  },
+  "pdfFileAccessDenied": {
+    "message": "PDF ini adalah berkas di komputer ini. Izinkan ekstensi mengakses URL berkas di pengaturan ekstensi, atau pilih berkas di pembaca."
+  },
+  "pdfCompare": {
+    "message": "Bandingkan"
+  },
+  "pdfOriginalPane": {
+    "message": "Asli"
+  },
+  "pdfTranslatedPane": {
+    "message": "Terjemahan"
+  },
+  "pdfChooseFile": {
+    "message": "Pilih berkas PDF"
+  },
+  "pdfKeptAsIs": {
+    "message": "$COUNT$ bagian dibiarkan seperti halaman menyusunnya: persamaan, tanda sumbu, dan kode tetap pada tata letak aslinya.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfSelectHint": {
+    "message": "Pilih teks pada halaman untuk menerjemahkan bagian itu saja."
+  },
+  "pdfSelectTranslate": {
+    "message": "Terjemahkan pilihan"
+  },
+  "pdfSelectFailed": {
+    "message": "Pilihan ini tidak dapat diterjemahkan."
+  },
+  "pdfSelectClear": {
+    "message": "Tampilkan aslinya"
+  },
   "commandCompose": {
     "message": "Terjemahkan teks yang sedang Anda tulis"
   },
@@ -1281,5 +1380,25 @@
   },
   "videoCaptionsPositionHelp": {
     "message": "Tekan lama teks terjemahan untuk memindahkannya. YouTube dan X masing-masing mengingat posisinya, termasuk layar penuh dan mode teater. Tombol ini mengembalikannya ke bagian bawah pemutar."
+  },
+  "pdfOverflow": {
+    "message": "$COUNT$ bagian tidak muat di halaman. Buka penanda untuk membaca terjemahan.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfFailedCount": {
+    "message": "$COUNT$ bagian tidak dapat diterjemahkan.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "Toolbar note when some blocks could not be translated."
+  },
+  "pdfOverflowOpen": {
+    "message": "Tampilkan terjemahan"
   }
 }

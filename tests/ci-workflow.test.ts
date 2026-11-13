@@ -1,10 +1,11 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { normalizeEol } from './support/eol';
 
 const workflowsDir = new URL('../.github/workflows/', import.meta.url);
 
 function workflowSource(name: string): string {
-  return readFileSync(new URL(name, workflowsDir), 'utf8');
+  return normalizeEol(readFileSync(new URL(name, workflowsDir), 'utf8'));
 }
 
 describe('CI workflow guardrails', () => {
@@ -49,12 +50,15 @@ describe('CI workflow guardrails', () => {
     expect(ci).toContain('pnpm test');
     expect(ci).toContain('pnpm test:e2e');
     expect(ci).toContain('pnpm bench:equality --check');
+    expect(ci).toContain('pnpm bench:pdf:layout');
     expect(ci).toContain('node scripts/wllama/build.ts --check');
-    expect(ci.replaceAll('pnpm bench:equality --check', '')).not.toContain('pnpm bench');
+    expect(
+      ci.replaceAll('pnpm bench:equality --check', '').replaceAll('pnpm bench:pdf:layout', ''),
+    ).not.toContain('pnpm bench');
   });
 
   it('documents SLOs, cache busting, and the merge-conflict skip', () => {
-    const docs = readFileSync(new URL('../docs/CI.md', import.meta.url), 'utf8');
+    const docs = normalizeEol(readFileSync(new URL('../docs/CI.md', import.meta.url), 'utf8'));
     expect(docs).toContain('PR feedback p50');
     expect(docs).toContain('wllama-v2-');
     expect(docs).toContain('merge conflict');

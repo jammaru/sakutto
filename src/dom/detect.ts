@@ -116,7 +116,7 @@ const SCRIPT_SAMPLE_MIN_LETTERS = 24;
  * Japanese paragraph always carries kana or kanji, so an all-Latin run of prose is not
  * Japanese whatever the tag says.
  */
-function contradictsScript(declared: string, text: string): boolean {
+export function contradictsScript(declared: string, text: string): boolean {
   if (!NON_LATIN_SCRIPTS.has(declared)) return false;
   let latin = 0;
   let other = 0;

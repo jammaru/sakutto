@@ -23,6 +23,30 @@ export const SHORTCUT_PAGE_COMMANDS: Readonly<Record<ShortcutCommand, PageComman
 };
 
 /**
+ * The PDF command is declared in the manifest but is not one of `SHORTCUT_COMMANDS`.
+ *
+ * Every other command is a page action, so a page listens for the key itself and its
+ * binding has to reach the content script. The PDF command is not: Chrome draws a PDF in its
+ * own viewer, no content script can run there, and the browser delivers the key to the
+ * background, which opens the reader. So there is no in-page fallback to keep in step, and
+ * the command stays out of the rebindable list a page reads.
+ *
+ * It also carries no `suggested_key`. Chrome rejects the whole manifest when more than four
+ * commands are given one — `Too many shortcuts specified for 'commands': The maximum is 4` —
+ * and the four page commands already use that allowance. A reader who wants a key for the
+ * PDF action binds it in the browser's shortcut editor, which lists every declared command.
+ */
+export const PDF_COMMAND = 'translate-pdf';
+
+export type PdfCommand = typeof PDF_COMMAND;
+
+/**
+ * Chrome accepts at most four commands with a `suggested_key`; a fifth makes it refuse the
+ * whole extension. `tests/manifest.test.ts` counts them so this cannot come back.
+ */
+export const MAX_SUGGESTED_SHORTCUTS = 4;
+
+/**
  * Chrome `suggested_key.default` (Windows, Linux, ChromeOS). Alt+letter is the historical
  * binding; Firefox cannot use those on Windows because they collide with the menu bar.
  */

@@ -11,6 +11,7 @@ The extension package is not "MIT only." MIT applies to the original project cod
 - PLaMo 3 Translate weights, tokenizer, or model card
 - `scripts/bench/fixtures/kyoto.html`
 - bundled wllama, llama.cpp, Emscripten, Dawn, or Svelte
+- bundled pdf.js, its CMaps, or its standard font substitutes
 
 ## Shipped in the extension zip
 
@@ -27,6 +28,9 @@ The extension package is not "MIT only." MIT applies to the original project cod
 | Icons                                                | original artwork from `scripts/generate-icons.mjs` and `scripts/icon.svg` | no third-party icon font or image                                                                                                            | `icon/16.png`, `32.png`, `48.png`, `128.png` | no extra notice found                                                               |
 | UI fonts                                             | system font stack in `src/ui/tokens.css`                                  | no `@font-face`, no font files                                                                                                               | none                                         | no font license                                                                     |
 | Sample page                                          | original sentences in `src/entrypoints/sample/index.html`                 | not Wikipedia                                                                                                                                | `sample.html`                                | project content                                                                     |
+| pdf.js (`pdfjs-dist` 4.10.38)                        | Apache-2.0, Copyright Mozilla Foundation                                  | npm tarball `pdfjs-dist-4.10.38.tgz`, `LICENSE`, copied to `vendor/pdfjs/LICENSE-pdfjs.txt`                                                  | yes, after `pnpm pdfjs`                      | notice included                                                                     |
+| pdf.js CMaps (169 `.bcmap` files)                    | Adobe character maps, redistributed by pdf.js                             | `cmaps/LICENSE` copied to `vendor/pdfjs/LICENSE-cmaps.txt`                                                                                   | yes                                          | notice included                                                                     |
+| pdf.js standard font substitutes                     | Foxit (`.pfb`) and Liberation (`.ttf`)                                    | `standard_fonts/LICENSE_FOXIT` and `LICENSE_LIBERATION`, copied into `vendor/pdfjs/`                                                         | yes                                          | notices included                                                                    |
 
 `pnpm-lock.yaml` devDependencies (ESLint, Prettier, Vitest, Playwright, TypeScript, Vite, and the rest) are used to build and test. `scripts/verify-package.ts` rejects `node_modules/` in the zip. They are not runtime payload. Their licenses were not each opened. Anyone who runs `pnpm install` receives those packages under their own licenses.
 

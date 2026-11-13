@@ -115,6 +115,7 @@ jobs:
       - run: pnpm format:check
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm bench:pdf:layout
       - run: pnpm bench:equality --check
 
       - id: playwright
@@ -140,7 +141,7 @@ jobs:
           {
             echo "## checks"
             echo ""
-            echo "- lint / format / typecheck / unit / bench:equality / e2e"
+            echo "- lint / format / typecheck / unit / bench:pdf:layout / bench:equality / e2e"
             echo "- fetch-depth: 0 so bench-fixtures can see named commits"
           } >> "$GITHUB_STEP_SUMMARY"
 

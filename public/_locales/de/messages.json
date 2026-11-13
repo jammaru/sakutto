@@ -901,6 +901,105 @@
       }
     }
   },
+  "openPdf": {
+    "message": "Diese PDF übersetzen"
+  },
+  "openPdfHint": {
+    "message": "Öffnet die PDF in Sakutto und übersetzt sie an Ort und Stelle, ohne das Seitenlayout zu verändern."
+  },
+  "contextTranslatePdf": {
+    "message": "Diese PDF mit Sakutto übersetzen"
+  },
+  "commandPdf": {
+    "message": "PDF in Sakutto öffnen"
+  },
+  "pdfReaderTitle": {
+    "message": "PDF"
+  },
+  "pdfUntitled": {
+    "message": "Dokument.pdf"
+  },
+  "pdfPreparing": {
+    "message": "Dokument wird gelesen…"
+  },
+  "pdfReading": {
+    "message": "Seite $PAGE$ von $TOTAL$ wird gelesen",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfTranslated": {
+    "message": "Übersetzt"
+  },
+  "pdfPageNoText": {
+    "message": "Diese Seite ist ein Scan oder ein Bild ohne auswählbaren Text und kann nicht übersetzt werden."
+  },
+  "pdfRenderFailed": {
+    "message": "Diese Seite konnte nicht gezeichnet werden.",
+    "description": "Shown on a page whose canvas could not be drawn."
+  },
+  "pdfNoText": {
+    "message": "Dieses Dokument ist ein Scan oder besteht nur aus Bildern und hat keine Textebene. Öffnen Sie eine PDF mit echtem Text oder führen Sie zuerst eine Texterkennung aus."
+  },
+  "pdfTranslateFailed": {
+    "message": "Dieser Teil konnte nicht übersetzt werden."
+  },
+  "pdfMissing": {
+    "message": "Das Dokument ist nicht mehr verfügbar. Öffnen Sie die PDF erneut aus ihrem Tab."
+  },
+  "pdfBroken": {
+    "message": "Das Dokument konnte nicht geöffnet werden. Es ist möglicherweise beschädigt oder passwortgeschützt."
+  },
+  "pdfTooLarge": {
+    "message": "Diese Datei ist größer als 200 MB, die Obergrenze für Dokumente, die der Reader öffnen kann.",
+    "description": "Shown when a local PDF is larger than the reader will open."
+  },
+  "pdfModelMissing": {
+    "message": "Die Seiten werden angezeigt, aber zum Übersetzen wird das PLaMo-Modell benötigt. Laden Sie es herunter, um dieses Dokument zu übersetzen."
+  },
+  "pdfOpenFailed": {
+    "message": "Diese PDF konnte nicht geöffnet werden. Laden Sie die Seite neu und versuchen Sie es erneut."
+  },
+  "pdfFileAccessDenied": {
+    "message": "Diese PDF-Datei liegt auf diesem Rechner. Erlauben Sie der Erweiterung den Zugriff auf Datei-URLs in den Erweiterungseinstellungen, oder wählen Sie die Datei im Reader."
+  },
+  "pdfCompare": {
+    "message": "Vergleichen"
+  },
+  "pdfOriginalPane": {
+    "message": "Original"
+  },
+  "pdfTranslatedPane": {
+    "message": "Übersetzung"
+  },
+  "pdfChooseFile": {
+    "message": "PDF-Datei auswählen"
+  },
+  "pdfKeptAsIs": {
+    "message": "$COUNT$ Stellen blieben im Satz der Seite: Formeln, Achsenbeschriftungen und Code behalten ihre ursprüngliche Gestaltung.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfSelectHint": {
+    "message": "Text auf einer Seite auswählen, um nur diesen Teil zu übersetzen."
+  },
+  "pdfSelectTranslate": {
+    "message": "Auswahl übersetzen"
+  },
+  "pdfSelectFailed": {
+    "message": "Diese Auswahl konnte nicht übersetzt werden."
+  },
+  "pdfSelectClear": {
+    "message": "Original anzeigen"
+  },
   "commandCompose": {
     "message": "Den Text übersetzen, den Sie gerade schreiben"
   },
@@ -1281,5 +1380,25 @@
   },
   "videoCaptionsPositionHelp": {
     "message": "Halte eine übersetzte Untertitelzeile gedrückt, um sie zu verschieben. YouTube und X merken sich jeweils die eigene Position, auch im Vollbild und im Theater-Modus. Diese Schaltfläche setzt sie wieder an den unteren Rand des Players."
+  },
+  "pdfOverflow": {
+    "message": "$COUNT$ Stellen passten nicht auf die Seite. Öffnen Sie die Markierung, um die Übersetzung zu lesen.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfFailedCount": {
+    "message": "$COUNT$ Stellen konnten nicht übersetzt werden.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "Toolbar note when some blocks could not be translated."
+  },
+  "pdfOverflowOpen": {
+    "message": "Übersetzung anzeigen"
   }
 }

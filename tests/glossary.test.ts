@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_GLOSSARY_ENTRIES,
   MAX_GLOSSARY_TEXT,
+  glossaryEquals,
   mergeGlossary,
   normalizeGlossary,
   parseGlossary,
@@ -25,6 +26,16 @@ describe('glossary csv', () => {
       { source: 'Cancel', target: 'キャンセル' },
     ]);
     expect(parseGlossary(serializeGlossary(entries))).toEqual(entries);
+  });
+
+  it('treats two glossaries with the same pairs as equal', () => {
+    const left = [
+      { source: 'Sign in', target: 'ログイン' },
+      { source: 'Save', target: '保存' },
+    ];
+    expect(glossaryEquals(left, [...left])).toBe(true);
+    expect(glossaryEquals(left, [{ source: 'Sign in', target: 'ログイン' }])).toBe(false);
+    expect(glossaryEquals(undefined, [])).toBe(true);
   });
 
   it('lets a site entry replace the global source', () => {

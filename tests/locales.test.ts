@@ -412,10 +412,15 @@ describe('locale messages', () => {
       expect(messages.typedDetectSource?.message).toBeTruthy();
       expect(messages.typedResultEmpty?.message).not.toMatch(/^The translation appears here\.$/);
     }
-    // Nothing promises a document importer or a dictionary.
+    // Nothing promises a document importer or a dictionary. The PDF reader is a real feature,
+    // so its own labels are excluded from the check: what must not appear is copy for a
+    // document converter this build does not have (Word, PowerPoint, a dictionary).
     for (const locale of catalogs) {
-      for (const entry of Object.values(readMessages(locale))) {
-        expect(entry.message, locale).not.toMatch(/PDF|Word file|PowerPoint|辞書/iu);
+      for (const [key, entry] of Object.entries(readMessages(locale))) {
+        if (key.toLowerCase().includes('pdf')) continue;
+        expect(entry.message, `${locale} ${key}`).not.toMatch(
+          /\bPDF\b|Word file|PowerPoint|辞書/iu,
+        );
       }
     }
   });

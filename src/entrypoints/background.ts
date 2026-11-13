@@ -2,8 +2,21 @@ import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
 import { EngineClient } from '@/background/engine-client';
 import { createEngineHostController } from '@/background/engine-host-document';
-import { injectCaptionPages, installPageActions } from '@/background/page-actions';
+import {
+  injectCaptionPages,
+  installPageActions,
+  openPdfForTabReason,
+} from '@/background/page-actions';
 import { syncCaptionCustomContentScripts } from '@/captions/register-custom';
+import { deleteStoredPdf } from '@/background/pdf-store';
+import {
+  isPdfForgetRequest,
+  isPdfInspectRequest,
+  isPdfOpenRequest,
+  type PdfInspectResult,
+  type PdfOpenResult,
+} from '@/shared/pdf';
+import { tabServesPdf } from '@/background/pdf-detect';
 import { broadcastModelProgress, shouldWarmDownloadedModel } from '@/background/progress-broadcast';
 import { measureQuality } from '@/background/quality';
 import { TranslationBroker } from '@/background/translation-broker';
@@ -280,6 +293,42 @@ export default defineBackground(() => {
 
     if (isEngineCapabilitiesRequest(message)) {
       void getEngineCapabilities().then(sendResponse, () => sendResponse(null));
+      return true;
+    }
+
+    if (isPdfForgetRequest(message)) {
+      void deleteStoredPdf(message.id);
+      return;
+    }
+
+    if (isPdfInspectRequest(message)) {
+      void (async () => {
+        const tab = await browser.tabs.get(message.tabId).catch(() => null);
+        const pdf = tab ? await tabServesPdf({ id: tab.id, url: tab.url }) : false;
+        sendResponse({ pdf } satisfies PdfInspectResult);
+      })();
+      return true;
+    }
+
+    if (isPdfOpenRequest(message)) {
+      void (async () => {
+        const target =
+          message.url === undefined
+            ? await browser.tabs
+                .get(message.tabId)
+                .then((tab) => ({ id: tab.id, url: tab.url }))
+                .catch(() => null)
+            : { id: message.tabId, url: message.url };
+        const reason = await openPdfForTabReason(target ?? undefined, message.pages ?? 0);
+        sendResponse(
+          reason === null
+            ? ({ opened: true } satisfies PdfOpenResult)
+            : ({
+                opened: false,
+                reason: reason === 'no-tab' ? 'not-pdf' : reason,
+              } satisfies PdfOpenResult),
+        );
+      })();
       return true;
     }
 
