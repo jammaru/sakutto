@@ -1,5 +1,5 @@
 import { CJK_MAJORITY, cjkRatio } from './fonts';
-import { intersectionArea, type Box } from './geometry';
+import { intersectionArea, unionBox, type Box } from './geometry';
 import type { LayoutBlock, PageLayout } from './layout';
 import { OVERLAP_AREA, overlapRegion, type PlacedBlock } from './place';
 
@@ -44,6 +44,8 @@ export interface PageMetrics {
   overflow: number;
   /** Union of figure obstacles as a share of the page area, 0–1. */
   figureAreaShare: number;
+  /** Actual covered area of figure obstacles as a share of the page, 0–1. */
+  figureCoveredShare: number;
   /** Share of all classified blocks that are labels or figure-labels, 0–1. */
   labelShare: number;
   /** Share of classified blocks marked `code`, 0–1. */
@@ -222,7 +224,12 @@ export function pageMetrics(
   }
 
   const pageArea = pageBox ? pageBox.width * pageBox.height : 0;
+  const figureUnion = unionBox(layout.obstacles ?? []);
   const figureAreaShare =
+    pageArea > 0 && figureUnion !== null
+      ? Math.min(1, (figureUnion.width * figureUnion.height) / pageArea)
+      : 0;
+  const figureCoveredShare =
     pageArea > 0 ? Math.min(1, coveredArea(layout.obstacles ?? []) / pageArea) : 0;
   const classified = [...layout.blocks, ...layout.skipped];
   const labelCount = classified.filter(
@@ -255,6 +262,7 @@ export function pageMetrics(
     nonProsePainted: layout.skipped.length === 0 ? 0 : skippedPainted / layout.skipped.length,
     overflow,
     figureAreaShare,
+    figureCoveredShare,
     labelShare,
     codeShare,
     equationShare,

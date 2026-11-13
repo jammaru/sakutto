@@ -1018,6 +1018,21 @@ function appendRegionBlocks(
 }
 
 /**
+ * True when `row` is a wrapped caption line, not a table row sitting below the caption.
+ */
+function continuesCaptionWrap(caption: readonly TextLine[], row: readonly TextLine[]): boolean {
+  if (caption.length === 0 || row.length === 0) return false;
+  const last = caption.reduce((left, right) => (right.baseline > left.baseline ? right : left));
+  const first = row.reduce((left, right) => (right.box.x < left.box.x ? right : left));
+  const em = Math.max(last.height, first.height, 1);
+  const gap = first.baseline - last.baseline;
+  if (gap <= em * 0.35 || gap > em * 2.5) return false;
+  const captionLeft = Math.min(...caption.map((line) => line.box.x));
+  const inset = first.box.x - captionLeft;
+  return inset >= -em * 0.25 && inset <= em * PARAGRAPH_INDENT_MAX_EM;
+}
+
+/**
  * Pulls numbered captions off the top of a region so they are not read as the first row of
  * the table they sit above.
  */
@@ -1038,15 +1053,17 @@ function peelLeadingCaptions(rows: readonly TextLine[][]): {
       index += 1;
       continue;
     }
+    const captionLines = captions[captions.length - 1];
     if (
-      captions.length > 0 &&
+      captionLines &&
       cells.length < 2 &&
       !isTableHeaderLine(text) &&
       !isCaptionLine(text) &&
-      (text.length > 24 || /^[\p{Ll}]/u.test(text))
+      (text.length > 24 || /^[\p{Ll}]/u.test(text)) &&
+      continuesCaptionWrap(captionLines, row)
     ) {
       // A wrapped caption stays one caption, not one caption block per line.
-      captions[captions.length - 1]?.push(...row);
+      captionLines.push(...row);
       index += 1;
       continue;
     }

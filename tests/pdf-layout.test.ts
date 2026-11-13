@@ -113,6 +113,34 @@ describe('groupLines', () => {
 });
 
 describe('layoutPage', () => {
+  it('does not absorb a distant table row into a leading caption', () => {
+    const lines = groupLines([
+      piece('Table 3: Results for several epsilon values.', 40, 100, 220),
+      piece('ε=0.3', 80, 172, 40),
+      piece('Combo', 40, 184, 50),
+      piece('Method', 120, 184, 50),
+      piece('ε=0.1', 200, 184, 40),
+    ]);
+    const layout = layoutPage(lines);
+    const captions = layout.blocks.filter((block) => block.role === 'caption');
+    expect(captions).toHaveLength(1);
+    expect(captions[0]?.text).toBe('Table 3: Results for several epsilon values.');
+    expect(captions[0]?.lines).toHaveLength(1);
+  });
+
+  it('keeps a wrapped caption line with the caption block', () => {
+    const lines = groupLines([
+      piece('Table 2: A caption that continues on the next line of text.', 40, 100, 220),
+      piece('with more words on the wrap.', 52, 112, 180),
+      piece('Value', 40, 200, 50),
+    ]);
+    const layout = layoutPage(lines);
+    const captions = layout.blocks.filter((block) => block.role === 'caption');
+    expect(captions).toHaveLength(1);
+    expect(captions[0]?.text).toContain('continues on the next line');
+    expect(captions[0]?.text).toContain('with more words on the wrap');
+  });
+
   it('keeps a hanging-indent wrap as one block', () => {
     const lines = groupLines([
       piece(
