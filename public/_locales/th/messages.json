@@ -657,6 +657,9 @@
   "modelDownload": {
     "message": "ดาวน์โหลด"
   },
+  "modelVerifying": {
+    "message": "กำลังตรวจสอบไฟล์ที่ดาวน์โหลด…"
+  },
   "modelDelete": {
     "message": "ลบ"
   },

@@ -657,6 +657,9 @@
   "modelDownload": {
     "message": "Scarica"
   },
+  "modelVerifying": {
+    "message": "Verifica del file scaricato…"
+  },
   "modelDelete": {
     "message": "Elimina"
   },

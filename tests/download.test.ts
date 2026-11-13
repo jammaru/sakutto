@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { EngineError } from '@/engine/errors';
 import { downloadModel, type DownloadProgress } from '@/engine/model/download';
+import {
+  createHasherWorker,
+  type HasherWorkerRequest,
+  type HasherWorkerResponse,
+} from '@/engine/model/sha256-worker-core';
 import { sha256Hex } from '@/engine/model/sha256';
+import { advanceModelStatus } from '@/shared/model-progress';
+import type { ModelStatus } from '@/shared/engine-status';
 import { bytesOf, MemoryFileStore, streamOf } from './support/fakes';
 
 const PAYLOAD = bytesOf('hello world!');
@@ -69,6 +76,31 @@ function baseRequest(store: MemoryFileStore, signal: AbortSignal) {
   };
 }
 
+/**
+ * A loopback hashing worker with browser-like transfer semantics: cloning with a transfer list
+ * detaches the sender's ArrayBuffers, so later reads of the original view report zero bytes.
+ */
+class TransferringWorker {
+  onmessage: ((event: MessageEvent<HasherWorkerResponse>) => void) | null = null;
+  onerror: ((event: ErrorEvent) => void) | null = null;
+  transfers = 0;
+  private readonly handle = createHasherWorker({
+    postMessage: (message: HasherWorkerResponse) => {
+      queueMicrotask(() =>
+        this.onmessage?.({ data: message } as MessageEvent<HasherWorkerResponse>),
+      );
+    },
+  });
+
+  postMessage(message: HasherWorkerRequest, transfer?: Transferable[]): void {
+    const delivered = transfer ? structuredClone(message, { transfer }) : structuredClone(message);
+    if (transfer && transfer.length > 0) this.transfers += 1;
+    queueMicrotask(() => this.handle(delivered));
+  }
+
+  terminate(): void {}
+}
+
 describe('resumable model download', () => {
   it('downloads, verifies and moves a fresh file', async () => {
     const store = new MemoryFileStore();
@@ -103,7 +135,13 @@ describe('resumable model download', () => {
       void input;
       const headers = init?.headers as Record<string, string>;
       expect(headers.Range).toBe('bytes=4-11');
-      return new Response(streamOf([PAYLOAD.slice(4)]), { status: 206 });
+      return new Response(streamOf([PAYLOAD.slice(4)]), {
+        status: 206,
+        headers: {
+          'Content-Length': String(PAYLOAD.length - 4),
+          'Content-Range': `bytes 4-${String(PAYLOAD.length - 1)}/${String(PAYLOAD.length)}`,
+        },
+      });
     });
 
     const progress: DownloadProgress[] = [];
@@ -223,7 +261,13 @@ describe('resumable model download', () => {
     const fetchImpl = vi.fn(async () => {
       attempt += 1;
       if (attempt === 1) throw new TypeError('network down');
-      return new Response(streamOf([PAYLOAD.slice(4)]), { status: 206 });
+      return new Response(streamOf([PAYLOAD.slice(4)]), {
+        status: 206,
+        headers: {
+          'Content-Length': String(PAYLOAD.length - 4),
+          'Content-Range': `bytes 4-${String(PAYLOAD.length - 1)}/${String(PAYLOAD.length)}`,
+        },
+      });
     });
 
     await store.append(PART, PAYLOAD.slice(0, 4), 0);
@@ -486,7 +530,7 @@ describe('resumable model download', () => {
     expect(store.files.get(FINAL)).toEqual(payload);
   });
 
-  it('rejects a segment whose Content-Range end does not match the request', async () => {
+  it('rejects a segment that starts at the wrong offset', async () => {
     const payload = bytesOf('0123456789abcdef');
     const store = new MemoryFileStore();
     const controller = new AbortController();
@@ -496,7 +540,7 @@ describe('resumable model download', () => {
           status: 206,
           headers: {
             'Content-Length': '8',
-            'Content-Range': `bytes 0-6/${String(payload.length)}`,
+            'Content-Range': `bytes 1-8/${String(payload.length)}`,
           },
         }),
     );
@@ -507,10 +551,284 @@ describe('resumable model download', () => {
         source: sourceOf(payload),
         fetchImpl,
         segmentBytes: 8,
-        concurrency: 2,
+        concurrency: 1,
       }),
     ).rejects.toThrow(/wrong byte range/);
     expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
+  it('accepts a shorter legal Content-Range and fetches the remainder', async () => {
+    const payload = bytesOf('0123456789abcdef');
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const ranges: Range[] = [];
+    let first = true;
+
+    const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      const range = rangeOf(init?.headers);
+      ranges.push(range);
+      if (first) {
+        first = false;
+        return new Response(payload.slice(0, 5), {
+          status: 206,
+          headers: {
+            'Content-Length': '5',
+            'Content-Range': `bytes 0-4/${String(payload.length)}`,
+          },
+        });
+      }
+      return rangeResponse(payload, range);
+    };
+
+    const result = await downloadModel({
+      ...baseRequest(store, controller.signal),
+      source: sourceOf(payload),
+      fetchImpl,
+      segmentBytes: 8,
+      concurrency: 2,
+    });
+
+    expect(result.resumedFrom).toBe(0);
+    expect(ranges).toContainEqual({ start: 5, end: 8 });
+    expect(store.files.get(FINAL)).toEqual(payload);
+  });
+
+  it('retries the remainder of a legally short range', async () => {
+    const payload = bytesOf('0123456789abcdef');
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    let first = true;
+    let remainderAttempts = 0;
+
+    const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      const range = rangeOf(init?.headers);
+      if (first) {
+        first = false;
+        return new Response(payload.slice(0, 5), {
+          status: 206,
+          headers: {
+            'Content-Length': '5',
+            'Content-Range': `bytes 0-4/${String(payload.length)}`,
+          },
+        });
+      }
+      if (range.start === 5) {
+        remainderAttempts += 1;
+        if (remainderAttempts === 1) throw new TypeError('network down');
+      }
+      return rangeResponse(payload, range);
+    };
+
+    const result = await downloadModel({
+      ...baseRequest(store, controller.signal),
+      source: sourceOf(payload),
+      fetchImpl,
+      attempts: 2,
+      retryDelayMs: 0,
+      segmentBytes: 8,
+      concurrency: 1,
+    });
+
+    expect(result.resumedFrom).toBe(0);
+    expect(remainderAttempts).toBe(2);
+    expect(store.files.get(FINAL)).toEqual(payload);
+  });
+
+  it('stops a segment that keeps answering with one-byte ranges', async () => {
+    const payload = bytesOf('0123456789abcdef');
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      const range = rangeOf(init?.headers);
+      return new Response(payload.slice(range.start, range.start + 1), {
+        status: 206,
+        headers: {
+          'Content-Length': '1',
+          'Content-Range': `bytes ${String(range.start)}-${String(range.start)}/${String(payload.length)}`,
+        },
+      });
+    });
+
+    await expect(
+      downloadModel({
+        ...baseRequest(store, controller.signal),
+        source: sourceOf(payload),
+        fetchImpl,
+        attempts: 1,
+        retryDelayMs: 0,
+        segmentBytes: 16,
+        concurrency: 1,
+      }),
+    ).rejects.toThrow(/shorter byte ranges/);
+    expect(fetchImpl).toHaveBeenCalledTimes(9);
+  });
+
+  it('rejects a partial response without Content-Range or Content-Length', async () => {
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const fetchImpl = vi.fn(
+      async () => new Response(streamOf([PAYLOAD.slice(4)]), { status: 206 }),
+    );
+
+    await expect(
+      downloadModel({
+        ...baseRequest(store, controller.signal),
+        fetchImpl,
+        attempts: 3,
+        retryDelayMs: 0,
+      }),
+    ).rejects.toThrow(/Content-Range or Content-Length/);
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
+  it('keeps resumed bytes monotonic without a verifying-to-downloading flip', async () => {
+    const store = new MemoryFileStore();
+    await store.append(PART, PAYLOAD.slice(0, 4), 0);
+    const controller = new AbortController();
+    const progress: DownloadProgress[] = [];
+    const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      const range = rangeOf(init?.headers);
+      return rangeResponse(PAYLOAD, range);
+    };
+
+    await downloadModel({
+      ...baseRequest(store, controller.signal),
+      fetchImpl,
+      onProgress: (event) => progress.push(event),
+    });
+
+    const statuses: ModelStatus[] = [];
+    let previous: ModelStatus | null = null;
+    for (const event of progress) {
+      previous = advanceModelStatus(previous, {
+        id: 'plamo-3-translate-0.8b-q4_k_m',
+        state: event.phase === 'verify' ? 'verifying' : 'downloading',
+        received: event.received,
+        total: event.total,
+        progress: event.ratio,
+      });
+      statuses.push(previous);
+    }
+
+    expect(statuses.some((status) => status.state === 'verifying')).toBe(true);
+    for (let index = 1; index < statuses.length; index += 1) {
+      expect(statuses[index]?.received ?? 0).toBeGreaterThanOrEqual(
+        statuses[index - 1]?.received ?? 0,
+      );
+      if (statuses[index - 1]?.state === 'verifying') {
+        expect(statuses[index]?.state).not.toBe('downloading');
+      }
+    }
+  });
+
+  it('hashes the existing partial prefix when resuming and avoids a second read', async () => {
+    const store = new MemoryFileStore();
+    await store.append(PART, PAYLOAD.slice(0, 4), 0);
+    const controller = new AbortController();
+    const progress: DownloadProgress[] = [];
+    const read = vi.spyOn(store, 'read');
+    const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      const range = rangeOf(init?.headers);
+      return rangeResponse(PAYLOAD, range);
+    };
+
+    const result = await downloadModel({
+      ...baseRequest(store, controller.signal),
+      fetchImpl,
+      onProgress: (event) => progress.push(event),
+    });
+
+    expect(result).toMatchObject({ resumedFrom: 4, sha256: sha256Hex(PAYLOAD) });
+    expect(progress[0]).toMatchObject({ phase: 'download', received: 4 });
+    const firstVerify = progress.findIndex((event) => event.phase === 'verify');
+    expect(progress.slice(0, firstVerify).every((event) => event.phase === 'download')).toBe(true);
+    expect(progress[firstVerify]).toMatchObject({ received: PAYLOAD.length });
+    expect(read).toHaveBeenCalledOnce();
+    expect(store.files.get(FINAL)).toEqual(PAYLOAD);
+  });
+
+  it('verifies during the transfer without reading the finished file again', async () => {
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const read = vi.spyOn(store, 'read');
+    const fetchImpl = async () => new Response(new Uint8Array(PAYLOAD), { status: 200 });
+
+    const result = await downloadModel({ ...baseRequest(store, controller.signal), fetchImpl });
+
+    expect(result.sha256).toBe(sha256Hex(PAYLOAD));
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it('re-resolves the CDN URL once when several segments expire together', async () => {
+    const payload = Uint8Array.from({ length: 40 }, (_value, index) => index);
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const sourceUrl = 'https://example.test/model.gguf';
+    const oldCdn = 'https://cdn.example.test/expired/model.gguf';
+    const newCdn = 'https://cdn.example.test/fresh/model.gguf';
+    const sourceCalls: Range[] = [];
+    let refreshCancelled = false;
+    let oldCalls = 0;
+    let newCalls = 0;
+
+    const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const range = rangeOf(init?.headers);
+
+      if (url === sourceUrl) {
+        sourceCalls.push(range);
+        if (range.start === 0) return rangeResponse(payload, range, oldCdn);
+        const body = new ReadableStream<Uint8Array>({
+          start(stream) {
+            stream.enqueue(payload.slice(range.start, range.end));
+          },
+          cancel() {
+            refreshCancelled = true;
+          },
+        });
+        const response = new Response(body, {
+          status: 206,
+          headers: {
+            'Content-Length': String(range.end - range.start),
+            'Content-Range': `bytes ${String(range.start)}-${String(range.end - 1)}/${String(payload.length)}`,
+          },
+        });
+        Object.defineProperty(response, 'url', { value: newCdn });
+        return response;
+      }
+      if (url === oldCdn) {
+        oldCalls += 1;
+        return new Response(null, { status: 403 });
+      }
+      if (url === newCdn) {
+        newCalls += 1;
+        return rangeResponse(payload, range, newCdn);
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    };
+
+    const result = await downloadModel({
+      ...baseRequest(store, controller.signal),
+      source: { ...sourceOf(payload), url: sourceUrl },
+      fetchImpl,
+      attempts: 1,
+      retryDelayMs: 0,
+      segmentBytes: 8,
+      concurrency: 5,
+    });
+
+    expect(result.sha256).toBe(sha256Hex(payload));
+    expect(result.resumedFrom).toBe(0);
+    expect(sourceCalls).toHaveLength(2);
+    expect(refreshCancelled).toBe(true);
+    expect(oldCalls).toBeGreaterThan(1);
+    expect(newCalls).toBe(4);
+    expect(store.files.get(FINAL)).toEqual(payload);
   });
 
   it('refreshes an expired CDN URL once and completes the remaining segments', async () => {
@@ -557,7 +875,7 @@ describe('resumable model download', () => {
     expect(result.resumedFrom).toBe(0);
     expect(sourceCalls).toHaveLength(2);
     expect(oldCalls).toBe(2);
-    expect(newCalls).toBe(1);
+    expect(newCalls).toBe(2);
     expect(store.files.get(FINAL)).toEqual(payload);
   });
 
@@ -752,5 +1070,60 @@ describe('resumable model download', () => {
 
     expect(store.files.get(PART)?.length).toBe(4);
     expect(store.files.has(FINAL)).toBe(false);
+  });
+
+  it('counts a 200 stream after the hashing worker detaches every chunk', async () => {
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const worker = new TransferringWorker();
+    const workerFactory = vi.fn(() => worker);
+    const fetchImpl = vi.fn(
+      async () => new Response(streamOf([PAYLOAD.slice(0, 5), PAYLOAD.slice(5)]), { status: 200 }),
+    );
+
+    const result = await downloadModel({
+      ...baseRequest(store, controller.signal),
+      fetchImpl,
+      workerFactory,
+    });
+
+    expect(workerFactory).toHaveBeenCalledOnce();
+    expect(worker.transfers).toBe(2);
+    expect(result).toEqual({
+      bytes: PAYLOAD.length,
+      sha256: sha256Hex(PAYLOAD),
+      resumedFrom: 0,
+    });
+    expect(store.files.get(FINAL)).toEqual(PAYLOAD);
+  });
+
+  it('counts 206 segment blocks after the hashing worker detaches every block', async () => {
+    const payload = Uint8Array.from({ length: 30 }, (_value, index) => index);
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const worker = new TransferringWorker();
+    const workerFactory = vi.fn(() => worker);
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      return rangeResponse(payload, rangeOf(init?.headers));
+    });
+
+    const result = await downloadModel({
+      ...baseRequest(store, controller.signal),
+      source: sourceOf(payload),
+      fetchImpl,
+      segmentBytes: 8,
+      concurrency: 3,
+      workerFactory,
+    });
+
+    expect(workerFactory).toHaveBeenCalledOnce();
+    expect(worker.transfers).toBe(4);
+    expect(result).toEqual({
+      bytes: payload.length,
+      sha256: sha256Hex(payload),
+      resumedFrom: 0,
+    });
+    expect(store.files.get(FINAL)).toEqual(payload);
   });
 });

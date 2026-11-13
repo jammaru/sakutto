@@ -33,6 +33,10 @@ describe('start controls while the model downloads', () => {
     expect(onboarding).toContain('onclick={close}');
   });
 
+  it('keeps the cancel control visible while verifying', () => {
+    expect(modelManager).toMatch(/downloading \|\| verifying[\s\S]{0,800}downloadCancel/);
+  });
+
   it('does not offer a download button for a model that is already loading', () => {
     // `loading` means the file is on disk and the runtime is reading it: a Download control
     // there is a start action for work that is already running.

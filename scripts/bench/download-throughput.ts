@@ -6,10 +6,11 @@
  * per-connection cap, the old path is limited to roughly one cap while the parallel path can
  * aggregate several connections. Run it with:
  *
- *   pnpm bench:download --size-mb 32 --rate-mb 8 --concurrency 6 --runs 2
+ *   pnpm bench:download --size-mb 32 --rate-mb 8 --concurrency 6 --runs 2 --hash=wasm
  *
  * `--no-range` makes the server ignore Range so the fallback path can be measured too.
  * `--no-redirect` serves the model directly instead of through a redirect endpoint.
+ * `--hash=wasm|js|none` selects the parallel downloader's hashing path.
  */
 import { createHash } from 'node:crypto';
 import { createServer, type Server, type ServerResponse } from 'node:http';
@@ -25,10 +26,13 @@ import type {
   ModelFileWriter,
   StorageEstimate,
 } from '../../src/engine/model/file-store.ts';
+import { installWorkerShim } from './node-worker.ts';
 
 const PART = 'model.gguf.part';
 const FINAL = 'model.gguf';
 const CHUNK_BYTES = 64 * 1024;
+
+type HashChoice = 'wasm' | 'js' | 'none';
 
 interface BenchOptions {
   sizeMb: number;
@@ -38,6 +42,7 @@ interface BenchOptions {
   runs: number;
   range: boolean;
   redirect: boolean;
+  hash: HashChoice;
 }
 
 interface Sample {
@@ -237,6 +242,9 @@ function startServer(
 }
 
 function arg(name: string): string | undefined {
+  const prefix = `${name}=`;
+  const inline = process.argv.find((value) => value.startsWith(prefix));
+  if (inline !== undefined) return inline.slice(prefix.length);
   const index = process.argv.indexOf(name);
   return index === -1 ? undefined : process.argv[index + 1];
 }
@@ -256,6 +264,10 @@ function numberArg(name: string, fallback: number): number {
 }
 
 function readOptions(): BenchOptions {
+  const hash = arg('--hash') ?? 'wasm';
+  if (hash !== 'wasm' && hash !== 'js' && hash !== 'none') {
+    throw new Error('--hash must be wasm, js, or none.');
+  }
   return {
     sizeMb: numberArg('--size-mb', 32),
     rateMb: numberArg('--rate-mb', 8),
@@ -264,6 +276,7 @@ function readOptions(): BenchOptions {
     runs: numberArg('--runs', 1),
     range: !has('--no-range'),
     redirect: !has('--no-redirect'),
+    hash,
   };
 }
 
@@ -345,7 +358,7 @@ async function runParallel(
     retryDelayMs: 100,
     segmentBytes: Math.floor(options.segmentMb * 1024 * 1024),
     concurrency: options.concurrency,
-    hashBlob: nodeHash,
+    hash: options.hash,
   });
   const seconds = (performance.now() - startedAt) / 1000;
   return {
@@ -364,6 +377,7 @@ function median(values: readonly number[]): number {
 
 async function main(): Promise<void> {
   const options = readOptions();
+  installWorkerShim();
   const size = Math.round(options.sizeMb * 1024 * 1024);
   const payload = new Uint8Array(size);
   for (let index = 0; index < payload.length; index += 1) {
@@ -386,7 +400,8 @@ async function main(): Promise<void> {
   console.log(
     `payload ${options.sizeMb.toFixed(2)} MiB, per-connection cap ${options.rateMb.toFixed(2)} MiB/s, ` +
       `range ${options.range ? 'on' : 'off'}, redirect ${options.redirect ? 'on' : 'off'}, ` +
-      `concurrency ${String(options.concurrency)}, segment ${options.segmentMb.toFixed(2)} MiB`,
+      `concurrency ${String(options.concurrency)}, segment ${options.segmentMb.toFixed(2)} MiB, ` +
+      `hash ${options.hash}`,
   );
 
   const samples: Sample[] = [];

@@ -657,6 +657,9 @@
   "modelDownload": {
     "message": "下載"
   },
+  "modelVerifying": {
+    "message": "正在檢查下載的檔案…"
+  },
   "modelDelete": {
     "message": "刪除"
   },
