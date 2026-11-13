@@ -357,9 +357,7 @@ describe('placePage', () => {
   it('paints a mid-line fragment beside a wide cover on the same row', () => {
     const em = 12;
     const baseline = 100 + em * 0.8;
-    const wideLines = groupLines([
-      piece('Synthetic opening text.', 40, baseline, 240, { em }),
-    ]);
+    const wideLines = groupLines([piece('Synthetic opening text.', 40, baseline, 240, { em })]);
     const fragLines = groupLines([piece('tail phrase.', 200, baseline, 72, { em })]);
     const wideLine = wideLines[0];
     const fragLine = fragLines[0];
