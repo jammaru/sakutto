@@ -327,9 +327,11 @@ export function coverPaintLayout(
   pageWidth = 0,
 ): { x: number; width: number } {
   if (verticalWriting(block)) return { x: drawn.x, width: drawn.width };
-  const fitCap =
-    pageWidth > 0 ? capToColumn(fitWidth, drawn.x, block, pageWidth) : fitWidth;
-  const width = coverPaintWidth(fitCap, drawn.width, scale);
+  const fitCap = pageWidth > 0 ? capToColumn(fitWidth, drawn.x, block, pageWidth) : fitWidth;
+  const width =
+    drawn.width + 0.5 < fitCap * 0.75
+      ? drawn.width + hintingPadPt(scale)
+      : coverPaintWidth(fitCap, drawn.width, scale);
   const x = coverPaintOriginX(drawn.x, drawn.width, width, block.align);
   const left = Math.max(0, x);
   let painted = width + Math.min(0, x);
@@ -386,14 +388,40 @@ export function blockSpansGutter(
   if (pageWidth <= 0) return false;
   const gutter = pageWidth * 0.49;
   const left =
-    block.lines.length > 0
-      ? Math.min(...block.lines.map((line) => line.box.x))
-      : block.box.x;
+    block.lines.length > 0 ? Math.min(...block.lines.map((line) => line.box.x)) : block.box.x;
   const right =
     block.lines.length > 0
       ? Math.max(...block.lines.map((line) => line.box.x + line.box.width))
       : block.box.x + block.box.width;
   return left + 4 < gutter && right > gutter + GUTTER_CLEARANCE;
+}
+
+/**
+ * Column side for capping, from source geometry. Layout `column` can be 0 on a right-column
+ * paragraph when the region tree stayed on the left branch; capping with metadata then paints
+ * a one-point sliver and leaves English visible beside it.
+ */
+function columnSideForCap(
+  block: Pick<LayoutBlock, 'column' | 'box' | 'lines'>,
+  x: number,
+  pageWidth: number,
+): number | null {
+  if (pageWidth <= 0 || blockSpansGutter(block, pageWidth)) return null;
+  const gutter = pageWidth * 0.49;
+  const left =
+    block.lines.length > 0 ? Math.min(...block.lines.map((line) => line.box.x)) : block.box.x;
+  const right =
+    block.lines.length > 0
+      ? Math.max(...block.lines.map((line) => line.box.x + line.box.width))
+      : block.box.x + block.box.width;
+  if (right <= gutter - GUTTER_CLEARANCE) return 0;
+  if (left >= gutter + GUTTER_CLEARANCE) return 1;
+  const mid = (left + right) / 2;
+  if (mid >= gutter) return 1;
+  if (mid <= gutter - GUTTER_CLEARANCE) return 0;
+  if (x >= gutter + GUTTER_CLEARANCE) return 1;
+  if (x + 8 < gutter) return 0;
+  return block.column;
 }
 
 /** Caps cover width so a translation cannot paint over the neighbour column. */
@@ -406,14 +434,68 @@ function capToColumn(
   const capped = capToPage(width, x, pageWidth);
   if (pageWidth <= 0 || blockSpansGutter(block, pageWidth)) return capped;
   const gutter = pageWidth * 0.49;
-  if (block.column === 0) {
-    return Math.max(1, Math.min(capped, gutter - GUTTER_CLEARANCE - x));
+  const side = columnSideForCap(block, x, pageWidth);
+  if (side === 0) {
+    const cappedLeft = Math.max(1, Math.min(capped, gutter - GUTTER_CLEARANCE - x));
+    if (cappedLeft < 8 && width > 24) return capped;
+    return cappedLeft;
   }
-  if (block.column > 0) {
+  if (side !== null && side > 0) {
     const left = Math.max(x, gutter + GUTTER_CLEARANCE);
-    return Math.max(1, Math.min(capped, pageWidth - GUTTER_CLEARANCE - left));
+    const cappedRight = Math.max(1, Math.min(capped, pageWidth - GUTTER_CLEARANCE - left));
+    if (cappedRight < 8 && width > 24) return capped;
+    return cappedRight;
   }
   return capped;
+}
+
+const PAINT_MISMATCH_PT = 3;
+const COVER_LINE_PAD_X = 2;
+
+export interface PaintIntegrityMetrics {
+  uncoveredSourceLines: number;
+  crossColumnCovers: number;
+  drawnPaintMismatches: number;
+}
+
+/** Layout-only checks for painted covers vs source lines and column bounds. */
+export function paintIntegrityMetrics(
+  placed: readonly PlacedBlock[],
+  pageWidth: number,
+  scale = DEFAULT_PAINT_SCALE,
+): PaintIntegrityMetrics {
+  let uncoveredSourceLines = 0;
+  let crossColumnCovers = 0;
+  let drawnPaintMismatches = 0;
+  if (pageWidth <= 0) {
+    return { uncoveredSourceLines: 0, crossColumnCovers: 0, drawnPaintMismatches: 0 };
+  }
+  const gutter = pageWidth * 0.49;
+  for (const entry of placed) {
+    if (!entry.paint || !entry.fit || !entry.drawn) continue;
+    const block = entry.block;
+    if (verticalWriting(block)) continue;
+    const paint = coverPaintLayout(block, entry.fit.width, entry.drawn, scale, pageWidth);
+    if (
+      (entry.drawn.width < 8 && entry.fit.width > 24) ||
+      paint.width > entry.drawn.width + PAINT_MISMATCH_PT
+    ) {
+      drawnPaintMismatches += 1;
+    }
+    if (!blockSpansGutter(block, pageWidth)) {
+      const side = columnSideForCap(block, entry.drawn.x, pageWidth);
+      if (side === 0 && paint.x + paint.width > gutter + 2) crossColumnCovers += 1;
+      if (side !== null && side > 0 && paint.x < gutter - 2) crossColumnCovers += 1;
+    }
+    for (const line of block.lines) {
+      const needLeft = line.box.x - COVER_LINE_PAD_X;
+      const needRight = line.box.x + line.box.width + COVER_LINE_PAD_X;
+      if (paint.x > needLeft + 0.5 || paint.x + paint.width < needRight - 0.5) {
+        uncoveredSourceLines += 1;
+      }
+    }
+  }
+  return { uncoveredSourceLines, crossColumnCovers, drawnPaintMismatches };
 }
 
 export function exceedsPage(box: Box, pageWidth: number, pageHeight: number): boolean {

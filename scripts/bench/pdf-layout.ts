@@ -174,6 +174,9 @@ const { pageMetrics, metricsPass } = (await import(
     codeShare: number;
     equationShare: number;
     cjkShare: number;
+    uncoveredSourceLines: number;
+    crossColumnCovers: number;
+    drawnPaintMismatches: number;
   };
   metricsPass: (metrics: {
     overlapPairs: number;
@@ -186,6 +189,8 @@ const { pageMetrics, metricsPass } = (await import(
     codeShare: number;
     equationShare: number;
     cjkShare: number;
+    crossColumnCovers?: number;
+    drawnPaintMismatches?: number;
   }) => boolean;
 };
 const { stubExpand } = (await import(pathToFileURL(resolve(ROOT, 'src/pdf/stub.ts')).href)) as {
@@ -399,7 +404,8 @@ async function checkBytes(name: string, bytes: Uint8Array): Promise<void> {
         `overflowed=${String(metrics.overflowed)} clipped=${clipped.toFixed(1)} inkOver=${clipped.toFixed(1)} vCut=${vCut.toFixed(1)} ` +
         `orphans=${String(orphans)} covers=${String(coverOverlaps)} code=${(metrics.codeShare * 100).toFixed(0)}% ` +
         `eq=${(metrics.equationShare * 100).toFixed(0)}% cjk=${(metrics.cjkShare * 100).toFixed(0)}% ` +
-        `${pass ? 'ok' : 'FAIL'}`,
+        `uncov=${String(metrics.uncoveredSourceLines)} cross=${String(metrics.crossColumnCovers)} ` +
+        `mismatch=${String(metrics.drawnPaintMismatches)} ${pass ? 'ok' : 'FAIL'}`,
     );
     reports.push({
       file: name,

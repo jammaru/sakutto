@@ -484,18 +484,45 @@ describe('placePage', () => {
     expect(dropped?.overflow).toBe(true);
   });
 
+  it('column-caps from geometry when metadata column is wrong', () => {
+    const pageWidth = 595;
+    const gutter = pageWidth * 0.49;
+    const rightBlock: LayoutBlock = {
+      box: { x: 309, y: 200, width: 238, height: 36 },
+      room: { x: 309, y: 200, width: 238, height: 36 },
+      lines: groupLines([piece('right column paragraph', 309, 212, 238)]),
+      text: 'right column paragraph continues here',
+      role: 'prose',
+      fontSize: 10,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 238,
+      writing: 0,
+    };
+    const fit = {
+      fits: true as const,
+      fontSize: 10,
+      lineHeight: 12,
+      lines: ['右カラムの本文です。'],
+      height: 24,
+      grown: false,
+      width: 250,
+    };
+    const drawn = drawnBox(rightBlock, fit, fit.width, pageWidth);
+    expect(drawn.width).toBeGreaterThan(100);
+    expect(drawn.x).toBeGreaterThanOrEqual(gutter - 2);
+    const paint = coverPaintLayout(rightBlock, fit.width, drawn, DEFAULT_PAINT_SCALE, pageWidth);
+    expect(paint.x + paint.width).toBeLessThanOrEqual(pageWidth);
+  });
+
   it('does not column-cap covers for lines that span the gutter', () => {
     const pageWidth = 595;
     const gutter = pageWidth * 0.49;
-    const line = (x: number, width: number): TextLine => ({
-      text: 'author line',
-      box: { x, y: 100, width, height: 12 },
-      baseline: 112,
-      fontSize: 10,
-      bold: false,
-      italic: false,
-      writing: 0,
-    });
+    const line = (x: number, width: number): TextLine =>
+      groupLines([piece('author line', x, 112, width)])[0]!;
     const authorBlock: LayoutBlock = {
       box: { x: 126, y: 100, width: 420, height: 24 },
       room: { x: 126, y: 100, width: 170, height: 24 },

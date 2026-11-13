@@ -1,7 +1,13 @@
 import { CJK_MAJORITY, cjkRatio } from './fonts';
 import { intersectionArea, unionBox, type Box } from './geometry';
 import type { LayoutBlock, PageLayout } from './layout';
-import { OVERLAP_AREA, overlapRegion, underCoveredProse, type PlacedBlock } from './place';
+import {
+  OVERLAP_AREA,
+  overlapRegion,
+  paintIntegrityMetrics,
+  underCoveredProse,
+  type PlacedBlock,
+} from './place';
 
 /**
  * What a layout-only run reports about one page.
@@ -56,6 +62,12 @@ export interface PageMetrics {
   cjkShare: number;
   /** Prose blocks painted without fully covering the source box vertically. */
   underCoveredProse: number;
+  /** Source text lines whose painted cover does not span them horizontally. */
+  uncoveredSourceLines: number;
+  /** Painted covers that extend past the gutter into the neighbour column. */
+  crossColumnCovers: number;
+  /** Painted entries whose cover width disagrees with the layout box. */
+  drawnPaintMismatches: number;
 }
 
 export const METRIC_LIMITS = {
@@ -91,6 +103,8 @@ export const METRIC_LIMITS = {
   maxCodeShareWhenCjk: 0.25,
   maxEquationShareWhenCjk: 0.25,
   maxUnderCoveredProse: 0,
+  maxCrossColumnCovers: 0,
+  maxDrawnPaintMismatches: 0,
 } as const;
 
 /** Roles whose translation is the point of the page: body, titles, captions, table values. */
@@ -244,6 +258,8 @@ export function pageMetrics(
   const codeShare = classified.length === 0 ? 0 : codeCount / classified.length;
   const equationShare = classified.length === 0 ? 0 : equationCount / classified.length;
   const cjkShare = cjkRatio(classified.map((block) => block.text).join(''));
+  const pageWidth = pageBox?.width ?? 0;
+  const paintIntegrity = paintIntegrityMetrics(placed, pageWidth);
 
   return {
     blocks: layout.blocks.length,
@@ -271,6 +287,7 @@ export function pageMetrics(
     equationShare,
     cjkShare,
     underCoveredProse: underCoveredProse(placed),
+    ...paintIntegrity,
   };
 }
 
@@ -282,6 +299,8 @@ export function metricsPass(metrics: PageMetrics): boolean {
   if (metrics.proseCovered < METRIC_LIMITS.minProseCovered) return false;
   if (metrics.prosePaintedOnly < METRIC_LIMITS.minProsePaintedOnly) return false;
   if (metrics.underCoveredProse > METRIC_LIMITS.maxUnderCoveredProse) return false;
+  if (metrics.crossColumnCovers > METRIC_LIMITS.maxCrossColumnCovers) return false;
+  if (metrics.drawnPaintMismatches > METRIC_LIMITS.maxDrawnPaintMismatches) return false;
   if (metrics.nonProsePainted > METRIC_LIMITS.maxNonProsePainted) return false;
   if (metrics.overflow > METRIC_LIMITS.maxOverflow) return false;
   if (
