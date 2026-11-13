@@ -355,7 +355,10 @@ describe('placePage', () => {
   });
 
   it('paints a mid-line fragment beside a wide cover on the same row', () => {
-    const lineAt = (box: { x: number; y: number; width: number; height: number }, text: string) => ({
+    const lineAt = (
+      box: { x: number; y: number; width: number; height: number },
+      text: string,
+    ) => ({
       text,
       box,
       baseline: box.y + box.height * 0.8,
