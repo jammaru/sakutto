@@ -258,6 +258,11 @@ describe('locale messages', () => {
     expect(ja.modelFolderPersistentHint?.message).toContain('常に許可');
     expect(ja.modelFolderPersistentHint?.message).not.toContain('アクセスするたびに確認する');
     for (const locale of catalogs) {
+      expect(readMessages(locale).modelFolderPersistentHint?.message, locale).not.toContain(
+        'アクセスするたびに確認する',
+      );
+    }
+    for (const locale of catalogs) {
       expect(readMessages(locale).modelFolderBenefitSpace?.message, locale).toContain('$SIZE$');
       expect(readMessages(locale).modelFolderBenefitSpace?.message, locale).not.toMatch(
         /573|1\.81/,

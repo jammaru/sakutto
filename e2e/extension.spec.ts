@@ -46,7 +46,7 @@ test.describe('built extension', () => {
             ),
           ).toBeVisible();
           await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
-          await expect(page.getByText('アクセスするたびに確認する')).toBeVisible();
+          await expect(page.getByText('Japanese Edge labels it 「常に許可」')).toBeVisible();
           await expect(page.getByText('A shared folder means:')).toBeVisible();
           await expect(
             page.getByText(
@@ -163,7 +163,7 @@ test.describe('built extension', () => {
             ),
           ).toBeVisible();
           await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
-          await expect(page.getByText('アクセスするたびに確認する')).toBeVisible();
+          await expect(page.getByText('Edgeなら「常に許可」')).toBeVisible();
           await expect(page.getByText('共有フォルダを使うと：')).toBeVisible();
           await expect(
             page.getByText('他のプロフィールやEdgeでもダウンロードなしですぐ使える'),

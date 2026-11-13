@@ -726,7 +726,7 @@
     "message": "Open the Sakutto popup or Settings and tap Allow folder access."
   },
   "modelFolderPersistentHint": {
-    "message": "Grant access from the Settings tab, not the popup. If the browser offers “Allow on every visit”, pick that. Japanese Chrome labels it 「サイトアクセス時は常に許可」; Japanese Edge labels it 「アクセスするたびに確認する」. A one-click re-grant may sometimes be needed."
+    "message": "Grant access from the Settings tab, not the popup. If the browser offers “Allow on every visit”, pick that. Japanese Chrome labels it 「サイトアクセス時は常に許可」; Japanese Edge labels it 「常に許可」. A one-click re-grant may sometimes be needed."
   },
   "modelFolderPickFailed": {
     "message": "The folder could not be selected."
