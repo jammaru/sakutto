@@ -25,6 +25,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const fileArg = process.argv.includes('--file')
   ? process.argv[process.argv.indexOf('--file') + 1]
   : undefined;
+/** Local diagnosis only: print why each prose block was or was not painted. */
+const diagnose = process.argv.includes('--diag') || process.env['SAKUTTO_LAYOUT_DIAG'] === '1';
 const files = fileArg
   ? [resolve(fileArg)]
   : [resolve(ROOT, 'bench/pdf/paper.pdf'), resolve(ROOT, 'bench/pdf/scan.pdf')];
@@ -74,9 +76,16 @@ const { layoutPage, orphanLineCount } = (await import(
   };
   orphanLineCount: (extracted: unknown[], layout: unknown) => number;
 };
-const { placePage, clippedPaintWidth, verticalCut, paintedCoverOverlaps } = (await import(
-  pathToFileURL(resolve(ROOT, 'src/pdf/place.ts')).href
-)) as {
+const {
+  placePage,
+  clippedPaintWidth,
+  verticalCut,
+  paintedCoverOverlaps,
+  drawnBox,
+  exceedsPage,
+  lineOverflows,
+  wrapWidth,
+} = (await import(pathToFileURL(resolve(ROOT, 'src/pdf/place.ts')).href)) as {
   placePage: (request: {
     layout: unknown;
     translationOf: (block: { text: string }) => string;
@@ -88,9 +97,24 @@ const { placePage, clippedPaintWidth, verticalCut, paintedCoverOverlaps } = (awa
     paint: boolean;
     overflow: boolean;
     translation: string;
-    fit: { lines: string[]; fontSize: number; width: number; height: number } | null;
-    drawn: { width: number; height: number } | null;
-    block: { writing?: number; box: { width: number; height: number }; fontSize: number };
+    fit: {
+      fits: boolean;
+      lines: string[];
+      fontSize: number;
+      width: number;
+      height: number;
+    } | null;
+    drawn: { width: number; height: number; x: number; y: number } | null;
+    block: {
+      text: string;
+      role: string;
+      writing?: number;
+      column?: number;
+      lineHeight?: number;
+      box: { x: number; y: number; width: number; height: number };
+      room?: { x: number; y: number; width: number; height: number };
+      advance?: number;
+    };
   }>;
   clippedPaintWidth: (
     entry: {
@@ -108,6 +132,23 @@ const { placePage, clippedPaintWidth, verticalCut, paintedCoverOverlaps } = (awa
     block: { writing?: number; box: { width: number; height: number }; fontSize: number };
   }) => number;
   paintedCoverOverlaps: (placed: unknown[], pageWidth?: number) => number;
+  drawnBox: (
+    block: unknown,
+    fit: { fits: boolean; lines: string[]; fontSize: number; width: number; height: number },
+    wrap?: number,
+    pageWidth?: number,
+  ) => { x: number; y: number; width: number; height: number };
+  exceedsPage: (
+    box: { x: number; y: number; width: number; height: number },
+    pageWidth: number,
+    pageHeight: number,
+  ) => boolean;
+  lineOverflows: (
+    fit: { fits: boolean; lines: string[]; fontSize: number },
+    width: number,
+    measure: (text: string) => number,
+  ) => boolean;
+  wrapWidth: (block: unknown, obstacles?: unknown[], pageWidth?: number) => number;
 };
 const { pageMetrics, metricsPass } = (await import(
   pathToFileURL(resolve(ROOT, 'src/pdf/metrics.ts')).href
@@ -163,6 +204,123 @@ function measure(text: string, size: number): number {
   return cjk * size + (text.length - cjk) * size * 0.5;
 }
 
+interface DiagBlock {
+  text: string;
+  role: string;
+  fontSize: number;
+  column?: number;
+  writing?: number;
+  box: { x: number; y: number; width: number; height: number };
+}
+
+interface DiagPlaced {
+  paint: boolean;
+  overflow: boolean;
+  translation: string;
+  fit: {
+    fits: boolean;
+    lines: string[];
+    fontSize: number;
+    width: number;
+    height: number;
+  } | null;
+  drawn: { x: number; y: number; width: number; height: number } | null;
+  block: DiagBlock;
+}
+
+const PROSE_ROLES = new Set(['prose', 'heading', 'caption', 'cell']);
+
+/** Cheap copy of the metrics rule: a skipped block whose text reads as a sentence. */
+function readsAsProse(text: string): boolean {
+  const words = text.match(/\p{L}{3,}/gu)?.length ?? 0;
+  return words >= 3 || (text.match(/\b[A-Za-z]{3,}\b/gu)?.length ?? 0) >= 8;
+}
+
+/**
+ * Local-only table of why a page's prose is painted or withheld.
+ *
+ * `overlap` means the fit succeeded but resolveOverlaps dropped the cover; `overflow` means
+ * no font size in the readable range fitted, a line was wider than the wrap, or the drawn
+ * box ran off the page. A skipped block with sentence-shaped text is `misclassified`.
+ */
+function diagnosePage(
+  layout: { blocks: DiagBlock[]; skipped: DiagBlock[]; obstacles?: DiagBlock['box'][] },
+  placed: DiagPlaced[],
+  pageHeight: number,
+  pageWidth: number,
+): void {
+  const obstacles = [
+    ...layout.blocks.map((block) => block.box),
+    ...layout.skipped.map((block) => block.box),
+    ...(layout.obstacles ?? []),
+  ];
+  const counts = new Map<string, number>();
+  const bump = (cause: string): void => {
+    counts.set(cause, (counts.get(cause) ?? 0) + 1);
+  };
+  const rows: string[] = [];
+  let index = 0;
+  const add = (block: DiagBlock, cause: string, font: string): void => {
+    bump(cause);
+    const prefix = block.text.replace(/\s+/gu, ' ').trim().slice(0, 40);
+    rows.push(
+      `${String(index).padStart(3)} ${block.role.padEnd(12)} ${String(block.column ?? '-').padStart(2)} ` +
+        `${block.box.x.toFixed(0)},${block.box.y.toFixed(0)} ` +
+        `${block.box.width.toFixed(0)}x${block.box.height.toFixed(0)} ` +
+        `${cause.padEnd(16)} ${font.padStart(5)} ${prefix}`,
+    );
+    index += 1;
+  };
+
+  for (const entry of placed) {
+    const block = entry.block;
+    const fit = entry.fit;
+    let cause: string;
+    if (entry.translation.trim().length === 0) {
+      cause = 'empty';
+    } else if (entry.paint && entry.drawn) {
+      cause = 'painted';
+    } else if (!fit) {
+      cause = 'empty';
+    } else {
+      const placeBlock = {
+        box: block.box,
+        room: block.box,
+        role: block.role,
+        fontSize: block.fontSize,
+        lineHeight: 1.2,
+        advance: block.box.width,
+        column: block.column ?? 0,
+        writing: block.writing ?? 0,
+      };
+      const width = wrapWidth(placeBlock as never, obstacles, pageWidth);
+      if (!fit.fits) {
+        cause = 'overflow:fit';
+      } else if (lineOverflows(fit, width, (text) => measure(text, fit.fontSize))) {
+        cause = 'overflow:line';
+      } else {
+        const candidate = drawnBox(placeBlock as never, fit as never, width, pageWidth);
+        cause = exceedsPage(candidate, pageWidth, pageHeight) ? 'overflow:page' : 'overlap';
+      }
+    }
+    if (!PROSE_ROLES.has(block.role) && cause === 'painted') continue;
+    add(block, cause, fit?.fontSize !== undefined ? fit.fontSize.toFixed(1) : '-');
+  }
+
+  for (const block of layout.skipped) {
+    if (!PROSE_ROLES.has(block.role) && !readsAsProse(block.text)) continue;
+    add(block, 'misclassified', '-');
+  }
+
+  console.log('  diag: idx role          col  x,y       wxh         cause             font  text');
+  for (const row of rows) console.log(`  diag: ${row}`);
+  const summary = [...counts.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .map(([cause, count]) => `${cause}=${String(count)}`)
+    .join(' ');
+  console.log(`  diag: total=${String(rows.length)} ${summary}`);
+}
+
 const started = Date.now();
 const reports: object[] = [];
 let failed = false;
@@ -211,11 +369,14 @@ async function checkBytes(name: string, bytes: Uint8Array): Promise<void> {
       width: extracted.width,
       height: extracted.height,
     });
+    if (diagnose && !extracted.empty) {
+      diagnosePage(layout as never, placed as never, extracted.height, extracted.width);
+    }
     let clipped = 0;
     let vCut = 0;
     for (const entry of placed) {
-      clipped += clippedPaintWidth(entry, (text, size) => measure(text, size));
-      vCut += verticalCut(entry);
+      clipped += clippedPaintWidth(entry as never, (text, size) => measure(text, size));
+      vCut += verticalCut(entry as never);
     }
     const orphans = extracted.empty ? 0 : orphanLineCount(extracted.lines, layout);
     const coverOverlaps = extracted.empty ? 0 : paintedCoverOverlaps(placed, extracted.width);

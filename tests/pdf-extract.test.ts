@@ -254,7 +254,7 @@ describe('committed layout fixtures', () => {
         height: extracted.height,
         index: 0,
       });
-      expect(layout.blocks).toHaveLength(20);
+      expect(layout.blocks).toHaveLength(25);
       expect(
         layout.skipped.some((block) => block.role === 'code' && /\bcontinue\b/u.test(block.text)),
       ).toBe(true);

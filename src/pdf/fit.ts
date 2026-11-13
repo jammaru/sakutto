@@ -116,7 +116,11 @@ export function fitText(
   target: 'ja' | 'en' | 'other',
 ): FitResult {
   const leading =
-    target === 'ja' ? Math.max(request.lineHeight, CJK_MIN_LEADING) : request.lineHeight;
+    target === 'ja'
+      ? request.fontSize < 8
+        ? CJK_MIN_LEADING
+        : Math.max(request.lineHeight, CJK_MIN_LEADING)
+      : request.lineHeight;
   // Trust the free-space budget as the wall. Cap only so a last paragraph cannot become a
   // tall column of its own; one extra Japanese line is always allowed when any room exists,
   // because an 8pt source line that wraps once is the common case.

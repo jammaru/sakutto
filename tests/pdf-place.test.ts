@@ -354,6 +354,82 @@ describe('placePage', () => {
     expect(coverInkOverflowPx({ scrollWidth: 102.4, clientWidth: 100 })).toBeCloseTo(2.4, 5);
   });
 
+  it('paints a mid-line fragment beside a wide cover on the same row', () => {
+    const lineAt = (box: { x: number; y: number; width: number; height: number }, text: string) => ({
+      text,
+      box,
+      baseline: box.y + box.height * 0.8,
+      pieces: [],
+    });
+    const wide = {
+      box: { x: 40, y: 100, width: 240, height: 12 },
+      room: { x: 40, y: 100, width: 240, height: 12 },
+      lines: [lineAt({ x: 40, y: 100, width: 240, height: 12 }, 'Synthetic opening text.')],
+      text: 'Synthetic opening text.',
+      role: 'prose' as const,
+      fontSize: 10,
+      lineHeight: 1.2,
+      align: 'left' as const,
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 240,
+      writing: 0,
+    } satisfies LayoutBlock;
+    const fragment = {
+      box: { x: 200, y: 100, width: 72, height: 12 },
+      room: { x: 200, y: 100, width: 72, height: 12 },
+      lines: [lineAt({ x: 200, y: 100, width: 72, height: 12 }, 'tail phrase.')],
+      text: 'tail phrase.',
+      role: 'prose' as const,
+      fontSize: 10,
+      lineHeight: 1.2,
+      align: 'left' as const,
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 72,
+      writing: 0,
+    } satisfies LayoutBlock;
+    const placed: PlacedBlock[] = [
+      {
+        block: wide,
+        translation: '幅広い文。',
+        fit: {
+          fits: true,
+          fontSize: 10,
+          lineHeight: 12,
+          lines: ['幅広い文。'],
+          height: 12,
+          grown: false,
+          width: 240,
+        },
+        paint: true,
+        overflow: false,
+        drawn: { x: 40, y: 100, width: 240, height: 14 },
+      },
+      {
+        block: fragment,
+        translation: '尾部。',
+        fit: {
+          fits: true,
+          fontSize: 10,
+          lineHeight: 12,
+          lines: ['尾部。'],
+          height: 12,
+          grown: false,
+          width: 72,
+        },
+        paint: true,
+        overflow: false,
+        drawn: { x: 200, y: 100, width: 72, height: 14 },
+      },
+    ];
+    const resolved = resolveOverlaps(placed, 600);
+    expect(resolved.every((entry) => entry.paint)).toBe(true);
+    expect(paintedCoverOverlaps(resolved, 600)).toBe(0);
+  });
+
   it('keeps the larger block painted when two covers overlap', () => {
     const makeBlock = (box: {
       x: number;

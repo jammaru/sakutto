@@ -300,13 +300,19 @@ export function layoutPage(
 
   const kept = splitMergedOverlongProse(
     splitProseAcrossObstacles(
-      mergeAdjacentProseBlocks(
-        blocks.filter(translatable),
+      splitProseAroundInteriorBlocks(
+        mergeAdjacentProseBlocks(
+          blocks.filter(translatable),
+          bodySize,
+          figures,
+          pageHeight,
+          pageIndex,
+          clean,
+        ),
         bodySize,
         figures,
         pageHeight,
         pageIndex,
-        clean,
       ),
       clean,
       bodySize,
@@ -320,7 +326,9 @@ export function layoutPage(
     pageIndex,
   );
   return {
-    blocks: mergeLabelFragments(kept, bodySize, figures, pageHeight, pageIndex),
+    blocks: dropShadowProseBlocks(
+      mergeLabelFragments(kept, bodySize, figures, pageHeight, pageIndex),
+    ),
     bodySize,
     lineHeight: unit,
     skipped: blocks.filter((block) => !translatable(block)),
@@ -1737,12 +1745,19 @@ function shouldMergeAdjacentProse(
 ): boolean {
   if (left.role !== 'prose' || right.role !== 'prose') return false;
   if (left.column !== right.column) return false;
-  if (Math.abs(left.box.x - right.box.x) > 12) return false;
   const gap = right.box.y - (left.box.y + left.box.height);
   if (gap > Math.max(left.fontSize, right.fontSize) * 4) return false;
   if (obstacleBetweenBlocks(left, right, allLines)) return false;
   const tail = left.text.trimEnd();
   const head = right.text.trimStart();
+  const xGap = Math.abs(left.box.x - right.box.x);
+  const columnSpan = Math.max(left.room.width, left.box.width, right.room.width, right.box.width);
+  const hangingContinuation =
+    gap < 0 &&
+    xGap > 12 &&
+    xGap < columnSpan * 0.45 &&
+    (continuesProseText(tail, head) || /Related\s+[Ww]ork\s*:/i.test(left.text));
+  if (xGap > 12 && !hangingContinuation) return false;
   if (continuesProseText(tail, head)) return true;
   if (/[,;]\s*$/.test(tail) || /\band\s*$/i.test(tail)) return true;
   if (runInSectionHeadingPrefix(left.text) && !endsSentence(left.text)) return true;
@@ -1761,6 +1776,69 @@ function shouldMergeAdjacentProse(
     return true;
   }
   return false;
+}
+
+/**
+ * Splits a prose block when another prose block's lines fall between two of its own lines.
+ *
+ * A union box over widely separated lines is taller than the gap between them, so overlap
+ * resolution later treats the interior paragraph as covered and drops it.
+ */
+function splitProseAroundInteriorBlocks(
+  blocks: readonly LayoutBlock[],
+  bodySize: number,
+  figures: FigureAreas,
+  pageHeight: number,
+  pageIndex: number,
+): LayoutBlock[] {
+  const prose = blocks.filter((block) => block.role === 'prose');
+  const out: LayoutBlock[] = [];
+  for (const block of blocks) {
+    if (block.role !== 'prose' || block.lines.length < 2) {
+      out.push(block);
+      continue;
+    }
+    const sorted = [...block.lines].sort((left, right) => left.baseline - right.baseline);
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    if (!first || !last) {
+      out.push(block);
+      continue;
+    }
+    const firstBase = first.baseline;
+    const lastBase = last.baseline;
+    const interiors = prose.filter((other) => {
+      if (other === block || other.column !== block.column) return false;
+      const otherBase = other.lines[0]?.baseline ?? other.box.y;
+      return otherBase > firstBase + 0.5 && otherBase < lastBase - 0.5;
+    });
+    if (interiors.length === 0) {
+      out.push(block);
+      continue;
+    }
+    const cutAbove =
+      Math.min(...interiors.map((other) => other.lines[0]?.baseline ?? other.box.y)) -
+      block.fontSize * 0.25;
+    const head = sorted.filter((line) => line.baseline < cutAbove);
+    const tail = sorted.filter((line) => line.baseline >= cutAbove);
+    const pushGroup = (lines: readonly TextLine[]): void => {
+      if (lines.length === 0) return;
+      const rebuilt = buildBlock(
+        lines,
+        block.room,
+        block.column,
+        bodySize,
+        figures,
+        block.box.x,
+        pageHeight,
+        pageIndex,
+      );
+      if (rebuilt) out.push({ ...rebuilt, role: 'prose' });
+    };
+    pushGroup(head);
+    pushGroup(tail);
+  }
+  return out;
 }
 
 function mergeAdjacentProseBlocks(
@@ -1843,6 +1921,26 @@ function splitMergedOverlongProse(
   return out;
 }
 
+/** Drops a prose block whose lines are already present in a larger prose block on the page. */
+function dropShadowProseBlocks(blocks: readonly LayoutBlock[]): LayoutBlock[] {
+  return blocks.filter((block) => {
+    if (block.role !== 'prose' || block.lines.length === 0) return true;
+    for (const other of blocks) {
+      if (other === block || other.role !== 'prose' || other.lines.length <= block.lines.length) {
+        continue;
+      }
+      const shadowed = block.lines.every((line) =>
+        other.lines.some(
+          (peer) =>
+            Math.abs(peer.baseline - line.baseline) < 0.5 && peer.text.trim() === line.text.trim(),
+        ),
+      );
+      if (shadowed) return false;
+    }
+    return true;
+  });
+}
+
 function mergeLabelFragments(
   blocks: readonly LayoutBlock[],
   bodySize: number,
@@ -1878,8 +1976,18 @@ function mergeLabelFragments(
 
   const replaced = new Map<LayoutBlock, LayoutBlock>();
   const consumed = new Set<LayoutBlock>();
+  const isNarrowProse = (block: LayoutBlock): boolean =>
+    block.role === 'prose' &&
+    block.box.width < bodySize * 12 &&
+    block.box.height <= block.fontSize * 1.6;
+
   for (const group of groups) {
-    if (group.length < 2 || !group.some((block) => block.role === 'label')) continue;
+    const narrowProseRow =
+      group.length >= 2 &&
+      group.every((block) => block.role === 'prose') &&
+      group.every(isNarrowProse);
+    if (group.length < 2 || (!group.some((block) => block.role === 'label') && !narrowProseRow))
+      continue;
     const lines = group
       .flatMap((block) => block.lines)
       .sort((left, right) => left.baseline - right.baseline || left.box.x - right.box.x);

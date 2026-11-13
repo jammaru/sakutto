@@ -214,6 +214,29 @@ export function wrapWidth(
   return capToPage(Math.max(1, Math.min(extra, base * 1.28, tight * 1.22)), block.box.x, pageWidth);
 }
 
+/** True when body text is only part of a line and must not paint across the full column. */
+export function inlineProseFragment(
+  block: Pick<LayoutBlock, 'box' | 'room' | 'role' | 'fontSize' | 'text'>,
+): boolean {
+  if (block.role !== 'prose' && block.role !== 'heading' && block.role !== 'caption') {
+    return false;
+  }
+  if (block.room.width <= 0) return false;
+  const inset = block.box.x - block.room.x;
+  if (
+    (block.box.width < block.room.width * 0.6 && inset > 6) ||
+    (inset > block.fontSize && block.box.width < block.room.width * 0.85)
+  ) {
+    return true;
+  }
+  // Room was trimmed to the token; treat short runs beside a line as inline fragments.
+  return (
+    block.box.width < block.fontSize * 14 &&
+    block.text.length < 48 &&
+    block.box.height <= block.fontSize * 2.5
+  );
+}
+
 export function drawnBox(block: LayoutBlock, fit: FitResult, wrap = 0, pageWidth = 0): Box {
   if (verticalWriting(block)) {
     const descender = descenderPad(block.fontSize);
@@ -225,13 +248,12 @@ export function drawnBox(block: LayoutBlock, fit: FitResult, wrap = 0, pageWidth
   const height = fit.fits
     ? Math.max(block.box.height + descender, fit.height)
     : Math.max(block.box.height + descender, fit.visibleLines.length * fit.lineHeight);
-  const x = Math.min(block.box.x, block.room.x);
-  const width = capToColumn(
-    Math.max(block.room.width, block.box.width, wrap, block.advance),
-    x,
-    block,
-    pageWidth,
-  );
+  const fragment = inlineProseFragment(block);
+  const x = fragment ? block.box.x : Math.min(block.box.x, block.room.x);
+  const baseWidth = fragment
+    ? Math.max(block.box.width, wrap, block.advance)
+    : Math.max(block.room.width, block.box.width, wrap, block.advance);
+  const width = capToColumn(baseWidth, x, block, pageWidth);
   return {
     x,
     y: block.box.y,
@@ -419,6 +441,26 @@ export function gutterSliverOverlap(
   return x1 >= gutter - 8 && x2 <= gutter + 12;
 }
 
+/** Same-row inline fragment beside a full-width line: the wide cover must not hide it. */
+function ignoreInlineOverlap(left: PlacedBlock, right: PlacedBlock): boolean {
+  const fragment = inlineProseFragment(left.block)
+    ? left
+    : inlineProseFragment(right.block)
+      ? right
+      : null;
+  const wide = fragment === left ? right : fragment === right ? left : null;
+  if (!fragment?.paint || !wide?.paint || !fragment.drawn || !wide.drawn) return false;
+  const fragBase = fragment.block.lines[0]?.baseline ?? fragment.block.box.y;
+  const sharedRow = wide.block.lines.some(
+    (line) => Math.abs(line.baseline - fragBase) <= Math.max(fragment.block.fontSize * 0.4, 0.5),
+  );
+  if (!sharedRow) return false;
+  if (fragment.block.box.x + 1 <= wide.block.box.x + wide.block.box.width * 0.55) {
+    return false;
+  }
+  return intersectionArea(overlapRegion(wide) ?? wide.drawn, fragment.block.box) >= OVERLAP_AREA;
+}
+
 export function resolveOverlaps(placed: readonly PlacedBlock[], pageWidth = 0): PlacedBlock[] {
   const next = placed.map((entry) => ({ ...entry }));
   for (let left = 0; left < next.length; left += 1) {
@@ -427,6 +469,17 @@ export function resolveOverlaps(placed: readonly PlacedBlock[], pageWidth = 0): 
     for (let right = left + 1; right < next.length; right += 1) {
       const second = next[right];
       if (!second?.paint || !second.drawn) continue;
+      if (ignoreInlineOverlap(first, second)) {
+        const fragment = inlineProseFragment(first.block) ? first : second;
+        const wide = fragment === first ? second : first;
+        if (wide.drawn && fragment.block.box.x > wide.drawn.x + 1) {
+          wide.drawn = {
+            ...wide.drawn,
+            width: Math.max(fragment.block.box.x - wide.drawn.x - GUTTER_CLEARANCE, 1),
+          };
+        }
+        continue;
+      }
       const firstCore = overlapRegion(first);
       const secondCore = overlapRegion(second);
       if (!firstCore || !secondCore) continue;
