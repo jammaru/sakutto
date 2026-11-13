@@ -293,6 +293,9 @@
   "selectionIcon": {
     "message": "Traduci il testo selezionato"
   },
+  "selectionResizeHandle": {
+    "message": "Ridimensiona la finestra di traduzione (doppio clic per reimpostare)"
+  },
   "close": {
     "message": "Chiudi"
   },

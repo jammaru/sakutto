@@ -293,6 +293,9 @@
   "selectionIcon": {
     "message": "Terjemahkan teks yang dipilih"
   },
+  "selectionResizeHandle": {
+    "message": "Ubah lebar popup terjemahan (klik dua kali untuk mengatur ulang)"
+  },
   "close": {
     "message": "Tutup"
   },

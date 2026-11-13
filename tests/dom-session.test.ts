@@ -30,6 +30,7 @@ const labels = {
   selectionFailed: 'この選択範囲を翻訳できませんでした。',
   selectionTitle: '選択したテキスト',
   selectionIcon: '選択したテキストを翻訳します',
+  selectionResize: '翻訳ポップアップの幅を変更します',
   close: '閉じる',
   bilingualOn: 'このサイトの表示を対訳にしました。',
   replaceOn: 'このサイトの表示を置換にしました。',
@@ -93,6 +94,7 @@ function start(
   doc: Document,
   engine: PageEngine,
   overrides: Partial<SessionPreferences> = {},
+  onPopupWidth?: (widthEm: number) => void,
 ): PageSession {
   const session = new PageSession(doc, {
     engine,
@@ -100,6 +102,7 @@ function start(
     preferences: preferences(overrides),
     scheduleFrame: (callback) => callback(),
     debounceMs: 20,
+    ...(onPopupWidth ? { onPopupWidth } : {}),
   });
   sessions.push(session);
   return session;
@@ -3193,5 +3196,166 @@ describe('translation popup text size', () => {
     if ((at100?.widthPx ?? 0) > 0 && (at150?.widthPx ?? 0) > 0) {
       expect(at150?.widthPx).toBeGreaterThan(at100?.widthPx ?? 0);
     }
+  });
+});
+
+describe('selection popup width', () => {
+  interface PopupParts {
+    host: HTMLElement;
+    card: HTMLElement;
+    left: HTMLButtonElement;
+    right: HTMLButtonElement;
+  }
+
+  function popupParts(): PopupParts {
+    const host = document.querySelector('sakutto-pop');
+    if (!(host instanceof HTMLElement)) throw new Error('missing pop host');
+    const shadow = uiShadow(host);
+    const card = shadow?.querySelector('.card');
+    const left = shadow?.querySelector('.resize-handle.left');
+    const right = shadow?.querySelector('.resize-handle.right');
+    if (!(card instanceof HTMLElement)) throw new Error('missing popup card');
+    if (!(left instanceof HTMLButtonElement)) throw new Error('missing left handle');
+    if (!(right instanceof HTMLButtonElement)) throw new Error('missing right handle');
+    return { host, card, left, right };
+  }
+
+  async function showPopup(
+    session: PageSession,
+    rect = new DOMRect(40, 40, 220, 18),
+  ): Promise<void> {
+    session.translateSelection(
+      'This paragraph is long enough that the selection popover has a useful width to drag.',
+      rect,
+    );
+    await vi.waitFor(() => {
+      expect(uiShadow(document.querySelector('sakutto-pop'))?.textContent).toContain('訳:');
+    });
+  }
+
+  it('shows a right handle and only shows the left handle near the right edge', async () => {
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+    );
+    await showPopup(session);
+    const { left, right, card } = popupParts();
+    expect(right.hidden).toBe(false);
+    expect(right.getAttribute('aria-label')).toBe(labels.selectionResize);
+    expect(left.hidden).toBe(true);
+    const style = uiShadow(document.querySelector('sakutto-pop'))?.querySelector(
+      'style',
+    )?.textContent;
+    expect(style).toContain('cursor: ew-resize');
+    expect(card.style.cursor).toBe('');
+
+    session.translateSelection(
+      'This paragraph is long enough that the selection popover has a useful width to drag.',
+      new DOMRect(700, 40, 80, 18),
+    );
+    expect(left.hidden).toBe(false);
+    expect(left.getAttribute('aria-label')).toBe(labels.selectionResize);
+  });
+
+  it('resizes with pointer capture, keeps the popup open, and reports the chosen width', async () => {
+    const saved: number[] = [];
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+      {},
+      (width) => saved.push(width),
+    );
+    await showPopup(session);
+    const { host, card, right } = popupParts();
+
+    right.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        cancelable: true,
+        clientX: 100,
+        pointerId: 1,
+      }),
+    );
+    document.dispatchEvent(
+      new PointerEvent('pointermove', {
+        bubbles: true,
+        cancelable: true,
+        clientX: 172,
+        pointerId: 1,
+      }),
+    );
+    document.dispatchEvent(
+      new PointerEvent('pointerup', {
+        bubbles: true,
+        cancelable: true,
+        clientX: 172,
+        pointerId: 1,
+      }),
+    );
+
+    expect(host.hidden).toBe(false);
+    expect(card.dataset.resized).toBe('1');
+    expect(Number.parseFloat(card.style.width)).toBeGreaterThan(14);
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toBeGreaterThan(14);
+  });
+
+  it('resets to auto width on double-click and with a stored zero', async () => {
+    const saved: number[] = [];
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+      { popupWidth: 20 },
+      (width) => saved.push(width),
+    );
+    await showPopup(session);
+    const { card, right } = popupParts();
+    expect(card.style.width).toBe('20em');
+    expect(card.style.maxWidth).toBe('calc(100vw - 16px)');
+
+    right.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+    expect(card.style.width).toBe('');
+    expect(card.style.maxWidth).toBe('');
+    expect(card.dataset.resized).toBeUndefined();
+    expect(saved).toEqual([0]);
+
+    session.setPreferences(preferences({ popupWidth: 18 }));
+    expect(card.style.width).toBe('18em');
+    session.setPreferences(preferences({ popupWidth: 0 }));
+    expect(card.style.width).toBe('');
+  });
+
+  it('resizes from the keyboard and keeps the width in em when text size changes', async () => {
+    const saved: number[] = [];
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+      { popupWidth: 20 },
+      (width) => saved.push(width),
+    );
+    await showPopup(session);
+    const { card, right } = popupParts();
+    right.focus();
+    right.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }),
+    );
+    expect(card.style.width).toBe('21em');
+    expect(saved).toEqual([21]);
+
+    right.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'ArrowLeft',
+        bubbles: true,
+        cancelable: true,
+        shiftKey: true,
+      }),
+    );
+    expect(card.style.width).toBe('19em');
+    expect(saved).toEqual([21, 19]);
+
+    session.setPreferences(preferences({ popupSize: 150, popupWidth: 19 }));
+    expect(card.style.width).toBe('19em');
+    expect(card.style.maxWidth).toBe('calc(100vw - 16px)');
+    expect(card.style.getPropertyValue(POPUP_TEXT_SCALE_VAR)).toBe('1.5');
   });
 });

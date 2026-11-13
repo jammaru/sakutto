@@ -26,6 +26,7 @@ import {
 } from '@/shared/languages';
 import {
   TRANSLATION_POPUP_SIZE_DEFAULT,
+  TRANSLATION_POPUP_WIDTH_AUTO,
   type Formality,
   type Settings,
   type TranslationPace,
@@ -114,6 +115,8 @@ export interface SessionPreferences {
   display: 'replace' | 'bilingual';
   /** Percent text size for the hover, selection, and status popups. */
   popupSize?: number;
+  /** Selection popup width in em at 100% scale; `0` or missing means automatic width. */
+  popupWidth?: number;
   auto: SiteAuto;
   host: string;
   context: boolean;
@@ -206,6 +209,8 @@ export interface PageSessionOptions {
   pageKey?: (event: KeyboardEvent) => boolean;
   /** Bilingual toggle. Used when Chrome left that command unbound. */
   bilingualKey?: (event: KeyboardEvent) => boolean;
+  /** Saves a width chosen by dragging or keyboard, in em at 100% text scale. */
+  onPopupWidth?: (widthEm: number) => void | Promise<void>;
 }
 
 export function preferencesFor(
@@ -222,6 +227,7 @@ export function preferencesFor(
     form: settings.form,
     display: rule.display ?? settings.display,
     popupSize: settings.translationPopupSize,
+    popupWidth: settings.translationPopupWidth,
     auto: rule.auto,
     host,
     context: false,
@@ -240,6 +246,7 @@ export class PageSession {
   private readonly debounceMs: number;
   private readonly onSitePatch: PageSessionOptions['onSitePatch'];
   private readonly onGrantSite: PageSessionOptions['onGrantSite'];
+  private readonly onPopupWidth: PageSessionOptions['onPopupWidth'];
   private readonly selectionKey: (event: KeyboardEvent) => boolean;
   private readonly pageKey: ((event: KeyboardEvent) => boolean) | undefined;
   private readonly bilingualKey: ((event: KeyboardEvent) => boolean) | undefined;
@@ -334,6 +341,7 @@ export class PageSession {
     this.debounceMs = options.debounceMs ?? 120;
     this.onSitePatch = options.onSitePatch;
     this.onGrantSite = options.onGrantSite;
+    this.onPopupWidth = options.onPopupWidth;
     this.selectionKey = options.selectionKey ?? isPlainAltS;
     this.pageKey = options.pageKey;
     this.bilingualKey = options.bilingualKey;
@@ -346,6 +354,11 @@ export class PageSession {
       });
     this.overlay = new PageOverlay(doc, options.labels);
     this.overlay.setPopupTextScale(this.prefs.popupSize ?? TRANSLATION_POPUP_SIZE_DEFAULT);
+    this.overlay.setPopupWidth(this.prefs.popupWidth ?? TRANSLATION_POPUP_WIDTH_AUTO);
+    this.overlay.setOnPopupWidth((width) => {
+      this.prefs = { ...this.prefs, popupWidth: width };
+      void this.onPopupWidth?.(width);
+    });
     this.overlay.setOnClose(() => this.dismissSelection());
     this.overlay.setOnSelectionIcon(() => this.activateSelectionIcon());
     this.overlay.setBarActions({
@@ -491,6 +504,12 @@ export class PageSession {
       (previous.popupSize ?? TRANSLATION_POPUP_SIZE_DEFAULT)
     ) {
       this.overlay.setPopupTextScale(this.prefs.popupSize ?? TRANSLATION_POPUP_SIZE_DEFAULT);
+    }
+    if (
+      (next.popupWidth ?? TRANSLATION_POPUP_WIDTH_AUTO) !==
+      (previous.popupWidth ?? TRANSLATION_POPUP_WIDTH_AUTO)
+    ) {
+      this.overlay.setPopupWidth(this.prefs.popupWidth ?? TRANSLATION_POPUP_WIDTH_AUTO);
     }
     if (next.auto !== previous.auto && this.active) this.publishState();
     const languageChanged =

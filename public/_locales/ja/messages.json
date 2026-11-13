@@ -293,6 +293,9 @@
   "selectionIcon": {
     "message": "選択したテキストを翻訳します"
   },
+  "selectionResizeHandle": {
+    "message": "翻訳ポップアップの幅を変更します（ダブルクリックでリセット）"
+  },
   "close": {
     "message": "閉じる"
   },

@@ -244,6 +244,7 @@ function overlayLabels(): OverlayLabels {
     selectionFailed: t('selectionFailed'),
     selectionTitle: t('selectionTitle'),
     selectionIcon: t('selectionIcon'),
+    selectionResize: t('selectionResizeHandle'),
     close: t('close'),
     bilingualOn: t('displayNowBilingual'),
     replaceOn: t('displayNowReplace'),
@@ -333,6 +334,8 @@ export default defineContentScript({
 
     const sessionPromise = (async () => {
       const settings = await loadSettings();
+      let liveSettings = settings;
+      let popupWidthWrite = 0;
       engineSource = settings.engineSource;
       const rule = await loadSiteRule(host);
       if (!__SAKUTTO_FAKE_ENGINE__) {
@@ -354,6 +357,11 @@ export default defineContentScript({
           await saveSiteRule({ ...current, ...patch, host });
         },
         onGrantSite: () => requestSiteAccess(host),
+        onPopupWidth: (width) => {
+          popupWidthWrite += 1;
+          liveSettings = { ...liveSettings, translationPopupWidth: width };
+          void saveSettings({ translationPopupWidth: width });
+        },
         pageKey: (event) =>
           listensFor(shortcutSnapshot, shortcutAssigned, shortcutsEnabled, 'translate-page')(event),
         bilingualKey: (event) =>
@@ -434,7 +442,6 @@ export default defineContentScript({
         },
       });
 
-      let liveSettings = settings;
       let liveRule = rule;
       let captionDisplayWrite = 0;
       let captionPositionWrite = 0;
@@ -472,6 +479,7 @@ export default defineContentScript({
       const applyStored = async (): Promise<void> => {
         const writeId = captionDisplayWrite;
         const positionWriteId = captionPositionWrite;
+        const popupWidthId = popupWidthWrite;
         const [nextSettings, nextRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
         const display =
           writeId === captionDisplayWrite
@@ -481,8 +489,13 @@ export default defineContentScript({
           positionWriteId === captionPositionWrite
             ? nextSettings.videoCaptionPositions
             : liveSettings.videoCaptionPositions;
+        const popupWidth =
+          popupWidthId === popupWidthWrite
+            ? nextSettings.translationPopupWidth
+            : liveSettings.translationPopupWidth;
         liveSettings = {
           ...nextSettings,
+          translationPopupWidth: popupWidth,
           videoCaptionDisplay: display,
           videoCaptionPositions: positions,
         };

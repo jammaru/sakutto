@@ -293,6 +293,9 @@
   "selectionIcon": {
     "message": "翻譯所選文本"
   },
+  "selectionResizeHandle": {
+    "message": "調整翻譯彈出視窗的寬度（按兩下重設）"
+  },
   "close": {
     "message": "關閉"
   },

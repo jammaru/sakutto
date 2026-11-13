@@ -1,5 +1,10 @@
 import type { EngineKind } from '@/engine/types';
-import { normalizeTranslationPopupSize, TRANSLATION_POPUP_SIZE_DEFAULT } from '@/shared/settings';
+import {
+  normalizeTranslationPopupSize,
+  normalizeTranslationPopupWidth,
+  TRANSLATION_POPUP_SIZE_DEFAULT,
+  TRANSLATION_POPUP_WIDTH_MIN_EM,
+} from '@/shared/settings';
 
 /** Custom property carrying the popup text scale on each popup host. */
 export const POPUP_TEXT_SCALE_VAR = '--sakutto-popup-scale';
@@ -57,6 +62,8 @@ export interface OverlayLabels {
   selectionFailed: string;
   selectionTitle: string;
   selectionIcon: string;
+  /** Accessible label for the drag handle on the selection popup. */
+  selectionResize: string;
   close: string;
   bilingualOn: string;
   replaceOn: string;
@@ -139,6 +146,7 @@ const BUBBLE_STYLE = `
   color: initial;
 }
 .card {
+  position: relative;
   box-sizing: border-box;
   width: max-content;
   max-width: min(30em, calc(100vw - 16px));
@@ -183,6 +191,39 @@ button {
   cursor: pointer;
 }
 button:focus-visible { outline: 2px solid #0e7490; outline-offset: 2px; }
+.resize-handle {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  width: 10px;
+  height: 2.8em;
+  margin: 0;
+  padding: 0;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+}
+.resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 62%;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: rgb(91 102 117 / 42%);
+}
+.resize-handle.right { right: 0; }
+.resize-handle.left { left: 0; }
+.resize-handle:hover::after,
+.resize-handle:focus-visible::after { background: #0e7490; }
+.resize-handle:focus-visible { outline: 2px solid #0e7490; outline-offset: -2px; }
+.resize-handle[hidden] { display: none; }
 @media (prefers-color-scheme: dark) {
   .card {
     border-color: #2d3947;
@@ -192,6 +233,9 @@ button:focus-visible { outline: 2px solid #0e7490; outline-offset: 2px; }
   }
   .kicker, .note { color: #b7c2cf; }
   button { background: #67e8f9; color: #062a33; }
+  .resize-handle::after { background: rgb(183 194 207 / 42%); }
+  .resize-handle:hover::after,
+  .resize-handle:focus-visible::after { background: #67e8f9; }
 }
 @media (prefers-reduced-motion: reduce) {
   .card { transition: none; }
@@ -393,6 +437,8 @@ export class PageOverlay {
   private readonly popKicker: HTMLElement;
   private readonly popCard: HTMLElement;
   private readonly popButton: HTMLButtonElement;
+  private readonly popResizeLeft: HTMLButtonElement | null;
+  private readonly popResizeRight: HTMLButtonElement | null;
   private readonly status: HTMLElement;
   private readonly bar: HTMLElement;
   private readonly barText: HTMLElement;
@@ -405,6 +451,46 @@ export class PageOverlay {
   private statusTimer: ReturnType<typeof setTimeout> | null = null;
   private lastPopRect: DOMRect | null = null;
   private lastTipRect: DOMRect | null = null;
+  private popupWidth = 0;
+  private onPopupWidth: (widthEm: number) => void = () => undefined;
+  private resizing: {
+    edge: 'left' | 'right';
+    pointerId: number;
+    startX: number;
+    startWidth: number;
+    fontSize: number;
+    capture: Element | null;
+    changed: boolean;
+  } | null = null;
+  private readonly onResizeMove = (event: PointerEvent): void => {
+    const state = this.resizing;
+    if (!state) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const view = this.doc.defaultView;
+    const minimum = TRANSLATION_POPUP_WIDTH_MIN_EM * state.fontSize;
+    const maximum = Math.max(minimum, (view?.innerWidth ?? 800) - 16);
+    const delta = event.clientX - state.startX;
+    const raw = state.edge === 'right' ? state.startWidth + delta : state.startWidth - delta;
+    const next = Math.min(maximum, Math.max(minimum, raw));
+    this.applyPopupWidth(next / state.fontSize);
+    state.changed = true;
+    if (!this.popHost.hidden && this.lastPopRect) {
+      this.place(this.popHost, this.lastPopRect, true);
+    }
+  };
+  private readonly onResizeEnd = (event: PointerEvent): void => {
+    const state = this.resizing;
+    if (!state) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.stopResize(state.pointerId, state.capture);
+    if (!state.changed) return;
+    if (!this.popHost.hidden && this.lastPopRect) {
+      this.place(this.popHost, this.lastPopRect, true);
+    }
+    this.onPopupWidth(this.popupWidth);
+  };
 
   constructor(
     private readonly doc: Document,
@@ -442,6 +528,8 @@ export class PageOverlay {
     this.popKicker = pop.kicker;
     this.popCard = pop.card;
     this.popButton = pop.button;
+    this.popResizeLeft = pop.resizeLeft;
+    this.popResizeRight = pop.resizeRight;
     this.status = doc.createElement('sakutto-status');
     this.status.setAttribute('translate', 'no');
     this.status.setAttribute('role', 'status');
@@ -487,6 +575,7 @@ export class PageOverlay {
     shadow.append(style, row);
     doc.documentElement.append(this.bar);
     this.setPopupTextScale(TRANSLATION_POPUP_SIZE_DEFAULT);
+    this.setPopupWidth(0);
   }
 
   private onOriginal: () => void = () => undefined;
@@ -528,6 +617,10 @@ export class PageOverlay {
     this.onSelectionIcon = handler;
   }
 
+  setOnPopupWidth(handler: (widthEm: number) => void): void {
+    this.onPopupWidth = handler;
+  }
+
   setLabels(labels: OverlayLabels): void {
     this.labels = labels;
     this.tipKicker.textContent = labels.original;
@@ -536,7 +629,19 @@ export class PageOverlay {
     this.popButton.textContent = labels.close;
     this.iconButton.setAttribute('aria-label', labels.selectionIcon);
     this.iconButton.title = labels.selectionIcon;
+    for (const handle of [this.popResizeLeft, this.popResizeRight]) {
+      handle?.setAttribute('aria-label', labels.selectionResize);
+      if (handle) handle.title = labels.selectionResize;
+    }
     this.bar.setAttribute('aria-label', labels.barLabel);
+  }
+
+  /** Restore a stored width, in em at 100% text scale. `0` keeps the auto width. */
+  setPopupWidth(widthEm: number): void {
+    this.applyPopupWidth(widthEm);
+    if (!this.popHost.hidden && this.lastPopRect) {
+      this.place(this.popHost, this.lastPopRect, true);
+    }
   }
 
   /** Resize the hover, selection, and status text. Style-only, safe to call on any change. */
@@ -667,6 +772,7 @@ export class PageOverlay {
 
   destroy(): void {
     if (this.statusTimer !== null) clearTimeout(this.statusTimer);
+    if (this.resizing) this.stopResize(this.resizing.pointerId, this.resizing.capture);
     this.style.remove();
     this.tipHost.remove();
     this.popHost.remove();
@@ -722,6 +828,8 @@ export class PageOverlay {
     kicker: HTMLElement;
     card: HTMLElement;
     button: HTMLButtonElement;
+    resizeLeft: HTMLButtonElement | null;
+    resizeRight: HTMLButtonElement | null;
   } {
     const shadow = attachUiShadow(host);
     const style = this.doc.createElement('style');
@@ -746,6 +854,8 @@ export class PageOverlay {
     button.type = 'button';
     button.textContent = this.labels.close;
     button.hidden = !selectable;
+    let resizeLeft: HTMLButtonElement | null = null;
+    let resizeRight: HTMLButtonElement | null = null;
     if (selectable) {
       button.addEventListener('click', (event) => {
         event.preventDefault();
@@ -754,10 +864,38 @@ export class PageOverlay {
         else this.hideSelection();
       });
       card.append(button);
+      const makeHandle = (edge: 'left' | 'right'): HTMLButtonElement => {
+        const handle = this.doc.createElement('button');
+        handle.type = 'button';
+        handle.className = `resize-handle ${edge}`;
+        handle.hidden = edge === 'left';
+        handle.tabIndex = edge === 'left' ? -1 : 0;
+        handle.setAttribute('aria-label', this.labels.selectionResize);
+        handle.title = this.labels.selectionResize;
+        handle.setAttribute('aria-keyshortcuts', 'ArrowLeft ArrowRight');
+        handle.addEventListener('pointerdown', (event) => {
+          this.startResize(event, edge);
+        });
+        handle.addEventListener('pointermove', this.onResizeMove);
+        handle.addEventListener('pointerup', this.onResizeEnd);
+        handle.addEventListener('pointercancel', this.onResizeEnd);
+        handle.addEventListener('keydown', (event) => {
+          this.handleResizeKey(event, edge);
+        });
+        handle.addEventListener('dblclick', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          this.resetPopupWidth();
+        });
+        return handle;
+      };
+      resizeLeft = makeHandle('left');
+      resizeRight = makeHandle('right');
+      card.append(resizeLeft, resizeRight);
     }
 
     shadow.append(style, card);
-    return { body, note, kicker, card, button };
+    return { body, note, kicker, card, button, resizeLeft, resizeRight };
   }
 
   private place(host: HTMLElement, rect: DOMRect, interactive: boolean): void {
@@ -778,6 +916,127 @@ export class PageOverlay {
     if (top + cardHeight > height - 8) top = Math.max(8, rect.top - cardHeight - 16);
     host.style.left = `${Math.max(8, left)}px`;
     host.style.top = `${Math.max(8, top)}px`;
+    if (host === this.popHost && this.popResizeLeft) {
+      // The left handle is only useful when the card sits toward the right edge and can
+      // grow leftward. Elsewhere it would sit on top of the first characters for no gain.
+      const rightAnchored = rect.right > width * 0.5 || left < rect.left;
+      this.popResizeLeft.hidden = !rightAnchored;
+      this.popResizeLeft.tabIndex = rightAnchored ? 0 : -1;
+    }
+  }
+
+  private applyPopupWidth(widthEm: number): number {
+    const width = normalizeTranslationPopupWidth(widthEm);
+    this.popupWidth = width;
+    if (width === 0) {
+      this.popCard.style.removeProperty('width');
+      this.popCard.style.removeProperty('max-width');
+      delete this.popCard.dataset.resized;
+    } else {
+      this.popCard.style.width = `${String(width)}em`;
+      // A chosen width may exceed the default 30em reading measure, but never the viewport.
+      this.popCard.style.maxWidth = 'calc(100vw - 16px)';
+      this.popCard.dataset.resized = '1';
+    }
+    return width;
+  }
+
+  private resetPopupWidth(): void {
+    this.applyPopupWidth(0);
+    if (!this.popHost.hidden && this.lastPopRect) {
+      this.place(this.popHost, this.lastPopRect, true);
+    }
+    this.onPopupWidth(0);
+  }
+
+  private startResize(event: PointerEvent, edge: 'left' | 'right'): void {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const card = this.popCard;
+    const rect = card.getBoundingClientRect();
+    const view = this.doc.defaultView;
+    const fontSize =
+      Number.parseFloat(view?.getComputedStyle(card).fontSize ?? '') ||
+      Number.parseFloat(card.style.fontSize) ||
+      12;
+    const capture = event.currentTarget instanceof Element ? event.currentTarget : null;
+    if (capture instanceof HTMLElement) capture.focus({ preventScroll: true });
+    this.resizing = {
+      edge,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startWidth: card.offsetWidth || rect.width || TRANSLATION_POPUP_WIDTH_MIN_EM * fontSize,
+      fontSize,
+      capture,
+      changed: false,
+    };
+    this.popHost.dataset.resizing = '1';
+    try {
+      capture?.setPointerCapture(event.pointerId);
+    } catch {
+      // happy-dom and some hosts have no capture; the document listeners still resize.
+    }
+    this.doc.addEventListener('pointermove', this.onResizeMove, true);
+    this.doc.addEventListener('pointerup', this.onResizeEnd, true);
+    this.doc.addEventListener('pointercancel', this.onResizeEnd, true);
+  }
+
+  private stopResize(pointerId: number, capture: Element | null): void {
+    this.resizing = null;
+    delete this.popHost.dataset.resizing;
+    try {
+      if (capture?.hasPointerCapture(pointerId)) capture.releasePointerCapture(pointerId);
+    } catch {
+      // The pointer may already be gone, which is also a valid end.
+    }
+    this.doc.removeEventListener('pointermove', this.onResizeMove, true);
+    this.doc.removeEventListener('pointerup', this.onResizeEnd, true);
+    this.doc.removeEventListener('pointercancel', this.onResizeEnd, true);
+  }
+
+  private handleResizeKey(event: KeyboardEvent, edge: 'left' | 'right'): void {
+    const step = event.shiftKey ? 2 : 1;
+    const direction =
+      event.key === 'ArrowRight'
+        ? edge === 'right'
+          ? 1
+          : -1
+        : event.key === 'ArrowLeft'
+          ? edge === 'right'
+            ? -1
+            : 1
+          : 0;
+    if (direction === 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const card = this.popCard;
+    const view = this.doc.defaultView;
+    const fontSize =
+      Number.parseFloat(view?.getComputedStyle(card).fontSize ?? '') ||
+      Number.parseFloat(card.style.fontSize) ||
+      12;
+    const current =
+      this.popupWidth > 0
+        ? this.popupWidth
+        : Math.max(
+            TRANSLATION_POPUP_WIDTH_MIN_EM,
+            (card.offsetWidth || card.getBoundingClientRect().width || 0) / fontSize,
+          );
+    const maximum = Math.max(
+      TRANSLATION_POPUP_WIDTH_MIN_EM,
+      ((view?.innerWidth ?? 800) - 16) / fontSize,
+    );
+    const next = Math.min(
+      maximum,
+      Math.max(TRANSLATION_POPUP_WIDTH_MIN_EM, current + direction * step),
+    );
+    if (Math.abs(next - current) < 0.01) return;
+    this.applyPopupWidth(next);
+    if (!this.popHost.hidden && this.lastPopRect) {
+      this.place(this.popHost, this.lastPopRect, true);
+    }
+    this.onPopupWidth(this.popupWidth);
   }
 }
 

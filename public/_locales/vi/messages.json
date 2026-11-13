@@ -293,6 +293,9 @@
   "selectionIcon": {
     "message": "Dịch văn bản đã chọn"
   },
+  "selectionResizeHandle": {
+    "message": "Thay đổi chiều rộng cửa sổ dịch (nhấp đúp để đặt lại)"
+  },
   "close": {
     "message": "Đóng"
   },

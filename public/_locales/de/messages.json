@@ -293,6 +293,9 @@
   "selectionIcon": {
     "message": "Ausgewählten Text übersetzen"
   },
+  "selectionResizeHandle": {
+    "message": "Übersetzungs-Popup in der Breite ziehen (Doppelklick zum Zurücksetzen)"
+  },
   "close": {
     "message": "Schließen"
   },

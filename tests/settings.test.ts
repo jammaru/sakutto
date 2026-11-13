@@ -12,6 +12,7 @@ import {
   createDefaultSettings,
   isTierPreference,
   normalizeTranslationPopupSize,
+  normalizeTranslationPopupWidth,
   normalizeVideoCaptionSize,
   normalizeVideoCaptionPositions,
   needsLicenseReconsent,
@@ -26,6 +27,7 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     form: 'polite',
     display: 'replace',
     translationPopupSize: 100,
+    translationPopupWidth: 0,
     consent: null,
     highQualityDismissed: false,
     glossary: [],
@@ -295,6 +297,25 @@ describe('settings defaults', () => {
         'en-US',
       ).translationPopupSize,
     ).toBe(165);
+  });
+
+  it('stores a selection popup width in em and treats zero as automatic', () => {
+    expect(DEFAULT_SETTINGS.translationPopupWidth).toBe(0);
+    expect(normalizeTranslationPopupWidth(undefined)).toBe(0);
+    expect(normalizeTranslationPopupWidth('nope')).toBe(0);
+    expect(normalizeTranslationPopupWidth(0)).toBe(0);
+    expect(normalizeTranslationPopupWidth(8)).toBe(14);
+    expect(normalizeTranslationPopupWidth('21.456')).toBe(21.46);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          translationPopupWidth: 18,
+        },
+        'en-US',
+      ).translationPopupWidth,
+    ).toBe(18);
   });
 
   it('keeps caption overlay positions per site without bumping the schema', () => {

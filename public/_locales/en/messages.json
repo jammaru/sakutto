@@ -293,6 +293,9 @@
   "selectionIcon": {
     "message": "Translate the selected text"
   },
+  "selectionResizeHandle": {
+    "message": "Resize the translation popup (double-click to reset)"
+  },
   "close": {
     "message": "Close"
   },

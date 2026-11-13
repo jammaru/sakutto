@@ -293,6 +293,9 @@
   "selectionIcon": {
     "message": "แปลข้อความที่เลือก"
   },
+  "selectionResizeHandle": {
+    "message": "ปรับความกว้างของป๊อปอัปการแปล (ดับเบิลคลิกเพื่อรีเซ็ต)"
+  },
   "close": {
     "message": "ปิด"
   },

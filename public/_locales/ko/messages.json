@@ -293,6 +293,9 @@
   "selectionIcon": {
     "message": "선택한 텍스트를 번역하세요"
   },
+  "selectionResizeHandle": {
+    "message": "번역 팝업의 너비를 조절합니다(두 번 클릭하여 재설정)"
+  },
   "close": {
     "message": "닫기"
   },

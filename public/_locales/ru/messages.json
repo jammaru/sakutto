@@ -293,6 +293,9 @@
   "selectionIcon": {
     "message": "Перевести выбранный текст"
   },
+  "selectionResizeHandle": {
+    "message": "Изменить ширину окна перевода (двойной щелчок для сброса)"
+  },
   "close": {
     "message": "Закрыть"
   },

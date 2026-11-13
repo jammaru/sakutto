@@ -51,6 +51,22 @@ export function normalizeTranslationPopupSize(value: unknown): number {
   return Math.round(Math.min(TRANSLATION_POPUP_SIZE_MAX, Math.max(TRANSLATION_POPUP_SIZE_MIN, n)));
 }
 
+/**
+ * Chosen selection-popup width in em at 100% text scale. `0` keeps the default
+ * `width: max-content` behaviour. Storing em rather than px makes a saved width grow and
+ * shrink with `translationPopupSize`, and the CSS max-width keeps it inside the viewport.
+ */
+export const TRANSLATION_POPUP_WIDTH_AUTO = 0;
+export const TRANSLATION_POPUP_WIDTH_MIN_EM = 14;
+
+export function normalizeTranslationPopupWidth(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n) || n <= TRANSLATION_POPUP_WIDTH_AUTO) {
+    return TRANSLATION_POPUP_WIDTH_AUTO;
+  }
+  return Math.round(Math.max(TRANSLATION_POPUP_WIDTH_MIN_EM, n) * 100) / 100;
+}
+
 /** Player families that remember their own caption overlay spot. */
 export const VIDEO_CAPTION_POSITION_SITES = ['youtube', 'x', 'other'] as const;
 export type VideoCaptionPositionSite = (typeof VIDEO_CAPTION_POSITION_SITES)[number];
@@ -126,6 +142,8 @@ export interface Settings {
   display: DisplayMode;
   /** Percent text size for hover, selection, status, and compose translation popups. */
   translationPopupSize: number;
+  /** Chosen selection-popup width in em at 100% scale; `0` means automatic width. */
+  translationPopupWidth: number;
   consent: LicenseConsent | null;
   highQualityDismissed: boolean;
   glossary: GlossaryEntry[];
@@ -200,6 +218,7 @@ export type SettingsPatch = Partial<
     | 'form'
     | 'display'
     | 'translationPopupSize'
+    | 'translationPopupWidth'
     | 'consent'
     | 'highQualityDismissed'
     | 'glossary'
@@ -236,6 +255,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   form: 'polite',
   display: 'replace',
   translationPopupSize: TRANSLATION_POPUP_SIZE_DEFAULT,
+  translationPopupWidth: TRANSLATION_POPUP_WIDTH_AUTO,
   consent: null,
   highQualityDismissed: false,
   glossary: [],
@@ -297,6 +317,7 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     form: value.form === 'plain' ? 'plain' : 'polite',
     display: value.display === 'bilingual' ? 'bilingual' : 'replace',
     translationPopupSize: normalizeTranslationPopupSize(value.translationPopupSize),
+    translationPopupWidth: normalizeTranslationPopupWidth(value.translationPopupWidth),
     consent: normalizeConsent(value.consent),
     highQualityDismissed: value.highQualityDismissed === true,
     glossary: normalizeGlossary(value.glossary),

@@ -293,6 +293,9 @@
   "selectionIcon": {
     "message": "翻译所选文本"
   },
+  "selectionResizeHandle": {
+    "message": "调整翻译弹窗的宽度（双击重置）"
+  },
   "close": {
     "message": "关闭"
   },

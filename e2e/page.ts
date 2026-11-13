@@ -32,6 +32,7 @@ export async function resetExtensionStorage(
     videoCaptionDisplay?: 'replace' | 'bilingual';
     captionCustomHosts?: string[];
     translationPopupSize?: number;
+    translationPopupWidth?: number;
   } = {},
 ): Promise<void> {
   const targetLanguage = options.targetLanguage ?? 'en';
@@ -39,6 +40,7 @@ export async function resetExtensionStorage(
   const videoCaptionDisplay = options.videoCaptionDisplay ?? 'bilingual';
   const captionCustomHosts = options.captionCustomHosts ?? [];
   const translationPopupSize = options.translationPopupSize ?? 100;
+  const translationPopupWidth = options.translationPopupWidth ?? 0;
   const settings = {
     schemaVersion: 1,
     targetLanguage,
@@ -73,6 +75,7 @@ export async function resetExtensionStorage(
     videoCaptionDisplay,
     captionCustomHosts,
     translationPopupSize,
+    translationPopupWidth,
   };
 
   for (let attempt = 0; attempt < 20; attempt += 1) {
