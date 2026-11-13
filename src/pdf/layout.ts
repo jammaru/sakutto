@@ -1322,12 +1322,24 @@ export function looksLikeCodeLine(text: string): boolean {
     return true;
   }
   if (/^(?:\}|;)\s*$/u.test(trimmed) || /^\}\s*(?:else|catch)/u.test(trimmed)) return true;
-  if (/\b(?:continue|return|break|yield)\b/u.test(trimmed) && /[;{}()]/u.test(trimmed)) {
+  if (
+    /(?:^|[;{}]\s*)(?:continue|return|break|yield)\b/u.test(trimmed) &&
+    /[;{}()]/u.test(trimmed)
+  ) {
     return true;
   }
   if (
     /^\d+\s+/.test(trimmed) &&
     /(?:[;{}()]|[a-z][A-Z]|\b(?:for\s+each|for\s*\(|if\s*\(|while\s*\(|return\b|def\b|emit\b))/u.test(
+      trimmed,
+    )
+  ) {
+    return true;
+  }
+  // Numbered Python-style (`1  for block in page:`). Reject "1 for the first experiment…".
+  if (
+    /^\d+\s+(?:for|if|while|def|repeat|until)\b/u.test(trimmed) &&
+    !/^\d+\s+(?:for|if|while|def|repeat|until)\s+(?:the|a|an|this|that|these|those|we|it)\b/iu.test(
       trimmed,
     )
   ) {

@@ -564,19 +564,46 @@ describe('pseudocode line shapes', () => {
   });
 
   it('still treats real listing lines as code', () => {
-    expect(looksLikeCodeLine('if (x) {')).toBe(true);
-    expect(looksLikeCodeLine('const y = 1;')).toBe(true);
-    expect(looksLikeCodeLine('for each (m : evalModules) {')).toBe(true);
-    expect(looksLikeCodeLine('1 for each (m) {')).toBe(true);
-    expect(looksLikeCodeLine('emit(translate(block))')).toBe(true);
+    const listing = [
+      'if (x) {',
+      'const y = 1;',
+      'for each (m : evalModules) {',
+      '1 for each (m) {',
+      'emit(translate(block))',
+      'return result;',
+      'break;',
+      'continue;',
+      'if (x) { return y; }',
+      'for (item of items) continue;',
+      '{ return a; }',
+      'switch (kind) {',
+      'catch (error) {',
+      '1  for block in page:',
+      '2 if ready:',
+      '3 while waiting:',
+      '4 def layout(page):',
+      '5 repeat:',
+      '6 until done:',
+    ];
+    for (const line of listing) {
+      expect(looksLikeCodeLine(line), line).toBe(true);
+    }
+    expect(looksLikeCodeLine('1 for the first experiment the reader keeps the canvas.')).toBe(
+      false,
+    );
+    expect(looksLikeCodeLine('2 if the model sees the heading the cover stays.')).toBe(false);
+    expect(looksLikeCodeLine('3 while the reader scrolls the queue grows.')).toBe(false);
 
     const lines = groupLines([
       piece('evalModules = modules for the evaluation;', 80, 200, 220),
       piece('for each (m : evalModules) {', 80, 214, 180),
       piece('if (m.ready) {', 80, 228, 120),
       piece('const y = calibModel.predict(m);', 80, 242, 200),
-      piece('}', 80, 256, 10),
-      piece('The listing is the procedure a reader follows on each module.', 49, 300, 400),
+      piece('switch (kind) {', 80, 256, 140),
+      piece('catch (error) {', 80, 270, 140),
+      piece('return result;', 80, 284, 100),
+      piece('}', 80, 298, 10),
+      piece('The listing is the procedure a reader follows on each module.', 49, 340, 400),
     ]);
     const layout = layoutPage(lines);
     const code = layout.skipped.filter((block) => block.role === 'code');
@@ -585,9 +612,78 @@ describe('pseudocode line shapes', () => {
     expect(joined).toContain('for each');
     expect(joined).toContain('if (m.ready)');
     expect(joined).toContain('const y =');
+    expect(joined).toContain('switch (kind)');
+    expect(joined).toContain('catch (error)');
+    expect(joined).toContain('return result;');
     expect(layout.blocks.some((block) => block.text.includes('listing is the procedure'))).toBe(
       true,
     );
+  });
+
+  it('keeps English return/break/continue/yield verbs with a parenthetical as prose', () => {
+    const sentences = [
+      'We return to the fitting question (Section 4) after describing the scheduler.',
+      'We continue the discussion of memory (Figure 7) with the eviction policy.',
+      'We break ties between two equally visible pages (Section 3.1) by their top edge.',
+      'The measurement yields a bound on repaints (Theorem 1) for every input we tested.',
+      'The generator will yield a bound on repaints (Theorem 1) for every input we tested.',
+    ];
+    for (const sentence of sentences) {
+      expect(looksLikeCodeLine(sentence), sentence).toBe(false);
+    }
+
+    const wrapped = groupLines([
+      piece('We return to the fitting question (Section 4) after', 40, 100, 400),
+      piece('describing the scheduler in the next paragraph.', 40, 112, 280),
+      piece('We continue the discussion of memory (Figure 7) with', 40, 140, 400),
+      piece('the eviction policy the reader already knows.', 40, 152, 280),
+    ]);
+    const wrappedLayout = layoutPage(wrapped);
+    expect(wrappedLayout.skipped.some((block) => block.role === 'code')).toBe(false);
+    expect(wrappedLayout.blocks.every((block) => block.role === 'prose')).toBe(true);
+    expect(wrappedLayout.blocks.some((block) => block.text.includes('fitting question'))).toBe(
+      true,
+    );
+    expect(wrappedLayout.blocks.some((block) => block.text.includes('eviction policy'))).toBe(true);
+
+    const discussion = [
+      'We return to the fitting question (Section 4) after describing the scheduler.',
+      'We continue the discussion of memory (Figure 7) with the eviction policy.',
+      'We break ties between two equally visible pages (Section 3.1) by their top edge.',
+      'The measurement yields a bound on repaints (Theorem 1) for every input we tested.',
+      'A later paragraph returns to that bound (Table 2) after the queue is drained.',
+      'The reader will continue from the last visible page (Figure 2) once it is ready.',
+      'Nothing should break the column measure (Section 2) when a heading is skipped.',
+      'The next pass will yield the same cover (Eq. 2) if the tokens still fit.',
+      'We return the unused budget (Section 5) once the last line of the block is set.',
+      'The scheduler will continue to the far page (Figure 4) after the focused one.',
+      'Two covers break even (Section 3.2) when both sit inside the viewport band.',
+      'The check yields no overflow (Theorem 2) for a short English caption.',
+      'We return here only after the listing (Algorithm 1) has been classified.',
+      'The body will continue in English (Table 3) until the model is loaded.',
+      'A gap should not break a wrapped sentence (Section 1) across two columns.',
+      'Each trial yields one number (Figure 1) and a short note under it.',
+      'We return a marker (Section 6) rather than clip a line that still overflows.',
+      'The compare pane will continue to share scroll (Figure 8) with the original.',
+      'The rule must not break ordinary discussion (Section 4.1) into a listing.',
+      'The probe yields a content type (Appendix B) without reading the whole file.',
+      'We return to the original canvas (Figure 9) when compare is turned off.',
+      'The queue will continue to drain (Section 7) after a visible page is aborted.',
+      'Layout must not break a heading (Table 4) that happens to mention return.',
+      'The run yields a translated page (Section 8) whose status matches the boxes.',
+    ];
+    expect(discussion).toHaveLength(24);
+    for (const sentence of discussion) {
+      expect(looksLikeCodeLine(sentence), sentence).toBe(false);
+    }
+    const page = groupLines(discussion.map((text, index) => piece(text, 40, 80 + index * 36, 420)));
+    const layout = layoutPage(page);
+    expect(layout.skipped.some((block) => block.role === 'code')).toBe(false);
+    expect(layout.blocks.every((block) => block.role === 'prose')).toBe(true);
+    const painted = layout.blocks.map((block) => block.text).join('\n');
+    for (const sentence of discussion) {
+      expect(painted.includes(sentence.slice(0, 32)), sentence).toBe(true);
+    }
   });
 
   it('keeps two-line English prose that wraps on pages; / forms; as prose, not code', () => {
