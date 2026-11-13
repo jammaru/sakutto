@@ -1,11 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { EngineError } from '@/engine/errors';
-import {
-  downloadModel,
-  takeSharedRefreshResponse,
-  type DownloadProgress,
-} from '@/engine/model/download';
+import { downloadModel, type DownloadProgress } from '@/engine/model/download';
 import { sha256Hex } from '@/engine/model/sha256';
+import { advanceModelStatus } from '@/shared/model-progress';
+import type { ModelStatus } from '@/shared/engine-status';
 import { bytesOf, MemoryFileStore, streamOf } from './support/fakes';
 
 const PAYLOAD = bytesOf('hello world!');
@@ -107,7 +105,13 @@ describe('resumable model download', () => {
       void input;
       const headers = init?.headers as Record<string, string>;
       expect(headers.Range).toBe('bytes=4-11');
-      return new Response(streamOf([PAYLOAD.slice(4)]), { status: 206 });
+      return new Response(streamOf([PAYLOAD.slice(4)]), {
+        status: 206,
+        headers: {
+          'Content-Length': String(PAYLOAD.length - 4),
+          'Content-Range': `bytes 4-${String(PAYLOAD.length - 1)}/${String(PAYLOAD.length)}`,
+        },
+      });
     });
 
     const progress: DownloadProgress[] = [];
@@ -227,7 +231,13 @@ describe('resumable model download', () => {
     const fetchImpl = vi.fn(async () => {
       attempt += 1;
       if (attempt === 1) throw new TypeError('network down');
-      return new Response(streamOf([PAYLOAD.slice(4)]), { status: 206 });
+      return new Response(streamOf([PAYLOAD.slice(4)]), {
+        status: 206,
+        headers: {
+          'Content-Length': String(PAYLOAD.length - 4),
+          'Content-Range': `bytes 4-${String(PAYLOAD.length - 1)}/${String(PAYLOAD.length)}`,
+        },
+      });
     });
 
     await store.append(PART, PAYLOAD.slice(0, 4), 0);
@@ -596,6 +606,95 @@ describe('resumable model download', () => {
     expect(store.files.get(FINAL)).toEqual(payload);
   });
 
+  it('stops a segment that keeps answering with one-byte ranges', async () => {
+    const payload = bytesOf('0123456789abcdef');
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      const range = rangeOf(init?.headers);
+      return new Response(payload.slice(range.start, range.start + 1), {
+        status: 206,
+        headers: {
+          'Content-Length': '1',
+          'Content-Range': `bytes ${String(range.start)}-${String(range.start)}/${String(payload.length)}`,
+        },
+      });
+    });
+
+    await expect(
+      downloadModel({
+        ...baseRequest(store, controller.signal),
+        source: sourceOf(payload),
+        fetchImpl,
+        attempts: 1,
+        retryDelayMs: 0,
+        segmentBytes: 16,
+        concurrency: 1,
+      }),
+    ).rejects.toThrow(/shorter byte ranges/);
+    expect(fetchImpl).toHaveBeenCalledTimes(9);
+  });
+
+  it('rejects a partial response without Content-Range or Content-Length', async () => {
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const fetchImpl = vi.fn(
+      async () => new Response(streamOf([PAYLOAD.slice(4)]), { status: 206 }),
+    );
+
+    await expect(
+      downloadModel({
+        ...baseRequest(store, controller.signal),
+        fetchImpl,
+        attempts: 3,
+        retryDelayMs: 0,
+      }),
+    ).rejects.toThrow(/Content-Range or Content-Length/);
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
+  it('keeps resumed bytes monotonic without a verifying-to-downloading flip', async () => {
+    const store = new MemoryFileStore();
+    await store.append(PART, PAYLOAD.slice(0, 4), 0);
+    const controller = new AbortController();
+    const progress: DownloadProgress[] = [];
+    const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      const range = rangeOf(init?.headers);
+      return rangeResponse(PAYLOAD, range);
+    };
+
+    await downloadModel({
+      ...baseRequest(store, controller.signal),
+      fetchImpl,
+      onProgress: (event) => progress.push(event),
+    });
+
+    const statuses: ModelStatus[] = [];
+    let previous: ModelStatus | null = null;
+    for (const event of progress) {
+      previous = advanceModelStatus(previous, {
+        id: 'plamo-3-translate-0.8b-q4_k_m',
+        state: event.phase === 'verify' ? 'verifying' : 'downloading',
+        received: event.received,
+        total: event.total,
+        progress: event.ratio,
+      });
+      statuses.push(previous);
+    }
+
+    expect(statuses.some((status) => status.state === 'verifying')).toBe(true);
+    for (let index = 1; index < statuses.length; index += 1) {
+      expect(statuses[index]?.received ?? 0).toBeGreaterThanOrEqual(
+        statuses[index - 1]?.received ?? 0,
+      );
+      if (statuses[index - 1]?.state === 'verifying') {
+        expect(statuses[index]?.state).not.toBe('downloading');
+      }
+    }
+  });
+
   it('hashes the existing partial prefix when resuming and avoids a second read', async () => {
     const store = new MemoryFileStore();
     await store.append(PART, PAYLOAD.slice(0, 4), 0);
@@ -615,7 +714,10 @@ describe('resumable model download', () => {
     });
 
     expect(result).toMatchObject({ resumedFrom: 4, sha256: sha256Hex(PAYLOAD) });
-    expect(progress.some((event) => event.phase === 'verify' && event.received === 4)).toBe(true);
+    expect(progress[0]).toMatchObject({ phase: 'download', received: 4 });
+    const firstVerify = progress.findIndex((event) => event.phase === 'verify');
+    expect(progress.slice(0, firstVerify).every((event) => event.phase === 'download')).toBe(true);
+    expect(progress[firstVerify]).toMatchObject({ received: PAYLOAD.length });
     expect(read).toHaveBeenCalledOnce();
     expect(store.files.get(FINAL)).toEqual(PAYLOAD);
   });
@@ -632,30 +734,71 @@ describe('resumable model download', () => {
     expect(read).not.toHaveBeenCalled();
   });
 
-  it('cancels a shared refresh body another segment owns', async () => {
-    let cancelled = false;
-    const body = new ReadableStream<Uint8Array>({
-      cancel() {
-        cancelled = true;
-      },
+  it('re-resolves the CDN URL once when several segments expire together', async () => {
+    const payload = Uint8Array.from({ length: 40 }, (_value, index) => index);
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const sourceUrl = 'https://example.test/model.gguf';
+    const oldCdn = 'https://cdn.example.test/expired/model.gguf';
+    const newCdn = 'https://cdn.example.test/fresh/model.gguf';
+    const sourceCalls: Range[] = [];
+    let refreshCancelled = false;
+    let oldCalls = 0;
+    let newCalls = 0;
+
+    const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const range = rangeOf(init?.headers);
+
+      if (url === sourceUrl) {
+        sourceCalls.push(range);
+        if (range.start === 0) return rangeResponse(payload, range, oldCdn);
+        const body = new ReadableStream<Uint8Array>({
+          start(stream) {
+            stream.enqueue(payload.slice(range.start, range.end));
+          },
+          cancel() {
+            refreshCancelled = true;
+          },
+        });
+        const response = new Response(body, {
+          status: 206,
+          headers: {
+            'Content-Length': String(range.end - range.start),
+            'Content-Range': `bytes ${String(range.start)}-${String(range.end - 1)}/${String(payload.length)}`,
+          },
+        });
+        Object.defineProperty(response, 'url', { value: newCdn });
+        return response;
+      }
+      if (url === oldCdn) {
+        oldCalls += 1;
+        return new Response(null, { status: 403 });
+      }
+      if (url === newCdn) {
+        newCalls += 1;
+        return rangeResponse(payload, range, newCdn);
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    };
+
+    const result = await downloadModel({
+      ...baseRequest(store, controller.signal),
+      source: { ...sourceOf(payload), url: sourceUrl },
+      fetchImpl,
+      attempts: 1,
+      retryDelayMs: 0,
+      segmentBytes: 8,
+      concurrency: 5,
     });
-    const shared = new Response(body);
 
-    await expect(
-      takeSharedRefreshResponse(
-        { url: 'https://cdn.example.test/model.gguf', response: shared, owner: 2 },
-        1,
-      ),
-    ).resolves.toBeNull();
-    expect(cancelled).toBe(true);
-
-    const owned = new Response('owned');
-    await expect(
-      takeSharedRefreshResponse(
-        { url: 'https://cdn.example.test/model.gguf', response: owned, owner: 1 },
-        1,
-      ),
-    ).resolves.toBe(owned);
+    expect(result.sha256).toBe(sha256Hex(payload));
+    expect(result.resumedFrom).toBe(0);
+    expect(sourceCalls).toHaveLength(2);
+    expect(refreshCancelled).toBe(true);
+    expect(oldCalls).toBeGreaterThan(1);
+    expect(newCalls).toBe(4);
+    expect(store.files.get(FINAL)).toEqual(payload);
   });
 
   it('refreshes an expired CDN URL once and completes the remaining segments', async () => {
@@ -702,7 +845,7 @@ describe('resumable model download', () => {
     expect(result.resumedFrom).toBe(0);
     expect(sourceCalls).toHaveLength(2);
     expect(oldCalls).toBe(2);
-    expect(newCalls).toBe(1);
+    expect(newCalls).toBe(2);
     expect(store.files.get(FINAL)).toEqual(payload);
   });
 

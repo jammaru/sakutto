@@ -118,3 +118,42 @@ describe('SHA-256', () => {
     expect(() => hasher.digest()).toThrow();
   });
 });
+
+describe('ordered SHA-256 hasher', () => {
+  it('hashes through the worker protocol and resets in order', async () => {
+    const { createHasherWorker } = await import('@/engine/model/sha256-worker-core');
+    const { createOrderedSha256 } = await import('@/engine/model/sha256-worker-client');
+    type Request = Parameters<ReturnType<typeof createHasherWorker>>[0];
+    type Response = Parameters<Parameters<typeof createHasherWorker>[0]['postMessage']>[0];
+
+    class LoopbackWorker {
+      onmessage: ((event: MessageEvent<Response>) => void) | null = null;
+      onerror: ((event: ErrorEvent) => void) | null = null;
+      private readonly handle = createHasherWorker({
+        postMessage: (message: Response) => {
+          queueMicrotask(() => this.onmessage?.({ data: message } as MessageEvent<Response>));
+        },
+      });
+
+      postMessage(message: Request): void {
+        queueMicrotask(() => this.handle(message));
+      }
+
+      terminate(): void {}
+    }
+
+    const first = new TextEncoder().encode('first message');
+    const second = new TextEncoder().encode('second message');
+    const hasher = await createOrderedSha256({ workerFactory: () => new LoopbackWorker() });
+
+    hasher.update(first);
+    hasher.reset();
+    hasher.update(second);
+    await expect(hasher.digest()).resolves.toEqual({
+      hex: nodeDigest(second),
+      bytes: second.length,
+    });
+
+    hasher.dispose();
+  });
+});

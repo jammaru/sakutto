@@ -2,7 +2,7 @@
  * Small streaming SHA-256 core for the Sakutto model downloader.
  *
  * This is an original implementation of FIPS 180-4 SHA-256. It uses no libc and
- * exports one context, one 64 KiB input scratch buffer, a pointer getter, and three
+ * exports one context, one 256 KiB input scratch buffer, a pointer getter, and three
  * hashing entry points: sha256_init, sha256_update, and sha256_final. JavaScript creates
  * one WebAssembly instance per hasher, so concurrent downloads never share state.
  *
@@ -10,10 +10,11 @@
  * SPDX-License-Identifier: MIT
  *
  * Rebuild (the base64 payload in sha256-wasm.ts is generated from the .wasm):
- *   clang --target=wasm32 -O3 -nostdlib -fvisibility=hidden -Wl,--no-entry \
+ *   clang --target=wasm32 -O3 -flto -funroll-loops -nostdlib -fvisibility=hidden \
+ *     -Wl,--no-entry -Wl,--strip-all \
  *     -Wl,--export=sha256_init -Wl,--export=sha256_update -Wl,--export=sha256_final \
  *     -Wl,--export=sha256_input -Wl,--export-memory \
- *     -Wl,--initial-memory=262144 -Wl,--max-memory=262144 \
+ *     -Wl,--initial-memory=524288 -Wl,--max-memory=524288 \
  *     -o sha256.wasm sha256.wasm.c
  *   base64 -w0 sha256.wasm
  */
@@ -30,7 +31,7 @@ typedef struct {
 } sha256_context;
 
 static sha256_context ctx;
-static uint8_t input[65536];
+static uint8_t input[262144];
 
 static const uint32_t K[64] = {
   0x428a2f98u, 0x71374491u, 0xb5c0fbcfu, 0xe9b5dba5u,
@@ -55,8 +56,33 @@ static inline uint32_t rotr(uint32_t value, uint32_t bits) {
   return (value >> bits) | (value << (32u - bits));
 }
 
-static void compress(const uint8_t *block) {
-  uint32_t w[64];
+static inline uint32_t load_be32(const uint8_t *p) {
+  uint32_t value;
+  __builtin_memcpy(&value, p, sizeof(value));
+  return __builtin_bswap32(value);
+}
+
+#define CH(x, y, z) ((z) ^ ((x) & ((y) ^ (z))))
+#define MAJ(x, y, z) (((x) & (y)) | ((z) & ((x) | (y))))
+#define BSIG0(x) (rotr((x), 2u) ^ rotr((x), 13u) ^ rotr((x), 22u))
+#define BSIG1(x) (rotr((x), 6u) ^ rotr((x), 11u) ^ rotr((x), 25u))
+#define SSIG0(x) (rotr((x), 7u) ^ rotr((x), 18u) ^ ((x) >> 3u))
+#define SSIG1(x) (rotr((x), 17u) ^ rotr((x), 19u) ^ ((x) >> 10u))
+
+#define ROUND(a, b, c, d, e, f, g, h, wi, ki) do { \
+  const uint32_t t1 = (h) + BSIG1(e) + CH((e), (f), (g)) + K[(ki)] + w[(wi)]; \
+  const uint32_t t2 = BSIG0(a) + MAJ((a), (b), (c)); \
+  (d) += t1; \
+  (h) = t1 + t2; \
+} while (0)
+
+#define SCHED(j) do { \
+  w[(j)] += SSIG0(w[((j) + 1u) & 15u]) + w[((j) + 9u) & 15u] + \
+             SSIG1(w[((j) + 14u) & 15u]); \
+} while (0)
+
+static __attribute__((always_inline)) inline void compress(const uint8_t *block) {
+  uint32_t w[16];
   uint32_t a;
   uint32_t b;
   uint32_t c;
@@ -67,15 +93,8 @@ static void compress(const uint8_t *block) {
   uint32_t h;
   uint32_t i;
 
-  for (i = 0; i < 16u; i += 1u) {
-    const uint8_t *p = block + i * 4u;
-    w[i] = ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | (uint32_t)p[3];
-  }
-  for (i = 16u; i < 64u; i += 1u) {
-    const uint32_t s0 = rotr(w[i - 15u], 7u) ^ rotr(w[i - 15u], 18u) ^ (w[i - 15u] >> 3u);
-    const uint32_t s1 = rotr(w[i - 2u], 17u) ^ rotr(w[i - 2u], 19u) ^ (w[i - 2u] >> 10u);
-    w[i] = w[i - 16u] + s0 + w[i - 7u] + s1;
-  }
+#pragma clang loop unroll(full)
+  for (i = 0; i < 16u; i += 1u) w[i] = load_be32(block + i * 4u);
 
   a = ctx.state[0];
   b = ctx.state[1];
@@ -86,23 +105,118 @@ static void compress(const uint8_t *block) {
   g = ctx.state[6];
   h = ctx.state[7];
 
-  for (i = 0; i < 64u; i += 1u) {
-    const uint32_t sum1 = rotr(e, 6u) ^ rotr(e, 11u) ^ rotr(e, 25u);
-    const uint32_t choose = (e & f) ^ (~e & g);
-    const uint32_t temp1 = h + sum1 + choose + K[i] + w[i];
-    const uint32_t sum0 = rotr(a, 2u) ^ rotr(a, 13u) ^ rotr(a, 22u);
-    const uint32_t majority = (a & b) ^ (a & c) ^ (b & c);
-    const uint32_t temp2 = sum0 + majority;
-
-    h = g;
-    g = f;
-    f = e;
-    e = d + temp1;
-    d = c;
-    c = b;
-    b = a;
-    a = temp1 + temp2;
-  }
+  ROUND(a, b, c, d, e, f, g, h, 0u, 0u);
+  ROUND(h, a, b, c, d, e, f, g, 1u, 1u);
+  ROUND(g, h, a, b, c, d, e, f, 2u, 2u);
+  ROUND(f, g, h, a, b, c, d, e, 3u, 3u);
+  ROUND(e, f, g, h, a, b, c, d, 4u, 4u);
+  ROUND(d, e, f, g, h, a, b, c, 5u, 5u);
+  ROUND(c, d, e, f, g, h, a, b, 6u, 6u);
+  ROUND(b, c, d, e, f, g, h, a, 7u, 7u);
+  ROUND(a, b, c, d, e, f, g, h, 8u, 8u);
+  ROUND(h, a, b, c, d, e, f, g, 9u, 9u);
+  ROUND(g, h, a, b, c, d, e, f, 10u, 10u);
+  ROUND(f, g, h, a, b, c, d, e, 11u, 11u);
+  ROUND(e, f, g, h, a, b, c, d, 12u, 12u);
+  ROUND(d, e, f, g, h, a, b, c, 13u, 13u);
+  ROUND(c, d, e, f, g, h, a, b, 14u, 14u);
+  ROUND(b, c, d, e, f, g, h, a, 15u, 15u);
+  SCHED(0u);
+  SCHED(1u);
+  SCHED(2u);
+  SCHED(3u);
+  SCHED(4u);
+  SCHED(5u);
+  SCHED(6u);
+  SCHED(7u);
+  SCHED(8u);
+  SCHED(9u);
+  SCHED(10u);
+  SCHED(11u);
+  SCHED(12u);
+  SCHED(13u);
+  SCHED(14u);
+  SCHED(15u);
+  ROUND(a, b, c, d, e, f, g, h, 0u, 16u);
+  ROUND(h, a, b, c, d, e, f, g, 1u, 17u);
+  ROUND(g, h, a, b, c, d, e, f, 2u, 18u);
+  ROUND(f, g, h, a, b, c, d, e, 3u, 19u);
+  ROUND(e, f, g, h, a, b, c, d, 4u, 20u);
+  ROUND(d, e, f, g, h, a, b, c, 5u, 21u);
+  ROUND(c, d, e, f, g, h, a, b, 6u, 22u);
+  ROUND(b, c, d, e, f, g, h, a, 7u, 23u);
+  ROUND(a, b, c, d, e, f, g, h, 8u, 24u);
+  ROUND(h, a, b, c, d, e, f, g, 9u, 25u);
+  ROUND(g, h, a, b, c, d, e, f, 10u, 26u);
+  ROUND(f, g, h, a, b, c, d, e, 11u, 27u);
+  ROUND(e, f, g, h, a, b, c, d, 12u, 28u);
+  ROUND(d, e, f, g, h, a, b, c, 13u, 29u);
+  ROUND(c, d, e, f, g, h, a, b, 14u, 30u);
+  ROUND(b, c, d, e, f, g, h, a, 15u, 31u);
+  SCHED(0u);
+  SCHED(1u);
+  SCHED(2u);
+  SCHED(3u);
+  SCHED(4u);
+  SCHED(5u);
+  SCHED(6u);
+  SCHED(7u);
+  SCHED(8u);
+  SCHED(9u);
+  SCHED(10u);
+  SCHED(11u);
+  SCHED(12u);
+  SCHED(13u);
+  SCHED(14u);
+  SCHED(15u);
+  ROUND(a, b, c, d, e, f, g, h, 0u, 32u);
+  ROUND(h, a, b, c, d, e, f, g, 1u, 33u);
+  ROUND(g, h, a, b, c, d, e, f, 2u, 34u);
+  ROUND(f, g, h, a, b, c, d, e, 3u, 35u);
+  ROUND(e, f, g, h, a, b, c, d, 4u, 36u);
+  ROUND(d, e, f, g, h, a, b, c, 5u, 37u);
+  ROUND(c, d, e, f, g, h, a, b, 6u, 38u);
+  ROUND(b, c, d, e, f, g, h, a, 7u, 39u);
+  ROUND(a, b, c, d, e, f, g, h, 8u, 40u);
+  ROUND(h, a, b, c, d, e, f, g, 9u, 41u);
+  ROUND(g, h, a, b, c, d, e, f, 10u, 42u);
+  ROUND(f, g, h, a, b, c, d, e, 11u, 43u);
+  ROUND(e, f, g, h, a, b, c, d, 12u, 44u);
+  ROUND(d, e, f, g, h, a, b, c, 13u, 45u);
+  ROUND(c, d, e, f, g, h, a, b, 14u, 46u);
+  ROUND(b, c, d, e, f, g, h, a, 15u, 47u);
+  SCHED(0u);
+  SCHED(1u);
+  SCHED(2u);
+  SCHED(3u);
+  SCHED(4u);
+  SCHED(5u);
+  SCHED(6u);
+  SCHED(7u);
+  SCHED(8u);
+  SCHED(9u);
+  SCHED(10u);
+  SCHED(11u);
+  SCHED(12u);
+  SCHED(13u);
+  SCHED(14u);
+  SCHED(15u);
+  ROUND(a, b, c, d, e, f, g, h, 0u, 48u);
+  ROUND(h, a, b, c, d, e, f, g, 1u, 49u);
+  ROUND(g, h, a, b, c, d, e, f, 2u, 50u);
+  ROUND(f, g, h, a, b, c, d, e, 3u, 51u);
+  ROUND(e, f, g, h, a, b, c, d, 4u, 52u);
+  ROUND(d, e, f, g, h, a, b, c, 5u, 53u);
+  ROUND(c, d, e, f, g, h, a, b, 6u, 54u);
+  ROUND(b, c, d, e, f, g, h, a, 7u, 55u);
+  ROUND(a, b, c, d, e, f, g, h, 8u, 56u);
+  ROUND(h, a, b, c, d, e, f, g, 9u, 57u);
+  ROUND(g, h, a, b, c, d, e, f, 10u, 58u);
+  ROUND(f, g, h, a, b, c, d, e, 11u, 59u);
+  ROUND(e, f, g, h, a, b, c, d, 12u, 60u);
+  ROUND(d, e, f, g, h, a, b, c, 13u, 61u);
+  ROUND(c, d, e, f, g, h, a, b, 14u, 62u);
+  ROUND(b, c, d, e, f, g, h, a, 15u, 63u);
 
   ctx.state[0] += a;
   ctx.state[1] += b;

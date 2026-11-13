@@ -1,24 +1,25 @@
 /**
  * Compare the hashing paths used by the model downloader.
  *
- *   pnpm bench:sha256 --size-mb 64 --chunk-kb 4096 --runs 3
+ *   pnpm bench:sha256 --size-mb 64 --chunk-kb 4096 --runs 3 --hash=wasm
  *
- * `pure-JS` is the old `Sha256` fallback used by the full-file pass. The reported browser run
- * measured about 46 MiB/s (~38 s after a 1.7 GiB transfer), including Blob reads and yields;
- * raw hashing on a desktop CPU can be several times that, which is why the script prints the
- * actual number instead of assuming one. `streaming WASM` is the hasher the downloader now
- * updates as ordered blocks land. `webcrypto` is the whole-buffer `crypto.subtle.digest`
- * baseline; it is fast but needs the entire file in memory and has no streaming API.
+ * `pure-JS` is the `Sha256` fallback. `streaming WASM` is the core the downloader updates as
+ * ordered blocks land in its dedicated worker. `webcrypto` is the whole-buffer
+ * `crypto.subtle.digest` baseline; it is fast but needs the entire file in memory and has no
+ * streaming API. `--hash=none` measures the framework overhead without hashing.
  */
 import { createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 
 import { createSha256, Sha256 } from '../../src/engine/model/sha256.ts';
 
+type HashChoice = 'all' | 'wasm' | 'js' | 'none';
+
 interface BenchOptions {
   sizeMb: number;
   chunkKb: number;
   runs: number;
+  hash: HashChoice;
 }
 
 interface Sample {
@@ -47,10 +48,16 @@ function readOptions(): BenchOptions {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
   };
 
+  const hash = values.get('hash') ?? 'all';
+  if (hash !== 'all' && hash !== 'wasm' && hash !== 'js' && hash !== 'none') {
+    throw new Error('--hash must be all, wasm, js, or none.');
+  }
+
   return {
     sizeMb: number('size-mb', 64),
     chunkKb: number('chunk-kb', 4096),
     runs: Math.max(1, Math.floor(number('runs', 3))),
+    hash,
   };
 }
 
@@ -127,11 +134,21 @@ async function main(): Promise<void> {
       `${String(options.runs)} run(s)`,
   );
 
-  const samples = [
-    await measure('pure-JS Sha256 (before)', size, expected, options.runs, hashWithJs),
-    await measure('streaming WASM (after)', size, expected, options.runs, hashWithWasm),
-    await measure('crypto.subtle whole buffer', size, expected, options.runs, hashWithWebCrypto),
-  ];
+  const samples: Sample[] = [];
+  if (options.hash === 'all' || options.hash === 'js') {
+    samples.push(await measure('pure-JS Sha256', size, expected, options.runs, hashWithJs));
+  }
+  if (options.hash === 'all' || options.hash === 'wasm') {
+    samples.push(await measure('streaming WASM', size, expected, options.runs, hashWithWasm));
+  }
+  if (options.hash === 'none') {
+    samples.push(await measure('no hashing', size, expected, options.runs, () => expected));
+  }
+  if (options.hash === 'all') {
+    samples.push(
+      await measure('crypto.subtle whole buffer', size, expected, options.runs, hashWithWebCrypto),
+    );
+  }
 
   for (const sample of samples) {
     console.log(
@@ -140,16 +157,16 @@ async function main(): Promise<void> {
     );
   }
 
-  const js = samples[0];
-  const wasm = samples[1];
+  const js = samples.find((sample) => sample.label === 'pure-JS Sha256');
+  const wasm = samples.find((sample) => sample.label === 'streaming WASM');
   if (js && wasm) {
     console.log(
       `streaming WASM is ${(wasm.mibPerSecond / js.mibPerSecond).toFixed(2)}x the JS fallback`,
     );
   }
   console.log(
-    'Production difference: the WASM hasher runs during the transfer, so the end-of-download ' +
-      'pass disappears; only a resumed .part prefix is hashed again.',
+    'Production difference: the WASM hasher runs in a dedicated worker fed with written ' +
+      'blocks, so hashing is off the transfer path; only a resumed .part prefix is hashed again.',
   );
 }
 

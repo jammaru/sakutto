@@ -109,7 +109,7 @@ describe('ModelManager', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it('reports verifying progress while hashing a resumed prefix', async () => {
+  it('keeps resumed bytes monotonic while the prefix is hashed', async () => {
     const store = new MemoryFileStore();
     await store.append(`models/${ENTRY.id}/model.gguf.part`, PAYLOAD.slice(0, 5), 0);
     const statuses: ModelStatus[] = [];
@@ -130,14 +130,17 @@ describe('ModelManager', () => {
 
     await manager.download(ENTRY.id, { signal: new AbortController().signal });
 
-    expect(
-      statuses.some(
-        (status) =>
-          status.state === 'verifying' &&
-          status.received === 5 &&
-          status.progress === 5 / PAYLOAD.length,
-      ),
-    ).toBe(true);
+    expect(statuses.some((status) => status.state === 'verifying' && status.received === 5)).toBe(
+      false,
+    );
+    for (let index = 1; index < statuses.length; index += 1) {
+      expect(statuses[index]?.received ?? 0).toBeGreaterThanOrEqual(
+        statuses[index - 1]?.received ?? 0,
+      );
+      if (statuses[index - 1]?.state === 'verifying') {
+        expect(statuses[index]?.state).not.toBe('downloading');
+      }
+    }
     expect(statuses.at(-1)).toMatchObject({ state: 'ready', progress: 1 });
   });
 

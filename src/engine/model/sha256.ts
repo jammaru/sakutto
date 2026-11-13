@@ -21,7 +21,7 @@ const INITIAL_STATE = new Uint32Array([
 ]);
 
 const BLOCK_SIZE = 64;
-const WASM_INPUT_BYTES = 64 * 1024;
+const WASM_INPUT_BYTES = 256 * 1024;
 const textEncoder = new TextEncoder();
 
 function rotateRight(value: number, bits: number): number {

@@ -124,7 +124,12 @@
         </p>
       {/if}
       <div class="actions">
-        {#if downloading}
+        {#if downloading || verifying}
+          {#if verifying}
+            <p class="muted" role="status">{t('modelVerifying')}</p>
+          {/if}
+          <!-- Verification still reads local bytes and can be cancelled. Keep the same control
+               visible instead of replacing it with a status label. -->
           <button
             class="button secondary"
             type="button"
@@ -145,10 +150,6 @@
               {t('modelUse')}
             </button>
           {/if}
-        {:else if verifying}
-          <!-- The file is complete and the digest is being checked. There is no transfer to
-               pause; only the pending status belongs here. -->
-          <p class="muted" role="status">{t('modelVerifying')}</p>
         {:else if state === 'loading'}
           <!-- The file is here and the runtime is reading it. A Download button in this
                state is a start control for something that is already under way. -->
