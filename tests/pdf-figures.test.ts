@@ -112,11 +112,17 @@ describe('figure cluster caps', () => {
       OPS.paintFormXObjectEnd,
     ];
     const argsArray: unknown[][] = [
-      [[1, 0, 0, 1, 40, 400], [0, 0, 200, 100]],
+      [
+        [1, 0, 0, 1, 40, 400],
+        [0, 0, 200, 100],
+      ],
       [],
       [],
       [],
-      [[1, 0, 0, 1, 300, 100], [0, 0, 200, 100]],
+      [
+        [1, 0, 0, 1, 300, 100],
+        [0, 0, 200, 100],
+      ],
       [],
     ];
     const areas = figureAreas({ fnArray, argsArray }, OPS, 800, 600);

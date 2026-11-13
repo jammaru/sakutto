@@ -253,10 +253,7 @@ describe('PdfSession stream handling', () => {
     }
     session.focusPage(23);
 
-    await waitFor(
-      () => session.progress().pending === 0 && session.progress().failed === 0,
-      3000,
-    );
+    await waitFor(() => session.progress().pending === 0 && session.progress().failed === 0, 3000);
     const progress = session.progress();
     expect(progress.failed).toBe(0);
     expect(progress.done).toBe(progress.total);
@@ -504,8 +501,7 @@ describe('PdfSession stream handling', () => {
   });
 
   it('fails a block whose output still echoes the English source', async () => {
-    const source =
-      'Method A compares each synthetic configuration when the stream is classified.';
+    const source = 'Method A compares each synthetic configuration when the stream is classified.';
     const engine = engineOf(async function* (segments) {
       const id = segments[0]?.id ?? 'b1';
       yield { id, final: source };

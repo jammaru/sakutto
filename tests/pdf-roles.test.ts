@@ -68,8 +68,7 @@ describe('figure labels versus ticks', () => {
     );
     expect(
       layout.skipped.some(
-        (block) =>
-          block.text.includes('drawn inside the diagram') && block.role === 'figure-label',
+        (block) => block.text.includes('drawn inside the diagram') && block.role === 'figure-label',
       ),
     ).toBe(true);
   });

@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  translationEchoesSource,
-  translationStaysInSourceLanguage,
-} from '@/pdf/language';
+import { translationEchoesSource, translationStaysInSourceLanguage } from '@/pdf/language';
 
 describe('translationEchoesSource', () => {
   it('rejects unchanged English when the target is Japanese', () => {
@@ -49,9 +46,7 @@ describe('translationEchoesSource', () => {
     ];
     expect(translations).toHaveLength(10);
     expect(
-      translations.filter((translation) =>
-        translationEchoesSource(source, translation, 'de'),
-      ),
+      translations.filter((translation) => translationEchoesSource(source, translation, 'de')),
     ).toHaveLength(0);
     for (const translation of translations) {
       expect(translationStaysInSourceLanguage(source, translation, 'de')).toBe(false);
