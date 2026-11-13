@@ -319,11 +319,50 @@ export function layoutPage(
     pageHeight,
     pageIndex,
   );
-  return {
-    blocks: mergeLabelFragments(kept, bodySize, figures, pageHeight, pageIndex),
+  const gutterMid = pageWidth > 0 ? pageWidth * 0.49 : 0;
+  const pageSpansGutter =
+    gutterMid > 0 &&
+    clean.some((line) => line.box.x < gutterMid - 2) &&
+    clean.some((line) => line.box.x >= gutterMid - 2);
+  let output = mergeLabelFragments(kept, bodySize, figures, pageHeight, pageIndex);
+  if (pageWidth > 0 && pageSpansGutter) {
+    output = splitNumberedListProse(output, bodySize, figures, pageHeight, pageIndex, pageWidth);
+    output = splitProseAtGutter(output, pageWidth, bodySize, figures, pageHeight, pageIndex);
+    refineProseBoxes(output, pageWidth, { tightenOnly: true });
+  }
+  const skippedFinal = blocks.filter((block) => !translatable(block));
+  const orphanProbe: PageLayout = {
+    blocks: output,
     bodySize,
     lineHeight: unit,
-    skipped: blocks.filter((block) => !translatable(block)),
+    skipped: skippedFinal,
+    pageHeight,
+    pageWidth,
+    pageIndex,
+    obstacles,
+  };
+  const orphanCount = orphanLineCount(clean, orphanProbe);
+  if (pageWidth > 0 && pageSpansGutter && pageIndex > 0 && orphanCount > 0) {
+    for (let pass = 0; pass < 4; pass += 1) {
+      attachOrphanLinePieces(
+        output,
+        clean,
+        pageWidth,
+        bodySize > 0 ? bodySize : unit,
+        figures,
+        pageHeight,
+        pageIndex,
+      );
+      if (orphanLineCount(clean, { ...orphanProbe, blocks: output }) === 0) break;
+    }
+    output = splitProseAtGutter(output, pageWidth, bodySize, figures, pageHeight, pageIndex);
+    refineProseBoxes(output, pageWidth, { tightenOnly: true });
+  }
+  return {
+    blocks: output,
+    bodySize,
+    lineHeight: unit,
+    skipped: skippedFinal,
     pageHeight,
     pageWidth,
     pageIndex,
@@ -375,6 +414,81 @@ function assignedPieces(blocks: readonly LayoutBlock[]): Set<TextPiece> {
   return assigned;
 }
 
+function attachOrphanLinePieces(
+  blocks: LayoutBlock[],
+  extracted: readonly TextLine[],
+  pageWidth: number,
+  bodySize: number,
+  figures: FigureAreas,
+  pageHeight: number,
+  pageIndex: number,
+): void {
+  const assigned = assignedPieces(blocks);
+  const gutter = pageWidth > 0 ? pageWidth * 0.49 : Infinity;
+  for (const line of extracted) {
+    if (line.text.trim().length === 0) continue;
+    const missing = line.pieces.filter((piece) => !assigned.has(piece));
+    if (missing.length === 0) continue;
+    const column = line.box.x >= gutter - 2 ? 1 : 0;
+    let host: LayoutBlock | undefined;
+    let bestGap = Infinity;
+    const proximity = Math.max(line.height, bodySize) * (line.text.trim().length < 16 ? 2.2 : 0.55);
+    for (const block of blocks) {
+      if (block.role !== 'prose' && block.role !== 'heading') continue;
+      if (block.column !== column) continue;
+      for (const candidate of block.lines) {
+        const gap = Math.abs(candidate.baseline - line.baseline);
+        if (gap > proximity) continue;
+        if (gap < bestGap) {
+          bestGap = gap;
+          host = block;
+        }
+      }
+    }
+    const carry = missing.length === line.pieces.length ? line : lineFrom(missing);
+    if (
+      isBylineLabel(carry.text) ||
+      isAffiliationLine(carry.text) ||
+      isTableHeaderLine(carry.text)
+    ) {
+      continue;
+    }
+    if (!host) {
+      if (carry.text.trim().length < 16) continue;
+      const built = buildBlock(
+        [carry],
+        carry.box,
+        column,
+        bodySize,
+        figures,
+        carry.box.x,
+        pageHeight,
+        pageIndex,
+      );
+      if (!built || (built.role !== 'prose' && built.role !== 'heading')) continue;
+      blocks.push(built);
+      for (const piece of carry.pieces) assigned.add(piece);
+      continue;
+    }
+    const hostIndex = blocks.indexOf(host);
+    if (hostIndex < 0) continue;
+    const mergedLines = [...host.lines, carry];
+    const rebuilt = buildBlock(
+      mergedLines,
+      host.room,
+      host.column,
+      bodySize,
+      figures,
+      host.box.x,
+      pageHeight,
+      pageIndex,
+    );
+    if (!rebuilt) continue;
+    blocks[hostIndex] = { ...rebuilt, role: host.role };
+    for (const piece of carry.pieces) assigned.add(piece);
+  }
+}
+
 /** Extracted lines whose pieces never landed in a translatable or skipped block. */
 export function orphanLineCount(extracted: readonly TextLine[], layout: PageLayout): number {
   const assigned = assignedPieces([...layout.blocks, ...layout.skipped]);
@@ -413,6 +527,7 @@ export function isCaptionLine(text: string): boolean {
 export function isTableHeaderLine(text: string): boolean {
   const trimmed = text.trim();
   if (trimmed.length === 0 || trimmed.length > 32) return false;
+  if (/^\d+\.\s/u.test(trimmed)) return false;
   if (isCaptionLine(trimmed)) return false;
   if (/[.!?]$/u.test(trimmed)) return false;
   const words = trimmed.split(/\s+/u);
@@ -1720,6 +1835,173 @@ function splitAtFigures(lines: readonly TextLine[], figures: FigureAreas): TextL
  * short label block, and the translation of each fragment is too long for its tiny box. The
  * fragments share a baseline and body type, so they can be put back into one prose block.
  */
+type RefineProseContext = {
+  tightenOnly?: boolean;
+};
+
+/** Clips prose boxes to the lines that belong in their column (gutter pages only). */
+function refineProseBoxes(
+  blocks: LayoutBlock[],
+  _pageWidth: number,
+  context?: RefineProseContext,
+): void {
+  if (context?.tightenOnly !== true) return;
+  for (let index = 0; index < blocks.length; index += 1) {
+    const block = blocks[index];
+    if (!block || (block.role !== 'prose' && block.role !== 'heading')) continue;
+    const clip = unionBox(block.lines.map((line) => line.box));
+    if (!clip) continue;
+    const maxLine = Math.max(...block.lines.map((line) => line.box.width));
+    const width = Math.min(Math.max(clip.width, maxLine), block.room.width);
+    blocks[index] = { ...block, box: { ...clip, width } };
+  }
+}
+
+function splitProseAtGutter(
+  blocks: readonly LayoutBlock[],
+  pageWidth: number,
+  bodySize: number,
+  figures: FigureAreas,
+  pageHeight: number,
+  pageIndex: number,
+): LayoutBlock[] {
+  if (pageWidth <= 0) return [...blocks];
+  const gutter = pageWidth * 0.49;
+  const out: LayoutBlock[] = [];
+  for (const block of blocks) {
+    if (block.role !== 'prose' && block.role !== 'heading') {
+      out.push(block);
+      continue;
+    }
+    const hasLeft = block.lines.some((line) => line.box.x < gutter - 2);
+    const hasRight = block.lines.some((line) => line.box.x >= gutter - 2);
+    if (!hasLeft || !hasRight) {
+      out.push(block);
+      continue;
+    }
+    const sides: Array<{ column: number; lines: TextLine[] }> = [
+      { column: 0, lines: block.lines.filter((line) => line.box.x < gutter - 2) },
+      { column: 1, lines: block.lines.filter((line) => line.box.x >= gutter - 2) },
+    ];
+    for (const side of sides) {
+      if (side.lines.length === 0) continue;
+      const built = buildBlock(
+        side.lines,
+        block.room,
+        side.column,
+        bodySize,
+        figures,
+        side.lines[0]?.box.x ?? block.box.x,
+        pageHeight,
+        pageIndex,
+      );
+      if (built) out.push({ ...built, role: block.role });
+    }
+  }
+  return out;
+}
+
+/**
+ * Splits a prose block that merges several numbered procedure steps into one step per item,
+ * but only when the block spans the gutter so the list would otherwise paint over a neighbour.
+ */
+function splitNumberedListProse(
+  blocks: readonly LayoutBlock[],
+  bodySize: number,
+  figures: FigureAreas,
+  pageHeight: number,
+  pageIndex: number,
+  pageWidth: number,
+): LayoutBlock[] {
+  const gutter = pageWidth > 0 ? pageWidth * 0.49 : 0;
+  const inBlockColumn = (line: TextLine, column: number): boolean => {
+    if (gutter <= 0) return true;
+    return column > 0 ? line.box.x >= gutter - 4 : line.box.x < gutter - 4;
+  };
+  const out: LayoutBlock[] = [];
+  for (const block of blocks) {
+    if (block.role !== 'prose' || block.lines.length < 4) {
+      out.push(block);
+      continue;
+    }
+    const orderedAll = [...block.lines].sort(
+      (left, right) => left.baseline - right.baseline || left.box.x - right.box.x,
+    );
+    const spansGutter =
+      gutter > 0 &&
+      block.lines.some((line) => line.box.x < gutter - 4) &&
+      block.lines.some((line) => line.box.x >= gutter - 4);
+    const markerLines = orderedAll
+      .filter((line) => inBlockColumn(line, block.column))
+      .filter((line) => /^\d+\.$/u.test(line.text.trim())).length;
+    if (markerLines < 2 || !spansGutter) {
+      out.push(block);
+      continue;
+    }
+    const ordered = orderedAll.filter((line) => inBlockColumn(line, block.column));
+    if (ordered.length === 0) {
+      out.push(block);
+      continue;
+    }
+    const groups: TextLine[][] = [];
+    let current: TextLine[] = [];
+    for (let index = 0; index < ordered.length; index += 1) {
+      const line = ordered[index];
+      if (!line) continue;
+      const trimmed = line.text.trim();
+      const isMarker = /^\d+\.$/u.test(trimmed);
+      const isItemStart = /^\d+\.\s+\p{L}/u.test(trimmed);
+      if (current.length > 0 && (isMarker || isItemStart)) {
+        groups.push(current);
+        current = [];
+      }
+      current.push(line);
+      const next = ordered[index + 1];
+      if (isMarker && next && Math.abs(next.baseline - line.baseline) <= line.height * 0.45) {
+        index += 1;
+        current.push(next);
+      }
+    }
+    if (current.length > 0) groups.push(current);
+    const realGroups = groups.filter((group) => joinLines(group).trim().length > 12);
+    if (realGroups.length <= 1) {
+      out.push(block);
+      continue;
+    }
+    const neighbourLines = block.lines.filter((line) => !inBlockColumn(line, block.column));
+    if (neighbourLines.length > 0) {
+      const neighbourColumn = block.column > 0 ? 0 : 1;
+      const neighbourBlock = buildBlock(
+        neighbourLines,
+        block.room,
+        neighbourColumn,
+        bodySize,
+        figures,
+        block.box.x,
+        pageHeight,
+        pageIndex,
+      );
+      if (neighbourBlock) out.push({ ...neighbourBlock, role: 'prose' });
+    }
+    for (const group of realGroups) {
+      const columnGroup = group.filter((line) => inBlockColumn(line, block.column));
+      if (columnGroup.length === 0) continue;
+      const rebuilt = buildBlock(
+        columnGroup,
+        block.room,
+        block.column,
+        bodySize,
+        figures,
+        block.box.x,
+        pageHeight,
+        pageIndex,
+      );
+      if (rebuilt) out.push({ ...rebuilt, role: 'prose' });
+    }
+  }
+  return out;
+}
+
 /** A run-in section title such as `Related work:` on the same line as the opening sentence. */
 function runInSectionHeadingPrefix(text: string): boolean {
   return /^Related\s+[Ww]ork\s*:\s*\S/u.test(text.trimStart());
@@ -1920,7 +2202,21 @@ function buildBlock(
   pageIndex = 0,
 ): LayoutBlock | null {
   if (lines.length === 0) return null;
-  const box = unionBox(lines.map((line) => line.box));
+  const inColumn = lines.filter(
+    (line) => line.box.x >= room.x - 6 && line.box.x + line.box.width <= boxRight(room) + 8,
+  );
+  const baselinesEarly = lines.map((line) => line.baseline);
+  const fontSizeEarly = median(lines.map((line) => line.height));
+  const widestLine = Math.max(...lines.map((line) => line.box.width), 0);
+  const multiLineProse =
+    lines.length > 1 &&
+    Math.max(...baselinesEarly) - Math.min(...baselinesEarly) > Math.max(fontSizeEarly, 1) * 0.65 &&
+    room.width < widestLine * 0.92;
+  const measureFrom =
+    multiLineProse || inColumn.length < Math.max(1, Math.ceil(lines.length * 0.4))
+      ? lines
+      : inColumn;
+  const box = unionBox(measureFrom.map((line) => line.box));
   if (!box) return null;
 
   const text = joinLines(lines);
