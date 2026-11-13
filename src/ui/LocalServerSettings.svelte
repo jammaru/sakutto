@@ -1,6 +1,9 @@
 <script lang="ts">
   import { testLocalServer, type LocalServerModel } from '@/engine/local-server/client';
-  import { requestServerPermission } from '@/engine/local-server/permissions';
+  import {
+    requestServerPermission,
+    resolveEngineSourceSwitch,
+  } from '@/engine/local-server/permissions';
   import {
     isRemoteServerUrl,
     LOCAL_SERVER_PRESETS,
@@ -41,16 +44,13 @@
   }
 
   async function applySource(source: EngineSource, ack = false): Promise<void> {
-    if (source === 'local-server') {
-      const remoteUrl = isRemoteServerUrl(settings.localServerUrl);
-      if (!remoteUrl || settings.localServerAllowRemote) {
-        if (!(await grantIfNeeded(settings.localServerUrl))) return;
-      }
+    const result = await resolveEngineSourceSwitch(source, settings, { ack });
+    if (result.denied) {
+      permissionDenied = true;
+      return;
     }
     permissionDenied = false;
-    const patch: SettingsPatch = { engineSource: source };
-    if (ack) patch.localServerExperimentalAck = true;
-    await onUpdate(patch);
+    await onUpdate(result.patch);
   }
 
   function chooseSource(source: EngineSource): void {
@@ -230,6 +230,10 @@
         </button>
       </div>
     </div>
+  {/if}
+
+  {#if permissionDenied && !local}
+    <p class="error" role="alert">{t('localServerPermissionDenied')}</p>
   {/if}
 
   {#if local}

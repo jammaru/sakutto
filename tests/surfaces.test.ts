@@ -296,6 +296,39 @@ describe('local server settings', () => {
       "this.prefs.engineSource === 'local-server' ? 1",
     );
   });
+
+  it('calls permissions.request as the first await when confirming the local server', () => {
+    const permissions = source('engine/local-server/permissions.ts');
+    const requestStart = permissions.indexOf('export async function requestServerPermission');
+    const requestEnd = permissions.indexOf('export type EngineSourceSwitchResult');
+    const requestBody = permissions.slice(requestStart, requestEnd);
+    expect(requestBody).toContain('permissions.request({ origins })');
+    expect(requestBody).not.toMatch(/contains/);
+
+    const switchStart = permissions.indexOf('export async function resolveEngineSourceSwitch');
+    const switchBody = permissions.slice(switchStart);
+    const beforeRequest = switchBody.slice(0, switchBody.indexOf('await request('));
+    expect(beforeRequest).not.toMatch(/\bawait\b/);
+
+    expect(panel).toContain('resolveEngineSourceSwitch');
+    const applyStart = panel.indexOf('async function applySource');
+    const applyEnd = panel.indexOf('function chooseSource');
+    const applyBody = panel.slice(applyStart, applyEnd);
+    const beforeSwitch = applyBody.slice(0, applyBody.indexOf('await resolveEngineSourceSwitch'));
+    expect(beforeSwitch).not.toMatch(/\bawait\b/);
+
+    const confirmStart = panel.indexOf('function useLocalServer');
+    const confirmEnd = panel.indexOf('async function changeUrl');
+    const confirmBody = panel.slice(confirmStart, confirmEnd);
+    expect(confirmBody).toContain("void applySource('local-server', true)");
+    expect(confirmBody).not.toMatch(/\bawait\b/);
+  });
+
+  it('shows a permission denial on the engine radio when the switch did not stick', () => {
+    expect(panel).toContain('permissionDenied && !local');
+    expect(panel).toContain("t('localServerPermissionDenied')");
+    expect(panel).toContain('role="alert"');
+  });
 });
 
 describe('live bench local-server flags', () => {
