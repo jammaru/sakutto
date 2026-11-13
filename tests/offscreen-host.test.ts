@@ -219,6 +219,28 @@ describe('EngineHost', () => {
     expect(unload).toHaveBeenCalled();
   });
 
+  it('attaches a second download request without starting another transfer', async () => {
+    const { services, download } = createServices();
+    const release = deferred<void>();
+    download.mockImplementation(async () => {
+      await release.promise;
+    });
+    const host = createHost(services);
+    const first = new FakePort();
+    const second = new FakePort();
+    host.handlePort(first.port);
+    host.handlePort(second.port);
+
+    first.emit({ type: 'model-download', requestId: 'd1', modelId: DEFAULT_MODEL_ID });
+    second.emit({ type: 'model-download', requestId: 'd2', modelId: DEFAULT_MODEL_ID });
+    await flushTasks();
+
+    expect(download).toHaveBeenCalledOnce();
+
+    release.resolve();
+    await flushTasks();
+  });
+
   it('keeps downloading after the starting port disconnects', async () => {
     const { services, download } = createServices();
     const release = deferred<void>();

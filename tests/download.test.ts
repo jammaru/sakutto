@@ -8,6 +8,46 @@ const PAYLOAD = bytesOf('hello world!');
 const PART = 'model.gguf.part';
 const FINAL = 'model.gguf';
 
+interface Range {
+  start: number;
+  /** Exclusive. */
+  end: number;
+}
+
+function rangeOf(headers: unknown): Range {
+  const record = headers as Record<string, string> | undefined;
+  const match = /^bytes=(\d+)-(\d+)$/u.exec(record?.Range ?? '');
+  if (!match) throw new Error(`Unexpected range: ${String(record?.Range)}`);
+  return { start: Number(match[1]), end: Number(match[2]) + 1 };
+}
+
+function rangeResponse(bytes: Uint8Array, range: Range, url?: string): Response {
+  const response = new Response(bytes.slice(range.start, range.end), {
+    status: 206,
+    headers: {
+      'Content-Length': String(range.end - range.start),
+      'Content-Range': `bytes ${String(range.start)}-${String(range.end - 1)}/${String(bytes.length)}`,
+    },
+  });
+  if (url) Object.defineProperty(response, 'url', { value: url });
+  return response;
+}
+
+async function within<T>(promise: Promise<T>, milliseconds: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new Error('The download did not settle promptly.')),
+      milliseconds,
+    );
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 function sourceOf(bytes: Uint8Array, overrides: { size?: number; sha256?: string } = {}) {
   return {
     url: 'https://example.test/model.gguf',
@@ -47,7 +87,7 @@ describe('resumable model download', () => {
     expect(result).toEqual({ bytes: PAYLOAD.length, sha256: sha256Hex(PAYLOAD), resumedFrom: 0 });
     expect(fetchImpl).toHaveBeenCalledOnce();
     const headers = fetchImpl.mock.calls[0]?.[1]?.headers as Record<string, string>;
-    expect(headers.Range).toBeUndefined();
+    expect(headers.Range).toBe('bytes=0-11');
     expect(store.files.has(PART)).toBe(false);
     expect(new TextDecoder().decode(store.files.get(FINAL))).toBe('hello world!');
     expect(progress[0]).toMatchObject({ received: 0, ratio: 0, resumedFrom: 0 });
@@ -62,7 +102,7 @@ describe('resumable model download', () => {
     const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       void input;
       const headers = init?.headers as Record<string, string>;
-      expect(headers.Range).toBe('bytes=4-');
+      expect(headers.Range).toBe('bytes=4-11');
       return new Response(streamOf([PAYLOAD.slice(4)]), { status: 206 });
     });
 
@@ -78,20 +118,23 @@ describe('resumable model download', () => {
     expect(new TextDecoder().decode(store.files.get(FINAL))).toBe('hello world!');
   });
 
-  it('restarts when the server ignores the range header', async () => {
+  it('restarts when the server ignores the range header without rewinding progress', async () => {
     const store = new MemoryFileStore();
     await store.append(PART, bytesOf('XXXXXXXX'), 0);
     const controller = new AbortController();
+    const progress: DownloadProgress[] = [];
 
     const fetchImpl = vi.fn(async () => new Response(new Uint8Array(PAYLOAD), { status: 200 }));
 
     const result = await downloadModel({
       ...baseRequest(store, controller.signal),
       fetchImpl,
+      onProgress: (event) => progress.push(event),
     });
 
     expect(result.resumedFrom).toBe(8);
     expect(new TextDecoder().decode(store.files.get(FINAL))).toBe('hello world!');
+    expect(progress.every((event) => event.phase !== 'download' || event.received >= 8)).toBe(true);
   });
 
   it('drops the partial file when the server rejects the range', async () => {
@@ -264,5 +307,450 @@ describe('resumable model download', () => {
       true,
     );
     expect(progress.some((event) => event.phase === 'verify' && event.received === 12)).toBe(true);
+  });
+
+  it('splits the transfer into ranged segments and reuses the resolved CDN URL', async () => {
+    const payload = bytesOf('abcdefghijklmnopqrstuvwxyz');
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const cdn = 'https://cdn.example.test/model.gguf';
+    const ranges: Range[] = [];
+    let first = true;
+
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (first) {
+        first = false;
+        expect(url).toBe('https://example.test/model.gguf');
+        return rangeResponse(payload, { start: 0, end: 8 }, cdn);
+      }
+
+      expect(url).toBe(cdn);
+      const range = rangeOf(init?.headers);
+      ranges.push(range);
+      return rangeResponse(payload, range, cdn);
+    });
+
+    const result = await downloadModel({
+      ...baseRequest(store, controller.signal),
+      source: sourceOf(payload),
+      fetchImpl,
+      segmentBytes: 8,
+      concurrency: 2,
+    });
+
+    expect(result.resumedFrom).toBe(0);
+    expect(ranges.sort((left, right) => left.start - right.start)).toEqual([
+      { start: 8, end: 16 },
+      { start: 16, end: 24 },
+      { start: 24, end: 26 },
+    ]);
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
+    expect(new TextDecoder().decode(store.files.get(FINAL))).toBe('abcdefghijklmnopqrstuvwxyz');
+  });
+
+  it('keeps more than one ranged request in flight', async () => {
+    const payload = bytesOf('0123456789abcdefghijklmnopqrstuv');
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    let first = true;
+    let active = 0;
+    let maxActive = 0;
+
+    const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      const range = rangeOf(init?.headers);
+      if (first) {
+        first = false;
+        return rangeResponse(payload, range);
+      }
+
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      active -= 1;
+      return rangeResponse(payload, range);
+    };
+
+    await downloadModel({
+      ...baseRequest(store, controller.signal),
+      source: sourceOf(payload),
+      fetchImpl,
+      segmentBytes: 4,
+      concurrency: 3,
+    });
+
+    expect(maxActive).toBeGreaterThan(1);
+    expect(new TextDecoder().decode(store.files.get(FINAL))).toBe(
+      '0123456789abcdefghijklmnopqrstuv',
+    );
+  });
+
+  it('retries one failed segment without restarting the completed ones', async () => {
+    const payload = bytesOf('0123456789abcdef');
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const calls = new Map<string, number>();
+    let failed = false;
+    let first = true;
+
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      const range = rangeOf(init?.headers);
+      const key = `${String(range.start)}-${String(range.end)}`;
+      calls.set(key, (calls.get(key) ?? 0) + 1);
+
+      if (!first && range.start === 4 && !failed) {
+        failed = true;
+        throw new TypeError('network down');
+      }
+
+      first = false;
+      return rangeResponse(payload, range);
+    });
+
+    const result = await downloadModel({
+      ...baseRequest(store, controller.signal),
+      source: sourceOf(payload),
+      fetchImpl,
+      attempts: 2,
+      retryDelayMs: 0,
+      segmentBytes: 4,
+      concurrency: 2,
+    });
+
+    expect(result.resumedFrom).toBe(0);
+    expect(calls.get('0-4')).toBe(1);
+    expect(calls.get('4-8')).toBe(2);
+    expect(new TextDecoder().decode(store.files.get(FINAL))).toBe('0123456789abcdef');
+  });
+
+  it('falls back to the single stream when a later segment ignores Range', async () => {
+    const payload = bytesOf('0123456789abcdef');
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    let first = true;
+    let plainRequests = 0;
+
+    const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      const headers = init?.headers as Record<string, string> | undefined;
+      if (first) {
+        first = false;
+        return rangeResponse(payload, rangeOf(headers));
+      }
+      if (!headers?.Range) {
+        plainRequests += 1;
+        return new Response(new Uint8Array(payload), { status: 200 });
+      }
+      return new Response(new Uint8Array(payload), { status: 200 });
+    };
+
+    const result = await downloadModel({
+      ...baseRequest(store, controller.signal),
+      source: sourceOf(payload),
+      fetchImpl,
+      segmentBytes: 4,
+      concurrency: 2,
+    });
+
+    expect(result.resumedFrom).toBe(0);
+    expect(plainRequests).toBe(1);
+    expect(new TextDecoder().decode(store.files.get(FINAL))).toBe('0123456789abcdef');
+  });
+
+  it.each([5, 17, 33])('resumes from an unaligned .part offset of %i bytes', async (offset) => {
+    const payload = Uint8Array.from({ length: 80 }, (_value, index) => index);
+    const store = new MemoryFileStore();
+    await store.append(PART, payload.slice(0, offset), 0);
+    const controller = new AbortController();
+    const ranges: Range[] = [];
+
+    const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      const range = rangeOf(init?.headers);
+      ranges.push(range);
+      return rangeResponse(payload, range);
+    };
+
+    const result = await downloadModel({
+      ...baseRequest(store, controller.signal),
+      source: sourceOf(payload),
+      fetchImpl,
+      segmentBytes: 16,
+      concurrency: 2,
+    });
+
+    expect(result.resumedFrom).toBe(offset);
+    expect(ranges[0]?.start).toBe(offset);
+    expect(store.files.get(FINAL)).toEqual(payload);
+  });
+
+  it('rejects a segment whose Content-Range end does not match the request', async () => {
+    const payload = bytesOf('0123456789abcdef');
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(payload.slice(0, 8), {
+          status: 206,
+          headers: {
+            'Content-Length': '8',
+            'Content-Range': `bytes 0-6/${String(payload.length)}`,
+          },
+        }),
+    );
+
+    await expect(
+      downloadModel({
+        ...baseRequest(store, controller.signal),
+        source: sourceOf(payload),
+        fetchImpl,
+        segmentBytes: 8,
+        concurrency: 2,
+      }),
+    ).rejects.toThrow(/wrong byte range/);
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
+  it('refreshes an expired CDN URL once and completes the remaining segments', async () => {
+    const payload = Uint8Array.from({ length: 24 }, (_value, index) => index);
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const sourceUrl = 'https://example.test/model.gguf';
+    const oldCdn = 'https://cdn.example.test/expired/model.gguf';
+    const newCdn = 'https://cdn.example.test/fresh/model.gguf';
+    const sourceCalls: Range[] = [];
+    let oldCalls = 0;
+    let newCalls = 0;
+
+    const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const range = rangeOf(init?.headers);
+
+      if (url === sourceUrl) {
+        sourceCalls.push(range);
+        if (range.start === 0) return rangeResponse(payload, range, oldCdn);
+        return rangeResponse(payload, range, newCdn);
+      }
+      if (url === oldCdn) {
+        oldCalls += 1;
+        return new Response(null, { status: 403 });
+      }
+      if (url === newCdn) {
+        newCalls += 1;
+        return rangeResponse(payload, range, newCdn);
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    };
+
+    const result = await downloadModel({
+      ...baseRequest(store, controller.signal),
+      source: { ...sourceOf(payload), url: sourceUrl },
+      fetchImpl,
+      attempts: 1,
+      retryDelayMs: 0,
+      segmentBytes: 8,
+      concurrency: 3,
+    });
+
+    expect(result.resumedFrom).toBe(0);
+    expect(sourceCalls).toHaveLength(2);
+    expect(oldCalls).toBe(2);
+    expect(newCalls).toBe(1);
+    expect(store.files.get(FINAL)).toEqual(payload);
+  });
+
+  it('gives up after the refreshed CDN URL also rejects the range', async () => {
+    const payload = Uint8Array.from({ length: 24 }, (_value, index) => index);
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const sourceUrl = 'https://example.test/model.gguf';
+    const oldCdn = 'https://cdn.example.test/expired/model.gguf';
+    const newCdn = 'https://cdn.example.test/still-expired/model.gguf';
+    let sourceCalls = 0;
+
+    const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const range = rangeOf(init?.headers);
+      if (url === sourceUrl) {
+        sourceCalls += 1;
+        return rangeResponse(payload, range, range.start === 0 ? oldCdn : newCdn);
+      }
+      if (url === oldCdn || url === newCdn) return new Response(null, { status: 403 });
+      throw new Error(`Unexpected URL: ${url}`);
+    };
+
+    const promise = downloadModel({
+      ...baseRequest(store, controller.signal),
+      source: { ...sourceOf(payload), url: sourceUrl },
+      fetchImpl,
+      attempts: 1,
+      retryDelayMs: 0,
+      segmentBytes: 8,
+      concurrency: 3,
+    });
+
+    await expect(within(promise, 1_000)).rejects.toMatchObject({ code: 'download-failed' });
+    expect(sourceCalls).toBe(2);
+  });
+
+  it('fails promptly when the first segment stalls and another exhausts retries', async () => {
+    const payload = bytesOf('0123456789abcdef');
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    let first = true;
+
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      const range = rangeOf(init?.headers);
+      if (first) {
+        first = false;
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            start() {
+              // The first segment never finishes on its own.
+            },
+          }),
+          {
+            status: 206,
+            headers: {
+              'Content-Range': `bytes ${String(range.start)}-${String(range.end - 1)}/${String(payload.length)}`,
+            },
+          },
+        );
+      }
+      throw new TypeError('network down');
+    });
+
+    const promise = downloadModel({
+      ...baseRequest(store, controller.signal),
+      source: sourceOf(payload),
+      fetchImpl,
+      attempts: 2,
+      retryDelayMs: 0,
+      segmentBytes: 4,
+      concurrency: 2,
+    });
+
+    await expect(within(promise, 1_000)).rejects.toMatchObject({ code: 'download-failed' });
+  });
+
+  it('bounds buffered segments while the first block is stalled', async () => {
+    const payload = Uint8Array.from({ length: 60 }, (_value, index) => index);
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    let releaseFirst!: () => void;
+    const firstGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const fetched = new Set<number>();
+    const laterRanges: Range[] = [];
+    let first = true;
+
+    const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      const range = rangeOf(init?.headers);
+      if (first) {
+        first = false;
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            start(stream) {
+              void firstGate.then(() => {
+                stream.enqueue(payload.slice(range.start, range.end));
+                stream.close();
+              });
+            },
+          }),
+          {
+            status: 206,
+            headers: {
+              'Content-Range': `bytes ${String(range.start)}-${String(range.end - 1)}/${String(payload.length)}`,
+            },
+          },
+        );
+      }
+
+      fetched.add(range.start);
+      laterRanges.push(range);
+      return rangeResponse(payload, range);
+    };
+
+    const promise = downloadModel({
+      ...baseRequest(store, controller.signal),
+      source: sourceOf(payload),
+      fetchImpl,
+      segmentBytes: 4,
+      concurrency: 3,
+    });
+
+    await vi.waitFor(() => {
+      expect(fetched.size).toBeGreaterThanOrEqual(2);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(laterRanges).toHaveLength(2);
+
+    releaseFirst();
+    await expect(promise).resolves.toMatchObject({ resumedFrom: 0 });
+    expect(store.files.get(FINAL)).toEqual(payload);
+  });
+
+  it('keeps the contiguous prefix when a segmented download is aborted', async () => {
+    const payload = bytesOf('0123456789abcdef');
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const originalCreateWriter = store.createWriter.bind(store);
+    let writes = 0;
+    let first = true;
+
+    store.createWriter = async (path, offset) => {
+      const writer = await originalCreateWriter(path, offset);
+      return {
+        write: async (chunk: Uint8Array) => {
+          await writer.write(chunk);
+          writes += 1;
+          if (writes === 1) controller.abort();
+        },
+        close: () => writer.close(),
+      };
+    };
+
+    const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      const range = rangeOf(init?.headers);
+      if (first) {
+        first = false;
+        return rangeResponse(payload, range);
+      }
+
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          start(stream) {
+            init?.signal?.addEventListener('abort', () => {
+              stream.error(new DOMException('Aborted', 'AbortError'));
+            });
+          },
+        }),
+        {
+          status: 206,
+          headers: {
+            'Content-Range': `bytes ${String(range.start)}-${String(range.end - 1)}/${String(payload.length)}`,
+          },
+        },
+      );
+    };
+
+    await expect(
+      downloadModel({
+        ...baseRequest(store, controller.signal),
+        source: sourceOf(payload),
+        fetchImpl,
+        segmentBytes: 4,
+        concurrency: 3,
+      }),
+    ).rejects.toMatchObject({ code: 'aborted' });
+
+    expect(store.files.get(PART)?.length).toBe(4);
+    expect(store.files.has(FINAL)).toBe(false);
   });
 });
