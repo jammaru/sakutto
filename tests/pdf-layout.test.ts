@@ -362,6 +362,19 @@ describe('layoutPage', () => {
     expect(code.some((block) => block.text.includes('emit(token)'))).toBe(true);
   });
 
+  it('classifies bold table column titles as labels, not headings', () => {
+    const lines = groupLines([
+      piece('Settings', 80, 200, 36, { bold: true, em: 8 }),
+      piece('Precision', 140, 200, 40, { bold: true, em: 8 }),
+      piece('0.98', 80, 212, 24, { em: 8 }),
+      piece('0.70', 140, 212, 24, { em: 8 }),
+    ]);
+    const layout = layoutPage(lines);
+    const titles = layout.blocks.filter((block) => /Settings|Precision/u.test(block.text));
+    expect(titles.every((block) => block.role === 'label')).toBe(true);
+    expect(layout.blocks.some((block) => block.role === 'heading')).toBe(false);
+  });
+
   it('splits a table per cell and per row, and leaves numbers and identifiers alone', () => {
     const lines = groupLines([
       piece('Setting', 40, 100, 50),

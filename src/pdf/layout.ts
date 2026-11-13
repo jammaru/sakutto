@@ -1887,6 +1887,8 @@ function roleOf(
   if (isNumericRow(text)) return 'cell';
   // A unit such as `tok/s` is notation, not a title, even when the table header is bold.
   if (isUnitLabel(text)) return 'label';
+  // Table column titles such as `Settings` are bold but must not become section headings.
+  if (isTableHeaderLine(text) && lines.length <= 2) return 'label';
   if (bodySize > 0 && fontSize >= bodySize * 1.08) return 'heading';
   // A bold run of one or two lines above the body is a heading, even when the typesetter
   // gave it the body's size.
