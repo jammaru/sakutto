@@ -51,6 +51,29 @@ describe('figure labels versus ticks', () => {
     expect(caption?.role).toBe('caption');
   });
 
+  it('keeps even a full sentence inside a figure as a figure-label, never prose', () => {
+    const lines = groupLines([
+      piece('A pipeline that scores each module before it is shown.', 49, 80, 280),
+      piece(
+        'This sentence is drawn inside the diagram and must not be painted over.',
+        90,
+        240,
+        220,
+      ),
+    ]);
+    const figures = { images: [{ x: 70, y: 180, width: 260, height: 160 }] };
+    const layout = layoutPage(lines, figures);
+    expect(layout.blocks.some((block) => block.text.includes('drawn inside the diagram'))).toBe(
+      false,
+    );
+    expect(
+      layout.skipped.some(
+        (block) =>
+          block.text.includes('drawn inside the diagram') && block.role === 'figure-label',
+      ),
+    ).toBe(true);
+  });
+
   it('leaves a diagram node untranslated so it cannot overflow the box beside it', () => {
     const lines = groupLines([
       piece('The model routes each token to two of its experts', 49, 600, 250),

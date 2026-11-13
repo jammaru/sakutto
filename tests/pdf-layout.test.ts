@@ -131,6 +131,29 @@ describe('layoutPage', () => {
     ).toBe(true);
   });
 
+  it('keeps a reference entry’s hanging-indent continuation lines together', () => {
+    const lines = groupLines([
+      piece(
+        '[1] A. Author and others. A compact translation model that fits on a column line.',
+        49,
+        100,
+        240,
+      ),
+      piece('Technical report with a wrapped continuation on the hanging indent.', 64, 112, 210),
+      piece('The final line of the same entry also sits on the hanging indent.', 64, 124, 220),
+      piece('[2] A second entry with its own short title.', 49, 148, 220),
+    ]);
+    const layout = layoutPage(lines);
+    expect(
+      layout.blocks.some(
+        (block) =>
+          block.text.includes('[1]') &&
+          block.text.includes('wrapped continuation') &&
+          block.text.includes('final line of the same entry'),
+      ),
+    ).toBe(true);
+  });
+
   it('groups a paragraph and keeps the hyphenation out of its words', () => {
     const lines = groupLines([
       piece('A reader who wants an article', 40, 100, 200),
@@ -157,6 +180,40 @@ describe('layoutPage', () => {
       'The first paragraph ends here. The second paragraph starts here. It continues on this line.',
       'A third paragraph, after a gap.',
     ]);
+  });
+
+  it('splits single-line paragraphs when the only gaps are paragraph gaps', () => {
+    const lines = groupLines([
+      piece('The first paragraph is a complete sentence on its own line.', 40, 100, 260),
+      piece('The second paragraph is also a complete sentence on one line.', 40, 150, 260),
+      piece('The third paragraph closes the column with another sentence.', 40, 200, 260),
+    ]);
+    const layout = layoutPage(lines);
+    expect(layout.blocks.map((block) => block.text)).toEqual([
+      'The first paragraph is a complete sentence on its own line.',
+      'The second paragraph is also a complete sentence on one line.',
+      'The third paragraph closes the column with another sentence.',
+    ]);
+  });
+
+  it('splits an overlong paragraph whose lines end mid-sentence', () => {
+    const lines = groupLines(
+      Array.from({ length: 30 }, (_, index) =>
+        piece(
+          index % 5 === 4
+            ? 'The detector closes this sentence before the next one begins.'
+            : 'A wrapped line continues the same sentence without any final period',
+          40,
+          100 + index * 12,
+          320,
+        ),
+      ),
+    );
+    const layout = layoutPage(lines);
+    const prose = layout.blocks.filter((block) => block.role === 'prose');
+    expect(prose.length).toBeGreaterThan(1);
+    expect(prose.every((block) => block.text.length <= 1400)).toBe(true);
+    expect(prose.every((block) => /[.!?]$/u.test(block.text.trim()))).toBe(true);
   });
 
   it('splits indent-only paragraphs in both columns instead of fusing each column', () => {

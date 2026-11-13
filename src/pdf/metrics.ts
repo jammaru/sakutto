@@ -28,6 +28,11 @@ export interface PageMetrics {
   /** Prose / heading / caption / cell blocks that received a painted translation, 0–1. */
   prosePainted: number;
   /**
+   * Same coverage, restricted to an actually painted cover. Markers and deliberately kept
+   * blocks do not count; this is the number the page reader's acceptance check uses.
+   */
+  prosePaintedOnly: number;
+  /**
    * Share of those same blocks that a reader can read as a translation: painted in place or
    * opened from a marker. A page that withholds silently scores low here; a page that keeps
    * the original and offers the translation on a marker scores high.
@@ -58,6 +63,8 @@ export const METRIC_LIMITS = {
   minScale: 0.67,
   /** At least this share of translatable prose must receive a painted box. */
   minProsePainted: 0.7,
+  /** Painted-only coverage: a marker or a deliberate keep is not a translated page. */
+  minProsePaintedOnly: 0.97,
   /**
    * At least this share of translatable prose must be readable as a translation, in place
    * or from a marker. Silent English leftovers are the failure this number catches.
@@ -117,6 +124,12 @@ export function pageMetrics(
   const paintedProse = placed.filter(
     (entry) => entry.paint && COVERAGE_ROLES.has(entry.block.role),
   ).length;
+  const paintedProseOnly = placed.filter(
+    (entry) =>
+      entry.paint &&
+      COVERAGE_ROLES.has(entry.block.role) &&
+      entry.translation.trim().length > 0,
+  ).length;
   const coveredProse = placed.filter(
     (entry) =>
       COVERAGE_ROLES.has(entry.block.role) &&
@@ -175,6 +188,7 @@ export function pageMetrics(
         entry.fit.fontSize < entry.block.fontSize * METRIC_LIMITS.minScale - 1e-9,
     ).length,
     prosePainted: translatable.length === 0 ? 1 : paintedProse / translatable.length,
+    prosePaintedOnly: translatable.length === 0 ? 1 : paintedProseOnly / translatable.length,
     proseCovered: translatable.length === 0 ? 1 : coveredProse / translatable.length,
     nonProsePainted: layout.skipped.length === 0 ? 0 : skippedPainted / layout.skipped.length,
     overflow,
@@ -192,6 +206,7 @@ export function metricsPass(metrics: PageMetrics): boolean {
     return false;
   }
   if (metrics.proseCovered < METRIC_LIMITS.minProseCovered) return false;
+  if (metrics.prosePaintedOnly < METRIC_LIMITS.minProsePaintedOnly) return false;
   if (metrics.nonProsePainted > METRIC_LIMITS.maxNonProsePainted) return false;
   if (metrics.overflow > METRIC_LIMITS.maxOverflow) return false;
   if (

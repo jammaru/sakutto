@@ -18,6 +18,14 @@ const OPS = {
   paintImageMaskXObject: 6,
   constructPath: 7,
   rectangle: 8,
+  fill: 9,
+  eoFill: 10,
+  stroke: 11,
+  clip: 12,
+  eoClip: 13,
+  endPath: 14,
+  paintFormXObjectBegin: 15,
+  paintFormXObjectEnd: 16,
 };
 
 function path(x: number, y: number, width: number, height: number): unknown[] {
@@ -32,8 +40,8 @@ describe('figure cluster caps', () => {
     const fnArray: number[] = [];
     const argsArray: unknown[][] = [];
     for (let index = 0; index < 8; index += 1) {
-      fnArray.push(OPS.constructPath);
-      argsArray.push(path(10 + index, 10 + index, 580, 780));
+      fnArray.push(OPS.constructPath, OPS.fill);
+      argsArray.push(path(10 + index, 10 + index, 580, 780), []);
     }
     const areas = figureAreas(
       { fnArray, argsArray },
@@ -54,20 +62,20 @@ describe('figure cluster caps', () => {
     const fnArray = [OPS.transform, OPS.paintImageXObject];
     const argsArray: unknown[][] = [[120, 0, 0, 90, 80, 500], []];
     for (let index = 0; index < 6; index += 1) {
-      fnArray.push(OPS.constructPath);
-      argsArray.push(path(90 + index * 2, 480 + index * 2, 80, 70));
+      fnArray.push(OPS.constructPath, OPS.fill);
+      argsArray.push(path(90 + index * 2, 480 + index * 2, 80, 70), []);
     }
     const areas = figureAreas({ fnArray, argsArray }, OPS, 800, 600);
     expect(areas.images.length).toBeGreaterThan(0);
     expect(areas.images.some((box) => box.width >= 100)).toBe(true);
   });
 
-  it('detects figures drawn with rectangle operators and ignores full-page clips', () => {
+  it('detects painted rectangles and drops clip paths', () => {
     const fnArray: number[] = [];
     const argsArray: unknown[][] = [];
     for (let index = 0; index < 6; index += 1) {
-      fnArray.push(OPS.rectangle);
-      argsArray.push([80 + index * 2, 480 + index * 2, 200, 100]);
+      fnArray.push(OPS.rectangle, OPS.fill);
+      argsArray.push([80 + index * 2, 480 + index * 2, 200, 100], []);
     }
     const areas = figureAreas({ fnArray, argsArray }, OPS, 800, 600);
     expect(areas.images.length).toBeGreaterThan(0);
@@ -76,21 +84,54 @@ describe('figure cluster caps', () => {
     const pageClips: number[] = [];
     const pageArgs: unknown[][] = [];
     for (let index = 0; index < 6; index += 1) {
-      pageClips.push(OPS.rectangle);
-      pageArgs.push([0, 0, 600, 800]);
+      pageClips.push(OPS.rectangle, OPS.clip, OPS.endPath);
+      pageArgs.push([0, 0, 600, 800], [], []);
     }
     expect(figureAreas({ fnArray: pageClips, argsArray: pageArgs }, OPS, 800, 600).images).toEqual(
       [],
     );
+
+    const unpainted: number[] = [];
+    const unpaintedArgs: unknown[][] = [];
+    for (let index = 0; index < 6; index += 1) {
+      unpainted.push(OPS.constructPath);
+      unpaintedArgs.push(path(80 + index * 2, 480 + index * 2, 200, 100));
+    }
+    expect(
+      figureAreas({ fnArray: unpainted, argsArray: unpaintedArgs }, OPS, 800, 600).images,
+    ).toEqual([]);
+  });
+
+  it('uses a transformed Form XObject bbox as a figure candidate', () => {
+    const fnArray = [
+      OPS.paintFormXObjectBegin,
+      OPS.paintFormXObjectEnd,
+      OPS.restore,
+      OPS.save,
+      OPS.paintFormXObjectBegin,
+      OPS.paintFormXObjectEnd,
+    ];
+    const argsArray: unknown[][] = [
+      [[1, 0, 0, 1, 40, 400], [0, 0, 200, 100]],
+      [],
+      [],
+      [],
+      [[1, 0, 0, 1, 300, 100], [0, 0, 200, 100]],
+      [],
+    ];
+    const areas = figureAreas({ fnArray, argsArray }, OPS, 800, 600);
+    expect(areas.images).toHaveLength(2);
+    expect(areas.images.some((box) => box.x >= 40 && box.width >= 190)).toBe(true);
+    expect(areas.images.some((box) => box.x >= 300 && box.width >= 190)).toBe(true);
   });
 
   it('prefers a path minMax and leaves code inside a rectangle figure as figure-label', () => {
     const fnArray: number[] = [];
     const argsArray: unknown[][] = [];
     for (let index = 0; index < 6; index += 1) {
-      fnArray.push(OPS.constructPath);
+      fnArray.push(OPS.constructPath, OPS.fill);
       // The coordinate list is tiny; pdf.js's minMax is the painted area that must win.
-      argsArray.push([0, [0, 0, 1, 0, 1, 1], [80, 480, 280, 580]]);
+      argsArray.push([0, [0, 0, 1, 0, 1, 1], [80, 480, 280, 580]], []);
     }
     const lines = groupLines([
       piece('The model routes each token to two of its experts.', 49, 100, 250),

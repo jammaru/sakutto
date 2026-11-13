@@ -419,6 +419,13 @@ export function isTick(text: string): boolean {
   return false;
 }
 
+/** A short unit written with a slash, e.g. `tok/s`, which is notation rather than a title. */
+function isUnitLabel(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length === 0 || trimmed.length > 12 || /\s/u.test(trimmed)) return false;
+  return /^\p{L}+(?:\/\p{L}+)+$/u.test(trimmed);
+}
+
 /** The size most of the page's characters are set in, which is the body size. */
 function bodySizeOf(lines: readonly TextLine[]): number {
   const weights = new Map<number, number>();
@@ -786,26 +793,36 @@ function appendRegionBlocks(
     let current: TextLine[] = [];
 
     for (const cell of column.cells) {
-      const previous = current[current.length - 1];
       const next = cell.lines[0];
+      // Backstop for a column whose paragraph gaps were missed: measure the cumulative prose
+      // up to the last completed sentence, not just whether the previous line happened to end
+      // one. Split at that sentence boundary so the remainder can still become its own block.
+      if (!isTable && next) {
+        const boundary = overlongProseBoundary(current);
+        if (boundary > 0) {
+          if (boundary < current.length) {
+            emit(current.slice(0, boundary), room, region.column, columnLeft);
+            current = current.slice(boundary);
+          } else {
+            emit(current, room, region.column, columnLeft);
+            current = [];
+          }
+        }
+      }
+
+      const previous = current[current.length - 1];
       // A table cell always starts a block: its row ends there, so the next row's value in the
       // same column is a different thing however evenly the rows are pitched. A hyphenated
       // wrap (`maxSegmentTo-` then `kens`) is the one continuation that must stay in the cell.
       const hyphenWrap =
         previous !== undefined && next !== undefined && isHyphenWrap(previous, next);
-      const longProse =
-        previous !== undefined &&
-        next !== undefined &&
-        endsSentence(previous.text) &&
-        joinLines(current).length >= MAX_PROSE_BLOCK_CHARS;
       const starts = isTable
         ? previous !== undefined && !hyphenWrap
         : Boolean(
             previous &&
             next &&
             (gapStartsBlock(previous, next, leading, columnLeft) ||
-              isListBoundary(previous, next) ||
-              longProse),
+              isListBoundary(previous, next)),
           );
       if (previous && next && starts) {
         emit(current, room, region.column, columnLeft);
@@ -989,7 +1006,11 @@ function columnLeading(cells: readonly RegionCell[]): number {
     if (!before || !after) continue;
     const gap = after.baseline - before.baseline;
     if (gap <= 0) continue;
-    ratios.push(gap / Math.max(after.height, 1));
+    const ratio = gap / Math.max(after.height, 1);
+    // Paragraph gaps are several times the leading. Including them in the median raised the
+    // column's own leading until no gap could ever exceed it, fusing every paragraph.
+    if (ratio > 2.5) continue;
+    ratios.push(ratio);
   }
   return ratios.length > 0 ? median(ratios) : 1.35;
 }
@@ -1018,6 +1039,9 @@ function gapStartsBlock(
   if (gap <= leading * PARAGRAPH_RATIO * 1.8 && codeListingContinues(previous.text, line.text)) {
     return false;
   }
+  // A gap this wide is a paragraph break whatever the column's median leading says. This is
+  // the backstop for a column whose leading samples were still polluted by the paragraph gaps.
+  if (gap > 2.8) return true;
   // `leading` is measured from this column's own cells, so the paragraph rule compares like
   // with like instead of using a page-wide pitch that could never be exceeded.
   if (gap > leading * PARAGRAPH_RATIO) return true;
@@ -1032,6 +1056,16 @@ function gapStartsBlock(
   // break even when the leading is the same as a wrapped line. A hanging reference or list
   // continuation is indented the same way and stays in its block.
   const em = Math.max(line.height, previous.height, 1);
+  // A numeric table value followed by text shifted right is the next cell of the row, not a
+  // continuation of the number. Without this, the wrapped tail of the neighbouring cell joined
+  // the number into one block that overlapped both cells.
+  if (
+    isNumericCell(previous.text) &&
+    line.baseline - previous.baseline > em * 0.5 &&
+    line.box.x > previous.box.x + em * 1.5
+  ) {
+    return true;
+  }
   const stepIn = line.box.x - columnLeft;
   if (
     !monoRun &&
@@ -1039,6 +1073,7 @@ function gapStartsBlock(
     stepIn < em * PARAGRAPH_INDENT_MAX_EM &&
     endsSentence(previous.text) &&
     !isReferenceLine(previous.text) &&
+    !isReferenceContinuation(previous, line, columnLeft) &&
     !isListItemStart(previous.text)
   ) {
     return true;
@@ -1081,6 +1116,20 @@ function endsSentence(text: string): boolean {
 /** A bibliography entry or numbered reference, whose continuation is a hanging indent. */
 function isReferenceLine(text: string): boolean {
   return /^\s*\[\d+\]/u.test(text);
+}
+
+/** Two lines at the same hanging indent keep a reference entry's wrapped tail together. */
+function isReferenceContinuation(
+  previous: TextLine,
+  line: TextLine,
+  columnLeft: number,
+): boolean {
+  const em = Math.max(previous.height, line.height, 1);
+  const previousInset = previous.box.x - columnLeft;
+  const lineInset = line.box.x - columnLeft;
+  if (previousInset < em * PARAGRAPH_INDENT_MIN_EM) return false;
+  if (lineInset < em * PARAGRAPH_INDENT_MIN_EM) return false;
+  return Math.abs(previous.box.x - line.box.x) <= em * 0.5;
 }
 
 function isListBoundary(previous: TextLine, line: TextLine): boolean {
@@ -1251,6 +1300,26 @@ function joinLines(lines: readonly TextLine[]): string {
   return output.replace(/\s+/gu, ' ').trim();
 }
 
+/**
+ * Index just past the last complete sentence in a run of lines, or -1 when the run has none.
+ * Only the text up to that boundary counts toward the long-block backstop: a trailing
+ * mid-sentence line is not a place where a block may be cut.
+ */
+function overlongProseBoundary(lines: readonly TextLine[]): number {
+  let length = 0;
+  let boundary = -1;
+  let boundaryLength = 0;
+  for (let index = 0; index < lines.length; index += 1) {
+    const text = lines[index]?.text.trim() ?? '';
+    if (text.length === 0) continue;
+    length += (length > 0 ? 1 : 0) + text.length;
+    if (!endsSentence(text)) continue;
+    boundary = index + 1;
+    boundaryLength = length;
+  }
+  return boundaryLength >= MAX_PROSE_BLOCK_CHARS ? boundary : -1;
+}
+
 function roleOf(
   text: string,
   lines: readonly TextLine[],
@@ -1268,14 +1337,12 @@ function roleOf(
   // puts running prose where the mathematics was.
   if (isEquation(lines, columnLeft)) return 'equation';
   const insideFigureArea = lines.length > 0 && lines.every((line) => insideFigure(line, figures));
-  // A listing or a label drawn inside a picture belongs to the artwork. Classifying it as
-  // ordinary code first still painted a translation over the diagram; it is a figure-label.
-  if (
-    insideFigureArea &&
-    (isCodeBlock(lines) || lines.some((line) => looksLikeCodeLine(line.text)))
-  ) {
-    return 'figure-label';
-  }
+  // A caption under a drawing stays a caption even when the drawing's bbox covers it.
+  if (isCaptionLine(text)) return 'caption';
+  // Other text drawn inside a picture belongs to the artwork. It must never be classified as
+  // prose, or the reader would paint a translation over the diagram; even a full sentence is
+  // a figure label, offered only through the selection/marker path.
+  if (insideFigureArea) return 'figure-label';
   if (isCodeBlock(lines)) return 'code';
   // Section titles are headings even in all caps and even when they sit in the header band.
   if (isSectionHeading(text) && lines.length <= 2) return 'heading';
@@ -1292,22 +1359,13 @@ function roleOf(
   ) {
     return 'identity';
   }
-  // A caption or numbered heading is recognised before the figure test, because a drawing's
-  // bounding box often swallows the line under it. That line is still a caption.
+  // A numbered caption is still a caption on a page without figures.
   if (isCaptionLine(text)) return 'caption';
   if (/^(?:[IVXLC]+\.|[A-Z]\.|\d+(?:\.\d+)*\.?)\s+\p{Lu}/u.test(text) && lines.length <= 2) {
     return 'heading';
   }
-  // Text the page drew inside a picture. Axis ticks, node labels, and short flowchart
-  // words stay on the drawing: translating them overwrites adjacent boxes. Only a full
-  // sentence inside a figure is treated as a label, and even then it must fit without
-  // growing or it is offered on a marker instead of painted.
-  if (insideFigureArea) {
-    if (isTick(text) || fontSize < MIN_TRANSLATE_PT || !isFigureSentence(text)) {
-      return 'figure-label';
-    }
-    return 'label';
-  }
+  // A unit such as `tok/s` is notation, not a title, even when the table header is bold.
+  if (isUnitLabel(text)) return 'label';
   if (bodySize > 0 && fontSize >= bodySize * 1.08) return 'heading';
   // A bold run of one or two lines above the body is a heading, even when the typesetter
   // gave it the body's size.
@@ -1653,14 +1711,6 @@ function looksLikeCodeContinuation(text: string): boolean {
   }
   if (/^[A-Za-z][\w ]+;\s*$/u.test(trimmed)) return true;
   return /^[)}\];]+$/u.test(trimmed);
-}
-
-/** True when figure text is a real sentence, not a node label that would overflow a box. */
-function isFigureSentence(text: string): boolean {
-  const trimmed = text.trim();
-  if (trimmed.length < 40) return false;
-  if (!/[.!?…]["']?$/u.test(trimmed)) return false;
-  return /\s/u.test(trimmed);
 }
 
 /**

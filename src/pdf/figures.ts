@@ -96,6 +96,7 @@ export function figureAreas(
 
   const images: Box[] = [];
   const paths: Box[] = [];
+  const forms: Box[] = [];
   const stack: Matrix[] = [];
   let ctm: Matrix = IDENTITY;
 
@@ -107,16 +108,71 @@ export function figureAreas(
   const paintJpeg = ops.paintImageMaskXObject;
   const constructPath = ops.constructPath;
   const rectangle = ops.rectangle;
+  const formBegin = ops.paintFormXObjectBegin;
+  const formEnd = ops.paintFormXObjectEnd;
+  const clip = ops.clip;
+  const eoClip = ops.eoClip;
+  const endPath = ops.endPath;
+
+  const paintCodes = new Set(
+    [
+      ops.fill,
+      ops.eoFill,
+      ops.stroke,
+      ops.closeStroke,
+      ops.fillStroke,
+      ops.eoFillStroke,
+      ops.closeFillStroke,
+      ops.closeEOFillStroke,
+    ].filter((code): code is number => typeof code === 'number'),
+  );
+  const clipCodes = new Set(
+    [clip, eoClip, endPath].filter((code): code is number => typeof code === 'number'),
+  );
+
+  // A path is only a drawing when it is painted. The same operators also build clipping
+  // regions, which usually cover the whole page or the column; treating one as a figure made
+  // every prose block on the page look like figure text. Path construction can be split over
+  // several operators before one paint, so the pending pieces are committed together only
+  // when a paint operator arrives, and discarded when the path is used as a clip.
+  let pendingPaths: Box[] = [];
+  const commitPaths = () => {
+    for (const box of pendingPaths) paths.push(box);
+    pendingPaths = [];
+  };
+  const discardPaths = () => {
+    pendingPaths = [];
+  };
 
   const codes = new Set(
-    [save, restore, transform, paintImage, paintInline, paintJpeg, constructPath, rectangle].filter(
-      (code): code is number => typeof code === 'number',
-    ),
+    [
+      save,
+      restore,
+      transform,
+      paintImage,
+      paintInline,
+      paintJpeg,
+      constructPath,
+      rectangle,
+      formBegin,
+      formEnd,
+      ...paintCodes,
+      ...clipCodes,
+    ].filter((code): code is number => typeof code === 'number'),
   );
 
   for (let index = 0; index < operators.fnArray.length; index += 1) {
     const fn = operators.fnArray[index];
-    if (fn === undefined || !codes.has(fn)) continue;
+    if (fn === undefined) continue;
+    if (paintCodes.has(fn)) {
+      commitPaths();
+      continue;
+    }
+    if (clipCodes.has(fn)) {
+      discardPaths();
+      continue;
+    }
+    if (!codes.has(fn)) continue;
 
     if (fn === save) {
       stack.push(ctm);
@@ -131,27 +187,34 @@ export function figureAreas(
       if (next) ctm = multiply(ctm, next);
       continue;
     }
+    if (fn === formBegin) {
+      // A form XObject starts its own graphics state. Its matrix is part of that state, and
+      // its bbox is the one place the page states where the drawing is, rather than leaving
+      // it to be inferred from a cluster of paths.
+      stack.push(ctm);
+      const matrix = toMatrix(operators.argsArray[index]?.[0]);
+      if (matrix) ctm = multiply(ctm, matrix);
+      const bbox = formBounds(operators.argsArray[index]?.[1], ctm);
+      if (bbox && bbox.width >= MIN_PATH_SIZE && bbox.height >= MIN_PATH_SIZE) {
+        forms.push(flip(bbox, pageHeight));
+      }
+      continue;
+    }
+    if (fn === formEnd) {
+      ctm = stack.pop() ?? IDENTITY;
+      continue;
+    }
     if (fn === rectangle) {
       const rect = rectangleBounds(operators.argsArray[index], ctm);
-      if (
-        rect &&
-        rect.width >= MIN_PATH_SIZE &&
-        rect.height >= MIN_PATH_SIZE &&
-        !coversAlmostPage(rect, pageWidth, pageHeight)
-      ) {
-        paths.push(flip(rect, pageHeight));
+      if (rect && rect.width >= MIN_PATH_SIZE && rect.height >= MIN_PATH_SIZE) {
+        pendingPaths.push(flip(rect, pageHeight));
       }
       continue;
     }
     if (fn === constructPath) {
       const rect = pathBounds(operators.argsArray[index], ctm);
-      if (
-        rect &&
-        rect.width >= MIN_PATH_SIZE &&
-        rect.height >= MIN_PATH_SIZE &&
-        !coversAlmostPage(rect, pageWidth, pageHeight)
-      ) {
-        paths.push(flip(rect, pageHeight));
+      if (rect && rect.width >= MIN_PATH_SIZE && rect.height >= MIN_PATH_SIZE) {
+        pendingPaths.push(flip(rect, pageHeight));
       }
       continue;
     }
@@ -162,7 +225,7 @@ export function figureAreas(
     images.push(flip(rect, pageHeight));
   }
 
-  const clusters = figureClusters(paths).filter(
+  const clusters = [...figureClusters(paths), ...forms].filter(
     (box) => isPlausibleFigure(box, pageWidth, pageHeight) && !coversMostText(box, lines),
   );
   return { images: mergeContained([...images, ...clusters]) };
@@ -330,10 +393,14 @@ function rectangleBounds(value: unknown, ctm: Matrix): Box | null {
   );
 }
 
-/** A clip rectangle that covers essentially the whole page is a frame, not a figure. */
-function coversAlmostPage(box: Box, pageWidth: number, pageHeight: number): boolean {
-  if (pageWidth <= 0 || pageHeight <= 0) return false;
-  return box.width * box.height >= pageWidth * pageHeight * 0.95;
+/** A form XObject's bbox, whose arguments are `x0, y0, x1, y1` after its matrix. */
+function formBounds(value: unknown, ctm: Matrix): Box | null {
+  if (!Array.isArray(value) || value.length < 4) return null;
+  const [x0, y0, x1, y1] = value.slice(0, 4).map(Number);
+  if (![x0, y0, x1, y1].every((entry) => Number.isFinite(entry) && entry !== undefined)) {
+    return null;
+  }
+  return boundsOfCorners(x0 as number, y0 as number, x1 as number, y1 as number, ctm);
 }
 
 function toMatrix(value: unknown): Matrix | null {
