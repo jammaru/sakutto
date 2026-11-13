@@ -19,7 +19,11 @@ export interface ModelFileStore {
   size(path: string): Promise<number>;
   stat(path: string): Promise<ModelFileStat | null>;
   append(path: string, chunk: Uint8Array, offset: number): Promise<void>;
-  createWriter(path: string, offset: number): Promise<ModelFileWriter>;
+  createWriter(
+    path: string,
+    offset: number,
+    options?: { keepExistingData?: boolean },
+  ): Promise<ModelFileWriter>;
   read(path: string): Promise<Blob>;
   move(from: string, to: string): Promise<void>;
   remove(path: string): Promise<void>;
@@ -102,9 +106,15 @@ export class OpfsModelFileStore implements ModelFileStore {
     }
   }
 
-  async createWriter(path: string, offset: number): Promise<ModelFileWriter> {
+  async createWriter(
+    path: string,
+    offset: number,
+    options?: { keepExistingData?: boolean },
+  ): Promise<ModelFileWriter> {
     const handle = await this.fileHandle(path, true);
-    const writable = await handle.createWritable({ keepExistingData: offset > 0 });
+    const writable = await handle.createWritable({
+      keepExistingData: options?.keepExistingData ?? offset > 0,
+    });
     let position = offset;
 
     return {

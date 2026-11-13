@@ -1,9 +1,16 @@
 import { browser } from 'wxt/browser';
+import { shouldAutoInjectCaptions } from '@/captions/sites';
 import { originPattern, pageHost, loadSiteRule } from '@/dom/sites';
 import { ensureContentScript } from '@/shared/page-bridge';
 import { requestPageCommand, type PageCommandName } from '@/shared/messages';
 import { noteShortcutCommandAssigned } from '@/shared/shortcut-assignment';
-import { isShortcutCommand, SHORTCUT_PAGE_COMMANDS } from '@/shared/shortcuts';
+import {
+  isShortcutCommand,
+  SHORTCUT_PAGE_COMMANDS,
+  type ShortcutCommand,
+  type ShortcutEnabled,
+} from '@/shared/shortcuts';
+import { loadSettings } from '@/shared/storage';
 
 interface PageTranslationCanceller {
   cancelTab(tabId: number): void;
@@ -12,10 +19,8 @@ interface PageTranslationCanceller {
 export function installPageActions(translations?: PageTranslationCanceller): void {
   installMenus();
 
-  browser.commands.onCommand.addListener((command) => {
-    if (!isShortcutCommand(command)) return;
-    void noteShortcutCommandAssigned(command);
-    void runOnActiveTab(SHORTCUT_PAGE_COMMANDS[command]);
+  browser.commands.onCommand.addListener((command, tab) => {
+    void handleShortcutCommand(command, tab);
   });
 
   browser.contextMenus.onClicked.addListener((info, tab) => {
@@ -37,6 +42,7 @@ export function installPageActions(translations?: PageTranslationCanceller): voi
     if (changeInfo.status === 'loading') translations?.cancelTab(tabId);
     if (changeInfo.status !== 'complete' || !tab.url) return;
     void injectIfAlways(tabId, tab.url);
+    void injectIfCaptions(tabId, tab.url);
   });
 
   browser.tabs.onRemoved.addListener((tabId) => {
@@ -67,11 +73,49 @@ function installMenus(): void {
   });
 }
 
-async function runOnActiveTab(command: PageCommandName): Promise<void> {
-  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-  const tabId = tabs[0]?.id;
+/**
+ * True when this Chrome/Edge/Firefox command should run. Sakutto's own off switch
+ * applies only to the keyboard command; the popup and context menu still translate.
+ */
+export function shouldHandleShortcutCommand(
+  command: string,
+  enabled: ShortcutEnabled,
+): command is ShortcutCommand {
+  return isShortcutCommand(command) && enabled[command] !== false;
+}
+
+/**
+ * The tab Chrome delivered with `onCommand`, or the focused window's active tab.
+ * A service worker has no "current window", so `currentWindow: true` alone can miss
+ * the page the reader is looking at.
+ */
+export function resolveShortcutTabId(
+  delivered: { id?: number | undefined } | undefined,
+  lastFocused: ReadonlyArray<{ id?: number | undefined }>,
+  currentWindow: ReadonlyArray<{ id?: number | undefined }> = [],
+): number | undefined {
+  return delivered?.id ?? lastFocused[0]?.id ?? currentWindow[0]?.id;
+}
+
+/** Same path `commands.onCommand` uses: record the binding, then tell the content script. */
+export async function handleShortcutCommand(
+  command: string,
+  tab?: { id?: number | undefined },
+): Promise<void> {
+  if (!isShortcutCommand(command)) return;
+  void noteShortcutCommandAssigned(command);
+  const settings = await loadSettings();
+  if (!shouldHandleShortcutCommand(command, settings.shortcutsEnabled)) return;
+  const tabId =
+    tab?.id !== undefined
+      ? tab.id
+      : resolveShortcutTabId(
+          undefined,
+          await browser.tabs.query({ active: true, lastFocusedWindow: true }),
+          await browser.tabs.query({ active: true, currentWindow: true }),
+        );
   if (tabId === undefined) return;
-  await runCommand(tabId, command);
+  await runCommand(tabId, SHORTCUT_PAGE_COMMANDS[command]);
 }
 
 /** The frame whose document has a real focused control, if scripting can see it. */
@@ -115,4 +159,35 @@ async function injectIfAlways(tabId: number, url: string): Promise<void> {
   const allowed = await browser.permissions.contains({ origins: [pattern] }).catch(() => false);
   if (!allowed) return;
   await ensureContentScript(tabId);
+}
+
+async function injectIfCaptions(tabId: number, url: string): Promise<void> {
+  const host = pageHost(url);
+  const pattern = originPattern(url);
+  if (!host || !pattern) return;
+
+  const settings = await loadSettings();
+  const allowed = await browser.permissions.contains({ origins: [pattern] }).catch(() => false);
+  if (
+    !shouldAutoInjectCaptions({
+      settingOn: settings.translateVideoCaptions,
+      host,
+      originAllowed: allowed,
+      customHosts: settings.captionCustomHosts,
+    })
+  ) {
+    return;
+  }
+  await ensureContentScript(tabId);
+}
+
+/** Re-injects youtube.com / x.com tabs after the caption setting is turned on. */
+export async function injectCaptionPages(): Promise<void> {
+  const settings = await loadSettings();
+  if (!settings.translateVideoCaptions) return;
+  const tabs = await browser.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id === undefined || !tab.url) continue;
+    void injectIfCaptions(tab.id, tab.url);
+  }
 }

@@ -6,6 +6,14 @@ inputs:
     description: Target browser (chrome or firefox)
     required: false
     default: chrome
+  from-source:
+    description: Compile wllama from source instead of restoring the Actions cache. Tag releases must set this.
+    required: false
+    default: 'false'
+  skip-wllama:
+    description: Use wllama artifacts already on disk (from a previous job in this workflow).
+    required: false
+    default: 'false'
 
 runs:
   using: composite
@@ -22,75 +30,27 @@ runs:
     - shell: bash
       run: pnpm install --frozen-lockfile
 
-    - id: inputs
+    - if: inputs.skip-wllama != 'true'
+      uses: ./.github/actions/build-wllama
+      with:
+        from-source: ${{ inputs.from-source }}
+
+    - if: inputs.skip-wllama == 'true'
       shell: bash
       run: |
         set -euo pipefail
-        export LC_ALL=C
-        # The generated wllama-worker.js also embeds the Firefox WebGPU kick bootstrap from
-        # src/engine/wllama/firefox-webgpu-kick.ts, so a change there must miss the cache.
-        hash=$( (find scripts/wllama -type f -print0; printf '%s\0' src/engine/wllama/firefox-webgpu-kick.ts) | sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}')
-        tag=$(sed -n "s/^export const EMSDK_TAG = '\\([^']*\\)';/\\1/p" scripts/wllama/pins.ts)
-        test -n "$tag"
-        lock=$(sha256sum pnpm-lock.yaml | awk '{print $1}')
+        node scripts/verify-wllama.mjs
         {
-          echo "hash=$hash"
-          echo "tag=$tag"
-          echo "playwright=playwright-chromium-${RUNNER_OS}-${lock}"
-        } >> "$GITHUB_OUTPUT"
+          echo "## Package ${{ inputs.target }}"
+          echo ""
+          echo "- wllama: restored from the workflow artifact"
+          echo "- verified: yes"
+        } >> "$GITHUB_STEP_SUMMARY"
 
-    - id: wasm
-      uses: actions/cache/restore@v6
-      with:
-        path: |
-          vendor/wllama/dist
-          public/vendor/wllama
-        key: wllama-${{ steps.inputs.outputs.hash }}
-
-    - id: image
-      if: steps.wasm.outputs.cache-hit != 'true'
-      uses: actions/cache/restore@v6
-      with:
-        path: /tmp/emsdk-image.tar
-        key: emsdk-${{ steps.inputs.outputs.tag }}-${{ runner.arch }}
-
-    - if: steps.wasm.outputs.cache-hit != 'true' && steps.image.outputs.cache-hit == 'true'
+    - id: playwright
+      if: ${{ inputs.target != 'firefox' }}
       shell: bash
-      run: docker load --input /tmp/emsdk-image.tar
-
-    - if: steps.wasm.outputs.cache-hit != 'true' && steps.image.outputs.cache-hit != 'true'
-      shell: bash
-      run: docker pull "emscripten/emsdk:${{ steps.inputs.outputs.tag }}"
-
-    - if: steps.wasm.outputs.cache-hit != 'true'
-      shell: bash
-      run: pnpm build:wllama
-
-    - if: steps.wasm.outputs.cache-hit != 'true'
-      shell: bash
-      run: pnpm verify:wllama
-
-    - if: steps.wasm.outputs.cache-hit != 'true' && steps.image.outputs.cache-hit != 'true'
-      shell: bash
-      run: |
-        set -euo pipefail
-        rm -rf vendor/wllama/.checkout/build vendor/wllama/.checkout/build-compat
-        docker save "emscripten/emsdk:${{ steps.inputs.outputs.tag }}" --output /tmp/emsdk-image.tar
-
-    - if: steps.wasm.outputs.cache-hit != 'true' && steps.image.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v6
-      continue-on-error: true
-      with:
-        path: /tmp/emsdk-image.tar
-        key: ${{ steps.image.outputs.cache-primary-key }}
-
-    - if: steps.wasm.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v6
-      with:
-        path: |
-          vendor/wllama/dist
-          public/vendor/wllama
-        key: ${{ steps.wasm.outputs.cache-primary-key }}
+      run: echo "key=playwright-chromium-${RUNNER_OS}-${ImageOS:-unknown}-$(sha256sum pnpm-lock.yaml | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
     - if: ${{ inputs.target != 'firefox' }}
       shell: bash
@@ -104,11 +64,12 @@ runs:
       uses: actions/cache@v6
       with:
         path: ~/.cache/ms-playwright
-        key: ${{ steps.inputs.outputs.playwright }}
+        key: ${{ steps.playwright.outputs.key }}
 
     - if: ${{ inputs.target != 'firefox' }}
       shell: bash
-      run: pnpm exec playwright install --with-deps chromium
+      # Invariant: browser only, never `--with-deps`. CI does not apt-get fonts.
+      run: pnpm exec playwright install chromium
 
     - if: ${{ inputs.target != 'firefox' }}
       shell: bash

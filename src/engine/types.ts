@@ -10,6 +10,8 @@ export interface GlossaryEntry {
 export interface TranslateSegment {
   id: string;
   text: string;
+  /** Page bytes to restore on failure. Planning/prompts use `text`. */
+  original?: string;
 }
 
 export interface TranslateOptions {
@@ -22,6 +24,8 @@ export interface TranslateOptions {
   signal: AbortSignal;
   /** Stream the first short piece before the rest of this call is batched. */
   eager?: boolean | undefined;
+  /** Cancel running worse-priority jobs (live captions vs a page batch). */
+  preempt?: boolean | undefined;
 }
 
 interface TranslationChunkBase {

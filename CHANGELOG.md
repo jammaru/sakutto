@@ -2,6 +2,30 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
+## Unreleased
+
+### Features
+
+- Add Easy Japanese (やさしい日本語, `ja-easy`) as a PLaMo-only target language, so a page already in Japanese can still be translated into simpler Japanese. Chrome's built-in translator is not used for this target. (#79)
+
+## [1.4.1] - 2026-11-13
+
+### Bug Fixes
+
+- Hidden characters in page text no longer break translation or fill the page with junk. Regional flag emoji now get enough space. If a translation is cut off because it ran out of room, Sakutto keeps the original text instead of showing a half-finished sentence. (#74)
+- On Firefox, choosing Local server in Settings now switches the engine. If the browser does not grant access to that address, a message appears and Built-in stays selected. (#76)
+
+## [1.4.0] - 2026-11-12
+
+### Features
+
+- Translate captions on YouTube (including live) and X while the video plays, on your device. A translated overlay sits on the player. Hover the player to show a Hide original caption button. Settings has a caption size slider, and you can press and hold a translated caption to drag it; YouTube and X remember their own spots, and Reset position puts them back. Auto-generated Japanese captions are translated to English. The setting is off until you turn it on in Settings or the popup. You can add other caption sites in Settings. (#69)
+
+### Bug Fixes
+
+- Translated captions no longer stay on screen through silence. After about 4 seconds of real silence the translation clears and the original captions come back. Short gaps still bridge. (#71)
+- On a Mac, the default shortcuts are now Option+A, Option+B, Option+S, and Option+T. After an update, a command Chrome never assigned uses that default on web pages, without opening Chrome's shortcut page. A key you cleared in Chrome's editor stays off. You can still change shortcuts at chrome://extensions/shortcuts. A Chrome-assigned shortcut still translates the page even from a text field. If the default was never assigned, the keydown still reaches the field, including a textarea, and Sakutto leaves it unprevented so Option+letter can type. The in-page default does not run on chrome:// pages or in the PDF viewer. (#72)
+
 ## [1.3.0] - 2026-11-11
 
 ### Features

@@ -36,6 +36,13 @@ describe('compose translation direction', () => {
     expect(draftLooksLikeTarget('こんにちは', 'ja')).toBe(true);
   });
 
+  it('keeps a Japanese draft on Easy Japanese instead of flipping it', () => {
+    expect(draftLooksLikeTarget('こんにちは', 'ja-easy')).toBe(false);
+    const plan = planComposeTranslation('こんにちは', 'ja-easy');
+    expect(plan.targetLanguage).toBe('ja-easy');
+    expect(plan.ok).toBe(true);
+  });
+
   it('does not treat a few kanji inside an English sentence as Japanese', () => {
     expect(draftLooksLikeTarget('By the Edo period, 大坂 was the city.', 'en')).toBe(false);
     const plan = planComposeTranslation('By the Edo period, 大坂 was the city.', 'en');

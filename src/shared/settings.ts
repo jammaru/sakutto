@@ -12,6 +12,7 @@ import {
   normalizeTimeoutMs,
 } from '@/engine/local-server/url';
 import type { EngineSource } from './engine-status';
+import { normalizeCaptionCustomHosts } from '@/captions/custom-hosts';
 import { normalizeGlossary } from './glossary';
 import {
   DEFAULT_TARGET_LANGUAGE,
@@ -28,6 +29,43 @@ import {
 } from './shortcuts';
 
 export const SETTINGS_SCHEMA_VERSION = 1;
+
+export const VIDEO_CAPTION_SIZE_MIN = 50;
+export const VIDEO_CAPTION_SIZE_MAX = 150;
+export const VIDEO_CAPTION_SIZE_DEFAULT = 80;
+
+export function normalizeVideoCaptionSize(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return VIDEO_CAPTION_SIZE_DEFAULT;
+  return Math.round(Math.min(VIDEO_CAPTION_SIZE_MAX, Math.max(VIDEO_CAPTION_SIZE_MIN, n)));
+}
+
+/** Player families that remember their own caption overlay spot. */
+export const VIDEO_CAPTION_POSITION_SITES = ['youtube', 'x', 'other'] as const;
+export type VideoCaptionPositionSite = (typeof VIDEO_CAPTION_POSITION_SITES)[number];
+/** Centre of the overlay as a percent of the player box. */
+export type VideoCaptionPosition = { x: number; y: number };
+export type VideoCaptionPositions = Partial<Record<VideoCaptionPositionSite, VideoCaptionPosition>>;
+
+export function normalizeVideoCaptionPosition(value: unknown): VideoCaptionPosition | undefined {
+  if (!isRecord(value)) return undefined;
+  if (typeof value.x !== 'number' || typeof value.y !== 'number') return undefined;
+  if (!Number.isFinite(value.x) || !Number.isFinite(value.y)) return undefined;
+  return {
+    x: Math.round(Math.min(100, Math.max(0, value.x)) * 10) / 10,
+    y: Math.round(Math.min(100, Math.max(0, value.y)) * 10) / 10,
+  };
+}
+
+export function normalizeVideoCaptionPositions(value: unknown): VideoCaptionPositions {
+  if (!isRecord(value)) return {};
+  const next: VideoCaptionPositions = {};
+  for (const site of VIDEO_CAPTION_POSITION_SITES) {
+    const point = normalizeVideoCaptionPosition(value[site]);
+    if (point) next[site] = point;
+  }
+  return next;
+}
 
 /** Date the bundled PLaMo Community License text was copied into this repository. */
 export const PLAMO_LICENSE_VERSION = '2026-11-05';
@@ -89,9 +127,9 @@ export interface Settings {
   /** False hides the あA button on message boxes. The shortcut and context menu stay. */
   composeIcon: boolean;
   /**
-   * Per-command on/off in Sakutto. Unchecking disables the in-page key. Clearing the
-   * binding in the browser's shortcut editor also stops in-page handling, unless the
-   * browser never assigned the suggested key (a conflict at install).
+   * Per-command on/off in Sakutto. Unchecking disables the command. Clearing a key in
+   * the browser's editor also stops it, unless the browser never assigned that command
+   * (the in-page default still runs).
    */
   shortcutsEnabled: ShortcutEnabled;
   /**
@@ -120,6 +158,31 @@ export interface Settings {
   localServerParallel: number;
   /** Set after the reader accepts the experimental-engine warning once. */
   localServerExperimentalAck: boolean;
+  /**
+   * When true, captions on the current page are translated on the device after the
+   * content script is present. Off by default: this is the first slice (YouTube
+   * on-demand tracks and HTML5 `textTracks`).
+   */
+  translateVideoCaptions: boolean;
+  /** How translated captions are shown over the player. */
+  videoCaptionDisplay: DisplayMode;
+  /**
+   * Percent of the auto caption size (native or ~5% of player height). 80 is a bit
+   * smaller than the previous fixed size; 100 matches native.
+   */
+  videoCaptionSize: number;
+  /**
+   * When true, a small hide-original control appears on the player after mouse
+   * movement (then auto-hides). Off: use this page or the popup instead.
+   */
+  videoCaptionOriginalToggle: boolean;
+  /**
+   * Per-site overlay centre, in percent of the player. Missing keys keep the
+   * default bottom-centre placement. YouTube and X are stored separately.
+   */
+  videoCaptionPositions: VideoCaptionPositions;
+  /** Extra hosts that run the generic HTML5 caption adapter. YouTube and X stay built-in. */
+  captionCustomHosts: string[];
 }
 
 export type SettingsPatch = Partial<
@@ -148,6 +211,12 @@ export type SettingsPatch = Partial<
     | 'localServerAllowRemote'
     | 'localServerParallel'
     | 'localServerExperimentalAck'
+    | 'translateVideoCaptions'
+    | 'videoCaptionDisplay'
+    | 'videoCaptionSize'
+    | 'videoCaptionOriginalToggle'
+    | 'videoCaptionPositions'
+    | 'captionCustomHosts'
   >
 > & {
   shortcutsEnabled?: Partial<ShortcutEnabled>;
@@ -179,6 +248,12 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   localServerAllowRemote: false,
   localServerParallel: DEFAULT_LOCAL_SERVER_PARALLEL,
   localServerExperimentalAck: false,
+  translateVideoCaptions: false,
+  videoCaptionDisplay: 'bilingual',
+  videoCaptionSize: VIDEO_CAPTION_SIZE_DEFAULT,
+  videoCaptionOriginalToggle: true,
+  videoCaptionPositions: {},
+  captionCustomHosts: [],
 });
 
 export function createDefaultSettings(uiLanguage: string): Settings {
@@ -236,6 +311,12 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     localServerAllowRemote: value.localServerAllowRemote === true,
     localServerParallel: normalizeParallel(value.localServerParallel),
     localServerExperimentalAck: value.localServerExperimentalAck === true,
+    translateVideoCaptions: value.translateVideoCaptions === true,
+    videoCaptionDisplay: value.videoCaptionDisplay === 'replace' ? 'replace' : 'bilingual',
+    videoCaptionSize: normalizeVideoCaptionSize(value.videoCaptionSize),
+    videoCaptionOriginalToggle: value.videoCaptionOriginalToggle !== false,
+    videoCaptionPositions: normalizeVideoCaptionPositions(value.videoCaptionPositions),
+    captionCustomHosts: normalizeCaptionCustomHosts(value.captionCustomHosts),
   };
 }
 

@@ -1,6 +1,11 @@
 import { browser } from 'wxt/browser';
 import { currentUiLanguage } from './i18n';
-import { normalizeSettings, type Settings, type SettingsPatch } from './settings';
+import {
+  createDefaultSettings,
+  normalizeSettings,
+  type Settings,
+  type SettingsPatch,
+} from './settings';
 
 const SETTINGS_STORAGE_KEY = 'settings';
 
@@ -14,12 +19,17 @@ export async function loadSettings(): Promise<Settings> {
 
 export async function ensureSettings(): Promise<Settings> {
   const stored = await browser.storage.local.get(SETTINGS_STORAGE_KEY);
-  const value = stored[SETTINGS_STORAGE_KEY];
-  const settings = normalizeSettings(value, currentUiLanguage());
-  if (value === undefined) {
-    await browser.storage.local.set({ [SETTINGS_STORAGE_KEY]: settings });
+  if (stored[SETTINGS_STORAGE_KEY] !== undefined) {
+    return normalizeSettings(stored[SETTINGS_STORAGE_KEY], currentUiLanguage());
   }
-  return settings;
+  const settings = createDefaultSettings(currentUiLanguage());
+  const again = await browser.storage.local.get(SETTINGS_STORAGE_KEY);
+  if (again[SETTINGS_STORAGE_KEY] !== undefined) {
+    return normalizeSettings(again[SETTINGS_STORAGE_KEY], currentUiLanguage());
+  }
+  await browser.storage.local.set({ [SETTINGS_STORAGE_KEY]: settings });
+  const landed = await browser.storage.local.get(SETTINGS_STORAGE_KEY);
+  return normalizeSettings(landed[SETTINGS_STORAGE_KEY] ?? settings, currentUiLanguage());
 }
 
 /**

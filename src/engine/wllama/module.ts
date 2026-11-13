@@ -75,6 +75,7 @@ export interface Wllama {
       onData: (chunk: WllamaCompletionChunk) => void;
     },
   ): Promise<void>;
+  tokenize?(text: string): Promise<number[] | number>;
   exit(): Promise<void>;
 }
 

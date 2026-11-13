@@ -63,7 +63,8 @@ export async function* translateViaBackground(
 
     for await (const chunk of stream) yield chunk;
   } catch (error) {
-    if (options.signal.aborted || isAbortError(error)) return;
+    if (options.signal.aborted) return;
+    if (isAbortError(error)) throw error;
     throw error instanceof EngineError
       ? error
       : new EngineError('offscreen-unavailable', 'The translation connection failed.', {

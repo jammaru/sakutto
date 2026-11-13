@@ -1,6 +1,10 @@
 <script lang="ts">
   import { testLocalServer, type LocalServerModel } from '@/engine/local-server/client';
-  import { requestServerPermission } from '@/engine/local-server/permissions';
+  import {
+    requestServerPermission,
+    resolveEngineSourceSwitch,
+    syncEngineSourceRadios,
+  } from '@/engine/local-server/permissions';
   import {
     isRemoteServerUrl,
     LOCAL_SERVER_PRESETS,
@@ -27,6 +31,8 @@
   let testOk = $state(false);
   let permissionDenied = $state(false);
   let confirmOpen = $state(false);
+  let builtinRadio = $state<HTMLInputElement | undefined>(undefined);
+  let localRadio = $state<HTMLInputElement | undefined>(undefined);
   let remote = $derived(isRemoteServerUrl(settings.localServerUrl));
   let local = $derived(settings.engineSource === 'local-server');
 
@@ -41,16 +47,17 @@
   }
 
   async function applySource(source: EngineSource, ack = false): Promise<void> {
-    if (source === 'local-server') {
-      const remoteUrl = isRemoteServerUrl(settings.localServerUrl);
-      if (!remoteUrl || settings.localServerAllowRemote) {
-        if (!(await grantIfNeeded(settings.localServerUrl))) return;
-      }
+    const result = await resolveEngineSourceSwitch(source, settings, { ack });
+    if (result.denied) {
+      permissionDenied = true;
+      syncEngineSourceRadios(settings.engineSource, {
+        builtin: builtinRadio,
+        local: localRadio,
+      });
+      return;
     }
     permissionDenied = false;
-    const patch: SettingsPatch = { engineSource: source };
-    if (ack) patch.localServerExperimentalAck = true;
-    await onUpdate(patch);
+    await onUpdate(result.patch);
   }
 
   function chooseSource(source: EngineSource): void {
@@ -192,6 +199,7 @@
   <div class="segments" role="radiogroup" aria-labelledby="engine-source-label">
     <label class:on={!local}>
       <input
+        bind:this={builtinRadio}
         type="radio"
         name="sakutto-engine-source"
         value="in-browser"
@@ -202,6 +210,7 @@
     </label>
     <label class:on={local}>
       <input
+        bind:this={localRadio}
         type="radio"
         name="sakutto-engine-source"
         value="local-server"
@@ -230,6 +239,10 @@
         </button>
       </div>
     </div>
+  {/if}
+
+  {#if permissionDenied && !local}
+    <p class="error" role="alert">{t('localServerPermissionDenied')}</p>
   {/if}
 
   {#if local}

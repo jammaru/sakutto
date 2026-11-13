@@ -3,6 +3,8 @@ import { DEFAULT_SHORTCUTS } from '@/shared/shortcuts';
 
 const state = vi.hoisted(() => ({
   values: new Map<string, unknown>(),
+  update: undefined as ((details: { name: string; shortcut: string }) => Promise<void>) | undefined,
+  live: [] as Array<{ name?: string; shortcut?: string }>,
 }));
 
 vi.mock('wxt/browser', () => ({
@@ -15,6 +17,12 @@ vi.mock('wxt/browser', () => ({
         },
       },
     },
+    commands: {
+      get update() {
+        return state.update;
+      },
+      getAll: async () => state.live,
+    },
   },
 }));
 
@@ -23,10 +31,13 @@ const {
   noteShortcutCommandAssigned,
   observeShortcutSnapshot,
   resolveShortcutQuery,
+  restoreEmptyCommandShortcuts,
 } = await import('@/shared/shortcut-assignment');
 
 beforeEach(() => {
   state.values.clear();
+  state.update = undefined;
+  state.live = [];
 });
 
 describe('shortcut assignment persistence', () => {
@@ -103,5 +114,67 @@ describe('shortcut assignment persistence', () => {
     const stored = await loadShortcutAssignment();
     expect(stored['translate-page']).toBe(true);
     expect(stored['toggle-bilingual']).toBe(true);
+  });
+});
+
+describe('restoreEmptyCommandShortcuts', () => {
+  it('is a no-op when the browser cannot write shortcuts (Chrome)', async () => {
+    const commands = [
+      { name: 'translate-page', shortcut: '' },
+      { name: 'toggle-bilingual', shortcut: 'Alt+B' },
+    ];
+    await expect(restoreEmptyCommandShortcuts(commands)).resolves.toBe(commands);
+  });
+
+  it('restores only empty commands and leaves a customized key alone', async () => {
+    const updated: Array<{ name: string; shortcut: string }> = [];
+    state.update = async (details) => {
+      updated.push(details);
+    };
+    state.live = [
+      { name: 'translate-page', shortcut: 'Alt+A' },
+      { name: 'toggle-bilingual', shortcut: 'Alt+Q' },
+      { name: 'translate-selection', shortcut: 'Alt+S' },
+      { name: 'translate-compose', shortcut: 'Alt+T' },
+    ];
+    const next = await restoreEmptyCommandShortcuts([
+      { name: 'translate-page', shortcut: '' },
+      { name: 'toggle-bilingual', shortcut: 'Alt+Q' },
+      { name: 'translate-selection', shortcut: '' },
+      { name: 'translate-compose', shortcut: 'Alt+T' },
+    ]);
+    expect(updated).toEqual([
+      { name: 'translate-page', shortcut: 'Alt+A' },
+      { name: 'translate-selection', shortcut: 'Alt+S' },
+    ]);
+    expect(next).toEqual(state.live);
+  });
+
+  it('keeps the empty binding when the browser refuses the default', async () => {
+    state.update = async () => {
+      throw new Error('already in use');
+    };
+    const commands = [{ name: 'translate-page', shortcut: '' }];
+    await expect(restoreEmptyCommandShortcuts(commands)).resolves.toEqual(commands);
+  });
+
+  it('does not restore a command the user cleared after it was assigned', async () => {
+    const updated: Array<{ name: string; shortcut: string }> = [];
+    state.update = async (details) => {
+      updated.push(details);
+    };
+    await resolveShortcutQuery([
+      { name: 'translate-page', shortcut: 'Alt+A' },
+      { name: 'toggle-bilingual', shortcut: 'Alt+B' },
+      { name: 'translate-selection', shortcut: 'Alt+S' },
+      { name: 'translate-compose', shortcut: 'Alt+T' },
+    ]);
+    await restoreEmptyCommandShortcuts([
+      { name: 'translate-page', shortcut: '' },
+      { name: 'toggle-bilingual', shortcut: 'Alt+B' },
+      { name: 'translate-selection', shortcut: '' },
+      { name: 'translate-compose', shortcut: 'Alt+T' },
+    ]);
+    expect(updated).toEqual([]);
   });
 });

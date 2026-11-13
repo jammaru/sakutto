@@ -81,6 +81,10 @@ describe('start controls while the model downloads', () => {
     expect(source('ui/FolderPermissionRestore.svelte')).toContain('probeStoredFolderReadable');
   });
 
+  it('keeps the cancel control visible while verifying', () => {
+    expect(modelManager).toMatch(/downloading \|\| verifying[\s\S]{0,800}downloadCancel/);
+  });
+
   it('does not offer a download button for a model that is already loading', () => {
     // `loading` means the file is on disk and the runtime is reading it: a Download control
     // there is a start action for work that is already running.
@@ -105,6 +109,46 @@ describe('start controls while the model downloads', () => {
     expect(popup).not.toContain('resolvePageTarget');
     expect(popup).toContain('changeTarget');
     expect(popup).toContain('saveSettings({ targetLanguage: language })');
+  });
+
+  it('exposes a compact video-caption switch on the same setting', () => {
+    expect(popup).toContain('setVideoCaptions');
+    expect(popup).toContain('resolveCaptionToggle');
+    expect(popup).toContain("t('videoCaptionsSetting')");
+    expect(popup).toContain('data-sakutto="video-captions"');
+    expect(popup).toContain('videoCaptionsPermissionDenied');
+    expect(popup).toContain('saveSettings({ translateVideoCaptions: result.on })');
+    expect(popup).not.toContain('videoCaptionsSettingHelp');
+    expect(popup).not.toContain('videoCaptionsSizeLabel');
+    expect(popup).not.toContain('videoCaptionsPositionReset');
+    expect(popup).not.toContain('videoCaptionsCustomSitesLabel');
+    expect(popup).not.toContain('video-captions-size-slider');
+    expect(popup).not.toContain('video-captions-position-reset');
+    expect(popup).not.toMatch(/badge|notification/i);
+  });
+
+  it('calls permissions.request as the first await in the popup caption click', () => {
+    const sites = source('captions/sites.ts');
+    expect(sites).toContain('browser.permissions.request({ origins })');
+    expect(sites).toContain('markCaptionEnableIntent');
+    expect(sites).toContain('settleCaptionEnableIntent');
+    const requestStart = sites.indexOf('export async function requestCaptionHostAccess');
+    const requestEnd = sites.indexOf('export interface CaptionToggleDecision');
+    const requestBody = sites.slice(requestStart, requestEnd);
+    expect(requestBody).toContain('permissions.request');
+    expect(requestBody).not.toMatch(/contains/);
+    const toggleStart = sites.indexOf('export async function resolveCaptionToggle');
+    const toggleBody = sites.slice(toggleStart);
+    const beforeRequest = toggleBody.slice(0, toggleBody.indexOf('await requestAccess()'));
+    expect(beforeRequest).toContain('markCaptionEnableIntent');
+    expect(beforeRequest).not.toMatch(/\bawait\b/);
+    const start = popup.indexOf('async function setVideoCaptions');
+    const end = popup.indexOf('async function setAlways');
+    const body = popup.slice(start, end);
+    const before = body.slice(0, body.indexOf('await resolveCaptionToggle'));
+    expect(before).toContain('captionPermissionError = false');
+    expect(before).not.toMatch(/\bawait\b/);
+    expect(popup).toContain('settleCaptionEnableIntent');
   });
 });
 
@@ -173,6 +217,8 @@ describe('shortcut settings', () => {
     expect(shortcuts).toContain('displayShortcut');
     expect(shortcuts).toContain('boundShortcut');
     expect(shortcuts).toContain('usesInPageFallback');
+    expect(shortcuts).toContain('shortcutFallbackKey');
+    expect(shortcuts).toContain('data-sakutto="shortcut-fallback"');
     expect(shortcuts).not.toContain("'Alt+A'");
   });
 
@@ -195,9 +241,33 @@ describe('shortcut settings', () => {
     expect(options).toContain('shortcutHeading');
   });
 
-  it('records the browser’s first command bindings so a later clear is not a conflict', () => {
+  it('records the browser’s command bindings on install, update, and startup', () => {
     expect(background).toContain('resolveShortcutQuery');
+    expect(background).toContain('restoreEmptyCommandShortcuts');
     expect(background).toContain('onInstalled');
+    expect(background).toContain('onStartup');
+    expect(background).toContain("reason === 'install' || reason === 'update'");
+  });
+});
+
+describe('popup shortcut hints', () => {
+  it('names the live binding and says when the in-page default is filling in', () => {
+    expect(popup).toContain('usesInPageFallback');
+    expect(popup).toContain('shortcutFallbackNote');
+    expect(popup).toContain('data-sakutto="shortcut-fallback"');
+    expect(popup).toContain('requestShortcutSnapshot');
+    expect(popup).toContain('defaultShortcuts');
+    expect(popup).not.toContain("'Alt+A'");
+  });
+});
+
+describe('onboarding shortcut hints', () => {
+  it('names the keys this OS actually uses, then the keys Chrome reported', () => {
+    expect(onboarding).toContain('defaultShortcuts');
+    expect(onboarding).toContain('boundShortcut');
+    expect(onboarding).toContain('displayShortcut');
+    expect(onboarding).toContain('requestShortcutSnapshot');
+    expect(onboarding).not.toContain("'Alt+A'");
   });
 });
 
@@ -277,6 +347,45 @@ describe('local server settings', () => {
     expect(source('dom/session.ts')).not.toContain(
       "this.prefs.engineSource === 'local-server' ? 1",
     );
+  });
+
+  it('calls permissions.request as the first await when confirming the local server', () => {
+    const permissions = source('engine/local-server/permissions.ts');
+    const requestStart = permissions.indexOf('export async function requestServerPermission');
+    const requestEnd = permissions.indexOf('export type EngineSourceSwitchResult');
+    const requestBody = permissions.slice(requestStart, requestEnd);
+    expect(requestBody).toContain('permissions.request({ origins: [origin] })');
+    expect(requestBody).toContain('primaryOriginPattern');
+    expect(requestBody).not.toMatch(/contains/);
+    expect(requestBody).not.toContain('originPatternsFor');
+
+    const switchStart = permissions.indexOf('export async function resolveEngineSourceSwitch');
+    const switchBody = permissions.slice(switchStart);
+    const beforeRequest = switchBody.slice(0, switchBody.indexOf('await request('));
+    expect(beforeRequest).not.toMatch(/\bawait\b/);
+
+    expect(panel).toContain('resolveEngineSourceSwitch');
+    const applyStart = panel.indexOf('async function applySource');
+    const applyEnd = panel.indexOf('function chooseSource');
+    const applyBody = panel.slice(applyStart, applyEnd);
+    const beforeSwitch = applyBody.slice(0, applyBody.indexOf('await resolveEngineSourceSwitch'));
+    expect(beforeSwitch).not.toMatch(/\bawait\b/);
+    expect(applyBody).toContain('result.denied');
+    expect(applyBody).toContain('syncEngineSourceRadios(settings.engineSource');
+    expect(panel).toContain('bind:this={builtinRadio}');
+    expect(panel).toContain('bind:this={localRadio}');
+
+    const confirmStart = panel.indexOf('function useLocalServer');
+    const confirmEnd = panel.indexOf('async function changeUrl');
+    const confirmBody = panel.slice(confirmStart, confirmEnd);
+    expect(confirmBody).toContain("void applySource('local-server', true)");
+    expect(confirmBody).not.toMatch(/\bawait\b/);
+  });
+
+  it('shows a permission denial on the engine radio when the switch did not stick', () => {
+    expect(panel).toContain('permissionDenied && !local');
+    expect(panel).toContain("t('localServerPermissionDenied')");
+    expect(panel).toContain('role="alert"');
   });
 });
 

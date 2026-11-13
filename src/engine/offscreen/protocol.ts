@@ -34,6 +34,7 @@ export interface SerializedTranslateOptions {
   context?: string;
   priority: number;
   eager?: boolean;
+  preempt?: boolean;
 }
 
 export function serializeTranslateOptions(options: TranslateOptions): SerializedTranslateOptions {
@@ -47,6 +48,7 @@ export function serializeTranslateOptions(options: TranslateOptions): Serialized
       : {}),
     ...(options.context !== undefined ? { context: options.context } : {}),
     ...(options.eager ? { eager: true } : {}),
+    ...(options.preempt ? { preempt: true } : {}),
   };
 }
 
@@ -63,6 +65,7 @@ export function deserializeTranslateOptions(
     ...(serialized.glossary ? { glossary: serialized.glossary } : {}),
     ...(serialized.context !== undefined ? { context: serialized.context } : {}),
     ...(serialized.eager ? { eager: true } : {}),
+    ...(serialized.preempt ? { preempt: true } : {}),
   };
 }
 
@@ -364,6 +367,7 @@ export function isSerializedTranslateOptions(value: unknown): value is Serialize
   if (value.context !== undefined && !isBoundedText(value.context, MAX_CONTEXT_TEXT)) return false;
   if (value.glossary !== undefined && !isGlossary(value.glossary)) return false;
   if (value.eager !== undefined && typeof value.eager !== 'boolean') return false;
+  if (value.preempt !== undefined && typeof value.preempt !== 'boolean') return false;
   return true;
 }
 

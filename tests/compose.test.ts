@@ -16,6 +16,14 @@ import type { PageEngine } from '@/dom/session';
 import type { ComposePreferences } from '@/dom/compose';
 import { modelChangedError } from '@/engine/errors';
 
+vi.mock('wxt/browser', () => ({
+  browser: {
+    i18n: {
+      getMessage: () => '',
+    },
+  },
+}));
+
 const labels: ComposeLabels = {
   title: 'Draft translation',
   icon: 'Translate what you are writing',

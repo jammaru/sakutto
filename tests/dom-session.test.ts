@@ -9,8 +9,14 @@ import {
   translationStyleKeepsContrast,
   uiShadow,
 } from '@/dom/overlay';
-import { PageSession, type PageEngine, type SessionPreferences } from '@/dom/session';
-import { modelChangedError } from '@/engine/errors';
+import {
+  PAGE_SHORTCUT_DEDUP_MS,
+  PageSession,
+  type PageEngine,
+  type SessionPreferences,
+} from '@/dom/session';
+import { CAPTION_PLAYHEAD_PRIORITY } from '@/captions/engine';
+import { abortError, modelChangedError } from '@/engine/errors';
 import { JobScheduler } from '@/engine/queue/scheduler';
 import type { TranslateOptions } from '@/engine/types';
 
@@ -874,6 +880,7 @@ describe('page session', () => {
     expect(document.querySelector('sakutto-line')?.textContent).toContain('訳:Hello world');
     expect(document.body.textContent).toContain('Hello world');
 
+    await new Promise((resolve) => setTimeout(resolve, PAGE_SHORTCUT_DEDUP_MS + 1));
     await session.handle('bilingual');
     expect(document.querySelector('sakutto-line')).toBeNull();
     expect(calls).toBe(1);
@@ -1941,6 +1948,85 @@ describe('page translation corrections', () => {
     await session.whenIdle();
     expect(calls).toBeGreaterThan(0);
   });
+
+  it('does not restore the page when Chrome command and in-page Alt+A arrive together', async () => {
+    document.body.innerHTML = '<p>Hello world</p>';
+    let calls = 0;
+    const session = new PageSession(document, {
+      engine: engineOf(async function* (segments) {
+        calls += 1;
+        for (const segment of segments) {
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' };
+        }
+      }),
+      labels,
+      preferences: preferences(),
+      scheduleFrame: (callback) => callback(),
+      pageKey: (event) => event.altKey && event.code === 'KeyA',
+    });
+    sessions.push(session);
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'a',
+        code: 'KeyA',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await session.handle('toggle');
+    await session.whenIdle();
+
+    expect(calls).toBeGreaterThan(0);
+    expect(session.state().active).toBe(true);
+    expect(document.body.textContent).toContain('訳:Hello world');
+
+    await new Promise((resolve) => setTimeout(resolve, PAGE_SHORTCUT_DEDUP_MS + 1));
+    await session.handle('toggle');
+    expect(session.state().active).toBe(false);
+  });
+
+  /**
+   * When an unassigned command's keydown reaches the page (verified with Playwright
+   * `keyboard.press`, not this dispatch), the session must not preventDefault it in a
+   * field. `dispatchEvent` here only exercises that guard; it cannot prove Chrome
+   * delivery. Chrome-assigned commands skip this path and arrive as onCommand even
+   * inside a textarea.
+   */
+  it('does not steal Option+letter while the reader is typing in a field', async () => {
+    document.body.innerHTML = '<textarea id="draft">hello</textarea><p>Hello world</p>';
+    let calls = 0;
+    const session = new PageSession(document, {
+      engine: engineOf(async function* (segments) {
+        calls += 1;
+        for (const segment of segments) {
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' };
+        }
+      }),
+      labels,
+      preferences: preferences(),
+      scheduleFrame: (callback) => callback(),
+      pageKey: (event) => event.altKey && event.code === 'KeyA',
+    });
+    sessions.push(session);
+
+    const field = document.querySelector('#draft');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    field.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'å',
+        code: 'KeyA',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toBe(0);
+    expect(field.value).toBe('hello');
+  });
 });
 
 function overlapsRect(
@@ -2392,6 +2478,77 @@ describe('long page translation', () => {
     // `translated` here is the false completion the reported page hit.
     expect(session.state().skipped).toBe(1);
     expect(document.documentElement.dataset.sakuttoState).toBe('partial');
+  });
+
+  it('finishes a page block after a live caption preempts it', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML =
+      '<p id="lead">Hello world from the article that needs a translation.</p>';
+    const scheduler = new JobScheduler(1);
+    let pageStarts = 0;
+    let holdFirstPage = true;
+    const engine = engineOf(async function* (segments, options) {
+      const local = new AbortController();
+      const forward = (): void => local.abort();
+      options.signal.addEventListener('abort', forward, { once: true });
+      try {
+        await new Promise<void>((resolve, reject) => {
+          scheduler.schedule({
+            priority: options.priority,
+            ...(options.preempt === true ? { preempt: true } : {}),
+            cancel: () => local.abort(),
+            run: async () => {
+              try {
+                if (options.preempt !== true && holdFirstPage) {
+                  holdFirstPage = false;
+                  pageStarts += 1;
+                  await new Promise<void>((_, fail) => {
+                    const onAbort = (): void => fail(abortError());
+                    if (local.signal.aborted) {
+                      onAbort();
+                      return;
+                    }
+                    local.signal.addEventListener('abort', onAbort, { once: true });
+                  });
+                }
+                if (local.signal.aborted) throw abortError();
+                resolve();
+              } catch (error) {
+                reject(error);
+              }
+            },
+          });
+        });
+        for (const segment of segments) {
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      } finally {
+        options.signal.removeEventListener('abort', forward);
+      }
+    });
+
+    const session = start(document, engine);
+    const pending = session.translate();
+    await vi.waitFor(() => expect(pageStarts).toBe(1));
+
+    for await (const chunk of engine.translate(
+      [{ id: 'cue', text: 'The station opens at dawn.' }],
+      {
+        tgt: 'ja',
+        form: 'polite',
+        priority: CAPTION_PLAYHEAD_PRIORITY,
+        preempt: true,
+        signal: new AbortController().signal,
+      },
+    )) {
+      void chunk;
+    }
+
+    await pending;
+    await session.whenIdle();
+    expect(document.querySelector('#lead')?.textContent).toContain('訳:');
+    expect(session.state().skipped).toBe(0);
+    expect(session.state().done).toBe(1);
   });
 
   it('keeps a recent rate instead of a lifetime average that collapses during a pause', async () => {

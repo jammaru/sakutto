@@ -411,10 +411,10 @@
     "message": "แป้นพิมพ์ลัด"
   },
   "shortcutHelp": {
-    "message": "เอาเครื่องหมายถูกออกเพื่อปิดคำสั่งใน Sakutto ปุ่มเปลี่ยนทางลัดจะเปิดตัวแก้ไขของ Chrome ถ้าลบปุ่มที่นั่น Sakutto จะเลิกใช้ปุ่มนั้น ปุ่มเริ่มต้นใช้ในหน้าเว็บเฉพาะเมื่อ Chrome ไม่ได้กำหนดปุ่มตอนติดตั้ง เช่น เพราะชนกับส่วนขยายอื่น"
+    "message": "เอาเครื่องหมายออกเพื่อปิดคำสั่งใน Sakutto การเปลี่ยนทางลัดจะเปิดตัวแก้ไขของ Chrome ปุ่มที่ Chrome กำหนดไว้ใช้ตามนั้น รวมถึงตอนที่ช่องข้อความมีโฟกัส (หน้ายังถูกแปล) หาก Chrome ไม่เคยกำหนดคำสั่ง ปุ่มเริ่มต้นยังใช้ได้ในหน้าเว็บ ไม่ใช้ได้ในหน้า chrome:// หรือหน้าอื่นที่ Sakutto เข้าไม่ได้ ในช่องข้อความ keydown นั้นถึงและไม่ถูกกัน จึงพิมพ์ Option+ตัวอักษรได้"
   },
   "shortcutHelpFirefox": {
-    "message": "เอาเครื่องหมายถูกออกเพื่อปิดคำสั่งใน Sakutto ปุ่มเปลี่ยนทางลัดจะเปิดตัวแก้ไขของ Firefox ถ้าลบปุ่มที่นั่น Sakutto จะเลิกใช้ปุ่มนั้น ปุ่มเริ่มต้นใช้ในหน้าเว็บเฉพาะเมื่อ Firefox ไม่ได้กำหนดปุ่มตอนติดตั้ง เช่น เพราะชนกับส่วนขยายอื่น"
+    "message": "เอาเครื่องหมายออกเพื่อปิดคำสั่งใน Sakutto การเปลี่ยนทางลัดจะเปิดตัวแก้ไขของ Firefox ปุ่มที่ตั้งไว้ที่นั่นใช้ตามนั้น รวมถึงในช่องข้อความ การอัปเดตจะคืนคำสั่งที่ไม่เคยถูกกำหนด เมื่อ Firefox อนุญาต ปุ่มที่ลบแล้วยังว่าง ในช่องข้อความ keydown นั้นไม่ถูกกัน"
   },
   "shortcutChange": {
     "message": "เปลี่ยนแป้นลัด"
@@ -429,10 +429,26 @@
     "message": "ปิด"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome ไม่ได้กำหนดปุ่มให้คำสั่งนี้ตอนติดตั้ง จึงใช้ปุ่มเริ่มต้นในหน้าเว็บ"
+    "message": "Chrome ไม่เคยกำหนดปุ่มให้คำสั่งนี้ จึงใช้ปุ่มเริ่มต้นในหน้าเว็บ ใช้ไม่ได้ในหน้า chrome:// หรือหน้าอื่นที่ Sakutto เข้าไม่ได้ ในช่องข้อความ keydown ไม่ถูกกัน"
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox ไม่ได้กำหนดปุ่มให้คำสั่งนี้ตอนติดตั้ง จึงใช้ปุ่มเริ่มต้นในหน้าเว็บ"
+    "message": "Firefox ไม่เคยกำหนดปุ่มให้คำสั่งนี้ จึงใช้ปุ่มเริ่มต้นในหน้า ในช่องข้อความ keydown ไม่ถูกกัน"
+  },
+  "shortcutFallbackKey": {
+    "message": "$KEY$ (ในหน้า)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutFallbackKeyFirefox": {
+    "message": "$KEY$ (ในหน้า)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutTranslate": {
     "message": "$KEY$ จะแปลงหน้าเว็บหรือกู้คืนหน้าเว็บเดิม",
@@ -509,6 +525,12 @@
   },
   "chromeOnlySuffix": {
     "message": "(ในตัว Chrome)"
+  },
+  "jaEasyName": {
+    "message": "ภาษาญี่ปุ่นง่าย"
+  },
+  "plamoOnlySuffix": {
+    "message": " (PLaMo)"
   },
   "onboardingStartNotice": {
     "message": "การกด \"ตกลงยอมรับใบอนุญาตและเริ่มต้น\" หมายความว่าคุณตกลงยอมรับใบอนุญาต PLaMo Community License ทั้งหมด"
@@ -652,6 +674,9 @@
   },
   "modelDownload": {
     "message": "ดาวน์โหลด"
+  },
+  "modelVerifying": {
+    "message": "กำลังตรวจสอบไฟล์ที่ดาวน์โหลด…"
   },
   "modelDelete": {
     "message": "ลบ"
@@ -1261,5 +1286,83 @@
   },
   "diagRuntime": {
     "message": "สถานะ"
+  },
+  "videoCaptionsSetting": {
+    "message": "แปลคำบรรยายวิดีโอ"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "เมื่อเปิด วิดีโอ YouTube (รวมไลฟ์) และ X ที่มีคำบรรยายอยู่แล้วจะถูกแปลบนอุปกรณ์ขณะเล่น Chrome จะขอสิทธิ์เข้าถึงไซต์เหล่านั้นตอนเปิดการตั้งค่า วิดีโอที่ไม่มีคำบรรยายจะไม่แสดงอะไร หากแปลบรรทัดใดไม่น่าเชื่อถือ จะคงต้นฉบับไว้"
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "การแสดงคำบรรยาย"
+  },
+  "videoCaptionsBilingual": {
+    "message": "ต้นฉบับและคำแปล"
+  },
+  "videoCaptionsReplace": {
+    "message": "แสดงเฉพาะคำบรรยายที่แปลแล้ว"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "การคงบรรทัดต้นฉบับช่วยให้เรียนง่ายขึ้นและจับคำแปลที่ผิดได้"
+  },
+  "videoCaptionsLabel": {
+    "message": "คำบรรยายที่แปลแล้ว"
+  },
+  "videoCaptionsPending": {
+    "message": "กำลังแปลคำบรรยาย…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "แสดงคำบรรยายต้นฉบับ"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "ซ่อนคำบรรยายต้นฉบับ"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "ไม่ได้รับสิทธิ์เข้าถึง YouTube และ X"
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "แสดงบรรทัดต้นฉบับ"
+  },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "แสดงปุ่มซ่อนคำบรรยายต้นฉบับบนเครื่องเล่น"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "ถ้าปิด ปุ่มจะไม่อยู่บนวิดีโอ คุณยังสลับต้นฉบับกับคำแปลได้จากหน้านี้"
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "ขนาดคำบรรยาย"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "ขนาดตามเครื่องเล่น รวมทั้งเต็มจอและโหมดโรงภาพยนตร์ ลากแถบเพื่อดูตัวอย่าง"
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "ไซต์คำบรรยายที่กำหนดเอง"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "เพิ่มโดเมนที่ไม่ใช่ YouTube หรือ X การแปลใช้ได้เมื่อไซต์เปิดเผยคำบรรยายเป็นแทร็กวิดีโอ HTML5, WebVTT หรือองค์ประกอบคำบรรยายที่มองเห็นได้ ไซต์ที่วาดคำบรรยายเป็นกราฟิกของตัวเองอย่างเดียวไม่รองรับ จะขอสิทธิ์เข้าถึงโดเมนนั้นเมื่อเพิ่ม"
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "เพิ่ม"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "ลบ"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "รวมโดเมนย่อย"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "ใส่โดเมนเช่น example.com ไวลด์การ์ดที่ใช้ได้คือ * นำหน้าเท่านั้น"
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "ไม่ได้อนุญาตให้เข้าถึงไซต์นั้น"
+  },
+  "videoCaptionsPositionReset": {
+    "message": "รีเซ็ตตำแหน่ง"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "กดค้างคำบรรยายที่แปลแล้วเพื่อย้ายได้ YouTube และ X จำตำแหน่งของตัวเอง รวมทั้งโหมดเต็มจอและโรงภาพยนตร์ ปุ่มนี้จะนำคำบรรยายกลับไปด้านล่างของเครื่องเล่น"
   }
 }

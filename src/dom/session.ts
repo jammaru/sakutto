@@ -1,3 +1,4 @@
+import { hasTranslatableText } from '@/engine/text/sanitize';
 import { estimateTokens } from '@/engine/text/tokens';
 import {
   coveredBlocks,
@@ -13,12 +14,18 @@ import { DEFAULT_BATCHING } from '@/engine/text/plan';
 import { chunkForTranslation, joinTranslatedSentences } from '@/engine/text/sentences';
 import { isPlainAltS } from '@/shared/shortcuts';
 import { PriorityQueue } from '@/engine/queue/priority-queue';
-import { isFolderPermissionError, isLocalServerError, isModelChangedError } from '@/engine/errors';
+import {
+  isAbortError,
+  isFolderPermissionError,
+  isLocalServerError,
+  isModelChangedError,
+} from '@/engine/errors';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
 import { mergeGlossary } from '@/shared/glossary';
 import {
   chooseTargetLanguage,
   effectivePageTarget,
+  isPlamoOnlyTarget,
   isTargetLanguage,
   type TargetLanguage,
 } from '@/shared/languages';
@@ -33,6 +40,7 @@ import {
   isFrozenInline,
   isOwnUi,
   isScreenReaderOnly,
+  isTypingShortcutTarget,
   isTranslationExcluded,
   isTypedTextSelection,
 } from './blocks';
@@ -80,6 +88,12 @@ const MAX_PAGE_FAILURES = 2;
 const SELECTION_SETTLE_MS = 48;
 /** A selectionchange that follows pointerup is the same gesture and should not wait out the keyboard delay. */
 const POINTER_RELEASE_WINDOW_MS = 80;
+/**
+ * Chrome's `commands.onCommand` and the in-page keydown can both arrive for one keypress
+ * (the compose bar already dedupes for the same reason). Toggle would otherwise translate
+ * and immediately restore, which looks like the shortcut doing nothing.
+ */
+export const PAGE_SHORTCUT_DEDUP_MS = 200;
 /**
  * The rate only needs a few observations per second, so the whole page is not re-counted
  * for every finished segment. Each count walks every translated character.
@@ -305,6 +319,8 @@ export class PageSession {
   private readonly onResize: () => void;
   private readonly onSelectionChange: () => void;
   private readonly onPointerUp: () => void;
+  private lastShortcutCommand: 'toggle' | 'bilingual' | 'selection' | null = null;
+  private lastShortcutAt = 0;
 
   constructor(
     private readonly doc: Document,
@@ -405,19 +421,24 @@ export class PageSession {
         this.dismissSelection();
         return;
       }
+      // In-page fallback (unassigned commands): skip when a field is focused so Option+letter
+      // can type. Chrome-assigned commands still run via onCommand inside fields.
       if (this.pageKey?.(event)) {
+        if (isTypingShortcutTarget(event)) return;
         event.preventDefault();
         event.stopPropagation();
         void this.handle('toggle');
         return;
       }
       if (this.bilingualKey?.(event)) {
+        if (isTypingShortcutTarget(event)) return;
         event.preventDefault();
         event.stopPropagation();
         void this.handle('bilingual');
         return;
       }
       if (!this.selectionKey(event)) return;
+      if (isTypingShortcutTarget(event)) return;
       const selected = this.readSelection();
       if (!selected) return;
       event.preventDefault();
@@ -508,6 +529,7 @@ export class PageSession {
         this.active &&
         tracked.length === 0 &&
         pageLanguage !== null &&
+        !isPlamoOnlyTarget(this.prefs.targetLanguage) &&
         pageLanguage === canonicalPageLanguage(this.prefs.targetLanguage),
       tokensPerSecond: rates.tokensPerSecond,
       segmentsPerSecond: rates.segmentsPerSecond,
@@ -518,6 +540,17 @@ export class PageSession {
   async handle(
     command: 'toggle' | 'restore' | 'bilingual' | 'selection' | 'compose',
   ): Promise<void> {
+    if (command === 'toggle' || command === 'bilingual' || command === 'selection') {
+      const now = Date.now();
+      if (
+        this.lastShortcutCommand === command &&
+        now - this.lastShortcutAt < PAGE_SHORTCUT_DEDUP_MS
+      ) {
+        return;
+      }
+      this.lastShortcutCommand = command;
+      this.lastShortcutAt = now;
+    }
     switch (command) {
       case 'toggle':
         await this.toggle();
@@ -667,7 +700,7 @@ export class PageSession {
       const selection = doc.getSelection?.() ?? doc.defaultView?.getSelection() ?? null;
       if (!selection || selection.isCollapsed || selection.rangeCount === 0) continue;
       const text = selection.toString().trim();
-      if (text.length === 0) continue;
+      if (text.length === 0 || !hasTranslatableText(text)) continue;
       const endpoint = selection.anchorNode ?? selection.focusNode;
       if (endpoint && this.overlay.contains(endpoint)) continue;
       // A field the reader is typing in reports its value as the document selection.
@@ -890,7 +923,14 @@ export class PageSession {
     if (!model) {
       // A container whose only text belongs to nested blocks is covered by those blocks.
       // Reporting it would turn every page with a menu or a form into a partial result.
-      if (ownProse(block, canonicalPageLanguage(this.prefs.targetLanguage))) {
+      if (
+        ownProse(
+          block,
+          isPlamoOnlyTarget(this.prefs.targetLanguage)
+            ? null
+            : canonicalPageLanguage(this.prefs.targetLanguage),
+        )
+      ) {
         this.skippedBlocks.set(block, block.textContent ?? '');
       }
       return;
@@ -1226,6 +1266,7 @@ export class PageSession {
     this.work.batches += 1;
     this.work.pieces += requests.length;
     const engineStarted = performance.now();
+    let abortedByEngine = false;
 
     try {
       for await (const chunk of this.engine.translate(
@@ -1259,7 +1300,9 @@ export class PageSession {
       }
     } catch (error) {
       // Unfinished blocks are retried below. Abort keeps the previous text.
-      if (isModelChangedError(error)) {
+      if (isAbortError(error)) {
+        abortedByEngine = true;
+      } else if (isModelChangedError(error)) {
         for (const item of batch) {
           if (item.batchToken !== token || item.state !== 'running') continue;
           this.discardUnfinishedPaint(item);
@@ -1275,9 +1318,22 @@ export class PageSession {
       // The last `complete()` of this batch already ran inside the loop above, before this
       // time was added, so the payload has to be rewritten once the batch's cost is known.
       this.writePerf();
+      const sessionStopped = this.pageController?.signal.aborted === true;
       for (const item of batch) {
         if (item.batchToken !== token || item.state !== 'running') {
           if (item.batchToken === token) this.showSelectionFailure(item, signal);
+          continue;
+        }
+        if (signal.aborted && (sessionStopped || !abortedByEngine)) {
+          item.state = item.translation.length > 0 ? 'done' : 'idle';
+          item.model?.block.removeAttribute('data-sakutto-pending');
+          this.showSelectionFailure(item, signal);
+          continue;
+        }
+        if (abortedByEngine && !sessionStopped && item.role === 'page') {
+          // Caption preemption (and other engine aborts) must not burn page retries.
+          item.state = 'idle';
+          this.enqueue(item, true);
           continue;
         }
         if (signal.aborted) {
@@ -1593,7 +1649,9 @@ export class PageSession {
   private retranslate(): void {
     this.invalidatePaints();
     this.abortRunning(false);
-    const target = canonicalPageLanguage(this.prefs.targetLanguage);
+    const target = isPlamoOnlyTarget(this.prefs.targetLanguage)
+      ? null
+      : canonicalPageLanguage(this.prefs.targetLanguage);
     for (const item of [...this.live.values()]) {
       if (item.role !== 'page') continue;
       if (item.lang && target && item.lang === target) {

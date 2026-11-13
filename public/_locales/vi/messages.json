@@ -411,10 +411,10 @@
     "message": "Phím tắt"
   },
   "shortcutHelp": {
-    "message": "Bỏ chọn lệnh để tắt trong Sakutto. Đổi phím tắt mở trình sửa của Chrome. Xóa phím ở đó thì Sakutto ngừng dùng phím đó. Phím mặc định chỉ dùng trên trang khi Chrome không gán phím lúc cài, ví dụ vì xung đột."
+    "message": "Bỏ chọn lệnh để tắt trong Sakutto. Đổi phím tắt mở trình sửa của Chrome. Phím Chrome đã gán được dùng nguyên, kể cả khi ô nhập đang focus (trang vẫn được dịch). Nếu Chrome chưa từng gán lệnh, phím mặc định vẫn dùng được trên trang web — không trên trang chrome:// hay trang khác mà Sakutto không vào được. Trong ô nhập, keydown đó vẫn tới và không bị chặn, nên Option+chữ gõ được."
   },
   "shortcutHelpFirefox": {
-    "message": "Bỏ chọn lệnh để tắt trong Sakutto. Đổi phím tắt mở trình sửa của Firefox. Xóa phím ở đó thì Sakutto ngừng dùng phím đó. Phím mặc định chỉ dùng trên trang khi Firefox không gán phím lúc cài, ví dụ vì xung đột."
+    "message": "Bỏ chọn lệnh để tắt trong Sakutto. Đổi phím tắt mở trình sửa của Firefox. Phím bạn đặt ở đó được dùng nguyên, kể cả trong ô nhập. Bản cập nhật khôi phục lệnh chưa từng được gán khi Firefox cho phép; phím bạn xóa vẫn trống. Trong ô nhập, keydown đó không bị chặn."
   },
   "shortcutChange": {
     "message": "Đổi phím tắt"
@@ -429,10 +429,26 @@
     "message": "Tắt"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome không gán phím cho lệnh này lúc cài nên trên trang sẽ dùng phím mặc định."
+    "message": "Chrome chưa từng gán phím cho lệnh này, nên phím mặc định được dùng trên trang web. Không hoạt động trên trang chrome:// hay trang khác mà Sakutto không vào được. Trong ô nhập, keydown không bị chặn."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox không gán phím cho lệnh này lúc cài nên trên trang sẽ dùng phím mặc định."
+    "message": "Firefox chưa từng gán phím cho lệnh này, nên phím mặc định được dùng trên trang. Trong ô nhập, keydown không bị chặn."
+  },
+  "shortcutFallbackKey": {
+    "message": "$KEY$ (trên trang)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutFallbackKeyFirefox": {
+    "message": "$KEY$ (trên trang)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutTranslate": {
     "message": "$KEY$ chuyển đổi trang hoặc khôi phục bản gốc.",
@@ -509,6 +525,12 @@
   },
   "chromeOnlySuffix": {
     "message": "(Tích hợp sẵn trong Chrome)"
+  },
+  "jaEasyName": {
+    "message": "Tiếng Nhật đơn giản"
+  },
+  "plamoOnlySuffix": {
+    "message": " (PLaMo)"
   },
   "onboardingStartNotice": {
     "message": "Nhấn \"Đồng ý với bản quyền và bắt đầu\" có nghĩa là bạn đồng ý với toàn bộ Bản quyền Cộng đồng PLaMo."
@@ -652,6 +674,9 @@
   },
   "modelDownload": {
     "message": "Tải xuống"
+  },
+  "modelVerifying": {
+    "message": "Đang kiểm tra tệp đã tải xuống…"
   },
   "modelDelete": {
     "message": "Xóa"
@@ -1261,5 +1286,83 @@
   },
   "diagRuntime": {
     "message": "Trạng thái"
+  },
+  "videoCaptionsSetting": {
+    "message": "Dịch phụ đề video"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "Khi bật, video YouTube (kể cả trực tiếp) và X đã có phụ đề được dịch trên thiết bị khi phát. Chrome sẽ hỏi quyền truy cập các trang đó lúc bạn bật tùy chọn. Video không có phụ đề sẽ không hiện gì. Nếu một dòng không dịch được đáng tin, phụ đề gốc được giữ lại."
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "Cách hiện phụ đề"
+  },
+  "videoCaptionsBilingual": {
+    "message": "Gốc và bản dịch"
+  },
+  "videoCaptionsReplace": {
+    "message": "Chỉ phụ đề đã dịch"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "Giữ dòng gốc giúp học dễ hơn và phát hiện bản dịch sai."
+  },
+  "videoCaptionsLabel": {
+    "message": "Phụ đề đã dịch"
+  },
+  "videoCaptionsPending": {
+    "message": "Đang dịch phụ đề…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "Hiện phụ đề gốc"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "Ẩn phụ đề gốc"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "Quyền truy cập YouTube và X không được cấp."
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "Hiện dòng gốc"
+  },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Hiện nút ẩn bản gốc trên trình phát"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "Khi tắt, nút không hiện trên video. Bạn vẫn đổi bản gốc và bản dịch từ trang này."
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "Cỡ phụ đề"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "Cỡ theo trình phát, gồm toàn màn hình và chế độ rạp. Kéo thanh để xem trước."
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "Trang phụ đề tùy chỉnh"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "Thêm một tên miền không phải YouTube hay X. Bản dịch chỉ chạy khi trang cung cấp phụ đề dạng rãnh HTML5, WebVTT, hoặc phần tử phụ đề hiện trên màn hình. Trang chỉ vẽ phụ đề bằng đồ họa riêng thì không hỗ trợ. Khi thêm sẽ xin quyền truy cập tên miền đó."
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "Thêm"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "Xóa"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "Gồm cả tên miền phụ"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "Nhập tên miền như example.com. Ký tự đại diện duy nhất được phép là * ở đầu."
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "Không được cấp quyền truy cập trang đó."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "Đặt lại vị trí"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "Nhấn giữ phụ đề đã dịch để di chuyển. YouTube và X nhớ vị trí riêng, kể cả toàn màn hình và chế độ rạp. Nút này đưa phụ đề về cuối trình phát."
   }
 }

@@ -10,7 +10,12 @@ import type { LlamaRuntime } from '../in-browser/runtime';
 import type { ModelState, ModelStatus } from '../../shared/engine-status';
 import { DEFAULT_MODEL_ID, MODEL_CATALOG, type ModelEntry, type ModelId } from './catalog';
 import { copyModelFile } from './copy';
-import { downloadModel, type DownloadProgress } from './download';
+import {
+  DEFAULT_CONCURRENCY,
+  DEFAULT_SEGMENT_BYTES,
+  downloadModel,
+  type DownloadProgress,
+} from './download';
 import { isPermissionDenied, type ModelFileStore } from './file-store';
 import { decideIntegrity, digestMatchesPin, type IntegrityManifest } from './integrity';
 import { sha256OfBlob, type HashOptions } from './sha256';
@@ -387,6 +392,8 @@ export class ModelManager {
         finalPath: this.finalPath(modelId),
         signal,
         attempts: 3,
+        segmentBytes: DEFAULT_SEGMENT_BYTES,
+        concurrency: DEFAULT_CONCURRENCY,
         ...(this.fetchImpl ? { fetchImpl: this.fetchImpl } : {}),
         ...(this.hashBlob ? { hashBlob: this.hashBlob } : {}),
         onProgress: (progress) => {

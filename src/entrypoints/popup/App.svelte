@@ -11,7 +11,7 @@
   } from '@/shared/engine-status';
   import { sharedFolderNeedsPermission } from '@/engine/model/folder-status';
   import { hasLicenseConsent } from '@/shared/agreement';
-  import { currentUiLanguage, t, type MessageKey } from '@/shared/i18n';
+  import { currentUiLanguage, t, tForBrowser, type MessageKey } from '@/shared/i18n';
   import {
     isModelProgressMessage,
     requestEngineStatus,
@@ -36,6 +36,12 @@
     subscribeSiteRules,
     type SiteRule,
   } from '@/dom/sites';
+  import { hostMatchesCaptionCustom } from '@/captions/custom-hosts';
+  import {
+    isCaptionAutoHost,
+    resolveCaptionToggle,
+    settleCaptionEnableIntent,
+  } from '@/captions/sites';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';
   import {
     effectivePageTarget,
@@ -45,11 +51,12 @@
   import { advanceModelStatus } from '@/shared/model-progress';
   import { openShortcutEditor } from '@/shared/shortcut-editor';
   import {
-    DEFAULT_SHORTCUTS,
     SHORTCUT_COMMANDS,
     ariaShortcut,
     boundShortcut,
+    defaultShortcuts,
     displayShortcut,
+    usesInPageFallback,
     type ShortcutCommand,
   } from '@/shared/shortcuts';
   import { SHARED_FOLDER_CHANGED_EVENT } from '@/engine/model/folder-offer';
@@ -81,6 +88,7 @@
   let pageMessage = $state<'ready' | 'unsupported' | 'unread'>('unsupported');
   let commandBusy = $state(false);
   let permissionError = $state(false);
+  let captionPermissionError = $state(false);
   let engine = $state<EngineStatus | null>(null);
   let modelMark = $state<ModelStatus | null>(null);
   let quality = $state<QualitySample | null>(null);
@@ -95,10 +103,9 @@
    */
   let bound = $derived.by((): Record<ShortcutCommand, string> => {
     const enabled = settings?.shortcutsEnabled;
-    const next: Record<ShortcutCommand, string> = { ...DEFAULT_SHORTCUTS };
+    const next: Record<ShortcutCommand, string> = { ...defaultShortcuts() };
     for (const command of SHORTCUT_COMMANDS) {
       next[command] = boundShortcut(shortcuts?.snapshot ?? null, command, {
-        fallback: DEFAULT_SHORTCUTS[command],
         enabled: enabled?.[command] !== false,
         assigned: shortcuts?.assigned[command],
       });
@@ -110,6 +117,13 @@
       label: hint.label,
       text: t(hint.label, [keyText(hint.command)]),
     })),
+  );
+  let shortcutFallback = $derived(
+    SHORTCUT_COMMANDS.some((command) =>
+      usesInPageFallback(shortcuts?.snapshot ?? null, command, shortcuts?.assigned[command]),
+    )
+      ? tForBrowser('shortcutFallbackNote', 'shortcutFallbackNoteFirefox')
+      : '',
   );
   let toggleKeys = $derived(ariaShortcut(bound['translate-page']) ?? undefined);
 
@@ -271,6 +285,34 @@
     }
   }
 
+  async function setVideoCaptions(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    captionPermissionError = false;
+    // User gesture: resolveCaptionToggle must call permissions.request with no prior pause.
+    const result = await resolveCaptionToggle(input.checked);
+    input.checked = result.on;
+    if (result.denied) {
+      captionPermissionError = true;
+      return;
+    }
+    try {
+      settings = await saveSettings({ translateVideoCaptions: result.on });
+      settingsError = null;
+    } catch {
+      settingsError = 'save';
+      input.checked = settings?.translateVideoCaptions === true;
+      return;
+    }
+    if (
+      result.on &&
+      tabId !== undefined &&
+      host &&
+      (isCaptionAutoHost(host) || hostMatchesCaptionCustom(host, settings.captionCustomHosts))
+    ) {
+      await ensureContentScript(tabId);
+    }
+  }
+
   async function setAlways(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
     if (!host) return;
@@ -357,6 +399,9 @@
     browser.runtime.onMessage.addListener(onMessage);
     window.addEventListener(SHARED_FOLDER_CHANGED_EVENT, onFolderChanged);
 
+    void settleCaptionEnableIntent().then((settled) => {
+      if (settled.applied) void refreshSettings();
+    });
     void refreshSettings();
     void refreshPage();
     void refreshEngine();
@@ -367,15 +412,28 @@
     void readDeviceHeadroom().then((value) => {
       headroom = value;
     });
-    void requestShortcutSnapshot().then((snapshot) => {
-      shortcuts = snapshot;
-    });
+    const refreshShortcuts = (): void => {
+      void requestShortcutSnapshot().then((snapshot) => {
+        if (snapshot) shortcuts = snapshot;
+      });
+    };
+    let shortcutRefreshTimer = 0;
+    const scheduleShortcutRefresh = (): void => {
+      window.clearTimeout(shortcutRefreshTimer);
+      shortcutRefreshTimer = window.setTimeout(refreshShortcuts, 80);
+    };
+    refreshShortcuts();
+    window.addEventListener('focus', scheduleShortcutRefresh);
+    document.addEventListener('visibilitychange', scheduleShortcutRefresh);
 
     return () => {
       unsubscribe();
       unsubscribeRules();
       window.clearInterval(timer);
       browser.runtime.onMessage.removeListener(onMessage);
+      window.clearTimeout(shortcutRefreshTimer);
+      window.removeEventListener('focus', scheduleShortcutRefresh);
+      document.removeEventListener('visibilitychange', scheduleShortcutRefresh);
       window.removeEventListener(SHARED_FOLDER_CHANGED_EVENT, onFolderChanged);
     };
   });
@@ -507,6 +565,23 @@
     </p>
   {/if}
 
+  {#if settings}
+    <label class="check">
+      <input
+        type="checkbox"
+        data-sakutto="video-captions"
+        checked={settings.translateVideoCaptions}
+        onchange={setVideoCaptions}
+      />
+      <span>{t('videoCaptionsSetting')}</span>
+    </label>
+    {#if captionPermissionError}
+      <p class="error" role="alert" data-sakutto="video-captions-denied">
+        {t('videoCaptionsPermissionDenied')}
+      </p>
+    {/if}
+  {/if}
+
   {#if settingsError}
     <p class="error" role="alert">
       {settingsError === 'save' ? t('errorSaveSettings') : t('errorSettings')}
@@ -530,6 +605,9 @@
       <li>{line.text}</li>
     {/each}
   </ul>
+  {#if shortcutFallback}
+    <p class="muted" data-sakutto="shortcut-fallback">{shortcutFallback}</p>
+  {/if}
   <button class="link-button shortcut-change" type="button" onclick={changeShortcuts}>
     {t('shortcutChange')}
   </button>

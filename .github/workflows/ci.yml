@@ -4,11 +4,15 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Cancel superseded PR pushes. Do not cancel main: a nearly finished wllama
+  # compile that is cancelled never writes the cache, and the next push compiles
+  # from scratch.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -54,6 +58,36 @@ jobs:
           fi
           git diff --name-only "$BASE_SHA" HEAD | node scripts/ci-changed.ts --stdin | tee -a "$GITHUB_OUTPUT"
 
+      - name: Job summary
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CODE: ${{ steps.scope.outputs.code }}
+          WLLAMA: ${{ steps.scope.outputs.wllama }}
+          BUNDLE: ${{ steps.scope.outputs.bundle }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+        run: |
+          set -euo pipefail
+          package="no"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] || [ "$BUNDLE" = "true" ]; then
+            package="yes (bundle or manual)"
+          elif [ "$EVENT_NAME" = "push" ] && [ "$CODE" = "true" ]; then
+            package="yes (main, code change)"
+          else
+            package="skipped"
+          fi
+          {
+            echo "## Change scope"
+            echo ""
+            echo "- event: \`$EVENT_NAME\`"
+            echo "- draft: \`${DRAFT:-n/a}\`"
+            echo "- code: \`$CODE\`"
+            echo "- wllama inputs: \`$WLLAMA\`"
+            echo "- bundle: \`$BUNDLE\`"
+            echo "- package jobs: $package"
+            echo "- pinned-wllama: always"
+            echo "- checks: always (lint, format, typecheck, unit, e2e)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   checks:
     needs: changes
     runs-on: ubuntu-latest
@@ -85,17 +119,30 @@ jobs:
 
       - id: playwright
         shell: bash
-        run: echo "key=playwright-chromium-${RUNNER_OS}-$(sha256sum pnpm-lock.yaml | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+        run: echo "key=playwright-chromium-${RUNNER_OS}-${ImageOS:-unknown}-$(sha256sum pnpm-lock.yaml | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: ${{ steps.playwright.outputs.key }}
 
-      - run: pnpm exec playwright install --with-deps chromium
+      # Invariant: browser only, never `--with-deps`. CI does not apt-get fonts;
+      # GitHub-hosted Ubuntu already ships Chromium's shared libraries. Tests
+      # must not depend on CJK font metrics. Binaries still come from the cache.
+      - run: pnpm exec playwright install chromium
       - run: pnpm test:e2e
         env:
           PLAYWRIGHT_SKIP_INSTALL: '1'
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## checks"
+            echo ""
+            echo "- lint / format / typecheck / unit / bench:equality / e2e"
+            echo "- fetch-depth: 0 so bench-fixtures can see named commits"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   pinned-wllama:
     needs: changes
@@ -111,18 +158,56 @@ jobs:
       - name: Check the pinned source and the MV3 patches
         run: node scripts/wllama/build.ts --check
 
-  package:
+  wllama:
     needs: changes
     if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.bundle == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.code == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/build-wllama
+
+      - name: Stage wllama artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p staged-wllama/vendor/wllama staged-wllama/public/vendor
+          cp -a vendor/wllama/dist staged-wllama/vendor/wllama/dist
+          cp -a public/vendor/wllama staged-wllama/public/vendor/wllama
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wllama-dist
+          if-no-files-found: error
+          compression-level: 0
+          path: staged-wllama
+
+  package:
+    needs: [changes, wllama]
     strategy:
       fail-fast: false
       matrix:
         target: [chrome, firefox]
     name: Package ${{ matrix.target }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wllama-dist
+          path: staged-wllama
+
+      - name: Restore wllama artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p vendor/wllama public/vendor
+          rm -rf vendor/wllama/dist public/vendor/wllama
+          cp -a staged-wllama/vendor/wllama/dist vendor/wllama/dist
+          cp -a staged-wllama/public/vendor/wllama public/vendor/wllama
+
       - uses: ./.github/actions/package-extension
         with:
           target: ${{ matrix.target }}
+          skip-wllama: true

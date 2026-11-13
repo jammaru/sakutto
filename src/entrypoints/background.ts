@@ -2,18 +2,24 @@ import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
 import { EngineClient } from '@/background/engine-client';
 import { createEngineHostController } from '@/background/engine-host-document';
-import { installPageActions } from '@/background/page-actions';
+import { injectCaptionPages, installPageActions } from '@/background/page-actions';
+import { syncCaptionCustomContentScripts } from '@/captions/register-custom';
 import { broadcastModelProgress, shouldWarmDownloadedModel } from '@/background/progress-broadcast';
 import { measureQuality } from '@/background/quality';
 import { TranslationBroker } from '@/background/translation-broker';
+import { settleCaptionEnableIntent } from '@/captions/sites';
 import { grantOriginsFor } from '@/dom/sites';
 import { getModel, type ModelId } from '@/engine/model/catalog';
 import { normalizeSelectedModelId } from '@/engine/model/selection';
 import { hasLicenseConsent } from '@/shared/agreement';
 import type { EngineCapabilities } from '@/shared/capabilities';
 import { isEngineCapabilities } from '@/shared/capabilities';
+import { pageReadPlayerResponse } from '@/captions/youtube';
+import { pageFetchTimedtext, resolveCaptionFetchUrl } from '@/captions/timedtext';
 import {
   isCacheClearRequest,
+  isCaptionPlayerResponseRequest,
+  isCaptionTimedtextRequest,
   isEngineCapabilitiesRequest,
   isEngineStatusRequest,
   isEngineTierRequest,
@@ -33,7 +39,7 @@ import {
   requestEngineProbe,
   type ModelProgressMessage,
 } from '@/shared/messages';
-import { resolveShortcutQuery } from '@/shared/shortcut-assignment';
+import { resolveShortcutQuery, restoreEmptyCommandShortcuts } from '@/shared/shortcut-assignment';
 import {
   WEBGPU_DEBUG_STORAGE_KEY,
   isWebGpuDebugProfile,
@@ -53,6 +59,16 @@ export default defineBackground(() => {
   installPageActions(broker);
   subscribeSettings((settings) => {
     client.syncStoredSettings(settings);
+    void syncCaptionCustomContentScripts(settings.captionCustomHosts);
+    if (settings.translateVideoCaptions) void injectCaptionPages();
+  });
+  void ensureSettings().then((settings) => {
+    void syncCaptionCustomContentScripts(settings.captionCustomHosts);
+  });
+  browser.permissions.onAdded?.addListener((granted) => {
+    void settleCaptionEnableIntent(
+      granted.origins ? { grantedOrigins: granted.origins } : undefined,
+    );
   });
 
   async function syncSource(): Promise<void> {
@@ -170,16 +186,17 @@ export default defineBackground(() => {
     return client.deleteModel(modelId).catch(() => null);
   }
 
-  async function recordCommandAssignments(): Promise<void> {
+  async function recordCommandAssignments(restoreEmpty = false): Promise<void> {
     const commands = await browser.commands.getAll().catch(() => []);
-    await resolveShortcutQuery(commands);
+    const next = restoreEmpty ? await restoreEmptyCommandShortcuts(commands) : commands;
+    await resolveShortcutQuery(next);
   }
 
   browser.runtime.onInstalled.addListener(({ reason }) => {
     void (async () => {
       if (reason === 'update') await client.bootSource();
       else await syncSource();
-      await recordCommandAssignments();
+      await recordCommandAssignments(reason === 'install' || reason === 'update');
       if (reason === 'install') {
         await browser.tabs.create({ url: browser.runtime.getURL('/onboarding.html') });
       }
@@ -217,6 +234,51 @@ export default defineBackground(() => {
 
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.id !== browser.runtime.id) return false;
+
+    if (isCaptionPlayerResponseRequest(message)) {
+      const tabId = sender.tab?.id;
+      if (tabId === undefined) {
+        sendResponse(null);
+        return true;
+      }
+      void browser.scripting
+        .executeScript({
+          target: { tabId },
+          world: 'MAIN',
+          func: pageReadPlayerResponse,
+        })
+        .then(
+          (results) => sendResponse(results[0]?.result ?? null),
+          () => sendResponse(null),
+        );
+      return true;
+    }
+
+    if (isCaptionTimedtextRequest(message)) {
+      const tabId = sender.tab?.id;
+      const tabUrl = sender.tab?.url ?? sender.url;
+      const resolved =
+        tabId !== undefined && tabUrl ? resolveCaptionFetchUrl(tabUrl, message.url) : null;
+      if (tabId === undefined || !resolved) {
+        sendResponse('');
+        return true;
+      }
+      void browser.scripting
+        .executeScript({
+          target: { tabId },
+          world: 'MAIN',
+          func: pageFetchTimedtext,
+          args: [resolved],
+        })
+        .then(
+          (results) => {
+            const value = results[0]?.result;
+            sendResponse(typeof value === 'string' ? value : '');
+          },
+          () => sendResponse(''),
+        );
+      return true;
+    }
 
     if (isEngineCapabilitiesRequest(message)) {
       void getEngineCapabilities().then(sendResponse, () => sendResponse(null));

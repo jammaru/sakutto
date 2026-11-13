@@ -12,6 +12,20 @@ export class ModelPinError extends Error {
   override readonly name = 'ModelPinError';
 }
 
+export interface CheckModelPinOptions {
+  /** Extra attempts after the first. 429, 5xx, and network errors retry. */
+  retries?: number;
+  delayMs?: number;
+  sleep?: (ms: number) => Promise<void>;
+}
+
+const DEFAULT_RETRIES = 2;
+const DEFAULT_DELAY_MS = 400;
+
+function isTransientStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
 function reportedSize(response: Response): number | null {
   const range = response.headers.get('content-range');
   if (range) {
@@ -30,40 +44,64 @@ function reportedSize(response: Response): number | null {
 export async function checkModelPin(
   target: ModelPinTarget,
   fetchImpl: typeof fetch,
+  options: CheckModelPinOptions = {},
 ): Promise<void> {
-  const response = await fetchImpl(target.url, {
-    headers: { Range: 'bytes=0-0' },
-    redirect: 'follow',
-    cache: 'no-store',
-  });
-  await response.body?.cancel().catch(() => undefined);
+  const retries = options.retries ?? DEFAULT_RETRIES;
+  const delayMs = options.delayMs ?? DEFAULT_DELAY_MS;
+  const sleep =
+    options.sleep ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
+  let lastError: unknown;
 
-  if (response.status !== 206 && response.status !== 200) {
-    throw new ModelPinError(
-      `${target.id} returned HTTP ${String(response.status)} for ${target.url}`,
-    );
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetchImpl(target.url, {
+        headers: { Range: 'bytes=0-0' },
+        redirect: 'follow',
+        cache: 'no-store',
+      });
+      await response.body?.cancel().catch(() => undefined);
+
+      if (isTransientStatus(response.status) && attempt < retries) {
+        await sleep(delayMs * 2 ** attempt);
+        continue;
+      }
+
+      if (response.status !== 206 && response.status !== 200) {
+        throw new ModelPinError(
+          `${target.id} returned HTTP ${String(response.status)} for ${target.url}`,
+        );
+      }
+
+      const total = reportedSize(response);
+      if (total === null) {
+        throw new ModelPinError(`${target.id} did not report a total size for ${target.url}`);
+      }
+      if (total !== target.size) {
+        throw new ModelPinError(
+          `${target.id} is ${String(total)} bytes, pinned size is ${String(target.size)}`,
+        );
+      }
+      return;
+    } catch (error) {
+      lastError = error;
+      if (error instanceof ModelPinError || attempt >= retries) throw error;
+      await sleep(delayMs * 2 ** attempt);
+    }
   }
 
-  const total = reportedSize(response);
-  if (total === null) {
-    throw new ModelPinError(`${target.id} did not report a total size for ${target.url}`);
-  }
-  if (total !== target.size) {
-    throw new ModelPinError(
-      `${target.id} is ${String(total)} bytes, pinned size is ${String(target.size)}`,
-    );
-  }
+  throw lastError instanceof Error ? lastError : new ModelPinError(String(lastError));
 }
 
 export async function checkModelPins(
   targets: readonly ModelPinTarget[],
   fetchImpl: typeof fetch,
+  options: CheckModelPinOptions = {},
 ): Promise<void> {
   const failures: string[] = [];
 
   for (const target of targets) {
     try {
-      await checkModelPin(target, fetchImpl);
+      await checkModelPin(target, fetchImpl, options);
     } catch (error) {
       failures.push(error instanceof Error ? error.message : String(error));
     }

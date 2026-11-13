@@ -411,10 +411,10 @@
     "message": "Atajos de teclado"
   },
   "shortcutHelp": {
-    "message": "Desmarque un comando para desactivarlo en Sakutto. Cambiar atajos abre el editor de Chrome. Si borra una tecla ahí, Sakutto deja de usarla. La tecla predeterminada se usa en las páginas solo si Chrome no asignó ninguna al instalar, por ejemplo por un conflicto."
+    "message": "Desmarque un comando para desactivarlo en Sakutto. Cambiar atajos abre el editor de Chrome. Una tecla que Chrome asignó se usa tal cual, también con un campo de texto enfocado (la página sigue traduciéndose). Si Chrome nunca asignó un comando, la tecla predeterminada sigue funcionando en páginas web, no en páginas chrome:// ni en otras que Sakutto no puede abrir. En un campo de texto ese keydown llega y no se cancela, para que Option+letra pueda escribir."
   },
   "shortcutHelpFirefox": {
-    "message": "Desmarque un comando para desactivarlo en Sakutto. Cambiar atajos abre el editor de Firefox. Si borra una tecla ahí, Sakutto deja de usarla. La tecla predeterminada se usa en las páginas solo si Firefox no asignó ninguna al instalar, por ejemplo por un conflicto."
+    "message": "Desmarque un comando para desactivarlo en Sakutto. Cambiar atajos abre el editor de Firefox. La tecla que asigne allí se usa tal cual, también con un campo de texto enfocado. Una actualización restaura un comando que nunca se asignó, si Firefox lo permite; una tecla que borró sigue borrada. En un campo de texto ese keydown no se cancela."
   },
   "shortcutChange": {
     "message": "Cambiar atajos"
@@ -429,10 +429,26 @@
     "message": "Desactivado"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome no asignó una tecla a este comando al instalar, así que en las páginas se usa la predeterminada."
+    "message": "Chrome nunca asignó una tecla a este comando, así que la predeterminada se usa en páginas web. No funciona en páginas chrome:// ni en otras que Sakutto no puede abrir. En un campo de texto el keydown no se cancela."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox no asignó una tecla a este comando al instalar, así que en las páginas se usa la predeterminada."
+    "message": "Firefox nunca asignó una tecla a este comando, así que la predeterminada se usa en las páginas. En un campo de texto el keydown no se cancela."
+  },
+  "shortcutFallbackKey": {
+    "message": "$KEY$ (en páginas)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutFallbackKeyFirefox": {
+    "message": "$KEY$ (en páginas)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutTranslate": {
     "message": "$KEY$ traduce la página o restaura la original.",
@@ -509,6 +525,12 @@
   },
   "chromeOnlySuffix": {
     "message": "(Incorporado en Chrome)"
+  },
+  "jaEasyName": {
+    "message": "Japonés sencillo"
+  },
+  "plamoOnlySuffix": {
+    "message": " (PLaMo)"
   },
   "onboardingStartNotice": {
     "message": "Al pulsar «Aceptar la licencia y comenzar», usted acepta la Licencia Integral de la Comunidad PLaMo."
@@ -652,6 +674,9 @@
   },
   "modelDownload": {
     "message": "Descargar"
+  },
+  "modelVerifying": {
+    "message": "Verificando el archivo descargado…"
   },
   "modelDelete": {
     "message": "Borrar"
@@ -1261,5 +1286,83 @@
   },
   "diagRuntime": {
     "message": "Estado"
+  },
+  "videoCaptionsSetting": {
+    "message": "Traducir subtítulos de vídeo"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "Si está activada, los vídeos de YouTube (también en directo) y de X que ya tienen subtítulos se traducen en el dispositivo mientras se reproducen. Chrome pide acceso a esos sitios al activar la opción. Los vídeos sin subtítulos no muestran nada. Si una línea no se puede traducir de forma fiable, se mantiene el original."
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "Visualización de subtítulos"
+  },
+  "videoCaptionsBilingual": {
+    "message": "Original y traducción"
+  },
+  "videoCaptionsReplace": {
+    "message": "Solo subtítulos traducidos"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "Conservar la línea original facilita el estudio y detectar una traducción incorrecta."
+  },
+  "videoCaptionsLabel": {
+    "message": "Subtítulos traducidos"
+  },
+  "videoCaptionsPending": {
+    "message": "Traduciendo subtítulo…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "Mostrar subtítulo original"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "Ocultar subtítulo original"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "No se concedió acceso a YouTube y X."
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "Mostrar la línea original"
+  },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Mostrar el botón para ocultar el original en el reproductor"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "Si está desactivado, el botón no aparece en el vídeo. Sigue pudiendo cambiar original y traducción en esta página."
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "Tamaño de los subtítulos"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "El tamaño sigue al reproductor, también en pantalla completa y teatro. Arrastre el control para previsualizar."
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "Sitios de subtítulos personalizados"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "Añada un dominio que no sea YouTube ni X. La traducción solo funciona si el sitio expone subtítulos como pistas de vídeo HTML5, WebVTT o un elemento visible de subtítulos. Los sitios que dibujan los subtítulos solo como gráficos propios no son compatibles. Al añadirlo se pide acceso a ese dominio."
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "Añadir"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "Quitar"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "Incluir subdominios"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "Introduzca un dominio como example.com. El único comodín permitido es un * inicial."
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "No se concedió acceso a ese sitio."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "Restablecer posición"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "Mantén pulsado un subtítulo traducido para moverlo. YouTube y X recuerdan cada uno su sitio, también a pantalla completa y en cine. Este botón lo devuelve a la parte inferior del reproductor."
   }
 }

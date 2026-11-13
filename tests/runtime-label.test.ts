@@ -99,6 +99,9 @@ describe('runtime label', () => {
       'runtimeChrome',
     );
     expect(
+      runtimeLabel({ status: status(), pageSimple: true, targetLanguage: 'ja-easy' }).key,
+    ).toBe('runtimePlamoGpu');
+    expect(
       runtimeLabel({
         status: status({
           model: {

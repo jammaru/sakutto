@@ -17,6 +17,11 @@ as produced by the documented image for that CPU.
 Docker Engine with Compose v2 is required for `pnpm build:wllama`. `emcc` is not required on
 the host. Several GB of disk and tens of minutes are needed for a cold wasm build.
 
+The model downloader's SHA-256 core is separate from the wllama build. It is an original C
+implementation (`src/engine/model/sha256.wasm.c`) compiled with clang 18 and wasm-ld, then
+base64-inlined in `src/engine/model/sha256-wasm.ts`. It is bundled into the worker chunk loaded
+by the offscreen document, imports nothing, and is not shipped under `vendor/wllama/`.
+
 ## Commands
 
 From the extracted source:
@@ -46,6 +51,20 @@ To rebuild only the extension after wasm is present:
 pnpm build:firefox
 ```
 
+To rebuild the downloader's SHA-256 payload (clang 18 and wasm-ld must be on `PATH`):
+
+```sh
+clang --target=wasm32 -O3 -flto -funroll-loops -nostdlib -fvisibility=hidden \
+  -Wl,--no-entry -Wl,--strip-all \
+  -Wl,--export=sha256_init -Wl,--export=sha256_update -Wl,--export=sha256_final \
+  -Wl,--export=sha256_input -Wl,--export-memory \
+  -Wl,--initial-memory=524288 -Wl,--max-memory=524288 \
+  -o sha256.wasm src/engine/model/sha256.wasm.c
+base64 -w0 sha256.wasm
+```
+
+The base64 output replaces `SHA256_WASM_BASE64` in `src/engine/model/sha256-wasm.ts`.
+
 ## What this package contains
 
 - This repository's source (TypeScript, Svelte, scripts, locale catalogs, tests)
@@ -70,7 +89,9 @@ release tarball. The patches and the reason for each are in that file and in
 `docs/AMO_REVIEW_NOTES.md`.
 
 Model weights are not in this source package or in the xpi. They are GGUF data downloaded from
-Hugging Face on first use, hashed against pins in `src/engine/model/catalog.ts`.
+Hugging Face on first use, hashed against pins in `src/engine/model/catalog.ts`. Hashing is
+incremental as ordered blocks are written; only a resumed `.part` prefix is read back and
+hashed before the transfer continues.
 
 ## Firefox-only behaviour reviewers should know
 

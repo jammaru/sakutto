@@ -355,6 +355,8 @@ describe('release workflow', () => {
     expect(workflow).toContain('workflow_dispatch:');
     expect(workflow).toContain('publish:');
     expect(workflow).toContain('uses: ./.github/actions/package-extension');
+    expect(workflow).toContain('from-source: true');
+    expect(workflow).toContain('fetch-depth: 0');
     expect(workflow).not.toContain('pnpm build:wllama');
     expect(workflow).toContain('node scripts/release/cli.ts check');
     expect(workflow).toContain('node scripts/release/cli.ts notes > release-notes.md');

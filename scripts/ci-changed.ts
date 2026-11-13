@@ -8,6 +8,7 @@ const BUNDLE_FILES = new Set([
   'scripts/amo-source-package.ts',
   'scripts/web-ext-lint.ts',
   'scripts/compare-extension-builds.ts',
+  'scripts/wllama-cache-key.ts',
   'amo-metadata.json',
 ]);
 
@@ -21,6 +22,7 @@ function isBundleInput(file: string): boolean {
   return (
     file.startsWith('scripts/wllama/') ||
     file.startsWith('.github/actions/package-extension/') ||
+    file.startsWith('.github/actions/build-wllama/') ||
     BUNDLE_FILES.has(file)
   );
 }

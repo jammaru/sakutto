@@ -39,10 +39,15 @@ export class MemoryFileStore implements ModelFileStore {
     this.modified.set(path, this.now());
   }
 
-  async createWriter(path: string, offset: number): Promise<ModelFileWriter> {
+  async createWriter(
+    path: string,
+    offset: number,
+    options?: { keepExistingData?: boolean },
+  ): Promise<ModelFileWriter> {
     const existing = this.files.get(path) ?? new Uint8Array(0);
-    let buffer = new Uint8Array(Math.max(existing.length, offset));
-    buffer.set(existing);
+    const keepExisting = options?.keepExistingData ?? offset > 0;
+    let buffer = new Uint8Array(keepExisting ? Math.max(existing.length, offset) : offset);
+    if (keepExisting) buffer.set(existing);
     this.files.set(path, buffer);
     let position = offset;
 
@@ -53,17 +58,18 @@ export class MemoryFileStore implements ModelFileStore {
       buffer = grown;
       this.files.set(path, buffer);
     };
+    const visibleLength = (): number => (keepExisting ? buffer.length : position);
 
     return {
       write: async (chunk: Uint8Array) => {
         ensure(position + chunk.length);
         buffer.set(chunk, position);
         position += chunk.length;
-        this.files.set(path, buffer.slice(0, position));
+        this.files.set(path, buffer.slice(0, visibleLength()));
         this.modified.set(path, this.now());
       },
       close: async () => {
-        this.files.set(path, buffer.slice(0, position));
+        this.files.set(path, buffer.slice(0, visibleLength()));
         this.modified.set(path, this.now());
       },
     };

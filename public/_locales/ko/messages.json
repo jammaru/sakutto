@@ -411,10 +411,10 @@
     "message": "키보드 단축키"
   },
   "shortcutHelp": {
-    "message": "명령을 끄려면 체크를 해제하세요. 단축키 변경은 Chrome의 편집기를 엽니다. 거기서 키를 지우면 Sakutto도 그 단축키를 쓰지 않습니다. 설치 때 Chrome이 키를 지정하지 않은 경우(충돌 등)에만 페이지에서 기본 키를 씁니다."
+    "message": "Sakutto에서 끄려면 해당 명령의 체크를 해제하세요. 바로 가기 변경은 Chrome 편집기를 엽니다. Chrome이 할당한 키는 입력란이 포커스되어 있어도 그대로 쓰이며 페이지는 번역됩니다. Chrome이 한 번도 할당하지 않은 명령은 웹 페이지에서 기본 키가 동작합니다. chrome:// 페이지 등 Sakutto가 들어갈 수 없는 페이지에서는 동작하지 않습니다. 그 미할당 keydown은 입력란에도 전달되며 preventDefault 하지 않으므로 Option+글자를 입력할 수 있습니다."
   },
   "shortcutHelpFirefox": {
-    "message": "명령을 끄려면 체크를 해제하세요. 단축키 변경은 Firefox의 편집기를 엽니다. 거기서 키를 지우면 Sakutto도 그 단축키를 쓰지 않습니다. 설치 때 Firefox이 키를 지정하지 않은 경우(충돌 등)에만 페이지에서 기본 키를 씁니다."
+    "message": "Sakutto에서 끄려면 해당 명령의 체크를 해제하세요. 바로 가기 변경은 Firefox 편집기를 엽니다. 거기서 지정한 키는 입력란이 포커스되어 있어도 그대로 씁니다. 한 번도 할당되지 않은 명령은 업데이트가 Firefox가 허용할 때만 기본값으로 되돌리고, 지운 키는 그대로입니다. 입력란에서는 그 미할당 keydown을 막지 않습니다."
   },
   "shortcutChange": {
     "message": "단축키 변경"
@@ -429,10 +429,26 @@
     "message": "끄기"
   },
   "shortcutFallbackNote": {
-    "message": "설치 때 Chrome가 이 명령에 키를 지정하지 않아 페이지에서는 기본 키를 씁니다."
+    "message": "Chrome이 이 명령에 키를 할당한 적이 없어 웹 페이지에서 기본 키를 사용합니다. chrome:// 페이지 등 Sakutto가 들어갈 수 없는 페이지에서는 동작하지 않습니다. 입력란에서는 그 keydown을 막지 않습니다."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "설치 때 Firefox가 이 명령에 키를 지정하지 않아 페이지에서는 기본 키를 씁니다."
+    "message": "Firefox가 이 명령에 키를 할당한 적이 없어 페이지에서 기본 키를 사용합니다. 입력란에서는 그 keydown을 막지 않습니다."
+  },
+  "shortcutFallbackKey": {
+    "message": "$KEY$ (페이지에서 사용)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutFallbackKeyFirefox": {
+    "message": "$KEY$ (페이지에서 사용)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutTranslate": {
     "message": "$KEY$를 누르면 페이지가 변환되거나 원본으로 복원됩니다.",
@@ -509,6 +525,12 @@
   },
   "chromeOnlySuffix": {
     "message": "(Chrome 내장)"
+  },
+  "jaEasyName": {
+    "message": "쉬운 일본어"
+  },
+  "plamoOnlySuffix": {
+    "message": " (PLaMo)"
   },
   "onboardingStartNotice": {
     "message": "\"라이선스에 동의하고 시작\"을 누르면 PLaMo 커뮤니티 라이선스 전체에 동의하게 됩니다."
@@ -652,6 +674,9 @@
   },
   "modelDownload": {
     "message": "다운로드"
+  },
+  "modelVerifying": {
+    "message": "다운로드한 파일을 확인하는 중…"
   },
   "modelDelete": {
     "message": "삭제"
@@ -1261,5 +1286,83 @@
   },
   "diagRuntime": {
     "message": "상태"
+  },
+  "videoCaptionsSetting": {
+    "message": "동영상 자막 번역"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "켜면 자막이 있는 YouTube(라이브 포함)와 X 동영상을 재생 중에 기기에서 번역합니다. 설정을 켤 때 Chrome이 해당 사이트 접근 권한을 요청합니다. 자막이 없는 동영상에는 아무것도 표시하지 않습니다. 한 줄을 안정적으로 번역할 수 없으면 원문을 그대로 둡니다."
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "자막 표시"
+  },
+  "videoCaptionsBilingual": {
+    "message": "원문과 번역"
+  },
+  "videoCaptionsReplace": {
+    "message": "번역 자막만"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "원문 줄을 남겨 두면 공부하기 쉽고 잘못된 번역도 알아채기 쉽습니다."
+  },
+  "videoCaptionsLabel": {
+    "message": "번역된 자막"
+  },
+  "videoCaptionsPending": {
+    "message": "자막 번역 중…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "원문 자막 표시"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "원문 자막 숨기기"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "YouTube와 X에 대한 액세스가 허용되지 않았습니다."
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "원문 줄 표시"
+  },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "플레이어에 원문 숨기기 버튼 표시"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "끄면 버튼이 영상에 나오지 않습니다. 원문과 번역 전환은 이 화면에서 할 수 있습니다."
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "자막 크기"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "크기는 전체 화면과 시어터를 포함해 플레이어를 따릅니다. 슬라이더를 끌면 미리보기가 바뀝니다."
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "사용자 지정 자막 사이트"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "YouTube나 X가 아닌 도메인을 추가합니다. HTML5 비디오 트랙, WebVTT, 또는 보이는 자막 요소로 자막을 제공하는 사이트에서만 번역됩니다. 자체 그래픽으로만 자막을 그리는 사이트는 지원하지 않습니다. 추가할 때 해당 도메인 접근을 요청합니다."
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "추가"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "삭제"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "하위 도메인 포함"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "example.com 같은 도메인을 입력하세요. 허용되는 와일드카드는 앞의 * 뿐입니다."
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "해당 사이트 접근이 허용되지 않았습니다."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "위치 재설정"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "번역 자막을 길게 누르면 플레이어 안에서 위치를 옮길 수 있습니다. YouTube와 X는 각각 위치를 기억하며 전체 화면과 시어터에서도 유지됩니다. 이 버튼은 자막을 플레이어 하단으로 되돌립니다."
   }
 }

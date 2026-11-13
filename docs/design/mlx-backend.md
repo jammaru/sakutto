@@ -210,7 +210,7 @@ and mistranslate. **Sakutto always uses `/v1/completions` with the handwritten p
   [optional <|plamo:key|>lang<|plamo:val|>src]
 <|plamo:msg|>TEXT
 <|plamo:tag|>output<|plamo:key|>lang<|plamo:val|>tgt
-  [optional <|plamo:key|>form<|plamo:val|>polite|plain  — ja only]
+  [optional <|plamo:key|>form<|plamo:val|>polite|plain  — ja / ja-easy only]
 <|plamo:msg|>
 ```
 
@@ -309,7 +309,7 @@ docs tell the user to set greedy / temperature 0 in the server app as well.
 - Glossary, bilingual display, selection translation, typed-text, compose: same
   `Engine.translate` path, so they keep working.
 - Host permission requested when the user enables the backend or changes the origin.
-  Loopback URLs request `http://127.0.0.1/*`, `http://localhost/*`, and `http://[::1]/*`.
+  Only the configured URL's host origin is requested (for the default, `http://127.0.0.1/*`).
 - Non-loopback URL: blocked until `localServerAllowRemote` is confirmed. The connection
   test says the checkbox is required (`server-remote-unconfirmed`) instead of a generic
   failure. Warning copy states that page text will leave this machine.

@@ -411,10 +411,10 @@
     "message": "キーボードショートカット"
   },
   "shortcutHelp": {
-    "message": "オフにするには下のチェックを外してください。Chrome 側の割り当てを変えるには「ショートカットキーを変更」を押します。そこでキーを消すと、Sakutto でもそのショートカットは使いません。インストール時に Chrome がキーを割り当てなかった場合（競合など）に限り、ページ上では既定のキーを使います。"
+    "message": "オフにするには下のチェックを外してください。Chrome 側の割り当てを変えるには「ショートカットキーを変更」を押します。Chrome が割り当てたキーは、入力欄にフォーカスがあってもそのまま使い、ページは翻訳されます。一度も割り当てられなかったコマンドは、ウェブページ上では既定のキーが使えます（chrome:// など、Sakutto が入れないページでは使えません）。その未割り当ての keydown は入力欄にも届き、Sakutto は preventDefault しないので Option+文字はそのまま入力できます。"
   },
   "shortcutHelpFirefox": {
-    "message": "オフにするには下のチェックを外してください。「ショートカットキーを変更」は Firefox 自身の設定を開きます。そこでキーを消すと Sakutto は使いません。既定のキーがページで使われるのは、Firefox がインストール時に一度も割り当てなかった場合だけです（ほかの拡張機能と衝突したときなど）。"
+    "message": "オフにするには下のチェックを外してください。「ショートカットキーを変更」は Firefox 自身の設定を開きます。そこで設定したキーは、入力欄にフォーカスがあってもそのまま使います。一度も割り当てられなかったコマンドは、アップデート時に可能な場合だけ既定に戻します。消したキーはそのままです。未割り当ての keydown は入力欄では握りません。"
   },
   "shortcutChange": {
     "message": "ショートカットキーを変更"
@@ -429,10 +429,26 @@
     "message": "オフ"
   },
   "shortcutFallbackNote": {
-    "message": "インストール時に Chrome がこのコマンドにキーを割り当てなかったため、ページ上では既定のキーを使います。"
+    "message": "Chrome がこのコマンドにキーを割り当てたことがないため、ウェブページ上では既定のキーを使います。chrome:// など、Sakutto が入れないページでは動きません。入力欄ではその keydown を握りません。"
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "インストール時に Firefox がこの操作にキーを割り当てなかったため、ページでは既定のキーを使います。"
+    "message": "Firefox がこの操作にキーを割り当てたことがないため、ページでは既定のキーを使います。入力欄ではその keydown を握りません。"
+  },
+  "shortcutFallbackKey": {
+    "message": "$KEY$（ページ内で有効）",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutFallbackKeyFirefox": {
+    "message": "$KEY$（ページ内で有効）",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutTranslate": {
     "message": "「$KEY$」で翻訳と原文を切り替えます",
@@ -509,6 +525,12 @@
   },
   "chromeOnlySuffix": {
     "message": "（Chrome 内蔵）"
+  },
+  "jaEasyName": {
+    "message": "やさしい日本語"
+  },
+  "plamoOnlySuffix": {
+    "message": "（PLaMo）"
   },
   "onboardingStartNotice": {
     "message": "「ライセンスに同意して開始」を押すと、PLaMo Community License の全文に同意したことになります。"
@@ -652,6 +674,9 @@
   },
   "modelDownload": {
     "message": "ダウンロード"
+  },
+  "modelVerifying": {
+    "message": "ダウンロードしたファイルを確認しています…"
   },
   "modelDelete": {
     "message": "削除"
@@ -1261,5 +1286,83 @@
   },
   "diagRuntime": {
     "message": "状態"
+  },
+  "videoCaptionsSetting": {
+    "message": "動画の字幕を翻訳する"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "オンにすると、YouTube（ライブを含む）と X の、字幕がある動画を再生中に端末内で翻訳します。設定を入れるときに、それらのサイトへのアクセス許可を求めます。標準的な字幕がある別のサイトは、下の一覧に追加できます。字幕がない動画には何も出しません。確かな訳が出ない行は原文のまま残します。"
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "字幕の表示"
+  },
+  "videoCaptionsBilingual": {
+    "message": "原文と訳を並べる"
+  },
+  "videoCaptionsReplace": {
+    "message": "訳だけを表示する"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "原文を残すと学習しやすく、誤訳にも気づきやすくなります。"
+  },
+  "videoCaptionsLabel": {
+    "message": "翻訳字幕"
+  },
+  "videoCaptionsPending": {
+    "message": "字幕を翻訳しています…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "原文の字幕を表示"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "原文の字幕を隠す"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "YouTube と X へのアクセスが許可されませんでした。"
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "原文の行を表示する"
+  },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "プレーヤー上の原文ボタンを表示"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "オフにすると動画の上には出しません。原文の表示はこの画面から切り替えられます。"
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "字幕の大きさ"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "大きさはプレーヤーに合わせて変わります（全画面・シアターを含む）。スライダーを動かすとプレビューが変わります。"
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "独自の字幕サイト"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "YouTube と X 以外のドメインを追加できます。HTML5 の video トラック、WebVTT、または画面上の標準的な字幕要素がある場合にだけ翻訳します。独自の描画だけで字幕を出しているサイトには対応しません。追加するときに、そのドメインへのアクセスを求めます。"
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "追加"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "削除"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "サブドメインも含める"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "example.com のようなドメインを入力してください。使えるワイルドカードは先頭の * だけです。"
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "そのサイトへのアクセスが許可されませんでした。"
+  },
+  "videoCaptionsPositionReset": {
+    "message": "位置をリセット"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "翻訳字幕を長押しすると、プレーヤー内で場所を変えられます。YouTube と X はそれぞれ位置を覚え、全画面やシアターでも保ちます。このボタンで下部の元の位置に戻します。"
   }
 }

@@ -22,12 +22,12 @@ import {
   isRemoteServerUrl,
   normalizeParallel,
   normalizeServerUrl,
-  originPatternsFor,
   parseServerUrl,
   primaryOriginPattern,
   serverOriginKey,
 } from '@/engine/local-server/url';
 import { buildTranslationPrompt, PFML3, TRANSLATION_STOP_TOKENS } from '@/engine/prompt/pfml3';
+import { ISSUE_73_HIDDEN } from '@/engine/text/sanitize';
 import type { TranslateOptions } from '@/engine/types';
 import { collectChunks, FakeRuntime, fakeEngine } from './support/fakes';
 
@@ -181,22 +181,13 @@ describe('local server URL', () => {
     expect(isRemoteServerUrl('http://127.1/v1')).toBe(false);
   });
 
-  it('asks for localhost patterns together so every loopback spelling is covered', () => {
-    expect(originPatternsFor('http://127.0.0.1:8080/v1')).toEqual([
-      'http://127.0.0.1/*',
-      'http://localhost/*',
-      'http://[::1]/*',
-    ]);
-    expect(originPatternsFor('http://127.0.0.8:8080/v1')).toEqual([
-      'http://127.0.0.8/*',
-      'http://127.0.0.1/*',
-      'http://localhost/*',
-      'http://[::1]/*',
-    ]);
-    expect(originPatternsFor('http://192.168.1.5:1234/v1')).toEqual(['http://192.168.1.5/*']);
+  it('asks only for the URL host origin, not loopback aliases', () => {
     expect(primaryOriginPattern('http://127.0.0.1:8080/v1')).toBe('http://127.0.0.1/*');
     expect(primaryOriginPattern('http://localhost:1234/v1')).toBe('http://localhost/*');
     expect(primaryOriginPattern('http://127.0.0.8:8080/v1')).toBe('http://127.0.0.8/*');
+    expect(primaryOriginPattern('http://[::1]:8080/v1')).toBe('http://[::1]/*');
+    expect(primaryOriginPattern('http://192.168.1.5:1234/v1')).toBe('http://192.168.1.5/*');
+    expect(primaryOriginPattern('not a url')).toBeNull();
     expect(serverOriginKey('http://example.test:9/v1')).toBe('http://example.test:9');
     expect(serverOriginKey('http://example.test:9/v1')).not.toBe(
       serverOriginKey('http://other.test:9/v1'),
@@ -602,17 +593,21 @@ describe('local server completions', () => {
       response.end();
     });
     servers.push(sse);
+    const sseTokens: string[] = [];
     await expect(
       completeOnServer(config(sse.url), {
         prompt: 'x',
         maxTokens: 8,
         signal: new AbortController().signal,
-        onToken: () => undefined,
+        onToken: (token) => {
+          sseTokens.push(token);
+        },
       }),
     ).rejects.toMatchObject({
       code: 'server-failed',
       message: expect.stringMatching(/length/u),
     });
+    expect(sseTokens.join('')).toBe('Hel');
 
     const json = await startFakeServer((_request, response) => {
       response.writeHead(200, { 'Content-Type': 'application/json' });
@@ -670,6 +665,78 @@ describe('local server completions', () => {
     const chunks = await collectChunks(hitEngine.translate(segments, options()));
     expect(chunks.some((chunk) => chunk.final === 'こんにちは')).toBe(true);
     expect(await cache.get(key)).toEqual({ text: 'こんにちは', engine: 'plamo' });
+  });
+
+  it('rejects a truncated visible translation with an invisible tail on SSE and JSON', async () => {
+    const truncated = `これは途中で切れた翻訳です${ISSUE_73_HIDDEN.repeat(4)}`;
+    const payload = JSON.stringify({
+      choices: [{ text: truncated, finish_reason: 'length' }],
+    });
+
+    const sse = await startFakeServer((_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      response.write(`data: ${payload}\n\n`);
+      response.write('data: [DONE]\n\n');
+      response.end();
+    });
+    servers.push(sse);
+    const sseTokens: string[] = [];
+    await expect(
+      completeOnServer(config(sse.url), {
+        prompt: 'x',
+        maxTokens: 64,
+        signal: new AbortController().signal,
+        onToken: (token) => {
+          sseTokens.push(token);
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: 'server-failed',
+      message: expect.stringMatching(/length/u),
+    });
+    expect(sseTokens.join('')).toBe(truncated);
+
+    const json = await startFakeServer((_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(payload);
+    });
+    servers.push(json);
+    await expect(
+      completeOnServer(config(json.url), {
+        prompt: 'x',
+        maxTokens: 64,
+        signal: new AbortController().signal,
+        onToken: () => undefined,
+      }),
+    ).rejects.toMatchObject({
+      code: 'server-failed',
+      message: expect.stringMatching(/length/u),
+    });
+
+    const store = new MemoryTranslationCacheStore();
+    const cache = new TranslationCache(store);
+    const segments = [{ id: 'a', text: 'Hello.' }];
+    const key = buildTranslationCacheKey({
+      model: 'local:test',
+      tgt: 'ja',
+      form: 'polite',
+      text: 'Hello.',
+      src: 'en',
+    });
+    const failing = await startFakeServer((_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(payload);
+    });
+    servers.push(failing);
+    const missEngine = new CachingEngine(
+      new InBrowserEngine(new LocalServerRuntime(() => config(failing.url))),
+      cache,
+      'local:test',
+    );
+    await expect(collectChunks(missEngine.translate(segments, options()))).rejects.toBeInstanceOf(
+      EngineError,
+    );
+    expect(await cache.get(key)).toBeUndefined();
   });
 
   it('rejects finish_reason content_filter', async () => {

@@ -16,6 +16,7 @@ import {
   type TranslatorConstructor,
   type TranslatorPackInstance,
 } from '../../shared/translator-pack';
+import { hasTranslatableText, sanitizeTranslationInput } from '../text/sanitize';
 
 export type { TranslatorAvailability, TranslatorConstructor } from '../../shared/translator-pack';
 
@@ -132,10 +133,12 @@ export class ChromeTranslatorEngine implements IdentifiedEngine {
     let sourceLanguage = suppliedSource ? toChromeLanguage(suppliedSource) : null;
 
     if (!sourceLanguage) {
-      const sample = segments
-        .map((segment) => segment.text)
-        .join('\n')
-        .slice(0, 1000);
+      const sample = sanitizeTranslationInput(
+        segments
+          .map((segment) => segment.text)
+          .join('\n')
+          .slice(0, 1000),
+      );
       const detected = await this.detect(sample);
       const canonicalDetected = detected ? canonicalChromeLanguage(detected) : null;
       if (!canonicalDetected) {
@@ -159,13 +162,14 @@ export class ChromeTranslatorEngine implements IdentifiedEngine {
     for (const segment of segments) {
       if (options.signal.aborted) return;
 
-      if (segment.text.trim().length === 0) {
+      const cleaned = sanitizeTranslationInput(segment.text);
+      if (!hasTranslatableText(cleaned)) {
         yield { id: segment.id, final: segment.text, engine: this.kind };
         continue;
       }
 
       try {
-        yield* this.translateSegment(segment, translator, options.signal);
+        yield* this.translateSegment({ ...segment, text: cleaned }, translator, options.signal);
       } catch (error) {
         if (isAbortError(error) || options.signal.aborted) return;
         if (error instanceof EngineError) throw error;

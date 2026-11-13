@@ -63,7 +63,7 @@ The extension tries not to translate text you are typing into a form field, and 
 
 ## Permissions
 
-The extension is not given access to every site when you install it. A one-time translation of the current tab uses the access the browser grants for that action. Access to a particular site is optional, and is requested only when you turn that site on, for automatic translation. Access to a local server is also optional. It is requested when you turn that engine on or change a loopback address, and for a remote address only after you confirm the warning checkbox.
+The extension is not given access to every site when you install it. A one-time translation of the current tab uses the access the browser grants for that action. Access to a particular site is optional, and is requested only when you turn that site on for automatic translation, when you turn on video caption translation (YouTube and X), or when you add a custom caption site. Access to a local server is also optional. It is requested when you turn that engine on or change a loopback address, and for a remote address only after you confirm the warning checkbox.
 
 ## Limited Use
 
@@ -138,7 +138,7 @@ Chrome ウェブストアまたは addons.mozilla.org から入れた場合、�
 
 ## 権限
 
-インストールした時点で、すべてのサイトへのアクセスが与えられるわけではありません。今開いているタブの一回だけの翻訳には、その操作に対してブラウザが与えるアクセスを使います。特定のサイトへのアクセスは任意で、そのサイトの自動翻訳をオンにしたときだけ要求します。ローカルサーバーへのアクセスも任意です。そのエンジンをオンにしたときやループバックのアドレスを変えたときに要求し、この端末ではない URL では警告のチェックを確認したあとで要求します。
+インストールした時点で、すべてのサイトへのアクセスが与えられるわけではありません。今開いているタブの一回だけの翻訳には、その操作に対してブラウザが与えるアクセスを使います。特定のサイトへのアクセスは任意で、そのサイトの自動翻訳をオンにしたとき、動画字幕翻訳をオンにしたとき（YouTube と X）、または独自の字幕サイトを追加したときに要求します。ローカルサーバーへのアクセスも任意です。そのエンジンをオンにしたときやループバックのアドレスを変えたときに要求し、この端末ではない URL では警告のチェックを確認したあとで要求します。
 
 ## 限定的な利用
 

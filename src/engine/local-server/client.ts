@@ -1,6 +1,7 @@
 import { abortError, EngineError, isAbortError, isEngineError } from '../errors';
 import { buildTranslationPrompt, TRANSLATION_STOP_TOKENS } from '../prompt/pfml3';
 import { forwardCompletionToken, type CompletionRequest } from '../in-browser/runtime';
+import { plamoPromptTargetLanguage } from '@/shared/languages';
 import { isRecord } from '@/shared/object';
 import type { Settings } from '@/shared/settings';
 import {
@@ -304,12 +305,14 @@ async function readSse(
       } catch {
         throw malformedEventError();
       }
+      // Forward first so the engine can tell a truncated visible sentence from a
+      // format-character collapse before `length` is raised as a hard failure.
+      forwardCompletionToken(request.signal, completionText(payload), request.onToken);
       const reason = choiceFinishReason(payload);
       if (reason !== null) {
-        assertStopReason(reason, false);
         finishReason = reason;
+        assertStopReason(reason, false);
       }
-      forwardCompletionToken(request.signal, completionText(payload), request.onToken);
     }
     return false;
   };
@@ -384,15 +387,18 @@ export async function completeOnServer(
     }
 
     const payload = await readJson(response);
-    assertStopReason(choiceFinishReason(payload), true);
     const text = completionText(payload);
     if (text.length === 0 && payload !== null) {
+      assertStopReason(choiceFinishReason(payload), true);
       throw new EngineError(
         'server-failed',
         'The local translation server returned no completion text.',
       );
     }
+    // Forward first so the engine can tell a truncated visible sentence from a
+    // format-character collapse before `length` is raised as a hard failure.
     forwardCompletionToken(request.signal, text, request.onToken);
+    assertStopReason(choiceFinishReason(payload), true);
   } catch (error) {
     if (isEngineError(error) && error.code !== 'aborted') throw error;
     throw mapFetchError(error, deadline.timedOut());
@@ -432,7 +438,7 @@ function connectionProbeRequest(signal: AbortSignal): CompletionRequest {
     prompt: buildTranslationPrompt({
       text: CONNECTION_PROBE_TEXT,
       src: 'en',
-      tgt: 'ja',
+      tgt: plamoPromptTargetLanguage('ja'),
       form: 'polite',
     }),
     maxTokens: CONNECTION_PROBE_MAX_TOKENS,

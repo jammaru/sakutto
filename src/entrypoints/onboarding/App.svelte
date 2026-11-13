@@ -37,9 +37,9 @@
   } from '@/shared/messages';
   import { advanceModelStatus } from '@/shared/model-progress';
   import {
-    DEFAULT_SHORTCUTS,
     SHORTCUT_COMMANDS,
     boundShortcut,
+    defaultShortcuts,
     displayShortcut,
     type ShortcutCommand,
   } from '@/shared/shortcuts';
@@ -119,7 +119,7 @@
    * The keys Chrome has bound right now, so the "you are ready" checklist names the keys the
    * reader will actually press rather than the values the manifest shipped with.
    */
-  let bound = $state<Record<ShortcutCommand, string>>({ ...DEFAULT_SHORTCUTS });
+  let bound = $state<Record<ShortcutCommand, string>>({ ...defaultShortcuts() });
 
   function keyText(command: ShortcutCommand): string {
     const shortcut = bound[command];
@@ -140,7 +140,9 @@
     return t('downloadEtaMinutes', [String(Math.max(1, Math.round(seconds / 60)))]);
   });
   let statusText = $derived.by(() => {
-    if (modelState === 'verifying') return t('runtimeVerifying');
+    if (modelState === 'verifying') {
+      return `${t('runtimeVerifying')} ${formatByteSize(received)} / ${formatByteSize(total)}`;
+    }
     if (modelState === 'loading') return t('runtimeLoading');
     if (modelState === 'downloading') {
       return t('runtimeDownloading', [

@@ -411,10 +411,10 @@
     "message": "键盘快捷键"
   },
   "shortcutHelp": {
-    "message": "取消勾选即可在 Sakutto 中关闭该命令。“更改快捷键”会打开 Chrome 自己的编辑器。在那里清除按键后，Sakutto 也不再使用它。仅当安装时 Chrome 从未指定快捷键（例如冲突）时，页面上才使用默认键。"
+    "message": "取消勾选即可在 Sakutto 中关闭该命令。“更改快捷键”会打开 Chrome 自己的编辑器。Chrome 已指定的按键会原样使用，即使焦点在输入框里（页面仍会翻译）。若 Chrome 从未指定某命令，默认按键仍可在网页上使用，但不能用于 chrome:// 页面或其他 Sakutto 无法进入的页面。该未指定的 keydown 也会到达输入框，且不会被 preventDefault，因此 Option+字母可以输入。"
   },
   "shortcutHelpFirefox": {
-    "message": "取消勾选即可在 Sakutto 中关闭该命令。“更改快捷键”会打开 Firefox 自己的编辑器。在那里清除按键后，Sakutto 也不再使用它。仅当安装时 Firefox 从未指定快捷键（例如冲突）时，页面上才使用默认键。"
+    "message": "取消勾选即可在 Sakutto 中关闭该命令。“更改快捷键”会打开 Firefox 自己的编辑器。你在那里设置的按键会原样使用，即使焦点在输入框里。更新时，从未指定过的命令会在 Firefox 允许时恢复默认；你清除的按键保持为空。输入框里不会拦截该未指定的 keydown。"
   },
   "shortcutChange": {
     "message": "更改快捷键"
@@ -429,10 +429,26 @@
     "message": "关闭"
   },
   "shortcutFallbackNote": {
-    "message": "安装时 Chrome 未为此命令指定快捷键，因此页面上使用默认键。"
+    "message": "Chrome 从未为此命令指定按键，因此网页上使用默认按键。不能用于 chrome:// 页面或其他 Sakutto 无法进入的页面。输入框里不会拦截该 keydown。"
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "安装时 Firefox 未为此命令指定快捷键，因此页面上使用默认键。"
+    "message": "Firefox 从未为此命令指定按键，因此页面上使用默认按键。输入框里不会拦截该 keydown。"
+  },
+  "shortcutFallbackKey": {
+    "message": "$KEY$（在页面中有效）",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutFallbackKeyFirefox": {
+    "message": "$KEY$（在页面中有效）",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutTranslate": {
     "message": "$KEY$ 可转换页面或还原原件。",
@@ -509,6 +525,12 @@
   },
   "chromeOnlySuffix": {
     "message": "(Chrome 内置)"
+  },
+  "jaEasyName": {
+    "message": "简易日语"
+  },
+  "plamoOnlySuffix": {
+    "message": "（PLaMo）"
   },
   "onboardingStartNotice": {
     "message": "点击“同意许可证并开始”，即表示您同意整个 PLaMo 社区许可证。"
@@ -652,6 +674,9 @@
   },
   "modelDownload": {
     "message": "下载"
+  },
+  "modelVerifying": {
+    "message": "正在检查下载的文件…"
   },
   "modelDelete": {
     "message": "删除"
@@ -1261,5 +1286,83 @@
   },
   "diagRuntime": {
     "message": "状态"
+  },
+  "videoCaptionsSetting": {
+    "message": "翻译视频字幕"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "开启后，会在设备上实时翻译已有字幕的 YouTube（含直播）和 X 视频。打开此设置时，Chrome 会请求访问这些网站。没有字幕的视频不会显示任何内容。无法可靠翻译的一行会保留原文。"
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "字幕显示"
+  },
+  "videoCaptionsBilingual": {
+    "message": "原文和译文"
+  },
+  "videoCaptionsReplace": {
+    "message": "仅显示译文"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "保留原文便于学习，也更容易发现误译。"
+  },
+  "videoCaptionsLabel": {
+    "message": "翻译字幕"
+  },
+  "videoCaptionsPending": {
+    "message": "正在翻译字幕…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "显示原字幕"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "隐藏原字幕"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "未获准访问 YouTube 和 X。"
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "显示原文行"
+  },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "在播放器上显示“隐藏原文”按钮"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "关闭后按钮不会出现在视频上。仍可在此页面切换原文和译文。"
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "字幕大小"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "大小会随播放器变化，包括全屏和影院模式。拖动滑块可预览。"
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "自定义字幕网站"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "添加 YouTube 或 X 以外的域名。仅当网站以 HTML5 视频轨道、WebVTT 或可见字幕元素提供字幕时才会翻译。仅用自定义图形绘制字幕的网站不受支持。添加时会请求该域名的访问权限。"
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "添加"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "移除"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "包含子域名"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "请输入 example.com 这样的域名。唯一允许的通配符是开头的 *。"
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "未授予对该网站的访问权限。"
+  },
+  "videoCaptionsPositionReset": {
+    "message": "重置位置"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "长按译文字幕即可在播放器内拖动。YouTube 和 X 会分别记住位置，全屏和剧场模式也会保持。此按钮会把字幕放回播放器底部。"
   }
 }

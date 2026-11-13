@@ -147,7 +147,8 @@
   {#each models as id (id)}
     {@const status = statuses[id]}
     {@const state = status?.state ?? 'absent'}
-    {@const downloading = state === 'downloading' || state === 'verifying'}
+    {@const downloading = state === 'downloading'}
+    {@const verifying = state === 'verifying'}
     <li>
       <div class="summary">
         <strong>{label(id)}</strong>
@@ -156,7 +157,7 @@
           <span class="badge">{t('modelInUse')}</span>
         {/if}
       </div>
-      {#if status && (downloading || state === 'partial' || state === 'loading')}
+      {#if status && (downloading || verifying || state === 'partial' || state === 'loading')}
         <p class="muted">
           {formatByteSize(status.received)} / {formatByteSize(status.total)}
         </p>
@@ -168,7 +169,12 @@
         {/if}
       {/if}
       <div class="actions">
-        {#if downloading}
+        {#if downloading || verifying}
+          {#if verifying}
+            <p class="muted" role="status">{t('modelVerifying')}</p>
+          {/if}
+          <!-- Verification still reads local bytes and can be cancelled. Keep the same control
+               visible instead of replacing it with a status label. -->
           <button
             class="button secondary"
             type="button"

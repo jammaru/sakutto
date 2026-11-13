@@ -411,10 +411,10 @@
     "message": "Scorciatoie da tastiera"
   },
   "shortcutHelp": {
-    "message": "Togli il segno di spunta per disattivare un comando in Sakutto. Modifica scorciatoie apre l’editor di Chrome. Se cancelli un tasto lì, Sakutto smette di usarlo. Il tasto predefinito vale sulle pagine solo se Chrome non ne ha assegnato uno all’installazione, per esempio per un conflitto."
+    "message": "Deseleziona un comando per disattivarlo in Sakutto. Cambia scorciatoie apre l’editor di Chrome. Un tasto assegnato da Chrome è usato così com’è, anche con un campo di testo attivo (la pagina viene comunque tradotta). Se Chrome non ha mai assegnato un comando, il tasto predefinito funziona sulle pagine web, non sulle pagine chrome:// né su altre che Sakutto non può aprire. In un campo quel keydown arriva e non viene impedito, così Option+lettera può digitare."
   },
   "shortcutHelpFirefox": {
-    "message": "Togli il segno di spunta per disattivare un comando in Sakutto. Modifica scorciatoie apre l’editor di Firefox. Se cancelli un tasto lì, Sakutto smette di usarlo. Il tasto predefinito vale sulle pagine solo se Firefox non ne ha assegnato uno all’installazione, per esempio per un conflitto."
+    "message": "Deseleziona un comando per disattivarlo in Sakutto. Cambia scorciatoie apre l’editor di Firefox. Un tasto impostato lì è usato così com’è, anche in un campo di testo. Un aggiornamento ripristina un comando mai assegnato, se Firefox lo consente; un tasto cancellato resta vuoto. In un campo quel keydown non viene impedito."
   },
   "shortcutChange": {
     "message": "Modifica le scorciatoie"
@@ -429,10 +429,26 @@
     "message": "Disattivato"
   },
   "shortcutFallbackNote": {
-    "message": "Chrome non ha assegnato un tasto a questo comando all’installazione, quindi sulle pagine vale quello predefinito."
+    "message": "Chrome non ha mai assegnato un tasto a questo comando, quindi il predefinito vale sulle pagine web. Non funziona sulle pagine chrome:// né su altre che Sakutto non può aprire. In un campo il keydown non viene impedito."
   },
   "shortcutFallbackNoteFirefox": {
-    "message": "Firefox non ha assegnato un tasto a questo comando all’installazione, quindi sulle pagine vale quello predefinito."
+    "message": "Firefox non ha mai assegnato un tasto a questo comando, quindi il predefinito vale sulle pagine. In un campo il keydown non viene impedito."
+  },
+  "shortcutFallbackKey": {
+    "message": "$KEY$ (nelle pagine)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutFallbackKeyFirefox": {
+    "message": "$KEY$ (nelle pagine)",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
   "shortcutTranslate": {
     "message": "$KEY$ converte la pagina o ripristina l’originale.",
@@ -509,6 +525,12 @@
   },
   "chromeOnlySuffix": {
     "message": "(integrato in Chrome)"
+  },
+  "jaEasyName": {
+    "message": "Giapponese semplice"
+  },
+  "plamoOnlySuffix": {
+    "message": " (PLaMo)"
   },
   "onboardingStartNotice": {
     "message": "Premendo \"Accetta la licenza e inizia\", accetti l'intera PLaMo Community License."
@@ -652,6 +674,9 @@
   },
   "modelDownload": {
     "message": "Scarica"
+  },
+  "modelVerifying": {
+    "message": "Verifica del file scaricato…"
   },
   "modelDelete": {
     "message": "Elimina"
@@ -1261,5 +1286,83 @@
   },
   "diagRuntime": {
     "message": "Stato"
+  },
+  "videoCaptionsSetting": {
+    "message": "Traduci i sottotitoli video"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "Se attiva, i video YouTube (anche in diretta) e X che hanno già i sottotitoli vengono tradotti sul dispositivo durante la riproduzione. Chrome chiede l'accesso a quei siti quando attivi l'impostazione. I video senza sottotitoli non mostrano nulla. Se una riga non può essere tradotta in modo affidabile, resta l'originale."
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "Visualizzazione dei sottotitoli"
+  },
+  "videoCaptionsBilingual": {
+    "message": "Originale e traduzione"
+  },
+  "videoCaptionsReplace": {
+    "message": "Solo sottotitoli tradotti"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "Tenere la riga originale aiuta a studiare e a notare una traduzione sbagliata."
+  },
+  "videoCaptionsLabel": {
+    "message": "Sottotitoli tradotti"
+  },
+  "videoCaptionsPending": {
+    "message": "Traduzione del sottotitolo…"
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "Mostra il sottotitolo originale"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "Nascondi il sottotitolo originale"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "L’accesso a YouTube e X non è stato concesso."
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "Mostra la riga originale"
+  },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Mostra il pulsante Nascondi originale sul lettore"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "Se è disattivo, il pulsante resta fuori dal video. Puoi comunque passare da originale a traduzione in questa pagina."
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "Dimensione dei sottotitoli"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "La dimensione segue il lettore, anche a schermo intero e in modalità teatro. Trascina il cursore per l’anteprima."
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "Siti di sottotitoli personalizzati"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "Aggiungi un dominio che non sia YouTube o X. La traduzione funziona solo se il sito espone i sottotitoli come tracce video HTML5, WebVTT o un elemento visibile. I siti che disegnano i sottotitoli solo come grafica personalizzata non sono supportati. All’aggiunta viene chiesto l’accesso a quel dominio."
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "Aggiungi"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "Rimuovi"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "Includi i sottodomini"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "Inserisci un dominio come example.com. L’unico jolly consentito è un * iniziale."
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "L’accesso a quel sito non è stato concesso."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "Reimposta posizione"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "Tieni premuto un sottotitolo tradotto per spostarlo. YouTube e X ricordano ciascuno la propria posizione, anche a schermo intero e in modalità cinema. Questo pulsante lo riporta in basso nel lettore."
   }
 }

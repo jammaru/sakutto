@@ -7,6 +7,7 @@ import {
 } from '@/engine/model/manager';
 import { sha256Hex } from '@/engine/model/sha256';
 import type { BackendSelection } from '@/engine/in-browser/backend';
+import type { ModelStatus } from '@/shared/engine-status';
 import { bytesOf, FakeRuntime, MemoryFileStore, entryRecord, makeEntry } from './support/fakes';
 
 const PAYLOAD = bytesOf('hello world!');
@@ -124,6 +125,41 @@ describe('ModelManager', () => {
       manager.download(ENTRY.id, { signal: new AbortController().signal }),
     ).rejects.toMatchObject({ code: 'storage-insufficient' });
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('keeps resumed bytes monotonic while the prefix is hashed', async () => {
+    const store = new MemoryFileStore();
+    await store.append(`models/${ENTRY.id}/model.gguf.part`, PAYLOAD.slice(0, 5), 0);
+    const statuses: ModelStatus[] = [];
+    const manager = new ModelManager({
+      store,
+      entries: entryRecord(ENTRY),
+      createRuntime: async () => new FakeRuntime(() => 'こんにちは'),
+      fetchImpl: async () =>
+        new Response(PAYLOAD.slice(5), {
+          status: 206,
+          headers: {
+            'Content-Length': String(PAYLOAD.length - 5),
+            'Content-Range': `bytes 5-${String(PAYLOAD.length - 1)}/${String(PAYLOAD.length)}`,
+          },
+        }),
+      onStatus: (status) => statuses.push(status),
+    });
+
+    await manager.download(ENTRY.id, { signal: new AbortController().signal });
+
+    expect(statuses.some((status) => status.state === 'verifying' && status.received === 5)).toBe(
+      false,
+    );
+    for (let index = 1; index < statuses.length; index += 1) {
+      expect(statuses[index]?.received ?? 0).toBeGreaterThanOrEqual(
+        statuses[index - 1]?.received ?? 0,
+      );
+      if (statuses[index - 1]?.state === 'verifying') {
+        expect(statuses[index]?.state).not.toBe('downloading');
+      }
+    }
+    expect(statuses.at(-1)).toMatchObject({ state: 'ready', progress: 1 });
   });
 
   it('loads one runtime at a time and reuses it', async () => {

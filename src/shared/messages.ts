@@ -102,9 +102,19 @@ export interface OpenSetupRequest {
   type: 'ui:open-setup';
 }
 
+export interface CaptionTimedtextRequest {
+  type: 'captions:timedtext';
+  url: string;
+}
+
+export interface CaptionPlayerResponseRequest {
+  type: 'captions:player-response';
+}
+
 /**
  * The key each rebindable command holds right now, as the browser reports it: `Alt+A`,
- * `⌥⇧P` on a Mac, or `''` for a command with no key. `null` means the command was not listed.
+ * `Ctrl+Shift+A` / `⌃⇧A` on a Mac, or `''` for a command with no key. `null` means the
+ * command was not listed.
  */
 export interface ShortcutSnapshot {
   'translate-page': string | null;
@@ -253,6 +263,21 @@ export function isShortcutQuery(value: unknown): value is ShortcutQuery {
 
 export function isOpenSetupRequest(value: unknown): value is OpenSetupRequest {
   return isRecord(value) && value.type === 'ui:open-setup';
+}
+
+export function isCaptionTimedtextRequest(value: unknown): value is CaptionTimedtextRequest {
+  return (
+    isRecord(value) &&
+    value.type === 'captions:timedtext' &&
+    typeof value.url === 'string' &&
+    value.url.length > 0
+  );
+}
+
+export function isCaptionPlayerResponseRequest(
+  value: unknown,
+): value is CaptionPlayerResponseRequest {
+  return isRecord(value) && value.type === 'captions:player-response';
 }
 
 function isShortcutBinding(value: unknown): value is string | null {

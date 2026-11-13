@@ -115,6 +115,11 @@ export function folderPermissionError(
   return new EngineError('model-folder-permission', message, { retryable: true });
 }
 
+/** llama.cpp `finish_reason: length` — the completion filled max_tokens. */
+export function isLengthTruncation(error: unknown): boolean {
+  return isEngineError(error) && error.code === 'server-failed' && error.detail === 'length';
+}
+
 export function toEngineError(value: unknown): EngineError {
   if (isEngineError(value)) return value;
   if (isAbortError(value)) return abortError();

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { FIREFOX_EXTENSION_ID, FIREFOX_STRICT_MIN_VERSION } from '@/shared/browser';
-import { CHROME_DEFAULT_SHORTCUTS, FIREFOX_DEFAULT_SHORTCUTS } from '@/shared/shortcuts';
+import {
+  CHROME_DEFAULT_SHORTCUTS,
+  CHROME_MAC_DEFAULT_SHORTCUTS,
+  FIREFOX_DEFAULT_SHORTCUTS,
+} from '@/shared/shortcuts';
 import config from '../wxt.config';
 
 function manifestFor(browser: 'chrome' | 'firefox'): Record<string, unknown> {
@@ -54,41 +58,47 @@ describe('extension manifest', () => {
   it('declares the Chrome translation shortcuts', () => {
     expect(chromeManifest.commands).toEqual({
       'translate-page': {
-        suggested_key: { default: 'Alt+A' },
+        suggested_key: { default: 'Alt+A', mac: 'Alt+A' },
         description: '__MSG_commandTranslate__',
       },
       'toggle-bilingual': {
-        suggested_key: { default: 'Alt+B' },
+        suggested_key: { default: 'Alt+B', mac: 'Alt+B' },
         description: '__MSG_commandBilingual__',
       },
       'translate-selection': {
-        suggested_key: { default: 'Alt+S' },
+        suggested_key: { default: 'Alt+S', mac: 'Alt+S' },
         description: '__MSG_commandSelection__',
       },
       'translate-compose': {
-        suggested_key: { default: 'Alt+T' },
+        suggested_key: { default: 'Alt+T', mac: 'Alt+T' },
         description: '__MSG_commandCompose__',
       },
     });
     expect(chromeManifest.permissions).toContain('contextMenus');
-    const withSuggested = Object.values(
-      chromeManifest.commands as Record<string, { suggested_key?: unknown }>,
-    ).filter((command) => command.suggested_key !== undefined);
+    const commands = chromeManifest.commands as Record<string, { suggested_key?: unknown }>;
+    const withSuggested = Object.values(commands).filter(
+      (command) => command.suggested_key !== undefined,
+    );
     expect(withSuggested).toHaveLength(4);
+    expect(commands).not.toHaveProperty('_execute_action');
   });
 
   /**
    * Chrome starts every user on the manifest key, and the hints a page shows before the
    * background answers name that same key. A default that moved in one place only would make
-   * the popup advertise a shortcut Chrome never bound.
+   * the popup advertise a shortcut Chrome never bound. `mac` is explicit even when it matches
+   * `default`, so a Mac Chrome does not have to fall back through platform lookup.
    */
   it('suggests the same Chrome default the page falls back to', () => {
     const commands = chromeManifest.commands as Record<
       string,
-      { suggested_key: { default: string } }
+      { suggested_key: { default: string; mac?: string } }
     >;
     for (const [name, shortcut] of Object.entries(CHROME_DEFAULT_SHORTCUTS)) {
       expect(commands[name]?.suggested_key.default, name).toBe(shortcut);
+      expect(commands[name]?.suggested_key.mac, name).toBe(
+        CHROME_MAC_DEFAULT_SHORTCUTS[name as keyof typeof CHROME_MAC_DEFAULT_SHORTCUTS],
+      );
     }
   });
 
@@ -112,6 +122,8 @@ describe('Firefox manifest', () => {
       'contextMenus',
     ]);
     expect(firefoxManifest.permissions).not.toContain('offscreen');
+    expect(firefoxManifest.optional_host_permissions).toEqual(['https://*/*', 'http://*/*']);
+    expect(firefoxManifest).not.toHaveProperty('optional_permissions');
     expect(firefoxManifest).not.toHaveProperty('minimum_chrome_version');
     expect(firefoxManifest).not.toHaveProperty('cross_origin_embedder_policy');
     expect(firefoxManifest).not.toHaveProperty('cross_origin_opener_policy');
@@ -136,6 +148,7 @@ describe('Firefox manifest', () => {
     >;
     for (const [name, shortcut] of Object.entries(FIREFOX_DEFAULT_SHORTCUTS)) {
       expect(commands[name]?.suggested_key.default, name).toBe(shortcut);
+      expect(commands[name]?.suggested_key, name).not.toHaveProperty('mac');
     }
   });
 

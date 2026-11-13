@@ -35,6 +35,18 @@ describe('PFML3 prompt', () => {
     ).toThrow(EngineError);
   });
 
+  it('accepts Easy Japanese as a target with the Japanese tone option', () => {
+    const prompt = buildTranslationPrompt({
+      text: 'この機能はとても便利です。',
+      tgt: 'ja-easy',
+      form: 'polite',
+    });
+
+    expect(prompt).toContain(
+      '<|plamo:tag|>output<|plamo:key|>lang<|plamo:val|>ja-easy<|plamo:key|>form<|plamo:val|>polite<|plamo:msg|>',
+    );
+  });
+
   it('orders context before glossary and source language inside input', () => {
     const prompt = buildTranslationPrompt({
       text: 'Ownerでフィルタリングできます。',
@@ -124,5 +136,11 @@ describe('PFML3 prompt', () => {
   it('strips stop tokens from generated text', () => {
     expect(cleanModelOutput(' こんにちは <|plamo:tag|>')).toBe('こんにちは');
     expect(cleanModelOutput('Hello<|plamo:bos|>')).toBe('Hello');
+  });
+
+  it('keeps a Malayalam chillu ZWJ in generated text', () => {
+    expect(cleanModelOutput('\u0d05\u0d35\u0d28\u0d4d\u200d')).toBe(
+      '\u0d05\u0d35\u0d28\u0d4d\u200d',
+    );
   });
 });

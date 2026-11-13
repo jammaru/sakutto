@@ -45,7 +45,12 @@
   function keyText(command: ShortcutCommand): string {
     if (!isOn(command)) return t('shortcutOff');
     const shortcut = keyFor(command);
-    return shortcut.length > 0 ? displayShortcut(shortcut) : t('shortcutUnset');
+    if (shortcut.length === 0) return t('shortcutUnset');
+    const displayed = displayShortcut(shortcut);
+    if (showsFallback(command)) {
+      return tForBrowser('shortcutFallbackKey', 'shortcutFallbackKeyFirefox', [displayed]);
+    }
+    return displayed;
   }
 
   function aria(command: ShortcutCommand): string | undefined {
@@ -80,10 +85,15 @@
 
   onMount(() => {
     refresh();
-    const onFocus = (): void => refresh();
+    let timer = 0;
+    const onFocus = (): void => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(refresh, 80);
+    };
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onFocus);
     return () => {
+      window.clearTimeout(timer);
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onFocus);
     };
@@ -92,9 +102,9 @@
 
 <dl class="bindings">
   {#each SHORTCUT_COMMANDS as command (command)}
-    <div>
-      <dt>{t(LABELS[command])}</dt>
-      <dd>
+    <dt>{t(LABELS[command])}</dt>
+    <dd>
+      <div class="row">
         <label class="use">
           <input
             type="checkbox"
@@ -107,11 +117,13 @@
           <span>{t('shortcutUse')}</span>
         </label>
         <kbd aria-keyshortcuts={aria(command)}>{keyText(command)}</kbd>
-      </dd>
-    </div>
-    {#if showsFallback(command)}
-      <p class="fallback">{tForBrowser('shortcutFallbackNote', 'shortcutFallbackNoteFirefox')}</p>
-    {/if}
+      </div>
+      {#if showsFallback(command)}
+        <p class="fallback" data-sakutto="shortcut-fallback">
+          {tForBrowser('shortcutFallbackNote', 'shortcutFallbackNoteFirefox')}
+        </p>
+      {/if}
+    </dd>
   {/each}
 </dl>
 <button class="button secondary" type="button" onclick={openEditor}>{t('shortcutChange')}</button>
@@ -122,15 +134,16 @@
 <style>
   .bindings {
     display: grid;
-    gap: var(--space-2);
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-3);
+    row-gap: var(--space-2);
     margin-bottom: var(--space-3);
   }
 
-  .bindings div {
+  .row {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--space-3);
+    align-items: center;
+    gap: var(--space-2);
   }
 
   dt {
@@ -140,8 +153,9 @@
 
   dd {
     display: flex;
-    align-items: center;
-    gap: var(--space-2);
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
     margin: 0;
   }
 
@@ -154,10 +168,12 @@
   }
 
   .fallback {
-    margin: -4px 0 4px;
+    margin: 0;
+    max-width: 28em;
     color: var(--muted);
     font-size: 11px;
     line-height: 1.45;
+    text-align: right;
   }
 
   kbd {

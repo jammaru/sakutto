@@ -33,10 +33,26 @@ describe('CI change scope', () => {
     expect(workflow).toContain('pnpm bench:equality --check');
     expect(workflow.replaceAll('pnpm bench:equality --check', '')).not.toContain('pnpm bench');
     expect(workflow).not.toContain('scripts/bench');
+    expect(workflow).toContain("cancel-in-progress: ${{ github.event_name == 'pull_request' }}");
+    expect(workflow).toContain('types: [opened, synchronize, reopened, ready_for_review]');
+    expect(workflow).toContain('uses: ./.github/actions/build-wllama');
+    expect(workflow).toContain('skip-wllama: true');
+    expect(workflow).toContain('name: wllama-dist');
+    expect(workflow).not.toContain('github.event.pull_request.draft == false');
   });
 
   it('packages when the upload step changes and leaves ordinary code alone', () => {
     expect(classifyChanges(['.github/actions/package-extension/action.yml'])).toEqual({
+      wllama: false,
+      code: true,
+      bundle: true,
+    });
+    expect(classifyChanges(['.github/actions/build-wllama/action.yml'])).toEqual({
+      wllama: false,
+      code: true,
+      bundle: true,
+    });
+    expect(classifyChanges(['scripts/wllama-cache-key.ts'])).toEqual({
       wllama: false,
       code: true,
       bundle: true,

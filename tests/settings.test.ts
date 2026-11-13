@@ -11,6 +11,8 @@ import {
   SETTINGS_SCHEMA_VERSION,
   createDefaultSettings,
   isTierPreference,
+  normalizeVideoCaptionSize,
+  normalizeVideoCaptionPositions,
   needsLicenseReconsent,
   normalizeSettings,
   type Settings,
@@ -43,6 +45,12 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     localServerAllowRemote: false,
     localServerParallel: 8,
     localServerExperimentalAck: false,
+    translateVideoCaptions: false,
+    videoCaptionDisplay: 'bilingual',
+    videoCaptionSize: 80,
+    videoCaptionOriginalToggle: true,
+    videoCaptionPositions: {},
+    captionCustomHosts: [],
     ...overrides,
   };
 }
@@ -221,6 +229,118 @@ describe('settings defaults', () => {
     });
   });
 
+  it('defaults video caption translation off and bilingual display on', () => {
+    const settings = normalizeSettings(
+      {
+        schemaVersion: SETTINGS_SCHEMA_VERSION,
+        targetLanguage: 'en',
+      },
+      'en-US',
+    );
+    expect(settings.translateVideoCaptions).toBe(false);
+    expect(settings.videoCaptionDisplay).toBe('bilingual');
+    expect(settings.videoCaptionSize).toBe(80);
+    expect(settings.videoCaptionOriginalToggle).toBe(true);
+    expect(settings.videoCaptionPositions).toEqual({});
+    expect(settings.captionCustomHosts).toEqual([]);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          translateVideoCaptions: true,
+          videoCaptionDisplay: 'replace',
+        },
+        'en-US',
+      ),
+    ).toMatchObject({ translateVideoCaptions: true, videoCaptionDisplay: 'replace' });
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          videoCaptionDisplay: 'side-by-side',
+        },
+        'en-US',
+      ).videoCaptionDisplay,
+    ).toBe('bilingual');
+  });
+
+  it('clamps caption size and keeps only valid custom hosts', () => {
+    expect(normalizeVideoCaptionSize(undefined)).toBe(80);
+    expect(normalizeVideoCaptionSize(200)).toBe(150);
+    expect(normalizeVideoCaptionSize(10)).toBe(50);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          videoCaptionSize: 91.4,
+          captionCustomHosts: ['Example.COM', 'file://nope', '*.ok.dev', 'https://ok.dev/path'],
+        },
+        'en-US',
+      ),
+    ).toMatchObject({
+      videoCaptionSize: 91,
+      captionCustomHosts: ['example.com', '*.ok.dev'],
+    });
+  });
+
+  it('keeps caption overlay positions per site without bumping the schema', () => {
+    expect(SETTINGS_SCHEMA_VERSION).toBe(1);
+    expect(normalizeVideoCaptionPositions(undefined)).toEqual({});
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          videoCaptionPositions: {
+            youtube: { x: 25.44, y: 40.12 },
+            x: { x: -10, y: 180 },
+            other: { x: 'nope' },
+            vimeo: { x: 10, y: 10 },
+          },
+        },
+        'en-US',
+      ).videoCaptionPositions,
+    ).toEqual({
+      youtube: { x: 25.4, y: 40.1 },
+      x: { x: 0, y: 100 },
+    });
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          videoCaptionPositions: {},
+        },
+        'en-US',
+      ).videoCaptionPositions,
+    ).toEqual({});
+  });
+
+  it('defaults the on-player original toggle on for a record that predates the setting', () => {
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+        },
+        'en-US',
+      ).videoCaptionOriginalToggle,
+    ).toBe(true);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          videoCaptionOriginalToggle: false,
+        },
+        'en-US',
+      ).videoCaptionOriginalToggle,
+    ).toBe(false);
+  });
+
   it('defaults the compose icon on for a record that predates the setting', () => {
     expect(
       normalizeSettings(
@@ -344,6 +464,18 @@ describe('settings defaults', () => {
         highQualityDismissed: true,
       }),
     );
+  });
+
+  it('keeps Easy Japanese as a saved target', () => {
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'ja-easy',
+        },
+        'en-US',
+      ).targetLanguage,
+    ).toBe('ja-easy');
   });
 
   it('keeps a 5000-entry glossary when repairing other settings', () => {

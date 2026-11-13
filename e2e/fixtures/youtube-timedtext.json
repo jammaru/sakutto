@@ -1,0 +1,19 @@
+{
+  "events": [
+    {
+      "tStartMs": 0,
+      "dDurationMs": 2500,
+      "segs": [{ "utf8": "駅は夜明けに開きます。" }]
+    },
+    {
+      "tStartMs": 2500,
+      "dDurationMs": 2500,
+      "segs": [{ "utf8": "赤い列車が2番線で待っています。" }]
+    },
+    {
+      "tStartMs": 5000,
+      "dDurationMs": 3000,
+      "segs": [{ "utf8": "切符は北側の窓口で売っています。" }]
+    }
+  ]
+}
