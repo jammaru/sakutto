@@ -1328,22 +1328,22 @@ export function looksLikeCodeLine(text: string): boolean {
   ) {
     return true;
   }
-  if (
-    /^\d+\s+/.test(trimmed) &&
-    /(?:[;{}()]|[a-z][A-Z]|\b(?:for\s+each|for\s*\(|if\s*\(|while\s*\(|return\b|def\b|emit\b))/u.test(
-      trimmed,
-    )
-  ) {
-    return true;
-  }
-  // Numbered Python-style (`1  for block in page:`). Reject "1 for the first experiment…".
-  if (
-    /^\d+\s+(?:for|if|while|def|repeat|until)\b/u.test(trimmed) &&
-    !/^\d+\s+(?:for|if|while|def|repeat|until)\s+(?:the|a|an|this|that|these|those|we|it)\b/iu.test(
-      trimmed,
-    )
-  ) {
-    return true;
+  // Numbered listing (`1  for block in page:`, `1 While queue:`) for/if/while/def/repeat/until.
+  // Numbered prose is a sentence: it ends with .!? or contains a comma, including
+  // `1 for example, …`, `1 if so: the block stays.`, `1 For the visible page, …`,
+  // `1 repeat the measurement three times.`, and a parenthetical `(Table 2)`.
+  if (/^\d+\s+/u.test(trimmed)) {
+    const rest = trimmed.replace(/^\d+\s+/u, '');
+    const sentence = /[.,!?]\s*$/u.test(rest) || /,/u.test(rest);
+    if (
+      !sentence &&
+      /(?:[;{}]|[a-z][A-Z]|\b(?:for\s+each\s*[{(]|for\s*\(|if\s*\(|while\s*\(|return\b|def\b|emit\b))/u.test(
+        rest,
+      )
+    ) {
+      return true;
+    }
+    if (!sentence && /^(?:for|if|while|def|repeat|until)\b/iu.test(rest)) return true;
   }
   if (
     /[_=(){}[\];]/u.test(trimmed) &&
