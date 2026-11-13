@@ -1,3 +1,4 @@
+import { CJK_MAJORITY, cjkRatio } from './fonts';
 import { intersectionArea, unionBox, type Box } from './geometry';
 import type { PageLayout } from './layout';
 import { OVERLAP_AREA, overlapRegion, type PlacedBlock } from './place';
@@ -40,6 +41,12 @@ export interface PageMetrics {
   figureAreaShare: number;
   /** Share of all classified blocks that are labels or figure-labels, 0–1. */
   labelShare: number;
+  /** Share of classified blocks marked `code`, 0–1. */
+  codeShare: number;
+  /** Share of classified blocks marked `equation`, 0–1. */
+  equationShare: number;
+  /** Share of letters in classified blocks that are Han / Hiragana / Katakana, 0–1. */
+  cjkShare: number;
 }
 
 export const METRIC_LIMITS = {
@@ -67,6 +74,11 @@ export const METRIC_LIMITS = {
   maxFigureAreaShare: 0.5,
   /** When figures are that large, labels may not be this share of every classified block. */
   maxLabelShareWhenFigureHeavy: 0.35,
+  /** Almost every block marked code is a mass misclassification, in any language. */
+  maxCodeShare: 0.85,
+  /** A CJK-majority page is body text; a listing should be a small share of it. */
+  maxCodeShareWhenCjk: 0.25,
+  maxEquationShareWhenCjk: 0.25,
 } as const;
 
 /** Roles whose translation is the point of the page: body, titles, captions, table values. */
@@ -142,6 +154,11 @@ export function pageMetrics(
     (block) => block.role === 'label' || block.role === 'figure-label',
   ).length;
   const labelShare = classified.length === 0 ? 0 : labelCount / classified.length;
+  const codeCount = classified.filter((block) => block.role === 'code').length;
+  const equationCount = classified.filter((block) => block.role === 'equation').length;
+  const codeShare = classified.length === 0 ? 0 : codeCount / classified.length;
+  const equationShare = classified.length === 0 ? 0 : equationCount / classified.length;
+  const cjkShare = cjkRatio(classified.map((block) => block.text).join(''));
 
   return {
     blocks: layout.blocks.length,
@@ -163,6 +180,9 @@ export function pageMetrics(
     overflow,
     figureAreaShare,
     labelShare,
+    codeShare,
+    equationShare,
+    cjkShare,
   };
 }
 
@@ -177,6 +197,16 @@ export function metricsPass(metrics: PageMetrics): boolean {
   if (
     metrics.figureAreaShare > METRIC_LIMITS.maxFigureAreaShare &&
     metrics.labelShare > METRIC_LIMITS.maxLabelShareWhenFigureHeavy
+  ) {
+    return false;
+  }
+  if (metrics.codeShare > METRIC_LIMITS.maxCodeShare) return false;
+  if (metrics.cjkShare >= CJK_MAJORITY && metrics.codeShare > METRIC_LIMITS.maxCodeShareWhenCjk) {
+    return false;
+  }
+  if (
+    metrics.cjkShare >= CJK_MAJORITY &&
+    metrics.equationShare > METRIC_LIMITS.maxEquationShareWhenCjk
   ) {
     return false;
   }

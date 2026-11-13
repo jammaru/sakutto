@@ -46,10 +46,19 @@ export function isMathFontName(name: string): boolean {
   return MATH_FONT.test(name);
 }
 
-const MONOSPACE = /courier|consol|mono|code/iu;
+const MONOSPACE = /courier|consol|mono|code|menlo|monaco|inconsolata/iu;
+/**
+ * Body faces used for Han / Hiragana / Katakana text. Several of them set FixedPitch in the
+ * FontDescriptor, so pdf.js reports `fontFamily: 'monospace'` even though they are not a
+ * coding font. Trusting that report turns every Japanese paragraph into a listing.
+ */
+const CJK_FONT =
+  /droid.?sans.?fallback|wenquanyi|micro.?hei|noto.?sans.?cjk|noto.?serif.?cjk|noto.?sans.?(?:jp|kr|sc|tc)|ipagothic|ipamincho|ipapgothic|ipaex|meiryo|ms.?p?mincho|ms.?p?gothic|simsun|simhei|simkai|hiragino|yu.?gothic|yu.?mincho|yugothic|yumincho|kozuka|source.?han|adobesong|adobeheiti|stsong|stheiti|mingliu|pmingliu|fangsong|kaiti|takao|vlgothic|osaka|heisei|ryumin|hanamin|nanum|malgun|batang|dotum|gulim|yahei|jhenghei|dengxian|pingfang|songti|heiti|gb2312|gungsuh|apple.?gothic|apple.?myungjo|cjk/iu;
 const SANS = /helvet|arial|verdana|tahoma|calibri|noto ?sans|dejavu ?sans|liberation ?sans|sans/iu;
 const BOLD = /bold|black|heavy|semibold|demi|extrabold|ultrabold/iu;
 const ITALIC = /italic|oblique/iu;
+/** A run this much Han / Hiragana / Katakana is body text, not a listing. */
+export const CJK_MAJORITY = 0.4;
 
 /** Reads the traits out of a font name such as `BAAAAA+TimesNewRomanPS-BoldItalicMT`. */
 export function traitsOfName(name: string): FontTraits {
@@ -62,14 +71,45 @@ export function traitsOfName(name: string): FontTraits {
 }
 
 /**
+ * Share of letters that are Han, Hiragana or Katakana, ignoring whitespace.
+ *
+ * Used to refuse a monospace label on a CJK-majority run: those glyphs are body text even
+ * when the FontDescriptor set FixedPitch.
+ */
+export function cjkRatio(text: string): number {
+  let letters = 0;
+  let cjk = 0;
+  for (const character of text) {
+    if (/\s/u.test(character)) continue;
+    letters += 1;
+    if (/\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}/u.test(character)) cjk += 1;
+  }
+  return letters === 0 ? 0 : cjk / letters;
+}
+
+function looksLikeMonospaceFace(name: string, sample: string): boolean {
+  if (CJK_FONT.test(name) || cjkRatio(sample) >= CJK_MAJORITY) return false;
+  return MONOSPACE.test(name);
+}
+
+/**
  * A guess from the shapes of the glyphs, for the fonts whose name says nothing — a subset
  * with no descriptive suffix is common in generated PDFs. A serif face's `i` is the giveaway
  * in a name-independent way, but this only looks at the name and at the width of the text,
  * so it is deliberately conservative and defaults to the page's own generic family.
+ *
+ * `fontFamily === 'monospace'` is trusted only for a name that looks like a coding face.
+ * CJK body fonts often set FixedPitch, and pdf.js then reports them as monospace.
  */
-export function traitsOfStyle(fontFamily: string | undefined, name: string): FontTraits {
+export function traitsOfStyle(
+  fontFamily: string | undefined,
+  name: string,
+  sample = '',
+): FontTraits {
   const traits = traitsOfName(name);
-  if (fontFamily === 'monospace') return { ...traits, family: 'monospace' };
+  if (fontFamily === 'monospace' && looksLikeMonospaceFace(name, sample)) {
+    return { ...traits, family: 'monospace' };
+  }
   if (
     fontFamily === 'sans-serif' &&
     traits.family === 'serif' &&

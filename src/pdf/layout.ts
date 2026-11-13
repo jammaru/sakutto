@@ -2,6 +2,7 @@ import { boxBottom, boxRight, median, unionBox, type Box } from './geometry';
 import { insideFigure, type FigureAreas } from './figures';
 import { gutterCandidates, horizontalGaps, groupByBaseline } from './gaps';
 import { isFirstPageIdentity } from './identity';
+import { CJK_MAJORITY, cjkRatio } from './fonts';
 import { SEGMENT_GAP, isRotated, lineFrom, type TextLine, type TextPiece } from './lines';
 
 /** What kind of thing a block is, which decides its priority and how tightly it is fitted. */
@@ -1255,7 +1256,14 @@ function isCodeBlock(lines: readonly TextLine[]): boolean {
   if (mono * 2 < pieces.length) return false;
   const text = lines.map((line) => line.text).join(' ');
   if (isCaptionLine(text)) return false;
-  if (lines.length >= 2) return true;
+  // CJK body fonts are often reported as monospace. A paragraph of Japanese is not a listing.
+  if (cjkRatio(text) >= CJK_MAJORITY) return false;
+  if (lines.length >= 2) {
+    const hits = lines.filter(
+      (line) => looksLikeCodeLine(line.text) || cjkRatio(line.text) < 0.1,
+    ).length;
+    return hits * 2 >= lines.length;
+  }
   return looksLikeCodeLine(lines[0]?.text ?? '');
 }
 

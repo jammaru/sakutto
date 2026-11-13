@@ -172,6 +172,22 @@ describe('layoutPage', () => {
     expect(texts).toContain('Value');
   });
 
+  it('keeps a Japanese paragraph as prose even when pdf.js reports monospace', () => {
+    const lines = groupLines([
+      piece('本文は日本語の段落であり、ソースコードの掲載ではない。', 40, 100, 280, {
+        family: 'monospace',
+      }),
+      piece('次の行も同じ段落の続きで、翻訳の対象になる。', 40, 114, 240, {
+        family: 'monospace',
+      }),
+    ]);
+    const layout = layoutPage(lines);
+    expect(layout.skipped.some((block) => block.role === 'code')).toBe(false);
+    expect(layout.blocks.some((block) => block.role === 'prose')).toBe(true);
+    expect(layout.blocks.some((block) => block.text.includes('日本語の段落'))).toBe(true);
+    expect(orphanLineCount(lines, layout)).toBe(0);
+  });
+
   it('keeps indented continuation lines of a monospace listing as code', () => {
     const lines = groupLines([
       piece('1  emit(token);', 50, 100, 90, { family: 'monospace' }),

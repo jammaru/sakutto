@@ -87,8 +87,33 @@ describe('font traits', () => {
     }
   });
 
-  it('prefers a monospace report from pdf.js over a guess from the name', () => {
-    expect(traitsOfStyle('monospace', 'ABCDEF+SomeUnknown')).toMatchObject({ family: 'monospace' });
+  it('trusts a monospace report only for a coding face, not a CJK body font', () => {
+    expect(traitsOfStyle('monospace', 'ABCDEF+Courier')).toMatchObject({ family: 'monospace' });
+    expect(traitsOfStyle('monospace', 'ABCDEF+DejaVuSansMono')).toMatchObject({
+      family: 'monospace',
+    });
+    expect(traitsOfStyle('monospace', 'WenQuanYiMicroHei')).not.toMatchObject({
+      family: 'monospace',
+    });
+    expect(traitsOfStyle('monospace', 'DroidSansFallback')).not.toMatchObject({
+      family: 'monospace',
+    });
+    expect(traitsOfStyle('monospace', 'NotoSansCJKjp-Regular')).not.toMatchObject({
+      family: 'monospace',
+    });
+    expect(traitsOfStyle('monospace', 'IPAGothic')).not.toMatchObject({ family: 'monospace' });
+    expect(traitsOfStyle('monospace', 'Meiryo')).not.toMatchObject({ family: 'monospace' });
+    expect(traitsOfStyle('monospace', 'MS-Mincho')).not.toMatchObject({ family: 'monospace' });
+    expect(traitsOfStyle('monospace', 'SimSun')).not.toMatchObject({ family: 'monospace' });
+    expect(traitsOfStyle('monospace', 'HiraginoSans-W3')).not.toMatchObject({
+      family: 'monospace',
+    });
+    expect(traitsOfStyle('monospace', 'ABCDEF+SomeUnknown')).not.toMatchObject({
+      family: 'monospace',
+    });
+    expect(
+      traitsOfStyle('monospace', 'ABCDEF+SomeUnknown', '本文は日本語の段落でありコードではない。'),
+    ).not.toMatchObject({ family: 'monospace' });
   });
 });
 

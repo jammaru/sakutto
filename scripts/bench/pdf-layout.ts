@@ -65,7 +65,7 @@ const { layoutPage, orphanLineCount } = (await import(
       lineHeight: number;
       lines?: unknown[];
     }>;
-    skipped: Array<{ lines?: unknown[] }>;
+    skipped: Array<{ role?: string; text?: string; lines?: unknown[] }>;
     bodySize: number;
     pageHeight: number;
     pageWidth?: number;
@@ -128,6 +128,9 @@ const { pageMetrics, metricsPass } = (await import(
     proseCovered: number;
     nonProsePainted: number;
     overflow: number;
+    codeShare: number;
+    equationShare: number;
+    cjkShare: number;
   };
   metricsPass: (metrics: {
     overlapPairs: number;
@@ -135,6 +138,11 @@ const { pageMetrics, metricsPass } = (await import(
     nonProsePainted: number;
     overflow: number;
     minFontSize: number | null;
+    figureAreaShare?: number;
+    labelShare?: number;
+    codeShare: number;
+    equationShare: number;
+    cjkShare: number;
   }) => boolean;
 };
 const { stubExpand } = (await import(pathToFileURL(resolve(ROOT, 'src/pdf/stub.ts')).href)) as {
@@ -222,7 +230,9 @@ async function checkBytes(name: string, bytes: Uint8Array): Promise<void> {
         `overlap=${String(metrics.overlapPairs)} minpt=${metrics.minFontSize === null ? '-' : metrics.minFontSize.toFixed(1)} ` +
         `prose=${(metrics.prosePainted * 100).toFixed(0)}% cover=${(metrics.proseCovered * 100).toFixed(0)}% ` +
         `overflowed=${String(metrics.overflowed)} clipped=${clipped.toFixed(1)} vCut=${vCut.toFixed(1)} ` +
-        `orphans=${String(orphans)} ${pass ? 'ok' : 'FAIL'}`,
+        `orphans=${String(orphans)} code=${(metrics.codeShare * 100).toFixed(0)}% ` +
+        `eq=${(metrics.equationShare * 100).toFixed(0)}% cjk=${(metrics.cjkShare * 100).toFixed(0)}% ` +
+        `${pass ? 'ok' : 'FAIL'}`,
     );
     reports.push({
       file: name,
@@ -243,6 +253,46 @@ for (const file of files) {
 }
 if (!fileArg) {
   await checkBytes('rotated.pdf', rotatedBodyPdf([90, 270]));
+  const { groupLines } = (await import(pathToFileURL(resolve(ROOT, 'src/pdf/lines.ts')).href)) as {
+    groupLines: (pieces: unknown[]) => unknown[];
+  };
+  const cjkPiece = (text: string, y: number) => ({
+    text,
+    box: { x: 40, y: y - 10, width: Math.max(80, text.length * 10), height: 10 },
+    baseline: y,
+    fontName: 'WenQuanYiMicroHei',
+    family: 'monospace',
+    bold: false,
+    italic: false,
+    math: false,
+    orientation: 0,
+    size: 10,
+    displayed: 0,
+  });
+  const cjkLines = groupLines([
+    cjkPiece('本文は日本語の段落であり、ソースコードの掲載ではない。', 100),
+    cjkPiece('次の行も同じ段落の続きで、翻訳の対象になる。', 114),
+    cjkPiece('三行目も本文であり、等幅と誤認されても残す。', 128),
+  ]);
+  const cjkLayout = layoutPage(cjkLines, { images: [] }, { width: 400, height: 600, index: 0 });
+  const cjkCode = cjkLayout.skipped.filter((block) => block.role === 'code').length;
+  const cjkProse = cjkLayout.blocks.filter((block) => block.role === 'prose').length;
+  const cjkPass = cjkCode === 0 && cjkProse > 0;
+  if (!cjkPass) failed = true;
+  console.log(
+    `cjk-body.pdf: synthetic  lines=${String(cjkLines.length)} ` +
+      `blocks=${String(cjkLayout.blocks.length)} prose=${String(cjkProse)} ` +
+      `code=${String(cjkCode)} ${cjkPass ? 'ok' : 'FAIL'}`,
+  );
+  reports.push({
+    file: 'cjk-body.pdf',
+    page: 1,
+    lines: cjkLines.length,
+    blocks: cjkLayout.blocks.length,
+    prose: cjkProse,
+    code: cjkCode,
+    pass: cjkPass,
+  });
 }
 
 const elapsed = Date.now() - started;

@@ -163,6 +163,36 @@ function columnItems(): ReturnType<typeof item>[] {
   return BODY_LINES.map((text, index) => item(text, 50, 520 - index * 14, 180, 10));
 }
 
+describe('extractPage CJK body fonts', () => {
+  it('does not mark WenQuanYi Micro Hei Japanese body as a listing', async () => {
+    const items = [
+      item('本文は日本語の段落であり、ソースコードの掲載ではない。', 50, 520, 280, 10),
+      item('次の行も同じ段落の続きで、翻訳の対象になる。', 50, 506, 240, 10),
+    ];
+    const page: PdfPage = {
+      getViewport: () => ({ width: 400, height: 600 }),
+      getTextContent: async () => ({
+        items,
+        styles: { F1: { fontFamily: 'monospace' } },
+      }),
+      getOperatorList: async () => ({ fnArray: [], argsArray: [] }),
+      commonObjs: { get: () => ({ name: 'WenQuanYiMicroHei', fallbackName: 'monospace' }) },
+      render: () => ({ promise: Promise.resolve() }),
+    };
+    const extracted = await extractPage(page, 0, null);
+    expect(
+      extracted.lines.every((line) => line.pieces.every((p) => p.family !== 'monospace')),
+    ).toBe(true);
+    const layout = layoutPage(extracted.lines, extracted.figures, {
+      width: extracted.width,
+      height: extracted.height,
+      index: 0,
+    });
+    expect(layout.skipped.some((block) => block.role === 'code')).toBe(false);
+    expect(layout.blocks.some((block) => block.role === 'prose')).toBe(true);
+  });
+});
+
 describe('extractPage rotation', () => {
   it('keeps covers on a synthetic /Rotate 90 page', async () => {
     const viewport = pdfJsViewport(300, 200, 90);

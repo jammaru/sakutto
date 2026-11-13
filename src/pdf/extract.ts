@@ -292,9 +292,12 @@ async function readFontTraits(
   content: PdfTextContent,
 ): Promise<Map<string, FontTraits>> {
   const names = new Set<string>();
+  const samples = new Map<string, string>();
   for (const item of content.items) {
     if (!('str' in item)) continue;
     names.add(item.fontName);
+    const previous = samples.get(item.fontName) ?? '';
+    if (previous.length < 120) samples.set(item.fontName, `${previous}${item.str}`);
   }
 
   if (names.size > 0) await page.getOperatorList().catch(() => null);
@@ -308,7 +311,10 @@ async function readFontTraits(
     } catch {
       // The font was not resolved; the alias is all there is, and it carries no traits.
     }
-    traits.set(name, traitsOfStyle(content.styles[name]?.fontFamily, fontName));
+    traits.set(
+      name,
+      traitsOfStyle(content.styles[name]?.fontFamily, fontName, samples.get(name) ?? ''),
+    );
   }
   return traits;
 }
