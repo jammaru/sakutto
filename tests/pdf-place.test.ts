@@ -8,9 +8,12 @@ import {
   COVER_DESCENDER_EM,
   DEFAULT_PAINT_SCALE,
   HINTING_GROWTH,
+  blockSpansGutter,
   clippedPaintWidth,
+  coverPaintLayout,
   coverPaintOriginX,
   coverPaintWidth,
+  drawnBox,
   hintingPadPt,
   overlapRegion,
   paintedCoverOverlaps,
@@ -21,6 +24,7 @@ import {
   wrapWidth,
   type PlacedBlock,
 } from '@/pdf/place';
+import type { TextLine } from '@/pdf/lines';
 import { coverInkOverflowPx } from '@/pdf/render';
 import { stubExpand } from '@/pdf/stub';
 import { measure, piece } from './support/pdf-pieces';
@@ -478,6 +482,49 @@ describe('placePage', () => {
     expect(dropped?.paint).toBe(false);
     expect(dropped?.drawn).toBeNull();
     expect(dropped?.overflow).toBe(true);
+  });
+
+  it('does not column-cap covers for lines that span the gutter', () => {
+    const pageWidth = 595;
+    const gutter = pageWidth * 0.49;
+    const line = (x: number, width: number): TextLine => ({
+      text: 'author line',
+      box: { x, y: 100, width, height: 12 },
+      baseline: 112,
+      fontSize: 10,
+      bold: false,
+      italic: false,
+      writing: 0,
+    });
+    const authorBlock: LayoutBlock = {
+      box: { x: 126, y: 100, width: 420, height: 24 },
+      room: { x: 126, y: 100, width: 170, height: 24 },
+      lines: [line(126, 420), line(134, 412), line(186, 360)],
+      text: 'TSUNODA and others',
+      role: 'prose',
+      fontSize: 9,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 420,
+      writing: 0,
+    };
+    expect(blockSpansGutter(authorBlock, pageWidth)).toBe(true);
+    const fit = {
+      fits: true as const,
+      fontSize: 9,
+      lineHeight: 11,
+      lines: ['著者名の並び'],
+      height: 22,
+      grown: false,
+      width: 462,
+    };
+    const drawn = drawnBox(authorBlock, fit, fit.width, pageWidth);
+    expect(drawn.width).toBeGreaterThan(gutter - authorBlock.box.x);
+    const paint = coverPaintLayout(authorBlock, fit.width, drawn, DEFAULT_PAINT_SCALE, pageWidth);
+    expect(paint.width).toBeGreaterThan(gutter - paint.x + 20);
   });
 
   it('ignores gutter slivers when two columns barely touch', () => {

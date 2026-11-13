@@ -320,20 +320,21 @@ export function coverPaintOriginX(
  * the page so a pad cannot walk into the next column's gutter.
  */
 export function coverPaintLayout(
-  block: Pick<LayoutBlock, 'align' | 'writing'>,
+  block: Pick<LayoutBlock, 'align' | 'writing' | 'column' | 'box' | 'lines'>,
   fitWidth: number,
   drawn: Box,
   scale = DEFAULT_PAINT_SCALE,
   pageWidth = 0,
 ): { x: number; width: number } {
   if (verticalWriting(block)) return { x: drawn.x, width: drawn.width };
-  const width = coverPaintWidth(fitWidth, drawn.width, scale);
+  const fitCap =
+    pageWidth > 0 ? capToColumn(fitWidth, drawn.x, block, pageWidth) : fitWidth;
+  const width = coverPaintWidth(fitCap, drawn.width, scale);
   const x = coverPaintOriginX(drawn.x, drawn.width, width, block.align);
   const left = Math.max(0, x);
   let painted = width + Math.min(0, x);
   if (pageWidth > 0) {
-    const maxWidth = pageWidth - GUTTER_CLEARANCE - left;
-    painted = Math.max(1, Math.min(painted, maxWidth));
+    painted = capToColumn(painted, left, block, pageWidth);
   }
   return { x: left, width: painted };
 }
@@ -377,15 +378,33 @@ function capToPage(width: number, x: number, pageWidth: number): number {
   return Math.max(1, Math.min(width, pageWidth - x - GUTTER_CLEARANCE));
 }
 
+/** True when source lines cross the column gutter (title, author, byline rows). */
+export function blockSpansGutter(
+  block: Pick<LayoutBlock, 'box' | 'lines'>,
+  pageWidth: number,
+): boolean {
+  if (pageWidth <= 0) return false;
+  const gutter = pageWidth * 0.49;
+  const left =
+    block.lines.length > 0
+      ? Math.min(...block.lines.map((line) => line.box.x))
+      : block.box.x;
+  const right =
+    block.lines.length > 0
+      ? Math.max(...block.lines.map((line) => line.box.x + line.box.width))
+      : block.box.x + block.box.width;
+  return left + 4 < gutter && right > gutter + GUTTER_CLEARANCE;
+}
+
 /** Caps cover width so a translation cannot paint over the neighbour column. */
 function capToColumn(
   width: number,
   x: number,
-  block: Pick<LayoutBlock, 'column'>,
+  block: Pick<LayoutBlock, 'column' | 'box' | 'lines'>,
   pageWidth: number,
 ): number {
   const capped = capToPage(width, x, pageWidth);
-  if (pageWidth <= 0) return capped;
+  if (pageWidth <= 0 || blockSpansGutter(block, pageWidth)) return capped;
   const gutter = pageWidth * 0.49;
   if (block.column === 0) {
     return Math.max(1, Math.min(capped, gutter - GUTTER_CLEARANCE - x));
