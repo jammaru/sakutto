@@ -514,6 +514,20 @@ describe('PdfSession stream handling', () => {
     expect(session.progress().done).toBe(0);
   });
 
+  it('counts an overflow marker toward progress once the translation is delivered', () => {
+    const layout = layoutOf('A short label');
+    const states = layout.blocks.map((block) => ({
+      block,
+      state: 'done' as const,
+      translation: 'あ'.repeat(200),
+      engine: null,
+      fit: null,
+      paint: false,
+      overflow: true,
+    }));
+    expect(countsTowardProgress(states[0]!)).toBe(true);
+  });
+
   it('does not count a failed echo as progress', async () => {
     const engine = engineOf(async function* (segments) {
       const id = segments[0]?.id ?? 'b1';

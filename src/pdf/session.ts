@@ -71,13 +71,14 @@ export function hasDeliverableTranslation(state: BlockState): boolean {
 /**
  * A block the progress bar may count as finished once its queue state is `done`.
  *
- * A marker is a deliverable translation but not a finished one: the text is still offered
- * through the marker, and counting it as `done` made the bar reach 100% while boxes were
- * withheld. The session reports those separately as `overflowed`.
+ * A delivered overflow marker counts here so the toolbar can reach the block total while
+ * still reporting how many translations did not fit in place (`overflowed`).
  */
 export function countsTowardProgress(state: BlockState): boolean {
   if (state.state !== 'done') return false;
-  return state.intentionallyKept === true || isTranslated(state);
+  if (state.intentionallyKept === true) return true;
+  if (isTranslated(state)) return true;
+  return state.overflow && state.translation.trim().length > 0;
 }
 
 /** Roles whose source text is typesetting the reader can safely keep as drawn. */

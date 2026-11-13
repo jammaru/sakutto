@@ -8,6 +8,7 @@ import {
   isSectionHeading,
 } from './identity';
 import { CJK_MAJORITY, cjkRatio } from './fonts';
+import { hasSourceProse } from './language';
 import { SEGMENT_GAP, isRotated, lineFrom, type TextLine, type TextPiece } from './lines';
 
 /** What kind of thing a block is, which decides its priority and how tightly it is fitted. */
@@ -1552,9 +1553,18 @@ function splitAtFigures(lines: readonly TextLine[], figures: FigureAreas): TextL
       // A lower-case line that continues the sentence above is body prose crossing an
       // over-wide drawing bbox, not a label drawn inside the artwork.
       carryProse = true;
+    } else if (
+      !carryProse &&
+      previous !== undefined &&
+      isSectionHeading(previous.text) &&
+      hasSourceProse(line.text.trim())
+    ) {
+      // A section title followed by column body in the same run stays prose even when a
+      // drawing bbox sits between them only on paper geometry.
+      carryProse = true;
     }
     const inside = drawn && !carryProse;
-    if (previousInside !== null && inside !== previousInside) {
+    if (previousInside !== null && inside !== previousInside && !(carryProse && drawn)) {
       groups.push(current);
       current = [];
     }
@@ -1827,6 +1837,46 @@ function overlongProseSplit(
   return { head, tail };
 }
 
+/** True when a skipped `figure-label` is actually body copy swallowed by figure geometry. */
+export function isMisclassifiedFigureProse(
+  text: string,
+  lines: readonly TextLine[],
+  pageIndex: number,
+): boolean {
+  return hasSourceProse(text) && proseDespiteFigureOverlap(text, lines, pageIndex);
+}
+
+/**
+ * True when overlapping figure geometry must not turn translatable body copy into figure labels.
+ */
+function proseDespiteFigureOverlap(
+  text: string,
+  lines: readonly TextLine[],
+  pageIndex: number,
+): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return false;
+  if (isSectionHeading(trimmed) && hasWords(trimmed)) return true;
+  const headSentence = trimmed.match(/^[^.!?]+[.!?]/)?.[0]?.trim();
+  if (headSentence && isSectionHeading(headSentence) && hasSourceProse(trimmed)) return true;
+  if (/^\p{Ll}/u.test(trimmed) && hasWords(trimmed)) return true;
+  if (lines.length >= 2 && hasSourceProse(trimmed)) {
+    if (lines.some((line) => isSectionHeading(line.text.trim()))) return true;
+    if (/^\p{Ll}/u.test(lines[0]?.text.trim() ?? '')) return true;
+  }
+  const columnWide = lines.length > 0 && lines.every((line) => line.box.width >= 180);
+  if (
+    pageIndex > 0 &&
+    columnWide &&
+    lines.length === 1 &&
+    hasSourceProse(trimmed) &&
+    hasWords(trimmed)
+  ) {
+    return true;
+  }
+  return /^\p{Ll}/u.test(trimmed) && trimmed.length >= 60;
+}
+
 function roleOf(
   text: string,
   lines: readonly TextLine[],
@@ -1850,13 +1900,10 @@ function roleOf(
   // Footnote affiliations are identity furniture, not body prose. Keeping each one on its
   // own line stops a run of `† The author is with …` from becoming a paragraph.
   if (isAffiliationLine(text)) return 'furniture';
-  // Other text drawn inside a picture belongs to the artwork. It must never be classified as
-  // prose, or the reader would paint a translation over the diagram; even a full sentence is
-  // a figure label, offered only through the selection/marker path. The exception is a long
-  // lower-case run: it is the continuation of a body paragraph that an over-wide figure bbox
-  // happens to cover, not a label drawn into the artwork.
-  const continuesBody = /^\p{Ll}/u.test(text.trim()) && text.trim().length >= 60;
-  if (insideFigureArea && !continuesBody) return 'figure-label';
+  // Other text drawn inside a picture belongs to the artwork. When a figure bbox is too wide it
+  // can swallow the column-top paragraph that continues from the previous page or a `Related
+  // work` section: that text is body copy and must stay translatable, not `figure-label`.
+  if (insideFigureArea && !proseDespiteFigureOverlap(text, lines, pageIndex)) return 'figure-label';
   if (isCodeBlock(lines)) return 'code';
   // Section titles are headings even in all caps and even when they sit in the header band.
   if (isSectionHeading(text) && lines.length <= 2) return 'heading';

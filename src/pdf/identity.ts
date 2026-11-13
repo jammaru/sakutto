@@ -15,7 +15,7 @@ const SECTION =
   /^(?:Abstract|Introduction|Related Work|Conclusion|References|Acknowledgments?|Appendix|Summary|Keywords?|Contents|Overview|Background|Method|Methods|Results|Discussion|Limitations)\b/iu;
 
 const SECTION_HEADING =
-  /^(?:Abstract|Introduction|Related Work|Conclusion|References|Acknowledgments?|Appendix|Summary|Keywords?|Contents|Overview|Background|Method|Methods|Results|Discussion|Limitations)\s*:?\s*$/iu;
+  /^(?:Abstract|Introduction|Related\s+[Ww]ork|Conclusion|References|Acknowledgments?|Appendix|Summary|Keywords?|Contents|Overview|Background|Method|Methods|Results|Discussion|Limitations)\s*\.?\s*:?\s*$/iu;
 
 const BYLINE_LABEL = /^(?:Authors?|Affiliations?|E-?mails?)\s*:?\s*$/iu;
 

@@ -3,6 +3,8 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { extractPage, type PdfPage } from '@/pdf/extract';
+import type { FigureAreas } from '@/pdf/figures';
+import { hasSourceProse } from '@/pdf/language';
 import { groupLines, type TextPiece } from '@/pdf/lines';
 import {
   isCodeToken,
@@ -126,6 +128,39 @@ describe('layoutPage', () => {
     expect(captions).toHaveLength(1);
     expect(captions[0]?.text).toBe('Table 3: Results for several epsilon values.');
     expect(captions[0]?.lines).toHaveLength(1);
+  });
+
+  it('keeps column-top body prose inside a figure bbox as translatable prose', () => {
+    const figures: FigureAreas = {
+      images: [{ x: 30, y: 70, width: 280, height: 220 }],
+    };
+    const lines = groupLines([
+      piece(
+        'highest among arms with the probability 1 - ε regardless of the reward value.',
+        48,
+        120,
+        240,
+      ),
+      piece(
+        'When the value of ε is 0, arms are always selected from the average reward.',
+        48,
+        134,
+        240,
+      ),
+      piece('Related work.', 48, 170, 90, { bold: true }),
+      piece(
+        'In the domain of software engineering, bandit algorithms have been utilized for many tasks.',
+        48,
+        182,
+        240,
+      ),
+    ]);
+    const layout = layoutPage(lines, figures, { width: 595, height: 842, index: 1 });
+    const misSkipped = layout.skipped.filter(
+      (block) => block.role === 'figure-label' && hasSourceProse(block.text),
+    );
+    expect(misSkipped).toHaveLength(0);
+    expect(layout.blocks.some((block) => block.text.includes('Related work'))).toBe(true);
   });
 
   it('keeps a wrapped caption line with the caption block', () => {
