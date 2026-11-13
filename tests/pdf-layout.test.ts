@@ -454,6 +454,8 @@ describe('isCodeToken / isNumericCell', () => {
     expect(isCodeToken('Constant')).toBe(false);
     expect(isCodeToken('Router')).toBe(false);
     expect(isCodeToken('Maximum')).toBe(false);
+    expect(isCodeToken('ABSTRACT')).toBe(false);
+    expect(isCodeToken('INTRODUCTION')).toBe(false);
     expect(isNumericCell('48')).toBe(true);
     expect(isNumericCell('600')).toBe(true);
     expect(isNumericCell('1.9 s')).toBe(true);

@@ -65,6 +65,38 @@ describe('wrapText', () => {
       expect(lines.join('').replace(/\s+/g, '')).toBe('aabbbbbbbbbbbbbcccc');
     }
   });
+
+  it('terminates when adjacent head-forbidden marks would bounce', () => {
+    const cases = ['あいうー。かきく', 'あいう）。えお', 'きゃっ。きゅ'];
+    for (const text of cases) {
+      const started = Date.now();
+      const lines = wrapText(text, 4, (value) => value.length, true);
+      expect(Date.now() - started, text).toBeLessThan(200);
+      expect(lines.join(''), text).toBe(text);
+      expect(
+        lines.some((line) =>
+          /[、。，．・？！）\]｝」』】ゝゞ々ーァィゥェォッャュョヮぁぃぅぇぉっゃゅょゎ]/u.test(
+            line[0] ?? '',
+          ),
+        ),
+        text,
+      ).toBe(false);
+      for (const line of lines) {
+        expect(line.length, text).toBeGreaterThan(0);
+        expect(line.length, text).toBeLessThanOrEqual(4);
+      }
+    }
+  });
+
+  it('does not leave a one-character Japanese line when the column has room', () => {
+    const text = 'これは翻訳された文章ですレイアウトを測るための一段落';
+    const lines = wrapText(text, 4, (value) => value.length, true);
+    expect(lines.join('')).toBe(text);
+    for (const line of lines) {
+      expect(line.length).toBeGreaterThanOrEqual(2);
+      expect(line.length).toBeLessThanOrEqual(4);
+    }
+  });
 });
 
 function expectLinesFit(lines: readonly string[], width: number, size: number): void {
@@ -267,6 +299,26 @@ describe('fitText', () => {
     if (!result.fits) return;
     expect(result.grown).toBe(true);
     expect(result.lines.length).toBeGreaterThan(1);
+  });
+
+  it('fits Japanese with adjacent head-forbidden marks without hanging', () => {
+    const started = Date.now();
+    const result = fitText(
+      {
+        box: box(0, 0, 20, 40),
+        growBudget: 20,
+        fontSize: 10,
+        lineHeight: 1.2,
+        width: 20,
+        measure,
+        role: 'prose',
+      },
+      'あいうー。かきく',
+      'ja',
+    );
+    expect(Date.now() - started).toBeLessThan(200);
+    expect(result.lines.join('')).toBe('あいうー。かきく');
+    expectLinesFit(result.lines, 20, result.fontSize);
   });
 });
 

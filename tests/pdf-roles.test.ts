@@ -146,6 +146,36 @@ describe('first-page identity and captions', () => {
     expect(layout.blocks.some((block) => block.text.includes('@example.org'))).toBe(false);
     expect(layout.skipped.some((block) => block.role === 'identity')).toBe(true);
     expect(layout.blocks.some((block) => block.text.includes('three choices'))).toBe(true);
+    expect(
+      layout.blocks.some((block) => block.text === 'Abstract' && block.role === 'heading'),
+    ).toBe(true);
+  });
+
+  it('translates ABSTRACT and leaves Author, Affiliation, and Email untranslated', () => {
+    const lines = groupLines([
+      piece('Fitting Translated Text Into a Page Layout', 40, 48, 500, { em: 16, bold: true }),
+      piece('Author', 40, 68, 50, { em: 10 }),
+      piece('Alex Example', 40, 82, 90, { em: 10 }),
+      piece('Affiliation', 40, 100, 70, { em: 9 }),
+      piece('Demo University', 40, 114, 110, { em: 9 }),
+      piece('Email', 40, 132, 40, { em: 8 }),
+      piece('casey.demo@example.org', 40, 146, 180, { em: 8 }),
+      piece('ABSTRACT', 40, 180, 80, { em: 10 }),
+      piece('A reader who wants an article in Japanese has three choices today.', 40, 210, 500),
+    ]);
+    const layout = layoutPage(lines, { images: [] }, { height: 800, width: 600, index: 0 });
+    const abstract = layout.blocks.find((block) => block.text === 'ABSTRACT');
+    expect(abstract?.role).toBe('heading');
+    expect(
+      layout.skipped.some((block) => block.text === 'Author' && block.role === 'identity'),
+    ).toBe(true);
+    expect(
+      layout.skipped.some((block) => block.text === 'Affiliation' && block.role === 'identity'),
+    ).toBe(true);
+    expect(
+      layout.skipped.some((block) => block.text === 'Email' && block.role === 'identity'),
+    ).toBe(true);
+    expect(layout.blocks.some((block) => block.text === 'Author')).toBe(false);
   });
 
   it('keeps a title on a later page translatable even when it looks like names', () => {

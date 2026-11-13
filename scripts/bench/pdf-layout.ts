@@ -74,7 +74,7 @@ const { layoutPage, orphanLineCount } = (await import(
   };
   orphanLineCount: (extracted: unknown[], layout: unknown) => number;
 };
-const { placePage, clippedPaintWidth, verticalCut } = (await import(
+const { placePage, clippedPaintWidth, verticalCut, paintedCoverOverlaps } = (await import(
   pathToFileURL(resolve(ROOT, 'src/pdf/place.ts')).href
 )) as {
   placePage: (request: {
@@ -107,6 +107,7 @@ const { placePage, clippedPaintWidth, verticalCut } = (await import(
     drawn: { width: number; height: number } | null;
     block: { writing?: number; box: { width: number; height: number }; fontSize: number };
   }) => number;
+  paintedCoverOverlaps: (placed: unknown[], pageWidth?: number) => number;
 };
 const { pageMetrics, metricsPass } = (await import(
   pathToFileURL(resolve(ROOT, 'src/pdf/metrics.ts')).href
@@ -216,11 +217,13 @@ async function checkBytes(name: string, bytes: Uint8Array): Promise<void> {
       vCut += verticalCut(entry);
     }
     const orphans = extracted.empty ? 0 : orphanLineCount(extracted.lines, layout);
+    const coverOverlaps = extracted.empty ? 0 : paintedCoverOverlaps(placed, extracted.width);
     const pass =
       (extracted.empty ? metrics.painted === 0 : metricsPass(metrics)) &&
       clipped <= 0.01 &&
       vCut <= 0.5 &&
-      orphans === 0;
+      orphans === 0 &&
+      coverOverlaps === 0;
     if (!pass) failed = true;
     console.log(
       `  page ${String(number)}: ${extracted.empty ? 'image-only' : 'text'}  ` +
@@ -230,7 +233,7 @@ async function checkBytes(name: string, bytes: Uint8Array): Promise<void> {
         `overlap=${String(metrics.overlapPairs)} minpt=${metrics.minFontSize === null ? '-' : metrics.minFontSize.toFixed(1)} ` +
         `prose=${(metrics.prosePainted * 100).toFixed(0)}% cover=${(metrics.proseCovered * 100).toFixed(0)}% ` +
         `overflowed=${String(metrics.overflowed)} clipped=${clipped.toFixed(1)} vCut=${vCut.toFixed(1)} ` +
-        `orphans=${String(orphans)} code=${(metrics.codeShare * 100).toFixed(0)}% ` +
+        `orphans=${String(orphans)} covers=${String(coverOverlaps)} code=${(metrics.codeShare * 100).toFixed(0)}% ` +
         `eq=${(metrics.equationShare * 100).toFixed(0)}% cjk=${(metrics.cjkShare * 100).toFixed(0)}% ` +
         `${pass ? 'ok' : 'FAIL'}`,
     );

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { extractPage, placeTextItem, type PdfPage } from '@/pdf/extract';
 import { layoutPage, orphanLineCount } from '@/pdf/layout';
-import { clippedPaintWidth, placePage } from '@/pdf/place';
+import { clippedPaintWidth, paintedCoverOverlaps, placePage, verticalCut } from '@/pdf/place';
 import { stubExpand } from '@/pdf/stub';
 import { measure } from './support/pdf-pieces';
 import { openPdfBytes } from './support/open-fixture-pdf';
@@ -248,13 +248,29 @@ describe('committed layout fixtures', () => {
         height: extracted.height,
         index: 0,
       });
-      expect(layout.blocks).toHaveLength(17);
+      expect(layout.blocks).toHaveLength(18);
       expect(
         layout.skipped.some((block) => block.role === 'code' && /\bcontinue\b/u.test(block.text)),
       ).toBe(true);
       expect(layout.blocks.some((block) => /\bcontinue\b/u.test(block.text))).toBe(false);
       expect(layout.blocks.some((block) => /St\s*=/.test(block.text))).toBe(false);
       expect(orphanLineCount(extracted.lines, layout)).toBe(0);
+      const placed = placePage({
+        layout,
+        translationOf: (block) => stubExpand(block.text),
+        target: 'ja',
+        measure: (_block, text, size) => measure(text, size),
+        pageHeight: extracted.height,
+        pageWidth: extracted.width,
+      });
+      expect(paintedCoverOverlaps(placed, extracted.width)).toBe(0);
+      for (const entry of placed) {
+        expect(verticalCut(entry)).toBeLessThanOrEqual(0.5);
+        if (!entry.paint || !entry.fit || entry.fit.lines.length < 2) continue;
+        for (const line of entry.fit.lines) {
+          expect(line.length, line).toBeGreaterThanOrEqual(2);
+        }
+      }
     } finally {
       await document.destroy();
     }

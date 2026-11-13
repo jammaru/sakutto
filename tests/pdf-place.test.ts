@@ -3,7 +3,13 @@ import { groupLines } from '@/pdf/lines';
 import { layoutPage } from '@/pdf/layout';
 import { BODY_MIN_FONT_SIZE, BODY_MIN_SCALE, MIN_FONT_SIZE, MIN_SCALE } from '@/pdf/fit';
 import { pageMetrics, metricsPass } from '@/pdf/metrics';
-import { clippedPaintWidth, placePage, verticalCut } from '@/pdf/place';
+import {
+  COVER_DESCENDER_EM,
+  clippedPaintWidth,
+  paintedCoverOverlaps,
+  placePage,
+  verticalCut,
+} from '@/pdf/place';
 import { stubExpand } from '@/pdf/stub';
 import { measure, piece } from './support/pdf-pieces';
 
@@ -37,8 +43,9 @@ describe('placePage', () => {
       piece('right bottom line that fills it as well with more words', 320, 112, 240),
       piece('A following paragraph in the same right-hand column too.', 320, 140, 240),
     ]);
-    const { metrics } = place(lines);
+    const { metrics, placed } = place(lines);
     expect(metrics.overlapPairs).toBe(0);
+    expect(paintedCoverOverlaps(placed)).toBe(0);
     expect(metrics.prosePainted).toBeGreaterThanOrEqual(0.85);
     expect(metricsPass(metrics)).toBe(true);
   });
@@ -214,7 +221,7 @@ describe('placePage', () => {
     for (const entry of painted) {
       expect(verticalCut(entry)).toBeLessThanOrEqual(0.5);
       expect(entry.drawn?.height ?? 0).toBeGreaterThanOrEqual(
-        entry.block.box.height + entry.block.fontSize * 0.32 - 0.01,
+        entry.block.box.height + entry.block.fontSize * COVER_DESCENDER_EM - 0.01,
       );
     }
   });

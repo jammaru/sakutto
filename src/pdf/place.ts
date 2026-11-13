@@ -9,6 +9,18 @@ export const PAGE_FOOT_MARGIN = 28;
 export const OVERLAP_AREA = 1;
 /** White space kept at a box's right edge so two columns never touch, in points. */
 const GUTTER_CLEARANCE = 4;
+/**
+ * Extra cover below the source box, as a fraction of em, to hide Latin descenders.
+ *
+ * 0.2em covers `g`/`p`/`y` without the 0.32em pad that grew covers into the next block.
+ */
+export const COVER_DESCENDER_EM = 0.12;
+/** Tiny extra above the source box, as a fraction of em. Keep small so covers do not collide. */
+export const COVER_PAD_TOP_EM = 0.02;
+
+export function descenderPad(fontSize: number): number {
+  return fontSize * COVER_DESCENDER_EM;
+}
 
 export interface PlaceRequest {
   layout: PageLayout;
@@ -159,12 +171,12 @@ export function wrapWidth(
 
 export function drawnBox(block: LayoutBlock, fit: FitResult, wrap = 0, pageWidth = 0): Box {
   if (verticalWriting(block)) {
-    const descender = block.fontSize * 0.32;
+    const descender = descenderPad(block.fontSize);
     const cross = Math.max(block.box.width, fit.height) + descender;
     const along = Math.max(block.box.height, wrap, block.advance);
     return { x: block.box.x, y: block.box.y, width: cross, height: along };
   }
-  const descender = block.fontSize * 0.32;
+  const descender = descenderPad(block.fontSize);
   const height = fit.fits
     ? Math.max(block.box.height + descender, fit.height)
     : Math.max(block.box.height + descender, fit.visibleLines.length * fit.lineHeight);
@@ -286,6 +298,36 @@ export function resolveOverlaps(placed: readonly PlacedBlock[]): PlacedBlock[] {
  * Box used to decide whether two covers collide. Descender padding is left out so a cover
  * that only hangs below its source line to hide `g`/`p` does not knock out the row under it.
  */
+/**
+ * Box the reader paints, including the tiny pad above the source. Used to pin that covers
+ * do not sit on top of each other after descender padding is applied.
+ */
+export function paintedCoverBox(block: LayoutBlock, fit: FitResult, wrap = 0, pageWidth = 0): Box {
+  const drawn = drawnBox(block, fit, wrap, pageWidth);
+  if (verticalWriting(block)) return drawn;
+  const padTop = block.fontSize * COVER_PAD_TOP_EM;
+  return { x: drawn.x, y: drawn.y - padTop, width: drawn.width, height: drawn.height + padTop };
+}
+
+export function paintedCoverOverlaps(placed: readonly PlacedBlock[], pageWidth = 0): number {
+  const boxes: Box[] = [];
+  for (const entry of placed) {
+    if (!entry.paint || !entry.fit || !entry.drawn) continue;
+    boxes.push(paintedCoverBox(entry.block, entry.fit, entry.fit.width, pageWidth));
+  }
+  let count = 0;
+  for (let left = 0; left < boxes.length; left += 1) {
+    const first = boxes[left];
+    if (!first) continue;
+    for (let right = left + 1; right < boxes.length; right += 1) {
+      const second = boxes[right];
+      if (!second) continue;
+      if (intersectionArea(first, second) >= OVERLAP_AREA) count += 1;
+    }
+  }
+  return count;
+}
+
 export function overlapRegion(entry: PlacedBlock): Box | null {
   if (!entry.drawn) return null;
   if (verticalWriting(entry.block)) return entry.drawn;
@@ -296,7 +338,7 @@ export function overlapRegion(entry: PlacedBlock): Box | null {
 /** How far a painted cover falls short of hiding the source line box, including descenders. */
 export function verticalCut(entry: PlacedBlock): number {
   if (!entry.paint || !entry.drawn) return 0;
-  const descender = entry.block.fontSize * 0.32;
+  const descender = descenderPad(entry.block.fontSize);
   if (verticalWriting(entry.block)) {
     const need = Math.max(entry.block.box.width, entry.fit?.height ?? 0) + descender;
     return Math.max(0, need - entry.drawn.width);

@@ -226,8 +226,24 @@ export function wrapText(
   }
 
   if (current.trim().length > 0) lines.push(current.trimEnd());
-  const wrapped = kinsoku ? applyKinsoku(lines, width, measure) : lines;
-  return wrapped.flatMap((line) => {
+  let wrapped = kinsoku ? applyKinsoku(lines, width, measure) : lines;
+  wrapped = breakOverflow(wrapped, width, measure, kinsoku);
+  if (kinsoku) {
+    wrapped = collapseLoneGlyphs(wrapped, width, measure);
+    wrapped = applyKinsoku(wrapped, width, measure);
+    wrapped = breakOverflow(wrapped, width, measure, kinsoku);
+    wrapped = collapseLoneGlyphs(wrapped, width, measure);
+  }
+  return wrapped.filter((line) => line.length > 0);
+}
+
+function breakOverflow(
+  lines: readonly string[],
+  width: number,
+  measure: (value: string) => number,
+  kinsoku: boolean,
+): string[] {
+  return lines.flatMap((line) => {
     if (line.length === 0) return [];
     if (measure(line) <= width) return [line];
     const pieces = breakToken(line, width, measure, kinsoku);
@@ -249,9 +265,22 @@ function applyKinsoku(
   width: number,
   measure: (value: string) => number,
 ): string[] {
-  const next = [...lines];
-  for (let index = 1; index < next.length; index += 1) {
-    while ((next[index]?.length ?? 0) > 0 && KINSOKU_NO_START.test(next[index]?.[0] ?? '')) {
+  const next = lines.filter((line) => line.length > 0);
+  const budget = Math.max(16, next.reduce((count, line) => count + line.length, 0) * 4 + 8);
+  let steps = 0;
+  const seenHead = new Set<string>();
+
+  for (let index = 1; index < next.length && steps < budget; index += 1) {
+    while (
+      (next[index]?.length ?? 0) > 0 &&
+      KINSOKU_NO_START.test(next[index]?.[0] ?? '') &&
+      steps < budget
+    ) {
+      steps += 1;
+      const key = `${String(index)}:${next[index - 1] ?? ''}|${next[index] ?? ''}`;
+      if (seenHead.has(key)) break;
+      seenHead.add(key);
+
       const mark = next[index]?.[0] ?? '';
       const dest = `${next[index - 1] ?? ''}${mark}`;
       if (measure(dest) <= width) {
@@ -259,20 +288,40 @@ function applyKinsoku(
         next[index] = next[index]?.slice(1) ?? '';
         continue;
       }
-      // The mark does not fit on the previous line. Take the previous character with it so
-      // the next line does not start with `。` and the previous line does not overflow.
+      // The mark does not fit on the previous line. Steal a suffix so the next line does
+      // not start with a forbidden mark. Do not steal a suffix that is itself forbidden
+      // at the head — that bounces `ー。` back and forth forever.
       const previous = next[index - 1] ?? '';
       if (previous.length <= 1) break;
-      next[index - 1] = previous.slice(0, -1);
-      next[index] = `${previous.slice(-1)}${next[index] ?? ''}`;
+      let take = 1;
+      while (
+        take < previous.length &&
+        KINSOKU_NO_START.test(previous.slice(previous.length - take)[0] ?? '')
+      ) {
+        take += 1;
+      }
+      if (take >= previous.length) break;
+      next[index - 1] = previous.slice(0, -take);
+      next[index] = `${previous.slice(-take)}${next[index] ?? ''}`;
+      break;
     }
     if ((next[index]?.length ?? 0) === 0) {
       next.splice(index, 1);
       index -= 1;
     }
   }
-  for (let index = 0; index < next.length - 1; index += 1) {
-    while ((next[index]?.length ?? 0) > 0 && KINSOKU_NO_END.test(next[index]?.at(-1) ?? '')) {
+
+  const seenTail = new Set<string>();
+  for (let index = 0; index < next.length - 1 && steps < budget; index += 1) {
+    while (
+      (next[index]?.length ?? 0) > 0 &&
+      KINSOKU_NO_END.test(next[index]?.at(-1) ?? '') &&
+      steps < budget
+    ) {
+      steps += 1;
+      const key = `${String(index)}:${next[index] ?? ''}|${next[index + 1] ?? ''}`;
+      if (seenTail.has(key)) break;
+      seenTail.add(key);
       const mark = next[index]?.at(-1) ?? '';
       const dest = `${mark}${next[index + 1] ?? ''}`;
       const kept = next[index]?.slice(0, -1) ?? '';
@@ -286,6 +335,61 @@ function applyKinsoku(
     }
   }
   return next.filter((line) => line.length > 0);
+}
+
+/**
+ * Avoid a one-character Japanese line when a neighbour can take the glyph without overflowing.
+ *
+ * A wrap that leaves `モ` or `な` alone is the stray 1-character line a reader sees in the
+ * middle of a paragraph. Merge it, or steal one more character so the short line has two.
+ */
+function collapseLoneGlyphs(
+  lines: readonly string[],
+  width: number,
+  measure: (value: string) => number,
+): string[] {
+  const next = [...lines];
+  let guard = 0;
+  const limit = next.reduce((count, line) => count + line.length, 0) + 8;
+  while (guard < limit) {
+    guard += 1;
+    const index = next.findIndex((line) => line.length === 1);
+    if (index < 0) break;
+    const glyph = next[index] ?? '';
+    const previous = next[index - 1];
+    if (previous !== undefined && measure(`${previous}${glyph}`) <= width) {
+      next[index - 1] = `${previous}${glyph}`;
+      next.splice(index, 1);
+      continue;
+    }
+    const following = next[index + 1];
+    if (
+      following !== undefined &&
+      !KINSOKU_NO_START.test(glyph) &&
+      measure(`${glyph}${following}`) <= width
+    ) {
+      next[index + 1] = `${glyph}${following}`;
+      next.splice(index, 1);
+      continue;
+    }
+    if (previous !== undefined && previous.length >= 2) {
+      const stolen = previous.slice(-1);
+      const kept = previous.slice(0, -1);
+      const pair = `${stolen}${glyph}`;
+      if (
+        kept.length > 0 &&
+        measure(pair) <= width &&
+        !KINSOKU_NO_START.test(stolen) &&
+        !KINSOKU_NO_END.test(kept.at(-1) ?? '')
+      ) {
+        next[index - 1] = kept;
+        next[index] = pair;
+        continue;
+      }
+    }
+    break;
+  }
+  return next;
 }
 
 /** Smallest type a block may use, in points. Body paragraphs originally ≥9pt may go to 6pt. */
@@ -346,6 +450,24 @@ function breakToken(
     current = candidate;
   }
   if (current.length > 0) pieces.push(current);
+  if (kinsoku && pieces.length >= 2) {
+    const last = pieces[pieces.length - 1] ?? '';
+    const previous = pieces[pieces.length - 2] ?? '';
+    if (last.length === 1 && previous.length >= 2) {
+      const stolen = previous.slice(-1);
+      const pair = stolen + last;
+      const kept = previous.slice(0, -1);
+      if (
+        kept.length > 0 &&
+        measure(pair) <= width &&
+        !KINSOKU_NO_START.test(stolen) &&
+        !KINSOKU_NO_END.test(kept.at(-1) ?? '')
+      ) {
+        pieces[pieces.length - 2] = kept;
+        pieces[pieces.length - 1] = pair;
+      }
+    }
+  }
   // A glyph wider than the column still occupies a line of its own: never emit an empty
   // piece, which would loop, and never skip the character.
   return pieces.length > 0 ? pieces : [token.slice(0, 1)];

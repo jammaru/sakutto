@@ -1,6 +1,7 @@
 import type { Formality } from '@/shared/settings';
 import { verticalWriting, type LayoutBlock } from './layout';
 import { layoutPage } from './layout';
+import { COVER_PAD_TOP_EM, drawnBox } from './place';
 import { coverStyle, READER_STYLE, TextMeasurer } from './render';
 import { extractPage, renderPage, type PdfDocument } from './extract';
 import type { TextLine } from './lines';
@@ -630,7 +631,7 @@ export class PdfReader {
       for (const state of states) {
         if (state.paint && state.fit?.fits === true && state.translation.trim().length > 0) {
           live.add(state);
-          this.paintBlock(element, state);
+          this.paintBlock(element, state, index);
           continue;
         }
         if (state.overflow) {
@@ -653,7 +654,7 @@ export class PdfReader {
     this.report();
   }
 
-  private paintBlock(element: PageElement, state: BlockState): void {
+  private paintBlock(element: PageElement, state: BlockState, pageIndex: number): void {
     const fit = state.fit;
     if (!fit) return;
 
@@ -670,22 +671,16 @@ export class PdfReader {
     const traits = traitsOf(block);
     const scale = this.scale;
     const visible = fit.lines;
+    const pageWidth = this.geometries.find((geometry) => geometry.index === pageIndex)?.width ?? 0;
+    const drawn = drawnBox(block, fit, fit.width, pageWidth);
+    const padTop = block.fontSize * COVER_PAD_TOP_EM * scale;
 
-    // The box covers the whole area the source text occupied, even when the translation is
-    // shorter: the page image underneath still holds the original glyphs, and a box that
-    // stopped early would leave the end of the source paragraph showing through the
-    // translation. A little padding hides descenders the source box did not report.
-    const padTop = Math.max(0.8, block.fontSize * 0.1) * scale;
-    const padBottom = Math.max(2.4, block.fontSize * 0.32) * scale;
-    const sourceHeight = block.box.height;
-    const textHeight = fit.height * scale;
-    const height = Math.max(sourceHeight * scale, textHeight) + padTop + padBottom;
     // Layout wraps to `fit.width` (the writing-direction advance on a rotated page, else the
     // column plus a modest gutter). Painting to `box.width` alone, with `white-space:pre` and
     // `overflow:hidden`, cuts the line ends that wrapping already fitted — on `/Rotate 90`
-    // that width is the em, about 10pt.
-    const along = Math.max(block.advance, fit.width) * scale + padTop + padBottom;
-    const width = verticalWriting(block) ? along : Math.max(block.box.width * scale, along);
+    // that width is the em, about 10pt. Height follows `drawnBox` so descender padding is not
+    // stacked on top of a grown translation, which is what put two covers on top of each other.
+    const along = Math.max(block.advance, fit.width, drawn.height) * scale;
     const box = verticalWriting(block)
       ? {
           x:
@@ -701,13 +696,13 @@ export class PdfReader {
               scale -
             padTop,
           width: along,
-          height: Math.max(block.box.width, fit.height) * scale + padTop + padBottom,
+          height: drawn.width * scale,
         }
       : {
-          x: Math.min(block.box.x, block.room.x) * scale - padTop,
-          y: block.box.y * scale - padTop,
-          width,
-          height,
+          x: drawn.x * scale,
+          y: drawn.y * scale - padTop,
+          width: drawn.width * scale,
+          height: drawn.height * scale + padTop,
         };
 
     node.dataset.fitWidth = fit.width.toFixed(2);
@@ -721,11 +716,11 @@ export class PdfReader {
       scriptOf(this.target),
     );
     if (verticalWriting(block)) {
-      node.style.height = `${(Math.max(block.box.width, fit.height) * scale + padTop + padBottom).toFixed(2)}px`;
+      node.style.height = `${(drawn.width * scale).toFixed(2)}px`;
       node.style.transformOrigin = '0 0';
       node.style.transform = block.writing === 270 ? 'rotate(-90deg)' : 'rotate(90deg)';
     } else {
-      node.style.height = `${height.toFixed(2)}px`;
+      node.style.height = `${box.height.toFixed(2)}px`;
       node.style.transform = '';
     }
     node.dataset.state = state.state === 'done' ? 'done' : 'running';

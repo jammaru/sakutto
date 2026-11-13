@@ -1,7 +1,7 @@
 import { boxBottom, boxRight, median, unionBox, type Box } from './geometry';
 import { insideFigure, type FigureAreas } from './figures';
 import { gutterCandidates, horizontalGaps, groupByBaseline } from './gaps';
-import { isFirstPageIdentity } from './identity';
+import { isBylineLabel, isFirstPageIdentity, isSectionHeading } from './identity';
 import { CJK_MAJORITY, cjkRatio } from './fonts';
 import { SEGMENT_GAP, isRotated, lineFrom, type TextLine, type TextPiece } from './lines';
 
@@ -1022,6 +1022,8 @@ function gapStartsBlock(previous: TextLine, line: TextLine, leading: number): bo
   // between them is no wider than a wrapped line.
   if (isCaptionLine(previous.text) && isTableHeaderLine(line.text)) return true;
   if (isListBoundary(previous, line)) return true;
+  if (isSectionHeading(previous.text) || isSectionHeading(line.text)) return true;
+  if (isBylineLabel(previous.text) || isBylineLabel(line.text)) return true;
 
   return false;
 }
@@ -1060,8 +1062,9 @@ export function isCodeToken(text: string): boolean {
   const trimmed = text.trim();
   if (trimmed.length < 3 || /\s/u.test(trimmed)) return false;
   if (/^(?:[-–—]|[\u002d\u2010\u2011])+$/u.test(trimmed)) return false;
-  // An internal capital, not just an initial one: `pieceChars`, `maxSegmentTokens`.
-  if (/^[A-Za-z][a-z0-9]*[A-Z][A-Za-z0-9]*$/u.test(trimmed)) return true;
+  // An internal capital after a lowercase run: `pieceChars`, `maxSegmentTokens`.
+  // All-caps section titles (`ABSTRACT`) must not match: they have no lowercase letters.
+  if (/^[A-Za-z][a-z0-9]*[A-Z][A-Za-z0-9]*$/u.test(trimmed) && /[a-z]/u.test(trimmed)) return true;
   if (/^[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+$/u.test(trimmed)) return true;
   if (/^[A-Za-z][A-Za-z0-9]*[\u002d\u2010\u2011][A-Za-z][A-Za-z0-9]*$/u.test(trimmed)) return true;
   if (/^[A-Za-z][A-Za-z0-9]*[\u002d\u2010\u2011]$/u.test(trimmed)) return true;
@@ -1210,6 +1213,9 @@ function roleOf(
   // puts running prose where the mathematics was.
   if (isEquation(lines, columnLeft)) return 'equation';
   if (isCodeBlock(lines)) return 'code';
+  // Section titles are headings even in all caps and even when they sit in the header band.
+  if (isSectionHeading(text) && lines.length <= 2) return 'heading';
+  if (isBylineLabel(text) && pageIndex === 0) return 'identity';
   if (isFurniture(text, lines, pageHeight, bodySize)) return 'furniture';
   if (
     isFirstPageIdentity(text, {

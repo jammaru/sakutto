@@ -14,6 +14,11 @@ const AFFILIATION =
 const SECTION =
   /^(?:Abstract|Introduction|Related Work|Conclusion|References|Acknowledgments?|Appendix|Summary|Keywords?|Contents|Overview|Background|Method|Methods|Results|Discussion|Limitations)\b/iu;
 
+const SECTION_HEADING =
+  /^(?:Abstract|Introduction|Related Work|Conclusion|References|Acknowledgments?|Appendix|Summary|Keywords?|Contents|Overview|Background|Method|Methods|Results|Discussion|Limitations)\s*:?\s*$/iu;
+
+const BYLINE_LABEL = /^(?:Authors?|Affiliations?|E-?mails?)\s*:?\s*$/iu;
+
 /** Function words that belong in a title, not in a person's name. */
 const TITLE_STOP =
   /^(?:The|A|An|Is|Are|Was|Were|For|Of|To|In|On|With|From|By|Or|Not|All|You|We|This|That|These|Those|How|What|Why|When|Where)\b/u;
@@ -24,9 +29,20 @@ const PARTICLE = /^(?:and|von|van|de|del|da|di|la|le|bin|al|der|den|dos|das)\b/i
 export function isIdentityText(text: string): boolean {
   const trimmed = text.trim();
   if (trimmed.length === 0) return false;
+  if (isBylineLabel(trimmed)) return true;
   if (EMAIL.test(trimmed)) return true;
   if (AFFILIATION.test(trimmed) && trimmed.length <= 140) return true;
   return isNameLine(trimmed);
+}
+
+/** True when a block is a section title such as Abstract, not a byline. */
+export function isSectionHeading(text: string): boolean {
+  return SECTION_HEADING.test(text.trim());
+}
+
+/** True when a block is an Author / Affiliation / Email label rather than a heading. */
+export function isBylineLabel(text: string): boolean {
+  return BYLINE_LABEL.test(text.trim());
 }
 
 /**
@@ -47,7 +63,7 @@ export function isFirstPageIdentity(
   if (options.pageIndex !== 0) return false;
   if (options.pageHeight > 0 && options.y > options.pageHeight * 0.48) return false;
   if (options.bodySize > 0 && options.fontSize >= options.bodySize * 1.28) return false;
-  if (SECTION.test(text.trim())) return false;
+  if (isSectionHeading(text) || SECTION.test(text.trim())) return false;
   return isIdentityText(text);
 }
 
