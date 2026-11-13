@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { EngineError } from '@/engine/errors';
 import {
+  MAX_PRIORITY,
   MAX_SEGMENT_TEXT,
   deserializeTranslateOptions,
   errorFromPayload,
@@ -114,8 +115,10 @@ describe('engine host protocol', () => {
 
     expect(isEngineHostRequest(request({ priority: Number.NaN }))).toBe(false);
     expect(isEngineHostRequest(request({ priority: Number.POSITIVE_INFINITY }))).toBe(false);
-    expect(isEngineHostRequest(request({ priority: 101 }))).toBe(false);
-    expect(isEngineHostRequest(request({ priority: -101 }))).toBe(false);
+    expect(isEngineHostRequest(request({ priority: MAX_PRIORITY }))).toBe(true);
+    expect(isEngineHostRequest(request({ priority: -MAX_PRIORITY }))).toBe(true);
+    expect(isEngineHostRequest(request({ priority: MAX_PRIORITY + 1 }))).toBe(false);
+    expect(isEngineHostRequest(request({ priority: -MAX_PRIORITY - 1 }))).toBe(false);
     expect(isEngineHostRequest(request({ tgt: 'english' }))).toBe(false);
     expect(isEngineHostRequest(request({ tgt: 'pt' }))).toBe(true);
     expect(isEngineHostRequest(request({ eager: true }))).toBe(true);

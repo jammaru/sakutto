@@ -2,13 +2,14 @@ import { PriorityQueue } from '@/engine/queue/priority-queue';
 import { chunkForTranslation } from '@/engine/text/sentences';
 import { estimateTokens } from '@/engine/text/tokens';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
+import { MAX_PRIORITY } from '@/engine/offscreen/protocol';
 import { glossaryEquals } from '@/shared/glossary';
 import { canonicalLanguage, isTargetLanguage } from '@/shared/languages';
 import type { Formality } from '@/shared/settings';
 import { pageRates, type ThroughputSample } from '@/dom/throughput';
 import { translationConcurrencyFor } from '@/dom/priority';
 import { fitText, type FitResult } from './fit';
-import { verticalWriting, type LayoutBlock, type PageLayout } from './layout';
+import { verticalWriting, type AnyBlockRole, type LayoutBlock, type PageLayout } from './layout';
 import {
   drawnBox,
   exceedsPage,
@@ -49,6 +50,38 @@ export interface BlockState {
 
 export function isTranslated(state: BlockState): boolean {
   return state.paint && state.translation.trim().length > 0 && state.fit !== null;
+}
+
+/**
+ * True when a block will not change again: translated, deliberately left as drawn, or failed.
+ *
+ * Same-language and math-heavy blocks finish as `done` with empty text. A harness that only
+ * counts non-empty translations waits forever on those.
+ */
+export function isPdfBlockSettled(entry: { state: string }): boolean {
+  return entry.state === 'done' || entry.state === 'failed';
+}
+
+/** Roles a PDF request can carry; used to pin every generated priority inside the protocol. */
+export const PDF_PRIORITY_ROLES: readonly AnyBlockRole[] = [
+  'heading',
+  'prose',
+  'caption',
+  'cell',
+  'label',
+];
+
+/**
+ * Queue priority for one PDF block. Lower runs first.
+ *
+ * Distance to the focused page dominates; kind only orders work on the same page. The value
+ * must stay inside `0..MAX_PRIORITY` or the offscreen host silently drops the request.
+ */
+export function pdfRequestPriority(distance: number, role: AnyBlockRole): number {
+  const kind = role === 'heading' || role === 'prose' ? 10 : role === 'caption' ? 30 : 50;
+  const steps = Math.min(9, Math.max(0, Math.abs(Math.trunc(distance))));
+  const rank = Math.min(9, Math.floor(kind / 10));
+  return Math.min(MAX_PRIORITY, steps * 10 + rank);
 }
 
 export interface PdfEngine {
@@ -378,10 +411,7 @@ export class PdfSession {
    * `running` while later pages finish. Kind only orders work on the same page.
    */
   private priorityOf(block: LayoutBlock, page: number): number {
-    const kind =
-      block.role === 'heading' || block.role === 'prose' ? 10 : block.role === 'caption' ? 30 : 50;
-    const distance = Math.min(Math.abs(page - this.focus), 40);
-    return distance * 100 + kind;
+    return pdfRequestPriority(page - this.focus, block.role);
   }
 
   private pump(): void {

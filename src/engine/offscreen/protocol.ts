@@ -318,7 +318,8 @@ const MAX_SEGMENT_ID = 200;
 export const MAX_SEGMENT_TEXT = 100_000;
 const MAX_CONTEXT_TEXT = 20_000;
 const MAX_LANGUAGE_TAG = 35;
-const MAX_PRIORITY = 100;
+/** Offscreen translate requests outside ± this value are dropped. */
+export const MAX_PRIORITY = 100;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

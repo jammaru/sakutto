@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { LayoutBlock, PageLayout } from '@/pdf/layout';
-import { PdfSession, type PdfEngine } from '@/pdf/session';
+import {
+  isPdfBlockSettled,
+  PDF_PRIORITY_ROLES,
+  pdfRequestPriority,
+  PdfSession,
+  type PdfEngine,
+} from '@/pdf/session';
+import {
+  MAX_PRIORITY,
+  isEngineHostRequest,
+  serializeTranslateOptions,
+} from '@/engine/offscreen/protocol';
 import type { TranslateOptions, TranslationChunk } from '@/engine/types';
 
 function block(text: string): LayoutBlock {
@@ -273,5 +284,51 @@ describe('PdfSession stream handling', () => {
     expect(focus?.eager).toBe(true);
     expect(focus?.preempt).toBe(true);
     expect(other?.eager).toBe(false);
+    expect(focus?.priority ?? 0).toBeGreaterThanOrEqual(0);
+    expect(focus?.priority ?? 0).toBeLessThanOrEqual(MAX_PRIORITY);
+    expect(other?.priority ?? 0).toBeGreaterThanOrEqual(0);
+    expect(other?.priority ?? 0).toBeLessThanOrEqual(MAX_PRIORITY);
+  });
+});
+
+describe('PDF request priority', () => {
+  it('stays inside 0..MAX_PRIORITY for every distance and role', () => {
+    const options = serializeTranslateOptions({
+      tgt: 'ja',
+      form: 'polite',
+      priority: 0,
+      signal: new AbortController().signal,
+    });
+    for (let distance = 0; distance <= 50; distance += 1) {
+      for (const role of PDF_PRIORITY_ROLES) {
+        const priority = pdfRequestPriority(distance, role);
+        expect(priority, `${role} d=${String(distance)}`).toBeGreaterThanOrEqual(0);
+        expect(priority, `${role} d=${String(distance)}`).toBeLessThanOrEqual(MAX_PRIORITY);
+        expect(
+          isEngineHostRequest({
+            type: 'translate',
+            requestId: 'r1',
+            segments: [{ id: 'a', text: 'Hello.' }],
+            options: { ...options, priority },
+          }),
+          `${role} d=${String(distance)} p=${String(priority)}`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('keeps a nearer page ahead of a farther one', () => {
+    expect(pdfRequestPriority(0, 'label')).toBeLessThan(pdfRequestPriority(1, 'prose'));
+    expect(pdfRequestPriority(1, 'heading')).toBeLessThan(pdfRequestPriority(2, 'caption'));
+  });
+});
+
+describe('isPdfBlockSettled', () => {
+  it('treats done with empty text and failed as finished, not a running stream', () => {
+    expect(isPdfBlockSettled({ state: 'done' })).toBe(true);
+    expect(isPdfBlockSettled({ state: 'failed' })).toBe(true);
+    expect(isPdfBlockSettled({ state: 'running' })).toBe(false);
+    expect(isPdfBlockSettled({ state: 'queued' })).toBe(false);
+    expect(isPdfBlockSettled({ state: 'idle' })).toBe(false);
   });
 });

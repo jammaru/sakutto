@@ -35,6 +35,7 @@ import {
   type ChromeApi,
 } from './host.ts';
 import { startStaticServer } from './static.ts';
+import { isPdfBenchBlockFinished } from './pdf-complete.ts';
 import { stageExtension } from './stable-extension.ts';
 
 const MODEL_PATH = resolve(ROOT, 'bench/.cache', MODEL_FILE);
@@ -415,12 +416,7 @@ async function main(): Promise<void> {
           pages: parsed.length,
           total: document.querySelectorAll('.sakutto-page').length,
           blocks: all.length,
-          done: all.filter(
-            (entry) =>
-              entry.state === 'done' ||
-              entry.state === 'failed' ||
-              entry.translation.trim().length > 0,
-          ).length,
+          done: all.filter((entry) => isPdfBenchBlockFinished(entry)).length,
         };
       }, translateLimit);
       if (summary) {
