@@ -533,6 +533,19 @@ describe('layoutPage', () => {
     expect(layout.blocks.some((block) => block.text === 'the effort')).toBe(false);
   });
 
+  it('joins body-size label fragments on one baseline into a prose line', () => {
+    const lines = groupLines([
+      piece('Shown', 40, 100, 30),
+      piece('with', 80, 100, 20),
+      piece('These', 110, 100, 28),
+      piece('values', 148, 100, 34),
+    ]);
+    const layout = layoutPage(lines);
+    expect(layout.blocks).toHaveLength(1);
+    expect(layout.blocks[0]?.text).toBe('Shown with These values');
+    expect(layout.blocks[0]?.role).toBe('prose');
+  });
+
   it('keeps a reference row with author and title runs as one entry', () => {
     const lines = groupLines([
       piece('[3] T. Author,', 55, 100, 50),

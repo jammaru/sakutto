@@ -296,8 +296,9 @@ export function layoutPage(
     return isProse(block);
   };
 
+  const kept = blocks.filter(translatable);
   return {
-    blocks: blocks.filter(translatable),
+    blocks: mergeLabelFragments(kept, bodySize, figures, pageHeight, pageIndex),
     bodySize,
     lineHeight: unit,
     skipped: blocks.filter((block) => !translatable(block)),
@@ -612,21 +613,27 @@ function mergeRowCells(
   row: readonly TextLine[],
   cells: readonly TextLine[][],
   isTable: boolean,
+  bodySize: number,
 ): TextLine[][] {
   if (isTable || cells.length <= 1) return cells.map((cell) => [...cell]);
   if (row.some((line) => isReferenceLine(line.text))) return [[...row]];
   // A listing's line number and code run are already handled by the cell splitter; merging
   // them back into a sentence would fuse the listing with prose on the same baseline.
   if (hasListingLine(row)) return cells.map((cell) => [...cell]);
+  const bodyRow = isBodyFontRow(row, bodySize);
   const merged: TextLine[][] = [];
   for (const cell of cells) {
     const previous = merged[merged.length - 1];
     const before = previous?.at(-1);
     const next = cell[0];
-    if (previous && before && next && continuesProseText(before.text, next.text)) {
+    if (previous && before && next) {
       const gap = next.box.x - boxRight(before.box);
       const scale = Math.max(before.height, next.height, 1);
-      if (gap <= scale * 1.5) {
+      const sentenceContinues = continuesProseText(before.text, next.text) && gap <= scale * 1.5;
+      // A justified body line can lose every word boundary to the extractor. At body size
+      // the runs are words of one line even when the next word is capitalised (`BANC's`).
+      const wordFragments = bodyRow && gap <= scale * 1.75;
+      if (sentenceContinues || wordFragments) {
         previous.push(...cell);
         continue;
       }
@@ -634,6 +641,12 @@ function mergeRowCells(
     merged.push([...cell]);
   }
   return merged;
+}
+
+/** True when every run on a row is set at the page's body size. */
+function isBodyFontRow(lines: readonly TextLine[], bodySize: number): boolean {
+  if (bodySize <= 0 || lines.length === 0) return false;
+  return lines.every((line) => Math.abs(line.height - bodySize) <= bodySize * SIZE_CHANGE);
 }
 
 /** True when the next run starts a clause of the same sentence rather than a new one. */
@@ -802,6 +815,8 @@ interface RegionCell {
   row: number;
   /** The row held more than one cell, so this is a table cell rather than a line of prose. */
   shared: boolean;
+  /** A body-size row whose word fragments were joined; the resulting line is prose. */
+  fragments?: boolean | undefined;
 }
 
 function appendRegionBlocks(
@@ -815,7 +830,13 @@ function appendRegionBlocks(
   const rows = groupBaselineRows(region.lines);
   if (rows.length === 0) return;
 
-  const emit = (lines: readonly TextLine[], room: Box, column: number, columnLeft: number) => {
+  const emit = (
+    lines: readonly TextLine[],
+    room: Box,
+    column: number,
+    columnLeft: number,
+    fragments = false,
+  ) => {
     for (const run of splitAtFigures(lines, figures)) {
       const block = buildBlock(
         run,
@@ -827,7 +848,8 @@ function appendRegionBlocks(
         pageHeight,
         pageIndex,
       );
-      if (block) out.push(block);
+      if (!block) continue;
+      out.push(fragments && block.role === 'label' ? { ...block, role: 'prose' } : block);
     }
   };
 
@@ -852,12 +874,16 @@ function appendRegionBlocks(
       reference.lines.push(...row);
       continue;
     }
-    const rowCells = mergeRowCells(row, splitRowCells(row, isTable), isTable);
+    const splitCells = splitRowCells(row, isTable);
+    const rowCells = mergeRowCells(row, splitCells, isTable, bodySize);
+    const fragments =
+      !isTable && rowCells.length < splitCells.length && isBodyFontRow(row, bodySize);
     for (const cell of rowCells) {
       const entry: RegionCell = {
         lines: cell,
         row: index,
         shared: isTable && rowCells.length > 1,
+        ...(fragments ? { fragments: true } : {}),
       };
       cells.push(entry);
       if (!isTable && cell[0] && isReferenceLine(cell[0].text)) reference = entry;
@@ -873,6 +899,7 @@ function appendRegionBlocks(
     // is nothing but a centred formula starts at its own left by definition.
     const columnLeft = columnLeftEdge(column.cells);
     let current: TextLine[] = [];
+    let currentFragments = false;
     // Backstop for a column whose paragraph gaps were missed: measure the cumulative prose
     // up to the last completed sentence, not just whether the previous line happened to end
     // one. Split at that sentence boundary so the remainder can still become its own block.
@@ -883,7 +910,7 @@ function appendRegionBlocks(
       for (;;) {
         const boundary = overlongProseBoundary(current);
         if (boundary <= 0 || boundary >= current.length) return;
-        emit(current.slice(0, boundary), room, region.column, columnLeft);
+        emit(current.slice(0, boundary), room, region.column, columnLeft, currentFragments);
         current = current.slice(boundary);
       }
     };
@@ -915,14 +942,16 @@ function appendRegionBlocks(
                   isListBoundary(previous, next)))),
           );
       if (previous && next && starts) {
-        emit(current, room, region.column, columnLeft);
+        emit(current, room, region.column, columnLeft, currentFragments);
         current = [];
+        currentFragments = false;
       }
+      if (cell.fragments === true) currentFragments = true;
       current.push(...cell.lines);
     }
 
     splitLongProse();
-    emit(current, room, region.column, columnLeft);
+    emit(current, room, region.column, columnLeft, currentFragments);
   }
 }
 
@@ -1368,6 +1397,79 @@ function splitAtFigures(lines: readonly TextLine[], figures: FigureAreas): TextL
   }
   if (current.length > 0) groups.push(current);
   return groups;
+}
+
+/**
+ * Joins a row of body-size label fragments into the prose line they were cut from.
+ *
+ * Some extractors lose every word gap in a justified line. Each word then becomes its own
+ * short label block, and the translation of each fragment is too long for its tiny box. The
+ * fragments share a baseline and body type, so they can be put back into one prose block.
+ */
+function mergeLabelFragments(
+  blocks: readonly LayoutBlock[],
+  bodySize: number,
+  figures: FigureAreas,
+  pageHeight: number,
+  pageIndex: number,
+): LayoutBlock[] {
+  if (bodySize <= 0 || blocks.length < 2) return [...blocks];
+  const baselineOf = (block: LayoutBlock): number =>
+    block.lines[0]?.baseline ?? block.box.y + block.box.height;
+  const rowBlocks = blocks.filter(
+    (block) =>
+      (block.role === 'label' || block.role === 'prose') &&
+      Math.abs(block.fontSize - bodySize) <= bodySize * SIZE_CHANGE &&
+      block.lines.length > 0,
+  );
+  if (rowBlocks.length < 2) return [...blocks];
+
+  const sorted = [...rowBlocks].sort(
+    (left, right) => baselineOf(left) - baselineOf(right) || left.box.x - right.box.x,
+  );
+  const groups: LayoutBlock[][] = [];
+  for (const block of sorted) {
+    const group = groups[groups.length - 1];
+    const previous = group?.[group.length - 1];
+    const sameBaseline =
+      previous !== undefined &&
+      Math.abs(baselineOf(previous) - baselineOf(block)) <= Math.max(block.fontSize * 0.4, 0.5);
+    const gap = previous === undefined ? Infinity : block.box.x - boxRight(previous.box);
+    if (group && previous && sameBaseline && gap <= block.fontSize * 2) group.push(block);
+    else groups.push([block]);
+  }
+
+  const replaced = new Map<LayoutBlock, LayoutBlock>();
+  const consumed = new Set<LayoutBlock>();
+  for (const group of groups) {
+    if (group.length < 2 || !group.some((block) => block.role === 'label')) continue;
+    const lines = group
+      .flatMap((block) => block.lines)
+      .sort((left, right) => left.baseline - right.baseline || left.box.x - right.box.x);
+    const box = unionBox(lines.map((line) => line.box));
+    if (!box) continue;
+    const room = unionBox(group.map((block) => block.room)) ?? box;
+    const merged = buildBlock(
+      lines,
+      room,
+      group[0]?.column ?? 0,
+      bodySize,
+      figures,
+      minLeft(lines),
+      pageHeight,
+      pageIndex,
+    );
+    if (!merged) continue;
+    const first = group[0];
+    if (!first) continue;
+    replaced.set(first, { ...merged, role: 'prose' });
+    for (const block of group.slice(1)) consumed.add(block);
+  }
+
+  return blocks.flatMap((block) => {
+    if (consumed.has(block)) return [];
+    return [replaced.get(block) ?? block];
+  });
 }
 
 function buildBlock(

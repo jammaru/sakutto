@@ -216,10 +216,13 @@ describe('placePage', () => {
   });
 
   it('counts prose-like skipped blocks in the painted-only denominator', () => {
+    const lines = groupLines([
+      piece('This sentence is prose but was skipped as a figure label.', 40, 100, 300),
+    ]);
     const block: LayoutBlock = {
-      box: { x: 40, y: 100, width: 300, height: 20 },
-      room: { x: 40, y: 100, width: 300, height: 20 },
-      lines: [],
+      box: { x: 40, y: 90, width: 300, height: 10 },
+      room: { x: 40, y: 90, width: 300, height: 10 },
+      lines,
       text: 'This sentence is prose but was skipped as a figure label.',
       role: 'figure-label',
       fontSize: 10,
@@ -239,12 +242,17 @@ describe('placePage', () => {
       pageHeight: 800,
       pageWidth: 600,
       pageIndex: 0,
-      obstacles: [],
+      obstacles: [{ x: 30, y: 80, width: 330, height: 30 }],
     };
     const metrics = pageMetrics(layout, []);
     expect(metrics.prosePaintedOnly).toBe(0);
     expect(metrics.proseCovered).toBe(0);
     expect(metricsPass(metrics)).toBe(false);
+    const diagramLayout: PageLayout = {
+      ...layout,
+      skipped: [{ ...block, fontSize: 6 }],
+    };
+    expect(pageMetrics(diagramLayout, []).prosePaintedOnly).toBe(1);
     const codeLayout: PageLayout = {
       ...layout,
       skipped: [{ ...block, role: 'code' }],

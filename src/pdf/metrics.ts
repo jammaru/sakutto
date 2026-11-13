@@ -109,20 +109,13 @@ function isProseLike(text: string): boolean {
   return (text.match(PROSE_WORD)?.length ?? 0) >= 3 || (text.match(ENGLISH_WORD)?.length ?? 0) >= 8;
 }
 
-/** True when every line of a label sits inside a drawing, where leaving it alone is correct. */
-function insideFigureArea(block: LayoutBlock, layout: PageLayout): boolean {
-  if (block.lines.length === 0) return false;
-  return block.lines.every((line) => {
-    const centreX = line.box.x + line.box.width / 2;
-    const centreY = line.box.y + line.box.height / 2;
-    return (layout.obstacles ?? []).some(
-      (area) =>
-        centreX >= area.x &&
-        centreX <= area.x + area.width &&
-        centreY >= area.y &&
-        centreY <= area.y + area.height,
-    );
-  });
+/**
+ * True when a skipped figure-label is actually diagram type, not body prose caught by a bad
+ * figure box. Real labels are set well below body size; a full-size label is prose and must
+ * stay in the coverage denominator even if the obstacle test says it is inside a drawing.
+ */
+function isDiagramLabel(block: LayoutBlock, layout: PageLayout): boolean {
+  return layout.bodySize > 0 && block.fontSize < layout.bodySize * 0.85;
 }
 
 export function pageMetrics(
@@ -157,7 +150,7 @@ export function pageMetrics(
     ...layout.skipped.filter(
       (block) =>
         !NON_PROSE_ROLES.has(block.role) &&
-        !(block.role === 'figure-label' && insideFigureArea(block, layout)) &&
+        !(block.role === 'figure-label' && isDiagramLabel(block, layout)) &&
         isProseLike(block.text),
     ),
   ];
