@@ -174,7 +174,7 @@
   <div class="field popup-size" data-sakutto="translation-popup-size">
     <div class="field-heading">
       <span>{t('translationPopupSizeLabel')}</span>
-      <output for="translation-popup-size-slider">{popupPreviewSize}%</output>
+      <span class="popup-size-value" aria-hidden="true">{popupPreviewSize}%</span>
     </div>
     <div class="popup-preview" aria-hidden="true">
       <div class="popup-preview-card" style:font-size="{popupPreviewFontPx}px">
