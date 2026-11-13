@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { traitsOfName, traitsOfStyle } from '@/pdf/fonts';
 import {
+  isPdfContentType,
+  isPdfForgetRequest,
+  isPdfInspectRequest,
+  isPdfInspectResult,
+  isPdfOpenResult,
   looksLikePdfBytes,
   looksLikePdfUrl,
-  isPdfForgetRequest,
-  isPdfOpenResult,
+  pdfDocumentLooksLikePdf,
   pdfFileName,
   readerUrl,
+  tabLooksLikePdf,
 } from '@/shared/pdf';
 
 describe('font traits', () => {
@@ -136,6 +141,47 @@ describe('PDF URL and bytes', () => {
     // A site's own help page under the same segment is not a document.
     expect(looksLikePdfUrl('https://example.org/pdf/help')).toBe(false);
     expect(looksLikePdfUrl('https://example.org/pdf/')).toBe(false);
+    expect(looksLikePdfUrl('https://example.org/article/_pdf/-char/ja')).toBe(true);
+    expect(looksLikePdfUrl('https://example.org/download?type=pdf')).toBe(true);
+    expect(looksLikePdfUrl('https://example.org/download?format=pdf')).toBe(true);
+  });
+
+  it('recognises a PDF from the live document or the response type when the path is silent', () => {
+    expect(isPdfContentType('application/pdf')).toBe(true);
+    expect(isPdfContentType('application/pdf; charset=binary')).toBe(true);
+    expect(isPdfContentType('text/html')).toBe(false);
+    expect(
+      pdfDocumentLooksLikePdf({
+        contentType: 'application/pdf',
+        embedType: '',
+        embedSrc: '',
+      }),
+    ).toBe(true);
+    expect(
+      tabLooksLikePdf({
+        url: 'https://example.org/article/_pdf/-char/ja',
+      }),
+    ).toBe(true);
+    expect(
+      tabLooksLikePdf({
+        url: 'https://example.org/download',
+        document: null,
+        contentType: 'application/pdf',
+      }),
+    ).toBe(true);
+    expect(
+      tabLooksLikePdf({
+        url: 'https://example.org/download',
+        document: { contentType: '', embedType: 'application/pdf', embedSrc: '' },
+      }),
+    ).toBe(true);
+    expect(
+      tabLooksLikePdf({
+        url: 'https://example.org/download',
+        document: { contentType: '', embedType: '', embedSrc: '' },
+        contentType: 'application/pdf',
+      }),
+    ).toBe(false);
   });
 
   it('recognises the header wherever the document puts it', () => {
@@ -153,6 +199,15 @@ describe('PDF URL and bytes', () => {
     expect(pdfFileName('https://example.org/a/paper.pdf')).toBe('paper.pdf');
     expect(pdfFileName('https://example.org/download')).toBe('download.pdf');
     expect(readerUrl('abc-123')).toBe('/reader.html?id=abc-123');
+    expect(readerUrl('')).toBe('/reader.html');
+  });
+
+  it('accepts an inspect request for the active tab', () => {
+    expect(isPdfInspectRequest({ type: 'pdf:inspect', tabId: 3 })).toBe(true);
+    expect(isPdfInspectRequest({ type: 'pdf:inspect' })).toBe(false);
+    expect(isPdfInspectResult({ pdf: true })).toBe(true);
+    expect(isPdfInspectResult({ pdf: false })).toBe(true);
+    expect(isPdfInspectResult({ opened: true })).toBe(false);
   });
 
   it('accepts a forget request only with a stored id', () => {
@@ -164,6 +219,7 @@ describe('PDF URL and bytes', () => {
   it('accepts only the shapes the background sends back', () => {
     expect(isPdfOpenResult({ opened: true })).toBe(true);
     expect(isPdfOpenResult({ opened: false, reason: 'not-pdf' })).toBe(true);
+    expect(isPdfOpenResult({ opened: false, reason: 'file-denied' })).toBe(true);
     expect(isPdfOpenResult({ opened: false, reason: 'nonsense' })).toBe(false);
     expect(isPdfOpenResult({ opened: false })).toBe(false);
     expect(isPdfOpenResult(null)).toBe(false);

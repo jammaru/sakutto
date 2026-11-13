@@ -953,6 +953,18 @@
   "pdfOpenFailed": {
     "message": "Questo PDF non è stato aperto. Ricarica la pagina e riprova."
   },
+  "pdfFileAccessDenied": {
+    "message": "Questo PDF è un file su questo computer. Consenti all'estensione di accedere agli URL dei file nelle impostazioni delle estensioni, oppure scegli il file nel lettore."
+  },
+  "pdfCompare": {
+    "message": "Confronta"
+  },
+  "pdfOriginalPane": {
+    "message": "Originale"
+  },
+  "pdfTranslatedPane": {
+    "message": "Traduzione"
+  },
   "pdfChooseFile": {
     "message": "Scegli un file PDF"
   },

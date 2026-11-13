@@ -40,6 +40,7 @@
   let reader: PdfReader | null = null;
   let downloadBusy = $state(false);
   let downloadFailed = $state(false);
+  let compare = $state(false);
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   /** The toolbar's own height, so the progress hairline sits directly under it. */
   let toolbarHeight = $state(41);
@@ -67,7 +68,7 @@
       if (!readingMore && progress.pages > 0) return t('pdfNoText');
       return t('pdfReading', [String(progress.parsed), String(progress.pages)]);
     }
-    if (progress.pending > 0 || readingMore) {
+    if (progress.pending > 0 || readingMore || progress.failed > 0) {
       return t('pageProgress', [String(progress.done), String(progress.total)]);
     }
     return t('pdfTranslated');
@@ -235,12 +236,15 @@
         selectionTranslating: t('selectionPending'),
         selectionFailed: t('pdfSelectFailed'),
         overflowOpen: t('pdfOverflowOpen'),
+        compareOriginal: t('pdfOriginalPane'),
+        compareTranslated: t('pdfTranslatedPane'),
       },
       onProgress: (state) => {
         progress = state;
       },
       pageLimit,
     });
+    if (compare) reader.setCompare(true);
     reader.start();
     // The bench and the end-to-end tests read the reader through this hook, the way the page
     // session exposes `sakutto-perf`: it is the only way to see fitted sizes and source boxes
@@ -272,6 +276,11 @@
 
   function pickFile() {
     document.getElementById('pdf-file')?.click();
+  }
+
+  function toggleCompare() {
+    compare = !compare;
+    reader?.setCompare(compare);
   }
 
   /**
@@ -392,6 +401,16 @@
     {/if}
 
     <div class="actions">
+      {#if phase === 'ready'}
+        <button
+          class="button secondary"
+          type="button"
+          aria-pressed={compare ? 'true' : 'false'}
+          onclick={toggleCompare}
+        >
+          {t('pdfCompare')}
+        </button>
+      {/if}
       {#if selectionReady}
         <button
           class="button secondary"
@@ -547,6 +566,11 @@
     align-items: center;
     gap: var(--space-2);
     margin-left: auto;
+  }
+
+  .actions .button[aria-pressed='true'] {
+    background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--rule));
   }
 
   .language {

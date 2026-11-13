@@ -1,5 +1,5 @@
 import { canonicalLanguage } from '@/shared/languages';
-import { inferLanguage } from '@/dom/detect';
+import { contradictsScript, inferLanguage } from '@/dom/detect';
 import type { LayoutBlock } from './layout';
 
 const ENGLISH_WORD =
@@ -20,21 +20,34 @@ export function pdfBlockLanguage(text: string): string | null {
 }
 
 export function pdfPageLanguage(blocks: readonly LayoutBlock[]): string | null {
-  const sample = blocks
-    .filter(
-      (block) => block.role === 'prose' || block.role === 'heading' || block.role === 'caption',
-    )
-    .map((block) => block.text)
-    .join(' ');
-  return pdfBlockLanguage(sample);
+  const counts = new Map<string, number>();
+  for (const block of blocks) {
+    if (block.role !== 'prose' && block.role !== 'heading' && block.role !== 'caption') continue;
+    const language = pdfBlockLanguage(block.text);
+    if (!language) continue;
+    counts.set(language, (counts.get(language) ?? 0) + Math.max(1, block.text.length));
+  }
+  let best: string | null = null;
+  let score = 0;
+  for (const [language, count] of counts) {
+    if (count > score) {
+      score = count;
+      best = language;
+    }
+  }
+  return best;
 }
 
 /** True when this block is already in the language the reader asked for. */
 export function isSameLanguage(text: string, target: string, pageLanguage: string | null): boolean {
   const canonicalTarget = canonicalLanguage(target);
   if (!canonicalTarget) return false;
-  const source = pdfBlockLanguage(text) ?? pageLanguage;
-  return source !== null && source === canonicalTarget;
+  const own = pdfBlockLanguage(text);
+  if (own !== null) return own === canonicalTarget;
+  // A Latin paragraph on a page whose running header is Japanese is still English. The page
+  // language is a hint for short labels, not a licence to skip the body and mark it done.
+  if (pageLanguage !== null && contradictsScript(pageLanguage, text)) return false;
+  return pageLanguage !== null && pageLanguage === canonicalTarget;
 }
 
 function looksLikeEnglish(text: string): boolean {

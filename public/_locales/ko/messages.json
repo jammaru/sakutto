@@ -953,6 +953,18 @@
   "pdfOpenFailed": {
     "message": "이 PDF를 열 수 없습니다. 페이지를 새로 고친 뒤 다시 시도하세요."
   },
+  "pdfFileAccessDenied": {
+    "message": "이 PDF는 이 컴퓨터의 파일입니다. 브라우저 확장 프로그램 설정에서 파일 URL 접근을 허용하거나, 리더에서 파일을 선택하세요."
+  },
+  "pdfCompare": {
+    "message": "나란히 비교"
+  },
+  "pdfOriginalPane": {
+    "message": "원문"
+  },
+  "pdfTranslatedPane": {
+    "message": "번역"
+  },
   "pdfChooseFile": {
     "message": "PDF 파일 선택"
   },

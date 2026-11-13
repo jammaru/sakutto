@@ -153,14 +153,15 @@ const NETWORK_SINKS = [
 
 describe('network surface', () => {
   /**
-   * The two files allowed to reach the network, and nothing else.
+   * The files allowed to reach the network, and nothing else.
    *
-   * `download.ts` is the model. `pdf-store.ts` is the PDF reader, and it is the one place a
-   * page's own address is requested: a PDF is drawn in Chrome's viewer, which no content
-   * script can read, so the extension asks for the same URL the tab is showing. That request
-   * goes to the site the reader is already on, with the credentials the tab already has, and
-   * the bytes go no further than the extension's own storage. Its own test below pins that
-   * shape — no upload, no third-party host, nothing sent anywhere but that one origin.
+   * `download.ts` is the model. `pdf-store.ts` fetches the PDF the tab is showing; `pdf-detect.ts`
+   * may HEAD/GET that same URL for `Content-Type` when the path does not end in `.pdf`. A PDF
+   * is drawn in Chrome's viewer, which no content script can read, so the extension asks for
+   * the same URL the tab is showing. That request goes to the site the reader is already on,
+   * with the credentials the tab already has, and the bytes go no further than the extension's
+   * own storage. Its own test below pins that shape — no upload, no third-party host, nothing
+   * sent anywhere but that one origin.
    */
   it('keeps every network sink in the model download and the PDF reader', () => {
     const reaching = files.filter(
@@ -170,6 +171,7 @@ describe('network surface', () => {
     );
 
     expect(reaching.map((file) => file.path).sort()).toEqual([
+      'src/background/pdf-detect.ts',
       'src/background/pdf-store.ts',
       'src/captions/timedtext.ts',
       'src/engine/local-server/client.ts',
@@ -209,7 +211,7 @@ describe('network surface', () => {
     if (!store) throw new Error('pdf-store.ts was not found');
 
     // One request, for the URL the tab is showing. The `credentials: 'include'` is what lets
-    // a paper behind a login be read at all; it sends the cookies the tab already has to the
+    // a document behind a login be read at all; it sends the cookies the tab already has to the
     // host that already set them, and it is the only option this call may pass.
     const calls = [...store.code.matchAll(/\bfetch\(([^;]*?)\)/gu)].map((match) => match[1] ?? '');
     expect(calls).toHaveLength(1);
@@ -225,6 +227,22 @@ describe('network surface', () => {
     // Nothing in the reader may post the document, or anything about it, to a server.
     expect(store.code).not.toMatch(/\bsendBeacon\b/u);
     expect(store.code).not.toMatch(/\bXMLHttpRequest\b/u);
+  });
+
+  it('probes a silent PDF URL for Content-Type on the tab’s own origin', () => {
+    const detect = files.find((file) => file.path === 'src/background/pdf-detect.ts');
+    if (!detect) throw new Error('pdf-detect.ts was not found');
+
+    const calls = [...detect.code.matchAll(/\bfetch\(([^;]*?)\)/gu)].map((match) => match[1] ?? '');
+    expect(calls.length).toBeGreaterThan(0);
+    for (const call of calls) {
+      expect(call).toContain('url');
+      expect(call).toContain("credentials: 'include'");
+      expect(call).not.toMatch(/\bbody\s*:/u);
+      expect(call).not.toMatch(/https?:\/\//u);
+    }
+    expect(detect.code).not.toMatch(/\bsendBeacon\b/u);
+    expect(detect.code).not.toMatch(/\bXMLHttpRequest\b/u);
   });
 
   it('loads the model into the runtime from memory, not from a url', () => {

@@ -35,6 +35,10 @@ export interface ReaderLabels {
   selectionFailed: string;
   /** Accessible name for the marker that opens a translation that did not fit in place. */
   overflowOpen: string;
+  /** Caption on the original pane in side-by-side compare. */
+  compareOriginal: string;
+  /** Caption on the translated pane in side-by-side compare. */
+  compareTranslated: string;
 }
 
 export interface ReaderOptions {
@@ -152,6 +156,7 @@ export class PdfReader {
   private visible = true;
   private scale = 1;
   private focus = 0;
+  private compare = false;
   private emptyPages = 0;
   /** Blocks left in the page's own typesetting: equations and the text inside figures. */
   private skippedBlocks = 0;
@@ -162,6 +167,7 @@ export class PdfReader {
 
   constructor(root: HTMLElement, geometries: readonly PageGeometry[], options: ReaderOptions) {
     this.root = root;
+    this.root.dataset.compare = 'false';
     this.document = options.document;
     this.labels = options.labels;
     this.onProgress = options.onProgress;
@@ -218,6 +224,22 @@ export class PdfReader {
   /** Re-queues blocks whose stream failed or was cut off, so a retry can finish them. */
   retryFailed(): void {
     this.session.retryFailed();
+  }
+
+  /** True when the reader is showing original and translation side by side. */
+  isCompare(): boolean {
+    return this.compare;
+  }
+
+  /**
+   * Shows the original page on the left and the translated page on the right, or the single
+   * translated view. Scroll and scale stay shared: each row is one page in both columns.
+   */
+  setCompare(on: boolean): void {
+    if (this.compare === on) return;
+    this.compare = on;
+    this.root.dataset.compare = on ? 'true' : 'false';
+    this.applyScale();
   }
 
   /**
@@ -320,7 +342,8 @@ export class PdfReader {
     const selection = globalThis.getSelection?.() ?? null;
     if (!selection || selection.rangeCount === 0) return;
     const range = selection.getRangeAt(0).getBoundingClientRect();
-    const page = host.getBoundingClientRect();
+    const origin = popover.offsetParent instanceof HTMLElement ? popover.offsetParent : host;
+    const page = origin.getBoundingClientRect();
     if (range.width === 0 && range.height === 0) return;
 
     const width = Math.min(420, Math.max(220, page.width - 24));
@@ -387,6 +410,27 @@ export class PdfReader {
       host.dataset.page = String(geometry.index);
       host.style.aspectRatio = `${String(geometry.width)} / ${String(geometry.height)}`;
 
+      const originalPane = document.createElement('div');
+      originalPane.className = 'sakutto-page__pane sakutto-page__pane--original';
+      const originalCaption = document.createElement('div');
+      originalCaption.className = 'sakutto-page__caption';
+      originalCaption.textContent = this.labels.compareOriginal;
+      const originalStage = document.createElement('div');
+      originalStage.className = 'sakutto-page__stage';
+      const originalCanvas = document.createElement('canvas');
+      originalCanvas.className = 'sakutto-page__canvas sakutto-page__canvas--original';
+      originalCanvas.setAttribute('aria-hidden', 'true');
+      originalStage.append(originalCanvas);
+      originalPane.append(originalCaption, originalStage);
+
+      const translatedPane = document.createElement('div');
+      translatedPane.className = 'sakutto-page__pane sakutto-page__pane--translated';
+      const translatedCaption = document.createElement('div');
+      translatedCaption.className = 'sakutto-page__caption';
+      translatedCaption.textContent = this.labels.compareTranslated;
+      const translatedStage = document.createElement('div');
+      translatedStage.className = 'sakutto-page__stage';
+
       const canvas = document.createElement('canvas');
       canvas.className = 'sakutto-page__canvas';
       canvas.setAttribute('aria-hidden', 'true');
@@ -420,10 +464,17 @@ export class PdfReader {
       note.className = 'sakutto-select sakutto-note';
       note.hidden = true;
 
-      host.append(canvas, layer, text, missing, broken, popover, note);
+      translatedStage.append(canvas, layer, text, missing, broken, popover, note);
+      translatedPane.append(translatedCaption, translatedStage);
+      host.append(originalPane, translatedPane);
       this.root.append(host);
       this.pageElements.set(geometry.index, {
         host,
+        originalPane,
+        translatedPane,
+        originalStage,
+        translatedStage,
+        originalCanvas,
         canvas,
         text,
         layer,
@@ -440,7 +491,9 @@ export class PdfReader {
 
   /** Scale that makes the widest page fill the reader, capped so a wide window does not blur. */
   private fitScale(): number {
-    const width = this.root.clientWidth - 36;
+    const gap = this.compare ? 12 : 0;
+    const columns = this.compare ? 2 : 1;
+    const width = (this.root.clientWidth - 36 - gap) / columns;
     const widest = Math.max(...this.geometries.map((geometry) => geometry.width), 1);
     // 1.6× is about 115 dpi on an A4 page: legible at a normal reading distance without
     // making the canvas cost grow with the window.
@@ -459,8 +512,16 @@ export class PdfReader {
     for (const [index, element] of this.pageElements) {
       const geometry = this.geometryByIndex.get(index);
       if (!geometry) continue;
-      element.host.style.width = `${(geometry.width * this.scale).toFixed(2)}px`;
-      element.host.style.height = `${(geometry.height * this.scale).toFixed(2)}px`;
+      const pageWidth = geometry.width * this.scale;
+      const pageHeight = geometry.height * this.scale;
+      element.host.style.width = this.compare
+        ? `${(pageWidth * 2 + 12).toFixed(2)}px`
+        : `${pageWidth.toFixed(2)}px`;
+      element.host.style.height = this.compare ? '' : `${pageHeight.toFixed(2)}px`;
+      element.translatedPane.style.width = `${pageWidth.toFixed(2)}px`;
+      element.originalPane.style.width = `${pageWidth.toFixed(2)}px`;
+      element.translatedStage.style.height = `${pageHeight.toFixed(2)}px`;
+      element.originalStage.style.height = `${pageHeight.toFixed(2)}px`;
       // A canvas drawn at the old scale has the wrong size for the new one. Cancelling
       // bumps the draw generation so the abandoned render cannot mark this as a failure.
       element.drawn = false;
@@ -562,6 +623,7 @@ export class PdfReader {
       element.drawn = true;
       delete element.renderTask;
       element.host.removeAttribute('data-render-failed');
+      copyOriginalCanvas(element);
     } catch (error) {
       if (this.destroyed || element.drawGeneration !== generation) return;
       delete element.renderTask;
@@ -964,6 +1026,11 @@ export interface CoverageEntry {
 
 interface PageElement {
   host: HTMLElement;
+  originalPane: HTMLElement;
+  translatedPane: HTMLElement;
+  originalStage: HTMLElement;
+  translatedStage: HTMLElement;
+  originalCanvas: HTMLCanvasElement;
   canvas: HTMLCanvasElement;
   /** Transparent glyphs a reader can select; the visible text is a canvas or a cover. */
   text: HTMLElement;
@@ -979,6 +1046,16 @@ interface PageElement {
   renderTask?: { promise: Promise<void>; cancel?: () => void };
   covers: Map<BlockState, HTMLElement>;
   markers: Map<BlockState, HTMLButtonElement>;
+}
+
+function copyOriginalCanvas(element: PageElement): void {
+  const source = element.canvas;
+  const target = element.originalCanvas;
+  if (source.width === 0 || source.height === 0) return;
+  target.width = source.width;
+  target.height = source.height;
+  const context = target.getContext('2d');
+  if (context && typeof context.drawImage === 'function') context.drawImage(source, 0, 0);
 }
 
 function cancelPageDraw(element: PageElement): void {

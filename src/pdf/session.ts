@@ -588,7 +588,8 @@ export class PdfSession {
     state.fit = fitText(
       {
         box: fitBox(block, width),
-        growBudget: verticalWriting(block) ? 0 : this.growBudget(state, page),
+        growBudget:
+          verticalWriting(block) || block.role === 'label' ? 0 : this.growBudget(state, page),
         fontSize: block.fontSize,
         lineHeight: block.lineHeight,
         width,

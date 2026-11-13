@@ -50,4 +50,18 @@ describe('openPdfFromUrl reasons', () => {
       reason: 'fetch-failed',
     });
   });
+
+  it('retries a local file URL that fails the first fetch', async () => {
+    const header = new TextEncoder().encode('%PDF-1.7\n');
+    const fetch = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(new Response(header, { status: 200 }));
+    vi.stubGlobal('fetch', fetch);
+    await expect(openPdfFromUrl('file:///tmp/sample.pdf')).resolves.toEqual({
+      ok: false,
+      reason: 'store-failed',
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
 });

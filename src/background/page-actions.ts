@@ -3,7 +3,8 @@ import { shouldAutoInjectCaptions } from '@/captions/sites';
 import { originPattern, pageHost, loadSiteRule } from '@/dom/sites';
 import { ensureContentScript } from '@/shared/page-bridge';
 import { requestPageCommand, type PageCommandName } from '@/shared/messages';
-import { looksLikePdfUrl, readerUrl } from '@/shared/pdf';
+import { PDF_MENU_URL_PATTERNS, readerUrl } from '@/shared/pdf';
+import { fileSchemeAccessAllowed, tabServesPdf } from './pdf-detect';
 import { noteShortcutCommandAssigned } from '@/shared/shortcut-assignment';
 import { isShortcutCommand, PDF_COMMAND, SHORTCUT_PAGE_COMMANDS } from '@/shared/shortcuts';
 import type { ShortcutCommand, ShortcutEnabled } from '@/shared/shortcuts';
@@ -84,7 +85,7 @@ function installMenus(): void {
       contexts: ['page', 'link'],
       // Only offered on something that is a PDF, so the menu does not promise a feature the
       // click cannot deliver. Chrome reports a PDF tab's URL as the file itself.
-      documentUrlPatterns: ['*://*/*.pdf', '*://*/*.pdf?*'],
+      documentUrlPatterns: [...PDF_MENU_URL_PATTERNS],
     });
   });
 }
@@ -117,16 +118,37 @@ export async function openPdfForTabReason(
   tab: { id?: number | undefined; url?: string | undefined } | undefined,
   pages = 0,
 ): Promise<
-  'no-tab' | 'not-pdf' | 'fetch-failed' | 'too-large' | 'store-failed' | 'open-failed' | null
+  | 'no-tab'
+  | 'not-pdf'
+  | 'fetch-failed'
+  | 'too-large'
+  | 'store-failed'
+  | 'open-failed'
+  | 'file-denied'
+  | null
 > {
   const tabId = tab?.id;
   const url = tab?.url;
   if (tabId === undefined || typeof url !== 'string') return 'no-tab';
-  if (!looksLikePdfUrl(url)) return 'not-pdf';
+  if (!(await tabServesPdf({ id: tabId, url }))) return 'not-pdf';
+
+  if (url.startsWith('file:')) {
+    const allowed = await fileSchemeAccessAllowed();
+    if (allowed === false) {
+      await openPickerReader();
+      return 'file-denied';
+    }
+  }
 
   await sweepStoredPdfs();
   const stored = await openPdfFromUrl(url);
-  if (!stored.ok) return stored.reason;
+  if (!stored.ok) {
+    if (url.startsWith('file:') && stored.reason === 'fetch-failed') {
+      await openPickerReader();
+      return 'file-denied';
+    }
+    return stored.reason;
+  }
 
   try {
     await browser.tabs.create({
@@ -136,6 +158,17 @@ export async function openPdfForTabReason(
     return 'open-failed';
   }
   return null;
+}
+
+/** Opens the reader with no stored document so the user can pick a local file. */
+async function openPickerReader(): Promise<void> {
+  try {
+    await browser.tabs.create({
+      url: browser.runtime.getURL(readerUrl('') as never),
+    });
+  } catch {
+    // The popup still explains how to allow file URLs.
+  }
 }
 
 /**

@@ -953,6 +953,18 @@
   "pdfOpenFailed": {
     "message": "Не удалось открыть этот PDF. Перезагрузите страницу и попробуйте снова."
   },
+  "pdfFileAccessDenied": {
+    "message": "Этот PDF — файл на этом компьютере. Разрешите расширению доступ к file URL в настройках расширений или выберите файл в читалке."
+  },
+  "pdfCompare": {
+    "message": "Сравнить"
+  },
+  "pdfOriginalPane": {
+    "message": "Оригинал"
+  },
+  "pdfTranslatedPane": {
+    "message": "Перевод"
+  },
   "pdfChooseFile": {
     "message": "Выбрать файл PDF"
   },

@@ -953,6 +953,18 @@
   "pdfOpenFailed": {
     "message": "No se pudo abrir este PDF. Recarga la página e inténtalo de nuevo."
   },
+  "pdfFileAccessDenied": {
+    "message": "Este PDF es un archivo de este equipo. Permite que la extensión acceda a las URL de archivo en la configuración de extensiones, o elige el archivo en el lector."
+  },
+  "pdfCompare": {
+    "message": "Comparar"
+  },
+  "pdfOriginalPane": {
+    "message": "Original"
+  },
+  "pdfTranslatedPane": {
+    "message": "Traducción"
+  },
   "pdfChooseFile": {
     "message": "Elegir un archivo PDF"
   },

@@ -26,7 +26,14 @@
   import type { QualitySample } from '@/shared/quality';
   import type { Settings } from '@/shared/settings';
   import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
-  import { isPdfOpenResult, looksLikePdfUrl, type PdfOpenRequest } from '@/shared/pdf';
+  import {
+    isPdfInspectResult,
+    isPdfOpenResult,
+    looksLikePdfUrl,
+    type PdfInspectRequest,
+    type PdfOpenRequest,
+    type PdfOpenReason,
+  } from '@/shared/pdf';
   import {
     loadSiteRule,
     pageHost,
@@ -88,6 +95,7 @@
   let pdfUrl = $state('');
   let pdfBusy = $state(false);
   let pdfFailed = $state(false);
+  let pdfFailReason = $state<PdfOpenReason | null>(null);
   let engine = $state<EngineStatus | null>(null);
   let modelMark = $state<ModelStatus | null>(null);
   let quality = $state<QualitySample | null>(null);
@@ -190,16 +198,32 @@
   async function refreshPage() {
     permissionError = false;
     pdfFailed = false;
+    pdfFailReason = null;
     try {
       const tabs = await browser.tabs.query({ active: true, currentWindow: true });
       const tab = tabs[0];
       tabId = tab?.id;
       pageUrl = tab?.url ?? '';
       // A PDF tab shows Chrome's own viewer, which no content script can reach, so the popup
-      // offers the reader instead of the page controls.
+      // offers the reader instead of the page controls. Paths that omit `.pdf` still count
+      // when the live document or the response is `application/pdf`.
       pdfUrl = tab?.url && looksLikePdfUrl(tab.url) ? tab.url : '';
+      if (pdfUrl.length === 0 && tabId !== undefined) {
+        const inspected: unknown = await browser.runtime.sendMessage({
+          type: 'pdf:inspect',
+          tabId,
+        } satisfies PdfInspectRequest);
+        if (isPdfInspectResult(inspected) && inspected.pdf) pdfUrl = tab?.url ?? '';
+      }
       host = pageUrl ? pageHost(pageUrl) : null;
       pageReady = tabId !== undefined && host !== null;
+      if (pdfUrl.length > 0) {
+        view = null;
+        rule = null;
+        pageMessage = 'ready';
+        pageReady = true;
+        return;
+      }
       if (!pageReady || !host || tabId === undefined) {
         view = null;
         rule = null;
@@ -290,12 +314,16 @@
     if (pdfBusy || tabId === undefined || pdfUrl.length === 0) return;
     pdfBusy = true;
     pdfFailed = false;
+    pdfFailReason = null;
     try {
       const response: unknown = await browser.runtime.sendMessage({
         type: 'pdf:open',
         tabId,
       } satisfies PdfOpenRequest);
-      if (!isPdfOpenResult(response) || !response.opened) pdfFailed = true;
+      if (!isPdfOpenResult(response) || !response.opened) {
+        pdfFailed = true;
+        pdfFailReason = isPdfOpenResult(response) && !response.opened ? response.reason : null;
+      }
     } catch {
       pdfFailed = true;
     } finally {
@@ -473,7 +501,9 @@
     </button>
     <p class="muted hint-text">{t('openPdfHint')}</p>
     {#if pdfFailed}
-      <p class="error" role="alert">{t('pdfOpenFailed')}</p>
+      <p class="error" role="alert">
+        {t(pdfFailReason === 'file-denied' ? 'pdfFileAccessDenied' : 'pdfOpenFailed')}
+      </p>
     {/if}
   {:else}
     <button

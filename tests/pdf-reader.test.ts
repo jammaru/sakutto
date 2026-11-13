@@ -18,6 +18,8 @@ const labels: ReaderLabels = {
   selectionTranslating: '…',
   selectionFailed: 'failed',
   overflowOpen: 'Open',
+  compareOriginal: 'Original',
+  compareTranslated: 'Translated',
 };
 
 type ObserverRecord = {
@@ -730,6 +732,48 @@ describe('PdfReader viewport observer', () => {
     }
     expect(pageHost(root, 2).dataset.renderFailed).toBeUndefined();
     expect(pageHost(root, 2).querySelector('canvas')).toBeInstanceOf(HTMLCanvasElement);
+
+    reader.destroy();
+  });
+
+  it('toggles a side-by-side original and translated layout', () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    stubCanvas();
+
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 });
+    document.body.append(root);
+
+    const reader = new PdfReader(root, geometries(1), {
+      document: fakeDocument({ count: 0 }, 1),
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+    });
+
+    const host = pageHost(root, 0);
+    expect(root.dataset.compare).toBe('false');
+    expect(reader.isCompare()).toBe(false);
+    expect(host.querySelector('.sakutto-page__pane--original')).toBeInstanceOf(HTMLElement);
+    expect(host.querySelector('.sakutto-page__pane--translated')).toBeInstanceOf(HTMLElement);
+    expect(host.querySelector('.sakutto-page__canvas--original')).toBeInstanceOf(HTMLCanvasElement);
+    expect(host.querySelectorAll('.sakutto-page__pane')).toHaveLength(2);
+
+    reader.setCompare(true);
+    expect(root.dataset.compare).toBe('true');
+    expect(reader.isCompare()).toBe(true);
+    const captions = [...host.querySelectorAll('.sakutto-page__caption')].map(
+      (node) => node.textContent,
+    );
+    expect(captions).toEqual(['Original', 'Translated']);
+    expect(host.style.width.endsWith('px')).toBe(true);
+
+    reader.setCompare(false);
+    expect(root.dataset.compare).toBe('false');
+    expect(reader.isCompare()).toBe(false);
 
     reader.destroy();
   });

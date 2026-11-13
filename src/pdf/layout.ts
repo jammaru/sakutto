@@ -989,6 +989,11 @@ function columnLeading(cells: readonly RegionCell[]): number {
 function gapStartsBlock(previous: TextLine, line: TextLine, leading: number): boolean {
   const scale = Math.max(line.height, previous.height, 1);
   const gap = (line.baseline - previous.baseline) / scale;
+  // Wrapped pseudocode (`devEval = … by a` / `developer;`) must stay one listing. Splitting
+  // at the wrap left a one-word line that was translated while the rest stayed code.
+  if (gap <= leading * PARAGRAPH_RATIO * 1.8 && codeListingContinues(previous.text, line.text)) {
+    return false;
+  }
   if (gap > leading * PARAGRAPH_RATIO) return true;
   if (gap < -0.7) return true;
 
@@ -1234,11 +1239,14 @@ function roleOf(
   if (/^(?:[IVXLC]+\.|[A-Z]\.|\d+(?:\.\d+)*\.?)\s+\p{Lu}/u.test(text) && lines.length <= 2) {
     return 'heading';
   }
-  // Text the page drew inside a picture. Axis ticks and lone symbols stay on the drawing;
-  // a short word that names a box (`Encoder`, `Training loss`) is a label the reader does
-  // want translated, fitted tightly so the rest of the picture is not covered.
+  // Text the page drew inside a picture. Axis ticks, node labels, and short flowchart
+  // words stay on the drawing: translating them overwrites adjacent boxes. Only a full
+  // sentence inside a figure is treated as a label, and even then it must fit without
+  // growing or it is offered on a marker instead of painted.
   if (lines.length > 0 && lines.every((line) => insideFigure(line, figures))) {
-    if (isTick(text) || fontSize < MIN_TRANSLATE_PT) return 'figure-label';
+    if (isTick(text) || fontSize < MIN_TRANSLATE_PT || !isFigureSentence(text)) {
+      return 'figure-label';
+    }
     return 'label';
   }
   if (bodySize > 0 && fontSize >= bodySize * 1.08) return 'heading';
@@ -1250,41 +1258,98 @@ function roleOf(
 }
 
 /**
- * True when these lines are a listing rather than a paragraph: mostly a monospaced face,
- * more than one line, and not a caption. Translating source code produces a wrong program,
- * which is worse than leaving the listing as drawn.
+ * True when these lines are a listing rather than a paragraph.
+ *
+ * A paper's algorithm figure is often set in the body face, not Courier: `for each (m) {`
+ * and `evalModules = …;` still have to stay untranslated, including a wrapped last word
+ * (`developer;`) that would otherwise look like a one-word label.
  */
 function isCodeBlock(lines: readonly TextLine[]): boolean {
   if (lines.length === 0) return false;
   const pieces = lines.flatMap((line) => line.pieces);
   if (pieces.length === 0) return false;
-  const mono = pieces.filter((piece) => piece.family === 'monospace').length;
-  if (mono * 2 < pieces.length) return false;
   const text = lines.map((line) => line.text).join(' ');
   if (isCaptionLine(text)) return false;
-  // CJK body fonts are often reported as monospace. A paragraph of Japanese is not a listing.
   if (cjkRatio(text) >= CJK_MAJORITY) return false;
-  if (lines.length >= 2) {
-    const hits = lines.filter(
-      (line) => looksLikeCodeLine(line.text) || cjkRatio(line.text) < 0.1,
-    ).length;
-    return hits * 2 >= lines.length;
+  const codeish = lines.filter(
+    (line) => looksLikeCodeLine(line.text) || looksLikeCodeContinuation(line.text),
+  ).length;
+  if (lines.length >= 2 && codeish * 2 >= lines.length) return true;
+  const mono = pieces.filter((piece) => piece.family === 'monospace').length;
+  if (mono * 2 >= pieces.length) {
+    if (lines.length >= 2) {
+      const hits = lines.filter(
+        (line) => looksLikeCodeLine(line.text) || cjkRatio(line.text) < 0.1,
+      ).length;
+      return hits * 2 >= lines.length;
+    }
+    return looksLikeCodeLine(lines[0]?.text ?? '');
   }
-  return looksLikeCodeLine(lines[0]?.text ?? '');
+  return lines.length === 1 && looksLikeCodeLine(lines[0]?.text ?? '');
 }
 
-function looksLikeCodeLine(text: string): boolean {
+function codeListingContinues(previous: string, next: string): boolean {
+  const before = looksLikeCodeLine(previous) || looksLikeCodeContinuation(previous);
+  const after = looksLikeCodeLine(next) || looksLikeCodeContinuation(next);
+  return before && after;
+}
+
+/** A line of pseudocode or a program, even when the page set it in a body face. */
+export function looksLikeCodeLine(text: string): boolean {
   const trimmed = text.trim();
   if (trimmed.length === 0) return false;
-  if (/\b(?:continue|return|break|yield)\b/u.test(trimmed)) return true;
-  if (/^\d+\s+\S/u.test(trimmed)) return true;
   if (
-    /[_.=(){}[\];]/u.test(trimmed) &&
+    /^(?:for\s+each\s*[{(]|foreach\b|for\s*\(|while\s*\(|if\s*\(|else\b|repeat\b|until\b|end\s+(?:for|if|while)\b)/iu.test(
+      trimmed,
+    )
+  ) {
+    return true;
+  }
+  if (/^[A-Za-z_][\w.]*\s*=.+;\s*$/u.test(trimmed)) return true;
+  if (/^[A-Za-z_][\w]*\s*=\s*.+/u.test(trimmed) && /[;{}]\s*$/u.test(trimmed)) return true;
+  if (/^[a-z]+[A-Z][A-Za-z0-9]*\s*[=:(]/u.test(trimmed)) return true;
+  if (trimmed.length < 96 && /[a-z][A-Z]/u.test(trimmed) && /(?:^|\s)=\s*\S/u.test(trimmed)) {
+    return true;
+  }
+  if (/^(?:\}|;)\s*$/u.test(trimmed) || /^\}\s*(?:else|catch)/u.test(trimmed)) return true;
+  if (/\b(?:continue|return|break|yield)\b/u.test(trimmed) && /[;{}()]/u.test(trimmed)) {
+    return true;
+  }
+  if (
+    /^\d+\s+/.test(trimmed) &&
+    /(?:[;{}()]|[a-z][A-Z]|\b(?:for\s+each|for\s*\(|if\s*\(|while\s*\(|return\b|def\b|emit\b))/u.test(
+      trimmed,
+    )
+  ) {
+    return true;
+  }
+  if (
+    (/[_=(){}[\];]/u.test(trimmed) || /\w\.\w/u.test(trimmed)) &&
     /\b(?:if|for|while|def|emit|function|const|let|var)\b/u.test(trimmed)
   ) {
     return true;
   }
-  return /^[A-Za-z_][\w.]*\(/u.test(trimmed);
+  return /^[A-Za-z_][\w.]*\(/u.test(trimmed) && /[);{]\s*$/u.test(trimmed);
+}
+
+/** A wrapped remainder of a listing: `developer;` or `output evaluation = …`. */
+function looksLikeCodeContinuation(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length === 0 || trimmed.length > 48) return false;
+  if (/^[A-Za-z][\w]*;\s*$/u.test(trimmed)) return true;
+  if (/^[A-Za-z][\w ]+=\s*\S/u.test(trimmed) && /(?:[a-z][A-Z]|[;{}])/u.test(trimmed)) {
+    return true;
+  }
+  if (/^[A-Za-z][\w ]+;\s*$/u.test(trimmed)) return true;
+  return /^[)}\];]+$/u.test(trimmed);
+}
+
+/** True when figure text is a real sentence, not a node label that would overflow a box. */
+function isFigureSentence(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length < 40) return false;
+  if (!/[.!?…]["']?$/u.test(trimmed)) return false;
+  return /\s/u.test(trimmed);
 }
 
 /**

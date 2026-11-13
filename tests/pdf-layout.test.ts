@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { groupLines, type TextPiece } from '@/pdf/lines';
-import { isCodeToken, isNumericCell, layoutPage, orphanLineCount } from '@/pdf/layout';
+import {
+  isCodeToken,
+  isNumericCell,
+  layoutPage,
+  looksLikeCodeLine,
+  orphanLineCount,
+} from '@/pdf/layout';
 
 /** A synthetic piece: a run of text at a position, in top-left space. */
 function piece(
@@ -451,9 +457,9 @@ describe('layoutPage', () => {
     expect(layout.skipped).toEqual([]);
   });
 
-  it('translates a word inside a figure and leaves an axis tick', () => {
-    // A diagram's box names are real words and a reader wants them; a tick is a number and
-    // belongs to the drawing. Both sit inside the picture's rectangle.
+  it('leaves a short flowchart word untranslated so it cannot overflow the box beside it', () => {
+    // A diagram's node labels sit inside the drawing. Translating them overwrites the
+    // neighbouring box or a tick; they stay on the canvas and a marker can still open them.
     const lines = groupLines([
       piece('The model routes each token to two of its experts', 49, 600, 250),
       piece('Router', 150, 300, 30),
@@ -464,7 +470,10 @@ describe('layoutPage', () => {
     expect(layout.blocks.map((block) => block.text)).toContain(
       'The model routes each token to two of its experts',
     );
-    expect(layout.blocks.map((block) => block.text)).toContain('Router');
+    expect(layout.blocks.map((block) => block.text)).not.toContain('Router');
+    expect(
+      layout.skipped.some((block) => block.text === 'Router' && block.role === 'figure-label'),
+    ).toBe(true);
     expect(
       layout.skipped.some((block) => block.text === '0.5' && block.role === 'figure-label'),
     ).toBe(true);
@@ -487,5 +496,19 @@ describe('isCodeToken / isNumericCell', () => {
     expect(isNumericCell('600')).toBe(true);
     expect(isNumericCell('1.9 s')).toBe(true);
     expect(isNumericCell('CPU, 8 threads')).toBe(false);
+  });
+});
+
+describe('pseudocode line shapes', () => {
+  it('recognises assignment, for-each, and camelCase listing lines', () => {
+    expect(looksLikeCodeLine('evalModules = modules for the evaluation;')).toBe(true);
+    expect(looksLikeCodeLine('for each (m : evalModules) {')).toBe(true);
+    expect(looksLikeCodeLine('devEval = the readability of m by a')).toBe(true);
+    expect(looksLikeCodeLine('output evaluation = calibModel.predict(m);')).toBe(true);
+    expect(looksLikeCodeLine('The collector walks the document rather than selecting tags.')).toBe(
+      false,
+    );
+    expect(looksLikeCodeLine('5. Conclusions and next steps for the study')).toBe(false);
+    expect(looksLikeCodeLine('For each module the reader records a score.')).toBe(false);
   });
 });

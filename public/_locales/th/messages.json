@@ -953,6 +953,18 @@
   "pdfOpenFailed": {
     "message": "เปิด PDF นี้ไม่ได้ โหลดหน้าใหม่แล้วลองอีกครั้ง"
   },
+  "pdfFileAccessDenied": {
+    "message": "PDF นี้เป็นไฟล์บนคอมพิวเตอร์เครื่องนี้ อนุญาตให้ส่วนขยายเข้าถึง URL ของไฟล์ในการตั้งค่าส่วนขยาย หรือเลือกไฟล์ในโปรแกรมอ่าน"
+  },
+  "pdfCompare": {
+    "message": "เปรียบเทียบ"
+  },
+  "pdfOriginalPane": {
+    "message": "ต้นฉบับ"
+  },
+  "pdfTranslatedPane": {
+    "message": "คำแปล"
+  },
   "pdfChooseFile": {
     "message": "เลือกไฟล์ PDF"
   },

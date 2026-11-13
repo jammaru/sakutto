@@ -953,6 +953,18 @@
   "pdfOpenFailed": {
     "message": "Không thể mở PDF này. Hãy tải lại trang rồi thử lại."
   },
+  "pdfFileAccessDenied": {
+    "message": "PDF này là một tệp trên máy tính. Hãy cho phép tiện ích truy cập URL tệp trong cài đặt tiện ích, hoặc chọn tệp trong trình đọc."
+  },
+  "pdfCompare": {
+    "message": "So sánh"
+  },
+  "pdfOriginalPane": {
+    "message": "Bản gốc"
+  },
+  "pdfTranslatedPane": {
+    "message": "Bản dịch"
+  },
   "pdfChooseFile": {
     "message": "Chọn tệp PDF"
   },

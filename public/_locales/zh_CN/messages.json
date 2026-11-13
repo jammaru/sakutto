@@ -953,6 +953,18 @@
   "pdfOpenFailed": {
     "message": "无法打开此 PDF。请重新加载页面后再试。"
   },
+  "pdfFileAccessDenied": {
+    "message": "这份 PDF 是本机上的文件。请在浏览器的扩展程序设置中允许访问文件网址，或在阅读器中选择该文件。"
+  },
+  "pdfCompare": {
+    "message": "并排比较"
+  },
+  "pdfOriginalPane": {
+    "message": "原文"
+  },
+  "pdfTranslatedPane": {
+    "message": "译文"
+  },
   "pdfChooseFile": {
     "message": "选择 PDF 文件"
   },

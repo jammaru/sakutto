@@ -119,10 +119,59 @@ export const READER_STYLE = `
   box-shadow: 0 1px 2px rgb(15 23 32 / 12%), 0 8px 24px rgb(15 23 32 / 10%);
 }
 
+.sakutto-page__pane--translated {
+  position: absolute;
+  inset: 0;
+}
+
+.sakutto-page__pane--original {
+  display: none;
+}
+
+.sakutto-page__stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.sakutto-page__caption {
+  display: none;
+  margin: 0 0 6px;
+  color: #4b5563;
+  font: 600 11px/1.3 "Segoe UI", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+}
+
 .sakutto-page__canvas {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+[data-compare="true"] .sakutto-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-compare="true"] .sakutto-page__pane--original,
+[data-compare="true"] .sakutto-page__pane--translated {
+  position: relative;
+  inset: auto;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(15 23 32 / 12%), 0 8px 24px rgb(15 23 32 / 10%);
+}
+
+[data-compare="true"] .sakutto-page__caption {
+  display: block;
+}
+
+[data-compare="true"] .sakutto-page__stage {
+  height: auto;
+  flex: none;
 }
 
 /*

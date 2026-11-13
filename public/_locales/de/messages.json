@@ -953,6 +953,18 @@
   "pdfOpenFailed": {
     "message": "Diese PDF konnte nicht geöffnet werden. Laden Sie die Seite neu und versuchen Sie es erneut."
   },
+  "pdfFileAccessDenied": {
+    "message": "Diese PDF-Datei liegt auf diesem Rechner. Erlauben Sie der Erweiterung den Zugriff auf Datei-URLs in den Erweiterungseinstellungen, oder wählen Sie die Datei im Reader."
+  },
+  "pdfCompare": {
+    "message": "Vergleichen"
+  },
+  "pdfOriginalPane": {
+    "message": "Original"
+  },
+  "pdfTranslatedPane": {
+    "message": "Übersetzung"
+  },
   "pdfChooseFile": {
     "message": "PDF-Datei auswählen"
   },

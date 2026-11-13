@@ -953,6 +953,18 @@
   "pdfOpenFailed": {
     "message": "PDF ini tidak dapat dibuka. Muat ulang halaman lalu coba lagi."
   },
+  "pdfFileAccessDenied": {
+    "message": "PDF ini adalah berkas di komputer ini. Izinkan ekstensi mengakses URL berkas di pengaturan ekstensi, atau pilih berkas di pembaca."
+  },
+  "pdfCompare": {
+    "message": "Bandingkan"
+  },
+  "pdfOriginalPane": {
+    "message": "Asli"
+  },
+  "pdfTranslatedPane": {
+    "message": "Terjemahan"
+  },
   "pdfChooseFile": {
     "message": "Pilih berkas PDF"
   },

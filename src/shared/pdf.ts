@@ -39,28 +39,69 @@ export interface PdfOpenRequest {
  * What the popup learns. The background opens the reader tab itself, so the answer is only
  * whether the document could be taken; a failure reason tells the popup what to say.
  */
+export type PdfOpenReason =
+  'not-pdf' | 'fetch-failed' | 'too-large' | 'store-failed' | 'open-failed' | 'file-denied';
+
 export type PdfOpenResult =
   | { opened: true }
   | {
       opened: false;
-      reason: 'not-pdf' | 'fetch-failed' | 'too-large' | 'store-failed' | 'open-failed';
+      reason: PdfOpenReason;
     };
+
+export interface PdfInspectRequest {
+  type: 'pdf:inspect';
+  tabId: number;
+}
+
+export interface PdfInspectResult {
+  pdf: boolean;
+}
+
+export interface PdfDocumentProbe {
+  contentType: string;
+  embedType: string;
+  embedSrc: string;
+}
+
+/** Match patterns for the PDF context-menu item, including paths that omit `.pdf`. */
+export const PDF_MENU_URL_PATTERNS = [
+  '*://*/*.pdf',
+  '*://*/*.pdf?*',
+  '*://*/*pdf*',
+  '*://*/*PDF*',
+  'file:///*/*.pdf',
+  'file:///*/*.pdf?*',
+  'file:///*/*pdf*',
+] as const;
 
 /** The query the reader page uses to find its bytes. */
 export const PDF_ID_PARAM = 'id';
 
 export function readerUrl(id: string, pages = 0): string {
+  if (id.length === 0) return '/reader.html';
   const query = `${PDF_ID_PARAM}=${encodeURIComponent(id)}`;
   return pages > 0 ? `/reader.html?${query}&pages=${String(pages)}` : `/reader.html?${query}`;
 }
 
+/** True when a Content-Type names a PDF, including `application/pdf; charset=binary`. */
+export function isPdfContentType(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return /^\s*application\/pdf(?:\s|;|$)/iu.test(value);
+}
+
+/** True when the live document is Chrome/Firefox's PDF viewer rather than an HTML page. */
+export function pdfDocumentLooksLikePdf(probe: PdfDocumentProbe): boolean {
+  if (isPdfContentType(probe.contentType) || isPdfContentType(probe.embedType)) return true;
+  return /\.pdf(?:$|[?#])/iu.test(probe.embedSrc);
+}
+
 /**
- * True when a URL is a PDF, or is one of the paths a paper server uses to serve a PDF.
+ * True when a URL is a PDF, or is one of the paths a document server uses to serve a PDF.
  *
- * Most hosts end the path with `.pdf`, but some paper servers use `/pdf/<id>` with no
- * extension at all. A URL that ends in a bare identifier under a `/pdf/` segment is therefore
- * a PDF too. The check stays conservative: it only reads the path, so a query string cannot
- * make an ordinary page look like a document.
+ * Most hosts end the path with `.pdf`. Others put a `pdf` or `_pdf` segment in the path, or
+ * name the type in the query (`type=pdf`), and still open Chrome's built-in viewer. The
+ * popup also probes `document.contentType` / `Content-Type` when the path is silent.
  */
 export function looksLikePdfUrl(url: string | undefined): boolean {
   if (!url) return false;
@@ -75,14 +116,55 @@ export function looksLikePdfUrl(url: string | undefined): boolean {
     }
     const path = parsed.pathname.toLowerCase();
     if (path.endsWith('.pdf') || path.endsWith('.pdf/')) return true;
-    // `/pdf/sample-2024`, `/pdf/sample-2024v2`, and the same with a trailing slash. The
-    // segment must look like an identifier and hold a digit, so a site's own `/pdf/help`
-    // page is not mistaken for a document.
-    const identifier = /\/pdf\/([^/]+)\/?$/u.exec(path)?.[1];
-    return identifier !== undefined && /^[\w.-]+$/u.test(identifier) && /\d/u.test(identifier);
+    const segments = path.split('/').filter(Boolean);
+    // Hosts that mint document bytes at `/_pdf/…` never use a file extension.
+    if (segments.some((segment) => segment === '_pdf')) return true;
+    const pdfAt = segments.findIndex((segment) => segment === 'pdf');
+    if (pdfAt >= 0) {
+      const rest = segments.slice(pdfAt + 1).join('/');
+      // `/pdf/<id>` is a document when the id carries a digit. `/pdf/help` is a site page.
+      if (/\d/u.test(rest)) return true;
+    }
+    for (const [key, value] of parsed.searchParams) {
+      const kind = key.toLowerCase();
+      if (
+        kind !== 'type' &&
+        kind !== 'format' &&
+        kind !== 'file' &&
+        kind !== 'download' &&
+        kind !== 'kind' &&
+        kind !== 'mime' &&
+        kind !== 'contenttype' &&
+        kind !== 'content-type'
+      ) {
+        continue;
+      }
+      const offered = value.toLowerCase();
+      if (offered === 'pdf' || offered === 'application/pdf' || offered.endsWith('/pdf')) {
+        return true;
+      }
+    }
+    return false;
   } catch {
     return false;
   }
+}
+
+/**
+ * Combines the cheap URL check with a document probe and a `Content-Type` header.
+ *
+ * Chrome's PDF viewer is not scriptable, so `document` is `null` there and the header (from
+ * a HEAD/GET the background can make with `activeTab`) is what names the file.
+ */
+export function tabLooksLikePdf(input: {
+  url?: string | undefined;
+  document?: PdfDocumentProbe | null;
+  contentType?: string | null;
+}): boolean {
+  if (looksLikePdfUrl(input.url)) return true;
+  if (input.document && pdfDocumentLooksLikePdf(input.document)) return true;
+  if (input.document === null && isPdfContentType(input.contentType)) return true;
+  return false;
 }
 
 /** True when the bytes start with the PDF header, whatever the server called the file. */
@@ -116,6 +198,20 @@ export function pdfFileName(url: string): string {
   }
 }
 
+export function isPdfInspectRequest(value: unknown): value is PdfInspectRequest {
+  if (typeof value !== 'object' || value === null) return false;
+  const record = value as { type?: unknown; tabId?: unknown };
+  return record.type === 'pdf:inspect' && typeof record.tabId === 'number';
+}
+
+export function isPdfInspectResult(value: unknown): value is PdfInspectResult {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { pdf?: unknown }).pdf === 'boolean'
+  );
+}
+
 export function isPdfForgetRequest(value: unknown): value is PdfForgetRequest {
   if (typeof value !== 'object' || value === null) return false;
   const record = value as { type?: unknown; id?: unknown };
@@ -144,6 +240,7 @@ export function isPdfOpenResult(value: unknown): value is PdfOpenResult {
     record.reason === 'fetch-failed' ||
     record.reason === 'too-large' ||
     record.reason === 'store-failed' ||
-    record.reason === 'open-failed'
+    record.reason === 'open-failed' ||
+    record.reason === 'file-denied'
   );
 }

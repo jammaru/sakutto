@@ -9,7 +9,14 @@ import {
 } from '@/background/page-actions';
 import { syncCaptionCustomContentScripts } from '@/captions/register-custom';
 import { deleteStoredPdf } from '@/background/pdf-store';
-import { isPdfForgetRequest, isPdfOpenRequest, type PdfOpenResult } from '@/shared/pdf';
+import {
+  isPdfForgetRequest,
+  isPdfInspectRequest,
+  isPdfOpenRequest,
+  type PdfInspectResult,
+  type PdfOpenResult,
+} from '@/shared/pdf';
+import { tabServesPdf } from '@/background/pdf-detect';
 import { broadcastModelProgress, shouldWarmDownloadedModel } from '@/background/progress-broadcast';
 import { measureQuality } from '@/background/quality';
 import { TranslationBroker } from '@/background/translation-broker';
@@ -292,6 +299,15 @@ export default defineBackground(() => {
     if (isPdfForgetRequest(message)) {
       void deleteStoredPdf(message.id);
       return;
+    }
+
+    if (isPdfInspectRequest(message)) {
+      void (async () => {
+        const tab = await browser.tabs.get(message.tabId).catch(() => null);
+        const pdf = tab ? await tabServesPdf({ id: tab.id, url: tab.url }) : false;
+        sendResponse({ pdf } satisfies PdfInspectResult);
+      })();
+      return true;
     }
 
     if (isPdfOpenRequest(message)) {

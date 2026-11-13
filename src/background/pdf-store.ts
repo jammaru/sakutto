@@ -34,13 +34,8 @@ export function classifyFetchedPdf(
 }
 
 export async function openPdfFromUrl(url: string): Promise<PdfStoreResult> {
-  let response: Response;
-  try {
-    response = await fetch(url, { credentials: 'include' });
-  } catch {
-    return { ok: false, reason: 'fetch-failed' };
-  }
-  if (!response.ok) return { ok: false, reason: 'fetch-failed' };
+  const response = await fetchPdfBytes(url);
+  if (!response) return { ok: false, reason: 'fetch-failed' };
 
   const headerLength = Number(response.headers.get('content-length') ?? '');
   const announced = Number.isFinite(headerLength) && headerLength > 0 ? headerLength : null;
@@ -217,4 +212,31 @@ function fileNameFrom(url: string, response: Response): string {
     // Fall through to the generic name.
   }
   return 'document.pdf';
+}
+
+/**
+ * Reads the document at `url`, retrying a local file once the service worker is awake.
+ *
+ * A `file:` fetch from a just-started worker often throws on the first attempt and succeeds
+ * a moment later. One retry with a short pause is the difference between "reload the page"
+ * and opening the reader on the first click.
+ */
+async function fetchPdfBytes(url: string): Promise<Response | null> {
+  const attempts = url.startsWith('file:') ? 3 : 1;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const response = await fetch(url, { credentials: 'include' });
+      if (response.ok) return response;
+    } catch {
+      // Try again: a cold worker or a viewer that has not finished opening the file.
+    }
+    if (attempt + 1 < attempts) await wait(120 * (attempt + 1));
+  }
+  return null;
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }

@@ -957,6 +957,18 @@
   "pdfOpenFailed": {
     "message": "この PDF を開けませんでした。ページを再読み込みしてから試してください。"
   },
+  "pdfFileAccessDenied": {
+    "message": "この PDF はディスク上のファイルです。ブラウザの拡張機能の設定で「ファイルの URL へのアクセスを許可する」をオンにするか、リーダーでファイルを選んでください。"
+  },
+  "pdfCompare": {
+    "message": "並べて比較"
+  },
+  "pdfOriginalPane": {
+    "message": "原本"
+  },
+  "pdfTranslatedPane": {
+    "message": "翻訳"
+  },
   "pdfChooseFile": {
     "message": "PDF ファイルを選ぶ"
   },

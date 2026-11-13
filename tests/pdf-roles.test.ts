@@ -51,7 +51,7 @@ describe('figure labels versus ticks', () => {
     expect(caption?.role).toBe('caption');
   });
 
-  it('translates a word inside a figure and leaves an axis tick', () => {
+  it('leaves a diagram node untranslated so it cannot overflow the box beside it', () => {
     const lines = groupLines([
       piece('The model routes each token to two of its experts', 49, 600, 250),
       piece('Encoder', 150, 300, 40),
@@ -62,11 +62,41 @@ describe('figure labels versus ticks', () => {
     const layout = layoutPage(lines, figures);
     const texts = layout.blocks.map((block) => block.text);
     expect(texts).toContain('The model routes each token to two of its experts');
-    expect(texts).toContain('Encoder');
+    expect(texts).not.toContain('Encoder');
     expect(texts.some((text) => text === '0.5')).toBe(false);
+    expect(
+      layout.skipped.some((block) => block.text === 'Encoder' && block.role === 'figure-label'),
+    ).toBe(true);
     expect(
       layout.skipped.some((block) => block.text === '0.5' && block.role === 'figure-label'),
     ).toBe(true);
+  });
+
+  it('leaves tight flowchart labels and table-in-figure numbers on the drawing', () => {
+    const lines = groupLines([
+      piece('A pipeline that scores each module before it is shown.', 49, 80, 280),
+      piece('LOC', 90, 220, 24),
+      piece('3', 200, 250, 8),
+      piece('Evaluation by LLM', 90, 290, 90),
+      piece('m1', 90, 400, 16),
+      piece('m2', 200, 430, 16),
+    ]);
+    const figures = { images: [{ x: 70, y: 180, width: 260, height: 260 }] };
+    const layout = layoutPage(lines, figures);
+    expect(
+      layout.skipped.some((block) => block.text === 'LOC' && block.role === 'figure-label'),
+    ).toBe(true);
+    expect(
+      layout.skipped.some(
+        (block) => block.text === 'Evaluation by LLM' && block.role === 'figure-label',
+      ),
+    ).toBe(true);
+    expect(
+      layout.skipped.some((block) => block.text === 'm1' && block.role === 'figure-label'),
+    ).toBe(true);
+    expect(layout.blocks.some((block) => block.text === 'LOC')).toBe(false);
+    expect(layout.blocks.some((block) => block.text === 'Evaluation by LLM')).toBe(false);
+    expect(layout.blocks.some((block) => block.text.includes('pipeline that scores'))).toBe(true);
   });
 
   it('leaves a tiny diagram word untranslated because the type would be unreadable', () => {
@@ -100,6 +130,30 @@ describe('code, furniture, and image-only pages', () => {
     expect(layout.skipped.some((block) => block.role === 'code')).toBe(true);
     expect(layout.blocks.some((block) => block.text.includes('for block'))).toBe(false);
     expect(layout.blocks.some((block) => block.text.includes('paragraph that follows'))).toBe(true);
+  });
+
+  it('keeps a wrapped body-face pseudocode listing entirely untranslated', () => {
+    const lines = groupLines([
+      piece('evalModules = modules for the evaluation;', 80, 200, 220),
+      piece('for each (m : evalModules) {', 80, 214, 180),
+      piece('devEval = the readability of m by a', 80, 228, 210),
+      piece('developer;', 80, 242, 70),
+      piece('output evaluation = calibModel.predict(m);', 80, 256, 240),
+      piece('}', 80, 270, 10),
+      piece('The listing is the procedure a reader follows on each module.', 49, 310, 400),
+    ]);
+    const layout = layoutPage(lines);
+    const code = layout.skipped.filter((block) => block.role === 'code');
+    expect(code.length).toBeGreaterThan(0);
+    const joined = code.map((block) => block.text).join(' ');
+    expect(joined).toContain('evalModules');
+    expect(joined).toContain('developer;');
+    expect(joined).toContain('output evaluation');
+    expect(layout.blocks.some((block) => /\bdeveloper;?\b/u.test(block.text))).toBe(false);
+    expect(layout.blocks.some((block) => block.text.includes('output evaluation'))).toBe(false);
+    expect(layout.blocks.some((block) => block.text.includes('listing is the procedure'))).toBe(
+      true,
+    );
   });
 
   it('leaves a page number at the foot of the page untranslated', () => {
