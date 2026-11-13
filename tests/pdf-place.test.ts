@@ -527,7 +527,7 @@ describe('placePage', () => {
       box: { x: 126, y: 100, width: 420, height: 24 },
       room: { x: 126, y: 100, width: 170, height: 24 },
       lines: [line(126, 420), line(134, 412), line(186, 360)],
-      text: 'TSUNODA and others',
+      text: 'A. Example and others',
       role: 'prose',
       fontSize: 9,
       lineHeight: 1.2,

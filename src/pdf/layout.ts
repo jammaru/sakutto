@@ -726,7 +726,7 @@ function mergeRowCells(
       const scale = Math.max(before.height, next.height, 1);
       const sentenceContinues = continuesProseText(before.text, next.text) && gap <= scale * 1.5;
       // A justified body line can lose every word boundary to the extractor. At body size
-      // the runs are words of one line even when the next word is capitalised (`BANC's`).
+      // the runs are words of one line even when the next word is capitalised (`Example's`).
       // A justified line and a citation title can lose their word gaps. A run on the same
       // baseline and at the same size, close enough to be a word space, is one line.
       // Two full lines on one baseline are usually two columns, even when the gutter is
@@ -1299,7 +1299,7 @@ function gapStartsBlock(
   if (isCaptionLine(previous.text)) return true;
   const scale = Math.max(line.height, previous.height, 1);
   const gap = (line.baseline - previous.baseline) / scale;
-  // Wrapped pseudocode (`devEval = … by a` / `developer;`) must stay one listing. Splitting
+  // Wrapped pseudocode (`unitRank = … by a` / `helperRef;`) must stay one listing. Splitting
   // at the wrap left a one-word line that was translated while the rest stayed code.
   if (gap <= leading * PARAGRAPH_RATIO * 1.8 && codeListingContinues(previous.text, line.text)) {
     return false;
@@ -2316,8 +2316,8 @@ function roleOf(
  * True when these lines are a listing rather than a paragraph.
  *
  * A paper's algorithm figure is often set in the body face, not Courier: `for each (m) {`
- * and `evalModules = …;` still have to stay untranslated, including a wrapped last word
- * (`developer;`) that would otherwise look like a one-word label.
+ * and `benchUnits = …;` still have to stay untranslated, including a wrapped last word
+ * (`helperRef;`) that would otherwise look like a one-word label.
  */
 function isCodeBlock(lines: readonly TextLine[]): boolean {
   if (lines.length === 0) return false;
@@ -2326,7 +2326,7 @@ function isCodeBlock(lines: readonly TextLine[]): boolean {
   const text = lines.map((line) => line.text).join(' ');
   if (isCaptionLine(text)) return false;
   if (cjkRatio(text) >= CJK_MAJORITY) return false;
-  // A wrapped `developer;` only counts once a real listing line is already in this
+  // A wrapped `helperRef;` only counts once a real listing line is already in this
   // block. Counting continuations on their own turned `pages;` / `forms;` and a
   // two-line bibliography wrap into `code`.
   let codeish = 0;
@@ -2639,7 +2639,7 @@ export function looksLikeCodeLine(text: string): boolean {
   return /^[A-Za-z_][\w.]*\(/u.test(trimmed) && /[);{]\s*$/u.test(trimmed);
 }
 
-/** A wrapped remainder of a listing: `developer;` or `output evaluation = …`. */
+/** A wrapped remainder of a listing: `helperRef;` or `scoreValue = …`. */
 function looksLikeCodeContinuation(text: string): boolean {
   const trimmed = text.trim();
   if (trimmed.length === 0 || trimmed.length > 48) return false;

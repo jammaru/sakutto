@@ -178,11 +178,11 @@ describe('code, furniture, and image-only pages', () => {
 
   it('keeps a wrapped body-face pseudocode listing entirely untranslated', () => {
     const lines = groupLines([
-      piece('evalModules = modules for the evaluation;', 80, 200, 220),
-      piece('for each (m : evalModules) {', 80, 214, 180),
-      piece('devEval = the readability of m by a', 80, 228, 210),
-      piece('developer;', 80, 242, 70),
-      piece('output evaluation = calibModel.predict(m);', 80, 256, 240),
+      piece('benchUnits = modules for the benchmark;', 80, 200, 220),
+      piece('for each (m : benchUnits) {', 80, 214, 180),
+      piece('unitRank = the readability of m by a', 80, 228, 210),
+      piece('helperRef;', 80, 242, 70),
+      piece('scoreValue = mockScorer.predict(m);', 80, 256, 240),
       piece('}', 80, 270, 10),
       piece('The listing is the procedure a reader follows on each module.', 49, 310, 400),
     ]);
@@ -190,11 +190,11 @@ describe('code, furniture, and image-only pages', () => {
     const code = layout.skipped.filter((block) => block.role === 'code');
     expect(code.length).toBeGreaterThan(0);
     const joined = code.map((block) => block.text).join(' ');
-    expect(joined).toContain('evalModules');
-    expect(joined).toContain('developer;');
-    expect(joined).toContain('output evaluation');
-    expect(layout.blocks.some((block) => /\bdeveloper;?\b/u.test(block.text))).toBe(false);
-    expect(layout.blocks.some((block) => block.text.includes('output evaluation'))).toBe(false);
+    expect(joined).toContain('benchUnits');
+    expect(joined).toContain('helperRef;');
+    expect(joined).toContain('scoreValue');
+    expect(layout.blocks.some((block) => /\bhelperRef;?\b/u.test(block.text))).toBe(false);
+    expect(layout.blocks.some((block) => block.text.includes('scoreValue'))).toBe(false);
     expect(layout.blocks.some((block) => block.text.includes('listing is the procedure'))).toBe(
       true,
     );

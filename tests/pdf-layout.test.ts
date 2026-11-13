@@ -134,19 +134,14 @@ describe('layoutPage', () => {
     const lines = groupLines([
       piece('Fig. 2 Example caption for a wide figure block.', 48, 100, 200, { em: 8 }),
       piece(
-        'highest among arms with the probability 1 - ε. When the value of ε is 0, arms are always selected randomly.',
+        'highest among slots with the probability 1 - ε. When the value of ε is 0, slots are always chosen at random.',
         48,
         120,
         240,
       ),
+      piece('Related work: Earlier studies used simple rules for sorting and', 48, 134, 240),
       piece(
-        'Related work: In the domain of software engineering, BAs have been utilized for defect prediction and',
-        48,
-        134,
-        240,
-      ),
-      piece(
-        'configuration of clone detection methods [7]. In the other domains, BAs also have been used.',
+        'clustering of sample records [7]. In other fields, the same ideas also apply.',
         48,
         148,
         240,
@@ -155,8 +150,8 @@ describe('layoutPage', () => {
     const layout = layoutPage(lines, { images: [] }, { width: 595, height: 842, index: 2 });
     const related = layout.blocks.filter((block) => /Related work/i.test(block.text));
     expect(related).toHaveLength(1);
-    expect(related[0]?.text).toContain('configuration of clone detection');
-    expect(related[0]?.text).toContain('other domains');
+    expect(related[0]?.text).toContain('clustering of sample records');
+    expect(related[0]?.text).toContain('other fields');
   });
 
   it('keeps column-top body prose inside a figure bbox as translatable prose', () => {
@@ -165,20 +160,20 @@ describe('layoutPage', () => {
     };
     const lines = groupLines([
       piece(
-        'highest among arms with the probability 1 - ε regardless of the reward value.',
+        'highest among slots with the probability 1 - ε regardless of the score shown.',
         48,
         120,
         240,
       ),
       piece(
-        'When the value of ε is 0, arms are always selected from the average reward.',
+        'When the value of ε is 0, slots are always selected from the average bucket.',
         48,
         134,
         240,
       ),
       piece('Related work.', 48, 170, 90, { bold: true }),
       piece(
-        'In the domain of software engineering, bandit algorithms have been utilized for many tasks.',
+        'Earlier synthetic surveys compare naive baselines against stronger models on many tasks.',
         48,
         182,
         240,
@@ -718,7 +713,7 @@ describe('layoutPage', () => {
    */
   it('keeps body words on a diagram row out of Related work prose', () => {
     const lines = groupLines([
-      piece('Related work: In the domain of software engineering, BAs', 48, 280, 238),
+      piece('Related work: Earlier studies used simple rules for sorting and', 48, 280, 238),
       piece('methods', 48, 292, 36),
       piece('for', 88, 292, 14),
       piece('feature', 120, 292, 30),
@@ -732,8 +727,8 @@ describe('layoutPage', () => {
 
   it('splits prose that was merged across display equation lines in another region', () => {
     const lines = groupLines([
-      piece('of correctness of results, using Bayesian inference.', 309, 410, 238),
-      piece('the precision of the arm by the following equation', 309, 470, 238),
+      piece('of validation scores, using a toy scoring model.', 309, 410, 238),
+      piece('the width of each column by the following equation', 309, 470, 238),
       piece('Precision =', 323, 490, 80, { math: true }),
       piece('(1)', 519, 490, 16),
       piece('increases when a candidate is judged valid.', 309, 530, 238),
@@ -883,10 +878,10 @@ describe('isCodeToken / isNumericCell', () => {
 
 describe('pseudocode line shapes', () => {
   it('recognises assignment, for-each, and camelCase listing lines', () => {
-    expect(looksLikeCodeLine('evalModules = modules for the evaluation;')).toBe(true);
-    expect(looksLikeCodeLine('for each (m : evalModules) {')).toBe(true);
-    expect(looksLikeCodeLine('devEval = the readability of m by a')).toBe(true);
-    expect(looksLikeCodeLine('output evaluation = calibModel.predict(m);')).toBe(true);
+    expect(looksLikeCodeLine('benchUnits = modules for the benchmark;')).toBe(true);
+    expect(looksLikeCodeLine('for each (m : benchUnits) {')).toBe(true);
+    expect(looksLikeCodeLine('unitRank = the readability of m by a')).toBe(true);
+    expect(looksLikeCodeLine('scoreValue = mockScorer.predict(m);')).toBe(true);
     expect(looksLikeCodeLine('The collector walks the document rather than selecting tags.')).toBe(
       false,
     );
@@ -942,7 +937,7 @@ describe('pseudocode line shapes', () => {
     const listing = [
       'if (x) {',
       'const y = 1;',
-      'for each (m : evalModules) {',
+      'for each (m : benchUnits) {',
       '1 for each (m) {',
       'emit(translate(block))',
       'return result;',
@@ -968,10 +963,10 @@ describe('pseudocode line shapes', () => {
     }
 
     const lines = groupLines([
-      piece('evalModules = modules for the evaluation;', 80, 200, 220),
-      piece('for each (m : evalModules) {', 80, 214, 180),
+      piece('benchUnits = modules for the benchmark;', 80, 200, 220),
+      piece('for each (m : benchUnits) {', 80, 214, 180),
       piece('if (m.ready) {', 80, 228, 120),
-      piece('const y = calibModel.predict(m);', 80, 242, 200),
+      piece('const y = mockScorer.predict(m);', 80, 242, 200),
       piece('switch (kind) {', 80, 256, 140),
       piece('catch (error) {', 80, 270, 140),
       piece('return result;', 80, 284, 100),

@@ -1,5 +1,5 @@
 /**
- * Synthetic prose vs listing lines reported across PDF layout rounds 16–22.
+ * Synthetic prose vs listing lines used by layout regression tests.
  * Used by one table-driven test so a later keyword tweak cannot drop an old case.
  */
 
@@ -323,7 +323,7 @@ export const CITE_RICH_PROSE: CodeLineCase[] = [
 export const LISTING_LINES: CodeLineCase[] = [
   code('if (x) {', 'shape-if'),
   code('const y = 1;', 'shape-const'),
-  code('for each (m : evalModules) {', 'shape-for-each'),
+  code('for each (m : benchUnits) {', 'shape-for-each'),
   code('1 for each (m) {', 'shape-numbered-for-each'),
   code('emit(translate(block))', 'shape-emit'),
   code('return result;', 'shape-return'),
@@ -342,10 +342,10 @@ export const LISTING_LINES: CodeLineCase[] = [
   code('6 until done:', 'shape-py-until'),
   code('1 For block in page:', 'shape-For-block'),
   code('1 While queue:', 'shape-While-queue'),
-  code('evalModules = modules for the evaluation;', 'shape-assign'),
-  code('devEval = the readability of m by a', 'shape-camel'),
-  code('output evaluation = calibModel.predict(m);', 'shape-predict'),
-  code('for each (m : evalModules) {', 'shape-for-each-dup'),
+  code('benchUnits = modules for the benchmark;', 'shape-assign'),
+  code('unitRank = the readability of m by a', 'shape-camel'),
+  code('scoreValue = mockScorer.predict(m);', 'shape-predict'),
+  code('for each (m : benchUnits) {', 'shape-for-each-dup'),
 ];
 
 export const NUMBERED_CODE: CodeLineCase[] = [
