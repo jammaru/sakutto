@@ -13,7 +13,6 @@ import { displayTargetLanguage } from '@/ui/language-label';
 import {
   COMPOSE_PLACEMENTS,
   isComposePlacement,
-  normalizeTranslationPopupSize,
   TRANSLATION_POPUP_SIZE_DEFAULT,
   type ComposeFreePoint,
   type ComposePlacement,
@@ -47,7 +46,7 @@ import {
 } from './compose-field';
 import { isRecord } from '@/shared/object';
 import type { PageEngine } from './session';
-import { POPUP_TEXT_SCALE_VAR, uiShadow } from './overlay';
+import { popupTextScaleFactor, POPUP_TEXT_SCALE_VAR, uiShadow } from './overlay';
 
 export interface ComposeLabels {
   title: string;
@@ -145,16 +144,23 @@ button:focus-visible { outline: 2px solid #0e7490; outline-offset: 2px; }
 `;
 
 const PANEL_STYLE = `
-:host { all: initial; }
+:host {
+  display: block;
+  font: initial;
+  color: initial;
+}
 .card {
   position: relative;
   box-sizing: border-box;
-  padding: 8px 10px 8px 12px;
-  border-radius: 12px;
+  max-width: min(32em, calc(100vw - 16px));
+  padding: 0.615em 0.769em 0.615em 0.923em;
+  border-radius: 0.923em;
   border: 1px solid #d5dde6;
   background: #ffffff;
   color: #18202d;
-  font: 13px/1.45 "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  font-size: calc(13px * var(${POPUP_TEXT_SCALE_VAR}, 1));
+  line-height: 1.45;
   box-shadow: 0 10px 28px rgb(15 23 32 / 14%);
 }
 .card.dark {
@@ -165,12 +171,12 @@ const PANEL_STYLE = `
 }
 .body {
   position: relative;
-  margin: 0 0 6px;
+  margin: 0 0 0.462em;
   max-height: 6.5em;
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: calc(14px * var(${POPUP_TEXT_SCALE_VAR}, 1));
+  font-size: 1.077em;
   line-height: 1.45;
 }
 .body:empty, .card.undo .body:empty { display: none; }
@@ -715,10 +721,9 @@ class ComposeOverlay {
 
   /** Resize only the translation preview; the toolbar keeps its chrome size. */
   setPopupTextScale(percent: number): void {
-    this.panelHost.style.setProperty(
-      POPUP_TEXT_SCALE_VAR,
-      String(normalizeTranslationPopupSize(percent) / 100),
-    );
+    const scale = String(popupTextScaleFactor(percent));
+    this.panelHost.style.setProperty(POPUP_TEXT_SCALE_VAR, scale);
+    this.card.style.setProperty(POPUP_TEXT_SCALE_VAR, scale);
   }
 
   showIcon(anchor: DOMRect): void {

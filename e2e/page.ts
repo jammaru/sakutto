@@ -31,12 +31,14 @@ export async function resetExtensionStorage(
     translateVideoCaptions?: boolean;
     videoCaptionDisplay?: 'replace' | 'bilingual';
     captionCustomHosts?: string[];
+    translationPopupSize?: number;
   } = {},
 ): Promise<void> {
   const targetLanguage = options.targetLanguage ?? 'en';
   const translateVideoCaptions = options.translateVideoCaptions === true;
   const videoCaptionDisplay = options.videoCaptionDisplay ?? 'bilingual';
   const captionCustomHosts = options.captionCustomHosts ?? [];
+  const translationPopupSize = options.translationPopupSize ?? 100;
   const settings = {
     schemaVersion: 1,
     targetLanguage,
@@ -70,6 +72,7 @@ export async function resetExtensionStorage(
     translateVideoCaptions,
     videoCaptionDisplay,
     captionCustomHosts,
+    translationPopupSize,
   };
 
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -144,7 +147,7 @@ export async function waitForContentSession(worker: Worker, page: Page): Promise
 export async function invokeOnCommandPath(
   worker: Worker,
   page: Page,
-  command: 'toggle' | 'restore' | 'bilingual' | 'compose' = 'toggle',
+  command: 'toggle' | 'restore' | 'bilingual' | 'selection' | 'compose' = 'toggle',
 ): Promise<void> {
   const url = page.url();
   await worker.evaluate(

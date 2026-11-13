@@ -4,6 +4,7 @@ import { buildSegment } from '@/dom/segment';
 import { applyTranslation, restoreSegment } from '@/dom/render';
 import {
   POPUP_TEXT_SCALE_VAR,
+  popupCardMetrics,
   SELECTION_ICON_PX,
   selectionIconBox,
   translationPageStyle,
@@ -3145,6 +3146,9 @@ describe('translation popup text size', () => {
     for (const host of hosts) {
       expect(host.style.getPropertyValue(POPUP_TEXT_SCALE_VAR)).toBe('1.5');
     }
+    const tipCard = uiShadow(document.querySelector('sakutto-tip'))?.querySelector('.card');
+    if (!(tipCard instanceof HTMLElement)) throw new Error('missing tip card');
+    expect(tipCard.style.getPropertyValue(POPUP_TEXT_SCALE_VAR)).toBe('1.5');
     const bubbleStyle =
       uiShadow(document.querySelector('sakutto-tip'))?.querySelector('style')?.textContent ?? '';
     expect(bubbleStyle).toContain(`var(${POPUP_TEXT_SCALE_VAR}, 1)`);
@@ -3162,6 +3166,32 @@ describe('translation popup text size', () => {
     session.setPreferences(preferences({}));
     for (const host of hosts) {
       expect(host.style.getPropertyValue(POPUP_TEXT_SCALE_VAR)).toBe('1');
+    }
+  });
+
+  it('scales the selection popover font size and card width', async () => {
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+      { popupSize: 100 },
+    );
+    const long =
+      'This paragraph is long enough that the selection popover should grow wider when the text size increases instead of staying in a narrow column.';
+    session.translateSelection(long, new DOMRect(40, 40, 220, 18));
+    await vi.waitFor(() => {
+      expect(uiShadow(document.querySelector('sakutto-pop'))?.textContent).toContain('訳:');
+    });
+    const popHost = document.querySelector('sakutto-pop');
+    const at100 = popupCardMetrics(popHost);
+    expect(at100?.fontSizePx).toBeCloseTo(12, 0);
+    expect(at100?.maxWidthPx).toBeCloseTo(360, 0);
+
+    session.setPreferences(preferences({ popupSize: 150 }));
+    const at150 = popupCardMetrics(popHost);
+    expect(at150?.fontSizePx).toBeCloseTo(18, 0);
+    expect(at150?.maxWidthPx).toBeGreaterThan((at100?.maxWidthPx ?? 0) * 1.4);
+    if ((at100?.widthPx ?? 0) > 0 && (at150?.widthPx ?? 0) > 0) {
+      expect(at150?.widthPx).toBeGreaterThan(at100?.widthPx ?? 0);
     }
   });
 });

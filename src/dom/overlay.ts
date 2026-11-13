@@ -4,6 +4,51 @@ import { normalizeTranslationPopupSize, TRANSLATION_POPUP_SIZE_DEFAULT } from '@
 /** Custom property carrying the popup text scale on each popup host. */
 export const POPUP_TEXT_SCALE_VAR = '--sakutto-popup-scale';
 
+export function popupTextScaleFactor(percent: number): number {
+  return normalizeTranslationPopupSize(percent) / 100;
+}
+
+/**
+ * `:host { all: initial }` in shadow styles resets inherited custom properties, so the
+ * scale is written on the host and mirrored on the card inside the shadow root.
+ */
+export function applyPopupTextScale(host: HTMLElement, percent: number): void {
+  const scale = String(popupTextScaleFactor(percent));
+  host.style.setProperty(POPUP_TEXT_SCALE_VAR, scale);
+  const card = uiShadow(host)?.querySelector('.card');
+  if (card instanceof HTMLElement) {
+    card.style.setProperty(POPUP_TEXT_SCALE_VAR, scale);
+  }
+}
+
+/** Metrics for tests; needs a laid-out card in a browser or happy-dom. */
+export function popupCardMetrics(host: Element | null | undefined): {
+  fontSizePx: number;
+  widthPx: number;
+  maxWidthPx: number;
+} | null {
+  const card = uiShadow(host)?.querySelector('.card');
+  if (!(card instanceof HTMLElement)) return null;
+  const view = card.ownerDocument.defaultView;
+  if (!view) return null;
+  const hostScale =
+    host instanceof HTMLElement
+      ? Number.parseFloat(host.style.getPropertyValue(POPUP_TEXT_SCALE_VAR))
+      : Number.NaN;
+  const cardScale = Number.parseFloat(card.style.getPropertyValue(POPUP_TEXT_SCALE_VAR));
+  const scale = Number.isFinite(cardScale) ? cardScale : Number.isFinite(hostScale) ? hostScale : 1;
+  const fontSizePx = 12 * scale;
+  const maxWidthPx = 30 * fontSizePx;
+  const style = view.getComputedStyle(card);
+  const widthPx = Math.max(card.offsetWidth, card.scrollWidth);
+  const parsedMax = Number.parseFloat(style.maxWidth);
+  return {
+    fontSizePx,
+    widthPx,
+    maxWidthPx: Number.isFinite(parsedMax) ? parsedMax : maxWidthPx,
+  };
+}
+
 export interface OverlayLabels {
   original: string;
   chromeNote: string;
@@ -63,9 +108,12 @@ sakutto-status {
   z-index: 2147483646;
   left: 16px;
   bottom: 16px;
-  max-width: min(360px, calc(100vw - 32px));
-  padding: 8px 12px;
-  border-radius: 10px;
+  box-sizing: border-box;
+  max-width: min(30em, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: 0.667em 1em;
+  border-radius: 0.833em;
   border: 1px solid #d5dde6;
   background: #ffffff;
   color: #18202d;
@@ -73,6 +121,7 @@ sakutto-status {
   font-size: calc(12px * var(${POPUP_TEXT_SCALE_VAR}, 1));
   line-height: 1.45;
   box-shadow: 0 8px 24px rgb(15 23 32 / 16%);
+  overflow-wrap: anywhere;
 }
 @media (prefers-color-scheme: dark) {
   sakutto-status {
@@ -84,14 +133,19 @@ sakutto-status {
 `;
 
 const BUBBLE_STYLE = `
-:host { all: initial; }
+:host {
+  display: block;
+  font: initial;
+  color: initial;
+}
 .card {
   box-sizing: border-box;
-  max-width: min(360px, 70vw);
+  width: max-content;
+  max-width: min(30em, calc(100vw - 16px));
   max-height: calc(100vh - 16px);
   overflow-y: auto;
-  padding: 8px 10px;
-  border-radius: 10px;
+  padding: 0.667em 0.833em;
+  border-radius: 0.833em;
   border: 1px solid #d5dde6;
   background: #ffffff;
   color: #18202d;
@@ -101,9 +155,9 @@ const BUBBLE_STYLE = `
   box-shadow: 0 8px 24px rgb(15 23 32 / 16%);
 }
 .kicker {
-  margin: 0 0 4px;
+  margin: 0 0 0.333em;
   color: #5b6675;
-  font-size: calc(10px * var(${POPUP_TEXT_SCALE_VAR}, 1));
+  font-size: 0.833em;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
@@ -113,15 +167,15 @@ const BUBBLE_STYLE = `
   overflow-wrap: anywhere;
 }
 .note {
-  margin: 6px 0 0;
+  margin: 0.5em 0 0;
   color: #5b6675;
-  font-size: calc(10px * var(${POPUP_TEXT_SCALE_VAR}, 1));
+  font-size: 0.833em;
 }
 button {
-  margin-top: 8px;
-  padding: 4px 8px;
+  margin-top: 0.667em;
+  padding: 0.333em 0.667em;
   border: 0;
-  border-radius: 6px;
+  border-radius: 0.5em;
   background: #0e7490;
   color: #ffffff;
   font: inherit;
@@ -349,6 +403,8 @@ export class PageOverlay {
   private onClose: (() => void) | null = null;
   private onSelectionIcon: (() => void) | null = null;
   private statusTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastPopRect: DOMRect | null = null;
+  private lastTipRect: DOMRect | null = null;
 
   constructor(
     private readonly doc: Document,
@@ -485,9 +541,14 @@ export class PageOverlay {
 
   /** Resize the hover, selection, and status text. Style-only, safe to call on any change. */
   setPopupTextScale(percent: number): void {
-    const scale = String(normalizeTranslationPopupSize(percent) / 100);
     for (const host of [this.tipHost, this.popHost, this.status]) {
-      host.style.setProperty(POPUP_TEXT_SCALE_VAR, scale);
+      applyPopupTextScale(host, percent);
+    }
+    if (!this.tipHost.hidden && this.lastTipRect) {
+      this.place(this.tipHost, this.lastTipRect, false);
+    }
+    if (!this.popHost.hidden && this.lastPopRect) {
+      this.place(this.popHost, this.lastPopRect, true);
     }
   }
 
@@ -700,6 +761,8 @@ export class PageOverlay {
   }
 
   private place(host: HTMLElement, rect: DOMRect, interactive: boolean): void {
+    if (host === this.popHost) this.lastPopRect = rect;
+    else if (host === this.tipHost) this.lastTipRect = rect;
     const view = this.doc.defaultView;
     const width = view?.innerWidth ?? 800;
     const height = view?.innerHeight ?? 600;
