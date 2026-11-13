@@ -12,6 +12,15 @@ import {
   orphanLineCount,
 } from '@/pdf/layout';
 import { openPdfBytes } from './support/open-fixture-pdf';
+import {
+  BIG_PROSE,
+  CITE_RICH_PROSE,
+  CODE_LINE_CORPUS,
+  DISCUSSION_PROSE,
+  LC_NUMBERED_PROSE,
+  LISTING_LINES,
+  NUMBERED_CODE,
+} from './support/pdf-code-line-corpus';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -699,10 +708,19 @@ describe('pseudocode line shapes', () => {
     expect(layout.blocks.every((block) => block.role === 'prose')).toBe(true);
   });
 
-  it('keeps paper.pdf page 3 bibliography entries as prose', async () => {
+  it('keeps paper.pdf page 1 at one code block and page 3 bibliography as prose', async () => {
     const bytes = new Uint8Array(await readFile(resolve(root, 'bench/pdf/paper.pdf')));
     const document = await openPdfBytes(bytes);
     try {
+      const first = (await document.getPage(1)) as PdfPage;
+      const extractedFirst = await extractPage(first, 0, null);
+      const layoutFirst = layoutPage(extractedFirst.lines, extractedFirst.figures, {
+        width: extractedFirst.width,
+        height: extractedFirst.height,
+        index: 0,
+      });
+      expect(layoutFirst.skipped.filter((block) => block.role === 'code')).toHaveLength(1);
+
       const page = (await document.getPage(3)) as PdfPage;
       const extracted = await extractPage(page, 2, null);
       const layout = layoutPage(extracted.lines, extracted.figures, {
@@ -710,8 +728,8 @@ describe('pseudocode line shapes', () => {
         height: extracted.height,
         index: 2,
       });
-      const code = layout.skipped.filter((block) => block.role === 'code');
-      expect(code).toHaveLength(0);
+      const codeBlocks = layout.skipped.filter((block) => block.role === 'code');
+      expect(codeBlocks).toHaveLength(0);
       expect(layout.blocks).toHaveLength(6);
       const three = layout.blocks.find((block) => block.text.includes('[3]'));
       const six = layout.blocks.find((block) => block.text.includes('[6]'));
@@ -722,177 +740,66 @@ describe('pseudocode line shapes', () => {
     }
   });
 
-  it('keeps lowercase and capitalized enumerated prose as prose, not code', () => {
-    const enumerated = [
-      '1 for example, a reader who opens a long report sees that page first.',
-      '2 for instance, the focused page is translated before the rest.',
-      '3 for simplicity we ignore tokens that already fit the cover.',
-      '7 for each of the three backends we report the median.',
-      '1 if so, the block is left as the page drew it.',
-      '4 while reading, the queue sorts remaining pages by distance.',
-      '1 for example (Table 2), the reader sees the heading first.',
-      '2 if so: the block stays.',
-      '1 repeat the measurement three times.',
-      '1 For example, a heading that names the algorithm stays a heading.',
-      '2 For the visible page, the cover is copied only while compare is on.',
-      '1 Introduction',
-      '[3] A. Author. “wllama: WebAssembly bindings for llama.cpp.” Software, 2024–2026.',
-    ];
-    for (const line of enumerated) {
-      expect(looksLikeCodeLine(line), line).toBe(false);
-    }
-    expect(looksLikeCodeLine('1  for block in page:')).toBe(true);
-    expect(looksLikeCodeLine('1 For block in page:')).toBe(true);
-    expect(looksLikeCodeLine('1 While queue:')).toBe(true);
-    expect(looksLikeCodeLine('2 if ready:')).toBe(true);
-    expect(looksLikeCodeLine('5 repeat:')).toBe(true);
+  it('matches the round 16–20 prose and listing corpus, line by line and as a block', () => {
+    expect(LISTING_LINES.filter((entry) => entry.code).length).toBeGreaterThanOrEqual(16);
+    expect(LC_NUMBERED_PROSE).toHaveLength(10);
+    expect(DISCUSSION_PROSE.length).toBeGreaterThanOrEqual(18);
+    expect(BIG_PROSE).toHaveLength(27);
+    expect(CITE_RICH_PROSE.length).toBeGreaterThanOrEqual(18);
+    expect(NUMBERED_CODE.length).toBeGreaterThanOrEqual(9);
 
-    const enumeratedPage = [
-      '1 for example, a reader who opens a long report sees that page first.',
-      '2 for instance, the focused page is translated before the rest.',
-      '3 for simplicity we ignore tokens that already fit the cover.',
-      '4 while reading, the queue sorts remaining pages by distance.',
-      '5 if so, the block is left as the page drew it.',
-      '6 for completeness the bench reports overlap and orphans.',
-      '7 for each of the three backends we report the median.',
-      '8 if needed the marker holds the line that still overflows.',
-      '9 while idle the reader releases canvases that left the band.',
-      '10 for brevity the stub translator expands each block in place.',
-      '11 if ready the compare pane copies the original canvas.',
-      '12 while useful, a parenthetical (Table 2) must not make a listing.',
-    ];
-    expect(enumeratedPage).toHaveLength(12);
-    const page = groupLines(
-      enumeratedPage.map((text, index) => piece(text, 40, 80 + index * 40, 420)),
-    );
-    const layout = layoutPage(page);
-    expect(layout.skipped.filter((block) => block.role === 'code')).toHaveLength(0);
-    expect(layout.blocks.length).toBeGreaterThanOrEqual(9);
-    expect(layout.blocks.every((block) => block.role === 'prose')).toBe(true);
+    const compact = (value: string): string => value.replace(/\s+/gu, ' ').trim();
+    for (const entry of CODE_LINE_CORPUS) {
+      expect(looksLikeCodeLine(entry.text), `${entry.tag}: ${entry.text}`).toBe(entry.code);
+      const page = groupLines([piece(entry.text, 40, 100, Math.min(420, entry.text.length * 6))]);
+      const layout = layoutPage(page);
+      const skipped = layout.skipped.filter((block) => block.role === 'code');
+      const painted = [...layout.blocks, ...layout.skipped];
+      const needle = compact(entry.text).slice(0, 24);
+      const hit = painted.find((block) => compact(block.text).includes(needle));
+      if (entry.code) {
+        expect(skipped.length, entry.tag).toBeGreaterThan(0);
+        expect(hit?.role, entry.tag).toBe('code');
+      } else {
+        expect(skipped, entry.tag).toHaveLength(0);
+        expect(hit?.role, entry.tag).toBe(entry.role);
+      }
+    }
   });
 
-  it('classifies none of a discussion, big-prose, cite-rich, or enumerated page as code', async () => {
-    const discussion = [
-      'We return to the fitting question (Section 4) after describing the scheduler.',
-      'We continue the discussion of memory (Figure 7) with the eviction policy.',
-      'We break ties between two equally visible pages (Section 3.1) by their top edge.',
-      'The measurement yields a bound on repaints (Theorem 1) for every input we tested.',
-      'The generator will yield a bound on repaints (Theorem 1) for every input we tested.',
-      'A later paragraph returns to that bound (Table 2) after the queue is drained.',
-      'The reader will continue from the last visible page (Figure 2) once it is ready.',
-      'Nothing should break the column measure (Section 2) when a heading is skipped.',
-      'The next pass will yield the same cover (Eq. 2) if the tokens still fit.',
-      'We return the unused budget (Section 5) once the last line of the block is set.',
-      'The scheduler will continue to the far page (Figure 4) after the focused one.',
-      'Two covers break even (Section 3.2) when both sit inside the viewport band.',
-      'The check yields no overflow (Theorem 2) for a short English caption.',
-      'We return here only after the listing (Algorithm 1) has been classified.',
-      'The body will continue in English (Table 3) until the model is loaded.',
-      'A gap should not break a wrapped sentence (Section 1) across two columns.',
-      'Each trial yields one number (Figure 1) and a short note under it.',
-      'We return a marker (Section 6) rather than clip a line that still overflows.',
-    ];
-    const bigprose = [
-      'Opening a long report partway through does not wait for the pages before it.',
-      'A paragraph is set inside its own column and may grow only into the space below it.',
-      'A heading, a caption and a table cell are fitted to their own box.',
-      'Text that is not prose is left exactly where it is on the page.',
-      'Selecting text on a page and pressing one button translates just that part.',
-      'Source text is selectable, so a phrase can be copied from a translated box.',
-      'The toolbar reports how many parts were deliberately left untranslated.',
-      'A last paragraph may grow into empty space below it when the column is free.',
-      'A translation that still does not fit is offered on a marker instead.',
-      'Every placed token is width-checked and broken when it is too wide.',
-      'A glyph wider than the column still occupies one line and never emits an empty one.',
-      'Far canvases are released, and a resize redraws the pages that are visible.',
-      'Translation focus is the page whose box covers the actual viewport.',
-      'Cancelling a page render bumps the draw generation and is not a failure.',
-      'A page that was evicted, cancelled, or failed is drawn again when it returns.',
-      'Empty chunks fail rather than finishing as if the page were done.',
-      'Equal glossary contents do not retranslate the document a second time.',
-      'Failures are counted separately from overflow and shown as their own note.',
-      'A boxed listing set in the body face stays one code block from start to end.',
-      'Short node labels inside a drawing stay untranslated so they cannot overflow.',
-      'Page language is voted from heading, prose and caption blocks on that page.',
-      'A Latin body is never skipped as Japanese because a running header is Japanese.',
-      'Short English labels on an English page still translate into another language.',
-      'The original canvas is copied only while compare is on in the toolbar.',
-      'Same-origin fetch uses credentials so a cookie-gated file still opens.',
-      'An oversized file reports too-large, including a local file over the limit.',
-      'Reloading the reader tab deletes the stored copy and asks for the file again.',
-    ];
-    const citerich = [
-      'Translation quality improves (Table 2) if the model sees the heading.',
-      'The queue grows (Figure 2) while the reader keeps scrolling down.',
-      'The update is written (Eq. 2) if the step is accepted.',
-      'The appendix cites the result (Section 3) while the body continues.',
-      'The fitted cover is compared (Eq. 2) if the block still overflows.',
-      'We return to the fitting question (Section 4) after describing the scheduler.',
-      'We continue the discussion of memory (Figure 7) with the eviction policy.',
-      'We break ties between two equally visible pages (Section 3.1) by their top edge.',
-      'The measurement yields a bound on repaints (Theorem 1) for every input we tested.',
-      'A later paragraph cites the same table (Table 2) if the reader asks for it.',
-      'The probe yields a content type (Appendix B) without reading the whole file.',
-      'Layout must not break a heading (Table 4) that happens to mention return.',
-      'The compare pane will continue to share scroll (Figure 8) with the original.',
-      'The rule must not break ordinary discussion (Section 4.1) into a listing.',
-      'We return to the original canvas (Figure 9) when compare is turned off.',
-      'The queue will continue to drain (Section 7) after a visible page is aborted.',
-      'The run yields a translated page (Section 8) whose status matches the boxes.',
-      '1 for example (Table 2), the reader sees the heading first.',
-      '2 if so: the block stays as the page drew it.',
-      '7 for each of the three backends we report the median (Table 1).',
-      '4 while reading, the queue sorts remaining pages by distance (Figure 3).',
-    ];
-    const enumerated = [
-      '1 for example, a reader who opens a long report sees that page first.',
-      '2 for instance, the focused page is translated before the rest.',
-      '3 for simplicity we ignore tokens that already fit the cover.',
-      '4 while reading, the queue sorts remaining pages by distance.',
-      '5 if so, the block is left as the page drew it.',
-      '6 for completeness the bench reports overlap and orphans.',
-      '7 for each of the three backends we report the median.',
-      '8 if needed the marker holds the line that still overflows.',
-      '9 while idle the reader releases canvases that left the band.',
-      '10 for brevity the stub translator expands each block in place.',
-      '11 if ready the compare pane copies the original canvas.',
-      '12 while useful, a parenthetical (Table 2) must not make a listing.',
-      '1 For example, a heading that names the algorithm stays a heading.',
-      '2 For the visible page, the cover is copied only while compare is on.',
-      '1 repeat the measurement three times.',
-      '1 Introduction',
-      '5. Conclusions and next steps for the study',
-      '[3] A. Author. “wllama: WebAssembly bindings for llama.cpp.” Software, 2024–2026.',
-      '1 for example (Table 2), the reader sees the heading first.',
-      '2 if so: the block stays.',
-    ];
-    expect(discussion).toHaveLength(18);
-    expect(bigprose).toHaveLength(27);
-    expect(citerich).toHaveLength(21);
-    expect(enumerated).toHaveLength(20);
-    for (const line of [...discussion, ...bigprose, ...citerich, ...enumerated]) {
-      expect(looksLikeCodeLine(line), line).toBe(false);
-    }
-    for (const corpus of [discussion, bigprose, citerich, enumerated]) {
-      const page = groupLines(corpus.map((text, index) => piece(text, 40, 80 + index * 40, 420)));
+  it('keeps discussion, big-prose, cite-rich, and lowercase-numbered pages free of code', () => {
+    const pages = [DISCUSSION_PROSE, BIG_PROSE, CITE_RICH_PROSE, LC_NUMBERED_PROSE];
+    for (const corpus of pages) {
+      const page = groupLines(
+        corpus.map((entry, index) => piece(entry.text, 40, 80 + index * 40, 420)),
+      );
       const layout = layoutPage(page);
       expect(layout.skipped.filter((block) => block.role === 'code')).toHaveLength(0);
       expect(layout.blocks.every((block) => block.role !== 'code')).toBe(true);
     }
+  });
 
-    const bytes = new Uint8Array(await readFile(resolve(root, 'bench/pdf/paper.pdf')));
-    const document = await openPdfBytes(bytes);
-    try {
-      const page = (await document.getPage(1)) as PdfPage;
-      const extracted = await extractPage(page, 0, null);
-      const layout = layoutPage(extracted.lines, extracted.figures, {
-        width: extracted.width,
-        height: extracted.height,
-        index: 0,
-      });
-      expect(layout.skipped.filter((block) => block.role === 'code')).toHaveLength(1);
-    } finally {
-      await document.destroy();
+  it('keeps a page of numbered listings with commas and brackets as code', () => {
+    const page = groupLines(
+      NUMBERED_CODE.map((entry, index) => piece(entry.text, 80, 80 + index * 16, 280)),
+    );
+    const layout = layoutPage(page);
+    const codeBlocks = layout.skipped.filter((block) => block.role === 'code');
+    expect(codeBlocks.length).toBeGreaterThan(0);
+    const compact = (value: string): string => value.replace(/\s+/gu, ' ').trim();
+    const joined = [
+      ...codeBlocks.map((block) => block.text),
+      ...layout.blocks.map((block) => block.text),
+    ]
+      .map(compact)
+      .join('\n');
+    for (const entry of NUMBERED_CODE) {
+      expect(joined.includes(compact(entry.text)), entry.tag).toBe(true);
+    }
+    expect(layout.blocks.every((block) => block.role !== 'code')).toBe(true);
+    const painted = layout.blocks.map((block) => compact(block.text)).join('\n');
+    for (const entry of NUMBERED_CODE) {
+      expect(painted.includes(compact(entry.text)), entry.tag).toBe(false);
     }
   });
 });

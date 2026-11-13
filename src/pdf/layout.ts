@@ -1304,6 +1304,65 @@ function codeListingContinues(previous: string, next: string): boolean {
   return before && after;
 }
 
+/** Drop one layer of `(…)`, `[…]`, `{…}` so commas inside arguments are not sentence commas. */
+function withoutBracketSpans(text: string): string {
+  return text.replace(/[([{][^)\]}]*(?:[)\]}]|$)/gu, ' ');
+}
+
+/**
+ * Numbered short labels (`3 If the model is cold`, `2 While loading`, `1 Introduction`).
+ * Title-case, at most six words, and no listing punctuation — not `1 While queue:`.
+ */
+function isNumberedShortLabel(rest: string): boolean {
+  const words = rest
+    .trim()
+    .split(/\s+/u)
+    .filter((word) => word.length > 0);
+  if (words.length === 0 || words.length > 6) return false;
+  if (!/^\p{Lu}/u.test(words[0] ?? '')) return false;
+  if (/[:{(=;]\s*$/u.test(rest) || /\b(?:then|do)\s*$/iu.test(rest)) return false;
+  return !/[=()[\]{}]/u.test(rest);
+}
+
+/** `1  a, b = b, a` — identifiers on both sides of `=`, not `1 for example, a = b`. */
+function isIdentifierTupleAssign(rest: string): boolean {
+  if (/^(?:for|if|while|def|repeat|until)\b/iu.test(rest)) return false;
+  return /^[A-Za-z_][\w]*(?:\s*,\s*[A-Za-z_][\w]*)+\s*=\s*[A-Za-z_][\w]*(?:\s*,\s*[A-Za-z_][\w]*)*\s*;?$/u.test(
+    rest,
+  );
+}
+
+/**
+ * The body of a numbered line after the leading digits. Python-style for/if/while/def/repeat/until
+ * listings, `then`/`do`, trailing `[:{(=;]`, and tuple assignment are code; an English sentence is not.
+ */
+function numberedLineIsCode(rest: string): boolean {
+  const trimmed = rest.trim();
+  if (trimmed.length === 0) return false;
+  if (isNumberedShortLabel(trimmed)) return false;
+
+  const bare = withoutBracketSpans(trimmed);
+  const trailingCode =
+    /[:{(=;]\s*$/u.test(trimmed) ||
+    /\)\s*;?\s*$/u.test(trimmed) ||
+    /\b(?:then|do)\s*$/iu.test(trimmed);
+  const sentence = /[.!?]\s*$/u.test(trimmed) || (/,/u.test(bare) && !trailingCode);
+  if (sentence) return isIdentifierTupleAssign(trimmed);
+
+  if (trailingCode) return true;
+  if (/[=()[\]]/u.test(bare)) return true;
+  if (
+    /(?:[;{}]|[a-z][A-Z]|\b(?:for\s+each\s*[{(]|for\s*\(|if\s*\(|while\s*\(|return\b|def\b|emit\b))/u.test(
+      trimmed,
+    )
+  ) {
+    return true;
+  }
+  if (/^(?:for|if|while|def|repeat|until)\b/iu.test(trimmed)) return true;
+  if (/^[A-Za-z_][\w.]*\(/u.test(trimmed) && /[);{]\s*$/u.test(trimmed)) return true;
+  return isIdentifierTupleAssign(trimmed);
+}
+
 /** A line of pseudocode or a program, even when the page set it in a body face. */
 export function looksLikeCodeLine(text: string): boolean {
   const trimmed = text.trim();
@@ -1328,22 +1387,11 @@ export function looksLikeCodeLine(text: string): boolean {
   ) {
     return true;
   }
-  // Numbered listing (`1  for block in page:`, `1 While queue:`) for/if/while/def/repeat/until.
-  // Numbered prose is a sentence: it ends with .!? or contains a comma, including
-  // `1 for example, …`, `1 if so: the block stays.`, `1 For the visible page, …`,
-  // `1 repeat the measurement three times.`, and a parenthetical `(Table 2)`.
+  // Numbered listing (`1  for i in range(0, n):`, `1 While queue:`). Commas inside
+  // brackets are not sentence evidence. Numbered prose (`1 for example, …`,
+  // `2 if so: the block stays.`, `1 repeat the measurement three times.`) still is.
   if (/^\d+\s+/u.test(trimmed)) {
-    const rest = trimmed.replace(/^\d+\s+/u, '');
-    const sentence = /[.,!?]\s*$/u.test(rest) || /,/u.test(rest);
-    if (
-      !sentence &&
-      /(?:[;{}]|[a-z][A-Z]|\b(?:for\s+each\s*[{(]|for\s*\(|if\s*\(|while\s*\(|return\b|def\b|emit\b))/u.test(
-        rest,
-      )
-    ) {
-      return true;
-    }
-    if (!sentence && /^(?:for|if|while|def|repeat|until)\b/iu.test(rest)) return true;
+    return numberedLineIsCode(trimmed.replace(/^\d+\s+/u, ''));
   }
   if (
     /[_=(){}[\];]/u.test(trimmed) &&
