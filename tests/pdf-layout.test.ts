@@ -716,6 +716,35 @@ describe('layoutPage', () => {
    * the font — LaTeX sets math in CMMI/CMSY/CMEX and nothing else uses them — so a synthetic
    * page can reproduce it by marking those pieces as `math`.
    */
+  it('splits prose that was merged across display equation lines in another region', () => {
+    const lines = groupLines([
+      piece('of correctness of results, using Bayesian inference.', 309, 410, 238),
+      piece('the precision of the arm by the following equation', 309, 470, 238),
+      piece('Precision =', 323, 490, 80, { math: true }),
+      piece('(1)', 519, 490, 16),
+      piece('increases when a candidate is judged valid.', 309, 530, 238),
+      piece('The following equation calculates recall of the arm:', 323, 550, 206),
+      piece('Recall =', 323, 570, 80, { math: true }),
+      piece('(2)', 477, 570, 16),
+      piece('We then update the average reward for each arm.', 309, 590, 238),
+    ]);
+    const layout = layoutPage(lines);
+    const merged = layout.blocks.find(
+      (block) =>
+        block.role === 'prose' &&
+        block.text.includes('of correctness') &&
+        block.text.includes('increases when'),
+    );
+    expect(merged, layout.blocks.map((block) => block.text).join(' | ')).toBeUndefined();
+    expect(
+      layout.blocks.filter(
+        (block) => block.role === 'prose' && block.text.includes('increases when'),
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(layout.skipped.some((block) => block.role === 'equation')).toBe(true);
+    expect(orphanLineCount(lines, layout)).toBe(0);
+  });
+
   it('leaves a display equation in the page’s own typesetting', () => {
     const lines = groupLines([
       piece('The recurrence is extended with a channel-wise gate', 49, 100, 420),

@@ -299,7 +299,21 @@ export function layoutPage(
   };
 
   const kept = splitMergedOverlongProse(
-    mergeAdjacentProseBlocks(blocks.filter(translatable), bodySize, figures, pageHeight, pageIndex),
+    splitProseAcrossObstacles(
+      mergeAdjacentProseBlocks(
+        blocks.filter(translatable),
+        bodySize,
+        figures,
+        pageHeight,
+        pageIndex,
+        clean,
+      ),
+      clean,
+      bodySize,
+      figures,
+      pageHeight,
+      pageIndex,
+    ),
     bodySize,
     figures,
     pageHeight,
@@ -1348,6 +1362,99 @@ function gapStartsBlock(
   return false;
 }
 
+/**
+ * Splits a prose block when display-equation lines sit between its lines but landed in another
+ * region — prose in one column can then jump across a centred formula without `gapStartsBlock`
+ * seeing the equation row.
+ */
+function splitProseAcrossObstacles(
+  blocks: readonly LayoutBlock[],
+  allLines: readonly TextLine[],
+  bodySize: number,
+  figures: FigureAreas,
+  pageHeight: number,
+  pageIndex: number,
+): LayoutBlock[] {
+  const out: LayoutBlock[] = [];
+  for (const block of blocks) {
+    if (block.role === 'equation' || block.lines.length < 2) {
+      out.push(block);
+      continue;
+    }
+    const sorted = [...block.lines].sort((a, b) => a.baseline - b.baseline || a.box.x - b.box.x);
+    const groups: TextLine[][] = [];
+    let current: TextLine[] = [];
+    for (let index = 0; index < sorted.length; index += 1) {
+      const line = sorted[index];
+      if (!line) continue;
+      const previous = current[current.length - 1];
+      if (
+        previous &&
+        proseObstacleBetween(previous, line, allLines, Math.min(previous.box.x, line.box.x))
+      ) {
+        if (current.length > 0) groups.push(current);
+        current = [line];
+        continue;
+      }
+      current.push(line);
+    }
+    if (current.length > 0) groups.push(current);
+    if (groups.length <= 1) {
+      out.push(block);
+      continue;
+    }
+    for (const group of groups) {
+      const rebuilt = buildBlock(
+        group,
+        block.room,
+        block.column,
+        bodySize,
+        figures,
+        block.box.x,
+        pageHeight,
+        pageIndex,
+      );
+      if (rebuilt) out.push(rebuilt);
+    }
+  }
+  return out;
+}
+
+function proseObstacleBetween(
+  previous: TextLine,
+  line: TextLine,
+  allLines: readonly TextLine[],
+  columnLeft: number,
+): boolean {
+  const top = previous.baseline;
+  const foot = line.baseline;
+  const left = Math.min(previous.box.x, line.box.x);
+  const right = Math.max(boxRight(previous.box), boxRight(line.box));
+  for (const between of allLines) {
+    if (between === previous || between === line) continue;
+    if (between.baseline <= top + 0.35) continue;
+    if (between.baseline >= foot - 0.35) continue;
+    if (boxRight(between.box) < left + 6 || between.box.x > right - 6) continue;
+    if (between.mathRatio >= EQUATION_LINE_SHARE) return true;
+    if (isEquation([between], columnLeft)) return true;
+    if (/^\(\d+\)$/u.test(between.text.trim())) return true;
+    if (/^(?:Precision|Recall)\s*=/iu.test(between.text.trim())) return true;
+  }
+  return false;
+}
+
+function obstacleBetweenBlocks(
+  left: LayoutBlock,
+  right: LayoutBlock,
+  allLines: readonly TextLine[],
+): boolean {
+  const tail = left.lines[left.lines.length - 1];
+  const head = right.lines[0];
+  if (!tail || !head) return false;
+  const columnLeft = Math.min(left.box.x, right.box.x);
+  return proseObstacleBetween(tail, head, allLines, columnLeft);
+}
+
 /** Font size most of a line's characters are set in, ignoring a lone superscript. */
 function textSize(line: TextLine): number {
   const weights = new Map<number, number>();
@@ -1605,12 +1712,17 @@ function isStandaloneSectionHeading(text: string): boolean {
   return isSectionHeading(text.trim());
 }
 
-function shouldMergeAdjacentProse(left: LayoutBlock, right: LayoutBlock): boolean {
+function shouldMergeAdjacentProse(
+  left: LayoutBlock,
+  right: LayoutBlock,
+  allLines: readonly TextLine[],
+): boolean {
   if (left.role !== 'prose' || right.role !== 'prose') return false;
   if (left.column !== right.column) return false;
   if (Math.abs(left.box.x - right.box.x) > 12) return false;
   const gap = right.box.y - (left.box.y + left.box.height);
   if (gap > Math.max(left.fontSize, right.fontSize) * 4) return false;
+  if (obstacleBetweenBlocks(left, right, allLines)) return false;
   const tail = left.text.trimEnd();
   const head = right.text.trimStart();
   if (continuesProseText(tail, head)) return true;
@@ -1619,6 +1731,14 @@ function shouldMergeAdjacentProse(left: LayoutBlock, right: LayoutBlock): boolea
   if (
     /Related\s+[Ww]ork\s*:/i.test(left.text) &&
     gap < Math.max(left.fontSize, right.fontSize) * 12
+  ) {
+    return true;
+  }
+  if (
+    gap <= Math.max(left.fontSize, right.fontSize) * 9 &&
+    (/^(?:Aim|Background|Method|Results)\s*:/i.test(head) ||
+      (/^SUMMARY\b/i.test(left.text) && /^Aim\s*:/i.test(head)) ||
+      (/^Aim\s*:/i.test(left.text) && /^[a-z]/u.test(head)))
   ) {
     return true;
   }
@@ -1631,11 +1751,12 @@ function mergeAdjacentProseBlocks(
   figures: FigureAreas,
   pageHeight: number,
   pageIndex: number,
+  allLines: readonly TextLine[],
 ): LayoutBlock[] {
   const merged: LayoutBlock[] = [];
   for (const block of blocks) {
     const previous = merged[merged.length - 1];
-    if (previous && shouldMergeAdjacentProse(previous, block)) {
+    if (previous && shouldMergeAdjacentProse(previous, block, allLines)) {
       const lines = [...previous.lines, ...block.lines].sort(
         (a, b) => a.baseline - b.baseline || a.box.x - b.box.x,
       );
