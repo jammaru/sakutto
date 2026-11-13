@@ -160,6 +160,7 @@ export class PdfReader {
   private emptyPages = 0;
   /** Blocks left in the page's own typesetting: equations and the text inside figures. */
   private skippedBlocks = 0;
+  private coverageSweepPass = 0;
   private target: string;
   private form: Formality;
   private style: HTMLStyleElement | null = null;
@@ -761,7 +762,16 @@ export class PdfReader {
         element.markers.delete(key);
       }
     }
+    this.runCoverageSweep();
     this.report();
+  }
+
+  private runCoverageSweep(): void {
+    if (this.coverageSweepPass >= 3) return;
+    const progress = this.session.progress();
+    if (progress.pending > 0) return;
+    const requeued = this.session.sweepIncompleteBlocks();
+    if (requeued > 0) this.coverageSweepPass += 1;
   }
 
   private paintBlock(element: PageElement, state: BlockState, pageIndex: number): void {

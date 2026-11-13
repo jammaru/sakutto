@@ -38,6 +38,29 @@ export function pdfPageLanguage(blocks: readonly LayoutBlock[]): string | null {
   return best;
 }
 
+/**
+ * True when the model output is still the source (or the same language as the source) while
+ * the reader asked for another language. Cached and counted only after this check passes.
+ */
+export function translationEchoesSource(source: string, output: string, target: string): boolean {
+  const canonicalTarget = canonicalLanguage(target);
+  if (!canonicalTarget) return false;
+  const trimmedOut = output.replace(/\s+/gu, ' ').trim();
+  const trimmedSrc = source.replace(/\s+/gu, ' ').trim();
+  if (trimmedOut.length === 0) return true;
+  if (trimmedOut === trimmedSrc) return true;
+  const outLang = pdfBlockLanguage(trimmedOut);
+  const srcLang = pdfBlockLanguage(trimmedSrc);
+  if (outLang !== null && srcLang !== null && outLang === srcLang && outLang !== canonicalTarget) {
+    return true;
+  }
+  if (trimmedSrc.length >= 32 && trimmedOut.length >= 32) {
+    const prefix = trimmedSrc.slice(0, Math.min(48, trimmedSrc.length));
+    if (trimmedOut.startsWith(prefix)) return true;
+  }
+  return false;
+}
+
 /** True when this block is already in the language the reader asked for. */
 export function isSameLanguage(text: string, target: string, pageLanguage: string | null): boolean {
   const canonicalTarget = canonicalLanguage(target);

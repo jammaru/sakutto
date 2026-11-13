@@ -1244,7 +1244,12 @@ function roleOf(
   // sentence inside a figure is treated as a label, and even then it must fit without
   // growing or it is offered on a marker instead of painted.
   if (lines.length > 0 && lines.every((line) => insideFigure(line, figures))) {
-    if (isTick(text) || fontSize < MIN_TRANSLATE_PT || !isFigureSentence(text)) {
+    if (
+      isTick(text) ||
+      fontSize < MIN_TRANSLATE_PT ||
+      !isFigureSentence(text) ||
+      lines.some((line) => looksLikeCodeLine(line.text))
+    ) {
       return 'figure-label';
     }
     return 'label';

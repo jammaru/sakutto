@@ -3,10 +3,13 @@ import type { LayoutBlock, PageLayout } from '@/pdf/layout';
 import {
   isPdfBlockSettled,
   PDF_PRIORITY_ROLES,
+  countsTowardProgress,
+  pdfPageOrderedPriority,
   pdfRequestPriority,
   PdfSession,
   type PdfEngine,
 } from '@/pdf/session';
+import { translationEchoesSource } from '@/pdf/language';
 import { abortError } from '@/engine/errors';
 import {
   MAX_PRIORITY,
@@ -272,7 +275,7 @@ describe('PdfSession stream handling', () => {
     expect(session.progress().failed).toBe(0);
   });
 
-  it('keeps remaining visible-page work ahead after later pages join the queue', async () => {
+  it('finishes an earlier page before starting a later page', async () => {
     const started: string[] = [];
     const engine = engineOf(async function* (segments) {
       const text = segments[0]?.text ?? '';
@@ -293,6 +296,36 @@ describe('PdfSession stream handling', () => {
     expect(started[0]).toContain('First paragraph');
     expect(started[1]).toContain('Second paragraph');
     expect(started[2]).toContain('many pages away');
+    const idx = started.findIndex((entry) => entry.includes('many pages away'));
+    expect(idx).toBe(2);
+  });
+
+  it('fails a block whose output still echoes the English source', async () => {
+    const source =
+      'BAN considers each configuration separately when the stream of tokens is classified.';
+    const engine = engineOf(async function* (segments) {
+      const id = segments[0]?.id ?? 'b1';
+      yield { id, final: source };
+    });
+    const session = sessionOf(engine);
+    session.addPage(0, layoutOf(source));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'failed');
+    expect(translationEchoesSource(source, source, 'ja')).toBe(true);
+    expect(session.progress().failed).toBe(1);
+    expect(session.progress().done).toBe(0);
+  });
+
+  it('does not count a failed echo as progress', async () => {
+    const engine = engineOf(async function* (segments) {
+      const id = segments[0]?.id ?? 'b1';
+      yield { id, final: segments[0]?.text ?? '' };
+    });
+    const session = sessionOf(engine);
+    session.addPage(0, layoutOf('Left column body text that must reach the target language.'));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'failed');
+    const state = session.pageBlocks(0)[0];
+    expect(state).toBeTruthy();
+    expect(countsTowardProgress(state!)).toBe(false);
   });
 
   it('schedules a visible-page label ahead of later-page prose', async () => {
@@ -377,6 +410,15 @@ describe('PDF request priority', () => {
     expect(pdfRequestPriority(1, 'heading')).toBeLessThan(pdfRequestPriority(2, 'caption'));
     expect(pdfRequestPriority(0, 'prose')).toBeLessThan(pdfRequestPriority(9, 'heading'));
     expect(pdfRequestPriority(0, 'prose')).toBeLessThan(pdfRequestPriority(50, 'prose'));
+  });
+
+  it('orders by page index before viewport distance', () => {
+    expect(pdfPageOrderedPriority(0, 2, 'prose')).toBeLessThan(
+      pdfPageOrderedPriority(1, 0, 'prose'),
+    );
+    expect(pdfPageOrderedPriority(1, 1, 'heading')).toBeLessThan(
+      pdfPageOrderedPriority(4, 1, 'heading'),
+    );
   });
 
   it('treats a non-finite distance as the focused page', () => {

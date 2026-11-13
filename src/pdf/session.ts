@@ -20,7 +20,7 @@ import {
   resolveOverlaps,
   wrapWidth,
 } from './place';
-import { isSameLanguage, pdfPageLanguage } from './language';
+import { isSameLanguage, pdfPageLanguage, translationEchoesSource } from './language';
 import { protectInlineMath, restoreInlineMath, shouldSkipInlineMath } from './protect';
 
 /** What the reader shows about how fast the document is being translated. */
@@ -47,10 +47,25 @@ export interface BlockState {
    * that opens the full text rather than leaving the source silently untranslated.
    */
   overflow: boolean;
+  /** Same-language or mostly-formula blocks the reader deliberately left as the page drew them. */
+  intentionallyKept?: boolean;
 }
 
 export function isTranslated(state: BlockState): boolean {
   return state.paint && state.translation.trim().length > 0 && state.fit !== null;
+}
+
+/** Painted, marked, or deliberately kept — independent of queue state. */
+export function hasDeliverableTranslation(state: BlockState): boolean {
+  if (state.intentionallyKept === true) return true;
+  if (isTranslated(state)) return true;
+  return state.overflow && state.translation.trim().length > 0;
+}
+
+/** A block the progress bar may count as finished once its queue state is `done`. */
+export function countsTowardProgress(state: BlockState): boolean {
+  if (state.state !== 'done') return false;
+  return hasDeliverableTranslation(state);
 }
 
 /**
@@ -94,6 +109,17 @@ export function pdfRequestPriority(distance: number, role: AnyBlockRole): number
     : 0;
   const rank = Math.min(9, Math.floor(kind / 10));
   return Math.min(MAX_PRIORITY, steps * 10 + rank);
+}
+
+/**
+ * Page index dominates so earlier pages finish before later ones. Within a page the focused
+ * page still runs first — the previous distance-only rule let page 4 finish while page 1 prose
+ * was still English.
+ */
+export function pdfPageOrderedPriority(page: number, focus: number, role: AnyBlockRole): number {
+  const pageBand = Math.min(9, Math.max(0, page)) * 11;
+  const local = pdfRequestPriority(page - focus, role);
+  return Math.min(MAX_PRIORITY, pageBand + local);
 }
 
 export interface PdfEngine {
@@ -246,6 +272,7 @@ export class PdfSession {
       fit: null,
       paint: false,
       overflow: false,
+      intentionallyKept: false,
     }));
     this.pages.set(index, states);
     for (const state of states) this.enqueue(state, index);
@@ -296,9 +323,10 @@ export class PdfSession {
     for (const states of this.pages.values()) {
       for (const state of states) {
         total += 1;
-        if (state.state === 'done') done += 1;
+        if (countsTowardProgress(state)) done += 1;
         else if (state.state === 'queued' || state.state === 'running') pending += 1;
         else if (state.state === 'failed') failed += 1;
+        else if (state.state === 'done' || state.state === 'idle') pending += 1;
         if (state.overflow) overflowed += 1;
       }
     }
@@ -366,13 +394,44 @@ export class PdfSession {
   retryUntranslated(): void {
     for (const [page, states] of this.pages) {
       for (const state of states) {
-        if (state.state === 'done' || state.state === 'running') continue;
-        if (state.translation.trim().length > 0) continue;
+        if (state.state === 'running') continue;
+        if (state.intentionallyKept === true) continue;
+        if (state.state === 'done' && hasDeliverableTranslation(state)) continue;
         state.state = 'idle';
+        state.intentionallyKept = false;
         this.enqueue(state, page);
       }
     }
     this.pump();
+  }
+
+  /**
+   * Blocks whose text still matches the source after a supposedly successful run, or that
+   * reached `done` without paint, a marker, or a deliberate keep.
+   */
+  sweepIncompleteBlocks(): number {
+    let requeued = 0;
+    for (const [page, states] of this.pages) {
+      for (const state of states) {
+        if (state.intentionallyKept === true || state.state === 'running') continue;
+        const text = state.translation.trim();
+        const needs =
+          state.state === 'failed' ||
+          (text.length > 0 && translationEchoesSource(state.block.text, text, this.target)) ||
+          (state.state === 'done' && !hasDeliverableTranslation(state));
+        if (!needs) continue;
+        state.translation = '';
+        state.fit = null;
+        state.paint = false;
+        state.overflow = false;
+        state.state = 'idle';
+        state.intentionallyKept = false;
+        this.enqueue(state, page);
+        requeued += 1;
+      }
+    }
+    if (requeued > 0) this.pump();
+    return requeued;
   }
 
   /** Drops every in-flight request and returns the finished blocks to the queue. */
@@ -423,16 +482,38 @@ export class PdfSession {
    * `running` while later pages finish. Kind only orders work on the same page.
    */
   private priorityOf(block: LayoutBlock, page: number): number {
-    return pdfRequestPriority(page - this.focus, block.role);
+    return pdfPageOrderedPriority(page, this.focus, block.role);
+  }
+
+  /** Earliest page that still has work that should block later pages. */
+  private gatePage(): number {
+    let gate = Number.POSITIVE_INFINITY;
+    for (const [page, states] of this.pages) {
+      for (const state of states) {
+        if (state.intentionallyKept === true) continue;
+        if (state.state === 'done' && hasDeliverableTranslation(state)) continue;
+        if (state.state === 'failed') {
+          gate = Math.min(gate, page);
+          continue;
+        }
+        if (state.state !== 'done') gate = Math.min(gate, page);
+      }
+    }
+    return Number.isFinite(gate) ? gate : Number.POSITIVE_INFINITY;
   }
 
   private pump(): void {
     const signal = this.controller.signal;
     const generation = this.generation;
+    const gate = this.gatePage();
     while (this.running < this.concurrency) {
       const next = this.queue.dequeue();
       if (!next) break;
       const job = next;
+      if (job.page > gate) {
+        this.queue.enqueue(job, this.priorityOf(job.state.block, job.page));
+        break;
+      }
       if (job.state.state !== 'queued') continue;
       job.state.state = 'running';
       this.running += 1;
@@ -455,6 +536,7 @@ export class PdfSession {
     state.fit = null;
     state.paint = false;
     state.overflow = false;
+    state.intentionallyKept = false;
     state.state = 'failed';
   }
 
@@ -464,6 +546,7 @@ export class PdfSession {
     state.fit = null;
     state.paint = false;
     state.overflow = false;
+    state.intentionallyKept = true;
     state.state = 'done';
   }
 
@@ -564,12 +647,18 @@ export class PdfSession {
       this.failBlock(state);
       return;
     }
-    state.state = state.translation.trim().length > 0 ? 'done' : 'failed';
-    if (state.state === 'failed') {
+    const sourceText = state.block.text;
+    if (translationEchoesSource(sourceText, state.translation, this.target)) {
+      this.failBlock(state);
+      return;
+    }
+    if (state.translation.trim().length === 0) {
       this.failBlock(state);
       return;
     }
     this.layout(state, job.page);
+    if (hasDeliverableTranslation(state)) state.state = 'done';
+    else this.failBlock(state);
   }
 
   /** Recomputes the layout the renderer draws for a block. */
