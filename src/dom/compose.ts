@@ -2,13 +2,14 @@ import { isModelChangedError } from '@/engine/errors';
 import type { GlossaryEntry, TranslateOptions } from '@/engine/types';
 import {
   canonicalLanguage,
-  displayLanguage,
   isTargetLanguage,
+  JA_EASY_TARGET,
   SUPPORTED_LANGUAGES,
   type TargetLanguage,
 } from '@/shared/languages';
 import { COMPOSE_PREVIEW_MS, planComposeTranslation } from '@/shared/compose-translation';
 import { displayShortcut, matchesShortcut } from '@/shared/shortcuts';
+import { displayTargetLanguage } from '@/ui/language-label';
 import {
   COMPOSE_PLACEMENTS,
   isComposePlacement,
@@ -846,10 +847,14 @@ class ComposeOverlay {
   private fillLanguages(): void {
     const current = this.targetSelect.value;
     this.targetSelect.replaceChildren();
-    for (const language of SUPPORTED_LANGUAGES) {
+    for (const language of [
+      ...SUPPORTED_LANGUAGES.slice(0, 1),
+      JA_EASY_TARGET,
+      ...SUPPORTED_LANGUAGES.slice(1),
+    ]) {
       const option = this.doc.createElement('option');
       option.value = language;
-      option.textContent = displayLanguage(language, this.uiLanguage);
+      option.textContent = displayTargetLanguage(language, this.uiLanguage);
       this.targetSelect.append(option);
     }
     if ([...this.targetSelect.options].some((option) => option.value === current)) {
@@ -2030,7 +2035,7 @@ export class ComposeController {
       this.swapped,
       this.prefs.explicitTarget,
     );
-    const language = displayLanguage(plan.targetLanguage, this.prefs.uiLanguage);
+    const language = displayTargetLanguage(plan.targetLanguage, this.prefs.uiLanguage);
     let note = this.labels.into(language);
     let preview = this.preview;
     const needsSetup = this.needsSetup();

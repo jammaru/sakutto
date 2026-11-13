@@ -2,7 +2,13 @@ import { browser, type Browser } from 'wxt/browser';
 import { hasLicenseConsent } from '@/shared/agreement';
 import { lastGpuDiagnostic, probeCapabilities } from '@/shared/capabilities';
 import { mergeGpuDiagnostic, type GpuDiagnostic } from '@/shared/gpu-diagnostic';
-import { canonicalLanguage, type TargetLanguage } from '@/shared/languages';
+import {
+  canonicalLanguage,
+  isPlamoOnlyTarget,
+  JA_EASY_TARGET,
+  plamoPromptTargetLanguage,
+  type TargetLanguage,
+} from '@/shared/languages';
 import {
   modelCanTranslate,
   type EngineSource,
@@ -144,13 +150,14 @@ export async function warmup(
 
   try {
     if (signal?.aborted) throw abortError();
-    const language = canonicalLanguage(tgt) ?? 'ja';
+    const language = plamoPromptTargetLanguage(tgt);
+    const japanese = language === 'ja' || language === JA_EASY_TARGET;
     const result = await runtime.complete({
       prompt: buildTranslationPrompt({
         text: 'Hello.',
-        src: language === 'ja' ? 'en' : 'ja',
+        src: japanese ? 'en' : 'ja',
         tgt: language,
-        ...(language === 'ja' ? { form: 'polite' } : {}),
+        ...(japanese ? { form: 'polite' } : {}),
       }),
       maxTokens: 16,
       signal: controller.signal,
@@ -435,7 +442,7 @@ export class EngineHost {
       ),
       chrome: chromeForCache,
       plamoSupports: (src, tgt) =>
-        canonicalLanguage(tgt) !== null &&
+        (canonicalLanguage(tgt) !== null || isPlamoOnlyTarget(tgt)) &&
         (src === undefined || src.trim().length === 0 || canonicalLanguage(src) !== null),
       chromeSupport: (segments, src, tgt) => this.chromeSupport(chrome, segments, src, tgt),
     });
@@ -472,7 +479,7 @@ export class EngineHost {
     src: string | undefined,
     tgt: string,
   ): Promise<PairSupport> {
-    if (!chrome.available) return 'unavailable';
+    if (!chrome.available || isPlamoOnlyTarget(tgt)) return 'unavailable';
 
     let source = src;
     if (!source || source.trim().length === 0) {
@@ -1100,7 +1107,11 @@ export class EngineHost {
 
       const started = performance.now();
       await loaded.runtime.complete({
-        prompt: buildTranslationPrompt({ text: QUALITY_PARAGRAPH, tgt: 'ja', form: 'polite' }),
+        prompt: buildTranslationPrompt({
+          text: QUALITY_PARAGRAPH,
+          tgt: plamoPromptTargetLanguage('ja'),
+          form: 'polite',
+        }),
         maxTokens: 512,
         signal: controller.signal,
         onToken: () => undefined,

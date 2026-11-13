@@ -101,7 +101,9 @@
     return t('downloadEtaMinutes', [String(Math.max(1, Math.round(seconds / 60)))]);
   });
   let statusText = $derived.by(() => {
-    if (modelState === 'verifying') return t('runtimeVerifying');
+    if (modelState === 'verifying') {
+      return `${t('runtimeVerifying')} ${formatByteSize(received)} / ${formatByteSize(total)}`;
+    }
     if (modelState === 'loading') return t('runtimeLoading');
     if (modelState === 'downloading') {
       return t('runtimeDownloading', [

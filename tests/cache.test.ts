@@ -46,6 +46,22 @@ describe('translation cache keys', () => {
     ).not.toBe(key);
   });
 
+  it('keeps Japanese and Easy Japanese targets in separate cache entries', () => {
+    const base = {
+      model: 'plamo-0.8b',
+      tgt: 'ja',
+      form: 'polite' as const,
+      text: 'Sign in to continue',
+      src: 'en',
+    };
+    const japanese = buildTranslationCacheKey(base);
+    const easy = buildTranslationCacheKey({ ...base, tgt: 'ja-easy' });
+
+    expect(easy).not.toBe(japanese);
+    expect(easy.split('|')[4]).toBe('ja-easy');
+    expect(buildTranslationCacheKey({ ...base, tgt: 'JA_EASY' })).toBe(easy);
+  });
+
   it('includes a SHA-256 hash of the source text', () => {
     const key = buildTranslationCacheKey({
       model: 'model',

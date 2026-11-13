@@ -32,4 +32,14 @@ describe('block language', () => {
     if (!block) throw new Error('missing paragraph');
     expect(isAlreadyTargetLanguage(block, 'ja', 'en')).toBe(true);
   });
+
+  it('does not treat Japanese text as already Easy Japanese', () => {
+    document.documentElement.lang = 'ja';
+    document.body.innerHTML = '<p>これは日本語です</p><p>Read the documentation</p>';
+    const [japanese, english] = [...document.querySelectorAll('p')];
+    if (!japanese || !english) throw new Error('missing paragraphs');
+
+    expect(isAlreadyTargetLanguage(japanese, 'ja-easy', 'ja')).toBe(false);
+    expect(isAlreadyTargetLanguage(english, 'ja-easy', 'ja')).toBe(false);
+  });
 });

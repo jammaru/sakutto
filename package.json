@@ -1,6 +1,6 @@
 {
   "name": "sakutto",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": true,
   "description": "Local web page translation with PLaMo 3 Translate.",
   "license": "MIT",
@@ -44,7 +44,9 @@
     "bench:build:live": "node scripts/verify-wllama.mjs && node scripts/sync-pdfjs.mjs && node scripts/sync-licenses.mjs && SAKUTTO_E2E_REAL=1 wxt build",
     "bench:serve": "node scripts/bench/static.ts",
     "bench:history": "node scripts/bench/report.ts",
+    "bench:download": "node --experimental-strip-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/download-throughput.ts",
     "bench:equality": "node --experimental-strip-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/translation-equality.ts",
+    "bench:sha256": "node --experimental-strip-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/sha256-throughput.ts",
     "i18n:check": "node scripts/i18n/check-locales.mjs",
     "i18n:draft": "node scripts/i18n/generate-locale.mjs",
     "release": "node scripts/release/cli.ts",

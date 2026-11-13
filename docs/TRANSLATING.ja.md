@@ -23,6 +23,12 @@ English: [TRANSLATING.md](TRANSLATING.md)
 | `th`     | タイ語                   | PLaMo    |
 | `id`     | インドネシア語           | PLaMo    |
 
+上の表は画面の言語です。ページの訳先には、UI カタログを持たない PLaMo の「やさしい日本語」も選べます。
+
+| 訳先      | 言語           | エンジン                                        |
+| --------- | -------------- | ----------------------------------------------- |
+| `ja-easy` | やさしい日本語 | PLaMo のみ。Chrome の内蔵翻訳では生成できません |
+
 `pt_BR` だけ手書きです。PLaMo 3 Translate は `SUPPORTED_LANGUAGES` の 53 言語しか訳さず、`pt` は `CHROME_ONLY_LANGUAGES` に入っているためです。
 
 ## 言語を足す手順

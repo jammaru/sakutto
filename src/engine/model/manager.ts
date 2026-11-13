@@ -3,7 +3,12 @@ import type { BackendSelection } from '../in-browser/backend';
 import type { LlamaRuntime } from '../in-browser/runtime';
 import type { ModelState, ModelStatus } from '../../shared/engine-status';
 import { DEFAULT_MODEL_ID, MODEL_CATALOG, type ModelEntry, type ModelId } from './catalog';
-import { downloadModel, type DownloadProgress } from './download';
+import {
+  DEFAULT_CONCURRENCY,
+  DEFAULT_SEGMENT_BYTES,
+  downloadModel,
+  type DownloadProgress,
+} from './download';
 import type { ModelFileStore } from './file-store';
 import type { HashOptions } from './sha256';
 
@@ -240,6 +245,8 @@ export class ModelManager {
         finalPath: this.finalPath(modelId),
         signal,
         attempts: 3,
+        segmentBytes: DEFAULT_SEGMENT_BYTES,
+        concurrency: DEFAULT_CONCURRENCY,
         ...(this.fetchImpl ? { fetchImpl: this.fetchImpl } : {}),
         ...(this.hashBlob ? { hashBlob: this.hashBlob } : {}),
         onProgress: (progress) => {

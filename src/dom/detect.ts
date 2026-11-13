@@ -1,4 +1,4 @@
-import { canonicalChromeLanguage, canonicalLanguage } from '@/shared/languages';
+import { canonicalChromeLanguage, canonicalLanguage, isPlamoOnlyTarget } from '@/shared/languages';
 
 export function canonicalPageLanguage(tag: string | null | undefined): string | null {
   if (!tag) return null;
@@ -133,6 +133,8 @@ export function isAlreadyTargetLanguage(
   target: string,
   fallback: string | null,
 ): boolean {
+  // Easy Japanese is a different output style, not the Japanese already on the page.
+  if (isPlamoOnlyTarget(target)) return false;
   const language = languageOf(block, fallback);
   const canonicalTarget = canonicalPageLanguage(target);
   return language !== null && canonicalTarget !== null && language === canonicalTarget;

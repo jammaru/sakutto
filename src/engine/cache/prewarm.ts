@@ -1,4 +1,9 @@
-import { canonicalLanguage, isChromeOnlyLanguage } from '@/shared/languages';
+import {
+  canonicalLanguage,
+  isChromeOnlyLanguage,
+  isPlamoOnlyTarget,
+  JA_EASY_TARGET,
+} from '@/shared/languages';
 
 /** Short labels that show up on many sites. Cached once so a later visit skips inference. */
 const ENGLISH_UI = [
@@ -39,7 +44,7 @@ export interface PrewarmRequest {
 }
 
 export function prewarmRequest(target: string): PrewarmRequest | null {
-  const language = canonicalLanguage(target);
+  const language = isPlamoOnlyTarget(target) ? JA_EASY_TARGET : canonicalLanguage(target);
   if (!language || isChromeOnlyLanguage(language)) return null;
 
   const lines = language === 'en' ? JAPANESE_UI : ENGLISH_UI;

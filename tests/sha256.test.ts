@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
-import { Sha256, sha256Hex, sha256OfBlob } from '@/engine/model/sha256';
+import { describe, expect, it, vi } from 'vitest';
+import { Sha256, createSha256, sha256Hex, sha256OfBlob } from '@/engine/model/sha256';
 
 const encoder = new TextEncoder();
 
@@ -43,6 +43,53 @@ describe('SHA-256', () => {
     expect(await sha256OfBlob(blob, { chunkSize: 7 })).toBe(nodeDigest(encoder.encode(text)));
   });
 
+  it('streams the WASM core and the pure-JS fallback across arbitrary chunks', async () => {
+    const data = new Uint8Array(2 * 1024 * 1024 + 17);
+    for (let index = 0; index < data.length; index += 1) data[index] = (index * 31 + 11) % 256;
+    const expected = nodeDigest(data);
+
+    for (const preferWasm of [true, false]) {
+      const hasher = await createSha256({ preferWasm });
+      for (let offset = 0, step = 1; offset < data.length; step = (step * 7) % 65_537) {
+        const end = Math.min(offset + Math.max(1, step), data.length);
+        hasher.update(data.subarray(offset, end));
+        offset = end;
+      }
+      expect(hasher.hex(), `preferWasm=${String(preferWasm)}`).toBe(expected);
+    }
+  });
+
+  it('resets a streaming hasher without recreating it', async () => {
+    const first = encoder.encode('first message');
+    const second = encoder.encode('second message');
+    const hasher = await createSha256();
+
+    hasher.update(first);
+    hasher.reset();
+    hasher.update(second);
+
+    expect(hasher.hex()).toBe(nodeDigest(second));
+  });
+
+  it('hashes much larger chunked input with sha256OfBlob', async () => {
+    const data = new Uint8Array(1024 * 1024);
+    for (let index = 0; index < data.length; index += 1) data[index] = (index * 7 + 3) % 256;
+    const blob = new Blob([data]);
+
+    await expect(sha256OfBlob(blob, { chunkSize: 8 * 1024 })).resolves.toBe(nodeDigest(data));
+  });
+
+  it('falls back to pure JS when WebAssembly is unavailable', async () => {
+    const data = encoder.encode('fallback without wasm');
+    vi.stubGlobal('WebAssembly', undefined);
+    try {
+      const blob = new Blob([data]);
+      await expect(sha256OfBlob(blob, { chunkSize: 5 })).resolves.toBe(nodeDigest(data));
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('reports hash progress and stops when the signal aborts', async () => {
     const data = encoder.encode('x'.repeat(100));
     const blob = new Blob([data]);
@@ -69,5 +116,44 @@ describe('SHA-256', () => {
     hasher.digest();
     expect(() => hasher.update(encoder.encode('b'))).toThrow();
     expect(() => hasher.digest()).toThrow();
+  });
+});
+
+describe('ordered SHA-256 hasher', () => {
+  it('hashes through the worker protocol and resets in order', async () => {
+    const { createHasherWorker } = await import('@/engine/model/sha256-worker-core');
+    const { createOrderedSha256 } = await import('@/engine/model/sha256-worker-client');
+    type Request = Parameters<ReturnType<typeof createHasherWorker>>[0];
+    type Response = Parameters<Parameters<typeof createHasherWorker>[0]['postMessage']>[0];
+
+    class LoopbackWorker {
+      onmessage: ((event: MessageEvent<Response>) => void) | null = null;
+      onerror: ((event: ErrorEvent) => void) | null = null;
+      private readonly handle = createHasherWorker({
+        postMessage: (message: Response) => {
+          queueMicrotask(() => this.onmessage?.({ data: message } as MessageEvent<Response>));
+        },
+      });
+
+      postMessage(message: Request): void {
+        queueMicrotask(() => this.handle(message));
+      }
+
+      terminate(): void {}
+    }
+
+    const first = new TextEncoder().encode('first message');
+    const second = new TextEncoder().encode('second message');
+    const hasher = await createOrderedSha256({ workerFactory: () => new LoopbackWorker() });
+
+    hasher.update(first);
+    hasher.reset();
+    hasher.update(second);
+    await expect(hasher.digest()).resolves.toEqual({
+      hex: nodeDigest(second),
+      bytes: second.length,
+    });
+
+    hasher.dispose();
   });
 });

@@ -77,8 +77,8 @@ export function buildTranslationPrompt(input: PromptInput): string {
   const text = checkText(input.text, 'text');
   const tgt = checkLanguageTag(input.tgt, 'target_lang');
 
-  if (input.form !== undefined && tgt !== 'ja') {
-    throw new EngineError('invalid-input', 'form requires target_lang ja.');
+  if (input.form !== undefined && tgt !== 'ja' && tgt !== 'ja-easy') {
+    throw new EngineError('invalid-input', 'form requires target_lang ja or ja-easy.');
   }
 
   let prompt = `${PFML3.tag}dataset${PFML3.msg}translation`;

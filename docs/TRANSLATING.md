@@ -24,6 +24,13 @@ Adding a language is a copy-only change: no TypeScript, no build flag, and no ne
 | `th`    | Thai                 | PLaMo  |
 | `id`    | Indonesian           | PLaMo  |
 
+The catalogs above are UI languages. A page can also be translated into PLaMo's Easy Japanese
+output style, which has no UI catalog of its own:
+
+| Target    | Language      | Engine                                                     |
+| --------- | ------------- | ---------------------------------------------------------- |
+| `ja-easy` | Easy Japanese | PLaMo only; Chrome's built-in translator cannot produce it |
+
 `pt_BR` is written by hand because PLaMo 3 Translate does not support Portuguese. It translates
 only the 53 languages in `SUPPORTED_LANGUAGES`, and `pt` is one of the Chrome-only languages in
 `CHROME_ONLY_LANGUAGES`.

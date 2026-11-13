@@ -448,6 +448,18 @@ describe('settings defaults', () => {
     );
   });
 
+  it('keeps Easy Japanese as a saved target', () => {
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'ja-easy',
+        },
+        'en-US',
+      ).targetLanguage,
+    ).toBe('ja-easy');
+  });
+
   it('keeps a 5000-entry glossary when repairing other settings', () => {
     const glossary = Array.from({ length: MAX_GLOSSARY_ENTRIES }, (_, index) => ({
       source: `term-${String(index)}`,

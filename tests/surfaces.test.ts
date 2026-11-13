@@ -33,6 +33,10 @@ describe('start controls while the model downloads', () => {
     expect(onboarding).toContain('onclick={close}');
   });
 
+  it('keeps the cancel control visible while verifying', () => {
+    expect(modelManager).toMatch(/downloading \|\| verifying[\s\S]{0,800}downloadCancel/);
+  });
+
   it('does not offer a download button for a model that is already loading', () => {
     // `loading` means the file is on disk and the runtime is reading it: a Download control
     // there is a start action for work that is already running.
@@ -295,6 +299,45 @@ describe('local server settings', () => {
     expect(source('dom/session.ts')).not.toContain(
       "this.prefs.engineSource === 'local-server' ? 1",
     );
+  });
+
+  it('calls permissions.request as the first await when confirming the local server', () => {
+    const permissions = source('engine/local-server/permissions.ts');
+    const requestStart = permissions.indexOf('export async function requestServerPermission');
+    const requestEnd = permissions.indexOf('export type EngineSourceSwitchResult');
+    const requestBody = permissions.slice(requestStart, requestEnd);
+    expect(requestBody).toContain('permissions.request({ origins: [origin] })');
+    expect(requestBody).toContain('primaryOriginPattern');
+    expect(requestBody).not.toMatch(/contains/);
+    expect(requestBody).not.toContain('originPatternsFor');
+
+    const switchStart = permissions.indexOf('export async function resolveEngineSourceSwitch');
+    const switchBody = permissions.slice(switchStart);
+    const beforeRequest = switchBody.slice(0, switchBody.indexOf('await request('));
+    expect(beforeRequest).not.toMatch(/\bawait\b/);
+
+    expect(panel).toContain('resolveEngineSourceSwitch');
+    const applyStart = panel.indexOf('async function applySource');
+    const applyEnd = panel.indexOf('function chooseSource');
+    const applyBody = panel.slice(applyStart, applyEnd);
+    const beforeSwitch = applyBody.slice(0, applyBody.indexOf('await resolveEngineSourceSwitch'));
+    expect(beforeSwitch).not.toMatch(/\bawait\b/);
+    expect(applyBody).toContain('result.denied');
+    expect(applyBody).toContain('syncEngineSourceRadios(settings.engineSource');
+    expect(panel).toContain('bind:this={builtinRadio}');
+    expect(panel).toContain('bind:this={localRadio}');
+
+    const confirmStart = panel.indexOf('function useLocalServer');
+    const confirmEnd = panel.indexOf('async function changeUrl');
+    const confirmBody = panel.slice(confirmStart, confirmEnd);
+    expect(confirmBody).toContain("void applySource('local-server', true)");
+    expect(confirmBody).not.toMatch(/\bawait\b/);
+  });
+
+  it('shows a permission denial on the engine radio when the switch did not stick', () => {
+    expect(panel).toContain('permissionDenied && !local');
+    expect(panel).toContain("t('localServerPermissionDenied')");
+    expect(panel).toContain('role="alert"');
   });
 });
 

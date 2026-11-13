@@ -514,6 +514,12 @@
   "chromeOnlySuffix": {
     "message": "(ในตัว Chrome)"
   },
+  "jaEasyName": {
+    "message": "ภาษาญี่ปุ่นง่าย"
+  },
+  "plamoOnlySuffix": {
+    "message": " (PLaMo)"
+  },
   "onboardingStartNotice": {
     "message": "การกด \"ตกลงยอมรับใบอนุญาตและเริ่มต้น\" หมายความว่าคุณตกลงยอมรับใบอนุญาต PLaMo Community License ทั้งหมด"
   },
@@ -656,6 +662,9 @@
   },
   "modelDownload": {
     "message": "ดาวน์โหลด"
+  },
+  "modelVerifying": {
+    "message": "กำลังตรวจสอบไฟล์ที่ดาวน์โหลด…"
   },
   "modelDelete": {
     "message": "ลบ"

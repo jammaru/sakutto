@@ -139,6 +139,8 @@ describe('Firefox manifest', () => {
       'contextMenus',
     ]);
     expect(firefoxManifest.permissions).not.toContain('offscreen');
+    expect(firefoxManifest.optional_host_permissions).toEqual(['https://*/*', 'http://*/*']);
+    expect(firefoxManifest).not.toHaveProperty('optional_permissions');
     expect(firefoxManifest).not.toHaveProperty('minimum_chrome_version');
     expect(firefoxManifest).not.toHaveProperty('cross_origin_embedder_policy');
     expect(firefoxManifest).not.toHaveProperty('cross_origin_opener_policy');

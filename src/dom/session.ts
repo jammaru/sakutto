@@ -20,6 +20,7 @@ import { glossaryKey, mergeGlossary } from '@/shared/glossary';
 import {
   chooseTargetLanguage,
   effectivePageTarget,
+  isPlamoOnlyTarget,
   isTargetLanguage,
   type TargetLanguage,
 } from '@/shared/languages';
@@ -522,6 +523,7 @@ export class PageSession {
         this.active &&
         tracked.length === 0 &&
         pageLanguage !== null &&
+        !isPlamoOnlyTarget(this.prefs.targetLanguage) &&
         pageLanguage === canonicalPageLanguage(this.prefs.targetLanguage),
       tokensPerSecond: rates.tokensPerSecond,
       segmentsPerSecond: rates.segmentsPerSecond,
@@ -907,7 +909,14 @@ export class PageSession {
     if (!model) {
       // A container whose only text belongs to nested blocks is covered by those blocks.
       // Reporting it would turn every page with a menu or a form into a partial result.
-      if (ownProse(block, canonicalPageLanguage(this.prefs.targetLanguage))) {
+      if (
+        ownProse(
+          block,
+          isPlamoOnlyTarget(this.prefs.targetLanguage)
+            ? null
+            : canonicalPageLanguage(this.prefs.targetLanguage),
+        )
+      ) {
         this.skippedBlocks.set(block, block.textContent ?? '');
       }
       return;
@@ -1619,7 +1628,9 @@ export class PageSession {
   private retranslate(): void {
     this.invalidatePaints();
     this.abortRunning(false);
-    const target = canonicalPageLanguage(this.prefs.targetLanguage);
+    const target = isPlamoOnlyTarget(this.prefs.targetLanguage)
+      ? null
+      : canonicalPageLanguage(this.prefs.targetLanguage);
     for (const item of [...this.live.values()]) {
       if (item.role !== 'page') continue;
       if (item.lang && target && item.lang === target) {

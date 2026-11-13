@@ -2,6 +2,19 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
+## Unreleased
+
+### Features
+
+- Add Easy Japanese (やさしい日本語, `ja-easy`) as a PLaMo-only target language, so a page already in Japanese can still be translated into simpler Japanese. Chrome's built-in translator is not used for this target. (#79)
+
+## [1.4.1] - 2026-11-13
+
+### Bug Fixes
+
+- Hidden characters in page text no longer break translation or fill the page with junk. Regional flag emoji now get enough space. If a translation is cut off because it ran out of room, Sakutto keeps the original text instead of showing a half-finished sentence. (#74)
+- On Firefox, choosing Local server in Settings now switches the engine. If the browser does not grant access to that address, a message appears and Built-in stays selected. (#76)
+
 ## [1.4.0] - 2026-11-12
 
 ### Features

@@ -1,4 +1,4 @@
-import { canonicalLanguage } from '@/shared/languages';
+import { canonicalLanguage, isPlamoOnlyTarget, JA_EASY_TARGET } from '@/shared/languages';
 import { sha256Hex } from '../model/sha256';
 import { sanitizeGlossary } from '../prompt/pfml3';
 import { sanitizeTranslationInput } from '../text/sanitize';
@@ -31,6 +31,8 @@ export function glossaryVersion(glossary: readonly GlossaryEntry[] | undefined):
 
 function languagePart(value: string | undefined): string {
   if (!value || value.trim().length === 0) return 'auto';
+  // Easy Japanese must stay distinct from its Japanese source in the cache.
+  if (isPlamoOnlyTarget(value)) return JA_EASY_TARGET;
   return canonicalLanguage(value) ?? value.trim().toLowerCase();
 }
 

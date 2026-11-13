@@ -514,6 +514,12 @@
   "chromeOnlySuffix": {
     "message": "(Intégré à Chrome)"
   },
+  "jaEasyName": {
+    "message": "Japonais simple"
+  },
+  "plamoOnlySuffix": {
+    "message": " (PLaMo)"
+  },
   "onboardingStartNotice": {
     "message": "En cliquant sur « Accepter la licence et commencer », vous acceptez l'intégralité de la licence communautaire PLaMo."
   },
@@ -656,6 +662,9 @@
   },
   "modelDownload": {
     "message": "Télécharger"
+  },
+  "modelVerifying": {
+    "message": "Vérification du fichier téléchargé…"
   },
   "modelDelete": {
     "message": "Supprimer"
