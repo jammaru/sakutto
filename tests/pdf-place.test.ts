@@ -355,19 +355,19 @@ describe('placePage', () => {
   });
 
   it('paints a mid-line fragment beside a wide cover on the same row', () => {
-    const lineAt = (
-      box: { x: number; y: number; width: number; height: number },
-      text: string,
-    ) => ({
-      text,
-      box,
-      baseline: box.y + box.height * 0.8,
-      pieces: [],
-    });
+    const em = 12;
+    const baseline = 100 + em * 0.8;
+    const wideLines = groupLines([
+      piece('Synthetic opening text.', 40, baseline, 240, { em }),
+    ]);
+    const fragLines = groupLines([piece('tail phrase.', 200, baseline, 72, { em })]);
+    const wideLine = wideLines[0];
+    const fragLine = fragLines[0];
+    if (!wideLine || !fragLine) throw new Error('expected synthetic lines');
     const wide = {
       box: { x: 40, y: 100, width: 240, height: 12 },
       room: { x: 40, y: 100, width: 240, height: 12 },
-      lines: [lineAt({ x: 40, y: 100, width: 240, height: 12 }, 'Synthetic opening text.')],
+      lines: wideLines,
       text: 'Synthetic opening text.',
       role: 'prose' as const,
       fontSize: 10,
@@ -382,7 +382,7 @@ describe('placePage', () => {
     const fragment = {
       box: { x: 200, y: 100, width: 72, height: 12 },
       room: { x: 200, y: 100, width: 72, height: 12 },
-      lines: [lineAt({ x: 200, y: 100, width: 72, height: 12 }, 'tail phrase.')],
+      lines: fragLines,
       text: 'tail phrase.',
       role: 'prose' as const,
       fontSize: 10,
