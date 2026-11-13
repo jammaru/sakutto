@@ -56,8 +56,10 @@ interface ContentRange {
 
 const DEFAULT_ATTEMPTS = 3;
 const DEFAULT_RETRY_DELAY_MS = 500;
-const DEFAULT_SEGMENT_BYTES = 4 * 1024 * 1024;
-const DEFAULT_CONCURRENCY = 6;
+/** Bytes per ranged request. Shared with the model manager and benchmark. */
+export const DEFAULT_SEGMENT_BYTES = 4 * 1024 * 1024;
+/** Maximum number of ranged requests in flight. Shared with the model manager and benchmark. */
+export const DEFAULT_CONCURRENCY = 6;
 // Four progress updates per second keep the UI smooth without flooding the offscreen channel.
 const PROGRESS_INTERVAL_MS = 250;
 
@@ -151,6 +153,11 @@ function validateSegment(response: Response, segment: DownloadSegment, size: num
       retryable: false,
     });
   }
+  if (range.end !== segment.end - 1) {
+    throw new EngineError('download-failed', 'The server returned the wrong byte range.', {
+      retryable: false,
+    });
+  }
   if (range.total !== null && range.total !== size) {
     throw new EngineError(
       'download-failed',
@@ -171,19 +178,21 @@ function statusError(response: Response): EngineError {
 function progressReporter(
   request: DownloadRequest,
   resumedFrom: number,
+  progressFloor = resumedFrom,
 ): (received: number, force?: boolean) => void {
   let lastReportedAt = Date.now();
-  let lastReportedBytes = resumedFrom;
+  let lastReportedBytes = progressFloor;
 
   return (received: number, force = false): void => {
+    const shown = Math.max(received, progressFloor);
     const now = Date.now();
     if (!force) {
       if (now - lastReportedAt < PROGRESS_INTERVAL_MS) return;
-      if (received === lastReportedBytes) return;
+      if (shown === lastReportedBytes) return;
     }
     lastReportedAt = now;
-    lastReportedBytes = received;
-    emitProgress(request, progressOf(received, request.source.size, resumedFrom, 'download'));
+    lastReportedBytes = shown;
+    emitProgress(request, progressOf(shown, request.source.size, resumedFrom, 'download'));
   };
 }
 
@@ -199,6 +208,11 @@ async function readSegment(
   const reader = response.body.getReader();
   const data = new Uint8Array(length);
   let filled = 0;
+  const cancelReader = (): void => {
+    void reader.cancel().catch(() => undefined);
+  };
+  if (signal.aborted) cancelReader();
+  else signal.addEventListener('abort', cancelReader, { once: true });
 
   try {
     while (filled < length) {
@@ -216,6 +230,7 @@ async function readSegment(
       filled += value.byteLength;
     }
   } finally {
+    signal.removeEventListener('abort', cancelReader);
     if (filled === length) await reader.cancel().catch(() => undefined);
     reader.releaseLock();
   }
@@ -245,9 +260,11 @@ async function transfer(request: DownloadRequest, fetchImpl: typeof fetch): Prom
   if (offset === source.size) return resumedFrom;
 
   const firstEnd = Math.min(offset + segmentSize(request.segmentBytes), source.size);
+  const stop = new AbortController();
+  const combined = AbortSignal.any([signal, stop.signal]);
   const response = await fetchImpl(source.url, {
     headers: { Range: `bytes=${String(offset)}-${String(firstEnd - 1)}` },
-    signal,
+    signal: combined,
     cache: 'no-store',
     redirect: 'follow',
   });
@@ -266,21 +283,36 @@ async function transfer(request: DownloadRequest, fetchImpl: typeof fetch): Prom
   if (response.status !== 206) throw statusError(response);
 
   try {
-    return await transferSegments(request, fetchImpl, response, offset, resumedFrom);
+    return await transferSegments(
+      request,
+      fetchImpl,
+      response,
+      offset,
+      resumedFrom,
+      stop,
+      combined,
+    );
   } catch (error) {
     if (isAbortError(error) || signal.aborted) throw abortError();
     if (!(error instanceof SegmentRangeIgnoredError)) throw error;
 
-    // One of the later segments came back as a full 200 body. Drop what the ranged workers
-    // wrote and restart with the plain single-stream path, which is the safest fallback.
-    await store.remove(partPath);
-    emitProgress(request, progressOf(0, source.size, resumedFrom, 'download'));
+    // One of the later segments came back as a full 200 body. Keep the already valid prefix
+    // while the plain single-stream path overwrites it from the start, so progress does not
+    // rewind and an interrupted fallback can still resume.
     const fallback = await fetchImpl(source.url, {
       signal,
       cache: 'no-store',
       redirect: 'follow',
     });
-    return transferSingle(request, fallback, 0, resumedFrom);
+    const preserved = await store.size(partPath);
+    return transferSingle(
+      request,
+      fallback,
+      0,
+      resumedFrom,
+      true,
+      Math.max(resumedFrom, preserved),
+    );
   }
 }
 
@@ -289,9 +321,12 @@ async function transferSingle(
   response: Response,
   initialOffset: number,
   resumedFrom: number,
+  preserveExisting = false,
+  progressFloor = resumedFrom,
 ): Promise<number> {
   const { source, store, partPath, signal } = request;
   let offset = initialOffset;
+  let keepExistingData = preserveExisting;
 
   if (response.status === 416) {
     await store.remove(partPath);
@@ -303,9 +338,10 @@ async function transferSingle(
   if (response.status !== 200 && response.status !== 206) throw statusError(response);
 
   if (response.status === 200 && offset > 0) {
-    await store.remove(partPath);
+    // The server ignored Range and sent the whole file. Overwrite from the start but keep the
+    // old valid bytes behind the new prefix, so a cancel or retry does not lose the resume point.
     offset = 0;
-    emitProgress(request, progressOf(offset, source.size, resumedFrom, 'download'));
+    keepExistingData = true;
   }
 
   if (!response.body) {
@@ -313,8 +349,12 @@ async function transferSingle(
   }
 
   const reader = response.body.getReader();
-  const writer = await store.createWriter(partPath, offset);
-  const report = progressReporter(request, resumedFrom);
+  const writer = await store.createWriter(
+    partPath,
+    offset,
+    keepExistingData ? { keepExistingData: true } : undefined,
+  );
+  const report = progressReporter(request, resumedFrom, progressFloor);
   let writerClosed = false;
   let received = offset;
 
@@ -365,8 +405,10 @@ async function transferSegments(
   firstResponse: Response,
   initialOffset: number,
   resumedFrom: number,
+  stop: AbortController,
+  combined: AbortSignal,
 ): Promise<number> {
-  const { source, store, partPath, signal } = request;
+  const { source, store, partPath } = request;
   const attempts = Math.max(1, request.attempts ?? DEFAULT_ATTEMPTS);
   const retryDelay = Math.max(0, request.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS);
   const segments = segmentsOf(initialOffset, source.size, segmentSize(request.segmentBytes));
@@ -374,16 +416,21 @@ async function transferSegments(
   if (!firstSegment) return resumedFrom;
   validateSegment(firstResponse, firstSegment, source.size);
 
-  const resolvedUrl = firstResponse.url || source.url;
-  const stop = new AbortController();
-  const combined = AbortSignal.any([signal, stop.signal]);
+  let resolvedUrl = firstResponse.url || source.url;
+  let refreshedUrl = false;
+  let refreshTask: Promise<{ url: string; response: Response; owner: number }> | null = null;
+
   const writer = await store.createWriter(partPath, initialOffset);
   const report = progressReporter(request, resumedFrom);
+  const maxBuffered = concurrencyOf(request.concurrency);
 
+  let buffered = 0;
   let received = initialOffset;
   let nextWrite = 0;
   const ready = new Map<number, Uint8Array>();
+  const slotWaiters = new Set<() => void>();
   let wakeWriter: (() => void) | null = null;
+
   const notifyWriter = (): void => {
     const wake = wakeWriter;
     wakeWriter = null;
@@ -399,6 +446,29 @@ async function transferSegments(
       wakeWriter = done;
       combined.addEventListener('abort', done, { once: true });
     });
+  const wakeSlotWaiters = (): void => {
+    for (const wake of [...slotWaiters]) wake();
+  };
+  const releaseSlot = (wake = true): void => {
+    if (buffered > 0) buffered -= 1;
+    if (wake) wakeSlotWaiters();
+  };
+  const acquireSlot = async (): Promise<void> => {
+    while (buffered >= maxBuffered) {
+      throwIfAborted(combined);
+      await new Promise<void>((resolve) => {
+        const done = (): void => {
+          slotWaiters.delete(done);
+          combined.removeEventListener('abort', done);
+          resolve();
+        };
+        slotWaiters.add(done);
+        combined.addEventListener('abort', done, { once: true });
+      });
+    }
+    throwIfAborted(combined);
+    buffered += 1;
+  };
 
   const writerLoop = async (): Promise<void> => {
     while (nextWrite < segments.length) {
@@ -413,25 +483,61 @@ async function transferSegments(
       await writer.write(block);
       received += block.byteLength;
       nextWrite += 1;
+      releaseSlot();
       report(received);
     }
   };
 
+  const refreshResolvedUrl = (
+    owner: number,
+    segment: DownloadSegment,
+  ): Promise<{ url: string; response: Response; owner: number }> => {
+    if (!refreshTask) {
+      refreshedUrl = true;
+      refreshTask = (async () => {
+        const response = await fetchImpl(source.url, {
+          headers: { Range: `bytes=${String(segment.start)}-${String(segment.end - 1)}` },
+          signal: combined,
+          cache: 'no-store',
+          redirect: 'follow',
+        });
+
+        if (response.status === 200) {
+          await response.body?.cancel().catch(() => undefined);
+          throw new SegmentRangeIgnoredError();
+        }
+        if (response.status === 416) {
+          throw new EngineError('download-failed', 'The server rejected the segment range.', {
+            retryable: false,
+          });
+        }
+        if (response.status !== 206) throw statusError(response);
+
+        validateSegment(response, segment, source.size);
+        return { url: response.url || source.url, response, owner };
+      })();
+    }
+    return refreshTask;
+  };
+
   const fetchSegment = async (
+    index: number,
     segment: DownloadSegment,
     first: Response | undefined,
   ): Promise<Uint8Array> => {
     let candidate = first;
     let lastError: unknown;
+    let attempt = 1;
 
-    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    while (attempt <= attempts) {
       throwIfAborted(combined);
       let active: Response | undefined;
 
       try {
-        const response =
+        const requestedUrl = resolvedUrl;
+        let response =
           candidate ??
-          (await fetchImpl(resolvedUrl, {
+          (await fetchImpl(requestedUrl, {
             headers: { Range: `bytes=${String(segment.start)}-${String(segment.end - 1)}` },
             signal: combined,
             cache: 'no-store',
@@ -439,6 +545,25 @@ async function transferSegments(
           }));
         candidate = undefined;
         active = response;
+
+        if (response.status === 401 || response.status === 403 || response.status === 410) {
+          await response.body?.cancel().catch(() => undefined);
+
+          if (!refreshedUrl) {
+            const refresh = await refreshResolvedUrl(index, segment);
+            resolvedUrl = refresh.url;
+            if (refresh.owner !== index) continue;
+
+            response = refresh.response;
+            active = response;
+          } else {
+            // A sibling already refreshed the URL. Requests sent with the stale URL may retry
+            // once against the new one; a request that already used the new URL gives up.
+            if (refreshTask) resolvedUrl = (await refreshTask).url;
+            if (requestedUrl !== resolvedUrl) continue;
+            throw statusError(response);
+          }
+        }
 
         if (response.status === 200) throw new SegmentRangeIgnoredError();
         if (response.status === 416) {
@@ -463,6 +588,7 @@ async function transferSegments(
         lastError = error;
         if (attempt === attempts) break;
         await delay(retryDelay * attempt, combined);
+        attempt += 1;
       }
     }
 
@@ -477,15 +603,25 @@ async function transferSegments(
   const worker = async (): Promise<void> => {
     while (true) {
       throwIfAborted(combined);
+      await acquireSlot();
+
       const index = nextSegment;
       nextSegment += 1;
       const segment = segments[index];
-      if (!segment) return;
+      if (!segment) {
+        releaseSlot();
+        return;
+      }
 
-      const data = await fetchSegment(segment, index === 0 ? firstResponse : undefined);
-      throwIfAborted(combined);
-      ready.set(index, data);
-      notifyWriter();
+      try {
+        const data = await fetchSegment(index, segment, index === 0 ? firstResponse : undefined);
+        throwIfAborted(combined);
+        ready.set(index, data);
+        notifyWriter();
+      } catch (error) {
+        releaseSlot(false);
+        throw error;
+      }
     }
   };
 

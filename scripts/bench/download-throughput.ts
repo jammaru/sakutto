@@ -14,7 +14,12 @@
 import { createHash } from 'node:crypto';
 import { createServer, type Server, type ServerResponse } from 'node:http';
 
-import { downloadModel, type DownloadSource } from '../../src/engine/model/download.ts';
+import {
+  DEFAULT_CONCURRENCY,
+  DEFAULT_SEGMENT_BYTES,
+  downloadModel,
+  type DownloadSource,
+} from '../../src/engine/model/download.ts';
 import type {
   ModelFileStore,
   ModelFileWriter,
@@ -254,8 +259,8 @@ function readOptions(): BenchOptions {
   return {
     sizeMb: numberArg('--size-mb', 32),
     rateMb: numberArg('--rate-mb', 8),
-    concurrency: numberArg('--concurrency', 6),
-    segmentMb: numberArg('--segment-mb', 4),
+    concurrency: numberArg('--concurrency', DEFAULT_CONCURRENCY),
+    segmentMb: numberArg('--segment-mb', DEFAULT_SEGMENT_BYTES / (1024 * 1024)),
     runs: numberArg('--runs', 1),
     range: !has('--no-range'),
     redirect: !has('--no-redirect'),
