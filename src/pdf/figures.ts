@@ -226,10 +226,14 @@ export function figureAreas(
     images.push(flip(rect, pageHeight));
   }
 
-  const clusters = [...figureClusters(paths), ...shrinkFormsToPaths(forms, paths)]
-    .map((box) => withoutCaptionLines(box, lines))
-    .filter((box) => isPlausibleFigure(box, pageWidth, pageHeight) && !coversMostText(box, lines));
-  const pictures = [...images, ...clusters].map((box) => withoutCaptionLines(box, lines));
+  // Decide whether a cluster is a figure from the drawing it actually paints. Shrinking a
+  // caption off the box first made a column-spanning cluster look small enough to accept; the
+  // right column's body text then sat inside the shrunken area and was classified as labels.
+  const raw = [...figureClusters(paths), ...shrinkFormsToPaths(forms, paths)];
+  const clusters = raw
+    .filter((box) => isPlausibleFigure(box, pageWidth, pageHeight) && !coversMostText(box, lines))
+    .map((box) => withoutCaptionLines(box, lines));
+  const pictures = [...images.map((box) => withoutCaptionLines(box, lines)), ...clusters];
   return { images: mergeContained(pictures) };
 }
 

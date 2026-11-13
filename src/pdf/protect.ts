@@ -120,11 +120,16 @@ function mathRuns(pieces: readonly TextPiece[], lineHeight: number): PieceRun[] 
   return runs;
 }
 
+const ORDINAL_SUFFIX = /^(?:st|nd|rd|th)$/iu;
+
 function kindOf(piece: TextPiece, lineHeight: number): 'math' | 'op' | 'var' | 'text' {
   const text = piece.text.trim();
   if (text.length === 0) return 'text';
   if (piece.math) return 'math';
   if (OPERATOR.test(text)) return 'op';
+  // `150th` draws its suffix smaller, but it is punctuation on a number, not a subscript.
+  // Protecting it split the word into two fake-engine markers and made the caption overflow.
+  if (ORDINAL_SUFFIX.test(text)) return 'text';
   if (piece.italic && text.length <= 2 && /^\p{L}+$/u.test(text)) return 'var';
   // A subscript is set smaller than the line: `S_t` draws `t` at ~70% of the em.
   if (
@@ -141,9 +146,11 @@ function kindOf(piece: TextPiece, lineHeight: number): 'math' | 'op' | 'var' | '
 function isFormulaRun(pieces: readonly TextPiece[], lineHeight: number): boolean {
   const joined = pieces.map((piece) => piece.text).join('');
   if (joined.trim().length === 0) return false;
-  // A hyphen inside `F-score` is word punctuation, not a formula. Protecting it made the
-  // model treat one word as two fragments and the restored translation overflow its box.
+  // A hyphen inside `F-score` or the period after `Table 3` is word punctuation, not a
+  // formula. Protecting it made the model treat one word as two fragments and the restored
+  // translation overflow its box.
   if (/^[\u002d\u2010\u2011\u2012\u2013\u2014\u2212]+$/u.test(joined.trim())) return false;
+  if (/^[.,;:!?]+$/u.test(joined.trim())) return false;
   return pieces.some((piece) => {
     const kind = kindOf(piece, lineHeight);
     return kind === 'math' || kind === 'op' || (kind === 'var' && piece.size < lineHeight * 0.78);

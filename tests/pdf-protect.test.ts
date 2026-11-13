@@ -115,6 +115,34 @@ describe('protectInlineMath', () => {
     expect(protectedText.text).toContain('F-score');
   });
 
+  it('does not protect an ordinal suffix as a subscript', () => {
+    const lines = groupLines([
+      piece('Table 3. Selection at the 150', 40, 100, 140),
+      piece('th', 180, 98, 8, { size: 6 }),
+      piece(' iteration', 188, 100, 40),
+    ]);
+    const layout = layoutPage(lines);
+    const block = layout.blocks[0];
+    if (!block) throw new Error('expected a block');
+    const protectedText = protectInlineMath(block);
+    expect(protectedText.slots).toEqual([]);
+    expect(protectedText.text).toContain('150th');
+  });
+
+  it('does not protect sentence punctuation as inline mathematics', () => {
+    const lines = groupLines([
+      piece('Table 3', 40, 100, 50),
+      piece('.', 90, 100, 3),
+      piece(' Percentage of the selected configuration', 93, 100, 220),
+    ]);
+    const layout = layoutPage(lines);
+    const block = layout.blocks[0];
+    if (!block) throw new Error('expected a block');
+    const protectedText = protectInlineMath(block);
+    expect(protectedText.slots).toEqual([]);
+    expect(protectedText.text).toContain('Table 3.');
+  });
+
   it('leaves a sentence with no mathematics unchanged', () => {
     const lines = groupLines([
       piece('The collector walks the document rather than selecting tags.', 40, 100, 400),

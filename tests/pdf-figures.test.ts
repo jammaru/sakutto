@@ -177,6 +177,40 @@ describe('figure cluster caps', () => {
     expect(layout.skipped.some((block) => block.role === 'figure-label')).toBe(false);
   });
 
+  it('rejects a column-spanning path cluster before caption shrinking', () => {
+    const fnArray: number[] = [];
+    const argsArray: unknown[][] = [];
+    for (let index = 0; index < 6; index += 1) {
+      fnArray.push(OPS.constructPath, OPS.fill);
+      argsArray.push(path(40 + index, 400, 510, 200), []);
+    }
+    const lines = groupLines([
+      piece('Left column prose line one stays translatable.', 50, 230, 240),
+      piece('Left column prose line two stays translatable.', 50, 250, 240),
+      piece('Right column prose line one must stay translatable.', 320, 270, 240),
+      piece('Right column prose line two must stay translatable.', 320, 290, 240),
+      piece('Right column prose line three must stay translatable.', 320, 310, 240),
+      piece('Right column prose line four must stay translatable.', 320, 330, 240),
+      piece('Figure 1: Caption under the wide drawing.', 40, 350, 300),
+      piece('Lower right prose line one stays translatable.', 320, 360, 240),
+      piece('Lower right prose line two stays translatable.', 320, 370, 240),
+      piece('Lower right prose line three stays translatable.', 320, 380, 240),
+      piece('Lower right prose line four stays translatable.', 320, 390, 240),
+      piece('Lower right prose line five stays translatable.', 320, 400, 240),
+    ]);
+    const areas = figureAreas({ fnArray, argsArray }, OPS, 800, 600, lines);
+    const layout = layoutPage(lines, areas, { width: 600, height: 800 });
+    expect(layout.blocks.some((block) => block.text.includes('Right column prose line one'))).toBe(
+      true,
+    );
+    expect(
+      layout.skipped.some(
+        (block) =>
+          block.role === 'figure-label' && block.text.includes('Right column prose line one'),
+      ),
+    ).toBe(false);
+  });
+
   it('does not treat a page frame as a figure, so a title stays a heading', () => {
     const lines = groupLines([
       piece('Fitting Translated Text Into a Page Layout', 40, 80, 420, { em: 16, bold: true }),

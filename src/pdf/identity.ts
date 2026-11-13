@@ -19,6 +19,9 @@ const SECTION_HEADING =
 
 const BYLINE_LABEL = /^(?:Authors?|Affiliations?|E-?mails?)\s*:?\s*$/iu;
 
+/** A superscript marker or membership role that only appears in a paper's author line. */
+const AUTHOR_MARK = /[*†‡§¶⁎∗]|\b(?:Non)?members?\b/iu;
+
 /** Function words that belong in a title, not in a person's name. */
 const TITLE_STOP =
   /^(?:The|A|An|Is|Are|Was|Were|For|Of|To|In|On|With|From|By|Or|Not|All|You|We|This|That|These|Those|How|What|Why|When|Where)\b/u;
@@ -43,6 +46,16 @@ export function isSectionHeading(text: string): boolean {
 /** True when a block is an Author / Affiliation / Email label rather than a heading. */
 export function isBylineLabel(text: string): boolean {
   return BYLINE_LABEL.test(text.trim());
+}
+
+/**
+ * True when a name line carries an author marker, such as a superscript or a membership role.
+ * A title does not carry those markers, so it stays a translated heading on any page.
+ */
+export function isMarkedAuthorLine(text: string): boolean {
+  const trimmed = text.trim();
+  if (!AUTHOR_MARK.test(trimmed)) return false;
+  return isIdentityText(trimmed);
 }
 
 /**

@@ -1,6 +1,6 @@
 import { CJK_MAJORITY, cjkRatio } from './fonts';
 import { intersectionArea, unionBox, type Box } from './geometry';
-import type { PageLayout } from './layout';
+import type { LayoutBlock, PageLayout } from './layout';
 import { OVERLAP_AREA, overlapRegion, type PlacedBlock } from './place';
 
 /**
@@ -93,6 +93,38 @@ const COVERAGE_ROLES = new Set(['prose', 'heading', 'caption', 'cell']);
 /** Every role the reader will try to paint, including short labels. */
 const PAINTED_ROLES = new Set(['prose', 'heading', 'caption', 'cell', 'label']);
 
+const PROSE_WORD = /\p{L}{3,}/gu;
+const ENGLISH_WORD = /\b[A-Za-z]{3,}\b/gu;
+/** Roles whose text is genuinely not prose, even when it contains whole words. */
+const NON_PROSE_ROLES = new Set(['code', 'equation', 'furniture', 'identity']);
+
+/**
+ * True when a skipped block reads as prose rather than as notation or a short label.
+ *
+ * A skipped block is not in `layout.blocks`, so before this it disappeared from the coverage
+ * denominator entirely: a paragraph misclassified as a figure label looked like a page with
+ * nothing to translate. Counting its source text makes that mistake fail instead of hiding.
+ */
+function isProseLike(text: string): boolean {
+  return (text.match(PROSE_WORD)?.length ?? 0) >= 3 || (text.match(ENGLISH_WORD)?.length ?? 0) >= 8;
+}
+
+/** True when every line of a label sits inside a drawing, where leaving it alone is correct. */
+function insideFigureArea(block: LayoutBlock, layout: PageLayout): boolean {
+  if (block.lines.length === 0) return false;
+  return block.lines.every((line) => {
+    const centreX = line.box.x + line.box.width / 2;
+    const centreY = line.box.y + line.box.height / 2;
+    return (layout.obstacles ?? []).some(
+      (area) =>
+        centreX >= area.x &&
+        centreX <= area.x + area.width &&
+        centreY >= area.y &&
+        centreY <= area.y + area.height,
+    );
+  });
+}
+
 export function pageMetrics(
   layout: PageLayout,
   placed: readonly PlacedBlock[],
@@ -120,15 +152,21 @@ export function pageMetrics(
     .map((entry) => entry.fit?.fontSize ?? null)
     .filter((size): size is number => size !== null);
 
-  const translatable = layout.blocks.filter((block) => COVERAGE_ROLES.has(block.role));
+  const translatable = [
+    ...layout.blocks.filter((block) => COVERAGE_ROLES.has(block.role)),
+    ...layout.skipped.filter(
+      (block) =>
+        !NON_PROSE_ROLES.has(block.role) &&
+        !(block.role === 'figure-label' && insideFigureArea(block, layout)) &&
+        isProseLike(block.text),
+    ),
+  ];
   const paintedProse = placed.filter(
     (entry) => entry.paint && COVERAGE_ROLES.has(entry.block.role),
   ).length;
   const paintedProseOnly = placed.filter(
     (entry) =>
-      entry.paint &&
-      COVERAGE_ROLES.has(entry.block.role) &&
-      entry.translation.trim().length > 0,
+      entry.paint && COVERAGE_ROLES.has(entry.block.role) && entry.translation.trim().length > 0,
   ).length;
   const coveredProse = placed.filter(
     (entry) =>

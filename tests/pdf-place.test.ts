@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { groupLines } from '@/pdf/lines';
-import { layoutPage, type LayoutBlock } from '@/pdf/layout';
+import { layoutPage, type LayoutBlock, type PageLayout } from '@/pdf/layout';
 import { BODY_MIN_FONT_SIZE, BODY_MIN_SCALE, MIN_FONT_SIZE, MIN_SCALE } from '@/pdf/fit';
 import { pageMetrics, metricsPass } from '@/pdf/metrics';
 import { HINTING_WRAP } from '@/pdf/fit';
@@ -213,6 +213,43 @@ describe('placePage', () => {
     const farAbove = { ...nearby, y: 40 };
     const wider = wrapWidth(left, [farAbove], 600);
     expect(left.box.x + wider).toBeGreaterThan(nearby.x);
+  });
+
+  it('counts prose-like skipped blocks in the painted-only denominator', () => {
+    const block: LayoutBlock = {
+      box: { x: 40, y: 100, width: 300, height: 20 },
+      room: { x: 40, y: 100, width: 300, height: 20 },
+      lines: [],
+      text: 'This sentence is prose but was skipped as a figure label.',
+      role: 'figure-label',
+      fontSize: 10,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 300,
+      writing: 0,
+    };
+    const layout: PageLayout = {
+      blocks: [],
+      skipped: [block],
+      bodySize: 10,
+      lineHeight: 12,
+      pageHeight: 800,
+      pageWidth: 600,
+      pageIndex: 0,
+      obstacles: [],
+    };
+    const metrics = pageMetrics(layout, []);
+    expect(metrics.prosePaintedOnly).toBe(0);
+    expect(metrics.proseCovered).toBe(0);
+    expect(metricsPass(metrics)).toBe(false);
+    const codeLayout: PageLayout = {
+      ...layout,
+      skipped: [{ ...block, role: 'code' }],
+    };
+    expect(pageMetrics(codeLayout, []).prosePaintedOnly).toBe(1);
   });
 
   it('fails metrics when a page-sized figure cluster turns the body into labels', () => {

@@ -277,6 +277,17 @@ describe('first-page identity and captions', () => {
     expect(layout.blocks.some((block) => block.text === 'Author')).toBe(false);
   });
 
+  it('treats a marked author line on a front-matter page as identity', () => {
+    const lines = groupLines([
+      piece('Nonmember, and Kenichi', 40, 100, 150, { em: 10, bold: true }),
+    ]);
+    const layout = layoutPage(lines, { images: [] }, { height: 800, width: 600, index: 1 });
+    expect(layout.blocks.some((block) => block.text.includes('Kenichi'))).toBe(false);
+    expect(
+      layout.skipped.some((block) => block.role === 'identity' && block.text.includes('Kenichi')),
+    ).toBe(true);
+  });
+
   it('keeps a title on a later page translatable even when it looks like names', () => {
     const lines = groupLines([
       piece('Alex Example and Blair Sample', 40, 80, 300, { em: 10 }),

@@ -1,7 +1,12 @@
 import { boxBottom, boxRight, median, unionBox, type Box } from './geometry';
 import { insideFigure, type FigureAreas } from './figures';
 import { gutterCandidates, horizontalGaps, groupByBaseline } from './gaps';
-import { isBylineLabel, isFirstPageIdentity, isSectionHeading } from './identity';
+import {
+  isBylineLabel,
+  isFirstPageIdentity,
+  isMarkedAuthorLine,
+  isSectionHeading,
+} from './identity';
 import { CJK_MAJORITY, cjkRatio } from './fonts';
 import { SEGMENT_GAP, isRotated, lineFrom, type TextLine, type TextPiece } from './lines';
 
@@ -1533,6 +1538,11 @@ function roleOf(
   // Section titles are headings even in all caps and even when they sit in the header band.
   if (isSectionHeading(text) && lines.length <= 2) return 'heading';
   if (isBylineLabel(text) && pageIndex === 0) return 'identity';
+  // A marked name line is an author byline. Footnote affiliations are set smaller than the
+  // body and stay prose-like identity text rather than stealing the byline rule.
+  if (isMarkedAuthorLine(text) && (bodySize <= 0 || fontSize >= bodySize * 0.95)) {
+    return 'identity';
+  }
   if (isFurniture(text, lines, pageHeight, bodySize)) return 'furniture';
   if (
     isFirstPageIdentity(text, {
