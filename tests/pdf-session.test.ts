@@ -126,6 +126,22 @@ describe('PdfSession stream handling', () => {
     expect(session.progress().failed).toBe(1);
   });
 
+  it('sends a long PDF paragraph as one prompt instead of splitting it again', async () => {
+    const seen: number[] = [];
+    const engine = engineOf(async function* (segments) {
+      seen.push(segments.length);
+      for (const segment of segments) {
+        yield { id: segment.id, final: '評価用の訳文です。' };
+      }
+    });
+    const session = sessionOf(engine);
+    const source = 'The detector compares each synthetic configuration on one stream. '.repeat(12);
+    session.addPage(0, layoutOf(source.trim()));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'done');
+    expect(seen).toEqual([1]);
+    expect(session.pageBlocks(0)[0]?.paint).toBe(true);
+  });
+
   it('does not retranslate when the glossary contents have not changed', async () => {
     let calls = 0;
     const engine = engineOf(async function* (segments) {

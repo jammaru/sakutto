@@ -101,6 +101,20 @@ describe('protectInlineMath', () => {
     expect(shouldSkipInlineMath(protectedText, block.text)).toBe(true);
   });
 
+  it('does not protect a hyphen inside a word as inline mathematics', () => {
+    const lines = groupLines([
+      piece('Additionally, we used F', 40, 100, 120),
+      piece('-', 160, 100, 4),
+      piece('score as one of the evaluation', 164, 100, 200),
+    ]);
+    const layout = layoutPage(lines);
+    const block = layout.blocks[0];
+    if (!block) throw new Error('expected a block');
+    const protectedText = protectInlineMath(block);
+    expect(protectedText.slots).toEqual([]);
+    expect(protectedText.text).toContain('F-score');
+  });
+
   it('leaves a sentence with no mathematics unchanged', () => {
     const lines = groupLines([
       piece('The collector walks the document rather than selecting tags.', 40, 100, 400),

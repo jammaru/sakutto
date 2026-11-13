@@ -120,9 +120,11 @@ const PARAGRAPH_INDENT_MIN_EM = 0.8;
 const PARAGRAPH_INDENT_MAX_EM = 3;
 /**
  * A prose block longer than this is split at a sentence boundary. One failed translation then
- * costs one paragraph instead of taking a whole page's fused column with it.
+ * costs one paragraph instead of taking a whole page's fused column with it. The limit is half
+ * the PDF session's prompt cap: inline formulas expand into placeholders after layout, so a
+ * block at this length still travels as one prompt.
  */
-const MAX_PROSE_BLOCK_CHARS = 1200;
+const MAX_PROSE_BLOCK_CHARS = 600;
 /** A type size change of this fraction is a different kind of thing. */
 const SIZE_CHANGE = 0.12;
 /** Two cells belong to the same column when this much of the narrower one is shared. */
@@ -252,6 +254,7 @@ export function layoutPage(
   // translating it glues the number onto the neighbour's words. Notation has no word at all
   // and is set smaller than the body.
   const isProse = (block: LayoutBlock): boolean => {
+    if (isNumericRow(block.text)) return false;
     if (block.role === 'caption' || block.role === 'heading' || block.role === 'prose') {
       return true;
     }
@@ -591,6 +594,62 @@ function looksLikeTable(lines: readonly TextLine[]): boolean {
   return true;
 }
 
+/**
+ * Joins the cells of one row that are really one run of text.
+ *
+ * A justified line can have word gaps wider than the cell threshold, and a bibliography row
+ * can split into a label, authors and a quoted title. Treating each run as its own column
+ * turned those words into separate blocks that could not fit their own translation. A
+ * reference row is one entry, and a non-reference row whose next run starts lower-case or
+ * with a value is a continuation of the sentence before it.
+ */
+function mergeRowCells(
+  row: readonly TextLine[],
+  cells: readonly TextLine[][],
+  isTable: boolean,
+): TextLine[][] {
+  if (isTable || cells.length <= 1) return cells.map((cell) => [...cell]);
+  if (row.some((line) => isReferenceLine(line.text))) return [[...row]];
+  // A listing's line number and code run are already handled by the cell splitter; merging
+  // them back into a sentence would fuse the listing with prose on the same baseline.
+  if (hasListingLine(row)) return cells.map((cell) => [...cell]);
+  const merged: TextLine[][] = [];
+  for (const cell of cells) {
+    const previous = merged[merged.length - 1];
+    const before = previous?.at(-1);
+    const next = cell[0];
+    if (previous && before && next && continuesProseText(before.text, next.text)) {
+      const gap = next.box.x - boxRight(before.box);
+      const scale = Math.max(before.height, next.height, 1);
+      if (gap <= scale * 1.5) {
+        previous.push(...cell);
+        continue;
+      }
+    }
+    merged.push([...cell]);
+  }
+  return merged;
+}
+
+/** True when the next run starts a clause of the same sentence rather than a new one. */
+function continuesProseText(previous: string, next: string): boolean {
+  if (endsSentence(previous)) return false;
+  const trimmed = next.trimStart();
+  if (trimmed.length === 0) return false;
+  // A lower-case word, a number or leading punctuation continues the previous run. An
+  // upper-case word may be a proper noun inside the sentence, but it is also how a new
+  // column or a table header starts, so it is left as a boundary.
+  return /^[\p{Ll}\d,;:.…)\]}]/u.test(trimmed);
+}
+
+/** True when any line is a program listing rather than prose. */
+function hasListingLine(lines: readonly TextLine[]): boolean {
+  return lines.some(
+    (line) =>
+      isMostlyMono(line) || looksLikeCodeLine(line.text) || looksLikeCodeContinuation(line.text),
+  );
+}
+
 function cellText(cell: readonly TextLine[]): string {
   return cell
     .map((line) => line.text)
@@ -788,7 +847,7 @@ function appendRegionBlocks(
       reference.lines.push(...row);
       continue;
     }
-    const rowCells = splitRowCells(row, isTable);
+    const rowCells = mergeRowCells(row, splitRowCells(row, isTable), isTable);
     for (const cell of rowCells) {
       const entry: RegionCell = {
         lines: cell,
@@ -809,25 +868,24 @@ function appendRegionBlocks(
     // is nothing but a centred formula starts at its own left by definition.
     const columnLeft = columnLeftEdge(column.cells);
     let current: TextLine[] = [];
+    // Backstop for a column whose paragraph gaps were missed: measure the cumulative prose
+    // up to the last completed sentence, not just whether the previous line happened to end
+    // one. Split at that sentence boundary so the remainder can still become its own block.
+    const splitLongProse = () => {
+      if (isTable || current.length === 0 || isReferenceEntry(current) || hasListingLine(current)) {
+        return;
+      }
+      for (;;) {
+        const boundary = overlongProseBoundary(current);
+        if (boundary <= 0 || boundary >= current.length) return;
+        emit(current.slice(0, boundary), room, region.column, columnLeft);
+        current = current.slice(boundary);
+      }
+    };
 
     for (const cell of column.cells) {
       const next = cell.lines[0];
-      // Backstop for a column whose paragraph gaps were missed: measure the cumulative prose
-      // up to the last completed sentence, not just whether the previous line happened to end
-      // one. Split at that sentence boundary so the remainder can still become its own block.
-      const referenceEntry = current.length > 0 && isReferenceEntry(current);
-      if (!isTable && next && !referenceEntry) {
-        const boundary = overlongProseBoundary(current);
-        if (boundary > 0) {
-          if (boundary < current.length) {
-            emit(current.slice(0, boundary), room, region.column, columnLeft);
-            current = current.slice(boundary);
-          } else {
-            emit(current, room, region.column, columnLeft);
-            current = [];
-          }
-        }
-      }
+      splitLongProse();
 
       const previous = current[current.length - 1];
       // A table cell always starts a block: its row ends there, so the next row's value in the
@@ -858,6 +916,7 @@ function appendRegionBlocks(
       current.push(...cell.lines);
     }
 
+    splitLongProse();
     emit(current, room, region.column, columnLeft);
   }
 }
@@ -1181,10 +1240,9 @@ function continuesReferenceEntry(entry: readonly TextLine[], line: TextLine): bo
   const em = Math.max(first.height, previous.height, line.height, 1);
   if (line.baseline <= previous.baseline) return false;
   if ((line.baseline - previous.baseline) / em > 2.2) return false;
-  if (line.box.x <= first.box.x + em * PARAGRAPH_INDENT_MIN_EM) return false;
-  const hanging = entry.find((candidate) => candidate.box.x > first.box.x + em * 0.5);
-  const anchor = hanging?.box.x ?? previous.box.x;
-  return Math.abs(line.box.x - anchor) <= em * 2.5;
+  // A reference's wrapped tail is indented from its `[n]`; line breaks may drift between
+  // the hanging indent and the right margin, so only the first line sets the anchor.
+  return line.box.x > first.box.x + em * PARAGRAPH_INDENT_MIN_EM;
 }
 
 function isListBoundary(previous: TextLine, line: TextLine): boolean {
@@ -1236,6 +1294,47 @@ export function isNumericCell(text: string): boolean {
   if (trimmed.length === 0) return false;
   if (isTick(trimmed)) return true;
   return /^[\d.,]+(?:\s*(?:s|ms|µs|us|ns|%|pt|px|tok\/s))?$/iu.test(trimmed);
+}
+
+/**
+ * True when a run is a row of values and legend keys rather than prose: axis ticks, a table
+ * row, or a line such as `TS 0.87 0.62 0.58 0.74`.
+ *
+ * Each token must be a number, a one- or two-letter variable, or a short acronym. A single
+ * long word makes the run prose, which keeps a sentence that happens to contain numbers out.
+ */
+export function isNumericRow(text: string): boolean {
+  const tokens = text
+    .trim()
+    .split(/\s+/u)
+    .map((token) => token.replace(/^[^\p{L}\p{N}+−-]+|[^\p{L}\p{N}+−-]+$/gu, ''))
+    .filter((token) => token.length > 0);
+  if (tokens.length < 2) return false;
+  let values = 0;
+  let labels = 0;
+  for (const token of tokens) {
+    if (/^[+−-]$/u.test(token)) {
+      values += 1;
+      continue;
+    }
+    if (/\d/u.test(token) && !/\p{L}{3,}/u.test(token)) {
+      values += 1;
+      continue;
+    }
+    if (/^\p{L}{1,2}$/u.test(token) || /^\p{Lu}{2,4}$/u.test(token)) {
+      values += 1;
+      continue;
+    }
+    // A compact notation token such as `N/A` belongs to the row; one natural-language label
+    // is allowed so a table's setting name does not make the row look like a sentence.
+    if (/^\p{Lu}[\p{Lu}\p{N}./-]*$/u.test(token) && token.length <= 6) {
+      values += 1;
+      continue;
+    }
+    labels += 1;
+    if (labels > 1) return false;
+  }
+  return values >= (labels > 0 ? 3 : 2);
 }
 
 /**
@@ -1390,17 +1489,20 @@ function joinLines(lines: readonly TextLine[]): string {
  */
 function overlongProseBoundary(lines: readonly TextLine[]): number {
   let length = 0;
-  let boundary = -1;
-  let boundaryLength = 0;
+  let before = -1;
+  let after = -1;
   for (let index = 0; index < lines.length; index += 1) {
     const text = lines[index]?.text.trim() ?? '';
     if (text.length === 0) continue;
     length += (length > 0 ? 1 : 0) + text.length;
     if (!endsSentence(text)) continue;
-    boundary = index + 1;
-    boundaryLength = length;
+    if (length <= MAX_PROSE_BLOCK_CHARS) before = index + 1;
+    else if (after < 0) after = index + 1;
   }
-  return boundaryLength >= MAX_PROSE_BLOCK_CHARS ? boundary : -1;
+  if (length <= MAX_PROSE_BLOCK_CHARS) return -1;
+  // Prefer the last whole sentence inside the cap, so the emitted block is one engine piece.
+  // A single sentence longer than the cap has no earlier boundary; cut it at its end.
+  return before > 0 ? before : after;
 }
 
 function roleOf(
@@ -1448,6 +1550,8 @@ function roleOf(
   if (/^(?:[IVXLC]+\.|[A-Z]\.|\d+(?:\.\d+)*\.?)\s+\p{Lu}/u.test(text) && lines.length <= 2) {
     return 'heading';
   }
+  // A row of axis ticks or legend values is table typesetting, not a sentence.
+  if (isNumericRow(text)) return 'cell';
   // A unit such as `tok/s` is notation, not a title, even when the table header is bold.
   if (isUnitLabel(text)) return 'label';
   if (bodySize > 0 && fontSize >= bodySize * 1.08) return 'heading';

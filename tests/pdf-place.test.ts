@@ -17,6 +17,7 @@ import {
   placePage,
   resolveOverlaps,
   verticalCut,
+  wrapWidth,
   type PlacedBlock,
 } from '@/pdf/place';
 import { coverInkOverflowPx } from '@/pdf/render';
@@ -188,6 +189,30 @@ describe('placePage', () => {
     expect(
       placed.every((entry) => entry.paint || entry.overflow || entry.translation.length === 0),
     ).toBe(true);
+  });
+
+  it('does not widen a paragraph into the column beside a block just above it', () => {
+    const left: LayoutBlock = {
+      box: { x: 40, y: 120, width: 250, height: 10 },
+      room: { x: 40, y: 120, width: 250, height: 10 },
+      lines: [],
+      text: 'A synthetic paragraph beside a neighbouring column.',
+      role: 'prose',
+      fontSize: 10,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 250,
+      writing: 0,
+    };
+    const nearby = { x: 300, y: 90, width: 200, height: 20 };
+    const width = wrapWidth(left, [nearby], 600);
+    expect(left.box.x + width).toBeLessThanOrEqual(nearby.x);
+    const farAbove = { ...nearby, y: 40 };
+    const wider = wrapWidth(left, [farAbove], 600);
+    expect(left.box.x + wider).toBeGreaterThan(nearby.x);
   });
 
   it('fails metrics when a page-sized figure cluster turns the body into labels', () => {

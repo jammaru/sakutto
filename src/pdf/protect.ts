@@ -141,6 +141,9 @@ function kindOf(piece: TextPiece, lineHeight: number): 'math' | 'op' | 'var' | '
 function isFormulaRun(pieces: readonly TextPiece[], lineHeight: number): boolean {
   const joined = pieces.map((piece) => piece.text).join('');
   if (joined.trim().length === 0) return false;
+  // A hyphen inside `F-score` is word punctuation, not a formula. Protecting it made the
+  // model treat one word as two fragments and the restored translation overflow its box.
+  if (/^[\u002d\u2010\u2011\u2012\u2013\u2014\u2212]+$/u.test(joined.trim())) return false;
   return pieces.some((piece) => {
     const kind = kindOf(piece, lineHeight);
     return kind === 'math' || kind === 'op' || (kind === 'var' && piece.size < lineHeight * 0.78);

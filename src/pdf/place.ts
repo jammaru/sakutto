@@ -174,10 +174,15 @@ export function wrapWidth(
   let right = pageWidth > 0 ? pageWidth - GUTTER_CLEARANCE : Infinity;
   const top = block.box.y;
   const bottom = block.box.y + block.box.height;
+  // A neighbouring block just above can still grow down into this row, so it also bounds
+  // the unused space to the right. Looking only at boxes that already overlap vertically
+  // let a paragraph widen into the next column and then lose the overlap pass to a larger
+  // block on the other side.
+  const reach = Math.max(1, block.box.height * 2);
   for (const obstacle of obstacles) {
     if (obstacle === block.box) continue;
     if (obstacle.x + 1 < block.box.x + block.box.width) continue;
-    if (obstacle.y + obstacle.height < top + 1) continue;
+    if (obstacle.y + obstacle.height < top - reach) continue;
     if (obstacle.y > bottom - 1) continue;
     right = Math.min(right, obstacle.x);
   }

@@ -7,6 +7,7 @@ import { groupLines, type TextPiece } from '@/pdf/lines';
 import {
   isCodeToken,
   isNumericCell,
+  isNumericRow,
   layoutPage,
   looksLikeCodeLine,
   orphanLineCount,
@@ -212,7 +213,7 @@ describe('layoutPage', () => {
     const layout = layoutPage(lines);
     const prose = layout.blocks.filter((block) => block.role === 'prose');
     expect(prose.length).toBeGreaterThan(1);
-    expect(prose.every((block) => block.text.length <= 1400)).toBe(true);
+    expect(prose.every((block) => block.text.length <= 600)).toBe(true);
     expect(prose.every((block) => /[.!?]$/u.test(block.text.trim()))).toBe(true);
   });
 
@@ -250,7 +251,19 @@ describe('layoutPage', () => {
     const layout = layoutPage(lines);
     const prose = layout.blocks.filter((block) => block.role === 'prose');
     expect(prose.length).toBeGreaterThan(1);
-    expect(prose.every((block) => block.text.length <= 1400)).toBe(true);
+    expect(prose.every((block) => block.text.length <= 600)).toBe(true);
+    expect(prose.every((block) => /[.!?]$/u.test(block.text.trim()))).toBe(true);
+  });
+
+  it('flushes a long paragraph that only crosses the cap on its last line', () => {
+    const sentence = 'The detector compares each configuration on the same stream of tokens.';
+    const lines = groupLines(
+      Array.from({ length: 9 }, (_, index) => piece(sentence, 40, 100 + index * 12, 320)),
+    );
+    const layout = layoutPage(lines);
+    const prose = layout.blocks.filter((block) => block.role === 'prose');
+    expect(prose.length).toBeGreaterThan(1);
+    expect(prose.every((block) => block.text.length <= 600)).toBe(true);
     expect(prose.every((block) => /[.!?]$/u.test(block.text.trim()))).toBe(true);
   });
 
@@ -501,6 +514,62 @@ describe('layoutPage', () => {
     const layout = layoutPage(lines);
     expect(layout.blocks.map((block) => block.text)).toEqual(['I. INTRODUCTION']);
     expect(layout.blocks[0]?.role).toBe('heading');
+  });
+
+  it('joins justified word fragments into the sentence before them', () => {
+    const lines = groupLines([
+      piece('The paragraph starts on this line and then continues', 40, 100, 240),
+      piece('with a phrase whose words are set apart', 40, 112, 120),
+      piece('help', 170, 112, 22),
+      piece('reduce', 203, 112, 30),
+      piece('the', 244, 112, 14),
+      piece('effort', 269, 112, 28),
+      piece('required.', 308, 112, 34),
+    ]);
+    const layout = layoutPage(lines);
+    const text = layout.blocks.map((block) => block.text).join(' ');
+    expect(text).toContain('help reduce the effort required.');
+    expect(layout.blocks.some((block) => block.text === 'help')).toBe(false);
+    expect(layout.blocks.some((block) => block.text === 'the effort')).toBe(false);
+  });
+
+  it('keeps a reference row with author and title runs as one entry', () => {
+    const lines = groupLines([
+      piece('[3] T. Author,', 55, 100, 50),
+      piece('B. Writer', 125, 100, 50),
+      piece('and C. Editor, “A study,”', 180, 100, 110),
+      piece('Journal of Examples,', 76, 112, 120),
+      piece('vol. 1, pp. 1-10, 2020.', 76, 124, 140),
+      piece('[4] Next entry.', 55, 148, 80),
+    ]);
+    const layout = layoutPage(lines);
+    const references = layout.blocks.filter((block) => block.text.startsWith('['));
+    expect(references).toHaveLength(2);
+    expect(references[0]?.text).toContain('[3]');
+    expect(references[0]?.text).toContain('B. Writer');
+    expect(references[0]?.text).toContain('and C. Editor');
+    expect(references[0]?.text).toContain('Journal of Examples');
+    expect(references[0]?.text).toContain('vol. 1');
+    expect(references[1]?.text).toContain('[4]');
+  });
+
+  it('treats a row of axis ticks or legend values as a cell, not prose', () => {
+    const lines = groupLines([
+      piece('ε=0.1', 40, 100, 28, { em: 8 }),
+      piece('1', 40, 112, 5, { em: 8 }),
+      piece('0.8', 40, 124, 14, { em: 8 }),
+      piece('0.6', 40, 136, 14, { em: 8 }),
+    ]);
+    const layout = layoutPage(lines);
+    expect(layout.blocks.some((block) => block.role === 'prose')).toBe(false);
+    expect(
+      layout.skipped.some((block) => block.role === 'cell' && block.text.includes('ε=0.1')),
+    ).toBe(true);
+    expect(isNumericRow('TS 0.87 0.62 0.58 0.74')).toBe(true);
+    expect(isNumericRow('ε=0.1 1 0.8 0.6 0.4 0.2 0')).toBe(true);
+    expect(isNumericRow('Settings b=5, t=11 N/A')).toBe(true);
+    expect(isNumericRow('CPU, 8 threads')).toBe(false);
+    expect(isNumericRow('We compared 30 tools in 4 settings.')).toBe(false);
   });
 
   it('leaves a figure’s labels alone', () => {

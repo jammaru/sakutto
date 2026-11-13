@@ -197,6 +197,16 @@ export interface PdfSessionOptions {
 const NO_SPACE_TARGETS: ReadonlySet<string> = new Set(['ja', 'zh-hans', 'zh-hant', 'th']);
 
 /**
+ * Characters in one PDF translation prompt.
+ *
+ * The layout already cuts a paragraph at a sentence boundary near 600 characters, but an
+ * inline formula expands when it becomes a placeholder. Keeping the session's piece a little
+ * above the layout's cap means such a block is still sent whole; otherwise the session split
+ * it again and a stream that answered the first piece only looked like a failed block.
+ */
+const PDF_PIECE_CHARS = 1200;
+
+/**
  * Blocks this session keeps in flight when nobody says otherwise.
  *
  * The engine packs every segment of one request into a single prompt and decodes the batch
@@ -637,7 +647,7 @@ export class PdfSession {
     }
     // A block longer than a paragraph is chunked here rather than in the engine, so a long
     // paragraph shows its first sentences while the rest is still decoding.
-    const pieces = chunkForTranslation(protectedText.text);
+    const pieces = chunkForTranslation(protectedText.text, PDF_PIECE_CHARS);
     if (pieces.length === 0) {
       this.failBlock(state);
       return;
