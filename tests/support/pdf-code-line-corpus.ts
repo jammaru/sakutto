@@ -1,5 +1,5 @@
 /**
- * Synthetic prose vs listing lines reported across PDF layout rounds 16–20.
+ * Synthetic prose vs listing lines reported across PDF layout rounds 16–21.
  * Used by one table-driven test so a later keyword tweak cannot drop an old case.
  */
 
@@ -235,7 +235,38 @@ export const NUMBERED_PROSE: CodeLineCase[] = [
   prose('10 for brevity the stub translator expands each block in place.', 'r19-for-brevity'),
   prose('11 if ready the compare pane copies the original canvas.', 'r19-if-ready-prose'),
   prose('3 If the model is cold', 'r20-If-cold', 'heading'),
-  prose('2 While loading', 'r20-While-loading', 'heading'),
+];
+
+/** Round 21: semicolon/colon-terminated enumerated English. Title-case lines are headings. */
+export const ENUM_SEMI_PROSE: CodeLineCase[] = [
+  prose(
+    '1 For the visible page, whose blocks are queued first and painted before anything else;',
+    'r21-for-visible-semi',
+    'heading',
+  ),
+  prose(
+    '1 If the fit succeeds, the cover is painted over the block;',
+    'r21-if-fit-semi',
+    'heading',
+  ),
+  prose(
+    '1 While the model is loading, a progress line appears;',
+    'r21-while-loading-semi',
+    'heading',
+  ),
+  prose('1 The reader applies the following rules in order:', 'r21-rules-colon', 'heading'),
+  prose(
+    '1 The fitted cover is compared with the block (see Section 3);',
+    'r21-cover-section-semi',
+    'heading',
+  ),
+  prose(
+    '1 for the visible page, whose blocks are queued first and painted before anything else;',
+    'r21-for-visible-lc',
+  ),
+  prose('1 if the fit succeeds, the cover is painted over the block;', 'r21-if-fit-lc'),
+  prose('1 while the model is loading, a progress line appears;', 'r21-while-loading-lc'),
+  prose('1 the reader applies the following rules in order:', 'r21-rules-colon-lc'),
 ];
 
 /** Cite-rich mix of parentheticals and numbered prose. */
@@ -319,6 +350,14 @@ export const NUMBERED_CODE: CodeLineCase[] = [
   code('2 if ready:', 'r18-if-ready'),
   code('5 repeat:', 'r18-repeat'),
   code('1 for each (m) {', 'r17-numbered-for-each'),
+  code('1  while i < n and j < m do', 'r21-while-and-do'),
+  code('1 Init', 'r21-Init'),
+  code('2 Repeat', 'r21-Repeat'),
+  code('4 Until done', 'r21-Until'),
+  code('1 While queue', 'r21-While-queue-nocolon'),
+  code('1 If ready', 'r21-If-ready'),
+  code('1 Procedure Run', 'r21-Procedure'),
+  code('1 Set threshold', 'r21-Set'),
 ];
 
 export const CODE_LINE_CORPUS: CodeLineCase[] = [
@@ -327,6 +366,7 @@ export const CODE_LINE_CORPUS: CodeLineCase[] = [
   ...BIG_PROSE,
   ...NUMBERED_PROSE,
   ...CITE_RICH_PROSE,
+  ...ENUM_SEMI_PROSE,
   ...LISTING_LINES,
   ...NUMBERED_CODE,
 ];

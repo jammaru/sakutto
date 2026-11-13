@@ -17,6 +17,7 @@ import {
   CITE_RICH_PROSE,
   CODE_LINE_CORPUS,
   DISCUSSION_PROSE,
+  ENUM_SEMI_PROSE,
   LC_NUMBERED_PROSE,
   LISTING_LINES,
   NUMBERED_CODE,
@@ -740,13 +741,14 @@ describe('pseudocode line shapes', () => {
     }
   });
 
-  it('matches the round 16–20 prose and listing corpus, line by line and as a block', () => {
+  it('matches the round 16–21 prose and listing corpus, line by line and as a block', () => {
     expect(LISTING_LINES.filter((entry) => entry.code).length).toBeGreaterThanOrEqual(16);
     expect(LC_NUMBERED_PROSE).toHaveLength(10);
     expect(DISCUSSION_PROSE.length).toBeGreaterThanOrEqual(18);
     expect(BIG_PROSE).toHaveLength(27);
     expect(CITE_RICH_PROSE.length).toBeGreaterThanOrEqual(18);
     expect(NUMBERED_CODE.length).toBeGreaterThanOrEqual(9);
+    expect(ENUM_SEMI_PROSE.length).toBeGreaterThanOrEqual(5);
 
     const compact = (value: string): string => value.replace(/\s+/gu, ' ').trim();
     for (const entry of CODE_LINE_CORPUS) {
@@ -755,7 +757,8 @@ describe('pseudocode line shapes', () => {
       const layout = layoutPage(page);
       const skipped = layout.skipped.filter((block) => block.role === 'code');
       const painted = [...layout.blocks, ...layout.skipped];
-      const needle = compact(entry.text).slice(0, 24);
+      const compactText = compact(entry.text);
+      const needle = compactText.length < 24 ? compactText : compactText.slice(0, 24);
       const hit = painted.find((block) => compact(block.text).includes(needle));
       if (entry.code) {
         expect(skipped.length, entry.tag).toBeGreaterThan(0);
@@ -767,8 +770,14 @@ describe('pseudocode line shapes', () => {
     }
   });
 
-  it('keeps discussion, big-prose, cite-rich, and lowercase-numbered pages free of code', () => {
-    const pages = [DISCUSSION_PROSE, BIG_PROSE, CITE_RICH_PROSE, LC_NUMBERED_PROSE];
+  it('keeps discussion, big-prose, cite-rich, lowercase-numbered, and enum-semi pages free of code', () => {
+    const pages = [
+      DISCUSSION_PROSE,
+      BIG_PROSE,
+      CITE_RICH_PROSE,
+      LC_NUMBERED_PROSE,
+      ENUM_SEMI_PROSE,
+    ];
     for (const corpus of pages) {
       const page = groupLines(
         corpus.map((entry, index) => piece(entry.text, 40, 80 + index * 40, 420)),

@@ -1309,9 +1309,145 @@ function withoutBracketSpans(text: string): string {
   return text.replace(/[([{][^)\]}]*(?:[)\]}]|$)/gu, ' ');
 }
 
+const ENGLISH_FUNCTION_WORDS = new Set([
+  'the',
+  'a',
+  'an',
+  'of',
+  'to',
+  'in',
+  'is',
+  'are',
+  'was',
+  'were',
+  'be',
+  'been',
+  'and',
+  'or',
+  'that',
+  'which',
+  'whose',
+  'when',
+  'while',
+  'before',
+  'after',
+  'with',
+  'for',
+  'by',
+  'from',
+  'this',
+  'these',
+  'those',
+  'we',
+  'it',
+  'its',
+  'their',
+  'than',
+  'as',
+  'at',
+  'on',
+  'but',
+  'not',
+  'so',
+  'into',
+  'over',
+]);
+
+const LISTING_STEP_WORD =
+  /\b(?:if|then|else|while|for|each|repeat|until|do|end|return|emit|print|procedure|begin|break|continue|yield|init|set|def)\b/iu;
+
+const LISTING_STEP_WORDS = new Set([
+  'if',
+  'then',
+  'else',
+  'while',
+  'for',
+  'each',
+  'repeat',
+  'until',
+  'do',
+  'end',
+  'return',
+  'emit',
+  'print',
+  'procedure',
+  'begin',
+  'break',
+  'continue',
+  'yield',
+  'init',
+  'set',
+  'def',
+]);
+
+function wordsOf(text: string): string[] {
+  return text
+    .split(/\s+/u)
+    .map((token) => token.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ''))
+    .filter((token) => token.length > 0 && /\p{L}/u.test(token));
+}
+
+function functionWordShare(words: readonly string[]): number {
+  if (words.length === 0) return 0;
+  let hits = 0;
+  for (const word of words) {
+    if (ENGLISH_FUNCTION_WORDS.has(word.toLowerCase())) hits += 1;
+  }
+  return hits / words.length;
+}
+
+function contentWordCount(words: readonly string[]): number {
+  let count = 0;
+  for (const word of words) {
+    const lower = word.toLowerCase();
+    if (word.length <= 1) continue;
+    if (ENGLISH_FUNCTION_WORDS.has(lower) || LISTING_STEP_WORDS.has(lower)) continue;
+    count += 1;
+  }
+  return count;
+}
+
+/** Assignment, arrows, braces, or a call that opens the line — not a parenthetical cite. */
+function hasCodeOperators(rest: string, bare: string): boolean {
+  if (/[{}]/u.test(rest)) return true;
+  if (/^[A-Za-z_][\w.]*\s*\(/u.test(rest)) return true;
+  if (/(?:==|:=|<-|->|\+\+)/u.test(bare)) return true;
+  return /(?<![<>=!])=(?!=)/u.test(bare);
+}
+
 /**
- * Numbered short labels (`3 If the model is cold`, `2 While loading`, `1 Introduction`).
- * Title-case, at most six words, and no listing punctuation — not `1 While queue:`.
+ * An English clause after the last comma that is not inside brackets: `whose blocks are queued…`.
+ */
+function englishClauseAfterComma(bare: string): boolean {
+  const comma = bare.lastIndexOf(',');
+  if (comma < 0) return false;
+  const clause = wordsOf(bare.slice(comma + 1));
+  if (clause.length < 3) return false;
+  return ENGLISH_FUNCTION_WORDS.has(clause[0]?.toLowerCase() ?? '');
+}
+
+/**
+ * Numbered English, including a semicolon or colon that ends a sentence, not a listing.
+ * Needs four or more words, no operators outside brackets, and either a 30% function-word
+ * share with three content words, a `.!?` ending with three content words, or a function-word
+ * clause after the last bare comma. `1  for i in range(0, n):` has too few content words.
+ */
+function looksLikeEnglishProse(rest: string): boolean {
+  const bare = withoutBracketSpans(rest);
+  if (hasCodeOperators(rest, bare)) return false;
+  const words = wordsOf(bare);
+  if (englishClauseAfterComma(bare)) return true;
+  if (words.length < 4) return false;
+  const content = contentWordCount(words);
+  if (content < 3) return false;
+  return functionWordShare(words) >= 0.3 || /[.!?]\s*$/u.test(rest);
+}
+
+/**
+ * Numbered short labels (`1 Introduction`, `3 If the model is cold`).
+ * Title-case, at most six words, no listing punctuation. A listing keyword (`If`, `While`,
+ * `Init`, `Repeat`) is an algorithm step unless the line is already English (≥4 words and a
+ * function-word share): `3 If the model is cold` stays a heading, `1 If ready` does not.
  */
 function isNumberedShortLabel(rest: string): boolean {
   const words = rest
@@ -1321,7 +1457,12 @@ function isNumberedShortLabel(rest: string): boolean {
   if (words.length === 0 || words.length > 6) return false;
   if (!/^\p{Lu}/u.test(words[0] ?? '')) return false;
   if (/[:{(=;]\s*$/u.test(rest) || /\b(?:then|do)\s*$/iu.test(rest)) return false;
-  return !/[=()[\]{}]/u.test(rest);
+  if (/[=()[\]{}]/u.test(rest)) return false;
+  if (LISTING_STEP_WORD.test(rest)) {
+    const tokens = wordsOf(rest);
+    return tokens.length >= 4 && functionWordShare(tokens) >= 0.25;
+  }
+  return true;
 }
 
 /** `1  a, b = b, a` — identifiers on both sides of `=`, not `1 for example, a = b`. */
@@ -1333,13 +1474,15 @@ function isIdentifierTupleAssign(rest: string): boolean {
 }
 
 /**
- * The body of a numbered line after the leading digits. Python-style for/if/while/def/repeat/until
- * listings, `then`/`do`, trailing `[:{(=;]`, and tuple assignment are code; an English sentence is not.
+ * The body of a numbered line after the leading digits. English is recognised first so a
+ * trailing `;` / `:` cannot turn a sentence into a listing. Remaining lines with for/if/while/
+ * def/repeat/until, `then`/`do`, trailing `[:{(=;]`, or tuple assignment stay code.
  */
 function numberedLineIsCode(rest: string): boolean {
   const trimmed = rest.trim();
   if (trimmed.length === 0) return false;
   if (isNumberedShortLabel(trimmed)) return false;
+  if (looksLikeEnglishProse(trimmed)) return false;
 
   const bare = withoutBracketSpans(trimmed);
   const trailingCode =
@@ -1359,6 +1502,7 @@ function numberedLineIsCode(rest: string): boolean {
     return true;
   }
   if (/^(?:for|if|while|def|repeat|until)\b/iu.test(trimmed)) return true;
+  if (LISTING_STEP_WORD.test(trimmed) && wordsOf(trimmed).length <= 6) return true;
   if (/^[A-Za-z_][\w.]*\(/u.test(trimmed) && /[);{]\s*$/u.test(trimmed)) return true;
   return isIdentifierTupleAssign(trimmed);
 }
@@ -1387,9 +1531,9 @@ export function looksLikeCodeLine(text: string): boolean {
   ) {
     return true;
   }
-  // Numbered listing (`1  for i in range(0, n):`, `1 While queue:`). Commas inside
-  // brackets are not sentence evidence. Numbered prose (`1 for example, …`,
-  // `2 if so: the block stays.`, `1 repeat the measurement three times.`) still is.
+  // Numbered listing (`1  for i in range(0, n):`, `1 While queue:`). English is
+  // recognised first so a trailing `;` / `:` on `1 The reader applies the following
+  // rules in order:` cannot turn a sentence into a listing.
   if (/^\d+\s+/u.test(trimmed)) {
     return numberedLineIsCode(trimmed.replace(/^\d+\s+/u, ''));
   }
