@@ -3,6 +3,7 @@
   import {
     requestServerPermission,
     resolveEngineSourceSwitch,
+    syncEngineSourceRadios,
   } from '@/engine/local-server/permissions';
   import {
     isRemoteServerUrl,
@@ -30,6 +31,8 @@
   let testOk = $state(false);
   let permissionDenied = $state(false);
   let confirmOpen = $state(false);
+  let builtinRadio = $state<HTMLInputElement | undefined>(undefined);
+  let localRadio = $state<HTMLInputElement | undefined>(undefined);
   let remote = $derived(isRemoteServerUrl(settings.localServerUrl));
   let local = $derived(settings.engineSource === 'local-server');
 
@@ -47,6 +50,10 @@
     const result = await resolveEngineSourceSwitch(source, settings, { ack });
     if (result.denied) {
       permissionDenied = true;
+      syncEngineSourceRadios(settings.engineSource, {
+        builtin: builtinRadio,
+        local: localRadio,
+      });
       return;
     }
     permissionDenied = false;
@@ -192,6 +199,7 @@
   <div class="segments" role="radiogroup" aria-labelledby="engine-source-label">
     <label class:on={!local}>
       <input
+        bind:this={builtinRadio}
         type="radio"
         name="sakutto-engine-source"
         value="in-browser"
@@ -202,6 +210,7 @@
     </label>
     <label class:on={local}>
       <input
+        bind:this={localRadio}
         type="radio"
         name="sakutto-engine-source"
         value="local-server"

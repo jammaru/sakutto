@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  DEFAULT_LOCAL_SERVER_URL,
-  originPatternsFor,
-  primaryOriginPattern,
-} from '@/engine/local-server/url';
+import { DEFAULT_LOCAL_SERVER_URL, primaryOriginPattern } from '@/engine/local-server/url';
 
 /**
  * Firefox drops the user-gesture flag after any awaited extension call. Chrome still
@@ -42,7 +38,7 @@ vi.mock('wxt/browser', () => ({
 }));
 
 const { browser } = await import('wxt/browser');
-const { requestServerPermission, resolveEngineSourceSwitch } =
+const { requestServerPermission, resolveEngineSourceSwitch, syncEngineSourceRadios } =
   await import('@/engine/local-server/permissions');
 
 function reset(kind: 'chrome' | 'firefox'): void {
@@ -56,8 +52,9 @@ function reset(kind: 'chrome' | 'firefox'): void {
 
 /** The Settings path before this fix: contains first, then request. */
 async function containsThenRequest(url: string): Promise<boolean> {
-  const origins = originPatternsFor(url);
-  if (origins.length === 0) return false;
+  const origin = primaryOriginPattern(url);
+  if (!origin) return false;
+  const origins = [origin];
   const already = await browser.permissions.contains({ origins }).catch(() => false);
   if (already) return true;
   return browser.permissions.request({ origins }).catch(() => false);
@@ -90,7 +87,11 @@ describe('requestServerPermission user-gesture', () => {
     state.granted.add('http://localhost/*');
     await expect(requestServerPermission(DEFAULT_LOCAL_SERVER_URL)).resolves.toBe(true);
     expect(state.requestOrigins[0]).toEqual(['http://127.0.0.1/*']);
-    expect(state.requestOrigins[0]).not.toEqual(originPatternsFor(DEFAULT_LOCAL_SERVER_URL));
+    expect(state.requestOrigins[0]).not.toEqual([
+      'http://127.0.0.1/*',
+      'http://localhost/*',
+      'http://[::1]/*',
+    ]);
   });
 
   it('Chrome: contains-then-request still grants, and request-first also grants', async () => {
@@ -162,6 +163,34 @@ describe('resolveEngineSourceSwitch', () => {
       const result = await resolveEngineSourceSwitch('local-server', loopback, { ack: true });
       expect(result).toEqual({ denied: true });
     }
+  });
+
+  it('does not persist when ack is already stored and a later radio click is denied', async () => {
+    for (const kind of ['chrome', 'firefox'] as const) {
+      reset(kind);
+      state.deny = true;
+      const result = await resolveEngineSourceSwitch('local-server', loopback);
+      expect(result).toEqual({ denied: true });
+      expect(state.requestCalls).toBe(1);
+    }
+  });
+
+  it('restores native radio dots to the saved engine when a permission is denied', () => {
+    const builtin = { checked: false };
+    const local = { checked: true };
+    syncEngineSourceRadios('in-browser', {
+      builtin: builtin as HTMLInputElement,
+      local: local as HTMLInputElement,
+    });
+    expect(builtin.checked).toBe(true);
+    expect(local.checked).toBe(false);
+
+    syncEngineSourceRadios('local-server', {
+      builtin: builtin as HTMLInputElement,
+      local: local as HTMLInputElement,
+    });
+    expect(builtin.checked).toBe(false);
+    expect(local.checked).toBe(true);
   });
 
   it('does not request permission when switching back to the built-in engine', async () => {

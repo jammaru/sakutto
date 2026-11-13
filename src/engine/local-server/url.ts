@@ -127,22 +127,6 @@ export function primaryOriginPattern(url: string): string | null {
   return hostMatchPattern(parsed.protocol, parsed.hostname);
 }
 
-export function originPatternsFor(url: string): string[] {
-  const parsed = parseServerUrl(url);
-  if (!parsed) return [];
-  const protocol = parsed.protocol;
-  const primary = hostMatchPattern(protocol, parsed.hostname);
-  if (isLoopbackHostname(parsed.hostname)) {
-    const aliases = [
-      `${protocol}//127.0.0.1/*`,
-      `${protocol}//localhost/*`,
-      `${protocol}//[::1]/*`,
-    ];
-    return [primary, ...aliases.filter((pattern) => pattern !== primary)];
-  }
-  return [primary];
-}
-
 export function normalizeTimeoutMs(
   value: unknown,
   fallback = DEFAULT_LOCAL_SERVER_TIMEOUT_MS,

@@ -30,7 +30,7 @@ Settings may enable an experimental local-server engine (mlx_lm.server, LM Studi
 
 Release manifest permissions: offscreen, storage, unlimitedStorage, activeTab, scripting, contextMenus. optional_host_permissions: https://*/* and http://*/*. host_permissions is empty at install. optional_permissions is empty. The content script is registered at runtime and injected with scripting.executeScript. It is not granted for every site at install.
 
-Optional host permission is requested when automatic translation is turned on for one site, and when a local server is enabled. A site request is that host (https and http), from the popup or from the grant page during the click. Turning automatic translation off stores the site rule as ask. A local-server request is the loopback patterns or the hostname the user entered, from Settings. The code does not call permissions.remove.
+Optional host permission is requested when automatic translation is turned on for one site, and when a local server is enabled. A site request is that host (https and http), from the popup or from the grant page during the click. Turning automatic translation off stores the site rule as ask. A local-server request is only the host origin of the URL the user set (for the default, `http://127.0.0.1/*`), from Settings. The code does not call permissions.remove.
 
 Onboarding is one click on the agree-and-start button: Agree to the license and start (ライセンスに同意して開始). There is no consent checkbox. The button stores, in chrome.storage.local, license plamo-community, version 2026-11-05, an ISO timestamp, and ageNoticeShown: true. ageNoticeShown records only that the notice was on screen for that click. It is not a verification of age or of a guardian's consent, and the page has no guardian control. The notice beside the button says: "Starting means you agree to the whole PLaMo Community License. You must be 18 or older, or have a parent or guardian's consent (Article 2). This extension does not check your age or ask a guardian to confirm." The same panel summarizes the Article 3 commercial conditions and links to the bundled license texts, the official pages, and PFN's registration form.
 
@@ -96,7 +96,7 @@ URL は `https://huggingface.co/<repo>/resolve/<commit>/<file>` です。取得�
 
 content script は `src/entrypoints/content.ts` の `registration: 'runtime'` です。インストール時に全サイトへ一致する `content_scripts` は置きません。注入は `src/shared/page-bridge.ts` の `scripting.executeScript` です。自動翻訳が `always` のサイトでは、そのオリジンが許可済みのときだけ注入します（`src/background/page-actions.ts`）。
 
-ホスト権限の要求は、そのサイトの自動翻訳をオンにしたクリックの中と、設定でローカルサーバーをオンにしたときです。ポップアップの「このサイトを常に翻訳します」が `permissions.request` を呼びます。content script からの要求は、ジェスチャ付きの拡張ページが必要なため `grant.html` を開きます（`src/entrypoints/grant/App.svelte`）。要求するオリジンは、そのホストの `https://<host>/*` と `http://<host>/*` です（`src/dom/sites.ts` の `siteAccessOrigins`）。ローカルサーバーは `src/engine/local-server/permissions.ts` が loopback なら `http://127.0.0.1/*` など、それ以外なら入力したホストです。自動翻訳をオフにするとサイト規則は `ask` に戻ります。`permissions.remove` は呼びません。
+ホスト権限の要求は、そのサイトの自動翻訳をオンにしたクリックの中と、設定でローカルサーバーをオンにしたときです。ポップアップの「このサイトを常に翻訳します」が `permissions.request` を呼びます。content script からの要求は、ジェスチャ付きの拡張ページが必要なため `grant.html` を開きます（`src/entrypoints/grant/App.svelte`）。要求するオリジンは、そのホストの `https://<host>/*` と `http://<host>/*` です（`src/dom/sites.ts` の `siteAccessOrigins`）。ローカルサーバーは `src/engine/local-server/permissions.ts` が、設定した URL のホストオリジンだけを要求します（既定なら `http://127.0.0.1/*`）。自動翻訳をオフにするとサイト規則は `ask` に戻ります。`permissions.remove` は呼びません。
 
 ## オンボーディング
 

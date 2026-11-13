@@ -51,3 +51,20 @@ export async function resolveEngineSourceSwitch(
 export function serverOriginLabel(url: string): string {
   return parseServerUrl(url)?.origin ?? url;
 }
+
+/**
+ * Puts the native radio dots back on the saved engine. A click that then fails
+ * `permissions.request` leaves the browser's checked state on Local server even though
+ * `engineSource` did not change, so Svelte will not reapply `checked={local}`.
+ */
+export function syncEngineSourceRadios(
+  source: EngineSource,
+  radios: {
+    builtin?: HTMLInputElement | null | undefined;
+    local?: HTMLInputElement | null | undefined;
+  },
+): void {
+  const localOn = source === 'local-server';
+  if (radios.builtin) radios.builtin.checked = !localOn;
+  if (radios.local) radios.local.checked = localOn;
+}

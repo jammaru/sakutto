@@ -318,6 +318,10 @@ describe('local server settings', () => {
     const applyBody = panel.slice(applyStart, applyEnd);
     const beforeSwitch = applyBody.slice(0, applyBody.indexOf('await resolveEngineSourceSwitch'));
     expect(beforeSwitch).not.toMatch(/\bawait\b/);
+    expect(applyBody).toContain('result.denied');
+    expect(applyBody).toContain('syncEngineSourceRadios(settings.engineSource');
+    expect(panel).toContain('bind:this={builtinRadio}');
+    expect(panel).toContain('bind:this={localRadio}');
 
     const confirmStart = panel.indexOf('function useLocalServer');
     const confirmEnd = panel.indexOf('async function changeUrl');
