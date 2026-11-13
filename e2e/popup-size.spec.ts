@@ -27,7 +27,9 @@ async function popoverWidth(page: Page): Promise<number> {
 }
 
 test.describe('translation popup text size', () => {
-  test('grows the selection popover when the setting changes', async ({ browserName }, testInfo) => {
+  test('grows the selection popover when the setting changes', async ({
+    browserName,
+  }, testInfo) => {
     void browserName;
     const extension = await loadExtension('en-US');
     const artifactDir = join(testInfo.project.outputDir, 'popup-size');
