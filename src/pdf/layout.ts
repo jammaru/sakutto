@@ -752,17 +752,19 @@ function appendRegionBlocks(
   if (rows.length === 0) return;
 
   const emit = (lines: readonly TextLine[], room: Box, column: number, columnLeft: number) => {
-    const block = buildBlock(
-      lines,
-      room,
-      column,
-      bodySize,
-      figures,
-      columnLeft,
-      pageHeight,
-      pageIndex,
-    );
-    if (block) out.push(block);
+    for (const run of splitAtFigures(lines, figures)) {
+      const block = buildBlock(
+        run,
+        room,
+        column,
+        bodySize,
+        figures,
+        columnLeft,
+        pageHeight,
+        pageIndex,
+      );
+      if (block) out.push(block);
+    }
   };
 
   // A caption sitting on top of a table is not a cell of that table. Peel it off before
@@ -776,10 +778,26 @@ function appendRegionBlocks(
   // re-splits rows so that two things side by side do not get read as one line.
   const isTable = looksLikeTable(rest.flat());
   const cells: RegionCell[] = [];
+  let reference: RegionCell | null = null;
   for (const [index, row] of rest.entries()) {
+    // A bibliography's wrapped lines are one entry, not one row each. Join them before the
+    // cells are clustered into columns: a short `[1]` line may not overlap its own hanging
+    // indent enough to be recognised as the same column afterwards.
+    const first = row[0];
+    if (!isTable && reference && first && continuesReferenceEntry(reference.lines, first)) {
+      reference.lines.push(...row);
+      continue;
+    }
     const rowCells = splitRowCells(row, isTable);
     for (const cell of rowCells) {
-      cells.push({ lines: cell, row: index, shared: isTable && rowCells.length > 1 });
+      const entry: RegionCell = {
+        lines: cell,
+        row: index,
+        shared: isTable && rowCells.length > 1,
+      };
+      cells.push(entry);
+      if (!isTable && cell[0] && isReferenceLine(cell[0].text)) reference = entry;
+      else if (!isTable) reference = null;
     }
   }
 
@@ -797,7 +815,8 @@ function appendRegionBlocks(
       // Backstop for a column whose paragraph gaps were missed: measure the cumulative prose
       // up to the last completed sentence, not just whether the previous line happened to end
       // one. Split at that sentence boundary so the remainder can still become its own block.
-      if (!isTable && next) {
+      const referenceEntry = current.length > 0 && isReferenceEntry(current);
+      if (!isTable && next && !referenceEntry) {
         const boundary = overlongProseBoundary(current);
         if (boundary > 0) {
           if (boundary < current.length) {
@@ -816,13 +835,21 @@ function appendRegionBlocks(
       // wrap (`maxSegmentTo-` then `kens`) is the one continuation that must stay in the cell.
       const hyphenWrap =
         previous !== undefined && next !== undefined && isHyphenWrap(previous, next);
+      const nextStartsReference = !isTable && next !== undefined && isReferenceLine(next.text);
+      const referenceContinues =
+        !isTable &&
+        next !== undefined &&
+        current.length > 0 &&
+        continuesReferenceEntry(current, next);
       const starts = isTable
         ? previous !== undefined && !hyphenWrap
         : Boolean(
             previous &&
             next &&
-            (gapStartsBlock(previous, next, leading, columnLeft) ||
-              isListBoundary(previous, next)),
+            (nextStartsReference ||
+              (!referenceContinues &&
+                (gapStartsBlock(previous, next, leading, columnLeft) ||
+                  isListBoundary(previous, next)))),
           );
       if (previous && next && starts) {
         emit(current, room, region.column, columnLeft);
@@ -1118,18 +1145,46 @@ function isReferenceLine(text: string): boolean {
   return /^\s*\[\d+\]/u.test(text);
 }
 
+/** True when a run of lines starts a numbered bibliography entry. */
+function isReferenceEntry(lines: readonly TextLine[]): boolean {
+  return lines.length > 0 && isReferenceLine(lines[0]?.text ?? '');
+}
+
 /** Two lines at the same hanging indent keep a reference entry's wrapped tail together. */
-function isReferenceContinuation(
-  previous: TextLine,
-  line: TextLine,
-  columnLeft: number,
-): boolean {
+function isReferenceContinuation(previous: TextLine, line: TextLine, columnLeft: number): boolean {
+  if (isReferenceLine(line.text)) return false;
   const em = Math.max(previous.height, line.height, 1);
-  const previousInset = previous.box.x - columnLeft;
   const lineInset = line.box.x - columnLeft;
-  if (previousInset < em * PARAGRAPH_INDENT_MIN_EM) return false;
   if (lineInset < em * PARAGRAPH_INDENT_MIN_EM) return false;
-  return Math.abs(previous.box.x - line.box.x) <= em * 0.5;
+  // The entry's first line sits on the column wall; its wrapped tail is the hanging indent.
+  // A later continuation can drift a little from the line before it, so the tolerance is
+  // wider than a word space but still much narrower than a new paragraph's indent.
+  if (isReferenceLine(previous.text)) return true;
+  const previousInset = previous.box.x - columnLeft;
+  if (previousInset < em * PARAGRAPH_INDENT_MIN_EM) return false;
+  return Math.abs(previous.box.x - line.box.x) <= em * 1.5;
+}
+
+/**
+ * True when `line` wraps the bibliography entry whose lines are already in `entry`.
+ *
+ * The entry starts with `[n]`; every continuation is indented from that first line and hugs
+ * the previous line horizontally. Comparing with the entry's first line rather than only its
+ * immediate predecessor keeps a long entry together when one wrapped line is set a point or
+ * two off the hanging indent.
+ */
+function continuesReferenceEntry(entry: readonly TextLine[], line: TextLine): boolean {
+  const first = entry[0];
+  if (!first || !isReferenceLine(first.text) || isReferenceLine(line.text)) return false;
+  const previous = entry[entry.length - 1];
+  if (!previous) return false;
+  const em = Math.max(first.height, previous.height, line.height, 1);
+  if (line.baseline <= previous.baseline) return false;
+  if ((line.baseline - previous.baseline) / em > 2.2) return false;
+  if (line.box.x <= first.box.x + em * PARAGRAPH_INDENT_MIN_EM) return false;
+  const hanging = entry.find((candidate) => candidate.box.x > first.box.x + em * 0.5);
+  const anchor = hanging?.box.x ?? previous.box.x;
+  return Math.abs(line.box.x - anchor) <= em * 2.5;
 }
 
 function isListBoundary(previous: TextLine, line: TextLine): boolean {
@@ -1181,6 +1236,34 @@ export function isNumericCell(text: string): boolean {
   if (trimmed.length === 0) return false;
   if (isTick(trimmed)) return true;
   return /^[\d.,]+(?:\s*(?:s|ms|µs|us|ns|%|pt|px|tok\/s))?$/iu.test(trimmed);
+}
+
+/**
+ * Splits a run where it crosses a figure's painted area.
+ *
+ * A paragraph can begin outside a drawing and continue into it, or a caption can sit under a
+ * figure while the line above it is part of the artwork. Classifying the whole run by voting
+ * either paints the drawing's labels or leaves the exterior sentence untranslated. Splitting
+ * at the boundary gives each side the role it actually has.
+ */
+function splitAtFigures(lines: readonly TextLine[], figures: FigureAreas): TextLine[][] {
+  if (figures.images.length === 0 || lines.length < 2) return [[...lines]];
+  const groups: TextLine[][] = [];
+  let current: TextLine[] = [];
+  let previousInside: boolean | null = null;
+  for (const line of lines) {
+    // A numbered caption stays outside the artwork even when an over-wide drawing bbox
+    // reaches under it; `roleOf` then marks it as a caption rather than a figure label.
+    const inside = !isCaptionLine(line.text) && insideFigure(line, figures);
+    if (previousInside !== null && inside !== previousInside) {
+      groups.push(current);
+      current = [];
+    }
+    current.push(line);
+    previousInside = inside;
+  }
+  if (current.length > 0) groups.push(current);
+  return groups;
 }
 
 function buildBlock(
@@ -1336,7 +1419,8 @@ function roleOf(
   // fractions and the subscripts correctly, and replacing them with translated characters
   // puts running prose where the mathematics was.
   if (isEquation(lines, columnLeft)) return 'equation';
-  const insideFigureArea = lines.length > 0 && lines.every((line) => insideFigure(line, figures));
+  const insideLines = lines.filter((line) => insideFigure(line, figures)).length;
+  const insideFigureArea = lines.length > 0 && insideLines * 2 > lines.length;
   // A caption under a drawing stays a caption even when the drawing's bbox covers it.
   if (isCaptionLine(text)) return 'caption';
   // Other text drawn inside a picture belongs to the artwork. It must never be classified as

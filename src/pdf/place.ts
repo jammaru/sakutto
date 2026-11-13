@@ -350,10 +350,11 @@ const ROLE_PRIORITY: Record<AnyBlockRole, number> = {
 };
 
 /**
- * When two painted boxes overlap, keep the one a reader needs more and leave the other in
- * the source typesetting. Growing a paragraph into a heading or a cell is how a page ends up
- * with two sentences printed over each other; hiding the grown box is the conservative fix.
- * The dropped translation is kept as overflow so the reader can still open it.
+ * When two painted boxes overlap, keep the larger block and leave the smaller fragment in
+ * the source typesetting. A reference list or a table can produce a short fragment whose
+ * grown translation lands on the paragraph beside it; dropping the fragment to a marker
+ * keeps the page readable without withholding both translations. The dropped translation is
+ * kept as overflow so the reader can still open it.
  */
 export function resolveOverlaps(placed: readonly PlacedBlock[]): PlacedBlock[] {
   const next = placed.map((entry) => ({ ...entry }));
@@ -456,6 +457,16 @@ export function verticalCut(entry: PlacedBlock): number {
 }
 
 function whichToHide(left: PlacedBlock, right: PlacedBlock): 'left' | 'right' {
+  const leftArea = left.block.box.width * left.block.box.height;
+  const rightArea = right.block.box.width * right.block.box.height;
+  if (leftArea !== rightArea) return leftArea < rightArea ? 'left' : 'right';
+  const leftPainted = overlapRegion(left);
+  const rightPainted = overlapRegion(right);
+  const leftPaintArea = (leftPainted?.width ?? 0) * (leftPainted?.height ?? 0);
+  const rightPaintArea = (rightPainted?.width ?? 0) * (rightPainted?.height ?? 0);
+  if (leftPaintArea !== rightPaintArea) {
+    return leftPaintArea < rightPaintArea ? 'left' : 'right';
+  }
   const leftGrown = (left.fit?.fits === true && left.fit.grown) || false;
   const rightGrown = (right.fit?.fits === true && right.fit.grown) || false;
   if (leftGrown !== rightGrown) return leftGrown ? 'left' : 'right';

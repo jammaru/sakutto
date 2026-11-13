@@ -591,6 +591,45 @@ describe('layoutPage', () => {
       layout.skipped.some((block) => block.text === '0.5' && block.role === 'figure-label'),
     ).toBe(true);
   });
+
+  it('keeps a short reference entry with its hanging-indent continuation in one block', () => {
+    const lines = groupLines([
+      piece('[1]', 49, 100, 12),
+      piece('A wrapped continuation line on the hanging indent.', 64, 112, 220),
+      piece('2024. A year-like continuation that looks like a new list item.', 64, 124, 240),
+      piece('[2] Second entry.', 49, 148, 80),
+      piece('Its own continuation on the hanging indent.', 64, 160, 220),
+    ]);
+    const layout = layoutPage(lines);
+    const references = layout.blocks.filter((block) => block.text.startsWith('['));
+    expect(references).toHaveLength(2);
+    expect(references[0]?.text).toContain('[1]');
+    expect(references[0]?.text).toContain('wrapped continuation');
+    expect(references[0]?.text).toContain('year-like continuation');
+    expect(references[1]?.text).toContain('[2]');
+    expect(references[1]?.text).toContain('own continuation');
+  });
+
+  it('splits a run that crosses a figure boundary into prose and figure-label lines', () => {
+    const lines = groupLines([
+      piece('The opening sentence of this paragraph is outside the drawing.', 49, 100, 320),
+      piece('The middle line is drawn inside the diagram and must stay there.', 49, 112, 320),
+      piece('The closing line is also part of the diagram artwork.', 49, 124, 320),
+    ]);
+    const figures = { images: [{ x: 40, y: 101, width: 360, height: 30 }] };
+    const layout = layoutPage(lines, figures, { width: 600, height: 800 });
+    expect(
+      layout.blocks.some(
+        (block) =>
+          block.role === 'prose' && block.text.includes('opening sentence of this paragraph'),
+      ),
+    ).toBe(true);
+    expect(layout.blocks.some((block) => block.text.includes('middle line'))).toBe(false);
+    expect(layout.blocks.some((block) => block.text.includes('closing line'))).toBe(false);
+    const labels = layout.skipped.filter((block) => block.role === 'figure-label');
+    expect(labels.map((block) => block.text).join(' ')).toContain('middle line');
+    expect(labels.map((block) => block.text).join(' ')).toContain('closing line');
+  });
 });
 
 describe('isCodeToken / isNumericCell', () => {

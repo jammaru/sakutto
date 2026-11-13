@@ -87,13 +87,9 @@ const KEEP_ORIGINAL_ROLES: ReadonlySet<string> = new Set([
   'figure-label',
   'furniture',
 ]);
-/** Roles that always represent the prose the reader asked to translate. */
-const PROSE_ROLES: ReadonlySet<string> = new Set(['prose', 'caption', 'heading']);
-
 /** True when an unchanged output may be kept in place instead of retried as an echo. */
 function mayKeepOriginal(block: LayoutBlock, source: string): boolean {
-  if (KEEP_ORIGINAL_ROLES.has(block.role)) return true;
-  return !PROSE_ROLES.has(block.role) && !hasSourceProse(source);
+  return KEEP_ORIGINAL_ROLES.has(block.role) || !hasSourceProse(source);
 }
 
 /**

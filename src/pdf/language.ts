@@ -39,8 +39,8 @@ export function pdfPageLanguage(blocks: readonly LayoutBlock[]): string | null {
 }
 
 /** A word long enough to be prose rather than a label, unit or notation mark. */
-const PROSE_WORD = /\p{L}{4,}/gu;
-const PROSE_WORDS = 4;
+const PROSE_WORD = /\p{L}{3,}/gu;
+const PROSE_WORDS = 3;
 
 /**
  * True when a block carries enough real words to be prose. Short labels (`Data quality`),

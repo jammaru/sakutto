@@ -151,6 +151,32 @@ describe('figure cluster caps', () => {
     expect(labels.some((block) => block.text.includes('emit(token);'))).toBe(true);
   });
 
+  it('shrinks a form to its painted paths and keeps a caption outside the figure', () => {
+    const fnArray: number[] = [OPS.paintFormXObjectBegin];
+    const argsArray: unknown[][] = [
+      [
+        [1, 0, 0, 1, 40, 300],
+        [0, 0, 300, 200],
+      ],
+    ];
+    for (let index = 0; index < 6; index += 1) {
+      fnArray.push(OPS.constructPath, OPS.fill);
+      argsArray.push(path(40 + index * 2, 120, 200, 60), []);
+    }
+    fnArray.push(OPS.paintFormXObjectEnd);
+    argsArray.push([]);
+    const lines = groupLines([
+      piece('Figure 1: A caption under the drawing stays prose.', 40, 430, 240),
+    ]);
+    const areas = figureAreas({ fnArray, argsArray }, OPS, 800, 600, lines);
+    expect(areas.images.length).toBeGreaterThan(0);
+    expect(areas.images.every((box) => box.height < 100)).toBe(true);
+    expect(areas.images.every((box) => 425 < box.y || 425 > box.y + box.height)).toBe(true);
+    const layout = layoutPage(lines, areas, { width: 600, height: 800 });
+    expect(layout.blocks.some((block) => block.role === 'caption')).toBe(true);
+    expect(layout.skipped.some((block) => block.role === 'figure-label')).toBe(false);
+  });
+
   it('does not treat a page frame as a figure, so a title stays a heading', () => {
     const lines = groupLines([
       piece('Fitting Translated Text Into a Page Layout', 40, 80, 420, { em: 16, bold: true }),

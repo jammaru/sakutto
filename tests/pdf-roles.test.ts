@@ -74,6 +74,28 @@ describe('figure labels versus ticks', () => {
     ).toBe(true);
   });
 
+  it('marks only the lines inside a straddling run as figure labels', () => {
+    const lines = groupLines([
+      piece('The opening sentence of this paragraph is outside the drawing.', 49, 100, 320),
+      piece('The middle line is drawn inside the diagram and must stay there.', 49, 112, 320),
+      piece('The closing line is also part of the diagram artwork.', 49, 124, 320),
+    ]);
+    const figures = { images: [{ x: 40, y: 101, width: 360, height: 30 }] };
+    const layout = layoutPage(lines, figures);
+    expect(
+      layout.blocks.some(
+        (block) =>
+          block.role === 'prose' && block.text.includes('opening sentence of this paragraph'),
+      ),
+    ).toBe(true);
+    expect(layout.blocks.some((block) => block.text.includes('middle line'))).toBe(false);
+    expect(
+      layout.skipped.some(
+        (block) => block.role === 'figure-label' && block.text.includes('middle line'),
+      ),
+    ).toBe(true);
+  });
+
   it('leaves a diagram node untranslated so it cannot overflow the box beside it', () => {
     const lines = groupLines([
       piece('The model routes each token to two of its experts', 49, 600, 250),

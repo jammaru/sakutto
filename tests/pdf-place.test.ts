@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { groupLines } from '@/pdf/lines';
-import { layoutPage } from '@/pdf/layout';
+import { layoutPage, type LayoutBlock } from '@/pdf/layout';
 import { BODY_MIN_FONT_SIZE, BODY_MIN_SCALE, MIN_FONT_SIZE, MIN_SCALE } from '@/pdf/fit';
 import { pageMetrics, metricsPass } from '@/pdf/metrics';
 import { HINTING_WRAP } from '@/pdf/fit';
@@ -15,7 +15,9 @@ import {
   overlapRegion,
   paintedCoverOverlaps,
   placePage,
+  resolveOverlaps,
   verticalCut,
+  type PlacedBlock,
 } from '@/pdf/place';
 import { coverInkOverflowPx } from '@/pdf/render';
 import { stubExpand } from '@/pdf/stub';
@@ -279,6 +281,55 @@ describe('placePage', () => {
     expect(coverPaintOriginX(40, 100, 103, 'center')).toBe(38.5);
     expect(coverInkOverflowPx({ scrollWidth: 100, clientWidth: 100 })).toBe(0);
     expect(coverInkOverflowPx({ scrollWidth: 102.4, clientWidth: 100 })).toBeCloseTo(2.4, 5);
+  });
+
+  it('keeps the larger block painted when two covers overlap', () => {
+    const makeBlock = (box: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }): LayoutBlock => ({
+      box,
+      room: box,
+      lines: [],
+      text: 'Synthetic overlap text.',
+      role: 'prose',
+      fontSize: 10,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: box.width,
+      writing: 0,
+    });
+    const entry = (block: LayoutBlock): PlacedBlock => ({
+      block,
+      translation: '重なった訳文です。',
+      fit: {
+        fits: true,
+        fontSize: block.fontSize,
+        lineHeight: block.fontSize * block.lineHeight,
+        lines: ['重なった訳文です。'],
+        height: block.box.height,
+        grown: false,
+        width: block.box.width,
+      },
+      paint: true,
+      overflow: false,
+      drawn: { ...block.box },
+    });
+    const large = makeBlock({ x: 40, y: 80, width: 240, height: 48 });
+    const small = makeBlock({ x: 60, y: 90, width: 60, height: 12 });
+    const resolved = resolveOverlaps([entry(small), entry(large)]);
+    const kept = resolved.find((candidate) => candidate.block === large);
+    const dropped = resolved.find((candidate) => candidate.block === small);
+    expect(kept?.paint).toBe(true);
+    expect(kept?.drawn).not.toBeNull();
+    expect(dropped?.paint).toBe(false);
+    expect(dropped?.drawn).toBeNull();
+    expect(dropped?.overflow).toBe(true);
   });
 
   it('does not clip a narrow table cell; overflow goes to a marker', () => {

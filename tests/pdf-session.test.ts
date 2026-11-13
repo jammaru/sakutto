@@ -237,7 +237,10 @@ describe('PdfSession stream handling', () => {
     }
     session.focusPage(23);
 
-    await waitFor(() => session.progress().pending === 0 && session.progress().failed === 0, 3000);
+    await waitFor(
+      () => session.progress().pending === 0 && session.progress().failed === 0,
+      3000,
+    );
     const progress = session.progress();
     expect(progress.failed).toBe(0);
     expect(progress.done).toBe(progress.total);
@@ -263,10 +266,7 @@ describe('PdfSession stream handling', () => {
       });
     }
 
-    await waitFor(
-      () => session.progress().pending === 0 && session.progress().failed === 0,
-      3000,
-    );
+    await waitFor(() => session.progress().pending === 0 && session.progress().failed === 0, 3000);
     for (let page = 0; page < 3; page += 1) {
       const prose = session.pageBlocks(page).filter((state) => state.block.role === 'prose');
       const painted = prose.filter((state) => state.paint === true).length;
@@ -297,6 +297,28 @@ describe('PdfSession stream handling', () => {
     expect(states.every((state) => state.intentionallyKept === true)).toBe(true);
     expect(session.progress().failed).toBe(0);
     expect(session.progress().done).toBe(3);
+  });
+
+  it('keeps numeric and notation text even when its role is prose or a heading', async () => {
+    const engine = engineOf(async function* (segments) {
+      const id = segments[0]?.id ?? 'b1';
+      yield { id, final: segments[0]?.text ?? '' };
+    });
+    const session = sessionOf(engine);
+    session.addPage(0, {
+      ...layoutOf('Measurement'),
+      blocks: [
+        block('TS 0.87 0.91 0.83', { role: 'prose' }),
+        block('ε=0.1', { role: 'heading' }),
+        block('0.5', { role: 'caption' }),
+      ],
+    });
+
+    await waitFor(() => session.progress().pending === 0);
+    const states = session.pageBlocks(0);
+    expect(states.every((state) => state.state === 'done')).toBe(true);
+    expect(states.every((state) => state.intentionallyKept === true)).toBe(true);
+    expect(session.progress().failed).toBe(0);
   });
 
   it('fails a three-word prose echo instead of keeping it as done', async () => {

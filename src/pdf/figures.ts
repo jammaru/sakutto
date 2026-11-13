@@ -1,6 +1,7 @@
 import { boxBottom, boxRight, unionBox, type Box } from './geometry';
 import type { TextLine } from './lines';
 import type { PdfOperatorList } from './extract';
+import { isCaptionLine } from './layout';
 
 /**
  * Where a page's drawings are, so the text inside them can be left alone.
@@ -225,10 +226,64 @@ export function figureAreas(
     images.push(flip(rect, pageHeight));
   }
 
-  const clusters = [...figureClusters(paths), ...forms].filter(
-    (box) => isPlausibleFigure(box, pageWidth, pageHeight) && !coversMostText(box, lines),
-  );
-  return { images: mergeContained([...images, ...clusters]) };
+  const clusters = [...figureClusters(paths), ...shrinkFormsToPaths(forms, paths)]
+    .map((box) => withoutCaptionLines(box, lines))
+    .filter((box) => isPlausibleFigure(box, pageWidth, pageHeight) && !coversMostText(box, lines));
+  const pictures = [...images, ...clusters].map((box) => withoutCaptionLines(box, lines));
+  return { images: mergeContained(pictures) };
+}
+
+/**
+ * Uses the painted paths inside a form as its area when there are any.
+ *
+ * A Form XObject's bbox is the coordinate space its content was written in, not a promise
+ * that the drawing fills it. A figure form often reserves room for a caption or a margin,
+ * and taking the full bbox painted that empty band as figure text. The paths are the drawing
+ * that was actually painted; the bbox remains the fallback for a form whose art is an image
+ * or whose paths this extractor did not see.
+ */
+function shrinkFormsToPaths(forms: readonly Box[], paths: readonly Box[]): Box[] {
+  return forms.map((form) => {
+    const painted = paths.filter((path) => {
+      const centreX = path.x + path.width / 2;
+      const centreY = path.y + path.height / 2;
+      return (
+        centreX >= form.x &&
+        centreX <= boxRight(form) &&
+        centreY >= form.y &&
+        centreY <= boxBottom(form)
+      );
+    });
+    return unionBox(painted) ?? form;
+  });
+}
+
+/**
+ * Pulls a caption line out of a figure's area.
+ *
+ * A path cluster can include the rule under a caption, and a form bbox can reserve the
+ * caption's row. The caption is prose the reader translates; leaving it inside the figure
+ * area paints its translation onto the drawing's area and reports it as a figure-interior
+ * paint. The drawing is shrunk to the side of the caption that actually holds its paths.
+ */
+function withoutCaptionLines(box: Box, lines: readonly TextLine[]): Box {
+  let result = box;
+  for (const line of lines) {
+    if (!isCaptionLine(line.text)) continue;
+    const centreX = line.box.x + line.box.width / 2;
+    const centreY = line.box.y + line.box.height / 2;
+    if (centreX < result.x || centreX > boxRight(result)) continue;
+    if (centreY < result.y || centreY > boxBottom(result)) continue;
+    if (centreY >= result.y + result.height / 2) {
+      const height = line.box.y - result.y;
+      result = { ...result, height: Math.max(1, height) };
+    } else {
+      const bottom = boxBottom(result);
+      const y = boxBottom(line.box);
+      result = { ...result, y, height: Math.max(1, bottom - y) };
+    }
+  }
+  return result;
 }
 
 /** True when a cluster is small enough to be a drawing rather than the page itself. */
