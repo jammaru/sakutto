@@ -10,14 +10,14 @@ what the extension ships. Tag releases still compile wllama from source.
 Targets are for GitHub-hosted `ubuntu-latest` and assume the Actions cache is healthy.
 They are goals, not gates.
 
-| Signal                                          | Target         | Why                                                                                          |
-| ----------------------------------------------- | -------------- | -------------------------------------------------------------------------------------------- |
-| PR feedback p50 (warm cache, no wllama rebuild) | ≤ 3 min        | Static, unit, and sharded e2e start together, so feedback arrives while the change is fresh. |
-| PR feedback p95 (warm cache)                    | ≤ 6 min        | Queueing and the Playwright cache miss should not routinely push past a few minutes.         |
-| PR / main wall clock on a wllama cache miss     | ≤ 20 min       | One emscripten compile, not two. Cache saved even if a later package job fails.              |
-| main green rate (non-cancelled)                 | ≥ 99%          | A red default branch stops every other PR.                                                   |
-| Flaky-test rate                                 | 0 known flakes | Failures should be deterministic. Retry only transient infra (image pull, HTTP 429/5xx).     |
-| Release `v*`                                    | Must be green  | Shallow-clone bugs and cache-only wasm are not acceptable on a tag.                          |
+| Signal                                          | Target         | Why                                                                                                    |
+| ----------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------ |
+| PR feedback p50 (warm cache, no wllama rebuild) | ≤ 2 min        | Static, unit, and test-level e2e shards start together, so feedback arrives while the change is fresh. |
+| PR feedback p95 (warm cache)                    | ≤ 6 min        | Queueing and the Playwright cache miss should not routinely push past a few minutes.                   |
+| PR / main wall clock on a wllama cache miss     | ≤ 20 min       | One emscripten compile, not two. Cache saved even if a later package job fails.                        |
+| main green rate (non-cancelled)                 | ≥ 99%          | A red default branch stops every other PR.                                                             |
+| Flaky-test rate                                 | 0 known flakes | Failures should be deterministic. Retry only transient infra (image pull, HTTP 429/5xx).               |
+| Release `v*`                                    | Must be green  | Shallow-clone bugs and cache-only wasm are not acceptable on a tag.                                    |
 
 `scripts/ci-stats.ts` prints p50/p95 for recent workflow runs:
 
@@ -49,18 +49,18 @@ Do not dispatch `chrome-web-store.yml` or `amo.yml` from a pull request.
 
 ### CI jobs
 
-| Job                                  | Typical duration               | When it runs                                                                                                                                      |
-| ------------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `changes`                            | ~10 s                          | Always. Classifies the diff (`scripts/ci-changed.ts`). Docs-only diffs set `code=false`.                                                          |
-| `checks-static`                      | ~45 s                          | Always. `lint`, `format:check`, and `typecheck`, in parallel with the other checks.                                                               |
-| `checks-unit`                        | ~2 min                         | Always. Full clone (`fetch-depth: 0`) so `tests/bench-fixtures.test.ts` can see history; runs `pnpm test` and `bench:equality --check`.           |
-| `e2e` (shards `1/3`–`3/3`)           | ~1–2 min per shard             | Always, except docs-only pull requests (`code=false`). Three Playwright `--shard=i/3` jobs share the pnpm and Chromium caches.                    |
-| `checks`                             | < 10 s                         | Always after the split jobs. Aggregate pass/fail only; keeps the branch-protection name stable even when e2e is skipped for a docs-only PR.       |
-| `pinned-wllama`                      | ~10–20 s                       | Always. `node scripts/wllama/build.ts --check`.                                                                                                   |
-| `wllama`                             | measured 9s hit / 10m 18s miss | Manual runs, PRs that touch zip/wllama inputs, and code pushes to `main`. One compile. Saves the cache before packaging.                          |
-| `Package chrome` / `Package firefox` | ~1–2 min after wllama          | Same condition as `wllama`. Restore the artifact; do not compile again. Firefox keeps `web-ext lint`, the second zip, and the source-zip rebuild. |
+| Job                                  | Typical duration               | When it runs                                                                                                                                                          |
+| ------------------------------------ | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `changes`                            | ~10 s                          | Always. Classifies the diff (`scripts/ci-changed.ts`). Docs-only diffs set `code=false`.                                                                              |
+| `checks-static`                      | ~45 s                          | Always. `lint`, `format:check`, and `typecheck`, in parallel with the other checks.                                                                                   |
+| `checks-unit`                        | ~2 min                         | Always. Full clone (`fetch-depth: 0`) so `tests/bench-fixtures.test.ts` can see history; runs `pnpm test` and `bench:equality --check`.                               |
+| `e2e` (shards `1/3`–`3/3`)           | ~1–1.5 min per shard           | Always, except docs-only pull requests (`code=false`). Three Playwright `--shard=i/3` jobs split individual tests, not files, and share the pnpm and Chromium caches. |
+| `checks`                             | < 10 s                         | Always after the split jobs. Aggregate pass/fail only; keeps the branch-protection name stable even when e2e is skipped for a docs-only PR.                           |
+| `pinned-wllama`                      | ~10–20 s                       | Always. `node scripts/wllama/build.ts --check`.                                                                                                                       |
+| `wllama`                             | measured 9s hit / 10m 18s miss | Manual runs, PRs that touch zip/wllama inputs, and code pushes to `main`. One compile. Saves the cache before packaging.                                              |
+| `Package chrome` / `Package firefox` | ~1–2 min after wllama          | Same condition as `wllama`. Restore the artifact; do not compile again. Firefox keeps `web-ext lint`, the second zip, and the source-zip rebuild.                     |
 
-`checks-static`, `checks-unit`, and the three e2e shards start together after `changes`. Every install job restores the pnpm cache; the e2e shards also share the Playwright Chromium cache. Docs-only pull requests skip e2e, while static and unit still run. Push to `main` and `workflow_dispatch` never skip e2e. The aggregate `checks` job does not rerun tests; it fails if any needed job failed or was cancelled and succeeds if e2e was intentionally skipped.
+`checks-static`, `checks-unit`, and the three e2e shards start together after `changes`. Playwright runs with `fullyParallel: true` and two workers in CI (`workers: 1` locally), so shard boundaries divide individual tests instead of whole files; the large video-captions spec no longer lands on a single shard. Every install job restores the pnpm cache; the e2e shards also share the Playwright Chromium cache. Docs-only pull requests skip e2e, while static and unit still run. Push to `main` and `workflow_dispatch` never skip e2e. The aggregate `checks` job does not rerun tests; it fails if any needed job failed or was cancelled and succeeds if e2e was intentionally skipped.
 
 ## Required checks (recommendation)
 

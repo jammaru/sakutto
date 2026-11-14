@@ -105,6 +105,12 @@ describe('CI workflow guardrails', () => {
     expect(checksJob).toContain("contains(needs.*.result, 'cancelled')");
   });
 
+  it('shards Playwright at the test level so one large spec cannot unbalance e2e', () => {
+    const config = readFileSync(new URL('../playwright.config.ts', import.meta.url), 'utf8');
+    expect(config).toContain('fullyParallel: true');
+    expect(config).toMatch(/workers:\s*process\.env\.CI\s*\?\s*2\s*:\s*1/);
+  });
+
   it('documents SLOs, cache busting, and the merge-conflict skip', () => {
     const docs = normalizeEol(readFileSync(new URL('../docs/CI.md', import.meta.url), 'utf8'));
     expect(docs).toContain('PR feedback p50');

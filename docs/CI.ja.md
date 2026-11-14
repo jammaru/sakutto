@@ -10,7 +10,7 @@ GitHub-hosted の `ubuntu-latest`、キャッシュが生きている前提で�
 
 | 指標                                                             | 目標                                                           |
 | ---------------------------------------------------------------- | -------------------------------------------------------------- |
-| PR のフィードバック p50（キャッシュヒット、wllama 再ビルドなし） | 3 分以内                                                       |
+| PR のフィードバック p50（キャッシュヒット、wllama 再ビルドなし） | 2 分以内                                                       |
 | PR のフィードバック p95（キャッシュヒット）                      | 6 分以内                                                       |
 | wllama キャッシュミス時の壁時計                                  | 20 分以内（コンパイルは 1 回）                                 |
 | main の成功率和（キャンセル以外）                                | 99% 以上                                                       |
@@ -39,7 +39,7 @@ node scripts/ci-stats.ts jammaru/sakutto 200
 
 - `checks-static`: `pnpm lint`、`pnpm format:check`、`pnpm typecheck`。常に実行。
 - `checks-unit`: `pnpm test`、`pnpm bench:equality --check`。`fetch-depth: 0` で常に実行。
-- `e2e`: Playwright の `--shard=i/3` で 3 並列。PR が docs だけ（`code=false`）のときだけ skip。`main` への push と `workflow_dispatch` では skip しません。
+- `e2e`: Playwright の `--shard=i/3` で 3 並列。`fullyParallel: true` なのでファイル単位ではなくテスト単位で分かれます。PR が docs だけ（`code=false`）のときだけ skip。`main` への push と `workflow_dispatch` では skip しません。
 - `checks`: 上記と `changes` を `needs` に持つ集約ジョブ。branch protection 用の名前を固定し、失敗・キャンセルがあれば赤、e2e の意図的な skip なら緑。
 
 `main` への push と手動実行では e2e を必ず実行します。docs だけの PR でも static と unit は実行します。
