@@ -25,6 +25,11 @@ import {
 
 export const ENGINE_HOST_PORT = 'sakutto:engine-host';
 export const TRANSLATION_PORT = 'sakutto:translate';
+/**
+ * A model-progress event that is not tied to one request. The host uses it to publish
+ * loading/loaded transitions so every open surface can refresh itself.
+ */
+export const MODEL_STATUS_PROGRESS_ID = 'sakutto:model-status';
 
 export interface SerializedTranslateOptions {
   src?: string;

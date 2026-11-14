@@ -338,14 +338,15 @@ export default defineContentScript({
       let popupWidthWrite = 0;
       engineSource = settings.engineSource;
       const rule = await loadSiteRule(host);
-      if (!__SAKUTTO_FAKE_ENGINE__) {
+      const readModelStatus = async (): Promise<boolean> => {
         const status = await requestEngineStatus().catch(() => null);
-        if (status) {
-          modelState = status.model.state;
-          plamoReady = status.plamoReady;
-          modelStatusKnown = true;
-        }
-      }
+        if (!status) return false;
+        modelState = status.model.state;
+        plamoReady = status.plamoReady;
+        modelStatusKnown = true;
+        return true;
+      };
+      if (!__SAKUTTO_FAKE_ENGINE__) await readModelStatus();
       shortcutsEnabled = settings.shortcutsEnabled;
       publishPageShortcut();
       const session = new PageSession(document, {
@@ -537,6 +538,28 @@ export default defineContentScript({
       subscribeSiteRules(() => {
         void applyStored();
       });
+
+      // A status fetch can land while the offscreen host is still opening. Retry a few times
+      // instead of leaving compose on "loading" until the next model-progress event; after
+      // that, show the setup/error state rather than claiming a load is still running.
+      let statusRetries = 0;
+      const retryModelStatus = async (): Promise<void> => {
+        if (modelStatusKnown || __SAKUTTO_FAKE_ENGINE__) return;
+        if (await readModelStatus()) {
+          await applyStored();
+          return;
+        }
+        statusRetries += 1;
+        if (statusRetries >= 4) {
+          modelStatusKnown = true;
+          await applyStored();
+          return;
+        }
+        window.setTimeout(() => void retryModelStatus(), 500 * 2 ** (statusRetries - 1));
+      };
+      if (!modelStatusKnown && !__SAKUTTO_FAKE_ENGINE__) {
+        window.setTimeout(() => void retryModelStatus(), 500);
+      }
 
       if (rule.auto === 'always') {
         if (!__SAKUTTO_FAKE_ENGINE__) {

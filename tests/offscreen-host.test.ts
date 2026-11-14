@@ -916,6 +916,25 @@ describe('model load on the GPU tier', () => {
     expect(ensureLoaded).toHaveBeenCalledTimes(2);
   });
 
+  it('abandons a WebGPU load that never settles and continues on the CPU', async () => {
+    const tried: Array<[string, number]> = [];
+    const ensureLoaded = vi.fn((selection: BackendSelection) => {
+      tried.push([selection.backend, selection.nParallel]);
+      if (selection.backend === 'webgpu') return new Promise<LoadedModel>(() => undefined);
+      return Promise.resolve(loaded);
+    });
+
+    const result = await loadWithFallback(ensureLoaded, gpu, new AbortController().signal, {
+      webgpuTimeoutMs: 20,
+    });
+
+    expect(result.selection).toMatchObject({ backend: 'cpu-wasm', nParallel: 1 });
+    expect(tried).toEqual([
+      ['webgpu', 4],
+      ['cpu-wasm', 1],
+    ]);
+  });
+
   it('does not start a second GPU load after gpu-unavailable', async () => {
     const tried: Array<[string, number]> = [];
     const ensureLoaded = vi.fn(async (selection: BackendSelection) => {

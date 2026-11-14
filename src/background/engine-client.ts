@@ -3,6 +3,7 @@ import { abortError, EngineError, isAbortError } from '@/engine/errors';
 import type { ModelId } from '@/engine/model/catalog';
 import {
   ENGINE_HOST_PORT,
+  MODEL_STATUS_PROGRESS_ID,
   errorFromPayload,
   isEngineHostMessage,
   serializeTranslateOptions,
@@ -93,6 +94,7 @@ export class EngineClient {
   private readonly streams = new Map<string, ChunkStream<TranslationChunk>>();
   private readonly progress = new Map<string, (status: ModelStatus) => void>();
   private readonly modelMarks = new Map<string, ModelStatus>();
+  private readonly modelStatusListeners = new Set<(status: ModelStatus) => void>();
   private sourceKey = '';
   private runtimeKey = '';
   private pushedModelId: ModelId | null = null;
@@ -177,6 +179,12 @@ export class EngineClient {
       if (!port) return;
       void this.pushLive(port, settings).catch(() => undefined);
     }, 0);
+  }
+
+  /** Host load transitions, so the service worker can broadcast them to every surface. */
+  onModelStatus(listener: (status: ModelStatus) => void): () => void {
+    this.modelStatusListeners.add(listener);
+    return () => this.modelStatusListeners.delete(listener);
   }
 
   /**
@@ -468,6 +476,15 @@ export class EngineClient {
         );
         this.modelMarks.set(next.id, next);
         this.progress.get(message.requestId)?.(next);
+        if (message.requestId === MODEL_STATUS_PROGRESS_ID) {
+          for (const listener of this.modelStatusListeners) {
+            try {
+              listener(next);
+            } catch {
+              // A status subscriber must not break the host inbox.
+            }
+          }
+        }
         return;
       }
       case 'response': {

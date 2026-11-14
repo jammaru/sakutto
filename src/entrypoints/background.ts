@@ -66,6 +66,10 @@ export default defineBackground(() => {
   const downloads = new Map<ModelId, AbortController>();
   let capabilitiesCache: EngineCapabilities | null = null;
 
+  client.onModelStatus((status) => {
+    void broadcast({ type: 'model:progress', status });
+  });
+
   broker.start();
   installPageActions(broker);
   subscribeSettings((settings) => {
