@@ -97,6 +97,7 @@
   let pdfFailed = $state(false);
   let pdfFailReason = $state<PdfOpenReason | null>(null);
   let engine = $state<EngineStatus | null>(null);
+  let engineStatusError = $state(false);
   let modelMark = $state<ModelStatus | null>(null);
   let quality = $state<QualitySample | null>(null);
   let headroom = $state<DeviceHeadroom | null>(null);
@@ -165,6 +166,7 @@
       !translationStartBlocked(engine ?? (modelMark ? { model: modelMark } : null)),
   );
   let engineText = $derived.by(() => {
+    if (!engine && engineStatusError) return t('runtimeError');
     const label = runtimeLabel({
       status: engine,
       pageSimple: view?.active === true && view.engine === 'chrome',
@@ -248,10 +250,51 @@
     return next;
   }
 
-  async function refreshEngine() {
+  const ENGINE_STATUS_RETRY_MS = 1000;
+  const ENGINE_STATUS_RETRY_LIMIT = 4;
+  const ENGINE_STATUS_POLL_MS = 900;
+  let engineRetryCount = 0;
+  let engineRefreshTimer = 0;
+  let engineRequestGeneration = 0;
+  let popupMounted = false;
+
+  function scheduleEngineRefresh(delayMs: number) {
+    if (!popupMounted) return;
+    window.clearTimeout(engineRefreshTimer);
+    engineRefreshTimer = window.setTimeout(() => {
+      engineRefreshTimer = 0;
+      void refreshEngine();
+    }, delayMs);
+  }
+
+  /**
+   * A failed status fetch is not a final answer: the offscreen host may still be starting.
+   * Retry a few times, then stop saying "checking" and show an error instead. A loading model
+   * keeps polling until the host says it is usable, so the popup cannot stay on "waiting".
+   */
+  async function refreshEngine(): Promise<boolean> {
+    window.clearTimeout(engineRefreshTimer);
+    engineRefreshTimer = 0;
+    const generation = ++engineRequestGeneration;
     const next = await requestEngineStatus();
-    if (!next) return;
+    if (generation !== engineRequestGeneration) return false;
+
+    if (!next) {
+      engineStatusError = false;
+      if (engineRetryCount < ENGINE_STATUS_RETRY_LIMIT) {
+        engineRetryCount += 1;
+        scheduleEngineRefresh(ENGINE_STATUS_RETRY_MS);
+      } else {
+        engineStatusError = true;
+      }
+      return false;
+    }
+
+    engineRetryCount = 0;
+    engineStatusError = false;
     engine = { ...next, model: rememberModel(next.model) ?? next.model };
+    if (next.model.state === 'loading') scheduleEngineRefresh(ENGINE_STATUS_POLL_MS);
+    return true;
   }
 
   function applyProgress(status: ModelStatus) {
@@ -259,6 +302,9 @@
     if (!next) return;
     if (engine && engine.model.id === next.id) {
       engine = { ...engine, model: next };
+      // Backend and plamoReady can change under the same model id (notably WebGPU falling
+      // back to the CPU), so re-query instead of patching only the model field.
+      if (next.state === 'loaded' || next.state === 'ready') void refreshEngine();
       return;
     }
     void refreshEngine();
@@ -424,6 +470,7 @@
   }
 
   onMount(() => {
+    popupMounted = true;
     const unsubscribe = subscribeSettings((next) => {
       settings = next;
       settingsError = null;
@@ -469,6 +516,8 @@
     document.addEventListener('visibilitychange', scheduleShortcutRefresh);
 
     return () => {
+      popupMounted = false;
+      window.clearTimeout(engineRefreshTimer);
       unsubscribe();
       unsubscribeRules();
       window.clearInterval(timer);

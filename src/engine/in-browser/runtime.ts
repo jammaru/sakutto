@@ -1,4 +1,4 @@
-import { abortError, EngineError, isAbortError } from '../errors';
+import { abortError, EngineError, isAbortError, isEngineError } from '../errors';
 import { gpuFailureExcerpt } from '@/shared/gpu-diagnostic';
 import { TRANSLATION_STOP_TOKENS } from '../prompt/pfml3';
 import { createWllama } from '../wllama';
@@ -163,52 +163,86 @@ function loadLog(): { lines: string[]; logger: Required<WllamaConfig>['logger'];
   };
 }
 
+/** A GPU load that never settles must not keep the CPU fallback queued behind it. */
+export const WEBGPU_LOAD_TIMEOUT_MS = 60_000;
+
+function loadTimeoutError(timeoutMs: number): EngineError {
+  return new EngineError('gpu-unavailable', 'The WebGPU model load did not finish in time.', {
+    detail: `WebGPU model load timed out after ${String(Math.round(timeoutMs / 1000))}s`,
+  });
+}
+
+/** A CPU load has no artificial deadline; only the GPU path can wedge the browser. */
+export async function loadModelWithTimeout<T>(
+  load: Promise<T>,
+  backend: BackendKind,
+  timeoutMs = WEBGPU_LOAD_TIMEOUT_MS,
+): Promise<T> {
+  if (backend !== 'webgpu') return load;
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      load,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(loadTimeoutError(timeoutMs)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 export const createWllamaRuntime: RuntimeFactory = async (file, selection) => {
   const log = loadLog();
   const wllama = await createWllama({ suppressNativeLog: false, logger: log.logger });
 
   lastWebGpuLines = [];
   try {
-    await wllama.loadModel([file], {
-      n_ctx: selection.nCtx,
-      n_threads:
-        globalThis.crossOriginIsolated === true || selection.sharedMemory !== false
-          ? selection.nThreads
-          : 1,
-      n_gpu_layers: selection.nGpuLayers,
-      n_parallel: selection.nParallel,
-      /**
-       * Ask llama.cpp for its full-size SWA cache.
-       *
-       * PLaMo 3 declares `attention.sliding_window: 2048`, so by default llama.cpp sizes the
-       * SWA half of the attention cache to that window. The flag is kept for the measured
-       * speed, not for the allocation: long-article fixture, `pnpm bench:live`, 4
-       * interleaved rounds on an RTX 4070 Ti SUPER, first visible paragraph 813 ms -> 326 ms
-       * and full page 19489 ms -> 15863 ms. Twenty-four paragraphs back to back: 15560 ms ->
-       * 11088 ms.
-       *
-       * The gain is in prompt processing, not decode: a fixed 50-token prompt on the shipped
-       * options went from a 155 ms median to 52 ms while predicted time did not move, and the
-       * effect also appears on a single sequence with `n_gpu_layers` 0.
-       *
-       * What this is not: at this tier's options — `n_ctx` 4096 over two sequences, so
-       * `n_ctx_seq` 2048 — llama.cpp reports the same SWA cache either way, 2048 cells and a
-       * 28 MiB WebGPU buffer, because it already sizes the window as
-       * `min(n_ctx_seq, n_swa + n_ubatch)`. Do not describe the gain as the rotation
-       * disappearing: the allocation is identical, and the saving upstream's `--swa-full`
-       * gives other models is not what is being measured here. The window the model can see
-       * is unchanged either way, since every token a sequence could reach was already inside
-       * it.
-       */
-      swa_full: true,
-      ...(selection.nParallel > 1 ? { cont_batching: true } : {}),
-      ctx_shift: false,
-      log_level: LOG_LEVEL_INFO,
-    });
+    await loadModelWithTimeout(
+      wllama.loadModel([file], {
+        n_ctx: selection.nCtx,
+        n_threads:
+          globalThis.crossOriginIsolated === true || selection.sharedMemory !== false
+            ? selection.nThreads
+            : 1,
+        n_gpu_layers: selection.nGpuLayers,
+        n_parallel: selection.nParallel,
+        /**
+         * Ask llama.cpp for its full-size SWA cache.
+         *
+         * PLaMo 3 declares `attention.sliding_window: 2048`, so by default llama.cpp sizes the
+         * SWA half of the attention cache to that window. The flag is kept for the measured
+         * speed, not for the allocation: long-article fixture, `pnpm bench:live`, 4
+         * interleaved rounds on an RTX 4070 Ti SUPER, first visible paragraph 813 ms -> 326 ms
+         * and full page 19489 ms -> 15863 ms. Twenty-four paragraphs back to back: 15560 ms ->
+         * 11088 ms.
+         *
+         * The gain is in prompt processing, not decode: a fixed 50-token prompt on the shipped
+         * options went from a 155 ms median to 52 ms while predicted time did not move, and the
+         * effect also appears on a single sequence with `n_gpu_layers` 0.
+         *
+         * What this is not: at this tier's options — `n_ctx` 4096 over two sequences, so
+         * `n_ctx_seq` 2048 — llama.cpp reports the same SWA cache either way, 2048 cells and a
+         * 28 MiB WebGPU buffer, because it already sizes the window as
+         * `min(n_ctx_seq, n_swa + n_ubatch)`. Do not describe the gain as the rotation
+         * disappearing: the allocation is identical, and the saving upstream's `--swa-full`
+         * gives other models is not what is being measured here. The window the model can see
+         * is unchanged either way, since every token a sequence could reach was already inside
+         * it.
+         */
+        swa_full: true,
+        ...(selection.nParallel > 1 ? { cont_batching: true } : {}),
+        ctx_shift: false,
+        log_level: LOG_LEVEL_INFO,
+      }),
+      selection.backend,
+    );
   } catch (error) {
     log.stop();
     lastWebGpuLines = log.lines.slice();
     await wllama.exit().catch(() => undefined);
+    if (isEngineError(error) && error.code === 'gpu-unavailable') throw error;
     throw new EngineError('model-load-failed', 'The translation model could not be loaded.', {
       cause: error,
       detail:

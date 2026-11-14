@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { selectBackend } from '@/engine/in-browser/backend';
 import { probeCapabilities, resetCapabilityProbe } from '@/shared/capabilities';
 import { resetWebGpuDebugProfile, setWebGpuDebugProfile } from '@/shared/gpu-diagnostic';
 
@@ -9,6 +10,7 @@ describe('WebGPU probe', () => {
   afterEach(() => {
     resetCapabilityProbe();
     resetWebGpuDebugProfile();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -27,6 +29,29 @@ describe('WebGPU probe', () => {
     expect(requestAdapter.mock.calls[0]?.[0]).toEqual({ powerPreference: 'high-performance' });
     expect(await probeCapabilities()).toBe(capabilities);
     expect(requestAdapter).toHaveBeenCalledTimes(requestAdapter.mock.calls.length);
+  });
+
+  it('treats a requestAdapter that never resolves as unavailable and selects the CPU', async () => {
+    vi.useFakeTimers();
+    const requestAdapter = vi.fn(() => new Promise<never>(() => undefined));
+    vi.stubGlobal('navigator', { gpu: { requestAdapter }, hardwareConcurrency: 8 });
+
+    const pending = probeCapabilities();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(8000);
+    const capabilities = await pending;
+
+    expect(capabilities.webgpu).toBe('unavailable');
+    expect(requestAdapter).toHaveBeenCalled();
+    expect(
+      selectBackend({
+        webgpu: capabilities.webgpu === 'ready',
+        hardwareConcurrency: capabilities.hardwareConcurrency,
+        ...(capabilities.gpuFastBatches === undefined
+          ? {}
+          : { fastBatches: capabilities.gpuFastBatches }),
+      }).backend,
+    ).toBe('cpu-wasm');
   });
 
   it.each([

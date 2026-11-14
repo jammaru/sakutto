@@ -158,4 +158,43 @@ describe('runtime label', () => {
       }).key,
     ).toBe('runtimeLocalServer');
   });
+
+  it('does not stay on waiting when a stale plamoReady flag disagrees with the model status', () => {
+    expect(
+      runtimeLabel({
+        status: status({
+          model: {
+            id: DEFAULT_MODEL_ID,
+            state: 'loaded',
+            received: 1,
+            total: 1,
+            progress: 1,
+          },
+          plamoReady: false,
+        }),
+        pageSimple: false,
+        targetLanguage: 'ja',
+      }).key,
+    ).toBe('runtimePlamoGpu');
+
+    expect(
+      runtimeLabel({
+        status: status({
+          model: {
+            id: DEFAULT_MODEL_ID,
+            state: 'ready',
+            received: 1,
+            total: 1,
+            progress: 1,
+          },
+          backend: 'cpu-wasm',
+          tier: 'c8',
+          gpuFallback: true,
+          plamoReady: false,
+        }),
+        pageSimple: false,
+        targetLanguage: 'ja',
+      }).key,
+    ).toBe('runtimePlamoGpuFallback');
+  });
 });
