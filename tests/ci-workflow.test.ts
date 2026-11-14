@@ -8,6 +8,12 @@ function workflowSource(name: string): string {
   return normalizeEol(readFileSync(new URL(name, workflowsDir), 'utf8'));
 }
 
+function workflowJob(source: string, id: string): string {
+  const jobsBlock = source.split(/^jobs:\n/m)[1] ?? '';
+  const jobs = jobsBlock.split(/^(?= {2}[a-z][\w-]*:\n)/m);
+  return jobs.find((job) => job.startsWith(`  ${id}:\n`)) ?? '';
+}
+
 describe('CI workflow guardrails', () => {
   it('gives every job a timeout', () => {
     for (const name of readdirSync(workflowsDir).filter((file) => file.endsWith('.yml'))) {
@@ -55,6 +61,54 @@ describe('CI workflow guardrails', () => {
     expect(
       ci.replaceAll('pnpm bench:equality --check', '').replaceAll('pnpm bench:pdf:layout', ''),
     ).not.toContain('pnpm bench');
+  });
+
+  it('splits static, unit, and sharded e2e behind the checks aggregate', () => {
+    const ci = workflowSource('ci.yml');
+    const staticJob = workflowJob(ci, 'checks-static');
+    expect(staticJob).toContain('pnpm lint');
+    expect(staticJob).toContain('pnpm format:check');
+    expect(staticJob).toContain('pnpm typecheck');
+    expect(staticJob).not.toContain('pnpm test');
+
+    const unitJob = workflowJob(ci, 'checks-unit');
+    expect(unitJob).toContain('fetch-depth: 0');
+    expect(unitJob).toContain('pnpm test\n');
+    expect(unitJob).toContain('pnpm bench:pdf:layout');
+    expect(unitJob).toContain('pnpm bench:equality --check');
+    expect(unitJob).not.toContain('pnpm test:e2e');
+
+    const e2eJob = workflowJob(ci, 'e2e');
+    expect(e2eJob).toContain('shard: [1, 2, 3]');
+    expect(e2eJob).toContain('pnpm test:e2e --shard=${{ matrix.shard }}/3');
+    expect(e2eJob).toContain(
+      "if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.code == 'true' }}",
+    );
+    expect(e2eJob).toContain('playwright-chromium-');
+    expect(e2eJob).toContain('pnpm exec playwright install chromium');
+    expect(e2eJob).not.toMatch(/run:.*--with-deps/);
+    expect(e2eJob).toContain("PLAYWRIGHT_SKIP_INSTALL: '1'");
+    expect(e2eJob).toContain("steps.playwright-cache.outputs.cache-hit != 'true'");
+
+    for (const id of ['checks-static', 'checks-unit', 'e2e']) {
+      const job = workflowJob(ci, id);
+      expect(job).toContain('pnpm/action-setup@v6');
+      expect(job).toContain('cache: pnpm');
+      expect(job).toContain('pnpm install --frozen-lockfile');
+    }
+
+    const checksJob = workflowJob(ci, 'checks');
+    expect(checksJob).toContain('name: checks');
+    expect(checksJob).toContain('needs: [changes, checks-static, checks-unit, e2e]');
+    expect(checksJob).toContain('if: ${{ always() }}');
+    expect(checksJob).toContain("contains(needs.*.result, 'failure')");
+    expect(checksJob).toContain("contains(needs.*.result, 'cancelled')");
+  });
+
+  it('shards Playwright at the test level so one large spec cannot unbalance e2e', () => {
+    const config = readFileSync(new URL('../playwright.config.ts', import.meta.url), 'utf8');
+    expect(config).toContain('fullyParallel: true');
+    expect(config).toMatch(/workers:\s*process\.env\.CI\s*\?\s*2\s*:\s*1/);
   });
 
   it('documents SLOs, cache busting, and the merge-conflict skip', () => {

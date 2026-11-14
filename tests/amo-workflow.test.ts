@@ -40,7 +40,9 @@ describe('AMO workflow', () => {
     expect(cacheKey).toContain('patches/optional');
     expect(ci).toContain('target: [chrome, firefox]');
     expect(ci).toContain('target: ${{ matrix.target }}');
-    expect(ci).toMatch(/checks:\n {4}needs: changes\n {4}runs-on:/);
+    expect(ci).toMatch(
+      /checks:\n {4}name: checks\n {4}needs: \[changes, checks-static, checks-unit, e2e\]\n/,
+    );
     expect(ci).not.toContain('package-firefox');
     expect(ci).not.toContain('web-ext sign');
     expect(ci).not.toContain('AMO_JWT');

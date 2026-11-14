@@ -85,10 +85,40 @@ jobs:
             echo "- bundle: \`$BUNDLE\`"
             echo "- package jobs: $package"
             echo "- pinned-wllama: always"
-            echo "- checks: always (lint, format, typecheck, unit, e2e)"
+            echo "- checks: split static/unit/e2e; e2e skipped only for docs-only pull_request"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  checks:
+  checks-static:
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 12.15.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm typecheck
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## checks-static"
+            echo ""
+            echo "- lint / format / typecheck"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  checks-unit:
     needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -111,18 +141,50 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm format:check
-      - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm bench:pdf:layout
       - run: pnpm bench:equality --check
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## checks-unit"
+            echo ""
+            echo "- unit / bench:pdf:layout / bench:equality"
+            echo "- fetch-depth: 0 so bench-fixtures can see named commits"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  e2e:
+    name: e2e (${{ matrix.shard }}/3)
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.code == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 12.15.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
 
       - id: playwright
         shell: bash
         run: echo "key=playwright-chromium-${RUNNER_OS}-${ImageOS:-unknown}-$(sha256sum pnpm-lock.yaml | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache@v6
+        id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
           key: ${{ steps.playwright.outputs.key }}
@@ -130,8 +192,12 @@ jobs:
       # Invariant: browser only, never `--with-deps`. CI does not apt-get fonts;
       # GitHub-hosted Ubuntu already ships Chromium's shared libraries. Tests
       # must not depend on CJK font metrics. Binaries still come from the cache.
-      - run: pnpm exec playwright install chromium
-      - run: pnpm test:e2e
+      - name: Install Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install chromium
+
+      - name: Run e2e shard ${{ matrix.shard }}/3
+        run: pnpm test:e2e --shard=${{ matrix.shard }}/3
         env:
           PLAYWRIGHT_SKIP_INSTALL: '1'
 
@@ -139,10 +205,36 @@ jobs:
         if: always()
         run: |
           {
+            echo "## e2e shard ${{ matrix.shard }}/3"
+            echo ""
+            echo "- Playwright chromium, no apt fonts"
+            echo "- e2e is skipped only for docs-only pull_request changes"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Branch protection requires the stable `checks` name. This aggregate is green
+  # when every split job passed or e2e was intentionally skipped for docs-only PRs.
+  checks:
+    name: checks
+    needs: [changes, checks-static, checks-unit, e2e]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify split checks
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          echo "One or more required jobs did not succeed." >&2
+          exit 1
+
+      - name: Job summary
+        run: |
+          {
             echo "## checks"
             echo ""
-            echo "- lint / format / typecheck / unit / bench:pdf:layout / bench:equality / e2e"
-            echo "- fetch-depth: 0 so bench-fixtures can see named commits"
+            echo "- checks-static: ${{ needs.checks-static.result }}"
+            echo "- checks-unit: ${{ needs.checks-unit.result }}"
+            echo "- e2e: ${{ needs.e2e.result }}"
+            echo "- e2e is skipped only for docs-only pull_request changes"
           } >> "$GITHUB_STEP_SUMMARY"
 
   pinned-wllama:
