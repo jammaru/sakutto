@@ -2,6 +2,12 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
+## [1.5.1] - 2026-11-14
+
+### Bug Fixes
+
+- WebGPU startup no longer hangs forever on some GPUs and drivers (for example Linux Wayland with NVIDIA). If the GPU does not respond in time, Sakutto falls back to the CPU automatically and says so. The popup no longer keeps showing "waiting for the model" after you switch between CPU and WebGPU when translation is already working. (#85)
+
 ## [1.5.0] - 2026-11-13
 
 ### Features
