@@ -1454,7 +1454,7 @@
     "message": "翻訳設定"
   },
   "gmailBannerTranslateNow": {
-    "message": "$LANG$を今すぐ翻訳",
+    "message": "$LANG$を翻訳する",
     "placeholders": {
       "lang": {
         "content": "$1"
@@ -1462,7 +1462,7 @@
     }
   },
   "gmailBannerAlwaysTranslate": {
-    "message": "$LANG$を常に翻訳",
+    "message": "自動的に$LANG$を翻訳する",
     "placeholders": {
       "lang": {
         "content": "$1"
@@ -1470,7 +1470,7 @@
     }
   },
   "gmailBannerNeverTranslate": {
-    "message": "$LANG$を翻訳しない",
+    "message": "今後$LANG$を翻訳しない",
     "placeholders": {
       "lang": {
         "content": "$1"

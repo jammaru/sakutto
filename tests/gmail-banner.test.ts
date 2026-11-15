@@ -34,7 +34,7 @@ const labels = {
   close: 'Close',
   translated: (source: string, target: string) => `Translated: ${source} → ${target}`,
   menu: 'Translation settings',
-  translateNow: (language: string) => `Translate ${language} now`,
+  translateNow: (language: string) => `Translate ${language}`,
   alwaysTranslate: (language: string) => `Always translate ${language}`,
   neverTranslate: (language: string) => `Never translate ${language}`,
 };
@@ -334,6 +334,43 @@ describe('Gmail banner controller', () => {
     expect(element.textContent).toBe(original);
 
     shadowButton(host!, 'Show translation').click();
+    expect(host?.getAttribute('data-sakutto-gmail-phase')).toBe('translated');
+    expect(element.textContent).toContain('§Hi team, the release is ready for review');
+    expect(counted.calls()).toBe(callsAfterTranslate);
+    controller.dispose();
+  });
+
+  it('restores translation from the menu while viewing the original', async () => {
+    const element = body(`
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `);
+    const original = element.textContent;
+    const counted = countingImmediate();
+    const controller = new GmailBannerController(document, {
+      engine: counted.engine,
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    const host = element.previousElementSibling;
+    shadowButton(host!, 'Translate to ja').click();
+    await waitFor(() => host?.getAttribute('data-sakutto-gmail-phase') === 'translated');
+    const callsAfterTranslate = counted.calls();
+
+    shadowButton(host!, 'Show original').click();
+    expect(host?.getAttribute('data-sakutto-gmail-phase')).toBe('original');
+    expect(element.textContent).toBe(original);
+
+    const shadow = gmailBannerShadow(host);
+    if (!shadow) throw new Error('missing shadow');
+    shadow.querySelector<HTMLButtonElement>('.gear')?.click();
+    const translateNow = shadow.querySelector<HTMLButtonElement>('[role="menuitem"]');
+    if (!translateNow) throw new Error('missing translate menu item');
+    expect(translateNow.querySelectorAll('span')).toHaveLength(2);
+    translateNow.click();
+
     expect(host?.getAttribute('data-sakutto-gmail-phase')).toBe('translated');
     expect(element.textContent).toContain('§Hi team, the release is ready for review');
     expect(counted.calls()).toBe(callsAfterTranslate);

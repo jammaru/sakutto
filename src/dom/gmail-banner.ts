@@ -1703,7 +1703,8 @@ export class GmailBannerController {
       this.closeMenu(record, true);
       const kind = gmailBannerButton(record.state);
       if (kind === 'translate') void this.translate(record);
-      else if (kind === 'show-translation') this.showTranslation(record);
+      else if (kind === 'show-translation' || kind === 'show-original')
+        this.showTranslation(record);
     });
     menuAuto.addEventListener('click', (event) => {
       event.preventDefault();
@@ -1830,7 +1831,10 @@ export class GmailBannerController {
 
     const auto = isGmailAutoTranslateLanguage(record.language, this.prefs.autoLanguages ?? []);
     const never = isGmailNeverTranslateLanguage(record.language, this.prefs.neverLanguages ?? []);
-    record.menuTranslate.textContent = this.labels.translateNow(record.language);
+    record.menuTranslate.setAttribute('aria-label', this.labels.translateNow(record.language));
+    record.menuTranslate.querySelector('span:last-child')!.textContent = this.labels.translateNow(
+      record.language,
+    );
     record.menuAuto.setAttribute('aria-label', this.labels.alwaysTranslate(record.language));
     record.menuNever.setAttribute('aria-label', this.labels.neverTranslate(record.language));
     record.menuAuto.querySelector('span:last-child')!.textContent = this.labels.alwaysTranslate(

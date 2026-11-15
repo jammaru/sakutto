@@ -1455,7 +1455,7 @@
     "message": "Translation settings"
   },
   "gmailBannerTranslateNow": {
-    "message": "Translate $LANG$ now",
+    "message": "Translate $LANG$",
     "placeholders": {
       "lang": {
         "content": "$1"
