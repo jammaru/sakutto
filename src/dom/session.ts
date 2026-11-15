@@ -944,7 +944,7 @@ export class PageSession {
         block,
         this.prefs.targetLanguage,
         this.detectedLanguage,
-        model?.source,
+        model?.source ?? '',
       )
     ) {
       return;

@@ -1519,10 +1519,10 @@ export async function translateGmailBody(
   const owners = new Map<string, RequestOwner>();
 
   for (const block of listTranslatableBlocks(root)) {
-    if (isAlreadyTargetLanguage(block, options.targetLanguage, null)) {
+    const model = buildSegment(block);
+    if (isAlreadyTargetLanguage(block, options.targetLanguage, null, model?.source ?? '')) {
       continue;
     }
-    const model = buildSegment(block);
     if (!model) continue;
     const pieces = chunkForTranslation(model.source);
     if (pieces.length === 0) continue;
