@@ -71,6 +71,47 @@ function ownTextForLanguage(block: Element, text?: string): string {
   return source.replace(/<\/?i\d+>/gu, ' ');
 }
 
+/**
+ * Han-only labels such as a date (`11月16日 1:31`) or `[編集]` look Chinese to the script
+ * heuristic because they carry no kana. On a page that declares Japanese they are Japanese,
+ * not source text to translate. Any Latin, kana, Hangul, or other letter keeps the heuristic's
+ * answer: a mixed run is not a Han-only label.
+ */
+function isHanOnly(text: string): boolean {
+  let han = 0;
+  for (const character of text.slice(0, 600)) {
+    const code = character.codePointAt(0) ?? 0;
+    if (code >= 0x4e00 && code <= 0x9fff) {
+      han += 1;
+      continue;
+    }
+    if (/\p{L}/u.test(character)) return false;
+  }
+  return han >= 2;
+}
+
+/** Whether the language declared for this block is Japanese, in the same precedence order. */
+function declaresJapanese(block: Element, fallback: string | null): boolean {
+  const root = block.ownerDocument.documentElement;
+  if (block.hasAttribute('lang') && block !== root) {
+    const own = canonicalPageLanguage(block.getAttribute('lang'));
+    if (own) return own === 'ja';
+  }
+
+  const source = canonicalPageLanguage(root?.getAttribute('data-sakutto-source-lang'));
+  if (source) return source === 'ja';
+
+  const ancestor = block.parentElement?.closest('[lang]');
+  if (ancestor && ancestor !== root) {
+    const tagged = canonicalPageLanguage(ancestor.getAttribute('lang'));
+    if (tagged) return tagged === 'ja';
+  }
+
+  const declared = canonicalPageLanguage(fallback);
+  if (declared) return declared === 'ja';
+  return canonicalPageLanguage(root?.getAttribute('lang')) === 'ja';
+}
+
 export function languageOf(block: Element, fallback: string | null, text?: string): string | null {
   const root = block.ownerDocument.documentElement;
   if (block.hasAttribute('lang') && block !== root) {
@@ -80,7 +121,12 @@ export function languageOf(block: Element, fallback: string | null, text?: strin
 
   const ownText = ownTextForLanguage(block, text);
   const inferred = inferLanguage(ownText);
-  if (inferred) return inferred;
+  if (inferred) {
+    if (inferred === 'zh-hans' && isHanOnly(ownText) && declaresJapanese(block, fallback)) {
+      return 'ja';
+    }
+    return inferred;
+  }
 
   const source = canonicalPageLanguage(root?.getAttribute('data-sakutto-source-lang'));
   if (source) {

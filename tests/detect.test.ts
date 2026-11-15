@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it } from 'vitest';
 import { isAlreadyTargetLanguage, languageOf } from '@/dom/detect';
+import { buildSegment } from '@/dom/segment';
 
 describe('block language', () => {
   beforeEach(() => {
@@ -110,5 +111,58 @@ describe('nested target-language labels', () => {
 
     expect(languageOf(block, 'ja')).toBe('ja');
     expect(isAlreadyTargetLanguage(block, 'ja', 'ja')).toBe(true);
+  });
+});
+
+describe('Han-only labels', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('treats short Han-only labels as Japanese on a Japanese page', () => {
+    document.documentElement.lang = 'ja';
+    document.body.innerHTML = `
+      <p id="date">11月16日 1:31</p>
+      <p id="edit">[編集]</p>
+      <p id="weather">天気予報・防災情報</p>`;
+
+    for (const id of ['date', 'edit', 'weather']) {
+      const block = document.getElementById(id);
+      if (!block) throw new Error(`missing #${id}`);
+      expect(languageOf(block, 'ja')).toBe('ja');
+      expect(languageOf(block, null)).toBe('ja');
+      expect(isAlreadyTargetLanguage(block, 'ja', 'ja')).toBe(true);
+    }
+  });
+
+  it('uses the segment text when it is passed in', () => {
+    document.documentElement.lang = 'ja';
+    document.body.innerHTML = '<p id="edit">[編集]</p>';
+    const block = document.getElementById('edit');
+    if (!block) throw new Error('missing #edit');
+    const source = buildSegment(block)?.source ?? '';
+
+    expect(languageOf(block, 'ja', source)).toBe('ja');
+    expect(isAlreadyTargetLanguage(block, 'ja', 'ja', source)).toBe(true);
+  });
+
+  it('keeps Han-only text Chinese when the page declares Chinese', () => {
+    document.documentElement.lang = 'zh';
+    document.body.innerHTML = '<p id="han">天气预报</p>';
+    const block = document.getElementById('han');
+    if (!block) throw new Error('missing #han');
+
+    expect(languageOf(block, 'zh')).toBe('zh-hans');
+    expect(isAlreadyTargetLanguage(block, 'ja', 'zh')).toBe(false);
+  });
+
+  it('keeps Han-only text Chinese when Japanese is not declared', () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p id="han">天气预报</p>';
+    const block = document.getElementById('han');
+    if (!block) throw new Error('missing #han');
+
+    expect(languageOf(block, 'en')).toBe('zh-hans');
+    expect(isAlreadyTargetLanguage(block, 'ja', 'en')).toBe(false);
   });
 });
