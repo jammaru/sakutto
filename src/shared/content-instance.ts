@@ -47,13 +47,16 @@ export function isContentLoadGenerationMessage(
   );
 }
 
-/** Drops live registrations from an older background generation after reload. */
+/** Bumps the page generation after reload; the first message in a load does not clear live tokens. */
 export function applyContentLoadGeneration(generation: string): void {
   if (generation.length === 0) return;
   const host = globalThis as ContentInstanceGlobals;
-  if (host[CONTENT_LOAD_GENERATION_GLOBAL_KEY] === generation) return;
+  const previous = host[CONTENT_LOAD_GENERATION_GLOBAL_KEY];
+  if (previous === generation) return;
   host[CONTENT_LOAD_GENERATION_GLOBAL_KEY] = generation;
-  host[LIVE_CONTENT_INSTANCE_REGISTRY_KEY] = new Set();
+  if (previous !== undefined) {
+    host[LIVE_CONTENT_INSTANCE_REGISTRY_KEY] = new Set();
+  }
 }
 
 function liveContentInstanceRegistry(): Set<string> {

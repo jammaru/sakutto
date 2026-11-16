@@ -441,6 +441,55 @@ describe('Gmail banner controller', () => {
     controller.dispose();
   });
 
+  it('keeps one banner host per message when duplicate shells share the same message id', () => {
+    document.body.innerHTML = `
+      <div data-message-id="m1">
+        <sakutto-gmail data-sakutto-gmail-banner="m1"></sakutto-gmail>
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `;
+    const orphan = document.querySelector('sakutto-gmail');
+    if (orphan?.nextElementSibling) {
+      orphan.parentElement?.insertBefore(orphan, orphan.nextElementSibling);
+    }
+    const spare = document.createElement('sakutto-gmail');
+    spare.dataset.sakuttoGmailBanner = 'm1';
+    document.querySelector('[data-message-id]')?.appendChild(spare);
+
+    const controller = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(1);
+    controller.dispose();
+  });
+
+  it('does not start a second controller when another bundle already registered one', () => {
+    body(`
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `);
+    const first = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    const second = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    first.start();
+    second.start();
+    second.refresh();
+    expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(1);
+    first.dispose();
+    second.dispose();
+  });
+
   it('removes a mail banner host stamped by a previous extension build on start', () => {
     document.body.innerHTML = `
       <div data-message-id="m1">

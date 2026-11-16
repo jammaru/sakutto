@@ -91,6 +91,19 @@ describe('content extension instance markers', () => {
     expect(browser.runtime.id).toBe('same-extension-id');
   });
 
+  it('does not clear live tokens on the first generation message for this page', () => {
+    resetContentInstanceGlobalsForTests();
+    registerLiveContentInstanceToken('bundle-a');
+    registerLiveContentInstanceToken('bundle-b');
+    applyContentLoadGeneration('first-generation');
+    applyContentLoadGeneration('first-generation');
+    const host = document.createElement('sakutto-gmail');
+    stampMailBannerInstance(host, 'bundle-a');
+    document.body.append(host);
+    purgeForeignMailBannerHosts(document, 'bundle-b');
+    expect(document.querySelectorAll('sakutto-gmail')).toHaveLength(1);
+  });
+
   it('drops non-live hosts after the background generation bumps', () => {
     registerLiveContentInstanceToken('reload-orphan-token');
     const previous = document.createElement('sakutto-gmail');
