@@ -8,6 +8,7 @@ import {
   preparePlainTextForModel,
   type PlainTextBreakMap,
 } from '@/shared/plain-text-line-breaks';
+import { normalizeTypedInput } from '@/shared/typed-translation';
 
 function prepared(source: string): { modelText: string; breakMap: PlainTextBreakMap } {
   return preparePlainTextForModel(source);
@@ -131,6 +132,63 @@ describe('plain text line break modes', () => {
     expect(breakMap.breaks.map((entry) => entry.kind)).toEqual(['boundary', 'mid-sentence']);
     expect(apply(source, '第1章。寒い朝、ドアを開けた。', 'keep')).toBe(
       '第1章。\n寒い朝、ドアを開けた。',
+    );
+  });
+
+  it('maps only the heading boundary for the reported hyphenated repro', () => {
+    const source = 'It was a cold morn-\ning, and she opened\nthe door slowly.\nChapter 2';
+    const { modelText, breakMap } = prepared(source);
+    const translation = '寒い朝で、彼女はゆっくりとドアを開けました。第2章';
+
+    expect(modelText).toBe('It was a cold morn- ing, and she opened the door slowly. Chapter 2');
+    expect(modelText).not.toContain('\n');
+    expect(breakMap.breaks.map((entry) => entry.kind)).toEqual([
+      'mid-sentence',
+      'mid-sentence',
+      'boundary',
+    ]);
+
+    expect(apply(source, translation, 'keep')).toBe(
+      '寒い朝で、彼女はゆっくりとドアを開けました。\n第2章',
+    );
+    expect(apply(source, translation, 'blank')).toBe(
+      '寒い朝で、彼女はゆっくりとドアを開けました。\n\n第2章',
+    );
+    expect(apply(source, translation, 'wider')).toEqual({
+      text: '寒い朝で、彼女はゆっくりとドアを開けました。\n第2章',
+      wideGapAfterLine: [true, false],
+    });
+  });
+
+  it('maps the reported repro through the typed input flow', () => {
+    const source = 'It was a cold morn-\ning, and she opened\nthe door slowly.\nChapter 2';
+    const normalized = normalizeTypedInput(source);
+    const input = plainTextTranslationInput(normalized, 'keep');
+    const translation = '寒い朝で、彼女はゆっくりとドアを開けました。第2章';
+
+    expect(input.engineText).toBe(
+      'It was a cold morn- ing, and she opened the door slowly. Chapter 2',
+    );
+    expect(input.breakMap).not.toBeNull();
+    expect(applyPlainTextLineBreaks(input.engineText, translation, input.breakMap!, 'keep')).toBe(
+      '寒い朝で、彼女はゆっくりとドアを開けました。\n第2章',
+    );
+  });
+
+  it('keeps only real sentence and heading boundaries for a CJK ja-easy source', () => {
+    const source = '今日は寒い。\n彼女は、\nゆっくりとドアを、\n開けました。\n第2章';
+    const { modelText, breakMap } = prepared(source);
+    const translation = '今日は寒い。彼女はゆっくりとドアを開けました。第2章';
+
+    expect(modelText).toBe('今日は寒い。 彼女は、 ゆっくりとドアを、 開けました。 第2章');
+    expect(breakMap.breaks.map((entry) => entry.kind)).toEqual([
+      'boundary',
+      'mid-sentence',
+      'mid-sentence',
+      'boundary',
+    ]);
+    expect(apply(source, translation, 'keep')).toBe(
+      '今日は寒い。\n彼女はゆっくりとドアを開けました。\n第2章',
     );
   });
 
