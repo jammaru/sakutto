@@ -20,7 +20,7 @@ import {
   registerMailBannerPressHook,
 } from './mail-banner-press';
 import {
-  contentExtensionId,
+  contentScriptInstanceToken,
   purgeForeignMailBannerHosts,
   stampMailBannerInstance,
 } from '@/shared/content-instance';
@@ -1081,6 +1081,60 @@ export function mailBannerShadow(host: Element | null | undefined): ShadowRoot |
   return host ? (bannerShadows.get(host) ?? null) : null;
 }
 
+interface MailBannerControllerRegistry {
+  active: WeakMap<Document, Map<string, MailBannerController>>;
+}
+
+const MAIL_BANNER_CONTROLLER_REGISTRY = '__sakuttoMailBannerControllers';
+
+type MailBannerRegistryGlobal = typeof globalThis & {
+  [MAIL_BANNER_CONTROLLER_REGISTRY]?: MailBannerControllerRegistry;
+};
+
+/**
+ * The idle mail bundle and the generic content bundle are separate files, but they share the
+ * isolated world. Keep the active controller on `globalThis` so a second injection is a
+ * no-op even when each bundle has its own copy of this module.
+ */
+function mailBannerControllerRegistry(): MailBannerControllerRegistry {
+  const host = globalThis as MailBannerRegistryGlobal;
+  const existing = host[MAIL_BANNER_CONTROLLER_REGISTRY];
+  if (existing) return existing;
+  const created: MailBannerControllerRegistry = { active: new WeakMap() };
+  host[MAIL_BANNER_CONTROLLER_REGISTRY] = created;
+  return created;
+}
+
+function activeMailBannerController(doc: Document, adapterId: string): MailBannerController | null {
+  return mailBannerControllerRegistry().active.get(doc)?.get(adapterId) ?? null;
+}
+
+function registerMailBannerController(
+  doc: Document,
+  adapterId: string,
+  controller: MailBannerController,
+): void {
+  const registry = mailBannerControllerRegistry();
+  let controllers = registry.active.get(doc);
+  if (!controllers) {
+    controllers = new Map();
+    registry.active.set(doc, controllers);
+  }
+  controllers.set(adapterId, controller);
+}
+
+function unregisterMailBannerController(
+  doc: Document,
+  adapterId: string,
+  controller: MailBannerController,
+): void {
+  const registry = mailBannerControllerRegistry();
+  const controllers = registry.active.get(doc);
+  if (!controllers || controllers.get(adapterId) !== controller) return;
+  controllers.delete(adapterId);
+  if (controllers.size === 0) registry.active.delete(doc);
+}
+
 /** Default banner appearance; providers may override it with their own native-style CSS. */
 export const DEFAULT_MAIL_BANNER_STYLE = `
 :host {
@@ -1322,6 +1376,7 @@ export class MailBannerController {
   private observer: MutationObserver | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private started = false;
+  private duplicateOf: MailBannerController | null = null;
   private openMenuRecord: BannerRecord | null = null;
   private readonly recordsByHost = new WeakMap<HTMLElement, BannerRecord>();
   private interactionWindow: Window | null = null;
@@ -1348,9 +1403,16 @@ export class MailBannerController {
 
   start(): void {
     if (this.started || !this.prefs.enabled) return;
+    const active = activeMailBannerController(this.doc, this.adapter.id);
+    if (active && active !== this) {
+      // A second content-script bundle for the same frame must not mount a second banner.
+      this.duplicateOf = active;
+      return;
+    }
+    this.duplicateOf = null;
     this.started = true;
-    const extensionId = contentExtensionId();
-    if (extensionId.length > 0) purgeForeignMailBannerHosts(this.doc, extensionId);
+    registerMailBannerController(this.doc, this.adapter.id, this);
+    purgeForeignMailBannerHosts(this.doc, contentScriptInstanceToken());
     this.listenForButtonPresses();
     const root = this.doc.body ?? this.doc.documentElement;
     if (root && this.observerFactory) {
@@ -1364,7 +1426,12 @@ export class MailBannerController {
   }
 
   stop(): void {
+    if (this.duplicateOf) {
+      this.duplicateOf = null;
+      return;
+    }
     this.started = false;
+    unregisterMailBannerController(this.doc, this.adapter.id, this);
     this.stopListeningForButtonPresses();
     this.observer?.disconnect();
     this.observer = null;
@@ -1393,12 +1460,20 @@ export class MailBannerController {
 
   setLabels(labels: MailBannerLabels): void {
     this.labels = labels;
+    if (this.duplicateOf) {
+      this.duplicateOf.setLabels(labels);
+      return;
+    }
     for (const record of this.records.values()) this.paint(record);
   }
 
   setPreferences(next: MailBannerPreferences): void {
     const previous = this.prefs;
     this.prefs = next;
+    if (this.duplicateOf) {
+      this.duplicateOf.setPreferences(next);
+      return;
+    }
     if (!next.enabled) {
       this.stop();
       return;
@@ -1594,6 +1669,16 @@ export class MailBannerController {
 
   refresh(): void {
     if (!this.prefs.enabled) return;
+    if (this.duplicateOf) {
+      if (this.duplicateOf.started) this.duplicateOf.refresh();
+      return;
+    }
+    const active = activeMailBannerController(this.doc, this.adapter.id);
+    if (!this.started && active && active !== this) {
+      this.duplicateOf = active;
+      active.refresh();
+      return;
+    }
     this.pruneOrphanBannerHosts();
     for (const [body, record] of [...this.records]) {
       // The common case costs two cheap checks. Only resolve through the parent chain when
@@ -1835,6 +1920,9 @@ export class MailBannerController {
     const parent = body.parentElement;
     if (!parent) return null;
 
+    // Another controller may already own a host for this view. Never replace it with a
+    // second host: the controller that mounted it keeps painting and handling presses.
+    if (this.findExistingBannerHost(body, key)) return null;
     this.removeExtraHostsForKey(key, null);
 
     const host = this.doc.createElement(this.adapter.tag);
@@ -2441,43 +2529,53 @@ export class MailBannerController {
     return null;
   }
 
-  private recordForHostElement(host: HTMLElement): BannerRecord | null {
-    return this.recordsByHost.get(host) ?? null;
+  /** A host already anchored to this body for the same message means injection is a no-op. */
+  private findExistingBannerHost(body: Element, key: string): HTMLElement | null {
+    const adjacent = body.previousElementSibling;
+    if (adjacent instanceof HTMLElement && this.isBannerHostElement(adjacent)) {
+      const adjacentKey = adjacent.dataset[this.adapter.bannerDataset] ?? '';
+      if (key.length === 0 || adjacentKey === key) return adjacent;
+    }
+    if (key.length === 0) return null;
+    for (const node of this.doc.querySelectorAll(this.adapter.tag)) {
+      if (!(node instanceof HTMLElement)) continue;
+      if ((node.dataset[this.adapter.bannerDataset] ?? '') === key) return node;
+    }
+    return null;
   }
 
-  /** Drops stray hosts that are not tracked or duplicate a message key. */
+  private ownsBannerHost(host: HTMLElement): boolean {
+    return this.recordsByHost.has(host);
+  }
+
+  /** Drops stray hosts that no live controller owns. */
   private pruneOrphanBannerHosts(): void {
     const tracked = new Set<HTMLElement>();
     for (const record of this.records.values()) tracked.add(record.host);
+    const controllers = mailBannerControllerRegistry().active.get(this.doc);
     for (const node of this.doc.querySelectorAll(this.adapter.tag)) {
       if (!(node instanceof HTMLElement)) continue;
       if (tracked.has(node)) continue;
-      node.remove();
+      let owned = false;
+      if (controllers) {
+        for (const controller of controllers.values()) {
+          if (!controller.ownsBannerHost(node)) continue;
+          owned = true;
+          break;
+        }
+      }
+      if (!owned) node.remove();
     }
   }
 
-  /** Keeps at most one live host per message key; untracked duplicates are removed. */
+  /** Keeps at most one live host per message key among this controller's own records. */
   private removeExtraHostsForKey(key: string, keep: HTMLElement | null): void {
     if (key.length === 0) return;
-    for (const host of this.bannerHostsForMessageKey(key)) {
-      if (host === keep) continue;
-      const record = this.recordForHostElement(host);
-      if (record) {
-        this.removeRecord(record);
-        continue;
-      }
-      host.remove();
+    for (const record of [...this.records.values()]) {
+      if (record.host === keep) continue;
+      if (this.recordKey(record) !== key) continue;
+      this.removeRecord(record);
     }
-  }
-
-  private bannerHostsForMessageKey(key: string): HTMLElement[] {
-    const hosts: HTMLElement[] = [];
-    for (const node of this.doc.querySelectorAll(this.adapter.tag)) {
-      if (!(node instanceof HTMLElement)) continue;
-      if ((node.dataset[this.adapter.bannerDataset] ?? '') !== key) continue;
-      hosts.push(node);
-    }
-    return hosts;
   }
 }
 

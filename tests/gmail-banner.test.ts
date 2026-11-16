@@ -8,6 +8,7 @@ vi.mock('wxt/browser', () => ({
     },
   },
 }));
+
 import {
   GMAIL_BANNER_TAG,
   GMAIL_MIN_BODY_CHARS,
@@ -450,7 +451,7 @@ describe('Gmail banner controller', () => {
     const body = document.querySelector('.a3s');
     if (!row || !body) throw new Error('missing fixture');
     const orphan = document.createElement('sakutto-gmail');
-    orphan.dataset.sakuttoExtensionInstance = 'orphan-extension-id';
+    orphan.dataset.sakuttoExtensionInstance = 'orphan-instance-token';
     row.insertBefore(orphan, body);
 
     const controller = new GmailBannerController(document, {
@@ -461,8 +462,8 @@ describe('Gmail banner controller', () => {
     controller.start();
     const hosts = [...document.querySelectorAll(GMAIL_BANNER_TAG)];
     expect(hosts).toHaveLength(1);
-    expect((hosts[0] as HTMLElement | undefined)?.dataset.sakuttoExtensionInstance).toBe(
-      'test-extension-id',
+    expect((hosts[0] as HTMLElement | undefined)?.dataset.sakuttoExtensionInstance).not.toBe(
+      'orphan-instance-token',
     );
     controller.dispose();
   });

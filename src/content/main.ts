@@ -66,6 +66,7 @@ import {
   CONTENT_INSTANCE_DOC_ATTR,
   claimContentExtensionInstance,
   contentExtensionId,
+  contentScriptInstanceToken,
   installContentInvalidationCleanup,
   purgeForeignMailBannerHosts,
   removeOwnedMailBannerHosts,
@@ -328,14 +329,14 @@ function getPageInfo(): PageInfo {
 
 export function contentMain(): void {
   if (pageHost(location.href) === null) return;
-  const extensionId = contentExtensionId();
-  if (extensionId.length === 0) return;
+  if (contentExtensionId().length === 0) return;
+  const instanceToken = contentScriptInstanceToken();
 
   const domInstance = document.documentElement.getAttribute(CONTENT_INSTANCE_DOC_ATTR);
-  if (bridge.__sakuttoContentBridgeReady && domInstance === extensionId) return;
+  if (bridge.__sakuttoContentBridgeReady && domInstance === instanceToken) return;
 
-  purgeForeignMailBannerHosts(document, extensionId);
-  claimContentExtensionInstance(document, extensionId);
+  purgeForeignMailBannerHosts(document, instanceToken);
+  claimContentExtensionInstance(document, instanceToken);
 
   if (!bridge.__sakuttoContentBridgeReady) {
     Object.defineProperty(bridge, '__sakuttoContentBridgeReady', {
@@ -365,7 +366,7 @@ export function contentMain(): void {
     outlookBanner?.dispose();
     gmailBanner = null;
     outlookBanner = null;
-    removeOwnedMailBannerHosts(document, extensionId);
+    removeOwnedMailBannerHosts(document, instanceToken);
     document.documentElement.removeAttribute(CONTENT_INSTANCE_DOC_ATTR);
   };
   installContentInvalidationCleanup(teardownAfterInvalidation);
