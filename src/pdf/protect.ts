@@ -249,8 +249,8 @@ function trailingChemLetter(text: string): { letter: string; rest: string } | nu
 
 function leadingChemLetter(text: string): { letter: string; rest: string } | null {
   const match = /^(\p{Lu})(.*)$/u.exec(text);
-  if (!match || !match[1]) return null;
-  return { letter: match[1], rest: match[2] };
+  if (!match?.[1]) return null;
+  return { letter: match[1], rest: match[2] ?? '' };
 }
 
 /** Folds `H` + subscript `2` + `O` into one atomic placeholder so the model cannot split it. */
