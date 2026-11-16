@@ -1046,7 +1046,11 @@ interface BannerRecord {
   autoAttempted: boolean;
   menuOpen: boolean;
   outsideHandler: ((event: Event) => void) | null;
+  lastButtonPress: { button: HTMLButtonElement; at: number } | null;
 }
+
+const BANNER_PRESS_EVENTS = ['pointerdown', 'mousedown', 'click'] as const;
+const BUTTON_PRESS_DEDUPE_MS = 700;
 
 const bannerShadows = new WeakMap<Element, ShadowRoot>();
 
@@ -1296,6 +1300,8 @@ export class MailBannerController {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private started = false;
   private openMenuRecord: BannerRecord | null = null;
+  private readonly recordsByHost = new WeakMap<HTMLElement, BannerRecord>();
+  private interactionWindow: Window | null = null;
 
   private readonly observerFactory: typeof MutationObserver | null;
 
@@ -1319,6 +1325,7 @@ export class MailBannerController {
   start(): void {
     if (this.started || !this.prefs.enabled) return;
     this.started = true;
+    this.listenForButtonPresses();
     const root = this.doc.body ?? this.doc.documentElement;
     if (root && this.observerFactory) {
       this.observer = new this.observerFactory(() => this.schedule());
@@ -1329,6 +1336,7 @@ export class MailBannerController {
 
   stop(): void {
     this.started = false;
+    this.stopListeningForButtonPresses();
     this.observer?.disconnect();
     this.observer = null;
     if (this.timer !== null) {
@@ -1413,6 +1421,127 @@ export class MailBannerController {
     }
     // A message hidden by a never rule can get its banner back when the list changes.
     this.refresh();
+  }
+
+  /**
+   * OWA handles pointer events from a document-level capture listener and calls
+   * `stopPropagation()` before the event can reach a banner button in a shadow root.
+   * A listener on the window capture phase runs before that, so the banner can still
+   * act on the press. The shadow root is open only so `composedPath()` identifies the
+   * button that was pressed; its styling is still isolated from the page.
+   */
+  private listenForButtonPresses(): void {
+    const view = this.doc.defaultView;
+    if (!view) return;
+    this.interactionWindow = view;
+    for (const type of BANNER_PRESS_EVENTS) {
+      view.addEventListener(type, this.onButtonPress, true);
+    }
+  }
+
+  private stopListeningForButtonPresses(): void {
+    const view = this.interactionWindow;
+    if (!view) return;
+    for (const type of BANNER_PRESS_EVENTS) {
+      view.removeEventListener(type, this.onButtonPress, true);
+    }
+    this.interactionWindow = null;
+  }
+
+  private readonly onButtonPress = (event: Event): void => {
+    const record = this.recordForEvent(event);
+    if (!record) return;
+    const button = this.buttonForEvent(record, event);
+    if (!button) return;
+    // Consume the event before OWA's document capture listener can swallow it. The
+    // follow-up mouse/click events from the same press are consumed the same way and
+    // deduped in `pressButton`, so the action runs once.
+    event.preventDefault();
+    event.stopPropagation();
+    this.pressButton(record, button, event);
+  };
+
+  private recordForEvent(event: Event): BannerRecord | null {
+    const direct = this.recordsByHost.get(event.target as HTMLElement);
+    if (direct) return direct;
+    const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+    for (const node of path) {
+      const record = this.recordsByHost.get(node as HTMLElement);
+      if (record) return record;
+    }
+    return null;
+  }
+
+  private buttonForEvent(record: BannerRecord, event: Event): HTMLButtonElement | null {
+    if (this.isRecordButton(record, event.target)) return event.target;
+    const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+    for (const node of path) {
+      if (this.isRecordButton(record, node)) return node;
+    }
+    return null;
+  }
+
+  private isRecordButton(
+    record: BannerRecord,
+    node: EventTarget | null,
+  ): node is HTMLButtonElement {
+    return (
+      node === record.action ||
+      node === record.close ||
+      node === record.gear ||
+      node === record.menuTranslate ||
+      node === record.menuAuto ||
+      node === record.menuNever
+    );
+  }
+
+  private pressButton(record: BannerRecord, button: HTMLButtonElement, event: Event): void {
+    const now = Date.now();
+    const previous = record.lastButtonPress;
+    if (
+      event.type !== 'pointerdown' &&
+      previous?.button === button &&
+      now - previous.at < BUTTON_PRESS_DEDUPE_MS
+    ) {
+      if (event.type === 'click') record.lastButtonPress = null;
+      return;
+    }
+    if (event.type === 'pointerdown' || event.type === 'mousedown') {
+      record.lastButtonPress = { button, at: now };
+    } else {
+      record.lastButtonPress = null;
+    }
+
+    if (button === record.action) {
+      void this.activate(record);
+      return;
+    }
+    if (button === record.close) {
+      this.dismiss(record);
+      return;
+    }
+    if (button === record.gear) {
+      if (record.menuOpen) this.closeMenu(record, true);
+      else this.openMenu(record);
+      return;
+    }
+    if (button === record.menuTranslate) {
+      this.closeMenu(record, true);
+      const kind = mailBannerButton(record.state);
+      if (kind === 'translate') void this.translate(record);
+      else if (kind === 'show-translation' || kind === 'show-original')
+        this.showTranslation(record);
+      return;
+    }
+    if (button === record.menuAuto) {
+      this.setAutoLanguage(record);
+      this.closeMenu(record, true);
+      return;
+    }
+    if (button === record.menuNever) {
+      this.setNeverLanguage(record);
+      this.closeMenu(record, true);
+    }
   }
 
   refresh(): void {
@@ -1538,7 +1667,7 @@ export class MailBannerController {
     host.dataset[this.adapter.phaseDataset] = 'offer';
     host.style.display = 'block';
 
-    const shadow = host.attachShadow({ mode: 'closed' });
+    const shadow = host.attachShadow({ mode: 'open' });
     bannerShadows.set(host, shadow);
     const style = this.doc.createElement('style');
     style.textContent = this.adapter.style;
@@ -1634,26 +1763,30 @@ export class MailBannerController {
       autoAttempted: options.autoAttempted === true,
       menuOpen: false,
       outsideHandler: null,
+      lastButtonPress: null,
     };
     this.records.set(body, record);
+    this.recordsByHost.set(host, record);
     this.paint(record);
 
-    action.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      void this.activate(record);
-    });
-    close.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      this.dismiss(record);
-    });
-    gear.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (record.menuOpen) this.closeMenu(record, true);
-      else this.openMenu(record);
-    });
+    for (const button of [
+      action,
+      close,
+      gear,
+      menuTranslate,
+      menuAuto,
+      menuNever,
+    ] satisfies HTMLButtonElement[]) {
+      // Composed presses normally reach the window capture listener first. This fallback
+      // covers keyboard activation and synthetic events that stay inside the shadow tree.
+      for (const type of BANNER_PRESS_EVENTS) {
+        button.addEventListener(type, (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          this.pressButton(record, button, event);
+        });
+      }
+    }
     gear.addEventListener('keydown', (event) => {
       if (event.key === 'Escape' && record.menuOpen) {
         event.preventDefault();
@@ -1664,31 +1797,10 @@ export class MailBannerController {
       event.preventDefault();
       this.openMenu(record);
     });
-    menuTranslate.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      this.closeMenu(record, true);
-      const kind = mailBannerButton(record.state);
-      if (kind === 'translate') void this.translate(record);
-      else if (kind === 'show-translation' || kind === 'show-original')
-        this.showTranslation(record);
-    });
-    menuAuto.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      this.setAutoLanguage(record);
-      this.closeMenu(record, true);
-    });
-    menuNever.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      this.setNeverLanguage(record);
-      this.closeMenu(record, true);
-    });
     menu.addEventListener('keydown', (event) => this.handleMenuKeydown(record, event));
 
-    // The shadow root is closed, so the fixture build exposes the same actions as an
-    // event the page can dispatch. The release build has no test hook.
+    // The fixture build exposes the same actions as an event the page can dispatch.
+    // The release build has no test hook.
     if (__SAKUTTO_FAKE_ENGINE__) {
       host.addEventListener(this.adapter.actionEvent, (event) => {
         const detail = event instanceof CustomEvent ? event.detail : null;

@@ -95,6 +95,32 @@ async function waitFor(predicate: () => boolean): Promise<void> {
   throw new Error('condition did not settle');
 }
 
+const BANNER_PRESS_TYPES = ['pointerdown', 'mousedown', 'click'] as const;
+
+function pressSequence(button: HTMLButtonElement): void {
+  const init = { bubbles: true, composed: true, cancelable: true, button: 0 };
+  const pointer =
+    typeof PointerEvent === 'function'
+      ? new PointerEvent('pointerdown', init)
+      : new MouseEvent('pointerdown', init);
+  button.dispatchEvent(pointer);
+  for (const type of ['mousedown', 'click'] as const) {
+    button.dispatchEvent(new MouseEvent(type, init));
+  }
+}
+
+/** Simulates OWA's document capture listener swallowing every press phase. */
+function swallowDocumentPresses(): () => void {
+  const swallow = (event: Event): void => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  for (const type of BANNER_PRESS_TYPES) document.addEventListener(type, swallow, true);
+  return () => {
+    for (const type of BANNER_PRESS_TYPES) document.removeEventListener(type, swallow, true);
+  };
+}
+
 afterEach(() => {
   document.body.innerHTML = '';
 });
@@ -662,6 +688,92 @@ describe('Gmail banner controller', () => {
     `;
     await waitFor(() => document.querySelector(GMAIL_BANNER_TAG) !== null);
     controller.dispose();
+  });
+  it('keeps controls working when the page swallows document-level pointer events', async () => {
+    const stopSwallowing = swallowDocumentPresses();
+    try {
+      const element = body(`
+        <div data-message-id="m1">
+          <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it this week.</div>
+        </div>
+      `);
+      const original = element.textContent;
+      const controller = new GmailBannerController(document, {
+        engine: immediate(),
+        labels,
+        preferences: PREFERENCES,
+      });
+      controller.start();
+      const host = element.previousElementSibling;
+      if (!host) throw new Error('missing banner');
+
+      pressSequence(shadowButton(host, 'Translate to ja'));
+      await waitFor(() => host.getAttribute('data-sakutto-gmail-phase') === 'translated');
+      expect(element.textContent).toContain('§Hi team, the release is ready for review');
+
+      pressSequence(shadowButton(host, 'Show original'));
+      expect(host.getAttribute('data-sakutto-gmail-phase')).toBe('original');
+      expect(element.textContent).toBe(original);
+
+      pressSequence(shadowButton(host, 'Show translation'));
+      expect(host.getAttribute('data-sakutto-gmail-phase')).toBe('translated');
+      expect(element.textContent).toContain('§Hi team, the release is ready for review');
+
+      pressSequence(shadowButton(host, 'Close'));
+      expect(document.querySelector(GMAIL_BANNER_TAG)).toBeNull();
+      expect(element.textContent).toBe(original);
+      controller.dispose();
+    } finally {
+      stopSwallowing();
+    }
+  });
+
+  it('runs every gear-menu item when the page swallows document-level pointer events', async () => {
+    const stopSwallowing = swallowDocumentPresses();
+    try {
+      const element = body(`
+        <div data-message-id="m1">
+          <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it this week.</div>
+        </div>
+      `);
+      const changes: { auto: string[]; never: string[] }[] = [];
+      const controller = new GmailBannerController(document, {
+        engine: immediate(),
+        labels,
+        preferences: PREFERENCES,
+        onLanguagesChange: (next) => changes.push(next),
+      });
+      controller.start();
+      const host = element.previousElementSibling;
+      const shadow = gmailBannerShadow(host);
+      if (!host || !shadow) throw new Error('missing banner');
+      const gear = shadow.querySelector<HTMLButtonElement>('.gear');
+      const menu = shadow.querySelector<HTMLElement>('[role="menu"]');
+      const translateNow = shadow.querySelector<HTMLButtonElement>('[role="menuitem"]');
+      const auto = shadow.querySelectorAll<HTMLButtonElement>('[role="menuitemcheckbox"]')[0];
+      const never = shadow.querySelectorAll<HTMLButtonElement>('[role="menuitemcheckbox"]')[1];
+      if (!gear || !menu || !translateNow || !auto || !never) throw new Error('missing menu item');
+
+      pressSequence(gear);
+      expect(gear.getAttribute('aria-expanded')).toBe('true');
+      expect(menu.hidden).toBe(false);
+      pressSequence(translateNow);
+      await waitFor(() => host.getAttribute('data-sakutto-gmail-phase') === 'translated');
+      expect(menu.hidden).toBe(true);
+
+      pressSequence(gear);
+      pressSequence(auto);
+      expect(changes.at(-1)).toEqual({ auto: ['en'], never: [] });
+      expect(menu.hidden).toBe(true);
+
+      pressSequence(gear);
+      pressSequence(never);
+      expect(changes.at(-1)).toEqual({ auto: [], never: ['en'] });
+      expect(document.querySelector(GMAIL_BANNER_TAG)).toBeNull();
+      controller.dispose();
+    } finally {
+      stopSwallowing();
+    }
   });
 });
 
