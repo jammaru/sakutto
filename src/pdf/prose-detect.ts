@@ -1,3 +1,5 @@
+import { CJK_MAJORITY, cjkRatio } from './fonts';
+
 const PROSE_WORD = /\p{L}{3,}/gu;
 const PROSE_WORDS = 3;
 const CJK_LETTER = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
@@ -6,6 +8,26 @@ const SECTION_MARKER = /^\d+(?:\.\d+)*[.．]?\s*/u;
 /** True when a block carries enough real words to count as prose. */
 export function hasSourceProse(text: string): boolean {
   return (text.match(PROSE_WORD)?.length ?? 0) >= PROSE_WORDS;
+}
+
+/** About one short CJK sentence. Below this a CJK run reads as a label, not prose. */
+const PROSE_CJK_CHARS = 6;
+
+/**
+ * True when a CJK-majority run is long enough to be a sentence rather than a label.
+ * Japanese, Chinese and Korean write a sentence as one continuous letter run, which the
+ * Latin word counter in `hasSourceProse` undercounts. `minLetters` is the caller's line
+ * between "label worth translating on its own" and "sentence": role classification in
+ * ocr.ts keeps two-glyph headings such as 概要, while the echo guards need a whole sentence.
+ */
+export function hasCjkProse(text: string, minLetters: number = PROSE_CJK_CHARS): boolean {
+  const compact = text.replace(/\s+/gu, '');
+  return compact.length >= minLetters && CJK_LETTER.test(compact) && cjkRatio(text) >= CJK_MAJORITY;
+}
+
+/** True when a block carries prose in any script the translator is asked to translate. */
+export function hasTranslatableProse(text: string): boolean {
+  return hasSourceProse(text) || hasCjkProse(text);
 }
 
 /**

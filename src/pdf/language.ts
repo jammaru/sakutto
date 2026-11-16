@@ -38,9 +38,9 @@ export function pdfPageLanguage(blocks: readonly LayoutBlock[]): string | null {
   return best;
 }
 
-import { hasSourceProse } from './prose-detect';
+import { hasTranslatableProse } from './prose-detect';
 
-export { hasSourceProse } from './prose-detect';
+export { hasSourceProse, hasTranslatableProse } from './prose-detect';
 
 function normalizedText(text: string): string {
   return text.replace(/\s+/gu, ' ').trim();
@@ -107,7 +107,7 @@ export function translationStaysInSourceLanguage(
 ): boolean {
   const trimmedOut = normalizedText(output);
   const trimmedSrc = normalizedText(source);
-  if (!hasSourceProse(trimmedSrc)) return false;
+  if (!hasTranslatableProse(trimmedSrc)) return false;
   if (trimmedOut.length === 0 || translationRepeatsSource(trimmedSrc, trimmedOut)) return true;
   const canonicalTarget = canonicalLanguage(target);
   if (isLatinScriptTarget(canonicalTarget)) return false;
@@ -130,8 +130,10 @@ export function translationEchoesSource(source: string, output: string, target: 
   // Outside that build the prefix is ordinary source text and must not buy an exemption.
   if (__SAKUTTO_FAKE_ENGINE__ && trimmedOut.startsWith(`§${canonicalTarget}§`)) return false;
   // A label, a number, a header or a formula cannot be an echo of prose. Treating it as one
-  // failed a row of table numbers and retried it forever.
-  if (!hasSourceProse(trimmedSrc)) return false;
+  // failed a row of table numbers and retried it forever. A CJK sentence counts as prose here
+  // because the Latin word counter undercounts it; a two- or three-glyph label still falls
+  // under the CJK sentence threshold and stays exempt.
+  if (!hasTranslatableProse(trimmedSrc)) return false;
   if (trimmedOut.length === 0) return true;
   // Latin targets cannot be compared by script: a correct German translation may still look
   // English to the heuristic. Only the text itself can prove that nothing was translated.

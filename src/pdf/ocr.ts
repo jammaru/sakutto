@@ -14,7 +14,7 @@ import {
   type PageLayout,
 } from './layout';
 import { bodyFontSize, isRotated, lineFrom, type TextLine, type TextPiece } from './lines';
-import { hasSourceProse } from './prose-detect';
+import { hasCjkProse, hasSourceProse } from './prose-detect';
 
 /**
  * OCR is a fallback, not a replacement for a usable PDF text layer.
@@ -1931,17 +1931,6 @@ function groupText(lines: readonly OcrTextLine[]): string {
 }
 
 /**
- * Japanese OCR lines are one continuous letter run, so the Latin word counter in
- * `hasSourceProse` undercounts them. A long CJK-majority line is body text and must reach the
- * engine instead of being skipped as a label.
- */
-function hasCjkProse(text: string): boolean {
-  const compact = text.replace(/\s+/gu, '');
-  // A two-character CJK section label such as "概要" is a translatable heading, not furniture.
-  // Numeric-only labels are rejected separately by groupRole before this point.
-  return cjkRatio(text) >= CJK_MAJORITY && compact.length >= 2 && /\p{L}/u.test(compact);
-}
-/**
  * A display formula OCRed as ordinary text: `CER = (S + D + I) / N` has no math font to
  * go on, but it is short, centred and built out of variables and operators rather than words.
  */
@@ -2007,7 +1996,12 @@ function groupRole(group: readonly OcrTextLine[], bodySize: number): AnyBlockRol
   // symbols, and a real word in an operator line is still language to translate rather than a
   // numeric label to withhold.
   const operatorProse = OCR_OPERATOR.test(text) && /\p{L}{3,}/u.test(text);
-  return hasSourceProse(text) || hasCjkProse(text) || operatorProse ? 'prose' : 'label';
+  // Japanese OCR lines are one continuous letter run, so the Latin word counter in
+  // `hasSourceProse` undercounts them and a long CJK-majority line must reach the engine
+  // instead of being skipped as a label. The two-glyph threshold keeps a CJK section label
+  // such as "概要" a translatable heading rather than furniture; numeric-only labels were
+  // rejected above.
+  return hasSourceProse(text) || hasCjkProse(text, 2) || operatorProse ? 'prose' : 'label';
 }
 
 function groupBlocks(

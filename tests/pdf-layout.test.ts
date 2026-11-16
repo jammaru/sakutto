@@ -8,6 +8,7 @@ import { hasSourceProse } from '@/pdf/language';
 import { groupLines, type TextPiece } from '@/pdf/lines';
 import {
   isCodeToken,
+  isMisclassifiedFigureProse,
   isNumericCell,
   isNumericRow,
   layoutPage,
@@ -185,6 +186,28 @@ describe('layoutPage', () => {
     );
     expect(misSkipped).toHaveLength(0);
     expect(layout.blocks.some((block) => block.text.includes('Related work'))).toBe(true);
+  });
+
+  it('keeps a CJK figure label a label instead of body prose', () => {
+    const label = groupLines([piece('図1 温度計', 60, 300, 60)]);
+    expect(isMisclassifiedFigureProse('図1 温度計', label, 0)).toBe(false);
+
+    const wrapped = groupLines([
+      piece('図1 温度計', 60, 300, 60),
+      piece('温度計の設定', 60, 312, 60),
+    ]);
+    expect(isMisclassifiedFigureProse('図1 温度計 温度計の設定', wrapped, 0)).toBe(false);
+
+    // A column-wide CJK line on a later page is the shape that would let an artwork label pass
+    // for a wrapped paragraph, so it stays out of the figure-prose path.
+    const wide = groupLines([piece('温度計の設定値 表示画面', 40, 300, 240)]);
+    expect(isMisclassifiedFigureProse('温度計の設定値 表示画面', wide, 1)).toBe(false);
+
+    // The same shape in Latin prose is body copy: the gate is the word counter, not the shape.
+    const prose = 'Earlier synthetic surveys compare naive baselines with stronger models.';
+    expect(isMisclassifiedFigureProse(prose, groupLines([piece(prose, 40, 300, 240)]), 1)).toBe(
+      true,
+    );
   });
 
   it('keeps a wrapped caption line with the caption block', () => {

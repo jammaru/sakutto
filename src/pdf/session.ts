@@ -24,7 +24,7 @@ import {
   wrapWidth,
 } from './place';
 import {
-  hasSourceProse,
+  hasTranslatableProse,
   isSameLanguage,
   pdfPageLanguage,
   translationEchoesSource,
@@ -99,7 +99,7 @@ const KEEP_ORIGINAL_ROLES: ReadonlySet<string> = new Set([
 ]);
 /** True when an unchanged output may be kept in place instead of retried as an echo. */
 function mayKeepOriginal(block: LayoutBlock, source: string): boolean {
-  return KEEP_ORIGINAL_ROLES.has(block.role) || !hasSourceProse(source);
+  return KEEP_ORIGINAL_ROLES.has(block.role) || !hasTranslatableProse(source);
 }
 
 /**
