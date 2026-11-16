@@ -78,6 +78,21 @@ const BLOCK_SELECTOR = [
 
 const BLOCK_TAGS: ReadonlySet<string> = new Set(BLOCK_SELECTOR.split(', '));
 
+/**
+ * A run of prose between two `<br>` elements. The container is split into these runs so
+ * each line is translated and written back in its own node range. Without that, a mail
+ * body such as Gmail's `<div dir="ltr">Hello<br><br>Body<br><br>Thanks,<br>Team</div>` is
+ * one segment: the model receives newlines, usually returns one paragraph, and the renderer
+ * collapses every word into the first text node while the remaining `<br>`s still paint
+ * their empty lines. The runs stay late in the DOM; the marker lets a later scan find them
+ * instead of wrapping them a second time.
+ */
+const BREAK_RUN_ATTRIBUTE = 'data-sakutto-run';
+
+export function isBreakRunWrapper(element: Element): boolean {
+  return element.localName === 'span' && element.hasAttribute(BREAK_RUN_ATTRIBUTE);
+}
+
 const LETTER_PATTERN = /\p{L}/u;
 const URL_ONLY = /^(?:https?:\/\/|www\.)\S+$/iu;
 
@@ -816,6 +831,110 @@ export function* eachTranslatableBlock(root: ParentNode): Generator<Element> {
 }
 
 /**
+ * A run that carries something worth examining: words, a link, an icon with text. Runs
+ * made only of the document's indentation are left alone so they do not get wrapped and
+ * unwrapped on every scan.
+ */
+function runHasContent(nodes: readonly ChildNode[]): boolean {
+  for (const node of nodes) {
+    if ((node.textContent ?? '').trim().length === 0) continue;
+    return true;
+  }
+  return false;
+}
+
+/** Puts a run's nodes back where they were before the wrapper was made. */
+function unwrapBreakRun(wrapper: Element): void {
+  const parent = wrapper.parentNode;
+  if (!parent) return;
+  while (wrapper.firstChild) parent.insertBefore(wrapper.firstChild, wrapper);
+  wrapper.remove();
+}
+
+/**
+ * Splits a block at its direct `<br>` children and wraps every non-empty run in a stable
+ * inline span. The spans are what the block walk yields, so each line gets its own segment,
+ * its own placeholders, and its own text slots.
+ *
+ * A paragraph (`<p>`, a heading, a blockquote) is deliberately left whole: a line break
+ * inside one is already handled as a true multiline block, and the packing rule keeps it
+ * in a request of its own. Mail bodies and page layout wrappers are `<div>`s, where the
+ * same break was not a paragraph and used to collapse the whole message.
+ *
+ * A run that contains a block child is not split: that child is a segment of its own, and
+ * folding it into an inline wrapper would hide it from the walk. A flex/grid container is
+ * left alone too, because its text nodes are already separate anonymous items.
+ */
+function splitBreakRuns(
+  element: Element,
+  probe: VisibilityProbe,
+  layout: LayoutProbe,
+): Element[] | null {
+  if (
+    isBreakRunWrapper(element) ||
+    PROSE_ROW_TAGS.has(element.localName) ||
+    layout.itemContainer(element)
+  ) {
+    return null;
+  }
+
+  const runs: ChildNode[][] = [];
+  let run: ChildNode[] = [];
+  let hasBreak = false;
+  for (const child of element.childNodes) {
+    if (child instanceof Element && child.localName === 'br') {
+      hasBreak = true;
+      runs.push(run);
+      run = [];
+      continue;
+    }
+    if (child instanceof Element && !isBreakRunWrapper(child) && layout.blockBox(child)) {
+      return null;
+    }
+    run.push(child);
+  }
+  runs.push(run);
+  if (!hasBreak) return null;
+
+  const doc = element.ownerDocument;
+  const created: Element[] = [];
+  const usable: Element[] = [];
+  for (const nodes of runs) {
+    if (nodes.length === 0 || !runHasContent(nodes)) continue;
+    const existing = nodes.find(
+      (node): node is Element => node instanceof Element && isBreakRunWrapper(node),
+    );
+    if (existing) {
+      if (hasTranslatableTextIn(existing, probe)) usable.push(existing);
+      continue;
+    }
+
+    const wrapper = doc.createElement('span');
+    wrapper.setAttribute(BREAK_RUN_ATTRIBUTE, '');
+    const first = nodes[0];
+    if (!first) continue;
+    element.insertBefore(wrapper, first);
+    for (const node of nodes) wrapper.append(node);
+    created.push(wrapper);
+    if (hasTranslatableTextIn(wrapper, probe)) {
+      usable.push(wrapper);
+    } else {
+      unwrapBreakRun(wrapper);
+    }
+  }
+
+  // One run is just a block with a trailing or decorative break. Leaving it whole avoids
+  // an extra wrapper and an extra model call for no structural gain.
+  if (usable.length < 2) {
+    for (const wrapper of created) {
+      if (wrapper.parentNode) unwrapBreakRun(wrapper);
+    }
+    return null;
+  }
+  return usable;
+}
+
+/**
  * Walks one element of the page.
  *
  * The rule that fixes a broken table: a container that places each child in its own slot
@@ -849,7 +968,12 @@ function* visitBlock(
   }
 
   const elementItems = layout.itemContainer(element);
-  if (!elementItems && context === 'flow' && layout.inline(element)) {
+  if (
+    !isBreakRunWrapper(element) &&
+    !elementItems &&
+    context === 'flow' &&
+    layout.inline(element)
+  ) {
     // An inline or `contents` wrapper in a line of text. Every block that could hold text
     // is checked below, and a hidden wrapper hides the blocks inside it, so probing the
     // wrappers too would repeat the same ancestor walk for every level of a component tree.
@@ -859,6 +983,18 @@ function* visitBlock(
     return;
   }
   if (probe.skipped(element)) return;
+
+  // A block whose direct children are prose separated by `<br>` is several lines, not one
+  // paragraph. Splitting here keeps each line's translation in its own node range, so a
+  // model that drops the source newlines cannot collapse the whole message into the first
+  // text node and leave the remaining breaks painting empty lines.
+  if (!elementItems && context !== 'row') {
+    const runs = splitBreakRuns(element, probe, layout);
+    if (runs) {
+      for (const run of runs) yield* visitBlock(run, probe, layout, context, repeatedCells);
+      return;
+    }
+  }
 
   // A repeating row of a data list is treated exactly like a grid container even when the
   // page lays it out some other way: its cells are separate units and each one gets its own
