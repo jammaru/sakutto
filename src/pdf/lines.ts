@@ -120,6 +120,25 @@ function gapBetween(left: Box, right: Box): number {
 }
 
 /**
+ * True when a piece sits on the same line as a run's anchor.
+ *
+ * The baseline test handles ordinary text. A superscript or subscript is raised or lowered
+ * beyond that tolerance, but its em box still overlaps the line it belongs to, so a lowered
+ * subscript or a raised reference marker is not split into a block of its own.
+ */
+function sameLineBaseline(anchor: TextPiece, piece: TextPiece): boolean {
+  const anchorEm = em(anchor);
+  const pieceEm = em(piece);
+  const scale = Math.max(anchorEm, pieceEm);
+  const shift = Math.abs(piece.baseline - anchor.baseline);
+  if (shift <= SAME_BASELINE * scale) return true;
+  if (shift > scale * 0.8) return false;
+  const overlap =
+    Math.min(boxBottom(anchor.box), boxBottom(piece.box)) - Math.max(anchor.box.y, piece.box.y);
+  return overlap > Math.min(anchorEm, pieceEm) * 0.2;
+}
+
+/**
  * Joins the pieces of one line. A PDF stores text as runs, and where a word space falls
  * between two runs it is often simply absent: the reader sees `the reader's` because the
  * next run starts a little further right. The gap is the only evidence, so a run separated
@@ -229,7 +248,7 @@ function uprightLines(pieces: readonly TextPiece[]): TextLine[] {
   for (const piece of ordered) {
     const row = rows[rows.length - 1];
     const anchor = row?.[0];
-    if (row && anchor && Math.abs(piece.baseline - anchor.baseline) <= SAME_BASELINE * em(anchor)) {
+    if (row && anchor && sameLineBaseline(anchor, piece)) {
       row.push(piece);
       continue;
     }

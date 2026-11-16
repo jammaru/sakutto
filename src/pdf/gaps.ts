@@ -143,6 +143,36 @@ export function gutterCandidates(lines: readonly TextLine[], unit: number): Gutt
     .sort((left, right) => right.rows - left.rows || right.width - left.width);
 }
 
+/** A one-to-three character run that can be a superscript or subscript marker. */
+function scriptFragment(line: TextLine): boolean {
+  const text = line.text.trim();
+  return text.length > 0 && text.length <= 3 && /^[\p{L}\p{N}]+$/u.test(text);
+}
+
+/**
+ * True when a line shares the anchor's row.
+ *
+ * Ordinary lines keep the original per-line tolerance. A script run is smaller or merely a
+ * short marker shifted off the baseline, so it also joins when its em box still overlaps the
+ * anchor; without that, a raised marker sorted first becomes a row of its own.
+ */
+function sameRow(anchor: TextLine, line: TextLine): boolean {
+  const shift = Math.abs(line.baseline - anchor.baseline);
+  if (shift <= Math.max(0.6, line.height * 0.4)) return true;
+  const scale = Math.max(anchor.height, line.height, 1);
+  if (
+    Math.min(anchor.height, line.height) > scale * 0.85 &&
+    !scriptFragment(anchor) &&
+    !scriptFragment(line)
+  ) {
+    return false;
+  }
+  if (shift > scale * 0.8) return false;
+  const overlap =
+    Math.min(boxBottom(anchor.box), boxBottom(line.box)) - Math.max(anchor.box.y, line.box.y);
+  return overlap > Math.min(anchor.height, line.height) * 0.1;
+}
+
 /** Lines grouped by the baseline they sit on, which is what a row of a page is. */
 export function groupByBaseline(lines: readonly TextLine[]): TextLine[][] {
   const ordered = [...lines].sort(
@@ -150,19 +180,16 @@ export function groupByBaseline(lines: readonly TextLine[]): TextLine[][] {
   );
   const rows: TextLine[][] = [];
   let current: TextLine[] = [];
-  let anchor = 0;
+  let anchor: TextLine | null = null;
 
   for (const line of ordered) {
-    if (
-      current.length > 0 &&
-      Math.abs(line.baseline - anchor) <= Math.max(0.6, line.height * 0.4)
-    ) {
+    if (current.length > 0 && anchor !== null && sameRow(anchor, line)) {
       current.push(line);
       continue;
     }
     if (current.length > 0) rows.push(current);
     current = [line];
-    anchor = line.baseline;
+    anchor = line;
   }
   if (current.length > 0) rows.push(current);
   return rows;

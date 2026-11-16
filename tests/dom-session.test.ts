@@ -717,7 +717,7 @@ describe('page session', () => {
       expect(navIndex).toBeGreaterThan(leadIndex);
       expect(order[leadIndex]).toContain('(');
       expect(order[leadIndex]).not.toContain('oːsaka');
-      expect(order[leadIndex]).not.toContain('[1]');
+      expect(order[leadIndex]).toContain('[1]');
       expect(order.some((text) => text.includes('大坂'))).toBe(false);
       expect(order.some((text) => text.includes(', '))).toBe(true);
       expect(leadAt).toBeGreaterThanOrEqual(0);

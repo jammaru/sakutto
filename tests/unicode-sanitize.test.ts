@@ -128,6 +128,16 @@ const CASES: ReadonlyArray<{ name: string; input: string; expected: string }> = 
   { name: 'NFC accented Latin', input: 'e\u0301', expected: 'é' },
   { name: 'fullwidth not NFKC', input: 'Ｈｅｌｌｏ', expected: 'Ｈｅｌｌｏ' },
   { name: 'circled digit not NFKC', input: '①', expected: '①' },
+  {
+    name: 'Unicode subscript digits',
+    input: 'CH₄ and H₂O are ₁₂₃',
+    expected: 'CH₄ and H₂O are ₁₂₃',
+  },
+  {
+    name: 'Unicode superscript digits',
+    input: '10³ and x² use ⁰¹²³⁴⁵⁶⁷⁸⁹',
+    expected: '10³ and x² use ⁰¹²³⁴⁵⁶⁷⁸⁹',
+  },
   { name: 'halfwidth katakana not NFKC', input: 'ｶﾀｶﾅ', expected: 'ｶﾀｶﾅ' },
   { name: 'CJK IVS kept', input: CJK_IVS, expected: CJK_IVS },
   { name: 'lone VS16 dropped', input: '\uFE0FHello', expected: 'Hello' },
@@ -144,6 +154,12 @@ describe('sanitizeTranslationInput table', () => {
   it.each(CASES)('$name', ({ input, expected }) => {
     expect(sanitizeTranslationInput(input)).toBe(expected);
     expect(sanitizeTranslationInput(sanitizeTranslationInput(input))).toBe(expected);
+  });
+
+  it('keeps Unicode sub/superscript digits in model output', () => {
+    const text = 'CH₄, H₂O, 10³, x², ₀₁₂₃₄₅₆₇₈₉, ⁰¹²³⁴⁵⁶⁷⁸⁹';
+    expect(sanitizeModelOutput(text)).toBe(text);
+    expect(visibleContent(text)).toBe(text.replace(/\s+/gu, ''));
   });
 
   it('aggressive mode still keeps emoji ZWJ but drops Persian ZWNJ', () => {

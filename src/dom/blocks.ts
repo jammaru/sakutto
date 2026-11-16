@@ -117,9 +117,9 @@ const OWN_UI_TAGS: ReadonlySet<string> = new Set([
   'SAKUTTO-CAPTIONS',
 ]);
 
+const SCRIPT_SELECTOR = 'sub, sup';
+
 const FROZEN_SELECTOR = [
-  'sup',
-  'sub',
   'ruby',
   'rt',
   'rp',
@@ -635,6 +635,14 @@ export function isKeptInlineText(value: string): boolean {
   const trimmed = value.trim();
   if (trimmed.length === 0) return true;
   return !URL_ONLY.test(trimmed);
+}
+
+/**
+ * Subscript and superscript. Their position in the line is content, not decoration, so they
+ * keep their place through a placeholder instead of being dropped from the segment.
+ */
+export function isSubSuperscript(element: Element): boolean {
+  return element.matches(SCRIPT_SELECTOR);
 }
 
 /**

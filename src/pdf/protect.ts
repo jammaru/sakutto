@@ -51,7 +51,8 @@ export function protectInlineMath(block: LayoutBlock): ProtectedText {
 }
 
 function protectLine(line: TextLine, slots: string[]): string {
-  const runs = mathRuns(line.pieces, line.height);
+  const baseline = dominantBaseline(line.pieces);
+  const runs = mathRuns(line.pieces, line.height, baseline);
   if (runs.every((run) => !run.protect)) {
     return line.text;
   }
@@ -93,20 +94,23 @@ interface PieceRun {
  * italic variables that contains a real formula signal — a math font or an operator — so an
  * italicised English word is not pulled out of a sentence.
  */
-function mathRuns(pieces: readonly TextPiece[], lineHeight: number): PieceRun[] {
+function mathRuns(pieces: readonly TextPiece[], lineHeight: number, baseline: number): PieceRun[] {
   const runs: PieceRun[] = [];
   let current: TextPiece[] = [];
   let currentMath = false;
 
   const flush = (): void => {
     if (current.length === 0) return;
-    runs.push({ pieces: current, protect: currentMath && isFormulaRun(current, lineHeight) });
+    runs.push({
+      pieces: current,
+      protect: currentMath && isFormulaRun(current, lineHeight, baseline),
+    });
     current = [];
     currentMath = false;
   };
 
   for (const piece of pieces) {
-    const kind = kindOf(piece, lineHeight);
+    const kind = kindOf(piece, lineHeight, baseline);
     if (kind === 'text') {
       flush();
       current = [piece];
@@ -114,15 +118,40 @@ function mathRuns(pieces: readonly TextPiece[], lineHeight: number): PieceRun[] 
       continue;
     }
     current.push(piece);
-    if (kind === 'math' || kind === 'op' || kind === 'var') currentMath = true;
+    if (kind === 'math' || kind === 'op' || kind === 'var' || kind === 'script') {
+      currentMath = true;
+    }
   }
   flush();
   return runs;
 }
 
+/** Baseline most of the line's characters share, ignoring a raised or lowered script run. */
+function dominantBaseline(pieces: readonly TextPiece[]): number {
+  const weights = new Map<number, number>();
+  for (const piece of pieces) {
+    if (piece.text.trim().length === 0) continue;
+    const key = Math.round(piece.baseline * 2) / 2;
+    weights.set(key, (weights.get(key) ?? 0) + piece.text.length);
+  }
+  let best = pieces[0]?.baseline ?? 0;
+  let bestWeight = -1;
+  for (const [baseline, weight] of weights) {
+    if (weight > bestWeight) {
+      best = baseline;
+      bestWeight = weight;
+    }
+  }
+  return best;
+}
+
 const ORDINAL_SUFFIX = /^(?:st|nd|rd|th)$/iu;
 
-function kindOf(piece: TextPiece, lineHeight: number): 'math' | 'op' | 'var' | 'text' {
+function kindOf(
+  piece: TextPiece,
+  lineHeight: number,
+  baseline: number,
+): 'math' | 'op' | 'var' | 'script' | 'text' {
   const text = piece.text.trim();
   if (text.length === 0) return 'text';
   if (piece.math) return 'math';
@@ -131,19 +160,16 @@ function kindOf(piece: TextPiece, lineHeight: number): 'math' | 'op' | 'var' | '
   // Protecting it split the word into two fake-engine markers and made the caption overflow.
   if (ORDINAL_SUFFIX.test(text)) return 'text';
   if (piece.italic && text.length <= 2 && /^\p{L}+$/u.test(text)) return 'var';
-  // A subscript is set smaller than the line: `S_t` draws `t` at ~70% of the em.
-  if (
-    lineHeight > 0 &&
-    piece.size < lineHeight * 0.78 &&
-    text.length <= 3 &&
-    /^[\p{L}\p{N}]+$/u.test(text)
-  ) {
-    return 'var';
+  // A subscript is set smaller than the line, or a marker is shifted off its baseline:
+  // `S_t` draws `t` at ~70% of the em, and `word^12` raises the digits without shrinking them.
+  if (lineHeight > 0 && text.length <= 3 && /^[\p{L}\p{N}]+$/u.test(text)) {
+    if (piece.size < lineHeight * 0.78) return 'script';
+    if (Math.abs(piece.baseline - baseline) > lineHeight * 0.15) return 'script';
   }
   return 'text';
 }
 
-function isFormulaRun(pieces: readonly TextPiece[], lineHeight: number): boolean {
+function isFormulaRun(pieces: readonly TextPiece[], lineHeight: number, baseline: number): boolean {
   const joined = pieces.map((piece) => piece.text).join('');
   if (joined.trim().length === 0) return false;
   // A hyphen inside `F-score` or the period after `Table 3` is word punctuation, not a
@@ -152,8 +178,8 @@ function isFormulaRun(pieces: readonly TextPiece[], lineHeight: number): boolean
   if (/^[\u002d\u2010\u2011\u2012\u2013\u2014\u2212]+$/u.test(joined.trim())) return false;
   if (/^[.,;:!?]+$/u.test(joined.trim())) return false;
   return pieces.some((piece) => {
-    const kind = kindOf(piece, lineHeight);
-    return kind === 'math' || kind === 'op' || (kind === 'var' && piece.size < lineHeight * 0.78);
+    const kind = kindOf(piece, lineHeight, baseline);
+    return kind === 'math' || kind === 'op' || kind === 'script';
   });
 }
 

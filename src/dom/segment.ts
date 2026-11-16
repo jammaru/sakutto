@@ -8,6 +8,7 @@ import {
   isInlineCode,
   isKeptInlineText,
   isScreenReaderOnly,
+  isSubSuperscript,
   isTranslationExcluded,
   ownsText,
 } from './blocks';
@@ -170,6 +171,20 @@ function buildFrame(element: Element, allocateId: () => string, freezeValues = f
     // still has to hold its position in the line.
     if (
       isInlineCode(child) &&
+      isLaidOutInline(child) &&
+      !child.matches('[translate="no"], .notranslate')
+    ) {
+      const id = allocateId();
+      children.push({ id, element: child, gaps: [], children: [], order: [...child.childNodes] });
+      gaps.push([]);
+      source += `<${id}>${child.textContent ?? ''}</${id}>`;
+      continue;
+    }
+    // A subscript or superscript is content: the formula is wrong without its `4` or `12`.
+    // It holds its place as an atomic placeholder, so the model keeps the marker where the
+    // sentence had it while the element's own text stays in the DOM.
+    if (
+      isSubSuperscript(child) &&
       isLaidOutInline(child) &&
       !child.matches('[translate="no"], .notranslate')
     ) {

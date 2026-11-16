@@ -41,6 +41,7 @@ import {
   isFrozenInline,
   isOwnUi,
   isScreenReaderOnly,
+  isSubSuperscript,
   isTypingShortcutTarget,
   isTranslationExcluded,
   isTypedTextSelection,
@@ -2345,7 +2346,7 @@ function ownProse(block: Element, target: string | null): boolean {
     // Everything the segment builder drops from the source text. A <style> or <script>
     // inside a block is excluded the same way; its CSS is not prose the reader sees.
     if (isTranslationExcluded(child)) continue;
-    if (isFrozenInline(child)) continue;
+    if (isFrozenInline(child) && !isSubSuperscript(child)) continue;
     if (isScreenReaderOnly(child)) continue;
     if (isAriaHiddenLeaf(child)) continue;
     if (target !== null && isAlreadyTargetLanguage(child, target, null)) continue;
