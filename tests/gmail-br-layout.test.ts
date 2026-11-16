@@ -21,10 +21,13 @@ import type { PageEngine } from '@/dom/session';
  * returns one paragraph, so before this fixture was split at its breaks the renderer wrote
  * every sentence into the first text node and the remaining `<br>`s painted a tall empty gap.
  */
+const AMO_BODY =
+  'Hi,<br><br>Your add-on "Mozilla Example" has been approved and is now available on addons.mozilla.org.<br><br>You can view the listing at <a href="https://addons.mozilla.org/firefox/addon/example/">the AMO listing page</a> and update it from the developer hub.<br><br>Thanks,<br>The AMO team';
+
 const AMO_MESSAGE = `
   <div data-message-id="amo-1">
     <div class="a3s aiL" lang="en">
-      <div dir="ltr">Hi,<br><br>Your add-on "Mozilla Example" has been approved and is now available on addons.mozilla.org.<br><br>You can view the listing at <a href="https://addons.mozilla.org/firefox/addon/example/">the AMO listing page</a> and update it from the developer hub.<br><br>Thanks,<br>The AMO team</div>
+      <div dir="ltr">${AMO_BODY}</div>
     </div>
   </div>
 `;
@@ -37,11 +40,26 @@ const EXPECTED_SOURCES = [
   'The AMO team',
 ];
 
+function gmailMessage(inner: string): string {
+  return `
+    <div data-message-id="amo-1">
+      <div class="a3s aiL" lang="en">${inner}</div>
+    </div>
+  `;
+}
+
 function messageBody(): HTMLElement {
   document.body.innerHTML = AMO_MESSAGE;
   const element = document.querySelector<HTMLElement>('div.a3s');
   if (!element) throw new Error('missing message body');
   return element;
+}
+
+function sourcesFor(html: string): string[] {
+  document.body.innerHTML = html;
+  const body = document.querySelector<HTMLElement>('div.a3s');
+  if (!body) throw new Error('missing message body');
+  return listTranslatableBlocks(body).map((block) => buildSegment(block)?.source ?? '');
 }
 
 /** Answers each source line in place, dropping the newlines like a real completion often does. */
@@ -69,6 +87,56 @@ describe('br-separated mail layout', () => {
     expect(sources).toEqual(EXPECTED_SOURCES);
     // A split run has no source newline left, which is what let the model collapse it.
     expect(sources.every((source) => !source.includes('\n'))).toBe(true);
+  });
+
+  it.each([
+    ['a single span wrapper', `<span>${AMO_BODY}</span>`],
+    ['a single font wrapper', `<font face="Arial">${AMO_BODY}</font>`],
+    ['nested span/font wrappers', `<span><font face="Arial">${AMO_BODY}</font></span>`],
+    ['a blank div wrapper around a span', `<div class=""><span>${AMO_BODY}</span></div>`],
+    ['content directly under a3s', AMO_BODY],
+  ])('splits a body with %s', (_name, inner) => {
+    expect(sourcesFor(gmailMessage(inner))).toEqual(EXPECTED_SOURCES);
+  });
+
+  it('treats wbr as a line boundary but keeps it inside a URL token', () => {
+    const html = gmailMessage(
+      '<span>Hi,<br><br>Visit https://example.com/a<wbr>very<wbr>long/path.<wbr>Thanks</span>',
+    );
+
+    expect(sourcesFor(html)).toEqual([
+      'Hi,',
+      'Visit https://example.com/averylong/path.',
+      'Thanks',
+    ]);
+  });
+
+  it('translates a span-wrapped Gmail body without collapsing its lines', async () => {
+    document.body.innerHTML = gmailMessage(`<span>${AMO_BODY}</span>`);
+    const body = document.querySelector<HTMLElement>('div.a3s');
+    if (!body) throw new Error('missing message body');
+    const original = body.textContent;
+
+    const applied = await translateGmailBody(body, immediateEngine(), {
+      targetLanguage: 'ja',
+      form: 'polite',
+      language: 'en',
+      signal: new AbortController().signal,
+    });
+
+    expect(applied).toHaveLength(EXPECTED_SOURCES.length);
+    expect(body.textContent?.match(/§/gu)).toHaveLength(EXPECTED_SOURCES.length);
+    for (const run of body.querySelectorAll('[data-sakutto-run]')) {
+      if (!(run.textContent ?? '').includes('§')) continue;
+      expect((run.textContent ?? '').match(/§/gu)).toHaveLength(1);
+    }
+    const link = body.querySelector('a');
+    expect(link?.closest('[data-sakutto-run]')?.textContent).toContain(
+      '§You can view the listing at',
+    );
+
+    for (const entry of applied) restoreSegment(entry.model, entry.created);
+    expect(body.textContent).toBe(original);
   });
 
   it('keeps each translated paragraph in its own run, with the link inside its sentence', async () => {

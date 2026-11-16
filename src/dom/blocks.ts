@@ -851,19 +851,86 @@ function unwrapBreakRun(wrapper: Element): void {
   wrapper.remove();
 }
 
+function isHardBreak(node: Node | undefined): boolean {
+  return node instanceof Element && node.localName === 'br';
+}
+
+/** The nearest visible character on one side of a break, skipping empty inline nodes. */
+function edgeCharacter(nodes: readonly ChildNode[], start: number, step: -1 | 1): string | null {
+  for (let index = start; index >= 0 && index < nodes.length; index += step) {
+    const text = nodes[index]?.textContent ?? '';
+    if (text.length === 0) continue;
+    return step < 0 ? (text.at(-1) ?? null) : (text[0] ?? null);
+  }
+  return null;
+}
+
+/** The non-whitespace token on one side of a break, collected across adjacent inline nodes. */
+function tokenSide(nodes: readonly ChildNode[], index: number, step: -1 | 1): string {
+  const limit = 300;
+  let side = '';
+
+  for (
+    let cursor = index + step;
+    cursor >= 0 && cursor < nodes.length && side.length < limit;
+    cursor += step
+  ) {
+    const text = nodes[cursor]?.textContent ?? '';
+    const run = step < 0 ? (/\S*$/u.exec(text)?.[0] ?? '') : (/^\S*/u.exec(text)?.[0] ?? '');
+    side = step < 0 ? run + side : side + run;
+    if (run.length < text.length) break;
+  }
+  return side;
+}
+
+const EMAIL_ONLY = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
+const SENTENCE_END = /[.!?]$/u;
+const UPPERCASE_START = /^\p{Lu}/u;
+
 /**
- * Splits a block at its direct `<br>` children and wraps every non-empty run in a stable
- * inline span. The spans are what the block walk yields, so each line gets its own segment,
- * its own placeholders, and its own text slots.
+ * A real `<br>` always separates runs. `<wbr>` is only a hint that a line may wrap, so it is
+ * a run boundary when it sits between words or lines — but not when it splits a URL or an
+ * address, where the model would receive two fragments of the same identifier.
+ */
+function isRunBreak(child: ChildNode, siblings: readonly ChildNode[], index: number): boolean {
+  if (!(child instanceof Element)) return false;
+  if (child.localName === 'br') return true;
+  if (child.localName !== 'wbr') return false;
+
+  if (isHardBreak(siblings[index - 1]) || isHardBreak(siblings[index + 1])) return true;
+  const before = edgeCharacter(siblings, index - 1, -1);
+  const after = edgeCharacter(siblings, index + 1, 1);
+  if (before === null || after === null) return true;
+  if (/\s/u.test(before) || /\s/u.test(after)) return true;
+
+  const left = tokenSide(siblings, index, -1);
+  const right = tokenSide(siblings, index, 1);
+  const token = left + right;
+  if (URL_ONLY.test(token) || EMAIL_ONLY.test(token)) {
+    // A line that ends with a bare URL is often followed directly by `<wbr>` and the next
+    // sentence. The punctuation on the left and the capital on the right show that this is
+    // a sentence boundary, not a break inside the URL.
+    return SENTENCE_END.test(left) && UPPERCASE_START.test(right);
+  }
+  return true;
+}
+
+/**
+ * Splits a block at its direct `<br>`/soft `<wbr>` children and wraps every non-empty run
+ * in a stable inline span. The spans are what the block walk yields, so each line gets its
+ * own segment, its own placeholders, and its own text slots.
  *
  * A paragraph (`<p>`, a heading, a blockquote) is deliberately left whole: a line break
  * inside one is already handled as a true multiline block, and the packing rule keeps it
  * in a request of its own. Mail bodies and page layout wrappers are `<div>`s, where the
  * same break was not a paragraph and used to collapse the whole message.
  *
- * A run that contains a block child is not split: that child is a segment of its own, and
- * folding it into an inline wrapper would hide it from the walk. A flex/grid container is
- * left alone too, because its text nodes are already separate anonymous items.
+ * Gmail also wraps a whole plain-text message in a single inline `<span>` or `<font>`.
+ * When a block has no break of its own but one transparent inline child holds all of its
+ * content, the split follows that child. A run that contains a block child is not split:
+ * that child is a segment of its own, and folding it into an inline wrapper would hide it
+ * from the walk. A flex/grid container is left alone too, because its text nodes are
+ * already separate anonymous items.
  */
 function splitBreakRuns(
   element: Element,
@@ -878,23 +945,50 @@ function splitBreakRuns(
     return null;
   }
 
+  const children = [...element.childNodes];
+  let hasBreak = false;
+  for (let index = 0; index < children.length; index += 1) {
+    const child = children[index];
+    if (child && isRunBreak(child, children, index)) {
+      hasBreak = true;
+      break;
+    }
+  }
+
+  if (!hasBreak) {
+    // A single inline wrapper is transparent: `.a3s > span` and `.a3s > font` are where
+    // Gmail puts a plain-text body. Only follow it when the container has no prose of its
+    // own, so words around a link are never dropped from the walk.
+    if (ownsText(element)) return null;
+    let only: Element | null = null;
+    for (const child of element.children) {
+      if (only !== null) return null;
+      only = child;
+    }
+    if (!only || layout.blockBox(only)) return null;
+    return splitBreakRuns(only, probe, layout);
+  }
+
+  if (probe.skipped(element)) return null;
+  for (let index = 0; index < children.length; index += 1) {
+    const child = children[index];
+    if (!(child instanceof Element)) continue;
+    if (isRunBreak(child, children, index)) continue;
+    if (!isBreakRunWrapper(child) && layout.blockBox(child)) return null;
+  }
+
   const runs: ChildNode[][] = [];
   let run: ChildNode[] = [];
-  let hasBreak = false;
-  for (const child of element.childNodes) {
-    if (child instanceof Element && child.localName === 'br') {
-      hasBreak = true;
+  for (let index = 0; index < children.length; index += 1) {
+    const child = children[index];
+    if (child && isRunBreak(child, children, index)) {
       runs.push(run);
       run = [];
       continue;
     }
-    if (child instanceof Element && !isBreakRunWrapper(child) && layout.blockBox(child)) {
-      return null;
-    }
-    run.push(child);
+    if (child) run.push(child);
   }
   runs.push(run);
-  if (!hasBreak) return null;
 
   const doc = element.ownerDocument;
   const created: Element[] = [];
@@ -968,6 +1062,18 @@ function* visitBlock(
   }
 
   const elementItems = layout.itemContainer(element);
+
+  // Split before the inline-wrapper shortcut below: Gmail wraps a plain-text body in a
+  // single `<span>`/`<font>`, and that wrapper is exactly where the `<br>`s live. The split
+  // also follows one such wrapper from a block, so the message is never yielded whole.
+  if (!isBreakRunWrapper(element) && !elementItems && context !== 'row') {
+    const runs = splitBreakRuns(element, probe, layout);
+    if (runs) {
+      for (const run of runs) yield* visitBlock(run, probe, layout, context, repeatedCells);
+      return;
+    }
+  }
+
   if (
     !isBreakRunWrapper(element) &&
     !elementItems &&
@@ -983,18 +1089,6 @@ function* visitBlock(
     return;
   }
   if (probe.skipped(element)) return;
-
-  // A block whose direct children are prose separated by `<br>` is several lines, not one
-  // paragraph. Splitting here keeps each line's translation in its own node range, so a
-  // model that drops the source newlines cannot collapse the whole message into the first
-  // text node and leave the remaining breaks painting empty lines.
-  if (!elementItems && context !== 'row') {
-    const runs = splitBreakRuns(element, probe, layout);
-    if (runs) {
-      for (const run of runs) yield* visitBlock(run, probe, layout, context, repeatedCells);
-      return;
-    }
-  }
 
   // A repeating row of a data list is treated exactly like a grid container even when the
   // page lays it out some other way: its cells are separate units and each one gets its own
