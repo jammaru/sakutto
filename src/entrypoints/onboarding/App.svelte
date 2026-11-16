@@ -19,9 +19,9 @@
   import {
     defaultOnboardingStoreChoice,
     planOnboardingDownload,
+    shouldPrepareTranslatorPack,
     type OnboardingStoreChoice,
   } from '@/ui/onboarding-store';
-  import { shouldPrepareTranslatorPack } from '@/ui/onboarding-pack';
   import type { ModelStatus } from '@/shared/engine-status';
   import { agreementFromStorage } from '@/shared/agreement';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';

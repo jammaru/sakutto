@@ -55,7 +55,7 @@ test.describe('built extension', () => {
           await expect(page.getByText('A shared folder means:')).toBeVisible();
           await expect(
             page.getByText(
-              'Other profiles and Edge can use it right away, with no extra download.',
+              'Other profiles and other Chromium browsers can use it right away, with no extra download.',
             ),
           ).toBeVisible();
           await expect(

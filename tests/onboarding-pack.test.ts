@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shouldPrepareTranslatorPack } from '@/ui/onboarding-pack';
+import { shouldPrepareTranslatorPack } from '@/ui/onboarding-store';
 
 describe('onboarding translator pack decision', () => {
   it('asks for the pack before a download into browser storage', () => {
