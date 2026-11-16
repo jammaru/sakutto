@@ -54,11 +54,7 @@ export interface MailBannerState {
 }
 
 export type MailBannerButton =
-  | 'translate'
-  | 'show-original'
-  | 'show-translation'
-  | 'busy'
-  | 'error';
+  'translate' | 'show-original' | 'show-translation' | 'busy' | 'error';
 
 export function initialMailBannerState(): MailBannerState {
   return { phase: 'offer', dismissed: false };
@@ -1032,6 +1028,13 @@ export interface AppliedBlock {
   created: Text[];
 }
 
+/** How many translatable jobs exist and how many have finished, for the busy banner. */
+export interface MailBodyTranslationProgress {
+  totalBlocks: number;
+  completedBlocks: number;
+  appliedBlocks: number;
+}
+
 interface CachedTranslation {
   source: string;
   text: string;
@@ -1055,6 +1058,7 @@ interface BannerRecord {
   state: MailBannerState;
   language: string;
   models: AppliedBlock[];
+  progress: MailBodyTranslationProgress | null;
   controller: AbortController | null;
   autoAttempted: boolean;
   menuOpen: boolean;
@@ -1907,6 +1911,7 @@ export class MailBannerController {
       state: initialMailBannerState(),
       language,
       models: [],
+      progress: null,
       controller: null,
       autoAttempted: options.autoAttempted === true,
       menuOpen: false,
@@ -2090,10 +2095,24 @@ export class MailBannerController {
       record.action.disabled = true;
       return;
     }
-    record.text.textContent =
-      kind === 'busy' ? this.labels.translating : this.labels.detected(record.language);
+    if (kind === 'busy') {
+      const progress = record.progress;
+      if (progress && progress.totalBlocks > 0) {
+        const percent = Math.min(
+          100,
+          Math.round((progress.completedBlocks / progress.totalBlocks) * 100),
+        );
+        record.text.textContent = `${this.labels.translating} ${String(percent)}%`;
+      } else {
+        record.text.textContent = this.labels.translating;
+      }
+      record.action.textContent = this.labels.translate(this.prefs.targetLanguage);
+      record.action.disabled = true;
+      return;
+    }
+    record.text.textContent = this.labels.detected(record.language);
     record.action.textContent = this.labels.translate(this.prefs.targetLanguage);
-    record.action.disabled = kind === 'busy';
+    record.action.disabled = false;
   }
 
   private async activate(record: BannerRecord): Promise<void> {
@@ -2111,6 +2130,7 @@ export class MailBannerController {
 
   private async translate(record: BannerRecord): Promise<void> {
     record.state = mailBannerAfterTranslate(record.state);
+    record.progress = null;
     record.controller = new AbortController();
     const signal = record.controller.signal;
     // Paint the busy state before the first await so the click visibly does something even
@@ -2138,6 +2158,11 @@ export class MailBannerController {
           ...(this.prefs.glossary ? { glossary: this.prefs.glossary } : {}),
           language: record.language,
           signal,
+          onProgress: (progress) => {
+            if (signal.aborted) return;
+            record.progress = progress;
+            if (record.state.phase === 'translating') this.paint(record);
+          },
         },
         this.adapter,
       );
@@ -2188,6 +2213,7 @@ export class MailBannerController {
       }
     } finally {
       record.controller = null;
+      record.progress = null;
       const key = this.recordKey(record);
       if (key.length > 0) {
         this.autoPendingKeys.delete(key);
@@ -2209,6 +2235,7 @@ export class MailBannerController {
   private failTranslation(record: BannerRecord, reason: string): void {
     this.restoreRecord(record);
     record.models = [];
+    record.progress = null;
     record.state = { ...record.state, phase: 'error' };
     this.paint(record);
     mailBannerDebug('translate error', { reason, body: bodyDetails(record.body) });
@@ -2242,7 +2269,9 @@ export class MailBannerController {
     const remaining = [...cached];
     const applied: AppliedBlock[] = [];
     for (const block of listTranslatableBlocks(record.body)) {
-      if (isAlreadyTargetLanguage(block, this.prefs.targetLanguage, null)) continue;
+      if (isAlreadyTargetLanguage(block, this.prefs.targetLanguage, null, undefined, record.body)) {
+        continue;
+      }
       const model = buildSegment(block);
       if (!model) continue;
       const index = remaining.findIndex((entry) => entry.source === model.source);
@@ -2360,6 +2389,8 @@ export interface MailBodyTranslationOptions {
   glossary?: readonly GlossaryEntry[];
   language?: string | null;
   signal: AbortSignal;
+  /** Called when the job count is known and after each block finishes. */
+  onProgress?: (progress: MailBodyTranslationProgress) => void;
 }
 
 interface BlockJob {
@@ -2367,6 +2398,7 @@ interface BlockJob {
   texts: string[];
   final: boolean[];
   errors: boolean[];
+  settled: boolean;
 }
 
 interface RequestOwner {
@@ -2385,23 +2417,48 @@ export async function translateMailBody(
   options: MailBodyTranslationOptions,
   adapter: Pick<MailBannerAdapter, 'translatedAttribute'>,
 ): Promise<AppliedBlock[]> {
+  const blocks = listTranslatableBlocks(root);
   const jobs: BlockJob[] = [];
   const requests: { id: string; text: string }[] = [];
   const owners = new Map<string, RequestOwner>();
+  const skipped = {
+    'already-target': 0,
+    'no-segment': 0,
+    'no-pieces': 0,
+    'engine-error': 0,
+    incomplete: 0,
+    'empty-result': 0,
+  };
 
-  for (const block of listTranslatableBlocks(root)) {
+  for (const block of blocks) {
     const model = buildSegment(block);
-    if (isAlreadyTargetLanguage(block, options.targetLanguage, null, model?.source ?? '')) {
+    if (
+      isAlreadyTargetLanguage(
+        block,
+        options.targetLanguage,
+        options.language ?? null,
+        model?.source ?? '',
+        root,
+      )
+    ) {
+      skipped['already-target'] += 1;
       continue;
     }
-    if (!model) continue;
+    if (!model) {
+      skipped['no-segment'] += 1;
+      continue;
+    }
     const pieces = chunkForTranslation(model.source);
-    if (pieces.length === 0) continue;
+    if (pieces.length === 0) {
+      skipped['no-pieces'] += 1;
+      continue;
+    }
     const job: BlockJob = {
       model,
       texts: pieces.map(() => ''),
       final: pieces.map(() => false),
       errors: pieces.map(() => false),
+      settled: false,
     };
     const jobIndex = jobs.length;
     jobs.push(job);
@@ -2412,46 +2469,92 @@ export async function translateMailBody(
     });
   }
 
-  if (requests.length === 0) return [];
-
-  for await (const chunk of engine.translate(requests, {
-    tgt: options.targetLanguage,
-    form: options.form,
-    ...(options.language ? { src: options.language } : {}),
-    ...(options.glossary && options.glossary.length > 0 ? { glossary: options.glossary } : {}),
-    priority: translationPriority('selection', 0, 'prose'),
-    signal: options.signal,
-  })) {
-    if (options.signal.aborted) break;
-    const owner = owners.get(chunk.id);
-    if (!owner) continue;
-    const { job, index } = owner;
-    if (chunk.textDelta !== undefined) {
-      if (chunk.restart === true) job.texts[index] = '';
-      job.texts[index] = (job.texts[index] ?? '') + chunk.textDelta;
-      continue;
-    }
-    job.texts[index] = chunk.final;
-    job.final[index] = true;
-    if (chunk.error === true) job.errors[index] = true;
-  }
-
-  if (options.signal.aborted) return [];
-
+  const totalBlocks = jobs.length;
   const applied: AppliedBlock[] = [];
-  for (const job of jobs) {
-    if (!job.final.every(Boolean) || job.errors.some(Boolean)) continue;
+  let completedBlocks = 0;
+  const reportProgress = (): void => {
+    options.onProgress?.({
+      totalBlocks,
+      completedBlocks,
+      appliedBlocks: applied.length,
+    });
+  };
+  reportProgress();
+  mailBannerDebug('translate blocks', {
+    blocks: blocks.length,
+    jobs: totalBlocks,
+    requests: requests.length,
+    skipped,
+  });
+
+  const applyJob = (job: BlockJob): boolean => {
+    if (!job.final.every(Boolean) || job.errors.some(Boolean)) return false;
     const joined = joinTranslatedSentences(job.texts, options.targetLanguage);
-    if (joined.trim().length === 0) continue;
+    if (joined.trim().length === 0) return false;
     const markup = job.model.placeholder
       ? assessTranslation(joined, placeholderIds(job.model))
       : null;
     const text = markup ? (markup.ok ? markup.text : markup.plain) : stripPlaceholderTokens(joined);
-    if (text.trim().length === 0) continue;
+    if (text.trim().length === 0) return false;
     const created: Text[] = [];
     applyTranslation(job.model, text, created);
     job.model.block.setAttribute(adapter.translatedAttribute, '1');
     applied.push({ model: job.model, text, created });
+    return true;
+  };
+
+  let chunksReceived = 0;
+  try {
+    for await (const chunk of engine.translate(requests, {
+      tgt: options.targetLanguage,
+      form: options.form,
+      ...(options.language ? { src: options.language } : {}),
+      ...(options.glossary && options.glossary.length > 0 ? { glossary: options.glossary } : {}),
+      priority: translationPriority('selection', 0, 'prose'),
+      signal: options.signal,
+    })) {
+      if (options.signal.aborted) break;
+      chunksReceived += 1;
+      const owner = owners.get(chunk.id);
+      if (!owner) continue;
+      const { job, index } = owner;
+      if (chunk.textDelta !== undefined) {
+        if (chunk.restart === true) job.texts[index] = '';
+        job.texts[index] = (job.texts[index] ?? '') + chunk.textDelta;
+        continue;
+      }
+      job.texts[index] = chunk.final;
+      job.final[index] = true;
+      if (chunk.error === true) job.errors[index] = true;
+      if (job.settled || !job.final.every(Boolean)) continue;
+      job.settled = true;
+      completedBlocks += 1;
+      if (job.errors.some(Boolean)) {
+        skipped['engine-error'] += 1;
+      } else if (!applyJob(job)) {
+        skipped['empty-result'] += 1;
+      }
+      reportProgress();
+    }
+  } catch (error) {
+    // The engine can fail after only some blocks have painted. Put those back before the
+    // controller shows its error state, because it never received their applied records.
+    for (const block of applied) restoreApplied(block, adapter.translatedAttribute);
+    applied.length = 0;
+    throw error;
+  } finally {
+    for (const job of jobs) {
+      if (!job.settled) skipped.incomplete += 1;
+    }
+    mailBannerDebug('translate summary', {
+      blocks: blocks.length,
+      jobs: totalBlocks,
+      requests: requests.length,
+      chunks: chunksReceived,
+      completed: completedBlocks,
+      applied: applied.length,
+      skipped,
+    });
   }
   return applied;
 }

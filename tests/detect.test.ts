@@ -32,6 +32,25 @@ describe('block language', () => {
     expect(isAlreadyTargetLanguage(block, 'ja', 'en')).toBe(false);
   });
 
+  it('ignores the interface language of an app shell outside the scanned body', () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = `
+      <div id="app" lang="ja">
+        <div id="body" role="document" aria-label="メッセージ本文">
+          <p id="copy">The release notes are ready for your review before Friday.</p>
+        </div>
+      </div>`;
+    const body = document.getElementById('body');
+    const copy = document.getElementById('copy');
+    if (!body || !copy) throw new Error('missing message body');
+
+    // The outer shell tags the whole Outlook app with the UI locale. Only declarations on
+    // the message body and inside it may decide whether the message is already Japanese.
+    expect(languageOf(copy, 'en', undefined, body)).toBe('en');
+    expect(isAlreadyTargetLanguage(copy, 'ja', 'en', undefined, body)).toBe(false);
+    expect(isAlreadyTargetLanguage(copy, 'ja', 'en')).toBe(true);
+  });
+
   it('skips a block whose own language tag matches the target', () => {
     document.body.innerHTML = '<p lang="ja">これは日本語です</p>';
     const block = document.querySelector('p');

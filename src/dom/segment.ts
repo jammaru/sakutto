@@ -99,6 +99,7 @@ export function buildSegment(block: Element): SegmentModel | null {
       return `i${String(nextId)}`;
     },
     frozen,
+    block,
   );
   const source = collapseSource(built.source);
 
@@ -140,7 +141,12 @@ function isLaidOutInline(element: Element): boolean {
   return display.startsWith('inline') || display === 'ruby' || display === 'ruby-text';
 }
 
-function buildFrame(element: Element, allocateId: () => string, freezeValues = false): BuiltFrame {
+function buildFrame(
+  element: Element,
+  allocateId: () => string,
+  freezeValues = false,
+  boundary?: Element,
+): BuiltFrame {
   // A container that owns text of its own is one segment, and a child that paints as its
   // own box — a flex item is blockified even as a `<span>` — has to fold in as a
   // placeholder: dropping it merges the words on either side and reorders them. A container
@@ -194,7 +200,7 @@ function buildFrame(element: Element, allocateId: () => string, freezeValues = f
       source += `<${id}>${child.textContent ?? ''}</${id}>`;
       continue;
     }
-    if (isTranslationExcluded(child)) continue;
+    if (isTranslationExcluded(child, boundary)) continue;
     // Screen-reader-only text and collapsed panels are not translated on their own, so
     // they must not be folded into a parent's segment either: the model would translate
     // a label the reader cannot see, and its text would then change behind their back.
@@ -229,7 +235,7 @@ function buildFrame(element: Element, allocateId: () => string, freezeValues = f
     if (!foldChildren && !isLaidOutInline(child)) continue;
     if (child.shadowRoot && child.childNodes.length === 0) continue;
 
-    const inner = buildFrame(child, allocateId, freezeValues);
+    const inner = buildFrame(child, allocateId, freezeValues, boundary);
     if (inner.source.trim().length === 0) continue;
 
     const id = allocateId();

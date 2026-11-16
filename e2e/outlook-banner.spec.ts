@@ -82,7 +82,38 @@ test.describe('Outlook translate banner', () => {
       ).toHaveCount(1);
       await expect(body).toContainText('§ja§');
       await expect(english).toHaveAttribute('data-sakutto-outlook-phase', 'translated');
-      await expect(page.locator('sakutto-outlook')).toHaveCount(1);
+      await expect(page.locator('sakutto-outlook')).toHaveCount(2);
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('translates an OWA newsletter table under a Japanese app shell', async () => {
+    await resetExtensionStorage(extension.worker, {
+      targetLanguage: 'ja',
+      gmailTranslateBanner: true,
+    });
+    const page = await extension.context.newPage();
+    try {
+      await openOutlook(page);
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, {
+        targetLanguage: 'ja',
+        gmailTranslateBanner: true,
+      });
+
+      const newsletter = page.locator('[data-sakutto-outlook-banner="conv-3:msg-3"]');
+      const body = page.locator('[data-convid="conv-3"] [role="document"]');
+      await expect(newsletter).toHaveAttribute('data-sakutto-outlook-phase', 'offer');
+      await expect(body).toContainText('Quarterly product update');
+
+      await dispatchBannerAction(page, 'conv-3:msg-3', 'translate');
+      await expect(newsletter).toHaveAttribute('data-sakutto-outlook-phase', 'translated');
+      await expect(body).toContainText('§ja§');
+      await expect(body.locator('h1')).toContainText('§ja§');
+      await expect(body.locator('h2')).toHaveCount(2);
+      await expect(body.locator('table')).toHaveCount(2);
+      await expect(body.locator('a').first()).toContainText('§ja§');
     } finally {
       await page.close();
     }
@@ -107,7 +138,7 @@ test.describe('Outlook translate banner', () => {
       const body = page.locator('[data-convid="conv-1"] [role="document"]');
       await expect(english).toHaveAttribute('data-sakutto-outlook-phase', 'offer');
       await expect(japanese).toHaveCount(0);
-      await expect(page.locator('sakutto-outlook')).toHaveCount(1);
+      await expect(page.locator('sakutto-outlook')).toHaveCount(2);
 
       await page.screenshot({ path: 'e2e-results/outlook-banner.png', fullPage: true });
 

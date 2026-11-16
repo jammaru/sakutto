@@ -20,6 +20,7 @@ import {
   shouldOfferOutlookTranslation,
   translateOutlookBody,
 } from '@/dom/outlook-banner';
+import { listTranslatableBlocks } from '@/dom/blocks';
 import type { PageEngine } from '@/dom/session';
 import { installEarlyMailBannerPresses } from '@/dom/mail-banner-press';
 
@@ -95,13 +96,7 @@ async function waitFor(predicate: () => boolean): Promise<void> {
   throw new Error('condition did not settle');
 }
 
-const BANNER_PRESS_TYPES = [
-  'pointerdown',
-  'mousedown',
-  'pointerup',
-  'mouseup',
-  'click',
-] as const;
+const BANNER_PRESS_TYPES = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'] as const;
 
 function pressSequence(button: HTMLButtonElement): void {
   const init = { bubbles: true, composed: true, cancelable: true, button: 0 };
@@ -131,6 +126,56 @@ const ENGLISH_MESSAGE = `
     <div role="document" aria-label="Message body" lang="en">
       <div dir="ltr">
         <p>Hi team, the release candidate is ready for review and we should ship it this week.</p>
+      </div>
+    </div>
+  </div>
+`;
+
+const OWA_NEWSLETTER = `
+  <div id="owa-app" lang="ja" translate="no">
+    <div class="reading-pane" style="max-height: 480px; overflow-y: auto">
+      <div data-convid="conv-news" id="message-news">
+        <div
+          id="UniqueMessageBody_1"
+          class="OuGoX BIZfh"
+          role="document"
+          aria-label="メッセージ本文"
+        >
+          <div class="rps_0f4c1a">
+            <div class="x_newsletter" style="max-width: 640px; margin: 0 auto">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tbody>
+                  <tr><td><h1>Quarterly product update</h1></td></tr>
+                  <tr>
+                    <td>
+                      <p>Hello everyone,</p>
+                      <p>Welcome to the autumn newsletter. Our team shipped a new dashboard and improved search.</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <table role="presentation" width="100%">
+                        <tbody>
+                          <tr>
+                            <td>
+                              <h2>Release notes</h2>
+                              <p>Read the <a href="https://example.com/notes">migration notes</a> before Friday.</p>
+                            </td>
+                            <td>
+                              <h2>Events</h2>
+                              <p>Join the <a href="https://example.com/events">customer webinar</a> next week.</p>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                  <tr><td><p>Thanks,<br />Alex</p></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -728,6 +773,52 @@ describe('Outlook banner controller', () => {
     controller.dispose();
   });
 
+  it('updates the busy banner and applies each block as its job finishes', async () => {
+    const element = body(`
+      <div data-convid="conv-progress" id="message-progress">
+        <div role="document" aria-label="Message body" lang="en">
+          <p>First paragraph for the newsletter progress check.</p>
+          <p>Second paragraph arrives after the first job finishes.</p>
+        </div>
+      </div>
+    `);
+    const gates: (() => void)[] = [];
+    const engine: PageEngine = {
+      async *translate(segments) {
+        for (const segment of segments) {
+          await new Promise<void>((resolve) => gates.push(resolve));
+          yield { id: segment.id, final: `§${segment.text}`, engine: 'plamo' };
+        }
+      },
+    };
+    const controller = new OutlookBannerController(document, {
+      engine,
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    const host = element.previousElementSibling;
+    if (!host) throw new Error('missing banner');
+    const text = outlookBannerShadow(host)?.querySelector('.text');
+    if (!text) throw new Error('missing banner text');
+
+    pressSequence(shadowButton(host, 'Translate to ja'));
+    await waitFor(() => gates.length > 0);
+    expect(host.getAttribute('data-sakutto-outlook-phase')).toBe('translating');
+    expect(text.textContent).toContain('0%');
+
+    gates.shift()?.();
+    await waitFor(() => element.textContent?.includes('§First paragraph') ?? false);
+    expect(host.getAttribute('data-sakutto-outlook-phase')).toBe('translating');
+    expect(text.textContent).toContain('50%');
+    expect(element.textContent).not.toContain('§Second paragraph');
+
+    gates.shift()?.();
+    await waitFor(() => host.getAttribute('data-sakutto-outlook-phase') === 'translated');
+    expect(element.textContent).toContain('§Second paragraph');
+    controller.dispose();
+  });
+
   it('shows a brief error state when translation fails', async () => {
     const element = body(ENGLISH_MESSAGE);
     const controller = new OutlookBannerController(document, {
@@ -798,6 +889,34 @@ describe('Outlook banner controller', () => {
 });
 
 describe('Outlook body translation', () => {
+  it('translates an OWA newsletter under a Japanese app shell and table layout', async () => {
+    const element = body(OWA_NEWSLETTER);
+    const blocks = listTranslatableBlocks(element);
+    const texts = blocks.map((block) => (block.textContent ?? '').replace(/\s+/g, ' ').trim());
+    expect(texts).toContain('Quarterly product update');
+    expect(texts).toContain('Read the migration notes before Friday.');
+    expect(texts).toContain('Join the customer webinar next week.');
+
+    const progress: { totalBlocks: number; completedBlocks: number; appliedBlocks: number }[] = [];
+    const applied = await translateOutlookBody(element, immediate(), {
+      targetLanguage: 'ja',
+      form: 'polite',
+      language: 'en',
+      signal: new AbortController().signal,
+      onProgress: (next) => progress.push(next),
+    });
+
+    expect(applied.length).toBeGreaterThan(0);
+    expect(progress[0]).toMatchObject({ completedBlocks: 0 });
+    expect(progress.at(-1)?.completedBlocks).toBe(progress.at(-1)?.totalBlocks);
+    expect(progress.at(-1)?.appliedBlocks).toBe(applied.length);
+    expect(element.textContent).toContain('§Quarterly product update');
+    expect(element.textContent).toContain('§Read the');
+    expect(element.textContent).toContain('§Join the');
+    expect(element.querySelectorAll('table')).toHaveLength(2);
+    expect(element.querySelector('a')?.getAttribute('href')).toBe('https://example.com/notes');
+  });
+
   it('leaves a body in the target language alone', async () => {
     const element = body(`
       <div data-convid="conv-ja" id="message-ja">

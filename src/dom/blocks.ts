@@ -229,8 +229,14 @@ export function isBlockElement(element: Element): boolean {
   return BLOCK_TAGS.has(element.tagName.toLowerCase());
 }
 
-export function isTranslationExcluded(element: Element): boolean {
-  return isOwnUi(element) || element.closest(EXCLUDED_SELECTOR) !== null;
+export function isTranslationExcluded(element: Element, boundary?: Element): boolean {
+  if (isOwnUi(element)) return true;
+  const excluded = element.closest(EXCLUDED_SELECTOR);
+  if (!excluded) return false;
+  // An explicit scan of a subtree (a mail body, a selected region) is not cancelled by a
+  // `translate="no"` or field marker on the app shell above it. The marker still applies
+  // when it sits on the element itself or on anything inside the scanned subtree.
+  return boundary === undefined || boundary.contains(excluded);
 }
 
 /**
@@ -273,6 +279,13 @@ export function isScreenReaderOnly(element: Element): boolean {
 class VisibilityProbe {
   private readonly memo = new WeakMap<Element, boolean>();
 
+  constructor(private readonly boundary: Element | null = null) {}
+
+  /** True when this element carries an excluded marker at or below the scanned root. */
+  excluded(element: Element): boolean {
+    return isTranslationExcluded(element, this.boundary ?? undefined);
+  }
+
   /** False for the element or any container above it that is hidden or excluded. */
   skipped(element: Element): boolean {
     const cached = this.memo.get(element);
@@ -284,7 +297,7 @@ class VisibilityProbe {
     const parent = element.parentElement;
     const value =
       (parent !== null && this.skipped(parent)) ||
-      isTranslationExcluded(element) ||
+      this.excluded(element) ||
       isAriaHiddenLeaf(element) ||
       isScreenReaderOnly(element) ||
       isCollapsedDetail(element) ||
@@ -727,7 +740,7 @@ type WalkContext = 'flow' | 'item' | 'row';
 export function* eachTranslatableBlock(root: ParentNode): Generator<Element> {
   const start = root instanceof Document ? root.documentElement : root;
   if (!start) return;
-  const probe = new VisibilityProbe();
+  const probe = new VisibilityProbe(start instanceof Element ? start : null);
   const layout = new LayoutProbe();
   const repeatedCells = repeatedCellTexts(start);
   if (start instanceof Element) {
@@ -761,7 +774,7 @@ function* visitBlock(
   context: WalkContext,
   repeatedCells: ReadonlySet<string>,
 ): Generator<Element> {
-  if (isTranslationExcluded(element) || isAriaHiddenLeaf(element)) return;
+  if (probe.excluded(element) || isAriaHiddenLeaf(element)) return;
 
   // A repeated row's cell holds a value: a handle, a language tag, a count, a stat line.
   // Sending it to the model spends a completion to hand it back, and a translated value in
