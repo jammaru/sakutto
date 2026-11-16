@@ -19,7 +19,10 @@ export async function openOrFocusExtensionTab(pathOrUrl: string): Promise<number
     const tabs = await browser.tabs.query({ url: pattern });
     const existing = tabs.find((tab) => tab.id !== undefined);
     if (existing?.id !== undefined) {
-      await browser.tabs.update(existing.id, { active: true }).catch(() => undefined);
+      // A query/hash names a section of an already-open page (for example the folder
+      // picker). Keep it when focusing so the reader lands on that section, not the top.
+      const update = /[?#]/u.test(url) ? { active: true, url } : { active: true };
+      await browser.tabs.update(existing.id, update).catch(() => undefined);
       if (existing.windowId !== undefined) {
         await browser.windows.update(existing.windowId, { focused: true }).catch(() => undefined);
       }

@@ -5,7 +5,6 @@
   import { sharedFolderSettingsHref } from '@/engine/model/folder-offer';
   import { shouldSuggestHighQuality } from '@/engine/model/suggestion';
   import {
-    modelCanTranslate,
     modelNeedsDownload,
     shouldShowModelDownloadGate,
     translationStartBlocked,
@@ -411,15 +410,10 @@
           sharedFolder: { ...engine.sharedFolder, permission: 'granted' },
         };
       }
-      // If a verified browser copy can already answer, do not unload it just to switch the
-      // host to the folder before translating. The next host start will use the folder.
-      if (
-        engine?.plamoReady ||
-        modelCanTranslate(engine?.model) ||
-        engine?.model.state === 'loading'
-      ) {
-        return;
-      }
+      // The offscreen host still has the old folder session and its permission prompt.
+      // Always reload it before an action reads the folder; a verified OPFS copy being
+      // ready does not mean the host can see the fresh grant. This runs only when a
+      // dormant grant actually changed, so a normal click still costs no reload.
       await requestModelFolderReload();
       await refreshEngine();
     } catch {

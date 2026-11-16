@@ -298,6 +298,22 @@ describe('ModelManager', () => {
     });
   });
 
+  it('reports a readable copy from OPFS as primary or as the folder fallback', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    await seedVerified(opfs);
+    const { manager } = createManager(opfs);
+
+    expect(await manager.hasReadableCopy(ENTRY.id)).toBe(true);
+
+    manager.setStores(shared, opfs);
+    expect(await manager.primaryReady(ENTRY.id)).toBe(false);
+    expect(await manager.hasReadableCopy(ENTRY.id)).toBe(true);
+
+    await manager.deleteFallbackCopy(ENTRY.id);
+    expect(await manager.hasReadableCopy(ENTRY.id)).toBe(false);
+  });
+
   it('loads from the OPFS fallback when the shared folder has no file yet', async () => {
     const opfs = new MemoryFileStore();
     const shared = new MemoryFileStore();

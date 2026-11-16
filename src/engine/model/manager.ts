@@ -252,6 +252,18 @@ export class ModelManager {
     return inspected.state === 'ready';
   }
 
+  /**
+   * True when a verified model can be read right now, either from the loaded runtime, the
+   * current primary store (which is OPFS when the shared folder cannot open), or the OPFS
+   * fallback retained beside a folder primary. A missing folder grant alone must not stop
+   * a load that can answer from one of these copies.
+   */
+  async hasReadableCopy(modelId: ModelId): Promise<boolean> {
+    if (this.loaded?.id === modelId) return true;
+    if (await this.primaryReady(modelId)) return true;
+    return this.fallbackCopyPresent(modelId);
+  }
+
   async sharedIntegrityIssue(
     modelId: ModelId,
   ): Promise<{ kind: 'size' | 'digest'; file: string } | null> {

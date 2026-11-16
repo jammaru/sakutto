@@ -18,7 +18,6 @@
     SHARED_MODELS_DIRECTORY,
     adoptPickedSharedFolder,
     clearStoredSharedFolder,
-    ensureStoredFolderPermission,
     sharedFolderPickerAvailable,
   } from '@/engine/model/shared-folder';
   import FolderPermissionRestore from '@/ui/FolderPermissionRestore.svelte';
@@ -68,10 +67,9 @@
     pickHint = null;
     busy = true;
     try {
-      // The click is the gesture: renew a dormant grant before the picker opens, and do not
-      // make the reader press "Allow folder access" first.
-      const access = await ensureStoredFolderPermission().catch(() => null);
-      if (access?.status === 'granted' && access.changed) await reloadHost();
+      // Only the cheap license lookup may run before the picker. Reloading the engine or
+      // querying the old folder first can spend the click's transient activation, so the
+      // picker and its requestPermission run immediately for a licensed user.
       const settings = await loadSettings().catch(() => null);
       if (!hasLicenseConsent(settings)) {
         void openOrFocusExtensionTab('/onboarding.html');

@@ -51,4 +51,19 @@ describe('openOrFocusExtensionTab', () => {
     expect(await openOrFocusExtensionTab(url)).toBe(5);
     expect(mocks.query).toHaveBeenCalledWith({ url: 'chrome-extension://test/options.html*' });
   });
+
+  it('focuses an existing tab on the requested section when the URL has a query or hash', async () => {
+    mocks.query.mockResolvedValue([{ id: 5, windowId: 2 }]);
+    const url = 'chrome-extension://test/options.html?folder=pick#model-folder';
+
+    expect(await openOrFocusExtensionTab(url)).toBe(5);
+    expect(mocks.update).toHaveBeenCalledWith(5, { active: true, url });
+  });
+
+  it('does not rewrite an existing tab URL when there is no section to focus', async () => {
+    mocks.query.mockResolvedValue([{ id: 4, windowId: 2 }]);
+
+    expect(await openOrFocusExtensionTab('/onboarding.html')).toBe(4);
+    expect(mocks.update).toHaveBeenCalledWith(4, { active: true });
+  });
 });

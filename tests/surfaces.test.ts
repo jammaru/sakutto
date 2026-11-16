@@ -421,9 +421,61 @@ describe('shared folder activation and recovery', () => {
     expect(translateBody.indexOf('ensureFolderPermissionForAction')).toBeLessThan(
       translateBody.indexOf('ensureContentScript'),
     );
-    expect(folderSettings).toContain('ensureStoredFolderPermission');
+    expect(folderSettings).not.toContain('ensureStoredFolderPermission');
     expect(onboarding).toContain('ensureStoredFolderPermission');
     expect(source('ui/ModelManager.svelte')).toContain('ensureStoredFolderPermission');
+  });
+
+  it('always reloads the offscreen folder session after a changed grant', () => {
+    const actionStart = popup.indexOf('async function ensureFolderPermissionForAction');
+    const actionBody = popup.slice(
+      actionStart,
+      popup.indexOf('async function translatePage', actionStart),
+    );
+    // An already-ready OPFS runtime is not evidence that the offscreen host has the new
+    // grant. A changed grant must reload before translate/download/PDF work.
+    expect(actionBody).not.toMatch(/plamoReady|modelCanTranslate|state === 'loading'/);
+    expect(actionBody.indexOf('requestModelFolderReload')).toBeGreaterThan(
+      actionBody.indexOf("access.status !== 'granted' || !access.changed"),
+    );
+    expect(actionBody.indexOf('refreshEngine')).toBeGreaterThan(
+      actionBody.indexOf('requestModelFolderReload'),
+    );
+
+    const managerStart = modelManager.indexOf('async function ensureFolderPermissionForAction');
+    const managerBody = modelManager.slice(
+      managerStart,
+      modelManager.indexOf('async function download', managerStart),
+    );
+    expect(managerBody.indexOf('requestModelFolderReload')).toBeGreaterThan(
+      managerBody.indexOf("access?.status !== 'granted' || !access.changed"),
+    );
+    expect(managerBody.indexOf('refresh()')).toBeGreaterThan(
+      managerBody.indexOf('requestModelFolderReload'),
+    );
+  });
+
+  it('opens the folder picker before reloading the host on settings', () => {
+    const chooseStart = folderSettings.indexOf('async function chooseFolder');
+    const chooseBody = folderSettings.slice(
+      chooseStart,
+      folderSettings.indexOf('async function stopUsing', chooseStart),
+    );
+    expect(chooseBody.indexOf('loadSettings')).toBeLessThan(
+      chooseBody.indexOf('adoptPickedSharedFolder'),
+    );
+    expect(chooseBody.indexOf('adoptPickedSharedFolder')).toBeLessThan(
+      chooseBody.indexOf('reloadHost'),
+    );
+    expect(chooseBody.slice(0, chooseBody.indexOf('adoptPickedSharedFolder'))).not.toContain(
+      'reloadHost',
+    );
+    expect(chooseBody.slice(0, chooseBody.indexOf('adoptPickedSharedFolder'))).not.toContain(
+      'ensureStoredFolderPermission',
+    );
+    expect(chooseBody.indexOf('requestEngineWarm')).toBeGreaterThan(
+      chooseBody.indexOf('reloadHost'),
+    );
   });
 
   it('queries before hiding the restore control when the grant is already active', () => {

@@ -14,6 +14,8 @@ import {
   RETRY_RUNTIME_IDLE_MS,
   canReuseLoadedRuntimeForRetry,
   loadWithFallback,
+  modelStatusForSharedFolder,
+  sharedFolderAllowsModelLoad,
   warmup,
   type EngineServices,
 } from '@/engine/offscreen/host';
@@ -158,6 +160,57 @@ function cacheRouter(
       new CachingEngine(inner, cache, () => cacheModelIdOf(host)).translate(segments, options),
   } as unknown as EngineServices['router'];
 }
+
+describe('shared folder load fallback', () => {
+  const needsPermission = {
+    supported: true,
+    configured: true,
+    permission: 'prompt' as const,
+    opfsCopies: [],
+    integrityIssues: [],
+  };
+
+  it('allows a load when a verified OPFS copy can answer despite the missing folder grant', async () => {
+    const hasReadableCopy = vi.fn(async () => true);
+    await expect(
+      sharedFolderAllowsModelLoad(needsPermission, { hasReadableCopy }, DEFAULT_MODEL_ID),
+    ).resolves.toBe(true);
+    expect(hasReadableCopy).toHaveBeenCalledWith(DEFAULT_MODEL_ID);
+  });
+
+  it('blocks a load when the folder needs permission and no verified copy exists', async () => {
+    const hasReadableCopy = vi.fn(async () => false);
+    await expect(
+      sharedFolderAllowsModelLoad(needsPermission, { hasReadableCopy }, DEFAULT_MODEL_ID),
+    ).resolves.toBe(false);
+  });
+
+  it('does not consult the copy when the folder grant is active', async () => {
+    const hasReadableCopy = vi.fn(async () => false);
+    await expect(
+      sharedFolderAllowsModelLoad(
+        { ...needsPermission, permission: 'granted' },
+        { hasReadableCopy },
+        DEFAULT_MODEL_ID,
+      ),
+    ).resolves.toBe(true);
+    expect(hasReadableCopy).not.toHaveBeenCalled();
+  });
+
+  it('keeps downloading, verifying, and loading states instead of a folder error', () => {
+    for (const state of ['downloading', 'verifying', 'loading'] as const) {
+      expect(
+        modelStatusForSharedFolder(
+          modelStatus({ state, received: 5, total: 10, progress: 0.5 }),
+          needsPermission,
+        ),
+      ).toMatchObject({ state });
+    }
+    expect(
+      modelStatusForSharedFolder(modelStatus({ state: 'absent' }), needsPermission),
+    ).toMatchObject({ state: 'error', error: 'model-folder-permission' });
+  });
+});
 
 describe('EngineHost', () => {
   it('stops a cancelled translation without sending done', async () => {

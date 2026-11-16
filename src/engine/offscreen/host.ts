@@ -49,7 +49,11 @@ import { PlamoSourceEngine } from '../local-server/source';
 import { JobScheduler } from '../queue/scheduler';
 import { DEFAULT_MODEL_ID, SELECTABLE_MODEL_IDS, getModel, type ModelId } from '../model/catalog';
 import { normalizeSelectedModelId, resolveActiveModel } from '../model/selection';
-import { emptySharedFolderStatus, sharedFolderNeedsPermission } from '../model/folder-status';
+import {
+  emptySharedFolderStatus,
+  sharedFolderNeedsPermission,
+  type SharedFolderStatus,
+} from '../model/folder-status';
 import { FOLDER_PERMISSION_ERROR, isFolderAccessError } from '../model/folder-permission';
 import { SharedFolderSession } from '../model/folder-session';
 import { OpfsModelFileStore } from '../model/file-store';
@@ -132,6 +136,36 @@ export interface EngineServices {
 export interface EngineHostOptions {
   idleReleaseMs?: number;
   createServices?: () => Promise<EngineServices>;
+}
+
+/**
+ * A missing folder grant only blocks a load when no verified copy can answer. The fallback
+ * snapshot points the manager at OPFS while the folder needs permission, and a folder
+ * primary may still have the retained OPFS copy beside it.
+ */
+export async function sharedFolderAllowsModelLoad(
+  folder: SharedFolderStatus | undefined,
+  manager: Pick<ModelManager, 'hasReadableCopy'>,
+  modelId: ModelId,
+): Promise<boolean> {
+  if (!sharedFolderNeedsPermission(folder)) return true;
+  return manager.hasReadableCopy(modelId);
+}
+
+/**
+ * Keep an in-progress transfer or load visible. Only a model that has no usable file and is
+ * not already being fetched/verified/read becomes the one-click folder-permission error.
+ */
+export function modelStatusForSharedFolder(
+  model: ModelStatus,
+  folder: SharedFolderStatus | undefined,
+): ModelStatus {
+  if (!sharedFolderNeedsPermission(folder)) return model;
+  if (modelCanTranslate(model)) return model;
+  if (model.state === 'loading' || model.state === 'downloading' || model.state === 'verifying') {
+    return model;
+  }
+  return { ...model, state: 'error', error: FOLDER_PERMISSION_ERROR };
 }
 
 interface HostRequest {
@@ -438,7 +472,13 @@ export class EngineHost {
     const cache = await openCache();
     const chrome = new ChromeTranslatorEngine();
     const load = async (signal: AbortSignal): Promise<LoadedModel> => {
-      if (sharedFolderNeedsPermission(this.folderSession?.status())) {
+      if (
+        !(await sharedFolderAllowsModelLoad(
+          this.folderSession?.status(),
+          manager,
+          this.activeModelId,
+        ))
+      ) {
         throw folderPermissionError();
       }
       const result = await loadWithFallback(
@@ -934,10 +974,11 @@ export class EngineHost {
     const loaded = services.manager.loadedModel;
     const selection = loaded?.selection ?? services.selection;
     const local = this.engineSource === 'local-server';
-    const sharedFolder = this.folderSession
-      ? await this.folderSession.refresh().catch(() => this.folderSession?.status())
-      : undefined;
-    model = this.modelStatusWithFolder(model, sharedFolder);
+    // Permissions change through `folder-reload`, which applies the session before it
+    // answers. Status polling reads that snapshot instead of reopening IndexedDB and
+    // re-reading the folder on every request.
+    const sharedFolder = this.folderSession?.status();
+    model = modelStatusForSharedFolder(model, sharedFolder);
 
     if (this.warming && model.state !== 'loaded' && model.state !== 'error') {
       model = { ...model, state: 'loading' };
@@ -978,7 +1019,7 @@ export class EngineHost {
       const status = this.folderSession
         ? await this.folderSession.apply()
         : emptySharedFolderStatus(false);
-      const model = this.modelStatusWithFolder(
+      const model = modelStatusForSharedFolder(
         await services.manager.status(this.activeModelId),
         status,
       );
@@ -990,20 +1031,6 @@ export class EngineHost {
     } catch (error) {
       this.respondError(port, request.requestId, error);
     }
-  }
-
-  private modelStatusWithFolder(
-    model: ModelStatus,
-    folder: ReturnType<SharedFolderSession['status']> | undefined,
-  ): ModelStatus {
-    if (
-      sharedFolderNeedsPermission(folder) &&
-      !modelCanTranslate(model) &&
-      model.state !== 'loading'
-    ) {
-      return { ...model, state: 'error', error: FOLDER_PERMISSION_ERROR };
-    }
-    return model;
   }
 
   private async handleFolderDeleteOpfs(

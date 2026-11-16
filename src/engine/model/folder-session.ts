@@ -96,12 +96,19 @@ export class SharedFolderSession {
     }
 
     this.manager.setStores(this.opfs);
+    // The folder could not be opened, so the OPFS store is now primary. Report the verified
+    // browser copies that can actually serve a load instead of an empty snapshot that sends
+    // the UI looking for a download.
+    const opfsCopies: ModelId[] = [];
+    for (const modelId of SELECTABLE_MODEL_IDS) {
+      if (await this.manager.primaryReady(modelId)) opfsCopies.push(modelId);
+    }
     this.snapshot = {
       supported: true,
       configured: true,
       permission,
       name: stored.name,
-      opfsCopies: [],
+      opfsCopies,
       integrityIssues: [],
       recordedModels: stored.presentModels ?? [],
     };
