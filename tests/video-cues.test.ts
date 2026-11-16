@@ -453,6 +453,27 @@ describe('sentence-cue merging', () => {
     expect(asr.map((cue) => cue.text).join(' ')).toContain('word29');
   });
 
+  it('does not put a space beside CJK punctuation or fullwidth marks', () => {
+    // Japanese ASR splits a phrase after a comma and before a full stop. A space there is
+    // wrong in the source language and reaches the model as part of the prompt.
+    expect(joinCaptionFragments('今日は、', '寒いです')).toBe('今日は、寒いです');
+    expect(joinCaptionFragments('今日は寒い', '。明日は暖かい')).toBe('今日は寒い。明日は暖かい');
+    expect(joinCaptionFragments('テスト', '）です')).toBe('テスト）です');
+    expect(joinCaptionFragments('「', 'テスト」')).toBe('「テスト」');
+    // A Latin word beside a CJK word still needs the separating space.
+    expect(joinCaptionFragments('The train', 'left.')).toBe('The train left.');
+    expect(joinCaptionFragments('Hello', '世界')).toBe('Hello 世界');
+  });
+
+  it('merges Japanese ASR words across punctuation without an ASCII gap', () => {
+    const merged = mergeWordCues([
+      { id: 'a', startMs: 0, endMs: 900, text: '今日は、', language: 'ja' },
+      { id: 'b', startMs: 900, endMs: 1800, text: '寒いです', language: 'ja' },
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.text).toBe('今日は、寒いです');
+  });
+
   it('returns the playhead cue then the next few in order', () => {
     const cues = [
       { id: 'a', startMs: 0, endMs: 2000, text: 'one' },

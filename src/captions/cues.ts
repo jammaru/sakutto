@@ -305,6 +305,12 @@ function isMostlyCjk(text: string): boolean {
   return cjk >= 2 && cjk >= other;
 }
 
+/**
+ * CJK and fullwidth punctuation and symbols (`、` `。` `「` `）` `！`). They are not letters,
+ * so `isCjkChar` does not name them, but a break beside one never takes a space either.
+ */
+const CJK_PUNCTUATION = /[\u3000-\u303f\uff00-\uffef]/u;
+
 /** Japanese ASR has no spaces; do not insert ASCII gaps that become empty/huge segments. */
 export function joinCaptionFragments(left: string, right: string): string {
   const a = left.trimEnd();
@@ -315,8 +321,8 @@ export function joinCaptionFragments(left: string, right: string): string {
   const rightChar = b[0] ?? '';
   const cjkBoundary =
     (isCjkChar(leftChar) && isCjkChar(rightChar)) ||
-    /[\u3000-\u303f\uff00-\uffef]$/u.test(a) ||
-    /^[\u3000-\u303f\uff00-\uffef]/u.test(b);
+    CJK_PUNCTUATION.test(leftChar) ||
+    CJK_PUNCTUATION.test(rightChar);
   if (isMostlyCjk(a) && isMostlyCjk(b)) return normalizeCaptionText(`${a}${b}`);
   return normalizeCaptionText(`${a}${cjkBoundary ? '' : ' '}${b}`);
 }
