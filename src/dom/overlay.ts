@@ -753,29 +753,30 @@ export class PageOverlay {
     }, 2600);
   }
 
-  /** Loads the extension grant iframe so one click can renew the folder grant in-page. */
-  showFolderEnable(pageUrl: string): void {
-    if (!this.folderEnableFrame) {
-      const frame = this.doc.createElement('iframe');
-      frame.setAttribute('title', this.labels.folderEnableTitle ?? '');
-      frame.setAttribute(
-        'sandbox',
-        'allow-scripts allow-same-origin allow-downloads allow-forms allow-popups',
-      );
-      frame.style.display = 'block';
-      frame.style.width = '100%';
-      frame.style.height = '64px';
-      frame.style.minWidth = '280px';
-      frame.style.minHeight = '64px';
-      frame.style.border = '0';
-      frame.style.borderRadius = '10px';
-      frame.style.opacity = '1';
-      this.folderEnableShadow.append(frame);
-      this.folderEnableFrame = frame;
-    }
-    if (this.folderEnableFrame.getAttribute('src') !== pageUrl) {
-      this.folderEnableFrame.setAttribute('src', pageUrl);
-    }
+  /**
+   * Loads the extension grant iframe. The URL never carries the grant secret; `onLoad`
+   * delivers it directly to the new frame from the content script.
+   */
+  showFolderEnable(pageUrl: string, onLoad?: (frame: HTMLIFrameElement) => void): void {
+    this.folderEnableFrame?.remove();
+    const frame = this.doc.createElement('iframe');
+    frame.setAttribute('title', this.labels.folderEnableTitle ?? '');
+    frame.setAttribute(
+      'sandbox',
+      'allow-scripts allow-same-origin allow-downloads allow-forms allow-popups',
+    );
+    frame.style.display = 'block';
+    frame.style.width = '100%';
+    frame.style.height = '64px';
+    frame.style.minWidth = '280px';
+    frame.style.minHeight = '64px';
+    frame.style.border = '0';
+    frame.style.borderRadius = '10px';
+    frame.style.opacity = '1';
+    if (onLoad) frame.addEventListener('load', () => onLoad(frame), { once: true });
+    this.folderEnableShadow.append(frame);
+    this.folderEnableFrame = frame;
+    frame.setAttribute('src', pageUrl);
     this.folderEnableHost.hidden = false;
     this.folderEnableHost.style.display = 'block';
     this.hideBar();

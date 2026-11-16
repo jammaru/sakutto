@@ -207,6 +207,12 @@ interface InflightBatch {
   streaming: boolean;
 }
 
+export interface FolderEnableFrameRequest {
+  pageUrl: string;
+  /** Runs after the frame document loads; the content script delivers the secret here. */
+  onLoad?: ((frame: HTMLIFrameElement) => void) | undefined;
+}
+
 export interface PageSessionOptions {
   engine: PageEngine;
   labels: OverlayLabels;
@@ -235,8 +241,9 @@ export interface PageSessionOptions {
   folderEnablePageUrl?: string;
   /** True only while the shared folder grant actually needs the reader to act. */
   folderGrantUiActive?: boolean;
-  /** Adds a fresh one-time token to the folder-enable URL when the frame is shown. */
-  folderEnablePageUrlProvider?: () => Promise<string | null> | string | null;
+  /** Supplies the bare iframe URL and the post-load token delivery hook. */
+  folderEnableFrameProvider?:
+    (() => Promise<FolderEnableFrameRequest | null> | FolderEnableFrameRequest | null) | undefined;
 }
 
 export function preferencesFor(
@@ -330,8 +337,8 @@ export class PageSession {
   private modelMissingFault = false;
   private readonly folderEnablePageUrl: string;
   private folderGrantUiActive: boolean;
-  private readonly folderEnablePageUrlProvider:
-    (() => Promise<string | null> | string | null) | undefined;
+  private readonly folderEnableFrameProvider:
+    (() => Promise<FolderEnableFrameRequest | null> | FolderEnableFrameRequest | null) | undefined;
   private folderGrantOpening = false;
   private selectionGrantTimer: ReturnType<typeof setTimeout> | null = null;
   private historyUnpatch: (() => void) | null = null;
@@ -383,7 +390,7 @@ export class PageSession {
     this.bilingualKey = options.bilingualKey;
     this.folderEnablePageUrl = options.folderEnablePageUrl ?? '';
     this.folderGrantUiActive = options.folderGrantUiActive === true;
-    this.folderEnablePageUrlProvider = options.folderEnablePageUrlProvider;
+    this.folderEnableFrameProvider = options.folderEnableFrameProvider;
     this.scheduleFrame =
       options.scheduleFrame ??
       ((callback) => {
@@ -974,14 +981,14 @@ export class PageSession {
     if (!this.folderGrantUiActive || this.folderEnablePageUrl.length === 0) return;
     if (this.folderGrantOpening || this.overlay.folderEnableVisible()) return;
     this.folderGrantOpening = true;
-    const pageUrl = this.folderEnablePageUrlProvider
-      ? Promise.resolve(this.folderEnablePageUrlProvider())
-      : Promise.resolve(this.folderEnablePageUrl);
-    void pageUrl
-      .then((url) => {
+    const frameRequest: Promise<FolderEnableFrameRequest | null> = this.folderEnableFrameProvider
+      ? Promise.resolve(this.folderEnableFrameProvider())
+      : Promise.resolve({ pageUrl: this.folderEnablePageUrl });
+    void frameRequest
+      .then((frame) => {
         this.folderGrantOpening = false;
-        if (!url || !this.folderGrantUiActive) return;
-        this.overlay.showFolderEnable(url);
+        if (!frame || !this.folderGrantUiActive) return;
+        this.overlay.showFolderEnable(frame.pageUrl, frame.onLoad);
         if (this.selectionShown) {
           this.overlay.hideSelection();
           this.selectionShown = false;

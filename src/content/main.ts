@@ -350,13 +350,25 @@ async function requestFolderEnableToken(): Promise<string | null> {
   }
 }
 
-async function folderEnableUrlWithToken(): Promise<string | null> {
+async function folderEnableFrameRequest(): Promise<{
+  pageUrl: string;
+  onLoad: (frame: HTMLIFrameElement) => void;
+} | null> {
   if (folderEnablePageUrl.length === 0) return null;
   const token = await requestFolderEnableToken();
   if (!token) return null;
-  const url = new URL(folderEnablePageUrl);
-  url.searchParams.set('token', token);
-  return url.toString();
+  const extensionOrigin = new URL(browser.runtime.getURL('/')).origin;
+  return {
+    pageUrl: folderEnablePageUrl,
+    onLoad: (frame) => {
+      // The iframe URL stays bare. Only the content script hands the secret to the child
+      // after it loads, so page scripts cannot read it from the URL or Resource Timing.
+      frame.contentWindow?.postMessage(
+        { type: 'sakutto-folder-enable-token', token },
+        extensionOrigin,
+      );
+    },
+  };
 }
 
 function getPageInfo(): PageInfo {
@@ -480,7 +492,7 @@ export function contentMain(): void {
       labels: overlayLabels(),
       folderEnablePageUrl,
       folderGrantUiActive: folderNeedsUserAction,
-      folderEnablePageUrlProvider: folderEnableUrlWithToken,
+      folderEnableFrameProvider: folderEnableFrameRequest,
       preferences: preferencesFor(settings, rule, host),
       onSitePatch: async (patch) => {
         const current = await loadSiteRule(host);

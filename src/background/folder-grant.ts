@@ -58,7 +58,26 @@ export async function runGatedPageCommand(
   await requestPageCommand(tabId, command, frameId);
 }
 
+let resumeQueue: Promise<void> = Promise.resolve();
+
+/**
+ * Concurrent grants (for example two tabs finishing together) must not both run the one
+ * pending command. Queue each read/check/clear cycle so the first success clears the slot
+ * before the next caller can read it.
+ */
 export async function resumeFolderGrantPending(client: EngineClient): Promise<boolean> {
+  const run = resumeQueue.then(
+    () => resumeFolderGrantPendingNow(client),
+    () => resumeFolderGrantPendingNow(client),
+  );
+  resumeQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+async function resumeFolderGrantPendingNow(client: EngineClient): Promise<boolean> {
   const pending = await readFolderGrantPending();
   if (!pending) return false;
   const status = await client.status().catch(() => null);

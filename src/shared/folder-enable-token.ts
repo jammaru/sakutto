@@ -1,4 +1,4 @@
-export const FOLDER_ENABLE_TOKEN_KEY = 'folderEnableToken';
+export const FOLDER_ENABLE_TOKENS_KEY = 'folderEnableTokens';
 export const FOLDER_ENABLE_TOKEN_TTL_MS = 2 * 60 * 1000;
 
 export interface FolderEnableToken {
@@ -6,6 +6,13 @@ export interface FolderEnableToken {
   tabId: number;
   frameId?: number | undefined;
   expiresAt: number;
+}
+
+export type FolderEnableTokenMap = Record<string, FolderEnableToken>;
+
+/** A token belongs to one content-script frame; several tabs may grant at once. */
+export function folderEnableTokenKey(tabId: number, frameId: number | undefined): string {
+  return `${String(tabId)}:${frameId === undefined ? 'top' : String(frameId)}`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -59,4 +66,43 @@ export function folderEnableTokenMatches(
     record.tabId === tabId &&
     record.expiresAt > now,
   );
+}
+
+export function parseFolderEnableTokens(value: unknown, now = Date.now()): FolderEnableTokenMap {
+  if (!isRecord(value)) return {};
+  const tokens: FolderEnableTokenMap = {};
+  for (const [key, entry] of Object.entries(value)) {
+    const record = parseFolderEnableToken(entry, now);
+    if (record) tokens[key] = record;
+  }
+  return tokens;
+}
+
+export function addFolderEnableToken(
+  tokens: FolderEnableTokenMap,
+  record: FolderEnableToken,
+): FolderEnableTokenMap {
+  return {
+    ...tokens,
+    [folderEnableTokenKey(record.tabId, record.frameId)]: record,
+  };
+}
+
+/** Consume only the entry carrying this token, even when the tab or expiry is wrong. */
+export function takeFolderEnableToken(
+  tokens: FolderEnableTokenMap,
+  token: string,
+  tabId: number | undefined,
+  now = Date.now(),
+): { tokens: FolderEnableTokenMap; record: FolderEnableToken | null } {
+  const next = { ...tokens };
+  for (const [key, record] of Object.entries(tokens)) {
+    if (record.token !== token) continue;
+    delete next[key];
+    return {
+      tokens: next,
+      record: folderEnableTokenMatches(record, token, tabId, now) ? record : null,
+    };
+  }
+  return { tokens: next, record: null };
 }

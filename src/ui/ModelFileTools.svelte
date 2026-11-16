@@ -162,6 +162,8 @@
   async function exportFile() {
     exporting = true;
     clearExportNotice();
+    // A previous import notice must not sit above the export progress.
+    done = false;
     error = null;
     try {
       const store = await storeForExport();

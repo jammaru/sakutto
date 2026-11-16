@@ -5,9 +5,17 @@
   import { t } from '@/shared/i18n';
   import { requestModelFolderReload } from '@/shared/messages';
 
-  const token = new URL(location.href).searchParams.get('token') ?? '';
+  let token = '';
   let busy = $state(false);
   let failed = $state(false);
+
+  window.addEventListener('message', (event) => {
+    if (event.source !== window.parent) return;
+    const payload = event.data as { type?: unknown; token?: unknown } | null;
+    if (payload?.type !== 'sakutto-folder-enable-token') return;
+    if (typeof payload.token !== 'string' || payload.token.length === 0) return;
+    token = payload.token;
+  });
 
   async function enable(event: MouseEvent): Promise<void> {
     // A scripted click can reuse the iframe URL; only a real user activation may grant.

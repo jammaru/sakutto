@@ -56,14 +56,20 @@ describe('folder grant gate', () => {
       new URL('../src/entrypoints/background.ts', import.meta.url),
       'utf8',
     );
+    const content = readFileSync(new URL('../src/content/main.ts', import.meta.url), 'utf8');
     expect(enable).toContain('folder:enable-validate');
     expect(enable).toContain('event.isTrusted');
-    expect(enable).toContain("searchParams.get('token')");
+    expect(enable).toContain('sakutto-folder-enable-token');
+    expect(enable).toContain('event.source !== window.parent');
+    expect(enable).not.toContain('searchParams.get');
+    expect(content).toContain('postMessage');
+    expect(content).not.toContain("searchParams.set('token'");
     expect(background).toContain('isFolderEnableTokenRequest');
-    expect(background).toContain('folderEnableTokenMatches');
+    expect(background).toContain('takeFolderEnableToken');
     expect(background).toContain('browser.storage.session.remove');
     expect(overlay).toContain('attachUiShadow(this.folderEnableHost)');
     expect(overlay).toContain('folderEnableShadow.append(frame)');
+    expect(overlay).toContain("frame.addEventListener('load'");
   });
 
   it('keeps a deferred command until the page accepts it', () => {
@@ -76,5 +82,7 @@ describe('folder grant gate', () => {
     expect(resume.indexOf('clearFolderGrantPending')).toBeGreaterThan(
       resume.indexOf('requestPageCommand'),
     );
+    expect(grant).toContain('resumeQueue');
+    expect(grant).toContain('resumeFolderGrantPendingNow');
   });
 });

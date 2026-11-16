@@ -20,10 +20,12 @@ import {
 } from '@/shared/folder-grant-messages';
 import { readFolderGrantPending } from '@/shared/folder-grant-pending';
 import {
-  FOLDER_ENABLE_TOKEN_KEY,
+  FOLDER_ENABLE_TOKENS_KEY,
+  addFolderEnableToken,
   createFolderEnableToken,
-  folderEnableTokenMatches,
-  parseFolderEnableToken,
+  parseFolderEnableTokens,
+  takeFolderEnableToken,
+  type FolderEnableTokenMap,
 } from '@/shared/folder-enable-token';
 import { syncCaptionCustomContentScripts } from '@/captions/register-custom';
 import { deleteStoredPdf } from '@/background/pdf-store';
@@ -210,6 +212,56 @@ export default defineBackground(() => {
     const status = await client.status().catch(() => null);
     if (!status) return;
     await broadcast({ type: 'model:progress', status: status.model });
+  }
+
+  let folderTokenQueue: Promise<void> = Promise.resolve();
+
+  /** Token reads and writes are read-modify-write; serialize them across tabs/frames. */
+  function serializeFolderToken<T>(run: () => Promise<T>): Promise<T> {
+    const result = folderTokenQueue.then(run, run);
+    folderTokenQueue = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }
+
+  async function readFolderEnableTokens(): Promise<FolderEnableTokenMap> {
+    const stored = await browser.storage.session
+      .get(FOLDER_ENABLE_TOKENS_KEY)
+      .catch(() => ({}) as Record<string, unknown>);
+    return parseFolderEnableTokens(stored[FOLDER_ENABLE_TOKENS_KEY]);
+  }
+
+  async function writeFolderEnableTokens(tokens: FolderEnableTokenMap): Promise<void> {
+    if (Object.keys(tokens).length === 0) {
+      await browser.storage.session.remove(FOLDER_ENABLE_TOKENS_KEY).catch(() => undefined);
+      return;
+    }
+    await browser.storage.session
+      .set({ [FOLDER_ENABLE_TOKENS_KEY]: tokens })
+      .catch(() => undefined);
+  }
+
+  function issueFolderEnableToken(
+    tabId: number,
+    frameId: number | undefined,
+  ): Promise<string | null> {
+    return serializeFolderToken(async () => {
+      const token = createFolderEnableToken(tabId, frameId);
+      const tokens = await readFolderEnableTokens();
+      await writeFolderEnableTokens(addFolderEnableToken(tokens, token));
+      return token.token;
+    }).catch(() => null);
+  }
+
+  function validateFolderEnableToken(token: string, tabId: number | undefined): Promise<boolean> {
+    return serializeFolderToken(async () => {
+      const tokens = await readFolderEnableTokens();
+      const taken = takeFolderEnableToken(tokens, token, tabId);
+      await writeFolderEnableTokens(taken.tokens);
+      return taken.record !== null;
+    }).catch(() => false);
   }
 
   function startDownload(modelId: ModelId): boolean {
@@ -435,11 +487,7 @@ export default defineBackground(() => {
         sendResponse(null);
         return true;
       }
-      const token = createFolderEnableToken(tabId, sender.frameId);
-      void browser.storage.session.set({ [FOLDER_ENABLE_TOKEN_KEY]: token }).then(
-        () => sendResponse(token.token),
-        () => sendResponse(null),
-      );
+      void issueFolderEnableToken(tabId, sender.frameId).then(sendResponse);
       return true;
     }
 
@@ -448,20 +496,7 @@ export default defineBackground(() => {
         sendResponse(false);
         return true;
       }
-      void (async () => {
-        const stored = await browser.storage.session
-          .get(FOLDER_ENABLE_TOKEN_KEY)
-          .catch(() => ({}) as Record<string, unknown>);
-        // Parse without an expiry cutoff first, so an expired or wrong-tab attempt also
-        // consumes the stored token instead of leaving it replayable.
-        const record = parseFolderEnableToken(stored[FOLDER_ENABLE_TOKEN_KEY], 0);
-        if (!record || record.token !== message.token) {
-          sendResponse(false);
-          return;
-        }
-        await browser.storage.session.remove(FOLDER_ENABLE_TOKEN_KEY).catch(() => undefined);
-        sendResponse(folderEnableTokenMatches(record, message.token, sender.tab?.id));
-      })();
+      void validateFolderEnableToken(message.token, sender.tab?.id).then(sendResponse);
       return true;
     }
 
