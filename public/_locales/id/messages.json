@@ -1423,6 +1423,9 @@
   "gmailBannerTranslating": {
     "message": "Menerjemahkan email ini…"
   },
+  "gmailBannerFailed": {
+    "message": "Tidak dapat menerjemahkan email ini."
+  },
   "gmailBannerRegion": {
     "message": "Terjemahan pesan Gmail"
   },

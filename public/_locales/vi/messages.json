@@ -1423,6 +1423,9 @@
   "gmailBannerTranslating": {
     "message": "Đang dịch email này…"
   },
+  "gmailBannerFailed": {
+    "message": "Không thể dịch email này."
+  },
   "gmailBannerRegion": {
     "message": "Dịch email Gmail"
   },

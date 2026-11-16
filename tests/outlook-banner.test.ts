@@ -21,6 +21,7 @@ import {
   translateOutlookBody,
 } from '@/dom/outlook-banner';
 import type { PageEngine } from '@/dom/session';
+import { installEarlyMailBannerPresses } from '@/dom/mail-banner-press';
 
 const labels = {
   region: 'Outlook message translation',
@@ -29,6 +30,7 @@ const labels = {
   showOriginal: 'Show original',
   showTranslation: 'Show translation',
   translating: 'Translating this email…',
+  error: 'Could not translate this email.',
   close: 'Close',
   translated: (source: string, target: string) => `Translated: ${source} → ${target}`,
   menu: 'Translation settings',
@@ -93,17 +95,22 @@ async function waitFor(predicate: () => boolean): Promise<void> {
   throw new Error('condition did not settle');
 }
 
-const BANNER_PRESS_TYPES = ['pointerdown', 'mousedown', 'click'] as const;
+const BANNER_PRESS_TYPES = [
+  'pointerdown',
+  'mousedown',
+  'pointerup',
+  'mouseup',
+  'click',
+] as const;
 
 function pressSequence(button: HTMLButtonElement): void {
   const init = { bubbles: true, composed: true, cancelable: true, button: 0 };
-  const pointer =
-    typeof PointerEvent === 'function'
-      ? new PointerEvent('pointerdown', init)
-      : new MouseEvent('pointerdown', init);
-  button.dispatchEvent(pointer);
-  for (const type of ['mousedown', 'click'] as const) {
-    button.dispatchEvent(new MouseEvent(type, init));
+  for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'] as const) {
+    const event =
+      typeof PointerEvent === 'function' && type.startsWith('pointer')
+        ? new PointerEvent(type, init)
+        : new MouseEvent(type, init);
+    button.dispatchEvent(event);
   }
 }
 
@@ -111,7 +118,7 @@ function pressSequence(button: HTMLButtonElement): void {
 function swallowDocumentPresses(): () => void {
   const swallow = (event: Event): void => {
     event.preventDefault();
-    event.stopPropagation();
+    event.stopImmediatePropagation();
   };
   for (const type of BANNER_PRESS_TYPES) document.addEventListener(type, swallow, true);
   return () => {
@@ -565,6 +572,184 @@ describe('Outlook banner controller', () => {
     } finally {
       stopSwallowing();
     }
+  });
+
+  it('forwards a press from the document_start bridge before OWA window capture', async () => {
+    const uninstall = installEarlyMailBannerPresses(window);
+    const swallow = (event: Event): void => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    for (const type of BANNER_PRESS_TYPES) window.addEventListener(type, swallow, true);
+    const controller = new OutlookBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    try {
+      const element = body(ENGLISH_MESSAGE);
+      controller.start();
+      const host = element.previousElementSibling;
+      if (!host) throw new Error('missing banner');
+
+      pressSequence(shadowButton(host, 'Translate to ja'));
+      await waitFor(() => host.getAttribute('data-sakutto-outlook-phase') === 'translated');
+      expect(element.textContent).toContain('§Hi team, the release candidate');
+    } finally {
+      controller.dispose();
+      for (const type of BANNER_PRESS_TYPES) window.removeEventListener(type, swallow, true);
+      uninstall();
+    }
+  });
+
+  it('acts on pointerup when OWA swallowed the pointerdown before the banner', async () => {
+    const swallowDown = (event: Event): void => {
+      if (event.type === 'pointerdown') event.stopImmediatePropagation();
+    };
+    window.addEventListener('pointerdown', swallowDown, true);
+    const controller = new OutlookBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    try {
+      const element = body(ENGLISH_MESSAGE);
+      controller.start();
+      const host = element.previousElementSibling;
+      if (!host) throw new Error('missing banner');
+      const button = shadowButton(host, 'Translate to ja');
+      const init = { bubbles: true, composed: true, cancelable: true, button: 0 };
+      button.dispatchEvent(
+        typeof PointerEvent === 'function'
+          ? new PointerEvent('pointerdown', init)
+          : new MouseEvent('pointerdown', init),
+      );
+      expect(host.getAttribute('data-sakutto-outlook-phase')).toBe('offer');
+      button.dispatchEvent(
+        typeof PointerEvent === 'function'
+          ? new PointerEvent('pointerup', init)
+          : new MouseEvent('pointerup', init),
+      );
+      await waitFor(() => host.getAttribute('data-sakutto-outlook-phase') === 'translated');
+      expect(element.textContent).toContain('§Hi team, the release candidate');
+    } finally {
+      controller.dispose();
+      window.removeEventListener('pointerdown', swallowDown, true);
+    }
+  });
+
+  it('resolves a replaced body when the translation is requested', async () => {
+    const element = body(ENGLISH_MESSAGE);
+    const counted = countingImmediate();
+    const controller = new OutlookBannerController(document, {
+      engine: counted.engine,
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    const host = element.previousElementSibling;
+    if (!host) throw new Error('missing banner');
+
+    const replacement = element.cloneNode(true) as HTMLElement;
+    replacement.setAttribute('data-owa-rerender', '1');
+    element.replaceWith(replacement);
+    expect(host.nextElementSibling).toBe(replacement);
+
+    pressSequence(shadowButton(host, 'Translate to ja'));
+    await waitFor(() => host.getAttribute('data-sakutto-outlook-phase') === 'translated');
+    expect(replacement.textContent).toContain('§Hi team, the release candidate');
+    expect(counted.calls()).toBeGreaterThan(0);
+    controller.dispose();
+  });
+
+  it('translates a body replaced while the engine is still working', async () => {
+    const element = body(ENGLISH_MESSAGE);
+    const fresh = element.cloneNode(true) as HTMLElement;
+    fresh.setAttribute('data-owa-rerender', '1');
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const engine: PageEngine = {
+      async *translate(segments) {
+        await gate;
+        for (const segment of segments) {
+          yield { id: segment.id, final: `§${segment.text}`, engine: 'plamo' };
+        }
+      },
+    };
+    const controller = new OutlookBannerController(document, {
+      engine,
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    const host = element.previousElementSibling;
+    if (!host) throw new Error('missing banner');
+
+    pressSequence(shadowButton(host, 'Translate to ja'));
+    await waitFor(() => host.getAttribute('data-sakutto-outlook-phase') === 'translating');
+    element.replaceWith(fresh);
+    release();
+
+    await waitFor(() => host.getAttribute('data-sakutto-outlook-phase') === 'translated');
+    expect(host.nextElementSibling).toBe(fresh);
+    expect(fresh.textContent).toContain('§Hi team, the release candidate');
+    expect(element.textContent).not.toContain('§Hi team, the release candidate');
+    controller.dispose();
+  });
+
+  it('reapplies the cached translation when OWA replaces the body afterwards', async () => {
+    const element = body(ENGLISH_MESSAGE);
+    const fresh = element.cloneNode(true) as HTMLElement;
+    fresh.setAttribute('data-owa-rerender', '1');
+    const counted = countingImmediate();
+    const controller = new OutlookBannerController(document, {
+      engine: counted.engine,
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    const host = element.previousElementSibling;
+    if (!host) throw new Error('missing banner');
+    pressSequence(shadowButton(host, 'Translate to ja'));
+    await waitFor(() => host.getAttribute('data-sakutto-outlook-phase') === 'translated');
+    const calls = counted.calls();
+    expect(element.textContent).toContain('§Hi team, the release candidate');
+
+    element.replaceWith(fresh);
+    controller.refresh();
+
+    expect(host.isConnected).toBe(true);
+    expect(host.nextElementSibling).toBe(fresh);
+    expect(host.getAttribute('data-sakutto-outlook-phase')).toBe('translated');
+    expect(fresh.textContent).toContain('§Hi team, the release candidate');
+    expect(counted.calls()).toBe(calls);
+    controller.dispose();
+  });
+
+  it('shows a brief error state when translation fails', async () => {
+    const element = body(ENGLISH_MESSAGE);
+    const controller = new OutlookBannerController(document, {
+      engine: {
+        async *translate() {
+          yield* [];
+          throw new Error('engine failed');
+        },
+      },
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    const host = element.previousElementSibling;
+    if (!host) throw new Error('missing banner');
+
+    pressSequence(shadowButton(host, 'Translate to ja'));
+    await waitFor(() => host.getAttribute('data-sakutto-outlook-phase') === 'error');
+    expect(outlookBannerShadow(host)?.querySelector('.text')?.textContent).toBe(labels.error);
+    const action = outlookBannerShadow(host)?.querySelector<HTMLButtonElement>('.action');
+    expect(action?.disabled).toBe(true);
+    controller.dispose();
   });
 
   it('runs every gear-menu item when OWA swallows document-level pointer events', async () => {

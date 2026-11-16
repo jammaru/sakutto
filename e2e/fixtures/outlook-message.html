@@ -76,48 +76,117 @@
         min-height: 60px;
       }
     </style>
+    <script>
+      /**
+       * OWA registers its press capture handlers before the extension's idle content script.
+       * Keep this script in the fixture before the body so the e2e run exercises that order.
+       */
+      (() => {
+        const pressTypes = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
+        const swallow = (event) => {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        };
+        for (const type of pressTypes) {
+          window.addEventListener(type, swallow, true);
+          document.addEventListener(type, swallow, true);
+        }
+
+        // React replaces the reading-pane body after the first translation request. The
+        // query opt-in keeps the older banner-action tests independent of this swap.
+        if (!new URLSearchParams(location.search).has('owa-rerender')) return;
+        let swapped = false;
+        let originalBodyHtml = '';
+        document.addEventListener('DOMContentLoaded', () => {
+          const body = document.querySelector(
+            '[data-convid="conv-1"] [role="document"][aria-label="Message body"]',
+          );
+          originalBodyHtml = body?.innerHTML ?? '';
+        });
+        const replaceBody = () => {
+          const body = document.querySelector(
+            '[data-convid="conv-1"] [role="document"][aria-label="Message body"]',
+          );
+          if (!body) return;
+          const fresh = document.createElement('div');
+          fresh.setAttribute('role', 'document');
+          fresh.setAttribute('aria-label', 'Message body');
+          fresh.setAttribute('lang', 'en');
+          fresh.setAttribute('data-owa-rerender', '1');
+          fresh.innerHTML = originalBodyHtml || body.innerHTML;
+          body.replaceWith(fresh);
+        };
+        const watch = new MutationObserver(() => {
+          if (swapped) return;
+          const host = document.querySelector(
+            'sakutto-outlook[data-sakutto-outlook-banner="conv-1:msg-1"]',
+          );
+          const phase = host?.getAttribute('data-sakutto-outlook-phase');
+          if (phase !== 'translating' && phase !== 'translated') return;
+          swapped = true;
+          watch.disconnect();
+          setTimeout(replaceBody, 300);
+        });
+        watch.observe(document.documentElement, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['data-sakutto-outlook-phase'],
+        });
+      })();
+    </script>
   </head>
   <body>
-    <main class="shell">
-      <div class="reading-pane" role="main">
-        <article class="message" data-convid="conv-1" id="msg-1">
-          <div class="subject">Project update</div>
-          <div class="meta">
-            <span class="sender">Alex Rivera</span>
-            <span>Today, 09:14</span>
+    <main class="shell reading-pane" role="main" aria-label="Reading pane">
+      <article class="message" data-convid="conv-1" id="msg-1">
+        <div class="subject">Project update</div>
+        <div class="meta">
+          <span class="sender">Alex Rivera</span>
+          <span>Today, 09:14</span>
+        </div>
+        <div class="body-wrap rps_0f4c1a">
+          <div role="document" aria-label="Message body" lang="en">
+            <p>Hi team,</p>
+            <p>
+              The release candidate is ready for review. Please check the migration notes before
+              Friday so we can ship the update next week.
+            </p>
+            <p>Thanks,<br />Alex</p>
           </div>
-          <div class="body-wrap">
-            <div role="document" aria-label="Message body" lang="en">
-              <p>Hi team,</p>
-              <p>
-                The release candidate is ready for review. Please check the migration notes before
-                Friday so we can ship the update next week.
-              </p>
-              <p>Thanks,<br />Alex</p>
-            </div>
-          </div>
-        </article>
+        </div>
+      </article>
 
-        <article class="message" data-convid="conv-2" id="msg-2">
-          <div class="subject">プロジェクトの進捗</div>
-          <div class="meta">
-            <span class="sender">佐藤 花子</span>
-            <span>今日 10:02</span>
+      <article class="message" data-convid="conv-2" id="msg-2">
+        <div class="subject">プロジェクトの進捗</div>
+        <div class="meta">
+          <span class="sender">佐藤 花子</span>
+          <span>今日 10:02</span>
+        </div>
+        <div class="body-wrap rps_8ab27d">
+          <div role="document" aria-label="Message body" lang="ja">
+            <p>チームの皆さん、</p>
+            <p>来週の打ち合わせ資料を共有しました。金曜日までに確認をお願いします。</p>
           </div>
-          <div class="body-wrap">
-            <div role="document" aria-label="Message body" lang="ja">
-              <p>チームの皆さん、</p>
-              <p>来週の打ち合わせ資料を共有しました。金曜日までに確認をお願いします。</p>
-            </div>
-          </div>
-        </article>
-      </div>
+        </div>
+      </article>
 
-      <div class="compose" contenteditable="true" role="textbox" aria-label="Reply draft">
+      <div
+        class="rps_hidden_copy"
+        aria-hidden="true"
+        hidden
+        data-convid="conv-hidden"
+        id="hidden-msg-1"
+      >
         <div role="document" aria-label="Message body" lang="en">
-          This reply is being typed in a compose editor and must not get a banner.
+          A hidden rps_ copy of the same message must not get another banner.
         </div>
       </div>
     </main>
+
+    <div class="compose" contenteditable="true" role="textbox" aria-label="Reply draft">
+      <div role="document" aria-label="Message body" lang="en">
+        This reply is being typed in a compose editor and must not get a banner.
+      </div>
+    </div>
   </body>
 </html>

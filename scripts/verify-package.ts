@@ -50,6 +50,7 @@ export const REQUIRED_ENTRIES = [
   'offscreen.html',
   'content-scripts/content.js',
   'content-scripts/mail.js',
+  'content-scripts/mail-early.js',
   'icon/16.png',
   'icon/32.png',
   'icon/48.png',

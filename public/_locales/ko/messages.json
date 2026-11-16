@@ -1423,6 +1423,9 @@
   "gmailBannerTranslating": {
     "message": "이 이메일을 번역하는 중…"
   },
+  "gmailBannerFailed": {
+    "message": "이 이메일을 번역하지 못했습니다."
+  },
   "gmailBannerRegion": {
     "message": "Gmail 메일 번역"
   },

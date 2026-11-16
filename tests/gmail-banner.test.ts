@@ -31,6 +31,7 @@ const labels = {
   showOriginal: 'Show original',
   showTranslation: 'Show translation',
   translating: 'Translating this email…',
+  error: 'Could not translate this email.',
   close: 'Close',
   translated: (source: string, target: string) => `Translated: ${source} → ${target}`,
   menu: 'Translation settings',

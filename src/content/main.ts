@@ -233,6 +233,7 @@ function mailBannerLabels(): GmailBannerLabels | OutlookBannerLabels {
     showOriginal: t('gmailBannerShowOriginal'),
     showTranslation: t('gmailBannerShowTranslation'),
     translating: t('gmailBannerTranslating'),
+    error: t('gmailBannerFailed'),
     close: t('close'),
     translated: (source, target) =>
       t('gmailBannerTranslated', [sourceName(source), displayTargetLanguage(target, uiLanguage)]),

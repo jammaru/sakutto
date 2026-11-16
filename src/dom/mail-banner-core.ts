@@ -13,6 +13,12 @@ import { canonicalPageLanguage, inferLanguage, isAlreadyTargetLanguage } from '.
 import { translationPriority } from './priority';
 import { assessTranslation, stripPlaceholderTokens } from './placeholders';
 import { applyTranslation, restoreSegment } from './render';
+import {
+  MAIL_BANNER_PRESS_EVENTS,
+  isMailBannerPressTrigger,
+  mailBannerDebug,
+  registerMailBannerPressHook,
+} from './mail-banner-press';
 import { buildSegment, placeholderIds, visibleOriginal, type SegmentModel } from './segment';
 import type { PageEngine } from './session';
 
@@ -40,14 +46,19 @@ export function shouldOfferMailTranslation(input: MailBannerGate): boolean {
   return source !== null && target !== null && source !== target;
 }
 
-export type MailBannerPhase = 'offer' | 'translating' | 'translated' | 'original';
+export type MailBannerPhase = 'offer' | 'translating' | 'translated' | 'original' | 'error';
 
 export interface MailBannerState {
   phase: MailBannerPhase;
   dismissed: boolean;
 }
 
-export type MailBannerButton = 'translate' | 'show-original' | 'show-translation' | 'busy';
+export type MailBannerButton =
+  | 'translate'
+  | 'show-original'
+  | 'show-translation'
+  | 'busy'
+  | 'error';
 
 export function initialMailBannerState(): MailBannerState {
   return { phase: 'offer', dismissed: false };
@@ -58,6 +69,7 @@ export function mailBannerButton(state: MailBannerState): MailBannerButton | nul
   if (state.phase === 'translating') return 'busy';
   if (state.phase === 'translated') return 'show-original';
   if (state.phase === 'original') return 'show-translation';
+  if (state.phase === 'error') return 'error';
   return 'translate';
 }
 
@@ -965,6 +977,7 @@ export interface MailBannerLabels {
   showOriginal: string;
   showTranslation: string;
   translating: string;
+  error: string;
   close: string;
   translated: (source: string, target: string) => string;
   menu: string;
@@ -1047,10 +1060,11 @@ interface BannerRecord {
   menuOpen: boolean;
   outsideHandler: ((event: Event) => void) | null;
   lastButtonPress: { button: HTMLButtonElement; at: number } | null;
+  errorTimer: ReturnType<typeof setTimeout> | null;
 }
 
-const BANNER_PRESS_EVENTS = ['pointerdown', 'mousedown', 'click'] as const;
 const BUTTON_PRESS_DEDUPE_MS = 700;
+const ERROR_VISIBLE_MS = 4000;
 
 const bannerShadows = new WeakMap<Element, ShadowRoot>();
 
@@ -1302,6 +1316,7 @@ export class MailBannerController {
   private openMenuRecord: BannerRecord | null = null;
   private readonly recordsByHost = new WeakMap<HTMLElement, BannerRecord>();
   private interactionWindow: Window | null = null;
+  private unregisterPressHook: (() => void) | null = null;
 
   private readonly observerFactory: typeof MutationObserver | null;
 
@@ -1346,6 +1361,7 @@ export class MailBannerController {
     for (const record of [...this.records.values()]) {
       this.closeMenu(record);
       record.controller?.abort();
+      if (record.errorTimer !== null) clearTimeout(record.errorTimer);
       this.restoreRecord(record);
       record.host.remove();
     }
@@ -1403,9 +1419,8 @@ export class MailBannerController {
         record.controller?.abort();
         this.closeMenu(record);
         this.restoreRecord(record);
-        record.host.remove();
-        this.records.delete(record.body);
-        const key = this.adapter.messageKey(record.body);
+        this.removeRecord(record);
+        const key = this.recordKey(record);
         if (key.length > 0) {
           this.translatedKeys.delete(key);
           this.translationsByKey.delete(key);
@@ -1424,41 +1439,54 @@ export class MailBannerController {
   }
 
   /**
-   * OWA handles pointer events from a document-level capture listener and calls
-   * `stopPropagation()` before the event can reach a banner button in a shadow root.
-   * A listener on the window capture phase runs before that, so the banner can still
-   * act on the press. The shadow root is open only so `composedPath()` identifies the
-   * button that was pressed; its styling is still isolated from the page.
+   * OWA handles pointer events from a window/document capture listener and may call
+   * `stopImmediatePropagation()` before the event can reach a banner button in a shadow root.
+   * The document_start bridge is already listening for that case; this listener is the
+   * fallback for ordinary pages and for synthetic presses that stay inside the shadow tree.
    */
   private listenForButtonPresses(): void {
     const view = this.doc.defaultView;
     if (!view) return;
     this.interactionWindow = view;
-    for (const type of BANNER_PRESS_EVENTS) {
+    this.unregisterPressHook = registerMailBannerPressHook(this.onButtonPress);
+    for (const type of MAIL_BANNER_PRESS_EVENTS) {
       view.addEventListener(type, this.onButtonPress, true);
     }
+    mailBannerDebug('listener installed', {
+      host: this.doc.location?.hostname ?? '',
+      events: [...MAIL_BANNER_PRESS_EVENTS],
+    });
   }
 
   private stopListeningForButtonPresses(): void {
+    this.unregisterPressHook?.();
+    this.unregisterPressHook = null;
     const view = this.interactionWindow;
     if (!view) return;
-    for (const type of BANNER_PRESS_EVENTS) {
+    for (const type of MAIL_BANNER_PRESS_EVENTS) {
       view.removeEventListener(type, this.onButtonPress, true);
     }
     this.interactionWindow = null;
   }
 
-  private readonly onButtonPress = (event: Event): void => {
+  private readonly onButtonPress = (event: Event): boolean => {
+    if (!isMailBannerPressTrigger(event)) return false;
     const record = this.recordForEvent(event);
-    if (!record) return;
+    if (!record) return false;
     const button = this.buttonForEvent(record, event);
-    if (!button) return;
-    // Consume the event before OWA's document capture listener can swallow it. The
-    // follow-up mouse/click events from the same press are consumed the same way and
-    // deduped in `pressButton`, so the action runs once.
+    if (!button) return false;
+    mailBannerDebug('press received', {
+      type: event.type,
+      button: button.className,
+      phase: record.state.phase,
+    });
+    // Consume the event before OWA's capture listener can swallow it. The follow-up
+    // mouse/click events from the same press are consumed the same way and deduped in
+    // `pressButton`, so the action runs once.
     event.preventDefault();
     event.stopPropagation();
     this.pressButton(record, button, event);
+    return true;
   };
 
   private recordForEvent(event: Event): BannerRecord | null {
@@ -1498,6 +1526,15 @@ export class MailBannerController {
   private pressButton(record: BannerRecord, button: HTMLButtonElement, event: Event): void {
     const now = Date.now();
     const previous = record.lastButtonPress;
+    const startsPress =
+      event.type === 'pointerdown' ||
+      event.type === 'mousedown' ||
+      event.type === 'pointerup' ||
+      event.type === 'mouseup' ||
+      event.type === 'keydown';
+    // A real press produces several phases; the first one that reaches us performs the
+    // action, and the rest are consumed for 700 ms. A standalone synthetic click still
+    // acts every time, matching the keyboard and test path.
     if (
       event.type !== 'pointerdown' &&
       previous?.button === button &&
@@ -1506,11 +1543,8 @@ export class MailBannerController {
       if (event.type === 'click') record.lastButtonPress = null;
       return;
     }
-    if (event.type === 'pointerdown' || event.type === 'mousedown') {
-      record.lastButtonPress = { button, at: now };
-    } else {
-      record.lastButtonPress = null;
-    }
+    if (startsPress) record.lastButtonPress = { button, at: now };
+    else record.lastButtonPress = null;
 
     if (button === record.action) {
       void this.activate(record);
@@ -1547,11 +1581,42 @@ export class MailBannerController {
   refresh(): void {
     if (!this.prefs.enabled) return;
     for (const [body, record] of [...this.records]) {
-      if (body.isConnected) continue;
-      this.closeMenu(record);
-      record.controller?.abort();
-      record.host.remove();
-      this.records.delete(body);
+      // The common case costs two cheap checks. Only resolve through the parent chain when
+      // OWA detached or moved the body, so ordinary Gmail refreshes keep their old cost.
+      const resolved =
+        body.isConnected && record.host.nextElementSibling === body
+          ? body
+          : this.resolveRecordBody(record);
+      if (!resolved) {
+        this.removeRecord(record, body);
+        continue;
+      }
+      if (resolved !== body) {
+        const key = this.recordKey(record);
+        this.adoptBody(record, resolved);
+        if (record.state.phase === 'translated') {
+          const cached = key.length > 0 ? this.translationsByKey.get(key) : undefined;
+          if (cached && cached.length > 0 && this.applyCachedTranslation(record, cached)) {
+            record.state = { ...record.state, phase: 'translated' };
+          } else {
+            record.models = [];
+            record.state = { ...record.state, phase: 'offer' };
+          }
+          this.paint(record);
+        } else if (record.state.phase === 'original') {
+          // Rebuild models against the new node so Show translation still works, then put
+          // the original text back because that is the state the reader chose.
+          const cached = key.length > 0 ? this.translationsByKey.get(key) : undefined;
+          if (cached && cached.length > 0 && this.applyCachedTranslation(record, cached)) {
+            this.restoreRecord(record, true);
+            record.state = { ...record.state, phase: 'original' };
+          } else {
+            record.models = [];
+            record.state = { ...record.state, phase: 'offer' };
+          }
+          this.paint(record);
+        }
+      }
     }
 
     for (const body of this.adapter.findMessageBodies(this.doc)) {
@@ -1597,15 +1662,102 @@ export class MailBannerController {
         auto: auto && !alreadyAutoTranslated,
         autoAttempted: alreadyAutoTranslated,
       });
-      if (record && auto && alreadyAutoTranslated && autoKey.length > 0) {
-        const cached = this.translationsByKey.get(autoKey);
-        if (cached && cached.length > 0 && this.applyCachedTranslation(record, cached)) {
-          record.state = { ...record.state, phase: 'translated' };
-          record.autoAttempted = true;
-          this.paint(record);
-        }
+      if (!record) continue;
+
+      // A provider may replace the message node while the banner stays mounted. Reapply the
+      // remembered translation instead of asking the engine for the same text again.
+      const cached = key.length > 0 ? this.translationsByKey.get(key) : undefined;
+      if (cached && cached.length > 0 && this.applyCachedTranslation(record, cached)) {
+        record.state = { ...record.state, phase: 'translated' };
+        record.autoAttempted = true;
+        this.translatedKeys.add(key);
+        this.paint(record);
       }
     }
+  }
+
+  /**
+   * OWA's React tree can replace the body node while the banner host stays where it was.
+   * Resolve from the host first (`nextElementSibling`), then within its parent chain, and
+   * finally by message key so a detached `record.body` never receives the translation.
+   */
+  private recordKey(record: BannerRecord): string {
+    const fromBody = this.adapter.messageKey(record.body);
+    if (fromBody.length > 0) return fromBody;
+    return record.host.dataset[this.adapter.bannerDataset] ?? '';
+  }
+
+  private resolveRecordBody(record: BannerRecord): Element | null {
+    const key = this.recordKey(record);
+    const host = record.host;
+    const adjacent = host.nextElementSibling;
+    if (this.isResolvedBody(adjacent, key)) return adjacent;
+    if (this.isResolvedBody(record.body, key)) return record.body;
+
+    let scope = host.parentElement;
+    for (let depth = 0; scope && depth < 5; depth += 1, scope = scope.parentElement) {
+      for (const candidate of this.adapter.findMessageBodies(scope)) {
+        if (this.isResolvedBody(candidate, key)) return candidate;
+      }
+    }
+    if (key.length > 0) {
+      for (const candidate of this.adapter.findMessageBodies(this.doc)) {
+        if (this.isResolvedBody(candidate, key)) return candidate;
+      }
+    }
+    return null;
+  }
+
+  private isResolvedBody(candidate: Element | null, key: string): candidate is Element {
+    if (!candidate || !candidate.isConnected) return false;
+    if (key.length > 0 && this.adapter.messageKey(candidate) !== key) return false;
+    if (visibleOriginal(candidate).trim().length === 0) return false;
+    const style = this.doc.defaultView?.getComputedStyle(candidate);
+    if (
+      style &&
+      (style.display === 'none' ||
+        style.visibility === 'hidden' ||
+        style.contentVisibility === 'hidden')
+    ) {
+      return false;
+    }
+    const parent = candidate.parentElement;
+    if (!parent) return false;
+    return this.adapter.findMessageBodies(parent).includes(candidate);
+  }
+
+  private adoptBody(record: BannerRecord, body: Element): void {
+    const previous = record.body;
+    if (previous !== body) {
+      this.records.delete(previous);
+      record.body = body;
+      this.records.set(body, record);
+    }
+    const key = this.adapter.messageKey(body) || this.recordKey(record);
+    if (key.length > 0) record.host.dataset[this.adapter.bannerDataset] = key;
+    if (
+      record.host.parentElement !== body.parentElement ||
+      record.host.nextElementSibling !== body
+    ) {
+      body.parentElement?.insertBefore(record.host, body);
+    }
+    mailBannerDebug('body resolved', {
+      selector: bodyDetails(body),
+      connected: body.isConnected,
+      textLength: visibleOriginal(body).trim().length,
+      changed: previous !== body,
+    });
+  }
+
+  private removeRecord(record: BannerRecord, body = record.body): void {
+    this.closeMenu(record);
+    record.controller?.abort();
+    if (record.errorTimer !== null) {
+      clearTimeout(record.errorTimer);
+      record.errorTimer = null;
+    }
+    record.host.remove();
+    this.records.delete(body);
   }
 
   private schedule(): void {
@@ -1626,15 +1778,11 @@ export class MailBannerController {
         targetLanguage: this.prefs.targetLanguage,
       })
     ) {
-      this.closeMenu(record);
-      record.host.remove();
-      this.records.delete(record.body);
+      this.removeRecord(record);
       return;
     }
     if (isGmailNeverTranslateLanguage(language, this.prefs.neverLanguages ?? [])) {
-      this.closeMenu(record);
-      record.host.remove();
-      this.records.delete(record.body);
+      this.removeRecord(record);
       return;
     }
     if (language && language !== record.language) {
@@ -1644,7 +1792,7 @@ export class MailBannerController {
     const auto = isGmailAutoTranslateLanguage(record.language, this.prefs.autoLanguages ?? []);
     if (auto && !record.autoAttempted && record.state.phase === 'offer') {
       record.autoAttempted = true;
-      const key = this.adapter.messageKey(record.body);
+      const key = this.recordKey(record);
       if (key.length > 0) this.autoPendingKeys.add(key);
       void this.translate(record);
     }
@@ -1764,6 +1912,7 @@ export class MailBannerController {
       menuOpen: false,
       outsideHandler: null,
       lastButtonPress: null,
+      errorTimer: null,
     };
     this.records.set(body, record);
     this.recordsByHost.set(host, record);
@@ -1777,10 +1926,11 @@ export class MailBannerController {
       menuAuto,
       menuNever,
     ] satisfies HTMLButtonElement[]) {
-      // Composed presses normally reach the window capture listener first. This fallback
-      // covers keyboard activation and synthetic events that stay inside the shadow tree.
-      for (const type of BANNER_PRESS_EVENTS) {
+      // Composed presses normally reach the early or window capture listener first. This
+      // fallback covers keyboard activation and synthetic events that stay inside the shadow.
+      for (const type of MAIL_BANNER_PRESS_EVENTS) {
         button.addEventListener(type, (event) => {
+          if (!isMailBannerPressTrigger(event)) return;
           event.preventDefault();
           event.stopPropagation();
           this.pressButton(record, button, event);
@@ -1934,6 +2084,12 @@ export class MailBannerController {
       record.action.disabled = false;
       return;
     }
+    if (kind === 'error') {
+      record.text.textContent = this.labels.error;
+      record.action.textContent = this.labels.translate(this.prefs.targetLanguage);
+      record.action.disabled = true;
+      return;
+    }
     record.text.textContent =
       kind === 'busy' ? this.labels.translating : this.labels.detected(record.language);
     record.action.textContent = this.labels.translate(this.prefs.targetLanguage);
@@ -1954,42 +2110,85 @@ export class MailBannerController {
   }
 
   private async translate(record: BannerRecord): Promise<void> {
-    if (!record.body.isConnected) return;
     record.state = mailBannerAfterTranslate(record.state);
     record.controller = new AbortController();
+    const signal = record.controller.signal;
+    // Paint the busy state before the first await so the click visibly does something even
+    // when the engine takes a while to open its port.
     this.paint(record);
     this.onWarm();
     try {
+      const body = this.resolveRecordBody(record);
+      if (!body) {
+        this.failTranslation(record, 'body-not-found');
+        return;
+      }
+      this.adoptBody(record, body);
+      mailBannerDebug('translate sent', {
+        body: bodyDetails(body),
+        target: this.prefs.targetLanguage,
+        language: record.language,
+      });
       const models = await translateMailBody(
-        record.body,
+        body,
         this.engine,
         {
           targetLanguage: this.prefs.targetLanguage,
           form: this.prefs.form,
           ...(this.prefs.glossary ? { glossary: this.prefs.glossary } : {}),
           language: record.language,
-          signal: record.controller.signal,
+          signal,
         },
         this.adapter,
       );
-      if (record.controller.signal.aborted || !record.body.isConnected) {
+      if (signal.aborted) {
         for (const applied of models) restoreApplied(applied, this.adapter.translatedAttribute);
         return;
       }
       if (models.length === 0) {
-        record.state = { ...record.state, phase: 'offer' };
+        this.failTranslation(record, 'no-translation');
         return;
       }
-      record.models = models;
+
+      const entries = models.map((applied) => ({
+        source: applied.model.source,
+        text: applied.text,
+      }));
+      const current = this.resolveRecordBody(record);
+      if (!current) {
+        for (const applied of models) restoreApplied(applied, this.adapter.translatedAttribute);
+        this.failTranslation(record, 'body-lost-after-translate');
+        return;
+      }
+      if (current !== body) {
+        // OWA replaced the reading-pane body while the engine was working. Undo the model
+        // writes on the detached node and apply the same result to the new node.
+        for (const applied of models) restoreApplied(applied, this.adapter.translatedAttribute);
+        this.adoptBody(record, current);
+        if (!this.applyCachedTranslation(record, entries)) {
+          this.failTranslation(record, 'body-replaced-before-apply');
+          return;
+        }
+      } else {
+        this.adoptBody(record, body);
+        record.models = models;
+      }
       record.state = mailBannerAfterTranslated(record.state);
-    } catch {
-      if (!record.controller.signal.aborted) {
-        this.restoreRecord(record);
-        record.state = { ...record.state, phase: 'offer' };
+      mailBannerDebug('translate response', {
+        models: models.length,
+        applied: record.models.length,
+        body: bodyDetails(record.body),
+      });
+    } catch (error) {
+      if (!signal.aborted) {
+        this.failTranslation(
+          record,
+          error instanceof Error ? `engine-error: ${error.message}` : 'engine-error',
+        );
       }
     } finally {
       record.controller = null;
-      const key = this.adapter.messageKey(record.body);
+      const key = this.recordKey(record);
       if (key.length > 0) {
         this.autoPendingKeys.delete(key);
         if (record.state.phase === 'translated') {
@@ -2005,6 +2204,21 @@ export class MailBannerController {
       }
       this.paint(record);
     }
+  }
+
+  private failTranslation(record: BannerRecord, reason: string): void {
+    this.restoreRecord(record);
+    record.models = [];
+    record.state = { ...record.state, phase: 'error' };
+    this.paint(record);
+    mailBannerDebug('translate error', { reason, body: bodyDetails(record.body) });
+    if (record.errorTimer !== null) clearTimeout(record.errorTimer);
+    record.errorTimer = setTimeout(() => {
+      record.errorTimer = null;
+      if (record.state.phase !== 'error' || !record.host.isConnected) return;
+      record.state = { ...record.state, phase: 'offer' };
+      this.paint(record);
+    }, ERROR_VISIBLE_MS);
   }
 
   /** Shows the cached translation again without asking the engine. */
@@ -2039,8 +2253,15 @@ export class MailBannerController {
       model.block.setAttribute(this.adapter.translatedAttribute, '1');
       applied.push({ model, text: entry.text, created });
     }
-    if (applied.length === 0) return false;
+    if (applied.length === 0) {
+      mailBannerDebug('cache not applied', {
+        cached: cached.length,
+        body: bodyDetails(record.body),
+      });
+      return false;
+    }
     record.models = applied;
+    mailBannerDebug('cache applied', { blocks: applied.length, body: bodyDetails(record.body) });
     return true;
   }
 
@@ -2085,9 +2306,8 @@ export class MailBannerController {
       record.controller?.abort();
       this.closeMenu(record);
       this.restoreRecord(record);
-      record.host.remove();
-      this.records.delete(record.body);
-      const key = this.adapter.messageKey(record.body);
+      this.removeRecord(record);
+      const key = this.recordKey(record);
       if (key.length > 0) {
         this.translatedKeys.delete(key);
         this.translationsByKey.delete(key);
@@ -2107,9 +2327,13 @@ export class MailBannerController {
   private dismiss(record: BannerRecord): void {
     record.controller?.abort();
     this.closeMenu(record);
+    if (record.errorTimer !== null) {
+      clearTimeout(record.errorTimer);
+      record.errorTimer = null;
+    }
     this.restoreRecord(record);
     record.state = mailBannerAfterDismiss(record.state);
-    const key = this.adapter.messageKey(record.body);
+    const key = this.recordKey(record);
     if (key.length > 0) this.dismissedKeys.add(key);
     record.host.remove();
     record.host.hidden = true;
@@ -2119,6 +2343,7 @@ export class MailBannerController {
     for (const record of [...this.records.values()]) {
       this.closeMenu(record);
       record.controller?.abort();
+      if (record.errorTimer !== null) clearTimeout(record.errorTimer);
       this.restoreRecord(record);
       record.host.remove();
     }
@@ -2239,6 +2464,14 @@ function reapplyApplied(applied: AppliedBlock, translatedAttribute: string): voi
 function restoreApplied(applied: AppliedBlock, translatedAttribute: string): void {
   restoreSegment(applied.model, applied.created);
   applied.model.block.removeAttribute(translatedAttribute);
+}
+
+function bodyDetails(body: Element): string {
+  const tag = body.tagName.toLowerCase();
+  const id = body.id.length > 0 ? `#${body.id}` : '';
+  const label = body.getAttribute('aria-label');
+  const classes = [...body.classList].slice(0, 2).join('.');
+  return `${tag}${id}${classes.length > 0 ? `.${classes}` : ''}${label ? `[aria-label="${label}"]` : ''}`;
 }
 
 function isPageTranslated(body: Element): boolean {
