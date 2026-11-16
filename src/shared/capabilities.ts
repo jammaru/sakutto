@@ -33,9 +33,9 @@ const WEBGPU_STATUSES: ReadonlySet<string> = new Set<WebGpuStatus>([
   'failed',
 ]);
 
-interface NavigatorWithGpu extends Navigator {
+type NavigatorWithGpu = Navigator & {
   readonly gpu?: NavigatorGpu;
-}
+};
 
 export function isEngineCapabilities(value: unknown): value is EngineCapabilities {
   return (
