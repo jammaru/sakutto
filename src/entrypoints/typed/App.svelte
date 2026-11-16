@@ -19,7 +19,7 @@
     requestModelInspect,
   } from '@/shared/messages';
   import { hasLicenseConsent } from '@/shared/agreement';
-  import { normalizePlainTextLineBreaks, type Settings } from '@/shared/settings';
+  import type { Settings } from '@/shared/settings';
   import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
   import {
     applyPlainTextLineBreaks,
@@ -146,18 +146,6 @@
       resultMap = preparePlainTextForModel(trimmed).breakMap;
     }
     applyResult(resultRaw);
-  }
-
-  async function changePlainTextLineBreaks(event: Event) {
-    const select = event.currentTarget as HTMLSelectElement;
-    const mode = normalizePlainTextLineBreaks(select.value);
-    try {
-      settings = await saveSettings({ plainTextLineBreaks: mode });
-    } catch {
-      select.value = settings?.plainTextLineBreaks ?? 'none';
-      return;
-    }
-    refreshResultForLineBreaks();
   }
 
   function resetResult() {
@@ -352,28 +340,6 @@
         ⇄
       </button>
       <p class="muted hint">{t('typedDirectionHint', [targetLabel])}</p>
-    </div>
-
-    <div class="line-breaks">
-      <label class="line-breaks-label" for="typed-line-breaks">
-        {t('plainTextLineBreaksLabel')}
-      </label>
-      <select
-        id="typed-line-breaks"
-        data-sakutto="typed-line-breaks"
-        value={settings?.plainTextLineBreaks ?? 'none'}
-        aria-label={t('plainTextLineBreaksLabel')}
-        aria-describedby="typed-line-breaks-help"
-        onchange={changePlainTextLineBreaks}
-      >
-        <option value="none">{t('plainTextLineBreaksNone')}</option>
-        <option value="keep">{t('plainTextLineBreaksKeep')}</option>
-        <option value="blank">{t('plainTextLineBreaksBlank')}</option>
-        <option value="wider">{t('plainTextLineBreaksWider')}</option>
-      </select>
-      <p id="typed-line-breaks-help" class="muted line-breaks-help">
-        {t('plainTextLineBreaksHelp')}
-      </p>
     </div>
 
     <div class="compare">
@@ -583,34 +549,6 @@
     flex: 1 1 240px;
     padding-bottom: 8px;
     font-size: 12px;
-  }
-
-  .line-breaks {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2) var(--space-3);
-  }
-
-  .line-breaks-label {
-    color: var(--muted);
-    font-size: 11px;
-    font-weight: 600;
-  }
-
-  .line-breaks select {
-    min-width: 190px;
-    padding: 7px 9px;
-    border: 1px solid var(--rule);
-    border-radius: var(--radius-sm);
-    background: var(--surface);
-    color: var(--text);
-  }
-
-  .line-breaks-help {
-    flex: 1 1 280px;
-    font-size: 12px;
-    line-height: 1.5;
   }
 
   .compare {
