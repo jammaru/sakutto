@@ -120,9 +120,10 @@ describe('PDF subscripts and superscripts', () => {
 
     const block = bestBlock(lines);
     const protectedText = protectInlineMath(block);
-    expect(protectedText.slots).toEqual(['12']);
+    expect(protectedText.slots).toEqual([{ text: '12', script: 'super' }]);
     const restored = restoreInlineMath('以前の研究 <i0> で報告されている。', protectedText.slots);
-    expect(restored).toBe('以前の研究 12 で報告されている。');
+    expect(restored).toBe('以前の研究 ¹² で報告されている。');
+    expect(restored).not.toMatch(/work12/u);
   });
 
   it('restores a chemical formula digit through the translated overlay text', () => {
@@ -133,7 +134,7 @@ describe('PDF subscripts and superscripts', () => {
     ]);
     const block = bestBlock(lines);
     const protectedText = protectInlineMath(block);
-    expect(protectedText.slots).toEqual(['4']);
+    expect(protectedText.slots).toEqual([{ text: '4', script: 'sub' }]);
     expect(protectedText.text).toContain('CH<i0>');
 
     const restored = restoreInlineMath(
@@ -141,7 +142,8 @@ describe('PDF subscripts and superscripts', () => {
       protectedText.slots,
     );
     if (restored === null) throw new Error('expected the formula placeholder to restore');
-    expect(restored).toContain('CH4');
+    expect(restored).toContain('CH₄');
+    expect(restored).not.toMatch(/CH4/u);
 
     const placed = placePage({
       layout: {
@@ -160,8 +162,71 @@ describe('PDF subscripts and superscripts', () => {
       pageHeight: 842,
       pageWidth: 595,
     });
-    expect(placed[0]?.translation).toContain('CH4');
-    expect(placed[0]?.fit?.lines.join('')).toContain('CH4');
+    expect(placed[0]?.translation).toContain('CH₄');
+    expect(placed[0]?.fit?.lines.join('')).toContain('CH₄');
+  });
+
+  it('renders a superscript exponent as 10³ in the overlay, not flat 103', () => {
+    const lines = groupLines([
+      piece('The volume grew to 10', 40, 200, 130),
+      piece('3', 170, 196.5, 5, { size: 7, em: 7 }),
+      piece(' cubic metres in the tank.', 175, 200, 200),
+    ]);
+    const block = bestBlock(lines);
+    const protectedText = protectInlineMath(block);
+    expect(protectedText.slots).toEqual([{ text: '3', script: 'super' }]);
+
+    const restored = restoreInlineMath('体積は10<i0>立方メートルに達した。', protectedText.slots);
+    expect(restored).toBe('体積は10³立方メートルに達した。');
+    expect(restored).not.toMatch(/103/u);
+
+    const placed = placePage({
+      layout: {
+        blocks: [block],
+        bodySize: 10,
+        lineHeight: 12,
+        skipped: [],
+        pageHeight: 842,
+        pageWidth: 595,
+        pageIndex: 1,
+        obstacles: [],
+      },
+      translationOf: () => restored ?? '',
+      target: 'ja',
+      measure: (_block, text, size) => measure(text, size),
+      pageHeight: 842,
+      pageWidth: 595,
+    });
+    const overlay = placed[0]?.translation ?? '';
+    expect(overlay).toContain('10³');
+    expect(overlay).not.toMatch(/103/u);
+  });
+
+  it('restores x², y₁, and H₂O-style subscripts as Unicode in the overlay', () => {
+    const xSquared = groupLines([
+      piece('Let x', 40, 200, 30),
+      piece('2', 70, 199.2, 4, { size: 7, em: 7 }),
+      piece(' + y', 74, 200, 20),
+      piece('1', 94, 200.8, 4, { size: 7, em: 7 }),
+      piece(' define the sample.', 98, 200, 120),
+    ]);
+    const xBlock = bestBlock(xSquared);
+    const xProtected = protectInlineMath(xBlock);
+    expect(xProtected.slots.map((slot) => slot.script)).toEqual(['super', 'sub']);
+    const xRestored = restoreInlineMath('Let x<i0> + y<i1> が標本を定義する。', xProtected.slots);
+    expect(xRestored).toContain('x²');
+    expect(xRestored).toContain('y₁');
+
+    const water = groupLines([
+      piece('Water is H', 40, 200, 50),
+      piece('2', 90, 200.8, 4, { size: 7, em: 7 }),
+      piece('O in the vessel.', 94, 200, 90),
+    ]);
+    const waterBlock = bestBlock(water);
+    const waterProtected = protectInlineMath(waterBlock);
+    const waterRestored = restoreInlineMath('水は H<i0>O が入った容器です。', waterProtected.slots);
+    expect(waterRestored).toContain('H₂O');
+    expect(waterRestored).not.toMatch(/H2O/u);
   });
 
   it('keeps both scripts through extraction, layout, and restoration', async () => {
@@ -184,9 +249,18 @@ describe('PDF subscripts and superscripts', () => {
         if (!chemical && !power) continue;
         const protectedText = protectInlineMath(block);
         expect(protectedText.slots.length).toBeGreaterThan(0);
-        const restored = restoreInlineMath(protectedText.text, protectedText.slots);
+        const mock = chemical
+          ? '濃度 CH<i0> が予想より高かった。'
+          : '体積は10<i0>立方メートルになった。';
+        const restored = restoreInlineMath(mock, protectedText.slots);
         expect(restored).not.toBeNull();
-        expect(restored).toContain(chemical ? '4' : '3');
+        if (chemical) {
+          expect(restored).toContain('CH₄');
+          expect(restored).not.toContain('CH4');
+        } else {
+          expect(restored).toContain('10³');
+          expect(restored).not.toMatch(/103/u);
+        }
       }
     } finally {
       await document.destroy();

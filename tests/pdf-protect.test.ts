@@ -20,7 +20,7 @@ describe('protectInlineMath', () => {
     const block = layout.blocks[0];
     if (!block) throw new Error('expected a block');
     const protectedText = protectInlineMath(block);
-    expect(protectedText.slots).toEqual(['q, k', 'v']);
+    expect(protectedText.slots.map((slot) => slot.text)).toEqual(['q, k', 'v']);
     expect(protectedText.text).toContain('<i0>');
     expect(protectedText.text).toContain('<i1>');
     expect(protectedText.text).not.toMatch(/(?<!<i0>)\bq\b/u);
@@ -73,7 +73,7 @@ describe('protectInlineMath', () => {
     const protectedText = protectInlineMath(block);
     expect(protectedText.slots.length).toBeGreaterThan(0);
     expect(protectedText.text).toContain('<i0>');
-    expect(protectedText.slots.some((slot) => slot.includes('t'))).toBe(true);
+    expect(protectedText.slots.some((slot) => slot.text.includes('t'))).toBe(true);
   });
 
   it('skips a sentence that is mostly inline mathematics', () => {

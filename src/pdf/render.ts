@@ -260,6 +260,22 @@ export const READER_STYLE = `
   text-align: start;
 }
 
+.sakutto-cover sup,
+.sakutto-cover sub {
+  font-size: 0.75em;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+
+.sakutto-cover sup {
+  top: -0.4em;
+}
+
+.sakutto-cover sub {
+  top: 0.15em;
+}
+
 /* The clipped case: the box is capped and its last line fades, so a reader can tell there is
    more text without the page gaining a scrollbar. */
 .sakutto-cover[data-clipped="true"]::after {

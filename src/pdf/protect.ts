@@ -14,9 +14,16 @@ import { joinPieces, type TextLine, type TextPiece } from './lines';
  * tags are reused here so a PDF sentence is not a new prompt shape. A translation that drops
  * or invents a tag is refused, and the original sentence stays on the page.
  */
+export type ScriptRole = 'super' | 'sub' | 'none';
+
+export interface ProtectedSlot {
+  text: string;
+  script: ScriptRole;
+}
+
 export interface ProtectedText {
   text: string;
-  slots: string[];
+  slots: ProtectedSlot[];
 }
 
 const PLACEHOLDER = (index: number): string => `<i${String(index)}>`;
@@ -25,8 +32,83 @@ const PLACEHOLDER_PATTERN = /<i(\d+)>/g;
 /** Operators and fences that belong to a formula rather than to a sentence. */
 const OPERATOR = /^[=∈≈≤≥≠+−\-+×÷⊙∑∏∫√±∞∂∇⋅∘*|∥∧∨¬∀∃→↔⊂⊆⊃⊇∈∉()[\]{}.,:^_/\\]+$/u;
 
+const SUPERSCRIPT: Readonly<Record<string, string>> = {
+  '0': '⁰',
+  '1': '¹',
+  '2': '²',
+  '3': '³',
+  '4': '⁴',
+  '5': '⁵',
+  '6': '⁶',
+  '7': '⁷',
+  '8': '⁸',
+  '9': '⁹',
+  '+': '⁺',
+  '-': '⁻',
+  '−': '⁻',
+  '=': '⁼',
+  '(': '⁽',
+  ')': '⁾',
+  n: 'ⁿ',
+  i: 'ⁱ',
+};
+
+const SUBSCRIPT: Readonly<Record<string, string>> = {
+  '0': '₀',
+  '1': '₁',
+  '2': '₂',
+  '3': '₃',
+  '4': '₄',
+  '5': '₅',
+  '6': '₆',
+  '7': '₇',
+  '8': '₈',
+  '9': '₉',
+  '+': '₊',
+  '-': '₋',
+  '−': '₋',
+  '=': '₌',
+  '(': '₍',
+  ')': '₎',
+  a: 'ₐ',
+  e: 'ₑ',
+  o: 'ₒ',
+  x: 'ₓ',
+};
+
+/** True when every character of `text` can be drawn as Unicode super- or subscript. */
+export function canUnicodeScript(text: string, script: Exclude<ScriptRole, 'none'>): boolean {
+  const map = script === 'super' ? SUPERSCRIPT : SUBSCRIPT;
+  for (const character of text) {
+    if (map[character] === undefined) return false;
+  }
+  return text.length > 0;
+}
+
+/** Formats a protected script slot for the painted cover (Unicode when possible). */
+export function formatScriptSlot(slot: ProtectedSlot): string {
+  if (slot.script === 'none') return slot.text;
+  const map = slot.script === 'super' ? SUPERSCRIPT : SUBSCRIPT;
+  let output = '';
+  for (const character of slot.text) {
+    const mapped = map[character];
+    if (mapped === undefined) return slot.text;
+    output += mapped;
+  }
+  return output;
+}
+
+function normalizeSlots(slots: readonly string[] | readonly ProtectedSlot[]): ProtectedSlot[] {
+  if (slots.length === 0) return [];
+  const first = slots[0];
+  if (typeof first === 'string') {
+    return (slots as readonly string[]).map((text) => ({ text, script: 'none' as const }));
+  }
+  return slots as ProtectedSlot[];
+}
+
 export function protectInlineMath(block: LayoutBlock): ProtectedText {
-  const slots: string[] = [];
+  const slots: ProtectedSlot[] = [];
   const parts: string[] = [];
 
   for (const line of block.lines) {
@@ -50,7 +132,7 @@ export function protectInlineMath(block: LayoutBlock): ProtectedText {
   return { text: parts.join(' ').replace(/\s+/gu, ' ').trim(), slots };
 }
 
-function protectLine(line: TextLine, slots: string[]): string {
+function protectLine(line: TextLine, slots: ProtectedSlot[]): string {
   const baseline = dominantBaseline(line.pieces);
   const runs = mathRuns(line.pieces, line.height, baseline);
   if (runs.every((run) => !run.protect)) {
@@ -58,7 +140,10 @@ function protectLine(line: TextLine, slots: string[]): string {
   }
 
   const replaced: TextPiece[] = [];
+  let pieceOffset = 0;
   for (const run of runs) {
+    const beforeText = joinPieces(line.pieces.slice(0, pieceOffset));
+    pieceOffset += run.pieces.length;
     if (!run.protect) {
       replaced.push(...run.pieces);
       continue;
@@ -67,7 +152,11 @@ function protectLine(line: TextLine, slots: string[]): string {
     const last = run.pieces.at(-1);
     if (!first || !last) continue;
     const index = slots.length;
-    slots.push(joinPieces(run.pieces));
+    const slotText = joinPieces(run.pieces);
+    slots.push({
+      text: slotText,
+      script: scriptRole(run.pieces, line.height, baseline, beforeText),
+    });
     replaced.push({
       ...first,
       text: PLACEHOLDER(index),
@@ -136,9 +225,9 @@ function dominantBaseline(pieces: readonly TextPiece[]): number {
   }
   let best = pieces[0]?.baseline ?? 0;
   let bestWeight = -1;
-  for (const [baseline, weight] of weights) {
+  for (const [value, weight] of weights) {
     if (weight > bestWeight) {
-      best = baseline;
+      best = value;
       bestWeight = weight;
     }
   }
@@ -169,6 +258,46 @@ function kindOf(
   return 'text';
 }
 
+/**
+ * Whether a protected run is a raised or lowered script, for overlay rendering.
+ *
+ * Formula variables mixed with operators keep `none`. A run of script pieces — or script with
+ * math operators — uses the baseline shift of its script glyphs when every script piece agrees.
+ */
+function scriptRole(
+  pieces: readonly TextPiece[],
+  lineHeight: number,
+  baseline: number,
+  beforeText: string,
+): ScriptRole {
+  const scriptPieces = pieces.filter((piece) => kindOf(piece, lineHeight, baseline) === 'script');
+  if (scriptPieces.length === 0) return 'none';
+
+  const hasMath = pieces.some((piece) => kindOf(piece, lineHeight, baseline) === 'math');
+  const hasVar = pieces.some((piece) => kindOf(piece, lineHeight, baseline) === 'var');
+  if (hasMath || hasVar) return 'none';
+  if (pieces.length > 3) return 'none';
+
+  let supers = 0;
+  let subs = 0;
+  for (const piece of scriptPieces) {
+    const shift = piece.baseline - baseline;
+    if (shift < -lineHeight * 0.05) supers += 1;
+    else if (shift > lineHeight * 0.05) subs += 1;
+    else if (piece.size < lineHeight * 0.78) {
+      // Same baseline, smaller font: `10³` and `CH₄` both use this in many PDFs.
+      const marker = piece.text.trim();
+      const previous = beforeText.trimEnd();
+      if (/^\d+$/u.test(marker) && /\d$/u.test(previous)) supers += 1;
+      else if (/^\d+$/u.test(marker) && /\p{L}$/u.test(previous)) subs += 1;
+      else subs += 1;
+    } else supers += 1;
+  }
+  if (supers > 0 && subs === 0) return 'super';
+  if (subs > 0 && supers === 0) return 'sub';
+  return 'none';
+}
+
 function isFormulaRun(pieces: readonly TextPiece[], lineHeight: number, baseline: number): boolean {
   const joined = pieces.map((piece) => piece.text).join('');
   if (joined.trim().length === 0) return false;
@@ -186,24 +315,49 @@ function isFormulaRun(pieces: readonly TextPiece[], lineHeight: number, baseline
 /**
  * Puts the original formula fragments back. Each slot must appear exactly once; Japanese
  * may reorder them. Dropping, duplicating, or inventing a tag is a wrong translation.
+ *
+ * Script slots are emitted as Unicode super/sub digits in the overlay text so `10³` does not
+ * read as a flat `103`.
  */
-export function restoreInlineMath(translated: string, slots: readonly string[]): string | null {
-  if (slots.length === 0) return translated;
+export function restoreInlineMath(
+  translated: string,
+  slots: readonly string[] | readonly ProtectedSlot[],
+): string | null {
+  const normalized = normalizeSlots(slots);
+  if (normalized.length === 0) return translated;
   const seen = new Set<number>();
   let count = 0;
   const restored = translated.replace(PLACEHOLDER_PATTERN, (_match, raw: string) => {
     const index = Number(raw);
-    if (!Number.isInteger(index) || index < 0 || index >= slots.length) return '\u0000';
+    if (!Number.isInteger(index) || index < 0 || index >= normalized.length) return '\u0000';
     count += 1;
     seen.add(index);
-    return slots[index] ?? '\u0000';
+    const slot = normalized[index];
+    if (!slot) return '\u0000';
+    return formatScriptSlot(slot);
   });
   if (restored.includes('\u0000')) return null;
   // Each slot exactly once. Japanese may reorder them; dropping, duplicating, or inventing
   // a tag is a wrong translation.
-  if (count !== slots.length || seen.size !== slots.length) return null;
+  if (count !== normalized.length || seen.size !== normalized.length) return null;
   if (PLACEHOLDER_PATTERN.test(restored)) return null;
   return restored;
+}
+
+/**
+ * Markup for a script slot when Unicode cannot represent every character.
+ *
+ * The reader paints this inside `.sakutto-cover` when plain text is not enough.
+ */
+export function scriptSlotMarkup(slot: ProtectedSlot): string {
+  if (slot.script === 'none') return escapeHtml(slot.text);
+  if (canUnicodeScript(slot.text, slot.script)) return formatScriptSlot(slot);
+  const tag = slot.script === 'super' ? 'sup' : 'sub';
+  return `<${tag}>${escapeHtml(slot.text)}</${tag}>`;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/gu, '&amp;').replace(/</gu, '&lt;').replace(/>/gu, '&gt;');
 }
 
 /**
@@ -212,7 +366,10 @@ export function restoreInlineMath(translated: string, slots: readonly string[]):
  */
 export function shouldSkipInlineMath(protectedText: ProtectedText, source: string): boolean {
   if (protectedText.slots.length === 0) return false;
-  const slotChars = protectedText.slots.join('').replace(/\s+/gu, '').length;
+  const slotChars = protectedText.slots
+    .map((slot) => slot.text)
+    .join('')
+    .replace(/\s+/gu, '').length;
   const sourceChars = source.replace(/\s+/gu, '').length;
   const remaining = protectedText.text.replace(/<i\d+>/gu, '').replace(/\s+/gu, '');
   if (sourceChars > 0 && slotChars >= sourceChars * 0.25 && protectedText.slots.length >= 2) {
