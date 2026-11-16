@@ -401,7 +401,7 @@ export class PdfReader {
     this.style?.remove();
     this.style = null;
     this.root.replaceChildren();
-    void this.document.destroy().catch(() => undefined);
+    void this.document.loadingTask.destroy().catch(() => undefined);
   }
 
   private installStyle(): void {

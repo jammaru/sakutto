@@ -33,7 +33,11 @@ const { layoutPage } = (await import(pathToFileURL(resolve('src/pdf/layout.ts'))
 };
 
 const bytes = new Uint8Array(await readFile(resolve(file)));
-const doc = await pdfjs.getDocument({ data: bytes, useSystemFonts: false }).promise;
+const doc = await pdfjs.getDocument({
+  data: bytes,
+  useSystemFonts: false,
+  fontExtraProperties: true,
+}).promise;
 const total = Math.min(limit, doc.numPages);
 console.log('page  ms    lines blocks skip  images');
 
@@ -50,4 +54,4 @@ for (let index = 1; index <= total; index += 1) {
   );
 }
 console.log(`\nmean ${(sum / total).toFixed(0)} ms/page over ${String(total)} pages`);
-await doc.destroy();
+await doc.loadingTask.destroy();

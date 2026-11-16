@@ -65,7 +65,11 @@ export interface PdfDocument {
   numPages: number;
   getPage: (index: number) => Promise<PdfPage>;
   getMetadata: () => Promise<{ info?: unknown } | null>;
-  destroy: () => Promise<void>;
+  /**
+   * The task that owns the document worker. pdf.js 6 removed the `destroy` alias from
+   * `PDFDocumentProxy`, so teardown goes through the loading task itself.
+   */
+  loadingTask: { destroy: () => Promise<void> };
 }
 
 /**

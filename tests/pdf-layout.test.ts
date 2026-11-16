@@ -1097,7 +1097,7 @@ describe('pseudocode line shapes', () => {
       expect(three?.role).toBe('prose');
       expect(six?.role).toBe('prose');
     } finally {
-      await document.destroy();
+      await document.loadingTask.destroy();
     }
   });
 

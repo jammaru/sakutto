@@ -379,7 +379,7 @@ describe('PDF subscripts and superscripts', () => {
       expect(joined).toMatch(/10/u);
       expect(joined.length).toBeGreaterThan(20);
     } finally {
-      await document.destroy();
+      await document.loadingTask.destroy();
     }
   });
 

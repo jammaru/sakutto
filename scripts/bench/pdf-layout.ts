@@ -33,9 +33,10 @@ const files = fileArg
 
 const pdfjsPath = require.resolve('pdfjs-dist/legacy/build/pdf.mjs');
 const pdfjs = await import(pathToFileURL(pdfjsPath).href);
-const standardFontDataUrl = pathToFileURL(
-  resolve(dirname(pdfjsPath), '..', '..', 'standard_fonts') + '/',
-).href;
+const pdfjsRoot = resolve(dirname(pdfjsPath), '..', '..');
+const standardFontDataUrl = pathToFileURL(resolve(pdfjsRoot, 'standard_fonts') + '/').href;
+const wasmUrl = pathToFileURL(resolve(pdfjsRoot, 'wasm') + '/').href;
+const iccUrl = pathToFileURL(resolve(pdfjsRoot, 'iccs') + '/').href;
 
 const { extractPage } = (await import(pathToFileURL(resolve(ROOT, 'src/pdf/extract.ts')).href)) as {
   extractPage: (
@@ -337,7 +338,10 @@ async function checkBytes(name: string, bytes: Uint8Array): Promise<void> {
     data: bytes,
     useSystemFonts: false,
     isEvalSupported: false,
+    fontExtraProperties: true,
     standardFontDataUrl,
+    wasmUrl,
+    iccUrl,
   }).promise;
   const last = pageLimit > 0 ? Math.min(pageLimit, doc.numPages) : doc.numPages;
   console.log(`${name}: ${String(doc.numPages)} pages, checking ${String(last)}`);
@@ -418,7 +422,7 @@ async function checkBytes(name: string, bytes: Uint8Array): Promise<void> {
       pass,
     });
   }
-  await doc.destroy();
+  await doc.loadingTask.destroy();
 }
 
 for (const file of files) {

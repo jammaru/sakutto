@@ -75,7 +75,11 @@ const { layoutPage } = (await import(pathToFileURL(resolve('src/pdf/layout.ts'))
 };
 
 const bytes = new Uint8Array(await readFile(resolve(file)));
-const doc = await pdfjs.getDocument({ data: bytes, useSystemFonts: false }).promise;
+const doc = await pdfjs.getDocument({
+  data: bytes,
+  useSystemFonts: false,
+  fontExtraProperties: true,
+}).promise;
 const page = await doc.getPage(pageNumber);
 
 const extracted = await extractPage(page, pageNumber - 1, pdfjs.OPS);
@@ -106,7 +110,7 @@ if (asJson) {
   console.log(
     JSON.stringify({ bodySize: layout.bodySize, lineHeight: layout.lineHeight, rows }, null, 2),
   );
-  await doc.destroy();
+  await doc.loadingTask.destroy();
   process.exit(0);
 }
 
@@ -161,4 +165,4 @@ if (dropped.length > 0) {
   }
 }
 
-await doc.destroy();
+await doc.loadingTask.destroy();

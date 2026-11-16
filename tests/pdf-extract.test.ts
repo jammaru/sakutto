@@ -284,7 +284,7 @@ describe('committed layout fixtures', () => {
         }
       }
     } finally {
-      await document.destroy();
+      await document.loadingTask.destroy();
     }
   });
 
@@ -305,7 +305,7 @@ describe('committed layout fixtures', () => {
           expect(orphanLineCount(extracted.lines, layout), `${name} p${String(number)}`).toBe(0);
         }
       } finally {
-        await document.destroy();
+        await document.loadingTask.destroy();
       }
     }
   });
@@ -343,7 +343,7 @@ describe('committed layout fixtures', () => {
         }
       }
     } finally {
-      await document.destroy();
+      await document.loadingTask.destroy();
     }
   });
 });

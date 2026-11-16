@@ -9,7 +9,7 @@ export async function loadPdfjs(): Promise<{
     promise: Promise<{
       numPages: number;
       getPage: (n: number) => Promise<unknown>;
-      destroy: () => Promise<void>;
+      loadingTask: { destroy: () => Promise<void> };
     }>;
   };
   OPS: Record<string, number>;
@@ -20,7 +20,7 @@ export async function loadPdfjs(): Promise<{
       promise: Promise<{
         numPages: number;
         getPage: (n: number) => Promise<unknown>;
-        destroy: () => Promise<void>;
+        loadingTask: { destroy: () => Promise<void> };
       }>;
     };
     OPS: Record<string, number>;
@@ -36,13 +36,15 @@ export function standardFontDataUrl(): string {
 export async function openPdfBytes(bytes: Uint8Array): Promise<{
   numPages: number;
   getPage: (n: number) => Promise<unknown>;
-  destroy: () => Promise<void>;
+  /** pdf.js 6 teardown lives on the loading task, not on the document proxy. */
+  loadingTask: { destroy: () => Promise<void> };
 }> {
   const pdfjs = await loadPdfjs();
   return pdfjs.getDocument({
     data: bytes,
     useSystemFonts: false,
     isEvalSupported: false,
+    fontExtraProperties: true,
     standardFontDataUrl: standardFontDataUrl(),
   }).promise;
 }

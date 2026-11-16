@@ -88,7 +88,7 @@ function fakeDocument(
       return fakePage(renders);
     },
     getMetadata: async () => null,
-    destroy: async () => undefined,
+    loadingTask: { destroy: async () => undefined },
   };
 }
 
@@ -417,7 +417,7 @@ describe('PdfReader viewport observer', () => {
       numPages: 1,
       getPage: async () => page,
       getMetadata: async () => null,
-      destroy: async () => undefined,
+      loadingTask: { destroy: async () => undefined },
     };
 
     const reader = new PdfReader(root, geometries(1), {
@@ -495,7 +495,7 @@ describe('PdfReader viewport observer', () => {
       numPages: 1,
       getPage: async () => page,
       getMetadata: async () => null,
-      destroy: async () => undefined,
+      loadingTask: { destroy: async () => undefined },
     };
 
     const root = document.createElement('div');
@@ -590,7 +590,7 @@ describe('PdfReader viewport observer', () => {
       numPages: pages,
       getPage: async (number) => hungPage(number - 1),
       getMetadata: async () => null,
-      destroy: async () => undefined,
+      loadingTask: { destroy: async () => undefined },
     };
 
     const root = document.createElement('div');
@@ -677,7 +677,7 @@ describe('PdfReader viewport observer', () => {
       numPages: pages,
       getPage: async (number) => hungPage(number - 1),
       getMetadata: async () => null,
-      destroy: async () => undefined,
+      loadingTask: { destroy: async () => undefined },
     };
 
     const root = document.createElement('div');
