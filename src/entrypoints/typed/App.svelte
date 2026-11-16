@@ -23,7 +23,7 @@
   import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
   import {
     applyPlainTextLineBreaks,
-    preparePlainTextForModel,
+    plainTextTranslationInput,
     type PlainTextBreakMap,
   } from '@/shared/plain-text-line-breaks';
   import {
@@ -174,11 +174,12 @@
     abortController = controller;
     translating = true;
     resetResult();
-    const prepared = preparePlainTextForModel(trimmed);
-    resultMap = prepared.breakMap;
+    const mode = settings?.plainTextLineBreaks ?? 'none';
+    const { engineText, breakMap } = plainTextTranslationInput(trimmed, mode);
+    resultMap = breakMap;
     let folded = { text: '', failed: false };
     try {
-      const segments = [{ id: 'typed', text: prepared.modelText }];
+      const segments = [{ id: 'typed', text: engineText }];
       for await (const chunk of typedEngine.translate(segments, {
         tgt: targetLanguage,
         form: settings?.form ?? 'polite',

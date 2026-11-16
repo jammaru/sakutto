@@ -21,7 +21,7 @@ import {
 } from '@/shared/settings';
 import {
   applyPlainTextLineBreaks,
-  preparePlainTextForModel,
+  plainTextTranslationInput,
   type PlainTextBreakMap,
 } from '@/shared/plain-text-line-breaks';
 import {
@@ -1976,12 +1976,14 @@ export class ComposeController {
     this.previewWideGap = null;
     this.render();
     const token = ++this.generation;
-    const prepared = preparePlainTextForModel(trimmed);
-    void this.runTranslate(prepared, plan.targetLanguage, controller.signal, token);
+    const mode = this.prefs.plainTextLineBreaks ?? 'none';
+    const { engineText, breakMap } = plainTextTranslationInput(trimmed, mode);
+    void this.runTranslate(engineText, breakMap, plan.targetLanguage, controller.signal, token);
   }
 
   private async runTranslate(
-    prepared: { modelText: string; breakMap: PlainTextBreakMap },
+    engineText: string,
+    breakMap: PlainTextBreakMap | null,
     target: TargetLanguage,
     signal: AbortSignal,
     token: number,
@@ -1990,7 +1992,12 @@ export class ComposeController {
     let output = '';
     const mode = this.prefs.plainTextLineBreaks ?? 'none';
     const applyPreview = (text: string): void => {
-      const applied = applyPlainTextLineBreaks(prepared.modelText, text, prepared.breakMap, mode);
+      if (!breakMap || mode === 'none') {
+        this.preview = text;
+        this.previewWideGap = null;
+        return;
+      }
+      const applied = applyPlainTextLineBreaks(breakMap.modelText, text, breakMap, mode);
       if (typeof applied === 'string') {
         this.preview = applied;
         this.previewWideGap = null;
@@ -2010,10 +2017,7 @@ export class ComposeController {
           ? { glossary: this.prefs.glossary }
           : {}),
       };
-      for await (const chunk of this.engine.translate(
-        [{ id: 'compose', text: prepared.modelText }],
-        options,
-      )) {
+      for await (const chunk of this.engine.translate([{ id: 'compose', text: engineText }], options)) {
         if (signal.aborted || token !== this.generation) return;
         if (chunk.textDelta !== undefined) {
           output = chunk.restart === true ? chunk.textDelta : output + chunk.textDelta;
@@ -2047,7 +2051,7 @@ export class ComposeController {
         this.previewWideGap = null;
         this.failed = false;
         this.render();
-        await this.runTranslate(prepared, target, signal, token, attempt + 1);
+        await this.runTranslate(engineText, breakMap, target, signal, token, attempt + 1);
         return;
       }
       this.preview = '';

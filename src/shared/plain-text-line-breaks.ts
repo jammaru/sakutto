@@ -87,6 +87,22 @@ function classifyBreak(before: string, after: string, blankLines: number): Plain
  * inside a paragraph becomes a space so the model translates whole sentences; a blank
  * line becomes `\n\n` so paragraphs stay separate.
  */
+/**
+ * Text the engine should receive and the break map used when reformatting the result.
+ * In `none` mode the normalized source is sent unchanged so translations stay identical
+ * to the previous release; joining happens only when the reader asked for visible breaks.
+ */
+export function plainTextTranslationInput(
+  normalizedSource: string,
+  mode: PlainTextLineBreakMode,
+): { engineText: string; breakMap: PlainTextBreakMap | null } {
+  if (mode === 'none') {
+    return { engineText: normalizedSource, breakMap: null };
+  }
+  const prepared = preparePlainTextForModel(normalizedSource);
+  return { engineText: prepared.modelText, breakMap: prepared.breakMap };
+}
+
 export function preparePlainTextForModel(normalizedSource: string): PreparedPlainText {
   const source = normalizeTypedInput(normalizedSource);
   const lines = source.split('\n');

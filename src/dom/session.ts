@@ -34,7 +34,7 @@ import {
 } from '@/shared/settings';
 import {
   applyPlainTextLineBreaks,
-  preparePlainTextForModel,
+  plainTextTranslationInput,
   type PlainTextBreakMap,
 } from '@/shared/plain-text-line-breaks';
 import { normalizeTypedInput } from '@/shared/typed-translation';
@@ -717,8 +717,9 @@ export class PageSession {
     }
 
     this.queue.remove((item) => item.role === 'selection' && item.state !== 'running');
-    const prepared = preparePlainTextForModel(source);
-    const next = this.createSelection(source, prepared, anchor);
+    const mode = this.prefs.plainTextLineBreaks ?? 'none';
+    const { engineText, breakMap } = plainTextTranslationInput(source, mode);
+    const next = this.createSelection(source, engineText, breakMap, anchor);
     this.supersedeSelection(next);
     if (reveal) {
       this.selectionShown = true;
@@ -1020,17 +1021,18 @@ export class PageSession {
 
   private createSelection(
     source: string,
-    prepared: { modelText: string; breakMap: PlainTextBreakMap },
+    engineText: string,
+    breakMap: PlainTextBreakMap | null,
     rect: DOMRect,
   ): Live {
     return {
       id: this.allocateId(),
       role: 'selection',
       model: null,
-      source: prepared.modelText,
-      plain: prepared.modelText,
+      source: engineText,
+      plain: engineText,
       plainSource: source,
-      plainBreakMap: prepared.breakMap,
+      ...(breakMap ? { plainBreakMap: breakMap } : {}),
       placeholder: false,
       flatten: false,
       attempts: 0,

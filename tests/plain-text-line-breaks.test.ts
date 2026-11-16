@@ -3,6 +3,7 @@ import {
   PLAIN_TEXT_LINE_BREAK_MODES,
   applyPlainTextLineBreaks,
   normalizePlainTextLineBreaks,
+  plainTextTranslationInput,
   preparePlainTextForModel,
   type PlainTextBreakMap,
 } from '@/shared/plain-text-line-breaks';
@@ -25,6 +26,17 @@ function stripBreaks(text: string): string {
 }
 
 describe('plain text line break modes', () => {
+  it('keeps the normalized source for the engine when mode is none', () => {
+    const source = 'The cold morning began.\nHe opened the door.';
+    expect(plainTextTranslationInput(source, 'none')).toEqual({
+      engineText: source,
+      breakMap: null,
+    });
+    const joined = plainTextTranslationInput(source, 'keep');
+    expect(joined.engineText).toBe('The cold morning began. He opened the door.');
+    expect(joined.breakMap).not.toBeNull();
+  });
+
   it('lists every supported mode', () => {
     expect(PLAIN_TEXT_LINE_BREAK_MODES).toEqual(['none', 'keep', 'blank', 'wider']);
     expect(normalizePlainTextLineBreaks(undefined)).toBe('none');
