@@ -14,6 +14,7 @@
     VIDEO_CAPTION_SIZE_MAX,
     VIDEO_CAPTION_SIZE_MIN,
     isComposePlacement,
+    normalizePlainTextLineBreaks,
     normalizeTranslationPopupSize,
     normalizeVideoCaptionSize,
     removeGmailTranslateLanguage,
@@ -76,6 +77,11 @@
     const size = normalizeTranslationPopupSize(input.value);
     popupPreviewSize = size;
     onChange({ translationPopupSize: size });
+  }
+
+  function updatePlainTextLineBreaks(event: Event) {
+    const select = event.currentTarget as HTMLSelectElement;
+    onChange({ plainTextLineBreaks: normalizePlainTextLineBreaks(select.value) });
   }
 
   function addCustomHost(): void {
@@ -226,6 +232,17 @@
     />
     <p class="muted help">{t('translationPopupSizeHelp')}</p>
   </div>
+
+  <label class="field" data-sakutto="plain-text-line-breaks">
+    <span>{t('plainTextLineBreaksLabel')}</span>
+    <select value={settings.plainTextLineBreaks} onchange={updatePlainTextLineBreaks}>
+      <option value="none">{t('plainTextLineBreaksNone')}</option>
+      <option value="keep">{t('plainTextLineBreaksKeep')}</option>
+      <option value="blank">{t('plainTextLineBreaksBlank')}</option>
+      <option value="wider">{t('plainTextLineBreaksWider')}</option>
+    </select>
+  </label>
+  <p class="muted help">{t('plainTextLineBreaksHelp')}</p>
 
   <label class="check">
     <input

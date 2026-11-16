@@ -1493,6 +1493,24 @@
   "translationPopupSizeHelp": {
     "message": "Changes the text size in hover, selection, and compose translation popups. Video captions use their own size setting."
   },
+  "plainTextLineBreaksLabel": {
+    "message": "Line breaks in the translation"
+  },
+  "plainTextLineBreaksHelp": {
+    "message": "Pasted documents, OCR text, and book excerpts often break mid-sentence. Those breaks are joined for translation; only sentence ends, headings, and blank lines appear as breaks in the translation. Page translation is unchanged."
+  },
+  "plainTextLineBreaksNone": {
+    "message": "Do not add breaks (default)"
+  },
+  "plainTextLineBreaksKeep": {
+    "message": "Break between paragraphs"
+  },
+  "plainTextLineBreaksBlank": {
+    "message": "Blank line between paragraphs"
+  },
+  "plainTextLineBreaksWider": {
+    "message": "Wider gap between paragraphs"
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "Custom caption sites"
   },

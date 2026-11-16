@@ -1489,6 +1489,24 @@
   "translationPopupSizeHelp": {
     "message": "Cambia la dimensione del testo nei popup di traduzione al passaggio del mouse, alla selezione e durante la composizione. I sottotitoli video hanno un'impostazione di dimensione separata."
   },
+  "plainTextLineBreaksLabel": {
+    "message": "Interruzioni di riga nella traduzione"
+  },
+  "plainTextLineBreaksHelp": {
+    "message": "Incollando documenti, testo OCR o estratti di libri, le interruzioni cadono spesso a metà frase. Per la traduzione vengono unite; solo fine frase, titoli e righe vuote diventano interruzioni. La traduzione delle pagine resta invariata."
+  },
+  "plainTextLineBreaksNone": {
+    "message": "Nessuna interruzione aggiunta (predefinito)"
+  },
+  "plainTextLineBreaksKeep": {
+    "message": "Interruzione tra i paragrafi"
+  },
+  "plainTextLineBreaksBlank": {
+    "message": "Riga vuota tra i paragrafi"
+  },
+  "plainTextLineBreaksWider": {
+    "message": "Spazio maggiore tra i paragrafi"
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "Siti di sottotitoli personalizzati"
   },

@@ -15,6 +15,7 @@ import {
   isGmailNeverTranslateLanguage,
   isTierPreference,
   normalizeGmailLanguageList,
+  normalizePlainTextLineBreaks,
   normalizeTranslationPopupSize,
   normalizeTranslationPopupWidth,
   normalizeVideoCaptionSize,
@@ -35,6 +36,7 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     display: 'replace',
     translationPopupSize: 100,
     translationPopupWidth: 0,
+    plainTextLineBreaks: 'none',
     consent: null,
     highQualityDismissed: false,
     sharedFolderOfferDismissed: false,
@@ -401,6 +403,44 @@ describe('settings defaults', () => {
         'en-US',
       ).translationPopupSize,
     ).toBe(165);
+  });
+
+  it('defaults pasted line breaks to none and keeps only the known modes', () => {
+    expect(DEFAULT_SETTINGS.plainTextLineBreaks).toBe('none');
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+        },
+        'en-US',
+      ).plainTextLineBreaks,
+    ).toBe('none');
+    expect(normalizePlainTextLineBreaks(undefined)).toBe('none');
+    expect(normalizePlainTextLineBreaks('keep')).toBe('keep');
+    expect(normalizePlainTextLineBreaks('blank')).toBe('blank');
+    expect(normalizePlainTextLineBreaks('wider')).toBe('wider');
+    expect(normalizePlainTextLineBreaks('side-by-side')).toBe('none');
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          plainTextLineBreaks: 'blank',
+        },
+        'en-US',
+      ).plainTextLineBreaks,
+    ).toBe('blank');
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          plainTextLineBreaks: 'invalid',
+        },
+        'en-US',
+      ).plainTextLineBreaks,
+    ).toBe('none');
   });
 
   it('stores a selection popup width in em and treats zero as automatic', () => {

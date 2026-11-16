@@ -1056,6 +1056,27 @@ describe('page session', () => {
     await pending;
   });
 
+  it('sends selection spacing unchanged in the historical none mode', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello world</p>';
+    const seen: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        const segment = segments[0];
+        if (!segment) return;
+        seen.push(segment.text);
+        yield { id: segment.id, final: '訳文', engine: 'plamo' as const };
+      }),
+      { plainTextLineBreaks: 'none' },
+    );
+
+    session.translateSelection('  Hello,   world!  ', new DOMRect(8, 8, 24, 12));
+    await session.whenIdle();
+
+    expect(seen).toEqual(['Hello,   world!']);
+  });
+
   it('replaces a stuck selection with an error instead of leaving it pending', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML = '<p>Hello world</p>';
@@ -2166,6 +2187,39 @@ describe('selection icon', () => {
       rects.mockRestore();
       box.mockRestore();
     }
+  });
+
+  it('does not restart a selection when only the joined engine text differs', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<pre id="lead">Hello.\nWorld.</pre>';
+    const seen: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        const segment = segments[0];
+        if (!segment) return;
+        seen.push(segment.text);
+        yield { id: segment.id, final: 'こんにちは。世界。', engine: 'plamo' as const };
+      }),
+      { plainTextLineBreaks: 'keep' },
+    );
+
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing lead');
+    await selectElement(lead);
+    await session.whenIdle();
+    expect(seen).toEqual(['Hello. World.']);
+    expect(icon().hidden).toBe(false);
+
+    iconButton().dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    const popover = document.querySelector('sakutto-pop');
+    expect(popover instanceof HTMLElement && popover.hidden).toBe(false);
+
+    document.dispatchEvent(new Event('selectionchange'));
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    expect(seen).toEqual(['Hello. World.']);
+    expect(popover instanceof HTMLElement && popover.hidden).toBe(false);
   });
 
   it('ignores a blank selection and hides the icon when the highlight is cleared or clicked away', async () => {

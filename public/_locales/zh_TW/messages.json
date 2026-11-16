@@ -1489,6 +1489,24 @@
   "translationPopupSizeHelp": {
     "message": "調整懸停、選取和撰寫翻譯彈窗中的文字大小。影片字幕使用個別的字幕大小設定。"
   },
+  "plainTextLineBreaksLabel": {
+    "message": "譯文中的換行"
+  },
+  "plainTextLineBreaksHelp": {
+    "message": "貼上文件、OCR 文字或書籍摘錄時，換行常落在句子中間。翻譯時會將這些內容連接起來，只有句末、標題和空行才會在譯文中顯示為換行。網頁翻譯維持不變。"
+  },
+  "plainTextLineBreaksNone": {
+    "message": "不額外換行（預設）"
+  },
+  "plainTextLineBreaksKeep": {
+    "message": "段落之間換行"
+  },
+  "plainTextLineBreaksBlank": {
+    "message": "段落之間空行"
+  },
+  "plainTextLineBreaksWider": {
+    "message": "段落間距稍大"
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "自訂字幕網站"
   },

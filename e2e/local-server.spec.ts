@@ -69,10 +69,15 @@ test.describe('local server options', () => {
       await expect(page.getByText('Translation engine')).toBeVisible();
       await page.getByRole('radio', { name: 'Local server (experimental)' }).click();
       await page.getByRole('button', { name: 'Use local server' }).click();
-      await page.getByLabel('Server URL').fill(fake.url);
-      await page.getByLabel('Server URL').blur();
-      await page.getByRole('button', { name: 'Test connection' }).click();
-      await expect(page.getByRole('status')).toHaveText('Connected.');
+      const serverUrl = page.getByLabel('Server URL');
+      await serverUrl.fill(fake.url);
+      await serverUrl.press('Tab');
+      await expect(serverUrl).toHaveValue(fake.url);
+      const testRow = page.locator('.test-row');
+      const testButton = testRow.getByRole('button', { name: 'Test connection' });
+      await expect(testButton).toBeEnabled();
+      await testButton.click();
+      await expect(testRow.getByRole('status')).toHaveText('Connected.', { timeout: 30_000 });
       await page.close();
     } finally {
       await extension.close();
@@ -88,14 +93,19 @@ test.describe('local server options', () => {
       await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
       await options.getByRole('radio', { name: 'Local server (experimental)' }).click();
       await options.getByRole('button', { name: 'Use local server' }).click();
-      await options.getByLabel('Server URL').fill(fake.url);
-      await options.getByLabel('Server URL').blur();
+      const serverUrl = options.getByLabel('Server URL');
+      await serverUrl.fill(fake.url);
+      await serverUrl.press('Tab');
+      await expect(serverUrl).toHaveValue(fake.url);
       await options
         .getByLabel('Model', { exact: true })
         .fill('pfnet/plamo-3-translate-0.8b-MLX-4bit');
-      await options.getByLabel('Model', { exact: true }).blur();
-      await options.getByRole('button', { name: 'Test connection' }).click();
-      await expect(options.getByRole('status')).toHaveText('Connected.');
+      await options.getByLabel('Model', { exact: true }).press('Tab');
+      const testRow = options.locator('.test-row');
+      const testButton = testRow.getByRole('button', { name: 'Test connection' });
+      await expect(testButton).toBeEnabled();
+      await testButton.click();
+      await expect(testRow.getByRole('status')).toHaveText('Connected.', { timeout: 30_000 });
 
       const status = await options.evaluate(async () => {
         const chrome = (

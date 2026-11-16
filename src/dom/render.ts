@@ -1,4 +1,5 @@
 import { scriptTextVariants, type ScriptPosition } from '@/shared/scripts';
+import { splitForTranslation } from '@/engine/text/sentences';
 import {
   parsePlaceholders,
   stripPlaceholderTokens,
@@ -37,6 +38,7 @@ export function applyTranslation(model: SegmentModel, translation: string, creat
     discardCreated(created);
     writeFlat(model, stripPlaceholderTokens(translation), created);
   }
+  rebalanceLines(root);
 }
 
 export function restoreSegment(model: SegmentModel, created: Text[]): void {
@@ -45,6 +47,14 @@ export function restoreSegment(model: SegmentModel, created: Text[]): void {
   model.block.removeAttribute('data-sakutto-pending');
   model.block.removeAttribute('data-sakutto-id');
   model.block.removeAttribute('data-sakutto-engine');
+  // Mail adapters mark their translated body with a provider-specific attribute. Removing it
+  // here keeps a direct `restoreSegment` call byte-identical to the page's original markup,
+  // not only the controller path that knows the adapter's attribute name.
+  for (const name of [...model.block.getAttributeNames()]) {
+    if (name.startsWith('data-sakutto-') && name.endsWith('-translated')) {
+      model.block.removeAttribute(name);
+    }
+  }
 }
 
 export function restoreStructure(model: SegmentModel, created: Text[]): void {
@@ -56,6 +66,7 @@ export function restoreStructure(model: SegmentModel, created: Text[]): void {
 
 export function paintPlain(model: SegmentModel, translation: string, created: Text[]): void {
   writeFlat(model, visibleTranslation(translation), created);
+  rebalanceLines({ element: model.block, gaps: model.gaps, children: model.children });
 }
 
 /**
@@ -158,6 +169,321 @@ function writeGapsInPlace(frame: Frame, gapTexts: readonly string[], created: Te
     }
     writeSlots(slots, value);
   }
+}
+
+interface LineGroup {
+  slots: TextSlot[];
+  source: string;
+}
+
+/** Which direct line of its frame each text slot sits on, counted from the real `<br>`s. */
+function slotLines(element: Element): Map<Text, number> {
+  const lines = new Map<Text, number>();
+  let line = 0;
+  for (const child of element.childNodes) {
+    if (child instanceof Element && child.localName === 'br') {
+      line += 1;
+      continue;
+    }
+    if (child.nodeType === Node.TEXT_NODE) lines.set(child as Text, line);
+  }
+  return lines;
+}
+
+/**
+ * The slot runs a gap paints on each line. A gap may cover several lines because `<br>` is
+ * source text rather than a placeholder, and its slots are the text nodes on either side.
+ * Empty lines have no slots, so they stay out of the distribution and the real `<br>`s keep
+ * painting them.
+ */
+function gapLineGroups(
+  gap: readonly TextSlot[],
+  lineBySlot: ReadonlyMap<Text, number>,
+): LineGroup[] {
+  const indexed: { slot: TextSlot; line: number }[] = [];
+  for (const slot of gap) {
+    const line = lineBySlot.get(slot.node);
+    if (line === undefined) return [];
+    indexed.push({ slot, line });
+  }
+  if (indexed.length === 0) return [];
+
+  let first = Number.POSITIVE_INFINITY;
+  let last = -1;
+  for (const entry of indexed) {
+    if (entry.line < first) first = entry.line;
+    if (entry.line > last) last = entry.line;
+  }
+
+  const groups: LineGroup[] = Array.from({ length: last - first + 1 }, () => ({
+    slots: [],
+    source: '',
+  }));
+  for (const entry of indexed) {
+    const group = groups[entry.line - first];
+    if (!group) continue;
+    group.slots.push(entry.slot);
+    group.source += entry.slot.original;
+  }
+  return groups;
+}
+
+/** Sentence ends, located in the original string so whitespace and punctuation are kept. */
+function sentenceEnds(text: string): number[] {
+  const ends: number[] = [];
+  let cursor = 0;
+  for (const sentence of splitForTranslation(text, {
+    sentenceThreshold: 1,
+    maxChunkChars: Math.max(text.length, 1),
+  })) {
+    const start = text.indexOf(sentence, cursor);
+    if (start < 0) continue;
+    const end = start + sentence.length;
+    if (end > 0 && end < text.length) ends.push(end);
+    cursor = end;
+  }
+  return ends;
+}
+
+/** Whole sentences, sliced from the original text so joining them loses no whitespace. */
+function sentenceChunks(text: string): string[] {
+  const chunks: string[] = [];
+  let cursor = 0;
+  for (const end of sentenceEnds(text)) {
+    const chunk = text.slice(cursor, end);
+    if (chunk.length > 0) chunks.push(chunk);
+    cursor = end;
+  }
+  const rest = text.slice(cursor);
+  if (rest.length > 0) chunks.push(rest);
+  return chunks;
+}
+
+function wordChunks(text: string): string[] {
+  const chunks = text.match(/\S+\s*/gu);
+  return chunks ?? (text.length > 0 ? [text] : []);
+}
+
+const CJK_TEXT = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
+
+/**
+ * Starts of label-like tokens (`コメント：`, `Comments:`) after the first one. A label with a
+ * colon is a line boundary even when the translation contains no sentence terminator, which
+ * is how an AMO approval mail's `Approved versions` and `Comments` lines were merged into one.
+ */
+function labelCuts(text: string): number[] {
+  const cuts: number[] = [];
+  for (const match of text.matchAll(/([^\s:：]{1,40})([:：])/gu)) {
+    if (match.index === undefined) continue;
+    const token = match[1] ?? '';
+    const colon = match.index + token.length;
+    // `https:` is not a label. URL schemes otherwise look exactly like one.
+    if (text.slice(colon + 1, colon + 3) === '//') continue;
+
+    // The token immediately before the colon may be only the last word of a multi-word
+    // label (`Approved versions:`) or a value running into a CJK label (`1.6.2コメント：`).
+    let start = match.index;
+    if (!/^\p{L}/u.test(token)) {
+      const tail = /([\p{L}][\p{L}\p{M}_-]*)$/u.exec(token);
+      if (!tail || tail.index === undefined) continue;
+      start += tail.index;
+    }
+
+    for (let words = 1; words < 5; words += 1) {
+      let space = start;
+      while (space > 0 && /\s/u.test(text[space - 1] ?? '')) space -= 1;
+      if (space === start || space === 0) break;
+      let previous = space;
+      while (previous > 0 && !/\s/u.test(text[previous - 1] ?? '')) previous -= 1;
+      const word = text.slice(previous, space);
+      if (word.length > 30 || !/^\p{L}+$/u.test(word)) break;
+      start = previous;
+    }
+
+    if (start > 0) cuts.push(start);
+  }
+  return cuts;
+}
+
+/** A version, number or URL at the end of a source line is likely to survive translation. */
+function trailingAnchor(source: string): string | null {
+  const token = /\S+$/u.exec(source.trim())?.[0]?.replace(/[.,;:!?]+$/u, '') ?? '';
+  if (token.length < 2 || !/\d/u.test(token)) return null;
+  return token;
+}
+
+/**
+ * Safe cut points for a line-count-preserving split: sentence ends, label starts, and the
+ * trailing versions of the source lines themselves. Text is sliced only at these points, so
+ * a sentence or a label/value pair is never cut in the middle.
+ */
+function safeChunks(text: string, sources: readonly string[]): string[] {
+  const cuts = new Set<number>(sentenceEnds(text));
+  for (const cut of labelCuts(text)) cuts.add(cut);
+
+  let cursor = 0;
+  for (let index = 0; index < sources.length - 1; index += 1) {
+    const anchor = trailingAnchor(sources[index] ?? '');
+    if (!anchor) continue;
+    const at = text.indexOf(anchor, cursor);
+    if (at < 0) continue;
+    const end = at + anchor.length;
+    if (end > 0 && end < text.length) cuts.add(end);
+    cursor = end;
+  }
+
+  const points = [...cuts]
+    .filter((point) => point > 0 && point < text.length)
+    .sort((a, b) => a - b);
+  const chunks: string[] = [];
+  let start = 0;
+  for (const point of points) {
+    if (point <= start) continue;
+    const chunk = text.slice(start, point);
+    if (chunk.trim().length > 0) chunks.push(chunk);
+    start = point;
+  }
+  const rest = text.slice(start);
+  if (rest.trim().length > 0) chunks.push(rest);
+  return chunks.map((chunk) => chunk.trim());
+}
+
+/**
+ * Groups whole sentence (or word) units into the source lines without cutting inside one.
+ * If there are fewer units than lines, the first lines take one each and the rest stay empty;
+ * that is the merge case that used to leave one stray character on every blank `<br>` line.
+ */
+function groupUnits(units: readonly string[], sources: readonly string[]): string[] {
+  const count = sources.length;
+  if (count <= 1) return [units.join('')];
+
+  const weights = sources.map((source) => Math.max(1, source.trim().length));
+  const chunks: string[] = [];
+  let index = 0;
+
+  for (let line = 0; line < count; line += 1) {
+    const remainingUnits = units.length - index;
+    if (remainingUnits <= 0) {
+      chunks.push('');
+      continue;
+    }
+
+    const remainingLines = count - line - 1;
+    if (remainingUnits <= remainingLines) {
+      chunks.push(units[index] ?? '');
+      index += 1;
+      continue;
+    }
+
+    const remainingWeight = weights.slice(line).reduce((sum, weight) => sum + weight, 0);
+    let take =
+      line === count - 1
+        ? remainingUnits
+        : Math.round((remainingUnits * (weights[line] ?? 1)) / remainingWeight);
+    take = Math.max(1, Math.min(take, remainingUnits - remainingLines));
+    chunks.push(units.slice(index, index + take).join(''));
+    index += take;
+  }
+  return chunks.map((chunk) => chunk.trim());
+}
+
+/**
+ * Distributes text the model returned as one paragraph over the source lines. CJK text is
+ * split only at sentence ends; when there are fewer sentences than lines, several source
+ * lines stay empty instead of receiving a fragment. Space-delimited text may fall back to
+ * word boundaries only when there are not enough sentence boundaries to fill the lines.
+ * There is deliberately no per-code-point fallback: that put `あ` / `り` / `がとう` on the
+ * whitespace-only lines between Gmail's `<br>`s.
+ */
+function splitByWeights(text: string, sources: readonly string[]): string[] {
+  const count = sources.length;
+  const trimmed = text.trim();
+  if (count <= 1) return [trimmed];
+  if (trimmed.length === 0) return Array.from({ length: count }, () => '');
+
+  const safe = safeChunks(trimmed, sources);
+  if (safe.length >= count) return groupUnits(safe, sources);
+
+  const sentences = sentenceChunks(trimmed).filter((chunk) => chunk.trim().length > 0);
+  if (sentences.length >= count) return groupUnits(sentences, sources);
+
+  if (CJK_TEXT.test(trimmed)) {
+    const chunks = sentences.slice(0, count);
+    while (chunks.length < count) chunks.push('');
+    return chunks.map((chunk) => chunk.trim());
+  }
+
+  const words = wordChunks(trimmed);
+  if (words.length >= count) return groupUnits(words, sources);
+  const chunks = words.slice(0, count);
+  while (chunks.length < count) chunks.push('');
+  return chunks.map((chunk) => chunk.trim());
+}
+
+function lineChunks(text: string, groups: readonly LineGroup[]): string[] {
+  if (groups.length <= 1) return [text];
+
+  const leading = /^\s*/u.exec(text)?.[0] ?? '';
+  const trailing = /\s*$/u.exec(text)?.[0] ?? '';
+  let chunks: string[];
+  const parts = text.split('\n');
+  const nonEmpty = parts.map((part) => part.trim()).filter((part) => part.length > 0);
+  if (nonEmpty.length === groups.length) {
+    chunks = nonEmpty;
+  } else {
+    chunks = splitByWeights(
+      text,
+      groups.map((group) => group.source),
+    );
+  }
+
+  // Spaces at the edges of a gap sit beside an inline placeholder, not a line break. Keep
+  // them so `See <a>link</a> here` does not become `See<a>link</a>here`.
+  if (chunks.length > 0) {
+    chunks[0] = leading + (chunks[0] ?? '');
+    const last = chunks.length - 1;
+    chunks[last] = (chunks[last] ?? '') + trailing;
+  }
+  return chunks;
+}
+
+/**
+ * Writes a translation back over the line runs the source already had. The first fix for
+ * Gmail wrapped each line in a span; that mutated the page, split one mail into a request
+ * per line and left markup behind on restore. This pass uses the existing text nodes: after
+ * placeholders are applied, each gap holds the translated text for all of its lines, and it
+ * is redistributed over those lines so the `<br>` nodes keep painting the message layout.
+ */
+function rebalanceLines(frame: Frame): void {
+  const lineBySlot = slotLines(frame.element);
+  for (const gap of frame.gaps) {
+    const groups = gapLineGroups(gap, lineBySlot);
+    if (groups.length === 0) continue;
+
+    const text = gap.map((slot) => slot.node.nodeValue ?? '').join('');
+    const usable: LineGroup[] = [];
+    for (const group of groups) {
+      // A text node holding only the newline or space between two `<br>`s is layout, not a
+      // source line. Counting it as a target split short translations into one character per
+      // blank visual line; its original bytes are restored below instead.
+      const slots = group.slots.filter((slot) => slot.original.trim().length > 0);
+      if (slots.length > 0) usable.push({ slots, source: group.source });
+    }
+
+    if (usable.length > 0 && text.trim().length > 0) {
+      const chunks = usable.length === 1 ? [text] : lineChunks(text, usable);
+      for (let index = 0; index < usable.length; index += 1) {
+        writeSlots(usable[index]?.slots ?? [], chunks[index] ?? '');
+      }
+    }
+
+    for (const group of groups) {
+      for (const slot of group.slots) {
+        if (slot.original.trim().length === 0) slot.node.nodeValue = slot.original;
+      }
+    }
+  }
+  for (const child of frame.children) rebalanceLines(child);
 }
 
 /**

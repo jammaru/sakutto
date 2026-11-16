@@ -2,6 +2,19 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
+## [Unreleased]
+
+### Features
+
+- Settings has a Line breaks in pasted text option for typed text, selections, and compose previews. The default keeps today's joined-paragraph output; you can keep line breaks, insert a blank line between them, or use wider line spacing. Line breaks that OCR left mid-sentence move to the end of the sentence. Page and PDF translation are unchanged.
+
+## [1.6.2] - 2026-11-16
+
+### Bug Fixes
+
+- Gmail and Outlook message translate banners no longer appear twice or flicker after you reload the extension, restart the browser, or open several Gmail tabs at once (#101).
+- In list or table cells with extra wrapping markup (for example `li > div > p`), inline identifiers such as version numbers are no longer sent to the model and rewritten (#94, thanks @Seyamalam).
+
 ## [1.6.1] - 2026-11-16
 
 ### Bug Fixes

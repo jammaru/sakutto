@@ -113,8 +113,24 @@ function isCjkTerminator(character: string): boolean {
   return character !== '.' && character !== '!' && character !== '?';
 }
 
-function splitRawSentences(text: string, ranges: readonly TextRange[]): string[] {
-  const sentences: string[] = [];
+export interface SentenceSpan {
+  /** First UTF-16 index of the trimmed sentence in the source string. */
+  start: number;
+  /** End UTF-16 index, just past the terminator and any closing punctuation. */
+  end: number;
+  text: string;
+}
+
+function pushTrimmedRange(ranges: TextRange[], text: string, start: number, end: number): void {
+  let first = start;
+  let last = end;
+  while (first < last && /\s/u.test(text[first] ?? '')) first += 1;
+  while (last > first && /\s/u.test(text[last - 1] ?? '')) last -= 1;
+  if (last > first) ranges.push({ start: first, end: last });
+}
+
+function rawSentenceRanges(text: string, ranges: readonly TextRange[]): TextRange[] {
+  const sentences: TextRange[] = [];
   let start = 0;
   let index = 0;
 
@@ -149,16 +165,28 @@ function splitRawSentences(text: string, ranges: readonly TextRange[]): string[]
       continue;
     }
 
-    const sentence = text.slice(start, end).trim();
-    if (sentence.length > 0) sentences.push(sentence);
+    pushTrimmedRange(sentences, text, start, end);
     start = end;
     index = end;
   }
 
-  const rest = text.slice(start).trim();
-  if (rest.length > 0) sentences.push(rest);
-
+  pushTrimmedRange(sentences, text, start, text.length);
   return sentences;
+}
+
+function splitRawSentences(text: string, ranges: readonly TextRange[]): string[] {
+  return rawSentenceRanges(text, ranges).map((range) => text.slice(range.start, range.end));
+}
+
+/**
+ * Sentence ranges in `text`, for callers that need to map a source break onto the
+ * corresponding translated sentence instead of translating line by line.
+ */
+export function sentenceSpans(text: string): SentenceSpan[] {
+  return rawSentenceRanges(text, findProtectedRanges(text)).map((range) => ({
+    ...range,
+    text: text.slice(range.start, range.end),
+  }));
 }
 
 function tagDepth(text: string): number {

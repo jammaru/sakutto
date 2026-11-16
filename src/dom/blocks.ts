@@ -535,7 +535,7 @@ export function isDataRowCell(element: Element): boolean {
     const row: Element | null = node.parentElement;
     if (!row) return false;
     if (isRepeatedRow(row)) return true;
-    node = row.parentElement;
+    node = row;
   }
   return false;
 }
@@ -816,6 +816,42 @@ export function* eachTranslatableBlock(root: ParentNode): Generator<Element> {
 }
 
 /**
+ * The inline wrapper that actually holds a plain-text mail body. Gmail sometimes puts the
+ * whole message in `.a3s > span` (or `<font>`, or a nested pair), so yielding the outer
+ * `.a3s` would leave the `<br>`s inside a placeholder child. Following a single transparent
+ * inline wrapper is read-only: the DOM is never wrapped or unwrapped, and the `<br>`s stay
+ * exactly where the message put them for the renderer to map lines onto.
+ *
+ * Only whitespace may sit beside the wrapper, and only one wrapper may be followed. If the
+ * container has text of its own, or more than one child, it stays the segment so nothing
+ * appended after the body is dropped.
+ */
+function breakWrapperHost(
+  element: Element,
+  probe: VisibilityProbe,
+  layout: LayoutProbe,
+): Element | null {
+  for (const child of element.childNodes) {
+    if (child.nodeType !== Node.TEXT_NODE) continue;
+    if ((child.nodeValue ?? '').trim().length > 0) return null;
+  }
+
+  let only: Element | null = null;
+  for (const child of element.children) {
+    if (only !== null) return null;
+    only = child;
+  }
+  if (!only) return null;
+  if (probe.excluded(only) || isSkipped(only, probe) || isAriaHiddenLeaf(only)) return null;
+  if (!layout.inline(only)) return null;
+
+  for (const child of only.children) {
+    if (child.localName === 'br') return only;
+  }
+  return breakWrapperHost(only, probe, layout);
+}
+
+/**
  * Walks one element of the page.
  *
  * The rule that fixes a broken table: a container that places each child in its own slot
@@ -869,6 +905,11 @@ function* visitBlock(
   const items = elementItems || repeated;
   const rows = context === 'row' || repeated;
   if (!items && !hasSlotDescendant(element, probe, layout)) {
+    const host = breakWrapperHost(element, probe, layout);
+    if (host) {
+      if (hasTranslatableTextIn(host, probe)) yield host;
+      return;
+    }
     if (hasTranslatableTextIn(element, probe)) yield element;
     return;
   }

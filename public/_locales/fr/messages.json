@@ -1489,6 +1489,24 @@
   "translationPopupSizeHelp": {
     "message": "Modifie la taille du texte dans les fenêtres de traduction au survol, à la sélection et lors de la rédaction. Les sous-titres vidéo ont leur propre réglage de taille."
   },
+  "plainTextLineBreaksLabel": {
+    "message": "Sauts de ligne dans la traduction"
+  },
+  "plainTextLineBreaksHelp": {
+    "message": "Les documents collés, le texte OCR ou les extraits de livres contiennent souvent des sauts au milieu d’une phrase. Ils sont réunis pour la traduction ; seuls les fins de phrase, les titres et les lignes vides deviennent des sauts. La traduction des pages reste inchangée."
+  },
+  "plainTextLineBreaksNone": {
+    "message": "Aucun saut ajouté (par défaut)"
+  },
+  "plainTextLineBreaksKeep": {
+    "message": "Saut entre les paragraphes"
+  },
+  "plainTextLineBreaksBlank": {
+    "message": "Ligne vide entre les paragraphes"
+  },
+  "plainTextLineBreaksWider": {
+    "message": "Espacement plus large entre les paragraphes"
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "Sites de sous-titres personnalisés"
   },

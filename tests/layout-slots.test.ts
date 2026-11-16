@@ -197,6 +197,36 @@ describe('repeated data rows', () => {
     expect(isDataRowCell(row.children[0] ?? row)).toBe(true);
   });
 
+  it('marks a cell wrapped one level deeper in a repeated row', () => {
+    // `li > div > p` puts the row two ancestors above the text. The walk must test
+    // every level up to MAX_CELL_DEPTH, not every other one.
+    document.body.innerHTML = `
+      <ul style="list-style: none">
+        <li style="${ROW}"><span style="display: block">1</span><div><p>First version</p></div></li>
+        <li style="${ROW}"><span style="display: block">2</span><div><p>Second version</p></div></li>
+        <li style="${ROW}"><span style="display: block">3</span><div><p>Third version</p></div></li>
+      </ul>
+    `;
+    const paragraph = document.querySelector('li div p');
+    if (!paragraph) throw new Error('missing paragraph');
+    expect(isDataRowCell(paragraph)).toBe(true);
+  });
+
+  it('keeps an identifier out of a segment inside a wrapped data cell', () => {
+    // A missed row leaves freezeValues off, and a version like `v1.2.3` is folded
+    // into the source and sent to the model instead of staying in the DOM.
+    document.body.innerHTML = `
+      <ul style="list-style: none">
+        <li style="${ROW}"><span style="display: block">1</span><div><p>See <span>v1.2.3</span> notes</p></div></li>
+        <li style="${ROW}"><span style="display: block">2</span><div><p>See <span>v2.0.0</span> notes</p></div></li>
+        <li style="${ROW}"><span style="display: block">3</span><div><p>See <span>v3.1.4</span> notes</p></div></li>
+      </ul>
+    `;
+    const paragraph = document.querySelector('li div p');
+    if (!paragraph) throw new Error('missing paragraph');
+    expect(buildSegment(paragraph)?.source).toBe('See notes');
+  });
+
   it('translates a flex container that holds only text', () => {
     // A `<p>` styled `display: flex` to space a label and a score still only holds text of
     // its own. Descending into it used to find no child to yield, so the line was never

@@ -19,6 +19,11 @@ import {
   mailBannerDebug,
   registerMailBannerPressHook,
 } from './mail-banner-press';
+import {
+  contentScriptInstanceToken,
+  purgeForeignMailBannerHosts,
+  stampMailBannerInstance,
+} from '@/shared/content-instance';
 import { buildSegment, placeholderIds, visibleOriginal, type SegmentModel } from './segment';
 import type { PageEngine } from './session';
 
@@ -1076,6 +1081,63 @@ export function mailBannerShadow(host: Element | null | undefined): ShadowRoot |
   return host ? (bannerShadows.get(host) ?? null) : null;
 }
 
+interface MailBannerControllerRegistry {
+  active: WeakMap<Document, Map<string, MailBannerController>>;
+}
+
+const MAIL_BANNER_CONTROLLER_REGISTRY = '__sakuttoMailBannerControllers';
+
+type MailBannerRegistryGlobal = typeof globalThis & {
+  [MAIL_BANNER_CONTROLLER_REGISTRY]?: MailBannerControllerRegistry;
+};
+
+/**
+ * The idle mail bundle and the generic content bundle are separate files, but they share the
+ * isolated world. Keep the active controller on `globalThis` so a second injection is a
+ * no-op even when each bundle has its own copy of this module.
+ */
+function mailBannerControllerRegistry(): MailBannerControllerRegistry {
+  const host = globalThis as MailBannerRegistryGlobal;
+  const existing = host[MAIL_BANNER_CONTROLLER_REGISTRY];
+  if (existing) return existing;
+  const created: MailBannerControllerRegistry = { active: new WeakMap() };
+  host[MAIL_BANNER_CONTROLLER_REGISTRY] = created;
+  return created;
+}
+
+function activeMailBannerController(doc: Document, adapterId: string): MailBannerController | null {
+  return mailBannerControllerRegistry().active.get(doc)?.get(adapterId) ?? null;
+}
+
+function registerMailBannerController(
+  doc: Document,
+  adapterId: string,
+  controller: MailBannerController,
+): boolean {
+  const registry = mailBannerControllerRegistry();
+  let controllers = registry.active.get(doc);
+  if (!controllers) {
+    controllers = new Map();
+    registry.active.set(doc, controllers);
+  }
+  const prior = controllers.get(adapterId);
+  if (prior && prior !== controller) return false;
+  controllers.set(adapterId, controller);
+  return true;
+}
+
+function unregisterMailBannerController(
+  doc: Document,
+  adapterId: string,
+  controller: MailBannerController,
+): void {
+  const registry = mailBannerControllerRegistry();
+  const controllers = registry.active.get(doc);
+  if (!controllers || controllers.get(adapterId) !== controller) return;
+  controllers.delete(adapterId);
+  if (controllers.size === 0) registry.active.delete(doc);
+}
+
 /** Default banner appearance; providers may override it with their own native-style CSS. */
 export const DEFAULT_MAIL_BANNER_STYLE = `
 :host {
@@ -1317,6 +1379,7 @@ export class MailBannerController {
   private observer: MutationObserver | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private started = false;
+  private duplicateOf: MailBannerController | null = null;
   private openMenuRecord: BannerRecord | null = null;
   private readonly recordsByHost = new WeakMap<HTMLElement, BannerRecord>();
   private interactionWindow: Window | null = null;
@@ -1343,18 +1406,38 @@ export class MailBannerController {
 
   start(): void {
     if (this.started || !this.prefs.enabled) return;
+    const active = activeMailBannerController(this.doc, this.adapter.id);
+    if (active && active !== this) {
+      // A second content-script bundle for the same frame must not mount a second banner.
+      this.duplicateOf = active;
+      return;
+    }
+    this.duplicateOf = null;
+    if (!registerMailBannerController(this.doc, this.adapter.id, this)) {
+      this.duplicateOf = activeMailBannerController(this.doc, this.adapter.id);
+      return;
+    }
     this.started = true;
+    purgeForeignMailBannerHosts(this.doc, contentScriptInstanceToken());
     this.listenForButtonPresses();
     const root = this.doc.body ?? this.doc.documentElement;
     if (root && this.observerFactory) {
-      this.observer = new this.observerFactory(() => this.schedule());
+      this.observer = new this.observerFactory((mutations) => {
+        if (!this.shouldScheduleForMutations(mutations)) return;
+        this.schedule();
+      });
       this.observer.observe(root, { childList: true, subtree: true });
     }
     this.refresh();
   }
 
   stop(): void {
+    if (this.duplicateOf) {
+      this.duplicateOf = null;
+      return;
+    }
     this.started = false;
+    unregisterMailBannerController(this.doc, this.adapter.id, this);
     this.stopListeningForButtonPresses();
     this.observer?.disconnect();
     this.observer = null;
@@ -1383,12 +1466,20 @@ export class MailBannerController {
 
   setLabels(labels: MailBannerLabels): void {
     this.labels = labels;
+    if (this.duplicateOf) {
+      this.duplicateOf.setLabels(labels);
+      return;
+    }
     for (const record of this.records.values()) this.paint(record);
   }
 
   setPreferences(next: MailBannerPreferences): void {
     const previous = this.prefs;
     this.prefs = next;
+    if (this.duplicateOf) {
+      this.duplicateOf.setPreferences(next);
+      return;
+    }
     if (!next.enabled) {
       this.stop();
       return;
@@ -1584,6 +1675,18 @@ export class MailBannerController {
 
   refresh(): void {
     if (!this.prefs.enabled) return;
+    if (this.duplicateOf) {
+      if (this.duplicateOf.started) this.duplicateOf.refresh();
+      return;
+    }
+    const active = activeMailBannerController(this.doc, this.adapter.id);
+    if (!this.started && active && active !== this) {
+      this.duplicateOf = active;
+      active.refresh();
+      return;
+    }
+    this.pruneOrphanBannerHosts();
+    this.dedupeBannerHostsByMessageKey();
     for (const [body, record] of [...this.records]) {
       // The common case costs two cheap checks. Only resolve through the parent chain when
       // OWA detached or moved the body, so ordinary Gmail refreshes keep their old cost.
@@ -1624,20 +1727,31 @@ export class MailBannerController {
     }
 
     for (const body of this.adapter.findMessageBodies(this.doc)) {
-      const existing = this.records.get(body);
+      const key = this.adapter.messageKey(body);
+      let existing = this.records.get(body);
+      if (!existing && key.length > 0) {
+        const byKey = this.findRecordForMessageKey(key);
+        if (byKey) {
+          this.adoptBody(byKey, body);
+          existing = byKey;
+        }
+      }
       if (existing) {
-        if (
-          mailBannerButton(existing.state) !== null &&
-          (!existing.host.isConnected || existing.host.nextElementSibling !== body)
-        ) {
-          body.parentElement?.insertBefore(existing.host, body);
+        if (mailBannerButton(existing.state) !== null) {
+          this.removeExtraHostsForKey(key, existing.host);
+          const needsAnchor =
+            !existing.host.isConnected ||
+            existing.host.parentElement !== body.parentElement ||
+            body.previousElementSibling !== existing.host;
+          if (needsAnchor) {
+            body.parentElement?.insertBefore(existing.host, body);
+          }
         }
         if (existing.state.phase === 'offer') this.refreshOffer(existing);
         continue;
       }
       if (isPageTranslated(body)) continue;
 
-      const key = this.adapter.messageKey(body);
       if (key.length > 0 && this.dismissedKeys.has(key)) continue;
 
       const text = visibleOriginal(body);
@@ -1662,6 +1776,7 @@ export class MailBannerController {
       if (auto && !alreadyAutoTranslated && autoKey.length > 0) {
         this.autoPendingKeys.add(autoKey);
       }
+      this.removeExtraHostsForKey(key, null);
       const record = this.mount(body, key, source, {
         auto: auto && !alreadyAutoTranslated,
         autoAttempted: alreadyAutoTranslated,
@@ -1739,12 +1854,13 @@ export class MailBannerController {
     }
     const key = this.adapter.messageKey(body) || this.recordKey(record);
     if (key.length > 0) record.host.dataset[this.adapter.bannerDataset] = key;
-    if (
+    const needsAnchor =
       record.host.parentElement !== body.parentElement ||
-      record.host.nextElementSibling !== body
-    ) {
+      body.previousElementSibling !== record.host;
+    if (needsAnchor) {
       body.parentElement?.insertBefore(record.host, body);
     }
+    this.removeExtraHostsForKey(this.recordKey(record), record.host);
     mailBannerDebug('body resolved', {
       selector: bodyDetails(body),
       connected: body.isConnected,
@@ -1811,7 +1927,12 @@ export class MailBannerController {
     const parent = body.parentElement;
     if (!parent) return null;
 
+    const existingHost = this.findExistingBannerHost(body, key);
+    if (existingHost && this.recordsByHost.has(existingHost)) return null;
+    this.removeDomHostsForMessageKey(key, null);
+
     const host = this.doc.createElement(this.adapter.tag);
+    stampMailBannerInstance(host);
     host.setAttribute('translate', 'no');
     host.setAttribute('role', 'region');
     host.setAttribute('aria-label', this.labels.region);
@@ -2380,6 +2501,136 @@ export class MailBannerController {
     this.translatedKeys.clear();
     this.autoPendingKeys.clear();
     this.translationsByKey.clear();
+    this.pruneOrphanBannerHosts();
+  }
+
+  /** True when the node is one of this provider's custom banner hosts. */
+  private isBannerHostElement(element: Element): boolean {
+    return element.localName === this.adapter.tag;
+  }
+
+  /** Child-list churn from inserting or moving our own hosts must not retrigger refresh. */
+  private shouldScheduleForMutations(mutations: MutationRecord[]): boolean {
+    for (const mutation of mutations) {
+      if (mutation.type !== 'childList') return true;
+      for (const node of mutation.addedNodes) {
+        if (!this.isIgnorableBannerMutationNode(node)) return true;
+      }
+      for (const node of mutation.removedNodes) {
+        if (!this.isIgnorableBannerMutationNode(node)) return true;
+      }
+    }
+    return false;
+  }
+
+  private isIgnorableBannerMutationNode(node: Node): boolean {
+    return node.nodeType === Node.ELEMENT_NODE && this.isBannerHostElement(node as Element);
+  }
+
+  private findRecordForMessageKey(key: string): BannerRecord | null {
+    if (key.length === 0) return null;
+    for (const record of this.records.values()) {
+      if (this.recordKey(record) === key) return record;
+    }
+    return null;
+  }
+
+  /** A host already anchored to this body for the same message means injection is a no-op. */
+  private findExistingBannerHost(body: Element, key: string): HTMLElement | null {
+    const adjacent = body.previousElementSibling;
+    if (adjacent instanceof HTMLElement && this.isBannerHostElement(adjacent)) {
+      const adjacentKey = adjacent.dataset[this.adapter.bannerDataset] ?? '';
+      if (key.length === 0 || adjacentKey === key) return adjacent;
+    }
+    if (key.length === 0) return null;
+    for (const node of this.doc.querySelectorAll(this.adapter.tag)) {
+      if (!(node instanceof HTMLElement)) continue;
+      if ((node.dataset[this.adapter.bannerDataset] ?? '') === key) return node;
+    }
+    return null;
+  }
+
+  private ownsBannerHost(host: HTMLElement): boolean {
+    return this.recordsByHost.has(host);
+  }
+
+  /** Drops stray hosts that no live controller owns. */
+  private pruneOrphanBannerHosts(): void {
+    const tracked = new Set<HTMLElement>();
+    for (const record of this.records.values()) tracked.add(record.host);
+    const controllers = mailBannerControllerRegistry().active.get(this.doc);
+    for (const node of this.doc.querySelectorAll(this.adapter.tag)) {
+      if (!(node instanceof HTMLElement)) continue;
+      if (tracked.has(node)) continue;
+      let owned = false;
+      if (controllers) {
+        for (const controller of controllers.values()) {
+          if (!controller.ownsBannerHost(node)) continue;
+          owned = true;
+          break;
+        }
+      }
+      if (!owned) node.remove();
+    }
+  }
+
+  /** Keeps at most one host per message key in the DOM (orphan shells included). */
+  private removeDomHostsForMessageKey(key: string, keep: HTMLElement | null): void {
+    if (key.length === 0) return;
+    for (const node of this.doc.querySelectorAll(this.adapter.tag)) {
+      if (!(node instanceof HTMLElement)) continue;
+      if ((node.dataset[this.adapter.bannerDataset] ?? '') !== key) continue;
+      if (node === keep) continue;
+      const record = this.recordsByHost.get(node);
+      if (record) this.removeRecord(record, record.body);
+      else node.remove();
+    }
+    for (const record of [...this.records.values()]) {
+      if (record.host === keep) continue;
+      if (this.recordKey(record) !== key) continue;
+      this.removeRecord(record);
+    }
+  }
+
+  private removeExtraHostsForKey(key: string, keep: HTMLElement | null): void {
+    this.removeDomHostsForMessageKey(key, keep);
+  }
+
+  /** One banner host per message id regardless of which bundle stamped it. */
+  private dedupeBannerHostsByMessageKey(): void {
+    const winners = new Map<string, HTMLElement>();
+    for (const node of this.doc.querySelectorAll(this.adapter.tag)) {
+      if (!(node instanceof HTMLElement)) continue;
+      const key = node.dataset[this.adapter.bannerDataset] ?? '';
+      if (key.length === 0) {
+        if (!this.recordsByHost.has(node)) node.remove();
+        continue;
+      }
+      const prior = winners.get(key);
+      if (!prior) {
+        winners.set(key, node);
+        continue;
+      }
+      const keep = this.preferredBannerHost(prior, node);
+      const drop = keep === prior ? node : prior;
+      winners.set(key, keep);
+      if (this.recordsByHost.has(drop)) {
+        const record = this.recordsByHost.get(drop);
+        if (record) this.removeRecord(record, record.body);
+      } else {
+        drop.remove();
+      }
+    }
+  }
+
+  private preferredBannerHost(a: HTMLElement, b: HTMLElement): HTMLElement {
+    const aTracked = this.recordsByHost.has(a);
+    const bTracked = this.recordsByHost.has(b);
+    if (aTracked !== bTracked) return aTracked ? a : b;
+    const aLit = (mailBannerShadow(a)?.querySelector('.text')?.textContent?.trim().length ?? 0) > 0;
+    const bLit = (mailBannerShadow(b)?.querySelector('.text')?.textContent?.trim().length ?? 0) > 0;
+    if (aLit !== bLit) return aLit ? a : b;
+    return a;
   }
 }
 

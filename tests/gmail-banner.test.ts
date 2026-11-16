@@ -1,5 +1,14 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('wxt/browser', () => ({
+  browser: {
+    runtime: {
+      id: 'test-extension-id',
+    },
+  },
+}));
+
 import {
   GMAIL_BANNER_TAG,
   GMAIL_MIN_BODY_CHARS,
@@ -429,6 +438,203 @@ describe('Gmail banner controller', () => {
     controller.refresh();
     expect(counted.calls()).toBe(calls);
     expect(host?.getAttribute('data-sakutto-gmail-phase')).toBe('translated');
+    controller.dispose();
+  });
+
+  it('keeps one banner host per message when duplicate shells share the same message id', () => {
+    document.body.innerHTML = `
+      <div data-message-id="m1">
+        <sakutto-gmail data-sakutto-gmail-banner="m1"></sakutto-gmail>
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `;
+    const orphan = document.querySelector('sakutto-gmail');
+    if (orphan?.nextElementSibling) {
+      orphan.parentElement?.insertBefore(orphan, orphan.nextElementSibling);
+    }
+    const spare = document.createElement('sakutto-gmail');
+    spare.dataset.sakuttoGmailBanner = 'm1';
+    document.querySelector('[data-message-id]')?.appendChild(spare);
+
+    const controller = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(1);
+    controller.dispose();
+  });
+
+  it('does not start a second controller when another bundle already registered one', () => {
+    body(`
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `);
+    const first = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    const second = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    first.start();
+    second.start();
+    second.refresh();
+    expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(1);
+    first.dispose();
+    second.dispose();
+  });
+
+  it('removes a mail banner host stamped by a previous extension build on start', () => {
+    document.body.innerHTML = `
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `;
+    const row = document.querySelector('[data-message-id]');
+    const body = document.querySelector('.a3s');
+    if (!row || !body) throw new Error('missing fixture');
+    const orphan = document.createElement('sakutto-gmail');
+    orphan.dataset.sakuttoExtensionInstance = 'orphan-instance-token';
+    row.insertBefore(orphan, body);
+
+    const controller = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    const hosts = [...document.querySelectorAll(GMAIL_BANNER_TAG)];
+    expect(hosts).toHaveLength(1);
+    expect((hosts[0] as HTMLElement | undefined)?.dataset.sakuttoExtensionInstance).not.toBe(
+      'orphan-instance-token',
+    );
+    controller.dispose();
+  });
+
+  it('keeps a single banner host when Gmail briefly exposes two body nodes for one message', () => {
+    document.body.innerHTML = `
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en" id="body-old">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `;
+    const old = document.getElementById('body-old');
+    if (!old?.parentElement) throw new Error('missing body');
+    const next = old.cloneNode(true) as HTMLElement;
+    next.id = 'body-new';
+    old.parentElement.appendChild(next);
+    const controller = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(1);
+    old.remove();
+    controller.refresh();
+    expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(1);
+    expect(next.previousElementSibling?.localName).toBe(GMAIL_BANNER_TAG);
+    controller.dispose();
+  });
+
+  it('does not accumulate hosts when refresh runs after Gmail shuffles siblings', () => {
+    const element = body(`
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `);
+    const controller = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    const host = element.previousElementSibling;
+    const shadow = gmailBannerShadow(host);
+    const text = shadow?.querySelector('.text')?.textContent ?? '';
+    const parent = element.parentElement;
+    if (!parent || !shadow) throw new Error('missing banner');
+    for (let index = 0; index < 8; index += 1) {
+      parent.insertBefore(document.createElement('div'), element);
+      controller.refresh();
+    }
+    expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(1);
+    expect(element.previousElementSibling).toBe(host);
+    expect(gmailBannerShadow(host)?.querySelector('.text')?.textContent).toBe(text);
+    controller.dispose();
+  });
+
+  it('mounts one banner when two content-script instances initialize the same frame', () => {
+    const element = body(`
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `);
+    const first = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    const second = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    try {
+      first.start();
+      second.start();
+      expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(1);
+
+      // A manual refresh from the duplicate must not mount or prune another host.
+      second.refresh();
+      const host = element.previousElementSibling;
+      expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(1);
+      expect(host?.localName).toBe(GMAIL_BANNER_TAG);
+      expect(gmailBannerShadow(host)?.querySelector('.text')?.textContent).toBe(
+        'This email appears to be written in en.',
+      );
+
+      first.dispose();
+      expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(0);
+      second.start();
+      expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(1);
+    } finally {
+      first.dispose();
+      second.dispose();
+    }
+  });
+
+  it('ignores its own host insertions but still refreshes for page changes', async () => {
+    const element = body(`
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `);
+    const controller = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+      debounceMs: 1,
+    });
+    const refresh = vi.spyOn(controller, 'refresh');
+    controller.start();
+    expect(refresh).toHaveBeenCalledTimes(1);
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(refresh).toHaveBeenCalledTimes(1);
+    const host = element.previousElementSibling;
+    const text = gmailBannerShadow(host)?.querySelector('.text')?.textContent;
+
+    document.body.append(document.createElement('div'));
+    await waitFor(() => refresh.mock.calls.length > 1);
+    expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(1);
+    expect(element.previousElementSibling).toBe(host);
+    expect(gmailBannerShadow(host)?.querySelector('.text')?.textContent).toBe(text);
     controller.dispose();
   });
 

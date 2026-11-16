@@ -33,9 +33,16 @@ import {
   TRANSLATION_POPUP_SIZE_DEFAULT,
   TRANSLATION_POPUP_WIDTH_AUTO,
   type Formality,
+  type PlainTextLineBreakMode,
   type Settings,
   type TranslationPace,
 } from '@/shared/settings';
+import {
+  applyPlainTextLineBreaks,
+  plainTextSelectionSource,
+  plainTextTranslationInput,
+  type PlainTextBreakMap,
+} from '@/shared/plain-text-line-breaks';
 import { canonicalPageLanguage, isAlreadyTargetLanguage, languageOf } from './detect';
 import {
   collectDocuments,
@@ -123,6 +130,8 @@ export interface SessionPreferences {
   popupSize?: number;
   /** Selection popup width in em at 100% scale; `0` or missing means automatic width. */
   popupWidth?: number;
+  /** How source line breaks are reflected in a selection translation. Missing means `none`. */
+  plainTextLineBreaks?: PlainTextLineBreakMode;
   auto: SiteAuto;
   host: string;
   context: boolean;
@@ -182,6 +191,11 @@ interface Live {
   partError: boolean[];
   rect: DOMRect | null;
   batchToken: number;
+  /** Selection only: normalized source, its model input, and the break map. */
+  plainSource?: string;
+  plainBreakMap?: PlainTextBreakMap;
+  /** Selection only: per-line wider-gap flags from the final translation. */
+  plainWideGap?: readonly boolean[];
 }
 
 interface InflightBatch {
@@ -234,6 +248,7 @@ export function preferencesFor(
     display: rule.display ?? settings.display,
     popupSize: settings.translationPopupSize,
     popupWidth: settings.translationPopupWidth,
+    plainTextLineBreaks: settings.plainTextLineBreaks,
     auto: rule.auto,
     host,
     context: false,
@@ -694,14 +709,18 @@ export class PageSession {
   }
 
   translateSelection(text: string, rect?: DOMRect, reveal = true): void {
-    const trimmed = text.trim();
-    if (trimmed.length === 0) return;
+    const mode = this.prefs.plainTextLineBreaks ?? 'none';
+    // `none` is the historical path: trim the ends but keep the reader's internal
+    // spacing exactly as the engine used to receive it. Other modes normalize first so
+    // the same snapshot can be mapped back onto translated sentence boundaries.
+    const source = plainTextSelectionSource(text, mode);
+    if (source.length === 0) return;
     this.navigating = false;
     this.overlay.hideOriginal();
     const anchor = rect ?? new DOMRect(16, 16, 0, 0);
     const current = this.selection;
     if (
-      current?.source === trimmed &&
+      current?.plainSource === source &&
       (current.state === 'queued' || current.state === 'running' || current.state === 'done')
     ) {
       current.rect = anchor;
@@ -710,7 +729,8 @@ export class PageSession {
     }
 
     this.queue.remove((item) => item.role === 'selection' && item.state !== 'running');
-    const next = this.createSelection(trimmed, anchor);
+    const { engineText, breakMap } = plainTextTranslationInput(source, mode);
+    const next = this.createSelection(source, engineText, breakMap, anchor);
     this.supersedeSelection(next);
     if (reveal) {
       this.selectionShown = true;
@@ -779,7 +799,11 @@ export class PageSession {
       if (!this.selectionShown && this.selection) this.dismissSelection();
       return;
     }
-    if (this.selectionShown && this.selection?.source === selected.text) {
+    const source = plainTextSelectionSource(
+      selected.text,
+      this.prefs.plainTextLineBreaks ?? 'none',
+    );
+    if (this.selectionShown && this.selection?.plainSource === source) {
       this.selection.rect = selected.rect;
       this.overlay.hideSelectionIcon();
       this.overlay.moveSelection(selected.rect);
@@ -824,6 +848,7 @@ export class PageSession {
       pending ? null : item.engine,
       pending,
       this.prefs.targetLanguage,
+      item.state === 'done' ? item.plainWideGap : undefined,
     );
   }
 
@@ -1015,13 +1040,20 @@ export class PageSession {
     this.enqueue(item);
   }
 
-  private createSelection(text: string, rect: DOMRect): Live {
+  private createSelection(
+    source: string,
+    engineText: string,
+    breakMap: PlainTextBreakMap | null,
+    rect: DOMRect,
+  ): Live {
     return {
       id: this.allocateId(),
       role: 'selection',
       model: null,
-      source: text,
-      plain: text,
+      source: engineText,
+      plain: engineText,
+      plainSource: source,
+      ...(breakMap ? { plainBreakMap: breakMap } : {}),
       placeholder: false,
       flatten: false,
       attempts: 0,
@@ -1511,10 +1543,23 @@ export class PageSession {
       item.partText.map((part) => part.trim()).filter((part) => part.length > 0),
       this.prefs.targetLanguage,
     );
-    const markup = this.acceptTranslation(
-      item,
-      joined.length > 0 ? joined : item.partText.join(''),
-    );
+    let translated = joined.length > 0 ? joined : item.partText.join('');
+    if (item.role === 'selection' && item.plainBreakMap) {
+      const applied = applyPlainTextLineBreaks(
+        item.plainBreakMap.modelText,
+        translated,
+        item.plainBreakMap,
+        this.prefs.plainTextLineBreaks ?? 'none',
+      );
+      if (typeof applied === 'string') {
+        translated = applied;
+        delete item.plainWideGap;
+      } else {
+        translated = applied.text;
+        item.plainWideGap = applied.wideGapAfterLine;
+      }
+    }
+    const markup = this.acceptTranslation(item, translated);
     if (markup === 'retry') return;
     item.translation = markup;
     item.state = 'done';
@@ -1645,6 +1690,7 @@ export class PageSession {
         item.engine,
         false,
         this.prefs.targetLanguage,
+        partial ? undefined : item.plainWideGap,
       );
       return;
     }

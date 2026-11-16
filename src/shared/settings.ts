@@ -32,6 +32,15 @@ import {
 
 export const SETTINGS_SCHEMA_VERSION = 1;
 
+/** How line breaks in pasted/selected plain text are reflected in the translation. */
+export const PLAIN_TEXT_LINE_BREAK_MODES = ['none', 'keep', 'blank', 'wider'] as const;
+export type PlainTextLineBreakMode = (typeof PLAIN_TEXT_LINE_BREAK_MODES)[number];
+
+/** Normalizes a stored value; anything unrecognised keeps the historical default. */
+export function normalizePlainTextLineBreaks(value: unknown): PlainTextLineBreakMode {
+  return value === 'keep' || value === 'blank' || value === 'wider' ? value : 'none';
+}
+
 export const VIDEO_CAPTION_SIZE_MIN = 50;
 export const VIDEO_CAPTION_SIZE_MAX = 150;
 export const VIDEO_CAPTION_SIZE_DEFAULT = 80;
@@ -258,6 +267,11 @@ export interface Settings {
   translationPopupSize: number;
   /** Chosen selection-popup width in em at 100% scale; `0` means automatic width. */
   translationPopupWidth: number;
+  /**
+   * How line breaks in typed, selected, or pasted plain text appear in the translation.
+   * `none` keeps the historical joined-paragraph output.
+   */
+  plainTextLineBreaks: PlainTextLineBreakMode;
   consent: LicenseConsent | null;
   highQualityDismissed: boolean;
   /**
@@ -348,6 +362,7 @@ export type SettingsPatch = Partial<
     | 'display'
     | 'translationPopupSize'
     | 'translationPopupWidth'
+    | 'plainTextLineBreaks'
     | 'consent'
     | 'highQualityDismissed'
     | 'sharedFolderOfferDismissed'
@@ -389,6 +404,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   display: 'replace',
   translationPopupSize: TRANSLATION_POPUP_SIZE_DEFAULT,
   translationPopupWidth: TRANSLATION_POPUP_WIDTH_AUTO,
+  plainTextLineBreaks: 'none',
   consent: null,
   highQualityDismissed: false,
   sharedFolderOfferDismissed: false,
@@ -456,6 +472,7 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     display: value.display === 'bilingual' ? 'bilingual' : 'replace',
     translationPopupSize: normalizeTranslationPopupSize(value.translationPopupSize),
     translationPopupWidth: normalizeTranslationPopupWidth(value.translationPopupWidth),
+    plainTextLineBreaks: normalizePlainTextLineBreaks(value.plainTextLineBreaks),
     consent: normalizeConsent(value.consent),
     highQualityDismissed: value.highQualityDismissed === true,
     sharedFolderOfferDismissed: value.sharedFolderOfferDismissed === true,
