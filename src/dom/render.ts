@@ -1,3 +1,4 @@
+import { scriptTextVariants, type ScriptPosition } from '@/shared/scripts';
 import {
   parsePlaceholders,
   stripPlaceholderTokens,
@@ -24,6 +25,7 @@ interface Frame {
   element: Element;
   gaps: TextSlot[][];
   children: InlineFrame[];
+  script?: ScriptPosition;
 }
 
 export function applyTranslation(model: SegmentModel, translation: string, created: Text[]): void {
@@ -140,6 +142,12 @@ function writeGapsInPlace(frame: Frame, gapTexts: readonly string[], created: Te
   for (let index = 0; index < frame.gaps.length; index += 1) {
     const slots = frame.gaps[index] ?? [];
     const value = gapTexts[index] ?? '';
+    // A script marker is content. If the model emptied the tag but the source held a short
+    // glyph, the marker keeps its original text instead of disappearing from the formula.
+    if (frame.script !== undefined && value.trim().length === 0 && slots.length > 0) {
+      writeSlots(slots, slots.map((slot) => slot.original).join(''));
+      continue;
+    }
     if (slots.length === 0) {
       if (value.length === 0) continue;
       const anchor = frame.children[index]?.element ?? null;
@@ -218,6 +226,12 @@ function isTranslationChrome(node: Node): boolean {
 }
 
 function writeFlat(model: SegmentModel, value: string, created: Text[]): void {
+  const scripts = scriptFrames(model.children);
+  if (scripts.length > 0) {
+    writeFlatWithScripts(model, value, created, scripts);
+    return;
+  }
+
   const slots = allSlots(model);
   if (slots.length === 0) {
     const existing = created[0];
@@ -233,6 +247,182 @@ function writeFlat(model: SegmentModel, value: string, created: Text[]): void {
   }
 
   writeSlots(slots, value);
+}
+
+type FlatAnchor =
+  | { kind: 'slot'; node: Text; slot: TextSlot }
+  | { kind: 'script'; node: Element; frame: InlineFrame };
+
+function scriptFrames(children: readonly InlineFrame[]): InlineFrame[] {
+  const frames: InlineFrame[] = [];
+  const visit = (list: readonly InlineFrame[]): void => {
+    for (const child of list) {
+      if (child.script !== undefined) frames.push(child);
+      visit(child.children);
+    }
+  };
+  visit(children);
+  return frames;
+}
+
+function flatAnchors(model: SegmentModel, scripts: readonly InlineFrame[]): FlatAnchor[] {
+  const anchors: FlatAnchor[] = allSlots(model).map((slot) => ({
+    kind: 'slot',
+    node: slot.node,
+    slot,
+  }));
+  for (const frame of scripts) {
+    anchors.push({ kind: 'script', node: frame.element, frame });
+  }
+  return anchors.sort((left, right) => {
+    if (left.node === right.node) return 0;
+    const position = left.node.compareDocumentPosition(right.node);
+    if ((position & Node.DOCUMENT_POSITION_FOLLOWING) !== 0) return -1;
+    if ((position & Node.DOCUMENT_POSITION_PRECEDING) !== 0) return 1;
+    return 0;
+  });
+}
+
+/**
+ * Splits plain fallback text at every script glyph the model kept. The glyph itself is
+ * removed from the split, because the original element already carries it.
+ */
+function splitFlatText(
+  value: string,
+  scripts: readonly InlineFrame[],
+): { chunks: string[]; found: Set<string> } {
+  const chunks: string[] = [];
+  const found = new Set<string>();
+  let cursor = 0;
+
+  for (const frame of scripts) {
+    if (frame.script === undefined) continue;
+    const glyph = (frame.element.textContent ?? '').trim();
+    if (glyph.length === 0) continue;
+
+    let index = -1;
+    let length = 0;
+    for (const variant of scriptTextVariants(glyph, frame.script)) {
+      if (variant.length === 0) continue;
+      const next = value.indexOf(variant, cursor);
+      if (next < 0) continue;
+      if (index < 0 || next < index || (next === index && variant.length > length)) {
+        index = next;
+        length = variant.length;
+      }
+    }
+
+    if (index < 0) {
+      // The model dropped the digit as well as the tag. The words on either side of the
+      // original element still locate where it belonged (the `CH` and `OH` of `CH3OH`).
+      const boundary = contextBoundary(frame.element, value, cursor);
+      if (!boundary) continue;
+      index = boundary;
+      length = 0;
+    }
+
+    chunks.push(value.slice(cursor, index));
+    cursor = index + length;
+    found.add(frame.id);
+  }
+
+  chunks.push(value.slice(cursor));
+  return { chunks, found };
+}
+
+/** The run of visible characters at the end of the text just before a script element. */
+function previousRun(element: Element): string {
+  for (let node = element.previousSibling; node !== null; node = node.previousSibling) {
+    if (node.nodeType !== Node.TEXT_NODE) return '';
+    const match = (node.nodeValue ?? '').match(/([\p{L}\p{N}\p{P}\p{S}]{1,12})\s*$/u);
+    if (match?.[1]) return match[1];
+  }
+  return '';
+}
+
+/** The run of visible characters at the start of the text just after a script element. */
+function nextRun(element: Element): string {
+  for (let node = element.nextSibling; node !== null; node = node.nextSibling) {
+    if (node.nodeType !== Node.TEXT_NODE) return '';
+    const match = (node.nodeValue ?? '').match(/^\s*([\p{L}\p{N}\p{P}\p{S}]{1,12})/u);
+    if (match?.[1]) return match[1];
+  }
+  return '';
+}
+
+function contextBoundary(element: Element, value: string, cursor: number): number | null {
+  const before = previousRun(element);
+  const after = nextRun(element);
+  if (before.length > 0 && after.length > 0) {
+    const joined = value.indexOf(`${before}${after}`, cursor);
+    if (joined >= 0) return joined + before.length;
+  }
+  if (before.length > 0) {
+    const found = value.indexOf(before, cursor);
+    if (found >= 0) return found + before.length;
+  }
+  if (after.length > 0) {
+    const found = value.indexOf(after, cursor);
+    if (found >= 0) return found;
+  }
+  return null;
+}
+
+/**
+ * Plain fallback for a block with atomic scripts. The translation is written into the text
+ * slots on either side of each script, and the original element keeps its place in between,
+ * so a dropped placeholder cannot leave the digit dangling at the end of the block.
+ */
+function writeFlatWithScripts(
+  model: SegmentModel,
+  value: string,
+  created: Text[],
+  scripts: readonly InlineFrame[],
+): void {
+  discardCreated(created);
+  const { chunks, found } = splitFlatText(value, scripts);
+  const anchors = flatAnchors(model, scripts);
+  let chunk = 0;
+  let written = false;
+
+  const writeSlot = (slot: TextSlot): void => {
+    const next = chunks[chunk] ?? '';
+    if (written) {
+      slot.node.nodeValue = '';
+      return;
+    }
+    slot.node.nodeValue = next;
+    written = next.length > 0;
+  };
+
+  for (const anchor of anchors) {
+    if (anchor.kind === 'slot') {
+      writeSlot(anchor.slot);
+      continue;
+    }
+    if (!found.has(anchor.frame.id)) continue;
+    if (!written) {
+      const next = chunks[chunk] ?? '';
+      const parent = anchor.node.parentNode;
+      if (next.length > 0 && parent !== null) {
+        const node = model.block.ownerDocument.createTextNode(next);
+        parent.insertBefore(node, anchor.node);
+        created.push(node);
+      }
+      written = true;
+    }
+    chunk += 1;
+    written = false;
+  }
+
+  const rest = chunks[chunk] ?? '';
+  if (!written && rest.length > 0) {
+    const last = anchors.at(-1);
+    const parent = last?.node.parentNode ?? model.block;
+    const node = model.block.ownerDocument.createTextNode(rest);
+    parent.insertBefore(node, last?.node.nextSibling ?? null);
+    created.push(node);
+  }
 }
 
 function writeSlots(slots: readonly TextSlot[], value: string): void {

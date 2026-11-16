@@ -8,9 +8,10 @@ import {
   isInlineCode,
   isKeptInlineText,
   isScreenReaderOnly,
-  isSubSuperscript,
   isTranslationExcluded,
   ownsText,
+  scriptPositionOf,
+  type ScriptPosition,
 } from './blocks';
 
 export interface TextSlot {
@@ -24,6 +25,8 @@ export interface InlineFrame {
   gaps: TextSlot[][];
   children: InlineFrame[];
   order: readonly ChildNode[];
+  /** Set on an atomic subscript/superscript placeholder. */
+  script?: ScriptPosition;
 }
 
 export interface SegmentModel {
@@ -182,14 +185,19 @@ function buildFrame(element: Element, allocateId: () => string, freezeValues = f
     }
     // A subscript or superscript is content: the formula is wrong without its `4` or `12`.
     // It holds its place as an atomic placeholder, so the model keeps the marker where the
-    // sentence had it while the element's own text stays in the DOM.
-    if (
-      isSubSuperscript(child) &&
-      isLaidOutInline(child) &&
-      !child.matches('[translate="no"], .notranslate')
-    ) {
+    // sentence had it while the element's own text stays in the DOM. Publisher spans that
+    // paint as a script (NLM classes, `vertical-align: sub|super`) take the same path.
+    const script = scriptPositionOf(child);
+    if (script && isLaidOutInline(child) && !child.matches('[translate="no"], .notranslate')) {
       const id = allocateId();
-      children.push({ id, element: child, gaps: [], children: [], order: [...child.childNodes] });
+      children.push({
+        id,
+        element: child,
+        gaps: [],
+        children: [],
+        order: [...child.childNodes],
+        script,
+      });
       gaps.push([]);
       source += `<${id}>${child.textContent ?? ''}</${id}>`;
       continue;

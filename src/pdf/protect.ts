@@ -1,3 +1,4 @@
+import { SUBSCRIPT, SUPERSCRIPT } from '@/shared/scripts';
 import { boxRight } from './geometry';
 import type { LayoutBlock } from './layout';
 import { joinPieces, lineFrom, type TextLine, type TextPiece } from './lines';
@@ -33,50 +34,6 @@ const PLACEHOLDER_PATTERN = /<i(\d+)>/g;
 
 /** Operators and fences that belong to a formula rather than to a sentence. */
 const OPERATOR = /^[=∈≈≤≥≠+−\-+×÷⊙∑∏∫√±∞∂∇⋅∘*|∥∧∨¬∀∃→↔⊂⊆⊃⊇∈∉()[\]{}.,:^_/\\]+$/u;
-
-const SUPERSCRIPT: Readonly<Record<string, string>> = {
-  '0': '⁰',
-  '1': '¹',
-  '2': '²',
-  '3': '³',
-  '4': '⁴',
-  '5': '⁵',
-  '6': '⁶',
-  '7': '⁷',
-  '8': '⁸',
-  '9': '⁹',
-  '+': '⁺',
-  '-': '⁻',
-  '−': '⁻',
-  '=': '⁼',
-  '(': '⁽',
-  ')': '⁾',
-  n: 'ⁿ',
-  i: 'ⁱ',
-};
-
-const SUBSCRIPT: Readonly<Record<string, string>> = {
-  '0': '₀',
-  '1': '₁',
-  '2': '₂',
-  '3': '₃',
-  '4': '₄',
-  '5': '₅',
-  '6': '₆',
-  '7': '₇',
-  '8': '₈',
-  '9': '₉',
-  '+': '₊',
-  '-': '₋',
-  '−': '₋',
-  '=': '₌',
-  '(': '₍',
-  ')': '₎',
-  a: 'ₐ',
-  e: 'ₑ',
-  o: 'ₒ',
-  x: 'ₓ',
-};
 
 /** True when every character of `text` can be drawn as Unicode super- or subscript. */
 export function canUnicodeScript(text: string, script: Exclude<ScriptRole, 'none'>): boolean {
