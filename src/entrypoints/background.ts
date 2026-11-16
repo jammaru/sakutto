@@ -5,6 +5,7 @@ import { createEngineHostController } from '@/background/engine-host-document';
 import {
   injectCaptionPages,
   injectGmailBannerPages,
+  injectOutlookBannerPages,
   installPageActions,
   openPdfForTabReason,
 } from '@/background/page-actions';
@@ -77,11 +78,17 @@ export default defineBackground(() => {
     client.syncStoredSettings(settings);
     void syncCaptionCustomContentScripts(settings.captionCustomHosts);
     if (settings.translateVideoCaptions) void injectCaptionPages();
-    if (settings.gmailTranslateBanner) void injectGmailBannerPages();
+    if (settings.gmailTranslateBanner) {
+      void injectGmailBannerPages();
+      void injectOutlookBannerPages();
+    }
   });
   void ensureSettings().then((settings) => {
     void syncCaptionCustomContentScripts(settings.captionCustomHosts);
-    if (settings.gmailTranslateBanner) void injectGmailBannerPages();
+    if (settings.gmailTranslateBanner) {
+      void injectGmailBannerPages();
+      void injectOutlookBannerPages();
+    }
   });
   browser.permissions.onAdded?.addListener((granted) => {
     void settleCaptionEnableIntent(

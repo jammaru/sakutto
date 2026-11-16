@@ -15,6 +15,8 @@ const ALLOWED_REQUEST = [
   /^https:\/\/cdn-lfs\.huggingface\.co\//,
   /^https:\/\/(?:[a-z0-9-]+\.)*hf\.co\//,
   /^https:\/\/mail\.google\.com\//,
+  /^https:\/\/outlook\.(?:live|office|office365)\.com\//,
+  /^https:\/\/outlook\.cloud\.microsoft\//,
   /^data:/,
   /^blob:/,
   /^about:/,

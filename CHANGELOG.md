@@ -16,6 +16,10 @@ Release sections are added by `pnpm release`. Each section lists commit subjects
 
 ## [Unreleased]
 
+### Features
+
+- Outlook on the web gets the same per-message translate banner as Gmail. It works on outlook.live.com, outlook.office.com, outlook.office365.com, and outlook.cloud.microsoft; the banner offers a translation only when the message language differs from the target, and nothing runs until Translate is clicked. It shares the Gmail auto/never language lists and the existing message-banner setting.
+
 ## [1.5.1] - 2026-11-14
 
 ### Bug Fixes

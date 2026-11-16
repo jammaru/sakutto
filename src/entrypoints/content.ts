@@ -6,6 +6,11 @@ import { shouldHandleComposeCommand } from '@/dom/compose-field';
 import { detectDocumentLanguage } from '@/dom/detect';
 import { fakeTranslate } from '@/dom/fake-engine';
 import { GmailBannerController, isGmailHost, type GmailBannerLabels } from '@/dom/gmail-banner';
+import {
+  OutlookBannerController,
+  isOutlookHost,
+  type OutlookBannerLabels,
+} from '@/dom/outlook-banner';
 import type { OverlayLabels } from '@/dom/overlay';
 import { PageSession, preferencesFor } from '@/dom/session';
 import { VideoCaptionSession, type CaptionSessionPreferences } from '@/captions/session';
@@ -218,7 +223,7 @@ function captionLabels(): CaptionOverlayLabels {
   };
 }
 
-function gmailBannerLabels(): GmailBannerLabels {
+function mailBannerLabels(): GmailBannerLabels | OutlookBannerLabels {
   const uiLanguage = currentUiLanguage();
   const sourceName = (language: string) => displayLanguage(language, uiLanguage);
   return {
@@ -263,10 +268,16 @@ function captionPreferencesFor(
   };
 }
 
-function gmailBannerPreferencesFor(settings: Settings, rule: SiteRule, host: string) {
+function mailBannerPreferencesFor(
+  settings: Settings,
+  rule: SiteRule,
+  host: string,
+  provider: 'gmail' | 'outlook',
+) {
   const glossary = mergeGlossary(settings.glossary, rule.glossary);
+  const onHost = provider === 'gmail' ? isGmailHost(host) : isOutlookHost(host);
   return {
-    enabled: settings.gmailTranslateBanner && isGmailHost(host) && rule.auto !== 'always',
+    enabled: settings.gmailTranslateBanner && onHost && rule.auto !== 'always',
     targetLanguage: effectivePageTarget(settings.targetLanguage, rule.targetLanguage),
     form: settings.form,
     autoLanguages: settings.gmailAutoTranslateLangs,
@@ -325,6 +336,7 @@ export default defineContentScript({
     let compose: ComposeController | null = null;
     let captions: VideoCaptionSession | null = null;
     let gmailBanner: GmailBannerController | null = null;
+    let outlookBanner: OutlookBannerController | null = null;
     let modelState: ModelStatus['state'] | null = null;
     let plamoReady = false;
     let modelStatusKnown = false;
@@ -487,7 +499,7 @@ export default defineContentScript({
       let liveRule = rule;
       let captionDisplayWrite = 0;
       let captionPositionWrite = 0;
-      let gmailLanguagesWrite = 0;
+      let mailLanguagesWrite = 0;
 
       const persistCaptionPosition = (point: VideoCaptionPosition): void => {
         captionPositionWrite += 1;
@@ -516,27 +528,38 @@ export default defineContentScript({
       });
       if (captionPreferencesFor(liveSettings, liveRule, host).enabled) captions.start();
 
+      const onMailLanguagesChange = (languages: { auto: string[]; never: string[] }): void => {
+        mailLanguagesWrite += 1;
+        liveSettings = {
+          ...liveSettings,
+          gmailAutoTranslateLangs: languages.auto,
+          gmailNeverTranslateLangs: languages.never,
+        };
+        void saveSettings({
+          gmailAutoTranslateLangs: languages.auto,
+          gmailNeverTranslateLangs: languages.never,
+        });
+      };
       gmailBanner = new GmailBannerController(document, {
         engine,
-        labels: gmailBannerLabels(),
-        preferences: gmailBannerPreferencesFor(liveSettings, liveRule, host),
+        labels: mailBannerLabels(),
+        preferences: mailBannerPreferencesFor(liveSettings, liveRule, host, 'gmail'),
         onWarm: () => {
           if (!__SAKUTTO_FAKE_ENGINE__) void requestEngineWarm();
         },
-        onLanguagesChange: (languages) => {
-          gmailLanguagesWrite += 1;
-          liveSettings = {
-            ...liveSettings,
-            gmailAutoTranslateLangs: languages.auto,
-            gmailNeverTranslateLangs: languages.never,
-          };
-          void saveSettings({
-            gmailAutoTranslateLangs: languages.auto,
-            gmailNeverTranslateLangs: languages.never,
-          });
+        onLanguagesChange: onMailLanguagesChange,
+      });
+      outlookBanner = new OutlookBannerController(document, {
+        engine,
+        labels: mailBannerLabels(),
+        preferences: mailBannerPreferencesFor(liveSettings, liveRule, host, 'outlook'),
+        onWarm: () => {
+          if (!__SAKUTTO_FAKE_ENGINE__) void requestEngineWarm();
         },
+        onLanguagesChange: onMailLanguagesChange,
       });
       gmailBanner.start();
+      outlookBanner.start();
 
       const detected = await detectDocumentLanguage(document);
       session.setDetectedLanguage(detected);
@@ -545,7 +568,7 @@ export default defineContentScript({
         const writeId = captionDisplayWrite;
         const positionWriteId = captionPositionWrite;
         const popupWidthId = popupWidthWrite;
-        const gmailLanguagesId = gmailLanguagesWrite;
+        const mailLanguagesId = mailLanguagesWrite;
         const [nextSettings, nextRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
         const display =
           writeId === captionDisplayWrite
@@ -560,11 +583,11 @@ export default defineContentScript({
             ? nextSettings.translationPopupWidth
             : liveSettings.translationPopupWidth;
         const gmailAutoTranslateLangs =
-          gmailLanguagesId === gmailLanguagesWrite
+          mailLanguagesId === mailLanguagesWrite
             ? nextSettings.gmailAutoTranslateLangs
             : liveSettings.gmailAutoTranslateLangs;
         const gmailNeverTranslateLangs =
-          gmailLanguagesId === gmailLanguagesWrite
+          mailLanguagesId === mailLanguagesWrite
             ? nextSettings.gmailNeverTranslateLangs
             : liveSettings.gmailNeverTranslateLangs;
         liveSettings = {
@@ -605,8 +628,14 @@ export default defineContentScript({
         );
         captions?.setLabels(captionLabels());
         captions?.setPreferences(captionPreferencesFor(liveSettings, liveRule, host));
-        gmailBanner?.setLabels(gmailBannerLabels());
-        gmailBanner?.setPreferences(gmailBannerPreferencesFor(liveSettings, liveRule, host));
+        gmailBanner?.setLabels(mailBannerLabels());
+        gmailBanner?.setPreferences(
+          mailBannerPreferencesFor(liveSettings, liveRule, host, 'gmail'),
+        );
+        outlookBanner?.setLabels(mailBannerLabels());
+        outlookBanner?.setPreferences(
+          mailBannerPreferencesFor(liveSettings, liveRule, host, 'outlook'),
+        );
       };
 
       subscribeSettings(() => {

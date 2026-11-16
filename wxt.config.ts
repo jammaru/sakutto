@@ -15,6 +15,10 @@ const fixtureHostPermissions =
         'https://x.com/*',
         'https://www.x.com/*',
         'https://mail.google.com/*',
+        'https://outlook.live.com/*',
+        'https://outlook.office.com/*',
+        'https://outlook.office365.com/*',
+        'https://outlook.cloud.microsoft/*',
       ]
     : null;
 

@@ -1428,13 +1428,13 @@
     "message": "このメールを翻訳しています…"
   },
   "gmailBannerRegion": {
-    "message": "Gmail メールの翻訳"
+    "message": "メールの翻訳"
   },
   "settingsGmailBanner": {
-    "message": "Gmail のメールを翻訳する"
+    "message": "Gmail と Outlook のメールを翻訳する"
   },
   "settingsGmailBannerHelp": {
-    "message": "オンにすると、別の言語で書かれた Gmail のメールを開いたとき、本文の上に小さなバナーが出ます。翻訳はクリックしたときだけ行います。mail.google.com へのアクセス許可が必要です。ポップアップかサイト一覧から許可してください。"
+    "message": "オンにすると、別の言語で書かれた Gmail または Outlook のメールを開いたとき、本文の上に小さなバナーが出ます。翻訳はクリックしたときだけ行います。メールサイトへのアクセス許可が必要です。ポップアップかサイト一覧から許可してください。"
   },
   "gmailBannerTranslated": {
     "message": "翻訳済み: $SOURCE$ → $TARGET$",

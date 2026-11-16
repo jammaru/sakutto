@@ -67,8 +67,8 @@ For PLaMo's 53 languages, every translated line comes from PLaMo. On Chrome, Chr
   </tr>
   <tr>
     <td colspan="2" valign="top">
-      <h3>Gmail message banner</h3>
-      <p>On <code>mail.google.com</code>, a banner above each expanded message offers to translate that body only when the language differs from your target. Nothing runs until you click; × after translation restores the original and hides the banner for that message. Access uses the existing optional host permission for the site.</p>
+      <h3>Gmail and Outlook message banner</h3>
+      <p>On <code>mail.google.com</code> and Outlook on the web (<code>outlook.live.com</code>, <code>outlook.office.com</code>, <code>outlook.office365.com</code>, and <code>outlook.cloud.microsoft</code>), a banner above each expanded message offers to translate that body only when the language differs from your target. Nothing runs until you click; × after translation restores the original and hides the banner for that message. Access uses the existing optional host permission for the site.</p>
     </td>
   </tr>
   <tr>
@@ -212,7 +212,7 @@ The model file is not bundled. You can remove it and clear the translation cache
 | `scripting`        | Injects the content script into the active tab after you ask for a translation.      |
 | `contextMenus`     | Adds Translate page, Translate selection, and Translate PDF to the right-click menu. |
 
-Optional host permissions (`https://*/*` and `http://*/*`) are requested only when you turn on automatic translation for a site, enable video captions, add a custom caption site, or use the Gmail message banner on that site. Nothing is requested for every site at install time. The PDF reader adds no permission: it reads the file from the origin the `activeTab` grant already covers. Access to a local server is also optional.
+Optional host permissions (`https://*/*` and `http://*/*`) are requested only when you turn on automatic translation for a site, enable video captions, add a custom caption site, or use the Gmail or Outlook message banner on that site. Nothing is requested for every site at install time. The PDF reader adds no permission: it reads the file from the origin the `activeTab` grant already covers. Access to a local server is also optional.
 
 ## Development
 

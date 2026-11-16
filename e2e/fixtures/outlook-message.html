@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Outlook message fixture</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: #f3f2f1;
+        color: #242424;
+        font:
+          14px/1.5 'Segoe UI',
+          'Segoe UI Web (West European)',
+          'Hiragino Sans',
+          'Noto Sans JP',
+          sans-serif;
+      }
+      .shell {
+        max-width: 840px;
+        margin: 24px auto;
+        padding: 0 16px 64px;
+      }
+      .reading-pane {
+        display: grid;
+        gap: 12px;
+        padding: 12px;
+        border: 1px solid #e1dfdd;
+        border-radius: 8px;
+        background: #ffffff;
+      }
+      .message {
+        border-radius: 6px;
+        background: #ffffff;
+      }
+      .subject {
+        padding: 12px 16px 4px;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .meta {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 0 16px 10px;
+        border-bottom: 1px solid #edebe9;
+        color: #605e5c;
+        font-size: 12px;
+      }
+      .sender {
+        color: #242424;
+        font-weight: 600;
+        font-size: 13px;
+      }
+      .body-wrap {
+        padding: 12px 16px 18px;
+      }
+      [role='document'] {
+        color: #242424;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      [role='document'] p {
+        margin: 0 0 12px;
+      }
+      .compose {
+        margin-top: 20px;
+        padding: 12px;
+        border: 1px solid #c8c6c4;
+        border-radius: 6px;
+        background: #ffffff;
+      }
+      .compose [role='document'] {
+        min-height: 60px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <div class="reading-pane" role="main">
+        <article class="message" data-convid="conv-1" id="msg-1">
+          <div class="subject">Project update</div>
+          <div class="meta">
+            <span class="sender">Alex Rivera</span>
+            <span>Today, 09:14</span>
+          </div>
+          <div class="body-wrap">
+            <div role="document" aria-label="Message body" lang="en">
+              <p>Hi team,</p>
+              <p>
+                The release candidate is ready for review. Please check the migration notes before
+                Friday so we can ship the update next week.
+              </p>
+              <p>Thanks,<br />Alex</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="message" data-convid="conv-2" id="msg-2">
+          <div class="subject">プロジェクトの進捗</div>
+          <div class="meta">
+            <span class="sender">佐藤 花子</span>
+            <span>今日 10:02</span>
+          </div>
+          <div class="body-wrap">
+            <div role="document" aria-label="Message body" lang="ja">
+              <p>チームの皆さん、</p>
+              <p>来週の打ち合わせ資料を共有しました。金曜日までに確認をお願いします。</p>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div class="compose" contenteditable="true" role="textbox" aria-label="Reply draft">
+        <div role="document" aria-label="Message body" lang="en">
+          This reply is being typed in a compose editor and must not get a banner.
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

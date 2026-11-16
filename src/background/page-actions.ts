@@ -1,6 +1,7 @@
 import { browser } from 'wxt/browser';
 import { shouldAutoInjectCaptions } from '@/captions/sites';
 import { shouldAutoInjectGmailBanner } from '@/dom/gmail-banner';
+import { shouldAutoInjectOutlookBanner } from '@/dom/outlook-banner';
 import { originPattern, pageHost, loadSiteRule } from '@/dom/sites';
 import { ensureContentScript } from '@/shared/page-bridge';
 import { requestPageCommand, type PageCommandName } from '@/shared/messages';
@@ -54,6 +55,7 @@ export function installPageActions(translations?: PageTranslationCanceller): voi
     void injectIfAlways(tabId, tab.url);
     void injectIfCaptions(tabId, tab.url);
     void injectIfGmailBanner(tabId, tab.url);
+    void injectIfOutlookBanner(tabId, tab.url);
   });
 
   browser.tabs.onRemoved.addListener((tabId) => {
@@ -319,5 +321,35 @@ export async function injectGmailBannerPages(): Promise<void> {
   for (const tab of tabs) {
     if (tab.id === undefined || !tab.url) continue;
     void injectIfGmailBanner(tab.id, tab.url);
+  }
+}
+
+async function injectIfOutlookBanner(tabId: number, url: string): Promise<void> {
+  const host = pageHost(url);
+  const pattern = originPattern(url);
+  if (!host || !pattern) return;
+
+  const settings = await loadSettings();
+  const allowed = await browser.permissions.contains({ origins: [pattern] }).catch(() => false);
+  if (
+    !shouldAutoInjectOutlookBanner({
+      settingOn: settings.gmailTranslateBanner,
+      host,
+      originAllowed: allowed,
+    })
+  ) {
+    return;
+  }
+  await ensureContentScript(tabId);
+}
+
+/** Re-injects open Outlook tabs after the banner setting is turned back on. */
+export async function injectOutlookBannerPages(): Promise<void> {
+  const settings = await loadSettings();
+  if (!settings.gmailTranslateBanner) return;
+  const tabs = await browser.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id === undefined || !tab.url) continue;
+    void injectIfOutlookBanner(tab.id, tab.url);
   }
 }

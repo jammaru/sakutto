@@ -121,7 +121,7 @@ export const COMPOSE_PLACEMENTS = ['above', 'below', 'corner', 'free'] as const;
 export type ComposePlacement = (typeof COMPOSE_PLACEMENTS)[number];
 export type ComposeFreePoint = { x: number; y: number };
 
-/** Source-language rules the Gmail banner remembers across messages. */
+/** Source-language rules the Gmail and Outlook banners share across messages. */
 export interface GmailTranslateLanguages {
   auto: string[];
   never: string[];
@@ -324,13 +324,14 @@ export interface Settings {
   /** Extra hosts that run the generic HTML5 caption adapter. YouTube and X stay built-in. */
   captionCustomHosts: string[];
   /**
-   * When true, an opened Gmail message whose body is not in the target language gets a
-   * small translate banner. The message body is translated only after the reader clicks.
+   * When true, an opened Gmail or Outlook message whose body is not in the target language
+   * gets a small translate banner. The message body is translated only after the reader
+   * clicks.
    */
   gmailTranslateBanner: boolean;
-  /** Source languages the Gmail banner translates without offering first. */
+  /** Source languages the mail banner translates without offering first. */
   gmailAutoTranslateLangs: string[];
-  /** Source languages the Gmail banner leaves alone. */
+  /** Source languages the mail banner leaves alone. */
   gmailNeverTranslateLangs: string[];
 }
 
