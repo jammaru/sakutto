@@ -478,6 +478,17 @@ describe('shared folder activation and recovery', () => {
     );
   });
 
+  it('does not offer to delete a browser copy that is the only known copy', () => {
+    expect(folderSettings).toContain('canDeleteBrowserCopy');
+    expect(folderSettings).toContain('{#if canDeleteBrowserCopy(folder, id)}');
+    expect(source('engine/model/folder-status.ts')).toContain(
+      'export function canDeleteBrowserCopy',
+    );
+    expect(source('engine/offscreen/host.ts')).toContain(
+      '!canDeleteBrowserCopy(current, request.modelId)',
+    );
+  });
+
   it('queries before hiding the restore control when the grant is already active', () => {
     expect(restore).toContain('queryStoredFolderPermission');
     expect(restore).toContain('silentGranted');

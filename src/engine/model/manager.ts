@@ -58,6 +58,8 @@ export function isModelIntegrityError(error: string | undefined): boolean {
 export class ModelManager {
   private store: ModelFileStore;
   private fallbackStore: ModelFileStore | undefined;
+  /** OPFS is primary while the folder grant is missing; the Settings copy is still deletable. */
+  private browserCopyIsPrimary = false;
   private readonly createRuntime: ModelManagerOptions['createRuntime'];
   private readonly fetchImpl: typeof fetch | undefined;
   private readonly hashBlob: ((blob: Blob, options?: HashOptions) => Promise<string>) | undefined;
@@ -84,9 +86,14 @@ export class ModelManager {
     this.copyChunkBytes = options.copyChunkBytes;
   }
 
-  setStores(primary: ModelFileStore, fallback?: ModelFileStore): void {
+  setStores(
+    primary: ModelFileStore,
+    fallback?: ModelFileStore,
+    options: { primaryIsBrowserCopy?: boolean } = {},
+  ): void {
     this.store = primary;
     this.fallbackStore = fallback === primary ? undefined : fallback;
+    this.browserCopyIsPrimary = options.primaryIsBrowserCopy === true && !this.fallbackStore;
   }
 
   private entry(modelId: ModelId): ModelEntry {
@@ -231,14 +238,21 @@ export class ModelManager {
     return store.read(this.finalPath(modelId));
   }
 
-  /** Deletes the OPFS copy only. Migration calls this after a verified folder copy. */
+  /**
+   * Deletes the OPFS browser copy only. Never touches the shared folder.
+   *
+   * When the folder grant is missing the OPFS store becomes primary instead of a
+   * separate fallback. Settings still offers that browser copy for deletion, so the
+   * same per-model directory is removed from the primary store in that mode.
+   */
   async deleteFallbackCopy(modelId: ModelId): Promise<void> {
-    if (!this.fallbackStore) return;
+    const target = this.fallbackStore ?? (this.browserCopyIsPrimary ? this.store : undefined);
+    if (!target) return;
     if (this.loaded?.id === modelId) {
       const source = await this.resolveReadStore(modelId);
-      if (source === this.fallbackStore) await this.unload();
+      if (source === target) await this.unload();
     }
-    await this.fallbackStore.removeDirectory(this.modelDirectory(modelId));
+    await target.removeDirectory(this.modelDirectory(modelId));
   }
 
   async fallbackCopyPresent(modelId: ModelId): Promise<boolean> {

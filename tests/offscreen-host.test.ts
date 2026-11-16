@@ -20,6 +20,7 @@ import {
   type EngineServices,
 } from '@/engine/offscreen/host';
 import type { LoadedModel } from '@/engine/model/manager';
+import type { SharedFolderStatus } from '@/engine/model/folder-status';
 import type { ModelStatus } from '@/shared/engine-status';
 import { normalizeSettings } from '@/shared/settings';
 import * as storage from '@/shared/storage';
@@ -213,6 +214,55 @@ describe('shared folder load fallback', () => {
 });
 
 describe('EngineHost', () => {
+  it('detects a revoked folder grant during status polling before replying', async () => {
+    const { services } = createServices();
+    services.manager.status = vi.fn(async () => modelStatus({ state: 'absent' }));
+    let folder: SharedFolderStatus = {
+      supported: true,
+      configured: true,
+      permission: 'granted',
+      name: 'Sakutto',
+      opfsCopies: [],
+      integrityIssues: [],
+      recordedModels: [DEFAULT_MODEL_ID],
+    };
+    const refreshPermissionSnapshot = vi.fn(async () => {
+      folder = { ...folder, permission: 'prompt' };
+      return folder;
+    });
+
+    const host = createHost(services);
+    (
+      host as unknown as {
+        folderSession: {
+          status: () => SharedFolderStatus;
+          refreshPermissionSnapshot: () => Promise<SharedFolderStatus>;
+        };
+      }
+    ).folderSession = {
+      status: () => folder,
+      refreshPermissionSnapshot,
+    };
+    const port = new FakePort();
+    host.handlePort(port.port);
+
+    port.emit({ type: 'status', requestId: 's1' });
+    await flushTasks();
+
+    expect(refreshPermissionSnapshot).toHaveBeenCalledOnce();
+    const response = port.messagesOfType('response').at(-1) as {
+      value?: {
+        model?: { state?: string; error?: string };
+        sharedFolder?: { permission?: string };
+      };
+    };
+    expect(response.value?.sharedFolder?.permission).toBe('prompt');
+    expect(response.value?.model).toMatchObject({
+      state: 'error',
+      error: 'model-folder-permission',
+    });
+  });
+
   it('stops a cancelled translation without sending done', async () => {
     const { services } = createServices();
     const release = deferred<void>();

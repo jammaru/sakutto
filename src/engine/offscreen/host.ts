@@ -50,6 +50,7 @@ import { JobScheduler } from '../queue/scheduler';
 import { DEFAULT_MODEL_ID, SELECTABLE_MODEL_IDS, getModel, type ModelId } from '../model/catalog';
 import { normalizeSelectedModelId, resolveActiveModel } from '../model/selection';
 import {
+  canDeleteBrowserCopy,
   emptySharedFolderStatus,
   sharedFolderNeedsPermission,
   type SharedFolderStatus,
@@ -969,14 +970,16 @@ export class EngineHost {
   }
 
   private async statusOf(services: EngineServices): Promise<EngineStatus> {
+    // Chrome can revoke the active grant when the last extension page closes, while this
+    // offscreen document stays alive. A cheap query (TTL-cached in the session) notices that
+    // before returning the snapshot, so polling does not keep claiming the folder is ready.
+    await this.folderSession?.refreshPermissionSnapshot().catch(() => undefined);
+
     const download = this.downloads.get(this.activeModelId);
     let model = download?.status ?? (await services.manager.status(this.activeModelId));
     const loaded = services.manager.loadedModel;
     const selection = loaded?.selection ?? services.selection;
     const local = this.engineSource === 'local-server';
-    // Permissions change through `folder-reload`, which applies the session before it
-    // answers. Status polling reads that snapshot instead of reopening IndexedDB and
-    // re-reading the folder on every request.
     const sharedFolder = this.folderSession?.status();
     model = modelStatusForSharedFolder(model, sharedFolder);
 
@@ -1039,6 +1042,13 @@ export class EngineHost {
   ): Promise<void> {
     try {
       const services = await this.services();
+      const current = this.folderSession?.status();
+      if (current && !canDeleteBrowserCopy(current, request.modelId)) {
+        // A stale surface must not remove the only browser copy while the folder grant is
+        // missing and no folder copy was ever recorded.
+        this.respond(port, request.requestId, current);
+        return;
+      }
       await services.manager.deleteFallbackCopy(request.modelId);
       const status = this.folderSession
         ? await this.folderSession.refresh()

@@ -298,6 +298,31 @@ describe('ModelManager', () => {
     });
   });
 
+  it('deletes the browser copy when OPFS is primary during a folder outage', async () => {
+    const opfs = new MemoryFileStore();
+    await seedVerified(opfs);
+    const { manager } = createManager(opfs);
+    manager.setStores(opfs, undefined, { primaryIsBrowserCopy: true });
+
+    expect(await manager.hasReadableCopy(ENTRY.id)).toBe(true);
+    await manager.deleteFallbackCopy(ENTRY.id);
+
+    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(false);
+    expect(await manager.hasReadableCopy(ENTRY.id)).toBe(false);
+  });
+
+  it('leaves the primary store alone when it is not marked as the browser copy', async () => {
+    const opfs = new MemoryFileStore();
+    await seedVerified(opfs);
+    const { manager } = createManager(opfs);
+    manager.setStores(opfs);
+
+    await manager.deleteFallbackCopy(ENTRY.id);
+
+    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
+    expect(await manager.hasReadableCopy(ENTRY.id)).toBe(true);
+  });
+
   it('reports a readable copy from OPFS as primary or as the folder fallback', async () => {
     const opfs = new MemoryFileStore();
     const shared = new MemoryFileStore();

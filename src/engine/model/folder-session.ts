@@ -17,8 +17,11 @@ import {
   queryFolderPermission,
   rememberSharedFolderPresentModels,
   sharedFolderSupported,
+  type StoredSharedFolder,
 } from './shared-folder';
 import { SharedFolderModelFileStore } from './shared-store';
+
+const PERMISSION_CHECK_TTL_MS = 500;
 
 /**
  * Resolves the stored directory handle for the engine host.
@@ -32,6 +35,8 @@ import { SharedFolderModelFileStore } from './shared-store';
  */
 export class SharedFolderSession {
   private snapshot: SharedFolderStatus = emptySharedFolderStatus(sharedFolderSupported());
+  private stored: StoredSharedFolder | null = null;
+  private permissionCheckedAt = 0;
 
   constructor(
     private readonly opfs: ModelFileStore,
@@ -42,14 +47,55 @@ export class SharedFolderSession {
     return this.snapshot;
   }
 
+  /**
+   * Cheap status-poll check for a grant that Chrome revoked after the last extension
+   * page closed. It only queries the stored handle and updates the snapshot; it never
+   * opens the folder or copies/verifies model files. A short TTL keeps rapid status
+   * polls from calling `queryPermission` repeatedly.
+   */
+  async refreshPermissionSnapshot(options: { force?: boolean } = {}): Promise<SharedFolderStatus> {
+    if (!this.snapshot.configured || !this.snapshot.name) return this.snapshot;
+    if (this.snapshot.permission !== 'granted') return this.snapshot;
+
+    const now = Date.now();
+    if (!options.force && now - this.permissionCheckedAt < PERMISSION_CHECK_TTL_MS) {
+      return this.snapshot;
+    }
+    this.permissionCheckedAt = now;
+
+    const stored = this.stored ?? (await loadStoredSharedFolder());
+    if (!stored) return this.snapshot;
+    this.stored = stored;
+
+    let queried: Awaited<ReturnType<typeof queryFolderPermission>>;
+    try {
+      queried = await queryFolderPermission(stored.handle);
+    } catch {
+      return this.snapshot;
+    }
+    if (queried === 'granted') return this.snapshot;
+
+    this.snapshot = {
+      ...this.snapshot,
+      permission: queried,
+      name: stored.name,
+      opfsCopies: await this.opfsCopies(),
+      integrityIssues: [],
+      recordedModels: this.snapshot.recordedModels ?? stored.presentModels ?? [],
+    };
+    return this.snapshot;
+  }
+
   async refresh(): Promise<SharedFolderStatus> {
     if (!this.snapshot.configured || !this.snapshot.name) return this.snapshot;
     const stored = await loadStoredSharedFolder();
     if (!stored) {
+      this.stored = null;
       this.manager.setStores(this.opfs);
       this.snapshot = emptySharedFolderStatus(true);
       return this.snapshot;
     }
+    this.stored = stored;
     const queried = await queryFolderPermission(stored.handle);
     if (this.snapshot.permission === 'granted' && queried === 'granted') {
       this.snapshot = await this.collect(stored.name, 'granted');
@@ -67,10 +113,12 @@ export class SharedFolderSession {
 
     const stored = await loadStoredSharedFolder();
     if (!stored) {
+      this.stored = null;
       this.manager.setStores(this.opfs);
       this.snapshot = emptySharedFolderStatus(true);
       return this.snapshot;
     }
+    this.stored = stored;
 
     const queried = await queryFolderPermission(stored.handle);
     const opened = await SharedFolderModelFileStore.open(stored.handle)
@@ -95,24 +143,34 @@ export class SharedFolderSession {
       return this.snapshot;
     }
 
-    this.manager.setStores(this.opfs);
-    // The folder could not be opened, so the OPFS store is now primary. Report the verified
-    // browser copies that can actually serve a load instead of an empty snapshot that sends
-    // the UI looking for a download.
-    const opfsCopies: ModelId[] = [];
-    for (const modelId of SELECTABLE_MODEL_IDS) {
-      if (await this.manager.primaryReady(modelId)) opfsCopies.push(modelId);
-    }
+    // The folder could not be opened, so the OPFS store is now primary. Keep it marked as
+    // the browser copy so Settings' "Delete browser copy" control still works in this mode.
+    this.manager.setStores(this.opfs, undefined, { primaryIsBrowserCopy: true });
+    // Report the verified browser copies that can actually serve a load instead of an empty
+    // snapshot that sends the UI looking for a download.
     this.snapshot = {
       supported: true,
       configured: true,
       permission,
       name: stored.name,
-      opfsCopies,
+      opfsCopies: await this.opfsCopies(),
       integrityIssues: [],
       recordedModels: stored.presentModels ?? [],
     };
     return this.snapshot;
+  }
+
+  /** Browser (OPFS) copies, independent of whether OPFS is primary or the fallback. */
+  private async opfsCopies(): Promise<ModelId[]> {
+    const opfsIsPrimary = this.manager.primaryStore === this.opfs;
+    const copies: ModelId[] = [];
+    for (const modelId of SELECTABLE_MODEL_IDS) {
+      const present = opfsIsPrimary
+        ? await this.manager.primaryReady(modelId)
+        : await this.manager.fallbackCopyPresent(modelId);
+      if (present) copies.push(modelId);
+    }
+    return copies;
   }
 
   private async collect(
@@ -131,6 +189,7 @@ export class SharedFolderSession {
       }
     }
     await rememberSharedFolderPresentModels(recordedModels);
+    this.permissionCheckedAt = Date.now();
     return {
       supported: true,
       configured: true,

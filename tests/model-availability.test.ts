@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
-import { folderRecordsModel, sharedFolderNeedsPermission } from '@/engine/model/folder-status';
+import {
+  canDeleteBrowserCopy,
+  folderRecordsModel,
+  sharedFolderNeedsPermission,
+} from '@/engine/model/folder-status';
 import type { ModelStatus } from '@/shared/engine-status';
 import {
   modelCanTranslate,
@@ -88,6 +92,28 @@ describe('model availability', () => {
         engineSource: 'in-browser',
       }),
     ).toBe(true);
+  });
+
+  it('only offers browser-copy deletion when the folder copy is known', () => {
+    expect(
+      canDeleteBrowserCopy(
+        { configured: true, permission: 'granted', recordedModels: [] },
+        DEFAULT_MODEL_ID,
+      ),
+    ).toBe(true);
+    expect(
+      canDeleteBrowserCopy(
+        { configured: true, permission: 'prompt', recordedModels: [DEFAULT_MODEL_ID] },
+        DEFAULT_MODEL_ID,
+      ),
+    ).toBe(true);
+    expect(
+      canDeleteBrowserCopy(
+        { configured: true, permission: 'prompt', recordedModels: [] },
+        DEFAULT_MODEL_ID,
+      ),
+    ).toBe(false);
+    expect(canDeleteBrowserCopy(undefined, DEFAULT_MODEL_ID)).toBe(true);
   });
 
   it('treats a configured shared folder without access as permission-needed, not a missing file', () => {

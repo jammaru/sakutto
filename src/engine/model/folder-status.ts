@@ -33,6 +33,21 @@ export function sharedFolderNeedsPermission(
   return folder?.configured === true && folder.permission !== 'granted';
 }
 
+/**
+ * True when deleting the Settings browser copy cannot remove the only known copy. With an
+ * active folder grant the folder copy is verified. Without it, require that a previous
+ * successful inspect recorded this model in the folder.
+ */
+export function canDeleteBrowserCopy(
+  folder:
+    Pick<SharedFolderStatus, 'configured' | 'permission' | 'recordedModels'> | null | undefined,
+  modelId: ModelId,
+): boolean {
+  if (!folder?.configured) return true;
+  if (folder.permission === 'granted') return true;
+  return folder.recordedModels?.includes(modelId) === true;
+}
+
 /** True when a previous successful inspect recorded this model in the folder. */
 export function folderRecordsModel(
   folder: Pick<SharedFolderStatus, 'recordedModels'> | null | undefined,

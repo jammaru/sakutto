@@ -9,7 +9,11 @@
     type ModelId,
   } from '@/engine/model/catalog';
   import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
-  import { emptySharedFolderStatus, type SharedFolderStatus } from '@/engine/model/folder-status';
+  import {
+    canDeleteBrowserCopy,
+    emptySharedFolderStatus,
+    type SharedFolderStatus,
+  } from '@/engine/model/folder-status';
   import {
     SHARED_FOLDER_CHANGED_EVENT,
     shouldHighlightFolderPicker,
@@ -198,14 +202,16 @@
     {#each SELECTABLE_MODEL_IDS as id (id)}
       {#if folder.opfsCopies.includes(id)}
         <p class="muted">{t('modelFolderOpfsCopy', [modelLabel(id)])}</p>
-        <button
-          class="button secondary"
-          type="button"
-          disabled={busy}
-          onclick={() => void deleteOpfsCopy(id)}
-        >
-          {t('modelFolderDeleteOpfs')}
-        </button>
+        {#if canDeleteBrowserCopy(folder, id)}
+          <button
+            class="button secondary"
+            type="button"
+            disabled={busy}
+            onclick={() => void deleteOpfsCopy(id)}
+          >
+            {t('modelFolderDeleteOpfs')}
+          </button>
+        {/if}
       {/if}
     {/each}
   </div>
