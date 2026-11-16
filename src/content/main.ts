@@ -62,6 +62,14 @@ import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage'
 import type { Settings, VideoCaptionPosition } from '@/shared/settings';
 import { typedReadiness, type TypedReadiness } from '@/shared/typed-translation';
 import { translateViaBackground } from '@/shared/translation-client';
+import {
+  CONTENT_INSTANCE_DOC_ATTR,
+  claimContentExtensionInstance,
+  contentExtensionId,
+  installContentInvalidationCleanup,
+  purgeForeignMailBannerHosts,
+  removeOwnedMailBannerHosts,
+} from '@/shared/content-instance';
 
 interface ContentBridgeGlobal {
   __sakuttoContentBridgeReady?: boolean;
@@ -319,9 +327,23 @@ function getPageInfo(): PageInfo {
 }
 
 export function contentMain(): void {
-  if (bridge.__sakuttoContentBridgeReady) return;
   if (pageHost(location.href) === null) return;
-  bridge.__sakuttoContentBridgeReady = true;
+  const extensionId = contentExtensionId();
+  if (extensionId.length === 0) return;
+
+  const domInstance = document.documentElement.getAttribute(CONTENT_INSTANCE_DOC_ATTR);
+  if (bridge.__sakuttoContentBridgeReady && domInstance === extensionId) return;
+
+  purgeForeignMailBannerHosts(document, extensionId);
+  claimContentExtensionInstance(document, extensionId);
+
+  if (!bridge.__sakuttoContentBridgeReady) {
+    Object.defineProperty(bridge, '__sakuttoContentBridgeReady', {
+      value: true,
+      writable: false,
+      configurable: false,
+    });
+  }
 
   const host = pageHost(location.href) ?? '';
   // The browser's bindings, or the manifest defaults until the background answers. A
@@ -335,6 +357,18 @@ export function contentMain(): void {
   let captions: VideoCaptionSession | null = null;
   let gmailBanner: GmailBannerController | null = null;
   let outlookBanner: OutlookBannerController | null = null;
+  let invalidationToreDown = false;
+  const teardownAfterInvalidation = (): void => {
+    if (invalidationToreDown) return;
+    invalidationToreDown = true;
+    gmailBanner?.dispose();
+    outlookBanner?.dispose();
+    gmailBanner = null;
+    outlookBanner = null;
+    removeOwnedMailBannerHosts(document, extensionId);
+    document.documentElement.removeAttribute(CONTENT_INSTANCE_DOC_ATTR);
+  };
+  installContentInvalidationCleanup(teardownAfterInvalidation);
   let modelState: ModelStatus['state'] | null = null;
   let plamoReady = false;
   let modelStatusKnown = false;

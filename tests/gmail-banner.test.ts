@@ -1,5 +1,13 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('wxt/browser', () => ({
+  browser: {
+    runtime: {
+      id: 'test-extension-id',
+    },
+  },
+}));
 import {
   GMAIL_BANNER_TAG,
   GMAIL_MIN_BODY_CHARS,
@@ -429,6 +437,85 @@ describe('Gmail banner controller', () => {
     controller.refresh();
     expect(counted.calls()).toBe(calls);
     expect(host?.getAttribute('data-sakutto-gmail-phase')).toBe('translated');
+    controller.dispose();
+  });
+
+  it('removes a mail banner host stamped by a previous extension build on start', () => {
+    document.body.innerHTML = `
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `;
+    const row = document.querySelector('[data-message-id]');
+    const body = document.querySelector('.a3s');
+    if (!row || !body) throw new Error('missing fixture');
+    const orphan = document.createElement('sakutto-gmail');
+    orphan.dataset.sakuttoExtensionInstance = 'orphan-extension-id';
+    row.insertBefore(orphan, body);
+
+    const controller = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    const hosts = [...document.querySelectorAll(GMAIL_BANNER_TAG)];
+    expect(hosts).toHaveLength(1);
+    expect((hosts[0] as HTMLElement | undefined)?.dataset.sakuttoExtensionInstance).toBe(
+      'test-extension-id',
+    );
+    controller.dispose();
+  });
+
+  it('keeps a single banner host when Gmail briefly exposes two body nodes for one message', () => {
+    document.body.innerHTML = `
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en" id="body-old">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `;
+    const old = document.getElementById('body-old');
+    if (!old?.parentElement) throw new Error('missing body');
+    const next = old.cloneNode(true) as HTMLElement;
+    next.id = 'body-new';
+    old.parentElement.appendChild(next);
+    const controller = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(1);
+    old.remove();
+    controller.refresh();
+    expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(1);
+    expect(next.previousElementSibling?.localName).toBe(GMAIL_BANNER_TAG);
+    controller.dispose();
+  });
+
+  it('does not accumulate hosts when refresh runs after Gmail shuffles siblings', () => {
+    const element = body(`
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `);
+    const controller = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    const host = element.previousElementSibling;
+    const shadow = gmailBannerShadow(host);
+    const text = shadow?.querySelector('.text')?.textContent ?? '';
+    const parent = element.parentElement;
+    if (!parent || !shadow) throw new Error('missing banner');
+    for (let index = 0; index < 8; index += 1) {
+      parent.insertBefore(document.createElement('div'), element);
+      controller.refresh();
+    }
+    expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(1);
+    expect(element.previousElementSibling).toBe(host);
+    expect(gmailBannerShadow(host)?.querySelector('.text')?.textContent).toBe(text);
     controller.dispose();
   });
 

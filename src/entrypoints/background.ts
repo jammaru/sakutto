@@ -60,6 +60,7 @@ import {
   type WebGpuDebugProfile,
 } from '@/shared/gpu-diagnostic';
 import { ensureSettings, subscribeSettings } from '@/shared/storage';
+import { CONTENT_LIVENESS_PORT } from '@/shared/content-instance';
 
 const CAPABILITIES_CACHE_KEY = 'engineCapabilities';
 
@@ -75,6 +76,10 @@ export default defineBackground(() => {
 
   broker.start();
   installPageActions(broker);
+  browser.runtime.onConnect.addListener((port) => {
+    if (port.name !== CONTENT_LIVENESS_PORT) return;
+    port.onMessage.addListener(() => undefined);
+  });
   subscribeSettings((settings) => {
     client.syncStoredSettings(settings);
     void syncCaptionCustomContentScripts(settings.captionCustomHosts);
