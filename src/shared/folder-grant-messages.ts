@@ -13,6 +13,18 @@ export function isFolderGrantNeededMessage(value: unknown): value is FolderGrant
   );
 }
 
+export interface FolderGrantCompleteMessage {
+  type: 'folder:grant-complete';
+}
+
+export function isFolderGrantCompleteMessage(value: unknown): value is FolderGrantCompleteMessage {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as FolderGrantCompleteMessage).type === 'folder:grant-complete'
+  );
+}
+
 export interface FolderResumePendingRequest {
   type: 'folder:resume-pending';
 }

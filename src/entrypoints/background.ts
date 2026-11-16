@@ -12,8 +12,11 @@ import {
 import { gatePageCommand, resumeFolderGrantPending } from '@/background/folder-grant';
 import {
   isFolderArmCommandRequest,
+  isFolderGrantCompleteMessage,
   isFolderResumePendingRequest,
+  type FolderGrantCompleteMessage,
 } from '@/shared/folder-grant-messages';
+import { readFolderGrantPending } from '@/shared/folder-grant-pending';
 import { syncCaptionCustomContentScripts } from '@/captions/register-custom';
 import { deleteStoredPdf } from '@/background/pdf-store';
 import {
@@ -73,6 +76,15 @@ import {
 } from '@/shared/content-instance';
 
 const CAPABILITIES_CACHE_KEY = 'engineCapabilities';
+
+/** Only the folder-enable extension page may announce that a grant finished. */
+function isFolderEnableSender(sender: {
+  id?: string | undefined;
+  url?: string | undefined;
+}): boolean {
+  if (sender.id !== browser.runtime.id || typeof sender.url !== 'string') return false;
+  return sender.url.split(/[?#]/)[0]?.endsWith('/folder-enable.html') === true;
+}
 
 const contentLoadGeneration =
   typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -408,6 +420,33 @@ export default defineBackground(() => {
       void gatePageCommand(client, message.tabId, message.command, message.frameId).then(
         sendResponse,
       );
+      return true;
+    }
+
+    if (isFolderGrantCompleteMessage(message)) {
+      if (!isFolderEnableSender(sender)) {
+        sendResponse(false);
+        return true;
+      }
+      void (async () => {
+        // Prefer the tab that deferred its command. The iframe sender is a fallback for a
+        // selection grant where no command was pending.
+        const pending = await readFolderGrantPending();
+        const tabId = pending?.tabId ?? sender.tab?.id;
+        if (tabId === undefined) {
+          sendResponse(false);
+          return;
+        }
+        const complete: FolderGrantCompleteMessage = { type: 'folder:grant-complete' };
+        await browser.tabs
+          .sendMessage(
+            tabId,
+            complete,
+            pending?.frameId === undefined ? {} : { frameId: pending.frameId },
+          )
+          .catch(() => undefined);
+        sendResponse(true);
+      })();
       return true;
     }
 

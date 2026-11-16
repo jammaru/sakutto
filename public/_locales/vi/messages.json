@@ -739,7 +739,10 @@
     "message": "Xuất tệp mô hình"
   },
   "modelImportExportDone": {
-    "message": "Tệp mô hình đang được tải xuống."
+    "message": "Tệp mô hình đã được lưu vào thư mục tải xuống của trình duyệt."
+  },
+  "modelImportExporting": {
+    "message": "Tệp mô hình đang được xuất."
   },
   "modelImportFailed": {
     "message": "Không thể nhập tệp mô hình."

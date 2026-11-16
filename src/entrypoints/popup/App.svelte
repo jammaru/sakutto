@@ -6,6 +6,7 @@
   import { shouldSuggestHighQuality } from '@/engine/model/suggestion';
   import {
     modelNeedsDownload,
+    sharedFolderNeedsUserAction,
     shouldShowModelDownloadGate,
     translationStartBlocked,
     type EngineStatus,
@@ -404,13 +405,40 @@
    * sending the reader to Settings. A query that is already granted costs no prompt and no
    * reload. This only runs for a page action that is about to read the folder.
    */
-  async function ensureFolderPermissionForAction(): Promise<boolean> {
+  interface FolderActionAccess {
+    allowed: boolean;
+    /** True when resuming a deferred command already performed the page action. */
+    resumed: boolean;
+  }
+
+  async function ensureFolderPermissionForAction(): Promise<FolderActionAccess> {
     folderRestoreNeeded = false;
     try {
       const access = await ensureStoredFolderPermission();
       if (access.status !== 'granted') {
-        folderRestoreNeeded = true;
-        return false;
+        // No stored folder is the default OPFS install, not a failure: keep translating.
+        if (access.status === 'none') return { allowed: true, resumed: false };
+        // A configured folder that is merely `prompt` can also keep working from its verified
+        // OPFS copy, so only stop when the reader actually has to restore access.
+        const model = engine?.model ?? modelMark;
+        const folder = {
+          ...(engine?.sharedFolder ?? {
+            supported: true,
+            opfsCopies: [],
+            integrityIssues: [],
+          }),
+          configured: true,
+          permission: access.status,
+        };
+        const needsUserAction =
+          model === null || model === undefined
+            ? true
+            : sharedFolderNeedsUserAction({ model, sharedFolder: folder });
+        if (needsUserAction) {
+          folderRestoreNeeded = true;
+          return { allowed: false, resumed: false };
+        }
+        return { allowed: true, resumed: false };
       }
       if (engine?.sharedFolder) {
         engine = {
@@ -418,17 +446,17 @@
           sharedFolder: { ...engine.sharedFolder, permission: 'granted' },
         };
       }
-      // The offscreen host still has the old folder session and its permission prompt.
-      // Always reload it before an action reads the folder; a verified OPFS copy being
-      // ready does not mean the host can see the fresh grant. This runs only when a
-      // dormant grant actually changed, so a normal click still costs no reload.
-      await requestModelFolderReload();
-      await refreshEngine();
-      await requestResumeFolderGrantPending();
-      return true;
+      // Only a prompt that actually became a grant needs a fresh folder session. Reloading
+      // on every already-granted click made the popup slower for no benefit.
+      if (access.changed) {
+        await requestModelFolderReload();
+        await refreshEngine();
+      }
+      const resumed = await requestResumeFolderGrantPending();
+      return { allowed: true, resumed };
     } catch {
       folderRestoreNeeded = true;
-      return false;
+      return { allowed: false, resumed: false };
     }
   }
 
@@ -436,7 +464,14 @@
     if (commandBusy || tabId === undefined || !host) return;
     commandBusy = true;
     try {
-      if (!(await ensureFolderPermissionForAction())) return;
+      const access = await ensureFolderPermissionForAction();
+      if (!access.allowed) return;
+      // The resumed deferred command already toggled the page. Sending another command
+      // here would translate twice or restore immediately after the resume.
+      if (access.resumed) {
+        view = await requestPageState(tabId);
+        return;
+      }
       if (!(await ensureContentScript(tabId))) {
         pageReady = false;
         pageMessage = 'unread';

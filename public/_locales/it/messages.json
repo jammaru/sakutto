@@ -739,7 +739,10 @@
     "message": "Esporta file del modello"
   },
   "modelImportExportDone": {
-    "message": "Il file del modello è in download."
+    "message": "Il file del modello è stato salvato nella cartella dei download del browser."
+  },
+  "modelImportExporting": {
+    "message": "Il file del modello è in esportazione."
   },
   "modelImportFailed": {
     "message": "Non è stato possibile importare il file del modello."

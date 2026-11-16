@@ -739,7 +739,10 @@
     "message": "ส่งออกไฟล์โมเดล"
   },
   "modelImportExportDone": {
-    "message": "กำลังดาวน์โหลดไฟล์โมเดล"
+    "message": "บันทึกไฟล์โมเดลไปยังโฟลเดอร์ดาวน์โหลดของเบราว์เซอร์แล้ว"
+  },
+  "modelImportExporting": {
+    "message": "กำลังส่งออกไฟล์โมเดล"
   },
   "modelImportFailed": {
     "message": "นำเข้าไฟล์โมเดลไม่สำเร็จ"

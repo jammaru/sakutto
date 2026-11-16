@@ -518,9 +518,26 @@ describe('shared folder activation and recovery', () => {
 
   it('does not toast for a folder grant when OPFS can still answer', () => {
     const content = source('content/main.ts');
-    expect(content).toContain('sharedFolderNeedsUserAction');
+    expect(content).toContain("type: 'folder:arm-command'");
+    expect(content).toContain("armed === 'deferred'");
+    expect(content).toContain('sharedFolderPickerAvailable()');
+    expect(content).toContain('isFolderGrantCompleteMessage');
+    expect(content).not.toContain('sakutto-folder-granted');
     expect(content).not.toContain('folderNeedsPermission = sharedFolderNeedsPermission');
+    expect(source('background/folder-grant.ts')).toContain('sharedFolderNeedsUserAction');
     expect(source('entrypoints/sample/main.ts')).toContain('sharedFolderNeedsUserAction');
+  });
+
+  it('keeps translate available for OPFS installs without a configured folder', () => {
+    const start = popup.indexOf('async function ensureFolderPermissionForAction');
+    const body = popup.slice(start, popup.indexOf('async function translatePage', start));
+    expect(body).toContain("access.status === 'none'");
+    expect(body).toMatch(/access\.status === 'none'\]?[\s\S]{0,80}allowed: true/);
+    expect(body).toContain('sharedFolderNeedsUserAction');
+    expect(body).toContain('access.changed');
+    expect(body).toMatch(/if \(access\.changed\)[\s\S]{0,120}requestModelFolderReload/);
+    expect(body).toContain('requestResumeFolderGrantPending');
+    expect(popup).toContain('access.resumed');
   });
 
   it('does not repeat the picker hint after a cancelled folder pick', () => {

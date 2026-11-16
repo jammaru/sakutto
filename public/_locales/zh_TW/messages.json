@@ -739,7 +739,10 @@
     "message": "匯出模型檔案"
   },
   "modelImportExportDone": {
-    "message": "正在下載模型檔案。"
+    "message": "模型檔案已儲存到瀏覽器的下載資料夾。"
+  },
+  "modelImportExporting": {
+    "message": "正在匯出模型檔案。"
   },
   "modelImportFailed": {
     "message": "無法匯入模型檔案。"

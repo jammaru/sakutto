@@ -63,9 +63,12 @@ export async function resumeFolderGrantPending(client: EngineClient): Promise<bo
   if (!pending) return false;
   const status = await client.status().catch(() => null);
   if (!status || sharedFolderNeedsUserAction(status)) return false;
-  await clearFolderGrantPending();
   const allFrames = pending.command === 'compose';
   if (!(await ensureContentScript(pending.tabId, { allFrames }))) return false;
-  await requestPageCommand(pending.tabId, pending.command, pending.frameId);
+  // Keep the pending command until the page has actually accepted it. A missing tab or a
+  // content script that cannot answer must not destroy the reader's deferred action.
+  const state = await requestPageCommand(pending.tabId, pending.command, pending.frameId);
+  if (!state) return false;
+  await clearFolderGrantPending();
   return true;
 }

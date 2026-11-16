@@ -741,7 +741,10 @@
     "message": "モデルファイルをエクスポート"
   },
   "modelImportExportDone": {
-    "message": "モデルファイルをダウンロードしています。"
+    "message": "モデルファイルをブラウザーのダウンロードフォルダーに保存しました。"
+  },
+  "modelImportExporting": {
+    "message": "モデルファイルをエクスポートしています。"
   },
   "modelImportFailed": {
     "message": "モデルファイルをインポートできませんでした。"

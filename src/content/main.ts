@@ -23,8 +23,12 @@ import {
   subscribeSiteRules,
   type SiteRule,
 } from '@/dom/sites';
-import { isFolderGrantNeededMessage } from '@/shared/folder-grant-messages';
+import {
+  isFolderGrantCompleteMessage,
+  isFolderGrantNeededMessage,
+} from '@/shared/folder-grant-messages';
 import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
+import { sharedFolderPickerAvailable } from '@/engine/model/shared-folder';
 import { hasLicenseConsent } from '@/shared/agreement';
 import type { ModelStatus } from '@/shared/engine-status';
 import { mergeGlossary } from '@/shared/glossary';
@@ -327,7 +331,11 @@ function overlayLabels(): OverlayLabels {
   };
 }
 
-const folderEnablePageUrl = browser.runtime.getURL('/folder-enable.html');
+// Firefox and other OPFS-only builds must not show a folder grant frame at all. An empty
+// URL also disables the 12s selection timeout and every beginFolderGrantWait() call.
+const folderEnablePageUrl = sharedFolderPickerAvailable()
+  ? browser.runtime.getURL('/folder-enable.html')
+  : '';
 
 function getPageInfo(): PageInfo {
   return {
@@ -743,15 +751,14 @@ export function contentMain(): void {
     return session.state();
   };
 
-  window.addEventListener('message', (event) => {
-    if (event.data?.type !== 'sakutto-folder-granted') return;
-    void sessionPromise.then((session) => {
-      session.endFolderGrantWait();
-    });
-  });
-
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.id !== browser.runtime.id) return;
+    if (isFolderGrantCompleteMessage(message)) {
+      void sessionPromise.then((session) => {
+        session.endFolderGrantWait();
+      });
+      return;
+    }
     if (isFolderGrantNeededMessage(message)) {
       void sessionPromise.then((session) => {
         session.beginFolderGrantWait();

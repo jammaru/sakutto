@@ -239,6 +239,8 @@
 
   {#if done}
     <p class="muted" role="status">{t('modelImportDone')}</p>
+  {:else if exporting}
+    <p class="muted" role="status">{t('modelImportExporting')}</p>
   {:else if exported}
     <p class="muted" role="status">{t('modelImportExportDone')}</p>
   {/if}

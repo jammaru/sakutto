@@ -739,7 +739,10 @@
     "message": "Exporter le fichier de modèle"
   },
   "modelImportExportDone": {
-    "message": "Le fichier de modèle est en cours de téléchargement."
+    "message": "Le fichier de modèle a été enregistré dans le dossier de téléchargements du navigateur."
+  },
+  "modelImportExporting": {
+    "message": "Le fichier de modèle est en cours d’exportation."
   },
   "modelImportFailed": {
     "message": "Le fichier de modèle n’a pas pu être importé."

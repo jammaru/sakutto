@@ -739,7 +739,10 @@
     "message": "导出模型文件"
   },
   "modelImportExportDone": {
-    "message": "正在下载模型文件。"
+    "message": "模型文件已保存到浏览器的下载文件夹。"
+  },
+  "modelImportExporting": {
+    "message": "正在导出模型文件。"
   },
   "modelImportFailed": {
     "message": "无法导入模型文件。"

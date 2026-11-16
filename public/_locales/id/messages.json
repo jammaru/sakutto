@@ -739,7 +739,10 @@
     "message": "Ekspor file model"
   },
   "modelImportExportDone": {
-    "message": "File model sedang diunduh."
+    "message": "File model disimpan ke folder unduhan browser."
+  },
+  "modelImportExporting": {
+    "message": "File model sedang diekspor."
   },
   "modelImportFailed": {
     "message": "File model tidak dapat diimpor."

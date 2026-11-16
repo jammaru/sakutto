@@ -18,10 +18,14 @@
         failed = true;
         return;
       }
-      await requestModelFolderReload();
+      // A click on an already-granted folder needs no session restart. Only a prompt that
+      // this gesture renewed has to be re-opened by the engine host.
+      if (access.changed) await requestModelFolderReload();
       notifySharedFolderChanged();
       await browser.runtime.sendMessage({ type: 'folder:resume-pending' }).catch(() => undefined);
-      window.parent.postMessage({ type: 'sakutto-folder-granted' }, '*');
+      // The background validates this extension page and forwards a typed completion
+      // message to the tab that deferred its command.
+      await browser.runtime.sendMessage({ type: 'folder:grant-complete' }).catch(() => undefined);
     } catch {
       failed = true;
     } finally {

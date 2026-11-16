@@ -741,7 +741,10 @@
     "message": "Export model file"
   },
   "modelImportExportDone": {
-    "message": "The model file is downloading."
+    "message": "The model file was saved to the browser's download folder."
+  },
+  "modelImportExporting": {
+    "message": "Exporting the model file…"
   },
   "modelImportFailed": {
     "message": "The model file could not be imported."

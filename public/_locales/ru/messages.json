@@ -739,7 +739,10 @@
     "message": "Экспортировать файл модели"
   },
   "modelImportExportDone": {
-    "message": "Файл модели скачивается."
+    "message": "Файл модели сохранён в папке загрузок браузера."
+  },
+  "modelImportExporting": {
+    "message": "Файл модели экспортируется."
   },
   "modelImportFailed": {
     "message": "Не удалось импортировать файл модели."
