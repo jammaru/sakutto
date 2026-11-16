@@ -437,6 +437,36 @@ describe('Outlook banner controller', () => {
     controller.dispose();
   });
 
+  it('mounts one banner when two content-script instances initialize the same frame', () => {
+    const element = body(ENGLISH_MESSAGE);
+    const first = new OutlookBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    const second = new OutlookBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    try {
+      first.start();
+      second.start();
+      expect(document.querySelectorAll(OUTLOOK_BANNER_TAG)).toHaveLength(1);
+
+      second.refresh();
+      const host = element.previousElementSibling;
+      expect(document.querySelectorAll(OUTLOOK_BANNER_TAG)).toHaveLength(1);
+      expect(host?.localName).toBe(OUTLOOK_BANNER_TAG);
+      expect(outlookBannerShadow(host)?.querySelector('.text')?.textContent).toBe(
+        'This email appears to be written in en.',
+      );
+    } finally {
+      first.dispose();
+      second.dispose();
+    }
+  });
+
   it('skips a message whose source language is on the never list', () => {
     body(ENGLISH_MESSAGE);
     const counted = countingImmediate();

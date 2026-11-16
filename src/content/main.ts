@@ -62,6 +62,17 @@ import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage'
 import type { Settings, VideoCaptionPosition } from '@/shared/settings';
 import { typedReadiness, type TypedReadiness } from '@/shared/typed-translation';
 import { translateViaBackground } from '@/shared/translation-client';
+import {
+  CONTENT_INSTANCE_DOC_ATTR,
+  claimContentExtensionInstance,
+  contentExtensionId,
+  contentScriptInstanceToken,
+  installContentInvalidationCleanup,
+  purgeForeignMailBannerHosts,
+  registerLiveContentInstanceToken,
+  removeOwnedMailBannerHosts,
+  unregisterLiveContentInstanceToken,
+} from '@/shared/content-instance';
 
 interface ContentBridgeGlobal {
   __sakuttoContentBridgeReady?: boolean;
@@ -321,7 +332,16 @@ function getPageInfo(): PageInfo {
 export function contentMain(): void {
   if (bridge.__sakuttoContentBridgeReady) return;
   if (pageHost(location.href) === null) return;
+  if (contentExtensionId().length === 0) return;
   bridge.__sakuttoContentBridgeReady = true;
+
+  // The generic content bundle and the idle mail bundle share this isolated world. The
+  // guard above makes the second one a no-op; only the winner may claim the page and
+  // remove hosts left by an older content-script instance.
+  const instanceToken = contentScriptInstanceToken();
+  registerLiveContentInstanceToken(instanceToken);
+  purgeForeignMailBannerHosts(document, instanceToken);
+  claimContentExtensionInstance(document, instanceToken);
 
   const host = pageHost(location.href) ?? '';
   // The browser's bindings, or the manifest defaults until the background answers. A
@@ -335,6 +355,19 @@ export function contentMain(): void {
   let captions: VideoCaptionSession | null = null;
   let gmailBanner: GmailBannerController | null = null;
   let outlookBanner: OutlookBannerController | null = null;
+  let invalidationToreDown = false;
+  const teardownAfterInvalidation = (): void => {
+    if (invalidationToreDown) return;
+    invalidationToreDown = true;
+    gmailBanner?.dispose();
+    outlookBanner?.dispose();
+    gmailBanner = null;
+    outlookBanner = null;
+    unregisterLiveContentInstanceToken(instanceToken);
+    removeOwnedMailBannerHosts(document, instanceToken);
+    document.documentElement.removeAttribute(CONTENT_INSTANCE_DOC_ATTR);
+  };
+  installContentInvalidationCleanup(teardownAfterInvalidation);
   let modelState: ModelStatus['state'] | null = null;
   let plamoReady = false;
   let modelStatusKnown = false;
