@@ -60,9 +60,17 @@ import {
   type WebGpuDebugProfile,
 } from '@/shared/gpu-diagnostic';
 import { ensureSettings, subscribeSettings } from '@/shared/storage';
-import { CONTENT_LIVENESS_PORT } from '@/shared/content-instance';
+import {
+  CONTENT_LIVENESS_GENERATION_MESSAGE,
+  CONTENT_LIVENESS_PORT,
+} from '@/shared/content-instance';
 
 const CAPABILITIES_CACHE_KEY = 'engineCapabilities';
+
+const contentLoadGeneration =
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `load-${String(Date.now())}`;
 
 export default defineBackground(() => {
   const client = new EngineClient(createEngineHostController());
@@ -78,6 +86,10 @@ export default defineBackground(() => {
   installPageActions(broker);
   browser.runtime.onConnect.addListener((port) => {
     if (port.name !== CONTENT_LIVENESS_PORT) return;
+    port.postMessage({
+      type: CONTENT_LIVENESS_GENERATION_MESSAGE,
+      generation: contentLoadGeneration,
+    });
     port.onMessage.addListener(() => undefined);
   });
   subscribeSettings((settings) => {

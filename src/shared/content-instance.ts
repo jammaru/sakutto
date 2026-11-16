@@ -3,20 +3,77 @@ import { browser } from 'wxt/browser';
 /** Written on `document.documentElement` so a reloaded build can claim the page from an orphan script. */
 export const CONTENT_INSTANCE_DOC_ATTR = 'data-sakutto-extension-instance';
 
-/** Per content-script load; distinguishes orphan scripts after reload (runtime.id stays the same). */
+/** Per content-script bundle load (not shared on globalThis — reload may reuse the same world). */
 export const MAIL_BANNER_INSTANCE_DATASET = 'sakuttoExtensionInstance';
 
 export const CONTENT_LIVENESS_PORT = 'sakutto-content-liveness';
 
+export const CONTENT_LIVENESS_GENERATION_MESSAGE = 'generation' as const;
+
+/** Background posts this; bumps reset the live-token registry in the page. */
+export const CONTENT_LOAD_GENERATION_GLOBAL_KEY = '__sakuttoContentLoadGeneration';
+
+/** Tokens registered by bundles that still have a valid extension context in this world. */
+export const LIVE_CONTENT_INSTANCE_REGISTRY_KEY = '__sakuttoLiveContentInstanceTokens';
+
 export const MAIL_BANNER_HOST_TAGS = ['sakutto-gmail', 'sakutto-outlook'] as const;
 
-const CONTENT_SCRIPT_INSTANCE_TOKEN =
-  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+type ContentInstanceGlobals = typeof globalThis & {
+  [CONTENT_LOAD_GENERATION_GLOBAL_KEY]?: string;
+  [LIVE_CONTENT_INSTANCE_REGISTRY_KEY]?: Set<string>;
+};
+
+function mintContentScriptInstanceToken(): string {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : `fallback-${Math.random().toString(36).slice(2)}`;
+}
+
+/** Unique per bundle (`content.js` vs `mail.js`); not stored on globalThis. */
+const CONTENT_SCRIPT_INSTANCE_TOKEN = mintContentScriptInstanceToken();
 
 export function contentScriptInstanceToken(): string {
   return CONTENT_SCRIPT_INSTANCE_TOKEN;
+}
+
+export function isContentLoadGenerationMessage(
+  message: unknown,
+): message is { type: typeof CONTENT_LIVENESS_GENERATION_MESSAGE; generation: string } {
+  return (
+    typeof message === 'object' &&
+    message !== null &&
+    (message as { type?: unknown }).type === CONTENT_LIVENESS_GENERATION_MESSAGE &&
+    typeof (message as { generation?: unknown }).generation === 'string'
+  );
+}
+
+/** Drops live registrations from an older background generation after reload. */
+export function applyContentLoadGeneration(generation: string): void {
+  if (generation.length === 0) return;
+  const host = globalThis as ContentInstanceGlobals;
+  if (host[CONTENT_LOAD_GENERATION_GLOBAL_KEY] === generation) return;
+  host[CONTENT_LOAD_GENERATION_GLOBAL_KEY] = generation;
+  host[LIVE_CONTENT_INSTANCE_REGISTRY_KEY] = new Set();
+}
+
+function liveContentInstanceRegistry(): Set<string> {
+  const host = globalThis as ContentInstanceGlobals;
+  let registry = host[LIVE_CONTENT_INSTANCE_REGISTRY_KEY];
+  if (!registry) {
+    registry = new Set();
+    host[LIVE_CONTENT_INSTANCE_REGISTRY_KEY] = registry;
+  }
+  return registry;
+}
+
+export function registerLiveContentInstanceToken(token: string): void {
+  if (token.length === 0) return;
+  liveContentInstanceRegistry().add(token);
+}
+
+export function unregisterLiveContentInstanceToken(token: string): void {
+  if (token.length === 0) return;
+  liveContentInstanceRegistry().delete(token);
 }
 
 export function contentExtensionId(): string {
@@ -56,14 +113,19 @@ export function claimContentExtensionInstance(
   doc.documentElement.setAttribute(CONTENT_INSTANCE_DOC_ATTR, instanceToken);
 }
 
-/** Removes mail banner hosts owned by another content-script instance (or left unstamped). */
+/**
+ * Removes banner hosts whose owning instance is not registered as live in this world (orphan
+ * scripts after reload, or unstamped shells). Bundles in the same load keep each other's hosts.
+ */
 export function purgeForeignMailBannerHosts(doc: Document, keepInstanceToken: string): void {
   if (keepInstanceToken.length === 0) return;
+  registerLiveContentInstanceToken(keepInstanceToken);
+  const live = liveContentInstanceRegistry();
   for (const tag of MAIL_BANNER_HOST_TAGS) {
     for (const node of doc.querySelectorAll(tag)) {
       if (!(node instanceof HTMLElement)) continue;
       const owner = node.dataset[MAIL_BANNER_INSTANCE_DATASET] ?? '';
-      if (owner === keepInstanceToken) continue;
+      if (owner.length === 0 || live.has(owner)) continue;
       node.remove();
     }
   }
@@ -112,6 +174,11 @@ export function installContentInvalidationCleanup(
     try {
       const port = browser.runtime.connect({ name: CONTENT_LIVENESS_PORT });
       reconnectAttempt = 0;
+      port.onMessage.addListener((message: unknown) => {
+        if (isContentLoadGenerationMessage(message)) {
+          applyContentLoadGeneration(message.generation);
+        }
+      });
       port.onDisconnect.addListener(() => {
         if (tornDown) return;
         if (isExtensionContextInvalidated()) {
@@ -134,4 +201,11 @@ export function installContentInvalidationCleanup(
   };
 
   connect();
+}
+
+/** @internal */
+export function resetContentInstanceGlobalsForTests(): void {
+  const host = globalThis as ContentInstanceGlobals;
+  delete host[CONTENT_LOAD_GENERATION_GLOBAL_KEY];
+  delete host[LIVE_CONTENT_INSTANCE_REGISTRY_KEY];
 }

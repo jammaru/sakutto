@@ -69,7 +69,9 @@ import {
   contentScriptInstanceToken,
   installContentInvalidationCleanup,
   purgeForeignMailBannerHosts,
+  registerLiveContentInstanceToken,
   removeOwnedMailBannerHosts,
+  unregisterLiveContentInstanceToken,
 } from '@/shared/content-instance';
 
 interface ContentBridgeGlobal {
@@ -328,23 +330,18 @@ function getPageInfo(): PageInfo {
 }
 
 export function contentMain(): void {
+  if (bridge.__sakuttoContentBridgeReady) return;
   if (pageHost(location.href) === null) return;
   if (contentExtensionId().length === 0) return;
+  bridge.__sakuttoContentBridgeReady = true;
+
+  // The generic content bundle and the idle mail bundle share this isolated world. The
+  // guard above makes the second one a no-op; only the winner may claim the page and
+  // remove hosts left by an older content-script instance.
   const instanceToken = contentScriptInstanceToken();
-
-  const domInstance = document.documentElement.getAttribute(CONTENT_INSTANCE_DOC_ATTR);
-  if (bridge.__sakuttoContentBridgeReady && domInstance === instanceToken) return;
-
+  registerLiveContentInstanceToken(instanceToken);
   purgeForeignMailBannerHosts(document, instanceToken);
   claimContentExtensionInstance(document, instanceToken);
-
-  if (!bridge.__sakuttoContentBridgeReady) {
-    Object.defineProperty(bridge, '__sakuttoContentBridgeReady', {
-      value: true,
-      writable: false,
-      configurable: false,
-    });
-  }
 
   const host = pageHost(location.href) ?? '';
   // The browser's bindings, or the manifest defaults until the background answers. A
@@ -366,6 +363,7 @@ export function contentMain(): void {
     outlookBanner?.dispose();
     gmailBanner = null;
     outlookBanner = null;
+    unregisterLiveContentInstanceToken(instanceToken);
     removeOwnedMailBannerHosts(document, instanceToken);
     document.documentElement.removeAttribute(CONTENT_INSTANCE_DOC_ATTR);
   };

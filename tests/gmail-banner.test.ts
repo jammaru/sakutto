@@ -520,6 +520,75 @@ describe('Gmail banner controller', () => {
     controller.dispose();
   });
 
+  it('mounts one banner when two content-script instances initialize the same frame', () => {
+    const element = body(`
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `);
+    const first = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    const second = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    try {
+      first.start();
+      second.start();
+      expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(1);
+
+      // A manual refresh from the duplicate must not mount or prune another host.
+      second.refresh();
+      const host = element.previousElementSibling;
+      expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(1);
+      expect(host?.localName).toBe(GMAIL_BANNER_TAG);
+      expect(gmailBannerShadow(host)?.querySelector('.text')?.textContent).toBe(
+        'This email appears to be written in en.',
+      );
+
+      first.dispose();
+      expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(0);
+      second.start();
+      expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(1);
+    } finally {
+      first.dispose();
+      second.dispose();
+    }
+  });
+
+  it('ignores its own host insertions but still refreshes for page changes', async () => {
+    const element = body(`
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `);
+    const controller = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+      debounceMs: 1,
+    });
+    const refresh = vi.spyOn(controller, 'refresh');
+    controller.start();
+    expect(refresh).toHaveBeenCalledTimes(1);
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(refresh).toHaveBeenCalledTimes(1);
+    const host = element.previousElementSibling;
+    const text = gmailBannerShadow(host)?.querySelector('.text')?.textContent;
+
+    document.body.append(document.createElement('div'));
+    await waitFor(() => refresh.mock.calls.length > 1);
+    expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(1);
+    expect(element.previousElementSibling).toBe(host);
+    expect(gmailBannerShadow(host)?.querySelector('.text')?.textContent).toBe(text);
+    controller.dispose();
+  });
+
   it('dedupes auto-translate by message id when Gmail replaces the body node', async () => {
     document.body.innerHTML = `
       <div data-message-id="m1">

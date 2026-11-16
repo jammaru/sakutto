@@ -4,12 +4,16 @@ import { browser } from 'wxt/browser';
 import {
   CONTENT_INSTANCE_DOC_ATTR,
   MAIL_BANNER_INSTANCE_DATASET,
+  applyContentLoadGeneration,
   claimContentExtensionInstance,
   installContentInvalidationCleanup,
   isExtensionContextInvalidated,
   purgeForeignMailBannerHosts,
+  registerLiveContentInstanceToken,
   removeOwnedMailBannerHosts,
+  resetContentInstanceGlobalsForTests,
   stampMailBannerInstance,
+  unregisterLiveContentInstanceToken,
 } from '@/shared/content-instance';
 
 type RuntimeLastError = { message?: string } | undefined;
@@ -40,23 +44,30 @@ beforeEach(() => {
         disconnectListener = listener;
       },
     },
+    onMessage: {
+      addListener: () => undefined,
+    },
   }));
+  resetContentInstanceGlobalsForTests();
+  applyContentLoadGeneration('test-generation');
 });
 
 afterEach(() => {
   document.documentElement.innerHTML = '<head></head><body></body>';
   document.body.innerHTML = '';
+  resetContentInstanceGlobalsForTests();
   vi.useRealTimers();
 });
 
 describe('content extension instance markers', () => {
-  it('removes mail banner hosts owned by another content-script instance', () => {
+  it('removes mail banner hosts whose owner is not registered live', () => {
     const orphan = document.createElement('sakutto-gmail');
     stampMailBannerInstance(orphan, 'instance-old');
     const current = document.createElement('sakutto-gmail');
     stampMailBannerInstance(current, 'instance-current');
     document.body.append(orphan, current);
 
+    registerLiveContentInstanceToken('instance-current');
     purgeForeignMailBannerHosts(document, 'instance-current');
     expect(document.querySelectorAll('sakutto-gmail')).toHaveLength(1);
     expect((document.querySelector('sakutto-gmail') as HTMLElement).dataset).toHaveProperty(
@@ -65,20 +76,38 @@ describe('content extension instance markers', () => {
     );
   });
 
-  it('purges a different instance token even when runtime.id is unchanged', () => {
+  it('keeps hosts stamped by another bundle when both tokens are live', () => {
+    const mailBundleToken = 'bundle-mail-token';
+    const contentBundleToken = 'bundle-content-token';
+    registerLiveContentInstanceToken(mailBundleToken);
+    registerLiveContentInstanceToken(contentBundleToken);
+
+    const host = document.createElement('sakutto-gmail');
+    stampMailBannerInstance(host, mailBundleToken);
+    document.body.append(host);
+
+    purgeForeignMailBannerHosts(document, contentBundleToken);
+    expect(document.querySelectorAll('sakutto-gmail')).toHaveLength(1);
+    expect(browser.runtime.id).toBe('same-extension-id');
+  });
+
+  it('drops non-live hosts after the background generation bumps', () => {
+    registerLiveContentInstanceToken('reload-orphan-token');
     const previous = document.createElement('sakutto-gmail');
     stampMailBannerInstance(previous, 'reload-orphan-token');
+    document.body.append(previous);
+
+    applyContentLoadGeneration('reload-generation');
+
     const next = document.createElement('sakutto-gmail');
     stampMailBannerInstance(next, 'reload-current-token');
-    document.body.append(previous, next);
-
+    document.body.append(next);
     purgeForeignMailBannerHosts(document, 'reload-current-token');
     expect(document.querySelectorAll('sakutto-gmail')).toHaveLength(1);
     expect((document.querySelector('sakutto-gmail') as HTMLElement).dataset).toHaveProperty(
       MAIL_BANNER_INSTANCE_DATASET,
       'reload-current-token',
     );
-    expect(browser.runtime.id).toBe('same-extension-id');
   });
 
   it('claims the page for the current content-script instance on documentElement', () => {
@@ -106,21 +135,25 @@ describe('content extension instance markers', () => {
 
   it('tears down once when the extension context is invalidated', () => {
     const cleaned: string[] = [];
-    installContentInvalidationCleanup(() => cleaned.push('done'));
+    const token = 'invalidate-me';
+    registerLiveContentInstanceToken(token);
+    installContentInvalidationCleanup(() => {
+      cleaned.push('done');
+      unregisterLiveContentInstanceToken(token);
+      removeOwnedMailBannerHosts(document, token);
+      document.documentElement.removeAttribute(CONTENT_INSTANCE_DOC_ATTR);
+    });
 
     const host = document.createElement('sakutto-gmail');
-    stampMailBannerInstance(host, 'invalidate-me');
+    stampMailBannerInstance(host, token);
     document.body.append(host);
-    document.documentElement.setAttribute(CONTENT_INSTANCE_DOC_ATTR, 'invalidate-me');
+    document.documentElement.setAttribute(CONTENT_INSTANCE_DOC_ATTR, token);
 
     lastError = { message: 'Extension context invalidated.' };
     expect(isExtensionContextInvalidated()).toBe(true);
     disconnectListener?.();
     expect(cleaned).toEqual(['done']);
-    removeOwnedMailBannerHosts(document, 'invalidate-me');
-    document.documentElement.removeAttribute(CONTENT_INSTANCE_DOC_ATTR);
     expect(document.querySelector('sakutto-gmail')).toBeNull();
-    expect(document.documentElement.hasAttribute(CONTENT_INSTANCE_DOC_ATTR)).toBe(false);
 
     disconnectListener?.();
     expect(cleaned).toEqual(['done']);
