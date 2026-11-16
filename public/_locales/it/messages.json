@@ -305,6 +305,9 @@
   "selectionIcon": {
     "message": "Traduci il testo selezionato"
   },
+  "selectionResizeHandle": {
+    "message": "Ridimensiona la finestra di traduzione (doppio clic per reimpostare)"
+  },
   "close": {
     "message": "Chiudi"
   },
@@ -1036,6 +1039,105 @@
       }
     }
   },
+  "openPdf": {
+    "message": "Traduci questo PDF"
+  },
+  "openPdfHint": {
+    "message": "Apre il PDF in Sakutto e lo traduce sul posto, mantenendo l'impaginazione."
+  },
+  "contextTranslatePdf": {
+    "message": "Traduci questo PDF con Sakutto"
+  },
+  "commandPdf": {
+    "message": "Apri il PDF in Sakutto"
+  },
+  "pdfReaderTitle": {
+    "message": "PDF"
+  },
+  "pdfUntitled": {
+    "message": "Documento.pdf"
+  },
+  "pdfPreparing": {
+    "message": "Lettura del documento…"
+  },
+  "pdfReading": {
+    "message": "Lettura della pagina $PAGE$ di $TOTAL$",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfTranslated": {
+    "message": "Tradotto"
+  },
+  "pdfPageNoText": {
+    "message": "Questa pagina è una scansione o un’immagine senza testo selezionabile, quindi non può essere tradotta."
+  },
+  "pdfRenderFailed": {
+    "message": "Questa pagina non può essere disegnata.",
+    "description": "Shown on a page whose canvas could not be drawn."
+  },
+  "pdfNoText": {
+    "message": "Questo documento è una scansione o un insieme di immagini, senza livello di testo. Apri un PDF con testo reale oppure esegui prima il riconoscimento ottico dei caratteri."
+  },
+  "pdfTranslateFailed": {
+    "message": "Questa parte non è stata tradotta."
+  },
+  "pdfMissing": {
+    "message": "Il documento non è più disponibile. Riapri il PDF dalla sua scheda."
+  },
+  "pdfBroken": {
+    "message": "Il documento non è stato aperto. Potrebbe essere danneggiato o protetto da password."
+  },
+  "pdfTooLarge": {
+    "message": "Questo file supera i 200 MB, la dimensione massima che il lettore può aprire.",
+    "description": "Shown when a local PDF is larger than the reader will open."
+  },
+  "pdfModelMissing": {
+    "message": "Le pagine sono visibili, ma per tradurle serve il modello PLaMo. Scaricalo per tradurre questo documento."
+  },
+  "pdfOpenFailed": {
+    "message": "Questo PDF non è stato aperto. Ricarica la pagina e riprova."
+  },
+  "pdfFileAccessDenied": {
+    "message": "Questo PDF è un file su questo computer. Consenti all'estensione di accedere agli URL dei file nelle impostazioni delle estensioni, oppure scegli il file nel lettore."
+  },
+  "pdfCompare": {
+    "message": "Confronta"
+  },
+  "pdfOriginalPane": {
+    "message": "Originale"
+  },
+  "pdfTranslatedPane": {
+    "message": "Traduzione"
+  },
+  "pdfChooseFile": {
+    "message": "Scegli un file PDF"
+  },
+  "pdfKeptAsIs": {
+    "message": "$COUNT$ parti sono rimaste come le ha impaginate la pagina: equazioni, tacche degli assi e codice restano nella composizione originale.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfSelectHint": {
+    "message": "Seleziona il testo su una pagina per tradurre solo quella parte."
+  },
+  "pdfSelectTranslate": {
+    "message": "Traduci la selezione"
+  },
+  "pdfSelectFailed": {
+    "message": "Questa selezione non è stata tradotta."
+  },
+  "pdfSelectClear": {
+    "message": "Mostra l’originale"
+  },
   "commandCompose": {
     "message": "Traduci il testo che stai scrivendo"
   },
@@ -1381,6 +1483,12 @@
   "videoCaptionsSizeHelp": {
     "message": "La dimensione segue il lettore, anche a schermo intero e in modalità teatro. Trascina il cursore per l’anteprima."
   },
+  "translationPopupSizeLabel": {
+    "message": "Dimensione del testo dei popup di traduzione"
+  },
+  "translationPopupSizeHelp": {
+    "message": "Cambia la dimensione del testo nei popup di traduzione al passaggio del mouse, alla selezione e durante la composizione. I sottotitoli video hanno un'impostazione di dimensione separata."
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "Siti di sottotitoli personalizzati"
   },
@@ -1410,5 +1518,127 @@
   },
   "videoCaptionsPositionHelp": {
     "message": "Tieni premuto un sottotitolo tradotto per spostarlo. YouTube e X ricordano ciascuno la propria posizione, anche a schermo intero e in modalità cinema. Questo pulsante lo riporta in basso nel lettore."
+  },
+  "pdfOverflow": {
+    "message": "$COUNT$ parti non sono entrate nella pagina. Apri il contrassegno per leggere la traduzione.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfFailedCount": {
+    "message": "Non è stato possibile tradurre $COUNT$ parti.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "Toolbar note when some blocks could not be translated."
+  },
+  "pdfOverflowOpen": {
+    "message": "Mostra traduzione"
+  },
+  "gmailBannerDetected": {
+    "message": "Questa email sembra scritta in $LANG$.",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerTranslate": {
+    "message": "Traduci in $TARGET$",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerShowOriginal": {
+    "message": "Mostra originale"
+  },
+  "gmailBannerTranslating": {
+    "message": "Traduzione di questa email…"
+  },
+  "gmailBannerFailed": {
+    "message": "Impossibile tradurre questa email."
+  },
+  "gmailBannerRegion": {
+    "message": "Traduzione dei messaggi Gmail"
+  },
+  "mailBannerAccessNeeded": {
+    "message": "La traduzione delle email richiede l'accesso a questo sito."
+  },
+  "mailBannerEnableForSite": {
+    "message": "Attiva la traduzione delle email su questo sito"
+  },
+  "mailBannerPermissionDenied": {
+    "message": "La traduzione delle email richiede l'autorizzazione ad accedere al sito di posta."
+  },
+  "settingsGmailBanner": {
+    "message": "Proponi di tradurre le email di Gmail"
+  },
+  "settingsGmailBannerHelp": {
+    "message": "Quando è attivo, un messaggio di Gmail aperto scritto in un’altra lingua mostra un piccolo avviso sopra il corpo. Il messaggio viene tradotto solo dopo il clic. Sakutto richiede l’accesso a mail.google.com; concedilo dal popup o dall’elenco dei siti."
+  },
+  "gmailBannerTranslated": {
+    "message": "Translated: $SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "gmailBannerShowTranslation": {
+    "message": "Show translation"
+  },
+  "gmailBannerMenu": {
+    "message": "Translation settings"
+  },
+  "gmailBannerTranslateNow": {
+    "message": "Translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerAlwaysTranslate": {
+    "message": "Always translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerNeverTranslate": {
+    "message": "Never translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsGmailAutoLangs": {
+    "message": "Always translate these languages"
+  },
+  "settingsGmailNeverLangs": {
+    "message": "Never translate these languages"
+  },
+  "settingsGmailNoAutoLangs": {
+    "message": "No languages set to always translate."
+  },
+  "settingsGmailNoNeverLangs": {
+    "message": "No languages set to never translate."
+  },
+  "settingsGmailClearLangs": {
+    "message": "Clear"
+  },
+  "settingsGmailRemoveLang": {
+    "message": "Remove"
   }
 }

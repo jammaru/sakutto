@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Gmail message fixture</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: #f6f8fc;
+        color: #1f1f1f;
+        font:
+          14px/1.5 'Google Sans',
+          'Segoe UI',
+          'Hiragino Sans',
+          'Noto Sans JP',
+          sans-serif;
+      }
+      .shell {
+        max-width: 760px;
+        margin: 24px auto;
+        padding: 0 16px 64px;
+      }
+      .thread {
+        display: grid;
+        gap: 16px;
+      }
+      .message {
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow:
+          0 1px 3px rgb(60 64 67 / 15%),
+          0 4px 8px rgb(60 64 67 / 10%);
+        overflow: hidden;
+      }
+      .subject {
+        padding: 14px 18px 6px;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .meta {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 0 18px 12px;
+        border-bottom: 1px solid #e8eaed;
+        color: #5f6368;
+        font-size: 12px;
+      }
+      .sender {
+        color: #1f1f1f;
+        font-weight: 600;
+        font-size: 13px;
+      }
+      .body-wrap {
+        padding: 14px 18px 20px;
+      }
+      .a3s {
+        color: #1f1f1f;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .a3s p {
+        margin: 0 0 12px;
+      }
+      .compose {
+        margin-top: 20px;
+        padding: 12px;
+        border: 1px solid #dadce0;
+        border-radius: 8px;
+        background: #ffffff;
+      }
+      .compose .a3s {
+        min-height: 60px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <div class="thread" role="main">
+        <article class="message" data-message-id="msg-1">
+          <div class="subject">Project update</div>
+          <div class="meta">
+            <span class="sender">Alex Rivera</span>
+            <span>Today, 09:14</span>
+          </div>
+          <div class="body-wrap">
+            <div class="a3s aiL" lang="en">
+              <p>Hi team,</p>
+              <p>
+                The release candidate is ready for review. Please check the migration notes before
+                Friday so we can ship the update next week.
+              </p>
+              <p>Thanks,<br />Alex</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="message" data-message-id="msg-2">
+          <div class="subject">プロジェクトの進捗</div>
+          <div class="meta">
+            <span class="sender">佐藤 花子</span>
+            <span>今日 10:02</span>
+          </div>
+          <div class="body-wrap">
+            <div class="a3s aiL" lang="ja">
+              <p>チームの皆さん、</p>
+              <p>来週の打ち合わせ資料を共有しました。金曜日までに確認をお願いします。</p>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div class="compose" contenteditable="true" role="textbox" aria-label="Reply draft">
+        <div class="a3s aiL" lang="en">
+          This reply is being typed in a compose editor and must not get a banner.
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

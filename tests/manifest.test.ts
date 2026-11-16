@@ -1,9 +1,12 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { FIREFOX_EXTENSION_ID, FIREFOX_STRICT_MIN_VERSION } from '@/shared/browser';
+import { MAIL_HOST_PATTERNS } from '@/shared/manifest';
 import {
   CHROME_DEFAULT_SHORTCUTS,
   CHROME_MAC_DEFAULT_SHORTCUTS,
   FIREFOX_DEFAULT_SHORTCUTS,
+  MAX_SUGGESTED_SHORTCUTS,
 } from '@/shared/shortcuts';
 import config from '../wxt.config';
 
@@ -39,8 +42,34 @@ describe('extension manifest', () => {
       'scripting',
       'contextMenus',
     ]);
-    expect(chromeManifest).not.toHaveProperty('host_permissions');
+    expect(chromeManifest.host_permissions).toEqual([]);
     expect(chromeManifest.optional_host_permissions).toEqual(['https://*/*', 'http://*/*']);
+  });
+
+  it('keeps the mail hosts as runtime optional origins, not install-time access', () => {
+    expect([...MAIL_HOST_PATTERNS]).toEqual([
+      'https://mail.google.com/*',
+      'https://outlook.live.com/*',
+      'https://outlook.office.com/*',
+      'https://outlook.office365.com/*',
+      'https://outlook.cloud.microsoft/*',
+    ]);
+    expect(chromeManifest.host_permissions).not.toEqual(
+      expect.arrayContaining([...MAIL_HOST_PATTERNS]),
+    );
+  });
+
+  it('registers the mail bundles at runtime instead of as static content scripts', () => {
+    const scripts =
+      (chromeManifest.content_scripts as Array<{ matches?: string[] }> | undefined) ?? [];
+    const staticMatches = scripts.flatMap((script) => script.matches ?? []);
+    for (const origin of MAIL_HOST_PATTERNS) expect(staticMatches).not.toContain(origin);
+
+    for (const file of ['mail.content.ts', 'mail-early.content.ts'] as const) {
+      const source = readFileSync(new URL(`../src/entrypoints/${file}`, import.meta.url), 'utf8');
+      expect(source).toContain("registration: 'runtime'");
+      expect(source).not.toContain('matches:');
+    }
   });
 
   it('sets a minimum Chrome version that supports offscreen documents', () => {
@@ -73,14 +102,30 @@ describe('extension manifest', () => {
         suggested_key: { default: 'Alt+T', mac: 'Alt+T' },
         description: '__MSG_commandCompose__',
       },
+      // Opening a PDF is a separate action: Chrome's viewer has no page the content script
+      // could reach, so the background opens the document in the extension's own reader. It
+      // carries no suggested key, which is the one way Chrome accepts a fifth command.
+      'translate-pdf': {
+        description: '__MSG_commandPdf__',
+      },
     });
     expect(chromeManifest.permissions).toContain('contextMenus');
     const commands = chromeManifest.commands as Record<string, { suggested_key?: unknown }>;
-    const withSuggested = Object.values(commands).filter(
-      (command) => command.suggested_key !== undefined,
-    );
-    expect(withSuggested).toHaveLength(4);
     expect(commands).not.toHaveProperty('_execute_action');
+  });
+
+  /**
+   * Chrome refuses to load the whole extension when a fifth command asks for a key:
+   * `Too many shortcuts specified for 'commands': The maximum is 4`. That is not a warning —
+   * the add-on simply does not start — so the count is pinned here rather than left to a
+   * reviewer to notice. The PDF command is the fifth command and carries no key for exactly
+   * this reason.
+   */
+  it('asks for a key on no more commands than Chrome allows', () => {
+    const commands = Object.values(
+      chromeManifest.commands as Record<string, { suggested_key?: unknown }>,
+    ).filter((command) => command.suggested_key !== undefined);
+    expect(commands).toHaveLength(MAX_SUGGESTED_SHORTCUTS);
   });
 
   /**
@@ -122,6 +167,7 @@ describe('Firefox manifest', () => {
       'contextMenus',
     ]);
     expect(firefoxManifest.permissions).not.toContain('offscreen');
+    expect(firefoxManifest.host_permissions).toEqual([]);
     expect(firefoxManifest.optional_host_permissions).toEqual(['https://*/*', 'http://*/*']);
     expect(firefoxManifest).not.toHaveProperty('optional_permissions');
     expect(firefoxManifest).not.toHaveProperty('minimum_chrome_version');
@@ -150,6 +196,11 @@ describe('Firefox manifest', () => {
       expect(commands[name]?.suggested_key.default, name).toBe(shortcut);
       expect(commands[name]?.suggested_key, name).not.toHaveProperty('mac');
     }
+    // The PDF command is declared for Firefox too, and likewise carries no key: the four page
+    // commands use up Chrome's allowance of four, and one manifest shape is easier to keep
+    // correct than two that differ only in a limit one of them has.
+    expect(commands['translate-pdf']).not.toHaveProperty('suggested_key');
+    expect(commands['translate-pdf']).toHaveProperty('description', '__MSG_commandPdf__');
   });
 
   it('keeps the same CSP as Chrome so wasm can compile', () => {

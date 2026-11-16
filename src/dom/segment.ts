@@ -10,6 +10,8 @@ import {
   isScreenReaderOnly,
   isTranslationExcluded,
   ownsText,
+  scriptPositionOf,
+  type ScriptPosition,
 } from './blocks';
 
 export interface TextSlot {
@@ -23,6 +25,8 @@ export interface InlineFrame {
   gaps: TextSlot[][];
   children: InlineFrame[];
   order: readonly ChildNode[];
+  /** Set on an atomic subscript/superscript placeholder. */
+  script?: ScriptPosition;
 }
 
 export interface SegmentModel {
@@ -98,6 +102,7 @@ export function buildSegment(block: Element): SegmentModel | null {
       return `i${String(nextId)}`;
     },
     frozen,
+    block,
   );
   const source = collapseSource(built.source);
 
@@ -139,7 +144,12 @@ function isLaidOutInline(element: Element): boolean {
   return display.startsWith('inline') || display === 'ruby' || display === 'ruby-text';
 }
 
-function buildFrame(element: Element, allocateId: () => string, freezeValues = false): BuiltFrame {
+function buildFrame(
+  element: Element,
+  allocateId: () => string,
+  freezeValues = false,
+  boundary?: Element,
+): BuiltFrame {
   // A container that owns text of its own is one segment, and a child that paints as its
   // own box — a flex item is blockified even as a `<span>` — has to fold in as a
   // placeholder: dropping it merges the words on either side and reorders them. A container
@@ -179,7 +189,26 @@ function buildFrame(element: Element, allocateId: () => string, freezeValues = f
       source += `<${id}>${child.textContent ?? ''}</${id}>`;
       continue;
     }
-    if (isTranslationExcluded(child)) continue;
+    // A subscript or superscript is content: the formula is wrong without its `4` or `12`.
+    // It holds its place as an atomic placeholder, so the model keeps the marker where the
+    // sentence had it while the element's own text stays in the DOM. Publisher spans that
+    // paint as a script (NLM classes, `vertical-align: sub|super`) take the same path.
+    const script = scriptPositionOf(child);
+    if (script && isLaidOutInline(child) && !child.matches('[translate="no"], .notranslate')) {
+      const id = allocateId();
+      children.push({
+        id,
+        element: child,
+        gaps: [],
+        children: [],
+        order: [...child.childNodes],
+        script,
+      });
+      gaps.push([]);
+      source += `<${id}>${child.textContent ?? ''}</${id}>`;
+      continue;
+    }
+    if (isTranslationExcluded(child, boundary)) continue;
     // Screen-reader-only text and collapsed panels are not translated on their own, so
     // they must not be folded into a parent's segment either: the model would translate
     // a label the reader cannot see, and its text would then change behind their back.
@@ -214,7 +243,7 @@ function buildFrame(element: Element, allocateId: () => string, freezeValues = f
     if (!foldChildren && !isLaidOutInline(child)) continue;
     if (child.shadowRoot && child.childNodes.length === 0) continue;
 
-    const inner = buildFrame(child, allocateId, freezeValues);
+    const inner = buildFrame(child, allocateId, freezeValues, boundary);
     if (inner.source.trim().length === 0) continue;
 
     const id = allocateId();

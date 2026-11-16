@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { selectBackend } from '@/engine/in-browser/backend';
-import { createWllamaRuntime, gpuEvidence, isRuntimeDead } from '@/engine/in-browser/runtime';
+import {
+  WEBGPU_LOAD_TIMEOUT_MS,
+  createWllamaRuntime,
+  gpuEvidence,
+  isRuntimeDead,
+} from '@/engine/in-browser/runtime';
 import type { WllamaLogger } from '@/engine/wllama/module';
 
 const native = vi.hoisted(() => ({
@@ -12,7 +17,7 @@ const native = vi.hoisted(() => ({
 vi.mock('@/engine/wllama', () => ({
   createWllama: vi.fn(async (options: { logger: WllamaLogger }) => ({
     loadModel: vi.fn(async (...args: unknown[]) => {
-      native.loadModel(...args);
+      await native.loadModel(...args);
       for (const line of native.log) options.logger.log(line);
     }),
     exit: native.exit,
@@ -24,7 +29,7 @@ const cpu = selectBackend({ webgpu: false, hardwareConcurrency: 8 });
 
 beforeEach(() => {
   native.log = [];
-  native.loadModel.mockClear();
+  native.loadModel.mockReset();
   native.exit.mockClear();
 });
 
@@ -94,6 +99,26 @@ describe('wllama runtime load', () => {
         log_level: 2,
       }),
     );
+  });
+
+  it('gives up a WebGPU load that never settles and terminates the worker', async () => {
+    vi.useFakeTimers();
+    try {
+      native.loadModel.mockImplementation(() => new Promise<never>(() => undefined));
+
+      const pending = createWllamaRuntime(new Blob(), gpu);
+      const rejection = expect(pending).rejects.toMatchObject({
+        code: 'gpu-unavailable',
+        detail: expect.stringContaining('timed out'),
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(WEBGPU_LOAD_TIMEOUT_MS);
+      await rejection;
+
+      expect(native.exit).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('asks for one thread when SharedArrayBuffer is unavailable', async () => {

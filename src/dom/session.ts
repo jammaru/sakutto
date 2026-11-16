@@ -21,7 +21,7 @@ import {
   isModelChangedError,
 } from '@/engine/errors';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
-import { mergeGlossary } from '@/shared/glossary';
+import { glossaryKey, mergeGlossary } from '@/shared/glossary';
 import {
   chooseTargetLanguage,
   effectivePageTarget,
@@ -29,7 +29,13 @@ import {
   isTargetLanguage,
   type TargetLanguage,
 } from '@/shared/languages';
-import type { Formality, Settings, TranslationPace } from '@/shared/settings';
+import {
+  TRANSLATION_POPUP_SIZE_DEFAULT,
+  TRANSLATION_POPUP_WIDTH_AUTO,
+  type Formality,
+  type Settings,
+  type TranslationPace,
+} from '@/shared/settings';
 import { canonicalPageLanguage, isAlreadyTargetLanguage, languageOf } from './detect';
 import {
   collectDocuments,
@@ -40,6 +46,7 @@ import {
   isFrozenInline,
   isOwnUi,
   isScreenReaderOnly,
+  isSubSuperscript,
   isTypingShortcutTarget,
   isTranslationExcluded,
   isTypedTextSelection,
@@ -112,6 +119,10 @@ export interface SessionPreferences {
   targetExplicit: boolean;
   form: Formality;
   display: 'replace' | 'bilingual';
+  /** Percent text size for the hover, selection, and status popups. */
+  popupSize?: number;
+  /** Selection popup width in em at 100% scale; `0` or missing means automatic width. */
+  popupWidth?: number;
   auto: SiteAuto;
   host: string;
   context: boolean;
@@ -204,6 +215,8 @@ export interface PageSessionOptions {
   pageKey?: (event: KeyboardEvent) => boolean;
   /** Bilingual toggle. Used when Chrome left that command unbound. */
   bilingualKey?: (event: KeyboardEvent) => boolean;
+  /** Saves a width chosen by dragging or keyboard, in em at 100% text scale. */
+  onPopupWidth?: (widthEm: number) => void | Promise<void>;
 }
 
 export function preferencesFor(
@@ -219,6 +232,8 @@ export function preferencesFor(
     targetExplicit: true,
     form: settings.form,
     display: rule.display ?? settings.display,
+    popupSize: settings.translationPopupSize,
+    popupWidth: settings.translationPopupWidth,
     auto: rule.auto,
     host,
     context: false,
@@ -237,6 +252,7 @@ export class PageSession {
   private readonly debounceMs: number;
   private readonly onSitePatch: PageSessionOptions['onSitePatch'];
   private readonly onGrantSite: PageSessionOptions['onGrantSite'];
+  private readonly onPopupWidth: PageSessionOptions['onPopupWidth'];
   private readonly selectionKey: (event: KeyboardEvent) => boolean;
   private readonly pageKey: ((event: KeyboardEvent) => boolean) | undefined;
   private readonly bilingualKey: ((event: KeyboardEvent) => boolean) | undefined;
@@ -332,6 +348,7 @@ export class PageSession {
     this.debounceMs = options.debounceMs ?? 120;
     this.onSitePatch = options.onSitePatch;
     this.onGrantSite = options.onGrantSite;
+    this.onPopupWidth = options.onPopupWidth;
     this.selectionKey = options.selectionKey ?? isPlainAltS;
     this.pageKey = options.pageKey;
     this.bilingualKey = options.bilingualKey;
@@ -343,6 +360,12 @@ export class PageSession {
         else callback();
       });
     this.overlay = new PageOverlay(doc, options.labels);
+    this.overlay.setPopupTextScale(this.prefs.popupSize ?? TRANSLATION_POPUP_SIZE_DEFAULT);
+    this.overlay.setPopupWidth(this.prefs.popupWidth ?? TRANSLATION_POPUP_WIDTH_AUTO);
+    this.overlay.setOnPopupWidth((width) => {
+      this.prefs = { ...this.prefs, popupWidth: width };
+      void this.onPopupWidth?.(width);
+    });
     this.overlay.setOnClose(() => this.dismissSelection());
     this.overlay.setOnSelectionIcon(() => this.activateSelectionIcon());
     this.overlay.setBarActions({
@@ -483,6 +506,18 @@ export class PageSession {
       this.bindVisibility();
     }
     if (next.display !== previous.display) this.repaintAll();
+    if (
+      (next.popupSize ?? TRANSLATION_POPUP_SIZE_DEFAULT) !==
+      (previous.popupSize ?? TRANSLATION_POPUP_SIZE_DEFAULT)
+    ) {
+      this.overlay.setPopupTextScale(this.prefs.popupSize ?? TRANSLATION_POPUP_SIZE_DEFAULT);
+    }
+    if (
+      (next.popupWidth ?? TRANSLATION_POPUP_WIDTH_AUTO) !==
+      (previous.popupWidth ?? TRANSLATION_POPUP_WIDTH_AUTO)
+    ) {
+      this.overlay.setPopupWidth(this.prefs.popupWidth ?? TRANSLATION_POPUP_WIDTH_AUTO);
+    }
     if (next.auto !== previous.auto && this.active) this.publishState();
     const languageChanged =
       next.targetLanguage !== previous.targetLanguage ||
@@ -917,9 +952,19 @@ export class PageSession {
    */
   private addBlock(block: Element, index: number): void {
     if (this.liveByBlock.has(block)) return;
-    if (isAlreadyTargetLanguage(block, this.prefs.targetLanguage, this.detectedLanguage)) return;
 
     const model = buildSegment(block);
+    if (
+      isAlreadyTargetLanguage(
+        block,
+        this.prefs.targetLanguage,
+        this.detectedLanguage,
+        model?.source ?? '',
+      )
+    ) {
+      return;
+    }
+
     if (!model) {
       // A container whose only text belongs to nested blocks is covered by those blocks.
       // Reporting it would turn every page with a menu or a form into a partial result.
@@ -949,7 +994,7 @@ export class PageSession {
       heading: /^H[1-6]$/u.test(block.tagName),
       solo: model.source.includes('\n'),
       kind: contentKind(block),
-      lang: languageOf(block, this.detectedLanguage),
+      lang: languageOf(block, this.detectedLanguage, model.source),
       index,
       band: bandForRect(block.getBoundingClientRect(), viewportHeight(block)),
       state: 'idle',
@@ -2325,7 +2370,7 @@ function ownProse(block: Element, target: string | null): boolean {
     // Everything the segment builder drops from the source text. A <style> or <script>
     // inside a block is excluded the same way; its CSS is not prose the reader sees.
     if (isTranslationExcluded(child)) continue;
-    if (isFrozenInline(child)) continue;
+    if (isFrozenInline(child) && !isSubSuperscript(child)) continue;
     if (isScreenReaderOnly(child)) continue;
     if (isAriaHiddenLeaf(child)) continue;
     if (target !== null && isAlreadyTargetLanguage(child, target, null)) continue;
@@ -2352,10 +2397,6 @@ function locationChanged(before: string, url: string | URL | null | undefined): 
 
 function openPlaceholderCount(source: string): number {
   return [...source.matchAll(/<i\d+>/g)].length;
-}
-
-function glossaryKey(glossary: readonly GlossaryEntry[] | undefined): string {
-  return (glossary ?? []).map((entry) => `${entry.source}\u0000${entry.target}`).join('\u0001');
 }
 
 function expandSource(item: Live): { id: string; text: string }[] {

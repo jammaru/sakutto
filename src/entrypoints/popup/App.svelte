@@ -29,6 +29,14 @@
   import type { Settings } from '@/shared/settings';
   import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
   import {
+    isPdfInspectResult,
+    isPdfOpenResult,
+    looksLikePdfUrl,
+    type PdfInspectRequest,
+    type PdfOpenRequest,
+    type PdfOpenReason,
+  } from '@/shared/pdf';
+  import {
     loadSiteRule,
     pageHost,
     siteAccessOrigins,
@@ -42,6 +50,15 @@
     resolveCaptionToggle,
     settleCaptionEnableIntent,
   } from '@/captions/sites';
+  import {
+    clearMailEnableIntent,
+    hasMailOriginAccess,
+    isMailHost,
+    markMailEnableIntent,
+    requestMailHostAccess,
+    settleMailEnableIntent,
+    syncMailContentScripts,
+  } from '@/dom/mail-sites';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';
   import {
     effectivePageTarget,
@@ -89,7 +106,15 @@
   let commandBusy = $state(false);
   let permissionError = $state(false);
   let captionPermissionError = $state(false);
+  let mailAccessGranted = $state<boolean | null>(null);
+  let mailPermissionError = $state(false);
+  let mailPermissionBusy = $state(false);
+  let pdfUrl = $state('');
+  let pdfBusy = $state(false);
+  let pdfFailed = $state(false);
+  let pdfFailReason = $state<PdfOpenReason | null>(null);
   let engine = $state<EngineStatus | null>(null);
+  let engineStatusError = $state(false);
   let modelMark = $state<ModelStatus | null>(null);
   let quality = $state<QualitySample | null>(null);
   let headroom = $state<DeviceHeadroom | null>(null);
@@ -125,6 +150,13 @@
       ? tForBrowser('shortcutFallbackNote', 'shortcutFallbackNoteFirefox')
       : '',
   );
+  /**
+   * The hints under the shortcut button. A PDF tab shows the reader instead of page
+   * translation, so none of the page commands apply there. The PDF command has no suggested
+   * key either — Chrome allows four and the page commands use them all — so the list is
+   * empty on a PDF tab rather than naming a key the browser never bound.
+   */
+  let visibleShortcutLines = $derived(pdfUrl.length > 0 ? [] : shortcutLines);
   let toggleKeys = $derived(ariaShortcut(bound['translate-page']) ?? undefined);
 
   function keyText(command: ShortcutCommand): string {
@@ -137,6 +169,12 @@
   );
   let display = $derived(rule?.display ?? settings?.display ?? 'replace');
   let translated = $derived(view?.active === true);
+  let needsMailAccess = $derived(
+    settings?.gmailTranslateBanner === true &&
+      host !== null &&
+      isMailHost(host) &&
+      mailAccessGranted === false,
+  );
   let primaryLabel = $derived(translated ? t('restoreThisPage') : t('translateThisPage'));
   /**
    * The toolbar button starts a page translation, so it waits for the model the same way
@@ -155,6 +193,7 @@
     !canStart && shouldShowModelDownloadGate(engine ?? (modelMark ? { model: modelMark } : null)),
   );
   let engineText = $derived.by(() => {
+    if (!engine && engineStatusError) return t('runtimeError');
     const label = runtimeLabel({
       status: engine,
       pageSimple: view?.active === true && view.engine === 'chrome',
@@ -187,13 +226,36 @@
 
   async function refreshPage() {
     permissionError = false;
+    mailPermissionError = false;
+    mailAccessGranted = null;
+    pdfFailed = false;
+    pdfFailReason = null;
     try {
       const tabs = await browser.tabs.query({ active: true, currentWindow: true });
       const tab = tabs[0];
       tabId = tab?.id;
       pageUrl = tab?.url ?? '';
+      // A PDF tab shows Chrome's own viewer, which no content script can reach, so the popup
+      // offers the reader instead of the page controls. Paths that omit `.pdf` still count
+      // when the live document or the response is `application/pdf`.
+      pdfUrl = tab?.url && looksLikePdfUrl(tab.url) ? tab.url : '';
+      if (pdfUrl.length === 0 && tabId !== undefined) {
+        const inspected: unknown = await browser.runtime.sendMessage({
+          type: 'pdf:inspect',
+          tabId,
+        } satisfies PdfInspectRequest);
+        if (isPdfInspectResult(inspected) && inspected.pdf) pdfUrl = tab?.url ?? '';
+      }
       host = pageUrl ? pageHost(pageUrl) : null;
       pageReady = tabId !== undefined && host !== null;
+      if (host && isMailHost(host)) mailAccessGranted = await hasMailOriginAccess(host);
+      if (pdfUrl.length > 0) {
+        view = null;
+        rule = null;
+        pageMessage = 'ready';
+        pageReady = true;
+        return;
+      }
       if (!pageReady || !host || tabId === undefined) {
         view = null;
         rule = null;
@@ -218,10 +280,51 @@
     return next;
   }
 
-  async function refreshEngine() {
+  const ENGINE_STATUS_RETRY_MS = 1000;
+  const ENGINE_STATUS_RETRY_LIMIT = 4;
+  const ENGINE_STATUS_POLL_MS = 900;
+  let engineRetryCount = 0;
+  let engineRefreshTimer = 0;
+  let engineRequestGeneration = 0;
+  let popupMounted = false;
+
+  function scheduleEngineRefresh(delayMs: number) {
+    if (!popupMounted) return;
+    window.clearTimeout(engineRefreshTimer);
+    engineRefreshTimer = window.setTimeout(() => {
+      engineRefreshTimer = 0;
+      void refreshEngine();
+    }, delayMs);
+  }
+
+  /**
+   * A failed status fetch is not a final answer: the offscreen host may still be starting.
+   * Retry a few times, then stop saying "checking" and show an error instead. A loading model
+   * keeps polling until the host says it is usable, so the popup cannot stay on "waiting".
+   */
+  async function refreshEngine(): Promise<boolean> {
+    window.clearTimeout(engineRefreshTimer);
+    engineRefreshTimer = 0;
+    const generation = ++engineRequestGeneration;
     const next = await requestEngineStatus();
-    if (!next) return;
+    if (generation !== engineRequestGeneration) return false;
+
+    if (!next) {
+      engineStatusError = false;
+      if (engineRetryCount < ENGINE_STATUS_RETRY_LIMIT) {
+        engineRetryCount += 1;
+        scheduleEngineRefresh(ENGINE_STATUS_RETRY_MS);
+      } else {
+        engineStatusError = true;
+      }
+      return false;
+    }
+
+    engineRetryCount = 0;
+    engineStatusError = false;
     engine = { ...next, model: rememberModel(next.model) ?? next.model };
+    if (next.model.state === 'loading') scheduleEngineRefresh(ENGINE_STATUS_POLL_MS);
+    return true;
   }
 
   function applyProgress(status: ModelStatus) {
@@ -240,6 +343,9 @@
     if (!next) return;
     if (engine && engine.model.id === next.id) {
       engine = { ...engine, model: next };
+      // Backend and plamoReady can change under the same model id (notably WebGPU falling
+      // back to the CPU), so re-query instead of patching only the model field.
+      if (next.state === 'loaded' || next.state === 'ready') void refreshEngine();
       return;
     }
     void refreshEngine();
@@ -285,6 +391,33 @@
     }
   }
 
+  /**
+   * Opens the PDF the tab shows in the extension's reader.
+   *
+   * The background reads the bytes, stores them and opens the reader tab, because a popup
+   * closes as soon as it loses focus and a fetch from here would be cancelled halfway.
+   */
+  async function openPdf() {
+    if (pdfBusy || tabId === undefined || pdfUrl.length === 0) return;
+    pdfBusy = true;
+    pdfFailed = false;
+    pdfFailReason = null;
+    try {
+      const response: unknown = await browser.runtime.sendMessage({
+        type: 'pdf:open',
+        tabId,
+      } satisfies PdfOpenRequest);
+      if (!isPdfOpenResult(response) || !response.opened) {
+        pdfFailed = true;
+        pdfFailReason = isPdfOpenResult(response) && !response.opened ? response.reason : null;
+      }
+    } catch {
+      pdfFailed = true;
+    } finally {
+      pdfBusy = false;
+    }
+  }
+
   async function setVideoCaptions(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
     captionPermissionError = false;
@@ -311,6 +444,30 @@
     ) {
       await ensureContentScript(tabId);
     }
+  }
+
+  /**
+   * One-click grant for the Gmail/Outlook banner. Chrome closes the popup while its prompt
+   * is open, so the background also re-syncs and re-injects when `permissions.onAdded`
+   * fires. `permissions.request` must be the first awaited call in this click.
+   */
+  async function enableMailTranslation() {
+    if (mailPermissionBusy) return;
+    mailPermissionError = false;
+    mailPermissionBusy = true;
+    markMailEnableIntent();
+    const granted = await requestMailHostAccess();
+    if (!granted) {
+      mailPermissionBusy = false;
+      mailPermissionError = true;
+      await clearMailEnableIntent();
+      return;
+    }
+    await syncMailContentScripts();
+    await clearMailEnableIntent();
+    mailAccessGranted = true;
+    if (tabId !== undefined) await ensureContentScript(tabId);
+    mailPermissionBusy = false;
   }
 
   async function setAlways(event: Event) {
@@ -378,6 +535,7 @@
   }
 
   onMount(() => {
+    popupMounted = true;
     const unsubscribe = subscribeSettings((next) => {
       settings = next;
       settingsError = null;
@@ -401,6 +559,11 @@
 
     void settleCaptionEnableIntent().then((settled) => {
       if (settled.applied) void refreshSettings();
+    });
+    void settleMailEnableIntent().then((settled) => {
+      if (!settled.applied) return;
+      void refreshSettings();
+      void refreshPage();
     });
     void refreshSettings();
     void refreshPage();
@@ -427,6 +590,8 @@
     document.addEventListener('visibilitychange', scheduleShortcutRefresh);
 
     return () => {
+      popupMounted = false;
+      window.clearTimeout(engineRefreshTimer);
       unsubscribe();
       unsubscribeRules();
       window.clearInterval(timer);
@@ -448,18 +613,36 @@
     </div>
   </header>
 
-  <button
-    class="button block"
-    type="button"
-    aria-keyshortcuts={toggleKeys}
-    aria-busy={view?.pending ? 'true' : 'false'}
-    disabled={!pageReady || commandBusy || !canStart}
-    onclick={translatePage}
-  >
-    {primaryLabel}
-  </button>
+  {#if pdfUrl.length > 0}
+    <button
+      class="button block"
+      type="button"
+      aria-busy={pdfBusy ? 'true' : 'false'}
+      disabled={pdfBusy}
+      onclick={openPdf}
+    >
+      {t('openPdf')}
+    </button>
+    <p class="muted hint-text">{t('openPdfHint')}</p>
+    {#if pdfFailed}
+      <p class="error" role="alert">
+        {t(pdfFailReason === 'file-denied' ? 'pdfFileAccessDenied' : 'pdfOpenFailed')}
+      </p>
+    {/if}
+  {:else}
+    <button
+      class="button block"
+      type="button"
+      aria-keyshortcuts={toggleKeys}
+      aria-busy={view?.pending ? 'true' : 'false'}
+      disabled={!pageReady || commandBusy || !canStart}
+      onclick={translatePage}
+    >
+      {primaryLabel}
+    </button>
+  {/if}
 
-  {#if showDownloadGate}
+  {#if showDownloadGate && pdfUrl.length === 0}
     <div class="panel gate" role="status">
       <p class="muted">{t('pageStartBlocked')}</p>
       <button class="link-button" type="button" onclick={openOnboarding}>
@@ -478,7 +661,9 @@
     folder={engine?.sharedFolder}
     modelId={engine?.model.id}
     compact
-    onRestored={refreshEngine}
+    onRestored={async () => {
+      await refreshEngine();
+    }}
   />
   {#if engine?.engineSource === 'local-server'}
     <p class="muted">{t('localServerExperimental')}</p>
@@ -535,22 +720,24 @@
         {uiLanguage}
         onChange={(language: TargetLanguage) => void changeTarget(language)}
       />
-      <label class="field">
-        <span>{t('displayLabel')}</span>
-        <span class="hint">{t('displaySiteHint')}</span>
-        <select
-          value={display}
-          onchange={(event) => {
-            const select = event.currentTarget as HTMLSelectElement;
-            void rememberSite({
-              display: select.value === 'bilingual' ? 'bilingual' : 'replace',
-            });
-          }}
-        >
-          <option value="replace">{t('displayReplace')}</option>
-          <option value="bilingual">{t('displayBilingual')}</option>
-        </select>
-      </label>
+      {#if pdfUrl.length === 0}
+        <label class="field">
+          <span>{t('displayLabel')}</span>
+          <span class="hint">{t('displaySiteHint')}</span>
+          <select
+            value={display}
+            onchange={(event) => {
+              const select = event.currentTarget as HTMLSelectElement;
+              void rememberSite({
+                display: select.value === 'bilingual' ? 'bilingual' : 'replace',
+              });
+            }}
+          >
+            <option value="replace">{t('displayReplace')}</option>
+            <option value="bilingual">{t('displayBilingual')}</option>
+          </select>
+        </label>
+      {/if}
       <label class="check">
         <input type="checkbox" checked={rule?.auto === 'always'} onchange={setAlways} />
         <span>{t('alwaysTranslateSite')}</span>
@@ -563,6 +750,26 @@
     <p class="muted">
       {pageMessage === 'unread' ? t('errorPage') : t('pageStatusUnavailable')}
     </p>
+  {/if}
+
+  {#if settings && needsMailAccess}
+    <section class="panel mail-access" data-sakutto="mail-permission">
+      <p class="muted">{t('mailBannerAccessNeeded')}</p>
+      <button
+        class="button block"
+        type="button"
+        disabled={mailPermissionBusy}
+        data-sakutto="mail-permission-enable"
+        onclick={enableMailTranslation}
+      >
+        {t('mailBannerEnableForSite')}
+      </button>
+      {#if mailPermissionError}
+        <p class="error" role="alert" data-sakutto="mail-permission-denied">
+          {t('mailBannerPermissionDenied')}
+        </p>
+      {/if}
+    </section>
   {/if}
 
   {#if settings}
@@ -601,7 +808,7 @@
   {/if}
 
   <ul class="shortcuts">
-    {#each shortcutLines as line (line.label)}
+    {#each visibleShortcutLines as line (line.label)}
       <li>{line.text}</li>
     {/each}
   </ul>
@@ -673,6 +880,11 @@
 
   .hint {
     font-weight: 400;
+  }
+
+  .hint-text {
+    font-size: 12px;
+    line-height: 1.5;
   }
 
   .field,

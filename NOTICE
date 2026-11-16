@@ -16,6 +16,7 @@ Sakutto
 - wllama — MIT License — Copyright (c) 2024 Xuan Son NGUYEN。全文: licenses/wllama-LICENSE.txt
 - Emscripten runtime — MIT / University of Illinois/NCSA Open Source License — Copyright (c) 2010-2014 Emscripten authors。全文: licenses/emscripten-LICENSE.txt
 - Dawn emdawnwebgpu JavaScript library — BSD-3-Clause — Copyright 2017-2026 The Dawn & Tint Authors。全文: licenses/dawn-LICENSE.txt
+- pdf.js — Apache License 2.0 — Copyright Mozilla Foundation。全文: vendor/pdfjs/LICENSE-pdfjs.txt。あわせて CMaps（vendor/pdfjs/LICENSE-cmaps.txt）と標準フォントの代替（vendor/pdfjs/LICENSE-foxit.txt、vendor/pdfjs/LICENSE-liberation.txt）を同梱します。
 
 ベンチ用の文章:
 - scripts/bench/fixtures/kyoto.html は、英語版 Wikipedia の記事「Kyoto」を改変したローカル計測用の写しです。拡張パッケージには含めません。`scripts/verify-package.ts` は、zip に `kyoto.html` または `scripts/bench/` が入っていると失敗します。
@@ -32,5 +33,6 @@ Sakutto
 MIT が及ばないもの:
 - PLaMo 3 Translate の重み。PLaMo Community License です。zip には入れません。
 - 上記の Wikipedia 由来の計測用 HTML。
+- 同梱した pdf.js、その CMaps、標準フォントの代替（Apache License 2.0 ほか）。
 
 詳細な台帳: THIRD_PARTY_NOTICES.md

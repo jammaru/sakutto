@@ -149,3 +149,14 @@ describe('bench fixtures', () => {
     }
   });
 });
+
+describe('PDF bench host', () => {
+  it('applies the engine tier before the model starts loading', () => {
+    const source = readFileSync(new URL('../scripts/bench/pdf-run.ts', import.meta.url), 'utf8');
+    const prepare = source.slice(source.indexOf('async function prepareModel'));
+    const tier = prepare.indexOf("type: 'engine:tier'");
+    const status = prepare.indexOf("type: 'engine:status'");
+    expect(tier).toBeGreaterThan(0);
+    expect(status).toBeGreaterThan(tier);
+  });
+});

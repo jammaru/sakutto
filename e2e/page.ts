@@ -31,12 +31,22 @@ export async function resetExtensionStorage(
     translateVideoCaptions?: boolean;
     videoCaptionDisplay?: 'replace' | 'bilingual';
     captionCustomHosts?: string[];
+    translationPopupSize?: number;
+    translationPopupWidth?: number;
+    gmailTranslateBanner?: boolean;
+    gmailAutoTranslateLangs?: string[];
+    gmailNeverTranslateLangs?: string[];
   } = {},
 ): Promise<void> {
   const targetLanguage = options.targetLanguage ?? 'en';
   const translateVideoCaptions = options.translateVideoCaptions === true;
   const videoCaptionDisplay = options.videoCaptionDisplay ?? 'bilingual';
   const captionCustomHosts = options.captionCustomHosts ?? [];
+  const translationPopupSize = options.translationPopupSize ?? 100;
+  const translationPopupWidth = options.translationPopupWidth ?? 0;
+  const gmailTranslateBanner = options.gmailTranslateBanner !== false;
+  const gmailAutoTranslateLangs = options.gmailAutoTranslateLangs ?? [];
+  const gmailNeverTranslateLangs = options.gmailNeverTranslateLangs ?? [];
   const settings = {
     schemaVersion: 1,
     targetLanguage,
@@ -70,6 +80,11 @@ export async function resetExtensionStorage(
     translateVideoCaptions,
     videoCaptionDisplay,
     captionCustomHosts,
+    translationPopupSize,
+    translationPopupWidth,
+    gmailTranslateBanner,
+    gmailAutoTranslateLangs,
+    gmailNeverTranslateLangs,
   };
 
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -86,82 +101,116 @@ export async function resetExtensionStorage(
       const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
       const value = await chrome.storage.local.get('settings');
       return value.settings as
-        { translateVideoCaptions?: boolean; targetLanguage?: string } | undefined;
+        | {
+            translateVideoCaptions?: boolean;
+            targetLanguage?: string;
+            gmailTranslateBanner?: boolean;
+          }
+        | undefined;
     });
     if (
       stored?.translateVideoCaptions === translateVideoCaptions &&
-      stored.targetLanguage === targetLanguage
+      stored.targetLanguage === targetLanguage &&
+      stored.gmailTranslateBanner === gmailTranslateBanner
     ) {
       await new Promise((resolve) => setTimeout(resolve, 40));
       const again = await worker.evaluate(async () => {
         const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
         const value = await chrome.storage.local.get('settings');
-        return value.settings as { translateVideoCaptions?: boolean } | undefined;
+        return value.settings as
+          { translateVideoCaptions?: boolean; gmailTranslateBanner?: boolean } | undefined;
       });
-      if (again?.translateVideoCaptions === translateVideoCaptions) return;
+      if (
+        again?.translateVideoCaptions === translateVideoCaptions &&
+        again.gmailTranslateBanner === gmailTranslateBanner
+      ) {
+        return;
+      }
     }
     await new Promise((resolve) => setTimeout(resolve, 40));
   }
   throw new Error('extension settings did not stick');
 }
 
-export async function injectContentScript(worker: Worker, page: Page): Promise<void> {
+/** Hash fragments break `tabs.query({ url })`; match on origin and prefer the active tab. */
+export async function tabIdForPage(worker: Worker, page: Page): Promise<number> {
+  await page.bringToFront();
   const url = page.url();
-  await worker.evaluate(async (url) => {
+  return worker.evaluate(async (url) => {
     const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
-    const matched = await chrome.tabs.query({ url });
-    const lastFocused = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-    const current = await chrome.tabs.query({ active: true, currentWindow: true });
-    const tabId = matched[0]?.id ?? lastFocused[0]?.id ?? current[0]?.id;
-    if (tabId === undefined) throw new Error('fixture tab was not found');
+    let origin: string;
+    try {
+      origin = new URL(url).origin;
+    } catch {
+      throw new Error(`fixture url is not valid: ${url}`);
+    }
+    const withoutHash = url.split('#')[0];
+    const pattern = `${origin}/*`;
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const matched = await chrome.tabs.query({ url: pattern });
+      const active = await chrome.tabs.query({ active: true, currentWindow: true });
+      const exact = matched.find(
+        (tab) => tab.id !== undefined && (tab as { url?: string }).url === url,
+      );
+      const prefix = matched.find(
+        (tab) =>
+          tab.id !== undefined &&
+          ((tab as { url?: string }).url?.split('#')[0] === withoutHash ||
+            (tab as { url?: string }).url?.startsWith(`${withoutHash}`)),
+      );
+      const focusedActive = active.find(
+        (tab) => tab.id !== undefined && (tab as { url?: string }).url?.startsWith(origin),
+      );
+      const tabId = exact?.id ?? prefix?.id ?? focusedActive?.id ?? matched[0]?.id;
+      if (tabId !== undefined) return tabId;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    throw new Error('fixture tab was not found');
+  }, url);
+}
+
+export async function injectContentScript(worker: Worker, page: Page): Promise<void> {
+  const tabId = await tabIdForPage(worker, page);
+  await worker.evaluate(async (tabId) => {
+    const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
     await chrome.scripting.executeScript({
       target: { tabId },
       files: ['/content-scripts/content.js'],
     });
-  }, url);
+  }, tabId);
 }
 
 /** Waits until the content script's page session can answer, the way onCommand does. */
 export async function waitForContentSession(worker: Worker, page: Page): Promise<void> {
-  const url = page.url();
-  await worker.evaluate(async (url) => {
+  const tabId = await tabIdForPage(worker, page);
+  await worker.evaluate(async (tabId) => {
     const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
-    const matched = await chrome.tabs.query({ url });
-    const lastFocused = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-    const current = await chrome.tabs.query({ active: true, currentWindow: true });
-    const tabId = matched[0]?.id ?? lastFocused[0]?.id ?? current[0]?.id;
-    if (tabId === undefined) throw new Error('fixture tab was not found');
     await chrome.scripting.executeScript({
       target: { tabId },
       files: ['/content-scripts/content.js'],
     });
     const state = await chrome.tabs.sendMessage(tabId, { type: 'page:state' });
     if (!state || typeof state !== 'object') throw new Error('content session did not answer');
-  }, url);
+  }, tabId);
 }
 
 /** The same inject + `page:command` path `commands.onCommand` uses after it has a tab. */
 export async function invokeOnCommandPath(
   worker: Worker,
   page: Page,
-  command: 'toggle' | 'restore' | 'bilingual' | 'compose' = 'toggle',
+  command: 'toggle' | 'restore' | 'bilingual' | 'selection' | 'compose' = 'toggle',
 ): Promise<void> {
-  const url = page.url();
+  const tabId = await tabIdForPage(worker, page);
   await worker.evaluate(
-    async ({ url, command }) => {
+    async ({ tabId, command }) => {
       const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
-      const matched = await chrome.tabs.query({ url });
-      const lastFocused = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-      const current = await chrome.tabs.query({ active: true, currentWindow: true });
-      const tabId = matched[0]?.id ?? lastFocused[0]?.id ?? current[0]?.id;
-      if (tabId === undefined) throw new Error('fixture tab was not found');
       await chrome.scripting.executeScript({
         target: { tabId },
         files: ['/content-scripts/content.js'],
       });
       await chrome.tabs.sendMessage(tabId, { type: 'page:command', command });
     },
-    { url, command },
+    { tabId, command },
   );
 }
 
@@ -234,21 +283,17 @@ export async function commandPage(
   page: Page,
   command: 'toggle' | 'restore' | 'bilingual' | 'compose',
 ): Promise<void> {
-  const url = page.url();
+  const tabId = await tabIdForPage(worker, page);
   await worker.evaluate(
-    async ({ url, command }) => {
+    async ({ tabId, command }) => {
       const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
-      const matched = await chrome.tabs.query({ url });
-      const active = await chrome.tabs.query({ active: true, currentWindow: true });
-      const tabId = matched[0]?.id ?? active[0]?.id;
-      if (tabId === undefined) throw new Error('fixture tab was not found');
       await chrome.scripting.executeScript({
         target: { tabId },
         files: ['/content-scripts/content.js'],
       });
       await chrome.tabs.sendMessage(tabId, { type: 'page:command', command });
     },
-    { url, command },
+    { tabId, command },
   );
 }
 

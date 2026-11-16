@@ -6,6 +6,7 @@ import {
 } from './gpu-diagnostic';
 import { isRecord } from './object';
 import {
+  ADAPTER_OVERALL_TIMEOUT_MS,
   infoFromAdapter,
   requestAdapterWithPreferences,
   supportsFastBatches,
@@ -58,7 +59,10 @@ const ADAPTER_NOISE = /no available adapters/i;
  */
 const GPU_PROBE_FILE = 'gpu-probe.js';
 const GPU_PROBE_SOURCE = 'sakutto-gpu-probe';
+/** The iframe gets this long before the probe tries the page's own `navigator.gpu`. */
 const GPU_PROBE_TIMEOUT_MS = 4000;
+/** Frame plus same-page adapter attempts stay inside this bound. */
+const GPU_PROBE_TOTAL_TIMEOUT_MS = ADAPTER_OVERALL_TIMEOUT_MS;
 
 let adapterNoiseInstalled = false;
 let probeTask: Promise<EngineCapabilities> | null = null;
@@ -157,6 +161,7 @@ export function probeWebGpuAdapter(): Promise<WebGpuAdapterInfo> {
 }
 
 async function requestWebGpuAdapter(): Promise<WebGpuAdapterInfo> {
+  const startedAt = Date.now();
   await loadWebGpuDebugProfileFromStorage();
   const gpu = (navigator as NavigatorWithGpu).gpu;
   if (!gpu) {
@@ -173,7 +178,10 @@ async function requestWebGpuAdapter(): Promise<WebGpuAdapterInfo> {
     }
   }
   try {
-    const { adapter, attempts, error } = await requestAdapterWithPreferences(gpu);
+    const remaining = Math.max(1, GPU_PROBE_TOTAL_TIMEOUT_MS - (Date.now() - startedAt));
+    const { adapter, attempts, error } = await requestAdapterWithPreferences(gpu, {
+      overallMs: remaining,
+    });
     const info = infoFromAdapter(adapter, wgslDotProduct(gpu), { attempts, error });
     lastAdapterInfo = info;
     return info;

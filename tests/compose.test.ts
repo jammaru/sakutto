@@ -1215,4 +1215,30 @@ describe('compose controller', () => {
     if (!(host instanceof HTMLElement)) throw new Error('missing panel');
     expect(host.dataset.placement).toBe('below');
   });
+
+  it('scales only the translation preview with the popup size setting', async () => {
+    document.body.innerHTML = '<textarea id="box">Hello</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const controller = start(undefined, { popupSize: 150 });
+    controller.handleShortcut();
+    await vi.waitFor(() => {
+      expect(panelText()).toContain('§ja§');
+    });
+    const host = document.querySelector('sakutto-compose');
+    if (!(host instanceof HTMLElement)) throw new Error('missing panel');
+    expect(host.style.getPropertyValue('--sakutto-popup-scale')).toBe('1.5');
+    const card = composeShadow(host)?.querySelector('.card');
+    if (!(card instanceof HTMLElement)) throw new Error('missing compose card');
+    expect(card.style.getPropertyValue('--sakutto-popup-scale')).toBe('1.5');
+    const style = composeShadow(host)?.querySelector('style')?.textContent ?? '';
+    expect(style).toContain('font-size: calc(13px * var(--sakutto-popup-scale, 1))');
+
+    controller.setPreferences({ ...defaultPrefs, popupSize: 80 });
+    expect(host.style.getPropertyValue('--sakutto-popup-scale')).toBe('0.8');
+
+    controller.setPreferences({ ...defaultPrefs, popupSize: 300 });
+    expect(host.style.getPropertyValue('--sakutto-popup-scale')).toBe('2');
+  });
 });

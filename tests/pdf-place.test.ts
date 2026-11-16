@@ -1,0 +1,582 @@
+import { describe, expect, it } from 'vitest';
+import { groupLines } from '@/pdf/lines';
+import { layoutPage, type LayoutBlock, type PageLayout } from '@/pdf/layout';
+import { BODY_MIN_FONT_SIZE, BODY_MIN_SCALE, MIN_FONT_SIZE, MIN_SCALE } from '@/pdf/fit';
+import { pageMetrics, metricsPass } from '@/pdf/metrics';
+import { HINTING_WRAP } from '@/pdf/fit';
+import {
+  COVER_DESCENDER_EM,
+  DEFAULT_PAINT_SCALE,
+  HINTING_GROWTH,
+  blockSpansGutter,
+  clippedPaintWidth,
+  coverPaintLayout,
+  coverPaintOriginX,
+  coverPaintWidth,
+  drawnBox,
+  hintingPadPt,
+  overlapRegion,
+  paintedCoverOverlaps,
+  gutterSliverOverlap,
+  placePage,
+  resolveOverlaps,
+  verticalCut,
+  wrapWidth,
+  type PlacedBlock,
+} from '@/pdf/place';
+import type { TextLine } from '@/pdf/lines';
+import { coverInkOverflowPx } from '@/pdf/render';
+import { stubExpand } from '@/pdf/stub';
+import { measure, piece } from './support/pdf-pieces';
+
+function place(
+  lines: ReturnType<typeof groupLines>,
+  figures?: Parameters<typeof layoutPage>[1],
+  pageHeight = 800,
+) {
+  const layout = layoutPage(lines, figures, { height: pageHeight });
+  const placed = placePage({
+    layout,
+    translationOf: (block) => stubExpand(block.text),
+    target: 'ja',
+    measure: (_block, text, size) => measure(text, size),
+    pageHeight,
+  });
+  return {
+    layout,
+    placed,
+    metrics: pageMetrics(layout, placed, { x: 0, y: 0, width: 600, height: pageHeight }),
+  };
+}
+
+describe('placePage', () => {
+  it('fits a two-column page without overlapping boxes', () => {
+    const lines = groupLines([
+      piece('left top line that fills the column of the page with prose', 40, 100, 240),
+      piece('left bottom line that fills the column too and continues', 40, 112, 240),
+      piece('A following paragraph in the same left column of the page.', 40, 140, 240),
+      piece('right top line that fills the other column of the page', 320, 100, 240),
+      piece('right bottom line that fills it as well with more words', 320, 112, 240),
+      piece('A following paragraph in the same right-hand column too.', 320, 140, 240),
+    ]);
+    const { metrics, placed } = place(lines);
+    expect(metrics.overlapPairs).toBe(0);
+    expect(paintedCoverOverlaps(placed)).toBe(0);
+    expect(metrics.prosePainted).toBeGreaterThanOrEqual(0.85);
+    expect(metricsPass(metrics)).toBe(true);
+  });
+
+  it('does not paint a translation that cannot fit, so the source stays', () => {
+    const lines = groupLines([
+      piece('A heading', 40, 80, 80, { em: 14, bold: true }),
+      piece('tiny', 40, 100, 20, { em: 10 }),
+    ]);
+    const layout = layoutPage(lines);
+    const heading = layout.blocks.find((block) => block.role === 'heading');
+    if (!heading) throw new Error('expected a heading');
+    const placed = placePage({
+      layout,
+      translationOf: (block) => (block === heading ? 'あ'.repeat(400) : stubExpand(block.text)),
+      target: 'ja',
+      measure: (_block, text, size) => measure(text, size),
+      pageHeight: 400,
+    });
+    const painted = placed.find((entry) => entry.block === heading);
+    expect(painted?.paint).toBe(false);
+    expect(painted?.fit?.fits).toBe(false);
+    expect(painted?.overflow).toBe(true);
+    expect(painted?.translation.length).toBeGreaterThan(0);
+  });
+
+  it('never shrinks below the readable floor', () => {
+    const lines = groupLines([
+      piece(
+        'A reader who wants an article in Japanese has three choices on this page.',
+        40,
+        100,
+        260,
+      ),
+      piece(
+        'The second line continues the same paragraph with more English words here.',
+        40,
+        112,
+        260,
+      ),
+      piece(
+        'A following paragraph in the same column keeps the first one from growing.',
+        40,
+        128,
+        260,
+      ),
+    ]);
+    const { placed } = place(lines);
+    for (const entry of placed) {
+      if (!entry.paint || !entry.fit) continue;
+      const body = entry.block.role === 'prose' && entry.block.fontSize >= 9 - 1e-9;
+      const floor = body
+        ? Math.max(entry.block.fontSize * BODY_MIN_SCALE, BODY_MIN_FONT_SIZE)
+        : Math.max(entry.block.fontSize * MIN_SCALE, MIN_FONT_SIZE);
+      expect(entry.fit.fontSize).toBeGreaterThanOrEqual(floor - 1e-9);
+    }
+  });
+
+  it('does not let two cells in a row paint over each other', () => {
+    const lines = groupLines([
+      piece('Name', 40, 100, 40, { em: 8 }),
+      piece('Value', 120, 100, 40, { em: 8 }),
+      piece('pieceChars', 40, 114, 50, { em: 8 }),
+      piece('Longest block', 120, 114, 70, { em: 8 }),
+    ]);
+    const { placed, metrics } = place(lines);
+    const painted = placed.filter((entry) => entry.paint && entry.drawn);
+    expect(painted.length).toBeGreaterThanOrEqual(3);
+    expect(metrics.overlapPairs).toBe(0);
+    for (let left = 0; left < painted.length; left += 1) {
+      for (let right = left + 1; right < painted.length; right += 1) {
+        const a = painted[left]?.drawn;
+        const b = painted[right]?.drawn;
+        if (!a || !b) continue;
+        const overlapX = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+        const overlapY = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+        expect(overlapX <= 0 || overlapY <= 0).toBe(true);
+      }
+    }
+  });
+
+  it('grows a last paragraph toward the foot of the page, not the highest neighbour', () => {
+    const lines = groupLines([
+      piece('Title of the document that sits at the top of the page', 40, 40, 400, {
+        em: 16,
+        bold: true,
+      }),
+      piece(
+        'A long closing paragraph that needs room below it to take a longer translation of the same words.',
+        40,
+        400,
+        400,
+      ),
+      piece(
+        'It continues on a second line so the block is more than a single row of text on the page.',
+        40,
+        412,
+        400,
+      ),
+    ]);
+    const { placed } = place(lines, undefined, 700);
+    const prose = placed.find((entry) => entry.block.role === 'prose');
+    expect(prose?.paint).toBe(true);
+    expect(prose?.fit && prose.fit.fits).toBe(true);
+  });
+
+  it('grows a paragraph when a figure sits beside it rather than under it', () => {
+    const lines = groupLines([
+      piece(
+        'A paragraph beside a drawing still has empty space under its own words on this page.',
+        40,
+        120,
+        200,
+      ),
+    ]);
+    const layout = layoutPage(
+      lines,
+      { images: [{ x: 260, y: 80, width: 160, height: 220 }] },
+      { height: 800, width: 500 },
+    );
+    const placed = placePage({
+      layout,
+      translationOf: (block) => stubExpand(block.text),
+      target: 'ja',
+      measure: (_block, text, size) => measure(text, size),
+      pageHeight: 800,
+      pageWidth: 500,
+    });
+    expect(placed.some((entry) => entry.paint || entry.overflow)).toBe(true);
+    expect(
+      placed.every((entry) => entry.paint || entry.overflow || entry.translation.length === 0),
+    ).toBe(true);
+  });
+
+  it('does not widen a paragraph into the column beside a block just above it', () => {
+    const left: LayoutBlock = {
+      box: { x: 40, y: 120, width: 250, height: 10 },
+      room: { x: 40, y: 120, width: 250, height: 10 },
+      lines: [],
+      text: 'A synthetic paragraph beside a neighbouring column.',
+      role: 'prose',
+      fontSize: 10,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 250,
+      writing: 0,
+    };
+    const nearby = { x: 300, y: 90, width: 200, height: 20 };
+    const width = wrapWidth(left, [nearby], 600);
+    expect(left.box.x + width).toBeLessThanOrEqual(nearby.x);
+    const farAbove = { ...nearby, y: 40 };
+    const wider = wrapWidth(left, [farAbove], 600);
+    expect(left.box.x + wider).toBeGreaterThan(nearby.x);
+  });
+
+  it('counts prose-like skipped blocks in the painted-only denominator', () => {
+    const lines = groupLines([
+      piece('This sentence is prose but was skipped as a figure label.', 40, 100, 300),
+    ]);
+    const block: LayoutBlock = {
+      box: { x: 40, y: 90, width: 300, height: 10 },
+      room: { x: 40, y: 90, width: 300, height: 10 },
+      lines,
+      text: 'This sentence is prose but was skipped as a figure label.',
+      role: 'figure-label',
+      fontSize: 10,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 300,
+      writing: 0,
+    };
+    const layout: PageLayout = {
+      blocks: [],
+      skipped: [block],
+      bodySize: 10,
+      lineHeight: 12,
+      pageHeight: 800,
+      pageWidth: 600,
+      pageIndex: 0,
+      obstacles: [{ x: 30, y: 80, width: 330, height: 30 }],
+    };
+    const metrics = pageMetrics(layout, []);
+    expect(metrics.prosePaintedOnly).toBe(0);
+    expect(metrics.proseCovered).toBe(0);
+    expect(metricsPass(metrics)).toBe(false);
+    const diagramLayout: PageLayout = {
+      ...layout,
+      skipped: [{ ...block, fontSize: 6 }],
+    };
+    expect(pageMetrics(diagramLayout, []).prosePaintedOnly).toBe(1);
+    const codeLayout: PageLayout = {
+      ...layout,
+      skipped: [{ ...block, role: 'code' }],
+    };
+    expect(pageMetrics(codeLayout, []).prosePaintedOnly).toBe(1);
+  });
+
+  it('fails metrics when a page-sized figure cluster turns the body into labels', () => {
+    const lines = groupLines([
+      piece('Fitting Translated Text Into a Page Layout', 40, 80, 400, { em: 16, bold: true }),
+      piece('Encoder', 80, 200, 50),
+      piece('Decoder', 80, 230, 50),
+      piece('Loss', 80, 260, 40),
+    ]);
+    const layout = layoutPage(
+      lines,
+      { images: [{ x: 0, y: 0, width: 600, height: 800 }] },
+      { width: 600, height: 800 },
+    );
+    const placed = placePage({
+      layout,
+      translationOf: (block) => stubExpand(block.text),
+      target: 'ja',
+      measure: (_block, text, size) => measure(text, size),
+      pageHeight: 800,
+      pageWidth: 600,
+    });
+    const metrics = pageMetrics(layout, placed, { x: 0, y: 0, width: 600, height: 800 });
+    expect(metrics.figureAreaShare).toBeGreaterThan(0.5);
+    expect(metricsPass(metrics)).toBe(false);
+  });
+
+  it('covers 0.22em of descenders without counting that pad as overlap', () => {
+    expect(COVER_DESCENDER_EM).toBe(0.22);
+    const lines = groupLines([
+      piece('A heading that hangs glyphs', 40, 80, 220, { em: 14, bold: true }),
+      piece(
+        'A body paragraph under the heading that keeps going across the column of the page.',
+        40,
+        110,
+        260,
+      ),
+    ]);
+    const { placed } = place(lines);
+    const painted = placed.filter((entry) => entry.paint && entry.drawn);
+    expect(painted.length).toBeGreaterThan(0);
+    expect(paintedCoverOverlaps(placed)).toBe(0);
+    for (const entry of painted) {
+      const need = entry.block.box.height + entry.block.fontSize * 0.22;
+      expect(verticalCut(entry)).toBe(0);
+      expect(entry.drawn?.height ?? 0).toBeGreaterThanOrEqual(need - 0.01);
+      const region = overlapRegion(entry);
+      expect(region?.height ?? 0).toBeLessThanOrEqual(
+        Math.max(entry.block.box.height, entry.fit?.height ?? 0) + 0.01,
+      );
+    }
+  });
+
+  it('paints at least the wrap width when capToPage trims the drawn box', () => {
+    const fitWidth = 120;
+    const drawnWidth = 119.4;
+    expect(coverPaintWidth(fitWidth, drawnWidth)).toBeGreaterThan(fitWidth);
+    expect(coverPaintWidth(fitWidth, drawnWidth)).toBeCloseTo(
+      fitWidth + hintingPadPt(DEFAULT_PAINT_SCALE),
+      5,
+    );
+    const lines = groupLines([
+      piece(
+        'A body paragraph that fills the column and continues across the page with more words.',
+        40,
+        100,
+        260,
+      ),
+    ]);
+    const { placed } = place(lines);
+    const painted = placed.filter((entry) => entry.paint && entry.fit && entry.drawn);
+    expect(painted.length).toBeGreaterThan(0);
+    for (const entry of painted) {
+      if (!entry.fit || !entry.drawn) continue;
+      expect(coverPaintWidth(entry.fit.width, entry.drawn.width)).toBeGreaterThanOrEqual(
+        entry.fit.width,
+      );
+      expect(clippedPaintWidth(entry, measure)).toBeLessThanOrEqual(0.01);
+    }
+  });
+
+  it('leaves hinting headroom so a scaled CSS line is not clipped', () => {
+    expect(HINTING_WRAP * HINTING_GROWTH).toBeLessThanOrEqual(1);
+    const wrap = 200;
+    const line = wrap * HINTING_WRAP;
+    const hinted = line * HINTING_GROWTH;
+    const painted = coverPaintWidth(wrap, wrap);
+    expect(hinted).toBeLessThanOrEqual(painted);
+    expect(coverPaintOriginX(40, 100, 103, 'left')).toBe(40);
+    expect(coverPaintOriginX(40, 100, 103, 'right')).toBe(37);
+    expect(coverPaintOriginX(40, 100, 103, 'center')).toBe(38.5);
+    expect(coverInkOverflowPx({ scrollWidth: 100, clientWidth: 100 })).toBe(0);
+    expect(coverInkOverflowPx({ scrollWidth: 102.4, clientWidth: 100 })).toBeCloseTo(2.4, 5);
+  });
+
+  it('paints a mid-line fragment beside a wide cover on the same row', () => {
+    const em = 12;
+    const baseline = 100 + em * 0.8;
+    const wideLines = groupLines([piece('Synthetic opening text.', 40, baseline, 240, { em })]);
+    const fragLines = groupLines([piece('tail phrase.', 200, baseline, 72, { em })]);
+    const wideLine = wideLines[0];
+    const fragLine = fragLines[0];
+    if (!wideLine || !fragLine) throw new Error('expected synthetic lines');
+    const wide = {
+      box: { x: 40, y: 100, width: 240, height: 12 },
+      room: { x: 40, y: 100, width: 240, height: 12 },
+      lines: wideLines,
+      text: 'Synthetic opening text.',
+      role: 'prose' as const,
+      fontSize: 10,
+      lineHeight: 1.2,
+      align: 'left' as const,
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 240,
+      writing: 0,
+    } satisfies LayoutBlock;
+    const fragment = {
+      box: { x: 200, y: 100, width: 72, height: 12 },
+      room: { x: 200, y: 100, width: 72, height: 12 },
+      lines: fragLines,
+      text: 'tail phrase.',
+      role: 'prose' as const,
+      fontSize: 10,
+      lineHeight: 1.2,
+      align: 'left' as const,
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 72,
+      writing: 0,
+    } satisfies LayoutBlock;
+    const placed: PlacedBlock[] = [
+      {
+        block: wide,
+        translation: '幅広い文。',
+        fit: {
+          fits: true,
+          fontSize: 10,
+          lineHeight: 12,
+          lines: ['幅広い文。'],
+          height: 12,
+          grown: false,
+          width: 240,
+        },
+        paint: true,
+        overflow: false,
+        drawn: { x: 40, y: 100, width: 240, height: 14 },
+      },
+      {
+        block: fragment,
+        translation: '尾部。',
+        fit: {
+          fits: true,
+          fontSize: 10,
+          lineHeight: 12,
+          lines: ['尾部。'],
+          height: 12,
+          grown: false,
+          width: 72,
+        },
+        paint: true,
+        overflow: false,
+        drawn: { x: 200, y: 100, width: 72, height: 14 },
+      },
+    ];
+    const resolved = resolveOverlaps(placed, 600);
+    expect(resolved.every((entry) => entry.paint)).toBe(true);
+    expect(paintedCoverOverlaps(resolved, 600)).toBe(0);
+  });
+
+  it('keeps the larger block painted when two covers overlap', () => {
+    const makeBlock = (box: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }): LayoutBlock => ({
+      box,
+      room: box,
+      lines: [],
+      text: 'Synthetic overlap text.',
+      role: 'prose',
+      fontSize: 10,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: box.width,
+      writing: 0,
+    });
+    const entry = (block: LayoutBlock): PlacedBlock => ({
+      block,
+      translation: '重なった訳文です。',
+      fit: {
+        fits: true,
+        fontSize: block.fontSize,
+        lineHeight: block.fontSize * block.lineHeight,
+        lines: ['重なった訳文です。'],
+        height: block.box.height,
+        grown: false,
+        width: block.box.width,
+      },
+      paint: true,
+      overflow: false,
+      drawn: { ...block.box },
+    });
+    const large = makeBlock({ x: 40, y: 80, width: 240, height: 48 });
+    const small = makeBlock({ x: 60, y: 90, width: 60, height: 12 });
+    const resolved = resolveOverlaps([entry(small), entry(large)]);
+    const kept = resolved.find((candidate) => candidate.block === large);
+    const dropped = resolved.find((candidate) => candidate.block === small);
+    expect(kept?.paint).toBe(true);
+    expect(kept?.drawn).not.toBeNull();
+    expect(dropped?.paint).toBe(false);
+    expect(dropped?.drawn).toBeNull();
+    expect(dropped?.overflow).toBe(true);
+  });
+
+  it('column-caps from geometry when metadata column is wrong', () => {
+    const pageWidth = 595;
+    const gutter = pageWidth * 0.49;
+    const rightBlock: LayoutBlock = {
+      box: { x: 309, y: 200, width: 238, height: 36 },
+      room: { x: 309, y: 200, width: 238, height: 36 },
+      lines: groupLines([piece('right column paragraph', 309, 212, 238)]),
+      text: 'right column paragraph continues here',
+      role: 'prose',
+      fontSize: 10,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 238,
+      writing: 0,
+    };
+    const fit = {
+      fits: true as const,
+      fontSize: 10,
+      lineHeight: 12,
+      lines: ['右カラムの本文です。'],
+      height: 24,
+      grown: false,
+      width: 250,
+    };
+    const drawn = drawnBox(rightBlock, fit, fit.width, pageWidth);
+    expect(drawn.width).toBeGreaterThan(100);
+    expect(drawn.x).toBeGreaterThanOrEqual(gutter - 2);
+    const paint = coverPaintLayout(rightBlock, fit.width, drawn, DEFAULT_PAINT_SCALE, pageWidth);
+    expect(paint.x + paint.width).toBeLessThanOrEqual(pageWidth);
+  });
+
+  it('does not column-cap covers for lines that span the gutter', () => {
+    const pageWidth = 595;
+    const gutter = pageWidth * 0.49;
+    const line = (x: number, width: number): TextLine =>
+      groupLines([piece('author line', x, 112, width)])[0]!;
+    const authorBlock: LayoutBlock = {
+      box: { x: 126, y: 100, width: 420, height: 24 },
+      room: { x: 126, y: 100, width: 170, height: 24 },
+      lines: [line(126, 420), line(134, 412), line(186, 360)],
+      text: 'A. Example and others',
+      role: 'prose',
+      fontSize: 9,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 420,
+      writing: 0,
+    };
+    expect(blockSpansGutter(authorBlock, pageWidth)).toBe(true);
+    const fit = {
+      fits: true as const,
+      fontSize: 9,
+      lineHeight: 11,
+      lines: ['著者名の並び'],
+      height: 22,
+      grown: false,
+      width: 462,
+    };
+    const drawn = drawnBox(authorBlock, fit, fit.width, pageWidth);
+    expect(drawn.width).toBeGreaterThan(gutter - authorBlock.box.x);
+    const paint = coverPaintLayout(authorBlock, fit.width, drawn, DEFAULT_PAINT_SCALE, pageWidth);
+    expect(paint.width).toBeGreaterThan(gutter - paint.x + 20);
+  });
+
+  it('ignores gutter slivers when two columns barely touch', () => {
+    const left = { x: 48, y: 100, width: 248, height: 12 };
+    const right = { x: 294, y: 100, width: 250, height: 12 };
+    expect(gutterSliverOverlap(left, right, 0, 1, 595)).toBe(true);
+    const separated = { x: 320, y: 100, width: 250, height: 12 };
+    expect(gutterSliverOverlap(left, separated, 0, 1, 595)).toBe(false);
+  });
+
+  it('does not clip a narrow table cell; overflow goes to a marker', () => {
+    const lines = groupLines([piece('Maximum', 40, 100, 18, { em: 10 })]);
+    const { placed } = place(lines);
+    expect(placed.length).toBeGreaterThan(0);
+    for (const entry of placed) {
+      expect(clippedPaintWidth(entry, measure)).toBeLessThanOrEqual(0.01);
+      if (entry.translation.trim().length > 0) {
+        expect(entry.paint || entry.overflow).toBe(true);
+      }
+      if (entry.paint && entry.fit && entry.drawn) {
+        const painted = coverPaintWidth(entry.fit.width, entry.drawn.width);
+        for (const line of entry.fit.lines) {
+          expect(measure(line, entry.fit.fontSize)).toBeLessThanOrEqual(painted + 1);
+        }
+      }
+    }
+  });
+});

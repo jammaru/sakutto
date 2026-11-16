@@ -2,16 +2,22 @@
   import { t, tForBrowser } from '@/shared/i18n';
   import {
     JA_EASY_TARGET,
+    displayLanguage,
     isTargetLanguage,
     SUPPORTED_LANGUAGES,
     type TargetLanguage,
   } from '@/shared/languages';
   import {
     COMPOSE_PLACEMENTS,
+    TRANSLATION_POPUP_SIZE_MAX,
+    TRANSLATION_POPUP_SIZE_MIN,
     VIDEO_CAPTION_SIZE_MAX,
     VIDEO_CAPTION_SIZE_MIN,
     isComposePlacement,
+    normalizeTranslationPopupSize,
     normalizeVideoCaptionSize,
+    removeGmailTranslateLanguage,
+    type GmailTranslateLanguages,
     type Settings,
     type SettingsPatch,
   } from '@/shared/settings';
@@ -22,10 +28,12 @@
     revokeCaptionCustomHostAccess,
   } from '@/captions/register-custom';
   import { resolveCaptionToggle } from '@/captions/sites';
+  import { resolveMailBannerToggle } from '@/dom/mail-sites';
   import LanguageField from './LanguageField.svelte';
   import { displayTargetLanguage } from './language-label';
 
   let captionDenied = $state(false);
+  let mailDenied = $state(false);
   let customHostInput = $state('');
   let customHostWildcard = $state(false);
   let customHostError = $state<'invalid' | 'denied' | null>(null);
@@ -43,6 +51,8 @@
   const previewFontPx = $derived(
     captionOverlayFontPx(CAPTION_PREVIEW_PLAYER_PX, undefined, previewSize),
   );
+  let popupPreviewSize = $derived(settings.translationPopupSize);
+  const popupPreviewFontPx = $derived((popupPreviewSize / 100) * 12);
 
   function updateForm(event: Event) {
     const select = event.currentTarget as HTMLSelectElement;
@@ -59,6 +69,13 @@
     const size = normalizeVideoCaptionSize(input.value);
     previewSize = size;
     onChange({ videoCaptionSize: size });
+  }
+
+  function updateTranslationPopupSize(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const size = normalizeTranslationPopupSize(input.value);
+    popupPreviewSize = size;
+    onChange({ translationPopupSize: size });
   }
 
   function addCustomHost(): void {
@@ -117,6 +134,31 @@
     onChange({ composePlacement: select.value });
   }
 
+  function gmailLanguageLists(): GmailTranslateLanguages {
+    return {
+      auto: [...settings.gmailAutoTranslateLangs],
+      never: [...settings.gmailNeverTranslateLangs],
+    };
+  }
+
+  function removeGmailLanguage(language: string): void {
+    const next = removeGmailTranslateLanguage(language, gmailLanguageLists());
+    onChange({
+      gmailAutoTranslateLangs: next.auto,
+      gmailNeverTranslateLangs: next.never,
+    });
+  }
+
+  function clearGmailLanguages(kind: 'auto' | 'never'): void {
+    const next = gmailLanguageLists();
+    if (kind === 'auto') next.auto = [];
+    else next.never = [];
+    onChange({
+      gmailAutoTranslateLangs: next.auto,
+      gmailNeverTranslateLangs: next.never,
+    });
+  }
+
   const placementLabels = {
     above: 'composePlacementAbove',
     below: 'composePlacementBelow',
@@ -158,6 +200,32 @@
     </select>
   </label>
   <p class="muted help">{tForBrowser('paceHelp', 'paceHelpFirefox')}</p>
+
+  <div class="field popup-size" data-sakutto="translation-popup-size">
+    <div class="field-heading">
+      <span>{t('translationPopupSizeLabel')}</span>
+      <span class="popup-size-value" aria-hidden="true">{popupPreviewSize}%</span>
+    </div>
+    <div class="popup-preview" aria-hidden="true">
+      <div class="popup-preview-card" style:font-size="{popupPreviewFontPx}px">
+        <p class="popup-preview-kicker">翻訳</p>
+        <p class="popup-preview-body">これは翻訳ポップアップのプレビューです。</p>
+        <p class="popup-preview-note">PLaMo</p>
+      </div>
+    </div>
+    <input
+      id="translation-popup-size-slider"
+      type="range"
+      min={TRANSLATION_POPUP_SIZE_MIN}
+      max={TRANSLATION_POPUP_SIZE_MAX}
+      step="1"
+      value={settings.translationPopupSize}
+      aria-label={t('translationPopupSizeLabel')}
+      data-sakutto="translation-popup-size-slider"
+      oninput={updateTranslationPopupSize}
+    />
+    <p class="muted help">{t('translationPopupSizeHelp')}</p>
+  </div>
 
   <label class="check">
     <input
@@ -205,6 +273,106 @@
     </select>
   </label>
   <p class="muted help">{t('composePlacementSettingHelp')}</p>
+
+  <label class="check">
+    <input
+      type="checkbox"
+      data-sakutto="gmail-banner"
+      checked={settings.gmailTranslateBanner}
+      onchange={(event) => {
+        const input = event.currentTarget as HTMLInputElement;
+        mailDenied = false;
+        void (async () => {
+          // User gesture: resolveMailBannerToggle must call permissions.request with no prior pause.
+          const result = await resolveMailBannerToggle(input.checked);
+          input.checked = result.on;
+          if (result.denied) {
+            mailDenied = true;
+            onPermissionDenied?.();
+            return;
+          }
+          onChange({ gmailTranslateBanner: result.on });
+        })();
+      }}
+    />
+    <span>{t('settingsGmailBanner')}</span>
+  </label>
+  {#if mailDenied}
+    <p class="error" role="alert" data-sakutto="mail-banner-denied">
+      {t('mailBannerPermissionDenied')}
+    </p>
+  {/if}
+  <p class="muted help">{t('settingsGmailBannerHelp')}</p>
+
+  <div class="field gmail-languages" data-sakutto="gmail-auto-langs">
+    <div class="field-heading">
+      <span>{t('settingsGmailAutoLangs')}</span>
+      {#if settings.gmailAutoTranslateLangs.length > 0}
+        <button
+          type="button"
+          class="link-button"
+          data-sakutto="gmail-auto-langs-clear"
+          onclick={() => clearGmailLanguages('auto')}
+        >
+          {t('settingsGmailClearLangs')}
+        </button>
+      {/if}
+    </div>
+    {#if settings.gmailAutoTranslateLangs.length === 0}
+      <p class="muted help">{t('settingsGmailNoAutoLangs')}</p>
+    {:else}
+      <ul class="custom-host-list">
+        {#each settings.gmailAutoTranslateLangs as language (language)}
+          <li>
+            <span>{displayLanguage(language, uiLanguage)}</span>
+            <button
+              type="button"
+              data-sakutto="gmail-auto-lang-remove"
+              aria-label={`${t('settingsGmailRemoveLang')} ${displayLanguage(language, uiLanguage)}`}
+              onclick={() => removeGmailLanguage(language)}
+            >
+              {t('settingsGmailRemoveLang')}
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </div>
+
+  <div class="field gmail-languages" data-sakutto="gmail-never-langs">
+    <div class="field-heading">
+      <span>{t('settingsGmailNeverLangs')}</span>
+      {#if settings.gmailNeverTranslateLangs.length > 0}
+        <button
+          type="button"
+          class="link-button"
+          data-sakutto="gmail-never-langs-clear"
+          onclick={() => clearGmailLanguages('never')}
+        >
+          {t('settingsGmailClearLangs')}
+        </button>
+      {/if}
+    </div>
+    {#if settings.gmailNeverTranslateLangs.length === 0}
+      <p class="muted help">{t('settingsGmailNoNeverLangs')}</p>
+    {:else}
+      <ul class="custom-host-list">
+        {#each settings.gmailNeverTranslateLangs as language (language)}
+          <li>
+            <span>{displayLanguage(language, uiLanguage)}</span>
+            <button
+              type="button"
+              data-sakutto="gmail-never-lang-remove"
+              aria-label={`${t('settingsGmailRemoveLang')} ${displayLanguage(language, uiLanguage)}`}
+              onclick={() => removeGmailLanguage(language)}
+            >
+              {t('settingsGmailRemoveLang')}
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </div>
 
   <label class="check">
     <input
@@ -378,10 +546,66 @@
   }
 
   .field > span,
+  .field-heading > span,
   .help {
     color: var(--muted);
     font-size: 11px;
     font-weight: 600;
+  }
+
+  .field-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+
+  .field-heading output {
+    color: var(--muted);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .popup-preview {
+    display: flex;
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-muted);
+  }
+
+  .popup-preview-card {
+    box-sizing: border-box;
+    max-width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+    line-height: 1.45;
+    box-shadow: 0 8px 24px rgb(15 23 32 / 12%);
+  }
+
+  .popup-preview-kicker,
+  .popup-preview-body,
+  .popup-preview-note {
+    margin: 0;
+  }
+
+  .popup-preview-kicker,
+  .popup-preview-note {
+    color: var(--muted);
+    font-size: 0.8333em;
+  }
+
+  .popup-preview-kicker {
+    margin-bottom: 4px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .popup-preview-note {
+    margin-top: 6px;
   }
 
   .help {
@@ -504,5 +728,16 @@
     justify-content: space-between;
     gap: var(--space-2);
     font-size: 13px;
+  }
+
+  .link-button {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--accent, #0e7490);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: underline;
   }
 </style>

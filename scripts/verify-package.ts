@@ -2,7 +2,11 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FIREFOX_EXTENSION_ID, FIREFOX_STRICT_MIN_VERSION } from '../src/shared/browser.ts';
-import { CHROME_PERMISSIONS, FIREFOX_PERMISSIONS } from '../src/shared/manifest.ts';
+import {
+  CHROME_PERMISSIONS,
+  FIREFOX_PERMISSIONS,
+  MAIL_HOST_PATTERNS,
+} from '../src/shared/manifest.ts';
 import { UI_LOCALES } from '../src/shared/locales.ts';
 import { readZip } from './zip-archive.ts';
 
@@ -13,6 +17,7 @@ export interface PackagedManifest {
   optional_permissions?: readonly string[];
   host_permissions?: readonly string[];
   optional_host_permissions?: readonly string[];
+  content_scripts?: ReadonlyArray<{ matches?: readonly string[] }>;
   minimum_chrome_version?: string;
   offscreen?: unknown;
   cross_origin_embedder_policy?: unknown;
@@ -30,6 +35,8 @@ export const REQUIRED_PERMISSIONS = [...CHROME_PERMISSIONS];
 export const FIREFOX_REQUIRED_PERMISSIONS = [...FIREFOX_PERMISSIONS];
 
 export const REQUIRED_HOST_PATTERNS = ['http://*/*', 'https://*/*'] as const;
+/** Release builds ask for no install-time host access; mail hosts stay runtime optional. */
+export const REQUIRED_INSTALL_HOSTS = [] as const;
 
 export const REQUIRED_ENTRIES = [
   'manifest.json',
@@ -39,10 +46,13 @@ export const REQUIRED_ENTRIES = [
   'onboarding.html',
   'sample.html',
   'typed.html',
+  'reader.html',
   'gpu-probe.js',
   'grant.html',
   'offscreen.html',
   'content-scripts/content.js',
+  'content-scripts/mail.js',
+  'content-scripts/mail-early.js',
   'icon/16.png',
   'icon/32.png',
   'icon/48.png',
@@ -65,6 +75,14 @@ export const REQUIRED_ENTRIES = [
   'vendor/wllama/wllama-compat-module.js',
   'vendor/wllama/wllama-compat-pthread.js',
   'vendor/wllama/wllama-build.json',
+  // The PDF reader's build. A document that declares a CJK font needs the CMaps, and one
+  // that leaves a standard font undeclared needs the substitute beside it.
+  'vendor/pdfjs/build/pdf.min.mjs',
+  'vendor/pdfjs/build/pdf.worker.min.mjs',
+  'vendor/pdfjs/pdfjs-build.json',
+  'vendor/pdfjs/LICENSE-pdfjs.txt',
+  'vendor/pdfjs/cmaps/UniJIS-UCS2-H.bcmap',
+  'vendor/pdfjs/standard_fonts/FoxitSerif.pfb',
 ] as const;
 
 /**
@@ -138,8 +156,16 @@ export function auditPackage(
   if (!sameMembers(permissions, expectedPermissions)) {
     problems.push(`permissions ${permissions.join(',')}`);
   }
-  if ((manifest.host_permissions ?? []).length > 0) {
-    problems.push('host_permissions must stay empty');
+  const installHosts = manifest.host_permissions ?? [];
+  if (!sameMembers(installHosts, REQUIRED_INSTALL_HOSTS)) {
+    problems.push(`host_permissions ${installHosts.join(',')}`);
+  }
+  const mailMatches = new Set<string>(MAIL_HOST_PATTERNS);
+  const staticMailScripts = (manifest.content_scripts ?? []).flatMap((script) =>
+    (script.matches ?? []).filter((match) => mailMatches.has(match)),
+  );
+  if (staticMailScripts.length > 0) {
+    problems.push(`static mail content_scripts ${staticMailScripts.join(',')}`);
   }
   const optionalHosts = manifest.optional_host_permissions ?? [];
   if (!sameMembers(optionalHosts, REQUIRED_HOST_PATTERNS)) {

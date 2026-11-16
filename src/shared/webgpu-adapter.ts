@@ -19,7 +19,17 @@ const ADAPTER_PREFERENCES: ReadonlyArray<RequestAdapterPreference> = [
   'low-power',
 ];
 
+/** One `requestAdapter()` call gets this long before the next preference is tried. */
+export const ADAPTER_ATTEMPT_TIMEOUT_MS = 4000;
+/** All preferences together are bounded, so a wedged adapter cannot stall startup. */
+export const ADAPTER_OVERALL_TIMEOUT_MS = 8000;
+
 type RequestAdapterPreference = 'high-performance' | 'low-power' | 'default';
+
+export interface AdapterRequestTimeouts {
+  attemptMs?: number;
+  overallMs?: number;
+}
 
 export interface NavigatorGpu {
   requestAdapter(options?: {
@@ -151,23 +161,91 @@ function preferenceOptions(
   return { powerPreference: preference };
 }
 
+function timeoutMessage(ms: number): string {
+  return `requestAdapter timed out after ${String(ms)}ms`;
+}
+
+/**
+ * Chrome on Linux/Wayland has been seen to leave `requestAdapter()` pending forever.
+ * A WebGPU call cannot be cancelled, so bound the wait instead of letting the engine
+ * host stay in its probe forever.
+ */
+function requestAdapterWithin(
+  gpu: NavigatorGpu,
+  preference: RequestAdapterPreference,
+  timeoutMs: number,
+): Promise<AdapterSnapshot | null> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(
+      () => {
+        if (settled) return;
+        settled = true;
+        reject(new Error(timeoutMessage(timeoutMs)));
+      },
+      Math.max(1, timeoutMs),
+    );
+
+    const finish = (): void => {
+      settled = true;
+      clearTimeout(timer);
+    };
+
+    let request: Promise<unknown>;
+    try {
+      request = gpu.requestAdapter(preferenceOptions(preference));
+    } catch (caught: unknown) {
+      finish();
+      reject(caught);
+      return;
+    }
+
+    request.then(
+      (value) => {
+        if (settled) return;
+        finish();
+        resolve(value as AdapterSnapshot | null);
+      },
+      (caught: unknown) => {
+        if (settled) return;
+        finish();
+        reject(caught);
+      },
+    );
+  });
+}
+
 /**
  * Ask for a discrete GPU first. Chrome's default pick on a machine with an AMD iGPU and
  * a Radeon dGPU can miss shader-f16 (ggml-org/llama.cpp#21744).
+ *
+ * Each request is bounded, and the whole search stops at the overall deadline. A healthy
+ * adapter resolves on the first call and pays nothing for these timers.
  */
 export async function requestAdapterWithPreferences(
   gpu: NavigatorGpu,
+  timeouts: AdapterRequestTimeouts = {},
 ): Promise<{ adapter: AdapterSnapshot | null; attempts: string[]; error: string | null }> {
   const attempts: string[] = [];
   let first: AdapterSnapshot | null = null;
   let firstWithF16: AdapterSnapshot | null = null;
   let error: string | null = null;
+  const attemptMs = timeouts.attemptMs ?? ADAPTER_ATTEMPT_TIMEOUT_MS;
+  const overallMs = timeouts.overallMs ?? ADAPTER_OVERALL_TIMEOUT_MS;
+  const deadline = Date.now() + overallMs;
 
   for (const preference of ADAPTER_PREFERENCES) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      error ??= timeoutMessage(overallMs);
+      break;
+    }
     attempts.push(preference);
     try {
-      const adapter = (await gpu.requestAdapter(
-        preferenceOptions(preference),
+      const adapter = (await requestAdapterWithin(
+        gpu,
+        preference,
+        Math.min(attemptMs, remaining),
       )) as AdapterSnapshot | null;
       if (!adapter) continue;
       if (!first) first = adapter;

@@ -1,6 +1,6 @@
 import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
 import { hasBuiltInTranslatorUi } from '@/shared/browser';
-import type { EngineStatus } from '@/shared/engine-status';
+import { modelCanTranslate, type EngineStatus } from '@/shared/engine-status';
 import type { MessageKey } from '@/shared/i18n';
 import { isChromeOnlyLanguage, isPlamoOnlyTarget } from '@/shared/languages';
 import { formatByteSize } from './format';
@@ -45,7 +45,9 @@ export function runtimeLabel(input: {
     return { key: 'runtimeChrome' };
   }
 
-  if (status.plamoReady) {
+  // A verified file can answer even before the runtime reports `loaded`: the first request
+  // loads it. Do not let a stale `plamoReady` flag keep the popup on "waiting".
+  if (status.plamoReady || modelCanTranslate(status.model)) {
     if (status.backend === 'webgpu') return { key: 'runtimePlamoGpu' };
     return { key: status.gpuFallback === true ? 'runtimePlamoGpuFallback' : 'runtimePlamoCpu' };
   }

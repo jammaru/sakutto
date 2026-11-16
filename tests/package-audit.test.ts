@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { UI_LOCALES } from '../src/shared/locales.ts';
 import {
   REQUIRED_ENTRIES,
+  REQUIRED_INSTALL_HOSTS,
   REQUIRED_LOCALES,
   auditPackage,
   remoteCodeProblems,
@@ -25,6 +26,7 @@ function manifest(overrides: PackagedManifest = {}): PackagedManifest {
       'scripting',
       'contextMenus',
     ],
+    host_permissions: [...REQUIRED_INSTALL_HOSTS],
     optional_host_permissions: ['https://*/*', 'http://*/*'],
     ...overrides,
   };
@@ -87,9 +89,34 @@ describe('auditPackage', () => {
     expect(problems).toContain('unexpected scripts/bench/fixtures/kyoto.html');
   });
 
-  it('rejects install-time host permissions', () => {
-    const problems = auditPackage(COMPLETE, manifest({ host_permissions: ['https://*/*'] }));
-    expect(problems).toContain('host_permissions must stay empty');
+  it('rejects a tests path so fixtures cannot ship in the zip', () => {
+    const problems = auditPackage([...COMPLETE, 'tests/support/rotated-body-pdf.ts'], manifest());
+    expect(problems).toContain('unexpected tests/support/rotated-body-pdf.ts');
+  });
+
+  it('accepts a release manifest with no install-time host access', () => {
+    expect(REQUIRED_INSTALL_HOSTS).toEqual([]);
+    expect(auditPackage(COMPLETE, manifest({ host_permissions: [] }))).toEqual([]);
+  });
+
+  it('rejects any install-time host access, including a mail host', () => {
+    for (const tooBroad of [['https://*/*'], ['https://mail.google.com/*']]) {
+      const problems = auditPackage(COMPLETE, manifest({ host_permissions: tooBroad }));
+      expect(problems).toContain(`host_permissions ${tooBroad.join(',')}`);
+    }
+  });
+
+  it('rejects a static mail content script in the release package', () => {
+    const problems = auditPackage(
+      COMPLETE,
+      manifest({
+        content_scripts: [
+          { matches: ['https://mail.google.com/*'] },
+          { matches: ['https://example.com/*'] },
+        ],
+      }),
+    );
+    expect(problems).toEqual(['static mail content_scripts https://mail.google.com/*']);
   });
 
   /**

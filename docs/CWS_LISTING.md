@@ -64,7 +64,7 @@ Productivity。ウェブページを翻訳する用途に合います。
 
 ### 権限の理由
 
-リリース用マニフェスト（`wxt.config.ts`）が要求するのは、次の 6 つだけです。`nativeMessaging` はありません。`optional_permissions` も空です。インストール時の `host_permissions` も空です。`optional_host_permissions` は `https://*/*` と `http://*/*` です。
+リリース用マニフェスト（`wxt.config.ts`）が要求するのは、次の 6 つだけです。`nativeMessaging` はありません。`optional_permissions` も空です。インストール時の `host_permissions` はリリース用では空です。Gmail / Outlook のメールバナーも、YouTube の字幕と同じく、利用者が有効にしたときに実行時の任意ホスト権限を要求します。`optional_host_permissions` は `https://*/*` と `http://*/*` です。
 
 `storage`
 
@@ -101,10 +101,10 @@ Productivity。ウェブページを翻訳する用途に合います。
 `scripting`
 
 ```text
-翻訳を頼んだタブ、または自動翻訳を許可済みのタブに、同梱の content script を注入します。インストール時にすべてのサイトへは注入しません。
+翻訳を頼んだタブ、または自動翻訳を許可済みのタブに、同梱の content script を注入します。Gmail と Outlook のメールバナーも実行時に content script を登録し、許可されたメールホストにだけ注入します。インストール時の静的 content script はありません。
 ```
 
-文字数: 76
+文字数: 154
 
 `contextMenus`
 
@@ -117,10 +117,10 @@ Productivity。ウェブページを翻訳する用途に合います。
 任意のホスト権限（`https://*/*` と `http://*/*`）
 
 ```text
-インストール時には要求しません。あるサイトの自動翻訳をオンにしたとき、または字幕翻訳用のサイトを追加したときだけ、そのホストの https と http を要求します。すべてのサイトを一括では要求しません。
+インストール時には要求しません。あるサイトの自動翻訳をオンにしたとき、動画字幕翻訳を有効にしたとき（YouTube と X）、字幕翻訳用のサイトを追加したとき、または Gmail / Outlook のメールバナーを有効にしたときに、そのホストに必要な https / http のオリジンを要求します。メールバナーは 5 つのメールホストの https だけをまとめて要求します。すべてのサイトを一括では要求しません。
 ```
 
-文字数: 103
+文字数: 210
 
 `nativeMessaging` は要求していません。理由の欄は出ない想定です。出た場合も、使う権限としては記入しません。
 
@@ -196,7 +196,7 @@ The extension's single purpose is translating web pages.
 
 ### Permission justifications
 
-The release manifest requests only `offscreen`, `storage`, `unlimitedStorage`, `activeTab`, `scripting`, and `contextMenus`. It does not request `nativeMessaging`. `optional_permissions` is empty. Install-time `host_permissions` is empty. `optional_host_permissions` is `https://*/*` and `http://*/*`.
+The release manifest requests only `offscreen`, `storage`, `unlimitedStorage`, `activeTab`, `scripting`, and `contextMenus`. It does not request `nativeMessaging`. `optional_permissions` is empty. Install-time `host_permissions` is empty. Gmail and Outlook banners, like YouTube captions, ask for runtime optional host access when the user enables them. `optional_host_permissions` is `https://*/*` and `http://*/*`.
 
 `storage`
 
@@ -233,10 +233,10 @@ Reads the open tab when you translate from the popup, a shortcut, or the right-c
 `scripting`
 
 ```text
-Injects the packaged content script into a tab you asked to translate, or into a tab whose site already has automatic translation allowed. It does not inject into every site at install.
+Injects the packaged content script into a tab you asked to translate, or into a tab whose site already has automatic translation allowed. The Gmail and Outlook banner scripts are registered at runtime only for mail hosts the user has granted. No static content script is injected at install.
 ```
 
-文字数: 185
+文字数: 292
 
 `contextMenus`
 
@@ -249,10 +249,10 @@ Adds Translate page and Translate selection to the right-click menu.
 Optional host permission (`https://*/*` and `http://*/*`)
 
 ```text
-Not requested at install. Requested only for the host whose automatic translation you turn on, or a custom caption site you add, for both https and http. It is not a grant for every site at once.
+Not requested at install. Requested for the host whose automatic translation you turn on, when you enable video captions (YouTube and X), when you add a custom caption site, or when you enable the Gmail/Outlook mail banner. The mail banner asks for the five mail hosts at once, over https only. It is not a grant for every site at once.
 ```
 
-文字数: 195
+文字数: 336
 
 `nativeMessaging` is not requested. Leave that justification unused.
 

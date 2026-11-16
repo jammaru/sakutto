@@ -14,6 +14,7 @@ export const flowLabels = {
   selectionFailed: 'この選択範囲を翻訳できませんでした。',
   selectionTitle: '選択したテキスト',
   selectionIcon: '選択したテキストを翻訳します',
+  selectionResize: '翻訳ポップアップの幅を変更します',
   close: '閉じる',
   bilingualOn: 'このサイトの表示を対訳にしました。',
   replaceOn: 'このサイトの表示を置換にしました。',

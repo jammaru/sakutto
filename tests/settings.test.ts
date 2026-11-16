@@ -10,11 +10,20 @@ import {
   PLAMO_NOTICE_VERSION,
   SETTINGS_SCHEMA_VERSION,
   createDefaultSettings,
+  gmailTranslateLanguagePreference,
+  isGmailAutoTranslateLanguage,
+  isGmailNeverTranslateLanguage,
   isTierPreference,
+  normalizeGmailLanguageList,
+  normalizeTranslationPopupSize,
+  normalizeTranslationPopupWidth,
   normalizeVideoCaptionSize,
   normalizeVideoCaptionPositions,
   needsLicenseReconsent,
   normalizeSettings,
+  removeGmailTranslateLanguage,
+  toggleGmailAutoTranslateLanguage,
+  toggleGmailNeverTranslateLanguage,
   type Settings,
 } from '@/shared/settings';
 
@@ -24,6 +33,8 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     targetLanguage: 'en',
     form: 'polite',
     display: 'replace',
+    translationPopupSize: 100,
+    translationPopupWidth: 0,
     consent: null,
     highQualityDismissed: false,
     sharedFolderOfferDismissed: false,
@@ -51,6 +62,9 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     videoCaptionOriginalToggle: true,
     videoCaptionPositions: {},
     captionCustomHosts: [],
+    gmailTranslateBanner: true,
+    gmailAutoTranslateLangs: [],
+    gmailNeverTranslateLangs: [],
     ...overrides,
   };
 }
@@ -266,6 +280,82 @@ describe('settings defaults', () => {
     ).toBe('bilingual');
   });
 
+  it('defaults the Gmail banner on and keeps an explicit opt-out', () => {
+    const defaults = normalizeSettings(
+      {
+        schemaVersion: SETTINGS_SCHEMA_VERSION,
+        targetLanguage: 'en',
+      },
+      'en-US',
+    );
+    expect(defaults.gmailTranslateBanner).toBe(true);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          gmailTranslateBanner: false,
+        },
+        'en-US',
+      ).gmailTranslateBanner,
+    ).toBe(false);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          gmailTranslateBanner: 'off',
+        },
+        'en-US',
+      ).gmailTranslateBanner,
+    ).toBe(true);
+  });
+
+  it('normalizes Gmail auto/never language lists and keeps them mutually exclusive', () => {
+    const settings = normalizeSettings(
+      {
+        schemaVersion: SETTINGS_SCHEMA_VERSION,
+        targetLanguage: 'en',
+        gmailAutoTranslateLangs: ['EN', 'fr', 'en', 'xx', 7],
+        gmailNeverTranslateLangs: ['fr', 'ja', 'ja'],
+      },
+      'en-US',
+    );
+    expect(settings.gmailAutoTranslateLangs).toEqual(['en']);
+    expect(settings.gmailNeverTranslateLangs).toEqual(['fr', 'ja']);
+  });
+
+  it('toggles language rules without allowing the same language in both lists', () => {
+    const empty = { auto: [] as string[], never: [] as string[] };
+    expect(normalizeGmailLanguageList(['pt-BR', 'zh-Hant'])).toEqual(['pt', 'zh-hant']);
+
+    const auto = toggleGmailAutoTranslateLanguage('en', empty);
+    expect(auto).toEqual({ auto: ['en'], never: [] });
+    expect(isGmailAutoTranslateLanguage('en', auto.auto)).toBe(true);
+    expect(isGmailNeverTranslateLanguage('en', auto.never)).toBe(false);
+    expect(gmailTranslateLanguagePreference('en', auto)).toBe('auto');
+
+    const never = toggleGmailNeverTranslateLanguage('en', auto);
+    expect(never).toEqual({ auto: [], never: ['en'] });
+    expect(gmailTranslateLanguagePreference('en', never)).toBe('never');
+
+    const backToAuto = toggleGmailAutoTranslateLanguage('en', never);
+    expect(backToAuto).toEqual({ auto: ['en'], never: [] });
+
+    expect(toggleGmailAutoTranslateLanguage('en', backToAuto)).toEqual({
+      auto: [],
+      never: [],
+    });
+    expect(toggleGmailNeverTranslateLanguage('en', never)).toEqual({
+      auto: [],
+      never: [],
+    });
+    expect(removeGmailTranslateLanguage('en', backToAuto)).toEqual({
+      auto: [],
+      never: [],
+    });
+  });
+
   it('clamps caption size and keeps only valid custom hosts', () => {
     expect(normalizeVideoCaptionSize(undefined)).toBe(80);
     expect(normalizeVideoCaptionSize(200)).toBe(150);
@@ -284,6 +374,52 @@ describe('settings defaults', () => {
       videoCaptionSize: 91,
       captionCustomHosts: ['example.com', '*.ok.dev'],
     });
+  });
+
+  it('defaults translation popup text to 100% and clamps stored values', () => {
+    expect(DEFAULT_SETTINGS.translationPopupSize).toBe(100);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+        },
+        'en-US',
+      ).translationPopupSize,
+    ).toBe(100);
+    expect(normalizeTranslationPopupSize(undefined)).toBe(100);
+    expect(normalizeTranslationPopupSize(50)).toBe(80);
+    expect(normalizeTranslationPopupSize(250)).toBe(200);
+    expect(normalizeTranslationPopupSize('135.6')).toBe(136);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          translationPopupSize: 165,
+        },
+        'en-US',
+      ).translationPopupSize,
+    ).toBe(165);
+  });
+
+  it('stores a selection popup width in em and treats zero as automatic', () => {
+    expect(DEFAULT_SETTINGS.translationPopupWidth).toBe(0);
+    expect(normalizeTranslationPopupWidth(undefined)).toBe(0);
+    expect(normalizeTranslationPopupWidth('nope')).toBe(0);
+    expect(normalizeTranslationPopupWidth(0)).toBe(0);
+    expect(normalizeTranslationPopupWidth(8)).toBe(14);
+    expect(normalizeTranslationPopupWidth('21.456')).toBe(21.46);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          translationPopupWidth: 18,
+        },
+        'en-US',
+      ).translationPopupWidth,
+    ).toBe(18);
   });
 
   it('keeps caption overlay positions per site without bumping the schema', () => {

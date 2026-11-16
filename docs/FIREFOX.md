@@ -4,6 +4,8 @@ Owner-only. First target: **Windows Firefox 153 or later** (ESR 153 included), o
 This is not a substitute for `pnpm test` or `web-ext lint`. Do not paste Chrome Web Store numbers
 into the listing until this list has measurements from this machine.
 
+End users install the release from [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/sakutto-local-ai-translation/). Loading an unpacked build from `about:debugging` is for manual testing and local development.
+
 Load the unpacked build from `about:debugging` (This Firefox → Load Temporary Add-on →
 `.output/firefox-mv3/manifest.json`). `web-ext lint` on that directory must report 0 errors.
 
@@ -121,7 +123,7 @@ comparisons; do not mix those JSONL rows with this Firefox table.
 
 ## 日本語
 
-所有者向けの手動確認です。Windows の Firefox 153 以降、GPU 付きの PC で
+所有者向けの手動確認です。エンドユーザーは [Firefox Add-ons](https://addons.mozilla.org/ja/firefox/addon/sakutto-local-ai-translation/) からインストールできます。`about:debugging` からの一時読み込みは、手動確認とローカル開発用です。Windows の Firefox 153 以降、GPU 付きの PC で
 `about:debugging` から `.output/firefox-mv3` を一時読み込みします。GPU / CPU、ショートカット、
 イベントページの寿命、計測値を記録してください。空 submit による WebGPU 待ちの短縮は既定オンです
 （2026-11-09、Windows Firefox 159 / RTX 4070 Ti SUPER で約 5 倍）。

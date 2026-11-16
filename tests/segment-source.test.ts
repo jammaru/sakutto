@@ -22,7 +22,7 @@ describe('segment source', () => {
     expect(leadModel.source).toContain('(');
     expect(leadModel.source).toContain('<i1>designated city</i1>');
     expect(leadModel.source).not.toContain('oːsaka');
-    expect(leadModel.source).not.toContain('[1]');
+    expect(leadModel.source).toMatch(/<i\d+>\[1\]<\/i\d+>/u);
     expect(listModel.source).toContain(', ');
     expect(visibleOriginal(universities)).toBe('Osaka University, Osaka Metropolitan University');
     expect(visibleOriginal(joined)).toBe('Osaka University Osaka Metropolitan University');

@@ -1,4 +1,5 @@
 import { canonicalChromeLanguage, canonicalLanguage, isPlamoOnlyTarget } from '@/shared/languages';
+import { buildSegment } from './segment';
 
 export function canonicalPageLanguage(tag: string | null | undefined): string | null {
   if (!tag) return null;
@@ -59,39 +60,118 @@ export function inferLanguage(text: string): string | null {
   return score >= 2 ? best : null;
 }
 
-export function languageOf(block: Element, fallback: string | null): string | null {
+/**
+ * The text a block translates as its own segment, without the placeholder markup that keeps
+ * inline children in place. Nested block elements belong to segments of their own, so they
+ * must not decide the language of the parent: a Steam comment on a Japanese page quotes a
+ * Japanese author label around an English post, and the parent's own words are still English.
+ */
+function ownTextForLanguage(block: Element, text?: string): string {
+  const source = text ?? buildSegment(block)?.source ?? '';
+  return source.replace(/<\/?i\d+>/gu, ' ');
+}
+
+/**
+ * Han-only labels such as a date (`11月16日 1:31`) or `[編集]` look Chinese to the script
+ * heuristic because they carry no kana. On a page that declares Japanese they are Japanese,
+ * not source text to translate. Any Latin, kana, Hangul, or other letter keeps the heuristic's
+ * answer: a mixed run is not a Han-only label.
+ */
+function isHanOnly(text: string): boolean {
+  let han = 0;
+  for (const character of text.slice(0, 600)) {
+    const code = character.codePointAt(0) ?? 0;
+    if (code >= 0x4e00 && code <= 0x9fff) {
+      han += 1;
+      continue;
+    }
+    if (/\p{L}/u.test(character)) return false;
+  }
+  return han >= 2;
+}
+
+/**
+ * The language declared on an ancestor below `<html>`. A caller that scans a subtree (a mail
+ * body) can pass that subtree as `scope`: an app shell around the message may declare the
+ * interface locale, and reading it as the source language would mark every English block as
+ * already translated. Markers outside the scanned subtree are ignored; markers on the
+ * subtree root and inside it still count.
+ */
+function ancestorLanguage(block: Element, scope?: Element): string | null {
+  const root = block.ownerDocument.documentElement;
+  const ancestor = block.parentElement?.closest('[lang]');
+  if (!ancestor || ancestor === root) return null;
+  if (scope && !scope.contains(ancestor)) return null;
+  return canonicalPageLanguage(ancestor.getAttribute('lang'));
+}
+
+/** Whether the language declared for this block is Japanese, in the same precedence order. */
+function declaresJapanese(block: Element, fallback: string | null, scope?: Element): boolean {
+  const root = block.ownerDocument.documentElement;
+  if (block.hasAttribute('lang') && block !== root) {
+    const own = canonicalPageLanguage(block.getAttribute('lang'));
+    if (own) return own === 'ja';
+  }
+
+  const source =
+    scope && !scope.contains(root)
+      ? null
+      : canonicalPageLanguage(root?.getAttribute('data-sakutto-source-lang'));
+  if (source) return source === 'ja';
+
+  const ancestor = ancestorLanguage(block, scope);
+  if (ancestor) return ancestor === 'ja';
+
+  const declared = canonicalPageLanguage(fallback);
+  if (declared) return declared === 'ja';
+  if (scope && !scope.contains(root)) return false;
+  return canonicalPageLanguage(root?.getAttribute('lang')) === 'ja';
+}
+
+export function languageOf(
+  block: Element,
+  fallback: string | null,
+  text?: string,
+  scope?: Element,
+): string | null {
   const root = block.ownerDocument.documentElement;
   if (block.hasAttribute('lang') && block !== root) {
     const own = canonicalPageLanguage(block.getAttribute('lang'));
     if (own) return own;
   }
 
-  const inferred = inferLanguage(block.textContent ?? '');
-  if (inferred) return inferred;
+  const ownText = ownTextForLanguage(block, text);
+  const inferred = inferLanguage(ownText);
+  if (inferred) {
+    if (inferred === 'zh-hans' && isHanOnly(ownText) && declaresJapanese(block, fallback, scope)) {
+      return 'ja';
+    }
+    return inferred;
+  }
 
-  const source = canonicalPageLanguage(root?.getAttribute('data-sakutto-source-lang'));
+  const source =
+    scope && !scope.contains(root)
+      ? null
+      : canonicalPageLanguage(root?.getAttribute('data-sakutto-source-lang'));
   if (source) {
     // See the note on `contradictsScript` below: a page can declare a language its prose is
     // not in, and a stale declaration must not override the words on the page.
-    return contradictsScript(source, block.textContent ?? '') ? null : source;
+    return contradictsScript(source, ownText) ? null : source;
   }
 
   // `<html lang>` is set to the target while a page is translated, so reading it as an
   // ancestor tag would mark every untagged block as already translated. Short Latin
   // labels ("Spaces", "Docs") infer nothing, so that tag used to swallow whole sidebars
   // and, on Hugging Face, the entire page. Only a real ancestor below the root counts.
-  const ancestor = block.parentElement?.closest('[lang]');
-  if (ancestor && ancestor !== root) {
-    const tagged = canonicalPageLanguage(ancestor.getAttribute('lang'));
-    if (tagged) return tagged;
-  }
+  const ancestor = ancestorLanguage(block, scope);
+  if (ancestor) return ancestor;
 
   const declared = canonicalPageLanguage(fallback);
   // A page can declare a language its prose is not in. The PLaMo license page is served as
   // `<html lang="ja">` with an English body, and reporting `ja` as the source told the model
   // to translate English out of Japanese. When a block is plainly not written in the script
   // of the declared language, claim no source language and let the model see the text alone.
-  if (declared !== null && contradictsScript(declared, block.textContent ?? '')) return null;
+  if (declared !== null && contradictsScript(declared, ownText)) return null;
   return declared;
 }
 
@@ -116,7 +196,7 @@ const SCRIPT_SAMPLE_MIN_LETTERS = 24;
  * Japanese paragraph always carries kana or kanji, so an all-Latin run of prose is not
  * Japanese whatever the tag says.
  */
-function contradictsScript(declared: string, text: string): boolean {
+export function contradictsScript(declared: string, text: string): boolean {
   if (!NON_LATIN_SCRIPTS.has(declared)) return false;
   let latin = 0;
   let other = 0;
@@ -132,10 +212,12 @@ export function isAlreadyTargetLanguage(
   block: Element,
   target: string,
   fallback: string | null,
+  text?: string,
+  scope?: Element,
 ): boolean {
   // Easy Japanese is a different output style, not the Japanese already on the page.
   if (isPlamoOnlyTarget(target)) return false;
-  const language = languageOf(block, fallback);
+  const language = languageOf(block, fallback, text, scope);
   const canonicalTarget = canonicalPageLanguage(target);
   return language !== null && canonicalTarget !== null && language === canonicalTarget;
 }

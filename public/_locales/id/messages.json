@@ -305,6 +305,9 @@
   "selectionIcon": {
     "message": "Terjemahkan teks yang dipilih"
   },
+  "selectionResizeHandle": {
+    "message": "Ubah lebar popup terjemahan (klik dua kali untuk mengatur ulang)"
+  },
   "close": {
     "message": "Tutup"
   },
@@ -1036,6 +1039,105 @@
       }
     }
   },
+  "openPdf": {
+    "message": "Terjemahkan PDF ini"
+  },
+  "openPdfHint": {
+    "message": "Membuka PDF di Sakutto dan menerjemahkannya di tempat, dengan tata letak halaman tetap."
+  },
+  "contextTranslatePdf": {
+    "message": "Terjemahkan PDF ini dengan Sakutto"
+  },
+  "commandPdf": {
+    "message": "Buka PDF di Sakutto"
+  },
+  "pdfReaderTitle": {
+    "message": "PDF"
+  },
+  "pdfUntitled": {
+    "message": "Dokumen.pdf"
+  },
+  "pdfPreparing": {
+    "message": "Membaca dokumen…"
+  },
+  "pdfReading": {
+    "message": "Membaca halaman $PAGE$ dari $TOTAL$",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfTranslated": {
+    "message": "Diterjemahkan"
+  },
+  "pdfPageNoText": {
+    "message": "Halaman ini hasil pindai atau gambar tanpa teks yang dapat dipilih, jadi tidak bisa diterjemahkan."
+  },
+  "pdfRenderFailed": {
+    "message": "Halaman ini tidak dapat digambar.",
+    "description": "Shown on a page whose canvas could not be drawn."
+  },
+  "pdfNoText": {
+    "message": "Dokumen ini hasil pindai atau kumpulan gambar, tanpa lapisan teks. Buka PDF yang berisi teks asli, atau jalankan OCR terlebih dahulu."
+  },
+  "pdfTranslateFailed": {
+    "message": "Bagian ini tidak dapat diterjemahkan."
+  },
+  "pdfMissing": {
+    "message": "Dokumen ini sudah tidak tersedia. Buka lagi PDF-nya dari tab."
+  },
+  "pdfBroken": {
+    "message": "Dokumen tidak dapat dibuka. Mungkin rusak atau dilindungi kata sandi."
+  },
+  "pdfTooLarge": {
+    "message": "File ini lebih dari 200 MB, ukuran terbesar yang dapat dibuka pembaca.",
+    "description": "Shown when a local PDF is larger than the reader will open."
+  },
+  "pdfModelMissing": {
+    "message": "Halaman ditampilkan, tetapi untuk menerjemahkannya diperlukan model PLaMo. Unduh modelnya untuk menerjemahkan dokumen ini."
+  },
+  "pdfOpenFailed": {
+    "message": "PDF ini tidak dapat dibuka. Muat ulang halaman lalu coba lagi."
+  },
+  "pdfFileAccessDenied": {
+    "message": "PDF ini adalah berkas di komputer ini. Izinkan ekstensi mengakses URL berkas di pengaturan ekstensi, atau pilih berkas di pembaca."
+  },
+  "pdfCompare": {
+    "message": "Bandingkan"
+  },
+  "pdfOriginalPane": {
+    "message": "Asli"
+  },
+  "pdfTranslatedPane": {
+    "message": "Terjemahan"
+  },
+  "pdfChooseFile": {
+    "message": "Pilih berkas PDF"
+  },
+  "pdfKeptAsIs": {
+    "message": "$COUNT$ bagian dibiarkan seperti halaman menyusunnya: persamaan, tanda sumbu, dan kode tetap pada tata letak aslinya.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfSelectHint": {
+    "message": "Pilih teks pada halaman untuk menerjemahkan bagian itu saja."
+  },
+  "pdfSelectTranslate": {
+    "message": "Terjemahkan pilihan"
+  },
+  "pdfSelectFailed": {
+    "message": "Pilihan ini tidak dapat diterjemahkan."
+  },
+  "pdfSelectClear": {
+    "message": "Tampilkan aslinya"
+  },
   "commandCompose": {
     "message": "Terjemahkan teks yang sedang Anda tulis"
   },
@@ -1381,6 +1483,12 @@
   "videoCaptionsSizeHelp": {
     "message": "Ukuran mengikuti pemutar, termasuk layar penuh dan teater. Seret penggeser untuk pratinjau."
   },
+  "translationPopupSizeLabel": {
+    "message": "Ukuran teks popup terjemahan"
+  },
+  "translationPopupSizeHelp": {
+    "message": "Mengubah ukuran teks di popup terjemahan saat mengarahkan kursor, memilih teks, dan menulis. Subtitle video memiliki pengaturan ukuran tersendiri."
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "Situs subtitle kustom"
   },
@@ -1410,5 +1518,127 @@
   },
   "videoCaptionsPositionHelp": {
     "message": "Tekan lama teks terjemahan untuk memindahkannya. YouTube dan X masing-masing mengingat posisinya, termasuk layar penuh dan mode teater. Tombol ini mengembalikannya ke bagian bawah pemutar."
+  },
+  "pdfOverflow": {
+    "message": "$COUNT$ bagian tidak muat di halaman. Buka penanda untuk membaca terjemahan.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfFailedCount": {
+    "message": "$COUNT$ bagian tidak dapat diterjemahkan.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "Toolbar note when some blocks could not be translated."
+  },
+  "pdfOverflowOpen": {
+    "message": "Tampilkan terjemahan"
+  },
+  "gmailBannerDetected": {
+    "message": "Email ini tampaknya ditulis dalam $LANG$.",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerTranslate": {
+    "message": "Terjemahkan ke $TARGET$",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerShowOriginal": {
+    "message": "Tampilkan asli"
+  },
+  "gmailBannerTranslating": {
+    "message": "Menerjemahkan email ini…"
+  },
+  "gmailBannerFailed": {
+    "message": "Tidak dapat menerjemahkan email ini."
+  },
+  "gmailBannerRegion": {
+    "message": "Terjemahan pesan Gmail"
+  },
+  "mailBannerAccessNeeded": {
+    "message": "Terjemahan email memerlukan akses ke situs ini."
+  },
+  "mailBannerEnableForSite": {
+    "message": "Aktifkan terjemahan email di situs ini"
+  },
+  "mailBannerPermissionDenied": {
+    "message": "Terjemahan email memerlukan izin untuk mengakses situs email."
+  },
+  "settingsGmailBanner": {
+    "message": "Tawarkan terjemahan pesan Gmail"
+  },
+  "settingsGmailBannerHelp": {
+    "message": "Saat aktif, pesan Gmail yang dibuka dan ditulis dalam bahasa lain menampilkan spanduk kecil di atas isinya. Pesan hanya diterjemahkan setelah Anda mengklik. Sakutto memerlukan akses ke mail.google.com; berikan dari popup atau daftar situs."
+  },
+  "gmailBannerTranslated": {
+    "message": "Translated: $SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "gmailBannerShowTranslation": {
+    "message": "Show translation"
+  },
+  "gmailBannerMenu": {
+    "message": "Translation settings"
+  },
+  "gmailBannerTranslateNow": {
+    "message": "Translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerAlwaysTranslate": {
+    "message": "Always translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerNeverTranslate": {
+    "message": "Never translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsGmailAutoLangs": {
+    "message": "Always translate these languages"
+  },
+  "settingsGmailNeverLangs": {
+    "message": "Never translate these languages"
+  },
+  "settingsGmailNoAutoLangs": {
+    "message": "No languages set to always translate."
+  },
+  "settingsGmailNoNeverLangs": {
+    "message": "No languages set to never translate."
+  },
+  "settingsGmailClearLangs": {
+    "message": "Clear"
+  },
+  "settingsGmailRemoveLang": {
+    "message": "Remove"
   }
 }

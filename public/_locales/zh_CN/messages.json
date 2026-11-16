@@ -305,6 +305,9 @@
   "selectionIcon": {
     "message": "翻译所选文本"
   },
+  "selectionResizeHandle": {
+    "message": "调整翻译弹窗的宽度（双击重置）"
+  },
   "close": {
     "message": "关闭"
   },
@@ -1036,6 +1039,105 @@
       }
     }
   },
+  "openPdf": {
+    "message": "翻译此 PDF"
+  },
+  "openPdfHint": {
+    "message": "在 Sakutto 中打开该 PDF，并在原位翻译，保留页面版式。"
+  },
+  "contextTranslatePdf": {
+    "message": "用 Sakutto 翻译此 PDF"
+  },
+  "commandPdf": {
+    "message": "在 Sakutto 中打开 PDF"
+  },
+  "pdfReaderTitle": {
+    "message": "PDF"
+  },
+  "pdfUntitled": {
+    "message": "文档.pdf"
+  },
+  "pdfPreparing": {
+    "message": "正在读取文档…"
+  },
+  "pdfReading": {
+    "message": "正在读取第 $PAGE$ 页，共 $TOTAL$ 页",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfTranslated": {
+    "message": "已翻译"
+  },
+  "pdfPageNoText": {
+    "message": "此页是扫描件或图片，没有可选择的文字，因此无法翻译。"
+  },
+  "pdfRenderFailed": {
+    "message": "无法绘制此页。",
+    "description": "Shown on a page whose canvas could not be drawn."
+  },
+  "pdfNoText": {
+    "message": "此文档是扫描件或一组图片，没有可翻译的文字层。请打开含真实文字的 PDF，或先进行文字识别。"
+  },
+  "pdfTranslateFailed": {
+    "message": "此部分无法翻译。"
+  },
+  "pdfMissing": {
+    "message": "文档已不可用。请从对应的标签页重新打开 PDF。"
+  },
+  "pdfBroken": {
+    "message": "无法打开文档。文件可能已损坏，或受到密码保护。"
+  },
+  "pdfTooLarge": {
+    "message": "此文件超过 200 MB，这是阅读器可打开的最大文档大小。",
+    "description": "Shown when a local PDF is larger than the reader will open."
+  },
+  "pdfModelMissing": {
+    "message": "页面已显示，但翻译需要 PLaMo 模型。下载模型即可翻译此文档。"
+  },
+  "pdfOpenFailed": {
+    "message": "无法打开此 PDF。请重新加载页面后再试。"
+  },
+  "pdfFileAccessDenied": {
+    "message": "这份 PDF 是本机上的文件。请在浏览器的扩展程序设置中允许访问文件网址，或在阅读器中选择该文件。"
+  },
+  "pdfCompare": {
+    "message": "并排比较"
+  },
+  "pdfOriginalPane": {
+    "message": "原文"
+  },
+  "pdfTranslatedPane": {
+    "message": "译文"
+  },
+  "pdfChooseFile": {
+    "message": "选择 PDF 文件"
+  },
+  "pdfKeptAsIs": {
+    "message": "有 $COUNT$ 处保持页面原有排版：公式、坐标刻度和代码仍按原文排版。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfSelectHint": {
+    "message": "在页面上选择文字，即可只翻译该部分。"
+  },
+  "pdfSelectTranslate": {
+    "message": "翻译所选内容"
+  },
+  "pdfSelectFailed": {
+    "message": "无法翻译此部分。"
+  },
+  "pdfSelectClear": {
+    "message": "显示原文"
+  },
   "commandCompose": {
     "message": "翻译正在输入的文本"
   },
@@ -1381,6 +1483,12 @@
   "videoCaptionsSizeHelp": {
     "message": "大小会随播放器变化，包括全屏和影院模式。拖动滑块可预览。"
   },
+  "translationPopupSizeLabel": {
+    "message": "翻译弹窗文字大小"
+  },
+  "translationPopupSizeHelp": {
+    "message": "调整悬停、划词和写作翻译弹窗中的文字大小。视频字幕使用单独的字幕大小设置。"
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "自定义字幕网站"
   },
@@ -1410,5 +1518,127 @@
   },
   "videoCaptionsPositionHelp": {
     "message": "长按译文字幕即可在播放器内拖动。YouTube 和 X 会分别记住位置，全屏和剧场模式也会保持。此按钮会把字幕放回播放器底部。"
+  },
+  "pdfOverflow": {
+    "message": "有 $COUNT$ 处无法排进页面。打开标记即可阅读译文。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfFailedCount": {
+    "message": "有 $COUNT$ 处无法翻译。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "Toolbar note when some blocks could not be translated."
+  },
+  "pdfOverflowOpen": {
+    "message": "显示译文"
+  },
+  "gmailBannerDetected": {
+    "message": "这封邮件似乎是用$LANG$写的。",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerTranslate": {
+    "message": "翻译成$TARGET$",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerShowOriginal": {
+    "message": "显示原文"
+  },
+  "gmailBannerTranslating": {
+    "message": "正在翻译这封邮件…"
+  },
+  "gmailBannerFailed": {
+    "message": "无法翻译此电子邮件。"
+  },
+  "gmailBannerRegion": {
+    "message": "Gmail 邮件翻译"
+  },
+  "mailBannerAccessNeeded": {
+    "message": "在此网站上使用邮件翻译需要访问权限。"
+  },
+  "mailBannerEnableForSite": {
+    "message": "在此网站上启用邮件翻译"
+  },
+  "mailBannerPermissionDenied": {
+    "message": "邮件翻译需要访问邮件网站的权限。"
+  },
+  "settingsGmailBanner": {
+    "message": "为 Gmail 邮件提供翻译"
+  },
+  "settingsGmailBannerHelp": {
+    "message": "开启后，打开用其他语言撰写的 Gmail 邮件时，正文上方会显示一个小提示。只有点击后才会翻译邮件。Sakutto 需要访问 mail.google.com 的权限；请在弹出窗口或网站列表中授予。"
+  },
+  "gmailBannerTranslated": {
+    "message": "Translated: $SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "gmailBannerShowTranslation": {
+    "message": "Show translation"
+  },
+  "gmailBannerMenu": {
+    "message": "Translation settings"
+  },
+  "gmailBannerTranslateNow": {
+    "message": "Translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerAlwaysTranslate": {
+    "message": "Always translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerNeverTranslate": {
+    "message": "Never translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsGmailAutoLangs": {
+    "message": "Always translate these languages"
+  },
+  "settingsGmailNeverLangs": {
+    "message": "Never translate these languages"
+  },
+  "settingsGmailNoAutoLangs": {
+    "message": "No languages set to always translate."
+  },
+  "settingsGmailNoNeverLangs": {
+    "message": "No languages set to never translate."
+  },
+  "settingsGmailClearLangs": {
+    "message": "Clear"
+  },
+  "settingsGmailRemoveLang": {
+    "message": "Remove"
   }
 }

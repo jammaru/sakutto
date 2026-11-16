@@ -305,6 +305,9 @@
   "selectionIcon": {
     "message": "Dịch văn bản đã chọn"
   },
+  "selectionResizeHandle": {
+    "message": "Thay đổi chiều rộng cửa sổ dịch (nhấp đúp để đặt lại)"
+  },
   "close": {
     "message": "Đóng"
   },
@@ -1036,6 +1039,105 @@
       }
     }
   },
+  "openPdf": {
+    "message": "Dịch PDF này"
+  },
+  "openPdfHint": {
+    "message": "Mở PDF trong Sakutto và dịch ngay tại chỗ, giữ nguyên bố cục trang."
+  },
+  "contextTranslatePdf": {
+    "message": "Dịch PDF này bằng Sakutto"
+  },
+  "commandPdf": {
+    "message": "Mở PDF trong Sakutto"
+  },
+  "pdfReaderTitle": {
+    "message": "PDF"
+  },
+  "pdfUntitled": {
+    "message": "Tài liệu.pdf"
+  },
+  "pdfPreparing": {
+    "message": "Đang đọc tài liệu…"
+  },
+  "pdfReading": {
+    "message": "Đang đọc trang $PAGE$ trên $TOTAL$",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfTranslated": {
+    "message": "Đã dịch"
+  },
+  "pdfPageNoText": {
+    "message": "Trang này là bản quét hoặc hình ảnh, không có chữ để chọn nên không dịch được."
+  },
+  "pdfRenderFailed": {
+    "message": "Không vẽ được trang này.",
+    "description": "Shown on a page whose canvas could not be drawn."
+  },
+  "pdfNoText": {
+    "message": "Tài liệu này là bản quét hoặc tập hình ảnh, không có lớp chữ để dịch. Hãy mở PDF có chữ thật, hoặc chạy nhận dạng chữ trước."
+  },
+  "pdfTranslateFailed": {
+    "message": "Không thể dịch phần này."
+  },
+  "pdfMissing": {
+    "message": "Tài liệu không còn khả dụng. Hãy mở lại PDF từ thẻ của nó."
+  },
+  "pdfBroken": {
+    "message": "Không thể mở tài liệu. Có thể tệp bị hỏng hoặc được bảo vệ bằng mật khẩu."
+  },
+  "pdfTooLarge": {
+    "message": "Tệp này lớn hơn 200 MB, giới hạn lớn nhất trình đọc có thể mở.",
+    "description": "Shown when a local PDF is larger than the reader will open."
+  },
+  "pdfModelMissing": {
+    "message": "Các trang đã được hiển thị, nhưng muốn dịch cần có mô hình PLaMo. Hãy tải mô hình để dịch tài liệu này."
+  },
+  "pdfOpenFailed": {
+    "message": "Không thể mở PDF này. Hãy tải lại trang rồi thử lại."
+  },
+  "pdfFileAccessDenied": {
+    "message": "PDF này là một tệp trên máy tính. Hãy cho phép tiện ích truy cập URL tệp trong cài đặt tiện ích, hoặc chọn tệp trong trình đọc."
+  },
+  "pdfCompare": {
+    "message": "So sánh"
+  },
+  "pdfOriginalPane": {
+    "message": "Bản gốc"
+  },
+  "pdfTranslatedPane": {
+    "message": "Bản dịch"
+  },
+  "pdfChooseFile": {
+    "message": "Chọn tệp PDF"
+  },
+  "pdfKeptAsIs": {
+    "message": "$COUNT$ phần được giữ nguyên như trang đã sắp: phương trình, vạch trục và mã nguồn giữ cách sắp ban đầu.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfSelectHint": {
+    "message": "Chọn văn bản trên trang để chỉ dịch phần đó."
+  },
+  "pdfSelectTranslate": {
+    "message": "Dịch phần đã chọn"
+  },
+  "pdfSelectFailed": {
+    "message": "Không thể dịch phần này."
+  },
+  "pdfSelectClear": {
+    "message": "Hiện bản gốc"
+  },
   "commandCompose": {
     "message": "Dịch văn bản bạn đang viết"
   },
@@ -1381,6 +1483,12 @@
   "videoCaptionsSizeHelp": {
     "message": "Cỡ theo trình phát, gồm toàn màn hình và chế độ rạp. Kéo thanh để xem trước."
   },
+  "translationPopupSizeLabel": {
+    "message": "Cỡ chữ trong cửa sổ dịch"
+  },
+  "translationPopupSizeHelp": {
+    "message": "Thay đổi cỡ chữ trong cửa sổ dịch khi di chuột, khi bôi đen và khi soạn thảo. Phụ đề video có cài đặt cỡ chữ riêng."
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "Trang phụ đề tùy chỉnh"
   },
@@ -1410,5 +1518,127 @@
   },
   "videoCaptionsPositionHelp": {
     "message": "Nhấn giữ phụ đề đã dịch để di chuyển. YouTube và X nhớ vị trí riêng, kể cả toàn màn hình và chế độ rạp. Nút này đưa phụ đề về cuối trình phát."
+  },
+  "pdfOverflow": {
+    "message": "$COUNT$ đoạn không vừa trang. Mở dấu để đọc bản dịch.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfFailedCount": {
+    "message": "$COUNT$ phần không dịch được.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "Toolbar note when some blocks could not be translated."
+  },
+  "pdfOverflowOpen": {
+    "message": "Hiện bản dịch"
+  },
+  "gmailBannerDetected": {
+    "message": "Email này có vẻ được viết bằng $LANG$.",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerTranslate": {
+    "message": "Dịch sang $TARGET$",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerShowOriginal": {
+    "message": "Hiện bản gốc"
+  },
+  "gmailBannerTranslating": {
+    "message": "Đang dịch email này…"
+  },
+  "gmailBannerFailed": {
+    "message": "Không thể dịch email này."
+  },
+  "gmailBannerRegion": {
+    "message": "Dịch email Gmail"
+  },
+  "mailBannerAccessNeeded": {
+    "message": "Dịch email cần quyền truy cập trang này."
+  },
+  "mailBannerEnableForSite": {
+    "message": "Bật dịch email trên trang này"
+  },
+  "mailBannerPermissionDenied": {
+    "message": "Dịch email cần quyền truy cập trang web email."
+  },
+  "settingsGmailBanner": {
+    "message": "Đề nghị dịch email Gmail"
+  },
+  "settingsGmailBannerHelp": {
+    "message": "Khi bật, email Gmail đang mở được viết bằng ngôn ngữ khác sẽ hiện một dải nhỏ phía trên nội dung. Email chỉ được dịch sau khi bạn nhấp. Sakutto cần quyền truy cập mail.google.com; hãy cấp quyền từ cửa sổ bật lên hoặc danh sách trang web."
+  },
+  "gmailBannerTranslated": {
+    "message": "Translated: $SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "gmailBannerShowTranslation": {
+    "message": "Show translation"
+  },
+  "gmailBannerMenu": {
+    "message": "Translation settings"
+  },
+  "gmailBannerTranslateNow": {
+    "message": "Translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerAlwaysTranslate": {
+    "message": "Always translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerNeverTranslate": {
+    "message": "Never translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsGmailAutoLangs": {
+    "message": "Always translate these languages"
+  },
+  "settingsGmailNeverLangs": {
+    "message": "Never translate these languages"
+  },
+  "settingsGmailNoAutoLangs": {
+    "message": "No languages set to always translate."
+  },
+  "settingsGmailNoNeverLangs": {
+    "message": "No languages set to never translate."
+  },
+  "settingsGmailClearLangs": {
+    "message": "Clear"
+  },
+  "settingsGmailRemoveLang": {
+    "message": "Remove"
   }
 }

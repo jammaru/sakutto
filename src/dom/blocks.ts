@@ -117,9 +117,68 @@ const OWN_UI_TAGS: ReadonlySet<string> = new Set([
   'SAKUTTO-CAPTIONS',
 ]);
 
+const SCRIPT_SELECTOR = 'sub, sup';
+
+/**
+ * A class token that names a script. The token boundary keeps `subscription`, `subject`
+ * and `support` out, while `NLM_sub`, `chem-subscript`, `align-super` and `sub2` still
+ * match. Such a name is only trusted for a short glyph, so a paragraph wrapped in a
+ * `subtitle` class is not mistaken for page copy that has to stay in place.
+ */
+const SCRIPT_CLASS = /(?:^|[-_])(?:nlm[-_]?)?(sub|sup)(?:script)?(?=$|[-_]|\d)/iu;
+
+const SCRIPT_GLYPH = /^[\p{L}\p{N}\p{M}\p{P}\p{S}]+$/u;
+const SCRIPT_GLYPH_MAX = 8;
+const SCRIPT_NUMBER_OR_SYMBOL = /[\p{N}\p{P}\p{S}]/u;
+
+/**
+ * A short run that looks like a script rather than prose. Digits and symbols qualify at
+ * any script length; a run of only letters has to be a short variable or abbreviation, so
+ * an ordinary word that happens to sit in a `sub`-named class is left alone.
+ */
+export function isScriptGlyph(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed.length > SCRIPT_GLYPH_MAX) return false;
+  if (/\s/u.test(trimmed) || !SCRIPT_GLYPH.test(trimmed)) return false;
+  return SCRIPT_NUMBER_OR_SYMBOL.test(trimmed) || trimmed.length <= 3;
+}
+
+export type ScriptPosition = 'sub' | 'super';
+
+function classScriptPosition(element: Element): ScriptPosition | null {
+  for (const name of element.classList) {
+    // Split camel-case names as well, so a Word-style `MsoSuperscript` or a framework's
+    // `fooSub` is read like `mso-superscript` or `foo-sub`.
+    const normalized = name.replace(/([a-z0-9])([A-Z])/gu, '$1-$2');
+    const match = SCRIPT_CLASS.exec(normalized);
+    if (!match) continue;
+    return match[1]?.toLowerCase() === 'sub' ? 'sub' : 'super';
+  }
+  return null;
+}
+
+function styleScriptPosition(element: Element): ScriptPosition | null {
+  const view = element.ownerDocument.defaultView;
+  if (!view) return null;
+  const align = view.getComputedStyle(element).verticalAlign;
+  if (align === 'sub') return 'sub';
+  if (align === 'super') return 'super';
+  return null;
+}
+
+/**
+ * Which script an element paints as, if any. Native tags are certain. Publisher markup uses
+ * either a `vertical-align` or a class such as `NLM_sub`; both are only believed when the
+ * element holds a short glyph, because a whole caption can share the same class.
+ */
+export function scriptPositionOf(element: Element): ScriptPosition | null {
+  if (element.localName === 'sub') return 'sub';
+  if (element.localName === 'sup') return 'super';
+  if (!isScriptGlyph(element.textContent ?? '')) return null;
+  return classScriptPosition(element) ?? styleScriptPosition(element);
+}
+
 const FROZEN_SELECTOR = [
-  'sup',
-  'sub',
   'ruby',
   'rt',
   'rp',
@@ -229,8 +288,14 @@ export function isBlockElement(element: Element): boolean {
   return BLOCK_TAGS.has(element.tagName.toLowerCase());
 }
 
-export function isTranslationExcluded(element: Element): boolean {
-  return isOwnUi(element) || element.closest(EXCLUDED_SELECTOR) !== null;
+export function isTranslationExcluded(element: Element, boundary?: Element): boolean {
+  if (isOwnUi(element)) return true;
+  const excluded = element.closest(EXCLUDED_SELECTOR);
+  if (!excluded) return false;
+  // An explicit scan of a subtree (a mail body, a selected region) is not cancelled by a
+  // `translate="no"` or field marker on the app shell above it. The marker still applies
+  // when it sits on the element itself or on anything inside the scanned subtree.
+  return boundary === undefined || boundary.contains(excluded);
 }
 
 /**
@@ -273,6 +338,13 @@ export function isScreenReaderOnly(element: Element): boolean {
 class VisibilityProbe {
   private readonly memo = new WeakMap<Element, boolean>();
 
+  constructor(private readonly boundary: Element | null = null) {}
+
+  /** True when this element carries an excluded marker at or below the scanned root. */
+  excluded(element: Element): boolean {
+    return isTranslationExcluded(element, this.boundary ?? undefined);
+  }
+
   /** False for the element or any container above it that is hidden or excluded. */
   skipped(element: Element): boolean {
     const cached = this.memo.get(element);
@@ -284,7 +356,7 @@ class VisibilityProbe {
     const parent = element.parentElement;
     const value =
       (parent !== null && this.skipped(parent)) ||
-      isTranslationExcluded(element) ||
+      this.excluded(element) ||
       isAriaHiddenLeaf(element) ||
       isScreenReaderOnly(element) ||
       isCollapsedDetail(element) ||
@@ -638,6 +710,18 @@ export function isKeptInlineText(value: string): boolean {
 }
 
 /**
+ * Subscript and superscript. Their position in the line is content, not decoration, so they
+ * keep their place through a placeholder instead of being dropped from the segment.
+ *
+ * Publishers do not always use `<sub>`/`<sup>`: NLM-style JATS markup uses
+ * `<span class="NLM_sub">`, and a stylesheet can lower or raise any inline span. Those
+ * elements are recognized too, so the digit is kept atomic exactly like a native tag.
+ */
+export function isSubSuperscript(element: Element): boolean {
+  return element.matches(SCRIPT_SELECTOR) || scriptPositionOf(element) !== null;
+}
+
+/**
  * Citations, pronunciation and short foreign-language names stay in the DOM.
  * They are not sent to the model, so a bad generation cannot scramble them.
  */
@@ -719,7 +803,7 @@ type WalkContext = 'flow' | 'item' | 'row';
 export function* eachTranslatableBlock(root: ParentNode): Generator<Element> {
   const start = root instanceof Document ? root.documentElement : root;
   if (!start) return;
-  const probe = new VisibilityProbe();
+  const probe = new VisibilityProbe(start instanceof Element ? start : null);
   const layout = new LayoutProbe();
   const repeatedCells = repeatedCellTexts(start);
   if (start instanceof Element) {
@@ -753,7 +837,7 @@ function* visitBlock(
   context: WalkContext,
   repeatedCells: ReadonlySet<string>,
 ): Generator<Element> {
-  if (isTranslationExcluded(element) || isAriaHiddenLeaf(element)) return;
+  if (probe.excluded(element) || isAriaHiddenLeaf(element)) return;
 
   // A repeated row's cell holds a value: a handle, a language tag, a count, a stat line.
   // Sending it to the model spends a completion to hand it back, and a translated value in

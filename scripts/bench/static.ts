@@ -12,6 +12,7 @@ const TYPES: Record<string, string> = {
   '.json': 'application/json; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  pdf: 'application/pdf',
 };
 
 export interface StaticServer {
@@ -104,6 +105,16 @@ const ISOLATED: Record<string, string> = {
 export function startStaticServer(options: {
   directory: string;
   port?: number;
+  /**
+   * Cross-origin isolation headers. On by default, because the page bench runs the same
+   * headers as `server.ts` so a page is measured under the conditions the extension expects.
+   *
+   * The PDF bench turns them off. A PDF host is an ordinary static server, and
+   * `Cross-Origin-Resource-Policy: same-origin` would refuse the extension's read of the file
+   * — which is correct behaviour for a page that sets it deliberately, but it is not what a
+   * paper on a university site looks like.
+   */
+  isolated?: boolean;
 }): Promise<StaticServer> {
   const root = resolve(options.directory);
 
@@ -139,7 +150,7 @@ export function startStaticServer(options: {
     }
 
     response.writeHead(200, {
-      ...ISOLATED,
+      ...(options.isolated === false ? { 'Cache-Control': 'no-store' } : ISOLATED),
       'Content-Type': TYPES[extname(file)] ?? 'application/octet-stream',
       'Content-Length': String(size),
     });

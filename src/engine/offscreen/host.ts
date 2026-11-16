@@ -20,7 +20,7 @@ import type { ModelProgressMessage } from '@/shared/messages';
 import { loadSettings, saveSettings } from '@/shared/storage';
 import type { Formality, IdleMinutes, Settings, TierPreference } from '@/shared/settings';
 import { MemoryTranslationCacheStore, IndexedDbTranslationCacheStore } from '../cache/store';
-import { CachingEngine } from '../cache/caching-engine';
+import { CachingEngine, type CacheAccept } from '../cache/caching-engine';
 import { TranslationCache } from '../cache/cache';
 import { prewarmRequest } from '../cache/prewarm';
 import { ChromeTranslatorEngine } from '../chrome/translator';
@@ -59,10 +59,12 @@ import { QUALITY_PARAGRAPH } from '../model/suggestion';
 import { buildTranslationPrompt, cleanModelOutput } from '../prompt/pfml3';
 import { isBrokenTranslation } from '../text/degenerate';
 import { CpuRetryRuntimeSlot } from './retry-runtime';
+import { translationStaysInSourceLanguage } from '@/pdf/language';
 import { RoutingEngine, type PairSupport } from '../router';
 import type { GlossaryEntry } from '../types';
 import {
   ENGINE_HOST_PORT,
+  MODEL_STATUS_PROGRESS_ID,
   deserializeTranslateOptions,
   errorPayload,
   isEngineHostRequest,
@@ -83,6 +85,11 @@ import {
 
 const IDLE_RELEASE_MS = 5 * 60 * 1000;
 const WARMUP_TIMEOUT_MS = 20_000;
+/**
+ * Last-resort bound around one WebGPU load attempt. The runtime itself terminates a wedged
+ * worker sooner; this keeps `loadWithFallback` from waiting forever if any other layer stalls.
+ */
+const WEBGPU_LOAD_WATCHDOG_MS = 75_000;
 /**
  * Extra CPU wllama copy used to retry a collapsed WebGPU piece. About +0.6GB.
  * Kept only while a page is still translating, then dropped so a healthy GPU
@@ -216,22 +223,61 @@ export function skipRemainingWebGpuAttempts(error: unknown): boolean {
   );
 }
 
+export interface LoadFallbackOptions {
+  /** Test seam; production uses the bound that lets the runtime terminate a wedged worker. */
+  webgpuTimeoutMs?: number;
+}
+
+function gpuLoadWatchdogError(timeoutMs: number): EngineError {
+  return new EngineError('gpu-unavailable', 'The WebGPU model load did not finish in time.', {
+    detail: `WebGPU model load watchdog expired after ${String(Math.round(timeoutMs / 1000))}s`,
+  });
+}
+
+async function withinTimeout<T>(
+  task: Promise<T>,
+  timeoutMs: number,
+  onTimeout: () => Error,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      task,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(onTimeout()), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 /**
  * Loads on the current selection and, when a GPU load fails for any reason but an abort, steps
  * down to fewer slots, then one conservative WebGPU slot, then the CPU. A missing adapter,
  * a device that failed after ggml retries, or a WGSL compile error skips the narrower loads.
  * Translation and warm-up both come through here, so neither can leave the engine without a
  * model just because WebGPU would not take it.
+ *
+ * A WebGPU attempt that never settles is treated as `gpu-unavailable`, so it goes straight to
+ * the CPU rather than retrying the narrower GPU shapes that would hang the same way.
  */
 export async function loadWithFallback(
   ensureLoaded: (selection: BackendSelection) => Promise<LoadedModel>,
   selection: BackendSelection,
   signal: AbortSignal,
+  options: LoadFallbackOptions = {},
 ): Promise<{ loaded: LoadedModel; selection: BackendSelection }> {
+  const webgpuTimeoutMs = options.webgpuTimeoutMs ?? WEBGPU_LOAD_WATCHDOG_MS;
   let current = selection;
   for (;;) {
     try {
-      return { loaded: await ensureLoaded(current), selection: current };
+      const task = ensureLoaded(current);
+      const loaded =
+        current.backend === 'webgpu'
+          ? await withinTimeout(task, webgpuTimeoutMs, () => gpuLoadWatchdogError(webgpuTimeoutMs))
+          : await task;
+      return { loaded, selection: current };
     } catch (error) {
       if (isAbortError(error) || signal.aborted) throw error;
       const next = skipRemainingWebGpuAttempts(error)
@@ -335,9 +381,33 @@ export class EngineHost {
     this.gpuDiagnostic = mergeGpuDiagnostic(lastGpuDiagnostic(), detail, lastWebGpuLoadLog());
   }
 
+  /**
+   * Publish load transitions on every open engine port so the popup and content scripts
+   * refresh their status instead of keeping a stale "waiting" label. Download progress
+   * keeps its request-scoped event from `runDownload`.
+   */
+  private publishModelStatus(status: ModelStatus): void {
+    if (status.state === 'downloading' || status.state === 'verifying') return;
+    for (const port of this.ports) {
+      this.post(port, {
+        type: 'model-progress',
+        requestId: MODEL_STATUS_PROGRESS_ID,
+        status,
+      });
+    }
+  }
+
   private async createServices(): Promise<EngineServices> {
     const capabilities = await probeCapabilities();
     this.gpuDiagnostic = mergeGpuDiagnostic(lastGpuDiagnostic(), null);
+    if (
+      capabilities.webgpu === 'unavailable' &&
+      /timed out/i.test(this.gpuDiagnostic?.error ?? '')
+    ) {
+      // The probe could not even get an adapter. Show the same CPU fallback label a failed
+      // GPU load gets instead of silently running on the CPU.
+      this.gpuFallback = true;
+    }
     const probe = {
       webgpu: capabilities.webgpu === 'ready',
       hardwareConcurrency: capabilities.hardwareConcurrency,
@@ -357,11 +427,7 @@ export class EngineHost {
     const manager = new ModelManager({
       store,
       createRuntime: createWllamaRuntime,
-      onStatus: (status) => {
-        void browser.runtime
-          .sendMessage({ type: 'model:progress', status } satisfies ModelProgressMessage)
-          .catch(() => undefined);
-      },
+      onStatus: (status) => this.publishModelStatus(status),
     });
     this.folderSession = new SharedFolderSession(store, manager);
     try {
@@ -377,6 +443,9 @@ export class EngineHost {
       }
       const result = await loadWithFallback(
         async (selection) => {
+          // Mark the fallback before the CPU load publishes `loaded`, so status already
+          // says "WebGPU could not load the model" when the popup refreshes.
+          if (isGpuLoadFallback(selectionState.current, selection)) this.gpuFallback = true;
           try {
             // Warm-up is not run here. A Hello. completion before the first page
             // changed parallel-slot batching and later greedy decoding (garbled
@@ -456,8 +525,13 @@ export class EngineHost {
     const localEngine = new InBrowserEngine(localRuntime, { scheduler: this.localScheduler });
     const plamo = new PlamoSourceEngine(lazy, localEngine, () => this.engineSource);
 
+    // A translation that still reads as the source must not become the cached answer for
+    // every later retry. The PDF session also marks retries with `bypassCache`.
+    const acceptCachedTranslation: CacheAccept = (text, source, options) =>
+      !translationStaysInSourceLanguage(source, text, options.tgt);
+
     const chromeForCache = chrome.available
-      ? new CachingEngine(chrome, cache, 'chrome', 'chrome')
+      ? new CachingEngine(chrome, cache, 'chrome', 'chrome', acceptCachedTranslation)
       : null;
 
     const router = new RoutingEngine({
@@ -467,6 +541,7 @@ export class EngineHost {
         () => this.cacheModelId(),
         () =>
           this.engineSource === 'local-server' ? 'local-server' : selectionState.current.backend,
+        acceptCachedTranslation,
       ),
       chrome: chromeForCache,
       plamoSupports: (src, tgt) =>

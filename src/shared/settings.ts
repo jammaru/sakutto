@@ -16,6 +16,8 @@ import { normalizeCaptionCustomHosts } from '@/captions/custom-hosts';
 import { normalizeGlossary } from './glossary';
 import {
   DEFAULT_TARGET_LANGUAGE,
+  canonicalChromeLanguage,
+  canonicalLanguage,
   isChromeOnlyLanguage,
   isTargetLanguage,
   resolveTargetLanguage,
@@ -38,6 +40,33 @@ export function normalizeVideoCaptionSize(value: unknown): number {
   const n = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(n)) return VIDEO_CAPTION_SIZE_DEFAULT;
   return Math.round(Math.min(VIDEO_CAPTION_SIZE_MAX, Math.max(VIDEO_CAPTION_SIZE_MIN, n)));
+}
+
+/** Percent of the current text size for in-page translation popups. */
+export const TRANSLATION_POPUP_SIZE_MIN = 80;
+export const TRANSLATION_POPUP_SIZE_MAX = 200;
+export const TRANSLATION_POPUP_SIZE_DEFAULT = 100;
+
+export function normalizeTranslationPopupSize(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return TRANSLATION_POPUP_SIZE_DEFAULT;
+  return Math.round(Math.min(TRANSLATION_POPUP_SIZE_MAX, Math.max(TRANSLATION_POPUP_SIZE_MIN, n)));
+}
+
+/**
+ * Chosen selection-popup width in em at 100% text scale. `0` keeps the default
+ * `width: max-content` behaviour. Storing em rather than px makes a saved width grow and
+ * shrink with `translationPopupSize`, and the CSS max-width keeps it inside the viewport.
+ */
+export const TRANSLATION_POPUP_WIDTH_AUTO = 0;
+export const TRANSLATION_POPUP_WIDTH_MIN_EM = 14;
+
+export function normalizeTranslationPopupWidth(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n) || n <= TRANSLATION_POPUP_WIDTH_AUTO) {
+    return TRANSLATION_POPUP_WIDTH_AUTO;
+  }
+  return Math.round(Math.max(TRANSLATION_POPUP_WIDTH_MIN_EM, n) * 100) / 100;
 }
 
 /** Player families that remember their own caption overlay spot. */
@@ -92,6 +121,118 @@ export const COMPOSE_PLACEMENTS = ['above', 'below', 'corner', 'free'] as const;
 export type ComposePlacement = (typeof COMPOSE_PLACEMENTS)[number];
 export type ComposeFreePoint = { x: number; y: number };
 
+/** Source-language rules the Gmail and Outlook banners share across messages. */
+export interface GmailTranslateLanguages {
+  auto: string[];
+  never: string[];
+}
+
+function canonicalGmailLanguage(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  return canonicalLanguage(value) ?? canonicalChromeLanguage(value);
+}
+
+/**
+ * Reads a stored list of source languages. Duplicates and unsupported tags are dropped so
+ * a menu toggle only has to compare canonical codes.
+ */
+export function normalizeGmailLanguageList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const languages: string[] = [];
+  for (const entry of value) {
+    const language = canonicalGmailLanguage(entry);
+    if (language !== null && !languages.includes(language)) languages.push(language);
+  }
+  return languages;
+}
+
+/** Never wins when a broken or hand-edited record has the same language in both lists. */
+export function normalizeGmailTranslateLanguages(value: unknown): GmailTranslateLanguages {
+  if (!isRecord(value)) return { auto: [], never: [] };
+  const never = normalizeGmailLanguageList(value.gmailNeverTranslateLangs);
+  const auto = normalizeGmailLanguageList(value.gmailAutoTranslateLangs).filter(
+    (language) => !never.includes(language),
+  );
+  return { auto, never };
+}
+
+export function isGmailAutoTranslateLanguage(
+  language: string | null | undefined,
+  autoLanguages: readonly string[],
+): boolean {
+  const canonical = canonicalGmailLanguage(language);
+  return canonical !== null && autoLanguages.includes(canonical);
+}
+
+export function isGmailNeverTranslateLanguage(
+  language: string | null | undefined,
+  neverLanguages: readonly string[],
+): boolean {
+  const canonical = canonicalGmailLanguage(language);
+  return canonical !== null && neverLanguages.includes(canonical);
+}
+
+export function gmailTranslateLanguagePreference(
+  language: string | null | undefined,
+  languages: { auto: readonly string[]; never: readonly string[] },
+): 'auto' | 'never' | null {
+  if (isGmailNeverTranslateLanguage(language, languages.never)) return 'never';
+  if (isGmailAutoTranslateLanguage(language, languages.auto)) return 'auto';
+  return null;
+}
+
+/**
+ * Turns "Always translate this language" on or off. A language can be in the auto list or
+ * the never list, never both, so enabling one side removes the other.
+ */
+export function toggleGmailAutoTranslateLanguage(
+  language: string | null | undefined,
+  languages: { auto: readonly string[]; never: readonly string[] },
+): GmailTranslateLanguages {
+  const canonical = canonicalGmailLanguage(language);
+  const auto = [...languages.auto];
+  const never = [...languages.never];
+  if (canonical === null) return { auto, never };
+  const index = auto.indexOf(canonical);
+  if (index >= 0) auto.splice(index, 1);
+  else auto.push(canonical);
+  return {
+    auto,
+    never: never.filter((entry) => entry !== canonical),
+  };
+}
+
+/** Turns "Never translate this language" on or off, clearing the auto rule for it. */
+export function toggleGmailNeverTranslateLanguage(
+  language: string | null | undefined,
+  languages: { auto: readonly string[]; never: readonly string[] },
+): GmailTranslateLanguages {
+  const canonical = canonicalGmailLanguage(language);
+  const auto = [...languages.auto];
+  const never = [...languages.never];
+  if (canonical === null) return { auto, never };
+  const index = never.indexOf(canonical);
+  if (index >= 0) never.splice(index, 1);
+  else never.push(canonical);
+  return {
+    auto: auto.filter((entry) => entry !== canonical),
+    never,
+  };
+}
+
+/** Removes a language from whichever list it is in. */
+export function removeGmailTranslateLanguage(
+  language: string | null | undefined,
+  languages: { auto: readonly string[]; never: readonly string[] },
+): GmailTranslateLanguages {
+  const canonical = canonicalGmailLanguage(language);
+  if (canonical === null) return { auto: [...languages.auto], never: [...languages.never] };
+  return {
+    auto: languages.auto.filter((entry) => entry !== canonical),
+    never: languages.never.filter((entry) => entry !== canonical),
+  };
+}
+
 export interface LicenseConsent {
   license: 'plamo-community';
   version: typeof PLAMO_LICENSE_VERSION;
@@ -113,6 +254,10 @@ export interface Settings {
   targetLanguage: TargetLanguage;
   form: Formality;
   display: DisplayMode;
+  /** Percent text size for hover, selection, status, and compose translation popups. */
+  translationPopupSize: number;
+  /** Chosen selection-popup width in em at 100% scale; `0` means automatic width. */
+  translationPopupWidth: number;
   consent: LicenseConsent | null;
   highQualityDismissed: boolean;
   /**
@@ -183,6 +328,16 @@ export interface Settings {
   videoCaptionPositions: VideoCaptionPositions;
   /** Extra hosts that run the generic HTML5 caption adapter. YouTube and X stay built-in. */
   captionCustomHosts: string[];
+  /**
+   * When true, an opened Gmail or Outlook message whose body is not in the target language
+   * gets a small translate banner. The message body is translated only after the reader
+   * clicks.
+   */
+  gmailTranslateBanner: boolean;
+  /** Source languages the mail banner translates without offering first. */
+  gmailAutoTranslateLangs: string[];
+  /** Source languages the mail banner leaves alone. */
+  gmailNeverTranslateLangs: string[];
 }
 
 export type SettingsPatch = Partial<
@@ -191,6 +346,8 @@ export type SettingsPatch = Partial<
     | 'targetLanguage'
     | 'form'
     | 'display'
+    | 'translationPopupSize'
+    | 'translationPopupWidth'
     | 'consent'
     | 'highQualityDismissed'
     | 'sharedFolderOfferDismissed'
@@ -217,6 +374,9 @@ export type SettingsPatch = Partial<
     | 'videoCaptionOriginalToggle'
     | 'videoCaptionPositions'
     | 'captionCustomHosts'
+    | 'gmailTranslateBanner'
+    | 'gmailAutoTranslateLangs'
+    | 'gmailNeverTranslateLangs'
   >
 > & {
   shortcutsEnabled?: Partial<ShortcutEnabled>;
@@ -227,6 +387,8 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   targetLanguage: DEFAULT_TARGET_LANGUAGE,
   form: 'polite',
   display: 'replace',
+  translationPopupSize: TRANSLATION_POPUP_SIZE_DEFAULT,
+  translationPopupWidth: TRANSLATION_POPUP_WIDTH_AUTO,
   consent: null,
   highQualityDismissed: false,
   sharedFolderOfferDismissed: false,
@@ -254,6 +416,9 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   videoCaptionOriginalToggle: true,
   videoCaptionPositions: {},
   captionCustomHosts: [],
+  gmailTranslateBanner: true,
+  gmailAutoTranslateLangs: [],
+  gmailNeverTranslateLangs: [],
 });
 
 export function createDefaultSettings(uiLanguage: string): Settings {
@@ -281,6 +446,7 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
   const defaults = createDefaultSettings(uiLanguage);
   if (!isRecord(value) || value.schemaVersion !== SETTINGS_SCHEMA_VERSION) return defaults;
 
+  const gmailLanguages = normalizeGmailTranslateLanguages(value);
   return {
     schemaVersion: SETTINGS_SCHEMA_VERSION,
     targetLanguage: isTargetLanguage(value.targetLanguage)
@@ -288,6 +454,8 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
       : defaults.targetLanguage,
     form: value.form === 'plain' ? 'plain' : 'polite',
     display: value.display === 'bilingual' ? 'bilingual' : 'replace',
+    translationPopupSize: normalizeTranslationPopupSize(value.translationPopupSize),
+    translationPopupWidth: normalizeTranslationPopupWidth(value.translationPopupWidth),
     consent: normalizeConsent(value.consent),
     highQualityDismissed: value.highQualityDismissed === true,
     sharedFolderOfferDismissed: value.sharedFolderOfferDismissed === true,
@@ -317,6 +485,9 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     videoCaptionOriginalToggle: value.videoCaptionOriginalToggle !== false,
     videoCaptionPositions: normalizeVideoCaptionPositions(value.videoCaptionPositions),
     captionCustomHosts: normalizeCaptionCustomHosts(value.captionCustomHosts),
+    gmailTranslateBanner: value.gmailTranslateBanner !== false,
+    gmailAutoTranslateLangs: gmailLanguages.auto,
+    gmailNeverTranslateLangs: gmailLanguages.never,
   };
 }
 

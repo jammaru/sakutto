@@ -168,7 +168,9 @@ describe('command parsing', () => {
 describe('release command', () => {
   it('points the cli at this repository', () => {
     expect(repoRoot()).toBe(repo);
-    const pkg = JSON.parse(readFileSync(join(repoRoot(), 'package.json'), 'utf8')) as {
+    const pkg = JSON.parse(
+      normalizeEol(readFileSync(join(repoRoot(), 'package.json'), 'utf8')),
+    ) as {
       scripts: { release: string };
     };
     expect(pkg.scripts.release).toBe('node scripts/release/cli.ts');
@@ -432,10 +434,11 @@ function withRepo(run: (root: string) => void): void {
 }
 
 function changelogSectionVersions(changelog: string): string[] {
+  // The repository keeps an Unreleased section for pending notes; it is not a version.
   return changelog
     .split(/\r?\n/)
     .map((line) => /^## \[([^\]]+)\]/.exec(line)?.[1])
-    .filter((version): version is string => version !== undefined);
+    .filter((version): version is string => version !== undefined && version !== 'Unreleased');
 }
 
 function commitFile(root: string, name: string, contents: string, message: string): void {

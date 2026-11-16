@@ -1,16 +1,17 @@
 import { browser } from 'wxt/browser';
 import { shouldAutoInjectCaptions } from '@/captions/sites';
+import { shouldAutoInjectGmailBanner } from '@/dom/gmail-banner';
+import { shouldAutoInjectOutlookBanner } from '@/dom/outlook-banner';
 import { originPattern, pageHost, loadSiteRule } from '@/dom/sites';
 import { ensureContentScript } from '@/shared/page-bridge';
 import { requestPageCommand, type PageCommandName } from '@/shared/messages';
+import { PDF_MENU_URL_PATTERNS, readerUrl } from '@/shared/pdf';
+import { fileSchemeAccessAllowed, tabServesPdf } from './pdf-detect';
 import { noteShortcutCommandAssigned } from '@/shared/shortcut-assignment';
-import {
-  isShortcutCommand,
-  SHORTCUT_PAGE_COMMANDS,
-  type ShortcutCommand,
-  type ShortcutEnabled,
-} from '@/shared/shortcuts';
+import { isShortcutCommand, PDF_COMMAND, SHORTCUT_PAGE_COMMANDS } from '@/shared/shortcuts';
+import type { ShortcutCommand, ShortcutEnabled } from '@/shared/shortcuts';
 import { loadSettings } from '@/shared/storage';
+import { openPdfFromUrl, sweepStoredPdfs } from './pdf-store';
 
 interface PageTranslationCanceller {
   cancelTab(tabId: number): void;
@@ -20,10 +21,20 @@ export function installPageActions(translations?: PageTranslationCanceller): voi
   installMenus();
 
   browser.commands.onCommand.addListener((command, tab) => {
+    // The PDF command is not a page action: the browser delivers the key here and the
+    // background opens the reader itself, because no content script can run in its viewer.
+    if (command === PDF_COMMAND) {
+      void (tab?.id === undefined ? openActivePdf() : openPdfForTab(tab));
+      return;
+    }
     void handleShortcutCommand(command, tab);
   });
 
   browser.contextMenus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId === PDF_COMMAND) {
+      void openPdfForTab(tab);
+      return;
+    }
     const tabId = tab?.id;
     if (tabId === undefined) return;
     const pageCommand =
@@ -43,6 +54,8 @@ export function installPageActions(translations?: PageTranslationCanceller): voi
     if (changeInfo.status !== 'complete' || !tab.url) return;
     void injectIfAlways(tabId, tab.url);
     void injectIfCaptions(tabId, tab.url);
+    void injectIfGmailBanner(tabId, tab.url);
+    void injectIfOutlookBanner(tabId, tab.url);
   });
 
   browser.tabs.onRemoved.addListener((tabId) => {
@@ -51,9 +64,6 @@ export function installPageActions(translations?: PageTranslationCanceller): voi
 }
 
 function installMenus(): void {
-  // Chrome decides menu contents when it opens, so hiding after contextmenu is too
-  // late and the hidden state would be global across tabs. Keep this item on every
-  // editable; ineligible fields no-op with feedback in the page.
   void browser.contextMenus.removeAll().then(() => {
     browser.contextMenus.create({
       id: 'translate-page',
@@ -65,12 +75,104 @@ function installMenus(): void {
       title: browser.i18n.getMessage('contextTranslateSelection'),
       contexts: ['selection'],
     });
+    // Chrome decides menu contents when it opens, so hiding after contextmenu is too
+    // late and the hidden state would be global across tabs. Keep this item on every
+    // editable; ineligible fields no-op with feedback in the page.
     browser.contextMenus.create({
       id: 'translate-compose',
       title: browser.i18n.getMessage('contextTranslateCompose'),
       contexts: ['editable'],
     });
+    browser.contextMenus.create({
+      id: PDF_COMMAND,
+      title: browser.i18n.getMessage('contextTranslatePdf'),
+      contexts: ['page', 'link'],
+      // Only offered on something that is a PDF, so the menu does not promise a feature the
+      // click cannot deliver. Chrome reports a PDF tab's URL as the file itself.
+      documentUrlPatterns: [...PDF_MENU_URL_PATTERNS],
+    });
   });
+}
+
+/**
+ * Opens the PDF the active tab is showing in the extension's own reader.
+ *
+ * The bytes are fetched and stored here rather than in the reader page: a service worker can
+ * request the page's origin with the `activeTab` grant the toolbar click produced, and the
+ * reader tab then reads only from the extension's own store.
+ */
+export async function openActivePdf(): Promise<boolean> {
+  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+  return openPdfForTab(tabs[0]);
+}
+
+export async function openPdfForTab(
+  tab: { id?: number | undefined; url?: string | undefined } | undefined,
+): Promise<boolean> {
+  return (await openPdfForTabReason(tab)) === null;
+}
+
+/**
+ * The same, reporting why it failed.
+ *
+ * The popup shows one message either way, but the bench and the e2e suite need to tell a
+ * refused origin from a document that is not a PDF.
+ */
+export async function openPdfForTabReason(
+  tab: { id?: number | undefined; url?: string | undefined } | undefined,
+  pages = 0,
+): Promise<
+  | 'no-tab'
+  | 'not-pdf'
+  | 'fetch-failed'
+  | 'too-large'
+  | 'store-failed'
+  | 'open-failed'
+  | 'file-denied'
+  | null
+> {
+  const tabId = tab?.id;
+  const url = tab?.url;
+  if (tabId === undefined || typeof url !== 'string') return 'no-tab';
+  if (!(await tabServesPdf({ id: tabId, url }))) return 'not-pdf';
+
+  if (url.startsWith('file:')) {
+    const allowed = await fileSchemeAccessAllowed();
+    if (allowed === false) {
+      await openPickerReader();
+      return 'file-denied';
+    }
+  }
+
+  await sweepStoredPdfs();
+  const stored = await openPdfFromUrl(url);
+  if (!stored.ok) {
+    if (url.startsWith('file:') && stored.reason === 'fetch-failed') {
+      await openPickerReader();
+      return 'file-denied';
+    }
+    return stored.reason;
+  }
+
+  try {
+    await browser.tabs.create({
+      url: browser.runtime.getURL(readerUrl(stored.id, pages) as never),
+    });
+  } catch {
+    return 'open-failed';
+  }
+  return null;
+}
+
+/** Opens the reader with no stored document so the user can pick a local file. */
+async function openPickerReader(): Promise<void> {
+  try {
+    await browser.tabs.create({
+      url: browser.runtime.getURL(readerUrl('') as never),
+    });
+  } catch {
+    // The popup still explains how to allow file URLs.
+  }
 }
 
 /**
@@ -189,5 +291,65 @@ export async function injectCaptionPages(): Promise<void> {
   for (const tab of tabs) {
     if (tab.id === undefined || !tab.url) continue;
     void injectIfCaptions(tab.id, tab.url);
+  }
+}
+
+async function injectIfGmailBanner(tabId: number, url: string): Promise<void> {
+  const host = pageHost(url);
+  const pattern = originPattern(url);
+  if (!host || !pattern) return;
+
+  const settings = await loadSettings();
+  const allowed = await browser.permissions.contains({ origins: [pattern] }).catch(() => false);
+  if (
+    !shouldAutoInjectGmailBanner({
+      settingOn: settings.gmailTranslateBanner,
+      host,
+      originAllowed: allowed,
+    })
+  ) {
+    return;
+  }
+  await ensureContentScript(tabId);
+}
+
+/** Re-injects open Gmail tabs after the banner setting is turned back on. */
+export async function injectGmailBannerPages(): Promise<void> {
+  const settings = await loadSettings();
+  if (!settings.gmailTranslateBanner) return;
+  const tabs = await browser.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id === undefined || !tab.url) continue;
+    void injectIfGmailBanner(tab.id, tab.url);
+  }
+}
+
+async function injectIfOutlookBanner(tabId: number, url: string): Promise<void> {
+  const host = pageHost(url);
+  const pattern = originPattern(url);
+  if (!host || !pattern) return;
+
+  const settings = await loadSettings();
+  const allowed = await browser.permissions.contains({ origins: [pattern] }).catch(() => false);
+  if (
+    !shouldAutoInjectOutlookBanner({
+      settingOn: settings.gmailTranslateBanner,
+      host,
+      originAllowed: allowed,
+    })
+  ) {
+    return;
+  }
+  await ensureContentScript(tabId);
+}
+
+/** Re-injects open Outlook tabs after the banner setting is turned back on. */
+export async function injectOutlookBannerPages(): Promise<void> {
+  const settings = await loadSettings();
+  if (!settings.gmailTranslateBanner) return;
+  const tabs = await browser.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id === undefined || !tab.url) continue;
+    void injectIfOutlookBanner(tab.id, tab.url);
   }
 }

@@ -14,6 +14,7 @@ import {
 
 afterEach(() => {
   resetWebGpuDebugProfile();
+  vi.useRealTimers();
 });
 
 function adapter(
@@ -135,5 +136,21 @@ describe('WebGPU adapter selection', () => {
     setWebGpuDebugProfile('amd-rdna3');
     expect(supportsFastBatches('nvidia', true)).toBe(false);
     expect(infoFromAdapter(adapter({ vendor: 'nvidia' }), true).fastBatches).toBe(false);
+  });
+
+  it('bounds a requestAdapter call that never settles', async () => {
+    vi.useFakeTimers();
+    const requestAdapter = vi.fn(() => new Promise<never>(() => undefined));
+
+    const pending = requestAdapterWithPreferences(
+      { requestAdapter },
+      { attemptMs: 3000, overallMs: 8000 },
+    );
+    await vi.advanceTimersByTimeAsync(8000);
+    const result = await pending;
+
+    expect(result.adapter).toBeNull();
+    expect(result.attempts).toEqual(['high-performance', 'default', 'low-power']);
+    expect(result.error).toMatch(/requestAdapter timed out/);
   });
 });

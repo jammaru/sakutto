@@ -25,6 +25,11 @@ import {
 
 export const ENGINE_HOST_PORT = 'sakutto:engine-host';
 export const TRANSLATION_PORT = 'sakutto:translate';
+/**
+ * A model-progress event that is not tied to one request. The host uses it to publish
+ * loading/loaded transitions so every open surface can refresh itself.
+ */
+export const MODEL_STATUS_PROGRESS_ID = 'sakutto:model-status';
 
 export interface SerializedTranslateOptions {
   src?: string;
@@ -35,6 +40,7 @@ export interface SerializedTranslateOptions {
   priority: number;
   eager?: boolean;
   preempt?: boolean;
+  bypassCache?: boolean;
 }
 
 export function serializeTranslateOptions(options: TranslateOptions): SerializedTranslateOptions {
@@ -49,6 +55,7 @@ export function serializeTranslateOptions(options: TranslateOptions): Serialized
     ...(options.context !== undefined ? { context: options.context } : {}),
     ...(options.eager ? { eager: true } : {}),
     ...(options.preempt ? { preempt: true } : {}),
+    ...(options.bypassCache ? { bypassCache: true } : {}),
   };
 }
 
@@ -66,6 +73,7 @@ export function deserializeTranslateOptions(
     ...(serialized.context !== undefined ? { context: serialized.context } : {}),
     ...(serialized.eager ? { eager: true } : {}),
     ...(serialized.preempt ? { preempt: true } : {}),
+    ...(serialized.bypassCache ? { bypassCache: true } : {}),
   };
 }
 
@@ -331,7 +339,8 @@ const MAX_SEGMENT_ID = 200;
 export const MAX_SEGMENT_TEXT = 100_000;
 const MAX_CONTEXT_TEXT = 20_000;
 const MAX_LANGUAGE_TAG = 35;
-const MAX_PRIORITY = 100;
+/** Offscreen translate requests outside ± this value are dropped. */
+export const MAX_PRIORITY = 100;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -368,6 +377,7 @@ export function isSerializedTranslateOptions(value: unknown): value is Serialize
   if (value.glossary !== undefined && !isGlossary(value.glossary)) return false;
   if (value.eager !== undefined && typeof value.eager !== 'boolean') return false;
   if (value.preempt !== undefined && typeof value.preempt !== 'boolean') return false;
+  if (value.bypassCache !== undefined && typeof value.bypassCache !== 'boolean') return false;
   return true;
 }
 

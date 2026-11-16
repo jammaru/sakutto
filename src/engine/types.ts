@@ -26,6 +26,11 @@ export interface TranslateOptions {
   eager?: boolean | undefined;
   /** Cancel running worse-priority jobs (live captions vs a page batch). */
   preempt?: boolean | undefined;
+  /**
+   * Ignore both the cache read and the cache write. A retry of a block that just failed must
+   * ask the model again instead of receiving the output that failed.
+   */
+  bypassCache?: boolean | undefined;
 }
 
 interface TranslationChunkBase {

@@ -2,11 +2,48 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
-## Unreleased
+## [1.6.1] - 2026-11-16
+
+### Bug Fixes
+
+- Gmail and Outlook message banners no longer ask for install-time host access (#98). The first time you use them, open the Sakutto popup on Gmail or Outlook and allow access once, the same way YouTube subtitles work; after that the banner appears automatically. The banner scripts run only on the mail sites you allow and are removed if you revoke access. Install-time permissions are back to the same set as 1.5.1.
+
+## [1.6.0] - 2026-11-16
+
+### Permissions
+
+- The extension now asks at install for access to Gmail (mail.google.com) and Outlook on the web (outlook.live.com, outlook.office.com, outlook.office365.com, outlook.cloud.microsoft) so the mail translate banner can appear without opening the popup. Existing users may be asked to approve this on update. No other sites are added.
 
 ### Features
 
+- Gmail messages get a Sakutto banner above the body when the message is written in a language other than the target (#88). It identifies the source language, translates only that message after a click, toggles back with Show original, and can be closed per message. Each expanded message in a thread has its own banner, and the setting can turn the feature off. The model loads only when Translate is clicked.
+- After translating a Gmail message, the bar shows a Gmail-style "Translated" state with Show original / Show translation using the cached translation (#92). A gear menu offers Translate <language>, Always translate <language>, and Never translate <language> (mutually exclusive auto/never lists). The options page has a section to review and clear those lists.
+- Outlook on the web gets the same per-message translate banner as Gmail (#96). It works on outlook.live.com, outlook.office.com, outlook.office365.com, and outlook.cloud.microsoft. The banner appears automatically when a message is in a language other than the target, and nothing is translated until Translate is clicked. It shares the Gmail auto/never language lists and the existing message-banner setting.
+- While a Gmail or Outlook message is being translated, the banner shows progress as a percentage and replaces paragraphs as soon as each one is translated (#96).
+
+### Bug Fixes
+
+- On pages declared Japanese (e.g. Steam discussions in the Japanese UI), English posts that contain a Japanese quote label are now translated (#91). Language is detected on each block's own text, and kanji-only labels on Japanese pages are no longer sent for translation, so Japanese pages send far fewer blocks.
+- Superscripts and subscripts are no longer lost in translations (#95). In the PDF reader, raised/lowered characters such as CH₄, 10³, m³, x², H₂O and reference markers stay in the translation as superscript/subscript instead of disappearing or turning into a wrong number like 103; on web pages `<sub>`/`<sup>` content is kept.
+- Subscripts and superscripts that publishers mark up with styled spans (such as NLM sub/sup classes or vertical-align) are kept in full-page web translations, and an empty or dropped slot falls back to the original text (#97).
+
+## [1.5.1] - 2026-11-14
+
+### Bug Fixes
+
+- WebGPU startup no longer hangs forever on some GPUs and drivers (for example Linux Wayland with NVIDIA). If the GPU does not respond in time, Sakutto falls back to the CPU automatically and says so. The popup no longer keeps showing "waiting for the model" after you switch between CPU and WebGPU when translation is already working. (#85)
+
+## [1.5.0] - 2026-11-13
+
+### Features
+
+- When a PDF is open in the browser, the popup and right-click menu offer Translate this PDF. Sakutto fetches the file the tab is showing, opens it in its own reader tab, and translates each page in order starting from the first, including multi-column body text, figure captions, tables, lists, and rotated pages, with layout-aware placement so translations stay in the boxes their source text occupied. (#75)
+- Settings has a slider for in-page translation popup text size (80–200%, default 100%) for hover tips, the selection popup, status toasts, and the typed-text preview; open tabs pick it up live. The selection popup can be widened or narrowed by dragging the left or right edge (minimum width 14em), double-clicking either edge returns automatic width, and arrow keys nudge the width when a handle is focused. (#81)
 - Add Easy Japanese (やさしい日本語, `ja-easy`) as a PLaMo-only target language, so a page already in Japanese can still be translated into simpler Japanese. Chrome's built-in translator is not used for this target. (#79)
+
+### Improvements
+
+- Model download now verifies the pinned SHA-256 digest while bytes are still streaming in, using a background worker, so finishing setup after a large download is much faster and the progress bar shows verifying separately from downloading. (#78)
 
 ## [1.4.1] - 2026-11-13
 
