@@ -262,7 +262,9 @@ test.describe('shared model folder', () => {
       ).toBeVisible();
       await expect(page.getByRole('heading', { name: "You're ready." })).toHaveCount(0);
       await expect(page.getByRole('radio', { name: FOLDER_RADIO })).toBeChecked();
-      await expect(page.locator('[data-folder-picker-hint]')).toHaveText(PICKER_HINT);
+      // The static hint is already on screen; a cancel must not insert a duplicate below it.
+      await expect(page.getByText(PICKER_HINT)).toBeVisible();
+      await expect(page.locator('[data-folder-picker-hint]')).toHaveCount(0);
       expect(hits).toEqual([]);
       await page.close();
     } finally {
@@ -287,7 +289,8 @@ test.describe('shared model folder', () => {
       });
       await page.getByRole('radio', { name: FOLDER_RADIO }).check();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
-      await expect(page.locator('[data-folder-picker-hint]')).toHaveText(PICKER_HINT);
+      await expect(page.getByText(PICKER_HINT)).toBeVisible();
+      await expect(page.locator('[data-folder-picker-hint]')).toHaveCount(0);
       await page.getByRole('radio', { name: BROWSER_RADIO }).check();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(page.getByText('Downloading 0% (0 MB / 573 MB)')).toBeVisible({
@@ -599,14 +602,14 @@ test.describe('shared model folder', () => {
     }
   });
 
-  test('restores a mocked prompt grant with one click and does not download', async () => {
+  test('silently restores a mocked prompt grant on reload and does not download', async () => {
     const extension = await loadExtension('en-US');
     const hits = await interceptGguf(extension, 'hang');
     try {
       const options = await extension.context.newPage();
       await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
       await plantLicenseConsent(options);
-      await mockEmptySharedFolder(options);
+      await plantVerifiedSharedModel(options);
       await options.getByRole('button', { name: 'Choose model folder' }).click();
       await expect
         .poll(async () => readSharedFolder(options), { timeout: 30_000 })
@@ -619,11 +622,12 @@ test.describe('shared model folder', () => {
         .toMatchObject({ configured: true, permission: 'prompt' });
       await options.reload();
       await expect(options.getByRole('heading', { name: FOLDER_HEADING })).toBeVisible();
-      await expect(options.getByRole('button', { name: ALLOW_FOLDER_ACCESS })).toBeVisible();
-      await options.getByRole('button', { name: ALLOW_FOLDER_ACCESS }).click();
+      // The settings surface also runs the restore component, which silently renews this
+      // prompt from the reload gesture before painting the card.
       await expect
         .poll(async () => readSharedFolder(options), { timeout: 15_000 })
         .toMatchObject({ configured: true, permission: 'granted' });
+      await expect(options.getByRole('button', { name: ALLOW_FOLDER_ACCESS })).toHaveCount(0);
       expect(hits).toEqual([]);
       await options.close();
 
@@ -635,7 +639,20 @@ test.describe('shared model folder', () => {
         .poll(async () => readSharedFolder(popup), { timeout: 15_000 })
         .toMatchObject({ permission: 'prompt' });
       await popup.reload();
-      await expect(popup.getByRole('button', { name: ALLOW_FOLDER_ACCESS })).toBeVisible();
+      // Opening the popup is a user gesture, so the prompt override is silently granted
+      // before any restore card is painted.
+      await expect
+        .poll(async () => readSharedFolder(popup), { timeout: 15_000 })
+        .toMatchObject({ configured: true, permission: 'granted' });
+      await expect(popup.getByRole('button', { name: ALLOW_FOLDER_ACCESS })).toHaveCount(0);
+      await expect
+        .poll(async () => readModelState(popup), { timeout: 15_000 })
+        .toMatch(/^(ready|loaded)$/);
+      await expect(popup.getByRole('button', { name: 'Translate this page' })).toBeVisible();
+      await expect(popup.getByRole('button', { name: 'Download' })).toHaveCount(0);
+      await expect(
+        popup.getByText('No translation model is installed. Download one to translate.'),
+      ).toHaveCount(0);
       await expect(
         popup.getByText(
           'Page translation waits until the PLaMo model finishes downloading and loads.',
@@ -643,12 +660,7 @@ test.describe('shared model folder', () => {
       ).toHaveCount(0);
       await expect(popup.getByRole('button', { name: 'Open onboarding' })).toHaveCount(0);
       await expect(popup.getByText('The model could not be loaded')).toHaveCount(0);
-      await popup.getByRole('button', { name: ALLOW_FOLDER_ACCESS }).click();
-      await expect
-        .poll(async () => readSharedFolder(popup), { timeout: 15_000 })
-        .toMatchObject({ permission: 'granted' });
       expect(hits).toEqual([]);
-      await expect(popup.getByRole('button', { name: ALLOW_FOLDER_ACCESS })).toHaveCount(0);
       await popup.close();
     } finally {
       await extension.close();
@@ -681,6 +693,20 @@ test.describe('shared model folder', () => {
         .toMatchObject({ permission: 'denied' });
       await expect(options.getByRole('button', { name: ALLOW_FOLDER_ACCESS })).toBeVisible();
       await options.close();
+
+      const popup = await extension.context.newPage();
+      await popup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
+      await setPermissionOverride(popup, 'denied');
+      await reloadFolder(popup);
+      await popup.reload();
+      await expect
+        .poll(async () => readSharedFolder(popup), { timeout: 15_000 })
+        .toMatchObject({ configured: true, permission: 'denied' });
+      await expect(popup.getByRole('button', { name: ALLOW_FOLDER_ACCESS })).toBeVisible();
+      await expect
+        .poll(async () => readSharedFolder(popup), { timeout: 5_000 })
+        .toMatchObject({ configured: true, permission: 'denied' });
+      await popup.close();
     } finally {
       await extension.close();
     }

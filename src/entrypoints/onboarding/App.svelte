@@ -92,7 +92,6 @@
   );
   let storeTouched = $state(false);
   let pickError = $state<string | null>(null);
-  let pickHint = $state<string | null>(null);
   let integrityAlert = $state<string | null>(null);
   let resolvedFolderName = $state<string | null>(null);
   /**
@@ -231,7 +230,6 @@
     if (startRequested && phase !== 'paused' && phase !== 'error') return;
     failureDetail = null;
     pickError = null;
-    pickHint = null;
     const retryPick = Boolean(integrityAlert);
     integrityAlert = null;
 
@@ -272,7 +270,8 @@
         integrityFailed: false,
       });
       if (plan === 'stay') {
-        if (prepared.status === 'cancelled') pickHint = t('modelFolderPickerHint');
+        // The static picker hint is already on screen; a cancel must not add a second copy.
+        if (prepared.status === 'cancelled') return;
         if (prepared.status === 'denied') pickError = t('modelFolderPermissionNeeded');
         if (prepared.status === 'failed') pickError = t('modelFolderPickFailed');
         return;
@@ -650,9 +649,6 @@
       {/if}
       {#if integrityAlert}
         <p class="error" role="alert">{integrityAlert}</p>
-      {/if}
-      {#if pickHint}
-        <p class="muted start-note" data-folder-picker-hint role="status">{pickHint}</p>
       {/if}
       {#if pickError}
         <p class="error" role="alert">{pickError}</p>

@@ -542,6 +542,10 @@ describe('shared folder activation and recovery', () => {
     );
     expect(chooseBody).toContain("if (picked.status === 'cancelled') return;");
     expect(folderSettings).not.toContain('data-folder-picker-hint');
+    const start = onboarding.indexOf('async function start()');
+    const startBody = onboarding.slice(start, onboarding.indexOf('async function pause', start));
+    expect(startBody).toContain("if (prepared.status === 'cancelled') return;");
+    expect(onboarding).not.toContain('data-folder-picker-hint');
   });
 
   it('reuses one onboarding tab instead of adding one per settings click', () => {
