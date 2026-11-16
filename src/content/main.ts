@@ -30,7 +30,7 @@ import {
 import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
 import { sharedFolderPickerAvailable } from '@/engine/model/shared-folder';
 import { hasLicenseConsent } from '@/shared/agreement';
-import type { ModelStatus } from '@/shared/engine-status';
+import { sharedFolderNeedsUserAction, type ModelStatus } from '@/shared/engine-status';
 import { mergeGlossary } from '@/shared/glossary';
 import { currentUiLanguage, t } from '@/shared/i18n';
 import {
@@ -64,6 +64,7 @@ import {
   type ShortcutQueryResult,
   type ShortcutSnapshot,
 } from '@/shared/messages';
+import { modelRemovalOutcome } from '@/shared/model-progress';
 import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
 import type { Settings, VideoCaptionPosition } from '@/shared/settings';
 import { typedReadiness, type TypedReadiness } from '@/shared/typed-translation';
@@ -338,6 +339,26 @@ const folderEnablePageUrl = sharedFolderPickerAvailable()
   ? browser.runtime.getURL('/folder-enable.html')
   : '';
 
+async function requestFolderEnableToken(): Promise<string | null> {
+  try {
+    const response: unknown = await browser.runtime.sendMessage({
+      type: 'folder:enable-token',
+    });
+    return typeof response === 'string' && response.length > 0 ? response : null;
+  } catch {
+    return null;
+  }
+}
+
+async function folderEnableUrlWithToken(): Promise<string | null> {
+  if (folderEnablePageUrl.length === 0) return null;
+  const token = await requestFolderEnableToken();
+  if (!token) return null;
+  const url = new URL(folderEnablePageUrl);
+  url.searchParams.set('token', token);
+  return url.toString();
+}
+
 function getPageInfo(): PageInfo {
   return {
     lang: document.documentElement.lang,
@@ -387,6 +408,7 @@ export function contentMain(): void {
   let modelState: ModelStatus['state'] | null = null;
   let activeModelId: ModelStatus['id'] | null = null;
   let modelRemoved = false;
+  let folderNeedsUserAction = false;
   let plamoReady = false;
   let modelStatusKnown = false;
   const publishPageShortcut = (): void => {
@@ -445,6 +467,7 @@ export function contentMain(): void {
       if (!status) return false;
       modelState = status.model.state;
       activeModelId = status.model.id;
+      folderNeedsUserAction = sharedFolderNeedsUserAction(status);
       plamoReady = status.plamoReady;
       modelStatusKnown = true;
       return true;
@@ -456,6 +479,8 @@ export function contentMain(): void {
       engine,
       labels: overlayLabels(),
       folderEnablePageUrl,
+      folderGrantUiActive: folderNeedsUserAction,
+      folderEnablePageUrlProvider: folderEnableUrlWithToken,
       preferences: preferencesFor(settings, rule, host),
       onSitePatch: async (patch) => {
         const current = await loadSiteRule(host);
@@ -716,6 +741,15 @@ export function contentMain(): void {
     return session;
   })();
 
+  /** Refresh the folder-grant gate after a model/folder transition, not on every chunk. */
+  const refreshFolderGrantUi = async (): Promise<void> => {
+    const status = await requestEngineStatus().catch(() => null);
+    if (!status) return;
+    folderNeedsUserAction = sharedFolderNeedsUserAction(status);
+    const session = await sessionPromise;
+    session.setFolderGrantUiActive(folderNeedsUserAction);
+  };
+
   const run = async (command: PageCommandName) => {
     const now = Date.now();
     // Compose re-entry is owned by the controller so a Chrome command that found no field
@@ -758,13 +792,16 @@ export function contentMain(): void {
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.id !== browser.runtime.id) return;
     if (isFolderGrantCompleteMessage(message)) {
-      void sessionPromise.then((session) => {
+      void sessionPromise.then(async (session) => {
         session.endFolderGrantWait();
+        await refreshFolderGrantUi();
       });
       return;
     }
     if (isFolderGrantNeededMessage(message)) {
+      folderNeedsUserAction = true;
       void sessionPromise.then((session) => {
+        session.setFolderGrantUiActive(true);
         session.beginFolderGrantWait();
       });
       return;
@@ -775,6 +812,16 @@ export function contentMain(): void {
     }
     if (isModelProgressMessage(message)) {
       const status = message.status;
+      // `ready` now reaches pages too. Ignore one for a model that is merely installed but
+      // not the active translation model; only a delete recovery may adopt a different id.
+      if (
+        status.state === 'ready' &&
+        !modelRemoved &&
+        activeModelId !== null &&
+        status.id !== activeModelId
+      ) {
+        return;
+      }
       const removedActiveModel =
         status.state === 'absent' && (activeModelId === null || status.id === activeModelId);
       const modelReturned = modelRemoved && (status.state === 'loaded' || status.state === 'ready');
@@ -816,9 +863,27 @@ export function contentMain(): void {
             ),
           ),
         );
-        if (removedActiveModel) session.noteModelMissing();
+        let missingAfterRemoval = false;
+        if (removedActiveModel && modelRemoved) {
+          const current = await requestEngineStatus().catch(() => null);
+          if (current && modelRemovalOutcome(status, current.model) === 'recovered') {
+            activeModelId = current.model.id;
+            modelState = current.model.state;
+            modelStatusKnown = true;
+            plamoReady = current.plamoReady;
+            folderNeedsUserAction = sharedFolderNeedsUserAction(current);
+            modelRemoved = false;
+            session.setFolderGrantUiActive(folderNeedsUserAction);
+            session.retryUntranslated();
+          } else {
+            missingAfterRemoval = true;
+          }
+        }
+        if (missingAfterRemoval) session.noteModelMissing();
         if (modelReturned) session.retryUntranslated();
         if (message.status.error === FOLDER_PERMISSION_ERROR) {
+          folderNeedsUserAction = true;
+          session.setFolderGrantUiActive(true);
           session.noteFolderPermission();
         }
         if (
@@ -826,6 +891,7 @@ export function contentMain(): void {
           !__SAKUTTO_FAKE_ENGINE__
         ) {
           void requestEngineTier(session, true, captions);
+          if (!removedActiveModel) await refreshFolderGrantUi();
         }
       });
       return;

@@ -6,6 +6,15 @@ import type { ModelStatus } from './engine-status';
  * The final digest keeps the byte count it already reached, and loading/having the file on
  * disk keep the full count. A download that restarts from an empty file may begin again.
  */
+/** Whether deleting one model left pages with another usable active model. */
+export function modelRemovalOutcome(
+  removed: Pick<ModelStatus, 'id'>,
+  current: Pick<ModelStatus, 'id' | 'state'> | null | undefined,
+): 'missing' | 'recovered' {
+  if (!current || current.id === removed.id) return 'missing';
+  return current.state === 'ready' || current.state === 'loaded' ? 'recovered' : 'missing';
+}
+
 export function advanceModelStatus(previous: ModelStatus | null, next: ModelStatus): ModelStatus {
   if (!previous || previous.id !== next.id) return next;
   if (next.state === 'absent' || next.state === 'error' || next.state === 'partial') return next;

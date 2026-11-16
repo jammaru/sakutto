@@ -12,11 +12,19 @@ import {
 import { gatePageCommand, resumeFolderGrantPending } from '@/background/folder-grant';
 import {
   isFolderArmCommandRequest,
+  isFolderEnableTokenRequest,
+  isFolderEnableValidateRequest,
   isFolderGrantCompleteMessage,
   isFolderResumePendingRequest,
   type FolderGrantCompleteMessage,
 } from '@/shared/folder-grant-messages';
 import { readFolderGrantPending } from '@/shared/folder-grant-pending';
+import {
+  FOLDER_ENABLE_TOKEN_KEY,
+  createFolderEnableToken,
+  folderEnableTokenMatches,
+  parseFolderEnableToken,
+} from '@/shared/folder-enable-token';
 import { syncCaptionCustomContentScripts } from '@/captions/register-custom';
 import { deleteStoredPdf } from '@/background/pdf-store';
 import {
@@ -421,6 +429,42 @@ export default defineBackground(() => {
       return true;
     }
 
+    if (isFolderEnableTokenRequest(message)) {
+      const tabId = sender.tab?.id;
+      if (tabId === undefined) {
+        sendResponse(null);
+        return true;
+      }
+      const token = createFolderEnableToken(tabId, sender.frameId);
+      void browser.storage.session.set({ [FOLDER_ENABLE_TOKEN_KEY]: token }).then(
+        () => sendResponse(token.token),
+        () => sendResponse(null),
+      );
+      return true;
+    }
+
+    if (isFolderEnableValidateRequest(message)) {
+      if (!isFolderEnableSender(sender)) {
+        sendResponse(false);
+        return true;
+      }
+      void (async () => {
+        const stored = await browser.storage.session
+          .get(FOLDER_ENABLE_TOKEN_KEY)
+          .catch(() => ({}) as Record<string, unknown>);
+        // Parse without an expiry cutoff first, so an expired or wrong-tab attempt also
+        // consumes the stored token instead of leaving it replayable.
+        const record = parseFolderEnableToken(stored[FOLDER_ENABLE_TOKEN_KEY], 0);
+        if (!record || record.token !== message.token) {
+          sendResponse(false);
+          return;
+        }
+        await browser.storage.session.remove(FOLDER_ENABLE_TOKEN_KEY).catch(() => undefined);
+        sendResponse(folderEnableTokenMatches(record, message.token, sender.tab?.id));
+      })();
+      return true;
+    }
+
     if (isFolderResumePendingRequest(message)) {
       void resumeFolderGrantPending(client).then(sendResponse);
       return true;
@@ -569,8 +613,19 @@ export default defineBackground(() => {
 
     if (isModelDeleteRequest(message)) {
       void deleteModel(message.modelId).then(
-        (status) => {
-          if (status) void broadcast({ type: 'model:progress', status });
+        async (status) => {
+          if (status) {
+            await broadcast({ type: 'model:progress', status });
+            if (status.state === 'absent') {
+              const current = await client.status().catch(() => null);
+              if (
+                current &&
+                (current.model.id !== status.id || current.model.state !== status.state)
+              ) {
+                await broadcast({ type: 'model:progress', status: current.model });
+              }
+            }
+          }
           sendResponse(status);
         },
         () => sendResponse(null),

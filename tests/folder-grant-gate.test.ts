@@ -46,6 +46,26 @@ describe('folder grant gate', () => {
     expect(background).toContain('sendMessage');
   });
 
+  it('binds the iframe grant to a one-time token and a trusted click', () => {
+    const enable = readFileSync(
+      new URL('../src/entrypoints/folder-enable/App.svelte', import.meta.url),
+      'utf8',
+    );
+    const overlay = readFileSync(new URL('../src/dom/overlay.ts', import.meta.url), 'utf8');
+    const background = readFileSync(
+      new URL('../src/entrypoints/background.ts', import.meta.url),
+      'utf8',
+    );
+    expect(enable).toContain('folder:enable-validate');
+    expect(enable).toContain('event.isTrusted');
+    expect(enable).toContain("searchParams.get('token')");
+    expect(background).toContain('isFolderEnableTokenRequest');
+    expect(background).toContain('folderEnableTokenMatches');
+    expect(background).toContain('browser.storage.session.remove');
+    expect(overlay).toContain('attachUiShadow(this.folderEnableHost)');
+    expect(overlay).toContain('folderEnableShadow.append(frame)');
+  });
+
   it('keeps a deferred command until the page accepts it', () => {
     const grant = readFileSync(
       new URL('../src/background/folder-grant.ts', import.meta.url),

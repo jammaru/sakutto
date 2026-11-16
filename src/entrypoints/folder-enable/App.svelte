@@ -5,14 +5,23 @@
   import { t } from '@/shared/i18n';
   import { requestModelFolderReload } from '@/shared/messages';
 
+  const token = new URL(location.href).searchParams.get('token') ?? '';
   let busy = $state(false);
   let failed = $state(false);
 
-  async function enable(): Promise<void> {
-    if (busy) return;
+  async function enable(event: MouseEvent): Promise<void> {
+    // A scripted click can reuse the iframe URL; only a real user activation may grant.
+    if (!event.isTrusted || busy || token.length === 0) return;
     busy = true;
     failed = false;
     try {
+      const valid: unknown = await browser.runtime
+        .sendMessage({ type: 'folder:enable-validate', token })
+        .catch(() => false);
+      if (valid !== true) {
+        failed = true;
+        return;
+      }
       const access = await ensureStoredFolderPermission();
       if (access.status !== 'granted') {
         failed = true;
@@ -35,7 +44,7 @@
 </script>
 
 <main>
-  <button type="button" class="button" disabled={busy} onclick={() => void enable()}>
+  <button type="button" class="button" disabled={busy} onclick={(event) => void enable(event)}>
     {t('modelFolderEnableOneClick')}
   </button>
   {#if failed}

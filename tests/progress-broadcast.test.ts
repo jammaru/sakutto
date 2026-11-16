@@ -65,6 +65,13 @@ describe('broadcastModelProgress', () => {
     expect(target.pages).toEqual([{ tabId: 1, message: message('absent') }]);
   });
 
+  it('tells open pages when a fallback model is ready after deletion', async () => {
+    const target = sink([{ id: 1, url: 'https://example.com/a' }]);
+    await broadcastModelProgress(message('ready'), target);
+    expect(target.extension).toHaveLength(1);
+    expect(target.pages).toEqual([{ tabId: 1, message: message('ready') }]);
+  });
+
   it('keeps download progress on the extension pages', async () => {
     const target = sink([{ id: 1, url: 'https://example.com/a' }]);
     await broadcastModelProgress(message('downloading'), target);

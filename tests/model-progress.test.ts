@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
 import type { ModelStatus } from '@/shared/engine-status';
-import { advanceModelStatus } from '@/shared/model-progress';
+import { advanceModelStatus, modelRemovalOutcome } from '@/shared/model-progress';
 
 function status(overrides: Partial<ModelStatus> = {}): ModelStatus {
   return {
@@ -13,6 +13,25 @@ function status(overrides: Partial<ModelStatus> = {}): ModelStatus {
     ...overrides,
   };
 }
+
+describe('model removal recovery', () => {
+  it('distinguishes no usable model from a fallback that can translate', () => {
+    expect(modelRemovalOutcome(status(), status({ state: 'absent' }))).toBe('missing');
+    expect(modelRemovalOutcome(status(), null)).toBe('missing');
+    expect(
+      modelRemovalOutcome(status(), status({ id: 'plamo-3-translate-2b-q4_k_m', state: 'ready' })),
+    ).toBe('recovered');
+    expect(
+      modelRemovalOutcome(status(), status({ id: 'plamo-3-translate-2b-q4_k_m', state: 'loaded' })),
+    ).toBe('recovered');
+    expect(
+      modelRemovalOutcome(
+        status(),
+        status({ id: 'plamo-3-translate-2b-q4_k_m', state: 'downloading' }),
+      ),
+    ).toBe('missing');
+  });
+});
 
 describe('model progress', () => {
   it('does not let a later sample move the percent backwards', () => {

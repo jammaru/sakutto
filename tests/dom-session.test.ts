@@ -89,6 +89,23 @@ function immediate(
   });
 }
 
+function stalled(): PageEngine {
+  return engineOf(async function* (segments, options) {
+    await new Promise<void>((resolve) => {
+      const done = (): void => resolve();
+      if (options.signal.aborted) {
+        done();
+        return;
+      }
+      options.signal.addEventListener('abort', done, { once: true });
+    });
+    if (options.signal.aborted) return;
+    for (const segment of segments) {
+      yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+    }
+  });
+}
+
 const sessions: PageSession[] = [];
 
 function start(
@@ -310,6 +327,65 @@ describe('page session', () => {
     release();
     await session.whenIdle();
     expect(document.body.textContent).toContain('こんにちは');
+  });
+
+  it.each([
+    { label: 'the iframe URL is empty', url: '', active: true },
+    {
+      label: 'the folder grant gate is off',
+      url: 'https://example.test/folder-enable.html',
+      active: false,
+    },
+  ])('does not arm the selection folder timeout when $label', async ({ url, active }) => {
+    vi.useFakeTimers();
+    try {
+      document.documentElement.lang = 'en';
+      document.body.innerHTML = '<p>Hello world</p>';
+      const session = new PageSession(document, {
+        engine: stalled(),
+        labels,
+        preferences: preferences(),
+        scheduleFrame: (callback) => callback(),
+        debounceMs: 20,
+        folderEnablePageUrl: url,
+        folderGrantUiActive: active,
+      });
+      sessions.push(session);
+      const begin = vi.spyOn(session, 'beginFolderGrantWait');
+
+      session.translateSelection('Hello world', new DOMRect(12, 12, 80, 18));
+      await vi.advanceTimersByTimeAsync(12_500);
+
+      expect(begin).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('arms the selection folder timeout when the grant needs action', async () => {
+    vi.useFakeTimers();
+    try {
+      document.documentElement.lang = 'en';
+      document.body.innerHTML = '<p>Hello world</p>';
+      const session = new PageSession(document, {
+        engine: stalled(),
+        labels,
+        preferences: preferences(),
+        scheduleFrame: (callback) => callback(),
+        debounceMs: 20,
+        folderEnablePageUrl: 'https://example.test/folder-enable.html',
+        folderGrantUiActive: true,
+      });
+      sessions.push(session);
+      const begin = vi.spyOn(session, 'beginFolderGrantWait').mockImplementation(() => undefined);
+
+      session.translateSelection('Hello world', new DOMRect(12, 12, 80, 18));
+      await vi.advanceTimersByTimeAsync(12_500);
+
+      expect(begin).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('stops an active page and shows no-model text when the model is removed', async () => {

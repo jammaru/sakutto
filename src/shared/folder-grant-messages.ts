@@ -25,6 +25,35 @@ export function isFolderGrantCompleteMessage(value: unknown): value is FolderGra
   );
 }
 
+export interface FolderEnableTokenRequest {
+  type: 'folder:enable-token';
+}
+
+export function isFolderEnableTokenRequest(value: unknown): value is FolderEnableTokenRequest {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as FolderEnableTokenRequest).type === 'folder:enable-token'
+  );
+}
+
+export interface FolderEnableValidateRequest {
+  type: 'folder:enable-validate';
+  token: string;
+}
+
+export function isFolderEnableValidateRequest(
+  value: unknown,
+): value is FolderEnableValidateRequest {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as FolderEnableValidateRequest).type === 'folder:enable-validate' &&
+    typeof (value as FolderEnableValidateRequest).token === 'string' &&
+    (value as FolderEnableValidateRequest).token.length > 0
+  );
+}
+
 export interface FolderResumePendingRequest {
   type: 'folder:resume-pending';
 }

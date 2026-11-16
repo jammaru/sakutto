@@ -27,10 +27,16 @@ export async function broadcastModelProgress(
     // Extension pages may be closed; the page broadcast still runs.
   }
 
-  // `loaded` lets a page follow the runtime that just became usable. `absent` lets an active
-  // page stop its progress bar when the model it was translating with is deleted. Downloads
-  // and verification stay on extension pages only.
-  if (message.status.state !== 'loaded' && message.status.state !== 'absent') return;
+  // `loaded` and `ready` let a page follow the runtime that just became usable after a
+  // deletion. `absent` lets an active page stop when no usable model remains. Downloads and
+  // verification stay on extension pages only.
+  if (
+    message.status.state !== 'loaded' &&
+    message.status.state !== 'ready' &&
+    message.status.state !== 'absent'
+  ) {
+    return;
+  }
 
   let tabs: readonly ProgressTab[];
   try {

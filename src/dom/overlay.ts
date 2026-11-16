@@ -479,6 +479,7 @@ export class PageOverlay {
   private readonly barOriginal: HTMLButtonElement;
   private readonly barAlways: HTMLButtonElement;
   private readonly folderEnableHost: HTMLElement;
+  private readonly folderEnableShadow: ShadowRoot;
   private folderEnableFrame: HTMLIFrameElement | null = null;
   private labels: OverlayLabels;
   private returnFocus: HTMLElement | null = null;
@@ -582,13 +583,16 @@ export class PageOverlay {
     this.folderEnableHost.style.right = '16px';
     this.folderEnableHost.style.bottom = '16px';
     this.folderEnableHost.style.maxWidth = '320px';
+    this.folderEnableHost.style.minWidth = '280px';
+    this.folderEnableHost.style.minHeight = '64px';
     this.folderEnableHost.style.margin = '0 auto';
     this.folderEnableHost.style.border = '1px solid rgb(15 23 32 / 12%)';
     this.folderEnableHost.style.borderRadius = '10px';
-    this.folderEnableHost.style.overflow = 'hidden';
     this.folderEnableHost.style.boxShadow = '0 8px 24px rgb(15 23 32 / 18%)';
     this.folderEnableHost.style.background = '#ffffff';
+    this.folderEnableHost.style.opacity = '1';
     doc.documentElement.append(this.folderEnableHost);
+    this.folderEnableShadow = attachUiShadow(this.folderEnableHost);
 
     this.bar = doc.createElement('sakutto-bar');
     this.bar.setAttribute('translate', 'no');
@@ -761,8 +765,12 @@ export class PageOverlay {
       frame.style.display = 'block';
       frame.style.width = '100%';
       frame.style.height = '64px';
+      frame.style.minWidth = '280px';
+      frame.style.minHeight = '64px';
       frame.style.border = '0';
-      this.folderEnableHost.append(frame);
+      frame.style.borderRadius = '10px';
+      frame.style.opacity = '1';
+      this.folderEnableShadow.append(frame);
       this.folderEnableFrame = frame;
     }
     if (this.folderEnableFrame.getAttribute('src') !== pageUrl) {

@@ -233,6 +233,10 @@ export interface PageSessionOptions {
   onPopupWidth?: (widthEm: number) => void | Promise<void>;
   /** Web-accessible folder-enable.html URL for in-page one-click grant. */
   folderEnablePageUrl?: string;
+  /** True only while the shared folder grant actually needs the reader to act. */
+  folderGrantUiActive?: boolean;
+  /** Adds a fresh one-time token to the folder-enable URL when the frame is shown. */
+  folderEnablePageUrlProvider?: () => Promise<string | null> | string | null;
 }
 
 export function preferencesFor(
@@ -325,6 +329,10 @@ export class PageSession {
   /** Set when the active model is deleted, so the bar stops counting unfinished work. */
   private modelMissingFault = false;
   private readonly folderEnablePageUrl: string;
+  private folderGrantUiActive: boolean;
+  private readonly folderEnablePageUrlProvider:
+    (() => Promise<string | null> | string | null) | undefined;
+  private folderGrantOpening = false;
   private selectionGrantTimer: ReturnType<typeof setTimeout> | null = null;
   private historyUnpatch: (() => void) | null = null;
   private scanTimer: ReturnType<typeof setTimeout> | null = null;
@@ -374,6 +382,8 @@ export class PageSession {
     this.pageKey = options.pageKey;
     this.bilingualKey = options.bilingualKey;
     this.folderEnablePageUrl = options.folderEnablePageUrl ?? '';
+    this.folderGrantUiActive = options.folderGrantUiActive === true;
+    this.folderEnablePageUrlProvider = options.folderEnablePageUrlProvider;
     this.scheduleFrame =
       options.scheduleFrame ??
       ((callback) => {
@@ -515,6 +525,23 @@ export class PageSession {
   setLabels(labels: OverlayLabels): void {
     this.labels = labels;
     this.overlay.setLabels(labels);
+  }
+
+  /** Called when the engine status says whether the shared folder grant needs action. */
+  setFolderGrantUiActive(active: boolean): void {
+    if (this.folderGrantUiActive === active) return;
+    this.folderGrantUiActive = active;
+    if (active) {
+      this.publishState();
+      return;
+    }
+    this.folderPermissionFault = false;
+    if (this.selectionGrantTimer !== null) {
+      clearTimeout(this.selectionGrantTimer);
+      this.selectionGrantTimer = null;
+    }
+    this.overlay.hideFolderEnable();
+    this.publishState();
   }
 
   setPreferences(next: SessionPreferences): void {
@@ -751,10 +778,11 @@ export class PageSession {
     }
     this.enqueue(next, true);
     this.pump();
-    if (reveal && this.folderEnablePageUrl.length > 0) {
+    if (reveal && this.folderGrantUiActive && this.folderEnablePageUrl.length > 0) {
       if (this.selectionGrantTimer !== null) clearTimeout(this.selectionGrantTimer);
       this.selectionGrantTimer = setTimeout(() => {
         this.selectionGrantTimer = null;
+        if (!this.folderGrantUiActive) return;
         const current = this.selection;
         if (!current || current.state === 'done') return;
         if (current.translation.trim().length > 0) return;
@@ -943,13 +971,26 @@ export class PageSession {
   }
 
   beginFolderGrantWait(): void {
-    if (this.folderEnablePageUrl.length === 0) return;
-    this.overlay.showFolderEnable(this.folderEnablePageUrl);
-    if (this.selectionShown) {
-      this.overlay.hideSelection();
-      this.selectionShown = false;
-    }
-    this.publishState();
+    if (!this.folderGrantUiActive || this.folderEnablePageUrl.length === 0) return;
+    if (this.folderGrantOpening || this.overlay.folderEnableVisible()) return;
+    this.folderGrantOpening = true;
+    const pageUrl = this.folderEnablePageUrlProvider
+      ? Promise.resolve(this.folderEnablePageUrlProvider())
+      : Promise.resolve(this.folderEnablePageUrl);
+    void pageUrl
+      .then((url) => {
+        this.folderGrantOpening = false;
+        if (!url || !this.folderGrantUiActive) return;
+        this.overlay.showFolderEnable(url);
+        if (this.selectionShown) {
+          this.overlay.hideSelection();
+          this.selectionShown = false;
+        }
+        this.publishState();
+      })
+      .catch(() => {
+        this.folderGrantOpening = false;
+      });
   }
 
   endFolderGrantWait(): void {

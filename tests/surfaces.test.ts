@@ -100,6 +100,7 @@ describe('start controls while the model downloads', () => {
     expect(tools).toContain('accept=".gguf"');
     expect(tools).toContain('importModelFile');
     expect(tools).toContain('exportModelFile');
+    expect(tools).not.toMatch(/\{#if done\}[\s\S]{0,200}\{:else if exporting\}/);
     expect(source('entrypoints/options/App.svelte')).toContain('ModelFileTools');
     expect(source('entrypoints/onboarding/App.svelte')).toContain('ModelFileTools');
     expect(source('ui/ModelFolderSettings.svelte')).toContain('modelFolderLocationHint');
