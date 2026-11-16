@@ -4,7 +4,7 @@ import { groupByBaseline } from '@/pdf/gaps';
 import { groupLines, lineFrom, type TextLine } from '@/pdf/lines';
 import { layoutPage, type LayoutBlock } from '@/pdf/layout';
 import { placePage } from '@/pdf/place';
-import { protectInlineMath, restoreInlineMath } from '@/pdf/protect';
+import { formatScriptSlot, protectInlineMath, restoreInlineMath } from '@/pdf/protect';
 import { openPdfBytes } from './support/open-fixture-pdf';
 import { measure, piece } from './support/pdf-pieces';
 
@@ -290,6 +290,36 @@ describe('PDF subscripts and superscripts', () => {
     const restored = restoreInlineMath('体積は10<i0> m<i1>に達した。', protectedText.slots);
     expect(restored).toBe('体積は10³ m³に達した。');
     expect(restored).not.toMatch(/m3/u);
+  });
+
+  it('renders trailing m³ before a period without falling back to m3', () => {
+    const lines = groupLines([
+      piece('The volume reached 10', 40, 200, 140),
+      piece('3', 180, 196.5, 4, { size: 7, em: 7 }),
+      piece(' m', 184, 200, 10),
+      piece('3.', 194, 196.5, 6, { size: 7, em: 7 }),
+    ]);
+    const block = bestBlock(lines);
+    const protectedText = protectInlineMath(block);
+    const restored = restoreInlineMath('体積は10<i0> m<i1>に達した。', protectedText.slots);
+    expect(restored).toMatch(/m³/u);
+    expect(restored).not.toMatch(/m3/u);
+    expect(formatScriptSlot({ text: '3', script: 'super' })).toBe('³');
+    expect(formatScriptSlot({ text: '3', script: 'super' })).not.toBe('3');
+  });
+
+  it('protects H₂O when pdf.js splits the letters across glyph runs', () => {
+    const block = blockFromLines([
+      lineFrom([piece('Water is written H', 40, 200, 120)]),
+      lineFrom([piece('2', 160, 200.8, 4, { size: 7, em: 7 })]),
+      lineFrom([piece('O in this vessel.', 164, 200, 120)]),
+    ]);
+    const protectedText = protectInlineMath(block);
+    expect(protectedText.slots).toHaveLength(1);
+    expect(protectedText.text).toMatch(/written <i0>/u);
+    const restored = restoreInlineMath('水は <i0> がこの容器に書かれた。', protectedText.slots);
+    expect(restored).toContain('H₂O');
+    expect(restored).not.toMatch(/H2O/u);
   });
 
   it('folds a trailing exponent line into prose before protecting', () => {

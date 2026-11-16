@@ -87,6 +87,21 @@ export function canUnicodeScript(text: string, script: Exclude<ScriptRole, 'none
   return text.length > 0;
 }
 
+/** The raised or lowered characters inside a glyph run, without adjoining punctuation. */
+function scriptCoreText(text: string): string {
+  const match = text.trim().match(/^([\p{L}\p{N}]{1,3})/u);
+  return match?.[1] ?? '';
+}
+
+function splitScriptSlot(text: string): { core: string; prefix: string; suffix: string } {
+  const core = scriptCoreText(text);
+  if (core.length === 0) return { core: text, prefix: '', suffix: '' };
+  const start = text.indexOf(core);
+  if (start < 0) return { core: text, prefix: '', suffix: '' };
+  const end = start + core.length;
+  return { core, prefix: text.slice(0, start), suffix: text.slice(end) };
+}
+
 /** Formats a protected script slot for the painted cover (Unicode when possible). */
 export function formatScriptSlot(slot: ProtectedSlot): string {
   if (slot.script === 'none') return slot.text;
@@ -102,8 +117,7 @@ export function formatScriptSlot(slot: ProtectedSlot): string {
   let output = '';
   for (const character of slot.text) {
     const mapped = map[character];
-    if (mapped === undefined) return slot.text;
-    output += mapped;
+    output += mapped ?? character;
   }
   return output;
 }
@@ -184,12 +198,33 @@ function protectMathRuns(
     const first = run.pieces[0];
     const last = run.pieces.at(-1);
     if (!first || !last) continue;
+    const joined = joinPieces(run.pieces);
+    const role = scriptRole(run.pieces, lineHeight, baseline);
+    const split =
+      role !== 'none' ? splitScriptSlot(joined) : { core: joined, prefix: '', suffix: '' };
+    const { core, prefix, suffix } = split;
+    const slotText = role !== 'none' && core.length > 0 ? core : joined;
     const index = slots.length;
-    const slotText = joinPieces(run.pieces);
     slots.push({
       text: slotText,
-      script: scriptRole(run.pieces, lineHeight, baseline),
+      script: role,
     });
+    const splitPieces = role !== 'none' && (prefix.length > 0 || suffix.length > 0);
+    if (splitPieces) {
+      if (prefix.length > 0) replaced.push({ ...first, text: prefix });
+      replaced.push({
+        ...first,
+        text: PLACEHOLDER(index),
+        box: {
+          x: first.box.x,
+          y: first.box.y,
+          width: Math.max(first.box.width, boxRight(last.box) - first.box.x),
+          height: Math.max(first.box.height, last.box.height),
+        },
+      });
+      if (suffix.length > 0) replaced.push({ ...last, text: suffix });
+      continue;
+    }
     replaced.push({
       ...first,
       text: PLACEHOLDER(index),
@@ -205,6 +240,18 @@ function protectMathRuns(
 }
 
 type TagPiece = TextPiece & { kind?: 'chem'; slotIndex?: number };
+
+function trailingChemLetter(text: string): { letter: string; rest: string } | null {
+  const match = /^(.*)(\p{Lu})$/u.exec(text);
+  if (!match || !match[1] || !match[2]) return null;
+  return { letter: match[2], rest: match[1] };
+}
+
+function leadingChemLetter(text: string): { letter: string; rest: string } | null {
+  const match = /^(\p{Lu})(.*)$/u.exec(text);
+  if (!match || !match[1]) return null;
+  return { letter: match[1], rest: match[2] };
+}
 
 /** Folds `H` + subscript `2` + `O` into one atomic placeholder so the model cannot split it. */
 function expandChemicalFormulas(
@@ -222,8 +269,18 @@ function expandChemicalFormulas(
       if (lead) out.push(lead);
       continue;
     }
-    const symbol = lead.text.trim();
-    const follower = tail.text.trim();
+    const directSymbol = lead.text.trim();
+    const directFollower = tail.text.trim();
+    const direct =
+      directSymbol.length === 1 &&
+      directFollower.length === 1 &&
+      /^\p{Lu}$/u.test(directSymbol) &&
+      /^\p{Lu}$/u.test(directFollower);
+
+    const peeledLead = direct ? null : trailingChemLetter(lead.text);
+    const peeledTail = direct ? null : leadingChemLetter(tail.text);
+    const symbol = direct ? directSymbol : peeledLead && peeledTail ? peeledLead.letter : '';
+    const follower = direct ? directFollower : peeledLead && peeledTail ? peeledTail.letter : '';
     if (
       symbol.length === 1 &&
       follower.length === 1 &&
@@ -234,24 +291,35 @@ function expandChemicalFormulas(
       !script.math &&
       !tail.math
     ) {
+      const digit = scriptCoreText(script.text) || script.text.trim();
       const slotIndex = slots.length;
       slots.push({
-        text: `${symbol}${script.text.trim()}${follower}`,
+        text: `${symbol}${digit}${follower}`,
         script: scriptRole([script], lineHeight, baseline),
         scriptIndex: symbol.length,
       });
+      if (!direct && peeledLead && peeledLead.rest.trim().length > 0) {
+        out.push({ ...lead, text: peeledLead.rest });
+      } else if (direct) {
+        // single-letter runs are fully replaced by the chemical placeholder
+      }
       out.push({
         ...script,
         kind: 'chem',
         slotIndex,
-        text: `${symbol}${script.text}${follower}`,
+        text: `${symbol}${digit}${follower}`,
         box: {
-          x: lead.box.x,
+          x: direct ? lead.box.x : Math.min(lead.box.x, script.box.x),
           y: Math.min(lead.box.y, script.box.y, tail.box.y),
-          width: Math.max(boxRight(tail.box), boxRight(script.box)) - lead.box.x,
+          width:
+            Math.max(boxRight(tail.box), boxRight(script.box), boxRight(lead.box)) -
+            (direct ? lead.box.x : Math.min(lead.box.x, script.box.x)),
           height: Math.max(lead.box.height, script.box.height, tail.box.height),
         },
       });
+      if (!direct && peeledTail && peeledTail.rest.length > 0) {
+        out.push({ ...tail, text: peeledTail.rest });
+      }
       index += 2;
       continue;
     }
@@ -277,14 +345,24 @@ function coalesceScriptFragments(lines: readonly TextLine[]): TextLine[] {
     if (!row || row.merged) continue;
     row.line = mergeTextLines(row.line, entry.line);
     entry.merged = true;
+    const following = working[index + 1];
+    if (
+      following &&
+      !following.merged &&
+      leadingChemLetter(following.line.text.trim()) !== null &&
+      trailingChemLetter(row.line.text) === null
+    ) {
+      row.line = mergeTextLines(row.line, following.line);
+      following.merged = true;
+    }
   }
   return working.filter((row) => !row.merged).map((row) => row.line);
 }
 
 function isOrphanScriptLine(line: TextLine): boolean {
   const trimmed = line.text.trim();
-  if (trimmed.length === 0 || trimmed.length > 3) return false;
-  if (!/^[\p{L}\p{N}]+$/u.test(trimmed)) return false;
+  const core = scriptCoreText(trimmed);
+  if (core.length === 0 || core.length > 3) return false;
   if (line.pieces.length > 2) return false;
   // A one-glyph row has only its own baseline, so shift is judged against the prose it joins.
   return true;
@@ -405,9 +483,8 @@ function scriptShiftThreshold(piece: TextPiece, lineHeight: number): number {
 }
 
 function isShiftedScript(piece: TextPiece, lineHeight: number, baseline: number): boolean {
-  const text = piece.text.trim();
-  if (text.length === 0 || text.length > 3) return false;
-  if (!/^[\p{L}\p{N}]+$/u.test(text)) return false;
+  const core = scriptCoreText(piece.text);
+  if (core.length === 0 || core.length > 3) return false;
   return Math.abs(piece.baseline - baseline) > scriptShiftThreshold(piece, lineHeight);
 }
 
@@ -425,7 +502,10 @@ function kindOf(
   if (ORDINAL_SUFFIX.test(text)) return 'text';
   if (piece.italic && text.length <= 2 && /^\p{L}+$/u.test(text)) return 'var';
   // Small body type on the same baseline is not a subscript — only a real baseline shift is.
-  if (isShiftedScript(piece, lineHeight, baseline)) return 'script';
+  const core = scriptCoreText(text);
+  if (core.length > 0 && core.length <= 3 && isShiftedScript(piece, lineHeight, baseline)) {
+    return 'script';
+  }
   return 'text';
 }
 
