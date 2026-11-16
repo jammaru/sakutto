@@ -2017,7 +2017,10 @@ export class ComposeController {
           ? { glossary: this.prefs.glossary }
           : {}),
       };
-      for await (const chunk of this.engine.translate([{ id: 'compose', text: engineText }], options)) {
+      for await (const chunk of this.engine.translate(
+        [{ id: 'compose', text: engineText }],
+        options,
+      )) {
         if (signal.aborted || token !== this.generation) return;
         if (chunk.textDelta !== undefined) {
           output = chunk.restart === true ? chunk.textDelta : output + chunk.textDelta;
