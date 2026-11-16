@@ -209,6 +209,8 @@ interface InflightBatch {
 
 export interface FolderEnableFrameRequest {
   pageUrl: string;
+  /** The content script keeps this so the background can confirm frame ownership. */
+  token?: string | undefined;
   /** Runs after the frame document loads; the content script delivers the secret here. */
   onLoad?: ((frame: HTMLIFrameElement) => void) | undefined;
 }
@@ -339,6 +341,7 @@ export class PageSession {
   private folderGrantUiActive: boolean;
   private readonly folderEnableFrameProvider:
     (() => Promise<FolderEnableFrameRequest | null> | FolderEnableFrameRequest | null) | undefined;
+  private folderEnableDeliveredToken: string | null = null;
   private folderGrantOpening = false;
   private selectionGrantTimer: ReturnType<typeof setTimeout> | null = null;
   private historyUnpatch: (() => void) | null = null;
@@ -543,6 +546,7 @@ export class PageSession {
       return;
     }
     this.folderPermissionFault = false;
+    this.folderEnableDeliveredToken = null;
     if (this.selectionGrantTimer !== null) {
       clearTimeout(this.selectionGrantTimer);
       this.selectionGrantTimer = null;
@@ -698,6 +702,8 @@ export class PageSession {
     this.serverFault = false;
     this.folderPermissionFault = false;
     this.modelMissingFault = false;
+    this.folderEnableDeliveredToken = null;
+    this.overlay.hideFolderEnable();
     this.targetAdjusted = false;
     const source = this.doc.documentElement.getAttribute('data-sakutto-source-lang');
     if (source !== null) {
@@ -988,6 +994,7 @@ export class PageSession {
       .then((frame) => {
         this.folderGrantOpening = false;
         if (!frame || !this.folderGrantUiActive) return;
+        this.folderEnableDeliveredToken = frame.token ?? null;
         this.overlay.showFolderEnable(frame.pageUrl, frame.onLoad);
         if (this.selectionShown) {
           this.overlay.hideSelection();
@@ -1000,8 +1007,22 @@ export class PageSession {
       });
   }
 
+  /** The issuing content frame must still show this token's overlay to confirm the grant. */
+  confirmFolderEnableToken(token: string): boolean {
+    if (
+      this.folderEnableDeliveredToken === null ||
+      this.folderEnableDeliveredToken !== token ||
+      !this.overlay.folderEnableVisible()
+    ) {
+      return false;
+    }
+    this.folderEnableDeliveredToken = null;
+    return true;
+  }
+
   endFolderGrantWait(): void {
     this.folderPermissionFault = false;
+    this.folderEnableDeliveredToken = null;
     this.overlay.hideFolderEnable();
     if (this.selectionGrantTimer !== null) {
       clearTimeout(this.selectionGrantTimer);

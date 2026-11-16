@@ -11,7 +11,7 @@ import {
   type OutlookBannerLabels,
 } from '@/dom/outlook-banner';
 import type { OverlayLabels } from '@/dom/overlay';
-import { PageSession, preferencesFor } from '@/dom/session';
+import { PageSession, preferencesFor, type FolderEnableFrameRequest } from '@/dom/session';
 import { VideoCaptionSession, type CaptionSessionPreferences } from '@/captions/session';
 import type { CaptionOverlayLabels } from '@/captions/overlay';
 import { captionsAllowedOnPage, videoCaptionPositionSite } from '@/captions/sites';
@@ -24,6 +24,7 @@ import {
   type SiteRule,
 } from '@/dom/sites';
 import {
+  isFolderEnableConfirmMessage,
   isFolderGrantCompleteMessage,
   isFolderGrantNeededMessage,
 } from '@/shared/folder-grant-messages';
@@ -350,16 +351,14 @@ async function requestFolderEnableToken(): Promise<string | null> {
   }
 }
 
-async function folderEnableFrameRequest(): Promise<{
-  pageUrl: string;
-  onLoad: (frame: HTMLIFrameElement) => void;
-} | null> {
+async function folderEnableFrameRequest(): Promise<FolderEnableFrameRequest | null> {
   if (folderEnablePageUrl.length === 0) return null;
   const token = await requestFolderEnableToken();
   if (!token) return null;
   const extensionOrigin = new URL(browser.runtime.getURL('/')).origin;
   return {
     pageUrl: folderEnablePageUrl,
+    token,
     onLoad: (frame) => {
       // The iframe URL stays bare. Only the content script hands the secret to the child
       // after it loads, so page scripts cannot read it from the URL or Resource Timing.
@@ -803,6 +802,12 @@ export function contentMain(): void {
 
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.id !== browser.runtime.id) return;
+    if (isFolderEnableConfirmMessage(message)) {
+      void sessionPromise.then((session) => {
+        sendResponse(session.confirmFolderEnableToken(message.token));
+      });
+      return true;
+    }
     if (isFolderGrantCompleteMessage(message)) {
       void sessionPromise.then(async (session) => {
         session.endFolderGrantWait();

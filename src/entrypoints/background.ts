@@ -10,6 +10,7 @@ import {
   openPdfForTabReason,
 } from '@/background/page-actions';
 import { gatePageCommand, resumeFolderGrantPending } from '@/background/folder-grant';
+import { validateFolderEnableTokenMap } from '@/background/folder-enable-validate';
 import {
   isFolderArmCommandRequest,
   isFolderEnableTokenRequest,
@@ -24,7 +25,6 @@ import {
   addFolderEnableToken,
   createFolderEnableToken,
   parseFolderEnableTokens,
-  takeFolderEnableToken,
   type FolderEnableTokenMap,
 } from '@/shared/folder-enable-token';
 import { syncCaptionCustomContentScripts } from '@/captions/register-custom';
@@ -258,9 +258,15 @@ export default defineBackground(() => {
   function validateFolderEnableToken(token: string, tabId: number | undefined): Promise<boolean> {
     return serializeFolderToken(async () => {
       const tokens = await readFolderEnableTokens();
-      const taken = takeFolderEnableToken(tokens, token, tabId);
-      await writeFolderEnableTokens(taken.tokens);
-      return taken.record !== null;
+      const checked = await validateFolderEnableTokenMap(
+        tokens,
+        token,
+        tabId,
+        (targetTabId, message, options) => browser.tabs.sendMessage(targetTabId, message, options),
+      );
+      // Consume the entry even when the content frame no longer owns the overlay.
+      await writeFolderEnableTokens(checked.tokens);
+      return checked.valid;
     }).catch(() => false);
   }
 

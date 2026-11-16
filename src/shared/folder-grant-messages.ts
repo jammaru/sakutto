@@ -54,6 +54,21 @@ export function isFolderEnableValidateRequest(
   );
 }
 
+export interface FolderEnableConfirmMessage {
+  type: 'folder:enable-confirm';
+  token: string;
+}
+
+export function isFolderEnableConfirmMessage(value: unknown): value is FolderEnableConfirmMessage {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as FolderEnableConfirmMessage).type === 'folder:enable-confirm' &&
+    typeof (value as FolderEnableConfirmMessage).token === 'string' &&
+    (value as FolderEnableConfirmMessage).token.length > 0
+  );
+}
+
 export interface FolderResumePendingRequest {
   type: 'folder:resume-pending';
 }

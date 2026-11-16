@@ -57,16 +57,24 @@ describe('folder grant gate', () => {
       'utf8',
     );
     const content = readFileSync(new URL('../src/content/main.ts', import.meta.url), 'utf8');
+    const validation = readFileSync(
+      new URL('../src/background/folder-enable-validate.ts', import.meta.url),
+      'utf8',
+    );
     expect(enable).toContain('folder:enable-validate');
     expect(enable).toContain('event.isTrusted');
     expect(enable).toContain('sakutto-folder-enable-token');
     expect(enable).toContain('event.source !== window.parent');
     expect(enable).not.toContain('searchParams.get');
     expect(content).toContain('postMessage');
+    expect(content).toContain('isFolderEnableConfirmMessage');
     expect(content).not.toContain("searchParams.set('token'");
     expect(background).toContain('isFolderEnableTokenRequest');
-    expect(background).toContain('takeFolderEnableToken');
+    expect(background).toContain('validateFolderEnableTokenMap');
     expect(background).toContain('browser.storage.session.remove');
+    expect(validation).toContain("type: 'folder:enable-confirm'");
+    expect(validation).toContain('frameId: record.frameId ?? 0');
+    expect(validation).toContain('takeFolderEnableToken');
     expect(overlay).toContain('attachUiShadow(this.folderEnableHost)');
     expect(overlay).toContain('folderEnableShadow.append(frame)');
     expect(overlay).toContain("frame.addEventListener('load'");
