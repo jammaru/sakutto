@@ -1433,6 +1433,15 @@
   "gmailBannerRegion": {
     "message": "メールの翻訳"
   },
+  "mailBannerAccessNeeded": {
+    "message": "このサイトでメール翻訳を使うにはアクセス許可が必要です。"
+  },
+  "mailBannerEnableForSite": {
+    "message": "このサイトでメール翻訳を有効にする"
+  },
+  "mailBannerPermissionDenied": {
+    "message": "メール翻訳にはメールサイトへのアクセス許可が必要です。"
+  },
   "settingsGmailBanner": {
     "message": "Gmail と Outlook のメールを翻訳する"
   },

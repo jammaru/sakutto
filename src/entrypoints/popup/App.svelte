@@ -48,6 +48,15 @@
     resolveCaptionToggle,
     settleCaptionEnableIntent,
   } from '@/captions/sites';
+  import {
+    clearMailEnableIntent,
+    hasMailOriginAccess,
+    isMailHost,
+    markMailEnableIntent,
+    requestMailHostAccess,
+    settleMailEnableIntent,
+    syncMailContentScripts,
+  } from '@/dom/mail-sites';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';
   import {
     effectivePageTarget,
@@ -92,6 +101,9 @@
   let commandBusy = $state(false);
   let permissionError = $state(false);
   let captionPermissionError = $state(false);
+  let mailAccessGranted = $state<boolean | null>(null);
+  let mailPermissionError = $state(false);
+  let mailPermissionBusy = $state(false);
   let pdfUrl = $state('');
   let pdfBusy = $state(false);
   let pdfFailed = $state(false);
@@ -152,6 +164,12 @@
   );
   let display = $derived(rule?.display ?? settings?.display ?? 'replace');
   let translated = $derived(view?.active === true);
+  let needsMailAccess = $derived(
+    settings?.gmailTranslateBanner === true &&
+      host !== null &&
+      isMailHost(host) &&
+      mailAccessGranted === false,
+  );
   let primaryLabel = $derived(translated ? t('restoreThisPage') : t('translateThisPage'));
   /**
    * The toolbar button starts a page translation, so it waits for the model the same way
@@ -199,6 +217,8 @@
 
   async function refreshPage() {
     permissionError = false;
+    mailPermissionError = false;
+    mailAccessGranted = null;
     pdfFailed = false;
     pdfFailReason = null;
     try {
@@ -219,6 +239,7 @@
       }
       host = pageUrl ? pageHost(pageUrl) : null;
       pageReady = tabId !== undefined && host !== null;
+      if (host && isMailHost(host)) mailAccessGranted = await hasMailOriginAccess(host);
       if (pdfUrl.length > 0) {
         view = null;
         rule = null;
@@ -405,6 +426,30 @@
     }
   }
 
+  /**
+   * One-click grant for the Gmail/Outlook banner. Chrome closes the popup while its prompt
+   * is open, so the background also re-syncs and re-injects when `permissions.onAdded`
+   * fires. `permissions.request` must be the first awaited call in this click.
+   */
+  async function enableMailTranslation() {
+    if (mailPermissionBusy) return;
+    mailPermissionError = false;
+    mailPermissionBusy = true;
+    markMailEnableIntent();
+    const granted = await requestMailHostAccess();
+    if (!granted) {
+      mailPermissionBusy = false;
+      mailPermissionError = true;
+      await clearMailEnableIntent();
+      return;
+    }
+    await syncMailContentScripts();
+    await clearMailEnableIntent();
+    mailAccessGranted = true;
+    if (tabId !== undefined) await ensureContentScript(tabId);
+    mailPermissionBusy = false;
+  }
+
   async function setAlways(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
     if (!host) return;
@@ -490,6 +535,11 @@
 
     void settleCaptionEnableIntent().then((settled) => {
       if (settled.applied) void refreshSettings();
+    });
+    void settleMailEnableIntent().then((settled) => {
+      if (!settled.applied) return;
+      void refreshSettings();
+      void refreshPage();
     });
     void refreshSettings();
     void refreshPage();
@@ -665,6 +715,26 @@
     <p class="muted">
       {pageMessage === 'unread' ? t('errorPage') : t('pageStatusUnavailable')}
     </p>
+  {/if}
+
+  {#if settings && needsMailAccess}
+    <section class="panel mail-access" data-sakutto="mail-permission">
+      <p class="muted">{t('mailBannerAccessNeeded')}</p>
+      <button
+        class="button block"
+        type="button"
+        disabled={mailPermissionBusy}
+        data-sakutto="mail-permission-enable"
+        onclick={enableMailTranslation}
+      >
+        {t('mailBannerEnableForSite')}
+      </button>
+      {#if mailPermissionError}
+        <p class="error" role="alert" data-sakutto="mail-permission-denied">
+          {t('mailBannerPermissionDenied')}
+        </p>
+      {/if}
+    </section>
   {/if}
 
   {#if settings}

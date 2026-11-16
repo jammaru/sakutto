@@ -28,10 +28,12 @@
     revokeCaptionCustomHostAccess,
   } from '@/captions/register-custom';
   import { resolveCaptionToggle } from '@/captions/sites';
+  import { resolveMailBannerToggle } from '@/dom/mail-sites';
   import LanguageField from './LanguageField.svelte';
   import { displayTargetLanguage } from './language-label';
 
   let captionDenied = $state(false);
+  let mailDenied = $state(false);
   let customHostInput = $state('');
   let customHostWildcard = $state(false);
   let customHostError = $state<'invalid' | 'denied' | null>(null);
@@ -279,11 +281,27 @@
       checked={settings.gmailTranslateBanner}
       onchange={(event) => {
         const input = event.currentTarget as HTMLInputElement;
-        onChange({ gmailTranslateBanner: input.checked });
+        mailDenied = false;
+        void (async () => {
+          // User gesture: resolveMailBannerToggle must call permissions.request with no prior pause.
+          const result = await resolveMailBannerToggle(input.checked);
+          input.checked = result.on;
+          if (result.denied) {
+            mailDenied = true;
+            onPermissionDenied?.();
+            return;
+          }
+          onChange({ gmailTranslateBanner: result.on });
+        })();
       }}
     />
     <span>{t('settingsGmailBanner')}</span>
   </label>
+  {#if mailDenied}
+    <p class="error" role="alert" data-sakutto="mail-banner-denied">
+      {t('mailBannerPermissionDenied')}
+    </p>
+  {/if}
   <p class="muted help">{t('settingsGmailBannerHelp')}</p>
 
   <div class="field gmail-languages" data-sakutto="gmail-auto-langs">

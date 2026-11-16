@@ -17,6 +17,7 @@ export interface PackagedManifest {
   optional_permissions?: readonly string[];
   host_permissions?: readonly string[];
   optional_host_permissions?: readonly string[];
+  content_scripts?: ReadonlyArray<{ matches?: readonly string[] }>;
   minimum_chrome_version?: string;
   offscreen?: unknown;
   cross_origin_embedder_policy?: unknown;
@@ -34,7 +35,8 @@ export const REQUIRED_PERMISSIONS = [...CHROME_PERMISSIONS];
 export const FIREFOX_REQUIRED_PERMISSIONS = [...FIREFOX_PERMISSIONS];
 
 export const REQUIRED_HOST_PATTERNS = ['http://*/*', 'https://*/*'] as const;
-export const REQUIRED_INSTALL_HOSTS = [...MAIL_HOST_PATTERNS] as const;
+/** Release builds ask for no install-time host access; mail hosts stay runtime optional. */
+export const REQUIRED_INSTALL_HOSTS = [] as const;
 
 export const REQUIRED_ENTRIES = [
   'manifest.json',
@@ -157,6 +159,13 @@ export function auditPackage(
   const installHosts = manifest.host_permissions ?? [];
   if (!sameMembers(installHosts, REQUIRED_INSTALL_HOSTS)) {
     problems.push(`host_permissions ${installHosts.join(',')}`);
+  }
+  const mailMatches = new Set<string>(MAIL_HOST_PATTERNS);
+  const staticMailScripts = (manifest.content_scripts ?? []).flatMap((script) =>
+    (script.matches ?? []).filter((match) => mailMatches.has(match)),
+  );
+  if (staticMailScripts.length > 0) {
+    problems.push(`static mail content_scripts ${staticMailScripts.join(',')}`);
   }
   const optionalHosts = manifest.optional_host_permissions ?? [];
   if (!sameMembers(optionalHosts, REQUIRED_HOST_PATTERNS)) {

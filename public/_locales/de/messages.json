@@ -1429,6 +1429,15 @@
   "gmailBannerRegion": {
     "message": "Gmail-Nachrichtenübersetzung"
   },
+  "mailBannerAccessNeeded": {
+    "message": "Die E-Mail-Übersetzung benötigt Zugriff auf diese Website."
+  },
+  "mailBannerEnableForSite": {
+    "message": "E-Mail-Übersetzung auf dieser Website aktivieren"
+  },
+  "mailBannerPermissionDenied": {
+    "message": "Die E-Mail-Übersetzung benötigt die Berechtigung, auf die E-Mail-Website zuzugreifen."
+  },
   "settingsGmailBanner": {
     "message": "Übersetzung von Gmail-Nachrichten anbieten"
   },

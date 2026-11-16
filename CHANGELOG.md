@@ -2,6 +2,12 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
+## [Unreleased]
+
+### Bug Fixes
+
+- Gmail and Outlook message banners no longer ask for install-time host access. The mail sites use a one-time optional permission, like YouTube subtitles; the background registers the banner scripts only for the origins you grant, and removes them when access is revoked.
+
 ## [1.6.0] - 2026-11-16
 
 ### Permissions

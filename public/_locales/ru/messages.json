@@ -1429,6 +1429,15 @@
   "gmailBannerRegion": {
     "message": "Перевод сообщений Gmail"
   },
+  "mailBannerAccessNeeded": {
+    "message": "Для перевода писем требуется доступ к этому сайту."
+  },
+  "mailBannerEnableForSite": {
+    "message": "Включить перевод писем на этом сайте"
+  },
+  "mailBannerPermissionDenied": {
+    "message": "Для перевода писем требуется разрешение на доступ к почтовому сайту."
+  },
   "settingsGmailBanner": {
     "message": "Предлагать перевод писем Gmail"
   },

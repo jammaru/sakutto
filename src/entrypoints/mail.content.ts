@@ -1,14 +1,12 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { contentMain } from '@/content/main';
-import { MAIL_HOST_PATTERNS } from '@/shared/manifest';
 
 /**
- * Mail hosts need the banner before the user has opened the popup, which is the only
- * gesture that grants `activeTab`. This static registration covers those hosts; the
- * general content script stays runtime-registered so other sites are unchanged.
+ * Gmail/Outlook banner. The background registers this bundle at runtime only for mail origins
+ * the reader has granted, so a fresh install does not ask for mail host access.
  */
 export default defineContentScript({
-  matches: [...MAIL_HOST_PATTERNS],
+  registration: 'runtime',
   runAt: 'document_idle',
   main: contentMain,
 });

@@ -1429,6 +1429,15 @@
   "gmailBannerRegion": {
     "message": "Traducción de mensajes de Gmail"
   },
+  "mailBannerAccessNeeded": {
+    "message": "La traducción de correo necesita acceso a este sitio."
+  },
+  "mailBannerEnableForSite": {
+    "message": "Activar la traducción de correo en este sitio"
+  },
+  "mailBannerPermissionDenied": {
+    "message": "La traducción de correo necesita permiso para acceder al sitio de correo."
+  },
   "settingsGmailBanner": {
     "message": "Ofrecer traducir mensajes de Gmail"
   },

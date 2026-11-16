@@ -1,13 +1,12 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { installEarlyMailBannerPresses } from '@/dom/mail-banner-press';
-import { MAIL_HOST_PATTERNS } from '@/shared/manifest';
 
 /**
- * Runs before OWA's own scripts and installs only the press bridge. The controller in the
- * idle mail content script registers its hook once settings and labels are ready.
+ * Runs before OWA's own scripts and installs only the press bridge. Registered together with
+ * the idle mail bundle, at runtime, after the reader grants the mail origin.
  */
 export default defineContentScript({
-  matches: [...MAIL_HOST_PATTERNS],
+  registration: 'runtime',
   runAt: 'document_start',
   main() {
     installEarlyMailBannerPresses(window);

@@ -94,16 +94,29 @@ describe('auditPackage', () => {
     expect(problems).toContain('unexpected tests/support/rotated-body-pdf.ts');
   });
 
-  it('accepts install-time access to the mail hosts but rejects broader access', () => {
-    const tooBroad = [...REQUIRED_INSTALL_HOSTS, 'https://*/*'];
-    const problems = auditPackage(COMPLETE, manifest({ host_permissions: tooBroad }));
-    expect(problems).toContain(`host_permissions ${tooBroad.join(',')}`);
+  it('accepts a release manifest with no install-time host access', () => {
+    expect(REQUIRED_INSTALL_HOSTS).toEqual([]);
+    expect(auditPackage(COMPLETE, manifest({ host_permissions: [] }))).toEqual([]);
   });
 
-  it('requires install-time access to every mail host', () => {
-    const missing = REQUIRED_INSTALL_HOSTS.slice(0, -1);
-    const problems = auditPackage(COMPLETE, manifest({ host_permissions: [...missing] }));
-    expect(problems).toContain(`host_permissions ${missing.join(',')}`);
+  it('rejects any install-time host access, including a mail host', () => {
+    for (const tooBroad of [['https://*/*'], ['https://mail.google.com/*']]) {
+      const problems = auditPackage(COMPLETE, manifest({ host_permissions: tooBroad }));
+      expect(problems).toContain(`host_permissions ${tooBroad.join(',')}`);
+    }
+  });
+
+  it('rejects a static mail content script in the release package', () => {
+    const problems = auditPackage(
+      COMPLETE,
+      manifest({
+        content_scripts: [
+          { matches: ['https://mail.google.com/*'] },
+          { matches: ['https://example.com/*'] },
+        ],
+      }),
+    );
+    expect(problems).toEqual(['static mail content_scripts https://mail.google.com/*']);
   });
 
   /**

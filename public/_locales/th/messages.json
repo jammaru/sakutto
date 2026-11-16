@@ -1429,6 +1429,15 @@
   "gmailBannerRegion": {
     "message": "การแปลอีเมล Gmail"
   },
+  "mailBannerAccessNeeded": {
+    "message": "การแปลอีเมลต้องเข้าถึงไซต์นี้"
+  },
+  "mailBannerEnableForSite": {
+    "message": "เปิดการแปลอีเมลบนไซต์นี้"
+  },
+  "mailBannerPermissionDenied": {
+    "message": "การแปลอีเมลต้องได้รับอนุญาตให้เข้าถึงไซต์อีเมล"
+  },
   "settingsGmailBanner": {
     "message": "เสนอแปลอีเมล Gmail"
   },

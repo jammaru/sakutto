@@ -1429,6 +1429,15 @@
   "gmailBannerRegion": {
     "message": "Gmail 메일 번역"
   },
+  "mailBannerAccessNeeded": {
+    "message": "이 사이트에서 메일 번역을 사용하려면 접근 권한이 필요합니다."
+  },
+  "mailBannerEnableForSite": {
+    "message": "이 사이트에서 메일 번역 사용"
+  },
+  "mailBannerPermissionDenied": {
+    "message": "메일 번역에는 메일 사이트 접근 권한이 필요합니다."
+  },
   "settingsGmailBanner": {
     "message": "Gmail 메일 번역 제안"
   },

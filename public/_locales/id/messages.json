@@ -1429,6 +1429,15 @@
   "gmailBannerRegion": {
     "message": "Terjemahan pesan Gmail"
   },
+  "mailBannerAccessNeeded": {
+    "message": "Terjemahan email memerlukan akses ke situs ini."
+  },
+  "mailBannerEnableForSite": {
+    "message": "Aktifkan terjemahan email di situs ini"
+  },
+  "mailBannerPermissionDenied": {
+    "message": "Terjemahan email memerlukan izin untuk mengakses situs email."
+  },
   "settingsGmailBanner": {
     "message": "Tawarkan terjemahan pesan Gmail"
   },

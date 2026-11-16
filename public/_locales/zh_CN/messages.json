@@ -1429,6 +1429,15 @@
   "gmailBannerRegion": {
     "message": "Gmail 邮件翻译"
   },
+  "mailBannerAccessNeeded": {
+    "message": "在此网站上使用邮件翻译需要访问权限。"
+  },
+  "mailBannerEnableForSite": {
+    "message": "在此网站上启用邮件翻译"
+  },
+  "mailBannerPermissionDenied": {
+    "message": "邮件翻译需要访问邮件网站的权限。"
+  },
   "settingsGmailBanner": {
     "message": "为 Gmail 邮件提供翻译"
   },

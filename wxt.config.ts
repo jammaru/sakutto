@@ -10,10 +10,18 @@ import {
 
 const fixtureHostPermissions =
   process.env.SAKUTTO_FAKE_ENGINE === '1' || process.env.SAKUTTO_E2E_REAL === '1'
-    ? ['http://127.0.0.1/*', 'http://localhost/*', 'https://x.com/*', 'https://www.x.com/*']
+    ? [
+        'http://127.0.0.1/*',
+        'http://localhost/*',
+        'https://x.com/*',
+        'https://www.x.com/*',
+        // Mail hosts are runtime optional in the release build. The e2e fixture build grants
+        // them at install so the banner specs can open mail pages without a native prompt.
+        ...MAIL_HOST_PATTERNS,
+      ]
     : [];
 
-const hostPermissions = [...new Set([...MAIL_HOST_PATTERNS, ...fixtureHostPermissions])];
+const hostPermissions = [...new Set(fixtureHostPermissions)];
 
 export default defineConfig({
   srcDir: 'src',
@@ -35,9 +43,9 @@ export default defineConfig({
       ...(firefox ? {} : { minimum_chrome_version: '116' }),
       permissions: [...(firefox ? FIREFOX_PERMISSIONS : CHROME_PERMISSIONS)],
       optional_host_permissions: [...OPTIONAL_HOST_PERMISSIONS],
-      // Mail hosts are granted at install so their banner can appear without the popup.
-      // Other release sites still ask for access only when auto-translate is turned on.
-      // The e2e build may script the local fixtures directly.
+      // Release builds ask for no install-time host access. Mail banners, like YouTube
+      // captions, request their origin at runtime and register their scripts after a grant.
+      // The e2e fixture build may script the local and mail fixtures directly.
       host_permissions: hostPermissions,
       commands: commandSuggestions(firefox ? 'firefox' : 'chrome'),
       ...(firefox

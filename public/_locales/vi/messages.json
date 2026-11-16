@@ -1429,6 +1429,15 @@
   "gmailBannerRegion": {
     "message": "Dịch email Gmail"
   },
+  "mailBannerAccessNeeded": {
+    "message": "Dịch email cần quyền truy cập trang này."
+  },
+  "mailBannerEnableForSite": {
+    "message": "Bật dịch email trên trang này"
+  },
+  "mailBannerPermissionDenied": {
+    "message": "Dịch email cần quyền truy cập trang web email."
+  },
   "settingsGmailBanner": {
     "message": "Đề nghị dịch email Gmail"
   },

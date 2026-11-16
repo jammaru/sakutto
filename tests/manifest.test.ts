@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { FIREFOX_EXTENSION_ID, FIREFOX_STRICT_MIN_VERSION } from '@/shared/browser';
 import { MAIL_HOST_PATTERNS } from '@/shared/manifest';
@@ -41,11 +42,11 @@ describe('extension manifest', () => {
       'scripting',
       'contextMenus',
     ]);
-    expect(chromeManifest.host_permissions).toEqual([...MAIL_HOST_PATTERNS]);
+    expect(chromeManifest.host_permissions).toEqual([]);
     expect(chromeManifest.optional_host_permissions).toEqual(['https://*/*', 'http://*/*']);
   });
 
-  it('grants install-time access only to the mail hosts with a static banner', () => {
+  it('keeps the mail hosts as runtime optional origins, not install-time access', () => {
     expect([...MAIL_HOST_PATTERNS]).toEqual([
       'https://mail.google.com/*',
       'https://outlook.live.com/*',
@@ -53,6 +54,22 @@ describe('extension manifest', () => {
       'https://outlook.office365.com/*',
       'https://outlook.cloud.microsoft/*',
     ]);
+    expect(chromeManifest.host_permissions).not.toEqual(
+      expect.arrayContaining([...MAIL_HOST_PATTERNS]),
+    );
+  });
+
+  it('registers the mail bundles at runtime instead of as static content scripts', () => {
+    const scripts =
+      (chromeManifest.content_scripts as Array<{ matches?: string[] }> | undefined) ?? [];
+    const staticMatches = scripts.flatMap((script) => script.matches ?? []);
+    for (const origin of MAIL_HOST_PATTERNS) expect(staticMatches).not.toContain(origin);
+
+    for (const file of ['mail.content.ts', 'mail-early.content.ts'] as const) {
+      const source = readFileSync(new URL(`../src/entrypoints/${file}`, import.meta.url), 'utf8');
+      expect(source).toContain("registration: 'runtime'");
+      expect(source).not.toContain('matches:');
+    }
   });
 
   it('sets a minimum Chrome version that supports offscreen documents', () => {
@@ -150,7 +167,7 @@ describe('Firefox manifest', () => {
       'contextMenus',
     ]);
     expect(firefoxManifest.permissions).not.toContain('offscreen');
-    expect(firefoxManifest.host_permissions).toEqual([...MAIL_HOST_PATTERNS]);
+    expect(firefoxManifest.host_permissions).toEqual([]);
     expect(firefoxManifest.optional_host_permissions).toEqual(['https://*/*', 'http://*/*']);
     expect(firefoxManifest).not.toHaveProperty('optional_permissions');
     expect(firefoxManifest).not.toHaveProperty('minimum_chrome_version');

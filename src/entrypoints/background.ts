@@ -23,6 +23,7 @@ import { broadcastModelProgress, shouldWarmDownloadedModel } from '@/background/
 import { measureQuality } from '@/background/quality';
 import { TranslationBroker } from '@/background/translation-broker';
 import { settleCaptionEnableIntent } from '@/captions/sites';
+import { settleMailEnableIntent, syncMailContentScripts } from '@/dom/mail-sites';
 import { grantOriginsFor } from '@/dom/sites';
 import { getModel, type ModelId } from '@/engine/model/catalog';
 import { normalizeSelectedModelId } from '@/engine/model/selection';
@@ -77,6 +78,7 @@ export default defineBackground(() => {
   subscribeSettings((settings) => {
     client.syncStoredSettings(settings);
     void syncCaptionCustomContentScripts(settings.captionCustomHosts);
+    void syncMailContentScripts();
     if (settings.translateVideoCaptions) void injectCaptionPages();
     if (settings.gmailTranslateBanner) {
       void injectGmailBannerPages();
@@ -85,6 +87,7 @@ export default defineBackground(() => {
   });
   void ensureSettings().then((settings) => {
     void syncCaptionCustomContentScripts(settings.captionCustomHosts);
+    void syncMailContentScripts();
     if (settings.gmailTranslateBanner) {
       void injectGmailBannerPages();
       void injectOutlookBannerPages();
@@ -94,6 +97,14 @@ export default defineBackground(() => {
     void settleCaptionEnableIntent(
       granted.origins ? { grantedOrigins: granted.origins } : undefined,
     );
+    void settleMailEnableIntent(granted.origins ? { grantedOrigins: granted.origins } : undefined);
+    // Re-read every granted mail origin: this event names only what was just added.
+    void syncMailContentScripts();
+    void injectGmailBannerPages();
+    void injectOutlookBannerPages();
+  });
+  browser.permissions.onRemoved?.addListener(() => {
+    void syncMailContentScripts();
   });
 
   async function syncSource(): Promise<void> {
@@ -222,6 +233,7 @@ export default defineBackground(() => {
       if (reason === 'update') await client.bootSource();
       else await syncSource();
       await recordCommandAssignments(reason === 'install' || reason === 'update');
+      await syncMailContentScripts();
       if (reason === 'install') {
         await browser.tabs.create({ url: browser.runtime.getURL('/onboarding.html') });
       }
@@ -255,6 +267,7 @@ export default defineBackground(() => {
       .then(() => warmStoredModel())
       .catch(() => undefined);
     void recordCommandAssignments().catch(() => undefined);
+    void syncMailContentScripts();
   });
 
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
