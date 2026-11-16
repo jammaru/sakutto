@@ -242,7 +242,7 @@ pnpm zip            # Chrome ウェブストア用の zip は .output
 pnpm zip:firefox    # Firefox 用 zip。AMO のソース zip は pnpm source:firefox
 ```
 
-`pnpm build` は、ピン留めした `pdfjs-dist` のビルドを先にパッケージへコピーします（`pnpm pdfjs` はその工程だけを実行します）。リーダーは同梱したファイルから pdf.js を読みます。pdf.js は worker、CMap、標準フォントの代替を自分からの相対位置で解決するためです。
+`pnpm build` は、ピン留めした `pdfjs-dist` のビルドを先にパッケージへコピーします（`pnpm pdfjs` はその工程だけを実行します）。リーダーは同梱したファイルから pdf.js を読みます。pdf.js は worker、CMap、標準フォントの代替、wasm デコーダー、ICC プロファイルを自分からの相対位置で解決するためです。
 
 `pnpm test:e2e` は、ページ内で翻訳するテスト用パッケージをビルドします。これはリリース用のビルドではなく、リリース用のビルドにテスト用の翻訳処理は入りません。
 
@@ -328,7 +328,7 @@ Sakutto を支援してくださっているスポンサーの皆さん、あり
 
 - **このリポジトリのコード:** MIT です。[LICENSE](LICENSE) を参照してください。Copyright 2026 jammaru。
 - **PLaMo 3 Translate:** PLaMo Community License です。全文は `licenses/PLaMo-Community-License-ja.txt` と `licenses/PLaMo-Community-License-en.txt` にあり、拡張パッケージにも同じ写しを同梱します。個人利用と学術利用は登録が不要です。第 3 条により、商業利用が認められるのは、PFN のフォーム（<https://forms.gle/mTL8tBLrMYXKNZD56>）への事前登録と、利用者または関係会社の直近事業年度の収入・売上が 10 億円以下であることの両方を満たす場合だけです。満たさない場合、商業利用には PFN の商業用ライセンスが必要です。このリポジトリの MIT は Sakutto 自身のコードに対するもので、モデルの重みは対象ではありません。
-- **pdf.js（`pdfjs-dist`）:** Apache-2.0 です。同梱するコピーは `package.json` で固定し、ファイルと SHA-256 は `public/vendor/pdfjs/pdfjs-build.json` に記録しています。ライセンスは CMaps と標準フォントのライセンスとともに同梱します。
+- **pdf.js（`pdfjs-dist`）:** Apache-2.0 です。同梱するコピーは `package.json` で固定し、ファイルと SHA-256 は `public/vendor/pdfjs/pdfjs-build.json` に記録しています。ライセンスは CMaps、標準フォント、wasm デコーダー、ICC プロファイルのライセンスとともに同梱します。
 - **llama.cpp、wllama、Emscripten、Dawn の WebGPU ライブラリ、Svelte:** [NOTICE](NOTICE) と [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) を参照してください。
 - `scripts/bench/fixtures/kyoto.html` は CC BY-SA 4.0 の Wikipedia 二次的著作物です。MIT の対象ではなく、拡張パッケージにも含めません。
 

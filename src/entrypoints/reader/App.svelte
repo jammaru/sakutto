@@ -185,10 +185,15 @@
         cMapUrl: assets.cmaps,
         cMapPacked: true,
         standardFontDataUrl: assets.standardFonts,
+        wasmUrl: assets.wasm,
+        iccUrl: assets.iccs,
         // Extension pages forbid `eval`, and the fallback path is the only one a Manifest V3
         // page can take anyway.
         isEvalSupported: false,
         useSystemFonts: false,
+        // pdf.js 6 only exports a font's real name (bold/italic/math live there) when this is
+        // set; without it every run would be classified from its generic fallback family.
+        fontExtraProperties: true,
       }).promise;
       document_ = opened as unknown as PdfDocument;
     } catch {

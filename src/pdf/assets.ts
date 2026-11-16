@@ -5,29 +5,36 @@
  * resolves its worker, its CMaps and its standard fonts relative to its own URL. An import
  * through the bundler would move the module into `chunks/` and every one of those lookups
  * would then point at a directory that does not exist. The packaged files are the *legacy*
- * build: the modern one needs `Promise.withResolvers` (Chrome 119+), and the manifest still
- * supports Chrome 116.
+ * build, which keeps the reader on the manifest's Chrome 116 floor. pdf.js 6 also uses a few
+ * APIs newer than that floor, so `sync-pdfjs.mjs` puts small shims in front of the library
+ * and worker entry points; the upstream files stay byte-for-byte as npm shipped them.
  */
 export const PDFJS_ASSET_DIRECTORY = 'vendor/pdfjs';
 
 export interface PdfjsAssetUrls {
-  /** The library module, imported dynamically. */
+  /** The compatibility entry point for the library, imported dynamically. */
   library: string;
-  /** The worker module, handed to pdf.js through `GlobalWorkerOptions`. */
+  /** Worker compatibility entry point, handed to pdf.js through `GlobalWorkerOptions`. */
   worker: string;
   /** Base URL for the CMaps, with a trailing slash. */
   cmaps: string;
   /** Base URL for the standard font substitutes, with a trailing slash. */
   standardFonts: string;
+  /** Base URL for the JPEG 2000 / JBIG2 / ICC wasm decoders, with a trailing slash. */
+  wasm: string;
+  /** Base URL for the CMYK ICC profile, with a trailing slash. */
+  iccs: string;
 }
 
 export function resolvePdfjsAssetUrls(extensionUrl: (path: string) => string): PdfjsAssetUrls {
   const base = extensionUrl(PDFJS_ASSET_DIRECTORY);
   return {
-    library: `${base}/build/pdf.min.mjs`,
-    worker: `${base}/build/pdf.worker.min.mjs`,
+    library: `${base}/build/pdf.entry.mjs`,
+    worker: `${base}/build/pdf.worker.entry.mjs`,
     cmaps: `${base}/cmaps/`,
     standardFonts: `${base}/standard_fonts/`,
+    wasm: `${base}/wasm/`,
+    iccs: `${base}/iccs/`,
   };
 }
 

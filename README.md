@@ -242,7 +242,7 @@ pnpm zip            # Chrome Web Store zip in .output
 pnpm zip:firefox    # Firefox zip; then pnpm source:firefox for the AMO source zip
 ```
 
-`pnpm build` copies the pinned `pdfjs-dist` build into the package first (`pnpm pdfjs` runs that step alone). The reader loads it from a packaged file because pdf.js resolves its worker, CMaps, and standard font substitutes relative to itself.
+`pnpm build` copies the pinned `pdfjs-dist` build into the package first (`pnpm pdfjs` runs that step alone). The reader loads it from a packaged file because pdf.js resolves its worker, CMaps, standard font substitutes, wasm decoders, and ICC profile relative to itself.
 
 `pnpm test:e2e` builds a test package that translates inside the page. That package is not the release build, and the release build does not include the test translator.
 
@@ -328,7 +328,7 @@ Thank you to everyone sponsoring Sakutto. Your support keeps development going.
 
 - **Project code:** MIT. See [LICENSE](LICENSE). Copyright 2026 jammaru.
 - **PLaMo 3 Translate:** PLaMo Community License. The texts are in `licenses/PLaMo-Community-License-ja.txt` and `licenses/PLaMo-Community-License-en.txt`, and the same copies are packed into the extension. Personal and academic use needs no registration. Under Article 3, commercial use is allowed only with prior registration on PFN's form (<https://forms.gle/mTL8tBLrMYXKNZD56>) and income or sales for you or your affiliates of no more than 1 billion yen in the most recent fiscal year; otherwise commercial use needs a separate commercial licence from PFN. This repository's MIT licence covers Sakutto's own code, not the model weights.
-- **pdf.js (`pdfjs-dist`):** Apache-2.0. The packaged copy is pinned in `package.json`, its files and SHA-256 hashes are recorded in `public/vendor/pdfjs/pdfjs-build.json`, and its licence is packed with the CMaps' and standard fonts' own licences.
+- **pdf.js (`pdfjs-dist`):** Apache-2.0. The packaged copy is pinned in `package.json`, its files and SHA-256 hashes are recorded in `public/vendor/pdfjs/pdfjs-build.json`, and its licence is packed with the CMaps', standard fonts', wasm decoders', and ICC profile's own licences.
 - **llama.cpp, wllama, the Emscripten runtime, the Dawn WebGPU library, and Svelte:** see [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 - `scripts/bench/fixtures/kyoto.html` is a CC BY-SA 4.0 Wikipedia derivative. It is not covered by the MIT licence and is not part of the extension package.
 

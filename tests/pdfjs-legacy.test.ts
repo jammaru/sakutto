@@ -25,4 +25,36 @@ describePackaged('packaged pdf.js', () => {
     expect(packagedHash).not.toBe(modernHash);
     expect(manifest.files['build/pdf.min.mjs']?.sha256).toBe(packagedHash);
   });
+
+  it('ships the worker, compatibility entries, wasm decoders, and ICC profile', () => {
+    const manifest = JSON.parse(
+      readFileSync(resolve(root, 'public/vendor/pdfjs/pdfjs-build.json'), 'utf8'),
+    ) as { files: Record<string, { sha256: string }> };
+    const hash = (bytes: Buffer): string => createHash('sha256').update(bytes).digest('hex');
+
+    const packagedWorker = readFileSync(
+      resolve(root, 'public/vendor/pdfjs/build/pdf.worker.min.mjs'),
+    );
+    const legacyWorker = readFileSync(
+      resolve(root, 'node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs'),
+    );
+    expect(hash(packagedWorker)).toBe(hash(legacyWorker));
+    expect(manifest.files['build/pdf.worker.min.mjs']?.sha256).toBe(hash(packagedWorker));
+
+    const entry = readFileSync(resolve(root, 'public/vendor/pdfjs/build/pdf.entry.mjs'), 'utf8');
+    const workerEntry = readFileSync(
+      resolve(root, 'public/vendor/pdfjs/build/pdf.worker.entry.mjs'),
+      'utf8',
+    );
+    expect(entry).toContain("from './pdf.min.mjs'");
+    expect(workerEntry).toContain("import './pdf.worker.min.mjs'");
+    expect(entry).toContain("import './pdfjs-compat.mjs'");
+    expect(workerEntry).toContain("import './pdfjs-compat.mjs'");
+
+    expect(existsSync(resolve(root, 'public/vendor/pdfjs/wasm/openjpeg.wasm'))).toBe(true);
+    expect(existsSync(resolve(root, 'public/vendor/pdfjs/wasm/qcms_bg.wasm'))).toBe(true);
+    expect(existsSync(resolve(root, 'public/vendor/pdfjs/iccs/CGATS001Compat-v2-micro.icc'))).toBe(
+      true,
+    );
+  });
 });
