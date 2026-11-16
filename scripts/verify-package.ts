@@ -2,7 +2,11 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FIREFOX_EXTENSION_ID, FIREFOX_STRICT_MIN_VERSION } from '../src/shared/browser.ts';
-import { CHROME_PERMISSIONS, FIREFOX_PERMISSIONS } from '../src/shared/manifest.ts';
+import {
+  CHROME_PERMISSIONS,
+  FIREFOX_PERMISSIONS,
+  MAIL_HOST_PATTERNS,
+} from '../src/shared/manifest.ts';
 import { UI_LOCALES } from '../src/shared/locales.ts';
 import { readZip } from './zip-archive.ts';
 
@@ -30,6 +34,7 @@ export const REQUIRED_PERMISSIONS = [...CHROME_PERMISSIONS];
 export const FIREFOX_REQUIRED_PERMISSIONS = [...FIREFOX_PERMISSIONS];
 
 export const REQUIRED_HOST_PATTERNS = ['http://*/*', 'https://*/*'] as const;
+export const REQUIRED_INSTALL_HOSTS = [...MAIL_HOST_PATTERNS] as const;
 
 export const REQUIRED_ENTRIES = [
   'manifest.json',
@@ -44,6 +49,7 @@ export const REQUIRED_ENTRIES = [
   'grant.html',
   'offscreen.html',
   'content-scripts/content.js',
+  'content-scripts/mail.js',
   'icon/16.png',
   'icon/32.png',
   'icon/48.png',
@@ -147,8 +153,9 @@ export function auditPackage(
   if (!sameMembers(permissions, expectedPermissions)) {
     problems.push(`permissions ${permissions.join(',')}`);
   }
-  if ((manifest.host_permissions ?? []).length > 0) {
-    problems.push('host_permissions must stay empty');
+  const installHosts = manifest.host_permissions ?? [];
+  if (!sameMembers(installHosts, REQUIRED_INSTALL_HOSTS)) {
+    problems.push(`host_permissions ${installHosts.join(',')}`);
   }
   const optionalHosts = manifest.optional_host_permissions ?? [];
   if (!sameMembers(optionalHosts, REQUIRED_HOST_PATTERNS)) {

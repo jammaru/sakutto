@@ -64,7 +64,7 @@ Productivity。ウェブページを翻訳する用途に合います。
 
 ### 権限の理由
 
-リリース用マニフェスト（`wxt.config.ts`）が要求するのは、次の 6 つだけです。`nativeMessaging` はありません。`optional_permissions` も空です。インストール時の `host_permissions` も空です。`optional_host_permissions` は `https://*/*` と `http://*/*` です。
+リリース用マニフェスト（`wxt.config.ts`）が要求するのは、次の 6 つだけです。`nativeMessaging` はありません。`optional_permissions` も空です。インストール時の `host_permissions` は Gmail と Outlook の 5 つのメールホストだけで、Gmail / Outlook のメールバナーをポップアップなしで表示するために使います。`optional_host_permissions` は `https://*/*` と `http://*/*` です。
 
 `storage`
 
@@ -101,10 +101,10 @@ Productivity。ウェブページを翻訳する用途に合います。
 `scripting`
 
 ```text
-翻訳を頼んだタブ、または自動翻訳を許可済みのタブに、同梱の content script を注入します。インストール時にすべてのサイトへは注入しません。
+翻訳を頼んだタブ、または自動翻訳を許可済みのタブに、同梱の content script を注入します。Gmail と Outlook のメールホストだけは、バナーをポップアップなしで出すための静的 content script を持ちます。その他のサイトへインストール時に注入することはありません。
 ```
 
-文字数: 76
+文字数: 150
 
 `contextMenus`
 
@@ -196,7 +196,7 @@ The extension's single purpose is translating web pages.
 
 ### Permission justifications
 
-The release manifest requests only `offscreen`, `storage`, `unlimitedStorage`, `activeTab`, `scripting`, and `contextMenus`. It does not request `nativeMessaging`. `optional_permissions` is empty. Install-time `host_permissions` is empty. `optional_host_permissions` is `https://*/*` and `http://*/*`.
+The release manifest requests only `offscreen`, `storage`, `unlimitedStorage`, `activeTab`, `scripting`, and `contextMenus`. It does not request `nativeMessaging`. `optional_permissions` is empty. Install-time `host_permissions` covers only the five Gmail and Outlook mail hosts, so their banner can appear without opening the popup. `optional_host_permissions` is `https://*/*` and `http://*/*`.
 
 `storage`
 
@@ -233,10 +233,10 @@ Reads the open tab when you translate from the popup, a shortcut, or the right-c
 `scripting`
 
 ```text
-Injects the packaged content script into a tab you asked to translate, or into a tab whose site already has automatic translation allowed. It does not inject into every site at install.
+Injects the packaged content script into a tab you asked to translate, or into a tab whose site already has automatic translation allowed. The Gmail and Outlook mail hosts have a small static content script so their banner can appear without the popup. Other sites are not injected at install.
 ```
 
-文字数: 185
+文字数: 293
 
 `contextMenus`
 

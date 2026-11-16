@@ -68,7 +68,7 @@ For PLaMo's 53 languages, every translated line comes from PLaMo. On Chrome, Chr
   <tr>
     <td colspan="2" valign="top">
       <h3>Gmail and Outlook message banner</h3>
-      <p>On <code>mail.google.com</code> and Outlook on the web (<code>outlook.live.com</code>, <code>outlook.office.com</code>, <code>outlook.office365.com</code>, and <code>outlook.cloud.microsoft</code>), a banner above each expanded message offers to translate that body only when the language differs from your target. Nothing runs until you click; × after translation restores the original and hides the banner for that message. Access uses the existing optional host permission for the site.</p>
+      <p>On <code>mail.google.com</code> and Outlook on the web (<code>outlook.live.com</code>, <code>outlook.office.com</code>, <code>outlook.office365.com</code>, and <code>outlook.cloud.microsoft</code>), a banner above each expanded message offers to translate that body only when the language differs from your target. These mail hosts are covered at install so the banner appears without opening the popup. Nothing runs until you click; × after translation restores the original and hides the banner for that message.</p>
     </td>
   </tr>
   <tr>
@@ -212,7 +212,7 @@ The model file is not bundled. You can remove it and clear the translation cache
 | `scripting`        | Injects the content script into the active tab after you ask for a translation.      |
 | `contextMenus`     | Adds Translate page, Translate selection, and Translate PDF to the right-click menu. |
 
-Optional host permissions (`https://*/*` and `http://*/*`) are requested only when you turn on automatic translation for a site, enable video captions, add a custom caption site, or use the Gmail or Outlook message banner on that site. Nothing is requested for every site at install time. The PDF reader adds no permission: it reads the file from the origin the `activeTab` grant already covers. Access to a local server is also optional.
+The install-time host permissions cover only the five Gmail and Outlook mail hosts, so their banner can appear on a fresh install. Optional host permissions (`https://*/*` and `http://*/*`) are requested only when you turn on automatic translation for another site, enable video captions, add a custom caption site, or use a mail banner on a host outside that fixed list. Nothing else is granted for every site at install time. The PDF reader adds no permission: it reads the file from the origin the `activeTab` grant already covers. Access to a local server is also optional.
 
 ## Development
 
@@ -229,7 +229,7 @@ pnpm build:firefox  # .output/firefox-mv3
 <details>
 <summary><strong>Build and package details</strong></summary>
 
-`pnpm build:wllama` compiles the pinned wllama commit `d275dac` inside the `emscripten/emsdk:4.0.20` container. The wasm, workers, and model weights are not committed. `pnpm build` and `pnpm zip` refuse to run until that build has been verified. `pnpm zip` also checks that the package contains the runtime and licence texts, and that it does not contain model weights, source maps, or install-time host permissions.
+`pnpm build:wllama` compiles the pinned wllama commit `d275dac` inside the `emscripten/emsdk:4.0.20` container. The wasm, workers, and model weights are not committed. `pnpm build` and `pnpm zip` refuse to run until that build has been verified. `pnpm zip` also checks that the package contains the runtime and licence texts, and that it does not contain model weights, source maps, or install-time host permissions beyond the fixed mail hosts.
 
 ```bash
 pnpm dev            # development build

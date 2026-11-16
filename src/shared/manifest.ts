@@ -29,6 +29,19 @@ export const FIREFOX_PERMISSIONS = [
 
 export const OPTIONAL_HOST_PERMISSIONS = ['https://*/*', 'http://*/*'] as const;
 
+/**
+ * Mail hosts get install-time access and a static content script so the Gmail/Outlook
+ * banner can appear on a fresh install, before the popup's `activeTab` grant exists.
+ * Every other site still uses the runtime content script and an optional grant.
+ */
+export const MAIL_HOST_PATTERNS = [
+  'https://mail.google.com/*',
+  'https://outlook.live.com/*',
+  'https://outlook.office.com/*',
+  'https://outlook.office365.com/*',
+  'https://outlook.cloud.microsoft/*',
+] as const;
+
 const COMMAND_MESSAGES = {
   'translate-page': '__MSG_commandTranslate__',
   'toggle-bilingual': '__MSG_commandBilingual__',

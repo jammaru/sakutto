@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FIREFOX_EXTENSION_ID, FIREFOX_STRICT_MIN_VERSION } from '@/shared/browser';
+import { MAIL_HOST_PATTERNS } from '@/shared/manifest';
 import {
   CHROME_DEFAULT_SHORTCUTS,
   CHROME_MAC_DEFAULT_SHORTCUTS,
@@ -40,8 +41,18 @@ describe('extension manifest', () => {
       'scripting',
       'contextMenus',
     ]);
-    expect(chromeManifest).not.toHaveProperty('host_permissions');
+    expect(chromeManifest.host_permissions).toEqual([...MAIL_HOST_PATTERNS]);
     expect(chromeManifest.optional_host_permissions).toEqual(['https://*/*', 'http://*/*']);
+  });
+
+  it('grants install-time access only to the mail hosts with a static banner', () => {
+    expect([...MAIL_HOST_PATTERNS]).toEqual([
+      'https://mail.google.com/*',
+      'https://outlook.live.com/*',
+      'https://outlook.office.com/*',
+      'https://outlook.office365.com/*',
+      'https://outlook.cloud.microsoft/*',
+    ]);
   });
 
   it('sets a minimum Chrome version that supports offscreen documents', () => {
@@ -139,6 +150,7 @@ describe('Firefox manifest', () => {
       'contextMenus',
     ]);
     expect(firefoxManifest.permissions).not.toContain('offscreen');
+    expect(firefoxManifest.host_permissions).toEqual([...MAIL_HOST_PATTERNS]);
     expect(firefoxManifest.optional_host_permissions).toEqual(['https://*/*', 'http://*/*']);
     expect(firefoxManifest).not.toHaveProperty('optional_permissions');
     expect(firefoxManifest).not.toHaveProperty('minimum_chrome_version');

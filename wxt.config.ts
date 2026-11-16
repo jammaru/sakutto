@@ -2,6 +2,7 @@ import { defineConfig } from 'wxt';
 import {
   CHROME_PERMISSIONS,
   FIREFOX_PERMISSIONS,
+  MAIL_HOST_PATTERNS,
   OPTIONAL_HOST_PERMISSIONS,
   commandSuggestions,
   firefoxGeckoSettings,
@@ -9,18 +10,10 @@ import {
 
 const fixtureHostPermissions =
   process.env.SAKUTTO_FAKE_ENGINE === '1' || process.env.SAKUTTO_E2E_REAL === '1'
-    ? [
-        'http://127.0.0.1/*',
-        'http://localhost/*',
-        'https://x.com/*',
-        'https://www.x.com/*',
-        'https://mail.google.com/*',
-        'https://outlook.live.com/*',
-        'https://outlook.office.com/*',
-        'https://outlook.office365.com/*',
-        'https://outlook.cloud.microsoft/*',
-      ]
-    : null;
+    ? ['http://127.0.0.1/*', 'http://localhost/*', 'https://x.com/*', 'https://www.x.com/*']
+    : [];
+
+const hostPermissions = [...new Set([...MAIL_HOST_PATTERNS, ...fixtureHostPermissions])];
 
 export default defineConfig({
   srcDir: 'src',
@@ -42,9 +35,10 @@ export default defineConfig({
       ...(firefox ? {} : { minimum_chrome_version: '116' }),
       permissions: [...(firefox ? FIREFOX_PERMISSIONS : CHROME_PERMISSIONS)],
       optional_host_permissions: [...OPTIONAL_HOST_PERMISSIONS],
-      // Release builds ask for site access only when auto-translate is turned on.
+      // Mail hosts are granted at install so their banner can appear without the popup.
+      // Other release sites still ask for access only when auto-translate is turned on.
       // The e2e build may script the local fixtures directly.
-      ...(fixtureHostPermissions ? { host_permissions: fixtureHostPermissions } : {}),
+      host_permissions: hostPermissions,
       commands: commandSuggestions(firefox ? 'firefox' : 'chrome'),
       ...(firefox
         ? {

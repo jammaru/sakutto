@@ -34,6 +34,23 @@ test.describe('Gmail translate banner', () => {
     if (extension) await extension.close();
   });
 
+  test('shows the banner without the popup or a manual content-script injection', async () => {
+    await resetExtensionStorage(extension.worker, {
+      targetLanguage: 'ja',
+      gmailTranslateBanner: true,
+    });
+    const page = await extension.context.newPage();
+    try {
+      await openGmail(page);
+      await expect(page.locator('[data-sakutto-gmail-banner="msg-1"]')).toHaveAttribute(
+        'data-sakutto-gmail-phase',
+        'offer',
+      );
+    } finally {
+      await page.close();
+    }
+  });
+
   test('offers translation above an English message and restores the original', async () => {
     await resetExtensionStorage(extension.worker, {
       targetLanguage: 'ja',
