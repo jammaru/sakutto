@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ModelId } from '@/engine/model/catalog';
+  import { canAttemptSilentFolderGrant } from '@/engine/model/folder-permission';
   import {
     folderRecordsModel,
     sharedFolderNeedsPermission,
@@ -7,7 +8,7 @@
   } from '@/engine/model/folder-status';
   import { notifySharedFolderChanged } from '@/engine/model/folder-offer';
   import {
-    probeStoredFolderReadable,
+    ensureStoredFolderPermission,
     queryStoredFolderPermission,
     restoreStoredFolderPermission,
   } from '@/engine/model/shared-folder';
@@ -28,10 +29,18 @@
   let granting = $state(false);
   let grantError = $state(false);
   let probed = $state(false);
+  /** Hide the card while the silent grant attempt from this gesture is still running. */
+  let checkingPermission = $state(false);
   /** A query already says granted, even if the engine snapshot has not refreshed yet. */
   let silentGranted = $state(false);
-  let visible = $derived(sharedFolderNeedsPermission(folder) && !silentGranted);
+  let visible = $derived(
+    sharedFolderNeedsPermission(folder) && probed && !silentGranted && !checkingPermission,
+  );
   let presentHint = $derived(folderRecordsModel(folder, modelId));
+
+  function activationActive(): boolean {
+    return typeof navigator !== 'undefined' && navigator.userActivation?.isActive === true;
+  }
 
   async function afterGrant(): Promise<void> {
     await requestModelFolderReload();
@@ -58,23 +67,35 @@
     }
   }
 
+  async function settlePermission(): Promise<void> {
+    const permission = await queryStoredFolderPermission().catch(() => null);
+    if (permission === 'granted') {
+      silentGranted = true;
+      await afterGrant().catch(() => undefined);
+      return;
+    }
+    // A popup or other gesture-driven surface can turn `prompt` into a grant silently.
+    // Only fall back to the card when that attempt fails or when no activation exists.
+    if (!canAttemptSilentFolderGrant(permission, activationActive())) return;
+    const access = await ensureStoredFolderPermission().catch(() => null);
+    if (access?.status !== 'granted') return;
+    silentGranted = true;
+    await afterGrant().catch(() => undefined);
+  }
+
   $effect(() => {
     if (!sharedFolderNeedsPermission(folder)) {
       probed = false;
       silentGranted = false;
+      checkingPermission = false;
       return;
     }
     if (probed) return;
     probed = true;
-    // A query can already say granted while the engine snapshot is one refresh behind. Only
-    // hide the button once the handle also reads, so a revoked grant keeps its one click.
-    void queryStoredFolderPermission()
-      .then(async (permission) => {
-        if (permission !== 'granted' && !(await probeStoredFolderReadable())) return;
-        silentGranted = true;
-        await afterGrant();
-      })
-      .catch(() => undefined);
+    checkingPermission = true;
+    void settlePermission().finally(() => {
+      checkingPermission = false;
+    });
   });
 </script>
 

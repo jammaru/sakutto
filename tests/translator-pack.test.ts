@@ -123,6 +123,17 @@ describe('translator language packs', () => {
     await expect(prepareTranslatorPack('en', 'ja')).resolves.toBe('unavailable');
   });
 
+  it('turns an asynchronous create rejection into a handled unavailable result', async () => {
+    vi.stubGlobal('Translator', {
+      availability: async () => 'downloadable',
+      create: async () => {
+        throw new Error('The translation service count exceeded the limitation.');
+      },
+    });
+
+    await expect(prepareTranslatorPack('en', 'ja')).resolves.toBe('unavailable');
+  });
+
   it('reports unavailable without the built-in translator', async () => {
     vi.stubGlobal('Translator', undefined);
     await expect(prepareTranslatorPack('en', 'ja')).resolves.toBe('unavailable');

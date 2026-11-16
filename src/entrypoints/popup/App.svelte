@@ -123,6 +123,8 @@
   let pdfFailReason = $state<PdfOpenReason | null>(null);
   let engine = $state<EngineStatus | null>(null);
   let engineStatusError = $state(false);
+  /** Hold the restore card until opening the popup has queried and, if possible, renewed. */
+  let folderPermissionSettled = $state(false);
   let modelMark = $state<ModelStatus | null>(null);
   let quality = $state<QualitySample | null>(null);
   let headroom = $state<DeviceHeadroom | null>(null);
@@ -553,6 +555,24 @@
     }
   }
 
+  /**
+   * Opening the popup is a user gesture. Renew a dormant folder grant before the restore card
+   * is shown, then refresh the host so its snapshot does not keep saying permission is missing.
+   */
+  async function settleFolderPermissionOnOpen(): Promise<void> {
+    try {
+      const access = await ensureStoredFolderPermission();
+      if (access.status === 'granted' && access.changed) {
+        await requestModelFolderReload();
+      }
+    } catch {
+      // The restore component still offers the explicit grant if this silent path fails.
+    } finally {
+      await refreshEngine();
+      folderPermissionSettled = true;
+    }
+  }
+
   /** Explicit recovery after the shared folder was stopped: no "waiting" without a download. */
   async function downloadMissingModel() {
     const stored = settings ?? (await loadSettings().catch(() => null));
@@ -628,9 +648,9 @@
       void refreshSettings();
       void refreshPage();
     });
+    void settleFolderPermissionOnOpen();
     void refreshSettings();
     void refreshPage();
-    void refreshEngine();
     void requestEngineWarm();
     void requestQualitySample().then((sample) => {
       quality = sample;
@@ -752,14 +772,16 @@
   {#if engine?.modelFallback}
     <p class="muted" role="status">{t('modelSelectionFallback')}</p>
   {/if}
-  <FolderPermissionRestore
-    folder={engine?.sharedFolder}
-    modelId={engine?.model.id}
-    compact
-    onRestored={async () => {
-      await refreshEngine();
-    }}
-  />
+  {#if folderPermissionSettled}
+    <FolderPermissionRestore
+      folder={engine?.sharedFolder}
+      modelId={engine?.model.id}
+      compact
+      onRestored={async () => {
+        await refreshEngine();
+      }}
+    />
+  {/if}
   {#if engine?.engineSource === 'local-server'}
     <p class="muted">{t('localServerExperimental')}</p>
     {#if engine.parallel !== null}

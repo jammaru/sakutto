@@ -75,6 +75,17 @@ export function folderAccessNeedsRestore(state: FolderAccessState): boolean {
   return state === 'prompt' || state === 'denied' || state === 'revoked';
 }
 
+/**
+ * A `prompt` can become a grant without showing anything when the caller opened from a user
+ * gesture (the popup, or a button in a tab). Try that before painting the restore card.
+ */
+export function canAttemptSilentFolderGrant(
+  permission: FolderPermission | SharedFolderPermission | null | undefined,
+  activationActive: boolean,
+): boolean {
+  return permission === 'prompt' && activationActive;
+}
+
 /** Snapshot field: revoked is shown as `prompt` so the same restore button applies. */
 export function folderPermissionForStatus(state: FolderAccessState): SharedFolderPermission {
   if (state === 'none') return 'unknown';

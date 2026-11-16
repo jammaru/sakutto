@@ -123,6 +123,25 @@ interface ModelDownloadStatus {
 }
 
 /**
+ * True only when the missing folder grant needs the reader to act. A verified OPFS copy or an
+ * already-ready model can answer the load, so the page must not show a folder toast in that
+ * case. This mirrors `sharedFolderAllowsModelLoad` without needing the offscreen manager.
+ */
+export function sharedFolderNeedsUserAction(
+  status: Pick<EngineStatus, 'model' | 'sharedFolder'> | null | undefined,
+): boolean {
+  const folder = status?.sharedFolder;
+  if (!sharedFolderNeedsPermission(folder)) return false;
+  const model = status?.model;
+  if (!model) return true;
+  if (modelCanTranslate(model)) return false;
+  if (model.state === 'loading' || model.state === 'downloading' || model.state === 'verifying') {
+    return false;
+  }
+  return folder?.opfsCopies.includes(model.id) !== true;
+}
+
+/**
  * The model file is genuinely absent, so the popup should offer a concrete way to get it
  * (download, import, or choose a folder) rather than a generic "waiting" label. A pending
  * download, a load, or a folder that only needs permission is not this state.

@@ -318,7 +318,9 @@ test.describe('shared model folder', () => {
         };
       });
       await page.getByRole('button', { name: 'Choose model folder' }).click();
-      await expect(page.locator('[data-folder-picker-hint]')).toHaveText(PICKER_HINT);
+      // The static hint is already on screen; a cancel must not insert a duplicate below it.
+      await expect(page.getByText(PICKER_HINT)).toBeVisible();
+      await expect(page.locator('[data-folder-picker-hint]')).toHaveCount(0);
       await expect(page.getByText('Models are stored inside this browser.')).toBeVisible();
       await expect(page.getByRole('button', { name: 'Stop using shared folder' })).toBeDisabled();
       await page.close();

@@ -10,6 +10,7 @@ import {
   modelCanTranslate,
   modelNeedsDownload,
   modelStartBlocked,
+  sharedFolderNeedsUserAction,
   shouldShowModelDownloadGate,
   translationStartBlocked,
 } from '@/shared/engine-status';
@@ -165,6 +166,53 @@ describe('model availability', () => {
           opfsCopies: [],
           integrityIssues: [],
         },
+      }),
+    ).toBe(false);
+  });
+
+  it('does not ask for folder access when OPFS or a ready model can answer', () => {
+    const folder = {
+      supported: true,
+      configured: true,
+      permission: 'prompt' as const,
+      opfsCopies: [DEFAULT_MODEL_ID],
+      integrityIssues: [],
+      recordedModels: [DEFAULT_MODEL_ID],
+    };
+    const model = {
+      id: DEFAULT_MODEL_ID,
+      received: 0,
+      total: 1,
+      progress: 0,
+    };
+    expect(
+      sharedFolderNeedsUserAction({
+        model: { ...model, state: 'ready' },
+        sharedFolder: { ...folder, opfsCopies: [] },
+      }),
+    ).toBe(false);
+    expect(
+      sharedFolderNeedsUserAction({
+        model: { ...model, state: 'absent' },
+        sharedFolder: folder,
+      }),
+    ).toBe(false);
+    expect(
+      sharedFolderNeedsUserAction({
+        model: { ...model, state: 'loading' },
+        sharedFolder: { ...folder, opfsCopies: [] },
+      }),
+    ).toBe(false);
+    expect(
+      sharedFolderNeedsUserAction({
+        model: { ...model, state: 'absent' },
+        sharedFolder: { ...folder, opfsCopies: [] },
+      }),
+    ).toBe(true);
+    expect(
+      sharedFolderNeedsUserAction({
+        model: { ...model, state: 'absent' },
+        sharedFolder: { ...folder, permission: 'granted' },
       }),
     ).toBe(false);
   });

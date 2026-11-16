@@ -45,8 +45,13 @@ test.describe('built extension', () => {
               'The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to.',
             ),
           ).toBeVisible();
+          await expect(
+            page.getByText(
+              'A folder chosen from the Settings tab can keep access after a restart.',
+            ),
+          ).toBeVisible();
           await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
-          await expect(page.getByText('Japanese Edge labels it 「常に許可」')).toBeVisible();
+          await expect(page.getByText('Japanese Edge: 「常に許可」')).toBeVisible();
           await expect(page.getByText('A shared folder means:')).toBeVisible();
           await expect(
             page.getByText(
@@ -164,8 +169,11 @@ test.describe('built extension', () => {
               'フォルダ選択はドキュメントで開きます。「Sakutto」というフォルダを作成するか選んでください（例：ドキュメント/Sakutto）。書き込みできる別のフォルダでもかまいません。',
             ),
           ).toBeVisible();
+          await expect(
+            page.getByText('設定タブで選んだフォルダは、再起動後もアクセスが続くことがあります。'),
+          ).toBeVisible();
           await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
-          await expect(page.getByText('Edgeなら「常に許可」')).toBeVisible();
+          await expect(page.getByText('「常に許可」（Edge）')).toBeVisible();
           await expect(page.getByText('共有フォルダを使うと：')).toBeVisible();
           await expect(
             page.getByText(

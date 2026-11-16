@@ -21,6 +21,7 @@
     planOnboardingDownload,
     type OnboardingStoreChoice,
   } from '@/ui/onboarding-store';
+  import { shouldPrepareTranslatorPack } from '@/ui/onboarding-pack';
   import type { ModelStatus } from '@/shared/engine-status';
   import { agreementFromStorage } from '@/shared/agreement';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';
@@ -283,7 +284,14 @@
     startRequested = true;
 
     const source = targetLanguage === 'en' ? 'ja' : 'en';
-    const pack = prepareTranslatorPack(source, targetLanguage);
+    const pack = shouldPrepareTranslatorPack({
+      builtInTranslator: hasBuiltInTranslatorUi(),
+      modelState,
+      choice: storeChoice,
+    })
+      ? prepareTranslatorPack(source, targetLanguage)
+      : null;
+    void pack?.catch(() => undefined);
 
     try {
       await saveSettings({
@@ -360,12 +368,10 @@
 
     if (alreadyReady) {
       phase = 'ready';
-      void pack;
       return;
     }
 
     phase = 'downloading';
-    void pack;
     const started = await requestModelDownload(DEFAULT_MODEL_ID);
     if (!started) phase = 'error';
   }

@@ -24,9 +24,8 @@ import {
   type SiteRule,
 } from '@/dom/sites';
 import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
-import { sharedFolderNeedsPermission } from '@/engine/model/folder-status';
 import { hasLicenseConsent } from '@/shared/agreement';
-import type { ModelStatus } from '@/shared/engine-status';
+import { sharedFolderNeedsUserAction, type ModelStatus } from '@/shared/engine-status';
 import { mergeGlossary } from '@/shared/glossary';
 import { currentUiLanguage, t } from '@/shared/i18n';
 import {
@@ -433,7 +432,7 @@ export function contentMain(): void {
       modelState = status.model.state;
       plamoReady = status.plamoReady;
       modelStatusKnown = true;
-      folderNeedsPermission = sharedFolderNeedsPermission(status.sharedFolder);
+      folderNeedsPermission = sharedFolderNeedsUserAction(status);
       return true;
     };
     if (!__SAKUTTO_FAKE_ENGINE__) await readModelStatus();

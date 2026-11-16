@@ -5,7 +5,7 @@ import { PageSession, preferencesFor } from '@/dom/session';
 import { t } from '@/shared/i18n';
 import { isTargetLanguage } from '@/shared/languages';
 import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
-import { sharedFolderNeedsPermission } from '@/engine/model/folder-status';
+import { sharedFolderNeedsUserAction } from '@/shared/engine-status';
 import { isModelProgressMessage, requestEngineStatus } from '@/shared/messages';
 import { loadSettings } from '@/shared/storage';
 import { translateViaBackground } from '@/shared/translation-client';
@@ -80,7 +80,7 @@ browser.runtime.onMessage.addListener((message) => {
 
 void requestEngineStatus()
   .then((status) => {
-    if (sharedFolderNeedsPermission(status?.sharedFolder)) session.noteFolderPermission();
+    if (sharedFolderNeedsUserAction(status)) session.noteFolderPermission();
     if (status?.model.state === 'loaded' || status?.model.state === 'ready') {
       session.retryUntranslated();
     }

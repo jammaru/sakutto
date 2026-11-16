@@ -42,7 +42,6 @@
   let folder = $state<SharedFolderStatus>(emptySharedFolderStatus(sharedFolderPickerAvailable()));
   let busy = $state(false);
   let pickError = $state<string | null>(null);
-  let pickHint = $state<string | null>(null);
   let pickerAvailable = $derived(sharedFolderPickerAvailable());
   let highlightPick = $derived(shouldHighlightFolderPicker(location.href));
   const folderSizeLabel = formatByteSizeList([
@@ -68,7 +67,6 @@
 
   async function chooseFolder() {
     pickError = null;
-    pickHint = null;
     busy = true;
     try {
       // Only the cheap license lookup may run before the picker. Reloading the engine or
@@ -80,10 +78,8 @@
         return;
       }
       const picked = await adoptPickedSharedFolder();
-      if (picked.status === 'cancelled') {
-        pickHint = t('modelFolderPickerHint');
-        return;
-      }
+      // The static hint above already names the picker steps. A cancel needs no second copy.
+      if (picked.status === 'cancelled') return;
       if (picked.status === 'denied') {
         pickError = t('modelFolderPermissionNeeded');
         return;
@@ -101,7 +97,6 @@
 
   async function stopUsing() {
     pickError = null;
-    pickHint = null;
     busy = true;
     try {
       await clearStoredSharedFolder();
@@ -192,9 +187,6 @@
       </button>
     </div>
 
-    {#if pickHint}
-      <p class="muted help" data-folder-picker-hint role="status">{pickHint}</p>
-    {/if}
     {#if pickError}
       <p class="error" role="alert">{pickError}</p>
     {/if}

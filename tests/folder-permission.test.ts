@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { EngineError, isFolderPermissionError } from '@/engine/errors';
 import { isPermissionDenied } from '@/engine/model/file-store';
 import {
+  canAttemptSilentFolderGrant,
   folderAccessNeedsRestore,
   folderGrantCanOfferPersistentPrompt,
   folderGrantSurface,
@@ -10,6 +11,17 @@ import {
   resolveFolderAccessState,
 } from '@/engine/model/folder-permission';
 import { requestFolderPermission } from '@/engine/model/shared-folder';
+
+describe('silent regrant decision', () => {
+  it('tries a prompt under activation, but never hides denied or inactive paths', () => {
+    expect(canAttemptSilentFolderGrant('prompt', true)).toBe(true);
+    expect(canAttemptSilentFolderGrant('prompt', false)).toBe(false);
+    expect(canAttemptSilentFolderGrant('denied', true)).toBe(false);
+    expect(canAttemptSilentFolderGrant('granted', true)).toBe(false);
+    expect(canAttemptSilentFolderGrant('unknown', true)).toBe(false);
+    expect(canAttemptSilentFolderGrant(null, true)).toBe(false);
+  });
+});
 
 describe('folder grant surface', () => {
   it('treats settings and onboarding as tabs that can show the restore prompt', () => {

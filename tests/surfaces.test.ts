@@ -66,6 +66,15 @@ describe('start controls while the model downloads', () => {
     expect(onboarding).toContain('onboardingStoreFolderHelp');
   });
 
+  it('handles translator pack failures and skips unnecessary installs', () => {
+    expect(onboarding).toContain('shouldPrepareTranslatorPack');
+    expect(onboarding).toContain('void pack?.catch(() => undefined)');
+    expect(onboarding).not.toContain('void pack;');
+    expect(source('shared/translator-pack.ts')).toContain(
+      'installPack(translator, pair, key, options).catch',
+    );
+  });
+
   it('does not offer a download when the shared folder needs permission again', () => {
     expect(modelManager).toContain('sharedFolderNeedsPermission');
     expect(modelManager).toContain('folderBlocked');
@@ -78,7 +87,8 @@ describe('start controls while the model downloads', () => {
     expect(source('entrypoints/onboarding/App.svelte')).toContain('FOLDER_PERMISSION_ERROR');
     expect(source('ui/FolderPermissionRestore.svelte')).toContain('modelFolderPermissionGrant');
     expect(source('ui/FolderPermissionRestore.svelte')).toContain('modelFolderPermissionPresent');
-    expect(source('ui/FolderPermissionRestore.svelte')).toContain('probeStoredFolderReadable');
+    expect(source('ui/FolderPermissionRestore.svelte')).toContain('canAttemptSilentFolderGrant');
+    expect(source('ui/FolderPermissionRestore.svelte')).toContain('checkingPermission');
   });
 
   it('keeps the cancel control visible while verifying', () => {
@@ -489,11 +499,49 @@ describe('shared folder activation and recovery', () => {
     );
   });
 
-  it('queries before hiding the restore control when the grant is already active', () => {
+  it('settles a dormant grant from the popup before painting the restore card', () => {
+    const settleStart = popup.indexOf('async function settleFolderPermissionOnOpen');
+    const settleBody = popup.slice(
+      settleStart,
+      popup.indexOf('async function downloadMissingModel', settleStart),
+    );
+    expect(settleBody).toContain('ensureStoredFolderPermission');
+    expect(settleBody.indexOf('requestModelFolderReload')).toBeGreaterThan(
+      settleBody.indexOf('ensureStoredFolderPermission'),
+    );
+    expect(settleBody.indexOf('refreshEngine')).toBeGreaterThan(
+      settleBody.indexOf('ensureStoredFolderPermission'),
+    );
+    expect(popup).toContain('folderPermissionSettled');
+    expect(popup).toContain('{#if folderPermissionSettled}');
+  });
+
+  it('tries a silent prompt regrant before showing the restore card', () => {
     expect(restore).toContain('queryStoredFolderPermission');
     expect(restore).toContain('silentGranted');
-    expect(restore).toContain('sharedFolderNeedsPermission(folder) && !silentGranted');
-    expect(restore).toContain('probeStoredFolderReadable');
+    expect(restore).toContain('canAttemptSilentFolderGrant');
+    expect(restore).toContain('ensureStoredFolderPermission');
+    expect(restore).toContain('checkingPermission');
+    expect(restore).toContain('sharedFolderNeedsPermission(folder)');
+    expect(restore).toContain('!checkingPermission');
+    expect(restore).not.toContain('probeStoredFolderReadable');
+  });
+
+  it('does not toast for a folder grant when OPFS can still answer', () => {
+    const content = source('content/main.ts');
+    expect(content).toContain('sharedFolderNeedsUserAction');
+    expect(content).not.toContain('folderNeedsPermission = sharedFolderNeedsPermission');
+    expect(source('entrypoints/sample/main.ts')).toContain('sharedFolderNeedsUserAction');
+  });
+
+  it('does not repeat the picker hint after a cancelled folder pick', () => {
+    const chooseStart = folderSettings.indexOf('async function chooseFolder');
+    const chooseBody = folderSettings.slice(
+      chooseStart,
+      folderSettings.indexOf('async function stopUsing', chooseStart),
+    );
+    expect(chooseBody).toContain("if (picked.status === 'cancelled') return;");
+    expect(folderSettings).not.toContain('data-folder-picker-hint');
   });
 
   it('reuses one onboarding tab instead of adding one per settings click', () => {

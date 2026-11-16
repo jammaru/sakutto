@@ -149,7 +149,9 @@ export async function prepareTranslatorPack(
   const existing = pending.get(key);
   if (existing) return existing;
 
-  const task = installPack(translator, pair, key, options);
+  // Keep the promise handled even if an unusual availability/create implementation rejects
+  // outside the branches installPack already guards. Onboarding must never see this escape.
+  const task = installPack(translator, pair, key, options).catch(() => 'unavailable' as const);
   pending.set(key, task);
   try {
     return await task;
