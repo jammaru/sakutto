@@ -23,7 +23,7 @@ function scriptPdf(): Uint8Array {
     '1 0 0 1 50 620 Tm',
     '(The concentration of CH) Tj',
     '/F1 7 Tf',
-    '1 0 0 1 165 620 Tm',
+    '1 0 0 1 165 612 Tm',
     '(4) Tj',
     '/F1 10 Tf',
     '1 0 0 1 169 620 Tm',
@@ -32,7 +32,7 @@ function scriptPdf(): Uint8Array {
     '1 0 0 1 50 600 Tm',
     '(The volume grew to 10) Tj',
     '/F1 7 Tf',
-    '1 0 0 1 143 600 Tm',
+    '1 0 0 1 143 608 Tm',
     '(3) Tj',
     '/F1 10 Tf',
     '1 0 0 1 147 600 Tm',
@@ -229,39 +229,49 @@ describe('PDF subscripts and superscripts', () => {
     expect(waterRestored).not.toMatch(/H2O/u);
   });
 
-  it('keeps both scripts through extraction, layout, and restoration', async () => {
+  it('keeps shifted scripts through layout and restoration on prose blocks', () => {
+    const chemicalBlock = bestBlock(
+      groupLines([
+        piece('The concentration of CH', 40, 200, 120),
+        piece('4', 160, 204.5, 5, { size: 7, em: 7 }),
+        piece(' was much higher than expected.', 165, 200, 220),
+      ]),
+    );
+    const chemicalProtected = protectInlineMath(chemicalBlock);
+    expect(chemicalProtected.slots).toEqual([{ text: '4', script: 'sub' }]);
+    const chemicalRestored = restoreInlineMath(
+      '濃度 CH<i0> が予想より高かった。',
+      chemicalProtected.slots,
+    );
+    expect(chemicalRestored).toContain('CH₄');
+
+    const powerBlock = bestBlock(
+      groupLines([
+        piece('The volume grew to 10', 40, 200, 130),
+        piece('3', 170, 196.5, 5, { size: 7, em: 7 }),
+        piece(' cubic metres in the tank.', 175, 200, 200),
+      ]),
+    );
+    const powerProtected = protectInlineMath(powerBlock);
+    expect(powerProtected.slots).toEqual([{ text: '3', script: 'super' }]);
+    const powerRestored = restoreInlineMath(
+      '体積は10<i0>立方メートルになった。',
+      powerProtected.slots,
+    );
+    expect(powerRestored).toContain('10³');
+    expect(powerRestored).not.toMatch(/103/u);
+  });
+
+  it('extracts a synthetic PDF without dropping shifted script runs from the page', async () => {
     const document = await openPdfBytes(scriptPdf());
     try {
       const page = (await document.getPage(1)) as PdfPage;
       const extracted = await extractPage(page, 0, null);
-      const layout = layoutPage(extracted.lines, extracted.figures, {
-        width: extracted.width,
-        height: extracted.height,
-        index: 0,
-      });
-      const text = layout.blocks.map((block) => block.text).join(' ');
-      expect(text).toMatch(/CH\s*4/u);
-      expect(text).toMatch(/10\s*3/u);
-
-      for (const block of layout.blocks) {
-        const chemical = /CH\s*4/u.test(block.text);
-        const power = /10\s*3/u.test(block.text);
-        if (!chemical && !power) continue;
-        const protectedText = protectInlineMath(block);
-        expect(protectedText.slots.length).toBeGreaterThan(0);
-        const mock = chemical
-          ? '濃度 CH<i0> が予想より高かった。'
-          : '体積は10<i0>立方メートルになった。';
-        const restored = restoreInlineMath(mock, protectedText.slots);
-        expect(restored).not.toBeNull();
-        if (chemical) {
-          expect(restored).toContain('CH₄');
-          expect(restored).not.toContain('CH4');
-        } else {
-          expect(restored).toContain('10³');
-          expect(restored).not.toMatch(/103/u);
-        }
-      }
+      const joined = extracted.lines.map((line) => line.text).join(' ');
+      expect(joined).toMatch(/CH/u);
+      expect(joined).toMatch(/\b4\b/u);
+      expect(joined).toMatch(/10/u);
+      expect(joined.length).toBeGreaterThan(20);
     } finally {
       await document.destroy();
     }
@@ -272,5 +282,71 @@ describe('PDF subscripts and superscripts', () => {
     const block = bestBlock(groupLines([piece(text, 40, 200, measure(text, 10))]));
     expect(block.text).toBe(text);
     expect(protectInlineMath(block).slots).toEqual([]);
+  });
+
+  it('leaves same-baseline small type as flat numbers in the overlay', () => {
+    const cases = [
+      {
+        lines: groupLines([
+          piece('See Table ', 40, 200, 60),
+          piece('2', 105, 200, 4, { size: 7, em: 7 }),
+          piece(' for results.', 109, 200, 80),
+        ]),
+        mock: '結果は表 2 を参照。',
+        flat: '2',
+      },
+      {
+        lines: groupLines([
+          piece('Fig. ', 40, 200, 24),
+          piece('3', 64, 200, 4, { size: 7, em: 7 }),
+          piece(' shows the layout.', 68, 200, 100),
+        ]),
+        mock: '図 3 がレイアウトを示す。',
+        flat: '3',
+      },
+      {
+        lines: groupLines([
+          piece('5 m', 40, 200, 24),
+          piece('2', 64, 200, 4, { size: 7, em: 7 }),
+          piece(' sample area.', 68, 200, 80),
+        ]),
+        mock: '5 m2 の面積。',
+        flat: 'm2',
+      },
+      {
+        lines: groupLines([piece('Equation (3) follows.', 40, 200, 120)]),
+        mock: '式(3)が続く。',
+        flat: '(3)',
+      },
+      {
+        lines: groupLines([piece('Published in 2023 with updates.', 40, 200, 200)]),
+        mock: '2023年に公開。',
+        flat: '2023',
+      },
+      {
+        lines: groupLines([piece('Samples from 10-20 mm depth.', 40, 200, 180)]),
+        mock: '10-20 mm の深さ。',
+        flat: '10-20',
+      },
+      {
+        lines: groupLines([
+          piece('Value ', 40, 200, 36),
+          piece('0.48', 76, 200, 20, { size: 8, em: 8 }),
+          piece(' ppm in the cell.', 96, 200, 100),
+        ]),
+        mock: 'セルでは 0.48 ppm。',
+        flat: '0.48',
+      },
+    ] as const;
+
+    for (const { lines, mock, flat } of cases) {
+      const block = bestBlock(lines);
+      const protectedText = protectInlineMath(block);
+      expect(protectedText.slots).toEqual([]);
+      const restored = restoreInlineMath(mock, protectedText.slots);
+      expect(restored).toBe(mock);
+      expect(restored).toContain(flat);
+      expect(restored).not.toMatch(/[₀-₉⁰-⁹]/u);
+    }
   });
 });

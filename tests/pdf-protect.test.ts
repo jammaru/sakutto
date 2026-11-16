@@ -62,7 +62,7 @@ describe('protectInlineMath', () => {
     const lines = groupLines([
       piece('Let ', 49, 100, 18),
       piece('S', 67, 100, 8, { italic: true }),
-      piece('t', 74, 100, 6, { size: 7, em: 10 }),
+      piece('t', 74, 101.2, 6, { size: 7, em: 10 }),
       piece(' = (I − β)', 80, 100, 48),
       piece('k', 128, 100, 6, { italic: true }),
       piece(' hold the recurrent state of the layer.', 134, 100, 200),

@@ -140,10 +140,7 @@ function protectLine(line: TextLine, slots: ProtectedSlot[]): string {
   }
 
   const replaced: TextPiece[] = [];
-  let pieceOffset = 0;
   for (const run of runs) {
-    const beforeText = joinPieces(line.pieces.slice(0, pieceOffset));
-    pieceOffset += run.pieces.length;
     if (!run.protect) {
       replaced.push(...run.pieces);
       continue;
@@ -155,7 +152,7 @@ function protectLine(line: TextLine, slots: ProtectedSlot[]): string {
     const slotText = joinPieces(run.pieces);
     slots.push({
       text: slotText,
-      script: scriptRole(run.pieces, line.height, baseline, beforeText),
+      script: scriptRole(run.pieces, line.height, baseline),
     });
     replaced.push({
       ...first,
@@ -236,6 +233,19 @@ function dominantBaseline(pieces: readonly TextPiece[]): number {
 
 const ORDINAL_SUFFIX = /^(?:st|nd|rd|th)$/iu;
 
+/** Raised or lowered enough relative to the line's dominant baseline to be a script glyph. */
+function scriptShiftThreshold(piece: TextPiece, lineHeight: number): number {
+  const scale = Math.max(lineHeight, piece.size, 1);
+  return scale * 0.06;
+}
+
+function isShiftedScript(piece: TextPiece, lineHeight: number, baseline: number): boolean {
+  const text = piece.text.trim();
+  if (text.length === 0 || text.length > 3) return false;
+  if (!/^[\p{L}\p{N}]+$/u.test(text)) return false;
+  return Math.abs(piece.baseline - baseline) > scriptShiftThreshold(piece, lineHeight);
+}
+
 function kindOf(
   piece: TextPiece,
   lineHeight: number,
@@ -249,26 +259,21 @@ function kindOf(
   // Protecting it split the word into two fake-engine markers and made the caption overflow.
   if (ORDINAL_SUFFIX.test(text)) return 'text';
   if (piece.italic && text.length <= 2 && /^\p{L}+$/u.test(text)) return 'var';
-  // A subscript is set smaller than the line, or a marker is shifted off its baseline:
-  // `S_t` draws `t` at ~70% of the em, and `word^12` raises the digits without shrinking them.
-  if (lineHeight > 0 && text.length <= 3 && /^[\p{L}\p{N}]+$/u.test(text)) {
-    if (piece.size < lineHeight * 0.78) return 'script';
-    if (Math.abs(piece.baseline - baseline) > lineHeight * 0.15) return 'script';
-  }
+  // Small body type on the same baseline is not a subscript — only a real baseline shift is.
+  if (isShiftedScript(piece, lineHeight, baseline)) return 'script';
   return 'text';
 }
 
 /**
  * Whether a protected run is a raised or lowered script, for overlay rendering.
  *
- * Formula variables mixed with operators keep `none`. A run of script pieces — or script with
- * math operators — uses the baseline shift of its script glyphs when every script piece agrees.
+ * Formula variables mixed with operators keep `none`. Script direction follows baseline shift
+ * only, never a preceding-character guess.
  */
 function scriptRole(
   pieces: readonly TextPiece[],
   lineHeight: number,
   baseline: number,
-  beforeText: string,
 ): ScriptRole {
   const scriptPieces = pieces.filter((piece) => kindOf(piece, lineHeight, baseline) === 'script');
   if (scriptPieces.length === 0) return 'none';
@@ -282,16 +287,9 @@ function scriptRole(
   let subs = 0;
   for (const piece of scriptPieces) {
     const shift = piece.baseline - baseline;
-    if (shift < -lineHeight * 0.05) supers += 1;
-    else if (shift > lineHeight * 0.05) subs += 1;
-    else if (piece.size < lineHeight * 0.78) {
-      // Same baseline, smaller font: `10³` and `CH₄` both use this in many PDFs.
-      const marker = piece.text.trim();
-      const previous = beforeText.trimEnd();
-      if (/^\d+$/u.test(marker) && /\d$/u.test(previous)) supers += 1;
-      else if (/^\d+$/u.test(marker) && /\p{L}$/u.test(previous)) subs += 1;
-      else subs += 1;
-    } else supers += 1;
+    const limit = scriptShiftThreshold(piece, lineHeight);
+    if (shift < -limit) supers += 1;
+    else if (shift > limit) subs += 1;
   }
   if (supers > 0 && subs === 0) return 'super';
   if (subs > 0 && supers === 0) return 'sub';
@@ -306,10 +304,12 @@ function isFormulaRun(pieces: readonly TextPiece[], lineHeight: number, baseline
   // translation overflow its box.
   if (/^[\u002d\u2010\u2011\u2012\u2013\u2014\u2212]+$/u.test(joined.trim())) return false;
   if (/^[.,;:!?]+$/u.test(joined.trim())) return false;
-  return pieces.some((piece) => {
-    const kind = kindOf(piece, lineHeight, baseline);
-    return kind === 'math' || kind === 'op' || kind === 'script';
-  });
+
+  const kinds = pieces.map((piece) => kindOf(piece, lineHeight, baseline));
+  if (kinds.some((kind) => kind === 'math' || kind === 'op' || kind === 'var')) return true;
+  if (!kinds.some((kind) => kind === 'script')) return false;
+  // A shifted script digit beside prose is protected; smaller body type on the same baseline is not.
+  return pieces.some((piece) => isShiftedScript(piece, lineHeight, baseline));
 }
 
 /**
