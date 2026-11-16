@@ -1356,22 +1356,22 @@
     "message": "ホバー・選択・作文の翻訳ポップアップの文字サイズを変更します。動画の字幕は字幕用の設定で変更します。"
   },
   "plainTextLineBreaksLabel": {
-    "message": "貼り付けたテキストの改行"
+    "message": "訳文の改行"
   },
   "plainTextLineBreaksHelp": {
-    "message": "入力・貼り付けしたプレーンテキストの改行を翻訳でどう表示するかを選びます。OCR で途中改行された文は文末にまとめます。入力欄・選択範囲・作成欄のプレビューに適用され、ページ全体の翻訳は変わりません。"
+    "message": "書類や本の貼り付け、OCR の文章では文の途中に改行が入ることがあります。翻訳時はそれらをつなげ、文末・見出し・空行の位置だけを訳文の改行として反映します。ページ翻訳は変わりません。"
   },
   "plainTextLineBreaksNone": {
-    "message": "段落にまとめる（既定）"
+    "message": "改行しない（従来どおり）"
   },
   "plainTextLineBreaksKeep": {
-    "message": "改行を保つ"
+    "message": "段落で改行"
   },
   "plainTextLineBreaksBlank": {
-    "message": "行間に空行を入れる"
+    "message": "段落の間を空ける"
   },
   "plainTextLineBreaksWider": {
-    "message": "行間を広げる"
+    "message": "段落の間を少し広げる"
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "独自の字幕サイト"

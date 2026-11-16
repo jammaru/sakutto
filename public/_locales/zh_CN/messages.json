@@ -1352,22 +1352,22 @@
     "message": "调整悬停、划词和写作翻译弹窗中的文字大小。视频字幕使用单独的字幕大小设置。"
   },
   "plainTextLineBreaksLabel": {
-    "message": "粘贴文本中的换行"
+    "message": "译文中的换行"
   },
   "plainTextLineBreaksHelp": {
-    "message": "选择输入、选中或粘贴的纯文本换行在译文中如何显示。OCR 造成的换行会移到句末。适用于输入框、选中文本和撰写预览；网页翻译保持不变。"
+    "message": "粘贴文档、OCR 文字或书籍摘录时，换行常常落在句子中间。翻译时会将这些内容连起来，只有句末、标题和空行才会在译文中显示为换行。网页翻译保持不变。"
   },
   "plainTextLineBreaksNone": {
-    "message": "合并为段落（默认）"
+    "message": "不额外换行（默认）"
   },
   "plainTextLineBreaksKeep": {
-    "message": "保留换行"
+    "message": "段落之间换行"
   },
   "plainTextLineBreaksBlank": {
-    "message": "在行间插入空行"
+    "message": "段落之间空行"
   },
   "plainTextLineBreaksWider": {
-    "message": "增大行间距"
+    "message": "段落间距稍大"
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "自定义字幕网站"

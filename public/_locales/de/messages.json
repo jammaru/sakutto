@@ -1352,22 +1352,22 @@
     "message": "Ändert die Textgröße in Übersetzungs-Pop-ups beim Überfahren, bei Auswahl und beim Verfassen. Untertitel haben eine eigene Größenoption."
   },
   "plainTextLineBreaksLabel": {
-    "message": "Zeilenumbrüche in eingefügtem Text"
+    "message": "Zeilenumbrüche in der Übersetzung"
   },
   "plainTextLineBreaksHelp": {
-    "message": "Bestimmt, wie Zeilenumbrüche in eingefügtem oder markiertem Klartext in der Übersetzung erscheinen. Durch OCR umbrochene Zeilen werden an das Satzende gesetzt. Gilt für Eingabefeld, Auswahl und Vorschau im Verfassen-Feld; Seitenübersetzung bleibt unverändert."
+    "message": "Beim Einfügen von Dokumenten, OCR-Text oder Buchauszügen stehen Umbrüche oft mitten im Satz. Für die Übersetzung werden sie zusammengefügt; nur Satzenden, Überschriften und Leerzeilen erscheinen als Umbrüche. Die Seitenübersetzung bleibt unverändert."
   },
   "plainTextLineBreaksNone": {
-    "message": "Zu Absätzen zusammenfassen (Standard)"
+    "message": "Keine zusätzlichen Umbrüche (Standard)"
   },
   "plainTextLineBreaksKeep": {
-    "message": "Zeilenumbrüche beibehalten"
+    "message": "Umbruch zwischen Absätzen"
   },
   "plainTextLineBreaksBlank": {
-    "message": "Leerzeile zwischen den Zeilen"
+    "message": "Leerzeile zwischen Absätzen"
   },
   "plainTextLineBreaksWider": {
-    "message": "Größerer Zeilenabstand"
+    "message": "Etwas größerer Abstand zwischen Absätzen"
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "Eigene Untertitel-Websites"

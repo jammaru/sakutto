@@ -1352,22 +1352,22 @@
     "message": "Altera o tamanho do texto nas janelas de tradução ao passar o mouse, ao selecionar e ao escrever. As legendas de vídeo têm um ajuste de tamanho próprio."
   },
   "plainTextLineBreaksLabel": {
-    "message": "Quebras de linha no texto colado"
+    "message": "Quebras de linha na tradução"
   },
   "plainTextLineBreaksHelp": {
-    "message": "Escolhe como as quebras de linha do texto simples digitado, selecionado ou colado aparecem na tradução. Quebras de linha de OCR são movidas para o fim da frase. Vale para texto digitado, seleções e prévia de redação; a tradução de páginas não muda."
+    "message": "Ao colar documentos, texto de OCR ou trechos de livros, as quebras costumam cair no meio da frase. Elas são unidas na tradução; apenas fins de frase, títulos e linhas em branco aparecem como quebras. A tradução de páginas não muda."
   },
   "plainTextLineBreaksNone": {
-    "message": "Unir em parágrafos (padrão)"
+    "message": "Sem quebras adicionais (padrão)"
   },
   "plainTextLineBreaksKeep": {
-    "message": "Manter quebras de linha"
+    "message": "Quebra entre parágrafos"
   },
   "plainTextLineBreaksBlank": {
-    "message": "Linha em branco entre as linhas"
+    "message": "Linha em branco entre parágrafos"
   },
   "plainTextLineBreaksWider": {
-    "message": "Espaçamento maior entre linhas"
+    "message": "Espaçamento maior entre parágrafos"
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "Sites de legendas personalizados"

@@ -1352,22 +1352,22 @@
     "message": "Modifie la taille du texte dans les fenêtres de traduction au survol, à la sélection et lors de la rédaction. Les sous-titres vidéo ont leur propre réglage de taille."
   },
   "plainTextLineBreaksLabel": {
-    "message": "Sauts de ligne du texte collé"
+    "message": "Sauts de ligne dans la traduction"
   },
   "plainTextLineBreaksHelp": {
-    "message": "Choisit l’affichage des sauts de ligne du texte brut saisi, sélectionné ou collé dans la traduction. Les coupures OCR sont déplacées à la fin de la phrase. S’applique à la saisie, aux sélections et à l’aperçu de rédaction ; la traduction des pages reste inchangée."
+    "message": "Les documents collés, le texte OCR ou les extraits de livres contiennent souvent des sauts au milieu d’une phrase. Ils sont réunis pour la traduction ; seuls les fins de phrase, les titres et les lignes vides deviennent des sauts. La traduction des pages reste inchangée."
   },
   "plainTextLineBreaksNone": {
-    "message": "Regrouper en paragraphes (par défaut)"
+    "message": "Aucun saut ajouté (par défaut)"
   },
   "plainTextLineBreaksKeep": {
-    "message": "Conserver les sauts de ligne"
+    "message": "Saut entre les paragraphes"
   },
   "plainTextLineBreaksBlank": {
-    "message": "Ligne vide entre les lignes"
+    "message": "Ligne vide entre les paragraphes"
   },
   "plainTextLineBreaksWider": {
-    "message": "Espacement plus large entre les lignes"
+    "message": "Espacement plus large entre les paragraphes"
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "Sites de sous-titres personnalisés"

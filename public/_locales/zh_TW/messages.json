@@ -1352,22 +1352,22 @@
     "message": "調整懸停、選取和撰寫翻譯彈窗中的文字大小。影片字幕使用個別的字幕大小設定。"
   },
   "plainTextLineBreaksLabel": {
-    "message": "貼上文字中的換行"
+    "message": "譯文中的換行"
   },
   "plainTextLineBreaksHelp": {
-    "message": "選擇輸入、選取或貼上的純文字換行在譯文中如何顯示。OCR 造成的換行會移到句末。適用於輸入框、選取文字和撰寫預覽；網頁翻譯維持不變。"
+    "message": "貼上文件、OCR 文字或書籍摘錄時，換行常落在句子中間。翻譯時會將這些內容連接起來，只有句末、標題和空行才會在譯文中顯示為換行。網頁翻譯維持不變。"
   },
   "plainTextLineBreaksNone": {
-    "message": "合併為段落（預設）"
+    "message": "不額外換行（預設）"
   },
   "plainTextLineBreaksKeep": {
-    "message": "保留換行"
+    "message": "段落之間換行"
   },
   "plainTextLineBreaksBlank": {
-    "message": "在行間插入空行"
+    "message": "段落之間空行"
   },
   "plainTextLineBreaksWider": {
-    "message": "加大行距"
+    "message": "段落間距稍大"
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "自訂字幕網站"

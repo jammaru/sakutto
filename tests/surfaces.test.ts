@@ -144,6 +144,22 @@ describe('typed translation layout', () => {
     expect(typed).not.toContain('辞書');
   });
 
+  it('exposes the line-break display setting and remaps without retranslating', () => {
+    expect(typed).toContain('plainTextLineBreaks');
+    expect(typed).toContain('normalizePlainTextLineBreaks');
+    expect(typed).toContain("t('plainTextLineBreaksLabel')");
+    expect(typed).toContain('data-sakutto="typed-line-breaks"');
+    expect(typed).toContain('saveSettings({ plainTextLineBreaks: mode })');
+    expect(typed).toContain('preparePlainTextForModel(trimmed)');
+    expect(typed).toContain('applyResult(resultRaw)');
+
+    const start = typed.indexOf('async function changePlainTextLineBreaks');
+    const end = typed.indexOf('function resetResult');
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    expect(typed.slice(start, end)).not.toContain('translateTyped');
+  });
+
   it('keeps the PLaMo engine, consent gate and ready rule in place', () => {
     expect(typed).toContain("from './engine'");
     expect(typed).toContain('typedReadiness');

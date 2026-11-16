@@ -1352,22 +1352,22 @@
     "message": "Cambia el tamaño del texto en las ventanas de traducción al pasar el cursor, al seleccionar y al redactar. Los subtítulos de vídeo tienen su propio ajuste de tamaño."
   },
   "plainTextLineBreaksLabel": {
-    "message": "Saltos de línea en el texto pegado"
+    "message": "Saltos de línea en la traducción"
   },
   "plainTextLineBreaksHelp": {
-    "message": "Elige cómo aparecen en la traducción los saltos de línea del texto plano escrito, seleccionado o pegado. Los saltos de OCR se mueven al final de la frase. Se aplica al texto escrito, las selecciones y la vista previa de redacción; la traducción de páginas no cambia."
+    "message": "Al pegar documentos, texto de OCR o fragmentos de libros, los saltos suelen caer a mitad de frase. Se unen para traducir; solo los finales de frase, los títulos y las líneas en blanco aparecen como saltos. La traducción de páginas no cambia."
   },
   "plainTextLineBreaksNone": {
-    "message": "Unir en párrafos (predeterminado)"
+    "message": "Sin saltos adicionales (predeterminado)"
   },
   "plainTextLineBreaksKeep": {
-    "message": "Mantener los saltos de línea"
+    "message": "Salto entre párrafos"
   },
   "plainTextLineBreaksBlank": {
-    "message": "Línea en blanco entre líneas"
+    "message": "Línea en blanco entre párrafos"
   },
   "plainTextLineBreaksWider": {
-    "message": "Mayor espacio entre líneas"
+    "message": "Mayor espacio entre párrafos"
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "Sitios de subtítulos personalizados"

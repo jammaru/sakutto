@@ -1352,22 +1352,22 @@
     "message": "Thay đổi cỡ chữ trong cửa sổ dịch khi di chuột, khi bôi đen và khi soạn thảo. Phụ đề video có cài đặt cỡ chữ riêng."
   },
   "plainTextLineBreaksLabel": {
-    "message": "Xuống dòng trong văn bản đã dán"
+    "message": "Xuống dòng trong bản dịch"
   },
   "plainTextLineBreaksHelp": {
-    "message": "Chọn cách hiển thị xuống dòng của văn bản thuần đã nhập, chọn hoặc dán trong bản dịch. Các dòng bị ngắt do OCR được chuyển về cuối câu. Áp dụng cho ô nhập, vùng chọn và bản xem trước khi soạn; bản dịch trang không thay đổi."
+    "message": "Khi dán tài liệu, văn bản OCR hoặc trích sách, xuống dòng thường nằm giữa câu. Những chỗ đó được nối lại khi dịch; chỉ cuối câu, tiêu đề và dòng trống mới hiện thành xuống dòng trong bản dịch. Bản dịch trang không thay đổi."
   },
   "plainTextLineBreaksNone": {
-    "message": "Gộp thành đoạn (mặc định)"
+    "message": "Không thêm xuống dòng (mặc định)"
   },
   "plainTextLineBreaksKeep": {
-    "message": "Giữ nguyên xuống dòng"
+    "message": "Xuống dòng giữa các đoạn"
   },
   "plainTextLineBreaksBlank": {
-    "message": "Chèn dòng trống giữa các dòng"
+    "message": "Dòng trống giữa các đoạn"
   },
   "plainTextLineBreaksWider": {
-    "message": "Giãn khoảng cách giữa các dòng"
+    "message": "Khoảng cách giữa các đoạn rộng hơn"
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "Trang phụ đề tùy chỉnh"

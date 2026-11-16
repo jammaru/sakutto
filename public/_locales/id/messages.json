@@ -1352,22 +1352,22 @@
     "message": "Mengubah ukuran teks di popup terjemahan saat mengarahkan kursor, memilih teks, dan menulis. Subtitle video memiliki pengaturan ukuran tersendiri."
   },
   "plainTextLineBreaksLabel": {
-    "message": "Jeda baris pada teks yang ditempel"
+    "message": "Jeda baris pada terjemahan"
   },
   "plainTextLineBreaksHelp": {
-    "message": "Mengatur tampilan jeda baris pada teks biasa yang diketik, dipilih, atau ditempel di terjemahan. Jeda baris hasil OCR dipindahkan ke akhir kalimat. Berlaku untuk teks yang diketik, pilihan, dan pratinjau tulis; terjemahan halaman tidak berubah."
+    "message": "Saat menempelkan dokumen, teks OCR, atau kutipan buku, jeda baris sering berada di tengah kalimat. Jeda itu digabungkan saat menerjemahkan; hanya akhir kalimat, judul, dan baris kosong yang tampil sebagai jeda. Terjemahan halaman tidak berubah."
   },
   "plainTextLineBreaksNone": {
-    "message": "Gabungkan menjadi paragraf (default)"
+    "message": "Tanpa jeda tambahan (default)"
   },
   "plainTextLineBreaksKeep": {
-    "message": "Pertahankan jeda baris"
+    "message": "Jeda antarparagraf"
   },
   "plainTextLineBreaksBlank": {
-    "message": "Baris kosong di antara baris"
+    "message": "Baris kosong antarparagraf"
   },
   "plainTextLineBreaksWider": {
-    "message": "Jarak antarbaris lebih lebar"
+    "message": "Jarak antarparagraf lebih lebar"
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "Situs subtitle kustom"
