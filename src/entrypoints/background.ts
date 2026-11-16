@@ -253,9 +253,19 @@ export default defineBackground(() => {
   }
 
   async function deleteModel(modelId: ModelId) {
+    // Check before removing the file: after deletion the host may already have selected a
+    // fallback model, so only this snapshot says whether page translations used this id.
+    const activeBefore = await client.status().catch(() => null);
+    const removingActiveModel = activeBefore?.model.id === modelId;
+
     downloads.get(modelId)?.abort();
     downloads.delete(modelId);
-    return client.deleteModel(modelId).catch(() => null);
+    if (removingActiveModel) broker.cancelAll();
+
+    const status = await client.deleteModel(modelId).catch(() => null);
+    // A port can open while the host is deleting; close anything that raced the snapshot.
+    if (removingActiveModel) broker.cancelAll();
+    return status;
   }
 
   async function recordCommandAssignments(restoreEmpty = false): Promise<void> {

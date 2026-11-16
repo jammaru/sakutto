@@ -39,6 +39,7 @@ const labels = {
   barRate: (tokens: string, segments: string) => `${tokens} tok/s · ${segments} seg/s`,
   barDone: '翻訳しました。',
   barPartial: (blocks: number) => `翻訳できない箇所が ${String(blocks)} 件残っています。`,
+  modelMissing: '翻訳モデルがありません。ダウンロードしてください。',
   barOriginal: '原文に戻す',
   barAlways: 'このサイトを常に翻訳します',
   barAlwaysOn: 'このサイトは常に翻訳します。',
@@ -309,6 +310,49 @@ describe('page session', () => {
     release();
     await session.whenIdle();
     expect(document.body.textContent).toContain('こんにちは');
+  });
+
+  it('stops an active page and shows no-model text when the model is removed', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = Array.from(
+      { length: 12 },
+      (_, index) => `<p>Hello world ${String(index)}</p>`,
+    ).join('');
+    let signal: AbortSignal | undefined;
+    const session = start(
+      document,
+      engineOf(async function* (segments, options) {
+        signal = options.signal;
+        await new Promise<void>((resolve) => {
+          const done = (): void => resolve();
+          if (options.signal.aborted) {
+            done();
+            return;
+          }
+          options.signal.addEventListener('abort', done, { once: true });
+        });
+        if (options.signal.aborted) return;
+        for (const segment of segments) {
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+    );
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(signal).toBeDefined();
+    });
+    expect(session.state().pending).toBeGreaterThan(0);
+
+    session.noteModelMissing();
+    await session.whenIdle();
+
+    expect(signal?.aborted).toBe(true);
+    expect(session.state().pending).toBe(0);
+    const bar = document.querySelector<HTMLElement>('sakutto-bar');
+    expect(bar?.hidden).toBe(false);
+    expect(uiShadow(bar)?.textContent).toContain(labels.modelMissing);
+    expect(document.documentElement.dataset.sakuttoState).not.toBe('translating');
   });
 
   it('shows a bilingual line without rewriting the original nodes', async () => {

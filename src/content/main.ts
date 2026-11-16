@@ -322,6 +322,7 @@ function overlayLabels(): OverlayLabels {
     barRate: (tokens, segments) => t('pageRate', [tokens, segments]),
     barDone: t('pageTranslated'),
     barPartial: (blocks) => t('pagePartial', [String(blocks)]),
+    modelMissing: t('modelSelectionMissing'),
     barOriginal: t('restoreThisPage'),
     barAlways: t('alwaysTranslateSite'),
     engineFailed: t('localServerFailed'),
@@ -384,6 +385,8 @@ export function contentMain(): void {
   };
   installContentInvalidationCleanup(teardownAfterInvalidation);
   let modelState: ModelStatus['state'] | null = null;
+  let activeModelId: ModelStatus['id'] | null = null;
+  let modelRemoved = false;
   let plamoReady = false;
   let modelStatusKnown = false;
   const publishPageShortcut = (): void => {
@@ -441,6 +444,7 @@ export function contentMain(): void {
       const status = await requestEngineStatus().catch(() => null);
       if (!status) return false;
       modelState = status.model.state;
+      activeModelId = status.model.id;
       plamoReady = status.plamoReady;
       modelStatusKnown = true;
       return true;
@@ -770,9 +774,29 @@ export function contentMain(): void {
       return;
     }
     if (isModelProgressMessage(message)) {
-      modelState = message.status.state;
-      modelStatusKnown = true;
-      if (message.status.state === 'loaded') plamoReady = true;
+      const status = message.status;
+      const removedActiveModel =
+        status.state === 'absent' && (activeModelId === null || status.id === activeModelId);
+      const modelReturned = modelRemoved && (status.state === 'loaded' || status.state === 'ready');
+
+      if (status.state === 'absent') {
+        if (removedActiveModel) {
+          activeModelId = null;
+          modelState = 'absent';
+          modelStatusKnown = true;
+          plamoReady = false;
+          modelRemoved = true;
+        }
+      } else {
+        modelState = status.state;
+        modelStatusKnown = true;
+        if (status.state === 'loaded' || status.state === 'ready') {
+          activeModelId = status.id;
+          if (status.state === 'loaded') plamoReady = true;
+        }
+      }
+      if (modelReturned) modelRemoved = false;
+
       void sessionPromise.then(async (session) => {
         const [nextSettings, nextRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
         const readiness = composeReadiness(nextSettings, message.status, plamoReady, true);
@@ -792,6 +816,8 @@ export function contentMain(): void {
             ),
           ),
         );
+        if (removedActiveModel) session.noteModelMissing();
+        if (modelReturned) session.retryUntranslated();
         if (message.status.error === FOLDER_PERMISSION_ERROR) {
           session.noteFolderPermission();
         }

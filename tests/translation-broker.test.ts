@@ -106,6 +106,46 @@ describe('TranslationBroker', () => {
     expect(signal?.aborted).toBe(true);
   });
 
+  it('cancels every tab when the active model is removed', async () => {
+    const signals: AbortSignal[] = [];
+    const translate = vi.fn(async function* (
+      _segments: unknown,
+      translateOptions: TranslateOptions,
+    ): AsyncIterable<TranslationChunk> {
+      signals.push(translateOptions.signal);
+      await new Promise((resolve) => {
+        translateOptions.signal.addEventListener('abort', resolve, { once: true });
+      });
+      if (translateOptions.signal.aborted) return;
+      yield { id: 'a', final: 'x', engine: 'plamo' };
+    });
+    const broker = new TranslationBroker({ translate } as unknown as EngineClient);
+    broker.start();
+    const listener = vi.mocked(browser.runtime.onConnect.addListener).mock.calls.at(-1)?.[0];
+    if (!listener) throw new Error('The broker did not register a connect listener.');
+
+    const first = new FakePort({
+      name: TRANSLATION_PORT,
+      sender: { id: 'test-extension', tab: { id: 7 } },
+    });
+    const second = new FakePort({
+      name: TRANSLATION_PORT,
+      sender: { id: 'test-extension', tab: { id: 8 } },
+    });
+    listener(first.port);
+    listener(second.port);
+    start(first, 'r1');
+    start(second, 'r2');
+    await flushTasks();
+
+    broker.cancelAll();
+    await flushTasks();
+
+    expect(signals).toHaveLength(2);
+    expect(signals.every((signal) => signal.aborted)).toBe(true);
+    broker.cancelAll();
+  });
+
   it('aborts the tab port when navigation cancels that tab', async () => {
     let signal: AbortSignal | undefined;
     const translate = vi.fn(async function* (

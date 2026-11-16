@@ -37,6 +37,11 @@ export class TranslationBroker {
     this.tabs.delete(tabId);
   }
 
+  /** Drops every in-flight page translation, e.g. when its active model is deleted. */
+  cancelAll(): void {
+    for (const tabId of [...this.tabs.keys()]) this.cancelTab(tabId);
+  }
+
   private attach(port: Browser.runtime.Port): void {
     const controllers = new Map<string, AbortController>();
     const tabId = port.sender?.tab?.id;

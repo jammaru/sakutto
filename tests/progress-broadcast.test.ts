@@ -53,6 +53,18 @@ describe('broadcastModelProgress', () => {
     expect(target.pages.map((page) => page.tabId)).toEqual([1, 2]);
   });
 
+  it('tells open pages when the active model is removed', async () => {
+    const target = sink([
+      { id: 1, url: 'https://example.com/a' },
+      { id: 2, url: 'chrome://extensions' },
+    ]);
+
+    await broadcastModelProgress(message('absent'), target);
+
+    expect(target.extension).toHaveLength(1);
+    expect(target.pages).toEqual([{ tabId: 1, message: message('absent') }]);
+  });
+
   it('keeps download progress on the extension pages', async () => {
     const target = sink([{ id: 1, url: 'https://example.com/a' }]);
     await broadcastModelProgress(message('downloading'), target);

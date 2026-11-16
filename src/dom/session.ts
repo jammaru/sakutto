@@ -322,6 +322,8 @@ export class PageSession {
   /** Set when a local-server request fails, so the bar can keep the Settings hint. */
   private serverFault = false;
   private folderPermissionFault = false;
+  /** Set when the active model is deleted, so the bar stops counting unfinished work. */
+  private modelMissingFault = false;
   private readonly folderEnablePageUrl: string;
   private selectionGrantTimer: ReturnType<typeof setTimeout> | null = null;
   private historyUnpatch: (() => void) | null = null;
@@ -635,6 +637,7 @@ export class PageSession {
     this.active = true;
     this.serverFault = false;
     this.folderPermissionFault = false;
+    this.modelMissingFault = false;
     this.navigating = false;
     this.sweepLegacyNotes();
     this.startedAt = performance.now();
@@ -660,6 +663,7 @@ export class PageSession {
     this.active = false;
     this.serverFault = false;
     this.folderPermissionFault = false;
+    this.modelMissingFault = false;
     this.targetAdjusted = false;
     const source = this.doc.documentElement.getAttribute('data-sakutto-source-lang');
     if (source !== null) {
@@ -907,6 +911,37 @@ export class PageSession {
     this.beginFolderGrantWait();
   }
 
+  /**
+   * The active model file was deleted while this page was translating. Abort every batch and
+   * retire queued work so the bar cannot keep counting blocks that can never finish, then
+   * leave a short no-model message in its place.
+   */
+  noteModelMissing(): void {
+    if (!this.active) return;
+    this.modelMissingFault = true;
+    this.pageController?.abort();
+    this.pageController = null;
+    this.queue.clear();
+    this.abortRunning(false);
+    // Queued items were removed from the queue but still hold their old state. Retire them
+    // too, otherwise the view keeps counting work that will never start.
+    for (const item of this.live.values()) {
+      if (item.state !== 'queued') continue;
+      item.state = 'idle';
+      item.partText = [];
+      item.partFinal = [];
+      item.partError = [];
+      item.model?.block.removeAttribute('data-sakutto-pending');
+    }
+    this.selection = null;
+    this.selectionShown = false;
+    this.clearSelectionOffer();
+    this.overlay.hideSelection();
+    this.overlay.hideSelectionIcon();
+    this.overlay.hideOriginal();
+    this.publishState();
+  }
+
   beginFolderGrantWait(): void {
     if (this.folderEnablePageUrl.length === 0) return;
     this.overlay.showFolderEnable(this.folderEnablePageUrl);
@@ -930,6 +965,7 @@ export class PageSession {
 
   retryUntranslated(): void {
     this.folderPermissionFault = false;
+    this.modelMissingFault = false;
     if (!this.active) return;
     for (const item of this.live.values()) {
       if (item.role !== 'page' || item.state === 'running') continue;
@@ -1174,6 +1210,7 @@ export class PageSession {
   }
 
   private enqueue(item: Live, force = false): void {
+    if (this.modelMissingFault) return;
     if (item.state === 'running') return;
     if (item.state === 'queued') {
       if (!force) return;
@@ -1226,6 +1263,10 @@ export class PageSession {
   }
 
   private pump(): void {
+    if (this.modelMissingFault) {
+      this.resolveIdle();
+      return;
+    }
     if (this.navigating) {
       this.resolveIdle();
       return;
@@ -1990,6 +2031,7 @@ export class PageSession {
   }
 
   private barText(view: PageViewState): string {
+    if (this.modelMissingFault) return this.labels.modelMissing ?? this.labels.barLabel;
     if (this.folderPermissionFault && view.pending === 0) {
       if (!this.overlay.folderEnableVisible()) this.beginFolderGrantWait();
       return this.labels.barLabel;

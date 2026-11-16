@@ -104,6 +104,8 @@ export interface OverlayLabels {
   barAlwaysOn: string;
   /** Shown when a local-server request fails; original page text stays. */
   engineFailed?: string;
+  /** Shown when the active model was deleted while the page was translating. */
+  modelMissing?: string;
   /** Shown when the shared folder grant is missing; points at the popup restore button. */
   folderPermission?: string;
   /** One-click grant control label (iframe page uses its own copy). */
