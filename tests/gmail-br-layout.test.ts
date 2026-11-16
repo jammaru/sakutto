@@ -32,6 +32,14 @@ const VARIANTS: readonly (readonly [string, string])[] = [
   ['a blank div wrapper around a span', `<div class=""><span>${AMO_BODY}</span></div>`],
   ['content directly under a3s', AMO_BODY],
   ['a dir=ltr container', `<div dir="ltr">${AMO_BODY}</div>`],
+  [
+    'a span with newlines between brs',
+    `<span>${AMO_BODY.replaceAll('<br><br>', '<br>\n<br>')}</span>`,
+  ],
+  [
+    'a span with spaces between brs',
+    `<span>${AMO_BODY.replaceAll('<br><br>', '<br> <br>')}</span>`,
+  ],
 ];
 
 function gmailMessage(inner: string): string {
@@ -164,6 +172,71 @@ describe('br-separated mail layout', () => {
     expect(applied).toHaveLength(1);
     const block = applied[0]?.model.block ?? body;
     expect(lineTexts(block).filter((line) => line.trim().length > 0)).toHaveLength(30);
+  });
+
+  it.each([
+    [
+      'Japanese',
+      'こんにちは。メッセージの準備ができました。ありがとう',
+      ['こんにちは。', 'メッセージの準備ができました。', 'ありがとう'],
+    ],
+    ['Chinese', '你好。消息已准备好。谢谢', ['你好。', '消息已准备好。', '谢谢']],
+  ])(
+    'keeps %s sentences whole when blank source lines sit between brs',
+    async (_name, translation, expected) => {
+      const body = gmailBody(
+        '<span>One<br>\n<br>Two<br>\n<br>Three<br>\n<br>Four<br>\n<br>Five</span>',
+      );
+      const block = body.querySelector('span');
+      if (!block) throw new Error('missing inline body');
+      const whitespace = [...block.childNodes]
+        .filter((node) => node.nodeType === Node.TEXT_NODE && !(node.nodeValue ?? '').trim())
+        .map((node) => ({ node: node as Text, value: node.nodeValue }));
+      expect(whitespace.length).toBeGreaterThan(0);
+
+      const engine: PageEngine = {
+        async *translate(segments) {
+          for (const segment of segments) {
+            yield { id: segment.id, final: translation, engine: 'plamo' as const };
+          }
+        },
+      };
+      const applied = await translateGmailBody(body, engine, {
+        targetLanguage: 'ja',
+        form: 'polite',
+        language: 'en',
+        signal: new AbortController().signal,
+      });
+
+      const lines = lineTexts(applied[0]?.model.block ?? body)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+      expect(lines).toEqual(expected);
+      for (const line of lines) expect(Array.from(line).length).toBeGreaterThan(1);
+      for (const entry of whitespace) expect(entry.node.nodeValue).toBe(entry.value);
+    },
+  );
+
+  it('keeps a normal page with br lines readable after a one-line translation', () => {
+    document.body.innerHTML = '<div id="mail">First line<br>\nSecond line<br>\nThird line</div>';
+    const body = document.querySelector('#mail');
+    if (!body) throw new Error('missing body');
+    const before = body.innerHTML;
+    const block = listTranslatableBlocks(body)[0];
+    if (!block) throw new Error('missing block');
+    const model = buildSegment(block);
+    if (!model) throw new Error('missing segment');
+    expect(model.source).toBe('First line\nSecond line\nThird line');
+
+    const created: Text[] = [];
+    applyTranslation(model, 'First sentence. Second sentence. Third sentence.', created);
+    const lines = lineTexts(block)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    expect(lines).toEqual(['First sentence.', 'Second sentence.', 'Third sentence.']);
+
+    restoreSegment(model, created);
+    expect(body.innerHTML).toBe(before);
   });
 
   it('leaves a contenteditable draft untouched while translating the rest', () => {

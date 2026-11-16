@@ -228,35 +228,6 @@ function gapLineGroups(
   return groups;
 }
 
-function nearestBoundary(
-  points: readonly number[],
-  target: number,
-  lower: number,
-  upper: number,
-): number | null {
-  let best: number | null = null;
-  let distance = Number.POSITIVE_INFINITY;
-  for (const point of points) {
-    if (point <= lower || point >= upper) continue;
-    const next = Math.abs(point - target);
-    if (next >= distance) continue;
-    best = point;
-    distance = next;
-  }
-  return best;
-}
-
-function characterBoundary(text: string, target: number, lower: number, upper: number): number {
-  let point = Math.min(Math.max(target, lower + 1), upper - 1);
-  if (point <= lower) point = lower + 1;
-  if (point >= upper) point = upper - 1;
-  if (point > 0 && point < text.length) {
-    const code = text.charCodeAt(point);
-    if (code >= 0xdc00 && code <= 0xdfff) point -= 1;
-  }
-  return Math.max(lower + 1, point);
-}
-
 /** Sentence ends, located in the original string so whitespace and punctuation are kept. */
 function sentenceEnds(text: string): number[] {
   const ends: number[] = [];
@@ -274,21 +245,73 @@ function sentenceEnds(text: string): number[] {
   return ends;
 }
 
-function wordEnds(text: string): number[] {
-  const ends: number[] = [];
-  for (const match of text.matchAll(/\s+/gu)) {
-    if (match.index === undefined) continue;
-    if (match.index > 0) ends.push(match.index);
-    const after = match.index + match[0].length;
-    if (after < text.length) ends.push(after);
+/** Whole sentences, sliced from the original text so joining them loses no whitespace. */
+function sentenceChunks(text: string): string[] {
+  const chunks: string[] = [];
+  let cursor = 0;
+  for (const end of sentenceEnds(text)) {
+    const chunk = text.slice(cursor, end);
+    if (chunk.length > 0) chunks.push(chunk);
+    cursor = end;
   }
-  return ends;
+  const rest = text.slice(cursor);
+  if (rest.length > 0) chunks.push(rest);
+  return chunks;
+}
+
+function wordChunks(text: string): string[] {
+  const chunks = text.match(/\S+\s*/gu);
+  return chunks ?? (text.length > 0 ? [text] : []);
+}
+
+const CJK_TEXT = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
+
+/**
+ * Groups whole sentence (or word) units into the source lines without cutting inside one.
+ * If there are fewer units than lines, the first lines take one each and the rest stay empty;
+ * that is the merge case that used to leave one stray character on every blank `<br>` line.
+ */
+function groupUnits(units: readonly string[], sources: readonly string[]): string[] {
+  const count = sources.length;
+  if (count <= 1) return [units.join('')];
+
+  const weights = sources.map((source) => Math.max(1, source.trim().length));
+  const chunks: string[] = [];
+  let index = 0;
+
+  for (let line = 0; line < count; line += 1) {
+    const remainingUnits = units.length - index;
+    if (remainingUnits <= 0) {
+      chunks.push('');
+      continue;
+    }
+
+    const remainingLines = count - line - 1;
+    if (remainingUnits <= remainingLines) {
+      chunks.push(units[index] ?? '');
+      index += 1;
+      continue;
+    }
+
+    const remainingWeight = weights.slice(line).reduce((sum, weight) => sum + weight, 0);
+    let take =
+      line === count - 1
+        ? remainingUnits
+        : Math.round((remainingUnits * (weights[line] ?? 1)) / remainingWeight);
+    take = Math.max(1, Math.min(take, remainingUnits - remainingLines));
+    chunks.push(units.slice(index, index + take).join(''));
+    index += take;
+  }
+  return chunks.map((chunk) => chunk.trim());
 }
 
 /**
- * Distributes text the model returned as one paragraph over the source lines. Sentence ends
- * win when they are close to the weighted target; otherwise a word boundary keeps the cut
- * readable, and only a run without any break falls back to a code-point boundary.
+ * Distributes text the model returned as one paragraph over the source lines. CJK text is
+ * split only at sentence ends; when there are fewer sentences than lines, several source
+ * lines stay empty instead of receiving a fragment. Space-delimited text may fall back to
+ * word boundaries only when there are not enough sentence boundaries to fill the lines.
+ * There is deliberately no per-code-point fallback: that put `あ` / `り` / `がとう` on the
+ * whitespace-only lines between Gmail's `<br>`s.
  */
 function splitByWeights(text: string, sources: readonly string[]): string[] {
   const count = sources.length;
@@ -296,37 +319,20 @@ function splitByWeights(text: string, sources: readonly string[]): string[] {
   if (count <= 1) return [trimmed];
   if (trimmed.length === 0) return Array.from({ length: count }, () => '');
 
-  const sentences = sentenceEnds(trimmed);
-  const words = wordEnds(trimmed);
-  const weights = sources.map((source) => Math.max(1, source.trim().length));
-  const total = weights.reduce((sum, weight) => sum + weight, 0);
-  const chunks: string[] = [];
-  let cursor = 0;
-  let consumed = 0;
+  const sentences = sentenceChunks(trimmed).filter((chunk) => chunk.trim().length > 0);
+  if (sentences.length >= count) return groupUnits(sentences, sources);
 
-  for (let index = 0; index < count - 1; index += 1) {
-    consumed += (weights[index] ?? 1) / total;
-    const remaining = count - index - 1;
-    const upper = trimmed.length - remaining;
-    if (upper <= cursor + 1) {
-      chunks.push(trimmed.slice(cursor).trim());
-      while (chunks.length < count) chunks.push('');
-      return chunks;
-    }
-
-    const target = Math.min(Math.max(Math.round(trimmed.length * consumed), cursor + 1), upper);
-    const sentence = nearestBoundary(sentences, target, cursor, upper);
-    const word = nearestBoundary(words, target, cursor, upper);
-    const split =
-      sentence !== null &&
-      (word === null || Math.abs(sentence - target) <= Math.abs(word - target) * 1.5 + 12)
-        ? sentence
-        : (word ?? characterBoundary(trimmed, target, cursor, upper));
-    chunks.push(trimmed.slice(cursor, split).trim());
-    cursor = split;
+  if (CJK_TEXT.test(trimmed)) {
+    const chunks = sentences.slice(0, count);
+    while (chunks.length < count) chunks.push('');
+    return chunks.map((chunk) => chunk.trim());
   }
-  chunks.push(trimmed.slice(cursor).trim());
-  return chunks;
+
+  const words = wordChunks(trimmed);
+  if (words.length >= count) return groupUnits(words, sources);
+  const chunks = words.slice(0, count);
+  while (chunks.length < count) chunks.push('');
+  return chunks.map((chunk) => chunk.trim());
 }
 
 function lineChunks(text: string, groups: readonly LineGroup[]): string[] {
@@ -367,13 +373,29 @@ function rebalanceLines(frame: Frame): void {
   const lineBySlot = slotLines(frame.element);
   for (const gap of frame.gaps) {
     const groups = gapLineGroups(gap, lineBySlot);
-    const usable = groups.filter((group) => group.slots.length > 0);
-    if (usable.length < 2) continue;
+    if (groups.length === 0) continue;
+
     const text = gap.map((slot) => slot.node.nodeValue ?? '').join('');
-    if (text.trim().length === 0) continue;
-    const chunks = lineChunks(text, usable);
-    for (let index = 0; index < usable.length; index += 1) {
-      writeSlots(usable[index]?.slots ?? [], chunks[index] ?? '');
+    const usable: LineGroup[] = [];
+    for (const group of groups) {
+      // A text node holding only the newline or space between two `<br>`s is layout, not a
+      // source line. Counting it as a target split short translations into one character per
+      // blank visual line; its original bytes are restored below instead.
+      const slots = group.slots.filter((slot) => slot.original.trim().length > 0);
+      if (slots.length > 0) usable.push({ slots, source: group.source });
+    }
+
+    if (usable.length > 0 && text.trim().length > 0) {
+      const chunks = usable.length === 1 ? [text] : lineChunks(text, usable);
+      for (let index = 0; index < usable.length; index += 1) {
+        writeSlots(usable[index]?.slots ?? [], chunks[index] ?? '');
+      }
+    }
+
+    for (const group of groups) {
+      for (const slot of group.slots) {
+        if (slot.original.trim().length === 0) slot.node.nodeValue = slot.original;
+      }
     }
   }
   for (const child of frame.children) rebalanceLines(child);
