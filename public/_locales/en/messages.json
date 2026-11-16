@@ -1355,6 +1355,24 @@
   "translationPopupSizeHelp": {
     "message": "Changes the text size in hover, selection, and compose translation popups. Video captions use their own size setting."
   },
+  "plainTextLineBreaksLabel": {
+    "message": "Line breaks in pasted text"
+  },
+  "plainTextLineBreaksHelp": {
+    "message": "How line breaks in typed, selected, or pasted plain text appear in the translation. OCR line breaks move to the end of the sentence. Applies to typed text, selections, and compose previews; page translation is unchanged."
+  },
+  "plainTextLineBreaksNone": {
+    "message": "Join into paragraphs (default)"
+  },
+  "plainTextLineBreaksKeep": {
+    "message": "Keep line breaks"
+  },
+  "plainTextLineBreaksBlank": {
+    "message": "Blank line between lines"
+  },
+  "plainTextLineBreaksWider": {
+    "message": "Wider spacing between lines"
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "Custom caption sites"
   },

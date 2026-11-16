@@ -22,6 +22,11 @@
   import type { Settings } from '@/shared/settings';
   import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
   import {
+    applyPlainTextLineBreaks,
+    preparePlainTextForModel,
+    type PlainTextBreakMap,
+  } from '@/shared/plain-text-line-breaks';
+  import {
     MAX_TYPED_CHARS,
     applyTypedChunk,
     canCopyTypedResult,
@@ -41,6 +46,9 @@
   let engineStatus = $state<EngineStatus | null>(null);
   let sourceText = $state('');
   let result = $state('');
+  let resultRaw = $state('');
+  let resultMap = $state<PlainTextBreakMap | null>(null);
+  let resultGaps = $state<readonly boolean[] | null>(null);
   let translating = $state(false);
   let resultError = $state(false);
   let resultErrorKey = $state<
@@ -103,8 +111,33 @@
     resetResult();
   }
 
+  function applyResult(raw: string) {
+    resultRaw = raw;
+    if (!resultMap) {
+      result = raw;
+      resultGaps = null;
+      return;
+    }
+    const applied = applyPlainTextLineBreaks(
+      resultMap.modelText,
+      raw,
+      resultMap,
+      settings?.plainTextLineBreaks ?? 'none',
+    );
+    if (typeof applied === 'string') {
+      result = applied;
+      resultGaps = null;
+    } else {
+      result = applied.text;
+      resultGaps = applied.wideGapAfterLine;
+    }
+  }
+
   function resetResult() {
     result = '';
+    resultRaw = '';
+    resultMap = null;
+    resultGaps = null;
     resultError = false;
     resultErrorKey = 'typedFailed';
     copied = false;
@@ -141,9 +174,11 @@
     abortController = controller;
     translating = true;
     resetResult();
+    const prepared = preparePlainTextForModel(trimmed);
+    resultMap = prepared.breakMap;
     let folded = { text: '', failed: false };
     try {
-      const segments = [{ id: 'typed', text: trimmed }];
+      const segments = [{ id: 'typed', text: prepared.modelText }];
       for await (const chunk of typedEngine.translate(segments, {
         tgt: targetLanguage,
         form: settings?.form ?? 'polite',
@@ -152,7 +187,7 @@
         ...(settings && settings.glossary.length > 0 ? { glossary: settings.glossary } : {}),
       })) {
         folded = applyTypedChunk(folded, chunk);
-        result = folded.text;
+        applyResult(folded.text);
         if (folded.failed) resultError = true;
       }
       if (folded.text.trim().length === 0) resultError = true;
@@ -239,6 +274,7 @@
   onMount(() => {
     const unsubscribeSettings = subscribeSettings((next) => {
       settings = next;
+      if (resultMap) applyResult(resultRaw);
     });
     const onMessage = (message: unknown) => {
       if (!isModelProgressMessage(message)) return;
@@ -360,9 +396,19 @@
         {:else if resultError}
           <p class="error note" role="alert">{t(resultErrorKey)}</p>
         {:else if result.trim().length > 0}
-          <output class="result" lang={targetLanguage} aria-labelledby="typed-result-title"
-            >{result}</output
-          >
+          {#if resultGaps}
+            <output class="result wider" lang={targetLanguage} aria-labelledby="typed-result-title">
+              {#each result.split('\n') as line, index (index)}
+                <span class="result-line" class:wide-gap={resultGaps[index] === true}
+                  >{line.length > 0 ? line : '\u00a0'}</span
+                >
+              {/each}
+            </output>
+          {:else}
+            <output class="result" lang={targetLanguage} aria-labelledby="typed-result-title"
+              >{result}</output
+            >
+          {/if}
         {:else}
           <p class="muted empty">{t('typedResultEmpty')}</p>
         {/if}
@@ -571,6 +617,14 @@
     line-height: 1.75;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
+  }
+
+  .result-line {
+    display: block;
+  }
+
+  .result-line.wide-gap {
+    margin-bottom: 0.9em;
   }
 
   .empty {

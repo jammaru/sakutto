@@ -1351,6 +1351,24 @@
   "translationPopupSizeHelp": {
     "message": "Mengubah ukuran teks di popup terjemahan saat mengarahkan kursor, memilih teks, dan menulis. Subtitle video memiliki pengaturan ukuran tersendiri."
   },
+  "plainTextLineBreaksLabel": {
+    "message": "Jeda baris pada teks yang ditempel"
+  },
+  "plainTextLineBreaksHelp": {
+    "message": "Mengatur tampilan jeda baris pada teks biasa yang diketik, dipilih, atau ditempel di terjemahan. Jeda baris hasil OCR dipindahkan ke akhir kalimat. Berlaku untuk teks yang diketik, pilihan, dan pratinjau tulis; terjemahan halaman tidak berubah."
+  },
+  "plainTextLineBreaksNone": {
+    "message": "Gabungkan menjadi paragraf (default)"
+  },
+  "plainTextLineBreaksKeep": {
+    "message": "Pertahankan jeda baris"
+  },
+  "plainTextLineBreaksBlank": {
+    "message": "Baris kosong di antara baris"
+  },
+  "plainTextLineBreaksWider": {
+    "message": "Jarak antarbaris lebih lebar"
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "Situs subtitle kustom"
   },

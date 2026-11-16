@@ -17,7 +17,13 @@ import {
   type ComposeFreePoint,
   type ComposePlacement,
   type Formality,
+  type PlainTextLineBreakMode,
 } from '@/shared/settings';
+import {
+  applyPlainTextLineBreaks,
+  preparePlainTextForModel,
+  type PlainTextBreakMap,
+} from '@/shared/plain-text-line-breaks';
 import {
   isTranslateShortcut,
   MAX_TYPED_CHARS,
@@ -46,7 +52,12 @@ import {
 } from './compose-field';
 import { isRecord } from '@/shared/object';
 import type { PageEngine } from './session';
-import { popupTextScaleFactor, POPUP_TEXT_SCALE_VAR, uiShadow } from './overlay';
+import {
+  popupTextScaleFactor,
+  POPUP_TEXT_SCALE_VAR,
+  setPlainTextContent,
+  uiShadow,
+} from './overlay';
 
 export interface ComposeLabels {
   title: string;
@@ -93,6 +104,8 @@ export interface ComposePreferences {
   instantReplace: boolean;
   /** Percent text size for the translation preview in the compose panel. */
   popupSize?: number;
+  /** How source line breaks are reflected in the preview. Missing means `none`. */
+  plainTextLineBreaks?: PlainTextLineBreakMode;
   /** Shown on the Replace button, e.g. `Alt+T`. Empty when the command is off. */
   replaceShortcut: string;
   /** Global default from settings. */
@@ -181,6 +194,8 @@ const PANEL_STYLE = `
 }
 .body:empty, .card.undo .body:empty { display: none; }
 .card.undo .body { display: none; }
+.plain-line { display: block; }
+.plain-line.wide-gap { margin-bottom: 0.9em; }
 .body.pending {
   min-height: 1.15em;
   color: transparent;
@@ -396,6 +411,8 @@ interface PanelState {
   placement: ComposePlacement;
   freePoint: ComposeFreePoint | null;
   siteOverride: boolean;
+  /** Set for `wider`: safe DOM lines with a CSS gap after the flagged ones. */
+  wideGapAfterLine?: readonly boolean[] | undefined;
 }
 
 /** Place the あA button so it does not sit on top of typed text in a short field. */
@@ -773,7 +790,7 @@ class ComposeOverlay {
     } else if (state.needsSetup) {
       this.body.textContent = this.labels.setup;
     } else {
-      this.body.textContent = state.preview;
+      setPlainTextContent(this.body, state.preview, state.wideGapAfterLine);
     }
     this.body.lang = state.lang;
     this.status.textContent = state.note;
@@ -1304,6 +1321,7 @@ export class ComposeController {
   private panelOpen = false;
   private swapped = false;
   private preview = '';
+  private previewWideGap: readonly boolean[] | null = null;
   private pending = false;
   private failed = false;
   private stale = false;
@@ -1524,6 +1542,7 @@ export class ComposeController {
       this.snapshot = null;
       this.replaceMethod = null;
       this.preview = '';
+      this.previewWideGap = null;
       this.swapped = false;
       this.stale = false;
     }
@@ -1592,6 +1611,7 @@ export class ComposeController {
       }
       this.lastDraftLen = 0;
       this.preview = '';
+      this.previewWideGap = null;
       this.pending = false;
       this.stale = false;
       this.render();
@@ -1661,6 +1681,7 @@ export class ComposeController {
     this.failed = false;
     this.stale = false;
     this.preview = '';
+    this.previewWideGap = null;
     this.applied = null;
     this.snapshot = null;
     this.replaceMethod = null;
@@ -1710,6 +1731,7 @@ export class ComposeController {
     this.clearDebounce();
     this.panelOpen = false;
     this.preview = '';
+    this.previewWideGap = null;
     this.pending = false;
     this.failed = false;
     this.stale = false;
@@ -1732,6 +1754,7 @@ export class ComposeController {
     this.failed = false;
     this.stale = false;
     this.preview = '';
+    this.previewWideGap = null;
     this.render();
   }
 
@@ -1905,6 +1928,7 @@ export class ComposeController {
     if (this.needsSetup() || this.isLoading()) {
       this.abort();
       this.preview = '';
+      this.previewWideGap = null;
       this.pending = false;
       this.stale = false;
       this.render();
@@ -1913,6 +1937,7 @@ export class ComposeController {
     if (trimmed.length === 0) {
       this.abort();
       this.preview = '';
+      this.previewWideGap = null;
       this.pending = false;
       this.stale = false;
       this.render();
@@ -1921,6 +1946,7 @@ export class ComposeController {
     if (trimmed.length > MAX_TYPED_CHARS) {
       this.abort();
       this.preview = '';
+      this.previewWideGap = null;
       this.pending = false;
       this.failed = true;
       this.stale = false;
@@ -1936,6 +1962,7 @@ export class ComposeController {
     if (!plan.ok) {
       this.abort();
       this.preview = '';
+      this.previewWideGap = null;
       this.pending = false;
       this.stale = false;
       this.render();
@@ -1946,19 +1973,32 @@ export class ComposeController {
     this.request = controller;
     this.pending = true;
     this.preview = '';
+    this.previewWideGap = null;
     this.render();
     const token = ++this.generation;
-    void this.runTranslate(trimmed, plan.targetLanguage, controller.signal, token);
+    const prepared = preparePlainTextForModel(trimmed);
+    void this.runTranslate(prepared, plan.targetLanguage, controller.signal, token);
   }
 
   private async runTranslate(
-    text: string,
+    prepared: { modelText: string; breakMap: PlainTextBreakMap },
     target: TargetLanguage,
     signal: AbortSignal,
     token: number,
     attempt = 0,
   ): Promise<void> {
     let output = '';
+    const mode = this.prefs.plainTextLineBreaks ?? 'none';
+    const applyPreview = (text: string): void => {
+      const applied = applyPlainTextLineBreaks(prepared.modelText, text, prepared.breakMap, mode);
+      if (typeof applied === 'string') {
+        this.preview = applied;
+        this.previewWideGap = null;
+      } else {
+        this.preview = applied.text;
+        this.previewWideGap = applied.wideGapAfterLine;
+      }
+    };
     try {
       const options: TranslateOptions = {
         tgt: target,
@@ -1970,20 +2010,24 @@ export class ComposeController {
           ? { glossary: this.prefs.glossary }
           : {}),
       };
-      for await (const chunk of this.engine.translate([{ id: 'compose', text }], options)) {
+      for await (const chunk of this.engine.translate(
+        [{ id: 'compose', text: prepared.modelText }],
+        options,
+      )) {
         if (signal.aborted || token !== this.generation) return;
         if (chunk.textDelta !== undefined) {
           output = chunk.restart === true ? chunk.textDelta : output + chunk.textDelta;
-          this.preview = output;
+          applyPreview(output);
           this.render();
         } else if (chunk.final !== undefined) {
           if (chunk.error === true) {
             output = '';
             this.failed = true;
             this.preview = '';
+            this.previewWideGap = null;
           } else {
             output = chunk.final;
-            this.preview = output;
+            applyPreview(output);
           }
         }
       }
@@ -2000,12 +2044,14 @@ export class ComposeController {
       // That is not a finished draft; drop it and retry once on the new runtime.
       if (isModelChangedError(error) && attempt < 1) {
         this.preview = '';
+        this.previewWideGap = null;
         this.failed = false;
         this.render();
-        await this.runTranslate(text, target, signal, token, attempt + 1);
+        await this.runTranslate(prepared, target, signal, token, attempt + 1);
         return;
       }
       this.preview = '';
+      this.previewWideGap = null;
       this.pending = false;
       this.failed = true;
       this.replaceWhenReady = false;
@@ -2083,9 +2129,12 @@ export class ComposeController {
     }
     this.syncIcon();
     const anchor = composeFieldRect(field, this.doc) ?? this.lastAnchor ?? new DOMRect(8, 8, 0, 0);
+    const wideGapAfterLine =
+      preview === this.preview ? (this.previewWideGap ?? undefined) : undefined;
     this.overlay.showPanel(anchor, {
       preview,
       note,
+      wideGapAfterLine,
       pending: this.pending && trimmed.length > 0 && plan.ok && !needsSetup && !loading,
       lang: plan.targetLanguage,
       source: plan.sourceLanguage,

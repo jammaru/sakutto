@@ -1351,6 +1351,24 @@
   "translationPopupSizeHelp": {
     "message": "Modifie la taille du texte dans les fenêtres de traduction au survol, à la sélection et lors de la rédaction. Les sous-titres vidéo ont leur propre réglage de taille."
   },
+  "plainTextLineBreaksLabel": {
+    "message": "Sauts de ligne du texte collé"
+  },
+  "plainTextLineBreaksHelp": {
+    "message": "Choisit l’affichage des sauts de ligne du texte brut saisi, sélectionné ou collé dans la traduction. Les coupures OCR sont déplacées à la fin de la phrase. S’applique à la saisie, aux sélections et à l’aperçu de rédaction ; la traduction des pages reste inchangée."
+  },
+  "plainTextLineBreaksNone": {
+    "message": "Regrouper en paragraphes (par défaut)"
+  },
+  "plainTextLineBreaksKeep": {
+    "message": "Conserver les sauts de ligne"
+  },
+  "plainTextLineBreaksBlank": {
+    "message": "Ligne vide entre les lignes"
+  },
+  "plainTextLineBreaksWider": {
+    "message": "Espacement plus large entre les lignes"
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "Sites de sous-titres personnalisés"
   },

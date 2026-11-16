@@ -1351,6 +1351,24 @@
   "translationPopupSizeHelp": {
     "message": "Thay đổi cỡ chữ trong cửa sổ dịch khi di chuột, khi bôi đen và khi soạn thảo. Phụ đề video có cài đặt cỡ chữ riêng."
   },
+  "plainTextLineBreaksLabel": {
+    "message": "Xuống dòng trong văn bản đã dán"
+  },
+  "plainTextLineBreaksHelp": {
+    "message": "Chọn cách hiển thị xuống dòng của văn bản thuần đã nhập, chọn hoặc dán trong bản dịch. Các dòng bị ngắt do OCR được chuyển về cuối câu. Áp dụng cho ô nhập, vùng chọn và bản xem trước khi soạn; bản dịch trang không thay đổi."
+  },
+  "plainTextLineBreaksNone": {
+    "message": "Gộp thành đoạn (mặc định)"
+  },
+  "plainTextLineBreaksKeep": {
+    "message": "Giữ nguyên xuống dòng"
+  },
+  "plainTextLineBreaksBlank": {
+    "message": "Chèn dòng trống giữa các dòng"
+  },
+  "plainTextLineBreaksWider": {
+    "message": "Giãn khoảng cách giữa các dòng"
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "Trang phụ đề tùy chỉnh"
   },

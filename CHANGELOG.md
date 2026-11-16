@@ -2,6 +2,12 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
+## [Unreleased]
+
+### Features
+
+- Settings has a Line breaks in pasted text option for typed text, selections, and compose previews. The default keeps today's joined-paragraph output; you can keep line breaks, insert a blank line between them, or use wider line spacing. Line breaks that OCR left mid-sentence move to the end of the sentence. Page and PDF translation are unchanged.
+
 ## [1.6.2] - 2026-11-16
 
 ### Bug Fixes

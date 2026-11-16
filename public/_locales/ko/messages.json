@@ -1351,6 +1351,24 @@
   "translationPopupSizeHelp": {
     "message": "마우스 오버, 선택, 작문 번역 팝업의 글자 크기를 변경합니다. 동영상 자막은 자막 설정에서 따로 변경합니다."
   },
+  "plainTextLineBreaksLabel": {
+    "message": "붙여넣은 텍스트의 줄바꿈"
+  },
+  "plainTextLineBreaksHelp": {
+    "message": "입력하거나 선택하거나 붙여넣은 일반 텍스트의 줄바꿈이 번역에 표시되는 방식을 정합니다. OCR로 중간에 끊긴 줄은 문장 끝으로 옮깁니다. 입력창, 선택 영역, 작성 미리보기에 적용되며 페이지 번역은 바뀌지 않습니다."
+  },
+  "plainTextLineBreaksNone": {
+    "message": "문단으로 합치기(기본)"
+  },
+  "plainTextLineBreaksKeep": {
+    "message": "줄바꿈 유지"
+  },
+  "plainTextLineBreaksBlank": {
+    "message": "줄 사이에 빈 줄 넣기"
+  },
+  "plainTextLineBreaksWider": {
+    "message": "줄 간격 넓게"
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "사용자 지정 자막 사이트"
   },

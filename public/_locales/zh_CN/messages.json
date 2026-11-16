@@ -1351,6 +1351,24 @@
   "translationPopupSizeHelp": {
     "message": "调整悬停、划词和写作翻译弹窗中的文字大小。视频字幕使用单独的字幕大小设置。"
   },
+  "plainTextLineBreaksLabel": {
+    "message": "粘贴文本中的换行"
+  },
+  "plainTextLineBreaksHelp": {
+    "message": "选择输入、选中或粘贴的纯文本换行在译文中如何显示。OCR 造成的换行会移到句末。适用于输入框、选中文本和撰写预览；网页翻译保持不变。"
+  },
+  "plainTextLineBreaksNone": {
+    "message": "合并为段落（默认）"
+  },
+  "plainTextLineBreaksKeep": {
+    "message": "保留换行"
+  },
+  "plainTextLineBreaksBlank": {
+    "message": "在行间插入空行"
+  },
+  "plainTextLineBreaksWider": {
+    "message": "增大行间距"
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "自定义字幕网站"
   },

@@ -1351,6 +1351,24 @@
   "translationPopupSizeHelp": {
     "message": "Cambia el tamaño del texto en las ventanas de traducción al pasar el cursor, al seleccionar y al redactar. Los subtítulos de vídeo tienen su propio ajuste de tamaño."
   },
+  "plainTextLineBreaksLabel": {
+    "message": "Saltos de línea en el texto pegado"
+  },
+  "plainTextLineBreaksHelp": {
+    "message": "Elige cómo aparecen en la traducción los saltos de línea del texto plano escrito, seleccionado o pegado. Los saltos de OCR se mueven al final de la frase. Se aplica al texto escrito, las selecciones y la vista previa de redacción; la traducción de páginas no cambia."
+  },
+  "plainTextLineBreaksNone": {
+    "message": "Unir en párrafos (predeterminado)"
+  },
+  "plainTextLineBreaksKeep": {
+    "message": "Mantener los saltos de línea"
+  },
+  "plainTextLineBreaksBlank": {
+    "message": "Línea en blanco entre líneas"
+  },
+  "plainTextLineBreaksWider": {
+    "message": "Mayor espacio entre líneas"
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "Sitios de subtítulos personalizados"
   },

@@ -1355,6 +1355,24 @@
   "translationPopupSizeHelp": {
     "message": "ホバー・選択・作文の翻訳ポップアップの文字サイズを変更します。動画の字幕は字幕用の設定で変更します。"
   },
+  "plainTextLineBreaksLabel": {
+    "message": "貼り付けたテキストの改行"
+  },
+  "plainTextLineBreaksHelp": {
+    "message": "入力・貼り付けしたプレーンテキストの改行を翻訳でどう表示するかを選びます。OCR で途中改行された文は文末にまとめます。入力欄・選択範囲・作成欄のプレビューに適用され、ページ全体の翻訳は変わりません。"
+  },
+  "plainTextLineBreaksNone": {
+    "message": "段落にまとめる（既定）"
+  },
+  "plainTextLineBreaksKeep": {
+    "message": "改行を保つ"
+  },
+  "plainTextLineBreaksBlank": {
+    "message": "行間に空行を入れる"
+  },
+  "plainTextLineBreaksWider": {
+    "message": "行間を広げる"
+  },
   "videoCaptionsCustomSitesLabel": {
     "message": "独自の字幕サイト"
   },
