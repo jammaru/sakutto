@@ -23,9 +23,10 @@ import {
   subscribeSiteRules,
   type SiteRule,
 } from '@/dom/sites';
+import { isFolderGrantNeededMessage } from '@/shared/folder-grant-messages';
 import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
 import { hasLicenseConsent } from '@/shared/agreement';
-import { sharedFolderNeedsUserAction, type ModelStatus } from '@/shared/engine-status';
+import type { ModelStatus } from '@/shared/engine-status';
 import { mergeGlossary } from '@/shared/glossary';
 import { currentUiLanguage, t } from '@/shared/i18n';
 import {
@@ -321,9 +322,12 @@ function overlayLabels(): OverlayLabels {
     barAlways: t('alwaysTranslateSite'),
     engineFailed: t('localServerFailed'),
     folderPermission: t('modelFolderPermissionPage'),
+    folderEnableTitle: t('modelFolderEnableOneClick'),
     barAlwaysOn: t('pageAlwaysOn'),
   };
 }
+
+const folderEnablePageUrl = browser.runtime.getURL('/folder-enable.html');
 
 function getPageInfo(): PageInfo {
   return {
@@ -425,14 +429,12 @@ export function contentMain(): void {
     let popupWidthWrite = 0;
     engineSource = settings.engineSource;
     const rule = await loadSiteRule(host);
-    let folderNeedsPermission = false;
     const readModelStatus = async (): Promise<boolean> => {
       const status = await requestEngineStatus().catch(() => null);
       if (!status) return false;
       modelState = status.model.state;
       plamoReady = status.plamoReady;
       modelStatusKnown = true;
-      folderNeedsPermission = sharedFolderNeedsUserAction(status);
       return true;
     };
     if (!__SAKUTTO_FAKE_ENGINE__) await readModelStatus();
@@ -441,6 +443,7 @@ export function contentMain(): void {
     const session = new PageSession(document, {
       engine,
       labels: overlayLabels(),
+      folderEnablePageUrl,
       preferences: preferencesFor(settings, rule, host),
       onSitePatch: async (patch) => {
         const current = await loadSiteRule(host);
@@ -669,8 +672,6 @@ export function contentMain(): void {
       void applyStored();
     });
 
-    if (folderNeedsPermission) session.noteFolderPermission();
-
     // A status fetch can land while the offscreen host is still opening. Retry a few times
     // instead of leaving compose on "loading" until the next model-progress event; after
     // that, show the setup/error state rather than claiming a load is still running.
@@ -679,7 +680,6 @@ export function contentMain(): void {
       if (modelStatusKnown || __SAKUTTO_FAKE_ENGINE__) return;
       if (await readModelStatus()) {
         await applyStored();
-        if (folderNeedsPermission) (await sessionPromise).noteFolderPermission();
         return;
       }
       statusRetries += 1;
@@ -726,12 +726,38 @@ export function contentMain(): void {
       if (shouldHandleComposeCommand(document)) compose?.handleShortcut();
       return session.state();
     }
+    if (!__SAKUTTO_FAKE_ENGINE__) {
+      const tab = await browser.tabs.getCurrent().catch(() => null);
+      const tabId = tab?.id;
+      if (tabId !== undefined) {
+        const armed: unknown = await browser.runtime
+          .sendMessage({ type: 'folder:arm-command', tabId, command })
+          .catch(() => null);
+        if (armed === 'deferred') {
+          session.beginFolderGrantWait();
+          return session.state();
+        }
+      }
+    }
     await session.handle(command);
     return session.state();
   };
 
+  window.addEventListener('message', (event) => {
+    if (event.data?.type !== 'sakutto-folder-granted') return;
+    void sessionPromise.then((session) => {
+      session.endFolderGrantWait();
+    });
+  });
+
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.id !== browser.runtime.id) return;
+    if (isFolderGrantNeededMessage(message)) {
+      void sessionPromise.then((session) => {
+        session.beginFolderGrantWait();
+      });
+      return;
+    }
     if (isPageInfoRequest(message)) {
       sendResponse(getPageInfo());
       return;

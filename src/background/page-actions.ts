@@ -12,12 +12,20 @@ import { isShortcutCommand, PDF_COMMAND, SHORTCUT_PAGE_COMMANDS } from '@/shared
 import type { ShortcutCommand, ShortcutEnabled } from '@/shared/shortcuts';
 import { loadSettings } from '@/shared/storage';
 import { openPdfFromUrl, sweepStoredPdfs } from './pdf-store';
+import type { EngineClient } from './engine-client';
+import { runGatedPageCommand } from './folder-grant';
 
 interface PageTranslationCanceller {
   cancelTab(tabId: number): void;
 }
 
-export function installPageActions(translations?: PageTranslationCanceller): void {
+let gatedEngine: EngineClient | undefined;
+
+export function installPageActions(
+  translations?: PageTranslationCanceller,
+  engine?: EngineClient,
+): void {
+  gatedEngine = engine;
   installMenus();
 
   browser.commands.onCommand.addListener((command, tab) => {
@@ -247,6 +255,10 @@ async function runCommand(tabId: number, command: PageCommandName): Promise<void
   const allFrames = command === 'compose';
   if (!(await ensureContentScript(tabId, { allFrames }))) return;
   const frameId = allFrames ? await focusedContentFrameId(tabId) : undefined;
+  if (gatedEngine) {
+    await runGatedPageCommand(gatedEngine, tabId, command, frameId);
+    return;
+  }
   await requestPageCommand(tabId, command, frameId);
 }
 

@@ -106,6 +106,8 @@ export interface OverlayLabels {
   engineFailed?: string;
   /** Shown when the shared folder grant is missing; points at the popup restore button. */
   folderPermission?: string;
+  /** One-click grant control label (iframe page uses its own copy). */
+  folderEnableTitle?: string;
 }
 
 /**
@@ -474,6 +476,8 @@ export class PageOverlay {
   private readonly barText: HTMLElement;
   private readonly barOriginal: HTMLButtonElement;
   private readonly barAlways: HTMLButtonElement;
+  private readonly folderEnableHost: HTMLElement;
+  private folderEnableFrame: HTMLIFrameElement | null = null;
   private labels: OverlayLabels;
   private returnFocus: HTMLElement | null = null;
   private onClose: (() => void) | null = null;
@@ -565,6 +569,24 @@ export class PageOverlay {
     this.status.setAttribute('role', 'status');
     this.status.hidden = true;
     doc.documentElement.append(this.status);
+
+    this.folderEnableHost = doc.createElement('sakutto-folder-enable');
+    this.folderEnableHost.setAttribute('translate', 'no');
+    this.folderEnableHost.hidden = true;
+    this.folderEnableHost.style.display = 'none';
+    this.folderEnableHost.style.position = 'fixed';
+    this.folderEnableHost.style.zIndex = '2147483646';
+    this.folderEnableHost.style.left = '16px';
+    this.folderEnableHost.style.right = '16px';
+    this.folderEnableHost.style.bottom = '16px';
+    this.folderEnableHost.style.maxWidth = '320px';
+    this.folderEnableHost.style.margin = '0 auto';
+    this.folderEnableHost.style.border = '1px solid rgb(15 23 32 / 12%)';
+    this.folderEnableHost.style.borderRadius = '10px';
+    this.folderEnableHost.style.overflow = 'hidden';
+    this.folderEnableHost.style.boxShadow = '0 8px 24px rgb(15 23 32 / 18%)';
+    this.folderEnableHost.style.background = '#ffffff';
+    doc.documentElement.append(this.folderEnableHost);
 
     this.bar = doc.createElement('sakutto-bar');
     this.bar.setAttribute('translate', 'no');
@@ -723,6 +745,39 @@ export class PageOverlay {
       this.status.hidden = true;
       this.statusTimer = null;
     }, 2600);
+  }
+
+  /** Loads the extension grant iframe so one click can renew the folder grant in-page. */
+  showFolderEnable(pageUrl: string): void {
+    if (!this.folderEnableFrame) {
+      const frame = this.doc.createElement('iframe');
+      frame.setAttribute('title', this.labels.folderEnableTitle ?? '');
+      frame.setAttribute(
+        'sandbox',
+        'allow-scripts allow-same-origin allow-downloads allow-forms allow-popups',
+      );
+      frame.style.display = 'block';
+      frame.style.width = '100%';
+      frame.style.height = '64px';
+      frame.style.border = '0';
+      this.folderEnableHost.append(frame);
+      this.folderEnableFrame = frame;
+    }
+    if (this.folderEnableFrame.getAttribute('src') !== pageUrl) {
+      this.folderEnableFrame.setAttribute('src', pageUrl);
+    }
+    this.folderEnableHost.hidden = false;
+    this.folderEnableHost.style.display = 'block';
+    this.hideBar();
+  }
+
+  hideFolderEnable(): void {
+    this.folderEnableHost.hidden = true;
+    this.folderEnableHost.style.display = 'none';
+  }
+
+  folderEnableVisible(): boolean {
+    return !this.folderEnableHost.hidden;
   }
 
   hideOriginal(): void {

@@ -575,6 +575,17 @@ export async function requestModelFolderReload(): Promise<SharedFolderStatus | n
   }
 }
 
+export async function requestResumeFolderGrantPending(): Promise<boolean> {
+  try {
+    const response: unknown = await browser.runtime.sendMessage({
+      type: 'folder:resume-pending',
+    });
+    return response === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function requestModelFolderDeleteOpfs(
   modelId: ModelId,
 ): Promise<SharedFolderStatus | null> {

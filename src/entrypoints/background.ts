@@ -9,6 +9,11 @@ import {
   installPageActions,
   openPdfForTabReason,
 } from '@/background/page-actions';
+import { gatePageCommand, resumeFolderGrantPending } from '@/background/folder-grant';
+import {
+  isFolderArmCommandRequest,
+  isFolderResumePendingRequest,
+} from '@/shared/folder-grant-messages';
 import { syncCaptionCustomContentScripts } from '@/captions/register-custom';
 import { deleteStoredPdf } from '@/background/pdf-store';
 import {
@@ -85,7 +90,7 @@ export default defineBackground(() => {
   });
 
   broker.start();
-  installPageActions(broker);
+  installPageActions(broker, client);
   browser.runtime.onConnect.addListener((port) => {
     if (port.name !== CONTENT_LIVENESS_PORT) return;
     port.postMessage({
@@ -391,6 +396,18 @@ export default defineBackground(() => {
 
     if (isEngineStatusRequest(message)) {
       void client.status().then(sendResponse, () => sendResponse(null));
+      return true;
+    }
+
+    if (isFolderResumePendingRequest(message)) {
+      void resumeFolderGrantPending(client).then(sendResponse);
+      return true;
+    }
+
+    if (isFolderArmCommandRequest(message)) {
+      void gatePageCommand(client, message.tabId, message.command, message.frameId).then(
+        sendResponse,
+      );
       return true;
     }
 

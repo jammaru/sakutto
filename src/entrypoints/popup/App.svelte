@@ -25,6 +25,7 @@
     requestEngineWarm,
     requestModelDownload,
     requestModelFolderReload,
+    requestResumeFolderGrantPending,
     requestPageCommand,
     requestPageState,
     requestQualitySample,
@@ -123,8 +124,8 @@
   let pdfFailReason = $state<PdfOpenReason | null>(null);
   let engine = $state<EngineStatus | null>(null);
   let engineStatusError = $state(false);
-  /** Hold the restore card until opening the popup has queried and, if possible, renewed. */
-  let folderPermissionSettled = $state(false);
+  /** True after an activation-driven grant attempt failed in the popup. */
+  let folderRestoreNeeded = $state(false);
   let modelMark = $state<ModelStatus | null>(null);
   let quality = $state<QualitySample | null>(null);
   let headroom = $state<DeviceHeadroom | null>(null);
@@ -383,6 +384,7 @@
   }
 
   async function changeTarget(language: TargetLanguage) {
+    void ensureFolderPermissionForAction();
     try {
       settings = await saveSettings({ targetLanguage: language });
       if (host && rule?.targetLanguage !== undefined) {
@@ -402,10 +404,14 @@
    * sending the reader to Settings. A query that is already granted costs no prompt and no
    * reload. This only runs for a page action that is about to read the folder.
    */
-  async function ensureFolderPermissionForAction(): Promise<void> {
+  async function ensureFolderPermissionForAction(): Promise<boolean> {
+    folderRestoreNeeded = false;
     try {
       const access = await ensureStoredFolderPermission();
-      if (access.status !== 'granted' || !access.changed) return;
+      if (access.status !== 'granted') {
+        folderRestoreNeeded = true;
+        return false;
+      }
       if (engine?.sharedFolder) {
         engine = {
           ...engine,
@@ -418,8 +424,11 @@
       // dormant grant actually changed, so a normal click still costs no reload.
       await requestModelFolderReload();
       await refreshEngine();
+      await requestResumeFolderGrantPending();
+      return true;
     } catch {
-      // A failed probe must not block the action; the engine still reports the grant state.
+      folderRestoreNeeded = true;
+      return false;
     }
   }
 
@@ -427,7 +436,7 @@
     if (commandBusy || tabId === undefined || !host) return;
     commandBusy = true;
     try {
-      await ensureFolderPermissionForAction();
+      if (!(await ensureFolderPermissionForAction())) return;
       if (!(await ensureContentScript(tabId))) {
         pageReady = false;
         pageMessage = 'unread';
@@ -555,22 +564,9 @@
     }
   }
 
-  /**
-   * Opening the popup is a user gesture. Renew a dormant folder grant before the restore card
-   * is shown, then refresh the host so its snapshot does not keep saying permission is missing.
-   */
-  async function settleFolderPermissionOnOpen(): Promise<void> {
-    try {
-      const access = await ensureStoredFolderPermission();
-      if (access.status === 'granted' && access.changed) {
-        await requestModelFolderReload();
-      }
-    } catch {
-      // The restore component still offers the explicit grant if this silent path fails.
-    } finally {
-      await refreshEngine();
-      folderPermissionSettled = true;
-    }
+  /** Toolbar open is not a user gesture; refresh status only, never auto-show the restore card. */
+  async function refreshEngineOnOpen(): Promise<void> {
+    await refreshEngine();
   }
 
   /** Explicit recovery after the shared folder was stopped: no "waiting" without a download. */
@@ -648,7 +644,7 @@
       void refreshSettings();
       void refreshPage();
     });
-    void settleFolderPermissionOnOpen();
+    void refreshEngineOnOpen();
     void refreshSettings();
     void refreshPage();
     void requestEngineWarm();
@@ -772,16 +768,18 @@
   {#if engine?.modelFallback}
     <p class="muted" role="status">{t('modelSelectionFallback')}</p>
   {/if}
-  {#if folderPermissionSettled}
-    <FolderPermissionRestore
-      folder={engine?.sharedFolder}
-      modelId={engine?.model.id}
-      compact
-      onRestored={async () => {
-        await refreshEngine();
-      }}
-    />
-  {/if}
+  <FolderPermissionRestore
+    folder={engine?.sharedFolder}
+    modelId={engine?.model.id}
+    compact
+    autoSettle={false}
+    activationFailed={folderRestoreNeeded}
+    onRestored={async () => {
+      folderRestoreNeeded = false;
+      await refreshEngine();
+      await requestResumeFolderGrantPending();
+    }}
+  />
   {#if engine?.engineSource === 'local-server'}
     <p class="muted">{t('localServerExperimental')}</p>
     {#if engine.parallel !== null}

@@ -21,10 +21,22 @@
     modelId?: ModelId | undefined;
     /** Load the model after a grant. Off during onboarding until the license click. */
     warm?: boolean;
+    /** When false, only show the card after an activation attempt fails (popup toolbar open). */
+    autoSettle?: boolean;
+    /** Bound when autoSettle is false and a click-time grant did not succeed. */
+    activationFailed?: boolean;
     onRestored?: () => Promise<void> | void;
   }
 
-  let { folder, compact = false, modelId, warm = true, onRestored }: Props = $props();
+  let {
+    folder,
+    compact = false,
+    modelId,
+    warm = true,
+    autoSettle = true,
+    activationFailed = false,
+    onRestored,
+  }: Props = $props();
 
   let granting = $state(false);
   let grantError = $state(false);
@@ -34,7 +46,10 @@
   /** A query already says granted, even if the engine snapshot has not refreshed yet. */
   let silentGranted = $state(false);
   let visible = $derived(
-    sharedFolderNeedsPermission(folder) && probed && !silentGranted && !checkingPermission,
+    sharedFolderNeedsPermission(folder) &&
+      (autoSettle
+        ? probed && !silentGranted && !checkingPermission
+        : activationFailed && !silentGranted && !checkingPermission),
   );
   let presentHint = $derived(folderRecordsModel(folder, modelId));
 
@@ -88,6 +103,10 @@
       probed = false;
       silentGranted = false;
       checkingPermission = false;
+      return;
+    }
+    if (!autoSettle) {
+      probed = true;
       return;
     }
     if (probed) return;

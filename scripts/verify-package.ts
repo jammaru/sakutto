@@ -49,6 +49,7 @@ export const REQUIRED_ENTRIES = [
   'reader.html',
   'gpu-probe.js',
   'grant.html',
+  'folder-enable.html',
   'offscreen.html',
   'content-scripts/content.js',
   'content-scripts/mail.js',

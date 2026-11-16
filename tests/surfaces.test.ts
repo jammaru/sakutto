@@ -499,31 +499,20 @@ describe('shared folder activation and recovery', () => {
     );
   });
 
-  it('settles a dormant grant from the popup before painting the restore card', () => {
-    const settleStart = popup.indexOf('async function settleFolderPermissionOnOpen');
-    const settleBody = popup.slice(
-      settleStart,
-      popup.indexOf('async function downloadMissingModel', settleStart),
-    );
-    expect(settleBody).toContain('ensureStoredFolderPermission');
-    expect(settleBody.indexOf('requestModelFolderReload')).toBeGreaterThan(
-      settleBody.indexOf('ensureStoredFolderPermission'),
-    );
-    expect(settleBody.indexOf('refreshEngine')).toBeGreaterThan(
-      settleBody.indexOf('ensureStoredFolderPermission'),
-    );
-    expect(popup).toContain('folderPermissionSettled');
-    expect(popup).toContain('{#if folderPermissionSettled}');
+  it('does not auto-show the restore card when the toolbar opens the popup', () => {
+    expect(popup).toContain('refreshEngineOnOpen');
+    expect(popup).not.toContain('settleFolderPermissionOnOpen');
+    expect(popup).toContain('autoSettle={false}');
+    expect(popup).toContain('activationFailed={folderRestoreNeeded}');
+    expect(popup).toContain('ensureFolderPermissionForAction');
   });
 
-  it('tries a silent prompt regrant before showing the restore card', () => {
+  it('defers the restore card in the popup until an activation grant fails', () => {
+    expect(restore).toContain('autoSettle');
+    expect(restore).toContain('activationFailed');
     expect(restore).toContain('queryStoredFolderPermission');
-    expect(restore).toContain('silentGranted');
     expect(restore).toContain('canAttemptSilentFolderGrant');
     expect(restore).toContain('ensureStoredFolderPermission');
-    expect(restore).toContain('checkingPermission');
-    expect(restore).toContain('sharedFolderNeedsPermission(folder)');
-    expect(restore).toContain('!checkingPermission');
     expect(restore).not.toContain('probeStoredFolderReadable');
   });
 

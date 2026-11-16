@@ -231,6 +231,8 @@ export interface PageSessionOptions {
   bilingualKey?: (event: KeyboardEvent) => boolean;
   /** Saves a width chosen by dragging or keyboard, in em at 100% text scale. */
   onPopupWidth?: (widthEm: number) => void | Promise<void>;
+  /** Web-accessible folder-enable.html URL for in-page one-click grant. */
+  folderEnablePageUrl?: string;
 }
 
 export function preferencesFor(
@@ -320,6 +322,8 @@ export class PageSession {
   /** Set when a local-server request fails, so the bar can keep the Settings hint. */
   private serverFault = false;
   private folderPermissionFault = false;
+  private readonly folderEnablePageUrl: string;
+  private selectionGrantTimer: ReturnType<typeof setTimeout> | null = null;
   private historyUnpatch: (() => void) | null = null;
   private scanTimer: ReturnType<typeof setTimeout> | null = null;
   private direction: 'down' | 'up' = 'down';
@@ -367,6 +371,7 @@ export class PageSession {
     this.selectionKey = options.selectionKey ?? isPlainAltS;
     this.pageKey = options.pageKey;
     this.bilingualKey = options.bilingualKey;
+    this.folderEnablePageUrl = options.folderEnablePageUrl ?? '';
     this.scheduleFrame =
       options.scheduleFrame ??
       ((callback) => {
@@ -742,6 +747,17 @@ export class PageSession {
     }
     this.enqueue(next, true);
     this.pump();
+    if (reveal && this.folderEnablePageUrl.length > 0) {
+      if (this.selectionGrantTimer !== null) clearTimeout(this.selectionGrantTimer);
+      this.selectionGrantTimer = setTimeout(() => {
+        this.selectionGrantTimer = null;
+        const current = this.selection;
+        if (!current || current.state === 'done') return;
+        if (current.translation.trim().length > 0) return;
+        if (current.state !== 'queued' && current.state !== 'running') return;
+        this.beginFolderGrantWait();
+      }, 12_000);
+    }
   }
 
   translateDocumentSelection(): void {
@@ -888,7 +904,28 @@ export class PageSession {
    */
   noteFolderPermission(): void {
     this.folderPermissionFault = true;
-    if (this.labels.folderPermission) this.overlay.showStatus(this.labels.folderPermission);
+    this.beginFolderGrantWait();
+  }
+
+  beginFolderGrantWait(): void {
+    if (this.folderEnablePageUrl.length === 0) return;
+    this.overlay.showFolderEnable(this.folderEnablePageUrl);
+    if (this.selectionShown) {
+      this.overlay.hideSelection();
+      this.selectionShown = false;
+    }
+    this.publishState();
+  }
+
+  endFolderGrantWait(): void {
+    this.folderPermissionFault = false;
+    this.overlay.hideFolderEnable();
+    if (this.selectionGrantTimer !== null) {
+      clearTimeout(this.selectionGrantTimer);
+      this.selectionGrantTimer = null;
+    }
+    this.retryUntranslated();
+    this.publishState();
   }
 
   retryUntranslated(): void {
@@ -1422,6 +1459,9 @@ export class PageSession {
         if (this.folderPermissionFault) {
           item.state = 'idle';
           item.model?.block.removeAttribute('data-sakutto-pending');
+          if (item.role === 'selection' && item === this.selection) {
+            this.beginFolderGrantWait();
+          }
           continue;
         }
         if (item.partFinal.length > 0 && item.partFinal.every(Boolean)) {
@@ -1950,8 +1990,9 @@ export class PageSession {
   }
 
   private barText(view: PageViewState): string {
-    if (this.folderPermissionFault && this.labels.folderPermission && view.pending === 0) {
-      return this.labels.folderPermission;
+    if (this.folderPermissionFault && view.pending === 0) {
+      if (!this.overlay.folderEnableVisible()) this.beginFolderGrantWait();
+      return this.labels.barLabel;
     }
     if (this.serverFault && this.labels.engineFailed && view.pending === 0) {
       return this.labels.engineFailed;
