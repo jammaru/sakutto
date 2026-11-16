@@ -217,6 +217,68 @@ describe('br-separated mail layout', () => {
     },
   );
 
+  it('keeps adjacent label lines separate when the translation has no terminators', async () => {
+    const body = gmailBody(
+      '<span>Approved versions: 1.6.2<br>Comments: This version has been screened and is available for download.</span>',
+    );
+    const engine: PageEngine = {
+      async *translate(segments) {
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final:
+              '承認済みバージョン：1.6.2 コメント：本バージョンは審査済みで、ダウンロードできます。',
+            engine: 'plamo' as const,
+          };
+        }
+      },
+    };
+    const applied = await translateGmailBody(body, engine, {
+      targetLanguage: 'ja',
+      form: 'polite',
+      language: 'en',
+      signal: new AbortController().signal,
+    });
+
+    const lines = lineTexts(applied[0]?.model.block ?? body)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toContain('1.6.2');
+    expect(lines[1]).toContain('コメント：');
+  });
+
+  it('does not cut through a multi-word English label', async () => {
+    const body = gmailBody(
+      '<span>Approved versions: 1.6.2<br>Comments: This version has been screened and is available for download.</span>',
+    );
+    const engine: PageEngine = {
+      async *translate(segments) {
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final:
+              'Approved versions: 1.6.2 Comments: This version has been screened and is available for download.',
+            engine: 'plamo' as const,
+          };
+        }
+      },
+    };
+    const applied = await translateGmailBody(body, engine, {
+      targetLanguage: 'ja',
+      form: 'polite',
+      language: 'en',
+      signal: new AbortController().signal,
+    });
+
+    const lines = lineTexts(applied[0]?.model.block ?? body)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toContain('Approved versions: 1.6.2');
+    expect(lines[1]).toContain('Comments:');
+  });
+
   it('keeps a normal page with br lines readable after a one-line translation', () => {
     document.body.innerHTML = '<div id="mail">First line<br>\nSecond line<br>\nThird line</div>';
     const body = document.querySelector('#mail');

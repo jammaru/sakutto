@@ -267,6 +267,88 @@ function wordChunks(text: string): string[] {
 const CJK_TEXT = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
 
 /**
+ * Starts of label-like tokens (`コメント：`, `Comments:`) after the first one. A label with a
+ * colon is a line boundary even when the translation contains no sentence terminator, which
+ * is how an AMO approval mail's `Approved versions` and `Comments` lines were merged into one.
+ */
+function labelCuts(text: string): number[] {
+  const cuts: number[] = [];
+  for (const match of text.matchAll(/([^\s:：]{1,40})([:：])/gu)) {
+    if (match.index === undefined) continue;
+    const token = match[1] ?? '';
+    const colon = match.index + token.length;
+    // `https:` is not a label. URL schemes otherwise look exactly like one.
+    if (text.slice(colon + 1, colon + 3) === '//') continue;
+
+    // The token immediately before the colon may be only the last word of a multi-word
+    // label (`Approved versions:`) or a value running into a CJK label (`1.6.2コメント：`).
+    let start = match.index;
+    if (!/^\p{L}/u.test(token)) {
+      const tail = /([\p{L}][\p{L}\p{M}_-]*)$/u.exec(token);
+      if (!tail || tail.index === undefined) continue;
+      start += tail.index;
+    }
+
+    for (let words = 1; words < 5; words += 1) {
+      let space = start;
+      while (space > 0 && /\s/u.test(text[space - 1] ?? '')) space -= 1;
+      if (space === start || space === 0) break;
+      let previous = space;
+      while (previous > 0 && !/\s/u.test(text[previous - 1] ?? '')) previous -= 1;
+      const word = text.slice(previous, space);
+      if (word.length > 30 || !/^\p{L}+$/u.test(word)) break;
+      start = previous;
+    }
+
+    if (start > 0) cuts.push(start);
+  }
+  return cuts;
+}
+
+/** A version, number or URL at the end of a source line is likely to survive translation. */
+function trailingAnchor(source: string): string | null {
+  const token = /\S+$/u.exec(source.trim())?.[0]?.replace(/[.,;:!?]+$/u, '') ?? '';
+  if (token.length < 2 || !/\d/u.test(token)) return null;
+  return token;
+}
+
+/**
+ * Safe cut points for a line-count-preserving split: sentence ends, label starts, and the
+ * trailing versions of the source lines themselves. Text is sliced only at these points, so
+ * a sentence or a label/value pair is never cut in the middle.
+ */
+function safeChunks(text: string, sources: readonly string[]): string[] {
+  const cuts = new Set<number>(sentenceEnds(text));
+  for (const cut of labelCuts(text)) cuts.add(cut);
+
+  let cursor = 0;
+  for (let index = 0; index < sources.length - 1; index += 1) {
+    const anchor = trailingAnchor(sources[index] ?? '');
+    if (!anchor) continue;
+    const at = text.indexOf(anchor, cursor);
+    if (at < 0) continue;
+    const end = at + anchor.length;
+    if (end > 0 && end < text.length) cuts.add(end);
+    cursor = end;
+  }
+
+  const points = [...cuts]
+    .filter((point) => point > 0 && point < text.length)
+    .sort((a, b) => a - b);
+  const chunks: string[] = [];
+  let start = 0;
+  for (const point of points) {
+    if (point <= start) continue;
+    const chunk = text.slice(start, point);
+    if (chunk.trim().length > 0) chunks.push(chunk);
+    start = point;
+  }
+  const rest = text.slice(start);
+  if (rest.trim().length > 0) chunks.push(rest);
+  return chunks.map((chunk) => chunk.trim());
+}
+
+/**
  * Groups whole sentence (or word) units into the source lines without cutting inside one.
  * If there are fewer units than lines, the first lines take one each and the rest stay empty;
  * that is the merge case that used to leave one stray character on every blank `<br>` line.
@@ -318,6 +400,9 @@ function splitByWeights(text: string, sources: readonly string[]): string[] {
   const trimmed = text.trim();
   if (count <= 1) return [trimmed];
   if (trimmed.length === 0) return Array.from({ length: count }, () => '');
+
+  const safe = safeChunks(trimmed, sources);
+  if (safe.length >= count) return groupUnits(safe, sources);
 
   const sentences = sentenceChunks(trimmed).filter((chunk) => chunk.trim().length > 0);
   if (sentences.length >= count) return groupUnits(sentences, sources);
