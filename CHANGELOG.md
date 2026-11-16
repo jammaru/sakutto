@@ -2,6 +2,11 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
+## [1.6.2] - 2026-11-16
+
+- fix: test every ancestor level in isDataRowCell (#94)
+- fix: Gmail メールバナーの二重表示（拡張リロード後） (#101)
+
 ## [1.6.1] - 2026-11-16
 
 ### Bug Fixes
