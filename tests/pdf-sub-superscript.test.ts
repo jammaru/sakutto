@@ -8,6 +8,29 @@ import { protectInlineMath, restoreInlineMath } from '@/pdf/protect';
 import { openPdfBytes } from './support/open-fixture-pdf';
 import { measure, piece } from './support/pdf-pieces';
 
+function blockFromLines(lines: TextLine[]): LayoutBlock {
+  const text = lines
+    .map((line) => line.text)
+    .join(' ')
+    .replace(/\s+/gu, ' ')
+    .trim();
+  return {
+    text,
+    lines,
+    box: lines[0]?.box ?? { x: 0, y: 0, width: 100, height: 10 },
+    fontSize: 10,
+    lineHeight: 1.2,
+    role: 'prose',
+    align: 'left',
+    bold: false,
+    italic: false,
+    column: 0,
+    advance: 100,
+    room: lines[0]?.box ?? { x: 0, y: 0, width: 100, height: 10 },
+    writing: 0,
+  } as LayoutBlock;
+}
+
 function bestBlock(lines: TextLine[]): LayoutBlock {
   const layout = layoutPage(lines, { images: [] }, { width: 595, height: 842, index: 1 });
   const block = layout.blocks[0];
@@ -218,15 +241,68 @@ describe('PDF subscripts and superscripts', () => {
     expect(xRestored).toContain('y₁');
 
     const water = groupLines([
-      piece('Water is H', 40, 200, 50),
-      piece('2', 90, 200.8, 4, { size: 7, em: 7 }),
-      piece('O in the vessel.', 94, 200, 90),
+      piece('Water is ', 40, 200, 50),
+      piece('H', 90, 200, 8),
+      piece('2', 98, 200.8, 4, { size: 7, em: 7 }),
+      piece('O', 102, 200, 8),
+      piece(' in the vessel.', 110, 200, 90),
     ]);
     const waterBlock = bestBlock(water);
     const waterProtected = protectInlineMath(waterBlock);
-    const waterRestored = restoreInlineMath('水は H<i0>O が入った容器です。', waterProtected.slots);
+    expect(waterProtected.slots).toHaveLength(1);
+    expect(waterProtected.text).toMatch(/Water is <i0>/u);
+    const waterRestored = restoreInlineMath('水は <i0> が入った容器です。', waterProtected.slots);
     expect(waterRestored).toContain('H₂O');
     expect(waterRestored).not.toMatch(/H2O/u);
+  });
+
+  it('keeps mid-line x² in place when the exponent sits on its own extracted line', () => {
+    const prose = lineFrom([
+      piece('Let x', 40, 200, 30),
+      piece(' + y', 74, 200, 20),
+      piece('1', 94, 200.8, 4, { size: 7, em: 7 }),
+      piece(' = 1 define the sample.', 98, 200, 140),
+    ]);
+    const exponent = lineFrom([piece('2', 68, 199.2, 4, { size: 7, em: 7 })]);
+    const block = blockFromLines([prose, exponent]);
+    const protectedText = protectInlineMath(block);
+    expect(protectedText.text).toMatch(/Let x<i\d+>/u);
+    expect(protectedText.text).not.toMatch(/<i\d+>$/u);
+    const restored = restoreInlineMath(
+      'Let x<i0> + y<i1> = 1 が標本を定義する。',
+      protectedText.slots,
+    );
+    expect(restored).toMatch(/Let x² \+ y₁/u);
+    expect(restored).not.toMatch(/\s2\s*$/u);
+  });
+
+  it('renders trailing m³ on the same sentence as 10³', () => {
+    const lines = groupLines([
+      piece('The volume reached 10', 40, 200, 140),
+      piece('3', 180, 196.5, 4, { size: 7, em: 7 }),
+      piece(' m', 184, 200, 10),
+      piece('3', 194, 196.5, 4, { size: 7, em: 7 }),
+    ]);
+    const block = bestBlock(lines);
+    const protectedText = protectInlineMath(block);
+    expect(protectedText.slots).toHaveLength(2);
+    expect(protectedText.text).toMatch(/10<i\d+> m<i\d+>/u);
+    const restored = restoreInlineMath('体積は10<i0> m<i1>に達した。', protectedText.slots);
+    expect(restored).toBe('体積は10³ m³に達した。');
+    expect(restored).not.toMatch(/m3/u);
+  });
+
+  it('folds a trailing exponent line into prose before protecting', () => {
+    const trailing = lineFrom([piece('3', 194, 196.5, 4, { size: 7, em: 7 })]);
+    const prose = lineFrom([
+      piece('The volume reached 10', 40, 200, 140),
+      piece(' m', 184, 200, 10),
+    ]);
+    const block = blockFromLines([prose, trailing]);
+    const protectedText = protectInlineMath(block);
+    const restored = restoreInlineMath('体積は10 m<i0>に達した。', protectedText.slots);
+    expect(restored).toContain('m³');
+    expect(restored).not.toMatch(/m3/u);
   });
 
   it('keeps shifted scripts through layout and restoration on prose blocks', () => {

@@ -1,6 +1,6 @@
 import { boxRight } from './geometry';
 import type { LayoutBlock } from './layout';
-import { joinPieces, type TextLine, type TextPiece } from './lines';
+import { joinPieces, lineFrom, type TextLine, type TextPiece } from './lines';
 
 /**
  * Inline mathematics kept out of the model.
@@ -19,6 +19,8 @@ export type ScriptRole = 'super' | 'sub' | 'none';
 export interface ProtectedSlot {
   text: string;
   script: ScriptRole;
+  /** Character inside `text` to raise or lower when the whole chemical token is one slot. */
+  scriptIndex?: number;
 }
 
 export interface ProtectedText {
@@ -89,6 +91,14 @@ export function canUnicodeScript(text: string, script: Exclude<ScriptRole, 'none
 export function formatScriptSlot(slot: ProtectedSlot): string {
   if (slot.script === 'none') return slot.text;
   const map = slot.script === 'super' ? SUPERSCRIPT : SUBSCRIPT;
+  if (slot.scriptIndex !== undefined) {
+    const index = slot.scriptIndex;
+    const character = slot.text[index];
+    if (character === undefined) return slot.text;
+    const mapped = map[character];
+    if (mapped === undefined) return slot.text;
+    return `${slot.text.slice(0, index)}${mapped}${slot.text.slice(index + 1)}`;
+  }
   let output = '';
   for (const character of slot.text) {
     const mapped = map[character];
@@ -111,7 +121,7 @@ export function protectInlineMath(block: LayoutBlock): ProtectedText {
   const slots: ProtectedSlot[] = [];
   const parts: string[] = [];
 
-  for (const line of block.lines) {
+  for (const line of coalesceScriptFragments(block.lines)) {
     const protectedLine = protectLine(line, slots);
     if (protectedLine.length === 0) continue;
     if (parts.length === 0) {
@@ -133,12 +143,38 @@ export function protectInlineMath(block: LayoutBlock): ProtectedText {
 }
 
 function protectLine(line: TextLine, slots: ProtectedSlot[]): string {
-  const baseline = dominantBaseline(line.pieces);
-  const runs = mathRuns(line.pieces, line.height, baseline);
-  if (runs.every((run) => !run.protect)) {
-    return line.text;
-  }
+  const ordered = lineFrom([...line.pieces].sort((left, right) => left.box.x - right.box.x));
+  const baseline = dominantBaseline(ordered.pieces);
+  const pieces = expandChemicalFormulas(ordered.pieces, ordered.height, baseline, slots);
+  const replaced: TextPiece[] = [];
+  let buffer: TextPiece[] = [];
 
+  const flushBuffer = (): void => {
+    if (buffer.length === 0) return;
+    replaced.push(...protectMathRuns(buffer, ordered.height, baseline, slots));
+    buffer = [];
+  };
+
+  for (const piece of pieces) {
+    const tagged = piece as TagPiece;
+    if (tagged.kind === 'chem') {
+      flushBuffer();
+      replaced.push({ ...piece, text: PLACEHOLDER(tagged.slotIndex ?? 0) });
+      continue;
+    }
+    buffer.push(piece);
+  }
+  flushBuffer();
+  return joinPieces(replaced);
+}
+
+function protectMathRuns(
+  pieces: readonly TextPiece[],
+  lineHeight: number,
+  baseline: number,
+  slots: ProtectedSlot[],
+): TextPiece[] {
+  const runs = mathRuns(pieces, lineHeight, baseline);
   const replaced: TextPiece[] = [];
   for (const run of runs) {
     if (!run.protect) {
@@ -152,7 +188,7 @@ function protectLine(line: TextLine, slots: ProtectedSlot[]): string {
     const slotText = joinPieces(run.pieces);
     slots.push({
       text: slotText,
-      script: scriptRole(run.pieces, line.height, baseline),
+      script: scriptRole(run.pieces, lineHeight, baseline),
     });
     replaced.push({
       ...first,
@@ -165,7 +201,136 @@ function protectLine(line: TextLine, slots: ProtectedSlot[]): string {
       },
     });
   }
-  return joinPieces(replaced);
+  return replaced;
+}
+
+type TagPiece = TextPiece & { kind?: 'chem'; slotIndex?: number };
+
+/** Folds `H` + subscript `2` + `O` into one atomic placeholder so the model cannot split it. */
+function expandChemicalFormulas(
+  pieces: readonly TextPiece[],
+  lineHeight: number,
+  baseline: number,
+  slots: ProtectedSlot[],
+): TagPiece[] {
+  const out: TagPiece[] = [];
+  for (let index = 0; index < pieces.length; index += 1) {
+    const lead = pieces[index];
+    const script = pieces[index + 1];
+    const tail = pieces[index + 2];
+    if (!lead || !script || !tail) {
+      if (lead) out.push(lead);
+      continue;
+    }
+    const symbol = lead.text.trim();
+    const follower = tail.text.trim();
+    if (
+      symbol.length === 1 &&
+      follower.length === 1 &&
+      /^\p{Lu}$/u.test(symbol) &&
+      /^\p{Lu}$/u.test(follower) &&
+      isShiftedScript(script, lineHeight, baseline) &&
+      !lead.math &&
+      !script.math &&
+      !tail.math
+    ) {
+      const slotIndex = slots.length;
+      slots.push({
+        text: `${symbol}${script.text.trim()}${follower}`,
+        script: scriptRole([script], lineHeight, baseline),
+        scriptIndex: symbol.length,
+      });
+      out.push({
+        ...script,
+        kind: 'chem',
+        slotIndex,
+        text: `${symbol}${script.text}${follower}`,
+        box: {
+          x: lead.box.x,
+          y: Math.min(lead.box.y, script.box.y, tail.box.y),
+          width: Math.max(boxRight(tail.box), boxRight(script.box)) - lead.box.x,
+          height: Math.max(lead.box.height, script.box.height, tail.box.height),
+        },
+      });
+      index += 2;
+      continue;
+    }
+    out.push(lead);
+  }
+  return out;
+}
+
+/**
+ * A shifted script glyph sometimes lands on its own TextLine when the PDF extractor splits
+ * baselines. Folding it into the prose line it belongs to keeps `<iN>` markers in reading
+ * order instead of at the end of the block.
+ */
+function coalesceScriptFragments(lines: readonly TextLine[]): TextLine[] {
+  if (lines.length <= 1) return [...lines];
+  const working = lines.map((line) => ({ line, merged: false }));
+  for (let index = 0; index < working.length; index += 1) {
+    const entry = working[index];
+    if (!entry || entry.merged || !isOrphanScriptLine(entry.line)) continue;
+    const target = findScriptAttachTarget(working, index);
+    if (target === null) continue;
+    const row = working[target];
+    if (!row || row.merged) continue;
+    row.line = mergeTextLines(row.line, entry.line);
+    entry.merged = true;
+  }
+  return working.filter((row) => !row.merged).map((row) => row.line);
+}
+
+function isOrphanScriptLine(line: TextLine): boolean {
+  const trimmed = line.text.trim();
+  if (trimmed.length === 0 || trimmed.length > 3) return false;
+  if (!/^[\p{L}\p{N}]+$/u.test(trimmed)) return false;
+  if (line.pieces.length > 2) return false;
+  // A one-glyph row has only its own baseline, so shift is judged against the prose it joins.
+  return true;
+}
+
+function findScriptAttachTarget(
+  working: ReadonlyArray<{ line: TextLine; merged: boolean }>,
+  scriptIndex: number,
+): number | null {
+  const fragment = working[scriptIndex]?.line;
+  if (!fragment) return null;
+  let best: number | null = null;
+  let bestGap = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < working.length; index += 1) {
+    if (index === scriptIndex) continue;
+    const row = working[index];
+    if (!row || row.merged) continue;
+    if (!shouldMergeScriptFragment(row.line, fragment)) continue;
+    const gap = Math.abs(fragment.box.x - boxRight(row.line.box));
+    if (gap < bestGap) {
+      bestGap = gap;
+      best = index;
+    }
+  }
+  return best;
+}
+
+function shouldMergeScriptFragment(previous: TextLine, fragment: TextLine): boolean {
+  if (!isOrphanScriptLine(fragment)) return false;
+  const baseline = dominantBaseline(previous.pieces);
+  if (!fragment.pieces.every((piece) => isShiftedScript(piece, previous.height, baseline))) {
+    return false;
+  }
+  const scale = Math.max(previous.height, fragment.height, 1);
+  const prevRight = boxRight(previous.box);
+  const fragLeft = fragment.box.x;
+  if (fragLeft < previous.box.x - scale) return false;
+  if (fragLeft > prevRight + scale * 2) return false;
+  const baselineGap = Math.abs(fragment.baseline - previous.baseline);
+  if (baselineGap > scale * 1.2) return false;
+  return true;
+}
+
+function mergeTextLines(left: TextLine, right: TextLine): TextLine {
+  const pieces = [...left.pieces, ...right.pieces].sort((a, b) => a.box.x - b.box.x);
+  return lineFrom(pieces);
 }
 
 interface PieceRun {
