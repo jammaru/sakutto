@@ -3,6 +3,7 @@ import {
   PLAIN_TEXT_LINE_BREAK_MODES,
   applyPlainTextLineBreaks,
   normalizePlainTextLineBreaks,
+  plainTextSelectionSource,
   plainTextTranslationInput,
   preparePlainTextForModel,
   type PlainTextBreakMap,
@@ -70,6 +71,50 @@ describe('plain text line break modes', () => {
     expect(stripBreaks((apply(source, translation, 'wider') as { text: string }).text)).toBe(
       stripBreaks(translation),
     );
+  });
+
+  it('keeps internal spaces for a none-mode selection and normalizes other modes', () => {
+    const selected = '  Hello,   world!  ';
+    const source = plainTextSelectionSource(selected, 'none');
+    expect(source).toBe('Hello,   world!');
+    expect(plainTextTranslationInput(source, 'none').engineText).toBe('Hello,   world!');
+    expect(plainTextSelectionSource(selected, 'keep')).toBe('Hello, world!');
+  });
+
+  it('maps a break with trailing spaces before the newline', () => {
+    const source = 'Hello. \nWorld.';
+    expect(prepared(source).modelText).toBe('Hello. World.');
+    expect(apply(source, 'こんにちは。世界。', 'keep')).toBe('こんにちは。\n世界。');
+    expect(apply(source, 'こんにちは。世界。', 'blank')).toBe('こんにちは。\n\n世界。');
+  });
+
+  it('does not add a trailing break for trailing whitespace on the last line', () => {
+    const source = 'Hello. \nWorld. \t';
+    const { modelText, breakMap } = prepared(source);
+    expect(modelText).toBe('Hello. World.');
+    expect(breakMap.breaks).toHaveLength(1);
+    expect(apply(source, 'こんにちは。世界。', 'keep')).toBe('こんにちは。\n世界。');
+    expect(apply('Hello.   \n', 'こんにちは。', 'keep')).toBe('こんにちは。');
+  });
+
+  it('finds the previous unit when a break offset sits in the whitespace gap', () => {
+    const breakMap: PlainTextBreakMap = {
+      source: 'Hello. \nWorld.',
+      modelText: 'Hello.  World.',
+      breaks: [
+        {
+          modelOffset: 7,
+          kind: 'boundary',
+          blank: false,
+          blankLines: 0,
+          before: 'Hello.',
+          after: 'World.',
+        },
+      ],
+    };
+    expect(
+      applyPlainTextLineBreaks(breakMap.modelText, 'こんにちは。世界。', breakMap, 'keep'),
+    ).toBe('こんにちは。\n世界。');
   });
 
   it('replaces the ordinary sentence space instead of indenting the next line', () => {

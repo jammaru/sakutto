@@ -80,16 +80,8 @@ function classifyBreak(before: string, after: string, blankLines: number): Plain
 }
 
 /**
- * Builds the model input and records where each source line break landed.
- *
- * The source is first normalized exactly like the typed box already does: CRLF/CR
- * become LF, horizontal whitespace collapses, and the ends are trimmed. A single LF
- * inside a paragraph becomes a space so the model translates whole sentences; a blank
- * line becomes `\n\n` so paragraphs stay separate.
- */
-/**
  * Text the engine should receive and the break map used when reformatting the result.
- * In `none` mode the normalized source is sent unchanged so translations stay identical
+ * In `none` mode the supplied source is sent unchanged so translations stay identical
  * to the previous release; joining happens only when the reader asked for visible breaks.
  */
 export function plainTextTranslationInput(
@@ -103,12 +95,31 @@ export function plainTextTranslationInput(
   return { engineText: prepared.modelText, breakMap: prepared.breakMap };
 }
 
+/**
+ * Canonical source for a selection request. `none` matches the historical engine input
+ * exactly: trim the ends but keep internal spacing. Other modes use the same normalization
+ * as break mapping, so offer/dedupe comparisons and engine input agree.
+ */
+export function plainTextSelectionSource(text: string, mode: PlainTextLineBreakMode): string {
+  return mode === 'none' ? text.trim() : normalizeTypedInput(text);
+}
+
+/**
+ * Builds the model input and records where each source line break landed.
+ *
+ * The source is first normalized exactly like the typed box already does: CRLF/CR
+ * become LF, horizontal whitespace collapses, and the ends are trimmed. Each line is
+ * trimmed at the break too, so stray spaces before a newline cannot double the join
+ * space or move a break offset out of its sentence. A single LF inside a paragraph
+ * becomes a space so the model translates whole sentences; a blank line becomes
+ * `\n\n` so paragraphs stay separate.
+ */
 export function preparePlainTextForModel(normalizedSource: string): PreparedPlainText {
   const source = normalizeTypedInput(normalizedSource);
   const lines = source.split('\n');
   const nonEmpty: { text: string; index: number }[] = [];
   for (let index = 0; index < lines.length; index += 1) {
-    const text = lines[index] ?? '';
+    const text = (lines[index] ?? '').trim();
     if (text.length > 0) nonEmpty.push({ text, index });
   }
 
@@ -198,13 +209,20 @@ function boundaryAfterUnit(unitIndex: number, sourceUnits: number, targetUnits: 
 
 function unitAtOffset(units: readonly TextUnit[], offset: number): number {
   if (units.length === 0) return -1;
+  const first = units[0];
+  if (!first || offset <= first.start) return 0;
+
   for (let index = 0; index < units.length; index += 1) {
     const unit = units[index];
     if (!unit) continue;
-    if (offset >= unit.start && offset <= unit.end) return index;
+    if (offset <= unit.end) {
+      // A break can sit in the whitespace between two units (for example after a
+      // trailing space that survived in a caller-supplied break map). It belongs to
+      // the line that just ended, not to the next one and certainly not the last one.
+      if (offset < unit.start) return index > 0 ? index - 1 : index;
+      return index;
+    }
   }
-  const first = units[0];
-  if (first && offset < first.start) return 0;
   return units.length - 1;
 }
 
@@ -243,9 +261,10 @@ function mappedInsertions(
     const targetUnit = targetUnits[boundary - 1];
     if (!targetUnit) continue;
     const offset = safeOffset(translation, targetUnit.end);
-    // A break that lands at the very end has nothing to separate; do not add a trailing
-    // newline that the old (`none`) output never had.
-    if (offset <= 0 || offset >= translation.length) continue;
+    // A break with only whitespace after it has nothing to separate; do not add a
+    // trailing newline that the old (`none`) output never had.
+    if (offset <= 0 || offset > translation.length) continue;
+    if (translation.slice(offset).trim().length === 0) continue;
     byOffset.set(offset, { offset });
   }
 

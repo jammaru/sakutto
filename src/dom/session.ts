@@ -34,10 +34,10 @@ import {
 } from '@/shared/settings';
 import {
   applyPlainTextLineBreaks,
+  plainTextSelectionSource,
   plainTextTranslationInput,
   type PlainTextBreakMap,
 } from '@/shared/plain-text-line-breaks';
-import { normalizeTypedInput } from '@/shared/typed-translation';
 import { canonicalPageLanguage, isAlreadyTargetLanguage, languageOf } from './detect';
 import {
   collectDocuments,
@@ -701,7 +701,11 @@ export class PageSession {
   }
 
   translateSelection(text: string, rect?: DOMRect, reveal = true): void {
-    const source = normalizeTypedInput(text);
+    const mode = this.prefs.plainTextLineBreaks ?? 'none';
+    // `none` is the historical path: trim the ends but keep the reader's internal
+    // spacing exactly as the engine used to receive it. Other modes normalize first so
+    // the same snapshot can be mapped back onto translated sentence boundaries.
+    const source = plainTextSelectionSource(text, mode);
     if (source.length === 0) return;
     this.navigating = false;
     this.overlay.hideOriginal();
@@ -717,7 +721,6 @@ export class PageSession {
     }
 
     this.queue.remove((item) => item.role === 'selection' && item.state !== 'running');
-    const mode = this.prefs.plainTextLineBreaks ?? 'none';
     const { engineText, breakMap } = plainTextTranslationInput(source, mode);
     const next = this.createSelection(source, engineText, breakMap, anchor);
     this.supersedeSelection(next);
@@ -788,7 +791,11 @@ export class PageSession {
       if (!this.selectionShown && this.selection) this.dismissSelection();
       return;
     }
-    if (this.selectionShown && this.selection?.source === selected.text) {
+    const source = plainTextSelectionSource(
+      selected.text,
+      this.prefs.plainTextLineBreaks ?? 'none',
+    );
+    if (this.selectionShown && this.selection?.plainSource === source) {
       this.selection.rect = selected.rect;
       this.overlay.hideSelectionIcon();
       this.overlay.moveSelection(selected.rect);
