@@ -27,9 +27,104 @@ export function getTranslatorConstructor(): TranslatorConstructor | null {
   return scope.Translator ?? null;
 }
 
+const PREPARED_PAIRS = new WeakMap<TranslatorConstructor, Set<string>>();
+const PENDING_PACKS = new WeakMap<
+  TranslatorConstructor,
+  Map<string, Promise<TranslatorAvailability>>
+>();
+
+function preparedPairs(translator: TranslatorConstructor): Set<string> {
+  let pairs = PREPARED_PAIRS.get(translator);
+  if (!pairs) {
+    pairs = new Set();
+    PREPARED_PAIRS.set(translator, pairs);
+  }
+  return pairs;
+}
+
+function pendingPacks(
+  translator: TranslatorConstructor,
+): Map<string, Promise<TranslatorAvailability>> {
+  let pending = PENDING_PACKS.get(translator);
+  if (!pending) {
+    pending = new Map();
+    PENDING_PACKS.set(translator, pending);
+  }
+  return pending;
+}
+
+async function installPack(
+  translator: TranslatorConstructor,
+  pair: LanguagePair,
+  key: string,
+  options: { monitor?: (monitor: EventTarget) => void },
+): Promise<TranslatorAvailability> {
+  const prepared = preparedPairs(translator);
+
+  // A pair this module already installed is queried without creating another service. That
+  // repeated `Translator.create()` is what can exceed Chrome's translation-service limit.
+  if (prepared.has(key)) {
+    const current = await translator.availability(pair).catch(() => 'unavailable' as const);
+    if (current === 'available' || current === 'unavailable') return current;
+  }
+
+  // create() has to be invoked in this turn. Awaiting availability() first drops the click
+  // gesture Chrome requires when the language pack still needs to be downloaded. The
+  // surrounding try also turns a synchronous service-limit throw into a handled result.
+  let createTask: Promise<boolean>;
+  try {
+    createTask = Promise.resolve(
+      translator.create({
+        ...pair,
+        ...(options.monitor ? { monitor: options.monitor } : {}),
+      }),
+    )
+      .then((instance) => {
+        instance.destroy?.();
+        prepared.add(key);
+        return true;
+      })
+      .catch(() => false);
+  } catch {
+    createTask = Promise.resolve(false);
+  }
+
+  let current: TranslatorAvailability;
+  try {
+    current = await translator.availability(pair);
+  } catch {
+    await createTask;
+    prepared.delete(key);
+    return 'unavailable';
+  }
+
+  if (current === 'available') {
+    await createTask;
+    return current;
+  }
+
+  if (current === 'unavailable') {
+    await createTask;
+    prepared.delete(key);
+    return current;
+  }
+
+  const created = await createTask;
+  if (!created) {
+    prepared.delete(key);
+    return 'unavailable';
+  }
+  return translator.availability(pair).catch(() => 'available' as const);
+}
+
 /**
  * Installs the built-in translator language pack for a pair. Chrome requires a user gesture
  * for `create`, so this must run from a click handler in an extension page.
+ *
+ * Calls for the same pair share one operation and a successfully installed pair is not
+ * created again. Onboarding can be clicked more than once; without this, each click would
+ * add another Chrome translation service and eventually report "The translation service
+ * count exceeded the limitation."
  */
 export async function prepareTranslatorPack(
   src: string,
@@ -49,32 +144,16 @@ export async function prepareTranslatorPack(
   };
   if (pair.sourceLanguage === pair.targetLanguage) return 'available';
 
-  // create() has to be invoked in this turn. Awaiting availability() first drops the click
-  // gesture Chrome requires when the language pack still needs to be downloaded.
-  const createTask = translator
-    .create({
-      ...pair,
-      ...(options.monitor ? { monitor: options.monitor } : {}),
-    })
-    .then((instance) => {
-      instance.destroy?.();
-      return true;
-    })
-    .catch(() => false);
+  const key = `${pair.sourceLanguage}\u0000${pair.targetLanguage}`;
+  const pending = pendingPacks(translator);
+  const existing = pending.get(key);
+  if (existing) return existing;
 
-  let current: TranslatorAvailability;
+  const task = installPack(translator, pair, key, options);
+  pending.set(key, task);
   try {
-    current = await translator.availability(pair);
-  } catch {
-    return 'unavailable';
+    return await task;
+  } finally {
+    if (pending.get(key) === task) pending.delete(key);
   }
-
-  if (current === 'available' || current === 'unavailable') {
-    await createTask;
-    return current;
-  }
-
-  const created = await createTask;
-  if (!created) return 'unavailable';
-  return translator.availability(pair).catch(() => 'available' as const);
 }

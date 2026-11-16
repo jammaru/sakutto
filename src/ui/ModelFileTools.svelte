@@ -34,6 +34,9 @@
     onImported?: (modelId: ModelId) => Promise<void> | void;
   }
 
+  /** The export notice describes a download that has already started; do not leave it up. */
+  const EXPORT_NOTICE_MS = 5000;
+
   let { onImported }: Props = $props();
 
   const models: readonly ModelId[] = SELECTABLE_MODEL_IDS;
@@ -47,6 +50,7 @@
   let error = $state<string | null>(null);
   let done = $state(false);
   let exported = $state(false);
+  let exportTimer: ReturnType<typeof setTimeout> | null = null;
   let controller: AbortController | null = null;
 
   let selectedFile = $derived(getModel(modelId).file);
@@ -56,6 +60,23 @@
     return id === HIGH_QUALITY_MODEL_ID ? t('modelHigh') : t('modelStandard');
   }
 
+  function clearExportNotice(): void {
+    if (exportTimer !== null) {
+      clearTimeout(exportTimer);
+      exportTimer = null;
+    }
+    exported = false;
+  }
+
+  function showExportNotice(): void {
+    clearExportNotice();
+    exported = true;
+    exportTimer = setTimeout(() => {
+      exportTimer = null;
+      exported = false;
+    }, EXPORT_NOTICE_MS);
+  }
+
   function chooseFile() {
     error = null;
     done = false;
@@ -63,6 +84,9 @@
   }
 
   async function importFile(file: File) {
+    // A previous export notice is stale as soon as another import starts, including the
+    // early wrong-file return below (the Firefox settings screen otherwise kept it).
+    clearExportNotice();
     const entry = getModel(modelId);
     if (!file.name.toLowerCase().endsWith('.gguf')) {
       error = t('modelImportWrongFile', [entry.file]);
@@ -71,7 +95,6 @@
 
     importing = true;
     done = false;
-    exported = false;
     error = null;
     phase = 'copy';
     received = 0;
@@ -138,13 +161,14 @@
 
   async function exportFile() {
     exporting = true;
-    exported = false;
+    clearExportNotice();
     error = null;
     try {
       const store = await storeForExport();
       await exportModelFile({ modelId, store });
-      exported = true;
+      showExportNotice();
     } catch (exportError) {
+      clearExportNotice();
       if (isFolderPermissionError(exportError)) {
         error = t('modelFolderPermissionNeeded');
       } else if (isEngineError(exportError) && exportError.code === 'model-missing') {

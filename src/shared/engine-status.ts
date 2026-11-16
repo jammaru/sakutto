@@ -1,6 +1,7 @@
 import { isModelId, type ModelId } from '../engine/model/catalog';
 import type { BackendKind, ComputeTier } from '../engine/in-browser/backend';
 import type { EngineKind } from '../engine/types';
+import { FOLDER_PERMISSION_ERROR } from '../engine/model/folder-permission';
 import {
   isSharedFolderStatus,
   sharedFolderNeedsPermission,
@@ -113,6 +114,25 @@ export function shouldShowModelDownloadGate(
 ): boolean {
   if (sharedFolderNeedsPermission(status?.sharedFolder)) return false;
   return translationStartBlocked(status);
+}
+
+interface ModelDownloadStatus {
+  model: Pick<ModelStatus, 'state' | 'error'>;
+  engineSource?: EngineSource | undefined;
+  sharedFolder?: SharedFolderStatus | undefined;
+}
+
+/**
+ * The model file is genuinely absent, so the popup should offer a concrete way to get it
+ * (download, import, or choose a folder) rather than a generic "waiting" label. A pending
+ * download, a load, or a folder that only needs permission is not this state.
+ */
+export function modelNeedsDownload(status: ModelDownloadStatus | null | undefined): boolean {
+  if (!status || status.engineSource === 'local-server') return false;
+  if (sharedFolderNeedsPermission(status.sharedFolder)) return false;
+  if (status.model.error === FOLDER_PERMISSION_ERROR) return false;
+  const state = status.model.state;
+  return state === 'absent' || state === 'partial';
 }
 
 export function isEngineStatus(value: unknown): value is EngineStatus {

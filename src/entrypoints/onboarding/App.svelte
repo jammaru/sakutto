@@ -11,6 +11,7 @@
   import { isModelIntegrityError } from '@/engine/model/manager';
   import {
     clearStoredSharedFolder,
+    ensureStoredFolderPermission,
     persistSharedFolderHandle,
     preparePickedSharedFolder,
     sharedFolderPickerAvailable,
@@ -243,6 +244,18 @@
     let pendingFolder: { handle: FileSystemDirectoryHandle; name: string } | null = null;
     const keepExistingFolder =
       pickerAvailable && storeChoice === 'folder' && engineFolder.configured && !retryPick;
+    let existingFolderGranted = true;
+
+    if (keepExistingFolder) {
+      // The start click can renew a grant whose tab/tab lifetime ended. Query first, so an
+      // already active folder does not open a prompt or reload the engine.
+      const access = await ensureStoredFolderPermission().catch(() => null);
+      existingFolderGranted = access?.status === 'granted';
+      if (existingFolderGranted && access?.changed) {
+        const next = await requestModelFolderReload();
+        if (next) engineFolder = next;
+      }
+    }
 
     if (pickerAvailable && storeChoice === 'folder' && !keepExistingFolder) {
       const prepared = await preparePickedSharedFolder();
@@ -287,6 +300,14 @@
     } catch {
       phase = 'error';
       startRequested = false;
+      return;
+    }
+
+    if (keepExistingFolder && !existingFolderGranted) {
+      const next = await requestEngineStatus().catch(() => null);
+      if (next?.sharedFolder) engineFolder = next.sharedFolder;
+      startRequested = false;
+      phase = 'consent';
       return;
     }
 

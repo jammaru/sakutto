@@ -18,10 +18,12 @@
     SHARED_MODELS_DIRECTORY,
     adoptPickedSharedFolder,
     clearStoredSharedFolder,
+    ensureStoredFolderPermission,
     sharedFolderPickerAvailable,
   } from '@/engine/model/shared-folder';
   import FolderPermissionRestore from '@/ui/FolderPermissionRestore.svelte';
   import { hasLicenseConsent } from '@/shared/agreement';
+  import { openOrFocusExtensionTab } from '@/shared/extension-tabs';
   import { t } from '@/shared/i18n';
   import { loadSettings } from '@/shared/storage';
   import { formatByteSizeList } from '@/ui/format';
@@ -66,11 +68,13 @@
     pickHint = null;
     busy = true;
     try {
+      // The click is the gesture: renew a dormant grant before the picker opens, and do not
+      // make the reader press "Allow folder access" first.
+      const access = await ensureStoredFolderPermission().catch(() => null);
+      if (access?.status === 'granted' && access.changed) await reloadHost();
       const settings = await loadSettings().catch(() => null);
       if (!hasLicenseConsent(settings)) {
-        await browser.tabs
-          .create({ url: browser.runtime.getURL('/onboarding.html') })
-          .catch(() => undefined);
+        void openOrFocusExtensionTab('/onboarding.html');
         return;
       }
       const picked = await adoptPickedSharedFolder();

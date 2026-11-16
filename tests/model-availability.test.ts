@@ -4,6 +4,7 @@ import { folderRecordsModel, sharedFolderNeedsPermission } from '@/engine/model/
 import type { ModelStatus } from '@/shared/engine-status';
 import {
   modelCanTranslate,
+  modelNeedsDownload,
   modelStartBlocked,
   shouldShowModelDownloadGate,
   translationStartBlocked,
@@ -95,6 +96,51 @@ describe('model availability', () => {
     expect(sharedFolderNeedsPermission({ configured: true, permission: 'granted' })).toBe(false);
     expect(sharedFolderNeedsPermission({ configured: false, permission: 'unknown' })).toBe(false);
     expect(sharedFolderNeedsPermission(undefined)).toBe(false);
+  });
+
+  it('offers recovery only when no downloaded file can answer', () => {
+    const base = {
+      id: DEFAULT_MODEL_ID,
+      received: 0,
+      total: 1,
+      progress: 0,
+    };
+    for (const state of ['absent', 'partial'] as const) {
+      expect(modelNeedsDownload({ model: { ...base, state } }), state).toBe(true);
+    }
+    for (const state of [
+      'downloading',
+      'verifying',
+      'ready',
+      'loading',
+      'loaded',
+      'error',
+    ] as const) {
+      expect(modelNeedsDownload({ model: { ...base, state } }), state).toBe(false);
+    }
+    expect(
+      modelNeedsDownload({
+        model: { ...base, state: 'error', error: 'model-folder-permission' },
+      }),
+    ).toBe(false);
+    expect(
+      modelNeedsDownload({
+        engineSource: 'local-server',
+        model: { ...base, state: 'absent' },
+      }),
+    ).toBe(false);
+    expect(
+      modelNeedsDownload({
+        model: { ...base, state: 'absent' },
+        sharedFolder: {
+          supported: true,
+          configured: true,
+          permission: 'prompt',
+          opfsCopies: [],
+          integrityIssues: [],
+        },
+      }),
+    ).toBe(false);
   });
 
   it('hides the download gate when the shared folder only needs permission', () => {

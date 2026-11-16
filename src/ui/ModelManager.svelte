@@ -10,8 +10,10 @@
   import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
   import { sharedFolderNeedsPermission } from '@/engine/model/folder-status';
   import { isModelIntegrityError } from '@/engine/model/manager';
+  import { ensureStoredFolderPermission } from '@/engine/model/shared-folder';
   import { modelCanTranslate, type ModelStatus } from '@/shared/engine-status';
   import { hasLicenseConsent } from '@/shared/agreement';
+  import { openOrFocusExtensionTab } from '@/shared/extension-tabs';
   import { t } from '@/shared/i18n';
   import {
     isModelProgressMessage,
@@ -19,6 +21,7 @@
     requestModelCancel,
     requestModelDelete,
     requestModelDownload,
+    requestModelFolderReload,
     requestModelInspect,
     requestModelUse,
   } from '@/shared/messages';
@@ -97,21 +100,28 @@
     statuses = next;
   }
 
+  async function ensureFolderPermissionForAction(): Promise<void> {
+    const access = await ensureStoredFolderPermission().catch(() => null);
+    if (access?.status !== 'granted' || !access.changed) return;
+    await requestModelFolderReload();
+    await refresh();
+  }
+
   async function download(id: ModelId) {
     const stored = await loadSettings().catch(() => null);
     if (!hasLicenseConsent(stored)) {
-      await browser.tabs
-        .create({ url: browser.runtime.getURL('/onboarding.html') })
-        .catch(() => undefined);
+      void openOrFocusExtensionTab('/onboarding.html');
       return;
     }
     busy = id;
+    await ensureFolderPermissionForAction();
     await requestModelDownload(id);
     busy = null;
   }
 
   async function use(id: ModelId) {
     busy = id;
+    await ensureFolderPermissionForAction();
     const status = await requestModelUse(id);
     if (status) apply(status);
     activeId = id;

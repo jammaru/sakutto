@@ -29,7 +29,7 @@ test.describe('built extension', () => {
           await expect(radios.nth(0)).toHaveAccessibleName('Save in this browser (recommended)');
           await expect(radios.nth(0)).toBeChecked();
           await expect(radios.nth(1)).toHaveAccessibleName(
-            'Use a shared model folder (Chrome and Edge)',
+            'Use a shared model folder (Chromium browsers)',
           );
           await expect(radios.nth(1)).not.toBeChecked();
           await expect(page.locator('[data-store-recommended]')).toContainText(
@@ -37,12 +37,12 @@ test.describe('built extension', () => {
           );
           await expect(
             page.getByText(
-              'For people who use both Chrome and Edge: one copy of the model is shared between them.',
+              'For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them.',
             ),
           ).toBeVisible();
           await expect(
             page.getByText(
-              'The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto.',
+              'The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to.',
             ),
           ).toBeVisible();
           await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
@@ -148,25 +148,29 @@ test.describe('built extension', () => {
           await expect(radios.nth(0)).toHaveAccessibleName('このブラウザ内に保存する（おすすめ）');
           await expect(radios.nth(0)).toBeChecked();
           await expect(radios.nth(1)).toHaveAccessibleName(
-            '共有モデルフォルダを使う（ChromeとEdgeで共用）',
+            '共有モデルフォルダを使う（Chromiumブラウザ）',
           );
           await expect(radios.nth(1)).not.toBeChecked();
           await expect(page.locator('[data-store-recommended]')).toContainText(
             'このブラウザ内に保存する（おすすめ）',
           );
           await expect(
-            page.getByText('ChromeとEdgeの両方で使う人向けです。モデルは1つで済みます。'),
+            page.getByText(
+              'Chrome や Edge など複数の Chromium ブラウザで使う人向けです。モデルは1つで済みます。',
+            ),
           ).toBeVisible();
           await expect(
             page.getByText(
-              'フォルダ選択はドキュメントで開きます。「Sakutto」を新規作成するか、すでにあれば開いて、ドキュメント\\Sakutto を選んでください。',
+              'フォルダ選択はドキュメントで開きます。「Sakutto」というフォルダを作成するか選んでください（例：ドキュメント/Sakutto）。書き込みできる別のフォルダでもかまいません。',
             ),
           ).toBeVisible();
           await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
           await expect(page.getByText('Edgeなら「常に許可」')).toBeVisible();
           await expect(page.getByText('共有フォルダを使うと：')).toBeVisible();
           await expect(
-            page.getByText('他のプロフィールやEdgeでもダウンロードなしですぐ使える'),
+            page.getByText(
+              '他のプロフィールや別の Chromium ブラウザでもダウンロードなしですぐ使える',
+            ),
           ).toBeVisible();
           await expect(
             page.getByText('モデルは1つだけなので容量を節約（573 MB / 1.81 GB）'),

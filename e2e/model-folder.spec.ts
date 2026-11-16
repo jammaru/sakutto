@@ -6,10 +6,10 @@ import { launchExtension, loadExtension, type LoadedExtension } from './extensio
 import { DEFAULT_MODEL_ID, getModel } from '../src/engine/model/catalog';
 
 const PICKER_HINT =
-  'The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto.';
-const FOLDER_RADIO = 'Use a shared model folder (Chrome and Edge)';
+  'The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to.';
+const FOLDER_RADIO = 'Use a shared model folder (Chromium browsers)';
 const BROWSER_RADIO = 'Save in this browser (recommended)';
-const FOLDER_HEADING = 'Share the model between Chrome and Edge';
+const FOLDER_HEADING = 'Share the model folder across Chromium browsers';
 const MOVE_LEAD = 'Moving to a shared folder means:';
 const ALLOW_FOLDER_ACCESS = 'Allow folder access';
 

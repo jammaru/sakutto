@@ -3,7 +3,7 @@
 Opt-in storage for official PFN GGUF files on Chromium, via
 `showDirectoryPicker`. Chromium first-run (Chrome and Edge alike) recommends
 browser storage (OPFS). The shared folder is an opt-in for people who use
-both Chrome and Edge, so one GGUF copy is shared between them. A profile that
+more than one Chromium browser, so one GGUF copy is shared between them. A profile that
 already uses a folder keeps it; there is no forced migration. Firefox and
 pages without a picker keep OPFS and show no folder choice; Firefox users can
 import the official `.gguf` file once from Settings or onboarding instead.
@@ -15,19 +15,19 @@ below are the reason Documents itself is not an advertised choice.
 ## What the user selects
 
 The picker opens in Documents (`startIn: 'documents'`, id `sakutto-models`).
-Copy on onboarding and Settings tells the user to create a folder named
-`Sakutto` there (or open it if it already exists) and select
-`Documents\Sakutto`. Selecting Documents itself cannot work in real Chrome.
+Copy on onboarding and Settings tells the user to create or choose a folder
+named `Sakutto` there (for example `Documents/Sakutto`), or any folder they
+can write to. Selecting Documents itself cannot work in real Chrome.
 On Chromium onboarding, save in this browser is first, labelled recommended,
-and preselected. The shared-folder option is second, described as for Chrome
-and Edge together; the picker steps and the persistence hint sit under it.
-The popup never asks an OPFS user to move. After first-run browser storage,
-the folder stays a quiet Settings option (“Share the model between Chrome
-and Edge” / 「ChromeとEdgeでモデルを共有する」). Grant from the Settings
-tab and pick “Allow on every visit” when the browser offers it (Japanese
-Chrome: 「サイトアクセス時は常に許可」; Japanese Edge: 「常に許可」). A
-one-click re-grant may sometimes be needed, and the OPFS copy stays as a
-fallback until you delete it. Cancel or Chrome's block dialog stays on the screen with the same
+and preselected. The shared-folder option is second, described for Chromium
+browsers such as Chrome and Edge; the picker steps and the persistence hint
+sit under it. The popup never asks an OPFS user to move. After first-run
+browser storage, the folder stays a quiet Settings option (“Share the model
+folder across Chromium browsers” / 「Chromiumブラウザ間でモデルフォルダを共有する」).
+Grant from the Settings tab and pick “Allow on every visit” when the browser
+offers it (Japanese Chrome: 「サイトアクセス時は常に許可」; Japanese Edge:
+「常に許可」). The prompt may not appear. A one-click re-grant may sometimes
+be needed, and the OPFS copy stays as a fallback until you delete it. Cancel or Chrome's block dialog stays on the screen with the same
 one-line hint and does not download.
 
 A Settings pick runs `showDirectoryPicker` and
@@ -51,8 +51,9 @@ Layout after a successful pick:
 `<chosen>/sakutto-models/<official GGUF>`
 
 The usual chosen folder is `Documents/Sakutto`. The Settings copy names this
-path. Integrity sidecars are `<official name>.verified.json`. In-flight
-imports and downloads use `.part`.
+path as an example rather than a Windows-only requirement. Integrity sidecars
+are `<official name>.verified.json`. In-flight imports and downloads use
+`.part`.
 
 ## One-time file import (Firefox and optional Chromium)
 

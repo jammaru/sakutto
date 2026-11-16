@@ -8,6 +8,7 @@
   import { notifySharedFolderChanged } from '@/engine/model/folder-offer';
   import {
     probeStoredFolderReadable,
+    queryStoredFolderPermission,
     restoreStoredFolderPermission,
   } from '@/engine/model/shared-folder';
   import { t } from '@/shared/i18n';
@@ -27,7 +28,9 @@
   let granting = $state(false);
   let grantError = $state(false);
   let probed = $state(false);
-  let visible = $derived(sharedFolderNeedsPermission(folder));
+  /** A query already says granted, even if the engine snapshot has not refreshed yet. */
+  let silentGranted = $state(false);
+  let visible = $derived(sharedFolderNeedsPermission(folder) && !silentGranted);
   let presentHint = $derived(folderRecordsModel(folder, modelId));
 
   async function afterGrant(): Promise<void> {
@@ -46,6 +49,7 @@
         grantError = true;
         return;
       }
+      silentGranted = true;
       await afterGrant();
     } catch {
       grantError = true;
@@ -55,16 +59,22 @@
   }
 
   $effect(() => {
-    if (!visible) {
+    if (!sharedFolderNeedsPermission(folder)) {
       probed = false;
+      silentGranted = false;
       return;
     }
     if (probed) return;
     probed = true;
-    void probeStoredFolderReadable().then(async (readable) => {
-      if (!readable) return;
-      await afterGrant();
-    });
+    // A query can already say granted while the engine snapshot is one refresh behind. Only
+    // hide the button once the handle also reads, so a revoked grant keeps its one click.
+    void queryStoredFolderPermission()
+      .then(async (permission) => {
+        if (permission !== 'granted' && !(await probeStoredFolderReadable())) return;
+        silentGranted = true;
+        await afterGrant();
+      })
+      .catch(() => undefined);
   });
 </script>
 

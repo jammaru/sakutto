@@ -253,10 +253,10 @@
     "message": "このブラウザ内に保存する（おすすめ）"
   },
   "onboardingStoreFolder": {
-    "message": "共有モデルフォルダを使う（ChromeとEdgeで共用）"
+    "message": "共有モデルフォルダを使う（Chromiumブラウザ）"
   },
   "onboardingStoreFolderHelp": {
-    "message": "ChromeとEdgeの両方で使う人向けです。モデルは1つで済みます。"
+    "message": "Chrome や Edge など複数の Chromium ブラウザで使う人向けです。モデルは1つで済みます。"
   },
   "onboardingStartFailed": {
     "message": "準備を開始できませんでした。もう一度お試しください。"
@@ -691,13 +691,13 @@
     "message": "翻訳モデルがありません。ダウンロードすると翻訳できます。"
   },
   "modelFolderHeading": {
-    "message": "ChromeとEdgeでモデルを共有する"
+    "message": "Chromiumブラウザ間でモデルフォルダを共有する"
   },
   "modelFolderHelp": {
     "message": "既定はこれまでどおり、このブラウザ内への保存です。"
   },
   "modelFolderPickerHint": {
-    "message": "フォルダ選択はドキュメントで開きます。「Sakutto」を新規作成するか、すでにあれば開いて、ドキュメント\\Sakutto を選んでください。"
+    "message": "フォルダ選択はドキュメントで開きます。「Sakutto」というフォルダを作成するか選んでください（例：ドキュメント/Sakutto）。書き込みできる別のフォルダでもかまいません。"
   },
   "modelFolderChoose": {
     "message": "モデルフォルダを選ぶ"
@@ -729,7 +729,7 @@
     "message": "Sakuttoのポップアップか設定を開いて、「フォルダへのアクセスを許可」を押してください。"
   },
   "modelFolderPersistentHint": {
-    "message": "設定タブで許可してください（ポップアップではなく）。Chromeなら「サイトアクセス時は常に許可」、Edgeなら「常に許可」を選んでください。再起動のあとも使えます。出ないこともあります。あとでワンクリックの再許可が必要なこともあります。"
+    "message": "設定タブで選んだフォルダは、再起動後もアクセスが続くことがあります。ブラウザに「サイトアクセス時は常に許可」（Chrome）や「常に許可」（Edge）が表示された場合は、選ぶと許可が続きやすくなります。プロンプトが出ないこともあります。あとでワンクリックの再許可が必要な場合もあります。"
   },
   "modelFolderPickFailed": {
     "message": "フォルダを選べませんでした。"
@@ -757,7 +757,7 @@
     "message": "共有フォルダを使うと："
   },
   "modelFolderBenefitShare": {
-    "message": "他のプロフィールやEdgeでもダウンロードなしですぐ使える"
+    "message": "他のプロフィールや別の Chromium ブラウザでもダウンロードなしですぐ使える"
   },
   "modelFolderBenefitSpace": {
     "message": "モデルは1つだけなので容量を節約（$SIZE$）",

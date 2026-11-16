@@ -406,6 +406,71 @@ describe('local server settings', () => {
   });
 });
 
+describe('shared folder activation and recovery', () => {
+  const options = source('entrypoints/options/App.svelte');
+  const folderSettings = source('ui/ModelFolderSettings.svelte');
+  const restore = source('ui/FolderPermissionRestore.svelte');
+  const fileTools = source('ui/ModelFileTools.svelte');
+  const pageBridge = source('shared/page-bridge.ts');
+
+  it('silently re-grants from the click before it starts slow work', () => {
+    const translateStart = popup.indexOf('async function translatePage()');
+    const translateEnd = popup.indexOf('/**', translateStart + 1);
+    const translateBody = popup.slice(translateStart, translateEnd);
+    expect(translateBody.indexOf('ensureFolderPermissionForAction')).toBeGreaterThan(-1);
+    expect(translateBody.indexOf('ensureFolderPermissionForAction')).toBeLessThan(
+      translateBody.indexOf('ensureContentScript'),
+    );
+    expect(folderSettings).toContain('ensureStoredFolderPermission');
+    expect(onboarding).toContain('ensureStoredFolderPermission');
+    expect(source('ui/ModelManager.svelte')).toContain('ensureStoredFolderPermission');
+  });
+
+  it('queries before hiding the restore control when the grant is already active', () => {
+    expect(restore).toContain('queryStoredFolderPermission');
+    expect(restore).toContain('silentGranted');
+    expect(restore).toContain('sharedFolderNeedsPermission(folder) && !silentGranted');
+    expect(restore).toContain('probeStoredFolderReadable');
+  });
+
+  it('reuses one onboarding tab instead of adding one per settings click', () => {
+    expect(folderSettings).toContain('openOrFocusExtensionTab');
+    expect(folderSettings).not.toContain('browser.tabs.create');
+    expect(source('ui/ModelManager.svelte')).toContain('openOrFocusExtensionTab');
+    expect(options).toContain('openOrFocusExtensionTab');
+  });
+
+  it('offers download, import, and a folder choice after the shared folder is stopped', () => {
+    expect(popup).toContain('modelNeedsDownload');
+    expect(popup).toContain('sharedFolderSettingsHref');
+    expect(popup).toContain('popup-model-download');
+    expect(popup).toContain('popup-model-import');
+    expect(popup).toContain('popup-model-folder');
+    expect(popup).toContain("t('modelDownload')");
+    expect(popup).toContain("t('modelImportChoose')");
+    expect(popup).toContain("t('modelFolderChoose')");
+    expect(popup).toMatch(/!folderNeedsPermission && !modelNeedsInstall/);
+  });
+
+  it('clears the Firefox export notice before a failed import and after it starts', () => {
+    const importStart = fileTools.indexOf('async function importFile');
+    const importBody = fileTools.slice(
+      importStart,
+      fileTools.indexOf('async function onFileChosen'),
+    );
+    expect(importBody.indexOf('clearExportNotice')).toBeLessThan(
+      importBody.indexOf("endsWith('.gguf')"),
+    );
+    expect(fileTools).toContain('EXPORT_NOTICE_MS');
+    expect(fileTools).toContain('showExportNotice');
+  });
+
+  it('retries content injection for a tab that has just reloaded', () => {
+    expect(pageBridge).toContain('CONTENT_SCRIPT_RETRY_DELAYS_MS');
+    expect(pageBridge).toContain('injectContentScript');
+  });
+});
+
 describe('live bench local-server flags', () => {
   const cli = readFileSync(new URL('../scripts/bench/pages-run.ts', import.meta.url), 'utf8');
   const runner = readFileSync(new URL('../scripts/bench/pages-runner.ts', import.meta.url), 'utf8');

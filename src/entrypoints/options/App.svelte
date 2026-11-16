@@ -9,6 +9,7 @@
   import type { EngineCapabilities } from '@/shared/capabilities';
   import type { EngineStatus } from '@/shared/engine-status';
   import { hasBuiltInTranslatorUi, isFirefoxBuild } from '@/shared/browser';
+  import { openOrFocusExtensionTab } from '@/shared/extension-tabs';
   import { currentUiLanguage, t, tForBrowser } from '@/shared/i18n';
   import {
     requestCacheClear,
@@ -185,11 +186,7 @@
 
   async function openOnboarding() {
     actionFailed = false;
-    try {
-      await browser.tabs.create({ url: browser.runtime.getURL('/onboarding.html') });
-    } catch {
-      actionFailed = true;
-    }
+    if ((await openOrFocusExtensionTab('/onboarding.html')) === null) actionFailed = true;
   }
 
   async function openTyped() {

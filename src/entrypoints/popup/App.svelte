@@ -1,22 +1,31 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
-  import { HIGH_QUALITY_MODEL_ID, getModel } from '@/engine/model/catalog';
+  import { DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID, getModel } from '@/engine/model/catalog';
+  import { sharedFolderSettingsHref } from '@/engine/model/folder-offer';
   import { shouldSuggestHighQuality } from '@/engine/model/suggestion';
   import {
+    modelCanTranslate,
+    modelNeedsDownload,
     shouldShowModelDownloadGate,
     translationStartBlocked,
     type EngineStatus,
     type ModelStatus,
   } from '@/shared/engine-status';
   import { sharedFolderNeedsPermission } from '@/engine/model/folder-status';
+  import {
+    ensureStoredFolderPermission,
+    sharedFolderPickerAvailable,
+  } from '@/engine/model/shared-folder';
   import { hasLicenseConsent } from '@/shared/agreement';
+  import { openOrFocusExtensionTab } from '@/shared/extension-tabs';
   import { currentUiLanguage, t, tForBrowser, type MessageKey } from '@/shared/i18n';
   import {
     isModelProgressMessage,
     requestEngineStatus,
     requestEngineWarm,
     requestModelDownload,
+    requestModelFolderReload,
     requestPageCommand,
     requestPageState,
     requestQualitySample,
@@ -176,6 +185,7 @@
       mailAccessGranted === false,
   );
   let primaryLabel = $derived(translated ? t('restoreThisPage') : t('translateThisPage'));
+  let folderNeedsPermission = $derived(sharedFolderNeedsPermission(engine?.sharedFolder));
   /**
    * The toolbar button starts a page translation, so it waits for the model the same way
    * the onboarding card does. Restoring an already translated page is always allowed, and
@@ -186,9 +196,18 @@
   let canStart = $derived(
     translated ||
       (hasBuiltInTranslatorUi() && isChromeOnlyLanguage(targetLanguage)) ||
+      // A folder-only install can show the permission error before the reader clicks.
+      // Keep the button usable so that click can renew the grant instead of requiring a
+      // second click on the separate restore card.
+      folderNeedsPermission ||
       !translationStartBlocked(engine ?? (modelMark ? { model: modelMark } : null)),
   );
-  let folderNeedsPermission = $derived(sharedFolderNeedsPermission(engine?.sharedFolder));
+  let modelNeedsInstall = $derived(
+    modelNeedsDownload(engine ?? (modelMark ? { model: modelMark } : null)),
+  );
+  let canChooseFolder = $derived(
+    sharedFolderPickerAvailable() || engine?.sharedFolder?.supported === true,
+  );
   let showDownloadGate = $derived(
     !canStart && shouldShowModelDownloadGate(engine ?? (modelMark ? { model: modelMark } : null)),
   );
@@ -377,12 +396,45 @@
     }
   }
 
+  /**
+   * A popup click is a user gesture, so a dormant folder grant can be renewed here without
+   * sending the reader to Settings. A query that is already granted costs no prompt and no
+   * reload. This only runs for a page action that is about to read the folder.
+   */
+  async function ensureFolderPermissionForAction(): Promise<void> {
+    try {
+      const access = await ensureStoredFolderPermission();
+      if (access.status !== 'granted' || !access.changed) return;
+      if (engine?.sharedFolder) {
+        engine = {
+          ...engine,
+          sharedFolder: { ...engine.sharedFolder, permission: 'granted' },
+        };
+      }
+      // If a verified browser copy can already answer, do not unload it just to switch the
+      // host to the folder before translating. The next host start will use the folder.
+      if (
+        engine?.plamoReady ||
+        modelCanTranslate(engine?.model) ||
+        engine?.model.state === 'loading'
+      ) {
+        return;
+      }
+      await requestModelFolderReload();
+      await refreshEngine();
+    } catch {
+      // A failed probe must not block the action; the engine still reports the grant state.
+    }
+  }
+
   async function translatePage() {
     if (commandBusy || tabId === undefined || !host) return;
     commandBusy = true;
     try {
+      await ensureFolderPermissionForAction();
       if (!(await ensureContentScript(tabId))) {
         pageReady = false;
+        pageMessage = 'unread';
         return;
       }
       view = await requestPageCommand(tabId, view?.active ? 'restore' : 'toggle');
@@ -495,17 +547,36 @@
 
   async function useHighQuality() {
     if (!hasLicenseConsent(settings)) {
-      await browser.tabs
-        .create({ url: browser.runtime.getURL('/onboarding.html') })
-        .catch(() => undefined);
+      void openOrFocusExtensionTab('/onboarding.html');
       return;
     }
     try {
+      await ensureFolderPermissionForAction();
       settings = await saveSettings({ highQualityDismissed: true });
       await requestModelDownload(HIGH_QUALITY_MODEL_ID);
     } catch {
       settingsError = 'save';
     }
+  }
+
+  /** Explicit recovery after the shared folder was stopped: no "waiting" without a download. */
+  async function downloadMissingModel() {
+    const stored = settings ?? (await loadSettings().catch(() => null));
+    if (!hasLicenseConsent(stored)) {
+      void openOrFocusExtensionTab('/onboarding.html');
+      return;
+    }
+    await ensureFolderPermissionForAction();
+    await requestModelDownload(DEFAULT_MODEL_ID);
+    await refreshEngine();
+  }
+
+  function openModelTools() {
+    void openOrFocusExtensionTab(sharedFolderSettingsHref((path) => browser.runtime.getURL(path)));
+  }
+
+  function openModelFolderSettings() {
+    void openOrFocusExtensionTab(sharedFolderSettingsHref((path) => browser.runtime.getURL(path)));
   }
 
   async function dismissHighQuality() {
@@ -525,9 +596,7 @@
   }
 
   function openOnboarding() {
-    void browser.tabs
-      .create({ url: browser.runtime.getURL('/onboarding.html') })
-      .catch(() => undefined);
+    void openOrFocusExtensionTab('/onboarding.html');
   }
 
   function openTyped() {
@@ -644,14 +713,46 @@
 
   {#if showDownloadGate && pdfUrl.length === 0}
     <div class="panel gate" role="status">
-      <p class="muted">{t('pageStartBlocked')}</p>
-      <button class="link-button" type="button" onclick={openOnboarding}>
-        {t('openOnboarding')}
-      </button>
+      {#if modelNeedsInstall}
+        <p class="muted">{t('modelSelectionMissing')}</p>
+        <div class="gate-actions">
+          <button
+            class="button"
+            type="button"
+            data-sakutto="popup-model-download"
+            onclick={() => void downloadMissingModel()}
+          >
+            {t('modelDownload')}
+          </button>
+          <button
+            class="button secondary"
+            type="button"
+            data-sakutto="popup-model-import"
+            onclick={openModelTools}
+          >
+            {t('modelImportChoose')}
+          </button>
+          {#if canChooseFolder}
+            <button
+              class="button secondary"
+              type="button"
+              data-sakutto="popup-model-folder"
+              onclick={openModelFolderSettings}
+            >
+              {t('modelFolderChoose')}
+            </button>
+          {/if}
+        </div>
+      {:else}
+        <p class="muted">{t('pageStartBlocked')}</p>
+        <button class="link-button" type="button" onclick={openOnboarding}>
+          {t('openOnboarding')}
+        </button>
+      {/if}
     </div>
   {/if}
 
-  {#if !folderNeedsPermission}
+  {#if !folderNeedsPermission && !modelNeedsInstall}
     <p class="engine" aria-live="polite">{engineText}</p>
   {/if}
   {#if engine?.modelFallback}
@@ -927,6 +1028,12 @@
 
   .gate .link-button {
     font-size: 12px;
+  }
+
+  .gate-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
   }
 
   .offer-actions {

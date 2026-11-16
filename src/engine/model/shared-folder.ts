@@ -320,6 +320,57 @@ export async function restoreStoredFolderPermission(
   return request(stored.handle);
 }
 
+/** Query a stored handle without prompting. `null` means no shared folder is linked. */
+export async function queryStoredFolderPermission(
+  mode: 'read' | 'readwrite' = 'readwrite',
+  load: () => Promise<StoredSharedFolder | null> = loadStoredSharedFolder,
+): Promise<FolderPermission | null> {
+  const stored = await load();
+  if (!stored) return null;
+  return queryFolderPermission(stored.handle, mode);
+}
+
+export interface StoredFolderPermissionResult {
+  status: 'none' | FolderPermission;
+  handle?: FileSystemDirectoryHandle;
+  /** True only when a prompt became a grant in this call. */
+  changed: boolean;
+}
+
+/**
+ * Silent grant for a click-driven surface. `queryPermission` runs first, so an already
+ * active grant costs one query and no UI. Only a `prompt` is asked again; `denied` is left
+ * alone because Chrome will not turn it into a prompt from here. Callers run this inside
+ * the click that is about to read the folder, before starting the slow work.
+ */
+export async function ensureStoredFolderPermission(
+  mode: 'read' | 'readwrite' = 'readwrite',
+  hooks: {
+    load?: () => Promise<StoredSharedFolder | null>;
+    queryPermission?: (
+      handle: FileSystemDirectoryHandle,
+      mode: 'read' | 'readwrite',
+    ) => Promise<FolderPermission>;
+    requestPermission?: (
+      handle: FileSystemDirectoryHandle,
+      mode: 'read' | 'readwrite',
+    ) => Promise<FolderPermission>;
+  } = {},
+): Promise<StoredFolderPermissionResult> {
+  const stored = await (hooks.load ?? loadStoredSharedFolder)();
+  if (!stored) return { status: 'none', changed: false };
+
+  const query = hooks.queryPermission ?? queryFolderPermission;
+  const current = await query(stored.handle, mode);
+  if (current !== 'prompt') {
+    return { status: current, handle: stored.handle, changed: false };
+  }
+
+  const request = hooks.requestPermission ?? requestFolderPermission;
+  const next = await request(stored.handle, mode);
+  return { status: next, handle: stored.handle, changed: next === 'granted' };
+}
+
 export function isStoredSharedFolder(value: unknown): value is StoredSharedFolder {
   if (!isRecord(value)) return false;
   if (typeof value.name !== 'string' || value.name.length === 0) return false;

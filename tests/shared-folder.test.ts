@@ -9,6 +9,7 @@ import {
   isStoredSharedFolder,
   adoptPickedSharedFolder,
   preparePickedSharedFolder,
+  ensureStoredFolderPermission,
   isDocumentsFolderName,
   isRecommendedSharedFolderName,
   openSharedModelsDirectory,
@@ -16,6 +17,7 @@ import {
   pickSharedModelFolder,
   probeStoredFolderReadable,
   queryFolderPermission,
+  queryStoredFolderPermission,
   rememberSharedFolderPresentModels,
   requestFolderPermission,
   restoreStoredFolderPermission,
@@ -160,6 +162,49 @@ describe('folder permission', () => {
     const stored = await bucket.get();
     expect(stored?.presentModels).toEqual([DEFAULT_MODEL_ID]);
     expect(isStoredSharedFolder(stored)).toBe(true);
+  });
+});
+
+describe('activation re-grant', () => {
+  const handle = fakeHandle({});
+  const stored = { handle, name: handle.name, savedAt: 1 };
+
+  it('queries a stored handle without requesting when it is already granted', async () => {
+    const requestPermission = vi.fn(async () => 'granted' as const);
+    const result = await ensureStoredFolderPermission('readwrite', {
+      load: async () => stored,
+      queryPermission: async () => 'granted',
+      requestPermission,
+    });
+    expect(result).toEqual({ status: 'granted', handle, changed: false });
+    expect(requestPermission).not.toHaveBeenCalled();
+    expect(await queryStoredFolderPermission('read', async () => stored)).toBe('granted');
+  });
+
+  it('silently turns a prompt into a grant on a click-driven surface', async () => {
+    const requestPermission = vi.fn(async () => 'granted' as const);
+    const result = await ensureStoredFolderPermission('readwrite', {
+      load: async () => stored,
+      queryPermission: async () => 'prompt',
+      requestPermission,
+    });
+    expect(result).toEqual({ status: 'granted', handle, changed: true });
+    expect(requestPermission).toHaveBeenCalledOnce();
+    expect(requestPermission).toHaveBeenCalledWith(handle, 'readwrite');
+  });
+
+  it('does not ask again after a denial, and does nothing without a stored folder', async () => {
+    const requestPermission = vi.fn(async () => 'granted' as const);
+    expect(
+      await ensureStoredFolderPermission('readwrite', {
+        load: async () => stored,
+        queryPermission: async () => 'denied',
+        requestPermission,
+      }),
+    ).toEqual({ status: 'denied', handle, changed: false });
+    expect(requestPermission).not.toHaveBeenCalled();
+    expect(await ensureStoredFolderPermission()).toEqual({ status: 'none', changed: false });
+    expect(await queryStoredFolderPermission()).toBeNull();
   });
 });
 

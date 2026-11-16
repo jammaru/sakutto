@@ -253,10 +253,10 @@
     "message": "保存在此浏览器中（推荐）"
   },
   "onboardingStoreFolder": {
-    "message": "使用共享模型文件夹（Chrome 和 Edge）"
+    "message": "Use a shared model folder (Chromium browsers)"
   },
   "onboardingStoreFolderHelp": {
-    "message": "For people who use both Chrome and Edge: one copy of the model is shared between them."
+    "message": "For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them."
   },
   "onboardingStartFailed": {
     "message": "无法启动设置。请重试。"
@@ -691,13 +691,13 @@
     "message": "尚未安装翻译模型。请先下载才能翻译。"
   },
   "modelFolderHeading": {
-    "message": "Share the model between Chrome and Edge"
+    "message": "Share the model folder across Chromium browsers"
   },
   "modelFolderHelp": {
     "message": "The default is still storage inside this browser."
   },
   "modelFolderPickerHint": {
-    "message": "The folder picker opens in Documents. Create a folder named “Sakutto” there, or open it if it already exists, then select Documents\\Sakutto."
+    "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"
@@ -729,7 +729,7 @@
     "message": "Open the Sakutto popup or Settings and tap Allow folder access."
   },
   "modelFolderPersistentHint": {
-    "message": "Grant access from the Settings tab, not the popup. If the browser offers “Allow on every visit”, pick that. Japanese Chrome labels it 「サイトアクセス時は常に許可」; Japanese Edge labels it 「常に許可」. A one-click re-grant may sometimes be needed."
+    "message": "A folder chosen from the Settings tab can keep access after a restart. If the browser offers “Allow on every visit”, choosing it may help; the prompt may not appear (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「常に許可」). A one-click re-grant may still be needed."
   },
   "modelFolderPickFailed": {
     "message": "The folder could not be selected."
@@ -757,7 +757,7 @@
     "message": "A shared folder means:"
   },
   "modelFolderBenefitShare": {
-    "message": "Other profiles and Edge can use it right away, with no extra download."
+    "message": "Other profiles and other Chromium browsers can use it right away, with no extra download."
   },
   "modelFolderBenefitSpace": {
     "message": "One copy on disk, so you save space ($SIZE$).",

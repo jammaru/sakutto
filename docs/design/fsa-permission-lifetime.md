@@ -188,9 +188,12 @@ need to click again. Persistence is detected at runtime
 throws `NotAllowedError` / `SecurityError`, the engine stops with
 `model-folder-permission` (not `model-missing`). Popup and Settings show
 「フォルダへのアクセスを許可」. The in-page / sample overlay points at that
-button. One click runs `requestPermission` in that document, reloads the
-folder session, warms the engine, and retries empty page blocks. No
-notifications, badges, or tabs opened by themselves.
+button. A click on the popup's Translate button or another folder-reading action
+also queries first and silently calls `requestPermission` before doing the slow
+work, so a dormant grant does not require a second click on the restore card.
+The restore card remains for pages without user activation and for a denied
+request. Granting reloads the folder session, warms the engine, and retries
+empty page blocks. No notifications, badges, or tabs opened by themselves.
 
 **D, cheap only.** While any extension page of this origin still holds an
 active grant, offscreen can read the same handle. The engine tries to open

@@ -75,6 +75,54 @@ describe('translator language packs', () => {
     await expect(pending).resolves.toBe('available');
   });
 
+  it('does not create the same installed pair again', async () => {
+    const packs = new Set<string>();
+    const { created } = installTranslator(packs);
+
+    await expect(prepareTranslatorPack('en', 'ja')).resolves.toBe('available');
+    await expect(prepareTranslatorPack('en', 'ja')).resolves.toBe('available');
+
+    expect(created).toHaveLength(1);
+  });
+
+  it('shares one create call between concurrent onboarding clicks', async () => {
+    const packs = new Set<string>();
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const create = vi.fn(async (options: PackOptions) => {
+      await gate;
+      packs.add(`${options.sourceLanguage}|${options.targetLanguage}`);
+      return { destroy: () => undefined };
+    });
+    vi.stubGlobal('Translator', {
+      availability: async (options: PackOptions) =>
+        packs.has(`${options.sourceLanguage}|${options.targetLanguage}`)
+          ? 'available'
+          : 'downloadable',
+      create,
+    });
+
+    const first = prepareTranslatorPack('en', 'ja');
+    const second = prepareTranslatorPack('en', 'ja');
+    release?.();
+
+    await expect(Promise.all([first, second])).resolves.toEqual(['available', 'available']);
+    expect(create).toHaveBeenCalledOnce();
+  });
+
+  it('handles a synchronous service-limit error without throwing out of onboarding', async () => {
+    vi.stubGlobal('Translator', {
+      availability: async () => 'downloadable',
+      create: () => {
+        throw new Error('The translation service count exceeded the limitation.');
+      },
+    });
+
+    await expect(prepareTranslatorPack('en', 'ja')).resolves.toBe('unavailable');
+  });
+
   it('reports unavailable without the built-in translator', async () => {
     vi.stubGlobal('Translator', undefined);
     await expect(prepareTranslatorPack('en', 'ja')).resolves.toBe('unavailable');

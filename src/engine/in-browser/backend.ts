@@ -30,7 +30,10 @@ export interface BackendProbe {
   fastBatches?: boolean;
   /**
    * SharedArrayBuffer / wasm threads. Firefox extension pages are never
-   * `crossOriginIsolated`, so this is false there and CPU is one thread.
+   * `crossOriginIsolated`, so this is false there and CPU is one thread. There is no safe
+   * extension-side switch that makes pthreads available without COOP/COEP, and forcing a
+   * larger `n_threads` there cannot start workers. Firefox's faster path is WebGPU (see
+   * `docs/FIREFOX.md`); this flag must not lower Chrome's measured thread count.
    */
   sharedMemory?: boolean;
 }
