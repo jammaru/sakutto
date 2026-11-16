@@ -1,4 +1,5 @@
 import { scriptTextVariants, type ScriptPosition } from '@/shared/scripts';
+import { splitForTranslation } from '@/engine/text/sentences';
 import {
   parsePlaceholders,
   stripPlaceholderTokens,
@@ -37,6 +38,7 @@ export function applyTranslation(model: SegmentModel, translation: string, creat
     discardCreated(created);
     writeFlat(model, stripPlaceholderTokens(translation), created);
   }
+  rebalanceLines(root);
 }
 
 export function restoreSegment(model: SegmentModel, created: Text[]): void {
@@ -45,6 +47,14 @@ export function restoreSegment(model: SegmentModel, created: Text[]): void {
   model.block.removeAttribute('data-sakutto-pending');
   model.block.removeAttribute('data-sakutto-id');
   model.block.removeAttribute('data-sakutto-engine');
+  // Mail adapters mark their translated body with a provider-specific attribute. Removing it
+  // here keeps a direct `restoreSegment` call byte-identical to the page's original markup,
+  // not only the controller path that knows the adapter's attribute name.
+  for (const name of [...model.block.getAttributeNames()]) {
+    if (name.startsWith('data-sakutto-') && name.endsWith('-translated')) {
+      model.block.removeAttribute(name);
+    }
+  }
 }
 
 export function restoreStructure(model: SegmentModel, created: Text[]): void {
@@ -56,6 +66,7 @@ export function restoreStructure(model: SegmentModel, created: Text[]): void {
 
 export function paintPlain(model: SegmentModel, translation: string, created: Text[]): void {
   writeFlat(model, visibleTranslation(translation), created);
+  rebalanceLines({ element: model.block, gaps: model.gaps, children: model.children });
 }
 
 /**
@@ -158,6 +169,214 @@ function writeGapsInPlace(frame: Frame, gapTexts: readonly string[], created: Te
     }
     writeSlots(slots, value);
   }
+}
+
+interface LineGroup {
+  slots: TextSlot[];
+  source: string;
+}
+
+/** Which direct line of its frame each text slot sits on, counted from the real `<br>`s. */
+function slotLines(element: Element): Map<Text, number> {
+  const lines = new Map<Text, number>();
+  let line = 0;
+  for (const child of element.childNodes) {
+    if (child instanceof Element && child.localName === 'br') {
+      line += 1;
+      continue;
+    }
+    if (child.nodeType === Node.TEXT_NODE) lines.set(child as Text, line);
+  }
+  return lines;
+}
+
+/**
+ * The slot runs a gap paints on each line. A gap may cover several lines because `<br>` is
+ * source text rather than a placeholder, and its slots are the text nodes on either side.
+ * Empty lines have no slots, so they stay out of the distribution and the real `<br>`s keep
+ * painting them.
+ */
+function gapLineGroups(
+  gap: readonly TextSlot[],
+  lineBySlot: ReadonlyMap<Text, number>,
+): LineGroup[] {
+  const indexed: { slot: TextSlot; line: number }[] = [];
+  for (const slot of gap) {
+    const line = lineBySlot.get(slot.node);
+    if (line === undefined) return [];
+    indexed.push({ slot, line });
+  }
+  if (indexed.length === 0) return [];
+
+  let first = Number.POSITIVE_INFINITY;
+  let last = -1;
+  for (const entry of indexed) {
+    if (entry.line < first) first = entry.line;
+    if (entry.line > last) last = entry.line;
+  }
+
+  const groups: LineGroup[] = Array.from({ length: last - first + 1 }, () => ({
+    slots: [],
+    source: '',
+  }));
+  for (const entry of indexed) {
+    const group = groups[entry.line - first];
+    if (!group) continue;
+    group.slots.push(entry.slot);
+    group.source += entry.slot.original;
+  }
+  return groups;
+}
+
+function nearestBoundary(
+  points: readonly number[],
+  target: number,
+  lower: number,
+  upper: number,
+): number | null {
+  let best: number | null = null;
+  let distance = Number.POSITIVE_INFINITY;
+  for (const point of points) {
+    if (point <= lower || point >= upper) continue;
+    const next = Math.abs(point - target);
+    if (next >= distance) continue;
+    best = point;
+    distance = next;
+  }
+  return best;
+}
+
+function characterBoundary(text: string, target: number, lower: number, upper: number): number {
+  let point = Math.min(Math.max(target, lower + 1), upper - 1);
+  if (point <= lower) point = lower + 1;
+  if (point >= upper) point = upper - 1;
+  if (point > 0 && point < text.length) {
+    const code = text.charCodeAt(point);
+    if (code >= 0xdc00 && code <= 0xdfff) point -= 1;
+  }
+  return Math.max(lower + 1, point);
+}
+
+/** Sentence ends, located in the original string so whitespace and punctuation are kept. */
+function sentenceEnds(text: string): number[] {
+  const ends: number[] = [];
+  let cursor = 0;
+  for (const sentence of splitForTranslation(text, {
+    sentenceThreshold: 1,
+    maxChunkChars: Math.max(text.length, 1),
+  })) {
+    const start = text.indexOf(sentence, cursor);
+    if (start < 0) continue;
+    const end = start + sentence.length;
+    if (end > 0 && end < text.length) ends.push(end);
+    cursor = end;
+  }
+  return ends;
+}
+
+function wordEnds(text: string): number[] {
+  const ends: number[] = [];
+  for (const match of text.matchAll(/\s+/gu)) {
+    if (match.index === undefined) continue;
+    if (match.index > 0) ends.push(match.index);
+    const after = match.index + match[0].length;
+    if (after < text.length) ends.push(after);
+  }
+  return ends;
+}
+
+/**
+ * Distributes text the model returned as one paragraph over the source lines. Sentence ends
+ * win when they are close to the weighted target; otherwise a word boundary keeps the cut
+ * readable, and only a run without any break falls back to a code-point boundary.
+ */
+function splitByWeights(text: string, sources: readonly string[]): string[] {
+  const count = sources.length;
+  const trimmed = text.trim();
+  if (count <= 1) return [trimmed];
+  if (trimmed.length === 0) return Array.from({ length: count }, () => '');
+
+  const sentences = sentenceEnds(trimmed);
+  const words = wordEnds(trimmed);
+  const weights = sources.map((source) => Math.max(1, source.trim().length));
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  const chunks: string[] = [];
+  let cursor = 0;
+  let consumed = 0;
+
+  for (let index = 0; index < count - 1; index += 1) {
+    consumed += (weights[index] ?? 1) / total;
+    const remaining = count - index - 1;
+    const upper = trimmed.length - remaining;
+    if (upper <= cursor + 1) {
+      chunks.push(trimmed.slice(cursor).trim());
+      while (chunks.length < count) chunks.push('');
+      return chunks;
+    }
+
+    const target = Math.min(Math.max(Math.round(trimmed.length * consumed), cursor + 1), upper);
+    const sentence = nearestBoundary(sentences, target, cursor, upper);
+    const word = nearestBoundary(words, target, cursor, upper);
+    const split =
+      sentence !== null &&
+      (word === null || Math.abs(sentence - target) <= Math.abs(word - target) * 1.5 + 12)
+        ? sentence
+        : (word ?? characterBoundary(trimmed, target, cursor, upper));
+    chunks.push(trimmed.slice(cursor, split).trim());
+    cursor = split;
+  }
+  chunks.push(trimmed.slice(cursor).trim());
+  return chunks;
+}
+
+function lineChunks(text: string, groups: readonly LineGroup[]): string[] {
+  if (groups.length <= 1) return [text];
+
+  const leading = /^\s*/u.exec(text)?.[0] ?? '';
+  const trailing = /\s*$/u.exec(text)?.[0] ?? '';
+  let chunks: string[];
+  const parts = text.split('\n');
+  const nonEmpty = parts.map((part) => part.trim()).filter((part) => part.length > 0);
+  if (nonEmpty.length === groups.length) {
+    chunks = nonEmpty;
+  } else {
+    chunks = splitByWeights(
+      text,
+      groups.map((group) => group.source),
+    );
+  }
+
+  // Spaces at the edges of a gap sit beside an inline placeholder, not a line break. Keep
+  // them so `See <a>link</a> here` does not become `See<a>link</a>here`.
+  if (chunks.length > 0) {
+    chunks[0] = leading + (chunks[0] ?? '');
+    const last = chunks.length - 1;
+    chunks[last] = (chunks[last] ?? '') + trailing;
+  }
+  return chunks;
+}
+
+/**
+ * Writes a translation back over the line runs the source already had. The first fix for
+ * Gmail wrapped each line in a span; that mutated the page, split one mail into a request
+ * per line and left markup behind on restore. This pass uses the existing text nodes: after
+ * placeholders are applied, each gap holds the translated text for all of its lines, and it
+ * is redistributed over those lines so the `<br>` nodes keep painting the message layout.
+ */
+function rebalanceLines(frame: Frame): void {
+  const lineBySlot = slotLines(frame.element);
+  for (const gap of frame.gaps) {
+    const groups = gapLineGroups(gap, lineBySlot);
+    const usable = groups.filter((group) => group.slots.length > 0);
+    if (usable.length < 2) continue;
+    const text = gap.map((slot) => slot.node.nodeValue ?? '').join('');
+    if (text.trim().length === 0) continue;
+    const chunks = lineChunks(text, usable);
+    for (let index = 0; index < usable.length; index += 1) {
+      writeSlots(usable[index]?.slots ?? [], chunks[index] ?? '');
+    }
+  }
+  for (const child of frame.children) rebalanceLines(child);
 }
 
 /**

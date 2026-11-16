@@ -1,5 +1,3 @@
-import { isBreakRunWrapper } from './blocks';
-
 export type VisibilityBand = 'visible' | 'near' | 'far';
 
 export type ContentKind = 'prose' | 'chrome';
@@ -87,10 +85,6 @@ export function isMetadataBlock(block: Element): boolean {
 
 export function contentKind(block: Element): ContentKind {
   if (isChromeBlock(block) || isMetadataBlock(block)) return 'chrome';
-  // A run split out of a `<br>`-separated layout wrapper is the paragraph the reader sees,
-  // even though its own tag is a `<span>`; classifying it as chrome put mail/page prose
-  // behind navigation and made a split message feel slower than an unsplit one.
-  if (isBreakRunWrapper(block)) return 'prose';
   const tag = block.tagName.toLowerCase();
   if (PROSE_TAGS.has(tag)) return 'prose';
   const length = (block.textContent ?? '').trim().length;
