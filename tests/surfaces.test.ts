@@ -289,14 +289,23 @@ describe('shortcut settings', () => {
 
   it('shows a localized Chromium unset notice that opens the browser editor', () => {
     const editor = source('shared/shortcut-editor.ts');
-    expect(shortcutNotice).toContain('isTranslatePageShortcutUnset');
-    expect(shortcutNotice).toContain('isFirefoxBuild');
+    const rules = source('shared/shortcuts.ts');
+    expect(shortcutNotice).toContain('showShortcutUnsetNotice');
+    expect(rules).toContain('!isFirefoxBuild() && isTranslatePageShortcutUnset(snapshot)');
     expect(shortcutNotice).toContain('shortcutUnsetNotice');
     expect(shortcutNotice).toContain('shortcutOpenSettings');
     expect(shortcutNotice).toContain('data-sakutto="shortcut-unset-notice"');
     expect(shortcutNotice).toContain('data-sakutto="open-shortcut-settings"');
     expect(shortcutNotice).toContain('openShortcutEditor');
     expect(editor).toContain("browser.tabs.create({ url: 'chrome://extensions/shortcuts' })");
+  });
+
+  it('omits the redundant change control whenever the unset notice is shown', () => {
+    for (const surface of [shortcuts, popup]) {
+      expect(surface).toContain('showShortcutUnsetNotice');
+      expect(surface).toContain('let showShortcutChange = $derived');
+      expect(surface).toMatch(/\{#if showShortcutChange\}[\s\S]{0,250}t\('shortcutChange'\)/u);
+    }
   });
 
   it('is on the settings page', () => {
@@ -322,7 +331,7 @@ describe('popup shortcut hints', () => {
     expect(popup).not.toContain('usesInPageFallback');
     expect(popup).not.toContain('shortcutFallbackNote');
     expect(popup).not.toContain("'Alt+A'");
-    expect(shortcutNotice).toContain('isFirefoxBuild');
+    expect(shortcutNotice).toContain('showShortcutUnsetNotice');
   });
 });
 

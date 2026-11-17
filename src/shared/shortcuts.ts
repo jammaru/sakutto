@@ -1,4 +1,4 @@
-import { extensionBrowser, type ExtensionBrowser } from './browser.ts';
+import { extensionBrowser, isFirefoxBuild, type ExtensionBrowser } from './browser.ts';
 import type { PageCommandName, ShortcutAssigned, ShortcutSnapshot } from './messages';
 import { isRecord } from './object.ts';
 
@@ -261,6 +261,11 @@ export function boundShortcut(
 /** True when Chromium explicitly reports the main page command as 未設定. */
 export function isTranslatePageShortcutUnset(snapshot: ShortcutSnapshot | null): boolean {
   return snapshot?.['translate-page'] === '';
+}
+
+/** Whether the Chromium unset notice, rather than the separate change control, is needed. */
+export function showShortcutUnsetNotice(snapshot: ShortcutSnapshot | null): boolean {
+  return !isFirefoxBuild() && isTranslatePageShortcutUnset(snapshot);
 }
 
 /** The shape `browser.commands.getAll()` returns, without depending on its declared type. */

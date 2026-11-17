@@ -10,6 +10,7 @@
     boundShortcut,
     defaultShortcutEnabled,
     displayShortcut,
+    showShortcutUnsetNotice,
     type ShortcutCommand,
     type ShortcutEnabled,
   } from '@/shared/shortcuts';
@@ -30,6 +31,7 @@
 
   let shortcutState = $state<ShortcutQueryResult | null>(null);
   let openFailed = $state(false);
+  let showShortcutChange = $derived(!showShortcutUnsetNotice(shortcutState?.snapshot ?? null));
 
   function isOn(command: ShortcutCommand): boolean {
     return enabled[command] !== false;
@@ -109,7 +111,9 @@
   {/each}
 </dl>
 <ShortcutUnsetNotice snapshot={shortcutState?.snapshot ?? null} />
-<button class="button secondary" type="button" onclick={openEditor}>{t('shortcutChange')}</button>
+{#if showShortcutChange}
+  <button class="button secondary" type="button" onclick={openEditor}>{t('shortcutChange')}</button>
+{/if}
 {#if openFailed}
   <p class="error" role="alert">{t('errorAction')}</p>
 {/if}

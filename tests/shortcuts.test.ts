@@ -20,6 +20,7 @@ import {
   readShortcutSnapshot,
   rememberShortcutAssignments,
   shortcutAssignedRecord,
+  showShortcutUnsetNotice,
   suggestedKeyFor,
   type ShortcutAssigned,
 } from '@/shared/shortcuts';
@@ -248,6 +249,12 @@ describe('shortcut assignment and current bindings', () => {
     expect(isTranslatePageShortcutUnset(snapshot({ 'translate-page': 'Alt+Q' }))).toBe(false);
     expect(isTranslatePageShortcutUnset(snapshot({ 'translate-page': '' }))).toBe(true);
     expect(isTranslatePageShortcutUnset(snapshot({ 'toggle-bilingual': '' }))).toBe(false);
+  });
+
+  it('shares the notice visibility rule with the separate change control', () => {
+    expect(showShortcutUnsetNotice(null)).toBe(false);
+    expect(showShortcutUnsetNotice(snapshot())).toBe(false);
+    expect(showShortcutUnsetNotice(snapshot({ 'translate-page': '' }))).toBe(true);
   });
 
   it('uses the fresh-install defaults and does not treat them as unset', () => {

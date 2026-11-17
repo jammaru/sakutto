@@ -109,7 +109,6 @@ test.describe('built extension', () => {
           // Chrome owns the bindings, so the panel shows them and links to Chrome's editor.
           // A fresh install must name the defaults, not "Not set".
           await expect(page.getByRole('heading', { name: 'Keyboard shortcuts' })).toBeVisible();
-          await expect(page.getByRole('button', { name: 'Change shortcuts' })).toBeVisible();
           await expect(page.locator('kbd')).toHaveText(['Alt+A', 'Alt+B', 'Alt+S', 'Alt+T']);
         }
         if (path === 'typed.html') {
@@ -234,9 +233,6 @@ test.describe('built extension', () => {
           );
           await expect(
             page.getByRole('heading', { name: 'キーボードショートカット' }),
-          ).toBeVisible();
-          await expect(
-            page.getByRole('button', { name: 'ショートカットキーを変更' }),
           ).toBeVisible();
         }
         if (path === 'typed.html') {

@@ -84,6 +84,7 @@
     boundShortcut,
     defaultShortcuts,
     displayShortcut,
+    showShortcutUnsetNotice,
     type ShortcutCommand,
   } from '@/shared/shortcuts';
   import { SHARED_FOLDER_CHANGED_EVENT } from '@/engine/model/folder-offer';
@@ -133,6 +134,7 @@
   let headroom = $state<DeviceHeadroom | null>(null);
   let shortcuts = $state<ShortcutQueryResult | null>(null);
   let shortcutError = $state(false);
+  let showShortcutChange = $derived(!showShortcutUnsetNotice(shortcuts?.snapshot ?? null));
 
   /**
    * The key each browser command currently owns. Before the first answer, manifest
@@ -932,9 +934,11 @@
     {/each}
   </ul>
   <ShortcutUnsetNotice snapshot={shortcuts?.snapshot ?? null} />
-  <button class="link-button shortcut-change" type="button" onclick={changeShortcuts}>
-    {t('shortcutChange')}
-  </button>
+  {#if showShortcutChange}
+    <button class="link-button shortcut-change" type="button" onclick={changeShortcuts}>
+      {t('shortcutChange')}
+    </button>
+  {/if}
   {#if shortcutError}
     <p class="error" role="alert">{t('errorAction')}</p>
   {/if}

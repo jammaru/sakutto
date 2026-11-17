@@ -164,6 +164,7 @@ test.describe('unset shortcut notice', () => {
       const options = await openOptions(extension);
       await expect(options.locator('kbd').first()).toHaveText('Alt+A');
       await expect(options.locator('[data-sakutto="shortcut-unset-notice"]')).toHaveCount(0);
+      await expect(options.getByRole('button', { name: 'Change shortcuts' })).toBeVisible();
       await options.close();
     } finally {
       await extension.close();
@@ -180,15 +181,19 @@ test.describe('unset shortcut notice', () => {
       await expect(notice).toBeVisible();
       await expect(notice).toContainText('Shortcuts are not set');
       await expect(options.locator('kbd').first()).toHaveText('Not set');
+      const changeShortcuts = options.getByRole('button', { name: 'Change shortcuts' });
+      await expect(changeShortcuts).toHaveCount(0);
 
       await stubCommandBindings(extension.worker, ASSIGNED_DEFAULT_BINDINGS);
       await refreshShortcutUi(options);
       await expect(notice).toHaveCount(0);
       await expect(options.locator('kbd').first()).toHaveText('Alt+A');
+      await expect(changeShortcuts).toBeVisible();
 
       await simulateNeverAssignedShortcuts(extension.worker);
       await refreshShortcutUi(options);
       await expect(notice).toBeVisible();
+      await expect(changeShortcuts).toHaveCount(0);
       const editorPromise = extension.context.waitForEvent('page');
       await options.locator('[data-sakutto="open-shortcut-settings"]').click();
       const editor = await editorPromise;
@@ -210,10 +215,13 @@ test.describe('unset shortcut notice', () => {
       const notice = popup.locator('[data-sakutto="shortcut-unset-notice"]');
       await expect(notice).toBeVisible();
       await expect(notice).toContainText('Shortcuts are not set');
+      const changeShortcuts = popup.getByRole('button', { name: 'Change shortcuts' });
+      await expect(changeShortcuts).toHaveCount(0);
 
       await stubCommandBindings(extension.worker, ASSIGNED_DEFAULT_BINDINGS);
       await refreshShortcutUi(popup);
       await expect(notice).toHaveCount(0);
+      await expect(changeShortcuts).toBeVisible();
       await popup.close();
     } finally {
       await extension.close();
@@ -227,12 +235,15 @@ test.describe('unset shortcut notice', () => {
       const pageCommand = bindings.find((entry) => entry.name === 'translate-page');
       const options = await openOptions(extension);
       await expect(options.locator('kbd').first()).toBeVisible();
+      const changeShortcuts = options.getByRole('button', { name: 'Change shortcuts' });
       if (pageCommand?.shortcut) {
         await expect(options.locator('kbd').first()).toHaveText(pageCommand.shortcut);
         await expect(options.locator('[data-sakutto="shortcut-unset-notice"]')).toHaveCount(0);
+        await expect(changeShortcuts).toBeVisible();
       } else {
         await expect(options.locator('kbd').first()).toHaveText('Not set');
         await expect(options.locator('[data-sakutto="shortcut-unset-notice"]')).toBeVisible();
+        await expect(changeShortcuts).toHaveCount(0);
       }
       await options.close();
     } finally {

@@ -1,9 +1,8 @@
 <script lang="ts">
-  import { isFirefoxBuild } from '@/shared/browser';
   import { t } from '@/shared/i18n';
   import type { ShortcutSnapshot } from '@/shared/messages';
   import { openShortcutEditor } from '@/shared/shortcut-editor';
-  import { isTranslatePageShortcutUnset } from '@/shared/shortcuts';
+  import { showShortcutUnsetNotice } from '@/shared/shortcuts';
 
   interface Props {
     snapshot: ShortcutSnapshot | null;
@@ -11,7 +10,7 @@
 
   let { snapshot }: Props = $props();
   let openFailed = $state(false);
-  let visible = $derived(!isFirefoxBuild() && isTranslatePageShortcutUnset(snapshot));
+  let visible = $derived(showShortcutUnsetNotice(snapshot));
 
   async function openEditor(): Promise<void> {
     openFailed = !(await openShortcutEditor());
