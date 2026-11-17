@@ -11,11 +11,20 @@ describe('folder arm command target', () => {
     ).toEqual({ tabId: 7, command: 'toggle', frameId: 3 });
   });
 
-  it('keeps explicit tab and frame values from privileged callers', () => {
+  it('ignores spoofed tab and frame ids from a content sender', () => {
     expect(
       resolveFolderArmCommandTarget(
         { type: 'folder:arm-command', command: 'selection', tabId: 9, frameId: 4 },
         { tab: { id: 7 }, frameId: 3 },
+      ),
+    ).toEqual({ tabId: 7, command: 'selection', frameId: 3 });
+  });
+
+  it('keeps explicit tab and frame values from privileged callers', () => {
+    expect(
+      resolveFolderArmCommandTarget(
+        { type: 'folder:arm-command', command: 'selection', tabId: 9, frameId: 4 },
+        {},
       ),
     ).toEqual({ tabId: 9, command: 'selection', frameId: 4 });
   });

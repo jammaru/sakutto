@@ -17,11 +17,13 @@ export function resolveFolderArmCommandTarget(
   message: Pick<FolderArmCommandRequest, 'type' | 'command' | 'tabId' | 'frameId'>,
   sender: FolderArmSender,
 ): FolderArmTarget | null {
-  const tabId = message.tabId ?? sender.tab?.id;
+  const senderTabId = sender.tab?.id;
+  const fromContent = senderTabId !== undefined;
+  const tabId = fromContent ? senderTabId : message.tabId;
   if (tabId === undefined) return null;
   return {
     tabId,
     command: message.command,
-    frameId: message.frameId ?? sender.frameId,
+    frameId: fromContent ? sender.frameId : message.frameId,
   };
 }
