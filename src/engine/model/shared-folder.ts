@@ -129,6 +129,11 @@ export function isRecommendedSharedFolderName(name: string): boolean {
   return folderNameKey(name) === folderNameKey(SHARED_APP_DIRECTORY);
 }
 
+/** True when the user picked the inner models folder itself, not its parent. */
+export function isSharedModelsDirectoryName(name: string): boolean {
+  return folderNameKey(name) === folderNameKey(SHARED_MODELS_DIRECTORY);
+}
+
 async function directoryHasChild(
   handle: FileSystemDirectoryHandle,
   name: string,
@@ -162,18 +167,53 @@ export async function directoryHasOfficialGguf(
 }
 
 /**
+ * Does not prompt. A child lookup is enough for a parent folder, but an inner models
+ * folder has no `sakutto-models` child to probe. Touch an official filename instead:
+ * `NotFoundError` still proves the directory is readable, while a permission error does not.
+ */
+async function probeStoredDirectoryReadable(handle: FileSystemDirectoryHandle): Promise<boolean> {
+  if (!isSharedModelsDirectoryName(handle.name)) {
+    try {
+      await handle.getDirectoryHandle(SHARED_MODELS_DIRECTORY);
+      return true;
+    } catch (error) {
+      if (isPermissionDenied(error)) return false;
+      return error instanceof DOMException && error.name === 'NotFoundError';
+    }
+  }
+
+  const getFile = (
+    handle as FileSystemDirectoryHandle & {
+      getFileHandle?: (name: string) => Promise<FileSystemFileHandle>;
+    }
+  ).getFileHandle;
+  if (typeof getFile !== 'function') return true;
+  for (const modelId of SELECTABLE_MODEL_IDS) {
+    try {
+      await getFile.call(handle, getModel(modelId).file);
+      return true;
+    } catch (error) {
+      if (isPermissionDenied(error)) return false;
+      if (!(error instanceof DOMException && error.name === 'NotFoundError')) return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Turns the picker result into the folder we persist.
  *
  * Chromium will not grant Documents, Desktop, home, or Downloads themselves
  * (`kDontBlockChildren` in chrome_file_system_access_permission_context.cc). Nesting
  * `Sakutto` under a Documents-named parent is only a silent fallback when that handle
  * is somehow granted (tests, or a policy change). Do not advertise picking Documents.
- * A folder that already is Sakutto, holds `sakutto-models`, or holds an official GGUF
- * is kept as-is.
+ * A folder that already is Sakutto, is `sakutto-models`, holds `sakutto-models`, or
+ * holds an official GGUF is kept as-is.
  */
 export async function resolveSharedFolderRoot(
   picked: FileSystemDirectoryHandle,
 ): Promise<FileSystemDirectoryHandle> {
+  if (isSharedModelsDirectoryName(picked.name)) return picked;
   if (await directoryHasChild(picked, SHARED_MODELS_DIRECTORY)) return picked;
   if (await directoryHasOfficialGguf(picked)) return picked;
   if (isRecommendedSharedFolderName(picked.name)) return picked;
@@ -183,10 +223,14 @@ export async function resolveSharedFolderRoot(
   return picked;
 }
 
-/** Inner directory that actually holds official GGUF files. */
+/**
+ * Inner directory that actually holds official GGUF files. When the user picked that
+ * inner folder directly, it is already open: do not create a nested `sakutto-models`.
+ */
 export async function openSharedModelsDirectory(
   directory: FileSystemDirectoryHandle,
 ): Promise<FileSystemDirectoryHandle> {
+  if (isSharedModelsDirectoryName(directory.name)) return directory;
   if (await directoryHasOfficialGguf(directory)) return directory;
   return directory.getDirectoryHandle(SHARED_MODELS_DIRECTORY, { create: true });
 }
@@ -285,13 +329,7 @@ export async function probeStoredFolderReadable(): Promise<boolean> {
   const queried = await queryFolderPermission(stored.handle);
   if (queried === 'granted') return true;
   if (queried === 'denied') return false;
-  try {
-    await stored.handle.getDirectoryHandle(SHARED_MODELS_DIRECTORY);
-    return true;
-  } catch (error) {
-    if (isPermissionDenied(error)) return false;
-    return error instanceof DOMException && error.name === 'NotFoundError';
-  }
+  return probeStoredDirectoryReadable(stored.handle);
 }
 
 /** Persist which official models were last verified in this folder. */

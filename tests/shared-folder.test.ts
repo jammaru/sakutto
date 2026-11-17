@@ -12,6 +12,7 @@ import {
   ensureStoredFolderPermission,
   isDocumentsFolderName,
   isRecommendedSharedFolderName,
+  isSharedModelsDirectoryName,
   openSharedModelsDirectory,
   persistSharedFolderHandle,
   pickSharedModelFolder,
@@ -106,6 +107,19 @@ function fakeHandle(options: {
   return fakeHandleFrom(fakeDir(options.name ?? 'Models', nested));
 }
 
+async function fileNamesIn(handle: FileSystemDirectoryHandle): Promise<string[]> {
+  const names: string[] = [];
+  for await (const name of handle.keys()) {
+    try {
+      await handle.getFileHandle(name);
+      names.push(name);
+    } catch {
+      // Child is a directory, not a file.
+    }
+  }
+  return names.sort();
+}
+
 describe('shared folder capability', () => {
   it('is available on Chromium unit tests only when a picker exists', () => {
     expect(sharedFolderSupported()).toBe(true);
@@ -163,6 +177,16 @@ describe('folder permission', () => {
     const handle = fakeHandle({ permission: 'prompt', request: 'denied' });
     await persistSharedFolderHandle(handle, bucket);
     expect(await probeStoredFolderReadable()).toBe(true);
+  });
+
+  it('probes an inner sakutto-models handle without looking for a nested child', async () => {
+    const bucket = new MemorySharedFolderBucket();
+    setSharedFolderBucketForTests(bucket);
+    const handle = fakeHandleFrom(fakeDir(SHARED_MODELS_DIRECTORY, { permission: 'prompt' }));
+    const getDirectoryHandle = vi.spyOn(handle, 'getDirectoryHandle');
+    await persistSharedFolderHandle(handle, bucket);
+    expect(await probeStoredFolderReadable()).toBe(true);
+    expect(getDirectoryHandle).not.toHaveBeenCalled();
   });
 
   it('remembers which official models were last verified in the folder', async () => {
@@ -275,13 +299,16 @@ describe('pickSharedModelFolder', () => {
 });
 
 describe('recommended Documents/Sakutto location', () => {
-  it('recognizes Documents and Sakutto names', () => {
+  it('recognizes Documents, Sakutto, and models directory names', () => {
     expect(isDocumentsFolderName('Documents')).toBe(true);
     expect(isDocumentsFolderName('ドキュメント')).toBe(true);
     expect(isDocumentsFolderName('書類')).toBe(true);
     expect(isDocumentsFolderName('Downloads')).toBe(false);
     expect(isRecommendedSharedFolderName('Sakutto')).toBe(true);
     expect(isRecommendedSharedFolderName('sakutto')).toBe(true);
+    expect(isSharedModelsDirectoryName(SHARED_MODELS_DIRECTORY)).toBe(true);
+    expect(isSharedModelsDirectoryName('Sakutto-Models')).toBe(true);
+    expect(isSharedModelsDirectoryName(SHARED_APP_DIRECTORY)).toBe(false);
   });
 
   it('creates a Sakutto folder when the user picks Documents', async () => {
@@ -315,15 +342,74 @@ describe('recommended Documents/Sakutto location', () => {
     );
   });
 
-  it('opens sakutto-models inside Sakutto, or the folder itself when a GGUF is already there', async () => {
-    const sakutto = fakeDir(SHARED_APP_DIRECTORY);
-    const models = await openSharedModelsDirectory(fakeHandleFrom(sakutto));
-    expect(models.name).toBe(SHARED_MODELS_DIRECTORY);
+  it('keeps an inner sakutto-models pick even with no complete GGUF', async () => {
+    const empty = fakeDir(SHARED_MODELS_DIRECTORY);
+    const emptyHandle = fakeHandleFrom(empty);
+    expect(await resolveSharedFolderRoot(emptyHandle)).toBe(emptyHandle);
+    expect(empty.dirs.has(SHARED_MODELS_DIRECTORY)).toBe(false);
 
-    const direct = fakeDir(SHARED_MODELS_DIRECTORY, { files: [getModel(DEFAULT_MODEL_ID).file] });
-    expect((await openSharedModelsDirectory(fakeHandleFrom(direct))).name).toBe(
-      SHARED_MODELS_DIRECTORY,
+    const partial = fakeDir(SHARED_MODELS_DIRECTORY, {
+      files: [`${getModel(DEFAULT_MODEL_ID).file}.part`],
+    });
+    const partialHandle = fakeHandleFrom(partial);
+    expect(await resolveSharedFolderRoot(partialHandle)).toBe(partialHandle);
+    expect(partial.dirs.has(SHARED_MODELS_DIRECTORY)).toBe(false);
+  });
+
+  it('opens an empty sakutto-models pick directly without creating a nested child', async () => {
+    const picked = fakeDir(SHARED_MODELS_DIRECTORY);
+    const handle = fakeHandleFrom(picked);
+    expect(await openSharedModelsDirectory(handle)).toBe(handle);
+    expect(picked.dirs.has(SHARED_MODELS_DIRECTORY)).toBe(false);
+  });
+
+  it('opens a partially downloaded sakutto-models pick directly without nesting', async () => {
+    const picked = fakeDir(SHARED_MODELS_DIRECTORY, {
+      files: [`${getModel(DEFAULT_MODEL_ID).file}.part`],
+    });
+    const handle = fakeHandleFrom(picked);
+    expect(await openSharedModelsDirectory(handle)).toBe(handle);
+    expect(picked.dirs.has(SHARED_MODELS_DIRECTORY)).toBe(false);
+  });
+
+  it('still opens sakutto-models as a child of a picked parent Sakutto folder', async () => {
+    const sakutto = fakeDir(SHARED_APP_DIRECTORY);
+    const root = await resolveSharedFolderRoot(fakeHandleFrom(sakutto));
+    expect(root.name).toBe(SHARED_APP_DIRECTORY);
+    expect(sakutto.dirs.has(SHARED_MODELS_DIRECTORY)).toBe(false);
+
+    const models = await openSharedModelsDirectory(root);
+    expect(models.name).toBe(SHARED_MODELS_DIRECTORY);
+    expect(sakutto.dirs.has(SHARED_MODELS_DIRECTORY)).toBe(true);
+  });
+
+  it('keeps a folder that already holds an official GGUF as-is', async () => {
+    const file = getModel(DEFAULT_MODEL_ID).file;
+    const picked = fakeDir('Downloaded', { files: [file] });
+    const handle = fakeHandleFrom(picked);
+    const root = await resolveSharedFolderRoot(handle);
+    expect(root).toBe(handle);
+    expect(await openSharedModelsDirectory(root)).toBe(handle);
+    expect(picked.dirs.has(SHARED_MODELS_DIRECTORY)).toBe(false);
+  });
+
+  it('opens the same logical models files for a parent pick and an inner pick', async () => {
+    const file = getModel(DEFAULT_MODEL_ID).file;
+    const inner = fakeDir(SHARED_MODELS_DIRECTORY, { files: [file] });
+    const sakutto = fakeDir(SHARED_APP_DIRECTORY, {
+      dirs: { [SHARED_MODELS_DIRECTORY]: inner },
+    });
+
+    const fromParent = await openSharedModelsDirectory(
+      await resolveSharedFolderRoot(fakeHandleFrom(sakutto)),
     );
+    const fromInner = await openSharedModelsDirectory(
+      await resolveSharedFolderRoot(fakeHandleFrom(inner)),
+    );
+
+    expect(await fileNamesIn(fromParent)).toEqual([file]);
+    expect(await fileNamesIn(fromInner)).toEqual([file]);
+    expect(inner.dirs.has(SHARED_MODELS_DIRECTORY)).toBe(false);
   });
 });
 
