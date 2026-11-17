@@ -4,6 +4,7 @@ const state = vi.hoisted(() => ({
   reads: 0,
   throws: false,
   value: undefined as { message?: string } | undefined,
+  sendMessage: vi.fn(),
 }));
 
 vi.mock('wxt/browser', () => ({
@@ -14,12 +15,14 @@ vi.mock('wxt/browser', () => ({
         if (state.throws) throw new Error('missing runtime.lastError');
         return state.value;
       },
+      sendMessage: state.sendMessage,
     },
   },
 }));
 
 import {
   bindPortDisconnectCleanup,
+  broadcastRuntimeMessage,
   readRuntimeLastError,
   swallowMessagingError,
 } from '@/shared/runtime-last-error';
@@ -28,6 +31,7 @@ beforeEach(() => {
   state.reads = 0;
   state.throws = false;
   state.value = undefined;
+  state.sendMessage.mockReset();
 });
 
 describe('runtime lastError helper', () => {
@@ -53,6 +57,17 @@ describe('runtime lastError helper', () => {
     listener?.();
     expect(state.reads).toBe(1);
     expect(cleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it('broadcasts runtime messages and clears errors on success and failure', async () => {
+    state.sendMessage.mockResolvedValue(undefined);
+    await broadcastRuntimeMessage({ type: 'model:progress' });
+    expect(state.sendMessage).toHaveBeenCalledWith({ type: 'model:progress' });
+    expect(state.reads).toBe(1);
+
+    state.sendMessage.mockRejectedValue(new Error('closed'));
+    await expect(broadcastRuntimeMessage({ type: 'model:progress' })).resolves.toBeUndefined();
+    expect(state.reads).toBe(3);
   });
 
   it('returns message results and swallows rejected messaging calls', async () => {

@@ -9,6 +9,17 @@ export function readRuntimeLastError(): void {
   }
 }
 
+/** Broadcast to extension pages and clear pending unchecked errors on success and failure. */
+export async function broadcastRuntimeMessage(message: unknown): Promise<void> {
+  try {
+    await browser.runtime.sendMessage(message);
+  } catch {
+    readRuntimeLastError();
+  } finally {
+    readRuntimeLastError();
+  }
+}
+
 /** Run a promise API and turn a rejected message into null after clearing lastError. */
 export interface DisconnectPort {
   onDisconnect: { addListener(listener: () => void): void };

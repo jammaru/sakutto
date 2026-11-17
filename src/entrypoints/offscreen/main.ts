@@ -39,9 +39,16 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!isEngineProbeRequest(message)) return false;
 
   void probeCapabilities().then(
-    (capabilities) =>
-      sendResponse({ source: 'offscreen', capabilities } satisfies EngineProbeResponse),
-    () => sendResponse(null),
+    (capabilities) => {
+      readRuntimeLastError();
+      sendResponse({ source: 'offscreen', capabilities } satisfies EngineProbeResponse);
+      readRuntimeLastError();
+    },
+    () => {
+      readRuntimeLastError();
+      sendResponse(null);
+      readRuntimeLastError();
+    },
   );
   return true;
 });

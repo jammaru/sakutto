@@ -386,6 +386,7 @@ export class PageSession {
   private readonly onVisibility: () => void;
   private readonly onScroll: () => void;
   private readonly onPageHide: () => void;
+  private readonly onPageShow: (event: PageTransitionEvent) => void;
   private readonly onPopState: () => void;
   private readonly onPointerOver: (event: Event) => void;
   private readonly onPointerOut: (event: Event) => void;
@@ -466,6 +467,11 @@ export class PageSession {
     this.onPageHide = () => {
       this.stopForNavigation();
     };
+    this.onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      this.navigating = false;
+      if (this.active) this.scheduleScan();
+    };
     this.onPopState = () => {
       if (!this.active) return;
       this.invalidatePaints();
@@ -545,6 +551,7 @@ export class PageSession {
     this.doc.addEventListener('scroll', this.onScroll, { capture: true, passive: true });
     this.doc.defaultView?.addEventListener('scroll', this.onScroll, { passive: true });
     this.doc.defaultView?.addEventListener('pagehide', this.onPageHide);
+    this.doc.defaultView?.addEventListener('pageshow', this.onPageShow);
     this.doc.defaultView?.addEventListener('popstate', this.onPopState);
     this.doc.defaultView?.addEventListener('resize', this.onResize);
     this.bindHistory();
@@ -1046,6 +1053,7 @@ export class PageSession {
     this.doc.defaultView?.removeEventListener('scroll', this.onScroll);
     this.unbindKeys();
     this.doc.defaultView?.removeEventListener('pagehide', this.onPageHide);
+    this.doc.defaultView?.removeEventListener('pageshow', this.onPageShow);
     this.doc.defaultView?.removeEventListener('popstate', this.onPopState);
     this.doc.defaultView?.removeEventListener('resize', this.onResize);
     this.overlay.destroy();

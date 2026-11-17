@@ -433,6 +433,9 @@ export function contentMain(): void {
   // Re-read when the tab is shown so a change in chrome://extensions/shortcuts lands.
   window.addEventListener('focus', scheduleShortcutRefresh);
   document.addEventListener('visibilitychange', scheduleShortcutRefresh);
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) scheduleShortcutRefresh();
+  });
 
   let engineSource: Settings['engineSource'] = 'in-browser';
   const engine = {

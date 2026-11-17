@@ -1,5 +1,9 @@
 import { browser, type Browser } from 'wxt/browser';
-import { bindPortDisconnectCleanup, readRuntimeLastError } from '@/shared/runtime-last-error';
+import {
+  bindPortDisconnectCleanup,
+  broadcastRuntimeMessage,
+  readRuntimeLastError,
+} from '@/shared/runtime-last-error';
 import { hasLicenseConsent } from '@/shared/agreement';
 import { lastGpuDiagnostic, probeCapabilities } from '@/shared/capabilities';
 import { mergeGpuDiagnostic, type GpuDiagnostic } from '@/shared/gpu-diagnostic';
@@ -1028,11 +1032,10 @@ export class EngineHost {
         status,
       );
       this.plamoReady = modelCanTranslate(model);
-      void browser.runtime
-        .sendMessage?.({ type: 'model:progress', status: model } satisfies ModelProgressMessage)
-        ?.catch(() => {
-          readRuntimeLastError();
-        });
+      void broadcastRuntimeMessage({
+        type: 'model:progress',
+        status: model,
+      } satisfies ModelProgressMessage);
       this.respond(port, request.requestId, status);
     } catch (error) {
       this.respondError(port, request.requestId, error);
@@ -1508,6 +1511,10 @@ export class EngineHost {
   }
 
   private post(port: Browser.runtime.Port, message: EngineHostMessage): void {
+    if (!this.ports.has(port)) {
+      readRuntimeLastError();
+      return;
+    }
     try {
       port.postMessage(message);
     } catch {

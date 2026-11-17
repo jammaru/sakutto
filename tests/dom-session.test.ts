@@ -261,6 +261,25 @@ describe('page session', () => {
     expect(document.querySelector('sakutto-note')).toBeNull();
   });
 
+  it('clears the navigation stop after a persisted BFCache restore', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello world</p>';
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+    );
+
+    window.dispatchEvent(new Event('pagehide'));
+    const restored = new Event('pageshow');
+    Object.defineProperty(restored, 'persisted', { value: true });
+    window.dispatchEvent(restored);
+
+    await session.handle('toggle');
+    await session.whenIdle();
+
+    expect(document.body.textContent).toContain('訳:Hello world');
+  });
+
   it('captures the document selection before later awaits can clear it', () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML = '<p id="lead">Hello world</p>';
