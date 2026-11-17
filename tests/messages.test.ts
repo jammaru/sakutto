@@ -83,14 +83,12 @@ describe('message validation', () => {
     expect(isShortcutSnapshot(null)).toBe(false);
   });
 
-  it('validates an optional shortcut-cache refresh request', () => {
+  it('validates the shortcut query type', () => {
     expect(isShortcutQuery({ type: 'commands:shortcuts' })).toBe(true);
-    expect(isShortcutQuery({ type: 'commands:shortcuts', refresh: true })).toBe(true);
-    expect(isShortcutQuery({ type: 'commands:shortcuts', refresh: false })).toBe(true);
-    expect(isShortcutQuery({ type: 'commands:shortcuts', refresh: 'yes' })).toBe(false);
+    expect(isShortcutQuery({ type: 'commands:other' })).toBe(false);
   });
 
-  it('validates the assigned map a page needs beside the snapshot', () => {
+  it('validates the assigned map used for Firefox restoration', () => {
     const snapshot = {
       'translate-page': 'Alt+A',
       'toggle-bilingual': '',

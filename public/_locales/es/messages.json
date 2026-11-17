@@ -414,10 +414,10 @@
     "message": "Atajos de teclado"
   },
   "shortcutHelp": {
-    "message": "Desmarque un comando para desactivarlo en Sakutto. Cambiar atajos abre el editor de Chrome. Una tecla que Chrome asignó se usa tal cual, también con un campo de texto enfocado (la página sigue traduciéndose). Si Chrome nunca asignó un comando, la tecla predeterminada sigue funcionando en páginas web, no en páginas chrome:// ni en otras que Sakutto no puede abrir. En un campo de texto ese keydown llega y no se cancela, para que Option+letra pueda escribir."
+    "message": "Desmarque un comando para desactivarlo en Sakutto. «Cambiar atajos» abre el editor de atajos de Chrome. Las teclas asignadas por el navegador funcionan incluso cuando un campo de texto tiene el foco. Si un comando aparece como «Sin asignar», abra el editor y asigne una tecla."
   },
   "shortcutHelpFirefox": {
-    "message": "Desmarque un comando para desactivarlo en Sakutto. Cambiar atajos abre el editor de Firefox. La tecla que asigne allí se usa tal cual, también con un campo de texto enfocado. Una actualización restaura un comando que nunca se asignó, si Firefox lo permite; una tecla que borró sigue borrada. En un campo de texto ese keydown no se cancela."
+    "message": "Desmarque un comando para desactivarlo en Sakutto. «Cambiar atajos» abre el editor propio de Firefox. Las teclas asignadas allí funcionan incluso cuando un campo de texto tiene el foco. Al instalar o actualizar, Firefox restaura la tecla de un comando vacío que nunca se asignó, cuando es posible; una tecla que haya borrado permanece borrada."
   },
   "shortcutChange": {
     "message": "Cambiar atajos"
@@ -425,33 +425,17 @@
   "shortcutUnset": {
     "message": "Sin asignar"
   },
+  "shortcutUnsetNotice": {
+    "message": "Los atajos no están configurados"
+  },
+  "shortcutOpenSettings": {
+    "message": "Abrir la configuración de atajos"
+  },
   "shortcutUse": {
     "message": "Usar este atajo"
   },
   "shortcutOff": {
     "message": "Desactivado"
-  },
-  "shortcutFallbackNote": {
-    "message": "Chrome nunca asignó una tecla a este comando, así que la predeterminada se usa en páginas web. No funciona en páginas chrome:// ni en otras que Sakutto no puede abrir. En un campo de texto el keydown no se cancela."
-  },
-  "shortcutFallbackNoteFirefox": {
-    "message": "Firefox nunca asignó una tecla a este comando, así que la predeterminada se usa en las páginas. En un campo de texto el keydown no se cancela."
-  },
-  "shortcutFallbackKey": {
-    "message": "$KEY$ (en páginas)",
-    "placeholders": {
-      "key": {
-        "content": "$1"
-      }
-    }
-  },
-  "shortcutFallbackKeyFirefox": {
-    "message": "$KEY$ (en páginas)",
-    "placeholders": {
-      "key": {
-        "content": "$1"
-      }
-    }
   },
   "shortcutTranslate": {
     "message": "$KEY$ traduce la página o restaura la original.",

@@ -187,10 +187,7 @@ describe('compose controller', () => {
     const field = document.querySelector('#box');
     if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
     field.focus();
-    start();
-    field.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 't', altKey: true, code: 'KeyT', bubbles: true }),
-    );
+    start().handleShortcut();
     await vi.waitFor(() => {
       expect(panelText()).toContain('§ja§See you tomorrow.');
     });
@@ -941,7 +938,7 @@ describe('compose controller', () => {
     expect(panelText()).toContain('Type something to translate.');
   });
 
-  it('hears Alt+T on window capture even when the editor stops the event', async () => {
+  it('ignores Alt+T even when an editor stops the keydown event', () => {
     document.body.innerHTML = '<div id="slate" contenteditable="true" role="textbox"></div>';
     const field = document.querySelector('#slate');
     if (!(field instanceof HTMLElement)) throw new Error('missing editor');
@@ -950,7 +947,7 @@ describe('compose controller', () => {
       event.preventDefault();
     });
     field.focus();
-    start();
+    const controller = start();
     field.dispatchEvent(
       new KeyboardEvent('keydown', {
         key: '†',
@@ -963,16 +960,18 @@ describe('compose controller', () => {
     );
     const host = document.querySelector('sakutto-compose');
     if (!(host instanceof HTMLElement)) throw new Error('missing panel');
+    expect(host.hidden).toBe(true);
+    controller.handleShortcut(field);
     expect(host.hidden).toBe(false);
     expect(panelText()).toContain('Type something to translate.');
   });
 
-  it('ignores Alt+T during IME composition and key repeat', () => {
+  it('ignores Alt+T regardless of IME composition or key repeat', () => {
     document.body.innerHTML = '<textarea id="box"></textarea>';
     const field = document.querySelector('#box');
     if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
     field.focus();
-    start();
+    const controller = start();
     const press = (init: KeyboardEventInit): void => {
       field.dispatchEvent(
         new KeyboardEvent('keydown', {
@@ -992,33 +991,9 @@ describe('compose controller', () => {
     expect(host.hidden).toBe(true);
 
     press({});
+    expect(host.hidden).toBe(true);
+    controller.handleShortcut(field);
     expect(host.hidden).toBe(false);
-  });
-
-  it('routes the in-page compose key through the shared command dispatcher', () => {
-    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
-    const field = document.querySelector('#box');
-    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
-    field.focus();
-    const sources: Array<EventTarget | null | undefined> = [];
-    const controller = new ComposeController(document, {
-      engine: immediate((text, tgt) => `§${tgt}§${text}`),
-      labels,
-      preferences: { ...defaultPrefs },
-      onComposeCommand: (source) => sources.push(source),
-    });
-    controllers.push(controller);
-    field.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key: 't',
-        code: 'KeyT',
-        altKey: true,
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
-    expect(sources).toEqual([field]);
-    expect((document.querySelector('sakutto-compose') as HTMLElement).hidden).toBe(true);
   });
 
   it('does not swallow a later shortcut after the first press found no field', () => {
@@ -1036,25 +1011,17 @@ describe('compose controller', () => {
     expect(panelText()).toContain('Type something to translate.');
   });
 
-  it('keeps listening after the field is swapped like a SPA channel change', () => {
+  it('handles a native command after the field is swapped like a SPA channel change', () => {
     document.body.innerHTML = '<textarea id="old">hello</textarea>';
     const previous = document.querySelector('#old');
     if (!(previous instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
     previous.focus();
-    start();
+    const controller = start();
     document.body.innerHTML = '<textarea id="new"></textarea>';
     const next = document.querySelector('#new');
     if (!(next instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
     next.focus();
-    next.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key: 't',
-        code: 'KeyT',
-        altKey: true,
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
+    controller.handleShortcut(next);
     const host = document.querySelector('sakutto-compose');
     if (!(host instanceof HTMLElement)) throw new Error('missing panel');
     expect(host.hidden).toBe(false);
@@ -1116,10 +1083,7 @@ describe('compose controller', () => {
     const field = document.querySelector('#box');
     if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
     field.focus();
-    start();
-    field.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 't', altKey: true, code: 'KeyT', bubbles: true }),
-    );
+    start().handleShortcut();
     await vi.waitFor(() => {
       expect(panelText()).toContain('§ja§See you tomorrow.');
     });

@@ -44,8 +44,8 @@ function commandsUpdate(): CommandsUpdate | undefined {
  * Firefox can write shortcuts (`browser.commands.update`). Chrome cannot. Call only from
  * `onInstalled` (install or update). Restores the build default for a command that is
  * empty and was never assigned (`assigned !== true`). A key the user cleared after it
- * had been assigned stays empty. A conflict still leaves the command empty; the in-page
- * fallback covers never-assigned empties.
+ * had been assigned stays empty. A conflict still leaves the command empty; the options and
+ * popup explain how to assign it in the browser.
  */
 export function restoreEmptyCommandShortcuts(
   commands: readonly CommandBinding[],

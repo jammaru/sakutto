@@ -245,18 +245,20 @@ describe('typed translation layout', () => {
  * only way to let a reader rebind one is to send them to its own editor. A settings screen
  * that showed a key it could not change, or offered an edit box of its own, would be lying.
  */
+const shortcutNotice = source('ui/ShortcutUnsetNotice.svelte');
+
 describe('shortcut settings', () => {
   const shortcuts = source('ui/ShortcutSettings.svelte');
   const options = source('entrypoints/options/App.svelte');
   const background = source('entrypoints/background.ts');
 
-  it('reads the keys the browser has bound, and falls back only after an install conflict', () => {
+  it('reads browser bindings without offering an in-page default', () => {
     expect(shortcuts).toContain('requestShortcutSnapshot');
     expect(shortcuts).toContain('displayShortcut');
     expect(shortcuts).toContain('boundShortcut');
-    expect(shortcuts).toContain('usesInPageFallback');
-    expect(shortcuts).toContain('shortcutFallbackKey');
-    expect(shortcuts).toContain('data-sakutto="shortcut-fallback"');
+    expect(shortcuts).toContain('ShortcutUnsetNotice');
+    expect(shortcuts).not.toContain('usesInPageFallback');
+    expect(shortcuts).not.toContain('shortcutFallbackKey');
     expect(shortcuts).not.toContain("'Alt+A'");
   });
 
@@ -271,7 +273,19 @@ describe('shortcut settings', () => {
     expect(shortcuts).toContain('shortcutUnset');
     expect(shortcuts).toContain('shortcutOff');
     expect(shortcuts).toContain('shortcutUse');
-    expect(shortcuts).toContain('shortcutFallbackNote');
+    expect(shortcuts).not.toContain('shortcutFallbackNote');
+  });
+
+  it('shows a localized Chromium unset notice that opens the browser editor', () => {
+    const editor = source('shared/shortcut-editor.ts');
+    expect(shortcutNotice).toContain('isTranslatePageShortcutUnset');
+    expect(shortcutNotice).toContain('isFirefoxBuild');
+    expect(shortcutNotice).toContain('shortcutUnsetNotice');
+    expect(shortcutNotice).toContain('shortcutOpenSettings');
+    expect(shortcutNotice).toContain('data-sakutto="shortcut-unset-notice"');
+    expect(shortcutNotice).toContain('data-sakutto="open-shortcut-settings"');
+    expect(shortcutNotice).toContain('openShortcutEditor');
+    expect(editor).toContain("browser.tabs.create({ url: 'chrome://extensions/shortcuts' })");
   });
 
   it('is on the settings page', () => {
@@ -282,10 +296,7 @@ describe('shortcut settings', () => {
   it('records the browser’s command bindings on install, update, and startup', () => {
     expect(background).toContain('resolveShortcutQuery');
     expect(background).toContain('restoreEmptyCommandShortcuts');
-    expect(background).toContain('shortcutStateCache');
-    expect(background).toContain('shortcutStateCache = null');
-    expect(background).toContain('shortcutCacheGeneration += 1');
-    expect(background).toContain('queryShortcutState(message.refresh === true)');
+    expect(background).not.toContain('shortcutStateCache');
     expect(background).toContain('onInstalled');
     expect(background).toContain('onStartup');
     expect(background).toContain("reason === 'install' || reason === 'update'");
@@ -293,13 +304,14 @@ describe('shortcut settings', () => {
 });
 
 describe('popup shortcut hints', () => {
-  it('names the live binding and says when the in-page default is filling in', () => {
-    expect(popup).toContain('usesInPageFallback');
-    expect(popup).toContain('shortcutFallbackNote');
-    expect(popup).toContain('data-sakutto="shortcut-fallback"');
+  it('names live bindings and includes the same unset notice as options', () => {
+    expect(popup).toContain('ShortcutUnsetNotice');
     expect(popup).toContain('requestShortcutSnapshot');
     expect(popup).toContain('defaultShortcuts');
+    expect(popup).not.toContain('usesInPageFallback');
+    expect(popup).not.toContain('shortcutFallbackNote');
     expect(popup).not.toContain("'Alt+A'");
+    expect(shortcutNotice).toContain('isFirefoxBuild');
   });
 });
 

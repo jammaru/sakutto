@@ -12,7 +12,6 @@ import {
 } from './throughput';
 import { DEFAULT_BATCHING } from '@/engine/text/plan';
 import { chunkForTranslation, joinTranslatedSentences } from '@/engine/text/sentences';
-import { isPlainAltS } from '@/shared/shortcuts';
 import { PriorityQueue } from '@/engine/queue/priority-queue';
 import {
   isAbortError,
@@ -22,7 +21,6 @@ import {
 } from '@/engine/errors';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
 import { glossaryKey, mergeGlossary } from '@/shared/glossary';
-import type { PageCommandName } from '@/shared/messages';
 import {
   chooseTargetLanguage,
   effectivePageTarget,
@@ -55,7 +53,6 @@ import {
   isOwnUi,
   isScreenReaderOnly,
   isSubSuperscript,
-  isTypingShortcutTarget,
   isTranslationExcluded,
   isTypedTextSelection,
 } from './blocks';
@@ -104,9 +101,8 @@ const SELECTION_SETTLE_MS = 48;
 /** A selectionchange that follows pointerup is the same gesture and should not wait out the keyboard delay. */
 const POINTER_RELEASE_WINDOW_MS = 80;
 /**
- * Defensive deduplication for a binding transition where Chrome's `commands.onCommand` and
- * a stale in-page snapshot race. Toggle would otherwise translate and immediately restore,
- * which looks like the shortcut doing nothing. Normal assigned keys have no page listener.
+ * Defensive deduplication for duplicate native command delivery. Toggle would otherwise
+ * translate and immediately restore, which looks like the shortcut doing nothing.
  */
 export const PAGE_SHORTCUT_DEDUP_MS = 200;
 /**
@@ -251,20 +247,6 @@ export interface PageSessionOptions {
   }) => void | Promise<void>;
   /** Resolves true only after this site already has host access. */
   onGrantSite?: () => boolean | Promise<boolean>;
-  /**
-   * True for the key the reader bound to the selection command. Defaults to Alt+S, the key the
-   * manifest suggests; a page that can read the current binding passes its own test.
-   */
-  selectionKey?: (event: KeyboardEvent) => boolean;
-  /** Page translate / restore. Used when Chrome left that command unbound. */
-  pageKey?: (event: KeyboardEvent) => boolean;
-  /** Bilingual toggle. Used when Chrome left that command unbound. */
-  bilingualKey?: (event: KeyboardEvent) => boolean;
-  /**
-   * Runs page commands from in-page shortcuts with the same gating and deduplication as
-   * `commands.onCommand`. Without this, Alt+A and a Chrome command can both call `handle`.
-   */
-  onPageCommand?: (command: PageCommandName) => void;
   /** Saves a width chosen by dragging or keyboard, in em at 100% text scale. */
   onPopupWidth?: (widthEm: number) => void | Promise<void>;
   /** True only while the shared folder grant actually needs the reader to act. */
@@ -308,10 +290,6 @@ export class PageSession {
   private readonly onSitePatch: PageSessionOptions['onSitePatch'];
   private readonly onGrantSite: PageSessionOptions['onGrantSite'];
   private readonly onPopupWidth: PageSessionOptions['onPopupWidth'];
-  private readonly selectionKey: (event: KeyboardEvent) => boolean;
-  private readonly pageKey: ((event: KeyboardEvent) => boolean) | undefined;
-  private readonly bilingualKey: ((event: KeyboardEvent) => boolean) | undefined;
-  private readonly onPageCommand: ((command: PageCommandName) => void) | undefined;
   private readonly keyWindows = new Set<Window>();
   private grantPending = false;
   private eagerOnce = true;
@@ -411,10 +389,6 @@ export class PageSession {
     this.onSitePatch = options.onSitePatch;
     this.onGrantSite = options.onGrantSite;
     this.onPopupWidth = options.onPopupWidth;
-    this.selectionKey = options.selectionKey ?? isPlainAltS;
-    this.pageKey = options.pageKey;
-    this.bilingualKey = options.bilingualKey;
-    this.onPageCommand = options.onPageCommand;
     this.folderGrantUiActive = options.folderGrantUiActive === true;
     this.onFolderEnable = options.onFolderEnable;
     this.scheduleFrame =
@@ -504,42 +478,13 @@ export class PageSession {
       this.scheduleSelectionOffer(justReleased ? 0 : SELECTION_SETTLE_MS);
     };
     this.onKeyDown = (event) => {
-      if (!(event instanceof KeyboardEvent) || event.repeat) return;
-      if (event.isComposing) return;
-      if (event.key === 'Escape') {
-        this.overlay.hideOriginal();
-        if (!this.selection && !this.overlay.selectionIconVisible()) return;
-        event.preventDefault();
-        event.stopPropagation();
-        this.dismissSelection();
-        return;
-      }
-      // In-page fallback (unassigned commands): skip when a field is focused so Option+letter
-      // can type. Chrome-assigned commands still run via onCommand inside fields.
-      if (this.pageKey?.(event)) {
-        if (isTypingShortcutTarget(event)) return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (this.onPageCommand) this.onPageCommand('toggle');
-        else void this.handle('toggle');
-        return;
-      }
-      if (this.bilingualKey?.(event)) {
-        if (isTypingShortcutTarget(event)) return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (this.onPageCommand) this.onPageCommand('bilingual');
-        else void this.handle('bilingual');
-        return;
-      }
-      if (!this.selectionKey(event)) return;
-      if (isTypingShortcutTarget(event)) return;
-      const selected = this.readSelection();
-      if (!selected) return;
+      if (!(event instanceof KeyboardEvent) || event.repeat || event.isComposing) return;
+      if (event.key !== 'Escape') return;
+      this.overlay.hideOriginal();
+      if (!this.selection && !this.overlay.selectionIconVisible()) return;
       event.preventDefault();
       event.stopPropagation();
-      if (this.onPageCommand) this.onPageCommand('selection');
-      else this.translateSelection(selected.text, selected.rect);
+      this.dismissSelection();
     };
     this.onFocusIn = (event) => this.showHover(event);
     this.onFocusOut = (event) => this.hideHover(event);

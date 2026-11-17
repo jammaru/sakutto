@@ -324,13 +324,23 @@ describe('locale messages', () => {
       'privacyDestinationsFirefox',
       'onboardingBridgeNoteFirefox',
       'shortcutHelpFirefox',
-      'shortcutFallbackNoteFirefox',
-      'shortcutFallbackKeyFirefox',
     ];
     for (const key of firefoxKeys) {
       expect(en[key]?.message, key).not.toMatch(/Chrome/i);
       expect(ja[key]?.message, key).not.toMatch(/Chrome|Google/);
     }
+  });
+
+  it('localizes the unset-shortcut notice in every catalog', () => {
+    for (const locale of catalogs) {
+      const messages = readMessages(locale);
+      expect(messages.shortcutUnsetNotice?.message, locale).toBeTruthy();
+      expect(messages.shortcutOpenSettings?.message, locale).toBeTruthy();
+      expect(messages, locale).not.toHaveProperty('shortcutFallbackNote');
+      expect(messages, locale).not.toHaveProperty('shortcutFallbackKey');
+    }
+    expect(ja.shortcutUnsetNotice?.message).toBe('ショートカットが未設定です');
+    expect(ja.shortcutOpenSettings?.message).toBe('ショートカットを設定');
   });
 
   it('describes the button as an agreement and uses the pinned model size', () => {

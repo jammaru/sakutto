@@ -414,10 +414,10 @@
     "message": "Keyboard shortcuts"
   },
   "shortcutHelp": {
-    "message": "Uncheck a command to turn it off in Sakutto. Change shortcuts opens Chrome’s own editor. A key Chrome assigned is used as-is, including while a text field is focused (the page still translates). If Chrome never assigned a command, the default still works on web pages — not on chrome:// pages or other pages Sakutto cannot enter. In a text field that unassigned keydown is delivered and left unprevented, so Option+letter can type a character."
+    "message": "Uncheck a command to turn it off in Sakutto. Change shortcuts opens Chrome’s shortcut editor. Browser-assigned keys work even while a text field is focused. If a command is Not set, open the editor and assign a key."
   },
   "shortcutHelpFirefox": {
-    "message": "Uncheck a command to turn it off in Sakutto. Change shortcuts opens Firefox’s own editor. A key you set there is used as-is, including while a text field is focused. An update restores a command that was never assigned, when Firefox allows it; a key you cleared stays cleared. Never-assigned commands still work on pages until then. In a text field that unassigned keydown is left unprevented so it can type."
+    "message": "Uncheck a command to turn it off in Sakutto. Change shortcuts opens Firefox’s own editor. Keys assigned there work even while a text field is focused. On install or update, Firefox restores an empty never-assigned command when possible; a key you cleared stays cleared."
   },
   "shortcutChange": {
     "message": "Change shortcuts"
@@ -425,33 +425,17 @@
   "shortcutUnset": {
     "message": "Not set"
   },
+  "shortcutUnsetNotice": {
+    "message": "Shortcuts are not set"
+  },
+  "shortcutOpenSettings": {
+    "message": "Open shortcut settings"
+  },
   "shortcutUse": {
     "message": "Use this shortcut"
   },
   "shortcutOff": {
     "message": "Off"
-  },
-  "shortcutFallbackNote": {
-    "message": "Chrome never assigned a key to this command, so the default is handled on web pages. It does not work on chrome:// pages or other pages Sakutto cannot enter. In a text field the keydown is left unprevented."
-  },
-  "shortcutFallbackNoteFirefox": {
-    "message": "Firefox never assigned a key to this command, so the default is handled on pages. In a text field the keydown is left unprevented."
-  },
-  "shortcutFallbackKey": {
-    "message": "$KEY$ (on pages)",
-    "placeholders": {
-      "key": {
-        "content": "$1"
-      }
-    }
-  },
-  "shortcutFallbackKeyFirefox": {
-    "message": "$KEY$ (on pages)",
-    "placeholders": {
-      "key": {
-        "content": "$1"
-      }
-    }
   },
   "shortcutTranslate": {
     "message": "$KEY$ translates the page or restores the original.",

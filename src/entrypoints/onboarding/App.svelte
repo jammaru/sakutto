@@ -540,9 +540,7 @@
       if (!state) return;
       const next = { ...bound };
       for (const command of SHORTCUT_COMMANDS) {
-        next[command] = boundShortcut(state.snapshot, command, {
-          assigned: state.assigned[command],
-        });
+        next[command] = boundShortcut(state.snapshot, command);
       }
       bound = next;
     });

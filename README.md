@@ -151,7 +151,7 @@ No account is needed. The model weights are not in this repository or in the sto
 
 The same actions are in the toolbar popup and the right-click menu. Chrome owns extension shortcuts, so change them in Chrome's editor: the settings page has a **Keyboard shortcuts** panel, and the popup has a **Change shortcuts** link. Firefox uses Alt+Shift+letter by default and opens Firefox's own editor.
 
-If Chrome has assigned a command, it is delivered even while a text field is focused. If Chrome never assigned it, the in-page default still works, but Sakutto leaves the keydown unprevented so Option+letter can type. That fallback does not run on `chrome://` pages or in the PDF viewer. Alt+D is not a default because Chrome uses it for the address bar.
+Chrome delivers assigned commands even while a text field is focused. If a command is Not set, the popup and options show a notice with a button to `chrome://extensions/shortcuts`; assign it there. Sakutto does not listen for page keydown events as a fallback, because its runtime content scripts are injected only after you invoke the extension. No additional host permission is requested. Alt+D is not a default because Chrome uses it for the address bar.
 
 ## FAQ
 

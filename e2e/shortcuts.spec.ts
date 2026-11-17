@@ -3,8 +3,8 @@ import { loadExtension } from './extension';
 import {
   FIXTURE_ORIGIN,
   MARKER,
+  dispatchCommand,
   injectContentScript,
-  invokeOnCommandPath,
   readCommandBindings,
   resetExtensionStorage,
   simulateNeverAssignedShortcuts,
@@ -27,7 +27,7 @@ const ASSIGNED_DEFAULT_BINDINGS = [
   { name: 'translate-compose', shortcut: 'Alt+T' },
 ];
 
-async function pressAltLetter(page: Page, code: string, key: string) {
+async function pressAltLetter(page: Page, code: string, key: string): Promise<void> {
   await page.evaluate(
     ({ code, key }) => {
       window.dispatchEvent(
@@ -44,58 +44,27 @@ async function pressAltLetter(page: Page, code: string, key: string) {
   );
 }
 
-async function waitForShortcutRefresh(page: Page, expected: string): Promise<void> {
+async function refreshShortcutUi(page: Page): Promise<void> {
   await page.evaluate(() => {
     window.dispatchEvent(new Event('focus'));
     document.dispatchEvent(new Event('visibilitychange'));
   });
-  await expect
-    .poll(async () => page.locator('html').getAttribute('data-sakutto-page-shortcut'))
-    .toBe(expected);
 }
 
-interface PageKeyLog {
-  key: string;
-  code: string;
-  alt: boolean;
-  prevented: boolean;
-  target: string;
+async function openOptions(extension: Awaited<ReturnType<typeof loadExtension>>): Promise<Page> {
+  const options = await extension.context.newPage();
+  await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
+  return options;
 }
 
-async function installKeyLog(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    const log: PageKeyLog[] = [];
-    (window as unknown as { __sakuttoKeys: PageKeyLog[] }).__sakuttoKeys = log;
-    window.addEventListener(
-      'keydown',
-      (event) => {
-        log.push({
-          key: event.key,
-          code: event.code,
-          alt: event.altKey,
-          prevented: event.defaultPrevented,
-          target: event.target instanceof Element ? event.target.id : '',
-        });
-      },
-      true,
-    );
-  });
-}
-
-async function readKeyLog(page: Page): Promise<PageKeyLog[]> {
-  return page.evaluate(
-    () => (window as unknown as { __sakuttoKeys: PageKeyLog[] }).__sakuttoKeys ?? [],
-  );
-}
-
-test.describe('translate-page command', () => {
-  test('starts translation through the onCommand handler path', async () => {
+test.describe('native browser commands', () => {
+  test('starts translation through the real commands.onCommand listener', async () => {
     const extension = await loadExtension('en-US');
     try {
       await resetExtensionStorage(extension.worker);
       const page = await extension.context.newPage();
       await page.goto(`${FIXTURE_ORIGIN}/article.html`);
-      await invokeOnCommandPath(extension.worker, page, 'toggle');
+      await dispatchCommand(extension.worker, page);
       await waitTranslated(page);
       await expect(page.locator('#lead')).toContainText(MARKER);
       await page.close();
@@ -104,115 +73,7 @@ test.describe('translate-page command', () => {
     }
   });
 
-  test('keeps the page translated when Chrome command and in-page Alt+A arrive together', async () => {
-    const extension = await loadExtension('en-US');
-    try {
-      await resetExtensionStorage(extension.worker);
-      const page = await extension.context.newPage();
-      await page.goto(`${FIXTURE_ORIGIN}/article.html`);
-      await injectContentScript(extension.worker, page);
-      await waitForContentSession(extension.worker, page);
-      await page.evaluate(() => {
-        window.dispatchEvent(
-          new KeyboardEvent('keydown', {
-            key: 'a',
-            code: 'KeyA',
-            altKey: true,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-      });
-      await invokeOnCommandPath(extension.worker, page, 'toggle');
-      await waitTranslated(page);
-      await expect(page.locator('#lead')).toContainText(MARKER);
-      await expect
-        .poll(async () => page.evaluate(() => document.documentElement.dataset.sakuttoState))
-        .toBe('translated');
-      await page.close();
-    } finally {
-      await extension.close();
-    }
-  });
-
-  test('options names the key Chrome actually assigned for translate-page', async () => {
-    const extension = await loadExtension('en-US');
-    try {
-      const bindings = await readCommandBindings(extension.worker);
-      const pageCommand = bindings.find((entry) => entry.name === 'translate-page');
-      const options = await extension.context.newPage();
-      await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
-      const kbd = options.locator('kbd').first();
-      await expect(kbd).toBeVisible();
-      if (pageCommand?.shortcut) {
-        await expect(kbd).toHaveText(pageCommand.shortcut);
-      } else {
-        await expect(options.locator('[data-sakutto="shortcut-fallback"]').first()).toBeVisible();
-      }
-      await options.close();
-    } finally {
-      await extension.close();
-    }
-  });
-
-  test('unassigned commands use the in-page default', async () => {
-    const extension = await loadExtension('en-US');
-    try {
-      await resetExtensionStorage(extension.worker);
-      await simulateNeverAssignedShortcuts(extension.worker);
-      const options = await extension.context.newPage();
-      await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
-      await expect(options.locator('kbd').first()).toHaveText('Alt+A (on pages)');
-      await expect(options.locator('[data-sakutto="shortcut-fallback"]').first()).toBeVisible();
-      await options.close();
-
-      const page = await extension.context.newPage();
-      await page.goto(`${FIXTURE_ORIGIN}/article.html`);
-      await injectContentScript(extension.worker, page);
-      await waitForContentSession(extension.worker, page);
-      await waitForShortcutRefresh(page, 'Alt+A');
-      await pressAltLetter(page, 'KeyA', 'a');
-      await waitTranslated(page);
-      await expect(page.locator('#lead')).toContainText(MARKER);
-      await page.close();
-    } finally {
-      await extension.close();
-    }
-  });
-
-  test('a customized shortcut turns the in-page default off', async () => {
-    const extension = await loadExtension('en-US');
-    try {
-      await resetExtensionStorage(extension.worker);
-      await stubCommandBindings(extension.worker, CUSTOM_PAGE_BINDINGS);
-      const options = await extension.context.newPage();
-      await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
-      await expect(options.locator('kbd').first()).toHaveText('Alt+Q');
-      await expect(options.locator('[data-sakutto="shortcut-fallback"]')).toHaveCount(0);
-      await options.close();
-
-      const page = await extension.context.newPage();
-      await page.goto(`${FIXTURE_ORIGIN}/article.html`);
-      await injectContentScript(extension.worker, page);
-      await waitForContentSession(extension.worker, page);
-      await waitForShortcutRefresh(page, 'Alt+Q');
-      await pressAltLetter(page, 'KeyA', 'a');
-      await page.waitForTimeout(300);
-      await expect(page.locator('#lead')).not.toContainText(MARKER);
-      await pressAltLetter(page, 'KeyQ', 'q');
-      await page.waitForTimeout(300);
-      await expect(page.locator('#lead')).not.toContainText(MARKER);
-      // A browser-assigned key belongs only to commands.onCommand, never a second page listener.
-      await invokeOnCommandPath(extension.worker, page, 'toggle');
-      await waitTranslated(page);
-      await expect(page.locator('#lead')).toContainText(MARKER);
-      await page.close();
-    } finally {
-      await extension.close();
-    }
-  });
-
-  test('an assigned default does not double-toggle from onCommand plus in-page Alt+A', async () => {
+  test('ignores assigned Alt+A keydown and translates only through onCommand', async () => {
     const extension = await loadExtension('en-US');
     try {
       await resetExtensionStorage(extension.worker);
@@ -221,23 +82,38 @@ test.describe('translate-page command', () => {
       await page.goto(`${FIXTURE_ORIGIN}/article.html`);
       await injectContentScript(extension.worker, page);
       await waitForContentSession(extension.worker, page);
-      await waitForShortcutRefresh(page, 'Alt+A');
       await pressAltLetter(page, 'KeyA', 'a');
       await page.waitForTimeout(300);
       await expect(page.locator('#lead')).not.toContainText(MARKER);
-      await invokeOnCommandPath(extension.worker, page, 'toggle');
+
+      await dispatchCommand(extension.worker, page);
       await waitTranslated(page);
       await expect(page.locator('#lead')).toContainText(MARKER);
-      await expect
-        .poll(async () => page.evaluate(() => document.documentElement.dataset.sakuttoState))
-        .toBe('translated');
       await page.close();
     } finally {
       await extension.close();
     }
   });
 
-  test('unassigned Alt+A is delivered to a focused textarea and left unprevented', async () => {
+  test('does not handle a customized Alt+Q binding in the page', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker);
+      await stubCommandBindings(extension.worker, CUSTOM_PAGE_BINDINGS);
+      const page = await extension.context.newPage();
+      await page.goto(`${FIXTURE_ORIGIN}/article.html`);
+      await injectContentScript(extension.worker, page);
+      await waitForContentSession(extension.worker, page);
+      await pressAltLetter(page, 'KeyQ', 'q');
+      await page.waitForTimeout(300);
+      await expect(page.locator('#lead')).not.toContainText(MARKER);
+      await page.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('does not translate an unset command from page keydown', async () => {
     const extension = await loadExtension('en-US');
     try {
       await resetExtensionStorage(extension.worker);
@@ -246,23 +122,9 @@ test.describe('translate-page command', () => {
       await page.goto(`${FIXTURE_ORIGIN}/article.html`);
       await injectContentScript(extension.worker, page);
       await waitForContentSession(extension.worker, page);
-      await waitForShortcutRefresh(page, 'Alt+A');
-      await page.evaluate(() => {
-        const field = document.createElement('textarea');
-        field.id = 'draft';
-        field.value = 'hello';
-        document.body.prepend(field);
-      });
-      await installKeyLog(page);
-      await page.locator('#draft').click();
-      await page.keyboard.press('Alt+a');
-      const hits = (await readKeyLog(page)).filter((entry) => entry.code === 'KeyA' && entry.alt);
-      expect(hits.length, JSON.stringify(hits)).toBeGreaterThan(0);
-      expect(hits.every((entry) => entry.prevented === false)).toBe(true);
-      expect(hits.some((entry) => entry.target === 'draft')).toBe(true);
+      await pressAltLetter(page, 'KeyA', 'a');
       await page.waitForTimeout(300);
       await expect(page.locator('#lead')).not.toContainText(MARKER);
-      await expect(page.locator('#draft')).toHaveValue('hello');
       await page.close();
     } finally {
       await extension.close();
@@ -282,11 +144,97 @@ test.describe('translate-page command', () => {
         document.body.prepend(field);
       });
       await page.locator('#draft').click();
-      await invokeOnCommandPath(extension.worker, page, 'toggle');
+      await dispatchCommand(extension.worker, page);
       await waitTranslated(page);
       await expect(page.locator('#lead')).toContainText(MARKER);
       await expect(page.locator('#draft')).toHaveValue('hello');
       await page.close();
+    } finally {
+      await extension.close();
+    }
+  });
+});
+
+test.describe('unset shortcut notice', () => {
+  test('options hides the notice and names the assigned key', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker);
+      await stubCommandBindings(extension.worker, ASSIGNED_DEFAULT_BINDINGS);
+      const options = await openOptions(extension);
+      await expect(options.locator('kbd').first()).toHaveText('Alt+A');
+      await expect(options.locator('[data-sakutto="shortcut-unset-notice"]')).toHaveCount(0);
+      await options.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('options shows, refreshes, and opens the shortcut editor from the notice', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker);
+      await simulateNeverAssignedShortcuts(extension.worker);
+      const options = await openOptions(extension);
+      const notice = options.locator('[data-sakutto="shortcut-unset-notice"]');
+      await expect(notice).toBeVisible();
+      await expect(notice).toContainText('Shortcuts are not set');
+      await expect(options.locator('kbd').first()).toHaveText('Not set');
+
+      await stubCommandBindings(extension.worker, ASSIGNED_DEFAULT_BINDINGS);
+      await refreshShortcutUi(options);
+      await expect(notice).toHaveCount(0);
+      await expect(options.locator('kbd').first()).toHaveText('Alt+A');
+
+      await simulateNeverAssignedShortcuts(extension.worker);
+      await refreshShortcutUi(options);
+      await expect(notice).toBeVisible();
+      const editorPromise = extension.context.waitForEvent('page');
+      await options.locator('[data-sakutto="open-shortcut-settings"]').click();
+      const editor = await editorPromise;
+      expect(editor.url()).toBe('chrome://extensions/shortcuts');
+      await editor.close();
+      await options.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('popup shows the notice when unset and hides it after assignment', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      await resetExtensionStorage(extension.worker);
+      await simulateNeverAssignedShortcuts(extension.worker);
+      const popup = await extension.context.newPage();
+      await popup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
+      const notice = popup.locator('[data-sakutto="shortcut-unset-notice"]');
+      await expect(notice).toBeVisible();
+      await expect(notice).toContainText('Shortcuts are not set');
+
+      await stubCommandBindings(extension.worker, ASSIGNED_DEFAULT_BINDINGS);
+      await refreshShortcutUi(popup);
+      await expect(notice).toHaveCount(0);
+      await popup.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('the real browser bindings determine whether options shows the notice', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      const bindings = await readCommandBindings(extension.worker);
+      const pageCommand = bindings.find((entry) => entry.name === 'translate-page');
+      const options = await openOptions(extension);
+      await expect(options.locator('kbd').first()).toBeVisible();
+      if (pageCommand?.shortcut) {
+        await expect(options.locator('kbd').first()).toHaveText(pageCommand.shortcut);
+        await expect(options.locator('[data-sakutto="shortcut-unset-notice"]')).toHaveCount(0);
+      } else {
+        await expect(options.locator('kbd').first()).toHaveText('Not set');
+        await expect(options.locator('[data-sakutto="shortcut-unset-notice"]')).toBeVisible();
+      }
+      await options.close();
     } finally {
       await extension.close();
     }

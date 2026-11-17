@@ -1,15 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { t, tForBrowser, type MessageKey } from '@/shared/i18n';
+  import { t, type MessageKey } from '@/shared/i18n';
   import { requestShortcutSnapshot, type ShortcutQueryResult } from '@/shared/messages';
   import { openShortcutEditor } from '@/shared/shortcut-editor';
+  import ShortcutUnsetNotice from '@/ui/ShortcutUnsetNotice.svelte';
   import {
     SHORTCUT_COMMANDS,
     ariaShortcut,
     boundShortcut,
     defaultShortcutEnabled,
     displayShortcut,
-    usesInPageFallback,
     type ShortcutCommand,
     type ShortcutEnabled,
   } from '@/shared/shortcuts';
@@ -37,7 +37,6 @@
 
   function keyFor(command: ShortcutCommand): string {
     return boundShortcut(shortcutState?.snapshot ?? null, command, {
-      assigned: shortcutState?.assigned[command],
       enabled: isOn(command),
     });
   }
@@ -46,11 +45,7 @@
     if (!isOn(command)) return t('shortcutOff');
     const shortcut = keyFor(command);
     if (shortcut.length === 0) return t('shortcutUnset');
-    const displayed = displayShortcut(shortcut);
-    if (showsFallback(command)) {
-      return tForBrowser('shortcutFallbackKey', 'shortcutFallbackKeyFirefox', [displayed]);
-    }
-    return displayed;
+    return displayShortcut(shortcut);
   }
 
   function aria(command: ShortcutCommand): string | undefined {
@@ -58,13 +53,6 @@
     const shortcut = keyFor(command);
     if (shortcut.length === 0) return undefined;
     return ariaShortcut(shortcut) ?? undefined;
-  }
-
-  function showsFallback(command: ShortcutCommand): boolean {
-    return (
-      isOn(command) &&
-      usesInPageFallback(shortcutState?.snapshot ?? null, command, shortcutState?.assigned[command])
-    );
   }
 
   function refresh(): void {
@@ -75,9 +63,8 @@
 
   /**
    * The browser owns the key bindings, so the only honest control is a button that opens
-   * its editor. The rows are read again when the reader comes back from that tab. Sakutto's
-   * own checkbox is one off switch; clearing a key in the browser is another. The in-page
-   * default only fills in when the browser never assigned the suggested key.
+   * its editor. The rows and unset notice are read again when the reader comes back from
+   * that tab. Sakutto's own checkbox is one off switch; clearing a browser key is another.
    */
   async function openEditor(): Promise<void> {
     openFailed = !(await openShortcutEditor());
@@ -118,14 +105,10 @@
         </label>
         <kbd aria-keyshortcuts={aria(command)}>{keyText(command)}</kbd>
       </div>
-      {#if showsFallback(command)}
-        <p class="fallback" data-sakutto="shortcut-fallback">
-          {tForBrowser('shortcutFallbackNote', 'shortcutFallbackNoteFirefox')}
-        </p>
-      {/if}
     </dd>
   {/each}
 </dl>
+<ShortcutUnsetNotice snapshot={shortcutState?.snapshot ?? null} />
 <button class="button secondary" type="button" onclick={openEditor}>{t('shortcutChange')}</button>
 {#if openFailed}
   <p class="error" role="alert">{t('errorAction')}</p>
@@ -165,15 +148,6 @@
     gap: var(--space-1);
     color: var(--muted);
     font-size: 11px;
-  }
-
-  .fallback {
-    margin: 0;
-    max-width: 28em;
-    color: var(--muted);
-    font-size: 11px;
-    line-height: 1.45;
-    text-align: right;
   }
 
   kbd {

@@ -73,7 +73,6 @@ import {
   isWebGpuDebugQuery,
   requestEngineProbe,
   type ModelProgressMessage,
-  type ShortcutQueryResult,
 } from '@/shared/messages';
 import { resolveShortcutQuery, restoreEmptyCommandShortcuts } from '@/shared/shortcut-assignment';
 import {
@@ -289,41 +288,10 @@ export default defineBackground(() => {
     return status;
   }
 
-  let shortcutStateCache: ShortcutQueryResult | null = null;
-  let shortcutCacheGeneration = 0;
-  let shortcutRefreshQueue: Promise<unknown> = Promise.resolve();
-  browser.commands.onCommand.addListener(() => {
-    // Delivery proves an assignment even if an earlier getAll() raced the browser's pref write.
-    shortcutCacheGeneration += 1;
-    shortcutStateCache = null;
-  });
-
-  /**
-   * Keep the worker's last complete snapshot for newly injected pages. Refreshes are serialized
-   * so an install/update read (which may restore Firefox defaults) cannot be overwritten by an
-   * older focus read. A query may explicitly bypass the cache after a browser-editor change.
-   */
-  function recordCommandAssignments(restoreEmpty = false): Promise<ShortcutQueryResult> {
-    const refresh = shortcutRefreshQueue.then(async () => {
-      for (;;) {
-        const generation = shortcutCacheGeneration;
-        const commands = await browser.commands.getAll().catch(() => []);
-        const next = restoreEmpty ? await restoreEmptyCommandShortcuts(commands) : commands;
-        const state = await resolveShortcutQuery(next);
-        if (generation === shortcutCacheGeneration) {
-          shortcutStateCache = state;
-          return state;
-        }
-        // A native command invalidated this read. Retry in place, never behind this same promise.
-      }
-    });
-    shortcutRefreshQueue = refresh.catch(() => undefined);
-    return refresh;
-  }
-
-  function queryShortcutState(refresh: boolean): Promise<ShortcutQueryResult | null> {
-    if (!refresh && shortcutStateCache) return Promise.resolve(shortcutStateCache);
-    return recordCommandAssignments().catch(() => shortcutStateCache);
+  async function recordCommandAssignments(restoreEmpty = false): Promise<void> {
+    const commands = await browser.commands.getAll().catch(() => []);
+    const next = restoreEmpty ? await restoreEmptyCommandShortcuts(commands) : commands;
+    await resolveShortcutQuery(next);
   }
 
   browser.runtime.onInstalled.addListener(({ reason }) => {
@@ -556,7 +524,10 @@ export default defineBackground(() => {
     }
 
     if (isShortcutQuery(message)) {
-      void queryShortcutState(message.refresh === true).then(sendResponse);
+      void browser.commands
+        .getAll()
+        .then((commands) => resolveShortcutQuery(commands))
+        .then(sendResponse, () => sendResponse(null));
       return true;
     }
 

@@ -1,10 +1,10 @@
-# Keyboard shortcut assignment and fallback
+# Keyboard shortcuts: browser commands and unset guidance
 
-## Root cause: a suggested key is not an assigned key
+## Generated manifest evidence
 
-`wxt.config.ts` builds `commands` through `commandSuggestions()` in
-`src/shared/manifest.ts`. The generated Chrome manifest is therefore the authoritative build
-evidence, rather than the TypeScript defaults alone.
+`wxt.config.ts` builds `commands` through `commandSuggestions()` in `src/shared/manifest.ts`.
+The generated Chrome manifest, rather than the TypeScript defaults alone, is the authoritative
+build evidence.
 
 A WXT Chrome MV3 build (`.output/chrome-mv3/manifest.json`, version 1.6.3 at the time of this
 investigation) contains:
@@ -17,67 +17,65 @@ investigation) contains:
 | `translate-compose`   | `{ "default": "Alt+T", "mac": "Alt+T" }` |
 | `translate-pdf`       | absent                                   |
 
-There is no `_execute_action` entry. Thus exactly four commands request a key. The fake-engine
-WXT build used for this inspection changes fixture host permissions, not `commandSuggestions()`;
+There is no `_execute_action` entry. Exactly four commands request a key. The fake-engine WXT
+build used for this inspection changes fixture host permissions, not `commandSuggestions()`;
 its command manifest is the same as the release configuration.
 
-The following Chrome rules explain why users can nevertheless see **Not set / 未設定** in
-`chrome://extensions/shortcuts`:
+Chrome accepts at most four commands with `suggested_key`. A fifth makes Chrome reject the whole
+extension with `Too many shortcuts specified for 'commands': The maximum is 4`; it is not merely a
+warning. The four page commands therefore keep their suggestions, while `translate-pdf` remains
+available for an optional user assignment without one.
 
-1. **Four-key limit.** Chrome accepts at most four commands with `suggested_key` per extension.
-   The four page commands consume that allowance. Adding one to `translate-pdf` (or an explicit
-   `_execute_action`) would make five.
-2. **A fifth key invalidates the manifest.** This is not a warning or a command that merely stays
-   unset. Chrome refuses to load the extension with
-   `Too many shortcuts specified for 'commands': The maximum is 4`.
-3. **Suggestions are not guaranteed assignments.** A browser or another extension can already own
-   a suggested accelerator. Chrome can then leave the command empty, which the shortcut editor
-   displays as 未設定. Reserved browser accelerators must not be used as defaults.
-4. **Existing installs do not gain new suggestions on update.** Changing or adding a
-   `suggested_key` in a later manifest does not reliably populate a command that is empty in an
-   existing profile. Chrome retains the extension's current command preferences, including a key
-   the user deliberately cleared. Consequently, shipping the four manifest keys alone cannot fix
-   older installations.
+## Why a suggestion can be 未設定
 
-## Assignment policy
+A suggested key is not a guaranteed assignment:
 
-The background reads `commands.getAll()` and persists an independent `shortcutAssigned` map:
+- Chrome can skip a suggestion when another extension already owns the accelerator. In particular,
+  a development install can lose Alt+A/B/S/T to a store build of Sakutto (or vice versa).
+- Profiles installed before these commands existed do not reliably gain newly added suggestions on
+  an extension update.
+- Browser-reserved accelerators and user-cleared preferences can also leave a command empty.
 
-- A non-empty browser binding is used only by `commands.onCommand`. The content script must not
-  also listen for that default or customized key; one physical press must have one owner.
-- An empty binding with `assigned: false` means the command has never been observed with a key
-  (for example, an install conflict or an old install that stayed 未設定). Only then may a content
-  script handle the platform default in a web page.
-- An empty binding with `assigned: true` means the user cleared a previously assigned key. The
-  command remains off; fallback must not undo that choice.
-- Before the first `getAll()` answer there is no in-page listener. Optimistically listening for a
-  default during startup could double-fire an already assigned browser command.
+`commands.getAll()` is the live source of truth. An explicitly empty `shortcut` means the browser
+has not assigned that command. Adding a key in `chrome://extensions/shortcuts` is the only Chromium
+fix; changing the manifest cannot repair an existing profile.
 
-The worker caches the latest complete query result. It refreshes on worker startup, `onInstalled`,
-and `onStartup`; popup/options/onboarding queries refresh when opened and after focus or visibility
-changes. Content scripts may use the cached result at injection, then force a refresh on page
-focus, visibility restoration, and BFCache return. Refreshes are serialized so an older read cannot
-overwrite an install/update read.
+## Runtime content-script injection: no in-page fallback
 
-In-page page, bilingual, and selection commands ignore editable targets. Compose is the exception:
-it runs in an eligible editable field. All in-page commands ignore `event.isComposing` and
-`event.repeat`.
+The release manifest intentionally has no `host_permissions`. Content scripts use
+`registration: 'runtime'` and are injected only after the user invokes Sakutto through its popup or
+another extension action, which grants `activeTab` access. A page-owned keydown listener therefore
+cannot provide dependable shortcut coverage: before that first invocation, no listener exists on
+the page at all.
 
-## Shared command routing and PDF
+There is deliberately **no in-page keyboard fallback** and no new host permission. Page,
+bilingual, selection, and compose commands run only through `browser.commands.onCommand` in the
+background. The background uses the existing content-script bridge after activation, including the
+shared-folder grant gate. Content scripts still handle local UI keys such as Escape and the compose
+panel's Ctrl+Enter, but they do not translate in response to Alt+A/B/S/T keydown events.
 
-Page, bilingual, selection, and compose fallback enter the same content dispatcher as browser
-commands. Page/selection/bilingual therefore retain the shared-folder arm gate from #114 and keep
-selection capture before asynchronous arming.
+`translate-pdf` is likewise background-only. Chrome's built-in PDF viewer has no page into which a
+content script can be injected, so an assigned PDF command calls `runGatedPdfCommand` directly.
 
-`translate-pdf` is different. Chrome's built-in PDF viewer has no page into which this fallback can
-be injected, so there is intentionally no content-script PDF fallback. The command remains declared
-without a suggested key. If the user assigns one, only the background handles it and calls
-`runGatedPdfCommand`, preserving the same folder grant gate as the other background actions.
+## Unset notice and current-key display
 
-## Firefox
+Popup and options read `commands.getAll()` when opened and again after focus or visibility changes.
+When Chromium explicitly reports `translate-page` as empty, both surfaces show a small localized
+**Shortcuts are not set / ショートカットが未設定です** notice. Its button calls `tabs.create()` for
+`chrome://extensions/shortcuts`; this requires no additional permission. The notice is not
+persistently dismissible and disappears automatically once a key is assigned.
 
-Firefox uses `Alt+Shift+A/B/S/T` suggestions to avoid Windows menu-bar access keys. On install and
-update, `restoreEmptyCommandShortcuts()` calls `commands.update()` where available for empty,
-never-assigned commands. It does not overwrite customized keys or restore a key the user cleared.
-If Firefox refuses an update because of a conflict, the same never-assigned in-page fallback keeps
-the command usable.
+The settings rows continue to display the current key for every command. Once a snapshot is
+available, an empty or missing command displays **Not set / 未設定**, never a misleading default
+that cannot run. Before the first answer, manifest suggestions are only temporary display
+placeholders, not active in-page listeners.
+
+Firefox uses its own editor through `commands.openShortcutSettings()` where available. The Chromium
+notice and `chrome://` navigation are omitted on Firefox. On install and update,
+`restoreEmptyCommandShortcuts()` uses `commands.update()` for empty, never-assigned commands when
+Firefox permits it. It does not overwrite customized keys or restore a key the user cleared. If
+Firefox refuses an update because of a conflict, the command remains unset; Firefox does not get an
+in-page substitute either.
+
+Firefox's manifest suggestions are Alt+Shift+A/B/S/T to avoid Windows menu-bar access keys. Its
+generated manifest likewise has no suggested key for `translate-pdf`.

@@ -25,11 +25,9 @@ export const SHORTCUT_PAGE_COMMANDS: Readonly<Record<ShortcutCommand, PageComman
 /**
  * The PDF command is declared in the manifest but is not one of `SHORTCUT_COMMANDS`.
  *
- * Every other command is a page action, so a page listens for the key itself and its
- * binding has to reach the content script. The PDF command is not: Chrome draws a PDF in its
- * own viewer, no content script can run there, and the browser delivers the key to the
- * background, which opens the reader. So there is no in-page fallback to keep in step, and
- * the command stays out of the rebindable list a page reads.
+ * Every other command is a page action delivered by the browser to the background and then
+ * an injected content script. The PDF command is different: Chrome draws a PDF in its own
+ * viewer, no content script can run there, and the background opens the reader directly.
  *
  * It also carries no `suggested_key`. Chrome rejects the whole manifest when more than four
  * commands are given one — `Too many shortcuts specified for 'commands': The maximum is 4` —
@@ -138,9 +136,6 @@ export function defaultShortcutFor(
  */
 export const DEFAULT_SHORTCUTS: Readonly<Record<ShortcutCommand, string>> = defaultShortcuts();
 
-/** The key the selection command has until the browser answers. */
-export const DEFAULT_SELECTION_SHORTCUT = DEFAULT_SHORTCUTS['translate-selection'];
-
 /** The key the compose command has until the browser answers. */
 export const DEFAULT_COMPOSE_SHORTCUT = DEFAULT_SHORTCUTS['translate-compose'];
 
@@ -168,7 +163,7 @@ export function normalizeShortcutEnabled(value: unknown): ShortcutEnabled {
 /**
  * Whether the browser has assigned a key to each command at least once. Missing keys have
  * not been observed yet. `true` never goes back to `false`: a later empty binding is a
- * user clear, not a reason to revive the in-page default.
+ * user clear that Firefox must not restore automatically.
  */
 export type ShortcutAssignment = Partial<ShortcutAssigned>;
 
@@ -218,10 +213,9 @@ function hasShortcutKey(binding: string | null | undefined): binding is string {
  *
  * A command the map has never seen is recorded as assigned only when the browser reported a
  * key. An unassigned command becomes assigned if a key appears later. Assigned never goes
- * back to false, so a later empty binding is a user clear — no in-page fallback, and
- * Firefox must not `commands.update` it back. Existing installs from before this map
- * already stored it (#52): empty-from-the-start stays `false` (fallback); a key that
- * later vanished is `true` (leave off).
+ * back to false, so a later empty binding is a user clear and Firefox must not
+ * `commands.update` it back. Existing installs from before this map already stored it
+ * (#52): empty-from-the-start stays `false`; a key that later vanished is `true`.
  */
 export function rememberShortcutAssignments(
   recorded: ShortcutAssignment,
@@ -246,21 +240,12 @@ export interface BoundShortcutOptions {
   readonly fallback?: string;
   readonly enabled?: boolean;
   readonly mac?: boolean | undefined;
-  /**
-   * Whether the browser has assigned a key to this command at least once. `true` plus an
-   * empty snapshot is a user clear: no in-page fallback. `false` or omitted plus empty is
-   * "never assigned" (install conflict, or an old install that stayed 未設定): use the
-   * per-OS default on pages.
-   */
-  readonly assigned?: boolean | undefined;
 }
 
 /**
- * The effective key to display. A key the user set in the browser wins. An empty binding
- * uses the per-OS default only when that command was never assigned; a user clear
- * (`assigned === true`) stays off. Sakutto's own checkbox is a separate off switch. No
- * snapshot keeps the default for early UI. Event listeners must use the stricter
- * `inPageFallbackShortcut()` so they never claim a browser-owned key.
+ * The browser-assigned key to display. Before the first answer, the manifest suggestion is
+ * shown as a placeholder. Once a snapshot exists, an empty or missing command has no key;
+ * there is deliberately no in-page default. Sakutto's checkbox is a separate off switch.
  */
 export function boundShortcut(
   snapshot: ShortcutSnapshot | null,
@@ -270,39 +255,12 @@ export function boundShortcut(
   const fallback = options.fallback ?? defaultShortcutFor(command, { mac: options.mac });
   if (options.enabled === false) return '';
   if (!snapshot) return fallback;
-  const binding = snapshot[command];
-  if (hasShortcutKey(binding)) return binding;
-  if (options.assigned === true) return '';
-  return fallback;
+  return snapshot[command] ?? '';
 }
 
-/**
- * True when the page is listening for the OS default because `commands.getAll()` reported
- * no key and that command was never assigned. A user-cleared command is empty too, but
- * `assigned` is then true and this is false.
- */
-export function usesInPageFallback(
-  snapshot: ShortcutSnapshot | null,
-  command: ShortcutCommand,
-  assigned?: boolean | undefined,
-): boolean {
-  if (!snapshot) return false;
-  // A missing command is not evidence of an empty assignment (getAll may have failed).
-  return snapshot[command] === '' && assigned !== true;
-}
-
-/**
- * The only key a content script may handle itself. Before `getAll()` answers, and whenever
- * the browser has a live binding, this is empty: `commands.onCommand` exclusively owns the
- * key. This keeps one physical press from taking both the browser and in-page paths.
- */
-export function inPageFallbackShortcut(
-  snapshot: ShortcutSnapshot | null,
-  command: ShortcutCommand,
-  options: BoundShortcutOptions = {},
-): string {
-  if (!usesInPageFallback(snapshot, command, options.assigned)) return '';
-  return boundShortcut(snapshot, command, options);
+/** True when Chromium explicitly reports the main page command as 未設定. */
+export function isTranslatePageShortcutUnset(snapshot: ShortcutSnapshot | null): boolean {
+  return snapshot?.['translate-page'] === '';
 }
 
 /** The shape `browser.commands.getAll()` returns, without depending on its declared type. */
@@ -484,11 +442,6 @@ export function matchesShortcut(
 
   const key = typeof event.key === 'string' ? event.key.toLowerCase() : '';
   return event.code === parsed.key.code || parsed.key.keys.includes(key);
-}
-
-/** Alt+S with no other modifier, including a keyboard that reports the letter as `s`. */
-export function isPlainAltS(event: KeyboardEvent): boolean {
-  return matchesShortcut(event, DEFAULT_SELECTION_SHORTCUT);
 }
 
 /**

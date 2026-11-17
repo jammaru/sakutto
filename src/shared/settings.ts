@@ -286,9 +286,8 @@ export interface Settings {
   /** False hides the あA button on message boxes. The shortcut and context menu stay. */
   composeIcon: boolean;
   /**
-   * Per-command on/off in Sakutto. Unchecking disables the command. Clearing a key in
-   * the browser's editor also stops it, unless the browser never assigned that command
-   * (the in-page default still runs).
+   * Per-command on/off in Sakutto. Unchecking disables the browser command. Clearing a key
+   * in the browser's editor also stops it until another key is assigned.
    */
   shortcutsEnabled: ShortcutEnabled;
   /**

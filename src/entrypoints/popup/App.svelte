@@ -20,7 +20,7 @@
   } from '@/engine/model/shared-folder';
   import { hasLicenseConsent } from '@/shared/agreement';
   import { openOrFocusExtensionTab } from '@/shared/extension-tabs';
-  import { currentUiLanguage, t, tForBrowser, type MessageKey } from '@/shared/i18n';
+  import { currentUiLanguage, t, type MessageKey } from '@/shared/i18n';
   import {
     isModelProgressMessage,
     requestEngineStatus,
@@ -84,13 +84,13 @@
     boundShortcut,
     defaultShortcuts,
     displayShortcut,
-    usesInPageFallback,
     type ShortcutCommand,
   } from '@/shared/shortcuts';
   import { SHARED_FOLDER_CHANGED_EVENT } from '@/engine/model/folder-offer';
   import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
   import { readDeviceHeadroom, type DeviceHeadroom } from '@/ui/device-headroom';
   import LanguageField from '@/ui/LanguageField.svelte';
+  import ShortcutUnsetNotice from '@/ui/ShortcutUnsetNotice.svelte';
   import { runtimeLabel } from '@/ui/runtime-label';
 
   type SettingsError = 'load' | 'save' | null;
@@ -135,9 +135,8 @@
   let shortcutError = $state(false);
 
   /**
-   * The key each command actually uses on a page. A browser-assigned key wins. The
-   * manifest default fills in only when the browser never assigned one. Sakutto's own
-   * setting, or a key the user cleared in the browser, turns the command off.
+   * The key each browser command currently owns. Before the first answer, manifest
+   * suggestions are placeholders. An empty browser binding has no in-page substitute.
    */
   let bound = $derived.by((): Record<ShortcutCommand, string> => {
     const enabled = settings?.shortcutsEnabled;
@@ -145,7 +144,6 @@
     for (const command of SHORTCUT_COMMANDS) {
       next[command] = boundShortcut(shortcuts?.snapshot ?? null, command, {
         enabled: enabled?.[command] !== false,
-        assigned: shortcuts?.assigned[command],
       });
     }
     return next;
@@ -156,18 +154,11 @@
       text: t(hint.label, [keyText(hint.command)]),
     })),
   );
-  let shortcutFallback = $derived(
-    SHORTCUT_COMMANDS.some((command) =>
-      usesInPageFallback(shortcuts?.snapshot ?? null, command, shortcuts?.assigned[command]),
-    )
-      ? tForBrowser('shortcutFallbackNote', 'shortcutFallbackNoteFirefox')
-      : '',
-  );
   /**
    * The hints under the shortcut button. A PDF tab shows the reader instead of page
    * translation, so none of the page commands apply there. The PDF command has no suggested
    * key either — Chrome allows four and the page commands use them all — so the list is
-   * empty on a PDF tab rather than naming a key the browser never bound.
+   * empty on a PDF tab rather than naming a page command that does not apply there.
    */
   let visibleShortcutLines = $derived(pdfUrl.length > 0 ? [] : shortcutLines);
   let toggleKeys = $derived(ariaShortcut(bound['translate-page']) ?? undefined);
@@ -940,9 +931,7 @@
       <li>{line.text}</li>
     {/each}
   </ul>
-  {#if shortcutFallback}
-    <p class="muted" data-sakutto="shortcut-fallback">{shortcutFallback}</p>
-  {/if}
+  <ShortcutUnsetNotice snapshot={shortcuts?.snapshot ?? null} />
   <button class="link-button shortcut-change" type="button" onclick={changeShortcuts}>
     {t('shortcutChange')}
   </button>

@@ -1591,7 +1591,7 @@ describe('page session', () => {
     expect(document.querySelector('#lead')?.textContent).toContain('訳:');
   });
 
-  it('translates a selected passage from Alt+S and closes it with Escape', async () => {
+  it('translates a selected passage from a native command and closes it with Escape', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML = '<p id="lead">Osaka is a designated city.</p>';
     const seen: string[] = [];
@@ -1622,8 +1622,11 @@ describe('page session', () => {
         cancelable: true,
       }),
     );
-    await session.whenIdle();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(seen).toEqual([]);
 
+    await session.handle('selection');
+    await session.whenIdle();
     expect(seen).toContain('Osaka is a designated city.');
     expect(uiShadow(document.querySelector('sakutto-pop'))?.textContent).toContain('訳:');
 
@@ -2031,7 +2034,7 @@ describe('page translation corrections', () => {
     expect(patches.some((patch) => patch.auto === 'always')).toBe(true);
   });
 
-  it('translates one Alt+S request once, including inside a same-origin frame', async () => {
+  it('does not translate from Alt+S keydown inside a same-origin frame', async () => {
     document.body.innerHTML = '<iframe srcdoc="<p>Inside</p>"></iframe>';
     const frame = document.querySelector('iframe');
     const child = frame?.contentDocument;
@@ -2047,17 +2050,12 @@ describe('page translation corrections', () => {
     vi.spyOn(child, 'getSelection').mockReturnValue(selection);
 
     let calls = 0;
-    let release!: () => void;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const session = start(
+    start(
       document,
       engineOf(async function* (segments) {
         calls += 1;
         const segment = segments[0];
         if (!segment) return;
-        await gate;
         yield { id: segment.id, final: '内部', engine: 'plamo' };
       }),
     );
@@ -2077,15 +2075,12 @@ describe('page translation corrections', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     press();
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(calls).toBe(1);
-    release();
-    await session.whenIdle();
+    expect(calls).toBe(0);
   });
 
-  it('routes an in-page selection key through the shared command dispatcher', () => {
+  it('ignores page-owned selection keydown commands', () => {
     document.body.innerHTML = '<p id="lead">Selected phrase</p>';
     const seen: string[] = [];
-    const commands: string[] = [];
     const session = new PageSession(document, {
       engine: engineOf(async function* (segments) {
         seen.push(...segments.map((segment) => segment.text));
@@ -2094,8 +2089,6 @@ describe('page translation corrections', () => {
       labels,
       preferences: preferences(),
       scheduleFrame: (callback) => callback(),
-      selectionKey: (event) => event.altKey && event.code === 'KeyS',
-      onPageCommand: (command) => commands.push(command),
     });
     sessions.push(session);
     const lead = document.querySelector('#lead');
@@ -2115,11 +2108,10 @@ describe('page translation corrections', () => {
         cancelable: true,
       }),
     );
-    expect(commands).toEqual(['selection']);
     expect(seen).toEqual([]);
   });
 
-  it('ignores page shortcuts while an IME composition is in progress', async () => {
+  it('ignores page keydown with or without IME and uses the native command', async () => {
     document.body.innerHTML = '<p>Hello world</p>';
     let calls = 0;
     const session = new PageSession(document, {
@@ -2132,7 +2124,6 @@ describe('page translation corrections', () => {
       labels,
       preferences: preferences(),
       scheduleFrame: (callback) => callback(),
-      pageKey: (event) => event.altKey && event.code === 'KeyA',
     });
     sessions.push(session);
 
@@ -2158,11 +2149,12 @@ describe('page translation corrections', () => {
         cancelable: true,
       }),
     );
+    await session.handle('toggle');
     await session.whenIdle();
     expect(calls).toBeGreaterThan(0);
   });
 
-  it('does not restore the page when Chrome command and in-page Alt+A arrive together', async () => {
+  it('ignores Alt+A keydown and toggles only through the native command', async () => {
     document.body.innerHTML = '<p>Hello world</p>';
     let calls = 0;
     const session = new PageSession(document, {
@@ -2175,7 +2167,6 @@ describe('page translation corrections', () => {
       labels,
       preferences: preferences(),
       scheduleFrame: (callback) => callback(),
-      pageKey: (event) => event.altKey && event.code === 'KeyA',
     });
     sessions.push(session);
 
@@ -2188,9 +2179,11 @@ describe('page translation corrections', () => {
         cancelable: true,
       }),
     );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toBe(0);
+
     await session.handle('toggle');
     await session.whenIdle();
-
     expect(calls).toBeGreaterThan(0);
     expect(session.state().active).toBe(true);
     expect(document.body.textContent).toContain('訳:Hello world');
@@ -2200,13 +2193,7 @@ describe('page translation corrections', () => {
     expect(session.state().active).toBe(false);
   });
 
-  /**
-   * When an unassigned command's keydown reaches the page (verified with Playwright
-   * `keyboard.press`, not this dispatch), the session must not preventDefault it in a
-   * field. `dispatchEvent` here only exercises that guard; it cannot prove Chrome
-   * delivery. Chrome-assigned commands skip this path and arrive as onCommand even
-   * inside a textarea.
-   */
+  /** Page keydown never translates or steals Option+letter; native commands use onCommand. */
   it('does not steal Option+letter while the reader is typing in a field', async () => {
     document.body.innerHTML = '<textarea id="draft">hello</textarea><p>Hello world</p>';
     let calls = 0;
@@ -2220,7 +2207,6 @@ describe('page translation corrections', () => {
       labels,
       preferences: preferences(),
       scheduleFrame: (callback) => callback(),
-      pageKey: (event) => event.altKey && event.code === 'KeyA',
     });
     sessions.push(session);
 
@@ -2452,7 +2438,7 @@ describe('selection icon', () => {
     expect(icon().hidden).toBe(true);
   });
 
-  it('still opens the selection popover from Alt+S and the selection command', async () => {
+  it('opens the selection popover only from the native selection command', async () => {
     document.body.innerHTML = '<p id="lead">Selected phrase</p>';
     const seen: string[] = [];
     const session = start(
@@ -2485,11 +2471,16 @@ describe('selection icon', () => {
         cancelable: true,
       }),
     );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(popover().hidden).toBe(true);
+
+    await session.handle('selection');
     await session.whenIdle();
     expect(popover().hidden).toBe(false);
     expect(uiShadow(popover())?.textContent).toContain('訳:Selected phrase');
     expect(seen).toEqual(['Selected phrase']);
 
+    await new Promise((resolve) => setTimeout(resolve, PAGE_SHORTCUT_DEDUP_MS + 1));
     document.body.innerHTML = '<p id="other">Another phrase</p>';
     const other = document.querySelector('#other');
     if (!other) throw new Error('missing other');

@@ -8,7 +8,7 @@ import {
   type TargetLanguage,
 } from '@/shared/languages';
 import { COMPOSE_PREVIEW_MS, planComposeTranslation } from '@/shared/compose-translation';
-import { displayShortcut, matchesShortcut } from '@/shared/shortcuts';
+import { displayShortcut } from '@/shared/shortcuts';
 import { displayTargetLanguage } from '@/ui/language-label';
 import {
   COMPOSE_PLACEMENTS,
@@ -117,7 +117,7 @@ export interface ComposePreferences {
 }
 
 const ICON_PX = 26;
-/** Defensive deduplication if a browser command races a stale in-page binding snapshot. */
+/** Defensive deduplication for duplicate native compose command delivery. */
 const COMPOSE_SHORTCUT_DEDUP_MS = 200;
 
 const uiShadows = new WeakMap<Element, ShadowRoot>();
@@ -1286,9 +1286,6 @@ export interface ComposeControllerOptions {
   engine: PageEngine;
   labels: ComposeLabels;
   preferences: ComposePreferences;
-  composeKey?: (event: KeyboardEvent) => boolean;
-  /** Routes an unassigned in-page key through the same dispatcher as commands.onCommand. */
-  onComposeCommand?: (source?: EventTarget | null) => void;
   previewMs?: number;
   onWarm?: () => void;
   onSetup?: () => void;
@@ -1306,8 +1303,6 @@ export interface ComposeControllerOptions {
 export class ComposeController {
   private readonly engine: PageEngine;
   private readonly overlay: ComposeOverlay;
-  private readonly composeKey: (event: KeyboardEvent) => boolean;
-  private readonly onComposeCommand: ((source?: EventTarget | null) => void) | undefined;
   private readonly previewMs: number;
   private readonly onWarm: (() => void) | undefined;
   private readonly onSetup: (() => void) | undefined;
@@ -1359,8 +1354,6 @@ export class ComposeController {
     this.labels = options.labels;
     this.prefs = options.preferences;
     this.previewMs = options.previewMs ?? COMPOSE_PREVIEW_MS;
-    this.composeKey = options.composeKey ?? ((event) => matchesShortcut(event, 'Alt+T'));
-    this.onComposeCommand = options.onComposeCommand;
     this.onWarm = options.onWarm;
     this.onSetup = options.onSetup;
     this.onTarget = options.onTarget;
@@ -1431,7 +1424,7 @@ export class ComposeController {
     } else if (this.panelOpen) this.render();
   }
 
-  /** Chrome command, context menu, or the in-page key. Never sends the message. */
+  /** Native browser command or context menu. Never sends the message. */
   handleShortcut(source?: EventTarget | null): void {
     if (this.replacing) return;
     const now = Date.now();
@@ -1646,15 +1639,6 @@ export class ComposeController {
         return;
       }
       this.dismiss();
-      return;
-    }
-    if (this.composeKey(event)) {
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-      if (this.replacing) return;
-      if (this.onComposeCommand) this.onComposeCommand(event.target);
-      else this.handleShortcut(event.target);
       return;
     }
     if (this.panelOpen && isTranslateShortcut(event)) {

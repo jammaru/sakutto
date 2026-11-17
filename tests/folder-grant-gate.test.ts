@@ -41,15 +41,15 @@ describe('folder grant gate', () => {
     expect(content).not.toContain('ensureStoredFolderPermission');
   });
 
-  it('routes in-page shortcuts through the same command path as onCommand', () => {
+  it('uses the gated background command path without page-owned shortcut listeners', () => {
     const session = source('dom/session.ts');
     const content = source('content/main.ts');
-    expect(session).toContain('onPageCommand');
-    expect(session).toContain("this.onPageCommand('toggle')");
-    expect(session).toContain("this.onPageCommand('selection')");
-    expect(content).toContain('onPageCommand: (command) => pageCommandBridge.deliver?.(command)');
-    expect(content).toContain('onComposeCommand: (source) => pageCommandBridge.deliver?.');
-    expect(content).toContain('pageCommandBridge.deliver = (command, source)');
+    expect(session).not.toContain('onPageCommand');
+    expect(session).not.toContain('selectionKey');
+    expect(session).not.toContain('pageKey');
+    expect(content).not.toContain('listensFor');
+    expect(content).not.toContain('inPageFallbackShortcut');
+    expect(content).not.toContain('onComposeCommand');
     expect(content).toContain('const armed = await armFolderCommand(command);');
   });
 

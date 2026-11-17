@@ -195,7 +195,7 @@ describe('Firefox manifest', () => {
     expect(gecko.data_collection_permissions).toEqual({ required: ['none'] });
   });
 
-  it('suggests Alt+Shift defaults that match the content-script fallback', () => {
+  it('suggests Alt+Shift defaults for native Firefox commands', () => {
     const commands = firefoxManifest.commands as Record<
       string,
       { suggested_key: { default: string } }

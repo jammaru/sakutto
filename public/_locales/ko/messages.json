@@ -414,10 +414,10 @@
     "message": "키보드 단축키"
   },
   "shortcutHelp": {
-    "message": "Sakutto에서 끄려면 해당 명령의 체크를 해제하세요. 바로 가기 변경은 Chrome 편집기를 엽니다. Chrome이 할당한 키는 입력란이 포커스되어 있어도 그대로 쓰이며 페이지는 번역됩니다. Chrome이 한 번도 할당하지 않은 명령은 웹 페이지에서 기본 키가 동작합니다. chrome:// 페이지 등 Sakutto가 들어갈 수 없는 페이지에서는 동작하지 않습니다. 그 미할당 keydown은 입력란에도 전달되며 preventDefault 하지 않으므로 Option+글자를 입력할 수 있습니다."
+    "message": "명령의 체크를 해제하면 Sakutto에서 사용이 중지됩니다. ‘단축키 변경’은 Chrome 단축키 편집기가 열립니다. 브라우저가 할당한 키는 텍스트 입력란에 포커스가 있어도 작동합니다. 명령이 ‘설정 안 됨’으로 표시되면 편집기를 열고 키를 할당하세요."
   },
   "shortcutHelpFirefox": {
-    "message": "Sakutto에서 끄려면 해당 명령의 체크를 해제하세요. 바로 가기 변경은 Firefox 편집기를 엽니다. 거기서 지정한 키는 입력란이 포커스되어 있어도 그대로 씁니다. 한 번도 할당되지 않은 명령은 업데이트가 Firefox가 허용할 때만 기본값으로 되돌리고, 지운 키는 그대로입니다. 입력란에서는 그 미할당 keydown을 막지 않습니다."
+    "message": "명령의 체크를 해제하면 Sakutto에서 사용이 중지됩니다. ‘단축키 변경’은 Firefox 자체 편집기가 열립니다. 거기서 할당한 키는 텍스트 입력란에 포커스가 있어도 작동합니다. 설치 또는 업데이트 시 Firefox는 한 번도 키가 할당되지 않은 빈 명령을 가능한 경우 복원하며, 삭제한 키는 삭제된 상태로 유지됩니다."
   },
   "shortcutChange": {
     "message": "단축키 변경"
@@ -425,33 +425,17 @@
   "shortcutUnset": {
     "message": "설정 안 됨"
   },
+  "shortcutUnsetNotice": {
+    "message": "단축키가 설정되어 있지 않습니다"
+  },
+  "shortcutOpenSettings": {
+    "message": "단축키 설정 열기"
+  },
   "shortcutUse": {
     "message": "이 단축키 사용"
   },
   "shortcutOff": {
     "message": "끄기"
-  },
-  "shortcutFallbackNote": {
-    "message": "Chrome이 이 명령에 키를 할당한 적이 없어 웹 페이지에서 기본 키를 사용합니다. chrome:// 페이지 등 Sakutto가 들어갈 수 없는 페이지에서는 동작하지 않습니다. 입력란에서는 그 keydown을 막지 않습니다."
-  },
-  "shortcutFallbackNoteFirefox": {
-    "message": "Firefox가 이 명령에 키를 할당한 적이 없어 페이지에서 기본 키를 사용합니다. 입력란에서는 그 keydown을 막지 않습니다."
-  },
-  "shortcutFallbackKey": {
-    "message": "$KEY$ (페이지에서 사용)",
-    "placeholders": {
-      "key": {
-        "content": "$1"
-      }
-    }
-  },
-  "shortcutFallbackKeyFirefox": {
-    "message": "$KEY$ (페이지에서 사용)",
-    "placeholders": {
-      "key": {
-        "content": "$1"
-      }
-    }
   },
   "shortcutTranslate": {
     "message": "$KEY$를 누르면 페이지가 변환되거나 원본으로 복원됩니다.",
