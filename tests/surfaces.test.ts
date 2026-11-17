@@ -100,7 +100,7 @@ describe('start controls while the model downloads', () => {
     expect(modelManager).toMatch(/downloading \|\| verifying[\s\S]{0,800}downloadCancel/);
   });
 
-  it('offers the one-time model file import on settings and onboarding', () => {
+  it('offers the one-time model file import on settings and Firefox onboarding', () => {
     const tools = source('ui/ModelFileTools.svelte');
     expect(tools).toContain('accept=".gguf"');
     expect(tools).toContain('importModelFile');
@@ -108,7 +108,8 @@ describe('start controls while the model downloads', () => {
     expect(tools).not.toMatch(/\{#if done\}[\s\S]{0,200}\{:else if exporting\}/);
     expect(tools).toMatch(/async function exportFile\(\)[\s\S]{0,160}done = false/);
     expect(source('entrypoints/options/App.svelte')).toContain('ModelFileTools');
-    expect(source('entrypoints/onboarding/App.svelte')).toContain('ModelFileTools');
+    // Chromium users get the folder picker instead; Firefox keeps the import path.
+    expect(onboarding).toMatch(/\{#if !pickerAvailable\}[\s\S]{0,160}<ModelFileTools/);
     expect(source('ui/ModelFolderSettings.svelte')).toContain('modelFolderLocationHint');
   });
 
