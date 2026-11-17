@@ -1,5 +1,5 @@
 import { browser, type Browser } from 'wxt/browser';
-import { readRuntimeLastError } from '@/shared/runtime-last-error';
+import { bindPortDisconnectCleanup, readRuntimeLastError } from '@/shared/runtime-last-error';
 import { abortError, EngineError, isAbortError } from '@/engine/errors';
 import type { ModelId } from '@/engine/model/catalog';
 import {
@@ -390,8 +390,7 @@ export class EngineClient {
     port.onMessage.addListener((message: unknown) => {
       this.inbox = this.inbox.then(() => this.handleMessage(message)).catch(() => undefined);
     });
-    port.onDisconnect.addListener(() => {
-      readRuntimeLastError();
+    bindPortDisconnectCleanup(port, () => {
       if (this.port === port) this.handleDisconnect();
     });
     return port;

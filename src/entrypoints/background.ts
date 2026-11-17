@@ -1,5 +1,5 @@
 import { browser } from 'wxt/browser';
-import { readRuntimeLastError } from '@/shared/runtime-last-error';
+import { bindPortDisconnectCleanup, readRuntimeLastError } from '@/shared/runtime-last-error';
 import { defineBackground } from 'wxt/utils/define-background';
 import { EngineClient } from '@/background/engine-client';
 import { createEngineHostController } from '@/background/engine-host-document';
@@ -113,6 +113,7 @@ export default defineBackground(() => {
   installPageActions(broker, client);
   browser.runtime.onConnect.addListener((port) => {
     if (port.name !== CONTENT_LIVENESS_PORT) return;
+    bindPortDisconnectCleanup(port);
     port.postMessage({
       type: CONTENT_LIVENESS_GENERATION_MESSAGE,
       generation: contentLoadGeneration,

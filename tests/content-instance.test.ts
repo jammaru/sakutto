@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { browser } from 'wxt/browser';
+import { installContentPortLifecycle } from '@/shared/content-port-lifecycle';
 import {
   CONTENT_INSTANCE_DOC_ATTR,
   MAIL_BANNER_INSTANCE_DATASET,
@@ -152,6 +153,7 @@ describe('content extension instance markers', () => {
   it('reconnects on a persisted pageshow without waiting for the retry timer', () => {
     vi.useFakeTimers();
     const cleaned: string[] = [];
+    const uninstallPorts = installContentPortLifecycle();
     const cleanup = installContentInvalidationCleanup(() => cleaned.push('done'), {
       initialReconnectMs: 200,
     });
@@ -169,6 +171,7 @@ describe('content extension instance markers', () => {
     expect(connectMock).toHaveBeenCalledTimes(2);
     expect(cleaned).toEqual([]);
     cleanup();
+    uninstallPorts();
   });
 
   it('tears down once when the extension context is invalidated', () => {

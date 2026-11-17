@@ -18,7 +18,11 @@ vi.mock('wxt/browser', () => ({
   },
 }));
 
-import { readRuntimeLastError, swallowMessagingError } from '@/shared/runtime-last-error';
+import {
+  bindPortDisconnectCleanup,
+  readRuntimeLastError,
+  swallowMessagingError,
+} from '@/shared/runtime-last-error';
 
 beforeEach(() => {
   state.reads = 0;
@@ -36,6 +40,19 @@ describe('runtime lastError helper', () => {
   it('tolerates hosts without runtime.lastError', () => {
     state.throws = true;
     expect(() => readRuntimeLastError()).not.toThrow();
+  });
+
+  it('binds a disconnect handler that reads lastError before cleanup', () => {
+    let listener: (() => void) | undefined;
+    const cleanup = vi.fn();
+    bindPortDisconnectCleanup(
+      { onDisconnect: { addListener: (next) => (listener = next) } },
+      cleanup,
+    );
+    state.value = { message: 'The message channel closed' };
+    listener?.();
+    expect(state.reads).toBe(1);
+    expect(cleanup).toHaveBeenCalledTimes(1);
   });
 
   it('returns message results and swallows rejected messaging calls', async () => {

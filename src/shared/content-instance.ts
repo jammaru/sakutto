@@ -1,4 +1,5 @@
 import { browser, type Browser } from 'wxt/browser';
+import { registerContentPortReconnect, trackContentPort } from './content-port-lifecycle';
 import { readRuntimeLastError } from './runtime-last-error';
 
 /** Written on `document.documentElement` so a reloaded build can claim the page from an orphan script. */
@@ -191,17 +192,21 @@ export function installContentInvalidationCleanup(
       const next = browser.runtime.connect({ name: CONTENT_LIVENESS_PORT });
       port = next;
       reconnectAttempt = 0;
+      const untrack = trackContentPort(next, () => {
+        if (port === next) port = null;
+      });
       next.onMessage.addListener((message: unknown) => {
         if (isContentLoadGenerationMessage(message)) {
           applyContentLoadGeneration(message.generation);
         }
       });
       next.onDisconnect.addListener(() => {
+        const invalidated = isExtensionContextInvalidated();
+        readRuntimeLastError();
+        untrack();
         if (port === next) port = null;
         else return;
         if (tornDown) return;
-        const invalidated = isExtensionContextInvalidated();
-        readRuntimeLastError();
         if (invalidated) {
           teardown();
           return;
@@ -229,21 +234,18 @@ export function installContentInvalidationCleanup(
     connect();
   };
 
-  const onPageShow = (event: PageTransitionEvent): void => {
-    // A BFCache restore can close the liveness channel without invalidating the extension.
-    if (event.persisted) reconnectNow();
-  };
-  if (typeof window !== 'undefined') window.addEventListener('pageshow', onPageShow);
-
+  // The port lifecycle module closes live ports on pagehide and runs this on a persisted
+  // pageshow, so the liveness channel reopens before the page becomes interactive again.
+  const unregisterReconnect = registerContentPortReconnect(reconnectNow);
   connect();
 
   return () => {
     tornDown = true;
+    unregisterReconnect();
     if (reconnectTimer !== null) {
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
     }
-    if (typeof window !== 'undefined') window.removeEventListener('pageshow', onPageShow);
     try {
       port?.disconnect();
     } catch {

@@ -1,5 +1,5 @@
 import { browser, type Browser } from 'wxt/browser';
-import { readRuntimeLastError } from '@/shared/runtime-last-error';
+import { bindPortDisconnectCleanup, readRuntimeLastError } from '@/shared/runtime-last-error';
 import { hasLicenseConsent } from '@/shared/agreement';
 import { lastGpuDiagnostic, probeCapabilities } from '@/shared/capabilities';
 import { mergeGpuDiagnostic, type GpuDiagnostic } from '@/shared/gpu-diagnostic';
@@ -380,11 +380,9 @@ export class EngineHost {
       void this.handleMessage(port, message).catch(() => undefined);
     });
 
-    port.onDisconnect.addListener(() => {
+    bindPortDisconnectCleanup(port, () => {
       this.ports.delete(port);
       this.detachPort(port);
-      // The engine port can close while the embedding frame enters BFCache.
-      readRuntimeLastError();
     });
   }
 

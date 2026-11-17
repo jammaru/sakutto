@@ -1,5 +1,5 @@
 import { browser, type Browser } from 'wxt/browser';
-import { readRuntimeLastError } from '@/shared/runtime-last-error';
+import { bindPortDisconnectCleanup, readRuntimeLastError } from '@/shared/runtime-last-error';
 import {
   errorPayload,
   isTranslationCancelRequest,
@@ -93,8 +93,7 @@ export class TranslationBroker {
       })();
     });
 
-    port.onDisconnect.addListener(() => {
-      readRuntimeLastError();
+    bindPortDisconnectCleanup(port, () => {
       if (tabId !== undefined) this.tabs.get(tabId)?.delete(port);
       for (const controller of controllers.values()) controller.abort();
       controllers.clear();

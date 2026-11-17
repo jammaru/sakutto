@@ -10,6 +10,21 @@ export function readRuntimeLastError(): void {
 }
 
 /** Run a promise API and turn a rejected message into null after clearing lastError. */
+export interface DisconnectPort {
+  onDisconnect: { addListener(listener: () => void): void };
+}
+
+/** Ensure every extension port clears lastError before its own disconnect cleanup runs. */
+export function bindPortDisconnectCleanup(
+  port: DisconnectPort,
+  onDisconnect: () => void = () => undefined,
+): void {
+  port.onDisconnect.addListener(() => {
+    readRuntimeLastError();
+    onDisconnect();
+  });
+}
+
 export async function swallowMessagingError<T>(run: () => Promise<T>): Promise<T | null> {
   try {
     return await run();

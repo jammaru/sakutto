@@ -75,6 +75,7 @@ import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage'
 import type { Settings, VideoCaptionPosition } from '@/shared/settings';
 import { typedReadiness, type TypedReadiness } from '@/shared/typed-translation';
 import { translateViaBackground } from '@/shared/translation-client';
+import { installContentPortLifecycle } from '@/shared/content-port-lifecycle';
 import {
   CONTENT_INSTANCE_DOC_ATTR,
   claimContentExtensionInstance,
@@ -394,6 +395,7 @@ export function contentMain(): void {
     removeOwnedMailBannerHosts(document, instanceToken);
     document.documentElement.removeAttribute(CONTENT_INSTANCE_DOC_ATTR);
   };
+  installContentPortLifecycle();
   installContentInvalidationCleanup(teardownAfterInvalidation);
   let modelState: ModelStatus['state'] | null = null;
   let activeModelId: ModelStatus['id'] | null = null;
