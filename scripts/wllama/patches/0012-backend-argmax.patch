@@ -1,0 +1,354 @@
+Find the largest logit on the backend when every slot samples greedily.
+
+A decode read all the logits back from the GPU, 107520 floats per sequence for PLaMo 3
+Translate, and the greedy path of 0011 then scanned them for one index. When every slot that
+samples from the next decode can only take the largest logit, the graph now ends in an argmax
+node and only those indices are read back. Any other request, and a model whose output layer
+is on the CPU, keeps the logits.
+
+The WebGPU argmax shader returned the highest index among equal values, and -1 for a row with
+nothing above its floor. It now returns the lowest index, as the scan does, and never -1.
+
+diff --git a/llama.cpp/common/sampling.cpp b/llama.cpp/common/sampling.cpp
+index b473695..33ad54a 100644
+--- a/llama.cpp/common/sampling.cpp
++++ b/llama.cpp/common/sampling.cpp
+@@ -604,7 +604,7 @@ struct llama_sampler * common_sampler_get(const struct common_sampler * gsmpl) {
+ }
+ 
+ // True when the chain built by common_sampler_init() can only return the token with the largest logit.
+-static bool common_sampler_takes_max(const struct common_sampler * gsmpl, const struct llama_context * ctx) {
++bool common_sampler_takes_max(const struct common_sampler * gsmpl, const struct llama_context * ctx) {
+     const auto & params = gsmpl->params;
+ 
+     if (gsmpl->grmr || gsmpl->rbudget || params.backend_sampling || params.mirostat != 0 || params.n_probs != 0 ||
+@@ -685,6 +685,17 @@ llama_token common_sampler_sample(struct common_sampler * gsmpl, struct llama_co
+     // The chain would pick the largest logit. Find it in the logits instead: on a large vocabulary,
+     // building the candidate array and passing it through the chain costs several times the scan.
+     if (common_sampler_takes_max(gsmpl, ctx)) {
++        // The decode may have found it on the backend already, see llama_set_argmax_only().
++        const llama_token found = llama_get_argmax_ith(ctx, idx);
++        if (found != LLAMA_TOKEN_NULL) {
++            id = found;
++
++            gsmpl->cur.assign(1, llama_token_data{ id, 0.0f, 0.0f });
++            cur_p = { gsmpl->cur.data(), gsmpl->cur.size(), 0, false };
++
++            return id;
++        }
++
+         const float * logits  = llama_get_logits_ith(ctx, idx);
+         const int     n_vocab = llama_vocab_n_tokens(llama_model_get_vocab(llama_get_model(ctx)));
+         GGML_ASSERT(logits != nullptr);
+diff --git a/llama.cpp/common/sampling.h b/llama.cpp/common/sampling.h
+index f19bd27..bfee0cb 100644
+--- a/llama.cpp/common/sampling.h
++++ b/llama.cpp/common/sampling.h
+@@ -67,6 +67,9 @@ struct llama_sampler * common_sampler_get(const struct common_sampler * gsmpl);
+ //
+ llama_token common_sampler_sample(struct common_sampler * gsmpl, struct llama_context * ctx, int idx, bool grammar_first = false);
+ 
++// true when the chain can only return the token with the largest logit
++bool common_sampler_takes_max(const struct common_sampler * gsmpl, const struct llama_context * ctx);
++
+ // generalized version of common_sampler_sample
+ //
+ // will cross-reference the sampled tokens with a batch of draft tokens and accept those that match
+diff --git a/llama.cpp/ggml/src/ggml-webgpu/wgsl-shaders/argmax.wgsl b/llama.cpp/ggml/src/ggml-webgpu/wgsl-shaders/argmax.wgsl
+index ca5bfcc..5960e52 100644
+--- a/llama.cpp/ggml/src/ggml-webgpu/wgsl-shaders/argmax.wgsl
++++ b/llama.cpp/ggml/src/ggml-webgpu/wgsl-shaders/argmax.wgsl
+@@ -38,14 +38,14 @@ fn main(@builtin(workgroup_id) wid: vec3<u32>,
+         let vec_val = src[row_idx / VEC_SIZE + col];
+         for (var v = 0u; v < VEC_SIZE; v++) {
+             let val = vec_val[v];
+-            if (val >= local_pair.value) {
++            if (val > local_pair.value) {
+                 local_pair = Pair(val, i32(col * VEC_SIZE + v));
+             }
+         }
+     }
+ #else
+     for (var col = lid.x; col < params.ne0; col += WG_SIZE) {
+-        if (src[row_idx + col] >= local_pair.value) {
++        if (src[row_idx + col] > local_pair.value) {
+             local_pair = Pair(src[row_idx + col], i32(col));
+         }
+     }
+@@ -59,7 +59,7 @@ fn main(@builtin(workgroup_id) wid: vec3<u32>,
+             let b = shared_max[lid.x + offset];
+             if (b.value > a.value) {
+                 shared_max[lid.x] = b;
+-            } else if (b.value == a.value && b.index > a.index) {
++            } else if (b.value == a.value && b.index >= 0 && (a.index < 0 || b.index < a.index)) {
+                 shared_max[lid.x] = b;
+             }
+         }
+@@ -67,6 +67,7 @@ fn main(@builtin(workgroup_id) wid: vec3<u32>,
+         offset >>= 1;
+     }
+     if (lid.x == 0u) {
+-        dst[params.offset_dst + wid.x] = shared_max[0].index;
++        // a row with nothing above FLOAT_MIN reports index 0, not -1
++        dst[params.offset_dst + wid.x] = max(shared_max[0].index, 0);
+     }
+ }
+diff --git a/llama.cpp/include/llama.h b/llama.cpp/include/llama.h
+index 3af6e22..d56ee79 100644
+--- a/llama.cpp/include/llama.h
++++ b/llama.cpp/include/llama.h
+@@ -1146,6 +1146,17 @@ extern "C" {
+     // returns NULL for invalid ids.
+     LLAMA_API float * llama_get_logits_ith(struct llama_context * ctx, int32_t i);
+ 
++    // When set, a decode finds the largest logit of every output row on the backend and reads
++    // back those indices only. The logits of such a row are not available, and
++    // llama_get_logits_ith() returns NULL for it. For callers that would take the largest
++    // logit of every row anyway. A model whose output layer is on the CPU keeps its logits.
++    LLAMA_API void llama_set_argmax_only(struct llama_context * ctx, bool value);
++
++    // The token with the largest logit for the ith token of the last decode. LLAMA_TOKEN_NULL
++    // when the logits of that row were read back instead. Indexed like llama_get_logits_ith().
++    // Among equal logits the backend's argmax decides: WebGPU returns the lowest id.
++    LLAMA_API llama_token llama_get_argmax_ith(struct llama_context * ctx, int32_t i);
++
+     // Get all output token embeddings.
+     // when pooling_type == LLAMA_POOLING_TYPE_NONE or when using a generative model,
+     // the embeddings for which llama_batch.logits[i] != 0 are stored contiguously
+diff --git a/llama.cpp/src/llama-context.cpp b/llama.cpp/src/llama-context.cpp
+index 9ee64b5..650a10e 100644
+--- a/llama.cpp/src/llama-context.cpp
++++ b/llama.cpp/src/llama-context.cpp
+@@ -1045,6 +1045,38 @@ int64_t llama_context::output_resolve_row(int32_t i) const {
+     return j;
+ }
+ 
++void llama_context::set_argmax_only(bool value) {
++    if (argmax_only == value) {
++        return;
++    }
++    argmax_only = value;
++    // the graph gains or loses the argmax node, so the previous one cannot be reused
++    gf_res_prev_active = nullptr;
++}
++
++void llama_context::argmax_forget() {
++    if (argmax_valid) {
++        // a read into argmax_out that is still in flight lands before the buffer is used again
++        synchronize();
++        argmax_valid = false;
++    }
++}
++
++llama_token llama_context::get_argmax_ith(int32_t i) {
++    if (!argmax_valid) {
++        return LLAMA_TOKEN_NULL;
++    }
++
++    output_reorder();
++
++    try {
++        return argmax_out[output_resolve_row(i)];
++    } catch (const std::exception & err) {
++        LLAMA_LOG_ERROR("%s: invalid argmax id %d, reason: %s\n", __func__, i, err.what());
++        return LLAMA_TOKEN_NULL;
++    }
++}
++
+ float * llama_context::get_logits_ith(int32_t i) {
+     output_reorder();
+ 
+@@ -1054,6 +1086,10 @@ float * llama_context::get_logits_ith(int32_t i) {
+         }
+ 
+         const int64_t j = output_resolve_row(i);
++        if (argmax_valid && (size_t) j < argmax_out.size() && argmax_out[j] != LLAMA_TOKEN_NULL) {
++            // what the buffer holds for this row is from an earlier decode
++            throw std::runtime_error("the logits of this row were not read back, see llama_set_argmax_only()");
++        }
+         return logits.data + j*model.vocab.n_tokens();
+     } catch (const std::exception & err) {
+         LLAMA_LOG_ERROR("%s: invalid logits id %d, reason: %s\n", __func__, i, err.what());
+@@ -1548,6 +1584,16 @@ llm_graph_result * llama_context::process_ubatch(const llama_ubatch & ubatch, ll
+             return nullptr;
+         }
+ 
++        // The caller wants the largest logit of each row, which the backend can find itself. On the
++        // CPU the logits are in host memory already and there is no read to save, so the caller
++        // scans them as before.
++        if (argmax_only && n_outputs > 0 && res->get_logits() != nullptr &&
++            ggml_backend_dev_type(model.dev_output()) != GGML_BACKEND_DEVICE_TYPE_CPU) {
++            res->t_argmax = ggml_argmax(res->get_ctx(), res->get_logits());
++            ggml_set_output(res->t_argmax);
++            ggml_build_forward_expand(gf, res->t_argmax);
++        }
++
+         if (!ggml_backend_sched_alloc_graph(sched.get(), gf)) {
+             LLAMA_LOG_ERROR("%s: failed to allocate graph\n", __func__);
+             ret = GGML_STATUS_ALLOC_FAILED;
+@@ -1580,6 +1626,8 @@ llm_graph_result * llama_context::process_ubatch(const llama_ubatch & ubatch, ll
+ }
+ 
+ int llama_context::encode(const llama_batch_ext & batch_inp) {
++    argmax_forget();
++
+     if (batch_inp.tokens.empty()) {
+         LLAMA_LOG_ERROR("%s: n_tokens == 0\n", __func__);
+         return -1;
+@@ -1824,6 +1872,8 @@ int llama_context::decode(const llama_batch_ext & batch_inp) {
+         return encode(batch_inp);
+     }
+ 
++    argmax_forget();
++
+     if (batch_inp.tokens.empty()) {
+         LLAMA_LOG_ERROR("%s: n_tokens == 0\n", __func__);
+         return -1;
+@@ -1978,6 +2028,10 @@ int llama_context::decode(const llama_batch_ext & batch_inp) {
+     int64_t n_outputs_prev = 0;
+     int64_t n_tokens_prev  = 0;
+ 
++    if (argmax_only) {
++        argmax_out.assign(n_outputs_all, LLAMA_TOKEN_NULL);
++    }
++
+     do {
+         const auto & ubatch = mctx->get_ubatch();
+ 
+@@ -2046,7 +2100,16 @@ int llama_context::decode(const llama_batch_ext & batch_inp) {
+         }
+ 
+         // extract logits
+-        if (logits.data && t_logits && n_outputs > 0 && needs_raw_logits(ubatch, sampling.samplers)) {
++        if (argmax_only && res->t_argmax != nullptr && n_outputs > 0) {
++            // only the index of the largest logit of each row comes back
++            ggml_backend_t backend_res = ggml_backend_sched_get_tensor_backend(sched.get(), res->t_argmax);
++            GGML_ASSERT(backend_res != nullptr);
++            GGML_ASSERT(n_outputs_prev + n_outputs <= (int64_t) argmax_out.size());
++
++            ggml_backend_tensor_get_async(backend_res, res->t_argmax, argmax_out.data() + n_outputs_prev, 0,
++                                          n_outputs * sizeof(llama_token));
++            argmax_valid = true;
++        } else if (logits.data && t_logits && n_outputs > 0 && needs_raw_logits(ubatch, sampling.samplers)) {
+             ggml_backend_t backend_res = ggml_backend_sched_get_tensor_backend(sched.get(), t_logits);
+             GGML_ASSERT(backend_res != nullptr);
+             GGML_ASSERT(logits.data != nullptr);
+@@ -2434,6 +2497,10 @@ void llama_context::output_reorder() {
+             }
+         }
+ 
++        if (argmax_valid) {
++            std::swap(argmax_out[i0], argmax_out[i1]);
++        }
++
+         if (embd.size > 0) {
+             for (uint64_t k = 0; k < n_embd_out; k++) {
+                 std::swap(embd.data[i0*n_embd_out + k], embd.data[i1*n_embd_out + k]);
+@@ -4235,6 +4302,16 @@ float * llama_get_logits_ith(llama_context * ctx, int32_t i) {
+     return res;
+ }
+ 
++void llama_set_argmax_only(llama_context * ctx, bool value) {
++    ctx->set_argmax_only(value);
++}
++
++llama_token llama_get_argmax_ith(llama_context * ctx, int32_t i) {
++    ctx->synchronize();
++
++    return ctx->get_argmax_ith(i);
++}
++
+ float * llama_get_embeddings(llama_context * ctx) {
+     ctx->synchronize();
+ 
+diff --git a/llama.cpp/src/llama-context.h b/llama.cpp/src/llama-context.h
+index 6938fb1..1a733bd 100644
+--- a/llama.cpp/src/llama-context.h
++++ b/llama.cpp/src/llama-context.h
+@@ -84,6 +84,10 @@ struct llama_context {
+     float * get_logits();
+     float * get_logits_ith(int32_t i);
+ 
++    void        set_argmax_only(bool value);
++    llama_token get_argmax_ith(int32_t i);
++    void        argmax_forget();
++
+     float * get_embeddings();
+     float * get_embeddings_ith(int32_t i);
+     float * get_embeddings_seq(llama_seq_id seq_id);
+@@ -364,6 +368,11 @@ private:
+ 
+     std::vector<swap_info> output_swaps;
+ 
++    // llama_set_argmax_only(): the largest logit of each output row, found on the backend
++    bool                     argmax_only  = false;
++    bool                     argmax_valid = false; // the last decode filled argmax_out
++    std::vector<llama_token> argmax_out;
++
+     ggml_backend_sched_ptr sched;
+ 
+     bool sched_need_reserve = true;
+diff --git a/llama.cpp/src/llama-graph.cpp b/llama.cpp/src/llama-graph.cpp
+index 2bc3a29..9ae56a2 100644
+--- a/llama.cpp/src/llama-graph.cpp
++++ b/llama.cpp/src/llama-graph.cpp
+@@ -1397,6 +1397,7 @@ void llm_graph_result::reset() {
+     t_embd        = nullptr;
+     t_embd_pooled = nullptr;
+     t_h_nextn     = nullptr;
++    t_argmax      = nullptr;
+ 
+     t_layer_inp.resize(LLAMA_MAX_LAYERS + 1);
+     std::fill(t_layer_inp.begin(), t_layer_inp.end(), nullptr);
+diff --git a/llama.cpp/src/llama-graph.h b/llama.cpp/src/llama-graph.h
+index f66bedb..495e294 100644
+--- a/llama.cpp/src/llama-graph.h
++++ b/llama.cpp/src/llama-graph.h
+@@ -965,6 +965,7 @@ public:
+     ggml_tensor * t_embd        = nullptr;
+     ggml_tensor * t_embd_pooled = nullptr;
+     ggml_tensor * t_h_nextn     = nullptr; // [n_embd, n_outputs] hidden state before final output norm
++    ggml_tensor * t_argmax      = nullptr; // [n_outputs] index of the largest logit, see llama_set_argmax_only()
+ 
+     std::vector<ggml_tensor *> t_layer_inp;
+ 
+diff --git a/llama.cpp/tools/server/server-context.cpp b/llama.cpp/tools/server/server-context.cpp
+index 8671eb9..8653aa5 100644
+--- a/llama.cpp/tools/server/server-context.cpp
++++ b/llama.cpp/tools/server/server-context.cpp
+@@ -3253,6 +3253,26 @@ private:
+     };
+ #endif
+ 
++    // True when every slot that could sample from the next decode would take the token with the
++    // largest logit, so that decode can read back those tokens instead of the logits.
++    bool slots_take_max() {
++        if (spec) {
++            return false;
++        }
++        bool any = false;
++        for (auto & slot : slots) {
++            if (!slot.is_processing()) {
++                continue;
++            }
++            if (!slot.task || !slot.task->need_sampling() || !slot.smpl ||
++                !common_sampler_takes_max(slot.smpl.get(), ctx_tgt)) {
++                return false;
++            }
++            any = true;
++        }
++        return any;
++    }
++
+     void update_slots() {
+ #ifdef DEBUG_TIMINGS
+         static int64_t t_prev = 0;
+@@ -3334,6 +3354,8 @@ private:
+                 scoped_timer t(t_decode, n_decode);
+                 // TODO @ngxson : maybe handle n_batch == 1 here instead of inside decode()
+ 
++                llama_set_argmax_only(ctx_tgt, slots_take_max());
++
+                 batch.render(off, n_tokens);
+                 bool ok = decode(n_batch, off);
+ #ifdef DEBUG_TIMINGS

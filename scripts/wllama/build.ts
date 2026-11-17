@@ -50,6 +50,30 @@ const PATCH_MARKERS: ReadonlyArray<readonly [string, string]> = [
     'llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp',
     'static const char * ggml_webgpu_probe_f16_sum_wgsl()',
   ],
+  [
+    'llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu-shader-lib.hpp',
+    'key.use_mmvq && context.supports_subgroups && context.vendor == "nvidia"',
+  ],
+  ['llama.cpp/common/sampling.cpp', 'if (common_sampler_takes_max(gsmpl, ctx)) {'],
+  ['llama.cpp/common/sampling.cpp', 'llama_get_argmax_ith(ctx, idx);'],
+  [
+    'llama.cpp/src/llama-context.cpp',
+    'res->t_argmax = ggml_argmax(res->get_ctx(), res->get_logits());',
+  ],
+  ['llama.cpp/src/llama-context.cpp', 'void llama_context::argmax_forget() {'],
+  [
+    'llama.cpp/tools/server/server-context.cpp',
+    'llama_set_argmax_only(ctx_tgt, slots_take_max());',
+  ],
+  [
+    'llama.cpp/ggml/src/ggml-webgpu/wgsl-shaders/argmax.wgsl',
+    'dst[params.offset_dst + wid.x] = max(shared_max[0].index, 0);',
+  ],
+  ['cpp/wllama-context.h', 'if (!next.first && rd.has_next())'],
+  [
+    'llama.cpp/ggml/src/ggml-webgpu/wgsl-shaders/flash_attn_tile.wgsl',
+    'if (bitcast<u32>(f32(mask[mask_idx])) != 0xff800000u) {',
+  ],
   ['src/utils.ts', 'webgpuDebug?: string'],
   ['src/worker.ts', '__SAKUTTO_WEBGPU_DEBUG__'],
   ['cpp/wllama-context.h', 'params.n_ctx_checkpoints = 0;'],

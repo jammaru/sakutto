@@ -1,0 +1,130 @@
+Pick the largest logit directly when sampling is greedy.
+
+With temperature 0 the sampler chain ends in the greedy sampler, and no
+sampler before it can change which token has the largest logit. Still,
+every token built an array of one candidate per vocabulary entry and ran
+it through the chain. PLaMo 3 Translate has 107520 entries, so that is
+1.3 MB written and then scanned for every token of every sequence.
+
+common_sampler_sample() now scans the logits for the largest value when
+the chain can only return that token. The test is conservative: no
+grammar, reasoning budget, backend sampling, mirostat, probabilities,
+logit bias or suppress tokens, a chain that ends in the greedy sampler,
+and before it only samplers that keep the largest logit with the
+settings in use. Any other request takes the old path.
+
+The token is the one the chain would pick, except when two tokens share
+the largest logit exactly: the scan returns the lower id, and the
+chain's order after its partial sort is not specified.
+
+Measured on an RTX 4090 with sixteen slots: the sampler went from
+0.19 ms to 0.07 ms per token, and in the extension a long article took
+about 6% less time. The translations came out identical.
+
+diff --git a/llama.cpp/common/sampling.cpp b/llama.cpp/common/sampling.cpp
+--- a/llama.cpp/common/sampling.cpp
++++ b/llama.cpp/common/sampling.cpp
+@@ -603,6 +603,72 @@
+     return gsmpl->chain;
+ }
+ 
++// True when the chain built by common_sampler_init() can only return the token with the largest logit.
++static bool common_sampler_takes_max(const struct common_sampler * gsmpl, const struct llama_context * ctx) {
++    const auto & params = gsmpl->params;
++
++    if (gsmpl->grmr || gsmpl->rbudget || params.backend_sampling || params.mirostat != 0 || params.n_probs != 0 ||
++        params.samplers.empty() || !params.logit_bias.empty()) {
++        return false;
++    }
++
++    // The model's suppress tokens add a logit bias to the chain.
++    int32_t n_suppress = 0;
++    llama_vocab_get_suppress_tokens(llama_model_get_vocab(llama_get_model(ctx)), &n_suppress);
++    if (n_suppress > 0) {
++        return false;
++    }
++
++    // The same test as in common_sampler_init(): the chain ends in the greedy sampler.
++    const auto last = params.samplers.back();
++    if (!((last == COMMON_SAMPLER_TYPE_TEMPERATURE && params.temp == 0.0f && params.dynatemp_range == 0.0f) ||
++          (last == COMMON_SAMPLER_TYPE_TOP_K && params.top_k == 1))) {
++        return false;
++    }
++
++    // Every sampler before it must keep the largest logit and must not move another one above it.
++    for (const auto type : params.samplers) {
++        switch (type) {
++            case COMMON_SAMPLER_TYPE_TOP_K:
++            case COMMON_SAMPLER_TYPE_TOP_P:
++            case COMMON_SAMPLER_TYPE_MIN_P:
++            case COMMON_SAMPLER_TYPE_TOP_N_SIGMA:
++                break;
++            case COMMON_SAMPLER_TYPE_TEMPERATURE:
++                // A temperature above zero divides the logits, and two of them can round to the same value.
++                if (params.temp > 0.0f || params.dynatemp_range != 0.0f) {
++                    return false;
++                }
++                break;
++            case COMMON_SAMPLER_TYPE_PENALTIES:
++                if (params.penalty_last_n != 0 &&
++                    (params.penalty_repeat != 1.0f || params.penalty_freq != 0.0f || params.penalty_present != 0.0f)) {
++                    return false;
++                }
++                break;
++            case COMMON_SAMPLER_TYPE_DRY:
++                if (params.dry_multiplier != 0.0f) {
++                    return false;
++                }
++                break;
++            case COMMON_SAMPLER_TYPE_TYPICAL_P:
++                if (params.typ_p < 1.0f) {
++                    return false;
++                }
++                break;
++            case COMMON_SAMPLER_TYPE_XTC:
++                if (params.xtc_probability > 0.0f) {
++                    return false;
++                }
++                break;
++            default:
++                return false;
++        }
++    }
++
++    return true;
++}
++
+ llama_token common_sampler_sample(struct common_sampler * gsmpl, struct llama_context * ctx, int idx, bool grammar_first) {
+     llama_synchronize(ctx);
+ 
+@@ -616,6 +682,30 @@
+     auto & chain = gsmpl->chain;
+     auto & cur_p = gsmpl->cur_p; // initialized by set_logits
+ 
++    // The chain would pick the largest logit. Find it in the logits instead: on a large vocabulary,
++    // building the candidate array and passing it through the chain costs several times the scan.
++    if (common_sampler_takes_max(gsmpl, ctx)) {
++        const float * logits  = llama_get_logits_ith(ctx, idx);
++        const int     n_vocab = llama_vocab_n_tokens(llama_model_get_vocab(llama_get_model(ctx)));
++        GGML_ASSERT(logits != nullptr);
++
++        // The largest value stays in a local: reading logits[id] back on every step would put a
++        // memory load into the chain that each step waits for.
++        float max_logit = logits[0];
++        id = 0;
++        for (llama_token token_id = 1; token_id < n_vocab; token_id++) {
++            if (logits[token_id] > max_logit) {
++                max_logit = logits[token_id];
++                id        = token_id;
++            }
++        }
++
++        gsmpl->cur.assign(1, llama_token_data{ id, max_logit, 0.0f });
++        cur_p = { gsmpl->cur.data(), gsmpl->cur.size(), 0, false };
++
++        return id;
++    }
++
+     gsmpl->set_logits(ctx, idx);
+ 
+     // Check if a backend sampler has already sampled a token in which case we

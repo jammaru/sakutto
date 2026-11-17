@@ -1,0 +1,91 @@
+Start only the mat-vec threads that have a block to read.
+
+The k-quant integer mat-vec shader runs in workgroups of 256 threads. A
+thread reads 16 values of the row, so a row of K values has work for
+K / 16 threads. The matrices of PLaMo 3 Translate 0.8B are 1536, 2048 or
+6144 values wide, so for most of them only 96 or 128 of the 256 threads
+compute anything. The rest still take part in the reduction at the end.
+
+The workgroup is now sized to the row, rounded up to whole subgroups and
+never above 256: 96 threads for K = 1536, 128 for K = 2048 and 256 as
+before for K = 6144. The 2B model gets 160 and 192. A thread reads the
+same block as before, and whole subgroups are kept so that the sums are
+still added in the same order. The shader source is the same and only
+its WG_SIZE define changes, so the pipeline key now carries the size.
+
+This applies only with the subgroup reduction. The workgroup reduction
+folds the workgroup in halves and drops part of the sum when the size is
+not a power of two. A build without this condition, run with the
+subgroups feature hidden, used 96 threads there and every request failed
+with invalid UTF-8 in the output. That path keeps 256 threads.
+
+Only NVIDIA with Q4_K and Q6_K rows gets the smaller workgroup. That is
+what was measured, on an RTX 4090 with a subgroup size of 32. Both
+models translated to identical text, and with the 0.8B model a long
+article took about 12% less time in the extension.
+
+Other vendors and other quant types keep 256 threads. This is not a
+claim about them.
+
+diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu-shader-lib.hpp b/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu-shader-lib.hpp
+--- a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu-shader-lib.hpp
++++ b/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu-shader-lib.hpp
+@@ -964,10 +964,12 @@
+     uint32_t  num_cols;
+     bool      use_mmvq;
+     bool      src_overlap;
++    uint32_t  wg_size;
+ 
+     bool operator==(const ggml_webgpu_mul_mat_vec_pipeline_key & other) const {
+         return src0_type == other.src0_type && src1_type == other.src1_type && vectorized == other.vectorized &&
+-               num_cols == other.num_cols && use_mmvq == other.use_mmvq && src_overlap == other.src_overlap;
++               num_cols == other.num_cols && use_mmvq == other.use_mmvq && src_overlap == other.src_overlap &&
++               wg_size == other.wg_size;
+     }
+ };
+ 
+@@ -980,6 +982,7 @@
+         ggml_webgpu_hash_combine(seed, key.num_cols);
+         ggml_webgpu_hash_combine(seed, key.use_mmvq);
+         ggml_webgpu_hash_combine(seed, key.src_overlap);
++        ggml_webgpu_hash_combine(seed, key.wg_size);
+         return seed;
+     }
+ };
+@@ -2018,6 +2021,17 @@
+         key.use_mmvq =
+             ggml_webgpu_can_use_mmvq(context.src0, context.src1, context.supports_dot_product, context.vendor);
+         key.src_overlap = src_overlap;
++        key.wg_size     = WEBGPU_MUL_MAT_VEC_WG_SIZE;
++        // A k-quant thread reads 16 values of the row, so a row of K values has work for K / 16 threads.
++        // The other threads only join the reduction. Do not start them. The sums keep their order.
++        // Only with the subgroup reduction: the workgroup reduction folds in halves and needs a power of two.
++        // Measured on NVIDIA with Q4_K and Q6_K only, so only these get the smaller workgroup.
++        if (key.use_mmvq && context.supports_subgroups && context.vendor == "nvidia" &&
++            (key.src0_type == GGML_TYPE_Q4_K || key.src0_type == GGML_TYPE_Q6_K)) {
++            const uint32_t sg      = std::max<uint32_t>(context.max_subgroup_size, 16);
++            const uint32_t threads = (uint32_t) (context.src0->ne[0] / 16);
++            key.wg_size            = std::min<uint32_t>(key.wg_size, (threads + sg - 1) / sg * sg);
++        }
+ 
+         auto it = mul_mat_vec_pipelines.find(key);
+         if (it != mul_mat_vec_pipelines.end()) {
+@@ -2128,7 +2142,7 @@
+         // VEC/SCALAR controls
+         defines.push_back(key.vectorized ? "VEC" : "SCALAR");
+ 
+-        uint32_t wg_size        = WEBGPU_MUL_MAT_VEC_WG_SIZE;
++        uint32_t wg_size        = key.wg_size;
+         uint32_t outputs_per_wg = WEBGPU_MUL_MAT_VEC_FLOAT_OUTPUTS_PER_WG;
+ 
+         if (key.src0_type == GGML_TYPE_Q1_0) {
+@@ -2143,6 +2157,9 @@
+             defines.push_back("MMVQ");
+             defines.push_back("Q8_1_T");
+         }
++        if (wg_size != WEBGPU_MUL_MAT_VEC_WG_SIZE) {
++            variant += "_wg" + std::to_string(wg_size);
++        }
+ 
+         if (key.src_overlap) {
+             defines.push_back("SRC_OVERLAP");

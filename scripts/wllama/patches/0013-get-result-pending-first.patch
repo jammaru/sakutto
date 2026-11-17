@@ -1,0 +1,32 @@
+Return a waiting result before decoding another step.
+
+Every get_result call ran the server loop once and then returned one result of its own request.
+With several requests in flight, each call so decoded a token for all of them and collected
+one. The results piled up, and a caller saw the end of its request long after the server had
+finished it. A result that is already waiting is now returned without running the loop.
+
+diff --git a/cpp/wllama-context.h b/cpp/wllama-context.h
+index 51682a6..29f890b 100644
+--- a/cpp/wllama-context.h
++++ b/cpp/wllama-context.h
+@@ -862,8 +862,18 @@ struct wllama_context
+     }
+     server_response_reader &rd = *it->second;
+ 
+-    run_loop();
+-    auto [result, is_error] = get_next_result(rd);
++    // A result that is already waiting for this reader is returned without decoding another
++    // step. When every poll ran the loop, each poll of one reader also produced a token for
++    // all the others, so their results piled up and a reader learned that its request had
++    // ended only once the whole group had.
++    auto next = get_next_result(rd);
++    if (!next.first && rd.has_next())
++    {
++      run_loop();
++      next = get_next_result(rd);
++    }
++    auto &result = next.first;
++    const bool is_error = next.second;
+     // the task queue can be empty while the request is still streaming, keep polling until we get the stop result
+     const bool has_more = rd.has_next();
+ 
