@@ -47,9 +47,10 @@ test.describe('built extension', () => {
           ).toBeVisible();
           await expect(
             page.getByText(
-              'A folder chosen from the Settings tab can keep access after a restart.',
+              'After you choose a shared folder in Settings, pick Allow on every visit when asked',
             ),
           ).toBeVisible();
+          await expect(page.getByText('Restarts then need no extra clicks')).toBeVisible();
           await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
           await expect(page.getByText('Japanese Edge: 「常に許可」')).toBeVisible();
           await expect(page.getByText('A shared folder means:')).toBeVisible();
@@ -170,8 +171,9 @@ test.describe('built extension', () => {
             ),
           ).toBeVisible();
           await expect(
-            page.getByText('設定タブで選んだフォルダは、再起動後もアクセスが続くことがあります。'),
+            page.getByText('設定で共有フォルダを選んだあと、ブラウザが求めたら'),
           ).toBeVisible();
+          await expect(page.getByText('再起動後も追加のクリックは不要になります')).toBeVisible();
           await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
           await expect(page.getByText('「常に許可」（Edge）')).toBeVisible();
           await expect(page.getByText('共有フォルダを使うと：')).toBeVisible();
