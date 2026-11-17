@@ -526,8 +526,9 @@ describe('shared folder activation and recovery', () => {
     expect(content).not.toContain('getCurrent');
     expect(arm).toContain("type: 'folder:arm-command'");
     expect(arm).not.toContain('tabId');
-    expect(content).toContain('sharedFolderPickerAvailable()');
     expect(content).toContain('isFolderGrantCompleteMessage');
+    expect(content).not.toContain('folder-enable.html');
+    expect(content).not.toContain('requestPermission');
     expect(content).not.toContain('sakutto-folder-granted');
     expect(content).not.toContain('folderNeedsPermission = sharedFolderNeedsPermission');
     expect(source('background/folder-grant.ts')).toContain('sharedFolderNeedsUserAction');

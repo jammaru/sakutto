@@ -71,34 +71,52 @@ export function installPageActions(
   });
 }
 
+let menuInstall: Promise<void> | null = null;
+let menusReady = false;
+
 function installMenus(): void {
-  void browser.contextMenus.removeAll().then(() => {
-    browser.contextMenus.create({
-      id: 'translate-page',
-      title: browser.i18n.getMessage('contextTranslatePage'),
-      contexts: ['page'],
-    });
-    browser.contextMenus.create({
-      id: 'translate-selection',
-      title: browser.i18n.getMessage('contextTranslateSelection'),
-      contexts: ['selection'],
-    });
-    // Chrome decides menu contents when it opens, so hiding after contextmenu is too
-    // late and the hidden state would be global across tabs. Keep this item on every
-    // editable; ineligible fields no-op with feedback in the page.
-    browser.contextMenus.create({
-      id: 'translate-compose',
-      title: browser.i18n.getMessage('contextTranslateCompose'),
-      contexts: ['editable'],
-    });
-    browser.contextMenus.create({
-      id: PDF_COMMAND,
-      title: browser.i18n.getMessage('contextTranslatePdf'),
-      contexts: ['page', 'link'],
-      // Only offered on something that is a PDF, so the menu does not promise a feature the
-      // click cannot deliver. Chrome reports a PDF tab's URL as the file itself.
-      documentUrlPatterns: [...PDF_MENU_URL_PATTERNS],
-    });
+  if (menusReady || menuInstall) return;
+  menuInstall = (async () => {
+    try {
+      // A service-worker restart can leave menu ids behind. Never create without first
+      // removing the previous set, otherwise Chrome reports duplicate-id errors.
+      await browser.contextMenus.removeAll();
+      await browser.contextMenus.create({
+        id: 'translate-page',
+        title: browser.i18n.getMessage('contextTranslatePage'),
+        contexts: ['page'],
+      });
+      if (browser.runtime.lastError) return;
+      await browser.contextMenus.create({
+        id: 'translate-selection',
+        title: browser.i18n.getMessage('contextTranslateSelection'),
+        contexts: ['selection'],
+      });
+      if (browser.runtime.lastError) return;
+      // Chrome decides menu contents when it opens, so hiding after contextmenu is too
+      // late and the hidden state would be global across tabs. Keep this item on every
+      // editable; ineligible fields no-op with feedback in the page.
+      await browser.contextMenus.create({
+        id: 'translate-compose',
+        title: browser.i18n.getMessage('contextTranslateCompose'),
+        contexts: ['editable'],
+      });
+      if (browser.runtime.lastError) return;
+      await browser.contextMenus.create({
+        id: PDF_COMMAND,
+        title: browser.i18n.getMessage('contextTranslatePdf'),
+        contexts: ['page', 'link'],
+        // Only offered on something that is a PDF, so the menu does not promise a feature the
+        // click cannot deliver. Chrome reports a PDF tab's URL as the file itself.
+        documentUrlPatterns: [...PDF_MENU_URL_PATTERNS],
+      });
+      if (browser.runtime.lastError) return;
+      menusReady = true;
+    } catch {
+      menusReady = false;
+    }
+  })().finally(() => {
+    menuInstall = null;
   });
 }
 

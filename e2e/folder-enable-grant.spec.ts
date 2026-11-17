@@ -1,4 +1,4 @@
-import { expect, test, type Frame } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { loadExtension } from './extension';
 import { FIXTURE_ORIGIN, MARKER, commandPage, resetExtensionStorage } from './page';
 import {
@@ -8,7 +8,7 @@ import {
   setPermissionOverride,
 } from './folder-model-helpers';
 
-test('grants a shared folder from the in-page iframe with a dynamic WAR origin', async () => {
+test('grants a shared folder from the toolbar popup with a dynamic WAR origin', async () => {
   test.setTimeout(120_000);
   const extension = await loadExtension('en-US');
   try {
@@ -51,19 +51,13 @@ test('grants a shared folder from the in-page iframe with a dynamic WAR origin',
     await page.goto(`${FIXTURE_ORIGIN}/article.html`);
     await commandPage(extension.worker, page, 'toggle');
 
-    let grantFrame: Frame | undefined;
-    await expect
-      .poll(
-        () => {
-          grantFrame = page.frames().find((frame) => frame.url().includes('/folder-enable.html'));
-          return Boolean(grantFrame);
-        },
-        { timeout: 15_000 },
-      )
-      .toBe(true);
-    if (!grantFrame) throw new Error('missing in-page folder grant frame');
+    expect(page.frames().some((frame) => frame.url().includes('/folder-enable.html'))).toBe(false);
 
-    await grantFrame.getByRole('button', { name: 'Enable Sakutto' }).click();
+    const grantPopup = await extension.context.newPage();
+    await grantPopup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
+    const enable = grantPopup.locator('[data-sakutto="popup-folder-enable"]');
+    await expect(enable).toBeVisible({ timeout: 15_000 });
+    await enable.click();
 
     await expect
       .poll(

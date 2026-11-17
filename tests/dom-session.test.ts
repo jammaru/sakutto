@@ -329,14 +329,7 @@ describe('page session', () => {
     expect(document.body.textContent).toContain('こんにちは');
   });
 
-  it.each([
-    { label: 'the iframe URL is empty', url: '', active: true },
-    {
-      label: 'the folder grant gate is off',
-      url: 'https://example.test/folder-enable.html',
-      active: false,
-    },
-  ])('does not arm the selection folder timeout when $label', async ({ url, active }) => {
+  it('does not arm the selection folder timeout when the grant gate is off', async () => {
     vi.useFakeTimers();
     try {
       document.documentElement.lang = 'en';
@@ -347,8 +340,7 @@ describe('page session', () => {
         preferences: preferences(),
         scheduleFrame: (callback) => callback(),
         debounceMs: 20,
-        folderEnablePageUrl: url,
-        folderGrantUiActive: active,
+        folderGrantUiActive: false,
       });
       sessions.push(session);
       const begin = vi.spyOn(session, 'beginFolderGrantWait');
@@ -373,7 +365,6 @@ describe('page session', () => {
         preferences: preferences(),
         scheduleFrame: (callback) => callback(),
         debounceMs: 20,
-        folderEnablePageUrl: 'https://example.test/folder-enable.html',
         folderGrantUiActive: true,
       });
       sessions.push(session);

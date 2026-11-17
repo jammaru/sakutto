@@ -9,25 +9,20 @@ import {
   installPageActions,
   openPdfForTabReason,
 } from '@/background/page-actions';
-import { gatePageCommand, resumeFolderGrantPending } from '@/background/folder-grant';
+import {
+  gatePageCommand,
+  openFolderEnableWindow,
+  resumeFolderGrantPending,
+} from '@/background/folder-grant';
 import { resolveFolderArmCommandTarget } from '@/background/folder-arm-command';
-import { validateFolderEnableTokenMap } from '@/background/folder-enable-validate';
 import {
   isFolderArmCommandRequest,
-  isFolderEnableTokenRequest,
-  isFolderEnableValidateRequest,
   isFolderGrantCompleteMessage,
+  isFolderOpenEnableRequest,
   isFolderResumePendingRequest,
   type FolderGrantCompleteMessage,
 } from '@/shared/folder-grant-messages';
 import { readFolderGrantPending } from '@/shared/folder-grant-pending';
-import {
-  FOLDER_ENABLE_TOKENS_KEY,
-  addFolderEnableToken,
-  createFolderEnableToken,
-  parseFolderEnableTokens,
-  type FolderEnableTokenMap,
-} from '@/shared/folder-enable-token';
 import { syncCaptionCustomContentScripts } from '@/captions/register-custom';
 import { deleteStoredPdf } from '@/background/pdf-store';
 import {
@@ -88,13 +83,14 @@ import {
 
 const CAPABILITIES_CACHE_KEY = 'engineCapabilities';
 
-/** Only the folder-enable extension page may announce that a grant finished. */
-function isFolderEnableSender(sender: {
+/** Only top-level extension grant surfaces may announce that a grant finished. */
+function isFolderGrantSurfaceSender(sender: {
   id?: string | undefined;
   url?: string | undefined;
 }): boolean {
   if (sender.id !== browser.runtime.id || typeof sender.url !== 'string') return false;
-  return sender.url.split(/[?#]/)[0]?.endsWith('/folder-enable.html') === true;
+  const path = sender.url.split(/[?#]/)[0] ?? '';
+  return path.endsWith('/folder-enable.html') || path.endsWith('/popup.html');
 }
 
 const contentLoadGeneration =
@@ -213,62 +209,6 @@ export default defineBackground(() => {
     const status = await client.status().catch(() => null);
     if (!status) return;
     await broadcast({ type: 'model:progress', status: status.model });
-  }
-
-  let folderTokenQueue: Promise<void> = Promise.resolve();
-
-  /** Token reads and writes are read-modify-write; serialize them across tabs/frames. */
-  function serializeFolderToken<T>(run: () => Promise<T>): Promise<T> {
-    const result = folderTokenQueue.then(run, run);
-    folderTokenQueue = result.then(
-      () => undefined,
-      () => undefined,
-    );
-    return result;
-  }
-
-  async function readFolderEnableTokens(): Promise<FolderEnableTokenMap> {
-    const stored = await browser.storage.session
-      .get(FOLDER_ENABLE_TOKENS_KEY)
-      .catch(() => ({}) as Record<string, unknown>);
-    return parseFolderEnableTokens(stored[FOLDER_ENABLE_TOKENS_KEY]);
-  }
-
-  async function writeFolderEnableTokens(tokens: FolderEnableTokenMap): Promise<void> {
-    if (Object.keys(tokens).length === 0) {
-      await browser.storage.session.remove(FOLDER_ENABLE_TOKENS_KEY).catch(() => undefined);
-      return;
-    }
-    await browser.storage.session
-      .set({ [FOLDER_ENABLE_TOKENS_KEY]: tokens })
-      .catch(() => undefined);
-  }
-
-  function issueFolderEnableToken(
-    tabId: number,
-    frameId: number | undefined,
-  ): Promise<string | null> {
-    return serializeFolderToken(async () => {
-      const token = createFolderEnableToken(tabId, frameId);
-      const tokens = await readFolderEnableTokens();
-      await writeFolderEnableTokens(addFolderEnableToken(tokens, token));
-      return token.token;
-    }).catch(() => null);
-  }
-
-  function validateFolderEnableToken(token: string, tabId: number | undefined): Promise<boolean> {
-    return serializeFolderToken(async () => {
-      const tokens = await readFolderEnableTokens();
-      const checked = await validateFolderEnableTokenMap(
-        tokens,
-        token,
-        tabId,
-        (targetTabId, message, options) => browser.tabs.sendMessage(targetTabId, message, options),
-      );
-      // Consume the entry even when the content frame no longer owns the overlay.
-      await writeFolderEnableTokens(checked.tokens);
-      return checked.valid;
-    }).catch(() => false);
   }
 
   function startDownload(modelId: ModelId): boolean {
@@ -488,22 +428,8 @@ export default defineBackground(() => {
       return true;
     }
 
-    if (isFolderEnableTokenRequest(message)) {
-      const tabId = sender.tab?.id;
-      if (tabId === undefined) {
-        sendResponse(null);
-        return true;
-      }
-      void issueFolderEnableToken(tabId, sender.frameId).then(sendResponse);
-      return true;
-    }
-
-    if (isFolderEnableValidateRequest(message)) {
-      if (!isFolderEnableSender(sender)) {
-        sendResponse(false);
-        return true;
-      }
-      void validateFolderEnableToken(message.token, sender.tab?.id).then(sendResponse);
+    if (isFolderOpenEnableRequest(message)) {
+      void openFolderEnableWindow().then(sendResponse);
       return true;
     }
 
@@ -523,7 +449,7 @@ export default defineBackground(() => {
     }
 
     if (isFolderGrantCompleteMessage(message)) {
-      if (!isFolderEnableSender(sender)) {
+      if (!isFolderGrantSurfaceSender(sender)) {
         sendResponse(false);
         return true;
       }

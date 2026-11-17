@@ -480,8 +480,9 @@ export class PageOverlay {
   private readonly barAlways: HTMLButtonElement;
   private readonly folderEnableHost: HTMLElement;
   private readonly folderEnableShadow: ShadowRoot;
-  private folderEnableFrame: HTMLIFrameElement | null = null;
-  private folderEnableDeliveryCleanup: (() => void) | null = null;
+  private readonly folderEnableHint: HTMLElement;
+  private readonly folderEnableButton: HTMLButtonElement;
+  private onFolderEnable: (() => void) | undefined;
   private labels: OverlayLabels;
   private returnFocus: HTMLElement | null = null;
   private onClose: (() => void) | null = null;
@@ -594,6 +595,29 @@ export class PageOverlay {
     this.folderEnableHost.style.opacity = '1';
     doc.documentElement.append(this.folderEnableHost);
     this.folderEnableShadow = attachUiShadow(this.folderEnableHost);
+    const folderStyle = doc.createElement('style');
+    folderStyle.textContent = `
+      .panel { display: grid; gap: 8px; padding: 10px 12px; color: #101828; font: 12px/1.4 system-ui, sans-serif; }
+      .hint { margin: 0; }
+      .button { padding: 8px 10px; border: 0; border-radius: 8px; background: #0e7490; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+    `;
+    const panel = doc.createElement('div');
+    panel.className = 'panel';
+    this.folderEnableHint = doc.createElement('p');
+    this.folderEnableHint.className = 'hint';
+    this.folderEnableHint.textContent = this.labels.folderPermission ?? '';
+    this.folderEnableButton = doc.createElement('button');
+    this.folderEnableButton.type = 'button';
+    this.folderEnableButton.className = 'button';
+    this.folderEnableButton.textContent = this.labels.folderEnableTitle ?? '';
+    this.folderEnableButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!event.isTrusted) return;
+      this.onFolderEnable?.();
+    });
+    panel.append(this.folderEnableHint, this.folderEnableButton);
+    this.folderEnableShadow.append(folderStyle, panel);
 
     this.bar = doc.createElement('sakutto-bar');
     this.bar.setAttribute('translate', 'no');
@@ -682,6 +706,8 @@ export class PageOverlay {
 
   setLabels(labels: OverlayLabels): void {
     this.labels = labels;
+    this.folderEnableHint.textContent = labels.folderPermission ?? '';
+    this.folderEnableButton.textContent = labels.folderEnableTitle ?? '';
     this.tipKicker.textContent = labels.original;
     this.popKicker.textContent = labels.selectionTitle;
     this.popCard.setAttribute('aria-label', labels.selectionTitle);
@@ -754,36 +780,16 @@ export class PageOverlay {
     }, 2600);
   }
 
-  /**
-   * Loads the extension grant iframe. The URL never carries the grant secret;
-   * `attachDelivery` installs the ready handshake after the frame is in the DOM.
-   */
-  showFolderEnable(pageUrl: string, attachDelivery?: (frame: HTMLIFrameElement) => void): void {
-    this.folderEnableDeliveryCleanup?.();
-    this.folderEnableDeliveryCleanup = null;
-    this.folderEnableFrame?.remove();
-    const frame = this.doc.createElement('iframe');
-    frame.setAttribute('title', this.labels.folderEnableTitle ?? '');
-    frame.style.display = 'block';
-    frame.style.width = '100%';
-    frame.style.height = '64px';
-    frame.style.minWidth = '280px';
-    frame.style.minHeight = '64px';
-    frame.style.border = '0';
-    frame.style.borderRadius = '10px';
-    frame.style.opacity = '1';
-    frame.src = pageUrl;
-    this.folderEnableShadow.append(frame);
-    this.folderEnableFrame = frame;
-    this.folderEnableDeliveryCleanup = attachDelivery?.(frame) ?? null;
+  /** Shows the in-page grant hint; the button opens the popup or a grant window. */
+  showFolderEnable(onEnable?: () => void): void {
+    this.onFolderEnable = onEnable;
     this.folderEnableHost.hidden = false;
     this.folderEnableHost.style.display = 'block';
     this.hideBar();
   }
 
   hideFolderEnable(): void {
-    this.folderEnableDeliveryCleanup?.();
-    this.folderEnableDeliveryCleanup = null;
+    this.onFolderEnable = undefined;
     this.folderEnableHost.hidden = true;
     this.folderEnableHost.style.display = 'none';
   }

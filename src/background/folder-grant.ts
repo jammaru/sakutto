@@ -10,7 +10,10 @@ import type { PageCommandName } from '@/shared/messages';
 import { requestPageCommand } from '@/shared/messages';
 import { ensureContentScript } from '@/shared/page-bridge';
 
-import { type FolderGrantNeededMessage } from '@/shared/folder-grant-messages';
+import {
+  type FolderGrantCompleteMessage,
+  type FolderGrantNeededMessage,
+} from '@/shared/folder-grant-messages';
 
 async function notifyGrantNeeded(tabId: number, command: PageCommandName): Promise<void> {
   const message: FolderGrantNeededMessage = { type: 'folder:grant-needed', command };
@@ -23,13 +26,38 @@ async function tryOpenPopup(): Promise<void> {
   try {
     await openPopup();
   } catch {
-    // No focused window or API unavailable — the in-page iframe still offers one click.
+    // No focused window or API unavailable — the in-page hint opens a dedicated window.
+  }
+}
+
+/** Open the toolbar popup when possible, otherwise a small top-level grant window. */
+export async function openFolderEnableWindow(): Promise<boolean> {
+  const openPopup = browser.action?.openPopup;
+  if (openPopup) {
+    try {
+      await openPopup();
+      return true;
+    } catch {
+      // Fall back to a real extension window.
+    }
+  }
+  try {
+    await browser.windows.create({
+      url: browser.runtime.getURL('/folder-enable.html'),
+      type: 'popup',
+      width: 420,
+      height: 280,
+      focused: true,
+    });
+    return true;
+  } catch {
+    return false;
   }
 }
 
 /**
  * When the shared folder grant is dormant, defer the page command and surface a one-click
- * grant in the page (iframe) and optionally the toolbar popup.
+ * grant in the toolbar popup, with an in-page hint that can open it.
  */
 export async function gatePageCommand(
   client: EngineClient,
@@ -88,6 +116,16 @@ async function resumeFolderGrantPendingNow(client: EngineClient): Promise<boolea
   // content script that cannot answer must not destroy the reader's deferred action.
   const state = await requestPageCommand(pending.tabId, pending.command, pending.frameId);
   if (!state) return false;
+  // Hide the in-page hint even when the popup/folder-enable tab cannot be used as a sender
+  // fallback after the pending slot is cleared.
+  const complete: FolderGrantCompleteMessage = { type: 'folder:grant-complete' };
+  await browser.tabs
+    .sendMessage(
+      pending.tabId,
+      complete,
+      pending.frameId === undefined ? {} : { frameId: pending.frameId },
+    )
+    .catch(() => undefined);
   await clearFolderGrantPending();
   return true;
 }

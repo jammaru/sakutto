@@ -207,14 +207,6 @@ interface InflightBatch {
   streaming: boolean;
 }
 
-export interface FolderEnableFrameRequest {
-  pageUrl: string;
-  /** The content script keeps this so the background can confirm frame ownership. */
-  token?: string | undefined;
-  /** Installs the ready handshake that delivers the secret to the frame. */
-  attachDelivery?: ((frame: HTMLIFrameElement) => void) | undefined;
-}
-
 export interface PageSessionOptions {
   engine: PageEngine;
   labels: OverlayLabels;
@@ -239,13 +231,10 @@ export interface PageSessionOptions {
   bilingualKey?: (event: KeyboardEvent) => boolean;
   /** Saves a width chosen by dragging or keyboard, in em at 100% text scale. */
   onPopupWidth?: (widthEm: number) => void | Promise<void>;
-  /** Web-accessible folder-enable.html URL for in-page one-click grant. */
-  folderEnablePageUrl?: string;
   /** True only while the shared folder grant actually needs the reader to act. */
   folderGrantUiActive?: boolean;
-  /** Supplies the bare iframe URL and the post-load token delivery hook. */
-  folderEnableFrameProvider?:
-    (() => Promise<FolderEnableFrameRequest | null> | FolderEnableFrameRequest | null) | undefined;
+  /** Opens the toolbar popup or a top-level grant window from the in-page hint. */
+  onFolderEnable?: () => void;
 }
 
 export function preferencesFor(
@@ -337,12 +326,8 @@ export class PageSession {
   private folderPermissionFault = false;
   /** Set when the active model is deleted, so the bar stops counting unfinished work. */
   private modelMissingFault = false;
-  private readonly folderEnablePageUrl: string;
   private folderGrantUiActive: boolean;
-  private readonly folderEnableFrameProvider:
-    (() => Promise<FolderEnableFrameRequest | null> | FolderEnableFrameRequest | null) | undefined;
-  private folderEnableDeliveredToken: string | null = null;
-  private folderGrantOpening = false;
+  private readonly onFolderEnable: (() => void) | undefined;
   private selectionGrantTimer: ReturnType<typeof setTimeout> | null = null;
   private historyUnpatch: (() => void) | null = null;
   private scanTimer: ReturnType<typeof setTimeout> | null = null;
@@ -391,9 +376,8 @@ export class PageSession {
     this.selectionKey = options.selectionKey ?? isPlainAltS;
     this.pageKey = options.pageKey;
     this.bilingualKey = options.bilingualKey;
-    this.folderEnablePageUrl = options.folderEnablePageUrl ?? '';
     this.folderGrantUiActive = options.folderGrantUiActive === true;
-    this.folderEnableFrameProvider = options.folderEnableFrameProvider;
+    this.onFolderEnable = options.onFolderEnable;
     this.scheduleFrame =
       options.scheduleFrame ??
       ((callback) => {
@@ -546,7 +530,6 @@ export class PageSession {
       return;
     }
     this.folderPermissionFault = false;
-    this.folderEnableDeliveredToken = null;
     if (this.selectionGrantTimer !== null) {
       clearTimeout(this.selectionGrantTimer);
       this.selectionGrantTimer = null;
@@ -702,7 +685,6 @@ export class PageSession {
     this.serverFault = false;
     this.folderPermissionFault = false;
     this.modelMissingFault = false;
-    this.folderEnableDeliveredToken = null;
     this.overlay.hideFolderEnable();
     this.targetAdjusted = false;
     const source = this.doc.documentElement.getAttribute('data-sakutto-source-lang');
@@ -791,7 +773,7 @@ export class PageSession {
     }
     this.enqueue(next, true);
     this.pump();
-    if (reveal && this.folderGrantUiActive && this.folderEnablePageUrl.length > 0) {
+    if (reveal && this.folderGrantUiActive) {
       if (this.selectionGrantTimer !== null) clearTimeout(this.selectionGrantTimer);
       this.selectionGrantTimer = setTimeout(() => {
         this.selectionGrantTimer = null;
@@ -984,45 +966,17 @@ export class PageSession {
   }
 
   beginFolderGrantWait(): void {
-    if (!this.folderGrantUiActive || this.folderEnablePageUrl.length === 0) return;
-    if (this.folderGrantOpening || this.overlay.folderEnableVisible()) return;
-    this.folderGrantOpening = true;
-    const frameRequest: Promise<FolderEnableFrameRequest | null> = this.folderEnableFrameProvider
-      ? Promise.resolve(this.folderEnableFrameProvider())
-      : Promise.resolve({ pageUrl: this.folderEnablePageUrl });
-    void frameRequest
-      .then((frame) => {
-        this.folderGrantOpening = false;
-        if (!frame || !this.folderGrantUiActive) return;
-        this.folderEnableDeliveredToken = frame.token ?? null;
-        this.overlay.showFolderEnable(frame.pageUrl, frame.attachDelivery);
-        if (this.selectionShown) {
-          this.overlay.hideSelection();
-          this.selectionShown = false;
-        }
-        this.publishState();
-      })
-      .catch(() => {
-        this.folderGrantOpening = false;
-      });
-  }
-
-  /** The issuing content frame must still show this token's overlay to confirm the grant. */
-  confirmFolderEnableToken(token: string): boolean {
-    if (
-      this.folderEnableDeliveredToken === null ||
-      this.folderEnableDeliveredToken !== token ||
-      !this.overlay.folderEnableVisible()
-    ) {
-      return false;
+    if (!this.folderGrantUiActive || this.overlay.folderEnableVisible()) return;
+    this.overlay.showFolderEnable(this.onFolderEnable);
+    if (this.selectionShown) {
+      this.overlay.hideSelection();
+      this.selectionShown = false;
     }
-    this.folderEnableDeliveredToken = null;
-    return true;
+    this.publishState();
   }
 
   endFolderGrantWait(): void {
     this.folderPermissionFault = false;
-    this.folderEnableDeliveredToken = null;
     this.overlay.hideFolderEnable();
     if (this.selectionGrantTimer !== null) {
       clearTimeout(this.selectionGrantTimer);

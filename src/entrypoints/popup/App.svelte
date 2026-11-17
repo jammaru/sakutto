@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
   import { DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID, getModel } from '@/engine/model/catalog';
-  import { sharedFolderSettingsHref } from '@/engine/model/folder-offer';
+  import { notifySharedFolderChanged, sharedFolderSettingsHref } from '@/engine/model/folder-offer';
   import { shouldSuggestHighQuality } from '@/engine/model/suggestion';
   import {
     modelNeedsDownload,
@@ -38,6 +38,7 @@
   import type { QualitySample } from '@/shared/quality';
   import type { Settings } from '@/shared/settings';
   import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
+  import { readFolderGrantPending } from '@/shared/folder-grant-pending';
   import {
     isPdfInspectResult,
     isPdfOpenResult,
@@ -127,6 +128,8 @@
   let engineStatusError = $state(false);
   /** True after an activation-driven grant attempt failed in the popup. */
   let folderRestoreNeeded = $state(false);
+  let pendingFolderGrant = $state(false);
+  let folderEnableBusy = $state(false);
   let modelMark = $state<ModelStatus | null>(null);
   let quality = $state<QualitySample | null>(null);
   let headroom = $state<DeviceHeadroom | null>(null);
@@ -189,6 +192,7 @@
   );
   let primaryLabel = $derived(translated ? t('restoreThisPage') : t('translateThisPage'));
   let folderNeedsPermission = $derived(sharedFolderNeedsPermission(engine?.sharedFolder));
+  let showPendingFolderGrant = $derived(pendingFolderGrant && sharedFolderNeedsUserAction(engine));
   /**
    * The toolbar button starts a page translation, so it waits for the model the same way
    * the onboarding card does. Restoring an already translated page is always allowed, and
@@ -345,6 +349,7 @@
     engineRetryCount = 0;
     engineStatusError = false;
     engine = { ...next, model: rememberModel(next.model) ?? next.model };
+    void refreshFolderGrantPending();
     if (next.model.state === 'loading') scheduleEngineRefresh(ENGINE_STATUS_POLL_MS);
     return true;
   }
@@ -599,9 +604,45 @@
     }
   }
 
+  async function refreshFolderGrantPending(): Promise<void> {
+    pendingFolderGrant = (await readFolderGrantPending()) !== null;
+  }
+
+  /** The pending command is resumed only from this top-level popup click. */
+  async function enablePendingFolderGrant(): Promise<void> {
+    if (folderEnableBusy) return;
+    folderEnableBusy = true;
+    folderRestoreNeeded = false;
+    try {
+      const access = await ensureStoredFolderPermission();
+      if (access.status !== 'granted') {
+        folderRestoreNeeded = true;
+        await refreshFolderGrantPending();
+        return;
+      }
+      if (engine?.sharedFolder) {
+        engine = {
+          ...engine,
+          sharedFolder: { ...engine.sharedFolder, permission: 'granted' },
+        };
+      }
+      if (access.changed) await requestModelFolderReload();
+      notifySharedFolderChanged();
+      await requestResumeFolderGrantPending();
+      await browser.runtime.sendMessage({ type: 'folder:grant-complete' }).catch(() => undefined);
+      pendingFolderGrant = false;
+      window.close();
+    } catch {
+      folderRestoreNeeded = true;
+    } finally {
+      folderEnableBusy = false;
+    }
+  }
+
   /** Toolbar open is not a user gesture; refresh status only, never auto-show the restore card. */
   async function refreshEngineOnOpen(): Promise<void> {
     await refreshEngine();
+    await refreshFolderGrantPending();
   }
 
   /** Explicit recovery after the shared folder was stopped: no "waiting" without a download. */
@@ -680,6 +721,7 @@
       void refreshPage();
     });
     void refreshEngineOnOpen();
+    void refreshFolderGrantPending();
     void refreshSettings();
     void refreshPage();
     void requestEngineWarm();
@@ -726,6 +768,18 @@
       <p class="muted">{t('tagline')}</p>
     </div>
   </header>
+
+  {#if showPendingFolderGrant}
+    <button
+      class="button block"
+      type="button"
+      data-sakutto="popup-folder-enable"
+      disabled={folderEnableBusy}
+      onclick={() => void enablePendingFolderGrant()}
+    >
+      {t('modelFolderEnableOneClick')}
+    </button>
+  {/if}
 
   {#if pdfUrl.length > 0}
     <button

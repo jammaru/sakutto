@@ -25,47 +25,15 @@ export function isFolderGrantCompleteMessage(value: unknown): value is FolderGra
   );
 }
 
-export interface FolderEnableTokenRequest {
-  type: 'folder:enable-token';
+export interface FolderOpenEnableRequest {
+  type: 'folder:open-enable';
 }
 
-export function isFolderEnableTokenRequest(value: unknown): value is FolderEnableTokenRequest {
+export function isFolderOpenEnableRequest(value: unknown): value is FolderOpenEnableRequest {
   return (
     typeof value === 'object' &&
     value !== null &&
-    (value as FolderEnableTokenRequest).type === 'folder:enable-token'
-  );
-}
-
-export interface FolderEnableValidateRequest {
-  type: 'folder:enable-validate';
-  token: string;
-}
-
-export function isFolderEnableValidateRequest(
-  value: unknown,
-): value is FolderEnableValidateRequest {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (value as FolderEnableValidateRequest).type === 'folder:enable-validate' &&
-    typeof (value as FolderEnableValidateRequest).token === 'string' &&
-    (value as FolderEnableValidateRequest).token.length > 0
-  );
-}
-
-export interface FolderEnableConfirmMessage {
-  type: 'folder:enable-confirm';
-  token: string;
-}
-
-export function isFolderEnableConfirmMessage(value: unknown): value is FolderEnableConfirmMessage {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (value as FolderEnableConfirmMessage).type === 'folder:enable-confirm' &&
-    typeof (value as FolderEnableConfirmMessage).token === 'string' &&
-    (value as FolderEnableConfirmMessage).token.length > 0
+    (value as FolderOpenEnableRequest).type === 'folder:open-enable'
   );
 }
 

@@ -1,42 +1,36 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
   import { ensureStoredFolderPermission } from '@/engine/model/shared-folder';
   import { notifySharedFolderChanged } from '@/engine/model/folder-offer';
-  import {
-    FOLDER_ENABLE_READY_MESSAGE,
-    isFolderEnableTokenMessage,
-  } from '@/shared/folder-enable-handshake';
   import { t } from '@/shared/i18n';
   import { requestModelFolderReload } from '@/shared/messages';
 
-  let token = '';
+  const embedded = window.parent !== window;
   let busy = $state(false);
   let failed = $state(false);
 
-  onMount(() => {
-    window.parent.postMessage({ type: FOLDER_ENABLE_READY_MESSAGE }, '*');
-  });
-
-  window.addEventListener('message', (event) => {
-    if (event.source !== window.parent) return;
-    if (!isFolderEnableTokenMessage(event.data)) return;
-    token = event.data.token;
-  });
-
-  async function enable(event: MouseEvent): Promise<void> {
-    // A scripted click can reuse the iframe URL; only a real user activation may grant.
-    if (!event.isTrusted || busy || token.length === 0) return;
+  async function openFromEmbedded(): Promise<void> {
+    if (busy) return;
     busy = true;
     failed = false;
     try {
-      const valid: unknown = await browser.runtime
-        .sendMessage({ type: 'folder:enable-validate', token })
-        .catch(() => false);
-      if (valid !== true) {
-        failed = true;
-        return;
-      }
+      await browser.runtime.sendMessage({ type: 'folder:open-enable' });
+    } catch {
+      failed = true;
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function enable(event: MouseEvent): Promise<void> {
+    if (!event.isTrusted || busy) return;
+    if (embedded) {
+      await openFromEmbedded();
+      return;
+    }
+    busy = true;
+    failed = false;
+    try {
       const access = await ensureStoredFolderPermission();
       if (access.status !== 'granted') {
         failed = true;
@@ -47,9 +41,8 @@
       if (access.changed) await requestModelFolderReload();
       notifySharedFolderChanged();
       await browser.runtime.sendMessage({ type: 'folder:resume-pending' }).catch(() => undefined);
-      // The background validates this extension page and forwards a typed completion
-      // message to the tab that deferred its command.
       await browser.runtime.sendMessage({ type: 'folder:grant-complete' }).catch(() => undefined);
+      window.close();
     } catch {
       failed = true;
     } finally {
@@ -59,6 +52,9 @@
 </script>
 
 <main>
+  {#if embedded}
+    <p class="hint">{t('modelFolderPermissionPage')}</p>
+  {/if}
   <button type="button" class="button" disabled={busy} onclick={(event) => void enable(event)}>
     {t('modelFolderEnableOneClick')}
   </button>
@@ -76,6 +72,10 @@
       sans-serif;
     color: #101828;
     background: transparent;
+  }
+
+  .hint {
+    margin: 0 0 8px;
   }
 
   .button {
