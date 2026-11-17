@@ -551,6 +551,15 @@ export async function loadStoredSharedFolder(
   return store.get();
 }
 
+/**
+ * True when a folder handle has been persisted. The background uses this only as a
+ * fallback when the engine status is not ready yet: without a stored folder there is
+ * nothing to grant, so the command can run instead of opening a pointless grant tab.
+ */
+export async function hasStoredSharedFolder(): Promise<boolean> {
+  return (await loadStoredSharedFolder().catch(() => null)) !== null;
+}
+
 export async function persistSharedFolderHandle(
   handle: FileSystemDirectoryHandle,
   bucket?: SharedFolderHandleBucket,

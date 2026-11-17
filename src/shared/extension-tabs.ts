@@ -11,8 +11,26 @@ function absoluteUrl(pathOrUrl: string): string {
     : browser.runtime.getURL(pathOrUrl as never);
 }
 
-export async function openOrFocusExtensionTab(pathOrUrl: string): Promise<number | null> {
+const opening = new Map<string, Promise<number | null>>();
+
+/**
+ * Focus an extension page that is already open, otherwise create it once. Concurrent
+ * callers for the same page (a command and the page hint can arrive together) join the
+ * same query/create, so a grant prompt never ends up in two tabs.
+ */
+export function openOrFocusExtensionTab(pathOrUrl: string): Promise<number | null> {
   const url = absoluteUrl(pathOrUrl);
+  const pending = opening.get(url);
+  if (pending) return pending;
+
+  const task = openOrFocusExtensionTabNow(url).finally(() => {
+    if (opening.get(url) === task) opening.delete(url);
+  });
+  opening.set(url, task);
+  return task;
+}
+
+async function openOrFocusExtensionTabNow(url: string): Promise<number | null> {
   const pattern = `${url.split(/[?#]/u)[0]}*`;
 
   try {

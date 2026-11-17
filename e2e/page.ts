@@ -7,6 +7,7 @@ export const MARKER = '§en§';
 interface ExtensionChrome {
   tabs: {
     query(query: Record<string, unknown>): Promise<Array<{ id?: number }>>;
+    get(tabId: number): Promise<{ id?: number; url?: string }>;
     sendMessage(tabId: number, message: unknown): Promise<unknown>;
   };
   scripting: {
@@ -14,6 +15,12 @@ interface ExtensionChrome {
   };
   commands: {
     getAll(): Promise<Array<{ name?: string; shortcut?: string }>>;
+    onCommand: {
+      dispatch(command: string, tab: unknown): Promise<void>;
+    };
+  };
+  contextMenus: {
+    onClicked: unknown;
   };
   storage: {
     local: {
@@ -294,6 +301,47 @@ export async function commandPage(
       await chrome.tabs.sendMessage(tabId, { type: 'page:command', command });
     },
     { tabId, command },
+  );
+}
+
+/**
+ * Dispatch the same event Chrome sends for a keyboard command. Playwright's synthetic key
+ * events do not reach browser accelerators, so this exercises the real listener path.
+ */
+export async function dispatchCommand(
+  worker: Worker,
+  page: Page,
+  command = 'translate-page',
+): Promise<void> {
+  const tabId = await tabIdForPage(worker, page);
+  await worker.evaluate(
+    async ({ tabId, command }) => {
+      const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
+      const tab = await chrome.tabs.get(tabId);
+      await chrome.commands.onCommand.dispatch(command, tab);
+    },
+    { tabId, command },
+  );
+}
+
+/** Dispatch the browser's context-menu click event for a page command. */
+export async function dispatchContextMenu(
+  worker: Worker,
+  page: Page,
+  menuItemId = 'translate-page',
+): Promise<void> {
+  const tabId = await tabIdForPage(worker, page);
+  await worker.evaluate(
+    async ({ tabId, menuItemId }) => {
+      const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
+      const tab = await chrome.tabs.get(tabId);
+      await (
+        chrome.contextMenus.onClicked as unknown as {
+          dispatch(info: { menuItemId: string }, tab: unknown): Promise<void>;
+        }
+      ).dispatch({ menuItemId }, tab);
+    },
+    { tabId, menuItemId },
   );
 }
 

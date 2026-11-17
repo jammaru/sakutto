@@ -21,13 +21,18 @@ interface PageTranslationCanceller {
 }
 
 let gatedEngine: EngineClient | undefined;
+let translationCanceller: PageTranslationCanceller | undefined;
+let listenersInstalled = false;
 
-export function installPageActions(
-  translations?: PageTranslationCanceller,
-  engine?: EngineClient,
-): void {
-  gatedEngine = engine;
-  installMenus();
+/**
+ * Register the event listeners synchronously during service-worker startup. Chrome only
+ * queues an event that woke the worker when its listener already exists in the first turn;
+ * a command must not wait for the engine client or the offscreen document to be ready.
+ */
+export function installPageActionListeners(engine?: EngineClient): void {
+  if (engine) gatedEngine = engine;
+  if (listenersInstalled) return;
+  listenersInstalled = true;
 
   browser.commands.onCommand.addListener((command, tab) => {
     // The PDF command is not a page action: the browser delivers the key here and the
@@ -59,7 +64,7 @@ export function installPageActions(
   });
 
   browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'loading') translations?.cancelTab(tabId);
+    if (changeInfo.status === 'loading') translationCanceller?.cancelTab(tabId);
     if (changeInfo.status !== 'complete' || !tab.url) return;
     void injectIfAlways(tabId, tab.url);
     void injectIfCaptions(tabId, tab.url);
@@ -68,8 +73,18 @@ export function installPageActions(
   });
 
   browser.tabs.onRemoved.addListener((tabId) => {
-    translations?.cancelTab(tabId);
+    translationCanceller?.cancelTab(tabId);
   });
+}
+
+export function installPageActions(
+  translations?: PageTranslationCanceller,
+  engine?: EngineClient,
+): void {
+  if (translations) translationCanceller = translations;
+  if (engine) gatedEngine = engine;
+  installPageActionListeners();
+  installMenus();
 }
 
 function installMenus(): void {

@@ -7,6 +7,7 @@ import {
   injectCaptionPages,
   injectGmailBannerPages,
   injectOutlookBannerPages,
+  installPageActionListeners,
   installPageActions,
   openPdfForTabReason,
 } from '@/background/page-actions';
@@ -100,8 +101,12 @@ const contentLoadGeneration =
     ? crypto.randomUUID()
     : `load-${String(Date.now())}`;
 
+const client = new EngineClient(createEngineHostController());
+
 export default defineBackground(() => {
-  const client = new EngineClient(createEngineHostController());
+  // Commands and context menus can wake a cold worker. Install those listeners before any
+  // other background setup so the first event after a restart is not lost.
+  installPageActionListeners(client);
   const broker = new TranslationBroker(client);
   const downloads = new Map<ModelId, AbortController>();
   let capabilitiesCache: EngineCapabilities | null = null;

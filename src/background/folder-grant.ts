@@ -2,6 +2,7 @@ import { browser } from 'wxt/browser';
 import { readRuntimeLastError } from '@/shared/runtime-last-error';
 import type { EngineClient } from '@/background/engine-client';
 import { sharedFolderNeedsUserAction } from '@/shared/engine-status';
+import { hasStoredSharedFolder } from '@/engine/model/shared-folder';
 import {
   clearFolderGrantPending,
   readFolderGrantPending,
@@ -40,10 +41,20 @@ export async function gatePageCommand(
   frameId?: number,
 ): Promise<'ran' | 'deferred'> {
   const status = await client.status().catch(() => null);
-  if (!status || !sharedFolderNeedsUserAction(status)) return 'ran';
+  if (status) {
+    if (!sharedFolderNeedsUserAction(status)) return 'ran';
+  } else if (!(await hasStoredSharedFolder())) {
+    // Without a status we cannot tell whether a grant is needed. A stored folder is the
+    // only reason to defer: a fresh engine that is still starting must not swallow the
+    // first command when the reader already linked one.
+    return 'ran';
+  }
   await saveFolderGrantPending({ tabId, command, frameId });
+  // Start opening the tab before the page hint round-trip so a slow content script cannot
+  // delay the only surface where Chrome can offer "Allow on every visit".
+  const opening = openFolderEnableWindow();
   await notifyGrantNeeded(tabId, command);
-  void openFolderEnableWindow();
+  await opening;
   return 'deferred';
 }
 

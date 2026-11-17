@@ -66,4 +66,23 @@ describe('openOrFocusExtensionTab', () => {
     expect(await openOrFocusExtensionTab('/onboarding.html')).toBe(4);
     expect(mocks.update).toHaveBeenCalledWith(4, { active: true });
   });
+
+  it('coalesces concurrent opens for the same page into one tab', async () => {
+    let resolveQuery: ((tabs: Array<{ id: number; windowId: number }>) => void) | undefined;
+    mocks.query.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveQuery = resolve;
+        }),
+    );
+
+    const first = openOrFocusExtensionTab('/folder-enable.html');
+    const second = openOrFocusExtensionTab('/folder-enable.html');
+    await vi.waitFor(() => expect(mocks.query).toHaveBeenCalledTimes(1));
+
+    resolveQuery?.([]);
+    await expect(first).resolves.toBe(9);
+    await expect(second).resolves.toBe(9);
+    expect(mocks.create).toHaveBeenCalledTimes(1);
+  });
 });
