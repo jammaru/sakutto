@@ -1331,6 +1331,12 @@
   "engineFirefoxSingleThread": {
     "message": "Firefox の拡張機能ページでは wasm のスレッドが使えないため、CPU の翻訳は 1 スレッドです。"
   },
+  "engineLinuxWebGpuHintUnsupported": {
+    "message": "Linux の Chrome では、chrome://flags/#enable-unsafe-webgpu で WebGPU と Vulkan 機能を有効にして Chrome を再起動する必要があることがよくあります。それまでは CPU で翻訳します。"
+  },
+  "engineLinuxWebGpuHintUnavailable": {
+    "message": "WebGPU は有効ですが、使用できる GPU アダプタが見つかりませんでした。GPU 翻訳には shader-f16 が必要です。ドライバーと Vulkan の対応状況を chrome://gpu などで確認してください。それまでは CPU で翻訳します。"
+  },
   "tierCpu1": {
     "message": "CPU（1スレッド）"
   },

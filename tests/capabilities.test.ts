@@ -54,6 +54,34 @@ describe('WebGPU probe', () => {
     ).toBe('cpu-wasm');
   });
 
+  it('selects WebGPU on Linux X11 when the adapter has shader-f16', async () => {
+    const requestAdapter = vi.fn(async () => ({
+      info: { vendor: 'amd', description: 'AMD Radeon RX 7800 XT' },
+      features: new Set(['shader-f16']),
+    }));
+    vi.stubGlobal('navigator', {
+      userAgentData: { platform: 'Linux' },
+      platform: 'Linux x86_64',
+      userAgent:
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+      gpu: { requestAdapter },
+      hardwareConcurrency: 16,
+    });
+
+    const capabilities = await probeCapabilities();
+
+    expect(capabilities.webgpu).toBe('ready');
+    expect(
+      selectBackend({
+        webgpu: capabilities.webgpu === 'ready',
+        hardwareConcurrency: capabilities.hardwareConcurrency,
+        ...(capabilities.gpuFastBatches === undefined
+          ? {}
+          : { fastBatches: capabilities.gpuFastBatches }),
+      }),
+    ).toMatchObject({ backend: 'webgpu', tier: 'g' });
+  });
+
   it.each([
     ['nvidia', true, true],
     ['amd', true, false],

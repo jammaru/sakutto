@@ -2,11 +2,21 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
-## [Unreleased]
+## [1.6.3] - 2026-11-17
 
 ### Features
 
-- Settings has a Line breaks in pasted text option for typed text, selections, and compose previews. The default keeps today's joined-paragraph output; you can keep line breaks, insert a blank line between them, or use wider line spacing. Line breaks that OCR left mid-sentence move to the end of the sentence. Page and PDF translation are unchanged.
+- Settings now has a Line breaks in the translation option for the typed-text page, the selection popup, and the compose preview. Do not add breaks is the default and produces the same joined output as before. Break between paragraphs keeps a line break at each paragraph boundary, Blank line between paragraphs adds an empty line, and Wider gap between paragraphs uses wider spacing. Breaks that OCR or pasted text left in the middle of a sentence move to the end of that sentence instead of cutting it. Page and PDF translation are unchanged. (#102)
+
+### Bug Fixes
+
+- Gmail and other mail bodies that use `<br>` line breaks instead of `<p>` paragraphs now keep their line and paragraph layout after translation. The translation is fitted back onto the message's existing lines, so blank lines, label lines, greetings, and signatures stay in place instead of collapsing into one block. The body is translated as one segment, and scanning the page does not split or change the message markup. (#103)
+
+### Maintenance
+
+- Updated three minor npm development dependencies in the npm-minor group (#99).
+- Updated the TypeScript development dependency from 5.9.3 to 6.0.3 (#46).
+- These updates are developer-only and do not change user-facing behavior.
 
 ## [1.6.2] - 2026-11-16
 
