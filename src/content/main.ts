@@ -434,6 +434,10 @@ export function contentMain(): void {
     },
   };
 
+  const pageCommandBridge: { deliver: ((command: PageCommandName) => void) | null } = {
+    deliver: null,
+  };
+
   const sessionPromise = (async () => {
     const settings = await loadSettings();
     let liveSettings = settings;
@@ -480,6 +484,7 @@ export function contentMain(): void {
           shortcutsEnabled,
           'translate-selection',
         )(event),
+      onPageCommand: (command) => pageCommandBridge.deliver?.(command),
     });
     const readiness = composeReadiness(
       settings,
@@ -749,13 +754,18 @@ export function contentMain(): void {
       if (shouldHandleComposeCommand(document)) compose?.handleShortcut();
       return session.state();
     }
-    const armed = await armFolderCommand(command);
-    if (armed === 'deferred') {
-      session.beginFolderGrantWait();
-      return session.state();
+    if (!__SAKUTTO_FAKE_ENGINE__) {
+      const armed = await armFolderCommand(command);
+      if (armed === 'deferred') {
+        session.beginFolderGrantWait();
+        return session.state();
+      }
     }
     await session.handle(command);
     return session.state();
+  };
+  pageCommandBridge.deliver = (command) => {
+    void run(command);
   };
 
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {

@@ -37,6 +37,17 @@ describe('folder grant gate', () => {
     expect(content).not.toContain('ensureStoredFolderPermission');
   });
 
+  it('routes in-page shortcuts through the same command path as onCommand', () => {
+    const session = source('dom/session.ts');
+    const content = source('content/main.ts');
+    expect(session).toContain('onPageCommand');
+    expect(session).toContain("this.onPageCommand('toggle')");
+    expect(content).toContain('onPageCommand: (command) => pageCommandBridge.deliver?.(command)');
+    expect(content).toContain('pageCommandBridge.deliver = (command)');
+    expect(content).toContain('if (!__SAKUTTO_FAKE_ENGINE__)');
+    expect(content).toContain('armFolderCommand(command)');
+  });
+
   it('grants from the toolbar popup and top-level folder-enable page', () => {
     const popup = source('entrypoints/popup/App.svelte');
     const enable = source('entrypoints/folder-enable/App.svelte');

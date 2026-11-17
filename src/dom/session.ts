@@ -22,6 +22,7 @@ import {
 } from '@/engine/errors';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
 import { glossaryKey, mergeGlossary } from '@/shared/glossary';
+import type { PageCommandName } from '@/shared/messages';
 import {
   chooseTargetLanguage,
   effectivePageTarget,
@@ -229,6 +230,11 @@ export interface PageSessionOptions {
   pageKey?: (event: KeyboardEvent) => boolean;
   /** Bilingual toggle. Used when Chrome left that command unbound. */
   bilingualKey?: (event: KeyboardEvent) => boolean;
+  /**
+   * Runs page commands from in-page shortcuts with the same gating and deduplication as
+   * `commands.onCommand`. Without this, Alt+A and a Chrome command can both call `handle`.
+   */
+  onPageCommand?: (command: PageCommandName) => void;
   /** Saves a width chosen by dragging or keyboard, in em at 100% text scale. */
   onPopupWidth?: (widthEm: number) => void | Promise<void>;
   /** True only while the shared folder grant actually needs the reader to act. */
@@ -275,6 +281,7 @@ export class PageSession {
   private readonly selectionKey: (event: KeyboardEvent) => boolean;
   private readonly pageKey: ((event: KeyboardEvent) => boolean) | undefined;
   private readonly bilingualKey: ((event: KeyboardEvent) => boolean) | undefined;
+  private readonly onPageCommand: ((command: PageCommandName) => void) | undefined;
   private readonly keyWindows = new Set<Window>();
   private grantPending = false;
   private eagerOnce = true;
@@ -376,6 +383,7 @@ export class PageSession {
     this.selectionKey = options.selectionKey ?? isPlainAltS;
     this.pageKey = options.pageKey;
     this.bilingualKey = options.bilingualKey;
+    this.onPageCommand = options.onPageCommand;
     this.folderGrantUiActive = options.folderGrantUiActive === true;
     this.onFolderEnable = options.onFolderEnable;
     this.scheduleFrame =
@@ -476,14 +484,16 @@ export class PageSession {
         if (isTypingShortcutTarget(event)) return;
         event.preventDefault();
         event.stopPropagation();
-        void this.handle('toggle');
+        if (this.onPageCommand) this.onPageCommand('toggle');
+        else void this.handle('toggle');
         return;
       }
       if (this.bilingualKey?.(event)) {
         if (isTypingShortcutTarget(event)) return;
         event.preventDefault();
         event.stopPropagation();
-        void this.handle('bilingual');
+        if (this.onPageCommand) this.onPageCommand('bilingual');
+        else void this.handle('bilingual');
         return;
       }
       if (!this.selectionKey(event)) return;
