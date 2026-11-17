@@ -183,6 +183,14 @@ export interface ModelFolderDeleteOpfsRequest {
   modelId: ModelId;
 }
 
+export interface ModelFolderAdoptRequest {
+  type: 'model-folder:adopt';
+}
+
+export interface ModelFolderToBrowserRequest {
+  type: 'model-folder:to-browser';
+}
+
 export interface CacheClearRequest {
   type: 'cache:clear';
 }
@@ -347,6 +355,16 @@ export function isModelFolderDeleteOpfsRequest(
   value: unknown,
 ): value is ModelFolderDeleteOpfsRequest {
   return isRecord(value) && value.type === 'model-folder:delete-opfs' && isModelId(value.modelId);
+}
+
+export function isModelFolderAdoptRequest(value: unknown): value is ModelFolderAdoptRequest {
+  return isRecord(value) && value.type === 'model-folder:adopt';
+}
+
+export function isModelFolderToBrowserRequest(
+  value: unknown,
+): value is ModelFolderToBrowserRequest {
+  return isRecord(value) && value.type === 'model-folder:to-browser';
 }
 
 export function isCacheClearRequest(value: unknown): value is CacheClearRequest {
@@ -598,6 +616,30 @@ export async function requestModelFolderDeleteOpfs(
       type: 'model-folder:delete-opfs',
       modelId,
     } satisfies ModelFolderDeleteOpfsRequest);
+    return isSharedFolderStatus(response) ? response : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Link the persisted folder handle and move verified OPFS models into it. */
+export async function requestModelFolderAdopt(): Promise<SharedFolderStatus | null> {
+  try {
+    const response: unknown = await browser.runtime.sendMessage({
+      type: 'model-folder:adopt',
+    } satisfies ModelFolderAdoptRequest);
+    return isSharedFolderStatus(response) ? response : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Copy verified folder models into OPFS, then stop using the folder handle. */
+export async function requestModelFolderToBrowser(): Promise<SharedFolderStatus | null> {
+  try {
+    const response: unknown = await browser.runtime.sendMessage({
+      type: 'model-folder:to-browser',
+    } satisfies ModelFolderToBrowserRequest);
     return isSharedFolderStatus(response) ? response : null;
   } catch {
     return null;

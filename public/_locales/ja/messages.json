@@ -690,23 +690,53 @@
   "modelSelectionMissing": {
     "message": "翻訳モデルがありません。ダウンロードすると翻訳できます。"
   },
-  "modelFolderHeading": {
-    "message": "Chromiumブラウザ間でモデルフォルダを共有する"
+  "modelStorageLegend": {
+    "message": "モデルの保存先"
   },
-  "modelFolderHelp": {
-    "message": "Chromium の初回は共有フォルダが選ばれています。ブラウザ内への保存も選べます。"
+  "modelStorageFolder": {
+    "message": "共有フォルダ（おすすめ）"
   },
-  "modelFolderAdoptOpfsHint": {
-    "message": "このブラウザ内にモデルがある場合、フォルダを選ぶと再ダウンロードせずにコピーします。"
+  "modelStorageBrowser": {
+    "message": "このブラウザ内"
+  },
+  "modelStorageCopyFolder": {
+    "message": "共有フォルダからコピー（おすすめ）"
+  },
+  "modelStorageIntro": {
+    "message": "モデルの保存先を選びます。既存のモデルは選択に合わせて移動します。"
+  },
+  "modelStorageFirefoxCopyHint": {
+    "message": "Firefox はフォルダを継続利用できないため、モデルを Firefox 内にコピーします。"
+  },
+  "modelStorageMoveFailed": {
+    "message": "モデルを共有フォルダへ移動できませんでした。ブラウザ内のコピーは残しています。"
+  },
+  "modelStorageMoveDone": {
+    "message": "モデルを共有フォルダに保存しました。"
+  },
+  "modelStorageCopyDone": {
+    "message": "モデルをこのブラウザ内に保存しました。"
+  },
+  "modelStorageCopyFailed": {
+    "message": "モデルをコピーできませんでした。以前の保存先のままです。"
+  },
+  "modelStorageSomeCopiesFailed": {
+    "message": "一部のモデルをコピーできませんでした。既存のコピーは残しています。"
+  },
+  "modelStorageNoModels": {
+    "message": "そのフォルダに公式の PLaMo モデルが見つかりませんでした。"
+  },
+  "modelStorageWorking": {
+    "message": "モデルフォルダを準備しています…"
+  },
+  "modelStorageProgressLabel": {
+    "message": "モデルの移動・コピーの進行状況"
   },
   "modelFolderPickerHint": {
     "message": "フォルダ選択はドキュメントで開きます。「Sakutto」というフォルダを作成するか選んでください（例：ドキュメント/Sakutto）。書き込みできる別のフォルダでもかまいません。"
   },
   "modelFolderChoose": {
     "message": "モデルフォルダを選ぶ"
-  },
-  "modelFolderStop": {
-    "message": "共有フォルダの使用をやめる"
   },
   "modelFolderUsing": {
     "message": "フォルダ $NAME$ を使っています。",
@@ -715,9 +745,6 @@
         "content": "$1"
       }
     }
-  },
-  "modelFolderNotUsing": {
-    "message": "モデルはこのブラウザ内に保存します。"
   },
   "modelFolderPermissionNeeded": {
     "message": "共有モデルフォルダを読む許可が必要です。"
@@ -744,17 +771,6 @@
         "content": "$1"
       }
     }
-  },
-  "modelFolderOpfsCopy": {
-    "message": "$MODEL$ のコピーがこのブラウザ内にも残っています。容量を空けるために削除できます。",
-    "placeholders": {
-      "model": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelFolderDeleteOpfs": {
-    "message": "ブラウザ内のコピーを削除"
   },
   "modelFolderEnableTabTitle": {
     "message": "再起動後もフォルダへのアクセスを続ける"
@@ -787,55 +803,6 @@
   },
   "modelFolderBenefitKeep": {
     "message": "ブラウザのデータを消してもファイルは残る。同じフォルダを選べば再ダウンロード不要"
-  },
-  "modelImportHeading": {
-    "message": "モデルファイルをインポート"
-  },
-  "modelImportHelp": {
-    "message": "公式のPLaMo .ggufファイルを選んでください。ブラウザー内のストレージに分割して保存し、使用前に検証します。以後、ファイルを再度求められることはありません。"
-  },
-  "modelImportModelLabel": {
-    "message": "モデル"
-  },
-  "modelImportChoose": {
-    "message": ".ggufファイルをインポート"
-  },
-  "modelImportExport": {
-    "message": "モデルファイルをエクスポート"
-  },
-  "modelImportExportDone": {
-    "message": "モデルファイルをブラウザーのダウンロードフォルダーに保存しました。"
-  },
-  "modelImportExporting": {
-    "message": "モデルファイルをエクスポートしています。"
-  },
-  "modelImportDone": {
-    "message": "モデルファイルをインポートして検証しました。"
-  },
-  "modelImportWrongFile": {
-    "message": "このファイルは公式のPLaMoモデル（$FILE$）ではありません。対応する公式の.ggufファイルを選んでください。",
-    "placeholders": {
-      "file": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelImportFailed": {
-    "message": "モデルファイルをインポートできませんでした。"
-  },
-  "modelExportMissing": {
-    "message": "エクスポートできるモデルファイルがまだありません。"
-  },
-  "modelExportFailed": {
-    "message": "モデルファイルをエクスポートできませんでした。"
-  },
-  "modelFolderLocationHint": {
-    "message": "共有フォルダ内の保存先：<chosen>/$PATH$",
-    "placeholders": {
-      "path": {
-        "content": "$1"
-      }
-    }
   },
   "highQualityOffer": {
     "message": "高精度モデル（2B・約1.81GB）を試せます。速度は端末によって異なります。"

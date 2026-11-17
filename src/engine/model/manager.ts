@@ -191,7 +191,6 @@ export class ModelManager {
    * Hash any correctly-sized files already in the primary store, then copy each verified
    * official OPFS model that the folder does not already have. Used after the user picks a
    * shared folder so Chrome profile A can share with Edge without a network download.
-   * The OPFS copy is kept as a fallback until the user deletes it from Settings.
    */
   async adoptPresentModels(options: { signal?: AbortSignal } = {}): Promise<void> {
     const signal = options.signal ?? new AbortController().signal;
@@ -207,6 +206,70 @@ export class ModelManager {
         if (isAbortError(error) || signal.aborted) throw abortError();
       }
     }
+  }
+
+  /**
+   * Move verified OPFS models into the folder: adopt each model, then delete its browser
+   * copy only after the folder copy is verified. A failed verification leaves OPFS in place,
+   * so Settings can report what could not be moved.
+   */
+  async adoptPresentModelsAndRemoveOpfs(
+    options: { signal?: AbortSignal } = {},
+  ): Promise<ModelId[]> {
+    await this.adoptPresentModels(options);
+    if (!this.fallbackStore) return [];
+
+    const removed: ModelId[] = [];
+    for (const modelId of this.knownModelIds()) {
+      const primary = await this.inspect(this.store, modelId);
+      if (primary.state !== 'ready') continue;
+      if (!(await this.fallbackCopyPresent(modelId))) continue;
+      await this.deleteFallbackCopy(modelId);
+      removed.push(modelId);
+    }
+    return removed;
+  }
+
+  /**
+   * Copy verified folder models into the OPFS browser store. The source folder files are
+   * never deleted: another Chromium profile may still be using them. The caller drops the
+   * stored folder handle after this succeeds.
+   */
+  async copyPresentModelsToBrowser(options: { signal?: AbortSignal } = {}): Promise<ModelId[]> {
+    if (!this.fallbackStore) return [];
+    const signal = options.signal ?? new AbortController().signal;
+    const copied: ModelId[] = [];
+
+    for (const modelId of this.knownModelIds()) {
+      let primary = await this.inspect(this.store, modelId);
+      if (primary.integrity === 'needs-hash') {
+        await this.runVerify(this.store, modelId, signal).catch(() => undefined);
+        primary = await this.inspect(this.store, modelId);
+      }
+      if (primary.integrity === 'missing') continue;
+      if (primary.state !== 'ready') {
+        // The folder has a file for this model but it is not the pinned official GGUF.
+        // Stop before dropping the handle so the user can fix or keep using the folder.
+        throw new EngineError('model-integrity', 'The folder model failed verification.', {
+          retryable: false,
+        });
+      }
+
+      let target = await this.inspect(this.fallbackStore, modelId);
+      if (target.integrity === 'needs-hash') {
+        await this.runVerify(this.fallbackStore, modelId, signal).catch(() => undefined);
+        target = await this.inspect(this.fallbackStore, modelId);
+      }
+      if (target.state === 'ready') {
+        copied.push(modelId);
+        continue;
+      }
+
+      if (await this.copyBetweenStores(this.store, this.fallbackStore, modelId, signal)) {
+        copied.push(modelId);
+      }
+    }
+    return copied;
   }
 
   async deleteModel(modelId: ModelId): Promise<void> {
@@ -522,9 +585,18 @@ export class ModelManager {
       fallback = await this.inspect(this.fallbackStore, modelId);
     }
     if (fallback.state !== 'ready') return false;
+    return this.copyBetweenStores(this.fallbackStore, this.store, modelId, signal, onProgress);
+  }
 
+  private async copyBetweenStores(
+    source: ModelFileStore,
+    target: ModelFileStore,
+    modelId: ModelId,
+    signal: AbortSignal,
+    onProgress?: (progress: DownloadProgress) => void,
+  ): Promise<boolean> {
     const entry = this.entry(modelId);
-    const blob = await this.fallbackStore.read(this.finalPath(modelId));
+    const blob = await source.read(this.finalPath(modelId));
 
     this.notify({
       id: modelId,
@@ -535,14 +607,14 @@ export class ModelManager {
     });
 
     const partPath = uniquePartPath(this.partPath(modelId));
-    if (this.store instanceof SharedFolderModelFileStore) {
-      await this.store.pruneStalePartFiles(modelId, partPath).catch(() => undefined);
+    if (target instanceof SharedFolderModelFileStore) {
+      await target.pruneStalePartFiles(modelId, partPath).catch(() => undefined);
     }
 
     try {
       await copyModelFile({
         blob,
-        store: this.store,
+        store: target,
         partPath,
         finalPath: this.finalPath(modelId),
         size: entry.size,
@@ -567,7 +639,11 @@ export class ModelManager {
       // A pinned-size OPFS file whose bytes do not match the catalog must not be
       // copied again on every folder reload or offscreen start. Record the skip on
       // OPFS so a new offscreen document does not hash hundreds of MB again.
-      if (isEngineError(error) && error.code === 'model-integrity') {
+      if (
+        isEngineError(error) &&
+        error.code === 'model-integrity' &&
+        source === this.fallbackStore
+      ) {
         await this.rememberCopyRejection(modelId);
         this.notify(await this.status(modelId));
         return false;
@@ -576,7 +652,7 @@ export class ModelManager {
     }
 
     this.errors.delete(modelId);
-    await this.writeVerifiedManifest(this.store, modelId);
+    await this.writeVerifiedManifest(target, modelId);
     this.notify({
       id: modelId,
       state: 'ready',

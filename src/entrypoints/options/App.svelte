@@ -31,7 +31,6 @@
   import GpuDiagnosticView from '@/ui/GpuDiagnostic.svelte';
   import LanguageField from '@/ui/LanguageField.svelte';
   import GlossaryEditor from '@/ui/GlossaryEditor.svelte';
-  import ModelFileTools from '@/ui/ModelFileTools.svelte';
   import ModelFolderSettings from '@/ui/ModelFolderSettings.svelte';
   import ModelManager from '@/ui/ModelManager.svelte';
   import { runtimeLabel } from '@/ui/runtime-label';
@@ -390,17 +389,18 @@
   <section class="panel">
     <h2>{t('modelHeading')}</h2>
     <ModelManager />
-    <ModelFileTools />
     <ModelFolderSettings />
     {#if showSlow}
       <p class="muted help">{t('slowDeviceHint')}</p>
     {/if}
-    <button class="button secondary" type="button" onclick={clearCache}>{t('cacheClear')}</button>
-    {#if cacheState === 'cleared'}
-      <p class="muted" role="status">{t('cacheCleared')}</p>
-    {:else if cacheState === 'failed'}
-      <p class="error" role="alert">{t('cacheClearFailed')}</p>
-    {/if}
+    <div class="cache-row">
+      <button class="button secondary" type="button" onclick={clearCache}>{t('cacheClear')}</button>
+      {#if cacheState === 'cleared'}
+        <p class="muted" role="status">{t('cacheCleared')}</p>
+      {:else if cacheState === 'failed'}
+        <p class="error" role="alert">{t('cacheClearFailed')}</p>
+      {/if}
+    </div>
   </section>
 
   <section class="panel" id="engine-settings">
@@ -761,6 +761,20 @@
   .actions {
     display: flex;
     justify-content: flex-end;
+  }
+
+  .cache-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-4);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--border);
+  }
+
+  .cache-row p {
+    margin: 0;
   }
 
   .footer {

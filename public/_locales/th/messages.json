@@ -690,23 +690,53 @@
   "modelSelectionMissing": {
     "message": "ยังไม่มีโมเดลแปลภาษา ดาวน์โหลดก่อนจึงจะแปลได้"
   },
-  "modelFolderHeading": {
-    "message": "Share the model folder across Chromium browsers"
+  "modelStorageLegend": {
+    "message": "Where to save the model"
   },
-  "modelFolderHelp": {
-    "message": "ใน Chromium ครั้งแรกจะเลือกโฟลเดอร์ที่แชร์ไว้ล่วงหน้า ส่วนที่เก็บในเบราว์เซอร์ยังใช้ได้"
+  "modelStorageFolder": {
+    "message": "Shared folder (recommended)"
   },
-  "modelFolderAdoptOpfsHint": {
-    "message": "หากโมเดลอยู่ในเบราว์เซอร์นี้แล้ว การเลือกโฟลเดอร์จะคัดลอกไปโดยไม่ดาวน์โหลดซ้ำ"
+  "modelStorageBrowser": {
+    "message": "บันทึกในเบราว์เซอร์นี้"
+  },
+  "modelStorageCopyFolder": {
+    "message": "Copy from shared folder (recommended)"
+  },
+  "modelStorageIntro": {
+    "message": "Choose where the model is stored. Existing models move with the choice."
+  },
+  "modelStorageFirefoxCopyHint": {
+    "message": "Firefox cannot keep using the folder, so the models are copied into Firefox."
+  },
+  "modelStorageMoveFailed": {
+    "message": "The model could not be moved to the shared folder. The browser copy was kept."
+  },
+  "modelStorageMoveDone": {
+    "message": "The models are now stored in the shared folder."
+  },
+  "modelStorageCopyDone": {
+    "message": "The models are now stored in this browser."
+  },
+  "modelStorageCopyFailed": {
+    "message": "The model could not be copied. The previous storage choice was kept."
+  },
+  "modelStorageSomeCopiesFailed": {
+    "message": "Some models could not be copied. Their existing copies were kept."
+  },
+  "modelStorageNoModels": {
+    "message": "No official PLaMo model was found in that folder."
+  },
+  "modelStorageWorking": {
+    "message": "Preparing the model folder…"
+  },
+  "modelStorageProgressLabel": {
+    "message": "Model transfer progress"
   },
   "modelFolderPickerHint": {
     "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"
-  },
-  "modelFolderStop": {
-    "message": "Stop using shared folder"
   },
   "modelFolderUsing": {
     "message": "Using the folder $NAME$.",
@@ -715,9 +745,6 @@
         "content": "$1"
       }
     }
-  },
-  "modelFolderNotUsing": {
-    "message": "Models are stored inside this browser."
   },
   "modelFolderPermissionNeeded": {
     "message": "Sakutto needs permission to read the shared model folder."
@@ -744,17 +771,6 @@
         "content": "$1"
       }
     }
-  },
-  "modelFolderOpfsCopy": {
-    "message": "A leftover copy of $MODEL$ is still in this browser's storage. You can delete it to free space.",
-    "placeholders": {
-      "model": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelFolderDeleteOpfs": {
-    "message": "Delete browser copy"
   },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
@@ -787,55 +803,6 @@
   },
   "modelFolderBenefitKeep": {
     "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
-  },
-  "modelImportHeading": {
-    "message": "นำเข้าไฟล์โมเดล"
-  },
-  "modelImportHelp": {
-    "message": "เลือกไฟล์ .gguf ทางการของ PLaMo ไฟล์จะถูกสตรีมไปยังพื้นที่จัดเก็บของเบราว์เซอร์และตรวจสอบก่อนใช้งาน หลังจากนั้น Sakutto จะไม่ขอไฟล์อีก"
-  },
-  "modelImportModelLabel": {
-    "message": "โมเดล"
-  },
-  "modelImportChoose": {
-    "message": "นำเข้าไฟล์ .gguf"
-  },
-  "modelImportExport": {
-    "message": "ส่งออกไฟล์โมเดล"
-  },
-  "modelImportExportDone": {
-    "message": "บันทึกไฟล์โมเดลไปยังโฟลเดอร์ดาวน์โหลดของเบราว์เซอร์แล้ว"
-  },
-  "modelImportExporting": {
-    "message": "กำลังส่งออกไฟล์โมเดล"
-  },
-  "modelImportDone": {
-    "message": "นำเข้าและตรวจสอบไฟล์โมเดลแล้ว"
-  },
-  "modelImportWrongFile": {
-    "message": "ไฟล์นี้ไม่ใช่โมเดล PLaMo ทางการ ($FILE$) โปรดเลือกไฟล์ .gguf ทางการที่ตรงกัน",
-    "placeholders": {
-      "file": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelImportFailed": {
-    "message": "นำเข้าไฟล์โมเดลไม่สำเร็จ"
-  },
-  "modelExportMissing": {
-    "message": "ยังไม่มีไฟล์โมเดลให้ส่งออก"
-  },
-  "modelExportFailed": {
-    "message": "ส่งออกไฟล์โมเดลไม่สำเร็จ"
-  },
-  "modelFolderLocationHint": {
-    "message": "ไฟล์ในโฟลเดอร์ที่แชร์อยู่ที่ <chosen>/$PATH$",
-    "placeholders": {
-      "path": {
-        "content": "$1"
-      }
-    }
   },
   "highQualityOffer": {
     "message": "คุณสามารถลองใช้โมเดลที่มีความแม่นยำสูงกว่า (2B, ประมาณ 1.81 GB) ได้ ความเร็วจะขึ้นอยู่กับอุปกรณ์นี้"

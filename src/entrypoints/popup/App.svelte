@@ -600,10 +600,6 @@
     await refreshEngine();
   }
 
-  function openModelTools() {
-    void openOrFocusExtensionTab(sharedFolderSettingsHref((path) => browser.runtime.getURL(path)));
-  }
-
   function openModelFolderSettings() {
     void openOrFocusExtensionTab(sharedFolderSettingsHref((path) => browser.runtime.getURL(path)));
   }
@@ -769,14 +765,6 @@
             onclick={() => void downloadMissingModel()}
           >
             {t('modelDownload')}
-          </button>
-          <button
-            class="button secondary"
-            type="button"
-            data-sakutto="popup-model-import"
-            onclick={openModelTools}
-          >
-            {t('modelImportChoose')}
           </button>
           {#if canChooseFolder}
             <button

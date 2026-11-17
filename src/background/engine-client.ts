@@ -11,8 +11,10 @@ import {
   type EngineHostRequest,
   type BenchmarkRequest,
   type CacheClearRequest,
+  type FolderAdoptRequest,
   type FolderDeleteOpfsRequest,
   type FolderReloadRequest,
+  type FolderToBrowserRequest,
   type ModelDeleteRequest,
   type ModelDownloadRequest,
   type ModelStatusRequest,
@@ -53,8 +55,11 @@ type RequestWithoutId =
   | Omit<SourceSetRequest, 'requestId'>
   | Omit<BenchmarkRequest, 'requestId'>
   | Omit<FolderReloadRequest, 'requestId'>
-  | Omit<FolderDeleteOpfsRequest, 'requestId'>;
+  | Omit<FolderDeleteOpfsRequest, 'requestId'>
+  | Omit<FolderAdoptRequest, 'requestId'>
+  | Omit<FolderToBrowserRequest, 'requestId'>;
 
+const FOLDER_TRANSFER_TIMEOUT_MS = 15 * 60 * 1000;
 const DOWNLOAD_ATTACH_ATTEMPTS = 3;
 const DOWNLOAD_ATTACH_DELAY_MS = 500;
 
@@ -164,6 +169,30 @@ export class EngineClient {
     const value = await this.request(
       { type: 'folder-delete-opfs', modelId },
       { timeoutMs: 30_000 },
+    );
+    if (!isSharedFolderStatus(value)) {
+      throw hostError('The engine host returned an invalid folder status.');
+    }
+    return value;
+  }
+
+  async adoptModelFolder(): Promise<SharedFolderStatus> {
+    await this.ensureSource();
+    const value = await this.request(
+      { type: 'folder-adopt' },
+      { timeoutMs: FOLDER_TRANSFER_TIMEOUT_MS },
+    );
+    if (!isSharedFolderStatus(value)) {
+      throw hostError('The engine host returned an invalid folder status.');
+    }
+    return value;
+  }
+
+  async moveModelFolderToBrowser(): Promise<SharedFolderStatus> {
+    await this.ensureSource();
+    const value = await this.request(
+      { type: 'folder-to-browser' },
+      { timeoutMs: FOLDER_TRANSFER_TIMEOUT_MS },
     );
     if (!isSharedFolderStatus(value)) {
       throw hostError('The engine host returned an invalid folder status.');

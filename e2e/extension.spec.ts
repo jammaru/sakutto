@@ -98,6 +98,8 @@ test.describe('built extension', () => {
           );
         }
         if (path === 'options.html') {
+          await expect(page.getByRole('group', { name: 'Where to save the model' })).toBeVisible();
+          await expect(page.getByRole('heading', { name: 'Import a model file' })).toHaveCount(0);
           await expect(page.getByRole('link', { name: 'Privacy policy' })).toHaveAttribute(
             'href',
             'https://jammaru.com/sakutto/privacy/',
@@ -220,6 +222,10 @@ test.describe('built extension', () => {
           ).toBeVisible();
         }
         if (path === 'options.html') {
+          await expect(page.getByRole('group', { name: 'モデルの保存先' })).toBeVisible();
+          await expect(
+            page.getByRole('heading', { name: 'モデルファイルをインポート' }),
+          ).toHaveCount(0);
           await expect(page.getByRole('link', { name: 'プライバシーポリシー' })).toHaveAttribute(
             'href',
             'https://jammaru.com/sakutto/privacy/',

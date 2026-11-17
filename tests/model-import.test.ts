@@ -3,7 +3,6 @@ import { EngineError } from '@/engine/errors';
 import {
   MODEL_IMPORT_DIGEST_ERROR,
   MODEL_IMPORT_SIZE_ERROR,
-  exportModelFile,
   importModelFile,
   isModelImportIntegrityError,
 } from '@/engine/model/import-export';
@@ -123,12 +122,5 @@ describe('importModelFile', () => {
 
     expect(store.files.get(FINAL_PATH)).toBe(before);
     expect(store.text(`models/${ENTRY.id}/model.json`)).toContain(ENTRY.sha256);
-  });
-
-  it('requires a model file before export', async () => {
-    const store = new MemoryFileStore();
-    await expect(exportModelFile({ modelId: ENTRY.id, store })).rejects.toMatchObject({
-      code: 'model-missing',
-    });
   });
 });

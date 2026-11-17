@@ -104,7 +104,7 @@ export class SharedFolderSession {
     return this.apply();
   }
 
-  async apply(): Promise<SharedFolderStatus> {
+  async apply(options: { moveOpfs?: boolean } = {}): Promise<SharedFolderStatus> {
     if (!sharedFolderSupported()) {
       this.manager.setStores(this.opfs);
       this.snapshot = emptySharedFolderStatus(false);
@@ -138,7 +138,8 @@ export class SharedFolderSession {
 
     if (store && !folderAccessNeedsRestore(access)) {
       this.manager.setStores(store, this.opfs);
-      await this.manager.adoptPresentModels();
+      if (options.moveOpfs) await this.manager.adoptPresentModelsAndRemoveOpfs();
+      else await this.manager.adoptPresentModels();
       this.snapshot = await this.collect(stored.name, permission);
       return this.snapshot;
     }
@@ -183,10 +184,8 @@ export class SharedFolderSession {
     for (const modelId of SELECTABLE_MODEL_IDS) {
       const issue = await this.manager.sharedIntegrityIssue(modelId);
       if (issue) integrityIssues.push({ modelId, kind: issue.kind, file: issue.file });
+      if (await this.manager.fallbackCopyPresent(modelId)) opfsCopies.push(modelId);
       if (await this.manager.primaryReady(modelId)) recordedModels.push(modelId);
-      if (recordedModels.includes(modelId) && (await this.manager.fallbackCopyPresent(modelId))) {
-        opfsCopies.push(modelId);
-      }
     }
     await rememberSharedFolderPresentModels(recordedModels);
     this.permissionCheckedAt = Date.now();

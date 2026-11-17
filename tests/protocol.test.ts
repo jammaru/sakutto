@@ -95,6 +95,8 @@ describe('engine host protocol', () => {
       }),
     ).toBe(true);
     expect(isEngineHostRequest({ type: 'folder-reload', requestId: 'f1' })).toBe(true);
+    expect(isEngineHostRequest({ type: 'folder-adopt', requestId: 'f1' })).toBe(true);
+    expect(isEngineHostRequest({ type: 'folder-to-browser', requestId: 'f1' })).toBe(true);
     expect(
       isEngineHostRequest({
         type: 'folder-delete-opfs',

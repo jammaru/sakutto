@@ -690,23 +690,53 @@
   "modelSelectionMissing": {
     "message": "Aucun modèle de traduction n’est installé. Téléchargez-en un pour traduire."
   },
-  "modelFolderHeading": {
-    "message": "Share the model folder across Chromium browsers"
+  "modelStorageLegend": {
+    "message": "Where to save the model"
   },
-  "modelFolderHelp": {
-    "message": "Sous Chromium, le dossier partagé est présélectionné au premier lancement ; le stockage dans le navigateur reste disponible."
+  "modelStorageFolder": {
+    "message": "Shared folder (recommended)"
   },
-  "modelFolderAdoptOpfsHint": {
-    "message": "Si le modèle est déjà dans ce navigateur, choisir un dossier le copie sans le retélécharger."
+  "modelStorageBrowser": {
+    "message": "Enregistrer dans ce navigateur"
+  },
+  "modelStorageCopyFolder": {
+    "message": "Copy from shared folder (recommended)"
+  },
+  "modelStorageIntro": {
+    "message": "Choose where the model is stored. Existing models move with the choice."
+  },
+  "modelStorageFirefoxCopyHint": {
+    "message": "Firefox cannot keep using the folder, so the models are copied into Firefox."
+  },
+  "modelStorageMoveFailed": {
+    "message": "The model could not be moved to the shared folder. The browser copy was kept."
+  },
+  "modelStorageMoveDone": {
+    "message": "The models are now stored in the shared folder."
+  },
+  "modelStorageCopyDone": {
+    "message": "The models are now stored in this browser."
+  },
+  "modelStorageCopyFailed": {
+    "message": "The model could not be copied. The previous storage choice was kept."
+  },
+  "modelStorageSomeCopiesFailed": {
+    "message": "Some models could not be copied. Their existing copies were kept."
+  },
+  "modelStorageNoModels": {
+    "message": "No official PLaMo model was found in that folder."
+  },
+  "modelStorageWorking": {
+    "message": "Preparing the model folder…"
+  },
+  "modelStorageProgressLabel": {
+    "message": "Model transfer progress"
   },
   "modelFolderPickerHint": {
     "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"
-  },
-  "modelFolderStop": {
-    "message": "Stop using shared folder"
   },
   "modelFolderUsing": {
     "message": "Using the folder $NAME$.",
@@ -715,9 +745,6 @@
         "content": "$1"
       }
     }
-  },
-  "modelFolderNotUsing": {
-    "message": "Models are stored inside this browser."
   },
   "modelFolderPermissionNeeded": {
     "message": "Sakutto needs permission to read the shared model folder."
@@ -744,17 +771,6 @@
         "content": "$1"
       }
     }
-  },
-  "modelFolderOpfsCopy": {
-    "message": "A leftover copy of $MODEL$ is still in this browser's storage. You can delete it to free space.",
-    "placeholders": {
-      "model": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelFolderDeleteOpfs": {
-    "message": "Delete browser copy"
   },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
@@ -787,55 +803,6 @@
   },
   "modelFolderBenefitKeep": {
     "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
-  },
-  "modelImportHeading": {
-    "message": "Importer un fichier de modèle"
-  },
-  "modelImportHelp": {
-    "message": "Choisissez le fichier .gguf officiel de PLaMo. Il est transféré dans le stockage du navigateur et vérifié avant utilisation ; ensuite Sakutto ne redemandera plus le fichier."
-  },
-  "modelImportModelLabel": {
-    "message": "Modèle"
-  },
-  "modelImportChoose": {
-    "message": "Importer un fichier .gguf"
-  },
-  "modelImportExport": {
-    "message": "Exporter le fichier de modèle"
-  },
-  "modelImportExportDone": {
-    "message": "Le fichier de modèle a été enregistré dans le dossier de téléchargements du navigateur."
-  },
-  "modelImportExporting": {
-    "message": "Le fichier de modèle est en cours d’exportation."
-  },
-  "modelImportDone": {
-    "message": "Le fichier de modèle a été importé et vérifié."
-  },
-  "modelImportWrongFile": {
-    "message": "Ce fichier n’est pas le modèle PLaMo officiel ($FILE$). Choisissez le fichier .gguf officiel correspondant.",
-    "placeholders": {
-      "file": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelImportFailed": {
-    "message": "Le fichier de modèle n’a pas pu être importé."
-  },
-  "modelExportMissing": {
-    "message": "Aucun fichier de modèle n’est encore disponible à l’export."
-  },
-  "modelExportFailed": {
-    "message": "Le fichier de modèle n’a pas pu être exporté."
-  },
-  "modelFolderLocationHint": {
-    "message": "Les fichiers du dossier partagé se trouvent dans <chosen>/$PATH$.",
-    "placeholders": {
-      "path": {
-        "content": "$1"
-      }
-    }
   },
   "highQualityOffer": {
     "message": "Vous pouvez essayer le modèle de plus haute précision (2B, environ 1,81 Go). La vitesse dépend de cet appareil."

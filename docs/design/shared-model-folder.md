@@ -7,7 +7,7 @@ one-click choice. The shared folder gives people who use more than one
 Chromium browser one GGUF copy shared between them. A profile that already
 uses a folder keeps it; there is no forced migration. Firefox and pages
 without a picker keep OPFS and show no folder choice; Firefox users can
-import the official `.gguf` file once from Settings or onboarding instead.
+copy official models from a shared folder into browser storage instead.
 Proposal 2 (a native helper) is out of scope.
 
 This note names no issue authors. The picker copy and the Chromium blocklist
@@ -29,7 +29,7 @@ Chromium browsers” / 「Chromiumブラウザ間でモデルフォルダを共�
 Grant from the Settings tab and pick “Allow on every visit” when the browser
 offers it (Japanese Chrome: 「サイトアクセス時は常に許可」; Japanese Edge:
 「常に許可」). The prompt may not appear. A one-click re-grant may sometimes
-be needed, and the OPFS copy stays as a fallback until you delete it. Cancel or Chrome's block dialog stays on the screen with the same
+be needed. After the folder copy verifies, the OPFS copy is removed (a move). Cancel or Chrome's block dialog stays on the screen with the same
 one-line hint and does not download.
 
 A Settings pick runs `showDirectoryPicker` and
@@ -37,10 +37,11 @@ A Settings pick runs `showDirectoryPicker` and
 “Allow on every visit” (Japanese Chrome: 「サイトアクセス時は常に許可」;
 Japanese Edge: 「常に許可」). A popup click is this-visit only, and offscreen
 never calls `requestPermission`. The copy into the folder verifies size and
-SHA-256. The verified OPFS copy is retained as a fallback, because a read
-that succeeds now does not prove Chrome stored extended permission; it is
-deleted only by the user's **Delete browser copy** control. Folder reload
-drops the previous runtime so the next request reopens the chosen store.
+SHA-256. The verified OPFS copy is removed after that copy verifies, so the
+folder becomes the single copy. Switching back to browser storage copies the
+verified folder files into OPFS and never deletes the files in the user's
+folder; another profile may still use them. Folder reload drops the previous
+runtime so the next request reopens the chosen store.
 
 Chrome can drop the directory grant when the last tracked page of the origin
 closes. Offscreen cannot call `requestPermission`. The product flow is B + C:
@@ -54,25 +55,23 @@ Layout after a successful pick:
 
 The usual chosen folder is `Documents/Sakutto`. The Settings copy names this
 path as an example rather than a Windows-only requirement. Integrity sidecars
-are `<official name>.verified.json`. In-flight imports and downloads use
+are `<official name>.verified.json`. In-flight copies and downloads use
 `.part`.
 
-## One-time file import (Firefox and optional Chromium)
+## Copy from a shared folder (Firefox)
 
-Settings and onboarding accept a local `.gguf` file with
-`<input type="file" accept=".gguf">`. Sakutto streams it into
-`OpfsModelFileStore` at `sakutto/models/<modelId>/model.gguf`, writing a
-`.part` file while hashing the chunks, then checks the pinned size and
-SHA-256 from `catalog.ts`. A wrong file is rejected and the `.part` is
-removed; progress and cancel stay available for files up to ~1.7 GB, and the
-whole file is never loaded into memory. Once the import verifies, the same
-OPFS model is used without another file prompt. Chromium shows the same
-control for people who prefer not to use a shared folder.
-
-**Export model file** opens the browser's normal download for the installed
-GGUF. Chromium reads the OPFS copy first and falls back to the chosen shared
-folder when OPFS was deleted; Firefox uses the OPFS file. No extra manifest
-permission is involved.
+Firefox cannot keep a persistent File System Access handle, so its Settings and
+onboarding offer a one-time **Copy from shared folder** choice next to browser
+storage. A hidden `<input type="file" webkitdirectory multiple>` reads the
+chosen parent folder or the inner `sakutto-models` folder. Sakutto matches the
+official PFN filenames, then streams each file into
+`OpfsModelFileStore` at `sakutto/models/<modelId>/model.gguf`. It writes a
+`.part` file while hashing the chunks, then checks the pinned size and SHA-256
+from `catalog.ts`. A wrong file is rejected and the `.part` is removed;
+progress and cancel stay available, and the whole file is never loaded into
+memory. No network request is made, and other matching models are still tried
+when one file fails. The manual `.gguf` import and model export controls are
+gone.
 
 ## Chromium will not grant well-known roots
 

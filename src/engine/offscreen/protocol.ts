@@ -216,6 +216,16 @@ export interface FolderDeleteOpfsRequest {
   modelId: ModelId;
 }
 
+export interface FolderAdoptRequest {
+  type: 'folder-adopt';
+  requestId: string;
+}
+
+export interface FolderToBrowserRequest {
+  type: 'folder-to-browser';
+  requestId: string;
+}
+
 export type EngineHostRequest =
   | TranslateRequest
   | CancelRequest
@@ -234,7 +244,9 @@ export type EngineHostRequest =
   | ModelSetRequest
   | RuntimeSetRequest
   | FolderReloadRequest
-  | FolderDeleteOpfsRequest;
+  | FolderDeleteOpfsRequest
+  | FolderAdoptRequest
+  | FolderToBrowserRequest;
 
 export interface ChunkEvent {
   type: 'chunk';
@@ -440,6 +452,8 @@ export function isEngineHostRequest(value: unknown): value is EngineHostRequest 
     case 'model-set':
       return isModelId(value.modelId);
     case 'folder-reload':
+    case 'folder-adopt':
+    case 'folder-to-browser':
       return true;
     case 'folder-delete-opfs':
       return isModelId(value.modelId);

@@ -44,11 +44,6 @@ function finalPath(modelId: ModelId): string {
   return `${modelDirectory(modelId)}/model.gguf`;
 }
 
-/** Manager-compatible install path, exposed for the settings import/export surface. */
-export function modelInstallPath(modelId: ModelId): string {
-  return finalPath(modelId);
-}
-
 function partPath(modelId: ModelId): string {
   return `${modelDirectory(modelId)}/model.gguf.part`;
 }
@@ -220,40 +215,4 @@ export function isModelImportIntegrityError(error: unknown): boolean {
     error.code === 'model-integrity' &&
     (error.detail === MODEL_IMPORT_SIZE_ERROR || error.detail === MODEL_IMPORT_DIGEST_ERROR)
   );
-}
-
-/**
- * Hands an installed model to the browser's download flow. The Blob stays disk-backed, so
- * Chrome and Firefox can stream a 1.8 GB file without reading it into page memory.
- */
-export async function exportModelFile(request: {
-  modelId: ModelId;
-  store: ModelFileStore;
-  filename?: string;
-}): Promise<string> {
-  const { modelId, store } = request;
-  const info = await store.stat(finalPath(modelId));
-  if (!info) throw new EngineError('model-missing', 'The model file is not installed.');
-
-  if (typeof document === 'undefined' || typeof URL.createObjectURL !== 'function') {
-    throw new EngineError('unknown', 'This page cannot start a file download.');
-  }
-
-  const blob = await store.read(finalPath(modelId));
-  const filename = request.filename ?? getModel(modelId).file;
-  const url = URL.createObjectURL(blob);
-  try {
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.rel = 'noopener';
-    anchor.style.display = 'none';
-    document.body.append(anchor);
-    anchor.click();
-    anchor.remove();
-  } finally {
-    // Give the browser time to start reading the Blob URL before revoking it.
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  }
-  return filename;
 }

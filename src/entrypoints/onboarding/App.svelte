@@ -9,6 +9,12 @@
     type SharedFolderStatus,
   } from '@/engine/model/folder-status';
   import { isModelIntegrityError } from '@/engine/model/manager';
+  import { isAbortError } from '@/engine/errors';
+  import {
+    copySharedFolderFilesToOpfs,
+    type FolderCopyProgress,
+  } from '@/engine/model/folder-import';
+  import { OpfsModelFileStore } from '@/engine/model/file-store';
   import {
     clearStoredSharedFolder,
     ensureStoredFolderPermission,
@@ -26,7 +32,7 @@
   import type { ModelStatus } from '@/shared/engine-status';
   import { agreementFromStorage } from '@/shared/agreement';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';
-  import { currentUiLanguage, t, tForBrowser } from '@/shared/i18n';
+  import { currentUiLanguage, t, tForBrowser, type MessageKey } from '@/shared/i18n';
   import { resolveTargetLanguage, type TargetLanguage } from '@/shared/languages';
   import {
     isModelProgressMessage,
@@ -55,8 +61,8 @@
   import { loadSettings, saveSettings } from '@/shared/storage';
   import { prepareTranslatorPack } from '@/shared/translator-pack';
   import FolderPermissionRestore from '@/ui/FolderPermissionRestore.svelte';
-  import ModelFileTools from '@/ui/ModelFileTools.svelte';
-  import SharedFolderBenefits from '@/ui/SharedFolderBenefits.svelte';
+  import ModelStorageChoice, { type ModelStorageChoiceValue } from '@/ui/ModelStorageChoice.svelte';
+  import { pickDirectoryFiles } from '@/ui/folder-input';
   import { estimateRemainingMs, type ByteMark } from '@/ui/download-eta';
   import { formatByteSize, formatByteSizeList } from '@/ui/format';
   import {
@@ -81,6 +87,16 @@
     getModel(DEFAULT_MODEL_ID).size,
     getModel(HIGH_QUALITY_MODEL_ID).size,
   ]);
+  const storageBenefits = {
+    leadKey: 'modelFolderBenefitsLead' as MessageKey,
+    sizeLabel: folderSizeLabel,
+  };
+  const chromiumNotes: readonly MessageKey[] = [
+    'onboardingStoreFolderHelp',
+    'modelFolderPickerHint',
+    'modelFolderPersistentHint',
+  ];
+  const firefoxNotes: readonly MessageKey[] = ['modelStorageFirefoxCopyHint'];
 
   type Phase = OnboardingPhase;
 
@@ -88,11 +104,15 @@
   let startRequested = $state(false);
   let consentSaved = $state(false);
   let pickerAvailable = $derived(sharedFolderPickerAvailable());
-  let storeChoice = $state<OnboardingStoreChoice>(
+  let storeChoice = $state<ModelStorageChoiceValue>(
     defaultOnboardingStoreChoice(sharedFolderPickerAvailable()),
   );
   let storeTouched = $state(false);
   let pickError = $state<string | null>(null);
+  let copyInput = $state<HTMLInputElement | null>(null);
+  let copyProgress = $state<FolderCopyProgress | null>(null);
+  let copyController: AbortController | null = null;
+  let copyingFolder = $state(false);
   let integrityAlert = $state<string | null>(null);
   let resolvedFolderName = $state<string | null>(null);
   /**
@@ -221,9 +241,57 @@
     marks = next.length > 40 ? next.slice(-40) : next;
   }
 
-  function chooseStore(choice: OnboardingStoreChoice) {
+  function chooseStore(choice: ModelStorageChoiceValue) {
     storeTouched = true;
     storeChoice = choice;
+    pickError = null;
+  }
+
+  function cancelFolderCopy(): void {
+    copyController?.abort();
+  }
+
+  async function copyFromFirefoxFolder(): Promise<boolean> {
+    // `pickDirectoryFiles` clicks the input synchronously, inside the start click.
+    const files = await pickDirectoryFiles(copyInput);
+    if (!files) return false;
+
+    copyingFolder = true;
+    copyController = new AbortController();
+    copyProgress = null;
+    pickError = null;
+    try {
+      const store = await OpfsModelFileStore.open();
+      const result = await copySharedFolderFilesToOpfs({
+        files,
+        store,
+        signal: copyController.signal,
+        onProgress: (item) => {
+          copyProgress = item;
+        },
+      });
+      if (result.imported.length === 0) {
+        pickError =
+          result.failed.length > 0 ? t('modelStorageCopyFailed') : t('modelStorageNoModels');
+        return false;
+      }
+      await requestModelFolderReload();
+      await requestEngineWarm();
+      const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
+      if (inspected) applyStatus(inspected);
+      if (result.failed.length > 0) pickError = t('modelStorageSomeCopiesFailed');
+      return true;
+    } catch (copyError) {
+      if (!isAbortError(copyError) && !copyController.signal.aborted) {
+        pickError = t('modelStorageCopyFailed');
+      }
+      return false;
+    } finally {
+      copyingFolder = false;
+      copyController = null;
+      copyProgress = null;
+      if (copyInput) copyInput.value = '';
+    }
   }
 
   async function start() {
@@ -240,6 +308,12 @@
       storeChoice = defaultOnboardingStoreChoice(pickerAvailable);
     }
 
+    if (!pickerAvailable && storeChoice === 'copy') {
+      if (!(await copyFromFirefoxFolder())) return;
+      storeChoice = 'browser';
+    }
+
+    const downloadChoice: OnboardingStoreChoice = storeChoice === 'copy' ? 'browser' : storeChoice;
     let skipDownload = modelState === 'ready' || modelState === 'loaded';
     let pendingFolder: { handle: FileSystemDirectoryHandle; name: string } | null = null;
     const keepExistingFolder =
@@ -287,7 +361,7 @@
     const pack = shouldPrepareTranslatorPack({
       builtInTranslator: hasBuiltInTranslatorUi(),
       modelState,
-      choice: storeChoice,
+      choice: downloadChoice,
     })
       ? prepareTranslatorPack(source, targetLanguage)
       : null;
@@ -359,7 +433,7 @@
     const alreadyReady =
       planOnboardingDownload({
         pickerAvailable,
-        choice: storeChoice,
+        choice: downloadChoice,
         ...(pendingFolder ? { pick: 'granted' as const } : {}),
         modelState: skipDownload ? 'ready' : modelState,
       }) === 'skip';
@@ -612,54 +686,61 @@
           </ul>
         </details>
       </section>
-      {#if pickerAvailable}
-        <fieldset class="store">
-          <legend>{t('onboardingStoreLegend')}</legend>
-          <div class="store-recommended" data-store-recommended>
-            <label class="store-choice">
-              <input
-                type="radio"
-                name="onboarding-store"
-                value="folder"
-                bind:group={storeChoice}
-                onchange={() => chooseStore('folder')}
-              />
-              <span>{t('onboardingStoreFolder')}</span>
-            </label>
-            <p class="muted start-note">{t('onboardingStoreFolderHelp')}</p>
-            <p class="muted start-note">{t('modelFolderPickerHint')}</p>
-            <p class="muted start-note">{t('modelFolderPersistentHint')}</p>
+      {#if pickerAvailable || !sharedFolderSupported()}
+        <ModelStorageChoice
+          choice={storeChoice}
+          mode={pickerAvailable ? 'folder' : 'copy'}
+          legendKey="onboardingStoreLegend"
+          folderKey={pickerAvailable ? 'onboardingStoreFolder' : 'modelStorageCopyFolder'}
+          browserKey="onboardingStoreBrowser"
+          recommended={pickerAvailable ? 'folder' : 'copy'}
+          notes={pickerAvailable ? chromiumNotes : firefoxNotes}
+          benefits={storageBenefits}
+          disabled={copyingFolder}
+          onChoose={chooseStore}
+        />
+        {#if !pickerAvailable}
+          <input
+            bind:this={copyInput}
+            class="hidden"
+            type="file"
+            accept=".gguf"
+            webkitdirectory
+            multiple
+          />
+        {/if}
+        {#if copyingFolder}
+          <div class="storage-progress" role="status">
+            {#if copyProgress}
+              <div
+                class="track"
+                role="progressbar"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow={Math.round(copyProgress.transfer.ratio * 100)}
+                aria-label={t('modelStorageProgressLabel')}
+              >
+                <span style="width: {copyProgress.transfer.ratio * 100}%"></span>
+              </div>
+              <p class="muted">
+                {copyProgress.transfer.phase === 'verify'
+                  ? t('modelVerifying')
+                  : `${formatByteSize(copyProgress.transfer.received)} / ${formatByteSize(copyProgress.transfer.total)}`}
+              </p>
+            {:else}
+              <p class="muted">{t('modelStorageWorking')}</p>
+            {/if}
+            <button class="button secondary" type="button" onclick={cancelFolderCopy}>
+              {t('downloadCancel')}
+            </button>
           </div>
-          <div class="store-opt-in">
-            <label class="store-choice">
-              <input
-                type="radio"
-                name="onboarding-store"
-                value="browser"
-                bind:group={storeChoice}
-                onchange={() => chooseStore('browser')}
-              />
-              <span>{t('onboardingStoreBrowser')}</span>
-            </label>
-          </div>
-          <SharedFolderBenefits leadKey="modelFolderBenefitsLead" sizeLabel={folderSizeLabel} />
-        </fieldset>
+        {/if}
       {/if}
       {#if integrityAlert}
         <p class="error" role="alert">{integrityAlert}</p>
       {/if}
       {#if pickError}
         <p class="error" role="alert">{pickError}</p>
-      {/if}
-      {#if !sharedFolderSupported()}
-        <ModelFileTools
-          onImported={async (imported) => {
-            if (imported === DEFAULT_MODEL_ID) {
-              const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
-              if (inspected) applyStatus(inspected);
-            }
-          }}
-        />
       {/if}
       <p id="start-notice" class="start-note">{t('onboardingConsentSentence')}</p>
     {/if}
@@ -851,36 +932,17 @@
     line-height: 1.5;
   }
 
-  .store {
+  .hidden {
+    display: none;
+  }
+
+  .storage-progress {
     display: grid;
     gap: var(--space-2);
+  }
+
+  .storage-progress p {
     margin: 0;
-    padding: 0;
-    border: 0;
-  }
-
-  .store legend {
-    padding: 0;
-    margin-bottom: var(--space-1);
-    font-size: 13px;
-    font-weight: 700;
-  }
-
-  .store-choice {
-    display: flex;
-    gap: var(--space-2);
-    align-items: flex-start;
-    font-size: 14px;
-  }
-
-  .store-recommended,
-  .store-opt-in {
-    display: grid;
-    gap: var(--space-1);
-  }
-
-  .store-recommended .start-note {
-    margin-left: 1.6em;
   }
 
   .consent {

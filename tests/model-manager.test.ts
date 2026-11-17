@@ -451,6 +451,69 @@ describe('ModelManager', () => {
     );
   });
 
+  it('moves OPFS into the folder and deletes the browser copy after verification', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    await seedVerified(opfs);
+    const { manager } = createManager(shared, { fallbackStore: opfs });
+
+    const moved = await manager.adoptPresentModelsAndRemoveOpfs();
+
+    expect(moved).toEqual([ENTRY.id]);
+    expect(await manager.primaryReady(ENTRY.id)).toBe(true);
+    expect(await manager.fallbackCopyPresent(ENTRY.id)).toBe(false);
+    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(false);
+    expect(shared.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
+  });
+
+  it('keeps the OPFS copy when the folder move fails verification', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    await seedVerified(opfs);
+    const { manager } = createManager(shared, {
+      fallbackStore: opfs,
+      hashBlob: async () => 'f'.repeat(64),
+    });
+
+    await manager.adoptPresentModelsAndRemoveOpfs();
+
+    expect(await manager.primaryReady(ENTRY.id)).toBe(false);
+    expect(await manager.fallbackCopyPresent(ENTRY.id)).toBe(true);
+    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
+    expect(shared.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(false);
+  });
+
+  it('copies verified folder models into OPFS and leaves the folder files alone', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    await seedVerified(shared);
+    const { manager } = createManager(shared, { fallbackStore: opfs });
+
+    const copied = await manager.copyPresentModelsToBrowser();
+
+    expect(copied).toEqual([ENTRY.id]);
+    expect(await manager.fallbackCopyPresent(ENTRY.id)).toBe(true);
+    expect(await manager.primaryReady(ENTRY.id)).toBe(true);
+    expect(shared.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
+    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
+    expect(opfs.text(`models/${ENTRY.id}/model.json`)).toContain(ENTRY.sha256);
+  });
+
+  it('does not drop a folder with a bad file when moving to browser storage', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    await shared.append(`models/${ENTRY.id}/model.gguf`, bytesOf('nope'), 0);
+    const { manager } = createManager(shared, { fallbackStore: opfs });
+
+    await expect(manager.copyPresentModelsToBrowser()).rejects.toMatchObject({
+      code: 'model-integrity',
+    });
+
+    expect(await manager.fallbackCopyPresent(ENTRY.id)).toBe(false);
+    expect(opfs.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(false);
+    expect(shared.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
+  });
+
   it('downloads by moving from OPFS instead of hitting the network', async () => {
     const opfs = new MemoryFileStore();
     const shared = new MemoryFileStore();

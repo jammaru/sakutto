@@ -130,7 +130,7 @@ export async function chooseEmptySharedFolder(page: Page, folderName = 'e2e-empt
       }
     ).showDirectoryPicker = async () => chosen;
   }, folderName);
-  await page.getByRole('button', { name: 'Choose model folder' }).click();
+  await page.getByRole('radio', { name: 'Shared folder (recommended)' }).check();
   await expect
     .poll(async () => readSharedFolder(page), { timeout: 30_000 })
     .toMatchObject({ configured: true });
@@ -139,7 +139,7 @@ export async function chooseEmptySharedFolder(page: Page, folderName = 'e2e-empt
 export async function chooseSharedFolder(page: Page): Promise<void> {
   await plantLicenseConsent(page);
   await plantVerifiedSharedModel(page);
-  await page.getByRole('button', { name: 'Choose model folder' }).click();
+  await page.getByRole('radio', { name: 'Shared folder (recommended)' }).check();
   await expect
     .poll(async () => readSharedFolder(page), { timeout: 30_000 })
     .toMatchObject({ configured: true, permission: 'granted' });

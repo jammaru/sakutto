@@ -5,9 +5,9 @@ This note answers how long a `FileSystemDirectoryHandle` grant lasts for a
 and whether the offscreen engine can keep reading after the picker page closes.
 The product flow is **B + C**: first grant from a real extension tab (so Chrome
 can offer “Allow on every visit”), then a one-click restore whenever the grant
-is not active. The verified folder copy is backed by the retained OPFS copy;
-a no-click restart is still not something Sakutto can promise, because the UI
-detects the live grant and never claims persistence.
+is not active. A verified folder copy replaces the browser copy only after the
+copy verifies; a no-click restart is still not something Sakutto can promise,
+because the UI detects the live grant and never claims persistence.
 
 Environment for this write-up: Chromium `main` (permission context, tracker,
 and request manager as fetched 2026-11-11), Google Chrome 156.0.8078.47 on
@@ -20,9 +20,9 @@ was not.
 Playwright e2e cannot prove this. `showDirectoryPicker` is mocked with OPFS
 handles, which do not go through the local-file permission context. Planted
 e2e GGUFs are sparse files with a sidecar pin; a real SHA-256 copy does not
-complete, so those tests cannot prove fallback retention. Copy verification,
-OPFS retention, and fallback on a revoked grant are covered by unit tests
-with real bytes.
+complete, so those tests cannot prove real-byte copy verification. Move
+verification, OPFS removal after a verified move, and keeping OPFS on failure
+are covered by unit tests with real bytes.
 
 ## 1. When is an extension directory grant revoked?
 
@@ -154,27 +154,27 @@ grant without a gesture. That state is only reached if the user previously
 chose **Allow on every visit** from a **tab**. Sakutto cannot set that content
 setting itself.
 
-## 4. Why the OPFS copy is retained
+## 4. Why the OPFS copy is moved, not retained
 
 Chrome drops an ordinary directory grant when the last tracked page of the
 origin closes. A successful read in the engine host right after the copy only
 proves that the grant is active _now_; it does not prove that Chrome stored
-`FILE_SYSTEM_ACCESS_EXTENDED_PERMISSION` for the origin. Deleting OPFS on that
-evidence left users with no fallback moments later.
+`FILE_SYSTEM_ACCESS_EXTENDED_PERMISSION` for the origin.
 
-Sakutto therefore keeps the verified OPFS copy after the shared-folder copy
-succeeds. It is deleted only when the user presses **Delete browser copy** in
-Settings. This is the deliberate fallback for a revoked folder grant. We do
-not claim that the folder permission is persistent: Chrome exposes no API that
-tells an extension whether the user chose **Allow on every visit**.
+The storage choice treats a folder selection as a **move**: after each folder
+copy verifies, its OPFS copy is deleted. If verification fails, OPFS is kept
+and Settings reports the failure. Switching back to browser storage copies
+verified folder models into OPFS and never deletes the files in the user's
+folder, because another profile may still use them. We still do not claim
+that the folder permission is persistent: Chrome exposes no API that tells an
+extension whether the user chose **Allow on every visit**.
 
-## 5. Chosen flow: B + C, with an OPFS fallback
+## 5. Chosen flow: B + C, with browser storage as a one-click alternative
 
-A verified shared-folder copy and the OPFS fallback can coexist. Missing
-permission never starts a network download: the engine uses the retained OPFS
-file if it is present, otherwise it stops with `model-folder-permission` and
-shows the one-click restore control. The manual delete control lets a user
-reclaim the duplicate space once they are satisfied with the folder grant.
+A verified shared-folder copy is the single copy after a move. If the grant is
+missing, the engine stops with `model-folder-permission` and shows the
+one-click restore control instead of starting a network download. The user can
+switch to browser storage, which copies verified folder files into OPFS first.
 
 **B — first grant from a tab.** `showDirectoryPicker` and
 `requestPermission({ mode: 'readwrite' })` run on onboarding or Settings
@@ -226,26 +226,25 @@ handles). Use a real GGUF (not the e2e sparse plant).
    (browser storage). After update, the popup must **not** ask to move.
    Choose `Documents\Sakutto` from Settings if the user wants a shared
    folder. After the copy finishes, the shared GGUF must verify and the OPFS
-   `sakutto/models` copy must still be there as a fallback. Settings offers
-   **Delete browser copy** once the folder copy is ready. Then the same
-   close/restart checks as (1).
+   `sakutto/models` copy must be gone (the storage choice is a move). Then the
+   same close/restart checks as (1).
 3. **Edge.** Repeat (1) from a **Settings tab**, not the popup. If Edge
    shows the three-way prompt, pick **Allow on every visit** in English or
    「常に許可」 in Japanese Edge. Japanese Chrome labels the same choice
    「サイトアクセス時は常に許可」. If Edge does not offer it, or it does
    not persist, the popup must show 「フォルダへのアクセスを許可」 after
-   restart (no download card). One click is enough for that visit, and the
-   retained OPFS copy can translate without the folder. See §8.
+   restart (no download card). One click is enough for that visit. Switching
+   to browser storage copies the verified folder files into OPFS first. See §8.
 
 4. **Second Chrome profile.** Profile A has a persistent grant on
    `Documents\Sakutto`. Profile B picks the same folder. Profile A must not
    be asked again after a restart. If it is, note whether B recopied the
    GGUF (mtime change) or A’s extension reloaded.
 
-Never: notifications, badges, or a tab that opens by itself. Never delete the
-OPFS fallback merely because a folder read succeeded once. Never a download
-when the GGUF is already in the folder or OPFS and only folder permission is
-missing.
+Never: notifications, badges, or a tab that opens by itself. Never delete OPFS
+before the folder copy verifies, and never delete files in the user's folder
+when switching back to browser storage. Never a download when the GGUF is
+already in the folder or OPFS and only folder permission is missing.
 
 ## 7. Second Chrome profile, same `Documents\Sakutto`
 
@@ -350,7 +349,8 @@ users keep it; there is no forced migration. Grant from a Settings tab
 and pick **Allow on every visit**. Japanese Chrome labels it
 「サイトアクセス時は常に許可」; Japanese Edge labels it 「常に許可」 when
 the prompt is offered. Edge 122+ can persist if that tab prompt appears.
-After restart Sakutto uses the retained OPFS copy if the grant is gone, or
-shows one-click restore when neither store is readable. A re-grant may
+After restart Sakutto uses the folder while its grant is active, or shows the
+one-click restore control when it is not. Browser storage can be selected
+instead, which copies verified folder files into OPFS first. A re-grant may
 sometimes be needed; copy says so. `isMicrosoftEdge()` is still used for
 runtime labels, not for a different storage default.

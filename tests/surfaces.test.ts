@@ -60,13 +60,9 @@ describe('start controls while the model downloads', () => {
     const store = source('ui/onboarding-store.ts');
     expect(store).toContain("if (pickerAvailable) return 'folder'");
     expect(store).toContain("return 'browser'");
-    expect(onboarding).toContain('data-store-recommended');
-    expect(onboarding.indexOf('data-store-recommended')).toBeLessThan(
-      onboarding.indexOf('value="folder"'),
-    );
-    expect(onboarding.indexOf('value="folder"')).toBeLessThan(
-      onboarding.indexOf('value="browser"'),
-    );
+    expect(source('ui/ModelStorageChoice.svelte')).toContain('data-store-recommended');
+    expect(onboarding).toContain('<ModelStorageChoice');
+    expect(onboarding).toContain("recommended={pickerAvailable ? 'folder' : 'copy'}");
     expect(onboarding).toContain('onboardingStoreFolderHelp');
   });
 
@@ -104,16 +100,20 @@ describe('start controls while the model downloads', () => {
     expect(modelManager).toMatch(/downloading \|\| verifying[\s\S]{0,800}downloadCancel/);
   });
 
-  it('offers the one-time model file import on settings and Firefox onboarding', () => {
-    const tools = source('ui/ModelFileTools.svelte');
-    expect(tools).toContain('accept=".gguf"');
-    expect(tools).toContain('importModelFile');
-    expect(tools).toContain('exportModelFile');
-    expect(tools).not.toMatch(/\{#if done\}[\s\S]{0,200}\{:else if exporting\}/);
-    expect(tools).toMatch(/async function exportFile\(\)[\s\S]{0,160}done = false/);
-    expect(source('entrypoints/options/App.svelte')).toContain('ModelFileTools');
-    expect(onboarding).toMatch(/\{#if !sharedFolderSupported\(\)\}[\s\S]{0,200}<ModelFileTools/);
-    expect(source('ui/ModelFolderSettings.svelte')).toContain('modelFolderLocationHint');
+  it('removes manual model file import and export from every surface', () => {
+    for (const file of [
+      'entrypoints/options/App.svelte',
+      'entrypoints/onboarding/App.svelte',
+      'entrypoints/popup/App.svelte',
+    ]) {
+      expect(source(file), file).not.toContain('ModelFileTools');
+      expect(source(file), file).not.toContain('modelImport');
+      expect(source(file), file).not.toContain('modelExport');
+    }
+    expect(source('ui/ModelFolderSettings.svelte')).not.toContain('modelFolderLocationHint');
+    expect(source('ui/ModelFolderSettings.svelte')).toContain('ModelStorageChoice');
+    expect(onboarding).toContain('webkitdirectory');
+    expect(onboarding).toContain('copySharedFolderFilesToOpfs');
   });
 
   it('never asks for folder permission from the engine host or a content script', () => {
@@ -431,7 +431,7 @@ describe('shared folder activation and recovery', () => {
   const options = source('entrypoints/options/App.svelte');
   const folderSettings = source('ui/ModelFolderSettings.svelte');
   const restore = source('ui/FolderPermissionRestore.svelte');
-  const fileTools = source('ui/ModelFileTools.svelte');
+  const storageChoice = source('ui/ModelStorageChoice.svelte');
   const pageBridge = source('shared/page-bridge.ts');
 
   it('silently re-grants from the click before it starts slow work', () => {
@@ -447,38 +447,52 @@ describe('shared folder activation and recovery', () => {
     expect(source('ui/ModelManager.svelte')).toContain('ensureStoredFolderPermission');
   });
 
-  it('opens the folder picker before reloading the host on settings', () => {
-    const chooseStart = folderSettings.indexOf('async function chooseFolder');
+  it('opens the folder picker before adopt and any slow host work on settings', () => {
+    const chooseStart = folderSettings.indexOf('async function chooseChromiumFolder');
     const chooseBody = folderSettings.slice(
       chooseStart,
-      folderSettings.indexOf('async function stopUsing', chooseStart),
+      folderSettings.indexOf('async function chooseBrowser', chooseStart),
     );
     expect(chooseBody.indexOf('loadSettings')).toBeLessThan(
       chooseBody.indexOf('adoptPickedSharedFolder'),
     );
     expect(chooseBody.indexOf('adoptPickedSharedFolder')).toBeLessThan(
-      chooseBody.indexOf('reloadHost'),
+      chooseBody.indexOf('requestModelFolderAdopt'),
     );
     expect(chooseBody.slice(0, chooseBody.indexOf('adoptPickedSharedFolder'))).not.toContain(
-      'reloadHost',
+      'requestModelFolderReload',
     );
     expect(chooseBody.slice(0, chooseBody.indexOf('adoptPickedSharedFolder'))).not.toContain(
       'ensureStoredFolderPermission',
     );
     expect(chooseBody.indexOf('requestEngineWarm')).toBeGreaterThan(
-      chooseBody.indexOf('reloadHost'),
+      chooseBody.indexOf('requestModelFolderAdopt'),
     );
   });
 
-  it('does not offer to delete a browser copy that is the only known copy', () => {
-    expect(folderSettings).toContain('canDeleteBrowserCopy');
-    expect(folderSettings).toContain('{#if canDeleteBrowserCopy(folder, id)}');
-    expect(source('engine/model/folder-status.ts')).toContain(
-      'export function canDeleteBrowserCopy',
+  it('moves OPFS copies automatically instead of offering a manual delete', () => {
+    expect(folderSettings).not.toContain('modelFolderDeleteOpfs');
+    expect(folderSettings).toContain('requestModelFolderAdopt');
+    expect(folderSettings).toContain('requestModelFolderToBrowser');
+    expect(source('engine/model/manager.ts')).toContain('adoptPresentModelsAndRemoveOpfs');
+    expect(source('engine/model/manager.ts')).toContain('copyPresentModelsToBrowser');
+    expect(source('engine/model/folder-session.ts')).toContain('moveOpfs');
+    expect(source('engine/offscreen/host.ts')).toContain('copyPresentModelsToBrowser');
+  });
+
+  it('uses one storage choice component in onboarding and settings', () => {
+    expect(storageChoice).toContain('data-store-recommended');
+    expect(storageChoice).toContain('SharedFolderBenefits');
+    expect(onboarding).toContain('<ModelStorageChoice');
+    expect(folderSettings).toContain('<ModelStorageChoice');
+  });
+
+  it('keeps the cache clear outside the storage choice', () => {
+    expect(options).toContain('cache-row');
+    expect(options.indexOf('<ModelFolderSettings')).toBeLessThan(
+      options.indexOf('onclick={clearCache}'),
     );
-    expect(source('engine/offscreen/host.ts')).toContain(
-      '!canDeleteBrowserCopy(current, request.modelId)',
-    );
+    expect(folderSettings).not.toContain('cacheClear');
   });
 
   it('does not render a restore card in the toolbar popup', () => {
@@ -528,12 +542,12 @@ describe('shared folder activation and recovery', () => {
   });
 
   it('does not repeat the picker hint after a cancelled folder pick', () => {
-    const chooseStart = folderSettings.indexOf('async function chooseFolder');
+    const chooseStart = folderSettings.indexOf('async function chooseChromiumFolder');
     const chooseBody = folderSettings.slice(
       chooseStart,
-      folderSettings.indexOf('async function stopUsing', chooseStart),
+      folderSettings.indexOf('async function chooseBrowser', chooseStart),
     );
-    expect(chooseBody).toContain("if (picked.status === 'cancelled') return;");
+    expect(chooseBody).toContain("if (picked.status === 'cancelled')");
     expect(folderSettings).not.toContain('data-folder-picker-hint');
     const start = onboarding.indexOf('async function start()');
     const startBody = onboarding.slice(start, onboarding.indexOf('async function pause', start));
@@ -548,29 +562,27 @@ describe('shared folder activation and recovery', () => {
     expect(options).toContain('openOrFocusExtensionTab');
   });
 
-  it('offers download, import, and a folder choice after the shared folder is stopped', () => {
+  it('offers download and a folder settings link after the shared folder is stopped', () => {
     expect(popup).toContain('modelNeedsDownload');
     expect(popup).toContain('sharedFolderSettingsHref');
     expect(popup).toContain('popup-model-download');
-    expect(popup).toContain('popup-model-import');
+    expect(popup).not.toContain('popup-model-import');
     expect(popup).toContain('popup-model-folder');
     expect(popup).toContain("t('modelDownload')");
-    expect(popup).toContain("t('modelImportChoose')");
+    expect(popup).not.toContain("t('modelImportChoose')");
     expect(popup).toContain("t('modelFolderChoose')");
     expect(popup).toMatch(/!folderNeedsPermission && !modelNeedsInstall/);
   });
 
-  it('clears the Firefox export notice before a failed import and after it starts', () => {
-    const importStart = fileTools.indexOf('async function importFile');
-    const importBody = fileTools.slice(
-      importStart,
-      fileTools.indexOf('async function onFileChosen'),
-    );
-    expect(importBody.indexOf('clearExportNotice')).toBeLessThan(
-      importBody.indexOf("endsWith('.gguf')"),
-    );
-    expect(fileTools).toContain('EXPORT_NOTICE_MS');
-    expect(fileTools).toContain('showExportNotice');
+  it('copies a Firefox folder selection into OPFS without manual import or export', () => {
+    const folderImport = source('engine/model/folder-import.ts');
+    expect(folderImport).toContain('discoverSharedModelFiles');
+    expect(folderImport).toContain('importModelFile');
+    expect(folderImport).toContain('SHARED_MODELS_DIRECTORY');
+    expect(folderSettings).toContain('webkitdirectory');
+    expect(folderSettings).toContain('copySharedFolderFilesToOpfs');
+    expect(onboarding).toContain('copySharedFolderFilesToOpfs');
+    expect(source('engine/model/import-export.ts')).not.toContain('exportModelFile');
   });
 
   it('retries content injection for a tab that has just reloaded', () => {

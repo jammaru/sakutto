@@ -63,6 +63,7 @@ import { FOLDER_PERMISSION_ERROR, isFolderAccessError } from '../model/folder-pe
 import { SharedFolderSession } from '../model/folder-session';
 import { OpfsModelFileStore } from '../model/file-store';
 import { ModelManager, type LoadedModel } from '../model/manager';
+import { clearStoredSharedFolder } from '../model/shared-folder';
 import type { DownloadProgress } from '../model/download';
 import { QUALITY_PARAGRAPH } from '../model/suggestion';
 import { buildTranslationPrompt, cleanModelOutput } from '../prompt/pfml3';
@@ -80,8 +81,10 @@ import {
   type BenchmarkRequest,
   type CacheClearRequest,
   type EngineHostMessage,
+  type FolderAdoptRequest,
   type FolderDeleteOpfsRequest,
   type FolderReloadRequest,
+  type FolderToBrowserRequest,
   type ModelDeleteRequest,
   type ModelDownloadRequest,
   type ModelSetRequest,
@@ -716,6 +719,12 @@ export class EngineHost {
       case 'folder-delete-opfs':
         void this.handleFolderDeleteOpfs(port, message);
         return;
+      case 'folder-adopt':
+        void this.handleFolderAdopt(port, message);
+        return;
+      case 'folder-to-browser':
+        void this.handleFolderToBrowser(port, message);
+        return;
       case 'benchmark':
         void this.handleBenchmark(port, message);
         return;
@@ -1019,19 +1028,60 @@ export class EngineHost {
     };
   }
 
+  private async reloadFolder(moveOpfs: boolean): Promise<SharedFolderStatus> {
+    const services = await this.services();
+    for (const [id, live] of this.requests) {
+      if (live.kind === 'download') continue;
+      this.abortLiveRequest(id, live);
+    }
+    services.lazy.reset();
+    await services.disposeRetryRuntime?.();
+    await services.manager.unload();
+    const status = this.folderSession
+      ? await this.folderSession.apply({ moveOpfs })
+      : emptySharedFolderStatus(false);
+    const model = modelStatusForSharedFolder(
+      await services.manager.status(this.activeModelId),
+      status,
+    );
+    this.plamoReady = modelCanTranslate(model);
+    // Publish only over the engine port. runtime.sendMessage would fan out to BFCached
+    // content targets and leave an unchecked lastError in the offscreen document.
+    this.publishModelStatus(model);
+    return status;
+  }
+
   private async handleFolderReload(
     port: Browser.runtime.Port,
     request: FolderReloadRequest,
   ): Promise<void> {
     try {
+      this.respond(port, request.requestId, await this.reloadFolder(false));
+    } catch (error) {
+      this.respondError(port, request.requestId, error);
+    }
+  }
+
+  private async handleFolderAdopt(
+    port: Browser.runtime.Port,
+    request: FolderAdoptRequest,
+  ): Promise<void> {
+    try {
+      this.respond(port, request.requestId, await this.reloadFolder(true));
+    } catch (error) {
+      this.respondError(port, request.requestId, error);
+    }
+  }
+
+  private async handleFolderToBrowser(
+    port: Browser.runtime.Port,
+    request: FolderToBrowserRequest,
+  ): Promise<void> {
+    try {
       const services = await this.services();
-      for (const [id, live] of this.requests) {
-        if (live.kind === 'download') continue;
-        this.abortLiveRequest(id, live);
-      }
-      services.lazy.reset();
-      await services.disposeRetryRuntime?.();
+      await services.manager.copyPresentModelsToBrowser();
       await services.manager.unload();
+      await clearStoredSharedFolder();
       const status = this.folderSession
         ? await this.folderSession.apply()
         : emptySharedFolderStatus(false);
@@ -1040,8 +1090,6 @@ export class EngineHost {
         status,
       );
       this.plamoReady = modelCanTranslate(model);
-      // Publish only over the engine port. runtime.sendMessage would fan out to BFCached
-      // content targets and leave an unchecked lastError in the offscreen document.
       this.publishModelStatus(model);
       this.respond(port, request.requestId, status);
     } catch (error) {

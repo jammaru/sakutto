@@ -690,23 +690,53 @@
   "modelSelectionMissing": {
     "message": "Tidak ada model terjemahan. Unduh satu untuk menerjemahkan."
   },
-  "modelFolderHeading": {
-    "message": "Share the model folder across Chromium browsers"
+  "modelStorageLegend": {
+    "message": "Where to save the model"
   },
-  "modelFolderHelp": {
-    "message": "Di Chromium, folder bersama dipilih secara default saat pertama kali; penyimpanan di peramban tetap tersedia."
+  "modelStorageFolder": {
+    "message": "Shared folder (recommended)"
   },
-  "modelFolderAdoptOpfsHint": {
-    "message": "Jika model sudah ada di peramban ini, memilih folder akan menyalinnya tanpa mengunduh ulang."
+  "modelStorageBrowser": {
+    "message": "Simpan di peramban ini"
+  },
+  "modelStorageCopyFolder": {
+    "message": "Copy from shared folder (recommended)"
+  },
+  "modelStorageIntro": {
+    "message": "Choose where the model is stored. Existing models move with the choice."
+  },
+  "modelStorageFirefoxCopyHint": {
+    "message": "Firefox cannot keep using the folder, so the models are copied into Firefox."
+  },
+  "modelStorageMoveFailed": {
+    "message": "The model could not be moved to the shared folder. The browser copy was kept."
+  },
+  "modelStorageMoveDone": {
+    "message": "The models are now stored in the shared folder."
+  },
+  "modelStorageCopyDone": {
+    "message": "The models are now stored in this browser."
+  },
+  "modelStorageCopyFailed": {
+    "message": "The model could not be copied. The previous storage choice was kept."
+  },
+  "modelStorageSomeCopiesFailed": {
+    "message": "Some models could not be copied. Their existing copies were kept."
+  },
+  "modelStorageNoModels": {
+    "message": "No official PLaMo model was found in that folder."
+  },
+  "modelStorageWorking": {
+    "message": "Preparing the model folder…"
+  },
+  "modelStorageProgressLabel": {
+    "message": "Model transfer progress"
   },
   "modelFolderPickerHint": {
     "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"
-  },
-  "modelFolderStop": {
-    "message": "Stop using shared folder"
   },
   "modelFolderUsing": {
     "message": "Using the folder $NAME$.",
@@ -715,9 +745,6 @@
         "content": "$1"
       }
     }
-  },
-  "modelFolderNotUsing": {
-    "message": "Models are stored inside this browser."
   },
   "modelFolderPermissionNeeded": {
     "message": "Sakutto needs permission to read the shared model folder."
@@ -744,17 +771,6 @@
         "content": "$1"
       }
     }
-  },
-  "modelFolderOpfsCopy": {
-    "message": "A leftover copy of $MODEL$ is still in this browser's storage. You can delete it to free space.",
-    "placeholders": {
-      "model": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelFolderDeleteOpfs": {
-    "message": "Delete browser copy"
   },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
@@ -787,55 +803,6 @@
   },
   "modelFolderBenefitKeep": {
     "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
-  },
-  "modelImportHeading": {
-    "message": "Impor file model"
-  },
-  "modelImportHelp": {
-    "message": "Pilih file .gguf PLaMo resmi. File dialirkan ke penyimpanan browser dan diperiksa sebelum digunakan; setelah itu Sakutto tidak akan meminta file lagi."
-  },
-  "modelImportModelLabel": {
-    "message": "Model"
-  },
-  "modelImportChoose": {
-    "message": "Impor file .gguf"
-  },
-  "modelImportExport": {
-    "message": "Ekspor file model"
-  },
-  "modelImportExportDone": {
-    "message": "File model disimpan ke folder unduhan browser."
-  },
-  "modelImportExporting": {
-    "message": "File model sedang diekspor."
-  },
-  "modelImportDone": {
-    "message": "File model berhasil diimpor dan diverifikasi."
-  },
-  "modelImportWrongFile": {
-    "message": "File itu bukan model PLaMo resmi ($FILE$). Pilih file .gguf resmi yang cocok.",
-    "placeholders": {
-      "file": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelImportFailed": {
-    "message": "File model tidak dapat diimpor."
-  },
-  "modelExportMissing": {
-    "message": "Belum ada file model untuk diekspor."
-  },
-  "modelExportFailed": {
-    "message": "File model tidak dapat diekspor."
-  },
-  "modelFolderLocationHint": {
-    "message": "File folder bersama berada di <chosen>/$PATH$.",
-    "placeholders": {
-      "path": {
-        "content": "$1"
-      }
-    }
   },
   "highQualityOffer": {
     "message": "Anda bisa mencoba model dengan akurasi lebih tinggi (2B, sekitar 1,81 GB). Kecepatannya bergantung pada perangkat ini."

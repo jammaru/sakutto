@@ -690,23 +690,53 @@
   "modelSelectionMissing": {
     "message": "尚未安裝翻譯模型。請先下載才能翻譯。"
   },
-  "modelFolderHeading": {
-    "message": "Share the model folder across Chromium browsers"
+  "modelStorageLegend": {
+    "message": "Where to save the model"
   },
-  "modelFolderHelp": {
-    "message": "在 Chromium 中，首次執行會預先選取共用資料夾；瀏覽器內儲存仍可使用。"
+  "modelStorageFolder": {
+    "message": "Shared folder (recommended)"
   },
-  "modelFolderAdoptOpfsHint": {
-    "message": "如果此瀏覽器已有模型，選擇資料夾時會將它複製過去，無需重新下載。"
+  "modelStorageBrowser": {
+    "message": "儲存在此瀏覽器中"
+  },
+  "modelStorageCopyFolder": {
+    "message": "Copy from shared folder (recommended)"
+  },
+  "modelStorageIntro": {
+    "message": "Choose where the model is stored. Existing models move with the choice."
+  },
+  "modelStorageFirefoxCopyHint": {
+    "message": "Firefox cannot keep using the folder, so the models are copied into Firefox."
+  },
+  "modelStorageMoveFailed": {
+    "message": "The model could not be moved to the shared folder. The browser copy was kept."
+  },
+  "modelStorageMoveDone": {
+    "message": "The models are now stored in the shared folder."
+  },
+  "modelStorageCopyDone": {
+    "message": "The models are now stored in this browser."
+  },
+  "modelStorageCopyFailed": {
+    "message": "The model could not be copied. The previous storage choice was kept."
+  },
+  "modelStorageSomeCopiesFailed": {
+    "message": "Some models could not be copied. Their existing copies were kept."
+  },
+  "modelStorageNoModels": {
+    "message": "No official PLaMo model was found in that folder."
+  },
+  "modelStorageWorking": {
+    "message": "Preparing the model folder…"
+  },
+  "modelStorageProgressLabel": {
+    "message": "Model transfer progress"
   },
   "modelFolderPickerHint": {
     "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"
-  },
-  "modelFolderStop": {
-    "message": "Stop using shared folder"
   },
   "modelFolderUsing": {
     "message": "Using the folder $NAME$.",
@@ -715,9 +745,6 @@
         "content": "$1"
       }
     }
-  },
-  "modelFolderNotUsing": {
-    "message": "Models are stored inside this browser."
   },
   "modelFolderPermissionNeeded": {
     "message": "Sakutto needs permission to read the shared model folder."
@@ -744,17 +771,6 @@
         "content": "$1"
       }
     }
-  },
-  "modelFolderOpfsCopy": {
-    "message": "A leftover copy of $MODEL$ is still in this browser's storage. You can delete it to free space.",
-    "placeholders": {
-      "model": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelFolderDeleteOpfs": {
-    "message": "Delete browser copy"
   },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
@@ -787,55 +803,6 @@
   },
   "modelFolderBenefitKeep": {
     "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
-  },
-  "modelImportHeading": {
-    "message": "匯入模型檔案"
-  },
-  "modelImportHelp": {
-    "message": "選擇官方 PLaMo .gguf 檔案。它會以串流方式寫入瀏覽器儲存空間，並在使用前驗證；之後 Sakutto 不會再要求選擇檔案。"
-  },
-  "modelImportModelLabel": {
-    "message": "模型"
-  },
-  "modelImportChoose": {
-    "message": "匯入 .gguf 檔案"
-  },
-  "modelImportExport": {
-    "message": "匯出模型檔案"
-  },
-  "modelImportExportDone": {
-    "message": "模型檔案已儲存到瀏覽器的下載資料夾。"
-  },
-  "modelImportExporting": {
-    "message": "正在匯出模型檔案。"
-  },
-  "modelImportDone": {
-    "message": "模型檔案已匯入並通過驗證。"
-  },
-  "modelImportWrongFile": {
-    "message": "該檔案不是官方 PLaMo 模型（$FILE$）。請選擇相符的官方 .gguf 檔案。",
-    "placeholders": {
-      "file": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelImportFailed": {
-    "message": "無法匯入模型檔案。"
-  },
-  "modelExportMissing": {
-    "message": "尚無可匯出的模型檔案。"
-  },
-  "modelExportFailed": {
-    "message": "無法匯出模型檔案。"
-  },
-  "modelFolderLocationHint": {
-    "message": "共享資料夾中的檔案位於 <chosen>/$PATH$",
-    "placeholders": {
-      "path": {
-        "content": "$1"
-      }
-    }
   },
   "highQualityOffer": {
     "message": "您可以嘗試精度更高的模型（2B，約 1.81 GB）。速度取決於此裝置。"

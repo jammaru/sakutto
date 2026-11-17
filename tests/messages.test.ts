@@ -10,8 +10,10 @@ import {
   isModelCancelRequest,
   isModelDeleteRequest,
   isModelDownloadRequest,
+  isModelFolderAdoptRequest,
   isModelFolderDeleteOpfsRequest,
   isModelFolderReloadRequest,
+  isModelFolderToBrowserRequest,
   isModelProgressMessage,
   isModelUseRequest,
   isPageInfo,
@@ -290,6 +292,10 @@ describe('message validation', () => {
       }),
     ).toBe(true);
     expect(isModelFolderDeleteOpfsRequest({ type: 'model-folder:delete-opfs' })).toBe(false);
+    expect(isModelFolderAdoptRequest({ type: 'model-folder:adopt' })).toBe(true);
+    expect(isModelFolderAdoptRequest({ type: 'model-folder:to-browser' })).toBe(false);
+    expect(isModelFolderToBrowserRequest({ type: 'model-folder:to-browser' })).toBe(true);
+    expect(isModelFolderToBrowserRequest({ type: 'model-folder:move' })).toBe(false);
 
     expect(isModelProgressMessage({ type: 'model:progress', status: modelStatus })).toBe(true);
     expect(

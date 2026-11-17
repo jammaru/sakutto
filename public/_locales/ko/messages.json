@@ -690,23 +690,53 @@
   "modelSelectionMissing": {
     "message": "번역 모델이 없습니다. 다운로드하면 번역할 수 있습니다."
   },
-  "modelFolderHeading": {
-    "message": "Share the model folder across Chromium browsers"
+  "modelStorageLegend": {
+    "message": "Where to save the model"
   },
-  "modelFolderHelp": {
-    "message": "Chromium에서는 첫 실행 시 공유 폴더가 기본으로 선택되며, 브라우저 저장소도 계속 사용할 수 있습니다."
+  "modelStorageFolder": {
+    "message": "Shared folder (recommended)"
   },
-  "modelFolderAdoptOpfsHint": {
-    "message": "모델이 이미 이 브라우저에 있으면 폴더를 선택할 때 다시 다운로드하지 않고 복사합니다."
+  "modelStorageBrowser": {
+    "message": "이 브라우저에 저장"
+  },
+  "modelStorageCopyFolder": {
+    "message": "Copy from shared folder (recommended)"
+  },
+  "modelStorageIntro": {
+    "message": "Choose where the model is stored. Existing models move with the choice."
+  },
+  "modelStorageFirefoxCopyHint": {
+    "message": "Firefox cannot keep using the folder, so the models are copied into Firefox."
+  },
+  "modelStorageMoveFailed": {
+    "message": "The model could not be moved to the shared folder. The browser copy was kept."
+  },
+  "modelStorageMoveDone": {
+    "message": "The models are now stored in the shared folder."
+  },
+  "modelStorageCopyDone": {
+    "message": "The models are now stored in this browser."
+  },
+  "modelStorageCopyFailed": {
+    "message": "The model could not be copied. The previous storage choice was kept."
+  },
+  "modelStorageSomeCopiesFailed": {
+    "message": "Some models could not be copied. Their existing copies were kept."
+  },
+  "modelStorageNoModels": {
+    "message": "No official PLaMo model was found in that folder."
+  },
+  "modelStorageWorking": {
+    "message": "Preparing the model folder…"
+  },
+  "modelStorageProgressLabel": {
+    "message": "Model transfer progress"
   },
   "modelFolderPickerHint": {
     "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"
-  },
-  "modelFolderStop": {
-    "message": "Stop using shared folder"
   },
   "modelFolderUsing": {
     "message": "Using the folder $NAME$.",
@@ -715,9 +745,6 @@
         "content": "$1"
       }
     }
-  },
-  "modelFolderNotUsing": {
-    "message": "Models are stored inside this browser."
   },
   "modelFolderPermissionNeeded": {
     "message": "Sakutto needs permission to read the shared model folder."
@@ -744,17 +771,6 @@
         "content": "$1"
       }
     }
-  },
-  "modelFolderOpfsCopy": {
-    "message": "A leftover copy of $MODEL$ is still in this browser's storage. You can delete it to free space.",
-    "placeholders": {
-      "model": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelFolderDeleteOpfs": {
-    "message": "Delete browser copy"
   },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
@@ -787,55 +803,6 @@
   },
   "modelFolderBenefitKeep": {
     "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
-  },
-  "modelImportHeading": {
-    "message": "모델 파일 가져오기"
-  },
-  "modelImportHelp": {
-    "message": "공식 PLaMo .gguf 파일을 선택하세요. 브라우저 저장소로 스트리밍하고 사용 전에 검증하며, 이후에는 파일을 다시 요구하지 않습니다."
-  },
-  "modelImportModelLabel": {
-    "message": "모델"
-  },
-  "modelImportChoose": {
-    "message": ".gguf 파일 가져오기"
-  },
-  "modelImportExport": {
-    "message": "모델 파일 내보내기"
-  },
-  "modelImportExportDone": {
-    "message": "모델 파일을 브라우저의 다운로드 폴더에 저장했습니다."
-  },
-  "modelImportExporting": {
-    "message": "모델 파일을 내보내는 중입니다."
-  },
-  "modelImportDone": {
-    "message": "모델 파일을 가져와 검증했습니다."
-  },
-  "modelImportWrongFile": {
-    "message": "이 파일은 공식 PLaMo 모델($FILE$)이 아닙니다. 해당하는 공식 .gguf 파일을 선택하세요.",
-    "placeholders": {
-      "file": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelImportFailed": {
-    "message": "모델 파일을 가져오지 못했습니다."
-  },
-  "modelExportMissing": {
-    "message": "아직 내보낼 모델 파일이 없습니다."
-  },
-  "modelExportFailed": {
-    "message": "모델 파일을 내보내지 못했습니다."
-  },
-  "modelFolderLocationHint": {
-    "message": "공유 폴더의 파일 위치: <chosen>/$PATH$",
-    "placeholders": {
-      "path": {
-        "content": "$1"
-      }
-    }
   },
   "highQualityOffer": {
     "message": "더 정확도가 높은 모델(2B, 약 1.81 GB)을 시도해 보세요. 속도는 이 기기에 따라 다릅니다."
