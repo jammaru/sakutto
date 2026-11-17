@@ -20,6 +20,7 @@ import { isPermissionDenied, type ModelFileStore } from './file-store';
 import { decideIntegrity, digestMatchesPin, type IntegrityManifest } from './integrity';
 import { SharedFolderModelFileStore } from './shared-store';
 import { sha256OfBlob, type HashOptions } from './sha256';
+import { DownloadStallError, stallTimeoutOf, withinStall } from './stall';
 
 export interface LoadedModel {
   id: ModelId;
@@ -38,6 +39,8 @@ export interface ModelManagerOptions {
   onStatus?: (status: ModelStatus) => void;
   /** Override the streamed OPFS→folder copy chunk size. Tests use a small value. */
   copyChunkBytes?: number;
+  /** Test hook for bounding one network or filesystem operation that makes no progress. */
+  stallTimeoutMs?: number;
   /** Profile-local partial paths; injected by tests or a persistent session adapter. */
   downloadPartPaths?: Map<ModelId, string>;
 }
@@ -69,6 +72,7 @@ export class ModelManager {
   private readonly entries: Readonly<Record<ModelId, ModelEntry>>;
   private readonly onStatus: ((status: ModelStatus) => void) | undefined;
   private readonly copyChunkBytes: number | undefined;
+  private readonly stallTimeoutMs: number | undefined;
   private readonly downloads = new Map<
     ModelId,
     { operation: Promise<void>; abort: AbortController }
@@ -88,6 +92,7 @@ export class ModelManager {
     this.entries = options.entries ?? MODEL_CATALOG;
     this.onStatus = options.onStatus;
     this.copyChunkBytes = options.copyChunkBytes;
+    this.stallTimeoutMs = options.stallTimeoutMs;
     this.downloadParts = options.downloadPartPaths ?? new Map<ModelId, string>();
   }
 
@@ -224,6 +229,8 @@ export class ModelManager {
       const primary = await this.inspect(this.store, modelId);
       if (primary.state !== 'ready') continue;
       if (!(await this.fallbackCopyPresent(modelId))) continue;
+      // A running download may still be reading this copy for its store handoff.
+      if (this.downloads.has(modelId)) continue;
       await this.deleteFallbackCopy(modelId);
       removed.push(modelId);
     }
@@ -445,12 +452,16 @@ export class ModelManager {
     onProgress: ((progress: DownloadProgress) => void) | undefined,
   ): Promise<void> {
     const entry = this.entry(modelId);
+    // A folder apply replaces this.store while the host keeps this download alive. Pin every
+    // step of the transfer to one store, then hand the verified result to the latest store.
+    const store = this.store;
+    const fallbackStore = this.fallbackStore;
     this.errors.delete(modelId);
 
-    const current = await this.inspect(this.store, modelId);
+    const current = await this.inspect(store, modelId);
     if (current.state === 'ready' || this.loaded?.id === modelId) {
       this.downloadParts.delete(modelId);
-      this.notify(await this.status(modelId));
+      await this.finishDownloadInCurrentStore(modelId, store, signal, onProgress);
       return;
     }
 
@@ -460,23 +471,30 @@ export class ModelManager {
       }
 
       if (current.integrity === 'needs-hash') {
-        await this.runVerify(this.store, modelId, signal, onProgress);
+        await this.runVerify(store, modelId, signal, onProgress);
         this.downloadParts.delete(modelId);
+        await this.finishDownloadInCurrentStore(modelId, store, signal, onProgress);
         return;
       }
 
       try {
-        if (await this.copyOneFallback(modelId, signal, onProgress)) {
+        if (
+          await this.copyOneFallback(modelId, signal, onProgress, {
+            primary: store,
+            fallback: fallbackStore,
+          })
+        ) {
           this.downloadParts.delete(modelId);
+          await this.finishDownloadInCurrentStore(modelId, store, signal, onProgress);
           return;
         }
       } catch (error) {
         if (isAbortError(error)) throw error;
       }
 
-      const partPath = await this.resolveDownloadPartPath(modelId);
+      const partPath = await this.resolveDownloadPartPath(modelId, store, fallbackStore, signal);
       const reused = await reuseVerifiedFinal({
-        store: this.store,
+        store,
         partPath,
         finalPath: this.finalPath(modelId),
         size: entry.size,
@@ -486,19 +504,14 @@ export class ModelManager {
       });
       if (reused) {
         this.downloadParts.delete(modelId);
-        this.notify({
-          id: modelId,
-          state: 'ready',
-          received: entry.size,
-          total: entry.size,
-          progress: 1,
-        });
+        await this.writeVerifiedManifest(store, modelId);
+        await this.finishDownloadInCurrentStore(modelId, store, signal, onProgress);
         return;
       }
 
-      await this.ensureSpace(modelId, partPath);
+      await this.ensureSpace(store, modelId, partPath);
 
-      const resumedBytes = await this.store.size(partPath);
+      const resumedBytes = await store.size(partPath);
       this.notify({
         id: modelId,
         state: 'downloading',
@@ -509,13 +522,14 @@ export class ModelManager {
 
       await downloadModel({
         source: { url: entry.url, size: entry.size, sha256: entry.sha256 },
-        store: this.store,
+        store,
         partPath,
         finalPath: this.finalPath(modelId),
         signal,
         attempts: 3,
         segmentBytes: DEFAULT_SEGMENT_BYTES,
         concurrency: DEFAULT_CONCURRENCY,
+        ...(this.stallTimeoutMs !== undefined ? { stallTimeoutMs: this.stallTimeoutMs } : {}),
         ...(this.fetchImpl ? { fetchImpl: this.fetchImpl } : {}),
         ...(this.hashBlob ? { hashBlob: this.hashBlob } : {}),
         onProgress: (progress) => {
@@ -531,22 +545,19 @@ export class ModelManager {
         },
       });
 
-      await this.writeVerifiedManifest(this.store, modelId);
+      await this.writeVerifiedManifest(store, modelId);
       this.downloadParts.delete(modelId);
-
-      this.notify({
-        id: modelId,
-        state: 'ready',
-        received: entry.size,
-        total: entry.size,
-        progress: 1,
-      });
+      await this.finishDownloadInCurrentStore(modelId, store, signal, onProgress);
     } catch (error) {
       if (isAbortError(error)) throw error;
       const message = error instanceof Error ? error.message : String(error);
       this.errors.set(modelId, message);
+      // A timed-out writer can still settle later. Never let a retry open the same temp file.
+      if (error instanceof DownloadStallError && error.writer) {
+        this.downloadParts.delete(modelId);
+      }
       const partPath = this.downloadParts.get(modelId);
-      const received = partPath ? await this.store.size(partPath).catch(() => 0) : 0;
+      const received = partPath ? await store.size(partPath).catch(() => 0) : 0;
       this.notify({
         id: modelId,
         state: 'error',
@@ -559,6 +570,38 @@ export class ModelManager {
     }
   }
 
+  /** Keep one host download attached while a folder pick changes its final destination. */
+  private async finishDownloadInCurrentStore(
+    modelId: ModelId,
+    downloadedStore: ModelFileStore,
+    signal: AbortSignal,
+    onProgress: ((progress: DownloadProgress) => void) | undefined,
+  ): Promise<void> {
+    let source = downloadedStore;
+    while (this.store !== source) {
+      const target = this.store;
+      const copied = await this.copyOneFallback(modelId, signal, onProgress, {
+        primary: target,
+        fallback: source,
+      });
+      if (!copied) {
+        // A concurrent folder adoption may already have installed or rejected this file.
+        this.notify(await this.status(modelId));
+        return;
+      }
+      source = target;
+    }
+
+    const entry = this.entry(modelId);
+    this.notify({
+      id: modelId,
+      state: 'ready',
+      received: entry.size,
+      total: entry.size,
+      progress: 1,
+    });
+  }
+
   /**
    * Copy a verified official OPFS model into the primary (shared) store when that store
    * does not already have a valid file. Never overwrites a wrong-sized folder file. The
@@ -568,24 +611,29 @@ export class ModelManager {
     modelId: ModelId,
     signal: AbortSignal,
     onProgress?: (progress: DownloadProgress) => void,
+    stores: { primary: ModelFileStore; fallback: ModelFileStore | undefined } = {
+      primary: this.store,
+      fallback: this.fallbackStore,
+    },
   ): Promise<boolean> {
-    if (!this.fallbackStore) return false;
+    const { primary: primaryStore, fallback: fallbackStore } = stores;
+    if (!fallbackStore) return false;
 
-    const primary = await this.inspect(this.store, modelId);
+    const primary = await this.inspect(primaryStore, modelId);
     // Another Chrome/Edge profile may already hold a pin-sized GGUF here. Never
     // replace it: `removeEntry` + rewrite is how one profile can invalidate the
     // file another profile's handle still points at. Only fill an empty slot.
     if (primary.integrity !== 'missing') return false;
     if (this.errors.get(modelId) === INTEGRITY_DIGEST_ERROR) return false;
-    if (await this.copyAlreadyRejected(modelId)) return false;
+    if (await this.copyAlreadyRejected(modelId, fallbackStore)) return false;
 
-    let fallback = await this.inspect(this.fallbackStore, modelId);
+    let fallback = await this.inspect(fallbackStore, modelId);
     if (fallback.integrity === 'needs-hash') {
-      await this.runVerify(this.fallbackStore, modelId, signal, onProgress).catch(() => undefined);
-      fallback = await this.inspect(this.fallbackStore, modelId);
+      await this.runVerify(fallbackStore, modelId, signal, onProgress).catch(() => undefined);
+      fallback = await this.inspect(fallbackStore, modelId);
     }
     if (fallback.state !== 'ready') return false;
-    return this.copyBetweenStores(this.fallbackStore, this.store, modelId, signal, onProgress);
+    return this.copyBetweenStores(fallbackStore, primaryStore, modelId, signal, onProgress);
   }
 
   private async copyBetweenStores(
@@ -633,6 +681,7 @@ export class ModelManager {
         },
         ...(this.hashBlob ? { hashBlob: this.hashBlob } : {}),
         ...(this.copyChunkBytes !== undefined ? { chunkBytes: this.copyChunkBytes } : {}),
+        ...(this.stallTimeoutMs !== undefined ? { stallTimeoutMs: this.stallTimeoutMs } : {}),
       });
     } catch (error) {
       if (isAbortError(error) || signal.aborted) throw abortError();
@@ -810,12 +859,16 @@ export class ModelManager {
     };
   }
 
-  private async ensureSpace(modelId: ModelId, partPath: string): Promise<void> {
+  private async ensureSpace(
+    store: ModelFileStore,
+    modelId: ModelId,
+    partPath: string,
+  ): Promise<void> {
     const entry = this.entry(modelId);
-    const estimate = await this.store.estimate();
+    const estimate = await store.estimate();
     if (estimate.quota <= 0) return;
 
-    const existing = await this.store.size(partPath);
+    const existing = await store.size(partPath);
     const needed = Math.max(0, entry.size - existing) + FREE_SPACE_MARGIN;
     if (estimate.quota - estimate.usage < needed) {
       throw new EngineError(
@@ -907,19 +960,70 @@ export class ModelManager {
     }
   }
 
-  private async resolveDownloadPartPath(modelId: ModelId): Promise<string> {
+  private async resolveDownloadPartPath(
+    modelId: ModelId,
+    store: ModelFileStore,
+    fallbackStore: ModelFileStore | undefined,
+    signal: AbortSignal,
+  ): Promise<string> {
     const tracked = this.downloadParts.get(modelId);
     if (tracked) {
-      const size = await this.store.size(tracked).catch(() => 0);
+      const size = await store.size(tracked).catch(() => 0);
       if (size > 0) return tracked;
+      if (fallbackStore && fallbackStore !== store) {
+        const fallbackSize = await fallbackStore.size(tracked).catch(() => 0);
+        if (fallbackSize > 0) {
+          const partPath = uniquePartPath(this.partPath(modelId));
+          await this.movePartialForResume(fallbackStore, store, tracked, partPath, signal);
+          this.downloadParts.set(modelId, partPath);
+          if (store instanceof SharedFolderModelFileStore) {
+            await store.pruneStalePartFiles(modelId, partPath).catch(() => undefined);
+          }
+          return partPath;
+        }
+      }
       this.downloadParts.delete(modelId);
     }
     const partPath = uniquePartPath(this.partPath(modelId));
     this.downloadParts.set(modelId, partPath);
-    if (this.store instanceof SharedFolderModelFileStore) {
-      await this.store.pruneStalePartFiles(modelId, partPath).catch(() => undefined);
+    if (store instanceof SharedFolderModelFileStore) {
+      await store.pruneStalePartFiles(modelId, partPath).catch(() => undefined);
     }
     return partPath;
+  }
+
+  /** Move only our saved temp prefix; the normal resumed transfer still hashes it once. */
+  private async movePartialForResume(
+    source: ModelFileStore,
+    target: ModelFileStore,
+    sourcePath: string,
+    targetPath: string,
+    signal: AbortSignal,
+  ): Promise<void> {
+    const blob = await source.read(sourcePath);
+    const stallTimeout = stallTimeoutOf(this.stallTimeoutMs);
+    const writer = await withinStall(
+      target.createWriter(targetPath, 0),
+      stallTimeout,
+      undefined,
+      true,
+    );
+    const chunkBytes = Math.max(1, this.copyChunkBytes ?? DEFAULT_SEGMENT_BYTES);
+    try {
+      for (let offset = 0; offset < blob.size; offset += chunkBytes) {
+        if (signal.aborted) throw abortError();
+        const end = Math.min(offset + chunkBytes, blob.size);
+        const chunk = new Uint8Array(await blob.slice(offset, end).arrayBuffer());
+        await withinStall(writer.write(chunk), stallTimeout, undefined, true);
+      }
+      if (signal.aborted) throw abortError();
+      await withinStall(writer.close(), stallTimeout, undefined, true);
+    } catch (error) {
+      await withinStall(writer.close(), stallTimeout, undefined, true).catch(() => undefined);
+      await target.remove(targetPath).catch(() => undefined);
+      throw error;
+    }
+    await source.remove(sourcePath).catch(() => undefined);
   }
 
   private modelDirectory(modelId: ModelId): string {
@@ -942,13 +1046,16 @@ export class ModelManager {
     return `${this.modelDirectory(modelId)}/copy-rejected.json`;
   }
 
-  private async copyAlreadyRejected(modelId: ModelId): Promise<boolean> {
-    if (!this.fallbackStore) return false;
-    const stat = await this.fallbackStore.stat(this.finalPath(modelId));
+  private async copyAlreadyRejected(
+    modelId: ModelId,
+    fallbackStore: ModelFileStore | undefined = this.fallbackStore,
+  ): Promise<boolean> {
+    if (!fallbackStore) return false;
+    const stat = await fallbackStore.stat(this.finalPath(modelId));
     if (!stat) return false;
     try {
       const parsed: unknown = JSON.parse(
-        await (await this.fallbackStore.read(this.copyRejectedPath(modelId))).text(),
+        await (await fallbackStore.read(this.copyRejectedPath(modelId))).text(),
       );
       if (typeof parsed !== 'object' || parsed === null) return false;
       const record = parsed as Record<string, unknown>;

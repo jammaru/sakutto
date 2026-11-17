@@ -1,5 +1,5 @@
 import { abortError, EngineError, isAbortError, isEngineError } from '../errors';
-import type { ModelFileStore } from './file-store';
+import type { ModelFileStore, ModelFileWriter } from './file-store';
 import { reuseVerifiedFinal } from './copy';
 import { sha256OfBlob, type HashOptions } from './sha256';
 import {
@@ -7,6 +7,7 @@ import {
   type CreateOrderedSha256Options,
   type OrderedSha256Hasher,
 } from './sha256-worker-client';
+import { DownloadStallError, stallTimeoutOf, withinStall as withinStallTimeout } from './stall';
 
 export interface DownloadSource {
   url: string;
@@ -35,6 +36,8 @@ export interface DownloadRequest {
   hashBlob?: (blob: Blob, options?: HashOptions) => Promise<string>;
   attempts?: number;
   retryDelayMs?: number;
+  /** Maximum time one network or filesystem operation may make no progress. */
+  stallTimeoutMs?: number;
   /** Bytes per ranged request. Multi-megabyte blocks keep request overhead low. */
   segmentBytes?: number;
   /** Maximum number of ranged requests in flight. */
@@ -106,6 +109,26 @@ function emitProgress(request: DownloadRequest, progress: DownloadProgress): voi
 
 function throwIfAborted(signal: AbortSignal): void {
   if (signal.aborted) throw abortError();
+}
+
+function withinStall<T>(
+  request: DownloadRequest,
+  task: Promise<T>,
+  onTimeout?: () => void,
+  writer = false,
+): Promise<T> {
+  return withinStallTimeout(task, stallTimeoutOf(request.stallTimeoutMs), onTimeout, writer);
+}
+
+function fetchWithStall(
+  request: DownloadRequest,
+  fetchImpl: typeof fetch,
+  input: RequestInfo | URL,
+  init: RequestInit,
+): Promise<Response> {
+  const stop = new AbortController();
+  const signal = init.signal ? AbortSignal.any([init.signal, stop.signal]) : stop.signal;
+  return withinStall(request, fetchImpl(input, { ...init, signal }), () => stop.abort());
 }
 
 function delay(milliseconds: number, signal: AbortSignal): Promise<void> {
@@ -254,6 +277,7 @@ function progressReporter(
 }
 
 async function readSegment(
+  request: DownloadRequest,
   response: Response,
   length: number,
   signal: AbortSignal,
@@ -274,7 +298,7 @@ async function readSegment(
   try {
     while (filled < length) {
       throwIfAborted(signal);
-      const { done, value } = await reader.read();
+      const { done, value } = await withinStall(request, reader.read(), cancelReader);
       if (done) break;
       if (!value || value.byteLength === 0) continue;
 
@@ -288,7 +312,7 @@ async function readSegment(
     }
   } finally {
     signal.removeEventListener('abort', cancelReader);
-    if (filled === length) await reader.cancel().catch(() => undefined);
+    if (filled === length) await withinStall(request, reader.cancel()).catch(() => undefined);
     reader.releaseLock();
   }
 
@@ -329,7 +353,7 @@ async function transfer(
   const firstEnd = Math.min(offset + segmentSize(request.segmentBytes), source.size);
   const stop = new AbortController();
   const combined = AbortSignal.any([signal, stop.signal]);
-  const response = await fetchImpl(source.url, {
+  const response = await fetchWithStall(request, fetchImpl, source.url, {
     headers: { Range: `bytes=${String(offset)}-${String(firstEnd - 1)}` },
     signal: combined,
     cache: 'no-store',
@@ -367,7 +391,7 @@ async function transfer(
     // One of the later segments came back as a full 200 body. Keep the already valid prefix
     // while the plain single-stream path overwrites it from the start, so progress does not
     // rewind and an interrupted fallback can still resume.
-    const fallback = await fetchImpl(source.url, {
+    const fallback = await fetchWithStall(request, fetchImpl, source.url, {
       signal,
       cache: 'no-store',
       redirect: 'follow',
@@ -422,11 +446,23 @@ async function transferSingle(
   }
 
   const reader = response.body.getReader();
-  const writer = await store.createWriter(
-    partPath,
-    offset,
-    keepExistingData ? { keepExistingData: true } : undefined,
-  );
+  let writer: ModelFileWriter;
+  try {
+    writer = await withinStall(
+      request,
+      store.createWriter(
+        partPath,
+        offset,
+        keepExistingData ? { keepExistingData: true } : undefined,
+      ),
+      undefined,
+      true,
+    );
+  } catch (error) {
+    void reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+    throw error;
+  }
   const report = progressReporter(request, resumedFrom, progressFloor);
   let writerClosed = false;
   let received = offset;
@@ -434,25 +470,27 @@ async function transferSingle(
   const closeWriter = async (): Promise<void> => {
     if (writerClosed) return;
     writerClosed = true;
-    await writer.close().catch(() => undefined);
+    await withinStall(request, writer.close(), undefined, true);
   };
 
   try {
     while (true) {
       throwIfAborted(signal);
-      const { done, value } = await reader.read();
+      const { done, value } = await withinStall(request, reader.read(), () => {
+        void reader.cancel().catch(() => undefined);
+      });
       if (done) break;
       if (!value || value.byteLength === 0) continue;
 
       if (received + value.byteLength > source.size) {
         await reader.cancel().catch(() => undefined);
-        await closeWriter();
+        await closeWriter().catch(() => undefined);
         await store.remove(partPath);
         throw new EngineError('download-failed', 'The model is larger than the pinned size.');
       }
 
       const chunkBytes = value.byteLength;
-      await writer.write(value);
+      await withinStall(request, writer.write(value), undefined, true);
       hasher?.update(value);
       await hasher?.waitForCapacity();
       received += chunkBytes;
@@ -496,7 +534,18 @@ async function transferSegments(
   let refreshedUrl = false;
   let refreshTask: Promise<{ url: string }> | null = null;
 
-  const writer = await store.createWriter(partPath, initialOffset);
+  let writer: ModelFileWriter;
+  try {
+    writer = await withinStall(
+      request,
+      store.createWriter(partPath, initialOffset),
+      undefined,
+      true,
+    );
+  } catch (error) {
+    stop.abort();
+    throw error;
+  }
   const report = progressReporter(request, resumedFrom);
   const maxBuffered = concurrencyOf(request.concurrency);
 
@@ -557,7 +606,7 @@ async function transferSegments(
 
       ready.delete(nextWrite);
       const blockBytes = block.byteLength;
-      await writer.write(block);
+      await withinStall(request, writer.write(block), undefined, true);
       hasher?.update(block);
       await hasher?.waitForCapacity();
       received += blockBytes;
@@ -571,7 +620,7 @@ async function transferSegments(
     if (!refreshTask) {
       refreshedUrl = true;
       refreshTask = (async () => {
-        const response = await fetchImpl(source.url, {
+        const response = await fetchWithStall(request, fetchImpl, source.url, {
           headers: { Range: `bytes=${String(segment.start)}-${String(segment.end - 1)}` },
           signal: combined,
           cache: 'no-store',
@@ -622,7 +671,7 @@ async function transferSegments(
           const requestedUrl = resolvedUrl;
           const response =
             candidate ??
-            (await fetchImpl(requestedUrl, {
+            (await fetchWithStall(request, fetchImpl, requestedUrl, {
               headers: { Range: `bytes=${String(start)}-${String(end - 1)}` },
               signal: combined,
               cache: 'no-store',
@@ -661,7 +710,7 @@ async function transferSegments(
           if (response.status !== 206) throw statusError(response);
 
           const length = validateSegment(response, { start, end }, source.size);
-          const piece = await readSegment(response, length, combined);
+          const piece = await readSegment(request, response, length, combined);
           active = undefined;
           data.set(piece, filled);
           filled += piece.length;
@@ -679,6 +728,7 @@ async function transferSegments(
         }
         return data;
       } catch (error) {
+        if (error instanceof DownloadStallError) throw error;
         if (!(error instanceof SegmentRangeIgnoredError)) {
           await active?.body?.cancel().catch(() => undefined);
         }
@@ -693,6 +743,7 @@ async function transferSegments(
       }
     }
 
+    if (lastError instanceof DownloadStallError) throw lastError;
     if (isEngineError(lastError) && !lastError.retryable) throw lastError;
     throw new EngineError('download-failed', 'A model download segment failed.', {
       cause: lastError,
@@ -742,10 +793,13 @@ async function transferSegments(
   // Stop in-flight segment requests and let the ordered writer close its handle before the
   // caller either retries from the persisted prefix or falls back to a single stream.
   stop.abort();
-  await Promise.allSettled(tasks);
-  await writer.close().catch(() => undefined);
+  await withinStall(request, Promise.allSettled(tasks)).catch(() => undefined);
+  const closeError = await withinStall(request, writer.close(), undefined, true).catch(
+    (error: unknown) => error,
+  );
 
   if (failure) throw failure;
+  if (closeError) throw closeError;
   report(received, true);
 
   if (received !== source.size) {
@@ -841,10 +895,17 @@ export async function downloadModel(request: DownloadRequest): Promise<DownloadR
         return { bytes: reused.bytes, sha256: reused.sha256, resumedFrom };
       }
 
-      await request.store.move(request.partPath, request.finalPath);
+      await withinStall(
+        request,
+        request.store.move(request.partPath, request.finalPath),
+        undefined,
+        true,
+      );
       return { bytes, sha256: digest, resumedFrom };
     } catch (error) {
       if (isAbortError(error) || request.signal.aborted) throw abortError();
+      // The platform may still complete a timed-out writer. A later call must use a new part.
+      if (error instanceof DownloadStallError && error.writer) throw error;
 
       if (isEngineError(error) && error.code === 'model-integrity') {
         if (integrityRetried) throw error;

@@ -2,6 +2,7 @@ import { abortError, EngineError, isAbortError } from '../errors';
 import type { DownloadProgress, DownloadPhase } from './download';
 import type { ModelFileStore } from './file-store';
 import { sha256OfBlob, type HashOptions } from './sha256';
+import { stallTimeoutOf, withinStall } from './stall';
 
 export const DEFAULT_COPY_CHUNK_BYTES = 1024 * 1024;
 
@@ -16,6 +17,7 @@ export interface CopyModelRequest {
   onProgress?: (progress: DownloadProgress) => void;
   hashBlob?: (blob: Blob, options?: HashOptions) => Promise<string>;
   chunkBytes?: number;
+  stallTimeoutMs?: number;
 }
 
 export interface CopyModelResult {
@@ -105,14 +107,15 @@ export async function copyModelFile(request: CopyModelRequest): Promise<CopyMode
 
   await discardPart(store, partPath);
 
-  const writer = await store.createWriter(partPath, 0);
+  const stallTimeout = stallTimeoutOf(request.stallTimeoutMs);
+  const writer = await withinStall(store.createWriter(partPath, 0), stallTimeout, undefined, true);
   let writerClosed = false;
   let received = 0;
 
   const closeWriter = async (): Promise<void> => {
     if (writerClosed) return;
     writerClosed = true;
-    await writer.close().catch(() => undefined);
+    await withinStall(writer.close(), stallTimeout, undefined, true);
   };
 
   try {
@@ -130,7 +133,7 @@ export async function copyModelFile(request: CopyModelRequest): Promise<CopyMode
       const slice = blob.slice(offset, Math.min(offset + chunkBytes, blob.size));
       const chunk = new Uint8Array(await slice.arrayBuffer());
       if (chunk.byteLength === 0) continue;
-      await writer.write(chunk);
+      await withinStall(writer.write(chunk), stallTimeout, undefined, true);
       received += chunk.byteLength;
       emitProgress(request, progressOf(received, size, 'download'));
       if (offset > 0) await Promise.resolve();
@@ -167,10 +170,10 @@ export async function copyModelFile(request: CopyModelRequest): Promise<CopyMode
       });
     }
 
-    await store.move(partPath, finalPath);
+    await withinStall(store.move(partPath, finalPath), stallTimeout, undefined, true);
     return { bytes: copied.size, sha256: digest };
   } catch (error) {
-    await closeWriter();
+    await closeWriter().catch(() => undefined);
     await discardPart(store, partPath);
     if (isAbortError(error) || signal.aborted) throw abortError();
     throw error;

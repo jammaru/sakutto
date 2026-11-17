@@ -1072,6 +1072,49 @@ describe('resumable model download', () => {
     expect(store.files.has(FINAL)).toBe(false);
   });
 
+  it('surfaces a retryable error when a response body stops making progress', async () => {
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    const fetchImpl = async () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(stream) {
+            stream.enqueue(PAYLOAD.slice(0, 4));
+          },
+        }),
+        { status: 200 },
+      );
+
+    const promise = downloadModel({
+      ...baseRequest(store, controller.signal),
+      fetchImpl,
+      stallTimeoutMs: 20,
+    });
+
+    await expect(within(promise, 1_000)).rejects.toMatchObject({
+      code: 'download-failed',
+      retryable: true,
+    });
+  });
+
+  it('surfaces a retryable error when creating a file writer stalls', async () => {
+    const store = new MemoryFileStore();
+    const controller = new AbortController();
+    store.createWriter = async () => new Promise(() => undefined);
+    const fetchImpl = async () => new Response(new Uint8Array(PAYLOAD), { status: 200 });
+
+    const promise = downloadModel({
+      ...baseRequest(store, controller.signal),
+      fetchImpl,
+      stallTimeoutMs: 20,
+    });
+
+    await expect(within(promise, 1_000)).rejects.toMatchObject({
+      code: 'download-failed',
+      retryable: true,
+    });
+  });
+
   it('counts a 200 stream after the hashing worker detaches every chunk', async () => {
     const store = new MemoryFileStore();
     const controller = new AbortController();

@@ -199,7 +199,8 @@ describe('network surface', () => {
     const download = files.find((file) => file.path === 'src/engine/model/download.ts');
     if (!download) throw new Error('download.ts was not found');
 
-    const call = /\bfetchImpl\(([^;]*?)\);/u.exec(download.code)?.[1] ?? '';
+    const call =
+      /\bfetchWithStall\(request,\s*fetchImpl,\s*([^,]+),/u.exec(download.code)?.[1] ?? '';
     expect(call).toContain('source.url');
     expect(call).not.toMatch(/\bbody\s*:/u);
     expect(call).not.toMatch(/\bcredentials\s*:/u);

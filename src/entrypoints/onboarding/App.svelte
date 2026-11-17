@@ -39,6 +39,7 @@
     requestModelCancel,
     requestModelDownload,
     requestEngineWarm,
+    requestModelFolderAdopt,
     requestModelFolderReload,
     requestEngineStatus,
     requestModelInspect,
@@ -137,6 +138,8 @@
   let continued = $state(false);
   let marks = $state<ByteMark[]>([]);
   let now = $state(Date.now());
+  /** Set after a Firefox folder copy finished so Start does not open the picker again. */
+  let firefoxCopyDone = $state(false);
 
   /**
    * The keys Chrome has bound right now, so the "you are ready" checklist names the keys the
@@ -241,10 +244,18 @@
     marks = next.length > 40 ? next.slice(-40) : next;
   }
 
-  function chooseStore(choice: ModelStorageChoiceValue) {
+  async function chooseStore(choice: ModelStorageChoiceValue) {
     storeTouched = true;
-    storeChoice = choice;
     pickError = null;
+    if (!pickerAvailable && choice === 'copy') {
+      storeChoice = 'copy';
+      if (await copyFromFirefoxFolder()) {
+        firefoxCopyDone = true;
+        storeChoice = 'browser';
+      }
+      return;
+    }
+    storeChoice = choice;
   }
 
   function cancelFolderCopy(): void {
@@ -255,6 +266,10 @@
     // `pickDirectoryFiles` clicks the input synchronously, inside the start click.
     const files = await pickDirectoryFiles(copyInput);
     if (!files) return false;
+    if (files.length === 0) {
+      pickError = t('modelStorageNoModels');
+      return false;
+    }
 
     copyingFolder = true;
     copyController = new AbortController();
@@ -270,6 +285,10 @@
           copyProgress = item;
         },
       });
+      if (result.discovered.length === 0) {
+        pickError = t('modelStorageNoModels');
+        return false;
+      }
       if (result.imported.length === 0) {
         pickError =
           result.failed.length > 0 ? t('modelStorageCopyFailed') : t('modelStorageNoModels');
@@ -280,6 +299,7 @@
       const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
       if (inspected) applyStatus(inspected);
       if (result.failed.length > 0) pickError = t('modelStorageSomeCopiesFailed');
+      firefoxCopyDone = true;
       return true;
     } catch (copyError) {
       if (!isAbortError(copyError) && !copyController.signal.aborted) {
@@ -309,8 +329,13 @@
     }
 
     if (!pickerAvailable && storeChoice === 'copy') {
-      if (!(await copyFromFirefoxFolder())) return;
-      storeChoice = 'browser';
+      if (firefoxCopyDone || modelState === 'ready' || modelState === 'loaded') {
+        storeChoice = 'browser';
+      } else if (!(await copyFromFirefoxFolder())) {
+        return;
+      } else {
+        storeChoice = 'browser';
+      }
     }
 
     const downloadChoice: OnboardingStoreChoice = storeChoice === 'copy' ? 'browser' : storeChoice;
@@ -405,7 +430,7 @@
 
     if (pendingFolder) {
       await persistSharedFolderHandle(pendingFolder.handle);
-      const folder = await requestModelFolderReload();
+      const folder = await requestModelFolderAdopt();
       const issue = folder?.integrityIssues.find((item) => item.modelId === DEFAULT_MODEL_ID);
       if (issue) {
         await clearStoredSharedFolder();
@@ -415,14 +440,13 @@
         phase = 'consent';
         return;
       }
-      await requestEngineWarm();
+      if (folder) engineFolder = folder;
       const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
       if (inspected && (inspected.state === 'ready' || inspected.state === 'loaded')) {
         skipDownload = true;
         modelState = inspected.state;
       }
     } else if (keepExistingFolder) {
-      await requestEngineWarm();
       const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
       if (inspected && (inspected.state === 'ready' || inspected.state === 'loaded')) {
         skipDownload = true;
@@ -697,7 +721,7 @@
           notes={pickerAvailable ? chromiumNotes : firefoxNotes}
           benefits={storageBenefits}
           disabled={copyingFolder}
-          onChoose={chooseStore}
+          onChoose={(choice) => void chooseStore(choice)}
         />
         {#if !pickerAvailable}
           <input

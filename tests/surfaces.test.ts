@@ -50,6 +50,8 @@ describe('start controls while the model downloads', () => {
     expect(start).not.toContain('adoptPickedSharedFolder');
     expect(start.indexOf('saveSettings')).toBeGreaterThan(-1);
     expect(start.indexOf('saveSettings')).toBeLessThan(start.indexOf('persistSharedFolderHandle'));
+    expect(onboarding).toContain('copyFromFirefoxFolder');
+    expect(onboarding).toMatch(/chooseStore[\s\S]{0,400}copyFromFirefoxFolder/);
     expect(onboarding).toContain('warm={consentSaved}');
     expect(onboarding).toContain('(showStartButton && !consentSaved) || Boolean(integrityAlert)');
     expect(source('ui/ModelFolderSettings.svelte')).toContain('hasLicenseConsent');

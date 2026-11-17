@@ -35,6 +35,7 @@ function createManager(
     fetchImpl?: typeof fetch;
     fallbackStore?: MemoryFileStore;
     copyChunkBytes?: number;
+    stallTimeoutMs?: number;
     hashBlob?: (blob: Blob) => Promise<string>;
     downloadPartPaths?: Map<ModelId, string>;
   } = {},
@@ -49,6 +50,7 @@ function createManager(
     ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
     ...(options.fallbackStore ? { fallbackStore: options.fallbackStore } : {}),
     ...(options.copyChunkBytes !== undefined ? { copyChunkBytes: options.copyChunkBytes } : {}),
+    ...(options.stallTimeoutMs !== undefined ? { stallTimeoutMs: options.stallTimeoutMs } : {}),
     ...(options.hashBlob ? { hashBlob: options.hashBlob } : {}),
     ...(options.downloadPartPaths ? { downloadPartPaths: options.downloadPartPaths } : {}),
   });
@@ -222,6 +224,104 @@ describe('ModelManager', () => {
       }
     }
     expect(statuses.at(-1)).toMatchObject({ state: 'ready', progress: 1 });
+  });
+
+  it('finishes an active download in the store selected by a folder apply', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    const holder: { manager?: ModelManager; applying?: Promise<void> } = {};
+    let switched = false;
+    const originalCreateWriter = opfs.createWriter.bind(opfs);
+    opfs.createWriter = async (path, offset, options) => {
+      const writer = await originalCreateWriter(path, offset, options);
+      return {
+        write: async (chunk: Uint8Array) => {
+          await writer.write(chunk);
+          if (switched || !holder.manager) return;
+          switched = true;
+          holder.manager.setStores(shared, opfs);
+          holder.applying = holder.manager.adoptPresentModels();
+        },
+        close: () => writer.close(),
+      };
+    };
+    const created = createManager(opfs, {
+      fetchImpl: async () => new Response(new Uint8Array(PAYLOAD), { status: 200 }),
+    });
+    holder.manager = created.manager;
+
+    await created.manager.download(ENTRY.id, { signal: new AbortController().signal });
+    await holder.applying;
+
+    const finalPath = `models/${ENTRY.id}/model.gguf`;
+    expect(switched).toBe(true);
+    expect(new Uint8Array(shared.files.get(finalPath) ?? [])).toEqual(PAYLOAD);
+    expect(new Uint8Array(opfs.files.get(finalPath) ?? [])).toEqual(PAYLOAD);
+    expect(shared.text(`models/${ENTRY.id}/model.json`)).toContain(ENTRY.sha256);
+    expect(await created.manager.primaryReady(ENTRY.id)).toBe(true);
+  });
+
+  it('moves a saved partial prefix when a folder is picked before resuming', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    const partPath = `models/${ENTRY.id}/model.local.part`;
+    await opfs.append(partPath, PAYLOAD.slice(0, 4), 0);
+    const ranges: string[] = [];
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      const range = (init?.headers as Record<string, string>).Range ?? '';
+      ranges.push(range);
+      const start = Number(/^bytes=(\d+)-/u.exec(range)?.[1] ?? 0);
+      return new Response(PAYLOAD.slice(start), {
+        status: 206,
+        headers: {
+          'Content-Length': String(PAYLOAD.length - start),
+          'Content-Range': `bytes ${String(start)}-${String(PAYLOAD.length - 1)}/${String(PAYLOAD.length)}`,
+        },
+      });
+    });
+    const { manager } = createManager(opfs, {
+      fetchImpl,
+      downloadPartPaths: new Map([[ENTRY.id, partPath]]),
+    });
+    manager.setStores(shared, opfs);
+    const progress: number[] = [];
+
+    await manager.download(ENTRY.id, {
+      signal: new AbortController().signal,
+      onProgress: (event) => progress.push(event.received),
+    });
+
+    expect(ranges[0]).toBe(`bytes=4-${String(PAYLOAD.length - 1)}`);
+    expect(progress[0]).toBe(4);
+    expect(opfs.files.has(partPath)).toBe(false);
+    expect(new Uint8Array(shared.files.get(`models/${ENTRY.id}/model.gguf`) ?? [])).toEqual(
+      PAYLOAD,
+    );
+  });
+
+  it('uses a fresh part when retrying after a writer watchdog error', async () => {
+    const store = new MemoryFileStore();
+    const parts = new Map<ModelId, string>();
+    const originalCreateWriter = store.createWriter.bind(store);
+    const fetchImpl = vi.fn(async () => new Response(new Uint8Array(PAYLOAD), { status: 200 }));
+    const { manager } = createManager(store, {
+      fetchImpl,
+      downloadPartPaths: parts,
+      stallTimeoutMs: 20,
+    });
+    store.createWriter = async () => new Promise(() => undefined);
+
+    await expect(
+      manager.download(ENTRY.id, { signal: new AbortController().signal }),
+    ).rejects.toMatchObject({ code: 'download-failed', retryable: true });
+    expect(parts.has(ENTRY.id)).toBe(false);
+
+    store.createWriter = originalCreateWriter;
+    await manager.download(ENTRY.id, { signal: new AbortController().signal });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(store.files.get(`models/${ENTRY.id}/model.gguf`)).toEqual(PAYLOAD);
   });
 
   it('loads one runtime at a time and reuses it', async () => {

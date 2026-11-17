@@ -1,3 +1,12 @@
+/** Firefox may restore window focus before it fills `input.files` after the upload prompt. */
+const FOCUS_CANCEL_MS = 800;
+
+function filesFromInput(input: HTMLInputElement): File[] | null {
+  const list = input.files;
+  if (!list || list.length === 0) return null;
+  return Array.from(list);
+}
+
 /**
  * Opens a `webkitdirectory` input and resolves with the chosen files. The click must happen
  * directly inside the user gesture. If focus returns before the change event, the picker was
@@ -26,13 +35,21 @@ export function pickDirectoryFiles(
       resolve(files);
     };
     const onChange = (): void => {
-      finish(input.files ? Array.from(input.files) : []);
+      if (focusTimer !== null) {
+        clearTimeout(focusTimer);
+        focusTimer = null;
+      }
+      finish(filesFromInput(input));
     };
     const onCancel = (): void => {
       finish(null);
     };
     const onFocus = (): void => {
-      focusTimer = setTimeout(() => finish(null), 300);
+      if (focusTimer !== null) clearTimeout(focusTimer);
+      focusTimer = setTimeout(() => {
+        focusTimer = null;
+        finish(filesFromInput(input));
+      }, FOCUS_CANCEL_MS);
     };
 
     input.addEventListener('change', onChange);

@@ -34,7 +34,11 @@ function options(overrides: Partial<Parameters<typeof copySharedFolderFilesToOpf
 
 describe('discoverSharedModelFiles', () => {
   it('accepts a parent folder or the inner sakutto-models folder', () => {
-    for (const path of [`Sakutto/sakutto-models/${ENTRY.file}`, `sakutto-models/${ENTRY.file}`]) {
+    for (const path of [
+      `Sakutto/sakutto-models/${ENTRY.file}`,
+      `sakutto/sakutto-models/${ENTRY.file}`,
+      `sakutto-models/${ENTRY.file}`,
+    ]) {
       const matches = discoverSharedModelFiles([fileAt(path)], {
         modelIds: [ENTRY.id],
         entries: { [ENTRY.id]: ENTRY },
