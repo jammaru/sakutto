@@ -208,6 +208,36 @@ interface InflightBatch {
   streaming: boolean;
 }
 
+export interface PageSelectionSnapshot {
+  text: string;
+  rect: DOMRect;
+}
+
+/** Capture a document selection now; later awaits must not depend on it still existing. */
+export function capturePageSelection(
+  doc: Document,
+  isOwnUi: (node: Node) => boolean = () => false,
+): PageSelectionSnapshot | null {
+  for (const current of collectDocuments(doc)) {
+    const selection = current.getSelection?.() ?? current.defaultView?.getSelection() ?? null;
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0) continue;
+    const text = selection.toString().trim();
+    if (text.length === 0 || !hasTranslatableText(text)) continue;
+    const endpoint = selection.anchorNode ?? selection.focusNode;
+    if (endpoint && isOwnUi(endpoint)) continue;
+    // A field the reader is typing in reports its value as the document selection.
+    if (isTypedTextSelection(current.activeElement, text)) continue;
+    let range: Range;
+    try {
+      range = selection.getRangeAt(0);
+    } catch {
+      continue;
+    }
+    return { text, rect: selectionViewportRect(range, current, doc) };
+  }
+  return null;
+}
+
 export interface PageSessionOptions {
   engine: PageEngine;
   labels: OverlayLabels;
@@ -803,25 +833,8 @@ export class PageSession {
     this.translateSelection(selected.text, selected.rect);
   }
 
-  private readSelection(): { text: string; rect: DOMRect } | null {
-    for (const doc of collectDocuments(this.doc)) {
-      const selection = doc.getSelection?.() ?? doc.defaultView?.getSelection() ?? null;
-      if (!selection || selection.isCollapsed || selection.rangeCount === 0) continue;
-      const text = selection.toString().trim();
-      if (text.length === 0 || !hasTranslatableText(text)) continue;
-      const endpoint = selection.anchorNode ?? selection.focusNode;
-      if (endpoint && this.overlay.contains(endpoint)) continue;
-      // A field the reader is typing in reports its value as the document selection.
-      if (isTypedTextSelection(doc.activeElement, text)) continue;
-      let range: Range;
-      try {
-        range = selection.getRangeAt(0);
-      } catch {
-        continue;
-      }
-      return { text, rect: selectionViewportRect(range, doc, this.doc) };
-    }
-    return null;
+  private readSelection(): PageSelectionSnapshot | null {
+    return capturePageSelection(this.doc, (node) => this.overlay.contains(node));
   }
 
   /**

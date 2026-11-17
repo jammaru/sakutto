@@ -812,6 +812,7 @@ export class PageOverlay {
     wideGapAfterLine?: readonly boolean[],
   ): void {
     const opening = this.popHost.hidden;
+    this.popHost.setAttribute('aria-busy', pending ? 'true' : 'false');
     if (pending) this.popBody.textContent = this.labels.selectionPending;
     else setPlainTextContent(this.popBody, text, wideGapAfterLine);
     this.popBody.lang = lang ?? '';

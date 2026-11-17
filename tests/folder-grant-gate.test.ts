@@ -80,6 +80,17 @@ describe('folder grant gate', () => {
     expect(end).toContain('this.overlay.hideFolderEnable()');
   });
 
+  it('captures a selection before the async command path', () => {
+    const content = source('content/main.ts');
+    const capture = content.indexOf(
+      "message.command === 'selection' ? capturePageSelection(document)",
+    );
+    expect(capture).toBeGreaterThan(-1);
+    expect(content.indexOf('void sessionPromise.then', capture)).toBeGreaterThan(capture);
+    expect(content).toContain('run(message.command, selection)');
+    expect(content).toContain('session.translateSelection(selection.text, selection.rect)');
+  });
+
   it('keeps a deferred command until the page accepts it', () => {
     const grant = source('background/folder-grant.ts');
     const resume = grant.slice(grant.indexOf('export async function resumeFolderGrantPending'));

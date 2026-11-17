@@ -14,6 +14,7 @@ import {
 import {
   PAGE_SHORTCUT_DEDUP_MS,
   PageSession,
+  capturePageSelection,
   type PageEngine,
   type SessionPreferences,
 } from '@/dom/session';
@@ -258,6 +259,25 @@ describe('page session', () => {
     expect(snapshot(document.body)).toEqual(before);
     expect(document.querySelector('sakutto-line')).toBeNull();
     expect(document.querySelector('sakutto-note')).toBeNull();
+  });
+
+  it('captures the document selection before later awaits can clear it', () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p id="lead">Hello world</p>';
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing lead');
+    const range = document.createRange();
+    range.selectNodeContents(lead);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+
+    const snapshot = capturePageSelection(document);
+    expect(snapshot?.text).toBe('Hello world');
+    expect(snapshot?.rect).toBeInstanceOf(DOMRect);
+
+    selection?.removeAllRanges();
+    expect(capturePageSelection(document)).toBeNull();
   });
 
   it('streams plain text and keeps placeholder segments intact until the final text', async () => {

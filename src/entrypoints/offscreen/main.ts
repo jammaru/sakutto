@@ -24,7 +24,12 @@ browser.runtime.onConnect.addListener((port) => {
 });
 
 if (typeof window !== 'undefined' && window.parent !== window) {
-  window.parent.postMessage({ source: FRAME_READY, type: 'ready' }, window.location.origin);
+  try {
+    window.parent.postMessage({ source: FRAME_READY, type: 'ready' }, window.location.origin);
+  } catch {
+    // The embedding frame went away while the offscreen document was opening.
+  }
+  void browser.runtime.lastError;
 }
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {

@@ -12,7 +12,12 @@ import {
   type OutlookBannerLabels,
 } from '@/dom/outlook-banner';
 import type { OverlayLabels } from '@/dom/overlay';
-import { PageSession, preferencesFor } from '@/dom/session';
+import {
+  PageSession,
+  capturePageSelection,
+  preferencesFor,
+  type PageSelectionSnapshot,
+} from '@/dom/session';
 import { VideoCaptionSession, type CaptionSessionPreferences } from '@/captions/session';
 import type { CaptionOverlayLabels } from '@/captions/overlay';
 import { captionsAllowedOnPage, videoCaptionPositionSite } from '@/captions/sites';
@@ -732,7 +737,7 @@ export function contentMain(): void {
     session.setFolderGrantUiActive(folderNeedsUserAction);
   };
 
-  const run = async (command: PageCommandName) => {
+  const run = async (command: PageCommandName, selection?: PageSelectionSnapshot | null) => {
     const now = Date.now();
     // Compose re-entry is owned by the controller so a Chrome command that found no field
     // cannot swallow the page keydown (or a second command) that does.
@@ -759,11 +764,17 @@ export function contentMain(): void {
       session.beginFolderGrantWait();
       return session.state();
     }
+    if (command === 'selection' && selection) {
+      // The menu may have collapsed the document selection while the arm round-trip ran.
+      session.translateSelection(selection.text, selection.rect);
+      return session.state();
+    }
     await session.handle(command);
     return session.state();
   };
   pageCommandBridge.deliver = (command) => {
-    void run(command);
+    const selection = command === 'selection' ? capturePageSelection(document) : null;
+    void run(command, selection);
   };
 
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -873,14 +884,18 @@ export function contentMain(): void {
       });
       return;
     }
-    if (!isPageCommandRequest(message) && !isPageStateRequest(message)) return;
-
-    void sessionPromise.then(async (session) => {
-      if (isPageStateRequest(message)) {
+    if (isPageStateRequest(message)) {
+      void sessionPromise.then((session) => {
         sendResponse(session.state());
-        return;
-      }
-      if (isPageCommandRequest(message)) sendResponse(await run(message.command));
+      });
+      return true;
+    }
+    if (!isPageCommandRequest(message)) return;
+    // Capture before the first await: opening a context menu can clear the selection while
+    // the background arm round-trip is still running.
+    const selection = message.command === 'selection' ? capturePageSelection(document) : null;
+    void sessionPromise.then(async () => {
+      sendResponse(await run(message.command, selection));
     });
     return true;
   });

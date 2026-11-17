@@ -382,6 +382,8 @@ export class EngineHost {
     port.onDisconnect.addListener(() => {
       this.ports.delete(port);
       this.detachPort(port);
+      // The engine port can close while the embedding frame enters BFCache.
+      void browser.runtime.lastError;
     });
   }
 
@@ -1510,5 +1512,7 @@ export class EngineHost {
     } catch {
       // The other end is gone; pending requests are settled by the disconnect handler.
     }
+    // Read the error even when the disconnect is reported asynchronously (BFCache).
+    void browser.runtime.lastError;
   }
 }
