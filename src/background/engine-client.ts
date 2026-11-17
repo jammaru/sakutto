@@ -1,4 +1,5 @@
 import { browser, type Browser } from 'wxt/browser';
+import { readRuntimeLastError } from '@/shared/runtime-last-error';
 import { abortError, EngineError, isAbortError } from '@/engine/errors';
 import type { ModelId } from '@/engine/model/catalog';
 import {
@@ -313,7 +314,7 @@ export class EngineClient {
         segments: segments.map((segment) => ({ ...segment })),
         options: serializeTranslateOptions(options),
       } satisfies TranslateRequest);
-      void browser.runtime.lastError;
+      readRuntimeLastError();
 
       for await (const chunk of stream) yield chunk;
     } catch (error) {
@@ -390,6 +391,7 @@ export class EngineClient {
       this.inbox = this.inbox.then(() => this.handleMessage(message)).catch(() => undefined);
     });
     port.onDisconnect.addListener(() => {
+      readRuntimeLastError();
       if (this.port === port) this.handleDisconnect();
     });
     return port;
@@ -459,7 +461,7 @@ export class EngineClient {
 
       try {
         port.postMessage(message);
-        void browser.runtime.lastError;
+        readRuntimeLastError();
       } catch (error) {
         this.pending.delete(message.requestId);
         if (timer) clearTimeout(timer);
@@ -568,7 +570,7 @@ export class EngineClient {
     } catch {
       // The port is gone; the disconnect handler settles the streams.
     }
-    void browser.runtime.lastError;
+    readRuntimeLastError();
   }
 }
 

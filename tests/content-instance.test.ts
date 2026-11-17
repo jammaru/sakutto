@@ -134,7 +134,9 @@ describe('content extension instance markers', () => {
   it('does not tear down on service worker idle disconnect and reconnects', () => {
     vi.useFakeTimers();
     const cleaned: string[] = [];
-    installContentInvalidationCleanup(() => cleaned.push('done'), { initialReconnectMs: 200 });
+    const cleanup = installContentInvalidationCleanup(() => cleaned.push('done'), {
+      initialReconnectMs: 200,
+    });
 
     expect(connectMock).toHaveBeenCalledTimes(1);
     lastError = { message: 'Could not establish connection. Receiving end does not exist.' };
@@ -144,13 +146,36 @@ describe('content extension instance markers', () => {
     vi.advanceTimersByTime(200);
     expect(connectMock).toHaveBeenCalledTimes(2);
     expect(cleaned).toEqual([]);
+    cleanup();
+  });
+
+  it('reconnects on a persisted pageshow without waiting for the retry timer', () => {
+    vi.useFakeTimers();
+    const cleaned: string[] = [];
+    const cleanup = installContentInvalidationCleanup(() => cleaned.push('done'), {
+      initialReconnectMs: 200,
+    });
+
+    lastError = undefined;
+    disconnectListener?.();
+    expect(connectMock).toHaveBeenCalledTimes(1);
+
+    const event = new Event('pageshow');
+    Object.defineProperty(event, 'persisted', { value: true });
+    window.dispatchEvent(event);
+    expect(connectMock).toHaveBeenCalledTimes(2);
+
+    vi.advanceTimersByTime(200);
+    expect(connectMock).toHaveBeenCalledTimes(2);
+    expect(cleaned).toEqual([]);
+    cleanup();
   });
 
   it('tears down once when the extension context is invalidated', () => {
     const cleaned: string[] = [];
     const token = 'invalidate-me';
     registerLiveContentInstanceToken(token);
-    installContentInvalidationCleanup(() => {
+    const cleanup = installContentInvalidationCleanup(() => {
       cleaned.push('done');
       unregisterLiveContentInstanceToken(token);
       removeOwnedMailBannerHosts(document, token);
@@ -170,5 +195,6 @@ describe('content extension instance markers', () => {
 
     disconnectListener?.();
     expect(cleaned).toEqual(['done']);
+    cleanup();
   });
 });

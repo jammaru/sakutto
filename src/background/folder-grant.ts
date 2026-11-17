@@ -1,4 +1,5 @@
 import { browser } from 'wxt/browser';
+import { readRuntimeLastError } from '@/shared/runtime-last-error';
 import type { EngineClient } from '@/background/engine-client';
 import { sharedFolderNeedsUserAction } from '@/shared/engine-status';
 import {
@@ -18,7 +19,7 @@ import {
 async function notifyGrantNeeded(tabId: number, command: PageCommandName): Promise<void> {
   const message: FolderGrantNeededMessage = { type: 'folder:grant-needed', command };
   await browser.tabs.sendMessage(tabId, message).catch(() => undefined);
-  void browser.runtime.lastError;
+  readRuntimeLastError();
 }
 
 async function tryOpenPopup(): Promise<void> {
@@ -127,7 +128,7 @@ async function resumeFolderGrantPendingNow(client: EngineClient): Promise<boolea
       pending.frameId === undefined ? {} : { frameId: pending.frameId },
     )
     .catch(() => undefined);
-  void browser.runtime.lastError;
+  readRuntimeLastError();
   await clearFolderGrantPending();
   return true;
 }

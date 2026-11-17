@@ -1,4 +1,5 @@
-import { browser } from 'wxt/browser';
+import { browser, type Browser } from 'wxt/browser';
+import { readRuntimeLastError } from './runtime-last-error';
 
 /** Written on `document.documentElement` so a reloaded build can claim the page from an orphan script. */
 export const CONTENT_INSTANCE_DOC_ATTR = 'data-sakutto-extension-instance';
@@ -161,9 +162,11 @@ export interface ContentInvalidationCleanupOptions {
 export function installContentInvalidationCleanup(
   onInvalidate: () => void,
   options: ContentInvalidationCleanupOptions = {},
-): void {
+): () => void {
   let tornDown = false;
   let reconnectAttempt = 0;
+  let port: Browser.runtime.Port | null = null;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   const baseDelay = options.initialReconnectMs ?? 500;
 
   const teardown = (): void => {
@@ -172,38 +175,82 @@ export function installContentInvalidationCleanup(
     onInvalidate();
   };
 
+  const scheduleReconnect = (): void => {
+    if (tornDown || reconnectTimer !== null) return;
+    const delay = Math.min(30_000, baseDelay * 2 ** reconnectAttempt);
+    reconnectAttempt += 1;
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      connect();
+    }, delay);
+  };
+
   const connect = (): void => {
-    if (tornDown) return;
+    if (tornDown || port) return;
     try {
-      const port = browser.runtime.connect({ name: CONTENT_LIVENESS_PORT });
+      const next = browser.runtime.connect({ name: CONTENT_LIVENESS_PORT });
+      port = next;
       reconnectAttempt = 0;
-      port.onMessage.addListener((message: unknown) => {
+      next.onMessage.addListener((message: unknown) => {
         if (isContentLoadGenerationMessage(message)) {
           applyContentLoadGeneration(message.generation);
         }
       });
-      port.onDisconnect.addListener(() => {
+      next.onDisconnect.addListener(() => {
+        if (port === next) port = null;
+        else return;
         if (tornDown) return;
-        if (isExtensionContextInvalidated()) {
+        const invalidated = isExtensionContextInvalidated();
+        readRuntimeLastError();
+        if (invalidated) {
           teardown();
           return;
         }
-        const delay = Math.min(30_000, baseDelay * 2 ** reconnectAttempt);
-        reconnectAttempt += 1;
-        setTimeout(connect, delay);
+        scheduleReconnect();
       });
     } catch {
-      if (isExtensionContextInvalidated()) {
+      port = null;
+      const invalidated = isExtensionContextInvalidated();
+      readRuntimeLastError();
+      if (invalidated) {
         teardown();
         return;
       }
-      const delay = Math.min(30_000, baseDelay * 2 ** reconnectAttempt);
-      reconnectAttempt += 1;
-      setTimeout(connect, delay);
+      scheduleReconnect();
     }
   };
 
+  const reconnectNow = (): void => {
+    if (tornDown || port) return;
+    if (reconnectTimer !== null) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    connect();
+  };
+
+  const onPageShow = (event: PageTransitionEvent): void => {
+    // A BFCache restore can close the liveness channel without invalidating the extension.
+    if (event.persisted) reconnectNow();
+  };
+  if (typeof window !== 'undefined') window.addEventListener('pageshow', onPageShow);
+
   connect();
+
+  return () => {
+    tornDown = true;
+    if (reconnectTimer !== null) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    if (typeof window !== 'undefined') window.removeEventListener('pageshow', onPageShow);
+    try {
+      port?.disconnect();
+    } catch {
+      readRuntimeLastError();
+    }
+    port = null;
+  };
 }
 
 /** @internal */

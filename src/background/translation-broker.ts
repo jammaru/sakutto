@@ -1,4 +1,5 @@
 import { browser, type Browser } from 'wxt/browser';
+import { readRuntimeLastError } from '@/shared/runtime-last-error';
 import {
   errorPayload,
   isTranslationCancelRequest,
@@ -59,7 +60,7 @@ export class TranslationBroker {
       }
       // Chrome reports a tab entering BFCache through runtime.lastError even after a
       // synchronous throw. Reading it clears the unchecked-error warning.
-      void browser.runtime.lastError;
+      readRuntimeLastError();
     };
 
     port.onMessage.addListener((message: unknown) => {
@@ -93,6 +94,7 @@ export class TranslationBroker {
     });
 
     port.onDisconnect.addListener(() => {
+      readRuntimeLastError();
       if (tabId !== undefined) this.tabs.get(tabId)?.delete(port);
       for (const controller of controllers.values()) controller.abort();
       controllers.clear();

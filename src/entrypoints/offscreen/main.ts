@@ -1,4 +1,5 @@
 import { browser } from 'wxt/browser';
+import { readRuntimeLastError } from '@/shared/runtime-last-error';
 import { EngineHost } from '@/engine/offscreen/host';
 import {
   applyFirefoxWebGpuKickFlag,
@@ -29,7 +30,7 @@ if (typeof window !== 'undefined' && window.parent !== window) {
   } catch {
     // The embedding frame went away while the offscreen document was opening.
   }
-  void browser.runtime.lastError;
+  readRuntimeLastError();
 }
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {

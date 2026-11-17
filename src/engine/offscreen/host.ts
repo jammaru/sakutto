@@ -1,4 +1,5 @@
 import { browser, type Browser } from 'wxt/browser';
+import { readRuntimeLastError } from '@/shared/runtime-last-error';
 import { hasLicenseConsent } from '@/shared/agreement';
 import { lastGpuDiagnostic, probeCapabilities } from '@/shared/capabilities';
 import { mergeGpuDiagnostic, type GpuDiagnostic } from '@/shared/gpu-diagnostic';
@@ -383,7 +384,7 @@ export class EngineHost {
       this.ports.delete(port);
       this.detachPort(port);
       // The engine port can close while the embedding frame enters BFCache.
-      void browser.runtime.lastError;
+      readRuntimeLastError();
     });
   }
 
@@ -1031,7 +1032,9 @@ export class EngineHost {
       this.plamoReady = modelCanTranslate(model);
       void browser.runtime
         .sendMessage?.({ type: 'model:progress', status: model } satisfies ModelProgressMessage)
-        ?.catch(() => undefined);
+        ?.catch(() => {
+          readRuntimeLastError();
+        });
       this.respond(port, request.requestId, status);
     } catch (error) {
       this.respondError(port, request.requestId, error);
@@ -1513,6 +1516,6 @@ export class EngineHost {
       // The other end is gone; pending requests are settled by the disconnect handler.
     }
     // Read the error even when the disconnect is reported asynchronously (BFCache).
-    void browser.runtime.lastError;
+    readRuntimeLastError();
   }
 }

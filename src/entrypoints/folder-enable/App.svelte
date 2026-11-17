@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { readRuntimeLastError } from '@/shared/runtime-last-error';
   import { browser } from 'wxt/browser';
   import { ensureStoredFolderPermission } from '@/engine/model/shared-folder';
   import { notifySharedFolderChanged } from '@/engine/model/folder-offer';
@@ -16,6 +17,7 @@
     try {
       await browser.runtime.sendMessage({ type: 'folder:open-enable' });
     } catch {
+      readRuntimeLastError();
       failed = true;
     } finally {
       busy = false;
@@ -40,10 +42,15 @@
       // this gesture renewed has to be re-opened by the engine host.
       if (access.changed) await requestModelFolderReload();
       notifySharedFolderChanged();
-      await browser.runtime.sendMessage({ type: 'folder:resume-pending' }).catch(() => undefined);
-      await browser.runtime.sendMessage({ type: 'folder:grant-complete' }).catch(() => undefined);
+      await browser.runtime.sendMessage({ type: 'folder:resume-pending' }).catch(() => {
+        readRuntimeLastError();
+      });
+      await browser.runtime.sendMessage({ type: 'folder:grant-complete' }).catch(() => {
+        readRuntimeLastError();
+      });
       window.close();
     } catch {
+      readRuntimeLastError();
       failed = true;
     } finally {
       busy = false;

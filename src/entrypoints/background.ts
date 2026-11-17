@@ -1,4 +1,5 @@
 import { browser } from 'wxt/browser';
+import { readRuntimeLastError } from '@/shared/runtime-last-error';
 import { defineBackground } from 'wxt/utils/define-background';
 import { EngineClient } from '@/background/engine-client';
 import { createEngineHostController } from '@/background/engine-host-document';
@@ -116,7 +117,7 @@ export default defineBackground(() => {
       type: CONTENT_LIVENESS_GENERATION_MESSAGE,
       generation: contentLoadGeneration,
     });
-    void browser.runtime.lastError;
+    readRuntimeLastError();
     port.onMessage.addListener(() => undefined);
   });
   subscribeSettings((settings) => {
@@ -197,12 +198,14 @@ export default defineBackground(() => {
   async function broadcast(message: ModelProgressMessage): Promise<void> {
     await broadcastModelProgress(message, {
       sendExtension: async (item) => {
-        await browser.runtime.sendMessage(item);
+        await browser.runtime.sendMessage(item).catch(() => {
+          readRuntimeLastError();
+        });
       },
       listTabs: () => browser.tabs.query({}),
       sendTab: async (tabId, item) => {
         await browser.tabs.sendMessage(tabId, item).catch(() => undefined);
-        void browser.runtime.lastError;
+        readRuntimeLastError();
       },
     });
   }

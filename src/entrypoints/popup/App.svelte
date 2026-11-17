@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { readRuntimeLastError } from '@/shared/runtime-last-error';
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
   import { DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID, getModel } from '@/engine/model/catalog';
@@ -629,7 +630,9 @@
       if (access.changed) await requestModelFolderReload();
       notifySharedFolderChanged();
       await requestResumeFolderGrantPending();
-      await browser.runtime.sendMessage({ type: 'folder:grant-complete' }).catch(() => undefined);
+      await browser.runtime.sendMessage({ type: 'folder:grant-complete' }).catch(() => {
+        readRuntimeLastError();
+      });
       pendingFolderGrant = false;
       window.close();
     } catch {
@@ -674,7 +677,9 @@
   }
 
   function openOptions() {
-    void browser.runtime.openOptionsPage().catch(() => undefined);
+    void browser.runtime.openOptionsPage().catch(() => {
+      readRuntimeLastError();
+    });
   }
 
   async function changeShortcuts() {
@@ -686,7 +691,9 @@
   }
 
   function openTyped() {
-    void browser.tabs.create({ url: browser.runtime.getURL('/typed.html') }).catch(() => undefined);
+    void browser.tabs.create({ url: browser.runtime.getURL('/typed.html') }).catch(() => {
+      readRuntimeLastError();
+    });
   }
 
   onMount(() => {

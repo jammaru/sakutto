@@ -1,6 +1,7 @@
 import { browser } from 'wxt/browser';
 import type { FolderArmCommandRequest } from '@/shared/folder-grant-messages';
 import type { PageCommandName } from '@/shared/messages';
+import { readRuntimeLastError } from '@/shared/runtime-last-error';
 
 export type FolderArmOutcome = 'continue' | 'deferred';
 
@@ -20,6 +21,7 @@ export async function armFolderCommand(
     const armed = await sendMessage({ type: 'folder:arm-command', command });
     return armed === 'deferred' ? 'deferred' : 'continue';
   } catch {
+    readRuntimeLastError();
     return 'continue';
   }
 }

@@ -37,6 +37,7 @@ import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
 import { hasLicenseConsent } from '@/shared/agreement';
 import { sharedFolderNeedsUserAction, type ModelStatus } from '@/shared/engine-status';
 import { mergeGlossary } from '@/shared/glossary';
+import { readRuntimeLastError } from '@/shared/runtime-last-error';
 import { currentUiLanguage, t } from '@/shared/i18n';
 import {
   displayLanguage,
@@ -102,7 +103,10 @@ const bridge = globalThis as typeof globalThis & ContentBridgeGlobal;
 async function readShortcutState(): Promise<ShortcutQueryResult | null> {
   const response: unknown = await browser.runtime
     .sendMessage({ type: 'commands:shortcuts' })
-    .catch(() => undefined);
+    .catch(() => {
+      readRuntimeLastError();
+      return undefined;
+    });
   return isShortcutQueryResult(response) ? response : null;
 }
 
@@ -158,9 +162,10 @@ function composePreferencesFor(
 }
 
 async function requestSiteAccess(host: string): Promise<boolean> {
-  const response = await browser.runtime
-    .sendMessage({ type: 'site:grant', host })
-    .catch(() => false);
+  const response = await browser.runtime.sendMessage({ type: 'site:grant', host }).catch(() => {
+    readRuntimeLastError();
+    return false;
+  });
   return response === true;
 }
 
@@ -339,7 +344,9 @@ function overlayLabels(): OverlayLabels {
 }
 
 function openFolderEnableWindow(): void {
-  void browser.runtime.sendMessage({ type: 'folder:open-enable' }).catch(() => undefined);
+  void browser.runtime.sendMessage({ type: 'folder:open-enable' }).catch(() => {
+    readRuntimeLastError();
+  });
 }
 
 function getPageInfo(): PageInfo {
@@ -519,7 +526,9 @@ export function contentMain(): void {
         if (!__SAKUTTO_FAKE_ENGINE__) void requestEngineWarm();
       },
       onSetup: () => {
-        void browser.runtime.sendMessage({ type: 'ui:open-setup' }).catch(() => undefined);
+        void browser.runtime.sendMessage({ type: 'ui:open-setup' }).catch(() => {
+          readRuntimeLastError();
+        });
       },
       onTarget: (language: TargetLanguage) => {
         if (!isTargetLanguage(language)) return;

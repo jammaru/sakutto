@@ -1,4 +1,5 @@
 import { browser } from 'wxt/browser';
+import { readRuntimeLastError } from './runtime-last-error';
 import { isModelId, type ModelId } from '@/engine/model/catalog';
 import { isSharedFolderStatus, type SharedFolderStatus } from '@/engine/model/folder-status';
 import {
@@ -381,7 +382,7 @@ export async function requestPageState(tabId: number): Promise<PageViewState | n
     } satisfies PageStateRequest);
     return isPageViewState(response) ? response : null;
   } catch {
-    void browser.runtime.lastError;
+    readRuntimeLastError();
     return null;
   }
 }
@@ -402,7 +403,7 @@ export async function requestPageCommand(
     );
     return isPageViewState(response) ? response : null;
   } catch {
-    void browser.runtime.lastError;
+    readRuntimeLastError();
     return null;
   }
 }
@@ -414,7 +415,7 @@ export async function requestPageInfo(tabId: number): Promise<PageInfo | null> {
     } satisfies PageInfoRequest);
     return isPageInfo(response) ? response : null;
   } catch {
-    void browser.runtime.lastError;
+    readRuntimeLastError();
     return null;
   }
 }

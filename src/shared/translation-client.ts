@@ -8,6 +8,7 @@ import {
   type TranslationClientMessage,
 } from '@/engine/offscreen/protocol';
 import { ChunkStream } from '@/engine/queue/chunk-stream';
+import { readRuntimeLastError } from './runtime-last-error';
 import type { TranslateOptions, TranslateSegment, TranslationChunk } from '@/engine/types';
 
 /**
@@ -37,6 +38,7 @@ export async function* translateViaBackground(
   };
 
   const onDisconnect = (): void => {
+    readRuntimeLastError();
     stream.fail(new EngineError('offscreen-unavailable', 'The translation connection closed.'));
   };
 
@@ -47,6 +49,7 @@ export async function* translateViaBackground(
     try {
       port.postMessage({ type: 'cancel', requestId } satisfies TranslationClientMessage);
     } catch {
+      readRuntimeLastError();
       // The port is already gone.
     }
     stream.end();
@@ -75,6 +78,7 @@ export async function* translateViaBackground(
     try {
       port.disconnect();
     } catch {
+      readRuntimeLastError();
       // Already disconnected.
     }
   }
