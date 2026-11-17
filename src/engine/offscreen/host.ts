@@ -1,5 +1,9 @@
 import { browser, type Browser } from 'wxt/browser';
-import { bindPortDisconnectCleanup, readRuntimeLastError } from '@/shared/runtime-last-error';
+import {
+  bindPortDisconnectCleanup,
+  postPortMessage,
+  scheduleRuntimeLastErrorClear,
+} from '@/shared/runtime-last-error';
 import { hasLicenseConsent } from '@/shared/agreement';
 import { lastGpuDiagnostic, probeCapabilities } from '@/shared/capabilities';
 import { mergeGpuDiagnostic, type GpuDiagnostic } from '@/shared/gpu-diagnostic';
@@ -1506,15 +1510,9 @@ export class EngineHost {
 
   private post(port: Browser.runtime.Port, message: EngineHostMessage): void {
     if (!this.ports.has(port)) {
-      readRuntimeLastError();
+      scheduleRuntimeLastErrorClear();
       return;
     }
-    try {
-      port.postMessage(message);
-    } catch {
-      // The other end is gone; pending requests are settled by the disconnect handler.
-    }
-    // Read the error even when the disconnect is reported asynchronously (BFCache).
-    readRuntimeLastError();
+    postPortMessage(port, message);
   }
 }

@@ -13,9 +13,9 @@ export interface ProgressSink {
 }
 
 /**
- * `runtime.sendMessage` reaches extension pages only. A translated page hears the
- * loaded state through `tabs.sendMessage`, which is what lets it replace the
- * built-in translation without another click.
+ * Extension UI tabs hear progress through {@link ProgressSink.sendExtension}. Web pages
+ * hear terminal states through `tabs.sendMessage`, which avoids `runtime.sendMessage`
+ * fan-out to BFCache’d content scripts.
  */
 export async function broadcastModelProgress(
   message: ModelProgressMessage,

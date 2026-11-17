@@ -197,11 +197,24 @@ export default defineBackground(() => {
   }
 
   async function broadcast(message: ModelProgressMessage): Promise<void> {
+    const extensionId = browser.runtime.id;
     await broadcastModelProgress(message, {
       sendExtension: async (item) => {
-        await browser.runtime.sendMessage(item).catch(() => {
-          readRuntimeLastError();
+        // Target extension UI tabs only. runtime.sendMessage would fan out to every
+        // content-script listener, including tabs in BFCache, and leave lastError noise
+        // on the offscreen document that triggered the engine port update.
+        const tabs = await browser.tabs.query({
+          url: [`chrome-extension://${extensionId}/*`],
         });
+        for (const tab of tabs) {
+          if (tab.id === undefined) continue;
+          try {
+            await browser.tabs.sendMessage(tab.id, item);
+          } catch {
+            // That extension page is gone.
+          }
+          readRuntimeLastError();
+        }
       },
       listTabs: () => browser.tabs.query({}),
       sendTab: async (tabId, item) => {

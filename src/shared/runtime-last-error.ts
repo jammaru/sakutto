@@ -9,6 +9,34 @@ export function readRuntimeLastError(): void {
   }
 }
 
+/** Chrome may set runtime.lastError on the next turn after a port closes (BFCache). */
+export function scheduleRuntimeLastErrorClear(): void {
+  readRuntimeLastError();
+  queueMicrotask(() => readRuntimeLastError());
+}
+
+export interface MessagePort {
+  postMessage(message: unknown): void;
+}
+
+export function postPortMessage(port: MessagePort, message: unknown): void {
+  try {
+    port.postMessage(message);
+  } catch {
+    // The other end is gone.
+  }
+  scheduleRuntimeLastErrorClear();
+}
+
+export function safeSendResponse(sendResponse: (response: unknown) => void, response: unknown): void {
+  try {
+    sendResponse(response);
+  } catch {
+    // The caller went away before the async handler finished.
+  }
+  scheduleRuntimeLastErrorClear();
+}
+
 /** Broadcast to extension pages and clear pending unchecked errors on success and failure. */
 export async function broadcastRuntimeMessage(message: unknown): Promise<void> {
   try {

@@ -1,5 +1,5 @@
 import { browser } from 'wxt/browser';
-import { readRuntimeLastError } from '@/shared/runtime-last-error';
+import { readRuntimeLastError, safeSendResponse } from '@/shared/runtime-last-error';
 import { EngineHost } from '@/engine/offscreen/host';
 import {
   applyFirefoxWebGpuKickFlag,
@@ -40,14 +40,13 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   void probeCapabilities().then(
     (capabilities) => {
-      readRuntimeLastError();
-      sendResponse({ source: 'offscreen', capabilities } satisfies EngineProbeResponse);
-      readRuntimeLastError();
+      safeSendResponse(sendResponse, {
+        source: 'offscreen',
+        capabilities,
+      } satisfies EngineProbeResponse);
     },
     () => {
-      readRuntimeLastError();
-      sendResponse(null);
-      readRuntimeLastError();
+      safeSendResponse(sendResponse, null);
     },
   );
   return true;

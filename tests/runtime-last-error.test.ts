@@ -23,7 +23,9 @@ vi.mock('wxt/browser', () => ({
 import {
   bindPortDisconnectCleanup,
   broadcastRuntimeMessage,
+  postPortMessage,
   readRuntimeLastError,
+  safeSendResponse,
   swallowMessagingError,
 } from '@/shared/runtime-last-error';
 
@@ -71,6 +73,23 @@ describe('runtime lastError helper', () => {
     state.sendMessage.mockRejectedValue(new Error('closed'));
     await expect(broadcastRuntimeMessage({ type: 'model:progress' })).resolves.toBeUndefined();
     expect(state.reads).toBe(4);
+  });
+
+  it('clears lastError after port posts and async sendResponse', async () => {
+    const port = { postMessage: vi.fn() };
+    postPortMessage(port, { type: 'ping' });
+    expect(port.postMessage).toHaveBeenCalled();
+    expect(state.reads).toBeGreaterThanOrEqual(1);
+    await Promise.resolve();
+    expect(state.reads).toBeGreaterThanOrEqual(2);
+
+    state.reads = 0;
+    const sendResponse = vi.fn();
+    safeSendResponse(sendResponse, { ok: true });
+    expect(sendResponse).toHaveBeenCalledWith({ ok: true });
+    expect(state.reads).toBeGreaterThanOrEqual(1);
+    await Promise.resolve();
+    expect(state.reads).toBeGreaterThanOrEqual(2);
   });
 
   it('returns message results and swallows rejected messaging calls', async () => {
