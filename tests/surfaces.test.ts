@@ -81,7 +81,7 @@ describe('start controls while the model downloads', () => {
     expect(typed).not.toContain('folderBlocked');
     expect(typed).toContain('folderNeedsAction');
     expect(typed).toContain('FolderPermissionRestore');
-    expect(popup).toContain('FolderPermissionRestore');
+    expect(popup).not.toContain('FolderPermissionRestore');
     expect(popup).toContain('shouldShowModelDownloadGate');
     expect(popup).toContain('showDownloadGate');
     expect(popup).not.toMatch(/\{#if !canStart\}/);
@@ -89,9 +89,11 @@ describe('start controls while the model downloads', () => {
     expect(source('entrypoints/onboarding/App.svelte')).toContain('FOLDER_PERMISSION_ERROR');
     expect(source('ui/FolderPermissionRestore.svelte')).toContain('modelFolderPermissionGrant');
     expect(source('ui/FolderPermissionRestore.svelte')).toContain('modelFolderPermissionPresent');
-    expect(source('ui/FolderPermissionRestore.svelte')).toContain('canAttemptSilentFolderGrant');
+    expect(source('ui/FolderPermissionRestore.svelte')).not.toContain(
+      'canAttemptSilentFolderGrant',
+    );
     expect(source('ui/FolderPermissionRestore.svelte')).toContain('checkingPermission');
-    expect(source('ui/FolderPermissionRestore.svelte')).toContain('silentGrantFailed');
+    expect(source('ui/FolderPermissionRestore.svelte')).not.toContain('silentGrantFailed');
   });
 
   it('keeps the cancel control visible while verifying', () => {
@@ -441,35 +443,6 @@ describe('shared folder activation and recovery', () => {
     expect(source('ui/ModelManager.svelte')).toContain('ensureStoredFolderPermission');
   });
 
-  it('always reloads the offscreen folder session after a changed grant', () => {
-    const actionStart = popup.indexOf('async function ensureFolderPermissionForAction');
-    const actionBody = popup.slice(
-      actionStart,
-      popup.indexOf('async function translatePage', actionStart),
-    );
-    // An already-ready OPFS runtime is not evidence that the offscreen host has the new
-    // grant. A changed grant must reload before translate/download/PDF work.
-    expect(actionBody).not.toMatch(/plamoReady|modelCanTranslate|state === 'loading'/);
-    expect(actionBody.indexOf('requestModelFolderReload')).toBeGreaterThan(
-      actionBody.indexOf("access.status !== 'granted' || !access.changed"),
-    );
-    expect(actionBody.indexOf('refreshEngine')).toBeGreaterThan(
-      actionBody.indexOf('requestModelFolderReload'),
-    );
-
-    const managerStart = modelManager.indexOf('async function ensureFolderPermissionForAction');
-    const managerBody = modelManager.slice(
-      managerStart,
-      modelManager.indexOf('async function download', managerStart),
-    );
-    expect(managerBody.indexOf('requestModelFolderReload')).toBeGreaterThan(
-      managerBody.indexOf("access?.status !== 'granted' || !access.changed"),
-    );
-    expect(managerBody.indexOf('refresh()')).toBeGreaterThan(
-      managerBody.indexOf('requestModelFolderReload'),
-    );
-  });
-
   it('opens the folder picker before reloading the host on settings', () => {
     const chooseStart = folderSettings.indexOf('async function chooseFolder');
     const chooseBody = folderSettings.slice(
@@ -504,20 +477,22 @@ describe('shared folder activation and recovery', () => {
     );
   });
 
-  it('does not auto-show the restore card when the toolbar opens the popup', () => {
+  it('does not render a restore card in the toolbar popup', () => {
     expect(popup).toContain('refreshEngineOnOpen');
     expect(popup).not.toContain('settleFolderPermissionOnOpen');
-    expect(popup).toContain('autoSettle={false}');
-    expect(popup).toContain('activationFailed={folderRestoreNeeded}');
+    expect(popup).not.toContain('FolderPermissionRestore');
+    expect(popup).not.toContain('autoSettle={false}');
+    expect(popup).not.toContain('ensureStoredFolderPermission');
     expect(popup).toContain('ensureFolderPermissionForAction');
   });
 
-  it('defers the restore card in the popup until an activation grant fails', () => {
+  it('restore cards only query and open the grant tab', () => {
     expect(restore).toContain('autoSettle');
     expect(restore).toContain('activationFailed');
     expect(restore).toContain('queryStoredFolderPermission');
-    expect(restore).toContain('canAttemptSilentFolderGrant');
-    expect(restore).toContain('ensureStoredFolderPermission');
+    expect(restore).not.toContain('canAttemptSilentFolderGrant');
+    expect(restore).not.toContain('ensureStoredFolderPermission');
+    expect(restore).toContain("type: 'folder:open-enable'");
     expect(restore).not.toContain('probeStoredFolderReadable');
   });
 
@@ -541,12 +516,10 @@ describe('shared folder activation and recovery', () => {
   it('keeps translate available for OPFS installs without a configured folder', () => {
     const start = popup.indexOf('async function ensureFolderPermissionForAction');
     const body = popup.slice(start, popup.indexOf('async function translatePage', start));
-    expect(body).toContain("access.status === 'none'");
-    expect(body).toMatch(/access\.status === 'none'\]?[\s\S]{0,80}allowed: true/);
-    expect(body).toContain('sharedFolderNeedsUserAction');
-    expect(body).toContain('access.changed');
-    expect(body).toMatch(/if \(access\.changed\)[\s\S]{0,120}requestModelFolderReload/);
+    expect(body).toContain('queryStoredFolderPermission');
+    expect(body).toContain('allowed: true');
     expect(body).toContain('requestResumeFolderGrantPending');
+    expect(body).not.toContain('ensureStoredFolderPermission');
     expect(popup).toContain('access.resumed');
   });
 

@@ -2,6 +2,7 @@ import { SELECTABLE_MODEL_IDS, getModel, isModelId, type ModelId } from './catal
 import { isFirefoxBuild } from '@/shared/browser';
 import { isRecord } from '@/shared/object';
 import { isPermissionDenied } from './file-store';
+import { folderGrantCanOfferPersistentPrompt, folderGrantSurface } from './folder-permission';
 
 export const SHARED_MODELS_DIRECTORY = 'sakutto-models';
 /** Folder name the user creates in Documents. Same spelling on Windows and macOS. */
@@ -247,7 +248,13 @@ export async function queryFolderPermission(
 export async function requestFolderPermission(
   handle: FileSystemDirectoryHandle,
   mode: 'read' | 'readwrite' = 'readwrite',
+  href: string = typeof location === 'undefined' ? '' : location.href,
 ): Promise<FolderPermission> {
+  // Chrome only keeps the "Allow on every visit" choice when requestPermission runs in a
+  // real extension tab. Popup requests are visit-scoped and offscreen cannot prompt.
+  if (!folderGrantCanOfferPersistentPrompt(folderGrantSurface(href))) {
+    return queryFolderPermission(handle, mode);
+  }
   const override = await readPermissionOverride();
   if (override === 'denied') return 'denied';
   if (override === 'granted') return 'granted';
@@ -312,12 +319,19 @@ export async function restoreStoredFolderPermission(
   hooks: {
     load?: () => Promise<StoredSharedFolder | null>;
     requestPermission?: (handle: FileSystemDirectoryHandle) => Promise<FolderPermission>;
+    href?: string;
   } = {},
 ): Promise<FolderPermission | null> {
   const stored = await (hooks.load ?? loadStoredSharedFolder)();
   if (!stored) return null;
-  const request = hooks.requestPermission ?? requestFolderPermission;
-  return request(stored.handle);
+  const href = hooks.href ?? (typeof location === 'undefined' ? '' : location.href);
+  if (!folderGrantCanOfferPersistentPrompt(folderGrantSurface(href))) {
+    return queryFolderPermission(stored.handle);
+  }
+  if (!hooks.requestPermission) {
+    return requestFolderPermission(stored.handle, 'readwrite', href);
+  }
+  return hooks.requestPermission(stored.handle);
 }
 
 /** Query a stored handle without prompting. `null` means no shared folder is linked. */
@@ -355,6 +369,7 @@ export async function ensureStoredFolderPermission(
       handle: FileSystemDirectoryHandle,
       mode: 'read' | 'readwrite',
     ) => Promise<FolderPermission>;
+    href?: string;
   } = {},
 ): Promise<StoredFolderPermissionResult> {
   const stored = await (hooks.load ?? loadStoredSharedFolder)();
@@ -366,6 +381,10 @@ export async function ensureStoredFolderPermission(
     return { status: current, handle: stored.handle, changed: false };
   }
 
+  const href = hooks.href ?? (typeof location === 'undefined' ? '' : location.href);
+  if (!folderGrantCanOfferPersistentPrompt(folderGrantSurface(href))) {
+    return { status: current, handle: stored.handle, changed: false };
+  }
   const request = hooks.requestPermission ?? requestFolderPermission;
   const next = await request(stored.handle, mode);
   return { status: next, handle: stored.handle, changed: next === 'granted' };

@@ -753,6 +753,18 @@
   "modelFolderDeleteOpfs": {
     "message": "ブラウザ内のコピーを削除"
   },
+  "modelFolderEnableTabTitle": {
+    "message": "再起動後もフォルダへのアクセスを続ける"
+  },
+  "modelFolderEnableTabBody": {
+    "message": "「サイトアクセス時は常に許可」を一度選べば、再起動後もSakuttoがこのフォルダの許可を求めることはありません。"
+  },
+  "modelFolderEnableTabHint": {
+    "message": "「今回のみ許可」しか選べない場合は、再起動後にフォルダ同期が止まります。翻訳はブラウザ内のコピーで続きます。"
+  },
+  "modelFolderEnableTabDone": {
+    "message": "準備ができました。このタブは自動で閉じます。"
+  },
   "modelFolderEnableOneClick": {
     "message": "Sakuttoを有効化"
   },

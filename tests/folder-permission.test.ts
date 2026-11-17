@@ -27,6 +27,7 @@ describe('folder grant surface', () => {
   it('treats settings and onboarding as tabs that can show the restore prompt', () => {
     expect(folderGrantSurface('chrome-extension://id/options.html')).toBe('tab');
     expect(folderGrantSurface('chrome-extension://id/onboarding.html')).toBe('tab');
+    expect(folderGrantSurface('chrome-extension://id/folder-enable.html')).toBe('tab');
     expect(folderGrantCanOfferPersistentPrompt('tab')).toBe(true);
   });
 
@@ -52,8 +53,38 @@ describe('folder grant surface', () => {
       },
     } as unknown as FileSystemDirectoryHandle;
 
-    expect(await requestFolderPermission(handle)).toBe('granted');
+    expect(
+      await requestFolderPermission(
+        handle,
+        'readwrite',
+        'chrome-extension://id/folder-enable.html',
+      ),
+    ).toBe('granted');
     expect(modes).toEqual(['query:readwrite', 'request:readwrite']);
+  });
+
+  it('never requests permission from popup or offscreen surfaces', async () => {
+    const modes: string[] = [];
+    const handle = {
+      kind: 'directory',
+      name: 'Models',
+      queryPermission: async (descriptor?: { mode?: string }) => {
+        modes.push(`query:${descriptor?.mode ?? ''}`);
+        return 'prompt';
+      },
+      requestPermission: async (descriptor?: { mode?: string }) => {
+        modes.push(`request:${descriptor?.mode ?? ''}`);
+        return 'granted';
+      },
+    } as unknown as FileSystemDirectoryHandle;
+
+    expect(
+      await requestFolderPermission(handle, 'readwrite', 'chrome-extension://id/popup.html'),
+    ).toBe('prompt');
+    expect(
+      await requestFolderPermission(handle, 'readwrite', 'chrome-extension://id/offscreen.html'),
+    ).toBe('prompt');
+    expect(modes).toEqual(['query:readwrite', 'query:readwrite']);
   });
 });
 

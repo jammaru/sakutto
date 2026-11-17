@@ -22,34 +22,12 @@ async function notifyGrantNeeded(tabId: number, command: PageCommandName): Promi
   readRuntimeLastError();
 }
 
-async function tryOpenPopup(): Promise<void> {
-  const openPopup = browser.action?.openPopup;
-  if (!openPopup) return;
-  try {
-    await openPopup();
-  } catch {
-    // No focused window or API unavailable — the in-page hint opens a dedicated window.
-  }
-}
-
-/** Open the toolbar popup when possible, otherwise a small top-level grant window. */
+/** Open the dedicated grant page as a real tab so Chrome offers the persistent prompt. */
 export async function openFolderEnableWindow(): Promise<boolean> {
-  const openPopup = browser.action?.openPopup;
-  if (openPopup) {
-    try {
-      await openPopup();
-      return true;
-    } catch {
-      // Fall back to a real extension window.
-    }
-  }
   try {
-    await browser.windows.create({
+    await browser.tabs.create({
       url: browser.runtime.getURL('/folder-enable.html'),
-      type: 'popup',
-      width: 420,
-      height: 280,
-      focused: true,
+      active: true,
     });
     return true;
   } catch {
@@ -71,7 +49,7 @@ export async function gatePageCommand(
   if (!status || !sharedFolderNeedsUserAction(status)) return 'ran';
   await saveFolderGrantPending({ tabId, command, frameId });
   await notifyGrantNeeded(tabId, command);
-  void tryOpenPopup();
+  void openFolderEnableWindow();
   return 'deferred';
 }
 

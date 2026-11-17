@@ -753,6 +753,18 @@
   "modelFolderDeleteOpfs": {
     "message": "Delete browser copy"
   },
+  "modelFolderEnableTabTitle": {
+    "message": "Keep folder access after restart"
+  },
+  "modelFolderEnableTabBody": {
+    "message": "Choose “Allow on every visit” once. Sakutto will never ask for this folder again, even after a restart."
+  },
+  "modelFolderEnableTabHint": {
+    "message": "If the browser offers only “Allow this time”, folder sync stops after restart. Translation keeps working from the browser copy."
+  },
+  "modelFolderEnableTabDone": {
+    "message": "Folder access is ready. This tab closes automatically."
+  },
   "modelFolderEnableOneClick": {
     "message": "Enable Sakutto"
   },

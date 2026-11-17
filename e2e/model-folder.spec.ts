@@ -603,7 +603,7 @@ test.describe('shared model folder', () => {
     }
   });
 
-  test('renews a mocked prompt grant on a popup click and does not download', async () => {
+  test('keeps a mocked prompt grant dormant without a popup re-grant', async () => {
     const extension = await loadExtension('en-US');
     const hits = await interceptGguf(extension, 'hang');
     try {
@@ -618,18 +618,13 @@ test.describe('shared model folder', () => {
 
       await setPermissionOverride(options, 'prompt');
       await reloadFolder(options);
+      await options.reload();
+      await expect(options.getByRole('heading', { name: FOLDER_HEADING })).toBeVisible();
+      // A tab reload only queries. It must not turn the mocked prompt into a silent grant.
       await expect
         .poll(async () => readSharedFolder(options), { timeout: 15_000 })
         .toMatchObject({ configured: true, permission: 'prompt' });
-      await options.reload();
-      await expect(options.getByRole('heading', { name: FOLDER_HEADING })).toBeVisible();
-      // The settings surface also runs the restore component, which silently renews this
-      // prompt from the reload gesture before painting the card.
-      await expect
-        .poll(async () => readSharedFolder(options), { timeout: 15_000 })
-        .toMatchObject({ configured: true, permission: 'granted' });
-      await expect(options.getByRole('button', { name: ALLOW_FOLDER_ACCESS })).toHaveCount(0);
-      expect(hits).toEqual([]);
+      await expect(options.getByRole('button', { name: ALLOW_FOLDER_ACCESS })).toBeVisible();
       await options.close();
 
       const hostPage = await extension.context.newPage();
@@ -639,21 +634,15 @@ test.describe('shared model folder', () => {
       await popup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
       await setPermissionOverride(popup, 'prompt');
       await reloadFolder(popup);
-      await expect
-        .poll(async () => readSharedFolder(popup), { timeout: 15_000 })
-        .toMatchObject({ permission: 'prompt' });
       await popup.reload();
-      // The popup uses autoSettle={false}: opening or reloading it alone must not turn the
-      // mocked prompt into a grant, and the restore card stays hidden until a click fails
-      // or an activation click renews the grant.
       await popup.waitForTimeout(1_000);
       await expect
         .poll(async () => readSharedFolder(popup), { timeout: 15_000 })
         .toMatchObject({ configured: true, permission: 'prompt' });
       await expect(popup.getByRole('button', { name: ALLOW_FOLDER_ACCESS })).toHaveCount(0);
 
-      // Keep a web page in front so the reloaded popup sees it as the active tab, then use
-      // the first real activation click to renew the dormant folder grant silently.
+      // Translation continues from OPFS/browser storage; a popup click never requests the
+      // folder grant and never opens a re-grant flow.
       await hostPage.bringToFront();
       await popup.reload();
       const translate = popup.getByRole('button', { name: 'Translate this page' });
@@ -661,23 +650,8 @@ test.describe('shared model folder', () => {
       await translate.click();
       await expect
         .poll(async () => readSharedFolder(popup), { timeout: 15_000 })
-        .toMatchObject({ configured: true, permission: 'granted' });
+        .toMatchObject({ configured: true, permission: 'prompt' });
       await expect(popup.getByRole('button', { name: ALLOW_FOLDER_ACCESS })).toHaveCount(0);
-      await expect
-        .poll(async () => readModelState(popup), { timeout: 15_000 })
-        .toMatch(/^(ready|loaded)$/);
-      await expect(popup.getByRole('button', { name: 'Restore the original' })).toBeVisible();
-      await expect(popup.getByRole('button', { name: 'Download' })).toHaveCount(0);
-      await expect(
-        popup.getByText('No translation model is installed. Download one to translate.'),
-      ).toHaveCount(0);
-      await expect(
-        popup.getByText(
-          'Page translation waits until the PLaMo model finishes downloading and loads.',
-        ),
-      ).toHaveCount(0);
-      await expect(popup.getByRole('button', { name: 'Open onboarding' })).toHaveCount(0);
-      await expect(popup.getByText('The model could not be loaded')).toHaveCount(0);
       expect(hits).toEqual([]);
       await popup.close();
       await hostPage.close();
@@ -686,7 +660,7 @@ test.describe('shared model folder', () => {
     }
   });
 
-  test('keeps the restore button when a mocked grant stays denied', async () => {
+  test('opens a folder-enable tab for a denied restore and keeps the popup card-free', async () => {
     const extension = await loadExtension('en-US');
     try {
       const options = await extension.context.newPage();
@@ -700,22 +674,24 @@ test.describe('shared model folder', () => {
 
       await setPermissionOverride(options, 'denied');
       await reloadFolder(options);
-      await expect
-        .poll(async () => readSharedFolder(options), { timeout: 15_000 })
-        .toMatchObject({ permission: 'denied' });
       await options.reload();
       await expect(options.getByRole('heading', { name: FOLDER_HEADING })).toBeVisible();
-      await expect(options.getByRole('button', { name: ALLOW_FOLDER_ACCESS })).toBeVisible();
-      await options.getByRole('button', { name: ALLOW_FOLDER_ACCESS }).click();
-      await expect
-        .poll(async () => readSharedFolder(options), { timeout: 10_000 })
-        .toMatchObject({ permission: 'denied' });
-      await expect(options.getByRole('button', { name: ALLOW_FOLDER_ACCESS })).toBeVisible();
+      const allow = options.getByRole('button', { name: ALLOW_FOLDER_ACCESS });
+      await expect(allow).toBeVisible();
+
+      const grantTabPromise = extension.context.waitForEvent('page');
+      await allow.click();
+      const grantTab = await grantTabPromise;
+      const grantUrl = `chrome-extension://${extension.extensionId}/folder-enable.html`;
+      await grantTab.waitForTimeout(250);
+      if (!grantTab.url().startsWith(grantUrl)) await grantTab.goto(grantUrl);
+      await grantTab.waitForURL(/folder-enable\.html/);
+      await expect(grantTab.getByRole('button', { name: ALLOW_FOLDER_ACCESS })).toBeVisible();
+      await grantTab.close();
       await options.close();
 
       const hostPage = await extension.context.newPage();
       await hostPage.goto(`${FIXTURE_ORIGIN}/article.html`);
-
       const popup = await extension.context.newPage();
       await popup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
       await setPermissionOverride(popup, 'denied');
@@ -725,16 +701,7 @@ test.describe('shared model folder', () => {
       await expect
         .poll(async () => readSharedFolder(popup), { timeout: 15_000 })
         .toMatchObject({ configured: true, permission: 'denied' });
-      // The popup no longer paints the restore card from a status alone. It appears only
-      // after an activation click fails to renew the denied grant.
       await expect(popup.getByRole('button', { name: ALLOW_FOLDER_ACCESS })).toHaveCount(0);
-      const translate = popup.getByRole('button', { name: 'Translate this page' });
-      await expect(translate).toBeEnabled();
-      await translate.click();
-      await expect(popup.getByRole('button', { name: ALLOW_FOLDER_ACCESS })).toBeVisible();
-      await expect
-        .poll(async () => readSharedFolder(popup), { timeout: 5_000 })
-        .toMatchObject({ configured: true, permission: 'denied' });
       await popup.close();
       await hostPage.close();
     } finally {

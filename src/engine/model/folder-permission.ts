@@ -29,6 +29,7 @@ export function folderGrantSurface(href: string): FolderGrantSurface {
     if (
       path.endsWith('/options.html') ||
       path.endsWith('/onboarding.html') ||
+      path.endsWith('/folder-enable.html') ||
       path.endsWith('/typed.html') ||
       path.endsWith('/sample.html')
     ) {

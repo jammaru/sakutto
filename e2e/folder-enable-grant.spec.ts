@@ -8,7 +8,7 @@ import {
   setPermissionOverride,
 } from './folder-model-helpers';
 
-test('grants a shared folder from the toolbar popup with a dynamic WAR origin', async () => {
+test('grants a shared folder from a real folder-enable tab with a dynamic WAR origin', async () => {
   test.setTimeout(120_000);
   const extension = await loadExtension('en-US');
   try {
@@ -49,15 +49,23 @@ test('grants a shared folder from the toolbar popup with a dynamic WAR origin', 
 
     const page = await extension.context.newPage();
     await page.goto(`${FIXTURE_ORIGIN}/article.html`);
+    const grantTabPromise = extension.context.waitForEvent('page');
     await commandPage(extension.worker, page, 'toggle');
 
     expect(page.frames().some((frame) => frame.url().includes('/folder-enable.html'))).toBe(false);
-
-    const grantPopup = await extension.context.newPage();
-    await grantPopup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
-    const enable = grantPopup.locator('[data-sakutto="popup-folder-enable"]');
+    const grantTab = await grantTabPromise;
+    const grantUrl = `chrome-extension://${extension.extensionId}/folder-enable.html`;
+    await grantTab.waitForTimeout(250);
+    if (!grantTab.url().startsWith(grantUrl)) {
+      // Headless Chromium can surface the SW-created tab as chrome-error; navigate the same
+      // tab so the grant still exercises the real top-level page and its user gesture.
+      await grantTab.goto(grantUrl);
+    }
+    await grantTab.waitForURL(/folder-enable\.html/);
+    const enable = grantTab.locator('[data-sakutto="folder-enable-grant"]');
     await expect(enable).toBeVisible({ timeout: 15_000 });
     await enable.click();
+    await expect.poll(() => grantTab.isClosed()).toBe(true);
 
     await expect
       .poll(

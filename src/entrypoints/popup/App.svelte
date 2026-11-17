@@ -3,7 +3,7 @@
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
   import { DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID, getModel } from '@/engine/model/catalog';
-  import { notifySharedFolderChanged, sharedFolderSettingsHref } from '@/engine/model/folder-offer';
+  import { sharedFolderSettingsHref } from '@/engine/model/folder-offer';
   import { shouldSuggestHighQuality } from '@/engine/model/suggestion';
   import {
     modelNeedsDownload,
@@ -15,7 +15,7 @@
   } from '@/shared/engine-status';
   import { sharedFolderNeedsPermission } from '@/engine/model/folder-status';
   import {
-    ensureStoredFolderPermission,
+    queryStoredFolderPermission,
     sharedFolderPickerAvailable,
   } from '@/engine/model/shared-folder';
   import { hasLicenseConsent } from '@/shared/agreement';
@@ -26,7 +26,6 @@
     requestEngineStatus,
     requestEngineWarm,
     requestModelDownload,
-    requestModelFolderReload,
     requestResumeFolderGrantPending,
     requestPageCommand,
     requestPageState,
@@ -92,7 +91,6 @@
   import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
   import { readDeviceHeadroom, type DeviceHeadroom } from '@/ui/device-headroom';
   import LanguageField from '@/ui/LanguageField.svelte';
-  import FolderPermissionRestore from '@/ui/FolderPermissionRestore.svelte';
   import { runtimeLabel } from '@/ui/runtime-label';
 
   type SettingsError = 'load' | 'save' | null;
@@ -128,7 +126,6 @@
   let engine = $state<EngineStatus | null>(null);
   let engineStatusError = $state(false);
   /** True after an activation-driven grant attempt failed in the popup. */
-  let folderRestoreNeeded = $state(false);
   let pendingFolderGrant = $state(false);
   let folderEnableBusy = $state(false);
   let modelMark = $state<ModelStatus | null>(null);
@@ -418,52 +415,13 @@
   }
 
   async function ensureFolderPermissionForAction(): Promise<FolderActionAccess> {
-    folderRestoreNeeded = false;
-    try {
-      const access = await ensureStoredFolderPermission();
-      if (access.status !== 'granted') {
-        // No stored folder is the default OPFS install, not a failure: keep translating.
-        if (access.status === 'none') return { allowed: true, resumed: false };
-        // A configured folder that is merely `prompt` can also keep working from its verified
-        // OPFS copy, so only stop when the reader actually has to restore access.
-        const model = engine?.model ?? modelMark;
-        const folder = {
-          ...(engine?.sharedFolder ?? {
-            supported: true,
-            opfsCopies: [],
-            integrityIssues: [],
-          }),
-          configured: true,
-          permission: access.status,
-        };
-        const needsUserAction =
-          model === null || model === undefined
-            ? true
-            : sharedFolderNeedsUserAction({ model, sharedFolder: folder });
-        if (needsUserAction) {
-          folderRestoreNeeded = true;
-          return { allowed: false, resumed: false };
-        }
-        return { allowed: true, resumed: false };
-      }
-      if (engine?.sharedFolder) {
-        engine = {
-          ...engine,
-          sharedFolder: { ...engine.sharedFolder, permission: 'granted' },
-        };
-      }
-      // Only a prompt that actually became a grant needs a fresh folder session. Reloading
-      // on every already-granted click made the popup slower for no benefit.
-      if (access.changed) {
-        await requestModelFolderReload();
-        await refreshEngine();
-      }
+    // The popup may only query. Persistent grant prompts run in the folder-enable tab.
+    const permission = await queryStoredFolderPermission().catch(() => null);
+    if (permission === 'granted') {
       const resumed = await requestResumeFolderGrantPending();
       return { allowed: true, resumed };
-    } catch {
-      folderRestoreNeeded = true;
-      return { allowed: false, resumed: false };
     }
+    return { allowed: true, resumed: false };
   }
 
   async function translatePage() {
@@ -609,34 +567,16 @@
     pendingFolderGrant = (await readFolderGrantPending()) !== null;
   }
 
-  /** The pending command is resumed only from this top-level popup click. */
+  /** Re-grants must happen in a tab so Chrome can persist "Allow on every visit". */
   async function enablePendingFolderGrant(): Promise<void> {
     if (folderEnableBusy) return;
     folderEnableBusy = true;
-    folderRestoreNeeded = false;
     try {
-      const access = await ensureStoredFolderPermission();
-      if (access.status !== 'granted') {
-        folderRestoreNeeded = true;
-        await refreshFolderGrantPending();
-        return;
-      }
-      if (engine?.sharedFolder) {
-        engine = {
-          ...engine,
-          sharedFolder: { ...engine.sharedFolder, permission: 'granted' },
-        };
-      }
-      if (access.changed) await requestModelFolderReload();
-      notifySharedFolderChanged();
-      await requestResumeFolderGrantPending();
-      await browser.runtime.sendMessage({ type: 'folder:grant-complete' }).catch(() => {
+      await browser.runtime.sendMessage({ type: 'folder:open-enable' }).catch(() => {
         readRuntimeLastError();
       });
       pendingFolderGrant = false;
       window.close();
-    } catch {
-      folderRestoreNeeded = true;
     } finally {
       folderEnableBusy = false;
     }
@@ -864,18 +804,7 @@
   {#if engine?.modelFallback}
     <p class="muted" role="status">{t('modelSelectionFallback')}</p>
   {/if}
-  <FolderPermissionRestore
-    folder={engine?.sharedFolder}
-    modelId={engine?.model.id}
-    compact
-    autoSettle={false}
-    activationFailed={folderRestoreNeeded}
-    onRestored={async () => {
-      folderRestoreNeeded = false;
-      await refreshEngine();
-      await requestResumeFolderGrantPending();
-    }}
-  />
+
   {#if engine?.engineSource === 'local-server'}
     <p class="muted">{t('localServerExperimental')}</p>
     {#if engine.parallel !== null}

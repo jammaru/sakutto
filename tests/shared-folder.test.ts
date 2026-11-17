@@ -130,10 +130,18 @@ describe('folder permission', () => {
     expect(await queryFolderPermission(fakeHandle({ permission: 'prompt' }))).toBe('prompt');
     expect(await requestFolderPermission(fakeHandle({ permission: 'granted' }))).toBe('granted');
     expect(
-      await requestFolderPermission(fakeHandle({ permission: 'prompt', request: 'granted' })),
+      await requestFolderPermission(
+        fakeHandle({ permission: 'prompt', request: 'granted' }),
+        'readwrite',
+        'chrome-extension://id/folder-enable.html',
+      ),
     ).toBe('granted');
     expect(
-      await requestFolderPermission(fakeHandle({ permission: 'prompt', request: 'denied' })),
+      await requestFolderPermission(
+        fakeHandle({ permission: 'prompt', request: 'denied' }),
+        'readwrite',
+        'chrome-extension://id/folder-enable.html',
+      ),
     ).toBe('denied');
   });
 
@@ -142,7 +150,11 @@ describe('folder permission', () => {
     setSharedFolderBucketForTests(bucket);
     const handle = fakeHandle({ permission: 'prompt', request: 'granted' });
     await persistSharedFolderHandle(handle, bucket);
-    expect(await restoreStoredFolderPermission()).toBe('granted');
+    expect(
+      await restoreStoredFolderPermission({
+        href: 'chrome-extension://id/folder-enable.html',
+      }),
+    ).toBe('granted');
   });
 
   it('probes a leftover readable handle without calling requestPermission', async () => {
@@ -187,10 +199,23 @@ describe('activation re-grant', () => {
       load: async () => stored,
       queryPermission: async () => 'prompt',
       requestPermission,
+      href: 'chrome-extension://id/folder-enable.html',
     });
     expect(result).toEqual({ status: 'granted', handle, changed: true });
     expect(requestPermission).toHaveBeenCalledOnce();
     expect(requestPermission).toHaveBeenCalledWith(handle, 'readwrite');
+  });
+
+  it('does not request permission from a popup surface', async () => {
+    const requestPermission = vi.fn(async () => 'granted' as const);
+    const result = await ensureStoredFolderPermission('readwrite', {
+      load: async () => stored,
+      queryPermission: async () => 'prompt',
+      requestPermission,
+      href: 'chrome-extension://id/popup.html',
+    });
+    expect(result).toEqual({ status: 'prompt', handle, changed: false });
+    expect(requestPermission).not.toHaveBeenCalled();
   });
 
   it('does not ask again after a denial, and does nothing without a stored folder', async () => {

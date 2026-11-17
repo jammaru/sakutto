@@ -11,7 +11,9 @@ describe('folder grant gate', () => {
     const grant = source('background/folder-grant.ts');
     expect(actions).toContain('runGatedPageCommand');
     expect(grant).toContain('sharedFolderNeedsUserAction');
-    expect(grant).toContain('openPopup');
+    expect(grant).toContain('browser.tabs.create');
+    expect(grant).not.toContain('openPopup');
+    expect(grant).not.toContain('windows.create');
     expect(grant).toContain('folder:grant-needed');
     expect(actions).toContain('await browser.contextMenus.removeAll()');
     expect(actions).toContain('menuInstall');
@@ -47,20 +49,19 @@ describe('folder grant gate', () => {
     expect(content).toContain('const armed = await armFolderCommand(command);');
   });
 
-  it('grants from the toolbar popup and top-level folder-enable page', () => {
+  it('grants only from the top-level folder-enable tab', () => {
     const popup = source('entrypoints/popup/App.svelte');
     const enable = source('entrypoints/folder-enable/App.svelte');
     const background = source('entrypoints/background.ts');
     expect(popup).toContain('readFolderGrantPending');
     expect(popup).toContain('enablePendingFolderGrant');
-    expect(popup).toContain('ensureStoredFolderPermission');
-    expect(popup).toContain('requestResumeFolderGrantPending');
-    expect(popup).toContain('folder:grant-complete');
+    expect(popup).not.toContain('ensureStoredFolderPermission');
+    expect(popup).toContain("type: 'folder:open-enable'");
     expect(popup).toContain('window.close()');
     expect(enable).toContain('ensureStoredFolderPermission');
     expect(enable).toContain('folder:resume-pending');
     expect(enable).toContain('folder:grant-complete');
-    expect(enable).toContain('window.close()');
+    expect(enable).toContain('browser.tabs.remove');
     expect(enable).toContain('window.parent !== window');
     expect(enable).toContain("type: 'folder:open-enable'");
     expect(enable).not.toContain('sakutto-folder-enable-token');

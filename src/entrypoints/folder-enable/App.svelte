@@ -10,6 +10,19 @@
   let busy = $state(false);
   let failed = $state(false);
 
+  async function closeTab(): Promise<void> {
+    try {
+      const tab = await browser.tabs.getCurrent();
+      if (tab?.id !== undefined) {
+        await browser.tabs.remove(tab.id);
+        return;
+      }
+    } catch {
+      readRuntimeLastError();
+    }
+    window.close();
+  }
+
   async function openFromEmbedded(): Promise<void> {
     if (busy) return;
     busy = true;
@@ -38,8 +51,6 @@
         failed = true;
         return;
       }
-      // A click on an already-granted folder needs no session restart. Only a prompt that
-      // this gesture renewed has to be re-opened by the engine host.
       if (access.changed) await requestModelFolderReload();
       notifySharedFolderChanged();
       await browser.runtime.sendMessage({ type: 'folder:resume-pending' }).catch(() => {
@@ -48,7 +59,7 @@
       await browser.runtime.sendMessage({ type: 'folder:grant-complete' }).catch(() => {
         readRuntimeLastError();
       });
-      window.close();
+      await closeTab();
     } catch {
       readRuntimeLastError();
       failed = true;
@@ -58,44 +69,101 @@
   }
 </script>
 
-<main>
-  {#if embedded}
-    <p class="hint">{t('modelFolderPermissionPage')}</p>
-  {/if}
-  <button type="button" class="button" disabled={busy} onclick={(event) => void enable(event)}>
-    {t('modelFolderEnableOneClick')}
-  </button>
-  {#if failed}
-    <p class="error" role="alert">{t('modelFolderPermissionNeeded')}</p>
-  {/if}
+<main class="page">
+  <div class="card">
+    {#if embedded}
+      <h1>{t('modelFolderEnableTabTitle')}</h1>
+      <p class="hint">{t('modelFolderPermissionPage')}</p>
+      <button type="button" class="button" disabled={busy} onclick={() => void openFromEmbedded()}>
+        {t('modelFolderPermissionGrant')}
+      </button>
+    {:else}
+      <h1>{t('modelFolderEnableTabTitle')}</h1>
+      <p class="body">{t('modelFolderEnableTabBody')}</p>
+      <p class="hint">{t('modelFolderEnableTabHint')}</p>
+      <button
+        type="button"
+        class="button"
+        data-sakutto="folder-enable-grant"
+        disabled={busy}
+        onclick={(event) => void enable(event)}
+      >
+        {t('modelFolderPermissionGrant')}
+      </button>
+      <p class="done">{t('modelFolderEnableTabDone')}</p>
+    {/if}
+    {#if failed}
+      <p class="error" role="alert">{t('modelFolderPermissionNeeded')}</p>
+    {/if}
+  </div>
 </main>
 
 <style>
-  main {
+  :global(html),
+  :global(body) {
+    min-height: 100%;
     margin: 0;
-    padding: 8px 10px;
+    background: #f8fafc;
+  }
+
+  .page {
+    box-sizing: border-box;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
     font:
-      12px/1.4 system-ui,
+      15px/1.6 system-ui,
       sans-serif;
     color: #101828;
-    background: transparent;
+    background: #f8fafc;
+  }
+
+  .card {
+    box-sizing: border-box;
+    width: min(560px, 100%);
+    padding: 32px;
+    border: 1px solid #dbe3ea;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 14px 40px rgb(16 24 40 / 8%);
+  }
+
+  h1 {
+    margin: 0 0 12px;
+    font-size: 24px;
+    line-height: 1.3;
+  }
+
+  .body,
+  .hint,
+  .done,
+  .error {
+    margin: 0 0 14px;
   }
 
   .hint {
-    margin: 0 0 8px;
+    color: #475467;
+    font-size: 13px;
+  }
+
+  .done {
+    margin-top: 16px;
+    color: #475467;
+    font-size: 12px;
   }
 
   .button {
     box-sizing: border-box;
     display: block;
     width: 100%;
-    padding: 8px 10px;
+    padding: 12px 16px;
     border: 0;
-    border-radius: 8px;
+    border-radius: 10px;
     background: #0e7490;
     color: #fff;
     font: inherit;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
   }
 
@@ -105,8 +173,7 @@
   }
 
   .error {
-    margin: 6px 0 0;
+    margin-top: 12px;
     color: #b42318;
-    font-size: 11px;
   }
 </style>

@@ -1,17 +1,13 @@
 <script lang="ts">
+  import { browser } from 'wxt/browser';
   import type { ModelId } from '@/engine/model/catalog';
-  import { canAttemptSilentFolderGrant } from '@/engine/model/folder-permission';
   import {
     folderRecordsModel,
     sharedFolderNeedsPermission,
     type SharedFolderStatus,
   } from '@/engine/model/folder-status';
   import { notifySharedFolderChanged } from '@/engine/model/folder-offer';
-  import {
-    ensureStoredFolderPermission,
-    queryStoredFolderPermission,
-    restoreStoredFolderPermission,
-  } from '@/engine/model/shared-folder';
+  import { queryStoredFolderPermission } from '@/engine/model/shared-folder';
   import { t } from '@/shared/i18n';
   import { requestEngineWarm, requestModelFolderReload } from '@/shared/messages';
 
@@ -45,7 +41,6 @@
   let checkingPermission = $state(false);
   /** A query already says granted, even if the engine snapshot has not refreshed yet. */
   let silentGranted = $state(false);
-  let silentGrantFailed = $state(false);
   let visible = $derived(
     sharedFolderNeedsPermission(folder) &&
       (autoSettle
@@ -53,10 +48,6 @@
         : activationFailed && !silentGranted && !checkingPermission),
   );
   let presentHint = $derived(folderRecordsModel(folder, modelId));
-
-  function activationActive(): boolean {
-    return typeof navigator !== 'undefined' && navigator.userActivation?.isActive === true;
-  }
 
   async function afterGrant(): Promise<void> {
     await requestModelFolderReload();
@@ -69,13 +60,9 @@
     grantError = false;
     granting = true;
     try {
-      const permission = await restoreStoredFolderPermission();
-      if (permission !== 'granted') {
-        grantError = true;
-        return;
-      }
-      silentGranted = true;
-      await afterGrant();
+      // Only the folder-enable tab may call requestPermission so Chrome keeps the
+      // persistent "Allow on every visit" grant.
+      await browser.runtime.sendMessage({ type: 'folder:open-enable' });
     } catch {
       grantError = true;
     } finally {
@@ -85,19 +72,7 @@
 
   async function settlePermission(): Promise<void> {
     const permission = await queryStoredFolderPermission().catch(() => null);
-    if (permission === 'granted') {
-      silentGranted = true;
-      await afterGrant().catch(() => undefined);
-      return;
-    }
-    // A popup or other gesture-driven surface can turn `prompt` into a grant silently.
-    // Only fall back to the card when that attempt fails or when no activation exists.
-    if (!canAttemptSilentFolderGrant(permission, activationActive())) return;
-    const access = await ensureStoredFolderPermission().catch(() => null);
-    if (access?.status !== 'granted') {
-      silentGrantFailed = true;
-      return;
-    }
+    if (permission !== 'granted') return;
     silentGranted = true;
     await afterGrant().catch(() => undefined);
   }
@@ -106,7 +81,6 @@
     if (!sharedFolderNeedsPermission(folder)) {
       probed = false;
       silentGranted = false;
-      silentGrantFailed = false;
       checkingPermission = false;
       return;
     }
@@ -122,10 +96,6 @@
     });
   });
 </script>
-
-{#if silentGrantFailed && !visible && sharedFolderNeedsPermission(folder)}
-  <p class="error" class:compact role="alert">{t('modelFolderPermissionNeeded')}</p>
-{/if}
 
 {#if visible}
   <div class="restore" class:compact role="alert">
