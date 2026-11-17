@@ -7,7 +7,7 @@ import { DEFAULT_MODEL_ID, getModel } from '../src/engine/model/catalog';
 import { FIXTURE_ORIGIN } from './page';
 
 const PICKER_HINT =
-  'The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to.';
+  'After you press start, a folder dialog opens in Documents. Create or choose Documents/Sakutto, or choose the existing folder if another browser already has the models. Any folder you can write to also works.';
 const FOLDER_RADIO = 'Use a shared model folder (Chromium browsers) (recommended)';
 const BROWSER_RADIO = 'Save in this browser';
 const SETTINGS_FOLDER_RADIO = 'Shared folder (recommended)';
@@ -240,7 +240,7 @@ test.describe('shared model folder', () => {
     }
   });
 
-  test('onboarding stays on the license screen when a folder already has a verified file', async () => {
+  test('onboarding keeps browser storage selected when a folder already has a verified file', async () => {
     const extension = await loadExtension('en-US');
     const hits = await interceptGguf(extension, 'hang');
     try {
@@ -257,7 +257,8 @@ test.describe('shared model folder', () => {
         page.getByRole('button', { name: 'Agree to the license and start' }),
       ).toBeVisible();
       await expect(page.getByRole('heading', { name: "You're ready." })).toHaveCount(0);
-      await expect(page.getByRole('radio', { name: FOLDER_RADIO })).toBeChecked();
+      await expect(page.getByRole('radio', { name: BROWSER_RADIO })).toBeChecked();
+      await expect(page.getByRole('radio', { name: FOLDER_RADIO })).not.toBeChecked();
       expect(hits).toEqual([]);
       await page.close();
     } finally {
@@ -265,15 +266,16 @@ test.describe('shared model folder', () => {
     }
   });
 
-  test('onboarding downloads into the browser when browser storage is selected', async () => {
+  test('onboarding downloads into browser storage by default without opening the picker', async () => {
     const extension = await loadExtension('en-US');
     await interceptGguf(extension, 'hang');
     try {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
       await mockEmptySharedFolder(page);
-      await expect(page.getByRole('radio', { name: FOLDER_RADIO })).toBeChecked();
-      await page.getByRole('radio', { name: BROWSER_RADIO }).check();
+      await expect(page.getByRole('radio', { name: BROWSER_RADIO })).toBeChecked();
+      await expect(page.getByRole('radio', { name: FOLDER_RADIO })).not.toBeChecked();
+      await expect(page.getByText(PICKER_HINT)).toHaveCount(0);
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(page.getByText('Downloading 0% (0 MB / 573 MB)')).toBeVisible({
         timeout: 30_000,
@@ -281,6 +283,9 @@ test.describe('shared model folder', () => {
       await expect
         .poll(async () => readSharedFolder(page), { timeout: 15_000 })
         .toMatchObject({ configured: false });
+      expect(
+        await page.evaluate(() => (globalThis as { __sakuttoPicker?: unknown }).__sakuttoPicker),
+      ).toBeUndefined();
       await page.close();
     } finally {
       await extension.close();
@@ -294,7 +299,9 @@ test.describe('shared model folder', () => {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
       await mockEmptySharedFolder(page);
-      await expect(page.getByRole('radio', { name: FOLDER_RADIO })).toBeChecked();
+      await expect(page.getByRole('radio', { name: BROWSER_RADIO })).toBeChecked();
+      await page.getByRole('radio', { name: FOLDER_RADIO }).check();
+      await expect(page.getByText(PICKER_HINT)).toBeVisible();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(page.getByText('Downloading 0% (0 MB / 573 MB)')).toBeVisible({
         timeout: 30_000,
@@ -366,7 +373,8 @@ test.describe('shared model folder', () => {
           throw new DOMException('The user aborted a request.', 'AbortError');
         };
       });
-      await expect(page.getByRole('radio', { name: FOLDER_RADIO })).toBeChecked();
+      await expect(page.getByRole('radio', { name: BROWSER_RADIO })).toBeChecked();
+      await page.getByRole('radio', { name: FOLDER_RADIO }).check();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(
         page.getByRole('button', { name: 'Agree to the license and start' }),

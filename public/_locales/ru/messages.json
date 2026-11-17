@@ -690,7 +690,7 @@
     "message": "Выберите, где хранить модель. Существующие модели будут перемещены в соответствии с выбором."
   },
   "modelStorageFirefoxCopyHint": {
-    "message": "Firefox не может продолжать использовать папку, поэтому модели копируются внутрь Firefox."
+    "message": "После нажатия «Начать» выберите папку с моделями и подтвердите «Загрузить». Firefox скопирует модели внутрь Firefox, а не будет продолжать использовать связанную папку."
   },
   "modelStorageFirefoxImport": {
     "message": "Импорт из общей папки"
@@ -726,7 +726,7 @@
     "message": "Ход передачи моделей"
   },
   "modelFolderPickerHint": {
-    "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."
+    "message": "После нажатия «Начать» откроется диалог выбора папки в «Документах». Создайте или выберите Документы/Sakutto либо выберите существующую папку, если модели уже есть в другом браузере. Подойдёт и любая другая папка с правом записи."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"

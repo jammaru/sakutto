@@ -690,7 +690,7 @@
     "message": "選擇模型的儲存位置。現有模型會隨選擇移動。"
   },
   "modelStorageFirefoxCopyHint": {
-    "message": "Firefox 無法繼續使用資料夾，因此模型會複製到 Firefox 中。"
+    "message": "按下開始後，請選擇包含模型的資料夾並確認「上傳」。Firefox 會將模型複製到 Firefox 中，而不會繼續連結該資料夾。"
   },
   "modelStorageFirefoxImport": {
     "message": "從共用資料夾匯入"
@@ -726,7 +726,7 @@
     "message": "模型傳輸進度"
   },
   "modelFolderPickerHint": {
-    "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."
+    "message": "按下開始後，資料夾選擇對話框會在「文件」中開啟。請建立或選擇「文件/Sakutto」；如果其他瀏覽器已有模型，請選擇現有資料夾。也可以選擇任何有寫入權限的資料夾。"
   },
   "modelFolderChoose": {
     "message": "Choose model folder"

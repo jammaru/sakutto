@@ -690,7 +690,7 @@
     "message": "모델을 저장할 위치를 선택하세요. 기존 모델은 선택에 따라 이동합니다."
   },
   "modelStorageFirefoxCopyHint": {
-    "message": "Firefox는 폴더를 계속 사용할 수 없으므로 모델을 Firefox 안으로 복사합니다."
+    "message": "시작 버튼을 누른 다음 모델이 있는 위치를 선택하고 “업로드”를 확인하세요. Firefox는 선택한 위치를 계속 연결하지 않고 모델을 Firefox 안으로 복사합니다."
   },
   "modelStorageFirefoxImport": {
     "message": "공유 폴더에서 가져오기"
@@ -726,7 +726,7 @@
     "message": "모델 전송 진행 상황"
   },
   "modelFolderPickerHint": {
-    "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."
+    "message": "시작 버튼을 누른 다음 Documents에서 디렉터리 선택 창이 열립니다. Documents/Sakutto를 만들거나 선택하거나, 다른 브라우저에 모델이 이미 있으면 기존 디렉터리를 선택하세요. 쓰기 가능한 다른 디렉터리도 사용할 수 있습니다."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"

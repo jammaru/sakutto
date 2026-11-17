@@ -690,7 +690,7 @@
     "message": "Wählen Sie, wo das Modell gespeichert wird. Vorhandene Modelle werden entsprechend verschoben."
   },
   "modelStorageFirefoxCopyHint": {
-    "message": "Firefox kann den Ordner nicht dauerhaft nutzen, daher werden die Modelle in Firefox kopiert."
+    "message": "Wählen Sie nach dem Klicken auf „Start“ den Ordner mit den Modellen und bestätigen Sie „Hochladen“. Firefox kopiert die Modelle in Firefox, statt den Ordner weiterhin zu verknüpfen."
   },
   "modelStorageFirefoxImport": {
     "message": "Aus einem gemeinsamen Ordner importieren"
@@ -726,7 +726,7 @@
     "message": "Fortschritt der Modellübertragung"
   },
   "modelFolderPickerHint": {
-    "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."
+    "message": "Nach dem Klicken auf „Start“ öffnet sich ein Ordnerdialog in „Dokumente“. Erstellen oder wählen Sie „Dokumente/Sakutto“, oder wählen Sie den vorhandenen Ordner, falls ein anderer Browser die Modelle bereits enthält. Jeder beschreibbare Ordner funktioniert ebenfalls."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"

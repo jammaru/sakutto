@@ -690,7 +690,7 @@
     "message": "Chọn nơi lưu mô hình. Các mô hình hiện có sẽ được di chuyển theo lựa chọn."
   },
   "modelStorageFirefoxCopyHint": {
-    "message": "Firefox không thể tiếp tục dùng thư mục, nên các mô hình được sao chép vào Firefox."
+    "message": "Sau khi nhấn Bắt đầu, hãy chọn thư mục chứa mô hình và xác nhận “Tải lên”. Firefox sao chép mô hình vào Firefox thay vì tiếp tục liên kết thư mục."
   },
   "modelStorageFirefoxImport": {
     "message": "Nhập từ thư mục dùng chung"
@@ -726,7 +726,7 @@
     "message": "Tiến trình chuyển mô hình"
   },
   "modelFolderPickerHint": {
-    "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."
+    "message": "Sau khi nhấn Bắt đầu, hộp thoại chọn thư mục sẽ mở trong Documents. Hãy tạo hoặc chọn Documents/Sakutto, hoặc chọn thư mục hiện có nếu trình duyệt khác đã có mô hình. Bạn cũng có thể dùng bất kỳ thư mục nào có quyền ghi."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"

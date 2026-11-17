@@ -18,8 +18,11 @@ describe('Firefox onboarding start flow', () => {
     vi.useRealTimers();
   });
 
-  it('defaults to copy-from-shared-folder when the picker is unavailable', () => {
-    expect(defaultOnboardingStoreChoice(false)).toBe('copy');
+  it('defaults to browser storage without opening the folder picker', () => {
+    expect(defaultOnboardingStoreChoice(false)).toBe('browser');
+    const start = onboarding.slice(onboarding.indexOf('async function start()'));
+    expect(start).not.toContain("storeChoice = 'copy'");
+    expect(start).toContain("if (!pickerAvailable && storeChoice === 'copy')");
   });
 
   it('continues to skip download when a copy leaves the model ready', () => {

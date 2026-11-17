@@ -29,12 +29,27 @@ test.describe('built extension', () => {
           await expect(radios.nth(0)).toHaveAccessibleName(
             'Use a shared model folder (Chromium browsers) (recommended)',
           );
-          await expect(radios.nth(0)).toBeChecked();
+          await expect(radios.nth(0)).not.toBeChecked();
           await expect(radios.nth(1)).toHaveAccessibleName('Save in this browser');
-          await expect(radios.nth(1)).not.toBeChecked();
+          await expect(radios.nth(1)).toBeChecked();
           await expect(page.locator('[data-store-recommended]')).toContainText(
             'Use a shared model folder (Chromium browsers) (recommended)',
           );
+          await expect(page.locator('.action-row ~ fieldset.store')).toBeVisible();
+          await expect(
+            page.getByText(
+              'For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them.',
+            ),
+          ).toHaveCount(0);
+          await expect(
+            page.getByText(
+              'After you press start, a folder dialog opens in Documents. Create or choose Documents/Sakutto, or choose the existing folder if another browser already has the models. Any folder you can write to also works.',
+            ),
+          ).toHaveCount(0);
+          await expect(
+            page.getByText('When the browser asks, choose “Allow on every visit”'),
+          ).toHaveCount(0);
+          await radios.nth(0).check();
           await expect(
             page.getByText(
               'For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them.',
@@ -42,7 +57,7 @@ test.describe('built extension', () => {
           ).toBeVisible();
           await expect(
             page.getByText(
-              'The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to.',
+              'After you press start, a folder dialog opens in Documents. Create or choose Documents/Sakutto, or choose the existing folder if another browser already has the models. Any folder you can write to also works.',
             ),
           ).toBeVisible();
           await expect(
@@ -51,6 +66,12 @@ test.describe('built extension', () => {
           await expect(page.getByText('Restarts then need no extra clicks')).toBeVisible();
           await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
           await expect(page.getByText('Japanese Edge: 「常に許可」')).toBeVisible();
+          await radios.nth(1).check();
+          await expect(
+            page.getByText(
+              'After you press start, a folder dialog opens in Documents. Create or choose Documents/Sakutto, or choose the existing folder if another browser already has the models. Any folder you can write to also works.',
+            ),
+          ).toHaveCount(0);
           await expect(page.getByText('A shared folder means:')).toBeVisible();
           await expect(
             page.getByText(
@@ -154,12 +175,27 @@ test.describe('built extension', () => {
           await expect(radios.nth(0)).toHaveAccessibleName(
             '共有モデルフォルダを使う（Chromiumブラウザ）（おすすめ）',
           );
-          await expect(radios.nth(0)).toBeChecked();
+          await expect(radios.nth(0)).not.toBeChecked();
           await expect(radios.nth(1)).toHaveAccessibleName('このブラウザ内に保存する');
-          await expect(radios.nth(1)).not.toBeChecked();
+          await expect(radios.nth(1)).toBeChecked();
           await expect(page.locator('[data-store-recommended]')).toContainText(
             '共有モデルフォルダを使う（Chromiumブラウザ）（おすすめ）',
           );
+          await expect(page.locator('.action-row ~ fieldset.store')).toBeVisible();
+          await expect(
+            page.getByText(
+              'Chrome や Edge など複数の Chromium ブラウザで使う人向けです。モデルは1つで済みます。',
+            ),
+          ).toHaveCount(0);
+          await expect(
+            page.getByText(
+              '「ライセンスに同意して開始」を押すと、フォルダ選択がドキュメントで開きます。「ドキュメント/Sakutto」を作成するか選んでください。別のブラウザにモデルが既にある場合は、その既存フォルダを選びます。書き込みできる別のフォルダでもかまいません。',
+            ),
+          ).toHaveCount(0);
+          await expect(
+            page.getByText('ブラウザから求められたら「サイトアクセス時は常に許可」'),
+          ).toHaveCount(0);
+          await radios.nth(0).check();
           await expect(
             page.getByText(
               'Chrome や Edge など複数の Chromium ブラウザで使う人向けです。モデルは1つで済みます。',
@@ -167,7 +203,7 @@ test.describe('built extension', () => {
           ).toBeVisible();
           await expect(
             page.getByText(
-              'フォルダ選択はドキュメントで開きます。「Sakutto」というフォルダを作成するか選んでください（例：ドキュメント/Sakutto）。書き込みできる別のフォルダでもかまいません。',
+              '「ライセンスに同意して開始」を押すと、フォルダ選択がドキュメントで開きます。「ドキュメント/Sakutto」を作成するか選んでください。別のブラウザにモデルが既にある場合は、その既存フォルダを選びます。書き込みできる別のフォルダでもかまいません。',
             ),
           ).toBeVisible();
           await expect(
@@ -176,6 +212,12 @@ test.describe('built extension', () => {
           await expect(page.getByText('再起動後も追加のクリックは不要になります')).toBeVisible();
           await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
           await expect(page.getByText('「常に許可」（Edge）')).toBeVisible();
+          await radios.nth(1).check();
+          await expect(
+            page.getByText(
+              '「ライセンスに同意して開始」を押すと、フォルダ選択がドキュメントで開きます。「ドキュメント/Sakutto」を作成するか選んでください。別のブラウザにモデルが既にある場合は、その既存フォルダを選びます。書き込みできる別のフォルダでもかまいません。',
+            ),
+          ).toHaveCount(0);
           await expect(page.getByText('共有フォルダを使うと：')).toBeVisible();
           await expect(
             page.getByText(

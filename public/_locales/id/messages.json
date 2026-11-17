@@ -690,7 +690,7 @@
     "message": "Pilih tempat penyimpanan model. Model yang sudah ada dipindahkan sesuai pilihan."
   },
   "modelStorageFirefoxCopyHint": {
-    "message": "Firefox tidak dapat terus menggunakan folder, jadi model disalin ke dalam Firefox."
+    "message": "Setelah menekan Mulai, pilih folder yang berisi model lalu konfirmasi “Unggah”. Firefox menyalin model ke dalam Firefox, bukan terus menggunakan folder tersebut."
   },
   "modelStorageFirefoxImport": {
     "message": "Impor dari folder bersama"
@@ -726,7 +726,7 @@
     "message": "Progres pemindahan model"
   },
   "modelFolderPickerHint": {
-    "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."
+    "message": "Setelah menekan Mulai, dialog folder terbuka di Documents. Buat atau pilih Documents/Sakutto, atau pilih folder yang sudah ada jika browser lain sudah memiliki modelnya. Folder lain yang dapat Anda tulisi juga dapat digunakan."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"

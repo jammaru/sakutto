@@ -690,7 +690,7 @@
     "message": "Scegli dove viene salvato il modello. I modelli esistenti vengono spostati in base alla scelta."
   },
   "modelStorageFirefoxCopyHint": {
-    "message": "Firefox non può continuare a usare la cartella, quindi i modelli vengono copiati in Firefox."
+    "message": "Dopo aver premuto Avvia, scegli la cartella contenente i modelli e conferma «Carica». Firefox copia i modelli in Firefox invece di mantenere la cartella collegata."
   },
   "modelStorageFirefoxImport": {
     "message": "Importa da cartella condivisa"
@@ -726,7 +726,7 @@
     "message": "Avanzamento del trasferimento dei modelli"
   },
   "modelFolderPickerHint": {
-    "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."
+    "message": "Dopo aver premuto Avvia, si apre una finestra di selezione della cartella in Documenti. Crea o scegli Documenti/Sakutto, oppure scegli la cartella esistente se un altro browser contiene già i modelli. Va bene anche qualsiasi cartella in cui puoi scrivere."
   },
   "modelFolderChoose": {
     "message": "Choose model folder"

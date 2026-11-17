@@ -24,15 +24,14 @@ export function shouldPrepareTranslatorPack(input: {
 }
 
 /**
- * First-run preselects the shared folder on every Chromium, including Edge, whenever the
- * picker is available. A profile that already has a folder keeps it. No picker means OPFS,
- * with no choice.
+ * First-run uses this browser's internal storage on every browser. Chromium's shared folder
+ * and Firefox's copy-from-folder flow are explicit alternatives, so an untouched Start click
+ * never opens a picker. The capability argument keeps the default stable across async status
+ * refreshes without adding work on mount.
  */
-export function defaultOnboardingStoreChoice(
-  pickerAvailable: boolean,
-): OnboardingStoreChoice | 'copy' {
-  if (pickerAvailable) return 'folder';
-  return 'copy';
+export function defaultOnboardingStoreChoice(pickerAvailable: boolean): OnboardingStoreChoice {
+  void pickerAvailable;
+  return 'browser';
 }
 
 /**

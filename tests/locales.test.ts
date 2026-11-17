@@ -203,10 +203,10 @@ describe('locale messages', () => {
     );
     expect(en.modelFolderBenefitKeep?.message).toMatch(/pick the same folder/i);
     expect(en.modelFolderPickerHint?.message).toBe(
-      'The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to.',
+      'After you press start, a folder dialog opens in Documents. Create or choose Documents/Sakutto, or choose the existing folder if another browser already has the models. Any folder you can write to also works.',
     );
     expect(ja.modelFolderPickerHint?.message).toBe(
-      'フォルダ選択はドキュメントで開きます。「Sakutto」というフォルダを作成するか選んでください（例：ドキュメント/Sakutto）。書き込みできる別のフォルダでもかまいません。',
+      '「ライセンスに同意して開始」を押すと、フォルダ選択がドキュメントで開きます。「ドキュメント/Sakutto」を作成するか選んでください。別のブラウザにモデルが既にある場合は、その既存フォルダを選びます。書き込みできる別のフォルダでもかまいません。',
     );
     expect(en.onboardingStoreFolderHelp?.message).toBe(
       'For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them.',
@@ -230,8 +230,10 @@ describe('locale messages', () => {
     expect(ja.modelStorageBrowser?.message).toBe('このブラウザ内');
     expect(en.modelStorageCopyFolder?.message).toBe('Copy from shared folder (recommended)');
     expect(ja.modelStorageCopyFolder?.message).toBe('共有フォルダからコピー（おすすめ）');
-    expect(en.modelStorageFirefoxCopyHint?.message).toMatch(/copied into Firefox/i);
+    expect(en.modelStorageFirefoxCopyHint?.message).toMatch(/copies the models into Firefox/i);
+    expect(en.modelStorageFirefoxCopyHint?.message).toContain('Upload');
     expect(ja.modelStorageFirefoxCopyHint?.message).toContain('Firefox 内にコピー');
+    expect(ja.modelStorageFirefoxCopyHint?.message).toContain('アップロード');
     expect(en.modelStorageFirefoxImport?.message).toBe('Import from shared folder');
     expect(ja.modelStorageFirefoxImport?.message).toBe('共有フォルダから取り込む');
     expect(en.modelStorageFirefoxImportHint?.message).toMatch(/without downloading again/i);

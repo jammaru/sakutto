@@ -690,7 +690,7 @@
     "message": "เลือกตำแหน่งจัดเก็บโมเดล โมเดลที่มีอยู่จะถูกย้ายตามที่เลือก"
   },
   "modelStorageFirefoxCopyHint": {
-    "message": "Firefox ไม่สามารถใช้โฟลเดอร์ต่อได้ จึงคัดลอกโมเดลไว้ใน Firefox"
+    "message": "หลังจากกดเริ่ม ให้เลือกโฟลเดอร์ที่มีโมเดลและยืนยัน “อัปโหลด” Firefox จะคัดลอกโมเดลไว้ใน Firefox แทนการใช้โฟลเดอร์ที่เชื่อมไว้ต่อ"
   },
   "modelStorageFirefoxImport": {
     "message": "นำเข้าจากโฟลเดอร์ที่แชร์"
@@ -726,7 +726,7 @@
     "message": "ความคืบหน้าการถ่ายโอนโมเดล"
   },
   "modelFolderPickerHint": {
-    "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."
+    "message": "หลังจากกดเริ่ม กล่องโต้ตอบเลือกโฟลเดอร์จะเปิดใน Documents ให้สร้างหรือเลือก Documents/Sakutto หรือเลือกโฟลเดอร์เดิมหากเบราว์เซอร์อื่นมีโมเดลอยู่แล้ว คุณใช้โฟลเดอร์อื่นที่เขียนไฟล์ได้ก็ได้"
   },
   "modelFolderChoose": {
     "message": "Choose model folder"
