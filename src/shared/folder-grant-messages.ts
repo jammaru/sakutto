@@ -83,13 +83,29 @@ export function isFolderResumePendingRequest(value: unknown): value is FolderRes
 
 export interface FolderArmCommandRequest {
   type: 'folder:arm-command';
-  tabId: number;
   command: PageCommandName;
+  /** Privileged contexts may name the tab; content scripts leave it to the background. */
+  tabId?: number | undefined;
   frameId?: number | undefined;
+}
+
+function isPageCommand(value: unknown): value is PageCommandName {
+  return (
+    value === 'toggle' ||
+    value === 'restore' ||
+    value === 'bilingual' ||
+    value === 'selection' ||
+    value === 'compose'
+  );
 }
 
 export function isFolderArmCommandRequest(value: unknown): value is FolderArmCommandRequest {
   if (typeof value !== 'object' || value === null) return false;
   const record = value as FolderArmCommandRequest;
-  return record.type === 'folder:arm-command' && typeof record.tabId === 'number';
+  return (
+    record.type === 'folder:arm-command' &&
+    isPageCommand(record.command) &&
+    (record.tabId === undefined || typeof record.tabId === 'number') &&
+    (record.frameId === undefined || typeof record.frameId === 'number')
+  );
 }

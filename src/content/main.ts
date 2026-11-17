@@ -1,4 +1,5 @@
 import { browser } from 'wxt/browser';
+import { armFolderCommand } from '@/content/folder-arm-gate';
 import { listPageBlocks } from '@/dom/blocks';
 import { ComposeController, type ComposeLabels, type ComposePreferences } from '@/dom/compose';
 import { shouldHandleComposeCommand } from '@/dom/compose-field';
@@ -784,16 +785,10 @@ export function contentMain(): void {
       return session.state();
     }
     if (!__SAKUTTO_FAKE_ENGINE__) {
-      const tab = await browser.tabs.getCurrent().catch(() => null);
-      const tabId = tab?.id;
-      if (tabId !== undefined) {
-        const armed: unknown = await browser.runtime
-          .sendMessage({ type: 'folder:arm-command', tabId, command })
-          .catch(() => null);
-        if (armed === 'deferred') {
-          session.beginFolderGrantWait();
-          return session.state();
-        }
+      const armed = await armFolderCommand(command);
+      if (armed === 'deferred') {
+        session.beginFolderGrantWait();
+        return session.state();
       }
     }
     await session.handle(command);

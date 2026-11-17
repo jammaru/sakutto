@@ -10,6 +10,7 @@ import {
   openPdfForTabReason,
 } from '@/background/page-actions';
 import { gatePageCommand, resumeFolderGrantPending } from '@/background/folder-grant';
+import { resolveFolderArmCommandTarget } from '@/background/folder-arm-command';
 import { validateFolderEnableTokenMap } from '@/background/folder-enable-validate';
 import {
   isFolderArmCommandRequest,
@@ -512,9 +513,12 @@ export default defineBackground(() => {
     }
 
     if (isFolderArmCommandRequest(message)) {
-      void gatePageCommand(client, message.tabId, message.command, message.frameId).then(
-        sendResponse,
-      );
+      const target = resolveFolderArmCommandTarget(message, sender);
+      if (!target) {
+        sendResponse(null);
+        return true;
+      }
+      void gatePageCommand(client, target.tabId, target.command, target.frameId).then(sendResponse);
       return true;
     }
 

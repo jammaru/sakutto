@@ -520,8 +520,12 @@ describe('shared folder activation and recovery', () => {
 
   it('does not toast for a folder grant when OPFS can still answer', () => {
     const content = source('content/main.ts');
-    expect(content).toContain("type: 'folder:arm-command'");
-    expect(content).toContain("armed === 'deferred'");
+    const arm = source('content/folder-arm-gate.ts');
+    expect(content).toContain('armFolderCommand');
+    expect(content).not.toContain('browser.tabs');
+    expect(content).not.toContain('getCurrent');
+    expect(arm).toContain("type: 'folder:arm-command'");
+    expect(arm).not.toContain('tabId');
     expect(content).toContain('sharedFolderPickerAvailable()');
     expect(content).toContain('isFolderGrantCompleteMessage');
     expect(content).not.toContain('sakutto-folder-granted');
