@@ -580,14 +580,34 @@ export class ModelManager {
     let source = downloadedStore;
     while (this.store !== source) {
       const target = this.store;
+      const inspected = await this.inspect(target, modelId);
+      if (inspected.integrity === 'needs-hash') {
+        await this.runVerify(target, modelId, signal, onProgress);
+        source = target;
+        continue;
+      }
+      if (inspected.integrity === 'reject-size') {
+        throw new EngineError('model-integrity', INTEGRITY_SIZE_ERROR, { retryable: false });
+      }
+      if (inspected.state === 'ready') {
+        source = target;
+        continue;
+      }
+
       const copied = await this.copyOneFallback(modelId, signal, onProgress, {
         primary: target,
         fallback: source,
       });
       if (!copied) {
-        // A concurrent folder adoption may already have installed or rejected this file.
-        this.notify(await this.status(modelId));
-        return;
+        // A concurrent folder adoption may have installed the file since the first inspect.
+        if ((await this.inspect(target, modelId)).state === 'ready') {
+          source = target;
+          continue;
+        }
+        throw new EngineError(
+          'download-failed',
+          'The downloaded model could not be moved to the selected store.',
+        );
       }
       source = target;
     }
@@ -947,9 +967,20 @@ export class ModelManager {
     manifest: ModelManifest,
   ): Promise<void> {
     const path = this.manifestPath(modelId);
-    const writer = await store.createWriter(path, 0);
-    await writer.write(TEXT_ENCODER.encode(JSON.stringify(manifest)));
-    await writer.close();
+    const stallTimeout = stallTimeoutOf(this.stallTimeoutMs);
+    const writer = await withinStall(store.createWriter(path, 0), stallTimeout, undefined, true);
+    try {
+      await withinStall(
+        writer.write(TEXT_ENCODER.encode(JSON.stringify(manifest))),
+        stallTimeout,
+        undefined,
+        true,
+      );
+      await withinStall(writer.close(), stallTimeout, undefined, true);
+    } catch (error) {
+      await withinStall(writer.close(), stallTimeout, undefined, true).catch(() => undefined);
+      throw error;
+    }
   }
 
   private notify(status: ModelStatus): void {

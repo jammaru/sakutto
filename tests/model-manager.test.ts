@@ -261,6 +261,29 @@ describe('ModelManager', () => {
     expect(await created.manager.primaryReady(ENTRY.id)).toBe(true);
   });
 
+  it('does not certify different bytes already in the newly selected store', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    const finalPath = `models/${ENTRY.id}/model.gguf`;
+    const foreign = bytesOf('HELLO WORLD!');
+    await shared.append(finalPath, foreign, 0);
+    const holder: { manager?: ModelManager } = {};
+    const created = createManager(opfs, {
+      fetchImpl: async () => {
+        holder.manager?.setStores(shared, opfs);
+        return new Response(new Uint8Array(PAYLOAD), { status: 200 });
+      },
+    });
+    holder.manager = created.manager;
+
+    await expect(
+      created.manager.download(ENTRY.id, { signal: new AbortController().signal }),
+    ).rejects.toMatchObject({ code: 'model-integrity' });
+
+    expect(shared.files.get(finalPath)).toEqual(foreign);
+    expect(shared.files.has(`models/${ENTRY.id}/model.json`)).toBe(false);
+  });
+
   it('moves a saved partial prefix when a folder is picked before resuming', async () => {
     const opfs = new MemoryFileStore();
     const shared = new MemoryFileStore();
