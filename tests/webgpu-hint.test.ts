@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isLinuxPlatform } from '@/shared/browser';
-import { linuxWebGpuHintVisible } from '@/shared/webgpu-hint';
+import { linuxWebGpuHintKey, linuxWebGpuHintVisible } from '@/shared/webgpu-hint';
 
 const linuxX11 = {
   userAgentData: { platform: 'Linux' },
@@ -50,6 +50,17 @@ describe('isLinuxPlatform', () => {
 });
 
 describe('Linux WebGPU hint', () => {
+  it.each([
+    ['unsupported', 'engineLinuxWebGpuHintUnsupported'],
+    ['unavailable', 'engineLinuxWebGpuHintUnavailable'],
+  ] as const)('maps %s to its own hint', (webgpu, key) => {
+    expect(linuxWebGpuHintKey(webgpu)).toBe(key);
+  });
+
+  it.each(['ready', 'failed', null] as const)('has no hint when WebGPU is %s', (webgpu) => {
+    expect(linuxWebGpuHintKey(webgpu)).toBeNull();
+  });
+
   it.each(['unsupported', 'unavailable'] as const)(
     'shows on Chrome Linux when WebGPU is %s',
     (webgpu) => {

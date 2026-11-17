@@ -2,7 +2,7 @@
   import { isFirefoxBuild } from '@/shared/browser';
   import type { EngineCapabilities } from '@/shared/capabilities';
   import { t } from '@/shared/i18n';
-  import { linuxWebGpuHintVisible } from '@/shared/webgpu-hint';
+  import { linuxWebGpuHintKey, linuxWebGpuHintVisible } from '@/shared/webgpu-hint';
 
   interface Props {
     capabilities: EngineCapabilities | null;
@@ -29,6 +29,9 @@
   }
 
   let engineLabel = $derived(describeEngine(capabilities, failed));
+  let linuxHintKey = $derived(
+    linuxWebGpuHintVisible(capabilities?.webgpu) ? linuxWebGpuHintKey(capabilities?.webgpu) : null,
+  );
 </script>
 
 <div class="row">
@@ -50,8 +53,8 @@
   {#if isFirefoxBuild() && !capabilities.crossOriginIsolated}
     <p class="help">{t('engineFirefoxSingleThread')}</p>
   {/if}
-  {#if linuxWebGpuHintVisible(capabilities.webgpu)}
-    <p class="help">{t('engineLinuxWebGpuHint')}</p>
+  {#if linuxHintKey}
+    <p class="linux-webgpu-note">{t(linuxHintKey)}</p>
   {/if}
 {/if}
 
@@ -59,6 +62,17 @@
   .help {
     color: var(--muted);
     font-size: 11px;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+
+  .linux-webgpu-note {
+    margin: var(--space-3) 0 0;
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--surface-muted);
+    color: var(--muted);
+    font-size: 12px;
     font-weight: 400;
     line-height: 1.5;
   }

@@ -1171,8 +1171,11 @@
   "engineFirefoxSingleThread": {
     "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
   },
-  "engineLinuxWebGpuHint": {
-    "message": "Chrome on Linux may need WebGPU enabled at chrome://flags/#enable-unsafe-webgpu and the Vulkan feature. CPU translation is used meanwhile."
+  "engineLinuxWebGpuHintUnsupported": {
+    "message": "Chrome su Linux spesso richiede l’attivazione di WebGPU in chrome://flags/#enable-unsafe-webgpu e della funzione Vulkan, quindi il riavvio di Chrome. Nel frattempo viene usata la traduzione su CPU."
+  },
+  "engineLinuxWebGpuHintUnavailable": {
+    "message": "WebGPU è attivato, ma non è stato trovato alcun adattatore GPU utilizzabile. La traduzione su GPU richiede shader-f16; controlla i driver e il supporto Vulkan, ad esempio in chrome://gpu. Nel frattempo viene usata la traduzione su CPU."
   },
   "tierCpu1": {
     "message": "CPU (1 thread)"
