@@ -1175,6 +1175,9 @@
   "engineFirefoxSingleThread": {
     "message": "Firefox の拡張機能ページでは wasm のスレッドが使えないため、CPU の翻訳は 1 スレッドです。"
   },
+  "engineLinuxWebGpuHint": {
+    "message": "Linux の Chrome では、WebGPU を有効にするために chrome://flags/#enable-unsafe-webgpu と Vulkan 機能が必要な場合があります。それまでは CPU で翻訳します。"
+  },
   "tierCpu1": {
     "message": "CPU（1スレッド）"
   },

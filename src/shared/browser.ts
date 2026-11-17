@@ -32,3 +32,23 @@ export function isFirefoxBuild(): boolean {
 export function hasBuiltInTranslatorUi(): boolean {
   return !isFirefoxBuild();
 }
+
+export interface PlatformNavigator {
+  readonly userAgentData?: { readonly platform?: string | undefined } | undefined;
+  readonly platform?: string | undefined;
+  readonly userAgent?: string | undefined;
+}
+
+/**
+ * True on a Linux desktop, including Chrome's X11 and Wayland sessions. Android reports
+ * Linux as its kernel in `navigator.platform` but runs Chrome for Android, so it is not a
+ * desktop and gets no Linux-only hint.
+ */
+export function isLinuxPlatform(
+  nav: PlatformNavigator | undefined = globalThis.navigator as PlatformNavigator | undefined,
+): boolean {
+  if (!nav) return false;
+  const platform = nav.userAgentData?.platform || nav.platform || nav.userAgent || '';
+  if (!/linux/i.test(platform)) return false;
+  return !/android/i.test(nav.userAgent ?? platform);
+}
