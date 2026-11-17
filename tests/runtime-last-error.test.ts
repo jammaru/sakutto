@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
   reads: 0,
+  chromeReads: 0,
   throws: false,
   value: undefined as { message?: string } | undefined,
   sendMessage: vi.fn(),
+  chromeSendMessage: vi.fn(),
 }));
 
 vi.mock('wxt/browser', () => ({
@@ -31,9 +33,12 @@ import {
 
 beforeEach(() => {
   state.reads = 0;
+  state.chromeReads = 0;
   state.throws = false;
   state.value = undefined;
   state.sendMessage.mockReset();
+  state.chromeSendMessage.mockReset();
+  Reflect.deleteProperty(globalThis, 'chrome');
 });
 
 describe('runtime lastError helper', () => {
@@ -63,18 +68,44 @@ describe('runtime lastError helper', () => {
     expect(state.reads).toBe(2);
   });
 
-  it('broadcasts runtime messages and clears errors on success and failure', async () => {
-    state.sendMessage.mockResolvedValue(undefined);
+  it('uses the Chrome callback path and reads callback lastError', async () => {
+    Object.defineProperty(globalThis, 'chrome', {
+      configurable: true,
+      value: {
+        runtime: {
+          get lastError() {
+            state.chromeReads += 1;
+            return undefined;
+          },
+          sendMessage: state.chromeSendMessage,
+        },
+      },
+    });
+    state.chromeSendMessage.mockImplementation((_message: unknown, callback: () => void) => {
+      state.value = { message: 'The message channel closed' };
+      callback();
+    });
+
     await broadcastRuntimeMessage({ type: 'model:progress' });
-    expect(state.sendMessage).toHaveBeenCalledWith(
+
+    expect(state.chromeSendMessage).toHaveBeenCalledWith(
       { type: 'model:progress' },
       expect.any(Function),
     );
-    expect(state.reads).toBe(2);
+    expect(state.sendMessage).not.toHaveBeenCalled();
+    expect(state.chromeReads).toBeGreaterThanOrEqual(1);
+    expect(state.reads).toBeGreaterThanOrEqual(1);
+  });
+
+  it('falls back to the Firefox promise path without chrome callbacks', async () => {
+    state.sendMessage.mockResolvedValue(undefined);
+    await broadcastRuntimeMessage({ type: 'model:progress' });
+    expect(state.sendMessage).toHaveBeenCalledWith({ type: 'model:progress' });
+    expect(state.reads).toBe(1);
 
     state.sendMessage.mockRejectedValue(new Error('closed'));
     await expect(broadcastRuntimeMessage({ type: 'model:progress' })).resolves.toBeUndefined();
-    expect(state.reads).toBe(4);
+    expect(state.reads).toBe(3);
   });
 
   it('clears lastError after port posts and async sendResponse', async () => {

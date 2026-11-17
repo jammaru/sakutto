@@ -1,5 +1,6 @@
 import { abortError, EngineError, isAbortError, isEngineError } from '../errors';
 import type { ModelFileStore } from './file-store';
+import { reuseVerifiedFinal } from './copy';
 import { sha256OfBlob, type HashOptions } from './sha256';
 import {
   createOrderedSha256,
@@ -823,6 +824,21 @@ export async function downloadModel(request: DownloadRequest): Promise<DownloadR
       if (digest !== request.source.sha256) {
         await request.store.remove(request.partPath);
         throw new EngineError('model-integrity', 'The downloaded model failed its digest check.');
+      }
+
+      // Another profile may have moved the same pinned model into the shared folder while
+      // this download was running. Reuse that file instead of replacing it mid-read.
+      const reused = await reuseVerifiedFinal({
+        store: request.store,
+        partPath: request.partPath,
+        finalPath: request.finalPath,
+        size: request.source.size,
+        sha256: request.source.sha256,
+        signal: request.signal,
+        ...(customHash ? { hashBlob: customHash } : {}),
+      });
+      if (reused) {
+        return { bytes: reused.bytes, sha256: reused.sha256, resumedFrom };
       }
 
       await request.store.move(request.partPath, request.finalPath);

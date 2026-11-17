@@ -9,7 +9,7 @@ import type { BackendSelection } from '../in-browser/backend';
 import type { LlamaRuntime } from '../in-browser/runtime';
 import type { ModelState, ModelStatus } from '../../shared/engine-status';
 import { DEFAULT_MODEL_ID, MODEL_CATALOG, type ModelEntry, type ModelId } from './catalog';
-import { copyModelFile, uniquePartPath } from './copy';
+import { copyModelFile, reuseVerifiedFinal, uniquePartPath } from './copy';
 import {
   DEFAULT_CONCURRENCY,
   DEFAULT_SEGMENT_BYTES,
@@ -38,6 +38,8 @@ export interface ModelManagerOptions {
   onStatus?: (status: ModelStatus) => void;
   /** Override the streamed OPFS→folder copy chunk size. Tests use a small value. */
   copyChunkBytes?: number;
+  /** Profile-local partial paths; injected by tests or a persistent session adapter. */
+  downloadPartPaths?: Map<ModelId, string>;
 }
 
 interface ModelManifest extends IntegrityManifest {
@@ -72,6 +74,7 @@ export class ModelManager {
     { operation: Promise<void>; abort: AbortController }
   >();
   private readonly verifies = new Map<ModelId, Promise<void>>();
+  private readonly downloadParts: Map<ModelId, string>;
   private readonly errors = new Map<ModelId, string>();
   private loaded: LoadedModel | null = null;
   private loadChain: Promise<void> = Promise.resolve();
@@ -85,6 +88,7 @@ export class ModelManager {
     this.entries = options.entries ?? MODEL_CATALOG;
     this.onStatus = options.onStatus;
     this.copyChunkBytes = options.copyChunkBytes;
+    this.downloadParts = options.downloadPartPaths ?? new Map<ModelId, string>();
   }
 
   setStores(
@@ -215,6 +219,7 @@ export class ModelManager {
     if (this.loaded?.id === modelId) await this.unload();
 
     this.errors.delete(modelId);
+    this.downloadParts.delete(modelId);
     await this.store.removeDirectory(this.modelDirectory(modelId));
     this.notify({
       id: modelId,
@@ -381,6 +386,7 @@ export class ModelManager {
 
     const current = await this.inspect(this.store, modelId);
     if (current.state === 'ready' || this.loaded?.id === modelId) {
+      this.downloadParts.delete(modelId);
       this.notify(await this.status(modelId));
       return;
     }
@@ -392,18 +398,44 @@ export class ModelManager {
 
       if (current.integrity === 'needs-hash') {
         await this.runVerify(this.store, modelId, signal, onProgress);
+        this.downloadParts.delete(modelId);
         return;
       }
 
       try {
-        if (await this.copyOneFallback(modelId, signal, onProgress)) return;
+        if (await this.copyOneFallback(modelId, signal, onProgress)) {
+          this.downloadParts.delete(modelId);
+          return;
+        }
       } catch (error) {
         if (isAbortError(error)) throw error;
       }
 
-      await this.ensureSpace(modelId);
+      const partPath = await this.resolveDownloadPartPath(modelId);
+      const reused = await reuseVerifiedFinal({
+        store: this.store,
+        partPath,
+        finalPath: this.finalPath(modelId),
+        size: entry.size,
+        sha256: entry.sha256,
+        signal,
+        ...(this.hashBlob ? { hashBlob: this.hashBlob } : {}),
+      });
+      if (reused) {
+        this.downloadParts.delete(modelId);
+        this.notify({
+          id: modelId,
+          state: 'ready',
+          received: entry.size,
+          total: entry.size,
+          progress: 1,
+        });
+        return;
+      }
 
-      const resumedBytes = await this.store.size(this.partPath(modelId));
+      await this.ensureSpace(modelId, partPath);
+
+      const resumedBytes = await this.store.size(partPath);
       this.notify({
         id: modelId,
         state: 'downloading',
@@ -415,7 +447,7 @@ export class ModelManager {
       await downloadModel({
         source: { url: entry.url, size: entry.size, sha256: entry.sha256 },
         store: this.store,
-        partPath: this.partPath(modelId),
+        partPath,
         finalPath: this.finalPath(modelId),
         signal,
         attempts: 3,
@@ -437,6 +469,7 @@ export class ModelManager {
       });
 
       await this.writeVerifiedManifest(this.store, modelId);
+      this.downloadParts.delete(modelId);
 
       this.notify({
         id: modelId,
@@ -449,7 +482,8 @@ export class ModelManager {
       if (isAbortError(error)) throw error;
       const message = error instanceof Error ? error.message : String(error);
       this.errors.set(modelId, message);
-      const received = await this.store.size(this.partPath(modelId)).catch(() => 0);
+      const partPath = this.downloadParts.get(modelId);
+      const received = partPath ? await this.store.size(partPath).catch(() => 0) : 0;
       this.notify({
         id: modelId,
         state: 'error',
@@ -656,9 +690,10 @@ export class ModelManager {
     modelId: ModelId,
   ): Promise<ModelStatus & { integrity: ReturnType<typeof decideIntegrity> }> {
     const entry = this.entry(modelId);
+    const partPath = this.downloadParts.get(modelId);
     const [fileStat, partSize] = await Promise.all([
       store.stat(this.finalPath(modelId)),
-      store.size(this.partPath(modelId)),
+      partPath ? store.size(partPath) : Promise.resolve(0),
     ]);
     const received = Math.min(partSize, entry.size);
     const manifest = await this.readManifest(store, modelId);
@@ -699,12 +734,12 @@ export class ModelManager {
     };
   }
 
-  private async ensureSpace(modelId: ModelId): Promise<void> {
+  private async ensureSpace(modelId: ModelId, partPath: string): Promise<void> {
     const entry = this.entry(modelId);
     const estimate = await this.store.estimate();
     if (estimate.quota <= 0) return;
 
-    const existing = await this.store.size(this.partPath(modelId));
+    const existing = await this.store.size(partPath);
     const needed = Math.max(0, entry.size - existing) + FREE_SPACE_MARGIN;
     if (estimate.quota - estimate.usage < needed) {
       throw new EngineError(
@@ -794,6 +829,21 @@ export class ModelManager {
     } catch {
       // Status listeners are cosmetic and must not interrupt a download.
     }
+  }
+
+  private async resolveDownloadPartPath(modelId: ModelId): Promise<string> {
+    const tracked = this.downloadParts.get(modelId);
+    if (tracked) {
+      const size = await this.store.size(tracked).catch(() => 0);
+      if (size > 0) return tracked;
+      this.downloadParts.delete(modelId);
+    }
+    const partPath = uniquePartPath(this.partPath(modelId));
+    this.downloadParts.set(modelId, partPath);
+    if (this.store instanceof SharedFolderModelFileStore) {
+      await this.store.pruneStalePartFiles(modelId, partPath).catch(() => undefined);
+    }
+    return partPath;
   }
 
   private modelDirectory(modelId: ModelId): string {

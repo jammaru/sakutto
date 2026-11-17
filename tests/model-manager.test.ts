@@ -6,6 +6,7 @@ import {
   ModelManager,
 } from '@/engine/model/manager';
 import { sha256Hex } from '@/engine/model/sha256';
+import type { ModelId } from '@/engine/model/catalog';
 import type { BackendSelection } from '@/engine/in-browser/backend';
 import type { ModelStatus } from '@/shared/engine-status';
 import { bytesOf, FakeRuntime, MemoryFileStore, entryRecord, makeEntry } from './support/fakes';
@@ -35,6 +36,7 @@ function createManager(
     fallbackStore?: MemoryFileStore;
     copyChunkBytes?: number;
     hashBlob?: (blob: Blob) => Promise<string>;
+    downloadPartPaths?: Map<ModelId, string>;
   } = {},
 ): { manager: ModelManager; createRuntime: ReturnType<typeof vi.fn> } {
   const createRuntime = vi.fn(
@@ -48,6 +50,7 @@ function createManager(
     ...(options.fallbackStore ? { fallbackStore: options.fallbackStore } : {}),
     ...(options.copyChunkBytes !== undefined ? { copyChunkBytes: options.copyChunkBytes } : {}),
     ...(options.hashBlob ? { hashBlob: options.hashBlob } : {}),
+    ...(options.downloadPartPaths ? { downloadPartPaths: options.downloadPartPaths } : {}),
   });
   return { manager, createRuntime };
 }
@@ -108,11 +111,15 @@ describe('ModelManager', () => {
     expect(fetchImpl).toHaveBeenCalledOnce();
   });
 
-  it('reports progress from a partial file and refuses to start without space', async () => {
+  it('reports progress from a tracked partial file and refuses to start without space', async () => {
     const store = new MemoryFileStore();
-    await store.append(`models/${ENTRY.id}/model.gguf.part`, PAYLOAD.slice(0, 5), 0);
+    const partPath = `models/${ENTRY.id}/model.local.part`;
+    await store.append(partPath, PAYLOAD.slice(0, 5), 0);
     const fetchImpl = vi.fn(async () => new Response(new Uint8Array(PAYLOAD), { status: 200 }));
-    const { manager } = createManager(store, { fetchImpl });
+    const { manager } = createManager(store, {
+      fetchImpl,
+      downloadPartPaths: new Map([[ENTRY.id, partPath]]),
+    });
 
     expect(await manager.status(ENTRY.id)).toMatchObject({
       state: 'partial',
@@ -127,13 +134,68 @@ describe('ModelManager', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it('keeps resumed bytes monotonic while the prefix is hashed', async () => {
+  it('does not report a foreign canonical part as our partial', async () => {
     const store = new MemoryFileStore();
     await store.append(`models/${ENTRY.id}/model.gguf.part`, PAYLOAD.slice(0, 5), 0);
+    const { manager } = createManager(store);
+
+    expect(await manager.status(ENTRY.id)).toMatchObject({
+      state: 'absent',
+      received: 0,
+      progress: 0,
+    });
+  });
+
+  it('runs parallel downloads through separate part files and reuses the winner', async () => {
+    const store = new MemoryFileStore();
+    const firstParts = new Map<ModelId, string>();
+    const secondParts = new Map<ModelId, string>();
+    let started = 0;
+    let releaseBoth!: () => void;
+    const bothStarted = new Promise<void>((resolve) => {
+      releaseBoth = resolve;
+    });
+    const fetchImpl = vi.fn(async () => {
+      started += 1;
+      if (started === 2) releaseBoth();
+      await bothStarted;
+      return new Response(new Uint8Array(PAYLOAD), { status: 200 });
+    });
+    const first = createManager(store, { fetchImpl, downloadPartPaths: firstParts }).manager;
+    const second = createManager(store, { fetchImpl, downloadPartPaths: secondParts }).manager;
+
+    const downloads = Promise.all([
+      first.download(ENTRY.id, { signal: new AbortController().signal }),
+      second.download(ENTRY.id, { signal: new AbortController().signal }),
+    ]);
+    await bothStarted;
+
+    const firstPart = firstParts.get(ENTRY.id);
+    const secondPart = secondParts.get(ENTRY.id);
+    expect(firstPart).toBeDefined();
+    expect(secondPart).toBeDefined();
+    expect(firstPart).not.toBe(secondPart);
+    expect(firstPart).not.toBe(`models/${ENTRY.id}/model.gguf.part`);
+    expect(secondPart).not.toBe(`models/${ENTRY.id}/model.gguf.part`);
+
+    await downloads;
+
+    expect(new Uint8Array(store.files.get(`models/${ENTRY.id}/model.gguf`) ?? [])).toEqual(PAYLOAD);
+    expect(firstParts.has(ENTRY.id)).toBe(false);
+    expect(secondParts.has(ENTRY.id)).toBe(false);
+    expect(store.files.has(`models/${ENTRY.id}/model.gguf.part`)).toBe(false);
+    expect([...store.files.keys()].filter((path) => path.endsWith('.part'))).toEqual([]);
+  });
+
+  it('keeps resumed bytes monotonic while the prefix is hashed', async () => {
+    const store = new MemoryFileStore();
+    const partPath = `models/${ENTRY.id}/model.local.part`;
+    await store.append(partPath, PAYLOAD.slice(0, 5), 0);
     const statuses: ModelStatus[] = [];
     const manager = new ModelManager({
       store,
       entries: entryRecord(ENTRY),
+      downloadPartPaths: new Map([[ENTRY.id, partPath]]),
       createRuntime: async () => new FakeRuntime(() => 'こんにちは'),
       fetchImpl: async () =>
         new Response(PAYLOAD.slice(5), {

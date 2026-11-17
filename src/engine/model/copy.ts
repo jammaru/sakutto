@@ -60,17 +60,29 @@ async function discardPart(store: ModelFileStore, partPath: string): Promise<voi
   await store.remove(partPath).catch(() => undefined);
 }
 
-async function tryReuseVerifiedFinal(
-  request: CopyModelRequest,
-  hashBlob: (blob: Blob, options?: HashOptions) => Promise<string>,
+export interface ReuseVerifiedFinalRequest {
+  store: ModelFileStore;
+  partPath: string;
+  finalPath: string;
+  size: number;
+  sha256: string;
+  signal: AbortSignal;
+  hashBlob?: (blob: Blob, options?: HashOptions) => Promise<string> | undefined;
+}
+
+/** Reuse a final file another operation already wrote, deleting only our own temp part. */
+export async function reuseVerifiedFinal(
+  request: ReuseVerifiedFinalRequest,
 ): Promise<CopyModelResult | null> {
   const { store, finalPath, size, sha256, signal } = request;
+  const hashBlob = request.hashBlob ?? sha256OfBlob;
   const existingSize = await store.size(finalPath);
   if (existingSize !== size) return null;
   try {
     const blob = await store.read(finalPath);
     const digest = await hashBlob(blob, { signal });
     if (digest !== sha256) return null;
+    await discardPart(store, request.partPath);
     return { bytes: size, sha256: digest };
   } catch {
     return null;
@@ -88,11 +100,8 @@ export async function copyModelFile(request: CopyModelRequest): Promise<CopyMode
   const hashBlob = request.hashBlob ?? sha256OfBlob;
   const { blob, store, partPath, finalPath, size, sha256, signal } = request;
 
-  const reused = await tryReuseVerifiedFinal(request, hashBlob);
-  if (reused) {
-    await discardPart(store, partPath);
-    return reused;
-  }
+  const reused = await reuseVerifiedFinal({ ...request, hashBlob });
+  if (reused) return reused;
 
   await discardPart(store, partPath);
 

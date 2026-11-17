@@ -40,30 +40,59 @@ export function safeSendResponse(
   scheduleRuntimeLastErrorClear();
 }
 
+interface ChromeRuntime {
+  sendMessage?: (message: unknown, callback: () => void) => unknown;
+  lastError?: unknown;
+}
+
+function readChromeRuntimeLastError(): void {
+  try {
+    const runtime = (globalThis as { chrome?: { runtime?: ChromeRuntime } }).chrome?.runtime;
+    if (runtime) void runtime.lastError;
+  } catch {
+    // Chrome APIs are absent or already gone.
+  }
+}
+
 /** Broadcast to extension pages and clear pending unchecked errors on success and failure. */
 export async function broadcastRuntimeMessage(message: unknown): Promise<void> {
+  const chromeRuntime = (globalThis as { chrome?: { runtime?: ChromeRuntime } }).chrome?.runtime;
+  const chromeSend = chromeRuntime?.sendMessage;
+
+  if (chromeRuntime && typeof chromeSend === 'function') {
+    try {
+      await new Promise<void>((resolve) => {
+        let settled = false;
+        const done = (): void => {
+          if (settled) return;
+          settled = true;
+          readChromeRuntimeLastError();
+          readRuntimeLastError();
+          resolve();
+        };
+        let result: unknown;
+        try {
+          result = chromeSend.call(chromeRuntime, message, done);
+        } catch {
+          done();
+          return;
+        }
+        if (result && typeof (result as PromiseLike<unknown>).then === 'function') {
+          void (result as PromiseLike<unknown>).then(done, done);
+        }
+      });
+    } catch {
+      readChromeRuntimeLastError();
+      readRuntimeLastError();
+    } finally {
+      readChromeRuntimeLastError();
+      readRuntimeLastError();
+    }
+    return;
+  }
+
   try {
-    await new Promise<void>((resolve) => {
-      let settled = false;
-      const done = (): void => {
-        if (settled) return;
-        settled = true;
-        readRuntimeLastError();
-        resolve();
-      };
-      let result: unknown;
-      try {
-        result = (
-          browser.runtime.sendMessage as (message: unknown, callback: () => void) => unknown
-        )(message, done);
-      } catch {
-        done();
-        return;
-      }
-      if (result && typeof (result as PromiseLike<unknown>).then === 'function') {
-        void (result as PromiseLike<unknown>).then(done, done);
-      }
-    });
+    await browser.runtime.sendMessage(message);
   } catch {
     readRuntimeLastError();
   } finally {
