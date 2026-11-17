@@ -3,9 +3,14 @@ import type { PageCommandName } from '@/shared/messages';
 
 export const FOLDER_GRANT_PENDING_KEY = 'folderGrantPending';
 
+/** The PDF command is not a page action: resuming it opens the reader for the source tab. */
+export const PDF_GRANT_COMMAND = 'translate-pdf' as const;
+
+export type FolderGrantCommand = PageCommandName | typeof PDF_GRANT_COMMAND;
+
 export interface FolderGrantPending {
   tabId: number;
-  command: PageCommandName;
+  command: FolderGrantCommand;
   frameId?: number | undefined;
   createdAt: number;
 }
@@ -22,11 +27,15 @@ function isPageCommand(value: unknown): value is PageCommandName {
   );
 }
 
+function isFolderGrantCommand(value: unknown): value is FolderGrantCommand {
+  return isPageCommand(value) || value === PDF_GRANT_COMMAND;
+}
+
 export function parseFolderGrantPending(value: unknown): FolderGrantPending | null {
   if (typeof value !== 'object' || value === null) return null;
   const record = value as Record<string, unknown>;
   if (typeof record.tabId !== 'number' || !Number.isFinite(record.tabId)) return null;
-  if (!isPageCommand(record.command)) return null;
+  if (!isFolderGrantCommand(record.command)) return null;
   const createdAt = typeof record.createdAt === 'number' ? record.createdAt : 0;
   if (createdAt > 0 && Date.now() - createdAt > PENDING_TTL_MS) return null;
   const frameId = typeof record.frameId === 'number' ? record.frameId : undefined;

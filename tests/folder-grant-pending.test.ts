@@ -12,6 +12,15 @@ describe('folder grant pending', () => {
     expect(pending?.command).toBe('selection');
   });
 
+  it('accepts a deferred PDF command', () => {
+    const pending = parseFolderGrantPending({
+      tabId: 4,
+      command: 'translate-pdf',
+      createdAt: Date.now(),
+    });
+    expect(pending).toMatchObject({ tabId: 4, command: 'translate-pdf' });
+  });
+
   it('rejects stale entries', () => {
     const pending = parseFolderGrantPending({
       tabId: 1,

@@ -4,8 +4,8 @@ import type { EngineStatus } from '@/shared/engine-status';
 import { FOLDER_GRANT_PENDING_KEY } from '@/shared/folder-grant-pending';
 import { defaultShortcutEnabled } from '@/shared/shortcuts';
 
-type CommandListener = (command: string, tab?: { id?: number }) => void;
-type MenuListener = (info: { menuItemId: string }, tab?: { id?: number }) => void;
+type CommandListener = (command: string, tab?: { id?: number; url?: string }) => void;
+type MenuListener = (info: { menuItemId: string }, tab?: { id?: number; url?: string }) => void;
 
 const mocks = vi.hoisted(() => {
   const session = new Map<string, unknown>();
@@ -26,7 +26,13 @@ const mocks = vi.hoisted(() => {
     >(async () => true),
     loadSettings: vi.fn(async () => ({ shortcutsEnabled: defaultShortcutEnabled() })),
     noteShortcutCommandAssigned: vi.fn<(command: string) => Promise<void>>(async () => undefined),
-    hasStoredSharedFolder: vi.fn(async () => false),
+    queryStoredFolderPermission: vi.fn(
+      async (): Promise<'granted' | 'prompt' | 'denied' | null> => null,
+    ),
+    sharedFolderSupported: vi.fn(() => true),
+    openPdfForTab: vi.fn<(tab?: { id?: number; url?: string }) => Promise<boolean>>(
+      async () => true,
+    ),
     getURL: vi.fn((path: string) => `chrome-extension://test${path}`),
   };
 });
@@ -102,7 +108,14 @@ vi.mock('@/shared/shortcut-assignment', () => ({
 }));
 
 vi.mock('@/engine/model/shared-folder', () => ({
-  hasStoredSharedFolder: () => mocks.hasStoredSharedFolder(),
+  queryStoredFolderPermission: () => mocks.queryStoredFolderPermission(),
+  sharedFolderSupported: () => mocks.sharedFolderSupported(),
+}));
+
+vi.mock('@/background/pdf-actions', () => ({
+  openActivePdf: async () => true,
+  openPdfForTab: (tab?: { id?: number; url?: string }) => mocks.openPdfForTab(tab),
+  openPdfForTabReason: async () => null,
 }));
 
 const { installPageActionListeners, installPageActions } =
@@ -142,6 +155,10 @@ async function invokeCommand(listener: CommandListener, tabId = 12): Promise<voi
   listener('translate-page', { id: tabId });
 }
 
+function invokePdfCommand(listener: CommandListener, tabId = 13): void {
+  listener('translate-pdf', { id: tabId, url: 'http://127.0.0.1:4173/sample.pdf' });
+}
+
 beforeEach(() => {
   mocks.session.clear();
   mocks.tabsQuery.mockReset();
@@ -153,8 +170,12 @@ beforeEach(() => {
   mocks.ensureContentScript.mockClear();
   mocks.loadSettings.mockClear();
   mocks.noteShortcutCommandAssigned.mockClear();
-  mocks.hasStoredSharedFolder.mockReset();
-  mocks.hasStoredSharedFolder.mockResolvedValue(false);
+  mocks.queryStoredFolderPermission.mockReset();
+  mocks.queryStoredFolderPermission.mockResolvedValue(null);
+  mocks.sharedFolderSupported.mockReset();
+  mocks.sharedFolderSupported.mockReturnValue(true);
+  mocks.openPdfForTab.mockClear();
+  mocks.openPdfForTab.mockResolvedValue(true);
   mocks.tabsQuery.mockImplementation(async () =>
     mocks.tabsCreate.mock.calls.length > 0 ? [{ id: 70, windowId: 1 }] : [],
   );
@@ -241,8 +262,8 @@ describe('page command listener at service-worker startup', () => {
     expect(mocks.tabsCreate).toHaveBeenCalledTimes(1);
   });
 
-  it('defers when engine status is unavailable but a folder handle is stored', async () => {
-    mocks.hasStoredSharedFolder.mockResolvedValue(true);
+  it('defers when status is unavailable and the stored permission still needs a grant', async () => {
+    mocks.queryStoredFolderPermission.mockResolvedValue('prompt');
     installPageActionListeners();
     installPageActions(
       undefined,
@@ -261,8 +282,30 @@ describe('page command listener at service-worker startup', () => {
         command: 'toggle',
       });
     });
+    expect(mocks.queryStoredFolderPermission).toHaveBeenCalled();
     expect(mocks.tabsCreate).toHaveBeenCalledTimes(1);
     expect(mocks.requestPageCommand).not.toHaveBeenCalled();
+  });
+
+  it('runs without opening a grant tab when status is unavailable but permission is granted', async () => {
+    mocks.queryStoredFolderPermission.mockResolvedValue('granted');
+    installPageActionListeners();
+    installPageActions(
+      undefined,
+      clientWith(async () => {
+        throw new Error('offscreen is still starting');
+      }),
+    );
+    const listener = mocks.commandListeners[0];
+    if (!listener) throw new Error('command listener was not installed');
+
+    await invokeCommand(listener);
+
+    await vi.waitFor(() => {
+      expect(mocks.requestPageCommand).toHaveBeenCalledWith(12, 'toggle', undefined);
+    });
+    expect(mocks.tabsCreate).not.toHaveBeenCalled();
+    expect(mocks.session.get(FOLDER_GRANT_PENDING_KEY)).toBeUndefined();
   });
 
   it('runs the command when status fails and no folder is stored', async () => {
@@ -285,6 +328,27 @@ describe('page command listener at service-worker startup', () => {
     expect(mocks.session.get(FOLDER_GRANT_PENDING_KEY)).toBeUndefined();
   });
 
+  it('skips the stored-folder lookup on builds without shared-folder support', async () => {
+    mocks.sharedFolderSupported.mockReturnValue(false);
+    installPageActionListeners();
+    installPageActions(
+      undefined,
+      clientWith(async () => {
+        throw new Error('offscreen is still starting');
+      }),
+    );
+    const listener = mocks.commandListeners[0];
+    if (!listener) throw new Error('command listener was not installed');
+
+    await invokeCommand(listener);
+
+    await vi.waitFor(() => {
+      expect(mocks.requestPageCommand).toHaveBeenCalledWith(12, 'toggle', undefined);
+    });
+    expect(mocks.queryStoredFolderPermission).not.toHaveBeenCalled();
+    expect(mocks.tabsCreate).not.toHaveBeenCalled();
+  });
+
   it('does not defer or open a tab when the folder permission is already granted', async () => {
     const status = promptStatus();
     status.sharedFolder = { ...status.sharedFolder!, permission: 'granted' };
@@ -300,6 +364,95 @@ describe('page command listener at service-worker startup', () => {
 
     await vi.waitFor(() => {
       expect(mocks.requestPageCommand).toHaveBeenCalledWith(12, 'toggle', undefined);
+    });
+    expect(mocks.tabsCreate).not.toHaveBeenCalled();
+    expect(mocks.session.get(FOLDER_GRANT_PENDING_KEY)).toBeUndefined();
+  });
+
+  it('defers a PDF command through the folder gate before fetching the document', async () => {
+    installPageActionListeners();
+    installPageActions(
+      undefined,
+      clientWith(async () => promptStatus()),
+    );
+    const listener = mocks.commandListeners[0];
+    if (!listener) throw new Error('command listener was not installed');
+
+    invokePdfCommand(listener);
+
+    await vi.waitFor(() => {
+      expect(mocks.session.get(FOLDER_GRANT_PENDING_KEY)).toMatchObject({
+        tabId: 13,
+        command: 'translate-pdf',
+      });
+    });
+    expect(mocks.tabsCreate).toHaveBeenCalledTimes(1);
+    expect(mocks.openPdfForTab).not.toHaveBeenCalled();
+  });
+
+  it('defers a PDF context-menu command through the same gate', async () => {
+    installPageActionListeners();
+    installPageActions(
+      undefined,
+      clientWith(async () => promptStatus()),
+    );
+    const listener = mocks.menuListeners[0];
+    if (!listener) throw new Error('context menu listener was not installed');
+
+    listener({ menuItemId: 'translate-pdf' }, { id: 14, url: 'http://127.0.0.1:4173/sample.pdf' });
+
+    await vi.waitFor(() => {
+      expect(mocks.session.get(FOLDER_GRANT_PENDING_KEY)).toMatchObject({
+        tabId: 14,
+        command: 'translate-pdf',
+      });
+    });
+    expect(mocks.tabsCreate).toHaveBeenCalledTimes(1);
+    expect(mocks.openPdfForTab).not.toHaveBeenCalled();
+  });
+
+  it('opens a PDF directly when the folder permission is already granted', async () => {
+    const status = promptStatus();
+    status.sharedFolder = { ...status.sharedFolder!, permission: 'granted' };
+    installPageActionListeners();
+    installPageActions(
+      undefined,
+      clientWith(async () => status),
+    );
+    const listener = mocks.commandListeners[0];
+    if (!listener) throw new Error('command listener was not installed');
+
+    invokePdfCommand(listener);
+
+    await vi.waitFor(() => {
+      expect(mocks.openPdfForTab).toHaveBeenCalledWith({
+        id: 13,
+        url: 'http://127.0.0.1:4173/sample.pdf',
+      });
+    });
+    expect(mocks.tabsCreate).not.toHaveBeenCalled();
+    expect(mocks.session.get(FOLDER_GRANT_PENDING_KEY)).toBeUndefined();
+  });
+
+  it('opens a PDF when status is unavailable but permission is already granted', async () => {
+    mocks.queryStoredFolderPermission.mockResolvedValue('granted');
+    installPageActionListeners();
+    installPageActions(
+      undefined,
+      clientWith(async () => {
+        throw new Error('offscreen is still starting');
+      }),
+    );
+    const listener = mocks.commandListeners[0];
+    if (!listener) throw new Error('command listener was not installed');
+
+    invokePdfCommand(listener);
+
+    await vi.waitFor(() => {
+      expect(mocks.openPdfForTab).toHaveBeenCalledWith({
+        id: 13,
+        url: 'http://127.0.0.1:4173/sample.pdf',
+      });
     });
     expect(mocks.tabsCreate).not.toHaveBeenCalled();
     expect(mocks.session.get(FOLDER_GRANT_PENDING_KEY)).toBeUndefined();

@@ -4,7 +4,7 @@
   import { ensureStoredFolderPermission } from '@/engine/model/shared-folder';
   import { notifySharedFolderChanged } from '@/engine/model/folder-offer';
   import { t } from '@/shared/i18n';
-  import { readFolderGrantPending } from '@/shared/folder-grant-pending';
+  import { PDF_GRANT_COMMAND, readFolderGrantPending } from '@/shared/folder-grant-pending';
   import { requestModelFolderReload } from '@/shared/messages';
 
   const embedded = window.parent !== window;
@@ -63,7 +63,8 @@
       await browser.runtime.sendMessage({ type: 'folder:grant-complete' }).catch(() => {
         readRuntimeLastError();
       });
-      if (pending?.tabId !== undefined) {
+      // A resumed PDF opens the reader; keep that new tab in front of the source viewer.
+      if (pending?.tabId !== undefined && pending.command !== PDF_GRANT_COMMAND) {
         await browser.tabs.update(pending.tabId, { active: true }).catch(() => {
           readRuntimeLastError();
         });

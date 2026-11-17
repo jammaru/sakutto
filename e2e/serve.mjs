@@ -25,6 +25,22 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (url.pathname === '/sample.pdf') {
+    try {
+      const body = await readFile(
+        fileURLToPath(new URL('../bench/pdf/paper.pdf', import.meta.url)),
+      );
+      response.writeHead(200, {
+        'content-type': 'application/pdf',
+        'content-length': body.length,
+      });
+      response.end(body);
+    } catch {
+      response.writeHead(404).end();
+    }
+    return;
+  }
+
   const relative = normalize(url.pathname).replace(/^[/\\]+/, '');
   const file = join(root, relative);
   if (!file.startsWith(root)) {

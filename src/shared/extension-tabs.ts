@@ -40,11 +40,19 @@ async function openOrFocusExtensionTabNow(url: string): Promise<number | null> {
       // A query/hash names a section of an already-open page (for example the folder
       // picker). Keep it when focusing so the reader lands on that section, not the top.
       const update = /[?#]/u.test(url) ? { active: true, url } : { active: true };
-      await browser.tabs.update(existing.id, update).catch(() => undefined);
-      if (existing.windowId !== undefined) {
-        await browser.windows.update(existing.windowId, { focused: true }).catch(() => undefined);
+      let focused = false;
+      try {
+        await browser.tabs.update(existing.id, update);
+        focused = true;
+      } catch {
+        // The tab closed between the query and the focus. Open a replacement below.
       }
-      return existing.id;
+      if (focused) {
+        if (existing.windowId !== undefined) {
+          await browser.windows.update(existing.windowId, { focused: true }).catch(() => undefined);
+        }
+        return existing.id;
+      }
     }
   } catch {
     // Not every page can query tabs (or has the tabs API in a test). Falling through still

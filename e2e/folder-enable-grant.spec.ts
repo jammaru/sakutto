@@ -112,3 +112,54 @@ for (const trigger of [
     }
   });
 }
+
+test('defers a PDF shortcut until the folder grant and resumes the reader', async () => {
+  test.setTimeout(120_000);
+  const extension = await loadExtension('en-US');
+  try {
+    await makeFolderPermissionPrompt(extension);
+
+    const page = await extension.context.newPage();
+    await page.goto(`${FIXTURE_ORIGIN}/article.html`);
+    // Keep the source tab on a .pdf URL without navigating to Chrome's own viewer. The
+    // command only needs the tab URL; the resume path fetches the fixture bytes.
+    await page.evaluate(() => history.replaceState({}, '', '/sample.pdf'));
+    await expect(page).toHaveURL(/sample\.pdf$/);
+
+    const grantTabPromise = extension.context.waitForEvent('page');
+    await dispatchCommand(extension.worker, page, 'translate-pdf');
+
+    const grantTab = await grantTabPromise;
+    const grantUrl = `chrome-extension://${extension.extensionId}/folder-enable.html`;
+    await grantTab.waitForTimeout(400);
+    if (!grantTab.url().startsWith(grantUrl)) await grantTab.goto(grantUrl);
+    await grantTab.waitForURL(/folder-enable\.html/);
+    expect(
+      extension.context.pages().filter((item) => item.url().startsWith(grantUrl)),
+    ).toHaveLength(1);
+    expect(extension.context.pages().some((item) => item.url().includes('/reader.html'))).toBe(
+      false,
+    );
+
+    const readerTabPromise = extension.context.waitForEvent('page');
+    await grantTab.locator('[data-sakutto="folder-enable-grant"]').click();
+    const readerTab = await readerTabPromise;
+    await readerTab.waitForURL(/reader\.html\?id=/, { timeout: 30_000 });
+    await expect.poll(() => grantTab.isClosed()).toBe(true);
+
+    const pending = await extension.worker.evaluate(async () => {
+      const chrome = (
+        globalThis as unknown as {
+          chrome: { storage: { session: { get(key: string): Promise<Record<string, unknown>> } } };
+        }
+      ).chrome;
+      return chrome.storage.session.get('folderGrantPending');
+    });
+    expect(pending).toEqual({});
+
+    await readerTab.close();
+    await page.close();
+  } finally {
+    await extension.close();
+  }
+});
