@@ -967,25 +967,58 @@ describe('compose controller', () => {
     expect(panelText()).toContain('Type something to translate.');
   });
 
-  it('opens from Alt+T even while the field is composing', () => {
+  it('ignores Alt+T during IME composition and key repeat', () => {
     document.body.innerHTML = '<textarea id="box"></textarea>';
     const field = document.querySelector('#box');
     if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
     field.focus();
     start();
+    const press = (init: KeyboardEventInit): void => {
+      field.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: '†',
+          code: 'KeyT',
+          altKey: true,
+          bubbles: true,
+          cancelable: true,
+          ...init,
+        }),
+      );
+    };
+    press({ isComposing: true });
+    press({ repeat: true });
+    const host = document.querySelector('sakutto-compose');
+    if (!(host instanceof HTMLElement)) throw new Error('missing panel');
+    expect(host.hidden).toBe(true);
+
+    press({});
+    expect(host.hidden).toBe(false);
+  });
+
+  it('routes the in-page compose key through the shared command dispatcher', () => {
+    document.body.innerHTML = '<textarea id="box">See you tomorrow.</textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const sources: Array<EventTarget | null | undefined> = [];
+    const controller = new ComposeController(document, {
+      engine: immediate((text, tgt) => `§${tgt}§${text}`),
+      labels,
+      preferences: { ...defaultPrefs },
+      onComposeCommand: (source) => sources.push(source),
+    });
+    controllers.push(controller);
     field.dispatchEvent(
       new KeyboardEvent('keydown', {
-        key: '†',
+        key: 't',
         code: 'KeyT',
         altKey: true,
         bubbles: true,
         cancelable: true,
-        isComposing: true,
       }),
     );
-    const host = document.querySelector('sakutto-compose');
-    if (!(host instanceof HTMLElement)) throw new Error('missing panel');
-    expect(host.hidden).toBe(false);
+    expect(sources).toEqual([field]);
+    expect((document.querySelector('sakutto-compose') as HTMLElement).hidden).toBe(true);
   });
 
   it('does not swallow a later shortcut after the first press found no field', () => {

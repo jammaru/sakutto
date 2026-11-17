@@ -256,11 +256,11 @@ export interface BoundShortcutOptions {
 }
 
 /**
- * The key a page should listen for. A key the user set in the browser wins. An empty
- * binding uses the per-OS default only when that command was never assigned; a user
- * clear (`assigned === true`) stays off. Sakutto's own checkbox is a separate off
- * switch. No snapshot at all keeps the default so a page can answer before the
- * background replies.
+ * The effective key to display. A key the user set in the browser wins. An empty binding
+ * uses the per-OS default only when that command was never assigned; a user clear
+ * (`assigned === true`) stays off. Sakutto's own checkbox is a separate off switch. No
+ * snapshot keeps the default for early UI. Event listeners must use the stricter
+ * `inPageFallbackShortcut()` so they never claim a browser-owned key.
  */
 export function boundShortcut(
   snapshot: ShortcutSnapshot | null,
@@ -287,8 +287,22 @@ export function usesInPageFallback(
   assigned?: boolean | undefined,
 ): boolean {
   if (!snapshot) return false;
-  if (hasShortcutKey(snapshot[command])) return false;
-  return assigned !== true;
+  // A missing command is not evidence of an empty assignment (getAll may have failed).
+  return snapshot[command] === '' && assigned !== true;
+}
+
+/**
+ * The only key a content script may handle itself. Before `getAll()` answers, and whenever
+ * the browser has a live binding, this is empty: `commands.onCommand` exclusively owns the
+ * key. This keeps one physical press from taking both the browser and in-page paths.
+ */
+export function inPageFallbackShortcut(
+  snapshot: ShortcutSnapshot | null,
+  command: ShortcutCommand,
+  options: BoundShortcutOptions = {},
+): string {
+  if (!usesInPageFallback(snapshot, command, options.assigned)) return '';
+  return boundShortcut(snapshot, command, options);
 }
 
 /** The shape `browser.commands.getAll()` returns, without depending on its declared type. */

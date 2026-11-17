@@ -282,6 +282,10 @@ describe('shortcut settings', () => {
   it('records the browser’s command bindings on install, update, and startup', () => {
     expect(background).toContain('resolveShortcutQuery');
     expect(background).toContain('restoreEmptyCommandShortcuts');
+    expect(background).toContain('shortcutStateCache');
+    expect(background).toContain('shortcutStateCache = null');
+    expect(background).toContain('shortcutCacheGeneration += 1');
+    expect(background).toContain('queryShortcutState(message.refresh === true)');
     expect(background).toContain('onInstalled');
     expect(background).toContain('onStartup');
     expect(background).toContain("reason === 'install' || reason === 'update'");

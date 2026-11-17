@@ -13,6 +13,7 @@ import {
   defaultShortcuts,
   defaultShortcutsFor,
   displayShortcut,
+  inPageFallbackShortcut,
   isPlainAltS,
   markCommandAssigned,
   matchesShortcut,
@@ -255,6 +256,30 @@ describe('readShortcutSnapshot', () => {
 });
 
 describe('shortcut assignment and in-page fallback', () => {
+  it('listens only after getAll proves a never-assigned command is empty', () => {
+    const unset = snapshot({
+      'translate-page': '',
+      'toggle-bilingual': '',
+      'translate-selection': '',
+      'translate-compose': '',
+    });
+    const missing = readShortcutSnapshot([]);
+    for (const command of SHORTCUT_COMMANDS) {
+      expect(inPageFallbackShortcut(null, command), command).toBe('');
+      expect(inPageFallbackShortcut(missing, command, { assigned: false }), command).toBe('');
+      expect(inPageFallbackShortcut(unset, command, { assigned: false }), command).toBe(
+        DEFAULT_SHORTCUTS[command],
+      );
+      expect(inPageFallbackShortcut(unset, command, { assigned: true }), command).toBe('');
+      expect(inPageFallbackShortcut(snapshot(), command, { assigned: true }), command).toBe('');
+      expect(
+        inPageFallbackShortcut(snapshot({ [command]: 'Alt+Q' }), command, { assigned: true }),
+        command,
+      ).toBe('');
+      expect(inPageFallbackShortcut(unset, command, { assigned: false, enabled: false })).toBe('');
+    }
+  });
+
   it('uses the fresh-install defaults and does not treat them as unset', () => {
     const live = snapshot();
     const ever = rememberShortcutAssignments({}, live);

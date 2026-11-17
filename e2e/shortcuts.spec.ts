@@ -200,6 +200,10 @@ test.describe('translate-page command', () => {
       await page.waitForTimeout(300);
       await expect(page.locator('#lead')).not.toContainText(MARKER);
       await pressAltLetter(page, 'KeyQ', 'q');
+      await page.waitForTimeout(300);
+      await expect(page.locator('#lead')).not.toContainText(MARKER);
+      // A browser-assigned key belongs only to commands.onCommand, never a second page listener.
+      await invokeOnCommandPath(extension.worker, page, 'toggle');
       await waitTranslated(page);
       await expect(page.locator('#lead')).toContainText(MARKER);
       await page.close();
@@ -219,6 +223,8 @@ test.describe('translate-page command', () => {
       await waitForContentSession(extension.worker, page);
       await waitForShortcutRefresh(page, 'Alt+A');
       await pressAltLetter(page, 'KeyA', 'a');
+      await page.waitForTimeout(300);
+      await expect(page.locator('#lead')).not.toContainText(MARKER);
       await invokeOnCommandPath(extension.worker, page, 'toggle');
       await waitTranslated(page);
       await expect(page.locator('#lead')).toContainText(MARKER);

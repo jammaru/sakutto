@@ -51,6 +51,7 @@ import {
   defaultShortcutEnabled,
   displayShortcut,
   emptyShortcutAssigned,
+  inPageFallbackShortcut,
   isMacPlatform,
   matchesShortcut,
   type ShortcutAssigned,
@@ -95,15 +96,15 @@ interface ContentBridgeGlobal {
 const bridge = globalThis as typeof globalThis & ContentBridgeGlobal;
 
 /**
- * The browser only tells a page which keys are bound through the background worker. An
- * empty snapshot keeps the manifest defaults until that answer arrives. A command the
- * browser never assigned uses the per-OS default on this page; one the user cleared does
- * not. The fallback cannot run on chrome:// pages or the PDF viewer, where this script is
- * not injected. A key Chrome did assign is delivered as onCommand even inside a text field.
+ * The browser only tells a page which keys are bound through the background worker. Until
+ * that answer arrives there is no in-page listener: an assigned key belongs exclusively to
+ * `commands.onCommand`. Only a command the browser reports empty and has never assigned
+ * uses the per-OS default here; one the user cleared does not. The fallback cannot run on
+ * chrome:// pages or the PDF viewer, where this script is not injected.
  */
-async function readShortcutState(): Promise<ShortcutQueryResult | null> {
+async function readShortcutState(refresh = false): Promise<ShortcutQueryResult | null> {
   const response: unknown = await browser.runtime
-    .sendMessage({ type: 'commands:shortcuts' })
+    .sendMessage({ type: 'commands:shortcuts', refresh })
     .catch(() => {
       readRuntimeLastError();
       return undefined;
@@ -131,7 +132,11 @@ function listensFor(
   command: ShortcutCommand,
 ): (event: KeyboardEvent) => boolean {
   return (event) => {
-    const shortcut = shortcutFor(snapshot, assigned, enabled, command);
+    const shortcut = inPageFallbackShortcut(snapshot, command, {
+      enabled: enabled[command],
+      assigned: assigned[command],
+      mac: isMacPlatform(),
+    });
     return shortcut.length > 0 && matchesShortcut(event, shortcut);
   };
 }
@@ -372,8 +377,8 @@ export function contentMain(): void {
   claimContentExtensionInstance(document, instanceToken);
 
   const host = pageHost(location.href) ?? '';
-  // The browser's bindings, or the manifest defaults until the background answers. A
-  // command the browser never assigned still uses its default; one the user cleared does not.
+  // The browser's bindings, or the manifest defaults for display until the background answers.
+  // In-page handling waits for a snapshot so an assigned key cannot also fire here.
   let shortcutSnapshot: ShortcutSnapshot | null = null;
   let shortcutAssigned = emptyShortcutAssigned();
   let shortcutsEnabled = defaultShortcutEnabled();
@@ -415,18 +420,23 @@ export function contentMain(): void {
       'translate-page',
     );
   };
-  const refreshShortcuts = (): void => {
-    void readShortcutState().then((state) => {
+  const refreshShortcuts = (refresh = false): void => {
+    void readShortcutState(refresh).then((state) => {
       if (!state) return;
       shortcutSnapshot = state.snapshot;
       shortcutAssigned = state.assigned;
       publishPageShortcut();
+      compose?.setReplaceShortcut(
+        displayShortcut(
+          shortcutFor(shortcutSnapshot, shortcutAssigned, shortcutsEnabled, 'translate-compose'),
+        ),
+      );
     });
   };
   let shortcutRefreshTimer = 0;
   const scheduleShortcutRefresh = (): void => {
     window.clearTimeout(shortcutRefreshTimer);
-    shortcutRefreshTimer = window.setTimeout(refreshShortcuts, 80);
+    shortcutRefreshTimer = window.setTimeout(() => refreshShortcuts(true), 80);
   };
   refreshShortcuts();
   // Chrome has no commands.onChanged on older builds, and no way to write a shortcut.
@@ -451,7 +461,9 @@ export function contentMain(): void {
     },
   };
 
-  const pageCommandBridge: { deliver: ((command: PageCommandName) => void) | null } = {
+  const pageCommandBridge: {
+    deliver: ((command: PageCommandName, source?: EventTarget | null) => void) | null;
+  } = {
     deliver: null,
   };
 
@@ -527,6 +539,7 @@ export function contentMain(): void {
           shortcutsEnabled,
           'translate-compose',
         )(event),
+      onComposeCommand: (source) => pageCommandBridge.deliver?.('compose', source),
       onWarm: () => {
         if (!__SAKUTTO_FAKE_ENGINE__) void requestEngineWarm();
       },
@@ -751,7 +764,11 @@ export function contentMain(): void {
     session.setFolderGrantUiActive(folderNeedsUserAction);
   };
 
-  const run = async (command: PageCommandName, selection?: PageSelectionSnapshot | null) => {
+  const run = async (
+    command: PageCommandName,
+    selection?: PageSelectionSnapshot | null,
+    source?: EventTarget | null,
+  ) => {
     const now = Date.now();
     // Compose re-entry is owned by the controller so a Chrome command that found no field
     // cannot swallow the page keydown (or a second command) that does.
@@ -770,7 +787,7 @@ export function contentMain(): void {
       void requestEngineTier(session, false, captions);
     }
     if (command === 'compose') {
-      if (shouldHandleComposeCommand(document)) compose?.handleShortcut();
+      if (shouldHandleComposeCommand(document)) compose?.handleShortcut(source);
       return session.state();
     }
     const armed = await armFolderCommand(command);
@@ -786,9 +803,9 @@ export function contentMain(): void {
     await session.handle(command);
     return session.state();
   };
-  pageCommandBridge.deliver = (command) => {
+  pageCommandBridge.deliver = (command, source) => {
     const selection = command === 'selection' ? capturePageSelection(document) : null;
-    void run(command, selection);
+    void run(command, selection, source);
   };
 
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {

@@ -46,8 +46,10 @@ describe('folder grant gate', () => {
     const content = source('content/main.ts');
     expect(session).toContain('onPageCommand');
     expect(session).toContain("this.onPageCommand('toggle')");
+    expect(session).toContain("this.onPageCommand('selection')");
     expect(content).toContain('onPageCommand: (command) => pageCommandBridge.deliver?.(command)');
-    expect(content).toContain('pageCommandBridge.deliver = (command)');
+    expect(content).toContain('onComposeCommand: (source) => pageCommandBridge.deliver?.');
+    expect(content).toContain('pageCommandBridge.deliver = (command, source)');
     expect(content).toContain('const armed = await armFolderCommand(command);');
   });
 

@@ -19,6 +19,7 @@ import {
   isPageInfo,
   isPageInfoRequest,
   isPageViewState,
+  isShortcutQuery,
   isShortcutQueryResult,
   isShortcutSnapshot,
 } from '@/shared/messages';
@@ -55,7 +56,7 @@ describe('message validation', () => {
         'translate-compose': 'Alt+T',
       }),
     ).toBe(true);
-    // `null` is a command Chrome did not list; `''` is one the user unbound.
+    // `null` is a command Chrome did not list; `''` is an explicitly empty binding.
     expect(
       isShortcutSnapshot({
         'translate-page': null,
@@ -80,6 +81,13 @@ describe('message validation', () => {
       }),
     ).toBe(false);
     expect(isShortcutSnapshot(null)).toBe(false);
+  });
+
+  it('validates an optional shortcut-cache refresh request', () => {
+    expect(isShortcutQuery({ type: 'commands:shortcuts' })).toBe(true);
+    expect(isShortcutQuery({ type: 'commands:shortcuts', refresh: true })).toBe(true);
+    expect(isShortcutQuery({ type: 'commands:shortcuts', refresh: false })).toBe(true);
+    expect(isShortcutQuery({ type: 'commands:shortcuts', refresh: 'yes' })).toBe(false);
   });
 
   it('validates the assigned map a page needs beside the snapshot', () => {

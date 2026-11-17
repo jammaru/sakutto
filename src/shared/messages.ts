@@ -97,6 +97,8 @@ export interface SiteGrantRequest {
 
 export interface ShortcutQuery {
   type: 'commands:shortcuts';
+  /** Force a fresh commands.getAll() snapshot instead of using the worker's cached state. */
+  refresh?: boolean;
 }
 
 export interface OpenSetupRequest {
@@ -272,7 +274,11 @@ export function isSiteGrantRequest(value: unknown): value is SiteGrantRequest {
 }
 
 export function isShortcutQuery(value: unknown): value is ShortcutQuery {
-  return isRecord(value) && value.type === 'commands:shortcuts';
+  return (
+    isRecord(value) &&
+    value.type === 'commands:shortcuts' &&
+    (value.refresh === undefined || typeof value.refresh === 'boolean')
+  );
 }
 
 export function isOpenSetupRequest(value: unknown): value is OpenSetupRequest {
@@ -496,10 +502,11 @@ export async function requestEngineWarm(): Promise<boolean> {
   }
 }
 
-export async function requestShortcutSnapshot(): Promise<ShortcutQueryResult | null> {
+export async function requestShortcutSnapshot(refresh = true): Promise<ShortcutQueryResult | null> {
   try {
     const response: unknown = await browser.runtime.sendMessage({
       type: 'commands:shortcuts',
+      refresh,
     } satisfies ShortcutQuery);
     return isShortcutQueryResult(response) ? response : null;
   } catch {

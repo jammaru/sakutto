@@ -117,7 +117,7 @@ export interface ComposePreferences {
 }
 
 const ICON_PX = 26;
-/** Chrome's command and the page keydown can both arrive for one keypress. */
+/** Defensive deduplication if a browser command races a stale in-page binding snapshot. */
 const COMPOSE_SHORTCUT_DEDUP_MS = 200;
 
 const uiShadows = new WeakMap<Element, ShadowRoot>();
@@ -1287,6 +1287,8 @@ export interface ComposeControllerOptions {
   labels: ComposeLabels;
   preferences: ComposePreferences;
   composeKey?: (event: KeyboardEvent) => boolean;
+  /** Routes an unassigned in-page key through the same dispatcher as commands.onCommand. */
+  onComposeCommand?: (source?: EventTarget | null) => void;
   previewMs?: number;
   onWarm?: () => void;
   onSetup?: () => void;
@@ -1305,6 +1307,7 @@ export class ComposeController {
   private readonly engine: PageEngine;
   private readonly overlay: ComposeOverlay;
   private readonly composeKey: (event: KeyboardEvent) => boolean;
+  private readonly onComposeCommand: ((source?: EventTarget | null) => void) | undefined;
   private readonly previewMs: number;
   private readonly onWarm: (() => void) | undefined;
   private readonly onSetup: (() => void) | undefined;
@@ -1357,6 +1360,7 @@ export class ComposeController {
     this.prefs = options.preferences;
     this.previewMs = options.previewMs ?? COMPOSE_PREVIEW_MS;
     this.composeKey = options.composeKey ?? ((event) => matchesShortcut(event, 'Alt+T'));
+    this.onComposeCommand = options.onComposeCommand;
     this.onWarm = options.onWarm;
     this.onSetup = options.onSetup;
     this.onTarget = options.onTarget;
@@ -1398,6 +1402,12 @@ export class ComposeController {
     this.labels = labels;
     this.overlay.setLabels(labels);
     if (this.panelOpen) this.render();
+  }
+
+  setReplaceShortcut(shortcut: string): void {
+    if (this.prefs.replaceShortcut === shortcut) return;
+    this.prefs = { ...this.prefs, replaceShortcut: shortcut };
+    this.overlay.setReplaceShortcut(shortcut);
   }
 
   setPreferences(prefs: ComposePreferences): void {
@@ -1624,9 +1634,9 @@ export class ComposeController {
   }
 
   private handleKey(event: Event): void {
-    if (!(event instanceof KeyboardEvent) || event.repeat) return;
+    if (!(event instanceof KeyboardEvent) || event.repeat || event.isComposing) return;
     if (event.key === 'Escape') {
-      if (event.isComposing || !this.panelOpen) return;
+      if (!this.panelOpen) return;
       if (!this.escapeClosesFrom(event.target)) return;
       event.preventDefault();
       event.stopPropagation();
@@ -1643,10 +1653,10 @@ export class ComposeController {
       event.stopPropagation();
       event.stopImmediatePropagation();
       if (this.replacing) return;
-      this.handleShortcut(event.target);
+      if (this.onComposeCommand) this.onComposeCommand(event.target);
+      else this.handleShortcut(event.target);
       return;
     }
-    if (event.isComposing) return;
     if (this.panelOpen && isTranslateShortcut(event)) {
       event.preventDefault();
       event.stopPropagation();

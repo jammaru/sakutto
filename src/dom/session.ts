@@ -104,9 +104,9 @@ const SELECTION_SETTLE_MS = 48;
 /** A selectionchange that follows pointerup is the same gesture and should not wait out the keyboard delay. */
 const POINTER_RELEASE_WINDOW_MS = 80;
 /**
- * Chrome's `commands.onCommand` and the in-page keydown can both arrive for one keypress
- * (the compose bar already dedupes for the same reason). Toggle would otherwise translate
- * and immediately restore, which looks like the shortcut doing nothing.
+ * Defensive deduplication for a binding transition where Chrome's `commands.onCommand` and
+ * a stale in-page snapshot race. Toggle would otherwise translate and immediately restore,
+ * which looks like the shortcut doing nothing. Normal assigned keys have no page listener.
  */
 export const PAGE_SHORTCUT_DEDUP_MS = 200;
 /**
@@ -538,7 +538,8 @@ export class PageSession {
       if (!selected) return;
       event.preventDefault();
       event.stopPropagation();
-      this.translateSelection(selected.text, selected.rect);
+      if (this.onPageCommand) this.onPageCommand('selection');
+      else this.translateSelection(selected.text, selected.rect);
     };
     this.onFocusIn = (event) => this.showHover(event);
     this.onFocusOut = (event) => this.hideHover(event);

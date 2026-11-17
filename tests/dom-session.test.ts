@@ -2082,6 +2082,43 @@ describe('page translation corrections', () => {
     await session.whenIdle();
   });
 
+  it('routes an in-page selection key through the shared command dispatcher', () => {
+    document.body.innerHTML = '<p id="lead">Selected phrase</p>';
+    const seen: string[] = [];
+    const commands: string[] = [];
+    const session = new PageSession(document, {
+      engine: engineOf(async function* (segments) {
+        seen.push(...segments.map((segment) => segment.text));
+        yield { id: segments[0]?.id ?? 's', final: '訳', engine: 'plamo' };
+      }),
+      labels,
+      preferences: preferences(),
+      scheduleFrame: (callback) => callback(),
+      selectionKey: (event) => event.altKey && event.code === 'KeyS',
+      onPageCommand: (command) => commands.push(command),
+    });
+    sessions.push(session);
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing lead');
+    const range = document.createRange();
+    range.selectNodeContents(lead);
+    const selection = document.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 's',
+        code: 'KeyS',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(commands).toEqual(['selection']);
+    expect(seen).toEqual([]);
+  });
+
   it('ignores page shortcuts while an IME composition is in progress', async () => {
     document.body.innerHTML = '<p>Hello world</p>';
     let calls = 0;
