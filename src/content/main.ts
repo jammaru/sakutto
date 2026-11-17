@@ -29,6 +29,7 @@ import {
   isFolderGrantCompleteMessage,
   isFolderGrantNeededMessage,
 } from '@/shared/folder-grant-messages';
+import { installFolderEnableTokenDelivery } from '@/shared/folder-enable-handshake';
 import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
 import { sharedFolderPickerAvailable } from '@/engine/model/shared-folder';
 import { hasLicenseConsent } from '@/shared/agreement';
@@ -360,14 +361,10 @@ async function folderEnableFrameRequest(): Promise<FolderEnableFrameRequest | nu
   return {
     pageUrl: folderEnablePageUrl,
     token,
-    onLoad: (frame) => {
-      // The iframe URL stays bare. Only the content script hands the secret to the child
-      // after it loads, so page scripts cannot read it from the URL or Resource Timing.
-      frame.contentWindow?.postMessage(
-        { type: 'sakutto-folder-enable-token', token },
-        extensionOrigin,
-      );
-    },
+    // Wait for the extension document's own ready message; a load event may still be
+    // about:blank, where posting with the extension origin would be dropped.
+    attachDelivery: (frame) =>
+      installFolderEnableTokenDelivery(frame, token, extensionOrigin, window),
   };
 }
 

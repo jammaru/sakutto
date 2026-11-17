@@ -38,7 +38,7 @@ describe('folder grant gate', () => {
       'utf8',
     );
     expect(enable).toContain("type: 'folder:grant-complete'");
-    expect(enable).not.toContain('postMessage');
+    expect(enable).not.toContain('sakutto-folder-granted');
     expect(background).toContain('isFolderGrantCompleteMessage');
     expect(background).toContain('isFolderEnableSender');
     expect(background).toContain('readFolderGrantPending');
@@ -61,12 +61,17 @@ describe('folder grant gate', () => {
       new URL('../src/background/folder-enable-validate.ts', import.meta.url),
       'utf8',
     );
+    const handshake = readFileSync(
+      new URL('../src/shared/folder-enable-handshake.ts', import.meta.url),
+      'utf8',
+    );
     expect(enable).toContain('folder:enable-validate');
     expect(enable).toContain('event.isTrusted');
-    expect(enable).toContain('sakutto-folder-enable-token');
+    expect(enable).toContain('FOLDER_ENABLE_READY_MESSAGE');
+    expect(enable).toContain('isFolderEnableTokenMessage');
     expect(enable).toContain('event.source !== window.parent');
     expect(enable).not.toContain('searchParams.get');
-    expect(content).toContain('postMessage');
+    expect(content).toContain('installFolderEnableTokenDelivery');
     expect(content).toContain('isFolderEnableConfirmMessage');
     expect(content).not.toContain("searchParams.set('token'");
     expect(background).toContain('isFolderEnableTokenRequest');
@@ -75,9 +80,22 @@ describe('folder grant gate', () => {
     expect(validation).toContain("type: 'folder:enable-confirm'");
     expect(validation).toContain('frameId: record.frameId ?? 0');
     expect(validation).toContain('takeFolderEnableToken');
+    expect(handshake).toContain("FOLDER_ENABLE_READY_MESSAGE = 'sakutto-folder-enable-ready'");
+    expect(handshake).toContain('postMessage');
     expect(overlay).toContain('attachUiShadow(this.folderEnableHost)');
     expect(overlay).toContain('folderEnableShadow.append(frame)');
-    expect(overlay).toContain("frame.addEventListener('load'");
+    expect(overlay).toContain('attachDelivery');
+    expect(overlay).not.toContain("setAttribute('sandbox'");
+    expect(overlay).not.toContain("addEventListener('load'");
+  });
+
+  it('hides the grant overlay when the deferred command completes', () => {
+    const session = readFileSync(new URL('../src/dom/session.ts', import.meta.url), 'utf8');
+    const end = session.slice(
+      session.indexOf('endFolderGrantWait()'),
+      session.indexOf('retryUntranslated()', session.indexOf('endFolderGrantWait()')),
+    );
+    expect(end).toContain('this.overlay.hideFolderEnable()');
   });
 
   it('keeps a deferred command until the page accepts it', () => {

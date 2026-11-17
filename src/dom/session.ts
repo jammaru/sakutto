@@ -211,8 +211,8 @@ export interface FolderEnableFrameRequest {
   pageUrl: string;
   /** The content script keeps this so the background can confirm frame ownership. */
   token?: string | undefined;
-  /** Runs after the frame document loads; the content script delivers the secret here. */
-  onLoad?: ((frame: HTMLIFrameElement) => void) | undefined;
+  /** Installs the ready handshake that delivers the secret to the frame. */
+  attachDelivery?: ((frame: HTMLIFrameElement) => void) | undefined;
 }
 
 export interface PageSessionOptions {
@@ -995,7 +995,7 @@ export class PageSession {
         this.folderGrantOpening = false;
         if (!frame || !this.folderGrantUiActive) return;
         this.folderEnableDeliveredToken = frame.token ?? null;
-        this.overlay.showFolderEnable(frame.pageUrl, frame.onLoad);
+        this.overlay.showFolderEnable(frame.pageUrl, frame.attachDelivery);
         if (this.selectionShown) {
           this.overlay.hideSelection();
           this.selectionShown = false;

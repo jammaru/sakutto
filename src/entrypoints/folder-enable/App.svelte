@@ -1,7 +1,12 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
   import { ensureStoredFolderPermission } from '@/engine/model/shared-folder';
   import { notifySharedFolderChanged } from '@/engine/model/folder-offer';
+  import {
+    FOLDER_ENABLE_READY_MESSAGE,
+    isFolderEnableTokenMessage,
+  } from '@/shared/folder-enable-handshake';
   import { t } from '@/shared/i18n';
   import { requestModelFolderReload } from '@/shared/messages';
 
@@ -9,12 +14,14 @@
   let busy = $state(false);
   let failed = $state(false);
 
+  onMount(() => {
+    window.parent.postMessage({ type: FOLDER_ENABLE_READY_MESSAGE }, '*');
+  });
+
   window.addEventListener('message', (event) => {
     if (event.source !== window.parent) return;
-    const payload = event.data as { type?: unknown; token?: unknown } | null;
-    if (payload?.type !== 'sakutto-folder-enable-token') return;
-    if (typeof payload.token !== 'string' || payload.token.length === 0) return;
-    token = payload.token;
+    if (!isFolderEnableTokenMessage(event.data)) return;
+    token = event.data.token;
   });
 
   async function enable(event: MouseEvent): Promise<void> {

@@ -481,6 +481,7 @@ export class PageOverlay {
   private readonly folderEnableHost: HTMLElement;
   private readonly folderEnableShadow: ShadowRoot;
   private folderEnableFrame: HTMLIFrameElement | null = null;
+  private folderEnableDeliveryCleanup: (() => void) | null = null;
   private labels: OverlayLabels;
   private returnFocus: HTMLElement | null = null;
   private onClose: (() => void) | null = null;
@@ -754,17 +755,15 @@ export class PageOverlay {
   }
 
   /**
-   * Loads the extension grant iframe. The URL never carries the grant secret; `onLoad`
-   * delivers it directly to the new frame from the content script.
+   * Loads the extension grant iframe. The URL never carries the grant secret;
+   * `attachDelivery` installs the ready handshake after the frame is in the DOM.
    */
-  showFolderEnable(pageUrl: string, onLoad?: (frame: HTMLIFrameElement) => void): void {
+  showFolderEnable(pageUrl: string, attachDelivery?: (frame: HTMLIFrameElement) => void): void {
+    this.folderEnableDeliveryCleanup?.();
+    this.folderEnableDeliveryCleanup = null;
     this.folderEnableFrame?.remove();
     const frame = this.doc.createElement('iframe');
     frame.setAttribute('title', this.labels.folderEnableTitle ?? '');
-    frame.setAttribute(
-      'sandbox',
-      'allow-scripts allow-same-origin allow-downloads allow-forms allow-popups',
-    );
     frame.style.display = 'block';
     frame.style.width = '100%';
     frame.style.height = '64px';
@@ -773,16 +772,18 @@ export class PageOverlay {
     frame.style.border = '0';
     frame.style.borderRadius = '10px';
     frame.style.opacity = '1';
-    if (onLoad) frame.addEventListener('load', () => onLoad(frame), { once: true });
+    frame.src = pageUrl;
     this.folderEnableShadow.append(frame);
     this.folderEnableFrame = frame;
-    frame.setAttribute('src', pageUrl);
+    this.folderEnableDeliveryCleanup = attachDelivery?.(frame) ?? null;
     this.folderEnableHost.hidden = false;
     this.folderEnableHost.style.display = 'block';
     this.hideBar();
   }
 
   hideFolderEnable(): void {
+    this.folderEnableDeliveryCleanup?.();
+    this.folderEnableDeliveryCleanup = null;
     this.folderEnableHost.hidden = true;
     this.folderEnableHost.style.display = 'none';
   }
