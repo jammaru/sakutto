@@ -250,10 +250,10 @@
     "message": "Nơi lưu mô hình"
   },
   "onboardingStoreBrowser": {
-    "message": "Lưu trong trình duyệt này (khuyến nghị)"
+    "message": "Lưu trong trình duyệt này"
   },
   "onboardingStoreFolder": {
-    "message": "Use a shared model folder (Chromium browsers)"
+    "message": "Use a shared model folder (Chromium browsers) (recommended)"
   },
   "onboardingStoreFolderHelp": {
     "message": "For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them."
@@ -694,7 +694,10 @@
     "message": "Share the model folder across Chromium browsers"
   },
   "modelFolderHelp": {
-    "message": "The default is still storage inside this browser."
+    "message": "Trên Chromium, thư mục dùng chung được chọn sẵn trong lần chạy đầu; bộ nhớ trong trình duyệt vẫn khả dụng."
+  },
+  "modelFolderAdoptOpfsHint": {
+    "message": "Nếu mô hình đã có trong trình duyệt này, khi chọn thư mục, mô hình sẽ được sao chép mà không tải lại."
   },
   "modelFolderPickerHint": {
     "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."

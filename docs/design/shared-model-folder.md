@@ -1,11 +1,12 @@
 # Shared model folder (Chromium File System Access)
 
-Opt-in storage for official PFN GGUF files on Chromium, via
-`showDirectoryPicker`. Chromium first-run (Chrome and Edge alike) recommends
-browser storage (OPFS). The shared folder is an opt-in for people who use
-more than one Chromium browser, so one GGUF copy is shared between them. A profile that
-already uses a folder keeps it; there is no forced migration. Firefox and
-pages without a picker keep OPFS and show no folder choice; Firefox users can
+Optional shared storage for official PFN GGUF files on Chromium, via
+`showDirectoryPicker`. Chromium first-run (Chrome and Edge alike) preselects
+the shared folder when the picker exists. Browser storage (OPFS) remains a
+one-click choice. The shared folder gives people who use more than one
+Chromium browser one GGUF copy shared between them. A profile that already
+uses a folder keeps it; there is no forced migration. Firefox and pages
+without a picker keep OPFS and show no folder choice; Firefox users can
 import the official `.gguf` file once from Settings or onboarding instead.
 Proposal 2 (a native helper) is out of scope.
 
@@ -18,12 +19,13 @@ The picker opens in Documents (`startIn: 'documents'`, id `sakutto-models`).
 Copy on onboarding and Settings tells the user to create or choose a folder
 named `Sakutto` there (for example `Documents/Sakutto`), or any folder they
 can write to. Selecting Documents itself cannot work in real Chrome.
-On Chromium onboarding, save in this browser is first, labelled recommended,
-and preselected. The shared-folder option is second, described for Chromium
-browsers such as Chrome and Edge; the picker steps and the persistence hint
-sit under it. The popup never asks an OPFS user to move. After first-run
-browser storage, the folder stays a quiet Settings option (“Share the model
-folder across Chromium browsers” / 「Chromiumブラウザ間でモデルフォルダを共有する」).
+On Chromium onboarding, the shared folder is first, labelled recommended,
+and preselected. Browser storage is second and remains one click away. The
+shared-folder option is described for Chromium browsers such as Chrome and
+Edge; the picker steps and the persistence hint sit under it. The popup
+never asks an OPFS user to move. Settings keeps the folder option available
+for people who chose browser storage (“Share the model folder across
+Chromium browsers” / 「Chromiumブラウザ間でモデルフォルダを共有する」).
 Grant from the Settings tab and pick “Allow on every visit” when the browser
 offers it (Japanese Chrome: 「サイトアクセス時は常に許可」; Japanese Edge:
 「常に許可」). The prompt may not appear. A one-click re-grant may sometimes

@@ -8,8 +8,8 @@ import { FIXTURE_ORIGIN } from './page';
 
 const PICKER_HINT =
   'The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to.';
-const FOLDER_RADIO = 'Use a shared model folder (Chromium browsers)';
-const BROWSER_RADIO = 'Save in this browser (recommended)';
+const FOLDER_RADIO = 'Use a shared model folder (Chromium browsers) (recommended)';
+const BROWSER_RADIO = 'Save in this browser';
 const FOLDER_HEADING = 'Share the model folder across Chromium browsers';
 const MOVE_LEAD = 'Moving to a shared folder means:';
 const ALLOW_FOLDER_ACCESS = 'Allow folder access';
@@ -23,7 +23,14 @@ test.describe('shared model folder', () => {
       await expect(page.getByRole('heading', { name: FOLDER_HEADING })).toBeVisible();
       await expect(page.getByText(PICKER_HINT)).toBeVisible();
       await expect(
-        page.getByText('The default is still storage inside this browser.'),
+        page.getByText(
+          'On first run, Chromium preselects the shared folder; browser storage stays available.',
+        ),
+      ).toBeVisible();
+      await expect(
+        page.getByText(
+          'If this browser already has the model, choosing a folder copies it there without downloading it again.',
+        ),
       ).toBeVisible();
       await expect(page.getByText('A shared folder means:')).toBeVisible();
       await expect(
@@ -154,14 +161,15 @@ test.describe('shared model folder', () => {
     }
   });
 
-  test('onboarding downloads into the browser when the recommended option is left selected', async () => {
+  test('onboarding downloads into the browser when browser storage is selected', async () => {
     const extension = await loadExtension('en-US');
     await interceptGguf(extension, 'hang');
     try {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
       await mockEmptySharedFolder(page);
-      await expect(page.getByRole('radio', { name: BROWSER_RADIO })).toBeChecked();
+      await expect(page.getByRole('radio', { name: FOLDER_RADIO })).toBeChecked();
+      await page.getByRole('radio', { name: BROWSER_RADIO }).check();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(page.getByText('Downloading 0% (0 MB / 573 MB)')).toBeVisible({
         timeout: 30_000,
@@ -182,8 +190,7 @@ test.describe('shared model folder', () => {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
       await mockEmptySharedFolder(page);
-      await expect(page.getByRole('radio', { name: BROWSER_RADIO })).toBeChecked();
-      await page.getByRole('radio', { name: FOLDER_RADIO }).check();
+      await expect(page.getByRole('radio', { name: FOLDER_RADIO })).toBeChecked();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(page.getByText('Downloading 0% (0 MB / 573 MB)')).toBeVisible({
         timeout: 30_000,
@@ -255,8 +262,7 @@ test.describe('shared model folder', () => {
           throw new DOMException('The user aborted a request.', 'AbortError');
         };
       });
-      await expect(page.getByRole('radio', { name: BROWSER_RADIO })).toBeChecked();
-      await page.getByRole('radio', { name: FOLDER_RADIO }).check();
+      await expect(page.getByRole('radio', { name: FOLDER_RADIO })).toBeChecked();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(
         page.getByRole('button', { name: 'Agree to the license and start' }),

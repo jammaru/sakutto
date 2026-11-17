@@ -250,10 +250,10 @@
     "message": "模型儲存位置"
   },
   "onboardingStoreBrowser": {
-    "message": "儲存在此瀏覽器中（建議）"
+    "message": "儲存在此瀏覽器中"
   },
   "onboardingStoreFolder": {
-    "message": "Use a shared model folder (Chromium browsers)"
+    "message": "Use a shared model folder (Chromium browsers) (recommended)"
   },
   "onboardingStoreFolderHelp": {
     "message": "For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them."
@@ -694,7 +694,10 @@
     "message": "Share the model folder across Chromium browsers"
   },
   "modelFolderHelp": {
-    "message": "The default is still storage inside this browser."
+    "message": "在 Chromium 中，首次執行會預先選取共用資料夾；瀏覽器內儲存仍可使用。"
+  },
+  "modelFolderAdoptOpfsHint": {
+    "message": "如果此瀏覽器已有模型，選擇資料夾時會將它複製過去，無需重新下載。"
   },
   "modelFolderPickerHint": {
     "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."

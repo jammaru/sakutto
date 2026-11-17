@@ -250,10 +250,10 @@
     "message": "Speicherort des Modells"
   },
   "onboardingStoreBrowser": {
-    "message": "In diesem Browser speichern (empfohlen)"
+    "message": "In diesem Browser speichern"
   },
   "onboardingStoreFolder": {
-    "message": "Use a shared model folder (Chromium browsers)"
+    "message": "Use a shared model folder (Chromium browsers) (recommended)"
   },
   "onboardingStoreFolderHelp": {
     "message": "For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them."
@@ -694,7 +694,10 @@
     "message": "Share the model folder across Chromium browsers"
   },
   "modelFolderHelp": {
-    "message": "The default is still storage inside this browser."
+    "message": "Beim ersten Start ist unter Chromium der gemeinsame Ordner voreingestellt; die Speicherung im Browser bleibt verfügbar."
+  },
+  "modelFolderAdoptOpfsHint": {
+    "message": "Liegt das Modell bereits in diesem Browser, wird es beim Auswählen eines Ordners ohne erneuten Download dorthin kopiert."
   },
   "modelFolderPickerHint": {
     "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."

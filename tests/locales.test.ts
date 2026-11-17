@@ -216,12 +216,34 @@ describe('locale messages', () => {
     expect(ja.onboardingStoreFolderHelp?.message).toBe(
       'Chrome や Edge など複数の Chromium ブラウザで使う人向けです。モデルは1つで済みます。',
     );
-    expect(en.onboardingStoreFolder?.message).toBe('Use a shared model folder (Chromium browsers)');
-    expect(ja.onboardingStoreFolder?.message).toBe('共有モデルフォルダを使う（Chromiumブラウザ）');
-    expect(en.onboardingStoreBrowser?.message).toBe('Save in this browser (recommended)');
-    expect(ja.onboardingStoreBrowser?.message).toBe('このブラウザ内に保存する（おすすめ）');
-    expect(en.modelFolderHelp?.message).toBe('The default is still storage inside this browser.');
-    expect(ja.modelFolderHelp?.message).toBe('既定はこれまでどおり、このブラウザ内への保存です。');
+    expect(en.onboardingStoreFolder?.message).toBe(
+      'Use a shared model folder (Chromium browsers) (recommended)',
+    );
+    expect(ja.onboardingStoreFolder?.message).toBe(
+      '共有モデルフォルダを使う（Chromiumブラウザ）（おすすめ）',
+    );
+    expect(en.onboardingStoreBrowser?.message).toBe('Save in this browser');
+    expect(ja.onboardingStoreBrowser?.message).toBe('このブラウザ内に保存する');
+    expect(en.modelFolderHelp?.message).toBe(
+      'On first run, Chromium preselects the shared folder; browser storage stays available.',
+    );
+    expect(ja.modelFolderHelp?.message).toBe(
+      'Chromium の初回は共有フォルダが選ばれています。ブラウザ内への保存も選べます。',
+    );
+    expect(en.modelFolderAdoptOpfsHint?.message).toBe(
+      'If this browser already has the model, choosing a folder copies it there without downloading it again.',
+    );
+    expect(ja.modelFolderAdoptOpfsHint?.message).toBe(
+      'このブラウザ内にモデルがある場合、フォルダを選ぶと再ダウンロードせずにコピーします。',
+    );
+    for (const locale of catalogs) {
+      const messages = readMessages(locale);
+      expect(messages.onboardingStoreFolder?.message, locale).toMatch(/recommended|おすすめ/);
+      expect(messages.onboardingStoreBrowser?.message, locale).not.toMatch(
+        /recommended|おすすめ|empfohlen|recomendado|recommandé|disarankan|consigliato|권장|рекомендуется|แนะนำ|khuyến nghị|推荐|建議/,
+      );
+      expect(messages.modelFolderAdoptOpfsHint?.message, locale).toBeTruthy();
+    }
     expect(en.modelFolderPickerHint?.message).toContain('Documents/Sakutto');
     expect(ja.modelFolderPickerHint?.message).toContain('ドキュメント/Sakutto');
     expect(en.modelFolderPickerHint?.message).not.toContain('Documents\\Sakutto');

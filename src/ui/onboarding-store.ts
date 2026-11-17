@@ -24,14 +24,12 @@ export function shouldPrepareTranslatorPack(input: {
 }
 
 /**
- * First-run recommends browser storage (OPFS) on every Chromium, including Edge.
- * A profile that already has a shared folder keeps it. No picker means OPFS, with no choice.
+ * First-run preselects the shared folder on every Chromium, including Edge, whenever the
+ * picker is available. A profile that already has a folder keeps it. No picker means OPFS,
+ * with no choice.
  */
-export function defaultOnboardingStoreChoice(
-  pickerAvailable: boolean,
-  folderAlreadyConfigured = false,
-): OnboardingStoreChoice {
-  if (pickerAvailable && folderAlreadyConfigured) return 'folder';
+export function defaultOnboardingStoreChoice(pickerAvailable: boolean): OnboardingStoreChoice {
+  if (pickerAvailable) return 'folder';
   return 'browser';
 }
 

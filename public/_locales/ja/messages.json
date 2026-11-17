@@ -250,10 +250,10 @@
     "message": "モデルの保存先"
   },
   "onboardingStoreBrowser": {
-    "message": "このブラウザ内に保存する（おすすめ）"
+    "message": "このブラウザ内に保存する"
   },
   "onboardingStoreFolder": {
-    "message": "共有モデルフォルダを使う（Chromiumブラウザ）"
+    "message": "共有モデルフォルダを使う（Chromiumブラウザ）（おすすめ）"
   },
   "onboardingStoreFolderHelp": {
     "message": "Chrome や Edge など複数の Chromium ブラウザで使う人向けです。モデルは1つで済みます。"
@@ -694,7 +694,10 @@
     "message": "Chromiumブラウザ間でモデルフォルダを共有する"
   },
   "modelFolderHelp": {
-    "message": "既定はこれまでどおり、このブラウザ内への保存です。"
+    "message": "Chromium の初回は共有フォルダが選ばれています。ブラウザ内への保存も選べます。"
+  },
+  "modelFolderAdoptOpfsHint": {
+    "message": "このブラウザ内にモデルがある場合、フォルダを選ぶと再ダウンロードせずにコピーします。"
   },
   "modelFolderPickerHint": {
     "message": "フォルダ選択はドキュメントで開きます。「Sakutto」というフォルダを作成するか選んでください（例：ドキュメント/Sakutto）。書き込みできる別のフォルダでもかまいません。"

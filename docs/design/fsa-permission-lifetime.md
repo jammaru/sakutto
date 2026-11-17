@@ -209,9 +209,10 @@ always-open document.
 Playwright cannot prove FSA grant lifetime (the picker is mocked with OPFS
 handles). Use a real GGUF (not the e2e sparse plant).
 
-1. **Chrome, new profile.** Install the unpacked build. First-run keeps
-   browser storage preselected. To try the folder, opt in on onboarding or
-   pick `Documents\Sakutto` from the Settings tab. Watch whether Chrome
+1. **Chrome, new profile.** Install the unpacked build. First-run preselects
+   the shared folder; pick `Documents\Sakutto` when the picker opens, or
+   choose it from the Settings tab. Choose browser storage on onboarding to
+   test OPFS instead. Watch whether Chrome
    offers **Allow on every visit** (Japanese Chrome:
    「サイトアクセス時は常に許可」; the three options are
    「今回のみ許可」 / 「サイトアクセス時は常に許可」 / 「許可しない」);
@@ -340,10 +341,12 @@ gesture: [electron#41957](https://github.com/electron/electron/issues/41957).
    automatically” path (same Chromium `OriginHasExtendedPermission` as
    Chrome).
 
-**Default is browser storage for everyone.** First-run on Chrome and Edge
-preselects OPFS (`defaultOnboardingStoreChoice`). The shared folder is
-opt-in for people who use both browsers (one GGUF). Existing folder users
-keep the folder; there is no forced migration. Grant from a Settings tab
+**Default is the shared folder on Chromium; browser storage elsewhere.**
+First-run on Chrome and Edge preselects the shared folder
+(`defaultOnboardingStoreChoice`) when the picker exists; browser storage
+remains one click away. Firefox and pages without the picker keep OPFS. The
+folder gives people who use both browsers one GGUF, and existing folder
+users keep it; there is no forced migration. Grant from a Settings tab
 and pick **Allow on every visit**. Japanese Chrome labels it
 「サイトアクセス時は常に許可」; Japanese Edge labels it 「常に許可」 when
 the prompt is offered. Edge 122+ can persist if that tab prompt appears.

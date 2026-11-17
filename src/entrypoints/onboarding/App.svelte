@@ -237,7 +237,7 @@
     if (!storeTouched) {
       const latest = await requestEngineStatus().catch(() => null);
       if (latest?.sharedFolder) engineFolder = latest.sharedFolder;
-      storeChoice = defaultOnboardingStoreChoice(pickerAvailable, engineFolder.configured);
+      storeChoice = defaultOnboardingStoreChoice(pickerAvailable);
     }
 
     let skipDownload = modelState === 'ready' || modelState === 'loaded';
@@ -435,10 +435,7 @@
         if (!status?.sharedFolder) return;
         engineFolder = status.sharedFolder;
         if (!storeTouched && !startRequested) {
-          storeChoice = defaultOnboardingStoreChoice(
-            pickerAvailable,
-            status.sharedFolder.configured,
-          );
+          storeChoice = defaultOnboardingStoreChoice(pickerAvailable);
         }
         if (status.sharedFolder.configured && status.sharedFolder.name) {
           resolvedFolderName = status.sharedFolder.name;
@@ -623,18 +620,6 @@
               <input
                 type="radio"
                 name="onboarding-store"
-                value="browser"
-                bind:group={storeChoice}
-                onchange={() => chooseStore('browser')}
-              />
-              <span>{t('onboardingStoreBrowser')}</span>
-            </label>
-          </div>
-          <div class="store-opt-in">
-            <label class="store-choice">
-              <input
-                type="radio"
-                name="onboarding-store"
                 value="folder"
                 bind:group={storeChoice}
                 onchange={() => chooseStore('folder')}
@@ -644,6 +629,18 @@
             <p class="muted start-note">{t('onboardingStoreFolderHelp')}</p>
             <p class="muted start-note">{t('modelFolderPickerHint')}</p>
             <p class="muted start-note">{t('modelFolderPersistentHint')}</p>
+          </div>
+          <div class="store-opt-in">
+            <label class="store-choice">
+              <input
+                type="radio"
+                name="onboarding-store"
+                value="browser"
+                bind:group={storeChoice}
+                onchange={() => chooseStore('browser')}
+              />
+              <span>{t('onboardingStoreBrowser')}</span>
+            </label>
           </div>
           <SharedFolderBenefits leadKey="modelFolderBenefitsLead" sizeLabel={folderSizeLabel} />
         </fieldset>
@@ -882,7 +879,7 @@
     gap: var(--space-1);
   }
 
-  .store-opt-in .start-note {
+  .store-recommended .start-note {
     margin-left: 1.6em;
   }
 

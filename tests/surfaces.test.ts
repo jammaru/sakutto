@@ -56,13 +56,17 @@ describe('start controls while the model downloads', () => {
     expect(source('engine/offscreen/host.ts')).toContain('if (!snapshot?.consented)');
   });
 
-  it('preselects browser storage on onboarding when no folder is already configured', () => {
-    expect(source('ui/onboarding-store.ts')).toContain("return 'browser'");
-    expect(onboarding).toContain('value="browser"');
-    expect(onboarding.indexOf('value="browser"')).toBeLessThan(
+  it('preselects the shared folder on onboarding when the picker is available', () => {
+    const store = source('ui/onboarding-store.ts');
+    expect(store).toContain("if (pickerAvailable) return 'folder'");
+    expect(store).toContain("return 'browser'");
+    expect(onboarding).toContain('data-store-recommended');
+    expect(onboarding.indexOf('data-store-recommended')).toBeLessThan(
       onboarding.indexOf('value="folder"'),
     );
-    expect(onboarding).toContain('data-store-recommended');
+    expect(onboarding.indexOf('value="folder"')).toBeLessThan(
+      onboarding.indexOf('value="browser"'),
+    );
     expect(onboarding).toContain('onboardingStoreFolderHelp');
   });
 

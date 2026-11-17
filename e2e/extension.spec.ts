@@ -26,14 +26,14 @@ test.describe('built extension', () => {
           await expect(page.getByRole('checkbox')).toHaveCount(0);
           const radios = page.getByRole('radio');
           await expect(radios).toHaveCount(2);
-          await expect(radios.nth(0)).toHaveAccessibleName('Save in this browser (recommended)');
-          await expect(radios.nth(0)).toBeChecked();
-          await expect(radios.nth(1)).toHaveAccessibleName(
-            'Use a shared model folder (Chromium browsers)',
+          await expect(radios.nth(0)).toHaveAccessibleName(
+            'Use a shared model folder (Chromium browsers) (recommended)',
           );
+          await expect(radios.nth(0)).toBeChecked();
+          await expect(radios.nth(1)).toHaveAccessibleName('Save in this browser');
           await expect(radios.nth(1)).not.toBeChecked();
           await expect(page.locator('[data-store-recommended]')).toContainText(
-            'Save in this browser (recommended)',
+            'Use a shared model folder (Chromium browsers) (recommended)',
           );
           await expect(
             page.getByText(
@@ -152,14 +152,14 @@ test.describe('built extension', () => {
           await expect(page.getByRole('checkbox')).toHaveCount(0);
           const radios = page.getByRole('radio');
           await expect(radios).toHaveCount(2);
-          await expect(radios.nth(0)).toHaveAccessibleName('このブラウザ内に保存する（おすすめ）');
-          await expect(radios.nth(0)).toBeChecked();
-          await expect(radios.nth(1)).toHaveAccessibleName(
-            '共有モデルフォルダを使う（Chromiumブラウザ）',
+          await expect(radios.nth(0)).toHaveAccessibleName(
+            '共有モデルフォルダを使う（Chromiumブラウザ）（おすすめ）',
           );
+          await expect(radios.nth(0)).toBeChecked();
+          await expect(radios.nth(1)).toHaveAccessibleName('このブラウザ内に保存する');
           await expect(radios.nth(1)).not.toBeChecked();
           await expect(page.locator('[data-store-recommended]')).toContainText(
-            'このブラウザ内に保存する（おすすめ）',
+            '共有モデルフォルダを使う（Chromiumブラウザ）（おすすめ）',
           );
           await expect(
             page.getByText(
