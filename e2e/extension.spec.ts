@@ -46,9 +46,7 @@ test.describe('built extension', () => {
             ),
           ).toBeVisible();
           await expect(
-            page.getByText(
-              'After you choose a shared folder in Settings, pick Allow on every visit when asked',
-            ),
+            page.getByText('When the browser asks, choose “Allow on every visit”'),
           ).toBeVisible();
           await expect(page.getByText('Restarts then need no extra clicks')).toBeVisible();
           await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
@@ -174,7 +172,7 @@ test.describe('built extension', () => {
             ),
           ).toBeVisible();
           await expect(
-            page.getByText('設定で共有フォルダを選んだあと、ブラウザが求めたら'),
+            page.getByText('ブラウザから求められたら「サイトアクセス時は常に許可」'),
           ).toBeVisible();
           await expect(page.getByText('再起動後も追加のクリックは不要になります')).toBeVisible();
           await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
