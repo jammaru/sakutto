@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   FOLDER_ENABLE_READY_MESSAGE,
   FOLDER_ENABLE_TOKEN_MESSAGE,
+  folderEnableDocumentOrigin,
   installFolderEnableTokenDelivery,
   type FolderEnableDeliveryFrame,
   type FolderEnableDeliveryWindow,
@@ -26,6 +27,15 @@ function harness() {
 }
 
 describe('folder enable handshake', () => {
+  it('uses the dynamic folder-enable document origin for the handshake', () => {
+    expect(folderEnableDocumentOrigin('chrome-extension://dynamic-id/folder-enable.html')).toBe(
+      'chrome-extension://dynamic-id',
+    );
+    expect(
+      folderEnableDocumentOrigin('chrome-extension://extension-id/guid/folder-enable.html'),
+    ).toBe('chrome-extension://extension-id');
+  });
+
   it('never delivers on load/about:blank or a wrong source and origin', () => {
     const target = harness();
     installFolderEnableTokenDelivery(
@@ -43,6 +53,27 @@ describe('folder enable handshake', () => {
       'https://example.com',
     );
     expect(target.postMessage).not.toHaveBeenCalled();
+  });
+
+  it('replies to the actual allowed extension origin from the ready message', () => {
+    const target = harness();
+    installFolderEnableTokenDelivery(
+      target.frame,
+      'secret-token',
+      ['chrome-extension://dynamic-id', 'chrome-extension://canonical-id'],
+      target.listenWindow,
+    );
+
+    target.emit(
+      { type: FOLDER_ENABLE_READY_MESSAGE },
+      target.frame.contentWindow,
+      'chrome-extension://canonical-id',
+    );
+
+    expect(target.postMessage).toHaveBeenCalledWith(
+      { type: FOLDER_ENABLE_TOKEN_MESSAGE, token: 'secret-token' },
+      'chrome-extension://canonical-id',
+    );
   });
 
   it('delivers the token once after the extension document says it is ready', () => {

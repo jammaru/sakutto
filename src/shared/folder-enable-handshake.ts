@@ -10,9 +10,18 @@ interface FolderEnableTokenMessage {
   token: string;
 }
 
+/** Dynamic web-accessible URLs can carry a different origin than the extension root. */
+export function folderEnableDocumentOrigin(pageUrl: string): string {
+  const url = new URL(pageUrl);
+  // Node's URL parser returns "null" for extension schemes; browsers keep the host origin.
+  return url.origin === 'null' ? `${url.protocol}//${url.host}` : url.origin;
+}
+
 export interface FolderEnableDeliveryFrame {
   contentWindow: { postMessage(message: unknown, targetOrigin: string): void } | null;
 }
+
+export type FolderEnableOrigin = string | readonly string[];
 
 export interface FolderEnableDeliveryWindow {
   addEventListener(type: 'message', listener: (event: MessageEvent) => void): void;
@@ -47,12 +56,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function installFolderEnableTokenDelivery(
   frame: FolderEnableDeliveryFrame,
   token: string,
-  extensionOrigin: string,
+  extensionOrigin: FolderEnableOrigin,
   listenWindow: FolderEnableDeliveryWindow,
   retryDelayMs = 200,
 ): () => void {
   let stopped = false;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let deliveryOrigin: string | null = null;
+  const allowedOrigins = new Set(
+    typeof extensionOrigin === 'string' ? [extensionOrigin] : extensionOrigin,
+  );
 
   const remove = (): void => {
     listenWindow.removeEventListener('message', onMessage);
@@ -69,8 +82,8 @@ export function installFolderEnableTokenDelivery(
   const deliver = (): boolean => {
     try {
       const target = frame.contentWindow;
-      if (!target) return false;
-      target.postMessage({ type: FOLDER_ENABLE_TOKEN_MESSAGE, token }, extensionOrigin);
+      if (!target || !deliveryOrigin) return false;
+      target.postMessage({ type: FOLDER_ENABLE_TOKEN_MESSAGE, token }, deliveryOrigin);
       return true;
     } catch {
       return false;
@@ -78,8 +91,11 @@ export function installFolderEnableTokenDelivery(
   };
   const onMessage = (event: MessageEvent): void => {
     if (stopped || event.source !== frame.contentWindow) return;
-    if (event.origin !== extensionOrigin || !isFolderEnableReadyMessage(event.data)) return;
+    if (!allowedOrigins.has(event.origin) || !isFolderEnableReadyMessage(event.data)) return;
     if (retryTimer !== null) return;
+    // Dynamic WAR URLs can present a different origin than the extension root. The ready
+    // message names the frame's real document origin, so reply there after source checks.
+    deliveryOrigin = event.origin;
     if (deliver()) {
       finish();
       return;

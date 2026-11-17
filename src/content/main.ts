@@ -29,7 +29,10 @@ import {
   isFolderGrantCompleteMessage,
   isFolderGrantNeededMessage,
 } from '@/shared/folder-grant-messages';
-import { installFolderEnableTokenDelivery } from '@/shared/folder-enable-handshake';
+import {
+  folderEnableDocumentOrigin,
+  installFolderEnableTokenDelivery,
+} from '@/shared/folder-enable-handshake';
 import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
 import { sharedFolderPickerAvailable } from '@/engine/model/shared-folder';
 import { hasLicenseConsent } from '@/shared/agreement';
@@ -357,14 +360,17 @@ async function folderEnableFrameRequest(): Promise<FolderEnableFrameRequest | nu
   if (folderEnablePageUrl.length === 0) return null;
   const token = await requestFolderEnableToken();
   if (!token) return null;
-  const extensionOrigin = new URL(browser.runtime.getURL('/')).origin;
+  const extensionOrigins = [
+    folderEnableDocumentOrigin(folderEnablePageUrl),
+    new URL(browser.runtime.getURL('/')).origin,
+  ];
   return {
     pageUrl: folderEnablePageUrl,
     token,
     // Wait for the extension document's own ready message; a load event may still be
     // about:blank, where posting with the extension origin would be dropped.
     attachDelivery: (frame) =>
-      installFolderEnableTokenDelivery(frame, token, extensionOrigin, window),
+      installFolderEnableTokenDelivery(frame, token, extensionOrigins, window),
   };
 }
 
@@ -781,12 +787,10 @@ export function contentMain(): void {
       if (shouldHandleComposeCommand(document)) compose?.handleShortcut();
       return session.state();
     }
-    if (!__SAKUTTO_FAKE_ENGINE__) {
-      const armed = await armFolderCommand(command);
-      if (armed === 'deferred') {
-        session.beginFolderGrantWait();
-        return session.state();
-      }
+    const armed = await armFolderCommand(command);
+    if (armed === 'deferred') {
+      session.beginFolderGrantWait();
+      return session.state();
     }
     await session.handle(command);
     return session.state();
