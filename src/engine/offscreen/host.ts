@@ -644,7 +644,7 @@ export class EngineHost {
     };
     const lazy = new LazyInBrowserEngine({ loadRuntime: load, loadRetryRuntime, onGpuLost });
     const localRuntime = new LocalServerRuntime(() => this.localConfig);
-    this.localScheduler = new JobScheduler(localRuntime.parallel, false);
+    this.localScheduler = new JobScheduler(localRuntime.parallel, 'pool');
     const localEngine = new InBrowserEngine(localRuntime, { scheduler: this.localScheduler });
     const plamo = new PlamoSourceEngine(lazy, localEngine, () => this.engineSource);
 

@@ -134,8 +134,9 @@ translate to identical text. On an RTX 4090 they cut the median time per token f
   asked for no prompt reuse. Cells left by idle slots widened every attention step of the requests
   that were still running.
 
-With both patches the WebGPU tier runs in waves: sixteen slots on an NVIDIA GPU with the integer
-shaders (packed dot product), four otherwise. On an RTX 4090, `long-article` went from about 19.8 s
+With both patches the WebGPU tier ran in waves: sixteen slots on an NVIDIA GPU with the integer
+shaders (packed dot product), four otherwise. Sixteen slots no longer wait for a wave, see
+`refillsFreeSlots` in `src/engine/in-browser/backend.ts`. On an RTX 4090, `long-article` went from about 19.8 s
 on v1.0.1 to about 2.9 s (six runs each). Against a single slot, 38 to 39 of its 44 blocks stayed
 the same; the others differ in word choice, and batched output varies slightly between runs.
 

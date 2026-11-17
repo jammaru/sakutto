@@ -8,8 +8,9 @@ export const WEBGPU_ALL_LAYERS = 99999;
 
 /**
  * A WebGPU decode step costs about the same for one token as for many, so sequences advance
- * together. The scheduler starts them in waves, because a prompt that joins mid-wave makes
- * every step of the sequences already generating as slow as a prefill.
+ * together. The scheduler used to start them in waves only, because a prompt that joined
+ * mid-wave made every step of the sequences already generating as slow as a prefill. See
+ * `refillsFreeSlots` for where that no longer holds.
  *
  * The width depends on ggml's integer shaders, which only some GPUs get. Without them, up to
  * four rows still use the vector shader and a fifth falls to the tiled one. Long article on
@@ -22,6 +23,22 @@ const WEBGPU_SLOTS_PLAIN = 4;
 const WEBGPU_SLOTS_CONSERVATIVE = 1;
 // llama.cpp divides n_ctx across parallel slots. A piece of text fits well inside 1024.
 const WEBGPU_CONTEXT_PER_SLOT = 1024;
+
+/**
+ * Whether the scheduler runs in its `staged` mode, where after a staged start a free slot
+ * takes the next job while the other sequences are still generating, instead of waiting for
+ * the whole wave. With the wllama patches that return a waiting result
+ * before the next decode step and skip the masked tiles of flash attention
+ * (docs/BUILDING.md), a prompt that joins costs the others about one step. A wave left the
+ * slots of its shorter jobs empty until its longest job had finished.
+ *
+ * Measured on an RTX 4090 only. It goes with the sixteen slots, which `supportsFastBatches`
+ * gives to NVIDIA GPUs with the integer shaders. Four slots have not been measured this way
+ * and keep their waves.
+ */
+export function refillsFreeSlots(backend: BackendKind, parallel: number): boolean {
+  return backend === 'webgpu' && parallel >= WEBGPU_SLOTS_FAST;
+}
 
 export interface BackendProbe {
   webgpu: boolean;

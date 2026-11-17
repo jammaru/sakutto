@@ -13,7 +13,7 @@ import {
   type PromptInput,
 } from '../prompt/pfml3';
 import { ChunkStream } from '../queue/chunk-stream';
-import { JobScheduler, type ScheduledHandle } from '../queue/scheduler';
+import { JobScheduler, type ScheduledHandle, type SchedulerMode } from '../queue/scheduler';
 import { DEFAULT_PLAN_CONFIG, planWork, type PlanConfig, type WorkItem } from '../text/plan';
 import {
   chunkForTranslation,
@@ -35,7 +35,7 @@ import type {
   TranslationChunk,
 } from '../types';
 import { canonicalLanguage, JA_EASY_TARGET, plamoPromptTargetLanguage } from '@/shared/languages';
-import { CONTEXT_TOKENS } from './backend';
+import { CONTEXT_TOKENS, refillsFreeSlots } from './backend';
 import type { LlamaRuntime } from './runtime';
 
 export interface InBrowserEngineOptions {
@@ -48,6 +48,12 @@ export interface InBrowserEngineOptions {
   onDegenerateBlock?: () => void;
 }
 
+/** A local server batches by itself, and one slot has nothing to start together. */
+function schedulerMode(runtime: LlamaRuntime): SchedulerMode {
+  if (runtime.backend === 'local-server' || runtime.parallel <= 1) return 'pool';
+  return refillsFreeSlots(runtime.backend, runtime.parallel) ? 'staged' : 'wave';
+}
+
 function throwIfAborted(signal: AbortSignal): void {
   if (signal.aborted) throw new EngineError('aborted', 'The request was aborted.');
 }
@@ -58,6 +64,9 @@ interface PieceOutput {
 }
 
 type DeltaSink = (delta: string, restart?: boolean) => void;
+
+/** Where a job writes its chunks. */
+type ChunkSink = Pick<ChunkStream<TranslationChunk>, 'push'>;
 
 /** Sanitized text for planning/prompts, plus the page bytes to restore on failure. */
 interface EngineSegment extends TranslateSegment {
@@ -140,11 +149,7 @@ export class InBrowserEngine implements IdentifiedEngine {
     this.loadRetryRuntime = options.loadRetryRuntime;
     this.onDegenerateBlock = options.onDegenerateBlock;
     this.scheduler =
-      options.scheduler ??
-      new JobScheduler(
-        runtime.parallel,
-        runtime.backend !== 'local-server' && runtime.parallel > 1,
-      );
+      options.scheduler ?? new JobScheduler(runtime.parallel, schedulerMode(runtime));
   }
 
   async *translate(
@@ -203,9 +208,9 @@ export class InBrowserEngine implements IdentifiedEngine {
         this.scheduler.schedule({
           priority: options.priority,
           ...(options.preempt === true ? { preempt: true } : {}),
-          run: async () => {
+          run: async (producing) => {
             try {
-              await job();
+              await job(producing);
             } catch (error) {
               if (!isAbortError(error) && !controller.signal.aborted && !failed) {
                 failed = toEngineError(error);
@@ -240,8 +245,15 @@ export class InBrowserEngine implements IdentifiedEngine {
     options: TranslateOptions,
     signal: AbortSignal,
     stream: ChunkStream<TranslationChunk>,
-  ): Array<() => Promise<void>> {
-    const whole = (): Promise<void> => this.runWorkItem(item, options, signal, stream);
+  ): Array<(producing: () => void) => Promise<void>> {
+    // The scheduler's staged start waits until the output of a job has begun.
+    const whole = (producing: () => void): Promise<void> =>
+      this.runWorkItem(item, options, signal, {
+        push: (chunk) => {
+          producing();
+          stream.push(chunk);
+        },
+      });
     if (this.runtime.parallel <= 1 || item.kind !== 'single') return [whole];
     const { segment } = item;
     if (segment.text.trim().length === 0) return [whole];
@@ -271,11 +283,13 @@ export class InBrowserEngine implements IdentifiedEngine {
         });
       },
     );
-    return pieces.map((piece, index) => async () => {
+    return pieces.map((piece, index) => async (producing: () => void) => {
       throwIfAborted(signal);
-      const output = await this.completeRecover(piece, options, signal, (delta, restart) =>
-        assembler.delta(index, delta, restart === true),
-      );
+      const output = await this.completeRecover(piece, options, signal, (delta, restart) => {
+        // The assembler holds a later piece back, but its prompt has been read.
+        producing();
+        assembler.delta(index, delta, restart === true);
+      });
       if (output.error) {
         failed[index] = true;
         assembler.finish(index, piece);
@@ -290,7 +304,7 @@ export class InBrowserEngine implements IdentifiedEngine {
     item: WorkItem,
     options: TranslateOptions,
     signal: AbortSignal,
-    stream: ChunkStream<TranslationChunk>,
+    stream: ChunkSink,
   ): Promise<void> {
     throwIfAborted(signal);
 
@@ -339,7 +353,7 @@ export class InBrowserEngine implements IdentifiedEngine {
     pieces: readonly string[],
     options: TranslateOptions,
     signal: AbortSignal,
-    stream: ChunkStream<TranslationChunk>,
+    stream: ChunkSink,
   ): Promise<void> {
     const translated: string[] = [];
     const separator = sentenceSeparator(options.tgt);
@@ -390,7 +404,7 @@ export class InBrowserEngine implements IdentifiedEngine {
     text: string,
     options: TranslateOptions,
     signal: AbortSignal,
-    stream: ChunkStream<TranslationChunk>,
+    stream: ChunkSink,
   ): Promise<void> {
     let shown = 0;
     let pending = '';
@@ -482,7 +496,7 @@ export class InBrowserEngine implements IdentifiedEngine {
     segments: readonly TranslateSegment[],
     options: TranslateOptions,
     signal: AbortSignal,
-    stream: ChunkStream<TranslationChunk>,
+    stream: ChunkSink,
     alreadyShown = 0,
   ): Promise<void> {
     for (let index = 0; index < segments.length; index += 1) {

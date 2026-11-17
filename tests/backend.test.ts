@@ -5,6 +5,7 @@ import {
   GPU_LOSS_WINDOW_MS,
   isGpuLoadFallback,
   lighterSelection,
+  refillsFreeSlots,
   selectionAfterGpuLoss,
   selectBackend,
   selectionForTier,
@@ -36,6 +37,14 @@ describe('backend selection', () => {
       nParallel: 16,
       nCtx: 1024 * 16,
     });
+  });
+
+  it('refills free slots only at the WebGPU width it was measured at', () => {
+    expect(refillsFreeSlots('webgpu', 16)).toBe(true);
+    expect(refillsFreeSlots('webgpu', 4)).toBe(false);
+    expect(refillsFreeSlots('webgpu', 1)).toBe(false);
+    expect(refillsFreeSlots('cpu-wasm', 16)).toBe(false);
+    expect(refillsFreeSlots('local-server', 16)).toBe(false);
   });
 
   it('gives each GPU sequence 1024 tokens of context', () => {
