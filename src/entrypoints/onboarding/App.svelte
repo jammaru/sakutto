@@ -15,6 +15,7 @@
     persistSharedFolderHandle,
     preparePickedSharedFolder,
     sharedFolderPickerAvailable,
+    sharedFolderSupported,
   } from '@/engine/model/shared-folder';
   import {
     defaultOnboardingStoreChoice,
@@ -653,14 +654,16 @@
       {#if pickError}
         <p class="error" role="alert">{pickError}</p>
       {/if}
-      <ModelFileTools
-        onImported={async (imported) => {
-          if (imported === DEFAULT_MODEL_ID) {
-            const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
-            if (inspected) applyStatus(inspected);
-          }
-        }}
-      />
+      {#if !sharedFolderSupported()}
+        <ModelFileTools
+          onImported={async (imported) => {
+            if (imported === DEFAULT_MODEL_ID) {
+              const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
+              if (inspected) applyStatus(inspected);
+            }
+          }}
+        />
+      {/if}
       <p id="start-notice" class="start-note">{t('onboardingConsentSentence')}</p>
     {/if}
     {#if folderBlocked}

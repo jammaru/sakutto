@@ -67,6 +67,7 @@ test.describe('built extension', () => {
               "The file stays if you clear this browser's data. Pick the same folder again and you skip the download.",
             ),
           ).toBeVisible();
+          await expect(page.getByRole('heading', { name: 'Import a model file' })).toHaveCount(0);
           await expect(
             page.getByRole('button', { name: 'Agree to the license and start' }),
           ).toBeEnabled();
