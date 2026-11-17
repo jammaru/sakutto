@@ -9,6 +9,7 @@ import {
 } from '@/shared/folder-grant-pending';
 import type { PageCommandName } from '@/shared/messages';
 import { requestPageCommand } from '@/shared/messages';
+import { openOrFocusExtensionTab } from '@/shared/extension-tabs';
 import { ensureContentScript } from '@/shared/page-bridge';
 
 import {
@@ -22,17 +23,10 @@ async function notifyGrantNeeded(tabId: number, command: PageCommandName): Promi
   readRuntimeLastError();
 }
 
-/** Open the dedicated grant page as a real tab so Chrome offers the persistent prompt. */
+/** Open or focus the grant tab so Chrome offers the persistent prompt without tab spam. */
 export async function openFolderEnableWindow(): Promise<boolean> {
-  try {
-    await browser.tabs.create({
-      url: browser.runtime.getURL('/folder-enable.html'),
-      active: true,
-    });
-    return true;
-  } catch {
-    return false;
-  }
+  const tabId = await openOrFocusExtensionTab('/folder-enable.html');
+  return tabId !== null;
 }
 
 /**

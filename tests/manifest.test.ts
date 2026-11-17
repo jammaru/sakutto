@@ -84,17 +84,12 @@ describe('extension manifest', () => {
     expect(chromeManifest.cross_origin_opener_policy).toEqual({ value: 'same-origin' });
   });
 
-  it('exposes the folder grant frame only to web pages with a dynamic URL', () => {
-    expect(chromeManifest.web_accessible_resources).toEqual([
-      {
-        resources: ['folder-enable.html'],
-        matches: ['http://*/*', 'https://*/*'],
-        use_dynamic_url: true,
-      },
-    ]);
-    // Firefox has no File System Access folder picker, so its content script never injects
-    // the frame and the resource stays unexposed.
+  it('does not expose folder-enable.html to web pages', () => {
+    expect(chromeManifest.web_accessible_resources).toEqual([]);
     expect(firefoxManifest.web_accessible_resources).toEqual([]);
+    const war = JSON.stringify(chromeManifest.web_accessible_resources);
+    expect(war).not.toContain('folder-enable.html');
+    expect(war).not.toContain('use_dynamic_url');
   });
 
   it('declares the Chrome translation shortcuts', () => {

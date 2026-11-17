@@ -11,7 +11,8 @@ describe('folder grant gate', () => {
     const grant = source('background/folder-grant.ts');
     expect(actions).toContain('runGatedPageCommand');
     expect(grant).toContain('sharedFolderNeedsUserAction');
-    expect(grant).toContain('browser.tabs.create');
+    expect(grant).toContain('openOrFocusExtensionTab');
+    expect(grant).not.toContain('browser.tabs.create');
     expect(grant).not.toContain('openPopup');
     expect(grant).not.toContain('windows.create');
     expect(grant).toContain('folder:grant-needed');

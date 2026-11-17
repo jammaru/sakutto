@@ -8,28 +8,10 @@ import {
   setPermissionOverride,
 } from './folder-model-helpers';
 
-test('grants a shared folder from a real folder-enable tab with a dynamic WAR origin', async () => {
+test('grants a shared folder from a top-level folder-enable tab', async () => {
   test.setTimeout(120_000);
   const extension = await loadExtension('en-US');
   try {
-    const urls = await extension.worker.evaluate(() => {
-      const chrome = (
-        globalThis as unknown as {
-          chrome: { runtime: { getURL(path: string): string } };
-        }
-      ).chrome;
-      const root = chrome.runtime.getURL('/');
-      const page = chrome.runtime.getURL('/folder-enable.html');
-      return {
-        root,
-        page,
-        rootOrigin: new URL(root).origin,
-        pageOrigin: new URL(page).origin,
-      };
-    });
-    expect(urls.page).not.toBe(urls.root);
-    expect(urls.pageOrigin).not.toBe(urls.rootOrigin);
-
     await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
     const options = await extension.context.newPage();
     await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
@@ -62,6 +44,8 @@ test('grants a shared folder from a real folder-enable tab with a dynamic WAR or
       await grantTab.goto(grantUrl);
     }
     await grantTab.waitForURL(/folder-enable\.html/);
+    await expect(grantTab.getByText(/blocked by Chrome/i)).toHaveCount(0);
+    await expect(grantTab.getByRole('heading')).toBeVisible({ timeout: 15_000 });
     const enable = grantTab.locator('[data-sakutto="folder-enable-grant"]');
     await expect(enable).toBeVisible({ timeout: 15_000 });
     await enable.click();

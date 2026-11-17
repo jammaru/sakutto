@@ -67,18 +67,10 @@ export default defineConfig({
         48: 'icon/48.png',
         128: 'icon/128.png',
       },
-      // The shared-folder one-click frame exists only in Chromium builds. The content script
-      // injects it into ordinary web pages, so expose it only there (not `<all_urls>`), with
-      // a per-session URL. It is not for other extensions, so `extension_ids` is omitted.
-      web_accessible_resources: firefox
-        ? []
-        : [
-            {
-              resources: ['folder-enable.html'],
-              matches: ['http://*/*', 'https://*/*'],
-              use_dynamic_url: true,
-            },
-          ],
+      // folder-enable.html is opened only as a top-level extension tab (tabs.create). It must
+      // not appear in web_accessible_resources with use_dynamic_url, or Chrome blocks the static
+      // runtime.getURL() used for that tab (ERR_BLOCKED_BY_CLIENT).
+      web_accessible_resources: [],
     };
   },
 });
