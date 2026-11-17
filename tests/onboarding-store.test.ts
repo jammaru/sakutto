@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { defaultOnboardingStoreChoice, planOnboardingDownload } from '@/ui/onboarding-store';
 
 describe('defaultOnboardingStoreChoice', () => {
-  it('preselects the shared folder when the picker exists, and browser storage without it', () => {
+  it('preselects the shared folder when the picker exists, and copy-from-folder on Firefox', () => {
     expect(defaultOnboardingStoreChoice(true)).toBe('folder');
-    expect(defaultOnboardingStoreChoice(false)).toBe('browser');
+    expect(defaultOnboardingStoreChoice(false)).toBe('copy');
   });
 });
 

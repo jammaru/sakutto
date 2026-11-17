@@ -28,9 +28,11 @@ export function shouldPrepareTranslatorPack(input: {
  * picker is available. A profile that already has a folder keeps it. No picker means OPFS,
  * with no choice.
  */
-export function defaultOnboardingStoreChoice(pickerAvailable: boolean): OnboardingStoreChoice {
+export function defaultOnboardingStoreChoice(
+  pickerAvailable: boolean,
+): OnboardingStoreChoice | 'copy' {
   if (pickerAvailable) return 'folder';
-  return 'browser';
+  return 'copy';
 }
 
 /**

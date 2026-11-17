@@ -246,25 +246,19 @@
     marks = next.length > 40 ? next.slice(-40) : next;
   }
 
-  async function chooseStore(choice: ModelStorageChoiceValue) {
+  function chooseStore(choice: ModelStorageChoiceValue) {
     storeTouched = true;
     pickError = null;
-    if (!pickerAvailable && choice === 'copy') {
-      storeChoice = 'copy';
-      if (await copyFromFirefoxFolder()) {
-        firefoxCopyDone = true;
-        storeChoice = 'browser';
-      }
-      return;
-    }
     storeChoice = choice;
   }
+
+  type FirefoxFolderPickOutcome = 'cancelled' | 'copied' | 'needs-download';
 
   function cancelFolderCopy(): void {
     copyController?.abort();
   }
 
-  async function copyFromFirefoxFolder(): Promise<boolean> {
+  async function copyFromFirefoxFolder(): Promise<FirefoxFolderPickOutcome> {
     // `pickDirectoryFiles` clicks the input synchronously, inside the start click.
     readingFolder = false;
     let files: File[] | null;
@@ -277,10 +271,10 @@
     } finally {
       readingFolder = false;
     }
-    if (!files) return false;
+    if (!files) return 'cancelled';
     if (files.length === 0) {
       pickError = t('modelStorageNoModels');
-      return false;
+      return 'needs-download';
     }
 
     copyingFolder = true;
@@ -299,12 +293,12 @@
       });
       if (result.discovered.length === 0) {
         pickError = t('modelStorageNoModels');
-        return false;
+        return 'needs-download';
       }
       if (result.imported.length === 0) {
         pickError =
           result.failed.length > 0 ? t('modelStorageCopyFailed') : t('modelStorageNoModels');
-        return false;
+        return 'needs-download';
       }
       await requestModelFolderReload();
       await requestEngineWarm();
@@ -312,12 +306,13 @@
       if (inspected) applyStatus(inspected);
       if (result.failed.length > 0) pickError = t('modelStorageSomeCopiesFailed');
       firefoxCopyDone = true;
-      return true;
+      return 'copied';
     } catch (copyError) {
-      if (!isAbortError(copyError) && !copyController.signal.aborted) {
-        pickError = t('modelStorageCopyFailed');
+      if (isAbortError(copyError) || copyController?.signal.aborted) {
+        return 'cancelled';
       }
-      return false;
+      pickError = t('modelStorageCopyFailed');
+      return 'needs-download';
     } finally {
       copyingFolder = false;
       copyController = null;
@@ -335,23 +330,29 @@
     integrityAlert = null;
 
     if (!storeTouched) {
-      const latest = await requestEngineStatus().catch(() => null);
-      if (latest?.sharedFolder) engineFolder = latest.sharedFolder;
-      storeChoice = defaultOnboardingStoreChoice(pickerAvailable);
+      if (!pickerAvailable) {
+        storeChoice = 'copy';
+      } else {
+        const latest = await requestEngineStatus().catch(() => null);
+        if (latest?.sharedFolder) engineFolder = latest.sharedFolder;
+        storeChoice = defaultOnboardingStoreChoice(pickerAvailable);
+      }
     }
 
+    let skipDownload = modelState === 'ready' || modelState === 'loaded';
+
     if (!pickerAvailable && storeChoice === 'copy') {
-      if (firefoxCopyDone || modelState === 'ready' || modelState === 'loaded') {
+      if (firefoxCopyDone || skipDownload) {
         storeChoice = 'browser';
-      } else if (!(await copyFromFirefoxFolder())) {
-        return;
       } else {
+        const outcome = await copyFromFirefoxFolder();
+        if (outcome === 'cancelled') return;
         storeChoice = 'browser';
+        skipDownload = modelState === 'ready' || modelState === 'loaded';
       }
     }
 
     const downloadChoice: OnboardingStoreChoice = storeChoice === 'copy' ? 'browser' : storeChoice;
-    let skipDownload = modelState === 'ready' || modelState === 'loaded';
     let pendingFolder: { handle: FileSystemDirectoryHandle; name: string } | null = null;
     const keepExistingFolder =
       pickerAvailable && storeChoice === 'folder' && engineFolder.configured && !retryPick;

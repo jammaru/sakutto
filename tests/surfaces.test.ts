@@ -51,7 +51,16 @@ describe('start controls while the model downloads', () => {
     expect(start.indexOf('saveSettings')).toBeGreaterThan(-1);
     expect(start.indexOf('saveSettings')).toBeLessThan(start.indexOf('persistSharedFolderHandle'));
     expect(onboarding).toContain('copyFromFirefoxFolder');
-    expect(onboarding).toMatch(/chooseStore[\s\S]{0,400}copyFromFirefoxFolder/);
+    const chooseStoreBody = onboarding.slice(
+      onboarding.indexOf('function chooseStore('),
+      onboarding.indexOf('type FirefoxFolderPickOutcome'),
+    );
+    expect(chooseStoreBody).not.toContain('copyFromFirefoxFolder');
+    const startBody = onboarding.slice(onboarding.indexOf('async function start()'));
+    expect(startBody.indexOf('copyFromFirefoxFolder')).toBeGreaterThan(-1);
+    expect(startBody.indexOf('copyFromFirefoxFolder')).toBeLessThan(
+      startBody.indexOf('saveSettings'),
+    );
     expect(onboarding).toContain('warm={consentSaved}');
     expect(onboarding).toContain('(showStartButton && !consentSaved) || Boolean(integrityAlert)');
     expect(source('ui/ModelFolderSettings.svelte')).toContain('hasLicenseConsent');
@@ -61,7 +70,7 @@ describe('start controls while the model downloads', () => {
   it('preselects the shared folder on onboarding when the picker is available', () => {
     const store = source('ui/onboarding-store.ts');
     expect(store).toContain("if (pickerAvailable) return 'folder'");
-    expect(store).toContain("return 'browser'");
+    expect(store).toContain("return 'copy'");
     expect(source('ui/ModelStorageChoice.svelte')).toContain('data-store-recommended');
     expect(onboarding).toContain('<ModelStorageChoice');
     expect(onboarding).toContain("recommended={pickerAvailable ? 'folder' : 'copy'}");
