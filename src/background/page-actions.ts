@@ -5,7 +5,7 @@ import { shouldAutoInjectOutlookBanner } from '@/dom/outlook-banner';
 import { originPattern, pageHost, loadSiteRule } from '@/dom/sites';
 import { ensureContentScript } from '@/shared/page-bridge';
 import { requestPageCommand, type PageCommandName } from '@/shared/messages';
-import { PDF_MENU_URL_PATTERNS, readerUrl } from '@/shared/pdf';
+import { readerUrl } from '@/shared/pdf';
 import { fileSchemeAccessAllowed, tabServesPdf } from './pdf-detect';
 import { noteShortcutCommandAssigned } from '@/shared/shortcut-assignment';
 import { isShortcutCommand, PDF_COMMAND, SHORTCUT_PAGE_COMMANDS } from '@/shared/shortcuts';
@@ -13,6 +13,7 @@ import type { ShortcutCommand, ShortcutEnabled } from '@/shared/shortcuts';
 import { loadSettings } from '@/shared/storage';
 import { openPdfFromUrl, sweepStoredPdfs } from './pdf-store';
 import type { EngineClient } from './engine-client';
+import { scheduleContextMenusInstall } from './context-menus';
 import { runGatedPageCommand } from './folder-grant';
 
 interface PageTranslationCanceller {
@@ -71,53 +72,8 @@ export function installPageActions(
   });
 }
 
-let menuInstall: Promise<void> | null = null;
-let menusReady = false;
-
 function installMenus(): void {
-  if (menusReady || menuInstall) return;
-  menuInstall = (async () => {
-    try {
-      // A service-worker restart can leave menu ids behind. Never create without first
-      // removing the previous set, otherwise Chrome reports duplicate-id errors.
-      await browser.contextMenus.removeAll();
-      await browser.contextMenus.create({
-        id: 'translate-page',
-        title: browser.i18n.getMessage('contextTranslatePage'),
-        contexts: ['page'],
-      });
-      if (browser.runtime.lastError) return;
-      await browser.contextMenus.create({
-        id: 'translate-selection',
-        title: browser.i18n.getMessage('contextTranslateSelection'),
-        contexts: ['selection'],
-      });
-      if (browser.runtime.lastError) return;
-      // Chrome decides menu contents when it opens, so hiding after contextmenu is too
-      // late and the hidden state would be global across tabs. Keep this item on every
-      // editable; ineligible fields no-op with feedback in the page.
-      await browser.contextMenus.create({
-        id: 'translate-compose',
-        title: browser.i18n.getMessage('contextTranslateCompose'),
-        contexts: ['editable'],
-      });
-      if (browser.runtime.lastError) return;
-      await browser.contextMenus.create({
-        id: PDF_COMMAND,
-        title: browser.i18n.getMessage('contextTranslatePdf'),
-        contexts: ['page', 'link'],
-        // Only offered on something that is a PDF, so the menu does not promise a feature the
-        // click cannot deliver. Chrome reports a PDF tab's URL as the file itself.
-        documentUrlPatterns: [...PDF_MENU_URL_PATTERNS],
-      });
-      if (browser.runtime.lastError) return;
-      menusReady = true;
-    } catch {
-      menusReady = false;
-    }
-  })().finally(() => {
-    menuInstall = null;
-  });
+  scheduleContextMenusInstall();
 }
 
 /**

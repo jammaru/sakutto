@@ -4,11 +4,13 @@
   import { ensureStoredFolderPermission } from '@/engine/model/shared-folder';
   import { notifySharedFolderChanged } from '@/engine/model/folder-offer';
   import { t } from '@/shared/i18n';
+  import { readFolderGrantPending } from '@/shared/folder-grant-pending';
   import { requestModelFolderReload } from '@/shared/messages';
 
   const embedded = window.parent !== window;
   let busy = $state(false);
   let failed = $state(false);
+  let succeeded = $state(false);
 
   async function closeTab(): Promise<void> {
     try {
@@ -51,13 +53,23 @@
         failed = true;
         return;
       }
+      succeeded = true;
       if (access.changed) await requestModelFolderReload();
       notifySharedFolderChanged();
+      const pending = await readFolderGrantPending();
       await browser.runtime.sendMessage({ type: 'folder:resume-pending' }).catch(() => {
         readRuntimeLastError();
       });
       await browser.runtime.sendMessage({ type: 'folder:grant-complete' }).catch(() => {
         readRuntimeLastError();
+      });
+      if (pending?.tabId !== undefined) {
+        await browser.tabs.update(pending.tabId, { active: true }).catch(() => {
+          readRuntimeLastError();
+        });
+      }
+      await new Promise<void>((resolve) => {
+        window.setTimeout(() => resolve(), 350);
       });
       await closeTab();
     } catch {
@@ -81,16 +93,19 @@
       <h1>{t('modelFolderEnableTabTitle')}</h1>
       <p class="body">{t('modelFolderEnableTabBody')}</p>
       <p class="hint">{t('modelFolderEnableTabHint')}</p>
-      <button
-        type="button"
-        class="button"
-        data-sakutto="folder-enable-grant"
-        disabled={busy}
-        onclick={(event) => void enable(event)}
-      >
-        {t('modelFolderPermissionGrant')}
-      </button>
-      <p class="done">{t('modelFolderEnableTabDone')}</p>
+      {#if !succeeded}
+        <button
+          type="button"
+          class="button"
+          data-sakutto="folder-enable-grant"
+          disabled={busy}
+          onclick={(event) => void enable(event)}
+        >
+          {t('modelFolderPermissionGrant')}
+        </button>
+      {:else}
+        <p class="done">{t('modelFolderEnableTabDone')}</p>
+      {/if}
     {/if}
     {#if failed}
       <p class="error" role="alert">{t('modelFolderPermissionNeeded')}</p>

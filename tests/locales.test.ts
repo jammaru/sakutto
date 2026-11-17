@@ -247,10 +247,11 @@ describe('locale messages', () => {
     expect(en.modelFolderPermissionPresent?.message).toBe(
       'The model is already in the folder. Allow access to use it.',
     );
-    expect(ja.modelFolderPermissionPage?.message).toContain('フォルダへのアクセスを許可');
-    expect(en.modelFolderPersistentHint?.message).not.toMatch(/never need/i);
+    expect(ja.modelFolderPermissionPage?.message).toContain('サイトアクセス時は常に許可');
+    expect(en.modelFolderPersistentHint?.message).toMatch(/no extra clicks/i);
     expect(ja.modelFolderPersistentHint?.message).not.toMatch(/必ず|二度と|毎回クリック/);
-    expect(ja.modelFolderPersistentHint?.message).toContain('出ないこともあります');
+    expect(ja.modelFolderPersistentHint?.message).not.toContain('出ないこともあります');
+    expect(en.modelFolderPersistentHint?.message).not.toMatch(/may help|may not appear/i);
     expect(en.modelFolderPersistentHint?.message).toContain('サイトアクセス時は常に許可');
     expect(en.modelFolderPersistentHint?.message).toContain('常に許可');
     expect(en.modelFolderPersistentHint?.message).not.toContain('アクセスするたびに確認する');

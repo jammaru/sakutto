@@ -16,11 +16,12 @@ describe('folder grant gate', () => {
     expect(grant).not.toContain('openPopup');
     expect(grant).not.toContain('windows.create');
     expect(grant).toContain('folder:grant-needed');
-    expect(actions).toContain('await browser.contextMenus.removeAll()');
-    expect(actions).toContain('menuInstall');
-    expect(actions).toContain('menusReady');
-    expect(actions).toContain('browser.runtime.lastError');
-    expect(actions).not.toContain('removeAll().then(() =>');
+    const menus = source('background/context-menus.ts');
+    expect(actions).toContain('scheduleContextMenusInstall');
+    expect(menus).toContain('removeAllMenus');
+    expect(menus).toContain('readRuntimeLastError');
+    expect(menus).toContain('installChain');
+    expect(menus).not.toContain('removeAll().then(() =>');
   });
 
   it('shows an in-page hint without requesting folder permission in the page', () => {

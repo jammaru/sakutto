@@ -4,13 +4,17 @@ import { pickFocusedFrameId } from '@/background/page-actions';
 
 describe('compose context menu', () => {
   it('keeps the editable item always visible instead of hiding it after open', () => {
-    const source = readFileSync(
+    const actions = readFileSync(
       new URL('../src/background/page-actions.ts', import.meta.url),
       'utf8',
     );
-    expect(source).not.toContain('setComposeMenuEnabled');
-    expect(source).not.toMatch(/visible:\s*composeMenuEnabled/);
-    expect(source).toContain("contexts: ['editable']");
+    const menus = readFileSync(
+      new URL('../src/background/context-menus.ts', import.meta.url),
+      'utf8',
+    );
+    expect(actions).not.toContain('setComposeMenuEnabled');
+    expect(actions).not.toMatch(/visible:\s*composeMenuEnabled/);
+    expect(menus).toContain("contexts: ['editable']");
   });
 });
 
