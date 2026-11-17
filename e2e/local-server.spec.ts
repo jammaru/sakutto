@@ -107,15 +107,18 @@ test.describe('local server options', () => {
       await testButton.click();
       await expect(testRow.getByRole('status')).toHaveText('Connected.', { timeout: 30_000 });
 
-      const status = await options.evaluate(async () => {
-        const chrome = (
-          globalThis as unknown as {
-            chrome: { runtime: { sendMessage(message: unknown): Promise<unknown> } };
-          }
-        ).chrome;
-        return chrome.runtime.sendMessage({ type: 'engine:status' });
-      });
-      expect(status).toMatchObject({ backend: 'local-server', engineSource: 'local-server' });
+      await expect
+        .poll(async () => {
+          return options.evaluate(async () => {
+            const chrome = (
+              globalThis as unknown as {
+                chrome: { runtime: { sendMessage(message: unknown): Promise<unknown> } };
+              }
+            ).chrome;
+            return chrome.runtime.sendMessage({ type: 'engine:status' });
+          });
+        })
+        .toMatchObject({ backend: 'local-server', engineSource: 'local-server' });
 
       const probed = fake.completions.length;
       const page = await extension.context.newPage();
