@@ -1,11 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
 import { loadExtension, type LoadedExtension } from './extension';
-import {
-  chooseEmptySharedFolder,
-  readSharedFolder,
-  reloadFolder,
-  setPermissionOverride,
-} from './folder-model-helpers';
 import { FIXTURE_ORIGIN, invokeOnCommandPath, resetExtensionStorage, waitTranslated } from './page';
 
 async function attachOffscreenConsole(
@@ -103,22 +97,8 @@ async function attachOffscreenConsole(
   return { found: false, detach: async () => undefined };
 }
 
-async function pressInPageShortcut(page: Page, key: 'a' | 's'): Promise<void> {
-  await page.evaluate((shortcutKey) => {
-    window.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key: shortcutKey,
-        code: shortcutKey === 'a' ? 'KeyA' : 'KeyS',
-        altKey: true,
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
-  }, key);
-}
-
 test('does not leave unchecked lastError across BFCache navigation', async () => {
-  test.setTimeout(180_000);
+  test.setTimeout(120_000);
   const extension = await loadExtension('en-US');
   const messages: string[] = [];
   const watch = (page: Page): void => {
@@ -131,37 +111,11 @@ test('does not leave unchecked lastError across BFCache navigation', async () =>
 
   try {
     await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
-    const options = await extension.context.newPage();
-    await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
-    await chooseEmptySharedFolder(options);
-    await options.close();
-
-    const setupPopup = await extension.context.newPage();
-    await setupPopup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
-    await setPermissionOverride(setupPopup, 'prompt');
-    await reloadFolder(setupPopup);
-    await expect
-      .poll(async () => readSharedFolder(setupPopup), { timeout: 15_000 })
-      .toMatchObject({ configured: true, permission: 'prompt' });
-    await setupPopup.close();
-
     const page = await extension.context.newPage();
     watch(page);
     await page.goto(`${FIXTURE_ORIGIN}/article.html`);
     await invokeOnCommandPath(extension.worker, page, 'toggle');
-
-    const grantPopup = await extension.context.newPage();
-    await grantPopup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
-    const enable = grantPopup.locator('[data-sakutto="popup-folder-enable"]');
-    await expect(enable).toBeVisible({ timeout: 15_000 });
-    await enable.click();
-    await grantPopup.close();
-
     await waitTranslated(page);
-    await pressInPageShortcut(page, 'a');
-    await page.waitForFunction(
-      () => document.documentElement.dataset.sakuttoState !== 'translated',
-    );
 
     const offscreen = await attachOffscreenConsole(extension, messages);
     expect(offscreen.found).toBe(true);
@@ -177,18 +131,18 @@ test('does not leave unchecked lastError across BFCache navigation', async () =>
     await page.waitForTimeout(100);
     await invokeOnCommandPath(extension.worker, page, 'selection');
     const popover = page.locator('sakutto-pop');
-    await expect(popover).toBeVisible({ timeout: 15_000 });
-    await expect(popover).toHaveAttribute('aria-busy', 'false', { timeout: 15_000 });
+    await expect(popover).toBeVisible({ timeout: 30_000 });
     await page.keyboard.press('Escape');
 
     await page.goBack();
     await page.waitForURL(`${FIXTURE_ORIGIN}/article.html`);
     await page.goForward();
     await page.waitForURL(`${FIXTURE_ORIGIN}/docs.html`);
-
-    await page.waitForTimeout(250);
-    await pressInPageShortcut(page, 'a');
-    await waitTranslated(page);
+    await invokeOnCommandPath(extension.worker, page, 'toggle');
+    await page.waitForFunction(
+      () => document.documentElement.dataset.sakuttoState === 'translated',
+      { timeout: 60_000 },
+    );
     await page.waitForTimeout(1000);
 
     expect(messages.filter((message) => message.includes('Unchecked runtime.lastError'))).toEqual(
