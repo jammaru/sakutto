@@ -9,7 +9,7 @@ import type { BackendSelection } from '../in-browser/backend';
 import type { LlamaRuntime } from '../in-browser/runtime';
 import type { ModelState, ModelStatus } from '../../shared/engine-status';
 import { DEFAULT_MODEL_ID, MODEL_CATALOG, type ModelEntry, type ModelId } from './catalog';
-import { copyModelFile } from './copy';
+import { copyModelFile, uniquePartPath } from './copy';
 import {
   DEFAULT_CONCURRENCY,
   DEFAULT_SEGMENT_BYTES,
@@ -18,6 +18,7 @@ import {
 } from './download';
 import { isPermissionDenied, type ModelFileStore } from './file-store';
 import { decideIntegrity, digestMatchesPin, type IntegrityManifest } from './integrity';
+import { SharedFolderModelFileStore } from './shared-store';
 import { sha256OfBlob, type HashOptions } from './sha256';
 
 export interface LoadedModel {
@@ -499,11 +500,16 @@ export class ModelManager {
       progress: 0,
     });
 
+    const partPath = uniquePartPath(this.partPath(modelId));
+    if (this.store instanceof SharedFolderModelFileStore) {
+      await this.store.pruneStalePartFiles(modelId, partPath).catch(() => undefined);
+    }
+
     try {
       await copyModelFile({
         blob,
         store: this.store,
-        partPath: this.partPath(modelId),
+        partPath,
         finalPath: this.finalPath(modelId),
         size: entry.size,
         sha256: entry.sha256,

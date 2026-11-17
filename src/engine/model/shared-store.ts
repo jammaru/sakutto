@@ -1,3 +1,4 @@
+import { STALE_PART_MAX_AGE_MS } from './copy';
 import { getModel, isModelId, type ModelId } from './catalog';
 import {
   OpfsModelFileStore,
@@ -27,6 +28,8 @@ export function mapManagerPathToSharedName(path: string): string | null {
   const rest = parts.slice(2).join('/');
   if (rest.length === 0 || rest === 'model.gguf') return official;
   if (rest === 'model.gguf.part') return `${official}.part`;
+  const uniquePart = /^model\.gguf\.([0-9a-f-]+)\.part$/u.exec(rest);
+  if (uniquePart) return `${official}.${uniquePart[1]}.part`;
   if (rest === 'model.json') return `${official}.verified.json`;
   return null;
 }
@@ -98,5 +101,24 @@ export class SharedFolderModelFileStore implements ModelFileStore {
     // The user-chosen volume has no origin quota we can read. ModelManager skips the
     // free-space check when quota is 0.
     return { usage: 0, quota: 0 };
+  }
+
+  /**
+   * Deletes other profiles' abandoned `.part` files for this model. Active temps from the
+   * current operation are left alone even when they are young.
+   */
+  async pruneStalePartFiles(modelId: ModelId, keepManagerPartPath: string): Promise<void> {
+    const official = getModel(modelId).file;
+    const keepName = requireMapped(keepManagerPartPath);
+    const root = this.inner as OpfsModelFileStore;
+    const names = await root.listRootFileNames();
+    const now = Date.now();
+    for (const name of names) {
+      if (name === keepName || name === official || name === `${official}.verified.json`) continue;
+      if (!name.startsWith(`${official}.`) || !name.endsWith('.part')) continue;
+      const stat = await this.inner.stat(name);
+      if (!stat || now - stat.lastModified < STALE_PART_MAX_AGE_MS) continue;
+      await this.inner.remove(name).catch(() => undefined);
+    }
   }
 }

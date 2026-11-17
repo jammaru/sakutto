@@ -190,6 +190,20 @@ export class OpfsModelFileStore implements ModelFileStore {
     return { usage: estimate.usage ?? 0, quota: estimate.quota ?? 0 };
   }
 
+  async listRootFileNames(): Promise<string[]> {
+    const names: string[] = [];
+    const iterator = this.root.values?.();
+    if (!iterator) return names;
+    try {
+      for await (const entry of iterator) {
+        if (entry.kind === 'file') names.push(entry.name);
+      }
+    } catch {
+      // Handles handles that only expose a subset of the directory API in tests.
+    }
+    return names;
+  }
+
   private async directoryHandle(
     directories: readonly string[],
     create: boolean,

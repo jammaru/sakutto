@@ -14,6 +14,11 @@ describe('shared folder path mapping', () => {
     expect(mapManagerPathToSharedName(`models/${DEFAULT_MODEL_ID}/model.gguf.part`)).toBe(
       `${file}.part`,
     );
+    expect(
+      mapManagerPathToSharedName(
+        `models/${DEFAULT_MODEL_ID}/model.gguf.6ba7b810-9dad-11d1-80b4-00c04fd430c8.part`,
+      ),
+    ).toBe(`${file}.6ba7b810-9dad-11d1-80b4-00c04fd430c8.part`);
     expect(mapManagerPathToSharedName(`models/${DEFAULT_MODEL_ID}/model.json`)).toBe(
       `${file}.verified.json`,
     );

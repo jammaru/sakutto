@@ -45,6 +45,7 @@
   let checkingPermission = $state(false);
   /** A query already says granted, even if the engine snapshot has not refreshed yet. */
   let silentGranted = $state(false);
+  let silentGrantFailed = $state(false);
   let visible = $derived(
     sharedFolderNeedsPermission(folder) &&
       (autoSettle
@@ -93,7 +94,10 @@
     // Only fall back to the card when that attempt fails or when no activation exists.
     if (!canAttemptSilentFolderGrant(permission, activationActive())) return;
     const access = await ensureStoredFolderPermission().catch(() => null);
-    if (access?.status !== 'granted') return;
+    if (access?.status !== 'granted') {
+      silentGrantFailed = true;
+      return;
+    }
     silentGranted = true;
     await afterGrant().catch(() => undefined);
   }
@@ -102,6 +106,7 @@
     if (!sharedFolderNeedsPermission(folder)) {
       probed = false;
       silentGranted = false;
+      silentGrantFailed = false;
       checkingPermission = false;
       return;
     }
@@ -117,6 +122,10 @@
     });
   });
 </script>
+
+{#if silentGrantFailed && !visible && sharedFolderNeedsPermission(folder)}
+  <p class="error" class:compact role="alert">{t('modelFolderPermissionNeeded')}</p>
+{/if}
 
 {#if visible}
   <div class="restore" class:compact role="alert">

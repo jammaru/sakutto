@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EngineError } from '@/engine/errors';
-import { copyModelFile, type CopyModelRequest } from '@/engine/model/copy';
+import { copyModelFile, uniquePartPath, type CopyModelRequest } from '@/engine/model/copy';
 import { sha256Hex } from '@/engine/model/sha256';
 import { bytesOf, MemoryFileStore } from './support/fakes';
 
@@ -54,6 +54,56 @@ describe('copyModelFile', () => {
 
     expect(store.files.has(FINAL)).toBe(false);
     expect(store.files.has(PART)).toBe(false);
+  });
+
+  it('reuses an existing verified final file without rewriting it', async () => {
+    const store = new MemoryFileStore();
+    store.files.set(FINAL, PAYLOAD);
+    let progressCalls = 0;
+
+    const result = await copyModelFile({
+      ...baseRequest(store, new AbortController().signal),
+      onProgress: () => {
+        progressCalls += 1;
+      },
+    });
+
+    expect(result).toEqual({ bytes: PAYLOAD.length, sha256: DIGEST });
+    expect(store.files.has(PART)).toBe(false);
+    expect(progressCalls).toBe(0);
+  });
+
+  it('does not delete another operation temp part while copying', async () => {
+    const store = new MemoryFileStore();
+    const foreignPart = uniquePartPath(PART);
+    const ownPart = uniquePartPath(PART);
+    store.files.set(foreignPart, bytesOf('foreign partial'));
+
+    await copyModelFile({
+      ...baseRequest(store, new AbortController().signal),
+      partPath: ownPart,
+    });
+
+    expect(store.files.has(foreignPart)).toBe(true);
+    expect(store.files.has(ownPart)).toBe(false);
+    expect(store.files.has(FINAL)).toBe(true);
+  });
+
+  it('parallel copies keep separate part files until each finishes', async () => {
+    const store = new MemoryFileStore();
+    const partA = uniquePartPath(PART);
+    const partB = uniquePartPath(PART);
+
+    const [a, b] = await Promise.all([
+      copyModelFile({ ...baseRequest(store, new AbortController().signal), partPath: partA }),
+      copyModelFile({ ...baseRequest(store, new AbortController().signal), partPath: partB }),
+    ]);
+
+    expect(a.bytes).toBe(PAYLOAD.length);
+    expect(b.bytes).toBe(PAYLOAD.length);
+    expect(store.files.has(partA)).toBe(false);
+    expect(store.files.has(partB)).toBe(false);
+    expect(store.files.has(FINAL)).toBe(true);
   });
 
   it('removes the temp file when the digest does not match', async () => {

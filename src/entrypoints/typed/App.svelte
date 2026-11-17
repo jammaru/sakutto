@@ -2,10 +2,9 @@
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
   import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
-  import { sharedFolderNeedsPermission } from '@/engine/model/folder-status';
+  import { sharedFolderNeedsUserAction, type EngineStatus } from '@/shared/engine-status';
   import FolderPermissionRestore from '@/ui/FolderPermissionRestore.svelte';
   import { isEngineError, isLocalServerError, isModelChangedError } from '@/engine/errors';
-  import type { EngineStatus } from '@/shared/engine-status';
   import { hasBuiltInTranslatorUi } from '@/shared/browser';
   import { currentUiLanguage, t } from '@/shared/i18n';
   import {
@@ -79,7 +78,9 @@
       engineSource: settings?.engineSource ?? engineStatus?.engineSource ?? 'in-browser',
     }),
   );
-  let folderBlocked = $derived(sharedFolderNeedsPermission(engineStatus?.sharedFolder));
+  let folderNeedsAction = $derived(
+    engineStatus ? sharedFolderNeedsUserAction(engineStatus) : false,
+  );
   let chromeOnlyTarget = $derived(hasBuiltInTranslatorUi() && isChromeOnlyLanguage(targetLanguage));
   let canTranslate = $derived(
     !translating && trimmed.length > 0 && !tooLong && !chromeOnlyTarget && readiness === 'ready',
@@ -266,7 +267,7 @@
   }
 
   async function startDownload() {
-    if (downloadBusy || folderBlocked) return;
+    if (downloadBusy) return;
     downloadBusy = true;
     downloadFailed = false;
     try {
@@ -398,14 +399,6 @@
               {t('typedOpenOnboarding')}
             </button>
           </div>
-        {:else if folderBlocked}
-          <div class="gate">
-            <FolderPermissionRestore
-              folder={engineStatus?.sharedFolder}
-              modelId={DEFAULT_MODEL_ID}
-              onRestored={refreshEngine}
-            />
-          </div>
         {:else if readiness === 'model-absent' || readiness === 'model-partial'}
           <div class="gate">
             <p>{readiness === 'model-partial' ? t('typedModelPartial') : t('typedModelMissing')}</p>
@@ -462,6 +455,15 @@
       {/if}
     </div>
   </section>
+
+  {#if folderNeedsAction}
+    <FolderPermissionRestore
+      folder={engineStatus?.sharedFolder}
+      modelId={DEFAULT_MODEL_ID}
+      compact
+      onRestored={refreshEngine}
+    />
+  {/if}
 
   <footer class="footer">
     <button class="link-button" type="button" onclick={openOptions}>{t('openOptions')}</button>

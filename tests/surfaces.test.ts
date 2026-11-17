@@ -77,7 +77,9 @@ describe('start controls while the model downloads', () => {
 
   it('does not offer a download when the shared folder needs permission again', () => {
     expect(modelManager).toContain('sharedFolderNeedsPermission');
-    expect(modelManager).toContain('folderBlocked');
+    expect(typed).toContain('sharedFolderNeedsUserAction');
+    expect(typed).not.toContain('folderBlocked');
+    expect(typed).toContain('folderNeedsAction');
     expect(typed).toContain('FolderPermissionRestore');
     expect(popup).toContain('FolderPermissionRestore');
     expect(popup).toContain('shouldShowModelDownloadGate');
@@ -89,6 +91,7 @@ describe('start controls while the model downloads', () => {
     expect(source('ui/FolderPermissionRestore.svelte')).toContain('modelFolderPermissionPresent');
     expect(source('ui/FolderPermissionRestore.svelte')).toContain('canAttemptSilentFolderGrant');
     expect(source('ui/FolderPermissionRestore.svelte')).toContain('checkingPermission');
+    expect(source('ui/FolderPermissionRestore.svelte')).toContain('silentGrantFailed');
   });
 
   it('keeps the cancel control visible while verifying', () => {

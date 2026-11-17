@@ -34,6 +34,7 @@ import {
   type PdfOpenResult,
 } from '@/shared/pdf';
 import { tabServesPdf } from '@/background/pdf-detect';
+import { sendExtensionModelProgress } from '@/background/extension-progress-sink';
 import { broadcastModelProgress, shouldWarmDownloadedModel } from '@/background/progress-broadcast';
 import { measureQuality } from '@/background/quality';
 import { TranslationBroker } from '@/background/translation-broker';
@@ -200,25 +201,8 @@ export default defineBackground(() => {
   }
 
   async function broadcast(message: ModelProgressMessage): Promise<void> {
-    const extensionId = browser.runtime.id;
     await broadcastModelProgress(message, {
-      sendExtension: async (item) => {
-        // Target extension UI tabs only. runtime.sendMessage would fan out to every
-        // content-script listener, including tabs in BFCache, and leave lastError noise
-        // on the offscreen document that triggered the engine port update.
-        const tabs = await browser.tabs.query({
-          url: [`chrome-extension://${extensionId}/*`],
-        });
-        for (const tab of tabs) {
-          if (tab.id === undefined) continue;
-          try {
-            await browser.tabs.sendMessage(tab.id, item);
-          } catch {
-            // That extension page is gone.
-          }
-          readRuntimeLastError();
-        }
-      },
+      sendExtension: sendExtensionModelProgress,
       listTabs: () => browser.tabs.query({}),
       sendTab: async (tabId, item) => {
         await browser.tabs.sendMessage(tabId, item).catch(() => undefined);

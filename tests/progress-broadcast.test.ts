@@ -72,6 +72,17 @@ describe('broadcastModelProgress', () => {
     expect(target.pages).toEqual([{ tabId: 1, message: message('ready') }]);
   });
 
+  it('invokes sendExtension for popup-style surfaces that are not extension tabs', async () => {
+    const target = sink([]);
+    const calls: number[] = [];
+    target.sendExtension = async () => {
+      calls.push(1);
+    };
+    await broadcastModelProgress(message('downloading'), target);
+    expect(calls).toHaveLength(1);
+    expect(target.pages).toEqual([]);
+  });
+
   it('keeps download progress on the extension pages', async () => {
     const target = sink([{ id: 1, url: 'https://example.com/a' }]);
     await broadcastModelProgress(message('downloading'), target);

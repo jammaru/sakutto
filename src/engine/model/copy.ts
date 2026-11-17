@@ -23,6 +23,17 @@ export interface CopyModelResult {
   sha256: string;
 }
 
+export const STALE_PART_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/** Per-operation temp name so concurrent profile copies do not share one `.part` file. */
+export function uniquePartPath(partPath: string): string {
+  const token = crypto.randomUUID();
+  if (partPath.endsWith('.part')) {
+    return `${partPath.slice(0, -'.part'.length)}.${token}.part`;
+  }
+  return `${partPath}.${token}.part`;
+}
+
 function progressOf(received: number, total: number, phase: DownloadPhase): DownloadProgress {
   return {
     received,
@@ -49,6 +60,23 @@ async function discardPart(store: ModelFileStore, partPath: string): Promise<voi
   await store.remove(partPath).catch(() => undefined);
 }
 
+async function tryReuseVerifiedFinal(
+  request: CopyModelRequest,
+  hashBlob: (blob: Blob, options?: HashOptions) => Promise<string>,
+): Promise<CopyModelResult | null> {
+  const { store, finalPath, size, sha256, signal } = request;
+  const existingSize = await store.size(finalPath);
+  if (existingSize !== size) return null;
+  try {
+    const blob = await store.read(finalPath);
+    const digest = await hashBlob(blob, { signal });
+    if (digest !== sha256) return null;
+    return { bytes: size, sha256: digest };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Streams an already-installed official GGUF into the primary store as a temp `.part`
  * file, verifies size and SHA-256, then renames it. Abort or a failed check deletes the
@@ -59,6 +87,12 @@ export async function copyModelFile(request: CopyModelRequest): Promise<CopyMode
   const chunkBytes = Math.max(1, request.chunkBytes ?? DEFAULT_COPY_CHUNK_BYTES);
   const hashBlob = request.hashBlob ?? sha256OfBlob;
   const { blob, store, partPath, finalPath, size, sha256, signal } = request;
+
+  const reused = await tryReuseVerifiedFinal(request, hashBlob);
+  if (reused) {
+    await discardPart(store, partPath);
+    return reused;
+  }
 
   await discardPart(store, partPath);
 
