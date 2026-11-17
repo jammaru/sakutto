@@ -70,8 +70,8 @@ official PFN filenames, then streams each file into
 from `catalog.ts`. A wrong file is rejected and the `.part` is removed;
 progress and cancel stay available, and the whole file is never loaded into
 memory. No network request is made, and other matching models are still tried
-when one file fails. The manual `.gguf` import and model export controls are
-gone.
+when one file fails. This one-time copy is the only model-file chooser; there
+is no separate import or export screen.
 
 ## Chromium will not grant well-known roots
 

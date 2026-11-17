@@ -11,6 +11,7 @@ import { sharedFolderNeedsPermission } from '@/engine/model/folder-status';
 import { ModelManager } from '@/engine/model/manager';
 import { sha256Hex } from '@/engine/model/sha256';
 import {
+  loadStoredSharedFolder,
   MemorySharedFolderBucket,
   persistSharedFolderHandle,
   setSharedFolderBucketForTests,
@@ -216,6 +217,33 @@ describe('SharedFolderSession OPFS fallback', () => {
     expect(lapsed.opfsCopies).toEqual([DEFAULT_MODEL_ID]);
     expect(lapsed.recordedModels).toEqual([DEFAULT_MODEL_ID]);
     expect(await manager.status(DEFAULT_MODEL_ID)).toMatchObject({ state: 'ready' });
+    expect(await manager.hasReadableCopy(DEFAULT_MODEL_ID)).toBe(true);
+  });
+
+  it('keeps the handle and recorded models when a granted folder becomes unreadable', async () => {
+    const bucket = new MemorySharedFolderBucket();
+    setSharedFolderBucketForTests(bucket);
+    const folder = new MemoryFolder();
+    await persistSharedFolderHandle(folder.handle(), bucket);
+    const { store, manager } = await seededOpfs();
+
+    const first = new SharedFolderSession(store, manager);
+    const granted = await first.apply();
+    expect(granted.permission).toBe('granted');
+    expect(granted.recordedModels).toEqual([DEFAULT_MODEL_ID]);
+
+    folder.permission = 'prompt';
+    const restarted = new SharedFolderSession(store, manager);
+    const lapsed = await restarted.apply();
+
+    expect(lapsed).toMatchObject({
+      configured: true,
+      permission: 'prompt',
+      name: 'Sakutto',
+      recordedModels: [DEFAULT_MODEL_ID],
+    });
+    expect(sharedFolderNeedsPermission(lapsed)).toBe(true);
+    expect(await loadStoredSharedFolder(bucket)).not.toBeNull();
     expect(await manager.hasReadableCopy(DEFAULT_MODEL_ID)).toBe(true);
   });
 

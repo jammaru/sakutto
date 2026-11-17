@@ -191,6 +191,11 @@ export interface ModelFolderToBrowserRequest {
   type: 'model-folder:to-browser';
 }
 
+export interface ModelFolderToBrowserResult {
+  folder: SharedFolderStatus;
+  copied: readonly ModelId[];
+}
+
 export interface CacheClearRequest {
   type: 'cache:clear';
 }
@@ -365,6 +370,15 @@ export function isModelFolderToBrowserRequest(
   value: unknown,
 ): value is ModelFolderToBrowserRequest {
   return isRecord(value) && value.type === 'model-folder:to-browser';
+}
+
+export function isModelFolderToBrowserResult(value: unknown): value is ModelFolderToBrowserResult {
+  return (
+    isRecord(value) &&
+    isSharedFolderStatus(value.folder) &&
+    Array.isArray(value.copied) &&
+    value.copied.every((id) => isModelId(id))
+  );
 }
 
 export function isCacheClearRequest(value: unknown): value is CacheClearRequest {
@@ -635,12 +649,12 @@ export async function requestModelFolderAdopt(): Promise<SharedFolderStatus | nu
 }
 
 /** Copy verified folder models into OPFS, then stop using the folder handle. */
-export async function requestModelFolderToBrowser(): Promise<SharedFolderStatus | null> {
+export async function requestModelFolderToBrowser(): Promise<ModelFolderToBrowserResult | null> {
   try {
     const response: unknown = await browser.runtime.sendMessage({
       type: 'model-folder:to-browser',
     } satisfies ModelFolderToBrowserRequest);
-    return isSharedFolderStatus(response) ? response : null;
+    return isModelFolderToBrowserResult(response) ? response : null;
   } catch {
     return null;
   }

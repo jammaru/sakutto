@@ -691,46 +691,46 @@
     "message": "Chưa có mô hình dịch. Tải một mô hình để dịch."
   },
   "modelStorageLegend": {
-    "message": "Where to save the model"
+    "message": "Nơi lưu mô hình"
   },
   "modelStorageFolder": {
-    "message": "Shared folder (recommended)"
+    "message": "Thư mục chia sẻ (khuyên dùng)"
   },
   "modelStorageBrowser": {
-    "message": "Lưu trong trình duyệt này"
+    "message": "Trong trình duyệt này"
   },
   "modelStorageCopyFolder": {
-    "message": "Copy from shared folder (recommended)"
+    "message": "Sao chép từ thư mục chia sẻ (khuyên dùng)"
   },
   "modelStorageIntro": {
-    "message": "Choose where the model is stored. Existing models move with the choice."
+    "message": "Chọn nơi lưu mô hình. Các mô hình hiện có sẽ được di chuyển theo lựa chọn."
   },
   "modelStorageFirefoxCopyHint": {
-    "message": "Firefox cannot keep using the folder, so the models are copied into Firefox."
+    "message": "Firefox không thể tiếp tục dùng thư mục, nên các mô hình được sao chép vào Firefox."
   },
   "modelStorageMoveFailed": {
-    "message": "The model could not be moved to the shared folder. The browser copy was kept."
+    "message": "Không thể di chuyển mô hình vào thư mục chia sẻ. Bản sao trong trình duyệt được giữ lại."
   },
   "modelStorageMoveDone": {
-    "message": "The models are now stored in the shared folder."
+    "message": "Các mô hình hiện được lưu trong thư mục chia sẻ."
   },
   "modelStorageCopyDone": {
-    "message": "The models are now stored in this browser."
+    "message": "Các mô hình hiện được lưu trong trình duyệt này."
   },
   "modelStorageCopyFailed": {
-    "message": "The model could not be copied. The previous storage choice was kept."
+    "message": "Không thể sao chép mô hình. Lựa chọn lưu trữ trước đó được giữ nguyên."
   },
   "modelStorageSomeCopiesFailed": {
-    "message": "Some models could not be copied. Their existing copies were kept."
+    "message": "Không thể sao chép một số mô hình. Các bản sao hiện có được giữ lại."
   },
   "modelStorageNoModels": {
-    "message": "No official PLaMo model was found in that folder."
+    "message": "Không tìm thấy mô hình PLaMo chính thức nào trong thư mục đó."
   },
   "modelStorageWorking": {
-    "message": "Preparing the model folder…"
+    "message": "Đang chuẩn bị thư mục mô hình…"
   },
   "modelStorageProgressLabel": {
-    "message": "Model transfer progress"
+    "message": "Tiến trình chuyển mô hình"
   },
   "modelFolderPickerHint": {
     "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."
@@ -759,7 +759,7 @@
     "message": "Sakutto opens a grant tab. Choose Allow on every visit there when the browser asks."
   },
   "modelFolderPersistentHint": {
-    "message": "After you choose a shared folder in Settings, pick Allow on every visit when asked (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「常に許可」). Restarts then need no extra clicks."
+    "message": "Khi trình duyệt hỏi, hãy chọn “Cho phép mỗi lần truy cập” (Chrome tiếng Nhật: 「サイトアクセス時は常に許可」, Edge tiếng Nhật: 「常に許可」). Sau khi khởi động lại, không cần nhấp thêm."
   },
   "modelFolderPickFailed": {
     "message": "The folder could not be selected."

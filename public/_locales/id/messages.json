@@ -691,46 +691,46 @@
     "message": "Tidak ada model terjemahan. Unduh satu untuk menerjemahkan."
   },
   "modelStorageLegend": {
-    "message": "Where to save the model"
+    "message": "Tempat menyimpan model"
   },
   "modelStorageFolder": {
-    "message": "Shared folder (recommended)"
+    "message": "Folder bersama (disarankan)"
   },
   "modelStorageBrowser": {
-    "message": "Simpan di peramban ini"
+    "message": "Di peramban ini"
   },
   "modelStorageCopyFolder": {
-    "message": "Copy from shared folder (recommended)"
+    "message": "Salin dari folder bersama (disarankan)"
   },
   "modelStorageIntro": {
-    "message": "Choose where the model is stored. Existing models move with the choice."
+    "message": "Pilih tempat penyimpanan model. Model yang sudah ada dipindahkan sesuai pilihan."
   },
   "modelStorageFirefoxCopyHint": {
-    "message": "Firefox cannot keep using the folder, so the models are copied into Firefox."
+    "message": "Firefox tidak dapat terus menggunakan folder, jadi model disalin ke dalam Firefox."
   },
   "modelStorageMoveFailed": {
-    "message": "The model could not be moved to the shared folder. The browser copy was kept."
+    "message": "Model tidak dapat dipindahkan ke folder bersama. Salinan di peramban tetap disimpan."
   },
   "modelStorageMoveDone": {
-    "message": "The models are now stored in the shared folder."
+    "message": "Model kini disimpan di folder bersama."
   },
   "modelStorageCopyDone": {
-    "message": "The models are now stored in this browser."
+    "message": "Model kini disimpan di peramban ini."
   },
   "modelStorageCopyFailed": {
-    "message": "The model could not be copied. The previous storage choice was kept."
+    "message": "Model tidak dapat disalin. Pilihan penyimpanan sebelumnya tetap digunakan."
   },
   "modelStorageSomeCopiesFailed": {
-    "message": "Some models could not be copied. Their existing copies were kept."
+    "message": "Beberapa model tidak dapat disalin. Salinan yang sudah ada tetap disimpan."
   },
   "modelStorageNoModels": {
-    "message": "No official PLaMo model was found in that folder."
+    "message": "Tidak ada model PLaMo resmi yang ditemukan di folder itu."
   },
   "modelStorageWorking": {
-    "message": "Preparing the model folder…"
+    "message": "Menyiapkan folder model…"
   },
   "modelStorageProgressLabel": {
-    "message": "Model transfer progress"
+    "message": "Progres pemindahan model"
   },
   "modelFolderPickerHint": {
     "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."
@@ -759,7 +759,7 @@
     "message": "Sakutto opens a grant tab. Choose Allow on every visit there when the browser asks."
   },
   "modelFolderPersistentHint": {
-    "message": "After you choose a shared folder in Settings, pick Allow on every visit when asked (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「常に許可」). Restarts then need no extra clicks."
+    "message": "Saat peramban meminta, pilih “Izinkan pada setiap kunjungan” (Chrome Jepang: 「サイトアクセス時は常に許可」, Edge Jepang: 「常に許可」). Setelah mulai ulang, tidak perlu klik lagi."
   },
   "modelFolderPickFailed": {
     "message": "The folder could not be selected."

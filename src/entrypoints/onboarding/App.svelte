@@ -41,6 +41,7 @@
     requestEngineWarm,
     requestModelFolderAdopt,
     requestModelFolderReload,
+    requestModelFolderToBrowser,
     requestEngineStatus,
     requestModelInspect,
     requestShortcutSnapshot,
@@ -315,7 +316,7 @@
   }
 
   async function start() {
-    if (phase === 'downloading') return;
+    if (phase === 'downloading' || copyingFolder) return;
     if (startRequested && phase !== 'paused' && phase !== 'error') return;
     failureDetail = null;
     pickError = null;
@@ -419,8 +420,21 @@
     }
 
     if (pickerAvailable && storeChoice === 'browser') {
-      await clearStoredSharedFolder();
-      await requestModelFolderReload();
+      // Match Settings: copy verified folder models into OPFS before dropping the handle.
+      // The host keeps the handle when the folder cannot be read or holds a bad file.
+      const transferred = await requestModelFolderToBrowser().catch(() => null);
+      if (!transferred) {
+        pickError = t('modelStorageCopyFailed');
+        startRequested = false;
+        phase = 'consent';
+        return;
+      }
+      engineFolder = transferred.folder;
+      if (transferred.folder.configured && transferred.folder.permission !== 'granted') {
+        startRequested = false;
+        phase = 'consent';
+        return;
+      }
       const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
       skipDownload = Boolean(
         inspected && (inspected.state === 'ready' || inspected.state === 'loaded'),
@@ -796,7 +810,7 @@
           class="button"
           type="button"
           onclick={start}
-          disabled={closing}
+          disabled={closing || copyingFolder}
           aria-describedby={showStartNotice ? 'start-notice' : undefined}
         >
           {consentSaved

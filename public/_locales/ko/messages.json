@@ -691,46 +691,46 @@
     "message": "번역 모델이 없습니다. 다운로드하면 번역할 수 있습니다."
   },
   "modelStorageLegend": {
-    "message": "Where to save the model"
+    "message": "모델 저장 위치"
   },
   "modelStorageFolder": {
-    "message": "Shared folder (recommended)"
+    "message": "공유 폴더 (권장)"
   },
   "modelStorageBrowser": {
     "message": "이 브라우저에 저장"
   },
   "modelStorageCopyFolder": {
-    "message": "Copy from shared folder (recommended)"
+    "message": "공유 폴더에서 복사 (권장)"
   },
   "modelStorageIntro": {
-    "message": "Choose where the model is stored. Existing models move with the choice."
+    "message": "모델을 저장할 위치를 선택하세요. 기존 모델은 선택에 따라 이동합니다."
   },
   "modelStorageFirefoxCopyHint": {
-    "message": "Firefox cannot keep using the folder, so the models are copied into Firefox."
+    "message": "Firefox는 폴더를 계속 사용할 수 없으므로 모델을 Firefox 안으로 복사합니다."
   },
   "modelStorageMoveFailed": {
-    "message": "The model could not be moved to the shared folder. The browser copy was kept."
+    "message": "모델을 공유 폴더로 옮기지 못했습니다. 브라우저 사본은 유지됩니다."
   },
   "modelStorageMoveDone": {
-    "message": "The models are now stored in the shared folder."
+    "message": "이제 모델이 공유 폴더에 저장됩니다."
   },
   "modelStorageCopyDone": {
-    "message": "The models are now stored in this browser."
+    "message": "이제 모델이 이 브라우저에 저장됩니다."
   },
   "modelStorageCopyFailed": {
-    "message": "The model could not be copied. The previous storage choice was kept."
+    "message": "모델을 복사하지 못했습니다. 이전 저장 위치가 유지됩니다."
   },
   "modelStorageSomeCopiesFailed": {
-    "message": "Some models could not be copied. Their existing copies were kept."
+    "message": "일부 모델을 복사하지 못했습니다. 기존 사본은 유지됩니다."
   },
   "modelStorageNoModels": {
-    "message": "No official PLaMo model was found in that folder."
+    "message": "해당 폴더에서 공식 PLaMo 모델을 찾지 못했습니다."
   },
   "modelStorageWorking": {
-    "message": "Preparing the model folder…"
+    "message": "모델 폴더를 준비하는 중…"
   },
   "modelStorageProgressLabel": {
-    "message": "Model transfer progress"
+    "message": "모델 전송 진행 상황"
   },
   "modelFolderPickerHint": {
     "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."
@@ -759,7 +759,7 @@
     "message": "Sakutto opens a grant tab. Choose Allow on every visit there when the browser asks."
   },
   "modelFolderPersistentHint": {
-    "message": "After you choose a shared folder in Settings, pick Allow on every visit when asked (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「常に許可」). Restarts then need no extra clicks."
+    "message": "브라우저가 요청하면 “모든 방문에서 허용”을 선택하세요(일본어 Chrome: 「サイトアクセス時は常に許可」, 일본어 Edge: 「常に許可」). 그러면 다시 시작한 뒤 추가 클릭이 필요 없습니다."
   },
   "modelFolderPickFailed": {
     "message": "The folder could not be selected."

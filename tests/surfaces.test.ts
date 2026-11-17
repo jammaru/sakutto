@@ -489,6 +489,48 @@ describe('shared folder activation and recovery', () => {
     expect(folderSettings).toContain('<ModelStorageChoice');
   });
 
+  it('copies stored folder models before onboarding switches to browser storage', () => {
+    const start = onboarding.slice(onboarding.indexOf('async function start()'));
+    const branchStart = start.indexOf("storeChoice === 'browser'");
+    expect(branchStart).toBeGreaterThan(-1);
+    const branch = start.slice(branchStart, start.indexOf('if (pendingFolder)', branchStart));
+    expect(branch).toContain('requestModelFolderToBrowser');
+    expect(branch).not.toContain('clearStoredSharedFolder');
+  });
+
+  it('disables the onboarding start control while a folder copy is running', () => {
+    expect(onboarding).toContain("if (phase === 'downloading' || copyingFolder) return;");
+    expect(onboarding).toContain('disabled={closing || copyingFolder}');
+  });
+
+  it('reports an empty folder instead of a completed copy when nothing moved', () => {
+    const chooseStart = folderSettings.indexOf('async function chooseBrowser');
+    const chooseBody = folderSettings.slice(
+      chooseStart,
+      folderSettings.indexOf('async function chooseFirefoxFolder', chooseStart),
+    );
+    expect(chooseBody).toContain('result.copied.length');
+    expect(chooseBody).toContain("t('modelStorageCopyDone')");
+    expect(chooseBody).toContain("t('modelStorageNoModels')");
+    expect(chooseBody.indexOf("t('modelStorageNoModels')")).toBeGreaterThan(
+      chooseBody.indexOf('result.copied.length'),
+    );
+  });
+
+  it('does not drop a folder handle when the grant lapsed before switching to browser', () => {
+    const host = source('engine/offscreen/host.ts');
+    const body = host.slice(
+      host.indexOf('private async handleFolderToBrowser'),
+      host.indexOf('private async handleFolderDeleteOpfs'),
+    );
+    expect(body).toContain('folderSession.apply()');
+    expect(body).toContain("current.permission !== 'granted'");
+    expect(body).toContain('{ folder: current, copied: [] }');
+    expect(
+      body.indexOf('const copied = await services.manager.copyPresentModelsToBrowser'),
+    ).toBeGreaterThan(body.indexOf("current.permission !== 'granted'"));
+  });
+
   it('keeps the cache clear outside the storage choice', () => {
     expect(options).toContain('cache-row');
     expect(options.indexOf('<ModelFolderSettings')).toBeLessThan(
