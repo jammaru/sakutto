@@ -708,6 +708,12 @@
   "modelStorageFirefoxCopyHint": {
     "message": "Firefox не может продолжать использовать папку, поэтому модели копируются внутрь Firefox."
   },
+  "modelStorageFirefoxImport": {
+    "message": "Импорт из общей папки"
+  },
+  "modelStorageFirefoxImportHint": {
+    "message": "Скопируйте файлы PLaMo из папки, скачанной в другом браузере (например, Chrome), без повторной загрузки."
+  },
   "modelStorageMoveFailed": {
     "message": "Не удалось переместить модель в общую папку. Копия в браузере сохранена."
   },

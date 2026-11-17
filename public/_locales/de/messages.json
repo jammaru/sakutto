@@ -708,6 +708,12 @@
   "modelStorageFirefoxCopyHint": {
     "message": "Firefox kann den Ordner nicht dauerhaft nutzen, daher werden die Modelle in Firefox kopiert."
   },
+  "modelStorageFirefoxImport": {
+    "message": "Aus einem gemeinsamen Ordner importieren"
+  },
+  "modelStorageFirefoxImportHint": {
+    "message": "PLaMo-Dateien aus einem Ordner kopieren, den Sie in einem anderen Browser (z. B. Chrome) heruntergeladen haben, ohne erneut herunterzuladen."
+  },
   "modelStorageMoveFailed": {
     "message": "Das Modell konnte nicht in den gemeinsamen Ordner verschoben werden. Die Browserkopie wurde behalten."
   },

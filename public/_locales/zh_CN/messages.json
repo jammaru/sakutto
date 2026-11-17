@@ -708,6 +708,12 @@
   "modelStorageFirefoxCopyHint": {
     "message": "Firefox 无法继续使用该文件夹，因此模型会复制到 Firefox 中。"
   },
+  "modelStorageFirefoxImport": {
+    "message": "从共享文件夹导入"
+  },
+  "modelStorageFirefoxImportHint": {
+    "message": "从其他浏览器（例如 Chrome）下载的文件夹复制 PLaMo 文件，无需再次下载。"
+  },
   "modelStorageMoveFailed": {
     "message": "无法将模型移动到共享文件夹。浏览器中的副本已保留。"
   },

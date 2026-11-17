@@ -708,6 +708,12 @@
   "modelStorageFirefoxCopyHint": {
     "message": "Firefox ne peut pas continuer à utiliser le dossier ; les modèles sont donc copiés dans Firefox."
   },
+  "modelStorageFirefoxImport": {
+    "message": "Importer depuis un dossier partagé"
+  },
+  "modelStorageFirefoxImportHint": {
+    "message": "Copiez des fichiers PLaMo depuis un dossier téléchargé dans un autre navigateur (par ex. Chrome), sans télécharger à nouveau."
+  },
   "modelStorageMoveFailed": {
     "message": "Le modèle n’a pas pu être déplacé vers le dossier partagé. La copie du navigateur a été conservée."
   },

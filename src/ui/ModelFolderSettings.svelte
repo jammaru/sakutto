@@ -4,6 +4,7 @@
   import {
     DEFAULT_MODEL_ID,
     HIGH_QUALITY_MODEL_ID,
+    SELECTABLE_MODEL_IDS,
     getModel,
     type ModelId,
   } from '@/engine/model/catalog';
@@ -31,6 +32,7 @@
   import { hasLicenseConsent } from '@/shared/agreement';
   import { isFirefoxBuild } from '@/shared/browser';
   import { openOrFocusExtensionTab } from '@/shared/extension-tabs';
+  import { modelCanTranslate } from '@/shared/engine-status';
   import { t, type MessageKey } from '@/shared/i18n';
   import { loadSettings } from '@/shared/storage';
   import { formatByteSize, formatByteSizeList } from '@/ui/format';
@@ -41,9 +43,10 @@
     requestModelFolderAdopt,
     requestModelFolderReload,
     requestModelFolderToBrowser,
+    requestModelInspect,
   } from '@/shared/messages';
 
-  const firefox = isFirefoxBuild();
+  const firefoxBuild = isFirefoxBuild();
   const folderSizeLabel = formatByteSizeList([
     getModel(DEFAULT_MODEL_ID).size,
     getModel(HIGH_QUALITY_MODEL_ID).size,
@@ -53,9 +56,9 @@
     sizeLabel: folderSizeLabel,
   };
   const chromiumNotes: readonly MessageKey[] = ['modelFolderPersistentHint'];
-  const firefoxNotes: readonly MessageKey[] = ['modelStorageFirefoxCopyHint'];
 
   let folder = $state<SharedFolderStatus>(emptySharedFolderStatus(sharedFolderSupported()));
+  let catalogReady = $state(false);
   let selected = $state<ModelStorageChoiceValue>('browser');
   let busy = $state(false);
   let readingFolder = $state(false);
@@ -72,6 +75,20 @@
   let copyController = $state.raw<AbortController | null>(null);
   let pickerAvailable = $derived(sharedFolderPickerAvailable());
   let highlightPick = $derived(shouldHighlightFolderPicker(location.href));
+  let showFirefoxImport = $derived(firefoxBuild && !pickerAvailable && !catalogReady);
+  let showFirefoxImportUi = $derived(
+    showFirefoxImport || readingFolder || (busy && copyController !== null),
+  );
+
+  async function refreshCatalogReady(): Promise<void> {
+    if (!firefoxBuild || pickerAvailable) return;
+    const statuses = await Promise.all(
+      SELECTABLE_MODEL_IDS.map((modelId) => requestModelInspect(modelId)),
+    );
+    catalogReady = SELECTABLE_MODEL_IDS.every((_, index) =>
+      modelCanTranslate(statuses[index] ?? null),
+    );
+  }
 
   function currentChoice(status: SharedFolderStatus): ModelStorageChoiceValue {
     return status.configured && status.permission === 'granted' ? 'folder' : 'browser';
@@ -184,8 +201,8 @@
     }
   }
 
-  async function chooseFirefoxFolder(): Promise<void> {
-    const previous = selected;
+  async function importFromSharedFolder(): Promise<void> {
+    if (busy || readingFolder) return;
     readingFolder = false;
     let files: File[] | null;
     try {
@@ -197,12 +214,8 @@
     } finally {
       readingFolder = false;
     }
-    if (!files) {
-      selected = previous;
-      return;
-    }
+    if (!files) return;
 
-    selected = 'copy';
     clearActionMessages();
     busy = true;
     copyController = new AbortController();
@@ -217,18 +230,16 @@
         },
       });
       if (result.imported.length === 0) {
-        selected = previous;
         error = result.failed.length > 0 ? t('modelStorageCopyFailed') : t('modelStorageNoModels');
         return;
       }
       await requestModelFolderReload();
       await requestEngineWarm();
-      selected = 'browser';
       notice = t('modelStorageCopyDone');
       if (result.failed.length > 0) error = t('modelStorageSomeCopiesFailed');
       notifySharedFolderChanged();
+      await refreshCatalogReady();
     } catch (copyError) {
-      selected = previous;
       if (!isAbortError(copyError) && !copyController.signal.aborted) {
         error = t('modelStorageCopyFailed');
       }
@@ -246,8 +257,7 @@
       await chooseBrowser();
       return;
     }
-    if (pickerAvailable) await chooseChromiumFolder();
-    else await chooseFirefoxFolder();
+    await chooseChromiumFolder();
   }
 
   function cancelCopy(): void {
@@ -299,11 +309,13 @@
         status.state === 'loaded'
       ) {
         void refreshFromEngine();
+        void refreshCatalogReady();
       }
     };
     window.addEventListener(SHARED_FOLDER_CHANGED_EVENT, onChanged);
     browser.runtime.onMessage.addListener(onMessage);
     void refreshFromEngine();
+    void refreshCatalogReady();
     if (highlightPick) {
       queueMicrotask(() => document.getElementById('model-folder')?.scrollIntoView());
     }
@@ -314,7 +326,7 @@
   });
 </script>
 
-{#if pickerAvailable || firefox || folder.configured}
+{#if pickerAvailable || (firefoxBuild && (showFirefoxImportUi || folder.configured))}
   <div class="folder" id="model-folder" aria-busy={busy || readingFolder}>
     {#if pickerAvailable}
       <ModelStorageChoice
@@ -330,20 +342,18 @@
         disabled={busy || readingFolder}
         onChoose={(choice) => void chooseStorage(choice)}
       />
-    {:else}
-      <ModelStorageChoice
-        choice={selected}
-        mode="copy"
-        legendKey="modelStorageLegend"
-        folderKey="modelStorageCopyFolder"
-        browserKey="modelStorageBrowser"
-        recommended="copy"
-        introKey="modelStorageIntro"
-        notes={firefoxNotes}
-        {benefits}
-        disabled={busy || readingFolder}
-        onChoose={(choice) => void chooseStorage(choice)}
-      />
+    {:else if showFirefoxImportUi}
+      {#if showFirefoxImport}
+        <p class="muted">{t('modelStorageFirefoxImportHint')}</p>
+        <button
+          class="button secondary"
+          type="button"
+          disabled={busy || readingFolder}
+          onclick={() => void importFromSharedFolder()}
+        >
+          {t('modelStorageFirefoxImport')}
+        </button>
+      {/if}
       <input
         bind:this={copyInput}
         class="hidden"

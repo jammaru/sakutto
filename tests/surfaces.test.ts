@@ -486,7 +486,19 @@ describe('shared folder activation and recovery', () => {
     expect(storageChoice).toContain('data-store-recommended');
     expect(storageChoice).toContain('SharedFolderBenefits');
     expect(onboarding).toContain('<ModelStorageChoice');
-    expect(folderSettings).toContain('<ModelStorageChoice');
+    expect(folderSettings).toMatch(/\{#if pickerAvailable\}[\s\S]*<ModelStorageChoice/);
+  });
+
+  it('replaces Firefox settings storage radios with a single import control', () => {
+    expect(folderSettings).toContain('showFirefoxImport');
+    expect(folderSettings).toContain('refreshCatalogReady');
+    expect(folderSettings).toContain('modelStorageFirefoxImport');
+    expect(folderSettings).not.toMatch(
+      /\{:else if showFirefoxImportUi\}[\s\S]*<ModelStorageChoice/,
+    );
+    expect(folderSettings).not.toMatch(/\{:else if showFirefoxImportUi\}[\s\S]*modelStorageIntro/);
+    expect(folderSettings).not.toContain('firefoxNotes');
+    expect(onboarding).toContain('modelStorageCopyFolder');
   });
 
   it('copies stored folder models before onboarding switches to browser storage', () => {
@@ -507,7 +519,7 @@ describe('shared folder activation and recovery', () => {
     const chooseStart = folderSettings.indexOf('async function chooseBrowser');
     const chooseBody = folderSettings.slice(
       chooseStart,
-      folderSettings.indexOf('async function chooseFirefoxFolder', chooseStart),
+      folderSettings.indexOf('async function importFromSharedFolder', chooseStart),
     );
     expect(chooseBody).toContain('result.copied.length');
     expect(chooseBody).toContain("t('modelStorageCopyDone')");

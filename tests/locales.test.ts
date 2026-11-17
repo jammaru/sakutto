@@ -232,6 +232,10 @@ describe('locale messages', () => {
     expect(ja.modelStorageCopyFolder?.message).toBe('共有フォルダからコピー（おすすめ）');
     expect(en.modelStorageFirefoxCopyHint?.message).toMatch(/copied into Firefox/i);
     expect(ja.modelStorageFirefoxCopyHint?.message).toContain('Firefox 内にコピー');
+    expect(en.modelStorageFirefoxImport?.message).toBe('Import from shared folder');
+    expect(ja.modelStorageFirefoxImport?.message).toBe('共有フォルダから取り込む');
+    expect(en.modelStorageFirefoxImportHint?.message).toMatch(/without downloading again/i);
+    expect(ja.modelStorageFirefoxImportHint?.message).toContain('再ダウンロード');
     expect(en.modelStorageMoveFailed?.message).toMatch(/browser copy was kept/i);
     expect(ja.modelStorageMoveFailed?.message).toContain('ブラウザ内のコピーは残しています');
     for (const key of ['modelImportHeading', 'modelImportChoose', 'modelExportMissing']) {
@@ -248,6 +252,8 @@ describe('locale messages', () => {
       );
       expect(messages.modelStorageCopyFolder?.message, locale).toBeTruthy();
       expect(messages.modelStorageFirefoxCopyHint?.message, locale).toBeTruthy();
+      expect(messages.modelStorageFirefoxImport?.message, locale).toBeTruthy();
+      expect(messages.modelStorageFirefoxImportHint?.message, locale).toBeTruthy();
     }
     expect(en.modelFolderPickerHint?.message).toContain('Documents/Sakutto');
     expect(ja.modelFolderPickerHint?.message).toContain('ドキュメント/Sakutto');

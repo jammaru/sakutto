@@ -708,6 +708,12 @@
   "modelStorageFirefoxCopyHint": {
     "message": "Firefox ไม่สามารถใช้โฟลเดอร์ต่อได้ จึงคัดลอกโมเดลไว้ใน Firefox"
   },
+  "modelStorageFirefoxImport": {
+    "message": "นำเข้าจากโฟลเดอร์ที่แชร์"
+  },
+  "modelStorageFirefoxImportHint": {
+    "message": "คัดลอกไฟล์ PLaMo จากโฟลเดอร์ที่ดาวน์โหลดในเบราว์เซอร์อื่น (เช่น Chrome) โดยไม่ต้องดาวน์โหลดซ้ำ"
+  },
   "modelStorageMoveFailed": {
     "message": "ย้ายโมเดลไปยังโฟลเดอร์ที่แชร์ไม่ได้ จึงเก็บสำเนาในเบราว์เซอร์ไว้"
   },

@@ -708,6 +708,12 @@
   "modelStorageFirefoxCopyHint": {
     "message": "Firefox はフォルダを継続利用できないため、モデルを Firefox 内にコピーします。"
   },
+  "modelStorageFirefoxImport": {
+    "message": "共有フォルダから取り込む"
+  },
+  "modelStorageFirefoxImportHint": {
+    "message": "別のブラウザ（例: Chrome）でダウンロードしたフォルダからモデルをコピーし、再ダウンロードせずに使えます。"
+  },
   "modelStorageMoveFailed": {
     "message": "モデルを共有フォルダへ移動できませんでした。ブラウザ内のコピーは残しています。"
   },

@@ -708,6 +708,12 @@
   "modelStorageFirefoxCopyHint": {
     "message": "Firefox không thể tiếp tục dùng thư mục, nên các mô hình được sao chép vào Firefox."
   },
+  "modelStorageFirefoxImport": {
+    "message": "Nhập từ thư mục dùng chung"
+  },
+  "modelStorageFirefoxImportHint": {
+    "message": "Sao chép tệp PLaMo từ thư mục đã tải trong trình duyệt khác (ví dụ Chrome) mà không tải lại."
+  },
   "modelStorageMoveFailed": {
     "message": "Không thể di chuyển mô hình vào thư mục chia sẻ. Bản sao trong trình duyệt được giữ lại."
   },

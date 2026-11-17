@@ -708,6 +708,12 @@
   "modelStorageFirefoxCopyHint": {
     "message": "Firefox tidak dapat terus menggunakan folder, jadi model disalin ke dalam Firefox."
   },
+  "modelStorageFirefoxImport": {
+    "message": "Impor dari folder bersama"
+  },
+  "modelStorageFirefoxImportHint": {
+    "message": "Salin berkas PLaMo dari folder yang diunduh di browser lain (misalnya Chrome) tanpa mengunduh ulang."
+  },
   "modelStorageMoveFailed": {
     "message": "Model tidak dapat dipindahkan ke folder bersama. Salinan di peramban tetap disimpan."
   },
