@@ -1,9 +1,5 @@
 import { browser, type Browser } from 'wxt/browser';
-import {
-  bindPortDisconnectCleanup,
-  broadcastRuntimeMessage,
-  readRuntimeLastError,
-} from '@/shared/runtime-last-error';
+import { bindPortDisconnectCleanup, readRuntimeLastError } from '@/shared/runtime-last-error';
 import { hasLicenseConsent } from '@/shared/agreement';
 import { lastGpuDiagnostic, probeCapabilities } from '@/shared/capabilities';
 import { mergeGpuDiagnostic, type GpuDiagnostic } from '@/shared/gpu-diagnostic';
@@ -21,7 +17,6 @@ import {
   type ModelStatus,
 } from '@/shared/engine-status';
 import { advanceModelStatus } from '@/shared/model-progress';
-import type { ModelProgressMessage } from '@/shared/messages';
 import { loadSettings, saveSettings } from '@/shared/storage';
 import type { Formality, IdleMinutes, Settings, TierPreference } from '@/shared/settings';
 import { MemoryTranslationCacheStore, IndexedDbTranslationCacheStore } from '../cache/store';
@@ -1032,10 +1027,9 @@ export class EngineHost {
         status,
       );
       this.plamoReady = modelCanTranslate(model);
-      void broadcastRuntimeMessage({
-        type: 'model:progress',
-        status: model,
-      } satisfies ModelProgressMessage);
+      // Publish only over the engine port. runtime.sendMessage would fan out to BFCached
+      // content targets and leave an unchecked lastError in the offscreen document.
+      this.publishModelStatus(model);
       this.respond(port, request.requestId, status);
     } catch (error) {
       this.respondError(port, request.requestId, error);

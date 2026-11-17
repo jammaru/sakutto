@@ -12,7 +12,27 @@ export function readRuntimeLastError(): void {
 /** Broadcast to extension pages and clear pending unchecked errors on success and failure. */
 export async function broadcastRuntimeMessage(message: unknown): Promise<void> {
   try {
-    await browser.runtime.sendMessage(message);
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const done = (): void => {
+        if (settled) return;
+        settled = true;
+        readRuntimeLastError();
+        resolve();
+      };
+      let result: unknown;
+      try {
+        result = (
+          browser.runtime.sendMessage as (message: unknown, callback: () => void) => unknown
+        )(message, done);
+      } catch {
+        done();
+        return;
+      }
+      if (result && typeof (result as PromiseLike<unknown>).then === 'function') {
+        void (result as PromiseLike<unknown>).then(done, done);
+      }
+    });
   } catch {
     readRuntimeLastError();
   } finally {

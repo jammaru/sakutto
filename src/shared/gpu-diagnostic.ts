@@ -1,3 +1,4 @@
+import { readRuntimeLastError } from './runtime-last-error';
 import { isRecord } from './object';
 
 export type WebGpuDebugProfile = 'off' | 'amd-rdna3' | 'intel-arc' | 'no-f16' | 'reject-max-limits';
@@ -246,11 +247,13 @@ export async function resolveWebGpuDebugProfile(options?: {
   if (ask) {
     try {
       const value = await ask();
+      readRuntimeLastError();
       if (isWebGpuDebugProfile(value)) {
         setWebGpuDebugProfile(value);
         return value;
       }
     } catch {
+      readRuntimeLastError();
       // The service worker may not be listening yet.
     }
   }

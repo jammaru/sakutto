@@ -62,12 +62,15 @@ describe('runtime lastError helper', () => {
   it('broadcasts runtime messages and clears errors on success and failure', async () => {
     state.sendMessage.mockResolvedValue(undefined);
     await broadcastRuntimeMessage({ type: 'model:progress' });
-    expect(state.sendMessage).toHaveBeenCalledWith({ type: 'model:progress' });
-    expect(state.reads).toBe(1);
+    expect(state.sendMessage).toHaveBeenCalledWith(
+      { type: 'model:progress' },
+      expect.any(Function),
+    );
+    expect(state.reads).toBe(2);
 
     state.sendMessage.mockRejectedValue(new Error('closed'));
     await expect(broadcastRuntimeMessage({ type: 'model:progress' })).resolves.toBeUndefined();
-    expect(state.reads).toBe(3);
+    expect(state.reads).toBe(4);
   });
 
   it('returns message results and swallows rejected messaging calls', async () => {

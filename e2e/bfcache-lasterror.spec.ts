@@ -1,22 +1,34 @@
 import { expect, test, type Page } from '@playwright/test';
 import { loadExtension, type LoadedExtension } from './extension';
 import {
-  FIXTURE_ORIGIN,
-  injectContentScript,
-  invokeOnCommandPath,
-  resetExtensionStorage,
-  waitForContentSession,
-  waitTranslated,
-} from './page';
+  chooseEmptySharedFolder,
+  readSharedFolder,
+  reloadFolder,
+  setPermissionOverride,
+} from './folder-model-helpers';
+import { FIXTURE_ORIGIN, invokeOnCommandPath, resetExtensionStorage, waitTranslated } from './page';
 
 async function attachOffscreenConsole(
   extension: LoadedExtension,
   messages: string[],
 ): Promise<{ found: boolean; detach: () => Promise<void> }> {
+  const withTimeout = async <T>(promise: Promise<T>, ms = 1500): Promise<T | null> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<null>((resolve) => {
+          timer = setTimeout(() => resolve(null), ms);
+        }),
+      ]);
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  };
   const browser = extension.context.browser();
   if (!browser) return { found: false, detach: async () => undefined };
   const cdp = await browser.newBrowserCDPSession();
-  await cdp.send('Target.setDiscoverTargets', { discover: true });
+  await withTimeout(cdp.send('Target.setDiscoverTargets', { discover: true }));
   let sessionId: string | null = null;
   let messageId = 0;
 
@@ -53,40 +65,60 @@ async function attachOffscreenConsole(
   const send = async (method: string): Promise<void> => {
     if (!sessionId) return;
     messageId += 1;
-    await cdp
-      .send('Target.sendMessageToTarget', {
-        sessionId,
-        message: JSON.stringify({ id: messageId, method }),
-      })
-      .catch(() => undefined);
+    await withTimeout(
+      cdp
+        .send('Target.sendMessageToTarget', {
+          sessionId,
+          message: JSON.stringify({ id: messageId, method }),
+        })
+        .catch(() => undefined),
+    );
   };
 
   for (let attempt = 0; attempt < 50; attempt += 1) {
-    const { targetInfos } = await cdp.send('Target.getTargets');
-    const target = targetInfos.find((info) => info.url.endsWith('/offscreen.html'));
+    const targets = await withTimeout(cdp.send('Target.getTargets'));
+    const target = targets?.targetInfos.find((info) => info.url.endsWith('/offscreen.html'));
     if (target) {
-      const attached = await cdp.send('Target.attachToTarget', {
-        targetId: target.targetId,
-        flatten: false,
-      });
+      const attached = await withTimeout(
+        cdp.send('Target.attachToTarget', {
+          targetId: target.targetId,
+          flatten: false,
+        }),
+      );
+      if (!attached) continue;
       sessionId = attached.sessionId;
-      await send('Runtime.enable');
-      await send('Log.enable');
+      void send('Runtime.enable');
+      void send('Log.enable');
+      await new Promise((resolve) => setTimeout(resolve, 100));
       return {
         found: true,
         detach: async () => {
-          await cdp.detach().catch(() => undefined);
+          await withTimeout(cdp.detach().catch(() => undefined));
         },
       };
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
-  await cdp.detach().catch(() => undefined);
+  await withTimeout(cdp.detach().catch(() => undefined));
   return { found: false, detach: async () => undefined };
 }
 
+async function pressInPageShortcut(page: Page, key: 'a' | 's'): Promise<void> {
+  await page.evaluate((shortcutKey) => {
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: shortcutKey,
+        code: shortcutKey === 'a' ? 'KeyA' : 'KeyS',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  }, key);
+}
+
 test('does not leave unchecked lastError across BFCache navigation', async () => {
-  test.setTimeout(120_000);
+  test.setTimeout(180_000);
   const extension = await loadExtension('en-US');
   const messages: string[] = [];
   const watch = (page: Page): void => {
@@ -99,38 +131,64 @@ test('does not leave unchecked lastError across BFCache navigation', async () =>
 
   try {
     await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
+    const options = await extension.context.newPage();
+    await options.goto(`chrome-extension://${extension.extensionId}/options.html`);
+    await chooseEmptySharedFolder(options);
+    await options.close();
+
+    const setupPopup = await extension.context.newPage();
+    await setupPopup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
+    await setPermissionOverride(setupPopup, 'prompt');
+    await reloadFolder(setupPopup);
+    await expect
+      .poll(async () => readSharedFolder(setupPopup), { timeout: 15_000 })
+      .toMatchObject({ configured: true, permission: 'prompt' });
+    await setupPopup.close();
+
     const page = await extension.context.newPage();
     watch(page);
     await page.goto(`${FIXTURE_ORIGIN}/article.html`);
     await invokeOnCommandPath(extension.worker, page, 'toggle');
+
+    const grantPopup = await extension.context.newPage();
+    await grantPopup.goto(`chrome-extension://${extension.extensionId}/popup.html`);
+    const enable = grantPopup.locator('[data-sakutto="popup-folder-enable"]');
+    await expect(enable).toBeVisible({ timeout: 15_000 });
+    await enable.click();
+    await grantPopup.close();
+
     await waitTranslated(page);
+    await pressInPageShortcut(page, 'a');
+    await page.waitForFunction(
+      () => document.documentElement.dataset.sakuttoState !== 'translated',
+    );
+
     const offscreen = await attachOffscreenConsole(extension, messages);
     expect(offscreen.found).toBe(true);
 
     await page.goto(`${FIXTURE_ORIGIN}/docs.html`);
     await page.waitForLoadState('load');
-    await injectContentScript(extension.worker, page);
-    await waitForContentSession(extension.worker, page);
     await page.goBack();
     await page.waitForURL(`${FIXTURE_ORIGIN}/article.html`);
     await page.goForward();
     await page.waitForURL(`${FIXTURE_ORIGIN}/docs.html`);
+
+    await page.locator('article p').first().click({ clickCount: 3 });
+    await page.waitForTimeout(100);
+    await invokeOnCommandPath(extension.worker, page, 'selection');
+    const popover = page.locator('sakutto-pop');
+    await expect(popover).toBeVisible({ timeout: 15_000 });
+    await expect(popover).toHaveAttribute('aria-busy', 'false', { timeout: 15_000 });
+    await page.keyboard.press('Escape');
+
     await page.goBack();
     await page.waitForURL(`${FIXTURE_ORIGIN}/article.html`);
+    await page.goForward();
+    await page.waitForURL(`${FIXTURE_ORIGIN}/docs.html`);
 
-    const lead = page.locator('#lead');
-    if (await lead.count()) {
-      await page.evaluate(() => {
-        const target = document.getElementById('lead');
-        if (!target) return;
-        const range = document.createRange();
-        range.selectNodeContents(target);
-        const selection = window.getSelection();
-        selection?.removeAllRanges();
-        selection?.addRange(range);
-      });
-      await invokeOnCommandPath(extension.worker, page, 'selection');
-    }
+    await page.waitForTimeout(250);
+    await pressInPageShortcut(page, 'a');
+    await waitTranslated(page);
     await page.waitForTimeout(1000);
 
     expect(messages.filter((message) => message.includes('Unchecked runtime.lastError'))).toEqual(
