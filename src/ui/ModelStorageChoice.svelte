@@ -41,32 +41,7 @@
 <fieldset class="store">
   <legend>{t(legendKey)}</legend>
 
-  <div
-    class="store-option"
-    class:recommended={recommended === mode}
-    data-store-recommended={recommended === mode ? '' : undefined}
-  >
-    <label class="store-choice">
-      <input
-        type="radio"
-        name="model-storage"
-        value={mode}
-        checked={choice === mode}
-        {disabled}
-        onchange={() => onChoose(mode)}
-      />
-      <span>{t(folderKey)}</span>
-    </label>
-    {#each notes as key (key)}
-      <p class="muted start-note">{t(key)}</p>
-    {/each}
-  </div>
-
-  <div
-    class="store-option"
-    class:recommended={recommended === 'browser'}
-    data-store-recommended={recommended === 'browser' ? '' : undefined}
-  >
+  <div class="store-option">
     <label class="store-choice">
       <input
         type="radio"
@@ -78,6 +53,28 @@
       />
       <span>{t(browserKey)}</span>
     </label>
+  </div>
+
+  <div class="store-option" data-store-recommended={recommended === mode ? '' : undefined}>
+    <div class="store-option-heading">
+      <label class="store-choice">
+        <input
+          type="radio"
+          name="model-storage"
+          value={mode}
+          checked={choice === mode}
+          {disabled}
+          onchange={() => onChoose(mode)}
+        />
+        <span>{t(folderKey)}</span>
+      </label>
+      {#if recommended === mode}
+        <span class="recommended-badge">{t('storageOptionRecommended')}</span>
+      {/if}
+    </div>
+    {#each notes as key (key)}
+      <p class="muted start-note">{t(key)}</p>
+    {/each}
   </div>
 
   {#if benefits}
@@ -112,11 +109,22 @@
     gap: var(--space-1);
   }
 
-  .store-option.recommended {
-    padding: var(--space-2);
-    border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  .store-option-heading {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-2);
+    align-items: flex-start;
+  }
+
+  .recommended-badge {
+    padding: 0 6px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--muted);
+    background: var(--surface-muted);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.5;
   }
 
   .store-choice {

@@ -253,7 +253,7 @@
     "message": "Lưu trong trình duyệt này"
   },
   "onboardingStoreFolder": {
-    "message": "Use a shared model folder (Chromium browsers) (recommended)"
+    "message": "Use a shared model folder (Chromium browsers)"
   },
   "onboardingStoreFolderHelp": {
     "message": "For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them."
@@ -677,14 +677,17 @@
   "modelStorageLegend": {
     "message": "Nơi lưu mô hình"
   },
+  "storageOptionRecommended": {
+    "message": "Khuyên dùng"
+  },
   "modelStorageFolder": {
-    "message": "Thư mục chia sẻ (khuyên dùng)"
+    "message": "Thư mục chia sẻ"
   },
   "modelStorageBrowser": {
     "message": "Trong trình duyệt này"
   },
   "modelStorageCopyFolder": {
-    "message": "Sao chép từ thư mục chia sẻ (khuyên dùng)"
+    "message": "Sao chép từ thư mục chia sẻ"
   },
   "modelStorageIntro": {
     "message": "Chọn nơi lưu mô hình. Các mô hình hiện có sẽ được di chuyển theo lựa chọn."

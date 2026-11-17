@@ -253,7 +253,7 @@
     "message": "Enregistrer dans ce navigateur"
   },
   "onboardingStoreFolder": {
-    "message": "Use a shared model folder (Chromium browsers) (recommended)"
+    "message": "Use a shared model folder (Chromium browsers)"
   },
   "onboardingStoreFolderHelp": {
     "message": "For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them."
@@ -677,14 +677,17 @@
   "modelStorageLegend": {
     "message": "Où enregistrer le modèle"
   },
+  "storageOptionRecommended": {
+    "message": "Recommandé"
+  },
   "modelStorageFolder": {
-    "message": "Dossier partagé (recommandé)"
+    "message": "Dossier partagé"
   },
   "modelStorageBrowser": {
     "message": "Dans ce navigateur"
   },
   "modelStorageCopyFolder": {
-    "message": "Copier depuis le dossier partagé (recommandé)"
+    "message": "Copier depuis le dossier partagé"
   },
   "modelStorageIntro": {
     "message": "Choisissez où le modèle est enregistré. Les modèles existants suivent ce choix."

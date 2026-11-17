@@ -253,7 +253,7 @@
     "message": "이 브라우저에 저장"
   },
   "onboardingStoreFolder": {
-    "message": "Use a shared model folder (Chromium browsers) (recommended)"
+    "message": "Use a shared model folder (Chromium browsers)"
   },
   "onboardingStoreFolderHelp": {
     "message": "For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them."
@@ -677,14 +677,17 @@
   "modelStorageLegend": {
     "message": "모델 저장 위치"
   },
+  "storageOptionRecommended": {
+    "message": "권장"
+  },
   "modelStorageFolder": {
-    "message": "공유 폴더 (권장)"
+    "message": "공유 폴더"
   },
   "modelStorageBrowser": {
     "message": "이 브라우저에 저장"
   },
   "modelStorageCopyFolder": {
-    "message": "공유 폴더에서 복사 (권장)"
+    "message": "공유 폴더에서 복사"
   },
   "modelStorageIntro": {
     "message": "모델을 저장할 위치를 선택하세요. 기존 모델은 선택에 따라 이동합니다."

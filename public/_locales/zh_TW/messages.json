@@ -253,7 +253,7 @@
     "message": "儲存在此瀏覽器中"
   },
   "onboardingStoreFolder": {
-    "message": "Use a shared model folder (Chromium browsers) (recommended)"
+    "message": "Use a shared model folder (Chromium browsers)"
   },
   "onboardingStoreFolderHelp": {
     "message": "For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them."
@@ -677,14 +677,17 @@
   "modelStorageLegend": {
     "message": "模型儲存位置"
   },
+  "storageOptionRecommended": {
+    "message": "建議"
+  },
   "modelStorageFolder": {
-    "message": "共享資料夾（建議）"
+    "message": "共享資料夾"
   },
   "modelStorageBrowser": {
     "message": "儲存在此瀏覽器中"
   },
   "modelStorageCopyFolder": {
-    "message": "從共享資料夾複製（建議）"
+    "message": "從共享資料夾複製"
   },
   "modelStorageIntro": {
     "message": "選擇模型的儲存位置。現有模型會隨選擇移動。"

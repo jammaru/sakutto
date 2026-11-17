@@ -8,9 +8,9 @@ import { FIXTURE_ORIGIN } from './page';
 
 const PICKER_HINT =
   'After you press start, a folder dialog opens in Documents. Create or choose Documents/Sakutto, or choose the existing folder if another browser already has the models. Any folder you can write to also works.';
-const FOLDER_RADIO = 'Use a shared model folder (Chromium browsers) (recommended)';
+const FOLDER_RADIO = 'Use a shared model folder (Chromium browsers)';
 const BROWSER_RADIO = 'Save in this browser';
-const SETTINGS_FOLDER_RADIO = 'Shared folder (recommended)';
+const SETTINGS_FOLDER_RADIO = 'Shared folder';
 const SETTINGS_BROWSER_RADIO = 'In this browser';
 const STORAGE_LEGEND = 'Where to save the model';
 const MOVE_DONE = 'The models are now stored in the shared folder.';

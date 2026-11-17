@@ -732,6 +732,65 @@
           </ul>
         </details>
       </section>
+      {#if pickerAvailable || !sharedFolderSupported()}
+        <ModelStorageChoice
+          choice={storeChoice}
+          mode={pickerAvailable ? 'folder' : 'copy'}
+          legendKey="onboardingStoreLegend"
+          folderKey={pickerAvailable ? 'onboardingStoreFolder' : 'modelStorageCopyFolder'}
+          browserKey="onboardingStoreBrowser"
+          recommended={pickerAvailable ? 'folder' : 'copy'}
+          notes={storeChoice === (pickerAvailable ? 'folder' : 'copy')
+            ? pickerAvailable
+              ? chromiumNotes
+              : firefoxNotes
+            : []}
+          benefits={storageBenefits}
+          disabled={copyingFolder || readingFolder}
+          onChoose={(choice) => void chooseStore(choice)}
+        />
+        {#if !pickerAvailable}
+          <input
+            bind:this={copyInput}
+            class="hidden"
+            type="file"
+            accept=".gguf"
+            webkitdirectory
+            multiple
+          />
+        {/if}
+        {#if readingFolder && !copyingFolder}
+          <div class="storage-progress" role="status">
+            <p class="muted">{t('modelFolderReading')}</p>
+          </div>
+        {/if}
+        {#if copyingFolder}
+          <div class="storage-progress" role="status">
+            {#if copyProgress}
+              <div
+                class="track"
+                role="progressbar"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow={Math.round(copyProgress.transfer.ratio * 100)}
+                aria-label={t('modelStorageProgressLabel')}
+              >
+                <span style="width: {copyProgress.transfer.ratio * 100}%"></span>
+              </div>
+              <p class="muted">
+                {copyProgress.transfer.phase === 'verify'
+                  ? t('modelVerifying')
+                  : `${formatByteSize(copyProgress.transfer.received)} / ${formatByteSize(copyProgress.transfer.total)}`}
+              </p>
+            {:else}
+              <p class="muted">{t('modelStorageWorking')}</p>
+            {/if}
+            <button class="button secondary" type="button" onclick={cancelFolderCopy}>
+              {t('downloadCancel')}
+            </button>
+          </div>
+        {/if}
+      {/if}
       {#if integrityAlert}
         <p class="error" role="alert">{integrityAlert}</p>
       {/if}
@@ -782,65 +841,6 @@
         {t('onboardingClose')}
       </button>
     </div>
-    {#if showStartNotice && (pickerAvailable || !sharedFolderSupported())}
-      <ModelStorageChoice
-        choice={storeChoice}
-        mode={pickerAvailable ? 'folder' : 'copy'}
-        legendKey="onboardingStoreLegend"
-        folderKey={pickerAvailable ? 'onboardingStoreFolder' : 'modelStorageCopyFolder'}
-        browserKey="onboardingStoreBrowser"
-        recommended={pickerAvailable ? 'folder' : 'copy'}
-        notes={storeChoice === (pickerAvailable ? 'folder' : 'copy')
-          ? pickerAvailable
-            ? chromiumNotes
-            : firefoxNotes
-          : []}
-        benefits={storageBenefits}
-        disabled={copyingFolder || readingFolder}
-        onChoose={(choice) => void chooseStore(choice)}
-      />
-      {#if !pickerAvailable}
-        <input
-          bind:this={copyInput}
-          class="hidden"
-          type="file"
-          accept=".gguf"
-          webkitdirectory
-          multiple
-        />
-      {/if}
-      {#if readingFolder && !copyingFolder}
-        <div class="storage-progress" role="status">
-          <p class="muted">{t('modelFolderReading')}</p>
-        </div>
-      {/if}
-      {#if copyingFolder}
-        <div class="storage-progress" role="status">
-          {#if copyProgress}
-            <div
-              class="track"
-              role="progressbar"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              aria-valuenow={Math.round(copyProgress.transfer.ratio * 100)}
-              aria-label={t('modelStorageProgressLabel')}
-            >
-              <span style="width: {copyProgress.transfer.ratio * 100}%"></span>
-            </div>
-            <p class="muted">
-              {copyProgress.transfer.phase === 'verify'
-                ? t('modelVerifying')
-                : `${formatByteSize(copyProgress.transfer.received)} / ${formatByteSize(copyProgress.transfer.total)}`}
-            </p>
-          {:else}
-            <p class="muted">{t('modelStorageWorking')}</p>
-          {/if}
-          <button class="button secondary" type="button" onclick={cancelFolderCopy}>
-            {t('downloadCancel')}
-          </button>
-        </div>
-      {/if}
-    {/if}
   </div>
   {#if closeFailed || tryFailed}
     <p class="error" role="alert">{t('errorAction')}</p>

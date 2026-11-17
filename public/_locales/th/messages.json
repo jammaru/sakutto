@@ -253,7 +253,7 @@
     "message": "บันทึกในเบราว์เซอร์นี้"
   },
   "onboardingStoreFolder": {
-    "message": "Use a shared model folder (Chromium browsers) (recommended)"
+    "message": "Use a shared model folder (Chromium browsers)"
   },
   "onboardingStoreFolderHelp": {
     "message": "For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them."
@@ -677,14 +677,17 @@
   "modelStorageLegend": {
     "message": "ตำแหน่งจัดเก็บโมเดล"
   },
+  "storageOptionRecommended": {
+    "message": "แนะนำ"
+  },
   "modelStorageFolder": {
-    "message": "โฟลเดอร์ที่แชร์ (แนะนำ)"
+    "message": "โฟลเดอร์ที่แชร์"
   },
   "modelStorageBrowser": {
     "message": "ในเบราว์เซอร์นี้"
   },
   "modelStorageCopyFolder": {
-    "message": "คัดลอกจากโฟลเดอร์ที่แชร์ (แนะนำ)"
+    "message": "คัดลอกจากโฟลเดอร์ที่แชร์"
   },
   "modelStorageIntro": {
     "message": "เลือกตำแหน่งจัดเก็บโมเดล โมเดลที่มีอยู่จะถูกย้ายตามที่เลือก"

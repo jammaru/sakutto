@@ -253,7 +253,7 @@
     "message": "Simpan di peramban ini"
   },
   "onboardingStoreFolder": {
-    "message": "Use a shared model folder (Chromium browsers) (recommended)"
+    "message": "Use a shared model folder (Chromium browsers)"
   },
   "onboardingStoreFolderHelp": {
     "message": "For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them."
@@ -677,14 +677,17 @@
   "modelStorageLegend": {
     "message": "Tempat menyimpan model"
   },
+  "storageOptionRecommended": {
+    "message": "Disarankan"
+  },
   "modelStorageFolder": {
-    "message": "Folder bersama (disarankan)"
+    "message": "Folder bersama"
   },
   "modelStorageBrowser": {
     "message": "Di peramban ini"
   },
   "modelStorageCopyFolder": {
-    "message": "Salin dari folder bersama (disarankan)"
+    "message": "Salin dari folder bersama"
   },
   "modelStorageIntro": {
     "message": "Pilih tempat penyimpanan model. Model yang sudah ada dipindahkan sesuai pilihan."

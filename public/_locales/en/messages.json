@@ -253,7 +253,7 @@
     "message": "Save in this browser"
   },
   "onboardingStoreFolder": {
-    "message": "Use a shared model folder (Chromium browsers) (recommended)"
+    "message": "Use a shared model folder (Chromium browsers)"
   },
   "onboardingStoreFolderHelp": {
     "message": "For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them."
@@ -677,14 +677,17 @@
   "modelStorageLegend": {
     "message": "Where to save the model"
   },
+  "storageOptionRecommended": {
+    "message": "Recommended"
+  },
   "modelStorageFolder": {
-    "message": "Shared folder (recommended)"
+    "message": "Shared folder"
   },
   "modelStorageBrowser": {
     "message": "In this browser"
   },
   "modelStorageCopyFolder": {
-    "message": "Copy from shared folder (recommended)"
+    "message": "Copy from shared folder"
   },
   "modelStorageIntro": {
     "message": "Choose where the model is stored. Existing models move with the choice."

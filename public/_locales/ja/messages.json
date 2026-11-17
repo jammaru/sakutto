@@ -253,7 +253,7 @@
     "message": "このブラウザ内に保存する"
   },
   "onboardingStoreFolder": {
-    "message": "共有モデルフォルダを使う（Chromiumブラウザ）（おすすめ）"
+    "message": "共有モデルフォルダを使う（Chromiumブラウザ）"
   },
   "onboardingStoreFolderHelp": {
     "message": "Chrome や Edge など複数の Chromium ブラウザで使う人向けです。モデルは1つで済みます。"
@@ -677,14 +677,17 @@
   "modelStorageLegend": {
     "message": "モデルの保存先"
   },
+  "storageOptionRecommended": {
+    "message": "おすすめ"
+  },
   "modelStorageFolder": {
-    "message": "共有フォルダ（おすすめ）"
+    "message": "共有フォルダ"
   },
   "modelStorageBrowser": {
     "message": "このブラウザ内"
   },
   "modelStorageCopyFolder": {
-    "message": "共有フォルダからコピー（おすすめ）"
+    "message": "共有フォルダからコピー"
   },
   "modelStorageIntro": {
     "message": "モデルの保存先を選びます。既存のモデルは選択に合わせて移動します。"
