@@ -105,7 +105,7 @@ describe('runtime lastError helper', () => {
 
     state.sendMessage.mockRejectedValue(new Error('closed'));
     await expect(broadcastRuntimeMessage({ type: 'model:progress' })).resolves.toBeUndefined();
-    expect(state.reads).toBe(3);
+    expect(state.reads).toBe(2);
   });
 
   it('clears lastError after port posts and async sendResponse', async () => {

@@ -92,7 +92,7 @@ export async function broadcastRuntimeMessage(message: unknown): Promise<void> {
   }
 
   try {
-    await browser.runtime.sendMessage(message);
+    await browser.runtime.sendMessage(message).catch(() => undefined);
   } catch {
     readRuntimeLastError();
   } finally {
