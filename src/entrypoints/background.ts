@@ -116,6 +116,7 @@ export default defineBackground(() => {
       type: CONTENT_LIVENESS_GENERATION_MESSAGE,
       generation: contentLoadGeneration,
     });
+    void browser.runtime.lastError;
     port.onMessage.addListener(() => undefined);
   });
   subscribeSettings((settings) => {
@@ -200,7 +201,8 @@ export default defineBackground(() => {
       },
       listTabs: () => browser.tabs.query({}),
       sendTab: async (tabId, item) => {
-        await browser.tabs.sendMessage(tabId, item);
+        await browser.tabs.sendMessage(tabId, item).catch(() => undefined);
+        void browser.runtime.lastError;
       },
     });
   }

@@ -381,6 +381,7 @@ export async function requestPageState(tabId: number): Promise<PageViewState | n
     } satisfies PageStateRequest);
     return isPageViewState(response) ? response : null;
   } catch {
+    void browser.runtime.lastError;
     return null;
   }
 }
@@ -401,6 +402,7 @@ export async function requestPageCommand(
     );
     return isPageViewState(response) ? response : null;
   } catch {
+    void browser.runtime.lastError;
     return null;
   }
 }
@@ -412,6 +414,7 @@ export async function requestPageInfo(tabId: number): Promise<PageInfo | null> {
     } satisfies PageInfoRequest);
     return isPageInfo(response) ? response : null;
   } catch {
+    void browser.runtime.lastError;
     return null;
   }
 }

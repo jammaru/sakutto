@@ -313,6 +313,7 @@ export class EngineClient {
         segments: segments.map((segment) => ({ ...segment })),
         options: serializeTranslateOptions(options),
       } satisfies TranslateRequest);
+      void browser.runtime.lastError;
 
       for await (const chunk of stream) yield chunk;
     } catch (error) {
@@ -458,6 +459,7 @@ export class EngineClient {
 
       try {
         port.postMessage(message);
+        void browser.runtime.lastError;
       } catch (error) {
         this.pending.delete(message.requestId);
         if (timer) clearTimeout(timer);
@@ -566,6 +568,7 @@ export class EngineClient {
     } catch {
       // The port is gone; the disconnect handler settles the streams.
     }
+    void browser.runtime.lastError;
   }
 }
 

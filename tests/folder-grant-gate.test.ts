@@ -44,8 +44,7 @@ describe('folder grant gate', () => {
     expect(session).toContain("this.onPageCommand('toggle')");
     expect(content).toContain('onPageCommand: (command) => pageCommandBridge.deliver?.(command)');
     expect(content).toContain('pageCommandBridge.deliver = (command)');
-    expect(content).toContain('if (!__SAKUTTO_FAKE_ENGINE__)');
-    expect(content).toContain('armFolderCommand(command)');
+    expect(content).toContain('const armed = await armFolderCommand(command);');
   });
 
   it('grants from the toolbar popup and top-level folder-enable page', () => {

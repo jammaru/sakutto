@@ -57,6 +57,9 @@ export class TranslationBroker {
       } catch {
         // The caller went away; its requests are aborted by the disconnect handler.
       }
+      // Chrome reports a tab entering BFCache through runtime.lastError even after a
+      // synchronous throw. Reading it clears the unchecked-error warning.
+      void browser.runtime.lastError;
     };
 
     port.onMessage.addListener((message: unknown) => {

@@ -18,6 +18,7 @@ import {
 async function notifyGrantNeeded(tabId: number, command: PageCommandName): Promise<void> {
   const message: FolderGrantNeededMessage = { type: 'folder:grant-needed', command };
   await browser.tabs.sendMessage(tabId, message).catch(() => undefined);
+  void browser.runtime.lastError;
 }
 
 async function tryOpenPopup(): Promise<void> {
@@ -126,6 +127,7 @@ async function resumeFolderGrantPendingNow(client: EngineClient): Promise<boolea
       pending.frameId === undefined ? {} : { frameId: pending.frameId },
     )
     .catch(() => undefined);
+  void browser.runtime.lastError;
   await clearFolderGrantPending();
   return true;
 }

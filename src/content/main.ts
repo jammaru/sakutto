@@ -754,12 +754,10 @@ export function contentMain(): void {
       if (shouldHandleComposeCommand(document)) compose?.handleShortcut();
       return session.state();
     }
-    if (!__SAKUTTO_FAKE_ENGINE__) {
-      const armed = await armFolderCommand(command);
-      if (armed === 'deferred') {
-        session.beginFolderGrantWait();
-        return session.state();
-      }
+    const armed = await armFolderCommand(command);
+    if (armed === 'deferred') {
+      session.beginFolderGrantWait();
+      return session.state();
     }
     await session.handle(command);
     return session.state();
