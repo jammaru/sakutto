@@ -729,6 +729,9 @@
   "modelStorageWorking": {
     "message": "Đang chuẩn bị thư mục mô hình…"
   },
+  "modelFolderReading": {
+    "message": "Đang đọc thư mục…"
+  },
   "modelStorageProgressLabel": {
     "message": "Tiến trình chuyển mô hình"
   },

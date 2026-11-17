@@ -729,6 +729,9 @@
   "modelStorageWorking": {
     "message": "Menyiapkan folder model…"
   },
+  "modelFolderReading": {
+    "message": "Membaca folder…"
+  },
   "modelStorageProgressLabel": {
     "message": "Progres pemindahan model"
   },

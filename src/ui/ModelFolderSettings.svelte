@@ -58,6 +58,7 @@
   let folder = $state<SharedFolderStatus>(emptySharedFolderStatus(sharedFolderSupported()));
   let selected = $state<ModelStorageChoiceValue>('browser');
   let busy = $state(false);
+  let readingFolder = $state(false);
   let error = $state<string | null>(null);
   let notice = $state<string | null>(null);
   let progress = $state<{
@@ -185,7 +186,17 @@
 
   async function chooseFirefoxFolder(): Promise<void> {
     const previous = selected;
-    const files = await pickDirectoryFiles(copyInput);
+    readingFolder = false;
+    let files: File[] | null;
+    try {
+      files = await pickDirectoryFiles(copyInput, window, {
+        onAwaitingFiles: () => {
+          readingFolder = true;
+        },
+      });
+    } finally {
+      readingFolder = false;
+    }
     if (!files) {
       selected = previous;
       return;
@@ -304,7 +315,7 @@
 </script>
 
 {#if pickerAvailable || firefox || folder.configured}
-  <div class="folder" id="model-folder" aria-busy={busy}>
+  <div class="folder" id="model-folder" aria-busy={busy || readingFolder}>
     {#if pickerAvailable}
       <ModelStorageChoice
         choice={selected}
@@ -316,7 +327,7 @@
         introKey="modelStorageIntro"
         notes={chromiumNotes}
         {benefits}
-        disabled={busy}
+        disabled={busy || readingFolder}
         onChoose={(choice) => void chooseStorage(choice)}
       />
     {:else}
@@ -330,7 +341,7 @@
         introKey="modelStorageIntro"
         notes={firefoxNotes}
         {benefits}
-        disabled={busy}
+        disabled={busy || readingFolder}
         onChoose={(choice) => void chooseStorage(choice)}
       />
       <input
@@ -341,6 +352,12 @@
         webkitdirectory
         multiple
       />
+    {/if}
+
+    {#if readingFolder && !busy}
+      <div class="progress" role="status">
+        <p class="muted">{t('modelFolderReading')}</p>
+      </div>
     {/if}
 
     {#if busy}

@@ -115,6 +115,7 @@
   let copyProgress = $state<FolderCopyProgress | null>(null);
   let copyController: AbortController | null = null;
   let copyingFolder = $state(false);
+  let readingFolder = $state(false);
   let integrityAlert = $state<string | null>(null);
   let resolvedFolderName = $state<string | null>(null);
   /**
@@ -265,7 +266,17 @@
 
   async function copyFromFirefoxFolder(): Promise<boolean> {
     // `pickDirectoryFiles` clicks the input synchronously, inside the start click.
-    const files = await pickDirectoryFiles(copyInput);
+    readingFolder = false;
+    let files: File[] | null;
+    try {
+      files = await pickDirectoryFiles(copyInput, window, {
+        onAwaitingFiles: () => {
+          readingFolder = true;
+        },
+      });
+    } finally {
+      readingFolder = false;
+    }
     if (!files) return false;
     if (files.length === 0) {
       pickError = t('modelStorageNoModels');
@@ -316,7 +327,7 @@
   }
 
   async function start() {
-    if (phase === 'downloading' || copyingFolder) return;
+    if (phase === 'downloading' || copyingFolder || readingFolder) return;
     if (startRequested && phase !== 'paused' && phase !== 'error') return;
     failureDetail = null;
     pickError = null;
@@ -734,7 +745,7 @@
           recommended={pickerAvailable ? 'folder' : 'copy'}
           notes={pickerAvailable ? chromiumNotes : firefoxNotes}
           benefits={storageBenefits}
-          disabled={copyingFolder}
+          disabled={copyingFolder || readingFolder}
           onChoose={(choice) => void chooseStore(choice)}
         />
         {#if !pickerAvailable}
@@ -746,6 +757,11 @@
             webkitdirectory
             multiple
           />
+        {/if}
+        {#if readingFolder && !copyingFolder}
+          <div class="storage-progress" role="status">
+            <p class="muted">{t('modelFolderReading')}</p>
+          </div>
         {/if}
         {#if copyingFolder}
           <div class="storage-progress" role="status">
@@ -810,7 +826,7 @@
           class="button"
           type="button"
           onclick={start}
-          disabled={closing || copyingFolder}
+          disabled={closing || copyingFolder || readingFolder}
           aria-describedby={showStartNotice ? 'start-notice' : undefined}
         >
           {consentSaved

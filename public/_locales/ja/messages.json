@@ -729,6 +729,9 @@
   "modelStorageWorking": {
     "message": "モデルフォルダを準備しています…"
   },
+  "modelFolderReading": {
+    "message": "フォルダーを読み込み中…"
+  },
   "modelStorageProgressLabel": {
     "message": "モデルの移動・コピーの進行状況"
   },

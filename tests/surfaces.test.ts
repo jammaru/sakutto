@@ -499,8 +499,8 @@ describe('shared folder activation and recovery', () => {
   });
 
   it('disables the onboarding start control while a folder copy is running', () => {
-    expect(onboarding).toContain("if (phase === 'downloading' || copyingFolder) return;");
-    expect(onboarding).toContain('disabled={closing || copyingFolder}');
+    expect(onboarding).toContain('copyingFolder || readingFolder');
+    expect(onboarding).toContain('disabled={closing || copyingFolder');
   });
 
   it('reports an empty folder instead of a completed copy when nothing moved', () => {

@@ -1,5 +1,5 @@
-/** Firefox may restore window focus before it fills `input.files` after the upload prompt. */
-const FOCUS_CANCEL_MS = 800;
+/** Last-resort wait when `cancel` is unavailable (engines without picker cancel). */
+export const PICKER_CANCEL_FALLBACK_MS = 60_000;
 
 function filesFromInput(input: HTMLInputElement): File[] | null {
   const list = input.files;
@@ -7,26 +7,42 @@ function filesFromInput(input: HTMLInputElement): File[] | null {
   return Array.from(list);
 }
 
+export function supportsDirectoryPickerCancel(): boolean {
+  if (typeof HTMLInputElement === 'undefined') return false;
+  return 'oncancel' in HTMLInputElement.prototype;
+}
+
+export interface PickDirectoryFilesOptions {
+  /** Fires when the window regains focus while still waiting for `change` or `cancel`. */
+  onAwaitingFiles?: () => void;
+  /** Overrides {@link supportsDirectoryPickerCancel} (tests only). */
+  supportsCancel?: boolean;
+}
+
 /**
  * Opens a `webkitdirectory` input and resolves with the chosen files. The click must happen
- * directly inside the user gesture. If focus returns before the change event, the picker was
- * cancelled; resolve `null` instead of leaving the calling flow pending forever.
+ * directly inside the user gesture. With picker `cancel` support (Firefox >= 91, Chromium),
+ * only `change` and `cancel` settle the promise. Otherwise a long fallback re-checks
+ * `input.files` after focus returns.
  */
 export function pickDirectoryFiles(
   input: HTMLInputElement | null,
   windowRef: Window | null = typeof window === 'undefined' ? null : window,
+  options: PickDirectoryFilesOptions = {},
 ): Promise<File[] | null> {
   if (!input) return Promise.resolve(null);
 
+  const supportsCancel = options.supportsCancel ?? supportsDirectoryPickerCancel();
+
   return new Promise((resolve) => {
     let settled = false;
-    let focusTimer: ReturnType<typeof setTimeout> | null = null;
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
     const cleanup = (): void => {
       input.removeEventListener('change', onChange);
-      input.removeEventListener('cancel', onCancel);
+      if (supportsCancel) input.removeEventListener('cancel', onCancel);
       windowRef?.removeEventListener('focus', onFocus);
-      if (focusTimer !== null) clearTimeout(focusTimer);
+      if (fallbackTimer !== null) clearTimeout(fallbackTimer);
     };
     const finish = (files: File[] | null): void => {
       if (settled) return;
@@ -35,9 +51,9 @@ export function pickDirectoryFiles(
       resolve(files);
     };
     const onChange = (): void => {
-      if (focusTimer !== null) {
-        clearTimeout(focusTimer);
-        focusTimer = null;
+      if (fallbackTimer !== null) {
+        clearTimeout(fallbackTimer);
+        fallbackTimer = null;
       }
       finish(filesFromInput(input));
     };
@@ -45,15 +61,17 @@ export function pickDirectoryFiles(
       finish(null);
     };
     const onFocus = (): void => {
-      if (focusTimer !== null) clearTimeout(focusTimer);
-      focusTimer = setTimeout(() => {
-        focusTimer = null;
+      options.onAwaitingFiles?.();
+      if (supportsCancel) return;
+      if (fallbackTimer !== null) clearTimeout(fallbackTimer);
+      fallbackTimer = setTimeout(() => {
+        fallbackTimer = null;
         finish(filesFromInput(input));
-      }, FOCUS_CANCEL_MS);
+      }, PICKER_CANCEL_FALLBACK_MS);
     };
 
     input.addEventListener('change', onChange);
-    input.addEventListener('cancel', onCancel);
+    if (supportsCancel) input.addEventListener('cancel', onCancel);
     windowRef?.addEventListener('focus', onFocus);
     try {
       input.value = '';

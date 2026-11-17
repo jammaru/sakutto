@@ -729,6 +729,9 @@
   "modelStorageWorking": {
     "message": "Der Modellordner wird vorbereitet…"
   },
+  "modelFolderReading": {
+    "message": "Ordner wird gelesen…"
+  },
   "modelStorageProgressLabel": {
     "message": "Fortschritt der Modellübertragung"
   },

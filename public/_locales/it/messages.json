@@ -729,6 +729,9 @@
   "modelStorageWorking": {
     "message": "Preparazione della cartella dei modelli…"
   },
+  "modelFolderReading": {
+    "message": "Lettura della cartella…"
+  },
   "modelStorageProgressLabel": {
     "message": "Avanzamento del trasferimento dei modelli"
   },

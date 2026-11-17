@@ -729,6 +729,9 @@
   "modelStorageWorking": {
     "message": "Preparing the model folder…"
   },
+  "modelFolderReading": {
+    "message": "Reading folder…"
+  },
   "modelStorageProgressLabel": {
     "message": "Model transfer progress"
   },

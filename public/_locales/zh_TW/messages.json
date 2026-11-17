@@ -729,6 +729,9 @@
   "modelStorageWorking": {
     "message": "正在準備模型資料夾…"
   },
+  "modelFolderReading": {
+    "message": "正在讀取資料夾…"
+  },
   "modelStorageProgressLabel": {
     "message": "模型傳輸進度"
   },
