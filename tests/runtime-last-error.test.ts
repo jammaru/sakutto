@@ -48,7 +48,7 @@ describe('runtime lastError helper', () => {
     expect(() => readRuntimeLastError()).not.toThrow();
   });
 
-  it('binds a disconnect handler that reads lastError before cleanup', () => {
+  it('binds a disconnect handler that reads lastError before cleanup and again next turn', async () => {
     let listener: (() => void) | undefined;
     const cleanup = vi.fn();
     bindPortDisconnectCleanup(
@@ -59,6 +59,8 @@ describe('runtime lastError helper', () => {
     listener?.();
     expect(state.reads).toBe(1);
     expect(cleanup).toHaveBeenCalledTimes(1);
+    await Promise.resolve();
+    expect(state.reads).toBe(2);
   });
 
   it('broadcasts runtime messages and clears errors on success and failure', async () => {

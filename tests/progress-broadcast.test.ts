@@ -79,6 +79,20 @@ describe('broadcastModelProgress', () => {
     expect(target.pages).toEqual([]);
   });
 
+  it('reaches pages for loading progress outside download and verify', async () => {
+    const target = sink([{ id: 1, url: 'https://example.com/a' }]);
+    await broadcastModelProgress(message('loading'), target);
+    expect(target.extension).toHaveLength(1);
+    expect(target.pages).toEqual([{ tabId: 1, message: message('loading') }]);
+  });
+
+  it('reaches pages for an error state outside download and verify', async () => {
+    const target = sink([{ id: 1, url: 'https://example.com/a' }]);
+    await broadcastModelProgress(message('error'), target);
+    expect(target.extension).toHaveLength(1);
+    expect(target.pages).toEqual([{ tabId: 1, message: message('error') }]);
+  });
+
   it('still reaches pages when no extension page is open', async () => {
     const target = sink([{ id: 4, url: 'https://example.com/a' }]);
     target.sendExtension = () => Promise.reject(new Error('closed'));

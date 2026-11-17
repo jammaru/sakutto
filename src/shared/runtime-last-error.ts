@@ -28,7 +28,10 @@ export function postPortMessage(port: MessagePort, message: unknown): void {
   scheduleRuntimeLastErrorClear();
 }
 
-export function safeSendResponse(sendResponse: (response: unknown) => void, response: unknown): void {
+export function safeSendResponse(
+  sendResponse: (response: unknown) => void,
+  response: unknown,
+): void {
   try {
     sendResponse(response);
   } catch {
@@ -80,6 +83,7 @@ export function bindPortDisconnectCleanup(
 ): void {
   port.onDisconnect.addListener(() => {
     readRuntimeLastError();
+    queueMicrotask(() => readRuntimeLastError());
     onDisconnect();
   });
 }

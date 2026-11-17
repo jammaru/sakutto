@@ -374,9 +374,18 @@ export class EngineHost {
   }
 
   handlePort(port: Browser.runtime.Port): void {
-    if (port.name !== ENGINE_HOST_PORT) return;
-    if (port.sender?.id !== browser.runtime.id) return;
-    if (port.sender?.tab) return;
+    if (port.name !== ENGINE_HOST_PORT) {
+      bindPortDisconnectCleanup(port);
+      return;
+    }
+    if (port.sender?.id !== browser.runtime.id) {
+      bindPortDisconnectCleanup(port);
+      return;
+    }
+    if (port.sender?.tab) {
+      bindPortDisconnectCleanup(port);
+      return;
+    }
 
     this.ports.add(port);
     port.onMessage.addListener((message: unknown) => {

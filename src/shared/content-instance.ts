@@ -201,8 +201,9 @@ export function installContentInvalidationCleanup(
         }
       });
       next.onDisconnect.addListener(() => {
-        const invalidated = isExtensionContextInvalidated();
         readRuntimeLastError();
+        queueMicrotask(() => readRuntimeLastError());
+        const invalidated = isExtensionContextInvalidated();
         untrack();
         if (port === next) port = null;
         else return;

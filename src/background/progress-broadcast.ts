@@ -27,14 +27,9 @@ export async function broadcastModelProgress(
     // Extension pages may be closed; the page broadcast still runs.
   }
 
-  // `loaded` and `ready` let a page follow the runtime that just became usable after a
-  // deletion. `absent` lets an active page stop when no usable model remains. Downloads and
-  // verification stay on extension pages only.
-  if (
-    message.status.state !== 'loaded' &&
-    message.status.state !== 'ready' &&
-    message.status.state !== 'absent'
-  ) {
+  // Download and verify stay on extension UI tabs only; other states reach open web tabs
+  // through tabs.sendMessage so content scripts do not need runtime.sendMessage fan-out.
+  if (message.status.state === 'downloading' || message.status.state === 'verifying') {
     return;
   }
 

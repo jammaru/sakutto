@@ -112,7 +112,10 @@ export default defineBackground(() => {
   broker.start();
   installPageActions(broker, client);
   browser.runtime.onConnect.addListener((port) => {
-    if (port.name !== CONTENT_LIVENESS_PORT) return;
+    if (port.name !== CONTENT_LIVENESS_PORT) {
+      bindPortDisconnectCleanup(port);
+      return;
+    }
     bindPortDisconnectCleanup(port);
     port.postMessage({
       type: CONTENT_LIVENESS_GENERATION_MESSAGE,

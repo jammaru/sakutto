@@ -17,8 +17,10 @@ export class TranslationBroker {
 
   start(): void {
     browser.runtime.onConnect.addListener((port) => {
-      if (port.name !== TRANSLATION_PORT) return;
-      if (port.sender?.id !== browser.runtime.id) return;
+      if (port.name !== TRANSLATION_PORT || port.sender?.id !== browser.runtime.id) {
+        bindPortDisconnectCleanup(port);
+        return;
+      }
       this.attach(port);
     });
   }
