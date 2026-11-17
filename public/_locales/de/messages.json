@@ -691,46 +691,46 @@
     "message": "Kein Übersetzungsmodell installiert. Laden Sie eines herunter, um zu übersetzen."
   },
   "modelStorageLegend": {
-    "message": "Where to save the model"
+    "message": "Speicherort des Modells"
   },
   "modelStorageFolder": {
-    "message": "Shared folder (recommended)"
+    "message": "Gemeinsamer Ordner (empfohlen)"
   },
   "modelStorageBrowser": {
-    "message": "In diesem Browser speichern"
+    "message": "In diesem Browser"
   },
   "modelStorageCopyFolder": {
-    "message": "Copy from shared folder (recommended)"
+    "message": "Aus gemeinsamem Ordner kopieren (empfohlen)"
   },
   "modelStorageIntro": {
-    "message": "Choose where the model is stored. Existing models move with the choice."
+    "message": "Wählen Sie, wo das Modell gespeichert wird. Vorhandene Modelle werden entsprechend verschoben."
   },
   "modelStorageFirefoxCopyHint": {
-    "message": "Firefox cannot keep using the folder, so the models are copied into Firefox."
+    "message": "Firefox kann den Ordner nicht dauerhaft nutzen, daher werden die Modelle in Firefox kopiert."
   },
   "modelStorageMoveFailed": {
-    "message": "The model could not be moved to the shared folder. The browser copy was kept."
+    "message": "Das Modell konnte nicht in den gemeinsamen Ordner verschoben werden. Die Browserkopie wurde behalten."
   },
   "modelStorageMoveDone": {
-    "message": "The models are now stored in the shared folder."
+    "message": "Die Modelle werden jetzt im gemeinsamen Ordner gespeichert."
   },
   "modelStorageCopyDone": {
-    "message": "The models are now stored in this browser."
+    "message": "Die Modelle werden jetzt in diesem Browser gespeichert."
   },
   "modelStorageCopyFailed": {
-    "message": "The model could not be copied. The previous storage choice was kept."
+    "message": "Das Modell konnte nicht kopiert werden. Die bisherige Speicherwahl wurde behalten."
   },
   "modelStorageSomeCopiesFailed": {
-    "message": "Some models could not be copied. Their existing copies were kept."
+    "message": "Einige Modelle konnten nicht kopiert werden. Ihre vorhandenen Kopien wurden behalten."
   },
   "modelStorageNoModels": {
-    "message": "No official PLaMo model was found in that folder."
+    "message": "In diesem Ordner wurde kein offizielles PLaMo-Modell gefunden."
   },
   "modelStorageWorking": {
-    "message": "Preparing the model folder…"
+    "message": "Der Modellordner wird vorbereitet…"
   },
   "modelStorageProgressLabel": {
-    "message": "Model transfer progress"
+    "message": "Fortschritt der Modellübertragung"
   },
   "modelFolderPickerHint": {
     "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."
@@ -759,7 +759,7 @@
     "message": "Sakutto opens a grant tab. Choose Allow on every visit there when the browser asks."
   },
   "modelFolderPersistentHint": {
-    "message": "After you choose a shared folder in Settings, pick Allow on every visit when asked (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「常に許可」). Restarts then need no extra clicks."
+    "message": "Wählen Sie im Browserdialog „Auf jeder Website zulassen“ (japanisches Chrome: 「サイトアクセス時は常に許可」, japanisches Edge: 「常に許可」). Nach einem Neustart sind dann keine weiteren Klicks nötig."
   },
   "modelFolderPickFailed": {
     "message": "The folder could not be selected."

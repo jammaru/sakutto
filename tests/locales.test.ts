@@ -276,6 +276,11 @@ describe('locale messages', () => {
     );
     expect(ja.modelFolderPermissionPage?.message).toContain('サイトアクセス時は常に許可');
     expect(en.modelFolderPersistentHint?.message).toMatch(/no extra clicks/i);
+    expect(en.modelFolderPersistentHint?.message).toMatch(/when the browser asks/i);
+    expect(en.modelFolderPersistentHint?.message).not.toMatch(
+      /After you choose a shared folder in Settings/i,
+    );
+    expect(ja.modelFolderPersistentHint?.message).not.toContain('設定で共有フォルダを選んだあと');
     expect(ja.modelFolderPersistentHint?.message).not.toMatch(/必ず|二度と|毎回クリック/);
     expect(ja.modelFolderPersistentHint?.message).not.toContain('出ないこともあります');
     expect(en.modelFolderPersistentHint?.message).not.toMatch(/may help|may not appear/i);
@@ -289,12 +294,27 @@ describe('locale messages', () => {
       expect(readMessages(locale).modelFolderPersistentHint?.message, locale).not.toContain(
         'アクセスするたびに確認する',
       );
+      expect(readMessages(locale).modelFolderPersistentHint?.message, locale).not.toMatch(
+        /After you choose a shared folder in Settings/i,
+      );
     }
     for (const locale of catalogs) {
       expect(readMessages(locale).modelFolderBenefitSpace?.message, locale).toContain('$SIZE$');
       expect(readMessages(locale).modelFolderBenefitSpace?.message, locale).not.toMatch(
         /573|1\.81/,
       );
+    }
+  });
+
+  it('translates every modelStorage key away from the English fallback', () => {
+    const storageKeys = Object.keys(en).filter((key) => key.startsWith('modelStorage'));
+    expect(storageKeys.length).toBeGreaterThanOrEqual(14);
+    for (const locale of catalogs) {
+      if (locale === DEFAULT_UI_LOCALE) continue;
+      const messages = readMessages(locale);
+      for (const key of [...storageKeys, 'modelFolderPersistentHint']) {
+        expect(messages[key]?.message, `${locale} ${key}`).not.toBe(en[key]?.message);
+      }
     }
   });
 

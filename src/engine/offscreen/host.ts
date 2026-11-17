@@ -1079,7 +1079,25 @@ export class EngineHost {
   ): Promise<void> {
     try {
       const services = await this.services();
-      await services.manager.copyPresentModelsToBrowser();
+      // Re-apply first so a grant that lapsed since the last status poll is classified as
+      // unreadable rather than an empty folder. `copyPresentModelsToBrowser` sees permission
+      // errors as missing files, so dropping the handle here would lose the recorded models
+      // and start a re-download.
+      const current = this.folderSession
+        ? await this.folderSession.apply()
+        : emptySharedFolderStatus(false);
+      if (current.configured && current.permission !== 'granted') {
+        const model = modelStatusForSharedFolder(
+          await services.manager.status(this.activeModelId),
+          current,
+        );
+        this.plamoReady = modelCanTranslate(model);
+        this.publishModelStatus(model);
+        this.respond(port, request.requestId, { folder: current, copied: [] });
+        return;
+      }
+
+      const copied = await services.manager.copyPresentModelsToBrowser();
       await services.manager.unload();
       await clearStoredSharedFolder();
       const status = this.folderSession
@@ -1091,7 +1109,7 @@ export class EngineHost {
       );
       this.plamoReady = modelCanTranslate(model);
       this.publishModelStatus(model);
-      this.respond(port, request.requestId, status);
+      this.respond(port, request.requestId, { folder: status, copied });
     } catch (error) {
       this.respondError(port, request.requestId, error);
     }

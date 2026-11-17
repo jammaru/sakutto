@@ -161,11 +161,17 @@
     clearActionMessages();
     busy = true;
     try {
-      const next = await requestModelFolderToBrowser();
-      if (!next) throw new Error('The folder could not be copied.');
-      applyStatus(next);
+      const result = await requestModelFolderToBrowser();
+      if (!result) throw new Error('The folder could not be copied.');
+      applyStatus(result.folder);
       selected = 'browser';
-      notice = t('modelStorageCopyDone');
+      if (result.copied.length > 0) {
+        notice = t('modelStorageCopyDone');
+      } else if (!result.folder.configured || result.folder.permission === 'granted') {
+        // Nothing was in the folder. The handle is gone, so this is an empty-folder
+        // outcome rather than a successful copy.
+        notice = t('modelStorageNoModels');
+      }
       await requestEngineWarm();
       notifySharedFolderChanged();
     } catch {

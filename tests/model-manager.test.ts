@@ -499,6 +499,18 @@ describe('ModelManager', () => {
     expect(opfs.text(`models/${ENTRY.id}/model.json`)).toContain(ENTRY.sha256);
   });
 
+  it('reports no copied models when the folder has no official model', async () => {
+    const opfs = new MemoryFileStore();
+    const shared = new MemoryFileStore();
+    const { manager } = createManager(shared, { fallbackStore: opfs });
+
+    const copied = await manager.copyPresentModelsToBrowser();
+
+    expect(copied).toEqual([]);
+    expect(await manager.fallbackCopyPresent(ENTRY.id)).toBe(false);
+    expect(shared.files.size).toBe(0);
+  });
+
   it('does not drop a folder with a bad file when moving to browser storage', async () => {
     const opfs = new MemoryFileStore();
     const shared = new MemoryFileStore();

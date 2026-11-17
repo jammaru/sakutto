@@ -40,6 +40,7 @@ import {
 import { hasLicenseConsent } from '@/shared/agreement';
 import type { Settings, TierPreference } from '@/shared/settings';
 import { loadSettings, saveSettings } from '@/shared/storage';
+import { isModelFolderToBrowserResult, type ModelFolderToBrowserResult } from '@/shared/messages';
 import type { OffscreenController } from './offscreen-lifecycle';
 
 type RequestWithoutId =
@@ -188,14 +189,14 @@ export class EngineClient {
     return value;
   }
 
-  async moveModelFolderToBrowser(): Promise<SharedFolderStatus> {
+  async moveModelFolderToBrowser(): Promise<ModelFolderToBrowserResult> {
     await this.ensureSource();
     const value = await this.request(
       { type: 'folder-to-browser' },
       { timeoutMs: FOLDER_TRANSFER_TIMEOUT_MS },
     );
-    if (!isSharedFolderStatus(value)) {
-      throw hostError('The engine host returned an invalid folder status.');
+    if (!isModelFolderToBrowserResult(value)) {
+      throw hostError('The engine host returned an invalid folder result.');
     }
     return value;
   }

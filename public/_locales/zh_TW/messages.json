@@ -691,46 +691,46 @@
     "message": "尚未安裝翻譯模型。請先下載才能翻譯。"
   },
   "modelStorageLegend": {
-    "message": "Where to save the model"
+    "message": "模型儲存位置"
   },
   "modelStorageFolder": {
-    "message": "Shared folder (recommended)"
+    "message": "共享資料夾（建議）"
   },
   "modelStorageBrowser": {
     "message": "儲存在此瀏覽器中"
   },
   "modelStorageCopyFolder": {
-    "message": "Copy from shared folder (recommended)"
+    "message": "從共享資料夾複製（建議）"
   },
   "modelStorageIntro": {
-    "message": "Choose where the model is stored. Existing models move with the choice."
+    "message": "選擇模型的儲存位置。現有模型會隨選擇移動。"
   },
   "modelStorageFirefoxCopyHint": {
-    "message": "Firefox cannot keep using the folder, so the models are copied into Firefox."
+    "message": "Firefox 無法繼續使用資料夾，因此模型會複製到 Firefox 中。"
   },
   "modelStorageMoveFailed": {
-    "message": "The model could not be moved to the shared folder. The browser copy was kept."
+    "message": "無法將模型移至共享資料夾。瀏覽器中的副本已保留。"
   },
   "modelStorageMoveDone": {
-    "message": "The models are now stored in the shared folder."
+    "message": "模型現在儲存在共享資料夾中。"
   },
   "modelStorageCopyDone": {
-    "message": "The models are now stored in this browser."
+    "message": "模型現在儲存在此瀏覽器中。"
   },
   "modelStorageCopyFailed": {
-    "message": "The model could not be copied. The previous storage choice was kept."
+    "message": "無法複製模型。已保留先前的儲存選擇。"
   },
   "modelStorageSomeCopiesFailed": {
-    "message": "Some models could not be copied. Their existing copies were kept."
+    "message": "部分模型無法複製。其現有副本已保留。"
   },
   "modelStorageNoModels": {
-    "message": "No official PLaMo model was found in that folder."
+    "message": "在該資料夾中找不到官方 PLaMo 模型。"
   },
   "modelStorageWorking": {
-    "message": "Preparing the model folder…"
+    "message": "正在準備模型資料夾…"
   },
   "modelStorageProgressLabel": {
-    "message": "Model transfer progress"
+    "message": "模型傳輸進度"
   },
   "modelFolderPickerHint": {
     "message": "The folder picker starts in Documents. Create or choose a folder named “Sakutto” there (for example Documents/Sakutto), or choose any folder you can write to."
@@ -759,7 +759,7 @@
     "message": "Sakutto opens a grant tab. Choose Allow on every visit there when the browser asks."
   },
   "modelFolderPersistentHint": {
-    "message": "After you choose a shared folder in Settings, pick Allow on every visit when asked (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「常に許可」). Restarts then need no extra clicks."
+    "message": "當瀏覽器詢問時，請選擇「每次造訪都允許」（日文 Chrome：「サイトアクセス時は常に許可」，日文 Edge：「常に許可」）。重新啟動後就不需要再點擊。"
   },
   "modelFolderPickFailed": {
     "message": "The folder could not be selected."

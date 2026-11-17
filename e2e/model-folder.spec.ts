@@ -15,6 +15,7 @@ const SETTINGS_BROWSER_RADIO = 'In this browser';
 const STORAGE_LEGEND = 'Where to save the model';
 const MOVE_DONE = 'The models are now stored in the shared folder.';
 const COPY_DONE = 'The models are now stored in this browser.';
+const NO_MODELS = 'No official PLaMo model was found in that folder.';
 const MOVE_LEAD = 'Moving to a shared folder means:';
 const ALLOW_FOLDER_ACCESS = 'Allow folder access';
 
@@ -184,6 +185,35 @@ test.describe('shared model folder', () => {
         await fileExists(page, ['e2e-shared', 'sakutto-models', getModel(DEFAULT_MODEL_ID).file]),
       ).toBe(true);
       expect(hits).toEqual([]);
+      await page.close();
+    } finally {
+      await extension.close();
+    }
+  });
+
+  test('settings reports no models when switching an empty folder to browser storage', async () => {
+    const extension = await loadExtension('en-US');
+    try {
+      const planter = await extension.context.newPage();
+      await planter.goto(`chrome-extension://${extension.extensionId}/sample.html`);
+      await mockEmptySharedFolder(planter);
+      await persistPlantedSharedFolder(planter);
+      await reloadFolder(planter);
+      await planter.close();
+
+      const page = await extension.context.newPage();
+      await page.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await plantLicenseConsent(page);
+      const browserRadio = page.getByRole('radio', { name: SETTINGS_BROWSER_RADIO });
+      await expect(page.getByRole('radio', { name: SETTINGS_FOLDER_RADIO })).toBeChecked({
+        timeout: 30_000,
+      });
+      await browserRadio.check();
+      await expect(page.getByText(NO_MODELS)).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByText(COPY_DONE)).toHaveCount(0);
+      await expect
+        .poll(async () => readSharedFolder(page), { timeout: 15_000 })
+        .toMatchObject({ configured: false });
       await page.close();
     } finally {
       await extension.close();
