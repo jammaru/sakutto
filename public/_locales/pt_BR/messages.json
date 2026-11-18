@@ -674,6 +674,12 @@
   "modelDelete": {
     "message": "Excluir"
   },
+  "modelDeleteBrowserOnly": {
+    "message": "Remover deste navegador"
+  },
+  "modelDeleteFolderNote": {
+    "message": "Remover um modelo exclui apenas a cópia deste navegador. O arquivo da pasta compartilhada permanece; exclua o arquivo você mesmo pelo Explorador de Arquivos ou pelo Finder."
+  },
   "modelSelectionFallback": {
     "message": "O modelo selecionado não está neste dispositivo, então o Sakutto passou a um instalado."
   },

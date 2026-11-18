@@ -1,5 +1,6 @@
 import { isModelId, type ModelId } from './catalog';
 import { isRecord } from '@/shared/object';
+import type { ModelState } from '@/shared/engine-status';
 import type { FolderPermission } from './shared-folder';
 
 export type SharedFolderPermission = FolderPermission | 'unknown';
@@ -54,6 +55,41 @@ export function folderRecordsModel(
   modelId: ModelId | undefined,
 ): boolean {
   return Boolean(modelId && folder?.recordedModels?.includes(modelId));
+}
+
+/**
+ * True when a model row may offer its Use control. A ready or loaded file always can. So
+ * can a folder-only model while the folder needs its grant: the row cannot read the
+ * folder, but the recorded copy is on disk, and the click-time `requestPermission` in a
+ * settings tab (Brave reports `prompt` where Chrome kept the persisted grant) can bring
+ * it back. Transfers and an already-running load keep their own controls.
+ */
+export function modelRowCanUse(
+  folder:
+    Pick<SharedFolderStatus, 'configured' | 'permission' | 'recordedModels'> | null | undefined,
+  modelId: ModelId,
+  state: ModelState,
+): boolean {
+  if (state === 'ready' || state === 'loaded') return true;
+  if (state === 'loading' || state === 'downloading' || state === 'verifying') return false;
+  return sharedFolderNeedsPermission(folder) && folderRecordsModel(folder, modelId);
+}
+
+/**
+ * True when a model row may offer its Delete control. Any locally present file can be
+ * removed. While the folder needs its grant a model can also inspect as `absent` (its
+ * only copy is in the unreadable folder), and the browser-copy delete is still offered
+ * when that copy was recorded, because removing it cannot lose the folder file. Without
+ * a record the control stays hidden so a stale surface cannot destroy the only copy.
+ */
+export function modelRowCanDelete(
+  folder:
+    Pick<SharedFolderStatus, 'configured' | 'permission' | 'recordedModels'> | null | undefined,
+  modelId: ModelId,
+  state: ModelState,
+): boolean {
+  if (state !== 'absent') return true;
+  return sharedFolderNeedsPermission(folder) && canDeleteBrowserCopy(folder, modelId);
 }
 
 /** The persisted storage choice is independent of the folder's current permission grant. */

@@ -674,6 +674,12 @@
   "modelDelete": {
     "message": "Hapus"
   },
+  "modelDeleteBrowserOnly": {
+    "message": "Hapus dari peramban ini"
+  },
+  "modelDeleteFolderNote": {
+    "message": "Menghapus model hanya menghapus salinan di peramban ini. Berkas di folder bersama tetap ada; hapus sendiri lewat File Explorer atau Finder."
+  },
   "modelSelectionFallback": {
     "message": "Model yang dipilih tidak ada di perangkat ini, jadi Sakutto beralih ke model yang terpasang."
   },

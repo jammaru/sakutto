@@ -674,6 +674,12 @@
   "modelDelete": {
     "message": "삭제"
   },
+  "modelDeleteBrowserOnly": {
+    "message": "이 브라우저에서 삭제"
+  },
+  "modelDeleteFolderNote": {
+    "message": "삭제하면 이 브라우저의 사본만 지워집니다. 공유 폴더의 파일은 그대로 남으므로, 파일을 지울 때는 파일 탐색기나 Finder에서 직접 삭제하세요."
+  },
   "modelSelectionFallback": {
     "message": "선택한 모델이 이 기기에 없어, 설치된 모델로 바꿨습니다."
   },

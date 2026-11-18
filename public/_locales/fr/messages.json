@@ -674,6 +674,12 @@
   "modelDelete": {
     "message": "Supprimer"
   },
+  "modelDeleteBrowserOnly": {
+    "message": "Retirer de ce navigateur"
+  },
+  "modelDeleteFolderNote": {
+    "message": "La suppression ne retire que la copie de ce navigateur. Le fichier du dossier partagé reste en place ; supprime-le toi-même avec l'Explorateur de fichiers ou le Finder."
+  },
   "modelSelectionFallback": {
     "message": "Le modèle choisi n’est pas sur cet appareil, Sakutto est donc passé à un modèle installé."
   },

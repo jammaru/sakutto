@@ -7,7 +7,11 @@ import {
   type ModelId,
 } from '@/engine/model/catalog';
 import { SharedFolderSession } from '@/engine/model/folder-session';
-import { sharedFolderNeedsPermission } from '@/engine/model/folder-status';
+import {
+  modelRowCanDelete,
+  modelRowCanUse,
+  sharedFolderNeedsPermission,
+} from '@/engine/model/folder-status';
 import { ModelManager } from '@/engine/model/manager';
 import { sha256Hex } from '@/engine/model/sha256';
 import {
@@ -174,6 +178,12 @@ async function seededOpfs(): Promise<{ store: MemoryFileStore; manager: ModelMan
   return { store, manager };
 }
 
+async function seededBothOpfs(): Promise<{ store: MemoryFileStore; manager: ModelManager }> {
+  const { store, manager } = await seededOpfs();
+  await manager.download(HIGH_QUALITY_MODEL_ID, { signal: new AbortController().signal });
+  return { store, manager };
+}
+
 afterEach(() => {
   setSharedFolderBucketForTests(null);
 });
@@ -264,5 +274,51 @@ describe('SharedFolderSession OPFS fallback', () => {
     expect(next.opfsCopies).toEqual([]);
     expect(sharedFolderNeedsPermission(next)).toBe(true);
     expect(next.recordedModels).toEqual([]);
+  });
+
+  it('keeps a recorded folder model actionable when Brave reports prompt after a restart', async () => {
+    const bucket = new MemorySharedFolderBucket();
+    setSharedFolderBucketForTests(bucket);
+    const folder = new MemoryFolder();
+    await persistSharedFolderHandle(folder.handle(), bucket);
+    const { store, manager } = await seededBothOpfs();
+
+    // Settings adopted the folder: both verified OPFS models moved in, browser copies gone.
+    const session = new SharedFolderSession(store, manager);
+    await session.apply({ moveOpfs: true });
+    folder.permission = 'prompt';
+
+    // A restart in Brave reports prompt while the handle and its models stay on disk.
+    const restarted = new SharedFolderSession(store, manager);
+    const status = await restarted.apply();
+
+    expect(status).toMatchObject({
+      configured: true,
+      permission: 'prompt',
+      recordedModels: [DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID],
+    });
+    // OPFS is primary again, so the folder-only 2B row inspects as absent.
+    expect(await manager.status(HIGH_QUALITY_MODEL_ID)).toMatchObject({ state: 'absent' });
+    // The row still offers Use (the click requests the grant) and the browser-copy delete.
+    expect(modelRowCanUse(status, HIGH_QUALITY_MODEL_ID, 'absent')).toBe(true);
+    expect(modelRowCanDelete(status, HIGH_QUALITY_MODEL_ID, 'absent')).toBe(true);
+  });
+
+  it('removes the browser copy only and keeps the shared GGUF while the folder is granted', async () => {
+    const bucket = new MemorySharedFolderBucket();
+    setSharedFolderBucketForTests(bucket);
+    const folder = new MemoryFolder();
+    await persistSharedFolderHandle(folder.handle(), bucket);
+    const { store, manager } = await seededBothOpfs();
+
+    const session = new SharedFolderSession(store, manager);
+    await session.apply();
+    expect(await manager.fallbackCopyPresent(HIGH_QUALITY_MODEL_ID)).toBe(true);
+    expect(await manager.primaryReady(HIGH_QUALITY_MODEL_ID)).toBe(true);
+
+    await manager.deleteFallbackCopy(HIGH_QUALITY_MODEL_ID);
+
+    expect(await manager.fallbackCopyPresent(HIGH_QUALITY_MODEL_ID)).toBe(false);
+    expect(await manager.primaryReady(HIGH_QUALITY_MODEL_ID)).toBe(true);
   });
 });

@@ -674,6 +674,12 @@
   "modelDelete": {
     "message": "Löschen"
   },
+  "modelDeleteBrowserOnly": {
+    "message": "In diesem Browser entfernen"
+  },
+  "modelDeleteFolderNote": {
+    "message": "Beim Entfernen wird nur die Kopie in diesem Browser gelöscht. Die Datei im gemeinsamen Ordner bleibt erhalten. Lösche die Datei bei Bedarf selbst über den Explorer oder den Finder."
+  },
   "modelSelectionFallback": {
     "message": "Das gewählte Modell ist auf diesem Gerät nicht vorhanden, daher hat Sakutto auf ein installiertes Modell gewechselt."
   },

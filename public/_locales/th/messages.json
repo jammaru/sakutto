@@ -674,6 +674,12 @@
   "modelDelete": {
     "message": "ลบ"
   },
+  "modelDeleteBrowserOnly": {
+    "message": "ลบออกจากเบราว์เซอร์นี้"
+  },
+  "modelDeleteFolderNote": {
+    "message": "การลบจะลบเฉพาะสำเนาในเบราว์เซอร์นี้เท่านั้น ไฟล์ในโฟลเดอร์ที่แชร์จะยังอยู่เหมือนเดิม ถ้าต้องการลบไฟล์ ให้ลบเองผ่าน File Explorer หรือ Finder"
+  },
   "modelSelectionFallback": {
     "message": "โมเดลที่เลือกไม่มีบนอุปกรณ์นี้ ดังนั้น Sakutto จึงเปลี่ยนไปใช้โมเดลที่ติดตั้งไว้"
   },

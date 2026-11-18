@@ -674,6 +674,12 @@
   "modelDelete": {
     "message": "Xóa"
   },
+  "modelDeleteBrowserOnly": {
+    "message": "Xóa khỏi trình duyệt này"
+  },
+  "modelDeleteFolderNote": {
+    "message": "Thao tác xóa chỉ gỡ bản sao trong trình duyệt này. Tệp trong thư mục dùng chung vẫn còn; hãy tự xóa tệp bằng File Explorer hoặc Finder."
+  },
   "modelSelectionFallback": {
     "message": "Mô hình đã chọn không có trên thiết bị này, nên Sakutto đã chuyển sang mô hình đã cài."
   },

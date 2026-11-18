@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
+import { DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID } from '@/engine/model/catalog';
 import {
   canDeleteBrowserCopy,
   folderRecordsModel,
+  modelRowCanDelete,
+  modelRowCanUse,
   sharedFolderNeedsPermission,
+  type SharedFolderStatus,
 } from '@/engine/model/folder-status';
 import type { ModelStatus } from '@/shared/engine-status';
 import {
@@ -275,5 +278,75 @@ describe('model availability', () => {
     expect(translationStartBlocked(absent)).toBe(true);
     expect(folderRecordsModel(absent.sharedFolder, DEFAULT_MODEL_ID)).toBe(true);
     expect(folderRecordsModel(absent.sharedFolder, 'plamo-3-translate-2b-q4_k_m')).toBe(false);
+  });
+});
+
+/**
+ * Brave does not persist the File System Access grant the way Chrome and Edge do, so a
+ * configured folder reports `prompt` while the stored handle and its verified models are
+ * still on disk. The engine then answers with OPFS as the primary store, so a folder-only
+ * model inspects as `absent`. The row controls must still offer an action from the folder
+ * record instead of rendering a dead row.
+ */
+describe('model rows while a shared folder needs its grant', () => {
+  const braveFolder: SharedFolderStatus = {
+    supported: true,
+    configured: true,
+    permission: 'prompt',
+    name: 'Sakutto',
+    opfsCopies: [],
+    integrityIssues: [],
+    recordedModels: [DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID],
+  };
+
+  it('offers Use for the folder-only model that inspects as absent', () => {
+    expect(modelRowCanUse(braveFolder, HIGH_QUALITY_MODEL_ID, 'absent')).toBe(true);
+    expect(modelRowCanUse(braveFolder, DEFAULT_MODEL_ID, 'ready')).toBe(true);
+  });
+
+  it('keeps Use hidden for a model the folder never recorded', () => {
+    const noRecord = { ...braveFolder, recordedModels: [DEFAULT_MODEL_ID] };
+    expect(modelRowCanUse(noRecord, HIGH_QUALITY_MODEL_ID, 'absent')).toBe(false);
+  });
+
+  it('keeps Use hidden once the grant is back or no folder is configured', () => {
+    expect(
+      modelRowCanUse({ ...braveFolder, permission: 'granted' }, HIGH_QUALITY_MODEL_ID, 'absent'),
+    ).toBe(false);
+    expect(modelRowCanUse(null, HIGH_QUALITY_MODEL_ID, 'absent')).toBe(false);
+    expect(
+      modelRowCanUse({ ...braveFolder, configured: false }, HIGH_QUALITY_MODEL_ID, 'absent'),
+    ).toBe(false);
+  });
+
+  it('never offers Use while a transfer or a running load owns the row', () => {
+    for (const state of ['downloading', 'verifying', 'loading'] as const) {
+      expect(modelRowCanUse(braveFolder, HIGH_QUALITY_MODEL_ID, state), state).toBe(false);
+    }
+  });
+
+  it('offers Delete for a recorded folder model that inspects as absent', () => {
+    expect(modelRowCanDelete(braveFolder, HIGH_QUALITY_MODEL_ID, 'absent')).toBe(true);
+  });
+
+  it('keeps Delete hidden for an unknown absent model so the only copy survives', () => {
+    const noRecord = { ...braveFolder, recordedModels: [DEFAULT_MODEL_ID] };
+    expect(modelRowCanDelete(noRecord, HIGH_QUALITY_MODEL_ID, 'absent')).toBe(false);
+  });
+
+  it('keeps Delete hidden for an absent model outside a permission-needed folder', () => {
+    expect(
+      modelRowCanDelete({ ...braveFolder, permission: 'granted' }, HIGH_QUALITY_MODEL_ID, 'absent'),
+    ).toBe(false);
+    expect(modelRowCanDelete(null, HIGH_QUALITY_MODEL_ID, 'absent')).toBe(false);
+    expect(
+      modelRowCanDelete({ ...braveFolder, configured: false }, HIGH_QUALITY_MODEL_ID, 'absent'),
+    ).toBe(false);
+  });
+
+  it('keeps Delete for any locally present copy', () => {
+    for (const state of ['partial', 'downloading', 'ready', 'loading', 'loaded'] as const) {
+      expect(modelRowCanDelete(null, HIGH_QUALITY_MODEL_ID, state), state).toBe(true);
+    }
   });
 });

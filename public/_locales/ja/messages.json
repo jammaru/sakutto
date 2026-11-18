@@ -674,6 +674,12 @@
   "modelDelete": {
     "message": "削除"
   },
+  "modelDeleteBrowserOnly": {
+    "message": "このブラウザーから削除"
+  },
+  "modelDeleteFolderNote": {
+    "message": "削除で消えるのはこのブラウザー内のコピーだけです。共有フォルダーのファイルは残ります。ファイルを消すときは、エクスプローラーまたは Finder で削除してください。"
+  },
   "modelSelectionFallback": {
     "message": "選んでいたモデルがこの端末にないため、インストール済みのモデルに切り替えました。"
   },

@@ -7,8 +7,14 @@
     getModel,
     type ModelId,
   } from '@/engine/model/catalog';
+  import { SHARED_FOLDER_CHANGED_EVENT } from '@/engine/model/folder-offer';
   import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
-  import { sharedFolderNeedsPermission } from '@/engine/model/folder-status';
+  import {
+    modelRowCanDelete,
+    modelRowCanUse,
+    sharedFolderNeedsPermission,
+    type SharedFolderStatus,
+  } from '@/engine/model/folder-status';
   import { isModelIntegrityError } from '@/engine/model/manager';
   import { ensureStoredFolderPermission } from '@/engine/model/shared-folder';
   import { modelCanTranslate, type ModelStatus } from '@/shared/engine-status';
@@ -21,6 +27,7 @@
     requestModelCancel,
     requestModelDelete,
     requestModelDownload,
+    requestModelFolderDeleteOpfs,
     requestModelFolderReload,
     requestModelInspect,
     requestModelUse,
@@ -35,7 +42,9 @@
   let fallback = $state(false);
   let busy = $state<ModelId | null>(null);
   let folderIntegrity = $state<ReadonlySet<ModelId>>(new Set());
-  let folderBlocked = $state(false);
+  let folder = $state<SharedFolderStatus | null>(null);
+  let folderBlocked = $derived(sharedFolderNeedsPermission(folder));
+  let folderConfigured = $derived(folder?.configured === true);
   let anyInstalled = $derived(
     models.some((id) => {
       const state = statuses[id]?.state;
@@ -48,7 +57,7 @@
   }
 
   function apply(status: ModelStatus) {
-    if (status.error === FOLDER_PERMISSION_ERROR) folderBlocked = true;
+    if (status.error === FOLDER_PERMISSION_ERROR) void syncFolderState();
     if (isModelIntegrityError(status.error)) {
       void applyIntegrityStatus(status);
       return;
@@ -58,13 +67,17 @@
   }
 
   async function applyIntegrityStatus(status: ModelStatus) {
-    const engine = await requestEngineStatus();
-    folderIntegrity = new Set(
-      engine?.sharedFolder?.integrityIssues.map((issue) => issue.modelId) ?? [],
-    );
-    folderBlocked = sharedFolderNeedsPermission(engine?.sharedFolder);
+    await syncFolderState();
     statuses = { ...statuses, [status.id]: status };
-    if (engine) activeId = engine.model.id;
+  }
+
+  /** Pull the folder snapshot so the row actions track the live grant, not a stale flag. */
+  async function syncFolderState(): Promise<void> {
+    const engine = await requestEngineStatus();
+    if (!engine) return;
+    activeId = engine.model.id;
+    folder = engine.sharedFolder ?? null;
+    folderIntegrity = new Set(folder?.integrityIssues.map((issue) => issue.modelId) ?? []);
   }
 
   async function syncActive() {
@@ -92,10 +105,8 @@
     if (engine) {
       activeId = engine.model.id;
       fallback = engine.modelFallback === true;
-      folderIntegrity = new Set(
-        engine.sharedFolder?.integrityIssues.map((issue) => issue.modelId) ?? [],
-      );
-      folderBlocked = sharedFolderNeedsPermission(engine.sharedFolder);
+      folder = engine.sharedFolder ?? null;
+      folderIntegrity = new Set(folder?.integrityIssues.map((issue) => issue.modelId) ?? []);
     }
     statuses = next;
   }
@@ -130,10 +141,20 @@
 
   async function remove(id: ModelId) {
     busy = id;
-    const status = await requestModelDelete(id);
-    if (status) apply(status);
+    if (folderConfigured) {
+      // Other browsers may share the folder, so this control removes this browser's copy
+      // only. The GGUF in the folder itself is left for Explorer or Finder to delete.
+      await requestModelFolderDeleteOpfs(id);
+    } else {
+      const status = await requestModelDelete(id);
+      if (status) apply(status);
+    }
     await refresh();
     busy = null;
+  }
+
+  function deleteLabel(): string {
+    return folderConfigured ? t('modelDeleteBrowserOnly') : t('modelDelete');
   }
 
   onMount(() => {
@@ -141,9 +162,18 @@
       if (!isModelProgressMessage(message)) return;
       apply(message.status);
     };
+    // A grant restored by the folder-permission card reloads the engine's stores. Re-inspect
+    // the rows so a folder-only model turns from an empty row into a usable one.
+    const onFolderChanged = () => {
+      void refresh();
+    };
     browser.runtime.onMessage.addListener(listener);
+    window.addEventListener(SHARED_FOLDER_CHANGED_EVENT, onFolderChanged);
     void refresh();
-    return () => browser.runtime.onMessage.removeListener(listener);
+    return () => {
+      browser.runtime.onMessage.removeListener(listener);
+      window.removeEventListener(SHARED_FOLDER_CHANGED_EVENT, onFolderChanged);
+    };
   });
 </script>
 
@@ -193,7 +223,9 @@
           >
             {t('downloadCancel')}
           </button>
-        {:else if state === 'ready' || state === 'loaded'}
+        {:else if modelRowCanUse(folder, id, state)}
+          <!-- A folder-only model stays usable while the folder needs its grant: the click
+               first requests the grant, then reloads and switches to this model. -->
           {#if activeId !== id}
             <button
               class="button"
@@ -220,21 +252,25 @@
             {state === 'partial' ? t('downloadResume') : t('modelDownload')}
           </button>
         {/if}
-        {#if state !== 'absent'}
+        {#if modelRowCanDelete(folder, id, state)}
           <button
             class="button secondary"
             type="button"
-            aria-label={`${label(id)} ${t('modelDelete')}`}
+            aria-label={`${label(id)} ${deleteLabel()}`}
             disabled={busy === id}
             onclick={() => remove(id)}
           >
-            {t('modelDelete')}
+            {deleteLabel()}
           </button>
         {/if}
       </div>
     </li>
   {/each}
 </ul>
+
+{#if folderConfigured}
+  <p class="muted">{t('modelDeleteFolderNote')}</p>
+{/if}
 
 <style>
   .models {

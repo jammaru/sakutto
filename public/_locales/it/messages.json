@@ -674,6 +674,12 @@
   "modelDelete": {
     "message": "Elimina"
   },
+  "modelDeleteBrowserOnly": {
+    "message": "Rimuovi da questo browser"
+  },
+  "modelDeleteFolderNote": {
+    "message": "La rimozione elimina solo la copia di questo browser. Il file nella cartella condivisa resta; eliminalo tu con Esplora file o Finder."
+  },
   "modelSelectionFallback": {
     "message": "Il modello selezionato non è su questo dispositivo, quindi Sakutto è passato a uno installato."
   },

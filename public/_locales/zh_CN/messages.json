@@ -674,6 +674,12 @@
   "modelDelete": {
     "message": "删除"
   },
+  "modelDeleteBrowserOnly": {
+    "message": "从此浏览器中移除"
+  },
+  "modelDeleteFolderNote": {
+    "message": "移除模型只会删除此浏览器中的副本。共享文件夹中的文件仍会保留；如需删除文件，请自行在文件资源管理器或 Finder 中删除。"
+  },
   "modelSelectionFallback": {
     "message": "所选模型不在此设备上，因此 Sakutto 已改用已安装的模型。"
   },
