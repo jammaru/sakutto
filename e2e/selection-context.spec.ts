@@ -78,8 +78,13 @@ test('copies the translated selection from the popup', async () => {
     const shown = (await page.locator('sakutto-pop .body').textContent()) ?? '';
     await copy.click();
 
-    await expect(page.locator('sakutto-pop .copy-note')).toHaveText('Copied');
-    await expect(copy).toHaveAttribute('aria-label', 'Copied');
+    // The copied feedback auto-hides after a moment, so the polls stay inside that
+    // window instead of using the default timeout, which could outlive it.
+    const withinFeedback = { timeout: 2500 };
+    await expect
+      .poll(async () => page.locator('sakutto-pop .copy-note').textContent(), withinFeedback)
+      .toBe('Copied');
+    await expect.poll(async () => copy.getAttribute('aria-label'), withinFeedback).toBe('Copied');
     await expect.poll(async () => page.evaluate(() => navigator.clipboard.readText())).toBe(shown);
     await page.close();
   } finally {

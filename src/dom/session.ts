@@ -1614,6 +1614,8 @@ export class PageSession {
       null,
       false,
       this.prefs.targetLanguage,
+      // The failure notice is not a translation; the copy control stays off for it.
+      true,
     );
   }
 
