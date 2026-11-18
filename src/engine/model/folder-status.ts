@@ -71,7 +71,14 @@ export function modelRowCanUse(
   state: ModelState,
 ): boolean {
   if (state === 'ready' || state === 'loaded') return true;
-  if (state === 'loading' || state === 'downloading' || state === 'verifying') return false;
+  if (
+    state === 'loading' ||
+    state === 'downloading' ||
+    state === 'verifying' ||
+    state === 'partial'
+  ) {
+    return false;
+  }
   return sharedFolderNeedsPermission(folder) && folderRecordsModel(folder, modelId);
 }
 
@@ -88,8 +95,11 @@ export function modelRowCanDelete(
   modelId: ModelId,
   state: ModelState,
 ): boolean {
-  if (state !== 'absent') return true;
-  return sharedFolderNeedsPermission(folder) && canDeleteBrowserCopy(folder, modelId);
+  if (!folder?.configured) return state !== 'absent';
+  if (state === 'absent') {
+    return sharedFolderNeedsPermission(folder) && canDeleteBrowserCopy(folder, modelId);
+  }
+  return canDeleteBrowserCopy(folder, modelId);
 }
 
 /** The persisted storage choice is independent of the folder's current permission grant. */

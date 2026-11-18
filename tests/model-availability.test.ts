@@ -320,7 +320,7 @@ describe('model rows while a shared folder needs its grant', () => {
   });
 
   it('never offers Use while a transfer or a running load owns the row', () => {
-    for (const state of ['downloading', 'verifying', 'loading'] as const) {
+    for (const state of ['downloading', 'verifying', 'loading', 'partial'] as const) {
       expect(modelRowCanUse(braveFolder, HIGH_QUALITY_MODEL_ID, state), state).toBe(false);
     }
   });
@@ -344,9 +344,16 @@ describe('model rows while a shared folder needs its grant', () => {
     ).toBe(false);
   });
 
-  it('keeps Delete for any locally present copy', () => {
+  it('keeps Delete for any locally present copy in browser storage', () => {
     for (const state of ['partial', 'downloading', 'ready', 'loading', 'loaded'] as const) {
       expect(modelRowCanDelete(null, HIGH_QUALITY_MODEL_ID, state), state).toBe(true);
     }
+  });
+
+  it('hides Delete for a local copy the folder never recorded while permission is prompt', () => {
+    const noRecord = { ...braveFolder, recordedModels: [DEFAULT_MODEL_ID] };
+    expect(modelRowCanDelete(noRecord, HIGH_QUALITY_MODEL_ID, 'ready')).toBe(false);
+    expect(modelRowCanDelete(noRecord, HIGH_QUALITY_MODEL_ID, 'partial')).toBe(false);
+    expect(modelRowCanDelete(noRecord, DEFAULT_MODEL_ID, 'ready')).toBe(true);
   });
 });
