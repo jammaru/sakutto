@@ -851,6 +851,9 @@
   "siteRuleNever": {
     "message": "ห้ามแปลโดยเด็ดขาด"
   },
+  "siteRuleRemove": {
+    "message": "ลบ"
+  },
   "noSiteRules": {
     "message": "ยังไม่มีการตั้งค่ารายไซต์"
   },

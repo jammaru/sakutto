@@ -851,6 +851,9 @@
   "siteRuleNever": {
     "message": "绝不要翻译"
   },
+  "siteRuleRemove": {
+    "message": "移除"
+  },
   "noSiteRules": {
     "message": "暂无站点设置。"
   },

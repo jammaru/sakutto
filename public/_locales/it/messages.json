@@ -851,6 +851,9 @@
   "siteRuleNever": {
     "message": "Non tradurre mai"
   },
+  "siteRuleRemove": {
+    "message": "Rimuovi"
+  },
   "noSiteRules": {
     "message": "Non sono ancora presenti impostazioni per sito."
   },

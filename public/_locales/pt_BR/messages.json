@@ -851,6 +851,9 @@
   "siteRuleNever": {
     "message": "Nunca traduzir"
   },
+  "siteRuleRemove": {
+    "message": "Remover"
+  },
   "noSiteRules": {
     "message": "Ainda não há configurações por site."
   },

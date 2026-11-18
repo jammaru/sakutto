@@ -851,6 +851,9 @@
   "siteRuleNever": {
     "message": "翻訳しません"
   },
+  "siteRuleRemove": {
+    "message": "削除"
+  },
   "noSiteRules": {
     "message": "サイトごとの設定はまだありません。"
   },

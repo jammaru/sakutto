@@ -851,6 +851,9 @@
   "siteRuleNever": {
     "message": "Никогда не переводить"
   },
+  "siteRuleRemove": {
+    "message": "Удалить"
+  },
   "noSiteRules": {
     "message": "Настроек на сайты пока нет."
   },

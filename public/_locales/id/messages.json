@@ -851,6 +851,9 @@
   "siteRuleNever": {
     "message": "Jangan pernah menerjemahkan"
   },
+  "siteRuleRemove": {
+    "message": "Hapus"
+  },
   "noSiteRules": {
     "message": "Belum ada pengaturan per situs."
   },

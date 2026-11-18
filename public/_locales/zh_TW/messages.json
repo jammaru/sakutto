@@ -851,6 +851,9 @@
   "siteRuleNever": {
     "message": "絕不要翻譯"
   },
+  "siteRuleRemove": {
+    "message": "移除"
+  },
   "noSiteRules": {
     "message": "尚未設定每個網站的設定。"
   },

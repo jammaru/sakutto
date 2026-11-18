@@ -117,6 +117,21 @@ export function saveSiteRule(rule: SiteRule): Promise<SiteRule> {
 }
 
 /**
+ * Removes the stored rule for `host` so the site follows the global settings again. A
+ * host with no stored rule is a no-op, and the write stays inside the queue so a delete
+ * cannot clobber a patch that is still saving.
+ */
+export function deleteSiteRule(host: string): Promise<void> {
+  return enqueueSiteWrite(async () => {
+    const rules = await loadSiteRules();
+    const normalizedHost = host.trim().toLowerCase();
+    if (!Object.hasOwn(rules, normalizedHost)) return;
+    delete rules[normalizedHost];
+    await browser.storage.local.set({ [SITE_RULES_KEY]: rules });
+  });
+}
+
+/**
  * Merge a patch onto the stored rule for `host` inside the write queue, so two
  * bar-menu saves (placement, then drop point) cannot clobber each other.
  */

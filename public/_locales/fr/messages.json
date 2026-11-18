@@ -851,6 +851,9 @@
   "siteRuleNever": {
     "message": "Ne traduisez jamais"
   },
+  "siteRuleRemove": {
+    "message": "Retirer"
+  },
   "noSiteRules": {
     "message": "Aucun paramètre par site pour le moment."
   },

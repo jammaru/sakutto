@@ -851,6 +851,9 @@
   "siteRuleNever": {
     "message": "Không bao giờ dịch"
   },
+  "siteRuleRemove": {
+    "message": "Xóa"
+  },
   "noSiteRules": {
     "message": "Chưa có cài đặt cho từng trang web."
   },

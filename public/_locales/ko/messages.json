@@ -851,6 +851,9 @@
   "siteRuleNever": {
     "message": "절대 번역하지 마십시오"
   },
+  "siteRuleRemove": {
+    "message": "삭제"
+  },
   "noSiteRules": {
     "message": "아직 사이트별 설정이 없습니다."
   },

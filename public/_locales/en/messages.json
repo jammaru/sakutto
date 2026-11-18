@@ -851,6 +851,9 @@
   "siteRuleNever": {
     "message": "Never translate"
   },
+  "siteRuleRemove": {
+    "message": "Remove"
+  },
   "noSiteRules": {
     "message": "No per-site settings yet."
   },
