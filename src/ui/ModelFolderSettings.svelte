@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { browser } from 'wxt/browser';
   import {
     DEFAULT_MODEL_ID,
@@ -64,6 +64,8 @@
   let readingFolder = $state(false);
   let error = $state<string | null>(null);
   let notice = $state<string | null>(null);
+  let noticeKind = $state<'success' | 'info' | null>(null);
+  let noticeElement = $state<HTMLElement | null>(null);
   let progress = $state<{
     modelId: ModelId;
     verifying: boolean;
@@ -102,8 +104,20 @@
   function clearActionMessages(): void {
     error = null;
     notice = null;
+    noticeKind = null;
     progress = null;
     copyProgress = null;
+  }
+
+  function showSuccess(message: string): void {
+    notice = message;
+    noticeKind = 'success';
+    void tick().then(() => noticeElement?.scrollIntoView({ block: 'nearest' }));
+  }
+
+  function showInfo(message: string): void {
+    notice = message;
+    noticeKind = 'info';
   }
 
   async function refreshFromEngine(): Promise<void> {
@@ -152,7 +166,7 @@
         if (next.opfsCopies.length > 0 || next.integrityIssues.length > 0) {
           error = t('modelStorageMoveFailed');
         } else {
-          notice = t('modelStorageMoveDone');
+          showSuccess(t('modelStorageMoveDone'));
         }
       } else {
         selected = previous;
@@ -184,11 +198,11 @@
       applyStatus(result.folder);
       selected = 'browser';
       if (result.copied.length > 0) {
-        notice = t('modelStorageCopyDone');
+        showSuccess(t('modelStorageCopyDone'));
       } else if (!result.folder.configured || result.folder.permission === 'granted') {
         // Nothing was in the folder. The handle is gone, so this is an empty-folder
         // outcome rather than a successful copy.
-        notice = t('modelStorageNoModels');
+        showInfo(t('modelStorageNoModels'));
       }
       await requestEngineWarm();
       notifySharedFolderChanged();
@@ -230,12 +244,16 @@
         },
       });
       if (result.imported.length === 0) {
-        error = result.failed.length > 0 ? t('modelStorageCopyFailed') : t('modelStorageNoModels');
+        if (result.failed.length > 0) {
+          error = t('modelStorageCopyFailed');
+        } else {
+          showInfo(t('modelStorageNoModels'));
+        }
         return;
       }
       await requestModelFolderReload();
       await requestEngineWarm();
-      notice = t('modelStorageCopyDone');
+      showSuccess(t('modelStorageCopyDone'));
       if (result.failed.length > 0) error = t('modelStorageSomeCopiesFailed');
       notifySharedFolderChanged();
       await refreshCatalogReady();
@@ -400,18 +418,35 @@
     {/if}
 
     {#if error}
-      <p class="error" role="alert">{error}</p>
+      <div class="callout bad" role="alert">
+        <span class="callout-icon" aria-hidden="true">!</span>
+        <p>{error}</p>
+      </div>
     {/if}
     {#if notice}
-      <p class="muted" role="status">{notice}</p>
+      {#if noticeKind === 'success'}
+        <div
+          class="callout success"
+          data-notice="success"
+          role="status"
+          aria-live="polite"
+          bind:this={noticeElement}
+        >
+          <span class="callout-icon" aria-hidden="true">✓</span>
+          <p>{notice}</p>
+        </div>
+      {:else}
+        <p class="muted" role="status">{notice}</p>
+      {/if}
     {/if}
 
     <FolderPermissionRestore {folder} modelId={DEFAULT_MODEL_ID} onRestored={refreshFromEngine} />
 
     {#each folder.integrityIssues as issue (issue.modelId)}
-      <p class="error" role="alert">
-        {t('modelFolderIntegrityFailed', [issue.file])}
-      </p>
+      <div class="callout bad" role="alert">
+        <span class="callout-icon" aria-hidden="true">!</span>
+        <p>{t('modelFolderIntegrityFailed', [issue.file])}</p>
+      </div>
     {/each}
   </div>
 {/if}
@@ -445,6 +480,50 @@
 
   .hidden {
     display: none;
+  }
+
+  .callout {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+    border-left-width: 4px;
+    border-left-color: var(--accent);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.45;
+  }
+
+  .callout.bad {
+    border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+    border-left-width: 4px;
+    border-left-color: var(--danger);
+    background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  }
+
+  .callout-icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-top: 1px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-contrast);
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .callout.bad .callout-icon {
+    background: var(--danger);
+    color: var(--surface);
   }
 
   p {

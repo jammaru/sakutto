@@ -579,6 +579,40 @@ describe('shared folder activation and recovery', () => {
     );
   });
 
+  it('promotes storage move successes and failures to callouts', () => {
+    expect(folderSettings).toContain("let noticeKind = $state<'success' | 'info' | null>(null);");
+    expect(folderSettings).toContain('function showSuccess');
+    expect(folderSettings).toContain('function showInfo');
+    expect(folderSettings).toContain('data-notice="success"');
+    expect(folderSettings).toContain('aria-live="polite"');
+    expect(folderSettings).toContain('scrollIntoView');
+    expect(folderSettings).toContain('class="callout bad"');
+    expect(folderSettings).toContain('role="alert"');
+
+    const chooseStart = folderSettings.indexOf('async function chooseChromiumFolder');
+    const chooseBody = folderSettings.slice(
+      chooseStart,
+      folderSettings.indexOf('async function chooseBrowser', chooseStart),
+    );
+    expect(chooseBody).toContain("showSuccess(t('modelStorageMoveDone'))");
+    expect(chooseBody).not.toContain("notice = t('modelStorageMoveDone')");
+
+    const browserStart = folderSettings.indexOf('async function chooseBrowser');
+    const browserBody = folderSettings.slice(
+      browserStart,
+      folderSettings.indexOf('async function importFromSharedFolder', browserStart),
+    );
+    expect(browserBody).toContain("showSuccess(t('modelStorageCopyDone'))");
+    expect(browserBody).toContain("showInfo(t('modelStorageNoModels'))");
+    expect(browserBody).not.toContain("notice = t('modelStorageCopyDone')");
+
+    const importStart = folderSettings.indexOf('async function importFromSharedFolder');
+    const importBody = folderSettings.slice(importStart);
+    expect(importBody).toContain("showSuccess(t('modelStorageCopyDone'))");
+    expect(importBody).toContain("showInfo(t('modelStorageNoModels'))");
+    expect(importBody).not.toContain("notice = t('modelStorageCopyDone')");
+  });
+
   it('does not drop a folder handle when the grant lapsed before switching to browser', () => {
     const host = source('engine/offscreen/host.ts');
     const body = host.slice(
