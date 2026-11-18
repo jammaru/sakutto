@@ -6,6 +6,7 @@ launch-video/
 *.webm
 *.mov
 *.mkv
+.repro/
 .output/
 artifacts/
 .wxt/

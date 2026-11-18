@@ -1,4 +1,5 @@
 import { defineConfig } from 'wxt';
+import { reproducibleEntryStylesheets } from './scripts/reproducible-entry-stylesheets.ts';
 import {
   CHROME_PERMISSIONS,
   FIREFOX_PERMISSIONS,
@@ -29,6 +30,11 @@ export default defineConfig({
   imports: false,
   manifestVersion: 3,
   vite: () => ({
+    // Vite picks the order of the injected <link rel="stylesheet"> tags per HTML entry from a
+    // cache shared across entries and filled by whichever entry finishes transforming first,
+    // so the same commit can zip differently between runs. The plugin normalizes each entry's
+    // tags to the order its own chunk graph defines.
+    plugins: [reproducibleEntryStylesheets()],
     define: {
       __SAKUTTO_FAKE_ENGINE__: JSON.stringify(process.env.SAKUTTO_FAKE_ENGINE === '1'),
     },
