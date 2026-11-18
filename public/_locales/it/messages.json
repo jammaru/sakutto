@@ -701,6 +701,9 @@
   "modelStorageBrowserOnlyHint": {
     "message": "Questo browser non consente di usare cartelle condivise, quindi i modelli vengono salvati nel browser."
   },
+  "modelStorageBraveEnableFsaHint": {
+    "message": "In Brave, imposta brave://flags/#file-system-access-api su Enabled e riavvia per usare una cartella condivisa."
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "Dopo aver premuto Avvia, scegli la cartella contenente i modelli e conferma «Carica». Firefox copia i modelli in Firefox invece di mantenere la cartella collegata."
   },

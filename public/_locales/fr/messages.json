@@ -701,6 +701,9 @@
   "modelStorageBrowserOnlyHint": {
     "message": "Ce navigateur ne permet pas d’utiliser un dossier partagé. Les modèles sont donc enregistrés dans ce navigateur."
   },
+  "modelStorageBraveEnableFsaHint": {
+    "message": "Dans Brave, définissez brave://flags/#file-system-access-api sur « Enabled » et redémarrez pour utiliser un dossier partagé."
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "Après avoir cliqué sur Démarrer, choisissez le dossier contenant les modèles et confirmez « Téléverser ». Firefox copie les modèles dans Firefox au lieu de conserver le dossier lié."
   },

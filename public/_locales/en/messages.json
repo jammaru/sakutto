@@ -701,6 +701,9 @@
   "modelStorageBrowserOnlyHint": {
     "message": "This browser cannot use a shared folder, so models are stored in this browser."
   },
+  "modelStorageBraveEnableFsaHint": {
+    "message": "In Brave, set brave://flags/#file-system-access-api to Enabled and restart to use a shared folder."
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "After you press start, choose the folder containing the models and confirm “Upload”. Firefox copies the models into Firefox instead of keeping the folder linked."
   },

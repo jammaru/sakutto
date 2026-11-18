@@ -701,6 +701,9 @@
   "modelStorageBrowserOnlyHint": {
     "message": "In diesem Browser können keine freigegebenen Ordner verwendet werden. Modelle werden daher im Browser gespeichert."
   },
+  "modelStorageBraveEnableFsaHint": {
+    "message": "Setzen Sie in Brave brave://flags/#file-system-access-api auf „Enabled“ und starten Sie den Browser neu, um einen freigegebenen Ordner zu verwenden."
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "Wählen Sie nach dem Klicken auf „Start“ den Ordner mit den Modellen und bestätigen Sie „Hochladen“. Firefox kopiert die Modelle in Firefox, statt den Ordner weiterhin zu verknüpfen."
   },

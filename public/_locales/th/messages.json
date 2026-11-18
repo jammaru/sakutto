@@ -701,6 +701,9 @@
   "modelStorageBrowserOnlyHint": {
     "message": "เบราว์เซอร์นี้ไม่สามารถใช้โฟลเดอร์ที่ใช้ร่วมกันได้ โมเดลจึงถูกจัดเก็บไว้ในเบราว์เซอร์นี้"
   },
+  "modelStorageBraveEnableFsaHint": {
+    "message": "สำหรับ Brave ให้ตั้งค่า brave://flags/#file-system-access-api เป็น Enabled แล้วรีสตาร์ตเพื่อใช้โฟลเดอร์ที่ใช้ร่วมกัน"
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "หลังจากกดเริ่ม ให้เลือกโฟลเดอร์ที่มีโมเดลและยืนยัน “อัปโหลด” Firefox จะคัดลอกโมเดลไว้ใน Firefox แทนการใช้โฟลเดอร์ที่เชื่อมไว้ต่อ"
   },

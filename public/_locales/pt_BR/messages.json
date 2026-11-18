@@ -701,6 +701,9 @@
   "modelStorageBrowserOnlyHint": {
     "message": "Este navegador não permite usar pastas compartilhadas, então os modelos são armazenados neste navegador."
   },
+  "modelStorageBraveEnableFsaHint": {
+    "message": "No Brave, defina brave://flags/#file-system-access-api como Enabled e reinicie para usar uma pasta compartilhada."
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "Depois de pressionar Iniciar, escolha a pasta que contém os modelos e confirme “Enviar”. O Firefox copia os modelos para dentro do Firefox em vez de manter a pasta vinculada."
   },

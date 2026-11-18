@@ -34,7 +34,7 @@
   import ModelStorageChoice, { type ModelStorageChoiceValue } from '@/ui/ModelStorageChoice.svelte';
   import { pickDirectoryFiles } from '@/ui/folder-input';
   import { hasLicenseConsent } from '@/shared/agreement';
-  import { isFirefoxBuild } from '@/shared/browser';
+  import { isBraveBrowser, isFirefoxBuild } from '@/shared/browser';
   import { openOrFocusExtensionTab } from '@/shared/extension-tabs';
   import { modelCanTranslate } from '@/shared/engine-status';
   import { t, type MessageKey } from '@/shared/i18n';
@@ -51,6 +51,7 @@
   } from '@/shared/messages';
 
   const firefoxBuild = isFirefoxBuild();
+  const braveBrowser = isBraveBrowser();
   const folderSizeLabel = formatByteSizeList([
     getModel(DEFAULT_MODEL_ID).size,
     getModel(HIGH_QUALITY_MODEL_ID).size,
@@ -349,6 +350,9 @@
   <div class="folder" id="model-folder">
     <h3 class="storage-heading">{t('modelStorageLegend')}</h3>
     <p class="muted">{t('modelStorageBrowserOnlyHint')}</p>
+    {#if braveBrowser}
+      <p class="muted">{t('modelStorageBraveEnableFsaHint')}</p>
+    {/if}
   </div>
 {:else if pickerAvailable || (firefoxBuild && (showFirefoxImportUi || folder.configured))}
   <div class="folder" id="model-folder" aria-busy={busy || readingFolder}>

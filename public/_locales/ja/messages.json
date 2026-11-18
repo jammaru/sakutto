@@ -701,6 +701,9 @@
   "modelStorageBrowserOnlyHint": {
     "message": "このブラウザでは共有フォルダを使えないため、モデルはこのブラウザ内に保存されます。"
   },
+  "modelStorageBraveEnableFsaHint": {
+    "message": "Braveの場合は brave://flags/#file-system-access-api を Enabled にして再起動すると、共有フォルダを使えます。"
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "「ライセンスに同意して開始」を押すとフォルダ選択が開きます。モデルがあるフォルダを選び、「アップロード」を確認してください。Firefox はフォルダを継続利用せず、モデルを Firefox 内にコピーします。"
   },

@@ -557,6 +557,44 @@ describe('shared folder activation and recovery', () => {
     expect(branch).not.toContain('FolderPermissionRestore');
   });
 
+  it('shows the Brave FSA hint only in browser-only branches, not in feature detection', () => {
+    for (const [surface, branchEndMarker] of [
+      [folderSettings, '{:else if pickerAvailable ||'],
+      [onboarding, '{:else if pickerAvailable || !sharedFolderSupported()}'],
+    ] as const) {
+      const branchStart = surface.indexOf('{#if showBrowserOnly}');
+      const branchEnd = surface.indexOf(branchEndMarker, branchStart);
+      expect(branchStart).toBeGreaterThan(-1);
+      expect(branchEnd).toBeGreaterThan(branchStart);
+      const branch = surface.slice(branchStart, branchEnd);
+
+      expect(branch).toContain("t('modelStorageBrowserOnlyHint')");
+      expect(branch).toContain('{#if braveBrowser}');
+      expect(branch).toContain("t('modelStorageBraveEnableFsaHint')");
+      expect(branch).not.toContain('<ModelStorageChoice');
+      expect(branch).not.toContain('<input');
+      const gate = surface.split('\n').find((line) => line.includes('let showBrowserOnly ='));
+      expect(gate).toContain('!pickerAvailable');
+      expect(gate).not.toMatch(/brave|userAgent/i);
+    }
+
+    const sharedFolder = source('engine/model/shared-folder.ts');
+    const pickerCheck = sharedFolder.slice(
+      sharedFolder.indexOf('export function sharedFolderPickerAvailable'),
+      sharedFolder.indexOf('export function lookupDirectoryPicker'),
+    );
+    expect(pickerCheck).toContain("typeof picker === 'function'");
+    expect(pickerCheck).not.toMatch(/brave|userAgent|navigator/i);
+    for (const path of [
+      'entrypoints/folder-enable/App.svelte',
+      'entrypoints/offscreen/main.ts',
+      'engine/offscreen/host.ts',
+      'engine/model/folder-session.ts',
+    ]) {
+      expect(source(path), path).not.toMatch(/brave|userAgent/i);
+    }
+  });
+
   it('replaces Firefox settings storage radios with a single import control', () => {
     expect(folderSettings).toContain('showFirefoxImport');
     expect(folderSettings).toContain('refreshCatalogReady');

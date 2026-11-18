@@ -701,6 +701,9 @@
   "modelStorageBrowserOnlyHint": {
     "message": "此浏览器无法使用共享文件夹，因此模型将保存在此浏览器中。"
   },
+  "modelStorageBraveEnableFsaHint": {
+    "message": "在 Brave 中，将 brave://flags/#file-system-access-api 设置为 Enabled 并重启，即可使用共享文件夹。"
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "点击开始后，请选择包含模型的文件夹并确认“上传”。Firefox 会将模型复制到 Firefox 中，而不会继续链接该文件夹。"
   },

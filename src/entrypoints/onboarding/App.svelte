@@ -31,7 +31,7 @@
   } from '@/ui/onboarding-store';
   import type { ModelStatus } from '@/shared/engine-status';
   import { agreementFromStorage } from '@/shared/agreement';
-  import { hasBuiltInTranslatorUi } from '@/shared/browser';
+  import { hasBuiltInTranslatorUi, isBraveBrowser } from '@/shared/browser';
   import { currentUiLanguage, t, tForBrowser, type MessageKey } from '@/shared/i18n';
   import { resolveTargetLanguage, type TargetLanguage } from '@/shared/languages';
   import {
@@ -99,6 +99,7 @@
     'modelFolderPersistentHint',
   ];
   const firefoxNotes: readonly MessageKey[] = ['modelStorageFirefoxCopyHint'];
+  const braveBrowser = isBraveBrowser();
 
   type Phase = OnboardingPhase;
 
@@ -106,6 +107,7 @@
   let startRequested = $state(false);
   let consentSaved = $state(false);
   let pickerAvailable = $derived(sharedFolderPickerAvailable());
+  let showBrowserOnly = $derived(sharedFolderSupported() && !pickerAvailable);
   let storeChoice = $state<ModelStorageChoiceValue>(
     defaultOnboardingStoreChoice(sharedFolderPickerAvailable()),
   );
@@ -732,7 +734,15 @@
           </ul>
         </details>
       </section>
-      {#if pickerAvailable || !sharedFolderSupported()}
+      {#if showBrowserOnly}
+        <div class="storage-browser-only">
+          <h3 class="storage-heading">{t('modelStorageLegend')}</h3>
+          <p class="muted">{t('modelStorageBrowserOnlyHint')}</p>
+          {#if braveBrowser}
+            <p class="muted">{t('modelStorageBraveEnableFsaHint')}</p>
+          {/if}
+        </div>
+      {:else if pickerAvailable || !sharedFolderSupported()}
         <ModelStorageChoice
           choice={storeChoice}
           mode={pickerAvailable ? 'folder' : 'copy'}
@@ -852,6 +862,16 @@
 </main>
 
 <style>
+  .storage-browser-only {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .storage-heading {
+    margin: 0;
+    font-size: 13px;
+  }
+
   .onboarding {
     display: grid;
     gap: var(--space-4);
