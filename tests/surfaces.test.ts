@@ -268,6 +268,37 @@ describe('typed translation layout', () => {
 });
 
 /**
+ * `wider` is the OCR-reading aid: the typed page marks each hard break in the source box
+ * (↵ for breaks inside a sentence) so the reader can fix them before translating, and
+ * the translation itself carries normal single breaks. The translation-side wide-gap CSS
+ * is gone on every surface, so copy and manual selection hand over real newline bytes.
+ */
+describe('typed source break marks', () => {
+  const marks = source('entrypoints/typed/SourceBreakMarks.svelte');
+
+  it('gates the marks on the wider mode and keeps the textarea native', () => {
+    expect(typed).toContain('SourceBreakMarks');
+    expect(typed).toContain("settings?.plainTextLineBreaks === 'wider'");
+    expect(typed).toContain('bind:value={sourceText}');
+    expect(typed).toContain('bind:this={sourceEl}');
+    // The marks are a decorative layer over the box, never a second editor.
+    expect(typed).not.toContain('contenteditable');
+    expect(marks).toContain('aria-hidden="true"');
+    expect(marks).toContain('pointer-events: none');
+    expect(marks).toContain('segmentSourceText');
+    expect(marks).toContain('sourceBreakMarksFromSegments');
+  });
+
+  it('renders the result as one plain text node without per-line gap spans', () => {
+    expect(typed).toMatch(/<output class="result"[\s\S]*?\{result\}<\/output/u);
+    expect(typed).not.toContain('wide-gap');
+    expect(typed).not.toContain('resultGaps');
+    // A legend names the marks while the mode is on.
+    expect(typed).toContain("t('typedSourceBreakLegend')");
+  });
+});
+
+/**
  * The browser decides which keys run a command and has no API for changing them, so the
  * only way to let a reader rebind one is to send them to its own editor. A settings screen
  * that showed a key it could not change, or offered an edit box of its own, would be lying.

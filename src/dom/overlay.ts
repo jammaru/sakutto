@@ -27,29 +27,12 @@ export function applyPopupTextScale(host: HTMLElement, percent: number): void {
 }
 
 /**
- * Writes translated text without ever parsing it as HTML. When `wider` supplies
- * per-line flags, each logical line becomes its own span so the CSS can add a larger
- * gap; otherwise the historical `textContent` path is used unchanged.
+ * Writes translated text without ever parsing it as HTML. Every line-break mode now
+ * produces real newline characters in the string (`blank` puts `\n\n` in the data), so
+ * the plain `textContent` path carries exactly what copy and selection hand over.
  */
-export function setPlainTextContent(
-  element: HTMLElement,
-  text: string,
-  wideGapAfterLine?: readonly boolean[],
-): void {
-  if (!wideGapAfterLine) {
-    element.textContent = text;
-    return;
-  }
-  const doc = element.ownerDocument;
-  element.textContent = '';
-  const lines = text.split('\n');
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = doc.createElement('span');
-    line.className = 'plain-line';
-    if (wideGapAfterLine[index] === true) line.classList.add('wide-gap');
-    line.textContent = (lines[index] ?? '').length > 0 ? (lines[index] ?? '') : '\u00a0';
-    element.append(line);
-  }
+export function setPlainTextContent(element: HTMLElement, text: string): void {
+  element.textContent = text;
 }
 
 /** Metrics for tests; needs a laid-out card in a browser or happy-dom. */
@@ -206,8 +189,6 @@ const BUBBLE_STYLE = `
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.plain-line { display: block; }
-.plain-line.wide-gap { margin-bottom: 0.9em; }
 .note {
   margin: 0.5em 0 0;
   color: #5b6675;
@@ -809,12 +790,11 @@ export class PageOverlay {
     engine: EngineKind | null,
     pending: boolean,
     lang?: string,
-    wideGapAfterLine?: readonly boolean[],
   ): void {
     const opening = this.popHost.hidden;
     this.popHost.setAttribute('aria-busy', pending ? 'true' : 'false');
     if (pending) this.popBody.textContent = this.labels.selectionPending;
-    else setPlainTextContent(this.popBody, text, wideGapAfterLine);
+    else setPlainTextContent(this.popBody, text);
     this.popBody.lang = lang ?? '';
     this.popNote.textContent = pending
       ? ''

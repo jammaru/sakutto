@@ -194,8 +194,6 @@ const PANEL_STYLE = `
 }
 .body:empty, .card.undo .body:empty { display: none; }
 .card.undo .body { display: none; }
-.plain-line { display: block; }
-.plain-line.wide-gap { margin-bottom: 0.9em; }
 .body.pending {
   min-height: 1.15em;
   color: transparent;
@@ -411,8 +409,6 @@ interface PanelState {
   placement: ComposePlacement;
   freePoint: ComposeFreePoint | null;
   siteOverride: boolean;
-  /** Set for `wider`: safe DOM lines with a CSS gap after the flagged ones. */
-  wideGapAfterLine?: readonly boolean[] | undefined;
 }
 
 /** Place the あA button so it does not sit on top of typed text in a short field. */
@@ -790,7 +786,7 @@ class ComposeOverlay {
     } else if (state.needsSetup) {
       this.body.textContent = this.labels.setup;
     } else {
-      setPlainTextContent(this.body, state.preview, state.wideGapAfterLine);
+      setPlainTextContent(this.body, state.preview);
     }
     this.body.lang = state.lang;
     this.status.textContent = state.note;
@@ -1319,7 +1315,6 @@ export class ComposeController {
   private panelOpen = false;
   private swapped = false;
   private preview = '';
-  private previewWideGap: readonly boolean[] | null = null;
   private pending = false;
   private failed = false;
   private stale = false;
@@ -1545,7 +1540,6 @@ export class ComposeController {
       this.snapshot = null;
       this.replaceMethod = null;
       this.preview = '';
-      this.previewWideGap = null;
       this.swapped = false;
       this.stale = false;
     }
@@ -1614,7 +1608,6 @@ export class ComposeController {
       }
       this.lastDraftLen = 0;
       this.preview = '';
-      this.previewWideGap = null;
       this.pending = false;
       this.stale = false;
       this.render();
@@ -1675,7 +1668,6 @@ export class ComposeController {
     this.failed = false;
     this.stale = false;
     this.preview = '';
-    this.previewWideGap = null;
     this.applied = null;
     this.snapshot = null;
     this.replaceMethod = null;
@@ -1725,7 +1717,6 @@ export class ComposeController {
     this.clearDebounce();
     this.panelOpen = false;
     this.preview = '';
-    this.previewWideGap = null;
     this.pending = false;
     this.failed = false;
     this.stale = false;
@@ -1748,7 +1739,6 @@ export class ComposeController {
     this.failed = false;
     this.stale = false;
     this.preview = '';
-    this.previewWideGap = null;
     this.render();
   }
 
@@ -1922,7 +1912,6 @@ export class ComposeController {
     if (this.needsSetup() || this.isLoading()) {
       this.abort();
       this.preview = '';
-      this.previewWideGap = null;
       this.pending = false;
       this.stale = false;
       this.render();
@@ -1931,7 +1920,6 @@ export class ComposeController {
     if (trimmed.length === 0) {
       this.abort();
       this.preview = '';
-      this.previewWideGap = null;
       this.pending = false;
       this.stale = false;
       this.render();
@@ -1940,7 +1928,6 @@ export class ComposeController {
     if (trimmed.length > MAX_TYPED_CHARS) {
       this.abort();
       this.preview = '';
-      this.previewWideGap = null;
       this.pending = false;
       this.failed = true;
       this.stale = false;
@@ -1956,7 +1943,6 @@ export class ComposeController {
     if (!plan.ok) {
       this.abort();
       this.preview = '';
-      this.previewWideGap = null;
       this.pending = false;
       this.stale = false;
       this.render();
@@ -1967,7 +1953,6 @@ export class ComposeController {
     this.request = controller;
     this.pending = true;
     this.preview = '';
-    this.previewWideGap = null;
     this.render();
     const token = ++this.generation;
     const mode = this.prefs.plainTextLineBreaks ?? 'none';
@@ -1988,17 +1973,9 @@ export class ComposeController {
     const applyPreview = (text: string): void => {
       if (!breakMap || mode === 'none') {
         this.preview = text;
-        this.previewWideGap = null;
         return;
       }
-      const applied = applyPlainTextLineBreaks(breakMap.modelText, text, breakMap, mode);
-      if (typeof applied === 'string') {
-        this.preview = applied;
-        this.previewWideGap = null;
-      } else {
-        this.preview = applied.text;
-        this.previewWideGap = applied.wideGapAfterLine;
-      }
+      this.preview = applyPlainTextLineBreaks(breakMap.modelText, text, breakMap, mode);
     };
     try {
       const options: TranslateOptions = {
@@ -2025,7 +2002,6 @@ export class ComposeController {
             output = '';
             this.failed = true;
             this.preview = '';
-            this.previewWideGap = null;
           } else {
             output = chunk.final;
             applyPreview(output);
@@ -2045,14 +2021,12 @@ export class ComposeController {
       // That is not a finished draft; drop it and retry once on the new runtime.
       if (isModelChangedError(error) && attempt < 1) {
         this.preview = '';
-        this.previewWideGap = null;
         this.failed = false;
         this.render();
         await this.runTranslate(engineText, breakMap, target, signal, token, attempt + 1);
         return;
       }
       this.preview = '';
-      this.previewWideGap = null;
       this.pending = false;
       this.failed = true;
       this.replaceWhenReady = false;
@@ -2130,12 +2104,9 @@ export class ComposeController {
     }
     this.syncIcon();
     const anchor = composeFieldRect(field, this.doc) ?? this.lastAnchor ?? new DOMRect(8, 8, 0, 0);
-    const wideGapAfterLine =
-      preview === this.preview ? (this.previewWideGap ?? undefined) : undefined;
     this.overlay.showPanel(anchor, {
       preview,
       note,
-      wideGapAfterLine,
       pending: this.pending && trimmed.length > 0 && plan.ok && !needsSetup && !loading,
       lang: plan.targetLanguage,
       source: plan.sourceLanguage,

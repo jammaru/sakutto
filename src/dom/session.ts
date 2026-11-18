@@ -191,8 +191,6 @@ interface Live {
   /** Selection only: normalized source, its model input, and the break map. */
   plainSource?: string;
   plainBreakMap?: PlainTextBreakMap;
-  /** Selection only: per-line wider-gap flags from the final translation. */
-  plainWideGap?: readonly boolean[];
 }
 
 interface InflightBatch {
@@ -867,7 +865,6 @@ export class PageSession {
       pending ? null : item.engine,
       pending,
       this.prefs.targetLanguage,
-      item.state === 'done' ? item.plainWideGap : undefined,
     );
   }
 
@@ -1626,19 +1623,12 @@ export class PageSession {
     );
     let translated = joined.length > 0 ? joined : item.partText.join('');
     if (item.role === 'selection' && item.plainBreakMap) {
-      const applied = applyPlainTextLineBreaks(
+      translated = applyPlainTextLineBreaks(
         item.plainBreakMap.modelText,
         translated,
         item.plainBreakMap,
         this.prefs.plainTextLineBreaks ?? 'none',
       );
-      if (typeof applied === 'string') {
-        translated = applied;
-        delete item.plainWideGap;
-      } else {
-        translated = applied.text;
-        item.plainWideGap = applied.wideGapAfterLine;
-      }
     }
     const markup = this.acceptTranslation(item, translated);
     if (markup === 'retry') return;
@@ -1771,7 +1761,6 @@ export class PageSession {
         item.engine,
         false,
         this.prefs.targetLanguage,
-        partial ? undefined : item.plainWideGap,
       );
       return;
     }

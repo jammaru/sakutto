@@ -32,7 +32,10 @@ import {
 
 export const SETTINGS_SCHEMA_VERSION = 1;
 
-/** How line breaks in pasted/selected plain text are reflected in the translation. */
+/**
+ * How line breaks in pasted/selected plain text are reflected in the translation. `wider`
+ * formats the translation like `keep` and adds break marks on the typed page's source box.
+ */
 export const PLAIN_TEXT_LINE_BREAK_MODES = ['none', 'keep', 'blank', 'wider'] as const;
 export type PlainTextLineBreakMode = (typeof PLAIN_TEXT_LINE_BREAK_MODES)[number];
 
@@ -269,7 +272,8 @@ export interface Settings {
   translationPopupWidth: number;
   /**
    * How line breaks in typed, selected, or pasted plain text appear in the translation.
-   * `none` keeps the historical joined-paragraph output.
+   * `none` keeps the historical joined-paragraph output; `wider` formats the translation
+   * like `keep` and additionally marks each break in the typed page's source box.
    */
   plainTextLineBreaks: PlainTextLineBreakMode;
   consent: LicenseConsent | null;

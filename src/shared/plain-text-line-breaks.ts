@@ -35,15 +35,6 @@ export interface PlainTextBreakMap {
   breaks: readonly PlainTextBreak[];
 }
 
-/**
- * A `wider` result: the text uses single newlines between logical lines, and
- * `wideGapAfterLine[i]` asks the renderer to draw a larger gap after line `i`.
- */
-export interface PlainTextLineBreakDisplay {
-  text: string;
-  wideGapAfterLine: boolean[];
-}
-
 export interface PreparedPlainText {
   modelText: string;
   breakMap: PlainTextBreakMap;
@@ -77,6 +68,19 @@ function classifyBreak(before: string, after: string, blankLines: number): Plain
   if (hasSentenceTerminator(before)) return 'boundary';
   if (isHeadingLike(before, after)) return 'boundary';
   return 'mid-sentence';
+}
+
+/**
+ * The same classification the translation mapping uses, exposed for the typed-page source
+ * marks so the marks a reader sees on the input agree with what the translation will do
+ * at that break: `boundary` breaks stay, `mid-sentence` breaks are joined for the model.
+ */
+export function classifyPlainTextBreak(
+  before: string,
+  after: string,
+  blankLines: number,
+): PlainTextBreakKind {
+  return classifyBreak(before, after, blankLines);
 }
 
 /**
@@ -271,10 +275,6 @@ function mappedInsertions(
   return [...byOffset.values()].sort((left, right) => left.offset - right.offset);
 }
 
-function countLines(text: string): number {
-  return text.split('\n').length;
-}
-
 /** The separator replaces the space or paragraph newline the model already emitted. */
 function skipSeparatorWhitespace(text: string, start: number): number {
   let index = start;
@@ -284,44 +284,23 @@ function skipSeparatorWhitespace(text: string, start: number): number {
 
 /**
  * Applies the setting to a finished translation. `none` returns the exact input string;
- * `wider` returns line text plus a per-line higher-gap flag for the renderer.
+ * `keep` and `wider` insert one real newline at each mapped source break, and `blank`
+ * inserts two (`\n\n`) so the copied data itself contains the empty line.
+ *
+ * `wider` is no longer a translation-side spacing choice: the reader who asked for it
+ * wants help spotting breaks in the *source*, which the typed page does with marks on
+ * its input box. Its translation output therefore matches `keep`, and every surface that
+ * renders, selects, or copies the result carries the same real newline characters.
  */
 export function applyPlainTextLineBreaks(
   modelText: string,
   translation: string,
   breakMap: PlainTextBreakMap,
   mode: PlainTextLineBreakMode,
-): string | PlainTextLineBreakDisplay {
+): string {
   if (mode === 'none') return translation;
 
   const insertions = mappedInsertions(modelText, translation, breakMap);
-  if (mode === 'wider') {
-    if (insertions.length === 0) return { text: translation, wideGapAfterLine: [] };
-
-    let text = '';
-    let cursor = 0;
-    let line = 0;
-    const gaps = new Map<number, boolean>();
-    for (const insertion of insertions) {
-      if (insertion.offset <= cursor) continue;
-      const chunk = translation.slice(cursor, insertion.offset);
-      text += chunk;
-      line += chunk.split('\n').length - 1;
-      gaps.set(line, true);
-      text += '\n';
-      line += 1;
-      cursor = skipSeparatorWhitespace(translation, insertion.offset);
-    }
-    text += translation.slice(cursor);
-
-    const lineCount = countLines(text);
-    const wideGapAfterLine = Array.from(
-      { length: lineCount },
-      (_, index) => gaps.get(index) === true,
-    );
-    return { text, wideGapAfterLine };
-  }
-
   if (insertions.length === 0) return translation;
   const separator = mode === 'blank' ? '\n\n' : '\n';
   let text = '';
