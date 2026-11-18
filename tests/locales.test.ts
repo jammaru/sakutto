@@ -308,7 +308,15 @@ describe('locale messages', () => {
     expect(ja.modelFolderPersistentHint?.message).toContain('アクセスするたびに確認する');
     expect(ja.modelFolderPersistentHint?.message).not.toContain('「常に許可」（Edge）');
     for (const locale of catalogs) {
-      const hint = readMessages(locale).modelFolderPersistentHint?.message;
+      const messages = readMessages(locale);
+      const hint = messages.modelFolderPersistentHint?.message;
+      const clarification =
+        locale === 'ja'
+          ? '（名前と違って、これを選ぶと次からは確認されません）'
+          : 'despite the name, no later prompts';
+      expect(messages.modelFolderPermissionPage?.message, locale).toContain(clarification);
+      expect(messages.modelFolderEnableTabBody?.message, locale).toContain(clarification);
+      expect(hint, locale).toContain(clarification);
       expect(hint, locale).toContain('アクセスするたびに確認する');
       if (locale !== 'ja') expect(hint, locale).toContain('Ask every time I access');
       expect(hint, locale).not.toMatch(/Edge[^\n]*「常に許可」/);

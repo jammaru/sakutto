@@ -68,6 +68,7 @@ test.describe('built extension', () => {
           ).toBeVisible();
           await expect(page.getByText('Restarts then need no extra clicks')).toBeVisible();
           await expect(page.getByText('“Ask every time I access” in Edge')).toBeVisible();
+          await expect(page.getByText('despite the name, no later prompts')).toBeVisible();
           await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
           await expect(
             page.getByText('Japanese Edge: 「アクセスするたびに確認する」'),
@@ -221,6 +222,9 @@ test.describe('built extension', () => {
           await expect(page.getByText('再起動後も追加のクリックは不要になります')).toBeVisible();
           await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
           await expect(page.getByText('Edgeでは「アクセスするたびに確認する」')).toBeVisible();
+          await expect(
+            page.getByText('（名前と違って、これを選ぶと次からは確認されません）'),
+          ).toBeVisible();
           await radios.nth(0).check();
           await expect(
             page.getByText(

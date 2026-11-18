@@ -95,7 +95,7 @@ the “installed app, persist automatically” path from
 
 The `ALLOW` content setting is set when the user picks the persistent restore
 choice (**Allow on every visit** in Chrome or **Ask every time I access** in
-Edge), or from the site’s File System Access page-info UI. Chromium records the
+Edge; despite the name, no later prompts), or from the site’s File System Access page-info UI. Chromium records the
 choice as `OnRestorePermissionAllowedEveryTime`.
 
 That restore prompt is **not** shown from a popup, side panel, or offscreen
@@ -231,7 +231,7 @@ handles). Use a real GGUF (not the e2e sparse plant).
    same close/restart checks as (1).
 3. **Edge.** Repeat (1) from a **Settings tab**, not the popup. If Edge
    shows the three-way prompt, pick **Ask every time I access** in English or
-   「アクセスするたびに確認する」 in Japanese Edge. The Japanese options are
+   「アクセスするたびに確認する」 in Japanese Edge (despite the name, no later prompts). The Japanese options are
    「この時間を許可する」 / 「アクセスするたびに確認する」 / 「許可しない」.
    Japanese Chrome labels the persistent choice 「サイトアクセス時は常に許可」.
    If Edge does not offer it, or it does not persist, the popup must show
@@ -301,7 +301,7 @@ A Chromium Edge **extension** can persist folder access in 122+:
 (author: works in Chrome, Edge, Brave > 122 if the user picks that option;
 often on the second or third restore). Current Windows Edge labels the
 persistent middle choice **Ask every time I access** (Japanese:
-「アクセスするたびに確認する」), not **Allow on every visit** as in Chrome.
+「アクセスするたびに確認する」; despite the name, no later prompts), not **Allow on every visit** as in Chrome.
 Electron’s tracker treats “Chrome/Edge 122+” as the browsers where persisted
 handles need no gesture: [electron#41957](https://github.com/electron/electron/issues/41957).
 
@@ -313,7 +313,7 @@ handles need no gesture: [electron#41957](https://github.com/electron/electron/i
    `FileSystemAccessPermissionRequestManager` needs
    `tabs::TabInterface`). A popup click is this-visit only.
 2. If Edge shows the three-way prompt, pick **Ask every time I access**
-   (Japanese Edge: 「アクセスするたびに確認する」). The Japanese options are
+   (Japanese Edge: 「アクセスするたびに確認する」; despite the name, no later prompts). The Japanese options are
    「この時間を許可する」 / 「アクセスするたびに確認する」 / 「許可しない」.
    Japanese Chrome’s matching prompt is
    「今回のみ許可」 / 「サイトアクセス時は常に許可」 / 「許可しない」. That sets
@@ -353,7 +353,7 @@ folder gives people who use both browsers one GGUF, and existing folder
 users keep it; there is no forced migration. Grant from a Settings tab
 and pick **Allow on every visit** in Chrome or **Ask every time I access** in
 Edge. Japanese Chrome labels the persistent choice 「サイトアクセス時は常に許可」;
-Japanese Edge labels it 「アクセスするたびに確認する」. Edge 122+ can persist
+Japanese Edge labels it 「アクセスするたびに確認する」 (despite the name, no later prompts). Edge 122+ can persist
 when that tab prompt appears.
 After restart Sakutto uses the folder while its grant is active, or shows the
 one-click restore control when it is not. Browser storage can be selected
