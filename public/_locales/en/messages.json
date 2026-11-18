@@ -308,6 +308,15 @@
   "selectionResizeHandle": {
     "message": "Resize the translation popup (double-click to reset)"
   },
+  "selectionCopy": {
+    "message": "Copy the translation"
+  },
+  "selectionCopied": {
+    "message": "Copied"
+  },
+  "selectionCopyFailed": {
+    "message": "Could not copy the translation. Select it and copy it yourself."
+  },
   "close": {
     "message": "Close"
   },

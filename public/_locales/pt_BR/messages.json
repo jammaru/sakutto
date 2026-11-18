@@ -308,6 +308,15 @@
   "selectionResizeHandle": {
     "message": "Redimensionar o pop-up de tradução (clique duplo para redefinir)"
   },
+  "selectionCopy": {
+    "message": "Copiar a tradução"
+  },
+  "selectionCopied": {
+    "message": "Copiado"
+  },
+  "selectionCopyFailed": {
+    "message": "Não foi possível copiar a tradução. Selecione-a e copie você mesmo."
+  },
   "close": {
     "message": "Fechar"
   },

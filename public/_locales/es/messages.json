@@ -308,6 +308,15 @@
   "selectionResizeHandle": {
     "message": "Cambiar el ancho de la ventana de traducción (doble clic para restablecer)"
   },
+  "selectionCopy": {
+    "message": "Copiar la traducción"
+  },
+  "selectionCopied": {
+    "message": "Copiado"
+  },
+  "selectionCopyFailed": {
+    "message": "No se pudo copiar la traducción. Selecciónela y cópiela usted mismo."
+  },
   "close": {
     "message": "Cerrar"
   },

@@ -4,6 +4,7 @@ import {
   FIXTURE_ORIGIN,
   injectContentScript,
   invokeOnCommandPath,
+  openExtensionShadowRoots,
   resetExtensionStorage,
   waitForContentSession,
 } from './page';
@@ -40,6 +41,46 @@ test('translates a selection after the context-menu timing path', async () => {
     await expect(popover).toHaveAttribute('aria-busy', 'false', { timeout: 15_000 });
     const box = await popover.boundingBox();
     expect(box?.width ?? 0).toBeGreaterThan(80);
+    await page.close();
+  } finally {
+    await extension.close();
+  }
+});
+
+test('copies the translated selection from the popup', async () => {
+  const extension = await loadExtension('en-US');
+  try {
+    // The popup lives in a closed shadow root that no page-side query can enter, and the
+    // roots are created in the extension's isolated world. The roots are opened there
+    // before the content script runs, so the copy control and its feedback become
+    // addressable. The product build keeps them closed.
+    await extension.context.grantPermissions(['clipboard-read', 'clipboard-write'], {
+      origin: FIXTURE_ORIGIN,
+    });
+    await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
+    const page = await extension.context.newPage();
+    await page.goto(FIXTURE_ORIGIN + '/article.html');
+    await openExtensionShadowRoots(extension.worker, page);
+    await injectContentScript(extension.worker, page);
+    await waitForContentSession(extension.worker, page);
+
+    await selectLead(page);
+    await page.waitForTimeout(100);
+    await invokeOnCommandPath(extension.worker, page, 'selection');
+
+    // The stub engine streams the translation, so the control must already offer the
+    // finished portion instead of waiting for a completion the fake engine never signals.
+    const copy = page.locator('sakutto-pop .copy');
+    await expect(copy).toBeVisible({ timeout: 15_000 });
+    await expect(copy).toBeEnabled({ timeout: 15_000 });
+    await expect(copy).toHaveAttribute('aria-label', 'Copy the translation');
+
+    const shown = (await page.locator('sakutto-pop .body').textContent()) ?? '';
+    await copy.click();
+
+    await expect(page.locator('sakutto-pop .copy-note')).toHaveText('Copied');
+    await expect(copy).toHaveAttribute('aria-label', 'Copied');
+    await expect.poll(async () => page.evaluate(() => navigator.clipboard.readText())).toBe(shown);
     await page.close();
   } finally {
     await extension.close();

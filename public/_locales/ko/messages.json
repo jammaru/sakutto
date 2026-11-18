@@ -308,6 +308,15 @@
   "selectionResizeHandle": {
     "message": "번역 팝업의 너비를 조절합니다(두 번 클릭하여 재설정)"
   },
+  "selectionCopy": {
+    "message": "번역본 복사"
+  },
+  "selectionCopied": {
+    "message": "복사됨"
+  },
+  "selectionCopyFailed": {
+    "message": "번역본을 복사할 수 없습니다. 선택하여 직접 복사해 주세요."
+  },
   "close": {
     "message": "닫기"
   },

@@ -308,6 +308,15 @@
   "selectionResizeHandle": {
     "message": "ปรับความกว้างของป๊อปอัปการแปล (ดับเบิลคลิกเพื่อรีเซ็ต)"
   },
+  "selectionCopy": {
+    "message": "คัดลอกคำแปล"
+  },
+  "selectionCopied": {
+    "message": "คัดลอกแล้ว"
+  },
+  "selectionCopyFailed": {
+    "message": "ไม่สามารถคัดลอกคำแปลได้ โปรดเลือกแล้วคัดลอกด้วยตนเอง"
+  },
   "close": {
     "message": "ปิด"
   },

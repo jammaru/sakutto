@@ -308,6 +308,15 @@
   "selectionResizeHandle": {
     "message": "调整翻译弹窗的宽度（双击重置）"
   },
+  "selectionCopy": {
+    "message": "复制译文"
+  },
+  "selectionCopied": {
+    "message": "已复制"
+  },
+  "selectionCopyFailed": {
+    "message": "无法复制译文。请选择该内容并自行复制。"
+  },
   "close": {
     "message": "关闭"
   },

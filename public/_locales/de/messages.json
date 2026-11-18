@@ -308,6 +308,15 @@
   "selectionResizeHandle": {
     "message": "Übersetzungs-Popup in der Breite ziehen (Doppelklick zum Zurücksetzen)"
   },
+  "selectionCopy": {
+    "message": "Übersetzung kopieren"
+  },
+  "selectionCopied": {
+    "message": "Kopiert"
+  },
+  "selectionCopyFailed": {
+    "message": "Die Übersetzung konnte nicht kopiert werden. Wählen Sie sie aus und kopieren Sie sie selbst."
+  },
   "close": {
     "message": "Schließen"
   },

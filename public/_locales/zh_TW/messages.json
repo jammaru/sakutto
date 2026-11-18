@@ -308,6 +308,15 @@
   "selectionResizeHandle": {
     "message": "調整翻譯彈出視窗的寬度（按兩下重設）"
   },
+  "selectionCopy": {
+    "message": "複製譯文"
+  },
+  "selectionCopied": {
+    "message": "已複製"
+  },
+  "selectionCopyFailed": {
+    "message": "無法複製譯文。請選取並自行複製。"
+  },
   "close": {
     "message": "關閉"
   },

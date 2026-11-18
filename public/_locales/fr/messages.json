@@ -308,6 +308,15 @@
   "selectionResizeHandle": {
     "message": "Redimensionner la fenêtre de traduction (double-clic pour réinitialiser)"
   },
+  "selectionCopy": {
+    "message": "Copier la traduction"
+  },
+  "selectionCopied": {
+    "message": "Copié"
+  },
+  "selectionCopyFailed": {
+    "message": "La traduction n'a pas pu être copiée. Sélectionnez-la et copiez-la vous-même."
+  },
   "close": {
     "message": "Fermer"
   },

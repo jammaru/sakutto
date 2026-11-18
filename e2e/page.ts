@@ -12,6 +12,11 @@ interface ExtensionChrome {
   };
   scripting: {
     executeScript(options: { target: { tabId: number }; files: string[] }): Promise<unknown>;
+    executeScript(options: {
+      target: { tabId: number };
+      func: (mode: 'open') => void;
+      args: ['open'];
+    }): Promise<unknown>;
   };
   commands: {
     getAll(): Promise<Array<{ name?: string; shortcut?: string }>>;
@@ -188,6 +193,29 @@ export async function injectContentScript(worker: Worker, page: Page): Promise<v
 }
 
 /** Waits until the content script's page session can answer, the way onCommand does. */
+/**
+ * Patches ShadowRoot creation in the extension's isolated world before the content script
+ * runs. A test that needs to read or click inside the extension's popups calls this first:
+ * the product build keeps every root closed, and a page-side query cannot enter one, so the
+ * test opens the roots it plans to touch. The patch lives only in this page's test run.
+ */
+export async function openExtensionShadowRoots(worker: Worker, page: Page): Promise<void> {
+  const tabId = await tabIdForPage(worker, page);
+  await worker.evaluate(async (tabId) => {
+    const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: (mode) => {
+        const original = Element.prototype.attachShadow;
+        Element.prototype.attachShadow = function (init: ShadowRootInit) {
+          return original.call(this, { ...init, mode });
+        };
+      },
+      args: ['open'],
+    });
+  }, tabId);
+}
+
 export async function waitForContentSession(worker: Worker, page: Page): Promise<void> {
   const tabId = await tabIdForPage(worker, page);
   await worker.evaluate(async (tabId) => {

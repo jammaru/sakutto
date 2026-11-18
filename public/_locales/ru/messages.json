@@ -308,6 +308,15 @@
   "selectionResizeHandle": {
     "message": "Изменить ширину окна перевода (двойной щелчок для сброса)"
   },
+  "selectionCopy": {
+    "message": "Скопировать перевод"
+  },
+  "selectionCopied": {
+    "message": "Скопировано"
+  },
+  "selectionCopyFailed": {
+    "message": "Не удалось скопировать перевод. Выделите его и скопируйте сами."
+  },
   "close": {
     "message": "Закрыть"
   },

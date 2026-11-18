@@ -308,6 +308,15 @@
   "selectionResizeHandle": {
     "message": "Ubah lebar popup terjemahan (klik dua kali untuk mengatur ulang)"
   },
+  "selectionCopy": {
+    "message": "Salin terjemahan"
+  },
+  "selectionCopied": {
+    "message": "Tersalin"
+  },
+  "selectionCopyFailed": {
+    "message": "Tidak dapat menyalin terjemahannya. Pilih dan salin sendiri."
+  },
   "close": {
     "message": "Tutup"
   },

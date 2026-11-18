@@ -308,6 +308,15 @@
   "selectionResizeHandle": {
     "message": "Thay đổi chiều rộng cửa sổ dịch (nhấp đúp để đặt lại)"
   },
+  "selectionCopy": {
+    "message": "Sao chép bản dịch"
+  },
+  "selectionCopied": {
+    "message": "Đã sao chép"
+  },
+  "selectionCopyFailed": {
+    "message": "Không thể sao chép bản dịch. Hãy chọn nó và tự sao chép."
+  },
   "close": {
     "message": "Đóng"
   },

@@ -308,6 +308,15 @@
   "selectionResizeHandle": {
     "message": "翻訳ポップアップの幅を変更します（ダブルクリックでリセット）"
   },
+  "selectionCopy": {
+    "message": "訳文をコピー"
+  },
+  "selectionCopied": {
+    "message": "コピーしました"
+  },
+  "selectionCopyFailed": {
+    "message": "コピーできませんでした。訳文を選んでコピーしてください。"
+  },
   "close": {
     "message": "閉じる"
   },
