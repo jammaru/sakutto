@@ -20,6 +20,7 @@ const labels = {
   pending: 'Translating caption…',
   showOriginal: 'Show original caption',
   hideOriginal: 'Hide original caption',
+  braveShields: 'Brave Shields blocked caption data. Turn Shields off for this video and reload.',
 };
 
 const engine: PageEngine = {
@@ -56,6 +57,8 @@ const JA_TIMEDTEXT = {
 
 describe('video caption session', () => {
   afterEach(() => {
+    vi.useRealTimers();
+    Reflect.deleteProperty(window.navigator, 'brave');
     document.documentElement.removeAttribute('data-sakutto-captions');
     document.documentElement.innerHTML = '<head></head><body></body>';
     window.localStorage.removeItem('sakuttoCaptionDebug');
@@ -2783,6 +2786,203 @@ A red train waits at platform two.
     }
   });
 
+  it('discovers a late pot URL after the old timedtext URL is exhausted', async () => {
+    const { view, doc, video, poll } = await youtubeTestWindow('latepot0001', true);
+    video.currentTime = 0.4;
+    let now = 0;
+    let late = false;
+    const urls: string[] = [];
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      now: () => now,
+      readBrave: async () => true,
+      readPlayerResponse: async () =>
+        youtubePlayerResponse(
+          'latepot0001',
+          late
+            ? '/youtube-timedtext.json?v=latepot0001&pot=late'
+            : '/youtube-timedtext.json?v=latepot0001',
+        ),
+      readTrack: async (url) => {
+        urls.push(url);
+        return late && url.includes('pot=late') ? JSON.stringify(TIMEDTEXT) : '';
+      },
+    });
+    try {
+      session.start();
+      await vi.waitFor(() => expect(urls).toHaveLength(2));
+      now = 1_000;
+      poll.run();
+      await vi.waitFor(() => expect(urls).toHaveLength(4));
+      now = 5_000;
+      poll.run();
+      await vi.waitFor(() => expect(urls).toHaveLength(6));
+      late = true;
+      now = 10_000;
+      poll.run();
+      await vi.waitFor(() => expect(urls.length).toBeGreaterThan(6));
+      expect(doc.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-notice')).toBe(
+        false,
+      );
+      (video as unknown as { dispatchEvent(event: unknown): boolean }).dispatchEvent(
+        new view.Event('timeupdate', { bubbles: true }),
+      );
+      await vi.waitFor(() => {
+        expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+          'The station opens at dawn.',
+        );
+      });
+      expect(urls.filter((url) => !url.includes('pot=late'))).toHaveLength(6);
+      expect(urls.some((url) => url.includes('pot=late'))).toBe(true);
+    } finally {
+      session.stop();
+      poll.restore();
+      view.close();
+    }
+  });
+
+  it('keeps an exhausted timedtext URL capped while polling for player updates', async () => {
+    const { view, doc, poll } = await youtubeTestWindow('emptycap001', true);
+    let now = 0;
+    let fetches = 0;
+    let playerReads = 0;
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      now: () => now,
+      readPlayerResponse: async () => {
+        playerReads += 1;
+        return youtubePlayerResponse('emptycap001', '/youtube-timedtext.json?v=emptycap001');
+      },
+      readBrave: async () => false,
+      readTrack: async () => {
+        fetches += 1;
+        return '';
+      },
+    });
+    try {
+      session.start();
+      await vi.waitFor(() => expect(fetches).toBe(2));
+      now = 1_000;
+      poll.run();
+      await vi.waitFor(() => expect(fetches).toBe(4));
+      now = 5_000;
+      poll.run();
+      await vi.waitFor(() => expect(fetches).toBe(6));
+      const readsAfterExhaustion = playerReads;
+      now = 10_000;
+      poll.run();
+      await vi.waitFor(() => expect(playerReads).toBeGreaterThan(readsAfterExhaustion));
+      poll.run();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(fetches).toBe(6);
+      expect(doc.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-notice')).toBe(
+        false,
+      );
+    } finally {
+      session.stop();
+      poll.restore();
+      view.close();
+    }
+  });
+
+  it('uses the document track when the early MAIN response has no captions', async () => {
+    const { view, doc, video } = await youtubeTestWindow('earlymain01', true);
+    video.currentTime = 0.4;
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readPlayerResponse: async () => youtubePlayerResponse('earlymain01', '', false),
+      readTrack: async () => JSON.stringify(TIMEDTEXT),
+    });
+    session.start();
+    await vi.waitFor(() => {
+      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+        'The station opens at dawn.',
+      );
+    });
+    session.stop();
+    view.close();
+  });
+
+  it('polls for tracks that were absent from the first player response', async () => {
+    const { view, doc, video, poll } = await youtubeTestWindow('latetrack1', false);
+    let ready = false;
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readPlayerResponse: async () =>
+        youtubePlayerResponse('latetrack1', '/youtube-timedtext.json?v=latetrack1', ready),
+      readTrack: async () => JSON.stringify(TIMEDTEXT),
+    });
+    try {
+      session.start();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      ready = true;
+      poll.run();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      (video as unknown as { dispatchEvent(event: unknown): boolean }).dispatchEvent(
+        new view.Event('timeupdate', { bubbles: true }),
+      );
+      await vi.waitFor(() => {
+        expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+          'The station opens at dawn.',
+        );
+      });
+    } finally {
+      session.stop();
+      poll.restore();
+      view.close();
+    }
+  });
+
+  it('shows a localized persistent-empty notice only when navigator.brave is present', async () => {
+    const { view, doc, poll } = await youtubeTestWindow('braveempty1', true);
+    let now = 0;
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      now: () => now,
+      readBrave: async () => true,
+      readTrack: async () => '',
+    });
+    try {
+      session.start();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      now = 1_000;
+      poll.run();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      now = 5_000;
+      poll.run();
+      await vi.waitFor(() => {
+        expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-notice')).toBe(
+          'brave-shields',
+        );
+      });
+      expect(doc.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-caption')).toBe(
+        false,
+      );
+      const video = doc.querySelector('video') as unknown as HTMLVideoElement;
+      (video as unknown as { dispatchEvent(event: unknown): boolean }).dispatchEvent(
+        new view.Event('timeupdate', { bubbles: true }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-notice')).toBe(
+        'brave-shields',
+      );
+    } finally {
+      session.stop();
+      poll.restore();
+      view.close();
+    }
+  });
+
   it('removes addtrack from the same TextTrackList it subscribed to', async () => {
     const { Window } = await import('happy-dom');
     const view = new Window({ url: 'https://www.youtube.com/watch?v=aaaaaaaaaaa' });
@@ -2830,6 +3030,72 @@ A red train waits at platform two.
     view.close();
   });
 });
+
+async function youtubeTestWindow(videoId: string, captions: boolean) {
+  const { Window } = await import('happy-dom');
+  const view = new Window({ url: `https://www.youtube.com/watch?v=${videoId}` });
+  const doc = view.document;
+  doc.body.innerHTML = youtubeWatchMarkup(videoId, captions);
+  const video = doc.querySelector('video') as unknown as HTMLVideoElement;
+  stubMedia(video, { paused: false, width: 640, height: 360, currentTime: 0.4 });
+  const poll = captureEmptyTrackPoll(view);
+  return { view, doc, video, poll };
+}
+
+function captionPreferences() {
+  return {
+    enabled: true,
+    targetLanguage: 'ja',
+    form: 'polite' as const,
+    display: 'bilingual' as const,
+    tier: 'g' as const,
+  };
+}
+
+function youtubePlayerResponse(videoId: string, baseUrl: string, captions = true) {
+  return {
+    videoDetails: { videoId, defaultAudioLanguage: 'en' },
+    captions: {
+      playerCaptionsTracklistRenderer: {
+        captionTracks: captions
+          ? [{ baseUrl, languageCode: 'en', name: { simpleText: 'English' } }]
+          : [],
+      },
+    },
+  };
+}
+
+function captureEmptyTrackPoll(view: {
+  setInterval: (
+    callback: (...args: unknown[]) => unknown,
+    delay?: number,
+    ...args: unknown[]
+  ) => unknown;
+}): {
+  run: () => void;
+  restore: () => void;
+} {
+  const original = view.setInterval.bind(view);
+  let poll: (() => void) | undefined;
+  const spy = vi.spyOn(view, 'setInterval').mockImplementation(((
+    handler: TimerHandler,
+    timeout?: number,
+    ...args: unknown[]
+  ) => {
+    if (timeout === X_EMPTY_TRACK_POLL_MS && typeof handler === 'function') {
+      poll = handler as () => void;
+      return 1;
+    }
+    return original(handler as (...args: unknown[]) => unknown, timeout, ...args);
+  }) as typeof view.setInterval);
+  return {
+    run: () => {
+      if (!poll) throw new Error('missing empty YouTube poll');
+      poll();
+    },
+    restore: () => spy.mockRestore(),
+  };
+}
 
 function youtubeWatchMarkup(videoId: string, captions: boolean): string {
   const tracks = captions

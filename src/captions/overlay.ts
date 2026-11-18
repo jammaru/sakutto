@@ -11,6 +11,7 @@ export interface CaptionOverlayLabels {
   pending: string;
   showOriginal: string;
   hideOriginal: string;
+  braveShields: string;
 }
 
 export interface CaptionOverlayState {
@@ -468,6 +469,9 @@ export class CaptionOverlay {
     this.labels = labels;
     this.host.setAttribute('aria-label', labels.label);
     this.toggle.setAttribute('aria-label', labels.showOriginal);
+    if (this.host.getAttribute('data-sakutto-notice') === 'brave-shields') {
+      this.translatedLine.textContent = labels.braveShields;
+    }
   }
 
   attach(root: Element): void {
@@ -537,11 +541,32 @@ export class CaptionOverlay {
     if (this.toggle.getAttribute('aria-label') !== this.toggleLabel) {
       this.toggle.setAttribute('aria-label', this.toggleLabel);
     }
+    this.host.removeAttribute('data-sakutto-notice');
     this.host.setAttribute('data-sakutto-caption', translation);
     this.host.setAttribute('data-sakutto-original', original);
     this.host.setAttribute('data-sakutto-show-original', showOriginal ? '1' : '0');
     if (state.pending) this.host.setAttribute('data-sakutto-pending', '1');
     else this.host.removeAttribute('data-sakutto-pending');
+    this.overlayActive = true;
+    this.host.hidden = false;
+    this.syncToggle();
+  }
+
+  hasBraveShieldsNotice(): boolean {
+    return this.host.getAttribute('data-sakutto-notice') === 'brave-shields';
+  }
+
+  showBraveShieldsNotice(): void {
+    this.originalLine.textContent = '';
+    this.originalLine.hidden = true;
+    this.translatedLine.textContent = this.labels.braveShields;
+    this.translatedLine.hidden = false;
+    this.host.removeAttribute('data-sakutto-caption');
+    this.host.removeAttribute('data-sakutto-original');
+    this.host.removeAttribute('data-sakutto-show-original');
+    this.host.removeAttribute('data-sakutto-pending');
+    this.host.setAttribute('data-sakutto-notice', 'brave-shields');
+    this.toggleLabel = this.labels.showOriginal;
     this.overlayActive = true;
     this.host.hidden = false;
     this.syncToggle();
@@ -561,6 +586,7 @@ export class CaptionOverlay {
     this.host.removeAttribute('data-sakutto-original');
     this.host.removeAttribute('data-sakutto-show-original');
     this.host.removeAttribute('data-sakutto-pending');
+    this.host.removeAttribute('data-sakutto-notice');
     this.syncToggle();
   }
 

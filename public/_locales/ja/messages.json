@@ -1531,6 +1531,9 @@
   "videoCaptionsCustomHostDenied": {
     "message": "そのサイトへのアクセスが許可されませんでした。"
   },
+  "videoCaptionsBraveShields": {
+    "message": "Brave ShieldsがYouTubeの字幕データをブロックしました。この動画でShieldsをオフにしてページを再読み込みすると、字幕を翻訳できます。"
+  },
   "videoCaptionsPositionReset": {
     "message": "位置をリセット"
   },

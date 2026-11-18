@@ -1527,6 +1527,9 @@
   "videoCaptionsCustomHostDenied": {
     "message": "ไม่ได้อนุญาตให้เข้าถึงไซต์นั้น"
   },
+  "videoCaptionsBraveShields": {
+    "message": "Brave Shields บล็อกข้อมูลคำบรรยายของ YouTube ปิด Shields สำหรับวิดีโอนี้แล้วโหลดหน้าใหม่เพื่อแปลคำบรรยาย"
+  },
   "videoCaptionsPositionReset": {
     "message": "รีเซ็ตตำแหน่ง"
   },

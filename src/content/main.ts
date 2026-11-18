@@ -226,6 +226,7 @@ function captionLabels(): CaptionOverlayLabels {
     pending: t('videoCaptionsPending'),
     showOriginal: t('videoCaptionsShowOriginal'),
     hideOriginal: t('videoCaptionsHideOriginal'),
+    braveShields: t('videoCaptionsBraveShields'),
   };
 }
 

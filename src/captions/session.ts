@@ -113,6 +113,7 @@ export interface CaptionSessionOptions {
   preferences: CaptionSessionPreferences;
   readTrack?: (url: string) => Promise<string>;
   readPlayerResponse?: () => Promise<unknown>;
+  readBrave?: () => Promise<boolean>;
   now?: () => number;
   onDisplayToggle?: () => void;
   onPositionChange?: (point: VideoCaptionPosition) => void;
@@ -162,6 +163,7 @@ export class VideoCaptionSession {
   private readonly translator: CaptionTranslator;
   private readonly readTrack: (url: string) => Promise<string>;
   private readonly readPlayerResponse: () => Promise<unknown>;
+  private readonly readBrave: () => Promise<boolean>;
   private readonly now: () => number;
   private readonly liveBuffer = new LiveCaptionBuffer();
   private readonly timedtextGuard = new TimedtextFetchGuard();
@@ -178,7 +180,6 @@ export class VideoCaptionSession {
   private liveTrackTimer: number | null = null;
   private liveMode = false;
   private useDomCaptions = false;
-  private timedtextKey = '';
   private hold: {
     cueId: string;
     original: string;
@@ -207,6 +208,7 @@ export class VideoCaptionSession {
     this.prefs = options.preferences;
     this.readTrack = options.readTrack ?? readTimedtext;
     this.readPlayerResponse = options.readPlayerResponse ?? defaultReadPlayerResponse;
+    this.readBrave = options.readBrave ?? defaultReadBrave;
     this.now = options.now ?? (() => Date.now());
     this.translator = new CaptionTranslator(options.engine);
     this.overlay = new CaptionOverlay(doc, options.labels);
@@ -296,10 +298,14 @@ export class VideoCaptionSession {
           void this.refreshLiveTrack(this.video);
           return;
         }
+        // Keep re-reading an empty YouTube player response after the old URL's fetch cap.
+        // Brave can publish the pot= URL later; the guard inside loadYouTubeTrack still
+        // prevents another GET for the exhausted URL.
         if (
+          !this.liveMode &&
           (this.loaded?.cues.length ?? 0) === 0 &&
-          this.timedtextKey.length > 0 &&
-          this.timedtextGuard.allow(this.timedtextKey, this.now())
+          (isYouTubeHost(pageHost(this.doc.defaultView?.location.href ?? '') ?? '') ||
+            this.doc.getElementById('movie_player') !== null)
         ) {
           void this.loadTrack(this.video);
           return;
@@ -351,7 +357,6 @@ export class VideoCaptionSession {
     }
     this.liveMode = false;
     this.useDomCaptions = false;
-    this.timedtextKey = '';
     this.loadInFlight = false;
     this.timedtextGuard.reset();
     this.restoreTracks();
@@ -488,7 +493,6 @@ export class VideoCaptionSession {
     this.loaded = null;
     this.useDomCaptions = false;
     this.liveMode = false;
-    this.timedtextKey = '';
     this.timedtextGuard.reset();
     this.translator.clear();
     this.liveBuffer.reset();
@@ -572,8 +576,11 @@ export class VideoCaptionSession {
       await this.readPlayerResponse().catch(() => null),
     );
     if (!stillCurrent()) return null;
+    const documentResponse = playerResponseForPage(this.doc, playerResponseFromDocument(this.doc));
     const response =
-      liveResponse ?? playerResponseForPage(this.doc, playerResponseFromDocument(this.doc));
+      captionTracksFromPlayerResponse(liveResponse).length > 0
+        ? liveResponse
+        : (documentResponse ?? liveResponse);
     const tracks = captionTracksFromPlayerResponse(response);
     if (tracks.length === 0 && !live) return null;
     const spoken = spokenLanguageFromPlayerResponse(response);
@@ -590,7 +597,6 @@ export class VideoCaptionSession {
 
     const fetchKey = `${youtubeVideoId(this.doc.defaultView?.location.href ?? '') ?? 'yt'}:${selected.baseUrl}`;
     if (!stillCurrent()) return null;
-    this.timedtextKey = fetchKey;
     if (!live) {
       const now = this.now();
       if (!this.timedtextGuard.allow(fetchKey, now) || !this.timedtextGuard.begin(fetchKey)) {
@@ -613,11 +619,15 @@ export class VideoCaptionSession {
         return null;
       }
       if (cues.length > 0) {
+        if (this.overlay.hasBraveShieldsNotice()) this.overlay.hide();
         if (!live) this.timedtextGuard.succeed(fetchKey);
         this.useDomCaptions = live;
         return { cues, language: selected.languageCode, live };
       }
-      if (!live) this.timedtextGuard.fail(fetchKey, this.now());
+      if (!live) {
+        this.timedtextGuard.fail(fetchKey, this.now());
+        void this.showBraveTimedtextFailure(fetchKey);
+      }
       this.useDomCaptions = true;
       return { cues: [], language: selected.languageCode, live };
     } catch {
@@ -625,10 +635,25 @@ export class VideoCaptionSession {
         this.timedtextGuard.reset(fetchKey);
         return null;
       }
-      if (!live) this.timedtextGuard.fail(fetchKey, this.now());
+      if (!live) {
+        this.timedtextGuard.fail(fetchKey, this.now());
+        void this.showBraveTimedtextFailure(fetchKey);
+      }
       this.useDomCaptions = true;
       return { cues: [], language: selected.languageCode, live };
     }
+  }
+
+  private async showBraveTimedtextFailure(fetchKey: string): Promise<void> {
+    if (!this.timedtextGuard.exhausted(fetchKey)) return;
+    const token = this.sourceToken;
+    if (!(await this.readBrave().catch(() => false))) return;
+    if (token !== this.sourceToken || !this.timedtextGuard.exhausted(fetchKey)) return;
+    if ((this.loaded?.cues.length ?? 0) > 0) return;
+    // A native line is still a usable source; warn only when no caption data remains.
+    if (this.readSourceCaptionDom().length > 0) return;
+    captionDebug('brave-timedtext-empty');
+    this.overlay.showBraveShieldsNotice();
   }
 
   private async refreshLiveTrack(video: HTMLVideoElement): Promise<void> {
@@ -836,10 +861,14 @@ export class VideoCaptionSession {
 
   /** Native YouTube/X captions only when the overlay has nothing for this playhead. */
   private showNative(reason: string): void {
+    const keepBraveNotice = this.overlay.hasBraveShieldsNotice();
     this.clearHold();
     this.ignorePlayerMutations = true;
     this.overlay.hide();
     this.applyNativeVisibility(reason);
+    if (keepBraveNotice && this.readSourceCaptionDom().length === 0) {
+      this.overlay.showBraveShieldsNotice();
+    }
     this.releasePlayerMutations();
   }
 
@@ -1466,6 +1495,10 @@ function sameLanguage(source: string | undefined, target: string): boolean {
   const left = canonicalLanguage(captionLanguagePrefix(source) || source);
   const right = canonicalLanguage(captionLanguagePrefix(target) || target);
   return left !== null && right !== null && left === right;
+}
+
+async function defaultReadBrave(): Promise<boolean> {
+  return typeof navigator !== 'undefined' && 'brave' in navigator;
 }
 
 async function defaultReadPlayerResponse(): Promise<unknown> {

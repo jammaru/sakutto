@@ -1527,6 +1527,9 @@
   "videoCaptionsCustomHostDenied": {
     "message": "L’accesso a quel sito non è stato concesso."
   },
+  "videoCaptionsBraveShields": {
+    "message": "Brave Shields ha bloccato i dati dei sottotitoli di YouTube. Disattiva Shields per questo video e ricarica la pagina per tradurre i sottotitoli."
+  },
   "videoCaptionsPositionReset": {
     "message": "Reimposta posizione"
   },

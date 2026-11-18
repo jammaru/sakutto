@@ -1527,6 +1527,9 @@
   "videoCaptionsCustomHostDenied": {
     "message": "Không được cấp quyền truy cập trang đó."
   },
+  "videoCaptionsBraveShields": {
+    "message": "Brave Shields đã chặn dữ liệu phụ đề của YouTube. Tắt Shields cho video này rồi tải lại trang để dịch phụ đề."
+  },
   "videoCaptionsPositionReset": {
     "message": "Đặt lại vị trí"
   },

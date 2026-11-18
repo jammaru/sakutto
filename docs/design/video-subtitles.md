@@ -77,7 +77,11 @@ not POST InnerTube. It reads the player's live `getPlayerResponse()` in the page
 video+track (exponential backoff; never on DOM mutations), and tries `fmt=vtt` if
 `json3` is empty. If every attempt is empty, VOD falls through to the DOM caption
 path live uses, with `LiveCaptionBuffer` sentence assembly. The native caption window
-stays in the DOM so the player keeps updating it; CSS only hides it from view.
+stays in the DOM so the player keeps updating it; CSS only hides it from view. Exhausting one URL's
+three fetches does not stop player-response polling: a later response can publish a fresh `pot=`
+URL, which gets its own bounded fetch budget. An early captionless MAIN response also falls back
+to the document response instead of hiding its tracks. On Brave only, persistent empty timedtext
+with no native caption line shows a localized Shields notice rather than failing silently.
 
 **DOM source window:** YouTube may paint a spoken/ASR window and an auto-translate
 window. v1 reads one source window (spoken `lang`, then not-the-target), never
