@@ -52,6 +52,7 @@
   let checkingPermission = $state(false);
   /** A query already says granted, even if the engine snapshot has not refreshed yet. */
   let silentGranted = $state(false);
+  let settling = $state(false);
   let visible = $derived(
     sharedFolderNeedsPermission(folder) &&
       (autoSettle
@@ -62,9 +63,9 @@
 
   async function afterGrant(): Promise<void> {
     await requestModelFolderReload();
-    notifySharedFolderChanged();
     if (warm) await requestEngineWarm();
     await onRestored?.();
+    notifySharedFolderChanged();
   }
 
   async function grantAccess() {
@@ -82,21 +83,27 @@
   }
 
   async function settlePermission(): Promise<void> {
-    const permission = await queryStoredFolderPermission().catch(() => null);
-    if (permission === 'granted') {
-      silentGranted = true;
-      await afterGrant().catch(() => undefined);
-      return;
-    }
-    const readable = await probeStoredFolderReadable().catch(() => false);
-    if (readable) {
-      silentGranted = true;
-      await afterGrant().catch(() => undefined);
+    if (settling) return;
+    settling = true;
+    try {
+      const permission = await queryStoredFolderPermission().catch(() => null);
+      if (permission === 'granted') {
+        silentGranted = true;
+        await afterGrant().catch(() => undefined);
+        return;
+      }
+      const readable = await probeStoredFolderReadable().catch(() => false);
+      if (readable) {
+        silentGranted = true;
+        await afterGrant().catch(() => undefined);
+      }
+    } finally {
+      settling = false;
     }
   }
 
   function requestSettle(): void {
-    if (!sharedFolderNeedsPermission(folder) || !autoSettle) return;
+    if (!sharedFolderNeedsPermission(folder) || !autoSettle || settling) return;
     checkingPermission = true;
     void settlePermission().finally(() => {
       checkingPermission = false;
@@ -121,8 +128,12 @@
 
   onMount(() => {
     const onFolderEvent = (): void => {
+      if (!sharedFolderNeedsPermission(folder)) return;
       silentGranted = false;
       requestSettle();
+    };
+    const onSharedFolderChanged = (): void => {
+      void onRestored?.();
     };
     const onFocus = (): void => {
       requestSettle();
@@ -133,12 +144,12 @@
     const onMessage = (message: unknown): void => {
       if (isFolderStorageRefreshedMessage(message)) onFolderEvent();
     };
-    window.addEventListener(SHARED_FOLDER_CHANGED_EVENT, onFolderEvent);
+    window.addEventListener(SHARED_FOLDER_CHANGED_EVENT, onSharedFolderChanged);
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisibility);
     browser.runtime.onMessage.addListener(onMessage);
     return () => {
-      window.removeEventListener(SHARED_FOLDER_CHANGED_EVENT, onFolderEvent);
+      window.removeEventListener(SHARED_FOLDER_CHANGED_EVENT, onSharedFolderChanged);
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibility);
       browser.runtime.onMessage.removeListener(onMessage);

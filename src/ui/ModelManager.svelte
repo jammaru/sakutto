@@ -29,6 +29,7 @@
     requestEngineStatus,
     requestModelCancel,
     requestModelDelete,
+    requestModelFolderDeleteOpfs,
     requestModelDownload,
     requestModelFolderReload,
     requestModelInspect,
@@ -137,16 +138,24 @@
     busy = id;
     await ensureFolderPermissionForAction();
     const status = await requestModelUse(id);
-    if (status) apply(status);
-    activeId = id;
+    if (status) {
+      apply(status);
+      if (modelCanTranslate(status) || status.state === 'loading') activeId = id;
+    }
     busy = null;
   }
 
   async function remove(id: ModelId) {
     busy = id;
-    const status = await requestModelDelete(id);
-    if (status) apply(status);
-    await refresh();
+    if (sharedFolderStorageActive(sharedFolder)) {
+      const folder = await requestModelFolderDeleteOpfs(id);
+      if (folder) sharedFolder = folder;
+      await refresh();
+    } else {
+      const status = await requestModelDelete(id);
+      if (status) apply(status);
+      await refresh();
+    }
     busy = null;
   }
 
@@ -200,11 +209,10 @@
     {@const offerRecorded =
       shouldOfferRecordedFolderModel(sharedFolder, id, state) && activeId !== id}
     {@const deleteLabel = sharedFolderDelete ? t('modelDeleteSharedFolder') : t('modelDelete')}
+    {@const hasBrowserCopy =
+      state !== 'absent' || (sharedFolder?.opfsCopies?.includes(id) ?? false)}
     {@const showDelete =
-      state !== 'absent' ||
-      (sharedFolderDelete &&
-        canDeleteBrowserCopy(sharedFolder, id) &&
-        folderRecordsModel(sharedFolder, id))}
+      hasBrowserCopy && (!sharedFolderDelete || canDeleteBrowserCopy(sharedFolder, id))}
     <li>
       <div class="summary">
         <strong>{label(id)}</strong>

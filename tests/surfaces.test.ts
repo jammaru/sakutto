@@ -742,6 +742,8 @@ describe('shared folder activation and recovery', () => {
     expect(restore).toContain('isFolderStorageRefreshedMessage');
     expect(modelManager).toContain('shouldOfferRecordedFolderModel');
     expect(modelManager).toContain('modelDeleteSharedFolder');
+    expect(modelManager).toContain('requestModelFolderDeleteOpfs');
+    expect(modelManager).toContain('opfsCopies');
     expect(source('entrypoints/background.ts')).toContain('folder:storage-refreshed');
   });
 
