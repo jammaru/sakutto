@@ -67,7 +67,7 @@ import {
   type ShortcutQueryResult,
   type ShortcutSnapshot,
 } from '@/shared/messages';
-import { modelRemovalOutcome } from '@/shared/model-progress';
+import { modelRemovalOutcome, modelRemovalStopsTranslation } from '@/shared/model-progress';
 import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
 import type { Settings, VideoCaptionPosition } from '@/shared/settings';
 import { typedReadiness, type TypedReadiness } from '@/shared/typed-translation';
@@ -788,7 +788,13 @@ export function contentMain(): void {
           ),
         );
         let missingAfterRemoval = false;
-        if (removedActiveModel && modelRemoved) {
+        // A local server never reads the GGUF file, so deleting every in-browser model
+        // leaves its pages translating. Only the in-browser engine loses its file here.
+        if (
+          removedActiveModel &&
+          modelRemoved &&
+          modelRemovalStopsTranslation(nextSettings.engineSource)
+        ) {
           const current = await requestEngineStatus().catch(() => null);
           if (current && modelRemovalOutcome(status, current.model) === 'recovered') {
             activeModelId = current.model.id;

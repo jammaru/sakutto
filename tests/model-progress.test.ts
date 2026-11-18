@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
 import type { ModelStatus } from '@/shared/engine-status';
-import { advanceModelStatus, modelRemovalOutcome } from '@/shared/model-progress';
+import {
+  advanceModelStatus,
+  modelRemovalOutcome,
+  modelRemovalStopsTranslation,
+} from '@/shared/model-progress';
 
 function status(overrides: Partial<ModelStatus> = {}): ModelStatus {
   return {
@@ -30,6 +34,17 @@ describe('model removal recovery', () => {
         status({ id: 'plamo-3-translate-2b-q4_k_m', state: 'downloading' }),
       ),
     ).toBe('missing');
+  });
+
+  it('stops an in-browser page but never a local-server page', () => {
+    // The in-browser engine just lost the file it was reading, so its pages stop and
+    // show the missing-model notice.
+    expect(modelRemovalStopsTranslation('in-browser')).toBe(true);
+    // An older host that did not report an engine source is treated as in-browser.
+    expect(modelRemovalStopsTranslation(undefined)).toBe(true);
+    // A local server never reads the GGUF file, so deleting every in-browser model
+    // leaves its pages translating.
+    expect(modelRemovalStopsTranslation('local-server')).toBe(false);
   });
 });
 

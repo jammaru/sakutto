@@ -136,10 +136,14 @@ interface ModelDownloadStatus {
  * True only when the missing folder grant needs the reader to act. A verified OPFS copy or an
  * already-ready model can answer the load, so the page must not show a folder toast in that
  * case. This mirrors `sharedFolderAllowsModelLoad` without needing the offscreen manager.
+ *
+ * A local server never reads the model folder, so no grant state of that folder can block
+ * its pages — the same rule `translationStartBlocked` applies to start controls.
  */
 export function sharedFolderNeedsUserAction(
-  status: Pick<EngineStatus, 'model' | 'sharedFolder'> | null | undefined,
+  status: Pick<EngineStatus, 'model' | 'sharedFolder' | 'engineSource'> | null | undefined,
 ): boolean {
+  if (status?.engineSource === 'local-server') return false;
   const folder = status?.sharedFolder;
   if (!sharedFolderNeedsPermission(folder)) return false;
   const model = status?.model;
