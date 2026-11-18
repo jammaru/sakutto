@@ -7,6 +7,7 @@ import {
   VideoCaptionSession,
   X_EMPTY_TRACK_MAX_ATTEMPTS,
   X_EMPTY_TRACK_POLL_MS,
+  YOUTUBE_EMPTY_TRACK_MAX_ATTEMPTS,
 } from '@/captions/session';
 import { CAPTION_FONT_MIN_PX } from '@/captions/overlay';
 import {
@@ -2782,6 +2783,99 @@ A red train waits at platform two.
     } finally {
       proto.loadTrack = originalLoad;
       session.stop();
+      view.close();
+    }
+  });
+
+  it('stops polling a YouTube video whose player response never publishes captions', async () => {
+    const { view, doc, poll } = await youtubeTestWindow('neverpot0001', true);
+    const proto = VideoCaptionSession.prototype as unknown as {
+      loadTrack(video: HTMLVideoElement): Promise<void>;
+    };
+    const originalLoad = proto.loadTrack;
+    let loads = 0;
+    proto.loadTrack = async function loadTrack(this: VideoCaptionSession, video: HTMLVideoElement) {
+      loads += 1;
+      return originalLoad.call(this, video);
+    };
+
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readPlayerResponse: async () =>
+        youtubePlayerResponse('neverpot0001', '/youtube-timedtext.json?v=neverpot0001'),
+      readBrave: async () => false,
+      readTrack: async () => '',
+    });
+    try {
+      session.start();
+      await vi.waitFor(() => expect(loads).toBeGreaterThan(0));
+      const afterStart = loads;
+      for (let attempt = 0; attempt < YOUTUBE_EMPTY_TRACK_MAX_ATTEMPTS + 8; attempt += 1) {
+        poll.run();
+        await Promise.resolve();
+      }
+      const afterPoll = loads;
+      expect(afterPoll - afterStart).toBeGreaterThan(0);
+      expect(afterPoll - afterStart).toBeLessThanOrEqual(YOUTUBE_EMPTY_TRACK_MAX_ATTEMPTS);
+      poll.run();
+      await Promise.resolve();
+      expect(loads).toBe(afterPoll);
+    } finally {
+      proto.loadTrack = originalLoad;
+      session.stop();
+      poll.restore();
+      view.close();
+    }
+  });
+
+  it('restarts the YouTube empty-track poll budget after navigation', async () => {
+    const { view, doc, poll } = await youtubeTestWindow('navreset001', true);
+    const proto = VideoCaptionSession.prototype as unknown as {
+      loadTrack(video: HTMLVideoElement): Promise<void>;
+    };
+    const originalLoad = proto.loadTrack;
+    let loads = 0;
+    proto.loadTrack = async function loadTrack(this: VideoCaptionSession, video: HTMLVideoElement) {
+      loads += 1;
+      return originalLoad.call(this, video);
+    };
+
+    const session = new VideoCaptionSession(doc as unknown as Document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readPlayerResponse: async () =>
+        youtubePlayerResponse('navreset001', '/youtube-timedtext.json?v=navreset001'),
+      readBrave: async () => false,
+      readTrack: async () => '',
+    });
+    try {
+      session.start();
+      await vi.waitFor(() => expect(loads).toBeGreaterThan(0));
+      const afterStart = loads;
+      for (let attempt = 0; attempt < YOUTUBE_EMPTY_TRACK_MAX_ATTEMPTS + 4; attempt += 1) {
+        poll.run();
+        await Promise.resolve();
+      }
+      const exhausted = loads;
+      expect(exhausted - afterStart).toBeLessThanOrEqual(YOUTUBE_EMPTY_TRACK_MAX_ATTEMPTS);
+      poll.run();
+      await Promise.resolve();
+      expect(loads).toBe(exhausted);
+
+      doc.dispatchEvent(new view.Event('yt-navigate-finish'));
+      await vi.waitFor(() => expect(loads).toBeGreaterThan(exhausted));
+
+      const afterNavigate = loads;
+      poll.run();
+      await Promise.resolve();
+      expect(loads).toBe(afterNavigate + 1);
+    } finally {
+      proto.loadTrack = originalLoad;
+      session.stop();
+      poll.restore();
       view.close();
     }
   });

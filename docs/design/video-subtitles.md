@@ -79,7 +79,9 @@ video+track (exponential backoff; never on DOM mutations), and tries `fmt=vtt` i
 path live uses, with `LiveCaptionBuffer` sentence assembly. The native caption window
 stays in the DOM so the player keeps updating it; CSS only hides it from view. Exhausting one URL's
 three fetches does not stop player-response polling: a later response can publish a fresh `pot=`
-URL, which gets its own bounded fetch budget. An early captionless MAIN response also falls back
+URL, which gets its own bounded fetch budget. That polling is itself capped at
+`YOUTUBE_EMPTY_TRACK_MAX_ATTEMPTS` empty polls; navigation, a track change, or a cue load
+restarts it. An early captionless MAIN response also falls back
 to the document response instead of hiding its tracks. On Brave only, persistent empty timedtext
 with no native caption line shows a localized Shields notice rather than failing silently.
 

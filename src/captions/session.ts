@@ -98,6 +98,13 @@ export const X_EMPTY_TRACK_POLL_MS = 2_500;
 /** Give up polling an X video that never publishes captions. A new video resets the count. */
 export const X_EMPTY_TRACK_MAX_ATTEMPTS = 6;
 /**
+ * Give up re-reading an empty YouTube player response after this many polls.
+ * Generous relative to X because Brave can publish the `pot=` URL long after the page
+ * loaded, and the per-URL fetch guard already caps the actual timedtext GETs.
+ * Navigation, a track change, or a successful cue load restarts the budget.
+ */
+export const YOUTUBE_EMPTY_TRACK_MAX_ATTEMPTS = 24;
+/**
  * Keep the last translated line this long after its cue ends, or after a live DOM
  * caption disappears. Bridges short gaps and in-flight next-line work. Expiry
  * applies only to real silence (no current cue / no on-screen DOM caption), not
@@ -200,6 +207,7 @@ export class VideoCaptionSession {
   private placeFrame: number | null = null;
   private boundTrackList: TextTrackList | null = null;
   private emptyTrackAttempts = 0;
+  private youtubeEmptyTrackAttempts = 0;
   private placeSettleTimer: number | null = null;
   private seekPaintTimer: number | null = null;
 
@@ -300,13 +308,16 @@ export class VideoCaptionSession {
         }
         // Keep re-reading an empty YouTube player response after the old URL's fetch cap.
         // Brave can publish the pot= URL later; the guard inside loadYouTubeTrack still
-        // prevents another GET for the exhausted URL.
+        // prevents another GET for the exhausted URL. Bounded like the X path below so no
+        // browser polls forever; navigation, a track change, or a cue load restarts it.
         if (
           !this.liveMode &&
           (this.loaded?.cues.length ?? 0) === 0 &&
           (isYouTubeHost(pageHost(this.doc.defaultView?.location.href ?? '') ?? '') ||
             this.doc.getElementById('movie_player') !== null)
         ) {
+          if (this.youtubeEmptyTrackAttempts >= YOUTUBE_EMPTY_TRACK_MAX_ATTEMPTS) return;
+          this.youtubeEmptyTrackAttempts += 1;
           void this.loadTrack(this.video);
           return;
         }
@@ -501,6 +512,7 @@ export class VideoCaptionSession {
     this.passthroughNative = false;
     this.lastLayout = null;
     this.emptyTrackAttempts = 0;
+    this.youtubeEmptyTrackAttempts = 0;
     this.overlay.hide();
   }
 
@@ -514,6 +526,8 @@ export class VideoCaptionSession {
     }
     this.loadInFlight = true;
     try {
+      // A key change that skipped resetCaptionSource still restarts the YouTube poll budget.
+      if (this.loaded && this.loaded.key !== key) this.youtubeEmptyTrackAttempts = 0;
       const host = pageHost(this.doc.defaultView?.location.href ?? '') ?? '';
       const youtube = await this.loadYouTubeTrack();
       if (token !== this.sourceToken) return;
@@ -769,6 +783,8 @@ export class VideoCaptionSession {
 
   private finishLoadedTrack(loaded: LoadedTrack): void {
     this.loaded = loaded;
+    // Cues finally loaded: restart the empty-track poll budget in case the source empties again.
+    if ((loaded.cues.length ?? 0) > 0) this.youtubeEmptyTrackAttempts = 0;
     this.passthroughNative = this.sourceMatchesTarget();
     if (this.passthroughNative) this.useDomCaptions = false;
     this.applyNativeVisibility();
