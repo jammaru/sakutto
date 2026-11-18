@@ -23,12 +23,41 @@ const ADAPTER_PREFERENCES: ReadonlyArray<RequestAdapterPreference> = [
 export const ADAPTER_ATTEMPT_TIMEOUT_MS = 4000;
 /** All preferences together are bounded, so a wedged adapter cannot stall startup. */
 export const ADAPTER_OVERALL_TIMEOUT_MS = 8000;
+/**
+ * First-load bound for an adapter whose vendor is not known yet, or a vendor that is known
+ * to be slow. Radeon Vega / wave64 iGPUs can spend more than the NVIDIA fast bound just
+ * bringing the adapter up; falling back to the CPU while that call is still making headway
+ * was the v1.5.1 regression. A healthy adapter resolves immediately and never sees this.
+ */
+export const ADAPTER_FIRST_ATTEMPT_TIMEOUT_MS = 20_000;
+export const ADAPTER_FIRST_OVERALL_TIMEOUT_MS = 30_000;
 
 type RequestAdapterPreference = 'high-performance' | 'low-power' | 'default';
 
 export interface AdapterRequestTimeouts {
   attemptMs?: number;
   overallMs?: number;
+  /**
+   * Vendor seen by an earlier probe, when there is one. Unknown vendors get the generous
+   * first-load budget; NVIDIA keeps the short bound that #85 introduced.
+   */
+  vendor?: string | null;
+}
+
+export interface AdapterTimeouts {
+  attemptMs: number;
+  overallMs: number;
+}
+
+/** NVIDIA's measured fast path keeps the short deadline; everything else gets more room. */
+export function adapterTimeoutsForVendor(vendor: string | null | undefined): AdapterTimeouts {
+  if (typeof vendor === 'string' && /nvidia/i.test(vendor)) {
+    return { attemptMs: ADAPTER_ATTEMPT_TIMEOUT_MS, overallMs: ADAPTER_OVERALL_TIMEOUT_MS };
+  }
+  return {
+    attemptMs: ADAPTER_FIRST_ATTEMPT_TIMEOUT_MS,
+    overallMs: ADAPTER_FIRST_OVERALL_TIMEOUT_MS,
+  };
 }
 
 export interface NavigatorGpu {
@@ -219,8 +248,9 @@ function requestAdapterWithin(
  * Ask for a discrete GPU first. Chrome's default pick on a machine with an AMD iGPU and
  * a Radeon dGPU can miss shader-f16 (ggml-org/llama.cpp#21744).
  *
- * Each request is bounded, and the whole search stops at the overall deadline. A healthy
- * adapter resolves on the first call and pays nothing for these timers.
+ * Each request is bounded, and the whole search stops at the overall deadline. Unknown and
+ * non-NVIDIA adapters get a longer first-load budget because a slow iGPU is still progress,
+ * not a hang. A healthy adapter resolves on the first call and pays nothing for these timers.
  */
 export async function requestAdapterWithPreferences(
   gpu: NavigatorGpu,
@@ -230,8 +260,9 @@ export async function requestAdapterWithPreferences(
   let first: AdapterSnapshot | null = null;
   let firstWithF16: AdapterSnapshot | null = null;
   let error: string | null = null;
-  const attemptMs = timeouts.attemptMs ?? ADAPTER_ATTEMPT_TIMEOUT_MS;
-  const overallMs = timeouts.overallMs ?? ADAPTER_OVERALL_TIMEOUT_MS;
+  const defaults = adapterTimeoutsForVendor(timeouts.vendor);
+  const attemptMs = timeouts.attemptMs ?? defaults.attemptMs;
+  const overallMs = timeouts.overallMs ?? defaults.overallMs;
   const deadline = Date.now() + overallMs;
 
   for (const preference of ADAPTER_PREFERENCES) {

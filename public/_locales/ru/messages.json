@@ -498,6 +498,12 @@
   "runtimePlamoGpuFallback": {
     "message": "PLaMo · CPU (WebGPU не смог загрузить модель)"
   },
+  "runtimePlamoGpuFallbackOutput": {
+    "message": "PLaMo · CPU (сбой вывода WebGPU)"
+  },
+  "runtimePlamoGpuFallbackDevice": {
+    "message": "PLaMo · CPU (сбой устройства WebGPU)"
+  },
   "runtimeChrome": {
     "message": "Встроенная переводчика Chrome"
   },

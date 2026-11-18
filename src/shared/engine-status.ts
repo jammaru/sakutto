@@ -23,6 +23,9 @@ export interface ModelStatus {
 
 export type EngineSource = 'in-browser' | 'local-server';
 
+/** Which WebGPU step ended on the CPU, so the status label can name it. */
+export type GpuFallbackReason = 'load' | 'output' | 'device';
+
 export interface EngineStatus {
   model: ModelStatus;
   backend: BackendKind | null;
@@ -31,6 +34,8 @@ export interface EngineStatus {
   parallel: number | null;
   /** WebGPU was offered but the model could not be placed on it, so it runs on the CPU. */
   gpuFallback?: boolean;
+  /** Missing means an older host; treat it as a model-load fallback. */
+  gpuFallbackReason?: GpuFallbackReason;
   /** Adapter features/limits and the llama.cpp error, if WebGPU failed. Stays on the device. */
   gpuDiagnostic?: GpuDiagnostic;
   plamoReady: boolean;
@@ -59,6 +64,11 @@ const BACKENDS: ReadonlySet<string> = new Set<BackendKind>(['webgpu', 'cpu-wasm'
 const ENGINE_SOURCES: ReadonlySet<string> = new Set<EngineSource>(['in-browser', 'local-server']);
 const TIERS: ReadonlySet<string> = new Set<ComputeTier>(['g', 'c8', 'c4', 'c1']);
 const ENGINES: ReadonlySet<string> = new Set<EngineKind>(['plamo', 'chrome']);
+const GPU_FALLBACK_REASONS: ReadonlySet<string> = new Set<GpuFallbackReason>([
+  'load',
+  'output',
+  'device',
+]);
 
 export function isModelStatus(value: unknown): value is ModelStatus {
   if (typeof value !== 'object' || value === null) return false;
@@ -170,6 +180,13 @@ export function isEngineStatus(value: unknown): value is EngineStatus {
   if (record.threads !== null && typeof record.threads !== 'number') return false;
   if (record.parallel !== null && typeof record.parallel !== 'number') return false;
   if (record.gpuFallback !== undefined && typeof record.gpuFallback !== 'boolean') return false;
+  if (
+    record.gpuFallbackReason !== undefined &&
+    (typeof record.gpuFallbackReason !== 'string' ||
+      !GPU_FALLBACK_REASONS.has(record.gpuFallbackReason))
+  ) {
+    return false;
+  }
   if (record.gpuDiagnostic !== undefined && !isGpuDiagnostic(record.gpuDiagnostic)) return false;
   if (typeof record.plamoReady !== 'boolean') return false;
   if (typeof record.chromeSupported !== 'boolean') return false;

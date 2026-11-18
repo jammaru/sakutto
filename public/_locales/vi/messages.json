@@ -498,6 +498,12 @@
   "runtimePlamoGpuFallback": {
     "message": "PLaMo · CPU (WebGPU không thể tải mô hình)"
   },
+  "runtimePlamoGpuFallbackOutput": {
+    "message": "PLaMo · CPU (đầu ra WebGPU bị lỗi)"
+  },
+  "runtimePlamoGpuFallbackDevice": {
+    "message": "PLaMo · CPU (thiết bị WebGPU gặp lỗi)"
+  },
   "runtimeChrome": {
     "message": "Từ khóa dịch tích hợp sẵn của Chrome"
   },

@@ -498,6 +498,12 @@
   "runtimePlamoGpuFallback": {
     "message": "PLaMo · CPU (WebGPU가 모델을 로드할 수 없었음)"
   },
+  "runtimePlamoGpuFallbackOutput": {
+    "message": "PLaMo · CPU (WebGPU 출력이 손상됨)"
+  },
+  "runtimePlamoGpuFallbackDevice": {
+    "message": "PLaMo · CPU (WebGPU 장치 오류)"
+  },
   "runtimeChrome": {
     "message": "Chrome 내장 번역"
   },

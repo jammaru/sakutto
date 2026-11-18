@@ -1,5 +1,6 @@
 import { abortError, EngineError, isAbortError, isEngineError } from '../errors';
 import { gpuFailureExcerpt } from '@/shared/gpu-diagnostic';
+import { createProgressTimeout, type ProgressTimeout } from '@/shared/progress-timeout';
 import { TRANSLATION_STOP_TOKENS } from '../prompt/pfml3';
 import { createWllama } from '../wllama';
 import type { WllamaConfig } from '../wllama/module';
@@ -147,11 +148,18 @@ const LOAD_LOG_LINES = 2000;
 /** llama.cpp's INFO level, which is where the device and offload lines are printed. */
 const LOG_LEVEL_INFO = 2;
 
-function loadLog(): { lines: string[]; logger: Required<WllamaConfig>['logger']; stop(): void } {
+function loadLog(onLine?: () => void): {
+  lines: string[];
+  logger: Required<WllamaConfig>['logger'];
+  stop(): void;
+} {
   const lines: string[] = [];
   let open = true;
   const note = (...data: unknown[]): void => {
-    if (!open || lines.length >= LOAD_LOG_LINES) return;
+    if (!open) return;
+    // A slow iGPU can compile or upload for minutes; every llama.cpp INFO line is progress.
+    onLine?.();
+    if (lines.length >= LOAD_LOG_LINES) return;
     lines.push(data.map((value) => String(value)).join(' '));
   };
   return {
@@ -163,22 +171,44 @@ function loadLog(): { lines: string[]; logger: Required<WllamaConfig>['logger'];
   };
 }
 
-/** A GPU load that never settles must not keep the CPU fallback queued behind it. */
+/** A real stall: no llama.cpp log line for this long means the GPU path is wedged. */
 export const WEBGPU_LOAD_TIMEOUT_MS = 60_000;
+/** Absolute cap for a load that keeps logging but never finishes (slow first-time compiles). */
+export const WEBGPU_LOAD_MAX_MS = 180_000;
 
-function loadTimeoutError(timeoutMs: number): EngineError {
+function loadTimeoutError(timeoutMs: number, kind: 'stall' | 'max' = 'stall'): EngineError {
+  const seconds = String(Math.round(timeoutMs / 1000));
   return new EngineError('gpu-unavailable', 'The WebGPU model load did not finish in time.', {
-    detail: `WebGPU model load timed out after ${String(Math.round(timeoutMs / 1000))}s`,
+    detail:
+      kind === 'stall'
+        ? `WebGPU model load timed out after ${seconds}s`
+        : `WebGPU model load timed out after ${seconds}s (absolute limit)`,
   });
 }
 
-/** A CPU load has no artificial deadline; only the GPU path can wedge the browser. */
+/**
+ * A CPU load has no artificial deadline; only the GPU path can wedge the browser.
+ * When a progress timeout is supplied, loader log lines keep its stall timer alive. The
+ * absolute max still bounds a load that logs forever, so #85's hang protection remains.
+ */
 export async function loadModelWithTimeout<T>(
   load: Promise<T>,
   backend: BackendKind,
   timeoutMs = WEBGPU_LOAD_TIMEOUT_MS,
+  progress?: ProgressTimeout,
 ): Promise<T> {
-  if (backend !== 'webgpu') return load;
+  if (backend !== 'webgpu') {
+    progress?.stop();
+    return load;
+  }
+
+  if (progress) {
+    try {
+      return await Promise.race([load, progress.expired]);
+    } finally {
+      progress.stop();
+    }
+  }
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -194,8 +224,23 @@ export async function loadModelWithTimeout<T>(
 }
 
 export const createWllamaRuntime: RuntimeFactory = async (file, selection) => {
-  const log = loadLog();
-  const wllama = await createWllama({ suppressNativeLog: false, logger: log.logger });
+  const loadTimeout =
+    selection.backend === 'webgpu'
+      ? createProgressTimeout({
+          stallMs: WEBGPU_LOAD_TIMEOUT_MS,
+          maxMs: WEBGPU_LOAD_MAX_MS,
+          onTimeout: (kind) =>
+            loadTimeoutError(kind === 'stall' ? WEBGPU_LOAD_TIMEOUT_MS : WEBGPU_LOAD_MAX_MS, kind),
+        })
+      : null;
+  const log = loadLog(loadTimeout?.progress);
+  let wllama: Awaited<ReturnType<typeof createWllama>>;
+  try {
+    wllama = await createWllama({ suppressNativeLog: false, logger: log.logger });
+  } catch (error) {
+    loadTimeout?.stop();
+    throw error;
+  }
 
   lastWebGpuLines = [];
   try {
@@ -237,8 +282,11 @@ export const createWllamaRuntime: RuntimeFactory = async (file, selection) => {
         log_level: LOG_LEVEL_INFO,
       }),
       selection.backend,
+      WEBGPU_LOAD_TIMEOUT_MS,
+      loadTimeout ?? undefined,
     );
   } catch (error) {
+    loadTimeout?.stop();
     log.stop();
     lastWebGpuLines = log.lines.slice();
     await wllama.exit().catch(() => undefined);

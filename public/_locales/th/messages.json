@@ -498,6 +498,12 @@
   "runtimePlamoGpuFallback": {
     "message": "PLaMo · CPU (WebGPU ไม่สามารถโหลดโมเดลได้)"
   },
+  "runtimePlamoGpuFallbackOutput": {
+    "message": "PLaMo · CPU (WebGPU output was broken)"
+  },
+  "runtimePlamoGpuFallbackDevice": {
+    "message": "PLaMo · CPU (WebGPU device failed)"
+  },
   "runtimeChrome": {
     "message": "การแปลในตัวของ Chrome"
   },

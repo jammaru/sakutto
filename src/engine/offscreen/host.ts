@@ -5,7 +5,13 @@ import {
   scheduleRuntimeLastErrorClear,
 } from '@/shared/runtime-last-error';
 import { hasLicenseConsent } from '@/shared/agreement';
-import { lastGpuDiagnostic, probeCapabilities } from '@/shared/capabilities';
+import {
+  isHardWebGpuFailure,
+  lastGpuDiagnostic,
+  lastWebGpuAdapterInfo,
+  probeCapabilities,
+  resetCapabilityProbe,
+} from '@/shared/capabilities';
 import { mergeGpuDiagnostic, type GpuDiagnostic } from '@/shared/gpu-diagnostic';
 import {
   canonicalLanguage,
@@ -18,6 +24,7 @@ import {
   modelCanTranslate,
   type EngineSource,
   type EngineStatus,
+  type GpuFallbackReason,
   type ModelStatus,
 } from '@/shared/engine-status';
 import { advanceModelStatus } from '@/shared/model-progress';
@@ -46,7 +53,12 @@ import {
 } from '../in-browser/backend';
 import { InBrowserEngine } from '../in-browser/engine';
 import { LazyInBrowserEngine } from '../in-browser/lazy-engine';
-import { createWllamaRuntime, lastWebGpuLoadLog, type LlamaRuntime } from '../in-browser/runtime';
+import {
+  WEBGPU_LOAD_MAX_MS,
+  createWllamaRuntime,
+  lastWebGpuLoadLog,
+  type LlamaRuntime,
+} from '../in-browser/runtime';
 import { localServerConfigFromSettings, type LocalServerConfig } from '../local-server/client';
 import { LocalServerRuntime } from '../local-server/runtime';
 import { PlamoSourceEngine } from '../local-server/source';
@@ -101,7 +113,7 @@ const WARMUP_TIMEOUT_MS = 20_000;
  * Last-resort bound around one WebGPU load attempt. The runtime itself terminates a wedged
  * worker sooner; this keeps `loadWithFallback` from waiting forever if any other layer stalls.
  */
-const WEBGPU_LOAD_WATCHDOG_MS = 75_000;
+const WEBGPU_LOAD_WATCHDOG_MS = WEBGPU_LOAD_MAX_MS + 30_000;
 /**
  * Extra CPU wllama copy used to retry a collapsed WebGPU piece. About +0.6GB.
  * Kept only while a page is still translating, then dropped so a healthy GPU
@@ -252,6 +264,24 @@ function isDegenerateWarmup(error: unknown): boolean {
   return isEngineError(error) && error.detail === 'degenerate warmup';
 }
 
+function errorText(error: unknown): string {
+  if (isEngineError(error)) return `${error.detail ?? ''}\n${error.message}`;
+  return error instanceof Error ? error.message : String(error);
+}
+
+const OUTPUT_FALLBACK_PATTERN =
+  /correctness probe failed|degenerate (?:warmup|output)|collapsed|broken output|garbled|repeated (?:one )?token/iu;
+const DEVICE_FALLBACK_PATTERN =
+  /requestAdapter|Failed to get an adapter|adapter lacks shader-f16|no adapter with shader-f16|Failed to get a device|giving up on WebGPU|Error while parsing WGSL|extension 'subgroups' is not allowed|WebGPU backend disabled|gpu-lost|GPU stopped working|device lost|navigator\.gpu is missing|no GPU/iu;
+
+/** Which part of WebGPU failed, so the CPU fallback label can name it honestly. */
+export function gpuFallbackReasonForError(error: unknown): GpuFallbackReason {
+  const text = errorText(error);
+  if (OUTPUT_FALLBACK_PATTERN.test(text)) return 'output';
+  if (DEVICE_FALLBACK_PATTERN.test(text)) return 'device';
+  return 'load';
+}
+
 /**
  * Adapter/device/WGSL failures will not be fixed by asking for fewer slots; skip straight
  * to CPU so the model is not loaded and discarded twice (10–24 s on a failed GPU path).
@@ -357,6 +387,7 @@ export class EngineHost {
   private switchTask: Promise<void> = Promise.resolve();
   /** The probe offered WebGPU but the model could not be placed on it. */
   private gpuFallback = false;
+  private gpuFallbackReason: GpuFallbackReason | null = null;
   private gpuDiagnostic: GpuDiagnostic | null = null;
   private engineSource: EngineSource = 'in-browser';
   private localConfig: LocalServerConfig = localServerConfigFromSettings(null);
@@ -423,13 +454,19 @@ export class EngineHost {
     return this.servicesTask;
   }
 
-  private noteGpuError(error: unknown): void {
-    const detail = isEngineError(error)
-      ? (error.detail ?? error.message)
-      : error instanceof Error
-        ? error.message
-        : String(error);
-    this.gpuDiagnostic = mergeGpuDiagnostic(lastGpuDiagnostic(), detail, lastWebGpuLoadLog());
+  private noteGpuError(error: unknown): GpuFallbackReason {
+    const detail = errorText(error);
+    this.gpuDiagnostic = mergeGpuDiagnostic(
+      this.gpuDiagnostic ?? lastGpuDiagnostic(),
+      detail,
+      lastWebGpuLoadLog(),
+    );
+    return gpuFallbackReasonForError(error);
+  }
+
+  private markGpuFallback(reason: GpuFallbackReason): void {
+    this.gpuFallback = true;
+    this.gpuFallbackReason = reason;
   }
 
   /**
@@ -451,14 +488,8 @@ export class EngineHost {
   private async createServices(): Promise<EngineServices> {
     const capabilities = await probeCapabilities();
     this.gpuDiagnostic = mergeGpuDiagnostic(lastGpuDiagnostic(), null);
-    if (
-      capabilities.webgpu === 'unavailable' &&
-      /timed out/i.test(this.gpuDiagnostic?.error ?? '')
-    ) {
-      // The probe could not even get an adapter. Show the same CPU fallback label a failed
-      // GPU load gets instead of silently running on the CPU.
-      this.gpuFallback = true;
-    }
+    const gpuProbeTimedOut =
+      capabilities.webgpu === 'unavailable' && /timed out/i.test(this.gpuDiagnostic?.error ?? '');
     const probe = {
       webgpu: capabilities.webgpu === 'ready',
       hardwareConcurrency: capabilities.hardwareConcurrency,
@@ -472,8 +503,18 @@ export class EngineHost {
     if (stored) this.applyStoredSettings(stored);
     this.storedModelId = stored ? normalizeSelectedModelId(stored.selectedModelId) : null;
     const tier = stored?.tier ?? this.runtimePrefs?.tier ?? 'auto';
+    if (gpuProbeTimedOut && (tier === 'auto' || tier === 'g')) {
+      // The probe could not get an adapter before the GPU load. Show why Auto is on the CPU
+      // instead of silently doing that; a manual CPU tier is not a WebGPU fallback.
+      this.markGpuFallback(gpuFallbackReasonForError(this.gpuDiagnostic?.error ?? ''));
+    }
     const selection = selectionForTier(tier, probe);
     const selectionState = { current: selection };
+    // A soft negative probe (empty iframe, transient timeout) must not stay cached through
+    // the first GPU load. Hard failures (no navigator.gpu, confirmed no f16) stay cached.
+    const firstProbeCanRetry = !isHardWebGpuFailure(lastWebGpuAdapterInfo());
+    const autoOrGpu = tier === 'auto' || tier === 'g';
+    let probeResetForLoad = false;
     const store = await OpfsModelFileStore.open();
     const manager = new ModelManager({
       store,
@@ -498,11 +539,25 @@ export class EngineHost {
       ) {
         throw folderPermissionError();
       }
+      if (
+        !probeResetForLoad &&
+        autoOrGpu &&
+        selectionState.current.backend === 'webgpu' &&
+        firstProbeCanRetry
+      ) {
+        // Keep the diagnostic captured above, but let a later capability read see the
+        // adapter again instead of reusing a stale soft probe result.
+        resetCapabilityProbe();
+        probeResetForLoad = true;
+      }
+      let lastGpuFailureReason: GpuFallbackReason = 'load';
       const result = await loadWithFallback(
         async (selection) => {
           // Mark the fallback before the CPU load publishes `loaded`, so status already
-          // says "WebGPU could not load the model" when the popup refreshes.
-          if (isGpuLoadFallback(selectionState.current, selection)) this.gpuFallback = true;
+          // says why WebGPU was not used when the popup refreshes.
+          if (isGpuLoadFallback(selectionState.current, selection)) {
+            this.markGpuFallback(lastGpuFailureReason);
+          }
           try {
             // Warm-up is not run here. A Hello. completion before the first page
             // changed parallel-slot batching and later greedy decoding (garbled
@@ -514,7 +569,7 @@ export class EngineHost {
               await this.folderSession?.apply().catch(() => undefined);
               throw folderPermissionError();
             }
-            this.noteGpuError(error);
+            lastGpuFailureReason = this.noteGpuError(error);
             throw error;
           }
         },
@@ -522,7 +577,7 @@ export class EngineHost {
         signal,
       );
       if (isGpuLoadFallback(selectionState.current, result.selection)) {
-        this.gpuFallback = true;
+        this.markGpuFallback(lastGpuFailureReason);
       }
       selectionState.current = result.selection;
       this.gpuDiagnostic = mergeGpuDiagnostic(
@@ -551,7 +606,9 @@ export class EngineHost {
       if (reason === 'degenerate') {
         const next = cpuFallback(selectionState.current);
         if (next && next !== selectionState.current) {
-          if (isGpuLoadFallback(selectionState.current, next)) this.gpuFallback = true;
+          if (isGpuLoadFallback(selectionState.current, next)) {
+            this.markGpuFallback('output');
+          }
           selectionState.current = next;
         }
         this.gpuDiagnostic = mergeGpuDiagnostic(
@@ -568,7 +625,7 @@ export class EngineHost {
       lastGpuLossAt = now;
       if (next !== selectionState.current) {
         if (isGpuLoadFallback(selectionState.current, next)) {
-          this.gpuFallback = true;
+          this.markGpuFallback('device');
         }
         selectionState.current = next;
       }
@@ -623,6 +680,7 @@ export class EngineHost {
       setTier: async (tier: TierPreference) => {
         selectionState.current = selectionForTier(tier, probe);
         this.gpuFallback = false;
+        this.gpuFallbackReason = null;
         this.gpuDiagnostic = mergeGpuDiagnostic(lastGpuDiagnostic(), null);
         lazy.reset();
         await disposeCpuRetry();
@@ -1018,6 +1076,9 @@ export class EngineHost {
       threads: local ? 1 : selection.nThreads,
       parallel: local ? this.localConfig.parallel : selection.nParallel,
       gpuFallback: this.gpuFallback && selection.backend === 'cpu-wasm',
+      ...(this.gpuFallback
+        ? { gpuFallbackReason: this.gpuFallbackReason ?? ('load' as const) }
+        : {}),
       ...(this.gpuDiagnostic ? { gpuDiagnostic: this.gpuDiagnostic } : {}),
       plamoReady: local ? true : this.plamoReady,
       chromeSupported: services.chrome.available,

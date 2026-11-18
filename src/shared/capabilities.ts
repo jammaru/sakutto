@@ -6,7 +6,7 @@ import {
 } from './gpu-diagnostic';
 import { isRecord } from './object';
 import {
-  ADAPTER_OVERALL_TIMEOUT_MS,
+  ADAPTER_FIRST_OVERALL_TIMEOUT_MS,
   infoFromAdapter,
   requestAdapterWithPreferences,
   supportsFastBatches,
@@ -59,15 +59,20 @@ const ADAPTER_NOISE = /no available adapters/i;
  */
 const GPU_PROBE_FILE = 'gpu-probe.js';
 const GPU_PROBE_SOURCE = 'sakutto-gpu-probe';
-/** The iframe gets this long before the probe tries the page's own `navigator.gpu`. */
-const GPU_PROBE_TIMEOUT_MS = 4000;
+/**
+ * The iframe gets this long before the probe tries the page's own `navigator.gpu`. It is
+ * longer than the old 4 s because a slow iGPU can still be bringing the adapter up; the
+ * same-page attempts after it still fit inside the overall bound.
+ */
+const GPU_PROBE_TIMEOUT_MS = 12_000;
 /** Frame plus same-page adapter attempts stay inside this bound. */
-const GPU_PROBE_TOTAL_TIMEOUT_MS = ADAPTER_OVERALL_TIMEOUT_MS;
+const GPU_PROBE_TOTAL_TIMEOUT_MS = ADAPTER_FIRST_OVERALL_TIMEOUT_MS;
 
 let adapterNoiseInstalled = false;
 let probeTask: Promise<EngineCapabilities> | null = null;
 let adapterTask: Promise<WebGpuAdapterInfo> | null = null;
 let lastAdapterInfo: WebGpuAdapterInfo | null = null;
+let lastAdapterVendor: string | null = null;
 
 export function lastWebGpuAdapterInfo(): WebGpuAdapterInfo | null {
   return lastAdapterInfo;
@@ -81,6 +86,40 @@ export function resetCapabilityProbe(): void {
   probeTask = null;
   adapterTask = null;
   lastAdapterInfo = null;
+  lastAdapterVendor = null;
+}
+
+/**
+ * A timeout or an empty negative answer is evidence that the adapter was not ready yet, not
+ * that this machine has no WebGPU. Keep the diagnostic, but let the next probe try again.
+ * A missing `navigator.gpu`, a confirmed adapter without shader-f16, or a thrown/unsupported
+ * error is a hard answer and stays cached.
+ */
+export function isHardWebGpuFailure(info: WebGpuAdapterInfo | null): boolean {
+  if (!info) return false;
+  if (info.present) return info.diagnostic.shaderF16 === false;
+  const error = info.diagnostic.error?.trim() ?? '';
+  return error.length > 0 && !/timed out/i.test(error);
+}
+
+function isRetryableAdapterUnavailable(info: WebGpuAdapterInfo | null): boolean {
+  return info?.present === false && !isHardWebGpuFailure(info);
+}
+
+/** The quiet frame may only short-circuit the direct path with a usable f16 adapter. */
+function isPositiveWebGpuOffer(info: WebGpuAdapterInfo | null): info is WebGpuAdapterInfo {
+  return info?.present === true && info.diagnostic.shaderF16 === true;
+}
+
+function rememberAdapterInfo(info: WebGpuAdapterInfo): WebGpuAdapterInfo {
+  lastAdapterInfo = info;
+  if (info.diagnostic.vendor) lastAdapterVendor = info.diagnostic.vendor;
+  return info;
+}
+
+function cachedAdapterInfo(info: WebGpuAdapterInfo): WebGpuAdapterInfo {
+  lastAdapterInfo = info;
+  return info;
 }
 
 function isAdapterNoise(values: readonly unknown[]): boolean {
@@ -165,32 +204,32 @@ async function requestWebGpuAdapter(): Promise<WebGpuAdapterInfo> {
   await loadWebGpuDebugProfileFromStorage();
   const gpu = (navigator as NavigatorWithGpu).gpu;
   if (!gpu) {
-    lastAdapterInfo = infoFromAdapter(null, false, { error: 'navigator.gpu is missing' });
-    lastAdapterInfo.present = false;
-    return lastAdapterInfo;
+    const info = infoFromAdapter(null, false, { error: 'navigator.gpu is missing' });
+    info.present = false;
+    return cachedAdapterInfo(info);
   }
   installAdapterNoiseFilter();
   if (extensionPage()) {
     const quiet = await requestAdapterInQuietFrame();
-    if (quiet) {
-      lastAdapterInfo = quiet;
-      return quiet;
-    }
+    // A quiet empty/rejected/timeout answer is only evidence that this frame could not get
+    // the adapter now. Returning it here skipped the retrying same-page search entirely and
+    // left Auto on the CPU for the rest of the session (the Radeon Vega regression).
+    if (isPositiveWebGpuOffer(quiet)) return rememberAdapterInfo(quiet);
   }
   try {
     const remaining = Math.max(1, GPU_PROBE_TOTAL_TIMEOUT_MS - (Date.now() - startedAt));
     const { adapter, attempts, error } = await requestAdapterWithPreferences(gpu, {
       overallMs: remaining,
+      vendor: lastAdapterVendor,
     });
-    const info = infoFromAdapter(adapter, wgslDotProduct(gpu), { attempts, error });
-    lastAdapterInfo = info;
-    return info;
+    return rememberAdapterInfo(infoFromAdapter(adapter, wgslDotProduct(gpu), { attempts, error }));
   } catch (error) {
     if (isAdapterNoise([error])) {
-      lastAdapterInfo = infoFromAdapter(null, false, {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return lastAdapterInfo;
+      return cachedAdapterInfo(
+        infoFromAdapter(null, false, {
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
     }
     throw error;
   }
@@ -265,21 +304,43 @@ async function probeWebGpu(): Promise<WebGpuStatus> {
 }
 
 export function probeCapabilities(): Promise<EngineCapabilities> {
-  if (!probeTask) {
-    probeTask = Promise.resolve()
-      .then(async () => ({
-        crossOriginIsolated: globalThis.crossOriginIsolated === true,
-        webgpu: await probeWebGpu(),
-        hardwareConcurrency: navigator.hardwareConcurrency,
-        gpuFastBatches: await probeWebGpuAdapter().then(
-          (info) => info.fastBatches,
-          () => false,
-        ),
-      }))
-      .catch((error: unknown) => {
+  if (probeTask) return probeTask;
+
+  const task: Promise<EngineCapabilities> = Promise.resolve()
+    .then(async () => ({
+      crossOriginIsolated: globalThis.crossOriginIsolated === true,
+      webgpu: await probeWebGpu(),
+      hardwareConcurrency: navigator.hardwareConcurrency,
+      gpuFastBatches: await probeWebGpuAdapter().then(
+        (info) => info.fastBatches,
+        () => false,
+      ),
+    }))
+    .catch((error: unknown) => {
+      if (probeTask === task) probeTask = null;
+      throw error;
+    });
+  probeTask = task;
+
+  void task.then(
+    (capabilities) => {
+      if (probeTask !== task) return;
+      if (
+        capabilities.webgpu !== 'unavailable' ||
+        !isRetryableAdapterUnavailable(lastAdapterInfo)
+      ) {
+        return;
+      }
+      // Clear after this result's callers have read the diagnostic. `resetCapabilityProbe()`
+      // remains available for an explicit retry before then.
+      queueMicrotask(() => {
+        if (probeTask !== task) return;
         probeTask = null;
-        throw error;
+        adapterTask = null;
       });
-  }
-  return probeTask;
+    },
+    () => undefined,
+  );
+
+  return task;
 }

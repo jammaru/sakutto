@@ -13,6 +13,7 @@ import {
   EngineHost,
   RETRY_RUNTIME_IDLE_MS,
   canReuseLoadedRuntimeForRetry,
+  gpuFallbackReasonForError,
   loadWithFallback,
   modelStatusForSharedFolder,
   sharedFolderAllowsModelLoad,
@@ -1018,6 +1019,37 @@ describe('EngineHost', () => {
     )[0]?.[1];
     expect(warmOptions?.tgt).toBe('ja');
     expect(warmOptions?.glossary).toEqual([{ source: 'Runner', target: 'ランナー' }]);
+  });
+});
+
+describe('GPU fallback reasons', () => {
+  it('names the step that failed instead of blaming every failure on the model load', () => {
+    expect(
+      gpuFallbackReasonForError(
+        new EngineError('gpu-unavailable', 'The GPU stopped working.', {
+          detail: 'ggml_webgpu: Failed to get a device after retries',
+        }),
+      ),
+    ).toBe('device');
+    expect(
+      gpuFallbackReasonForError(
+        new EngineError('gpu-unavailable', 'no GPU', {
+          detail: 'ggml_webgpu: correctness probe failed; WebGPU backend disabled',
+        }),
+      ),
+    ).toBe('output');
+    expect(
+      gpuFallbackReasonForError(
+        new EngineError('gpu-unavailable', 'The WebGPU model load did not finish in time.', {
+          detail: 'WebGPU model load timed out after 60s without progress',
+        }),
+      ),
+    ).toBe('load');
+    expect(
+      gpuFallbackReasonForError(
+        new EngineError('gpu-unavailable', 'The WebGPU model load did not finish in time.'),
+      ),
+    ).toBe('load');
   });
 });
 

@@ -10,6 +10,12 @@ export interface RuntimeLabel {
   substitutions?: string[];
 }
 
+function gpuFallbackLabel(reason: EngineStatus['gpuFallbackReason']): MessageKey {
+  if (reason === 'output') return 'runtimePlamoGpuFallbackOutput';
+  if (reason === 'device') return 'runtimePlamoGpuFallbackDevice';
+  return 'runtimePlamoGpuFallback';
+}
+
 export function runtimeLabel(input: {
   status: EngineStatus | null;
   pageSimple: boolean;
@@ -49,7 +55,12 @@ export function runtimeLabel(input: {
   // loads it. Do not let a stale `plamoReady` flag keep the popup on "waiting".
   if (status.plamoReady || modelCanTranslate(status.model)) {
     if (status.backend === 'webgpu') return { key: 'runtimePlamoGpu' };
-    return { key: status.gpuFallback === true ? 'runtimePlamoGpuFallback' : 'runtimePlamoCpu' };
+    return {
+      key:
+        status.gpuFallback === true
+          ? gpuFallbackLabel(status.gpuFallbackReason)
+          : 'runtimePlamoCpu',
+    };
   }
 
   // A missing folder grant has its own restore card. Do not also say the model

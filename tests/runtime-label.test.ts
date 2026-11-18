@@ -87,11 +87,40 @@ describe('runtime label', () => {
     ).toBe('runtimePlamoCpu');
     expect(
       runtimeLabel({
-        status: status({ backend: 'cpu-wasm', tier: 'c8', gpuFallback: true }),
+        status: status({
+          backend: 'cpu-wasm',
+          tier: 'c8',
+          gpuFallback: true,
+          gpuFallbackReason: 'load',
+        }),
         pageSimple: false,
         targetLanguage: 'ja',
       }).key,
     ).toBe('runtimePlamoGpuFallback');
+    expect(
+      runtimeLabel({
+        status: status({
+          backend: 'cpu-wasm',
+          tier: 'c8',
+          gpuFallback: true,
+          gpuFallbackReason: 'output',
+        }),
+        pageSimple: false,
+        targetLanguage: 'ja',
+      }).key,
+    ).toBe('runtimePlamoGpuFallbackOutput');
+    expect(
+      runtimeLabel({
+        status: status({
+          backend: 'cpu-wasm',
+          tier: 'c8',
+          gpuFallback: true,
+          gpuFallbackReason: 'device',
+        }),
+        pageSimple: false,
+        targetLanguage: 'ja',
+      }).key,
+    ).toBe('runtimePlamoGpuFallbackDevice');
     expect(runtimeLabel({ status: status(), pageSimple: true, targetLanguage: 'ja' }).key).toBe(
       'runtimeChrome',
     );

@@ -154,6 +154,7 @@ describe('message validation', () => {
         chromeSupported: true,
         active: 'chrome',
         gpuFallback: true,
+        gpuFallbackReason: 'output',
         gpuDiagnostic: {
           vendor: 'amd',
           architecture: 'rdna3',
@@ -175,6 +176,34 @@ describe('message validation', () => {
         },
       }),
     ).toBe(true);
+    expect(
+      isEngineStatus({
+        model: modelStatus,
+        backend: 'cpu-wasm',
+        tier: 'c8',
+        threads: 8,
+        parallel: 1,
+        plamoReady: false,
+        chromeSupported: true,
+        active: null,
+        gpuFallback: true,
+        gpuFallbackReason: 'device',
+      }),
+    ).toBe(true);
+    expect(
+      isEngineStatus({
+        model: modelStatus,
+        backend: 'cpu-wasm',
+        tier: 'c8',
+        threads: 8,
+        parallel: 1,
+        plamoReady: false,
+        chromeSupported: true,
+        active: null,
+        gpuFallback: true,
+        gpuFallbackReason: 'unknown',
+      }),
+    ).toBe(false);
     expect(
       isEngineStatus({
         model: modelStatus,

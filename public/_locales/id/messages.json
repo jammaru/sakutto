@@ -498,6 +498,12 @@
   "runtimePlamoGpuFallback": {
     "message": "PLaMo · CPU (WebGPU tidak dapat memuat model)"
   },
+  "runtimePlamoGpuFallbackOutput": {
+    "message": "PLaMo · CPU (output WebGPU rusak)"
+  },
+  "runtimePlamoGpuFallbackDevice": {
+    "message": "PLaMo · CPU (perangkat WebGPU gagal)"
+  },
   "runtimeChrome": {
     "message": "Terjemahan bawaan Chrome"
   },

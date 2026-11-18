@@ -498,6 +498,12 @@
   "runtimePlamoGpuFallback": {
     "message": "PLaMo · CPU（WebGPU でモデルを読み込めませんでした）"
   },
+  "runtimePlamoGpuFallbackOutput": {
+    "message": "PLaMo · CPU（WebGPU の出力が壊れていました）"
+  },
+  "runtimePlamoGpuFallbackDevice": {
+    "message": "PLaMo · CPU（WebGPU デバイスでエラーが発生しました）"
+  },
   "runtimeChrome": {
     "message": "Chrome 内蔵の翻訳"
   },

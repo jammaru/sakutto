@@ -498,6 +498,12 @@
   "runtimePlamoGpuFallback": {
     "message": "PLaMo · CPU (WebGPU 无法加载模型)"
   },
+  "runtimePlamoGpuFallbackOutput": {
+    "message": "PLaMo · CPU（WebGPU 输出异常）"
+  },
+  "runtimePlamoGpuFallbackDevice": {
+    "message": "PLaMo · CPU（WebGPU 设备故障）"
+  },
   "runtimeChrome": {
     "message": "Chrome 内置的翻译"
   },
