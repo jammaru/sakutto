@@ -2,14 +2,6 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
-## [1.7.1] - 2026-11-18
-
-### Bug Fixes
-
-- On Chromium browsers such as Edge, the Settings model-storage radio now stays on the shared folder after you reopen the page, even when the browser reports that folder permission still needs a prompt. (#123)
-- Browsers without the File System Access API (for example Brave with the feature disabled) now show a short explanation under Model storage instead of hiding the section. Brave users see how to enable `brave://flags/#file-system-access-api`. When the picker API is available, shared-folder storage works like Chrome. (#123)
-- Folder permission copy now matches Edge’s dialog: choose “Ask every time I access” / 「アクセスするたびに確認する」 (despite the name, that choice persists across restarts), not the nonexistent “Always allow” / 「常に許可」 label. (#123)
-
 ## [1.7.0] - 2026-11-18
 
 ### Features

@@ -764,10 +764,10 @@
     "message": "Allow folder access"
   },
   "modelFolderPermissionPage": {
-    "message": "Sakutto opens a grant tab. In Edge, choose “Ask every time I access” (despite the name, no later prompts); in Chrome, choose “Allow on every visit”."
+    "message": "Sakutto opens a grant tab. In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts); in Chrome, choose “Allow on every visit”."
   },
   "modelFolderPersistentHint": {
-    "message": "當瀏覽器詢問時，請在 Chrome 中選擇「每次造訪都允許」，在 Edge 中選擇“Ask every time I access”（日文 Chrome：「サイトアクセス時は常に許可」，日文 Edge：「アクセスするたびに確認する」; despite the name, no later prompts）。重新啟動後就不需要再點擊。"
+    "message": "當瀏覽器詢問時，請在 Chrome 中選擇「每次造訪都允許」，在 Edge 中選擇“Ask every time I access”（日文 Chrome：「サイトアクセス時は常に許可」，日文 Edge：「アクセスするたびに確認する」; equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts）。重新啟動後就不需要再點擊。"
   },
   "modelFolderPickFailed": {
     "message": "The folder could not be selected."
@@ -784,7 +784,7 @@
     "message": "Keep folder access after restart"
   },
   "modelFolderEnableTabBody": {
-    "message": "In Edge, choose “Ask every time I access”. In Chrome, choose “Allow on every visit” (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「アクセスするたびに確認する」; despite the name, no later prompts). Either persistent choice keeps this folder allowed after restarts with no extra clicks."
+    "message": "In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). In Chrome, choose “Allow on every visit” (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「アクセスするたびに確認する」). Either persistent choice keeps this folder allowed after restarts with no extra clicks."
   },
   "modelFolderEnableTabHint": {
     "message": "A this-time-only choice lasts only until a restart. Return here to grant access again. Translation still works from the browser copy."

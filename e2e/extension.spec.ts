@@ -68,6 +68,9 @@ test.describe('built extension', () => {
           ).toBeVisible();
           await expect(page.getByText('Restarts then need no extra clicks')).toBeVisible();
           await expect(page.getByText('“Ask every time I access” in Edge')).toBeVisible();
+          await expect(
+            page.getByText('equivalent to Chrome’s “Allow on every visit”'),
+          ).toBeVisible();
           await expect(page.getByText('despite the name, no later prompts')).toBeVisible();
           await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
           await expect(
@@ -223,7 +226,9 @@ test.describe('built extension', () => {
           await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
           await expect(page.getByText('Edgeでは「アクセスするたびに確認する」')).toBeVisible();
           await expect(
-            page.getByText('（名前と違って、これを選ぶと次からは確認されません）'),
+            page.getByText(
+              '（Chromeの「サイトアクセス時は常に許可」にあたる項目で、名前と違って次から確認されません）',
+            ),
           ).toBeVisible();
           await radios.nth(0).check();
           await expect(
