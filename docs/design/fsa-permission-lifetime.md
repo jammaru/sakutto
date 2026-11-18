@@ -3,9 +3,9 @@
 This note answers how long a `FileSystemDirectoryHandle` grant lasts for a
 `chrome-extension://` origin, whether Chrome 122+ persistent permissions help,
 and whether the offscreen engine can keep reading after the picker page closes.
-The product flow is **B + C**: first grant from a real extension tab (so Chrome
-can offer “Allow on every visit”), then a one-click restore whenever the grant
-is not active. A verified folder copy replaces the browser copy only after the
+The product flow is **B + C**: first grant from a real extension tab (so Chromium
+can offer its persistent choice), then a one-click restore whenever the grant is
+not active. A verified folder copy replaces the browser copy only after the
 copy verifies; a no-click restart is still not something Sakutto can promise,
 because the UI detects the live grant and never claims persistence.
 
@@ -93,9 +93,10 @@ A Chrome extension is not a PWA. Installing the extension does **not** take
 the “installed app, persist automatically” path from
 [Persistent permissions for the File System Access API](https://developer.chrome.com/blog/persistent-permissions-for-the-file-system-access-api).
 
-The `ALLOW` content setting is set when the user picks **Allow on every visit**
-on the restore prompt (`OnRestorePermissionAllowedEveryTime`), or from the
-site’s File System Access page-info UI.
+The `ALLOW` content setting is set when the user picks the persistent restore
+choice (**Allow on every visit** in Chrome or **Ask every time I access** in
+Edge), or from the site’s File System Access page-info UI. Chromium records the
+choice as `OnRestorePermissionAllowedEveryTime`.
 
 That restore prompt is **not** shown from a popup, side panel, or offscreen
 document. `FileSystemAccessPermissionRequestManager::FromWebContents` looks up
@@ -116,11 +117,11 @@ if (origin.scheme() == "chrome-extension") {
 
 So:
 
-| Surface                      | Restore prompt (“Allow on every visit”)                                      | After popup/tab closes           | After restart, no click                                                            |
-| ---------------------------- | ---------------------------------------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------- |
-| Popup / side panel           | Never. Auto-grant for this visit only.                                       | Active grant revoked.            | `queryPermission` is `prompt`.                                                     |
-| Options / onboarding **tab** | Yes, on a later visit, if grants are dormant and `requestPermission()` runs. | Same revocation unless extended. | Auto-grant from offscreen only if the user already chose **Allow on every visit**. |
-| Offscreen                    | Cannot prompt.                                                               | Does not keep the origin alive.  | Cannot call `requestPermission` (below).                                           |
+| Surface                      | Persistent restore choice                                                    | After popup/tab closes           | After restart, no click                                                         |
+| ---------------------------- | ---------------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------- |
+| Popup / side panel           | Never. Auto-grant for this visit only.                                       | Active grant revoked.            | `queryPermission` is `prompt`.                                                  |
+| Options / onboarding **tab** | Yes, on a later visit, if grants are dormant and `requestPermission()` runs. | Same revocation unless extended. | Auto-grant from offscreen only if the user already chose the persistent option. |
+| Offscreen                    | Cannot prompt.                                                               | Does not keep the origin alive.  | Cannot call `requestPermission` (below).                                        |
 
 `IsEligibleToUpgradePermissionRequestToRestorePrompt` excludes Chrome Apps
 (`is_platform_app()`), not MV3 extensions. A **tab** can therefore show the
@@ -151,7 +152,7 @@ auto-grant path runs.
 **After restart, with extended permission:** yes, in principle. Offscreen can
 open the IndexedDB handle; `CanAutoGrantViaPersistentPermission` upgrades the
 grant without a gesture. That state is only reached if the user previously
-chose **Allow on every visit** from a **tab**. Sakutto cannot set that content
+chose the persistent option from a **tab**. Sakutto cannot set that content
 setting itself.
 
 ## 4. Why the OPFS copy is moved, not retained
@@ -166,8 +167,8 @@ copy verifies, its OPFS copy is deleted. If verification fails, OPFS is kept
 and Settings reports the failure. Switching back to browser storage copies
 verified folder models into OPFS and never deletes the files in the user's
 folder, because another profile may still use them. We still do not claim
-that the folder permission is persistent: Chrome exposes no API that tells an
-extension whether the user chose **Allow on every visit**.
+that the folder permission is persistent: Chromium exposes no API that tells an
+extension whether the user chose the persistent option.
 
 ## 5. Chosen flow: B + C, with browser storage as a one-click alternative
 
@@ -200,9 +201,9 @@ active grant, offscreen can read the same handle. The engine tries to open
 the stored handle even when `queryPermission` is `prompt`. There is no hidden
 always-open document.
 
-| After last tab/popup closes                                                         | After restart, no click                                                     | After one restore click                                                |
-| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Fails unless a tab is still open or the model is already loaded in offscreen memory | Works only if the user previously chose **Allow on every visit** from a tab | Popup auto-grants this visit; Settings tab can show the restore prompt |
+| After last tab/popup closes                                                         | After restart, no click                                                  | After one restore click                                                |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| Fails unless a tab is still open or the model is already loaded in offscreen memory | Works only if the user previously chose the persistent option from a tab | Popup auto-grants this visit; Settings tab can show the restore prompt |
 
 ## 6. What to retest on a real PC
 
@@ -229,11 +230,12 @@ handles). Use a real GGUF (not the e2e sparse plant).
    `sakutto/models` copy must be gone (the storage choice is a move). Then the
    same close/restart checks as (1).
 3. **Edge.** Repeat (1) from a **Settings tab**, not the popup. If Edge
-   shows the three-way prompt, pick **Allow on every visit** in English or
-   「常に許可」 in Japanese Edge. Japanese Chrome labels the same choice
-   「サイトアクセス時は常に許可」. If Edge does not offer it, or it does
-   not persist, the popup must show 「フォルダへのアクセスを許可」 after
-   restart (no download card). One click is enough for that visit. Switching
+   shows the three-way prompt, pick **Ask every time I access** in English or
+   「アクセスするたびに確認する」 in Japanese Edge. The Japanese options are
+   「この時間を許可する」 / 「アクセスするたびに確認する」 / 「許可しない」.
+   Japanese Chrome labels the persistent choice 「サイトアクセス時は常に許可」.
+   If Edge does not offer it, or it does not persist, the popup must show
+   「フォルダへのアクセスを許可」 after restart (no download card). One click is enough for that visit. Switching
    to browser storage copies the verified folder files into OPFS first. See §8.
 
 4. **Second Chrome profile.** Profile A has a persistent grant on
@@ -294,12 +296,14 @@ Edge feature page:
 The flag `kFileSystemAccessPersistentPermissions` is
 **enabled by default** in Chromium
 ([`file_system_access_features.cc`](https://chromium.googlesource.com/chromium/src/+/5f26a56181d7bb9e2ead30b4cdd9d12b6e7ac58a/chrome/browser/file_system_access/file_system_access_features.cc)).
-A Chromium Edge **extension** did get “Allow on every visit” in 122+:
+A Chromium Edge **extension** can persist folder access in 122+:
 [Kiwix JS, r/Kiwix, 2024-03-03](https://www.reddit.com/r/Kiwix/comments/1b5n2qc/new_you_can_now_automatically_reopen_a_zim_in_the/)
 (author: works in Chrome, Edge, Brave > 122 if the user picks that option;
-often on the second or third restore). Electron’s tracker treats
-“Chrome/Edge 122+” as the browsers where persisted handles need no
-gesture: [electron#41957](https://github.com/electron/electron/issues/41957).
+often on the second or third restore). Current Windows Edge labels the
+persistent middle choice **Ask every time I access** (Japanese:
+「アクセスするたびに確認する」), not **Allow on every visit** as in Chrome.
+Electron’s tracker treats “Chrome/Edge 122+” as the browsers where persisted
+handles need no gesture: [electron#41957](https://github.com/electron/electron/issues/41957).
 
 **Ordinary user, realistically**
 
@@ -308,10 +312,11 @@ gesture: [electron#41957](https://github.com/electron/electron/issues/41957).
    `chrome-extension://` without the three-way prompt (same as Chrome;
    `FileSystemAccessPermissionRequestManager` needs
    `tabs::TabInterface`). A popup click is this-visit only.
-2. If Edge shows **Allow on every visit**, pick it (Japanese Edge:
-   「常に許可」). Japanese Chrome’s matching prompt is
-   「今回のみ許可」 / 「サイトアクセス時は常に許可」 / 「許可しない」.
-   That sets
+2. If Edge shows the three-way prompt, pick **Ask every time I access**
+   (Japanese Edge: 「アクセスするたびに確認する」). The Japanese options are
+   「この時間を許可する」 / 「アクセスするたびに確認する」 / 「許可しない」.
+   Japanese Chrome’s matching prompt is
+   「今回のみ許可」 / 「サイトアクセス時は常に許可」 / 「許可しない」. That sets
    `FILE_SYSTEM_ACCESS_EXTENDED_PERMISSION` ALLOW. After restart,
    offscreen can auto-grant with no click. This is the only no-click
    restart path. It does not always appear (same as Chrome).
@@ -346,9 +351,10 @@ First-run on Chrome and Edge preselects the shared folder
 remains one click away. Firefox and pages without the picker keep OPFS. The
 folder gives people who use both browsers one GGUF, and existing folder
 users keep it; there is no forced migration. Grant from a Settings tab
-and pick **Allow on every visit**. Japanese Chrome labels it
-「サイトアクセス時は常に許可」; Japanese Edge labels it 「常に許可」 when
-the prompt is offered. Edge 122+ can persist if that tab prompt appears.
+and pick **Allow on every visit** in Chrome or **Ask every time I access** in
+Edge. Japanese Chrome labels the persistent choice 「サイトアクセス時は常に許可」;
+Japanese Edge labels it 「アクセスするたびに確認する」. Edge 122+ can persist
+when that tab prompt appears.
 After restart Sakutto uses the folder while its grant is active, or shows the
 one-click restore control when it is not. Browser storage can be selected
 instead, which copies verified folder files into OPFS first. A re-grant may

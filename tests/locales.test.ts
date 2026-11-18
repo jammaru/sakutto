@@ -287,6 +287,11 @@ describe('locale messages', () => {
       'The model is already in the folder. Allow access to use it.',
     );
     expect(ja.modelFolderPermissionPage?.message).toContain('サイトアクセス時は常に許可');
+    expect(ja.modelFolderPermissionPage?.message).toContain('アクセスするたびに確認する');
+    expect(en.modelFolderPermissionPage?.message).toContain('Ask every time I access');
+    expect(en.modelFolderEnableTabBody?.message).toContain('Ask every time I access');
+    expect(ja.modelFolderEnableTabBody?.message).toContain('アクセスするたびに確認する');
+    expect(ja.modelFolderEnableTabHint?.message).toContain('この時間を許可する');
     expect(en.modelFolderPersistentHint?.message).toMatch(/no extra clicks/i);
     expect(en.modelFolderPersistentHint?.message).toMatch(/when the browser asks/i);
     expect(en.modelFolderPersistentHint?.message).not.toMatch(
@@ -297,17 +302,20 @@ describe('locale messages', () => {
     expect(ja.modelFolderPersistentHint?.message).not.toContain('出ないこともあります');
     expect(en.modelFolderPersistentHint?.message).not.toMatch(/may help|may not appear/i);
     expect(en.modelFolderPersistentHint?.message).toContain('サイトアクセス時は常に許可');
-    expect(en.modelFolderPersistentHint?.message).toContain('常に許可');
-    expect(en.modelFolderPersistentHint?.message).not.toContain('アクセスするたびに確認する');
+    expect(en.modelFolderPersistentHint?.message).toContain('アクセスするたびに確認する');
+    expect(en.modelFolderPersistentHint?.message).not.toContain('Japanese Edge: 「常に許可」');
     expect(ja.modelFolderPersistentHint?.message).toContain('サイトアクセス時は常に許可');
-    expect(ja.modelFolderPersistentHint?.message).toContain('常に許可');
-    expect(ja.modelFolderPersistentHint?.message).not.toContain('アクセスするたびに確認する');
+    expect(ja.modelFolderPersistentHint?.message).toContain('アクセスするたびに確認する');
+    expect(ja.modelFolderPersistentHint?.message).not.toContain('「常に許可」（Edge）');
     for (const locale of catalogs) {
-      expect(readMessages(locale).modelFolderPersistentHint?.message, locale).not.toContain(
+      const hint = readMessages(locale).modelFolderPersistentHint?.message;
+      expect(hint, locale).toContain('アクセスするたびに確認する');
+      if (locale !== 'ja') expect(hint, locale).toContain('Ask every time I access');
+      expect(hint, locale).not.toMatch(/Edge[^\n]*「常に許可」/);
+      expect(hint, locale).not.toContain('「常に許可」（Edge）');
+      expect(hint, locale).not.toMatch(/After you choose a shared folder in Settings/i);
+      expect(readMessages(locale).modelFolderEnableTabBody?.message, locale).toContain(
         'アクセスするたびに確認する',
-      );
-      expect(readMessages(locale).modelFolderPersistentHint?.message, locale).not.toMatch(
-        /After you choose a shared folder in Settings/i,
       );
     }
     for (const locale of catalogs) {

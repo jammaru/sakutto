@@ -50,7 +50,7 @@ test.describe('built extension', () => {
             ),
           ).toHaveCount(0);
           await expect(
-            page.getByText('When the browser asks, choose “Allow on every visit”'),
+            page.getByText('When the browser asks, choose “Allow on every visit” in Chrome'),
           ).toHaveCount(0);
           await radios.nth(1).check();
           await expect(
@@ -64,11 +64,14 @@ test.describe('built extension', () => {
             ),
           ).toBeVisible();
           await expect(
-            page.getByText('When the browser asks, choose “Allow on every visit”'),
+            page.getByText('When the browser asks, choose “Allow on every visit” in Chrome'),
           ).toBeVisible();
           await expect(page.getByText('Restarts then need no extra clicks')).toBeVisible();
+          await expect(page.getByText('“Ask every time I access” in Edge')).toBeVisible();
           await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
-          await expect(page.getByText('Japanese Edge: 「常に許可」')).toBeVisible();
+          await expect(
+            page.getByText('Japanese Edge: 「アクセスするたびに確認する」'),
+          ).toBeVisible();
           await radios.nth(0).check();
           await expect(
             page.getByText(
@@ -199,7 +202,7 @@ test.describe('built extension', () => {
             ),
           ).toHaveCount(0);
           await expect(
-            page.getByText('ブラウザから求められたら「サイトアクセス時は常に許可」'),
+            page.getByText('ブラウザから求められたら、Chromeでは「サイトアクセス時は常に許可」'),
           ).toHaveCount(0);
           await radios.nth(1).check();
           await expect(
@@ -213,11 +216,11 @@ test.describe('built extension', () => {
             ),
           ).toBeVisible();
           await expect(
-            page.getByText('ブラウザから求められたら「サイトアクセス時は常に許可」'),
+            page.getByText('ブラウザから求められたら、Chromeでは「サイトアクセス時は常に許可」'),
           ).toBeVisible();
           await expect(page.getByText('再起動後も追加のクリックは不要になります')).toBeVisible();
           await expect(page.getByText('サイトアクセス時は常に許可')).toBeVisible();
-          await expect(page.getByText('「常に許可」（Edge）')).toBeVisible();
+          await expect(page.getByText('Edgeでは「アクセスするたびに確認する」')).toBeVisible();
           await radios.nth(0).check();
           await expect(
             page.getByText(
