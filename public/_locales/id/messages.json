@@ -675,13 +675,13 @@
     "message": "Hapus"
   },
   "modelDeleteSharedFolder": {
-    "message": "Remove from this browser"
+    "message": "Hapus dari browser ini"
   },
   "modelDeleteSharedFolderHint": {
-    "message": "With a shared folder, this only removes the model from this browser. The file stays in the shared folder. To delete the file itself, remove it in Explorer or Finder."
+    "message": "Untuk folder bersama, tindakan ini hanya menghapus model dari browser ini. File tetap berada di folder bersama. Untuk menghapus file itu sendiri, hapus di Explorer atau Finder."
   },
   "modelFolderBravePermissionHint": {
-    "message": "In Brave, folder access may lapse after you close the grant tab or restart the browser. When the browser asks, choose Allow on every visit (Japanese Chrome: 「サイトアクセス時は常に許可」). If this notice remains after you allowed access, return here and allow again. Set brave://flags/#file-system-access-api to Enabled if the shared-folder picker is missing."
+    "message": "Di Brave, akses folder bisa berhenti berlaku setelah Anda menutup tab pemberian izin atau memulai ulang browser. Saat browser bertanya, pilih Izinkan pada setiap kunjungan (Chrome berbahasa Jepang: 「サイトアクセス時は常に許可」). Jika pemberitahuan ini masih muncul setelah Anda mengizinkan akses, kembali ke sini dan izinkan sekali lagi. Jika pemilih folder bersama tidak muncul, aktifkan brave://flags/#file-system-access-api dengan nilai Enabled."
   },
   "modelSelectionFallback": {
     "message": "Model yang dipilih tidak ada di perangkat ini, jadi Sakutto beralih ke model yang terpasang."

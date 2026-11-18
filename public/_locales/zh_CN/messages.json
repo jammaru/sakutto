@@ -675,13 +675,13 @@
     "message": "删除"
   },
   "modelDeleteSharedFolder": {
-    "message": "Remove from this browser"
+    "message": "从此浏览器中移除"
   },
   "modelDeleteSharedFolderHint": {
-    "message": "With a shared folder, this only removes the model from this browser. The file stays in the shared folder. To delete the file itself, remove it in Explorer or Finder."
+    "message": "对于共享文件夹，此操作只会从此浏览器中移除该模型。文件仍保留在共享文件夹中。如需删除文件本身，请在资源管理器（Explorer）或 Finder 中删除。"
   },
   "modelFolderBravePermissionHint": {
-    "message": "In Brave, folder access may lapse after you close the grant tab or restart the browser. When the browser asks, choose Allow on every visit (Japanese Chrome: 「サイトアクセス時は常に許可」). If this notice remains after you allowed access, return here and allow again. Set brave://flags/#file-system-access-api to Enabled if the shared-folder picker is missing."
+    "message": "在 Brave 中，关闭授权标签页或重启浏览器后，文件夹访问权限可能会失效。当浏览器询问时，请选择“每次访问时均允许”（日文版 Chrome：「サイトアクセス時は常に許可」）。如果已允许访问但此提示仍然存在，请返回此处重新授权。如果共享文件夹选择器未出现，请将 brave://flags/#file-system-access-api 设置为 Enabled。"
   },
   "modelSelectionFallback": {
     "message": "所选模型不在此设备上，因此 Sakutto 已改用已安装的模型。"

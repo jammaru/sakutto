@@ -675,13 +675,13 @@
     "message": "Elimina"
   },
   "modelDeleteSharedFolder": {
-    "message": "Remove from this browser"
+    "message": "Rimuovi da questo browser"
   },
   "modelDeleteSharedFolderHint": {
-    "message": "With a shared folder, this only removes the model from this browser. The file stays in the shared folder. To delete the file itself, remove it in Explorer or Finder."
+    "message": "Con una cartella condivisa, questa azione rimuove il modello solo da questo browser. Il file resta nella cartella condivisa. Per eliminare il file stesso, rimuovilo in Explorer o nel Finder."
   },
   "modelFolderBravePermissionHint": {
-    "message": "In Brave, folder access may lapse after you close the grant tab or restart the browser. When the browser asks, choose Allow on every visit (Japanese Chrome: 「サイトアクセス時は常に許可」). If this notice remains after you allowed access, return here and allow again. Set brave://flags/#file-system-access-api to Enabled if the shared-folder picker is missing."
+    "message": "In Brave, l'accesso alla cartella può scadere dopo la chiusura della scheda di autorizzazione o il riavvio del browser. Quando il browser lo richiede, scegli Consenti a ogni visita (Chrome in giapponese: 「サイトアクセス時は常に許可」). Se questo avviso rimane dopo aver concesso l'accesso, torna qui e concedi di nuovo l'autorizzazione. Se il selettore della cartella condivisa non compare, imposta brave://flags/#file-system-access-api su Enabled."
   },
   "modelSelectionFallback": {
     "message": "Il modello selezionato non è su questo dispositivo, quindi Sakutto è passato a uno installato."
