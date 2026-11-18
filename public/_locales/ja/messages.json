@@ -674,6 +674,15 @@
   "modelDelete": {
     "message": "削除"
   },
+  "modelDeleteSharedFolder": {
+    "message": "このブラウザから外す"
+  },
+  "modelDeleteSharedFolderHint": {
+    "message": "共有フォルダでは、このボタンはこのブラウザの登録だけを外します。ファイルは共有フォルダに残ります。ファイル本体を削除するには、エクスプローラーまたはファインダーで削除してください。"
+  },
+  "modelFolderBravePermissionHint": {
+    "message": "Braveでは、許可タブを閉じるかブラウザを再起動するとフォルダの許可が切れることがあります。表示されたときは永続の許可（日本語UIの Chrome: 「サイトアクセス時は常に許可」）を選んでください。許可したのにこの表示が残る場合は、設定に戻ってもう一度許可してください。共有フォルダのピッカーが出ない場合は brave://flags/#file-system-access-api を Enabled にしてください。"
+  },
   "modelSelectionFallback": {
     "message": "選んでいたモデルがこの端末にないため、インストール済みのモデルに切り替えました。"
   },

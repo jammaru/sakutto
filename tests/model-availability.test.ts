@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
+import { DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID } from '@/engine/model/catalog';
 import {
   canDeleteBrowserCopy,
   folderRecordsModel,
   sharedFolderNeedsPermission,
+  sharedFolderStorageActive,
+  shouldOfferRecordedFolderModel,
 } from '@/engine/model/folder-status';
 import type { ModelStatus } from '@/shared/engine-status';
 import {
@@ -250,6 +252,25 @@ describe('model availability', () => {
         sharedFolder: { ...folder, permission: 'granted' },
       }),
     ).toBe(false);
+  });
+
+  it('offers use for a folder-recorded model while permission is still prompt', () => {
+    const folder = {
+      configured: true,
+      permission: 'prompt' as const,
+      recordedModels: [HIGH_QUALITY_MODEL_ID],
+    };
+    expect(shouldOfferRecordedFolderModel(folder, HIGH_QUALITY_MODEL_ID, 'absent')).toBe(true);
+    expect(shouldOfferRecordedFolderModel(folder, HIGH_QUALITY_MODEL_ID, 'ready')).toBe(false);
+    expect(shouldOfferRecordedFolderModel(folder, DEFAULT_MODEL_ID, 'absent')).toBe(false);
+    expect(
+      shouldOfferRecordedFolderModel(
+        { ...folder, permission: 'granted' },
+        HIGH_QUALITY_MODEL_ID,
+        'absent',
+      ),
+    ).toBe(false);
+    expect(sharedFolderStorageActive(folder)).toBe(true);
   });
 
   it('hides the download gate when the shared folder only needs permission', () => {

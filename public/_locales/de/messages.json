@@ -1,4 +1,362 @@
 {
+  "alwaysTranslateSite": {
+    "message": "Übertragen Sie diese Seite immer"
+  },
+  "cacheClear": {
+    "message": "Übersetzungs-Cache leeren"
+  },
+  "cacheClearFailed": {
+    "message": "Die Übersetzungscache konnte nicht gelöscht werden."
+  },
+  "cacheCleared": {
+    "message": "Die Übersetzungscache wurde gelöscht."
+  },
+  "chromeOnlySuffix": {
+    "message": "(Chrome-Einbettung)"
+  },
+  "chromeTranslationNote": {
+    "message": "Chromes integrierte Übersetzung"
+  },
+  "close": {
+    "message": "Schließen"
+  },
+  "commandBilingual": {
+    "message": "Übersetzen in zweisprachiger Ansicht oder aktuelle Ansicht umschalten"
+  },
+  "commandCompose": {
+    "message": "Den Text übersetzen, den Sie gerade schreiben"
+  },
+  "commandPdf": {
+    "message": "PDF in Sakutto öffnen"
+  },
+  "commandSelection": {
+    "message": "Ausgewählten Text übersetzen"
+  },
+  "commandTranslate": {
+    "message": "Diese Seite übersetzen oder das Original wiederherstellen"
+  },
+  "composeAutoSource": {
+    "message": "Auto"
+  },
+  "composeChromeOnly": {
+    "message": "Die Entwurfsübersetzung nutzt nur PLaMo, und PLaMo übersetzt nicht nach $LANGUAGE$.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeEmpty": {
+    "message": "Tippen Sie, um eine Übersetzung zu sehen."
+  },
+  "composeFailed": {
+    "message": "Dieser Entwurf konnte nicht übersetzt werden."
+  },
+  "composeHelp": {
+    "message": "Wenn ein Nachrichtenfeld den Fokus hat, zeigt die あA-Schaltfläche (oder das Tastenkürzel) eine Vorschau der Übersetzung. Japanische Entwürfe gehen ins Englische (oder in die Zielsprache oben); andere Entwürfe nutzen diese Zielsprache. Nichts wird ersetzt, bis Sie „Ersetzen“ wählen."
+  },
+  "composeIcon": {
+    "message": "Geschriebenes übersetzen"
+  },
+  "composeIconSetting": {
+    "message": "Die あA-Schaltfläche in Nachrichtenfeldern anzeigen"
+  },
+  "composeIconSettingHelp": {
+    "message": "Tastenkürzel und Rechtsklickmenü funktionieren weiterhin, wenn die Schaltfläche ausgeblendet ist."
+  },
+  "composeIneligible": {
+    "message": "Dieses Feld kann nicht übersetzt werden."
+  },
+  "composeInstantSetting": {
+    "message": "Mit einem Tastendruck übersetzen und ersetzen"
+  },
+  "composeInstantSettingHelp": {
+    "message": "Ohne Vorschau: ein Tastendruck übersetzt den Entwurf und ersetzt ihn. Rückgängig bleibt möglich."
+  },
+  "composeInto": {
+    "message": "Nach $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLoading": {
+    "message": "Das PLaMo-Modell wird geladen. Die Vorschau erscheint, sobald es bereit ist."
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo ist noch nicht bereit. Öffnen Sie die Einrichtung, um der Lizenz zuzustimmen und das Modell herunterzuladen."
+  },
+  "composeOpenSetup": {
+    "message": "Einrichtung öffnen"
+  },
+  "composePending": {
+    "message": "Übersetzung läuft…"
+  },
+  "composePlacementAbove": {
+    "message": "Über dem Eingabefeld"
+  },
+  "composePlacementBelow": {
+    "message": "Unter dem Eingabefeld"
+  },
+  "composePlacementCorner": {
+    "message": "Unten rechts im Fenster"
+  },
+  "composePlacementFollowSettings": {
+    "message": "Einstellung für alle Websites verwenden"
+  },
+  "composePlacementFree": {
+    "message": "Frei verschieben"
+  },
+  "composePlacementHandle": {
+    "message": "Ziehen, um die Leiste beliebig zu verschieben"
+  },
+  "composePlacementMenu": {
+    "message": "Leistenposition"
+  },
+  "composePlacementReset": {
+    "message": "Zur ursprünglichen Position zurück"
+  },
+  "composePlacementSetting": {
+    "message": "Position der Entwurf-Übersetzungsleiste"
+  },
+  "composePlacementSettingHelp": {
+    "message": "Die Vorgabe für jede Website. Ziehen Sie den ⋮⋮-Griff der Leiste, um sie auf dieser Seite beliebig zu platzieren. Das ⋯-Menü kann das ebenfalls nur für diese Website überschreiben."
+  },
+  "composePlacementSite": {
+    "message": "Diese Website"
+  },
+  "composeReplace": {
+    "message": "Ersetzen"
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$ zum Ersetzen",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeReplaced": {
+    "message": "Ersetzt. Sie können das Original wiederherstellen."
+  },
+  "composeStale": {
+    "message": "Der Entwurf hat sich geändert. Ersetzen ist pausiert, bis die Vorschau nachzieht."
+  },
+  "composeSwap": {
+    "message": "Übersetzungsrichtung wechseln"
+  },
+  "composeTargetAuto": {
+    "message": "Automatisch (japanische Entwürfe in die andere Sprache des Paars, sonst die Seitensprache)"
+  },
+  "composeTargetLabel": {
+    "message": "Ziel"
+  },
+  "composeTargetSetting": {
+    "message": "Zielsprache für Entwürfe"
+  },
+  "composeTargetSettingHelp": {
+    "message": "Die zuletzt im Vorschaufenster gewählte Sprache wird hier gespeichert."
+  },
+  "composeTitle": {
+    "message": "Übersetzung des Entwurfs"
+  },
+  "composeTooLong": {
+    "message": "Dieser Entwurf ist zu lang zum Übersetzen."
+  },
+  "composeUndo": {
+    "message": "Original wiederherstellen"
+  },
+  "contextTranslateCompose": {
+    "message": "Geschriebenes übersetzen"
+  },
+  "contextTranslatePage": {
+    "message": "Diese Seite übersetzen"
+  },
+  "contextTranslatePdf": {
+    "message": "Diese PDF mit Sakutto übersetzen"
+  },
+  "contextTranslateSelection": {
+    "message": "Ausgewählten Text übersetzen"
+  },
+  "diagBackend": {
+    "message": "Aktiver Backend"
+  },
+  "diagBackendCpu": {
+    "message": "CPU"
+  },
+  "diagBackendGpu": {
+    "message": "WebGPU"
+  },
+  "diagBackendLocalServer": {
+    "message": "Lokaler Server (experimentell)"
+  },
+  "diagBackendUnknown": {
+    "message": "Nicht geladen"
+  },
+  "diagConcurrent": {
+    "message": "Gleichzeitige Anfragen"
+  },
+  "diagGpuCopied": {
+    "message": "Kopiert"
+  },
+  "diagGpuCopy": {
+    "message": "Kopieren"
+  },
+  "diagGpuCopyFailed": {
+    "message": "Kopieren fehlgeschlagen"
+  },
+  "diagGpuEmpty": {
+    "message": "Noch kein WebGPU-Bericht."
+  },
+  "diagGpuHeading": {
+    "message": "WebGPU-Adapter"
+  },
+  "diagGpuHelp": {
+    "message": "Dieser Bericht bleibt auf diesem Gerät. Wenn WebGPU fehlschlägt, fügen Sie ihn in ein GitHub-Issue ein."
+  },
+  "diagHeading": {
+    "message": "Diagnostik"
+  },
+  "diagParallel": {
+    "message": "n_parallel"
+  },
+  "diagRateHint": {
+    "message": "Während eine Seite übersetzt, zeigt deren Leiste Token/s und Segmente/s an."
+  },
+  "diagRuntime": {
+    "message": "Status"
+  },
+  "diagThreads": {
+    "message": "Threads"
+  },
+  "dismissHighQuality": {
+    "message": "Nicht jetzt"
+  },
+  "displayBilingual": {
+    "message": "Zweisprachig"
+  },
+  "displayLabel": {
+    "message": "Lesestil"
+  },
+  "displayNowBilingual": {
+    "message": "Für diese Website ist die zweisprachige Ansicht aktiv."
+  },
+  "displayNowReplace": {
+    "message": "Die Ersatzansicht ist für diese Seite aktiv."
+  },
+  "displayReplace": {
+    "message": "Ersetzen"
+  },
+  "displaySiteHint": {
+    "message": "Diese Auswahl wird für die Website gespeichert."
+  },
+  "downloadCancel": {
+    "message": "Pause"
+  },
+  "downloadEtaMinutes": {
+    "message": "Etwa $COUNT$ Minuten verbleiben.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadEtaSeconds": {
+    "message": "Etwa $COUNT$ Sekunden verbleiben.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "downloadPaused": {
+    "message": "Der Download ist pausiert. Er kann dort fortfahren, wo er aufgehört hat."
+  },
+  "downloadProgressLabel": {
+    "message": "Download-Fortschritt"
+  },
+  "downloadResume": {
+    "message": "Fortsetzung"
+  },
+  "downloadResuming": {
+    "message": "Der Download läuft fort, wo er aufgehört hat."
+  },
+  "engineCpuAdapterUnavailable": {
+    "message": "CPU (ohne GPU-Adapter)"
+  },
+  "engineCpuProbeFailed": {
+    "message": "CPU (WebGPU-Check fehlgeschlagen)"
+  },
+  "engineCpuWebGpuUnsupported": {
+    "message": "CPU (WebGPU nicht verfügbar)"
+  },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
+  "engineHeading": {
+    "message": "Engine"
+  },
+  "engineLinuxWebGpuHintUnavailable": {
+    "message": "WebGPU ist aktiviert, aber kein nutzbarer GPU-Adapter wurde gefunden. Die GPU-Übersetzung benötigt shader-f16; prüfen Sie daher Treiber und Vulkan-Unterstützung, z. B. unter chrome://gpu. In der Zwischenzeit wird die CPU-Übersetzung verwendet."
+  },
+  "engineLinuxWebGpuHintUnsupported": {
+    "message": "Chrome unter Linux benötigt oft WebGPU unter chrome://flags/#enable-unsafe-webgpu sowie die Vulkan-Funktion und danach einen Neustart von Chrome. In der Zwischenzeit wird die CPU-Übersetzung verwendet."
+  },
+  "engineSourceHelp": {
+    "message": "Standard ist die eingebaute Engine auf diesem Gerät."
+  },
+  "engineSourceInBrowser": {
+    "message": "Integriert (auf diesem Gerät)"
+  },
+  "engineSourceLabel": {
+    "message": "Übersetzungsengine"
+  },
+  "engineSourceLocalServer": {
+    "message": "Lokaler Server (experimentell)"
+  },
+  "engineStatusLabel": {
+    "message": "Runtime"
+  },
+  "engineUnavailable": {
+    "message": "Nicht verfügbar"
+  },
+  "engineWebGpu": {
+    "message": "WebGPU"
+  },
+  "errorAction": {
+    "message": "Die Seite konnte nicht geöffnet werden."
+  },
+  "errorPage": {
+    "message": "Diese Seite konnte nicht gelesen werden."
+  },
+  "errorPermission": {
+    "message": "Die Genehmigung für diese Website wurde nicht erteilt."
+  },
+  "errorSaveSettings": {
+    "message": "Ihre Einstellungen konnten nicht gespeichert werden."
+  },
+  "errorSettings": {
+    "message": "Ihre Einstellungen konnten nicht geladen werden."
+  },
+  "extensionDescription": {
+    "message": "Ein lokales LLM übersetzt Seiten auf Ihrem Gerät. Kostenlos, ohne Konto.",
+    "description": "Extension description."
+  },
   "extensionName": {
     "message": "Sakutto - Lokale KI-Übersetzung",
     "description": "Extension name."
@@ -7,229 +365,440 @@
     "message": "Sakutto",
     "description": "Short extension name."
   },
-  "extensionDescription": {
-    "message": "Ein lokales LLM übersetzt Seiten auf Ihrem Gerät. Kostenlos, ohne Konto.",
-    "description": "Extension description."
-  },
-  "tagline": {
-    "message": "Seitenübersetzung, die auf Ihrem Gerät läuft"
-  },
-  "settingsLabel": {
-    "message": "Einstellungen"
-  },
-  "targetLanguageLabel": {
-    "message": "Übersetzen in"
-  },
   "formalityLabel": {
     "message": "Japanischer Ton"
-  },
-  "formalityPolite": {
-    "message": "Polite (です・ます)"
   },
   "formalityPlain": {
     "message": "Plain (だ・である)"
   },
-  "displayLabel": {
-    "message": "Lesestil"
+  "formalityPolite": {
+    "message": "Polite (です・ます)"
   },
-  "displayReplace": {
-    "message": "Ersetzen"
+  "glossaryAddSite": {
+    "message": "Seite hinzufügen"
   },
-  "displayBilingual": {
-    "message": "Zweisprachig"
+  "glossaryExport": {
+    "message": "CSV exportieren"
   },
-  "statusChecking": {
-    "message": "Prüfen…"
+  "glossaryGlobal": {
+    "message": "Alle Seiten"
   },
-  "pageStatusLabel": {
-    "message": "Diese Seite"
+  "glossaryHeading": {
+    "message": "Glossar"
   },
-  "pageStatusUnavailable": {
-    "message": "Nicht übersetzbar"
+  "glossaryHelp": {
+    "message": "Schreiben Sie pro Zeile ein „Quelle, Übersetzung“-Paar. Wählen Sie eine Seite aus, auf der Sie die Liste nur verwenden."
   },
-  "pageStatusLanguageUnknown": {
-    "message": "Unbekannte Sprache"
+  "glossaryImport": {
+    "message": "CSV importieren"
   },
-  "pageStatusReady": {
-    "message": "$LANG$ · $COUNT$ Blöcke",
+  "glossaryScopeLabel": {
+    "message": "gilt für"
+  },
+  "gmailBannerAlwaysTranslate": {
+    "message": "Always translate $LANG$",
     "placeholders": {
       "lang": {
         "content": "$1"
+      }
+    }
+  },
+  "gmailBannerDetected": {
+    "message": "Diese E-Mail scheint auf $LANG$ geschrieben zu sein.",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerFailed": {
+    "message": "Diese E-Mail konnte nicht übersetzt werden."
+  },
+  "gmailBannerMenu": {
+    "message": "Translation settings"
+  },
+  "gmailBannerNeverTranslate": {
+    "message": "Never translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerRegion": {
+    "message": "Gmail-Nachrichtenübersetzung"
+  },
+  "gmailBannerShowOriginal": {
+    "message": "Original anzeigen"
+  },
+  "gmailBannerShowTranslation": {
+    "message": "Show translation"
+  },
+  "gmailBannerTranslate": {
+    "message": "$TARGET$ übersetzen",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerTranslateNow": {
+    "message": "Translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerTranslated": {
+    "message": "Translated: $SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
       },
-      "count": {
+      "target": {
         "content": "$2"
       }
     }
   },
-  "engineStatusLabel": {
-    "message": "Runtime"
+  "gmailBannerTranslating": {
+    "message": "Diese E-Mail wird übersetzt…"
   },
-  "engineHeading": {
-    "message": "Engine"
+  "highQualityOffer": {
+    "message": "Sie können das Modell mit höherer Genauigkeit ausprobieren (2B, ca. 1,81 GB). Die Geschwindigkeit hängt von diesem Gerät ab."
   },
-  "engineWebGpu": {
-    "message": "WebGPU"
+  "idle1": {
+    "message": "1 Minute"
   },
-  "engineCpuWebGpuUnsupported": {
-    "message": "CPU (WebGPU nicht verfügbar)"
+  "idle15": {
+    "message": "15 Minuten"
   },
-  "engineCpuAdapterUnavailable": {
-    "message": "CPU (ohne GPU-Adapter)"
+  "idle5": {
+    "message": "5 Minuten"
   },
-  "engineCpuProbeFailed": {
-    "message": "CPU (WebGPU-Check fehlgeschlagen)"
+  "idleLabel": {
+    "message": "Modell aus den Speichern entladen, nach"
   },
-  "engineUnavailable": {
-    "message": "Nicht verfügbar"
+  "idleNever": {
+    "message": "Niemals"
   },
   "isolationLabel": {
     "message": "Cross-Origin-Isolation"
   },
-  "isolationOn": {
-    "message": "Aktiv"
-  },
   "isolationOff": {
     "message": "Inaktiv"
   },
-  "threadsLabel": {
-    "message": "Logische Kerne"
+  "isolationOn": {
+    "message": "Aktiv"
   },
-  "diagHeading": {
-    "message": "Diagnostik"
-  },
-  "diagBackend": {
-    "message": "Aktiver Backend"
-  },
-  "diagThreads": {
-    "message": "Threads"
-  },
-  "diagParallel": {
-    "message": "n_parallel"
-  },
-  "diagBackendGpu": {
-    "message": "WebGPU"
-  },
-  "diagBackendCpu": {
-    "message": "CPU"
-  },
-  "diagBackendUnknown": {
-    "message": "Nicht geladen"
-  },
-  "diagRateHint": {
-    "message": "Während eine Seite übersetzt, zeigt deren Leiste Token/s und Segmente/s an."
-  },
-  "diagGpuHeading": {
-    "message": "WebGPU-Adapter"
-  },
-  "diagGpuCopy": {
-    "message": "Kopieren"
-  },
-  "diagGpuCopied": {
-    "message": "Kopiert"
-  },
-  "diagGpuCopyFailed": {
-    "message": "Kopieren fehlgeschlagen"
-  },
-  "diagGpuHelp": {
-    "message": "Dieser Bericht bleibt auf diesem Gerät. Wenn WebGPU fehlschlägt, fügen Sie ihn in ein GitHub-Issue ein."
-  },
-  "diagGpuEmpty": {
-    "message": "Noch kein WebGPU-Bericht."
-  },
-  "paceLabel": {
-    "message": "Look-ahead"
-  },
-  "paceFast": {
-    "message": "Blicke weiter voraus"
-  },
-  "paceQuality": {
-    "message": "Sichtbar zuerst"
-  },
-  "paceHelp": {
-    "message": "Übersetzt Absätze unmittelbar bevor sie sich anzeigen. „Look ahead further“ fährt weitere Texte unter der Folie vor, sodass der Text bereits beim Scrollen fertig ist. Für die von PLaMo unterstützten Sprachen stammt jede Zeile aus PLaMo; der Entwurf von Chrome wird nie verwendet."
-  },
-  "paceHelpFirefox": {
-    "message": "Übersetzt Absätze unmittelbar bevor sie sich anzeigen. „Look ahead further“ fährt weitere Texte unter der Folie vor, sodass der Text bereits beim Scrollen fertig ist. Für die von PLaMo unterstützten Sprachen stammt jede Zeile aus PLaMo."
-  },
-  "pageRate": {
-    "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
-    "placeholders": {
-      "tokens": {
-        "content": "$1"
-      },
-      "segments": {
-        "content": "$2"
-      }
-    }
-  },
-  "openOptions": {
-    "message": "Einstellungen öffnen"
-  },
-  "unofficialNotice": {
-    "message": "Inoffiziell. Nicht verbunden mit Preferred Networks. Entwickelt mit PLaMo."
-  },
-  "optionsTitle": {
-    "message": "Einstellungen"
-  },
-  "optionsLead": {
-    "message": "Wählen Sie die Funktionsweise der Übersetzung, verwalten Sie das Modell und legen Sie das Verhalten pro Website fest. Änderungen werden automatisch gespeichert."
-  },
-  "privacyHeading": {
-    "message": "Privatsphäre"
-  },
-  "privacyBody": {
-    "message": "Standardmäßig sendet diese Erweiterung keine Seitentexte an einen Übersetzungsserver. Es gibt keine Telemetrie."
-  },
-  "privacyDestinations": {
-    "message": "Die eigene Anfrage der Erweiterung ist der Modell-Download. Dieser startet bei huggingface.co und folgt dem Weiterleiten von Hugging Face zu seiner CDN. Seitentext ist nicht enthalten. Chrome lädt seine Sprachpakete selbst herunter."
-  },
-  "privacyDestinationsFirefox": {
-    "message": "Die eigene Anfrage der Erweiterung ist der Modell-Download. Dieser startet bei huggingface.co und folgt dem Weiterleiten von Hugging Face zu seiner CDN. Seitentext ist nicht enthalten."
-  },
-  "privacyPolicyLink": {
-    "message": "Datenschutzerklärung"
-  },
-  "sourceCodeLink": {
-    "message": "Quellcode"
-  },
-  "licensesHeading": {
-    "message": "Lizenzen"
-  },
-  "licensesBody": {
-    "message": "Die vollständige PLaMo Community-Lizenz sowie die MIT-Lizenz dieser Erweiterung sind mit der Erweiterung einschließlich."
-  },
-  "licensePlaMoJa": {
-    "message": "PLaMo Community License (Japanisch)"
-  },
-  "licensePlaMoEn": {
-    "message": "PLaMo Community License (Englisch)"
+  "jaEasyName": {
+    "message": "Einfaches Japanisch"
   },
   "licenseMit": {
     "message": "MIT-Lizenz"
   },
-  "licenseNotice": {
-    "message": "HINWEIS"
-  },
   "licenseModelNote": {
     "message": "Die Modellgewichte werden nicht bündelt. Sie werden aus dem offiziellen Hugging-Face-Repository heruntergeladen, sofern sie noch nicht auf diesem Gerät gespeichert sind."
   },
-  "openOnboarding": {
-    "message": "Offenes Onboarding"
+  "licenseNotice": {
+    "message": "HINWEIS"
+  },
+  "licensePlaMoEn": {
+    "message": "PLaMo Community License (Englisch)"
+  },
+  "licensePlaMoJa": {
+    "message": "PLaMo Community License (Japanisch)"
+  },
+  "licensesBody": {
+    "message": "Die vollständige PLaMo Community-Lizenz sowie die MIT-Lizenz dieser Erweiterung sind mit der Erweiterung einschließlich."
+  },
+  "licensesHeading": {
+    "message": "Lizenzen"
+  },
+  "listSeparator": {
+    "message": ","
+  },
+  "localServerAdvanced": {
+    "message": "Erweitert"
+  },
+  "localServerApiKeyLabel": {
+    "message": "API-Schlüssel (optional)"
+  },
+  "localServerDetails": {
+    "message": "Details"
+  },
+  "localServerExperimental": {
+    "message": "Experimentell: Die Übersetzungsgenauigkeit ist nicht garantiert. Das Ergebnis kann von der eingebauten Engine abweichen, auch mit Fehlübersetzungen."
+  },
+  "localServerExperimentalConfirm": {
+    "message": "Diese Engine ist experimentell. Die Genauigkeit ist nicht garantiert. Übersetzungen können von der eingebauten Engine abweichen, auch mit Fehlübersetzungen. Den lokalen Server trotzdem verwenden?"
+  },
+  "localServerExperimentalKeep": {
+    "message": "Eingebaut lassen"
+  },
+  "localServerExperimentalUse": {
+    "message": "Lokalen Server verwenden"
+  },
+  "localServerFailed": {
+    "message": "Der lokale Server konnte dies nicht übersetzen. Öffnen Sie die Einstellungen. Der Originaltext blieb."
+  },
+  "localServerHelp": {
+    "message": "Sendet Sakuttos Prompt an einen OpenAI-kompatiblen Server auf diesem Computer, zum Beispiel mlx_lm.server oder LM Studio."
+  },
+  "localServerLicenseNote": {
+    "message": "Andere Modelle auf diesem Server sind Ihre Lizenzverantwortung. PLaMo-Gewichte bleiben unter der PLaMo Community License."
+  },
+  "localServerModelHelp": {
+    "message": "Der Modellname, der auf diesem Server geladen ist."
+  },
+  "localServerModelLabel": {
+    "message": "Modell"
+  },
+  "localServerModelMissing": {
+    "message": "Der Server hat kein passendes Modell. Laden Sie eines oder wählen Sie es in den Einstellungen."
+  },
+  "localServerModelsEmpty": {
+    "message": "(keine Liste — Namen eingeben)"
+  },
+  "localServerNonLocalWarning": {
+    "message": "Diese Adresse ist nicht dieser Rechner. Seitentext wird dorthin gesendet. Verstanden."
+  },
+  "localServerParallelHelp": {
+    "message": "How many completions the server may run at once (1–16). The page keeps extra requests ready so a finished slot is not left idle."
+  },
+  "localServerParallelLabel": {
+    "message": "Concurrent requests"
+  },
+  "localServerPermissionDenied": {
+    "message": "Der Browser hat den Zugriff auf diese Adresse nicht gewährt."
+  },
+  "localServerPresetHelp": {
+    "message": "Voreinstellungen füllen nur die URL."
+  },
+  "localServerPresetLmStudio": {
+    "message": "LM Studio"
+  },
+  "localServerPresetMlx": {
+    "message": "mlx_lm.server"
+  },
+  "localServerRemoteConfirmRequired": {
+    "message": "Diese Adresse ist nicht auf diesem Computer. Aktivieren Sie die Bestätigung unten, bevor Sie die Verbindung testen."
+  },
+  "localServerTestButton": {
+    "message": "Verbindung testen"
+  },
+  "localServerTestFail": {
+    "message": "Dieser Server konnte nicht genutzt werden."
+  },
+  "localServerTestOk": {
+    "message": "Verbunden."
+  },
+  "localServerTestOkUnlisted": {
+    "message": "Connected. Completions work. The server listed no models — keep the model name you typed; it was not verified from /v1/models."
+  },
+  "localServerTimeout": {
+    "message": "Der lokale Server hat das Zeitlimit überschritten. Der Originaltext blieb."
+  },
+  "localServerTimeoutLabel": {
+    "message": "Zeitüberschreitung (Sekunden)"
+  },
+  "localServerUnreachable": {
+    "message": "Der lokale Server war nicht erreichbar. Öffnen Sie die Einstellungen und prüfen Sie, ob er läuft."
+  },
+  "localServerUrlHelp": {
+    "message": "mlx_lm.server nutzt standardmäßig Port 8080. LM Studio nutzt Port 1234."
+  },
+  "localServerUrlLabel": {
+    "message": "Server-URL"
   },
   "machineTranslationNotice": {
     "message": "Übersetzungen sind maschinelle Übersetzungen, die von PLaMo erstellt wurden."
   },
-  "onboardingEyebrow": {
-    "message": "Erste Schritte"
+  "machineTranslationTooltip": {
+    "message": "Maschinenübersetzung durch PLaMo."
   },
-  "onboardingLead": {
-    "message": "Die Seitenübersetzung läuft standardmäßig auf diesem Gerät. Das PLaMo-3-Modell wird nur heruntergeladen, wenn es hier noch nicht gespeichert ist."
+  "mailBannerAccessNeeded": {
+    "message": "Die E-Mail-Übersetzung benötigt Zugriff auf diese Website."
   },
-  "onboardingSetupHeading": {
-    "message": "Über diese Erweiterung"
+  "mailBannerEnableForSite": {
+    "message": "E-Mail-Übersetzung auf dieser Website aktivieren"
   },
-  "onboardingModelNote": {
-    "message": "Das Standardmodell (573 MB) wird auf diesem Gerät heruntergeladen. Eine kontinuierliche Übertragung von dieser Größe mit 100 Mbps dauert etwa 46 Sekunden vor dem Overhead; die Echtzeit variiert. Ein unterbrochener Download wird fortgesetzt."
+  "mailBannerPermissionDenied": {
+    "message": "Die E-Mail-Übersetzung benötigt die Berechtigung, auf die E-Mail-Website zuzugreifen."
+  },
+  "modelDelete": {
+    "message": "Löschen"
+  },
+  "modelDeleteSharedFolder": {
+    "message": "Remove from this browser"
+  },
+  "modelDeleteSharedFolderHint": {
+    "message": "With a shared folder, this only removes the model from this browser. The file stays in the shared folder. To delete the file itself, remove it in Explorer or Finder."
+  },
+  "modelDownload": {
+    "message": "Downloaden"
+  },
+  "modelFolderBenefitKeep": {
+    "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
+  },
+  "modelFolderBenefitShare": {
+    "message": "Other profiles and other Chromium browsers can use it right away, with no extra download."
+  },
+  "modelFolderBenefitSpace": {
+    "message": "One copy on disk, so you save space ($SIZE$).",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderBenefitsLead": {
+    "message": "A shared folder means:"
+  },
+  "modelFolderBravePermissionHint": {
+    "message": "In Brave, folder access may lapse after you close the grant tab or restart the browser. When the browser asks, choose the persistent option (Japanese Chrome: 「サイトアクセス時は常に許可」). If this notice remains after you allowed access, return here and allow again. Set brave://flags/#file-system-access-api to Enabled if the shared-folder picker is missing."
+  },
+  "modelFolderChoose": {
+    "message": "Choose model folder"
+  },
+  "modelFolderEnableOneClick": {
+    "message": "Enable Sakutto"
+  },
+  "modelFolderEnableTabBody": {
+    "message": "In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). In Chrome, choose “Allow on every visit” (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「アクセスするたびに確認する」). Either persistent choice keeps this folder allowed after restarts with no extra clicks."
+  },
+  "modelFolderEnableTabDone": {
+    "message": "Folder access is ready. This tab closes automatically."
+  },
+  "modelFolderEnableTabHint": {
+    "message": "A this-time-only choice lasts only until a restart. Return here to grant access again. Translation still works from the browser copy."
+  },
+  "modelFolderEnableTabTitle": {
+    "message": "Keep folder access after restart"
+  },
+  "modelFolderIntegrityFailed": {
+    "message": "The file $FILE$ is not the official PLaMo model, so Sakutto will not use it.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelFolderPermissionGrant": {
+    "message": "Allow folder access"
+  },
+  "modelFolderPermissionNeeded": {
+    "message": "Sakutto needs permission to read the shared model folder."
+  },
+  "modelFolderPermissionPage": {
+    "message": "Sakutto opens a grant tab. In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts); in Chrome, choose “Allow on every visit”."
+  },
+  "modelFolderPermissionPresent": {
+    "message": "The model is already in the folder. Allow access to use it."
+  },
+  "modelFolderPersistentHint": {
+    "message": "Wählen Sie im Browserdialog in Chrome „Auf jeder Website zulassen“ oder in Edge “Ask every time I access” (japanisches Chrome: 「サイトアクセス時は常に許可」, japanisches Edge: 「アクセスするたびに確認する」; equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). Nach einem Neustart sind dann keine weiteren Klicks nötig."
+  },
+  "modelFolderPickFailed": {
+    "message": "The folder could not be selected."
+  },
+  "modelFolderPickerHint": {
+    "message": "Nach dem Klicken auf „Start“ öffnet sich ein Ordnerdialog in „Dokumente“. Erstellen oder wählen Sie „Dokumente/Sakutto“, oder wählen Sie den vorhandenen Ordner, falls ein anderer Browser die Modelle bereits enthält. Jeder beschreibbare Ordner funktioniert ebenfalls."
+  },
+  "modelFolderReading": {
+    "message": "Ordner wird gelesen…"
+  },
+  "modelFolderUsing": {
+    "message": "Using the folder $NAME$.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelHeading": {
+    "message": "Modell"
+  },
+  "modelHigh": {
+    "message": "Hohe Genauigkeit (2B)"
+  },
+  "modelInUse": {
+    "message": "In Gebrauch"
+  },
+  "modelSelectionFallback": {
+    "message": "Das gewählte Modell ist auf diesem Gerät nicht vorhanden, daher hat Sakutto auf ein installiertes Modell gewechselt."
+  },
+  "modelSelectionMissing": {
+    "message": "Kein Übersetzungsmodell installiert. Laden Sie eines herunter, um zu übersetzen."
+  },
+  "modelStandard": {
+    "message": "Standard (0,8B)"
+  },
+  "modelStorageBraveEnableFsaHint": {
+    "message": "Setzen Sie in Brave brave://flags/#file-system-access-api auf „Enabled“ und starten Sie den Browser neu, um einen freigegebenen Ordner zu verwenden."
+  },
+  "modelStorageBrowser": {
+    "message": "In diesem Browser"
+  },
+  "modelStorageBrowserOnlyHint": {
+    "message": "In diesem Browser können keine freigegebenen Ordner verwendet werden. Modelle werden daher im Browser gespeichert."
+  },
+  "modelStorageCopyDone": {
+    "message": "Die Modelle werden jetzt in diesem Browser gespeichert."
+  },
+  "modelStorageCopyFailed": {
+    "message": "Das Modell konnte nicht kopiert werden. Die bisherige Speicherwahl wurde behalten."
+  },
+  "modelStorageCopyFolder": {
+    "message": "Aus gemeinsamem Ordner kopieren"
+  },
+  "modelStorageFirefoxCopyHint": {
+    "message": "Wählen Sie nach dem Klicken auf „Start“ den Ordner mit den Modellen und bestätigen Sie „Hochladen“. Firefox kopiert die Modelle in Firefox, statt den Ordner weiterhin zu verknüpfen."
+  },
+  "modelStorageFirefoxImport": {
+    "message": "Aus einem gemeinsamen Ordner importieren"
+  },
+  "modelStorageFirefoxImportHint": {
+    "message": "PLaMo-Dateien aus einem Ordner kopieren, den Sie in einem anderen Browser (z. B. Chrome) heruntergeladen haben, ohne erneut herunterzuladen."
+  },
+  "modelStorageFolder": {
+    "message": "Gemeinsamer Ordner"
+  },
+  "modelStorageIntro": {
+    "message": "Wählen Sie, wo das Modell gespeichert wird. Vorhandene Modelle werden entsprechend verschoben."
+  },
+  "modelStorageLegend": {
+    "message": "Speicherort des Modells"
+  },
+  "modelStorageMoveDone": {
+    "message": "Die Modelle werden jetzt im gemeinsamen Ordner gespeichert."
+  },
+  "modelStorageMoveFailed": {
+    "message": "Das Modell konnte nicht in den gemeinsamen Ordner verschoben werden. Die Browserkopie wurde behalten."
+  },
+  "modelStorageNoModels": {
+    "message": "In diesem Ordner wurde kein offizielles PLaMo-Modell gefunden."
+  },
+  "modelStorageProgressLabel": {
+    "message": "Fortschritt der Modellübertragung"
+  },
+  "modelStorageSomeCopiesFailed": {
+    "message": "Einige Modelle konnten nicht kopiert werden. Ihre vorhandenen Kopien wurden behalten."
+  },
+  "modelStorageWorking": {
+    "message": "Der Modellordner wird vorbereitet…"
+  },
+  "modelUse": {
+    "message": "Nutzen Sie dieses Modell"
+  },
+  "modelVerifying": {
+    "message": "Die heruntergeladene Datei wird überprüft…"
+  },
+  "noSiteRules": {
+    "message": "Noch keine Einstellungen pro Website."
+  },
+  "onboardingAgeNotice": {
+    "message": "Wenn Sie unter 18 Jahre alt sind oder anderweitig nicht alt genug, um einen Vertrag selbst abzuschließen, ist die Zustimmung eines Elternteils oder eines Erziehungsberechtigten erforderlich."
   },
   "onboardingBridgeNote": {
     "message": "Die Seite behält ihren Originaltext, bis das Modell fertig ist, woraufhin PLaMo dieses übersetzt. Google Docs übersetzt Chrome-Texte auf dem Gerät."
@@ -237,29 +806,35 @@
   "onboardingBridgeNoteFirefox": {
     "message": "Die Seite behält ihren Originaltext, bis das Modell fertig ist, woraufhin PLaMo dieses übersetzt."
   },
-  "onboardingPrivacyNote": {
-    "message": "Die eingebaute Engine sendet Seitentext nicht an einen Server."
-  },
   "onboardingClose": {
     "message": "Schließen"
   },
-  "onboardingStart": {
-    "message": "Zustimmung auf die Lizenz und Start"
+  "onboardingCommercialBody": {
+    "message": "Dies umfasst die Nutzung für geschäftliche Zwecke innerhalb eines Unternehmens. Beides von den folgenden ist erforderlich."
   },
-  "onboardingStoreLegend": {
-    "message": "Speicherort des Modells"
+  "onboardingCommercialHeading": {
+    "message": "PLaMo-Nutzungsbedingungen"
   },
-  "onboardingStoreBrowser": {
-    "message": "In diesem Browser speichern"
+  "onboardingCommercialHeading2": {
+    "message": "Arbeits- und kommerzieller Gebrauch"
   },
-  "onboardingStoreFolder": {
-    "message": "Use a shared model folder (Chromium browsers)"
+  "onboardingCommercialRegistration": {
+    "message": "Vorabregistrierung bei PFN"
   },
-  "onboardingStoreFolderHelp": {
-    "message": "For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them."
+  "onboardingCommercialRevenue": {
+    "message": "Einkommen oder Umsatz für Sie oder Ihre verbundenen Unternehmen im jüngsten Geschäftsjahr von 1 Milliarde Yen oder weniger"
   },
-  "onboardingStartFailed": {
-    "message": "Die Einrichtung konnte nicht gestartet werden. Bitte versuchen Sie es erneut."
+  "onboardingCommercialUnmetBody": {
+    "message": "Kommerzielle Nutzung erfordert dann eine separate Lizenz von PFN."
+  },
+  "onboardingCommercialUnmetHeading": {
+    "message": "Wenn die Bedingungen nicht erfüllt sind"
+  },
+  "onboardingConsentSentence": {
+    "message": "Mit dem Drücken von „Agree to the license and start“ erklären Sie sich mit der PLaMo Community License einverstanden."
+  },
+  "onboardingEyebrow": {
+    "message": "Erste Schritte"
   },
   "onboardingHttpError": {
     "message": "Der Modelldownload ist fehlgeschlagen (HTTP $STATUS$). Bitte versuchen Sie es erneut.",
@@ -269,330 +844,43 @@
       }
     }
   },
-  "errorSettings": {
-    "message": "Ihre Einstellungen konnten nicht geladen werden."
+  "onboardingLead": {
+    "message": "Die Seitenübersetzung läuft standardmäßig auf diesem Gerät. Das PLaMo-3-Modell wird nur heruntergeladen, wenn es hier noch nicht gespeichert ist."
   },
-  "errorSaveSettings": {
-    "message": "Ihre Einstellungen konnten nicht gespeichert werden."
+  "onboardingLocalServerNote": {
+    "message": "In den Einstellungen lässt sich ein experimenteller lokaler Server einschalten. Der Seitentext geht dann nur an die gesetzte Adresse, und die Genauigkeit ist nicht garantiert."
   },
-  "errorPage": {
-    "message": "Diese Seite konnte nicht gelesen werden."
-  },
-  "errorAction": {
-    "message": "Die Seite konnte nicht geöffnet werden."
-  },
-  "retry": {
-    "message": "Versuchen Sie es erneut"
-  },
-  "originalLabel": {
-    "message": "Original"
-  },
-  "chromeTranslationNote": {
-    "message": "Chromes integrierte Übersetzung"
-  },
-  "machineTranslationTooltip": {
-    "message": "Maschinenübersetzung durch PLaMo."
-  },
-  "selectionPending": {
-    "message": "Übersetzen…"
-  },
-  "selectionFailed": {
-    "message": "Diese Auswahl konnte nicht übersetzt werden."
-  },
-  "selectionTitle": {
-    "message": "Ausgewählter Text"
-  },
-  "selectionIcon": {
-    "message": "Ausgewählten Text übersetzen"
-  },
-  "selectionResizeHandle": {
-    "message": "Übersetzungs-Popup in der Breite ziehen (Doppelklick zum Zurücksetzen)"
-  },
-  "close": {
-    "message": "Schließen"
-  },
-  "commandTranslate": {
-    "message": "Diese Seite übersetzen oder das Original wiederherstellen"
-  },
-  "commandBilingual": {
-    "message": "Übersetzen in zweisprachiger Ansicht oder aktuelle Ansicht umschalten"
-  },
-  "commandSelection": {
-    "message": "Ausgewählten Text übersetzen"
-  },
-  "contextTranslatePage": {
-    "message": "Diese Seite übersetzen"
-  },
-  "contextTranslateSelection": {
-    "message": "Ausgewählten Text übersetzen"
-  },
-  "translateThisPage": {
-    "message": "Diese Seite übersetzen"
-  },
-  "restoreThisPage": {
-    "message": "Ursprüngliches wiederherstellen"
-  },
-  "pageStartBlocked": {
-    "message": "Die Seitenübersetzung wartet, bis das PLaMo-Modell den Download und das Laden abgeschlossen hat. Öffnen Sie das Onboarding, um den Fortschritt einzusehen."
-  },
-  "pageTranslating": {
-    "message": "Übersetzen…"
-  },
-  "pageProgress": {
-    "message": "Übersetzung von $DONE$ / $TOTAL$",
-    "placeholders": {
-      "done": {
-        "content": "$1"
-      },
-      "total": {
-        "content": "$2"
-      }
-    }
-  },
-  "pageProgressLabel": {
-    "message": "Übersetzungsfortschritt"
-  },
-  "pageTranslated": {
-    "message": "Diese Seite ist übersetzt."
-  },
-  "pagePartial": {
-    "message": "$BLOCKS$ Teile dieser Seite konnten nicht übersetzt werden.",
-    "placeholders": {
-      "blocks": {
-        "content": "$1"
-      }
-    }
-  },
-  "pageAlwaysOn": {
-    "message": "Diese Seite wird immer übersetzt."
-  },
-  "siteGrantTitle": {
-    "message": "Diese Seite übersetzen"
-  },
-  "siteGrantBody": {
-    "message": "Seiten auf $HOST$ werden auf diesem Gerät übersetzt.",
-    "placeholders": {
-      "host": {
-        "content": "$1"
-      }
-    }
-  },
-  "siteGrantAllow": {
-    "message": "Zulassen"
-  },
-  "siteGrantDenied": {
-    "message": "Die Berechtigung wurde nicht erteilt. Versuchen Sie es erneut."
-  },
-  "siteGrantInvalid": {
-    "message": "Diese Seite nennt keinen Website."
-  },
-  "targetAdjustedNote": {
-    "message": "Die Seite befindet sich bereits in der gespeicherten Zielsprache, daher wurde das Ziel gewechselt."
-  },
-  "sameLanguageHint": {
-    "message": "Diese Seite ist bereits in der Zielsprache verfasst."
-  },
-  "displaySiteHint": {
-    "message": "Diese Auswahl wird für die Website gespeichert."
-  },
-  "displayNowBilingual": {
-    "message": "Für diese Website ist die zweisprachige Ansicht aktiv."
-  },
-  "displayNowReplace": {
-    "message": "Die Ersatzansicht ist für diese Seite aktiv."
-  },
-  "optionsDefaultHint": {
-    "message": "Das sind die Standardeinstellungen. Eine von Ihnen übersetzte Seite kann ihre eigene Sprache und Lesestil beibehalten."
-  },
-  "optionsSiteLive": {
-    "message": "Die Sprache und der Lesestil hier folgen der Website. Die oben genannten Einstellungen werden verwendet, wenn eine Website keine eigene Auswahl bietet."
-  },
-  "alwaysTranslateSite": {
-    "message": "Übertragen Sie diese Seite immer"
-  },
-  "shortcutHeading": {
-    "message": "Tastenkürzel"
-  },
-  "shortcutHelp": {
-    "message": "Entfernen Sie das Häkchen bei einem Befehl, um ihn in Sakutto zu deaktivieren. „Tastenkürzel ändern“ öffnet Chromes Editor für Tastenkürzel. Vom Browser zugewiesene Tasten funktionieren auch, wenn ein Textfeld fokussiert ist. Wenn ein Befehl „Nicht festgelegt“ ist, öffnen Sie den Editor und weisen Sie eine Taste zu."
-  },
-  "shortcutHelpFirefox": {
-    "message": "Entfernen Sie das Häkchen bei einem Befehl, um ihn in Sakutto zu deaktivieren. „Tastenkürzel ändern“ öffnet den eigenen Editor von Firefox. Dort zugewiesene Tasten funktionieren auch, wenn ein Textfeld fokussiert ist. Bei der Installation oder einem Update stellt Firefox nach Möglichkeit die Taste eines leeren, nie zugewiesenen Befehls wieder her; eine von Ihnen gelöschte Taste bleibt gelöscht."
-  },
-  "shortcutChange": {
-    "message": "Tastenkürzel ändern"
-  },
-  "shortcutUnset": {
-    "message": "Nicht festgelegt"
-  },
-  "shortcutUnsetNotice": {
-    "message": "Tastenkürzel sind nicht festgelegt"
-  },
-  "shortcutOpenSettings": {
-    "message": "Einstellungen für Tastenkürzel öffnen"
-  },
-  "shortcutUse": {
-    "message": "Diese Tastenkombination verwenden"
-  },
-  "shortcutOff": {
-    "message": "Aus"
-  },
-  "shortcutTranslate": {
-    "message": "$KEY$ übersetzt die Seite oder stellt das Original wieder her.",
-    "placeholders": {
-      "key": {
-        "content": "$1"
-      }
-    }
-  },
-  "shortcutBilingual": {
-    "message": "$KEY$ wechselt zwischen der Ersatz- und der zweisprachigen Ansicht und merkt die Auswahl für diese Seite.",
-    "placeholders": {
-      "key": {
-        "content": "$1"
-      }
-    }
-  },
-  "shortcutSelection": {
-    "message": "$KEY$ übersetzt den ausgewählten Text.",
-    "placeholders": {
-      "key": {
-        "content": "$1"
-      }
-    }
-  },
-  "runtimePreparing": {
-    "message": "Vorbereitung $PERCENT$%",
-    "placeholders": {
-      "percent": {
-        "content": "$1"
-      }
-    }
-  },
-  "runtimeDownloading": {
-    "message": "Downloading $PERCENT$% ($RECEIVED$ / $TOTAL$)",
-    "placeholders": {
-      "percent": {
-        "content": "$1"
-      },
-      "received": {
-        "content": "$2"
-      },
-      "total": {
-        "content": "$3"
-      }
-    }
-  },
-  "runtimeVerifying": {
-    "message": "Überprüfung der heruntergeladenen Datei."
-  },
-  "runtimeLoading": {
-    "message": "Modell wird geladen."
-  },
-  "runtimePlamoGpu": {
-    "message": "PLaMo · WebGPU"
-  },
-  "runtimePlamoCpu": {
-    "message": "PLaMo · CPU"
-  },
-  "runtimePlamoGpuFallback": {
-    "message": "PLaMo · CPU (WebGPU konnte das Modell nicht laden)"
-  },
-  "runtimePlamoGpuFallbackOutput": {
-    "message": "PLaMo · CPU (WebGPU-Ausgabe war fehlerhaft)"
-  },
-  "runtimePlamoGpuFallbackDevice": {
-    "message": "PLaMo · CPU (WebGPU-Gerät ist ausgefallen)"
-  },
-  "runtimeChrome": {
-    "message": "Chromes integrierte Übersetzung"
-  },
-  "runtimeWaiting": {
-    "message": "Warten auf das Modell"
-  },
-  "runtimeError": {
-    "message": "Das Modell konnte nicht geladen werden"
-  },
-  "runtimeChecking": {
-    "message": "Prüfen…"
-  },
-  "chromeOnlySuffix": {
-    "message": "(Chrome-Einbettung)"
-  },
-  "jaEasyName": {
-    "message": "Einfaches Japanisch"
-  },
-  "plamoOnlySuffix": {
-    "message": " (PLaMo)"
-  },
-  "onboardingStartNotice": {
-    "message": "Mit dem Drücken von „Agree to the license and start“ erklären Sie sich mit der gesamten PLaMo Community License einverstanden."
-  },
-  "onboardingCommercialHeading": {
-    "message": "PLaMo-Nutzungsbedingungen"
-  },
-  "onboardingPersonalHeading": {
-    "message": "Privat- und akademische Nutzung"
-  },
-  "onboardingPersonalBody": {
-    "message": "Eine vorherige Registrierung ist nicht erforderlich."
-  },
-  "onboardingCommercialHeading2": {
-    "message": "Arbeits- und kommerzieller Gebrauch"
-  },
-  "onboardingCommercialBody": {
-    "message": "Dies umfasst die Nutzung für geschäftliche Zwecke innerhalb eines Unternehmens. Beides von den folgenden ist erforderlich."
-  },
-  "onboardingCommercialRegistration": {
-    "message": "Vorabregistrierung bei PFN"
-  },
-  "onboardingCommercialRevenue": {
-    "message": "Einkommen oder Umsatz für Sie oder Ihre verbundenen Unternehmen im jüngsten Geschäftsjahr von 1 Milliarde Yen oder weniger"
-  },
-  "onboardingCommercialUnmetHeading": {
-    "message": "Wenn die Bedingungen nicht erfüllt sind"
-  },
-  "onboardingCommercialUnmetBody": {
-    "message": "Kommerzielle Nutzung erfordert dann eine separate Lizenz von PFN."
-  },
-  "onboardingAgeNotice": {
-    "message": "Wenn Sie unter 18 Jahre alt sind oder anderweitig nicht alt genug, um einen Vertrag selbst abzuschließen, ist die Zustimmung eines Elternteils oder eines Erziehungsberechtigten erforderlich."
-  },
-  "onboardingConsentSentence": {
-    "message": "Mit dem Drücken von „Agree to the license and start“ erklären Sie sich mit der PLaMo Community License einverstanden."
+  "onboardingModelNote": {
+    "message": "Das Standardmodell (573 MB) wird auf diesem Gerät heruntergeladen. Eine kontinuierliche Übertragung von dieser Größe mit 100 Mbps dauert etwa 46 Sekunden vor dem Overhead; die Echtzeit variiert. Ein unterbrochener Download wird fortgesetzt."
   },
   "onboardingOtherLicenses": {
     "message": "Weitere Lizenzinformationen"
   },
-  "onboardingReconsentHeading": {
-    "message": "Die PLaMo-Begriffe sind nun leichter zu lesen"
+  "onboardingPersonalBody": {
+    "message": "Eine vorherige Registrierung ist nicht erforderlich."
   },
-  "onboardingReconsentBody": {
-    "message": "Sie haben sich zuvor mit der PLaMo Community License vereinbart. Hier ist eine klarere Zusammenfassung der Bedingungen, damit Sie sich noch einmal einverstanden sein können. Ihr heruntergeladenes Modell bleibt auf diesem Gerät."
+  "onboardingPersonalHeading": {
+    "message": "Privat- und akademische Nutzung"
   },
-  "onboardingReconsentStart": {
-    "message": "Einverstanden und fortgesetzt"
+  "onboardingPrivacyNote": {
+    "message": "Die eingebaute Engine sendet Seitentext nicht an einen Server."
   },
-  "plamoRegistrationLink": {
-    "message": "Offizielles Registrierungsformular von PFN (kommerzielle Nutzung)"
+  "onboardingReadyCompose": {
+    "message": "Drücken Sie $KEY$ in einem Nachrichtenfeld, um eine Übersetzung anzuzeigen, die Sie übernehmen können.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
   },
-  "plamoOfficialLicenseJa": {
-    "message": "PLaMo Community License (offiziell, Japanisch)"
-  },
-  "plamoOfficialLicenseEn": {
-    "message": "PLaMo Community License (offiziell, Englisch)"
-  },
-  "onboardingUseNow": {
-    "message": "Der integrierte Translator von Chrome wird nur für Sprachpaare verwendet, die PLaMo nicht unterstützt."
+  "onboardingReadyContext": {
+    "message": "Klicken Sie mit der rechten Maustaste auf die Seite und wählen Sie „Diese Seite übersetzen“. Wählen Sie für ausgewählten Text „Ausgewählten Text übersetzen“."
   },
   "onboardingReadyHeading": {
     "message": "Du bist bereit."
   },
   "onboardingReadyLead": {
     "message": "Sie können Seiten auf diesem Gerät übersetzen."
-  },
-  "onboardingReadyToolbar": {
-    "message": "Klicken Sie auf das Symbol der Symbolleiste, um die geöffnete Seite zu übersetzen."
   },
   "onboardingReadyPage": {
     "message": "Drücken Sie $KEY$, um die gesamte Seite zu übersetzen. Drücken Sie es erneut, um die ursprüngliche Version wiederherzustellen.",
@@ -610,433 +898,56 @@
       }
     }
   },
-  "onboardingReadyContext": {
-    "message": "Klicken Sie mit der rechten Maustaste auf die Seite und wählen Sie „Diese Seite übersetzen“. Wählen Sie für ausgewählten Text „Ausgewählten Text übersetzen“."
+  "onboardingReadyToolbar": {
+    "message": "Klicken Sie auf das Symbol der Symbolleiste, um die geöffnete Seite zu übersetzen."
+  },
+  "onboardingReconsentBody": {
+    "message": "Sie haben sich zuvor mit der PLaMo Community License vereinbart. Hier ist eine klarere Zusammenfassung der Bedingungen, damit Sie sich noch einmal einverstanden sein können. Ihr heruntergeladenes Modell bleibt auf diesem Gerät."
+  },
+  "onboardingReconsentHeading": {
+    "message": "Die PLaMo-Begriffe sind nun leichter zu lesen"
+  },
+  "onboardingReconsentStart": {
+    "message": "Einverstanden und fortgesetzt"
+  },
+  "onboardingSetupHeading": {
+    "message": "Über diese Erweiterung"
+  },
+  "onboardingStart": {
+    "message": "Zustimmung auf die Lizenz und Start"
+  },
+  "onboardingStartFailed": {
+    "message": "Die Einrichtung konnte nicht gestartet werden. Bitte versuchen Sie es erneut."
+  },
+  "onboardingStartNotice": {
+    "message": "Mit dem Drücken von „Agree to the license and start“ erklären Sie sich mit der gesamten PLaMo Community License einverstanden."
+  },
+  "onboardingStoreBrowser": {
+    "message": "In diesem Browser speichern"
+  },
+  "onboardingStoreFolder": {
+    "message": "Use a shared model folder (Chromium browsers)"
+  },
+  "onboardingStoreFolderHelp": {
+    "message": "For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them."
+  },
+  "onboardingStoreLegend": {
+    "message": "Speicherort des Modells"
   },
   "onboardingTry": {
     "message": "Versuchen Sie eine Beispielseite"
   },
+  "onboardingUseNow": {
+    "message": "Der integrierte Translator von Chrome wird nur für Sprachpaare verwendet, die PLaMo nicht unterstützt."
+  },
   "onboardingWhileDownloading": {
     "message": "Während das Modell heruntergeladen wird, behalten die Seiten ihren Originaltext; bis PLaMo fertig ist, wird nichts übersetzt."
   },
-  "downloadEtaSeconds": {
-    "message": "Etwa $COUNT$ Sekunden verbleiben.",
-    "placeholders": {
-      "count": {
-        "content": "$1"
-      }
-    }
-  },
-  "downloadEtaMinutes": {
-    "message": "Etwa $COUNT$ Minuten verbleiben.",
-    "placeholders": {
-      "count": {
-        "content": "$1"
-      }
-    }
-  },
-  "downloadResuming": {
-    "message": "Der Download läuft fort, wo er aufgehört hat."
-  },
-  "downloadProgressLabel": {
-    "message": "Download-Fortschritt"
-  },
-  "downloadPaused": {
-    "message": "Der Download ist pausiert. Er kann dort fortfahren, wo er aufgehört hat."
-  },
-  "downloadResume": {
-    "message": "Fortsetzung"
-  },
-  "downloadCancel": {
-    "message": "Pause"
-  },
-  "modelHeading": {
-    "message": "Modell"
-  },
-  "modelStandard": {
-    "message": "Standard (0,8B)"
-  },
-  "modelHigh": {
-    "message": "Hohe Genauigkeit (2B)"
-  },
-  "modelInUse": {
-    "message": "In Gebrauch"
-  },
-  "modelUse": {
-    "message": "Nutzen Sie dieses Modell"
-  },
-  "modelDownload": {
-    "message": "Downloaden"
-  },
-  "modelVerifying": {
-    "message": "Die heruntergeladene Datei wird überprüft…"
-  },
-  "modelDelete": {
-    "message": "Löschen"
-  },
-  "modelSelectionFallback": {
-    "message": "Das gewählte Modell ist auf diesem Gerät nicht vorhanden, daher hat Sakutto auf ein installiertes Modell gewechselt."
-  },
-  "modelSelectionMissing": {
-    "message": "Kein Übersetzungsmodell installiert. Laden Sie eines herunter, um zu übersetzen."
-  },
-  "modelStorageLegend": {
-    "message": "Speicherort des Modells"
-  },
-  "storageOptionRecommended": {
-    "message": "Empfohlen"
-  },
-  "modelStorageFolder": {
-    "message": "Gemeinsamer Ordner"
-  },
-  "modelStorageBrowser": {
-    "message": "In diesem Browser"
-  },
-  "modelStorageCopyFolder": {
-    "message": "Aus gemeinsamem Ordner kopieren"
-  },
-  "modelStorageIntro": {
-    "message": "Wählen Sie, wo das Modell gespeichert wird. Vorhandene Modelle werden entsprechend verschoben."
-  },
-  "modelStorageBrowserOnlyHint": {
-    "message": "In diesem Browser können keine freigegebenen Ordner verwendet werden. Modelle werden daher im Browser gespeichert."
-  },
-  "modelStorageBraveEnableFsaHint": {
-    "message": "Setzen Sie in Brave brave://flags/#file-system-access-api auf „Enabled“ und starten Sie den Browser neu, um einen freigegebenen Ordner zu verwenden."
-  },
-  "modelStorageFirefoxCopyHint": {
-    "message": "Wählen Sie nach dem Klicken auf „Start“ den Ordner mit den Modellen und bestätigen Sie „Hochladen“. Firefox kopiert die Modelle in Firefox, statt den Ordner weiterhin zu verknüpfen."
-  },
-  "modelStorageFirefoxImport": {
-    "message": "Aus einem gemeinsamen Ordner importieren"
-  },
-  "modelStorageFirefoxImportHint": {
-    "message": "PLaMo-Dateien aus einem Ordner kopieren, den Sie in einem anderen Browser (z. B. Chrome) heruntergeladen haben, ohne erneut herunterzuladen."
-  },
-  "modelStorageMoveFailed": {
-    "message": "Das Modell konnte nicht in den gemeinsamen Ordner verschoben werden. Die Browserkopie wurde behalten."
-  },
-  "modelStorageMoveDone": {
-    "message": "Die Modelle werden jetzt im gemeinsamen Ordner gespeichert."
-  },
-  "modelStorageCopyDone": {
-    "message": "Die Modelle werden jetzt in diesem Browser gespeichert."
-  },
-  "modelStorageCopyFailed": {
-    "message": "Das Modell konnte nicht kopiert werden. Die bisherige Speicherwahl wurde behalten."
-  },
-  "modelStorageSomeCopiesFailed": {
-    "message": "Einige Modelle konnten nicht kopiert werden. Ihre vorhandenen Kopien wurden behalten."
-  },
-  "modelStorageNoModels": {
-    "message": "In diesem Ordner wurde kein offizielles PLaMo-Modell gefunden."
-  },
-  "modelStorageWorking": {
-    "message": "Der Modellordner wird vorbereitet…"
-  },
-  "modelFolderReading": {
-    "message": "Ordner wird gelesen…"
-  },
-  "modelStorageProgressLabel": {
-    "message": "Fortschritt der Modellübertragung"
-  },
-  "modelFolderPickerHint": {
-    "message": "Nach dem Klicken auf „Start“ öffnet sich ein Ordnerdialog in „Dokumente“. Erstellen oder wählen Sie „Dokumente/Sakutto“, oder wählen Sie den vorhandenen Ordner, falls ein anderer Browser die Modelle bereits enthält. Jeder beschreibbare Ordner funktioniert ebenfalls."
-  },
-  "modelFolderChoose": {
-    "message": "Choose model folder"
-  },
-  "modelFolderUsing": {
-    "message": "Using the folder $NAME$.",
-    "placeholders": {
-      "name": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelFolderPermissionNeeded": {
-    "message": "Sakutto needs permission to read the shared model folder."
-  },
-  "modelFolderPermissionPresent": {
-    "message": "The model is already in the folder. Allow access to use it."
-  },
-  "modelFolderPermissionGrant": {
-    "message": "Allow folder access"
-  },
-  "modelFolderPermissionPage": {
-    "message": "Sakutto opens a grant tab. In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts); in Chrome, choose “Allow on every visit”."
-  },
-  "modelFolderPersistentHint": {
-    "message": "Wählen Sie im Browserdialog in Chrome „Auf jeder Website zulassen“ oder in Edge “Ask every time I access” (japanisches Chrome: 「サイトアクセス時は常に許可」, japanisches Edge: 「アクセスするたびに確認する」; equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). Nach einem Neustart sind dann keine weiteren Klicks nötig."
-  },
-  "modelFolderPickFailed": {
-    "message": "The folder could not be selected."
-  },
-  "modelFolderIntegrityFailed": {
-    "message": "The file $FILE$ is not the official PLaMo model, so Sakutto will not use it.",
-    "placeholders": {
-      "file": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelFolderEnableTabTitle": {
-    "message": "Keep folder access after restart"
-  },
-  "modelFolderEnableTabBody": {
-    "message": "In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). In Chrome, choose “Allow on every visit” (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「アクセスするたびに確認する」). Either persistent choice keeps this folder allowed after restarts with no extra clicks."
-  },
-  "modelFolderEnableTabHint": {
-    "message": "A this-time-only choice lasts only until a restart. Return here to grant access again. Translation still works from the browser copy."
-  },
-  "modelFolderEnableTabDone": {
-    "message": "Folder access is ready. This tab closes automatically."
-  },
-  "modelFolderEnableOneClick": {
-    "message": "Enable Sakutto"
-  },
-  "modelFolderBenefitsLead": {
-    "message": "A shared folder means:"
-  },
-  "modelFolderBenefitShare": {
-    "message": "Other profiles and other Chromium browsers can use it right away, with no extra download."
-  },
-  "modelFolderBenefitSpace": {
-    "message": "One copy on disk, so you save space ($SIZE$).",
-    "placeholders": {
-      "size": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelFolderBenefitKeep": {
-    "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
-  },
-  "highQualityOffer": {
-    "message": "Sie können das Modell mit höherer Genauigkeit ausprobieren (2B, ca. 1,81 GB). Die Geschwindigkeit hängt von diesem Gerät ab."
-  },
-  "useHighQuality": {
-    "message": "Nutzen Sie es"
-  },
-  "dismissHighQuality": {
-    "message": "Nicht jetzt"
-  },
-  "glossaryHeading": {
-    "message": "Glossar"
-  },
-  "glossaryHelp": {
-    "message": "Schreiben Sie pro Zeile ein „Quelle, Übersetzung“-Paar. Wählen Sie eine Seite aus, auf der Sie die Liste nur verwenden."
-  },
-  "glossaryGlobal": {
-    "message": "Alle Seiten"
-  },
-  "glossaryImport": {
-    "message": "CSV importieren"
-  },
-  "glossaryExport": {
-    "message": "CSV exportieren"
-  },
-  "glossaryAddSite": {
-    "message": "Seite hinzufügen"
-  },
-  "siteRulesHeading": {
-    "message": "Zeitpunktübergreifende Übersetzung"
-  },
-  "siteRuleAsk": {
-    "message": "Jedes Mal fragen"
-  },
-  "siteRuleAlways": {
-    "message": "Immer übersetzen"
-  },
-  "siteRuleNever": {
-    "message": "Niemals übersetzen"
-  },
-  "siteRuleRemove": {
-    "message": "Entfernen"
-  },
-  "noSiteRules": {
-    "message": "Noch keine Einstellungen pro Website."
-  },
-  "siteHostLabel": {
-    "message": "Hostname"
-  },
-  "cacheClear": {
-    "message": "Übersetzungs-Cache leeren"
-  },
-  "cacheCleared": {
-    "message": "Die Übersetzungscache wurde gelöscht."
-  },
-  "cacheClearFailed": {
-    "message": "Die Übersetzungscache konnte nicht gelöscht werden."
-  },
-  "idleLabel": {
-    "message": "Modell aus den Speichern entladen, nach"
-  },
-  "idle1": {
-    "message": "1 Minute"
-  },
-  "idle5": {
-    "message": "5 Minuten"
-  },
-  "idle15": {
-    "message": "15 Minuten"
-  },
-  "idleNever": {
-    "message": "Niemals"
-  },
-  "tierLabel": {
-    "message": "Performance-Modus"
-  },
-  "tierAuto": {
-    "message": "Automatisch"
-  },
-  "tierGpu": {
-    "message": "WebGPU"
-  },
-  "tierCpu8": {
-    "message": "CPU (8 oder mehr Threads)"
-  },
-  "tierCpu4": {
-    "message": "CPU (4 Threads)"
-  },
-  "tierHelp": {
-    "message": "Wählt automatisch die Mode aus, die zu diesem PC passt."
-  },
-  "slowDeviceHint": {
-    "message": "PLaMo ist auf diesem PC langsam. Jeder Absatz erscheint, sobald das Modell ihn beendet hat."
-  },
-  "errorPermission": {
-    "message": "Die Genehmigung für diese Website wurde nicht erteilt."
-  },
-  "siteHostInvalid": {
-    "message": "Geben Sie einen gültigen Hostnamen ein."
-  },
-  "glossaryScopeLabel": {
-    "message": "gilt für"
-  },
-  "listSeparator": {
-    "message": ","
-  },
-  "openTyped": {
-    "message": "Geschriebene Texte übersetzen"
-  },
-  "typedLead": {
-    "message": "Geben Sie Text ein oder fügen Sie ihn ein und übersetzen Sie ihn mit demselben PLaMo-Modell, das die Seitenübersetzung verwendet. Nichts verlässt dieses Gerät."
-  },
-  "typedHeading": {
-    "message": "Gedruckte Übersetzung"
-  },
-  "typedSourceLanguageLabel": {
-    "message": "Übersetzen aus"
-  },
-  "typedDetectSource": {
-    "message": "Automatisch erkannt"
-  },
-  "typedSourceLabel": {
-    "message": "Text zum Übersetzen"
-  },
-  "typedPlaceholder": {
-    "message": "Geben Sie den Text hier ein oder fügen Sie ihn ein."
-  },
-  "typedCounter": {
-    "message": "$COUNT$ / $LIMIT$ Zeichen",
-    "placeholders": {
-      "count": {
-        "content": "$1"
-      },
-      "limit": {
-        "content": "$2"
-      }
-    }
-  },
-  "typedTooLong": {
-    "message": "Dieser Text ist für eine Anfrage zu lang. Kürzen Sie ihn auf $LIMIT$ Zeichen oder weniger.",
-    "placeholders": {
-      "limit": {
-        "content": "$1"
-      }
-    }
-  },
-  "typedDirectionHint": {
-    "message": "Übersetzt in $LANGUAGE$. Andere Sprachen werden automatisch erkannt.",
-    "placeholders": {
-      "language": {
-        "content": "$1"
-      }
-    }
-  },
-  "typedSwap": {
-    "message": "Übertragungsrichtung ändern"
-  },
-  "typedTranslate": {
-    "message": "Übersetzen"
-  },
-  "typedTranslating": {
-    "message": "Übersetzen…"
-  },
-  "typedStop": {
-    "message": "Stoppen"
-  },
-  "typedClear": {
-    "message": "Klar"
-  },
-  "typedCopy": {
-    "message": "Kopieren"
-  },
-  "typedCopied": {
-    "message": "Kopiert"
-  },
-  "typedCopyFailed": {
-    "message": "Die Übersetzung konnte nicht kopiert werden. Wählen Sie sie aus und kopieren Sie sie selbst."
-  },
-  "typedResultHeading": {
-    "message": "Übersetzung"
-  },
-  "typedResultEmpty": {
-    "message": "Die PLaMo-Übersetzung erscheint hier, neben dem von Ihnen eingelegten Text."
-  },
-  "typedRunHint": {
-    "message": "Ctrl+Enter (⌘+Enter auf einem Mac) übersetzt ebenfalls."
-  },
-  "typedFailed": {
-    "message": "Der Text konnte nicht übersetzt werden. Ihr Text ist unverändert; versuchen Sie es erneut."
-  },
-  "typedNeedsConsent": {
-    "message": "PLaMo benötigt eine einmalige Lizenzvereinbarung, bevor es zum Laufen kommt. Ihr Text wird bis dahin nicht übersetzt."
-  },
-  "typedOpenOnboarding": {
-    "message": "Licenz prüfen und starten"
-  },
-  "typedModelMissing": {
-    "message": "Das PLaMo-Modell ist auf diesem Gerät noch nicht vorhanden."
-  },
-  "typedModelPartial": {
-    "message": "Der Download des PLaMo-Modells wurde unterbrochen."
-  },
-  "typedModelBusy": {
-    "message": "Das PLaMo-Modell wird heruntergeladen. Die Übersetzung beginnt, sobald es fertig ist."
-  },
-  "typedModelError": {
-    "message": "Das PLaMo-Modell konnte nicht geladen werden. Öffnen Sie die Optionsseite, um es zu prüfen."
-  },
-  "typedDownloadModel": {
-    "message": "Modell herunterladen"
-  },
-  "typedChromeOnlyTarget": {
-    "message": "Typed-Übersetzungen verwenden ausschließlich PLaMo, und PLaMo übersetzt nicht in $LANGUAGE$. Wählen Sie hier eine andere Sprache aus oder übersetzen Sie eine Seite für den integrierten Translator.",
-    "placeholders": {
-      "language": {
-        "content": "$1"
-      }
-    }
-  },
-  "typedChromeOnlyNote": {
-    "message": "Der integrierte Translator von Chrome deckt nur $LANGUAGES$ auf Seiten ab; eingegebene Texte werden nie dorthin übermittelt.",
-    "placeholders": {
-      "languages": {
-        "content": "$1"
-      }
-    }
+  "openOnboarding": {
+    "message": "Offenes Onboarding"
+  },
+  "openOptions": {
+    "message": "Einstellungen öffnen"
   },
   "openPdf": {
     "message": "Diese PDF übersetzen"
@@ -1044,20 +955,167 @@
   "openPdfHint": {
     "message": "Öffnet die PDF in Sakutto und übersetzt sie an Ort und Stelle, ohne das Seitenlayout zu verändern."
   },
-  "contextTranslatePdf": {
-    "message": "Diese PDF mit Sakutto übersetzen"
+  "openTyped": {
+    "message": "Geschriebene Texte übersetzen"
   },
-  "commandPdf": {
-    "message": "PDF in Sakutto öffnen"
+  "optionsDefaultHint": {
+    "message": "Das sind die Standardeinstellungen. Eine von Ihnen übersetzte Seite kann ihre eigene Sprache und Lesestil beibehalten."
   },
-  "pdfReaderTitle": {
-    "message": "PDF"
+  "optionsLead": {
+    "message": "Wählen Sie die Funktionsweise der Übersetzung, verwalten Sie das Modell und legen Sie das Verhalten pro Website fest. Änderungen werden automatisch gespeichert."
   },
-  "pdfUntitled": {
-    "message": "Dokument.pdf"
+  "optionsSiteLive": {
+    "message": "Die Sprache und der Lesestil hier folgen der Website. Die oben genannten Einstellungen werden verwendet, wenn eine Website keine eigene Auswahl bietet."
+  },
+  "optionsTitle": {
+    "message": "Einstellungen"
+  },
+  "originalLabel": {
+    "message": "Original"
+  },
+  "paceFast": {
+    "message": "Blicke weiter voraus"
+  },
+  "paceHelp": {
+    "message": "Übersetzt Absätze unmittelbar bevor sie sich anzeigen. „Look ahead further“ fährt weitere Texte unter der Folie vor, sodass der Text bereits beim Scrollen fertig ist. Für die von PLaMo unterstützten Sprachen stammt jede Zeile aus PLaMo; der Entwurf von Chrome wird nie verwendet."
+  },
+  "paceHelpFirefox": {
+    "message": "Übersetzt Absätze unmittelbar bevor sie sich anzeigen. „Look ahead further“ fährt weitere Texte unter der Folie vor, sodass der Text bereits beim Scrollen fertig ist. Für die von PLaMo unterstützten Sprachen stammt jede Zeile aus PLaMo."
+  },
+  "paceLabel": {
+    "message": "Look-ahead"
+  },
+  "paceQuality": {
+    "message": "Sichtbar zuerst"
+  },
+  "pageAlwaysOn": {
+    "message": "Diese Seite wird immer übersetzt."
+  },
+  "pagePartial": {
+    "message": "$BLOCKS$ Teile dieser Seite konnten nicht übersetzt werden.",
+    "placeholders": {
+      "blocks": {
+        "content": "$1"
+      }
+    }
+  },
+  "pageProgress": {
+    "message": "Übersetzung von $DONE$ / $TOTAL$",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pageProgressLabel": {
+    "message": "Übersetzungsfortschritt"
+  },
+  "pageRate": {
+    "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
+    "placeholders": {
+      "tokens": {
+        "content": "$1"
+      },
+      "segments": {
+        "content": "$2"
+      }
+    }
+  },
+  "pageStartBlocked": {
+    "message": "Die Seitenübersetzung wartet, bis das PLaMo-Modell den Download und das Laden abgeschlossen hat. Öffnen Sie das Onboarding, um den Fortschritt einzusehen."
+  },
+  "pageStatusLabel": {
+    "message": "Diese Seite"
+  },
+  "pageStatusLanguageUnknown": {
+    "message": "Unbekannte Sprache"
+  },
+  "pageStatusReady": {
+    "message": "$LANG$ · $COUNT$ Blöcke",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      },
+      "count": {
+        "content": "$2"
+      }
+    }
+  },
+  "pageStatusUnavailable": {
+    "message": "Nicht übersetzbar"
+  },
+  "pageTranslated": {
+    "message": "Diese Seite ist übersetzt."
+  },
+  "pageTranslating": {
+    "message": "Übersetzen…"
+  },
+  "pdfBroken": {
+    "message": "Das Dokument konnte nicht geöffnet werden. Es ist möglicherweise beschädigt oder passwortgeschützt."
+  },
+  "pdfChooseFile": {
+    "message": "PDF-Datei auswählen"
+  },
+  "pdfCompare": {
+    "message": "Vergleichen"
+  },
+  "pdfFailedCount": {
+    "message": "$COUNT$ Stellen konnten nicht übersetzt werden.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "Toolbar note when some blocks could not be translated."
+  },
+  "pdfFileAccessDenied": {
+    "message": "Diese PDF-Datei liegt auf diesem Rechner. Erlauben Sie der Erweiterung den Zugriff auf Datei-URLs in den Erweiterungseinstellungen, oder wählen Sie die Datei im Reader."
+  },
+  "pdfKeptAsIs": {
+    "message": "$COUNT$ Stellen blieben im Satz der Seite: Formeln, Achsenbeschriftungen und Code behalten ihre ursprüngliche Gestaltung.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfMissing": {
+    "message": "Das Dokument ist nicht mehr verfügbar. Öffnen Sie die PDF erneut aus ihrem Tab."
+  },
+  "pdfModelMissing": {
+    "message": "Die Seiten werden angezeigt, aber zum Übersetzen wird das PLaMo-Modell benötigt. Laden Sie es herunter, um dieses Dokument zu übersetzen."
+  },
+  "pdfNoText": {
+    "message": "Dieses Dokument ist ein Scan oder besteht nur aus Bildern und hat keine Textebene. Öffnen Sie eine PDF mit echtem Text oder führen Sie zuerst eine Texterkennung aus."
+  },
+  "pdfOpenFailed": {
+    "message": "Diese PDF konnte nicht geöffnet werden. Laden Sie die Seite neu und versuchen Sie es erneut."
+  },
+  "pdfOriginalPane": {
+    "message": "Original"
+  },
+  "pdfOverflow": {
+    "message": "$COUNT$ Stellen passten nicht auf die Seite. Öffnen Sie die Markierung, um die Übersetzung zu lesen.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfOverflowOpen": {
+    "message": "Übersetzung anzeigen"
+  },
+  "pdfPageNoText": {
+    "message": "Diese Seite ist ein Scan oder ein Bild ohne auswählbaren Text und kann nicht übersetzt werden."
   },
   "pdfPreparing": {
     "message": "Dokument wird gelesen…"
+  },
+  "pdfReaderTitle": {
+    "message": "PDF"
   },
   "pdfReading": {
     "message": "Seite $PAGE$ von $TOTAL$ wird gelesen",
@@ -1070,60 +1128,15 @@
       }
     }
   },
-  "pdfTranslated": {
-    "message": "Übersetzt"
-  },
-  "pdfPageNoText": {
-    "message": "Diese Seite ist ein Scan oder ein Bild ohne auswählbaren Text und kann nicht übersetzt werden."
-  },
   "pdfRenderFailed": {
     "message": "Diese Seite konnte nicht gezeichnet werden.",
     "description": "Shown on a page whose canvas could not be drawn."
   },
-  "pdfNoText": {
-    "message": "Dieses Dokument ist ein Scan oder besteht nur aus Bildern und hat keine Textebene. Öffnen Sie eine PDF mit echtem Text oder führen Sie zuerst eine Texterkennung aus."
+  "pdfSelectClear": {
+    "message": "Original anzeigen"
   },
-  "pdfTranslateFailed": {
-    "message": "Dieser Teil konnte nicht übersetzt werden."
-  },
-  "pdfMissing": {
-    "message": "Das Dokument ist nicht mehr verfügbar. Öffnen Sie die PDF erneut aus ihrem Tab."
-  },
-  "pdfBroken": {
-    "message": "Das Dokument konnte nicht geöffnet werden. Es ist möglicherweise beschädigt oder passwortgeschützt."
-  },
-  "pdfTooLarge": {
-    "message": "Diese Datei ist größer als 200 MB, die Obergrenze für Dokumente, die der Reader öffnen kann.",
-    "description": "Shown when a local PDF is larger than the reader will open."
-  },
-  "pdfModelMissing": {
-    "message": "Die Seiten werden angezeigt, aber zum Übersetzen wird das PLaMo-Modell benötigt. Laden Sie es herunter, um dieses Dokument zu übersetzen."
-  },
-  "pdfOpenFailed": {
-    "message": "Diese PDF konnte nicht geöffnet werden. Laden Sie die Seite neu und versuchen Sie es erneut."
-  },
-  "pdfFileAccessDenied": {
-    "message": "Diese PDF-Datei liegt auf diesem Rechner. Erlauben Sie der Erweiterung den Zugriff auf Datei-URLs in den Erweiterungseinstellungen, oder wählen Sie die Datei im Reader."
-  },
-  "pdfCompare": {
-    "message": "Vergleichen"
-  },
-  "pdfOriginalPane": {
-    "message": "Original"
-  },
-  "pdfTranslatedPane": {
-    "message": "Übersetzung"
-  },
-  "pdfChooseFile": {
-    "message": "PDF-Datei auswählen"
-  },
-  "pdfKeptAsIs": {
-    "message": "$COUNT$ Stellen blieben im Satz der Seite: Formeln, Achsenbeschriftungen und Code behalten ihre ursprüngliche Gestaltung.",
-    "placeholders": {
-      "count": {
-        "content": "$1"
-      }
-    }
+  "pdfSelectFailed": {
+    "message": "Diese Auswahl konnte nicht übersetzt werden."
   },
   "pdfSelectHint": {
     "message": "Text auf einer Seite auswählen, um nur diesen Teil zu übersetzen."
@@ -1131,479 +1144,154 @@
   "pdfSelectTranslate": {
     "message": "Auswahl übersetzen"
   },
-  "pdfSelectFailed": {
-    "message": "Diese Auswahl konnte nicht übersetzt werden."
+  "pdfTooLarge": {
+    "message": "Diese Datei ist größer als 200 MB, die Obergrenze für Dokumente, die der Reader öffnen kann.",
+    "description": "Shown when a local PDF is larger than the reader will open."
   },
-  "pdfSelectClear": {
-    "message": "Original anzeigen"
+  "pdfTranslateFailed": {
+    "message": "Dieser Teil konnte nicht übersetzt werden."
   },
-  "commandCompose": {
-    "message": "Den Text übersetzen, den Sie gerade schreiben"
+  "pdfTranslated": {
+    "message": "Übersetzt"
   },
-  "contextTranslateCompose": {
-    "message": "Geschriebenes übersetzen"
+  "pdfTranslatedPane": {
+    "message": "Übersetzung"
   },
-  "shortcutCompose": {
-    "message": "$KEY$ übersetzt den Text im Feld, in das Sie schreiben.",
-    "placeholders": {
-      "key": {
-        "content": "$1"
-      }
-    }
-  },
-  "onboardingReadyCompose": {
-    "message": "Drücken Sie $KEY$ in einem Nachrichtenfeld, um eine Übersetzung anzuzeigen, die Sie übernehmen können.",
-    "placeholders": {
-      "key": {
-        "content": "$1"
-      }
-    }
-  },
-  "composeHelp": {
-    "message": "Wenn ein Nachrichtenfeld den Fokus hat, zeigt die あA-Schaltfläche (oder das Tastenkürzel) eine Vorschau der Übersetzung. Japanische Entwürfe gehen ins Englische (oder in die Zielsprache oben); andere Entwürfe nutzen diese Zielsprache. Nichts wird ersetzt, bis Sie „Ersetzen“ wählen."
-  },
-  "composeTitle": {
-    "message": "Übersetzung des Entwurfs"
-  },
-  "composeIcon": {
-    "message": "Geschriebenes übersetzen"
-  },
-  "composeReplace": {
-    "message": "Ersetzen"
-  },
-  "composeUndo": {
-    "message": "Original wiederherstellen"
-  },
-  "composePending": {
-    "message": "Übersetzung läuft…"
-  },
-  "composeFailed": {
-    "message": "Dieser Entwurf konnte nicht übersetzt werden."
-  },
-  "composeEmpty": {
-    "message": "Tippen Sie, um eine Übersetzung zu sehen."
-  },
-  "composeTooLong": {
-    "message": "Dieser Entwurf ist zu lang zum Übersetzen."
-  },
-  "composeSwap": {
-    "message": "Übersetzungsrichtung wechseln"
-  },
-  "composeReplaced": {
-    "message": "Ersetzt. Sie können das Original wiederherstellen."
-  },
-  "composeInto": {
-    "message": "Nach $LANGUAGE$",
-    "placeholders": {
-      "language": {
-        "content": "$1"
-      }
-    }
-  },
-  "composeChromeOnly": {
-    "message": "Die Entwurfsübersetzung nutzt nur PLaMo, und PLaMo übersetzt nicht nach $LANGUAGE$.",
-    "placeholders": {
-      "language": {
-        "content": "$1"
-      }
-    }
-  },
-  "composeIconSetting": {
-    "message": "Die あA-Schaltfläche in Nachrichtenfeldern anzeigen"
-  },
-  "composeIconSettingHelp": {
-    "message": "Tastenkürzel und Rechtsklickmenü funktionieren weiterhin, wenn die Schaltfläche ausgeblendet ist."
-  },
-  "composeTargetSetting": {
-    "message": "Zielsprache für Entwürfe"
-  },
-  "composeTargetAuto": {
-    "message": "Automatisch (japanische Entwürfe in die andere Sprache des Paars, sonst die Seitensprache)"
-  },
-  "composeTargetSettingHelp": {
-    "message": "Die zuletzt im Vorschaufenster gewählte Sprache wird hier gespeichert."
-  },
-  "composeTargetLabel": {
-    "message": "Ziel"
-  },
-  "composeInstantSetting": {
-    "message": "Mit einem Tastendruck übersetzen und ersetzen"
-  },
-  "composeInstantSettingHelp": {
-    "message": "Ohne Vorschau: ein Tastendruck übersetzt den Entwurf und ersetzt ihn. Rückgängig bleibt möglich."
-  },
-  "composeNeedSetup": {
-    "message": "PLaMo ist noch nicht bereit. Öffnen Sie die Einrichtung, um der Lizenz zuzustimmen und das Modell herunterzuladen."
-  },
-  "composeLoading": {
-    "message": "Das PLaMo-Modell wird geladen. Die Vorschau erscheint, sobald es bereit ist."
-  },
-  "composeIneligible": {
-    "message": "Dieses Feld kann nicht übersetzt werden."
-  },
-  "composeOpenSetup": {
-    "message": "Einrichtung öffnen"
-  },
-  "composeStale": {
-    "message": "Der Entwurf hat sich geändert. Ersetzen ist pausiert, bis die Vorschau nachzieht."
-  },
-  "composeReplaceHint": {
-    "message": "$COMPOSE$ / $ENTER$ zum Ersetzen",
-    "placeholders": {
-      "compose": {
-        "content": "$1"
-      },
-      "enter": {
-        "content": "$2"
-      }
-    }
-  },
-  "composeLangPair": {
-    "message": "$SOURCE$ → $TARGET$",
-    "placeholders": {
-      "source": {
-        "content": "$1"
-      },
-      "target": {
-        "content": "$2"
-      }
-    }
-  },
-  "composeAutoSource": {
-    "message": "Auto"
-  },
-  "composePlacementSetting": {
-    "message": "Position der Entwurf-Übersetzungsleiste"
-  },
-  "composePlacementSettingHelp": {
-    "message": "Die Vorgabe für jede Website. Ziehen Sie den ⋮⋮-Griff der Leiste, um sie auf dieser Seite beliebig zu platzieren. Das ⋯-Menü kann das ebenfalls nur für diese Website überschreiben."
-  },
-  "composePlacementAbove": {
-    "message": "Über dem Eingabefeld"
-  },
-  "composePlacementBelow": {
-    "message": "Unter dem Eingabefeld"
-  },
-  "composePlacementCorner": {
-    "message": "Unten rechts im Fenster"
-  },
-  "composePlacementFree": {
-    "message": "Frei verschieben"
-  },
-  "composePlacementMenu": {
-    "message": "Leistenposition"
-  },
-  "composePlacementSite": {
-    "message": "Diese Website"
-  },
-  "composePlacementFollowSettings": {
-    "message": "Einstellung für alle Websites verwenden"
-  },
-  "composePlacementReset": {
-    "message": "Zur ursprünglichen Position zurück"
-  },
-  "composePlacementHandle": {
-    "message": "Ziehen, um die Leiste beliebig zu verschieben"
-  },
-  "engineFirefoxSingleThread": {
-    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
-  },
-  "engineLinuxWebGpuHintUnsupported": {
-    "message": "Chrome unter Linux benötigt oft WebGPU unter chrome://flags/#enable-unsafe-webgpu sowie die Vulkan-Funktion und danach einen Neustart von Chrome. In der Zwischenzeit wird die CPU-Übersetzung verwendet."
-  },
-  "engineLinuxWebGpuHintUnavailable": {
-    "message": "WebGPU ist aktiviert, aber kein nutzbarer GPU-Adapter wurde gefunden. Die GPU-Übersetzung benötigt shader-f16; prüfen Sie daher Treiber und Vulkan-Unterstützung, z. B. unter chrome://gpu. In der Zwischenzeit wird die CPU-Übersetzung verwendet."
-  },
-  "tierCpu1": {
-    "message": "CPU (1 thread)"
-  },
-  "runtimeLocalServer": {
-    "message": "Lokaler Server (experimentell)"
-  },
-  "engineSourceLabel": {
-    "message": "Übersetzungsengine"
-  },
-  "engineSourceInBrowser": {
-    "message": "Integriert (auf diesem Gerät)"
-  },
-  "engineSourceLocalServer": {
-    "message": "Lokaler Server (experimentell)"
-  },
-  "engineSourceHelp": {
-    "message": "Standard ist die eingebaute Engine auf diesem Gerät."
-  },
-  "localServerUrlLabel": {
-    "message": "Server-URL"
-  },
-  "localServerModelLabel": {
-    "message": "Modell"
-  },
-  "localServerApiKeyLabel": {
-    "message": "API-Schlüssel (optional)"
-  },
-  "localServerTimeoutLabel": {
-    "message": "Zeitüberschreitung (Sekunden)"
-  },
-  "localServerTestButton": {
-    "message": "Verbindung testen"
-  },
-  "localServerTestOk": {
-    "message": "Verbunden."
-  },
-  "localServerTestFail": {
-    "message": "Dieser Server konnte nicht genutzt werden."
-  },
-  "localServerModelsEmpty": {
-    "message": "(keine Liste — Namen eingeben)"
-  },
-  "localServerPresetMlx": {
-    "message": "mlx_lm.server"
-  },
-  "localServerPresetLmStudio": {
-    "message": "LM Studio"
-  },
-  "localServerPresetHelp": {
-    "message": "Voreinstellungen füllen nur die URL."
-  },
-  "localServerNonLocalWarning": {
-    "message": "Diese Adresse ist nicht dieser Rechner. Seitentext wird dorthin gesendet. Verstanden."
-  },
-  "localServerPermissionDenied": {
-    "message": "Der Browser hat den Zugriff auf diese Adresse nicht gewährt."
-  },
-  "localServerHelp": {
-    "message": "Sendet Sakuttos Prompt an einen OpenAI-kompatiblen Server auf diesem Computer, zum Beispiel mlx_lm.server oder LM Studio."
-  },
-  "localServerUnreachable": {
-    "message": "Der lokale Server war nicht erreichbar. Öffnen Sie die Einstellungen und prüfen Sie, ob er läuft."
-  },
-  "localServerModelMissing": {
-    "message": "Der Server hat kein passendes Modell. Laden Sie eines oder wählen Sie es in den Einstellungen."
-  },
-  "localServerTimeout": {
-    "message": "Der lokale Server hat das Zeitlimit überschritten. Der Originaltext blieb."
-  },
-  "localServerFailed": {
-    "message": "Der lokale Server konnte dies nicht übersetzen. Öffnen Sie die Einstellungen. Der Originaltext blieb."
-  },
-  "diagBackendLocalServer": {
-    "message": "Lokaler Server (experimentell)"
-  },
-  "privacyBodyLocalServer": {
-    "message": "Experimentell. Bei einem lokalen Server geht der Text nur an die von Ihnen gesetzte Adresse (standardmäßig dieser Computer). Die Genauigkeit ist nicht garantiert, und die Übersetzung kann von der eingebauten Engine abweichen, auch mit Fehlübersetzungen. Der Entwickler erhält den Text nicht."
-  },
-  "localServerLicenseNote": {
-    "message": "Andere Modelle auf diesem Server sind Ihre Lizenzverantwortung. PLaMo-Gewichte bleiben unter der PLaMo Community License."
-  },
-  "localServerParallelLabel": {
-    "message": "Concurrent requests"
-  },
-  "localServerParallelHelp": {
-    "message": "How many completions the server may run at once (1–16). The page keeps extra requests ready so a finished slot is not left idle."
-  },
-  "localServerTestOkUnlisted": {
-    "message": "Connected. Completions work. The server listed no models — keep the model name you typed; it was not verified from /v1/models."
-  },
-  "localServerExperimental": {
-    "message": "Experimentell: Die Übersetzungsgenauigkeit ist nicht garantiert. Das Ergebnis kann von der eingebauten Engine abweichen, auch mit Fehlübersetzungen."
-  },
-  "localServerExperimentalConfirm": {
-    "message": "Diese Engine ist experimentell. Die Genauigkeit ist nicht garantiert. Übersetzungen können von der eingebauten Engine abweichen, auch mit Fehlübersetzungen. Den lokalen Server trotzdem verwenden?"
-  },
-  "localServerExperimentalUse": {
-    "message": "Lokalen Server verwenden"
-  },
-  "localServerExperimentalKeep": {
-    "message": "Eingebaut lassen"
-  },
-  "localServerDetails": {
-    "message": "Details"
-  },
-  "localServerAdvanced": {
-    "message": "Erweitert"
-  },
-  "localServerRemoteConfirmRequired": {
-    "message": "Diese Adresse ist nicht auf diesem Computer. Aktivieren Sie die Bestätigung unten, bevor Sie die Verbindung testen."
-  },
-  "onboardingLocalServerNote": {
-    "message": "In den Einstellungen lässt sich ein experimenteller lokaler Server einschalten. Der Seitentext geht dann nur an die gesetzte Adresse, und die Genauigkeit ist nicht garantiert."
-  },
-  "localServerUrlHelp": {
-    "message": "mlx_lm.server nutzt standardmäßig Port 8080. LM Studio nutzt Port 1234."
-  },
-  "localServerModelHelp": {
-    "message": "Der Modellname, der auf diesem Server geladen ist."
-  },
-  "diagConcurrent": {
-    "message": "Gleichzeitige Anfragen"
-  },
-  "diagRuntime": {
-    "message": "Status"
-  },
-  "videoCaptionsSetting": {
-    "message": "Videountertitel übersetzen"
-  },
-  "videoCaptionsSettingHelp": {
-    "message": "Wenn diese Option aktiv ist, werden YouTube-Videos (auch Live) und X-Videos mit vorhandenen Untertiteln auf dem Gerät übersetzt. Chrome fragt beim Einschalten nach Zugriff auf diese Websites. Videos ohne Untertitel bleiben leer. Eine unsichere Übersetzung wird durch den Originaltext ersetzt."
-  },
-  "videoCaptionsDisplayLabel": {
-    "message": "Untertitelanzeige"
-  },
-  "videoCaptionsBilingual": {
-    "message": "Original und Übersetzung"
-  },
-  "videoCaptionsReplace": {
-    "message": "Nur übersetzte Untertitel"
-  },
-  "videoCaptionsDisplayHelp": {
-    "message": "Das Original daneben zu behalten hilft beim Lernen und beim Erkennen einer schlechten Übersetzung."
-  },
-  "videoCaptionsLabel": {
-    "message": "Übersetzte Untertitel"
-  },
-  "videoCaptionsPending": {
-    "message": "Untertitel wird übersetzt…"
-  },
-  "videoCaptionsShowOriginal": {
-    "message": "Originaluntertitel anzeigen"
-  },
-  "videoCaptionsHideOriginal": {
-    "message": "Originaluntertitel ausblenden"
-  },
-  "videoCaptionsPermissionDenied": {
-    "message": "Der Zugriff auf YouTube und X wurde nicht gewährt."
-  },
-  "videoCaptionsShowOriginalSetting": {
-    "message": "Originalzeile anzeigen"
-  },
-  "videoCaptionsOriginalToggleSetting": {
-    "message": "Schaltfläche „Original ausblenden“ im Player zeigen"
-  },
-  "videoCaptionsOriginalToggleHelp": {
-    "message": "Ist dies aus, bleibt die Schaltfläche vom Video fern. Original und Übersetzung stellst du weiter auf dieser Seite um."
-  },
-  "videoCaptionsSizeLabel": {
-    "message": "Untertitelgröße"
-  },
-  "videoCaptionsSizeHelp": {
-    "message": "Die Größe folgt dem Player, auch im Vollbild und im Theater-Modus. Ziehen Sie den Schieberegler für eine Vorschau."
-  },
-  "translationPopupSizeLabel": {
-    "message": "Textgröße der Übersetzungs-Pop-ups"
-  },
-  "translationPopupSizeHelp": {
-    "message": "Ändert die Textgröße in Übersetzungs-Pop-ups beim Überfahren, bei Auswahl und beim Verfassen. Untertitel haben eine eigene Größenoption."
-  },
-  "plainTextLineBreaksLabel": {
-    "message": "Zeilenumbrüche in der Übersetzung"
-  },
-  "plainTextLineBreaksHelp": {
-    "message": "Eingefügte Dokumente, OCR-Text und Buchauszüge brechen oft mitten im Satz. Diese Umbrüche werden für die Übersetzung verbunden; nur Satzenden, Überschriften und Leerzeilen erscheinen als Umbrüche in der Übersetzung. Die letzte Option markiert außerdem jeden Zeilenumbruch im Quellfeld (↵ für Umbrüche mitten im Satz), damit du sie vor dem Übersetzen findest und korrigieren kannst. Die Seitenübersetzung bleibt unverändert."
-  },
-  "plainTextLineBreaksNone": {
-    "message": "Keine zusätzlichen Umbrüche (Standard)"
-  },
-  "plainTextLineBreaksKeep": {
-    "message": "Umbruch zwischen Absätzen"
+  "pdfUntitled": {
+    "message": "Dokument.pdf"
   },
   "plainTextLineBreaksBlank": {
     "message": "An jeder Umbruchstelle der Vorlage zwei Zeilenumbrüche (eine Leerzeile)"
   },
+  "plainTextLineBreaksHelp": {
+    "message": "Eingefügte Dokumente, OCR-Text und Buchauszüge brechen oft mitten im Satz. Diese Umbrüche werden für die Übersetzung verbunden; nur Satzenden, Überschriften und Leerzeilen erscheinen als Umbrüche in der Übersetzung. Die letzte Option markiert außerdem jeden Zeilenumbruch im Quellfeld (↵ für Umbrüche mitten im Satz), damit du sie vor dem Übersetzen findest und korrigieren kannst. Die Seitenübersetzung bleibt unverändert."
+  },
+  "plainTextLineBreaksKeep": {
+    "message": "Umbruch zwischen Absätzen"
+  },
+  "plainTextLineBreaksLabel": {
+    "message": "Zeilenumbrüche in der Übersetzung"
+  },
+  "plainTextLineBreaksNone": {
+    "message": "Keine zusätzlichen Umbrüche (Standard)"
+  },
   "plainTextLineBreaksWider": {
     "message": "Absatzumbrüche in der Übersetzung plus Umbruchmarken im Quellfeld"
   },
-  "typedSourceBreakLegend": {
-    "message": "↵ kennzeichnet einen Umbruch mitten im Satz; eine schlichte Linie kennzeichnet einen Umbruch, der in der Übersetzung bleibt."
+  "plamoOfficialLicenseEn": {
+    "message": "PLaMo Community License (offiziell, Englisch)"
   },
-  "videoCaptionsCustomSitesLabel": {
-    "message": "Eigene Untertitel-Websites"
+  "plamoOfficialLicenseJa": {
+    "message": "PLaMo Community License (offiziell, Japanisch)"
   },
-  "videoCaptionsCustomSitesHelp": {
-    "message": "Fügen Sie eine Domain hinzu, die nicht YouTube oder X ist. Die Übersetzung funktioniert nur, wenn die Website Untertitel als HTML5-Video-Tracks, WebVTT oder ein sichtbares Untertitel-Element bereitstellt. Websites, die Untertitel nur als eigene Grafik zeichnen, werden nicht unterstützt. Beim Hinzufügen wird der Zugriff auf diese Domain angefordert."
+  "plamoOnlySuffix": {
+    "message": " (PLaMo)"
   },
-  "videoCaptionsCustomHostPlaceholder": {
-    "message": "example.com"
+  "plamoRegistrationLink": {
+    "message": "Offizielles Registrierungsformular von PFN (kommerzielle Nutzung)"
   },
-  "videoCaptionsCustomHostAdd": {
-    "message": "Hinzufügen"
+  "privacyBody": {
+    "message": "Standardmäßig sendet diese Erweiterung keine Seitentexte an einen Übersetzungsserver. Es gibt keine Telemetrie."
   },
-  "videoCaptionsCustomHostRemove": {
-    "message": "Entfernen"
+  "privacyBodyLocalServer": {
+    "message": "Experimentell. Bei einem lokalen Server geht der Text nur an die von Ihnen gesetzte Adresse (standardmäßig dieser Computer). Die Genauigkeit ist nicht garantiert, und die Übersetzung kann von der eingebauten Engine abweichen, auch mit Fehlübersetzungen. Der Entwickler erhält den Text nicht."
   },
-  "videoCaptionsCustomHostSubdomains": {
-    "message": "Subdomains einschließen"
+  "privacyDestinations": {
+    "message": "Die eigene Anfrage der Erweiterung ist der Modell-Download. Dieser startet bei huggingface.co und folgt dem Weiterleiten von Hugging Face zu seiner CDN. Seitentext ist nicht enthalten. Chrome lädt seine Sprachpakete selbst herunter."
   },
-  "videoCaptionsCustomHostInvalid": {
-    "message": "Geben Sie eine Domain wie example.com ein. Der einzige erlaubte Platzhalter ist ein führendes *."
+  "privacyDestinationsFirefox": {
+    "message": "Die eigene Anfrage der Erweiterung ist der Modell-Download. Dieser startet bei huggingface.co und folgt dem Weiterleiten von Hugging Face zu seiner CDN. Seitentext ist nicht enthalten."
   },
-  "videoCaptionsCustomHostDenied": {
-    "message": "Der Zugriff auf diese Website wurde nicht gewährt."
+  "privacyHeading": {
+    "message": "Privatsphäre"
   },
-  "videoCaptionsBraveShields": {
-    "message": "Brave Shields hat die Untertiteldaten von YouTube blockiert. Deaktiviere Shields für dieses Video und lade die Seite neu, um die Untertitel zu übersetzen."
+  "privacyPolicyLink": {
+    "message": "Datenschutzerklärung"
   },
-  "videoCaptionsPositionReset": {
-    "message": "Position zurücksetzen"
+  "restoreThisPage": {
+    "message": "Ursprüngliches wiederherstellen"
   },
-  "videoCaptionsPositionHelp": {
-    "message": "Halte eine übersetzte Untertitelzeile gedrückt, um sie zu verschieben. YouTube und X merken sich jeweils die eigene Position, auch im Vollbild und im Theater-Modus. Diese Schaltfläche setzt sie wieder an den unteren Rand des Players."
+  "retry": {
+    "message": "Versuchen Sie es erneut"
   },
-  "pdfOverflow": {
-    "message": "$COUNT$ Stellen passten nicht auf die Seite. Öffnen Sie die Markierung, um die Übersetzung zu lesen.",
+  "runtimeChecking": {
+    "message": "Prüfen…"
+  },
+  "runtimeChrome": {
+    "message": "Chromes integrierte Übersetzung"
+  },
+  "runtimeDownloading": {
+    "message": "Downloading $PERCENT$% ($RECEIVED$ / $TOTAL$)",
     "placeholders": {
-      "count": {
+      "percent": {
+        "content": "$1"
+      },
+      "received": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
+  "runtimeError": {
+    "message": "Das Modell konnte nicht geladen werden"
+  },
+  "runtimeLoading": {
+    "message": "Modell wird geladen."
+  },
+  "runtimeLocalServer": {
+    "message": "Lokaler Server (experimentell)"
+  },
+  "runtimePlamoCpu": {
+    "message": "PLaMo · CPU"
+  },
+  "runtimePlamoGpu": {
+    "message": "PLaMo · WebGPU"
+  },
+  "runtimePlamoGpuFallback": {
+    "message": "PLaMo · CPU (WebGPU konnte das Modell nicht laden)"
+  },
+  "runtimePlamoGpuFallbackDevice": {
+    "message": "PLaMo · CPU (WebGPU-Gerät ist ausgefallen)"
+  },
+  "runtimePlamoGpuFallbackOutput": {
+    "message": "PLaMo · CPU (WebGPU-Ausgabe war fehlerhaft)"
+  },
+  "runtimePreparing": {
+    "message": "Vorbereitung $PERCENT$%",
+    "placeholders": {
+      "percent": {
         "content": "$1"
       }
     }
   },
-  "pdfFailedCount": {
-    "message": "$COUNT$ Stellen konnten nicht übersetzt werden.",
-    "placeholders": {
-      "count": {
-        "content": "$1"
-      }
-    },
-    "description": "Toolbar note when some blocks could not be translated."
+  "runtimeVerifying": {
+    "message": "Überprüfung der heruntergeladenen Datei."
   },
-  "pdfOverflowOpen": {
-    "message": "Übersetzung anzeigen"
+  "runtimeWaiting": {
+    "message": "Warten auf das Modell"
   },
-  "gmailBannerDetected": {
-    "message": "Diese E-Mail scheint auf $LANG$ geschrieben zu sein.",
-    "placeholders": {
-      "lang": {
-        "content": "$1"
-      }
-    }
+  "sameLanguageHint": {
+    "message": "Diese Seite ist bereits in der Zielsprache verfasst."
   },
-  "gmailBannerTranslate": {
-    "message": "$TARGET$ übersetzen",
-    "placeholders": {
-      "target": {
-        "content": "$1"
-      }
-    }
+  "selectionFailed": {
+    "message": "Diese Auswahl konnte nicht übersetzt werden."
   },
-  "gmailBannerShowOriginal": {
-    "message": "Original anzeigen"
+  "selectionIcon": {
+    "message": "Ausgewählten Text übersetzen"
   },
-  "gmailBannerTranslating": {
-    "message": "Diese E-Mail wird übersetzt…"
+  "selectionPending": {
+    "message": "Übersetzen…"
   },
-  "gmailBannerFailed": {
-    "message": "Diese E-Mail konnte nicht übersetzt werden."
+  "selectionResizeHandle": {
+    "message": "Übersetzungs-Popup in der Breite ziehen (Doppelklick zum Zurücksetzen)"
   },
-  "gmailBannerRegion": {
-    "message": "Gmail-Nachrichtenübersetzung"
+  "selectionTitle": {
+    "message": "Ausgewählter Text"
   },
-  "mailBannerAccessNeeded": {
-    "message": "Die E-Mail-Übersetzung benötigt Zugriff auf diese Website."
-  },
-  "mailBannerEnableForSite": {
-    "message": "E-Mail-Übersetzung auf dieser Website aktivieren"
-  },
-  "mailBannerPermissionDenied": {
-    "message": "Die E-Mail-Übersetzung benötigt die Berechtigung, auf die E-Mail-Website zuzugreifen."
+  "settingsGmailAutoLangs": {
+    "message": "Always translate these languages"
   },
   "settingsGmailBanner": {
     "message": "Übersetzung von Gmail-Nachrichten anbieten"
@@ -1611,49 +1299,8 @@
   "settingsGmailBannerHelp": {
     "message": "Wenn dies eingeschaltet ist, zeigt eine geöffnete Gmail-Nachricht in einer anderen Sprache einen kleinen Hinweis über dem Text. Übersetzt wird erst nach einem Klick. Sakutto benötigt Zugriff auf mail.google.com; erlaube ihn im Popup oder in der Website-Liste."
   },
-  "gmailBannerTranslated": {
-    "message": "Translated: $SOURCE$ → $TARGET$",
-    "placeholders": {
-      "source": {
-        "content": "$1"
-      },
-      "target": {
-        "content": "$2"
-      }
-    }
-  },
-  "gmailBannerShowTranslation": {
-    "message": "Show translation"
-  },
-  "gmailBannerMenu": {
-    "message": "Translation settings"
-  },
-  "gmailBannerTranslateNow": {
-    "message": "Translate $LANG$",
-    "placeholders": {
-      "lang": {
-        "content": "$1"
-      }
-    }
-  },
-  "gmailBannerAlwaysTranslate": {
-    "message": "Always translate $LANG$",
-    "placeholders": {
-      "lang": {
-        "content": "$1"
-      }
-    }
-  },
-  "gmailBannerNeverTranslate": {
-    "message": "Never translate $LANG$",
-    "placeholders": {
-      "lang": {
-        "content": "$1"
-      }
-    }
-  },
-  "settingsGmailAutoLangs": {
-    "message": "Always translate these languages"
+  "settingsGmailClearLangs": {
+    "message": "Clear"
   },
   "settingsGmailNeverLangs": {
     "message": "Never translate these languages"
@@ -1664,10 +1311,372 @@
   "settingsGmailNoNeverLangs": {
     "message": "No languages set to never translate."
   },
-  "settingsGmailClearLangs": {
-    "message": "Clear"
-  },
   "settingsGmailRemoveLang": {
     "message": "Remove"
+  },
+  "settingsLabel": {
+    "message": "Einstellungen"
+  },
+  "shortcutBilingual": {
+    "message": "$KEY$ wechselt zwischen der Ersatz- und der zweisprachigen Ansicht und merkt die Auswahl für diese Seite.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutChange": {
+    "message": "Tastenkürzel ändern"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ übersetzt den Text im Feld, in das Sie schreiben.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutHeading": {
+    "message": "Tastenkürzel"
+  },
+  "shortcutHelp": {
+    "message": "Entfernen Sie das Häkchen bei einem Befehl, um ihn in Sakutto zu deaktivieren. „Tastenkürzel ändern“ öffnet Chromes Editor für Tastenkürzel. Vom Browser zugewiesene Tasten funktionieren auch, wenn ein Textfeld fokussiert ist. Wenn ein Befehl „Nicht festgelegt“ ist, öffnen Sie den Editor und weisen Sie eine Taste zu."
+  },
+  "shortcutHelpFirefox": {
+    "message": "Entfernen Sie das Häkchen bei einem Befehl, um ihn in Sakutto zu deaktivieren. „Tastenkürzel ändern“ öffnet den eigenen Editor von Firefox. Dort zugewiesene Tasten funktionieren auch, wenn ein Textfeld fokussiert ist. Bei der Installation oder einem Update stellt Firefox nach Möglichkeit die Taste eines leeren, nie zugewiesenen Befehls wieder her; eine von Ihnen gelöschte Taste bleibt gelöscht."
+  },
+  "shortcutOff": {
+    "message": "Aus"
+  },
+  "shortcutOpenSettings": {
+    "message": "Einstellungen für Tastenkürzel öffnen"
+  },
+  "shortcutSelection": {
+    "message": "$KEY$ übersetzt den ausgewählten Text.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutTranslate": {
+    "message": "$KEY$ übersetzt die Seite oder stellt das Original wieder her.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutUnset": {
+    "message": "Nicht festgelegt"
+  },
+  "shortcutUnsetNotice": {
+    "message": "Tastenkürzel sind nicht festgelegt"
+  },
+  "shortcutUse": {
+    "message": "Diese Tastenkombination verwenden"
+  },
+  "siteGrantAllow": {
+    "message": "Zulassen"
+  },
+  "siteGrantBody": {
+    "message": "Seiten auf $HOST$ werden auf diesem Gerät übersetzt.",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteGrantDenied": {
+    "message": "Die Berechtigung wurde nicht erteilt. Versuchen Sie es erneut."
+  },
+  "siteGrantInvalid": {
+    "message": "Diese Seite nennt keinen Website."
+  },
+  "siteGrantTitle": {
+    "message": "Diese Seite übersetzen"
+  },
+  "siteHostInvalid": {
+    "message": "Geben Sie einen gültigen Hostnamen ein."
+  },
+  "siteHostLabel": {
+    "message": "Hostname"
+  },
+  "siteRuleAlways": {
+    "message": "Immer übersetzen"
+  },
+  "siteRuleAsk": {
+    "message": "Jedes Mal fragen"
+  },
+  "siteRuleNever": {
+    "message": "Niemals übersetzen"
+  },
+  "siteRuleRemove": {
+    "message": "Entfernen"
+  },
+  "siteRulesHeading": {
+    "message": "Zeitpunktübergreifende Übersetzung"
+  },
+  "slowDeviceHint": {
+    "message": "PLaMo ist auf diesem PC langsam. Jeder Absatz erscheint, sobald das Modell ihn beendet hat."
+  },
+  "sourceCodeLink": {
+    "message": "Quellcode"
+  },
+  "statusChecking": {
+    "message": "Prüfen…"
+  },
+  "storageOptionRecommended": {
+    "message": "Empfohlen"
+  },
+  "tagline": {
+    "message": "Seitenübersetzung, die auf Ihrem Gerät läuft"
+  },
+  "targetAdjustedNote": {
+    "message": "Die Seite befindet sich bereits in der gespeicherten Zielsprache, daher wurde das Ziel gewechselt."
+  },
+  "targetLanguageLabel": {
+    "message": "Übersetzen in"
+  },
+  "threadsLabel": {
+    "message": "Logische Kerne"
+  },
+  "tierAuto": {
+    "message": "Automatisch"
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
+  },
+  "tierCpu4": {
+    "message": "CPU (4 Threads)"
+  },
+  "tierCpu8": {
+    "message": "CPU (8 oder mehr Threads)"
+  },
+  "tierGpu": {
+    "message": "WebGPU"
+  },
+  "tierHelp": {
+    "message": "Wählt automatisch die Mode aus, die zu diesem PC passt."
+  },
+  "tierLabel": {
+    "message": "Performance-Modus"
+  },
+  "translateThisPage": {
+    "message": "Diese Seite übersetzen"
+  },
+  "translationPopupSizeHelp": {
+    "message": "Ändert die Textgröße in Übersetzungs-Pop-ups beim Überfahren, bei Auswahl und beim Verfassen. Untertitel haben eine eigene Größenoption."
+  },
+  "translationPopupSizeLabel": {
+    "message": "Textgröße der Übersetzungs-Pop-ups"
+  },
+  "typedChromeOnlyNote": {
+    "message": "Der integrierte Translator von Chrome deckt nur $LANGUAGES$ auf Seiten ab; eingegebene Texte werden nie dorthin übermittelt.",
+    "placeholders": {
+      "languages": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedChromeOnlyTarget": {
+    "message": "Typed-Übersetzungen verwenden ausschließlich PLaMo, und PLaMo übersetzt nicht in $LANGUAGE$. Wählen Sie hier eine andere Sprache aus oder übersetzen Sie eine Seite für den integrierten Translator.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedClear": {
+    "message": "Klar"
+  },
+  "typedCopied": {
+    "message": "Kopiert"
+  },
+  "typedCopy": {
+    "message": "Kopieren"
+  },
+  "typedCopyFailed": {
+    "message": "Die Übersetzung konnte nicht kopiert werden. Wählen Sie sie aus und kopieren Sie sie selbst."
+  },
+  "typedCounter": {
+    "message": "$COUNT$ / $LIMIT$ Zeichen",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "limit": {
+        "content": "$2"
+      }
+    }
+  },
+  "typedDetectSource": {
+    "message": "Automatisch erkannt"
+  },
+  "typedDirectionHint": {
+    "message": "Übersetzt in $LANGUAGE$. Andere Sprachen werden automatisch erkannt.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedDownloadModel": {
+    "message": "Modell herunterladen"
+  },
+  "typedFailed": {
+    "message": "Der Text konnte nicht übersetzt werden. Ihr Text ist unverändert; versuchen Sie es erneut."
+  },
+  "typedHeading": {
+    "message": "Gedruckte Übersetzung"
+  },
+  "typedLead": {
+    "message": "Geben Sie Text ein oder fügen Sie ihn ein und übersetzen Sie ihn mit demselben PLaMo-Modell, das die Seitenübersetzung verwendet. Nichts verlässt dieses Gerät."
+  },
+  "typedModelBusy": {
+    "message": "Das PLaMo-Modell wird heruntergeladen. Die Übersetzung beginnt, sobald es fertig ist."
+  },
+  "typedModelError": {
+    "message": "Das PLaMo-Modell konnte nicht geladen werden. Öffnen Sie die Optionsseite, um es zu prüfen."
+  },
+  "typedModelMissing": {
+    "message": "Das PLaMo-Modell ist auf diesem Gerät noch nicht vorhanden."
+  },
+  "typedModelPartial": {
+    "message": "Der Download des PLaMo-Modells wurde unterbrochen."
+  },
+  "typedNeedsConsent": {
+    "message": "PLaMo benötigt eine einmalige Lizenzvereinbarung, bevor es zum Laufen kommt. Ihr Text wird bis dahin nicht übersetzt."
+  },
+  "typedOpenOnboarding": {
+    "message": "Licenz prüfen und starten"
+  },
+  "typedPlaceholder": {
+    "message": "Geben Sie den Text hier ein oder fügen Sie ihn ein."
+  },
+  "typedResultEmpty": {
+    "message": "Die PLaMo-Übersetzung erscheint hier, neben dem von Ihnen eingelegten Text."
+  },
+  "typedResultHeading": {
+    "message": "Übersetzung"
+  },
+  "typedRunHint": {
+    "message": "Ctrl+Enter (⌘+Enter auf einem Mac) übersetzt ebenfalls."
+  },
+  "typedSourceBreakLegend": {
+    "message": "↵ kennzeichnet einen Umbruch mitten im Satz; eine schlichte Linie kennzeichnet einen Umbruch, der in der Übersetzung bleibt."
+  },
+  "typedSourceLabel": {
+    "message": "Text zum Übersetzen"
+  },
+  "typedSourceLanguageLabel": {
+    "message": "Übersetzen aus"
+  },
+  "typedStop": {
+    "message": "Stoppen"
+  },
+  "typedSwap": {
+    "message": "Übertragungsrichtung ändern"
+  },
+  "typedTooLong": {
+    "message": "Dieser Text ist für eine Anfrage zu lang. Kürzen Sie ihn auf $LIMIT$ Zeichen oder weniger.",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "typedTranslate": {
+    "message": "Übersetzen"
+  },
+  "typedTranslating": {
+    "message": "Übersetzen…"
+  },
+  "unofficialNotice": {
+    "message": "Inoffiziell. Nicht verbunden mit Preferred Networks. Entwickelt mit PLaMo."
+  },
+  "useHighQuality": {
+    "message": "Nutzen Sie es"
+  },
+  "videoCaptionsBilingual": {
+    "message": "Original und Übersetzung"
+  },
+  "videoCaptionsBraveShields": {
+    "message": "Brave Shields hat die Untertiteldaten von YouTube blockiert. Deaktiviere Shields für dieses Video und lade die Seite neu, um die Untertitel zu übersetzen."
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "Hinzufügen"
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "Der Zugriff auf diese Website wurde nicht gewährt."
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "Geben Sie eine Domain wie example.com ein. Der einzige erlaubte Platzhalter ist ein führendes *."
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "Entfernen"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "Subdomains einschließen"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "Fügen Sie eine Domain hinzu, die nicht YouTube oder X ist. Die Übersetzung funktioniert nur, wenn die Website Untertitel als HTML5-Video-Tracks, WebVTT oder ein sichtbares Untertitel-Element bereitstellt. Websites, die Untertitel nur als eigene Grafik zeichnen, werden nicht unterstützt. Beim Hinzufügen wird der Zugriff auf diese Domain angefordert."
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "Eigene Untertitel-Websites"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "Das Original daneben zu behalten hilft beim Lernen und beim Erkennen einer schlechten Übersetzung."
+  },
+  "videoCaptionsDisplayLabel": {
+    "message": "Untertitelanzeige"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "Originaluntertitel ausblenden"
+  },
+  "videoCaptionsLabel": {
+    "message": "Übersetzte Untertitel"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "Ist dies aus, bleibt die Schaltfläche vom Video fern. Original und Übersetzung stellst du weiter auf dieser Seite um."
+  },
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Schaltfläche „Original ausblenden“ im Player zeigen"
+  },
+  "videoCaptionsPending": {
+    "message": "Untertitel wird übersetzt…"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "Der Zugriff auf YouTube und X wurde nicht gewährt."
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "Halte eine übersetzte Untertitelzeile gedrückt, um sie zu verschieben. YouTube und X merken sich jeweils die eigene Position, auch im Vollbild und im Theater-Modus. Diese Schaltfläche setzt sie wieder an den unteren Rand des Players."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "Position zurücksetzen"
+  },
+  "videoCaptionsReplace": {
+    "message": "Nur übersetzte Untertitel"
+  },
+  "videoCaptionsSetting": {
+    "message": "Videountertitel übersetzen"
+  },
+  "videoCaptionsSettingHelp": {
+    "message": "Wenn diese Option aktiv ist, werden YouTube-Videos (auch Live) und X-Videos mit vorhandenen Untertiteln auf dem Gerät übersetzt. Chrome fragt beim Einschalten nach Zugriff auf diese Websites. Videos ohne Untertitel bleiben leer. Eine unsichere Übersetzung wird durch den Originaltext ersetzt."
+  },
+  "videoCaptionsShowOriginal": {
+    "message": "Originaluntertitel anzeigen"
+  },
+  "videoCaptionsShowOriginalSetting": {
+    "message": "Originalzeile anzeigen"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "Die Größe folgt dem Player, auch im Vollbild und im Theater-Modus. Ziehen Sie den Schieberegler für eine Vorschau."
+  },
+  "videoCaptionsSizeLabel": {
+    "message": "Untertitelgröße"
   }
 }

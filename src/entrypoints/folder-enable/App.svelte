@@ -54,7 +54,7 @@
         return;
       }
       succeeded = true;
-      if (access.changed) await requestModelFolderReload();
+      await requestModelFolderReload();
       notifySharedFolderChanged();
       const pending = await readFolderGrantPending();
       await browser.runtime.sendMessage({ type: 'folder:resume-pending' }).catch(() => {

@@ -738,7 +738,11 @@ describe('shared folder activation and recovery', () => {
     expect(restore).not.toContain('canAttemptSilentFolderGrant');
     expect(restore).not.toContain('ensureStoredFolderPermission');
     expect(restore).toContain("type: 'folder:open-enable'");
-    expect(restore).not.toContain('probeStoredFolderReadable');
+    expect(restore).toContain('probeStoredFolderReadable');
+    expect(restore).toContain('isFolderStorageRefreshedMessage');
+    expect(modelManager).toContain('shouldOfferRecordedFolderModel');
+    expect(modelManager).toContain('modelDeleteSharedFolder');
+    expect(source('entrypoints/background.ts')).toContain('folder:storage-refreshed');
   });
 
   it('does not toast for a folder grant when OPFS can still answer', () => {

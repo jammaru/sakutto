@@ -63,6 +63,28 @@ export function sharedFolderStorageChoice(
   return folder?.configured ? 'folder' : 'browser';
 }
 
+/** Model files are stored in a user-chosen shared folder, not only in this browser's OPFS. */
+export function sharedFolderStorageActive(
+  folder: Pick<SharedFolderStatus, 'configured'> | null | undefined,
+): boolean {
+  return folder?.configured === true;
+}
+
+/**
+ * Show a start control for a model recorded in the folder while `permission` is still
+ * `prompt` (Brave and other Chromium builds may not answer `inspect` until the user clicks).
+ */
+export function shouldOfferRecordedFolderModel(
+  folder:
+    Pick<SharedFolderStatus, 'configured' | 'permission' | 'recordedModels'> | null | undefined,
+  modelId: ModelId,
+  state: string,
+): boolean {
+  if (!sharedFolderNeedsPermission(folder)) return false;
+  if (state !== 'absent' && state !== 'error') return false;
+  return folderRecordsModel(folder, modelId);
+}
+
 export function emptySharedFolderStatus(supported: boolean): SharedFolderStatus {
   return {
     supported,

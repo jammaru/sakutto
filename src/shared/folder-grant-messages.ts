@@ -25,6 +25,21 @@ export function isFolderGrantCompleteMessage(value: unknown): value is FolderGra
   );
 }
 
+/** Notifies Settings/onboarding after a tab grant so they refresh without a full reload. */
+export interface FolderStorageRefreshedMessage {
+  type: 'folder:storage-refreshed';
+}
+
+export function isFolderStorageRefreshedMessage(
+  value: unknown,
+): value is FolderStorageRefreshedMessage {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as FolderStorageRefreshedMessage).type === 'folder:storage-refreshed'
+  );
+}
+
 export interface FolderOpenEnableRequest {
   type: 'folder:open-enable';
 }

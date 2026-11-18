@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
   import type { ModelId } from '@/engine/model/catalog';
   import {
@@ -6,8 +7,16 @@
     sharedFolderNeedsPermission,
     type SharedFolderStatus,
   } from '@/engine/model/folder-status';
-  import { notifySharedFolderChanged } from '@/engine/model/folder-offer';
-  import { queryStoredFolderPermission } from '@/engine/model/shared-folder';
+  import {
+    SHARED_FOLDER_CHANGED_EVENT,
+    notifySharedFolderChanged,
+  } from '@/engine/model/folder-offer';
+  import {
+    queryStoredFolderPermission,
+    probeStoredFolderReadable,
+  } from '@/engine/model/shared-folder';
+  import { isBraveBrowser } from '@/shared/browser';
+  import { isFolderStorageRefreshedMessage } from '@/shared/folder-grant-messages';
   import { t } from '@/shared/i18n';
   import { requestEngineWarm, requestModelFolderReload } from '@/shared/messages';
 
@@ -33,6 +42,8 @@
     activationFailed = false,
     onRestored,
   }: Props = $props();
+
+  const braveBrowser = isBraveBrowser();
 
   let granting = $state(false);
   let grantError = $state(false);
@@ -72,9 +83,24 @@
 
   async function settlePermission(): Promise<void> {
     const permission = await queryStoredFolderPermission().catch(() => null);
-    if (permission !== 'granted') return;
-    silentGranted = true;
-    await afterGrant().catch(() => undefined);
+    if (permission === 'granted') {
+      silentGranted = true;
+      await afterGrant().catch(() => undefined);
+      return;
+    }
+    const readable = await probeStoredFolderReadable().catch(() => false);
+    if (readable) {
+      silentGranted = true;
+      await afterGrant().catch(() => undefined);
+    }
+  }
+
+  function requestSettle(): void {
+    if (!sharedFolderNeedsPermission(folder) || !autoSettle) return;
+    checkingPermission = true;
+    void settlePermission().finally(() => {
+      checkingPermission = false;
+    });
   }
 
   $effect(() => {
@@ -90,10 +116,33 @@
     }
     if (probed) return;
     probed = true;
-    checkingPermission = true;
-    void settlePermission().finally(() => {
-      checkingPermission = false;
-    });
+    requestSettle();
+  });
+
+  onMount(() => {
+    const onFolderEvent = (): void => {
+      silentGranted = false;
+      requestSettle();
+    };
+    const onFocus = (): void => {
+      requestSettle();
+    };
+    const onVisibility = (): void => {
+      if (document.visibilityState === 'visible') requestSettle();
+    };
+    const onMessage = (message: unknown): void => {
+      if (isFolderStorageRefreshedMessage(message)) onFolderEvent();
+    };
+    window.addEventListener(SHARED_FOLDER_CHANGED_EVENT, onFolderEvent);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    browser.runtime.onMessage.addListener(onMessage);
+    return () => {
+      window.removeEventListener(SHARED_FOLDER_CHANGED_EVENT, onFolderEvent);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+      browser.runtime.onMessage.removeListener(onMessage);
+    };
   });
 </script>
 
@@ -102,6 +151,9 @@
     <p class:muted={compact}>{t('modelFolderPermissionNeeded')}</p>
     {#if presentHint}
       <p class:muted={compact}>{t('modelFolderPermissionPresent')}</p>
+    {/if}
+    {#if braveBrowser}
+      <p class:muted={compact}>{t('modelFolderBravePermissionHint')}</p>
     {/if}
     <button class="button" type="button" disabled={granting} onclick={() => void grantAccess()}>
       {t('modelFolderPermissionGrant')}

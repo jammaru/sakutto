@@ -1,5 +1,9 @@
 import { browser } from 'wxt/browser';
-import { bindPortDisconnectCleanup, readRuntimeLastError } from '@/shared/runtime-last-error';
+import {
+  bindPortDisconnectCleanup,
+  broadcastRuntimeMessage,
+  readRuntimeLastError,
+} from '@/shared/runtime-last-error';
 import { defineBackground } from 'wxt/utils/define-background';
 import { EngineClient } from '@/background/engine-client';
 import { createEngineHostController } from '@/background/engine-host-document';
@@ -23,6 +27,7 @@ import {
   isFolderOpenEnableRequest,
   isFolderResumePendingRequest,
   type FolderGrantCompleteMessage,
+  type FolderStorageRefreshedMessage,
 } from '@/shared/folder-grant-messages';
 import { readFolderGrantPending } from '@/shared/folder-grant-pending';
 import { syncCaptionCustomContentScripts } from '@/captions/register-custom';
@@ -481,6 +486,8 @@ export default defineBackground(() => {
             pending?.frameId === undefined ? {} : { frameId: pending.frameId },
           )
           .catch(() => undefined);
+        const refreshed: FolderStorageRefreshedMessage = { type: 'folder:storage-refreshed' };
+        await broadcastRuntimeMessage(refreshed);
         sendResponse(true);
       })();
       return true;

@@ -8,7 +8,16 @@
     type ModelId,
   } from '@/engine/model/catalog';
   import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
-  import { sharedFolderNeedsPermission } from '@/engine/model/folder-status';
+  import {
+    canDeleteBrowserCopy,
+    folderRecordsModel,
+    sharedFolderNeedsPermission,
+    sharedFolderStorageActive,
+    shouldOfferRecordedFolderModel,
+    type SharedFolderStatus,
+  } from '@/engine/model/folder-status';
+  import { SHARED_FOLDER_CHANGED_EVENT } from '@/engine/model/folder-offer';
+  import { isFolderStorageRefreshedMessage } from '@/shared/folder-grant-messages';
   import { isModelIntegrityError } from '@/engine/model/manager';
   import { ensureStoredFolderPermission } from '@/engine/model/shared-folder';
   import { modelCanTranslate, type ModelStatus } from '@/shared/engine-status';
@@ -36,6 +45,9 @@
   let busy = $state<ModelId | null>(null);
   let folderIntegrity = $state<ReadonlySet<ModelId>>(new Set());
   let folderBlocked = $state(false);
+  let sharedFolder = $state<SharedFolderStatus | null>(null);
+  let sharedFolderDelete = $derived(sharedFolderStorageActive(sharedFolder));
+  let anyRecordedInFolder = $derived(models.some((id) => folderRecordsModel(sharedFolder, id)));
   let anyInstalled = $derived(
     models.some((id) => {
       const state = statuses[id]?.state;
@@ -63,6 +75,7 @@
       engine?.sharedFolder?.integrityIssues.map((issue) => issue.modelId) ?? [],
     );
     folderBlocked = sharedFolderNeedsPermission(engine?.sharedFolder);
+    sharedFolder = engine?.sharedFolder ?? null;
     statuses = { ...statuses, [status.id]: status };
     if (engine) activeId = engine.model.id;
   }
@@ -92,6 +105,7 @@
     if (engine) {
       activeId = engine.model.id;
       fallback = engine.modelFallback === true;
+      sharedFolder = engine.sharedFolder ?? null;
       folderIntegrity = new Set(
         engine.sharedFolder?.integrityIssues.map((issue) => issue.modelId) ?? [],
       );
@@ -138,19 +152,43 @@
 
   onMount(() => {
     const listener = (message: unknown) => {
+      if (isFolderStorageRefreshedMessage(message)) {
+        void refresh();
+        return;
+      }
       if (!isModelProgressMessage(message)) return;
       apply(message.status);
     };
+    const onFolderChanged = (): void => {
+      void refresh();
+    };
+    const onFocus = (): void => {
+      void refresh();
+    };
+    const onVisibility = (): void => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
     browser.runtime.onMessage.addListener(listener);
+    window.addEventListener(SHARED_FOLDER_CHANGED_EVENT, onFolderChanged);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
     void refresh();
-    return () => browser.runtime.onMessage.removeListener(listener);
+    return () => {
+      browser.runtime.onMessage.removeListener(listener);
+      window.removeEventListener(SHARED_FOLDER_CHANGED_EVENT, onFolderChanged);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   });
 </script>
 
 {#if fallback}
   <p class="muted" role="status">{t('modelSelectionFallback')}</p>
-{:else if !folderBlocked && !anyInstalled && Object.keys(statuses).length > 0}
+{:else if !folderBlocked && !anyInstalled && !anyRecordedInFolder && Object.keys(statuses).length > 0}
   <p class="error" role="alert">{t('modelSelectionMissing')}</p>
+{/if}
+{#if sharedFolderDelete}
+  <p class="muted delete-note">{t('modelDeleteSharedFolderHint')}</p>
 {/if}
 
 <ul class="models">
@@ -159,6 +197,14 @@
     {@const state = status?.state ?? 'absent'}
     {@const downloading = state === 'downloading'}
     {@const verifying = state === 'verifying'}
+    {@const offerRecorded =
+      shouldOfferRecordedFolderModel(sharedFolder, id, state) && activeId !== id}
+    {@const deleteLabel = sharedFolderDelete ? t('modelDeleteSharedFolder') : t('modelDelete')}
+    {@const showDelete =
+      state !== 'absent' ||
+      (sharedFolderDelete &&
+        canDeleteBrowserCopy(sharedFolder, id) &&
+        folderRecordsModel(sharedFolder, id))}
     <li>
       <div class="summary">
         <strong>{label(id)}</strong>
@@ -205,6 +251,16 @@
               {t('modelUse')}
             </button>
           {/if}
+        {:else if offerRecorded}
+          <button
+            class="button"
+            type="button"
+            aria-label={`${label(id)} ${t('modelUse')}`}
+            disabled={busy === id}
+            onclick={() => use(id)}
+          >
+            {t('modelUse')}
+          </button>
         {:else if state === 'loading'}
           <!-- The file is here and the runtime is reading it. A Download button in this
                state is a start control for something that is already under way. -->
@@ -220,15 +276,15 @@
             {state === 'partial' ? t('downloadResume') : t('modelDownload')}
           </button>
         {/if}
-        {#if state !== 'absent'}
+        {#if showDelete}
           <button
             class="button secondary"
             type="button"
-            aria-label={`${label(id)} ${t('modelDelete')}`}
+            aria-label={`${label(id)} ${deleteLabel}`}
             disabled={busy === id}
             onclick={() => remove(id)}
           >
-            {t('modelDelete')}
+            {deleteLabel}
           </button>
         {/if}
       </div>
@@ -264,5 +320,9 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-2);
+  }
+
+  .delete-note {
+    margin: 0 0 var(--space-2);
   }
 </style>

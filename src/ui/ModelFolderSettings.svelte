@@ -332,7 +332,15 @@
         void refreshCatalogReady();
       }
     };
+    const onFocus = (): void => {
+      void refreshFromEngine();
+    };
+    const onVisibility = (): void => {
+      if (document.visibilityState === 'visible') void refreshFromEngine();
+    };
     window.addEventListener(SHARED_FOLDER_CHANGED_EVENT, onChanged);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
     browser.runtime.onMessage.addListener(onMessage);
     void refreshFromEngine();
     void refreshCatalogReady();
@@ -341,6 +349,8 @@
     }
     return () => {
       window.removeEventListener(SHARED_FOLDER_CHANGED_EVENT, onChanged);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
       browser.runtime.onMessage.removeListener(onMessage);
     };
   });
