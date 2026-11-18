@@ -1,362 +1,4 @@
 {
-  "alwaysTranslateSite": {
-    "message": "請務必翻譯本網站"
-  },
-  "cacheClear": {
-    "message": "清除翻譯快取"
-  },
-  "cacheClearFailed": {
-    "message": "無法清除翻譯快取。"
-  },
-  "cacheCleared": {
-    "message": "翻譯快取已清空。"
-  },
-  "chromeOnlySuffix": {
-    "message": "(Chrome 內建)"
-  },
-  "chromeTranslationNote": {
-    "message": "Chrome 內建的翻譯功能"
-  },
-  "close": {
-    "message": "關閉"
-  },
-  "commandBilingual": {
-    "message": "以雙語視圖翻譯，或切換目前視圖"
-  },
-  "commandCompose": {
-    "message": "翻譯正在輸入的文字"
-  },
-  "commandPdf": {
-    "message": "在 Sakutto 中開啟 PDF"
-  },
-  "commandSelection": {
-    "message": "翻譯所選文本"
-  },
-  "commandTranslate": {
-    "message": "翻譯此頁面或還原原文"
-  },
-  "composeAutoSource": {
-    "message": "自動"
-  },
-  "composeChromeOnly": {
-    "message": "輸入中的翻譯只使用 PLaMo，而 PLaMo 不能譯成 $LANGUAGE$。",
-    "placeholders": {
-      "language": {
-        "content": "$1"
-      }
-    }
-  },
-  "composeEmpty": {
-    "message": "開始輸入即可看到譯文。"
-  },
-  "composeFailed": {
-    "message": "無法翻譯這段草稿。"
-  },
-  "composeHelp": {
-    "message": "訊息框處於焦點時，あA 按鈕（或快捷鍵）會預覽正在輸入內容的譯文。日文草稿譯成英文（或上方所選目標語言）；其他草稿使用該目標語言。在選擇「取代」之前不會改動正文。"
-  },
-  "composeIcon": {
-    "message": "翻譯正在輸入的文字"
-  },
-  "composeIconSetting": {
-    "message": "在訊息框上顯示 あA 按鈕"
-  },
-  "composeIconSettingHelp": {
-    "message": "隱藏按鈕後，快捷鍵和右鍵選單仍然可用。"
-  },
-  "composeIneligible": {
-    "message": "無法翻譯此輸入欄。"
-  },
-  "composeInstantSetting": {
-    "message": "按一次快捷鍵即翻譯並取代"
-  },
-  "composeInstantSettingHelp": {
-    "message": "不顯示預覽：按一次快捷鍵翻譯草稿並取代。仍可復原。"
-  },
-  "composeInto": {
-    "message": "譯成 $LANGUAGE$",
-    "placeholders": {
-      "language": {
-        "content": "$1"
-      }
-    }
-  },
-  "composeLangPair": {
-    "message": "$SOURCE$ → $TARGET$",
-    "placeholders": {
-      "source": {
-        "content": "$1"
-      },
-      "target": {
-        "content": "$2"
-      }
-    }
-  },
-  "composeLoading": {
-    "message": "正在載入 PLaMo 模型。就緒後會顯示預覽。"
-  },
-  "composeNeedSetup": {
-    "message": "PLaMo 尚未就緒。請開啟設定以同意授權並下載模型。"
-  },
-  "composeOpenSetup": {
-    "message": "開啟設定"
-  },
-  "composePending": {
-    "message": "正在翻譯…"
-  },
-  "composePlacementAbove": {
-    "message": "輸入框上方"
-  },
-  "composePlacementBelow": {
-    "message": "輸入框下方"
-  },
-  "composePlacementCorner": {
-    "message": "視窗右下角"
-  },
-  "composePlacementFollowSettings": {
-    "message": "恢復所有網站的設定"
-  },
-  "composePlacementFree": {
-    "message": "自由拖曳"
-  },
-  "composePlacementHandle": {
-    "message": "拖曳即可把列放到任意位置"
-  },
-  "composePlacementMenu": {
-    "message": "翻譯列位置"
-  },
-  "composePlacementReset": {
-    "message": "恢復到原來的位置"
-  },
-  "composePlacementSetting": {
-    "message": "輸入時翻譯列位置"
-  },
-  "composePlacementSettingHelp": {
-    "message": "所有網站的預設值。拖曳列左側的 ⋮⋮ 即可在本頁任意位置停放。⋯ 選單也可以只覆蓋目前網站。"
-  },
-  "composePlacementSite": {
-    "message": "此網站"
-  },
-  "composeReplace": {
-    "message": "取代"
-  },
-  "composeReplaceHint": {
-    "message": "$COMPOSE$ / $ENTER$ 取代",
-    "placeholders": {
-      "compose": {
-        "content": "$1"
-      },
-      "enter": {
-        "content": "$2"
-      }
-    }
-  },
-  "composeReplaced": {
-    "message": "已取代。可以還原原文。"
-  },
-  "composeStale": {
-    "message": "草稿已變更。預覽更新完成前暫停取代。"
-  },
-  "composeSwap": {
-    "message": "切換翻譯方向"
-  },
-  "composeTargetAuto": {
-    "message": "自動（日語草稿譯成語言對的另一側，其餘譯成頁面目標語言）"
-  },
-  "composeTargetLabel": {
-    "message": "目標"
-  },
-  "composeTargetSetting": {
-    "message": "輸入時翻譯的目標語言"
-  },
-  "composeTargetSettingHelp": {
-    "message": "在預覽中選擇的語言會記在這裡。"
-  },
-  "composeTitle": {
-    "message": "輸入中的翻譯"
-  },
-  "composeTooLong": {
-    "message": "這段草稿太長，無法翻譯。"
-  },
-  "composeUndo": {
-    "message": "還原原文"
-  },
-  "contextTranslateCompose": {
-    "message": "翻譯正在輸入的內容"
-  },
-  "contextTranslatePage": {
-    "message": "翻譯此頁面"
-  },
-  "contextTranslatePdf": {
-    "message": "用 Sakutto 翻譯此 PDF"
-  },
-  "contextTranslateSelection": {
-    "message": "翻譯所選文本"
-  },
-  "diagBackend": {
-    "message": "主動的後端"
-  },
-  "diagBackendCpu": {
-    "message": "CPU"
-  },
-  "diagBackendGpu": {
-    "message": "WebGPU"
-  },
-  "diagBackendLocalServer": {
-    "message": "本機伺服器（實驗性）"
-  },
-  "diagBackendUnknown": {
-    "message": "未載入"
-  },
-  "diagConcurrent": {
-    "message": "同時請求"
-  },
-  "diagGpuCopied": {
-    "message": "已複製"
-  },
-  "diagGpuCopy": {
-    "message": "複製"
-  },
-  "diagGpuCopyFailed": {
-    "message": "無法複製"
-  },
-  "diagGpuEmpty": {
-    "message": "尚無 WebGPU 報告。"
-  },
-  "diagGpuHeading": {
-    "message": "WebGPU 轉接器"
-  },
-  "diagGpuHelp": {
-    "message": "此報告只留在本裝置上。如果 WebGPU 失敗，請將其貼到 GitHub Issue。"
-  },
-  "diagHeading": {
-    "message": "診斷"
-  },
-  "diagParallel": {
-    "message": "n_parallel"
-  },
-  "diagRateHint": {
-    "message": "當頁面進行翻譯時，其列顯示的是 token/s 與 segment/s。"
-  },
-  "diagRuntime": {
-    "message": "狀態"
-  },
-  "diagThreads": {
-    "message": "討論串"
-  },
-  "dismissHighQuality": {
-    "message": "目前不適用"
-  },
-  "displayBilingual": {
-    "message": "雙語"
-  },
-  "displayLabel": {
-    "message": "閱讀風格"
-  },
-  "displayNowBilingual": {
-    "message": "本網站已開啟雙語瀏覽。"
-  },
-  "displayNowReplace": {
-    "message": "本網站已開啟替換視圖。"
-  },
-  "displayReplace": {
-    "message": "替換原件"
-  },
-  "displaySiteHint": {
-    "message": "此選項將記錄在網站中。"
-  },
-  "downloadCancel": {
-    "message": "暫停"
-  },
-  "downloadEtaMinutes": {
-    "message": "剩餘約 $COUNT$ 分鐘。",
-    "placeholders": {
-      "count": {
-        "content": "$1"
-      }
-    }
-  },
-  "downloadEtaSeconds": {
-    "message": "剩餘約 $COUNT$ 秒。",
-    "placeholders": {
-      "count": {
-        "content": "$1"
-      }
-    }
-  },
-  "downloadPaused": {
-    "message": "下載暫停。可從原處繼續下載。"
-  },
-  "downloadProgressLabel": {
-    "message": "下載進度"
-  },
-  "downloadResume": {
-    "message": "重新開始"
-  },
-  "downloadResuming": {
-    "message": "下載仍從中斷的位置繼續進行。"
-  },
-  "engineCpuAdapterUnavailable": {
-    "message": "CPU（無 GPU 轉接器）"
-  },
-  "engineCpuProbeFailed": {
-    "message": "CPU (WebGPU 檢查失敗)"
-  },
-  "engineCpuWebGpuUnsupported": {
-    "message": "CPU (WebGPU 無法使用)"
-  },
-  "engineFirefoxSingleThread": {
-    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
-  },
-  "engineHeading": {
-    "message": "引擎"
-  },
-  "engineLinuxWebGpuHintUnavailable": {
-    "message": "WebGPU 已啟用，但找不到可用的 GPU 介面卡。GPU 翻譯需要 shader-f16，請檢查驅動程式和 Vulkan 支援，例如在 chrome://gpu 中查看。在此期間將使用 CPU 翻譯。"
-  },
-  "engineLinuxWebGpuHintUnsupported": {
-    "message": "Linux 上的 Chrome 通常需要在 chrome://flags/#enable-unsafe-webgpu 中啟用 WebGPU 和 Vulkan 功能，然後重新啟動 Chrome。在此期間將使用 CPU 翻譯。"
-  },
-  "engineSourceHelp": {
-    "message": "預設是此裝置上的內建引擎。"
-  },
-  "engineSourceInBrowser": {
-    "message": "內建（此裝置）"
-  },
-  "engineSourceLabel": {
-    "message": "翻譯引擎"
-  },
-  "engineSourceLocalServer": {
-    "message": "本機伺服器（實驗性）"
-  },
-  "engineStatusLabel": {
-    "message": "執行時間"
-  },
-  "engineUnavailable": {
-    "message": "不可用"
-  },
-  "engineWebGpu": {
-    "message": "WebGPU"
-  },
-  "errorAction": {
-    "message": "無法開啟頁面。"
-  },
-  "errorPage": {
-    "message": "無法讀取此頁面。"
-  },
-  "errorPermission": {
-    "message": "本網站未獲授權。"
-  },
-  "errorSaveSettings": {
-    "message": "無法儲存您的設定。"
-  },
-  "errorSettings": {
-    "message": "無法載入您的設定。"
-  },
-  "extensionDescription": {
-    "message": "本地 LLM 可翻譯您裝置上的頁面。免費，無需帳號。",
-    "description": "Extension description."
-  },
   "extensionName": {
     "message": "Sakutto - 本地 AI 翻譯",
     "description": "Extension name."
@@ -365,440 +7,229 @@
     "message": "Sakutto",
     "description": "Short extension name."
   },
+  "extensionDescription": {
+    "message": "本地 LLM 可翻譯您裝置上的頁面。免費，無需帳號。",
+    "description": "Extension description."
+  },
+  "tagline": {
+    "message": "在您的裝置上執行的頁面翻譯"
+  },
+  "settingsLabel": {
+    "message": "設定"
+  },
+  "targetLanguageLabel": {
+    "message": "轉換為"
+  },
   "formalityLabel": {
     "message": "日語語調"
-  },
-  "formalityPlain": {
-    "message": "Plain (だ・である)"
   },
   "formalityPolite": {
     "message": "Polite (です・ます)"
   },
-  "glossaryAddSite": {
-    "message": "新增網站"
+  "formalityPlain": {
+    "message": "Plain (だ・である)"
   },
-  "glossaryExport": {
-    "message": "匯出 CSV"
+  "displayLabel": {
+    "message": "閱讀風格"
   },
-  "glossaryGlobal": {
-    "message": "所有網站"
+  "displayReplace": {
+    "message": "替換原件"
   },
-  "glossaryHeading": {
-    "message": "術語表"
+  "displayBilingual": {
+    "message": "雙語"
   },
-  "glossaryHelp": {
-    "message": "每行寫一組「來源、翻譯」組合。選擇一個網站，僅在該網站使用此清單。"
+  "statusChecking": {
+    "message": "正在檢查…"
   },
-  "glossaryImport": {
-    "message": "匯入 CSV"
+  "pageStatusLabel": {
+    "message": "本頁面"
   },
-  "glossaryScopeLabel": {
-    "message": "適用於"
+  "pageStatusUnavailable": {
+    "message": "無法轉譯"
   },
-  "gmailBannerAlwaysTranslate": {
-    "message": "Always translate $LANG$",
+  "pageStatusLanguageUnknown": {
+    "message": "未知語言"
+  },
+  "pageStatusReady": {
+    "message": "$LANG$ · $COUNT$ 區塊",
     "placeholders": {
       "lang": {
-        "content": "$1"
-      }
-    }
-  },
-  "gmailBannerDetected": {
-    "message": "這封郵件似乎是用$LANG$寫的。",
-    "placeholders": {
-      "lang": {
-        "content": "$1"
-      }
-    }
-  },
-  "gmailBannerFailed": {
-    "message": "無法翻譯此電子郵件。"
-  },
-  "gmailBannerMenu": {
-    "message": "Translation settings"
-  },
-  "gmailBannerNeverTranslate": {
-    "message": "Never translate $LANG$",
-    "placeholders": {
-      "lang": {
-        "content": "$1"
-      }
-    }
-  },
-  "gmailBannerRegion": {
-    "message": "Gmail 郵件翻譯"
-  },
-  "gmailBannerShowOriginal": {
-    "message": "顯示原文"
-  },
-  "gmailBannerShowTranslation": {
-    "message": "Show translation"
-  },
-  "gmailBannerTranslate": {
-    "message": "翻譯成$TARGET$",
-    "placeholders": {
-      "target": {
-        "content": "$1"
-      }
-    }
-  },
-  "gmailBannerTranslateNow": {
-    "message": "Translate $LANG$",
-    "placeholders": {
-      "lang": {
-        "content": "$1"
-      }
-    }
-  },
-  "gmailBannerTranslated": {
-    "message": "Translated: $SOURCE$ → $TARGET$",
-    "placeholders": {
-      "source": {
         "content": "$1"
       },
-      "target": {
+      "count": {
         "content": "$2"
       }
     }
   },
-  "gmailBannerTranslating": {
-    "message": "正在翻譯這封郵件…"
+  "engineStatusLabel": {
+    "message": "執行時間"
   },
-  "highQualityOffer": {
-    "message": "您可以嘗試精度更高的模型（2B，約 1.81 GB）。速度取決於此裝置。"
+  "engineHeading": {
+    "message": "引擎"
   },
-  "idle1": {
-    "message": "1 分鐘"
+  "engineWebGpu": {
+    "message": "WebGPU"
   },
-  "idle15": {
-    "message": "15 分鐘"
+  "engineCpuWebGpuUnsupported": {
+    "message": "CPU (WebGPU 無法使用)"
   },
-  "idle5": {
-    "message": "5 分鐘"
+  "engineCpuAdapterUnavailable": {
+    "message": "CPU（無 GPU 轉接器）"
   },
-  "idleLabel": {
-    "message": "將模型從記憶體中釋放後"
+  "engineCpuProbeFailed": {
+    "message": "CPU (WebGPU 檢查失敗)"
   },
-  "idleNever": {
-    "message": "從不"
+  "engineUnavailable": {
+    "message": "不可用"
   },
   "isolationLabel": {
     "message": "跨來源隔離"
   },
-  "isolationOff": {
-    "message": "非活動"
-  },
   "isolationOn": {
     "message": "啟用"
   },
-  "jaEasyName": {
-    "message": "簡易日語"
+  "isolationOff": {
+    "message": "非活動"
   },
-  "licenseMit": {
-    "message": "MIT 授權"
+  "threadsLabel": {
+    "message": "邏輯核心"
   },
-  "licenseModelNote": {
-    "message": "模型權重不隨附。若尚未儲存於此裝置上，則會從 Hugging Face 官方儲存庫下載。"
+  "diagHeading": {
+    "message": "診斷"
   },
-  "licenseNotice": {
-    "message": "通知"
+  "diagBackend": {
+    "message": "主動的後端"
   },
-  "licensePlaMoEn": {
-    "message": "PLaMo 社群授權 (英文)"
+  "diagThreads": {
+    "message": "討論串"
   },
-  "licensePlaMoJa": {
-    "message": "PLaMo 社群授權 (日文)"
+  "diagParallel": {
+    "message": "n_parallel"
   },
-  "licensesBody": {
-    "message": "完整的 PLaMo Community License 以及此擴充功能的 MIT 授權條款均隨附於該擴充功能中。"
+  "diagBackendGpu": {
+    "message": "WebGPU"
+  },
+  "diagBackendCpu": {
+    "message": "CPU"
+  },
+  "diagBackendUnknown": {
+    "message": "未載入"
+  },
+  "diagRateHint": {
+    "message": "當頁面進行翻譯時，其列顯示的是 token/s 與 segment/s。"
+  },
+  "diagGpuHeading": {
+    "message": "WebGPU 轉接器"
+  },
+  "diagGpuCopy": {
+    "message": "複製"
+  },
+  "diagGpuCopied": {
+    "message": "已複製"
+  },
+  "diagGpuCopyFailed": {
+    "message": "無法複製"
+  },
+  "diagGpuHelp": {
+    "message": "此報告只留在本裝置上。如果 WebGPU 失敗，請將其貼到 GitHub Issue。"
+  },
+  "diagGpuEmpty": {
+    "message": "尚無 WebGPU 報告。"
+  },
+  "paceLabel": {
+    "message": "預判"
+  },
+  "paceFast": {
+    "message": "展望更遠的未來"
+  },
+  "paceQuality": {
+    "message": "可見第一"
+  },
+  "paceHelp": {
+    "message": "在段落捲動至視覺化之前會先翻譯。「Look ahead further」會在頁面下方預載更多內容，因此當您捲動時，文本就已準備就緒。對於 PLaMo 支援的語言，每一行均來自 PLaMo；Chrome 的草案絕不會被使用。"
+  },
+  "paceHelpFirefox": {
+    "message": "在段落捲動至視覺化之前會先翻譯。「Look ahead further」會在頁面下方預載更多內容，因此當您捲動時，文本就已準備就緒。對於 PLaMo 支援的語言，每一行均來自 PLaMo。"
+  },
+  "pageRate": {
+    "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
+    "placeholders": {
+      "tokens": {
+        "content": "$1"
+      },
+      "segments": {
+        "content": "$2"
+      }
+    }
+  },
+  "openOptions": {
+    "message": "開啟設定"
+  },
+  "unofficialNotice": {
+    "message": "非官方。與 Preferred Networks 無關。由 PLaMo 開發。"
+  },
+  "optionsTitle": {
+    "message": "設定"
+  },
+  "optionsLead": {
+    "message": "選擇翻譯運作方式、管理模型並設定每個站點的行為。變更將自動儲存。"
+  },
+  "privacyHeading": {
+    "message": "隱私"
+  },
+  "privacyBody": {
+    "message": "預設情況下，此擴充功能不會將頁面文字傳送至翻譯伺服器。不提供遙測。"
+  },
+  "privacyDestinations": {
+    "message": "該擴充功能本身的需求是模型下載。它從 huggingface.co 開始，隨後依循 Hugging Face 轉向其 CDN。頁面文字不包含在內。Chrome 則自行下載其語言包。"
+  },
+  "privacyDestinationsFirefox": {
+    "message": "該擴充功能本身的需求是模型下載。它從 huggingface.co 開始，隨後依循 Hugging Face 轉向其 CDN。頁面文字不包含在內。"
+  },
+  "privacyPolicyLink": {
+    "message": "隱私權政策"
+  },
+  "sourceCodeLink": {
+    "message": "原始碼"
   },
   "licensesHeading": {
     "message": "授權"
   },
-  "listSeparator": {
-    "message": ","
+  "licensesBody": {
+    "message": "完整的 PLaMo Community License 以及此擴充功能的 MIT 授權條款均隨附於該擴充功能中。"
   },
-  "localServerAdvanced": {
-    "message": "進階設定"
+  "licensePlaMoJa": {
+    "message": "PLaMo 社群授權 (日文)"
   },
-  "localServerApiKeyLabel": {
-    "message": "API 金鑰（選用）"
+  "licensePlaMoEn": {
+    "message": "PLaMo 社群授權 (英文)"
   },
-  "localServerDetails": {
-    "message": "詳細說明"
+  "licenseMit": {
+    "message": "MIT 授權"
   },
-  "localServerExperimental": {
-    "message": "實驗性功能：不保證翻譯準確。結果可能與內建引擎不同，並可能出現誤譯。"
+  "licenseNotice": {
+    "message": "通知"
   },
-  "localServerExperimentalConfirm": {
-    "message": "此引擎是實驗性功能。不保證準確，結果可能與內建引擎不同，並可能出現誤譯。仍要使用本機伺服器嗎？"
+  "licenseModelNote": {
+    "message": "模型權重不隨附。若尚未儲存於此裝置上，則會從 Hugging Face 官方儲存庫下載。"
   },
-  "localServerExperimentalKeep": {
-    "message": "繼續用內建引擎"
-  },
-  "localServerExperimentalUse": {
-    "message": "使用本機伺服器"
-  },
-  "localServerFailed": {
-    "message": "本機伺服器無法翻譯。請開啟設定。已保留原文。"
-  },
-  "localServerHelp": {
-    "message": "將 Sakutto 的提示送到這台電腦上的 OpenAI 相容伺服器，例如 mlx_lm.server 或 LM Studio。"
-  },
-  "localServerLicenseNote": {
-    "message": "你在該伺服器載入的其他模型授權由你負責。PLaMo 權重仍適用 PLaMo Community License。"
-  },
-  "localServerModelHelp": {
-    "message": "該伺服器上已載入的模型名稱。"
-  },
-  "localServerModelLabel": {
-    "message": "模型"
-  },
-  "localServerModelMissing": {
-    "message": "伺服器沒有符合的模型。請載入模型或在設定中選擇。"
-  },
-  "localServerModelsEmpty": {
-    "message": "（沒有清單 — 請輸入名稱）"
-  },
-  "localServerNonLocalWarning": {
-    "message": "此位址不是這台電腦。頁面文字會送到那裡。我了解。"
-  },
-  "localServerParallelHelp": {
-    "message": "How many completions the server may run at once (1–16). The page keeps extra requests ready so a finished slot is not left idle."
-  },
-  "localServerParallelLabel": {
-    "message": "Concurrent requests"
-  },
-  "localServerPermissionDenied": {
-    "message": "瀏覽器未允許存取此位址。"
-  },
-  "localServerPresetHelp": {
-    "message": "預設只填入 URL。"
-  },
-  "localServerPresetLmStudio": {
-    "message": "LM Studio"
-  },
-  "localServerPresetMlx": {
-    "message": "mlx_lm.server"
-  },
-  "localServerRemoteConfirmRequired": {
-    "message": "這個位址不在這台電腦上。測試連線前，請勾選下方的確認。"
-  },
-  "localServerTestButton": {
-    "message": "測試連線"
-  },
-  "localServerTestFail": {
-    "message": "無法使用此伺服器。"
-  },
-  "localServerTestOk": {
-    "message": "已連線。"
-  },
-  "localServerTestOkUnlisted": {
-    "message": "Connected. Completions work. The server listed no models — keep the model name you typed; it was not verified from /v1/models."
-  },
-  "localServerTimeout": {
-    "message": "本機伺服器逾時。已保留原文。"
-  },
-  "localServerTimeoutLabel": {
-    "message": "逾時（秒）"
-  },
-  "localServerUnreachable": {
-    "message": "無法連到本機伺服器。請開啟設定並確認它正在執行。"
-  },
-  "localServerUrlHelp": {
-    "message": "mlx_lm.server 預設連接埠是 8080，LM Studio 預設連接埠是 1234。"
-  },
-  "localServerUrlLabel": {
-    "message": "伺服器 URL"
+  "openOnboarding": {
+    "message": "開放式入職培訓"
   },
   "machineTranslationNotice": {
     "message": "翻譯為由 PLaMo 產生的機器翻譯。"
   },
-  "machineTranslationTooltip": {
-    "message": "由 PLaMo 提供的機器翻譯。"
+  "onboardingEyebrow": {
+    "message": "入門指南"
   },
-  "mailBannerAccessNeeded": {
-    "message": "在此網站上使用郵件翻譯需要存取權限。"
+  "onboardingLead": {
+    "message": "頁面翻譯預設在此裝置上進行。只有這裡還沒有儲存 PLaMo 3 模型時才會下載。"
   },
-  "mailBannerEnableForSite": {
-    "message": "在此網站上啟用郵件翻譯"
+  "onboardingSetupHeading": {
+    "message": "關於此擴充功能"
   },
-  "mailBannerPermissionDenied": {
-    "message": "郵件翻譯需要存取郵件網站的權限。"
-  },
-  "modelDelete": {
-    "message": "刪除"
-  },
-  "modelDeleteSharedFolder": {
-    "message": "Remove from this browser"
-  },
-  "modelDeleteSharedFolderHint": {
-    "message": "With a shared folder, this only removes the model from this browser. The file stays in the shared folder. To delete the file itself, remove it in Explorer or Finder."
-  },
-  "modelDownload": {
-    "message": "下載"
-  },
-  "modelFolderBenefitKeep": {
-    "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
-  },
-  "modelFolderBenefitShare": {
-    "message": "Other profiles and other Chromium browsers can use it right away, with no extra download."
-  },
-  "modelFolderBenefitSpace": {
-    "message": "One copy on disk, so you save space ($SIZE$).",
-    "placeholders": {
-      "size": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelFolderBenefitsLead": {
-    "message": "A shared folder means:"
-  },
-  "modelFolderBravePermissionHint": {
-    "message": "In Brave, folder access may lapse after you close the grant tab or restart the browser. When the browser asks, choose the persistent option (Japanese Chrome: 「サイトアクセス時は常に許可」). If this notice remains after you allowed access, return here and allow again. Set brave://flags/#file-system-access-api to Enabled if the shared-folder picker is missing."
-  },
-  "modelFolderChoose": {
-    "message": "Choose model folder"
-  },
-  "modelFolderEnableOneClick": {
-    "message": "Enable Sakutto"
-  },
-  "modelFolderEnableTabBody": {
-    "message": "In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). In Chrome, choose “Allow on every visit” (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「アクセスするたびに確認する」). Either persistent choice keeps this folder allowed after restarts with no extra clicks."
-  },
-  "modelFolderEnableTabDone": {
-    "message": "Folder access is ready. This tab closes automatically."
-  },
-  "modelFolderEnableTabHint": {
-    "message": "A this-time-only choice lasts only until a restart. Return here to grant access again. Translation still works from the browser copy."
-  },
-  "modelFolderEnableTabTitle": {
-    "message": "Keep folder access after restart"
-  },
-  "modelFolderIntegrityFailed": {
-    "message": "The file $FILE$ is not the official PLaMo model, so Sakutto will not use it.",
-    "placeholders": {
-      "file": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelFolderPermissionGrant": {
-    "message": "Allow folder access"
-  },
-  "modelFolderPermissionNeeded": {
-    "message": "Sakutto needs permission to read the shared model folder."
-  },
-  "modelFolderPermissionPage": {
-    "message": "Sakutto opens a grant tab. In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts); in Chrome, choose “Allow on every visit”."
-  },
-  "modelFolderPermissionPresent": {
-    "message": "The model is already in the folder. Allow access to use it."
-  },
-  "modelFolderPersistentHint": {
-    "message": "當瀏覽器詢問時，請在 Chrome 中選擇「每次造訪都允許」，在 Edge 中選擇“Ask every time I access”（日文 Chrome：「サイトアクセス時は常に許可」，日文 Edge：「アクセスするたびに確認する」; equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts）。重新啟動後就不需要再點擊。"
-  },
-  "modelFolderPickFailed": {
-    "message": "The folder could not be selected."
-  },
-  "modelFolderPickerHint": {
-    "message": "按下開始後，資料夾選擇對話框會在「文件」中開啟。請建立或選擇「文件/Sakutto」；如果其他瀏覽器已有模型，請選擇現有資料夾。也可以選擇任何有寫入權限的資料夾。"
-  },
-  "modelFolderReading": {
-    "message": "正在讀取資料夾…"
-  },
-  "modelFolderUsing": {
-    "message": "Using the folder $NAME$.",
-    "placeholders": {
-      "name": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelHeading": {
-    "message": "模型"
-  },
-  "modelHigh": {
-    "message": "高精度 (2B)"
-  },
-  "modelInUse": {
-    "message": "使用中"
-  },
-  "modelSelectionFallback": {
-    "message": "所選模型不在此裝置上，因此 Sakutto 已改用已安裝的模型。"
-  },
-  "modelSelectionMissing": {
-    "message": "尚未安裝翻譯模型。請先下載才能翻譯。"
-  },
-  "modelStandard": {
-    "message": "標準 (0.8B)"
-  },
-  "modelStorageBraveEnableFsaHint": {
-    "message": "在 Brave 中，將 brave://flags/#file-system-access-api 設為 Enabled 並重新啟動，即可使用共用資料夾。"
-  },
-  "modelStorageBrowser": {
-    "message": "儲存在此瀏覽器中"
-  },
-  "modelStorageBrowserOnlyHint": {
-    "message": "此瀏覽器無法使用共用資料夾，因此模型會儲存在此瀏覽器中。"
-  },
-  "modelStorageCopyDone": {
-    "message": "模型現在儲存在此瀏覽器中。"
-  },
-  "modelStorageCopyFailed": {
-    "message": "無法複製模型。已保留先前的儲存選擇。"
-  },
-  "modelStorageCopyFolder": {
-    "message": "從共享資料夾複製"
-  },
-  "modelStorageFirefoxCopyHint": {
-    "message": "按下開始後，請選擇包含模型的資料夾並確認「上傳」。Firefox 會將模型複製到 Firefox 中，而不會繼續連結該資料夾。"
-  },
-  "modelStorageFirefoxImport": {
-    "message": "從共用資料夾匯入"
-  },
-  "modelStorageFirefoxImportHint": {
-    "message": "從其他瀏覽器（例如 Chrome）下載的資料夾複製 PLaMo 檔案，無需再次下載。"
-  },
-  "modelStorageFolder": {
-    "message": "共享資料夾"
-  },
-  "modelStorageIntro": {
-    "message": "選擇模型的儲存位置。現有模型會隨選擇移動。"
-  },
-  "modelStorageLegend": {
-    "message": "模型儲存位置"
-  },
-  "modelStorageMoveDone": {
-    "message": "模型現在儲存在共享資料夾中。"
-  },
-  "modelStorageMoveFailed": {
-    "message": "無法將模型移至共享資料夾。瀏覽器中的副本已保留。"
-  },
-  "modelStorageNoModels": {
-    "message": "在該資料夾中找不到官方 PLaMo 模型。"
-  },
-  "modelStorageProgressLabel": {
-    "message": "模型傳輸進度"
-  },
-  "modelStorageSomeCopiesFailed": {
-    "message": "部分模型無法複製。其現有副本已保留。"
-  },
-  "modelStorageWorking": {
-    "message": "正在準備模型資料夾…"
-  },
-  "modelUse": {
-    "message": "使用此模型"
-  },
-  "modelVerifying": {
-    "message": "正在檢查下載的檔案…"
-  },
-  "noSiteRules": {
-    "message": "尚未設定每個網站的設定。"
-  },
-  "onboardingAgeNotice": {
-    "message": "若您未滿 18 歲或其他原因無法自行簽署合約，則需經父母或監護人同意。"
+  "onboardingModelNote": {
+    "message": "預設模型 (573 MB) 下載至此裝置。該大小的持續 100 Mbps 傳輸時間約為 46 秒，隨後會產生開銷；即時時間則有所不同。中斷的下載會重新開始。"
   },
   "onboardingBridgeNote": {
     "message": "頁面會保留原有文字直到模型準備就緒，接著由 PLaMo 進行翻譯。Google 文件將 Chrome 的翻譯轉換為裝置端版本。"
@@ -806,35 +237,29 @@
   "onboardingBridgeNoteFirefox": {
     "message": "頁面會保留原有文字直到模型準備就緒，接著由 PLaMo 進行翻譯。"
   },
+  "onboardingPrivacyNote": {
+    "message": "內建引擎不會把頁面正文送到伺服器。"
+  },
   "onboardingClose": {
     "message": "關閉"
   },
-  "onboardingCommercialBody": {
-    "message": "這包括將其用於公司內部的工作。以下兩項皆為必需。"
+  "onboardingStart": {
+    "message": "同意授權條款並開始"
   },
-  "onboardingCommercialHeading": {
-    "message": "PLaMo 使用條款"
+  "onboardingStoreLegend": {
+    "message": "模型儲存位置"
   },
-  "onboardingCommercialHeading2": {
-    "message": "工作與商業用途"
+  "onboardingStoreBrowser": {
+    "message": "儲存在此瀏覽器中"
   },
-  "onboardingCommercialRegistration": {
-    "message": "先前已向 PFN 註冊"
+  "onboardingStoreFolder": {
+    "message": "Use a shared model folder (Chromium browsers)"
   },
-  "onboardingCommercialRevenue": {
-    "message": "您或您的關聯公司在最近一個財政年度的收入或銷售額在 10 億日圓以下"
+  "onboardingStoreFolderHelp": {
+    "message": "For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them."
   },
-  "onboardingCommercialUnmetBody": {
-    "message": "商業用途則需要與 PFN 取得獨立的授權。"
-  },
-  "onboardingCommercialUnmetHeading": {
-    "message": "當條件不符時"
-  },
-  "onboardingConsentSentence": {
-    "message": "按下「同意授權並開始」即表示您同意 PLaMo 社群授權。"
-  },
-  "onboardingEyebrow": {
-    "message": "入門指南"
+  "onboardingStartFailed": {
+    "message": "無法啟動設定。請再試一次。"
   },
   "onboardingHttpError": {
     "message": "模型下載失敗 (HTTP $STATUS$)。請再試一次。",
@@ -844,43 +269,330 @@
       }
     }
   },
-  "onboardingLead": {
-    "message": "頁面翻譯預設在此裝置上進行。只有這裡還沒有儲存 PLaMo 3 模型時才會下載。"
+  "errorSettings": {
+    "message": "無法載入您的設定。"
   },
-  "onboardingLocalServerNote": {
-    "message": "可以在設定中開啟實驗性的本機伺服器。那時正文只會送到你設定的位址，並且不保證準確。"
+  "errorSaveSettings": {
+    "message": "無法儲存您的設定。"
   },
-  "onboardingModelNote": {
-    "message": "預設模型 (573 MB) 下載至此裝置。該大小的持續 100 Mbps 傳輸時間約為 46 秒，隨後會產生開銷；即時時間則有所不同。中斷的下載會重新開始。"
+  "errorPage": {
+    "message": "無法讀取此頁面。"
   },
-  "onboardingOtherLicenses": {
-    "message": "其他授權資訊"
+  "errorAction": {
+    "message": "無法開啟頁面。"
   },
-  "onboardingPersonalBody": {
-    "message": "無需事先註冊。"
+  "retry": {
+    "message": "再試一次"
   },
-  "onboardingPersonalHeading": {
-    "message": "個人與學術用途"
+  "originalLabel": {
+    "message": "原件"
   },
-  "onboardingPrivacyNote": {
-    "message": "內建引擎不會把頁面正文送到伺服器。"
+  "chromeTranslationNote": {
+    "message": "Chrome 內建的翻譯功能"
   },
-  "onboardingReadyCompose": {
-    "message": "在訊息欄輸入時按 $KEY$，即可預覽譯文並選擇是否取代。",
+  "machineTranslationTooltip": {
+    "message": "由 PLaMo 提供的機器翻譯。"
+  },
+  "selectionPending": {
+    "message": "翻譯…"
+  },
+  "selectionFailed": {
+    "message": "無法轉換此選項。"
+  },
+  "selectionTitle": {
+    "message": "選定文本"
+  },
+  "selectionIcon": {
+    "message": "翻譯所選文本"
+  },
+  "selectionResizeHandle": {
+    "message": "調整翻譯彈出視窗的寬度（按兩下重設）"
+  },
+  "close": {
+    "message": "關閉"
+  },
+  "commandTranslate": {
+    "message": "翻譯此頁面或還原原文"
+  },
+  "commandBilingual": {
+    "message": "以雙語視圖翻譯，或切換目前視圖"
+  },
+  "commandSelection": {
+    "message": "翻譯所選文本"
+  },
+  "contextTranslatePage": {
+    "message": "翻譯此頁面"
+  },
+  "contextTranslateSelection": {
+    "message": "翻譯所選文本"
+  },
+  "translateThisPage": {
+    "message": "翻譯此頁面"
+  },
+  "restoreThisPage": {
+    "message": "還原原始檔案"
+  },
+  "pageStartBlocked": {
+    "message": "頁面翻譯將等待 PLaMo 模型完成下載並載入。開啟上手培訓以查看進度。"
+  },
+  "pageTranslating": {
+    "message": "翻譯…"
+  },
+  "pageProgress": {
+    "message": "轉換 $DONE$ / $TOTAL$",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pageProgressLabel": {
+    "message": "翻譯進度"
+  },
+  "pageTranslated": {
+    "message": "本頁面為翻譯文本。"
+  },
+  "pagePartial": {
+    "message": "無法翻譯本頁面的 $BLOCKS$ 部分。",
+    "placeholders": {
+      "blocks": {
+        "content": "$1"
+      }
+    }
+  },
+  "pageAlwaysOn": {
+    "message": "本網站隨時會進行翻譯。"
+  },
+  "siteGrantTitle": {
+    "message": "翻譯本網站"
+  },
+  "siteGrantBody": {
+    "message": "$HOST$ 上的頁面將在本裝置上進行翻譯。",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteGrantAllow": {
+    "message": "允許"
+  },
+  "siteGrantDenied": {
+    "message": "未授予權限。請再試一次。"
+  },
+  "siteGrantInvalid": {
+    "message": "本頁面未命名網站。"
+  },
+  "targetAdjustedNote": {
+    "message": "該頁面已在儲存的目標語言中，因此目標已切換。"
+  },
+  "sameLanguageHint": {
+    "message": "此頁面已以目標語言撰寫。"
+  },
+  "displaySiteHint": {
+    "message": "此選項將記錄在網站中。"
+  },
+  "displayNowBilingual": {
+    "message": "本網站已開啟雙語瀏覽。"
+  },
+  "displayNowReplace": {
+    "message": "本網站已開啟替換視圖。"
+  },
+  "optionsDefaultHint": {
+    "message": "這些是預設值。您翻譯的網站可以保留其自身的語言與閱讀風格。"
+  },
+  "optionsSiteLive": {
+    "message": "此處的語言與閱讀風格遵循網站規範。若網站沒有自行選擇的設定，則採用上述設定。"
+  },
+  "alwaysTranslateSite": {
+    "message": "請務必翻譯本網站"
+  },
+  "shortcutHeading": {
+    "message": "鍵盤快速鍵"
+  },
+  "shortcutHelp": {
+    "message": "取消勾選命令即可在 Sakutto 中將其關閉。「變更快速鍵」會開啟 Chrome 的快速鍵編輯器。瀏覽器指定的按鍵即使在文字輸入框取得焦點時也能使用。如果命令顯示為「未設定」，請開啟編輯器並指定按鍵。"
+  },
+  "shortcutHelpFirefox": {
+    "message": "取消勾選命令即可在 Sakutto 中將其關閉。「變更快速鍵」會開啟 Firefox 內建的編輯器。在那裡指定的按鍵即使在文字輸入框取得焦點時也能使用。安裝或更新時，Firefox 會盡可能為從未指定過按鍵的空命令還原按鍵；你清除的按鍵會保持清除狀態。"
+  },
+  "shortcutChange": {
+    "message": "變更快速鍵"
+  },
+  "shortcutUnset": {
+    "message": "未設定"
+  },
+  "shortcutUnsetNotice": {
+    "message": "快速鍵未設定"
+  },
+  "shortcutOpenSettings": {
+    "message": "開啟快速鍵設定"
+  },
+  "shortcutUse": {
+    "message": "使用此快捷鍵"
+  },
+  "shortcutOff": {
+    "message": "關閉"
+  },
+  "shortcutTranslate": {
+    "message": "$KEY$ 可轉換頁面或還原原始頁面。",
     "placeholders": {
       "key": {
         "content": "$1"
       }
     }
   },
-  "onboardingReadyContext": {
-    "message": "右鍵點擊頁面並選擇「翻譯此頁面」。對於已選擇的文字，請選擇「翻譯已選擇的文字」。"
+  "shortcutBilingual": {
+    "message": "$KEY$ 可在替換視圖與雙語視圖之間切換，並記憶此網站的選擇。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutSelection": {
+    "message": "$KEY$ 會轉換所選文字。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "runtimePreparing": {
+    "message": "準備 $PERCENT$%",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "runtimeDownloading": {
+    "message": "下載 $PERCENT$% ($RECEIVED$ / $TOTAL$)",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      },
+      "received": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
+  "runtimeVerifying": {
+    "message": "檢查下載的檔案。"
+  },
+  "runtimeLoading": {
+    "message": "載入模型。"
+  },
+  "runtimePlamoGpu": {
+    "message": "PLaMo · WebGPU"
+  },
+  "runtimePlamoCpu": {
+    "message": "PLaMo · CPU"
+  },
+  "runtimePlamoGpuFallback": {
+    "message": "PLaMo · CPU (WebGPU 無法載入模型)"
+  },
+  "runtimePlamoGpuFallbackOutput": {
+    "message": "PLaMo · CPU（WebGPU 輸出異常）"
+  },
+  "runtimePlamoGpuFallbackDevice": {
+    "message": "PLaMo · CPU（WebGPU 裝置故障）"
+  },
+  "runtimeChrome": {
+    "message": "Chrome 內建的翻譯功能"
+  },
+  "runtimeWaiting": {
+    "message": "等待模型"
+  },
+  "runtimeError": {
+    "message": "無法載入模型"
+  },
+  "runtimeChecking": {
+    "message": "正在檢查…"
+  },
+  "chromeOnlySuffix": {
+    "message": "(Chrome 內建)"
+  },
+  "jaEasyName": {
+    "message": "簡易日語"
+  },
+  "plamoOnlySuffix": {
+    "message": "（PLaMo）"
+  },
+  "onboardingStartNotice": {
+    "message": "按下「同意授權並開始」，即表示您同意整個 PLaMo 社群授權。"
+  },
+  "onboardingCommercialHeading": {
+    "message": "PLaMo 使用條款"
+  },
+  "onboardingPersonalHeading": {
+    "message": "個人與學術用途"
+  },
+  "onboardingPersonalBody": {
+    "message": "無需事先註冊。"
+  },
+  "onboardingCommercialHeading2": {
+    "message": "工作與商業用途"
+  },
+  "onboardingCommercialBody": {
+    "message": "這包括將其用於公司內部的工作。以下兩項皆為必需。"
+  },
+  "onboardingCommercialRegistration": {
+    "message": "先前已向 PFN 註冊"
+  },
+  "onboardingCommercialRevenue": {
+    "message": "您或您的關聯公司在最近一個財政年度的收入或銷售額在 10 億日圓以下"
+  },
+  "onboardingCommercialUnmetHeading": {
+    "message": "當條件不符時"
+  },
+  "onboardingCommercialUnmetBody": {
+    "message": "商業用途則需要與 PFN 取得獨立的授權。"
+  },
+  "onboardingAgeNotice": {
+    "message": "若您未滿 18 歲或其他原因無法自行簽署合約，則需經父母或監護人同意。"
+  },
+  "onboardingConsentSentence": {
+    "message": "按下「同意授權並開始」即表示您同意 PLaMo 社群授權。"
+  },
+  "onboardingOtherLicenses": {
+    "message": "其他授權資訊"
+  },
+  "onboardingReconsentHeading": {
+    "message": "PLaMo 的術語現在更易於閱讀"
+  },
+  "onboardingReconsentBody": {
+    "message": "您先前已同意 PLaMo 社群授權條款。以下是條款的更清晰摘要，以便您再次同意。您下載的模型將保留在本裝置上。"
+  },
+  "onboardingReconsentStart": {
+    "message": "同意並繼續"
+  },
+  "plamoRegistrationLink": {
+    "message": "PFN 的官方註冊表單（商業用途）"
+  },
+  "plamoOfficialLicenseJa": {
+    "message": "PLaMo 社群授權 (官方，日文)"
+  },
+  "plamoOfficialLicenseEn": {
+    "message": "PLaMo 社群授權 (官方，英文)"
+  },
+  "onboardingUseNow": {
+    "message": "Chrome 內建的翻譯器僅用於 PLaMo 不支援的語言對。"
   },
   "onboardingReadyHeading": {
     "message": "你準備好了。"
   },
   "onboardingReadyLead": {
     "message": "您可以在這台裝置上翻譯頁面。"
+  },
+  "onboardingReadyToolbar": {
+    "message": "點擊工具列圖示以翻譯開啟的頁面。"
   },
   "onboardingReadyPage": {
     "message": "按下 $KEY$ 即可翻譯整個頁面。再次按下即可還原原始內容。",
@@ -898,515 +610,252 @@
       }
     }
   },
-  "onboardingReadyToolbar": {
-    "message": "點擊工具列圖示以翻譯開啟的頁面。"
-  },
-  "onboardingReconsentBody": {
-    "message": "您先前已同意 PLaMo 社群授權條款。以下是條款的更清晰摘要，以便您再次同意。您下載的模型將保留在本裝置上。"
-  },
-  "onboardingReconsentHeading": {
-    "message": "PLaMo 的術語現在更易於閱讀"
-  },
-  "onboardingReconsentStart": {
-    "message": "同意並繼續"
-  },
-  "onboardingSetupHeading": {
-    "message": "關於此擴充功能"
-  },
-  "onboardingStart": {
-    "message": "同意授權條款並開始"
-  },
-  "onboardingStartFailed": {
-    "message": "無法啟動設定。請再試一次。"
-  },
-  "onboardingStartNotice": {
-    "message": "按下「同意授權並開始」，即表示您同意整個 PLaMo 社群授權。"
-  },
-  "onboardingStoreBrowser": {
-    "message": "儲存在此瀏覽器中"
-  },
-  "onboardingStoreFolder": {
-    "message": "Use a shared model folder (Chromium browsers)"
-  },
-  "onboardingStoreFolderHelp": {
-    "message": "For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them."
-  },
-  "onboardingStoreLegend": {
-    "message": "模型儲存位置"
+  "onboardingReadyContext": {
+    "message": "右鍵點擊頁面並選擇「翻譯此頁面」。對於已選擇的文字，請選擇「翻譯已選擇的文字」。"
   },
   "onboardingTry": {
     "message": "試試範例頁面"
   },
-  "onboardingUseNow": {
-    "message": "Chrome 內建的翻譯器僅用於 PLaMo 不支援的語言對。"
-  },
   "onboardingWhileDownloading": {
     "message": "在模型下載期間，頁面會保留原有的文字；直到 PLaMo 準備就緒，才會進行翻譯。"
   },
-  "openOnboarding": {
-    "message": "開放式入職培訓"
-  },
-  "openOptions": {
-    "message": "開啟設定"
-  },
-  "openPdf": {
-    "message": "翻譯此 PDF"
-  },
-  "openPdfHint": {
-    "message": "在 Sakutto 中開啟該 PDF，並在原位翻譯，保留頁面版面。"
-  },
-  "openTyped": {
-    "message": "翻譯打字內容"
-  },
-  "optionsDefaultHint": {
-    "message": "這些是預設值。您翻譯的網站可以保留其自身的語言與閱讀風格。"
-  },
-  "optionsLead": {
-    "message": "選擇翻譯運作方式、管理模型並設定每個站點的行為。變更將自動儲存。"
-  },
-  "optionsSiteLive": {
-    "message": "此處的語言與閱讀風格遵循網站規範。若網站沒有自行選擇的設定，則採用上述設定。"
-  },
-  "optionsTitle": {
-    "message": "設定"
-  },
-  "originalLabel": {
-    "message": "原件"
-  },
-  "paceFast": {
-    "message": "展望更遠的未來"
-  },
-  "paceHelp": {
-    "message": "在段落捲動至視覺化之前會先翻譯。「Look ahead further」會在頁面下方預載更多內容，因此當您捲動時，文本就已準備就緒。對於 PLaMo 支援的語言，每一行均來自 PLaMo；Chrome 的草案絕不會被使用。"
-  },
-  "paceHelpFirefox": {
-    "message": "在段落捲動至視覺化之前會先翻譯。「Look ahead further」會在頁面下方預載更多內容，因此當您捲動時，文本就已準備就緒。對於 PLaMo 支援的語言，每一行均來自 PLaMo。"
-  },
-  "paceLabel": {
-    "message": "預判"
-  },
-  "paceQuality": {
-    "message": "可見第一"
-  },
-  "pageAlwaysOn": {
-    "message": "本網站隨時會進行翻譯。"
-  },
-  "pagePartial": {
-    "message": "無法翻譯本頁面的 $BLOCKS$ 部分。",
-    "placeholders": {
-      "blocks": {
-        "content": "$1"
-      }
-    }
-  },
-  "pageProgress": {
-    "message": "轉換 $DONE$ / $TOTAL$",
-    "placeholders": {
-      "done": {
-        "content": "$1"
-      },
-      "total": {
-        "content": "$2"
-      }
-    }
-  },
-  "pageProgressLabel": {
-    "message": "翻譯進度"
-  },
-  "pageRate": {
-    "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
-    "placeholders": {
-      "tokens": {
-        "content": "$1"
-      },
-      "segments": {
-        "content": "$2"
-      }
-    }
-  },
-  "pageStartBlocked": {
-    "message": "頁面翻譯將等待 PLaMo 模型完成下載並載入。開啟上手培訓以查看進度。"
-  },
-  "pageStatusLabel": {
-    "message": "本頁面"
-  },
-  "pageStatusLanguageUnknown": {
-    "message": "未知語言"
-  },
-  "pageStatusReady": {
-    "message": "$LANG$ · $COUNT$ 區塊",
-    "placeholders": {
-      "lang": {
-        "content": "$1"
-      },
-      "count": {
-        "content": "$2"
-      }
-    }
-  },
-  "pageStatusUnavailable": {
-    "message": "無法轉譯"
-  },
-  "pageTranslated": {
-    "message": "本頁面為翻譯文本。"
-  },
-  "pageTranslating": {
-    "message": "翻譯…"
-  },
-  "pdfBroken": {
-    "message": "無法開啟文件。檔案可能已損毀，或受到密碼保護。"
-  },
-  "pdfChooseFile": {
-    "message": "選擇 PDF 檔案"
-  },
-  "pdfCompare": {
-    "message": "並排比較"
-  },
-  "pdfFailedCount": {
-    "message": "有 $COUNT$ 處無法翻譯。",
-    "placeholders": {
-      "count": {
-        "content": "$1"
-      }
-    },
-    "description": "Toolbar note when some blocks could not be translated."
-  },
-  "pdfFileAccessDenied": {
-    "message": "這份 PDF 是本機上的檔案。請在瀏覽器的擴充功能設定中允許存取檔案網址，或在閱讀器中選擇該檔案。"
-  },
-  "pdfKeptAsIs": {
-    "message": "有 $COUNT$ 處維持頁面原有排版：公式、座標刻度和程式碼仍按原文排版。",
+  "downloadEtaSeconds": {
+    "message": "剩餘約 $COUNT$ 秒。",
     "placeholders": {
       "count": {
         "content": "$1"
       }
     }
   },
-  "pdfMissing": {
-    "message": "文件已無法使用。請從對應的分頁重新開啟 PDF。"
-  },
-  "pdfModelMissing": {
-    "message": "頁面已顯示，但翻譯需要 PLaMo 模型。下載模型即可翻譯此文件。"
-  },
-  "pdfNoText": {
-    "message": "此文件是掃描件或一組圖片，沒有可翻譯的文字層。請開啟含真實文字的 PDF，或先進行文字辨識。"
-  },
-  "pdfOpenFailed": {
-    "message": "無法開啟此 PDF。請重新載入頁面後再試。"
-  },
-  "pdfOriginalPane": {
-    "message": "原文"
-  },
-  "pdfOverflow": {
-    "message": "有 $COUNT$ 處無法排進頁面。打開標記即可閱讀譯文。",
+  "downloadEtaMinutes": {
+    "message": "剩餘約 $COUNT$ 分鐘。",
     "placeholders": {
       "count": {
         "content": "$1"
       }
     }
   },
-  "pdfOverflowOpen": {
-    "message": "顯示譯文"
+  "downloadResuming": {
+    "message": "下載仍從中斷的位置繼續進行。"
   },
-  "pdfPageNoText": {
-    "message": "此頁是掃描件或圖片，沒有可選取的文字，因此無法翻譯。"
+  "downloadProgressLabel": {
+    "message": "下載進度"
   },
-  "pdfPreparing": {
-    "message": "正在讀取文件…"
+  "downloadPaused": {
+    "message": "下載暫停。可從原處繼續下載。"
   },
-  "pdfReaderTitle": {
-    "message": "PDF"
+  "downloadResume": {
+    "message": "重新開始"
   },
-  "pdfReading": {
-    "message": "正在讀取第 $PAGE$ 頁，共 $TOTAL$ 頁",
+  "downloadCancel": {
+    "message": "暫停"
+  },
+  "modelHeading": {
+    "message": "模型"
+  },
+  "modelStandard": {
+    "message": "標準 (0.8B)"
+  },
+  "modelHigh": {
+    "message": "高精度 (2B)"
+  },
+  "modelInUse": {
+    "message": "使用中"
+  },
+  "modelUse": {
+    "message": "使用此模型"
+  },
+  "modelDownload": {
+    "message": "下載"
+  },
+  "modelVerifying": {
+    "message": "正在檢查下載的檔案…"
+  },
+  "modelDelete": {
+    "message": "刪除"
+  },
+  "modelDeleteSharedFolder": {
+    "message": "Remove from this browser"
+  },
+  "modelDeleteSharedFolderHint": {
+    "message": "With a shared folder, this only removes the model from this browser. The file stays in the shared folder. To delete the file itself, remove it in Explorer or Finder."
+  },
+  "modelFolderBravePermissionHint": {
+    "message": "In Brave, folder access may lapse after you close the grant tab or restart the browser. When the browser asks, choose Allow on every visit (Japanese Chrome: 「サイトアクセス時は常に許可」). If this notice remains after you allowed access, return here and allow again. Set brave://flags/#file-system-access-api to Enabled if the shared-folder picker is missing."
+  },
+  "modelSelectionFallback": {
+    "message": "所選模型不在此裝置上，因此 Sakutto 已改用已安裝的模型。"
+  },
+  "modelSelectionMissing": {
+    "message": "尚未安裝翻譯模型。請先下載才能翻譯。"
+  },
+  "modelStorageLegend": {
+    "message": "模型儲存位置"
+  },
+  "storageOptionRecommended": {
+    "message": "建議"
+  },
+  "modelStorageFolder": {
+    "message": "共享資料夾"
+  },
+  "modelStorageBrowser": {
+    "message": "儲存在此瀏覽器中"
+  },
+  "modelStorageCopyFolder": {
+    "message": "從共享資料夾複製"
+  },
+  "modelStorageIntro": {
+    "message": "選擇模型的儲存位置。現有模型會隨選擇移動。"
+  },
+  "modelStorageBrowserOnlyHint": {
+    "message": "此瀏覽器無法使用共用資料夾，因此模型會儲存在此瀏覽器中。"
+  },
+  "modelStorageBraveEnableFsaHint": {
+    "message": "在 Brave 中，將 brave://flags/#file-system-access-api 設為 Enabled 並重新啟動，即可使用共用資料夾。"
+  },
+  "modelStorageFirefoxCopyHint": {
+    "message": "按下開始後，請選擇包含模型的資料夾並確認「上傳」。Firefox 會將模型複製到 Firefox 中，而不會繼續連結該資料夾。"
+  },
+  "modelStorageFirefoxImport": {
+    "message": "從共用資料夾匯入"
+  },
+  "modelStorageFirefoxImportHint": {
+    "message": "從其他瀏覽器（例如 Chrome）下載的資料夾複製 PLaMo 檔案，無需再次下載。"
+  },
+  "modelStorageMoveFailed": {
+    "message": "無法將模型移至共享資料夾。瀏覽器中的副本已保留。"
+  },
+  "modelStorageMoveDone": {
+    "message": "模型現在儲存在共享資料夾中。"
+  },
+  "modelStorageCopyDone": {
+    "message": "模型現在儲存在此瀏覽器中。"
+  },
+  "modelStorageCopyFailed": {
+    "message": "無法複製模型。已保留先前的儲存選擇。"
+  },
+  "modelStorageSomeCopiesFailed": {
+    "message": "部分模型無法複製。其現有副本已保留。"
+  },
+  "modelStorageNoModels": {
+    "message": "在該資料夾中找不到官方 PLaMo 模型。"
+  },
+  "modelStorageWorking": {
+    "message": "正在準備模型資料夾…"
+  },
+  "modelFolderReading": {
+    "message": "正在讀取資料夾…"
+  },
+  "modelStorageProgressLabel": {
+    "message": "模型傳輸進度"
+  },
+  "modelFolderPickerHint": {
+    "message": "按下開始後，資料夾選擇對話框會在「文件」中開啟。請建立或選擇「文件/Sakutto」；如果其他瀏覽器已有模型，請選擇現有資料夾。也可以選擇任何有寫入權限的資料夾。"
+  },
+  "modelFolderChoose": {
+    "message": "Choose model folder"
+  },
+  "modelFolderUsing": {
+    "message": "Using the folder $NAME$.",
     "placeholders": {
-      "page": {
-        "content": "$1"
-      },
-      "total": {
-        "content": "$2"
-      }
-    }
-  },
-  "pdfRenderFailed": {
-    "message": "無法繪製此頁。",
-    "description": "Shown on a page whose canvas could not be drawn."
-  },
-  "pdfSelectClear": {
-    "message": "顯示原文"
-  },
-  "pdfSelectFailed": {
-    "message": "無法翻譯此部分。"
-  },
-  "pdfSelectHint": {
-    "message": "在頁面上選取文字，即可只翻譯該部分。"
-  },
-  "pdfSelectTranslate": {
-    "message": "翻譯所選內容"
-  },
-  "pdfTooLarge": {
-    "message": "此檔案超過 200 MB，這是閱讀器可開啟的文件大小上限。",
-    "description": "Shown when a local PDF is larger than the reader will open."
-  },
-  "pdfTranslateFailed": {
-    "message": "此部分無法翻譯。"
-  },
-  "pdfTranslated": {
-    "message": "已翻譯"
-  },
-  "pdfTranslatedPane": {
-    "message": "譯文"
-  },
-  "pdfUntitled": {
-    "message": "文件.pdf"
-  },
-  "plainTextLineBreaksBlank": {
-    "message": "在原文換行的位置，譯文換行兩次（插入空行）"
-  },
-  "plainTextLineBreaksHelp": {
-    "message": "貼上的文件、OCR 文字與書籍摘錄常在句子中間斷行。翻譯時會把這些斷行接起來，只有句尾、標題與空行會作為換行反映在譯文中。最後一個選項還會在文字輸入框標出每一處換行（句子中間的換行顯示為 ↵），方便你在翻譯前發現並修正。網頁翻譯不受影響。"
-  },
-  "plainTextLineBreaksKeep": {
-    "message": "段落之間換行"
-  },
-  "plainTextLineBreaksLabel": {
-    "message": "譯文中的換行"
-  },
-  "plainTextLineBreaksNone": {
-    "message": "不額外換行（預設）"
-  },
-  "plainTextLineBreaksWider": {
-    "message": "譯文按段落換行，並在輸入框中標出原文換行"
-  },
-  "plamoOfficialLicenseEn": {
-    "message": "PLaMo 社群授權 (官方，英文)"
-  },
-  "plamoOfficialLicenseJa": {
-    "message": "PLaMo 社群授權 (官方，日文)"
-  },
-  "plamoOnlySuffix": {
-    "message": "（PLaMo）"
-  },
-  "plamoRegistrationLink": {
-    "message": "PFN 的官方註冊表單（商業用途）"
-  },
-  "privacyBody": {
-    "message": "預設情況下，此擴充功能不會將頁面文字傳送至翻譯伺服器。不提供遙測。"
-  },
-  "privacyBodyLocalServer": {
-    "message": "實驗性功能。選擇本機伺服器後，文字只會送到你設定的位址（預設是這台電腦）。不保證翻譯準確，結果可能與內建引擎不同，包括誤譯。開發者不會收到這些文字。"
-  },
-  "privacyDestinations": {
-    "message": "該擴充功能本身的需求是模型下載。它從 huggingface.co 開始，隨後依循 Hugging Face 轉向其 CDN。頁面文字不包含在內。Chrome 則自行下載其語言包。"
-  },
-  "privacyDestinationsFirefox": {
-    "message": "該擴充功能本身的需求是模型下載。它從 huggingface.co 開始，隨後依循 Hugging Face 轉向其 CDN。頁面文字不包含在內。"
-  },
-  "privacyHeading": {
-    "message": "隱私"
-  },
-  "privacyPolicyLink": {
-    "message": "隱私權政策"
-  },
-  "restoreThisPage": {
-    "message": "還原原始檔案"
-  },
-  "retry": {
-    "message": "再試一次"
-  },
-  "runtimeChecking": {
-    "message": "正在檢查…"
-  },
-  "runtimeChrome": {
-    "message": "Chrome 內建的翻譯功能"
-  },
-  "runtimeDownloading": {
-    "message": "下載 $PERCENT$% ($RECEIVED$ / $TOTAL$)",
-    "placeholders": {
-      "percent": {
-        "content": "$1"
-      },
-      "received": {
-        "content": "$2"
-      },
-      "total": {
-        "content": "$3"
-      }
-    }
-  },
-  "runtimeError": {
-    "message": "無法載入模型"
-  },
-  "runtimeLoading": {
-    "message": "載入模型。"
-  },
-  "runtimeLocalServer": {
-    "message": "本機伺服器（實驗性）"
-  },
-  "runtimePlamoCpu": {
-    "message": "PLaMo · CPU"
-  },
-  "runtimePlamoGpu": {
-    "message": "PLaMo · WebGPU"
-  },
-  "runtimePlamoGpuFallback": {
-    "message": "PLaMo · CPU (WebGPU 無法載入模型)"
-  },
-  "runtimePlamoGpuFallbackDevice": {
-    "message": "PLaMo · CPU（WebGPU 裝置故障）"
-  },
-  "runtimePlamoGpuFallbackOutput": {
-    "message": "PLaMo · CPU（WebGPU 輸出異常）"
-  },
-  "runtimePreparing": {
-    "message": "準備 $PERCENT$%",
-    "placeholders": {
-      "percent": {
+      "name": {
         "content": "$1"
       }
     }
   },
-  "runtimeVerifying": {
-    "message": "檢查下載的檔案。"
+  "modelFolderPermissionNeeded": {
+    "message": "Sakutto needs permission to read the shared model folder."
   },
-  "runtimeWaiting": {
-    "message": "等待模型"
+  "modelFolderPermissionPresent": {
+    "message": "The model is already in the folder. Allow access to use it."
   },
-  "sameLanguageHint": {
-    "message": "此頁面已以目標語言撰寫。"
+  "modelFolderPermissionGrant": {
+    "message": "Allow folder access"
   },
-  "selectionFailed": {
-    "message": "無法轉換此選項。"
+  "modelFolderPermissionPage": {
+    "message": "Sakutto opens a grant tab. In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts); in Chrome, choose “Allow on every visit”."
   },
-  "selectionIcon": {
-    "message": "翻譯所選文本"
+  "modelFolderPersistentHint": {
+    "message": "當瀏覽器詢問時，請在 Chrome 中選擇「每次造訪都允許」，在 Edge 中選擇“Ask every time I access”（日文 Chrome：「サイトアクセス時は常に許可」，日文 Edge：「アクセスするたびに確認する」; equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts）。重新啟動後就不需要再點擊。"
   },
-  "selectionPending": {
-    "message": "翻譯…"
+  "modelFolderPickFailed": {
+    "message": "The folder could not be selected."
   },
-  "selectionResizeHandle": {
-    "message": "調整翻譯彈出視窗的寬度（按兩下重設）"
-  },
-  "selectionTitle": {
-    "message": "選定文本"
-  },
-  "settingsGmailAutoLangs": {
-    "message": "Always translate these languages"
-  },
-  "settingsGmailBanner": {
-    "message": "為 Gmail 郵件提供翻譯"
-  },
-  "settingsGmailBannerHelp": {
-    "message": "開啟後，打開以其他語言撰寫的 Gmail 郵件時，內文上方會顯示一個小提示。只有點擊後才會翻譯郵件。Sakutto 需要存取 mail.google.com 的權限；請在彈出視窗或網站清單中授予。"
-  },
-  "settingsGmailClearLangs": {
-    "message": "Clear"
-  },
-  "settingsGmailNeverLangs": {
-    "message": "Never translate these languages"
-  },
-  "settingsGmailNoAutoLangs": {
-    "message": "No languages set to always translate."
-  },
-  "settingsGmailNoNeverLangs": {
-    "message": "No languages set to never translate."
-  },
-  "settingsGmailRemoveLang": {
-    "message": "Remove"
-  },
-  "settingsLabel": {
-    "message": "設定"
-  },
-  "shortcutBilingual": {
-    "message": "$KEY$ 可在替換視圖與雙語視圖之間切換，並記憶此網站的選擇。",
+  "modelFolderIntegrityFailed": {
+    "message": "The file $FILE$ is not the official PLaMo model, so Sakutto will not use it.",
     "placeholders": {
-      "key": {
+      "file": {
         "content": "$1"
       }
     }
   },
-  "shortcutChange": {
-    "message": "變更快速鍵"
+  "modelFolderEnableTabTitle": {
+    "message": "Keep folder access after restart"
   },
-  "shortcutCompose": {
-    "message": "按 $KEY$ 翻譯目前輸入欄中的文字。",
+  "modelFolderEnableTabBody": {
+    "message": "In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). In Chrome, choose “Allow on every visit” (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「アクセスするたびに確認する」). Either persistent choice keeps this folder allowed after restarts with no extra clicks."
+  },
+  "modelFolderEnableTabHint": {
+    "message": "A this-time-only choice lasts only until a restart. Return here to grant access again. Translation still works from the browser copy."
+  },
+  "modelFolderEnableTabDone": {
+    "message": "Folder access is ready. This tab closes automatically."
+  },
+  "modelFolderEnableOneClick": {
+    "message": "Enable Sakutto"
+  },
+  "modelFolderBenefitsLead": {
+    "message": "A shared folder means:"
+  },
+  "modelFolderBenefitShare": {
+    "message": "Other profiles and other Chromium browsers can use it right away, with no extra download."
+  },
+  "modelFolderBenefitSpace": {
+    "message": "One copy on disk, so you save space ($SIZE$).",
     "placeholders": {
-      "key": {
+      "size": {
         "content": "$1"
       }
     }
   },
-  "shortcutHeading": {
-    "message": "鍵盤快速鍵"
+  "modelFolderBenefitKeep": {
+    "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
   },
-  "shortcutHelp": {
-    "message": "取消勾選命令即可在 Sakutto 中將其關閉。「變更快速鍵」會開啟 Chrome 的快速鍵編輯器。瀏覽器指定的按鍵即使在文字輸入框取得焦點時也能使用。如果命令顯示為「未設定」，請開啟編輯器並指定按鍵。"
+  "highQualityOffer": {
+    "message": "您可以嘗試精度更高的模型（2B，約 1.81 GB）。速度取決於此裝置。"
   },
-  "shortcutHelpFirefox": {
-    "message": "取消勾選命令即可在 Sakutto 中將其關閉。「變更快速鍵」會開啟 Firefox 內建的編輯器。在那裡指定的按鍵即使在文字輸入框取得焦點時也能使用。安裝或更新時，Firefox 會盡可能為從未指定過按鍵的空命令還原按鍵；你清除的按鍵會保持清除狀態。"
+  "useHighQuality": {
+    "message": "使用它"
   },
-  "shortcutOff": {
-    "message": "關閉"
+  "dismissHighQuality": {
+    "message": "目前不適用"
   },
-  "shortcutOpenSettings": {
-    "message": "開啟快速鍵設定"
+  "glossaryHeading": {
+    "message": "術語表"
   },
-  "shortcutSelection": {
-    "message": "$KEY$ 會轉換所選文字。",
-    "placeholders": {
-      "key": {
-        "content": "$1"
-      }
-    }
+  "glossaryHelp": {
+    "message": "每行寫一組「來源、翻譯」組合。選擇一個網站，僅在該網站使用此清單。"
   },
-  "shortcutTranslate": {
-    "message": "$KEY$ 可轉換頁面或還原原始頁面。",
-    "placeholders": {
-      "key": {
-        "content": "$1"
-      }
-    }
+  "glossaryGlobal": {
+    "message": "所有網站"
   },
-  "shortcutUnset": {
-    "message": "未設定"
+  "glossaryImport": {
+    "message": "匯入 CSV"
   },
-  "shortcutUnsetNotice": {
-    "message": "快速鍵未設定"
+  "glossaryExport": {
+    "message": "匯出 CSV"
   },
-  "shortcutUse": {
-    "message": "使用此快捷鍵"
+  "glossaryAddSite": {
+    "message": "新增網站"
   },
-  "siteGrantAllow": {
-    "message": "允許"
-  },
-  "siteGrantBody": {
-    "message": "$HOST$ 上的頁面將在本裝置上進行翻譯。",
-    "placeholders": {
-      "host": {
-        "content": "$1"
-      }
-    }
-  },
-  "siteGrantDenied": {
-    "message": "未授予權限。請再試一次。"
-  },
-  "siteGrantInvalid": {
-    "message": "本頁面未命名網站。"
-  },
-  "siteGrantTitle": {
-    "message": "翻譯本網站"
-  },
-  "siteHostInvalid": {
-    "message": "請輸入有效的主機名稱。"
-  },
-  "siteHostLabel": {
-    "message": "主機名稱"
-  },
-  "siteRuleAlways": {
-    "message": "始終翻譯"
+  "siteRulesHeading": {
+    "message": "單站翻譯"
   },
   "siteRuleAsk": {
     "message": "每次詢問"
+  },
+  "siteRuleAlways": {
+    "message": "始終翻譯"
   },
   "siteRuleNever": {
     "message": "絕不要翻譯"
@@ -1414,90 +863,89 @@
   "siteRuleRemove": {
     "message": "移除"
   },
-  "siteRulesHeading": {
-    "message": "單站翻譯"
+  "noSiteRules": {
+    "message": "尚未設定每個網站的設定。"
   },
-  "slowDeviceHint": {
-    "message": "這台電腦上的 PLaMo 速度很慢。每一段文字都會以模型完成時的形式顯示。"
+  "siteHostLabel": {
+    "message": "主機名稱"
   },
-  "sourceCodeLink": {
-    "message": "原始碼"
+  "cacheClear": {
+    "message": "清除翻譯快取"
   },
-  "statusChecking": {
-    "message": "正在檢查…"
+  "cacheCleared": {
+    "message": "翻譯快取已清空。"
   },
-  "storageOptionRecommended": {
-    "message": "建議"
+  "cacheClearFailed": {
+    "message": "無法清除翻譯快取。"
   },
-  "tagline": {
-    "message": "在您的裝置上執行的頁面翻譯"
+  "idleLabel": {
+    "message": "將模型從記憶體中釋放後"
   },
-  "targetAdjustedNote": {
-    "message": "該頁面已在儲存的目標語言中，因此目標已切換。"
+  "idle1": {
+    "message": "1 分鐘"
   },
-  "targetLanguageLabel": {
-    "message": "轉換為"
+  "idle5": {
+    "message": "5 分鐘"
   },
-  "threadsLabel": {
-    "message": "邏輯核心"
+  "idle15": {
+    "message": "15 分鐘"
   },
-  "tierAuto": {
-    "message": "自動"
-  },
-  "tierCpu1": {
-    "message": "CPU (1 thread)"
-  },
-  "tierCpu4": {
-    "message": "CPU (4 執行緒)"
-  },
-  "tierCpu8": {
-    "message": "CPU (8 個或以上執行緒)"
-  },
-  "tierGpu": {
-    "message": "WebGPU"
-  },
-  "tierHelp": {
-    "message": "自動選擇適合此電腦的模式。"
+  "idleNever": {
+    "message": "從不"
   },
   "tierLabel": {
     "message": "效能模式"
   },
-  "translateThisPage": {
-    "message": "翻譯此頁面"
+  "tierAuto": {
+    "message": "自動"
   },
-  "translationPopupSizeHelp": {
-    "message": "調整懸停、選取和撰寫翻譯彈窗中的文字大小。影片字幕使用個別的字幕大小設定。"
+  "tierGpu": {
+    "message": "WebGPU"
   },
-  "translationPopupSizeLabel": {
-    "message": "翻譯彈窗文字大小"
+  "tierCpu8": {
+    "message": "CPU (8 個或以上執行緒)"
   },
-  "typedChromeOnlyNote": {
-    "message": "Chrome 內建的翻譯器僅涵蓋頁面上的 $LANGUAGES$；輸入的文字絕不會被傳送到該處。",
-    "placeholders": {
-      "languages": {
-        "content": "$1"
-      }
-    }
+  "tierCpu4": {
+    "message": "CPU (4 執行緒)"
   },
-  "typedChromeOnlyTarget": {
-    "message": "類型化翻譯僅使用 PLaMo，且 PLaMo 無法翻譯為 $LANGUAGE$。在此請選擇其他語言，或使用內建翻譯器翻譯頁面。",
-    "placeholders": {
-      "language": {
-        "content": "$1"
-      }
-    }
+  "tierHelp": {
+    "message": "自動選擇適合此電腦的模式。"
   },
-  "typedClear": {
-    "message": "清晰"
+  "slowDeviceHint": {
+    "message": "這台電腦上的 PLaMo 速度很慢。每一段文字都會以模型完成時的形式顯示。"
   },
-  "typedCopied": {
-    "message": "已複製"
+  "errorPermission": {
+    "message": "本網站未獲授權。"
   },
-  "typedCopy": {
-    "message": "複製"
+  "siteHostInvalid": {
+    "message": "請輸入有效的主機名稱。"
   },
-  "typedCopyFailed": {
-    "message": "無法複製翻譯。請選取並自行複製。"
+  "glossaryScopeLabel": {
+    "message": "適用於"
+  },
+  "listSeparator": {
+    "message": ","
+  },
+  "openTyped": {
+    "message": "翻譯打字內容"
+  },
+  "typedLead": {
+    "message": "輸入或貼上文字，並使用頁面翻譯所採用的相同 PLaMo 模型進行翻譯。此資料不會離開本裝置。"
+  },
+  "typedHeading": {
+    "message": "類型化翻譯"
+  },
+  "typedSourceLanguageLabel": {
+    "message": "翻譯自"
+  },
+  "typedDetectSource": {
+    "message": "自動偵測"
+  },
+  "typedSourceLabel": {
+    "message": "文本轉譯"
+  },
+  "typedPlaceholder": {
+    "message": "在此輸入或貼上文字。"
   },
   "typedCounter": {
     "message": "$COUNT$ / $LIMIT$ 個字元",
@@ -1510,8 +958,13 @@
       }
     }
   },
-  "typedDetectSource": {
-    "message": "自動偵測"
+  "typedTooLong": {
+    "message": "此文字對於單一請求來說過長。請縮短至 $LIMIT$ 個字元或更少。",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
   },
   "typedDirectionHint": {
     "message": "轉換為 $LANGUAGE$。其他語言將自動偵測。",
@@ -1521,70 +974,8 @@
       }
     }
   },
-  "typedDownloadModel": {
-    "message": "下載模型"
-  },
-  "typedFailed": {
-    "message": "無法翻譯該文字。您的文字未變更，請再試一次。"
-  },
-  "typedHeading": {
-    "message": "類型化翻譯"
-  },
-  "typedLead": {
-    "message": "輸入或貼上文字，並使用頁面翻譯所採用的相同 PLaMo 模型進行翻譯。此資料不會離開本裝置。"
-  },
-  "typedModelBusy": {
-    "message": "PLaMo 模型正在下載中。一旦準備就緒，翻譯即開始。"
-  },
-  "typedModelError": {
-    "message": "PLaMo 模型無法載入。請開啟選項頁面以檢查。"
-  },
-  "typedModelMissing": {
-    "message": "PLaMo 模型尚未安裝於此裝置上。"
-  },
-  "typedModelPartial": {
-    "message": "PLaMo 模型的下載中斷。"
-  },
-  "typedNeedsConsent": {
-    "message": "PLaMo 需要一次性授權協議後才能啟動。在此之前，您的文字將不會被翻譯。"
-  },
-  "typedOpenOnboarding": {
-    "message": "審閱授權並開始"
-  },
-  "typedPlaceholder": {
-    "message": "在此輸入或貼上文字。"
-  },
-  "typedResultEmpty": {
-    "message": "PLaMo 的翻譯會出現在這裡，就在你貼上的文字旁邊。"
-  },
-  "typedResultHeading": {
-    "message": "翻譯"
-  },
-  "typedRunHint": {
-    "message": "Ctrl+Enter (Mac 上為 ⌘+Enter) 也能轉換。"
-  },
-  "typedSourceBreakLegend": {
-    "message": "↵ 表示句子中間的換行；細線表示譯文中保留的換行。"
-  },
-  "typedSourceLabel": {
-    "message": "文本轉譯"
-  },
-  "typedSourceLanguageLabel": {
-    "message": "翻譯自"
-  },
-  "typedStop": {
-    "message": "停止"
-  },
   "typedSwap": {
     "message": "切換翻譯方向"
-  },
-  "typedTooLong": {
-    "message": "此文字對於單一請求來說過長。請縮短至 $LIMIT$ 個字元或更少。",
-    "placeholders": {
-      "limit": {
-        "content": "$1"
-      }
-    }
   },
   "typedTranslate": {
     "message": "翻譯"
@@ -1592,74 +983,471 @@
   "typedTranslating": {
     "message": "翻譯…"
   },
-  "unofficialNotice": {
-    "message": "非官方。與 Preferred Networks 無關。由 PLaMo 開發。"
+  "typedStop": {
+    "message": "停止"
   },
-  "useHighQuality": {
-    "message": "使用它"
+  "typedClear": {
+    "message": "清晰"
   },
-  "videoCaptionsBilingual": {
-    "message": "原文與譯文"
+  "typedCopy": {
+    "message": "複製"
   },
-  "videoCaptionsBraveShields": {
-    "message": "Brave Shields 封鎖了 YouTube 字幕資料。請對此影片關閉 Shields，然後重新載入頁面以翻譯字幕。"
+  "typedCopied": {
+    "message": "已複製"
   },
-  "videoCaptionsCustomHostAdd": {
-    "message": "新增"
+  "typedCopyFailed": {
+    "message": "無法複製翻譯。請選取並自行複製。"
   },
-  "videoCaptionsCustomHostDenied": {
-    "message": "未授予該網站的存取權限。"
+  "typedResultHeading": {
+    "message": "翻譯"
   },
-  "videoCaptionsCustomHostInvalid": {
-    "message": "請輸入 example.com 這樣的網域。唯一允許的萬用字元是開頭的 *。"
+  "typedResultEmpty": {
+    "message": "PLaMo 的翻譯會出現在這裡，就在你貼上的文字旁邊。"
   },
-  "videoCaptionsCustomHostPlaceholder": {
-    "message": "example.com"
+  "typedRunHint": {
+    "message": "Ctrl+Enter (Mac 上為 ⌘+Enter) 也能轉換。"
   },
-  "videoCaptionsCustomHostRemove": {
-    "message": "移除"
+  "typedFailed": {
+    "message": "無法翻譯該文字。您的文字未變更，請再試一次。"
   },
-  "videoCaptionsCustomHostSubdomains": {
-    "message": "包含子網域"
+  "typedNeedsConsent": {
+    "message": "PLaMo 需要一次性授權協議後才能啟動。在此之前，您的文字將不會被翻譯。"
   },
-  "videoCaptionsCustomSitesHelp": {
-    "message": "新增 YouTube 或 X 以外的網域。僅當網站以 HTML5 影片軌道、WebVTT 或可見字幕元素提供字幕時才會翻譯。只用自訂圖形繪製字幕的網站不受支援。新增時會要求該網域的存取權限。"
+  "typedOpenOnboarding": {
+    "message": "審閱授權並開始"
   },
-  "videoCaptionsCustomSitesLabel": {
-    "message": "自訂字幕網站"
+  "typedModelMissing": {
+    "message": "PLaMo 模型尚未安裝於此裝置上。"
   },
-  "videoCaptionsDisplayHelp": {
-    "message": "保留原文便於學習，也更容易發現誤譯。"
+  "typedModelPartial": {
+    "message": "PLaMo 模型的下載中斷。"
   },
-  "videoCaptionsDisplayLabel": {
-    "message": "字幕顯示"
+  "typedModelBusy": {
+    "message": "PLaMo 模型正在下載中。一旦準備就緒，翻譯即開始。"
   },
-  "videoCaptionsHideOriginal": {
-    "message": "隱藏原字幕"
+  "typedModelError": {
+    "message": "PLaMo 模型無法載入。請開啟選項頁面以檢查。"
   },
-  "videoCaptionsLabel": {
-    "message": "翻譯字幕"
+  "typedDownloadModel": {
+    "message": "下載模型"
   },
-  "videoCaptionsOriginalToggleHelp": {
-    "message": "關閉後按鈕不會出現在影片上。仍可在此頁面切換原文與譯文。"
+  "typedChromeOnlyTarget": {
+    "message": "類型化翻譯僅使用 PLaMo，且 PLaMo 無法翻譯為 $LANGUAGE$。在此請選擇其他語言，或使用內建翻譯器翻譯頁面。",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
   },
-  "videoCaptionsOriginalToggleSetting": {
-    "message": "在播放器上顯示「隱藏原文」按鈕"
+  "typedChromeOnlyNote": {
+    "message": "Chrome 內建的翻譯器僅涵蓋頁面上的 $LANGUAGES$；輸入的文字絕不會被傳送到該處。",
+    "placeholders": {
+      "languages": {
+        "content": "$1"
+      }
+    }
   },
-  "videoCaptionsPending": {
-    "message": "正在翻譯字幕…"
+  "openPdf": {
+    "message": "翻譯此 PDF"
   },
-  "videoCaptionsPermissionDenied": {
-    "message": "未獲准存取 YouTube 和 X。"
+  "openPdfHint": {
+    "message": "在 Sakutto 中開啟該 PDF，並在原位翻譯，保留頁面版面。"
   },
-  "videoCaptionsPositionHelp": {
-    "message": "長按譯文字幕即可在播放器內拖曳。YouTube 與 X 會分別記住位置，全螢幕與劇院模式也會保持。此按鈕會把字幕放回播放器底部。"
+  "contextTranslatePdf": {
+    "message": "用 Sakutto 翻譯此 PDF"
   },
-  "videoCaptionsPositionReset": {
-    "message": "重設位置"
+  "commandPdf": {
+    "message": "在 Sakutto 中開啟 PDF"
   },
-  "videoCaptionsReplace": {
-    "message": "只顯示譯文"
+  "pdfReaderTitle": {
+    "message": "PDF"
+  },
+  "pdfUntitled": {
+    "message": "文件.pdf"
+  },
+  "pdfPreparing": {
+    "message": "正在讀取文件…"
+  },
+  "pdfReading": {
+    "message": "正在讀取第 $PAGE$ 頁，共 $TOTAL$ 頁",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfTranslated": {
+    "message": "已翻譯"
+  },
+  "pdfPageNoText": {
+    "message": "此頁是掃描件或圖片，沒有可選取的文字，因此無法翻譯。"
+  },
+  "pdfRenderFailed": {
+    "message": "無法繪製此頁。",
+    "description": "Shown on a page whose canvas could not be drawn."
+  },
+  "pdfNoText": {
+    "message": "此文件是掃描件或一組圖片，沒有可翻譯的文字層。請開啟含真實文字的 PDF，或先進行文字辨識。"
+  },
+  "pdfTranslateFailed": {
+    "message": "此部分無法翻譯。"
+  },
+  "pdfMissing": {
+    "message": "文件已無法使用。請從對應的分頁重新開啟 PDF。"
+  },
+  "pdfBroken": {
+    "message": "無法開啟文件。檔案可能已損毀，或受到密碼保護。"
+  },
+  "pdfTooLarge": {
+    "message": "此檔案超過 200 MB，這是閱讀器可開啟的文件大小上限。",
+    "description": "Shown when a local PDF is larger than the reader will open."
+  },
+  "pdfModelMissing": {
+    "message": "頁面已顯示，但翻譯需要 PLaMo 模型。下載模型即可翻譯此文件。"
+  },
+  "pdfOpenFailed": {
+    "message": "無法開啟此 PDF。請重新載入頁面後再試。"
+  },
+  "pdfFileAccessDenied": {
+    "message": "這份 PDF 是本機上的檔案。請在瀏覽器的擴充功能設定中允許存取檔案網址，或在閱讀器中選擇該檔案。"
+  },
+  "pdfCompare": {
+    "message": "並排比較"
+  },
+  "pdfOriginalPane": {
+    "message": "原文"
+  },
+  "pdfTranslatedPane": {
+    "message": "譯文"
+  },
+  "pdfChooseFile": {
+    "message": "選擇 PDF 檔案"
+  },
+  "pdfKeptAsIs": {
+    "message": "有 $COUNT$ 處維持頁面原有排版：公式、座標刻度和程式碼仍按原文排版。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfSelectHint": {
+    "message": "在頁面上選取文字，即可只翻譯該部分。"
+  },
+  "pdfSelectTranslate": {
+    "message": "翻譯所選內容"
+  },
+  "pdfSelectFailed": {
+    "message": "無法翻譯此部分。"
+  },
+  "pdfSelectClear": {
+    "message": "顯示原文"
+  },
+  "commandCompose": {
+    "message": "翻譯正在輸入的文字"
+  },
+  "contextTranslateCompose": {
+    "message": "翻譯正在輸入的內容"
+  },
+  "shortcutCompose": {
+    "message": "按 $KEY$ 翻譯目前輸入欄中的文字。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "在訊息欄輸入時按 $KEY$，即可預覽譯文並選擇是否取代。",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "訊息框處於焦點時，あA 按鈕（或快捷鍵）會預覽正在輸入內容的譯文。日文草稿譯成英文（或上方所選目標語言）；其他草稿使用該目標語言。在選擇「取代」之前不會改動正文。"
+  },
+  "composeTitle": {
+    "message": "輸入中的翻譯"
+  },
+  "composeIcon": {
+    "message": "翻譯正在輸入的文字"
+  },
+  "composeReplace": {
+    "message": "取代"
+  },
+  "composeUndo": {
+    "message": "還原原文"
+  },
+  "composePending": {
+    "message": "正在翻譯…"
+  },
+  "composeFailed": {
+    "message": "無法翻譯這段草稿。"
+  },
+  "composeEmpty": {
+    "message": "開始輸入即可看到譯文。"
+  },
+  "composeTooLong": {
+    "message": "這段草稿太長，無法翻譯。"
+  },
+  "composeSwap": {
+    "message": "切換翻譯方向"
+  },
+  "composeReplaced": {
+    "message": "已取代。可以還原原文。"
+  },
+  "composeInto": {
+    "message": "譯成 $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "輸入中的翻譯只使用 PLaMo，而 PLaMo 不能譯成 $LANGUAGE$。",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeIconSetting": {
+    "message": "在訊息框上顯示 あA 按鈕"
+  },
+  "composeIconSettingHelp": {
+    "message": "隱藏按鈕後，快捷鍵和右鍵選單仍然可用。"
+  },
+  "composeTargetSetting": {
+    "message": "輸入時翻譯的目標語言"
+  },
+  "composeTargetAuto": {
+    "message": "自動（日語草稿譯成語言對的另一側，其餘譯成頁面目標語言）"
+  },
+  "composeTargetSettingHelp": {
+    "message": "在預覽中選擇的語言會記在這裡。"
+  },
+  "composeTargetLabel": {
+    "message": "目標"
+  },
+  "composeInstantSetting": {
+    "message": "按一次快捷鍵即翻譯並取代"
+  },
+  "composeInstantSettingHelp": {
+    "message": "不顯示預覽：按一次快捷鍵翻譯草稿並取代。仍可復原。"
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo 尚未就緒。請開啟設定以同意授權並下載模型。"
+  },
+  "composeLoading": {
+    "message": "正在載入 PLaMo 模型。就緒後會顯示預覽。"
+  },
+  "composeIneligible": {
+    "message": "無法翻譯此輸入欄。"
+  },
+  "composeOpenSetup": {
+    "message": "開啟設定"
+  },
+  "composeStale": {
+    "message": "草稿已變更。預覽更新完成前暫停取代。"
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$ 取代",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "自動"
+  },
+  "composePlacementSetting": {
+    "message": "輸入時翻譯列位置"
+  },
+  "composePlacementSettingHelp": {
+    "message": "所有網站的預設值。拖曳列左側的 ⋮⋮ 即可在本頁任意位置停放。⋯ 選單也可以只覆蓋目前網站。"
+  },
+  "composePlacementAbove": {
+    "message": "輸入框上方"
+  },
+  "composePlacementBelow": {
+    "message": "輸入框下方"
+  },
+  "composePlacementCorner": {
+    "message": "視窗右下角"
+  },
+  "composePlacementFree": {
+    "message": "自由拖曳"
+  },
+  "composePlacementMenu": {
+    "message": "翻譯列位置"
+  },
+  "composePlacementSite": {
+    "message": "此網站"
+  },
+  "composePlacementFollowSettings": {
+    "message": "恢復所有網站的設定"
+  },
+  "composePlacementReset": {
+    "message": "恢復到原來的位置"
+  },
+  "composePlacementHandle": {
+    "message": "拖曳即可把列放到任意位置"
+  },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
+  "engineLinuxWebGpuHintUnsupported": {
+    "message": "Linux 上的 Chrome 通常需要在 chrome://flags/#enable-unsafe-webgpu 中啟用 WebGPU 和 Vulkan 功能，然後重新啟動 Chrome。在此期間將使用 CPU 翻譯。"
+  },
+  "engineLinuxWebGpuHintUnavailable": {
+    "message": "WebGPU 已啟用，但找不到可用的 GPU 介面卡。GPU 翻譯需要 shader-f16，請檢查驅動程式和 Vulkan 支援，例如在 chrome://gpu 中查看。在此期間將使用 CPU 翻譯。"
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
+  },
+  "runtimeLocalServer": {
+    "message": "本機伺服器（實驗性）"
+  },
+  "engineSourceLabel": {
+    "message": "翻譯引擎"
+  },
+  "engineSourceInBrowser": {
+    "message": "內建（此裝置）"
+  },
+  "engineSourceLocalServer": {
+    "message": "本機伺服器（實驗性）"
+  },
+  "engineSourceHelp": {
+    "message": "預設是此裝置上的內建引擎。"
+  },
+  "localServerUrlLabel": {
+    "message": "伺服器 URL"
+  },
+  "localServerModelLabel": {
+    "message": "模型"
+  },
+  "localServerApiKeyLabel": {
+    "message": "API 金鑰（選用）"
+  },
+  "localServerTimeoutLabel": {
+    "message": "逾時（秒）"
+  },
+  "localServerTestButton": {
+    "message": "測試連線"
+  },
+  "localServerTestOk": {
+    "message": "已連線。"
+  },
+  "localServerTestFail": {
+    "message": "無法使用此伺服器。"
+  },
+  "localServerModelsEmpty": {
+    "message": "（沒有清單 — 請輸入名稱）"
+  },
+  "localServerPresetMlx": {
+    "message": "mlx_lm.server"
+  },
+  "localServerPresetLmStudio": {
+    "message": "LM Studio"
+  },
+  "localServerPresetHelp": {
+    "message": "預設只填入 URL。"
+  },
+  "localServerNonLocalWarning": {
+    "message": "此位址不是這台電腦。頁面文字會送到那裡。我了解。"
+  },
+  "localServerPermissionDenied": {
+    "message": "瀏覽器未允許存取此位址。"
+  },
+  "localServerHelp": {
+    "message": "將 Sakutto 的提示送到這台電腦上的 OpenAI 相容伺服器，例如 mlx_lm.server 或 LM Studio。"
+  },
+  "localServerUnreachable": {
+    "message": "無法連到本機伺服器。請開啟設定並確認它正在執行。"
+  },
+  "localServerModelMissing": {
+    "message": "伺服器沒有符合的模型。請載入模型或在設定中選擇。"
+  },
+  "localServerTimeout": {
+    "message": "本機伺服器逾時。已保留原文。"
+  },
+  "localServerFailed": {
+    "message": "本機伺服器無法翻譯。請開啟設定。已保留原文。"
+  },
+  "diagBackendLocalServer": {
+    "message": "本機伺服器（實驗性）"
+  },
+  "privacyBodyLocalServer": {
+    "message": "實驗性功能。選擇本機伺服器後，文字只會送到你設定的位址（預設是這台電腦）。不保證翻譯準確，結果可能與內建引擎不同，包括誤譯。開發者不會收到這些文字。"
+  },
+  "localServerLicenseNote": {
+    "message": "你在該伺服器載入的其他模型授權由你負責。PLaMo 權重仍適用 PLaMo Community License。"
+  },
+  "localServerParallelLabel": {
+    "message": "Concurrent requests"
+  },
+  "localServerParallelHelp": {
+    "message": "How many completions the server may run at once (1–16). The page keeps extra requests ready so a finished slot is not left idle."
+  },
+  "localServerTestOkUnlisted": {
+    "message": "Connected. Completions work. The server listed no models — keep the model name you typed; it was not verified from /v1/models."
+  },
+  "localServerExperimental": {
+    "message": "實驗性功能：不保證翻譯準確。結果可能與內建引擎不同，並可能出現誤譯。"
+  },
+  "localServerExperimentalConfirm": {
+    "message": "此引擎是實驗性功能。不保證準確，結果可能與內建引擎不同，並可能出現誤譯。仍要使用本機伺服器嗎？"
+  },
+  "localServerExperimentalUse": {
+    "message": "使用本機伺服器"
+  },
+  "localServerExperimentalKeep": {
+    "message": "繼續用內建引擎"
+  },
+  "localServerDetails": {
+    "message": "詳細說明"
+  },
+  "localServerAdvanced": {
+    "message": "進階設定"
+  },
+  "localServerRemoteConfirmRequired": {
+    "message": "這個位址不在這台電腦上。測試連線前，請勾選下方的確認。"
+  },
+  "onboardingLocalServerNote": {
+    "message": "可以在設定中開啟實驗性的本機伺服器。那時正文只會送到你設定的位址，並且不保證準確。"
+  },
+  "localServerUrlHelp": {
+    "message": "mlx_lm.server 預設連接埠是 8080，LM Studio 預設連接埠是 1234。"
+  },
+  "localServerModelHelp": {
+    "message": "該伺服器上已載入的模型名稱。"
+  },
+  "diagConcurrent": {
+    "message": "同時請求"
+  },
+  "diagRuntime": {
+    "message": "狀態"
   },
   "videoCaptionsSetting": {
     "message": "翻譯影片字幕"
@@ -1667,16 +1455,228 @@
   "videoCaptionsSettingHelp": {
     "message": "開啟後，會在裝置上即時翻譯已有字幕的 YouTube（含直播）與 X 影片。打開此設定時，Chrome 會要求存取這些網站。沒有字幕的影片不會顯示任何內容。無法可靠翻譯的一行會保留原文。"
   },
+  "videoCaptionsDisplayLabel": {
+    "message": "字幕顯示"
+  },
+  "videoCaptionsBilingual": {
+    "message": "原文與譯文"
+  },
+  "videoCaptionsReplace": {
+    "message": "只顯示譯文"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "保留原文便於學習，也更容易發現誤譯。"
+  },
+  "videoCaptionsLabel": {
+    "message": "翻譯字幕"
+  },
+  "videoCaptionsPending": {
+    "message": "正在翻譯字幕…"
+  },
   "videoCaptionsShowOriginal": {
     "message": "顯示原字幕"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "隱藏原字幕"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "未獲准存取 YouTube 和 X。"
   },
   "videoCaptionsShowOriginalSetting": {
     "message": "顯示原文行"
   },
-  "videoCaptionsSizeHelp": {
-    "message": "大小會隨播放器變化，包括全螢幕與劇院模式。拖曳滑桿可預覽。"
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "在播放器上顯示「隱藏原文」按鈕"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "關閉後按鈕不會出現在影片上。仍可在此頁面切換原文與譯文。"
   },
   "videoCaptionsSizeLabel": {
     "message": "字幕大小"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "大小會隨播放器變化，包括全螢幕與劇院模式。拖曳滑桿可預覽。"
+  },
+  "translationPopupSizeLabel": {
+    "message": "翻譯彈窗文字大小"
+  },
+  "translationPopupSizeHelp": {
+    "message": "調整懸停、選取和撰寫翻譯彈窗中的文字大小。影片字幕使用個別的字幕大小設定。"
+  },
+  "plainTextLineBreaksLabel": {
+    "message": "譯文中的換行"
+  },
+  "plainTextLineBreaksHelp": {
+    "message": "貼上的文件、OCR 文字與書籍摘錄常在句子中間斷行。翻譯時會把這些斷行接起來，只有句尾、標題與空行會作為換行反映在譯文中。最後一個選項還會在文字輸入框標出每一處換行（句子中間的換行顯示為 ↵），方便你在翻譯前發現並修正。網頁翻譯不受影響。"
+  },
+  "plainTextLineBreaksNone": {
+    "message": "不額外換行（預設）"
+  },
+  "plainTextLineBreaksKeep": {
+    "message": "段落之間換行"
+  },
+  "plainTextLineBreaksBlank": {
+    "message": "在原文換行的位置，譯文換行兩次（插入空行）"
+  },
+  "plainTextLineBreaksWider": {
+    "message": "譯文按段落換行，並在輸入框中標出原文換行"
+  },
+  "typedSourceBreakLegend": {
+    "message": "↵ 表示句子中間的換行；細線表示譯文中保留的換行。"
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "自訂字幕網站"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "新增 YouTube 或 X 以外的網域。僅當網站以 HTML5 影片軌道、WebVTT 或可見字幕元素提供字幕時才會翻譯。只用自訂圖形繪製字幕的網站不受支援。新增時會要求該網域的存取權限。"
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "新增"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "移除"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "包含子網域"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "請輸入 example.com 這樣的網域。唯一允許的萬用字元是開頭的 *。"
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "未授予該網站的存取權限。"
+  },
+  "videoCaptionsBraveShields": {
+    "message": "Brave Shields 封鎖了 YouTube 字幕資料。請對此影片關閉 Shields，然後重新載入頁面以翻譯字幕。"
+  },
+  "videoCaptionsPositionReset": {
+    "message": "重設位置"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "長按譯文字幕即可在播放器內拖曳。YouTube 與 X 會分別記住位置，全螢幕與劇院模式也會保持。此按鈕會把字幕放回播放器底部。"
+  },
+  "pdfOverflow": {
+    "message": "有 $COUNT$ 處無法排進頁面。打開標記即可閱讀譯文。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfFailedCount": {
+    "message": "有 $COUNT$ 處無法翻譯。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "Toolbar note when some blocks could not be translated."
+  },
+  "pdfOverflowOpen": {
+    "message": "顯示譯文"
+  },
+  "gmailBannerDetected": {
+    "message": "這封郵件似乎是用$LANG$寫的。",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerTranslate": {
+    "message": "翻譯成$TARGET$",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerShowOriginal": {
+    "message": "顯示原文"
+  },
+  "gmailBannerTranslating": {
+    "message": "正在翻譯這封郵件…"
+  },
+  "gmailBannerFailed": {
+    "message": "無法翻譯此電子郵件。"
+  },
+  "gmailBannerRegion": {
+    "message": "Gmail 郵件翻譯"
+  },
+  "mailBannerAccessNeeded": {
+    "message": "在此網站上使用郵件翻譯需要存取權限。"
+  },
+  "mailBannerEnableForSite": {
+    "message": "在此網站上啟用郵件翻譯"
+  },
+  "mailBannerPermissionDenied": {
+    "message": "郵件翻譯需要存取郵件網站的權限。"
+  },
+  "settingsGmailBanner": {
+    "message": "為 Gmail 郵件提供翻譯"
+  },
+  "settingsGmailBannerHelp": {
+    "message": "開啟後，打開以其他語言撰寫的 Gmail 郵件時，內文上方會顯示一個小提示。只有點擊後才會翻譯郵件。Sakutto 需要存取 mail.google.com 的權限；請在彈出視窗或網站清單中授予。"
+  },
+  "gmailBannerTranslated": {
+    "message": "Translated: $SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "gmailBannerShowTranslation": {
+    "message": "Show translation"
+  },
+  "gmailBannerMenu": {
+    "message": "Translation settings"
+  },
+  "gmailBannerTranslateNow": {
+    "message": "Translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerAlwaysTranslate": {
+    "message": "Always translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerNeverTranslate": {
+    "message": "Never translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsGmailAutoLangs": {
+    "message": "Always translate these languages"
+  },
+  "settingsGmailNeverLangs": {
+    "message": "Never translate these languages"
+  },
+  "settingsGmailNoAutoLangs": {
+    "message": "No languages set to always translate."
+  },
+  "settingsGmailNoNeverLangs": {
+    "message": "No languages set to never translate."
+  },
+  "settingsGmailClearLangs": {
+    "message": "Clear"
+  },
+  "settingsGmailRemoveLang": {
+    "message": "Remove"
   }
 }

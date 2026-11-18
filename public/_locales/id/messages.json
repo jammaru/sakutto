@@ -1,362 +1,4 @@
 {
-  "alwaysTranslateSite": {
-    "message": "Selalu terjemahkan situs ini"
-  },
-  "cacheClear": {
-    "message": "Bersihkan cache terjemahan"
-  },
-  "cacheClearFailed": {
-    "message": "Cache penerjemahan tidak dapat dihapus."
-  },
-  "cacheCleared": {
-    "message": "Cache penerjemahan telah dihapus."
-  },
-  "chromeOnlySuffix": {
-    "message": "(tertanam di Chrome)"
-  },
-  "chromeTranslationNote": {
-    "message": "Terjemahan bawaan Chrome"
-  },
-  "close": {
-    "message": "Tutup"
-  },
-  "commandBilingual": {
-    "message": "Terjemah dalam tampilan bilingual, atau pertukar tampilan saat ini"
-  },
-  "commandCompose": {
-    "message": "Terjemahkan teks yang sedang Anda tulis"
-  },
-  "commandPdf": {
-    "message": "Buka PDF di Sakutto"
-  },
-  "commandSelection": {
-    "message": "Terjemahkan teks yang dipilih"
-  },
-  "commandTranslate": {
-    "message": "Terjemahkan halaman ini atau kembalikan versi aslinya"
-  },
-  "composeAutoSource": {
-    "message": "Otomatis"
-  },
-  "composeChromeOnly": {
-    "message": "Terjemahan draf hanya memakai PLaMo, dan PLaMo tidak menerjemahkan ke $LANGUAGE$.",
-    "placeholders": {
-      "language": {
-        "content": "$1"
-      }
-    }
-  },
-  "composeEmpty": {
-    "message": "Mulai mengetik untuk melihat terjemahan."
-  },
-  "composeFailed": {
-    "message": "Draf ini tidak dapat diterjemahkan."
-  },
-  "composeHelp": {
-    "message": "Saat kotak pesan berfokus, tombol あA (atau pintasan) menampilkan pratinjau terjemahan. Draf Jepang ke bahasa Inggris (atau bahasa sasaran di atas); yang lain memakai sasaran itu. Tidak ada yang diganti sampai Anda memilih Ganti."
-  },
-  "composeIcon": {
-    "message": "Terjemahkan yang sedang Anda tulis"
-  },
-  "composeIconSetting": {
-    "message": "Tampilkan tombol あA pada kotak pesan"
-  },
-  "composeIconSettingHelp": {
-    "message": "Pintasan dan menu klik kanan tetap bekerja jika tombol disembunyikan."
-  },
-  "composeIneligible": {
-    "message": "Kolom ini tidak dapat diterjemahkan."
-  },
-  "composeInstantSetting": {
-    "message": "Terjemahkan dan ganti dengan satu pintasan"
-  },
-  "composeInstantSettingHelp": {
-    "message": "Tanpa pratinjau: satu pintasan menerjemahkan draf dan menggantinya. Urungkan tetap tersedia."
-  },
-  "composeInto": {
-    "message": "Ke $LANGUAGE$",
-    "placeholders": {
-      "language": {
-        "content": "$1"
-      }
-    }
-  },
-  "composeLangPair": {
-    "message": "$SOURCE$ → $TARGET$",
-    "placeholders": {
-      "source": {
-        "content": "$1"
-      },
-      "target": {
-        "content": "$2"
-      }
-    }
-  },
-  "composeLoading": {
-    "message": "Model PLaMo sedang dimuat. Pratinjau muncul setelah siap."
-  },
-  "composeNeedSetup": {
-    "message": "PLaMo belum siap. Buka penyiapan untuk menyetujui lisensi dan mengunduh model."
-  },
-  "composeOpenSetup": {
-    "message": "Buka penyiapan"
-  },
-  "composePending": {
-    "message": "Menerjemahkan…"
-  },
-  "composePlacementAbove": {
-    "message": "Di atas kotak pesan"
-  },
-  "composePlacementBelow": {
-    "message": "Di bawah kotak pesan"
-  },
-  "composePlacementCorner": {
-    "message": "Kanan bawah jendela"
-  },
-  "composePlacementFollowSettings": {
-    "message": "Gunakan pengaturan untuk semua situs"
-  },
-  "composePlacementFree": {
-    "message": "Geser bebas"
-  },
-  "composePlacementHandle": {
-    "message": "Seret untuk memindahkan bilah ke mana saja"
-  },
-  "composePlacementMenu": {
-    "message": "Posisi bilah"
-  },
-  "composePlacementReset": {
-    "message": "Kembalikan ke posisi semula"
-  },
-  "composePlacementSetting": {
-    "message": "Posisi bilah terjemahan saat menulis"
-  },
-  "composePlacementSettingHelp": {
-    "message": "Bawaan untuk setiap situs. Seret gagang ⋮⋮ pada bilah untuk menaruhnya di mana saja di halaman ini. Menu ⋯ juga dapat menimpa ini hanya untuk situs itu."
-  },
-  "composePlacementSite": {
-    "message": "Situs ini"
-  },
-  "composeReplace": {
-    "message": "Ganti"
-  },
-  "composeReplaceHint": {
-    "message": "$COMPOSE$ / $ENTER$ untuk mengganti",
-    "placeholders": {
-      "compose": {
-        "content": "$1"
-      },
-      "enter": {
-        "content": "$2"
-      }
-    }
-  },
-  "composeReplaced": {
-    "message": "Diganti. Anda dapat mengembalikan teks asli."
-  },
-  "composeStale": {
-    "message": "Draf berubah. Ganti dijeda sampai pratinjau menyusul."
-  },
-  "composeSwap": {
-    "message": "Ubah arah terjemahan"
-  },
-  "composeTargetAuto": {
-    "message": "Otomatis (draf Jepang ke bahasa lain dalam pasangan; selain itu ke bahasa halaman)"
-  },
-  "composeTargetLabel": {
-    "message": "Tujuan"
-  },
-  "composeTargetSetting": {
-    "message": "Bahasa tujuan saat menulis"
-  },
-  "composeTargetSettingHelp": {
-    "message": "Bahasa terakhir yang dipilih di pratinjau diingat di sini."
-  },
-  "composeTitle": {
-    "message": "Terjemahan draf"
-  },
-  "composeTooLong": {
-    "message": "Draf ini terlalu panjang untuk diterjemahkan."
-  },
-  "composeUndo": {
-    "message": "Kembalikan aslinya"
-  },
-  "contextTranslateCompose": {
-    "message": "Terjemahkan yang sedang Anda tulis"
-  },
-  "contextTranslatePage": {
-    "message": "Terjemahkan halaman ini"
-  },
-  "contextTranslatePdf": {
-    "message": "Terjemahkan PDF ini dengan Sakutto"
-  },
-  "contextTranslateSelection": {
-    "message": "Terjemahkan teks yang dipilih"
-  },
-  "diagBackend": {
-    "message": "Backend aktif"
-  },
-  "diagBackendCpu": {
-    "message": "CPU"
-  },
-  "diagBackendGpu": {
-    "message": "WebGPU"
-  },
-  "diagBackendLocalServer": {
-    "message": "Server lokal (eksperimental)"
-  },
-  "diagBackendUnknown": {
-    "message": "Belum dimuat"
-  },
-  "diagConcurrent": {
-    "message": "Permintaan bersamaan"
-  },
-  "diagGpuCopied": {
-    "message": "Disalin"
-  },
-  "diagGpuCopy": {
-    "message": "Salin"
-  },
-  "diagGpuCopyFailed": {
-    "message": "Tidak dapat menyalin"
-  },
-  "diagGpuEmpty": {
-    "message": "Belum ada laporan WebGPU."
-  },
-  "diagGpuHeading": {
-    "message": "Adapter WebGPU"
-  },
-  "diagGpuHelp": {
-    "message": "Laporan ini tetap di perangkat ini. Jika WebGPU gagal, tempelkan ke issue GitHub."
-  },
-  "diagHeading": {
-    "message": "Diagnosi"
-  },
-  "diagParallel": {
-    "message": "n_parallel"
-  },
-  "diagRateHint": {
-    "message": "Saat sebuah halaman sedang melakukan translasi, bilahnya menampilkan token/s dan segmen/s."
-  },
-  "diagRuntime": {
-    "message": "Status"
-  },
-  "diagThreads": {
-    "message": "Thread"
-  },
-  "dismissHighQuality": {
-    "message": "Bukan sekarang"
-  },
-  "displayBilingual": {
-    "message": "Bilingual"
-  },
-  "displayLabel": {
-    "message": "Gaya baca"
-  },
-  "displayNowBilingual": {
-    "message": "Tampilan bilingual aktif untuk situs ini."
-  },
-  "displayNowReplace": {
-    "message": "Tampilan pengganti aktif untuk situs ini."
-  },
-  "displayReplace": {
-    "message": "Ganti asli"
-  },
-  "displaySiteHint": {
-    "message": "Pilihan ini diingat untuk situs tersebut."
-  },
-  "downloadCancel": {
-    "message": "Luangkan"
-  },
-  "downloadEtaMinutes": {
-    "message": "Sekitar $COUNT$ menit tersisa.",
-    "placeholders": {
-      "count": {
-        "content": "$1"
-      }
-    }
-  },
-  "downloadEtaSeconds": {
-    "message": "Sekitar $COUNT$ detik tersisa.",
-    "placeholders": {
-      "count": {
-        "content": "$1"
-      }
-    }
-  },
-  "downloadPaused": {
-    "message": "Unduhan sedang dihentikan. Dapat dilanjutkan kembali di tempat yang ditinggalkan."
-  },
-  "downloadProgressLabel": {
-    "message": "Kemajuan unduhan"
-  },
-  "downloadResume": {
-    "message": "Lebih lanjut"
-  },
-  "downloadResuming": {
-    "message": "Unduhan berlanjut dari titik di mana berhenti."
-  },
-  "engineCpuAdapterUnavailable": {
-    "message": "CPU (tanpa adapter GPU)"
-  },
-  "engineCpuProbeFailed": {
-    "message": "CPU (pemeriksaan WebGPU gagal)"
-  },
-  "engineCpuWebGpuUnsupported": {
-    "message": "CPU (WebGPU tidak tersedia)"
-  },
-  "engineFirefoxSingleThread": {
-    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
-  },
-  "engineHeading": {
-    "message": "Engine"
-  },
-  "engineLinuxWebGpuHintUnavailable": {
-    "message": "WebGPU sudah aktif, tetapi tidak ada adaptor GPU yang dapat digunakan. Terjemahan GPU memerlukan shader-f16; periksa driver dan dukungan Vulkan, misalnya di chrome://gpu. Sementara itu, terjemahan menggunakan CPU."
-  },
-  "engineLinuxWebGpuHintUnsupported": {
-    "message": "Chrome di Linux sering kali perlu mengaktifkan WebGPU di chrome://flags/#enable-unsafe-webgpu dan fitur Vulkan, lalu memulai ulang Chrome. Sementara itu, terjemahan menggunakan CPU."
-  },
-  "engineSourceHelp": {
-    "message": "Default adalah mesin bawaan di perangkat ini."
-  },
-  "engineSourceInBrowser": {
-    "message": "Bawaan (di perangkat ini)"
-  },
-  "engineSourceLabel": {
-    "message": "Mesin terjemahan"
-  },
-  "engineSourceLocalServer": {
-    "message": "Server lokal (eksperimental)"
-  },
-  "engineStatusLabel": {
-    "message": "Waktu Eksekusi"
-  },
-  "engineUnavailable": {
-    "message": "Tidak tersedia"
-  },
-  "engineWebGpu": {
-    "message": "WebGPU"
-  },
-  "errorAction": {
-    "message": "Tidak dapat membuka halaman."
-  },
-  "errorPage": {
-    "message": "Halaman ini tidak dapat dibaca."
-  },
-  "errorPermission": {
-    "message": "Izin untuk situs ini tidak diberikan."
-  },
-  "errorSaveSettings": {
-    "message": "Tidak dapat menyimpan pengaturan Anda."
-  },
-  "errorSettings": {
-    "message": "Tidak dapat memuat pengaturan Anda."
-  },
-  "extensionDescription": {
-    "message": "LLM lokal menerjemahkan halaman di perangkat Anda. Gratis, tanpa akun.",
-    "description": "Extension description."
-  },
   "extensionName": {
     "message": "Sakutto - Terjemahan AI lokal",
     "description": "Extension name."
@@ -365,440 +7,229 @@
     "message": "Sakutto",
     "description": "Short extension name."
   },
+  "extensionDescription": {
+    "message": "LLM lokal menerjemahkan halaman di perangkat Anda. Gratis, tanpa akun.",
+    "description": "Extension description."
+  },
+  "tagline": {
+    "message": "Terjemahan halaman yang berjalan di perangkat Anda"
+  },
+  "settingsLabel": {
+    "message": "Pengaturan"
+  },
+  "targetLanguageLabel": {
+    "message": "Terjemahkan ke"
+  },
   "formalityLabel": {
     "message": "nada Jepang"
-  },
-  "formalityPlain": {
-    "message": "Plain (だ・である)"
   },
   "formalityPolite": {
     "message": "Polite (です・ます)"
   },
-  "glossaryAddSite": {
-    "message": "Tambahkan situs"
+  "formalityPlain": {
+    "message": "Plain (だ・である)"
   },
-  "glossaryExport": {
-    "message": "Ekspor CSV"
+  "displayLabel": {
+    "message": "Gaya baca"
   },
-  "glossaryGlobal": {
-    "message": "Semua situs"
+  "displayReplace": {
+    "message": "Ganti asli"
   },
-  "glossaryHeading": {
-    "message": "Glosarium"
+  "displayBilingual": {
+    "message": "Bilingual"
   },
-  "glossaryHelp": {
-    "message": "Tulis satu pasangan “sumber, terjemahan” per baris. Pilih situs untuk menggunakan daftar tersebut hanya di sana."
+  "statusChecking": {
+    "message": "Memeriksa…"
   },
-  "glossaryImport": {
-    "message": "Impor CSV"
+  "pageStatusLabel": {
+    "message": "Halaman ini"
   },
-  "glossaryScopeLabel": {
-    "message": "Berlaku untuk"
+  "pageStatusUnavailable": {
+    "message": "Tidak dapat diterjemahkan"
   },
-  "gmailBannerAlwaysTranslate": {
-    "message": "Always translate $LANG$",
+  "pageStatusLanguageUnknown": {
+    "message": "Bahasa yang tidak diketahui"
+  },
+  "pageStatusReady": {
+    "message": "$LANG$ · $COUNT$ blok",
     "placeholders": {
       "lang": {
-        "content": "$1"
-      }
-    }
-  },
-  "gmailBannerDetected": {
-    "message": "Email ini tampaknya ditulis dalam $LANG$.",
-    "placeholders": {
-      "lang": {
-        "content": "$1"
-      }
-    }
-  },
-  "gmailBannerFailed": {
-    "message": "Tidak dapat menerjemahkan email ini."
-  },
-  "gmailBannerMenu": {
-    "message": "Translation settings"
-  },
-  "gmailBannerNeverTranslate": {
-    "message": "Never translate $LANG$",
-    "placeholders": {
-      "lang": {
-        "content": "$1"
-      }
-    }
-  },
-  "gmailBannerRegion": {
-    "message": "Terjemahan pesan Gmail"
-  },
-  "gmailBannerShowOriginal": {
-    "message": "Tampilkan asli"
-  },
-  "gmailBannerShowTranslation": {
-    "message": "Show translation"
-  },
-  "gmailBannerTranslate": {
-    "message": "Terjemahkan ke $TARGET$",
-    "placeholders": {
-      "target": {
-        "content": "$1"
-      }
-    }
-  },
-  "gmailBannerTranslateNow": {
-    "message": "Translate $LANG$",
-    "placeholders": {
-      "lang": {
-        "content": "$1"
-      }
-    }
-  },
-  "gmailBannerTranslated": {
-    "message": "Translated: $SOURCE$ → $TARGET$",
-    "placeholders": {
-      "source": {
         "content": "$1"
       },
-      "target": {
+      "count": {
         "content": "$2"
       }
     }
   },
-  "gmailBannerTranslating": {
-    "message": "Menerjemahkan email ini…"
+  "engineStatusLabel": {
+    "message": "Waktu Eksekusi"
   },
-  "highQualityOffer": {
-    "message": "Anda bisa mencoba model dengan akurasi lebih tinggi (2B, sekitar 1,81 GB). Kecepatannya bergantung pada perangkat ini."
+  "engineHeading": {
+    "message": "Engine"
   },
-  "idle1": {
-    "message": "1 menit"
+  "engineWebGpu": {
+    "message": "WebGPU"
   },
-  "idle15": {
-    "message": "15 menit"
+  "engineCpuWebGpuUnsupported": {
+    "message": "CPU (WebGPU tidak tersedia)"
   },
-  "idle5": {
-    "message": "5 menit"
+  "engineCpuAdapterUnavailable": {
+    "message": "CPU (tanpa adapter GPU)"
   },
-  "idleLabel": {
-    "message": "Lepaskan model dari memori setelah"
+  "engineCpuProbeFailed": {
+    "message": "CPU (pemeriksaan WebGPU gagal)"
   },
-  "idleNever": {
-    "message": "Tidak pernah"
+  "engineUnavailable": {
+    "message": "Tidak tersedia"
   },
   "isolationLabel": {
     "message": "Isolasi lintas asal"
   },
-  "isolationOff": {
-    "message": "Tidak aktif"
-  },
   "isolationOn": {
     "message": "Aktif"
   },
-  "jaEasyName": {
-    "message": "Bahasa Jepang mudah"
+  "isolationOff": {
+    "message": "Tidak aktif"
   },
-  "licenseMit": {
-    "message": "Lisensi MIT"
+  "threadsLabel": {
+    "message": "Inti logika"
   },
-  "licenseModelNote": {
-    "message": "Berat model tidak dibundel. Model tersebut diunduh dari repositori resmi Hugging Face ketika belum tersimpan di perangkat ini."
+  "diagHeading": {
+    "message": "Diagnosi"
   },
-  "licenseNotice": {
-    "message": "PEMBERITAHUAN"
+  "diagBackend": {
+    "message": "Backend aktif"
   },
-  "licensePlaMoEn": {
-    "message": "Lisensi Komunitas PLaMo (Bahasa Inggris)"
+  "diagThreads": {
+    "message": "Thread"
   },
-  "licensePlaMoJa": {
-    "message": "Lisensi Komunitas PLaMo (Bahasa Jepang)"
+  "diagParallel": {
+    "message": "n_parallel"
   },
-  "licensesBody": {
-    "message": "Lisensi PLaMo Community lengkap dan lisensi MIT untuk ekstensi ini disertakan bersama dengan ekstensi tersebut."
+  "diagBackendGpu": {
+    "message": "WebGPU"
+  },
+  "diagBackendCpu": {
+    "message": "CPU"
+  },
+  "diagBackendUnknown": {
+    "message": "Belum dimuat"
+  },
+  "diagRateHint": {
+    "message": "Saat sebuah halaman sedang melakukan translasi, bilahnya menampilkan token/s dan segmen/s."
+  },
+  "diagGpuHeading": {
+    "message": "Adapter WebGPU"
+  },
+  "diagGpuCopy": {
+    "message": "Salin"
+  },
+  "diagGpuCopied": {
+    "message": "Disalin"
+  },
+  "diagGpuCopyFailed": {
+    "message": "Tidak dapat menyalin"
+  },
+  "diagGpuHelp": {
+    "message": "Laporan ini tetap di perangkat ini. Jika WebGPU gagal, tempelkan ke issue GitHub."
+  },
+  "diagGpuEmpty": {
+    "message": "Belum ada laporan WebGPU."
+  },
+  "paceLabel": {
+    "message": "Look-ahead"
+  },
+  "paceFast": {
+    "message": "Lihat lebih jauh ke depan"
+  },
+  "paceQuality": {
+    "message": "Terlihat terlebih dahulu"
+  },
+  "paceHelp": {
+    "message": "Menerjemahkan paragraf tepat sebelum muncul di layar. \"Look ahead further\" meng-prefetch lebih banyak teks di bawah lipatan, sehingga teksnya sudah siap saat Anda menggulir. Untuk bahasa yang didukung PLaMo, setiap baris berasal dari PLaMo; draf Chrome tidak pernah digunakan."
+  },
+  "paceHelpFirefox": {
+    "message": "Menerjemahkan paragraf tepat sebelum muncul di layar. \"Look ahead further\" meng-prefetch lebih banyak teks di bawah lipatan, sehingga teksnya sudah siap saat Anda menggulir. Untuk bahasa yang didukung PLaMo, setiap baris berasal dari PLaMo."
+  },
+  "pageRate": {
+    "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
+    "placeholders": {
+      "tokens": {
+        "content": "$1"
+      },
+      "segments": {
+        "content": "$2"
+      }
+    }
+  },
+  "openOptions": {
+    "message": "Buka pengaturan"
+  },
+  "unofficialNotice": {
+    "message": "Tidak resmi. Tidak berafiliasi dengan Preferred Networks. Dibangun dengan PLaMo."
+  },
+  "optionsTitle": {
+    "message": "Pengaturan"
+  },
+  "optionsLead": {
+    "message": "Pilih cara kerja penerjemahan, kendalikan model, dan atur perilaku per situs. Perubahan tersimpan secara otomatis."
+  },
+  "privacyHeading": {
+    "message": "Privasi"
+  },
+  "privacyBody": {
+    "message": "Secara bawaan, ekstensi ini tidak mengirimkan teks halaman ke server terjemahan. Tidak ada telemetry."
+  },
+  "privacyDestinations": {
+    "message": "Permintaan dari ekstensi itu sendiri adalah pengunduhan model. Model tersebut dimulai dari huggingface.co dan mengikuti pengalihan Hugging Face ke CDN-nya. Teks halaman tidak disertakan. Chrome mengunduh paket bahasanya sendiri."
+  },
+  "privacyDestinationsFirefox": {
+    "message": "Permintaan dari ekstensi itu sendiri adalah pengunduhan model. Model tersebut dimulai dari huggingface.co dan mengikuti pengalihan Hugging Face ke CDN-nya. Teks halaman tidak disertakan."
+  },
+  "privacyPolicyLink": {
+    "message": "Kebijakan privasi"
+  },
+  "sourceCodeLink": {
+    "message": "Kode sumber"
   },
   "licensesHeading": {
     "message": "Lisensi"
   },
-  "listSeparator": {
-    "message": ","
+  "licensesBody": {
+    "message": "Lisensi PLaMo Community lengkap dan lisensi MIT untuk ekstensi ini disertakan bersama dengan ekstensi tersebut."
   },
-  "localServerAdvanced": {
-    "message": "Lanjutan"
+  "licensePlaMoJa": {
+    "message": "Lisensi Komunitas PLaMo (Bahasa Jepang)"
   },
-  "localServerApiKeyLabel": {
-    "message": "Kunci API (opsional)"
+  "licensePlaMoEn": {
+    "message": "Lisensi Komunitas PLaMo (Bahasa Inggris)"
   },
-  "localServerDetails": {
-    "message": "Detail"
+  "licenseMit": {
+    "message": "Lisensi MIT"
   },
-  "localServerExperimental": {
-    "message": "Eksperimental: akurasi terjemahan tidak dijamin. Hasil dapat berbeda dari mesin bawaan, termasuk salah terjemah."
+  "licenseNotice": {
+    "message": "PEMBERITAHUAN"
   },
-  "localServerExperimentalConfirm": {
-    "message": "Mesin ini eksperimental. Akurasi tidak dijamin. Terjemahan dapat berbeda dari mesin bawaan, termasuk salah terjemah. Tetap gunakan server lokal?"
+  "licenseModelNote": {
+    "message": "Berat model tidak dibundel. Model tersebut diunduh dari repositori resmi Hugging Face ketika belum tersimpan di perangkat ini."
   },
-  "localServerExperimentalKeep": {
-    "message": "Tetap bawaan"
-  },
-  "localServerExperimentalUse": {
-    "message": "Gunakan server lokal"
-  },
-  "localServerFailed": {
-    "message": "Server lokal tidak dapat menerjemahkan ini. Buka Pengaturan. Teks asli dipertahankan."
-  },
-  "localServerHelp": {
-    "message": "Mengirim prompt Sakutto ke server yang kompatibel dengan OpenAI di komputer ini, seperti mlx_lm.server atau LM Studio."
-  },
-  "localServerLicenseNote": {
-    "message": "Lisensi model lain yang Anda muat di server itu adalah tanggung jawab Anda. Bobot PLaMo tetap di bawah PLaMo Community License."
-  },
-  "localServerModelHelp": {
-    "message": "Nama model yang dimuat di server itu."
-  },
-  "localServerModelLabel": {
-    "message": "Model"
-  },
-  "localServerModelMissing": {
-    "message": "Server tidak punya model yang cocok. Muat model atau pilih di Pengaturan."
-  },
-  "localServerModelsEmpty": {
-    "message": "(tidak ada daftar — ketik nama)"
-  },
-  "localServerNonLocalWarning": {
-    "message": "Alamat ini bukan komputer ini. Teks halaman akan dikirim ke sana. Saya mengerti."
-  },
-  "localServerParallelHelp": {
-    "message": "How many completions the server may run at once (1–16). The page keeps extra requests ready so a finished slot is not left idle."
-  },
-  "localServerParallelLabel": {
-    "message": "Concurrent requests"
-  },
-  "localServerPermissionDenied": {
-    "message": "Peramban tidak memberi akses ke alamat ini."
-  },
-  "localServerPresetHelp": {
-    "message": "Preset hanya mengisi URL."
-  },
-  "localServerPresetLmStudio": {
-    "message": "LM Studio"
-  },
-  "localServerPresetMlx": {
-    "message": "mlx_lm.server"
-  },
-  "localServerRemoteConfirmRequired": {
-    "message": "Alamat ini bukan di komputer ini. Centang konfirmasi di bawah sebelum menguji koneksi."
-  },
-  "localServerTestButton": {
-    "message": "Uji koneksi"
-  },
-  "localServerTestFail": {
-    "message": "Server ini tidak dapat digunakan."
-  },
-  "localServerTestOk": {
-    "message": "Terhubung."
-  },
-  "localServerTestOkUnlisted": {
-    "message": "Connected. Completions work. The server listed no models — keep the model name you typed; it was not verified from /v1/models."
-  },
-  "localServerTimeout": {
-    "message": "Server lokal kehabisan waktu. Teks asli dipertahankan."
-  },
-  "localServerTimeoutLabel": {
-    "message": "Batas waktu (detik)"
-  },
-  "localServerUnreachable": {
-    "message": "Tidak dapat menjangkau server lokal. Buka Pengaturan dan pastikan server berjalan."
-  },
-  "localServerUrlHelp": {
-    "message": "mlx_lm.server memakai port 8080 secara default. LM Studio memakai port 1234."
-  },
-  "localServerUrlLabel": {
-    "message": "URL server"
+  "openOnboarding": {
+    "message": "Onboarding terbuka"
   },
   "machineTranslationNotice": {
     "message": "Terjemahan merupakan terjemahan mesin yang dihasilkan oleh PLaMo."
   },
-  "machineTranslationTooltip": {
-    "message": "Terjemahan mesin oleh PLaMo."
+  "onboardingEyebrow": {
+    "message": "Memulai"
   },
-  "mailBannerAccessNeeded": {
-    "message": "Terjemahan email memerlukan akses ke situs ini."
+  "onboardingLead": {
+    "message": "Terjemahan halaman berjalan di perangkat ini secara default. Model PLaMo 3 diunduh hanya jika belum tersimpan di sini."
   },
-  "mailBannerEnableForSite": {
-    "message": "Aktifkan terjemahan email di situs ini"
+  "onboardingSetupHeading": {
+    "message": "Tentang ekstensi ini"
   },
-  "mailBannerPermissionDenied": {
-    "message": "Terjemahan email memerlukan izin untuk mengakses situs email."
-  },
-  "modelDelete": {
-    "message": "Hapus"
-  },
-  "modelDeleteSharedFolder": {
-    "message": "Remove from this browser"
-  },
-  "modelDeleteSharedFolderHint": {
-    "message": "With a shared folder, this only removes the model from this browser. The file stays in the shared folder. To delete the file itself, remove it in Explorer or Finder."
-  },
-  "modelDownload": {
-    "message": "Unduh"
-  },
-  "modelFolderBenefitKeep": {
-    "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
-  },
-  "modelFolderBenefitShare": {
-    "message": "Other profiles and other Chromium browsers can use it right away, with no extra download."
-  },
-  "modelFolderBenefitSpace": {
-    "message": "One copy on disk, so you save space ($SIZE$).",
-    "placeholders": {
-      "size": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelFolderBenefitsLead": {
-    "message": "A shared folder means:"
-  },
-  "modelFolderBravePermissionHint": {
-    "message": "In Brave, folder access may lapse after you close the grant tab or restart the browser. When the browser asks, choose the persistent option (Japanese Chrome: 「サイトアクセス時は常に許可」). If this notice remains after you allowed access, return here and allow again. Set brave://flags/#file-system-access-api to Enabled if the shared-folder picker is missing."
-  },
-  "modelFolderChoose": {
-    "message": "Choose model folder"
-  },
-  "modelFolderEnableOneClick": {
-    "message": "Enable Sakutto"
-  },
-  "modelFolderEnableTabBody": {
-    "message": "In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). In Chrome, choose “Allow on every visit” (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「アクセスするたびに確認する」). Either persistent choice keeps this folder allowed after restarts with no extra clicks."
-  },
-  "modelFolderEnableTabDone": {
-    "message": "Folder access is ready. This tab closes automatically."
-  },
-  "modelFolderEnableTabHint": {
-    "message": "A this-time-only choice lasts only until a restart. Return here to grant access again. Translation still works from the browser copy."
-  },
-  "modelFolderEnableTabTitle": {
-    "message": "Keep folder access after restart"
-  },
-  "modelFolderIntegrityFailed": {
-    "message": "The file $FILE$ is not the official PLaMo model, so Sakutto will not use it.",
-    "placeholders": {
-      "file": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelFolderPermissionGrant": {
-    "message": "Allow folder access"
-  },
-  "modelFolderPermissionNeeded": {
-    "message": "Sakutto needs permission to read the shared model folder."
-  },
-  "modelFolderPermissionPage": {
-    "message": "Sakutto opens a grant tab. In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts); in Chrome, choose “Allow on every visit”."
-  },
-  "modelFolderPermissionPresent": {
-    "message": "The model is already in the folder. Allow access to use it."
-  },
-  "modelFolderPersistentHint": {
-    "message": "Saat peramban meminta, pilih “Izinkan pada setiap kunjungan” di Chrome atau “Ask every time I access” di Edge (Chrome Jepang: 「サイトアクセス時は常に許可」, Edge Jepang: 「アクセスするたびに確認する」; equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). Setelah mulai ulang, tidak perlu klik lagi."
-  },
-  "modelFolderPickFailed": {
-    "message": "The folder could not be selected."
-  },
-  "modelFolderPickerHint": {
-    "message": "Setelah menekan Mulai, dialog folder terbuka di Documents. Buat atau pilih Documents/Sakutto, atau pilih folder yang sudah ada jika browser lain sudah memiliki modelnya. Folder lain yang dapat Anda tulisi juga dapat digunakan."
-  },
-  "modelFolderReading": {
-    "message": "Membaca folder…"
-  },
-  "modelFolderUsing": {
-    "message": "Using the folder $NAME$.",
-    "placeholders": {
-      "name": {
-        "content": "$1"
-      }
-    }
-  },
-  "modelHeading": {
-    "message": "Model"
-  },
-  "modelHigh": {
-    "message": "Akurasi tinggi (2B)"
-  },
-  "modelInUse": {
-    "message": "Sedang digunakan"
-  },
-  "modelSelectionFallback": {
-    "message": "Model yang dipilih tidak ada di perangkat ini, jadi Sakutto beralih ke model yang terpasang."
-  },
-  "modelSelectionMissing": {
-    "message": "Tidak ada model terjemahan. Unduh satu untuk menerjemahkan."
-  },
-  "modelStandard": {
-    "message": "Standar (0,8B)"
-  },
-  "modelStorageBraveEnableFsaHint": {
-    "message": "Di Brave, setel brave://flags/#file-system-access-api ke Enabled lalu mulai ulang untuk menggunakan folder bersama."
-  },
-  "modelStorageBrowser": {
-    "message": "Di peramban ini"
-  },
-  "modelStorageBrowserOnlyHint": {
-    "message": "Browser ini tidak dapat menggunakan folder bersama, jadi model disimpan di dalam browser ini."
-  },
-  "modelStorageCopyDone": {
-    "message": "Model kini disimpan di peramban ini."
-  },
-  "modelStorageCopyFailed": {
-    "message": "Model tidak dapat disalin. Pilihan penyimpanan sebelumnya tetap digunakan."
-  },
-  "modelStorageCopyFolder": {
-    "message": "Salin dari folder bersama"
-  },
-  "modelStorageFirefoxCopyHint": {
-    "message": "Setelah menekan Mulai, pilih folder yang berisi model lalu konfirmasi “Unggah”. Firefox menyalin model ke dalam Firefox, bukan terus menggunakan folder tersebut."
-  },
-  "modelStorageFirefoxImport": {
-    "message": "Impor dari folder bersama"
-  },
-  "modelStorageFirefoxImportHint": {
-    "message": "Salin berkas PLaMo dari folder yang diunduh di browser lain (misalnya Chrome) tanpa mengunduh ulang."
-  },
-  "modelStorageFolder": {
-    "message": "Folder bersama"
-  },
-  "modelStorageIntro": {
-    "message": "Pilih tempat penyimpanan model. Model yang sudah ada dipindahkan sesuai pilihan."
-  },
-  "modelStorageLegend": {
-    "message": "Tempat menyimpan model"
-  },
-  "modelStorageMoveDone": {
-    "message": "Model kini disimpan di folder bersama."
-  },
-  "modelStorageMoveFailed": {
-    "message": "Model tidak dapat dipindahkan ke folder bersama. Salinan di peramban tetap disimpan."
-  },
-  "modelStorageNoModels": {
-    "message": "Tidak ada model PLaMo resmi yang ditemukan di folder itu."
-  },
-  "modelStorageProgressLabel": {
-    "message": "Progres pemindahan model"
-  },
-  "modelStorageSomeCopiesFailed": {
-    "message": "Beberapa model tidak dapat disalin. Salinan yang sudah ada tetap disimpan."
-  },
-  "modelStorageWorking": {
-    "message": "Menyiapkan folder model…"
-  },
-  "modelUse": {
-    "message": "Gunakan model ini"
-  },
-  "modelVerifying": {
-    "message": "Memeriksa berkas yang diunduh…"
-  },
-  "noSiteRules": {
-    "message": "Belum ada pengaturan per situs."
-  },
-  "onboardingAgeNotice": {
-    "message": "Jika Anda berusia di bawah 18 tahun atau tidak cukup muda untuk menandatangani kontrak sendiri, persetujuan orang tua atau wali diperlukan."
+  "onboardingModelNote": {
+    "message": "Model bawaan (573 MB) diunduh ke perangkat ini. Transfer berkelanjutan sebesar 100 Mbps dengan ukuran tersebut memakan waktu sekitar 46 detik sebelum overhead; waktu aktual bervariasi. Unduhan yang terputus akan dilanjutkan kembali."
   },
   "onboardingBridgeNote": {
     "message": "Halaman tersebut tetap mempertahankan teks aslinya sampai model siap, kemudian PLaMo menerjemahkannya. Google Docs menerjemahkan Chrome ke dalam perangkat."
@@ -806,35 +237,29 @@
   "onboardingBridgeNoteFirefox": {
     "message": "Halaman tersebut tetap mempertahankan teks aslinya sampai model siap, kemudian PLaMo menerjemahkannya."
   },
+  "onboardingPrivacyNote": {
+    "message": "Mesin bawaan tidak mengirim teks halaman ke server."
+  },
   "onboardingClose": {
     "message": "Tutup"
   },
-  "onboardingCommercialBody": {
-    "message": "Ini termasuk menggunakannya untuk pekerjaan di dalam perusahaan. Keduanya diperlukan."
+  "onboardingStart": {
+    "message": "Setuju dengan lisensi dan mulai"
   },
-  "onboardingCommercialHeading": {
-    "message": "Ketentuan penggunaan PLaMo"
+  "onboardingStoreLegend": {
+    "message": "Tempat menyimpan model"
   },
-  "onboardingCommercialHeading2": {
-    "message": "Pekerjaan dan penggunaan komersial"
+  "onboardingStoreBrowser": {
+    "message": "Simpan di peramban ini"
   },
-  "onboardingCommercialRegistration": {
-    "message": "Pendaftaran sebelumnya di PFN"
+  "onboardingStoreFolder": {
+    "message": "Use a shared model folder (Chromium browsers)"
   },
-  "onboardingCommercialRevenue": {
-    "message": "Pendapatan atau penjualan untuk Anda atau afiliasi Anda pada tahun fiskal terbaru sebesar 1 miliar yen atau kurang"
+  "onboardingStoreFolderHelp": {
+    "message": "For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them."
   },
-  "onboardingCommercialUnmetBody": {
-    "message": "Penggunaan komersial kemudian memerlukan lisensi terpisah dari PFN."
-  },
-  "onboardingCommercialUnmetHeading": {
-    "message": "Saat kondisi tidak terpenuhi"
-  },
-  "onboardingConsentSentence": {
-    "message": "Menekan \"Agree to the license and start\" berarti Anda menyetujui PLaMo Community License."
-  },
-  "onboardingEyebrow": {
-    "message": "Memulai"
+  "onboardingStartFailed": {
+    "message": "Setup tidak dapat dimulai. Silakan coba lagi."
   },
   "onboardingHttpError": {
     "message": "Unduhan model gagal (HTTP $STATUS$). Silakan coba lagi.",
@@ -844,43 +269,330 @@
       }
     }
   },
-  "onboardingLead": {
-    "message": "Terjemahan halaman berjalan di perangkat ini secara default. Model PLaMo 3 diunduh hanya jika belum tersimpan di sini."
+  "errorSettings": {
+    "message": "Tidak dapat memuat pengaturan Anda."
   },
-  "onboardingLocalServerNote": {
-    "message": "Setelan dapat mengaktifkan server lokal eksperimental. Teks halaman lalu hanya pergi ke alamat yang Anda atur, dan akurasi tidak dijamin."
+  "errorSaveSettings": {
+    "message": "Tidak dapat menyimpan pengaturan Anda."
   },
-  "onboardingModelNote": {
-    "message": "Model bawaan (573 MB) diunduh ke perangkat ini. Transfer berkelanjutan sebesar 100 Mbps dengan ukuran tersebut memakan waktu sekitar 46 detik sebelum overhead; waktu aktual bervariasi. Unduhan yang terputus akan dilanjutkan kembali."
+  "errorPage": {
+    "message": "Halaman ini tidak dapat dibaca."
   },
-  "onboardingOtherLicenses": {
-    "message": "Informasi lisensi lainnya"
+  "errorAction": {
+    "message": "Tidak dapat membuka halaman."
   },
-  "onboardingPersonalBody": {
-    "message": "Tidak perlu pendaftaran sebelumnya."
+  "retry": {
+    "message": "Coba lagi"
   },
-  "onboardingPersonalHeading": {
-    "message": "Penggunaan pribadi dan akademis"
+  "originalLabel": {
+    "message": "Asli"
   },
-  "onboardingPrivacyNote": {
-    "message": "Mesin bawaan tidak mengirim teks halaman ke server."
+  "chromeTranslationNote": {
+    "message": "Terjemahan bawaan Chrome"
   },
-  "onboardingReadyCompose": {
-    "message": "Tekan $KEY$ saat mengetik di kotak pesan untuk melihat terjemahan yang dapat Anda terapkan.",
+  "machineTranslationTooltip": {
+    "message": "Terjemahan mesin oleh PLaMo."
+  },
+  "selectionPending": {
+    "message": "Menerjemahkan…"
+  },
+  "selectionFailed": {
+    "message": "Tidak dapat menerjemahkan pilihan ini."
+  },
+  "selectionTitle": {
+    "message": "Teks terpilih"
+  },
+  "selectionIcon": {
+    "message": "Terjemahkan teks yang dipilih"
+  },
+  "selectionResizeHandle": {
+    "message": "Ubah lebar popup terjemahan (klik dua kali untuk mengatur ulang)"
+  },
+  "close": {
+    "message": "Tutup"
+  },
+  "commandTranslate": {
+    "message": "Terjemahkan halaman ini atau kembalikan versi aslinya"
+  },
+  "commandBilingual": {
+    "message": "Terjemah dalam tampilan bilingual, atau pertukar tampilan saat ini"
+  },
+  "commandSelection": {
+    "message": "Terjemahkan teks yang dipilih"
+  },
+  "contextTranslatePage": {
+    "message": "Terjemahkan halaman ini"
+  },
+  "contextTranslateSelection": {
+    "message": "Terjemahkan teks yang dipilih"
+  },
+  "translateThisPage": {
+    "message": "Terjemahkan halaman ini"
+  },
+  "restoreThisPage": {
+    "message": "Pulihkan aslinya"
+  },
+  "pageStartBlocked": {
+    "message": "Terjemahan halaman menunggu hingga model PLaMo selesai mengunduh dan dimuat. Buka onboarding untuk melihat kemajuannya."
+  },
+  "pageTranslating": {
+    "message": "Menerjemahkan…"
+  },
+  "pageProgress": {
+    "message": "Menerjemahkan $DONE$ / $TOTAL$",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pageProgressLabel": {
+    "message": "Kemajuan penerjemahan"
+  },
+  "pageTranslated": {
+    "message": "Halaman ini diterjemahkan."
+  },
+  "pagePartial": {
+    "message": "$BLOCKS$ bagian dari halaman ini tidak dapat diterjemahkan.",
+    "placeholders": {
+      "blocks": {
+        "content": "$1"
+      }
+    }
+  },
+  "pageAlwaysOn": {
+    "message": "Situs ini selalu diterjemahkan."
+  },
+  "siteGrantTitle": {
+    "message": "Terjemahkan situs ini"
+  },
+  "siteGrantBody": {
+    "message": "Halaman di $HOST$ akan diterjemahkan pada perangkat ini.",
+    "placeholders": {
+      "host": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteGrantAllow": {
+    "message": "Izinkan"
+  },
+  "siteGrantDenied": {
+    "message": "Izin tidak diberikan. Coba lagi."
+  },
+  "siteGrantInvalid": {
+    "message": "Halaman ini tidak menyebutkan nama situs."
+  },
+  "targetAdjustedNote": {
+    "message": "Halaman tersebut sudah berada di bahasa target yang disimpan, sehingga targetnya telah diganti."
+  },
+  "sameLanguageHint": {
+    "message": "Halaman ini sudah ditulis dalam bahasa target."
+  },
+  "displaySiteHint": {
+    "message": "Pilihan ini diingat untuk situs tersebut."
+  },
+  "displayNowBilingual": {
+    "message": "Tampilan bilingual aktif untuk situs ini."
+  },
+  "displayNowReplace": {
+    "message": "Tampilan pengganti aktif untuk situs ini."
+  },
+  "optionsDefaultHint": {
+    "message": "Ini adalah pengaturan bawaan. Situs yang Anda terjemahkan dapat mempertahankan bahasa dan gaya baca tersendiri."
+  },
+  "optionsSiteLive": {
+    "message": "Bahasa dan gaya baca di sini mengikuti situs tersebut. Pengaturan di atas digunakan ketika situs tidak memiliki pilihan sendiri."
+  },
+  "alwaysTranslateSite": {
+    "message": "Selalu terjemahkan situs ini"
+  },
+  "shortcutHeading": {
+    "message": "Pintasan papan kekunci"
+  },
+  "shortcutHelp": {
+    "message": "Hapus centang pada perintah untuk menonaktifkannya di Sakutto. “Ubah pintasan” membuka editor pintasan Chrome. Tombol yang ditetapkan browser tetap berfungsi bahkan saat kolom teks sedang fokus. Jika perintah berstatus “Belum diatur”, buka editor dan tetapkan tombol."
+  },
+  "shortcutHelpFirefox": {
+    "message": "Hapus centang pada perintah untuk menonaktifkannya di Sakutto. “Ubah pintasan” membuka editor bawaan Firefox. Tombol yang ditetapkan di sana berfungsi bahkan saat kolom teks sedang fokus. Saat pemasangan atau pembaruan, Firefox memulihkan tombol untuk perintah kosong yang belum pernah ditetapkan jika memungkinkan; tombol yang Anda hapus tetap terhapus."
+  },
+  "shortcutChange": {
+    "message": "Ubah pintasan"
+  },
+  "shortcutUnset": {
+    "message": "Belum diatur"
+  },
+  "shortcutUnsetNotice": {
+    "message": "Pintasan belum diatur"
+  },
+  "shortcutOpenSettings": {
+    "message": "Buka pengaturan pintasan"
+  },
+  "shortcutUse": {
+    "message": "Gunakan pintasan ini"
+  },
+  "shortcutOff": {
+    "message": "Nonaktif"
+  },
+  "shortcutTranslate": {
+    "message": "$KEY$ menerjemahkan halaman atau mengembalikan versi aslinya.",
     "placeholders": {
       "key": {
         "content": "$1"
       }
     }
   },
-  "onboardingReadyContext": {
-    "message": "Klik kanan pada halaman dan pilih \"Translate this page\". Untuk teks yang dipilih, pilih \"Translate the selected text\"."
+  "shortcutBilingual": {
+    "message": "$KEY$ beralih antara tampilan pengganti dan tampilan bilingual, serta mengingat pilihan untuk situs ini.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "shortcutSelection": {
+    "message": "$KEY$ menerjemahkan teks yang dipilih.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "runtimePreparing": {
+    "message": "Penyiapan $PERCENT$%",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "runtimeDownloading": {
+    "message": "Mengunduh $PERCENT$% ($RECEIVED$ / $TOTAL$)",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      },
+      "received": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
+  "runtimeVerifying": {
+    "message": "Memeriksa berkas yang diunduh."
+  },
+  "runtimeLoading": {
+    "message": "Memuat model."
+  },
+  "runtimePlamoGpu": {
+    "message": "PLaMo · WebGPU"
+  },
+  "runtimePlamoCpu": {
+    "message": "PLaMo · CPU"
+  },
+  "runtimePlamoGpuFallback": {
+    "message": "PLaMo · CPU (WebGPU tidak dapat memuat model)"
+  },
+  "runtimePlamoGpuFallbackOutput": {
+    "message": "PLaMo · CPU (output WebGPU rusak)"
+  },
+  "runtimePlamoGpuFallbackDevice": {
+    "message": "PLaMo · CPU (perangkat WebGPU gagal)"
+  },
+  "runtimeChrome": {
+    "message": "Terjemahan bawaan Chrome"
+  },
+  "runtimeWaiting": {
+    "message": "Menunggu model"
+  },
+  "runtimeError": {
+    "message": "Model tidak dapat dimuat"
+  },
+  "runtimeChecking": {
+    "message": "Memeriksa…"
+  },
+  "chromeOnlySuffix": {
+    "message": "(tertanam di Chrome)"
+  },
+  "jaEasyName": {
+    "message": "Bahasa Jepang mudah"
+  },
+  "plamoOnlySuffix": {
+    "message": " (PLaMo)"
+  },
+  "onboardingStartNotice": {
+    "message": "Menekan \"Agree to the license and start\" berarti Anda menyetujui seluruh Lisensi Komunitas PLaMo."
+  },
+  "onboardingCommercialHeading": {
+    "message": "Ketentuan penggunaan PLaMo"
+  },
+  "onboardingPersonalHeading": {
+    "message": "Penggunaan pribadi dan akademis"
+  },
+  "onboardingPersonalBody": {
+    "message": "Tidak perlu pendaftaran sebelumnya."
+  },
+  "onboardingCommercialHeading2": {
+    "message": "Pekerjaan dan penggunaan komersial"
+  },
+  "onboardingCommercialBody": {
+    "message": "Ini termasuk menggunakannya untuk pekerjaan di dalam perusahaan. Keduanya diperlukan."
+  },
+  "onboardingCommercialRegistration": {
+    "message": "Pendaftaran sebelumnya di PFN"
+  },
+  "onboardingCommercialRevenue": {
+    "message": "Pendapatan atau penjualan untuk Anda atau afiliasi Anda pada tahun fiskal terbaru sebesar 1 miliar yen atau kurang"
+  },
+  "onboardingCommercialUnmetHeading": {
+    "message": "Saat kondisi tidak terpenuhi"
+  },
+  "onboardingCommercialUnmetBody": {
+    "message": "Penggunaan komersial kemudian memerlukan lisensi terpisah dari PFN."
+  },
+  "onboardingAgeNotice": {
+    "message": "Jika Anda berusia di bawah 18 tahun atau tidak cukup muda untuk menandatangani kontrak sendiri, persetujuan orang tua atau wali diperlukan."
+  },
+  "onboardingConsentSentence": {
+    "message": "Menekan \"Agree to the license and start\" berarti Anda menyetujui PLaMo Community License."
+  },
+  "onboardingOtherLicenses": {
+    "message": "Informasi lisensi lainnya"
+  },
+  "onboardingReconsentHeading": {
+    "message": "Istilah-istilah PLaMo kini lebih mudah dibaca"
+  },
+  "onboardingReconsentBody": {
+    "message": "Anda telah menyetujui PLaMo Community License sebelumnya. Berikut adalah ringkasan istilah yang lebih jelas, agar Anda dapat menyetujuinya sekali lagi. Model yang Anda unduh tetap berada di perangkat ini."
+  },
+  "onboardingReconsentStart": {
+    "message": "Setuju dan lanjutkan"
+  },
+  "plamoRegistrationLink": {
+    "message": "Formulir pendaftaran resmi PFN (penggunaan komersial)"
+  },
+  "plamoOfficialLicenseJa": {
+    "message": "Lisensi Komunitas PLaMo (resmi, bahasa Jepang)"
+  },
+  "plamoOfficialLicenseEn": {
+    "message": "Lisensi Komunitas PLaMo (resmi, bahasa Inggris)"
+  },
+  "onboardingUseNow": {
+    "message": "Penerjemah bawaan Chrome hanya digunakan untuk pasangan bahasa yang tidak didukung oleh PLaMo."
   },
   "onboardingReadyHeading": {
     "message": "Anda sudah siap."
   },
   "onboardingReadyLead": {
     "message": "Anda dapat menerjemahkan halaman pada perangkat ini."
+  },
+  "onboardingReadyToolbar": {
+    "message": "Klik ikon toolbar untuk menerjemahkan halaman yang terbuka."
   },
   "onboardingReadyPage": {
     "message": "Tekan $KEY$ untuk menerjemahkan seluruh halaman. Tekan kembali untuk memulihkan versi asli.",
@@ -898,515 +610,252 @@
       }
     }
   },
-  "onboardingReadyToolbar": {
-    "message": "Klik ikon toolbar untuk menerjemahkan halaman yang terbuka."
-  },
-  "onboardingReconsentBody": {
-    "message": "Anda telah menyetujui PLaMo Community License sebelumnya. Berikut adalah ringkasan istilah yang lebih jelas, agar Anda dapat menyetujuinya sekali lagi. Model yang Anda unduh tetap berada di perangkat ini."
-  },
-  "onboardingReconsentHeading": {
-    "message": "Istilah-istilah PLaMo kini lebih mudah dibaca"
-  },
-  "onboardingReconsentStart": {
-    "message": "Setuju dan lanjutkan"
-  },
-  "onboardingSetupHeading": {
-    "message": "Tentang ekstensi ini"
-  },
-  "onboardingStart": {
-    "message": "Setuju dengan lisensi dan mulai"
-  },
-  "onboardingStartFailed": {
-    "message": "Setup tidak dapat dimulai. Silakan coba lagi."
-  },
-  "onboardingStartNotice": {
-    "message": "Menekan \"Agree to the license and start\" berarti Anda menyetujui seluruh Lisensi Komunitas PLaMo."
-  },
-  "onboardingStoreBrowser": {
-    "message": "Simpan di peramban ini"
-  },
-  "onboardingStoreFolder": {
-    "message": "Use a shared model folder (Chromium browsers)"
-  },
-  "onboardingStoreFolderHelp": {
-    "message": "For people who use Chrome, Edge, or another Chromium browser: one model copy is shared between them."
-  },
-  "onboardingStoreLegend": {
-    "message": "Tempat menyimpan model"
+  "onboardingReadyContext": {
+    "message": "Klik kanan pada halaman dan pilih \"Translate this page\". Untuk teks yang dipilih, pilih \"Translate the selected text\"."
   },
   "onboardingTry": {
     "message": "Coba halaman contoh"
   },
-  "onboardingUseNow": {
-    "message": "Penerjemah bawaan Chrome hanya digunakan untuk pasangan bahasa yang tidak didukung oleh PLaMo."
-  },
   "onboardingWhileDownloading": {
     "message": "Sementara model sedang diunduh, halaman tetap mempertahankan teks aslinya; tidak ada yang diterjemahkan sampai PLaMo siap."
   },
-  "openOnboarding": {
-    "message": "Onboarding terbuka"
-  },
-  "openOptions": {
-    "message": "Buka pengaturan"
-  },
-  "openPdf": {
-    "message": "Terjemahkan PDF ini"
-  },
-  "openPdfHint": {
-    "message": "Membuka PDF di Sakutto dan menerjemahkannya di tempat, dengan tata letak halaman tetap."
-  },
-  "openTyped": {
-    "message": "Terjemahkan teks yang diketik"
-  },
-  "optionsDefaultHint": {
-    "message": "Ini adalah pengaturan bawaan. Situs yang Anda terjemahkan dapat mempertahankan bahasa dan gaya baca tersendiri."
-  },
-  "optionsLead": {
-    "message": "Pilih cara kerja penerjemahan, kendalikan model, dan atur perilaku per situs. Perubahan tersimpan secara otomatis."
-  },
-  "optionsSiteLive": {
-    "message": "Bahasa dan gaya baca di sini mengikuti situs tersebut. Pengaturan di atas digunakan ketika situs tidak memiliki pilihan sendiri."
-  },
-  "optionsTitle": {
-    "message": "Pengaturan"
-  },
-  "originalLabel": {
-    "message": "Asli"
-  },
-  "paceFast": {
-    "message": "Lihat lebih jauh ke depan"
-  },
-  "paceHelp": {
-    "message": "Menerjemahkan paragraf tepat sebelum muncul di layar. \"Look ahead further\" meng-prefetch lebih banyak teks di bawah lipatan, sehingga teksnya sudah siap saat Anda menggulir. Untuk bahasa yang didukung PLaMo, setiap baris berasal dari PLaMo; draf Chrome tidak pernah digunakan."
-  },
-  "paceHelpFirefox": {
-    "message": "Menerjemahkan paragraf tepat sebelum muncul di layar. \"Look ahead further\" meng-prefetch lebih banyak teks di bawah lipatan, sehingga teksnya sudah siap saat Anda menggulir. Untuk bahasa yang didukung PLaMo, setiap baris berasal dari PLaMo."
-  },
-  "paceLabel": {
-    "message": "Look-ahead"
-  },
-  "paceQuality": {
-    "message": "Terlihat terlebih dahulu"
-  },
-  "pageAlwaysOn": {
-    "message": "Situs ini selalu diterjemahkan."
-  },
-  "pagePartial": {
-    "message": "$BLOCKS$ bagian dari halaman ini tidak dapat diterjemahkan.",
-    "placeholders": {
-      "blocks": {
-        "content": "$1"
-      }
-    }
-  },
-  "pageProgress": {
-    "message": "Menerjemahkan $DONE$ / $TOTAL$",
-    "placeholders": {
-      "done": {
-        "content": "$1"
-      },
-      "total": {
-        "content": "$2"
-      }
-    }
-  },
-  "pageProgressLabel": {
-    "message": "Kemajuan penerjemahan"
-  },
-  "pageRate": {
-    "message": "$TOKENS$ tok/s · $SEGMENTS$ seg/s",
-    "placeholders": {
-      "tokens": {
-        "content": "$1"
-      },
-      "segments": {
-        "content": "$2"
-      }
-    }
-  },
-  "pageStartBlocked": {
-    "message": "Terjemahan halaman menunggu hingga model PLaMo selesai mengunduh dan dimuat. Buka onboarding untuk melihat kemajuannya."
-  },
-  "pageStatusLabel": {
-    "message": "Halaman ini"
-  },
-  "pageStatusLanguageUnknown": {
-    "message": "Bahasa yang tidak diketahui"
-  },
-  "pageStatusReady": {
-    "message": "$LANG$ · $COUNT$ blok",
-    "placeholders": {
-      "lang": {
-        "content": "$1"
-      },
-      "count": {
-        "content": "$2"
-      }
-    }
-  },
-  "pageStatusUnavailable": {
-    "message": "Tidak dapat diterjemahkan"
-  },
-  "pageTranslated": {
-    "message": "Halaman ini diterjemahkan."
-  },
-  "pageTranslating": {
-    "message": "Menerjemahkan…"
-  },
-  "pdfBroken": {
-    "message": "Dokumen tidak dapat dibuka. Mungkin rusak atau dilindungi kata sandi."
-  },
-  "pdfChooseFile": {
-    "message": "Pilih berkas PDF"
-  },
-  "pdfCompare": {
-    "message": "Bandingkan"
-  },
-  "pdfFailedCount": {
-    "message": "$COUNT$ bagian tidak dapat diterjemahkan.",
-    "placeholders": {
-      "count": {
-        "content": "$1"
-      }
-    },
-    "description": "Toolbar note when some blocks could not be translated."
-  },
-  "pdfFileAccessDenied": {
-    "message": "PDF ini adalah berkas di komputer ini. Izinkan ekstensi mengakses URL berkas di pengaturan ekstensi, atau pilih berkas di pembaca."
-  },
-  "pdfKeptAsIs": {
-    "message": "$COUNT$ bagian dibiarkan seperti halaman menyusunnya: persamaan, tanda sumbu, dan kode tetap pada tata letak aslinya.",
+  "downloadEtaSeconds": {
+    "message": "Sekitar $COUNT$ detik tersisa.",
     "placeholders": {
       "count": {
         "content": "$1"
       }
     }
   },
-  "pdfMissing": {
-    "message": "Dokumen ini sudah tidak tersedia. Buka lagi PDF-nya dari tab."
-  },
-  "pdfModelMissing": {
-    "message": "Halaman ditampilkan, tetapi untuk menerjemahkannya diperlukan model PLaMo. Unduh modelnya untuk menerjemahkan dokumen ini."
-  },
-  "pdfNoText": {
-    "message": "Dokumen ini hasil pindai atau kumpulan gambar, tanpa lapisan teks. Buka PDF yang berisi teks asli, atau jalankan OCR terlebih dahulu."
-  },
-  "pdfOpenFailed": {
-    "message": "PDF ini tidak dapat dibuka. Muat ulang halaman lalu coba lagi."
-  },
-  "pdfOriginalPane": {
-    "message": "Asli"
-  },
-  "pdfOverflow": {
-    "message": "$COUNT$ bagian tidak muat di halaman. Buka penanda untuk membaca terjemahan.",
+  "downloadEtaMinutes": {
+    "message": "Sekitar $COUNT$ menit tersisa.",
     "placeholders": {
       "count": {
         "content": "$1"
       }
     }
   },
-  "pdfOverflowOpen": {
-    "message": "Tampilkan terjemahan"
+  "downloadResuming": {
+    "message": "Unduhan berlanjut dari titik di mana berhenti."
   },
-  "pdfPageNoText": {
-    "message": "Halaman ini hasil pindai atau gambar tanpa teks yang dapat dipilih, jadi tidak bisa diterjemahkan."
+  "downloadProgressLabel": {
+    "message": "Kemajuan unduhan"
   },
-  "pdfPreparing": {
-    "message": "Membaca dokumen…"
+  "downloadPaused": {
+    "message": "Unduhan sedang dihentikan. Dapat dilanjutkan kembali di tempat yang ditinggalkan."
   },
-  "pdfReaderTitle": {
-    "message": "PDF"
+  "downloadResume": {
+    "message": "Lebih lanjut"
   },
-  "pdfReading": {
-    "message": "Membaca halaman $PAGE$ dari $TOTAL$",
+  "downloadCancel": {
+    "message": "Luangkan"
+  },
+  "modelHeading": {
+    "message": "Model"
+  },
+  "modelStandard": {
+    "message": "Standar (0,8B)"
+  },
+  "modelHigh": {
+    "message": "Akurasi tinggi (2B)"
+  },
+  "modelInUse": {
+    "message": "Sedang digunakan"
+  },
+  "modelUse": {
+    "message": "Gunakan model ini"
+  },
+  "modelDownload": {
+    "message": "Unduh"
+  },
+  "modelVerifying": {
+    "message": "Memeriksa berkas yang diunduh…"
+  },
+  "modelDelete": {
+    "message": "Hapus"
+  },
+  "modelDeleteSharedFolder": {
+    "message": "Remove from this browser"
+  },
+  "modelDeleteSharedFolderHint": {
+    "message": "With a shared folder, this only removes the model from this browser. The file stays in the shared folder. To delete the file itself, remove it in Explorer or Finder."
+  },
+  "modelFolderBravePermissionHint": {
+    "message": "In Brave, folder access may lapse after you close the grant tab or restart the browser. When the browser asks, choose Allow on every visit (Japanese Chrome: 「サイトアクセス時は常に許可」). If this notice remains after you allowed access, return here and allow again. Set brave://flags/#file-system-access-api to Enabled if the shared-folder picker is missing."
+  },
+  "modelSelectionFallback": {
+    "message": "Model yang dipilih tidak ada di perangkat ini, jadi Sakutto beralih ke model yang terpasang."
+  },
+  "modelSelectionMissing": {
+    "message": "Tidak ada model terjemahan. Unduh satu untuk menerjemahkan."
+  },
+  "modelStorageLegend": {
+    "message": "Tempat menyimpan model"
+  },
+  "storageOptionRecommended": {
+    "message": "Disarankan"
+  },
+  "modelStorageFolder": {
+    "message": "Folder bersama"
+  },
+  "modelStorageBrowser": {
+    "message": "Di peramban ini"
+  },
+  "modelStorageCopyFolder": {
+    "message": "Salin dari folder bersama"
+  },
+  "modelStorageIntro": {
+    "message": "Pilih tempat penyimpanan model. Model yang sudah ada dipindahkan sesuai pilihan."
+  },
+  "modelStorageBrowserOnlyHint": {
+    "message": "Browser ini tidak dapat menggunakan folder bersama, jadi model disimpan di dalam browser ini."
+  },
+  "modelStorageBraveEnableFsaHint": {
+    "message": "Di Brave, setel brave://flags/#file-system-access-api ke Enabled lalu mulai ulang untuk menggunakan folder bersama."
+  },
+  "modelStorageFirefoxCopyHint": {
+    "message": "Setelah menekan Mulai, pilih folder yang berisi model lalu konfirmasi “Unggah”. Firefox menyalin model ke dalam Firefox, bukan terus menggunakan folder tersebut."
+  },
+  "modelStorageFirefoxImport": {
+    "message": "Impor dari folder bersama"
+  },
+  "modelStorageFirefoxImportHint": {
+    "message": "Salin berkas PLaMo dari folder yang diunduh di browser lain (misalnya Chrome) tanpa mengunduh ulang."
+  },
+  "modelStorageMoveFailed": {
+    "message": "Model tidak dapat dipindahkan ke folder bersama. Salinan di peramban tetap disimpan."
+  },
+  "modelStorageMoveDone": {
+    "message": "Model kini disimpan di folder bersama."
+  },
+  "modelStorageCopyDone": {
+    "message": "Model kini disimpan di peramban ini."
+  },
+  "modelStorageCopyFailed": {
+    "message": "Model tidak dapat disalin. Pilihan penyimpanan sebelumnya tetap digunakan."
+  },
+  "modelStorageSomeCopiesFailed": {
+    "message": "Beberapa model tidak dapat disalin. Salinan yang sudah ada tetap disimpan."
+  },
+  "modelStorageNoModels": {
+    "message": "Tidak ada model PLaMo resmi yang ditemukan di folder itu."
+  },
+  "modelStorageWorking": {
+    "message": "Menyiapkan folder model…"
+  },
+  "modelFolderReading": {
+    "message": "Membaca folder…"
+  },
+  "modelStorageProgressLabel": {
+    "message": "Progres pemindahan model"
+  },
+  "modelFolderPickerHint": {
+    "message": "Setelah menekan Mulai, dialog folder terbuka di Documents. Buat atau pilih Documents/Sakutto, atau pilih folder yang sudah ada jika browser lain sudah memiliki modelnya. Folder lain yang dapat Anda tulisi juga dapat digunakan."
+  },
+  "modelFolderChoose": {
+    "message": "Choose model folder"
+  },
+  "modelFolderUsing": {
+    "message": "Using the folder $NAME$.",
     "placeholders": {
-      "page": {
-        "content": "$1"
-      },
-      "total": {
-        "content": "$2"
-      }
-    }
-  },
-  "pdfRenderFailed": {
-    "message": "Halaman ini tidak dapat digambar.",
-    "description": "Shown on a page whose canvas could not be drawn."
-  },
-  "pdfSelectClear": {
-    "message": "Tampilkan aslinya"
-  },
-  "pdfSelectFailed": {
-    "message": "Pilihan ini tidak dapat diterjemahkan."
-  },
-  "pdfSelectHint": {
-    "message": "Pilih teks pada halaman untuk menerjemahkan bagian itu saja."
-  },
-  "pdfSelectTranslate": {
-    "message": "Terjemahkan pilihan"
-  },
-  "pdfTooLarge": {
-    "message": "File ini lebih dari 200 MB, ukuran terbesar yang dapat dibuka pembaca.",
-    "description": "Shown when a local PDF is larger than the reader will open."
-  },
-  "pdfTranslateFailed": {
-    "message": "Bagian ini tidak dapat diterjemahkan."
-  },
-  "pdfTranslated": {
-    "message": "Diterjemahkan"
-  },
-  "pdfTranslatedPane": {
-    "message": "Terjemahan"
-  },
-  "pdfUntitled": {
-    "message": "Dokumen.pdf"
-  },
-  "plainTextLineBreaksBlank": {
-    "message": "Dua ganti baris pada setiap ganti baris teks asal (baris kosong)"
-  },
-  "plainTextLineBreaksHelp": {
-    "message": "Dokumen yang ditempel, teks OCR, dan kutipan buku sering terputus di tengah kalimat. Saat menerjemahkan, pemutusan itu disambung; hanya akhir kalimat, judul, dan baris kosong yang muncul sebagai ganti baris di hasil terjemahan. Opsi terakhir juga menandai setiap ganti baris di kotak teks asal (tanda ↵ untuk putus di tengah kalimat) agar bisa ditemukan dan diperbaiki sebelum menerjemahkan. Terjemahan halaman tidak berubah."
-  },
-  "plainTextLineBreaksKeep": {
-    "message": "Jeda antarparagraf"
-  },
-  "plainTextLineBreaksLabel": {
-    "message": "Jeda baris pada terjemahan"
-  },
-  "plainTextLineBreaksNone": {
-    "message": "Tanpa jeda tambahan (default)"
-  },
-  "plainTextLineBreaksWider": {
-    "message": "Ganti baris per paragraf di terjemahan, plus tanda ganti baris di kotak teks asal"
-  },
-  "plamoOfficialLicenseEn": {
-    "message": "Lisensi Komunitas PLaMo (resmi, bahasa Inggris)"
-  },
-  "plamoOfficialLicenseJa": {
-    "message": "Lisensi Komunitas PLaMo (resmi, bahasa Jepang)"
-  },
-  "plamoOnlySuffix": {
-    "message": " (PLaMo)"
-  },
-  "plamoRegistrationLink": {
-    "message": "Formulir pendaftaran resmi PFN (penggunaan komersial)"
-  },
-  "privacyBody": {
-    "message": "Secara bawaan, ekstensi ini tidak mengirimkan teks halaman ke server terjemahan. Tidak ada telemetry."
-  },
-  "privacyBodyLocalServer": {
-    "message": "Eksperimental. Jika Anda memilih server lokal, teks hanya dikirim ke alamat yang Anda atur (default komputer ini). Akurasi tidak dijamin, dan terjemahan dapat berbeda dari mesin bawaan, termasuk salah terjemah. Pengembang tidak menerima teks tersebut."
-  },
-  "privacyDestinations": {
-    "message": "Permintaan dari ekstensi itu sendiri adalah pengunduhan model. Model tersebut dimulai dari huggingface.co dan mengikuti pengalihan Hugging Face ke CDN-nya. Teks halaman tidak disertakan. Chrome mengunduh paket bahasanya sendiri."
-  },
-  "privacyDestinationsFirefox": {
-    "message": "Permintaan dari ekstensi itu sendiri adalah pengunduhan model. Model tersebut dimulai dari huggingface.co dan mengikuti pengalihan Hugging Face ke CDN-nya. Teks halaman tidak disertakan."
-  },
-  "privacyHeading": {
-    "message": "Privasi"
-  },
-  "privacyPolicyLink": {
-    "message": "Kebijakan privasi"
-  },
-  "restoreThisPage": {
-    "message": "Pulihkan aslinya"
-  },
-  "retry": {
-    "message": "Coba lagi"
-  },
-  "runtimeChecking": {
-    "message": "Memeriksa…"
-  },
-  "runtimeChrome": {
-    "message": "Terjemahan bawaan Chrome"
-  },
-  "runtimeDownloading": {
-    "message": "Mengunduh $PERCENT$% ($RECEIVED$ / $TOTAL$)",
-    "placeholders": {
-      "percent": {
-        "content": "$1"
-      },
-      "received": {
-        "content": "$2"
-      },
-      "total": {
-        "content": "$3"
-      }
-    }
-  },
-  "runtimeError": {
-    "message": "Model tidak dapat dimuat"
-  },
-  "runtimeLoading": {
-    "message": "Memuat model."
-  },
-  "runtimeLocalServer": {
-    "message": "Server lokal (eksperimental)"
-  },
-  "runtimePlamoCpu": {
-    "message": "PLaMo · CPU"
-  },
-  "runtimePlamoGpu": {
-    "message": "PLaMo · WebGPU"
-  },
-  "runtimePlamoGpuFallback": {
-    "message": "PLaMo · CPU (WebGPU tidak dapat memuat model)"
-  },
-  "runtimePlamoGpuFallbackDevice": {
-    "message": "PLaMo · CPU (perangkat WebGPU gagal)"
-  },
-  "runtimePlamoGpuFallbackOutput": {
-    "message": "PLaMo · CPU (output WebGPU rusak)"
-  },
-  "runtimePreparing": {
-    "message": "Penyiapan $PERCENT$%",
-    "placeholders": {
-      "percent": {
+      "name": {
         "content": "$1"
       }
     }
   },
-  "runtimeVerifying": {
-    "message": "Memeriksa berkas yang diunduh."
+  "modelFolderPermissionNeeded": {
+    "message": "Sakutto needs permission to read the shared model folder."
   },
-  "runtimeWaiting": {
-    "message": "Menunggu model"
+  "modelFolderPermissionPresent": {
+    "message": "The model is already in the folder. Allow access to use it."
   },
-  "sameLanguageHint": {
-    "message": "Halaman ini sudah ditulis dalam bahasa target."
+  "modelFolderPermissionGrant": {
+    "message": "Allow folder access"
   },
-  "selectionFailed": {
-    "message": "Tidak dapat menerjemahkan pilihan ini."
+  "modelFolderPermissionPage": {
+    "message": "Sakutto opens a grant tab. In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts); in Chrome, choose “Allow on every visit”."
   },
-  "selectionIcon": {
-    "message": "Terjemahkan teks yang dipilih"
+  "modelFolderPersistentHint": {
+    "message": "Saat peramban meminta, pilih “Izinkan pada setiap kunjungan” di Chrome atau “Ask every time I access” di Edge (Chrome Jepang: 「サイトアクセス時は常に許可」, Edge Jepang: 「アクセスするたびに確認する」; equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). Setelah mulai ulang, tidak perlu klik lagi."
   },
-  "selectionPending": {
-    "message": "Menerjemahkan…"
+  "modelFolderPickFailed": {
+    "message": "The folder could not be selected."
   },
-  "selectionResizeHandle": {
-    "message": "Ubah lebar popup terjemahan (klik dua kali untuk mengatur ulang)"
-  },
-  "selectionTitle": {
-    "message": "Teks terpilih"
-  },
-  "settingsGmailAutoLangs": {
-    "message": "Always translate these languages"
-  },
-  "settingsGmailBanner": {
-    "message": "Tawarkan terjemahan pesan Gmail"
-  },
-  "settingsGmailBannerHelp": {
-    "message": "Saat aktif, pesan Gmail yang dibuka dan ditulis dalam bahasa lain menampilkan spanduk kecil di atas isinya. Pesan hanya diterjemahkan setelah Anda mengklik. Sakutto memerlukan akses ke mail.google.com; berikan dari popup atau daftar situs."
-  },
-  "settingsGmailClearLangs": {
-    "message": "Clear"
-  },
-  "settingsGmailNeverLangs": {
-    "message": "Never translate these languages"
-  },
-  "settingsGmailNoAutoLangs": {
-    "message": "No languages set to always translate."
-  },
-  "settingsGmailNoNeverLangs": {
-    "message": "No languages set to never translate."
-  },
-  "settingsGmailRemoveLang": {
-    "message": "Remove"
-  },
-  "settingsLabel": {
-    "message": "Pengaturan"
-  },
-  "shortcutBilingual": {
-    "message": "$KEY$ beralih antara tampilan pengganti dan tampilan bilingual, serta mengingat pilihan untuk situs ini.",
+  "modelFolderIntegrityFailed": {
+    "message": "The file $FILE$ is not the official PLaMo model, so Sakutto will not use it.",
     "placeholders": {
-      "key": {
+      "file": {
         "content": "$1"
       }
     }
   },
-  "shortcutChange": {
-    "message": "Ubah pintasan"
+  "modelFolderEnableTabTitle": {
+    "message": "Keep folder access after restart"
   },
-  "shortcutCompose": {
-    "message": "$KEY$ menerjemahkan teks di kolom tempat Anda mengetik.",
+  "modelFolderEnableTabBody": {
+    "message": "In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). In Chrome, choose “Allow on every visit” (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「アクセスするたびに確認する」). Either persistent choice keeps this folder allowed after restarts with no extra clicks."
+  },
+  "modelFolderEnableTabHint": {
+    "message": "A this-time-only choice lasts only until a restart. Return here to grant access again. Translation still works from the browser copy."
+  },
+  "modelFolderEnableTabDone": {
+    "message": "Folder access is ready. This tab closes automatically."
+  },
+  "modelFolderEnableOneClick": {
+    "message": "Enable Sakutto"
+  },
+  "modelFolderBenefitsLead": {
+    "message": "A shared folder means:"
+  },
+  "modelFolderBenefitShare": {
+    "message": "Other profiles and other Chromium browsers can use it right away, with no extra download."
+  },
+  "modelFolderBenefitSpace": {
+    "message": "One copy on disk, so you save space ($SIZE$).",
     "placeholders": {
-      "key": {
+      "size": {
         "content": "$1"
       }
     }
   },
-  "shortcutHeading": {
-    "message": "Pintasan papan kekunci"
+  "modelFolderBenefitKeep": {
+    "message": "The file stays if you clear this browser's data. Pick the same folder again and you skip the download."
   },
-  "shortcutHelp": {
-    "message": "Hapus centang pada perintah untuk menonaktifkannya di Sakutto. “Ubah pintasan” membuka editor pintasan Chrome. Tombol yang ditetapkan browser tetap berfungsi bahkan saat kolom teks sedang fokus. Jika perintah berstatus “Belum diatur”, buka editor dan tetapkan tombol."
+  "highQualityOffer": {
+    "message": "Anda bisa mencoba model dengan akurasi lebih tinggi (2B, sekitar 1,81 GB). Kecepatannya bergantung pada perangkat ini."
   },
-  "shortcutHelpFirefox": {
-    "message": "Hapus centang pada perintah untuk menonaktifkannya di Sakutto. “Ubah pintasan” membuka editor bawaan Firefox. Tombol yang ditetapkan di sana berfungsi bahkan saat kolom teks sedang fokus. Saat pemasangan atau pembaruan, Firefox memulihkan tombol untuk perintah kosong yang belum pernah ditetapkan jika memungkinkan; tombol yang Anda hapus tetap terhapus."
+  "useHighQuality": {
+    "message": "Gunakanlah"
   },
-  "shortcutOff": {
-    "message": "Nonaktif"
+  "dismissHighQuality": {
+    "message": "Bukan sekarang"
   },
-  "shortcutOpenSettings": {
-    "message": "Buka pengaturan pintasan"
+  "glossaryHeading": {
+    "message": "Glosarium"
   },
-  "shortcutSelection": {
-    "message": "$KEY$ menerjemahkan teks yang dipilih.",
-    "placeholders": {
-      "key": {
-        "content": "$1"
-      }
-    }
+  "glossaryHelp": {
+    "message": "Tulis satu pasangan “sumber, terjemahan” per baris. Pilih situs untuk menggunakan daftar tersebut hanya di sana."
   },
-  "shortcutTranslate": {
-    "message": "$KEY$ menerjemahkan halaman atau mengembalikan versi aslinya.",
-    "placeholders": {
-      "key": {
-        "content": "$1"
-      }
-    }
+  "glossaryGlobal": {
+    "message": "Semua situs"
   },
-  "shortcutUnset": {
-    "message": "Belum diatur"
+  "glossaryImport": {
+    "message": "Impor CSV"
   },
-  "shortcutUnsetNotice": {
-    "message": "Pintasan belum diatur"
+  "glossaryExport": {
+    "message": "Ekspor CSV"
   },
-  "shortcutUse": {
-    "message": "Gunakan pintasan ini"
+  "glossaryAddSite": {
+    "message": "Tambahkan situs"
   },
-  "siteGrantAllow": {
-    "message": "Izinkan"
-  },
-  "siteGrantBody": {
-    "message": "Halaman di $HOST$ akan diterjemahkan pada perangkat ini.",
-    "placeholders": {
-      "host": {
-        "content": "$1"
-      }
-    }
-  },
-  "siteGrantDenied": {
-    "message": "Izin tidak diberikan. Coba lagi."
-  },
-  "siteGrantInvalid": {
-    "message": "Halaman ini tidak menyebutkan nama situs."
-  },
-  "siteGrantTitle": {
-    "message": "Terjemahkan situs ini"
-  },
-  "siteHostInvalid": {
-    "message": "Masukkan nama host yang valid."
-  },
-  "siteHostLabel": {
-    "message": "Nama host"
-  },
-  "siteRuleAlways": {
-    "message": "Selalu terjemahkan"
+  "siteRulesHeading": {
+    "message": "Terjemahan per situs"
   },
   "siteRuleAsk": {
     "message": "Tanya setiap kali"
+  },
+  "siteRuleAlways": {
+    "message": "Selalu terjemahkan"
   },
   "siteRuleNever": {
     "message": "Jangan pernah menerjemahkan"
@@ -1414,90 +863,89 @@
   "siteRuleRemove": {
     "message": "Hapus"
   },
-  "siteRulesHeading": {
-    "message": "Terjemahan per situs"
+  "noSiteRules": {
+    "message": "Belum ada pengaturan per situs."
   },
-  "slowDeviceHint": {
-    "message": "PLaMo lambat di PC ini. Setiap paragrafa muncul saat model menyelesaikannya."
+  "siteHostLabel": {
+    "message": "Nama host"
   },
-  "sourceCodeLink": {
-    "message": "Kode sumber"
+  "cacheClear": {
+    "message": "Bersihkan cache terjemahan"
   },
-  "statusChecking": {
-    "message": "Memeriksa…"
+  "cacheCleared": {
+    "message": "Cache penerjemahan telah dihapus."
   },
-  "storageOptionRecommended": {
-    "message": "Disarankan"
+  "cacheClearFailed": {
+    "message": "Cache penerjemahan tidak dapat dihapus."
   },
-  "tagline": {
-    "message": "Terjemahan halaman yang berjalan di perangkat Anda"
+  "idleLabel": {
+    "message": "Lepaskan model dari memori setelah"
   },
-  "targetAdjustedNote": {
-    "message": "Halaman tersebut sudah berada di bahasa target yang disimpan, sehingga targetnya telah diganti."
+  "idle1": {
+    "message": "1 menit"
   },
-  "targetLanguageLabel": {
-    "message": "Terjemahkan ke"
+  "idle5": {
+    "message": "5 menit"
   },
-  "threadsLabel": {
-    "message": "Inti logika"
+  "idle15": {
+    "message": "15 menit"
   },
-  "tierAuto": {
-    "message": "Otomatis"
-  },
-  "tierCpu1": {
-    "message": "CPU (1 thread)"
-  },
-  "tierCpu4": {
-    "message": "CPU (4 thread)"
-  },
-  "tierCpu8": {
-    "message": "CPU (8 utuh utawa lebih)"
-  },
-  "tierGpu": {
-    "message": "WebGPU"
-  },
-  "tierHelp": {
-    "message": "Secara otomatis memilih mode yang sesuai untuk PC ini."
+  "idleNever": {
+    "message": "Tidak pernah"
   },
   "tierLabel": {
     "message": "Mode performa"
   },
-  "translateThisPage": {
-    "message": "Terjemahkan halaman ini"
+  "tierAuto": {
+    "message": "Otomatis"
   },
-  "translationPopupSizeHelp": {
-    "message": "Mengubah ukuran teks di popup terjemahan saat mengarahkan kursor, memilih teks, dan menulis. Subtitle video memiliki pengaturan ukuran tersendiri."
+  "tierGpu": {
+    "message": "WebGPU"
   },
-  "translationPopupSizeLabel": {
-    "message": "Ukuran teks popup terjemahan"
+  "tierCpu8": {
+    "message": "CPU (8 utuh utawa lebih)"
   },
-  "typedChromeOnlyNote": {
-    "message": "Penerjemah bawaan Chrome hanya mencakup $LANGUAGES$ pada halaman; teks yang diketik tidak pernah dikirim ke sana.",
-    "placeholders": {
-      "languages": {
-        "content": "$1"
-      }
-    }
+  "tierCpu4": {
+    "message": "CPU (4 thread)"
   },
-  "typedChromeOnlyTarget": {
-    "message": "Terjemahan tertulis hanya menggunakan PLaMo, dan PLaMo tidak menerjemahkan ke dalam $LANGUAGE$. Pilih bahasa lain di sini, atau terjemahkan halaman untuk penerjemah bawaan.",
-    "placeholders": {
-      "language": {
-        "content": "$1"
-      }
-    }
+  "tierHelp": {
+    "message": "Secara otomatis memilih mode yang sesuai untuk PC ini."
   },
-  "typedClear": {
-    "message": "Jelas"
+  "slowDeviceHint": {
+    "message": "PLaMo lambat di PC ini. Setiap paragrafa muncul saat model menyelesaikannya."
   },
-  "typedCopied": {
-    "message": "Dikutip"
+  "errorPermission": {
+    "message": "Izin untuk situs ini tidak diberikan."
   },
-  "typedCopy": {
-    "message": "Salin"
+  "siteHostInvalid": {
+    "message": "Masukkan nama host yang valid."
   },
-  "typedCopyFailed": {
-    "message": "Tidak dapat menyalin terjemahannya. Pilih dan salin sendiri."
+  "glossaryScopeLabel": {
+    "message": "Berlaku untuk"
+  },
+  "listSeparator": {
+    "message": ","
+  },
+  "openTyped": {
+    "message": "Terjemahkan teks yang diketik"
+  },
+  "typedLead": {
+    "message": "Ketik atau tempelkan teks dan terjemahkan menggunakan model PLaMo yang sama dengan model terjemahan halaman. Tak ada yang keluar dari perangkat ini."
+  },
+  "typedHeading": {
+    "message": "Terjemahan tertulis"
+  },
+  "typedSourceLanguageLabel": {
+    "message": "Terjemahkan dari"
+  },
+  "typedDetectSource": {
+    "message": "Terdeteksi secara otomatis"
+  },
+  "typedSourceLabel": {
+    "message": "Teks untuk diterjemahkan"
+  },
+  "typedPlaceholder": {
+    "message": "Ketik atau tempelkan teks di sini."
   },
   "typedCounter": {
     "message": "$COUNT$ / $LIMIT$ karakter",
@@ -1510,8 +958,13 @@
       }
     }
   },
-  "typedDetectSource": {
-    "message": "Terdeteksi secara otomatis"
+  "typedTooLong": {
+    "message": "Teks ini terlalu panjang untuk satu permintaan. Singkirkan menjadi $LIMIT$ karakter atau kurang.",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
   },
   "typedDirectionHint": {
     "message": "Diterjemahkan ke $LANGUAGE$. Bahasa lain dideteksi secara otomatis.",
@@ -1521,70 +974,8 @@
       }
     }
   },
-  "typedDownloadModel": {
-    "message": "Unduh model"
-  },
-  "typedFailed": {
-    "message": "Teks tidak dapat diterjemahkan. Teks Anda tidak berubah; coba lagi."
-  },
-  "typedHeading": {
-    "message": "Terjemahan tertulis"
-  },
-  "typedLead": {
-    "message": "Ketik atau tempelkan teks dan terjemahkan menggunakan model PLaMo yang sama dengan model terjemahan halaman. Tak ada yang keluar dari perangkat ini."
-  },
-  "typedModelBusy": {
-    "message": "Model PLaMo sedang diunduh. Terjemahan akan dimulai setelah selesai."
-  },
-  "typedModelError": {
-    "message": "Model PLaMo tidak dapat dimuat. Buka halaman opsi untuk memeriksanya."
-  },
-  "typedModelMissing": {
-    "message": "Model PLaMo belum tersedia di perangkat ini."
-  },
-  "typedModelPartial": {
-    "message": "Unduhan model PLaMo terputus."
-  },
-  "typedNeedsConsent": {
-    "message": "PLaMo memerlukan perjanjian lisensi satu kali sebelum dapat beroperasi. Teks Anda tidak akan diterjemahkan sampai saat itu."
-  },
-  "typedOpenOnboarding": {
-    "message": "Periksa lisensi dan mulai"
-  },
-  "typedPlaceholder": {
-    "message": "Ketik atau tempelkan teks di sini."
-  },
-  "typedResultEmpty": {
-    "message": "Terjemahan PLaMo muncul di sini, di samping teks yang Anda tempelkan."
-  },
-  "typedResultHeading": {
-    "message": "Terjemahan"
-  },
-  "typedRunHint": {
-    "message": "Ctrl+Enter (⌘+Enter pada Mac) juga bisa diterjemahkan."
-  },
-  "typedSourceBreakLegend": {
-    "message": "↵ menandai ganti baris di tengah kalimat; garis tipis menandai ganti baris yang dipertahankan dalam terjemahan."
-  },
-  "typedSourceLabel": {
-    "message": "Teks untuk diterjemahkan"
-  },
-  "typedSourceLanguageLabel": {
-    "message": "Terjemahkan dari"
-  },
-  "typedStop": {
-    "message": "Hentikan"
-  },
   "typedSwap": {
     "message": "Ganti arah penerjemahan"
-  },
-  "typedTooLong": {
-    "message": "Teks ini terlalu panjang untuk satu permintaan. Singkirkan menjadi $LIMIT$ karakter atau kurang.",
-    "placeholders": {
-      "limit": {
-        "content": "$1"
-      }
-    }
   },
   "typedTranslate": {
     "message": "Terjemahkan"
@@ -1592,74 +983,471 @@
   "typedTranslating": {
     "message": "Menerjemahkan…"
   },
-  "unofficialNotice": {
-    "message": "Tidak resmi. Tidak berafiliasi dengan Preferred Networks. Dibangun dengan PLaMo."
+  "typedStop": {
+    "message": "Hentikan"
   },
-  "useHighQuality": {
-    "message": "Gunakanlah"
+  "typedClear": {
+    "message": "Jelas"
   },
-  "videoCaptionsBilingual": {
-    "message": "Asli dan terjemahan"
+  "typedCopy": {
+    "message": "Salin"
   },
-  "videoCaptionsBraveShields": {
-    "message": "Brave Shields memblokir data takarir YouTube. Nonaktifkan Shields untuk video ini, lalu muat ulang halaman untuk menerjemahkan takarir."
+  "typedCopied": {
+    "message": "Dikutip"
   },
-  "videoCaptionsCustomHostAdd": {
-    "message": "Tambah"
+  "typedCopyFailed": {
+    "message": "Tidak dapat menyalin terjemahannya. Pilih dan salin sendiri."
   },
-  "videoCaptionsCustomHostDenied": {
-    "message": "Akses ke situs itu tidak diberikan."
+  "typedResultHeading": {
+    "message": "Terjemahan"
   },
-  "videoCaptionsCustomHostInvalid": {
-    "message": "Masukkan domain seperti example.com. Wildcard yang diizinkan hanyalah * di depan."
+  "typedResultEmpty": {
+    "message": "Terjemahan PLaMo muncul di sini, di samping teks yang Anda tempelkan."
   },
-  "videoCaptionsCustomHostPlaceholder": {
-    "message": "example.com"
+  "typedRunHint": {
+    "message": "Ctrl+Enter (⌘+Enter pada Mac) juga bisa diterjemahkan."
   },
-  "videoCaptionsCustomHostRemove": {
-    "message": "Hapus"
+  "typedFailed": {
+    "message": "Teks tidak dapat diterjemahkan. Teks Anda tidak berubah; coba lagi."
   },
-  "videoCaptionsCustomHostSubdomains": {
-    "message": "Sertakan subdomain"
+  "typedNeedsConsent": {
+    "message": "PLaMo memerlukan perjanjian lisensi satu kali sebelum dapat beroperasi. Teks Anda tidak akan diterjemahkan sampai saat itu."
   },
-  "videoCaptionsCustomSitesHelp": {
-    "message": "Tambahkan domain yang bukan YouTube atau X. Terjemahan hanya berfungsi jika situs menampilkan subtitle sebagai trek video HTML5, WebVTT, atau elemen subtitle yang terlihat. Situs yang menggambar subtitle hanya sebagai grafis kustom tidak didukung. Akses ke domain itu diminta saat Anda menambahkannya."
+  "typedOpenOnboarding": {
+    "message": "Periksa lisensi dan mulai"
   },
-  "videoCaptionsCustomSitesLabel": {
-    "message": "Situs subtitle kustom"
+  "typedModelMissing": {
+    "message": "Model PLaMo belum tersedia di perangkat ini."
   },
-  "videoCaptionsDisplayHelp": {
-    "message": "Menyimpan baris asli memudahkan belajar dan menangkap terjemahan yang buruk."
+  "typedModelPartial": {
+    "message": "Unduhan model PLaMo terputus."
   },
-  "videoCaptionsDisplayLabel": {
-    "message": "Tampilan teks"
+  "typedModelBusy": {
+    "message": "Model PLaMo sedang diunduh. Terjemahan akan dimulai setelah selesai."
   },
-  "videoCaptionsHideOriginal": {
-    "message": "Sembunyikan teks asli"
+  "typedModelError": {
+    "message": "Model PLaMo tidak dapat dimuat. Buka halaman opsi untuk memeriksanya."
   },
-  "videoCaptionsLabel": {
-    "message": "Teks terjemahan"
+  "typedDownloadModel": {
+    "message": "Unduh model"
   },
-  "videoCaptionsOriginalToggleHelp": {
-    "message": "Jika dimatikan, tombol tidak muncul di video. Anda tetap dapat mengganti asli dan terjemahan dari halaman ini."
+  "typedChromeOnlyTarget": {
+    "message": "Terjemahan tertulis hanya menggunakan PLaMo, dan PLaMo tidak menerjemahkan ke dalam $LANGUAGE$. Pilih bahasa lain di sini, atau terjemahkan halaman untuk penerjemah bawaan.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
   },
-  "videoCaptionsOriginalToggleSetting": {
-    "message": "Tampilkan tombol sembunyikan asli di pemutar"
+  "typedChromeOnlyNote": {
+    "message": "Penerjemah bawaan Chrome hanya mencakup $LANGUAGES$ pada halaman; teks yang diketik tidak pernah dikirim ke sana.",
+    "placeholders": {
+      "languages": {
+        "content": "$1"
+      }
+    }
   },
-  "videoCaptionsPending": {
-    "message": "Menerjemahkan teks…"
+  "openPdf": {
+    "message": "Terjemahkan PDF ini"
   },
-  "videoCaptionsPermissionDenied": {
-    "message": "Akses ke YouTube dan X tidak diberikan."
+  "openPdfHint": {
+    "message": "Membuka PDF di Sakutto dan menerjemahkannya di tempat, dengan tata letak halaman tetap."
   },
-  "videoCaptionsPositionHelp": {
-    "message": "Tekan lama teks terjemahan untuk memindahkannya. YouTube dan X masing-masing mengingat posisinya, termasuk layar penuh dan mode teater. Tombol ini mengembalikannya ke bagian bawah pemutar."
+  "contextTranslatePdf": {
+    "message": "Terjemahkan PDF ini dengan Sakutto"
   },
-  "videoCaptionsPositionReset": {
-    "message": "Atur ulang posisi"
+  "commandPdf": {
+    "message": "Buka PDF di Sakutto"
   },
-  "videoCaptionsReplace": {
-    "message": "Hanya teks terjemahan"
+  "pdfReaderTitle": {
+    "message": "PDF"
+  },
+  "pdfUntitled": {
+    "message": "Dokumen.pdf"
+  },
+  "pdfPreparing": {
+    "message": "Membaca dokumen…"
+  },
+  "pdfReading": {
+    "message": "Membaca halaman $PAGE$ dari $TOTAL$",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfTranslated": {
+    "message": "Diterjemahkan"
+  },
+  "pdfPageNoText": {
+    "message": "Halaman ini hasil pindai atau gambar tanpa teks yang dapat dipilih, jadi tidak bisa diterjemahkan."
+  },
+  "pdfRenderFailed": {
+    "message": "Halaman ini tidak dapat digambar.",
+    "description": "Shown on a page whose canvas could not be drawn."
+  },
+  "pdfNoText": {
+    "message": "Dokumen ini hasil pindai atau kumpulan gambar, tanpa lapisan teks. Buka PDF yang berisi teks asli, atau jalankan OCR terlebih dahulu."
+  },
+  "pdfTranslateFailed": {
+    "message": "Bagian ini tidak dapat diterjemahkan."
+  },
+  "pdfMissing": {
+    "message": "Dokumen ini sudah tidak tersedia. Buka lagi PDF-nya dari tab."
+  },
+  "pdfBroken": {
+    "message": "Dokumen tidak dapat dibuka. Mungkin rusak atau dilindungi kata sandi."
+  },
+  "pdfTooLarge": {
+    "message": "File ini lebih dari 200 MB, ukuran terbesar yang dapat dibuka pembaca.",
+    "description": "Shown when a local PDF is larger than the reader will open."
+  },
+  "pdfModelMissing": {
+    "message": "Halaman ditampilkan, tetapi untuk menerjemahkannya diperlukan model PLaMo. Unduh modelnya untuk menerjemahkan dokumen ini."
+  },
+  "pdfOpenFailed": {
+    "message": "PDF ini tidak dapat dibuka. Muat ulang halaman lalu coba lagi."
+  },
+  "pdfFileAccessDenied": {
+    "message": "PDF ini adalah berkas di komputer ini. Izinkan ekstensi mengakses URL berkas di pengaturan ekstensi, atau pilih berkas di pembaca."
+  },
+  "pdfCompare": {
+    "message": "Bandingkan"
+  },
+  "pdfOriginalPane": {
+    "message": "Asli"
+  },
+  "pdfTranslatedPane": {
+    "message": "Terjemahan"
+  },
+  "pdfChooseFile": {
+    "message": "Pilih berkas PDF"
+  },
+  "pdfKeptAsIs": {
+    "message": "$COUNT$ bagian dibiarkan seperti halaman menyusunnya: persamaan, tanda sumbu, dan kode tetap pada tata letak aslinya.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfSelectHint": {
+    "message": "Pilih teks pada halaman untuk menerjemahkan bagian itu saja."
+  },
+  "pdfSelectTranslate": {
+    "message": "Terjemahkan pilihan"
+  },
+  "pdfSelectFailed": {
+    "message": "Pilihan ini tidak dapat diterjemahkan."
+  },
+  "pdfSelectClear": {
+    "message": "Tampilkan aslinya"
+  },
+  "commandCompose": {
+    "message": "Terjemahkan teks yang sedang Anda tulis"
+  },
+  "contextTranslateCompose": {
+    "message": "Terjemahkan yang sedang Anda tulis"
+  },
+  "shortcutCompose": {
+    "message": "$KEY$ menerjemahkan teks di kolom tempat Anda mengetik.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "onboardingReadyCompose": {
+    "message": "Tekan $KEY$ saat mengetik di kotak pesan untuk melihat terjemahan yang dapat Anda terapkan.",
+    "placeholders": {
+      "key": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeHelp": {
+    "message": "Saat kotak pesan berfokus, tombol あA (atau pintasan) menampilkan pratinjau terjemahan. Draf Jepang ke bahasa Inggris (atau bahasa sasaran di atas); yang lain memakai sasaran itu. Tidak ada yang diganti sampai Anda memilih Ganti."
+  },
+  "composeTitle": {
+    "message": "Terjemahan draf"
+  },
+  "composeIcon": {
+    "message": "Terjemahkan yang sedang Anda tulis"
+  },
+  "composeReplace": {
+    "message": "Ganti"
+  },
+  "composeUndo": {
+    "message": "Kembalikan aslinya"
+  },
+  "composePending": {
+    "message": "Menerjemahkan…"
+  },
+  "composeFailed": {
+    "message": "Draf ini tidak dapat diterjemahkan."
+  },
+  "composeEmpty": {
+    "message": "Mulai mengetik untuk melihat terjemahan."
+  },
+  "composeTooLong": {
+    "message": "Draf ini terlalu panjang untuk diterjemahkan."
+  },
+  "composeSwap": {
+    "message": "Ubah arah terjemahan"
+  },
+  "composeReplaced": {
+    "message": "Diganti. Anda dapat mengembalikan teks asli."
+  },
+  "composeInto": {
+    "message": "Ke $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeChromeOnly": {
+    "message": "Terjemahan draf hanya memakai PLaMo, dan PLaMo tidak menerjemahkan ke $LANGUAGE$.",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
+  },
+  "composeIconSetting": {
+    "message": "Tampilkan tombol あA pada kotak pesan"
+  },
+  "composeIconSettingHelp": {
+    "message": "Pintasan dan menu klik kanan tetap bekerja jika tombol disembunyikan."
+  },
+  "composeTargetSetting": {
+    "message": "Bahasa tujuan saat menulis"
+  },
+  "composeTargetAuto": {
+    "message": "Otomatis (draf Jepang ke bahasa lain dalam pasangan; selain itu ke bahasa halaman)"
+  },
+  "composeTargetSettingHelp": {
+    "message": "Bahasa terakhir yang dipilih di pratinjau diingat di sini."
+  },
+  "composeTargetLabel": {
+    "message": "Tujuan"
+  },
+  "composeInstantSetting": {
+    "message": "Terjemahkan dan ganti dengan satu pintasan"
+  },
+  "composeInstantSettingHelp": {
+    "message": "Tanpa pratinjau: satu pintasan menerjemahkan draf dan menggantinya. Urungkan tetap tersedia."
+  },
+  "composeNeedSetup": {
+    "message": "PLaMo belum siap. Buka penyiapan untuk menyetujui lisensi dan mengunduh model."
+  },
+  "composeLoading": {
+    "message": "Model PLaMo sedang dimuat. Pratinjau muncul setelah siap."
+  },
+  "composeIneligible": {
+    "message": "Kolom ini tidak dapat diterjemahkan."
+  },
+  "composeOpenSetup": {
+    "message": "Buka penyiapan"
+  },
+  "composeStale": {
+    "message": "Draf berubah. Ganti dijeda sampai pratinjau menyusul."
+  },
+  "composeReplaceHint": {
+    "message": "$COMPOSE$ / $ENTER$ untuk mengganti",
+    "placeholders": {
+      "compose": {
+        "content": "$1"
+      },
+      "enter": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeLangPair": {
+    "message": "$SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "composeAutoSource": {
+    "message": "Otomatis"
+  },
+  "composePlacementSetting": {
+    "message": "Posisi bilah terjemahan saat menulis"
+  },
+  "composePlacementSettingHelp": {
+    "message": "Bawaan untuk setiap situs. Seret gagang ⋮⋮ pada bilah untuk menaruhnya di mana saja di halaman ini. Menu ⋯ juga dapat menimpa ini hanya untuk situs itu."
+  },
+  "composePlacementAbove": {
+    "message": "Di atas kotak pesan"
+  },
+  "composePlacementBelow": {
+    "message": "Di bawah kotak pesan"
+  },
+  "composePlacementCorner": {
+    "message": "Kanan bawah jendela"
+  },
+  "composePlacementFree": {
+    "message": "Geser bebas"
+  },
+  "composePlacementMenu": {
+    "message": "Posisi bilah"
+  },
+  "composePlacementSite": {
+    "message": "Situs ini"
+  },
+  "composePlacementFollowSettings": {
+    "message": "Gunakan pengaturan untuk semua situs"
+  },
+  "composePlacementReset": {
+    "message": "Kembalikan ke posisi semula"
+  },
+  "composePlacementHandle": {
+    "message": "Seret untuk memindahkan bilah ke mana saja"
+  },
+  "engineFirefoxSingleThread": {
+    "message": "Firefox extension pages cannot use wasm threads, so CPU translation uses one thread."
+  },
+  "engineLinuxWebGpuHintUnsupported": {
+    "message": "Chrome di Linux sering kali perlu mengaktifkan WebGPU di chrome://flags/#enable-unsafe-webgpu dan fitur Vulkan, lalu memulai ulang Chrome. Sementara itu, terjemahan menggunakan CPU."
+  },
+  "engineLinuxWebGpuHintUnavailable": {
+    "message": "WebGPU sudah aktif, tetapi tidak ada adaptor GPU yang dapat digunakan. Terjemahan GPU memerlukan shader-f16; periksa driver dan dukungan Vulkan, misalnya di chrome://gpu. Sementara itu, terjemahan menggunakan CPU."
+  },
+  "tierCpu1": {
+    "message": "CPU (1 thread)"
+  },
+  "runtimeLocalServer": {
+    "message": "Server lokal (eksperimental)"
+  },
+  "engineSourceLabel": {
+    "message": "Mesin terjemahan"
+  },
+  "engineSourceInBrowser": {
+    "message": "Bawaan (di perangkat ini)"
+  },
+  "engineSourceLocalServer": {
+    "message": "Server lokal (eksperimental)"
+  },
+  "engineSourceHelp": {
+    "message": "Default adalah mesin bawaan di perangkat ini."
+  },
+  "localServerUrlLabel": {
+    "message": "URL server"
+  },
+  "localServerModelLabel": {
+    "message": "Model"
+  },
+  "localServerApiKeyLabel": {
+    "message": "Kunci API (opsional)"
+  },
+  "localServerTimeoutLabel": {
+    "message": "Batas waktu (detik)"
+  },
+  "localServerTestButton": {
+    "message": "Uji koneksi"
+  },
+  "localServerTestOk": {
+    "message": "Terhubung."
+  },
+  "localServerTestFail": {
+    "message": "Server ini tidak dapat digunakan."
+  },
+  "localServerModelsEmpty": {
+    "message": "(tidak ada daftar — ketik nama)"
+  },
+  "localServerPresetMlx": {
+    "message": "mlx_lm.server"
+  },
+  "localServerPresetLmStudio": {
+    "message": "LM Studio"
+  },
+  "localServerPresetHelp": {
+    "message": "Preset hanya mengisi URL."
+  },
+  "localServerNonLocalWarning": {
+    "message": "Alamat ini bukan komputer ini. Teks halaman akan dikirim ke sana. Saya mengerti."
+  },
+  "localServerPermissionDenied": {
+    "message": "Peramban tidak memberi akses ke alamat ini."
+  },
+  "localServerHelp": {
+    "message": "Mengirim prompt Sakutto ke server yang kompatibel dengan OpenAI di komputer ini, seperti mlx_lm.server atau LM Studio."
+  },
+  "localServerUnreachable": {
+    "message": "Tidak dapat menjangkau server lokal. Buka Pengaturan dan pastikan server berjalan."
+  },
+  "localServerModelMissing": {
+    "message": "Server tidak punya model yang cocok. Muat model atau pilih di Pengaturan."
+  },
+  "localServerTimeout": {
+    "message": "Server lokal kehabisan waktu. Teks asli dipertahankan."
+  },
+  "localServerFailed": {
+    "message": "Server lokal tidak dapat menerjemahkan ini. Buka Pengaturan. Teks asli dipertahankan."
+  },
+  "diagBackendLocalServer": {
+    "message": "Server lokal (eksperimental)"
+  },
+  "privacyBodyLocalServer": {
+    "message": "Eksperimental. Jika Anda memilih server lokal, teks hanya dikirim ke alamat yang Anda atur (default komputer ini). Akurasi tidak dijamin, dan terjemahan dapat berbeda dari mesin bawaan, termasuk salah terjemah. Pengembang tidak menerima teks tersebut."
+  },
+  "localServerLicenseNote": {
+    "message": "Lisensi model lain yang Anda muat di server itu adalah tanggung jawab Anda. Bobot PLaMo tetap di bawah PLaMo Community License."
+  },
+  "localServerParallelLabel": {
+    "message": "Concurrent requests"
+  },
+  "localServerParallelHelp": {
+    "message": "How many completions the server may run at once (1–16). The page keeps extra requests ready so a finished slot is not left idle."
+  },
+  "localServerTestOkUnlisted": {
+    "message": "Connected. Completions work. The server listed no models — keep the model name you typed; it was not verified from /v1/models."
+  },
+  "localServerExperimental": {
+    "message": "Eksperimental: akurasi terjemahan tidak dijamin. Hasil dapat berbeda dari mesin bawaan, termasuk salah terjemah."
+  },
+  "localServerExperimentalConfirm": {
+    "message": "Mesin ini eksperimental. Akurasi tidak dijamin. Terjemahan dapat berbeda dari mesin bawaan, termasuk salah terjemah. Tetap gunakan server lokal?"
+  },
+  "localServerExperimentalUse": {
+    "message": "Gunakan server lokal"
+  },
+  "localServerExperimentalKeep": {
+    "message": "Tetap bawaan"
+  },
+  "localServerDetails": {
+    "message": "Detail"
+  },
+  "localServerAdvanced": {
+    "message": "Lanjutan"
+  },
+  "localServerRemoteConfirmRequired": {
+    "message": "Alamat ini bukan di komputer ini. Centang konfirmasi di bawah sebelum menguji koneksi."
+  },
+  "onboardingLocalServerNote": {
+    "message": "Setelan dapat mengaktifkan server lokal eksperimental. Teks halaman lalu hanya pergi ke alamat yang Anda atur, dan akurasi tidak dijamin."
+  },
+  "localServerUrlHelp": {
+    "message": "mlx_lm.server memakai port 8080 secara default. LM Studio memakai port 1234."
+  },
+  "localServerModelHelp": {
+    "message": "Nama model yang dimuat di server itu."
+  },
+  "diagConcurrent": {
+    "message": "Permintaan bersamaan"
+  },
+  "diagRuntime": {
+    "message": "Status"
   },
   "videoCaptionsSetting": {
     "message": "Terjemahkan teks video"
@@ -1667,16 +1455,228 @@
   "videoCaptionsSettingHelp": {
     "message": "Jika aktif, video YouTube (termasuk siaran langsung) dan X yang sudah punya teks diterjemahkan di perangkat saat diputar. Chrome meminta akses ke situs itu saat Anda mengaktifkan pengaturan. Video tanpa teks tidak menampilkan apa pun. Jika suatu baris tidak bisa diterjemahkan andal, teks asli tetap ditampilkan."
   },
+  "videoCaptionsDisplayLabel": {
+    "message": "Tampilan teks"
+  },
+  "videoCaptionsBilingual": {
+    "message": "Asli dan terjemahan"
+  },
+  "videoCaptionsReplace": {
+    "message": "Hanya teks terjemahan"
+  },
+  "videoCaptionsDisplayHelp": {
+    "message": "Menyimpan baris asli memudahkan belajar dan menangkap terjemahan yang buruk."
+  },
+  "videoCaptionsLabel": {
+    "message": "Teks terjemahan"
+  },
+  "videoCaptionsPending": {
+    "message": "Menerjemahkan teks…"
+  },
   "videoCaptionsShowOriginal": {
     "message": "Tampilkan teks asli"
+  },
+  "videoCaptionsHideOriginal": {
+    "message": "Sembunyikan teks asli"
+  },
+  "videoCaptionsPermissionDenied": {
+    "message": "Akses ke YouTube dan X tidak diberikan."
   },
   "videoCaptionsShowOriginalSetting": {
     "message": "Tampilkan baris asli"
   },
-  "videoCaptionsSizeHelp": {
-    "message": "Ukuran mengikuti pemutar, termasuk layar penuh dan teater. Seret penggeser untuk pratinjau."
+  "videoCaptionsOriginalToggleSetting": {
+    "message": "Tampilkan tombol sembunyikan asli di pemutar"
+  },
+  "videoCaptionsOriginalToggleHelp": {
+    "message": "Jika dimatikan, tombol tidak muncul di video. Anda tetap dapat mengganti asli dan terjemahan dari halaman ini."
   },
   "videoCaptionsSizeLabel": {
     "message": "Ukuran subtitle"
+  },
+  "videoCaptionsSizeHelp": {
+    "message": "Ukuran mengikuti pemutar, termasuk layar penuh dan teater. Seret penggeser untuk pratinjau."
+  },
+  "translationPopupSizeLabel": {
+    "message": "Ukuran teks popup terjemahan"
+  },
+  "translationPopupSizeHelp": {
+    "message": "Mengubah ukuran teks di popup terjemahan saat mengarahkan kursor, memilih teks, dan menulis. Subtitle video memiliki pengaturan ukuran tersendiri."
+  },
+  "plainTextLineBreaksLabel": {
+    "message": "Jeda baris pada terjemahan"
+  },
+  "plainTextLineBreaksHelp": {
+    "message": "Dokumen yang ditempel, teks OCR, dan kutipan buku sering terputus di tengah kalimat. Saat menerjemahkan, pemutusan itu disambung; hanya akhir kalimat, judul, dan baris kosong yang muncul sebagai ganti baris di hasil terjemahan. Opsi terakhir juga menandai setiap ganti baris di kotak teks asal (tanda ↵ untuk putus di tengah kalimat) agar bisa ditemukan dan diperbaiki sebelum menerjemahkan. Terjemahan halaman tidak berubah."
+  },
+  "plainTextLineBreaksNone": {
+    "message": "Tanpa jeda tambahan (default)"
+  },
+  "plainTextLineBreaksKeep": {
+    "message": "Jeda antarparagraf"
+  },
+  "plainTextLineBreaksBlank": {
+    "message": "Dua ganti baris pada setiap ganti baris teks asal (baris kosong)"
+  },
+  "plainTextLineBreaksWider": {
+    "message": "Ganti baris per paragraf di terjemahan, plus tanda ganti baris di kotak teks asal"
+  },
+  "typedSourceBreakLegend": {
+    "message": "↵ menandai ganti baris di tengah kalimat; garis tipis menandai ganti baris yang dipertahankan dalam terjemahan."
+  },
+  "videoCaptionsCustomSitesLabel": {
+    "message": "Situs subtitle kustom"
+  },
+  "videoCaptionsCustomSitesHelp": {
+    "message": "Tambahkan domain yang bukan YouTube atau X. Terjemahan hanya berfungsi jika situs menampilkan subtitle sebagai trek video HTML5, WebVTT, atau elemen subtitle yang terlihat. Situs yang menggambar subtitle hanya sebagai grafis kustom tidak didukung. Akses ke domain itu diminta saat Anda menambahkannya."
+  },
+  "videoCaptionsCustomHostPlaceholder": {
+    "message": "example.com"
+  },
+  "videoCaptionsCustomHostAdd": {
+    "message": "Tambah"
+  },
+  "videoCaptionsCustomHostRemove": {
+    "message": "Hapus"
+  },
+  "videoCaptionsCustomHostSubdomains": {
+    "message": "Sertakan subdomain"
+  },
+  "videoCaptionsCustomHostInvalid": {
+    "message": "Masukkan domain seperti example.com. Wildcard yang diizinkan hanyalah * di depan."
+  },
+  "videoCaptionsCustomHostDenied": {
+    "message": "Akses ke situs itu tidak diberikan."
+  },
+  "videoCaptionsBraveShields": {
+    "message": "Brave Shields memblokir data takarir YouTube. Nonaktifkan Shields untuk video ini, lalu muat ulang halaman untuk menerjemahkan takarir."
+  },
+  "videoCaptionsPositionReset": {
+    "message": "Atur ulang posisi"
+  },
+  "videoCaptionsPositionHelp": {
+    "message": "Tekan lama teks terjemahan untuk memindahkannya. YouTube dan X masing-masing mengingat posisinya, termasuk layar penuh dan mode teater. Tombol ini mengembalikannya ke bagian bawah pemutar."
+  },
+  "pdfOverflow": {
+    "message": "$COUNT$ bagian tidak muat di halaman. Buka penanda untuk membaca terjemahan.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfFailedCount": {
+    "message": "$COUNT$ bagian tidak dapat diterjemahkan.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "Toolbar note when some blocks could not be translated."
+  },
+  "pdfOverflowOpen": {
+    "message": "Tampilkan terjemahan"
+  },
+  "gmailBannerDetected": {
+    "message": "Email ini tampaknya ditulis dalam $LANG$.",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerTranslate": {
+    "message": "Terjemahkan ke $TARGET$",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerShowOriginal": {
+    "message": "Tampilkan asli"
+  },
+  "gmailBannerTranslating": {
+    "message": "Menerjemahkan email ini…"
+  },
+  "gmailBannerFailed": {
+    "message": "Tidak dapat menerjemahkan email ini."
+  },
+  "gmailBannerRegion": {
+    "message": "Terjemahan pesan Gmail"
+  },
+  "mailBannerAccessNeeded": {
+    "message": "Terjemahan email memerlukan akses ke situs ini."
+  },
+  "mailBannerEnableForSite": {
+    "message": "Aktifkan terjemahan email di situs ini"
+  },
+  "mailBannerPermissionDenied": {
+    "message": "Terjemahan email memerlukan izin untuk mengakses situs email."
+  },
+  "settingsGmailBanner": {
+    "message": "Tawarkan terjemahan pesan Gmail"
+  },
+  "settingsGmailBannerHelp": {
+    "message": "Saat aktif, pesan Gmail yang dibuka dan ditulis dalam bahasa lain menampilkan spanduk kecil di atas isinya. Pesan hanya diterjemahkan setelah Anda mengklik. Sakutto memerlukan akses ke mail.google.com; berikan dari popup atau daftar situs."
+  },
+  "gmailBannerTranslated": {
+    "message": "Translated: $SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "gmailBannerShowTranslation": {
+    "message": "Show translation"
+  },
+  "gmailBannerMenu": {
+    "message": "Translation settings"
+  },
+  "gmailBannerTranslateNow": {
+    "message": "Translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerAlwaysTranslate": {
+    "message": "Always translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerNeverTranslate": {
+    "message": "Never translate $LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsGmailAutoLangs": {
+    "message": "Always translate these languages"
+  },
+  "settingsGmailNeverLangs": {
+    "message": "Never translate these languages"
+  },
+  "settingsGmailNoAutoLangs": {
+    "message": "No languages set to always translate."
+  },
+  "settingsGmailNoNeverLangs": {
+    "message": "No languages set to never translate."
+  },
+  "settingsGmailClearLangs": {
+    "message": "Clear"
+  },
+  "settingsGmailRemoveLang": {
+    "message": "Remove"
   }
 }
