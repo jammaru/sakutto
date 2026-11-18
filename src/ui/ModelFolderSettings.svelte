@@ -419,7 +419,7 @@
 
     {#if error}
       <div class="callout bad" role="alert">
-        <span class="callout-icon" aria-hidden="true">!</span>
+        <span class="callout-icon" aria-hidden="true"></span>
         <p>{error}</p>
       </div>
     {/if}
@@ -432,7 +432,7 @@
           aria-live="polite"
           bind:this={noticeElement}
         >
-          <span class="callout-icon" aria-hidden="true">✓</span>
+          <span class="callout-icon" aria-hidden="true"></span>
           <p>{notice}</p>
         </div>
       {:else}
@@ -444,7 +444,7 @@
 
     {#each folder.integrityIssues as issue (issue.modelId)}
       <div class="callout bad" role="alert">
-        <span class="callout-icon" aria-hidden="true">!</span>
+        <span class="callout-icon" aria-hidden="true"></span>
         <p>{t('modelFolderIntegrityFailed', [issue.file])}</p>
       </div>
     {/each}
@@ -524,6 +524,14 @@
   .callout.bad .callout-icon {
     background: var(--danger);
     color: var(--surface);
+  }
+
+  .callout.success .callout-icon::before {
+    content: '✓';
+  }
+
+  .callout.bad .callout-icon::before {
+    content: '!';
   }
 
   p {
