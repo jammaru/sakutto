@@ -311,12 +311,19 @@ describe('locale messages', () => {
       const messages = readMessages(locale);
       const hint = messages.modelFolderPersistentHint?.message;
       const clarification =
+        locale === 'ja' ? '名前と違って次から確認されません' : 'despite the name, no later prompts';
+      const equivalence =
         locale === 'ja'
-          ? '（名前と違って、これを選ぶと次からは確認されません）'
-          : 'despite the name, no later prompts';
-      expect(messages.modelFolderPermissionPage?.message, locale).toContain(clarification);
-      expect(messages.modelFolderEnableTabBody?.message, locale).toContain(clarification);
-      expect(hint, locale).toContain(clarification);
+          ? 'Chromeの「サイトアクセス時は常に許可」にあたる項目で'
+          : 'equivalent to Chrome’s “Allow on every visit”';
+      for (const key of [
+        'modelFolderPermissionPage',
+        'modelFolderPersistentHint',
+        'modelFolderEnableTabBody',
+      ] as const) {
+        expect(messages[key]?.message, `${locale} ${key}`).toContain(equivalence);
+        expect(messages[key]?.message, `${locale} ${key}`).toContain(clarification);
+      }
       expect(hint, locale).toContain('アクセスするたびに確認する');
       if (locale !== 'ja') expect(hint, locale).toContain('Ask every time I access');
       expect(hint, locale).not.toMatch(/Edge[^\n]*「常に許可」/);
