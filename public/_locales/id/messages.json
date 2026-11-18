@@ -698,6 +698,9 @@
   "modelStorageIntro": {
     "message": "Pilih tempat penyimpanan model. Model yang sudah ada dipindahkan sesuai pilihan."
   },
+  "modelStorageBrowserOnlyHint": {
+    "message": "Browser ini tidak dapat menggunakan folder bersama, jadi model disimpan di dalam browser ini."
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "Setelah menekan Mulai, pilih folder yang berisi model lalu konfirmasi “Unggah”. Firefox menyalin model ke dalam Firefox, bukan terus menggunakan folder tersebut."
   },

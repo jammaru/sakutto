@@ -698,6 +698,9 @@
   "modelStorageIntro": {
     "message": "Escolha onde o modelo é armazenado. Os modelos existentes são movidos conforme a escolha."
   },
+  "modelStorageBrowserOnlyHint": {
+    "message": "Este navegador não permite usar pastas compartilhadas, então os modelos são armazenados neste navegador."
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "Depois de pressionar Iniciar, escolha a pasta que contém os modelos e confirme “Enviar”. O Firefox copia os modelos para dentro do Firefox em vez de manter a pasta vinculada."
   },

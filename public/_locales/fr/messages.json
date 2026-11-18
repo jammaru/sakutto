@@ -698,6 +698,9 @@
   "modelStorageIntro": {
     "message": "Choisissez où le modèle est enregistré. Les modèles existants suivent ce choix."
   },
+  "modelStorageBrowserOnlyHint": {
+    "message": "Ce navigateur ne permet pas d’utiliser un dossier partagé. Les modèles sont donc enregistrés dans ce navigateur."
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "Après avoir cliqué sur Démarrer, choisissez le dossier contenant les modèles et confirmez « Téléverser ». Firefox copie les modèles dans Firefox au lieu de conserver le dossier lié."
   },

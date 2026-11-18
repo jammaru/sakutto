@@ -80,6 +80,7 @@
   let copyInput = $state<HTMLInputElement | null>(null);
   let copyController = $state.raw<AbortController | null>(null);
   let pickerAvailable = $derived(sharedFolderPickerAvailable());
+  let showBrowserOnly = $derived(!firefoxBuild && sharedFolderSupported() && !pickerAvailable);
   let highlightPick = $derived(shouldHighlightFolderPicker(location.href));
   let showFirefoxImport = $derived(firefoxBuild && !pickerAvailable && !catalogReady);
   let showFirefoxImportUi = $derived(
@@ -344,7 +345,12 @@
   });
 </script>
 
-{#if pickerAvailable || (firefoxBuild && (showFirefoxImportUi || folder.configured))}
+{#if showBrowserOnly}
+  <div class="folder" id="model-folder">
+    <h3 class="storage-heading">{t('modelStorageLegend')}</h3>
+    <p class="muted">{t('modelStorageBrowserOnlyHint')}</p>
+  </div>
+{:else if pickerAvailable || (firefoxBuild && (showFirefoxImportUi || folder.configured))}
   <div class="folder" id="model-folder" aria-busy={busy || readingFolder}>
     {#if pickerAvailable}
       <ModelStorageChoice
@@ -452,6 +458,11 @@
 {/if}
 
 <style>
+  .storage-heading {
+    margin: 0;
+    font-size: 13px;
+  }
+
   .folder {
     display: grid;
     gap: var(--space-2);

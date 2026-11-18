@@ -698,6 +698,9 @@
   "modelStorageIntro": {
     "message": "Choose where the model is stored. Existing models move with the choice."
   },
+  "modelStorageBrowserOnlyHint": {
+    "message": "This browser cannot use a shared folder, so models are stored in this browser."
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "After you press start, choose the folder containing the models and confirm “Upload”. Firefox copies the models into Firefox instead of keeping the folder linked."
   },

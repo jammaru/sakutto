@@ -539,6 +539,24 @@ describe('shared folder activation and recovery', () => {
     expect(folderSettings).toMatch(/\{#if pickerAvailable\}[\s\S]*<ModelStorageChoice/);
   });
 
+  it('explains browser-only storage when Chromium has no folder picker', () => {
+    const branchStart = folderSettings.indexOf('{#if showBrowserOnly}');
+    const branchEnd = folderSettings.indexOf('{:else if pickerAvailable ||', branchStart);
+    expect(branchStart).toBeGreaterThan(-1);
+    expect(branchEnd).toBeGreaterThan(branchStart);
+    const branch = folderSettings.slice(branchStart, branchEnd);
+
+    expect(folderSettings).toMatch(
+      /showBrowserOnly = \$derived\([\s\S]*!firefoxBuild[\s\S]*sharedFolderSupported\(\)[\s\S]*!pickerAvailable/,
+    );
+    expect(branch).toMatch(/<h3[^>]*>\{t\('modelStorageLegend'\)\}<\/h3>/);
+    expect(branch).toContain('<p class="muted">{t(\'modelStorageBrowserOnlyHint\')}</p>');
+    expect(branch).not.toContain('<ModelStorageChoice');
+    expect(branch).not.toContain('<input');
+    expect(branch).not.toContain('showFirefoxImportUi');
+    expect(branch).not.toContain('FolderPermissionRestore');
+  });
+
   it('replaces Firefox settings storage radios with a single import control', () => {
     expect(folderSettings).toContain('showFirefoxImport');
     expect(folderSettings).toContain('refreshCatalogReady');

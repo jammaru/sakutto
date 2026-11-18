@@ -698,6 +698,9 @@
   "modelStorageIntro": {
     "message": "Chọn nơi lưu mô hình. Các mô hình hiện có sẽ được di chuyển theo lựa chọn."
   },
+  "modelStorageBrowserOnlyHint": {
+    "message": "Trình duyệt này không thể sử dụng thư mục dùng chung, vì vậy mô hình sẽ được lưu trong trình duyệt này."
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "Sau khi nhấn Bắt đầu, hãy chọn thư mục chứa mô hình và xác nhận “Tải lên”. Firefox sao chép mô hình vào Firefox thay vì tiếp tục liên kết thư mục."
   },

@@ -698,6 +698,9 @@
   "modelStorageIntro": {
     "message": "Scegli dove viene salvato il modello. I modelli esistenti vengono spostati in base alla scelta."
   },
+  "modelStorageBrowserOnlyHint": {
+    "message": "Questo browser non consente di usare cartelle condivise, quindi i modelli vengono salvati nel browser."
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "Dopo aver premuto Avvia, scegli la cartella contenente i modelli e conferma «Carica». Firefox copia i modelli in Firefox invece di mantenere la cartella collegata."
   },

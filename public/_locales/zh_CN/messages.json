@@ -698,6 +698,9 @@
   "modelStorageIntro": {
     "message": "选择模型的保存位置。现有模型会随选择移动。"
   },
+  "modelStorageBrowserOnlyHint": {
+    "message": "此浏览器无法使用共享文件夹，因此模型将保存在此浏览器中。"
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "点击开始后，请选择包含模型的文件夹并确认“上传”。Firefox 会将模型复制到 Firefox 中，而不会继续链接该文件夹。"
   },

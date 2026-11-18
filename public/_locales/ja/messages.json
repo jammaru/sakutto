@@ -698,6 +698,9 @@
   "modelStorageIntro": {
     "message": "モデルの保存先を選びます。既存のモデルは選択に合わせて移動します。"
   },
+  "modelStorageBrowserOnlyHint": {
+    "message": "このブラウザでは共有フォルダを使えないため、モデルはこのブラウザ内に保存されます。"
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "「ライセンスに同意して開始」を押すとフォルダ選択が開きます。モデルがあるフォルダを選び、「アップロード」を確認してください。Firefox はフォルダを継続利用せず、モデルを Firefox 内にコピーします。"
   },

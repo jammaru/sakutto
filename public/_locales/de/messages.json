@@ -698,6 +698,9 @@
   "modelStorageIntro": {
     "message": "Wählen Sie, wo das Modell gespeichert wird. Vorhandene Modelle werden entsprechend verschoben."
   },
+  "modelStorageBrowserOnlyHint": {
+    "message": "In diesem Browser können keine freigegebenen Ordner verwendet werden. Modelle werden daher im Browser gespeichert."
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "Wählen Sie nach dem Klicken auf „Start“ den Ordner mit den Modellen und bestätigen Sie „Hochladen“. Firefox kopiert die Modelle in Firefox, statt den Ordner weiterhin zu verknüpfen."
   },
