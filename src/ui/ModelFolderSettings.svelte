@@ -9,7 +9,11 @@
     type ModelId,
   } from '@/engine/model/catalog';
   import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
-  import { emptySharedFolderStatus, type SharedFolderStatus } from '@/engine/model/folder-status';
+  import {
+    emptySharedFolderStatus,
+    sharedFolderStorageChoice,
+    type SharedFolderStatus,
+  } from '@/engine/model/folder-status';
   import {
     SHARED_FOLDER_CHANGED_EVENT,
     notifySharedFolderChanged,
@@ -92,13 +96,9 @@
     );
   }
 
-  function currentChoice(status: SharedFolderStatus): ModelStorageChoiceValue {
-    return status.configured && status.permission === 'granted' ? 'folder' : 'browser';
-  }
-
   function applyStatus(status: SharedFolderStatus): void {
     folder = status;
-    selected = currentChoice(status);
+    selected = sharedFolderStorageChoice(status);
   }
 
   function clearActionMessages(): void {
@@ -124,7 +124,7 @@
     const engine = await requestEngineStatus();
     if (!engine?.sharedFolder || busy) return;
     folder = engine.sharedFolder;
-    selected = currentChoice(folder);
+    selected = sharedFolderStorageChoice(folder);
   }
 
   async function chooseChromiumFolder(): Promise<void> {

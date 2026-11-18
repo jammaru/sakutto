@@ -56,6 +56,13 @@ export function folderRecordsModel(
   return Boolean(modelId && folder?.recordedModels?.includes(modelId));
 }
 
+/** The persisted storage choice is independent of the folder's current permission grant. */
+export function sharedFolderStorageChoice(
+  folder: Pick<SharedFolderStatus, 'configured'> | null | undefined,
+): 'browser' | 'folder' {
+  return folder?.configured ? 'folder' : 'browser';
+}
+
 export function emptySharedFolderStatus(supported: boolean): SharedFolderStatus {
   return {
     supported,
