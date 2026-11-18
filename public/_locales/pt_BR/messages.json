@@ -1495,7 +1495,7 @@
     "message": "Quebras de linha na tradução"
   },
   "plainTextLineBreaksHelp": {
-    "message": "Ao colar documentos, texto de OCR ou trechos de livros, as quebras costumam cair no meio da frase. Elas são unidas na tradução; apenas fins de frase, títulos e linhas em branco aparecem como quebras. A tradução de páginas não muda."
+    "message": "Documentos colados, texto de OCR e trechos de livro geralmente quebram no meio da frase. Essas quebras são unidas na tradução; apenas fins de frase, títulos e linhas em branco aparecem como quebras na tradução. A última opção também marca cada quebra de linha na caixa de texto de origem (↵ para quebras no meio da frase) para você localizar e corrigir antes de traduzir. A tradução de páginas não muda."
   },
   "plainTextLineBreaksNone": {
     "message": "Sem quebras adicionais (padrão)"
@@ -1504,10 +1504,13 @@
     "message": "Quebra entre parágrafos"
   },
   "plainTextLineBreaksBlank": {
-    "message": "Linha em branco entre parágrafos"
+    "message": "Duas quebras de linha em cada quebra do original (uma linha em branco)"
   },
   "plainTextLineBreaksWider": {
-    "message": "Espaçamento maior entre parágrafos"
+    "message": "Quebras de parágrafo na tradução, além de marcas de quebra na caixa de origem"
+  },
+  "typedSourceBreakLegend": {
+    "message": "↵ marca uma quebra de linha no meio da frase; uma linha simples marca uma quebra que a tradução mantém."
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "Sites de legendas personalizados"

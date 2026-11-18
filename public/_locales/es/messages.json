@@ -1495,7 +1495,7 @@
     "message": "Saltos de línea en la traducción"
   },
   "plainTextLineBreaksHelp": {
-    "message": "Al pegar documentos, texto de OCR o fragmentos de libros, los saltos suelen caer a mitad de frase. Se unen para traducir; solo los finales de frase, los títulos y las líneas en blanco aparecen como saltos. La traducción de páginas no cambia."
+    "message": "Los documentos pegados, el texto OCR y los extractos de libros suelen cortar a mitad de frase. Esos saltos se unen para la traducción; solo los finales de frase, los títulos y las líneas en blanco aparecen como saltos en la traducción. La última opción marca además cada salto de línea en el cuadro de texto original (↵ para los saltos dentro de una frase) para que puedas localizarlos y corregirlos antes de traducir. La traducción de páginas no cambia."
   },
   "plainTextLineBreaksNone": {
     "message": "Sin saltos adicionales (predeterminado)"
@@ -1504,10 +1504,13 @@
     "message": "Salto entre párrafos"
   },
   "plainTextLineBreaksBlank": {
-    "message": "Línea en blanco entre párrafos"
+    "message": "Dos saltos de línea en cada salto del texto original (una línea en blanco)"
   },
   "plainTextLineBreaksWider": {
-    "message": "Mayor espacio entre párrafos"
+    "message": "Saltos de párrafo en la traducción y marcas de salto en el cuadro de origen"
+  },
+  "typedSourceBreakLegend": {
+    "message": "↵ señala un salto de línea dentro de una frase; una línea simple señala un salto que la traducción conserva."
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "Sitios de subtítulos personalizados"

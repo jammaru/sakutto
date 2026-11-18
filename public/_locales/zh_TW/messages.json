@@ -1495,7 +1495,7 @@
     "message": "譯文中的換行"
   },
   "plainTextLineBreaksHelp": {
-    "message": "貼上文件、OCR 文字或書籍摘錄時，換行常落在句子中間。翻譯時會將這些內容連接起來，只有句末、標題和空行才會在譯文中顯示為換行。網頁翻譯維持不變。"
+    "message": "貼上的文件、OCR 文字與書籍摘錄常在句子中間斷行。翻譯時會把這些斷行接起來，只有句尾、標題與空行會作為換行反映在譯文中。最後一個選項還會在文字輸入框標出每一處換行（句子中間的換行顯示為 ↵），方便你在翻譯前發現並修正。網頁翻譯不受影響。"
   },
   "plainTextLineBreaksNone": {
     "message": "不額外換行（預設）"
@@ -1504,10 +1504,13 @@
     "message": "段落之間換行"
   },
   "plainTextLineBreaksBlank": {
-    "message": "段落之間空行"
+    "message": "在原文換行的位置，譯文換行兩次（插入空行）"
   },
   "plainTextLineBreaksWider": {
-    "message": "段落間距稍大"
+    "message": "譯文按段落換行，並在輸入框中標出原文換行"
+  },
+  "typedSourceBreakLegend": {
+    "message": "↵ 表示句子中間的換行；細線表示譯文中保留的換行。"
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "自訂字幕網站"

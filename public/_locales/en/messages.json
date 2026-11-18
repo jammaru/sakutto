@@ -1499,7 +1499,7 @@
     "message": "Line breaks in the translation"
   },
   "plainTextLineBreaksHelp": {
-    "message": "Pasted documents, OCR text, and book excerpts often break mid-sentence. Those breaks are joined for translation; only sentence ends, headings, and blank lines appear as breaks in the translation. Page translation is unchanged."
+    "message": "Pasted documents, OCR text, and book excerpts often break mid-sentence. Those breaks are joined for translation; only sentence ends, headings, and blank lines appear as breaks in the translation. The last option also marks each line break in the typed-text source box (↵ marks breaks inside a sentence) so you can spot and fix them before translating. Page translation is unchanged."
   },
   "plainTextLineBreaksNone": {
     "message": "Do not add breaks (default)"
@@ -1508,10 +1508,13 @@
     "message": "Break between paragraphs"
   },
   "plainTextLineBreaksBlank": {
-    "message": "Blank line between paragraphs"
+    "message": "Two line breaks at each source break (an empty line)"
   },
   "plainTextLineBreaksWider": {
-    "message": "Wider gap between paragraphs"
+    "message": "Paragraph breaks in the translation, plus break marks in the source box"
+  },
+  "typedSourceBreakLegend": {
+    "message": "↵ marks a line break inside a sentence; a thin line marks a break the translation keeps."
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "Custom caption sites"

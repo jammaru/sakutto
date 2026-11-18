@@ -1495,7 +1495,7 @@
     "message": "Interruzioni di riga nella traduzione"
   },
   "plainTextLineBreaksHelp": {
-    "message": "Incollando documenti, testo OCR o estratti di libri, le interruzioni cadono spesso a metà frase. Per la traduzione vengono unite; solo fine frase, titoli e righe vuote diventano interruzioni. La traduzione delle pagine resta invariata."
+    "message": "Documenti incollati, testo OCR e stralci di libro si interrompono spesso a metà frase. Quelle interruzioni vengono unite per la traduzione; solo fine frase, titoli e righe vuote compaiono come interruzioni nella traduzione. L'ultima opzione segnala inoltre ogni fine riga nel riquadro del testo originale (↵ per le interruzioni dentro una frase) così puoi trovarle e correggerle prima di tradurre. La traduzione delle pagine non cambia."
   },
   "plainTextLineBreaksNone": {
     "message": "Nessuna interruzione aggiunta (predefinito)"
@@ -1504,10 +1504,13 @@
     "message": "Interruzione tra i paragrafi"
   },
   "plainTextLineBreaksBlank": {
-    "message": "Riga vuota tra i paragrafi"
+    "message": "Due interruzioni di riga a ogni fine riga dell'originale (una riga vuota)"
   },
   "plainTextLineBreaksWider": {
-    "message": "Spazio maggiore tra i paragrafi"
+    "message": "Interruzioni di paragrafo nella traduzione e contrassegni dei fine riga nel riquadro sorgente"
+  },
+  "typedSourceBreakLegend": {
+    "message": "↵ segnala un'interruzione a metà frase; una linea semplice segnala un'interruzione che la traduzione mantiene."
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "Siti di sottotitoli personalizzati"

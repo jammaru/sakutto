@@ -1495,7 +1495,7 @@
     "message": "Jeda baris pada terjemahan"
   },
   "plainTextLineBreaksHelp": {
-    "message": "Saat menempelkan dokumen, teks OCR, atau kutipan buku, jeda baris sering berada di tengah kalimat. Jeda itu digabungkan saat menerjemahkan; hanya akhir kalimat, judul, dan baris kosong yang tampil sebagai jeda. Terjemahan halaman tidak berubah."
+    "message": "Dokumen yang ditempel, teks OCR, dan kutipan buku sering terputus di tengah kalimat. Saat menerjemahkan, pemutusan itu disambung; hanya akhir kalimat, judul, dan baris kosong yang muncul sebagai ganti baris di hasil terjemahan. Opsi terakhir juga menandai setiap ganti baris di kotak teks asal (tanda ↵ untuk putus di tengah kalimat) agar bisa ditemukan dan diperbaiki sebelum menerjemahkan. Terjemahan halaman tidak berubah."
   },
   "plainTextLineBreaksNone": {
     "message": "Tanpa jeda tambahan (default)"
@@ -1504,10 +1504,13 @@
     "message": "Jeda antarparagraf"
   },
   "plainTextLineBreaksBlank": {
-    "message": "Baris kosong antarparagraf"
+    "message": "Dua ganti baris pada setiap ganti baris teks asal (baris kosong)"
   },
   "plainTextLineBreaksWider": {
-    "message": "Jarak antarparagraf lebih lebar"
+    "message": "Ganti baris per paragraf di terjemahan, plus tanda ganti baris di kotak teks asal"
+  },
+  "typedSourceBreakLegend": {
+    "message": "↵ menandai ganti baris di tengah kalimat; garis tipis menandai ganti baris yang dipertahankan dalam terjemahan."
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "Situs subtitle kustom"

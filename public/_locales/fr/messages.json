@@ -1495,7 +1495,7 @@
     "message": "Sauts de ligne dans la traduction"
   },
   "plainTextLineBreaksHelp": {
-    "message": "Les documents collés, le texte OCR ou les extraits de livres contiennent souvent des sauts au milieu d’une phrase. Ils sont réunis pour la traduction ; seuls les fins de phrase, les titres et les lignes vides deviennent des sauts. La traduction des pages reste inchangée."
+    "message": "Les documents collés, le texte OCR et les extraits de livres coupent souvent en pleine phrase. Ces sauts sont reliés pour la traduction ; seuls les fins de phrase, titres et lignes vides apparaissent comme sauts dans la traduction. La dernière option marque aussi chaque saut de ligne dans la zone de texte source (↵ pour les sauts au milieu d'une phrase) afin de les repérer et de les corriger avant de traduire. La traduction de page reste inchangée."
   },
   "plainTextLineBreaksNone": {
     "message": "Aucun saut ajouté (par défaut)"
@@ -1504,10 +1504,13 @@
     "message": "Saut entre les paragraphes"
   },
   "plainTextLineBreaksBlank": {
-    "message": "Ligne vide entre les paragraphes"
+    "message": "Deux sauts de ligne à chaque saut du texte d'origine (une ligne vide)"
   },
   "plainTextLineBreaksWider": {
-    "message": "Espacement plus large entre les paragraphes"
+    "message": "Sauts de paragraphe dans la traduction, plus repères de sauts dans la zone source"
+  },
+  "typedSourceBreakLegend": {
+    "message": "↵ signale un saut de ligne au milieu d'une phrase ; un trait simple signale un saut que la traduction conserve."
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "Sites de sous-titres personnalisés"

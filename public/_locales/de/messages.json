@@ -1495,7 +1495,7 @@
     "message": "Zeilenumbrüche in der Übersetzung"
   },
   "plainTextLineBreaksHelp": {
-    "message": "Beim Einfügen von Dokumenten, OCR-Text oder Buchauszügen stehen Umbrüche oft mitten im Satz. Für die Übersetzung werden sie zusammengefügt; nur Satzenden, Überschriften und Leerzeilen erscheinen als Umbrüche. Die Seitenübersetzung bleibt unverändert."
+    "message": "Eingefügte Dokumente, OCR-Text und Buchauszüge brechen oft mitten im Satz. Diese Umbrüche werden für die Übersetzung verbunden; nur Satzenden, Überschriften und Leerzeilen erscheinen als Umbrüche in der Übersetzung. Die letzte Option markiert außerdem jeden Zeilenumbruch im Quellfeld (↵ für Umbrüche mitten im Satz), damit du sie vor dem Übersetzen findest und korrigieren kannst. Die Seitenübersetzung bleibt unverändert."
   },
   "plainTextLineBreaksNone": {
     "message": "Keine zusätzlichen Umbrüche (Standard)"
@@ -1504,10 +1504,13 @@
     "message": "Umbruch zwischen Absätzen"
   },
   "plainTextLineBreaksBlank": {
-    "message": "Leerzeile zwischen Absätzen"
+    "message": "An jeder Umbruchstelle der Vorlage zwei Zeilenumbrüche (eine Leerzeile)"
   },
   "plainTextLineBreaksWider": {
-    "message": "Etwas größerer Abstand zwischen Absätzen"
+    "message": "Absatzumbrüche in der Übersetzung plus Umbruchmarken im Quellfeld"
+  },
+  "typedSourceBreakLegend": {
+    "message": "↵ kennzeichnet einen Umbruch mitten im Satz; eine schlichte Linie kennzeichnet einen Umbruch, der in der Übersetzung bleibt."
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "Eigene Untertitel-Websites"

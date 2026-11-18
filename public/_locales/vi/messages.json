@@ -1495,7 +1495,7 @@
     "message": "Xuống dòng trong bản dịch"
   },
   "plainTextLineBreaksHelp": {
-    "message": "Khi dán tài liệu, văn bản OCR hoặc trích sách, xuống dòng thường nằm giữa câu. Những chỗ đó được nối lại khi dịch; chỉ cuối câu, tiêu đề và dòng trống mới hiện thành xuống dòng trong bản dịch. Bản dịch trang không thay đổi."
+    "message": "Văn bản dán, chữ OCR và trích đoạn sách hay bị ngắt giữa câu. Khi dịch, các chỗ ngắt đó được nối lại; chỉ kết thúc câu, tiêu đề và dòng trống mới hiện thành xuống dòng trong bản dịch. Tùy chọn cuối cùng còn đánh dấu từng chỗ xuống dòng trong ô văn bản gốc (ký hiệu ↵ cho chỗ ngắt giữa câu) để bạn tìm và sửa trước khi dịch. Dịch trang không thay đổi."
   },
   "plainTextLineBreaksNone": {
     "message": "Không thêm xuống dòng (mặc định)"
@@ -1504,10 +1504,13 @@
     "message": "Xuống dòng giữa các đoạn"
   },
   "plainTextLineBreaksBlank": {
-    "message": "Dòng trống giữa các đoạn"
+    "message": "Xuống dòng hai lần tại mỗi chỗ xuống dòng của bản gốc (thêm dòng trống)"
   },
   "plainTextLineBreaksWider": {
-    "message": "Khoảng cách giữa các đoạn rộng hơn"
+    "message": "Xuống dòng theo đoạn trong bản dịch, kèm dấu xuống dòng trong ô văn bản gốc"
+  },
+  "typedSourceBreakLegend": {
+    "message": "↵ đánh dấu chỗ xuống dòng giữa câu; một đường mảnh đánh dấu chỗ xuống dòng được giữ lại trong bản dịch."
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "Trang phụ đề tùy chỉnh"

@@ -1495,7 +1495,7 @@
     "message": "번역문의 줄바꿈"
   },
   "plainTextLineBreaksHelp": {
-    "message": "문서, OCR 텍스트, 책 일부를 붙여넣으면 문장 중간에 줄바꿈이 생기기 쉽습니다. 번역할 때는 이를 이어 붙이고, 문장 끝·제목·빈 줄만 번역문의 줄바꿈으로 표시합니다. 페이지 번역은 바뀌지 않습니다."
+    "message": "붙여넣은 문서나 OCR 텍스트, 책 발췌문에는 문장 중간에 줄바꿈이 섞이곤 합니다. 번역할 때는 이어 붙이고, 문장 끝·제목·빈 줄만 번역문의 줄바꿈으로 반영합니다. 마지막 옵션은 입력란의 원본 줄바꿈마다 표시를 붙여(문장 중간의 줄바꿈은 ↵) 번역 전에 찾아 고칠 수 있게 합니다. 페이지 번역은 달라지지 않습니다."
   },
   "plainTextLineBreaksNone": {
     "message": "줄바꿈 추가 안 함(기본)"
@@ -1504,10 +1504,13 @@
     "message": "문단 사이 줄바꿈"
   },
   "plainTextLineBreaksBlank": {
-    "message": "문단 사이 빈 줄"
+    "message": "원본 줄바꿈 위치에 줄바꿈 두 번 넣기(빈 줄 넣기)"
   },
   "plainTextLineBreaksWider": {
-    "message": "문단 사이 간격 넓게"
+    "message": "번역문은 문단에서 줄바꿈하고, 입력란의 원본 줄바꿈에 표시를 붙이기"
+  },
+  "typedSourceBreakLegend": {
+    "message": "↵는 문장 중간의 줄바꿈을, 가는 선은 번역에서 그대로 남는 줄바꿈을 나타냅니다."
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "사용자 지정 자막 사이트"
