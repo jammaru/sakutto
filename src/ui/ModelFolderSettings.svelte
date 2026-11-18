@@ -9,7 +9,11 @@
     type ModelId,
   } from '@/engine/model/catalog';
   import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
-  import { emptySharedFolderStatus, type SharedFolderStatus } from '@/engine/model/folder-status';
+  import {
+    emptySharedFolderStatus,
+    sharedFolderStorageChoice,
+    type SharedFolderStatus,
+  } from '@/engine/model/folder-status';
   import {
     SHARED_FOLDER_CHANGED_EVENT,
     notifySharedFolderChanged,
@@ -30,7 +34,7 @@
   import ModelStorageChoice, { type ModelStorageChoiceValue } from '@/ui/ModelStorageChoice.svelte';
   import { pickDirectoryFiles } from '@/ui/folder-input';
   import { hasLicenseConsent } from '@/shared/agreement';
-  import { isFirefoxBuild } from '@/shared/browser';
+  import { isBraveBrowser, isFirefoxBuild } from '@/shared/browser';
   import { openOrFocusExtensionTab } from '@/shared/extension-tabs';
   import { modelCanTranslate } from '@/shared/engine-status';
   import { t, type MessageKey } from '@/shared/i18n';
@@ -47,6 +51,7 @@
   } from '@/shared/messages';
 
   const firefoxBuild = isFirefoxBuild();
+  const braveBrowser = isBraveBrowser();
   const folderSizeLabel = formatByteSizeList([
     getModel(DEFAULT_MODEL_ID).size,
     getModel(HIGH_QUALITY_MODEL_ID).size,
@@ -76,6 +81,7 @@
   let copyInput = $state<HTMLInputElement | null>(null);
   let copyController = $state.raw<AbortController | null>(null);
   let pickerAvailable = $derived(sharedFolderPickerAvailable());
+  let showBrowserOnly = $derived(!firefoxBuild && sharedFolderSupported() && !pickerAvailable);
   let highlightPick = $derived(shouldHighlightFolderPicker(location.href));
   let showFirefoxImport = $derived(firefoxBuild && !pickerAvailable && !catalogReady);
   let showFirefoxImportUi = $derived(
@@ -92,13 +98,9 @@
     );
   }
 
-  function currentChoice(status: SharedFolderStatus): ModelStorageChoiceValue {
-    return status.configured && status.permission === 'granted' ? 'folder' : 'browser';
-  }
-
   function applyStatus(status: SharedFolderStatus): void {
     folder = status;
-    selected = currentChoice(status);
+    selected = sharedFolderStorageChoice(status);
   }
 
   function clearActionMessages(): void {
@@ -124,7 +126,7 @@
     const engine = await requestEngineStatus();
     if (!engine?.sharedFolder || busy) return;
     folder = engine.sharedFolder;
-    selected = currentChoice(folder);
+    selected = sharedFolderStorageChoice(folder);
   }
 
   async function chooseChromiumFolder(): Promise<void> {
@@ -344,7 +346,15 @@
   });
 </script>
 
-{#if pickerAvailable || (firefoxBuild && (showFirefoxImportUi || folder.configured))}
+{#if showBrowserOnly}
+  <div class="folder" id="model-folder">
+    <h3 class="storage-heading">{t('modelStorageLegend')}</h3>
+    <p class="muted">{t('modelStorageBrowserOnlyHint')}</p>
+    {#if braveBrowser}
+      <p class="muted">{t('modelStorageBraveEnableFsaHint')}</p>
+    {/if}
+  </div>
+{:else if pickerAvailable || (firefoxBuild && (showFirefoxImportUi || folder.configured))}
   <div class="folder" id="model-folder" aria-busy={busy || readingFolder}>
     {#if pickerAvailable}
       <ModelStorageChoice
@@ -452,6 +462,11 @@
 {/if}
 
 <style>
+  .storage-heading {
+    margin: 0;
+    font-size: 13px;
+  }
+
   .folder {
     display: grid;
     gap: var(--space-2);

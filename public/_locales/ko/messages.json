@@ -698,6 +698,12 @@
   "modelStorageIntro": {
     "message": "모델을 저장할 위치를 선택하세요. 기존 모델은 선택에 따라 이동합니다."
   },
+  "modelStorageBrowserOnlyHint": {
+    "message": "이 브라우저에서는 공유 폴더를 사용할 수 없으므로 모델이 브라우저 안에 저장됩니다."
+  },
+  "modelStorageBraveEnableFsaHint": {
+    "message": "Brave에서 brave://flags/#file-system-access-api를 Enabled로 설정하고 다시 시작하면 공유 폴더를 사용할 수 있습니다."
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "시작 버튼을 누른 다음 모델이 있는 위치를 선택하고 “업로드”를 확인하세요. Firefox는 선택한 위치를 계속 연결하지 않고 모델을 Firefox 안으로 복사합니다."
   },
@@ -758,10 +764,10 @@
     "message": "Allow folder access"
   },
   "modelFolderPermissionPage": {
-    "message": "Sakutto opens a grant tab. Choose Allow on every visit there when the browser asks."
+    "message": "Sakutto opens a grant tab. In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts); in Chrome, choose “Allow on every visit”."
   },
   "modelFolderPersistentHint": {
-    "message": "브라우저가 요청하면 “모든 방문에서 허용”을 선택하세요(일본어 Chrome: 「サイトアクセス時は常に許可」, 일본어 Edge: 「常に許可」). 그러면 다시 시작한 뒤 추가 클릭이 필요 없습니다."
+    "message": "브라우저가 요청하면 Chrome에서는 “모든 방문에서 허용”을, Edge에서는 “Ask every time I access”를 선택하세요(일본어 Chrome: 「サイトアクセス時は常に許可」, 일본어 Edge: 「アクセスするたびに確認する」; equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). 그러면 다시 시작한 뒤 추가 클릭이 필요 없습니다."
   },
   "modelFolderPickFailed": {
     "message": "The folder could not be selected."
@@ -778,10 +784,10 @@
     "message": "Keep folder access after restart"
   },
   "modelFolderEnableTabBody": {
-    "message": "Choose Allow on every visit (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「常に許可」) so this folder stays allowed after every restart with no clicks."
+    "message": "In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). In Chrome, choose “Allow on every visit” (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「アクセスするたびに確認する」). Either persistent choice keeps this folder allowed after restarts with no extra clicks."
   },
   "modelFolderEnableTabHint": {
-    "message": "If you choose Allow this time only, return here after a restart. Translation still works from the browser copy."
+    "message": "A this-time-only choice lasts only until a restart. Return here to grant access again. Translation still works from the browser copy."
   },
   "modelFolderEnableTabDone": {
     "message": "Folder access is ready. This tab closes automatically."
@@ -844,6 +850,9 @@
   },
   "siteRuleNever": {
     "message": "절대 번역하지 마십시오"
+  },
+  "siteRuleRemove": {
+    "message": "삭제"
   },
   "noSiteRules": {
     "message": "아직 사이트별 설정이 없습니다."
@@ -1489,7 +1498,7 @@
     "message": "번역문의 줄바꿈"
   },
   "plainTextLineBreaksHelp": {
-    "message": "문서, OCR 텍스트, 책 일부를 붙여넣으면 문장 중간에 줄바꿈이 생기기 쉽습니다. 번역할 때는 이를 이어 붙이고, 문장 끝·제목·빈 줄만 번역문의 줄바꿈으로 표시합니다. 페이지 번역은 바뀌지 않습니다."
+    "message": "붙여넣은 문서나 OCR 텍스트, 책 발췌문에는 문장 중간에 줄바꿈이 섞이곤 합니다. 번역할 때는 이어 붙이고, 문장 끝·제목·빈 줄만 번역문의 줄바꿈으로 반영합니다. 마지막 옵션은 입력란의 원본 줄바꿈마다 표시를 붙여(문장 중간의 줄바꿈은 ↵) 번역 전에 찾아 고칠 수 있게 합니다. 페이지 번역은 달라지지 않습니다."
   },
   "plainTextLineBreaksNone": {
     "message": "줄바꿈 추가 안 함(기본)"
@@ -1498,10 +1507,13 @@
     "message": "문단 사이 줄바꿈"
   },
   "plainTextLineBreaksBlank": {
-    "message": "문단 사이 빈 줄"
+    "message": "원본 줄바꿈 위치에 줄바꿈 두 번 넣기(빈 줄 넣기)"
   },
   "plainTextLineBreaksWider": {
-    "message": "문단 사이 간격 넓게"
+    "message": "번역문은 문단에서 줄바꿈하고, 입력란의 원본 줄바꿈에 표시를 붙이기"
+  },
+  "typedSourceBreakLegend": {
+    "message": "↵는 문장 중간의 줄바꿈을, 가는 선은 번역에서 그대로 남는 줄바꿈을 나타냅니다."
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "사용자 지정 자막 사이트"

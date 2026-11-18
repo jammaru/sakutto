@@ -170,6 +170,41 @@ describe('model availability', () => {
     ).toBe(false);
   });
 
+  it('does not ask for folder access when a local server is the engine', () => {
+    // A local server never reads the model folder, so no grant state of that folder
+    // can block its pages — even with every in-browser model deleted.
+    const folder = {
+      supported: true,
+      configured: true,
+      permission: 'prompt' as const,
+      opfsCopies: [],
+      integrityIssues: [],
+    };
+    const absent = {
+      id: DEFAULT_MODEL_ID,
+      state: 'absent' as const,
+      received: 0,
+      total: 1,
+      progress: 0,
+    };
+    expect(
+      sharedFolderNeedsUserAction({
+        model: absent,
+        sharedFolder: folder,
+        engineSource: 'local-server',
+      }),
+    ).toBe(false);
+    expect(
+      sharedFolderNeedsUserAction({
+        model: absent,
+        sharedFolder: folder,
+        engineSource: 'in-browser',
+      }),
+    ).toBe(true);
+    // An older host that did not report an engine source keeps the in-browser rule.
+    expect(sharedFolderNeedsUserAction({ model: absent, sharedFolder: folder })).toBe(true);
+  });
+
   it('does not ask for folder access when OPFS or a ready model can answer', () => {
     const folder = {
       supported: true,

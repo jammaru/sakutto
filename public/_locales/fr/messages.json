@@ -698,6 +698,12 @@
   "modelStorageIntro": {
     "message": "Choisissez où le modèle est enregistré. Les modèles existants suivent ce choix."
   },
+  "modelStorageBrowserOnlyHint": {
+    "message": "Ce navigateur ne permet pas d’utiliser un dossier partagé. Les modèles sont donc enregistrés dans ce navigateur."
+  },
+  "modelStorageBraveEnableFsaHint": {
+    "message": "Dans Brave, définissez brave://flags/#file-system-access-api sur « Enabled » et redémarrez pour utiliser un dossier partagé."
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "Après avoir cliqué sur Démarrer, choisissez le dossier contenant les modèles et confirmez « Téléverser ». Firefox copie les modèles dans Firefox au lieu de conserver le dossier lié."
   },
@@ -758,10 +764,10 @@
     "message": "Allow folder access"
   },
   "modelFolderPermissionPage": {
-    "message": "Sakutto opens a grant tab. Choose Allow on every visit there when the browser asks."
+    "message": "Sakutto opens a grant tab. In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts); in Chrome, choose “Allow on every visit”."
   },
   "modelFolderPersistentHint": {
-    "message": "Lorsque le navigateur le demande, choisissez « Autoriser à chaque visite » (Chrome japonais : 「サイトアクセス時は常に許可」, Edge japonais : 「常に許可」). Aucun clic supplémentaire n’est alors nécessaire après un redémarrage."
+    "message": "Lorsque le navigateur le demande, choisissez « Autoriser à chaque visite » dans Chrome ou “Ask every time I access” dans Edge (Chrome japonais : 「サイトアクセス時は常に許可」, Edge japonais : 「アクセスするたびに確認する」; equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). Aucun clic supplémentaire n’est alors nécessaire après un redémarrage."
   },
   "modelFolderPickFailed": {
     "message": "The folder could not be selected."
@@ -778,10 +784,10 @@
     "message": "Keep folder access after restart"
   },
   "modelFolderEnableTabBody": {
-    "message": "Choose Allow on every visit (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「常に許可」) so this folder stays allowed after every restart with no clicks."
+    "message": "In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). In Chrome, choose “Allow on every visit” (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「アクセスするたびに確認する」). Either persistent choice keeps this folder allowed after restarts with no extra clicks."
   },
   "modelFolderEnableTabHint": {
-    "message": "If you choose Allow this time only, return here after a restart. Translation still works from the browser copy."
+    "message": "A this-time-only choice lasts only until a restart. Return here to grant access again. Translation still works from the browser copy."
   },
   "modelFolderEnableTabDone": {
     "message": "Folder access is ready. This tab closes automatically."
@@ -844,6 +850,9 @@
   },
   "siteRuleNever": {
     "message": "Ne traduisez jamais"
+  },
+  "siteRuleRemove": {
+    "message": "Retirer"
   },
   "noSiteRules": {
     "message": "Aucun paramètre par site pour le moment."
@@ -1489,7 +1498,7 @@
     "message": "Sauts de ligne dans la traduction"
   },
   "plainTextLineBreaksHelp": {
-    "message": "Les documents collés, le texte OCR ou les extraits de livres contiennent souvent des sauts au milieu d’une phrase. Ils sont réunis pour la traduction ; seuls les fins de phrase, les titres et les lignes vides deviennent des sauts. La traduction des pages reste inchangée."
+    "message": "Les documents collés, le texte OCR et les extraits de livres coupent souvent en pleine phrase. Ces sauts sont reliés pour la traduction ; seuls les fins de phrase, titres et lignes vides apparaissent comme sauts dans la traduction. La dernière option marque aussi chaque saut de ligne dans la zone de texte source (↵ pour les sauts au milieu d'une phrase) afin de les repérer et de les corriger avant de traduire. La traduction de page reste inchangée."
   },
   "plainTextLineBreaksNone": {
     "message": "Aucun saut ajouté (par défaut)"
@@ -1498,10 +1507,13 @@
     "message": "Saut entre les paragraphes"
   },
   "plainTextLineBreaksBlank": {
-    "message": "Ligne vide entre les paragraphes"
+    "message": "Deux sauts de ligne à chaque saut du texte d'origine (une ligne vide)"
   },
   "plainTextLineBreaksWider": {
-    "message": "Espacement plus large entre les paragraphes"
+    "message": "Sauts de paragraphe dans la traduction, plus repères de sauts dans la zone source"
+  },
+  "typedSourceBreakLegend": {
+    "message": "↵ signale un saut de ligne au milieu d'une phrase ; un trait simple signale un saut que la traduction conserve."
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "Sites de sous-titres personnalisés"

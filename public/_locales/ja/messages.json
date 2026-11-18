@@ -698,6 +698,12 @@
   "modelStorageIntro": {
     "message": "モデルの保存先を選びます。既存のモデルは選択に合わせて移動します。"
   },
+  "modelStorageBrowserOnlyHint": {
+    "message": "このブラウザでは共有フォルダを使えないため、モデルはこのブラウザ内に保存されます。"
+  },
+  "modelStorageBraveEnableFsaHint": {
+    "message": "Braveの場合は brave://flags/#file-system-access-api を Enabled にして再起動すると、共有フォルダを使えます。"
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "「ライセンスに同意して開始」を押すとフォルダ選択が開きます。モデルがあるフォルダを選び、「アップロード」を確認してください。Firefox はフォルダを継続利用せず、モデルを Firefox 内にコピーします。"
   },
@@ -758,10 +764,10 @@
     "message": "フォルダへのアクセスを許可"
   },
   "modelFolderPermissionPage": {
-    "message": "Sakuttoの許可タブが開きます。表示されたら「サイトアクセス時は常に許可」（Edge: 「常に許可」）を選んでください。"
+    "message": "Sakuttoの許可タブが開きます。表示されたら、Chromeでは「サイトアクセス時は常に許可」、Edgeでは「アクセスするたびに確認する」（Chromeの「サイトアクセス時は常に許可」にあたる項目で、名前と違って次から確認されません）を選んでください。"
   },
   "modelFolderPersistentHint": {
-    "message": "ブラウザから求められたら「サイトアクセス時は常に許可」（Chrome）または「常に許可」（Edge）を選んでください。再起動後も追加のクリックは不要になります。"
+    "message": "ブラウザから求められたら、Chromeでは「サイトアクセス時は常に許可」、Edgeでは「アクセスするたびに確認する」（Chromeの「サイトアクセス時は常に許可」にあたる項目で、名前と違って次から確認されません）を選んでください。再起動後も追加のクリックは不要になります。"
   },
   "modelFolderPickFailed": {
     "message": "フォルダを選べませんでした。"
@@ -778,10 +784,10 @@
     "message": "再起動後もフォルダへのアクセスを続ける"
   },
   "modelFolderEnableTabBody": {
-    "message": "「サイトアクセス時は常に許可」（Edge: 「常に許可」）を選ぶと、再起動後もこのフォルダは許可されたままになり、追加操作は不要です。"
+    "message": "Chromeでは「サイトアクセス時は常に許可」、Edgeでは「アクセスするたびに確認する」（Chromeの「サイトアクセス時は常に許可」にあたる項目で、名前と違って次から確認されません）を選ぶと、再起動後もこのフォルダは許可されたままになり、追加操作は不要です。"
   },
   "modelFolderEnableTabHint": {
-    "message": "「今回のみ許可」だけの場合は、再起動後に再度このページを開いてください。翻訳はブラウザ内のコピーで続きます。"
+    "message": "Chromeの「今回のみ許可」やEdgeの「この時間を許可する」を選んだ場合は、再起動後に再度このページを開いてください。翻訳はブラウザ内のコピーで続きます。"
   },
   "modelFolderEnableTabDone": {
     "message": "準備ができました。このタブは自動で閉じます。"
@@ -844,6 +850,9 @@
   },
   "siteRuleNever": {
     "message": "翻訳しません"
+  },
+  "siteRuleRemove": {
+    "message": "削除"
   },
   "noSiteRules": {
     "message": "サイトごとの設定はまだありません。"
@@ -1493,7 +1502,7 @@
     "message": "訳文の改行"
   },
   "plainTextLineBreaksHelp": {
-    "message": "書類や本の貼り付け、OCR の文章では文の途中に改行が入ることがあります。翻訳時はそれらをつなげ、文末・見出し・空行の位置だけを訳文の改行として反映します。ページ翻訳は変わりません。"
+    "message": "書類や本の貼り付け、OCR の文章では文の途中に改行が入ることがあります。翻訳時はそれらをつなげ、文末・見出し・空行の位置だけを訳文の改行として反映します。最後のオプションは、テキスト入力欄の原文の改行すべてに印をつけ（文の途中の改行は ↵ と表示）、翻訳前に見つけて直せるようにします。ページ翻訳は変わりません。"
   },
   "plainTextLineBreaksNone": {
     "message": "改行しない（従来どおり）"
@@ -1502,10 +1511,13 @@
     "message": "段落で改行"
   },
   "plainTextLineBreaksBlank": {
-    "message": "段落の間を空ける"
+    "message": "原文の改行の位置で、訳文は改行を2回入れる（空行を入れる）"
   },
   "plainTextLineBreaksWider": {
-    "message": "段落の間を少し広げる"
+    "message": "段落で改行し、入力欄の原文の改行に印をつける"
+  },
+  "typedSourceBreakLegend": {
+    "message": "↵ は文の途中の改行を、細い線は翻訳時にそのまま残す改行を示します。"
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "独自の字幕サイト"

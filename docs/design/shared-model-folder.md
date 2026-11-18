@@ -26,17 +26,18 @@ Edge; the picker steps and the persistence hint sit under it. The popup
 never asks an OPFS user to move. Settings keeps the folder option available
 for people who chose browser storage (“Share the model folder across
 Chromium browsers” / 「Chromiumブラウザ間でモデルフォルダを共有する」).
-Grant from the Settings tab and pick “Allow on every visit” when the browser
-offers it (Japanese Chrome: 「サイトアクセス時は常に許可」; Japanese Edge:
-「常に許可」). The prompt may not appear. A one-click re-grant may sometimes
-be needed. After the folder copy verifies, the OPFS copy is removed (a move). Cancel or Chrome's block dialog stays on the screen with the same
+Grant from the Settings tab. In Edge, pick “Ask every time I access”
+(Japanese Edge: 「アクセスするたびに確認する」; equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). In Chrome, pick “Allow on every
+visit” (Japanese Chrome: 「サイトアクセス時は常に許可」). The prompt may not
+appear. A one-click re-grant may sometimes be needed. After the folder copy verifies, the OPFS copy is removed (a move). Cancel or Chrome's block dialog stays on the screen with the same
 one-line hint and does not download.
 
 A Settings pick runs `showDirectoryPicker` and
-`requestPermission({ mode: 'readwrite' })` on that tab, so Chrome can offer
-“Allow on every visit” (Japanese Chrome: 「サイトアクセス時は常に許可」;
-Japanese Edge: 「常に許可」). A popup click is this-visit only, and offscreen
-never calls `requestPermission`. The copy into the folder verifies size and
+`requestPermission({ mode: 'readwrite' })` on that tab, so Chromium can offer
+its persistent choice: “Allow on every visit” in Chrome (Japanese Chrome:
+「サイトアクセス時は常に許可」) or “Ask every time I access” in Edge (Japanese
+Edge: 「アクセスするたびに確認する」; equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). A popup click is this-visit only, and
+offscreen never calls `requestPermission`. The copy into the folder verifies size and
 SHA-256. The verified OPFS copy is removed after that copy verifies, so the
 folder becomes the single copy. Switching back to browser storage copies the
 verified folder files into OPFS and never deletes the files in the user's

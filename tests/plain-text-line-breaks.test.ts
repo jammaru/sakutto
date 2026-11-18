@@ -8,7 +8,7 @@ import {
   preparePlainTextForModel,
   type PlainTextBreakMap,
 } from '@/shared/plain-text-line-breaks';
-import { normalizeTypedInput } from '@/shared/typed-translation';
+import { copyTranslation, normalizeTypedInput } from '@/shared/typed-translation';
 
 function prepared(source: string): { modelText: string; breakMap: PlainTextBreakMap } {
   return preparePlainTextForModel(source);
@@ -62,16 +62,37 @@ describe('plain text line break modes', () => {
 
     expect(apply(source, translation, 'keep')).toBe('寒い朝が始まった。\n彼はドアを開けた。');
     expect(apply(source, translation, 'blank')).toBe('寒い朝が始まった。\n\n彼はドアを開けた。');
-    expect(apply(source, translation, 'wider')).toEqual({
-      text: '寒い朝が始まった。\n彼はドアを開けた。',
-      wideGapAfterLine: [true, false],
-    });
+    // `wider` now marks the typed source box instead of spacing the translation, so its
+    // output text is the `keep` text with real newline characters in the string.
+    expect(apply(source, translation, 'wider')).toBe('寒い朝が始まった。\n彼はドアを開けた。');
     expect(stripBreaks(apply(source, translation, 'keep') as string)).toBe(
       stripBreaks(translation),
     );
-    expect(stripBreaks((apply(source, translation, 'wider') as { text: string }).text)).toBe(
+    expect(stripBreaks(apply(source, translation, 'wider') as string)).toBe(
       stripBreaks(translation),
     );
+  });
+
+  it('puts two real newline characters in the data the typed copy button writes', async () => {
+    const source = 'The cold morning began.\nHe opened the door.';
+    const translation = '寒い朝が始まった。彼はドアを開けた。';
+    // The typed page builds the copy string exactly this way: prepare, translate, then
+    // apply the mode, and hand the applied string to `copyTranslation`.
+    const { engineText, breakMap } = plainTextTranslationInput(source, 'blank');
+    const copied = applyPlainTextLineBreaks(breakMap!.modelText, translation, breakMap!, 'blank');
+
+    expect(engineText).toBe('The cold morning began. He opened the door.');
+    expect(copied).toBe('寒い朝が始まった。\n\n彼はドアを開けた。');
+
+    const written: string[] = [];
+    const clipboard = { writeText: async (text: string) => void written.push(text) };
+    const ok = await copyTranslation(copied, clipboard);
+
+    expect(ok).toBe(true);
+    expect(written).toEqual(['寒い朝が始まった。\n\n彼はドアを開けた。']);
+    // A manual selection copy of the same rendered result yields the same bytes: the
+    // string itself carries the empty line, not a CSS margin.
+    expect(written[0]?.includes('\n\n')).toBe(true);
   });
 
   it('keeps internal spaces for a none-mode selection and normalizes other modes', () => {
@@ -154,10 +175,9 @@ describe('plain text line break modes', () => {
     expect(apply(source, translation, 'blank')).toBe(
       '寒い朝で、彼女はゆっくりとドアを開けました。\n\n第2章',
     );
-    expect(apply(source, translation, 'wider')).toEqual({
-      text: '寒い朝で、彼女はゆっくりとドアを開けました。\n第2章',
-      wideGapAfterLine: [true, false],
-    });
+    expect(apply(source, translation, 'wider')).toBe(
+      '寒い朝で、彼女はゆっくりとドアを開けました。\n第2章',
+    );
   });
 
   it('maps the reported repro through the typed input flow', () => {
@@ -237,9 +257,7 @@ describe('plain text line break modes', () => {
     });
     expect(prepared(' \n\t\n ').modelText).toBe('');
     for (const mode of PLAIN_TEXT_LINE_BREAK_MODES) {
-      const result = apply('', '', mode);
-      if (mode === 'wider') expect(result).toEqual({ text: '', wideGapAfterLine: [] });
-      else expect(result).toBe('');
+      expect(apply('', '', mode)).toBe('');
     }
   });
 

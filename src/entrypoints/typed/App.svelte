@@ -42,15 +42,16 @@
   import LanguageField from '@/ui/LanguageField.svelte';
   import { displayTargetLanguage } from '@/ui/language-label';
   import { typedEngine } from './engine';
+  import SourceBreakMarks from './SourceBreakMarks.svelte';
 
   let settings = $state<Settings | null>(null);
   let uiLanguage = $state(currentUiLanguage());
   let engineStatus = $state<EngineStatus | null>(null);
   let sourceText = $state('');
+  let sourceEl = $state<HTMLTextAreaElement | null>(null);
   let result = $state('');
   let resultRaw = $state('');
   let resultMap = $state<PlainTextBreakMap | null>(null);
-  let resultGaps = $state<readonly boolean[] | null>(null);
   let translating = $state(false);
   let resultError = $state(false);
   let resultErrorKey = $state<
@@ -87,6 +88,9 @@
   );
   let targetLabel = $derived(displayTargetLanguage(targetLanguage, uiLanguage));
   let hasAnything = $derived(sourceText.length > 0 || result.length > 0);
+  /* `wider` marks every hard line break in the source box so pasted OCR breaks are
+     visible before translating; the translation itself is formatted like `keep`. */
+  let widerMode = $derived(settings?.plainTextLineBreaks === 'wider');
 
   async function refreshEngine() {
     engineStatus = await requestEngineStatus();
@@ -120,22 +124,14 @@
     resultRaw = raw;
     if (!resultMap) {
       result = raw;
-      resultGaps = null;
       return;
     }
-    const applied = applyPlainTextLineBreaks(
+    result = applyPlainTextLineBreaks(
       resultMap.modelText,
       raw,
       resultMap,
       settings?.plainTextLineBreaks ?? 'none',
     );
-    if (typeof applied === 'string') {
-      result = applied;
-      resultGaps = null;
-    } else {
-      result = applied.text;
-      resultGaps = applied.wideGapAfterLine;
-    }
   }
 
   /**
@@ -156,7 +152,6 @@
     result = '';
     resultRaw = '';
     resultMap = null;
-    resultGaps = null;
     resultError = false;
     resultErrorKey = 'typedFailed';
     copied = false;
@@ -355,14 +350,21 @@
             {t('typedClear')}
           </button>
         </div>
-        <textarea
-          bind:value={sourceText}
-          aria-labelledby="typed-source-title"
-          aria-describedby="typed-counter"
-          spellcheck="false"
-          placeholder={t('typedPlaceholder')}
-          onkeydown={onSourceKeydown}></textarea>
+        <div class="source-box" class:break-marks={widerMode}>
+          <textarea
+            bind:this={sourceEl}
+            bind:value={sourceText}
+            aria-labelledby="typed-source-title"
+            aria-describedby="typed-counter"
+            spellcheck="false"
+            placeholder={t('typedPlaceholder')}
+            onkeydown={onSourceKeydown}></textarea>
+          <SourceBreakMarks text={sourceText} enabled={widerMode} source={sourceEl} />
+        </div>
         <div class="pane-foot">
+          {#if widerMode && sourceText.length > 0}
+            <p class="legend">{t('typedSourceBreakLegend')}</p>
+          {/if}
           <p id="typed-counter" class="counter" class:over={tooLong}>
             {t('typedCounter', [String(trimmed.length), String(MAX_TYPED_CHARS)])}
           </p>
@@ -416,19 +418,9 @@
         {:else if resultError}
           <p class="error note" role="alert">{t(resultErrorKey)}</p>
         {:else if result.trim().length > 0}
-          {#if resultGaps}
-            <output class="result wider" lang={targetLanguage} aria-labelledby="typed-result-title">
-              {#each result.split('\n') as line, index (index)}
-                <span class="result-line" class:wide-gap={resultGaps[index] === true}
-                  >{line.length > 0 ? line : '\u00a0'}</span
-                >
-              {/each}
-            </output>
-          {:else}
-            <output class="result" lang={targetLanguage} aria-labelledby="typed-result-title"
-              >{result}</output
-            >
-          {/if}
+          <output class="result" lang={targetLanguage} aria-labelledby="typed-result-title"
+            >{result}</output
+          >
         {:else}
           <p class="muted empty">{t('typedResultEmpty')}</p>
         {/if}
@@ -627,7 +619,12 @@
     opacity: 1;
   }
 
+  .source-box {
+    position: relative;
+  }
+
   textarea {
+    display: block;
     width: 100%;
     min-height: 240px;
     padding: 4px 0 0;
@@ -639,6 +636,17 @@
     resize: vertical;
   }
 
+  /* A gutter keeps the `wider` chips off the text, so a chip never covers the end of
+     a line — the very place the reader is asked to inspect. The marks mirror reads the
+     same value and matches the textarea's wrap width. */
+  .source-box.break-marks {
+    --source-break-gutter: 2em;
+  }
+
+  .source-box.break-marks textarea {
+    padding-right: var(--source-break-gutter);
+  }
+
   .result {
     display: block;
     min-height: 240px;
@@ -647,14 +655,6 @@
     line-height: 1.75;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-  }
-
-  .result-line {
-    display: block;
-  }
-
-  .result-line.wide-gap {
-    margin-bottom: 0.9em;
   }
 
   .empty {
@@ -673,6 +673,12 @@
     display: flex;
     justify-content: flex-end;
     min-height: 18px;
+  }
+
+  .legend {
+    margin-right: auto;
+    color: var(--muted);
+    font-size: 12px;
   }
 
   .counter,

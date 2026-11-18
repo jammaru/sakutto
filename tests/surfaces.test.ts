@@ -268,6 +268,37 @@ describe('typed translation layout', () => {
 });
 
 /**
+ * `wider` is the OCR-reading aid: the typed page marks each hard break in the source box
+ * (↵ for breaks inside a sentence) so the reader can fix them before translating, and
+ * the translation itself carries normal single breaks. The translation-side wide-gap CSS
+ * is gone on every surface, so copy and manual selection hand over real newline bytes.
+ */
+describe('typed source break marks', () => {
+  const marks = source('entrypoints/typed/SourceBreakMarks.svelte');
+
+  it('gates the marks on the wider mode and keeps the textarea native', () => {
+    expect(typed).toContain('SourceBreakMarks');
+    expect(typed).toContain("settings?.plainTextLineBreaks === 'wider'");
+    expect(typed).toContain('bind:value={sourceText}');
+    expect(typed).toContain('bind:this={sourceEl}');
+    // The marks are a decorative layer over the box, never a second editor.
+    expect(typed).not.toContain('contenteditable');
+    expect(marks).toContain('aria-hidden="true"');
+    expect(marks).toContain('pointer-events: none');
+    expect(marks).toContain('segmentSourceText');
+    expect(marks).toContain('sourceBreakMarksFromSegments');
+  });
+
+  it('renders the result as one plain text node without per-line gap spans', () => {
+    expect(typed).toMatch(/<output class="result"[\s\S]*?\{result\}<\/output/u);
+    expect(typed).not.toContain('wide-gap');
+    expect(typed).not.toContain('resultGaps');
+    // A legend names the marks while the mode is on.
+    expect(typed).toContain("t('typedSourceBreakLegend')");
+  });
+});
+
+/**
  * The browser decides which keys run a command and has no API for changing them, so the
  * only way to let a reader rebind one is to send them to its own editor. A settings screen
  * that showed a key it could not change, or offered an edit box of its own, would be lying.
@@ -537,6 +568,62 @@ describe('shared folder activation and recovery', () => {
     expect(storageChoice).toContain('SharedFolderBenefits');
     expect(onboarding).toContain('<ModelStorageChoice');
     expect(folderSettings).toMatch(/\{#if pickerAvailable\}[\s\S]*<ModelStorageChoice/);
+  });
+
+  it('explains browser-only storage when Chromium has no folder picker', () => {
+    const branchStart = folderSettings.indexOf('{#if showBrowserOnly}');
+    const branchEnd = folderSettings.indexOf('{:else if pickerAvailable ||', branchStart);
+    expect(branchStart).toBeGreaterThan(-1);
+    expect(branchEnd).toBeGreaterThan(branchStart);
+    const branch = folderSettings.slice(branchStart, branchEnd);
+
+    expect(folderSettings).toMatch(
+      /showBrowserOnly = \$derived\([\s\S]*!firefoxBuild[\s\S]*sharedFolderSupported\(\)[\s\S]*!pickerAvailable/,
+    );
+    expect(branch).toMatch(/<h3[^>]*>\{t\('modelStorageLegend'\)\}<\/h3>/);
+    expect(branch).toContain('<p class="muted">{t(\'modelStorageBrowserOnlyHint\')}</p>');
+    expect(branch).not.toContain('<ModelStorageChoice');
+    expect(branch).not.toContain('<input');
+    expect(branch).not.toContain('showFirefoxImportUi');
+    expect(branch).not.toContain('FolderPermissionRestore');
+  });
+
+  it('shows the Brave FSA hint only in browser-only branches, not in feature detection', () => {
+    for (const [surface, branchEndMarker] of [
+      [folderSettings, '{:else if pickerAvailable ||'],
+      [onboarding, '{:else if pickerAvailable || !sharedFolderSupported()}'],
+    ] as const) {
+      const branchStart = surface.indexOf('{#if showBrowserOnly}');
+      const branchEnd = surface.indexOf(branchEndMarker, branchStart);
+      expect(branchStart).toBeGreaterThan(-1);
+      expect(branchEnd).toBeGreaterThan(branchStart);
+      const branch = surface.slice(branchStart, branchEnd);
+
+      expect(branch).toContain("t('modelStorageBrowserOnlyHint')");
+      expect(branch).toContain('{#if braveBrowser}');
+      expect(branch).toContain("t('modelStorageBraveEnableFsaHint')");
+      expect(branch).not.toContain('<ModelStorageChoice');
+      expect(branch).not.toContain('<input');
+      const gate = surface.split('\n').find((line) => line.includes('let showBrowserOnly ='));
+      expect(gate).toContain('!pickerAvailable');
+      expect(gate).not.toMatch(/brave|userAgent/i);
+    }
+
+    const sharedFolder = source('engine/model/shared-folder.ts');
+    const pickerCheck = sharedFolder.slice(
+      sharedFolder.indexOf('export function sharedFolderPickerAvailable'),
+      sharedFolder.indexOf('export function lookupDirectoryPicker'),
+    );
+    expect(pickerCheck).toContain("typeof picker === 'function'");
+    expect(pickerCheck).not.toMatch(/brave|userAgent|navigator/i);
+    for (const path of [
+      'entrypoints/folder-enable/App.svelte',
+      'entrypoints/offscreen/main.ts',
+      'engine/offscreen/host.ts',
+      'engine/model/folder-session.ts',
+    ]) {
+      expect(source(path), path).not.toMatch(/brave|userAgent/i);
+    }
   });
 
   it('replaces Firefox settings storage radios with a single import control', () => {

@@ -1,4 +1,4 @@
-import type { ModelStatus } from './engine-status';
+import type { EngineSource, ModelStatus } from './engine-status';
 
 /**
  * Displayed bytes only move forward. A resumed prefix is hashed before the transfer continues,
@@ -13,6 +13,17 @@ export function modelRemovalOutcome(
 ): 'missing' | 'recovered' {
   if (!current || current.id === removed.id) return 'missing';
   return current.state === 'ready' || current.state === 'loaded' ? 'recovered' : 'missing';
+}
+
+/**
+ * Whether a delete that removed the active model has to stop page translation. The
+ * in-browser engine just lost the file it was reading, so its pages stop and show the
+ * missing-model notice. A local server never reads the GGUF file, so its pages keep
+ * translating through the removal — the same rule `translationStartBlocked` applies to
+ * start controls.
+ */
+export function modelRemovalStopsTranslation(engineSource: EngineSource | undefined): boolean {
+  return engineSource !== 'local-server';
 }
 
 export function advanceModelStatus(previous: ModelStatus | null, next: ModelStatus): ModelStatus {

@@ -698,6 +698,12 @@
   "modelStorageIntro": {
     "message": "เลือกตำแหน่งจัดเก็บโมเดล โมเดลที่มีอยู่จะถูกย้ายตามที่เลือก"
   },
+  "modelStorageBrowserOnlyHint": {
+    "message": "เบราว์เซอร์นี้ไม่สามารถใช้โฟลเดอร์ที่ใช้ร่วมกันได้ โมเดลจึงถูกจัดเก็บไว้ในเบราว์เซอร์นี้"
+  },
+  "modelStorageBraveEnableFsaHint": {
+    "message": "สำหรับ Brave ให้ตั้งค่า brave://flags/#file-system-access-api เป็น Enabled แล้วรีสตาร์ตเพื่อใช้โฟลเดอร์ที่ใช้ร่วมกัน"
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "หลังจากกดเริ่ม ให้เลือกโฟลเดอร์ที่มีโมเดลและยืนยัน “อัปโหลด” Firefox จะคัดลอกโมเดลไว้ใน Firefox แทนการใช้โฟลเดอร์ที่เชื่อมไว้ต่อ"
   },
@@ -758,10 +764,10 @@
     "message": "Allow folder access"
   },
   "modelFolderPermissionPage": {
-    "message": "Sakutto opens a grant tab. Choose Allow on every visit there when the browser asks."
+    "message": "Sakutto opens a grant tab. In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts); in Chrome, choose “Allow on every visit”."
   },
   "modelFolderPersistentHint": {
-    "message": "เมื่อเบราว์เซอร์ถาม ให้เลือก “อนุญาตทุกครั้งที่เข้าชม” (Chrome ภาษาญี่ปุ่น: 「サイトアクセス時は常に許可」, Edge ภาษาญี่ปุ่น: 「常に許可」) หลังรีสตาร์ตจะไม่ต้องคลิกเพิ่ม"
+    "message": "เมื่อเบราว์เซอร์ถาม ให้เลือก “อนุญาตทุกครั้งที่เข้าชม” ใน Chrome หรือ “Ask every time I access” ใน Edge (Chrome ภาษาญี่ปุ่น: 「サイトアクセス時は常に許可」, Edge ภาษาญี่ปุ่น: 「アクセスするたびに確認する」; equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts) หลังรีสตาร์ตจะไม่ต้องคลิกเพิ่ม"
   },
   "modelFolderPickFailed": {
     "message": "The folder could not be selected."
@@ -778,10 +784,10 @@
     "message": "Keep folder access after restart"
   },
   "modelFolderEnableTabBody": {
-    "message": "Choose Allow on every visit (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「常に許可」) so this folder stays allowed after every restart with no clicks."
+    "message": "In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). In Chrome, choose “Allow on every visit” (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「アクセスするたびに確認する」). Either persistent choice keeps this folder allowed after restarts with no extra clicks."
   },
   "modelFolderEnableTabHint": {
-    "message": "If you choose Allow this time only, return here after a restart. Translation still works from the browser copy."
+    "message": "A this-time-only choice lasts only until a restart. Return here to grant access again. Translation still works from the browser copy."
   },
   "modelFolderEnableTabDone": {
     "message": "Folder access is ready. This tab closes automatically."
@@ -844,6 +850,9 @@
   },
   "siteRuleNever": {
     "message": "ห้ามแปลโดยเด็ดขาด"
+  },
+  "siteRuleRemove": {
+    "message": "ลบ"
   },
   "noSiteRules": {
     "message": "ยังไม่มีการตั้งค่ารายไซต์"
@@ -1489,7 +1498,7 @@
     "message": "การขึ้นบรรทัดใหม่ในคำแปล"
   },
   "plainTextLineBreaksHelp": {
-    "message": "เมื่อวางเอกสาร ข้อความจาก OCR หรือข้อความจากหนังสือ มักมีการขึ้นบรรทัดใหม่กลางประโยค ระบบจะรวมข้อความเหล่านี้ก่อนแปล และจะแสดงการขึ้นบรรทัดใหม่เฉพาะจุดจบประโยค หัวข้อ และบรรทัดว่างเท่านั้น การแปลหน้าเว็บไม่เปลี่ยน"
+    "message": "ข้อความที่วาง ข้อความ OCR และช่วงตอนของหนังสือมักถูกตัดกลางประโยค การตัดเหล่านั้นจะถูกเชื่อมเมื่อแปล มีเพียงจุดสิ้นสุดประโยค หัวข้อ และบรรทัดว่างเท่านั้นที่แสดงเป็นการขึ้นบรรทัดในคำแปล ตัวเลือกสุดท้ายยังทำเครื่องหมายทุกจุดขึ้นบรรทัดในช่องข้อความต้นฉบับ (เครื่องหมาย ↵ สำหรับจุดตัดกลางประโยค) เพื่อให้คุณพบและแก้ไขได้ก่อนแปล การแปลหน้าเว็บไม่เปลี่ยนแปลง"
   },
   "plainTextLineBreaksNone": {
     "message": "ไม่เพิ่มบรรทัดใหม่ (ค่าเริ่มต้น)"
@@ -1498,10 +1507,13 @@
     "message": "ขึ้นบรรทัดใหม่ระหว่างย่อหน้า"
   },
   "plainTextLineBreaksBlank": {
-    "message": "เว้นบรรทัดว่างระหว่างย่อหน้า"
+    "message": "ใส่การขึ้นบรรทัดใหม่สองครั้งที่จุดขึ้นบรรทัดของต้นฉบับ (เว้นบรรทัดว่าง)"
   },
   "plainTextLineBreaksWider": {
-    "message": "เพิ่มระยะห่างระหว่างย่อหน้า"
+    "message": "ขึ้นบรรทัดตามย่อหน้าในคำแปล พร้อมเครื่องหมายจุดขึ้นบรรทัดในช่องข้อความต้นฉบับ"
+  },
+  "typedSourceBreakLegend": {
+    "message": "↵ ระบุจุดขึ้นบรรทัดกลางประโยค เส้นบางระบุจุดขึ้นบรรทัดที่คงไว้ในคำแปล"
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "ไซต์คำบรรยายที่กำหนดเอง"

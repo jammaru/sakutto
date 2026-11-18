@@ -2,7 +2,13 @@ import { browser } from 'wxt/browser';
 import { readRuntimeLastError } from '@/shared/runtime-last-error';
 import type { EngineClient } from '@/background/engine-client';
 import { sharedFolderNeedsUserAction, type EngineStatus } from '@/shared/engine-status';
-import { queryStoredFolderPermission, sharedFolderSupported } from '@/engine/model/shared-folder';
+import {
+  queryStoredFolderPermission,
+  sharedFolderSupported,
+  type FolderPermission,
+} from '@/engine/model/shared-folder';
+import { loadSettings } from '@/shared/storage';
+import type { Settings } from '@/shared/settings';
 import {
   clearFolderGrantPending,
   PDF_GRANT_COMMAND,
@@ -39,6 +45,18 @@ async function readEngineStatus(client: EngineClient): Promise<EngineStatus | nu
 }
 
 /**
+ * The stored-permission fallback for a host that has not answered yet. A local server
+ * never reads the model folder, so no grant state can unblock its page commands.
+ */
+export function storedFolderGrantBlocksCommand(
+  settings: Pick<Settings, 'engineSource'> | null,
+  permission: FolderPermission | null,
+): boolean {
+  if (settings?.engineSource === 'local-server') return false;
+  return permission === 'prompt' || permission === 'denied';
+}
+
+/**
  * True only when the shared folder needs a grant before a translation can read it.
  *
  * Status is authoritative when the offscreen document answers. If it is still starting,
@@ -50,8 +68,9 @@ async function folderNeedsGrant(client: EngineClient): Promise<boolean> {
   const status = await readEngineStatus(client);
   if (status) return sharedFolderNeedsUserAction(status);
   if (!sharedFolderSupported()) return false;
+  const settings = await loadSettings().catch(() => null);
   const permission = await queryStoredFolderPermission().catch(() => null);
-  return permission === 'prompt' || permission === 'denied';
+  return storedFolderGrantBlocksCommand(settings, permission);
 }
 
 async function notifyGrantNeeded(tabId: number, command: PageCommandName): Promise<void> {

@@ -2,6 +2,18 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
+## [1.7.1] - 2026-11-18
+
+### Improvements
+
+- The Settings option for line breaks in typed text, the selection popup, and compose preview is easier to use with OCR or pasted book text. “Blank line between paragraphs” now keeps real blank lines in copied translation text, and “Wider gap” shows break marks on the source field without changing how the translation string is stored. (#125)
+
+### Bug Fixes
+
+- On Edge, the Settings model-storage radio now stays on the shared folder after you reopen the page, even when folder permission is still in the prompt state. (#123)
+- When the browser has no shared-folder picker (for example Brave with File System Access API off), Settings and onboarding show a short explanation instead of hiding model storage; Brave users see how to enable the feature flag. When the picker is available, shared-folder storage works like Chrome. (#123)
+- Folder permission guidance now matches Edge’s dialog: choose “Ask every time I access” / 「アクセスするたびに確認する」, explained as the same persistent choice as Chrome’s “Allow on every visit” / 「サイトアクセス時は常に許可」 (despite the wording, no further prompts after restart). (#123, #124)
+
 ## [1.7.0] - 2026-11-18
 
 ### Features

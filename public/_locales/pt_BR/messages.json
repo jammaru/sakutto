@@ -698,6 +698,12 @@
   "modelStorageIntro": {
     "message": "Escolha onde o modelo é armazenado. Os modelos existentes são movidos conforme a escolha."
   },
+  "modelStorageBrowserOnlyHint": {
+    "message": "Este navegador não permite usar pastas compartilhadas, então os modelos são armazenados neste navegador."
+  },
+  "modelStorageBraveEnableFsaHint": {
+    "message": "No Brave, defina brave://flags/#file-system-access-api como Enabled e reinicie para usar uma pasta compartilhada."
+  },
   "modelStorageFirefoxCopyHint": {
     "message": "Depois de pressionar Iniciar, escolha a pasta que contém os modelos e confirme “Enviar”. O Firefox copia os modelos para dentro do Firefox em vez de manter a pasta vinculada."
   },
@@ -758,10 +764,10 @@
     "message": "Allow folder access"
   },
   "modelFolderPermissionPage": {
-    "message": "Sakutto opens a grant tab. Choose Allow on every visit there when the browser asks."
+    "message": "Sakutto opens a grant tab. In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts); in Chrome, choose “Allow on every visit”."
   },
   "modelFolderPersistentHint": {
-    "message": "Quando o navegador pedir, escolha “Permitir em todas as visitas” (Chrome japonês: 「サイトアクセス時は常に許可」, Edge japonês: 「常に許可」). Depois de reiniciar, não serão necessários mais cliques."
+    "message": "Quando o navegador pedir, escolha “Permitir em todas as visitas” no Chrome ou “Ask every time I access” no Edge (Chrome japonês: 「サイトアクセス時は常に許可」, Edge japonês: 「アクセスするたびに確認する」; equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). Depois de reiniciar, não serão necessários mais cliques."
   },
   "modelFolderPickFailed": {
     "message": "The folder could not be selected."
@@ -778,10 +784,10 @@
     "message": "Keep folder access after restart"
   },
   "modelFolderEnableTabBody": {
-    "message": "Choose Allow on every visit (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「常に許可」) so this folder stays allowed after every restart with no clicks."
+    "message": "In Edge, choose “Ask every time I access” (equivalent to Chrome’s “Allow on every visit”; despite the name, no later prompts). In Chrome, choose “Allow on every visit” (Japanese Chrome: 「サイトアクセス時は常に許可」, Japanese Edge: 「アクセスするたびに確認する」). Either persistent choice keeps this folder allowed after restarts with no extra clicks."
   },
   "modelFolderEnableTabHint": {
-    "message": "If you choose Allow this time only, return here after a restart. Translation still works from the browser copy."
+    "message": "A this-time-only choice lasts only until a restart. Return here to grant access again. Translation still works from the browser copy."
   },
   "modelFolderEnableTabDone": {
     "message": "Folder access is ready. This tab closes automatically."
@@ -844,6 +850,9 @@
   },
   "siteRuleNever": {
     "message": "Nunca traduzir"
+  },
+  "siteRuleRemove": {
+    "message": "Remover"
   },
   "noSiteRules": {
     "message": "Ainda não há configurações por site."
@@ -1489,7 +1498,7 @@
     "message": "Quebras de linha na tradução"
   },
   "plainTextLineBreaksHelp": {
-    "message": "Ao colar documentos, texto de OCR ou trechos de livros, as quebras costumam cair no meio da frase. Elas são unidas na tradução; apenas fins de frase, títulos e linhas em branco aparecem como quebras. A tradução de páginas não muda."
+    "message": "Documentos colados, texto de OCR e trechos de livro geralmente quebram no meio da frase. Essas quebras são unidas na tradução; apenas fins de frase, títulos e linhas em branco aparecem como quebras na tradução. A última opção também marca cada quebra de linha na caixa de texto de origem (↵ para quebras no meio da frase) para você localizar e corrigir antes de traduzir. A tradução de páginas não muda."
   },
   "plainTextLineBreaksNone": {
     "message": "Sem quebras adicionais (padrão)"
@@ -1498,10 +1507,13 @@
     "message": "Quebra entre parágrafos"
   },
   "plainTextLineBreaksBlank": {
-    "message": "Linha em branco entre parágrafos"
+    "message": "Duas quebras de linha em cada quebra do original (uma linha em branco)"
   },
   "plainTextLineBreaksWider": {
-    "message": "Espaçamento maior entre parágrafos"
+    "message": "Quebras de parágrafo na tradução, além de marcas de quebra na caixa de origem"
+  },
+  "typedSourceBreakLegend": {
+    "message": "↵ marca uma quebra de linha no meio da frase; uma linha simples marca uma quebra que a tradução mantém."
   },
   "videoCaptionsCustomSitesLabel": {
     "message": "Sites de legendas personalizados"

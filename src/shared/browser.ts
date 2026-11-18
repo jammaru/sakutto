@@ -25,6 +25,14 @@ export function isFirefoxBuild(): boolean {
   return extensionBrowser() === 'firefox';
 }
 
+/** Brave-only explanatory copy; never use this to gate folder availability. */
+export function isBraveBrowser(
+  nav: { readonly brave?: unknown } | undefined = globalThis.navigator as
+    { readonly brave?: unknown } | undefined,
+): boolean {
+  return Boolean(nav?.brave);
+}
+
 /**
  * Chrome's Translator / LanguageDetector APIs. Firefox has neither, so the
  * Chrome-only language list and onboarding note stay hidden there.

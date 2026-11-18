@@ -5,7 +5,13 @@
   import { shouldHintBuiltInFallback } from '@/engine/model/suggestion';
   import type { GlossaryEntry } from '@/engine/types';
   import type { SiteAuto, SiteRule } from '@/dom/sites';
-  import { loadSiteRules, pageHost, saveSiteRule, subscribeSiteRules } from '@/dom/sites';
+  import {
+    deleteSiteRule,
+    loadSiteRules,
+    pageHost,
+    saveSiteRule,
+    subscribeSiteRules,
+  } from '@/dom/sites';
   import type { EngineCapabilities } from '@/shared/capabilities';
   import type { EngineStatus } from '@/shared/engine-status';
   import { hasBuiltInTranslatorUi, isFirefoxBuild } from '@/shared/browser';
@@ -148,6 +154,13 @@
     await saveSiteRule(current);
     hostInput = '';
     glossaryScope = host;
+    await loadRules();
+  }
+
+  async function removeSite(host: string) {
+    await deleteSiteRule(host);
+    // The glossary editor cannot scope to a rule that no longer exists.
+    if (glossaryScope === host) glossaryScope = 'global';
     await loadRules();
   }
 
@@ -341,6 +354,16 @@
                   <option value="never">{t('siteRuleNever')}</option>
                 </select>
               </label>
+              <button
+                class="button secondary site-remove"
+                type="button"
+                aria-label={`${rule.host} ${t('siteRuleRemove')}`}
+                onclick={() => {
+                  void removeSite(rule.host);
+                }}
+              >
+                {t('siteRuleRemove')}
+              </button>
             </div>
           </li>
         {/each}
@@ -714,6 +737,10 @@
   .site-controls {
     display: grid;
     gap: var(--space-2);
+  }
+
+  .site-remove {
+    justify-self: start;
   }
 
   .add-site {
