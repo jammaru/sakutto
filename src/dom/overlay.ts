@@ -202,6 +202,7 @@ const BUBBLE_STYLE = `
   font-size: 0.833em;
 }
 button {
+  box-sizing: border-box;
   margin-top: 0.667em;
   padding: 0.333em 0.667em;
   border: 0;
@@ -214,11 +215,21 @@ button {
 }
 button:focus-visible { outline: 2px solid #0e7490; outline-offset: 2px; }
 button:disabled { opacity: 0.6; cursor: default; }
+/*
+ * The copy control and the close control are the pair of this row. It stretches both to
+ * the taller box, so the icon-only copy control renders at exactly the close control's
+ * height whatever the locale spells on it, instead of following only its own icon box.
+ * Everything else about the pair comes from the shared button rule above.
+ */
+.controls {
+  display: flex;
+  align-items: stretch;
+}
 .copy {
   display: inline-flex;
   align-items: center;
   margin-right: 0.5em;
-  padding: 0.333em 0.5em;
+  padding-inline: 0.5em;
 }
 .copy svg { display: block; width: 1.25em; height: 1.25em; }
 .copy .icon-check { display: none; }
@@ -1083,7 +1094,12 @@ export class PageOverlay {
     copyNote.setAttribute('role', 'status');
     copyNote.setAttribute('aria-live', 'polite');
     copyNote.hidden = true;
-    if (selectable) card.append(copyNote, copy);
+    // Both controls live in one stretched row, so the icon-only box keeps the labeled
+    // box's height instead of only the height of its own glyph.
+    const controls = this.doc.createElement('div');
+    controls.className = 'controls';
+    controls.append(copy);
+    if (selectable) card.append(copyNote, controls);
 
     const button = this.doc.createElement('button');
     button.type = 'button';
@@ -1098,7 +1114,7 @@ export class PageOverlay {
         if (this.onClose) this.onClose();
         else this.hideSelection();
       });
-      card.append(button);
+      controls.append(button);
       const makeHandle = (edge: 'left' | 'right'): HTMLButtonElement => {
         const handle = this.doc.createElement('button');
         handle.type = 'button';

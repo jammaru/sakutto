@@ -388,3 +388,116 @@ describe('selection popup copy control', () => {
     }
   });
 });
+
+describe('selection popup control pair', () => {
+  /*
+   * happy-dom lays nothing out — every rect is 0×0, which is why the page-flow helper
+   * lays pages out by hand — and its em-based computed values come back as NaN. So this
+   * file pins the style contract that makes the pair match, and the e2e spec measures
+   * the real getBoundingClientRect heights in Chromium.
+   */
+
+  function controlPair(): { row: HTMLElement; copy: HTMLButtonElement; close: HTMLButtonElement } {
+    const shadow = popShadow();
+    const row = shadow.querySelector('.controls');
+    const copy = shadow.querySelector('button.copy');
+    const close = shadow.querySelector('.controls button:not(.copy)');
+    if (!(row instanceof HTMLElement)) throw new Error('missing control row');
+    if (!(copy instanceof HTMLButtonElement)) throw new Error('missing copy control');
+    if (!(close instanceof HTMLButtonElement)) throw new Error('missing close control');
+    return { row, copy, close };
+  }
+
+  function bubbleStyle(): string {
+    return popShadow().querySelector('style')?.textContent ?? '';
+  }
+
+  /** The box model inputs happy-dom reads the same way on every access. */
+  function boxModel(element: Element): Record<string, string> {
+    const view = document.defaultView;
+    if (!view) throw new Error('missing window');
+    const style = view.getComputedStyle(element);
+    return {
+      boxSizing: style.boxSizing,
+      lineHeight: style.lineHeight,
+      fontSize: style.fontSize,
+    };
+  }
+
+  it('stretches the icon-only copy control to the close control height', () => {
+    const overlay = mountOverlay();
+    try {
+      overlay.showSelection(RECT, '訳文', 'plamo', false, 'ja');
+      const view = document.defaultView;
+      if (!view) throw new Error('missing window');
+      const { row, copy, close } = controlPair();
+
+      // Both controls sit in one row, in order, and the row stretches them to the taller
+      // box, so the pair keeps one height whatever the locale spells on the close button.
+      expect([...row.children]).toEqual([copy, close]);
+      const rowStyle = view.getComputedStyle(row);
+      expect(rowStyle.display).toBe('flex');
+      expect(rowStyle.alignItems).toBe('stretch');
+
+      // Everything that builds a button's height lives in the shared rule, and the copy
+      // control restates none of it — only its tighter horizontal padding and its gap.
+      const style = bubbleStyle();
+      const shared = /button \{[^}]*\}/.exec(style)?.[0] ?? '';
+      expect(shared).toContain('box-sizing: border-box');
+      expect(shared).toContain('padding: 0.333em 0.667em');
+      expect(shared).toContain('border: 0');
+      expect(shared).toContain('border-radius: 0.5em');
+      expect(shared).toContain('margin-top: 0.667em');
+      const own = /\.copy \{[^}]*\}/.exec(style)?.[0] ?? '';
+      for (const restated of [
+        'padding:',
+        'padding-top',
+        'padding-bottom',
+        'padding-block',
+        'border',
+        'box-sizing',
+        'line-height',
+        'margin-top',
+      ]) {
+        expect(own).not.toContain(restated);
+      }
+
+      // The pair still shares what happy-dom can read reliably, and the copy control
+      // centers its glyph instead of stacking it under a text strut.
+      expect(boxModel(copy)).toEqual(boxModel(close));
+      const copyStyle = view.getComputedStyle(copy);
+      expect(copyStyle.display).toBe('inline-flex');
+      expect(copyStyle.alignItems).toBe('center');
+    } finally {
+      overlay.destroy();
+    }
+  });
+
+  it('keeps the copy box unchanged when the copied state swaps the icon', async () => {
+    const overlay = mountOverlay();
+    try {
+      overlay.showSelection(RECT, '訳文', 'plamo', false, 'ja');
+      const { copy, close } = controlPair();
+      const style = bubbleStyle();
+
+      // One rule sizes both glyphs, so the tick inherits the sheets' box exactly, and the
+      // copied state only picks which glyph is on top. A rule that resized the box would
+      // shift the row; the real rect is measured by the e2e spec.
+      expect(style).toMatch(/\.copy svg \{[^}]*width: 1\.25em;[^}]*height: 1\.25em;/);
+      for (const rule of style.match(/\[data-state='copied'\][^{]*\{[^}]*\}/g) ?? []) {
+        expect(rule).toMatch(/\{ display: (?:none|block); \}/);
+      }
+      const before = boxModel(copy);
+      stubClipboard('ok');
+
+      copy.click();
+      await flush();
+
+      expect(copy.dataset.state).toBe('copied');
+      expect(boxModel(copy)).toEqual(before);
+      expect(boxModel(copy)).toEqual(boxModel(close));
+    } finally {
+      overlay.destroy();
+    }
+  });
+});

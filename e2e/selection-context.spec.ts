@@ -47,6 +47,74 @@ test('translates a selection after the context-menu timing path', async () => {
   }
 });
 
+/** The popup's copy and close controls, measured in the page's own layout engine. */
+async function controlHeights(page: Page): Promise<{ copy: number; close: number }> {
+  return page.evaluate(() => {
+    const root = document.querySelector('sakutto-pop')?.shadowRoot;
+    const copy = root?.querySelector('button.copy');
+    const close = root?.querySelector('.controls button:not(.copy)');
+    return {
+      copy: copy?.getBoundingClientRect().height ?? Number.NaN,
+      close: close?.getBoundingClientRect().height ?? Number.NaN,
+    };
+  });
+}
+
+test('keeps the copy control exactly as tall as the close control', async () => {
+  const extension = await loadExtension('en-US');
+  try {
+    await extension.context.grantPermissions(['clipboard-read', 'clipboard-write'], {
+      origin: FIXTURE_ORIGIN,
+    });
+    await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
+    const page = await extension.context.newPage();
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.goto(FIXTURE_ORIGIN + '/article.html');
+    await openExtensionShadowRoots(extension.worker, page);
+    await injectContentScript(extension.worker, page);
+    await waitForContentSession(extension.worker, page);
+
+    await selectLead(page);
+    await page.waitForTimeout(100);
+    await invokeOnCommandPath(extension.worker, page, 'selection');
+
+    const copy = page.locator('sakutto-pop .copy');
+    await expect(copy).toBeVisible({ timeout: 15_000 });
+    await expect(copy).toBeEnabled({ timeout: 15_000 });
+
+    // The icon-only box must match its labeled neighbor exactly, not just closely.
+    const light = await controlHeights(page);
+    expect(light.copy).toBeGreaterThan(0);
+    expect(light.copy).toBe(light.close);
+
+    // The dark theme repaints both controls; it must not change their geometry.
+    await page.emulateMedia({ colorScheme: 'dark' });
+    const dark = await controlHeights(page);
+    expect(dark.copy).toBe(dark.close);
+    expect(dark.copy).toBe(light.copy);
+
+    // A long locale label widens the row; the pair still shares one height.
+    await page.locator('sakutto-pop .controls button:not(.copy)').evaluate((button) => {
+      button.textContent = 'Übersetzung schließen';
+    });
+    const long = await controlHeights(page);
+    expect(long.copy).toBe(long.close);
+
+    // The tick that replaces the sheets must not resize the control either.
+    await copy.click();
+    await expect
+      .poll(async () => copy.getAttribute('aria-label'), { timeout: 2500 })
+      .toBe('Copied');
+    const copied = await controlHeights(page);
+    expect(copied.copy).toBe(copied.close);
+    expect(copied.copy).toBe(long.copy);
+
+    await page.close();
+  } finally {
+    await extension.close();
+  }
+});
+
 test('copies the translated selection from the popup', async () => {
   const extension = await loadExtension('en-US');
   try {
