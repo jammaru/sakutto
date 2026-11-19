@@ -1047,10 +1047,6 @@ export class CaptionOverlay {
 
   private eventHitsCaption(x: number, y: number): boolean {
     if (this.host.hidden) return false;
-    const wrap = this.shadow()?.querySelector('.wrap');
-    if (wrap instanceof HTMLElement && pointHitsRect(x, y, wrap.getBoundingClientRect())) {
-      return true;
-    }
     for (const node of this.captionLineElements()) {
       if (pointHitsRect(x, y, node.getBoundingClientRect())) return true;
     }
@@ -1059,6 +1055,9 @@ export class CaptionOverlay {
 
   private captionLineElements(): HTMLElement[] {
     const lines: HTMLElement[] = [];
+    if (!this.historyLines.hidden) {
+      lines.push(...this.historyLines.querySelectorAll<HTMLElement>('.history-line'));
+    }
     if (!this.originalLine.hidden) lines.push(this.originalLine);
     if (!this.translatedLine.hidden) lines.push(this.translatedLine);
     return lines;

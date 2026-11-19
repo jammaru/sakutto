@@ -977,6 +977,88 @@ describe('real-time caption translation', () => {
     session.stop();
   });
 
+  it('updates the bilingual original when a refinement keeps the same translation', async () => {
+    document.body.innerHTML = youtubeMarkup('regressionsamejarefine', true);
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    const requests: string[] = [];
+    const engine: PageEngine = {
+      async *translate(segments) {
+        const text = segments[0]?.text ?? '';
+        requests.push(text);
+        for (const segment of segments) {
+          yield { id: segment.id, final: '同じ訳', engine: 'plamo' };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readTrack: async () => '',
+    });
+    session.start();
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
+    segment.textContent = 'Hello';
+    await vi.waitFor(() => {
+      expect(host.getAttribute('data-sakutto-original')).toBe('Hello');
+      expect(host.getAttribute('data-sakutto-caption')).toBe('同じ訳');
+    });
+
+    segment.textContent = 'Hello world';
+    await vi.waitFor(() => {
+      expect(requests).toContain('Hello world');
+      expect(host.getAttribute('data-sakutto-original')).toBe('Hello world');
+      expect(host.getAttribute('data-sakutto-caption')).toBe('同じ訳');
+    });
+    session.stop();
+  });
+
+  it('restarts a static live tail with new formality before it can freeze', async () => {
+    document.body.innerHTML = youtubeMarkup('regressionformalitytail', true);
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    const requests: Array<{ text: string; form: string }> = [];
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        const text = segments[0]?.text ?? '';
+        requests.push({ text, form: options.form });
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: `${options.form}:${segment.text}`,
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readTrack: async () => '',
+    });
+    session.start();
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
+    segment.textContent = 'Static tail';
+    await vi.waitFor(() => {
+      expect(host.getAttribute('data-sakutto-caption')).toBe('polite:Static tail');
+    });
+
+    session.setPreferences({ ...captionPreferences(), form: 'plain' });
+    await vi.waitFor(() => {
+      expect(
+        requests.some((request) => request.text === 'Static tail' && request.form === 'plain'),
+      ).toBe(true);
+      expect(host.getAttribute('data-sakutto-caption')).toBe('plain:Static tail');
+    });
+    await sleep(800);
+    expect(host.getAttribute('data-sakutto-caption')).toBe('plain:Static tail');
+    session.stop();
+  });
+
   it('invalidates a queued tail refinement when the caption vanishes', async () => {
     vi.useFakeTimers();
     document.body.innerHTML = youtubeMarkup('regressionqueuedpaint', true);

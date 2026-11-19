@@ -271,6 +271,8 @@ export class VideoCaptionSession {
   setPreferences(preferences: CaptionSessionPreferences): void {
     const wasEnabled = this.prefs.enabled;
     const targetChanged = this.prefs.targetLanguage !== preferences.targetLanguage;
+    const formalityChanged = this.prefs.form !== preferences.form;
+    const glossaryChanged = this.prefs.glossary !== preferences.glossary;
     const displayChanged = this.prefs.display !== preferences.display;
     const sizeChanged =
       (this.prefs.size ?? VIDEO_CAPTION_SIZE_DEFAULT) !==
@@ -289,7 +291,9 @@ export class VideoCaptionSession {
       this.start();
       return;
     }
-    if (targetChanged) {
+    if (targetChanged || formalityChanged || glossaryChanged) {
+      // Cached tail text alone is not enough: its translation options define the
+      // result. Restart the source so an old-form result can never be committed.
       this.resetCaptionSource();
       this.passthroughNative = false;
       void this.sync(true);
@@ -1703,6 +1707,7 @@ export class VideoCaptionSession {
       (this.hold?.history ?? []).every((line, index) => line === history[index]);
     if (
       this.hold?.cueId === cueId &&
+      this.hold.original === original &&
       this.hold.translation === translation &&
       sameHistory &&
       this.hold.live === live &&

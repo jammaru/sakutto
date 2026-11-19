@@ -56,6 +56,39 @@ describe('caption translator', () => {
     expect(calls).toBe(1);
   });
 
+  it('keeps pipe-delimited context and text in separate cache entries', async () => {
+    let calls = 0;
+    const translator = new CaptionTranslator(
+      engineOf((segments, options) => {
+        calls += 1;
+        return segments.map((segment) => ({
+          id: segment.id,
+          final: `訳:${options.context ?? ''}:${segment.text}`,
+          engine: 'plamo' as const,
+        }));
+      }),
+    );
+    const firstOptions = { tgt: 'ja', form: 'polite' as const, src: 'en', context: 'a|b' };
+    const secondOptions = { ...firstOptions, context: 'a' };
+
+    const first = await translator.translateCue(cue('c'), firstOptions, CAPTION_LIVE_PRIORITY);
+    const second = await translator.translateCue(cue('b|c'), secondOptions, CAPTION_LIVE_PRIORITY);
+
+    expect(first).toBe('訳:a|b:c');
+    expect(second).toBe('訳:a:b|c');
+    expect(calls).toBe(2);
+    expect(translator.getCached('c', firstOptions)).toBe(first);
+    expect(translator.getCached('b|c', secondOptions)).toBe(second);
+
+    await expect(
+      translator.translateCue(cue('c'), firstOptions, CAPTION_LIVE_PRIORITY),
+    ).resolves.toBe(first);
+    await expect(
+      translator.translateCue(cue('b|c'), secondOptions, CAPTION_LIVE_PRIORITY),
+    ).resolves.toBe(second);
+    expect(calls).toBe(2);
+  });
+
   it('returns null for degenerate output so the overlay can keep the original', async () => {
     const collapsed = 'あ'.repeat(200);
     expect(isBrokenTranslation('The station opens at dawn.', collapsed)).toBe(true);

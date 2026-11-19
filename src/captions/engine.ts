@@ -52,7 +52,13 @@ export class CaptionTranslator {
   constructor(private readonly engine: PageEngine) {}
 
   cacheKey(text: string, options: CaptionTranslateOptions): string {
-    return `${options.tgt}|${options.form}|${options.src ?? ''}|${options.context ?? ''}|${text}`;
+    return JSON.stringify([
+      options.tgt,
+      options.form,
+      options.src ?? '',
+      options.context ?? '',
+      text,
+    ]);
   }
 
   getCached(text: string, options: CaptionTranslateOptions): string | undefined {

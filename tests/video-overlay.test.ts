@@ -548,6 +548,37 @@ describe('caption overlay', () => {
     expect(left.x).toBeLessThan(right.x);
   });
 
+  it('ignores blank space reserved above a live line but still hits the rendered line', () => {
+    const { overlay, player, lines } = mountDraggableOverlay();
+    overlay.show({
+      original: 'The station opens at dawn.',
+      translation: '駅は夜明けに開きます。',
+      display: 'replace',
+      pending: false,
+      live: true,
+    });
+    const wrap = overlay.shadow()?.querySelector('.wrap') as HTMLElement;
+    stubRect(wrap, { left: 220, top: 200, width: 200, height: 110 });
+    stubRect(lines.translated, { left: 220, top: 280, width: 200, height: 30 });
+    let clicks = 0;
+    overlay.setOnShortClick(() => {
+      clicks += 1;
+    });
+
+    const blankDown = dispatchPointer(player, 'pointerdown', 320, 210);
+    const blankUp = dispatchPointer(player, 'pointerup', 320, 210);
+    expect(blankDown.defaultPrevented).toBe(false);
+    expect(blankUp.defaultPrevented).toBe(false);
+    expect(clicks).toBe(0);
+
+    const lineDown = dispatchPointer(player, 'pointerdown', 320, 290);
+    const lineUp = dispatchPointer(player, 'pointerup', 320, 290);
+    expect(lineDown.defaultPrevented).toBe(true);
+    expect(lineUp.defaultPrevented).toBe(true);
+    expect(clicks).toBe(1);
+    overlay.detach();
+  });
+
   it('swallows a caption press so the player cannot start hold-to-2x, and short-clicks play/pause', () => {
     const { overlay, host, player } = mountDraggableOverlay();
     const video = player.querySelector('video') as HTMLVideoElement;
@@ -804,21 +835,21 @@ function dispatchPointer(
   x: number,
   y: number,
   extra: PointerEventInit = {},
-): void {
-  target.dispatchEvent(
-    new PointerEvent(type, {
-      bubbles: true,
-      composed: true,
-      cancelable: true,
-      clientX: x,
-      clientY: y,
-      pointerId: 1,
-      isPrimary: true,
-      button: type === 'pointerdown' ? 0 : -1,
-      pointerType: 'mouse',
-      ...extra,
-    }),
-  );
+): PointerEvent {
+  const event = new PointerEvent(type, {
+    bubbles: true,
+    composed: true,
+    cancelable: true,
+    clientX: x,
+    clientY: y,
+    pointerId: 1,
+    isPrimary: true,
+    button: type === 'pointerdown' ? 0 : -1,
+    pointerType: 'mouse',
+    ...extra,
+  });
+  target.dispatchEvent(event);
+  return event;
 }
 
 function mountDraggableOverlay(): {
