@@ -14,8 +14,9 @@ export interface AllSitesPromoPlacementInput {
 
 /**
  * The first all-sites hint stays where it has always been, under the page settings.
- * Once the reader has opened the popup again it moves below the caption toggle and
- * settings, so it remains visible without crowding the page controls. Returning
+ * Once the reader has opened the popup again it moves below the typed-text button,
+ * shortcuts, and caption toggle, so it remains visible without crowding the page
+ * controls. Returning
  * 'hidden' keeps both markup slots behind one placement decision.
  */
 export function resolveAllSitesPromoPlacement({

@@ -991,10 +991,6 @@
     {/if}
   {/if}
 
-  {#if allSitesPromoPlacement === 'bottom'}
-    {@render allSitesHint()}
-  {/if}
-
   {#if settingsError}
     <p class="error" role="alert">
       {settingsError === 'save' ? t('errorSaveSettings') : t('errorSettings')}
@@ -1031,6 +1027,10 @@
   <button class="button secondary block" type="button" onclick={openTyped}>
     {t('openTyped')}
   </button>
+
+  {#if allSitesPromoPlacement === 'bottom'}
+    {@render allSitesHint()}
+  {/if}
 
   <footer class="footer">
     <button class="link-button" type="button" onclick={openOptions}>{t('openOptions')}</button>

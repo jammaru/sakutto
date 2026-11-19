@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
@@ -89,6 +90,30 @@ describe('all-sites promo placement', () => {
         showHint: false,
       }),
     ).toBe('hidden');
+  });
+});
+
+describe('popup markup slots', () => {
+  const popup = readFileSync(new URL('../src/entrypoints/popup/App.svelte', import.meta.url), {
+    encoding: 'utf8',
+  });
+
+  it('renders the top slot before mail access and captions', () => {
+    const top = popup.indexOf("allSitesPromoPlacement === 'top'");
+    const mail = popup.indexOf('data-sakutto="mail-permission"');
+    const captions = popup.indexOf('data-sakutto="video-captions"');
+    expect(top).toBeGreaterThan(-1);
+    expect(top).toBeLessThan(mail);
+    expect(top).toBeLessThan(captions);
+  });
+
+  it('renders the bottom slot after typed text translation and before the footer', () => {
+    const typed = popup.indexOf('onclick={openTyped}');
+    const bottom = popup.indexOf("allSitesPromoPlacement === 'bottom'");
+    const footer = popup.indexOf('<footer class="footer">');
+    expect(typed).toBeGreaterThan(-1);
+    expect(bottom).toBeGreaterThan(typed);
+    expect(footer).toBeGreaterThan(bottom);
   });
 });
 
