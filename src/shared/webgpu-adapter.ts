@@ -95,14 +95,22 @@ export function supportsFastBatches(vendor: unknown, dotProduct: unknown): boole
   return dotProduct === true && typeof vendor === 'string' && FAST_BATCH_VENDORS.has(vendor);
 }
 
+const AMD_VENDOR_PATTERN = /^(?:amd|ati)$/i;
+const AMD_ARCHITECTURE_PATTERN = /^(?:gcn-|rdna-|gfx)/i;
+
 /**
- * Mirrors the wasm vendor gate (wllama patch 0015): the vec flash-attn decode and the
- * backend argmax are measured on NVIDIA only, so every other vendor takes the safe
- * tile-shader decode and the logits readback. The correctness probe inside the wasm is
- * authoritative; this only keeps the TypeScript diagnostics and tests in sync with it.
+ * Mirrors the wasm vendor gate (wllama patch 0015): AMD/ATI adapters, the wave64
+ * hardware whose subgroup shuffles have miscompiled, take the v1.3.0-safe kernels
+ * (tile-shader decode, logits readback, no masked-tile skip). NVIDIA, Apple, Intel,
+ * and unknown vendors keep the fast paths of main. The correctness probe inside the
+ * wasm is authoritative; this only keeps the TypeScript diagnostics and tests in sync
+ * with it.
  */
-export function nvidiaMeasuredFastPaths(vendor: unknown): boolean {
-  return typeof vendor === 'string' && /nvidia/i.test(vendor);
+export function amdWave64SafePath(vendor: unknown, architecture?: unknown): boolean {
+  if (typeof vendor === 'string' && AMD_VENDOR_PATTERN.test(vendor.trim())) {
+    return true;
+  }
+  return typeof architecture === 'string' && AMD_ARCHITECTURE_PATTERN.test(architecture.trim());
 }
 
 function featureNames(features: AdapterSnapshot['features']): string[] {

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { diagnosticFromAdapter, nvidiaMeasuredFastPaths } from '@/shared/webgpu-adapter';
+import { amdWave64SafePath, diagnosticFromAdapter } from '@/shared/webgpu-adapter';
 
 // The wasm gate is patch 0015; these assertions keep the TypeScript mirror honest.
 const PATCH = readFileSync(
@@ -43,11 +43,12 @@ describe('WebGPU vendor gate for wave64 fast paths', () => {
     // gate must not depend on the probed width.
     const diagnostic = diagnosticFromAdapter(adapter({}));
     expect(diagnostic.vendor).toBe('amd');
+    expect(diagnostic.architecture).toBe('gfx902');
     expect(diagnostic.subgroups).toBe(true);
     expect(diagnostic.shaderF16).toBe(true);
 
-    expect(nvidiaMeasuredFastPaths(diagnostic.vendor)).toBe(false);
-    expect(PATCH).toContain('ctx->webgpu_global_ctx->vendor != "nvidia"');
+    expect(amdWave64SafePath(diagnostic.vendor, diagnostic.architecture)).toBe(true);
+    expect(PATCH).toContain('ggml_webgpu_adapter_is_amd(ctx->webgpu_global_ctx->vendor');
     expect(PATCH).toContain('caps.flash_attn_vec        = false;');
     expect(PATCH).toContain('caps.wide_subgroup_shuffle = false;');
   });
@@ -56,10 +57,24 @@ describe('WebGPU vendor gate for wave64 fast paths', () => {
     const diagnostic = diagnosticFromAdapter(adapter({ subgroupMinSize: 32, subgroupMaxSize: 64 }));
     expect(diagnostic.subgroupMaxSize).toBe(64);
 
-    expect(nvidiaMeasuredFastPaths(diagnostic.vendor)).toBe(false);
+    expect(amdWave64SafePath(diagnostic.vendor)).toBe(true);
     // The 0009 width gate stays in place; the vendor gate only removes the
-    // "a probed 32 keeps vec on" hole for vendors that were never measured.
+    // "a probed 32 keeps vec on" hole for the wave64 hardware.
     expect(PATCH).not.toContain('-        if (subgroup_size > 32u');
+  });
+
+  it('recognizes AMD by architecture and by the ati vendor string as well', () => {
+    expect(amdWave64SafePath('ati')).toBe(true);
+    expect(amdWave64SafePath('AMD')).toBe(true);
+    expect(amdWave64SafePath('unknown', 'gcn-1.4')).toBe(true);
+    expect(amdWave64SafePath('unknown', 'rdna-3')).toBe(true);
+    expect(amdWave64SafePath('unknown', 'gfx1103')).toBe(true);
+    expect(amdWave64SafePath('unknown', 'turing')).toBe(false);
+
+    expect(PATCH).toContain('v == "amd" || v == "ati"');
+    expect(PATCH).toContain(
+      'a.rfind("gcn-", 0) == 0 || a.rfind("rdna-", 0) == 0 || a.rfind("gfx", 0) == 0',
+    );
   });
 
   it('keeps the NVIDIA fast path unchanged when the probe allows it', () => {
@@ -76,9 +91,11 @@ describe('WebGPU vendor gate for wave64 fast paths', () => {
     expect(diagnostic.subgroups).toBe(true);
     expect(diagnostic.shaderF16).toBe(true);
 
-    // NVIDIA is excluded by the gate, so its probe result decides as before.
-    expect(nvidiaMeasuredFastPaths(diagnostic.vendor)).toBe(true);
-    expect(PATCH).toContain('if (ctx->webgpu_global_ctx->vendor != "nvidia") {');
+    // NVIDIA is outside the gate, so its probe result decides as before.
+    expect(amdWave64SafePath(diagnostic.vendor, diagnostic.architecture)).toBe(false);
+    // The gate is AMD-only: no NVIDIA compare remains anywhere in the patch.
+    expect(PATCH).not.toContain('!= "nvidia"');
+    expect(PATCH).not.toContain('== "nvidia"');
     // No new probe kernel and no shader edit: nothing extra runs on NVIDIA at startup.
     const addedLines = PATCH.split('\n').filter((line) => line.startsWith('+'));
     expect(addedLines.some((line) => line.includes('static const char * ggml_webgpu_probe'))).toBe(
@@ -87,19 +104,34 @@ describe('WebGPU vendor gate for wave64 fast paths', () => {
     expect(PATCH).not.toContain('.wgsl');
   });
 
-  it('gates the backend argmax the same way, so other vendors scan logits on the CPU', () => {
-    const diagnostic = diagnosticFromAdapter(adapter({ vendor: 'intel' }));
-    expect(nvidiaMeasuredFastPaths(diagnostic.vendor)).toBe(false);
-    expect(nvidiaMeasuredFastPaths('nvidia')).toBe(true);
-    expect(nvidiaMeasuredFastPaths(null)).toBe(false);
-    expect(nvidiaMeasuredFastPaths(undefined)).toBe(false);
+  it('does not gate Apple, Intel, or an unknown vendor either', () => {
+    // The gate is AMD-only: everyone else keeps the fast paths of main.
+    const apple = diagnosticFromAdapter(
+      adapter({ vendor: 'apple', architecture: 'common-3', description: 'Apple M2' }),
+    );
+    const intel = diagnosticFromAdapter(
+      adapter({ vendor: 'intel', architecture: 'xehpg', description: 'Intel Arc A770' }),
+    );
+    expect(apple.vendor).toBe('apple');
+    expect(intel.vendor).toBe('intel');
+    expect(amdWave64SafePath(apple.vendor, apple.architecture)).toBe(false);
+    expect(amdWave64SafePath(intel.vendor, intel.architecture)).toBe(false);
+    expect(amdWave64SafePath('acme')).toBe(false);
+    expect(amdWave64SafePath(null)).toBe(false);
+    expect(amdWave64SafePath(undefined)).toBe(false);
+  });
+
+  it('gates the backend argmax the same way, so AMD scans logits on the CPU', () => {
+    const diagnostic = diagnosticFromAdapter(adapter({ vendor: 'ati', architecture: 'gfx906' }));
+    expect(amdWave64SafePath(diagnostic.vendor, diagnostic.architecture)).toBe(true);
+    expect(amdWave64SafePath('nvidia')).toBe(false);
+    expect(amdWave64SafePath(null)).toBe(false);
 
     expect(PATCH).toContain(
-      'GGML_BACKEND_API bool ggml_backend_webgpu_dev_is_nvidia(ggml_backend_dev_t dev);',
+      'GGML_BACKEND_API bool ggml_backend_webgpu_dev_is_amd(ggml_backend_dev_t dev);',
     );
-    expect(PATCH).toContain('bool ggml_backend_webgpu_dev_is_nvidia(ggml_backend_dev_t dev) {');
-    expect(PATCH).toContain('ctx->webgpu_global_ctx->vendor == "nvidia"');
-    expect(PATCH).toContain('ggml_backend_webgpu_dev_is_nvidia(model.dev_output())');
+    expect(PATCH).toContain('bool ggml_backend_webgpu_dev_is_amd(ggml_backend_dev_t dev) {');
+    expect(PATCH).toContain('!ggml_backend_webgpu_dev_is_amd(model.dev_output())');
   });
 
   it('logs the vendor next to the vec decision and leaves the #63 safety net alone', () => {

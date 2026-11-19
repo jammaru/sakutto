@@ -1,49 +1,93 @@
-Keep the fast WebGPU paths that were measured on NVIDIA off the other vendors.
+Keep the v1.3.0-safe kernels on AMD/ATI adapters; leave every other vendor fast.
 
 The 0009 guard turns vec flash-attn off through the probed subgroup width
-only. A Dawn D3D12 path can probe 32 while the hardware still runs wave64,
-so the guard can pass on a GCN device and leave decode on the vec kernel,
-whose variable-delta subgroupShuffleDown is the pattern wave64 has
-miscompiled. The correctness probe now also reads the adapter vendor, the
-same string 0010 gates the mat-vec workgroup on. A vendor other than nvidia
-gets the tile shader for decode. NVIDIA keeps the measured RTX 4090 paths
-and pays one string compare; no probe or kernel is added for it.
+only. A Dawn D3D12 path on GCN can probe 32 while the hardware still runs
+wave64, so the guard can pass on a Radeon and leave decode on the vec
+kernel, whose variable-delta subgroupShuffleDown is the pattern wave64 has
+miscompiled. The correctness probe now also reads the adapter vendor and
+architecture, and ggml_webgpu_adapter_is_amd() recognizes AMD/ATI: an
+"amd"/"ati" vendor string, or a "gcn-*", "rdna-*", "gfx*" architecture as
+Dawn reports it. AMD decodes with the tile shader, as 0009 already does for
+a wide subgroup. NVIDIA, Apple, Intel, and any unknown vendor keep the
+fast paths of main and pay one string compare; no probe or kernel is added
+for them.
 
-The 0012 argmax node also runs on every vendor although it was measured on
-NVIDIA only, and a wrong index is a wrong token. The graph gets that node
-only when the output device is this backend with an nvidia adapter, which
-the new ggml_backend_webgpu_dev_is_nvidia() reports. Other vendors read the
-logits back and scan them on the CPU, the sampling of v1.3.0.
+The 0012 argmax node also runs on AMD although it was measured on NVIDIA
+only, and a wrong index is a wrong token. The graph gets that node only
+when the output device is not this backend's AMD adapter, which the new
+ggml_backend_webgpu_dev_is_amd() reports. AMD reads the logits back and
+scans them on the CPU, the sampling of v1.3.0; every other output device,
+CPU included, builds the graph exactly as before this patch.
 
 The probe log carries the vendor next to the vec=on/off it already printed.
 The degenerate-output detector and the per-piece CPU retry of #63 stay
 unchanged, so a broken decode still falls back instead of showing garbage.
 
-diff --git a/llama.cpp/ggml/include/ggml-webgpu.h b/llama.cpp/ggml/include/ggml-webgpu.h
+diff --git a/llama.cpp/ggml/include/ggml-webgpu.h b/ggml/include/ggml-webgpu.h
 --- a/llama.cpp/ggml/include/ggml-webgpu.h
 +++ b/llama.cpp/ggml/include/ggml-webgpu.h
-@@ -14,6 +14,11 @@
+@@ -14,6 +14,11 @@ GGML_BACKEND_API ggml_backend_t ggml_backend_webgpu_init(void);
  
  GGML_BACKEND_API ggml_backend_reg_t ggml_backend_webgpu_reg(void);
  
-+// True when dev is this backend's device and its adapter vendor is "nvidia".
-+// The backend argmax of llama_set_argmax_only() is NVIDIA-measured only;
-+// other vendors keep the logits readback and scan them on the CPU.
-+GGML_BACKEND_API bool ggml_backend_webgpu_dev_is_nvidia(ggml_backend_dev_t dev);
++// True when dev is this backend's device and its adapter is AMD/ATI hardware.
++// The backend argmax of llama_set_argmax_only() stays off that hardware, which
++// reads the logits back and scans them on the CPU; other output devices are unaffected.
++GGML_BACKEND_API bool ggml_backend_webgpu_dev_is_amd(ggml_backend_dev_t dev);
 +
  #ifdef  __cplusplus
  }
  #endif
-diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp b/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp
+diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu-shader-lib.hpp b/ggml/src/ggml-webgpu/ggml-webgpu-shader-lib.hpp
+--- a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu-shader-lib.hpp
++++ b/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu-shader-lib.hpp
+@@ -73,6 +73,27 @@ inline bool ggml_webgpu_tensor_equal(const ggml_tensor * a, const ggml_tensor *
+     return a->buffer == b->buffer && ggml_webgpu_tensor_addr(a) == ggml_webgpu_tensor_addr(b);
+ }
+ 
++// True when the adapter is AMD/ATI hardware: an "amd"/"ati" vendor string
++// (case-insensitive), or an architecture Dawn reports as "gcn-*", "rdna-*", "gfx*".
++// Wave64 subgroup ops on that hardware have miscompiled before, so the safe
++// kernels of the v1.3.0 build stay on it; every other vendor keeps the fast paths.
++inline bool ggml_webgpu_adapter_is_amd(const std::string & vendor, const std::string & architecture) {
++    std::string v;
++    v.reserve(vendor.size());
++    for (const char c : vendor) {
++        v.push_back(c >= 'A' && c <= 'Z' ? (char) (c - 'A' + 'a') : c);
++    }
++    if (v == "amd" || v == "ati") {
++        return true;
++    }
++    std::string a;
++    a.reserve(architecture.size());
++    for (const char c : architecture) {
++        a.push_back(c >= 'A' && c <= 'Z' ? (char) (c - 'A' + 'a') : c);
++    }
++    return a.rfind("gcn-", 0) == 0 || a.rfind("rdna-", 0) == 0 || a.rfind("gfx", 0) == 0;
++}
++
+ struct ggml_webgpu_shader_lib_context {
+     ggml_tensor * src0;
+     ggml_tensor * src1;
+diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp b/ggml/src/ggml-webgpu/ggml-webgpu.cpp
 --- a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp
 +++ b/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp
-@@ -4234,6 +4234,20 @@
+@@ -235,6 +235,7 @@ struct webgpu_global_context_struct {
+     std::unordered_map<std::string, wgpu::BindGroup> bind_group_cache;
+ 
+     std::string vendor;
++    std::string architecture;
+ 
+     // TODO: We should rework the CPU profiling time handling to make it more useful. ref: https://github.com/ggml-org/llama.cpp/pull/22050
+ #ifdef GGML_WEBGPU_CPU_PROFILE
+@@ -4234,6 +4235,22 @@ static const char * ggml_backend_webgpu_device_get_description(ggml_backend_dev_
      return ctx->device_desc.c_str();
  }
  
-+// True for this backend's device when its adapter vendor is "nvidia". The backend
-+// argmax of llama_set_argmax_only() is NVIDIA-measured only.
-+bool ggml_backend_webgpu_dev_is_nvidia(ggml_backend_dev_t dev) {
++// True for this backend's device when its adapter is AMD/ATI hardware, which
++// ggml_webgpu_adapter_is_amd() recognizes. The safe kernels of the v1.3.0 build
++// stay on that hardware; every other vendor keeps the fast paths.
++bool ggml_backend_webgpu_dev_is_amd(ggml_backend_dev_t dev) {
 +    if (dev == nullptr || dev->iface.get_name == nullptr || dev->context == nullptr) {
 +        return false;
 +    }
@@ -52,30 +96,33 @@ diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp b/llama.cpp/ggml/src
 +        return false;
 +    }
 +    ggml_backend_webgpu_device_context * ctx = static_cast<ggml_backend_webgpu_device_context *>(dev->context);
-+    return ctx->webgpu_global_ctx != nullptr && ctx->webgpu_global_ctx->vendor == "nvidia";
++    return ctx->webgpu_global_ctx != nullptr &&
++           ggml_webgpu_adapter_is_amd(ctx->webgpu_global_ctx->vendor, ctx->webgpu_global_ctx->architecture);
 +}
 +
  static void ggml_backend_webgpu_device_get_memory(ggml_backend_dev_t dev, size_t * free, size_t * total) {
      ggml_backend_webgpu_device_context * ctx = static_cast<ggml_backend_webgpu_device_context *>(dev->context);
      // TODO: for now, return maxBufferSize as both free and total memory
-@@ -4736,6 +4750,16 @@
+@@ -4736,6 +4753,18 @@ static bool ggml_webgpu_correctness_probe(ggml_backend_webgpu_reg_context * ctx)
  
      caps.subgroup_size = caps.supports_subgroups ? subgroup_size : 0;
  
 +    // The width gate below turns vec off only through the probed subgroup size. A Dawn
-+    // D3D12 path can probe 32 while the hardware runs wave64, and the vec kernel's shuffle
-+    // is NVIDIA-measured only. Other vendors decode with the tile shader, as in 0009.
-+    if (ctx->webgpu_global_ctx->vendor != "nvidia") {
++    // D3D12 path on GCN can probe 32 while the hardware runs wave64, and the vec kernel's
++    // variable-delta subgroupShuffleDown is the pattern that has miscompiled there.
++    // AMD/ATI adapters decode with the tile shader, as in 0009; every other vendor,
++    // NVIDIA, Apple, Intel, and unknown ones included, keeps the measured fast paths.
++    if (ggml_webgpu_adapter_is_amd(ctx->webgpu_global_ctx->vendor, ctx->webgpu_global_ctx->architecture)) {
 +        caps.flash_attn_vec        = false;
 +        caps.wide_subgroup_shuffle = false;
-+        GGML_LOG_INFO("ggml_webgpu: adapter vendor %s: vec flash-attn off (not measured), tile shader only\n",
++        GGML_LOG_INFO("ggml_webgpu: adapter vendor %s: vec flash-attn off (wave64), tile shader only\n",
 +                      ctx->webgpu_global_ctx->vendor.c_str());
 +    }
 +
      uint32_t f16_sum = 0;
      if (!ggml_webgpu_run_u32_probe(ctx, ggml_webgpu_probe_f16_sum_wgsl(), "correctness_f16_sum", &f16_sum) ||
          f16_sum != GGML_WEBGPU_PROBE_F16_SUM) {
-@@ -4796,10 +4820,10 @@
+@@ -4796,10 +4825,10 @@ static bool ggml_webgpu_correctness_probe(ggml_backend_webgpu_reg_context * ctx)
      const double ms = 0;
  #endif
      GGML_LOG_INFO(
@@ -90,7 +137,15 @@ diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp b/llama.cpp/ggml/src
      return true;
  }
  
-diff --git a/llama.cpp/src/llama-context.cpp b/llama.cpp/src/llama-context.cpp
+@@ -4827,6 +4856,7 @@ static void create_webgpu_device(ggml_backend_webgpu_reg_context * ctx) {
+     ctx->webgpu_global_ctx->command_submit_batch_size = ggml_backend_webgpu_get_command_submit_batch_size();
+     ctx->webgpu_global_ctx->max_inflight_batches      = ggml_backend_webgpu_get_max_inflight_batches();
+     ctx->webgpu_global_ctx->vendor                    = info.vendor;
++    ctx->webgpu_global_ctx->architecture              = info.architecture;
+     ctx->webgpu_global_ctx->capabilities.supports_subgroups =
+         ctx->webgpu_global_ctx->adapter.HasFeature(wgpu::FeatureName::Subgroups);
+     // for dot4I8packed
+diff --git a/llama.cpp/src/llama-context.cpp b/src/llama-context.cpp
 --- a/llama.cpp/src/llama-context.cpp
 +++ b/llama.cpp/src/llama-context.cpp
 @@ -1,6 +1,7 @@
@@ -101,16 +156,16 @@ diff --git a/llama.cpp/src/llama-context.cpp b/llama.cpp/src/llama-context.cpp
  #include "llama-arch.h"
  #include "llama-graph.h"
  #include "llama-impl.h"
-@@ -1587,8 +1588,11 @@
+@@ -1587,8 +1588,11 @@ llm_graph_result * llama_context::process_ubatch(const llama_ubatch & ubatch, ll
          // The caller wants the largest logit of each row, which the backend can find itself. On the
          // CPU the logits are in host memory already and there is no read to save, so the caller
          // scans them as before.
-+        // The GPU argmax node is measured on NVIDIA only. Other vendors keep the
-+        // logits readback and the CPU scan, as before 0012.
++        // The GPU argmax stays off AMD/ATI WebGPU adapters, whose wave64 subgroup ops are
++        // the miscompiled pattern; they keep the logits readback and the CPU scan, as before 0012.
          if (argmax_only && n_outputs > 0 && res->get_logits() != nullptr &&
 -            ggml_backend_dev_type(model.dev_output()) != GGML_BACKEND_DEVICE_TYPE_CPU) {
 +            ggml_backend_dev_type(model.dev_output()) != GGML_BACKEND_DEVICE_TYPE_CPU &&
-+            ggml_backend_webgpu_dev_is_nvidia(model.dev_output())) {
++            !ggml_backend_webgpu_dev_is_amd(model.dev_output())) {
              res->t_argmax = ggml_argmax(res->get_ctx(), res->get_logits());
              ggml_set_output(res->t_argmax);
              ggml_build_forward_expand(gf, res->t_argmax);

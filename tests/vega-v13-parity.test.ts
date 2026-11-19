@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { buildTranslationPrompt } from '@/engine/prompt/pfml3';
 import { warmup } from '@/engine/offscreen/host';
-import { nvidiaMeasuredFastPaths } from '@/shared/webgpu-adapter';
+import { amdWave64SafePath } from '@/shared/webgpu-adapter';
 import { FakeRuntime } from './support/fakes';
 
 const RUNTIME_SOURCE = readFileSync(
@@ -33,7 +33,7 @@ const PATCH_0014 = readFileSync(
 );
 
 /**
- * The exact prompt the v1.3.0 warm-up built for a ja target. Non-NVIDIA WebGPU must keep
+ * The exact prompt the v1.3.0 warm-up built for a ja target. AMD/ATI WebGPU must keep
  * feeding the model the same bytes: that build is the reference for correct AMD decode.
  */
 const V13_JA_WARMUP_PROMPT =
@@ -41,7 +41,7 @@ const V13_JA_WARMUP_PROMPT =
   '<|plamo:msg|>Hello.<|plamo:tag|>output<|plamo:key|>lang<|plamo:val|>ja<|plamo:key|>form' +
   '<|plamo:val|>polite<|plamo:msg|>';
 
-describe('v1.3.0 WebGPU inference parity on non-NVIDIA adapters', () => {
+describe('v1.3.0 WebGPU inference parity on AMD/ATI adapters', () => {
   it('warm-up sends the v1.3.0 prompt with the same 16-token budget', async () => {
     const runtime = new FakeRuntime(() => 'こんにちは。');
     await warmup(runtime, 'ja');
@@ -81,27 +81,29 @@ describe('v1.3.0 WebGPU inference parity on non-NVIDIA adapters', () => {
     }
   });
 
-  it('gates every measured-on-NVIDIA kernel path so AMD keeps the v1.3.0 shaders', () => {
-    // 0015: vec flash-attn off and the GPU argmax off for other vendors.
-    expect(PATCH_0015).toContain('ctx->webgpu_global_ctx->vendor != "nvidia"');
-    expect(PATCH_0015).toContain('ggml_backend_webgpu_dev_is_nvidia(model.dev_output())');
-    // 0016: the masked-tile skip needs its define, and the define is NVIDIA-only.
+  it('gates the wave64-risk kernel paths so AMD keeps the v1.3.0 shaders', () => {
+    // 0015: vec flash-attn off and the GPU argmax off for AMD/ATI adapters only.
+    expect(PATCH_0015).toContain('ggml_webgpu_adapter_is_amd(ctx->webgpu_global_ctx->vendor');
+    expect(PATCH_0015).toContain('!ggml_backend_webgpu_dev_is_amd(model.dev_output())');
+    // 0016: the masked-tile skip needs its define, and the define is off AMD only.
     expect(PATCH_0016).toContain('#if defined(MASK) && defined(SKIP_MASKED_TILES)');
-    expect(PATCH_0016).toContain('if (context.vendor == "nvidia") {');
+    expect(PATCH_0016).toContain(
+      '!ggml_webgpu_adapter_is_amd(context.vendor, context.architecture)',
+    );
     expect(PATCH_0016).toContain('defines.push_back("SKIP_MASKED_TILES");');
-    // 0014 keeps a no-skip fallback branch, and 0016 routes every non-NVIDIA vendor
-    // into it: each tile staged and scored, a row bounded only by its own row_active,
-    // the v1.3.0 decode.
+    // 0014 keeps a no-skip fallback branch, and 0016 routes AMD into it: each tile
+    // staged and scored, a row bounded only by its own row_active, the v1.3.0 decode.
     expect(PATCH_0014).toContain('+        let live_row = row_active;');
     expect(PATCH_0014).toContain('+        let live_tile = true;');
-    expect(PATCH_0016).toContain('#if defined(MASK) && defined(SKIP_MASKED_TILES)');
     // 0010 already keeps the smaller mat-vec workgroup off other vendors.
     expect(PATCH_0010).toContain('context.vendor == "nvidia"');
 
-    // The TypeScript mirror agrees on which vendors keep the measured fast paths.
-    expect(nvidiaMeasuredFastPaths('nvidia')).toBe(true);
-    expect(nvidiaMeasuredFastPaths('amd')).toBe(false);
-    expect(nvidiaMeasuredFastPaths('intel')).toBe(false);
-    expect(nvidiaMeasuredFastPaths(null)).toBe(false);
+    // The TypeScript mirror agrees on which vendors take the safe path.
+    expect(amdWave64SafePath('amd')).toBe(true);
+    expect(amdWave64SafePath('ati')).toBe(true);
+    expect(amdWave64SafePath('nvidia')).toBe(false);
+    expect(amdWave64SafePath('apple')).toBe(false);
+    expect(amdWave64SafePath('intel')).toBe(false);
+    expect(amdWave64SafePath(null)).toBe(false);
   });
 });

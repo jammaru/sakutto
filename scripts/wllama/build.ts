@@ -76,18 +76,22 @@ const PATCH_MARKERS: ReadonlyArray<readonly [string, string]> = [
   ],
   [
     'llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp',
-    'vec flash-attn off (not measured), tile shader only',
+    'vec flash-attn off (wave64), tile shader only',
   ],
   ['llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp', 'ok vendor=%s subgroups=%s subgroup_size=%u'],
   [
+    'llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu-shader-lib.hpp',
+    'inline bool ggml_webgpu_adapter_is_amd(',
+  ],
+  [
     'llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp',
-    'bool ggml_backend_webgpu_dev_is_nvidia(ggml_backend_dev_t dev) {',
+    'bool ggml_backend_webgpu_dev_is_amd(ggml_backend_dev_t dev) {',
   ],
   [
     'llama.cpp/ggml/include/ggml-webgpu.h',
-    'GGML_BACKEND_API bool ggml_backend_webgpu_dev_is_nvidia(ggml_backend_dev_t dev);',
+    'GGML_BACKEND_API bool ggml_backend_webgpu_dev_is_amd(ggml_backend_dev_t dev);',
   ],
-  ['llama.cpp/src/llama-context.cpp', 'ggml_backend_webgpu_dev_is_nvidia(model.dev_output())'],
+  ['llama.cpp/src/llama-context.cpp', '!ggml_backend_webgpu_dev_is_amd(model.dev_output())'],
   [
     'llama.cpp/ggml/src/ggml-webgpu/wgsl-shaders/flash_attn_tile.wgsl',
     '#if defined(MASK) && defined(SKIP_MASKED_TILES)',
@@ -96,6 +100,11 @@ const PATCH_MARKERS: ReadonlyArray<readonly [string, string]> = [
     'llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu-shader-lib.hpp',
     'defines.push_back("SKIP_MASKED_TILES");',
   ],
+  [
+    'llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu-shader-lib.hpp',
+    '!ggml_webgpu_adapter_is_amd(context.vendor, context.architecture)',
+  ],
+  ['llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp', 'op.shader_lib_ctx.architecture'],
   ['src/utils.ts', 'webgpuDebug?: string'],
   ['src/worker.ts', '__SAKUTTO_WEBGPU_DEBUG__'],
   ['cpp/wllama-context.h', 'params.n_ctx_checkpoints = 0;'],
