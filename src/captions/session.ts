@@ -235,6 +235,7 @@ export class VideoCaptionSession {
   private liveTailLastRequestAt = 0;
   private liveTailRevision = 0;
   private liveTailEverTranslated = false;
+  private liveTailFailed = false;
   private liveCaptionVisible = false;
   private activeCueId = '';
   private lastPlayed: HTMLVideoElement | null = null;
@@ -1126,12 +1127,10 @@ export class VideoCaptionSession {
         this.liveTailTranslation = null;
       }
     }
-    if (update.lineChanged) {
-      // Detach old tail work even when a replacement reuses the exact tail text.
-      // A newly committed entry may still share the underlying request.
+    if (update.committed.length > 0 || update.lineChanged) {
+      // Detach old tail work even when a replacement or commit reuses the request.
+      // The committed entry keeps its own completion handler and translator work.
       this.retireLiveTailJob();
-    } else if (update.tailChanged && update.committed.length > 0) {
-      this.cancelLiveTailJobIfUnused();
     }
     // Otherwise keep an in-flight tail request for the same line. It may finish as
     // the latest hint, but it must not be cancelled and restarted on every word.
@@ -1263,11 +1262,13 @@ export class VideoCaptionSession {
         if (this.translator.abortedSince(generation) || !this.liveCaptionVisible) return;
         if (translation) {
           if (this.liveStream.tail() === job.text) {
+            this.liveTailFailed = false;
             this.liveTailTranslation = { text: job.text, translation };
             this.liveTailEverTranslated = true;
             this.repaintLive(this.playheadMs());
           }
-        } else if (!this.hold && !this.liveTailTranslation) {
+        } else {
+          this.liveTailFailed = true;
           this.showNative('translate-failed');
         }
         this.scheduleLiveTail(requestOptions);
@@ -1364,6 +1365,7 @@ export class VideoCaptionSession {
     this.liveTailLastRequestAt = 0;
     this.liveTailRevision = 0;
     this.liveTailEverTranslated = false;
+    this.liveTailFailed = false;
     this.liveCaptionVisible = false;
   }
 
@@ -1375,6 +1377,9 @@ export class VideoCaptionSession {
   private repaintLive(timeMs: number): void {
     if (!this.liveCaptionVisible) return;
     const tail = this.liveStream.tail();
+    // A failed mutable tail shows the growing native source. Do not immediately
+    // mask it again with an older committed translation while retries are pending.
+    if (tail && this.liveTailFailed) return;
     const tailTranslation =
       this.liveTailTranslation?.text === tail ? this.liveTailTranslation.translation : '';
     const displayed = this.liveCommitted.filter((entry) => entry.translation.trim().length > 0);

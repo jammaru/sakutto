@@ -462,6 +462,32 @@ describe('live caption stream', () => {
     }
   });
 
+  it('authenticates repeated-character short overlaps against the frozen boundary', () => {
+    for (const discard of [false, true]) {
+      const stream = new LiveCaptionStream();
+      stream.update('The station opens at dawn. A red', 0);
+      if (discard) stream.discardTail(10);
+      stream.update('The station open', 20);
+      stream.update('t', 40);
+
+      const regrown = stream.update('tion opens at dawn. A red train', 60);
+      expect(regrown.committed).toEqual([]);
+      expect(regrown.tail).toBe('A red train');
+      expect(regrown.lineChanged).toBe(false);
+    }
+  });
+
+  it('recovers direct one- and two-character Latin frozen suffixes', () => {
+    for (const visible of ['n.', '.']) {
+      const stream = new LiveCaptionStream();
+      stream.update('The station opens at dawn.', 0);
+      const rolled = stream.update(visible, 100);
+      expect(rolled.committed).toEqual([]);
+      expect(rolled.tail).toBe('');
+      expect(rolled.lineChanged).toBe(false);
+    }
+  });
+
   it('restores the pre-discard tail after repeated empty-DOM discards', () => {
     const stream = new LiveCaptionStream();
     stream.update('The station opens', 0);

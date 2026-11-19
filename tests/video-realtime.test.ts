@@ -636,11 +636,75 @@ describe('real-time caption translation', () => {
     session.stop();
   });
 
-  it('keeps an original fallback when vanish cancels a promoted committed tail', async () => {
+  it('starts a new tail while its committed shared request is still pending', async () => {
+    document.body.innerHTML = youtubeMarkup('regressionsharedtail', true);
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    const requests: Array<{ text: string; signal: AbortSignal }> = [];
+    let betaCompleted = 0;
+    let releaseBeta!: () => void;
+    const betaGate = new Promise<void>((resolve) => {
+      releaseBeta = resolve;
+    });
+    let markBetaStarted!: () => void;
+    const betaStarted = new Promise<void>((resolve) => {
+      markBetaStarted = resolve;
+    });
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        const text = segments[0]?.text ?? '';
+        requests.push({ text, signal: options.signal });
+        if (text === 'Beta') {
+          markBetaStarted();
+          await betaGate;
+        }
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+        if (text === 'Beta') betaCompleted += 1;
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readTrack: async () => '',
+    });
+    session.start();
+    const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
+    try {
+      segment.textContent = 'Alpha. Beta';
+      await betaStarted;
+      await sleep(800);
+      segment.textContent = 'Alpha. Beta Gamma';
+      video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+
+      await vi.waitFor(() => {
+        expect(requests.some((request) => request.text === 'Gamma')).toBe(true);
+      });
+      expect(betaCompleted).toBe(0);
+      expect(requests.find((request) => request.text === 'Beta')?.signal.aborted).toBe(false);
+      expect(requests.filter((request) => request.text === 'Beta')).toHaveLength(1);
+    } finally {
+      releaseBeta();
+      session.stop();
+    }
+  });
+
+  it('preserves promoted tail work through an empty poll and restores its translation', async () => {
     document.body.innerHTML = youtubeMarkup('regressionvanishcommit', true);
     const video = document.querySelector('video') as HTMLVideoElement;
     stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
     let calls = 0;
+    let firstSignal: AbortSignal | undefined;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     let markStarted!: () => void;
     const started = new Promise<void>((resolve) => {
       markStarted = resolve;
@@ -649,14 +713,9 @@ describe('real-time caption translation', () => {
       async *translate(segments, options) {
         calls += 1;
         if (calls === 1) {
+          firstSignal = options.signal;
           markStarted();
-          await new Promise<void>((_resolve, reject) => {
-            options.signal.addEventListener(
-              'abort',
-              () => reject(new DOMException('Aborted', 'AbortError')),
-              { once: true },
-            );
-          });
+          await gate;
         }
         for (const segment of segments) {
           yield {
@@ -676,20 +735,33 @@ describe('real-time caption translation', () => {
     session.start();
     const host = document.querySelector('sakutto-captions') as HTMLElement;
     const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
-    segment.textContent = 'Yes';
-    await started;
-    // The unchanged visible tail crosses the 650 ms idle boundary and is committed.
-    await sleep(800);
-    segment.textContent = '';
-    video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
-    await sleep(100);
-    segment.textContent = 'Next line';
-    video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
-    await vi.waitFor(() => {
-      expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('Next line', 'ja'));
-      expect(host.getAttribute('data-sakutto-history')).toBe('Yes');
-    });
-    session.stop();
+    try {
+      segment.textContent = 'Yes';
+      await started;
+      // The unchanged visible tail crosses the 650 ms idle boundary and is committed.
+      await sleep(800);
+      segment.textContent = '';
+      video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+      await sleep(100);
+      segment.textContent = 'Yes';
+      video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+      await sleep(150);
+      expect(firstSignal?.aborted).toBe(false);
+      expect(calls).toBe(1);
+
+      segment.textContent = 'Next line';
+      video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+      release();
+      await vi.waitFor(() => {
+        expect(host.getAttribute('data-sakutto-caption')).toBe(
+          fakeTranslateText('Next line', 'ja'),
+        );
+        expect(host.getAttribute('data-sakutto-history')).toBe(fakeTranslateText('Yes', 'ja'));
+      });
+    } finally {
+      release();
+      session.stop();
+    }
   });
 
   it('shows the original for a failed committed segment between successful lines', async () => {
@@ -735,6 +807,58 @@ describe('real-time caption translation', () => {
       );
       expect(host.getAttribute('data-sakutto-history')).toBe('Beta line.');
     });
+    session.stop();
+  });
+
+  it('keeps growing native text visible after mutable tail translation failures', async () => {
+    document.body.innerHTML = youtubeMarkup('regressiontailfailure', true);
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    const requests: string[] = [];
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        const text = segments[0]?.text ?? '';
+        requests.push(text);
+        if (text.includes('Beta')) return;
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readTrack: async () => '',
+    });
+    session.start();
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
+    segment.textContent = 'Alpha.';
+    await vi.waitFor(() => {
+      expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('Alpha.', 'ja'));
+    });
+
+    segment.textContent = 'Alpha. Beta';
+    await vi.waitFor(() => {
+      expect(requests).toContain('Beta');
+      expect(host.hasAttribute('data-sakutto-caption')).toBe(false);
+    });
+    segment.textContent = 'Alpha. Beta Gamma Delta Echo Foxtrot';
+    await vi.waitFor(() => {
+      expect(requests).toContain('Beta Gamma Delta Echo Foxtrot');
+    });
+    await sleep(250);
+    const displayed = host.getAttribute('data-sakutto-caption');
+    expect(displayed).not.toBe(fakeTranslateText('Alpha.', 'ja'));
+    expect([null, 'Beta Gamma Delta Echo Foxtrot']).toContain(displayed);
+    if (displayed === null) {
+      expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('waiting');
+    }
     session.stop();
   });
 

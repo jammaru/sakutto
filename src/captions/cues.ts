@@ -681,7 +681,24 @@ export class LiveCaptionStream {
       if (next.length > previous.length) this.tailChangedAt = now;
     } else {
       const shrunkPrefix = this.shrunkCommittedPrefix;
-      const removed = rollingWindowRemovedChars(previous, next, shrunkPrefix !== null);
+      const committedBefore = Math.min(
+        this.discardedCommittedChars ?? this.committedChars,
+        previous.length,
+      );
+      const removed = rollingWindowRemovedChars(
+        previous,
+        next,
+        shrunkPrefix !== null || committedBefore === previous.length,
+        (candidate) => {
+          if (shrunkPrefix === null) return true;
+          const frozenSuffix = shrunkPrefix.slice(this.shrunkCommittedStart + candidate);
+          return (
+            frozenSuffix.length === 0 ||
+            next.startsWith(frozenSuffix) ||
+            frozenSuffix.startsWith(next)
+          );
+        },
+      );
       if (shrunkPrefix !== null && removed !== null) {
         const start = this.shrunkCommittedStart + removed;
         const frozenSuffix = shrunkPrefix.slice(start);
@@ -708,22 +725,12 @@ export class LiveCaptionStream {
         this.tailChangedAt = now;
       } else {
         const rollingCommittedChars =
-          removed === null
-            ? null
-            : Math.max(
-                0,
-                Math.min(this.discardedCommittedChars ?? this.committedChars, previous.length) -
-                  removed,
-              );
+          removed === null ? null : Math.max(0, committedBefore - removed);
         if (rollingCommittedChars !== null) {
           this.visible = next;
           if (rollingCommittedChars > next.length) {
             // The new window ends inside the frozen suffix. Preserve that complete
             // suffix from the previous window instead of reconstructing it later.
-            const committedBefore = Math.min(
-              this.discardedCommittedChars ?? this.committedChars,
-              previous.length,
-            );
             this.shrunkCommittedPrefix = previous.slice(0, committedBefore);
             this.shrunkCommittedStart = removed ?? 0;
             this.committedChars = next.length;
@@ -894,7 +901,9 @@ function rollingWindowRemovedChars(
   previous: string,
   next: string,
   allowShortOverlap = false,
+  accepts: (removed: number) => boolean = () => true,
 ): number | null {
+  let shortMatch: number | null = null;
   for (let removed = 1; removed < previous.length; removed += 1) {
     const overlap = Math.min(previous.length - removed, next.length);
     const overlapText = next.slice(0, overlap);
@@ -905,9 +914,15 @@ function rollingWindowRemovedChars(
     ) {
       continue;
     }
-    if (previous.slice(removed, removed + overlap) === overlapText) return removed;
+    if (previous.slice(removed, removed + overlap) !== overlapText || !accepts(removed)) {
+      continue;
+    }
+    if (overlap >= 3) return removed;
+    // Repeated one-/two-character fragments are ambiguous; the rightmost exact
+    // candidate avoids reviving an earlier occurrence inside the frozen sentence.
+    shortMatch = removed;
   }
-  return null;
+  return shortMatch;
 }
 
 function sameVisibleLine(previous: string, next: string): boolean {
