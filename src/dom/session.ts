@@ -101,7 +101,7 @@ const MAX_PAGE_FAILURES = 2;
 const SELECTION_SETTLE_MS = 48;
 /** A selectionchange that follows pointerup is the same gesture and should not wait out the keyboard delay. */
 const POINTER_RELEASE_WINDOW_MS = 80;
-/** Large selections can wait for an explicit translation instead of scanning the entire DOM. */
+/** Selections larger than this bound skip the already-translated check and prefetch. */
 const MAX_SELECTION_SCAN_NODES = 512;
 /**
  * Defensive deduplication for duplicate native command delivery. Toggle would otherwise
@@ -2232,7 +2232,8 @@ export class PageSession {
       node && node !== after;
       node = node.firstChild ?? nextAfterSubtree(node, root)
     ) {
-      if (++inspected > MAX_SELECTION_SCAN_NODES) return false;
+      // Oversized ranges keep the pre-scan prefetch instead of paying for a full walk.
+      if (++inspected > MAX_SELECTION_SCAN_NODES) return true;
       if (node.nodeType !== Node.TEXT_NODE) continue;
       const text = node as Text;
       const start = text === startContainer ? startOffset : 0;

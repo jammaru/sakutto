@@ -2583,7 +2583,7 @@ describe('selection icon', () => {
       },
     );
 
-    it('bounds the scan for a full selection and still offers manual translation', async () => {
+    it('bounds the scan for a full selection and still prefetches it', async () => {
       document.documentElement.lang = 'en';
       document.body.innerHTML =
         '<main><p>Osaka is a designated city.</p>' +
@@ -2603,7 +2603,7 @@ describe('selection icon', () => {
         await selectElement(page);
         await session.whenIdle();
         expect(classifyLateText).not.toHaveBeenCalled();
-        expect(requests).toHaveLength(before);
+        expect(requests.slice(before)).toEqual([page.textContent]);
         expect(icon().hidden).toBe(false);
       } finally {
         classifyLateText.mockRestore();
@@ -2611,6 +2611,7 @@ describe('selection icon', () => {
 
       await session.handle('selection');
       await session.whenIdle();
+      // The prefetched translation is reused; the command only reveals it.
       expect(requests.slice(before)).toEqual([page.textContent]);
     });
 
