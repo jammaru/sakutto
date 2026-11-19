@@ -621,6 +621,7 @@ export class LiveCaptionStream {
   update(visible: string, now: number): LiveCaptionStreamUpdate {
     const next = normalizeCaptionText(visible);
     const previous = this.visible;
+    const previousCommittedChars = this.discardedCommittedChars ?? this.committedChars;
     const beforeTail = this.tail();
     const committed: LiveCaptionSegment[] = [];
     let lineChanged = false;
@@ -740,6 +741,14 @@ export class LiveCaptionStream {
       }
     }
 
+    // Central invariant: matching heuristics may disagree, but they must never
+    // reopen a visible prefix that was already authenticated as frozen.
+    if (!lineChanged) {
+      this.committedChars = Math.max(
+        this.committedChars,
+        visibleFrozenPrefixLength(previous, previousCommittedChars, next),
+      );
+    }
     this.extractSegments(now, committed);
     if (this.tail().length > 0 && now - this.tailChangedAt >= LIVE_SEGMENT_GAP_MS) {
       this.commitRemaining(now, committed);
@@ -949,6 +958,14 @@ function matchFrozenWindow(
     return { committedChars: next.length, starts: partialStarts, complete: false };
   }
   return null;
+}
+
+function visibleFrozenPrefixLength(previous: string, committedChars: number, next: string): number {
+  const frozen = previous.slice(0, committedChars);
+  const limit = Math.min(frozen.length, next.length);
+  let length = 0;
+  while (length < limit && frozen[length] === next[length]) length += 1;
+  return length;
 }
 
 function sameVisibleLine(previous: string, next: string): boolean {

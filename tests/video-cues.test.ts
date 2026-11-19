@@ -50,6 +50,17 @@ import {
   TIMEDTEXT_MAX_ATTEMPTS,
 } from '@/captions/timedtext';
 
+function deterministicRandom(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
+  };
+}
+
 const VTT = `WEBVTT
 
 00:00:00.000 --> 00:00:02.000
@@ -407,9 +418,7 @@ describe('live caption stream', () => {
     alteredRegrowth.update('The station opens at dawn. A red', 0);
     alteredRegrowth.update('The station', 100);
     const altered = alteredRegrowth.update('The station closes at noon. A red', 200);
-    expect(altered.committed.map((segment) => segment.text)).toEqual([
-      'The station closes at noon.',
-    ]);
+    expect(altered.committed.map((segment) => segment.text)).toEqual(['closes at noon.']);
     expect(altered.tail).toBe('A red');
 
     const cjk = new LiveCaptionStream();
@@ -570,7 +579,7 @@ describe('live caption stream', () => {
     expect(stream.update('bab', 720).tail).toBe('');
 
     const diverged = stream.update('babX.', 730);
-    expect(diverged.committed.map((segment) => segment.text)).toEqual(['bX.']);
+    expect(diverged.committed.map((segment) => segment.text)).toEqual(['X.']);
     expect(diverged.tail).toBe('');
     expect(diverged.lineChanged).toBe(false);
   });
@@ -606,6 +615,75 @@ describe('live caption stream', () => {
     const finished = stream.update('very go very fast.', 730);
     expect(finished.committed.map((segment) => segment.text)).toEqual(['fast.']);
     expect(finished.tail).toBe('');
+  });
+
+  it('never reopens a directly truncated frozen prefix on divergent regrowth', () => {
+    for (const { source, shrunk, regrown, punctuation } of [
+      { source: 'hello', shrunk: 'he', regrown: 'he.', punctuation: '.' },
+      { source: 'あいう', shrunk: 'あい', regrown: 'あい。', punctuation: '。' },
+      { source: 'aab', shrunk: 'aa', regrown: 'aa.', punctuation: '.' },
+    ]) {
+      const stream = new LiveCaptionStream();
+      stream.update(source, 0);
+      stream.update(source, 700);
+      expect(stream.update(shrunk, 710).committed).toEqual([]);
+
+      const update = stream.update(regrown, 720);
+      expect(update.committed.map((segment) => segment.text)).toEqual([punctuation]);
+      expect(update.tail).toBe('');
+      expect(update.lineChanged).toBe(false);
+    }
+  });
+
+  it('keeps frozen source closed across deterministic rolling-window fuzz sequences', () => {
+    const sources = [
+      'hello',
+      'aab',
+      'no no',
+      'baaa',
+      'This is',
+      'go very go very',
+      'あいう',
+      'まああ',
+    ];
+    for (const source of sources) {
+      for (let seed = 1; seed <= 40; seed += 1) {
+        const random = deterministicRandom(seed);
+        const suffix = /[\u3040-\u30ff]/u.test(source) ? '。' : 'Z.';
+        const full = `${source}${suffix}`;
+        const stream = new LiveCaptionStream();
+        stream.update(source, 0);
+        stream.update(source, 700);
+        let start = 0;
+        let end = source.length;
+        let now = 710;
+        const operations: string[] = [];
+        for (let step = 0; step < 32; step += 1) {
+          const operation = Math.floor(random() * 3);
+          if (operation === 0 && end > start + 1) {
+            end = Math.max(start + 1, end - 1 - Math.floor(random() * 3));
+          } else if (operation === 1 && start < full.length - 1) {
+            start = Math.min(full.length - 1, start + 1 + Math.floor(random() * 3));
+            end = Math.max(start + 1, end);
+          } else {
+            end = Math.min(full.length, end + 1 + Math.floor(random() * 4));
+          }
+          const visible = full.slice(start, end);
+          operations.push(visible);
+          now += 5;
+          const update = stream.update(visible, now);
+          // With no remaining overlap, a short window is a genuine replacement
+          // rather than an authenticated continuation of this rolling sequence.
+          if (update.lineChanged) break;
+          for (const segment of update.committed) {
+            expect(
+              source.includes(segment.text),
+              `${source} seed=${String(seed)} operations=${operations.join(' -> ')} emitted=${segment.text}`,
+            ).toBe(false);
+          }
+        }
+      }
+    }
   });
 
   it('recovers direct one- and two-character Latin frozen suffixes', () => {
