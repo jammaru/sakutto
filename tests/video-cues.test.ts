@@ -477,6 +477,37 @@ describe('live caption stream', () => {
     }
   });
 
+  it('retains ambiguous direct boundaries until regrowth authenticates them', () => {
+    const stream = new LiveCaptionStream();
+    stream.update('The station opens at dawn.', 0);
+    stream.update('n', 10);
+
+    const regrown = stream.update('n opens at dawn.', 20);
+    expect(regrown.committed).toEqual([]);
+    expect(regrown.tail).toBe('');
+    expect(regrown.lineChanged).toBe(false);
+  });
+
+  it('keeps periodic Latin and CJK suffixes frozen without reviving characters', () => {
+    const cjk = new LiveCaptionStream();
+    cjk.update('まああ', 0);
+    cjk.update('まああ', 700);
+    const rolled = cjk.update('ああです', 800);
+    expect(rolled.committed).toEqual([]);
+    expect(rolled.tail).toBe('です');
+    const finished = cjk.update('ああです。', 900);
+    expect(finished.committed.map((segment) => segment.text)).toEqual(['です。']);
+    expect(finished.tail).toBe('');
+
+    const latin = new LiveCaptionStream();
+    latin.update('baaa', 0);
+    latin.update('baaa', 700);
+    const periodic = latin.update('aaX', 800);
+    expect(periodic.committed).toEqual([]);
+    expect(periodic.tail).toBe('X');
+    expect(periodic.lineChanged).toBe(false);
+  });
+
   it('recovers direct one- and two-character Latin frozen suffixes', () => {
     for (const visible of ['n.', '.']) {
       const stream = new LiveCaptionStream();

@@ -611,7 +611,7 @@ export class LiveCaptionStream {
   private committedChars = 0;
   private discardedCommittedChars: number | null = null;
   private shrunkCommittedPrefix: string | null = null;
-  private shrunkCommittedStart = 0;
+  private shrunkCommittedStarts: number[] = [];
   private line = '';
   private lineVersion = 0;
   private tailStartedAt = 0;
@@ -648,34 +648,34 @@ export class LiveCaptionStream {
       if (recoveredDiscard !== null) {
         if (this.shrunkCommittedPrefix === null && recoveredDiscard > next.length) {
           this.shrunkCommittedPrefix = previous.slice(0, recoveredDiscard);
-          this.shrunkCommittedStart = 0;
+          this.shrunkCommittedStarts = [0];
         }
         this.discardedCommittedChars = null;
         this.committedChars = Math.min(recoveredDiscard, next.length);
         this.tailChangedAt = now;
       }
       if (this.shrunkCommittedPrefix !== null) {
-        const frozenSuffix = this.shrunkCommittedPrefix.slice(this.shrunkCommittedStart);
-        if (next.startsWith(frozenSuffix)) {
-          // Exact regrowth restores the already-frozen source, never re-emitting it.
-          this.committedChars = frozenSuffix.length;
-          this.shrunkCommittedPrefix = null;
-          this.shrunkCommittedStart = 0;
-        } else if (frozenSuffix.startsWith(next)) {
-          // Still inside the retained frozen suffix, whether shrinking or regrowing.
-          this.committedChars = next.length;
+        const match = matchFrozenWindow(
+          this.shrunkCommittedPrefix,
+          this.shrunkCommittedStarts,
+          next,
+        );
+        if (match) {
+          this.committedChars = match.committedChars;
+          this.shrunkCommittedPrefix = match.complete ? null : this.shrunkCommittedPrefix;
+          this.shrunkCommittedStarts = match.complete ? [] : match.starts;
         } else if (next.length > previous.length) {
           // The player revised the sentence while it was collapsed. Do not skip the
           // revised sentence behind the old numeric offset.
           this.committedChars = 0;
           this.shrunkCommittedPrefix = null;
-          this.shrunkCommittedStart = 0;
+          this.shrunkCommittedStarts = [];
         } else {
           this.committedChars = Math.min(this.committedChars, next.length);
         }
       } else if (recoveredDiscard === null && this.committedChars > next.length) {
         this.shrunkCommittedPrefix = previous.slice(0, this.committedChars);
-        this.shrunkCommittedStart = 0;
+        this.shrunkCommittedStarts = [0];
         this.committedChars = next.length;
       }
       if (next.length > previous.length) this.tailChangedAt = now;
@@ -685,37 +685,27 @@ export class LiveCaptionStream {
         this.discardedCommittedChars ?? this.committedChars,
         previous.length,
       );
-      const removed = rollingWindowRemovedChars(
+      const fullyCommitted = committedBefore === previous.length && committedBefore > 0;
+      const removedCandidates = rollingWindowRemovedCandidates(
         previous,
         next,
-        shrunkPrefix !== null || committedBefore === previous.length,
-        (candidate) => {
-          if (shrunkPrefix === null) return true;
-          const frozenSuffix = shrunkPrefix.slice(this.shrunkCommittedStart + candidate);
-          return (
-            frozenSuffix.length === 0 ||
-            next.startsWith(frozenSuffix) ||
-            frozenSuffix.startsWith(next)
-          );
-        },
+        shrunkPrefix !== null || fullyCommitted,
       );
-      if (shrunkPrefix !== null && removed !== null) {
-        const start = this.shrunkCommittedStart + removed;
-        const frozenSuffix = shrunkPrefix.slice(start);
-        if (frozenSuffix.length === 0) {
+      const frozenPrefix =
+        shrunkPrefix ?? (fullyCommitted ? previous.slice(0, committedBefore) : null);
+      if (frozenPrefix !== null && removedCandidates.length > 0) {
+        const baseStarts = shrunkPrefix === null ? [0] : this.shrunkCommittedStarts;
+        const starts = [
+          ...new Set(
+            baseStarts.flatMap((start) => removedCandidates.map((removed) => start + removed)),
+          ),
+        ];
+        const match = matchFrozenWindow(frozenPrefix, starts, next);
+        if (match) {
           this.visible = next;
-          this.committedChars = 0;
-          this.shrunkCommittedPrefix = null;
-          this.shrunkCommittedStart = 0;
-        } else if (next.startsWith(frozenSuffix)) {
-          this.visible = next;
-          this.committedChars = frozenSuffix.length;
-          this.shrunkCommittedPrefix = null;
-          this.shrunkCommittedStart = 0;
-        } else if (frozenSuffix.startsWith(next)) {
-          this.visible = next;
-          this.committedChars = next.length;
-          this.shrunkCommittedStart = start;
+          this.committedChars = match.committedChars;
+          this.shrunkCommittedPrefix = match.complete ? null : frozenPrefix;
+          this.shrunkCommittedStarts = match.complete ? [] : match.starts;
         } else {
           this.commitRemaining(now, committed);
           lineChanged = true;
@@ -724,20 +714,21 @@ export class LiveCaptionStream {
         this.discardedCommittedChars = null;
         this.tailChangedAt = now;
       } else {
+        const removed = removedCandidates[0];
         const rollingCommittedChars =
-          removed === null ? null : Math.max(0, committedBefore - removed);
+          removed === undefined ? null : Math.max(0, committedBefore - removed);
         if (rollingCommittedChars !== null) {
           this.visible = next;
           if (rollingCommittedChars > next.length) {
             // The new window ends inside the frozen suffix. Preserve that complete
             // suffix from the previous window instead of reconstructing it later.
             this.shrunkCommittedPrefix = previous.slice(0, committedBefore);
-            this.shrunkCommittedStart = removed ?? 0;
+            this.shrunkCommittedStarts = [removed ?? 0];
             this.committedChars = next.length;
           } else {
             this.committedChars = rollingCommittedChars;
             this.shrunkCommittedPrefix = null;
-            this.shrunkCommittedStart = 0;
+            this.shrunkCommittedStarts = [];
           }
           this.discardedCommittedChars = null;
           this.tailChangedAt = now;
@@ -789,7 +780,7 @@ export class LiveCaptionStream {
     this.committedChars = 0;
     this.discardedCommittedChars = null;
     this.shrunkCommittedPrefix = null;
-    this.shrunkCommittedStart = 0;
+    this.shrunkCommittedStarts = [];
     this.line = '';
     this.tailStartedAt = 0;
     this.tailChangedAt = 0;
@@ -802,7 +793,7 @@ export class LiveCaptionStream {
     this.committedChars = 0;
     this.discardedCommittedChars = null;
     this.shrunkCommittedPrefix = null;
-    this.shrunkCommittedStart = 0;
+    this.shrunkCommittedStarts = [];
     this.tailStartedAt = now;
     this.tailChangedAt = now;
   }
@@ -895,15 +886,15 @@ export function liveSegmentCut(raw: string, elapsedMs: number): number {
 }
 
 /**
- * Locate the longest meaningful suffix/prefix overlap in a rolling caption window.
+ * Return the longest normal overlap, or every ambiguous short overlap for later
+ * authentication against the frozen source.
  */
-function rollingWindowRemovedChars(
+function rollingWindowRemovedCandidates(
   previous: string,
   next: string,
   allowShortOverlap = false,
-  accepts: (removed: number) => boolean = () => true,
-): number | null {
-  let shortMatch: number | null = null;
+): number[] {
+  const shortMatches: number[] = [];
   for (let removed = 1; removed < previous.length; removed += 1) {
     const overlap = Math.min(previous.length - removed, next.length);
     const overlapText = next.slice(0, overlap);
@@ -914,15 +905,36 @@ function rollingWindowRemovedChars(
     ) {
       continue;
     }
-    if (previous.slice(removed, removed + overlap) !== overlapText || !accepts(removed)) {
-      continue;
-    }
-    if (overlap >= 3) return removed;
-    // Repeated one-/two-character fragments are ambiguous; the rightmost exact
-    // candidate avoids reviving an earlier occurrence inside the frozen sentence.
-    shortMatch = removed;
+    if (previous.slice(removed, removed + overlap) !== overlapText) continue;
+    if (overlap >= 3) return [removed];
+    shortMatches.push(removed);
   }
-  return shortMatch;
+  return shortMatches;
+}
+
+interface FrozenWindowMatch {
+  committedChars: number;
+  starts: number[];
+  complete: boolean;
+}
+
+/** Resolve ambiguous offsets only when the next window authenticates them. */
+function matchFrozenWindow(
+  prefix: string,
+  starts: readonly number[],
+  next: string,
+): FrozenWindowMatch | null {
+  const completeStarts = starts.filter((start) => next.startsWith(prefix.slice(start)));
+  if (completeStarts.length > 0) {
+    // Prefer the longest frozen suffix so no already-committed character is revived.
+    const start = Math.min(...completeStarts);
+    return { committedChars: prefix.length - start, starts: [], complete: true };
+  }
+  const partialStarts = starts.filter((start) => prefix.slice(start).startsWith(next));
+  if (partialStarts.length > 0) {
+    return { committedChars: next.length, starts: partialStarts, complete: false };
+  }
+  return null;
 }
 
 function sameVisibleLine(previous: string, next: string): boolean {
