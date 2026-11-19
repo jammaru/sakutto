@@ -395,6 +395,88 @@ describe('real-time caption translation', () => {
     session.stop();
   });
 
+  it('retires a pending tail when a replacement keeps the same tail text', async () => {
+    document.body.innerHTML = youtubeMarkup('regressionstalecontext', true);
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    const requests: Array<{ text: string; context: string; signal: AbortSignal }> = [];
+    let alphaBetaCompleted = 0;
+    let releaseAlphaBeta!: () => void;
+    const alphaBetaGate = new Promise<void>((resolve) => {
+      releaseAlphaBeta = resolve;
+    });
+    let markAlphaBetaStarted!: () => void;
+    const alphaBetaStarted = new Promise<void>((resolve) => {
+      markAlphaBetaStarted = resolve;
+    });
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        const text = segments[0]?.text ?? '';
+        const context = options.context ?? '';
+        requests.push({ text, context, signal: options.signal });
+        if (text === 'Beta' && context === 'Alpha.') {
+          markAlphaBetaStarted();
+          await alphaBetaGate;
+        }
+        for (const segment of segments) {
+          const contextMarker = segment.text === 'Beta' ? ` [${context}]` : '';
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(`${segment.text}${contextMarker}`, options.tgt),
+            engine: 'plamo',
+          };
+        }
+        if (text === 'Beta' && context === 'Alpha.') alphaBetaCompleted += 1;
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readTrack: async () => '',
+      now: () => 0,
+    });
+    session.start();
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
+    try {
+      segment.textContent = 'Alpha. Beta';
+      await alphaBetaStarted;
+      const alphaBeta = requests.find(
+        (request) => request.text === 'Beta' && request.context === 'Alpha.',
+      );
+
+      // The tail is still "Beta", so tailChanged is false even though the line and
+      // its context change. The old request must keep serving committed Beta only.
+      segment.textContent = 'Gamma. Beta';
+      video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+      const gammaBetaTranslation = fakeTranslateText('Beta [Gamma.]', 'ja');
+      await vi.waitFor(() => {
+        expect(
+          requests.some((request) => request.text === 'Beta' && request.context === 'Gamma.'),
+        ).toBe(true);
+        expect(host.getAttribute('data-sakutto-caption')).toBe(gammaBetaTranslation);
+      });
+      expect(alphaBeta?.signal.aborted).toBe(false);
+      expect(
+        requests.filter((request) => request.text === 'Beta' && request.context === 'Alpha.'),
+      ).toHaveLength(1);
+
+      releaseAlphaBeta();
+      await vi.waitFor(() => {
+        expect(alphaBetaCompleted).toBe(1);
+      });
+      await sleep(0);
+      expect(host.getAttribute('data-sakutto-caption')).toBe(gammaBetaTranslation);
+      expect(
+        requests.filter((request) => request.text === 'Beta' && request.context === 'Alpha.'),
+      ).toHaveLength(1);
+    } finally {
+      releaseAlphaBeta();
+      session.stop();
+    }
+  });
+
   it('cancels a delayed tail when the caption disappears', async () => {
     document.body.innerHTML = youtubeMarkup('stabilityvanish01', true);
     const video = document.querySelector('video') as HTMLVideoElement;

@@ -420,6 +420,17 @@ describe('live caption stream', () => {
     expect(cjkRolling.lineChanged).toBe(false);
   });
 
+  it('preserves the frozen suffix when rolling after a prefix shrink', () => {
+    const stream = new LiveCaptionStream();
+    stream.update('The station opens at dawn. A red', 0);
+    stream.update('The station', 100);
+
+    const regrown = stream.update('station opens at dawn. A red train', 200);
+    expect(regrown.committed).toEqual([]);
+    expect(regrown.tail).toBe('A red train');
+    expect(regrown.lineChanged).toBe(false);
+  });
+
   it('restores the pre-discard tail after repeated empty-DOM discards', () => {
     const stream = new LiveCaptionStream();
     stream.update('The station opens', 0);
@@ -441,6 +452,18 @@ describe('live caption stream', () => {
     expect(extended.update('The station opens at dawn', 200).tail).toBe(
       'The station opens at dawn',
     );
+  });
+
+  it('preserves the frozen suffix through empty-DOM truncated reappearance', () => {
+    const stream = new LiveCaptionStream();
+    stream.update('The station opens at dawn. A red', 0);
+    stream.discardTail(100);
+    stream.update('The station', 200);
+
+    const regrown = stream.update('The station opens at dawn. A red train', 300);
+    expect(regrown.committed).toEqual([]);
+    expect(regrown.tail).toBe('A red train');
+    expect(regrown.lineChanged).toBe(false);
   });
 
   it('does not revive a discarded tail on a different line or duplicate committed text', () => {

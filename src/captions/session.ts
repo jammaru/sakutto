@@ -152,6 +152,8 @@ interface LiveCommittedCaption {
 interface LiveTailJob {
   text: string;
   options: CaptionTranslateOptions;
+  lineKey: string;
+  context: string;
   startedAt: number;
 }
 
@@ -1067,6 +1069,7 @@ export class VideoCaptionSession {
       this.clearHoldTimer();
       this.clearLiveTailTimer();
       this.cancelLiveTailJob();
+      this.fallbackPendingLiveCommitted();
       this.liveStream.discardTail(this.now());
       this.liveTailTranslation = null;
       this.liveTailChangedAt = 0;
@@ -1105,9 +1108,9 @@ export class VideoCaptionSession {
     if (update.committed.length > 0 || update.lineChanged) {
       this.liveTailEverTranslated = false;
     }
-    if (update.committed.length > 0) {
+    if (update.committed.length > 0 || update.lineChanged) {
       this.clearLiveTailTimer();
-      // A new segment starts a fresh first-hint budget immediately.
+      // A new segment or replacement line starts a fresh first-hint budget immediately.
       this.liveTailLastRequestAt = 0;
       let context = this.lastCommittedLiveSource();
       for (const segment of update.committed) {
@@ -1115,18 +1118,24 @@ export class VideoCaptionSession {
         context = segment.text;
       }
     }
-    if (update.tailChanged) {
+    if (update.tailChanged || update.lineChanged) {
       this.clearHoldTimer();
       this.liveTailRevision += 1;
       this.liveTailChangedAt = this.now();
       this.clearLiveTailTimer();
-      if (this.liveTailTranslation?.text !== update.tail) this.liveTailTranslation = null;
-      // Keep an in-flight tail request for the same line. It may finish as the
-      // latest hint, but it must not be cancelled and restarted on every word.
-      if (update.committed.length > 0 || update.lineChanged) {
-        this.cancelLiveTailJobIfUnused();
+      if (update.lineChanged || this.liveTailTranslation?.text !== update.tail) {
+        this.liveTailTranslation = null;
       }
     }
+    if (update.lineChanged) {
+      // Detach old tail work even when a replacement reuses the exact tail text.
+      // A newly committed entry may still share the underlying request.
+      this.retireLiveTailJob();
+    } else if (update.tailChanged && update.committed.length > 0) {
+      this.cancelLiveTailJobIfUnused();
+    }
+    // Otherwise keep an in-flight tail request for the same line. It may finish as
+    // the latest hint, but it must not be cancelled and restarted on every word.
     this.repaintLive(timeMs);
     this.scheduleLiveTail(options);
   }
@@ -1226,12 +1235,13 @@ export class VideoCaptionSession {
       ...(context ? { context } : {}),
     };
     const now = this.now();
-    const job: LiveTailJob = { text, options: requestOptions, startedAt: now };
+    const lineKey = this.liveStream.lineKey();
+    const job: LiveTailJob = { text, options: requestOptions, lineKey, context, startedAt: now };
     this.liveTailJob = job;
     this.liveTailLastRequestAt = now;
     this.liveTailRevision += 1;
     const cue: CaptionCue = {
-      id: `live-tail:${this.liveStream.lineKey()}:${String(this.liveTailRevision)}`,
+      id: `live-tail:${lineKey}:${String(this.liveTailRevision)}`,
       startMs: 0,
       endMs: this.playheadMs(),
       text,
@@ -1244,6 +1254,13 @@ export class VideoCaptionSession {
       .then((translation) => {
         if (!this.running || token !== this.sourceToken || this.liveTailJob !== job) return;
         this.liveTailJob = null;
+        if (
+          this.liveStream.lineKey() !== job.lineKey ||
+          this.lastCommittedLiveSource() !== job.context
+        ) {
+          this.scheduleLiveTail(options);
+          return;
+        }
         if (this.translator.abortedSince(generation) || !this.liveCaptionVisible) return;
         if (translation) {
           if (this.liveStream.tail() === job.text) {
@@ -1258,8 +1275,14 @@ export class VideoCaptionSession {
       });
   }
 
-  private cancelLiveTailJobIfUnused(): void {
+  private retireLiveTailJob(): void {
     const job = this.liveTailJob;
+    if (!job) return;
+    this.liveTailJob = null;
+    this.cancelLiveTailJobIfUnused(job);
+  }
+
+  private cancelLiveTailJobIfUnused(job = this.liveTailJob): void {
     if (!job) return;
     const jobKey = this.translator.cacheKey(job.text, job.options);
     const needed = this.liveCommitted.some(
@@ -1267,7 +1290,10 @@ export class VideoCaptionSession {
         entry.translation.length === 0 &&
         this.translator.cacheKey(entry.source, entry.options) === jobKey,
     );
-    if (!needed) this.cancelLiveTailJob();
+    if (!needed) {
+      if (this.liveTailJob === job) this.liveTailJob = null;
+      this.translator.cancelText(job.text, job.options);
+    }
   }
 
   private cancelLiveTailJob(): void {
@@ -1285,6 +1311,15 @@ export class VideoCaptionSession {
 
   private lastCommittedLiveSource(): string {
     return this.liveCommitted.at(-1)?.source ?? '';
+  }
+
+  /** Detached tail jobs still belong to committed entries and need a vanish fallback. */
+  private fallbackPendingLiveCommitted(): void {
+    for (const entry of this.liveCommitted) {
+      if (entry.translation.length > 0) continue;
+      entry.translation = entry.source;
+      this.cancelLiveCommittedJobIfUnused(entry);
+    }
   }
 
   /** Evict the oldest pending work to original text before it can form a stale backlog. */
