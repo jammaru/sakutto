@@ -1069,7 +1069,6 @@ export class VideoCaptionSession {
       this.clearHoldTimer();
       this.clearLiveTailTimer();
       this.cancelLiveTailJob();
-      this.fallbackPendingLiveCommitted();
       this.liveStream.discardTail(this.now());
       this.liveTailTranslation = null;
       this.liveTailChangedAt = 0;
@@ -1311,15 +1310,6 @@ export class VideoCaptionSession {
 
   private lastCommittedLiveSource(): string {
     return this.liveCommitted.at(-1)?.source ?? '';
-  }
-
-  /** Detached tail jobs still belong to committed entries and need a vanish fallback. */
-  private fallbackPendingLiveCommitted(): void {
-    for (const entry of this.liveCommitted) {
-      if (entry.translation.length > 0) continue;
-      entry.translation = entry.source;
-      this.cancelLiveCommittedJobIfUnused(entry);
-    }
   }
 
   /** Evict the oldest pending work to original text before it can form a stale backlog. */

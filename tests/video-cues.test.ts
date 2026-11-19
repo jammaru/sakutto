@@ -431,6 +431,37 @@ describe('live caption stream', () => {
     expect(regrown.lineChanged).toBe(false);
   });
 
+  it('validates one- and two-character Latin overlaps against a saved frozen prefix', () => {
+    for (const discard of [false, true]) {
+      for (const removed of [1, 2]) {
+        const stream = new LiveCaptionStream();
+        stream.update('The station opens at dawn. A red', 0);
+        if (discard) stream.discardTail(50);
+        stream.update('The', 100);
+
+        const regrown = stream.update(`The station opens at dawn. A red train`.slice(removed), 200);
+        expect(regrown.committed).toEqual([]);
+        expect(regrown.tail).toBe('A red train');
+        expect(regrown.lineChanged).toBe(false);
+      }
+    }
+  });
+
+  it('preserves a frozen suffix through right-truncated rolling windows', () => {
+    for (const discard of [false, true]) {
+      const stream = new LiveCaptionStream();
+      stream.update('The station opens at dawn.', 0);
+      if (discard) stream.discardTail(50);
+      expect(stream.update('daw', 100).committed).toEqual([]);
+      expect(stream.update('dawn', 200).committed).toEqual([]);
+
+      const regrown = stream.update('dawn. A red', 300);
+      expect(regrown.committed).toEqual([]);
+      expect(regrown.tail).toBe('A red');
+      expect(regrown.lineChanged).toBe(false);
+    }
+  });
+
   it('restores the pre-discard tail after repeated empty-DOM discards', () => {
     const stream = new LiveCaptionStream();
     stream.update('The station opens', 0);
