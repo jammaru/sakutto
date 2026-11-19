@@ -514,7 +514,7 @@
     "message": "PLaMo · CPU (сбой устройства WebGPU)"
   },
   "runtimePlamoGpuFallbackAdapter": {
-    "message": "PLaMo · CPU (адаптер WebGPU недоступен — часто бывает сразу после обновления драйвера GPU. Полностью перезапустите Chrome, затем проверьте chrome://gpu и аппаратное ускорение)"
+    "message": "PLaMo · CPU (адаптер WebGPU недоступен — перезапустите Chrome)"
   },
   "runtimeChrome": {
     "message": "Встроенная переводчика Chrome"

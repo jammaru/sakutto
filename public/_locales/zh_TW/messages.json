@@ -514,7 +514,7 @@
     "message": "PLaMo · CPU（WebGPU 裝置故障）"
   },
   "runtimePlamoGpuFallbackAdapter": {
-    "message": "PLaMo · CPU（無法取得 WebGPU 介面卡——常在 GPU 驅動程式更新後發生。請完全重新啟動 Chrome，若仍未解決，請檢查 chrome://gpu 與硬體加速）"
+    "message": "PLaMo · CPU（WebGPU 介面卡無法使用——請重新啟動 Chrome）"
   },
   "runtimeChrome": {
     "message": "Chrome 內建的翻譯功能"

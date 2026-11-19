@@ -514,7 +514,7 @@
     "message": "PLaMo · CPU (WebGPU device failed)"
   },
   "runtimePlamoGpuFallbackAdapter": {
-    "message": "PLaMo · CPU (ใช้อะแดปเตอร์ WebGPU ไม่ได้ — มักเกิดขึ้นหลังอัปเดตไดรเวอร์ GPU ทันที ให้รีสตาร์ท Chrome ให้เรียบร้อย แล้วตรวจสอบ chrome://gpu กับการเร่งด้วยฮาร์ดแวร์)"
+    "message": "PLaMo · CPU (ใช้อะแดปเตอร์ WebGPU ไม่ได้ — รีสตาร์ท Chrome)"
   },
   "runtimeChrome": {
     "message": "การแปลในตัวของ Chrome"
