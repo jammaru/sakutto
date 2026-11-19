@@ -1701,7 +1701,7 @@
     "description": "Options toggle that asks for optional http/https host access once."
   },
   "allSitesSettingHelp": {
-    "message": "The selection button and the page shortcuts have to be on the page before your first click, so this asks for optional access to http/https pages. Turning it off removes that access; you can also revoke it from the browser's extension permission settings.",
+    "message": "Allow access to all sites once so Sakutto works right after a page opens. Turn it off anytime to revoke.",
     "description": "One-line explanation of the all-sites toggle."
   },
   "allSitesPermissionDenied": {

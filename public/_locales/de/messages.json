@@ -1695,7 +1695,7 @@
     "message": "Auswahlübersetzung und Tastenkürzel auf allen Seiten von Anfang an nutzen"
   },
   "allSitesSettingHelp": {
-    "message": "Die Schaltfläche für die Auswahlübersetzung und die Tastenkürzel müssen schon vor dem ersten Klick auf der Seite sein, daher wird optionaler Zugriff auf http/https-Seiten angefordert. Beim Ausschalten wird dieser Zugriff entfernt; Sie können ihn auch in den Erweiterungsberechtigungen des Browsers widerrufen."
+    "message": "Erlauben Sie einmal den Zugriff auf alle Seiten, damit Sakutto direkt nach dem Öffnen einer Seite funktioniert. Schalten Sie es jederzeit aus, um den Zugriff zu widerrufen."
   },
   "allSitesPermissionDenied": {
     "message": "Der Zugriff auf alle Seiten wurde nicht erteilt, daher bleibt dies ausgeschaltet."

@@ -1695,7 +1695,7 @@
     "message": "Usar a tradução de seleção e os atalhos em todos os sites desde o carregamento"
   },
   "allSitesSettingHelp": {
-    "message": "O botão de tradução de seleção e os atalhos precisam estar na página antes do seu primeiro clique, por isso é solicitado acesso opcional às páginas http/https. Ao desativar, esse acesso é removido; você também pode revogá-lo nas permissões de extensões do navegador."
+    "message": "Permita o acesso a todos os sites uma vez para que o Sakutto funcione assim que uma página abrir. Desative a qualquer momento para revogar."
   },
   "allSitesPermissionDenied": {
     "message": "O acesso a todos os sites não foi concedido, então isso permanece desativado."

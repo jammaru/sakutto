@@ -1695,7 +1695,7 @@
     "message": "Gunakan terjemahan pilihan dan pintasan di semua situs sejak awal"
   },
   "allSitesSettingHelp": {
-    "message": "Tombol terjemahan pilihan dan pintasan harus ada di halaman sebelum klik pertama Anda, karena itu akses opsional ke halaman http/https diminta. Mematikan pengaturan ini akan menghapus aksesnya; Anda juga dapat mencabutnya dari pengaturan izin ekstensi di peramban."
+    "message": "Izinkan akses ke semua situs sekali saja agar Sakutto langsung berfungsi begitu halaman dibuka. Matikan kapan saja untuk mencabutnya."
   },
   "allSitesPermissionDenied": {
     "message": "Akses ke semua situs tidak diberikan, jadi pengaturan ini tetap mati."

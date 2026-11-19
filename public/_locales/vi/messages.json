@@ -1695,7 +1695,7 @@
     "message": "Dùng dịch đoạn chọn và phím tắt trên mọi trang web ngay từ đầu"
   },
   "allSitesSettingHelp": {
-    "message": "Nút dịch đoạn chọn và phím tắt cần có trên trang trước lần bấm đầu tiên, nên tiện ích sẽ yêu cầu quyền truy cập tùy chọn vào các trang http/https. Tắt lựa chọn này sẽ gỡ quyền đó; bạn cũng có thể thu hồi nó trong cài đặt quyền của tiện ích trên trình duyệt."
+    "message": "Cho phép truy cập tất cả trang web một lần để Sakutto hoạt động ngay khi mở trang. Tắt bất cứ lúc nào để thu hồi quyền."
   },
   "allSitesPermissionDenied": {
     "message": "Quyền truy cập mọi trang chưa được cấp nên lựa chọn này vẫn tắt."

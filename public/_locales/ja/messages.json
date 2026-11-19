@@ -1700,7 +1700,7 @@
     "description": "Options toggle that asks for optional http/https host access once."
   },
   "allSitesSettingHelp": {
-    "message": "選択翻訳のボタンとショートカットは最初のクリックより前からページに乗っている必要があるため、http/https ページへの任意のアクセスを要求します。この設定をオフにするとそのアクセスを外します。ブラウザーの拡張機能の権限設定からも取り消せます。",
+    "message": "ページを開いた直後から使えるように、すべてのサイトへのアクセスを1回だけ許可します。オフにするといつでも取り消せます。",
     "description": "One-line explanation of the all-sites toggle."
   },
   "allSitesPermissionDenied": {

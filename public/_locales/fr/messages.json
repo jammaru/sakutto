@@ -1695,7 +1695,7 @@
     "message": "Utiliser la traduction de sélection et les raccourcis sur tous les sites dès le chargement"
   },
   "allSitesSettingHelp": {
-    "message": "Le bouton de traduction de sélection et les raccourcis doivent être sur la page avant votre premier clic ; un accès facultatif aux pages http/https est donc demandé. Le désactiver supprime cet accès ; vous pouvez aussi le révoquer dans les paramètres d'autorisation des extensions du navigateur."
+    "message": "Autorisez une fois l'accès à tous les sites pour que Sakutto fonctionne dès qu'une page s'ouvre. Désactivez-le à tout moment pour le révoquer."
   },
   "allSitesPermissionDenied": {
     "message": "L'accès à tous les sites n'a pas été accordé, cette option reste donc désactivée."
