@@ -1696,11 +1696,11 @@
     "message": "削除"
   },
   "allSitesSetting": {
-    "message": "すべてのサイトで最初から選択翻訳とショートカットを使う",
+    "message": "ページを開いたらすぐSakuttoを使えるようにする（おすすめ）",
     "description": "Options toggle that asks for optional http/https host access once."
   },
   "allSitesSettingHelp": {
-    "message": "ページを開いた直後から使えるように、すべてのサイトへのアクセスを1回だけ許可します。オフにするといつでも取り消せます。",
+    "message": "Sakuttoは最初の権限をできるだけ弱くしているので、オフのままだとページごとにアイコン・右クリック・ショートカットのどれかを一度使うまで、選択翻訳のボタンやページ内のショートカットが動きません。もっと快適に使うなら、オンにするのがおすすめです。全サイトへのアクセスを1回許可するだけで、どのページでも開いてすぐ使えます。翻訳は今までどおり端末の中だけで行い、オフにすればいつでも取り消せます。",
     "description": "One-line explanation of the all-sites toggle."
   },
   "allSitesPermissionDenied": {

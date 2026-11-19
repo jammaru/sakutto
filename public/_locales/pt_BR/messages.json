@@ -1692,10 +1692,10 @@
     "message": "Remove"
   },
   "allSitesSetting": {
-    "message": "Usar a tradução de seleção e os atalhos em todos os sites desde o carregamento"
+    "message": "Deixar o Sakutto pronto assim que uma página abrir (recomendado)"
   },
   "allSitesSettingHelp": {
-    "message": "Permita o acesso a todos os sites uma vez para que o Sakutto funcione assim que uma página abrir. Desative a qualquer momento para revogar."
+    "message": "O Sakutto começa com as permissões mais fracas possível, então, enquanto isso estiver desligado, o botão de tradução de seleção e os atalhos na página só funcionam depois que você usa ali uma vez o ícone do Sakutto, o menu do botão direito ou um atalho de teclado. Para uma experiência mais fluida, recomendamos ativar. Permita o acesso a todos os sites uma vez e o Sakutto funciona em qualquer página assim que ela abrir. A tradução continua acontecendo só no seu dispositivo, e você pode revogar esse acesso a qualquer momento desativando a opção."
   },
   "allSitesPermissionDenied": {
     "message": "O acesso a todos os sites não foi concedido, então isso permanece desativado."

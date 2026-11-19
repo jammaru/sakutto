@@ -1692,10 +1692,10 @@
     "message": "Remove"
   },
   "allSitesSetting": {
-    "message": "Dùng dịch đoạn chọn và phím tắt trên mọi trang web ngay từ đầu"
+    "message": "Để Sakutto sẵn sàng ngay khi trang mở ra (khuyên dùng)"
   },
   "allSitesSettingHelp": {
-    "message": "Cho phép truy cập tất cả trang web một lần để Sakutto hoạt động ngay khi mở trang. Tắt bất cứ lúc nào để thu hồi quyền."
+    "message": "Sakutto ban đầu chỉ xin quyền ở mức tối thiểu, nên khi tùy chọn này đang tắt, nút dịch đoạn chọn và phím tắt trong trang chỉ hoạt động sau khi bạn đã dùng biểu tượng Sakutto, menu chuột phải hoặc phím tắt trên trang đó một lần. Để trải nghiệm mượt mà hơn, chúng tôi khuyên bạn nên bật. Chỉ cần cho phép truy cập tất cả trang web một lần là Sakutto hoạt động trên mọi trang ngay khi mở. Việc dịch vẫn chỉ diễn ra trên thiết bị của bạn, và bạn có thể thu hồi quyền đó bất cứ lúc nào bằng cách tắt tùy chọn."
   },
   "allSitesPermissionDenied": {
     "message": "Quyền truy cập mọi trang chưa được cấp nên lựa chọn này vẫn tắt."

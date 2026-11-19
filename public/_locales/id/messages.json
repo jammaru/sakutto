@@ -1692,10 +1692,10 @@
     "message": "Remove"
   },
   "allSitesSetting": {
-    "message": "Gunakan terjemahan pilihan dan pintasan di semua situs sejak awal"
+    "message": "Buat Sakutto siap digunakan begitu halaman dibuka (disarankan)"
   },
   "allSitesSettingHelp": {
-    "message": "Izinkan akses ke semua situs sekali saja agar Sakutto langsung berfungsi begitu halaman dibuka. Matikan kapan saja untuk mencabutnya."
+    "message": "Sakutto memulai dengan izin yang seminimal mungkin, jadi selama opsi ini mati, tombol terjemahan pilihan dan pintasan di halaman hanya berfungsi setelah Anda memakai ikon Sakutto, menu klik kanan, atau pintasan keyboard di halaman itu sekali. Agar pengalaman lebih lancar, kami sarankan menyalakannya. Izinkan akses ke semua situs sekali saja dan Sakutto langsung berfungsi di setiap halaman begitu dibuka. Penerjemahan tetap hanya terjadi di perangkat Anda, dan Anda bisa mencabut akses itu kapan saja dengan mematikan opsi ini."
   },
   "allSitesPermissionDenied": {
     "message": "Akses ke semua situs tidak diberikan, jadi pengaturan ini tetap mati."

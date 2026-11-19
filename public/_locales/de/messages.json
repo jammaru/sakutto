@@ -1692,10 +1692,10 @@
     "message": "Remove"
   },
   "allSitesSetting": {
-    "message": "Auswahlübersetzung und Tastenkürzel auf allen Seiten von Anfang an nutzen"
+    "message": "Sakutto einsatzbereit machen, sobald eine Seite geöffnet wird (empfohlen)"
   },
   "allSitesSettingHelp": {
-    "message": "Erlauben Sie einmal den Zugriff auf alle Seiten, damit Sakutto direkt nach dem Öffnen einer Seite funktioniert. Schalten Sie es jederzeit aus, um den Zugriff zu widerrufen."
+    "message": "Sakutto beginnt mit den schwächsten Berechtigungen, die möglich sind. Solange dies ausgeschaltet ist, funktionieren die Schaltfläche zur Auswahlübersetzung und die Tastenkürzel auf einer Seite erst, nachdem Sie dort einmal das Sakutto-Symbol, das Rechtsklickmenü oder ein Tastenkürzel verwendet haben. Für ein reibungsloseres Erlebnis empfehlen wir, dies einzuschalten. Erlauben Sie einmal den Zugriff auf alle Seiten, dann funktioniert Sakutto auf jeder Seite direkt nach dem Öffnen. Die Übersetzung erfolgt weiterhin nur auf Ihrem Gerät, und Sie können den Zugriff jederzeit widerrufen, indem Sie dies ausschalten."
   },
   "allSitesPermissionDenied": {
     "message": "Der Zugriff auf alle Seiten wurde nicht erteilt, daher bleibt dies ausgeschaltet."
