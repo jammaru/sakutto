@@ -1690,5 +1690,20 @@
   },
   "settingsGmailRemoveLang": {
     "message": "Remove"
+  },
+  "allSitesSetting": {
+    "message": "Gunakan terjemahan pilihan dan pintasan di semua situs sejak awal"
+  },
+  "allSitesSettingHelp": {
+    "message": "Tombol terjemahan pilihan dan pintasan harus ada di halaman sebelum klik pertama Anda, karena itu akses opsional ke halaman http/https diminta. Mematikan pengaturan ini akan menghapus aksesnya; Anda juga dapat mencabutnya dari pengaturan izin ekstensi di peramban."
+  },
+  "allSitesPermissionDenied": {
+    "message": "Akses ke semua situs tidak diberikan, jadi pengaturan ini tetap mati."
+  },
+  "allSitesPopupHint": {
+    "message": "Aktifkan akses semua situs untuk memakai tombol terjemahan pilihan dan pintasan di setiap halaman tanpa harus membuka popup ini dulu."
+  },
+  "allSitesPopupEnable": {
+    "message": "Aktifkan"
   }
 }

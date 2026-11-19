@@ -1690,5 +1690,20 @@
   },
   "settingsGmailRemoveLang": {
     "message": "Remove"
+  },
+  "allSitesSetting": {
+    "message": "Dùng dịch đoạn chọn và phím tắt trên mọi trang web ngay từ đầu"
+  },
+  "allSitesSettingHelp": {
+    "message": "Nút dịch đoạn chọn và phím tắt cần có trên trang trước lần bấm đầu tiên, nên tiện ích sẽ yêu cầu quyền truy cập tùy chọn vào các trang http/https. Tắt lựa chọn này sẽ gỡ quyền đó; bạn cũng có thể thu hồi nó trong cài đặt quyền của tiện ích trên trình duyệt."
+  },
+  "allSitesPermissionDenied": {
+    "message": "Quyền truy cập mọi trang chưa được cấp nên lựa chọn này vẫn tắt."
+  },
+  "allSitesPopupHint": {
+    "message": "Bật quyền truy cập mọi trang để dùng nút dịch đoạn chọn và phím tắt trên mỗi trang mà không cần mở cửa sổ này trước."
+  },
+  "allSitesPopupEnable": {
+    "message": "Bật"
   }
 }

@@ -355,6 +355,11 @@ export function contentMain(): void {
   let gmailBanner: GmailBannerController | null = null;
   let outlookBanner: OutlookBannerController | null = null;
   let invalidationToreDown = false;
+  // The passive all-sites injection stays quiet on a host the reader turned off. The first
+  // explicit popup or command message flips this for the life of the document.
+  let explicitActivationSeen = false;
+  let selectionOffersSuppressed = false;
+  let pendingExistingSelectionOffer = false;
   const teardownAfterInvalidation = (): void => {
     if (invalidationToreDown) return;
     invalidationToreDown = true;
@@ -408,6 +413,25 @@ export function contentMain(): void {
       }
       yield* translateViaBackground(segments, options);
     },
+  };
+
+  /**
+   * An explicit popup or command reached this page. On a host whose rule is `never`, the
+   * passive all-sites injection has kept the selection button hidden; an explicit gesture
+   * keeps today's behavior, so the offers return from here on. The popup and the command
+   * paths both message the page right after `ensureContentScript` confirms it answers.
+   */
+  const markExplicitPageActivation = (): void => {
+    if (explicitActivationSeen) return;
+    explicitActivationSeen = true;
+    void sessionPromise.then((session) => {
+      if (!selectionOffersSuppressed) return;
+      selectionOffersSuppressed = false;
+      session.setSelectionOffersSuppressed(false);
+      if (!pendingExistingSelectionOffer) return;
+      pendingExistingSelectionOffer = false;
+      session.offerExistingSelection();
+    });
   };
 
   const sessionPromise = (async () => {
@@ -502,6 +526,20 @@ export function contentMain(): void {
     });
 
     let liveRule = rule;
+    // A passive all-sites injection must not surface the selection button on a host the
+    // reader turned Sakutto off for. An explicit activation (recorded by the message
+    // listener) or a rule change lifts it again; the explicit command paths still run.
+    const syncSelectionSuppression = (): void => {
+      const suppress = liveRule.auto === 'never' && !explicitActivationSeen;
+      if (suppress === selectionOffersSuppressed) return;
+      selectionOffersSuppressed = suppress;
+      session.setSelectionOffersSuppressed(suppress);
+      if (!suppress && pendingExistingSelectionOffer) {
+        pendingExistingSelectionOffer = false;
+        session.offerExistingSelection();
+      }
+    };
+    syncSelectionSuppression();
     let captionDisplayWrite = 0;
     let captionPositionWrite = 0;
     let mailLanguagesWrite = 0;
@@ -569,6 +607,12 @@ export function contentMain(): void {
     const detected = await detectDocumentLanguage(document);
     session.setDetectedLanguage(detected);
 
+    // A selection made before this script initialized never fired `selectionchange` here.
+    // Offer the existing highlight once — on every injection path, never as a page
+    // translation — so a highlight made just before init still gets the button.
+    if (selectionOffersSuppressed) pendingExistingSelectionOffer = true;
+    else session.offerExistingSelection();
+
     const applyStored = async (): Promise<void> => {
       const writeId = captionDisplayWrite;
       const positionWriteId = captionPositionWrite;
@@ -604,6 +648,7 @@ export function contentMain(): void {
         gmailNeverTranslateLangs,
       };
       liveRule = nextRule;
+      syncSelectionSuppression();
       engineSource = liveSettings.engineSource;
       shortcutsEnabled = liveSettings.shortcutsEnabled;
       session.setLabels(overlayLabels());
@@ -823,12 +868,16 @@ export function contentMain(): void {
       return;
     }
     if (isPageStateRequest(message)) {
+      // Only the popup asks for page state: this is an explicit look at the page.
+      markExplicitPageActivation();
       void sessionPromise.then((session) => {
         sendResponse(session.state());
       });
       return true;
     }
     if (!isPageCommandRequest(message)) return;
+    // A command is the popup, a context menu, or an assigned browser command.
+    markExplicitPageActivation();
     // Capture before the first await: opening a context menu can clear the selection while
     // the background arm round-trip is still running.
     const selection = message.command === 'selection' ? capturePageSelection(document) : null;

@@ -1690,5 +1690,20 @@
   },
   "settingsGmailRemoveLang": {
     "message": "Remove"
+  },
+  "allSitesSetting": {
+    "message": "Auswahlübersetzung und Tastenkürzel auf allen Seiten von Anfang an nutzen"
+  },
+  "allSitesSettingHelp": {
+    "message": "Die Schaltfläche für die Auswahlübersetzung und die Tastenkürzel müssen schon vor dem ersten Klick auf der Seite sein, daher wird optionaler Zugriff auf http/https-Seiten angefordert. Beim Ausschalten wird dieser Zugriff entfernt; Sie können ihn auch in den Erweiterungsberechtigungen des Browsers widerrufen."
+  },
+  "allSitesPermissionDenied": {
+    "message": "Der Zugriff auf alle Seiten wurde nicht erteilt, daher bleibt dies ausgeschaltet."
+  },
+  "allSitesPopupHint": {
+    "message": "Aktivieren Sie den Zugriff auf alle Seiten, um Auswahlübersetzung und Tastenkürzel auf jeder Seite zu nutzen, ohne dieses Popup vorher öffnen zu müssen."
+  },
+  "allSitesPopupEnable": {
+    "message": "Aktivieren"
   }
 }

@@ -1695,5 +1695,25 @@
   },
   "settingsGmailRemoveLang": {
     "message": "Remove"
+  },
+  "allSitesSetting": {
+    "message": "Use selection translation and shortcuts on all sites from page load",
+    "description": "Options toggle that asks for optional http/https host access once."
+  },
+  "allSitesSettingHelp": {
+    "message": "The selection button and the page shortcuts have to be on the page before your first click, so this asks for optional access to http/https pages. Turning it off removes that access; you can also revoke it from the browser's extension permission settings.",
+    "description": "One-line explanation of the all-sites toggle."
+  },
+  "allSitesPermissionDenied": {
+    "message": "All-sites access was not granted, so this stays off.",
+    "description": "Shown when the browser prompt for all-sites access is denied."
+  },
+  "allSitesPopupHint": {
+    "message": "Turn on all-sites access to use the selection button and shortcuts on every page without opening this popup first.",
+    "description": "One-line suggestion in the toolbar popup while all-sites access is off."
+  },
+  "allSitesPopupEnable": {
+    "message": "Turn on",
+    "description": "Button in the toolbar popup that turns on all-sites access."
   }
 }

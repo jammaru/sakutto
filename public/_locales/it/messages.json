@@ -1690,5 +1690,20 @@
   },
   "settingsGmailRemoveLang": {
     "message": "Remove"
+  },
+  "allSitesSetting": {
+    "message": "Usa la traduzione della selezione e le scorciatoie su tutti i siti da subito"
+  },
+  "allSitesSettingHelp": {
+    "message": "Il pulsante di traduzione della selezione e le scorciatoie devono essere sulla pagina prima del primo clic, quindi viene richiesto l'accesso facoltativo alle pagine http/https. Disattivandolo l'accesso viene rimosso; puoi anche revocarlo nelle impostazioni dei permessi delle estensioni del browser."
+  },
+  "allSitesPermissionDenied": {
+    "message": "L'accesso a tutti i siti non è stato concesso, quindi resta disattivato."
+  },
+  "allSitesPopupHint": {
+    "message": "Attiva l'accesso a tutti i siti per usare il pulsante di traduzione della selezione e le scorciatoie su ogni pagina senza aprire prima questo popup."
+  },
+  "allSitesPopupEnable": {
+    "message": "Attiva"
   }
 }

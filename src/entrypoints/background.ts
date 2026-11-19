@@ -45,6 +45,7 @@ import { broadcastModelProgress, shouldWarmDownloadedModel } from '@/background/
 import { measureQuality } from '@/background/quality';
 import { TranslationBroker } from '@/background/translation-broker';
 import { settleCaptionEnableIntent } from '@/captions/sites';
+import { syncAllSitesContentScripts } from '@/dom/all-sites';
 import { settleMailEnableIntent, syncMailContentScripts } from '@/dom/mail-sites';
 import { grantOriginsFor } from '@/dom/sites';
 import { getModel, type ModelId } from '@/engine/model/catalog';
@@ -150,6 +151,8 @@ export default defineBackground(() => {
   void ensureSettings().then((settings) => {
     void syncCaptionCustomContentScripts(settings.captionCustomHosts);
     void syncMailContentScripts();
+    // Live permission state decides: no broad grant means no all-sites registration.
+    void syncAllSitesContentScripts();
     if (settings.gmailTranslateBanner) {
       void injectGmailBannerPages();
       void injectOutlookBannerPages();
@@ -160,13 +163,16 @@ export default defineBackground(() => {
       granted.origins ? { grantedOrigins: granted.origins } : undefined,
     );
     void settleMailEnableIntent(granted.origins ? { grantedOrigins: granted.origins } : undefined);
-    // Re-read every granted mail origin: this event names only what was just added.
+    // Re-read every granted origin: this event names only what was just added, and a
+    // broad all-sites grant changes what several narrower origin checks report.
     void syncMailContentScripts();
+    void syncAllSitesContentScripts();
     void injectGmailBannerPages();
     void injectOutlookBannerPages();
   });
   browser.permissions.onRemoved?.addListener(() => {
     void syncMailContentScripts();
+    void syncAllSitesContentScripts();
   });
 
   async function syncSource(): Promise<void> {
@@ -305,6 +311,7 @@ export default defineBackground(() => {
       else await syncSource();
       await recordCommandAssignments(reason === 'install' || reason === 'update');
       await syncMailContentScripts();
+      await syncAllSitesContentScripts();
       if (reason === 'install') {
         await browser.tabs.create({ url: browser.runtime.getURL('/onboarding.html') });
       }
@@ -337,6 +344,7 @@ export default defineBackground(() => {
       .catch(() => undefined);
     void recordCommandAssignments().catch(() => undefined);
     void syncMailContentScripts();
+    void syncAllSitesContentScripts();
   });
 
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {

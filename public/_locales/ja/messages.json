@@ -1694,5 +1694,25 @@
   },
   "settingsGmailRemoveLang": {
     "message": "削除"
+  },
+  "allSitesSetting": {
+    "message": "すべてのサイトで最初から選択翻訳とショートカットを使う",
+    "description": "Options toggle that asks for optional http/https host access once."
+  },
+  "allSitesSettingHelp": {
+    "message": "選択翻訳のボタンとショートカットは最初のクリックより前からページに乗っている必要があるため、http/https ページへの任意のアクセスを要求します。この設定をオフにするとそのアクセスを外します。ブラウザーの拡張機能の権限設定からも取り消せます。",
+    "description": "One-line explanation of the all-sites toggle."
+  },
+  "allSitesPermissionDenied": {
+    "message": "すべてのサイトへのアクセスが許可されなかったため、この設定はオフのままです。",
+    "description": "Shown when the browser prompt for all-sites access is denied."
+  },
+  "allSitesPopupHint": {
+    "message": "すべてのサイトへのアクセスをオンにすると、このポップアップを開かなくても毎回、選択翻訳ボタンとショートカットが使えます。",
+    "description": "One-line suggestion in the toolbar popup while all-sites access is off."
+  },
+  "allSitesPopupEnable": {
+    "message": "オンにする",
+    "description": "Button in the toolbar popup that turns on all-sites access."
   }
 }

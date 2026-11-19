@@ -1690,5 +1690,20 @@
   },
   "settingsGmailRemoveLang": {
     "message": "Remove"
+  },
+  "allSitesSetting": {
+    "message": "Usar la traducción de selección y los atajos en todos los sitios desde el inicio"
+  },
+  "allSitesSettingHelp": {
+    "message": "El botón de traducción de selección y los atajos deben estar en la página antes de tu primer clic, por lo que se solicita acceso opcional a las páginas http/https. Al desactivarlo se quita ese acceso; también puedes revocarlo en los ajustes de permisos de extensiones del navegador."
+  },
+  "allSitesPermissionDenied": {
+    "message": "No se concedió el acceso a todos los sitios, así que esto permanece desactivado."
+  },
+  "allSitesPopupHint": {
+    "message": "Activa el acceso a todos los sitios para usar el botón de traducción de selección y los atajos en cada página sin abrir antes este menú."
+  },
+  "allSitesPopupEnable": {
+    "message": "Activar"
   }
 }

@@ -1690,5 +1690,20 @@
   },
   "settingsGmailRemoveLang": {
     "message": "Remove"
+  },
+  "allSitesSetting": {
+    "message": "在所有网站上从一开始就能使用划词翻译和快捷键"
+  },
+  "allSitesSettingHelp": {
+    "message": "划词翻译按钮和快捷键必须在第一次点击之前就位于页面上，因此会请求对 http/https 网页的可选访问权限。关闭此设置会移除该权限，你也可以在浏览器的扩展权限设置中撤销。"
+  },
+  "allSitesPermissionDenied": {
+    "message": "未授予所有网站的访问权限，此设置保持关闭。"
+  },
+  "allSitesPopupHint": {
+    "message": "开启所有网站访问后，无需先打开此弹出窗口，每次都能使用划词翻译按钮和快捷键。"
+  },
+  "allSitesPopupEnable": {
+    "message": "开启"
   }
 }

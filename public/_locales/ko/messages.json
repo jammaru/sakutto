@@ -1690,5 +1690,20 @@
   },
   "settingsGmailRemoveLang": {
     "message": "Remove"
+  },
+  "allSitesSetting": {
+    "message": "모든 사이트에서 처음부터 선택 번역과 단축키 사용"
+  },
+  "allSitesSettingHelp": {
+    "message": "선택 번역 버튼과 단축키는 첫 클릭 전에 페이지에 있어야 하므로, http/https 페이지에 대한 선택적 접근을 요청합니다. 이 설정을 끄면 그 접근이 제거되며, 브라우저의 확장 프로그램 권한 설정에서도 철회할 수 있습니다."
+  },
+  "allSitesPermissionDenied": {
+    "message": "모든 사이트 접근이 허용되지 않아 이 설정은 꺼진 상태로 유지됩니다."
+  },
+  "allSitesPopupHint": {
+    "message": "모든 사이트 접근을 켜면 이 팝업을 먼저 열지 않아도 매번 선택 번역 버튼과 단축키를 사용할 수 있습니다."
+  },
+  "allSitesPopupEnable": {
+    "message": "켜기"
   }
 }

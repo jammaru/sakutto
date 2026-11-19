@@ -43,16 +43,29 @@ fix; changing the manifest cannot repair an existing profile.
 ## Runtime content-script injection: no in-page fallback
 
 The release manifest intentionally has no `host_permissions`. Content scripts use
-`registration: 'runtime'` and are injected only after the user invokes Sakutto through its popup or
-another extension action, which grants `activeTab` access. A page-owned keydown listener therefore
-cannot provide dependable shortcut coverage: before that first invocation, no listener exists on
-the page at all.
+`registration: 'runtime'`. By default they are injected only after the user invokes Sakutto
+through its popup or another extension action, which grants `activeTab` access.
 
-There is deliberately **no in-page keyboard fallback** and no new host permission. Page,
-bilingual, selection, and compose commands run only through `browser.commands.onCommand` in the
-background. The background uses the existing content-script bridge after activation, including the
-shared-folder grant gate. Content scripts still handle local UI keys such as Escape and the compose
-panel's Ctrl+Enter, but they do not translate in response to Alt+A/B/S/T keydown events.
+There is one optional, off-by-default all-sites choice in Settings
+(`src/dom/all-sites.ts`). Its click requests the two already-declared optional origins
+(`https://*/*`, `http://*/*`) with `permissions.request` as the first awaited call. After that
+grant the background registers the same general bundle (`/content-scripts/content.js`,
+`run_at: document_idle`, top frame only, `persistAcrossSessions: true`) with
+`scripting.registerContentScripts`, sweeps already-open http/https tabs once through
+`ensureContentScript`, and re-syncs on service-worker startup, `runtime.onInstalled`, and
+`permissions.onAdded` / `onRemoved`. The live permission is the source of truth: a revoke from
+the browser's extension settings unregisters, and no prompt appears on startup. On a host whose
+site rule is `never`, this passive injection shows no selection button; an explicit popup,
+context-menu, or assigned-command path keeps today's behavior.
+
+The grant changes only _when the bundle is already on the page_, never _how commands run_. There
+is deliberately **no in-page keyboard fallback** and no new host permission beyond those two
+optional origins. Page, bilingual, selection, and compose commands run only through
+`browser.commands.onCommand` in the background, with or without the grant. The background uses
+the existing content-script bridge after activation, including the shared-folder grant gate.
+Content scripts still handle local UI keys such as Escape and the compose panel's Ctrl+Enter, and
+the all-sites grant makes those in-page behaviors available from page load, but they never
+translate in response to Alt+A/B/S/T keydown events.
 
 `translate-pdf` is likewise background-only. Chrome's built-in PDF viewer has no page into which a
 content script can be injected, so an assigned PDF command calls `runGatedPdfCommand` directly.

@@ -62,6 +62,11 @@
     settleCaptionEnableIntent,
   } from '@/captions/sites';
   import {
+    hasAllSitesAccess,
+    requestAllSitesAccess,
+    syncAllSitesContentScripts,
+  } from '@/dom/all-sites';
+  import {
     clearMailEnableIntent,
     hasMailOriginAccess,
     isMailHost,
@@ -120,6 +125,7 @@
   let mailAccessGranted = $state<boolean | null>(null);
   let mailPermissionError = $state(false);
   let mailPermissionBusy = $state(false);
+  let allSitesGranted = $state<boolean | null>(null);
   let pdfUrl = $state('');
   let pdfBusy = $state(false);
   let pdfFailed = $state(false);
@@ -496,6 +502,18 @@
   }
 
   /**
+   * One-click opt-in for every http/https page. Chrome closes the popup while the prompt
+   * is open; nothing stored depends on this page surviving, because the live permission is
+   * the source of truth and the background re-syncs from `permissions.onAdded`.
+   * `permissions.request` must be the first awaited call in this click.
+   */
+  async function enableAllSites() {
+    const granted = await requestAllSitesAccess();
+    allSitesGranted = granted;
+    if (granted) await syncAllSitesContentScripts();
+  }
+
+  /**
    * One-click grant for the Gmail/Outlook banner. Chrome closes the popup while its prompt
    * is open, so the background also re-syncs and re-injects when `permissions.onAdded`
    * fires. `permissions.request` must be the first awaited call in this click.
@@ -659,6 +677,9 @@
     void refreshEngineOnOpen();
     void refreshFolderGrantPending();
     void refreshSettings();
+    void hasAllSitesAccess().then((granted) => {
+      allSitesGranted = granted;
+    });
     void refreshPage();
     void requestEngineWarm();
     void requestQualitySample().then((sample) => {
@@ -873,6 +894,20 @@
     </p>
   {/if}
 
+  {#if allSitesGranted === false && host !== null && pdfUrl.length === 0}
+    <section class="panel all-sites" data-sakutto="all-sites-hint">
+      <p class="muted">{t('allSitesPopupHint')}</p>
+      <button
+        class="link-button"
+        type="button"
+        data-sakutto="all-sites-enable"
+        onclick={() => void enableAllSites()}
+      >
+        {t('allSitesPopupEnable')}
+      </button>
+    </section>
+  {/if}
+
   {#if settings && needsMailAccess}
     <section class="panel mail-access" data-sakutto="mail-permission">
       <p class="muted">{t('mailBannerAccessNeeded')}</p>
@@ -1046,8 +1081,13 @@
     justify-items: start;
   }
 
-  .gate .link-button {
+  .gate .link-button,
+  .all-sites .link-button {
     font-size: 12px;
+  }
+
+  .all-sites .link-button {
+    justify-self: start;
   }
 
   .gate-actions {

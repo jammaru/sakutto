@@ -330,6 +330,8 @@ export class PageSession {
   private selection: Live | null = null;
   /** True while the selection popover is the thing the user is looking at. */
   private selectionShown = false;
+  /** Quiet on hosts the reader turned Sakutto off for, until an explicit action arrives. */
+  private selectionOffersSuppressed = false;
   private selectionTimer: ReturnType<typeof setTimeout> | null = null;
   private pointerDown = false;
   private pointerReleasedAt = 0;
@@ -822,6 +824,7 @@ export class PageSession {
   }
 
   private offerSelection(): void {
+    if (this.selectionOffersSuppressed) return;
     if (this.navigating || this.doc.hidden || this.pointerDown) return;
     const selected = this.readSelection();
     if (!selected) {
@@ -848,6 +851,25 @@ export class PageSession {
     }
     this.overlay.showSelectionIcon(selected.rect);
     if (prefetch) this.translateSelection(selected.text, selected.rect, false);
+  }
+
+  /**
+   * Offers a selection that already existed when this script initialized, once. A highlight
+   * made before the listeners were bound never fires `selectionchange` here, so the first
+   * check re-reads the document. One offer, no loop; the page is never translated by it.
+   */
+  offerExistingSelection(): void {
+    this.offerSelection();
+  }
+
+  /**
+   * The passive all-sites injection stays quiet on a host whose rule is `never`: the
+   * selection button returns only after an explicit popup or command reached this page.
+   */
+  setSelectionOffersSuppressed(suppressed: boolean): void {
+    if (this.selectionOffersSuppressed === suppressed) return;
+    this.selectionOffersSuppressed = suppressed;
+    if (suppressed) this.overlay.hideSelectionIcon();
   }
 
   private activateSelectionIcon(): void {

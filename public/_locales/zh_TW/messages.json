@@ -1690,5 +1690,20 @@
   },
   "settingsGmailRemoveLang": {
     "message": "Remove"
+  },
+  "allSitesSetting": {
+    "message": "在所有網站上從一開始就能使用劃詞翻譯和快速鍵"
+  },
+  "allSitesSettingHelp": {
+    "message": "劃詞翻譯按鈕和快速鍵必須在第一次點擊之前就位於頁面上，因此會請求對 http/https 網頁的選擇性存取權。關閉此設定會移除該權限，你也可以在瀏覽器的擴充功能權限設定中撤銷。"
+  },
+  "allSitesPermissionDenied": {
+    "message": "未授予所有網站的存取權，此設定維持關閉。"
+  },
+  "allSitesPopupHint": {
+    "message": "開啟所有網站存取後，不必先開啟這個彈出視窗，每次都能使用劃詞翻譯按鈕和快速鍵。"
+  },
+  "allSitesPopupEnable": {
+    "message": "開啟"
   }
 }
