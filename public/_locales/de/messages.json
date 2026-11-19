@@ -513,6 +513,9 @@
   "runtimePlamoGpuFallbackDevice": {
     "message": "PLaMo · CPU (WebGPU-Gerät ist ausgefallen)"
   },
+  "runtimePlamoGpuFallbackAdapter": {
+    "message": "PLaMo · CPU (WebGPU-Adapter nicht verfügbar – tritt oft direkt nach GPU-Treiber-Updates auf. Chrome vollständig neu starten; falls es weiterhin nicht klappt, chrome://gpu und Hardwarebeschleunigung prüfen)"
+  },
   "runtimeChrome": {
     "message": "Chromes integrierte Übersetzung"
   },

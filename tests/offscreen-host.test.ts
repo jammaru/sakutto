@@ -1033,6 +1033,13 @@ describe('GPU fallback reasons', () => {
     ).toBe('device');
     expect(
       gpuFallbackReasonForError(
+        new EngineError('gpu-unavailable', 'The GPU stopped working.', {
+          detail: 'ggml_webgpu: adapter lacks shader-f16; WebGPU backend disabled',
+        }),
+      ),
+    ).toBe('device');
+    expect(
+      gpuFallbackReasonForError(
         new EngineError('gpu-unavailable', 'no GPU', {
           detail: 'ggml_webgpu: correctness probe failed; WebGPU backend disabled',
         }),
@@ -1050,6 +1057,39 @@ describe('GPU fallback reasons', () => {
         new EngineError('gpu-unavailable', 'The WebGPU model load did not finish in time.'),
       ),
     ).toBe('load');
+  });
+
+  it('names a missing adapter, the case a full Chrome restart fixes', () => {
+    expect(
+      gpuFallbackReasonForError(
+        new EngineError(
+          'gpu-unavailable',
+          'WebGPU was requested but llama.cpp did not place the model on a GPU.',
+          {
+            detail:
+              'ggml_webgpu: Failed to get an adapter: no adapter after high-performance, default, and low-power',
+          },
+        ),
+      ),
+    ).toBe('adapter');
+    expect(
+      gpuFallbackReasonForError(
+        new EngineError('gpu-unavailable', 'requestAdapter returned null'),
+      ),
+    ).toBe('adapter');
+    expect(
+      gpuFallbackReasonForError(
+        new EngineError('gpu-unavailable', 'No available adapters.'),
+      ),
+    ).toBe('adapter');
+    // An adapter that exists but cannot take the model is a device failure, not this label.
+    expect(
+      gpuFallbackReasonForError(
+        new EngineError('gpu-unavailable', 'The GPU stopped working.', {
+          detail: 'ggml_webgpu: Failed to get a device after retries',
+        }),
+      ),
+    ).toBe('device');
   });
 });
 

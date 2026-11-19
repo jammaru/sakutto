@@ -201,6 +201,20 @@ describe('message validation', () => {
         chromeSupported: true,
         active: null,
         gpuFallback: true,
+        gpuFallbackReason: 'adapter',
+      }),
+    ).toBe(true);
+    expect(
+      isEngineStatus({
+        model: modelStatus,
+        backend: 'cpu-wasm',
+        tier: 'c8',
+        threads: 8,
+        parallel: 1,
+        plamoReady: false,
+        chromeSupported: true,
+        active: null,
+        gpuFallback: true,
         gpuFallbackReason: 'unknown',
       }),
     ).toBe(false);

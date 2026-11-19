@@ -24,7 +24,7 @@ export interface ModelStatus {
 export type EngineSource = 'in-browser' | 'local-server';
 
 /** Which WebGPU step ended on the CPU, so the status label can name it. */
-export type GpuFallbackReason = 'load' | 'output' | 'device';
+export type GpuFallbackReason = 'load' | 'output' | 'device' | 'adapter';
 
 export interface EngineStatus {
   model: ModelStatus;
@@ -68,6 +68,7 @@ const GPU_FALLBACK_REASONS: ReadonlySet<string> = new Set<GpuFallbackReason>([
   'load',
   'output',
   'device',
+  'adapter',
 ]);
 
 export function isModelStatus(value: unknown): value is ModelStatus {

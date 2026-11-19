@@ -271,13 +271,21 @@ function errorText(error: unknown): string {
 
 const OUTPUT_FALLBACK_PATTERN =
   /correctness probe failed|degenerate (?:warmup|output)|collapsed|broken output|garbled|repeated (?:one )?token/iu;
+/**
+ * No adapter at all, e.g. right after a GPU driver update while Chrome is still running. That
+ * answer is fixed by a full browser restart, so it gets its own label; a device that existed
+ * but failed keeps `device`.
+ */
+const ADAPTER_FALLBACK_PATTERN =
+  /Failed to get an adapter|no adapter after high-performance, default, and low-power|requestAdapter(?:\(\))? returned null|no available adapters/iu;
 const DEVICE_FALLBACK_PATTERN =
-  /requestAdapter|Failed to get an adapter|adapter lacks shader-f16|no adapter with shader-f16|Failed to get a device|giving up on WebGPU|Error while parsing WGSL|extension 'subgroups' is not allowed|WebGPU backend disabled|gpu-lost|GPU stopped working|device lost|navigator\.gpu is missing|no GPU/iu;
+  /requestAdapter|adapter lacks shader-f16|no adapter with shader-f16|Failed to get a device|giving up on WebGPU|Error while parsing WGSL|extension 'subgroups' is not allowed|WebGPU backend disabled|gpu-lost|GPU stopped working|device lost|navigator\.gpu is missing|no GPU/iu;
 
 /** Which part of WebGPU failed, so the CPU fallback label can name it honestly. */
 export function gpuFallbackReasonForError(error: unknown): GpuFallbackReason {
   const text = errorText(error);
   if (OUTPUT_FALLBACK_PATTERN.test(text)) return 'output';
+  if (ADAPTER_FALLBACK_PATTERN.test(text)) return 'adapter';
   if (DEVICE_FALLBACK_PATTERN.test(text)) return 'device';
   return 'load';
 }

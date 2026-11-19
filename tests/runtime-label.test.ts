@@ -121,6 +121,18 @@ describe('runtime label', () => {
         targetLanguage: 'ja',
       }).key,
     ).toBe('runtimePlamoGpuFallbackDevice');
+    expect(
+      runtimeLabel({
+        status: status({
+          backend: 'cpu-wasm',
+          tier: 'c8',
+          gpuFallback: true,
+          gpuFallbackReason: 'adapter',
+        }),
+        pageSimple: false,
+        targetLanguage: 'ja',
+      }).key,
+    ).toBe('runtimePlamoGpuFallbackAdapter');
     expect(runtimeLabel({ status: status(), pageSimple: true, targetLanguage: 'ja' }).key).toBe(
       'runtimeChrome',
     );

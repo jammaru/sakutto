@@ -513,6 +513,9 @@
   "runtimePlamoGpuFallbackDevice": {
     "message": "PLaMo · CPU (thiết bị WebGPU gặp lỗi)"
   },
+  "runtimePlamoGpuFallbackAdapter": {
+    "message": "PLaMo · CPU (bộ điều hợp WebGPU không khả dụng — thường xảy ra ngay sau khi cập nhật trình điều khiển GPU. Khởi động lại Chrome hoàn toàn, rồi kiểm tra chrome://gpu và tăng tốc phần cứng)"
+  },
   "runtimeChrome": {
     "message": "Từ khóa dịch tích hợp sẵn của Chrome"
   },

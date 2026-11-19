@@ -13,6 +13,7 @@ export interface RuntimeLabel {
 function gpuFallbackLabel(reason: EngineStatus['gpuFallbackReason']): MessageKey {
   if (reason === 'output') return 'runtimePlamoGpuFallbackOutput';
   if (reason === 'device') return 'runtimePlamoGpuFallbackDevice';
+  if (reason === 'adapter') return 'runtimePlamoGpuFallbackAdapter';
   return 'runtimePlamoGpuFallback';
 }
 
