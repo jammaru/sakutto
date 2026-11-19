@@ -9,9 +9,18 @@ export interface CaptionCue {
   language?: string | undefined;
 }
 
-export const LIVE_CAPTION_MAX_WAIT_MS = 900;
+/**
+ * A growing ASR line is translated while it is still on screen. 250 ms is long
+ * enough to coalesce the burst of DOM writes for one word, short enough that a
+ * new line does not wait for the sentence to finish before any request starts.
+ */
+export const LIVE_CAPTION_MAX_WAIT_MS = 250;
 export const LIVE_CAPTION_MAX_CHARS = 72;
 export const LIVE_CAPTION_MIN_DISPLAY_MS = 1_400;
+/** Refinements of the same on-screen line may replace it much sooner than a new line. */
+export const LIVE_CAPTION_REFINE_MIN_DISPLAY_MS = 200;
+/** Coalesce a burst of DOM word updates before asking the engine about a live line. */
+export const LIVE_CAPTION_DEBOUNCE_MS = 80;
 export const WORD_CUE_MERGE_GAP_MS = 800;
 export const WORD_CUE_MERGE_MAX_MS = 3_500;
 export const WORD_CUE_MERGE_MAX_CHARS = 96;
@@ -21,8 +30,18 @@ export const SENTENCE_CUE_MERGE_MAX_CHARS = 280;
 /** Japanese ASR rarely punctuates; cap merged phrases so they stay translatable. */
 export const CJK_SENTENCE_CUE_MERGE_MAX_MS = 6_000;
 export const CJK_SENTENCE_CUE_MERGE_MAX_CHARS = 80;
-/** Fill short ASR silences so `cueAtTime` does not drop to native captions. */
-export const ASR_CUE_GAP_FILL_MS = 2_500;
+/** Fill only short ASR silences; longer pauses must not keep an old line on screen. */
+export const ASR_CUE_GAP_FILL_MS = 900;
+/**
+ * ASR phrase grouping. A whole-sentence merge made the first translated line wait
+ * for up to six seconds of speech, so ASR cues are now kept to short phrases and
+ * the next phrases are prefetched instead of being glued to the current one.
+ */
+export const ASR_PHRASE_MERGE_GAP_MS = 700;
+export const ASR_PHRASE_MERGE_MAX_MS = 4_000;
+export const ASR_PHRASE_MERGE_MAX_CHARS = 120;
+export const CJK_ASR_PHRASE_MERGE_MAX_MS = 2_800;
+export const CJK_ASR_PHRASE_MERGE_MAX_CHARS = 48;
 export const WEBVTT_HOUR_OFFSET_MS = 3_600_000;
 
 const VTT_TIMESTAMP =
@@ -370,12 +389,43 @@ function makeMergedCue(
   };
 }
 
+export interface SentenceMergeLimits {
+  gapMs: number;
+  maxMs: number;
+  maxChars: number;
+  cjkMaxMs: number;
+  cjkMaxChars: number;
+}
+
+const DEFAULT_SENTENCE_MERGE_LIMITS: SentenceMergeLimits = {
+  gapMs: SENTENCE_CUE_MERGE_GAP_MS,
+  maxMs: SENTENCE_CUE_MERGE_MAX_MS,
+  maxChars: SENTENCE_CUE_MERGE_MAX_CHARS,
+  cjkMaxMs: CJK_SENTENCE_CUE_MERGE_MAX_MS,
+  cjkMaxChars: CJK_SENTENCE_CUE_MERGE_MAX_CHARS,
+};
+
+/** Short phrase-sized groups for auto-captions, where latency matters more than context. */
+export const ASR_PHRASE_MERGE_LIMITS: SentenceMergeLimits = {
+  gapMs: ASR_PHRASE_MERGE_GAP_MS,
+  maxMs: ASR_PHRASE_MERGE_MAX_MS,
+  maxChars: ASR_PHRASE_MERGE_MAX_CHARS,
+  cjkMaxMs: CJK_ASR_PHRASE_MERGE_MAX_MS,
+  cjkMaxChars: CJK_ASR_PHRASE_MERGE_MAX_CHARS,
+};
+
 /**
  * Join consecutive VOD cues into full sentences so the model is not asked to
- * translate mid-phrase fragments. Display uses the combined time span.
+ * translate mid-phrase fragments. Display uses the combined time span. Callers
+ * can pass tighter limits (auto-captions do) so one translated line never covers
+ * many seconds of speech.
  */
-export function mergeSentenceCues(cues: readonly CaptionCue[]): CaptionCue[] {
+export function mergeSentenceCues(
+  cues: readonly CaptionCue[],
+  limits: Partial<SentenceMergeLimits> = {},
+): CaptionCue[] {
   if (cues.length === 0) return [];
+  const config: SentenceMergeLimits = { ...DEFAULT_SENTENCE_MERGE_LIMITS, ...limits };
   const merged: CaptionCue[] = [];
   let startMs = 0;
   let endMs = 0;
@@ -412,10 +462,9 @@ export function mergeSentenceCues(cues: readonly CaptionCue[]): CaptionCue[] {
         const joined = joinCaptionFragments(currentText(), piece);
         const cjk = isMostlyCjk(joined);
         const canMerge =
-          gap <= SENTENCE_CUE_MERGE_GAP_MS &&
-          duration <= (cjk ? CJK_SENTENCE_CUE_MERGE_MAX_MS : SENTENCE_CUE_MERGE_MAX_MS) &&
-          joined.length <=
-            (cjk ? CJK_SENTENCE_CUE_MERGE_MAX_CHARS : SENTENCE_CUE_MERGE_MAX_CHARS) &&
+          gap <= config.gapMs &&
+          duration <= (cjk ? config.cjkMaxMs : config.maxMs) &&
+          joined.length <= (cjk ? config.cjkMaxChars : config.maxChars) &&
           !hasSentenceTerminator(currentText());
         if (!canMerge) {
           commit();
@@ -426,9 +475,7 @@ export function mergeSentenceCues(cues: readonly CaptionCue[]): CaptionCue[] {
         }
       }
       const built = currentText();
-      const maxChars = isMostlyCjk(built)
-        ? CJK_SENTENCE_CUE_MERGE_MAX_CHARS
-        : SENTENCE_CUE_MERGE_MAX_CHARS;
+      const maxChars = isMostlyCjk(built) ? config.cjkMaxChars : config.maxChars;
       if (hasSentenceTerminator(built) || built.length >= maxChars) {
         commit();
       }
@@ -489,7 +536,8 @@ export function finalizeCaptionCues(
 ): CaptionCue[] {
   const collapsed = options?.asr === true ? collapseGrowingCaptionCues(cues) : cues;
   const words = mergeWordCues(collapsed);
-  const prepared = options?.asr === true ? mergeSentenceCues(words) : words;
+  const prepared =
+    options?.asr === true ? mergeSentenceCues(words, ASR_PHRASE_MERGE_LIMITS) : words;
   const aligned = alignCaptionCuesToMedia(prepared, durationMs);
   return options?.asr === true ? closeCaptionGaps(aligned, ASR_CUE_GAP_FILL_MS) : aligned;
 }
@@ -530,9 +578,12 @@ export function cuesInWindow(
 export class LiveCaptionBuffer {
   private current = '';
   private lastChangeAt = 0;
+  private line = '';
+  private lineVersion = 0;
 
   update(visible: string, now: number): string[] {
     const next = normalizeCaptionText(visible);
+    this.trackLine(next);
     if (next.length === 0) {
       const previous = this.take();
       return previous ? [previous] : [];
@@ -572,9 +623,34 @@ export class LiveCaptionBuffer {
     return this.current;
   }
 
+  /** Stable id for the on-screen line while its text grows or is replaced. */
+  lineKey(): string {
+    return `l${String(this.lineVersion)}`;
+  }
+
   reset(): void {
+    if (this.line.length > 0) this.lineVersion += 1;
     this.current = '';
     this.lastChangeAt = 0;
+    this.line = '';
+  }
+
+  /**
+   * Keep one id while the player extends (or trims) the same visible line, and
+   * bump it when the text jumps to a different phrase so stale work can be dropped.
+   */
+  private trackLine(next: string): void {
+    if (next.length === 0) return;
+    if (this.line.length === 0) {
+      this.line = next;
+      return;
+    }
+    if (next.startsWith(this.line) || this.line.startsWith(next)) {
+      this.line = next;
+      return;
+    }
+    this.line = next;
+    this.lineVersion += 1;
   }
 
   private take(): string | null {

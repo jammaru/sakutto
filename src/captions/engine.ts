@@ -10,6 +10,12 @@ export const CAPTION_PLAYHEAD_PRIORITY = 1;
 export const CAPTION_LIVE_PRIORITY = 2;
 /** After nearby page prose (~22), before far chrome (~34). */
 export const CAPTION_PREFETCH_PRIORITY = 24;
+/**
+ * Far prefetch is a nudge, not a transcript download. Capping the window stops a
+ * long cue list from filling the engine queue ahead of page work; nearby cues are
+ * requested separately at {@link CAPTION_LIVE_PRIORITY}.
+ */
+export const CAPTION_PREFETCH_MAX_CUES = 8;
 
 export function captionPrefetchWindowMs(
   tier: 'g' | 'c8' | 'c4' | 'c1' | null,
@@ -101,13 +107,32 @@ export class CaptionTranslator {
 
   /** Drop every in-flight job except `text` so live/DOM never builds a backlog. */
   keepOnly(text: string, options: CaptionTranslateOptions): void {
-    const keep = this.cacheKey(text, options);
+    this.retainTexts([text], options);
+  }
+
+  /**
+   * Keep the current line plus the cues that are about to be shown, and abort the
+   * rest. A natural line change should not leave the previous line occupying an
+   * engine slot while the new playhead line waits behind it.
+   */
+  retainTexts(texts: readonly string[], options: CaptionTranslateOptions): void {
+    const keep = new Set(texts.map((text) => this.cacheKey(text, options)));
     for (const [key, controller] of [...this.controllers.entries()]) {
-      if (key === keep) continue;
+      if (keep.has(key)) continue;
       controller.abort();
       this.controllers.delete(key);
       this.inflight.delete(key);
     }
+  }
+
+  /** Abort one line without touching prefetched neighbours. */
+  cancelText(text: string, options: CaptionTranslateOptions): void {
+    const key = this.cacheKey(text, options);
+    const controller = this.controllers.get(key);
+    if (!controller) return;
+    controller.abort();
+    this.controllers.delete(key);
+    this.inflight.delete(key);
   }
 
   prefetch(
@@ -117,10 +142,14 @@ export class CaptionTranslator {
     tier: 'g' | 'c8' | 'c4' | 'c1' | null,
     playbackRate = 1,
     skipIds: ReadonlySet<string> = new Set(),
+    maxCues = CAPTION_PREFETCH_MAX_CUES,
   ): void {
     const rate = Number.isFinite(playbackRate) && playbackRate > 0 ? playbackRate : 1;
     const windowMs = captionPrefetchWindowMs(tier, rate);
-    const upcoming = cuesInWindow(cues, timeMs, timeMs + windowMs);
+    const upcoming = cuesInWindow(cues, timeMs, timeMs + windowMs).slice(
+      0,
+      Math.max(0, Math.floor(maxCues)),
+    );
     for (const cue of upcoming) {
       if (skipIds.has(cue.id)) continue;
       if (this.getCached(cue.text, options) !== undefined) continue;

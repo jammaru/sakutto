@@ -11,6 +11,7 @@ import {
   joinCaptionFragments,
   LiveCaptionBuffer,
   LIVE_CAPTION_MAX_WAIT_MS,
+  ASR_PHRASE_MERGE_MAX_MS,
   mergeSentenceCues,
   mergeWordCues,
   parseTimedtextJson3,
@@ -247,8 +248,11 @@ describe('sentence-cue merging', () => {
       '駅は夜明けに開きます',
       '赤い列車が2番線で待っています',
     ]);
-    expect(asr[0]?.endMs).toBe(4200);
-    expect(cueAtTime(asr, 3000)?.text).toBe('駅は夜明けに開きます');
+    // A 1.7s silence is longer than the ASR gap-fill, so the finished line ends here
+    // instead of stretching to the next phrase.
+    expect(asr[0]?.endMs).toBe(2500);
+    expect(cueAtTime(asr, 2000)?.text).toBe('駅は夜明けに開きます');
+    expect(cueAtTime(asr, 3000)).toBeNull();
     expect(asr.every((cue) => cue.text.trim().length > 0)).toBe(true);
     expect(asr.every((cue) => cue.text.length < 80)).toBe(true);
   });
@@ -266,6 +270,22 @@ describe('sentence-cue merging', () => {
     expect(asr.every((cue) => cue.text.trim().length > 0)).toBe(true);
     expect(asr.every((cue) => cue.text.length <= 80)).toBe(true);
     expect(asr.every((cue) => cue.endMs - cue.startMs <= 6_000)).toBe(true);
+  });
+
+  it('keeps continuous auto-caption phrases short enough to translate while speaking', () => {
+    const cues = Array.from({ length: 30 }, (_, index) => ({
+      id: `c${String(index)}`,
+      startMs: index * 500,
+      endMs: index * 500 + 500,
+      text: `word${String(index)}`,
+      language: 'en',
+    }));
+    const asr = finalizeCaptionCues(cues, undefined, { asr: true });
+    expect(asr.length).toBeGreaterThan(1);
+    expect(asr.every((cue) => cue.endMs - cue.startMs <= ASR_PHRASE_MERGE_MAX_MS)).toBe(true);
+    expect(asr.every((cue) => cue.text.length <= 120)).toBe(true);
+    expect(asr.map((cue) => cue.text).join(' ')).toContain('word0');
+    expect(asr.map((cue) => cue.text).join(' ')).toContain('word29');
   });
 
   it('returns the playhead cue then the next few in order', () => {
@@ -296,6 +316,19 @@ describe('live caption buffer', () => {
     expect(buffer.update('Tickets at the window', 500 + LIVE_CAPTION_MAX_WAIT_MS)).toEqual([
       'Tickets at the window',
     ]);
+  });
+
+  it('keeps one line id while text grows and changes it after a jump', () => {
+    const buffer = new LiveCaptionBuffer();
+    buffer.update('The', 0);
+    const first = buffer.lineKey();
+    buffer.update('The station', 100);
+    expect(buffer.lineKey()).toBe(first);
+    buffer.update('A red train', 200);
+    expect(buffer.lineKey()).not.toBe(first);
+    const second = buffer.lineKey();
+    buffer.reset();
+    expect(buffer.lineKey()).not.toBe(second);
   });
 
   it('emits the previous line when the on-screen caption jumps', () => {

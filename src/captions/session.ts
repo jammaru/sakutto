@@ -12,8 +12,11 @@ import {
   cueAtTime,
   cuesFromPlayhead,
   finalizeCaptionCues,
+  LIVE_CAPTION_DEBOUNCE_MS,
   LIVE_CAPTION_MIN_DISPLAY_MS,
+  LIVE_CAPTION_REFINE_MIN_DISPLAY_MS,
   LiveCaptionBuffer,
+  normalizeCaptionText,
   parseWebVtt,
   type CaptionCue,
 } from './cues';
@@ -106,13 +109,12 @@ export const X_EMPTY_TRACK_MAX_ATTEMPTS = 6;
 export const YOUTUBE_EMPTY_TRACK_MAX_ATTEMPTS = 24;
 /**
  * Keep the last translated line this long after its cue ends, or after a live DOM
- * caption disappears. Bridges short gaps and in-flight next-line work. Expiry
- * applies only to real silence (no current cue / no on-screen DOM caption), not
- * while a line is still being spoken. 4s sits in the 3–5s range: longer than
- * typical on-device caption latency and ASR gap-fill (2.5s), short enough that a
- * pause in speech is not a stuck overlay.
+ * caption disappears. Bridges a short gap while the next line is still being
+ * translated. Expiry applies only to real silence (no current cue / no on-screen
+ * DOM caption), not while a line is still being spoken. 2s covers typical caption
+ * gaps without leaving a finished line on screen through a long pause.
  */
-export const CAPTION_HOLD_MAX_MS = 4_000;
+export const CAPTION_HOLD_MAX_MS = 2_000;
 
 export interface CaptionSessionOptions {
   engine: PageEngine;
@@ -196,7 +198,15 @@ export class VideoCaptionSession {
     endMs: number;
   } | null = null;
   private holdTimer: number | null = null;
-  private liveJobId: string | null = null;
+  private liveTranslateTimer: number | null = null;
+  private liveJob: { text: string; lineKey: string; options: CaptionTranslateOptions } | null =
+    null;
+  private livePending: {
+    text: string;
+    lineKey: string;
+    options: CaptionTranslateOptions;
+  } | null = null;
+  private activeCueId = '';
   private lastPlayed: HTMLVideoElement | null = null;
   private sourceKey = '';
   private sourceToken = 0;
@@ -372,6 +382,7 @@ export class VideoCaptionSession {
     this.timedtextGuard.reset();
     this.restoreTracks();
     this.hideNativeCaptions(false);
+    this.clearLiveWork();
     this.translator.clear();
     this.liveBuffer.reset();
     this.clearHold();
@@ -384,7 +395,6 @@ export class VideoCaptionSession {
     this.passthroughNative = false;
     this.lastLayout = null;
     this.doc.documentElement.removeAttribute('data-sakutto-captions');
-    this.liveJobId = null;
     this.overlay.hide();
     this.overlay.detach();
   }
@@ -401,7 +411,8 @@ export class VideoCaptionSession {
 
   private readonly onSeek = (): void => {
     this.liveBuffer.reset();
-    this.liveJobId = null;
+    this.clearLiveWork();
+    this.activeCueId = '';
     const timeMs = this.playheadMs();
     // A jump before the held line (loop, ad, rewind) must not keep a future
     // translation. Do not showNative here: a seek must not flash native while
@@ -505,10 +516,11 @@ export class VideoCaptionSession {
     this.useDomCaptions = false;
     this.liveMode = false;
     this.timedtextGuard.reset();
+    this.clearLiveWork();
     this.translator.clear();
     this.liveBuffer.reset();
     this.clearHold();
-    this.liveJobId = null;
+    this.activeCueId = '';
     this.passthroughNative = false;
     this.lastLayout = null;
     this.emptyTrackAttempts = 0;
@@ -935,6 +947,7 @@ export class VideoCaptionSession {
         return;
       }
       this.pollLive();
+      this.prefetchFromPlayhead();
       if (token === this.sourceToken && !this.holdActiveAt(timeMs)) this.showNative('no-cue');
       return;
     }
@@ -951,6 +964,7 @@ export class VideoCaptionSession {
       }
     }
     this.pollLive();
+    this.prefetchFromPlayhead();
     if (token === this.sourceToken && !this.holdActiveAt(timeMs)) this.showNative('no-cue');
   }
 
@@ -970,6 +984,10 @@ export class VideoCaptionSession {
       this.applyNativeVisibility('same-language');
       return;
     }
+    if (this.activeCueId !== cue.id) {
+      this.activeCueId = cue.id;
+      this.retainAroundPlayhead(original, options);
+    }
 
     const cached = this.translator.getCached(original, options);
     if (cached) {
@@ -981,11 +999,15 @@ export class VideoCaptionSession {
     // translation is in flight is not silence — expiry is only for a real gap.
     if (!this.hold) this.showNative('waiting-first');
     const generation = this.translator.translateGeneration();
-    const translated = await this.translator.translateCue(
+    // Start this request before warming the next cues: the playhead keeps the
+    // first slot, while the following line is already in flight on parallel tiers.
+    const pendingTranslation = this.translator.translateCue(
       { ...cue, text: original },
       options,
       CAPTION_PLAYHEAD_PRIORITY,
     );
+    this.scheduleAroundPlayhead(cue);
+    const translated = await pendingTranslation;
     if (!this.running || token !== this.sourceToken) return;
     if (this.translator.abortedSince(generation)) return;
     const timeMs = this.playheadMs();
@@ -1001,7 +1023,6 @@ export class VideoCaptionSession {
     } else {
       captionDebug('translate-failed', { cueId: cue.id, original, force });
     }
-    this.scheduleAroundPlayhead(cue);
   }
 
   private pollLive(forceDom = false): void {
@@ -1013,8 +1034,14 @@ export class VideoCaptionSession {
     if (!forceDom && !this.liveMode && !this.useDomCaptions) return;
     const visible = this.readSourceCaptionDom();
     if (visible.length === 0) {
-      if (this.liveMode) return;
+      if (this.liveMode) {
+        // The line left the screen. Keep the already-painted hold, but never commit
+        // a translation that was only requested for that vanished line.
+        this.clearLiveWork();
+        return;
+      }
       if (!forceDom && (this.loaded?.cues.length ?? 0) > 0) return;
+      this.clearLiveWork();
       return;
     }
     if (!forceDom && !this.liveMode && (this.loaded?.cues.length ?? 0) > 0) return;
@@ -1023,7 +1050,7 @@ export class VideoCaptionSession {
     // The on-screen line is still being spoken. Do not treat buffer-idle as silence.
     this.extendHold(timeMs);
 
-    const lines = this.liveBuffer.update(visible, this.now());
+    this.liveBuffer.update(visible, this.now());
     const options = this.translateOptions(this.liveMode ? this.loaded?.language : undefined);
     const sourceLanguage = (this.loaded?.cues.length ?? 0) > 0 ? this.loaded?.language : undefined;
     if (captionSourceIsTargetLanguage(sourceLanguage, visible, this.prefs.targetLanguage)) {
@@ -1033,34 +1060,117 @@ export class VideoCaptionSession {
       return;
     }
 
-    const newest = lines.at(-1) ?? (forceDom ? visible : undefined);
+    // Translate the line that is visible now, not a phrase that becomes available
+    // only after the player has stopped changing it.
+    const newest = normalizeCaptionText(this.liveBuffer.peek() || visible);
     if (!newest) return;
-    const cached = this.translator.getCached(newest, options);
+    this.scheduleLiveTranslation(newest, this.liveBuffer.lineKey(), options, timeMs);
+  }
+
+  /**
+   * One in-flight request per live line. Text that grows while a request is
+   * running becomes the next request, so the overlay updates in place without a
+   * backlog of old prefixes. A different line aborts the old request immediately.
+   */
+  private scheduleLiveTranslation(
+    text: string,
+    lineKey: string,
+    options: CaptionTranslateOptions,
+    timeMs: number,
+  ): void {
+    const cached = this.translator.getCached(text, options);
     if (cached) {
-      this.commitDisplay(`live:${newest}`, newest, cached, 0, timeMs);
+      this.cancelLiveJob();
+      this.livePending = null;
+      this.clearLiveTimer();
+      this.commitDisplay(
+        `live:${lineKey}`,
+        text,
+        cached,
+        0,
+        timeMs,
+        LIVE_CAPTION_REFINE_MIN_DISPLAY_MS,
+      );
       return;
     }
+    if (this.liveJob?.text === text || this.livePending?.text === text) return;
+    const previousLine = this.liveJob?.lineKey ?? this.livePending?.lineKey ?? lineKey;
+    if (previousLine !== lineKey) {
+      this.cancelLiveJob();
+      this.livePending = null;
+      this.clearLiveTimer();
+    }
+    this.livePending = { text, lineKey, options };
+    if (this.liveJob) return;
     if (!this.hold) this.showNative('waiting-live');
-    this.translator.keepOnly(newest, options);
-    this.liveJobId = newest;
-    const cue: CaptionCue = {
-      id: `live:${newest}`,
-      startMs: 0,
-      endMs: timeMs,
-      text: newest,
-      language: this.loaded?.language,
-    };
+    if (this.liveTranslateTimer !== null) return;
+    const view = this.doc.defaultView;
+    this.liveTranslateTimer =
+      view?.setTimeout(() => {
+        this.liveTranslateTimer = null;
+        this.startPendingLiveTranslation();
+      }, LIVE_CAPTION_DEBOUNCE_MS) ?? null;
+    if (this.liveTranslateTimer === null) this.startPendingLiveTranslation();
+  }
+
+  private startPendingLiveTranslation(): void {
+    const pending = this.livePending;
+    if (!pending || !this.running) return;
+    this.livePending = null;
     const token = this.sourceToken;
     const generation = this.translator.translateGeneration();
+    this.liveJob = { ...pending };
+    const cue: CaptionCue = {
+      id: `live:${pending.lineKey}`,
+      startMs: 0,
+      endMs: this.playheadMs(),
+      text: pending.text,
+      language: this.loaded?.language,
+    };
     void this.translator
-      .translateCue(cue, options, CAPTION_PLAYHEAD_PRIORITY)
+      .translateCue(cue, pending.options, CAPTION_PLAYHEAD_PRIORITY)
       .then((translation) => {
         if (!this.running || token !== this.sourceToken) return;
+        if (this.liveJob?.text !== pending.text) return;
+        this.liveJob = null;
         if (this.translator.abortedSince(generation)) return;
-        if (this.liveJobId !== newest) return;
-        if (translation) this.commitDisplay(cue.id, newest, translation, cue.startMs, cue.endMs);
-        else this.showNative('translate-failed');
+        if (translation) {
+          if (this.liveBuffer.lineKey() === pending.lineKey) {
+            this.commitDisplay(
+              cue.id,
+              pending.text,
+              translation,
+              0,
+              this.playheadMs(),
+              LIVE_CAPTION_REFINE_MIN_DISPLAY_MS,
+            );
+          }
+        } else if (!this.livePending) {
+          this.showNative('translate-failed');
+        }
+        if (this.livePending && this.liveTranslateTimer === null) {
+          this.startPendingLiveTranslation();
+        }
       });
+  }
+
+  private cancelLiveJob(): void {
+    const job = this.liveJob;
+    if (!job) return;
+    this.liveJob = null;
+    this.translator.cancelText(job.text, job.options);
+  }
+
+  private clearLiveTimer(): void {
+    if (this.liveTranslateTimer === null) return;
+    this.doc.defaultView?.clearTimeout(this.liveTranslateTimer);
+    this.liveTranslateTimer = null;
+  }
+
+  private clearLiveWork(): void {
+    this.clearLiveTimer();
+    this.livePending = null;
+    this.cancelLiveJob();
   }
 
   private bindVideo(video: HTMLVideoElement | null): void {
@@ -1238,7 +1348,12 @@ export class VideoCaptionSession {
     return pickPlayingOrPrimaryVideo(this.doc);
   }
 
-  private scheduleAroundPlayhead(current: CaptionCue): void {
+  /**
+   * Warm the lines that will be shown next. The nearest cues go out at live
+   * priority so they are ready before the playhead reaches them; farther cues use
+   * the prefetch band, kept behind visible page prose and capped by the translator.
+   */
+  private scheduleAroundPlayhead(current: CaptionCue | null): void {
     const video = this.video;
     const cues = this.loaded?.cues ?? [];
     if (!video || cues.length === 0) return;
@@ -1246,15 +1361,27 @@ export class VideoCaptionSession {
     if (sameLanguage(language, this.prefs.targetLanguage)) return;
     const timeMs = Math.round((video.currentTime || 0) * 1000);
     const options = this.translateOptions(language);
-    const nearby = cuesFromPlayhead(cues, timeMs, 3).filter((cue) => cue.id !== current.id);
-    const skip = new Set<string>([current.id]);
+    const nearby = cuesFromPlayhead(cues, timeMs, 3).filter((cue) => cue.id !== current?.id);
+    const skip = new Set<string>();
+    if (current) skip.add(current.id);
     for (const cue of nearby) {
       const original = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
       if (original.length === 0) continue;
       skip.add(cue.id);
       void this.translator.translateCue({ ...cue, text: original }, options, CAPTION_LIVE_PRIORITY);
     }
-    this.translator.prefetch(cues, timeMs, options, this.prefs.tier, video.playbackRate || 1, skip);
+    const prefetchCues = cues.map((cue) => {
+      const original = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
+      return original.length > 0 && original !== cue.text ? { ...cue, text: original } : cue;
+    });
+    this.translator.prefetch(
+      prefetchCues,
+      timeMs,
+      options,
+      this.prefs.tier,
+      video.playbackRate || 1,
+      skip,
+    );
   }
 
   private prefetchFromPlayhead(): void {
@@ -1264,18 +1391,18 @@ export class VideoCaptionSession {
     const language = this.loaded?.language;
     if (sameLanguage(language, this.prefs.targetLanguage)) return;
     const timeMs = Math.round((video.currentTime || 0) * 1000);
-    const current = cueAtTime(cues, timeMs);
-    if (current) {
-      this.scheduleAroundPlayhead(current);
-      return;
+    this.scheduleAroundPlayhead(cueAtTime(cues, timeMs));
+  }
+
+  /** Abort the previous playhead request, but keep the current line and its neighbours. */
+  private retainAroundPlayhead(original: string, options: CaptionTranslateOptions): void {
+    const texts: string[] = [original];
+    for (const cue of cuesFromPlayhead(this.loaded?.cues ?? [], this.playheadMs(), 8)) {
+      const stripped = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
+      const text = stripped.length > 0 ? stripped : cue.text.trim();
+      if (text.length > 0 && !texts.includes(text)) texts.push(text);
     }
-    this.translator.prefetch(
-      cues,
-      timeMs,
-      this.translateOptions(language),
-      this.prefs.tier,
-      video.playbackRate || 1,
-    );
+    this.translator.retainTexts(texts, options);
   }
 
   private repaintHold(): void {
@@ -1316,6 +1443,7 @@ export class VideoCaptionSession {
     translation: string,
     startMs: number,
     endMs: number,
+    minDisplayMs = LIVE_CAPTION_MIN_DISPLAY_MS,
   ): void {
     if (!this.running) return;
     const token = this.sourceToken;
@@ -1337,8 +1465,8 @@ export class VideoCaptionSession {
       this.applyNativeVisibility();
       this.releasePlayerMutations();
     };
-    const elapsed = this.hold ? this.now() - this.hold.shownAt : LIVE_CAPTION_MIN_DISPLAY_MS;
-    const wait = Math.max(0, LIVE_CAPTION_MIN_DISPLAY_MS - elapsed);
+    const elapsed = this.hold ? this.now() - this.hold.shownAt : minDisplayMs;
+    const wait = Math.max(0, minDisplayMs - elapsed);
     if (this.holdTimer !== null) this.doc.defaultView?.clearTimeout(this.holdTimer);
     // A new playhead cue must replace the previous translated line immediately.
     // Min-display only debounce refinements of the same live/ASR line.

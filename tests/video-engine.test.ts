@@ -5,6 +5,7 @@ import type { TranslateOptions, TranslateSegment, TranslationChunk } from '@/eng
 import {
   CAPTION_LIVE_PRIORITY,
   CAPTION_PLAYHEAD_PRIORITY,
+  CAPTION_PREFETCH_MAX_CUES,
   CAPTION_PREFETCH_PRIORITY,
   CaptionTranslator,
   captionPrefetchWindowMs,
@@ -235,6 +236,29 @@ describe('caption translator', () => {
       expect(seen.length).toBe(3);
     });
     expect(seen.every((priority) => priority === CAPTION_PREFETCH_PRIORITY)).toBe(true);
+  });
+
+  it('caps far prefetch so a long track cannot fill the engine queue', async () => {
+    const seen: string[] = [];
+    const translator = new CaptionTranslator(
+      engineOf((segments) => {
+        seen.push(segments[0]?.text ?? '');
+        return segments.map((segment) => ({
+          id: segment.id,
+          final: `訳:${segment.text}`,
+          engine: 'plamo' as const,
+        }));
+      }),
+    );
+    const cues = Array.from({ length: 20 }, (_, index) =>
+      cue(`line ${String(index)}`, index * 2_000),
+    );
+    translator.prefetch(cues, 0, { tgt: 'ja', form: 'polite' }, 'g');
+    await vi.waitFor(() => {
+      expect(seen).toHaveLength(CAPTION_PREFETCH_MAX_CUES);
+    });
+    expect(seen[0]).toBe('line 0');
+    expect(seen).not.toContain('line 8');
   });
 
   it('finishes the playhead line first when later cues would otherwise share the first batch', async () => {
