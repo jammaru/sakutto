@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
 import { isBrokenTranslation } from '@/engine/text/degenerate';
 import type { PageEngine } from '@/dom/session';
@@ -206,6 +207,54 @@ describe('caption translator', () => {
     expect(seenPriority).toBe(CAPTION_PLAYHEAD_PRIORITY);
     expect(seenPreempt).toBe(true);
     expect(seenEager).toBe(true);
+  });
+
+  it('promotes a pending warmer to an eager preempting playhead request', async () => {
+    let releaseWarmer: () => void = () => undefined;
+    const warmerGate = new Promise<void>((resolve) => {
+      releaseWarmer = resolve;
+    });
+    const seen: TranslateOptions[] = [];
+    const translator = new CaptionTranslator(
+      engineOf(async function* (segments, options) {
+        seen.push(options);
+        if (options.priority === CAPTION_LIVE_PRIORITY) {
+          // Deliberately finish despite abort: stale warmer output must not win.
+          await warmerGate;
+          yield {
+            id: segments[0]?.id ?? 'x',
+            final: '訳:stale warmer',
+            engine: 'plamo' as const,
+          };
+          return;
+        }
+        yield {
+          id: segments[0]?.id ?? 'x',
+          final: '訳:playhead',
+          engine: 'plamo' as const,
+        };
+      }),
+    );
+    const options = { tgt: 'ja', form: 'polite' as const };
+    const line = cue('The station opens at dawn.');
+
+    const warmer = translator.translateCue(line, options, CAPTION_LIVE_PRIORITY);
+    await vi.waitFor(() => expect(seen).toHaveLength(1));
+    const playhead = translator.translateCue(line, options, CAPTION_PLAYHEAD_PRIORITY);
+
+    expect(seen).toHaveLength(2);
+    expect(seen[0]?.priority).toBe(CAPTION_LIVE_PRIORITY);
+    expect(seen[0]?.eager).toBe(true);
+    expect(seen[0]?.preempt).toBe(false);
+    expect(seen[0]?.signal.aborted).toBe(true);
+    expect(seen[1]?.priority).toBe(CAPTION_PLAYHEAD_PRIORITY);
+    expect(seen[1]?.eager).toBe(true);
+    expect(seen[1]?.preempt).toBe(true);
+    await expect(playhead).resolves.toBe('訳:playhead');
+
+    releaseWarmer();
+    await expect(warmer).resolves.toBeNull();
+    expect(translator.getCached(line.text, options)).toBe('訳:playhead');
   });
 
   it('prefetches later cues at prefetch priority, never live', async () => {

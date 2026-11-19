@@ -45,6 +45,7 @@ interface CacheEntry {
 export class CaptionTranslator {
   private readonly cache = new Map<string, CacheEntry>();
   private readonly inflight = new Map<string, Promise<string | null>>();
+  private readonly inflightPriorities = new Map<string, number>();
   private readonly controllers = new Map<string, AbortController>();
   private seekGeneration = 0;
 
@@ -72,6 +73,7 @@ export class CaptionTranslator {
     for (const controller of this.controllers.values()) controller.abort();
     this.controllers.clear();
     this.inflight.clear();
+    this.inflightPriorities.clear();
   }
 
   /** Snapshot before `translateCue`; {@link abortedSince} is true after `seek` / `clear`. */
@@ -92,16 +94,30 @@ export class CaptionTranslator {
     const cached = this.cache.get(key);
     if (cached) return cached.translation;
     const pending = this.inflight.get(key);
-    if (pending) return pending;
+    if (pending) {
+      const pendingPriority = this.inflightPriorities.get(key);
+      if (pendingPriority === undefined || priority >= pendingPriority) return pending;
+
+      // A warmer's engine options cannot be upgraded in place; restart it so the
+      // playhead request gets eager/preempt behavior. Its aborted run cannot cache.
+      this.controllers.get(key)?.abort();
+      this.controllers.delete(key);
+      this.inflight.delete(key);
+      this.inflightPriorities.delete(key);
+    }
 
     const controller = new AbortController();
     this.controllers.set(key, controller);
     const generation = this.seekGeneration;
     const work = this.run(cue, options, priority, controller.signal).finally(() => {
       if (this.controllers.get(key) === controller) this.controllers.delete(key);
-      if (this.inflight.get(key) === work) this.inflight.delete(key);
+      if (this.inflight.get(key) === work) {
+        this.inflight.delete(key);
+        this.inflightPriorities.delete(key);
+      }
     });
     this.inflight.set(key, work);
+    this.inflightPriorities.set(key, priority);
     const result = await work;
     if (generation !== this.seekGeneration) return null;
     return result;
@@ -124,6 +140,7 @@ export class CaptionTranslator {
       controller.abort();
       this.controllers.delete(key);
       this.inflight.delete(key);
+      this.inflightPriorities.delete(key);
     }
   }
 
@@ -135,6 +152,7 @@ export class CaptionTranslator {
     controller.abort();
     this.controllers.delete(key);
     this.inflight.delete(key);
+    this.inflightPriorities.delete(key);
   }
 
   prefetch(
