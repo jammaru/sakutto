@@ -37,6 +37,74 @@ export function setPlainTextContent(element: HTMLElement, text: string): void {
   element.textContent = text;
 }
 
+/*
+ * The selection popup scrolls its translation inside the card instead of growing to
+ * the paragraph's full height. The cap sits on the translated-text area alone, so the
+ * kicker, the engine note, and the copy/close row stay on screen while the text moves.
+ * 40vh keeps roughly half the viewport free; the floor keeps a very short viewport
+ * readable and the ceiling keeps a very tall one from growing without bound. The cap
+ * is a ceiling, never a floor: a short translation still shrinks to its content.
+ */
+export const SELECTION_BODY_CAP_MIN_PX = 140;
+export const SELECTION_BODY_CAP_MAX_PX = 420;
+export const SELECTION_BODY_CAP_VH = 40;
+/** `max-height` value of the selection popup's translated-text area. */
+export const SELECTION_BODY_MAX_HEIGHT = `clamp(${SELECTION_BODY_CAP_MIN_PX}px, ${SELECTION_BODY_CAP_VH}vh, ${SELECTION_BODY_CAP_MAX_PX}px)`;
+
+/** The cap as plain pixels for a viewport height. Pure, so tests can pin the arithmetic. */
+export function selectionBodyCapPx(viewportHeight: number): number {
+  if (!Number.isFinite(viewportHeight) || viewportHeight <= 0) return SELECTION_BODY_CAP_MIN_PX;
+  return Math.min(
+    SELECTION_BODY_CAP_MAX_PX,
+    Math.max(SELECTION_BODY_CAP_MIN_PX, (viewportHeight * SELECTION_BODY_CAP_VH) / 100),
+  );
+}
+
+/** A scroller within this many pixels of its end counts as pinned to the bottom. */
+export const SELECTION_SCROLL_PIN_PX = 2;
+
+/** The box-model inputs the selection scroll offset is decided from. */
+export interface SelectionScrollBox {
+  scrollTop: number;
+  scrollHeight: number;
+  clientHeight: number;
+}
+
+/**
+ * True when the new translation text continues the previous one — a streaming append,
+ * not a restart that rewrote the popup from scratch.
+ */
+export function selectionTextExtends(previous: string, next: string): boolean {
+  return previous.length > 0 && next.length > previous.length && next.startsWith(previous);
+}
+
+/**
+ * Scroll offset the selection popup's translated-text area takes after its text was
+ * replaced by a streaming paint.
+ *
+ * A newly opened popup and the first real text after the pending placeholder start at
+ * the top. A streaming append keeps the reader where they were: already at the bottom
+ * (or still short of the cap, which reads as the bottom), the text stays pinned to the
+ * new end; scrolled up, the reader's offset survives, clamped so it cannot sit past
+ * the new end. Any other replacement keeps the old offset under the same clamp.
+ */
+export function nextSelectionScrollOffset(reading: {
+  opening: boolean;
+  wasPending: boolean;
+  extendsPrevious: boolean;
+  before: SelectionScrollBox;
+  after: SelectionScrollBox;
+}): number {
+  if (reading.opening || reading.wasPending) return 0;
+  const maxAfter = Math.max(0, reading.after.scrollHeight - reading.after.clientHeight);
+  if (reading.extendsPrevious) {
+    const distance =
+      reading.before.scrollHeight - reading.before.scrollTop - reading.before.clientHeight;
+    if (distance <= SELECTION_SCROLL_PIN_PX) return maxAfter;
+  }
+  return Math.min(Math.max(reading.before.scrollTop, 0), maxAfter);
+}
+
 /** Metrics for tests; needs a laid-out card in a browser or happy-dom. */
 export function popupCardMetrics(host: Element | null | undefined): {
   fontSizePx: number;
@@ -196,6 +264,17 @@ const BUBBLE_STYLE = `
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+/*
+ * Only the selection popup caps its translated text: its card carries the selection
+ * class, while the hover tooltip keeps scrolling as one whole card. The cap is a
+ * max-height, so a short translation still shrinks to its own height, and the
+ * overscroll containment keeps touch gestures from chaining to the page.
+ */
+.card.selection .body {
+  max-height: ${SELECTION_BODY_MAX_HEIGHT};
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .note {
   margin: 0.5em 0 0;
@@ -562,6 +641,29 @@ export class PageOverlay {
     capture: Element | null;
     changed: boolean;
   } | null = null;
+  /**
+   * A wheel or trackpad gesture over the popup never reaches the page. The card is no
+   * longer the scroller, so a gesture over the header or the controls would otherwise
+   * fall through to the document behind, and a text area already at its scroll edge
+   * would chain there too. preventDefault closes every one of those paths, and the
+   * capped text area itself scrolls while it still can. The width-resize drag, text
+   * selection inside the translation, and the copy/close controls ride on pointer and
+   * click events, which a canceled wheel never touches.
+   */
+  private readonly onPopWheel = (event: WheelEvent): void => {
+    event.preventDefault();
+    const body = this.popBody;
+    const max = Math.max(0, body.scrollHeight - body.clientHeight);
+    if (max <= 0) return;
+    const delta =
+      event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+        ? Math.sign(event.deltaY) * body.clientHeight
+        : event.deltaMode === WheelEvent.DOM_DELTA_LINE
+          ? event.deltaY * 16
+          : event.deltaY;
+    if (delta === 0) return;
+    body.scrollTop = Math.min(max, Math.max(0, body.scrollTop + delta));
+  };
   private readonly onResizeMove = (event: PointerEvent): void => {
     const state = this.resizing;
     if (!state) return;
@@ -632,6 +734,9 @@ export class PageOverlay {
     this.popResizeRight = pop.resizeRight;
     this.popCopy = pop.copy;
     this.popCopyNote = pop.copyNote;
+    // Non-passive on purpose: the handler has to cancel the gesture before the browser
+    // scrolls anything behind the popup.
+    this.popHost.addEventListener('wheel', this.onPopWheel, { passive: false });
     this.status = doc.createElement('sakutto-status');
     this.status.setAttribute('translate', 'no');
     this.status.setAttribute('role', 'status');
@@ -875,10 +980,39 @@ export class PageOverlay {
     lang?: string,
     failed = false,
   ): void {
-    const opening = this.popHost.hidden;
+    // `hidden` also accepts the "until-found" keyword, so compare rather than rely on
+    // the value already being a plain boolean.
+    const opening = this.popHost.hidden === true;
+    const body = this.popBody;
+    const previous = body.textContent ?? '';
+    const wasPending = previous === this.labels.selectionPending;
+    // Read the scroll state before the text moves: the pin has to know where the reader
+    // was while the old text was still laid out.
+    const before = {
+      scrollTop: body.scrollTop,
+      scrollHeight: body.scrollHeight,
+      clientHeight: body.clientHeight,
+    };
+    const extendsPrevious = selectionTextExtends(previous, pending ? '' : text);
     this.popHost.setAttribute('aria-busy', pending ? 'true' : 'false');
-    if (pending) this.popBody.textContent = this.labels.selectionPending;
-    else setPlainTextContent(this.popBody, text);
+    if (pending) {
+      body.textContent = this.labels.selectionPending;
+      body.scrollTop = 0;
+    } else {
+      setPlainTextContent(body, text);
+      // Re-read after the new text is in place, so the offset clamps against the new end.
+      body.scrollTop = nextSelectionScrollOffset({
+        opening,
+        wasPending,
+        extendsPrevious,
+        before,
+        after: {
+          scrollTop: body.scrollTop,
+          scrollHeight: body.scrollHeight,
+          clientHeight: body.clientHeight,
+        },
+      });
+    }
     this.updateCopyState(text, pending, failed);
     this.popBody.lang = lang ?? '';
     this.popNote.textContent = pending
@@ -1062,6 +1196,9 @@ export class PageOverlay {
     style.textContent = BUBBLE_STYLE;
     const card = this.doc.createElement('div');
     card.className = 'card';
+    // Marks the selection popup's card, so the shared bubble style can cap the translated
+    // text there without touching the hover tooltip, which keeps its whole-card scrolling.
+    if (selectable) card.classList.add('selection');
     card.setAttribute('role', selectable ? 'dialog' : 'tooltip');
     if (selectable) card.setAttribute('aria-label', this.labels.selectionTitle);
 
@@ -1166,6 +1303,13 @@ export class PageOverlay {
     if (left + cardWidth > width - 8) left = width - cardWidth - 8;
     let top = rect.bottom + 16;
     if (top + cardHeight > height - 8) top = Math.max(8, rect.top - cardHeight - 16);
+    // The flip still anchors to the selection's last line, and that line can sit below
+    // the fold — a phone viewport wraps a long paragraph so the last line lands far
+    // down. Pull the card up until its bottom sits on the viewport's bottom margin; a
+    // card taller than the viewport stays pinned at the top margin by the clamp below,
+    // and an unlaid-out card (height 0) keeps the flip's position instead of being
+    // shoved to the bottom edge.
+    if (cardHeight > 0 && top + cardHeight > height - 8) top = height - cardHeight - 8;
     host.style.left = `${Math.max(8, left)}px`;
     host.style.top = `${Math.max(8, top)}px`;
     if (host === this.popHost && this.popResizeLeft) {

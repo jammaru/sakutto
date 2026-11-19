@@ -3769,3 +3769,74 @@ describe('selection popup width', () => {
     expect(card.style.getPropertyValue(POPUP_TEXT_SCALE_VAR)).toBe('1.5');
   });
 });
+
+describe('selection popup translated-text scroll', () => {
+  it('streams into the capped scroller: opens at the top, then pins the bottom', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello world</p>';
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        const segment = segments[0];
+        if (!segment) return;
+        yield { id: segment.id, textDelta: 'あ'.repeat(120), engine: 'plamo' as const };
+        await gate;
+        yield { id: segment.id, textDelta: 'あ'.repeat(240), engine: 'plamo' as const };
+        yield { id: segment.id, final: 'あ'.repeat(360), engine: 'plamo' as const };
+      }),
+    );
+
+    const body = uiShadow(document.querySelector('sakutto-pop'))?.querySelector('.body');
+    if (!(body instanceof HTMLElement)) throw new Error('missing pop body');
+    // A stand-in for the capped scroller's layout: a 300px port whose content grows a
+    // pixel per character while the translation streams in.
+    let scrollTop = 0;
+    Object.defineProperty(body, 'scrollHeight', {
+      configurable: true,
+      get: () => 300 + (body.textContent?.length ?? 0),
+    });
+    Object.defineProperty(body, 'clientHeight', { configurable: true, get: () => 300 });
+    Object.defineProperty(body, 'scrollTop', {
+      configurable: true,
+      get: () => scrollTop,
+      set: (value: number) => {
+        scrollTop = value;
+      },
+    });
+
+    session.translateSelection('Hello world', new DOMRect(8, 8, 24, 12));
+    // The pending placeholder opens the popup, and the capped area starts at the top.
+    expect(body.textContent).toBe(labels.selectionPending);
+    expect(scrollTop).toBe(0);
+
+    await vi.waitFor(() => {
+      expect(body.textContent).toBe('あ'.repeat(120));
+    });
+    // The placeholder gave way to the first chunk without jumping to the end.
+    expect(scrollTop).toBe(0);
+
+    // The reader wheels to the bottom of what has arrived; the gesture stays inside.
+    const wheel = new WheelEvent('wheel', {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      deltaY: 200,
+    });
+    body.dispatchEvent(wheel);
+    expect(wheel.defaultPrevented).toBe(true);
+    expect(scrollTop).toBe(120);
+
+    // The next chunk keeps the newest text in view instead of hiding it below the fold.
+    release();
+    await vi.waitFor(() => {
+      expect(body.textContent).toBe('あ'.repeat(360));
+    });
+    expect(scrollTop).toBe(360);
+    await session.whenIdle();
+    expect(scrollTop).toBe(360);
+  });
+});

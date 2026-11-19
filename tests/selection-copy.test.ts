@@ -1,6 +1,14 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { PageOverlay, setPlainTextContent, uiShadow } from '@/dom/overlay';
+import {
+  nextSelectionScrollOffset,
+  PageOverlay,
+  selectionBodyCapPx,
+  selectionTextExtends,
+  SELECTION_BODY_MAX_HEIGHT,
+  setPlainTextContent,
+  uiShadow,
+} from '@/dom/overlay';
 import { copyTextToClipboard, copyTextViaDocument } from '@/shared/clipboard-copy';
 import { PageSession, type PageEngine, type SessionPreferences } from '@/dom/session';
 import type { OverlayLabels } from '@/dom/overlay';
@@ -496,6 +504,451 @@ describe('selection popup control pair', () => {
       expect(copy.dataset.state).toBe('copied');
       expect(boxModel(copy)).toEqual(before);
       expect(boxModel(copy)).toEqual(boxModel(close));
+    } finally {
+      overlay.destroy();
+    }
+  });
+});
+
+/** The selection popup's card, which carries the marker class that scopes the cap. */
+function popCard(shadow: ShadowRoot): HTMLElement {
+  const card = shadow.querySelector('.card');
+  if (!(card instanceof HTMLElement)) throw new Error('missing pop card');
+  return card;
+}
+
+function bubbleCss(shadow: ShadowRoot): string {
+  return shadow.querySelector('style')?.textContent ?? '';
+}
+
+/** The full brace block of one selector, so the new rule can be pinned exactly. */
+function cssBlock(css: string, selector: string): string {
+  const start = css.indexOf(selector);
+  if (start < 0) return '';
+  return css.slice(start, css.indexOf('}', start) + 1);
+}
+
+/** Long enough that the translation would stretch the popup well past the cap. */
+function longTranslation(): string {
+  return 'The translation keeps going and going. '.repeat(60);
+}
+
+/**
+ * happy-dom lays nothing out, so the capped scroller is simulated: the port is `base`
+ * pixels tall and the content grows a pixel per character, the way the real one does
+ * while a translation streams in.
+ */
+function liveBodyScroll(body: HTMLElement, base: number): { top: () => number } {
+  let scrollTop = 0;
+  Object.defineProperty(body, 'scrollHeight', {
+    configurable: true,
+    get: () => base + (body.textContent?.length ?? 0),
+  });
+  Object.defineProperty(body, 'clientHeight', { configurable: true, get: () => base });
+  Object.defineProperty(body, 'scrollTop', {
+    configurable: true,
+    get: () => scrollTop,
+    set: (value: number) => {
+      scrollTop = value;
+    },
+  });
+  return { top: () => scrollTop };
+}
+
+/** Fixed metrics, for the cases that only need the scroller's edges. */
+function fixedBodyScroll(
+  body: HTMLElement,
+  scrollHeight: number,
+  clientHeight: number,
+): { top: () => number } {
+  let scrollTop = 0;
+  Object.defineProperty(body, 'scrollHeight', { configurable: true, get: () => scrollHeight });
+  Object.defineProperty(body, 'clientHeight', { configurable: true, get: () => clientHeight });
+  Object.defineProperty(body, 'scrollTop', {
+    configurable: true,
+    get: () => scrollTop,
+    set: (value: number) => {
+      scrollTop = value;
+    },
+  });
+  return { top: () => scrollTop };
+}
+
+/** A wheel gesture somewhere inside the popup, kept as a value so it can be inspected. */
+function wheelOver(target: Element, deltaY: number): WheelEvent {
+  const event = new WheelEvent('wheel', {
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    deltaY,
+  });
+  target.dispatchEvent(event);
+  return event;
+}
+
+describe('selection scroll arithmetic', () => {
+  const box = (scrollTop: number, scrollHeight: number, clientHeight: number) => ({
+    scrollTop,
+    scrollHeight,
+    clientHeight,
+  });
+
+  it('recognizes a streaming append but not a repeat or a rewrite', () => {
+    expect(selectionTextExtends('こんにちは', 'こんにちは世界')).toBe(true);
+    expect(selectionTextExtends('こんにちは', 'こんにちは')).toBe(false);
+    expect(selectionTextExtends('さようなら', 'こんにちは世界')).toBe(false);
+    expect(selectionTextExtends('', 'こんにちは')).toBe(false);
+  });
+
+  it('starts a newly opened popup and the first real text at the top', () => {
+    const reading = {
+      opening: true,
+      wasPending: false,
+      extendsPrevious: true,
+      before: box(600, 900, 300),
+      after: box(600, 1200, 300),
+    };
+    expect(nextSelectionScrollOffset(reading)).toBe(0);
+    expect(nextSelectionScrollOffset({ ...reading, opening: false, wasPending: true })).toBe(0);
+  });
+
+  it('pins a streaming append to the bottom when the reader already sat at the end', () => {
+    expect(
+      nextSelectionScrollOffset({
+        opening: false,
+        wasPending: false,
+        extendsPrevious: true,
+        before: box(600, 900, 300),
+        after: box(600, 1200, 300),
+      }),
+    ).toBe(900);
+  });
+
+  it('pins the first append that crosses the cap when the text still fit', () => {
+    expect(
+      nextSelectionScrollOffset({
+        opening: false,
+        wasPending: false,
+        extendsPrevious: true,
+        before: box(0, 280, 300),
+        after: box(0, 400, 300),
+      }),
+    ).toBe(100);
+  });
+
+  it('keeps a scrolled-up reader at their offset, clamped to the new end', () => {
+    expect(
+      nextSelectionScrollOffset({
+        opening: false,
+        wasPending: false,
+        extendsPrevious: true,
+        before: box(120, 900, 300),
+        after: box(120, 1000, 300),
+      }),
+    ).toBe(120);
+    // A rewrite, not an append, keeps the offset under the same clamp instead of pinning.
+    expect(
+      nextSelectionScrollOffset({
+        opening: false,
+        wasPending: false,
+        extendsPrevious: false,
+        before: box(120, 900, 300),
+        after: box(120, 400, 300),
+      }),
+    ).toBe(100);
+  });
+});
+
+describe('selection popup body cap', () => {
+  it('keeps the cap at 40vh between a floor and a ceiling', () => {
+    // The measured case: a 1280×800 viewport had the popup covering 98% of the screen.
+    expect(selectionBodyCapPx(800)).toBe(320);
+    // A 390×844 phone viewport gets a proportionate reading area, not a fixed box.
+    expect(selectionBodyCapPx(844)).toBeCloseTo(337.6, 5);
+    // A very short viewport keeps a usable floor; a very tall one stops growing.
+    expect(selectionBodyCapPx(300)).toBe(140);
+    expect(selectionBodyCapPx(2000)).toBe(420);
+    expect(selectionBodyCapPx(0)).toBe(140);
+    expect(SELECTION_BODY_MAX_HEIGHT).toBe('clamp(140px, 40vh, 420px)');
+  });
+
+  it('caps and scrolls the translated text, not the whole card', () => {
+    const overlay = mountOverlay();
+    try {
+      overlay.showSelection(RECT, longTranslation(), 'plamo', false, 'ja');
+      const shadow = popShadow();
+      const card = popCard(shadow);
+      // The selection popup's card carries the marker class that scopes the new rule.
+      expect(card.className).toBe('card selection');
+      const css = bubbleCss(shadow);
+      const rule = cssBlock(css, '.card.selection .body {');
+      expect(rule).toBe(
+        '.card.selection .body {\n' +
+          '  max-height: ' +
+          SELECTION_BODY_MAX_HEIGHT +
+          ';\n' +
+          '  overflow-y: auto;\n' +
+          '  overscroll-behavior: contain;\n' +
+          '}',
+      );
+      // The shared card rule keeps bounding the whole card, which the capped popup
+      // never reaches: the translation scrolls inside it instead of stretching it.
+      expect(cssBlock(css, '.card {')).toContain('max-height: calc(100vh - 16px)');
+      // 320px of reading area plus the fixed chrome stays far short of the 784px card
+      // the bug measured on a 1280×800 viewport.
+      expect(selectionBodyCapPx(800) + 240).toBeLessThan(784);
+    } finally {
+      overlay.destroy();
+    }
+  });
+
+  it('keeps the hover tooltip on its whole-card max-height', () => {
+    const overlay = mountOverlay();
+    try {
+      overlay.showOriginal(document.body, 'Original words', 'plamo');
+      const shadow = uiShadow(document.querySelector('sakutto-tip'));
+      // No marker class on the tooltip's card, so the selection cap rule never matches it.
+      expect(shadow?.querySelector('.card')?.className).toBe('card');
+      expect(shadow?.querySelector('.body')?.textContent).toBe('Original words');
+      const css = shadow?.querySelector('style')?.textContent ?? '';
+      expect(cssBlock(css, '.card {')).toContain('max-height: calc(100vh - 16px)');
+    } finally {
+      overlay.destroy();
+    }
+  });
+
+  it('keeps a one-line translation exactly as small as before', () => {
+    const overlay = mountOverlay();
+    try {
+      overlay.showSelection(RECT, '一行の訳文です。', 'plamo', false, 'ja');
+      const shadow = popShadow();
+      const body = popBody(shadow);
+      expect(body.textContent).toBe('一行の訳文です。');
+      const rule = cssBlock(bubbleCss(shadow), '.card.selection .body {');
+      // The rule is a max-height alone: no min-height, no fixed height, no padding or
+      // width, so a short translation shrinks to its content with no empty scrollport.
+      expect(rule).toBe(
+        '.card.selection .body {\n' +
+          '  max-height: ' +
+          SELECTION_BODY_MAX_HEIGHT +
+          ';\n' +
+          '  overflow-y: auto;\n' +
+          '  overscroll-behavior: contain;\n' +
+          '}',
+      );
+      // The card is still only as tall as its content: kicker, body, note, and controls.
+      const card = popCard(shadow);
+      expect([...card.children].map((child) => child.className)).toEqual([
+        'kicker',
+        'body',
+        'note',
+        'note copy-note',
+        'controls',
+        'resize-handle left',
+        'resize-handle right',
+      ]);
+    } finally {
+      overlay.destroy();
+    }
+  });
+
+  it('keeps the header, engine note, and controls outside the scrolling text', () => {
+    const overlay = mountOverlay();
+    try {
+      overlay.showSelection(RECT, longTranslation(), 'plamo', false, 'ja');
+      const shadow = popShadow();
+      const card = popCard(shadow);
+      const body = popBody(shadow);
+      const kicker = shadow.querySelector('.kicker');
+      const note = shadow.querySelector('.note');
+      const controls = shadow.querySelector('.controls');
+      // The scroller holds the translation alone; the chrome stays beside it in the
+      // card, so scrolling the text can never carry the header or the controls away.
+      for (const chrome of [kicker, note, controls]) {
+        expect(chrome instanceof HTMLElement).toBe(true);
+        expect(body.contains(chrome)).toBe(false);
+        expect(card.contains(chrome)).toBe(true);
+      }
+      expect(note?.textContent).toBe(labels.machine);
+      body.scrollTop = 120;
+      expect(card.contains(shadow.querySelector('.controls'))).toBe(true);
+      expect(body.textContent).toBe(longTranslation());
+    } finally {
+      overlay.destroy();
+    }
+  });
+});
+
+describe('selection popup wheel gestures', () => {
+  it('scrolls the capped text and never lets the gesture reach the page', () => {
+    const overlay = mountOverlay();
+    try {
+      overlay.showSelection(RECT, longTranslation(), 'plamo', false, 'ja');
+      const shadow = popShadow();
+      const body = popBody(shadow);
+      const scroll = fixedBodyScroll(body, 500, 300);
+      expect(body.textContent?.length).toBeGreaterThan(300);
+
+      // Over the translation itself the gesture moves the text, not the page.
+      const overText = wheelOver(body, 60);
+      expect(overText.defaultPrevented).toBe(true);
+      expect(scroll.top()).toBe(60);
+
+      // Over the header and over the controls the gesture is still local, and it moves
+      // the text, which is the only thing in the popup that can scroll.
+      const header = shadow.querySelector('.kicker');
+      const controls = shadow.querySelector('.controls');
+      expect(header instanceof HTMLElement).toBe(true);
+      expect(controls instanceof HTMLElement).toBe(true);
+      if (header) {
+        const overHeader = wheelOver(header, 40);
+        expect(overHeader.defaultPrevented).toBe(true);
+      }
+      if (controls) {
+        const overControls = wheelOver(controls, 40);
+        expect(overControls.defaultPrevented).toBe(true);
+      }
+      expect(scroll.top()).toBe(140);
+
+      // Already at the bottom edge, and then past the top edge: still contained.
+      const down = wheelOver(body, 500);
+      expect(down.defaultPrevented).toBe(true);
+      expect(scroll.top()).toBe(200);
+      const up = wheelOver(body, -500);
+      expect(up.defaultPrevented).toBe(true);
+      expect(scroll.top()).toBe(0);
+    } finally {
+      overlay.destroy();
+    }
+  });
+
+  it('keeps the gesture local even when the translation does not overflow', () => {
+    const overlay = mountOverlay();
+    try {
+      overlay.showSelection(RECT, '一行の訳文です。', 'plamo', false, 'ja');
+      const shadow = popShadow();
+      const body = popBody(shadow);
+      const scroll = fixedBodyScroll(body, 120, 120);
+      const event = wheelOver(body, 60);
+      expect(event.defaultPrevented).toBe(true);
+      expect(scroll.top()).toBe(0);
+    } finally {
+      overlay.destroy();
+    }
+  });
+});
+
+describe('selection popup streaming scroll', () => {
+  it('opens at the top, pins the bottom while streaming, and keeps a scrolled-up reader', () => {
+    const overlay = mountOverlay();
+    try {
+      const shadow = popShadow();
+      const body = popBody(shadow);
+      const scroll = liveBodyScroll(body, 300);
+
+      // The pending placeholder opens the popup at the top of the translation.
+      overlay.showSelection(RECT, '', null, true, 'ja');
+      expect(body.textContent).toBe(labels.selectionPending);
+      expect(scroll.top()).toBe(0);
+
+      // The first real text replaces the placeholder and still starts at the top.
+      const first = 'あ'.repeat(100);
+      overlay.showSelection(RECT, first, 'plamo', false, 'ja');
+      expect(body.textContent).toBe(first);
+      expect(scroll.top()).toBe(0);
+
+      // The reader scrolls to the bottom of what has arrived.
+      body.scrollTop = 100;
+      // A streaming append keeps the newest text in view.
+      const second = first + 'あ'.repeat(100);
+      overlay.showSelection(RECT, second, 'plamo', false, 'ja');
+      expect(scroll.top()).toBe(200);
+
+      // Scrolled up, the reader's place survives the next append.
+      body.scrollTop = 60;
+      overlay.showSelection(RECT, second + 'あ'.repeat(100), 'plamo', false, 'ja');
+      expect(scroll.top()).toBe(60);
+
+      // A text that rewrites the translation instead of extending it keeps the offset,
+      // clamped so it cannot sit past the new end.
+      overlay.showSelection(RECT, 'あ'.repeat(40), 'plamo', false, 'ja');
+      expect(scroll.top()).toBe(40);
+
+      // A reopened popup starts at the top again, whatever the last position was.
+      overlay.hideSelection();
+      body.scrollTop = 180;
+      overlay.showSelection(RECT, second, 'plamo', false, 'ja');
+      expect(scroll.top()).toBe(0);
+    } finally {
+      overlay.destroy();
+    }
+  });
+});
+
+describe('selection popup placement', () => {
+  it('flips above the selection measuring the capped card, not the uncapped text', () => {
+    const overlay = mountOverlay();
+    try {
+      const shadow = popShadow();
+      const card = popCard(shadow);
+      const view = document.defaultView;
+      if (!view) throw new Error('missing window');
+      const height = view.innerHeight;
+      const host = document.querySelector('sakutto-pop');
+      if (!(host instanceof HTMLElement)) throw new Error('missing pop host');
+      // The laid-out card: the capped reading area plus the fixed chrome. Overriding
+      // the property proves place reads the card the layout shows, never the uncapped
+      // text height the old whole-card scroller would have produced.
+      let laidOut = 440;
+      Object.defineProperty(card, 'offsetHeight', { configurable: true, get: () => laidOut });
+      const anchor = new DOMRect(200, height - 120, 240, 18);
+
+      overlay.showSelection(anchor, longTranslation(), 'plamo', false, 'ja');
+      // The card does not fit below the selection, so it flips above it...
+      expect(Number.parseFloat(host.style.top)).toBe(anchor.top - 440 - 16);
+      // ...and the top margin never engages: an uncapped text height would have pushed
+      // the popup there instead of leaving it beside the selection.
+      expect(host.style.top).not.toBe('8px');
+
+      // A streaming paint that grows the visible card repositions from the new height.
+      laidOut = 520;
+      overlay.showSelection(
+        anchor,
+        longTranslation() + ' More sentences arrive.',
+        'plamo',
+        false,
+        'ja',
+      );
+      expect(Number.parseFloat(host.style.top)).toBe(anchor.top - 520 - 16);
+    } finally {
+      overlay.destroy();
+    }
+  });
+
+  it('pulls a flipped card fully on screen when the selection sits below the fold', () => {
+    const overlay = mountOverlay();
+    try {
+      const shadow = popShadow();
+      const card = popCard(shadow);
+      const view = document.defaultView;
+      if (!view) throw new Error('missing window');
+      const height = view.innerHeight;
+      const host = document.querySelector('sakutto-pop');
+      if (!(host instanceof HTMLElement)) throw new Error('missing pop host');
+      // The selection's last line is below the fold; the capped card still fits.
+      const anchor = new DOMRect(24, height + 80, 220, 18);
+      Object.defineProperty(card, 'offsetHeight', { configurable: true, get: () => 400 });
+
+      overlay.showSelection(anchor, longTranslation(), 'plamo', false, 'ja');
+      // The flip alone would leave the engine note and the Close control past the
+      // viewport, so the card is pulled up until its bottom lands on the viewport's
+      // bottom margin.
+      expect(Number.parseFloat(host.style.top)).toBe(height - 400 - 8);
+
+      // A card taller than the viewport pins to the top margin instead of going negative.
+      Object.defineProperty(card, 'offsetHeight', { configurable: true, get: () => height });
+      overlay.showSelection(anchor, longTranslation(), 'plamo', false, 'ja');
+      expect(host.style.top).toBe('8px');
     } finally {
       overlay.destroy();
     }
