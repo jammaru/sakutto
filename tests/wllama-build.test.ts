@@ -308,10 +308,14 @@ bool ggml_webgpu_correctness_probe(webgpu_context ctx) {
     expect(patch).not.toContain('-        if (subgroup_size > 32u');
     // no probe kernel and no shader edit: NVIDIA pays one string compare, nothing more
     const addedLines = patch.split('\n').filter((line) => line.startsWith('+'));
-    expect(addedLines.some((line) => line.includes('static const char * ggml_webgpu_probe'))).toBe(false);
+    expect(addedLines.some((line) => line.includes('static const char * ggml_webgpu_probe'))).toBe(
+      false,
+    );
     expect(patch).not.toContain('.wgsl');
     // the 0012 argmax node is NVIDIA-only; other vendors keep the logits readback
-    expect(patch).toContain('GGML_BACKEND_API bool ggml_backend_webgpu_dev_is_nvidia(ggml_backend_dev_t dev);');
+    expect(patch).toContain(
+      'GGML_BACKEND_API bool ggml_backend_webgpu_dev_is_nvidia(ggml_backend_dev_t dev);',
+    );
     expect(patch).toContain('bool ggml_backend_webgpu_dev_is_nvidia(ggml_backend_dev_t dev) {');
     expect(patch).toContain('ctx->webgpu_global_ctx->vendor == "nvidia"');
     expect(patch).toContain('ggml_backend_webgpu_dev_is_nvidia(model.dev_output())');

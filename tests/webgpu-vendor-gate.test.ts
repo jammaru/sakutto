@@ -53,9 +53,7 @@ describe('WebGPU vendor gate for wave64 fast paths', () => {
   });
 
   it('keeps a Vega iGPU that probes a 64-wide subgroup on the safe path too', () => {
-    const diagnostic = diagnosticFromAdapter(
-      adapter({ subgroupMinSize: 32, subgroupMaxSize: 64 }),
-    );
+    const diagnostic = diagnosticFromAdapter(adapter({ subgroupMinSize: 32, subgroupMaxSize: 64 }));
     expect(diagnostic.subgroupMaxSize).toBe(64);
 
     expect(nvidiaMeasuredFastPaths(diagnostic.vendor)).toBe(false);
@@ -83,7 +81,9 @@ describe('WebGPU vendor gate for wave64 fast paths', () => {
     expect(PATCH).toContain('if (ctx->webgpu_global_ctx->vendor != "nvidia") {');
     // No new probe kernel and no shader edit: nothing extra runs on NVIDIA at startup.
     const addedLines = PATCH.split('\n').filter((line) => line.startsWith('+'));
-    expect(addedLines.some((line) => line.includes('static const char * ggml_webgpu_probe'))).toBe(false);
+    expect(addedLines.some((line) => line.includes('static const char * ggml_webgpu_probe'))).toBe(
+      false,
+    );
     expect(PATCH).not.toContain('.wgsl');
   });
 
@@ -94,7 +94,9 @@ describe('WebGPU vendor gate for wave64 fast paths', () => {
     expect(nvidiaMeasuredFastPaths(null)).toBe(false);
     expect(nvidiaMeasuredFastPaths(undefined)).toBe(false);
 
-    expect(PATCH).toContain('GGML_BACKEND_API bool ggml_backend_webgpu_dev_is_nvidia(ggml_backend_dev_t dev);');
+    expect(PATCH).toContain(
+      'GGML_BACKEND_API bool ggml_backend_webgpu_dev_is_nvidia(ggml_backend_dev_t dev);',
+    );
     expect(PATCH).toContain('bool ggml_backend_webgpu_dev_is_nvidia(ggml_backend_dev_t dev) {');
     expect(PATCH).toContain('ctx->webgpu_global_ctx->vendor == "nvidia"');
     expect(PATCH).toContain('ggml_backend_webgpu_dev_is_nvidia(model.dev_output())');
