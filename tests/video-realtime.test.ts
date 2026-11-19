@@ -1015,6 +1015,117 @@ describe('real-time caption translation', () => {
     session.stop();
   });
 
+  it('keeps a repeated committed shared request alive through an empty DOM poll', async () => {
+    document.body.innerHTML = youtubeMarkup('regressionrepeatedvanish', true);
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    const requests: Array<{ context: string; signal: AbortSignal }> = [];
+    let releaseAll!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseAll = resolve;
+    });
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        requests.push({ context: options.context ?? '', signal: options.signal });
+        await gate;
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readTrack: async () => '',
+    });
+    session.start();
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
+    try {
+      segment.textContent = 'Yes';
+      await vi.waitFor(() => expect(requests).toHaveLength(1));
+      await sleep(800);
+      segment.textContent = 'Yes Yes';
+      await vi.waitFor(() => expect(requests).toHaveLength(2));
+      await sleep(800);
+      segment.textContent = 'Yes Yes Yes';
+      video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+      await sleep(150);
+      expect(requests).toHaveLength(2);
+      expect(requests[1]?.context).toBe('Yes');
+
+      segment.textContent = '';
+      video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+      await sleep(100);
+      expect(requests[1]?.signal.aborted).toBe(false);
+      segment.textContent = 'Yes Yes Yes';
+      video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+      releaseAll();
+      await vi.waitFor(() => {
+        expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('Yes', 'ja'));
+        expect(host.getAttribute('data-sakutto-history')).toBe(fakeTranslateText('Yes', 'ja'));
+      });
+      expect(requests).toHaveLength(2);
+    } finally {
+      releaseAll();
+      session.stop();
+    }
+  });
+
+  it('does not reset for equal fresh glossaries but restarts for actual edits', async () => {
+    document.body.innerHTML = youtubeMarkup('regressionglossaryequals', true);
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    const requests: string[] = [];
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        requests.push(segments[0]?.text ?? '');
+        const target = options.glossary?.[0]?.target ?? 'none';
+        for (const segment of segments) {
+          yield { id: segment.id, final: `${target}:${segment.text}`, engine: 'plamo' };
+        }
+      },
+    };
+    const glossary = [{ source: 'Hello', target: 'こんにちは' }];
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: { ...captionPreferences(), glossary },
+      readTrack: async () => '',
+    });
+    session.start();
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
+    segment.textContent = 'Hello';
+    await vi.waitFor(() => {
+      expect(host.getAttribute('data-sakutto-caption')).toBe('こんにちは:Hello');
+    });
+    expect(requests).toEqual(['Hello']);
+
+    session.setPreferences({
+      ...captionPreferences(),
+      glossary: [{ source: 'Hello', target: 'こんにちは' }],
+    });
+    await sleep(200);
+    expect(requests).toEqual(['Hello']);
+    expect(host.getAttribute('data-sakutto-caption')).toBe('こんにちは:Hello');
+
+    session.setPreferences({
+      ...captionPreferences(),
+      glossary: [{ source: 'Hello', target: 'やあ' }],
+    });
+    await vi.waitFor(() => {
+      expect(requests).toEqual(['Hello', 'Hello']);
+      expect(host.getAttribute('data-sakutto-caption')).toBe('やあ:Hello');
+    });
+    session.stop();
+  });
+
   it('restarts a static live tail with new formality before it can freeze', async () => {
     document.body.innerHTML = youtubeMarkup('regressionformalitytail', true);
     const video = document.querySelector('video') as HTMLVideoElement;

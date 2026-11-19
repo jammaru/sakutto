@@ -1,6 +1,7 @@
 import { pageHost } from '@/dom/sites';
 import type { PageEngine } from '@/dom/session';
 import type { GlossaryEntry } from '@/engine/types';
+import { glossaryEquals } from '@/shared/glossary';
 import { canonicalLanguage, isPlamoOnlyTarget } from '@/shared/languages';
 import {
   VIDEO_CAPTION_SIZE_DEFAULT,
@@ -272,7 +273,7 @@ export class VideoCaptionSession {
     const wasEnabled = this.prefs.enabled;
     const targetChanged = this.prefs.targetLanguage !== preferences.targetLanguage;
     const formalityChanged = this.prefs.form !== preferences.form;
-    const glossaryChanged = this.prefs.glossary !== preferences.glossary;
+    const glossaryChanged = !glossaryEquals(this.prefs.glossary, preferences.glossary);
     const displayChanged = this.prefs.display !== preferences.display;
     const sizeChanged =
       (this.prefs.size ?? VIDEO_CAPTION_SIZE_DEFAULT) !==
@@ -1073,7 +1074,7 @@ export class VideoCaptionSession {
       this.liveTailRevision += 1;
       this.clearHoldTimer();
       this.clearLiveTailTimer();
-      this.cancelLiveTailJob();
+      this.retireLiveTailJob();
       this.liveStream.discardTail(this.now());
       this.liveTailTranslation = null;
       this.liveTailChangedAt = 0;

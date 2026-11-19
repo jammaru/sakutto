@@ -648,7 +648,7 @@ export class LiveCaptionStream {
       if (recoveredDiscard !== null) {
         if (this.shrunkCommittedPrefix === null && recoveredDiscard > next.length) {
           this.shrunkCommittedPrefix = previous.slice(0, recoveredDiscard);
-          this.shrunkCommittedStarts = [0];
+          this.shrunkCommittedStarts = compatibleFrozenStarts(this.shrunkCommittedPrefix, next);
         }
         this.discardedCommittedChars = null;
         this.committedChars = Math.min(recoveredDiscard, next.length);
@@ -675,7 +675,7 @@ export class LiveCaptionStream {
         }
       } else if (recoveredDiscard === null && this.committedChars > next.length) {
         this.shrunkCommittedPrefix = previous.slice(0, this.committedChars);
-        this.shrunkCommittedStarts = [0];
+        this.shrunkCommittedStarts = compatibleFrozenStarts(this.shrunkCommittedPrefix, next);
         this.committedChars = next.length;
       }
       if (next.length > previous.length) this.tailChangedAt = now;
@@ -894,7 +894,7 @@ function rollingWindowRemovedCandidates(
   next: string,
   allowShortOverlap = false,
 ): number[] {
-  const shortMatches: number[] = [];
+  const matches: number[] = [];
   for (let removed = 1; removed < previous.length; removed += 1) {
     const overlap = Math.min(previous.length - removed, next.length);
     const overlapText = next.slice(0, overlap);
@@ -906,10 +906,18 @@ function rollingWindowRemovedCandidates(
       continue;
     }
     if (previous.slice(removed, removed + overlap) !== overlapText) continue;
-    if (overlap >= 3) return [removed];
-    shortMatches.push(removed);
+    matches.push(removed);
   }
-  return shortMatches;
+  return matches;
+}
+
+/** Every occurrence that can explain a direct right-truncated frozen window. */
+function compatibleFrozenStarts(prefix: string, next: string): number[] {
+  const starts: number[] = [];
+  for (let start = 0; start < prefix.length; start += 1) {
+    if (prefix.slice(start).startsWith(next)) starts.push(start);
+  }
+  return starts;
 }
 
 interface FrozenWindowMatch {

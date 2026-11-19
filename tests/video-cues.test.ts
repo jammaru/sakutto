@@ -575,6 +575,39 @@ describe('live caption stream', () => {
     expect(diverged.lineChanged).toBe(false);
   });
 
+  it('seeds every repeated frozen-prefix occurrence on direct shrink', () => {
+    for (const { source, shrunk, regrown, punctuation } of [
+      { source: 'no no', shrunk: 'no', regrown: 'no.', punctuation: '.' },
+      { source: 'ああ', shrunk: 'あ', regrown: 'あ。', punctuation: '。' },
+    ]) {
+      const stream = new LiveCaptionStream();
+      stream.update(source, 0);
+      stream.update(source, 700);
+      expect(stream.update(shrunk, 710).committed).toEqual([]);
+
+      const update = stream.update(regrown, 720);
+      expect(update.committed.map((segment) => segment.text)).toEqual([punctuation]);
+      expect(update.tail).toBe('');
+      expect(update.lineChanged).toBe(false);
+    }
+  });
+
+  it('retains every compatible long rolling overlap for later authentication', () => {
+    const stream = new LiveCaptionStream();
+    stream.update('go very go very go very', 0);
+    stream.update('go very go very go very', 700);
+    const rolled = stream.update('very go very', 710);
+    expect(rolled.committed).toEqual([]);
+    expect(rolled.tail).toBe('');
+
+    const grown = stream.update('very go very fast', 720);
+    expect(grown.committed).toEqual([]);
+    expect(grown.tail).toBe('fast');
+    const finished = stream.update('very go very fast.', 730);
+    expect(finished.committed.map((segment) => segment.text)).toEqual(['fast.']);
+    expect(finished.tail).toBe('');
+  });
+
   it('recovers direct one- and two-character Latin frozen suffixes', () => {
     for (const visible of ['n.', '.']) {
       const stream = new LiveCaptionStream();
