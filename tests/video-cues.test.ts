@@ -395,6 +395,29 @@ describe('live caption stream', () => {
     const regrown = prefixShrink.update('The station opens at dawn. A red train', 200);
     expect(regrown.committed).toEqual([]);
     expect(regrown.tail).toBe('A red train');
+
+    const mutableShrink = new LiveCaptionStream();
+    mutableShrink.update('The station opens at dawn. A red train', 0);
+    const truncated = mutableShrink.update('red train waits', 300);
+    expect(truncated.committed).toEqual([]);
+    expect(truncated.tail).toBe('red train waits');
+    expect(truncated.lineChanged).toBe(false);
+
+    const alteredRegrowth = new LiveCaptionStream();
+    alteredRegrowth.update('The station opens at dawn. A red', 0);
+    alteredRegrowth.update('The station', 100);
+    const altered = alteredRegrowth.update('The station closes at noon. A red', 200);
+    expect(altered.committed.map((segment) => segment.text)).toEqual([
+      'The station closes at noon.',
+    ]);
+    expect(altered.tail).toBe('A red');
+
+    const cjk = new LiveCaptionStream();
+    cjk.update('前文。あ', 0);
+    const cjkRolling = cjk.update('あいう', 100);
+    expect(cjkRolling.committed).toEqual([]);
+    expect(cjkRolling.tail).toBe('あいう');
+    expect(cjkRolling.lineChanged).toBe(false);
   });
 
   it('restores the pre-discard tail after repeated empty-DOM discards', () => {
@@ -465,6 +488,13 @@ describe('live caption stream', () => {
     expect(replacement.lineChanged).toBe(true);
     expect(replacement.committed.map((segment) => segment.text)).toEqual(['Hello world']);
     expect(replacement.tail).toBe('dog');
+
+    const committedOverlap = new LiveCaptionStream();
+    committedOverlap.update('The station opens at dawn. A red', 0);
+    const committedReplacement = committedOverlap.update('dog barks', 100);
+    expect(committedReplacement.lineChanged).toBe(true);
+    expect(committedReplacement.committed.map((segment) => segment.text)).toEqual(['A red']);
+    expect(committedReplacement.tail).toBe('dog barks');
   });
 
   it('closes an unpunctuated tail after a short ASR gap without re-emitting it', () => {

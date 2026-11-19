@@ -610,6 +610,7 @@ export class LiveCaptionStream {
   private visible = '';
   private committedChars = 0;
   private discardedCommittedChars: number | null = null;
+  private shrunkCommittedPrefix: string | null = null;
   private line = '';
   private lineVersion = 0;
   private tailStartedAt = 0;
@@ -645,7 +646,24 @@ export class LiveCaptionStream {
       if (this.discardedCommittedChars !== null) {
         this.committedChars = Math.min(this.discardedCommittedChars, next.length);
         this.discardedCommittedChars = null;
+        this.shrunkCommittedPrefix = null;
         this.tailChangedAt = now;
+      } else if (this.shrunkCommittedPrefix !== null) {
+        if (next.startsWith(this.shrunkCommittedPrefix)) {
+          // Exact regrowth restores the already-frozen source, never re-emitting it.
+          this.committedChars = this.shrunkCommittedPrefix.length;
+          this.shrunkCommittedPrefix = null;
+        } else if (next.length > previous.length) {
+          // The player revised the sentence while it was collapsed. Do not skip the
+          // revised sentence behind the old numeric offset.
+          this.committedChars = 0;
+          this.shrunkCommittedPrefix = null;
+        } else {
+          this.committedChars = Math.min(this.committedChars, next.length);
+        }
+      } else if (this.committedChars > next.length) {
+        this.shrunkCommittedPrefix = previous.slice(0, this.committedChars);
+        this.committedChars = next.length;
       }
       if (next.length > previous.length) this.tailChangedAt = now;
     } else {
@@ -658,6 +676,7 @@ export class LiveCaptionStream {
         this.visible = next;
         this.committedChars = rollingCommittedChars;
         this.discardedCommittedChars = null;
+        this.shrunkCommittedPrefix = null;
         this.tailChangedAt = now;
       } else {
         this.commitRemaining(now, committed);
@@ -705,6 +724,7 @@ export class LiveCaptionStream {
     this.visible = '';
     this.committedChars = 0;
     this.discardedCommittedChars = null;
+    this.shrunkCommittedPrefix = null;
     this.line = '';
     this.tailStartedAt = 0;
     this.tailChangedAt = 0;
@@ -716,6 +736,7 @@ export class LiveCaptionStream {
     this.visible = next;
     this.committedChars = 0;
     this.discardedCommittedChars = null;
+    this.shrunkCommittedPrefix = null;
     this.tailStartedAt = now;
     this.tailChangedAt = now;
   }
@@ -818,9 +839,11 @@ function rollingWindowCommittedChars(
 ): number | null {
   const committedEnd = Math.min(committedChars, previous.length);
   if (committedEnd === 0) return null;
-  for (let removed = 1; removed < previous.length && removed <= committedEnd; removed += 1) {
+  for (let removed = 1; removed < previous.length; removed += 1) {
     const overlap = Math.min(previous.length - removed, next.length);
-    if (previous.slice(removed, removed + overlap) === next.slice(0, overlap)) {
+    const overlapText = next.slice(0, overlap);
+    if (overlap < 3 && ![...overlapText].some((character) => isCjkChar(character))) continue;
+    if (previous.slice(removed, removed + overlap) === overlapText) {
       return Math.max(0, committedEnd - removed);
     }
   }
