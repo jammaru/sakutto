@@ -320,4 +320,28 @@ bool ggml_webgpu_correctness_probe(webgpu_context ctx) {
     expect(patch).toContain('ctx->webgpu_global_ctx->vendor == "nvidia"');
     expect(patch).toContain('ggml_backend_webgpu_dev_is_nvidia(model.dev_output())');
   });
+
+  it('keeps the masked-tile skip off vendors other than NVIDIA', () => {
+    const patch = readFileSync(
+      new URL(
+        '../scripts/wllama/patches/0016-webgpu-masked-tile-skip-vendor-gate.patch',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    // the skip needs its own define, and the pipeline adds that define for nvidia only
+    expect(patch).toContain('#if defined(MASK) && defined(SKIP_MASKED_TILES)');
+    expect(patch).toContain('if (context.vendor == "nvidia") {');
+    expect(patch).toContain('defines.push_back("SKIP_MASKED_TILES");');
+    expect(patch).toContain('variant += "_skipmt";');
+    // without the define the shader compiles the pre-skip flow: every tile staged and scored,
+    // and a row bounded only by its own row_active, the decode of the shipped 1.3.0 build
+    expect(patch).toContain('the decode of the shipped 1.3.0 build');
+    // the 0014 mask scoring stays: the gate removes the skip only, never the mask read
+    expect(patch).not.toMatch(/^[+-].*(local_scores[slot] = FLOAT_MIN)/m);
+    // the gate sits in the tile branch, so the vec and subgroup-matrix paths are untouched
+    expect(patch).toContain('defines.push_back("MAX_SUBGROUP_SIZE="');
+    expect(patch).not.toContain('wgsl_flash_attn_vec');
+    expect(patch).not.toContain('use_sg_matrix');
+  });
 });

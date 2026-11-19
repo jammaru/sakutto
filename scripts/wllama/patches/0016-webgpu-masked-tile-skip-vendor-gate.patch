@@ -1,0 +1,55 @@
+Keep the masked-tile skip of tiled flash attention on the measured vendor.
+
+The skip reads the mask before a tile is staged or scored, with a
+subgroupMax over the lanes and a shared row_live array. It was measured
+on NVIDIA only, and a wrong live decision is a wrong attention sum: a
+tile wrongly skipped drops real cells, a row wrongly skipped leaves stale
+sums. GCN/Vega wave64 devices run this tile shader for every decode step
+when the vec kernel is off, and their subgroup ops are the ones that
+have miscompiled before.
+
+The shader takes the skip only with a SKIP_MASKED_TILES define now, and
+the pipeline adds that define for an nvidia adapter only. Every other
+vendor compiles the tile shader as it was before the skip: each tile is
+staged and scored, and a row is bounded only by its own row_active,
+the decode of the shipped 1.3.0 build. NVIDIA keeps the skip and pays
+one string compare; the variant name records the difference.
+
+diff --git a/llama.cpp/ggml/src/ggml-webgpu/wgsl-shaders/flash_attn_tile.wgsl b/llama.cpp/ggml/src/ggml-webgpu/wgsl-shaders/flash_attn_tile.wgsl
+--- a/llama.cpp/ggml/src/ggml-webgpu/wgsl-shaders/flash_attn_tile.wgsl
++++ b/llama.cpp/ggml/src/ggml-webgpu/wgsl-shaders/flash_attn_tile.wgsl
+@@ -28,7 +28,7 @@
+ 
+ var<workgroup> q_shmem: array<Q_TYPE, Q_TILE * HEAD_DIM_QK>;
+ var<workgroup> p_shmem: array<f16, Q_TILE * KV_TILE>;
+-#ifdef MASK
++#if defined(MASK) && defined(SKIP_MASKED_TILES)
+ // Per query row of the workgroup: 1 when the row may attend to a cell of the KV tile in hand.
+ var<workgroup> row_live: array<u32, Q_TILE>;
+ #endif
+@@ -113,7 +113,7 @@
+             local_scores[slot] = FLOAT_MIN;
+         }
+ 
+-#ifdef MASK
++#if defined(MASK) && defined(SKIP_MASKED_TILES)
+         // A cell masked with -inf scores -inf whatever K holds: it cannot raise the running
+         // maximum, and its weight is exp(-inf) = 0. A tile that every row of the workgroup has
+         // masked out leaves the sums as they are, so its K and V are not staged. With several
+
+diff --git a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu-shader-lib.hpp b/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu-shader-lib.hpp
+--- a/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu-shader-lib.hpp
++++ b/llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu-shader-lib.hpp
+@@ -3001,6 +3001,12 @@
+             defines.push_back("MAX_SUBGROUP_SIZE=" + std::to_string(context.max_subgroup_size) + "u");
+             variant += "_tile_sg" + std::to_string(context.min_subgroup_size) + "_" +
+                        std::to_string(context.max_subgroup_size);
++            // The masked-tile skip is measured on NVIDIA only; other vendors keep
++            // the tile shader that stages and scores every tile.
++            if (context.vendor == "nvidia") {
++                defines.push_back("SKIP_MASKED_TILES");
++                variant += "_skipmt";
++            }
+         } else {
+             shader_src = wgsl_flash_attn;
+             defines.push_back(std::string("SG_MAT_M=") + std::to_string(context.sg_mat_m));

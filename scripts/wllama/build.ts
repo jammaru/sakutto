@@ -88,6 +88,14 @@ const PATCH_MARKERS: ReadonlyArray<readonly [string, string]> = [
     'GGML_BACKEND_API bool ggml_backend_webgpu_dev_is_nvidia(ggml_backend_dev_t dev);',
   ],
   ['llama.cpp/src/llama-context.cpp', 'ggml_backend_webgpu_dev_is_nvidia(model.dev_output())'],
+  [
+    'llama.cpp/ggml/src/ggml-webgpu/wgsl-shaders/flash_attn_tile.wgsl',
+    '#if defined(MASK) && defined(SKIP_MASKED_TILES)',
+  ],
+  [
+    'llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu-shader-lib.hpp',
+    'defines.push_back("SKIP_MASKED_TILES");',
+  ],
   ['src/utils.ts', 'webgpuDebug?: string'],
   ['src/worker.ts', '__SAKUTTO_WEBGPU_DEBUG__'],
   ['cpp/wllama-context.h', 'params.n_ctx_checkpoints = 0;'],
