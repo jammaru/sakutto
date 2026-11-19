@@ -395,6 +395,55 @@ describe('real-time caption translation', () => {
     session.stop();
   });
 
+  it('cancels a delayed tail when the caption disappears', async () => {
+    document.body.innerHTML = youtubeMarkup('stabilityvanish01', true);
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let markStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        markStarted?.();
+        await gate;
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readTrack: async () => '',
+    });
+    session.start();
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
+    segment.textContent = 'The station opens at dawn';
+    await started;
+    // Let the pending tail request exist, then remove the source line and let the
+    // empty-observation path cancel it before the engine is released.
+    segment.textContent = '';
+    video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+    window.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+    await sleep(250);
+    release?.();
+    await sleep(150);
+    expect(host.hasAttribute('data-sakutto-caption')).toBe(false);
+    expect(host.hasAttribute('data-sakutto-original')).toBe(false);
+    session.stop();
+  });
+
   it('bounds tail rewrites for a continuously growing live line', async () => {
     document.body.innerHTML = youtubeMarkup('stabilitybounded01', true);
     const video = document.querySelector('video') as HTMLVideoElement;

@@ -667,6 +667,17 @@ export class LiveCaptionStream {
     return normalizeCaptionText(this.visible.slice(this.committedChars));
   }
 
+  /**
+   * Drop the mutable tail without closing it as a segment. Used when the player
+   * removes the caption: late tail work must not paint, but the next line should
+   * still continue from the last committed text instead of duplicating it.
+   */
+  discardTail(now: number): void {
+    this.committedChars = this.visible.length;
+    this.tailStartedAt = now;
+    this.tailChangedAt = now;
+  }
+
   lineKey(): string {
     return `l${String(this.lineVersion)}`;
   }

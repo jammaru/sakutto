@@ -225,6 +225,7 @@ export class VideoCaptionSession {
   private liveTailLastRequestAt = 0;
   private liveTailRevision = 0;
   private liveTailEverTranslated = false;
+  private liveCaptionVisible = false;
   private activeCueId = '';
   private lastPlayed: HTMLVideoElement | null = null;
   private sourceKey = '';
@@ -1051,8 +1052,15 @@ export class VideoCaptionSession {
     const visible = this.readSourceCaptionDom();
     if (visible.length === 0) {
       if (!forceDom && !this.liveMode && (this.loaded?.cues.length ?? 0) > 0) return;
-      // Do not extend the hold while no caption is on screen. The next visible
-      // line will commit the previous tail; until then the normal hold cap applies.
+      // The source vanished: stop all tail work, discard its text, and let any
+      // already-painted committed line expire under the normal hold cap.
+      this.liveCaptionVisible = false;
+      this.clearLiveTailTimer();
+      this.cancelLiveTailJob();
+      this.liveStream.discardTail(this.now());
+      this.liveTailTranslation = null;
+      this.liveTailChangedAt = 0;
+      this.liveTailLastRequestAt = 0;
       return;
     }
     if (!forceDom && !this.liveMode && (this.loaded?.cues.length ?? 0) > 0) return;
@@ -1068,6 +1076,7 @@ export class VideoCaptionSession {
   }
 
   private observeLiveCaption(visible: string, forceDom: boolean): void {
+    this.liveCaptionVisible = true;
     const now = this.now();
     const timeMs = this.playheadMs();
     // The on-screen line is still being spoken. Do not treat a short gap as silence.
@@ -1179,6 +1188,10 @@ export class VideoCaptionSession {
   }
 
   private scheduleLiveTail(options: CaptionTranslateOptions): void {
+    if (!this.liveCaptionVisible) {
+      this.clearLiveTailTimer();
+      return;
+    }
     const tail = this.liveStream.tail();
     if (!tail) {
       this.clearLiveTailTimer();
@@ -1207,6 +1220,7 @@ export class VideoCaptionSession {
   }
 
   private startLiveTailTranslation(options: CaptionTranslateOptions): void {
+    if (!this.liveCaptionVisible) return;
     const text = this.liveStream.tail();
     if (!text || this.liveTailTranslation?.text === text || this.liveTailJob) return;
     const context = this.lastCommittedLiveSource();
@@ -1232,7 +1246,7 @@ export class VideoCaptionSession {
       .translateCue(cue, requestOptions, CAPTION_PLAYHEAD_PRIORITY)
       .then((translation) => {
         if (!this.running || token !== this.sourceToken) return;
-        if (this.liveTailJob !== job) return;
+        if (!this.liveCaptionVisible || this.liveTailJob !== job) return;
         this.liveTailJob = null;
         if (this.translator.abortedSince(generation)) return;
         if (translation) {
@@ -1295,6 +1309,7 @@ export class VideoCaptionSession {
     this.liveTailLastRequestAt = 0;
     this.liveTailRevision = 0;
     this.liveTailEverTranslated = false;
+    this.liveCaptionVisible = false;
   }
 
   /**
@@ -1303,6 +1318,7 @@ export class VideoCaptionSession {
    * cannot restructure an already shown Japanese line.
    */
   private repaintLive(timeMs: number): void {
+    if (!this.liveCaptionVisible) return;
     const tail = this.liveStream.tail();
     const tailTranslation =
       this.liveTailTranslation?.text === tail ? this.liveTailTranslation.translation : '';
