@@ -311,6 +311,8 @@ Neither tier adds limited features or priority support. The money goes towards n
 Thank you to everyone who has contributed to Sakutto. Issues and pull requests are very welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
 
 <a href="https://github.com/sabopura"><img src="https://github.com/sabopura.png?size=120" width="60" height="60" alt="sabopura" title="sabopura"></a>
+<a href="https://github.com/Seyamalam"><img src="https://github.com/Seyamalam.png?size=120" width="60" height="60" alt="Seyamalam" title="Seyamalam"></a>
+<a href="https://github.com/TKY-27"><img src="https://github.com/TKY-27.png?size=120" width="60" height="60" alt="TKY-27" title="TKY-27"></a>
 
 ## Sponsors
 
