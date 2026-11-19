@@ -1073,14 +1073,10 @@ describe('GPU fallback reasons', () => {
       ),
     ).toBe('adapter');
     expect(
-      gpuFallbackReasonForError(
-        new EngineError('gpu-unavailable', 'requestAdapter returned null'),
-      ),
+      gpuFallbackReasonForError(new EngineError('gpu-unavailable', 'requestAdapter returned null')),
     ).toBe('adapter');
     expect(
-      gpuFallbackReasonForError(
-        new EngineError('gpu-unavailable', 'No available adapters.'),
-      ),
+      gpuFallbackReasonForError(new EngineError('gpu-unavailable', 'No available adapters.')),
     ).toBe('adapter');
     // An adapter that exists but cannot take the model is a device failure, not this label.
     expect(
