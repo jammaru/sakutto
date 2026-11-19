@@ -508,6 +508,73 @@ describe('live caption stream', () => {
     expect(periodic.lineChanged).toBe(false);
   });
 
+  it('keeps longer Latin candidates viable during periodic regrowth', () => {
+    const stream = new LiveCaptionStream();
+    stream.update('baaa', 0);
+    stream.update('baaa', 700);
+    for (const [index, visible] of ['a', 'aa', 'aaa'].entries()) {
+      const update = stream.update(visible, 710 + index * 10);
+      expect(update.committed).toEqual([]);
+      expect(update.tail).toBe('');
+      expect(update.lineChanged).toBe(false);
+    }
+
+    const punctuated = new LiveCaptionStream();
+    punctuated.update('baaa', 0);
+    punctuated.update('baaa', 700);
+    punctuated.update('a', 710);
+    punctuated.update('aa', 720);
+    expect(punctuated.update('aaa.', 730).committed.map((segment) => segment.text)).toEqual(['.']);
+  });
+
+  it('keeps longer CJK candidates viable during periodic regrowth', () => {
+    const stream = new LiveCaptionStream();
+    stream.update('まああ', 0);
+    stream.update('まああ', 700);
+    for (const [index, visible] of ['あ', 'ああ', 'あああ'].entries()) {
+      const update = stream.update(visible, 710 + index * 10);
+      expect(update.committed).toEqual([]);
+      // Only two あ were frozen in まああ; the third is genuinely new text.
+      expect(update.tail).toBe(index === 2 ? 'あ' : '');
+      expect(update.lineChanged).toBe(false);
+    }
+
+    const punctuated = new LiveCaptionStream();
+    punctuated.update('まああ', 0);
+    punctuated.update('まああ', 700);
+    punctuated.update('あ', 710);
+    punctuated.update('ああ', 720);
+    expect(punctuated.update('あああ。', 730).committed.map((segment) => segment.text)).toEqual([
+      'あ。',
+    ]);
+  });
+
+  it('does not resolve a natural repeated word before the longer phrase completes', () => {
+    const stream = new LiveCaptionStream();
+    stream.update('This is', 0);
+    stream.update('This is', 700);
+    for (const [index, visible] of ['i', 'is', 'is is'].entries()) {
+      const update = stream.update(visible, 710 + index * 10);
+      expect(update.committed).toEqual([]);
+      expect(update.tail).toBe('');
+      expect(update.lineChanged).toBe(false);
+    }
+    expect(stream.update('is is.', 740).committed.map((segment) => segment.text)).toEqual(['.']);
+  });
+
+  it('uses only the authenticated boundary after periodic text diverges', () => {
+    const stream = new LiveCaptionStream();
+    stream.update('ababa', 0);
+    stream.update('ababa', 700);
+    expect(stream.update('ba', 710).tail).toBe('');
+    expect(stream.update('bab', 720).tail).toBe('');
+
+    const diverged = stream.update('babX.', 730);
+    expect(diverged.committed.map((segment) => segment.text)).toEqual(['bX.']);
+    expect(diverged.tail).toBe('');
+    expect(diverged.lineChanged).toBe(false);
+  });
+
   it('recovers direct one- and two-character Latin frozen suffixes', () => {
     for (const visible of ['n.', '.']) {
       const stream = new LiveCaptionStream();

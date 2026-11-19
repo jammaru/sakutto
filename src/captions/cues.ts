@@ -925,12 +925,18 @@ function matchFrozenWindow(
   next: string,
 ): FrozenWindowMatch | null {
   const completeStarts = starts.filter((start) => next.startsWith(prefix.slice(start)));
+  const partialStarts = starts.filter((start) => prefix.slice(start).startsWith(next));
   if (completeStarts.length > 0) {
-    // Prefer the longest frozen suffix so no already-committed character is revived.
     const start = Math.min(...completeStarts);
+    const longerPartial = partialStarts.some((candidate) => candidate < start);
+    if (longerPartial) {
+      // A short exact suffix does not prove its occurrence while a longer frozen
+      // occurrence can still produce this same right-truncated window.
+      const viable = [...new Set([...completeStarts, ...partialStarts])];
+      return { committedChars: next.length, starts: viable, complete: false };
+    }
     return { committedChars: prefix.length - start, starts: [], complete: true };
   }
-  const partialStarts = starts.filter((start) => prefix.slice(start).startsWith(next));
   if (partialStarts.length > 0) {
     return { committedChars: next.length, starts: partialStarts, complete: false };
   }
