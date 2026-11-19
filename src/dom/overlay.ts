@@ -266,6 +266,16 @@ const BUBBLE_STYLE = `
   overflow-wrap: anywhere;
 }
 /*
+ * A touch pan that starts on the kicker, the engine note, the controls, or the card
+ * padding is not a wheel event, so the wheel listener never runs for it. The card is
+ * a scroll container — even when its content fits — and containment on it ends such a
+ * gesture here instead of letting it chain to the document. The hover tooltip keeps
+ * the default: its host ignores pointer events, so no pan can start inside it.
+ */
+.card.selection {
+  overscroll-behavior: contain;
+}
+/*
  * Only the selection popup caps its translated text: its card carries the selection
  * class, while the hover tooltip keeps scrolling as one whole card. The cap is a
  * max-height, so a short translation still shrinks to its own height, and the

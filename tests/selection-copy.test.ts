@@ -702,6 +702,34 @@ describe('selection popup body cap', () => {
     }
   });
 
+  it('contains touch pans on the card chrome without touching the tooltip', () => {
+    const overlay = mountOverlay();
+    try {
+      overlay.showSelection(RECT, longTranslation(), 'plamo', false, 'ja');
+      const shadow = popShadow();
+      const css = bubbleCss(shadow);
+      // A touch that starts on the kicker, the note, the controls, or the padding is
+      // not a wheel event, so only the card's own containment can end it there. The
+      // card is a scroll container even when its content fits.
+      const cardRule = cssBlock(css, '.card.selection {');
+      expect(cardRule).toContain('overscroll-behavior: contain');
+      // The translated text keeps its own containment as well.
+      expect(cssBlock(css, '.card.selection .body {')).toContain('overscroll-behavior: contain');
+      // The shared card rule stays exactly as it was, so the hover tooltip keeps the
+      // default overscroll behavior on its whole-card scroller.
+      const shared = cssBlock(css, '.card {');
+      expect(shared).toContain('max-height: calc(100vh - 16px)');
+      expect(shared).not.toContain('overscroll-behavior');
+      // The tooltip's card carries no marker class either, so the scoped rules never
+      // match it.
+      overlay.showOriginal(document.body, 'Original words', 'plamo');
+      const tipCard = uiShadow(document.querySelector('sakutto-tip'))?.querySelector('.card');
+      expect(tipCard?.className).toBe('card');
+    } finally {
+      overlay.destroy();
+    }
+  });
+
   it('keeps the hover tooltip on its whole-card max-height', () => {
     const overlay = mountOverlay();
     try {
