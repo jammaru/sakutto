@@ -54,8 +54,18 @@ grant the background registers the same general bundle (`/content-scripts/conten
 `scripting.registerContentScripts`, sweeps already-open http/https tabs once through
 `ensureContentScript`, and re-syncs on service-worker startup, `runtime.onInstalled`, and
 `permissions.onAdded` / `onRemoved`. The live permission is the source of truth: a revoke from
-the browser's extension settings unregisters, and no prompt appears on startup. On a host whose
-site rule is `never`, this passive injection shows no selection button; an explicit popup,
+the browser's extension settings unregisters, and no prompt appears on startup.
+
+The grant also covers every later per-site optional-host request — always-translate, video
+captions, the mail banner, a custom caption host, or the local server. Those clicks read a
+synchronous snapshot of the grant and turn the feature on without calling
+`permissions.request`, which Chrome would otherwise still prompt for even though
+`permissions.contains` already reports the narrower origin as granted. Turning the control
+off removes only the two broad origins: a narrower grant the user made earlier stays granted,
+and a feature that only worked under the broad grant uses today's one-time prompt again on
+its next explicit enable.
+
+On a host whose site rule is `never`, this passive injection shows no selection button; an explicit popup,
 context-menu, or assigned-command path keeps today's behavior.
 
 The grant changes only _when the bundle is already on the page_, never _how commands run_. There

@@ -62,6 +62,7 @@
     settleCaptionEnableIntent,
   } from '@/captions/sites';
   import {
+    allSitesGrantCoversOrigins,
     hasAllSitesAccess,
     requestAllSitesAccess,
     syncAllSitesContentScripts,
@@ -548,7 +549,12 @@
         permissionError = true;
         return;
       }
-      const granted = await browser.permissions.request({ origins }).catch(() => false);
+      // A broad all-sites grant already covers these http/https origins and requesting
+      // them would still prompt, so the grant alone turns the rule on. Otherwise
+      // `permissions.request` stays the first awaited call in this click.
+      const granted = allSitesGrantCoversOrigins(origins)
+        ? true
+        : await browser.permissions.request({ origins }).catch(() => false);
       if (!granted) {
         input.checked = false;
         permissionError = true;

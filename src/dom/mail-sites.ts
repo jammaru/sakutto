@@ -1,5 +1,5 @@
 import { browser } from 'wxt/browser';
-import { hasAllSitesAccess } from '@/dom/all-sites';
+import { allSitesGrantCoversOrigins, hasAllSitesAccess } from '@/dom/all-sites';
 import { MAIL_HOST_PATTERNS } from '@/shared/manifest';
 import { loadSettings, saveSettings } from '@/shared/storage';
 
@@ -47,10 +47,13 @@ export function mailOriginsOverlap(origins: readonly string[] | undefined): bool
 /**
  * Optional host access for the mail hosts. `permissions.request` must be the first awaited
  * extension call in the click that turns the banner on — a prior `await` (including
- * `permissions.contains`) drops the user gesture and Chrome shows no prompt.
+ * `permissions.contains`) drops the user gesture and Chrome shows no prompt. A broad
+ * all-sites grant already covers these https origins and requesting them would still
+ * prompt, so the grant alone turns the banner on and no request runs.
  */
 export async function requestMailHostAccess(): Promise<boolean> {
   const origins = mailPermissionOrigins();
+  if (allSitesGrantCoversOrigins(origins)) return true;
   return browser.permissions.request({ origins }).catch(() => false);
 }
 

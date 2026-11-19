@@ -1695,7 +1695,7 @@
     "message": "Rendre Sakutto prêt dès l'ouverture d'une page (recommandé)"
   },
   "allSitesSettingHelp": {
-    "message": "Sakutto démarre avec les permissions les plus limitées possible, donc tant que ceci est désactivé, le bouton de traduction de sélection et les raccourcis dans la page ne fonctionnent qu'après avoir utilisé une fois sur cette page l'icône de Sakutto, le menu contextuel ou un raccourci clavier. Pour une expérience plus fluide, nous vous recommandons de l'activer. Autorisez une seule fois l'accès à tous les sites et Sakutto fonctionne sur chaque page dès son ouverture. La traduction continue de se faire uniquement sur votre appareil, et vous pouvez révoquer cet accès à tout moment en désactivant l'option."
+    "message": "Sakutto démarre avec les permissions les plus limitées possible, donc tant que ceci est désactivé, le bouton de traduction de sélection et les raccourcis dans la page ne fonctionnent qu'après avoir utilisé une fois sur cette page l'icône de Sakutto, le menu contextuel ou un raccourci clavier. Pour une expérience plus fluide, nous vous recommandons de l'activer. Autorisez une seule fois l'accès à tous les sites et Sakutto fonctionne sur chaque page dès son ouverture. La traduction des sous-titres YouTube et le bandeau de traduction des e-mails fonctionnent aussi sans demander d'autorisation pour chaque site. La traduction continue de se faire uniquement sur votre appareil, et vous pouvez révoquer cet accès à tout moment en désactivant l'option."
   },
   "allSitesPermissionDenied": {
     "message": "L'accès à tous les sites n'a pas été accordé, cette option reste donc désactivée."

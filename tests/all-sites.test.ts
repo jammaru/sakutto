@@ -61,17 +61,26 @@ vi.mock('wxt/browser', () => ({
       },
     },
     permissions: {
-      // Chrome semantics: a granted broad pattern covers every narrower http/https origin.
-      contains: vi.fn(async ({ origins }: { origins: string[] }) => {
-        if (state.broadGranted) return origins.every((origin) => origin.startsWith('http'));
-        return origins.every((origin) => state.granted.has(origin));
-      }),
+      // Chrome semantics: the store holds exactly what was granted, and a granted broad
+      // pattern covers every narrower http/https origin.
+      contains: vi.fn(async ({ origins }: { origins: string[] }) =>
+        origins.every(
+          (origin) =>
+            state.granted.has(origin) || (state.broadGranted && origin.startsWith('http')),
+        ),
+      ),
       request: vi.fn(async ({ origins }: { origins: string[] }) => {
         state.requestOrigins = [...origins];
+        if (state.requestResult) for (const origin of origins) state.granted.add(origin);
         return state.requestResult;
       }),
       remove: vi.fn(async ({ origins }: { origins: string[] }) => {
         state.removed.push(...origins);
+        // The store deletes only the origins passed to remove; narrower grants stay.
+        for (const origin of origins) {
+          state.granted.delete(origin);
+          if (origin === 'https://*/*' || origin === 'http://*/*') state.broadGranted = false;
+        }
       }),
     },
     scripting: {
@@ -105,20 +114,40 @@ vi.mock('wxt/browser', () => ({
 const {
   ALL_SITES_CONTENT_SCRIPT_FILE,
   ALL_SITES_CONTENT_SCRIPT_ID,
+  allSitesGrantCoversOrigins,
   allSitesPermissionOrigins,
   hasAllSitesAccess,
   injectAllSitesOpenTabs,
   isAllSitesInjectableUrl,
   requestAllSitesAccess,
+  resetAllSitesAccessSnapshot,
   revokeAllSitesAccess,
   syncAllSitesContentScripts,
 } = await import('@/dom/all-sites');
-const { MAIL_CONTENT_SCRIPT_ID, MAIL_EARLY_CONTENT_SCRIPT_ID, syncMailContentScripts } =
-  await import('@/dom/mail-sites');
+const {
+  MAIL_CONTENT_SCRIPT_ID,
+  MAIL_EARLY_CONTENT_SCRIPT_ID,
+  mailPermissionOrigins,
+  requestMailHostAccess,
+  resolveMailBannerToggle,
+  syncMailContentScripts,
+} = await import('@/dom/mail-sites');
+const { captionPermissionOrigins, requestCaptionHostAccess, resolveCaptionToggle } =
+  await import('@/captions/sites');
+const { requestCaptionCustomHostAccess } = await import('@/captions/register-custom');
+const { requestServerPermission } = await import('@/engine/local-server/permissions');
+const { siteAccessOrigins } = await import('@/dom/sites');
+const { loadSettings } = await import('@/shared/storage');
 const { MAIL_HOST_PATTERNS, OPTIONAL_HOST_PERMISSIONS } = await import('@/shared/manifest');
 
 function grantBroad(): void {
   state.broadGranted = true;
+}
+
+/** The options-page / popup flow: the open-time contains answer records the snapshot. */
+async function recordBroadGrant(): Promise<void> {
+  grantBroad();
+  await hasAllSitesAccess();
 }
 
 const OPEN_TABS = [
@@ -143,6 +172,8 @@ beforeEach(async () => {
   state.injected = new Set();
   state.tabs = [];
   state.storage.clear();
+  // The all-sites snapshot is module state: every test starts at the not-granted default.
+  resetAllSitesAccessSnapshot();
   // One sync while the broad origins are absent clears the open-tab sweep tracking, exactly
   // like the revoke that precedes a later grant.
   await syncAllSitesContentScripts();
@@ -326,6 +357,157 @@ describe('broad grant versus the mail bundles', () => {
       [...MAIL_HOST_PATTERNS],
       [...MAIL_HOST_PATTERNS],
     ]);
+  });
+});
+
+describe('the broad grant covering later per-site requests', () => {
+  it('records the snapshot from the live contains answer', async () => {
+    expect(allSitesGrantCoversOrigins(['https://example.com/*'])).toBe(false);
+    await recordBroadGrant();
+    expect(allSitesGrantCoversOrigins(['https://example.com/*'])).toBe(true);
+    state.broadGranted = false;
+    await hasAllSitesAccess();
+    expect(allSitesGrantCoversOrigins(['https://example.com/*'])).toBe(false);
+  });
+
+  it('records the snapshot only from the request result', async () => {
+    state.requestResult = false;
+    await expect(requestAllSitesAccess()).resolves.toBe(false);
+    expect(allSitesGrantCoversOrigins(['https://example.com/*'])).toBe(false);
+    state.requestResult = true;
+    await expect(requestAllSitesAccess()).resolves.toBe(true);
+    expect(allSitesGrantCoversOrigins(['https://example.com/*'])).toBe(true);
+  });
+
+  it('covers only http/https host patterns', async () => {
+    await recordBroadGrant();
+    expect(allSitesGrantCoversOrigins(['https://www.youtube.com/*'])).toBe(true);
+    expect(allSitesGrantCoversOrigins(['http://127.0.0.1:4173/*'])).toBe(true);
+    expect(allSitesGrantCoversOrigins(['https://*.example.com/*'])).toBe(true);
+    const siteOrigins = siteAccessOrigins('https://example.com/article');
+    expect(siteOrigins).toEqual(['https://example.com/*', 'http://example.com/*']);
+    expect(allSitesGrantCoversOrigins(siteOrigins ?? [])).toBe(true);
+    expect(allSitesGrantCoversOrigins(['file:///tmp/report.pdf'])).toBe(false);
+    expect(allSitesGrantCoversOrigins(['chrome-extension://test-extension/popup.html'])).toBe(
+      false,
+    );
+    expect(allSitesGrantCoversOrigins(['https://example.com/report.pdf/*'])).toBe(false);
+    expect(allSitesGrantCoversOrigins([])).toBe(false);
+  });
+
+  it('skips caption, mail, custom-caption, and local-server requests once recorded', async () => {
+    await recordBroadGrant();
+    const { browser } = await import('wxt/browser');
+    const contains = browser.permissions.contains as ReturnType<typeof vi.fn>;
+    const request = browser.permissions.request as ReturnType<typeof vi.fn>;
+    contains.mockClear();
+    request.mockClear();
+
+    await expect(requestCaptionHostAccess()).resolves.toBe(true);
+    await expect(requestMailHostAccess()).resolves.toBe(true);
+    await expect(requestCaptionCustomHostAccess('videos.example.com')).resolves.toBe(true);
+    await expect(requestServerPermission('http://127.0.0.1:8080/v1')).resolves.toBe(true);
+    expect(request.mock.calls).toHaveLength(0);
+    expect(contains.mock.calls).toHaveLength(0);
+  });
+
+  it('still turns the caption and mail settings on after a skipped request', async () => {
+    await recordBroadGrant();
+    await expect(resolveCaptionToggle(true)).resolves.toEqual({ on: true, denied: false });
+    await expect(resolveMailBannerToggle(true)).resolves.toEqual({ on: true, denied: false });
+    const settings = await loadSettings();
+    expect(settings.translateVideoCaptions).toBe(true);
+    expect(settings.gmailTranslateBanner).toBe(true);
+  });
+
+  it('still requests each origin set, with no contains first, while the grant is off', async () => {
+    const { browser } = await import('wxt/browser');
+    const contains = browser.permissions.contains as ReturnType<typeof vi.fn>;
+    const request = browser.permissions.request as ReturnType<typeof vi.fn>;
+    contains.mockClear();
+    request.mockClear();
+    state.requestResult = true;
+
+    await expect(requestCaptionHostAccess()).resolves.toBe(true);
+    expect(request.mock.calls.at(-1)).toEqual([{ origins: captionPermissionOrigins() }]);
+    await expect(requestMailHostAccess()).resolves.toBe(true);
+    expect(request.mock.calls.at(-1)).toEqual([{ origins: mailPermissionOrigins() }]);
+    await expect(requestCaptionCustomHostAccess('videos.example.com')).resolves.toBe(true);
+    expect(request.mock.calls.at(-1)).toEqual([
+      { origins: ['https://videos.example.com/*', 'http://videos.example.com/*'] },
+    ]);
+    await expect(requestServerPermission('http://127.0.0.1:8080/v1')).resolves.toBe(true);
+    expect(request.mock.calls.at(-1)).toEqual([{ origins: ['http://127.0.0.1/*'] }]);
+    expect(contains.mock.calls).toHaveLength(0);
+  });
+
+  it('covers the popup always-translate click and the grant page', () => {
+    const popup = readFileSync(new URL('../src/entrypoints/popup/App.svelte', import.meta.url), {
+      encoding: 'utf8',
+    });
+    const grant = readFileSync(new URL('../src/entrypoints/grant/App.svelte', import.meta.url), {
+      encoding: 'utf8',
+    });
+
+    // The popup click: the broad grant alone turns the rule on, and the request is the
+    // same statement's other branch, so permissions.request stays the first awaited call
+    // in that click whenever a prompt is still needed.
+    const setAlwaysStart = popup.indexOf('async function setAlways');
+    const setAlwaysBody = popup.slice(
+      setAlwaysStart,
+      popup.indexOf('async function ', setAlwaysStart + 1),
+    );
+    expect(setAlwaysBody).toMatch(
+      /allSitesGrantCoversOrigins\(origins\)\s*\?\s*true\s*:\s*await browser\.permissions\.request\(\{ origins \}\)/u,
+    );
+    const beforePopupGranted = setAlwaysBody.slice(0, setAlwaysBody.indexOf('const granted'));
+    expect(beforePopupGranted).not.toMatch(/\bawait\b/);
+
+    // The grant page: same shape inside allow(), and the all-sites snapshot is recorded
+    // while the page opens, never inside the Allow click.
+    const allowBody = grant.slice(grant.indexOf('async function allow'));
+    expect(allowBody).toMatch(
+      /allSitesGrantCoversOrigins\(origins\)\s*\?\s*true\s*:\s*await browser\.permissions\.request\(\{ origins \}\)/u,
+    );
+    const beforeGrantGranted = allowBody.slice(0, allowBody.indexOf('const granted'));
+    expect(beforeGrantGranted).not.toMatch(/\bawait\b/);
+    expect(grant).toContain('void hasAllSitesAccess()');
+  });
+
+  it('revokes only the two broad origins and keeps an earlier narrow grant', async () => {
+    // The caption toggle granted the YouTube/X origins on their own, before the all-sites
+    // choice.
+    state.requestResult = true;
+    await requestCaptionHostAccess();
+    state.requestResult = false;
+    // Then the all-sites choice granted the two broad origins.
+    await recordBroadGrant();
+    // Turning the choice off removes only the broad origins.
+    await revokeAllSitesAccess();
+    expect(state.removed).toEqual(['https://*/*', 'http://*/*']);
+    // The narrow caption grant the reader made earlier still reports as granted...
+    expect(state.granted.has('https://www.youtube.com/*')).toBe(true);
+    const { browser } = await import('wxt/browser');
+    await expect(
+      browser.permissions.contains({ origins: ['https://www.youtube.com/*'] }),
+    ).resolves.toBe(true);
+    await expect(browser.permissions.contains({ origins: ['https://*/*'] })).resolves.toBe(false);
+    // ...and the snapshot is back to not-granted, so a later per-site click prompts again.
+    expect(allSitesGrantCoversOrigins(['https://www.youtube.com/*'])).toBe(false);
+  });
+
+  it('registers the mail bundles from the broad grant without a new permissions request', async () => {
+    grantBroad();
+    state.storage.set('settings', { schemaVersion: 1, gmailTranslateBanner: true });
+    const { browser } = await import('wxt/browser');
+    const request = browser.permissions.request as ReturnType<typeof vi.fn>;
+    request.mockClear();
+    await syncMailContentScripts();
+    expect(state.registered.at(-1)?.map((script) => script.matches)).toEqual([
+      [...MAIL_HOST_PATTERNS],
+      [...MAIL_HOST_PATTERNS],
+    ]);
+    expect(request.mock.calls).toHaveLength(0);
   });
 });
 

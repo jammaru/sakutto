@@ -24,23 +24,77 @@ export function allSitesOriginsOverlap(origins: readonly string[] | undefined): 
 }
 
 /**
+ * Synchronous snapshot of the broad grant, so a later click can read it without awaiting
+ * inside the click. The live permission stays the source of truth: `hasAllSitesAccess`
+ * records this when it resolves, `requestAllSitesAccess` records the request result, and
+ * `revokeAllSitesAccess` records the removal. Options, the popup, and the background call
+ * `hasAllSitesAccess` on open and on `permissions.onAdded` / `onRemoved`, so the snapshot
+ * is fresh wherever a request runs. It defaults to "not granted", so a click before the
+ * first refresh still prompts.
+ */
+let allSitesAccessSnapshot = false;
+
+/** Test hook: puts the snapshot back to the not-granted default so tests cannot leak it. */
+export function resetAllSitesAccessSnapshot(): void {
+  allSitesAccessSnapshot = false;
+}
+
+/**
+ * An http/https host pattern the two broad origins cover: a host, wildcard host, or host
+ * with a port, then `/*`. Any other scheme is not covered.
+ */
+const COVERED_HTTP_ORIGIN =
+  /^https?:\/\/(?:\*|(?:\*\.)?(?:\[[0-9a-fA-F:.]+\]|[a-z0-9-]+(?:\.[a-z0-9-]+)*))(?::\d{1,5})?\/\*$/u;
+
+/**
+ * True only when the snapshot says the broad grant is on and every requested origin is an
+ * http/https host pattern the broad origins already cover. `permissions.contains` reports
+ * such an origin as granted while the broad origins are active, but Chrome still shows a
+ * prompt if the extension calls `permissions.request` for it, so callers treat this as
+ * enough and turn the feature on without a request.
+ */
+export function allSitesGrantCoversOrigins(origins: readonly string[]): boolean {
+  if (!allSitesAccessSnapshot) return false;
+  return origins.length > 0 && origins.every((origin) => COVERED_HTTP_ORIGIN.test(origin));
+}
+
+/**
  * Optional host access for every http/https page. `permissions.request` must be the first
  * awaited extension call in the click that turns the control on — a prior `await`
  * (including `permissions.contains`) drops the user gesture and Chrome shows no prompt.
  */
 export async function requestAllSitesAccess(): Promise<boolean> {
-  return browser.permissions.request({ origins: allSitesPermissionOrigins() }).catch(() => false);
+  const granted = await browser.permissions
+    .request({ origins: allSitesPermissionOrigins() })
+    .catch(() => false);
+  allSitesAccessSnapshot = granted;
+  return granted;
 }
 
-/** Removes only the two broad origins. Narrower site, mail, caption, and server origins stay. */
+/**
+ * Removes only the two broad origins. Chrome removes the patterns named in
+ * `permissions.remove` from the active set, so a narrower origin the user granted on its
+ * own (for example `https://www.youtube.com/*` before the all-sites grant) stays granted
+ * and that feature keeps working. A feature that never had its own grant, and only worked
+ * because the broad origin covered it, loses host access when the broad origin is removed;
+ * its setting stays exactly as the reader set it. Captions and the mail banner are not
+ * turned off, the narrower grants are not deleted, and none of them are re-requested
+ * here — that call needs a user gesture and would prompt again. The next explicit enable,
+ * with this control off, uses today's one-time prompt.
+ */
 export async function revokeAllSitesAccess(): Promise<void> {
   const remove = browser.permissions.remove;
   if (!remove) return;
   await remove({ origins: allSitesPermissionOrigins() }).catch(() => undefined);
+  allSitesAccessSnapshot = false;
 }
 
 export async function hasAllSitesAccess(): Promise<boolean> {
-  return browser.permissions.contains({ origins: allSitesPermissionOrigins() }).catch(() => false);
+  const granted = await browser.permissions
+    .contains({ origins: allSitesPermissionOrigins() })
+    .catch(() => false);
+  allSitesAccessSnapshot = granted;
+  return granted;
 }
 
 interface RegisteredAllSitesScript {

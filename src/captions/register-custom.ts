@@ -1,4 +1,5 @@
 import { browser } from 'wxt/browser';
+import { allSitesGrantCoversOrigins } from '@/dom/all-sites';
 import {
   CAPTION_CUSTOM_SCRIPT_FILE,
   CAPTION_CUSTOM_SCRIPT_ID,
@@ -8,9 +9,12 @@ import {
 /**
  * Optional host access for one custom caption site. `permissions.request` must be the
  * first awaited extension call in the add click so Chrome still has the user gesture.
+ * A broad all-sites grant already covers these http/https origins and requesting them
+ * would still prompt, so the grant alone adds the host and no request runs.
  */
 export async function requestCaptionCustomHostAccess(entry: string): Promise<boolean> {
   const origins = captionCustomHostOrigins(entry);
+  if (allSitesGrantCoversOrigins(origins)) return true;
   return browser.permissions.request({ origins }).catch(() => false);
 }
 
