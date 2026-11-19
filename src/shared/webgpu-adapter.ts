@@ -95,6 +95,16 @@ export function supportsFastBatches(vendor: unknown, dotProduct: unknown): boole
   return dotProduct === true && typeof vendor === 'string' && FAST_BATCH_VENDORS.has(vendor);
 }
 
+/**
+ * Mirrors the wasm vendor gate (wllama patch 0015): the vec flash-attn decode and the
+ * backend argmax are measured on NVIDIA only, so every other vendor takes the safe
+ * tile-shader decode and the logits readback. The correctness probe inside the wasm is
+ * authoritative; this only keeps the TypeScript diagnostics and tests in sync with it.
+ */
+export function nvidiaMeasuredFastPaths(vendor: unknown): boolean {
+  return typeof vendor === 'string' && /nvidia/i.test(vendor);
+}
+
 function featureNames(features: AdapterSnapshot['features']): string[] {
   if (!features) return [];
   try {

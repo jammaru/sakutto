@@ -74,6 +74,26 @@ const PATCH_MARKERS: ReadonlyArray<readonly [string, string]> = [
     'llama.cpp/ggml/src/ggml-webgpu/wgsl-shaders/flash_attn_tile.wgsl',
     'if (bitcast<u32>(f32(mask[mask_idx])) != 0xff800000u) {',
   ],
+  [
+    'llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp',
+    'vec flash-attn off (not measured), tile shader only',
+  ],
+  [
+    'llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp',
+    'ok vendor=%s subgroups=%s subgroup_size=%u',
+  ],
+  [
+    'llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp',
+    'bool ggml_backend_webgpu_dev_is_nvidia(ggml_backend_dev_t dev) {',
+  ],
+  [
+    'llama.cpp/ggml/include/ggml-webgpu.h',
+    'GGML_BACKEND_API bool ggml_backend_webgpu_dev_is_nvidia(ggml_backend_dev_t dev);',
+  ],
+  [
+    'llama.cpp/src/llama-context.cpp',
+    'ggml_backend_webgpu_dev_is_nvidia(model.dev_output())',
+  ],
   ['src/utils.ts', 'webgpuDebug?: string'],
   ['src/worker.ts', '__SAKUTTO_WEBGPU_DEBUG__'],
   ['cpp/wllama-context.h', 'params.n_ctx_checkpoints = 0;'],
