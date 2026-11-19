@@ -665,13 +665,8 @@ export class LiveCaptionStream {
           this.committedChars = match.committedChars;
           this.shrunkCommittedPrefix = match.complete ? null : this.shrunkCommittedPrefix;
           this.shrunkCommittedStarts = match.complete ? [] : match.starts;
-        } else if (next.length > previous.length) {
-          // The player revised the sentence while it was collapsed. Do not skip the
-          // revised sentence behind the old numeric offset.
-          this.committedChars = 0;
-          this.shrunkCommittedPrefix = null;
-          this.shrunkCommittedStarts = [];
         } else {
+          // A failed regrowth match does not revoke the saved full frozen prefix.
           this.committedChars = Math.min(this.committedChars, next.length);
         }
       } else if (recoveredDiscard === null && this.committedChars > next.length) {
@@ -708,9 +703,19 @@ export class LiveCaptionStream {
           this.shrunkCommittedPrefix = match.complete ? null : frozenPrefix;
           this.shrunkCommittedStarts = match.complete ? [] : match.starts;
         } else {
-          this.commitRemaining(now, committed);
-          lineChanged = true;
-          this.startLine(next, now);
+          const frozenLength = frozenSourcePrefixLength(frozenPrefix, next);
+          if (frozenLength > 0) {
+            // The rolling overlap is real even if the saved suffix no longer
+            // matches. Keep the visible frozen prefix instead of reopening it.
+            this.visible = next;
+            this.committedChars = frozenLength;
+            this.shrunkCommittedPrefix = frozenPrefix;
+            this.shrunkCommittedStarts = starts;
+          } else {
+            this.commitRemaining(now, committed);
+            lineChanged = true;
+            this.startLine(next, now);
+          }
         }
         this.discardedCommittedChars = null;
         this.tailChangedAt = now;
@@ -744,10 +749,10 @@ export class LiveCaptionStream {
     // Central invariant: matching heuristics may disagree, but they must never
     // reopen a visible prefix that was already authenticated as frozen.
     if (!lineChanged) {
-      this.committedChars = Math.max(
-        this.committedChars,
-        visibleFrozenPrefixLength(previous, previousCommittedChars, next),
-      );
+      const savedFrozenLength = this.shrunkCommittedPrefix
+        ? frozenSourcePrefixLength(this.shrunkCommittedPrefix, next)
+        : visibleFrozenPrefixLength(previous, previousCommittedChars, next);
+      this.committedChars = Math.max(this.committedChars, savedFrozenLength);
     }
     this.extractSegments(now, committed);
     if (this.tail().length > 0 && now - this.tailChangedAt >= LIVE_SEGMENT_GAP_MS) {
@@ -966,6 +971,18 @@ function visibleFrozenPrefixLength(previous: string, committedChars: number, nex
   let length = 0;
   while (length < limit && frozen[length] === next[length]) length += 1;
   return length;
+}
+
+function frozenSourcePrefixLength(prefix: string, next: string): number {
+  let longest = 0;
+  for (let start = 0; start < prefix.length; start += 1) {
+    const suffix = prefix.slice(start);
+    const limit = Math.min(suffix.length, next.length);
+    let length = 0;
+    while (length < limit && suffix[length] === next[length]) length += 1;
+    longest = Math.max(longest, length);
+  }
+  return longest;
 }
 
 function sameVisibleLine(previous: string, next: string): boolean {

@@ -579,6 +579,28 @@ describe('caption overlay', () => {
     overlay.detach();
   });
 
+  it('does not short-click or commit a drag for pointercancel or touchcancel', () => {
+    for (const type of ['pointercancel', 'touchcancel']) {
+      const { overlay, player } = mountDraggableOverlay();
+      let clicks = 0;
+      let positionChanges = 0;
+      overlay.setOnShortClick(() => {
+        clicks += 1;
+      });
+      overlay.setOnPositionChange(() => {
+        positionChanges += 1;
+      });
+
+      const down = dispatchPointer(player, 'pointerdown', 300, 310);
+      dispatchPointer(player, type, 300, 310);
+      dispatchPointer(player, 'pointerup', 300, 310);
+      expect(down.defaultPrevented).toBe(true);
+      expect(clicks).toBe(0);
+      expect(positionChanges).toBe(0);
+      overlay.detach();
+    }
+  });
+
   it('swallows a caption press so the player cannot start hold-to-2x, and short-clicks play/pause', () => {
     const { overlay, host, player } = mountDraggableOverlay();
     const video = player.querySelector('video') as HTMLVideoElement;

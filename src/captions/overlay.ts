@@ -956,8 +956,9 @@ export class CaptionOverlay {
     }
     this.swallow(event);
     this.armClickSuppress();
-    const shouldClick = this.shortClickArmed && !this.dragging && !this.gestureMoved;
-    if (this.dragging) this.endDrag(true);
+    const cancelled = event.type === 'pointercancel' || event.type === 'touchcancel';
+    const shouldClick = !cancelled && this.shortClickArmed && !this.dragging && !this.gestureMoved;
+    if (this.dragging) this.endDrag(!cancelled);
     else this.cancelHold();
     this.gestureActive = false;
     this.gestureMoved = false;

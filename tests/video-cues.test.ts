@@ -635,6 +635,40 @@ describe('live caption stream', () => {
     }
   });
 
+  it('never reopens frozen source after successive direct truncations', () => {
+    for (const { source, shrunk, regrown, punctuation } of [
+      { source: 'hello', shrunk: 'h', regrown: 'he.', punctuation: '.' },
+      { source: 'あいう', shrunk: 'あ', regrown: 'あい。', punctuation: '。' },
+      { source: 'aab', shrunk: 'a', regrown: 'aa.', punctuation: '.' },
+    ]) {
+      const stream = new LiveCaptionStream();
+      stream.update(source, 0);
+      stream.update(source, 700);
+      stream.update(shrunk, 710);
+      const update = stream.update(regrown, 720);
+      expect(update.committed.map((segment) => segment.text)).toEqual([punctuation]);
+      expect(update.tail).toBe('');
+      expect(update.lineChanged).toBe(false);
+    }
+  });
+
+  it('keeps the full frozen boundary through repeated shrink and divergent regrowth', () => {
+    const stream = new LiveCaptionStream();
+    stream.update('aab', 0);
+    stream.update('aab', 700);
+    stream.update('aabX', 705);
+    stream.update('a', 710);
+    stream.update('a', 715);
+    stream.update('aa', 720);
+    stream.update('a', 725);
+    expect(stream.update('ab', 730).tail).toBe('');
+    stream.update('abX', 735);
+
+    const update = stream.update('abXYZ.', 740);
+    expect(update.committed.map((segment) => segment.text)).toEqual(['XYZ.']);
+    expect(update.tail).toBe('');
+  });
+
   it('keeps frozen source closed across deterministic rolling-window fuzz sequences', () => {
     const sources = [
       'hello',
@@ -672,15 +706,15 @@ describe('live caption stream', () => {
           operations.push(visible);
           now += 5;
           const update = stream.update(visible, now);
+          for (const segment of update.committed) {
+            expect(
+              suffix.includes(segment.text),
+              `${source} seed=${String(seed)} operations=${operations.join(' -> ')} emitted=${segment.text}`,
+            ).toBe(true);
+          }
           // With no remaining overlap, a short window is a genuine replacement
           // rather than an authenticated continuation of this rolling sequence.
           if (update.lineChanged) break;
-          for (const segment of update.committed) {
-            expect(
-              source.includes(segment.text),
-              `${source} seed=${String(seed)} operations=${operations.join(' -> ')} emitted=${segment.text}`,
-            ).toBe(false);
-          }
         }
       }
     }

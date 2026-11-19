@@ -977,6 +977,67 @@ describe('real-time caption translation', () => {
     session.stop();
   });
 
+  it('does not let an older timed cue overwrite a newer DOM live caption', async () => {
+    document.body.innerHTML = youtubeMarkup('regressionpaintcueownership', true);
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let markStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        const text = segments[0]?.text ?? '';
+        if (text === 'Timed cue') {
+          markStarted();
+          await gate;
+        }
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readTrack: async () =>
+        JSON.stringify({
+          events: [
+            {
+              tStartMs: 0,
+              dDurationMs: 4000,
+              segs: [{ utf8: 'Timed cue' }],
+            },
+          ],
+        }),
+    });
+    session.start();
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
+    try {
+      await started;
+      segment.textContent = 'DOM live';
+      await vi.waitFor(() => {
+        expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('DOM live', 'ja'));
+      });
+      release();
+      await sleep(100);
+      expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('DOM live', 'ja'));
+    } finally {
+      release();
+      session.stop();
+    }
+  });
+
   it('updates the bilingual original when a refinement keeps the same translation', async () => {
     document.body.innerHTML = youtubeMarkup('regressionsamejarefine', true);
     const video = document.querySelector('video') as HTMLVideoElement;

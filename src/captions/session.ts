@@ -1004,6 +1004,7 @@ export class VideoCaptionSession {
   private async paintCue(cue: CaptionCue, force: boolean): Promise<void> {
     if (this.passthroughNative) return;
     const token = this.sourceToken;
+    const liveRevision = this.liveTailRevision;
     const language = cue.language ?? this.loaded?.language;
     const options = this.translateOptions(language);
     const stripped = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
@@ -1043,6 +1044,7 @@ export class VideoCaptionSession {
     const translated = await pendingTranslation;
     if (!this.running || token !== this.sourceToken) return;
     if (this.translator.abortedSince(generation)) return;
+    if (this.liveCaptionVisible || liveRevision !== this.liveTailRevision) return;
     const timeMs = this.playheadMs();
     const current = cueAtTime(this.loaded?.cues ?? [], timeMs);
     if (current && current.id !== cue.id) return;
