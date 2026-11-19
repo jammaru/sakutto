@@ -19,6 +19,12 @@ export interface CaptionOverlayState {
   translation: string | null;
   display: DisplayMode;
   pending: boolean;
+  /** Already committed live translations shown above the current line, oldest first. */
+  history?: readonly string[] | undefined;
+  /** Use the stable live box (fixed width, reserved roll-up height). */
+  live?: boolean | undefined;
+  /** The current translation is still the mutable live tail. */
+  tail?: boolean | undefined;
 }
 
 export const CAPTION_OVERLAY_HOST = 'sakutto-captions';
@@ -74,10 +80,21 @@ const STYLE = `
   transform: scale(1.04);
   filter: drop-shadow(0 8px 18px rgb(0 0 0 / 42%));
 }
-:host([data-sakutto-dragging]) .line {
+:host([data-sakutto-dragging]) .line,
+:host([data-sakutto-dragging]) .history-line {
   box-shadow: 0 0 0 2px rgb(191 219 254 / 80%);
 }
-.line {
+.history {
+  box-sizing: border-box;
+  display: grid;
+  gap: 0.12em;
+  width: 100%;
+}
+.history[hidden] {
+  display: none !important;
+}
+.line,
+.history-line {
   box-sizing: border-box;
   max-width: 100%;
   padding: 0.18em 0.55em;
@@ -92,16 +109,35 @@ const STYLE = `
   pointer-events: none;
 }
 .line[hidden],
-.line:empty {
+.line:empty,
+.history-line:empty {
   display: none !important;
   padding: 0 !important;
   background: transparent !important;
+}
+.history-line {
+  font-size: 0.92em;
+  font-weight: 500;
+  opacity: 0.82;
 }
 .original {
   font-size: 0.68em;
   font-weight: 400;
   color: #e8eef4;
   background: rgb(8 8 8 / 82%);
+}
+:host([data-sakutto-live]) .wrap {
+  width: 100%;
+  min-height: calc(var(--sakutto-caption-size, 22px) * 1.35 * 3 + 12px);
+  align-content: end;
+}
+:host([data-sakutto-live]) .line,
+:host([data-sakutto-live]) .history-line,
+:host([data-sakutto-live]) .history {
+  width: 100%;
+}
+:host([data-sakutto-live]) .line.live-tail {
+  opacity: 0.82;
 }
 `;
 
@@ -174,6 +210,12 @@ export function captionOverlayPlacement(
     width: Math.max(220, rect.width * 0.94),
     bottom: Math.max(0, padding),
   };
+}
+
+/** Fixed live caption width: no per-word max-content chatter, still player-relative. */
+export function captionLiveOverlayWidth(playerWidth: number): number {
+  const width = Number.isFinite(playerWidth) && playerWidth > 0 ? playerWidth : 640;
+  return Math.max(280, Math.min(width * 0.94, 760));
 }
 
 export function pointHitsRect(
@@ -374,6 +416,7 @@ function measureXChromeInset(root: ParentNode): number | null {
 
 export class CaptionOverlay {
   private readonly host: HTMLElement;
+  private readonly historyLines: HTMLElement;
   private readonly originalLine: HTMLElement;
   private readonly translatedLine: HTMLElement;
   private readonly toggle: HTMLButtonElement;
@@ -390,6 +433,7 @@ export class CaptionOverlay {
   private lastBottomInset = 18;
   private lastPlayerSize = { width: 0, height: 0 };
   private toggleLabel = '';
+  private liveGeometry = false;
   private position: VideoCaptionPosition | null = null;
   private onPositionChange: (point: VideoCaptionPosition) => void = () => undefined;
   private onShortClick: () => void = () => undefined;
@@ -423,13 +467,16 @@ export class CaptionOverlay {
     style.textContent = STYLE;
     const wrap = doc.createElement('div');
     wrap.className = 'wrap';
+    this.historyLines = doc.createElement('div');
+    this.historyLines.className = 'history';
+    this.historyLines.hidden = true;
     this.originalLine = doc.createElement('div');
     this.originalLine.className = 'line original';
     this.originalLine.hidden = true;
     this.translatedLine = doc.createElement('div');
     this.translatedLine.className = 'line';
     this.translatedLine.hidden = true;
-    wrap.append(this.originalLine, this.translatedLine);
+    wrap.append(this.historyLines, this.originalLine, this.translatedLine);
     shadow.append(style, wrap);
     this.toggle = doc.createElement('button');
     this.toggle.type = 'button';
@@ -509,7 +556,9 @@ export class CaptionOverlay {
     this.host.style.position = 'absolute';
     this.host.style.right = 'auto';
     this.host.style.maxWidth = `${box.width}px`;
-    this.host.style.width = 'max-content';
+    this.host.style.width = this.liveGeometry
+      ? `${captionLiveOverlayWidth(rect.width)}px`
+      : 'max-content';
     this.host.style.overflow = 'visible';
     this.applyPosition(box);
     const size = fontPx ?? captionOverlayFontPx(rect.height);
@@ -533,10 +582,23 @@ export class CaptionOverlay {
 
     const bilingual = state.display === 'bilingual';
     const showOriginal = bilingual && original.length > 0;
+    const history = (state.history ?? [])
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    this.renderHistory(history);
     this.originalLine.textContent = showOriginal ? original : '';
     this.translatedLine.textContent = translation;
     this.originalLine.hidden = !showOriginal;
     this.translatedLine.hidden = false;
+    this.translatedLine.classList.toggle('live-tail', state.tail === true);
+    this.liveGeometry = state.live === true;
+    if (this.liveGeometry) {
+      this.host.setAttribute('data-sakutto-live', '1');
+      this.host.style.width = `${captionLiveOverlayWidth(this.lastPlayerSize.width)}px`;
+    } else {
+      this.host.removeAttribute('data-sakutto-live');
+      this.host.style.width = 'max-content';
+    }
     this.toggleLabel = bilingual ? this.labels.hideOriginal : this.labels.showOriginal;
     if (this.toggle.getAttribute('aria-label') !== this.toggleLabel) {
       this.toggle.setAttribute('aria-label', this.toggleLabel);
@@ -545,6 +607,11 @@ export class CaptionOverlay {
     this.host.setAttribute('data-sakutto-caption', translation);
     this.host.setAttribute('data-sakutto-original', original);
     this.host.setAttribute('data-sakutto-show-original', showOriginal ? '1' : '0');
+    this.host.setAttribute('data-sakutto-history-lines', String(history.length));
+    if (history.length > 0) this.host.setAttribute('data-sakutto-history', history.join('\n'));
+    else this.host.removeAttribute('data-sakutto-history');
+    if (state.tail === true) this.host.setAttribute('data-sakutto-live-tail', '1');
+    else this.host.removeAttribute('data-sakutto-live-tail');
     if (state.pending) this.host.setAttribute('data-sakutto-pending', '1');
     else this.host.removeAttribute('data-sakutto-pending');
     this.overlayActive = true;
@@ -552,11 +619,24 @@ export class CaptionOverlay {
     this.syncToggle();
   }
 
+  private renderHistory(history: readonly string[]): void {
+    this.historyLines.replaceChildren();
+    for (const text of history) {
+      const line = this.captureDoc.createElement('div');
+      line.className = 'history-line';
+      line.textContent = text;
+      this.historyLines.append(line);
+    }
+    this.historyLines.hidden = history.length === 0;
+  }
+
   hasBraveShieldsNotice(): boolean {
     return this.host.getAttribute('data-sakutto-notice') === 'brave-shields';
   }
 
   showBraveShieldsNotice(): void {
+    this.renderHistory([]);
+    this.clearLiveGeometry();
     this.originalLine.textContent = '';
     this.originalLine.hidden = true;
     this.translatedLine.textContent = this.labels.braveShields;
@@ -578,16 +658,31 @@ export class CaptionOverlay {
     this.resetGesture();
     this.overlayActive = false;
     this.host.hidden = true;
+    this.renderHistory([]);
+    this.clearLiveGeometry();
     this.originalLine.textContent = '';
     this.translatedLine.textContent = '';
     this.originalLine.hidden = true;
     this.translatedLine.hidden = true;
+    this.translatedLine.classList.remove('live-tail');
     this.host.removeAttribute('data-sakutto-caption');
     this.host.removeAttribute('data-sakutto-original');
     this.host.removeAttribute('data-sakutto-show-original');
     this.host.removeAttribute('data-sakutto-pending');
     this.host.removeAttribute('data-sakutto-notice');
+    this.host.removeAttribute('data-sakutto-history-lines');
+    this.host.removeAttribute('data-sakutto-history');
+    this.host.removeAttribute('data-sakutto-live-tail');
     this.syncToggle();
+  }
+
+  private clearLiveGeometry(): void {
+    this.liveGeometry = false;
+    this.host.removeAttribute('data-sakutto-live');
+    this.host.removeAttribute('data-sakutto-history-lines');
+    this.host.removeAttribute('data-sakutto-history');
+    this.host.removeAttribute('data-sakutto-live-tail');
+    this.host.style.width = 'max-content';
   }
 
   shadow(): ShadowRoot | null {

@@ -7,6 +7,7 @@ import {
   CAPTION_FONT_MIN_PX,
   CAPTION_POSITION_MARGIN_PX,
   CAPTION_TOGGLE_HIDE_MS,
+  captionLiveOverlayWidth,
   captionOverlayFontPx,
   clampCaptionOverlayPercent,
   pickCaptionLayoutRect,
@@ -67,6 +68,48 @@ describe('caption overlay', () => {
     expect(translated?.textContent).toBe('駅は夜明けに開きます。');
     expect(host?.getAttribute('data-sakutto-caption')).toBe('駅は夜明けに開きます。');
     expect(host?.getAttribute('data-sakutto-original')).toBe('The station opens at dawn.');
+    overlay.detach();
+  });
+
+  it('renders committed roll-up history with stable live geometry', () => {
+    const overlay = new CaptionOverlay(document, labels);
+    overlay.attach(document.body);
+    overlay.place({ left: 0, top: 0, width: 640, height: 360 }, 28, 72);
+    overlay.show({
+      original: 'A red train waits',
+      translation: '赤い列車が待っています',
+      display: 'bilingual',
+      pending: false,
+      history: ['駅は夜明けに開きます。'],
+      live: true,
+      tail: true,
+    });
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    const shadow = overlay.shadow();
+    expect(host.getAttribute('data-sakutto-live')).toBe('1');
+    expect(host.getAttribute('data-sakutto-history-lines')).toBe('1');
+    expect(host.getAttribute('data-sakutto-history')).toBe('駅は夜明けに開きます。');
+    expect(host.getAttribute('data-sakutto-live-tail')).toBe('1');
+    expect(shadow?.querySelector('.history-line')?.textContent).toBe('駅は夜明けに開きます。');
+    expect(shadow?.querySelector('.line:not(.original)')?.textContent).toBe(
+      '赤い列車が待っています',
+    );
+    expect(Number.parseFloat(host.style.width)).toBeCloseTo(captionLiveOverlayWidth(640));
+    const width = host.style.width;
+    const styleText = shadow?.querySelector('style')?.textContent ?? '';
+    expect(styleText).toContain('min-height');
+    expect(styleText).toContain('data-sakutto-live');
+
+    overlay.show({
+      original: 'A red train waits at platform two',
+      translation: '赤い列車が2番線で待っています',
+      display: 'bilingual',
+      pending: false,
+      history: ['駅は夜明けに開きます。'],
+      live: true,
+      tail: true,
+    });
+    expect(host.style.width).toBe(width);
     overlay.detach();
   });
 

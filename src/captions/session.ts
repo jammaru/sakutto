@@ -12,13 +12,17 @@ import {
   cueAtTime,
   cuesFromPlayhead,
   finalizeCaptionCues,
-  LIVE_CAPTION_DEBOUNCE_MS,
   LIVE_CAPTION_MIN_DISPLAY_MS,
   LIVE_CAPTION_REFINE_MIN_DISPLAY_MS,
-  LiveCaptionBuffer,
-  normalizeCaptionText,
+  LIVE_ROLLUP_HISTORY_LINES,
+  LIVE_TAIL_FIRST_DEBOUNCE_MS,
+  LIVE_TAIL_REFRESH_MS,
+  LIVE_TAIL_STABLE_MS,
+  LiveCaptionStream,
   parseWebVtt,
   type CaptionCue,
+  type LiveCaptionSegment,
+  type LiveCaptionStreamUpdate,
 } from './cues';
 import {
   CAPTION_LIVE_PRIORITY,
@@ -135,6 +139,18 @@ interface LoadedTrack {
   restoreModes: Array<{ track: TextTrack; mode: TextTrackMode }>;
 }
 
+interface LiveCommittedCaption {
+  id: string;
+  source: string;
+  translation: string;
+}
+
+interface LiveTailJob {
+  text: string;
+  options: CaptionTranslateOptions;
+  startedAt: number;
+}
+
 const NATIVE_HIDE_STYLE = `
 ${YOUTUBE_CAPTION_WINDOW_SELECTOR} { visibility: hidden !important; }
 video::cue,
@@ -174,7 +190,7 @@ export class VideoCaptionSession {
   private readonly readPlayerResponse: () => Promise<unknown>;
   private readonly readBrave: () => Promise<boolean>;
   private readonly now: () => number;
-  private readonly liveBuffer = new LiveCaptionBuffer();
+  private readonly liveStream = new LiveCaptionStream();
   private readonly timedtextGuard = new TimedtextFetchGuard();
   private prefs: CaptionSessionPreferences;
   private running = false;
@@ -196,16 +212,19 @@ export class VideoCaptionSession {
     shownAt: number;
     startMs: number;
     endMs: number;
+    history?: readonly string[] | undefined;
+    live?: boolean | undefined;
+    tail?: boolean | undefined;
   } | null = null;
   private holdTimer: number | null = null;
-  private liveTranslateTimer: number | null = null;
-  private liveJob: { text: string; lineKey: string; options: CaptionTranslateOptions } | null =
-    null;
-  private livePending: {
-    text: string;
-    lineKey: string;
-    options: CaptionTranslateOptions;
-  } | null = null;
+  private liveCommitted: LiveCommittedCaption[] = [];
+  private liveTailTranslation: { text: string; translation: string } | null = null;
+  private liveTailJob: LiveTailJob | null = null;
+  private liveTailTimer: number | null = null;
+  private liveTailChangedAt = 0;
+  private liveTailLastRequestAt = 0;
+  private liveTailRevision = 0;
+  private liveTailEverTranslated = false;
   private activeCueId = '';
   private lastPlayed: HTMLVideoElement | null = null;
   private sourceKey = '';
@@ -382,9 +401,8 @@ export class VideoCaptionSession {
     this.timedtextGuard.reset();
     this.restoreTracks();
     this.hideNativeCaptions(false);
-    this.clearLiveWork();
+    this.resetLiveCaptions();
     this.translator.clear();
-    this.liveBuffer.reset();
     this.clearHold();
     this.unbindVideo(this.video);
     this.loaded = null;
@@ -410,8 +428,7 @@ export class VideoCaptionSession {
   };
 
   private readonly onSeek = (): void => {
-    this.liveBuffer.reset();
-    this.clearLiveWork();
+    this.resetLiveCaptions();
     this.activeCueId = '';
     const timeMs = this.playheadMs();
     // A jump before the held line (loop, ad, rewind) must not keep a future
@@ -516,9 +533,8 @@ export class VideoCaptionSession {
     this.useDomCaptions = false;
     this.liveMode = false;
     this.timedtextGuard.reset();
-    this.clearLiveWork();
+    this.resetLiveCaptions();
     this.translator.clear();
-    this.liveBuffer.reset();
     this.clearHold();
     this.activeCueId = '';
     this.passthroughNative = false;
@@ -1034,24 +1050,13 @@ export class VideoCaptionSession {
     if (!forceDom && !this.liveMode && !this.useDomCaptions) return;
     const visible = this.readSourceCaptionDom();
     if (visible.length === 0) {
-      if (this.liveMode) {
-        // The line left the screen. Keep the already-painted hold, but never commit
-        // a translation that was only requested for that vanished line.
-        this.clearLiveWork();
-        return;
-      }
-      if (!forceDom && (this.loaded?.cues.length ?? 0) > 0) return;
-      this.clearLiveWork();
+      if (!forceDom && !this.liveMode && (this.loaded?.cues.length ?? 0) > 0) return;
+      // Do not extend the hold while no caption is on screen. The next visible
+      // line will commit the previous tail; until then the normal hold cap applies.
       return;
     }
     if (!forceDom && !this.liveMode && (this.loaded?.cues.length ?? 0) > 0) return;
 
-    const timeMs = this.playheadMs();
-    // The on-screen line is still being spoken. Do not treat buffer-idle as silence.
-    this.extendHold(timeMs);
-
-    this.liveBuffer.update(visible, this.now());
-    const options = this.translateOptions(this.liveMode ? this.loaded?.language : undefined);
     const sourceLanguage = (this.loaded?.cues.length ?? 0) > 0 ? this.loaded?.language : undefined;
     if (captionSourceIsTargetLanguage(sourceLanguage, visible, this.prefs.targetLanguage)) {
       this.passthroughNative = true;
@@ -1059,118 +1064,285 @@ export class VideoCaptionSession {
       this.overlay.hide();
       return;
     }
-
-    // Translate the line that is visible now, not a phrase that becomes available
-    // only after the player has stopped changing it.
-    const newest = normalizeCaptionText(this.liveBuffer.peek() || visible);
-    if (!newest) return;
-    this.scheduleLiveTranslation(newest, this.liveBuffer.lineKey(), options, timeMs);
+    this.observeLiveCaption(visible, forceDom);
   }
 
-  /**
-   * One in-flight request per live line. Text that grows while a request is
-   * running becomes the next request, so the overlay updates in place without a
-   * backlog of old prefixes. A different line aborts the old request immediately.
-   */
-  private scheduleLiveTranslation(
-    text: string,
-    lineKey: string,
+  private observeLiveCaption(visible: string, forceDom: boolean): void {
+    const now = this.now();
+    const timeMs = this.playheadMs();
+    // The on-screen line is still being spoken. Do not treat a short gap as silence.
+    this.extendHold(timeMs);
+    const update = this.liveStream.update(visible, now);
+    const options = this.translateOptions(this.liveMode ? this.loaded?.language : undefined);
+    this.handleLiveUpdate(update, options, timeMs);
+    if (!update.tail && !this.hold && forceDom) this.showNative('no-cue');
+  }
+
+  private handleLiveUpdate(
+    update: LiveCaptionStreamUpdate,
     options: CaptionTranslateOptions,
     timeMs: number,
   ): void {
-    const cached = this.translator.getCached(text, options);
-    if (cached) {
-      this.cancelLiveJob();
-      this.livePending = null;
-      this.clearLiveTimer();
-      this.commitDisplay(
-        `live:${lineKey}`,
-        text,
-        cached,
-        0,
-        timeMs,
-        LIVE_CAPTION_REFINE_MIN_DISPLAY_MS,
-      );
-      return;
+    if (update.committed.length > 0 || update.lineChanged) {
+      this.liveTailEverTranslated = false;
     }
-    if (this.liveJob?.text === text || this.livePending?.text === text) return;
-    const previousLine = this.liveJob?.lineKey ?? this.livePending?.lineKey ?? lineKey;
-    if (previousLine !== lineKey) {
-      this.cancelLiveJob();
-      this.livePending = null;
-      this.clearLiveTimer();
+    if (update.committed.length > 0) {
+      this.clearLiveTailTimer();
+      // A new segment starts a fresh first-hint budget immediately.
+      this.liveTailLastRequestAt = 0;
+      let context = this.lastCommittedLiveSource();
+      for (const segment of update.committed) {
+        this.freezeLiveSegment(segment, options, context);
+        context = segment.text;
+      }
     }
-    this.livePending = { text, lineKey, options };
-    if (this.liveJob) return;
-    if (!this.hold) this.showNative('waiting-live');
-    if (this.liveTranslateTimer !== null) return;
-    const view = this.doc.defaultView;
-    this.liveTranslateTimer =
-      view?.setTimeout(() => {
-        this.liveTranslateTimer = null;
-        this.startPendingLiveTranslation();
-      }, LIVE_CAPTION_DEBOUNCE_MS) ?? null;
-    if (this.liveTranslateTimer === null) this.startPendingLiveTranslation();
+    if (update.tailChanged) {
+      this.liveTailRevision += 1;
+      this.liveTailChangedAt = this.now();
+      this.clearLiveTailTimer();
+      if (this.liveTailTranslation?.text !== update.tail) this.liveTailTranslation = null;
+      // Keep an in-flight tail request for the same line. It may finish as the
+      // latest hint, but it must not be cancelled and restarted on every word.
+      if (update.committed.length > 0 || update.lineChanged) {
+        this.cancelLiveTailJobIfUnused();
+      }
+    }
+    this.repaintLive(timeMs);
+    this.scheduleLiveTail(options);
   }
 
-  private startPendingLiveTranslation(): void {
-    const pending = this.livePending;
-    if (!pending || !this.running) return;
-    this.livePending = null;
+  /**
+   * A closed segment is appended immediately and its translation is never rewritten.
+   * If the tail request for the exact same source is already done or in flight, that
+   * result becomes the frozen segment instead of asking the engine again.
+   */
+  private freezeLiveSegment(
+    segment: LiveCaptionSegment,
+    options: CaptionTranslateOptions,
+    context: string,
+  ): void {
+    if (this.liveCommitted.some((entry) => entry.id === segment.id)) return;
+    const frozen =
+      this.liveTailTranslation?.text === segment.text ? this.liveTailTranslation.translation : '';
+    const entry: LiveCommittedCaption = {
+      id: segment.id,
+      source: segment.text,
+      translation: frozen,
+    };
+    this.liveCommitted.push(entry);
+    if (this.liveTailTranslation?.text === segment.text) this.liveTailTranslation = null;
+    if (frozen.length > 0) {
+      // Already translated: no request, no rewrite.
+    } else if (this.liveTailJob?.text === segment.text) {
+      // The in-flight tail result will fill this entry and then stay frozen.
+    } else {
+      this.translateCommittedLiveSegment(entry, options, context);
+    }
+    this.trimLiveCommitted();
+  }
+
+  private translateCommittedLiveSegment(
+    entry: LiveCommittedCaption,
+    options: CaptionTranslateOptions,
+    context: string,
+  ): void {
     const token = this.sourceToken;
     const generation = this.translator.translateGeneration();
-    this.liveJob = { ...pending };
+    const requestOptions: CaptionTranslateOptions = {
+      ...options,
+      ...(context ? { context } : {}),
+    };
     const cue: CaptionCue = {
-      id: `live:${pending.lineKey}`,
+      id: entry.id,
       startMs: 0,
       endMs: this.playheadMs(),
-      text: pending.text,
+      text: entry.source,
       language: this.loaded?.language,
     };
     void this.translator
-      .translateCue(cue, pending.options, CAPTION_PLAYHEAD_PRIORITY)
+      .translateCue(cue, requestOptions, CAPTION_PLAYHEAD_PRIORITY)
       .then((translation) => {
         if (!this.running || token !== this.sourceToken) return;
-        if (this.liveJob?.text !== pending.text) return;
-        this.liveJob = null;
         if (this.translator.abortedSince(generation)) return;
-        if (translation) {
-          if (this.liveBuffer.lineKey() === pending.lineKey) {
-            this.commitDisplay(
-              cue.id,
-              pending.text,
-              translation,
-              0,
-              this.playheadMs(),
-              LIVE_CAPTION_REFINE_MIN_DISPLAY_MS,
-            );
+        if (!translation) {
+          if (
+            !this.liveTailTranslation &&
+            !this.liveCommitted.some((caption) => caption.translation.length > 0)
+          ) {
+            this.showNative('translate-failed');
           }
-        } else if (!this.livePending) {
-          this.showNative('translate-failed');
+          return;
         }
-        if (this.livePending && this.liveTranslateTimer === null) {
-          this.startPendingLiveTranslation();
-        }
+        entry.translation = translation;
+        this.repaintLive(this.playheadMs());
       });
   }
 
-  private cancelLiveJob(): void {
-    const job = this.liveJob;
+  private scheduleLiveTail(options: CaptionTranslateOptions): void {
+    const tail = this.liveStream.tail();
+    if (!tail) {
+      this.clearLiveTailTimer();
+      return;
+    }
+    if (this.liveTailTranslation?.text === tail || this.liveTailJob) {
+      this.clearLiveTailTimer();
+      return;
+    }
+    if (this.liveTailTimer !== null) return;
+    const now = this.now();
+    const stableDelay = this.liveTailEverTranslated
+      ? LIVE_TAIL_STABLE_MS
+      : LIVE_TAIL_FIRST_DEBOUNCE_MS;
+    const stableDue = this.liveTailChangedAt + stableDelay;
+    const refreshDue =
+      this.liveTailLastRequestAt > 0 ? this.liveTailLastRequestAt + LIVE_TAIL_REFRESH_MS : 0;
+    const wait = Math.max(0, Math.max(stableDue, refreshDue) - now);
+    const view = this.doc.defaultView;
+    this.liveTailTimer =
+      view?.setTimeout(() => {
+        this.liveTailTimer = null;
+        this.startLiveTailTranslation(options);
+      }, wait) ?? null;
+    if (this.liveTailTimer === null) this.startLiveTailTranslation(options);
+  }
+
+  private startLiveTailTranslation(options: CaptionTranslateOptions): void {
+    const text = this.liveStream.tail();
+    if (!text || this.liveTailTranslation?.text === text || this.liveTailJob) return;
+    const context = this.lastCommittedLiveSource();
+    const requestOptions: CaptionTranslateOptions = {
+      ...options,
+      ...(context ? { context } : {}),
+    };
+    const now = this.now();
+    const job: LiveTailJob = { text, options: requestOptions, startedAt: now };
+    this.liveTailJob = job;
+    this.liveTailLastRequestAt = now;
+    this.liveTailRevision += 1;
+    const cue: CaptionCue = {
+      id: `live-tail:${this.liveStream.lineKey()}:${String(this.liveTailRevision)}`,
+      startMs: 0,
+      endMs: this.playheadMs(),
+      text,
+      language: this.loaded?.language,
+    };
+    const token = this.sourceToken;
+    const generation = this.translator.translateGeneration();
+    void this.translator
+      .translateCue(cue, requestOptions, CAPTION_PLAYHEAD_PRIORITY)
+      .then((translation) => {
+        if (!this.running || token !== this.sourceToken) return;
+        if (this.liveTailJob !== job) return;
+        this.liveTailJob = null;
+        if (this.translator.abortedSince(generation)) return;
+        if (translation) {
+          const pending = this.liveCommitted.find(
+            (entry) => entry.translation.length === 0 && entry.source === job.text,
+          );
+          if (pending) pending.translation = translation;
+          else if (this.liveStream.tail() === job.text) {
+            this.liveTailTranslation = { text: job.text, translation };
+            this.liveTailEverTranslated = true;
+          }
+          this.repaintLive(this.playheadMs());
+        } else if (!this.hold && !this.liveTailTranslation) {
+          this.showNative('translate-failed');
+        }
+        this.scheduleLiveTail(requestOptions);
+      });
+  }
+
+  private cancelLiveTailJobIfUnused(): void {
+    const job = this.liveTailJob;
     if (!job) return;
-    this.liveJob = null;
+    const needed = this.liveCommitted.some(
+      (entry) => entry.translation.length === 0 && entry.source === job.text,
+    );
+    if (!needed) this.cancelLiveTailJob();
+  }
+
+  private cancelLiveTailJob(): void {
+    const job = this.liveTailJob;
+    if (!job) return;
+    this.liveTailJob = null;
     this.translator.cancelText(job.text, job.options);
   }
 
-  private clearLiveTimer(): void {
-    if (this.liveTranslateTimer === null) return;
-    this.doc.defaultView?.clearTimeout(this.liveTranslateTimer);
-    this.liveTranslateTimer = null;
+  private clearLiveTailTimer(): void {
+    if (this.liveTailTimer === null) return;
+    this.doc.defaultView?.clearTimeout(this.liveTailTimer);
+    this.liveTailTimer = null;
   }
 
-  private clearLiveWork(): void {
-    this.clearLiveTimer();
-    this.livePending = null;
-    this.cancelLiveJob();
+  private lastCommittedLiveSource(): string {
+    return this.liveCommitted.at(-1)?.source ?? '';
+  }
+
+  private trimLiveCommitted(): void {
+    const keep = 12;
+    if (this.liveCommitted.length <= keep) return;
+    this.liveCommitted.splice(0, this.liveCommitted.length - keep);
+  }
+
+  private resetLiveCaptions(): void {
+    this.clearLiveTailTimer();
+    this.cancelLiveTailJob();
+    this.liveStream.reset();
+    this.liveCommitted = [];
+    this.liveTailTranslation = null;
+    this.liveTailJob = null;
+    this.liveTailChangedAt = 0;
+    this.liveTailLastRequestAt = 0;
+    this.liveTailRevision = 0;
+    this.liveTailEverTranslated = false;
+  }
+
+  /**
+   * Freeze committed lines, keep the last one above the live tail, and repaint.
+   * The committed history never comes from the mutable tail, so a new English word
+   * cannot restructure an already shown Japanese line.
+   */
+  private repaintLive(timeMs: number): void {
+    const tail = this.liveStream.tail();
+    const tailTranslation =
+      this.liveTailTranslation?.text === tail ? this.liveTailTranslation.translation : '';
+    const displayed = this.liveCommitted.filter((entry) => entry.translation.trim().length > 0);
+    if (tail && tailTranslation.length > 0) {
+      const history = displayed.slice(-LIVE_ROLLUP_HISTORY_LINES).map((entry) => entry.translation);
+      this.commitDisplay(
+        `live-tail:${this.liveStream.lineKey()}`,
+        tail,
+        tailTranslation,
+        0,
+        timeMs,
+        LIVE_CAPTION_REFINE_MIN_DISPLAY_MS,
+        history,
+        true,
+        true,
+      );
+      return;
+    }
+    if (displayed.length > 0) {
+      const current = displayed[displayed.length - 1];
+      if (!current) return;
+      const historyStart = Math.max(0, displayed.length - 1 - LIVE_ROLLUP_HISTORY_LINES);
+      const history = displayed
+        .slice(historyStart, displayed.length - 1)
+        .map((entry) => entry.translation);
+      this.commitDisplay(
+        `live:${current.id}`,
+        current.source,
+        current.translation,
+        0,
+        timeMs,
+        LIVE_CAPTION_REFINE_MIN_DISPLAY_MS,
+        history,
+        true,
+        false,
+      );
+      return;
+    }
+    if (tail && !this.hold) this.showNative('waiting-live');
   }
 
   private bindVideo(video: HTMLVideoElement | null): void {
@@ -1413,6 +1585,8 @@ export class VideoCaptionSession {
       translation: hold.translation,
       display: this.prefs.display,
       pending: false,
+      ...(hold.history && hold.history.length > 0 ? { history: hold.history } : {}),
+      ...(hold.live ? { live: true, tail: hold.tail === true } : {}),
     });
   }
 
@@ -1444,23 +1618,46 @@ export class VideoCaptionSession {
     startMs: number,
     endMs: number,
     minDisplayMs = LIVE_CAPTION_MIN_DISPLAY_MS,
+    history: readonly string[] = [],
+    live = false,
+    tail = false,
   ): void {
     if (!this.running) return;
     const token = this.sourceToken;
-    if (this.hold?.cueId === cueId && this.hold.translation === translation) {
+    const sameHistory =
+      (this.hold?.history ?? []).length === history.length &&
+      (this.hold?.history ?? []).every((line, index) => line === history[index]);
+    if (
+      this.hold?.cueId === cueId &&
+      this.hold.translation === translation &&
+      sameHistory &&
+      this.hold.live === live &&
+      this.hold.tail === tail
+    ) {
       this.hold.endMs = Math.max(this.hold.endMs, endMs);
       return;
     }
     const apply = (): void => {
       if (!this.running || token !== this.sourceToken) return;
       this.holdTimer = null;
-      this.hold = { cueId, original, translation, shownAt: this.now(), startMs, endMs };
+      this.hold = {
+        cueId,
+        original,
+        translation,
+        shownAt: this.now(),
+        startMs,
+        endMs,
+        ...(history.length > 0 ? { history } : {}),
+        ...(live ? { live: true, tail } : {}),
+      };
       this.ignorePlayerMutations = true;
       this.overlay.show({
         original,
         translation,
         display: this.prefs.display,
         pending: false,
+        ...(history.length > 0 ? { history } : {}),
+        ...(live ? { live: true, tail } : {}),
       });
       this.applyNativeVisibility();
       this.releasePlayerMutations();

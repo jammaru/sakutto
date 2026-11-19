@@ -11,6 +11,8 @@ import {
   joinCaptionFragments,
   LiveCaptionBuffer,
   LIVE_CAPTION_MAX_WAIT_MS,
+  LIVE_SEGMENT_GAP_MS,
+  LiveCaptionStream,
   ASR_PHRASE_MERGE_MAX_MS,
   mergeSentenceCues,
   mergeWordCues,
@@ -336,6 +338,37 @@ describe('live caption buffer', () => {
     expect(buffer.update('The station opens', 0)).toEqual([]);
     expect(buffer.update('A red train waits', 300)).toEqual(['The station opens']);
     expect(buffer.peek()).toBe('A red train waits');
+  });
+});
+
+describe('live caption stream', () => {
+  it('commits a finished clause and keeps only the remainder as tail', () => {
+    const stream = new LiveCaptionStream();
+    const first = stream.update('The station opens at dawn.', 0);
+    expect(first.committed.map((segment) => segment.text)).toEqual(['The station opens at dawn.']);
+    expect(first.tail).toBe('');
+    const next = stream.update('The station opens at dawn. A red', 1_000);
+    expect(next.committed).toEqual([]);
+    expect(next.tail).toBe('A red');
+  });
+
+  it('commits the previous line when the player replaces it', () => {
+    const stream = new LiveCaptionStream();
+    stream.update('The station opens', 0);
+    const update = stream.update('A red train waits', 500);
+    expect(update.lineChanged).toBe(true);
+    expect(update.committed.map((segment) => segment.text)).toEqual(['The station opens']);
+    expect(update.tail).toBe('A red train waits');
+  });
+
+  it('closes an unpunctuated tail after a short ASR gap without re-emitting it', () => {
+    const stream = new LiveCaptionStream();
+    stream.update('the train waits', 0);
+    expect(stream.update('the train waits', 100).committed).toEqual([]);
+    const closed = stream.update('the train waits', LIVE_SEGMENT_GAP_MS + 1);
+    expect(closed.committed.map((segment) => segment.text)).toEqual(['the train waits']);
+    expect(closed.tail).toBe('');
+    expect(stream.update('the train waits', LIVE_SEGMENT_GAP_MS + 500).committed).toEqual([]);
   });
 });
 

@@ -30,6 +30,8 @@ export interface CaptionTranslateOptions {
   form: Formality;
   glossary?: readonly GlossaryEntry[] | undefined;
   src?: string | undefined;
+  /** Previous committed source line, so a tail fragment keeps its sentence context. */
+  context?: string | undefined;
 }
 
 interface CacheEntry {
@@ -49,7 +51,7 @@ export class CaptionTranslator {
   constructor(private readonly engine: PageEngine) {}
 
   cacheKey(text: string, options: CaptionTranslateOptions): string {
-    return `${options.tgt}|${options.form}|${options.src ?? ''}|${text}`;
+    return `${options.tgt}|${options.form}|${options.src ?? ''}|${options.context ?? ''}|${text}`;
   }
 
   getCached(text: string, options: CaptionTranslateOptions): string | undefined {
@@ -173,6 +175,7 @@ export class CaptionTranslator {
         form: options.form,
         glossary: options.glossary,
         src: options.src ?? cue.language,
+        ...(options.context ? { context: options.context } : {}),
         priority,
         signal,
         eager: priority <= CAPTION_LIVE_PRIORITY,

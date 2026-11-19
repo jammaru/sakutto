@@ -21,6 +21,19 @@ export const LIVE_CAPTION_MIN_DISPLAY_MS = 1_400;
 export const LIVE_CAPTION_REFINE_MIN_DISPLAY_MS = 200;
 /** Coalesce a burst of DOM word updates before asking the engine about a live line. */
 export const LIVE_CAPTION_DEBOUNCE_MS = 80;
+/** A visible ASR segment is closed after this much silence or at these limits. */
+export const LIVE_SEGMENT_GAP_MS = 650;
+export const LIVE_SEGMENT_MAX_MS = 4_000;
+export const CJK_LIVE_SEGMENT_MAX_MS = 2_800;
+export const LIVE_SEGMENT_MAX_CHARS = 90;
+export const CJK_LIVE_SEGMENT_MAX_CHARS = 40;
+export const LIVE_SEGMENT_WEAK_BREAK_MIN_CHARS = 12;
+/** Live tail translation: first hint quickly, then only stable / rate-limited refreshes. */
+export const LIVE_TAIL_FIRST_DEBOUNCE_MS = 120;
+export const LIVE_TAIL_STABLE_MS = 500;
+export const LIVE_TAIL_REFRESH_MS = 1_600;
+/** Previous committed translation lines kept above the live line. */
+export const LIVE_ROLLUP_HISTORY_LINES = 1;
 export const WORD_CUE_MERGE_GAP_MS = 800;
 export const WORD_CUE_MERGE_MAX_MS = 3_500;
 export const WORD_CUE_MERGE_MAX_CHARS = 96;
@@ -568,6 +581,201 @@ export function cuesInWindow(
   endMs: number,
 ): CaptionCue[] {
   return cues.filter((cue) => cue.endMs > startMs && cue.startMs < endMs);
+}
+
+export interface LiveCaptionSegment {
+  id: string;
+  text: string;
+  startMs: number;
+  endMs: number;
+}
+
+export interface LiveCaptionStreamUpdate {
+  /** Segments closed by this observation. Their translations must be frozen. */
+  committed: LiveCaptionSegment[];
+  /** Uncommitted visible suffix that may still change. */
+  tail: string;
+  tailChanged: boolean;
+  lineChanged: boolean;
+  lineKey: string;
+}
+
+/**
+ * Turns the player's growing caption window into short committed segments plus a
+ * mutable tail. A segment is closed at sentence / clause punctuation, a short ASR
+ * silence, the line being replaced, or a duration/character cap. Once returned in
+ * `committed`, that source text never changes again.
+ */
+export class LiveCaptionStream {
+  private visible = '';
+  private committedChars = 0;
+  private line = '';
+  private lineVersion = 0;
+  private tailStartedAt = 0;
+  private tailChangedAt = 0;
+  private serial = 0;
+
+  update(visible: string, now: number): LiveCaptionStreamUpdate {
+    const next = normalizeCaptionText(visible);
+    const previous = this.visible;
+    const beforeTail = this.tail();
+    const committed: LiveCaptionSegment[] = [];
+    let lineChanged = false;
+
+    if (next.length === 0) {
+      // Keep the last visible line until either the gap closes it or a new line
+      // replaces it; a transient empty DOM node must not discard spoken text.
+      if (this.tail().length > 0 && now - this.tailChangedAt >= LIVE_SEGMENT_GAP_MS) {
+        this.commitRemaining(now, committed);
+      }
+    } else if (previous.length === 0) {
+      if (this.line.length > 0 && sameVisibleLine(this.line, next)) {
+        this.visible = next;
+        this.tailChangedAt = now;
+      } else {
+        if (this.line.length > 0) {
+          this.commitRemaining(now, committed);
+          lineChanged = true;
+        }
+        this.startLine(next, now);
+      }
+    } else if (sameVisibleLine(previous, next)) {
+      this.visible = next;
+      if (next.length > previous.length) this.tailChangedAt = now;
+      if (this.committedChars > next.length) this.committedChars = next.length;
+    } else {
+      this.commitRemaining(now, committed);
+      lineChanged = true;
+      this.startLine(next, now);
+    }
+
+    this.extractSegments(now, committed);
+    if (this.tail().length > 0 && now - this.tailChangedAt >= LIVE_SEGMENT_GAP_MS) {
+      this.commitRemaining(now, committed);
+    }
+
+    return {
+      committed,
+      tail: this.tail(),
+      tailChanged: this.tail() !== beforeTail,
+      lineChanged,
+      lineKey: this.lineKey(),
+    };
+  }
+
+  tail(): string {
+    return normalizeCaptionText(this.visible.slice(this.committedChars));
+  }
+
+  lineKey(): string {
+    return `l${String(this.lineVersion)}`;
+  }
+
+  reset(): void {
+    if (this.line.length > 0) this.lineVersion += 1;
+    this.visible = '';
+    this.committedChars = 0;
+    this.line = '';
+    this.tailStartedAt = 0;
+    this.tailChangedAt = 0;
+  }
+
+  private startLine(next: string, now: number): void {
+    this.line = next;
+    this.lineVersion += 1;
+    this.visible = next;
+    this.committedChars = 0;
+    this.tailStartedAt = now;
+    this.tailChangedAt = now;
+  }
+
+  private extractSegments(now: number, committed: LiveCaptionSegment[]): void {
+    while (true) {
+      const raw = this.visible.slice(this.committedChars);
+      const cut = liveSegmentCut(raw, now - this.tailStartedAt);
+      if (cut <= 0) return;
+      const text = normalizeCaptionText(raw.slice(0, cut));
+      let advance = cut;
+      while (advance < raw.length && /\s/u.test(raw[advance] ?? '')) advance += 1;
+      this.committedChars += advance;
+      if (text.length > 0) committed.push(this.makeSegment(text, now));
+      this.tailStartedAt = now;
+    }
+  }
+
+  private commitRemaining(now: number, committed: LiveCaptionSegment[]): void {
+    const text = this.tail();
+    this.committedChars = this.visible.length;
+    if (text.length > 0) committed.push(this.makeSegment(text, now));
+    this.tailStartedAt = now;
+    this.tailChangedAt = now;
+  }
+
+  private makeSegment(text: string, now: number): LiveCaptionSegment {
+    this.serial += 1;
+    return {
+      id: `${captionCueId(Math.round(this.tailStartedAt), text)}:${String(this.serial)}`,
+      text,
+      startMs: Math.round(this.tailStartedAt),
+      endMs: Math.round(now),
+    };
+  }
+}
+
+/**
+ * Find the first safe end of a live segment. Strong punctuation ends a sentence,
+ * weak punctuation ends a clause once the fragment is long enough, and a time or
+ * character cap cuts at a word boundary.
+ */
+export function liveSegmentCut(raw: string, elapsedMs: number): number {
+  const leading = raw.length - raw.trimStart().length;
+  const text = raw.trimStart();
+  if (text.length === 0) return -1;
+  const cjk = isMostlyCjk(text);
+  const maxChars = cjk ? CJK_LIVE_SEGMENT_MAX_CHARS : LIVE_SEGMENT_MAX_CHARS;
+  const maxMs = cjk ? CJK_LIVE_SEGMENT_MAX_MS : LIVE_SEGMENT_MAX_MS;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index] ?? '';
+    if (!/[.!?。！？…]/u.test(char)) continue;
+    if (char === '.' && /\d/u.test(text[index - 1] ?? '') && /\d/u.test(text[index + 1] ?? '')) {
+      continue;
+    }
+    return leading + index + 1;
+  }
+
+  if (text.length >= LIVE_SEGMENT_WEAK_BREAK_MIN_CHARS) {
+    const weak = /[,;:、，；：]/u.exec(text);
+    if (weak?.index !== undefined) {
+      let end = weak.index + 1;
+      while (end < text.length && /[,;:、，；：]/u.test(text[end] ?? '')) end += 1;
+      if (end >= LIVE_SEGMENT_WEAK_BREAK_MIN_CHARS) return leading + end;
+    }
+  }
+
+  const overTime = elapsedMs >= maxMs;
+  const overLength = text.length > maxChars;
+  if (!overTime && !overLength) return -1;
+  const limit = Math.min(text.length, maxChars);
+  let cut = limit;
+  for (let index = limit; index >= Math.floor(maxChars * 0.55); index -= 1) {
+    if (/\s/u.test(text[index] ?? '')) {
+      cut = index;
+      break;
+    }
+  }
+  if (overTime && !overLength) {
+    const lastSpace = text.lastIndexOf(' ');
+    if (lastSpace >= LIVE_SEGMENT_WEAK_BREAK_MIN_CHARS) cut = lastSpace;
+    else if (text.length > maxChars) cut = limit;
+    else cut = text.length;
+  }
+  while (cut > 0 && /\s/u.test(text[cut - 1] ?? '')) cut -= 1;
+  return cut > 0 ? leading + cut : -1;
+}
+
+function sameVisibleLine(previous: string, next: string): boolean {
+  return next.startsWith(previous) || previous.startsWith(next);
 }
 
 /**

@@ -339,4 +339,113 @@ describe('real-time caption translation', () => {
     expect(CAPTION_HOLD_MAX_MS).toBeLessThan(4_000);
     session.stop();
   });
+
+  it('freezes a committed translation and rolls it above the next line', async () => {
+    document.body.innerHTML = youtubeMarkup('stabilityfreeze01', true);
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    const calls: string[] = [];
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        calls.push(segments[0]?.text ?? '');
+        await sleep(15);
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readTrack: async () => '',
+    });
+    session.start();
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
+    const shown: string[] = [];
+    const observer = new MutationObserver(() => {
+      const caption = host.getAttribute('data-sakutto-caption');
+      if (caption) shown.push(caption);
+    });
+    observer.observe(host, { attributes: true, attributeFilter: ['data-sakutto-caption'] });
+
+    const firstSource = 'The station opens at dawn.';
+    const first = fakeTranslateText(firstSource, 'ja');
+    segment.textContent = firstSource;
+    await vi.waitFor(() => {
+      expect(host.getAttribute('data-sakutto-caption')).toBe(first);
+    });
+
+    const secondSource = 'A red train waits at platform two.';
+    const second = fakeTranslateText(secondSource, 'ja');
+    segment.textContent = secondSource;
+    await vi.waitFor(() => {
+      expect(host.getAttribute('data-sakutto-caption')).toBe(second);
+      expect(host.getAttribute('data-sakutto-history')).toBe(first);
+    });
+    // The committed source is asked exactly once and its JA never changes after commit.
+    expect(calls.filter((text) => text === firstSource)).toHaveLength(1);
+    expect(shown.filter((caption) => caption === first)).toHaveLength(1);
+    observer.disconnect();
+    session.stop();
+  });
+
+  it('bounds tail rewrites for a continuously growing live line', async () => {
+    document.body.innerHTML = youtubeMarkup('stabilitybounded01', true);
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    const words = 'the station opens at dawn and a red train waits here'.split(' ');
+    const calls: string[] = [];
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        calls.push(segments[0]?.text ?? '');
+        await sleep(15);
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readTrack: async () => '',
+    });
+    session.start();
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
+    let changes = 0;
+    let last = '';
+    const observer = new MutationObserver(() => {
+      const caption = host.getAttribute('data-sakutto-caption') ?? '';
+      if (caption && caption !== last) {
+        last = caption;
+        changes += 1;
+      }
+    });
+    observer.observe(host, { attributes: true, attributeFilter: ['data-sakutto-caption'] });
+    let text = '';
+    for (const [index, word] of words.entries()) {
+      text = index === 0 ? word : `${text} ${word}`;
+      segment.textContent = text;
+      await sleep(250);
+    }
+    await sleep(900);
+    // Twelve words would create twelve rewrites on the old path. Segments and the
+    // stable/rate-limited tail keep this to a handful.
+    expect(calls.length).toBeLessThanOrEqual(5);
+    expect(changes).toBeLessThanOrEqual(7);
+    expect(changes).toBeLessThan(words.length / 2);
+    observer.disconnect();
+    session.stop();
+  });
 });
