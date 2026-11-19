@@ -497,4 +497,342 @@ describe('real-time caption translation', () => {
     observer.disconnect();
     session.stop();
   });
+
+  it('reschedules an identical live tail after a transient empty DOM poll', async () => {
+    document.body.innerHTML = youtubeMarkup('regressionvanishsame', true);
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    let calls = 0;
+    let markStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        calls += 1;
+        if (calls === 1) {
+          markStarted();
+          await new Promise<void>((_resolve, reject) => {
+            options.signal.addEventListener(
+              'abort',
+              () => reject(new DOMException('Aborted', 'AbortError')),
+              { once: true },
+            );
+          });
+        }
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readTrack: async () => '',
+    });
+    session.start();
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
+    segment.textContent = 'The station opens';
+    await started;
+    segment.textContent = '';
+    video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+    await sleep(250);
+    segment.textContent = 'The station opens';
+    video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+    await vi.waitFor(() => {
+      expect(calls).toBe(2);
+      expect(host.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('The station opens', 'ja'),
+      );
+    });
+    session.stop();
+  });
+
+  it('keeps an original fallback when vanish cancels a promoted committed tail', async () => {
+    document.body.innerHTML = youtubeMarkup('regressionvanishcommit', true);
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    let calls = 0;
+    let markStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        calls += 1;
+        if (calls === 1) {
+          markStarted();
+          await new Promise<void>((_resolve, reject) => {
+            options.signal.addEventListener(
+              'abort',
+              () => reject(new DOMException('Aborted', 'AbortError')),
+              { once: true },
+            );
+          });
+        }
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readTrack: async () => '',
+    });
+    session.start();
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
+    segment.textContent = 'Yes';
+    await started;
+    // The unchanged visible tail crosses the 650 ms idle boundary and is committed.
+    await sleep(800);
+    segment.textContent = '';
+    video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+    await sleep(100);
+    segment.textContent = 'Next line';
+    video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+    await vi.waitFor(() => {
+      expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('Next line', 'ja'));
+      expect(host.getAttribute('data-sakutto-history')).toBe('Yes');
+    });
+    session.stop();
+  });
+
+  it('shows the original for a failed committed segment between successful lines', async () => {
+    document.body.innerHTML = youtubeMarkup('regressioncommittedfail', true);
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        const text = segments[0]?.text ?? '';
+        if (text === 'Beta line.') return;
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readTrack: async () => '',
+    });
+    session.start();
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
+    segment.textContent = 'Alpha line.';
+    await vi.waitFor(() => {
+      expect(host.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('Alpha line.', 'ja'),
+      );
+    });
+    segment.textContent = 'Beta line.';
+    await vi.waitFor(() => {
+      expect(host.getAttribute('data-sakutto-caption')).toBe('Beta line.');
+    });
+    segment.textContent = 'Charlie tail';
+    await vi.waitFor(() => {
+      expect(host.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('Charlie tail', 'ja'),
+      );
+      expect(host.getAttribute('data-sakutto-history')).toBe('Beta line.');
+    });
+    session.stop();
+  });
+
+  it('fills every committed entry when consecutive source texts are identical', async () => {
+    document.body.innerHTML = youtubeMarkup('regressionduplicateyes', true);
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let calls = 0;
+    let markStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        calls += 1;
+        if (calls === 1) {
+          markStarted();
+          await gate;
+        }
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readTrack: async () => '',
+    });
+    session.start();
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
+    try {
+      segment.textContent = 'Yes';
+      await started;
+      await sleep(800);
+      segment.textContent = 'Yes Yes';
+      await sleep(800);
+      await vi.waitFor(() => {
+        expect(calls).toBe(2);
+      });
+      release();
+      await vi.waitFor(() => {
+        expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('Yes', 'ja'));
+        expect(host.getAttribute('data-sakutto-history')).toBe(fakeTranslateText('Yes', 'ja'));
+      });
+    } finally {
+      release();
+      session.stop();
+    }
+  });
+
+  it('aborts stale committed requests instead of building an unbounded live backlog', async () => {
+    document.body.innerHTML = youtubeMarkup('regressioncommittedcap', true);
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    const active = new Set<string>();
+    const aborted = new Set<string>();
+    let markStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        const text = segments[0]?.text ?? '';
+        active.add(text);
+        markStarted();
+        await new Promise<void>((_resolve, reject) => {
+          options.signal.addEventListener(
+            'abort',
+            () => {
+              active.delete(text);
+              aborted.add(text);
+              reject(new DOMException('Aborted', 'AbortError'));
+            },
+            { once: true },
+          );
+        });
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readTrack: async () => '',
+    });
+    session.start();
+    const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
+    segment.textContent = 'Line 0';
+    await started;
+    for (let index = 1; index <= 10; index += 1) {
+      segment.textContent = `Line ${index}`;
+      video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+      await sleep(20);
+    }
+    await sleep(100);
+    expect(active.size).toBeLessThanOrEqual(3);
+    expect(aborted.has('Line 0')).toBe(true);
+    expect(aborted.size).toBeGreaterThanOrEqual(5);
+    session.stop();
+  });
+
+  it('invalidates a queued tail refinement when the caption vanishes', async () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = youtubeMarkup('regressionqueuedpaint', true);
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    let now = 0;
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        const text = segments[0]?.text ?? '';
+        if (text === 'Alpha.' || text === 'The station.') {
+          await new Promise<void>((_resolve, reject) => {
+            options.signal.addEventListener(
+              'abort',
+              () => reject(new DOMException('Aborted', 'AbortError')),
+              { once: true },
+            );
+          });
+        }
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readTrack: async () => '',
+      now: () => now,
+    });
+    try {
+      session.start();
+      await vi.advanceTimersByTimeAsync(0);
+      const host = document.querySelector('sakutto-captions') as HTMLElement;
+      const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
+      segment.textContent = 'Alpha. The';
+      video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+      now = 120;
+      await vi.advanceTimersByTimeAsync(120);
+      expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('The', 'ja'));
+
+      // Commit a still-untranslated middle segment and translate the new tail soon
+      // enough that its same-line repaint is deferred by the 200 ms refinement cap.
+      now = 130;
+      segment.textContent = 'Alpha. The station. Next';
+      video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+      now = 250;
+      await vi.advanceTimersByTimeAsync(120);
+      expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('The', 'ja'));
+
+      now = 260;
+      segment.textContent = '';
+      video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(300);
+      expect(host.getAttribute('data-sakutto-caption')).not.toBe(fakeTranslateText('Next', 'ja'));
+    } finally {
+      session.stop();
+      vi.useRealTimers();
+    }
+  });
 });

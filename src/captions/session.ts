@@ -11,6 +11,7 @@ import {
 import {
   cueAtTime,
   cuesFromPlayhead,
+  cuesInWindow,
   finalizeCaptionCues,
   LIVE_CAPTION_MIN_DISPLAY_MS,
   LIVE_CAPTION_REFINE_MIN_DISPLAY_MS,
@@ -27,6 +28,8 @@ import {
 import {
   CAPTION_LIVE_PRIORITY,
   CAPTION_PLAYHEAD_PRIORITY,
+  CAPTION_PREFETCH_MAX_CUES,
+  captionPrefetchWindowMs,
   CaptionTranslator,
   type CaptionTranslateOptions,
 } from './engine';
@@ -143,6 +146,7 @@ interface LiveCommittedCaption {
   id: string;
   source: string;
   translation: string;
+  options: CaptionTranslateOptions;
 }
 
 interface LiveTailJob {
@@ -150,6 +154,10 @@ interface LiveTailJob {
   options: CaptionTranslateOptions;
   startedAt: number;
 }
+
+/** At most two older committed requests may wait alongside the current tail. */
+const LIVE_COMMITTED_MAX_PENDING = 2;
+const LIVE_COMMITTED_HISTORY = 12;
 
 const NATIVE_HIDE_STYLE = `
 ${YOUTUBE_CAPTION_WINDOW_SELECTOR} { visibility: hidden !important; }
@@ -1055,6 +1063,8 @@ export class VideoCaptionSession {
       // The source vanished: stop all tail work, discard its text, and let any
       // already-painted committed line expire under the normal hold cap.
       this.liveCaptionVisible = false;
+      this.liveTailRevision += 1;
+      this.clearHoldTimer();
       this.clearLiveTailTimer();
       this.cancelLiveTailJob();
       this.liveStream.discardTail(this.now());
@@ -1106,6 +1116,7 @@ export class VideoCaptionSession {
       }
     }
     if (update.tailChanged) {
+      this.clearHoldTimer();
       this.liveTailRevision += 1;
       this.liveTailChangedAt = this.now();
       this.clearLiveTailTimer();
@@ -1122,8 +1133,8 @@ export class VideoCaptionSession {
 
   /**
    * A closed segment is appended immediately and its translation is never rewritten.
-   * If the tail request for the exact same source is already done or in flight, that
-   * result becomes the frozen segment instead of asking the engine again.
+   * Every entry owns a completion handler even when the translator deduplicates the
+   * underlying request, so repeated source text cannot strand a later segment.
    */
   private freezeLiveSegment(
     segment: LiveCaptionSegment,
@@ -1133,34 +1144,26 @@ export class VideoCaptionSession {
     if (this.liveCommitted.some((entry) => entry.id === segment.id)) return;
     const frozen =
       this.liveTailTranslation?.text === segment.text ? this.liveTailTranslation.translation : '';
-    const entry: LiveCommittedCaption = {
-      id: segment.id,
-      source: segment.text,
-      translation: frozen,
-    };
-    this.liveCommitted.push(entry);
-    if (this.liveTailTranslation?.text === segment.text) this.liveTailTranslation = null;
-    if (frozen.length > 0) {
-      // Already translated: no request, no rewrite.
-    } else if (this.liveTailJob?.text === segment.text) {
-      // The in-flight tail result will fill this entry and then stay frozen.
-    } else {
-      this.translateCommittedLiveSegment(entry, options, context);
-    }
-    this.trimLiveCommitted();
-  }
-
-  private translateCommittedLiveSegment(
-    entry: LiveCommittedCaption,
-    options: CaptionTranslateOptions,
-    context: string,
-  ): void {
-    const token = this.sourceToken;
-    const generation = this.translator.translateGeneration();
     const requestOptions: CaptionTranslateOptions = {
       ...options,
       ...(context ? { context } : {}),
     };
+    const entry: LiveCommittedCaption = {
+      id: segment.id,
+      source: segment.text,
+      translation: frozen,
+      options: requestOptions,
+    };
+    this.liveCommitted.push(entry);
+    if (this.liveTailTranslation?.text === segment.text) this.liveTailTranslation = null;
+    if (!frozen) this.translateCommittedLiveSegment(entry);
+    this.boundLiveCommittedPending();
+    this.trimLiveCommitted();
+  }
+
+  private translateCommittedLiveSegment(entry: LiveCommittedCaption): void {
+    const token = this.sourceToken;
+    const generation = this.translator.translateGeneration();
     const cue: CaptionCue = {
       id: entry.id,
       startMs: 0,
@@ -1169,20 +1172,14 @@ export class VideoCaptionSession {
       language: this.loaded?.language,
     };
     void this.translator
-      .translateCue(cue, requestOptions, CAPTION_PLAYHEAD_PRIORITY)
+      .translateCue(cue, entry.options, CAPTION_PLAYHEAD_PRIORITY)
       .then((translation) => {
         if (!this.running || token !== this.sourceToken) return;
         if (this.translator.abortedSince(generation)) return;
-        if (!translation) {
-          if (
-            !this.liveTailTranslation &&
-            !this.liveCommitted.some((caption) => caption.translation.length > 0)
-          ) {
-            this.showNative('translate-failed');
-          }
-          return;
-        }
-        entry.translation = translation;
+        if (!this.liveCommitted.includes(entry) || entry.translation.length > 0) return;
+        // Never leave a silent hole in the roll-up. The original is a permanent
+        // fallback for failure, cancellation, or stale-work eviction.
+        entry.translation = translation || entry.source;
         this.repaintLive(this.playheadMs());
       });
   }
@@ -1245,20 +1242,15 @@ export class VideoCaptionSession {
     void this.translator
       .translateCue(cue, requestOptions, CAPTION_PLAYHEAD_PRIORITY)
       .then((translation) => {
-        if (!this.running || token !== this.sourceToken) return;
-        if (!this.liveCaptionVisible || this.liveTailJob !== job) return;
+        if (!this.running || token !== this.sourceToken || this.liveTailJob !== job) return;
         this.liveTailJob = null;
-        if (this.translator.abortedSince(generation)) return;
+        if (this.translator.abortedSince(generation) || !this.liveCaptionVisible) return;
         if (translation) {
-          const pending = this.liveCommitted.find(
-            (entry) => entry.translation.length === 0 && entry.source === job.text,
-          );
-          if (pending) pending.translation = translation;
-          else if (this.liveStream.tail() === job.text) {
+          if (this.liveStream.tail() === job.text) {
             this.liveTailTranslation = { text: job.text, translation };
             this.liveTailEverTranslated = true;
+            this.repaintLive(this.playheadMs());
           }
-          this.repaintLive(this.playheadMs());
         } else if (!this.hold && !this.liveTailTranslation) {
           this.showNative('translate-failed');
         }
@@ -1269,8 +1261,11 @@ export class VideoCaptionSession {
   private cancelLiveTailJobIfUnused(): void {
     const job = this.liveTailJob;
     if (!job) return;
+    const jobKey = this.translator.cacheKey(job.text, job.options);
     const needed = this.liveCommitted.some(
-      (entry) => entry.translation.length === 0 && entry.source === job.text,
+      (entry) =>
+        entry.translation.length === 0 &&
+        this.translator.cacheKey(entry.source, entry.options) === jobKey,
     );
     if (!needed) this.cancelLiveTailJob();
   }
@@ -1292,13 +1287,48 @@ export class VideoCaptionSession {
     return this.liveCommitted.at(-1)?.source ?? '';
   }
 
+  /** Evict the oldest pending work to original text before it can form a stale backlog. */
+  private boundLiveCommittedPending(): void {
+    const pending = this.liveCommitted.filter((entry) => entry.translation.length === 0);
+    const excess = pending.length - LIVE_COMMITTED_MAX_PENDING;
+    if (excess <= 0) return;
+    for (const entry of pending.slice(0, excess)) {
+      entry.translation = entry.source;
+      this.cancelLiveCommittedJobIfUnused(entry);
+    }
+  }
+
+  private cancelLiveCommittedJobIfUnused(entry: LiveCommittedCaption): void {
+    const key = this.translator.cacheKey(entry.source, entry.options);
+    const neededByCommitted = this.liveCommitted.some(
+      (other) =>
+        other !== entry &&
+        other.translation.length === 0 &&
+        this.translator.cacheKey(other.source, other.options) === key,
+    );
+    const tail = this.liveTailJob;
+    const neededByTail =
+      tail !== null &&
+      this.liveCaptionVisible &&
+      this.liveStream.tail() === tail.text &&
+      this.translator.cacheKey(tail.text, tail.options) === key;
+    if (!neededByCommitted && !neededByTail)
+      this.translator.cancelText(entry.source, entry.options);
+  }
+
   private trimLiveCommitted(): void {
-    const keep = 12;
-    if (this.liveCommitted.length <= keep) return;
-    this.liveCommitted.splice(0, this.liveCommitted.length - keep);
+    if (this.liveCommitted.length <= LIVE_COMMITTED_HISTORY) return;
+    const removed = this.liveCommitted.splice(
+      0,
+      this.liveCommitted.length - LIVE_COMMITTED_HISTORY,
+    );
+    for (const entry of removed) {
+      if (entry.translation.length === 0) this.cancelLiveCommittedJobIfUnused(entry);
+    }
   }
 
   private resetLiveCaptions(): void {
+    this.clearHoldTimer();
     this.clearLiveTailTimer();
     this.cancelLiveTailJob();
     this.liveStream.reset();
@@ -1558,18 +1588,15 @@ export class VideoCaptionSession {
       skip.add(cue.id);
       void this.translator.translateCue({ ...cue, text: original }, options, CAPTION_LIVE_PRIORITY);
     }
-    const prefetchCues = cues.map((cue) => {
-      const original = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
-      return original.length > 0 && original !== cue.text ? { ...cue, text: original } : cue;
-    });
-    this.translator.prefetch(
-      prefetchCues,
-      timeMs,
-      options,
-      this.prefs.tier,
-      video.playbackRate || 1,
-      skip,
-    );
+    const playbackRate = video.playbackRate || 1;
+    const windowMs = captionPrefetchWindowMs(this.prefs.tier, playbackRate);
+    const prefetchCues = cuesInWindow(cues, timeMs, timeMs + windowMs)
+      .slice(0, CAPTION_PREFETCH_MAX_CUES)
+      .map((cue) => {
+        const original = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
+        return original.length > 0 && original !== cue.text ? { ...cue, text: original } : cue;
+      });
+    this.translator.prefetch(prefetchCues, timeMs, options, this.prefs.tier, playbackRate, skip);
   }
 
   private prefetchFromPlayhead(): void {
@@ -1640,6 +1667,7 @@ export class VideoCaptionSession {
   ): void {
     if (!this.running) return;
     const token = this.sourceToken;
+    const liveRevision = this.liveTailRevision;
     const sameHistory =
       (this.hold?.history ?? []).length === history.length &&
       (this.hold?.history ?? []).every((line, index) => line === history[index]);
@@ -1656,6 +1684,7 @@ export class VideoCaptionSession {
     const apply = (): void => {
       if (!this.running || token !== this.sourceToken) return;
       this.holdTimer = null;
+      if (live && (!this.liveCaptionVisible || liveRevision !== this.liveTailRevision)) return;
       this.hold = {
         cueId,
         original,
@@ -1690,11 +1719,15 @@ export class VideoCaptionSession {
     this.holdTimer = this.doc.defaultView?.setTimeout(apply, wait) ?? null;
   }
 
-  private clearHold(): void {
+  private clearHoldTimer(): void {
     if (this.holdTimer !== null) {
       this.doc.defaultView?.clearTimeout(this.holdTimer);
       this.holdTimer = null;
     }
+  }
+
+  private clearHold(): void {
+    this.clearHoldTimer();
     this.hold = null;
   }
 
