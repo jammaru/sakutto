@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -352,6 +354,103 @@ describe('live caption stream', () => {
     expect(next.tail).toBe('A red');
   });
 
+  it('continues the mutable tail when a rolling window removes its committed prefix', () => {
+    const stream = new LiveCaptionStream();
+    const first = stream.update('The station opens at dawn. A red', 0);
+    const committedSource = first.committed[0];
+    expect(committedSource?.text).toBe('The station opens at dawn.');
+
+    const next = stream.update('A red train waits', 500);
+    expect(next.committed).toEqual([]);
+    expect(next.tail).toBe('A red train waits');
+    expect(next.lineChanged).toBe(false);
+    expect(next.lineKey).toBe(first.lineKey);
+    expect(committedSource?.text).toBe('The station opens at dawn.');
+
+    const finished = stream.update('A red train waits.', 1_000);
+    expect(finished.committed.map((segment) => segment.text)).toEqual(['A red train waits.']);
+  });
+
+  it('remaps committed text as a rolling window shrinks and extends', () => {
+    const stream = new LiveCaptionStream();
+    stream.update('The station opens at dawn. A red train', 0);
+
+    const shrunk = stream.update('A red', 100);
+    expect(shrunk.committed).toEqual([]);
+    expect(shrunk.tail).toBe('A red');
+    expect(stream.update('A red train waits', 200).tail).toBe('A red train waits');
+
+    const retained = new LiveCaptionStream();
+    retained.update('The station opens at dawn. A red', 0);
+    const shifted = retained.update('at dawn. A red train', 300);
+    expect(shifted.committed).toEqual([]);
+    expect(shifted.tail).toBe('A red train');
+    expect(
+      retained.update('at dawn. A red train.', 400).committed.map((segment) => segment.text),
+    ).toEqual(['A red train.']);
+
+    const prefixShrink = new LiveCaptionStream();
+    prefixShrink.update('The station opens at dawn. A red', 0);
+    expect(prefixShrink.update('The station', 100).committed).toEqual([]);
+    const regrown = prefixShrink.update('The station opens at dawn. A red train', 200);
+    expect(regrown.committed).toEqual([]);
+    expect(regrown.tail).toBe('A red train');
+  });
+
+  it('restores the pre-discard tail after repeated empty-DOM discards', () => {
+    const stream = new LiveCaptionStream();
+    stream.update('The station opens', 0);
+    stream.discardTail(100);
+    expect(stream.tail()).toBe('');
+    stream.discardTail(150);
+    expect(stream.tail()).toBe('');
+
+    const restored = stream.update('The station opens', 200);
+    expect(restored.committed).toEqual([]);
+    expect(restored.tail).toBe('The station opens');
+    expect(restored.tailChanged).toBe(true);
+    expect(restored.lineChanged).toBe(false);
+
+    const extended = new LiveCaptionStream();
+    extended.update('The station opens', 0);
+    extended.discardTail(100);
+    extended.discardTail(150);
+    expect(extended.update('The station opens at dawn', 200).tail).toBe(
+      'The station opens at dawn',
+    );
+  });
+
+  it('does not revive a discarded tail on a different line or duplicate committed text', () => {
+    const rolling = new LiveCaptionStream();
+    rolling.update('The station opens at dawn. A red', 0);
+    rolling.discardTail(100);
+    rolling.discardTail(150);
+    const restored = rolling.update('A red train waits', 200);
+    expect(restored.committed).toEqual([]);
+    expect(restored.tail).toBe('A red train waits');
+    expect(restored.tailChanged).toBe(true);
+
+    const replaced = new LiveCaptionStream();
+    replaced.update('The station opens at dawn. A red', 0);
+    replaced.discardTail(100);
+    replaced.discardTail(150);
+    const replacement = replaced.update('Tickets are sold at the window', 200);
+    expect(replacement.committed).toEqual([]);
+    expect(replacement.tail).toBe('Tickets are sold at the window');
+    expect(replacement.lineChanged).toBe(true);
+  });
+
+  it('keeps a punctuation run with its preceding segment', () => {
+    const stream = new LiveCaptionStream();
+    const update = stream.update('Wait... Next', 0);
+    expect(update.committed.map((segment) => segment.text)).toEqual(['Wait...']);
+    expect(update.tail).toBe('Next');
+
+    const mixed = new LiveCaptionStream().update('Really?! Next', 0);
+    expect(mixed.committed.map((segment) => segment.text)).toEqual(['Really?!']);
+    expect(mixed.tail).toBe('Next');
+  });
+
   it('commits the previous line when the player replaces it', () => {
     const stream = new LiveCaptionStream();
     stream.update('The station opens', 0);
@@ -359,6 +458,13 @@ describe('live caption stream', () => {
     expect(update.lineChanged).toBe(true);
     expect(update.committed.map((segment) => segment.text)).toEqual(['The station opens']);
     expect(update.tail).toBe('A red train waits');
+
+    const suffixOverlap = new LiveCaptionStream();
+    suffixOverlap.update('Hello world', 0);
+    const replacement = suffixOverlap.update('dog', 100);
+    expect(replacement.lineChanged).toBe(true);
+    expect(replacement.committed.map((segment) => segment.text)).toEqual(['Hello world']);
+    expect(replacement.tail).toBe('dog');
   });
 
   it('closes an unpunctuated tail after a short ASR gap without re-emitting it', () => {

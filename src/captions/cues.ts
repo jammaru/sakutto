@@ -609,6 +609,7 @@ export interface LiveCaptionStreamUpdate {
 export class LiveCaptionStream {
   private visible = '';
   private committedChars = 0;
+  private discardedCommittedChars: number | null = null;
   private line = '';
   private lineVersion = 0;
   private tailStartedAt = 0;
@@ -641,12 +642,28 @@ export class LiveCaptionStream {
       }
     } else if (sameVisibleLine(previous, next)) {
       this.visible = next;
+      if (this.discardedCommittedChars !== null) {
+        this.committedChars = Math.min(this.discardedCommittedChars, next.length);
+        this.discardedCommittedChars = null;
+        this.tailChangedAt = now;
+      }
       if (next.length > previous.length) this.tailChangedAt = now;
-      if (this.committedChars > next.length) this.committedChars = next.length;
     } else {
-      this.commitRemaining(now, committed);
-      lineChanged = true;
-      this.startLine(next, now);
+      const rollingCommittedChars = rollingWindowCommittedChars(
+        previous,
+        next,
+        this.discardedCommittedChars ?? this.committedChars,
+      );
+      if (rollingCommittedChars !== null) {
+        this.visible = next;
+        this.committedChars = rollingCommittedChars;
+        this.discardedCommittedChars = null;
+        this.tailChangedAt = now;
+      } else {
+        this.commitRemaining(now, committed);
+        lineChanged = true;
+        this.startLine(next, now);
+      }
     }
 
     this.extractSegments(now, committed);
@@ -669,10 +686,11 @@ export class LiveCaptionStream {
 
   /**
    * Drop the mutable tail without closing it as a segment. Used when the player
-   * removes the caption: late tail work must not paint, but the next line should
-   * still continue from the last committed text instead of duplicating it.
+   * removes the caption: late tail work must not paint, but an identical or growing
+   * same-line reappearance restores it. Repeated empty-DOM discards are idempotent.
    */
   discardTail(now: number): void {
+    this.discardedCommittedChars ??= this.committedChars;
     this.committedChars = this.visible.length;
     this.tailStartedAt = now;
     this.tailChangedAt = now;
@@ -686,6 +704,7 @@ export class LiveCaptionStream {
     if (this.line.length > 0) this.lineVersion += 1;
     this.visible = '';
     this.committedChars = 0;
+    this.discardedCommittedChars = null;
     this.line = '';
     this.tailStartedAt = 0;
     this.tailChangedAt = 0;
@@ -696,6 +715,7 @@ export class LiveCaptionStream {
     this.lineVersion += 1;
     this.visible = next;
     this.committedChars = 0;
+    this.discardedCommittedChars = null;
     this.tailStartedAt = now;
     this.tailChangedAt = now;
   }
@@ -752,7 +772,9 @@ export function liveSegmentCut(raw: string, elapsedMs: number): number {
     if (char === '.' && /\d/u.test(text[index - 1] ?? '') && /\d/u.test(text[index + 1] ?? '')) {
       continue;
     }
-    return leading + index + 1;
+    let end = index + 1;
+    while (end < text.length && /[.!?。！？…]/u.test(text[end] ?? '')) end += 1;
+    return leading + end;
   }
 
   if (text.length >= LIVE_SEGMENT_WEAK_BREAK_MIN_CHARS) {
@@ -783,6 +805,26 @@ export function liveSegmentCut(raw: string, elapsedMs: number): number {
   }
   while (cut > 0 && /\s/u.test(text[cut - 1] ?? '')) cut -= 1;
   return cut > 0 ? leading + cut : -1;
+}
+
+/**
+ * Return the committed offset in a rolling window after its prefix is removed.
+ * The longest exact overlap keeps retained committed text frozen and the tail mutable.
+ */
+function rollingWindowCommittedChars(
+  previous: string,
+  next: string,
+  committedChars: number,
+): number | null {
+  const committedEnd = Math.min(committedChars, previous.length);
+  if (committedEnd === 0) return null;
+  for (let removed = 1; removed < previous.length && removed <= committedEnd; removed += 1) {
+    const overlap = Math.min(previous.length - removed, next.length);
+    if (previous.slice(removed, removed + overlap) === next.slice(0, overlap)) {
+      return Math.max(0, committedEnd - removed);
+    }
+  }
+  return null;
 }
 
 function sameVisibleLine(previous: string, next: string): boolean {
