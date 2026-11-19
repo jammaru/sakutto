@@ -313,6 +313,7 @@ Sakutto にご貢献いただいた皆さん、ありがとうございます。
 <a href="https://github.com/sabopura"><img src="https://github.com/sabopura.png?size=120" width="60" height="60" alt="sabopura" title="sabopura"></a>
 <a href="https://github.com/Seyamalam"><img src="https://github.com/Seyamalam.png?size=120" width="60" height="60" alt="Seyamalam" title="Seyamalam"></a>
 <a href="https://github.com/TKY-27"><img src="https://github.com/TKY-27.png?size=120" width="60" height="60" alt="TKY-27" title="TKY-27"></a>
+<a href="https://github.com/4ltena"><img src="https://github.com/4ltena.png?size=120" width="60" height="60" alt="4ltena" title="4ltena"></a>
 
 ## スポンサー
 
