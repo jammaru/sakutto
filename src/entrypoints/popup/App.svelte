@@ -68,6 +68,12 @@
     syncAllSitesContentScripts,
   } from '@/dom/all-sites';
   import {
+    readAllSitesPromoOpenCount,
+    resolveAllSitesPromoPlacement,
+    saveAllSitesPromoOpenCount,
+    type AllSitesPromoPlacement,
+  } from '@/dom/all-sites-promo';
+  import {
     clearMailEnableIntent,
     hasMailOriginAccess,
     isMailHost,
@@ -127,6 +133,8 @@
   let mailPermissionError = $state(false);
   let mailPermissionBusy = $state(false);
   let allSitesGranted = $state<boolean | null>(null);
+  /** Popup opens recorded while all-sites access was off, including this one. */
+  let allSitesPromoOpenCount = $state<number | null>(null);
   let pdfUrl = $state('');
   let pdfBusy = $state(false);
   let pdfFailed = $state(false);
@@ -142,6 +150,19 @@
   let shortcuts = $state<ShortcutQueryResult | null>(null);
   let shortcutError = $state(false);
   let showShortcutChange = $derived(!showShortcutUnsetNotice(shortcuts?.snapshot ?? null));
+  /**
+   * Decided before the hint first renders: the count and the live grant are read together,
+   * so a repeat open paints the block in its lower slot directly instead of moving it after
+   * mount. The first open keeps the block above the mail and caption sections.
+   */
+  let allSitesPromoPlacement = $derived.by((): AllSitesPromoPlacement => {
+    if (allSitesGranted !== false || allSitesPromoOpenCount === null) return 'hidden';
+    return resolveAllSitesPromoPlacement({
+      openCount: allSitesPromoOpenCount,
+      allSitesGranted: false,
+      showHint: host !== null && pdfUrl.length === 0,
+    });
+  });
 
   /**
    * The key each browser command currently owns. Before the first answer, manifest
@@ -246,6 +267,23 @@
     } catch {
       settingsError = 'load';
     }
+  }
+
+  /**
+   * Reads the live grant and the stored open count in parallel with the rest of the popup
+   * bootstrap. The count advances once per mount only while all-sites stays off, so a later
+   * grant never rewrites what "first open" meant.
+   */
+  async function prepareAllSitesPromo(): Promise<void> {
+    const [granted, storedOpenCount] = await Promise.all([
+      hasAllSitesAccess(),
+      readAllSitesPromoOpenCount(),
+    ]);
+    allSitesGranted = granted;
+    if (granted) return;
+    const openCount = storedOpenCount + 1;
+    allSitesPromoOpenCount = openCount;
+    void saveAllSitesPromoOpenCount(openCount);
   }
 
   async function refreshPage() {
@@ -683,9 +721,7 @@
     void refreshEngineOnOpen();
     void refreshFolderGrantPending();
     void refreshSettings();
-    void hasAllSitesAccess().then((granted) => {
-      allSitesGranted = granted;
-    });
+    void prepareAllSitesPromo();
     void refreshPage();
     void requestEngineWarm();
     void requestQualitySample().then((sample) => {
@@ -724,6 +760,20 @@
 </script>
 
 <main class="popup">
+  {#snippet allSitesHint()}
+    <section class="panel all-sites" data-sakutto="all-sites-hint">
+      <p class="muted">{t('allSitesPopupHint')}</p>
+      <button
+        class="link-button"
+        type="button"
+        data-sakutto="all-sites-enable"
+        onclick={() => void enableAllSites()}
+      >
+        {t('allSitesPopupEnable')}
+      </button>
+    </section>
+  {/snippet}
+
   <header class="brand">
     <img src="/icon/32.png" alt="" width="28" height="28" />
     <div>
@@ -900,18 +950,8 @@
     </p>
   {/if}
 
-  {#if allSitesGranted === false && host !== null && pdfUrl.length === 0}
-    <section class="panel all-sites" data-sakutto="all-sites-hint">
-      <p class="muted">{t('allSitesPopupHint')}</p>
-      <button
-        class="link-button"
-        type="button"
-        data-sakutto="all-sites-enable"
-        onclick={() => void enableAllSites()}
-      >
-        {t('allSitesPopupEnable')}
-      </button>
-    </section>
+  {#if allSitesPromoPlacement === 'top'}
+    {@render allSitesHint()}
   {/if}
 
   {#if settings && needsMailAccess}
@@ -949,6 +989,10 @@
         {t('videoCaptionsPermissionDenied')}
       </p>
     {/if}
+  {/if}
+
+  {#if allSitesPromoPlacement === 'bottom'}
+    {@render allSitesHint()}
   {/if}
 
   {#if settingsError}
