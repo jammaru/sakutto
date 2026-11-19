@@ -40,7 +40,7 @@ A suggested key is not a guaranteed assignment:
 has not assigned that command. Adding a key in `chrome://extensions/shortcuts` is the only Chromium
 fix; changing the manifest cannot repair an existing profile.
 
-## Runtime content-script injection: no in-page fallback
+## Runtime content-script injection and the gated in-page fallback
 
 The release manifest intentionally has no `host_permissions`. Content scripts use
 `registration: 'runtime'`. By default they are injected only after the user invokes Sakutto
@@ -68,14 +68,25 @@ its next explicit enable.
 On a host whose site rule is `never`, this passive injection shows no selection button; an explicit popup,
 context-menu, or assigned-command path keeps today's behavior.
 
-The grant changes only _when the bundle is already on the page_, never _how commands run_. There
-is deliberately **no in-page keyboard fallback** and no new host permission beyond those two
-optional origins. Page, bilingual, selection, and compose commands run only through
-`browser.commands.onCommand` in the background, with or without the grant. The background uses
-the existing content-script bridge after activation, including the shared-folder grant gate.
-Content scripts still handle local UI keys such as Escape and the compose panel's Ctrl+Enter, and
-the all-sites grant makes those in-page behaviors available from page load, but they never
-translate in response to Alt+A/B/S/T keydown events.
+With the all-sites grant on, the passive injection also restores the in-page defaults for commands
+the browser has never assigned. A command whose live `commands.getAll()` binding is empty **and**
+whose persisted `shortcutAssigned` flag is not `true` listens for the per-OS key on http/https
+pages from page load, without waiting for a popup, context menu, or command gesture. The
+background includes the grant state with the shortcut query because a content script cannot call
+`permissions.contains` itself. The listeners follow the live grant and re-read the bindings on
+focus or visibility changes, so turning the grant on or off takes effect without a reload.
+
+A command the browser has assigned always belongs exclusively to `browser.commands.onCommand`;
+the page listener is empty for it, so one physical press cannot run the command twice. A command
+whose key the reader cleared after it was assigned has `assigned === true` and stays empty too.
+
+Without the all-sites grant, behavior is unchanged from #118: page, bilingual, selection, and
+compose commands run only through `browser.commands.onCommand` in the background after an
+explicit activation. No page Alt+A/B/S/T translation listeners are installed, and there is no new
+host permission beyond those two optional origins. The background still uses the existing
+content-script bridge after activation, including the shared-folder grant gate.
+Content scripts continue to handle local UI keys such as Escape and the compose panel's
+Ctrl+Enter regardless of the grant.
 
 `translate-pdf` is likewise background-only. Chrome's built-in PDF viewer has no page into which a
 content script can be injected, so an assigned PDF command calls `runGatedPdfCommand` directly.

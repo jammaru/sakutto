@@ -45,7 +45,7 @@ import { broadcastModelProgress, shouldWarmDownloadedModel } from '@/background/
 import { measureQuality } from '@/background/quality';
 import { TranslationBroker } from '@/background/translation-broker';
 import { settleCaptionEnableIntent } from '@/captions/sites';
-import { syncAllSitesContentScripts } from '@/dom/all-sites';
+import { hasAllSitesAccess, syncAllSitesContentScripts } from '@/dom/all-sites';
 import { settleMailEnableIntent, syncMailContentScripts } from '@/dom/mail-sites';
 import { grantOriginsFor } from '@/dom/sites';
 import { getModel, type ModelId } from '@/engine/model/catalog';
@@ -541,7 +541,10 @@ export default defineBackground(() => {
     if (isShortcutQuery(message)) {
       void browser.commands
         .getAll()
-        .then((commands) => resolveShortcutQuery(commands))
+        .then(async (commands) => ({
+          ...(await resolveShortcutQuery(commands)),
+          allSitesAccess: await hasAllSitesAccess(),
+        }))
         .then(sendResponse, () => sendResponse(null));
       return true;
     }

@@ -138,6 +138,11 @@ export interface ShortcutAssigned {
 export interface ShortcutQueryResult {
   snapshot: ShortcutSnapshot;
   assigned: ShortcutAssigned;
+  /**
+   * The broad optional-origin grant. Content scripts cannot call `permissions.contains`
+   * themselves, so the background includes it with the bindings they already query.
+   */
+  allSitesAccess?: boolean;
 }
 
 export interface ModelDownloadRequest {
@@ -320,7 +325,10 @@ export function isShortcutAssigned(value: unknown): value is ShortcutAssigned {
 
 export function isShortcutQueryResult(value: unknown): value is ShortcutQueryResult {
   return (
-    isRecord(value) && isShortcutSnapshot(value.snapshot) && isShortcutAssigned(value.assigned)
+    isRecord(value) &&
+    isShortcutSnapshot(value.snapshot) &&
+    isShortcutAssigned(value.assigned) &&
+    (value.allSitesAccess === undefined || typeof value.allSitesAccess === 'boolean')
   );
 }
 

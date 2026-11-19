@@ -12,6 +12,7 @@ import {
   defaultShortcuts,
   defaultShortcutsFor,
   displayShortcut,
+  inPageFallbackShortcut,
   isTranslatePageShortcutUnset,
   markCommandAssigned,
   matchesShortcut,
@@ -22,6 +23,7 @@ import {
   shortcutAssignedRecord,
   showShortcutUnsetNotice,
   suggestedKeyFor,
+  usesInPageFallback,
   type ShortcutAssigned,
 } from '@/shared/shortcuts';
 import type { ShortcutSnapshot } from '@/shared/messages';
@@ -283,6 +285,76 @@ describe('shortcut assignment and current bindings', () => {
     expect(ever['translate-page']).toBe(false);
     expect(boundShortcut(conflict, 'translate-page', { mac: true })).toBe('');
     expect(boundShortcut(conflict, 'translate-compose')).toBe('');
+  });
+
+  it('uses the in-page default only for an empty never-assigned command', () => {
+    const unset = snapshot({
+      'translate-page': '',
+      'toggle-bilingual': '',
+      'translate-selection': '',
+      'translate-compose': '',
+    });
+    const missing = readShortcutSnapshot([]);
+    for (const command of SHORTCUT_COMMANDS) {
+      expect(inPageFallbackShortcut(null, command), command).toBe('');
+      expect(inPageFallbackShortcut(missing, command, { assigned: false }), command).toBe('');
+      expect(inPageFallbackShortcut(unset, command, { assigned: false }), command).toBe(
+        DEFAULT_SHORTCUTS[command],
+      );
+      expect(inPageFallbackShortcut(unset, command, { assigned: true }), command).toBe('');
+      expect(inPageFallbackShortcut(snapshot(), command, { assigned: true }), command).toBe('');
+      expect(
+        inPageFallbackShortcut(snapshot({ [command]: 'Alt+Q' }), command, { assigned: true }),
+        command,
+      ).toBe('');
+      expect(inPageFallbackShortcut(unset, command, { assigned: false, enabled: false })).toBe('');
+    }
+    expect(usesInPageFallback(unset, 'translate-page', false)).toBe(true);
+    expect(usesInPageFallback(unset, 'translate-page', true)).toBe(false);
+    expect(usesInPageFallback(missing, 'translate-page', false)).toBe(false);
+    expect(usesInPageFallback(null, 'translate-page', false)).toBe(false);
+  });
+
+  it('keeps the Mac Option default when Chrome never assigned the suggested key', () => {
+    const conflict = snapshot({
+      'translate-page': '',
+      'toggle-bilingual': '',
+      'translate-selection': '',
+      'translate-compose': '',
+    });
+    const ever = rememberShortcutAssignments({}, conflict);
+    expect(ever['translate-page']).toBe(false);
+    const binding = inPageFallbackShortcut(conflict, 'translate-page', {
+      assigned: ever['translate-page'],
+      mac: true,
+    });
+    expect(binding).toBe('Alt+A');
+    expect(
+      matchesShortcut(key({ altKey: true, code: 'KeyA', key: 'å' }), binding, { mac: true }),
+    ).toBe(true);
+    expect(displayShortcut(binding, { mac: true })).toBe('Option+A');
+  });
+
+  it('does not revive a command the user cleared in Chrome', () => {
+    const installed = rememberShortcutAssignments({}, snapshot());
+    const cleared = snapshot({ 'translate-page': '' });
+    const ever = rememberShortcutAssignments(installed, cleared);
+    expect(ever['translate-page']).toBe(true);
+    expect(inPageFallbackShortcut(cleared, 'translate-page', { assigned: true })).toBe('');
+    expect(usesInPageFallback(cleared, 'translate-page', true)).toBe(false);
+    expect(
+      matchesShortcut(
+        alt('KeyA', 'a'),
+        inPageFallbackShortcut(cleared, 'translate-page', { assigned: true }),
+      ),
+    ).toBe(false);
+  });
+
+  it('uses only the Chrome-rebound key, not the old default', () => {
+    const rebound = snapshot({ 'translate-page': 'Alt+Q' });
+    const binding = inPageFallbackShortcut(rebound, 'translate-page', { assigned: false });
+    expect(binding).toBe('');
+    expect(usesInPageFallback(rebound, 'translate-page', false)).toBe(false);
   });
 
   it('stops handling a command the user cleared in Chrome', () => {

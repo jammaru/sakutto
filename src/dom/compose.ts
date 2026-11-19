@@ -1282,6 +1282,9 @@ export interface ComposeControllerOptions {
   engine: PageEngine;
   labels: ComposeLabels;
   preferences: ComposePreferences;
+  composeKey?: (event: KeyboardEvent) => boolean;
+  /** Routes an unassigned in-page key through the same dispatcher as commands.onCommand. */
+  onComposeCommand?: (source?: EventTarget | null) => void;
   previewMs?: number;
   onWarm?: () => void;
   onSetup?: () => void;
@@ -1299,6 +1302,8 @@ export interface ComposeControllerOptions {
 export class ComposeController {
   private readonly engine: PageEngine;
   private readonly overlay: ComposeOverlay;
+  private readonly composeKey: ((event: KeyboardEvent) => boolean) | undefined;
+  private readonly onComposeCommand: ((source?: EventTarget | null) => void) | undefined;
   private readonly previewMs: number;
   private readonly onWarm: (() => void) | undefined;
   private readonly onSetup: (() => void) | undefined;
@@ -1348,6 +1353,8 @@ export class ComposeController {
     this.engine = options.engine;
     this.labels = options.labels;
     this.prefs = options.preferences;
+    this.composeKey = options.composeKey;
+    this.onComposeCommand = options.onComposeCommand;
     this.previewMs = options.previewMs ?? COMPOSE_PREVIEW_MS;
     this.onWarm = options.onWarm;
     this.onSetup = options.onSetup;
@@ -1632,6 +1639,15 @@ export class ComposeController {
         return;
       }
       this.dismiss();
+      return;
+    }
+    if (this.composeKey?.(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      if (this.replacing) return;
+      if (this.onComposeCommand) this.onComposeCommand(event.target);
+      else this.handleShortcut(event.target);
       return;
     }
     if (this.panelOpen && isTranslateShortcut(event)) {

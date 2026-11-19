@@ -2081,6 +2081,88 @@ describe('page translation corrections', () => {
     expect(calls).toBe(0);
   });
 
+  it('runs the page fallback callbacks the content script enables under all-sites', async () => {
+    document.body.innerHTML = '<p>Hello world</p>';
+    const commands: string[] = [];
+    const session = new PageSession(document, {
+      engine: engineOf(async function* (segments) {
+        for (const segment of segments) {
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' };
+        }
+      }),
+      labels,
+      preferences: preferences(),
+      scheduleFrame: (callback) => callback(),
+      pageKey: (event) => event.altKey && event.code === 'KeyA',
+      bilingualKey: (event) => event.altKey && event.code === 'KeyB',
+      onPageCommand: (command) => commands.push(command),
+    });
+    sessions.push(session);
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'a',
+        code: 'KeyA',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'b',
+        code: 'KeyB',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(commands).toEqual(['toggle', 'bilingual']);
+  });
+
+  it('runs the selection callback only when there is a page selection', () => {
+    document.body.innerHTML = '<p id="lead">Selected phrase</p>';
+    const commands: string[] = [];
+    const session = new PageSession(document, {
+      engine: engineOf(async function* () {}),
+      labels,
+      preferences: preferences(),
+      scheduleFrame: (callback) => callback(),
+      selectionKey: (event) => event.altKey && event.code === 'KeyS',
+      onPageCommand: (command) => commands.push(command),
+    });
+    sessions.push(session);
+    document.getSelection()?.removeAllRanges();
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 's',
+        code: 'KeyS',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(commands).toEqual([]);
+
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing lead');
+    const range = document.createRange();
+    range.selectNodeContents(lead);
+    const selection = document.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 's',
+        code: 'KeyS',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(commands).toEqual(['selection']);
+  });
+
   it('ignores page-owned selection keydown commands', () => {
     document.body.innerHTML = '<p id="lead">Selected phrase</p>';
     const seen: string[] = [];

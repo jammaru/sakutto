@@ -537,6 +537,14 @@ describe('background wiring', () => {
       /void syncMailContentScripts\(\);\s*\n\s*void syncAllSitesContentScripts\(\);\s*\n\s*\}\);/,
     );
   });
+
+  it('reports the all-sites grant with the shortcut bindings a page reads', () => {
+    const source = readFileSync(new URL('../src/entrypoints/background.ts', import.meta.url), {
+      encoding: 'utf8',
+    });
+    expect(source).toContain('hasAllSitesAccess');
+    expect(source).toMatch(/allSitesAccess: await hasAllSitesAccess\(\),/);
+  });
 });
 
 describe('content wiring for the passive injection', () => {
@@ -556,6 +564,25 @@ describe('content wiring for the passive injection', () => {
     expect(source).toMatch(
       /if \(!isPageCommandRequest\(message\)\) return;\s*\n\s*\/\/ A command is the popup, a context menu, or an assigned browser command\.\s*\n\s*markExplicitPageActivation\(\);/,
     );
+  });
+
+  it('wires page-owned shortcut listeners only under the passive all-sites grant', () => {
+    const shortcuts = readFileSync(new URL('../src/shared/shortcuts.ts', import.meta.url), {
+      encoding: 'utf8',
+    });
+    // The page listener uses the strict gate: an assigned or user-cleared key stays off.
+    expect(shortcuts).toContain('usesInPageFallback');
+    expect(shortcuts).toContain('inPageFallbackShortcut');
+    expect(source).toContain('inPageFallbackShortcut');
+    expect(source).toContain('shortcutAssigned = state.assigned');
+    expect(source).toContain('allSitesAccess = state.allSitesAccess === true');
+    // Every page-owned command branch is guarded by the grant read from the background.
+    expect(source).toMatch(/pageKey: \(event\) =>\s*\n\s*allSitesAccess &&/);
+    expect(source).toMatch(/bilingualKey: \(event\) =>\s*\n\s*allSitesAccess &&/);
+    expect(source).toMatch(/selectionKey: \(event\) =>\s*\n\s*allSitesAccess &&/);
+    expect(source).toMatch(/composeKey: \(event\) =>\s*\n\s*allSitesAccess &&/);
+    expect(source).toContain("pageCommandBridge.deliver?.('compose', source)");
+    expect(source).toContain('onPageCommand: (command) => pageCommandBridge.deliver?.(command)');
   });
 
   it('offers an existing selection once on every injection path and never translates the page by it', () => {

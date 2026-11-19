@@ -240,6 +240,11 @@ export interface BoundShortcutOptions {
   readonly fallback?: string;
   readonly enabled?: boolean;
   readonly mac?: boolean | undefined;
+  /**
+   * Whether the browser has assigned a key to this command at least once. Only the in-page
+   * fallback reads it: `true` plus an empty snapshot is a user clear, not a fresh conflict.
+   */
+  readonly assigned?: boolean | undefined;
 }
 
 /**
@@ -256,6 +261,38 @@ export function boundShortcut(
   if (options.enabled === false) return '';
   if (!snapshot) return fallback;
   return snapshot[command] ?? '';
+}
+
+/**
+ * True when the page may listen for the per-OS default because `commands.getAll()` reported
+ * no key and that command was never assigned. A user-cleared command is empty too, but
+ * `assigned` is then true and this is false.
+ */
+export function usesInPageFallback(
+  snapshot: ShortcutSnapshot | null,
+  command: ShortcutCommand,
+  assigned?: boolean | undefined,
+): boolean {
+  if (!snapshot) return false;
+  // A missing command is not evidence of an empty assignment (getAll may have failed).
+  return snapshot[command] === '' && assigned !== true;
+}
+
+/**
+ * The only key a content script may handle itself. Before `getAll()` answers, and whenever
+ * the browser has a live binding, this is empty: `commands.onCommand` exclusively owns the
+ * key. This keeps one physical press from taking both the browser and in-page paths.
+ */
+export function inPageFallbackShortcut(
+  snapshot: ShortcutSnapshot | null,
+  command: ShortcutCommand,
+  options: BoundShortcutOptions = {},
+): string {
+  if (!usesInPageFallback(snapshot, command, options.assigned)) return '';
+  if (options.enabled === false) return '';
+  const binding = snapshot?.[command];
+  if (hasShortcutKey(binding)) return binding;
+  return options.fallback ?? defaultShortcutFor(command, { mac: options.mac });
 }
 
 /** True when Chromium explicitly reports the main page command as 未設定. */

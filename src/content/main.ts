@@ -49,7 +49,11 @@ import {
   boundShortcut,
   defaultShortcutEnabled,
   displayShortcut,
+  emptyShortcutAssigned,
+  inPageFallbackShortcut,
   isMacPlatform,
+  matchesShortcut,
+  type ShortcutAssigned,
   type ShortcutCommand,
   type ShortcutEnabled,
 } from '@/shared/shortcuts';
@@ -90,7 +94,11 @@ interface ContentBridgeGlobal {
 
 const bridge = globalThis as typeof globalThis & ContentBridgeGlobal;
 
-/** Browser bindings are read only to label compose UI; commands never originate on the page. */
+/**
+ * Browser bindings plus the broad-grant state. A page may listen only for an empty binding
+ * the browser never assigned, and only while the all-sites grant covers it; an assigned key
+ * belongs exclusively to `commands.onCommand` in the background.
+ */
 async function readShortcutState(): Promise<ShortcutQueryResult | null> {
   const response: unknown = await browser.runtime
     .sendMessage({ type: 'commands:shortcuts' })
@@ -110,6 +118,22 @@ function shortcutFor(
     enabled: enabled[command],
     mac: isMacPlatform(),
   });
+}
+
+function listensFor(
+  snapshot: ShortcutSnapshot | null,
+  assigned: ShortcutAssigned,
+  enabled: ShortcutEnabled,
+  command: ShortcutCommand,
+): (event: KeyboardEvent) => boolean {
+  return (event) => {
+    const shortcut = inPageFallbackShortcut(snapshot, command, {
+      enabled: enabled[command],
+      assigned: assigned[command],
+      mac: isMacPlatform(),
+    });
+    return shortcut.length > 0 && matchesShortcut(event, shortcut);
+  };
 }
 
 function composePreferencesFor(
@@ -345,8 +369,13 @@ export function contentMain(): void {
   claimContentExtensionInstance(document, instanceToken);
 
   const host = pageHost(location.href) ?? '';
-  // Browser bindings label compose UI only. All translation commands arrive from the background.
+  // Browser bindings label compose UI. Translation commands arrive from the background,
+  // except for a never-assigned command on a page the broad all-sites grant keeps covered.
   let shortcutSnapshot: ShortcutSnapshot | null = null;
+  let shortcutAssigned = emptyShortcutAssigned();
+  // The content world cannot call permissions.contains; the background reports this with
+  // the bindings. It stays false until that answer, so an assigned key is never doubled.
+  let allSitesAccess = false;
   let shortcutsEnabled = defaultShortcutEnabled();
   let lastCommand = '';
   let lastCommandAt = 0;
@@ -383,6 +412,8 @@ export function contentMain(): void {
     void readShortcutState().then((state) => {
       if (!state) return;
       shortcutSnapshot = state.snapshot;
+      shortcutAssigned = state.assigned;
+      allSitesAccess = state.allSitesAccess === true;
       compose?.setReplaceShortcut(
         displayShortcut(shortcutFor(shortcutSnapshot, shortcutsEnabled, 'translate-compose')),
       );
@@ -434,6 +465,12 @@ export function contentMain(): void {
     });
   };
 
+  const pageCommandBridge: {
+    deliver: ((command: PageCommandName, source?: EventTarget | null) => void) | null;
+  } = {
+    deliver: null,
+  };
+
   const sessionPromise = (async () => {
     const settings = await loadSettings();
     let liveSettings = settings;
@@ -468,6 +505,21 @@ export function contentMain(): void {
         liveSettings = { ...liveSettings, translationPopupWidth: width };
         void saveSettings({ translationPopupWidth: width });
       },
+      pageKey: (event) =>
+        allSitesAccess &&
+        listensFor(shortcutSnapshot, shortcutAssigned, shortcutsEnabled, 'translate-page')(event),
+      bilingualKey: (event) =>
+        allSitesAccess &&
+        listensFor(shortcutSnapshot, shortcutAssigned, shortcutsEnabled, 'toggle-bilingual')(event),
+      selectionKey: (event) =>
+        allSitesAccess &&
+        listensFor(
+          shortcutSnapshot,
+          shortcutAssigned,
+          shortcutsEnabled,
+          'translate-selection',
+        )(event),
+      onPageCommand: (command) => pageCommandBridge.deliver?.(command),
     });
     const readiness = composeReadiness(
       settings,
@@ -484,6 +536,15 @@ export function contentMain(): void {
         readiness,
         displayShortcut(shortcutFor(shortcutSnapshot, shortcutsEnabled, 'translate-compose')),
       ),
+      composeKey: (event) =>
+        allSitesAccess &&
+        listensFor(
+          shortcutSnapshot,
+          shortcutAssigned,
+          shortcutsEnabled,
+          'translate-compose',
+        )(event),
+      onComposeCommand: (source) => pageCommandBridge.deliver?.('compose', source),
       onWarm: () => {
         if (!__SAKUTTO_FAKE_ENGINE__) void requestEngineWarm();
       },
@@ -726,7 +787,11 @@ export function contentMain(): void {
     session.setFolderGrantUiActive(folderNeedsUserAction);
   };
 
-  const run = async (command: PageCommandName, selection?: PageSelectionSnapshot | null) => {
+  const run = async (
+    command: PageCommandName,
+    selection?: PageSelectionSnapshot | null,
+    source?: EventTarget | null,
+  ) => {
     const now = Date.now();
     // Compose re-entry is owned by the controller so a Chrome command that found no field
     // cannot swallow the page keydown (or a second command) that does.
@@ -745,7 +810,7 @@ export function contentMain(): void {
       void requestEngineTier(session, false, captions);
     }
     if (command === 'compose') {
-      if (shouldHandleComposeCommand(document)) compose?.handleShortcut();
+      if (shouldHandleComposeCommand(document)) compose?.handleShortcut(source);
       return session.state();
     }
     const armed = await armFolderCommand(command);
@@ -761,6 +826,11 @@ export function contentMain(): void {
     await session.handle(command);
     return session.state();
   };
+  pageCommandBridge.deliver = (command, source) => {
+    const selection = command === 'selection' ? capturePageSelection(document) : null;
+    void run(command, selection, source);
+  };
+
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.id !== browser.runtime.id) return;
     if (isFolderGrantCompleteMessage(message)) {
