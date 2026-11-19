@@ -106,6 +106,112 @@ describe('isBrokenTranslation', () => {
   });
 });
 
+// Real page translations between Japanese and English. None of these may trip the
+// collapsed-kernel detectors: a false positive would drop a correct WebGPU piece to a
+// CPU retry or the original text, which reads as a broken translation to the user.
+const REALISTIC_PAIRS: ReadonlyArray<{ source: string; output: string }> = [
+  {
+    source: 'The harbour lights were visible from the hill after sunset on a quiet evening.',
+    output: '静かな夕暮れのあと、丘からは港の灯りが見えた。',
+  },
+  {
+    source:
+      'The committee will review the submitted proposals next month and announce the results on the official website.',
+    output: '委員会は来月、提出された提案を審査し、結果を公式ウェブサイトで発表します。',
+  },
+  {
+    source: 'Please review the attached invoice and confirm the payment schedule by Friday.',
+    output: '添付の請求書をご確認のうえ、金曜日までにお支払いの日程をご確定ください。',
+  },
+  {
+    source: '今日の会議では、来年度の予算案について詳しい説明がありました。',
+    output: "At today's meeting, there was a detailed explanation of next year's budget proposal.",
+  },
+  {
+    source: '土地の起伏を表すデータは、等高線によって示されることになっている。',
+    output:
+      'The data that represents the rise and fall of the land is indicated by means of contour lines.',
+  },
+  {
+    source: '新型のセンサーは、従来品の半分の電力で同じ精度を達成したという。',
+    output:
+      'The new sensor is said to have achieved the same accuracy with half the power of the previous model.',
+  },
+  {
+    source: 'Same time, same place, same rules as last year.',
+    output: '同じ時間、同じ場所、昨年と同じ規則です。',
+  },
+  {
+    // A natural onomatopoeia repeat; the source repeat protects it even at 8 copies.
+    source: 'My heart went pound, pound, pound, pound before the results came in.',
+    output: 'ドキドキドキドキドキドキドキドキと、結果が出る前は胸が高鳴っていた。',
+  },
+  {
+    source: '万歳！万歳！万歳！万歳！',
+    output: 'Banzai! Banzai! Banzai! Banzai!',
+  },
+  {
+    source: '迅速かつ正確な翻訳が求められる場合、専門用語の一貫性が最も重要になる。',
+    output:
+      'When fast and accurate translation is required, consistency of technical terms becomes the most important factor.',
+  },
+  {
+    source: 'The train leaves at 7:40, arrives at 9:15, and returns at 18:20.',
+    output: '列車は7時40分に出発し、9時15分に到着し、18時20分に戻ります。',
+  },
+  {
+    source: '詳細については、下記のリンクから公式のドキュメントを参照してください。',
+    output: 'For details, please refer to the official documentation via the link below.',
+  },
+];
+
+describe('realistic translation pairs never look degenerate', () => {
+  it('does not flag any realistic Japanese/English pair as degenerate output', () => {
+    for (const { output } of REALISTIC_PAIRS) {
+      expect(isDegenerateOutput(output)).toBe(false);
+    }
+  });
+
+  it('does not break any realistic pair, with or without a spent token budget', () => {
+    for (const { source, output } of REALISTIC_PAIRS) {
+      expect(isBrokenTranslation(source, output, false)).toBe(false);
+      expect(isBrokenTranslation(source, output, true)).toBe(false);
+    }
+  });
+
+  it('does not send a realistic pair to the CPU retry from a WebGPU runtime', async () => {
+    const runtime = new FakeRuntime(
+      (prompt) => {
+        const source = promptSource(prompt);
+        const match = REALISTIC_PAIRS.find((sample) => sample.source === source);
+        if (match) return match.output;
+        return '訳:' + source;
+      },
+      1,
+      'webgpu',
+    );
+    const onDegenerateBlock = vi.fn();
+    const engine = new InBrowserEngine(runtime, {
+      onDegenerateBlock,
+      config: { maxSegmentTokens: 1 },
+    });
+    const segments: TranslateSegment[] = REALISTIC_PAIRS.map((sample, index) => ({
+      id: 's' + String(index),
+      text: sample.source,
+    }));
+
+    const chunks = await collectChunks(engine.translate(segments, options()));
+    const finals = chunks.filter((chunk) => chunk.final !== undefined);
+
+    expect(finals).toHaveLength(REALISTIC_PAIRS.length);
+    for (const [index, sample] of REALISTIC_PAIRS.entries()) {
+      expect(finals[index]?.final).toBe(sample.output);
+    }
+    expect(onDegenerateBlock).not.toHaveBeenCalled();
+    expect(chunks.some((chunk) => chunk.error === true)).toBe(false);
+  });
+});
+
 describe('InBrowserEngine repeated output', () => {
   it('streams immediately and replaces a collapsed token after the CPU retry', async () => {
     const gpu = new FakeRuntime(() => COLLAPSED, 1, 'webgpu');
