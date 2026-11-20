@@ -229,6 +229,10 @@ describe('two-line realtime captions', () => {
             request.context === 'The station opens at dawn.',
         ),
       ).toBe(true);
+      expect(
+        requests.filter((request) => request.text === 'The station opens at dawn.'),
+      ).toHaveLength(1);
+      expect(requests.filter((request) => request.text === 'A red train waits.')).toHaveLength(1);
     } finally {
       release();
       session.stop();

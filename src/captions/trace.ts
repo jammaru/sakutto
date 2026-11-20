@@ -1,6 +1,7 @@
 import type { Window as HappyDomWindow } from 'happy-dom';
 import { readYoutubeCaptionDom } from './youtube';
 import type { PageEngine } from '../dom/session';
+import { replayOriginalGeometry } from './replay-geometry';
 
 /** A full native-caption snapshot. Successive events commonly add one ASR word. */
 export interface CaptionTraceEvent {
@@ -28,6 +29,12 @@ export interface CaptionReplayFrame {
   translation: string;
   width: number;
   height: number;
+  originalLeft: number;
+  originalLineCount: number;
+  originalFirstVisibleLine: number;
+  originalVisibleText: string;
+  originalRollUp: boolean;
+  originalClippedChars: number;
 }
 
 export interface CaptionTranslationRequest {
@@ -36,6 +43,7 @@ export interface CaptionTranslationRequest {
   inputLength: number;
   completed: boolean;
   cancelled: boolean;
+  completedAtMs: number | null;
 }
 
 export interface CaptionReplayMetrics {
@@ -46,6 +54,16 @@ export interface CaptionReplayMetrics {
   blankTranslationFramesAfterFirst: number;
   widthChangeCount: number;
   heightChangeCount: number;
+  originalHorizontalShiftCount: number;
+  originalRollUpCount: number;
+  clippedOriginalCharCount: number;
+  maxClippedOriginalCharCount: number;
+  committedSentenceCount: number;
+  committedSentenceRewriteCount: number;
+  maxTranslationsPerCommittedSentence: number;
+  completedTranslationFrameCount: number;
+  translationOriginalMappingCount: number;
+  translationOriginalMismatchCount: number;
   translationDwellMs: number[];
   minTranslationDwellMs: number | null;
   medianTranslationDwellMs: number | null;
@@ -221,6 +239,7 @@ export async function replayCaptionTrace(
     const endMs = trace.endMs + (options.tailMs ?? 1_500);
     let eventIndex = 0;
     let source = '';
+    let previousOriginal: { text: string; firstVisibleLine: number } | null = null;
 
     for (let atMs = 0; atMs <= endMs; atMs += frameMs) {
       media.currentTime = atMs / 1_000;
@@ -244,17 +263,37 @@ export async function replayCaptionTrace(
         stubCaptionRect(currentHost);
       }
       const rect = currentHost?.getBoundingClientRect();
+      const original = currentHost?.getAttribute('data-sakutto-original') ?? '';
+      const originalGeometry = replayOriginalGeometry(original);
+      const continuingOriginal =
+        previousOriginal !== null &&
+        original.length > 0 &&
+        (original.startsWith(previousOriginal.text) || previousOriginal.text.startsWith(original));
+      const originalRollUp = Boolean(
+        continuingOriginal &&
+        previousOriginal &&
+        originalGeometry.firstVisibleLine > previousOriginal.firstVisibleLine,
+      );
       frames.push({
         atMs,
         active: source.trim().length > 0,
         visible: Boolean(currentHost && !currentHost.hidden),
         pending: currentHost?.hasAttribute('data-sakutto-pending') ?? false,
         source,
-        original: currentHost?.getAttribute('data-sakutto-original') ?? '',
+        original,
         translation: currentHost?.getAttribute('data-sakutto-caption') ?? '',
         width: rect?.width ?? 0,
         height: rect?.height ?? 0,
+        originalLeft: originalGeometry.left,
+        originalLineCount: originalGeometry.lineCount,
+        originalFirstVisibleLine: originalGeometry.firstVisibleLine,
+        originalVisibleText: originalGeometry.visibleText,
+        originalRollUp,
+        originalClippedChars: originalGeometry.clippedChars,
       });
+      previousOriginal = original
+        ? { text: original, firstVisibleLine: originalGeometry.firstVisibleLine }
+        : null;
     }
     session.stop();
     session = null;
@@ -292,6 +331,7 @@ function fakeTranslator(
           inputLength: segment.text.length,
           completed: false,
           cancelled: false,
+          completedAtMs: null,
         };
         requests.push(request);
         await new Promise<void>((resolve) => {
@@ -311,6 +351,7 @@ function fakeTranslator(
           }
           clock.setTimeout(() => {
             request.completed = true;
+            request.completedAtMs = clock.time;
             finish(false);
           }, latencyMs);
         });
@@ -479,13 +520,44 @@ export function replayMetrics(
   const dimensions = frames.filter((frame) => frame.active && frame.visible);
   let widthChangeCount = 0;
   let heightChangeCount = 0;
+  let originalHorizontalShiftCount = 0;
   for (let index = 1; index < dimensions.length; index += 1) {
     const previous = dimensions[index - 1];
     const current = dimensions[index];
     if (!previous || !current) continue;
     if (previous.width !== current.width) widthChangeCount += 1;
     if (previous.height !== current.height) heightChangeCount += 1;
+    if (
+      previous.original &&
+      current.original &&
+      previous.originalLeft !== current.originalLeft &&
+      !current.originalRollUp
+    ) {
+      originalHorizontalShiftCount += 1;
+    }
   }
+  const completedFrames = dimensions.filter(
+    (frame) => !frame.pending && frame.translation.trim().length > 0,
+  );
+  const committedTranslations = new Map<string, Set<string>>();
+  let translationOriginalMappingCount = 0;
+  for (const frame of completedFrames) {
+    const request = requests.find(
+      (candidate) =>
+        candidate.completed &&
+        (candidate.completedAtMs ?? Infinity) <= frame.atMs &&
+        isFakeTranslation(frame.translation, candidate.input) &&
+        frame.original.includes(candidate.input),
+    );
+    if (!request) continue;
+    translationOriginalMappingCount += 1;
+    for (const sentence of committedSourceSentences(request.input)) {
+      const translations = committedTranslations.get(sentence) ?? new Set<string>();
+      translations.add(frame.translation);
+      committedTranslations.set(sentence, translations);
+    }
+  }
+  const translationCounts = [...committedTranslations.values()].map((values) => values.size);
   return {
     frameCount: frames.length,
     activeFrameCount: active.length,
@@ -494,12 +566,50 @@ export function replayMetrics(
     blankTranslationFramesAfterFirst: blankAfterFirst,
     widthChangeCount,
     heightChangeCount,
+    originalHorizontalShiftCount,
+    originalRollUpCount: dimensions.filter((frame) => frame.originalRollUp).length,
+    clippedOriginalCharCount: dimensions.reduce(
+      (total, frame) => total + frame.originalClippedChars,
+      0,
+    ),
+    maxClippedOriginalCharCount: Math.max(
+      0,
+      ...dimensions.map((frame) => frame.originalClippedChars),
+    ),
+    committedSentenceCount: committedTranslations.size,
+    committedSentenceRewriteCount: translationCounts.reduce(
+      (total, count) => total + Math.max(0, count - 1),
+      0,
+    ),
+    maxTranslationsPerCommittedSentence: Math.max(0, ...translationCounts),
+    completedTranslationFrameCount: completedFrames.length,
+    translationOriginalMappingCount,
+    translationOriginalMismatchCount: completedFrames.length - translationOriginalMappingCount,
     translationDwellMs: dwells,
     minTranslationDwellMs: dwells.length ? Math.min(...dwells) : null,
     medianTranslationDwellMs: median(dwells),
     translationInputLengths: requests.map((request) => request.inputLength),
     cancellationCount: requests.filter((request) => request.cancelled).length,
   };
+}
+
+function isFakeTranslation(translation: string, input: string): boolean {
+  return translation === `訳[${input}]` || translation === `EN[${input}]`;
+}
+
+/** Sentence-final punctuation and the session's 96-character live commit threshold. */
+function committedSourceSentences(input: string): string[] {
+  const sentences: string[] = [];
+  let start = 0;
+  for (let index = 0; index < input.length; index += 1) {
+    if (!/[.!?。！？…]/u.test(input[index] ?? '')) continue;
+    const sentence = input.slice(start, index + 1).trim();
+    if (sentence) sentences.push(sentence);
+    start = index + 1;
+  }
+  const tail = input.slice(start).trim();
+  if (tail.length >= 96) sentences.push(tail);
+  return sentences;
 }
 
 function median(values: number[]): number | null {

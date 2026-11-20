@@ -38,7 +38,7 @@ function usage(): never {
   console.error(`Usage:
   node scripts/caption-replay.ts [--trace <json>] [--latencies 150,400,900] [--out <json>] [--metrics-only]
 
-With no --trace, both hand-written EN and JA fixtures are replayed. The JSON result contains
+With no --trace, all hand-written EN and JA fixtures are replayed. The JSON result contains
 metrics, translation requests, and the complete sampled frame timeline (unless --metrics-only).
 `);
   process.exit(2);
@@ -75,7 +75,7 @@ function args(argv: string[]): CliOptions {
     }
   }
   if (traces.length === 0) {
-    for (const name of ['en-asr.json', 'ja-asr.json']) {
+    for (const name of ['en-asr.json', 'ja-asr.json', 'en-rollup.json', 'ja-rollup.json']) {
       traces.push(new URL(`../tests/fixtures/caption-traces/${name}`, import.meta.url).pathname);
     }
   }
@@ -98,6 +98,10 @@ async function main(): Promise<void> {
           `blank=${String(metrics.blankTranslationPercentage)}% ` +
           `blankAfterFirst=${String(metrics.blankTranslationFramesAfterFirst)} ` +
           `width/height=${String(metrics.widthChangeCount)}/${String(metrics.heightChangeCount)} ` +
+          `originalShift/rollUp=${String(metrics.originalHorizontalShiftCount)}/${String(metrics.originalRollUpCount)} ` +
+          `clippedChars=${String(metrics.clippedOriginalCharCount)} ` +
+          `sentenceRewrites=${String(metrics.committedSentenceRewriteCount)} ` +
+          `mapped=${String(metrics.translationOriginalMappingCount)}/${String(metrics.completedTranslationFrameCount)} ` +
           `dwell min/median=${String(metrics.minTranslationDwellMs)}/${String(metrics.medianTranslationDwellMs)}ms ` +
           `inputs=[${metrics.translationInputLengths.join(',')}] ` +
           `cancellations=${String(metrics.cancellationCount)}`,

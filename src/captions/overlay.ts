@@ -108,7 +108,7 @@ const STYLE = `
   background: rgb(8 8 8 / 82%);
 }
 :host([data-sakutto-live]) .wrap {
-  --sakutto-live-row: calc(var(--sakutto-caption-size, 22px) * 1.75);
+  --sakutto-live-row: calc(var(--sakutto-caption-size, 22px) * 2.9);
   grid-template-rows: repeat(2, var(--sakutto-live-row));
   width: 100%;
   height: calc(var(--sakutto-live-row) * 2 + 6px);
@@ -118,16 +118,22 @@ const STYLE = `
 }
 :host([data-sakutto-live]) .line {
   display: flex;
-  flex-direction: row;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   justify-content: flex-end;
+  align-self: end;
   width: 100%;
-  height: 100%;
+  /* Two 1.2em text lines plus the existing 0.18em vertical padding. */
+  height: 2.76em;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  overflow-wrap: normal;
+  overflow-x: visible;
+  overflow-y: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  line-break: strict;
+  line-height: 1.2;
 }
 :host([data-sakutto-live]) .original {
   grid-row: 1;
@@ -138,9 +144,9 @@ const STYLE = `
 :host([data-sakutto-live]) .line-text {
   display: block;
   flex: 0 0 auto;
-  width: max-content;
-  min-width: 100%;
-  white-space: nowrap;
+  width: 100%;
+  min-width: 0;
+  white-space: normal;
   text-align: center;
 }
 :host([data-sakutto-live]) .line[data-sakutto-empty] {

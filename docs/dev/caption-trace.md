@@ -6,10 +6,11 @@ YouTube, load a video, call a translation engine, or use the network. The player
 and ASR caption track are synthetic, and the track reader always returns an empty string.
 
 Committed fixtures under `tests/fixtures/caption-traces/` are hand-written English and
-Japanese word-by-word ASR snapshots. Their 1.5-second word spacing lets even the 900 ms fake
-request finish; faster local traces are useful for probing cancellation. Do not put captured
-captions or other real video data in that directory. Local captures belong in `traces/`,
-which is gitignored.
+Japanese ASR snapshots. The original fixtures use 1.5-second word spacing so even the 900 ms
+fake request finishes. The `en-rollup.json` and `ja-rollup.json` fixtures grow run-on
+sentences past 96 characters and through more than two wrapped lines, exercising vertical
+roll-up and cancellation as well as ordinary growth. Do not put captured captions or other
+real video data in that directory. Local captures belong in `traces/`, which is gitignored.
 
 ## Replay
 
@@ -25,7 +26,7 @@ Node 22 can run the same script with its TypeScript transform flag:
 node --experimental-transform-types --no-warnings scripts/caption-replay.ts
 ```
 
-By default, both synthetic fixtures are replayed at 150, 400, and 900 ms translation
+By default, all four synthetic fixtures are replayed at 150, 400, and 900 ms translation
 latency. The JSON written to stdout includes every 100 ms frame, all translation requests,
 and metrics. A compact human-readable summary goes to stderr. Useful variants:
 
@@ -46,9 +47,13 @@ Run the regression tests with:
 pnpm vitest run --configLoader runner tests/caption-replay.test.ts
 ```
 
-The tests require stable width and height, no blank translation after the first translated
-frame, and at least 400 ms dwell for every distinct visible translation. They also check
-that translations actually occurred so an empty replay cannot pass vacuously.
+The tests require stable width and height, no horizontal original movement outside a
+roll-up, no horizontally clipped characters, no blank translation after the first translated
+frame, and at least 400 ms dwell for every distinct visible translation. They also require at
+most one completed translation per committed sentence and verify that every completed,
+non-pending visible translation belongs to a request whose input is contained in the visible
+original. The long fixtures must actually roll up, and translations must occur, so an empty
+or short replay cannot pass vacuously.
 
 ## Trace format
 
@@ -80,6 +85,18 @@ Metrics are defined as follows:
 - **blank after first:** blank active-source frames after the first translated frame.
 - **width/height changes:** changes between consecutive active, visible frames; initial
   overlay attachment and time hidden during silence are not changes.
+- **original horizontal shifts:** changes in the original viewport's left edge between
+  active, visible frames. A transition that rolls the wrapped viewport upward is excluded;
+  the roll-up transition count is reported separately.
+- **clipped original characters:** UTF-16 characters horizontally truncated from wrapped
+  lines. Both the frame-summed count and per-frame maximum are reported. Whole lines above
+  the intentional last-two-lines viewport are roll-up, not horizontal clipping.
+- **committed-sentence rewrites:** distinct completed translations after the first for the
+  same sentence-final or 96-character committed source. The committed sentence count and
+  maximum translations per sentence make this assertion non-vacuous.
+- **translation/original mapping:** active, visible, non-pending translated frames matched
+  to a completed fake request whose input is contained in `data-sakutto-original`. The report
+  includes eligible frames, successful mappings, and mismatches.
 - **translation dwell:** duration of each run of the same non-empty visible translation,
   including short caption holds through silence. The minimum and median are calculated over
   those runs at 100 ms sampling resolution.
@@ -88,7 +105,16 @@ Metrics are defined as follows:
 
 The fake DOM gives live captions a fixed 576×72 px two-row rectangle. Leaving live layout
 mode changes that rectangle, so session layout regressions remain observable without a
-browser layout engine.
+browser layout engine. Because happy-dom does not lay out text, `replay-geometry.ts` provides
+a deterministic `white-space: normal`/`overflow-wrap: anywhere` model with a bottom-anchored
+last-two-lines viewport. It records whole-line roll-ups and horizontal clipping without
+pretending to be a browser font measurement engine.
+
+The baseline `f5130d6` harness used the same fixed live rectangle and did not model the old
+horizontal tail-clipping CSS. Its width/height and continuity metrics are therefore directly
+comparable, but zero shift/clipping values in the wrapped geometry are **not** a measured
+before/after browser-rendering delta. Real font metrics and painted clipping still require a
+browser layout check.
 
 ## Optional local capture (development only)
 

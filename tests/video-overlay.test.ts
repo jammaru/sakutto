@@ -76,7 +76,7 @@ describe('caption overlay', () => {
     },
   );
 
-  it('keeps exactly two stable single-line rows through pending and translated states', () => {
+  it('keeps two fixed rows of bottom-anchored two-line wrapping through live states', () => {
     const overlay = new CaptionOverlay(document, labels);
     overlay.attach(document.body);
     overlay.place({ left: 0, top: 0, width: 640, height: 360 }, 28, 72);
@@ -122,15 +122,25 @@ describe('caption overlay', () => {
     expect(geometry.maxHeight).toBe('max-height: calc(var(--sakutto-live-row) * 2 + 6px);');
     expect(styleText).toContain('grid-template-rows: repeat(2,');
     expect(styleText).toContain(fixedHeight);
-    expect(styleText).toContain('flex-direction: row');
+    expect(styleText).toContain('flex-direction: column');
     expect(styleText).toContain('justify-content: flex-end');
+    expect(styleText).toContain('align-self: end');
     expect(styleText).toContain('flex: 0 0 auto');
-    expect(styleText).toContain('width: max-content');
-    expect(styleText).toContain('min-width: 100%');
-    expect(styleText).toContain('white-space: nowrap');
+    expect(styleText).toContain('width: 100%');
+    expect(styleText).toContain('min-width: 0');
+    expect(styleText).toContain('height: 2.76em');
+    expect(styleText).toContain('line-height: 1.2');
+    expect(styleText).toContain('white-space: normal');
+    expect(styleText).toContain('overflow-wrap: anywhere');
+    expect(styleText).toContain('word-break: normal');
+    expect(styleText).toContain('line-break: strict');
+    expect(styleText).toContain('overflow-x: visible');
+    expect(styleText).toContain('overflow-y: clip');
     expect(styleText).toContain('grid-row: 1');
     expect(styleText).toContain('grid-row: 2');
-    expect(styleText).toContain('overflow: hidden');
+    expect(styleText).not.toContain('white-space: nowrap');
+    expect(styleText).not.toContain('overflow: hidden');
+    expect(styleText).not.toContain('text-overflow');
     expect(styleText).toContain('.line[data-sakutto-empty]');
     expect(styleText).toContain('visibility: hidden');
     expect(styleText).toMatch(/\.original\s*\{[^}]*font-size: 0\.88em;/);
@@ -170,6 +180,37 @@ describe('caption overlay', () => {
     expect(shadow?.querySelectorAll('.line')).toHaveLength(2);
     expect(wrap.textContent).not.toContain('A red train waits');
     expect(wrap.textContent).not.toContain('赤い列車が待っています');
+    overlay.detach();
+  });
+
+  it('keeps full overflowing captions intact for the last-two-line roll-up', () => {
+    const overlay = new CaptionOverlay(document, labels);
+    overlay.attach(document.body);
+    const originalText =
+      'The early limited express train will arrive at platform two before continuing north.';
+    const translatedText =
+      '早朝の特急列車は2番線に到着し、その後も北へ向かって運転を続けます。最後の一文まで表示します。';
+    overlay.show({
+      original: originalText,
+      translation: translatedText,
+      display: 'bilingual',
+      pending: false,
+      live: true,
+    });
+
+    const shadow = overlay.shadow();
+    expect(shadow?.querySelector('.original')?.textContent).toBe(originalText);
+    expect(shadow?.querySelector('.line:not(.original)')?.textContent).toBe(translatedText);
+    const styleText = shadow?.querySelector('style')?.textContent ?? '';
+    const liveLine = styleText.match(/:host\(\[data-sakutto-live\]\) \.line \{([^}]*)\}/)?.[1];
+    // Bottom-aligned, unshrinkable text overflows at block-start: the top lines
+    // disappear vertically while the final two wrapped lines remain in view.
+    expect(liveLine).toContain('flex-direction: column');
+    expect(liveLine).toContain('justify-content: flex-end');
+    expect(liveLine).toContain('height: 2.76em');
+    expect(liveLine).toContain('overflow-y: clip');
+    expect(liveLine).not.toContain('overflow-x: hidden');
+    expect(liveLine).not.toContain('text-overflow');
     overlay.detach();
   });
 
