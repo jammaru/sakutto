@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PageEngine } from '@/dom/session';
 import { fakeTranslateText } from '@/dom/fake-engine';
 import { VideoCaptionSession } from '@/captions/session';
+import { readYoutubeCaptionDom } from '@/captions/youtube';
 
 const labels = {
   label: 'Translated captions',
@@ -295,6 +296,39 @@ describe('two-line realtime captions', () => {
     session.stop();
   });
 
+  it('keeps punctuated roll-up history out of the current caption', async () => {
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const { session, host, segment } = mountLive('twolinerollupcomplete', engine);
+    segment.textContent = 'The station opens';
+    await vi.waitFor(() => {
+      expect(readYoutubeCaptionDom(document, { targetLanguage: 'ja', spokenLanguage: 'en' })).toBe(
+        'The station opens',
+      );
+    });
+    const second = segment.cloneNode(true) as HTMLElement;
+    second.textContent = 'A red train waits.';
+    document.querySelector('.ytp-caption-window-container')?.append(second);
+
+    await vi.waitFor(() => {
+      expect(host.getAttribute('data-sakutto-original')).toBe('A red train waits.');
+      expect(host.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('A red train waits.', 'ja'),
+      );
+    });
+    expect(host.getAttribute('data-sakutto-original')).not.toContain('The station opens');
+    session.stop();
+  });
+
   it('joins simultaneous pop-on segments into one current caption', async () => {
     const engine: PageEngine = {
       async *translate(segments, options) {
@@ -308,6 +342,11 @@ describe('two-line realtime captions', () => {
       },
     };
     const { session, host, segment } = mountLive('twolinepopon', engine);
+    await vi.waitFor(() => {
+      expect(readYoutubeCaptionDom(document, { targetLanguage: 'ja', spokenLanguage: 'en' })).toBe(
+        '',
+      );
+    });
     segment.textContent = 'The station opens';
     const second = segment.cloneNode(true) as HTMLElement;
     second.textContent = 'at dawn.';
@@ -320,6 +359,38 @@ describe('two-line realtime captions', () => {
       );
     });
     expect(host.getAttribute('data-sakutto-original')).not.toBe('at dawn.');
+    session.stop();
+  });
+
+  it('joins unpunctuated simultaneous pop-on segments', async () => {
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const { session, host, segment } = mountLive('twolinepoponplain', engine);
+    await vi.waitFor(() => {
+      expect(readYoutubeCaptionDom(document, { targetLanguage: 'ja', spokenLanguage: 'en' })).toBe(
+        '',
+      );
+    });
+    segment.textContent = 'The station opens';
+    const second = segment.cloneNode(true) as HTMLElement;
+    second.textContent = 'at dawn';
+    document.querySelector('.ytp-caption-window-container')?.append(second);
+
+    await vi.waitFor(() => {
+      expect(host.getAttribute('data-sakutto-original')).toBe('The station opens at dawn');
+      expect(host.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('The station opens at dawn', 'ja'),
+      );
+    });
     session.stop();
   });
 

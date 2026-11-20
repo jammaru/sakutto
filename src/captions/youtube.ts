@@ -371,6 +371,14 @@ function captionDomWindows(root: ParentNode): Element[] {
   return [];
 }
 
+interface CaptionWindowSnapshot {
+  segments: Element[];
+  texts: string[];
+  join: boolean;
+}
+
+const captionWindowSnapshots = new WeakMap<Element, CaptionWindowSnapshot>();
+
 function captionWindowText(window: Element): string {
   const segments = [...window.querySelectorAll(YOUTUBE_CAPTION_SEGMENT_SELECTOR)].filter(
     (segment) => !segment.closest(CAPTION_HOST_TAG),
@@ -382,15 +390,24 @@ function captionWindowText(window: Element): string {
     .map((segment) => normalizeDomCaption(segment.textContent ?? ''))
     .filter((text) => text.length > 0);
   const current = texts.at(-1) ?? '';
-  if (texts.length < 2) return current;
+  const previous = captionWindowSnapshots.get(window);
+  const previousNodes = new Set(previous?.segments ?? []);
+  const currentNodes = new Set(segments);
+  const appended = segments.some((segment) => !previousNodes.has(segment));
+  const removed = (previous?.segments ?? []).some((segment) => !currentNodes.has(segment));
 
-  // Simultaneous pop-on lines complete one cue, while roll-up keeps an older
-  // line beside the current one. A completed final sentence joins only fragments
-  // that do not already look like independently completed cues.
-  const finalTerminator = /[.!?。！？…]["'”’）)\]]*$/u;
-  const currentCompletesCue = finalTerminator.test(current);
-  const earlierCompletesCue = texts.slice(0, -1).some((text) => finalTerminator.test(text));
-  return currentCompletesCue && !earlierCompletesCue ? texts.join(' ') : current;
+  // A cue appearing from an empty window is simultaneous pop-on. Once roll-up
+  // appends/removes fragment nodes, only the newest active fragment is current.
+  const join =
+    previous === undefined
+      ? false
+      : previous.texts.length === 0
+        ? true
+        : appended || removed
+          ? false
+          : previous.join;
+  captionWindowSnapshots.set(window, { segments, texts, join });
+  return join ? texts.join(' ') : current;
 }
 
 function normalizeDomCaption(value: string): string {
