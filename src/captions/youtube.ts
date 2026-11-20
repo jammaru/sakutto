@@ -400,9 +400,9 @@ function captionWindowText(window: Element): string {
   // appends/removes fragment nodes, only the newest active fragment is current.
   const join =
     previous === undefined
-      ? false
+      ? texts.length > 1
       : previous.texts.length === 0
-        ? true
+        ? !appended && !removed
         : appended || removed
           ? false
           : previous.join;

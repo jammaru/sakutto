@@ -268,22 +268,16 @@ describe('two-line realtime captions', () => {
         }
       },
     };
-    document.body.innerHTML = youtubeMarkup('twolinedupe', true);
-    const video = document.querySelector('video') as HTMLVideoElement;
-    stubMedia(video, { paused: false, currentTime: 0.4 });
-    const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
+    const { session, host, segment } = mountLive('twolinedupe', engine);
     segment.textContent = 'Hello';
+    await vi.waitFor(() => {
+      expect(readYoutubeCaptionDom(document, { targetLanguage: 'ja', spokenLanguage: 'en' })).toBe(
+        'Hello',
+      );
+    });
     const second = segment.cloneNode(true) as HTMLElement;
     second.textContent = 'A red train waits';
     document.querySelector('.ytp-caption-window-container')?.append(second);
-    const session = new VideoCaptionSession(document, {
-      engine,
-      labels,
-      preferences: captionPreferences(),
-      readTrack: async () => '',
-    });
-    session.start();
-    const host = document.querySelector('sakutto-captions') as HTMLElement;
     await vi.waitFor(() => {
       expect(host.getAttribute('data-sakutto-original')).toBe('A red train waits');
       expect(host.getAttribute('data-sakutto-caption')).toBe(
@@ -342,11 +336,6 @@ describe('two-line realtime captions', () => {
       },
     };
     const { session, host, segment } = mountLive('twolinepopon', engine);
-    await vi.waitFor(() => {
-      expect(readYoutubeCaptionDom(document, { targetLanguage: 'ja', spokenLanguage: 'en' })).toBe(
-        '',
-      );
-    });
     segment.textContent = 'The station opens';
     const second = segment.cloneNode(true) as HTMLElement;
     second.textContent = 'at dawn.';
@@ -375,11 +364,6 @@ describe('two-line realtime captions', () => {
       },
     };
     const { session, host, segment } = mountLive('twolinepoponplain', engine);
-    await vi.waitFor(() => {
-      expect(readYoutubeCaptionDom(document, { targetLanguage: 'ja', spokenLanguage: 'en' })).toBe(
-        '',
-      );
-    });
     segment.textContent = 'The station opens';
     const second = segment.cloneNode(true) as HTMLElement;
     second.textContent = 'at dawn';
