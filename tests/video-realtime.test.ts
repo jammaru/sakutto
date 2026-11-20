@@ -742,7 +742,7 @@ describe('pre-timed caption scheduling', () => {
     session.stop();
   });
 
-  it('shows a new VOD cue original before its translation completes', async () => {
+  it('keeps the previous VOD translation while the next cue is pending', async () => {
     document.body.innerHTML = youtubeMarkup('twolinevodpending');
     const video = document.querySelector('video') as HTMLVideoElement;
     stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
@@ -788,7 +788,10 @@ describe('pre-timed caption scheduling', () => {
       await vi.waitFor(() => {
         expect(host.getAttribute('data-sakutto-original')).toBe('A red train waits.');
       });
-      expect(host.hasAttribute('data-sakutto-caption')).toBe(false);
+      expect(host.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('The station opens at dawn.', 'ja'),
+      );
+      expect(host.getAttribute('data-sakutto-pending')).toBe('1');
       release();
       await vi.waitFor(() => {
         expect(host.getAttribute('data-sakutto-caption')).toBe(

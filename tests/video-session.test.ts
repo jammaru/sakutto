@@ -1505,8 +1505,8 @@ The station opens at dawn.
     expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
       '赤い列車が2番線で待っています',
     );
-    expect(document.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-caption')).toBe(
-      false,
+    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+      fakeTranslateText('駅は夜明けに開きます', 'en'),
     );
     expect(document.querySelector('style[data-sakutto="captions"]')).not.toBeNull();
     await vi.waitFor(() => {
@@ -1887,8 +1887,8 @@ The station opens at dawn.
     expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
       '赤い列車が2番線で待っています',
     );
-    expect(document.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-caption')).toBe(
-      false,
+    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+      fakeTranslateText('駅は夜明けに開きます', 'en'),
     );
 
     release?.();
@@ -2053,8 +2053,8 @@ The station opens at dawn.
     expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
       '赤い列車が2番線で待っています',
     );
-    expect(document.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-caption')).toBe(
-      false,
+    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+      fakeTranslateText('駅は夜明けに開きます', 'en'),
     );
     expect(document.querySelector('style[data-sakutto="captions"]')).not.toBeNull();
 
@@ -2151,8 +2151,8 @@ The station opens at dawn.
     expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
       '赤い列車が2番線で待っています',
     );
-    expect(document.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-caption')).toBe(
-      false,
+    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+      fakeTranslateText('駅は夜明けに開きます', 'en'),
     );
     expect(document.querySelector('style[data-sakutto="captions"]')).not.toBeNull();
     release?.();

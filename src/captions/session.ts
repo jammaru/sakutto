@@ -1016,7 +1016,16 @@ export class VideoCaptionSession {
     if (cueChanged && !cached) {
       // A new cue owns the original row immediately; only its own translation may
       // later fill the second row, never the previous cue's translation.
-      this.commitDisplay(cue.id, original, '', cue.startMs, cue.endMs, 0, false, true);
+      this.commitDisplay(
+        cue.id,
+        original,
+        this.hold?.translation ?? '',
+        cue.startMs,
+        cue.endMs,
+        0,
+        false,
+        true,
+      );
     }
     if (cached) {
       this.commitDisplay(cue.id, original, cached, cue.startMs, cue.endMs, 0);
