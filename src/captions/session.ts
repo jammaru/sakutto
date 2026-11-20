@@ -855,7 +855,11 @@ export class VideoCaptionSession {
   private overlayShowingCaption(): boolean {
     if (this.passthroughNative || !this.hold) return false;
     if (this.hold.original.trim().length === 0) return false;
-    return this.hold.live === true || this.hold.translation.trim().length > 0;
+    return (
+      this.hold.live === true ||
+      this.hold.pending === true ||
+      this.hold.translation.trim().length > 0
+    );
   }
 
   private applyNativeVisibility(reason?: string): void {
@@ -993,14 +997,20 @@ export class VideoCaptionSession {
       this.applyNativeVisibility('same-language');
       return;
     }
-    if (this.activeCueId !== cue.id) {
+    const cueChanged = this.activeCueId !== cue.id;
+    if (cueChanged) {
       this.activeCueId = cue.id;
       this.retainAroundPlayhead(original, options);
     }
 
     const cached = this.translator.getCached(original, options);
+    if (cueChanged && !cached) {
+      // A new cue owns the original row immediately; only its own translation may
+      // later fill the second row, never the previous cue's translation.
+      this.commitDisplay(cue.id, original, '', cue.startMs, cue.endMs, 0, false, true);
+    }
     if (cached) {
-      this.commitDisplay(cue.id, original, cached, cue.startMs, cue.endMs);
+      this.commitDisplay(cue.id, original, cached, cue.startMs, cue.endMs, 0);
       this.scheduleAroundPlayhead(cue);
       return;
     }
@@ -1025,7 +1035,7 @@ export class VideoCaptionSession {
     if (current && current.id !== cue.id) return;
     if (translated) {
       if (!current && timeMs > cue.endMs + CAPTION_HOLD_MAX_MS) return;
-      this.commitDisplay(cue.id, original, translated, cue.startMs, cue.endMs);
+      this.commitDisplay(cue.id, original, translated, cue.startMs, cue.endMs, 0);
     } else if (current) {
       this.showNative('translate-failed');
     } else if (!this.holdActiveAt(timeMs)) {
@@ -1075,7 +1085,6 @@ export class VideoCaptionSession {
     if (text === previous) return;
 
     const growing = previous.length > 0 && (text.startsWith(previous) || previous.startsWith(text));
-    const previousTranslation = growing && this.hold?.live ? this.hold.translation : '';
     const options = this.translateOptions(this.liveMode ? this.loaded?.language : undefined);
     this.liveSource = text;
     this.liveTailRevision += 1;
@@ -1083,16 +1092,7 @@ export class VideoCaptionSession {
     this.clearHoldTimer();
     this.clearLiveTailTimer();
     this.cancelLiveTailJob();
-    this.commitDisplay(
-      `live:${String(revision)}`,
-      text,
-      previousTranslation,
-      0,
-      this.playheadMs(),
-      0,
-      true,
-      true,
-    );
+    this.commitDisplay(`live:${String(revision)}`, text, '', 0, this.playheadMs(), 0, true, true);
     this.scheduleLiveTail(options, revision, growing);
   }
 
@@ -1493,7 +1493,8 @@ export class VideoCaptionSession {
         shownAt: this.now(),
         startMs,
         endMs,
-        ...(live ? { live: true, pending } : {}),
+        pending,
+        ...(live ? { live: true } : {}),
       };
       this.ignorePlayerMutations = true;
       this.overlay.show({

@@ -129,26 +129,41 @@ describe('two-line realtime captions', () => {
     session.stop();
   });
 
-  it('keeps the previous translation while the same caption grows', async () => {
+  it('clears a stale prefix translation while the exact growth is pending', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     const engine: PageEngine = {
       async *translate(segments) {
+        const text = segments[0]?.text ?? '';
+        if (text === 'Hello world') await gate;
         for (const segment of segments) {
           yield { id: segment.id, final: '同じ訳', engine: 'plamo' };
         }
       },
     };
     const { session, host, segment } = mountLive('twolinegrowing', engine);
-    segment.textContent = 'Hello';
-    await vi.waitFor(() => {
-      expect(host.getAttribute('data-sakutto-caption')).toBe('同じ訳');
-    });
+    try {
+      segment.textContent = 'Hello';
+      await vi.waitFor(() => {
+        expect(host.getAttribute('data-sakutto-caption')).toBe('同じ訳');
+      });
 
-    segment.textContent = 'Hello world';
-    await vi.waitFor(() => {
-      expect(host.getAttribute('data-sakutto-original')).toBe('Hello world');
-      expect(host.getAttribute('data-sakutto-caption')).toBe('同じ訳');
-    });
-    session.stop();
+      segment.textContent = 'Hello world';
+      await vi.waitFor(() => {
+        expect(host.getAttribute('data-sakutto-original')).toBe('Hello world');
+      });
+      expect(host.hasAttribute('data-sakutto-caption')).toBe(false);
+      release();
+      await vi.waitFor(() => {
+        expect(host.getAttribute('data-sakutto-original')).toBe('Hello world');
+        expect(host.getAttribute('data-sakutto-caption')).toBe('同じ訳');
+      });
+    } finally {
+      release();
+      session.stop();
+    }
   });
 
   it('cancels stale jobs and displays only the latest original and translation', async () => {
@@ -240,7 +255,7 @@ describe('two-line realtime captions', () => {
     }
   });
 
-  it('deduplicates the original and never renders roll-up history', async () => {
+  it('shows only the active roll-up fragment without older text', async () => {
     const engine: PageEngine = {
       async *translate(segments, options) {
         for (const segment of segments) {
@@ -258,6 +273,7 @@ describe('two-line realtime captions', () => {
     const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
     segment.textContent = 'Hello';
     const second = segment.cloneNode(true) as HTMLElement;
+    second.textContent = 'A red train waits';
     document.querySelector('.ytp-caption-window-container')?.append(second);
     const session = new VideoCaptionSession(document, {
       engine,
@@ -268,9 +284,12 @@ describe('two-line realtime captions', () => {
     session.start();
     const host = document.querySelector('sakutto-captions') as HTMLElement;
     await vi.waitFor(() => {
-      expect(host.getAttribute('data-sakutto-original')).toBe('Hello');
-      expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('Hello', 'ja'));
+      expect(host.getAttribute('data-sakutto-original')).toBe('A red train waits');
+      expect(host.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('A red train waits', 'ja'),
+      );
     });
+    expect(host.getAttribute('data-sakutto-original')).not.toContain('Hello');
     expect(host.hasAttribute('data-sakutto-history')).toBe(false);
     expect(host.hasAttribute('data-sakutto-history-lines')).toBe(false);
     session.stop();
@@ -396,8 +415,10 @@ describe('two-line realtime captions', () => {
       expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('Alpha.', 'ja')),
     );
     segment.textContent = 'Alpha. Beta';
-    await vi.waitFor(() => expect(host.hasAttribute('data-sakutto-caption')).toBe(false));
-    expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('waiting');
+    await vi.waitFor(() => {
+      expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('waiting');
+    });
+    expect(host.hasAttribute('data-sakutto-caption')).toBe(false);
     session.stop();
   });
 
@@ -567,6 +588,65 @@ describe('pre-timed caption scheduling', () => {
     });
     expect(firstAborted).toBe(true);
     session.stop();
+  });
+
+  it('shows a new VOD cue original before its translation completes', async () => {
+    document.body.innerHTML = youtubeMarkup('twolinevodpending');
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        const text = segments[0]?.text ?? '';
+        if (text === 'A red train waits.') await gate;
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readTrack: async () =>
+        JSON.stringify({
+          events: [
+            { tStartMs: 0, dDurationMs: 1000, segs: [{ utf8: 'The station opens at dawn.' }] },
+            { tStartMs: 1000, dDurationMs: 4000, segs: [{ utf8: 'A red train waits.' }] },
+          ],
+        }),
+    });
+    session.start();
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    try {
+      await vi.waitFor(() => {
+        expect(host.getAttribute('data-sakutto-caption')).toBe(
+          fakeTranslateText('The station opens at dawn.', 'ja'),
+        );
+      });
+      video.currentTime = 1.2;
+      video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+      await vi.waitFor(() => {
+        expect(host.getAttribute('data-sakutto-original')).toBe('A red train waits.');
+      });
+      expect(host.hasAttribute('data-sakutto-caption')).toBe(false);
+      release();
+      await vi.waitFor(() => {
+        expect(host.getAttribute('data-sakutto-caption')).toBe(
+          fakeTranslateText('A red train waits.', 'ja'),
+        );
+      });
+    } finally {
+      release();
+      session.stop();
+    }
   });
 
   it('drops a held line after a seek behind it', async () => {

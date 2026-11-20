@@ -378,7 +378,13 @@ function captionWindowText(window: Element): string {
   if (segments.length === 0 && window.matches(YOUTUBE_CAPTION_SEGMENT_SELECTOR)) {
     return normalizeDomCaption(window.textContent ?? '');
   }
-  return normalizeDomCaption(segments.map((segment) => segment.textContent ?? '').join(' '));
+  // Roll-up windows retain older segments beside the active one. Only the last
+  // nonempty fragment is current; joining them would recreate history in one row.
+  for (let index = segments.length - 1; index >= 0; index -= 1) {
+    const text = normalizeDomCaption(segments[index]?.textContent ?? '');
+    if (text.length > 0) return text;
+  }
+  return '';
 }
 
 function normalizeDomCaption(value: string): string {
