@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ONBOARDING_PROGRESS_STALE_MS,
   onboardingCanTry,
   onboardingErrorMessage,
   onboardingPhaseAfterStatus,
+  shouldPollOnboardingProgress,
 } from '@/ui/onboarding-phase';
 
 describe('onboardingPhaseAfterStatus', () => {
@@ -80,5 +82,49 @@ describe('onboardingErrorMessage', () => {
         http,
       }),
     ).toBe('Setup could not start. Please try again.');
+  });
+});
+
+describe('shouldPollOnboardingProgress', () => {
+  it('polls only while downloading after push progress has gone silent', () => {
+    expect(
+      shouldPollOnboardingProgress({
+        phase: 'downloading',
+        now: 10_000,
+        lastProgressAt: 10_000 - ONBOARDING_PROGRESS_STALE_MS + 1,
+        inFlight: false,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldPollOnboardingProgress({
+        phase: 'downloading',
+        now: 10_000,
+        lastProgressAt: 10_000 - ONBOARDING_PROGRESS_STALE_MS,
+        inFlight: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('skips polling when not downloading or a poll is already in flight', () => {
+    for (const phase of ['consent', 'paused', 'ready', 'error'] as const) {
+      expect(
+        shouldPollOnboardingProgress({
+          phase,
+          now: 20_000,
+          lastProgressAt: 0,
+          inFlight: false,
+        }),
+      ).toBe(false);
+    }
+
+    expect(
+      shouldPollOnboardingProgress({
+        phase: 'downloading',
+        now: 20_000,
+        lastProgressAt: 0,
+        inFlight: true,
+      }),
+    ).toBe(false);
   });
 });

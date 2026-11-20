@@ -1418,13 +1418,23 @@ export class EngineHost {
     request: ModelStatusRequest,
   ): Promise<void> {
     try {
+      const active = this.downloads.get(request.modelId);
+      if (active) {
+        this.respond(
+          port,
+          request.requestId,
+          active.status ?? {
+            id: request.modelId,
+            state: 'downloading',
+            received: 0,
+            total: getModel(request.modelId).size,
+            progress: 0,
+          },
+        );
+        return;
+      }
       const services = await this.services();
-      const live = this.downloads.get(request.modelId)?.status;
-      this.respond(
-        port,
-        request.requestId,
-        live ?? (await services.manager.status(request.modelId)),
-      );
+      this.respond(port, request.requestId, await services.manager.status(request.modelId));
     } catch (error) {
       this.respondError(port, request.requestId, error);
     }

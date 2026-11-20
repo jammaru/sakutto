@@ -2,6 +2,21 @@ import type { ModelStatus } from '@/shared/engine-status';
 
 export type OnboardingPhase = 'consent' | 'downloading' | 'paused' | 'ready' | 'error';
 
+/** Poll model status when push progress has been silent for this long while downloading. */
+export const ONBOARDING_PROGRESS_STALE_MS = 2_000;
+
+export function shouldPollOnboardingProgress(input: {
+  phase: OnboardingPhase;
+  now: number;
+  lastProgressAt: number;
+  inFlight: boolean;
+  staleMs?: number;
+}): boolean {
+  if (input.phase !== 'downloading' || input.inFlight) return false;
+  const threshold = input.staleMs ?? ONBOARDING_PROGRESS_STALE_MS;
+  return input.now - input.lastProgressAt >= threshold;
+}
+
 /**
  * Whether the card may offer a way to start translating right now. Only a phase that has
  * the model on disk qualifies: a sample page opened during the download keeps its source

@@ -390,6 +390,57 @@ describe('EngineHost', () => {
     expect(progress).toBeTypeOf('function');
   });
 
+  it('reports downloading from model-status before the first progress chunk and after port disconnect', async () => {
+    const { services, download } = createServices();
+    const release = deferred<void>();
+    const progressRef: { emit: ((progress: DownloadProgress) => void) | null } = { emit: null };
+
+    download.mockImplementation(async (_modelId, request) => {
+      progressRef.emit = request.onProgress ?? null;
+      await release.promise;
+    });
+
+    const host = createHost(services);
+    const first = new FakePort();
+    host.handlePort(first.port);
+    first.emit({ type: 'model-download', requestId: 'd1', modelId: DEFAULT_MODEL_ID });
+    await flushTasks();
+
+    // Before the first progress chunk arrives, model-status still reports downloading
+    // instead of falling back to the on-disk absent/partial state.
+    first.emit({ type: 'model-status', requestId: 'ms-before', modelId: DEFAULT_MODEL_ID });
+    await flushTasks();
+    const before = first.messagesOfType('response').at(-1) as
+      { requestId?: string; value?: { state?: string; received?: number } } | undefined;
+    expect(before?.requestId).toBe('ms-before');
+    expect(before?.value?.state).toBe('downloading');
+    expect(before?.value?.received).toBe(0);
+
+    // Simulate a service worker restart: disconnect the original port while download continues.
+    first.disconnect();
+    progressRef.emit?.({
+      received: 42,
+      total: 100,
+      ratio: 0.42,
+      resumedFrom: 0,
+      phase: 'download',
+    });
+
+    const second = new FakePort();
+    host.handlePort(second.port);
+    second.emit({ type: 'model-status', requestId: 'ms-after', modelId: DEFAULT_MODEL_ID });
+    await flushTasks();
+    const after = second.messagesOfType('response').at(-1) as
+      | { requestId?: string; value?: { state?: string; received?: number; progress?: number } }
+      | undefined;
+    expect(after?.requestId).toBe('ms-after');
+    expect(after?.value?.state).toBe('downloading');
+    expect(after?.value?.received).toBe(42);
+
+    release.resolve();
+    await flushTasks();
+  });
+
   it('ignores ports opened from a content script', async () => {
     const { services } = createServices();
     const host = createHost(services);

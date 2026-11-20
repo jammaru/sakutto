@@ -71,6 +71,7 @@
     onboardingCanTry,
     onboardingErrorMessage,
     onboardingPhaseAfterStatus,
+    shouldPollOnboardingProgress,
     type OnboardingPhase,
   } from '@/ui/onboarding-phase';
 
@@ -496,8 +497,40 @@
     }
 
     phase = 'downloading';
+    lastProgressAt = Date.now();
     const started = await requestModelDownload(DEFAULT_MODEL_ID);
     if (!started) phase = 'error';
+  }
+
+  let lastProgressAt = 0;
+  let inspectInFlight = false;
+  let disposed = false;
+
+  async function syncDownloadStatus(force = false): Promise<void> {
+    if (disposed || inspectInFlight || phase !== 'downloading') return;
+    if (
+      !force &&
+      !shouldPollOnboardingProgress({
+        phase,
+        now: Date.now(),
+        lastProgressAt,
+        inFlight: inspectInFlight,
+      })
+    ) {
+      return;
+    }
+    inspectInFlight = true;
+    try {
+      const status = await requestModelInspect(DEFAULT_MODEL_ID);
+      if (!disposed && status) {
+        lastProgressAt = Date.now();
+        applyStatus(status);
+      }
+    } catch {
+      // The next tick retries if the background worker was still waking up.
+    } finally {
+      inspectInFlight = false;
+    }
   }
 
   async function pause() {
@@ -531,13 +564,20 @@
   }
 
   onMount(() => {
+    disposed = false;
     const onMessage = (message: unknown) => {
       if (!isModelProgressMessage(message)) return;
+      if (message.status.id === DEFAULT_MODEL_ID) lastProgressAt = Date.now();
       applyStatus(message.status);
     };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void syncDownloadStatus(true);
+    };
     browser.runtime.onMessage.addListener(onMessage);
+    document.addEventListener('visibilitychange', onVisibility);
     const timer = setInterval(() => {
       now = Date.now();
+      void syncDownloadStatus();
     }, 1000);
 
     void loadSettings()
@@ -582,7 +622,9 @@
     });
 
     return () => {
+      disposed = true;
       clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
       browser.runtime.onMessage.removeListener(onMessage);
     };
   });

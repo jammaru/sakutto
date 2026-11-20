@@ -565,7 +565,18 @@ export default defineBackground(() => {
     }
 
     if (isModelInspectRequest(message)) {
-      void client.modelStatus(message.modelId).then(sendResponse, () => sendResponse(null));
+      void client.modelStatus(message.modelId).then(
+        (status) => {
+          if (
+            (status.state === 'downloading' || status.state === 'verifying') &&
+            !downloads.has(message.modelId)
+          ) {
+            startDownload(message.modelId);
+          }
+          sendResponse(status);
+        },
+        () => sendResponse(null),
+      );
       return true;
     }
 
