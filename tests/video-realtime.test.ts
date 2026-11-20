@@ -130,7 +130,7 @@ describe('two-line realtime captions', () => {
     session.stop();
   });
 
-  it('clears a stale prefix translation while the exact growth is pending', async () => {
+  it('keeps the previous translation visible while the exact growth is pending', async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
       release = resolve;
@@ -155,12 +155,80 @@ describe('two-line realtime captions', () => {
       await vi.waitFor(() => {
         expect(host.getAttribute('data-sakutto-original')).toBe('Hello world');
       });
-      expect(host.hasAttribute('data-sakutto-caption')).toBe(false);
+      expect(host.getAttribute('data-sakutto-caption')).toBe('同じ訳');
+      expect(host.getAttribute('data-sakutto-pending')).toBe('1');
       release();
       await vi.waitFor(() => {
         expect(host.getAttribute('data-sakutto-original')).toBe('Hello world');
         expect(host.getAttribute('data-sakutto-caption')).toBe('同じ訳');
       });
+    } finally {
+      release();
+      session.stop();
+    }
+  });
+
+  it('builds full utterances with context and keeps the committed translation', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const requests: Array<{ text: string; context: string }> = [];
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        const text = segments[0]?.text ?? '';
+        requests.push({ text, context: options.context ?? '' });
+        if (text === 'A red' || text === 'A red train waits.') await gate;
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const { session, host, segment } = mountLive('twolineutterance', engine);
+    try {
+      segment.textContent = 'The station';
+      await sleep(150);
+      segment.textContent = 'opens at';
+      await sleep(150);
+      segment.textContent = 'dawn.';
+      await vi.waitFor(() => {
+        expect(host.getAttribute('data-sakutto-original')).toBe('The station opens at dawn.');
+        expect(host.getAttribute('data-sakutto-caption')).toBe(
+          fakeTranslateText('The station opens at dawn.', 'ja'),
+        );
+      });
+
+      segment.textContent = 'A red';
+      await vi.waitFor(() => {
+        expect(host.getAttribute('data-sakutto-original')).toBe('A red');
+      });
+      expect(host.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('The station opens at dawn.', 'ja'),
+      );
+      segment.textContent = 'train waits.';
+      await vi.waitFor(() => {
+        expect(host.getAttribute('data-sakutto-original')).toBe('A red train waits.');
+      });
+      expect(host.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('The station opens at dawn.', 'ja'),
+      );
+      release();
+      await vi.waitFor(() => {
+        expect(host.getAttribute('data-sakutto-caption')).toBe(
+          fakeTranslateText('A red train waits.', 'ja'),
+        );
+      });
+      expect(
+        requests.some(
+          (request) =>
+            request.text === 'A red train waits.' &&
+            request.context === 'The station opens at dawn.',
+        ),
+      ).toBe(true);
     } finally {
       release();
       session.stop();
@@ -478,7 +546,7 @@ describe('two-line realtime captions', () => {
     session.stop();
   });
 
-  it('shows native source after a mutable-tail translation failure', async () => {
+  it('keeps the previous translation after a mutable-tail translation failure', async () => {
     const engine: PageEngine = {
       async *translate(segments, options) {
         const text = segments[0]?.text ?? '';
@@ -499,9 +567,10 @@ describe('two-line realtime captions', () => {
     );
     segment.textContent = 'Alpha. Beta';
     await vi.waitFor(() => {
-      expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('waiting');
+      expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('Alpha.', 'ja'));
+      expect(host.getAttribute('data-sakutto-original')).toBe('Alpha. Beta');
+      expect(host.getAttribute('data-sakutto-pending')).toBe('1');
     });
-    expect(host.hasAttribute('data-sakutto-caption')).toBe(false);
     session.stop();
   });
 

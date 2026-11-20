@@ -102,13 +102,13 @@ const STYLE = `
   display: contents;
 }
 .original {
-  font-size: 0.68em;
+  font-size: 0.88em;
   font-weight: 400;
   color: #e8eef4;
   background: rgb(8 8 8 / 82%);
 }
 :host([data-sakutto-live]) .wrap {
-  --sakutto-live-row: calc(var(--sakutto-caption-size, 22px) * 3.06);
+  --sakutto-live-row: calc(var(--sakutto-caption-size, 22px) * 1.75);
   grid-template-rows: repeat(2, var(--sakutto-live-row));
   width: 100%;
   height: calc(var(--sakutto-live-row) * 2 + 6px);
@@ -118,12 +118,16 @@ const STYLE = `
 }
 :host([data-sakutto-live]) .line {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
   justify-content: flex-end;
   width: 100%;
   height: 100%;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 :host([data-sakutto-live]) .original {
   grid-row: 1;
@@ -133,7 +137,14 @@ const STYLE = `
 }
 :host([data-sakutto-live]) .line-text {
   display: block;
-  flex: none;
+  flex: 0 0 auto;
+  width: max-content;
+  min-width: 100%;
+  white-space: nowrap;
+  text-align: center;
+}
+:host([data-sakutto-live]) .line[data-sakutto-empty] {
+  visibility: hidden;
 }
 :host([data-sakutto-pending]) .line:not(.original) {
   opacity: 0.72;
@@ -587,11 +598,13 @@ export class CaptionOverlay {
 
     const bilingual = state.display === 'bilingual';
     const showOriginal = original.length > 0 && (bilingual || originalOnly);
+    this.liveGeometry = state.live === true;
     this.originalText.textContent = showOriginal ? original : '';
     this.translatedText.textContent = translation;
-    this.originalLine.hidden = !showOriginal;
-    this.translatedLine.hidden = translation.length === 0;
-    this.liveGeometry = state.live === true;
+    this.originalLine.toggleAttribute('data-sakutto-empty', !showOriginal);
+    this.translatedLine.toggleAttribute('data-sakutto-empty', translation.length === 0);
+    this.originalLine.hidden = !this.liveGeometry && !showOriginal;
+    this.translatedLine.hidden = !this.liveGeometry && translation.length === 0;
     if (this.liveGeometry) {
       this.host.setAttribute('data-sakutto-live', '1');
       this.host.style.width = `${captionLiveOverlayWidth(this.lastPlayerSize.width)}px`;
@@ -623,8 +636,10 @@ export class CaptionOverlay {
     this.clearLiveGeometry();
     this.originalText.textContent = '';
     this.originalLine.hidden = true;
+    this.originalLine.setAttribute('data-sakutto-empty', '');
     this.translatedText.textContent = this.labels.braveShields;
     this.translatedLine.hidden = false;
+    this.translatedLine.removeAttribute('data-sakutto-empty');
     this.host.removeAttribute('data-sakutto-caption');
     this.host.removeAttribute('data-sakutto-original');
     this.host.removeAttribute('data-sakutto-show-original');
@@ -646,7 +661,9 @@ export class CaptionOverlay {
     this.originalText.textContent = '';
     this.translatedText.textContent = '';
     this.originalLine.hidden = true;
+    this.originalLine.setAttribute('data-sakutto-empty', '');
     this.translatedLine.hidden = true;
+    this.translatedLine.setAttribute('data-sakutto-empty', '');
     this.host.removeAttribute('data-sakutto-caption');
     this.host.removeAttribute('data-sakutto-original');
     this.host.removeAttribute('data-sakutto-show-original');
@@ -1031,7 +1048,9 @@ export class CaptionOverlay {
   }
 
   private captionLineElements(): HTMLElement[] {
-    return [this.originalLine, this.translatedLine].filter((line) => !line.hidden);
+    return [this.originalLine, this.translatedLine].filter(
+      (line) => !line.hidden && !line.hasAttribute('data-sakutto-empty'),
+    );
   }
 
   private playerClientRect(): DOMRect | null {

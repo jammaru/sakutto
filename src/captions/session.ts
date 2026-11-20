@@ -14,6 +14,7 @@ import {
   cuesFromPlayhead,
   cuesInWindow,
   finalizeCaptionCues,
+  joinCaptionFragments,
   LIVE_CAPTION_DEBOUNCE_MS,
   LIVE_CAPTION_MIN_DISPLAY_MS,
   normalizeCaptionText,
@@ -143,6 +144,10 @@ interface LiveTailJob {
   revision: number;
 }
 
+const LIVE_SENTENCE_GAP_MS = 900;
+const LIVE_SENTENCE_MAX_CHARS = 96;
+const LIVE_SENTENCE_END_RE = /[.!?。！？…]$/u;
+
 const NATIVE_HIDE_STYLE = `
 ${YOUTUBE_CAPTION_WINDOW_SELECTOR} { visibility: hidden !important; }
 video::cue,
@@ -208,6 +213,9 @@ export class VideoCaptionSession {
   } | null = null;
   private holdTimer: number | null = null;
   private liveSource = '';
+  private liveUtterance = '';
+  private liveCommittedSource = '';
+  private liveLastChangeAt = 0;
   private liveTailJob: LiveTailJob | null = null;
   private liveTailTimer: number | null = null;
   private liveTailRevision = 0;
@@ -420,6 +428,7 @@ export class VideoCaptionSession {
 
   private readonly onSeek = (): void => {
     this.resetLiveCaptions();
+    this.clearHold();
     this.activeCueId = '';
     const timeMs = this.playheadMs();
     // A jump before the held line (loop, ad, rewind) must not keep a future
@@ -1076,47 +1085,110 @@ export class VideoCaptionSession {
   }
 
   /** Paint the current original immediately, then translate only the latest source. */
+  /** Paint the current utterance immediately, then translate only the latest source. */
   private observeLiveCaption(visible: string): void {
     const text = dedupeLiveCaptionText(visible);
     if (text.length === 0) return;
-    const previous = this.liveSource;
+    const now = this.now();
+    const previousSource = this.liveSource;
     this.liveCaptionVisible = true;
     this.extendHold(this.playheadMs());
-    if (text === previous) return;
+    if (text === previousSource) {
+      if (now - this.liveLastChangeAt >= LIVE_SENTENCE_GAP_MS) this.commitLiveSentence();
+      return;
+    }
 
-    const growing = previous.length > 0 && (text.startsWith(previous) || previous.startsWith(text));
+    const growing =
+      previousSource.length > 0 &&
+      (text.startsWith(previousSource) || previousSource.startsWith(text));
+    if (this.liveUtterance.length === 0) {
+      this.liveUtterance = text;
+    } else if (growing) {
+      this.liveUtterance = joinCaptionFragments(
+        this.liveUtterance,
+        text.slice(previousSource.length),
+      );
+    } else if (this.shouldCommitLiveSentence(now, text)) {
+      this.commitLiveSentence();
+      this.liveUtterance = text;
+    } else {
+      this.liveUtterance = joinCaptionFragments(this.liveUtterance, text);
+    }
+
     const options = this.translateOptions(this.liveMode ? this.loaded?.language : undefined);
+    const utterance = this.liveUtterance;
     this.liveSource = text;
+    this.liveLastChangeAt = now;
     this.liveTailRevision += 1;
     const revision = this.liveTailRevision;
     this.clearHoldTimer();
     this.clearLiveTailTimer();
     this.cancelLiveTailJob();
-    this.commitDisplay(`live:${String(revision)}`, text, '', 0, this.playheadMs(), 0, true, true);
-    this.scheduleLiveTail(options, revision, growing);
+    this.commitDisplay(
+      `live:${String(revision)}`,
+      utterance,
+      this.hold?.translation ?? '',
+      0,
+      this.playheadMs(),
+      0,
+      true,
+      true,
+    );
+    this.scheduleLiveTail(options, revision, growing, utterance);
+    if (LIVE_SENTENCE_END_RE.test(utterance) || utterance.length >= LIVE_SENTENCE_MAX_CHARS) {
+      this.commitLiveSentence();
+    }
+  }
+
+  private shouldCommitLiveSentence(now: number, next: string): boolean {
+    return (
+      this.liveUtterance.length > 0 &&
+      (LIVE_SENTENCE_END_RE.test(this.liveUtterance) ||
+        /^[A-Z]/u.test(next) ||
+        now - this.liveLastChangeAt >= LIVE_SENTENCE_GAP_MS ||
+        this.liveUtterance.length >= LIVE_SENTENCE_MAX_CHARS)
+    );
+  }
+
+  private commitLiveSentence(): void {
+    if (this.liveUtterance.length === 0) return;
+    this.liveCommittedSource = this.liveUtterance;
+    this.liveUtterance = '';
   }
 
   private scheduleLiveTail(
     options: CaptionTranslateOptions,
     revision: number,
     growing: boolean,
+    text: string,
   ): void {
-    if (!this.liveCaptionVisible) return;
+    if (!this.liveCaptionVisible || !text) return;
     const view = this.doc.defaultView;
     const delay = growing ? LIVE_CAPTION_DEBOUNCE_MS : 0;
+    const committedSource = this.liveCommittedSource;
     this.liveTailTimer =
       view?.setTimeout(() => {
         this.liveTailTimer = null;
-        this.startLiveTailTranslation(options, revision);
+        this.startLiveTailTranslation(options, revision, text, committedSource);
       }, delay) ?? null;
-    if (this.liveTailTimer === null) this.startLiveTailTranslation(options, revision);
+    if (this.liveTailTimer === null) {
+      this.startLiveTailTranslation(options, revision, text, committedSource);
+    }
   }
 
-  private startLiveTailTranslation(options: CaptionTranslateOptions, revision: number): void {
+  private startLiveTailTranslation(
+    options: CaptionTranslateOptions,
+    revision: number,
+    text: string,
+    committedSource: string,
+  ): void {
     if (!this.liveCaptionVisible || revision !== this.liveTailRevision) return;
-    const text = this.liveSource;
-    if (!text) return;
-    const cached = this.translator.getCached(text, options);
+    const requestOptions: CaptionTranslateOptions = {
+      ...options,
+      ...(committedSource && text !== committedSource ? { context: committedSource } : {}),
+    };
+    const cached =
+      this.translator.getCached(text, options) ?? this.translator.getCached(text, requestOptions);
     if (cached) {
       this.commitDisplay(
         `live:${String(revision)}`,
@@ -1131,7 +1203,7 @@ export class VideoCaptionSession {
       return;
     }
 
-    const job: LiveTailJob = { text, options, revision };
+    const job: LiveTailJob = { text, options: requestOptions, revision };
     this.liveTailJob = job;
     const cue: CaptionCue = {
       id: `live:${String(revision)}`,
@@ -1143,22 +1215,35 @@ export class VideoCaptionSession {
     const token = this.sourceToken;
     const generation = this.translator.translateGeneration();
     void this.translator
-      .translateCue(cue, options, CAPTION_PLAYHEAD_PRIORITY)
+      .translateCue(cue, requestOptions, CAPTION_PLAYHEAD_PRIORITY)
       .then((translation) => {
         if (
           !this.running ||
           token !== this.sourceToken ||
           this.liveTailJob !== job ||
           revision !== this.liveTailRevision ||
-          !this.liveCaptionVisible ||
-          this.liveSource !== text
+          !this.liveCaptionVisible
         ) {
           return;
         }
         this.liveTailJob = null;
         if (this.translator.abortedSince(generation)) return;
         if (!translation) {
-          this.showNative('translate-failed');
+          const fallback = this.hold?.translation ?? '';
+          if (fallback) {
+            this.commitDisplay(
+              `live:${String(revision)}`,
+              text,
+              fallback,
+              0,
+              this.playheadMs(),
+              0,
+              true,
+              true,
+            );
+          } else {
+            this.showNative('translate-failed');
+          }
           return;
         }
         this.commitDisplay(
@@ -1192,6 +1277,9 @@ export class VideoCaptionSession {
     this.clearLiveTailTimer();
     this.cancelLiveTailJob();
     this.liveSource = '';
+    this.liveUtterance = '';
+    this.liveCommittedSource = '';
+    this.liveLastChangeAt = 0;
     this.liveTailJob = null;
     this.liveTailRevision = 0;
     this.liveCaptionVisible = false;

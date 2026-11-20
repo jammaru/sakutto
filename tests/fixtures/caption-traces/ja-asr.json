@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "name": "synthetic-ja-word-asr",
+  "sourceLanguage": "ja",
+  "targetLanguage": "en",
+  "videoId": "synthetic-ja-asr",
+  "endMs": 15500,
+  "events": [
+    {
+      "atMs": 200,
+      "text": "本日は"
+    },
+    {
+      "atMs": 1700,
+      "text": "本日はこちら"
+    },
+    {
+      "atMs": 3200,
+      "text": "本日はこちら京都駅"
+    },
+    {
+      "atMs": 4700,
+      "text": "本日はこちら京都駅です。"
+    },
+    {
+      "atMs": 6700,
+      "text": ""
+    },
+    {
+      "atMs": 8500,
+      "text": "次の"
+    },
+    {
+      "atMs": 10000,
+      "text": "次の電車は"
+    },
+    {
+      "atMs": 11500,
+      "text": "次の電車は七時に"
+    },
+    {
+      "atMs": 13000,
+      "text": "次の電車は七時に出発します。"
+    },
+    {
+      "atMs": 15000,
+      "text": ""
+    }
+  ]
+}
