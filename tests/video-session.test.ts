@@ -292,8 +292,10 @@ describe('video caption session', () => {
       'The station opens at dawn.',
     );
     expect(pendingHost?.textContent ?? '').not.toContain('Translating');
-    expect(document.querySelector('style[data-sakutto="captions"]')).toBeNull();
-    expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('waiting');
+    expect(pendingHost?.getAttribute('data-sakutto-original')).toBe('The station opens at dawn.');
+    expect(pendingHost?.hasAttribute('data-sakutto-caption')).toBe(false);
+    expect(document.querySelector('style[data-sakutto="captions"]')).not.toBeNull();
+    expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('overlay');
     expect(document.querySelector('.ytp-caption-segment')?.textContent).toBe(
       'The station opens at dawn.',
     );
@@ -2506,7 +2508,7 @@ The station opens at dawn.
         <video id="playing">
           <track kind="subtitles" src="https://video.twimg.com/subtitles/fixture.vtt" srclang="en" />
         </video>
-        <div class="native-caption" aria-live="polite">native line</div>
+        <div class="native-caption" aria-live="polite"></div>
       </div>
     `;
     const playing = doc.querySelector('#playing') as unknown as HTMLVideoElement;
@@ -2553,8 +2555,8 @@ A red train waits at platform two.
     });
     session.start();
     await vi.waitFor(() => {
-      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
-        'The station opens at dawn.',
+      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('The station opens at dawn.', 'ja'),
       );
     });
     media.currentTime = 3.2;

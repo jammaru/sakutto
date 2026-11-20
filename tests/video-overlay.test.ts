@@ -35,43 +35,48 @@ describe('caption overlay', () => {
     document.documentElement.innerHTML = '<head></head><body></body>';
   });
 
-  it('stays hidden until a translation exists, then shows both bilingual lines', () => {
-    const overlay = new CaptionOverlay(document, labels);
-    overlay.attach(document.body);
-    overlay.show({
-      original: 'The station opens at dawn.',
-      translation: null,
-      display: 'bilingual',
-      pending: true,
-    });
+  it.each([null, ''])(
+    'shows original-only pending text for translation %s, then adds it',
+    (emptyTranslation) => {
+      const overlay = new CaptionOverlay(document, labels);
+      overlay.attach(document.body);
+      overlay.show({
+        original: 'The station opens at dawn.',
+        translation: emptyTranslation,
+        display: 'bilingual',
+        pending: true,
+      });
 
-    const host = document.querySelector('sakutto-captions') as HTMLElement | null;
-    const shadow = overlay.shadow();
-    expect(shadow).not.toBeNull();
-    const original = shadow?.querySelector('.original') as HTMLElement | null;
-    const translated = shadow?.querySelector('.line:not(.original)') as HTMLElement | null;
-    expect(host?.hidden).toBe(true);
-    expect(original?.hidden).toBe(true);
-    expect(original?.textContent).toBe('');
-    expect(translated?.hidden).toBe(true);
-    expect(translated?.textContent).toBe('');
-    expect(host?.hasAttribute('data-sakutto-caption')).toBe(false);
+      const host = document.querySelector('sakutto-captions') as HTMLElement | null;
+      const shadow = overlay.shadow();
+      expect(shadow).not.toBeNull();
+      const original = shadow?.querySelector('.original') as HTMLElement | null;
+      const translated = shadow?.querySelector('.line:not(.original)') as HTMLElement | null;
+      expect(host?.hidden).toBe(false);
+      expect(original?.hidden).toBe(false);
+      expect(original?.textContent).toBe('The station opens at dawn.');
+      expect(translated?.hidden).toBe(true);
+      expect(translated?.textContent).toBe('');
+      expect(host?.getAttribute('data-sakutto-original')).toBe('The station opens at dawn.');
+      expect(host?.hasAttribute('data-sakutto-caption')).toBe(false);
+      expect(host?.getAttribute('data-sakutto-pending')).toBe('1');
 
-    overlay.show({
-      original: 'The station opens at dawn.',
-      translation: '駅は夜明けに開きます。',
-      display: 'bilingual',
-      pending: false,
-    });
-    expect(host?.hidden).toBe(false);
-    expect(original?.textContent).toBe('The station opens at dawn.');
-    expect(translated?.textContent).toBe('駅は夜明けに開きます。');
-    expect(host?.getAttribute('data-sakutto-caption')).toBe('駅は夜明けに開きます。');
-    expect(host?.getAttribute('data-sakutto-original')).toBe('The station opens at dawn.');
-    overlay.detach();
-  });
+      overlay.show({
+        original: 'The station opens at dawn.',
+        translation: '駅は夜明けに開きます。',
+        display: 'bilingual',
+        pending: false,
+      });
+      expect(host?.hidden).toBe(false);
+      expect(original?.textContent).toBe('The station opens at dawn.');
+      expect(translated?.textContent).toBe('駅は夜明けに開きます。');
+      expect(host?.getAttribute('data-sakutto-caption')).toBe('駅は夜明けに開きます。');
+      expect(host?.getAttribute('data-sakutto-original')).toBe('The station opens at dawn.');
+      overlay.detach();
+    },
+  );
 
-  it('renders committed roll-up history with stable live geometry', () => {
+  it('keeps live captions to two compact rows with stable height and newest-end overflow', () => {
     const overlay = new CaptionOverlay(document, labels);
     overlay.attach(document.body);
     overlay.place({ left: 0, top: 0, width: 640, height: 360 }, 28, 72);
@@ -80,36 +85,71 @@ describe('caption overlay', () => {
       translation: '赤い列車が待っています',
       display: 'bilingual',
       pending: false,
-      history: ['駅は夜明けに開きます。'],
       live: true,
-      tail: true,
     });
     const host = document.querySelector('sakutto-captions') as HTMLElement;
     const shadow = overlay.shadow();
+    const wrap = shadow?.querySelector('.wrap') as HTMLElement;
     expect(host.getAttribute('data-sakutto-live')).toBe('1');
-    expect(host.getAttribute('data-sakutto-history-lines')).toBe('1');
-    expect(host.getAttribute('data-sakutto-history')).toBe('駅は夜明けに開きます。');
-    expect(host.getAttribute('data-sakutto-live-tail')).toBe('1');
-    expect(shadow?.querySelector('.history-line')?.textContent).toBe('駅は夜明けに開きます。');
+    expect(shadow?.querySelectorAll('.line')).toHaveLength(2);
+    expect(shadow?.querySelector('.original')?.textContent).toBe('A red train waits');
     expect(shadow?.querySelector('.line:not(.original)')?.textContent).toBe(
       '赤い列車が待っています',
     );
+    expect(shadow?.querySelector('.history, .history-line')).toBeNull();
+    expect(host.hasAttribute('data-sakutto-history')).toBe(false);
+    expect(host.hasAttribute('data-sakutto-history-lines')).toBe(false);
+    expect(host.hasAttribute('data-sakutto-live-tail')).toBe(false);
     expect(Number.parseFloat(host.style.width)).toBeCloseTo(captionLiveOverlayWidth(640));
     const width = host.style.width;
+    const fontSize = host.style.getPropertyValue('--sakutto-caption-size');
     const styleText = shadow?.querySelector('style')?.textContent ?? '';
-    expect(styleText).toContain('min-height');
-    expect(styleText).toContain('data-sakutto-live');
+    const fixedHeight = 'height: calc(var(--sakutto-live-row) * 2 + 6px)';
+    expect(wrap).not.toBeNull();
+    expect(styleText).toContain('grid-template-rows: repeat(2,');
+    expect(styleText).toContain(fixedHeight);
+    expect(styleText).toContain('justify-content: flex-end');
+    expect(styleText).toContain('grid-row: 1');
+    expect(styleText).toContain('grid-row: 2');
+    expect(styleText).toContain('overflow: hidden');
+    expect(styleText).toContain(':host([data-sakutto-pending]) .line:not(.original)');
+    expect(styleText).toContain('opacity: 0.72');
+    expect(styleText).not.toContain('history');
+
+    overlay.show({
+      original: 'A red train waits at platform two',
+      translation: null,
+      display: 'bilingual',
+      pending: true,
+      live: true,
+    });
+    expect(host.style.width).toBe(width);
+    expect(host.style.getPropertyValue('--sakutto-caption-size')).toBe(fontSize);
+    expect(shadow?.querySelector('style')?.textContent).toContain(fixedHeight);
+    expect(shadow?.querySelectorAll('.line')).toHaveLength(2);
+    expect(shadow?.querySelector('.original')?.textContent).toBe(
+      'A red train waits at platform two',
+    );
+    expect((shadow?.querySelector('.line:not(.original)') as HTMLElement | null)?.hidden).toBe(
+      true,
+    );
+    expect(host.hasAttribute('data-sakutto-caption')).toBe(false);
 
     overlay.show({
       original: 'A red train waits at platform two',
       translation: '赤い列車が2番線で待っています',
       display: 'bilingual',
-      pending: false,
-      history: ['駅は夜明けに開きます。'],
+      pending: true,
       live: true,
-      tail: true,
     });
     expect(host.style.width).toBe(width);
+    expect(host.style.getPropertyValue('--sakutto-caption-size')).toBe(fontSize);
+    expect(shadow?.querySelector('style')?.textContent).toContain(fixedHeight);
+    expect((shadow?.querySelector('.line:not(.original)') as HTMLElement | null)?.hidden).toBe(
+      false,
+    );
+    expect(host.getAttribute('data-sakutto-caption')).toBe('赤い列車が2番線で待っています');
+    expect(host.getAttribute('data-sakutto-pending')).toBe('1');
     overlay.detach();
   });
 
