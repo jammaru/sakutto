@@ -1041,8 +1041,27 @@ export class CaptionOverlay {
 
   private eventHitsCaption(x: number, y: number): boolean {
     if (this.host.hidden) return false;
-    for (const node of this.captionLineElements()) {
-      if (pointHitsRect(x, y, node.getBoundingClientRect())) return true;
+    const rects = this.captionLineElements()
+      .map((node) => node.getBoundingClientRect())
+      .filter((rect) => rect.width > 0 && rect.height > 0)
+      .sort((left, right) => left.top - right.top);
+    for (const rect of rects) {
+      if (pointHitsRect(x, y, rect)) return true;
+    }
+    // The small inter-row gap belongs to the caption gesture target. Reserved
+    // whitespace above the first row and below the last row remains excluded.
+    for (let index = 1; index < rects.length; index += 1) {
+      const previous = rects[index - 1];
+      const current = rects[index];
+      if (!previous || !current || current.top < previous.bottom) continue;
+      if (
+        y >= previous.bottom &&
+        y <= current.top &&
+        x >= Math.max(previous.left, current.left) &&
+        x <= Math.min(previous.right, current.right)
+      ) {
+        return true;
+      }
     }
     return false;
   }

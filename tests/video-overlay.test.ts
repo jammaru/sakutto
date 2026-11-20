@@ -663,6 +663,34 @@ describe('caption overlay', () => {
     }
   });
 
+  it('allows a drag from the inter-row gap without accepting outer whitespace', () => {
+    const { overlay, player, lines } = mountDraggableOverlay();
+    overlay.show({
+      original: 'The station opens at dawn.',
+      translation: '駅は夜明けに開きます。',
+      display: 'bilingual',
+      pending: false,
+      live: true,
+    });
+    stubRect(lines.original, { left: 220, top: 250, width: 200, height: 20 });
+    stubRect(lines.translated, { left: 220, top: 280, width: 200, height: 30 });
+    let clicks = 0;
+    overlay.setOnShortClick(() => {
+      clicks += 1;
+    });
+
+    const gapDown = dispatchPointer(player, 'pointerdown', 320, 275);
+    dispatchPointer(player, 'pointerup', 320, 275);
+    expect(gapDown.defaultPrevented).toBe(true);
+    expect(clicks).toBe(1);
+
+    const blankDown = dispatchPointer(player, 'pointerdown', 320, 210);
+    dispatchPointer(player, 'pointerup', 320, 210);
+    expect(blankDown.defaultPrevented).toBe(false);
+    expect(clicks).toBe(1);
+    overlay.detach();
+  });
+
   it('swallows a caption press so the player cannot start hold-to-2x, and short-clicks play/pause', () => {
     const { overlay, host, player } = mountDraggableOverlay();
     const video = player.querySelector('video') as HTMLVideoElement;
