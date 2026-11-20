@@ -378,13 +378,19 @@ function captionWindowText(window: Element): string {
   if (segments.length === 0 && window.matches(YOUTUBE_CAPTION_SEGMENT_SELECTOR)) {
     return normalizeDomCaption(window.textContent ?? '');
   }
-  // Roll-up windows retain older segments beside the active one. Only the last
-  // nonempty fragment is current; joining them would recreate history in one row.
-  for (let index = segments.length - 1; index >= 0; index -= 1) {
-    const text = normalizeDomCaption(segments[index]?.textContent ?? '');
-    if (text.length > 0) return text;
-  }
-  return '';
+  const texts = segments
+    .map((segment) => normalizeDomCaption(segment.textContent ?? ''))
+    .filter((text) => text.length > 0);
+  const current = texts.at(-1) ?? '';
+  if (texts.length < 2) return current;
+
+  // Simultaneous pop-on lines complete one cue, while roll-up keeps an older
+  // line beside the current one. A completed final sentence joins only fragments
+  // that do not already look like independently completed cues.
+  const finalTerminator = /[.!?。！？…]["'”’）)\]]*$/u;
+  const currentCompletesCue = finalTerminator.test(current);
+  const earlierCompletesCue = texts.slice(0, -1).some((text) => finalTerminator.test(text));
+  return currentCompletesCue && !earlierCompletesCue ? texts.join(' ') : current;
 }
 
 function normalizeDomCaption(value: string): string {

@@ -1014,8 +1014,8 @@ export class VideoCaptionSession {
       this.scheduleAroundPlayhead(cue);
       return;
     }
-    // Keep the previous translated line until this cue lands. A current cue whose
-    // translation is in flight is not silence — expiry is only for a real gap.
+    // The current original is already visible while its translation is in flight;
+    // expiry is only for a real gap, not for an uncached cue.
     if (!this.hold) this.showNative('waiting-first');
     const generation = this.translator.translateGeneration();
     // Start this request before warming the next cues: the playhead keeps the

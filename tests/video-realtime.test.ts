@@ -295,6 +295,34 @@ describe('two-line realtime captions', () => {
     session.stop();
   });
 
+  it('joins simultaneous pop-on segments into one current caption', async () => {
+    const engine: PageEngine = {
+      async *translate(segments, options) {
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const { session, host, segment } = mountLive('twolinepopon', engine);
+    segment.textContent = 'The station opens';
+    const second = segment.cloneNode(true) as HTMLElement;
+    second.textContent = 'at dawn.';
+    document.querySelector('.ytp-caption-window-container')?.append(second);
+
+    await vi.waitFor(() => {
+      expect(host.getAttribute('data-sakutto-original')).toBe('The station opens at dawn.');
+      expect(host.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('The station opens at dawn.', 'ja'),
+      );
+    });
+    expect(host.getAttribute('data-sakutto-original')).not.toBe('at dawn.');
+    session.stop();
+  });
+
   it('reuses the cache when the same caption returns', async () => {
     const requests: string[] = [];
     const engine: PageEngine = {
