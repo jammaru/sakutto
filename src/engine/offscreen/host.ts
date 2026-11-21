@@ -893,7 +893,22 @@ export class EngineHost {
   ): Promise<void> {
     const modelId = request.modelId;
     let download = this.downloads.get(modelId);
-    if (!download) download = this.startDownload(modelId);
+    if (download?.controller.signal.aborted) {
+      // An aborted download is winding down; never attach a new caller to it.
+      download = undefined;
+    }
+    if (!download) {
+      if (request.attachOnly) {
+        try {
+          const services = await this.services();
+          this.respond(port, request.requestId, await services.manager.status(modelId));
+        } catch (error) {
+          this.respondError(port, request.requestId, error);
+        }
+        return;
+      }
+      download = this.startDownload(modelId);
+    }
 
     const requestId = request.requestId;
     download.attachments.set(requestId, port);
@@ -1419,22 +1434,33 @@ export class EngineHost {
   ): Promise<void> {
     try {
       const active = this.downloads.get(request.modelId);
-      if (active) {
-        this.respond(
-          port,
-          request.requestId,
-          active.status ?? {
-            id: request.modelId,
-            state: 'downloading',
-            received: 0,
-            total: getModel(request.modelId).size,
-            progress: 0,
-          },
-        );
+      if (active && !active.controller.signal.aborted && active.status) {
+        this.respond(port, request.requestId, active.status);
         return;
       }
       const services = await this.services();
-      this.respond(port, request.requestId, await services.manager.status(request.modelId));
+      if (active && !active.controller.signal.aborted && active.status) {
+        this.respond(port, request.requestId, active.status);
+        return;
+      }
+      const persisted = await services.manager.status(request.modelId);
+      if (
+        active &&
+        !active.controller.signal.aborted &&
+        this.downloads.get(request.modelId) === active
+      ) {
+        // Before the first chunk arrives on a resumed download, preserve the on-disk byte count
+        // so `advanceModelStatus` does not interpret a synthetic 0 as a restart from scratch.
+        this.respond(port, request.requestId, {
+          id: request.modelId,
+          state: 'downloading',
+          received: persisted.received,
+          total: persisted.total || getModel(request.modelId).size,
+          progress: persisted.progress,
+        });
+        return;
+      }
+      this.respond(port, request.requestId, persisted);
     } catch (error) {
       this.respondError(port, request.requestId, error);
     }

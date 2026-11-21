@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ONBOARDING_POLL_MAX_BACKOFF_MS,
   ONBOARDING_PROGRESS_STALE_MS,
   onboardingCanTry,
   onboardingErrorMessage,
   onboardingPhaseAfterStatus,
+  onboardingPollDelayMs,
+  shouldApplyOnboardingPollResult,
   shouldPollOnboardingProgress,
 } from '@/ui/onboarding-phase';
 
@@ -124,6 +127,77 @@ describe('shouldPollOnboardingProgress', () => {
         now: 20_000,
         lastProgressAt: 0,
         inFlight: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('backs off exponentially after repeated poll failures up to the cap', () => {
+    expect(onboardingPollDelayMs(0)).toBe(ONBOARDING_PROGRESS_STALE_MS);
+    expect(onboardingPollDelayMs(1)).toBe(ONBOARDING_PROGRESS_STALE_MS * 2);
+    expect(onboardingPollDelayMs(2)).toBe(ONBOARDING_PROGRESS_STALE_MS * 4);
+    expect(onboardingPollDelayMs(3)).toBe(ONBOARDING_PROGRESS_STALE_MS * 8);
+    expect(onboardingPollDelayMs(10)).toBe(ONBOARDING_POLL_MAX_BACKOFF_MS);
+
+    expect(
+      shouldPollOnboardingProgress({
+        phase: 'downloading',
+        now: 10_000,
+        lastProgressAt: 10_000 - ONBOARDING_PROGRESS_STALE_MS,
+        inFlight: false,
+        failures: 1,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldPollOnboardingProgress({
+        phase: 'downloading',
+        now: 10_000,
+        lastProgressAt: 10_000 - ONBOARDING_PROGRESS_STALE_MS * 2,
+        inFlight: false,
+        failures: 1,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe('shouldApplyOnboardingPollResult', () => {
+  it('ignores a stale downloading poll response after pause or generation change', () => {
+    expect(
+      shouldApplyOnboardingPollResult({
+        disposed: false,
+        phase: 'downloading',
+        startedGeneration: 2,
+        currentGeneration: 2,
+      }),
+    ).toBe(true);
+
+    // User clicked Pause while the poll request was in flight.
+    expect(
+      shouldApplyOnboardingPollResult({
+        disposed: false,
+        phase: 'paused',
+        startedGeneration: 2,
+        currentGeneration: 3,
+      }),
+    ).toBe(false);
+
+    // User paused and resumed again before the earlier poll resolved.
+    expect(
+      shouldApplyOnboardingPollResult({
+        disposed: false,
+        phase: 'downloading',
+        startedGeneration: 2,
+        currentGeneration: 4,
+      }),
+    ).toBe(false);
+
+    // Component unmounted before the poll resolved.
+    expect(
+      shouldApplyOnboardingPollResult({
+        disposed: true,
+        phase: 'downloading',
+        startedGeneration: 2,
+        currentGeneration: 2,
       }),
     ).toBe(false);
   });

@@ -67,6 +67,7 @@ import {
   isOpenSetupRequest,
   isShortcutQuery,
   isSiteGrantRequest,
+  isModelAttachRequest,
   isModelDeleteRequest,
   isModelDownloadRequest,
   isModelFolderAdoptRequest,
@@ -235,7 +236,7 @@ export default defineBackground(() => {
     await broadcast({ type: 'model:progress', status: status.model });
   }
 
-  function startDownload(modelId: ModelId): boolean {
+  function startDownload(modelId: ModelId, options: { attachOnly?: boolean } = {}): boolean {
     if (downloads.has(modelId)) return true;
 
     const controller = new AbortController();
@@ -247,6 +248,7 @@ export default defineBackground(() => {
       try {
         const status = await client.downloadModel(modelId, {
           signal: controller.signal,
+          ...(options.attachOnly ? { attachOnly: true } : {}),
           onProgress: (progress) => {
             received = progress.received;
             void broadcast({ type: 'model:progress', status: progress });
@@ -565,18 +567,15 @@ export default defineBackground(() => {
     }
 
     if (isModelInspectRequest(message)) {
-      void client.modelStatus(message.modelId).then(
-        (status) => {
-          if (
-            (status.state === 'downloading' || status.state === 'verifying') &&
-            !downloads.has(message.modelId)
-          ) {
-            startDownload(message.modelId);
-          }
-          sendResponse(status);
-        },
-        () => sendResponse(null),
-      );
+      void client.modelStatus(message.modelId).then(sendResponse, () => sendResponse(null));
+      return true;
+    }
+
+    if (isModelAttachRequest(message)) {
+      if (!downloads.has(message.modelId)) {
+        startDownload(message.modelId, { attachOnly: true });
+      }
+      void client.modelStatus(message.modelId).then(sendResponse, () => sendResponse(null));
       return true;
     }
 

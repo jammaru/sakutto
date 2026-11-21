@@ -36,6 +36,7 @@
   import { resolveTargetLanguage, type TargetLanguage } from '@/shared/languages';
   import {
     isModelProgressMessage,
+    requestModelAttach,
     requestModelCancel,
     requestModelDownload,
     requestEngineWarm,
@@ -71,6 +72,7 @@
     onboardingCanTry,
     onboardingErrorMessage,
     onboardingPhaseAfterStatus,
+    shouldApplyOnboardingPollResult,
     shouldPollOnboardingProgress,
     type OnboardingPhase,
   } from '@/ui/onboarding-phase';
@@ -497,6 +499,8 @@
     }
 
     phase = 'downloading';
+    pollGeneration += 1;
+    pollFailures = 0;
     lastProgressAt = Date.now();
     const started = await requestModelDownload(DEFAULT_MODEL_ID);
     if (!started) phase = 'error';
@@ -504,6 +508,8 @@
 
   let lastProgressAt = 0;
   let inspectInFlight = false;
+  let pollGeneration = 0;
+  let pollFailures = 0;
   let disposed = false;
 
   async function syncDownloadStatus(force = false): Promise<void> {
@@ -515,27 +521,48 @@
         now: Date.now(),
         lastProgressAt,
         inFlight: inspectInFlight,
+        failures: pollFailures,
       })
     ) {
       return;
     }
+    const generation = pollGeneration;
     inspectInFlight = true;
     try {
-      const status = await requestModelInspect(DEFAULT_MODEL_ID);
-      if (!disposed && status) {
+      const status = await requestModelAttach(DEFAULT_MODEL_ID);
+      if (
+        !shouldApplyOnboardingPollResult({
+          disposed,
+          phase,
+          startedGeneration: generation,
+          currentGeneration: pollGeneration,
+        })
+      ) {
+        return;
+      }
+      if (status) {
+        pollFailures = 0;
         lastProgressAt = Date.now();
         applyStatus(status);
+      } else {
+        pollFailures += 1;
+        lastProgressAt = Date.now();
       }
     } catch {
-      // The next tick retries if the background worker was still waking up.
+      if (!disposed && generation === pollGeneration) {
+        pollFailures += 1;
+        lastProgressAt = Date.now();
+      }
     } finally {
       inspectInFlight = false;
     }
   }
 
   async function pause() {
-    await requestModelCancel(DEFAULT_MODEL_ID);
+    pollGeneration += 1;
+    pollFailures = 0;
     phase = 'paused';
+    await requestModelCancel(DEFAULT_MODEL_ID);
   }
 
   async function trySample() {
@@ -567,7 +594,10 @@
     disposed = false;
     const onMessage = (message: unknown) => {
       if (!isModelProgressMessage(message)) return;
-      if (message.status.id === DEFAULT_MODEL_ID) lastProgressAt = Date.now();
+      if (message.status.id === DEFAULT_MODEL_ID) {
+        lastProgressAt = Date.now();
+        pollFailures = 0;
+      }
       applyStatus(message.status);
     };
     const onVisibility = () => {

@@ -273,7 +273,11 @@ export class EngineClient {
 
   async downloadModel(
     modelId: ModelId,
-    options: { signal: AbortSignal; onProgress?: (status: ModelStatus) => void },
+    options: {
+      signal: AbortSignal;
+      onProgress?: (status: ModelStatus) => void;
+      attachOnly?: boolean;
+    },
   ): Promise<ModelStatus> {
     let lastError: unknown;
 
@@ -289,7 +293,16 @@ export class EngineClient {
       try {
         const port = await this.connect();
         if (options.signal.aborted) throw abortError();
-        const value = await this.roundTrip(port, { type: 'model-download', requestId, modelId }, 0);
+        const value = await this.roundTrip(
+          port,
+          {
+            type: 'model-download',
+            requestId,
+            modelId,
+            ...(options.attachOnly ? { attachOnly: true } : {}),
+          },
+          0,
+        );
         if (!isModelStatus(value)) throw hostError('The engine host returned an invalid status.');
         return value;
       } catch (error) {

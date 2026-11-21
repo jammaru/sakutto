@@ -395,6 +395,9 @@ describe('EngineHost', () => {
     const release = deferred<void>();
     const progressRef: { emit: ((progress: DownloadProgress) => void) | null } = { emit: null };
 
+    services.manager.status = vi.fn(async (modelId: ModelId) =>
+      modelStatus({ id: modelId, state: 'partial', received: 25, total: 100, progress: 0.25 }),
+    );
     download.mockImplementation(async (_modelId, request) => {
       progressRef.emit = request.onProgress ?? null;
       await release.promise;
@@ -406,15 +409,17 @@ describe('EngineHost', () => {
     first.emit({ type: 'model-download', requestId: 'd1', modelId: DEFAULT_MODEL_ID });
     await flushTasks();
 
-    // Before the first progress chunk arrives, model-status still reports downloading
-    // instead of falling back to the on-disk absent/partial state.
+    // Before the first progress chunk arrives on a resumed download, model-status reports
+    // downloading while preserving the on-disk byte count instead of resetting to 0%.
     first.emit({ type: 'model-status', requestId: 'ms-before', modelId: DEFAULT_MODEL_ID });
     await flushTasks();
     const before = first.messagesOfType('response').at(-1) as
-      { requestId?: string; value?: { state?: string; received?: number } } | undefined;
+      | { requestId?: string; value?: { state?: string; received?: number; progress?: number } }
+      | undefined;
     expect(before?.requestId).toBe('ms-before');
     expect(before?.value?.state).toBe('downloading');
-    expect(before?.value?.received).toBe(0);
+    expect(before?.value?.received).toBe(25);
+    expect(before?.value?.progress).toBe(0.25);
 
     // Simulate a service worker restart: disconnect the original port while download continues.
     first.disconnect();
@@ -422,7 +427,7 @@ describe('EngineHost', () => {
       received: 42,
       total: 100,
       ratio: 0.42,
-      resumedFrom: 0,
+      resumedFrom: 25,
       phase: 'download',
     });
 
@@ -437,8 +442,102 @@ describe('EngineHost', () => {
     expect(after?.value?.state).toBe('downloading');
     expect(after?.value?.received).toBe(42);
 
+    // Re-attaching with attachOnly receives subsequent progress without starting another download.
+    second.emit({
+      type: 'model-download',
+      requestId: 'd-attach',
+      modelId: DEFAULT_MODEL_ID,
+      attachOnly: true,
+    });
+    await flushTasks();
+    expect(download).toHaveBeenCalledOnce();
+    expect(second.messagesOfType('model-progress')).toHaveLength(1);
+
+    progressRef.emit?.({
+      received: 80,
+      total: 100,
+      ratio: 0.8,
+      resumedFrom: 25,
+      phase: 'download',
+    });
+    expect(second.messagesOfType('model-progress')).toHaveLength(2);
+
     release.resolve();
     await flushTasks();
+  });
+
+  it('does not restart or hang on an aborted download when attachOnly is set', async () => {
+    const { services, download } = createServices();
+    const cleanup = deferred<void>();
+
+    services.manager.status = vi.fn(async (modelId: ModelId) =>
+      modelStatus({ id: modelId, state: 'partial', received: 30, total: 100, progress: 0.3 }),
+    );
+    download.mockImplementation(async (_modelId, request) => {
+      await new Promise<void>((resolve) => {
+        request.signal.addEventListener('abort', () => {
+          // Keep the aborted download winding down briefly to test the cancel/attach race.
+          void cleanup.promise.then(resolve);
+        });
+      });
+      throw new DOMException('Aborted', 'AbortError');
+    });
+
+    const host = createHost(services);
+    const port = new FakePort();
+    host.handlePort(port.port);
+    port.emit({ type: 'model-download', requestId: 'd1', modelId: DEFAULT_MODEL_ID });
+    await flushTasks();
+
+    port.emit({ type: 'model-cancel', requestId: 'd1' });
+    await flushTasks();
+
+    // While the aborted download is still winding down, attachOnly must neither restart it
+    // nor hang waiting on the aborted operation.
+    port.emit({
+      type: 'model-download',
+      requestId: 'd-attach-after-cancel',
+      modelId: DEFAULT_MODEL_ID,
+      attachOnly: true,
+    });
+    await flushTasks();
+
+    expect(download).toHaveBeenCalledOnce();
+    const response = port.messagesOfType('response').at(-1) as
+      | { requestId?: string; ok?: boolean; value?: { state?: string; received?: number } }
+      | undefined;
+    expect(response?.requestId).toBe('d-attach-after-cancel');
+    expect(response?.ok).toBe(true);
+    expect(response?.value?.state).toBe('partial');
+    expect(response?.value?.received).toBe(30);
+
+    cleanup.resolve();
+    await flushTasks();
+  });
+
+  it('does not start a download when attachOnly sees a standalone verifying status', async () => {
+    const { services, download } = createServices();
+    services.manager.status = vi.fn(async (modelId: ModelId) =>
+      modelStatus({ id: modelId, state: 'verifying', received: 100, total: 100, progress: 0 }),
+    );
+
+    const host = createHost(services);
+    const port = new FakePort();
+    host.handlePort(port.port);
+    port.emit({
+      type: 'model-download',
+      requestId: 'd-attach-verify',
+      modelId: DEFAULT_MODEL_ID,
+      attachOnly: true,
+    });
+    await flushTasks();
+
+    expect(download).not.toHaveBeenCalled();
+    const response = port.messagesOfType('response').at(-1) as
+      { requestId?: string; ok?: boolean; value?: { state?: string } } | undefined;
+    expect(response?.requestId).toBe('d-attach-verify');
+    expect(response?.ok).toBe(true);
+    expect(response?.value?.state).toBe('verifying');
   });
 
   it('ignores ports opened from a content script', async () => {

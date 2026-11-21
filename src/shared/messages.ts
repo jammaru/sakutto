@@ -175,6 +175,11 @@ export interface ModelInspectRequest {
   modelId: ModelId;
 }
 
+export interface ModelAttachRequest {
+  type: 'model:attach';
+  modelId: ModelId;
+}
+
 export interface ModelFolderReloadRequest {
   type: 'model-folder:reload';
 }
@@ -354,6 +359,10 @@ export function isModelProgressMessage(value: unknown): value is ModelProgressMe
 
 export function isModelInspectRequest(value: unknown): value is ModelInspectRequest {
   return isRecord(value) && value.type === 'model:inspect' && isModelId(value.modelId);
+}
+
+export function isModelAttachRequest(value: unknown): value is ModelAttachRequest {
+  return isRecord(value) && value.type === 'model:attach' && isModelId(value.modelId);
 }
 
 export function isModelFolderReloadRequest(value: unknown): value is ModelFolderReloadRequest {
@@ -548,6 +557,18 @@ export async function requestModelInspect(modelId: ModelId): Promise<ModelStatus
       type: 'model:inspect',
       modelId,
     } satisfies ModelInspectRequest);
+    return isModelStatus(response) ? response : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function requestModelAttach(modelId: ModelId): Promise<ModelStatus | null> {
+  try {
+    const response: unknown = await browser.runtime.sendMessage({
+      type: 'model:attach',
+      modelId,
+    } satisfies ModelAttachRequest);
     return isModelStatus(response) ? response : null;
   } catch {
     return null;
