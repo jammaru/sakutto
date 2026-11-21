@@ -1,5 +1,6 @@
 import { hasSentenceTerminator, splitForTranslation } from '@/engine/text/sentences';
 import { sanitizeTranslationInput } from '@/engine/text/sanitize';
+import { cleanCaptionText } from './text-cleanup';
 
 export interface CaptionCue {
   id: string;
@@ -46,11 +47,13 @@ const VTT_TIMESTAMP =
   /^(?:(\d{2,}):)?(\d{2}):(\d{2})\.(\d{3})\s*-->\s*(?:(\d{2,}):)?(\d{2}):(\d{2})\.(\d{3})/;
 
 export function normalizeCaptionText(value: string): string {
-  return sanitizeTranslationInput(value)
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/[ \t]+/gu, ' ')
-    .replace(/\s*\n\s*/gu, '\n')
-    .trim();
+  return cleanCaptionText(
+    sanitizeTranslationInput(value)
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/[ \t]+/gu, ' ')
+      .replace(/\s*\n\s*/gu, '\n')
+      .trim(),
+  );
 }
 
 export function captionCueId(startMs: number, text: string): string {

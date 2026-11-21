@@ -3,6 +3,7 @@ import { isBrokenTranslation } from '@/engine/text/degenerate';
 import { hasTranslatableText, isInvisibleRunawayOutput } from '@/engine/text/sanitize';
 import type { Formality, GlossaryEntry, TranslationChunk } from '@/engine/types';
 import { cuesInWindow, type CaptionCue } from './cues';
+import { cleanCaptionSource, cleanCaptionText } from './text-cleanup';
 
 /** Current playhead cue: ahead of other caption work, still after a selection (0). */
 export const CAPTION_PLAYHEAD_PRIORITY = 1;
@@ -56,8 +57,8 @@ export class CaptionTranslator {
       options.tgt,
       options.form,
       options.src ?? '',
-      options.context ?? '',
-      text,
+      cleanCaptionText(options.context ?? ''),
+      cleanCaptionText(text),
     ]);
   }
 
@@ -190,16 +191,19 @@ export class CaptionTranslator {
     priority: number,
     signal: AbortSignal,
   ): Promise<string | null> {
-    if (signal.aborted || !hasTranslatableText(cue.text)) return null;
+    // Caption-only cleanup: markers, stutters and sound tags never enter a prompt.
+    // A pure tag returns an empty source and is dropped without a model call.
+    const source = cleanCaptionSource(cue.text);
+    if (signal.aborted || source.length === 0 || !hasTranslatableText(source)) return null;
     let output = '';
     let failed = false;
     try {
-      for await (const chunk of this.engine.translate([{ id: cue.id, text: cue.text }], {
+      for await (const chunk of this.engine.translate([{ id: cue.id, text: source }], {
         tgt: options.tgt,
         form: options.form,
         glossary: options.glossary,
         src: options.src ?? cue.language,
-        ...(options.context ? { context: options.context } : {}),
+        ...(options.context ? { context: cleanCaptionText(options.context) } : {}),
         priority,
         signal,
         eager: priority <= CAPTION_LIVE_PRIORITY,
@@ -212,13 +216,15 @@ export class CaptionTranslator {
     } catch {
       return null;
     }
-    if (failed || output.trim().length === 0) return null;
-    if (isBrokenTranslation(cue.text, output) || isInvisibleRunawayOutput(cue.text, output)) {
+    // Safety net for engines that echo structural tokens or tags in their output.
+    const translated = cleanCaptionText(output).trim();
+    if (failed || translated.length === 0) return null;
+    if (isBrokenTranslation(source, translated) || isInvisibleRunawayOutput(source, translated)) {
       return null;
     }
     if (signal.aborted) return null;
-    this.cache.set(this.cacheKey(cue.text, options), { translation: output });
-    return output;
+    this.cache.set(this.cacheKey(source, options), { translation: translated });
+    return translated;
   }
 }
 

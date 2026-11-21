@@ -140,6 +140,8 @@ interface LoadedTrack {
   key: string;
   cues: CaptionCue[];
   language?: string | undefined;
+  /** YouTube auto-generated track: translate each visible chunk as it grows. */
+  asr?: boolean | undefined;
   restoreModes: Array<{ track: TextTrack; mode: TextTrackMode }>;
 }
 
@@ -226,6 +228,9 @@ export class VideoCaptionSession {
   private liveTailJob: LiveTailJob | null = null;
   private liveTailRevision = 0;
   private liveCaptionVisible = false;
+  /** Low-latency provisional translation of the currently visible ASR chunk. */
+  private provisionalSource = '';
+  private provisionalOptions: CaptionTranslateOptions | null = null;
   private activeCueId = '';
   private lastPlayed: HTMLVideoElement | null = null;
   private sourceKey = '';
@@ -587,6 +592,7 @@ export class VideoCaptionSession {
       if (youtube) {
         this.liveMode = youtube.live;
         this.finishLoadedTrack({ key, ...youtube, restoreModes: [] });
+        this.warmAsrTrack();
         return;
       }
       this.liveMode = false;
@@ -659,7 +665,7 @@ export class VideoCaptionSession {
       captionSourceIsTargetLanguage(selected.languageCode, undefined, this.prefs.targetLanguage)
     ) {
       this.useDomCaptions = false;
-      return { cues: [], language: selected.languageCode, live };
+      return { cues: [], language: selected.languageCode, asr: selected.asr, live };
     }
 
     const fetchKey = `${youtubeVideoId(this.doc.defaultView?.location.href ?? '') ?? 'yt'}:${selected.baseUrl}`;
@@ -670,6 +676,7 @@ export class VideoCaptionSession {
         return {
           cues: this.loaded?.cues ?? [],
           language: selected.languageCode,
+          asr: selected.asr,
           live,
         };
       }
@@ -685,14 +692,14 @@ export class VideoCaptionSession {
         if (this.overlay.hasBraveShieldsNotice()) this.overlay.hide();
         if (!live) this.timedtextGuard.succeed(fetchKey);
         this.useDomCaptions = live;
-        return { cues, language: selected.languageCode, live };
+        return { cues, language: selected.languageCode, asr: selected.asr, live };
       }
       if (!live) {
         this.timedtextGuard.fail(fetchKey, this.now());
         void this.showBraveTimedtextFailure(fetchKey);
       }
       this.useDomCaptions = true;
-      return { cues: [], language: selected.languageCode, live };
+      return { cues: [], language: selected.languageCode, asr: selected.asr, live };
     } catch {
       if (!stillCurrent()) {
         this.timedtextGuard.reset(fetchKey);
@@ -703,7 +710,7 @@ export class VideoCaptionSession {
         void this.showBraveTimedtextFailure(fetchKey);
       }
       this.useDomCaptions = true;
-      return { cues: [], language: selected.languageCode, live };
+      return { cues: [], language: selected.languageCode, asr: selected.asr, live };
     }
   }
 
@@ -728,8 +735,10 @@ export class VideoCaptionSession {
       key: trackKey(this.doc, video),
       cues: youtube.cues,
       language: youtube.language,
+      asr: youtube.asr,
       restoreModes: [],
     });
+    this.warmAsrTrack();
   }
 
   private async loadXTrack(video: HTMLVideoElement): Promise<Omit<LoadedTrack, 'key'> | null> {
@@ -1104,7 +1113,7 @@ export class VideoCaptionSession {
     this.observeLiveCaption(visible);
   }
 
-  /** Paint the current utterance immediately, but translate only completed units. */
+  /** Paint each visible ASR chunk now; the completed sentence can refine it later. */
   private observeLiveCaption(visible: string): void {
     const text = dedupeLiveCaptionText(visible);
     if (text.length === 0) return;
@@ -1144,6 +1153,13 @@ export class VideoCaptionSession {
     this.liveSource = text;
     this.liveLastChangeAt = now;
     this.liveTailRevision += 1;
+    if (this.liveMode && this.loaded?.asr) {
+      this.startProvisionalLiveTranslation(
+        text,
+        this.translateOptions(this.loaded?.language),
+        this.liveTailRevision,
+      );
+    }
     this.clearHoldTimer();
     if (LIVE_SENTENCE_END_RE.test(utterance) || utterance.length >= LIVE_SENTENCE_MAX_CHARS) {
       this.commitLiveSentence(
@@ -1152,6 +1168,75 @@ export class VideoCaptionSession {
     }
   }
 
+  /**
+   * Translate the visible chunk as soon as it appears. The finished sentence is
+   * translated with the same light context and replaces this line from cache, so
+   * a provisional result never blanks the overlay or jumps back to an older chunk.
+   */
+  private startProvisionalLiveTranslation(
+    text: string,
+    options: CaptionTranslateOptions,
+    revision: number,
+  ): void {
+    if (this.provisionalSource === text || this.liveCommittedSource === text) return;
+    if (this.provisionalSource && this.provisionalOptions) {
+      this.translator.cancelText(this.provisionalSource, this.provisionalOptions);
+    }
+    const requestOptions: CaptionTranslateOptions = {
+      ...options,
+      ...(this.liveCommittedSource ? { context: this.liveCommittedSource } : {}),
+    };
+    this.provisionalSource = text;
+    this.provisionalOptions = requestOptions;
+    const cue: CaptionCue = {
+      id: `live:chunk:${String(revision)}`,
+      startMs: 0,
+      endMs: this.playheadMs(),
+      text,
+      language: this.loaded?.language,
+    };
+    const cached =
+      this.translator.getCached(text, requestOptions) ?? this.translator.getCached(text, options);
+    if (cached) {
+      this.commitDisplay(cue.id, text, cached, 0, this.playheadMs(), 0, true);
+      return;
+    }
+    const token = this.sourceToken;
+    const generation = this.translator.translateGeneration();
+    void this.translator
+      .translateCue(cue, requestOptions, CAPTION_PLAYHEAD_PRIORITY)
+      .then((translation) => {
+        if (
+          !this.running ||
+          token !== this.sourceToken ||
+          this.translator.abortedSince(generation) ||
+          !this.liveCaptionVisible ||
+          this.liveSource !== text ||
+          this.liveCommittedSource === text ||
+          !translation
+        ) {
+          return;
+        }
+        this.commitDisplay(cue.id, text, translation, 0, this.playheadMs(), 0, true);
+      });
+  }
+
+  /** Warm timedtext cues that are already available inside the ASR window. */
+  private warmAsrTrack(): void {
+    const loaded = this.loaded;
+    // ASR prefetch is for a growing live track; ordinary timedtext keeps its existing path.
+    if (!this.liveMode || !loaded?.asr || loaded.cues.length === 0) return;
+    const rate = Number.isFinite(this.video?.playbackRate) ? (this.video?.playbackRate ?? 1) : 1;
+    this.translator.prefetch(
+      loaded.cues,
+      this.playheadMs(),
+      this.translateOptions(loaded.language),
+      this.prefs.tier,
+      rate,
+      new Set(),
+      CAPTION_PREFETCH_MAX_CUES,
+    );
+  }
   private shouldCommitLiveSentence(now: number, next: string): boolean {
     return (
       this.liveUtterance.length > 0 &&
@@ -1268,6 +1353,8 @@ export class VideoCaptionSession {
     this.liveTailJob = null;
     this.liveTailRevision = 0;
     this.liveCaptionVisible = false;
+    this.provisionalSource = '';
+    this.provisionalOptions = null;
   }
 
   private bindVideo(video: HTMLVideoElement | null): void {

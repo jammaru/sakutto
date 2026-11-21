@@ -1,6 +1,7 @@
 import { isRecord } from '@/shared/object';
 import { isPlamoOnlyTarget } from '@/shared/languages';
 import { parseTimedtextJson3, parseWebVtt, type CaptionCue } from './cues';
+import { cleanCaptionText } from './text-cleanup';
 
 export interface YoutubeCaptionTrack {
   baseUrl: string;
@@ -411,7 +412,7 @@ function captionWindowText(window: Element): string {
 }
 
 function normalizeDomCaption(value: string): string {
-  return value.replace(/\s+/g, ' ').trim();
+  return cleanCaptionText(value.replace(/\s+/g, ' ').trim());
 }
 
 function languagePrefix(value: string | null | undefined): string {

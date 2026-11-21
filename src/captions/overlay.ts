@@ -5,6 +5,7 @@ import {
   type DisplayMode,
   type VideoCaptionPosition,
 } from '@/shared/settings';
+import { cleanCaptionText } from './text-cleanup';
 
 export interface CaptionOverlayLabels {
   label: string;
@@ -525,8 +526,9 @@ export class CaptionOverlay {
   }
 
   show(state: CaptionOverlayState): void {
-    const translation = state.translation?.trim() ?? '';
-    const original = state.original.trim();
+    // Last-mile guard: no segment sentinel, sound tag or stutter ever reaches the DOM.
+    const translation = cleanCaptionText(state.translation ?? '').trim();
+    const original = cleanCaptionText(state.original).trim();
     const originalOnly = translation.length === 0 && original.length > 0 && state.pending;
     // Native captions stay until a translation exists, except for original-only pending.
     if (translation.length === 0 && !originalOnly) {
