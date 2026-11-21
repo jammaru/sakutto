@@ -142,6 +142,26 @@ describe('PdfSession stream handling', () => {
     expect(session.pageBlocks(0)[0]?.paint).toBe(true);
   });
 
+  it('joins Easy Japanese pieces without a space, like plain Japanese', async () => {
+    const counts: number[] = [];
+    const engine = engineOf(async function* (segments) {
+      counts.push(segments.length);
+      for (const segment of segments) {
+        yield { id: segment.id, final: '訳文です。' };
+      }
+    });
+    // A paragraph over PDF_PIECE_CHARS is sent as more than one piece.
+    const source = 'The detector compares each synthetic configuration on one stream. '.repeat(25);
+    const session = sessionOf(engine, { target: 'ja-easy' });
+    session.addPage(0, layoutOf(source.trim()));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'done');
+
+    const pieces = counts[0] ?? 0;
+    expect(pieces).toBeGreaterThan(1);
+    // Easy Japanese is still Japanese: an ASCII space between pieces is visible and wrong.
+    expect(session.pageBlocks(0)[0]?.translation).toBe('訳文です。'.repeat(pieces));
+  });
+
   it('does not retranslate when the glossary contents have not changed', async () => {
     let calls = 0;
     const engine = engineOf(async function* (segments) {

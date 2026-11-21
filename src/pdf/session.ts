@@ -1,6 +1,6 @@
 import { PriorityQueue } from '@/engine/queue/priority-queue';
 import { isAbortError } from '@/engine/errors';
-import { chunkForTranslation } from '@/engine/text/sentences';
+import { chunkForTranslation, sentenceSeparator } from '@/engine/text/sentences';
 import { estimateTokens } from '@/engine/text/tokens';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
 import { MAX_PRIORITY } from '@/engine/offscreen/protocol';
@@ -194,8 +194,6 @@ export interface PdfSessionOptions {
    */
   concurrency?: number;
 }
-
-const NO_SPACE_TARGETS: ReadonlySet<string> = new Set(['ja', 'zh-hans', 'zh-hant', 'th']);
 
 /**
  * Characters in one PDF translation prompt.
@@ -907,7 +905,9 @@ function pieceIndex(id: string): number {
 }
 
 function joinParts(parts: readonly string[], target: string): string {
-  const separator = NO_SPACE_TARGETS.has(target) ? '' : ' ';
+  // The same rule the page translator uses: Easy Japanese is Japanese too, so it takes no
+  // ASCII space between pieces.
+  const separator = sentenceSeparator(target);
   return parts
     .map((part) => part.trim())
     .filter((part) => part.length > 0)
