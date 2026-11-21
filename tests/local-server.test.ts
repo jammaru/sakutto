@@ -524,6 +524,44 @@ describe('local server completions', () => {
     expect(output).toBe('Hello');
   });
 
+  it('streams tokens from CRLF-framed events before the stream ends', async () => {
+    // SSE permits LF, CRLF and CR line endings. Framing events with '\r\n\r\n'
+    // must still stream each delta as it arrives instead of piling up until EOF.
+    let releaseRest!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseRest = resolve;
+    });
+    const fake = await startFakeServer((_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      response.write('data: {"choices":[{"text":"Hel"}]}\r\n\r\n');
+      void gate.then(() => {
+        response.write('data: {"choices":[{"text":"lo","finish_reason":"stop"}]}\r\n\r\n');
+        response.write('data: [DONE]\r\n\r\n');
+        response.end();
+      });
+    });
+    servers.push(fake);
+
+    const tokens: string[] = [];
+    const done = completeOnServer(config(fake.url), {
+      prompt: 'x',
+      maxTokens: 8,
+      signal: new AbortController().signal,
+      onToken: (token) => {
+        tokens.push(token);
+      },
+    });
+    const deadline = Date.now() + 2_000;
+    while (tokens.length === 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    const beforeClose = [...tokens];
+    releaseRest();
+    await done;
+    expect(beforeClose).toEqual(['Hel']);
+    expect(tokens.join('')).toBe('Hello');
+  });
+
   it('rejects a stream that ends without [DONE] or finish_reason stop', async () => {
     const fake = await startFakeServer((_request, response) => {
       response.writeHead(200, { 'Content-Type': 'text/event-stream' });
