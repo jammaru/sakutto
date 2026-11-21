@@ -21,7 +21,7 @@ describe('pinned model URL check', () => {
     await expect(checkModelPin(TARGET, fetchImpl)).resolves.toBeUndefined();
     const init = fetchImpl.mock.calls[0]?.[1];
     expect(init?.headers).toEqual({ Range: 'bytes=0-0' });
-    expect(init?.redirect).toBe('follow');
+    expect(init?.redirect).toBe('manual');
   });
 
   it('accepts a full response only when its length matches the pin', async () => {
@@ -84,5 +84,90 @@ describe('pinned model URL check', () => {
     expect(workflow).toContain('node scripts/check-model-pins.ts');
     expect(workflow).not.toContain('pnpm bench');
     expect(workflow).not.toContain('github.event.pull_request.draft == false');
+  });
+});
+
+const SHA_A = 'a'.repeat(64);
+const SHA_B = 'b'.repeat(64);
+
+describe('upstream revision check', () => {
+  it('reads the sha256 from the huggingface.co redirect, not the CDN ETag', async () => {
+    const target: ModelPinTarget = {
+      ...TARGET,
+      revisions: [{ size: 12, sha256: SHA_A }],
+    };
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      response(302, {
+        location: 'https://cdn.example.test/blob',
+        'x-linked-size': '12',
+        'x-linked-etag': `"${SHA_A}"`,
+        etag: '"cdn-only-xet-hash"',
+      }),
+    );
+
+    await expect(checkModelPin(target, fetchImpl)).resolves.toBeUndefined();
+  });
+
+  it('accepts a quoted X-Linked-ETag and X-Linked-Size of a known revision', async () => {
+    const target: ModelPinTarget = {
+      ...TARGET,
+      revisions: [{ size: 12, sha256: SHA_A }],
+    };
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      response(206, {
+        'x-linked-size': '12',
+        'x-linked-etag': `"${SHA_A}"`,
+        'content-range': 'bytes 0-0/99',
+      }),
+    );
+
+    await expect(checkModelPin(target, fetchImpl)).resolves.toBeUndefined();
+  });
+
+  it('fails when the upstream hash is missing from the catalog', async () => {
+    const target: ModelPinTarget = {
+      ...TARGET,
+      revisions: [{ size: 12, sha256: SHA_A }],
+    };
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      response(206, { 'x-linked-size': '12', 'x-linked-etag': `"${SHA_B}"` }),
+    );
+
+    await expect(checkModelPin(target, fetchImpl)).rejects.toThrow(/not in the catalog/);
+  });
+
+  it('fails when the upstream size matches no known revision', async () => {
+    const target: ModelPinTarget = {
+      ...TARGET,
+      revisions: [{ size: 12, sha256: SHA_A }],
+    };
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      response(206, { 'x-linked-size': '14', 'x-linked-etag': `"${SHA_A}"` }),
+    );
+
+    await expect(checkModelPin(target, fetchImpl)).rejects.toThrow(/pinned size is 12/);
+  });
+
+  it('points every catalog target at resolve/main and checks all known revisions', async () => {
+    const { pinnedModelTargets } = await import('../scripts/check-model-pins');
+    const targets = pinnedModelTargets();
+    expect(targets).toHaveLength(2);
+    for (const target of targets) {
+      expect(target.url).toContain('/resolve/main/');
+      expect(target.revisions?.length).toBeGreaterThanOrEqual(2);
+    }
+
+    const fetchImpl = vi.fn<typeof fetch>(async (input) => {
+      const target = targets.find((item) => item.url === String(input));
+      const revision = target?.revisions?.[0];
+      if (!revision) throw new Error(`unexpected URL ${String(input)}`);
+      return response(206, {
+        'x-linked-size': String(revision.size),
+        'x-linked-etag': `"${revision.sha256}"`,
+      });
+    });
+
+    await expect(checkModelPins(targets, fetchImpl)).resolves.toBeUndefined();
+    expect(fetchImpl).toHaveBeenCalledTimes(targets.length);
   });
 });
