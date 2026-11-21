@@ -6,6 +6,8 @@ import {
 } from '@/shared/runtime-last-error';
 import { defineBackground } from 'wxt/utils/define-background';
 import { EngineClient } from '@/background/engine-client';
+import { OcrRecognitionRequests } from '@/background/ocr-requests';
+import { captureActiveSenderTab } from '@/background/image-capture';
 import { createEngineHostController } from '@/background/engine-host-document';
 import {
   injectCaptionPages,
@@ -128,7 +130,7 @@ export default defineBackground(() => {
   const downloads = new Map<ModelId, AbortController>();
   const ocrDownloads = new Map<OcrTier, AbortController>();
   const ocrDownloadTasks = new Map<OcrTier, Promise<AssetStatus<OcrTier>>>();
-  const ocrRecognitions = new Map<OcrTier, AbortController>();
+  const ocrRecognitions = new OcrRecognitionRequests();
   let capabilitiesCache: EngineCapabilities | null = null;
 
   client.onModelStatus((status) => {
@@ -465,17 +467,9 @@ export default defineBackground(() => {
     }
 
     if (isImageCaptureRequest(message)) {
-      const tabId = sender.tab?.id;
-      if (tabId === undefined) {
-        sendResponse(null);
-        return true;
-      }
       // The image context-menu click supplies activeTab. Capture is only a fallback after the
       // content-side canvas read failed, so no broad image-origin permission is requested.
-      void browser.tabs.captureVisibleTab(sender.tab?.windowId, { format: 'png' }).then(
-        (dataUrl) => sendResponse(dataUrl),
-        () => sendResponse(null),
-      );
+      void captureActiveSenderTab(sender).then(sendResponse);
       return true;
     }
 
@@ -673,10 +667,14 @@ export default defineBackground(() => {
     }
 
     if (isOcrCancelRequest(message)) {
-      ocrDownloads.get(message.tier)?.abort();
-      ocrDownloads.delete(message.tier);
-      ocrRecognitions.get(message.tier)?.abort();
-      ocrRecognitions.delete(message.tier);
+      if (message.requestId === undefined) {
+        // Download cancellation is a deliberate settings action for the shared tier transfer.
+        // It must not abort unrelated recognition callers using the already-loaded model.
+        ocrDownloads.get(message.tier)?.abort();
+        ocrDownloads.delete(message.tier);
+      } else {
+        ocrRecognitions.cancel(message.tier, message.requestId);
+      }
       sendResponse(true);
       return false;
     }
@@ -684,7 +682,7 @@ export default defineBackground(() => {
     if (isOcrDeleteRequest(message)) {
       void (async () => {
         ocrDownloads.get(message.tier)?.abort();
-        ocrRecognitions.get(message.tier)?.abort();
+        ocrRecognitions.cancelTier(message.tier);
         const status = await client.deleteOcr(message.tier).catch(() => null);
         if (status) await broadcast({ type: 'ocr:progress', status });
         sendResponse(status);
@@ -693,10 +691,12 @@ export default defineBackground(() => {
     }
 
     if (isOcrRecognizeRequest(message)) {
+      const controller = ocrRecognitions.start(message.requestId, message.tier);
+      if (!controller) {
+        sendResponse(null);
+        return false;
+      }
       void (async () => {
-        ocrRecognitions.get(message.tier)?.abort();
-        const controller = new AbortController();
-        ocrRecognitions.set(message.tier, controller);
         try {
           await ensureOcrReady(message.tier);
           const result = await client.recognizeOcr(message.tier, message.image, controller.signal);
@@ -704,7 +704,7 @@ export default defineBackground(() => {
         } catch {
           sendResponse(null);
         } finally {
-          ocrRecognitions.delete(message.tier);
+          ocrRecognitions.finish(message.requestId, controller);
         }
       })();
       return true;

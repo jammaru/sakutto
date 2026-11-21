@@ -73,7 +73,7 @@ export class OcrHost {
         if (isAbortError(error) || controller.signal.aborted) throw abortError();
         throw error;
       })
-      .finally(() => this.requests.delete(requestId));
+      .finally(() => this.untrack(requestId, controller));
   }
 
   async download(requestId: string, tier: OcrTier): Promise<AssetStatus<OcrTier>> {
@@ -83,7 +83,7 @@ export class OcrHost {
       await assets.download(tier, { signal: controller.signal });
       return this.status(tier);
     } finally {
-      this.requests.delete(requestId);
+      this.untrack(requestId, controller);
     }
   }
 
@@ -115,6 +115,10 @@ export class OcrHost {
     const controller = new AbortController();
     this.requests.set(requestId, { tier, controller });
     return controller;
+  }
+
+  private untrack(requestId: string, controller: AbortController): void {
+    if (this.requests.get(requestId)?.controller === controller) this.requests.delete(requestId);
   }
 
   private assets(): Promise<AssetManager<OcrTier>> {

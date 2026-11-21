@@ -192,6 +192,24 @@ describe('OCR geometry and layout conversion', () => {
     expect(ocrResultToTextLines(result, { ...CONVERSION, pageIndex: 4 })[0]?.id).toBe('ocr:p4:l0');
   });
 
+  it('preserves a word space between touching horizontal English regions', () => {
+    const left = region('Hello', quad(20, 20, 100, 40));
+    const right = region('world', quad(120, 20, 100, 40));
+    const result = ocrResult([left, right], [readingLine('horizontal', [left, right])]);
+
+    expect(ocrResultToTextLines(result, CONVERSION)[0]?.text).toBe('Hello world');
+    expect(ocrResultToLayoutBlocks(result, CONVERSION)[0]?.text).toBe('Hello world');
+  });
+
+  it('preserves a word space between overlapping horizontal English regions', () => {
+    const left = region('Hello', quad(20, 20, 100, 40));
+    const right = region('world', quad(100, 20, 100, 40));
+    const result = ocrResult([left, right], [readingLine('horizontal', [left, right])]);
+
+    expect(ocrResultToTextLines(result, CONVERSION)[0]?.text).toBe('Hello world');
+    expect(ocrResultToLayoutBlocks(result, CONVERSION)[0]?.text).toBe('Hello world');
+  });
+
   it('skips blank recognitions without inventing geometry or changing source region IDs', () => {
     const blank = region('  ', quad(20, 20, 100, 40));
     const text = region('Visible', quad(140, 20, 100, 40));

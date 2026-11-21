@@ -204,7 +204,10 @@ export function ocrResultToTextLines(
     }
     if (pieces.length === 0) continue;
     const line = lineFrom(pieces);
-    output.push({ ...line, id: lineId, pieces });
+    // OCR region boundaries are authoritative, unlike gaps between native PDF text runs.
+    // Match the pipeline's separator so touching or overlapping horizontal regions stay distinct.
+    const text = pieces.map((piece) => piece.text).join(vertical ? '' : ' ');
+    output.push({ ...line, text, id: lineId, pieces });
   }
   return output;
 }

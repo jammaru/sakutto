@@ -3,15 +3,22 @@ import { encodeOcrImage } from '@/engine/ocr/codec';
 import type { OcrResult, ImageDataLike } from '@/engine/ocr/types';
 import { abortError } from '@/engine/errors';
 import type { TranslationChunk, TranslateOptions, TranslateSegment } from '@/engine/types';
-import type { OcrImagePayload } from '@/engine/offscreen/protocol';
-import type { OcrTier } from '@/engine/ocr/catalog';
-import { requestOcrCancel, requestOcrRecognize } from '@/shared/messages';
+import { MAX_OCR_PIXELS, type OcrImagePayload } from '@/engine/offscreen/protocol';
+import { requestOcrRecognize } from '@/shared/messages';
 import { loadSettings } from '@/shared/storage';
 import type { Settings } from '@/shared/settings';
 import { translateViaBackground } from '@/shared/translation-client';
 import type { ImageCaptureRect, ImageCaptureRequest } from '@/shared/image';
 
 const MAX_IMAGE_SIDE = 2048;
+
+class ImageCapturePermissionError extends Error {}
+
+interface ImageCaptureGeometry {
+  rect: ImageCaptureRect | null;
+  viewportWidth: number;
+  viewportHeight: number;
+}
 
 export interface ImageTranslationLabels {
   heading: string;
@@ -61,6 +68,38 @@ export function visibleImageRect(
     : null;
 }
 
+/** Convert frame-local crop coordinates to the top-level visible-tab screenshot. */
+export function topLevelImageCaptureGeometry(
+  rect: ImageCaptureRect | null,
+  sourceWindow: Window = window,
+): ImageCaptureGeometry | null {
+  let x = rect?.x ?? 0;
+  let y = rect?.y ?? 0;
+  let current = sourceWindow;
+  const seen = new Set<Window>();
+
+  while (current !== current.top) {
+    if (seen.has(current)) return null;
+    seen.add(current);
+    const frame = current.frameElement;
+    // Cross-origin frames cannot expose frameElement. Failing the fallback is safer than
+    // cropping an unrelated part of the top-level tab with frame-local coordinates.
+    if (!frame) return null;
+    const bounds = frame.getBoundingClientRect();
+    x += bounds.x;
+    y += bounds.y;
+    current = current.parent;
+  }
+
+  const viewportWidth = current.innerWidth;
+  const viewportHeight = current.innerHeight;
+  return {
+    rect: rect ? visibleImageRect({ ...rect, x, y }, viewportWidth, viewportHeight) : null,
+    viewportWidth,
+    viewportHeight,
+  };
+}
+
 function imageElement(sourceUrl: string): HTMLImageElement | null {
   for (const image of document.querySelectorAll('img')) {
     if (image.currentSrc === sourceUrl || image.src === sourceUrl) return image;
@@ -77,15 +116,33 @@ function canvasPixels(
   source: CanvasImageSource,
   width: number,
   height: number,
-  destination?: HTMLCanvasElement,
+  sourceRect?: ImageCaptureRect,
 ): ImageDataLike {
-  const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(width, height, 1));
-  const canvas = destination ?? document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(width * scale));
-  canvas.height = Math.max(1, Math.round(height * scale));
+  const scale = Math.min(
+    1,
+    MAX_IMAGE_SIDE / Math.max(width, height, 1),
+    Math.sqrt(MAX_OCR_PIXELS / Math.max(1, width * height)),
+  );
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.floor(width * scale));
+  canvas.height = Math.max(1, Math.floor(height * scale));
   const context = canvas.getContext('2d', { alpha: false });
   if (!context) throw new Error('Canvas is unavailable');
-  context.drawImage(source, 0, 0, canvas.width, canvas.height);
+  if (sourceRect) {
+    context.drawImage(
+      source,
+      sourceRect.x,
+      sourceRect.y,
+      sourceRect.width,
+      sourceRect.height,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
+  } else {
+    context.drawImage(source, 0, 0, canvas.width, canvas.height);
+  }
   return context.getImageData(0, 0, canvas.width, canvas.height);
 }
 
@@ -97,33 +154,25 @@ async function corsPixels(sourceUrl: string): Promise<ImageDataLike> {
   return canvasPixels(image, image.naturalWidth, image.naturalHeight);
 }
 
-async function capturedPixels(
+export async function capturedPixels(
   dataUrl: string,
-  rect: ImageCaptureRect | null,
+  geometry: ImageCaptureGeometry,
 ): Promise<ImageDataLike> {
   const screenshot = new Image();
   screenshot.src = dataUrl;
   await waitForImage(screenshot);
+  const { rect } = geometry;
   if (!rect) return canvasPixels(screenshot, screenshot.naturalWidth, screenshot.naturalHeight);
-  const scaleX = screenshot.naturalWidth / Math.max(1, window.innerWidth);
-  const scaleY = screenshot.naturalHeight / Math.max(1, window.innerHeight);
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(rect.width * scaleX));
-  canvas.height = Math.max(1, Math.round(rect.height * scaleY));
-  const context = canvas.getContext('2d', { alpha: false });
-  if (!context) throw new Error('Canvas is unavailable');
-  context.drawImage(
-    screenshot,
-    Math.round(rect.x * scaleX),
-    Math.round(rect.y * scaleY),
-    canvas.width,
-    canvas.height,
-    0,
-    0,
-    canvas.width,
-    canvas.height,
-  );
-  return context.getImageData(0, 0, canvas.width, canvas.height);
+  const scaleX = screenshot.naturalWidth / Math.max(1, geometry.viewportWidth);
+  const scaleY = screenshot.naturalHeight / Math.max(1, geometry.viewportHeight);
+  const width = Math.max(1, Math.round(rect.width * scaleX));
+  const height = Math.max(1, Math.round(rect.height * scaleY));
+  return canvasPixels(screenshot, width, height, {
+    x: Math.round(rect.x * scaleX),
+    y: Math.round(rect.y * scaleY),
+    width,
+    height,
+  });
 }
 
 function panelHost(): { host: HTMLElement; shadow: ShadowRoot } {
@@ -160,7 +209,6 @@ export class ImageTranslationController {
   private host: HTMLElement | null = null;
   private card: HTMLElement | null = null;
   private controller: AbortController | null = null;
-  private tier: OcrTier | null = null;
   private generation = 0;
 
   constructor(private readonly options: ImageTranslationOptions) {}
@@ -168,8 +216,6 @@ export class ImageTranslationController {
   close(): void {
     this.generation += 1;
     this.controller?.abort();
-    if (this.tier) void requestOcrCancel(this.tier);
-    this.tier = null;
     this.controller = null;
     this.host?.remove();
     this.host = null;
@@ -191,12 +237,12 @@ export class ImageTranslationController {
 
     try {
       const settings = await (this.options.loadSettings ?? loadSettings)();
-      this.tier = settings.selectedOcrTier;
       const pixels = await this.readPixels(sourceUrl);
       this.throwIfStale(generation, controller.signal);
       const recognize =
         this.options.recognize ??
-        ((payload: OcrImagePayload) => requestOcrRecognize(settings.selectedOcrTier, payload));
+        ((payload: OcrImagePayload) =>
+          requestOcrRecognize(settings.selectedOcrTier, payload, controller.signal));
       const payload = encodeOcrImage(pixels);
       const result = await recognize(payload);
       this.throwIfStale(generation, controller.signal);
@@ -232,9 +278,14 @@ export class ImageTranslationController {
         .trim();
       if (!text) throw new Error('Translation failed');
       this.paintText(text, false, result.text);
-    } catch {
+    } catch (error) {
       if (generation !== this.generation || controller.signal.aborted) return;
-      this.paintText(this.options.labels.failed, true);
+      this.paintText(
+        error instanceof ImageCapturePermissionError
+          ? this.options.labels.permission
+          : this.options.labels.failed,
+        true,
+      );
     } finally {
       if (this.controller === controller) this.controller = null;
     }
@@ -261,15 +312,16 @@ export class ImageTranslationController {
     }
 
     const bounds = image?.getBoundingClientRect();
-    const rect = bounds ? visibleImageRect(bounds, window.innerWidth, window.innerHeight) : null;
+    const geometry = topLevelImageCaptureGeometry(bounds ?? null);
+    if (!geometry) throw new ImageCapturePermissionError();
     const response: unknown = await browser.runtime.sendMessage({
       type: 'image:capture',
-      rect,
+      rect: geometry.rect,
     } satisfies ImageCaptureRequest);
     if (typeof response !== 'string' || !response.startsWith('data:image/')) {
-      throw new Error(this.options.labels.permission);
+      throw new ImageCapturePermissionError();
     }
-    return capturedPixels(response, rect);
+    return capturedPixels(response, geometry);
   }
 
   private paintPending(): void {

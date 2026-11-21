@@ -18,7 +18,6 @@
     requestEngineStatus,
     requestEngineWarm,
     requestModelDownload,
-    requestOcrCancel,
     requestOcrRecognize,
   } from '@/shared/messages';
   import { MAX_PDF_BYTES, PDF_ID_PARAM } from '@/shared/pdf';
@@ -252,17 +251,9 @@
       ocr: {
         recognize: async (image, signal) => {
           const tier = settings?.selectedOcrTier ?? DEFAULT_OCR_TIER;
-          const cancel = (): void => {
-            void requestOcrCancel(tier);
-          };
-          signal.addEventListener('abort', cancel, { once: true });
-          try {
-            const result = await requestOcrRecognize(tier, encodeOcrImage(image));
-            if (!result || signal.aborted) throw abortError();
-            return result;
-          } finally {
-            signal.removeEventListener('abort', cancel);
-          }
+          const result = await requestOcrRecognize(tier, encodeOcrImage(image), signal);
+          if (!result || signal.aborted) throw abortError();
+          return result;
         },
       },
       pageLimit,

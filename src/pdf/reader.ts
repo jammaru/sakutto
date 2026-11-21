@@ -1,5 +1,6 @@
 import type { Formality } from '@/shared/settings';
 import { isAbortError } from '@/engine/errors';
+import { MAX_OCR_DIMENSION, MAX_OCR_PIXELS } from '@/engine/offscreen/protocol';
 import { createPdfPageOcr, shouldRunPdfOcr, type PdfPageOcr, type PdfOcrRecognize } from './ocr';
 import { verticalWriting, type LayoutBlock } from './layout';
 import { layoutPage } from './layout';
@@ -697,7 +698,10 @@ export class PdfReader {
             element.missing.textContent = this.labels.ocrReading(next + 1, this.geometries.length);
           }
           const canvas = document.createElement('canvas');
-          await renderPage(page, 2, canvas).promise;
+          await renderPage(page, 2, canvas, {
+            maxPixels: MAX_OCR_PIXELS,
+            maxDimension: MAX_OCR_DIMENSION,
+          }).promise;
           if (this.destroyed || !this.visible) return;
           this.pageOcr = createPdfPageOcr({
             pageIndex: next,

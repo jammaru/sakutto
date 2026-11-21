@@ -6,7 +6,7 @@ const requestPageCommand = vi.fn<
   (tabId: number, command: string, frameId?: number) => Promise<{ active: boolean }>
 >(async () => ({ active: true }));
 const ensureContentScript = vi.fn<
-  (tabId: number, options?: { allFrames?: boolean }) => Promise<boolean>
+  (tabId: number, options?: { allFrames?: boolean; frameId?: number }) => Promise<boolean>
 >(async () => true);
 const noteShortcutCommandAssigned = vi.fn<(command: string) => Promise<void>>(
   async () => undefined,
@@ -33,7 +33,7 @@ vi.mock('wxt/browser', () => ({
 }));
 
 vi.mock('@/shared/page-bridge', () => ({
-  ensureContentScript: (tabId: number, options?: { allFrames?: boolean }) =>
+  ensureContentScript: (tabId: number, options?: { allFrames?: boolean; frameId?: number }) =>
     ensureContentScript(tabId, options),
 }));
 

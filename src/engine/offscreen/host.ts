@@ -729,7 +729,17 @@ export class EngineHost {
   }
 
   private async handleMessage(port: Browser.runtime.Port, message: unknown): Promise<void> {
-    if (!isEngineHostRequest(message)) return;
+    if (!isEngineHostRequest(message)) {
+      // A request with an id has a caller waiting on a response. Validation failures must be
+      // explicit: silently dropping a malformed raster would leave that caller pending forever.
+      if (typeof message === 'object' && message !== null && 'requestId' in message) {
+        const requestId = message.requestId;
+        if (typeof requestId === 'string' && requestId.length > 0) {
+          this.respondError(port, requestId, new Error('Invalid engine host request.'));
+        }
+      }
+      return;
+    }
 
     switch (message.type) {
       case 'ping':

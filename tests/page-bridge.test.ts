@@ -52,6 +52,18 @@ describe('ensureContentScript', () => {
     expect(mocks.executeScript).toHaveBeenCalledTimes(2);
   });
 
+  it('injects and pings only the requested subframe', async () => {
+    mocks.requestPageInfo.mockResolvedValueOnce(null).mockResolvedValueOnce({ lang: 'en' });
+
+    expect(await ensureContentScript(7, { frameId: 4 })).toBe(true);
+    expect(mocks.executeScript).toHaveBeenCalledWith({
+      target: { tabId: 7, frameIds: [4] },
+      files: ['/content-scripts/content.js'],
+    });
+    expect(mocks.requestPageInfo).toHaveBeenNthCalledWith(1, 7, 4);
+    expect(mocks.requestPageInfo).toHaveBeenNthCalledWith(2, 7, 4);
+  });
+
   it('reports false only after every attempt fails', async () => {
     mocks.executeScript.mockRejectedValue(new Error('No host access.'));
 

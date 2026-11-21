@@ -94,7 +94,11 @@ export class AssetManager<Id extends string> {
     Id,
     { operation: Promise<void>; controller: AbortController }
   >();
-  private readonly verifies = new Map<Id, Promise<void>>();
+  private readonly verifies = new Map<
+    Id,
+    { operation: Promise<void>; controller: AbortController }
+  >();
+  private readonly generations = new Map<Id, number>();
   private readonly live = new Map<Id, AssetStatus<Id>>();
   private readonly errors = new Map<Id, string>();
 
@@ -112,7 +116,10 @@ export class AssetManager<Id extends string> {
     const active = this.live.get(id);
     if (active && (this.downloads.has(id) || this.verifies.has(id))) return active;
 
+    const generation = this.generation(id);
     const inspected = await this.inspect(id);
+    // An inspection that overlapped deletion must not start verification for removed files.
+    if (generation !== this.generation(id)) return this.status(id);
     if (inspected.needsHash && !this.errors.has(id)) {
       this.kickVerify(id);
       return { ...inspected.status, state: 'verifying' };
@@ -141,14 +148,18 @@ export class AssetManager<Id extends string> {
 
   cancel(id: Id): void {
     this.downloads.get(id)?.controller.abort();
+    this.verifies.get(id)?.controller.abort();
   }
 
   async delete(id: Id): Promise<void> {
+    this.generations.set(id, this.generation(id) + 1);
     const active = this.downloads.get(id);
-    if (active) {
-      active.controller.abort();
-      await active.operation.catch(() => undefined);
-    }
+    const verifying = this.verifies.get(id);
+    active?.controller.abort();
+    verifying?.controller.abort();
+    if (active) await active.operation.catch(() => undefined);
+    // A custom hasher may settle after abort, so wait before removing the directory.
+    if (verifying) await verifying.operation.catch(() => undefined);
     this.errors.delete(id);
     this.live.delete(id);
     await this.store.removeDirectory(this.directory(id));
@@ -312,8 +323,11 @@ export class AssetManager<Id extends string> {
 
   private kickVerify(id: Id): void {
     if (this.verifies.has(id) || this.downloads.has(id)) return;
-    const operation = this.ensureVerified(id, new AbortController().signal)
+    const controller = new AbortController();
+    const generation = this.generation(id);
+    const operation = this.verifyBundle(id, controller.signal, generation)
       .then(() => {
+        if (!this.verificationIsCurrent(id, controller.signal, generation)) return;
         const bundle = this.bundles[id];
         this.notify({
           id,
@@ -324,6 +338,9 @@ export class AssetManager<Id extends string> {
         });
       })
       .catch((error: unknown) => {
+        if (isAbortError(error) || !this.verificationIsCurrent(id, controller.signal, generation)) {
+          return;
+        }
         const message = error instanceof Error ? error.message : String(error);
         this.errors.set(id, message);
         this.notify({
@@ -335,25 +352,34 @@ export class AssetManager<Id extends string> {
           error: message,
         });
       })
-      .finally(() => this.verifies.delete(id));
-    this.verifies.set(id, operation);
+      .finally(() => {
+        if (this.verifies.get(id)?.operation === operation) this.verifies.delete(id);
+      });
+    this.verifies.set(id, { operation, controller });
   }
 
   private async ensureVerified(id: Id, signal: AbortSignal): Promise<void> {
     const existing = this.verifies.get(id);
-    if (existing) return existing;
-    const operation = this.verifyBundle(id, signal).finally(() => this.verifies.delete(id));
-    this.verifies.set(id, operation);
+    if (existing) return existing.operation;
+    const controller = new AbortController();
+    const combinedSignal = AbortSignal.any([signal, controller.signal]);
+    const generation = this.generation(id);
+    const operation = this.verifyBundle(id, combinedSignal, generation).finally(() => {
+      if (this.verifies.get(id)?.operation === operation) this.verifies.delete(id);
+    });
+    this.verifies.set(id, { operation, controller });
     return operation;
   }
 
-  private async verifyBundle(id: Id, signal: AbortSignal): Promise<void> {
+  private async verifyBundle(id: Id, signal: AbortSignal, generation: number): Promise<void> {
     const bundle = this.bundles[id];
+    this.assertVerificationCurrent(id, signal, generation);
     const manifest = await this.readManifest(id);
     let completed = 0;
     for (const file of bundle.files) {
-      if (signal.aborted) throw abortError();
+      this.assertVerificationCurrent(id, signal, generation);
       const stat = await this.store.stat(this.finalPath(id, file));
+      this.assertVerificationCurrent(id, signal, generation);
       const decision = decideIntegrity(file, stat, this.manifestFile(manifest, file.path));
       if (decision === 'missing') {
         throw new EngineError('model-missing', `Asset ${id} is not downloaded yet.`);
@@ -364,18 +390,26 @@ export class AssetManager<Id extends string> {
         });
       }
       this.emit(id, 'verifying', completed + file.size);
-      if (decision === 'needs-hash') await this.verifyFile(id, file, signal);
+      if (decision === 'needs-hash') await this.verifyFile(id, file, signal, generation);
       completed += file.size;
     }
-    await this.writeManifest(id);
+    await this.writeManifest(id, { signal, generation });
   }
 
-  private async verifyFile(id: Id, file: AssetFile, signal: AbortSignal): Promise<void> {
+  private async verifyFile(
+    id: Id,
+    file: AssetFile,
+    signal: AbortSignal,
+    generation?: number,
+  ): Promise<void> {
     if (signal.aborted) throw abortError();
     const blob = await this.store.read(this.finalPath(id, file));
+    if (generation !== undefined) this.assertVerificationCurrent(id, signal, generation);
     const digest = this.hashBlob
       ? await this.hashBlob(blob, { signal })
       : await sha256OfBlob(blob, { signal });
+    if (generation !== undefined) this.assertVerificationCurrent(id, signal, generation);
+    if (signal.aborted) throw abortError();
     if (!digestMatchesPin(digest, file)) {
       throw new EngineError('model-integrity', `SHA-256 mismatch for ${file.path}.`, {
         retryable: false,
@@ -408,10 +442,20 @@ export class AssetManager<Id extends string> {
     return manifest?.files.find((file) => file.path === path) ?? null;
   }
 
-  private async writeManifest(id: Id): Promise<void> {
+  private async writeManifest(
+    id: Id,
+    verification?: { signal: AbortSignal; generation: number },
+  ): Promise<void> {
+    const assertCurrent = () => {
+      if (verification) {
+        this.assertVerificationCurrent(id, verification.signal, verification.generation);
+      }
+    };
+    assertCurrent();
     const files: AssetManifest['files'] = [];
     for (const file of this.bundles[id].files) {
       const stat = await this.store.stat(this.finalPath(id, file));
+      assertCurrent();
       if (!stat || stat.size !== file.size) {
         throw new EngineError('model-integrity', `Asset ${file.path} is incomplete.`);
       }
@@ -419,13 +463,29 @@ export class AssetManager<Id extends string> {
     }
     const manifest: AssetManifest = { id, verifiedAt: Date.now(), files };
     const bytes = TEXT_ENCODER.encode(JSON.stringify(manifest));
+    assertCurrent();
     await this.store.append(this.manifestPath(id), bytes, 0);
+    assertCurrent();
     // append() preserves bytes after a shorter rewrite, so replace through a fresh temp file.
     const remaining = await this.store.size(this.manifestPath(id));
+    assertCurrent();
     if (remaining !== bytes.length) {
       await this.store.remove(this.manifestPath(id));
+      assertCurrent();
       await this.store.append(this.manifestPath(id), bytes, 0);
     }
+  }
+
+  private generation(id: Id): number {
+    return this.generations.get(id) ?? 0;
+  }
+
+  private verificationIsCurrent(id: Id, signal: AbortSignal, generation: number): boolean {
+    return !signal.aborted && generation === this.generation(id);
+  }
+
+  private assertVerificationCurrent(id: Id, signal: AbortSignal, generation: number): void {
+    if (!this.verificationIsCurrent(id, signal, generation)) throw abortError();
   }
 
   private emit(

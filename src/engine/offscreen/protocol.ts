@@ -392,7 +392,7 @@ export type TranslationServerMessage =
   TranslationChunkEvent | TranslationDoneEvent | TranslationErrorEvent;
 
 export const MAX_OCR_PIXELS = 16_777_216;
-const MAX_OCR_DIMENSION = 16_384;
+export const MAX_OCR_DIMENSION = 16_384;
 const MAX_SEGMENTS = 2000;
 const MAX_SEGMENT_ID = 200;
 /**

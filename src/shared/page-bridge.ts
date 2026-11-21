@@ -9,15 +9,21 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function injectContentScript(tabId: number, allFrames: boolean): Promise<boolean> {
+async function injectContentScript(
+  tabId: number,
+  options: { allFrames: boolean; frameId?: number },
+): Promise<boolean> {
   try {
     await browser.scripting.executeScript({
-      target: { tabId, allFrames },
+      target:
+        options.frameId === undefined
+          ? { tabId, allFrames: options.allFrames }
+          : { tabId, frameIds: [options.frameId] },
       files: [CONTENT_SCRIPT_FILE],
     });
     return true;
   } catch {
-    if (!allFrames) return false;
+    if (!options.allFrames || options.frameId !== undefined) return false;
     try {
       await browser.scripting.executeScript({
         target: { tabId },
@@ -38,15 +44,23 @@ async function injectContentScript(tabId: number, allFrames: boolean): Promise<b
  */
 export async function ensureContentScript(
   tabId: number,
-  options: { allFrames?: boolean } = {},
+  options: { allFrames?: boolean; frameId?: number } = {},
 ): Promise<boolean> {
   const allFrames = options.allFrames === true;
-  if (!allFrames && (await requestPageInfo(tabId))) return true;
+  const frameId = options.frameId;
+  if (!allFrames && (await requestPageInfo(tabId, frameId))) return true;
 
   for (let attempt = 0; attempt <= CONTENT_SCRIPT_RETRY_DELAYS_MS.length; attempt += 1) {
     if (attempt > 0) await delay(CONTENT_SCRIPT_RETRY_DELAYS_MS[attempt - 1] ?? 0);
-    if (!(await injectContentScript(tabId, allFrames))) continue;
-    if (await requestPageInfo(tabId)) return true;
+    if (
+      !(await injectContentScript(tabId, {
+        allFrames,
+        ...(frameId === undefined ? {} : { frameId }),
+      }))
+    ) {
+      continue;
+    }
+    if (await requestPageInfo(tabId, frameId)) return true;
   }
 
   return false;

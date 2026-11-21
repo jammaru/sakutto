@@ -215,6 +215,25 @@ describe('shared folder load fallback', () => {
 });
 
 describe('EngineHost', () => {
+  it('rejects malformed requests with an id instead of leaving the caller pending', async () => {
+    const { services } = createServices();
+    const host = createHost(services);
+    const port = new FakePort();
+    host.handlePort(port.port);
+
+    port.emit({
+      type: 'ocr-recognize',
+      requestId: 'too-large',
+      tier: 'standard',
+      image: { width: 5000, height: 5000, data: '' },
+    });
+    await flushTasks();
+
+    expect(port.messagesOfType('response')).toEqual([
+      expect.objectContaining({ requestId: 'too-large', ok: false }),
+    ]);
+  });
+
   it('detects a revoked folder grant during status polling before replying', async () => {
     const { services } = createServices();
     services.manager.status = vi.fn(async () => modelStatus({ state: 'absent' }));

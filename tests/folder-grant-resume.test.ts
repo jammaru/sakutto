@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => {
       (tabId: number, command: string, frameId?: number) => Promise<{ active: boolean }>
     >(async () => ({ active: true })),
     ensureContentScript: vi.fn<
-      (tabId: number, options?: { allFrames?: boolean }) => Promise<boolean>
+      (tabId: number, options?: { allFrames?: boolean; frameId?: number }) => Promise<boolean>
     >(async () => true),
     queryStoredFolderPermission: vi.fn(
       async (): Promise<'granted' | 'prompt' | 'denied' | null> => null,
@@ -68,7 +68,7 @@ vi.mock('@/shared/messages', async (importOriginal) => {
 });
 
 vi.mock('@/shared/page-bridge', () => ({
-  ensureContentScript: (tabId: number, options?: { allFrames?: boolean }) =>
+  ensureContentScript: (tabId: number, options?: { allFrames?: boolean; frameId?: number }) =>
     mocks.ensureContentScript(tabId, options),
 }));
 

@@ -56,7 +56,11 @@ export function installPageActionListeners(engine?: EngineClient): void {
       const srcUrl = info.srcUrl;
       if (typeof srcUrl !== 'string') return;
       void (async () => {
-        if (!(await ensureContentScript(tabId))) return;
+        const ready = await ensureContentScript(
+          tabId,
+          info.frameId === undefined ? {} : { frameId: info.frameId },
+        );
+        if (!ready) return;
         await browser.tabs
           .sendMessage(
             tabId,

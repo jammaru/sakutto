@@ -188,6 +188,8 @@ export interface OcrDownloadRequest {
 export interface OcrCancelRequest {
   type: 'ocr:cancel';
   tier: OcrTier;
+  /** Present for one recognition; absent to cancel the shared tier download. */
+  requestId?: string;
 }
 
 export interface OcrDeleteRequest {
@@ -203,6 +205,7 @@ export interface OcrInspectRequest {
 export interface OcrRecognizeRequest {
   type: 'ocr:recognize';
   tier: OcrTier;
+  requestId: string;
   image: OcrImagePayload;
 }
 
@@ -397,7 +400,13 @@ export function isOcrDownloadRequest(value: unknown): value is OcrDownloadReques
 }
 
 export function isOcrCancelRequest(value: unknown): value is OcrCancelRequest {
-  return isRecord(value) && value.type === 'ocr:cancel' && isOcrStatusTier(value.tier);
+  return (
+    isRecord(value) &&
+    value.type === 'ocr:cancel' &&
+    isOcrStatusTier(value.tier) &&
+    (value.requestId === undefined ||
+      (typeof value.requestId === 'string' && value.requestId.length > 0))
+  );
 }
 
 export function isOcrDeleteRequest(value: unknown): value is OcrDeleteRequest {
@@ -413,6 +422,8 @@ export function isOcrRecognizeRequest(value: unknown): value is OcrRecognizeRequ
     isRecord(value) &&
     value.type === 'ocr:recognize' &&
     isOcrStatusTier(value.tier) &&
+    typeof value.requestId === 'string' &&
+    value.requestId.length > 0 &&
     isRecord(value.image) &&
     typeof value.image.width === 'number' &&
     typeof value.image.height === 'number' &&
@@ -512,11 +523,15 @@ export async function requestPageCommand(
   }
 }
 
-export async function requestPageInfo(tabId: number): Promise<PageInfo | null> {
+export async function requestPageInfo(tabId: number, frameId?: number): Promise<PageInfo | null> {
   try {
-    const response: unknown = await browser.tabs.sendMessage(tabId, {
-      type: 'page:info',
-    } satisfies PageInfoRequest);
+    const response: unknown = await browser.tabs.sendMessage(
+      tabId,
+      {
+        type: 'page:info',
+      } satisfies PageInfoRequest,
+      frameId === undefined ? {} : { frameId },
+    );
     return isPageInfo(response) ? response : null;
   } catch {
     readRuntimeLastError();
@@ -638,9 +653,13 @@ export async function requestOcrDownload(tier: OcrTier): Promise<boolean> {
   }
 }
 
-export async function requestOcrCancel(tier: OcrTier): Promise<void> {
+export async function requestOcrCancel(tier: OcrTier, requestId?: string): Promise<void> {
   try {
-    await browser.runtime.sendMessage({ type: 'ocr:cancel', tier } satisfies OcrCancelRequest);
+    await browser.runtime.sendMessage({
+      type: 'ocr:cancel',
+      tier,
+      ...(requestId === undefined ? {} : { requestId }),
+    } satisfies OcrCancelRequest);
   } catch {
     // Cancelling is best effort.
   }
@@ -670,19 +689,38 @@ export async function requestOcrInspect(tier: OcrTier): Promise<AssetStatus<OcrT
   }
 }
 
+function createOcrRequestId(): string {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `ocr-${String(Date.now())}-${Math.random().toString(36).slice(2)}`;
+}
+
 export async function requestOcrRecognize(
   tier: OcrTier,
   image: OcrImagePayload,
+  signal?: AbortSignal,
 ): Promise<OcrResult | null> {
+  const requestId = createOcrRequestId();
+  const cancel = (): void => {
+    void requestOcrCancel(tier, requestId);
+  };
+  signal?.addEventListener('abort', cancel, { once: true });
+  if (signal?.aborted) {
+    signal.removeEventListener('abort', cancel);
+    return null;
+  }
   try {
     const response: unknown = await browser.runtime.sendMessage({
       type: 'ocr:recognize',
       tier,
+      requestId,
       image,
     } satisfies OcrRecognizeRequest);
     return isOcrResult(response) ? response : null;
   } catch {
     return null;
+  } finally {
+    signal?.removeEventListener('abort', cancel);
   }
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { combinedSetupProgress, isOcrResult, isOcrStatus } from '@/shared/ocr';
+import { isOcrCancelRequest, isOcrRecognizeRequest } from '@/shared/messages';
 
 const plamo = { received: 80, total: 100, state: 'ready' } as const;
 const ocr = { received: 10, total: 20, state: 'downloading' } as const;
@@ -41,5 +42,20 @@ describe('OCR payload validation', () => {
   it('accepts structured OCR results and rejects malformed ones', () => {
     expect(isOcrResult({ text: '原文', regions: [], lines: [] })).toBe(true);
     expect(isOcrResult({ text: 42, regions: [], lines: [] })).toBe(false);
+  });
+
+  it('requires recognition identity and scopes cancellation to an optional request', () => {
+    const request = {
+      type: 'ocr:recognize',
+      tier: 'standard',
+      requestId: 'reader-request',
+      image: { width: 1, height: 1, data: '' },
+    };
+    expect(isOcrRecognizeRequest(request)).toBe(true);
+    expect(isOcrRecognizeRequest({ ...request, requestId: undefined })).toBe(false);
+    expect(isOcrCancelRequest({ type: 'ocr:cancel', tier: 'standard' })).toBe(true);
+    expect(
+      isOcrCancelRequest({ type: 'ocr:cancel', tier: 'standard', requestId: 'reader-request' }),
+    ).toBe(true);
   });
 });

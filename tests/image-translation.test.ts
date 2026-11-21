@@ -2,7 +2,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ImageTranslationController,
+  capturedPixels,
   imageTranslationSegments,
+  topLevelImageCaptureGeometry,
   visibleImageRect,
 } from '@/dom/image-translation';
 import type { OcrResult } from '@/engine/ocr/types';
@@ -40,6 +42,7 @@ const labels = {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   document.body?.replaceChildren();
 });
 
@@ -57,6 +60,57 @@ describe('image translation helpers', () => {
       height: 80,
     });
     expect(visibleImageRect({ x: -100, y: 0, width: 20, height: 20 }, 800, 600)).toBeNull();
+  });
+
+  it('offsets a subframe crop into top-level screenshot coordinates', () => {
+    const top = { innerWidth: 1000, innerHeight: 800 } as unknown as Window;
+    Object.defineProperty(top, 'top', { value: top });
+    const child = {
+      top,
+      parent: top,
+      frameElement: {
+        getBoundingClientRect: () => ({ x: 120, y: 80 }),
+      },
+    } as unknown as Window;
+
+    expect(topLevelImageCaptureGeometry({ x: 10, y: 20, width: 100, height: 50 }, child)).toEqual({
+      rect: { x: 130, y: 100, width: 100, height: 50 },
+      viewportWidth: 1000,
+      viewportHeight: 800,
+    });
+  });
+
+  it('downscales a DPR-3 screenshot crop before producing OCR pixels', async () => {
+    class FakeScreenshot {
+      complete = true;
+      naturalWidth = 5760;
+      naturalHeight = 3240;
+      src = '';
+      async decode(): Promise<void> {}
+    }
+    vi.stubGlobal('Image', FakeScreenshot);
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function (
+      this: HTMLCanvasElement,
+    ) {
+      return {
+        drawImage: vi.fn(),
+        getImageData: () => ({
+          width: this.width,
+          height: this.height,
+          data: new Uint8ClampedArray(this.width * this.height * 4),
+        }),
+      } as unknown as CanvasRenderingContext2D;
+    });
+
+    const pixels = await capturedPixels('data:image/png;base64,cG5n', {
+      rect: { x: 0, y: 0, width: 1920, height: 1080 },
+      viewportWidth: 1920,
+      viewportHeight: 1080,
+    });
+
+    expect(pixels.width).toBe(2048);
+    expect(pixels.height).toBe(1152);
+    expect(pixels.width * pixels.height).toBeLessThanOrEqual(16_777_216);
   });
 });
 

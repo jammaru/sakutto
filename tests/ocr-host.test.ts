@@ -73,4 +73,53 @@ describe('OcrHost', () => {
     expect(runtime.release).toHaveBeenCalledOnce();
     expect(await host.status('standard')).toMatchObject({ state: 'absent' });
   });
+
+  it('serializes independent same-tier callers without aborting either request', async () => {
+    const manager = assets();
+    const signals: AbortSignal[] = [];
+    const runtime: OcrRuntimeLike = {
+      recognize: async (_image, signal) => {
+        signals.push(signal);
+        return { text: 'ok', lines: [], regions: [] };
+      },
+      release: vi.fn(),
+    };
+    const host = new OcrHost({
+      createAssetManager: async () => manager,
+      createRuntime: async () => runtime,
+    });
+
+    const first = host.recognize('reader-a', 'standard', image);
+    const second = host.recognize('reader-b', 'standard', image);
+    await expect(Promise.all([first, second])).resolves.toHaveLength(2);
+
+    expect(signals).toHaveLength(2);
+    expect(signals.every((signal) => !signal.aborted)).toBe(true);
+  });
+
+  it('keeps a replacement registered when the aborted request cleans up late', async () => {
+    const manager = assets();
+    const signals: AbortSignal[] = [];
+    const runtime: OcrRuntimeLike = {
+      recognize: (_image, signal) =>
+        new Promise((_resolve, reject) => {
+          signals.push(signal);
+          signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+        }),
+      release: vi.fn(),
+    };
+    const host = new OcrHost({
+      createAssetManager: async () => manager,
+      createRuntime: async () => runtime,
+    });
+
+    const first = host.recognize('same-id', 'standard', image);
+    await vi.waitFor(() => expect(signals).toHaveLength(1));
+    const second = host.recognize('same-id', 'standard', image);
+    await expect(first).rejects.toMatchObject({ code: 'aborted' });
+    await vi.waitFor(() => expect(signals).toHaveLength(2));
+
+    host.cancel('same-id');
+    await expect(second).rejects.toMatchObject({ code: 'aborted' });
+  });
 });

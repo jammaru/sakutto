@@ -319,17 +319,40 @@ async function readFontTraits(
   return traits;
 }
 
+interface PdfRenderOptions {
+  /** Maximum encoded raster area, used for OCR rather than the interactive page display. */
+  maxPixels?: number;
+  /** Maximum width or height accepted by the consumer. */
+  maxDimension?: number;
+}
+
 /** Renders one page into a canvas at the given scale. */
-export function renderPage(page: PdfPage, scale: number, canvas: HTMLCanvasElement): PdfRenderTask {
+export function renderPage(
+  page: PdfPage,
+  scale: number,
+  canvas: HTMLCanvasElement,
+  options: PdfRenderOptions = {},
+): PdfRenderTask {
   const viewport = page.getViewport({ scale });
   const context = canvas.getContext('2d', { alpha: false });
   if (!context) return { promise: Promise.resolve() };
 
   // The page is drawn at the device's own resolution so a zoomed page stays sharp, and the
-  // CSS size keeps it at the scale the reader asked for.
-  const ratio = Math.min(3, Math.max(1, globalThis.devicePixelRatio || 1));
-  canvas.width = Math.floor(viewport.width * ratio);
-  canvas.height = Math.floor(viewport.height * ratio);
+  // CSS size keeps it at the scale the reader asked for. OCR has a fixed wire-format budget,
+  // so DPR cannot multiply its actual raster beyond what the offscreen validator accepts.
+  let ratio = Math.min(3, Math.max(1, globalThis.devicePixelRatio || 1));
+  if (options.maxPixels !== undefined) {
+    ratio = Math.min(ratio, Math.sqrt(options.maxPixels / (viewport.width * viewport.height)));
+  }
+  if (options.maxDimension !== undefined) {
+    ratio = Math.min(
+      ratio,
+      options.maxDimension / viewport.width,
+      options.maxDimension / viewport.height,
+    );
+  }
+  canvas.width = Math.max(1, Math.floor(viewport.width * ratio));
+  canvas.height = Math.max(1, Math.floor(viewport.height * ratio));
   canvas.style.width = `${String(viewport.width)}px`;
   canvas.style.height = `${String(viewport.height)}px`;
 

@@ -58,6 +58,96 @@ describe('AssetManager', () => {
     ).toEqual([]);
   });
 
+  it('cancels and awaits automatic verification before deleting a bundle', async () => {
+    const store = new MemoryFileStore();
+    await store.append('models/ocr-standard/det.onnx', DET, 0);
+    await store.append('models/ocr-standard/rec.onnx', REC, 0);
+
+    let notifyHashStarted!: (signal: AbortSignal | undefined) => void;
+    const hashStarted = new Promise<AbortSignal | undefined>((resolve) => {
+      notifyHashStarted = resolve;
+    });
+    let releaseHash!: () => void;
+    const hashGate = new Promise<void>((resolve) => {
+      releaseHash = resolve;
+    });
+    let hashCalls = 0;
+    const states: string[] = [];
+    const manager = new AssetManager({
+      store,
+      bundles: { standard: bundle() },
+      onStatus: (status) => states.push(status.state),
+      hashBlob: async (blob, options) => {
+        hashCalls += 1;
+        if (hashCalls === 1) {
+          notifyHashStarted(options?.signal);
+          // Deliberately ignore abort to exercise the generation guard as well as cancellation.
+          await hashGate;
+        }
+        return hashBlob(blob);
+      },
+    });
+
+    const status = manager.status('standard');
+    const signal = await hashStarted;
+    await expect(status).resolves.toMatchObject({ state: 'verifying' });
+    const removeDirectory = vi.spyOn(store, 'removeDirectory');
+    const deletion = manager.delete('standard');
+    await Promise.resolve();
+    const removalsBeforeHashSettled = removeDirectory.mock.calls.length;
+    releaseHash();
+    await deletion;
+
+    expect(signal?.aborted).toBe(true);
+    expect(removalsBeforeHashSettled).toBe(0);
+    expect(store.files.has('models/ocr-standard/asset.json')).toBe(false);
+    expect(
+      [...store.files.keys()].filter((path) => path.startsWith('models/ocr-standard/')),
+    ).toEqual([]);
+    expect(states).not.toContain('ready');
+    expect(states).not.toContain('error');
+    expect(states.at(-1)).toBe('absent');
+    await expect(manager.status('standard')).resolves.toMatchObject({ state: 'absent' });
+  });
+
+  it('cancel aborts automatic verification without publishing ready or error', async () => {
+    const store = new MemoryFileStore();
+    await store.append('models/ocr-standard/det.onnx', DET, 0);
+    await store.append('models/ocr-standard/rec.onnx', REC, 0);
+
+    let notifyHashStarted!: (signal: AbortSignal | undefined) => void;
+    const hashStarted = new Promise<AbortSignal | undefined>((resolve) => {
+      notifyHashStarted = resolve;
+    });
+    const states: string[] = [];
+    const manager = new AssetManager({
+      store,
+      bundles: { standard: bundle() },
+      onStatus: (status) => states.push(status.state),
+      hashBlob: (_blob, options) =>
+        new Promise<string>((_resolve, reject) => {
+          notifyHashStarted(options?.signal);
+          options?.signal?.addEventListener(
+            'abort',
+            () => reject(new DOMException('Aborted', 'AbortError')),
+            { once: true },
+          );
+        }),
+    });
+
+    const status = manager.status('standard');
+    const signal = await hashStarted;
+    await expect(status).resolves.toMatchObject({ state: 'verifying' });
+    manager.cancel('standard');
+    // delete() also awaits the cancelled operation, making this assertion deterministic.
+    await manager.delete('standard');
+
+    expect(signal?.aborted).toBe(true);
+    expect(states).not.toContain('ready');
+    expect(states).not.toContain('error');
+    expect(store.files.has('models/ocr-standard/asset.json')).toBe(false);
+  });
+
   it('keeps a cancelled prefix and resumes it through the same downloader', async () => {
     const store = new MemoryFileStore();
     const first = new AssetManager({
