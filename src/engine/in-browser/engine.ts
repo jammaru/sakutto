@@ -256,8 +256,9 @@ export class InBrowserEngine implements IdentifiedEngine {
   }
 
   /**
-   * With several slots, the pieces of a long text are separate jobs so one wave translates
-   * them together; a text decoded piece by piece would hold the wave open on a single slot.
+   * With several slots, the pieces of a long text are separate jobs. Wave mode runs them in
+   * batches; sixteen-slot staged mode ramps through one, four, and sixteen jobs, then refills
+   * each free slot independently. Decoding piece by piece would leave the other slots idle.
    */
   private jobsFor(
     item: WorkItem,
