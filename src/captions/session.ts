@@ -118,6 +118,11 @@ export const YOUTUBE_EMPTY_TRACK_MAX_ATTEMPTS = 24;
  * gaps without leaving a finished line on screen through a long pause.
  */
 export const CAPTION_HOLD_MAX_MS = 2_000;
+/**
+ * `timeupdate` fires only ~4x/second, which leaves a caption visibly stuck between cues.
+ * Poll the playhead at frame-like cadence while playing so a cue change paints promptly.
+ */
+const CAPTION_PLAYHEAD_POLL_MS = 50;
 
 export interface CaptionSessionOptions {
   engine: PageEngine;
@@ -199,6 +204,8 @@ export class VideoCaptionSession {
   private ignorePlayerMutations = false;
   private liveTimer: number | null = null;
   private liveTrackTimer: number | null = null;
+  private playheadTimer: number | null = null;
+  private lastPaintPlayheadMs = -1;
   private liveMode = false;
   private useDomCaptions = false;
   private hold: {
@@ -326,6 +333,10 @@ export class VideoCaptionSession {
       view?.setInterval(() => {
         this.pollLive();
       }, 200) ?? null;
+    this.playheadTimer =
+      view?.setInterval(() => {
+        this.onPlayheadTick();
+      }, CAPTION_PLAYHEAD_POLL_MS) ?? null;
     this.liveTrackTimer =
       view?.setInterval(() => {
         if (!this.video) return;
@@ -393,6 +404,11 @@ export class VideoCaptionSession {
       view?.clearInterval(this.liveTrackTimer);
       this.liveTrackTimer = null;
     }
+    if (this.playheadTimer !== null) {
+      view?.clearInterval(this.playheadTimer);
+      this.playheadTimer = null;
+    }
+    this.lastPaintPlayheadMs = -1;
     this.liveMode = false;
     this.useDomCaptions = false;
     this.loadInFlight = false;
@@ -417,6 +433,16 @@ export class VideoCaptionSession {
 
   private readonly onMedia = (): void => {
     void this.sync(false);
+  };
+
+  /** Frame-like playhead sampling; `timeupdate` alone is too coarse for cue boundaries. */
+  private readonly onPlayheadTick = (): void => {
+    const video = this.video;
+    if (!video || video.paused || video.ended) return;
+    const timeMs = this.playheadMs();
+    if (timeMs === this.lastPaintPlayheadMs) return;
+    this.lastPaintPlayheadMs = timeMs;
+    void this.paint(false, true);
   };
 
   private readonly onPlay = (event: Event): void => {
@@ -922,7 +948,7 @@ export class VideoCaptionSession {
     }
   }
 
-  private async paint(force: boolean): Promise<void> {
+  private async paint(force: boolean, skipPlace = false): Promise<void> {
     if (!this.running) return;
     const token = this.sourceToken;
     const video = this.video;
@@ -932,7 +958,7 @@ export class VideoCaptionSession {
       this.overlay.hide();
       return;
     }
-    this.place();
+    if (!skipPlace) this.place();
     if (this.loaded && this.loaded.cues.length === 0 && this.allowsGenericDom()) {
       const html5 = loadHtml5Track(
         video,
