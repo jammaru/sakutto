@@ -170,6 +170,8 @@ export async function openPdfTab(
       { tabId, url },
     );
     const reader = await created;
+    reader.on('console', (message) => console.log('[reader]', message.text().slice(0, 500)));
+    reader.on('pageerror', (error) => console.log('[reader error]', error.message.slice(0, 500)));
     await reader.waitForURL(/reader\.html/u, { timeout: 15_000 });
     console.log('pdf:open result:', JSON.stringify(result), reader.url());
     return {
