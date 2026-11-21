@@ -135,10 +135,26 @@ translate to identical text. On an RTX 4090 they cut the median time per token f
   that were still running.
 
 With both patches the WebGPU tier ran in waves: sixteen slots on an NVIDIA GPU with the integer
-shaders (packed dot product), four otherwise. Sixteen slots no longer wait for a wave, see
-`refillsFreeSlots` in `src/engine/in-browser/backend.ts`. On an RTX 4090, `long-article` went from about 19.8 s
-on v1.0.1 to about 2.9 s (six runs each). Against a single slot, 38 to 39 of its 44 blocks stayed
-the same; the others differ in word choice, and batched output varies slightly between runs.
+shaders (packed dot product), four otherwise. The sixteen-slot path now starts one job, expands
+to four and then sixteen as each stage starts producing output, and refills individual free slots
+after that. It does not start all sixteen jobs at once. Four-slot configurations keep their waves.
+
+A small foreground batch (up to five reader-visible bodies) is kept apart after the initial ramp:
+background work can fill places the foreground left among the first four starts, but does not
+immediately take slots that foreground jobs free. Larger foreground batches share the full width
+after the ramp. Once the small foreground batch finishes, the hold lifts for the rest of that busy
+period. Free-slot refill then avoids waiting for the longest job in a wave before starting more
+work.
+
+This refill path requires `0013-get-result-pending-first.patch` and
+`0014-webgpu-flash-attn-skip-masked-tiles.patch` in addition to `0005`. The first returns a waiting
+result before decoding another step; the second skips fully masked flash-attention tiles. Together
+they let a prompt join the running sequences at a cost of about one step. See
+`refillsFreeSlots` in `src/engine/in-browser/backend.ts`.
+
+On an RTX 4090, `long-article` went from about 19.8 s on v1.0.1 to about 2.9 s (six runs each).
+Against a single slot, 38 to 39 of its 44 blocks stayed the same; the others differ in word choice,
+and batched output varies slightly between runs.
 
 The patch lives inside the llama.cpp submodule, so the build resets the submodule's files before
 it applies the patches.
