@@ -199,7 +199,11 @@
         useSystemFonts: false,
       }).promise;
       document_ = opened as unknown as PdfDocument;
-    } catch {
+    } catch (error) {
+      (globalThis as { console: { error(...args: unknown[]): void } }).console.error(
+        'PDF document open failed:',
+        error,
+      );
       phase = 'broken';
       return;
     }
