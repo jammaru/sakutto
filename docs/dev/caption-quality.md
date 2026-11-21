@@ -97,7 +97,8 @@ The ASR auto-generated scenario is a third test in the same spec. It drives a li
 `kind=asr` fixture, samples at 50 ms, and fails on any of the four new metrics. At 33911df
 (with the harness extension) all four fail: marker-leak 36 frames, sound-tag translations 11,
 stutter leftover 54 frames, and unbounded show latency. On this branch they are 0/0/0 and
-50 ms, while the ten legacy metrics still pass.
+100 ms (50 ms sampling slack), while the ten legacy metrics still pass. The sound-tag metric
+also inspects the original overlay attribute, not only the translated caption.
 
 The artifacts produced for PR 147 are summarized in
 `/cursor/stores/bc-df1ba74e-ebfd-59a3-80e9-0569718830e5/artifacts/caption-quality/metrics-before-after.md`

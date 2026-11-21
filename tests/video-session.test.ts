@@ -1532,6 +1532,155 @@ The station opens at dawn.
     session.stop();
   });
 
+  it('re-requests and repaints an identical live ASR chunk after a native caption gap', async () => {
+    document.body.innerHTML = `
+      <div id="movie_player" class="html5-video-player ytp-live">
+        <video id="player" class="html5-main-video"></video>
+        <div class="ytp-caption-window-container" lang="en">
+          <span class="ytp-caption-segment">Alpha beta</span>
+        </div>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "videoDetails": { "videoId": "fixtureliveasrgap", "defaultAudioLanguage": "en", "isLive": true },
+          "captions": { "playerCaptionsTracklistRenderer": { "captionTracks": [{
+            "baseUrl": "/youtube-timedtext-asr.json",
+            "languageCode": "en",
+            "kind": "asr",
+            "name": { "simpleText": "English (auto-generated)" },
+            "vssId": "a.en"
+          }] } }
+        };
+      </script>
+    `;
+    const video = document.querySelector('video');
+    if (video) {
+      stubMedia(video, { paused: false, width: 640, height: 360, currentTime: 0.4, duration: 120 });
+    }
+    const segment = document.querySelector('.ytp-caption-segment');
+    let calls = 0;
+    const counted: PageEngine = {
+      async *translate(segments, options) {
+        calls += 1;
+        for (const part of segments) {
+          yield {
+            id: part.id,
+            final: fakeTranslateText(part.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine: counted,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => '',
+    });
+    session.start();
+    const host = document.querySelector('sakutto-captions');
+    await vi.waitFor(() => {
+      expect(host?.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('Alpha beta', 'ja'),
+      );
+    });
+    expect(calls).toBe(1);
+
+    // Native caption clears for longer than the hold window.
+    if (segment) segment.textContent = '';
+    if (video) video.currentTime = 3.6;
+    video?.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+    window.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+    await vi.waitFor(() => {
+      expect(host?.getAttribute('data-sakutto-caption')).toBeNull();
+    });
+
+    // The same chunk returns: the provisional path must look it up and paint again.
+    if (segment) segment.textContent = 'Alpha beta';
+    if (video) video.currentTime = 3.8;
+    video?.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+    window.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+    await vi.waitFor(() => {
+      expect(host?.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('Alpha beta', 'ja'),
+      );
+    });
+    expect(calls).toBeGreaterThanOrEqual(1);
+    session.stop();
+  });
+
+  it('never paints a bare ASR sound word as an original-only overlay line', async () => {
+    document.body.innerHTML = `
+      <div id="movie_player" class="html5-video-player ytp-live">
+        <video id="player" class="html5-main-video"></video>
+        <div class="ytp-caption-window-container" lang="en">
+          <span class="ytp-caption-segment">music</span>
+        </div>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "videoDetails": { "videoId": "fixtureliveasrsound", "defaultAudioLanguage": "en", "isLive": true },
+          "captions": { "playerCaptionsTracklistRenderer": { "captionTracks": [{
+            "baseUrl": "/youtube-timedtext-asr.json",
+            "languageCode": "en",
+            "kind": "asr",
+            "name": { "simpleText": "English (auto-generated)" },
+            "vssId": "a.en"
+          }] } }
+        };
+      </script>
+    `;
+    const video = document.querySelector('video');
+    if (video) {
+      stubMedia(video, { paused: false, width: 640, height: 360, currentTime: 0.4, duration: 120 });
+    }
+    const segment = document.querySelector('.ytp-caption-segment');
+    let calls = 0;
+    const counted: PageEngine = {
+      async *translate(segments, options) {
+        calls += 1;
+        for (const part of segments) {
+          yield {
+            id: part.id,
+            final: fakeTranslateText(part.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine: counted,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => '',
+    });
+    session.start();
+
+    for (const sound of ['music', '[Music]', '音楽']) {
+      if (segment) segment.textContent = sound;
+      video?.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+      window.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      const host = document.querySelector('sakutto-captions');
+      expect(host?.getAttribute('data-sakutto-caption') ?? '').toBe('');
+      expect(host?.getAttribute('data-sakutto-original') ?? '').toBe('');
+    }
+    expect(calls).toBe(0);
+    session.stop();
+  });
+
   it('logs why native captions are shown when sakuttoCaptionDebug is on', async () => {
     window.localStorage.setItem('sakuttoCaptionDebug', '1');
     const debug = vi.spyOn(console, 'debug').mockImplementation(() => undefined);

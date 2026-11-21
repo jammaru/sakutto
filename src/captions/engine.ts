@@ -3,7 +3,7 @@ import { isBrokenTranslation } from '@/engine/text/degenerate';
 import { hasTranslatableText, isInvisibleRunawayOutput } from '@/engine/text/sanitize';
 import type { Formality, GlossaryEntry, TranslationChunk } from '@/engine/types';
 import { cuesInWindow, type CaptionCue } from './cues';
-import { cleanCaptionSource, cleanCaptionText } from './text-cleanup';
+import { cleanCaptionForMode, cleanCaptionSource } from './text-cleanup';
 
 /** Current playhead cue: ahead of other caption work, still after a selection (0). */
 export const CAPTION_PLAYHEAD_PRIORITY = 1;
@@ -33,6 +33,8 @@ export interface CaptionTranslateOptions {
   src?: string | undefined;
   /** Previous committed source line, so a tail fragment keeps its sentence context. */
   context?: string | undefined;
+  /** Auto-generated caption: use the ASR-only cleanup for keys, prompts and output. */
+  asr?: boolean | undefined;
 }
 
 interface CacheEntry {
@@ -57,8 +59,8 @@ export class CaptionTranslator {
       options.tgt,
       options.form,
       options.src ?? '',
-      cleanCaptionText(options.context ?? ''),
-      cleanCaptionText(text),
+      cleanCaptionForMode(options.context ?? '', options.asr === true),
+      cleanCaptionSource(text, options.asr === true),
     ]);
   }
 
@@ -97,7 +99,11 @@ export class CaptionTranslator {
     options: CaptionTranslateOptions,
     priority: number,
   ): Promise<string | null> {
-    const key = this.cacheKey(cue.text, options);
+    // Normalise exactly once: the key, the prompt and the cached entry all use
+    // this same source string, even when ingestion has not cleaned it yet.
+    const source = cleanCaptionSource(cue.text, options.asr === true);
+    if (source.length === 0) return null;
+    const key = this.cacheKey(source, options);
     const cached = this.cache.get(key);
     if (cached) return cached.translation;
     const pending = this.inflight.get(key);
@@ -116,7 +122,7 @@ export class CaptionTranslator {
     const controller = new AbortController();
     this.controllers.set(key, controller);
     const generation = this.seekGeneration;
-    const work = this.run(cue, options, priority, controller.signal).finally(() => {
+    const work = this.run(cue, source, options, priority, controller.signal).finally(() => {
       if (this.controllers.get(key) === controller) this.controllers.delete(key);
       if (this.inflight.get(key) === work) {
         this.inflight.delete(key);
@@ -187,14 +193,13 @@ export class CaptionTranslator {
 
   private async run(
     cue: CaptionCue,
+    source: string,
     options: CaptionTranslateOptions,
     priority: number,
     signal: AbortSignal,
   ): Promise<string | null> {
-    // Caption-only cleanup: markers, stutters and sound tags never enter a prompt.
-    // A pure tag returns an empty source and is dropped without a model call.
-    const source = cleanCaptionSource(cue.text);
-    if (signal.aborted || source.length === 0 || !hasTranslatableText(source)) return null;
+    // `source` was normalised once by translateCue; never clean it a second time.
+    if (signal.aborted || !hasTranslatableText(source)) return null;
     let output = '';
     let failed = false;
     try {
@@ -203,7 +208,9 @@ export class CaptionTranslator {
         form: options.form,
         glossary: options.glossary,
         src: options.src ?? cue.language,
-        ...(options.context ? { context: cleanCaptionText(options.context) } : {}),
+        ...(options.context
+          ? { context: cleanCaptionForMode(options.context, options.asr === true) }
+          : {}),
         priority,
         signal,
         eager: priority <= CAPTION_LIVE_PRIORITY,
@@ -217,7 +224,7 @@ export class CaptionTranslator {
       return null;
     }
     // Safety net for engines that echo structural tokens or tags in their output.
-    const translated = cleanCaptionText(output).trim();
+    const translated = cleanCaptionForMode(output, options.asr === true).trim();
     if (failed || translated.length === 0) return null;
     if (isBrokenTranslation(source, translated) || isInvisibleRunawayOutput(source, translated)) {
       return null;

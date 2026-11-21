@@ -53,6 +53,7 @@ import {
   type CaptionOverlayLabels,
 } from './overlay';
 import { readTimedtext, TimedtextFetchGuard } from './timedtext';
+import { cleanCaptionSource, isBareSoundWord, isSoundTagOnly } from './text-cleanup';
 import { captionDebug } from './debug';
 import {
   isTwimgCaptionAssetUrl,
@@ -1026,7 +1027,10 @@ export class VideoCaptionSession {
     const language = cue.language ?? this.loaded?.language;
     const options = this.translateOptions(language);
     const stripped = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
-    const original = stripped.length > 0 ? stripped : cue.text.trim();
+    const original = cleanCaptionSource(
+      stripped.length > 0 ? stripped : cue.text.trim(),
+      this.loaded?.asr === true,
+    );
     if (original.length === 0) {
       if (!this.holdActiveAt(this.playheadMs())) this.showNative('empty-source');
       return;
@@ -1094,11 +1098,7 @@ export class VideoCaptionSession {
     const visible = this.readSourceCaptionDom();
     if (visible.length === 0) {
       if (!forceDom && !this.liveMode && (this.loaded?.cues.length ?? 0) > 0) return;
-      this.liveCaptionVisible = false;
-      this.liveSource = '';
-      this.liveTailRevision += 1;
-      this.clearHoldTimer();
-      this.cancelLiveTailJob();
+      this.clearLiveSource();
       return;
     }
     if (!forceDom && !this.liveMode && (this.loaded?.cues.length ?? 0) > 0) return;
@@ -1115,8 +1115,13 @@ export class VideoCaptionSession {
 
   /** Paint each visible ASR chunk now; the completed sentence can refine it later. */
   private observeLiveCaption(visible: string): void {
-    const text = dedupeLiveCaptionText(visible);
-    if (text.length === 0) return;
+    // Clean once here, before dedupe: the same normalised string is painted in the
+    // overlay, used as the model source and used to key the translation cache.
+    const text = dedupeLiveCaptionText(cleanCaptionSource(visible, this.loaded?.asr === true));
+    if (text.length === 0) {
+      this.clearLiveSource();
+      return;
+    }
     const now = this.now();
     const previousSource = this.liveSource;
     this.liveCaptionVisible = true;
@@ -1178,10 +1183,9 @@ export class VideoCaptionSession {
     options: CaptionTranslateOptions,
     revision: number,
   ): void {
+    if (isSoundTagOnly(text) || (this.loaded?.asr === true && isBareSoundWord(text))) return;
     if (this.provisionalSource === text || this.liveCommittedSource === text) return;
-    if (this.provisionalSource && this.provisionalOptions) {
-      this.translator.cancelText(this.provisionalSource, this.provisionalOptions);
-    }
+    this.cancelProvisionalTranslation();
     const requestOptions: CaptionTranslateOptions = {
       ...options,
       ...(this.liveCommittedSource ? { context: this.liveCommittedSource } : {}),
@@ -1255,6 +1259,7 @@ export class VideoCaptionSession {
     this.liveCommittedSource = text;
     this.liveUtterance = '';
     this.cancelLiveTailJob();
+    if (isSoundTagOnly(text) || (this.loaded?.asr === true && isBareSoundWord(text))) return;
     this.commitDisplay(
       `live:${String(this.liveTailRevision)}`,
       text,
@@ -1343,6 +1348,32 @@ export class VideoCaptionSession {
     this.translator.cancelText(job.text, job.options);
   }
 
+  /** Abort an in-flight provisional request without touching prefetched neighbours. */
+  private cancelProvisionalTranslation(): void {
+    if (this.provisionalSource && this.provisionalOptions) {
+      this.translator.cancelText(this.provisionalSource, this.provisionalOptions);
+    }
+    this.provisionalSource = '';
+    this.provisionalOptions = null;
+  }
+
+  /**
+   * The native caption has cleared. Reset the provisional source too: otherwise an
+   * identical chunk returning after a gap hits the early return in
+   * startProvisionalLiveTranslation and is never looked up or painted again.
+   */
+  private clearLiveSource(): void {
+    this.liveCaptionVisible = false;
+    this.liveSource = '';
+    this.liveUtterance = '';
+    this.liveLastChangeAt = 0;
+    this.liveCommittedSource = '';
+    this.liveTailRevision += 1;
+    this.clearHoldTimer();
+    this.cancelLiveTailJob();
+    this.cancelProvisionalTranslation();
+  }
+
   private resetLiveCaptions(): void {
     this.clearHoldTimer();
     this.cancelLiveTailJob();
@@ -1353,8 +1384,7 @@ export class VideoCaptionSession {
     this.liveTailJob = null;
     this.liveTailRevision = 0;
     this.liveCaptionVisible = false;
-    this.provisionalSource = '';
-    this.provisionalOptions = null;
+    this.cancelProvisionalTranslation();
   }
 
   private bindVideo(video: HTMLVideoElement | null): void {
@@ -1601,6 +1631,7 @@ export class VideoCaptionSession {
       display: this.prefs.display,
       pending: hold.pending === true,
       ...(hold.live ? { live: true } : {}),
+      ...(this.loaded?.asr === true ? { asr: true } : {}),
     });
   }
 
@@ -1668,6 +1699,7 @@ export class VideoCaptionSession {
         display: this.prefs.display,
         pending,
         ...(live ? { live: true } : {}),
+        ...(this.loaded?.asr === true ? { asr: true } : {}),
       });
       this.applyNativeVisibility();
       this.releasePlayerMutations();
@@ -1711,6 +1743,7 @@ export class VideoCaptionSession {
       tgt: this.prefs.targetLanguage,
       form: this.prefs.form,
       glossary: this.prefs.glossary,
+      asr: this.loaded?.asr === true,
       ...(src ? { src } : {}),
     };
   }

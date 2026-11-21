@@ -1,6 +1,6 @@
 import { hasSentenceTerminator, splitForTranslation } from '@/engine/text/sentences';
 import { sanitizeTranslationInput } from '@/engine/text/sanitize';
-import { cleanCaptionText } from './text-cleanup';
+import { cleanCaptionForMode } from './text-cleanup';
 
 export interface CaptionCue {
   id: string;
@@ -46,13 +46,14 @@ export const WEBVTT_HOUR_OFFSET_MS = 3_600_000;
 const VTT_TIMESTAMP =
   /^(?:(\d{2,}):)?(\d{2}):(\d{2})\.(\d{3})\s*-->\s*(?:(\d{2,}):)?(\d{2}):(\d{2})\.(\d{3})/;
 
-export function normalizeCaptionText(value: string): string {
-  return cleanCaptionText(
+export function normalizeCaptionText(value: string, asr = false): string {
+  return cleanCaptionForMode(
     sanitizeTranslationInput(value)
       .replace(/<[^>]+>/g, ' ')
       .replace(/[ \t]+/gu, ' ')
       .replace(/\s*\n\s*/gu, '\n')
       .trim(),
+    asr,
   );
 }
 
@@ -83,7 +84,7 @@ function timestampToMs(
  * Parses a WebVTT document into cues. Cue settings and NOTE/STYLE blocks are ignored.
  * The parser is intentionally small: it only needs timestamps and text for translation.
  */
-export function parseWebVtt(source: string, language?: string): CaptionCue[] {
+export function parseWebVtt(source: string, language?: string, asr = false): CaptionCue[] {
   const lines = source
     .replace(/^\uFEFF/, '')
     .replace(/\r\n/g, '\n')
@@ -139,7 +140,7 @@ export function parseWebVtt(source: string, language?: string): CaptionCue[] {
       textLines.push(lines[index] ?? '');
       index += 1;
     }
-    const text = normalizeCaptionText(textLines.join('\n'));
+    const text = normalizeCaptionText(textLines.join('\n'), asr);
     if (text.length === 0 || endMs <= startMs) continue;
     cues.push({
       id: captionCueId(startMs, text),
@@ -185,7 +186,7 @@ interface Json3Event {
 /**
  * YouTube `fmt=json3` timedtext. Events without `segs` are timing or style markers.
  */
-export function parseTimedtextJson3(value: unknown, language?: string): CaptionCue[] {
+export function parseTimedtextJson3(value: unknown, language?: string, asr = false): CaptionCue[] {
   if (typeof value !== 'object' || value === null) return [];
   const events = (value as { events?: unknown }).events;
   if (!Array.isArray(events)) return [];
@@ -204,6 +205,7 @@ export function parseTimedtextJson3(value: unknown, language?: string): CaptionC
           return typeof utf8 === 'string' ? utf8 : '';
         })
         .join(''),
+      asr,
     );
     if (text.length === 0) continue;
     const startMs = record.tStartMs;

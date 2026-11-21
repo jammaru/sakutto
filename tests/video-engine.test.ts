@@ -12,6 +12,7 @@ import {
   captionPrefetchWindowMs,
 } from '@/captions/engine';
 import type { CaptionCue } from '@/captions/cues';
+import { cleanCaptionSource } from '@/captions/text-cleanup';
 
 function cue(text: string, startMs = 0): CaptionCue {
   return { id: text, startMs, endMs: startMs + 2000, text };
@@ -54,6 +55,39 @@ describe('caption translator', () => {
     expect(first).toBe('訳:The station opens at dawn.');
     expect(second).toBe(first);
     expect(calls).toBe(1);
+  });
+
+  it('uses one normalised source for keys, prompts and cached entries', async () => {
+    const raw = '♪ E T Shirts are on sale. ♪';
+    const sources: string[] = [];
+    let calls = 0;
+    const translator = new CaptionTranslator(
+      engineOf((segments) => {
+        calls += 1;
+        sources.push(segments[0]?.text ?? '');
+        return segments.map((segment) => ({
+          id: segment.id,
+          final: `訳:${segment.text}`,
+          engine: 'plamo' as const,
+        }));
+      }),
+    );
+    const options = { tgt: 'ja', form: 'polite' as const, asr: true };
+    expect(translator.cacheKey(raw, options)).toBe(
+      translator.cacheKey(cleanCaptionSource(raw, true), options),
+    );
+
+    const first = await translator.translateCue(cue(raw), options, 2);
+    expect(first).toBe('訳:T Shirts are on sale.');
+    expect(sources).toEqual(['T Shirts are on sale.']);
+    expect(calls).toBe(1);
+
+    expect(translator.getCached(raw, options)).toBe(first);
+    expect(translator.getCached('T Shirts are on sale.', options)).toBe(first);
+    const second = await translator.translateCue(cue('T Shirts are on sale.'), options, 2);
+    expect(second).toBe(first);
+    expect(calls).toBe(1);
+    expect(sources).toEqual(['T Shirts are on sale.']);
   });
 
   it('keeps pipe-delimited context and text in separate cache entries', async () => {

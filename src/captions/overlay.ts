@@ -5,7 +5,7 @@ import {
   type DisplayMode,
   type VideoCaptionPosition,
 } from '@/shared/settings';
-import { cleanCaptionText } from './text-cleanup';
+import { cleanCaptionForMode, isBareSoundWord, isSoundTagOnly } from './text-cleanup';
 
 export interface CaptionOverlayLabels {
   label: string;
@@ -22,6 +22,8 @@ export interface CaptionOverlayState {
   pending: boolean;
   /** Kept for session compatibility; main layout is always max-content. */
   live?: boolean | undefined;
+  /** Auto-generated cue: bare sound words are production cues, not caption prose. */
+  asr?: boolean | undefined;
 }
 
 export const CAPTION_OVERLAY_HOST = 'sakutto-captions';
@@ -526,9 +528,15 @@ export class CaptionOverlay {
   }
 
   show(state: CaptionOverlayState): void {
-    // Last-mile guard: no segment sentinel, sound tag or stutter ever reaches the DOM.
-    const translation = cleanCaptionText(state.translation ?? '').trim();
-    const original = cleanCaptionText(state.original).trim();
+    // Last-mile guard: no sound tag reaches the DOM, including an original-only
+    // pending line for a bare ASR sound word such as "music".
+    const asr = state.asr === true;
+    const pureTranslation = isSoundTagOnly(state.translation ?? '');
+    const pureOriginal = isSoundTagOnly(state.original) || (asr && isBareSoundWord(state.original));
+    const translation = pureTranslation
+      ? ''
+      : cleanCaptionForMode(state.translation ?? '', asr).trim();
+    const original = pureOriginal ? '' : cleanCaptionForMode(state.original, asr).trim();
     const originalOnly = translation.length === 0 && original.length > 0 && state.pending;
     // Native captions stay until a translation exists, except for original-only pending.
     if (translation.length === 0 && !originalOnly) {

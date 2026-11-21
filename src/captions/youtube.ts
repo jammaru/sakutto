@@ -1,7 +1,7 @@
 import { isRecord } from '@/shared/object';
 import { isPlamoOnlyTarget } from '@/shared/languages';
 import { parseTimedtextJson3, parseWebVtt, type CaptionCue } from './cues';
-import { cleanCaptionText } from './text-cleanup';
+import { cleanHumanCaptionText } from './text-cleanup';
 
 export interface YoutubeCaptionTrack {
   baseUrl: string;
@@ -412,7 +412,9 @@ function captionWindowText(window: Element): string {
 }
 
 function normalizeDomCaption(value: string): string {
-  return cleanCaptionText(value.replace(/\s+/g, ' ').trim());
+  // Do not strip maintainer-looking words here: the ASR session applies its own
+  // cleanup once it knows the selected track is auto-generated.
+  return cleanHumanCaptionText(value.replace(/\s+/g, ' ').trim());
 }
 
 function languagePrefix(value: string | null | undefined): string {
@@ -584,14 +586,15 @@ export function parseTimedtextPayload(
   body: string,
   fmt: 'json3' | 'vtt',
   language?: string,
+  asr = false,
 ): CaptionCue[] {
   const trimmed = body.trim();
   if (trimmed.length === 0) return [];
-  if (fmt === 'vtt' || trimmed.startsWith('WEBVTT')) return parseWebVtt(trimmed, language);
+  if (fmt === 'vtt' || trimmed.startsWith('WEBVTT')) return parseWebVtt(trimmed, language, asr);
   try {
-    return parseTimedtextJson3(JSON.parse(trimmed) as unknown, language);
+    return parseTimedtextJson3(JSON.parse(trimmed) as unknown, language, asr);
   } catch {
-    if (trimmed.startsWith('WEBVTT')) return parseWebVtt(trimmed, language);
+    if (trimmed.startsWith('WEBVTT')) return parseWebVtt(trimmed, language, asr);
     return [];
   }
 }

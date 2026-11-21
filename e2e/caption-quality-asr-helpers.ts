@@ -20,7 +20,13 @@ const FAKE_MARKER = /§[a-z-]+§/gu;
 const MARKER_TOKEN = /\b(?:S\d{1,2}|ED|NC|RS|E|T|S)\b/u;
 /** Repeated English words inside a Japanese line are ASR stutter leftovers. */
 const STUTTER_FRAGMENT = /\b([A-Za-z]{1,8}(?: +[A-Za-z]{1,8}){0,2})(?: +\1)+\b/iu;
-const OVERLAY_SOUND_TAG = /\[[^\]]{1,32}\]|[♪♫♩]|\((?:music|laughter|applause)\)/iu;
+const SOUND_WORD =
+  'musical|music|instrumental|singing|laughter|laughing|applause|clapping|noise|inaudible|silence|背景音|音楽|拍手|笑い声|効果音|無音';
+/** Bracketed/note tags and bare sound words, in either the translation or the original. */
+const OVERLAY_SOUND_TAG = new RegExp(
+  `(?:\\[[^\\]]{1,32}\\]|[♪♫♩]|(?<![\\p{L}])(?:${SOUND_WORD})(?![\\p{L}]))`,
+  'iu',
+);
 
 function visibleOverlayText(sample: CaptionSample): string {
   return (sample.caption + ' ' + sample.original).replace(FAKE_MARKER, ' ').trim();
@@ -48,7 +54,9 @@ export function computeAsrQualityReport(
     0,
   );
   const soundTagFrames = samples.filter(
-    (sample) => sample.caption.length > 0 && OVERLAY_SOUND_TAG.test(sample.caption),
+    (sample) =>
+      (sample.caption.length > 0 && OVERLAY_SOUND_TAG.test(sample.caption)) ||
+      (sample.original.length > 0 && OVERLAY_SOUND_TAG.test(sample.original)),
   ).length;
   const stutterFrames = samples.filter(
     (sample) => sample.caption.length > 0 && STUTTER_FRAGMENT.test(visibleOverlayText(sample)),
@@ -95,7 +103,7 @@ export function computeAsrQualityReport(
       soundTagTranslations === 0 && soundTagFrames === 0,
       'fake-engine sound-tag model calls=' +
         String(soundTagTranslations) +
-        ', overlay sound-tag frames=' +
+        ', overlay sound-tag frames (caption+original)=' +
         String(soundTagFrames),
     ),
     metric(
