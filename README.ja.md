@@ -8,7 +8,7 @@
     <a href="https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl"><img src="https://img.shields.io/chrome-web-store/rating/mhlbjjijfkoghmcjndgdimhdlfkhadfl" alt="Chrome ウェブストア 評価"></a>
     <a href="https://addons.mozilla.org/ja/firefox/addon/sakutto-local-ai-translation/"><img src="https://img.shields.io/amo/v/sakutto-local-ai-translation?logo=firefoxbrowser&logoColor=white&label=Firefox%20Add-ons" alt="Firefox Add-ons"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="ライセンス: MIT"></a>
-    <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-v1.5.1-blue" alt="リリース v1.5.1"></a>
+    <a href="https://github.com/jammaru/sakutto/releases/latest"><img src="https://img.shields.io/github/v/release/jammaru/sakutto?label=release" alt="最新リリース"></a>
     <a href="https://discord.gg/pdSRBaSr38"><img src="https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
     <a href="https://github.com/jammaru/sakutto/stargazers"><img src="https://img.shields.io/github/stars/jammaru/sakutto?style=flat&logo=github" alt="GitHub スター"></a>
   </p>
