@@ -146,7 +146,7 @@ describe('two-line realtime captions', () => {
     };
     const { session, host, segment } = mountLive('twolinegrowing', engine);
     try {
-      segment.textContent = 'Hello';
+      segment.textContent = 'Hello.';
       await vi.waitFor(() => {
         expect(host.getAttribute('data-sakutto-caption')).toBe('同じ訳');
       });
@@ -243,7 +243,7 @@ describe('two-line realtime captions', () => {
     const requests: Array<{ text: string; signal: AbortSignal }> = [];
     const gates = new Map<string, Promise<void>>();
     const releases = new Map<string, () => void>();
-    for (const text of ['Hello', 'Hello world', 'Goodbye']) {
+    for (const text of ['Hello.', 'Hello world.', 'Goodbye.']) {
       let release!: () => void;
       gates.set(
         text,
@@ -269,34 +269,36 @@ describe('two-line realtime captions', () => {
     };
     const { session, host, segment } = mountLive('twolinelatest', engine);
     try {
-      segment.textContent = 'Hello';
-      await vi.waitFor(() => expect(requests.map((request) => request.text)).toContain('Hello'));
-      segment.textContent = 'Hello world';
+      segment.textContent = 'Hello.';
+      await vi.waitFor(() => expect(requests.map((request) => request.text)).toContain('Hello.'));
+      segment.textContent = 'Hello world.';
       await vi.waitFor(() =>
-        expect(requests.map((request) => request.text)).toContain('Hello world'),
+        expect(requests.map((request) => request.text)).toContain('Hello world.'),
       );
-      segment.textContent = 'Goodbye';
-      await vi.waitFor(() => expect(requests.map((request) => request.text)).toContain('Goodbye'));
-      expect(requests.find((request) => request.text === 'Hello')?.signal.aborted).toBe(true);
-      expect(requests.find((request) => request.text === 'Hello world')?.signal.aborted).toBe(true);
+      segment.textContent = 'Goodbye.';
+      await vi.waitFor(() => expect(requests.map((request) => request.text)).toContain('Goodbye.'));
+      expect(requests.find((request) => request.text === 'Hello.')?.signal.aborted).toBe(true);
+      expect(requests.find((request) => request.text === 'Hello world.')?.signal.aborted).toBe(
+        true,
+      );
 
-      releases.get('Goodbye')?.();
+      releases.get('Goodbye.')?.();
       await vi.waitFor(() => {
-        expect(host.getAttribute('data-sakutto-original')).toBe('Goodbye');
-        expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('Goodbye', 'ja'));
+        expect(host.getAttribute('data-sakutto-original')).toBe('Goodbye.');
+        expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('Goodbye.', 'ja'));
       });
-      releases.get('Hello')?.();
-      releases.get('Hello world')?.();
+      releases.get('Hello.')?.();
+      releases.get('Hello world.')?.();
       await sleep(50);
-      expect(host.getAttribute('data-sakutto-original')).toBe('Goodbye');
-      expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('Goodbye', 'ja'));
+      expect(host.getAttribute('data-sakutto-original')).toBe('Goodbye.');
+      expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('Goodbye.', 'ja'));
     } finally {
       for (const release of releases.values()) release();
       session.stop();
     }
   });
 
-  it('debounces ASR growth by 120 ms but starts a replacement immediately', async () => {
+  it('translates completed units without displaying growing fragments', async () => {
     vi.useFakeTimers();
     const requests: string[] = [];
     const engine: PageEngine = {
@@ -311,17 +313,17 @@ describe('two-line realtime captions', () => {
     try {
       segment.textContent = 'Hello';
       await vi.advanceTimersByTimeAsync(0);
-      expect(requests).toContain('Hello');
+      expect(requests).not.toContain('Hello');
 
       segment.textContent = 'Hello world';
       await vi.advanceTimersByTimeAsync(100);
       expect(requests).not.toContain('Hello world');
-      await vi.advanceTimersByTimeAsync(20);
+      await vi.advanceTimersByTimeAsync(900);
       expect(requests).toContain('Hello world');
 
-      segment.textContent = 'Goodbye';
+      segment.textContent = 'Goodbye.';
       await vi.advanceTimersByTimeAsync(0);
-      expect(requests).toContain('Goodbye');
+      expect(requests).toContain('Goodbye.');
     } finally {
       session.stop();
       vi.useRealTimers();
@@ -348,12 +350,12 @@ describe('two-line realtime captions', () => {
       );
     });
     const second = segment.cloneNode(true) as HTMLElement;
-    second.textContent = 'A red train waits';
+    second.textContent = 'A red train waits.';
     document.querySelector('.ytp-caption-window-container')?.append(second);
     await vi.waitFor(() => {
-      expect(host.getAttribute('data-sakutto-original')).toBe('A red train waits');
+      expect(host.getAttribute('data-sakutto-original')).toBe('A red train waits.');
       expect(host.getAttribute('data-sakutto-caption')).toBe(
-        fakeTranslateText('A red train waits', 'ja'),
+        fakeTranslateText('A red train waits.', 'ja'),
       );
     });
     expect(host.getAttribute('data-sakutto-original')).not.toContain('Hello');
@@ -440,7 +442,7 @@ describe('two-line realtime captions', () => {
     const second = segment.cloneNode(true) as HTMLElement;
     second.textContent = 'at dawn';
     document.querySelector('.ytp-caption-window-container')?.append(second);
-
+    await sleep(1_000);
     await vi.waitFor(() => {
       expect(host.getAttribute('data-sakutto-original')).toBe('The station opens at dawn');
       expect(host.getAttribute('data-sakutto-caption')).toBe(
@@ -466,14 +468,16 @@ describe('two-line realtime captions', () => {
     };
     const { session, host, segment } = mountLive('twolinecache', engine);
     segment.textContent = 'Hello';
+    await sleep(1_000);
     await vi.waitFor(() =>
       expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('Hello', 'ja')),
     );
-    segment.textContent = 'Goodbye';
+    segment.textContent = 'Goodbye.';
     await vi.waitFor(() =>
-      expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('Goodbye', 'ja')),
+      expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('Goodbye.', 'ja')),
     );
     segment.textContent = 'Hello';
+    await sleep(1_000);
     await vi.waitFor(() =>
       expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('Hello', 'ja')),
     );
@@ -494,10 +498,12 @@ describe('two-line realtime captions', () => {
     };
     const { session, host, segment } = mountLive('twolineformality', engine);
     segment.textContent = 'Static tail';
+    await sleep(1_000);
     await vi.waitFor(() =>
       expect(host.getAttribute('data-sakutto-caption')).toBe('polite:Static tail'),
     );
     session.setPreferences({ ...captionPreferences(), form: 'plain' });
+    await sleep(1_000);
     await vi.waitFor(() => {
       expect(
         requests.some((request) => request.text === 'Static tail' && request.form === 'plain'),
@@ -526,6 +532,7 @@ describe('two-line realtime captions', () => {
       ...captionPreferences(),
       glossary: [{ source: 'Hello', target: 'こんにちは' }],
     });
+    await sleep(1_000);
     await vi.waitFor(() =>
       expect(host.getAttribute('data-sakutto-caption')).toBe('こんにちは:Hello'),
     );
@@ -543,6 +550,7 @@ describe('two-line realtime captions', () => {
       ...captionPreferences(),
       glossary: [{ source: 'Hello', target: 'やあ' }],
     });
+    await sleep(1_000);
     await vi.waitFor(() => {
       expect(requests).toEqual(['Hello', 'Hello']);
       expect(host.getAttribute('data-sakutto-caption')).toBe('やあ:Hello');
@@ -621,6 +629,7 @@ describe('two-line realtime captions', () => {
     try {
       await started;
       segment.textContent = 'DOM live';
+      await sleep(1_000);
       await vi.waitFor(() =>
         expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('DOM live', 'ja')),
       );

@@ -526,7 +526,11 @@ export function replayMetrics(
     const current = dimensions[index];
     if (!previous || !current) continue;
     if (previous.width !== current.width) widthChangeCount += 1;
-    if (previous.height !== current.height) heightChangeCount += 1;
+    if (previous.height !== current.height) {
+      const firstTranslationArrival =
+        previous.translation.trim().length === 0 && current.translation.trim().length > 0;
+      if (!firstTranslationArrival) heightChangeCount += 1;
+    }
     if (
       previous.original &&
       current.original &&

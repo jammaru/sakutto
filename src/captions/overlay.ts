@@ -19,7 +19,7 @@ export interface CaptionOverlayState {
   translation: string | null;
   display: DisplayMode;
   pending: boolean;
-  /** Use the stable live box with fixed width and two reserved caption rows. */
+  /** Kept for session compatibility; main layout is always max-content. */
   live?: boolean | undefined;
 }
 
@@ -93,67 +93,17 @@ const STYLE = `
   font-weight: 500;
   pointer-events: none;
 }
-.line[hidden] {
+.line[hidden],
+.line:empty {
   display: none !important;
   padding: 0 !important;
   background: transparent !important;
 }
-.line-text {
-  display: contents;
-}
 .original {
-  font-size: 0.88em;
+  font-size: 0.68em;
   font-weight: 400;
   color: #e8eef4;
   background: rgb(8 8 8 / 82%);
-}
-:host([data-sakutto-live]) .wrap {
-  --sakutto-live-row: calc(var(--sakutto-caption-size, 22px) * 2.9);
-  grid-template-rows: repeat(2, var(--sakutto-live-row));
-  width: 100%;
-  height: calc(var(--sakutto-live-row) * 2 + 6px);
-  min-height: calc(var(--sakutto-live-row) * 2 + 6px);
-  max-height: calc(var(--sakutto-live-row) * 2 + 6px);
-  align-content: end;
-}
-:host([data-sakutto-live]) .line {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-end;
-  align-self: end;
-  width: 100%;
-  /* Two 1.2em text lines plus the existing 0.18em vertical padding. */
-  height: 2.76em;
-  min-width: 0;
-  min-height: 0;
-  overflow-x: visible;
-  overflow-y: clip;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: normal;
-  line-break: strict;
-  line-height: 1.2;
-}
-:host([data-sakutto-live]) .original {
-  grid-row: 1;
-}
-:host([data-sakutto-live]) .line:not(.original) {
-  grid-row: 2;
-}
-:host([data-sakutto-live]) .line-text {
-  display: block;
-  flex: 0 0 auto;
-  width: 100%;
-  min-width: 0;
-  white-space: normal;
-  text-align: center;
-}
-:host([data-sakutto-live]) .line[data-sakutto-empty] {
-  visibility: hidden;
-}
-:host([data-sakutto-pending]) .line:not(.original) {
-  opacity: 0.72;
 }
 `;
 
@@ -226,12 +176,6 @@ export function captionOverlayPlacement(
     width: Math.max(220, rect.width * 0.94),
     bottom: Math.max(0, padding),
   };
-}
-
-/** Fixed live caption width: no per-word max-content chatter, still player-relative. */
-export function captionLiveOverlayWidth(playerWidth: number): number {
-  const width = Number.isFinite(playerWidth) && playerWidth > 0 ? playerWidth : 640;
-  return Math.max(280, Math.min(width * 0.94, 760));
 }
 
 export function pointHitsRect(
@@ -433,9 +377,7 @@ function measureXChromeInset(root: ParentNode): number | null {
 export class CaptionOverlay {
   private readonly host: HTMLElement;
   private readonly originalLine: HTMLElement;
-  private readonly originalText: HTMLElement;
   private readonly translatedLine: HTMLElement;
-  private readonly translatedText: HTMLElement;
   private readonly toggle: HTMLButtonElement;
   private readonly captureDoc: Document;
   private labels: CaptionOverlayLabels;
@@ -450,7 +392,6 @@ export class CaptionOverlay {
   private lastBottomInset = 18;
   private lastPlayerSize = { width: 0, height: 0 };
   private toggleLabel = '';
-  private liveGeometry = false;
   private position: VideoCaptionPosition | null = null;
   private onPositionChange: (point: VideoCaptionPosition) => void = () => undefined;
   private onShortClick: () => void = () => undefined;
@@ -487,15 +428,9 @@ export class CaptionOverlay {
     this.originalLine = doc.createElement('div');
     this.originalLine.className = 'line original';
     this.originalLine.hidden = true;
-    this.originalText = doc.createElement('span');
-    this.originalText.className = 'line-text';
-    this.originalLine.append(this.originalText);
     this.translatedLine = doc.createElement('div');
     this.translatedLine.className = 'line';
     this.translatedLine.hidden = true;
-    this.translatedText = doc.createElement('span');
-    this.translatedText.className = 'line-text';
-    this.translatedLine.append(this.translatedText);
     wrap.append(this.originalLine, this.translatedLine);
     shadow.append(style, wrap);
     this.toggle = doc.createElement('button');
@@ -537,7 +472,7 @@ export class CaptionOverlay {
     this.host.setAttribute('aria-label', labels.label);
     this.toggle.setAttribute('aria-label', labels.showOriginal);
     if (this.host.getAttribute('data-sakutto-notice') === 'brave-shields') {
-      this.translatedText.textContent = labels.braveShields;
+      this.translatedLine.textContent = labels.braveShields;
     }
   }
 
@@ -576,9 +511,7 @@ export class CaptionOverlay {
     this.host.style.position = 'absolute';
     this.host.style.right = 'auto';
     this.host.style.maxWidth = `${box.width}px`;
-    this.host.style.width = this.liveGeometry
-      ? `${captionLiveOverlayWidth(rect.width)}px`
-      : 'max-content';
+    this.host.style.width = 'max-content';
     this.host.style.overflow = 'visible';
     this.applyPosition(box);
     const size = fontPx ?? captionOverlayFontPx(rect.height);
@@ -595,8 +528,7 @@ export class CaptionOverlay {
     const translation = state.translation?.trim() ?? '';
     const original = state.original.trim();
     const originalOnly = translation.length === 0 && original.length > 0 && state.pending;
-    // Replace mode keeps native captions until a translation exists, except for an
-    // explicit original-only pending render. Never paint an entirely empty box.
+    // Native captions stay until a translation exists, except for original-only pending.
     if (translation.length === 0 && !originalOnly) {
       this.hide();
       return;
@@ -604,20 +536,10 @@ export class CaptionOverlay {
 
     const bilingual = state.display === 'bilingual';
     const showOriginal = original.length > 0 && (bilingual || originalOnly);
-    this.liveGeometry = state.live === true;
-    this.originalText.textContent = showOriginal ? original : '';
-    this.translatedText.textContent = translation;
-    this.originalLine.toggleAttribute('data-sakutto-empty', !showOriginal);
-    this.translatedLine.toggleAttribute('data-sakutto-empty', translation.length === 0);
-    this.originalLine.hidden = !this.liveGeometry && !showOriginal;
-    this.translatedLine.hidden = !this.liveGeometry && translation.length === 0;
-    if (this.liveGeometry) {
-      this.host.setAttribute('data-sakutto-live', '1');
-      this.host.style.width = `${captionLiveOverlayWidth(this.lastPlayerSize.width)}px`;
-    } else {
-      this.host.removeAttribute('data-sakutto-live');
-      this.host.style.width = 'max-content';
-    }
+    this.originalLine.textContent = showOriginal ? original : '';
+    this.translatedLine.textContent = translation;
+    this.originalLine.hidden = !showOriginal;
+    this.translatedLine.hidden = translation.length === 0;
     this.toggleLabel = bilingual ? this.labels.hideOriginal : this.labels.showOriginal;
     if (this.toggle.getAttribute('aria-label') !== this.toggleLabel) {
       this.toggle.setAttribute('aria-label', this.toggleLabel);
@@ -639,13 +561,10 @@ export class CaptionOverlay {
   }
 
   showBraveShieldsNotice(): void {
-    this.clearLiveGeometry();
-    this.originalText.textContent = '';
+    this.originalLine.textContent = '';
     this.originalLine.hidden = true;
-    this.originalLine.setAttribute('data-sakutto-empty', '');
-    this.translatedText.textContent = this.labels.braveShields;
+    this.translatedLine.textContent = this.labels.braveShields;
     this.translatedLine.hidden = false;
-    this.translatedLine.removeAttribute('data-sakutto-empty');
     this.host.removeAttribute('data-sakutto-caption');
     this.host.removeAttribute('data-sakutto-original');
     this.host.removeAttribute('data-sakutto-show-original');
@@ -663,25 +582,16 @@ export class CaptionOverlay {
     this.resetGesture();
     this.overlayActive = false;
     this.host.hidden = true;
-    this.clearLiveGeometry();
-    this.originalText.textContent = '';
-    this.translatedText.textContent = '';
+    this.originalLine.textContent = '';
+    this.translatedLine.textContent = '';
     this.originalLine.hidden = true;
-    this.originalLine.setAttribute('data-sakutto-empty', '');
     this.translatedLine.hidden = true;
-    this.translatedLine.setAttribute('data-sakutto-empty', '');
     this.host.removeAttribute('data-sakutto-caption');
     this.host.removeAttribute('data-sakutto-original');
     this.host.removeAttribute('data-sakutto-show-original');
     this.host.removeAttribute('data-sakutto-pending');
     this.host.removeAttribute('data-sakutto-notice');
     this.syncToggle();
-  }
-
-  private clearLiveGeometry(): void {
-    this.liveGeometry = false;
-    this.host.removeAttribute('data-sakutto-live');
-    this.host.style.width = 'max-content';
   }
 
   shadow(): ShadowRoot | null {
@@ -1047,35 +957,21 @@ export class CaptionOverlay {
 
   private eventHitsCaption(x: number, y: number): boolean {
     if (this.host.hidden) return false;
-    const rects = this.captionLineElements()
-      .map((node) => node.getBoundingClientRect())
-      .filter((rect) => rect.width > 0 && rect.height > 0)
-      .sort((left, right) => left.top - right.top);
-    for (const rect of rects) {
-      if (pointHitsRect(x, y, rect)) return true;
+    const wrap = this.shadow()?.querySelector('.wrap');
+    if (wrap instanceof HTMLElement && pointHitsRect(x, y, wrap.getBoundingClientRect())) {
+      return true;
     }
-    // The small inter-row gap belongs to the caption gesture target. Reserved
-    // whitespace above the first row and below the last row remains excluded.
-    for (let index = 1; index < rects.length; index += 1) {
-      const previous = rects[index - 1];
-      const current = rects[index];
-      if (!previous || !current || current.top < previous.bottom) continue;
-      if (
-        y >= previous.bottom &&
-        y <= current.top &&
-        x >= Math.max(previous.left, current.left) &&
-        x <= Math.min(previous.right, current.right)
-      ) {
-        return true;
-      }
+    for (const node of this.captionLineElements()) {
+      if (pointHitsRect(x, y, node.getBoundingClientRect())) return true;
     }
     return false;
   }
 
   private captionLineElements(): HTMLElement[] {
-    return [this.originalLine, this.translatedLine].filter(
-      (line) => !line.hidden && !line.hasAttribute('data-sakutto-empty'),
-    );
+    const lines: HTMLElement[] = [];
+    if (!this.originalLine.hidden) lines.push(this.originalLine);
+    if (!this.translatedLine.hidden) lines.push(this.translatedLine);
+    return lines;
   }
 
   private playerClientRect(): DOMRect | null {
