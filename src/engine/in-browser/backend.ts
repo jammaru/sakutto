@@ -37,7 +37,7 @@ const WEBGPU_CONTEXT_PER_SLOT = 1024;
  * and keep their waves.
  */
 export function refillsFreeSlots(backend: BackendKind, parallel: number): boolean {
-  return backend === 'webgpu' && parallel >= WEBGPU_SLOTS_FAST;
+  return backend === 'webgpu' && parallel === WEBGPU_SLOTS_FAST;
 }
 
 export interface BackendProbe {

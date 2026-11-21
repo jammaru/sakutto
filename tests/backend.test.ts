@@ -41,6 +41,7 @@ describe('backend selection', () => {
 
   it('refills free slots only at the WebGPU width it was measured at', () => {
     expect(refillsFreeSlots('webgpu', 16)).toBe(true);
+    expect(refillsFreeSlots('webgpu', 32)).toBe(false);
     expect(refillsFreeSlots('webgpu', 4)).toBe(false);
     expect(refillsFreeSlots('webgpu', 1)).toBe(false);
     expect(refillsFreeSlots('cpu-wasm', 16)).toBe(false);
