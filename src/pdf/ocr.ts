@@ -29,17 +29,17 @@ export function shouldRunPdfOcr(
   // background image; OCR would be discarded by the deduplication below after a full model
   // download and render. Keep the scan pass for pages whose native text is only a header,
   // caption, or stamp.
-  return nativeTextCoverage(lines, width, height) < 0.2;
+  return nativeTextCoverage(lines, width, height) < 0.15;
 }
 
 function nativeTextCoverage(lines: readonly TextLine[], width: number, height: number): number {
-  const boxes = lines.map((line) => line.box).filter((box) => box.width > 0 && box.height > 0);
-  if (boxes.length === 0) return 0;
-  const left = Math.min(...boxes.map((box) => box.x));
-  const top = Math.min(...boxes.map((box) => box.y));
-  const right = Math.max(...boxes.map((box) => box.x + box.width));
-  const bottom = Math.max(...boxes.map((box) => box.y + box.height));
-  return (Math.max(0, right - left) * Math.max(0, bottom - top)) / Math.max(1, width * height);
+  // Sum line areas rather than their bounding box: a header and a footer must not make the
+  // empty middle of a mixed page look text-covered.
+  const area = lines.reduce(
+    (sum, line) => sum + Math.max(0, line.box.width) * Math.max(0, line.box.height),
+    0,
+  );
+  return area / Math.max(1, width * height);
 }
 
 /** A text piece with deterministic identity and both image-space and page-space geometry. */

@@ -164,6 +164,28 @@ describe('shouldRunPdfOcr', () => {
     );
   });
 
+  it('keeps OCRing a mixed page whose native text is only a sparse header and footer', () => {
+    const nativeAt = (y: number): TextLine =>
+      lineFrom([
+        {
+          text: 'Header',
+          box: { x: 30, y, width: 120, height: 10 },
+          baseline: y + 10,
+          fontName: 'native',
+          family: 'serif',
+          bold: false,
+          italic: false,
+          math: false,
+          orientation: 0,
+          size: 10,
+          displayed: 0,
+        },
+      ]);
+    expect(
+      shouldRunPdfOcr([nativeAt(10), nativeAt(770)], FULL_PAGE_IMAGE, PAGE.width, PAGE.height),
+    ).toBe(true);
+  });
+
   it('does not OCR a non-image page merely because its native runs are labels', () => {
     expect(
       shouldRunPdfOcr([nativeLine('12345 67890 12345')], NO_IMAGES, PAGE.width, PAGE.height),
