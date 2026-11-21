@@ -32,7 +32,7 @@
     requestModelFolderDeleteOpfs,
     requestModelDownload,
     requestModelFolderReload,
-    requestModelInspect,
+    requestModelAttach,
     requestModelUse,
   } from '@/shared/messages';
   import { loadSettings } from '@/shared/storage';
@@ -99,7 +99,7 @@
   async function refresh() {
     const next: Partial<Record<ModelId, ModelStatus>> = { ...statuses };
     for (const id of models) {
-      const status = await requestModelInspect(id);
+      const status = await requestModelAttach(id);
       if (status) next[id] = status;
     }
     const engine = await requestEngineStatus();

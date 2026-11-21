@@ -6,6 +6,7 @@ import {
 } from '@/shared/runtime-last-error';
 import { defineBackground } from 'wxt/utils/define-background';
 import { EngineClient } from '@/background/engine-client';
+import { ModelDownloads } from '@/background/model-downloads';
 import { createEngineHostController } from '@/background/engine-host-document';
 import {
   injectCaptionPages,
@@ -41,14 +42,14 @@ import {
 } from '@/shared/pdf';
 import { tabServesPdf } from '@/background/pdf-detect';
 import { sendExtensionModelProgress } from '@/background/extension-progress-sink';
-import { broadcastModelProgress, shouldWarmDownloadedModel } from '@/background/progress-broadcast';
+import { broadcastModelProgress } from '@/background/progress-broadcast';
 import { measureQuality } from '@/background/quality';
 import { TranslationBroker } from '@/background/translation-broker';
 import { settleCaptionEnableIntent } from '@/captions/sites';
 import { hasAllSitesAccess, syncAllSitesContentScripts } from '@/dom/all-sites';
 import { settleMailEnableIntent, syncMailContentScripts } from '@/dom/mail-sites';
 import { grantOriginsFor } from '@/dom/sites';
-import { getModel, type ModelId } from '@/engine/model/catalog';
+import type { ModelId } from '@/engine/model/catalog';
 import { normalizeSelectedModelId } from '@/engine/model/selection';
 import { hasLicenseConsent } from '@/shared/agreement';
 import type { EngineCapabilities } from '@/shared/capabilities';
@@ -117,7 +118,7 @@ export default defineBackground(() => {
   // other background setup so the first event after a restart is not lost.
   installPageActionListeners(client);
   const broker = new TranslationBroker(client);
-  const downloads = new Map<ModelId, AbortController>();
+  const downloads = new ModelDownloads(client, broadcast);
   let capabilitiesCache: EngineCapabilities | null = null;
 
   client.onModelStatus((status) => {
@@ -230,69 +231,13 @@ export default defineBackground(() => {
     });
   }
 
-  async function broadcastStatus(): Promise<void> {
-    const status = await client.status().catch(() => null);
-    if (!status) return;
-    await broadcast({ type: 'model:progress', status: status.model });
-  }
-
-  function startDownload(modelId: ModelId, options: { attachOnly?: boolean } = {}): boolean {
-    if (downloads.has(modelId)) return true;
-
-    const controller = new AbortController();
-    downloads.set(modelId, controller);
-    const total = getModel(modelId).size;
-    let received = 0;
-
-    void (async () => {
-      try {
-        const status = await client.downloadModel(modelId, {
-          signal: controller.signal,
-          ...(options.attachOnly ? { attachOnly: true } : {}),
-          onProgress: (progress) => {
-            received = progress.received;
-            void broadcast({ type: 'model:progress', status: progress });
-          },
-        });
-        await broadcast({ type: 'model:progress', status });
-        const current = await client.status().catch(() => null);
-        if (shouldWarmDownloadedModel(status, current?.model ?? null)) {
-          const warmed = await client.warmModel().catch(() => null);
-          if (warmed) await broadcast({ type: 'model:progress', status: warmed });
-        }
-      } catch (error) {
-        if (controller.signal.aborted) {
-          await broadcastStatus();
-          return;
-        }
-
-        await broadcast({
-          type: 'model:progress',
-          status: {
-            id: modelId,
-            state: 'error',
-            received,
-            total,
-            progress: Math.min(1, received / total),
-            error: error instanceof Error ? error.message : String(error),
-          },
-        });
-      } finally {
-        downloads.delete(modelId);
-      }
-    })();
-
-    return true;
-  }
-
   async function deleteModel(modelId: ModelId) {
     // Check before removing the file: after deletion the host may already have selected a
     // fallback model, so only this snapshot says whether page translations used this id.
     const activeBefore = await client.status().catch(() => null);
     const removingActiveModel = activeBefore?.model.id === modelId;
 
-    downloads.get(modelId)?.abort();
-    downloads.delete(modelId);
+    downloads.abort(modelId);
     if (removingActiveModel) broker.cancelAll();
 
     const status = await client.deleteModel(modelId).catch(() => null);
@@ -572,10 +517,7 @@ export default defineBackground(() => {
     }
 
     if (isModelAttachRequest(message)) {
-      if (!downloads.has(message.modelId)) {
-        startDownload(message.modelId, { attachOnly: true });
-      }
-      void client.modelStatus(message.modelId).then(sendResponse, () => sendResponse(null));
+      void downloads.attach(message.modelId).then(sendResponse, () => sendResponse(null));
       return true;
     }
 
@@ -607,7 +549,7 @@ export default defineBackground(() => {
             sendResponse(false);
             return;
           }
-          sendResponse(startDownload(message.modelId));
+          sendResponse(downloads.start(message.modelId));
         },
         () => sendResponse(false),
       );
@@ -615,8 +557,7 @@ export default defineBackground(() => {
     }
 
     if (isModelCancelRequest(message)) {
-      downloads.get(message.modelId)?.abort();
-      downloads.delete(message.modelId);
+      void downloads.cancel(message.modelId);
       sendResponse(true);
       return false;
     }

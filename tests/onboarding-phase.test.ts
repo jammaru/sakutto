@@ -27,6 +27,12 @@ describe('onboardingPhaseAfterStatus', () => {
     expect(onboardingPhaseAfterStatus('consent', 'partial', false)).toBe('consent');
   });
 
+  it('does not turn paused back into downloading from stale progress', () => {
+    expect(onboardingPhaseAfterStatus('paused', 'downloading', true)).toBe('paused');
+    expect(onboardingPhaseAfterStatus('paused', 'verifying', true)).toBe('paused');
+    expect(onboardingPhaseAfterStatus('paused', 'loading', true)).toBe('paused');
+  });
+
   it('leaves an error in place until a later ready state', () => {
     expect(onboardingPhaseAfterStatus('error', 'loading', true)).toBe('error');
     expect(onboardingPhaseAfterStatus('error', 'ready', true)).toBe('ready');
@@ -188,6 +194,16 @@ describe('shouldApplyOnboardingPollResult', () => {
         phase: 'downloading',
         startedGeneration: 2,
         currentGeneration: 4,
+      }),
+    ).toBe(false);
+
+    // A runtime progress message queued before Pause uses the same guard on delivery.
+    expect(
+      shouldApplyOnboardingPollResult({
+        disposed: false,
+        phase: 'paused',
+        startedGeneration: 3,
+        currentGeneration: 3,
       }),
     ).toBe(false);
 

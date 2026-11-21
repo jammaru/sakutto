@@ -507,27 +507,27 @@
   }
 
   let lastProgressAt = 0;
-  let inspectInFlight = false;
+  let pollInFlight = false;
   let pollGeneration = 0;
   let pollFailures = 0;
   let disposed = false;
 
   async function syncDownloadStatus(force = false): Promise<void> {
-    if (disposed || inspectInFlight || phase !== 'downloading') return;
+    if (disposed || pollInFlight || phase !== 'downloading') return;
     if (
       !force &&
       !shouldPollOnboardingProgress({
         phase,
         now: Date.now(),
         lastProgressAt,
-        inFlight: inspectInFlight,
+        inFlight: pollInFlight,
         failures: pollFailures,
       })
     ) {
       return;
     }
     const generation = pollGeneration;
-    inspectInFlight = true;
+    pollInFlight = true;
     try {
       const status = await requestModelAttach(DEFAULT_MODEL_ID);
       if (
@@ -554,7 +554,7 @@
         lastProgressAt = Date.now();
       }
     } finally {
-      inspectInFlight = false;
+      pollInFlight = false;
     }
   }
 
@@ -594,6 +594,16 @@
     disposed = false;
     const onMessage = (message: unknown) => {
       if (!isModelProgressMessage(message)) return;
+      if (
+        !shouldApplyOnboardingPollResult({
+          disposed,
+          phase,
+          startedGeneration: pollGeneration,
+          currentGeneration: pollGeneration,
+        })
+      ) {
+        return;
+      }
       if (message.status.id === DEFAULT_MODEL_ID) {
         lastProgressAt = Date.now();
         pollFailures = 0;

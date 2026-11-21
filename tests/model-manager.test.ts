@@ -5,11 +5,12 @@ import {
   isModelIntegrityError,
   ModelManager,
 } from '@/engine/model/manager';
-import { sha256Hex } from '@/engine/model/sha256';
+import { sha256Hex, type HashOptions } from '@/engine/model/sha256';
 import type { ModelId } from '@/engine/model/catalog';
 import type { BackendSelection } from '@/engine/in-browser/backend';
 import type { ModelStatus } from '@/shared/engine-status';
 import { bytesOf, FakeRuntime, MemoryFileStore, entryRecord, makeEntry } from './support/fakes';
+import { deferred, flushTasks } from './support/ports';
 
 const PAYLOAD = bytesOf('hello world!');
 
@@ -36,7 +37,7 @@ function createManager(
     fallbackStore?: MemoryFileStore;
     copyChunkBytes?: number;
     stallTimeoutMs?: number;
-    hashBlob?: (blob: Blob) => Promise<string>;
+    hashBlob?: (blob: Blob, options?: HashOptions) => Promise<string>;
     downloadPartPaths?: Map<ModelId, string>;
   } = {},
 ): { manager: ModelManager; createRuntime: ReturnType<typeof vi.fn> } {
@@ -96,6 +97,79 @@ describe('ModelManager', () => {
     });
     expect(store.text(`models/${ENTRY.id}/model.json`)).toContain(ENTRY.sha256);
     expect(store.files.has(`models/${ENTRY.id}/model.gguf`)).toBe(true);
+  });
+
+  it('starts a fresh download after real cancel and immediate resume', async () => {
+    const store = new MemoryFileStore();
+    const firstStarted = deferred<void>();
+    const firstCleanup = deferred<void>();
+    const secondStarted = deferred<void>();
+    const secondResponse = deferred<Response>();
+    let calls = 0;
+    const fetchImpl = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      calls += 1;
+      if (calls === 1) {
+        firstStarted.resolve();
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            void firstCleanup.promise.then(() => {
+              reject(new DOMException('Aborted', 'AbortError'));
+            });
+          });
+        });
+      }
+      secondStarted.resolve();
+      return secondResponse.promise;
+    });
+    const { manager } = createManager(store, { fetchImpl });
+    const first = manager.download(ENTRY.id, { signal: new AbortController().signal });
+    await firstStarted.promise;
+
+    manager.cancel(ENTRY.id);
+    const resumed = manager.download(ENTRY.id, { signal: new AbortController().signal });
+    await flushTasks();
+    expect(fetchImpl).toHaveBeenCalledOnce();
+
+    const firstRejection = expect(first).rejects.toMatchObject({ code: 'aborted' });
+    firstCleanup.resolve();
+    await firstRejection;
+    await secondStarted.promise;
+
+    // A third caller de-dupes onto the live replacement, not the cleaned-up aborted entry.
+    const attached = manager.download(ENTRY.id, { signal: new AbortController().signal });
+    await flushTasks();
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    secondResponse.resolve(new Response(new Uint8Array(PAYLOAD), { status: 200 }));
+    await resumed;
+    await attached;
+    expect(await manager.status(ENTRY.id)).toMatchObject({ state: 'ready' });
+  });
+
+  it('cancels standalone verification started by status inspection', async () => {
+    const store = new MemoryFileStore();
+    await store.append(`models/${ENTRY.id}/model.gguf`, PAYLOAD, 0);
+    const hashStarted = deferred<AbortSignal>();
+    const hashBlob = vi.fn((_blob: Blob, options?: HashOptions) => {
+      if (hashBlob.mock.calls.length > 1) return Promise.resolve(ENTRY.sha256);
+      return new Promise<string>((_resolve, reject) => {
+        const signal = options?.signal;
+        if (!signal) throw new Error('missing verification signal');
+        hashStarted.resolve(signal);
+        signal.addEventListener('abort', () => {
+          reject(new DOMException('Aborted', 'AbortError'));
+        });
+      });
+    });
+    const { manager } = createManager(store, { hashBlob });
+
+    expect(await manager.status(ENTRY.id)).toMatchObject({ state: 'verifying' });
+    const signal = await hashStarted.promise;
+    manager.cancel(ENTRY.id);
+    expect(signal.aborted).toBe(true);
+
+    await manager.download(ENTRY.id, { signal: new AbortController().signal });
+    expect(hashBlob).toHaveBeenCalledTimes(2);
+    expect(await manager.status(ENTRY.id)).toMatchObject({ state: 'ready' });
   });
 
   it('keeps an HTTP 403 on the model status', async () => {

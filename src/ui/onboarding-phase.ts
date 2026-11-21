@@ -63,6 +63,12 @@ export function onboardingPhaseAfterStatus(
   if (state === 'error') return 'error';
   if (state === 'ready' || state === 'loaded') return 'ready';
   if (phase === 'ready' || phase === 'error') return phase;
+  if (
+    phase === 'paused' &&
+    (state === 'downloading' || state === 'verifying' || state === 'loading')
+  ) {
+    return 'paused';
+  }
   if (state === 'downloading' || state === 'verifying' || state === 'loading') return 'downloading';
   if (state === 'partial' && started) return 'paused';
   if (phase !== 'consent') return 'paused';

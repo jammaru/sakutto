@@ -94,6 +94,32 @@ describe('engine host protocol', () => {
         modelId: 'plamo-3-translate-2b-q4_k_m',
       }),
     ).toBe(true);
+    expect(
+      isEngineHostRequest({
+        type: 'model-download',
+        requestId: 'r4',
+        modelId: 'plamo-3-translate-0.8b-q4_k_m',
+        attachOnly: true,
+      }),
+    ).toBe(true);
+    expect(
+      isEngineHostRequest({
+        type: 'model-download',
+        requestId: 'r4',
+        modelId: 'plamo-3-translate-0.8b-q4_k_m',
+        attachOnly: 'yes',
+      }),
+    ).toBe(false);
+    expect(
+      isEngineHostRequest({
+        type: 'model-cancel',
+        requestId: 'cancel',
+        modelId: 'plamo-3-translate-0.8b-q4_k_m',
+      }),
+    ).toBe(true);
+    expect(
+      isEngineHostRequest({ type: 'model-cancel', requestId: 'cancel', modelId: 'unknown' }),
+    ).toBe(false);
     expect(isEngineHostRequest({ type: 'folder-reload', requestId: 'f1' })).toBe(true);
     expect(isEngineHostRequest({ type: 'folder-adopt', requestId: 'f1' })).toBe(true);
     expect(isEngineHostRequest({ type: 'folder-to-browser', requestId: 'f1' })).toBe(true);
