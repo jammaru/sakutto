@@ -1,4 +1,5 @@
 import { pageHost } from '@/dom/sites';
+import { AsrChunkStream, asrDeltaOptions } from './asr-stream';
 import type { PageEngine } from '@/dom/session';
 import type { GlossaryEntry } from '@/engine/types';
 import { glossaryEquals } from '@/shared/glossary';
@@ -232,6 +233,8 @@ export class VideoCaptionSession {
   /** Low-latency provisional translation of the currently visible ASR chunk. */
   private provisionalSource = '';
   private provisionalOptions: CaptionTranslateOptions | null = null;
+  /** Incremental, ordered translation of rolling live ASR windows. */
+  private asrStream: AsrChunkStream | null = null;
   private activeCueId = '';
   private lastPlayed: HTMLVideoElement | null = null;
   private sourceKey = '';
@@ -448,6 +451,8 @@ export class VideoCaptionSession {
     const timeMs = this.playheadMs();
     if (timeMs === this.lastPaintPlayheadMs) return;
     this.lastPaintPlayheadMs = timeMs;
+    // Speech whose deadline has passed must not be translated after the playhead.
+    this.asrStream?.tick(timeMs);
     void this.paint(false, true);
   };
 
@@ -1126,6 +1131,18 @@ export class VideoCaptionSession {
     const previousSource = this.liveSource;
     this.liveCaptionVisible = true;
     this.extendHold(this.playheadMs());
+    if (this.liveMode && this.loaded?.asr === true) {
+      // Rolling live ASR is streamed one stable delta at a time. Keeping the earlier
+      // coverage avoids tail-only fragments and re-decoding the same growing prefix.
+      this.liveSource = text;
+      this.liveLastChangeAt = now;
+      this.liveTailRevision += 1;
+      this.clearHoldTimer();
+      this.asrStream ??= this.createAsrStream();
+      this.asrStream.observe(text);
+      this.asrStream.tick(this.playheadMs());
+      return;
+    }
     if (text === previousSource) {
       if (now - this.liveLastChangeAt >= LIVE_SENTENCE_GAP_MS) {
         this.commitLiveSentence(
@@ -1171,6 +1188,54 @@ export class VideoCaptionSession {
         this.translateOptions(this.liveMode ? this.loaded?.language : undefined),
       );
     }
+  }
+
+  /** Build the caption-only incremental translator for a live ASR track. */
+  private createAsrStream(): AsrChunkStream {
+    return new AsrChunkStream({
+      spaceDelimited: () => {
+        const source = (captionLanguagePrefix(this.loaded?.language ?? '') || '').toLowerCase();
+        return source.length > 0 && !['ja', 'zh', 'ko', 'th'].includes(source.slice(0, 2));
+      },
+      now: () => this.now(),
+      playheadMs: () => this.playheadMs(),
+      translate: async (delta, context, sequence) => {
+        const options = asrDeltaOptions(this.translateOptions(this.loaded?.language), context);
+        return this.translator.translateCue(
+          {
+            id: `asr:${String(sequence)}`,
+            startMs: 0,
+            endMs: this.playheadMs(),
+            text: delta,
+            language: this.loaded?.language,
+          },
+          options,
+          CAPTION_PLAYHEAD_PRIORITY,
+        );
+      },
+      cancel: (delta, context) => {
+        this.translator.cancelText(
+          delta,
+          asrDeltaOptions(this.translateOptions(this.loaded?.language), context),
+        );
+      },
+      onLine: (source, translation, sequence) => {
+        if (!this.running || !this.liveCaptionVisible) return;
+        // Keep the last good line until this delta resolves; never paint a pending
+        // placeholder over a live caption. Each sequence is a distinct cue id so the
+        // 1.4 s same-line debounce cannot delay a newly spoken word.
+        this.commitDisplay(
+          `asr:${String(sequence)}`,
+          source,
+          translation,
+          0,
+          this.playheadMs(),
+          0,
+          true,
+          false,
+        );
+      },
+    });
   }
 
   /**
@@ -1230,6 +1295,9 @@ export class VideoCaptionSession {
     const loaded = this.loaded;
     // ASR prefetch is for a growing live track; ordinary timedtext keeps its existing path.
     if (!this.liveMode || !loaded?.asr || loaded.cues.length === 0) return;
+    // A live DOM caption is the source of truth. Prefetching the whole timedtext
+    // window here would fill the engine queue and starve the newest spoken chunk.
+    if (this.readSourceCaptionDom().length > 0) return;
     const rate = Number.isFinite(this.video?.playbackRate) ? (this.video?.playbackRate ?? 1) : 1;
     this.translator.prefetch(
       loaded.cues,
@@ -1363,6 +1431,7 @@ export class VideoCaptionSession {
    * startProvisionalLiveTranslation and is never looked up or painted again.
    */
   private clearLiveSource(): void {
+    this.asrStream?.reset();
     this.liveCaptionVisible = false;
     this.liveSource = '';
     this.liveUtterance = '';
@@ -1375,6 +1444,7 @@ export class VideoCaptionSession {
   }
 
   private resetLiveCaptions(): void {
+    this.asrStream?.reset();
     this.clearHoldTimer();
     this.cancelLiveTailJob();
     this.liveSource = '';

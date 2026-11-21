@@ -551,16 +551,23 @@ export function replayMetrics(
   const committedTranslations = new Map<string, Set<string>>();
   let translationOriginalMappingCount = 0;
   for (const frame of completedFrames) {
-    const request = requests.find(
-      (candidate) =>
-        candidate.completed &&
-        (candidate.completedAtMs ?? Infinity) <= frame.atMs &&
-        isFakeTranslation(frame.translation, candidate.input) &&
-        frame.original.includes(candidate.input),
-    );
-    if (!request) continue;
+    // Incremental ASR paints one cumulative line built from several translated
+    // deltas. Map every completed delta visible in the line, then reconstruct the
+    // covered source so sentence-level assertions still apply to the full text.
+    const matched = requests
+      .filter(
+        (candidate) =>
+          candidate.completed &&
+          (candidate.completedAtMs ?? Infinity) <= frame.atMs &&
+          frame.translation.includes(fakeTranslationOf(frame.translation, candidate.input)) &&
+          frame.original.includes(candidate.input),
+      )
+      .sort((left, right) => left.atMs - right.atMs);
+    if (matched.length === 0) continue;
     translationOriginalMappingCount += 1;
-    for (const sentence of committedSourceSentences(request.input)) {
+    for (const sentence of committedSourceSentences(
+      joinIncrementalSource(matched.map((request) => request.input)),
+    )) {
       const translations = committedTranslations.get(sentence) ?? new Set<string>();
       translations.add(frame.translation);
       committedTranslations.set(sentence, translations);
@@ -602,8 +609,26 @@ export function replayMetrics(
   };
 }
 
-function isFakeTranslation(translation: string, input: string): boolean {
-  return translation === `訳[${input}]` || translation === `EN[${input}]`;
+function fakeTranslationOf(translation: string, input: string): string {
+  const prefix = translation.startsWith('訳[') ? '訳' : 'EN';
+  return `${prefix}[${input}]`;
+}
+
+/** Rebuild the cumulative source covered by a line of incremental delta translations. */
+function joinIncrementalSource(parts: readonly string[]): string {
+  let line = '';
+  for (const part of parts) {
+    if (
+      line.length === 0 ||
+      /^[,.;:!?。、！？…]/u.test(part) ||
+      /[\s,.;:!?。、！？…]$/u.test(line)
+    ) {
+      line += part;
+    } else {
+      line += ` ${part}`;
+    }
+  }
+  return line;
 }
 
 /** Sentence-final punctuation and the session's 96-character live commit threshold. */

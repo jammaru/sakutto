@@ -547,8 +547,16 @@ export class CaptionOverlay {
     const bilingual = state.display === 'bilingual';
     const showOriginal = original.length > 0 && (bilingual || originalOnly);
     this.originalLine.textContent = showOriginal ? original : '';
+    // A live ASR line in flight keeps its source English until the translation lands.
+    // The localised pending label is never substituted for the caption bar mid-stream.
     this.translatedLine.textContent =
-      translation.length > 0 ? translation : originalOnly ? this.labels.pending : '';
+      translation.length > 0
+        ? translation
+        : originalOnly
+          ? asr
+            ? original
+            : this.labels.pending
+          : '';
     this.originalLine.hidden = !showOriginal;
     this.translatedLine.hidden = translation.length === 0 && !originalOnly;
     this.toggleLabel = bilingual ? this.labels.hideOriginal : this.labels.showOriginal;
