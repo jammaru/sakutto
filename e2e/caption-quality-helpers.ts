@@ -58,6 +58,8 @@ export interface CaptionSample {
   captionState: string;
   caption: string;
   original: string;
+  /** Text of the currently visible shadow lines (catches pending labels). */
+  lines: string[];
   pending: boolean;
   lineCount: number;
   overlay: RectSample | null;
@@ -172,6 +174,7 @@ export async function installCaptionSampler(page: Page): Promise<void> {
         captionState: document.documentElement.getAttribute('data-sakutto-captions') ?? '',
         caption,
         original,
+        lines: lineTexts,
         pending: host?.getAttribute('data-sakutto-pending') === '1',
         lineCount: lineTexts.length,
         overlay: readRect(document.querySelector('sakutto-captions')),

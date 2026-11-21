@@ -104,3 +104,59 @@ The artifacts produced for PR 147 are summarized in
 `/cursor/stores/bc-df1ba74e-ebfd-59a3-80e9-0569718830e5/artifacts/caption-quality/metrics-before-after.md`
 and, for this ASR round, in
 `/cursor/stores/bc-df1ba74e-ebfd-59a3-80e9-0569718830e5/artifacts/caption-quality-asr/metrics-before-after.md`.
+
+## Realistic feel-test scenario (owner-style ASR)
+
+The legacy pace (80 ms prefill, zero decode) measures only the in-process hop. It cannot
+reproduce the owner's 0.25–2.5 s lag, because a real on-device engine has a warmup, decodes
+per character, and queues requests behind earlier work. `pnpm caption:quality` now runs a
+fourth test in the same spec:
+
+- `e2e/fixtures/youtube-feeltest-asr.html` / `.json` — a live `kind=asr` player that repaints
+  rolling YouTube-style windows with owner phrases ("I had some technical difficulties",
+  "I'm Lydia", "the Cloud Code team at Anthropic", "Opus 55", "Fable 52"). Windows grow,
+  shift by dropping leading words, and start new sentences, so a tail-only translator drops
+  or repeats clauses.
+- The page sets `data-bench-pace={"ttfbMs":80,"msPerChar":7,"deltas":0,"warmupMs":250,
+"concurrent":1,"markerFirstOnly":true}`: a one-off warmup, per-character decode and one
+  engine slot. These knobs exist only in the fake engine used by the e2e build.
+- `e2e/caption-quality-feeltest-helpers.ts` samples at 50 ms and reports six metrics. Lag is
+  wall-clock from the first native window appearance to the first overlay line that covers
+  it; skip/duplicate rates are fractions of active overlay frames.
+
+| Metric                 | Threshold                      | What it catches                                              |
+| ---------------------- | ------------------------------ | ------------------------------------------------------------ |
+| e2e-lag-worst          | ≤2000 ms hard (1000 ms target) | Native word appearance → matching Japanese overlay           |
+| skip-rate              | 0                              | Tail-only fragments / dropped clauses                        |
+| duplicate-rate         | 0                              | Same semantic span translated twice                          |
+| loading-text-in-stream | 0 frames                       | `字幕を翻訳しています…` or `Translating caption…` in the bar |
+| incomplete-ending      | 0 frames                       | Ellipsis-only or unfinished clause after a complete cue      |
+| coverage-chunks        | all 12 chunks                  | Every rolling window reaches the overlay in order            |
+
+The product answers this with an incremental ASR stream (`src/captions/asr-stream.ts`):
+rolling windows become word-boundary deltas, each delta is translated once with the committed
+prefix as context, results are appended in order, and stale/in-flight work is dropped as the
+playhead advances. Live ASR no longer paints `pending=true` mid-stream, and the last good
+Japanese line stays visible while the next delta decodes. Human captions, marker/stutter/sound
+cleanup and the page translation path are unchanged.
+
+### Baseline comparison
+
+With the same harness copied onto ce3b0f4 (product unchanged, fake-engine timing knobs
+harness-only), the feel-test fails every new metric; on this branch all six pass:
+
+| Metric                 | ce3b0f4   | this branch | threshold |
+| ---------------------- | --------- | ----------- | --------- |
+| e2e-lag-worst          | Infinity  | 450 ms      | ≤2000 ms  |
+| skip-rate              | 0.0833    | 0           | 0         |
+| duplicate-rate         | 0.1875    | 0           | 0         |
+| loading-text-in-stream | 98 frames | 0           | 0         |
+| incomplete-ending      | 98 frames | 0           | 0         |
+| coverage-chunks        | 5 / 12    | 12 / 12     | 12        |
+| legacy + ASR metrics   | all pass  | all pass    | —         |
+
+Raw per-run metrics, samples and screenshots are written under
+`CAPTION_QUALITY_ARTIFACTS` as `metrics-{baseline,head}-{ja,en,asr,feeltest}.json`.
+The owner-derived lag analysis lives in
+`/cursor/stores/bc-df1ba74e-ebfd-59a3-80e9-0569718830e5/artifacts/caption-quality-feeltest/owner-video-lag.md`;
+the measured root-cause write-up is `/home/ubuntu/dsh-reports/feeltest-lag-root-causes.md`.

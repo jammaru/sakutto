@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import feeltestFixture from './fixtures/youtube-feeltest-asr.json' with { type: 'json' };
 import { loadExtension } from './extension';
 import {
   FIXTURE_ORIGIN,
@@ -13,6 +14,7 @@ import {
   type AsrChunk,
   type AsrQualityRun,
 } from './caption-quality-asr-helpers';
+import { computeFeeltestReport, type FeeltestRun } from './caption-quality-feeltest-helpers';
 import {
   computeQualityReport,
   driveScenario,
@@ -99,6 +101,30 @@ const ASR: AsrQualityRun = {
   chunks: ASR_CHUNKS,
   markers: ['S1', 'ED', 'E', 'T', 'NC', 'RS'],
 };
+
+/** Owner-style rolling windows: multi-clause speech, names, shifted windows. */
+const FEELTEST: FeeltestRun = {
+  chunks: feeltestFixture.chunks.map((chunk) => ({
+    startMs: chunk.startMs,
+    endMs: chunk.endMs,
+    native: chunk.native,
+    expected: chunk.expected,
+  })),
+  pendingTexts: ['字幕を翻訳しています…', 'Translating caption…'],
+};
+
+/**
+ * A non-instant engine: warmup on the first call, cost per character and a single
+ * decode slot. The legacy 80 ms / zero-char pace cannot expose re-translation storms.
+ */
+const FEELTEST_PACE = {
+  ttfbMs: 80,
+  msPerChar: 7,
+  deltas: 0,
+  warmupMs: 250,
+  concurrent: 1,
+  markerFirstOnly: true,
+} as const;
 
 const DECOY = 'INJECTED_UNRELATED_PAGE_COPY_5C1D';
 const ARTIFACTS = process.env.CAPTION_QUALITY_ARTIFACTS ?? '';
@@ -293,6 +319,66 @@ async function measureAsr(): Promise<void> {
   }
 }
 
+async function measureFeeltest(): Promise<void> {
+  const videoDir = await artifactsDir('video');
+  const extension = await loadExtension('en-US', {
+    ...(videoDir ? { recordVideoDir: videoDir } : {}),
+  });
+  try {
+    const settings = {
+      translateVideoCaptions: true,
+      targetLanguage: 'ja',
+      videoCaptionDisplay: 'replace' as const,
+    };
+    await resetExtensionStorage(extension.worker, settings);
+    const page = await extension.context.newPage();
+    await page.goto(FIXTURE_ORIGIN + '/youtube-feeltest-asr.html');
+    await page.evaluate((pace) => {
+      document.documentElement.setAttribute('data-bench-pace', JSON.stringify(pace));
+      document.documentElement.removeAttribute('data-bench-sound-tag-translations');
+    }, FEELTEST_PACE);
+    await preparePlayer(page);
+    await openExtensionShadowRoots(extension.worker, page);
+    await injectContentScript(extension.worker, page);
+    await resetExtensionStorage(extension.worker, settings);
+    await expect(page.locator('sakutto-captions')).toBeAttached({ timeout: 20_000 });
+
+    await installCaptionSampler(page);
+    const steps: readonly ScenarioStep[] = [{ phase: 'feeltest', dwellMs: 8_200 }];
+    await driveScenario(page, steps);
+    const samples = await readSamples(page);
+    await stopCaptionSampler(page);
+    expect(samples.length).toBeGreaterThan(80);
+
+    const report = computeFeeltestReport(FEELTEST, samples);
+    const metricsDir = await artifactsDir();
+    if (metricsDir) {
+      await writeFile(
+        join(metricsDir, 'metrics-' + VARIANT + '-feeltest.json'),
+        JSON.stringify(report, null, 2) + '\n',
+      );
+      await writeFile(
+        join(metricsDir, 'samples-' + VARIANT + '-feeltest.json'),
+        JSON.stringify(samples, null, 2),
+      );
+    }
+    await page.locator('#player').evaluate((element) => {
+      (element as HTMLVideoElement).currentTime = 5.6;
+    });
+    await page.waitForTimeout(400);
+    const screenshotDir = await artifactsDir('screenshots');
+    if (screenshotDir) {
+      await page.screenshot({ path: join(screenshotDir, VARIANT + '-feeltest-normal.png') });
+    }
+    expect(
+      report.failures,
+      'realistic ASR feel-test metrics:\n' + JSON.stringify(report.metrics, null, 2),
+    ).toEqual([]);
+  } finally {
+    await extension.close();
+  }
+}
+
 test.describe('caption quality', () => {
   test('Japanese rolling ASR windows stay sentence-level through seek/rate changes', async () => {
     await measure(JA);
@@ -304,5 +390,9 @@ test.describe('caption quality', () => {
 
   test('auto-generated ASR chunks are clean and painted within 400ms', async () => {
     await measureAsr();
+  });
+
+  test('realistic rolling ASR replay keeps every clause ordered within 2s', async () => {
+    await measureFeeltest();
   });
 });

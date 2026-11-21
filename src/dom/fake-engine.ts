@@ -46,8 +46,9 @@ export function fakeTranslateText(
   text: string,
   targetLanguage: string,
   echoMarkers: readonly string[] = [],
+  withMarker = true,
 ): string {
-  const marker = fakeMarker(targetLanguage);
+  const marker = withMarker ? fakeMarker(targetLanguage) : '';
   return text
     .split(PLACEHOLDER)
     .map((part, index) => {
@@ -72,9 +73,18 @@ export interface FakePace {
   msPerChar: number;
   /** How many streaming deltas each segment is split into before the final text. */
   deltas: number;
+  /** One-off cost of the first translation on a page (model load / warmup). */
+  warmupMs?: number | undefined;
+  /** Maximum simultaneous translation calls; 1 models a serial engine queue. */
+  concurrent?: number | undefined;
+  /** Prefix only the first call with the marker (for cumulative incremental lines). */
+  markerFirstOnly?: boolean | undefined;
 }
 
 const PACE_ATTRIBUTE = 'data-bench-pace';
+let warmedUp = false;
+let markerUsed = false;
+let queueTail: Promise<void> = Promise.resolve();
 
 /**
  * The pace is read from the page itself so the bench can set it before translation
@@ -97,10 +107,15 @@ function readPace(): FakePace | null {
   const msPerChar = record.msPerChar;
   const deltas = record.deltas;
   if (typeof ttfbMs !== 'number' || typeof msPerChar !== 'number') return null;
+  const warmupMs = record.warmupMs;
+  const concurrent = record.concurrent;
   return {
     ttfbMs: Math.max(0, ttfbMs),
     msPerChar: Math.max(0, msPerChar),
     deltas: typeof deltas === 'number' ? Math.max(0, Math.min(8, Math.floor(deltas))) : 0,
+    ...(typeof warmupMs === 'number' ? { warmupMs: Math.max(0, warmupMs) } : {}),
+    ...(typeof concurrent === 'number' ? { concurrent: Math.max(1, Math.floor(concurrent)) } : {}),
+    ...(record.markerFirstOnly === true ? { markerFirstOnly: true } : {}),
   };
 }
 
@@ -115,34 +130,71 @@ export async function* fakeTranslate(
 ): AsyncGenerator<TranslationChunk> {
   const pace = readPace();
   const echoMarkers = readEchoMarkers();
-  for (const segment of segments) {
-    if (options.signal.aborted) return;
-    countSoundTag(segment.text);
-    const text = fakeTranslateText(segment.text, options.tgt, echoMarkers);
-    if (!pace) {
-      yield { id: segment.id, final: text, engine: 'plamo' };
-      continue;
+  // A serial queue models an on-device engine that decodes one request at a time.
+  // Only feel-test scenarios set concurrent=1; the legacy harness stays parallel.
+  const release = await claim(pace?.concurrent ?? 0, options.signal);
+  try {
+    if (pace?.warmupMs && !warmedUp) {
+      warmedUp = true;
+      await sleep(pace.warmupMs);
     }
-
-    await sleep(pace.ttfbMs);
-    if (options.signal.aborted) return;
-    if (pace.deltas > 0 && text.length > 1) {
-      const cut = Math.max(1, Math.floor(text.length / (pace.deltas + 1)));
-      let offset = 0;
-      while (offset + cut < text.length) {
-        await sleep(cut * pace.msPerChar);
-        if (options.signal.aborted) return;
-        yield { id: segment.id, textDelta: text.slice(offset, offset + cut), engine: 'plamo' };
-        offset += cut;
+    for (const segment of segments) {
+      if (options.signal.aborted) return;
+      countSoundTag(segment.text);
+      const withMarker = !(pace?.markerFirstOnly === true && markerUsed);
+      if (withMarker) markerUsed = true;
+      const text = fakeTranslateText(segment.text, options.tgt, echoMarkers, withMarker);
+      if (!pace) {
+        yield { id: segment.id, final: text, engine: 'plamo' };
+        continue;
       }
-      await sleep((text.length - offset) * pace.msPerChar);
+
+      await sleep(pace.ttfbMs);
+      if (options.signal.aborted) return;
+      if (pace.deltas > 0 && text.length > 1) {
+        const cut = Math.max(1, Math.floor(text.length / (pace.deltas + 1)));
+        let offset = 0;
+        while (offset + cut < text.length) {
+          await sleep(cut * pace.msPerChar);
+          if (options.signal.aborted) return;
+          yield { id: segment.id, textDelta: text.slice(offset, offset + cut), engine: 'plamo' };
+          offset += cut;
+        }
+        await sleep((text.length - offset) * pace.msPerChar);
+        if (options.signal.aborted) return;
+        yield { id: segment.id, final: text, engine: 'plamo' };
+        continue;
+      }
+
+      await sleep(text.length * pace.msPerChar);
       if (options.signal.aborted) return;
       yield { id: segment.id, final: text, engine: 'plamo' };
-      continue;
     }
-
-    await sleep(text.length * pace.msPerChar);
-    if (options.signal.aborted) return;
-    yield { id: segment.id, final: text, engine: 'plamo' };
+  } finally {
+    release();
   }
+}
+
+/** Claim the single engine slot when the scenario asks for a serial queue. */
+async function claim(limit: number, signal: AbortSignal): Promise<() => void> {
+  if (limit <= 0) return () => undefined;
+  const previous = queueTail;
+  let release = (): void => undefined;
+  queueTail = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let released = false;
+  const releaseOnce = (): void => {
+    if (released) return;
+    released = true;
+    release();
+  };
+  // An aborted caller may stop iterating this generator entirely, so its finally
+  // block never runs. Release the slot on abort too, or the queue deadlocks.
+  signal.addEventListener('abort', releaseOnce, { once: true });
+  await previous;
+  return () => {
+    signal.removeEventListener('abort', releaseOnce);
+    releaseOnce();
+  };
 }

@@ -32,6 +32,20 @@ function visibleOverlayText(sample: CaptionSample): string {
   return (sample.caption + ' ' + sample.original).replace(FAKE_MARKER, ' ').trim();
 }
 
+/**
+ * Cumulative incremental lines carry the fake-engine marker on each committed delta.
+ * Coverage is compared without those markers, but a marker must still be present.
+ */
+function equivalentCaption(actual: string, expected: string): boolean {
+  const strip = (text: string): string =>
+    text
+      .replace(FAKE_MARKER, '')
+      .replace(/\s+/gu, ' ')
+      .replace(/\s+([.,!?;:])/gu, '$1')
+      .trim();
+  return actual.includes('§ja§') && strip(actual) === strip(expected);
+}
+
 function hasMarker(text: string, configured: readonly string[]): boolean {
   if (MARKER_TOKEN.test(text)) return true;
   const escape = (token: string): string => token.replace(/[^\w]/gu, '\\$&');
@@ -77,7 +91,7 @@ export function computeAsrQualityReport(
       continue;
     }
     const shown = samples.find(
-      (sample) => sample.atMs >= seenAt && sample.caption === chunk.expected,
+      (sample) => sample.atMs >= seenAt && equivalentCaption(sample.caption, chunk.expected),
     );
     const latency = shown ? Math.max(0, shown.atMs - seenAt) : Number.POSITIVE_INFINITY;
     latencies.push(latency);
