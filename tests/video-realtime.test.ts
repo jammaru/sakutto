@@ -613,8 +613,11 @@ describe('two-line realtime captions', () => {
     const video = document.querySelector('video') as HTMLVideoElement;
     stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
     const engine: PageEngine = {
-      async *translate() {
+      async *translate(segments) {
         await new Promise(() => undefined);
+        for (const segment of segments) {
+          yield { id: segment.id, final: '', engine: 'plamo' as const };
+        }
       },
     };
     const session = new VideoCaptionSession(document, {
