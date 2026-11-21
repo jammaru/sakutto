@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -11,6 +13,8 @@ import {
   joinCaptionFragments,
   LiveCaptionBuffer,
   LIVE_CAPTION_MAX_WAIT_MS,
+  ASR_PHRASE_MERGE_MAX_MS,
+  buildSentenceUnitsFromTrack,
   mergeSentenceCues,
   mergeWordCues,
   parseTimedtextJson3,
@@ -125,6 +129,105 @@ describe('YouTube json3 timedtext', () => {
         text: 'Hello from the station.',
       }),
     ]);
+  });
+});
+
+describe('timedtext sentence units', () => {
+  it('dedupes rolling repeated prefixes and keeps the full time span', () => {
+    const json3 = {
+      events: [
+        { tStartMs: 0, dDurationMs: 1200, segs: [{ utf8: 'my' }] },
+        { tStartMs: 400, dDurationMs: 1200, segs: [{ utf8: 'my hands' }] },
+        { tStartMs: 800, dDurationMs: 1600, segs: [{ utf8: 'my hands are' }] },
+        { tStartMs: 1400, dDurationMs: 1400, segs: [{ utf8: 'hands are cold.' }] },
+      ],
+    };
+    const units = buildSentenceUnitsFromTrack(parseTimedtextJson3(json3, 'en'), json3);
+    expect(units.map((cue) => cue.text)).toEqual(['my hands are cold.']);
+    expect(units[0]).toMatchObject({ startMs: 0, endMs: 2800, language: 'en' });
+  });
+
+  it('handles fragmented slop/gold rolling windows and a pause', () => {
+    const json3 = {
+      events: [
+        { tStartMs: 0, dDurationMs: 1500, segs: [{ utf8: 'this ' }, { utf8: 'slop' }] },
+        { tStartMs: 500, dDurationMs: 1700, segs: [{ utf8: 'this slop sells' }] },
+        { tStartMs: 1000, dDurationMs: 2000, segs: [{ utf8: 'slop sells, but' }] },
+        { tStartMs: 1800, dDurationMs: 1800, segs: [{ utf8: 'but the gold' }] },
+        { tStartMs: 2600, dDurationMs: 1800, segs: [{ utf8: 'the gold is real.' }] },
+        { tStartMs: 5200, dDurationMs: 700, segs: [{ utf8: 'and' }] },
+        { tStartMs: 6000, dDurationMs: 1000, segs: [{ utf8: 'and it shines.' }] },
+      ],
+    };
+    const units = buildSentenceUnitsFromTrack([], json3);
+    expect(units.map((cue) => cue.text)).toEqual([
+      'this slop sells, but the gold is real.',
+      'and it shines.',
+    ]);
+    expect(units[0]).toMatchObject({ startMs: 0, endMs: 4400 });
+    expect(units[1]).toMatchObject({ startMs: 5200, endMs: 7000 });
+  });
+
+  it('merges manual fragments and tiny unfinished units at build time', () => {
+    const units = buildSentenceUnitsFromTrack([
+      { id: 'a', startMs: 0, endMs: 900, text: 'The north window', language: 'en' },
+      { id: 'b', startMs: 900, endMs: 1800, text: 'sells tickets,', language: 'en' },
+      { id: 'c', startMs: 1800, endMs: 2800, text: 'and opens at dawn.', language: 'en' },
+      { id: 'd', startMs: 3600, endMs: 4000, text: 'Well', language: 'en' },
+      { id: 'e', startMs: 4800, endMs: 6000, text: 'we should go.', language: 'en' },
+    ]);
+    expect(units.map((cue) => cue.text)).toEqual([
+      'The north window sells tickets, and opens at dawn.',
+      'Well we should go.',
+    ]);
+    expect(units[0]).toMatchObject({ startMs: 0, endMs: 2800 });
+    expect(units[1]).toMatchObject({ startMs: 3600, endMs: 6000 });
+  });
+
+  it('dedupes Japanese rolling windows without inserting spaces', () => {
+    const json3 = {
+      events: [
+        { tStartMs: 0, dDurationMs: 2000, segs: [{ utf8: '駅は' }] },
+        { tStartMs: 400, dDurationMs: 2000, segs: [{ utf8: '駅は夜明けに' }] },
+        { tStartMs: 800, dDurationMs: 2000, segs: [{ utf8: '夜明けに開きます。' }] },
+        { tStartMs: 4000, dDurationMs: 1000, segs: [{ utf8: '赤い' }] },
+        { tStartMs: 4500, dDurationMs: 1100, segs: [{ utf8: '赤い列車が' }] },
+        { tStartMs: 5000, dDurationMs: 1500, segs: [{ utf8: '列車が来ます。' }] },
+      ],
+    };
+    const units = buildSentenceUnitsFromTrack([], json3);
+    expect(units.map((cue) => cue.text)).toEqual(['駅は夜明けに開きます。', '赤い列車が来ます。']);
+    expect(units[0]).toMatchObject({ startMs: 0, endMs: 2800 });
+    expect(units[1]).toMatchObject({ startMs: 4000, endMs: 6500 });
+  });
+
+  it('splits long units at clauses and caps continuous speech near seven seconds', () => {
+    const long = buildSentenceUnitsFromTrack([
+      {
+        id: 'long',
+        startMs: 0,
+        endMs: 8000,
+        text: 'The first clause explains the station and its early trains, while the second clause explains where passengers buy their tickets.',
+        language: 'en',
+      },
+    ]);
+    expect(long.length).toBeGreaterThan(1);
+    expect(long[0]?.text.endsWith(',')).toBe(true);
+    expect(long[0]?.startMs).toBe(0);
+    expect(long.at(-1)?.endMs).toBe(8000);
+
+    const continuous = buildSentenceUnitsFromTrack(
+      Array.from({ length: 16 }, (_, index) => ({
+        id: String(index),
+        startMs: index * 500,
+        endMs: index * 500 + 500,
+        text: `word${index}`,
+        language: 'en',
+      })),
+    );
+    expect(continuous.length).toBeGreaterThan(1);
+    expect(continuous.every((cue) => cue.endMs - cue.startMs <= 7000)).toBe(true);
+    expect(continuous.every((cue) => cue.text.length <= 84)).toBe(true);
   });
 });
 
@@ -247,8 +350,11 @@ describe('sentence-cue merging', () => {
       '駅は夜明けに開きます',
       '赤い列車が2番線で待っています',
     ]);
-    expect(asr[0]?.endMs).toBe(4200);
-    expect(cueAtTime(asr, 3000)?.text).toBe('駅は夜明けに開きます');
+    // A 1.7s silence is longer than the ASR gap-fill, so the finished line ends here
+    // instead of stretching to the next phrase.
+    expect(asr[0]?.endMs).toBe(2500);
+    expect(cueAtTime(asr, 2000)?.text).toBe('駅は夜明けに開きます');
+    expect(cueAtTime(asr, 3000)).toBeNull();
     expect(asr.every((cue) => cue.text.trim().length > 0)).toBe(true);
     expect(asr.every((cue) => cue.text.length < 80)).toBe(true);
   });
@@ -266,6 +372,22 @@ describe('sentence-cue merging', () => {
     expect(asr.every((cue) => cue.text.trim().length > 0)).toBe(true);
     expect(asr.every((cue) => cue.text.length <= 80)).toBe(true);
     expect(asr.every((cue) => cue.endMs - cue.startMs <= 6_000)).toBe(true);
+  });
+
+  it('keeps continuous auto-caption phrases short enough to translate while speaking', () => {
+    const cues = Array.from({ length: 30 }, (_, index) => ({
+      id: `c${String(index)}`,
+      startMs: index * 500,
+      endMs: index * 500 + 500,
+      text: `word${String(index)}`,
+      language: 'en',
+    }));
+    const asr = finalizeCaptionCues(cues, undefined, { asr: true });
+    expect(asr.length).toBeGreaterThan(1);
+    expect(asr.every((cue) => cue.endMs - cue.startMs <= ASR_PHRASE_MERGE_MAX_MS)).toBe(true);
+    expect(asr.every((cue) => cue.text.length <= 120)).toBe(true);
+    expect(asr.map((cue) => cue.text).join(' ')).toContain('word0');
+    expect(asr.map((cue) => cue.text).join(' ')).toContain('word29');
   });
 
   it('returns the playhead cue then the next few in order', () => {
@@ -296,6 +418,19 @@ describe('live caption buffer', () => {
     expect(buffer.update('Tickets at the window', 500 + LIVE_CAPTION_MAX_WAIT_MS)).toEqual([
       'Tickets at the window',
     ]);
+  });
+
+  it('keeps one line id while text grows and changes it after a jump', () => {
+    const buffer = new LiveCaptionBuffer();
+    buffer.update('The', 0);
+    const first = buffer.lineKey();
+    buffer.update('The station', 100);
+    expect(buffer.lineKey()).toBe(first);
+    buffer.update('A red train', 200);
+    expect(buffer.lineKey()).not.toBe(first);
+    const second = buffer.lineKey();
+    buffer.reset();
+    expect(buffer.lineKey()).not.toBe(second);
   });
 
   it('emits the previous line when the on-screen caption jumps', () => {

@@ -5,6 +5,7 @@ import {
   type DisplayMode,
   type VideoCaptionPosition,
 } from '@/shared/settings';
+import { cleanCaptionText } from './text-cleanup';
 
 export interface CaptionOverlayLabels {
   label: string;
@@ -19,6 +20,8 @@ export interface CaptionOverlayState {
   translation: string | null;
   display: DisplayMode;
   pending: boolean;
+  /** Kept for session compatibility; main layout is always max-content. */
+  live?: boolean | undefined;
 }
 
 export const CAPTION_OVERLAY_HOST = 'sakutto-captions';
@@ -523,26 +526,30 @@ export class CaptionOverlay {
   }
 
   show(state: CaptionOverlayState): void {
-    const translation = state.translation?.trim() ?? '';
-    const original = state.original.trim();
-    // Native captions stay until a translation exists. Never paint empty black boxes.
-    if (translation.length === 0) {
+    // Last-mile guard: no segment sentinel, sound tag or stutter ever reaches the DOM.
+    const translation = cleanCaptionText(state.translation ?? '').trim();
+    const original = cleanCaptionText(state.original).trim();
+    const originalOnly = translation.length === 0 && original.length > 0 && state.pending;
+    // Native captions stay until a translation exists, except for original-only pending.
+    if (translation.length === 0 && !originalOnly) {
       this.hide();
       return;
     }
 
     const bilingual = state.display === 'bilingual';
-    const showOriginal = bilingual && original.length > 0;
+    const showOriginal = original.length > 0 && (bilingual || originalOnly);
     this.originalLine.textContent = showOriginal ? original : '';
-    this.translatedLine.textContent = translation;
+    this.translatedLine.textContent =
+      translation.length > 0 ? translation : originalOnly ? this.labels.pending : '';
     this.originalLine.hidden = !showOriginal;
-    this.translatedLine.hidden = false;
+    this.translatedLine.hidden = translation.length === 0 && !originalOnly;
     this.toggleLabel = bilingual ? this.labels.hideOriginal : this.labels.showOriginal;
     if (this.toggle.getAttribute('aria-label') !== this.toggleLabel) {
       this.toggle.setAttribute('aria-label', this.toggleLabel);
     }
     this.host.removeAttribute('data-sakutto-notice');
-    this.host.setAttribute('data-sakutto-caption', translation);
+    if (translation.length > 0) this.host.setAttribute('data-sakutto-caption', translation);
+    else this.host.removeAttribute('data-sakutto-caption');
     this.host.setAttribute('data-sakutto-original', original);
     this.host.setAttribute('data-sakutto-show-original', showOriginal ? '1' : '0');
     if (state.pending) this.host.setAttribute('data-sakutto-pending', '1');
@@ -861,8 +868,9 @@ export class CaptionOverlay {
     }
     this.swallow(event);
     this.armClickSuppress();
-    const shouldClick = this.shortClickArmed && !this.dragging && !this.gestureMoved;
-    if (this.dragging) this.endDrag(true);
+    const cancelled = event.type === 'pointercancel' || event.type === 'touchcancel';
+    const shouldClick = !cancelled && this.shortClickArmed && !this.dragging && !this.gestureMoved;
+    if (this.dragging) this.endDrag(!cancelled);
     else this.cancelHold();
     this.gestureActive = false;
     this.gestureMoved = false;

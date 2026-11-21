@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
 import { isBrokenTranslation } from '@/engine/text/degenerate';
 import type { PageEngine } from '@/dom/session';
@@ -5,6 +6,7 @@ import type { TranslateOptions, TranslateSegment, TranslationChunk } from '@/eng
 import {
   CAPTION_LIVE_PRIORITY,
   CAPTION_PLAYHEAD_PRIORITY,
+  CAPTION_PREFETCH_MAX_CUES,
   CAPTION_PREFETCH_PRIORITY,
   CaptionTranslator,
   captionPrefetchWindowMs,
@@ -52,6 +54,39 @@ describe('caption translator', () => {
     expect(first).toBe('訳:The station opens at dawn.');
     expect(second).toBe(first);
     expect(calls).toBe(1);
+  });
+
+  it('keeps pipe-delimited context and text in separate cache entries', async () => {
+    let calls = 0;
+    const translator = new CaptionTranslator(
+      engineOf((segments, options) => {
+        calls += 1;
+        return segments.map((segment) => ({
+          id: segment.id,
+          final: `訳:${options.context ?? ''}:${segment.text}`,
+          engine: 'plamo' as const,
+        }));
+      }),
+    );
+    const firstOptions = { tgt: 'ja', form: 'polite' as const, src: 'en', context: 'a|b' };
+    const secondOptions = { ...firstOptions, context: 'a' };
+
+    const first = await translator.translateCue(cue('c'), firstOptions, CAPTION_LIVE_PRIORITY);
+    const second = await translator.translateCue(cue('b|c'), secondOptions, CAPTION_LIVE_PRIORITY);
+
+    expect(first).toBe('訳:a|b:c');
+    expect(second).toBe('訳:a:b|c');
+    expect(calls).toBe(2);
+    expect(translator.getCached('c', firstOptions)).toBe(first);
+    expect(translator.getCached('b|c', secondOptions)).toBe(second);
+
+    await expect(
+      translator.translateCue(cue('c'), firstOptions, CAPTION_LIVE_PRIORITY),
+    ).resolves.toBe(first);
+    await expect(
+      translator.translateCue(cue('b|c'), secondOptions, CAPTION_LIVE_PRIORITY),
+    ).resolves.toBe(second);
+    expect(calls).toBe(2);
   });
 
   it('returns null for degenerate output so the overlay can keep the original', async () => {
@@ -207,6 +242,54 @@ describe('caption translator', () => {
     expect(seenEager).toBe(true);
   });
 
+  it('promotes a pending warmer to an eager preempting playhead request', async () => {
+    let releaseWarmer: () => void = () => undefined;
+    const warmerGate = new Promise<void>((resolve) => {
+      releaseWarmer = resolve;
+    });
+    const seen: TranslateOptions[] = [];
+    const translator = new CaptionTranslator(
+      engineOf(async function* (segments, options) {
+        seen.push(options);
+        if (options.priority === CAPTION_LIVE_PRIORITY) {
+          // Deliberately finish despite abort: stale warmer output must not win.
+          await warmerGate;
+          yield {
+            id: segments[0]?.id ?? 'x',
+            final: '訳:stale warmer',
+            engine: 'plamo' as const,
+          };
+          return;
+        }
+        yield {
+          id: segments[0]?.id ?? 'x',
+          final: '訳:playhead',
+          engine: 'plamo' as const,
+        };
+      }),
+    );
+    const options = { tgt: 'ja', form: 'polite' as const };
+    const line = cue('The station opens at dawn.');
+
+    const warmer = translator.translateCue(line, options, CAPTION_LIVE_PRIORITY);
+    await vi.waitFor(() => expect(seen).toHaveLength(1));
+    const playhead = translator.translateCue(line, options, CAPTION_PLAYHEAD_PRIORITY);
+
+    expect(seen).toHaveLength(2);
+    expect(seen[0]?.priority).toBe(CAPTION_LIVE_PRIORITY);
+    expect(seen[0]?.eager).toBe(true);
+    expect(seen[0]?.preempt).toBe(false);
+    expect(seen[0]?.signal.aborted).toBe(true);
+    expect(seen[1]?.priority).toBe(CAPTION_PLAYHEAD_PRIORITY);
+    expect(seen[1]?.eager).toBe(true);
+    expect(seen[1]?.preempt).toBe(true);
+    await expect(playhead).resolves.toBe('訳:playhead');
+
+    releaseWarmer();
+    await expect(warmer).resolves.toBeNull();
+    expect(translator.getCached(line.text, options)).toBe('訳:playhead');
+  });
+
   it('prefetches later cues at prefetch priority, never live', async () => {
     const seen: number[] = [];
     const translator = new CaptionTranslator(
@@ -235,6 +318,29 @@ describe('caption translator', () => {
       expect(seen.length).toBe(3);
     });
     expect(seen.every((priority) => priority === CAPTION_PREFETCH_PRIORITY)).toBe(true);
+  });
+
+  it('caps far prefetch so a long track cannot fill the engine queue', async () => {
+    const seen: string[] = [];
+    const translator = new CaptionTranslator(
+      engineOf((segments) => {
+        seen.push(segments[0]?.text ?? '');
+        return segments.map((segment) => ({
+          id: segment.id,
+          final: `訳:${segment.text}`,
+          engine: 'plamo' as const,
+        }));
+      }),
+    );
+    const cues = Array.from({ length: 20 }, (_, index) =>
+      cue(`line ${String(index)}`, index * 2_000),
+    );
+    translator.prefetch(cues, 0, { tgt: 'ja', form: 'polite' }, 'g');
+    await vi.waitFor(() => {
+      expect(seen).toHaveLength(CAPTION_PREFETCH_MAX_CUES);
+    });
+    expect(seen[0]).toBe('line 0');
+    expect(seen).not.toContain('line 8');
   });
 
   it('finishes the playhead line first when later cues would otherwise share the first batch', async () => {

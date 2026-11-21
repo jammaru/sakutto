@@ -1,6 +1,7 @@
 import { pageHost } from '@/dom/sites';
 import type { PageEngine } from '@/dom/session';
 import type { GlossaryEntry } from '@/engine/types';
+import { glossaryEquals } from '@/shared/glossary';
 import { canonicalLanguage, isPlamoOnlyTarget } from '@/shared/languages';
 import {
   VIDEO_CAPTION_SIZE_DEFAULT,
@@ -9,17 +10,22 @@ import {
   type VideoCaptionPosition,
 } from '@/shared/settings';
 import {
+  buildSentenceUnitsFromTrack,
   cueAtTime,
   cuesFromPlayhead,
+  cuesInWindow,
   finalizeCaptionCues,
+  joinCaptionFragments,
   LIVE_CAPTION_MIN_DISPLAY_MS,
-  LiveCaptionBuffer,
+  normalizeCaptionText,
   parseWebVtt,
   type CaptionCue,
 } from './cues';
 import {
   CAPTION_LIVE_PRIORITY,
   CAPTION_PLAYHEAD_PRIORITY,
+  CAPTION_PREFETCH_MAX_CUES,
+  captionPrefetchWindowMs,
   CaptionTranslator,
   type CaptionTranslateOptions,
 } from './engine';
@@ -106,13 +112,17 @@ export const X_EMPTY_TRACK_MAX_ATTEMPTS = 6;
 export const YOUTUBE_EMPTY_TRACK_MAX_ATTEMPTS = 24;
 /**
  * Keep the last translated line this long after its cue ends, or after a live DOM
- * caption disappears. Bridges short gaps and in-flight next-line work. Expiry
- * applies only to real silence (no current cue / no on-screen DOM caption), not
- * while a line is still being spoken. 4s sits in the 3–5s range: longer than
- * typical on-device caption latency and ASR gap-fill (2.5s), short enough that a
- * pause in speech is not a stuck overlay.
+ * caption disappears. Bridges a short gap while the next line is still being
+ * translated. Expiry applies only to real silence (no current cue / no on-screen
+ * DOM caption), not while a line is still being spoken. 2s covers typical caption
+ * gaps without leaving a finished line on screen through a long pause.
  */
-export const CAPTION_HOLD_MAX_MS = 4_000;
+export const CAPTION_HOLD_MAX_MS = 2_000;
+/**
+ * `timeupdate` fires only ~4x/second, which leaves a caption visibly stuck between cues.
+ * Poll the playhead at frame-like cadence while playing so a cue change paints promptly.
+ */
+const CAPTION_PLAYHEAD_POLL_MS = 50;
 
 export interface CaptionSessionOptions {
   engine: PageEngine;
@@ -130,8 +140,20 @@ interface LoadedTrack {
   key: string;
   cues: CaptionCue[];
   language?: string | undefined;
+  /** YouTube auto-generated track: translate each visible chunk as it grows. */
+  asr?: boolean | undefined;
   restoreModes: Array<{ track: TextTrack; mode: TextTrackMode }>;
 }
+
+interface LiveTailJob {
+  text: string;
+  options: CaptionTranslateOptions;
+  revision: number;
+}
+
+const LIVE_SENTENCE_GAP_MS = 900;
+const LIVE_SENTENCE_MAX_CHARS = 96;
+const LIVE_SENTENCE_END_RE = /[.!?。！？…]$/u;
 
 const NATIVE_HIDE_STYLE = `
 ${YOUTUBE_CAPTION_WINDOW_SELECTOR} { visibility: hidden !important; }
@@ -172,7 +194,6 @@ export class VideoCaptionSession {
   private readonly readPlayerResponse: () => Promise<unknown>;
   private readonly readBrave: () => Promise<boolean>;
   private readonly now: () => number;
-  private readonly liveBuffer = new LiveCaptionBuffer();
   private readonly timedtextGuard = new TimedtextFetchGuard();
   private prefs: CaptionSessionPreferences;
   private running = false;
@@ -185,6 +206,8 @@ export class VideoCaptionSession {
   private ignorePlayerMutations = false;
   private liveTimer: number | null = null;
   private liveTrackTimer: number | null = null;
+  private playheadTimer: number | null = null;
+  private lastPaintPlayheadMs = -1;
   private liveMode = false;
   private useDomCaptions = false;
   private hold: {
@@ -194,9 +217,21 @@ export class VideoCaptionSession {
     shownAt: number;
     startMs: number;
     endMs: number;
+    live?: boolean | undefined;
+    pending?: boolean | undefined;
   } | null = null;
   private holdTimer: number | null = null;
-  private liveJobId: string | null = null;
+  private liveSource = '';
+  private liveUtterance = '';
+  private liveCommittedSource = '';
+  private liveLastChangeAt = 0;
+  private liveTailJob: LiveTailJob | null = null;
+  private liveTailRevision = 0;
+  private liveCaptionVisible = false;
+  /** Low-latency provisional translation of the currently visible ASR chunk. */
+  private provisionalSource = '';
+  private provisionalOptions: CaptionTranslateOptions | null = null;
+  private activeCueId = '';
   private lastPlayed: HTMLVideoElement | null = null;
   private sourceKey = '';
   private sourceToken = 0;
@@ -230,6 +265,8 @@ export class VideoCaptionSession {
   setPreferences(preferences: CaptionSessionPreferences): void {
     const wasEnabled = this.prefs.enabled;
     const targetChanged = this.prefs.targetLanguage !== preferences.targetLanguage;
+    const formalityChanged = this.prefs.form !== preferences.form;
+    const glossaryChanged = !glossaryEquals(this.prefs.glossary, preferences.glossary);
     const displayChanged = this.prefs.display !== preferences.display;
     const sizeChanged =
       (this.prefs.size ?? VIDEO_CAPTION_SIZE_DEFAULT) !==
@@ -248,7 +285,9 @@ export class VideoCaptionSession {
       this.start();
       return;
     }
-    if (targetChanged) {
+    if (targetChanged || formalityChanged || glossaryChanged) {
+      // Cached tail text alone is not enough: its translation options define the
+      // result. Restart the source so an old-form result can never be committed.
       this.resetCaptionSource();
       this.passthroughNative = false;
       void this.sync(true);
@@ -299,6 +338,10 @@ export class VideoCaptionSession {
       view?.setInterval(() => {
         this.pollLive();
       }, 200) ?? null;
+    this.playheadTimer =
+      view?.setInterval(() => {
+        this.onPlayheadTick();
+      }, CAPTION_PLAYHEAD_POLL_MS) ?? null;
     this.liveTrackTimer =
       view?.setInterval(() => {
         if (!this.video) return;
@@ -366,14 +409,19 @@ export class VideoCaptionSession {
       view?.clearInterval(this.liveTrackTimer);
       this.liveTrackTimer = null;
     }
+    if (this.playheadTimer !== null) {
+      view?.clearInterval(this.playheadTimer);
+      this.playheadTimer = null;
+    }
+    this.lastPaintPlayheadMs = -1;
     this.liveMode = false;
     this.useDomCaptions = false;
     this.loadInFlight = false;
     this.timedtextGuard.reset();
     this.restoreTracks();
     this.hideNativeCaptions(false);
+    this.resetLiveCaptions();
     this.translator.clear();
-    this.liveBuffer.reset();
     this.clearHold();
     this.unbindVideo(this.video);
     this.loaded = null;
@@ -384,13 +432,22 @@ export class VideoCaptionSession {
     this.passthroughNative = false;
     this.lastLayout = null;
     this.doc.documentElement.removeAttribute('data-sakutto-captions');
-    this.liveJobId = null;
     this.overlay.hide();
     this.overlay.detach();
   }
 
   private readonly onMedia = (): void => {
     void this.sync(false);
+  };
+
+  /** Frame-like playhead sampling; `timeupdate` alone is too coarse for cue boundaries. */
+  private readonly onPlayheadTick = (): void => {
+    const video = this.video;
+    if (!video || video.paused || video.ended) return;
+    const timeMs = this.playheadMs();
+    if (timeMs === this.lastPaintPlayheadMs) return;
+    this.lastPaintPlayheadMs = timeMs;
+    void this.paint(false, true);
   };
 
   private readonly onPlay = (event: Event): void => {
@@ -400,8 +457,9 @@ export class VideoCaptionSession {
   };
 
   private readonly onSeek = (): void => {
-    this.liveBuffer.reset();
-    this.liveJobId = null;
+    this.resetLiveCaptions();
+    this.clearHold();
+    this.activeCueId = '';
     const timeMs = this.playheadMs();
     // A jump before the held line (loop, ad, rewind) must not keep a future
     // translation. Do not showNative here: a seek must not flash native while
@@ -505,10 +563,10 @@ export class VideoCaptionSession {
     this.useDomCaptions = false;
     this.liveMode = false;
     this.timedtextGuard.reset();
+    this.resetLiveCaptions();
     this.translator.clear();
-    this.liveBuffer.reset();
     this.clearHold();
-    this.liveJobId = null;
+    this.activeCueId = '';
     this.passthroughNative = false;
     this.lastLayout = null;
     this.emptyTrackAttempts = 0;
@@ -534,6 +592,7 @@ export class VideoCaptionSession {
       if (youtube) {
         this.liveMode = youtube.live;
         this.finishLoadedTrack({ key, ...youtube, restoreModes: [] });
+        this.warmAsrTrack();
         return;
       }
       this.liveMode = false;
@@ -606,7 +665,7 @@ export class VideoCaptionSession {
       captionSourceIsTargetLanguage(selected.languageCode, undefined, this.prefs.targetLanguage)
     ) {
       this.useDomCaptions = false;
-      return { cues: [], language: selected.languageCode, live };
+      return { cues: [], language: selected.languageCode, asr: selected.asr, live };
     }
 
     const fetchKey = `${youtubeVideoId(this.doc.defaultView?.location.href ?? '') ?? 'yt'}:${selected.baseUrl}`;
@@ -617,17 +676,14 @@ export class VideoCaptionSession {
         return {
           cues: this.loaded?.cues ?? [],
           language: selected.languageCode,
+          asr: selected.asr,
           live,
         };
       }
     }
 
     try {
-      const cues = await this.readYouTubeCues(
-        selected.baseUrl,
-        selected.languageCode,
-        selected.asr,
-      );
+      const cues = await this.readYouTubeCues(selected.baseUrl, selected.languageCode);
       if (!stillCurrent()) {
         this.timedtextGuard.reset(fetchKey);
         return null;
@@ -636,14 +692,14 @@ export class VideoCaptionSession {
         if (this.overlay.hasBraveShieldsNotice()) this.overlay.hide();
         if (!live) this.timedtextGuard.succeed(fetchKey);
         this.useDomCaptions = live;
-        return { cues, language: selected.languageCode, live };
+        return { cues, language: selected.languageCode, asr: selected.asr, live };
       }
       if (!live) {
         this.timedtextGuard.fail(fetchKey, this.now());
         void this.showBraveTimedtextFailure(fetchKey);
       }
       this.useDomCaptions = true;
-      return { cues: [], language: selected.languageCode, live };
+      return { cues: [], language: selected.languageCode, asr: selected.asr, live };
     } catch {
       if (!stillCurrent()) {
         this.timedtextGuard.reset(fetchKey);
@@ -654,7 +710,7 @@ export class VideoCaptionSession {
         void this.showBraveTimedtextFailure(fetchKey);
       }
       this.useDomCaptions = true;
-      return { cues: [], language: selected.languageCode, live };
+      return { cues: [], language: selected.languageCode, asr: selected.asr, live };
     }
   }
 
@@ -679,8 +735,10 @@ export class VideoCaptionSession {
       key: trackKey(this.doc, video),
       cues: youtube.cues,
       language: youtube.language,
+      asr: youtube.asr,
       restoreModes: [],
     });
+    this.warmAsrTrack();
   }
 
   private async loadXTrack(video: HTMLVideoElement): Promise<Omit<LoadedTrack, 'key'> | null> {
@@ -833,15 +891,20 @@ export class VideoCaptionSession {
     );
   }
 
-  private overlayShowingTranslation(): boolean {
+  private overlayShowingCaption(): boolean {
     if (this.passthroughNative || !this.hold) return false;
-    return this.hold.translation.trim().length > 0;
+    if (this.hold.original.trim().length === 0) return false;
+    return (
+      this.hold.live === true ||
+      this.hold.pending === true ||
+      this.hold.translation.trim().length > 0
+    );
   }
 
   private applyNativeVisibility(reason?: string): void {
     const mode = this.passthroughNative
       ? 'native'
-      : this.overlayShowingTranslation()
+      : this.overlayShowingCaption()
         ? 'overlay'
         : 'waiting';
     if (mode !== 'overlay') {
@@ -863,7 +926,7 @@ export class VideoCaptionSession {
       this.overlay.hide();
       return;
     }
-    if (!this.overlayShowingTranslation()) {
+    if (!this.overlayShowingCaption()) {
       this.hideNativeCaptions(false);
       this.restoreTracks();
       this.clearNativeCaptionMasks();
@@ -894,7 +957,7 @@ export class VideoCaptionSession {
     }
   }
 
-  private async paint(force: boolean): Promise<void> {
+  private async paint(force: boolean, skipPlace = false): Promise<void> {
     if (!this.running) return;
     const token = this.sourceToken;
     const video = this.video;
@@ -904,7 +967,7 @@ export class VideoCaptionSession {
       this.overlay.hide();
       return;
     }
-    this.place();
+    if (!skipPlace) this.place();
     if (this.loaded && this.loaded.cues.length === 0 && this.allowsGenericDom()) {
       const html5 = loadHtml5Track(
         video,
@@ -935,6 +998,7 @@ export class VideoCaptionSession {
         return;
       }
       this.pollLive();
+      this.prefetchFromPlayhead();
       if (token === this.sourceToken && !this.holdActiveAt(timeMs)) this.showNative('no-cue');
       return;
     }
@@ -951,12 +1015,14 @@ export class VideoCaptionSession {
       }
     }
     this.pollLive();
+    this.prefetchFromPlayhead();
     if (token === this.sourceToken && !this.holdActiveAt(timeMs)) this.showNative('no-cue');
   }
 
   private async paintCue(cue: CaptionCue, force: boolean): Promise<void> {
     if (this.passthroughNative) return;
     const token = this.sourceToken;
+    const liveRevision = this.liveTailRevision;
     const language = cue.language ?? this.loaded?.language;
     const options = this.translateOptions(language);
     const stripped = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
@@ -970,30 +1036,45 @@ export class VideoCaptionSession {
       this.applyNativeVisibility('same-language');
       return;
     }
+    const cueChanged = this.activeCueId !== cue.id;
+    if (cueChanged) {
+      this.activeCueId = cue.id;
+      this.retainAroundPlayhead(original, options);
+    }
 
     const cached = this.translator.getCached(original, options);
+    if (cueChanged && !cached) {
+      // A new cue owns the original row immediately. Its translation is the only
+      // translation allowed for this unit, so do not show the previous unit's text.
+      this.commitDisplay(cue.id, original, '', cue.startMs, cue.endMs, 0, false, true);
+    }
     if (cached) {
-      this.commitDisplay(cue.id, original, cached, cue.startMs, cue.endMs);
+      this.commitDisplay(cue.id, original, cached, cue.startMs, cue.endMs, 0);
       this.scheduleAroundPlayhead(cue);
       return;
     }
-    // Keep the previous translated line until this cue lands. A current cue whose
-    // translation is in flight is not silence — expiry is only for a real gap.
+    // The current original is already visible while its translation is in flight;
+    // expiry is only for a real gap, not for an uncached cue.
     if (!this.hold) this.showNative('waiting-first');
     const generation = this.translator.translateGeneration();
-    const translated = await this.translator.translateCue(
+    // Start this request before warming the next cues: the playhead keeps the
+    // first slot, while the following line is already in flight on parallel tiers.
+    const pendingTranslation = this.translator.translateCue(
       { ...cue, text: original },
       options,
       CAPTION_PLAYHEAD_PRIORITY,
     );
+    this.scheduleAroundPlayhead(cue);
+    const translated = await pendingTranslation;
     if (!this.running || token !== this.sourceToken) return;
     if (this.translator.abortedSince(generation)) return;
+    if (this.liveCaptionVisible || liveRevision !== this.liveTailRevision) return;
     const timeMs = this.playheadMs();
     const current = cueAtTime(this.loaded?.cues ?? [], timeMs);
     if (current && current.id !== cue.id) return;
     if (translated) {
       if (!current && timeMs > cue.endMs + CAPTION_HOLD_MAX_MS) return;
-      this.commitDisplay(cue.id, original, translated, cue.startMs, cue.endMs);
+      this.commitDisplay(cue.id, original, translated, cue.startMs, cue.endMs, 0);
     } else if (current) {
       this.showNative('translate-failed');
     } else if (!this.holdActiveAt(timeMs)) {
@@ -1001,7 +1082,6 @@ export class VideoCaptionSession {
     } else {
       captionDebug('translate-failed', { cueId: cue.id, original, force });
     }
-    this.scheduleAroundPlayhead(cue);
   }
 
   private pollLive(forceDom = false): void {
@@ -1013,18 +1093,16 @@ export class VideoCaptionSession {
     if (!forceDom && !this.liveMode && !this.useDomCaptions) return;
     const visible = this.readSourceCaptionDom();
     if (visible.length === 0) {
-      if (this.liveMode) return;
-      if (!forceDom && (this.loaded?.cues.length ?? 0) > 0) return;
+      if (!forceDom && !this.liveMode && (this.loaded?.cues.length ?? 0) > 0) return;
+      this.liveCaptionVisible = false;
+      this.liveSource = '';
+      this.liveTailRevision += 1;
+      this.clearHoldTimer();
+      this.cancelLiveTailJob();
       return;
     }
     if (!forceDom && !this.liveMode && (this.loaded?.cues.length ?? 0) > 0) return;
 
-    const timeMs = this.playheadMs();
-    // The on-screen line is still being spoken. Do not treat buffer-idle as silence.
-    this.extendHold(timeMs);
-
-    const lines = this.liveBuffer.update(visible, this.now());
-    const options = this.translateOptions(this.liveMode ? this.loaded?.language : undefined);
     const sourceLanguage = (this.loaded?.cues.length ?? 0) > 0 ? this.loaded?.language : undefined;
     if (captionSourceIsTargetLanguage(sourceLanguage, visible, this.prefs.targetLanguage)) {
       this.passthroughNative = true;
@@ -1032,35 +1110,251 @@ export class VideoCaptionSession {
       this.overlay.hide();
       return;
     }
+    this.observeLiveCaption(visible);
+  }
 
-    const newest = lines.at(-1) ?? (forceDom ? visible : undefined);
-    if (!newest) return;
-    const cached = this.translator.getCached(newest, options);
-    if (cached) {
-      this.commitDisplay(`live:${newest}`, newest, cached, 0, timeMs);
+  /** Paint each visible ASR chunk now; the completed sentence can refine it later. */
+  private observeLiveCaption(visible: string): void {
+    const text = dedupeLiveCaptionText(visible);
+    if (text.length === 0) return;
+    const now = this.now();
+    const previousSource = this.liveSource;
+    this.liveCaptionVisible = true;
+    this.extendHold(this.playheadMs());
+    if (text === previousSource) {
+      if (now - this.liveLastChangeAt >= LIVE_SENTENCE_GAP_MS) {
+        this.commitLiveSentence(
+          this.translateOptions(this.liveMode ? this.loaded?.language : undefined),
+        );
+      }
       return;
     }
-    if (!this.hold) this.showNative('waiting-live');
-    this.translator.keepOnly(newest, options);
-    this.liveJobId = newest;
+
+    if (this.liveUtterance.length === 0) {
+      this.liveUtterance = text;
+    } else if (
+      previousSource &&
+      (text.startsWith(previousSource) || previousSource.startsWith(text))
+    ) {
+      this.liveUtterance = appendLiveCaptionText(
+        this.liveUtterance,
+        text.slice(previousSource.length),
+      );
+    } else if (this.shouldCommitLiveSentence(now, text)) {
+      this.commitLiveSentence(
+        this.translateOptions(this.liveMode ? this.loaded?.language : undefined),
+      );
+      this.liveUtterance = text;
+    } else {
+      this.liveUtterance = appendLiveCaptionText(this.liveUtterance, text);
+    }
+
+    const utterance = this.liveUtterance;
+    this.liveSource = text;
+    this.liveLastChangeAt = now;
+    this.liveTailRevision += 1;
+    if (this.liveMode && this.loaded?.asr) {
+      this.startProvisionalLiveTranslation(
+        text,
+        this.translateOptions(this.loaded?.language),
+        this.liveTailRevision,
+      );
+    }
+    this.clearHoldTimer();
+    if (LIVE_SENTENCE_END_RE.test(utterance) || utterance.length >= LIVE_SENTENCE_MAX_CHARS) {
+      this.commitLiveSentence(
+        this.translateOptions(this.liveMode ? this.loaded?.language : undefined),
+      );
+    }
+  }
+
+  /**
+   * Translate the visible chunk as soon as it appears. The finished sentence is
+   * translated with the same light context and replaces this line from cache, so
+   * a provisional result never blanks the overlay or jumps back to an older chunk.
+   */
+  private startProvisionalLiveTranslation(
+    text: string,
+    options: CaptionTranslateOptions,
+    revision: number,
+  ): void {
+    if (this.provisionalSource === text || this.liveCommittedSource === text) return;
+    if (this.provisionalSource && this.provisionalOptions) {
+      this.translator.cancelText(this.provisionalSource, this.provisionalOptions);
+    }
+    const requestOptions: CaptionTranslateOptions = {
+      ...options,
+      ...(this.liveCommittedSource ? { context: this.liveCommittedSource } : {}),
+    };
+    this.provisionalSource = text;
+    this.provisionalOptions = requestOptions;
     const cue: CaptionCue = {
-      id: `live:${newest}`,
+      id: `live:chunk:${String(revision)}`,
       startMs: 0,
-      endMs: timeMs,
-      text: newest,
+      endMs: this.playheadMs(),
+      text,
+      language: this.loaded?.language,
+    };
+    const cached =
+      this.translator.getCached(text, requestOptions) ?? this.translator.getCached(text, options);
+    if (cached) {
+      this.commitDisplay(cue.id, text, cached, 0, this.playheadMs(), 0, true);
+      return;
+    }
+    const token = this.sourceToken;
+    const generation = this.translator.translateGeneration();
+    void this.translator
+      .translateCue(cue, requestOptions, CAPTION_PLAYHEAD_PRIORITY)
+      .then((translation) => {
+        if (
+          !this.running ||
+          token !== this.sourceToken ||
+          this.translator.abortedSince(generation) ||
+          !this.liveCaptionVisible ||
+          this.liveSource !== text ||
+          this.liveCommittedSource === text ||
+          !translation
+        ) {
+          return;
+        }
+        this.commitDisplay(cue.id, text, translation, 0, this.playheadMs(), 0, true);
+      });
+  }
+
+  /** Warm timedtext cues that are already available inside the ASR window. */
+  private warmAsrTrack(): void {
+    const loaded = this.loaded;
+    // ASR prefetch is for a growing live track; ordinary timedtext keeps its existing path.
+    if (!this.liveMode || !loaded?.asr || loaded.cues.length === 0) return;
+    const rate = Number.isFinite(this.video?.playbackRate) ? (this.video?.playbackRate ?? 1) : 1;
+    this.translator.prefetch(
+      loaded.cues,
+      this.playheadMs(),
+      this.translateOptions(loaded.language),
+      this.prefs.tier,
+      rate,
+      new Set(),
+      CAPTION_PREFETCH_MAX_CUES,
+    );
+  }
+  private shouldCommitLiveSentence(now: number, next: string): boolean {
+    return (
+      this.liveUtterance.length > 0 &&
+      (LIVE_SENTENCE_END_RE.test(this.liveUtterance) ||
+        /(?:です|ます|でした|ました|ね|よ|か)$/u.test(this.liveUtterance) ||
+        /^[A-Z]/u.test(next) ||
+        now - this.liveLastChangeAt >= LIVE_SENTENCE_GAP_MS ||
+        this.liveUtterance.length >= LIVE_SENTENCE_MAX_CHARS)
+    );
+  }
+
+  private commitLiveSentence(options: CaptionTranslateOptions): void {
+    if (this.liveUtterance.length === 0) return;
+    const text = this.liveUtterance;
+    const committedSource = this.liveCommittedSource;
+    this.liveCommittedSource = text;
+    this.liveUtterance = '';
+    this.cancelLiveTailJob();
+    this.commitDisplay(
+      `live:${String(this.liveTailRevision)}`,
+      text,
+      '',
+      0,
+      this.playheadMs(),
+      0,
+      true,
+      true,
+    );
+    this.startLiveTailTranslation(options, this.liveTailRevision, text, committedSource);
+  }
+
+  private startLiveTailTranslation(
+    options: CaptionTranslateOptions,
+    revision: number,
+    text: string,
+    committedSource: string,
+  ): void {
+    if (!this.liveCaptionVisible) return;
+    const requestOptions: CaptionTranslateOptions = {
+      ...options,
+      ...(committedSource && text !== committedSource ? { context: committedSource } : {}),
+    };
+    const cached =
+      this.translator.getCached(text, options) ?? this.translator.getCached(text, requestOptions);
+    if (cached) {
+      this.commitDisplay(
+        `live:${String(revision)}`,
+        text,
+        cached,
+        0,
+        this.playheadMs(),
+        0,
+        true,
+        false,
+      );
+      return;
+    }
+
+    const job: LiveTailJob = { text, options: requestOptions, revision };
+    this.liveTailJob = job;
+    const cue: CaptionCue = {
+      id: `live:${String(revision)}`,
+      startMs: 0,
+      endMs: this.playheadMs(),
+      text,
       language: this.loaded?.language,
     };
     const token = this.sourceToken;
     const generation = this.translator.translateGeneration();
     void this.translator
-      .translateCue(cue, options, CAPTION_PLAYHEAD_PRIORITY)
+      .translateCue(cue, requestOptions, CAPTION_PLAYHEAD_PRIORITY)
       .then((translation) => {
-        if (!this.running || token !== this.sourceToken) return;
+        if (
+          !this.running ||
+          token !== this.sourceToken ||
+          this.liveTailJob !== job ||
+          !this.liveCaptionVisible
+        ) {
+          return;
+        }
+        this.liveTailJob = null;
         if (this.translator.abortedSince(generation)) return;
-        if (this.liveJobId !== newest) return;
-        if (translation) this.commitDisplay(cue.id, newest, translation, cue.startMs, cue.endMs);
-        else this.showNative('translate-failed');
+        if (!translation) {
+          this.showNative('translate-failed');
+          return;
+        }
+        this.commitDisplay(
+          `live:${String(revision)}`,
+          text,
+          translation,
+          0,
+          this.playheadMs(),
+          0,
+          true,
+          false,
+        );
       });
+  }
+
+  private cancelLiveTailJob(): void {
+    const job = this.liveTailJob;
+    if (!job) return;
+    this.liveTailJob = null;
+    this.translator.cancelText(job.text, job.options);
+  }
+
+  private resetLiveCaptions(): void {
+    this.clearHoldTimer();
+    this.cancelLiveTailJob();
+    this.liveSource = '';
+    this.liveUtterance = '';
+    this.liveCommittedSource = '';
+    this.liveLastChangeAt = 0;
+    this.liveTailJob = null;
+    this.liveTailRevision = 0;
+    this.liveCaptionVisible = false;
+    this.provisionalSource = '';
+    this.provisionalOptions = null;
   }
 
   private bindVideo(video: HTMLVideoElement | null): void {
@@ -1238,7 +1532,12 @@ export class VideoCaptionSession {
     return pickPlayingOrPrimaryVideo(this.doc);
   }
 
-  private scheduleAroundPlayhead(current: CaptionCue): void {
+  /**
+   * Warm the lines that will be shown next. The nearest cues go out at live
+   * priority so they are ready before the playhead reaches them; farther cues use
+   * the prefetch band, kept behind visible page prose and capped by the translator.
+   */
+  private scheduleAroundPlayhead(current: CaptionCue | null): void {
     const video = this.video;
     const cues = this.loaded?.cues ?? [];
     if (!video || cues.length === 0) return;
@@ -1246,15 +1545,30 @@ export class VideoCaptionSession {
     if (sameLanguage(language, this.prefs.targetLanguage)) return;
     const timeMs = Math.round((video.currentTime || 0) * 1000);
     const options = this.translateOptions(language);
-    const nearby = cuesFromPlayhead(cues, timeMs, 3).filter((cue) => cue.id !== current.id);
-    const skip = new Set<string>([current.id]);
+    const nearby = cuesFromPlayhead(cues, timeMs, 3).filter((cue) => cue.id !== current?.id);
+    const skip = new Set<string>();
+    if (current) skip.add(current.id);
     for (const cue of nearby) {
       const original = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
       if (original.length === 0) continue;
       skip.add(cue.id);
-      void this.translator.translateCue({ ...cue, text: original }, options, CAPTION_LIVE_PRIORITY);
+      const index = cues.findIndex((candidate) => candidate.id === cue.id);
+      const context = index > 0 ? cues[index - 1]?.text : undefined;
+      void this.translator.translateCue(
+        { ...cue, text: original },
+        context ? { ...options, context } : options,
+        CAPTION_LIVE_PRIORITY,
+      );
     }
-    this.translator.prefetch(cues, timeMs, options, this.prefs.tier, video.playbackRate || 1, skip);
+    const playbackRate = video.playbackRate || 1;
+    const windowMs = captionPrefetchWindowMs(this.prefs.tier, playbackRate);
+    const prefetchCues = cuesInWindow(cues, timeMs, timeMs + windowMs)
+      .slice(0, CAPTION_PREFETCH_MAX_CUES)
+      .map((cue) => {
+        const original = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
+        return original.length > 0 && original !== cue.text ? { ...cue, text: original } : cue;
+      });
+    this.translator.prefetch(prefetchCues, timeMs, options, this.prefs.tier, playbackRate, skip);
   }
 
   private prefetchFromPlayhead(): void {
@@ -1264,18 +1578,18 @@ export class VideoCaptionSession {
     const language = this.loaded?.language;
     if (sameLanguage(language, this.prefs.targetLanguage)) return;
     const timeMs = Math.round((video.currentTime || 0) * 1000);
-    const current = cueAtTime(cues, timeMs);
-    if (current) {
-      this.scheduleAroundPlayhead(current);
-      return;
+    this.scheduleAroundPlayhead(cueAtTime(cues, timeMs));
+  }
+
+  /** Abort the previous playhead request, but keep the current line and its neighbours. */
+  private retainAroundPlayhead(original: string, options: CaptionTranslateOptions): void {
+    const texts: string[] = [original];
+    for (const cue of cuesFromPlayhead(this.loaded?.cues ?? [], this.playheadMs(), 8)) {
+      const stripped = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
+      const text = stripped.length > 0 ? stripped : cue.text.trim();
+      if (text.length > 0 && !texts.includes(text)) texts.push(text);
     }
-    this.translator.prefetch(
-      cues,
-      timeMs,
-      this.translateOptions(language),
-      this.prefs.tier,
-      video.playbackRate || 1,
-    );
+    this.translator.retainTexts(texts, options);
   }
 
   private repaintHold(): void {
@@ -1285,7 +1599,8 @@ export class VideoCaptionSession {
       original: hold.original,
       translation: hold.translation,
       display: this.prefs.display,
-      pending: false,
+      pending: hold.pending === true,
+      ...(hold.live ? { live: true } : {}),
     });
   }
 
@@ -1316,29 +1631,49 @@ export class VideoCaptionSession {
     translation: string,
     startMs: number,
     endMs: number,
+    minDisplayMs = LIVE_CAPTION_MIN_DISPLAY_MS,
+    live = false,
+    pending = false,
   ): void {
     if (!this.running) return;
     const token = this.sourceToken;
-    if (this.hold?.cueId === cueId && this.hold.translation === translation) {
+    if (
+      this.hold?.cueId === cueId &&
+      this.hold.original === original &&
+      this.hold.translation === translation &&
+      this.hold.live === live &&
+      (this.hold.pending === true) === pending
+    ) {
       this.hold.endMs = Math.max(this.hold.endMs, endMs);
       return;
     }
     const apply = (): void => {
       if (!this.running || token !== this.sourceToken) return;
       this.holdTimer = null;
-      this.hold = { cueId, original, translation, shownAt: this.now(), startMs, endMs };
+      if (live && !this.liveCaptionVisible) return;
+      this.hold = {
+        cueId,
+        original,
+        translation,
+        shownAt: this.now(),
+        startMs,
+        endMs,
+        pending,
+        ...(live ? { live: true } : {}),
+      };
       this.ignorePlayerMutations = true;
       this.overlay.show({
         original,
         translation,
         display: this.prefs.display,
-        pending: false,
+        pending,
+        ...(live ? { live: true } : {}),
       });
       this.applyNativeVisibility();
       this.releasePlayerMutations();
     };
-    const elapsed = this.hold ? this.now() - this.hold.shownAt : LIVE_CAPTION_MIN_DISPLAY_MS;
-    const wait = Math.max(0, LIVE_CAPTION_MIN_DISPLAY_MS - elapsed);
+    const elapsed = this.hold ? this.now() - this.hold.shownAt : minDisplayMs;
+    const wait = Math.max(0, minDisplayMs - elapsed);
     if (this.holdTimer !== null) this.doc.defaultView?.clearTimeout(this.holdTimer);
     // A new playhead cue must replace the previous translated line immediately.
     // Min-display only debounce refinements of the same live/ASR line.
@@ -1349,30 +1684,25 @@ export class VideoCaptionSession {
     this.holdTimer = this.doc.defaultView?.setTimeout(apply, wait) ?? null;
   }
 
-  private clearHold(): void {
+  private clearHoldTimer(): void {
     if (this.holdTimer !== null) {
       this.doc.defaultView?.clearTimeout(this.holdTimer);
       this.holdTimer = null;
     }
+  }
+
+  private clearHold(): void {
+    this.clearHoldTimer();
     this.hold = null;
   }
 
-  private async readYouTubeCues(
-    baseUrl: string,
-    language: string,
-    asr: boolean,
-  ): Promise<CaptionCue[]> {
+  private async readYouTubeCues(baseUrl: string, language: string): Promise<CaptionCue[]> {
     const json3 = await this.readTrack(withTimedtextFormat(baseUrl, 'json3'));
-    const fromJson = finalizeCaptionCues(
-      parseTimedtextPayload(json3, 'json3', language),
-      undefined,
-      {
-        asr,
-      },
-    );
+    const parsedCues = parseTimedtextPayload(json3, 'json3', language);
+    const fromJson = buildSentenceUnitsFromTrack(parsedCues, json3);
     if (fromJson.length > 0) return fromJson;
     const vtt = await this.readTrack(withTimedtextFormat(baseUrl, 'vtt'));
-    return finalizeCaptionCues(parseTimedtextPayload(vtt, 'vtt', language), undefined, { asr });
+    return buildSentenceUnitsFromTrack(parseTimedtextPayload(vtt, 'vtt', language));
   }
 
   private translateOptions(language?: string): CaptionTranslateOptions {
@@ -1502,6 +1832,20 @@ function isHtmlVideo(value: EventTarget | null): value is HTMLVideoElement {
     'tagName' in value &&
     (value as HTMLElement).tagName === 'VIDEO',
   );
+}
+
+function appendLiveCaptionText(left: string, right: string): string {
+  if (!left) return right;
+  if (!right) return left;
+  return joinCaptionFragments(left, right).replace(/\s+([.!?。！？…])/u, '$1');
+}
+
+function dedupeLiveCaptionText(visible: string): string {
+  const normalized = normalizeCaptionText(visible);
+  const lines = normalized.split('\n');
+  const text = lines.filter((line, index) => index === 0 || line !== lines[index - 1]).join('\n');
+  const repeatedHalf = /^(.+?) \1$/u.exec(text);
+  return repeatedHalf?.[1] ?? text;
 }
 
 function sameLanguage(source: string | undefined, target: string): boolean {

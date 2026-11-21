@@ -292,8 +292,10 @@ describe('video caption session', () => {
       'The station opens at dawn.',
     );
     expect(pendingHost?.textContent ?? '').not.toContain('Translating');
-    expect(document.querySelector('style[data-sakutto="captions"]')).toBeNull();
-    expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('waiting');
+    expect(pendingHost?.getAttribute('data-sakutto-original')).toBe('The station opens at dawn.');
+    expect(pendingHost?.hasAttribute('data-sakutto-caption')).toBe(false);
+    expect(document.querySelector('style[data-sakutto="captions"]')).not.toBeNull();
+    expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('overlay');
     expect(document.querySelector('.ytp-caption-segment')?.textContent).toBe(
       'The station opens at dawn.',
     );
@@ -1351,7 +1353,7 @@ The station opens at dawn.
     session.stop();
   });
 
-  it('keeps native captions visible until the first translated overlay line', async () => {
+  it('shows the cue original immediately while its first translation is pending', async () => {
     document.body.innerHTML = `
       <div id="movie_player">
         <video id="player" class="html5-main-video"></video>
@@ -1393,12 +1395,15 @@ The station opens at dawn.
     });
     session.start();
     await vi.waitFor(() => {
-      expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('waiting');
+      expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('overlay');
     });
     expect(document.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-caption')).toBe(
       false,
     );
-    expect(document.querySelector('style[data-sakutto="captions"]')).toBeNull();
+    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+      'The station opens at dawn.',
+    );
+    expect(document.querySelector('style[data-sakutto="captions"]')).not.toBeNull();
     expect(document.querySelector('.ytp-caption-segment')?.textContent).toBe(
       'The station opens at dawn.',
     );
@@ -1497,8 +1502,11 @@ The station opens at dawn.
     window.dispatchEvent(new Event('timeupdate', { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 40));
     expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('overlay');
-    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
-      fakeTranslateText('駅は夜明けに開きます', 'en'),
+    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+      '赤い列車が2番線で待っています',
+    );
+    expect(document.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-caption')).toBe(
+      false,
     );
     expect(document.querySelector('style[data-sakutto="captions"]')).not.toBeNull();
     await vi.waitFor(() => {
@@ -1513,9 +1521,6 @@ The station opens at dawn.
     window.dispatchEvent(new Event('seeked', { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 80));
     expect(document.documentElement.getAttribute('data-sakutto-captions')).not.toBe('native');
-    expect(
-      document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption'),
-    ).toMatch(/§en§/);
     await vi.waitFor(() => {
       expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
         fakeTranslateText('切符は北側の窓口で売っています', 'en'),
@@ -1788,7 +1793,7 @@ The station opens at dawn.
     session.stop();
   });
 
-  it('bridges a short gap between consecutive cues with the previous translation', async () => {
+  it('bridges a short gap, then shows the next original before translation', async () => {
     document.body.innerHTML = `
       <div id="movie_player">
         <video id="player" class="html5-main-video"></video>
@@ -1876,8 +1881,11 @@ The station opens at dawn.
     window.dispatchEvent(new Event('timeupdate', { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 40));
     expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('overlay');
-    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
-      fakeTranslateText('駅は夜明けに開きます', 'en'),
+    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+      '赤い列車が2番線で待っています',
+    );
+    expect(document.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-caption')).toBe(
+      false,
     );
 
     release?.();
@@ -1961,7 +1969,7 @@ The station opens at dawn.
     session.stop();
   });
 
-  it('keeps the previous overlay while the next cue translation is still in flight', async () => {
+  it('shows the next original while its translation is still in flight', async () => {
     document.body.innerHTML = `
       <div id="movie_player">
         <video id="player" class="html5-main-video"></video>
@@ -2039,8 +2047,11 @@ The station opens at dawn.
     window.dispatchEvent(new Event('timeupdate', { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 40));
     expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('overlay');
-    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
-      fakeTranslateText('駅は夜明けに開きます', 'en'),
+    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+      '赤い列車が2番線で待っています',
+    );
+    expect(document.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-caption')).toBe(
+      false,
     );
     expect(document.querySelector('style[data-sakutto="captions"]')).not.toBeNull();
 
@@ -2134,8 +2145,11 @@ The station opens at dawn.
     window.dispatchEvent(new Event('seeked', { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('overlay');
-    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
-      fakeTranslateText('駅は夜明けに開きます', 'en'),
+    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
+      '赤い列車が2番線で待っています',
+    );
+    expect(document.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-caption')).toBe(
+      false,
     );
     expect(document.querySelector('style[data-sakutto="captions"]')).not.toBeNull();
     release?.();
@@ -2506,7 +2520,7 @@ The station opens at dawn.
         <video id="playing">
           <track kind="subtitles" src="https://video.twimg.com/subtitles/fixture.vtt" srclang="en" />
         </video>
-        <div class="native-caption" aria-live="polite">native line</div>
+        <div class="native-caption" aria-live="polite"></div>
       </div>
     `;
     const playing = doc.querySelector('#playing') as unknown as HTMLVideoElement;
@@ -2553,8 +2567,8 @@ A red train waits at platform two.
     });
     session.start();
     await vi.waitFor(() => {
-      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
-        'The station opens at dawn.',
+      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText('The station opens at dawn.', 'ja'),
       );
     });
     media.currentTime = 3.2;

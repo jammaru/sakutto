@@ -34,7 +34,7 @@ describe('caption overlay', () => {
     document.documentElement.innerHTML = '<head></head><body></body>';
   });
 
-  it('stays hidden until a translation exists, then shows both bilingual lines', () => {
+  it('shows original while pending, then shows both bilingual lines', () => {
     const overlay = new CaptionOverlay(document, labels);
     overlay.attach(document.body);
     overlay.show({
@@ -49,11 +49,11 @@ describe('caption overlay', () => {
     expect(shadow).not.toBeNull();
     const original = shadow?.querySelector('.original') as HTMLElement | null;
     const translated = shadow?.querySelector('.line:not(.original)') as HTMLElement | null;
-    expect(host?.hidden).toBe(true);
-    expect(original?.hidden).toBe(true);
-    expect(original?.textContent).toBe('');
-    expect(translated?.hidden).toBe(true);
-    expect(translated?.textContent).toBe('');
+    expect(host?.hidden).toBe(false);
+    expect(original?.hidden).toBe(false);
+    expect(original?.textContent).toBe('The station opens at dawn.');
+    expect(translated?.hidden).toBe(false);
+    expect(translated?.textContent).toBe(labels.pending);
     expect(host?.hasAttribute('data-sakutto-caption')).toBe(false);
 
     overlay.show({
@@ -503,6 +503,39 @@ describe('caption overlay', () => {
     expect(left.x).toBeGreaterThan(0);
     expect(right.x).toBeLessThan(100);
     expect(left.x).toBeLessThan(right.x);
+  });
+
+  it('uses main max-content layout and typography', () => {
+    const overlay = new CaptionOverlay(document, labels);
+    overlay.attach(document.body);
+    overlay.place({ left: 0, top: 0, width: 640, height: 360 });
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    expect(host.style.width).toBe('max-content');
+    expect(Number.parseFloat(host.style.maxWidth)).toBeCloseTo(601.6);
+    const styleText = overlay.shadow()?.querySelector('style')?.textContent ?? '';
+    expect(styleText).toContain('font-size: 0.68em');
+    expect(styleText).not.toContain('data-sakutto-live');
+    overlay.detach();
+  });
+
+  it('does not short-click or commit a drag on pointer or touch cancellation', () => {
+    for (const type of ['pointercancel', 'touchcancel']) {
+      const { overlay, player } = mountDraggableOverlay();
+      let clicks = 0;
+      let positions = 0;
+      overlay.setOnShortClick(() => {
+        clicks += 1;
+      });
+      overlay.setOnPositionChange(() => {
+        positions += 1;
+      });
+      dispatchPointer(player, 'pointerdown', 300, 310);
+      dispatchPointer(player, type, 300, 310);
+      dispatchPointer(player, 'pointerup', 300, 310);
+      expect(clicks).toBe(0);
+      expect(positions).toBe(0);
+      overlay.detach();
+    }
   });
 
   it('swallows a caption press so the player cannot start hold-to-2x, and short-clicks play/pause', () => {

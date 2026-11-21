@@ -211,11 +211,58 @@ jobs:
             echo "- e2e is skipped only for docs-only pull_request changes"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  caption-quality:
+    name: caption-quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 12.15.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - id: playwright
+        shell: bash
+        run: echo "key=playwright-chromium-${RUNNER_OS}-${ImageOS:-unknown}-$(sha256sum pnpm-lock.yaml | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v6
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.playwright.outputs.key }}
+
+      - name: Install Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install chromium
+
+      - name: Measure YouTube caption quality
+        run: pnpm caption:quality
+        env:
+          PLAYWRIGHT_SKIP_INSTALL: '1'
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## caption-quality"
+            echo ""
+            echo "- deterministic json3 ASR fixtures, fake engine, 50ms overlay sampling"
+            echo "- sentence units, latency, staleness, isolation, layout, native hiding"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # Branch protection requires the stable `checks` name. This aggregate is green
   # when every split job passed or e2e was intentionally skipped for docs-only PRs.
   checks:
     name: checks
-    needs: [changes, checks-static, checks-unit, e2e]
+    needs: [changes, checks-static, checks-unit, e2e, caption-quality]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -234,6 +281,7 @@ jobs:
             echo "- checks-static: ${{ needs.checks-static.result }}"
             echo "- checks-unit: ${{ needs.checks-unit.result }}"
             echo "- e2e: ${{ needs.e2e.result }}"
+            echo "- caption-quality: ${{ needs.caption-quality.result }}"
             echo "- e2e is skipped only for docs-only pull_request changes"
           } >> "$GITHUB_STEP_SUMMARY"
 

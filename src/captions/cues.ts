@@ -1,5 +1,6 @@
 import { hasSentenceTerminator, splitForTranslation } from '@/engine/text/sentences';
 import { sanitizeTranslationInput } from '@/engine/text/sanitize';
+import { cleanCaptionText } from './text-cleanup';
 
 export interface CaptionCue {
   id: string;
@@ -9,9 +10,16 @@ export interface CaptionCue {
   language?: string | undefined;
 }
 
-export const LIVE_CAPTION_MAX_WAIT_MS = 900;
+/**
+ * A growing ASR line is translated while it is still on screen. 250 ms is long
+ * enough to coalesce the burst of DOM writes for one word, short enough that a
+ * new line does not wait for the sentence to finish before any request starts.
+ */
+export const LIVE_CAPTION_MAX_WAIT_MS = 250;
 export const LIVE_CAPTION_MAX_CHARS = 72;
 export const LIVE_CAPTION_MIN_DISPLAY_MS = 1_400;
+/** Coalesce ASR growth briefly; replacement captions start without this delay. */
+export const LIVE_CAPTION_DEBOUNCE_MS = 120;
 export const WORD_CUE_MERGE_GAP_MS = 800;
 export const WORD_CUE_MERGE_MAX_MS = 3_500;
 export const WORD_CUE_MERGE_MAX_CHARS = 96;
@@ -21,19 +29,31 @@ export const SENTENCE_CUE_MERGE_MAX_CHARS = 280;
 /** Japanese ASR rarely punctuates; cap merged phrases so they stay translatable. */
 export const CJK_SENTENCE_CUE_MERGE_MAX_MS = 6_000;
 export const CJK_SENTENCE_CUE_MERGE_MAX_CHARS = 80;
-/** Fill short ASR silences so `cueAtTime` does not drop to native captions. */
-export const ASR_CUE_GAP_FILL_MS = 2_500;
+/** Fill only short ASR silences; longer pauses must not keep an old line on screen. */
+export const ASR_CUE_GAP_FILL_MS = 900;
+/**
+ * ASR phrase grouping. A whole-sentence merge made the first translated line wait
+ * for up to six seconds of speech, so ASR cues are now kept to short phrases and
+ * the next phrases are prefetched instead of being glued to the current one.
+ */
+export const ASR_PHRASE_MERGE_GAP_MS = 700;
+export const ASR_PHRASE_MERGE_MAX_MS = 4_000;
+export const ASR_PHRASE_MERGE_MAX_CHARS = 120;
+export const CJK_ASR_PHRASE_MERGE_MAX_MS = 2_800;
+export const CJK_ASR_PHRASE_MERGE_MAX_CHARS = 48;
 export const WEBVTT_HOUR_OFFSET_MS = 3_600_000;
 
 const VTT_TIMESTAMP =
   /^(?:(\d{2,}):)?(\d{2}):(\d{2})\.(\d{3})\s*-->\s*(?:(\d{2,}):)?(\d{2}):(\d{2})\.(\d{3})/;
 
 export function normalizeCaptionText(value: string): string {
-  return sanitizeTranslationInput(value)
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/[ \t]+/gu, ' ')
-    .replace(/\s*\n\s*/gu, '\n')
-    .trim();
+  return cleanCaptionText(
+    sanitizeTranslationInput(value)
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/[ \t]+/gu, ' ')
+      .replace(/\s*\n\s*/gu, '\n')
+      .trim(),
+  );
 }
 
 export function captionCueId(startMs: number, text: string): string {
@@ -291,8 +311,12 @@ export function joinCaptionFragments(left: string, right: string): string {
   if (b.length === 0) return normalizeCaptionText(a);
   const leftChar = a[a.length - 1] ?? '';
   const rightChar = b[0] ?? '';
-  const space = isCjkChar(leftChar) && isCjkChar(rightChar) ? '' : ' ';
-  return normalizeCaptionText(`${a}${space}${b}`);
+  const cjkBoundary =
+    (isCjkChar(leftChar) && isCjkChar(rightChar)) ||
+    /[\u3000-\u303f\uff00-\uffef]$/u.test(a) ||
+    /^[\u3000-\u303f\uff00-\uffef]/u.test(b);
+  if (isMostlyCjk(a) && isMostlyCjk(b)) return normalizeCaptionText(`${a}${b}`);
+  return normalizeCaptionText(`${a}${cjkBoundary ? '' : ' '}${b}`);
 }
 
 /**
@@ -370,12 +394,43 @@ function makeMergedCue(
   };
 }
 
+export interface SentenceMergeLimits {
+  gapMs: number;
+  maxMs: number;
+  maxChars: number;
+  cjkMaxMs: number;
+  cjkMaxChars: number;
+}
+
+const DEFAULT_SENTENCE_MERGE_LIMITS: SentenceMergeLimits = {
+  gapMs: SENTENCE_CUE_MERGE_GAP_MS,
+  maxMs: SENTENCE_CUE_MERGE_MAX_MS,
+  maxChars: SENTENCE_CUE_MERGE_MAX_CHARS,
+  cjkMaxMs: CJK_SENTENCE_CUE_MERGE_MAX_MS,
+  cjkMaxChars: CJK_SENTENCE_CUE_MERGE_MAX_CHARS,
+};
+
+/** Short phrase-sized groups for auto-captions, where latency matters more than context. */
+export const ASR_PHRASE_MERGE_LIMITS: SentenceMergeLimits = {
+  gapMs: ASR_PHRASE_MERGE_GAP_MS,
+  maxMs: ASR_PHRASE_MERGE_MAX_MS,
+  maxChars: ASR_PHRASE_MERGE_MAX_CHARS,
+  cjkMaxMs: CJK_ASR_PHRASE_MERGE_MAX_MS,
+  cjkMaxChars: CJK_ASR_PHRASE_MERGE_MAX_CHARS,
+};
+
 /**
  * Join consecutive VOD cues into full sentences so the model is not asked to
- * translate mid-phrase fragments. Display uses the combined time span.
+ * translate mid-phrase fragments. Display uses the combined time span. Callers
+ * can pass tighter limits (auto-captions do) so one translated line never covers
+ * many seconds of speech.
  */
-export function mergeSentenceCues(cues: readonly CaptionCue[]): CaptionCue[] {
+export function mergeSentenceCues(
+  cues: readonly CaptionCue[],
+  limits: Partial<SentenceMergeLimits> = {},
+): CaptionCue[] {
   if (cues.length === 0) return [];
+  const config: SentenceMergeLimits = { ...DEFAULT_SENTENCE_MERGE_LIMITS, ...limits };
   const merged: CaptionCue[] = [];
   let startMs = 0;
   let endMs = 0;
@@ -412,10 +467,9 @@ export function mergeSentenceCues(cues: readonly CaptionCue[]): CaptionCue[] {
         const joined = joinCaptionFragments(currentText(), piece);
         const cjk = isMostlyCjk(joined);
         const canMerge =
-          gap <= SENTENCE_CUE_MERGE_GAP_MS &&
-          duration <= (cjk ? CJK_SENTENCE_CUE_MERGE_MAX_MS : SENTENCE_CUE_MERGE_MAX_MS) &&
-          joined.length <=
-            (cjk ? CJK_SENTENCE_CUE_MERGE_MAX_CHARS : SENTENCE_CUE_MERGE_MAX_CHARS) &&
+          gap <= config.gapMs &&
+          duration <= (cjk ? config.cjkMaxMs : config.maxMs) &&
+          joined.length <= (cjk ? config.cjkMaxChars : config.maxChars) &&
           !hasSentenceTerminator(currentText());
         if (!canMerge) {
           commit();
@@ -426,9 +480,7 @@ export function mergeSentenceCues(cues: readonly CaptionCue[]): CaptionCue[] {
         }
       }
       const built = currentText();
-      const maxChars = isMostlyCjk(built)
-        ? CJK_SENTENCE_CUE_MERGE_MAX_CHARS
-        : SENTENCE_CUE_MERGE_MAX_CHARS;
+      const maxChars = isMostlyCjk(built) ? config.cjkMaxChars : config.maxChars;
       if (hasSentenceTerminator(built) || built.length >= maxChars) {
         commit();
       }
@@ -436,6 +488,248 @@ export function mergeSentenceCues(cues: readonly CaptionCue[]): CaptionCue[] {
   }
   commit();
   return merged;
+}
+
+const SENTENCE_UNIT_PAUSE_MS = 700;
+const ROLLING_ASR_DEDUPE_GAP_MS = 250;
+const SENTENCE_UNIT_MAX_MS = 7_000;
+const SENTENCE_UNIT_MAX_CHARS = 84;
+const CJK_SENTENCE_UNIT_MAX_CHARS = 42;
+
+function normalizeSentenceUnitText(value: string): string {
+  const lines = normalizeCaptionText(value).split('\n');
+  let text = '';
+  for (const line of lines) text = joinCaptionFragments(text, line);
+  return text;
+}
+
+function rollingBoundaryIsWholeWord(left: string, right: string, length: number): boolean {
+  const start = left.length - length;
+  const before = left[start - 1] ?? '';
+  const first = right[0] ?? '';
+  const last = right[length - 1] ?? '';
+  const after = right[length] ?? '';
+  if (/[A-Za-z0-9]/u.test(before) && /[A-Za-z0-9]/u.test(first)) return false;
+  if (/[A-Za-z0-9]/u.test(last) && /[A-Za-z0-9]/u.test(after)) return false;
+  return true;
+}
+
+/** Return only the new part of a rolling ASR window, or an empty string for a stale window. */
+function rollingCaptionDelta(previous: string, next: string): string {
+  if (next.startsWith(previous)) return next;
+  if (previous.startsWith(next) || previous.endsWith(next)) return '';
+
+  const max = Math.min(previous.length, next.length);
+  for (let length = max; length >= 2; length -= 1) {
+    if (
+      previous.slice(-length) === next.slice(0, length) &&
+      rollingBoundaryIsWholeWord(previous, next, length)
+    ) {
+      return next.slice(length);
+    }
+  }
+  return next;
+}
+
+/**
+ * Convert rolling json3 windows into deltas. Comparing with the previous raw window (rather
+ * than the previous delta) handles both growing prefixes and windows that drop their first words.
+ */
+function dedupeRollingCaptionCues(cues: readonly CaptionCue[]): CaptionCue[] {
+  const fragments: CaptionCue[] = [];
+  let previousRaw = '';
+  let previousRawEndMs = 0;
+
+  for (const cue of cues) {
+    const text = normalizeSentenceUnitText(cue.text);
+    if (text.length === 0 || !Number.isFinite(cue.startMs) || !Number.isFinite(cue.endMs)) continue;
+    if (cue.endMs <= cue.startMs) continue;
+
+    const overlaps =
+      fragments.length > 0 && cue.startMs <= previousRawEndMs + ROLLING_ASR_DEDUPE_GAP_MS;
+    if (overlaps && text.startsWith(previousRaw)) {
+      const previous = fragments.at(-1);
+      if (previous) {
+        previous.text = text;
+        previous.endMs = Math.max(previous.endMs, cue.endMs);
+        previousRaw = text;
+        previousRawEndMs = Math.max(previousRawEndMs, cue.endMs);
+        continue;
+      }
+    }
+    const delta = overlaps ? rollingCaptionDelta(previousRaw, text) : text;
+    const fragment = normalizeSentenceUnitText(delta);
+    if (fragment.length > 0) {
+      fragments.push(
+        makeMergedCue(cue.startMs, cue.endMs, fragment, cue.language ?? fragments.at(-1)?.language),
+      );
+    } else if (overlaps) {
+      const previous = fragments.at(-1);
+      if (previous) previous.endMs = Math.max(previous.endMs, cue.endMs);
+    }
+
+    if (fragment.length > 0 || !overlaps) previousRaw = text;
+    previousRawEndMs = Math.max(overlaps ? previousRawEndMs : 0, cue.endMs);
+  }
+  return fragments;
+}
+
+function sentenceUnitMaxChars(text: string): number {
+  return isMostlyCjk(text) ? CJK_SENTENCE_UNIT_MAX_CHARS : SENTENCE_UNIT_MAX_CHARS;
+}
+
+function joinSentenceUnitCues(left: CaptionCue, right: CaptionCue): CaptionCue {
+  const text = /^[,.!?;:%、。，！？；：]/u.test(right.text.trimStart())
+    ? normalizeSentenceUnitText(`${left.text.trimEnd()}${right.text.trimStart()}`)
+    : joinCaptionFragments(left.text, right.text);
+  return makeMergedCue(
+    Math.min(left.startMs, right.startMs),
+    Math.max(left.endMs, right.endMs),
+    text,
+    left.language ?? right.language,
+  );
+}
+
+function sentenceUnitExceedsLimits(cue: CaptionCue): boolean {
+  return (
+    cue.endMs - cue.startMs > SENTENCE_UNIT_MAX_MS ||
+    cue.text.length > sentenceUnitMaxChars(cue.text)
+  );
+}
+
+function sentenceUnitSplitIndex(text: string, target: number, maxChars: number): number {
+  const clauses: number[] = [];
+  for (const match of text.matchAll(/[,;，、；：]/gu)) {
+    const index = (match.index ?? -1) + match[0].length;
+    if (index > 0 && index < text.length) clauses.push(index);
+  }
+  const capped = clauses.filter((index) => index <= maxChars);
+  if (text.length > maxChars && capped.length > 0) return capped.at(-1) ?? -1;
+  if (clauses.length > 0) {
+    return clauses.reduce((best, index) =>
+      Math.abs(index - target) < Math.abs(best - target) ? index : best,
+    );
+  }
+
+  const spaces: number[] = [];
+  for (const match of text.matchAll(/\s+/gu)) {
+    const index = match.index ?? -1;
+    if (index > 0 && index < text.length) spaces.push(index);
+  }
+  if (spaces.length > 0) {
+    const cappedSpaces = spaces.filter((index) => index <= maxChars);
+    if (text.length > maxChars && cappedSpaces.length > 0) return cappedSpaces.at(-1) ?? -1;
+    return spaces.reduce((best, index) =>
+      Math.abs(index - target) < Math.abs(best - target) ? index : best,
+    );
+  }
+  return isMostlyCjk(text) ? Math.min(target, text.length - 1) : -1;
+}
+
+/** Split oversized cues at a clause where possible, with proportional intermediate timings. */
+function splitOversizedSentenceUnit(cue: CaptionCue): CaptionCue[] {
+  if (!sentenceUnitExceedsLimits(cue)) return [cue];
+  const maxChars = sentenceUnitMaxChars(cue.text);
+  if (cue.text.length <= maxChars && cue.endMs - cue.startMs > SENTENCE_UNIT_MAX_MS) {
+    return [{ ...cue, endMs: Math.min(cue.endMs, cue.startMs + SENTENCE_UNIT_MAX_MS) }];
+  }
+  const target =
+    cue.text.length > maxChars ? maxChars : Math.max(1, Math.ceil(cue.text.length / 2));
+  const index = sentenceUnitSplitIndex(cue.text, target, maxChars);
+  if (index <= 0 || index >= cue.text.length) return [cue];
+
+  const leftText = cue.text.slice(0, index).trim();
+  const rightText = cue.text.slice(index).trim();
+  if (leftText.length === 0 || rightText.length === 0) return [cue];
+  const ratio = index / cue.text.length;
+  let middleMs = Math.round(cue.startMs + (cue.endMs - cue.startMs) * ratio);
+  if (middleMs <= cue.startMs || middleMs >= cue.endMs) {
+    middleMs = Math.round((cue.startMs + cue.endMs) / 2);
+  }
+  if (middleMs <= cue.startMs || middleMs >= cue.endMs) return [cue];
+
+  const left = makeMergedCue(cue.startMs, middleMs, leftText, cue.language);
+  const right = makeMergedCue(middleMs, cue.endMs, rightText, cue.language);
+  return [...splitOversizedSentenceUnit(left), ...splitOversizedSentenceUnit(right)];
+}
+
+function isShortSentenceUnit(cue: CaptionCue): boolean {
+  if (hasSentenceTerminator(cue.text)) return false;
+  if (isMostlyCjk(cue.text)) return cue.text.length <= 6;
+  const words = cue.text.split(/\s+/u).filter(Boolean);
+  return cue.text.length <= 14 || (words.length <= 2 && cue.text.length <= 24);
+}
+
+/** Avoid one-word translation requests when a pause or a hard limit made a tiny unfinished unit. */
+function mergeShortSentenceUnits(units: readonly CaptionCue[]): CaptionCue[] {
+  const merged: CaptionCue[] = [];
+  for (let index = 0; index < units.length; index += 1) {
+    let current = units[index];
+    if (!current) continue;
+
+    while (isShortSentenceUnit(current)) {
+      const next = units[index + 1];
+      if (!next) break;
+      const joined = joinSentenceUnitCues(current, next);
+      if (sentenceUnitExceedsLimits(joined)) break;
+      current = joined;
+      index += 1;
+    }
+
+    const previous = merged.at(-1);
+    if (previous && isShortSentenceUnit(current) && !hasSentenceTerminator(previous.text)) {
+      const joined = joinSentenceUnitCues(previous, current);
+      if (!sentenceUnitExceedsLimits(joined)) {
+        merged[merged.length - 1] = joined;
+        continue;
+      }
+    }
+    merged.push(current);
+  }
+  return merged;
+}
+
+/**
+ * Build translation/display units from a timedtext track. When the original json3 value is
+ * supplied it is preferred over the parsed fallback cues. Rolling ASR windows are deduped first;
+ * manual fragments use the same punctuation, pause, duration, and clause grouping afterwards.
+ */
+export function buildSentenceUnitsFromTrack(
+  cues: readonly CaptionCue[],
+  json3?: unknown,
+): CaptionCue[] {
+  const language = cues.find((cue) => cue.language)?.language;
+  const parsed = json3 === undefined ? [] : parseTimedtextJson3(json3, language);
+  const fragments = dedupeRollingCaptionCues(parsed.length > 0 ? parsed : cues);
+  const units: CaptionCue[] = [];
+  let current: CaptionCue | null = null;
+
+  const commit = (): void => {
+    if (!current) return;
+    units.push(...splitOversizedSentenceUnit(current));
+    current = null;
+  };
+
+  for (const cue of fragments) {
+    for (const piece of splitCueSentences(cue.text)) {
+      const next = makeMergedCue(cue.startMs, cue.endMs, piece, cue.language);
+      if (!current) {
+        current = next;
+      } else {
+        const gap = next.startMs - current.endMs;
+        const joined = joinSentenceUnitCues(current, next);
+        if (gap >= SENTENCE_UNIT_PAUSE_MS || sentenceUnitExceedsLimits(joined)) {
+          commit();
+          current = next;
+        } else {
+          current = joined;
+        }
+      }
+      if (hasSentenceTerminator(current.text)) commit();
+    }
+  }
+  commit();
+  return mergeShortSentenceUnits(units);
 }
 
 export function captionTimeOffsetMs(
@@ -489,7 +783,8 @@ export function finalizeCaptionCues(
 ): CaptionCue[] {
   const collapsed = options?.asr === true ? collapseGrowingCaptionCues(cues) : cues;
   const words = mergeWordCues(collapsed);
-  const prepared = options?.asr === true ? mergeSentenceCues(words) : words;
+  const prepared =
+    options?.asr === true ? mergeSentenceCues(words, ASR_PHRASE_MERGE_LIMITS) : words;
   const aligned = alignCaptionCuesToMedia(prepared, durationMs);
   return options?.asr === true ? closeCaptionGaps(aligned, ASR_CUE_GAP_FILL_MS) : aligned;
 }
@@ -530,9 +825,12 @@ export function cuesInWindow(
 export class LiveCaptionBuffer {
   private current = '';
   private lastChangeAt = 0;
+  private line = '';
+  private lineVersion = 0;
 
   update(visible: string, now: number): string[] {
     const next = normalizeCaptionText(visible);
+    this.trackLine(next);
     if (next.length === 0) {
       const previous = this.take();
       return previous ? [previous] : [];
@@ -572,9 +870,34 @@ export class LiveCaptionBuffer {
     return this.current;
   }
 
+  /** Stable id for the on-screen line while its text grows or is replaced. */
+  lineKey(): string {
+    return `l${String(this.lineVersion)}`;
+  }
+
   reset(): void {
+    if (this.line.length > 0) this.lineVersion += 1;
     this.current = '';
     this.lastChangeAt = 0;
+    this.line = '';
+  }
+
+  /**
+   * Keep one id while the player extends (or trims) the same visible line, and
+   * bump it when the text jumps to a different phrase so stale work can be dropped.
+   */
+  private trackLine(next: string): void {
+    if (next.length === 0) return;
+    if (this.line.length === 0) {
+      this.line = next;
+      return;
+    }
+    if (next.startsWith(this.line) || this.line.startsWith(next)) {
+      this.line = next;
+      return;
+    }
+    this.line = next;
+    this.lineVersion += 1;
   }
 
   private take(): string | null {
