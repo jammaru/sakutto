@@ -1170,3 +1170,53 @@ describe('resumable model download', () => {
     expect(store.files.get(FINAL)).toEqual(payload);
   });
 });
+
+const ALT_PAYLOAD = bytesOf('another official model');
+
+describe('download digest verification with known revisions', () => {
+  it('accepts a downloaded blob whose hash matches any known revision', async () => {
+    const store = new MemoryFileStore();
+    const fetchImpl = vi.fn<typeof fetch>(
+      async () => new Response(streamOf([ALT_PAYLOAD]), { status: 200 }),
+    );
+
+    const result = await downloadModel({
+      ...baseRequest(store, new AbortController().signal),
+      source: {
+        ...sourceOf(ALT_PAYLOAD),
+        revisions: [
+          { commit: 'c1', size: PAYLOAD.length, sha256: sha256Hex(PAYLOAD) },
+          { commit: 'c2', size: ALT_PAYLOAD.length, sha256: sha256Hex(ALT_PAYLOAD) },
+        ],
+      },
+      fetchImpl,
+    });
+
+    expect(result).toEqual({
+      bytes: ALT_PAYLOAD.length,
+      sha256: sha256Hex(ALT_PAYLOAD),
+      resumedFrom: 0,
+    });
+    expect(store.files.get(FINAL)).toEqual(ALT_PAYLOAD);
+  });
+
+  it('rejects a blob whose hash is in no known revision', async () => {
+    const store = new MemoryFileStore();
+    const tampered = bytesOf('!'.repeat(PAYLOAD.length));
+    const fetchImpl = vi.fn<typeof fetch>(
+      async () => new Response(streamOf([tampered]), { status: 200 }),
+    );
+
+    await expect(
+      downloadModel({
+        ...baseRequest(store, new AbortController().signal),
+        source: {
+          ...sourceOf(PAYLOAD),
+          revisions: [{ commit: 'c1', size: PAYLOAD.length, sha256: sha256Hex(PAYLOAD) }],
+        },
+        fetchImpl,
+      }),
+    ).rejects.toMatchObject({ code: 'model-integrity' });
+    expect(store.files.has(FINAL)).toBe(false);
+  });
+});

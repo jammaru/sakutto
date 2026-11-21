@@ -190,7 +190,7 @@ export function fakeEngine(
 }
 
 export function makeEntry(overrides: Partial<ModelEntry> = {}): ModelEntry {
-  return {
+  const entry: Omit<ModelEntry, 'revisions'> = {
     id: 'plamo-3-translate-0.8b-q4_k_m',
     params: '0.8B',
     quantization: 'Q4_K_M',
@@ -201,6 +201,12 @@ export function makeEntry(overrides: Partial<ModelEntry> = {}): ModelEntry {
     sha256: '0'.repeat(64),
     url: 'https://example.test/model.gguf',
     ...overrides,
+  };
+  return {
+    ...entry,
+    revisions: overrides.revisions ?? [
+      { commit: entry.commit, size: entry.size, sha256: entry.sha256 },
+    ],
   };
 }
 

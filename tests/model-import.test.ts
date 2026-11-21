@@ -124,3 +124,60 @@ describe('importModelFile', () => {
     expect(store.text(`models/${ENTRY.id}/model.json`)).toContain(ENTRY.sha256);
   });
 });
+
+const PAYLOAD_TWO = bytesOf('official model bytes!!');
+const PAYLOAD_THREE = bytesOf('official model bytes!!!!');
+const REVISIONS = [
+  { commit: 'c1', size: PAYLOAD.length, sha256: sha256Hex(PAYLOAD) },
+  { commit: 'c2', size: PAYLOAD_TWO.length, sha256: sha256Hex(PAYLOAD_TWO) },
+  { commit: 'c3', size: PAYLOAD_THREE.length, sha256: sha256Hex(PAYLOAD_THREE) },
+];
+const MULTI_ENTRY = makeEntry({
+  file: ENTRY.file,
+  size: REVISIONS[0]?.size ?? 0,
+  sha256: REVISIONS[0]?.sha256 ?? '',
+  revisions: REVISIONS,
+});
+
+describe('importModelFile with multiple official revisions', () => {
+  it('imports and records a manifest for every known revision', async () => {
+    const files = [PAYLOAD, PAYLOAD_TWO, PAYLOAD_THREE];
+    for (const [index, revision] of REVISIONS.entries()) {
+      const store = new MemoryFileStore();
+      const bytes = files[index];
+      if (!bytes) throw new Error('missing fixture');
+      const result = await importModelFile(request(fileOf(bytes), { store, entry: MULTI_ENTRY }));
+
+      expect(result).toEqual({ bytes: revision.size, sha256: revision.sha256 });
+      expect(store.files.get(FINAL_PATH)).toEqual(bytes);
+      expect(JSON.parse(store.text(`models/${ENTRY.id}/model.json`))).toMatchObject({
+        id: ENTRY.id,
+        sha256: revision.sha256,
+        size: revision.size,
+        commit: revision.commit,
+      });
+    }
+  });
+
+  it('still rejects an unknown hash of a known size', async () => {
+    const store = new MemoryFileStore();
+    const wrong = bytesOf('!'.repeat(PAYLOAD_TWO.length));
+    const error = await importModelFile(
+      request(fileOf(wrong), { store, entry: MULTI_ENTRY }),
+    ).catch((value: unknown) => value);
+
+    expect(isModelImportIntegrityError(error)).toBe(true);
+    expect((error as EngineError).detail).toBe(MODEL_IMPORT_DIGEST_ERROR);
+    expect(store.files.has(FINAL_PATH)).toBe(false);
+  });
+
+  it('rejects a size outside every known revision before writing', async () => {
+    const store = new MemoryFileStore();
+    const error = await importModelFile(
+      request(fileOf(bytesOf('short')), { store, entry: MULTI_ENTRY }),
+    ).catch((value: unknown) => value);
+
+    expect((error as EngineError).detail).toBe(MODEL_IMPORT_SIZE_ERROR);
+    expect(store.files.size).toBe(0);
+  });
+});

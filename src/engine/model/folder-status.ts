@@ -4,7 +4,7 @@ import type { FolderPermission } from './shared-folder';
 
 export type SharedFolderPermission = FolderPermission | 'unknown';
 
-export type SharedFolderIntegrityKind = 'size' | 'digest';
+export type SharedFolderIntegrityKind = 'size' | 'digest' | 'revision';
 
 export interface SharedFolderIntegrityIssue {
   modelId: ModelId;
@@ -102,7 +102,9 @@ export function isSharedFolderPermission(value: unknown): value is SharedFolderP
 export function isSharedFolderIntegrityIssue(value: unknown): value is SharedFolderIntegrityIssue {
   if (!isRecord(value)) return false;
   if (!isModelId(value.modelId)) return false;
-  if (value.kind !== 'size' && value.kind !== 'digest') return false;
+  if (value.kind !== 'size' && value.kind !== 'digest' && value.kind !== 'revision') {
+    return false;
+  }
   return typeof value.file === 'string' && value.file.length > 0;
 }
 

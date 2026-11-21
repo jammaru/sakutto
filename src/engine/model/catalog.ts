@@ -1,16 +1,33 @@
 export type ModelId = 'plamo-3-translate-0.8b-q4_k_m' | 'plamo-3-translate-2b-q4_k_m';
 
+/** One officially published blob of a model file. */
+export interface ModelRevision {
+  commit: string;
+  size: number;
+  sha256: string;
+}
+
 export interface ModelEntry {
   id: ModelId;
   params: '0.8B' | '2B';
   quantization: 'Q4_K_M';
   repository: string;
   file: string;
+  /** Revision used for new downloads. Always the first item of `revisions`. */
   commit: string;
   size: number;
   sha256: string;
   url: string;
+  /** Every known official revision, including the one we download by default. */
+  revisions: readonly ModelRevision[];
 }
+
+/**
+ * The scalar pin fields plus the optional revision list. Verification helpers accept this
+ * narrower shape so callers with a single-revision test fixture keep working unchanged.
+ */
+export type RevisionPin = Pick<ModelEntry, 'commit' | 'size' | 'sha256'> &
+  Partial<Pick<ModelEntry, 'revisions'>>;
 
 const HUGGING_FACE = 'https://huggingface.co';
 
@@ -18,37 +35,85 @@ function resolveUrl(repository: string, commit: string, file: string): string {
   return `${HUGGING_FACE}/${repository}/resolve/${commit}/${file}`;
 }
 
-const ZERO_EIGHT: ModelEntry = {
+/** The moving upstream URL used by the pin checker, never by the extension downloader. */
+export function latestUrl(entry: Pick<ModelEntry, 'repository' | 'file'>): string {
+  return resolveUrl(entry.repository, 'main', entry.file);
+}
+
+/** Known official revisions, falling back to the scalar pin for single-revision callers. */
+export function knownRevisions(entry: RevisionPin): readonly ModelRevision[] {
+  if (entry.revisions && entry.revisions.length > 0) return entry.revisions;
+  return [{ commit: entry.commit, size: entry.size, sha256: entry.sha256 }];
+}
+
+export function revisionForSize(entry: RevisionPin, size: number): ModelRevision | undefined {
+  return knownRevisions(entry).find((revision) => revision.size === size);
+}
+
+export function revisionForDigest(entry: RevisionPin, digest: string): ModelRevision | undefined {
+  return knownRevisions(entry).find((revision) => revision.sha256 === digest);
+}
+
+function defineModel(
+  model: Omit<ModelEntry, 'commit' | 'size' | 'sha256' | 'url'> & {
+    revisions: readonly ModelRevision[];
+  },
+): ModelEntry {
+  const revision = model.revisions[0];
+  if (!revision) throw new Error(`No official revision for ${model.id}`);
+  return {
+    ...model,
+    commit: revision.commit,
+    size: revision.size,
+    sha256: revision.sha256,
+    url: resolveUrl(model.repository, revision.commit, model.file),
+  };
+}
+
+const ZERO_EIGHT = defineModel({
   id: 'plamo-3-translate-0.8b-q4_k_m',
   params: '0.8B',
   quantization: 'Q4_K_M',
   repository: 'pfnet/plamo-3-translate-0.8b-GGUF',
   file: 'plamo-3-translate-0.8b-Q4_K_M.gguf',
-  commit: 'dbeb0856cb0b004b484f190bb71dd65876297013',
-  size: 573_123_200,
-  sha256: '923b2f28a9856de1b8b3b610a7e59ded0b14d007466fd5dd526e6a9ecaadafdd',
-  url: resolveUrl(
-    'pfnet/plamo-3-translate-0.8b-GGUF',
-    'dbeb0856cb0b004b484f190bb71dd65876297013',
-    'plamo-3-translate-0.8b-Q4_K_M.gguf',
-  ),
-};
+  revisions: [
+    {
+      commit: 'dbeb0856cb0b004b484f190bb71dd65876297013',
+      size: 573_123_200,
+      sha256: '923b2f28a9856de1b8b3b610a7e59ded0b14d007466fd5dd526e6a9ecaadafdd',
+    },
+    {
+      commit: 'e11a613b483edceab3450941f18cc79307fc93e9',
+      size: 573_125_696,
+      sha256: 'ff10c4aed0c478af8be61fe4d22fb463c0f639acfc168012062efba35ccbdd48',
+    },
+    {
+      commit: '7de4409f84a9d70e3a5e87b81e84883d49f77b58',
+      size: 573_126_848,
+      sha256: '70891ec70dc7ab4205745a38307867c2881b99239f20327927633abfe4bc9ec6',
+    },
+  ],
+});
 
-const TWO: ModelEntry = {
+const TWO = defineModel({
   id: 'plamo-3-translate-2b-q4_k_m',
   params: '2B',
   quantization: 'Q4_K_M',
   repository: 'pfnet/plamo-3-translate-2b-GGUF',
   file: 'plamo-3-translate-2b-Q4_K_M.gguf',
-  commit: '232fbd7916519edecddfdae0beae7e76fe70453f',
-  size: 1_807_199_392,
-  sha256: 'f36d0813dd95573a852ab5d76e374c543632d9e292929e922bcdbf7e53b494e0',
-  url: resolveUrl(
-    'pfnet/plamo-3-translate-2b-GGUF',
-    '232fbd7916519edecddfdae0beae7e76fe70453f',
-    'plamo-3-translate-2b-Q4_K_M.gguf',
-  ),
-};
+  revisions: [
+    {
+      commit: '232fbd7916519edecddfdae0beae7e76fe70453f',
+      size: 1_807_199_392,
+      sha256: 'f36d0813dd95573a852ab5d76e374c543632d9e292929e922bcdbf7e53b494e0',
+    },
+    {
+      commit: 'caf0267797e8a4ae418e7d8c480746be2ea6040c',
+      size: 1_807_203_040,
+      sha256: '1ffd9073afcc70e35ccc942428aa2b73d7aa2b9ea779bf504b775369e0276c13',
+    },
+  ],
+});
 
 export const MODEL_CATALOG: Readonly<Record<ModelId, ModelEntry>> = Object.freeze({
   'plamo-3-translate-0.8b-q4_k_m': ZERO_EIGHT,
