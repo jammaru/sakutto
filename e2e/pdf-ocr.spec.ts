@@ -1,5 +1,5 @@
-import { chromium, expect, test, type Page } from '@playwright/test';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { expect, test, type Page } from '@playwright/test';
+import { copyFile, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -10,6 +10,7 @@ import { plantLicenseConsent } from './folder-model-helpers';
 import { openPdfTab, seedStandardOcrModels, setFileUrls, warmOcr } from './ocr-model-helpers';
 
 const IMAGE_SOURCE = resolve('bench/ocr/fixtures/en-scan.png');
+const PDF_SOURCE = resolve('bench/pdf/scan.pdf');
 
 interface FixtureServer {
   url(name: string): string;
@@ -99,22 +100,10 @@ interface Fixtures {
 /** Every test owns its fixture server and directory: CI shards run specs in parallel workers. */
 async function createFixtures(): Promise<Fixtures> {
   const directory = await mkdtemp(join(tmpdir(), 'sakutto-ocr-fixtures-'));
-  // A one-page, image-only scan generated at test time. No text layer, no committed binary.
-  const browser = await chromium.launch();
-  try {
-    const page = await browser.newPage();
-    const image = (await readFile(IMAGE_SOURCE)).toString('base64');
-    await page.setContent(
-      `<style>@page { margin: 0 } body { margin: 0 } img { display: block }</style><img src="data:image/png;base64,${image}">`,
-    );
-    await writeFile(
-      join(directory, 'scan.pdf'),
-      await page.pdf({ width: '900px', height: '650px', printBackground: true }),
-    );
-  } finally {
-    await browser.close();
-  }
-  await writeFile(join(directory, 'en-scan.png'), await readFile(IMAGE_SOURCE));
+  // A committed, image-only one-page scan; copied to a test-owned temp path. No binary is
+  // written to the repository, and the shape is identical to a scanner's output.
+  await copyFile(PDF_SOURCE, join(directory, 'scan.pdf'));
+  await copyFile(IMAGE_SOURCE, join(directory, 'en-scan.png'));
   return {
     directory,
     server: await serveFixtures(directory),
