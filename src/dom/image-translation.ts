@@ -1,4 +1,5 @@
 import { browser } from 'wxt/browser';
+import { copyTextToClipboard } from '@/shared/clipboard-copy';
 import { encodeOcrImage } from '@/engine/ocr/codec';
 import type { OcrResult, ImageDataLike } from '@/engine/ocr/types';
 import { abortError } from '@/engine/errors';
@@ -9,12 +10,22 @@ import {
   type OcrImagePayload,
 } from '@/engine/offscreen/protocol';
 import { requestOcrRecognizeDetailed } from '@/shared/messages';
-import { loadSettings } from '@/shared/storage';
-import type { Settings } from '@/shared/settings';
+import { loadSettings, saveSettings } from '@/shared/storage';
+import {
+  normalizeTranslationPopupWidth,
+  TRANSLATION_POPUP_WIDTH_AUTO,
+  TRANSLATION_POPUP_WIDTH_MIN_EM,
+  type Settings,
+} from '@/shared/settings';
 import { translateViaBackground } from '@/shared/translation-client';
 import type { ImageCaptureRect, ImageCaptureRequest } from '@/shared/image';
+import { BUBBLE_STYLE, appendCopyIcons } from './overlay';
 
 const MAX_IMAGE_SIDE = 2048;
+const POPUP_MARGIN_PX = 8;
+const POPUP_GAP_PX = 8;
+const FALLBACK_CARD_WIDTH_PX = 280;
+const FALLBACK_CARD_HEIGHT_PX = 120;
 
 class ImageCapturePermissionError extends Error {}
 class OcrModelMissingError extends Error {}
@@ -33,6 +44,11 @@ export interface ImageTranslationLabels {
   close: string;
   original: string;
   permission: string;
+  /** Copy control label, shared with the selection popup's wording. */
+  copy: string;
+  copied: string;
+  copyFailed: string;
+  resize: string;
   /** Optional actionable message when OCR models have not been downloaded. */
   ocrMissing?: string;
 }
@@ -45,7 +61,18 @@ interface ImageTranslationOptions {
     segments: readonly TranslateSegment[],
     options: TranslateOptions,
   ) => AsyncIterable<TranslationChunk>;
+  /** Persists a drag/keyboard width change; defaults to Settings storage. */
+  onWidthChange?: (widthEm: number) => void;
 }
+
+type Box = {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  width: number;
+  height: number;
+};
 
 export function imageTranslationSegments(result: OcrResult): TranslateSegment[] {
   const segments =
@@ -107,11 +134,74 @@ export function topLevelImageCaptureGeometry(
   };
 }
 
-function imageElement(sourceUrl: string): HTMLImageElement | null {
-  for (const image of document.querySelectorAll('img')) {
-    if (image.currentSrc === sourceUrl || image.src === sourceUrl) return image;
+function normalizedUrl(value: string): string {
+  try {
+    return new URL(value, document.baseURI).href;
+  } catch {
+    return value;
   }
-  return null;
+}
+
+/** Locate the right-clicked image so the popup can sit directly under it. */
+export function findTargetImage(sourceUrl: string): HTMLImageElement | null {
+  const wanted = normalizedUrl(sourceUrl);
+  let first: HTMLImageElement | null = null;
+  for (const image of document.querySelectorAll('img')) {
+    const matches = [image.currentSrc, image.src].some(
+      (candidate) =>
+        candidate.length > 0 && (candidate === sourceUrl || normalizedUrl(candidate) === wanted),
+    );
+    if (!matches) continue;
+    first ??= image;
+    const rect = image.getBoundingClientRect();
+    const view = image.ownerDocument.defaultView;
+    if (
+      rect.width >= 2 &&
+      rect.height >= 2 &&
+      rect.bottom > 0 &&
+      rect.top < (view?.innerHeight ?? 600) &&
+      rect.right > 0 &&
+      rect.left < (view?.innerWidth ?? 800)
+    ) {
+      return image;
+    }
+  }
+  return first;
+}
+
+/** The anchor we can actually see; an image scrolled fully out of view is not a target. */
+export function imageAnchorRect(image: HTMLImageElement | null): DOMRect | null {
+  if (!image) return null;
+  const rect = image.getBoundingClientRect();
+  if (rect.width < 2 || rect.height < 2) return null;
+  const view = image.ownerDocument.defaultView;
+  if (rect.bottom <= 0 || rect.top >= (view?.innerHeight ?? 600)) return null;
+  return rect;
+}
+
+/**
+ * Position the popup just below its anchor, flipping above only when the lower edge
+ * would leave the viewport. Both axes are clamped to the margin; a card taller than the
+ * viewport stays at the top margin and scrolls inside its capped text area.
+ */
+export function anchoredPopupBox(
+  anchor: Pick<Box, 'left' | 'top' | 'right' | 'bottom'>,
+  card: { width: number; height: number },
+  viewport: { width: number; height: number },
+  margin = POPUP_MARGIN_PX,
+  gap = POPUP_GAP_PX,
+): { left: number; top: number } {
+  const width = Math.max(1, Math.min(card.width, viewport.width - margin * 2));
+  const height = Math.max(1, Math.min(card.height, viewport.height - margin * 2));
+  const maxLeft = Math.max(margin, viewport.width - width - margin);
+  const left = Math.max(margin, Math.min(maxLeft, anchor.left));
+  const below = anchor.bottom + gap;
+  let top = below;
+  if (top + height > viewport.height - margin) {
+    const above = anchor.top - height - gap;
+    top = above >= margin ? above : Math.max(margin, viewport.height - height - margin);
+  }
+  return { left, top };
 }
 
 async function waitForImage(image: HTMLImageElement): Promise<void> {
@@ -183,41 +273,54 @@ export async function capturedPixels(
   });
 }
 
-function panelHost(): { host: HTMLElement; shadow: ShadowRoot } {
-  const host = document.createElement('div');
-  host.dataset.sakuttoImageTranslation = '';
-  host.style.cssText =
-    'position:fixed;z-index:2147483647;right:16px;bottom:16px;width:min(420px,calc(100vw - 32px));';
-  const shadow = host.attachShadow({ mode: 'open' });
-  const style = document.createElement('style');
-  style.textContent = [
-    ':host { all: initial; }',
-    '.card { box-sizing:border-box; max-height:70vh; overflow:auto; padding:16px; border:1px solid #d8dee7;',
-    'border-radius:12px; background:#fff; color:#182230; box-shadow:0 12px 36px rgb(15 23 32 / 24%);',
-    'font:14px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }',
-    'header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }',
-    'strong { font-size:15px; }',
-    'button { border:0; border-radius:6px; background:#eef1f5; color:#182230; padding:5px 10px; cursor:pointer; }',
-    'button:focus-visible { outline:2px solid #3157c8; outline-offset:2px; }',
-    '.translation { white-space:pre-wrap; overflow-wrap:anywhere; }',
-    '.error { color:#a12828; }',
-    'details { margin-top:12px; color:#536173; }',
-    'summary { cursor:pointer; }',
-    '.source { margin-top:6px; white-space:pre-wrap; overflow-wrap:anywhere; }',
+const IMAGE_BUBBLE_STYLE =
+  BUBBLE_STYLE +
+  [
+    '.card.image { overscroll-behavior: contain; }',
+    '.card.image .body.error { color: #a12828; }',
+    '.card.image details { margin-top: 0.5em; color: #5b6675; }',
+    '.card.image summary { cursor: pointer; }',
+    '.card.image .source { margin-top: 0.4em; white-space: pre-wrap; overflow-wrap: anywhere; }',
+    '.card.image .copy-note[hidden] { display: none; }',
+    '@media (prefers-color-scheme: dark) {',
+    '  .card.image details { color: #b7c2cf; }',
+    '  .card.image .body.error { color: #fca5a5; }',
+    '}',
   ].join('\n');
-  const card = document.createElement('section');
-  card.className = 'card';
-  card.setAttribute('aria-live', 'polite');
-  shadow.append(style, card);
-  return { host, shadow };
+
+interface PanelParts {
+  host: HTMLElement;
+  card: HTMLElement;
+  body: HTMLElement;
+  details: HTMLDetailsElement;
+  source: HTMLElement;
+  copy: HTMLButtonElement;
+  copyNote: HTMLElement;
+  resizeLeft: HTMLButtonElement;
+  resizeRight: HTMLButtonElement;
+}
+
+interface ResizeState {
+  edge: 'left' | 'right';
+  pointerId: number;
+  startX: number;
+  startWidthEm: number;
+  fontSize: number;
+  changed: boolean;
 }
 
 /** One image at a time: direct/CORS pixels, activeTab capture fallback, OCR, then translation. */
 export class ImageTranslationController {
   private host: HTMLElement | null = null;
-  private card: HTMLElement | null = null;
+  private parts: PanelParts | null = null;
   private controller: AbortController | null = null;
   private generation = 0;
+  private anchorElement: HTMLImageElement | null = null;
+  private anchorRect: Pick<Box, 'left' | 'top' | 'right' | 'bottom'> | null = null;
+  private width = TRANSLATION_POPUP_WIDTH_AUTO;
+  private copyText = '';
+  private copyTimer: ReturnType<typeof setTimeout> | null = null;
+  private resize: ResizeState | null = null;
 
   constructor(private readonly options: ImageTranslationOptions) {}
 
@@ -225,26 +328,40 @@ export class ImageTranslationController {
     this.generation += 1;
     this.controller?.abort();
     this.controller = null;
+    this.stopViewportListening();
+    this.endResize();
+    if (this.copyTimer !== null) clearTimeout(this.copyTimer);
+    this.copyTimer = null;
     this.host?.remove();
     this.host = null;
-    this.card = null;
+    this.parts = null;
+    this.anchorElement = null;
+    this.anchorRect = null;
+    this.copyText = '';
   }
 
-  async start(sourceUrl: string): Promise<void> {
+  async start(
+    sourceUrl: string,
+    anchor?: Pick<Box, 'left' | 'top' | 'right' | 'bottom'> | null,
+  ): Promise<void> {
     this.close();
     const generation = this.generation;
     const controller = new AbortController();
     this.controller = controller;
-    const { host, shadow } = panelHost();
+    this.anchorElement = anchor ? null : findTargetImage(sourceUrl);
+    this.anchorRect = anchor ?? imageAnchorRect(this.anchorElement) ?? this.fallbackAnchor();
+    const { host, parts } = this.buildPanel();
     this.host = host;
-    const card = shadow.querySelector<HTMLElement>('.card');
-    if (!card) return;
-    this.card = card;
+    this.parts = parts;
     document.documentElement.append(host);
     this.paintPending();
+    this.startViewportListening();
+    this.reposition();
 
     try {
       const settings = await (this.options.loadSettings ?? loadSettings)();
+      if (generation !== this.generation) return;
+      this.applyWidth(settings.imagePopupWidth);
       const pixels = await this.readPixels(sourceUrl);
       this.throwIfStale(generation, controller.signal);
       const recognize =
@@ -325,8 +442,336 @@ export class ImageTranslationController {
     if (generation !== this.generation || signal.aborted) throw abortError();
   }
 
+  private fallbackAnchor(): Pick<Box, 'left' | 'top' | 'right' | 'bottom'> {
+    const view = document.defaultView;
+    const width = Math.min(320, Math.max(64, (view?.innerWidth ?? 800) / 3));
+    const left = Math.max(POPUP_MARGIN_PX, ((view?.innerWidth ?? 800) - width) / 2);
+    return { left, right: left + width, top: 16, bottom: 16 };
+  }
+
+  private currentAnchor(): Pick<Box, 'left' | 'top' | 'right' | 'bottom'> | null {
+    if (!this.anchorElement) return this.anchorRect;
+    const rect = imageAnchorRect(this.anchorElement);
+    if (rect) this.anchorRect = rect;
+    return this.anchorRect;
+  }
+
+  private readonly onViewportChange = (): void => this.reposition();
+
+  private startViewportListening(): void {
+    window.addEventListener('scroll', this.onViewportChange, { passive: true, capture: true });
+    window.addEventListener('resize', this.onViewportChange, { passive: true });
+  }
+
+  private stopViewportListening(): void {
+    window.removeEventListener('scroll', this.onViewportChange, true);
+    window.removeEventListener('resize', this.onViewportChange);
+  }
+
+  private reposition(): void {
+    if (!this.host || !this.parts) return;
+    const anchor = this.currentAnchor();
+    const view = this.host.ownerDocument.defaultView;
+    const viewport = { width: view?.innerWidth ?? 800, height: view?.innerHeight ?? 600 };
+    if (!anchor) {
+      this.host.hidden = true;
+      return;
+    }
+    const offscreen =
+      anchor.bottom <= 0 ||
+      anchor.top >= viewport.height ||
+      anchor.right <= 0 ||
+      anchor.left >= viewport.width;
+    this.host.hidden = offscreen;
+    const box = anchoredPopupBox(
+      anchor,
+      {
+        width: this.parts.card.offsetWidth || FALLBACK_CARD_WIDTH_PX,
+        height: this.parts.card.offsetHeight || FALLBACK_CARD_HEIGHT_PX,
+      },
+      viewport,
+    );
+    this.host.style.left = String(Math.round(box.left)) + 'px';
+    this.host.style.top = String(Math.round(box.top)) + 'px';
+    if (this.width > 0) {
+      const rightAnchored = anchor.right > viewport.width * 0.5 || box.left < anchor.left;
+      this.parts.resizeLeft.hidden = !rightAnchored;
+      this.parts.resizeLeft.tabIndex = rightAnchored ? 0 : -1;
+    }
+  }
+
+  private applyWidth(widthEm: number): void {
+    const next = normalizeTranslationPopupWidth(widthEm);
+    this.width = next;
+    if (!this.parts) return;
+    if (next === TRANSLATION_POPUP_WIDTH_AUTO) {
+      this.parts.card.style.removeProperty('width');
+      this.parts.card.style.removeProperty('max-width');
+      delete this.parts.card.dataset.resized;
+      this.parts.resizeLeft.hidden = true;
+    } else {
+      this.parts.card.style.width = String(next) + 'em';
+      this.parts.card.style.maxWidth = 'calc(100vw - 16px)';
+      this.parts.card.dataset.resized = '1';
+    }
+    this.parts.resizeRight.hidden = false;
+    this.reposition();
+  }
+
+  private commitWidth(): void {
+    (this.options.onWidthChange ?? ((width) => void saveSettings({ imagePopupWidth: width })))(
+      this.width,
+    );
+  }
+
+  private readonly onResizeMove = (event: PointerEvent): void => {
+    const state = this.resize;
+    if (!state) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const view = this.host?.ownerDocument.defaultView;
+    const maximum = Math.max(
+      TRANSLATION_POPUP_WIDTH_MIN_EM,
+      ((view?.innerWidth ?? 800) - 16) / state.fontSize,
+    );
+    const deltaEm = (event.clientX - state.startX) / state.fontSize;
+    const raw = state.startWidthEm + (state.edge === 'right' ? deltaEm : -deltaEm);
+    this.applyWidth(Math.min(maximum, Math.max(TRANSLATION_POPUP_WIDTH_MIN_EM, raw)));
+    state.changed = true;
+  };
+
+  private readonly onResizeEnd = (event: PointerEvent): void => {
+    const state = this.resize;
+    if (!state) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.endResize();
+    if (state.changed) this.commitWidth();
+  };
+
+  private endResize(): void {
+    const doc = this.host?.ownerDocument;
+    this.resize = null;
+    if (!doc) return;
+    doc.removeEventListener('pointermove', this.onResizeMove, true);
+    doc.removeEventListener('pointerup', this.onResizeEnd, true);
+    doc.removeEventListener('pointercancel', this.onResizeEnd, true);
+  }
+
+  private startResize(event: PointerEvent, edge: 'left' | 'right'): void {
+    if (event.button !== 0 || !this.parts || !this.host) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const view = this.host.ownerDocument.defaultView;
+    const fontSize =
+      Number.parseFloat(view?.getComputedStyle(this.parts.card).fontSize ?? '') ||
+      Number.parseFloat(this.parts.card.style.fontSize) ||
+      12;
+    this.resize = {
+      edge,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startWidthEm:
+        this.width > 0
+          ? this.width
+          : Math.max(
+              TRANSLATION_POPUP_WIDTH_MIN_EM,
+              (this.parts.card.offsetWidth || FALLBACK_CARD_WIDTH_PX) / fontSize,
+            ),
+      fontSize,
+      changed: false,
+    };
+    const capture = event.currentTarget;
+    try {
+      (capture as Element | null)?.setPointerCapture?.(event.pointerId);
+    } catch {
+      // happy-dom and some hosts have no capture; document listeners still resize.
+    }
+    const doc = this.host.ownerDocument;
+    doc.addEventListener('pointermove', this.onResizeMove, true);
+    doc.addEventListener('pointerup', this.onResizeEnd, true);
+    doc.addEventListener('pointercancel', this.onResizeEnd, true);
+  }
+
+  private resizeWithKey(event: KeyboardEvent, edge: 'left' | 'right'): void {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    event.stopPropagation();
+    const view = this.host?.ownerDocument.defaultView;
+    const card = this.parts?.card;
+    const fontSize = (card && Number.parseFloat(view?.getComputedStyle(card).fontSize ?? '')) || 12;
+    const step = event.shiftKey ? 2 : 1;
+    const direction = event.key === 'ArrowRight' ? 1 : -1;
+    const current =
+      this.width > 0
+        ? this.width
+        : Math.max(
+            TRANSLATION_POPUP_WIDTH_MIN_EM,
+            (this.parts?.card.offsetWidth ?? FALLBACK_CARD_WIDTH_PX) / fontSize,
+          );
+    const maximum = Math.max(
+      TRANSLATION_POPUP_WIDTH_MIN_EM,
+      ((view?.innerWidth ?? 800) - 16) / fontSize,
+    );
+    const next = Math.min(
+      maximum,
+      Math.max(
+        TRANSLATION_POPUP_WIDTH_MIN_EM,
+        current + direction * (edge === 'right' ? step : -step),
+      ),
+    );
+    if (Math.abs(next - current) < 0.01) return;
+    this.applyWidth(next);
+    this.commitWidth();
+  }
+
+  private buildPanel(): { host: HTMLElement; parts: PanelParts } {
+    const doc = document;
+    const host = doc.createElement('div');
+    host.dataset.sakuttoImageTranslation = '';
+    host.setAttribute('translate', 'no');
+    host.style.position = 'fixed';
+    host.style.zIndex = '2147483646';
+    // Keep the image popup's root open, as before this change: the file:// fallback page's
+    // existing test and assistive tooling can reach the translated text through it.
+    const shadow = host.attachShadow({ mode: 'open' });
+    const style = doc.createElement('style');
+    style.textContent = IMAGE_BUBBLE_STYLE;
+
+    const card = doc.createElement('div');
+    card.className = 'card selection image';
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-label', this.options.labels.heading);
+    card.setAttribute('aria-live', 'polite');
+    const kicker = doc.createElement('p');
+    kicker.className = 'kicker';
+    kicker.textContent = this.options.labels.heading;
+    const body = doc.createElement('p');
+    body.className = 'body translation';
+    body.setAttribute('aria-live', 'polite');
+    const details = doc.createElement('details');
+    details.hidden = true;
+    const summary = doc.createElement('summary');
+    summary.textContent = this.options.labels.original;
+    const source = doc.createElement('div');
+    source.className = 'source';
+    details.append(summary, source);
+    const copyNote = doc.createElement('p');
+    copyNote.className = 'note copy-note';
+    copyNote.setAttribute('role', 'status');
+    copyNote.setAttribute('aria-live', 'polite');
+    copyNote.hidden = true;
+
+    const copy = doc.createElement('button');
+    copy.type = 'button';
+    copy.className = 'copy';
+    copy.disabled = true;
+    copy.title = this.options.labels.copy;
+    copy.setAttribute('aria-label', this.options.labels.copy);
+    appendCopyIcons(doc, copy);
+    copy.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void this.copyTranslatedText();
+    });
+    const close = doc.createElement('button');
+    close.type = 'button';
+    close.textContent = this.options.labels.close;
+    close.setAttribute('aria-label', this.options.labels.close);
+    close.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.close();
+    });
+    const controls = doc.createElement('div');
+    controls.className = 'controls';
+    controls.append(copy, close);
+
+    const makeHandle = (edge: 'left' | 'right'): HTMLButtonElement => {
+      const handle = doc.createElement('button');
+      handle.type = 'button';
+      handle.className = 'resize-handle ' + edge;
+      handle.hidden = edge === 'left';
+      handle.tabIndex = edge === 'left' ? -1 : 0;
+      handle.title = this.options.labels.resize;
+      handle.setAttribute('aria-label', this.options.labels.resize);
+      handle.setAttribute('aria-keyshortcuts', 'ArrowLeft ArrowRight');
+      handle.addEventListener('pointerdown', (event) => this.startResize(event, edge));
+      handle.addEventListener('keydown', (event) => this.resizeWithKey(event, edge));
+      handle.addEventListener('dblclick', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.applyWidth(TRANSLATION_POPUP_WIDTH_AUTO);
+        this.commitWidth();
+      });
+      return handle;
+    };
+    const resizeLeft = makeHandle('left');
+    const resizeRight = makeHandle('right');
+    card.append(kicker, body, details, copyNote, controls, resizeLeft, resizeRight);
+    shadow.append(style, card);
+    return {
+      host,
+      parts: { host, card, body, details, source, copy, copyNote, resizeLeft, resizeRight },
+    };
+  }
+
+  private resetCopyFeedback(): void {
+    if (this.copyTimer !== null) clearTimeout(this.copyTimer);
+    this.copyTimer = null;
+    const parts = this.parts;
+    if (!parts) return;
+    parts.copyNote.hidden = true;
+    parts.copyNote.textContent = '';
+    delete parts.copy.dataset.state;
+    parts.copy.setAttribute('aria-label', this.options.labels.copy);
+    parts.copy.title = this.options.labels.copy;
+  }
+
+  private async copyTranslatedText(): Promise<void> {
+    const text = this.copyText;
+    if (!text || !this.parts) return;
+    const view = this.host?.ownerDocument.defaultView;
+    const ok = await copyTextToClipboard(text, view?.navigator.clipboard ?? null, document);
+    const message = ok ? this.options.labels.copied : this.options.labels.copyFailed;
+    this.parts.copyNote.textContent = message;
+    this.parts.copyNote.hidden = false;
+    if (ok) this.parts.copy.dataset.state = 'copied';
+    else delete this.parts.copy.dataset.state;
+    this.parts.copy.setAttribute('aria-label', message);
+    this.parts.copy.title = message;
+    if (this.copyTimer !== null) clearTimeout(this.copyTimer);
+    this.copyTimer = setTimeout(() => this.resetCopyFeedback(), 2600);
+  }
+
+  private paintPending(): void {
+    const parts = this.parts;
+    if (!parts) return;
+    this.copyText = '';
+    parts.card.setAttribute('aria-busy', 'true');
+    parts.body.className = 'body translation';
+    parts.body.textContent = this.options.labels.pending;
+    parts.details.hidden = true;
+    parts.copy.disabled = true;
+    this.resetCopyFeedback();
+  }
+
+  private paintText(text: string, error: boolean, source?: string): void {
+    const parts = this.parts;
+    if (!parts) return;
+    this.copyText = error ? '' : text;
+    parts.card.setAttribute('aria-busy', 'false');
+    parts.body.className = error ? 'body translation error' : 'body translation';
+    parts.body.textContent = text;
+    parts.copy.disabled = error || text.trim().length === 0;
+    parts.details.hidden = !source;
+    if (source) parts.source.textContent = source;
+    this.resetCopyFeedback();
+    this.reposition();
+  }
+
   private async readPixels(sourceUrl: string): Promise<ImageDataLike> {
-    const image = imageElement(sourceUrl);
+    const image = findTargetImage(sourceUrl);
     if (image) {
       try {
         await waitForImage(image);
@@ -353,43 +798,5 @@ export class ImageTranslationController {
       throw new ImageCapturePermissionError();
     }
     return capturedPixels(response, geometry);
-  }
-
-  private paintPending(): void {
-    if (!this.card) return;
-    this.card.replaceChildren();
-    const header = document.createElement('header');
-    const title = document.createElement('strong');
-    title.textContent = this.options.labels.heading;
-    const close = document.createElement('button');
-    close.type = 'button';
-    close.textContent = '×';
-    close.setAttribute('aria-label', this.options.labels.close);
-    close.addEventListener('click', () => this.close());
-    header.append(title, close);
-    const pending = document.createElement('div');
-    pending.textContent = this.options.labels.pending;
-    this.card.append(header, pending);
-  }
-
-  private paintText(text: string, error: boolean, source?: string): void {
-    if (!this.card) return;
-    const header = this.card.querySelector('header');
-    this.card.replaceChildren();
-    if (header) this.card.append(header);
-    else this.paintPending();
-    const output = document.createElement('div');
-    output.className = error ? 'translation error' : 'translation';
-    output.textContent = text;
-    this.card?.append(output);
-    if (!source) return;
-    const details = document.createElement('details');
-    const summary = document.createElement('summary');
-    summary.textContent = this.options.labels.original;
-    const original = document.createElement('div');
-    original.className = 'source';
-    original.textContent = source;
-    details.append(summary, original);
-    this.card?.append(details);
   }
 }

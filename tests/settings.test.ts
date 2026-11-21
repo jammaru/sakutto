@@ -36,6 +36,7 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     display: 'replace',
     translationPopupSize: 100,
     translationPopupWidth: 0,
+    imagePopupWidth: 0,
     plainTextLineBreaks: 'none',
     consent: null,
     highQualityDismissed: false,

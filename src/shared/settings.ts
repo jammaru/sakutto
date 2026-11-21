@@ -271,6 +271,8 @@ export interface Settings {
   translationPopupSize: number;
   /** Chosen selection-popup width in em at 100% scale; `0` means automatic width. */
   translationPopupWidth: number;
+  /** Width of the anchored image-translation popup, in em at 100% scale. */
+  imagePopupWidth: number;
   /**
    * How line breaks in typed, selected, or pasted plain text appear in the translation.
    * `none` keeps the historical joined-paragraph output; `wider` formats the translation
@@ -368,6 +370,7 @@ export type SettingsPatch = Partial<
     | 'display'
     | 'translationPopupSize'
     | 'translationPopupWidth'
+    | 'imagePopupWidth'
     | 'plainTextLineBreaks'
     | 'consent'
     | 'highQualityDismissed'
@@ -411,6 +414,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   display: 'replace',
   translationPopupSize: TRANSLATION_POPUP_SIZE_DEFAULT,
   translationPopupWidth: TRANSLATION_POPUP_WIDTH_AUTO,
+  imagePopupWidth: TRANSLATION_POPUP_WIDTH_AUTO,
   plainTextLineBreaks: 'none',
   consent: null,
   highQualityDismissed: false,
@@ -480,6 +484,7 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     display: value.display === 'bilingual' ? 'bilingual' : 'replace',
     translationPopupSize: normalizeTranslationPopupSize(value.translationPopupSize),
     translationPopupWidth: normalizeTranslationPopupWidth(value.translationPopupWidth),
+    imagePopupWidth: normalizeTranslationPopupWidth(value.imagePopupWidth),
     plainTextLineBreaks: normalizePlainTextLineBreaks(value.plainTextLineBreaks),
     consent: normalizeConsent(value.consent),
     highQualityDismissed: value.highQualityDismissed === true,

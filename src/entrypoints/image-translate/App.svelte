@@ -1,6 +1,8 @@
 <script lang="ts">
   import { ImageTranslationController, type ImageTranslationLabels } from '@/dom/image-translation';
   import { t } from '@/shared/i18n';
+  import { saveSettings } from '@/shared/storage';
+  import { tick } from 'svelte';
   import { imageTranslateEngine } from './engine';
 
   const labels: ImageTranslationLabels = {
@@ -11,6 +13,10 @@
     close: t('imageTranslationClose'),
     original: t('imageOriginalText'),
     permission: t('imageTranslationPermission'),
+    copy: t('selectionCopy'),
+    copied: t('selectionCopied'),
+    copyFailed: t('selectionCopyFailed'),
+    resize: t('selectionResizeHandle'),
     ocrMissing: t('ocrDownloadRequired'),
   };
 
@@ -43,12 +49,16 @@
     imageElement.dataset.sakuttoLocalImage = '';
     document.body.append(imageElement);
 
+    // The local image is hidden, so anchor the popup under the chosen-file label instead.
+    await tick();
+    const anchor = document.querySelector('[data-sakutto="chosen-file"]')?.getBoundingClientRect();
     controller = new ImageTranslationController({
       labels,
       translate: imageTranslateEngine,
+      onWidthChange: (width) => void saveSettings({ imagePopupWidth: width }),
     });
     const url = objectUrl;
-    await controller.start(url);
+    await controller.start(url, anchor ?? null);
     if (objectUrl === url) busy = false;
   }
 </script>

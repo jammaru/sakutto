@@ -3,7 +3,7 @@ import { armFolderCommand } from '@/content/folder-arm-gate';
 import { ComposeController, type ComposeLabels, type ComposePreferences } from '@/dom/compose';
 import { shouldHandleComposeCommand } from '@/dom/compose-field';
 import { detectDocumentLanguage } from '@/dom/detect';
-import { fakeTranslate } from '@/dom/fake-engine';
+import { fakeOcrRecognize, fakeTranslate } from '@/dom/fake-engine';
 import { ImageTranslationController } from '@/dom/image-translation';
 import { isImageTranslateRequest } from '@/shared/image';
 import { GmailBannerController, isGmailHost, type GmailBannerLabels } from '@/dom/gmail-banner';
@@ -837,7 +837,9 @@ export function contentMain(): void {
     if (sender.id !== browser.runtime.id) return;
     if (isImageTranslateRequest(message)) {
       imageTranslation ??= new ImageTranslationController({
-        ...(__SAKUTTO_FAKE_ENGINE__ ? { translate: fakeTranslate } : {}),
+        ...(__SAKUTTO_FAKE_ENGINE__
+          ? { translate: fakeTranslate, recognize: fakeOcrRecognize }
+          : {}),
         labels: {
           heading: t('imageTranslationHeading'),
           pending: t('imageTranslating'),
@@ -846,8 +848,13 @@ export function contentMain(): void {
           close: t('imageTranslationClose'),
           original: t('imageOriginalText'),
           permission: t('imageTranslationPermission'),
+          copy: t('selectionCopy'),
+          copied: t('selectionCopied'),
+          copyFailed: t('selectionCopyFailed'),
+          resize: t('selectionResizeHandle'),
           ocrMissing: t('ocrDownloadRequired'),
         },
+        onWidthChange: (width) => void saveSettings({ imagePopupWidth: width }),
       });
       void imageTranslation.start(message.srcUrl);
       sendResponse(true);
