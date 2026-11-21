@@ -15,7 +15,7 @@
   <img src="docs/images/readme/en/hero-page-translation.jpg" width="900" alt="Sakutto translating a page in place, with the popup open">
 </div>
 
-Sakutto is an unofficial Chrome and Firefox extension that translates web pages, PDFs, video captions, selections, and the text you type — on your device. The default engine is [PLaMo 3 Translate](https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF), running through a pinned [wllama](https://github.com/ngxson/wllama) build on WebGPU or CPU.
+Sakutto is an unofficial Chrome and Firefox extension that translates web pages, PDFs (including scans), images, video captions, selections, and the text you type — on your device. The default engine is [PLaMo 3 Translate](https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF), running through a pinned [wllama](https://github.com/ngxson/wllama) build on WebGPU or CPU.
 
 For PLaMo's 53 languages, every translated line comes from PLaMo. On Chrome, Chrome's built-in translator is used only for the 11 extra targets PLaMo cannot produce. Firefox uses PLaMo only. There is no account, no advertising, and no telemetry. Built with PLaMo. Not affiliated with Preferred Networks, Inc.
 
@@ -75,10 +75,16 @@ For PLaMo's 53 languages, every translated line comes from PLaMo. On Chrome, Chr
     <td width="54%" valign="top">
       <h3>PDF reader translation</h3>
       <p>Browsers draw PDFs in their own viewer, which extensions cannot read. Sakutto reads the file itself, opens it in its own reader, and translates page by page — English papers into Japanese, Japanese documents into English, or any other supported direction.</p>
-      <p>The layout is preserved: two-column text stays in two columns, table numbers stay under their headings, and captions stay with their figures. Blocks already in the target language are left as drawn, and image-only pages are reported rather than guessed at.</p>
+      <p>The layout is preserved: two-column text stays in two columns, table numbers stay under their headings, and captions stay with their figures. Blocks already in the target language are left as drawn. Pages without a usable text layer are recognized with on-device PP-OCRv6; normal text pages never run OCR.</p>
     </td>
     <td width="46%" valign="top">
       <img src="docs/images/readme/en/pdf-layout.jpg" width="100%" alt="The same two-column PDF page in English and in its Japanese translation">
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" valign="top">
+      <h3>Scanned PDF and image OCR</h3>
+      <p>PP-OCRv6 recognizes horizontal and vertical Japanese and English on your device. Right-click an image and choose <strong>Translate image with Sakutto</strong> to see its translation and recognized source text in a panel. Cross-origin images use canvas/CORS when possible, with a visible-tab capture fallback granted by that click — no new image-host permission. Settings offers a fast standard OCR bundle (22.9 MB) and a larger high-accuracy bundle (138.6 MB), with resumable downloads and per-tier deletion.</p>
     </td>
   </tr>
   <tr>
@@ -161,7 +167,7 @@ No. WebGPU is recommended for speed, and Sakutto uses it when the browser and GP
 
 **How big is the model download?**
 
-The default 0.8B Q4_K_M model is about **546 MB**. It is downloaded once from Hugging Face, verified with a pinned SHA-256 digest, and kept in the extension's on-device storage. The download can resume after an interruption, and you can delete the model and translation cache from Settings.
+The default 0.8B Q4_K_M model is about **546 MB**. The standard OCR detector/recognizer bundle is **22.9 MB**, and the high tier is **138.6 MB**. They are downloaded from Hugging Face, verified with pinned SHA-256 digests, and kept in the extension's on-device storage. Downloads can resume after an interruption, and you can delete models and the translation cache from Settings. ONNX Runtime Web and the OCR dictionary are packaged locally.
 
 **Does my text leave my device?**
 
@@ -183,7 +189,7 @@ Yes, as an experimental option. It works with PLaMo models on servers such as `m
 
 **What happens with PDFs?**
 
-Open a PDF and choose **Translate this PDF** from the popup or right-click menu. Sakutto fetches the file the tab is showing, opens it in its own reader, and translates it there. The temporary copy stays inside the extension and is deleted when the reader tab closes; a leftover from a crash is removed within a day. Scans and image-only pages are shown with a note that there is no text to translate.
+Open a PDF and choose **Translate this PDF** from the popup or right-click menu. Sakutto fetches the file the tab is showing, opens it in its own reader, and translates it there. The temporary copy stays inside the extension and is deleted when the reader tab closes; a leftover from a crash is removed within a day. Scanned pages without a usable text layer are recognized with on-device OCR and translated.
 
 **Does it work in Firefox?**
 
@@ -195,7 +201,7 @@ Translation runs on your device by default. Sakutto does not send page text, sel
 
 The built-in engine's own network traffic is limited to:
 
-- the PLaMo model download from Hugging Face;
+- the PLaMo and PP-OCRv6 model downloads from Hugging Face;
 - the PDF file, fetched from the site the tab is already showing, with that tab's cookies;
 - requests to an experimental local server, only when you enable it and only to the address you set.
 
@@ -210,7 +216,7 @@ The model file is not bundled. You can remove it and clear the translation cache
 | `offscreen`        | Runs the translation runtime in a document whose workers outlive the service worker. |
 | `activeTab`        | Reads the current page after you open the popup or use a command.                    |
 | `scripting`        | Injects the content script into the active tab after you ask for a translation.      |
-| `contextMenus`     | Adds Translate page, Translate selection, and Translate PDF to the right-click menu. |
+| `contextMenus`     | Adds page, selection, image, and PDF translation to the right-click menu.            |
 
 The release package asks for no install-time host permissions. Optional host permissions (`https://*/*` and `http://*/*`) are requested only when you turn on automatic translation for a site, enable video captions, add a custom caption site, or enable the Gmail/Outlook mail banner. Nothing is granted for every site at install time. The PDF reader adds no permission: it reads the file from the origin the `activeTab` grant already covers. Access to a local server is also optional.
 

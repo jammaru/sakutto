@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="650" viewBox="0 0 900 650">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<g font-family="Inter, Arial, Droid Sans Fallback, WenQuanYi Micro Hei, sans-serif"
+>
+<line x1="820" y1="40" x2="820" y2="590" stroke="#bb3333" stroke-width="3"/>
+<text x="760" y="70" font-size="34" font-weight="400" fill="#17202a" writing-mode="vertical-rl" text-orientation="upright">地域の声を未来へつなぐ</text>
+<text x="620" y="90" font-size="34" font-weight="400" fill="#17202a" writing-mode="vertical-rl" text-orientation="upright">小さな発見を記録する</text>
+<text x="480" y="70" font-size="34" font-weight="400" fill="#17202a" writing-mode="vertical-rl" text-orientation="upright">言葉の意味を確かめる</text>
+<text x="340" y="110" font-size="34" font-weight="400" fill="#17202a" writing-mode="vertical-rl" text-orientation="upright">新しい翻訳を試す</text>
+<text x="200" y="80" font-size="34" font-weight="400" fill="#17202a" writing-mode="vertical-rl" text-orientation="upright">毎日の読書を支える</text>
+</g>
+</svg>

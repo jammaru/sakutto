@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="650" viewBox="0 0 900 650">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<g font-family="Inter, Arial, Droid Sans Fallback, WenQuanYi Micro Hei, sans-serif"
+>
+<rect x="45" y="40" width="790" height="540" rx="4" fill="none" stroke="#a8adb3" stroke-width="2"/>
+<text x="80" y="90" font-size="30" font-weight="700" fill="#17202a" textLength="405" lengthAdjust="spacingAndGlyphs">LOCAL TRANSLATION NOTES</text>
+<text x="80" y="150" font-size="27" font-weight="400" fill="#17202a" textLength="410" lengthAdjust="spacingAndGlyphs">A private tool for every reader.</text>
+<text x="80" y="205" font-size="27" font-weight="400" fill="#17202a" textLength="460" lengthAdjust="spacingAndGlyphs">Open a page and choose a language.</text>
+<text x="80" y="260" font-size="27" font-weight="400" fill="#17202a" textLength="390" lengthAdjust="spacingAndGlyphs">The text stays on this device.</text>
+<text x="80" y="315" font-size="27" font-weight="400" fill="#17202a" textLength="310" lengthAdjust="spacingAndGlyphs">No account is required.</text>
+<text x="80" y="385" font-size="25" font-weight="400" fill="#17202a" textLength="340" lengthAdjust="spacingAndGlyphs">Version 2.4  March 2026</text>
+<text x="80" y="440" font-size="27" font-weight="400" fill="#17202a" textLength="340" lengthAdjust="spacingAndGlyphs">Please keep this receipt.</text>
+</g>
+</svg>

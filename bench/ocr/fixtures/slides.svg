@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="700" viewBox="0 0 1000 700">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<g font-family="Inter, Arial, Droid Sans Fallback, WenQuanYi Micro Hei, sans-serif"
+>
+<rect x="35" y="35" width="930" height="200" rx="16" fill="#315b7d"/>
+<circle cx="840" cy="420" r="100" fill="#e7f1f7"/>
+<rect x="65" y="280" width="560" height="280" rx="12" fill="#f2f6f8"/>
+<text x="80" y="105" font-size="42" font-weight="700" fill="#ffffff" textLength="570" lengthAdjust="spacingAndGlyphs">DESIGN FOR EVERYONE</text>
+<text x="85" y="205" font-size="34" font-weight="400" fill="#ffffff" textLength="400" lengthAdjust="spacingAndGlyphs">Fast, local, accessible</text>
+<text x="100" y="340" font-size="30" font-weight="400" fill="#17202a" textLength="355" lengthAdjust="spacingAndGlyphs">01  Capture the page</text>
+<text x="100" y="415" font-size="30" font-weight="400" fill="#17202a" textLength="310" lengthAdjust="spacingAndGlyphs">02  Read the text</text>
+<text x="100" y="490" font-size="30" font-weight="400" fill="#17202a" textLength="370" lengthAdjust="spacingAndGlyphs">03  Translate privately</text>
+<text x="590" y="625" font-size="22" font-weight="400" fill="#34495e" textLength="320" lengthAdjust="spacingAndGlyphs">sakutto.example / 2026</text>
+</g>
+</svg>

@@ -52,6 +52,8 @@
     "release": "node scripts/release/cli.ts",
     "pdfjs": "node scripts/sync-pdfjs.mjs",
     "bench:pdf": "node scripts/bench/pdf-run.ts",
+    "bench:ocr": "node --experimental-strip-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/ocr-run.ts",
+    "bench:ocr:render": "node --experimental-strip-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/ocr-render.ts",
     "bench:pdf:layout": "node --experimental-strip-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/pdf-layout.ts"
   },
   "devDependencies": {

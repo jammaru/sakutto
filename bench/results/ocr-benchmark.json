@@ -1,0 +1,4639 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-11-21T16:09:23.442Z",
+  "scope": "full",
+  "runtime": {
+    "node": "v24.22.3",
+    "onnxruntimeWeb": "1.31.1",
+    "executionProvider": "wasm",
+    "wasmThreads": 1,
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "Intel(R) Xeon(R) Processor",
+    "totalMemoryBytes": 16780623872
+  },
+  "configuration": {
+    "detectionPreprocess": {
+      "maxSide": 960,
+      "multiple": 32
+    },
+    "recognitionPreprocess": {
+      "height": 48,
+      "maxWidth": 320
+    },
+    "detection": "threshold=0.2; boxThreshold=0.4 tiny_det, 0.45 otherwise; unclipRatio=1.4; minSize=3; maxCandidates=3000; verticalRatio=1.5",
+    "timing": "Wall milliseconds include existing pure preprocessing, DB decode/crops, ONNX detect+recognize, CTC and ordering. Model initialization and one en-scan warm-up per pairing are excluded.",
+    "cer": "Levenshtein edits / reference Unicode code points after NFC and folding all whitespace runs to one ASCII space; trimmed.",
+    "wer": "Levenshtein edits / reference whitespace-delimited tokens after the same normalization; Japanese has no morphological tokenization.",
+    "detectionRecallProxy": "Maximum-IoU-first greedy one-to-one matching of axis-aligned bounding boxes of GT and predicted quads; matched GT boxes with IoU >= 0.30 / all GT boxes. Proxy only: no polygon IoU or precision.",
+    "practicality": "practical: recall>=0.80 and CER<=0.15; marginal: recall>=0.50 and CER<=0.40; otherwise not practical."
+  },
+  "fixtures": {
+    "directory": "bench/ocr/fixtures",
+    "license": "CC0-1.0",
+    "attribution": "Generated for Sakutto; no third-party text or images",
+    "manifestSha256": "c77dd8691c5dc2a9c418bda3c2f5b7297861d8ada7d14d1bd979a06e5c92eeea",
+    "count": 8
+  },
+  "runs": [
+    {
+      "pairing": "tiny_det+small_rec",
+      "initializationMs": 343.891886,
+      "models": [
+        {
+          "id": "tiny_det",
+          "commit": "2ba1506c0380b8f0b03dd142459aac66d4421f6c",
+          "sha256": "193bab7a04fca699a6c82e6abb5b81bdb28177f0abd4062552b04908dafb19f8",
+          "size": 1780590,
+          "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_tiny_det_onnx/resolve/2ba1506c0380b8f0b03dd142459aac66d4421f6c/inference.onnx"
+        },
+        {
+          "id": "small_rec",
+          "commit": "b8f84f0b80c529de40b4fbb3544b84fa7233a513",
+          "sha256": "5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634",
+          "size": 21159378,
+          "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/b8f84f0b80c529de40b4fbb3544b84fa7233a513/inference.onnx"
+        }
+      ],
+      "warmups": 1
+    },
+    {
+      "pairing": "small_det+small_rec",
+      "initializationMs": 114.5889270000007,
+      "models": [
+        {
+          "id": "small_det",
+          "commit": "28fe5895c24fd108c19eb3e8479f4ab385fbfc62",
+          "sha256": "d73e0058b7a8086bbd57f3d10b8bcd4ff95363f67e06e2762b5e814fe9c9410e",
+          "size": 9880512,
+          "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_det_onnx/resolve/28fe5895c24fd108c19eb3e8479f4ab385fbfc62/inference.onnx"
+        },
+        {
+          "id": "small_rec",
+          "commit": "b8f84f0b80c529de40b4fbb3544b84fa7233a513",
+          "sha256": "5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634",
+          "size": 21159378,
+          "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/b8f84f0b80c529de40b4fbb3544b84fa7233a513/inference.onnx"
+        }
+      ],
+      "warmups": 1
+    },
+    {
+      "pairing": "medium_det+medium_rec",
+      "initializationMs": 398.1284830000004,
+      "models": [
+        {
+          "id": "medium_det",
+          "commit": "61323801669c338b7891481ec7bac61ce31b576a",
+          "sha256": "eb13b44b25bb36f89528b68720af8a61d9cf381176107f465db1757b65d086e1",
+          "size": 62032837,
+          "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_medium_det_onnx/resolve/61323801669c338b7891481ec7bac61ce31b576a/inference.onnx"
+        },
+        {
+          "id": "medium_rec",
+          "commit": "50c7eacafc52fa7bcf4194e8cd08e46f8558504b",
+          "sha256": "9c09abf0957f7968c7586464b7397b84ad2387a0497a351af40e9acc71b673ba",
+          "size": 76554979,
+          "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_medium_rec_onnx/resolve/50c7eacafc52fa7bcf4194e8cd08e46f8558504b/inference.onnx"
+        }
+      ],
+      "warmups": 1
+    }
+  ],
+  "summaries": [
+    {
+      "pairing": "tiny_det+small_rec",
+      "microCer": 0.002697841726618705,
+      "microWer": 0.024242424242424242,
+      "characterEdits": 3,
+      "referenceCharacters": 1112,
+      "wordEdits": 4,
+      "referenceWords": 165,
+      "macroDetectionRecall": 1,
+      "meanWallMsPerPage": 769.0073947500002,
+      "practical": 8,
+      "marginal": 0,
+      "notPractical": 0
+    },
+    {
+      "pairing": "small_det+small_rec",
+      "microCer": 0.030575539568345324,
+      "microWer": 0.06060606060606061,
+      "characterEdits": 34,
+      "referenceCharacters": 1112,
+      "wordEdits": 10,
+      "referenceWords": 165,
+      "macroDetectionRecall": 1,
+      "meanWallMsPerPage": 1082.9075523749998,
+      "practical": 7,
+      "marginal": 1,
+      "notPractical": 0
+    },
+    {
+      "pairing": "medium_det+medium_rec",
+      "microCer": 0.10251798561151079,
+      "microWer": 0.20606060606060606,
+      "characterEdits": 114,
+      "referenceCharacters": 1112,
+      "wordEdits": 34,
+      "referenceWords": 165,
+      "macroDetectionRecall": 1,
+      "meanWallMsPerPage": 5835.816757375,
+      "practical": 6,
+      "marginal": 2,
+      "notPractical": 0
+    }
+  ],
+  "cases": [
+    {
+      "pairing": "tiny_det+small_rec",
+      "caseId": "en-scan",
+      "title": "English scan",
+      "wallMs": 831.4102969999999,
+      "detectedRegions": 7,
+      "cer": {
+        "distance": 0,
+        "referenceUnits": 195,
+        "rate": 0
+      },
+      "wer": {
+        "distance": 0,
+        "referenceUnits": 34,
+        "rate": 0
+      },
+      "detection": {
+        "matched": 7,
+        "reference": 7,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "LOCAL TRANSLATION NOTES\nA private tool for every reader.\nOpen a page and choose a language.\nThe text stays on this device.\nNo account is required.\nVersion 2.4  March 2026\nPlease keep this receipt.",
+      "ocrText": "LOCAL TRANSLATION NOTES\nA private tool for every reader.\nOpen a page and choose a language.\nThe text stays on this device.\nNo account is required.\nVersion 2.4 March 2026\nPlease keep this receipt.",
+      "regions": [
+        {
+          "text": "LOCAL TRANSLATION NOTES",
+          "confidence": 0.9818867444926175,
+          "recognitionConfidence": 0.9987615010012751,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 79.19354838709677,
+              "y": 63.193548387096776
+            },
+            {
+              "x": 486.80645161290323,
+              "y": 63.193548387096776
+            },
+            {
+              "x": 486.80645161290323,
+              "y": 93.80645161290323
+            },
+            {
+              "x": 79.19354838709677,
+              "y": 93.80645161290323
+            }
+          ]
+        },
+        {
+          "text": "A private tool for every reader.",
+          "confidence": 0.9759962328040505,
+          "recognitionConfidence": 0.9827316217124462,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 79.33953947208529,
+              "y": 124.41615798203185
+            },
+            {
+              "x": 491.7708276205073,
+              "y": 125.80481551788512
+            },
+            {
+              "x": 491.66896296527983,
+              "y": 156.05861812045083
+            },
+            {
+              "x": 79.23767481685779,
+              "y": 154.66996058459756
+            }
+          ]
+        },
+        {
+          "text": "Open a page and choose a language.",
+          "confidence": 0.9577016384875384,
+          "recognitionConfidence": 0.9646752564346089,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 79.41679700191351,
+              "y": 180.70174388529765
+            },
+            {
+              "x": 540.6635366920931,
+              "y": 181.84344373601593
+            },
+            {
+              "x": 540.5895687565552,
+              "y": 211.7264896933124
+            },
+            {
+              "x": 79.34282906637564,
+              "y": 210.58478984259412
+            }
+          ]
+        },
+        {
+          "text": "The text stays on this device.",
+          "confidence": 0.9630728983904893,
+          "recognitionConfidence": 0.9729601462682088,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 79.3441310983913,
+              "y": 235.25517729781382
+            },
+            {
+              "x": 468.7391169000835,
+              "y": 236.3582792405948
+            },
+            {
+              "x": 468.65356571566866,
+              "y": 266.5578473390532
+            },
+            {
+              "x": 79.2585799139764,
+              "y": 265.4547453962722
+            }
+          ]
+        },
+        {
+          "text": "No account is required.",
+          "confidence": 0.9673074283744578,
+          "recognitionConfidence": 0.9999338336612867,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 78.63451963842765,
+              "y": 290.5474387908108
+            },
+            {
+              "x": 391.4665591901309,
+              "y": 291.64509506993966
+            },
+            {
+              "x": 391.3636582848972,
+              "y": 320.9718530615514
+            },
+            {
+              "x": 78.53161873319392,
+              "y": 319.8741967824226
+            }
+          ]
+        },
+        {
+          "text": "Version 2.4 March 2026",
+          "confidence": 0.9648493348956958,
+          "recognitionConfidence": 0.9999483769590204,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 78.89910979228486,
+              "y": 361.8991097922849
+            },
+            {
+              "x": 420.1008902077151,
+              "y": 361.8991097922849
+            },
+            {
+              "x": 420.1008902077151,
+              "y": 390.1008902077151
+            },
+            {
+              "x": 78.89910979228486,
+              "y": 390.1008902077151
+            }
+          ]
+        },
+        {
+          "text": "Please keep this receipt.",
+          "confidence": 0.9672871561226589,
+          "recognitionConfidence": 0.9753668332099914,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 79.52800718232666,
+              "y": 415.370308987115
+            },
+            {
+              "x": 419.56664469089293,
+              "y": 416.55925527211
+            },
+            {
+              "x": 419.46301938343987,
+              "y": 446.19609320367454
+            },
+            {
+              "x": 79.42438187487366,
+              "y": 445.0071469186795
+            }
+          ]
+        }
+      ],
+      "translationSanity": {
+        "kind": "deterministic-local-stub; OCR-to-translation plumbing sanity only, not translation quality",
+        "direction": "en-to-ja",
+        "ocrText": "LOCAL TRANSLATION NOTES\nA private tool for every reader.\nOpen a page and choose a language.\nThe text stays on this device.\nNo account is required.\nVersion 2.4 March 2026\nPlease keep this receipt.",
+        "translatedText": "[SANITY STUB] ローカル 翻訳 NOTES\nA プライベート tool for every reader.\nOpen a page and choose a 言語.\nThe テキスト stays on this 端末.\nNo アカウント is required.\nVersion 2.4 March 2026\nPlease keep this receipt.",
+        "ocrSha256": "a486c19fd989cc8934020cd67c6c1fce3965e9eed6a75d3bcae7e839febc9d51",
+        "actualOcrTextConsumed": true
+      }
+    },
+    {
+      "pairing": "tiny_det+small_rec",
+      "caseId": "ja-horizontal",
+      "title": "Japanese horizontal document",
+      "wallMs": 742.9267460000001,
+      "detectedRegions": 6,
+      "cer": {
+        "distance": 0,
+        "referenceUnits": 90,
+        "rate": 0
+      },
+      "wer": {
+        "distance": 0,
+        "referenceUnits": 6,
+        "rate": 0
+      },
+      "detection": {
+        "matched": 6,
+        "reference": 6,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "ローカル翻訳のご案内\nこの文章は端末の中で処理します。\n翻訳する言語を選んでください。\n画像から文字を読み取ります。\n結果を確認してから共有できます。\n静かな場所でも利用できます。",
+      "ocrText": "ローカル翻訳のご案内\nこの文章は端末の中で処理します。\n翻訳する言語を選んでください。\n画像から文字を読み取ります。\n結果を確認してから共有できます。\n静かな場所でも利用できます。",
+      "regions": [
+        {
+          "text": "ローカル翻訳のご案内",
+          "confidence": 0.9780147159961367,
+          "recognitionConfidence": 0.9991158902645111,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 87.94189512798056,
+              "y": 71.54328201282283
+            },
+            {
+              "x": 423.9021866462108,
+              "y": 70.06328072860157
+            },
+            {
+              "x": 424.05569850679535,
+              "y": 104.91047308129711
+            },
+            {
+              "x": 88.09540698856512,
+              "y": 106.39047436551837
+            }
+          ]
+        },
+        {
+          "text": "この文章は端末の中で処理します。",
+          "confidence": 0.9727495873724586,
+          "recognitionConfidence": 0.9995273426175117,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 86.50353982300885,
+              "y": 148.50353982300885
+            },
+            {
+              "x": 543.4964601769911,
+              "y": 148.50353982300885
+            },
+            {
+              "x": 543.4964601769911,
+              "y": 181.49646017699115
+            },
+            {
+              "x": 86.50353982300885,
+              "y": 181.49646017699115
+            }
+          ]
+        },
+        {
+          "text": "翻訳する言語を選んでください。",
+          "confidence": 0.9719787168775667,
+          "recognitionConfidence": 0.9999415516853333,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 85.52282352941177,
+              "y": 218.52282352941177
+            },
+            {
+              "x": 515.4771764705882,
+              "y": 218.52282352941177
+            },
+            {
+              "x": 515.4771764705882,
+              "y": 251.47717647058823
+            },
+            {
+              "x": 85.52282352941177,
+              "y": 251.47717647058823
+            }
+          ]
+        },
+        {
+          "text": "画像から文字を読み取ります。",
+          "confidence": 0.9807437444359288,
+          "recognitionConfidence": 0.999011584690639,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 85.5455919395466,
+              "y": 288.5455919395466
+            },
+            {
+              "x": 487.4544080604534,
+              "y": 288.5455919395466
+            },
+            {
+              "x": 487.4544080604534,
+              "y": 321.4544080604534
+            },
+            {
+              "x": 85.5455919395466,
+              "y": 321.4544080604534
+            }
+          ]
+        },
+        {
+          "text": "結果を確認してから共有できます。",
+          "confidence": 0.9600559509685953,
+          "recognitionConfidence": 0.9999609105288982,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 84.50153846153847,
+              "y": 358.5015384615385
+            },
+            {
+              "x": 544.4984615384615,
+              "y": 358.5015384615385
+            },
+            {
+              "x": 544.4984615384615,
+              "y": 391.4984615384615
+            },
+            {
+              "x": 84.50153846153847,
+              "y": 391.4984615384615
+            }
+          ]
+        },
+        {
+          "text": "静かな場所でも利用できます。",
+          "confidence": 0.9692042694264512,
+          "recognitionConfidence": 0.9998994469642639,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 85.08254202535223,
+              "y": 428.9962685403949
+            },
+            {
+              "x": 485.00644875166284,
+              "y": 430.07714396397944
+            },
+            {
+              "x": 484.9222935857827,
+              "y": 461.21455533963524
+            },
+            {
+              "x": 84.99838685947206,
+              "y": 460.1336799160507
+            }
+          ]
+        }
+      ],
+      "translationSanity": {
+        "kind": "deterministic-local-stub; OCR-to-translation plumbing sanity only, not translation quality",
+        "direction": "ja-to-en",
+        "ocrText": "ローカル翻訳のご案内\nこの文章は端末の中で処理します。\n翻訳する言語を選んでください。\n画像から文字を読み取ります。\n結果を確認してから共有できます。\n静かな場所でも利用できます。",
+        "translatedText": "[SANITY STUB] ローカルtranslationのご案内\nこの文章はdeviceの中でprocessingします。\ntranslationするlanguageを選んでください。\nimageからtextを読み取ります。\nresultをcheckしてから共有できます。\n静かな場所でも利用できます。",
+        "ocrSha256": "97988987f857d2f2e15237a93f4cd874c7af6c3033698dd1335ec523c5790656",
+        "actualOcrTextConsumed": true
+      }
+    },
+    {
+      "pairing": "tiny_det+small_rec",
+      "caseId": "ja-vertical",
+      "title": "Japanese vertical document",
+      "wallMs": 695.362106,
+      "detectedRegions": 5,
+      "cer": {
+        "distance": 0,
+        "referenceUnits": 52,
+        "rate": 0
+      },
+      "wer": {
+        "distance": 0,
+        "referenceUnits": 5,
+        "rate": 0
+      },
+      "detection": {
+        "matched": 5,
+        "reference": 5,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "地域の声を未来へつなぐ\n小さな発見を記録する\n言葉の意味を確かめる\n新しい翻訳を試す\n毎日の読書を支える",
+      "ocrText": "地域の声を未来へつなぐ\n小さな発見を記録する\n言葉の意味を確かめる\n新しい翻訳を試す\n毎日の読書を支える",
+      "regions": [
+        {
+          "text": "地域の声を未来へつなぐ",
+          "confidence": 0.9725949928353789,
+          "recognitionConfidence": 0.9970893426374956,
+          "vertical": true,
+          "quad": [
+            {
+              "x": 739.8310602656721,
+              "y": 67.88929740431232
+            },
+            {
+              "x": 779.0846562626529,
+              "y": 67.57526863633646
+            },
+            {
+              "x": 782.1528127664536,
+              "y": 451.09483161143055
+            },
+            {
+              "x": 742.8992167694729,
+              "y": 451.4088603794064
+            }
+          ]
+        },
+        {
+          "text": "小さな発見を記録する",
+          "confidence": 0.9785424947574517,
+          "recognitionConfidence": 0.9996775090694427,
+          "vertical": true,
+          "quad": [
+            {
+              "x": 601.300920228867,
+              "y": 89.39622044382111
+            },
+            {
+              "x": 638.607258296481,
+              "y": 89.26105255227174
+            },
+            {
+              "x": 639.8512648138624,
+              "y": 432.60685134950234
+            },
+            {
+              "x": 602.5449267462484,
+              "y": 432.7420192410517
+            }
+          ]
+        },
+        {
+          "text": "言葉の意味を確かめる",
+          "confidence": 0.9818203734022748,
+          "recognitionConfidence": 0.9997851014137268,
+          "vertical": true,
+          "quad": [
+            {
+              "x": 462.9646017699115,
+              "y": 70.9646017699115
+            },
+            {
+              "x": 498.0353982300885,
+              "y": 70.9646017699115
+            },
+            {
+              "x": 498.0353982300885,
+              "y": 415.0353982300885
+            },
+            {
+              "x": 462.9646017699115,
+              "y": 415.0353982300885
+            }
+          ]
+        },
+        {
+          "text": "新しい翻訳を試す",
+          "confidence": 0.9725914567513159,
+          "recognitionConfidence": 0.9999202936887741,
+          "vertical": true,
+          "quad": [
+            {
+              "x": 321.4612546125461,
+              "y": 110.46125461254613
+            },
+            {
+              "x": 358.5387453874539,
+              "y": 110.46125461254613
+            },
+            {
+              "x": 358.5387453874539,
+              "y": 386.5387453874539
+            },
+            {
+              "x": 321.4612546125461,
+              "y": 386.5387453874539
+            }
+          ]
+        },
+        {
+          "text": "毎日の読書を支える",
+          "confidence": 0.9774270605072116,
+          "recognitionConfidence": 0.9989387061860826,
+          "vertical": true,
+          "quad": [
+            {
+              "x": 179.87156247626757,
+              "y": 77.88738729057042
+            },
+            {
+              "x": 219.13078187058517,
+              "y": 77.74089766596478
+            },
+            {
+              "x": 220.3001047705128,
+              "y": 391.11943484656854
+            },
+            {
+              "x": 181.0408853761952,
+              "y": 391.2659244711742
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pairing": "tiny_det+small_rec",
+      "caseId": "slides",
+      "title": "Presentation slide",
+      "wallMs": 720.1107030000003,
+      "detectedRegions": 6,
+      "cer": {
+        "distance": 0,
+        "referenceUnits": 126,
+        "rate": 0
+      },
+      "wer": {
+        "distance": 0,
+        "referenceUnits": 20,
+        "rate": 0
+      },
+      "detection": {
+        "matched": 6,
+        "reference": 6,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "DESIGN FOR EVERYONE\nFast, local, accessible\n01  Capture the page\n02  Read the text\n03  Translate privately\nsakutto.example / 2026",
+      "ocrText": "DESIGN FOR EVERYONE\nFast, local, accessible\n01 Capture the page\n02 Read the text\n03 Translate privately\nsakutto.example / 2026",
+      "regions": [
+        {
+          "text": "DESIGN FOR EVERYONE",
+          "confidence": 0.9777401473565956,
+          "recognitionConfidence": 0.999555063875098,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 79.30210251688153,
+              "y": 68.88543585021486
+            },
+            {
+              "x": 650.9062308164519,
+              "y": 68.88543585021486
+            },
+            {
+              "x": 650.9062308164519,
+              "y": 108.19789748311847
+            },
+            {
+              "x": 79.30210251688153,
+              "y": 108.19789748311847
+            }
+          ]
+        },
+        {
+          "text": "Fast, local, accessible",
+          "confidence": 0.9721791400910348,
+          "recognitionConfidence": 0.9962986733602441,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 81.5172826585205,
+              "y": 174.34495957567316
+            },
+            {
+              "x": 487.0225154545628,
+              "y": 172.35718882667297
+            },
+            {
+              "x": 487.2119926376324,
+              "y": 211.01053417287508
+            },
+            {
+              "x": 81.70675984159014,
+              "y": 212.99830492187525
+            }
+          ]
+        },
+        {
+          "text": "01 Capture the page",
+          "confidence": 0.9660813748479603,
+          "recognitionConfidence": 0.9997798925951907,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 98.2781675240434,
+              "y": 310.0353975411909
+            },
+            {
+              "x": 457.3150607022907,
+              "y": 313.59021826572797
+            },
+            {
+              "x": 456.9615117872027,
+              "y": 349.2986586896133
+            },
+            {
+              "x": 97.92461860895538,
+              "y": 345.74383796507624
+            }
+          ]
+        },
+        {
+          "text": "02 Read the text",
+          "confidence": 0.9627721213818302,
+          "recognitionConfidence": 0.999928031116724,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 98.60458612975393,
+              "y": 386.1045861297539
+            },
+            {
+              "x": 413.89541387024605,
+              "y": 386.1045861297539
+            },
+            {
+              "x": 413.89541387024605,
+              "y": 420.1454138702461
+            },
+            {
+              "x": 98.60458612975393,
+              "y": 420.1454138702461
+            }
+          ]
+        },
+        {
+          "text": "03 Translate privately",
+          "confidence": 0.9711469665462455,
+          "recognitionConfidence": 0.9996872679753737,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 98.61584417579023,
+              "y": 460.8938988599407
+            },
+            {
+              "x": 469.3343189674584,
+              "y": 463.62982856320036
+            },
+            {
+              "x": 469.081908677819,
+              "y": 497.83142280933566
+            },
+            {
+              "x": 98.36343388615087,
+              "y": 495.095493106076
+            }
+          ]
+        },
+        {
+          "text": "sakutto.example / 2026",
+          "confidence": 0.9760997273415338,
+          "recognitionConfidence": 0.9785933792591095,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 587.7382897603486,
+              "y": 604.4049564270152
+            },
+            {
+              "x": 910.1783769063181,
+              "y": 604.4049564270152
+            },
+            {
+              "x": 910.1783769063181,
+              "y": 628.9283769063181
+            },
+            {
+              "x": 587.7382897603486,
+              "y": 628.9283769063181
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pairing": "tiny_det+small_rec",
+      "caseId": "low-res-skew",
+      "title": "Low resolution skewed scan",
+      "wallMs": 701.464927,
+      "detectedRegions": 6,
+      "cer": {
+        "distance": 0,
+        "referenceUnits": 139,
+        "rate": 0
+      },
+      "wer": {
+        "distance": 0,
+        "referenceUnits": 24,
+        "rate": 0
+      },
+      "detection": {
+        "matched": 6,
+        "reference": 6,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "FIELD REPORT 07\nRain stopped before dawn.\nThe north road is open.\nBattery level: 82 percent\nReturn by Friday evening.\nRecorded by M. Tanaka",
+      "ocrText": "FIELD REPORT 07\nRain stopped before dawn.\nThe north road is open.\nBattery level: 82 percent\nReturn by Friday evening.\nRecorded by M. Tanaka",
+      "regions": [
+        {
+          "text": "FIELD REPORT 07",
+          "confidence": 0.962357150257244,
+          "recognitionConfidence": 0.9943388899167379,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 107.89133860209908,
+              "y": 132.53594661052094
+            },
+            {
+              "x": 316.4010824529883,
+              "y": 117.98875517906359
+            },
+            {
+              "x": 318.1296517100646,
+              "y": 142.76491453049098
+            },
+            {
+              "x": 109.6199078591754,
+              "y": 157.31210596194833
+            }
+          ]
+        },
+        {
+          "text": "Rain stopped before dawn.",
+          "confidence": 0.9647448151249942,
+          "recognitionConfidence": 0.9999787187576294,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 112.88201661771272,
+              "y": 209.1645972013079
+            },
+            {
+              "x": 377.33986677057254,
+              "y": 191.38591819943503
+            },
+            {
+              "x": 379.0184403242908,
+              "y": 216.3546998109943
+            },
+            {
+              "x": 114.560590171431,
+              "y": 234.1333788128672
+            }
+          ]
+        },
+        {
+          "text": "The north road is open.",
+          "confidence": 0.9632299576640769,
+          "recognitionConfidence": 0.9993096201316171,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 118.37992332417014,
+              "y": 268.7381141044621
+            },
+            {
+              "x": 372.175322832902,
+              "y": 252.9852962039201
+            },
+            {
+              "x": 373.66868844499515,
+              "y": 277.04507550986585
+            },
+            {
+              "x": 119.87328893626332,
+              "y": 292.7978934104079
+            }
+          ]
+        },
+        {
+          "text": "Battery level: 82 percent",
+          "confidence": 0.9628108671617723,
+          "recognitionConfidence": 0.999710898399353,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 123.00848043276324,
+              "y": 329.33108675521817
+            },
+            {
+              "x": 393.15273813566944,
+              "y": 311.22863649677606
+            },
+            {
+              "x": 394.7827905631369,
+              "y": 335.55403426052067
+            },
+            {
+              "x": 124.63853286023073,
+              "y": 353.65648451896277
+            }
+          ]
+        },
+        {
+          "text": "Return by Friday evening.",
+          "confidence": 0.9651468945463694,
+          "recognitionConfidence": 0.9864897751808166,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 126.14024050104454,
+              "y": 389.0616833843519
+            },
+            {
+              "x": 399.24364648931333,
+              "y": 371.21178756812515
+            },
+            {
+              "x": 400.8197748122397,
+              "y": 395.3265509088973
+            },
+            {
+              "x": 127.71636882397088,
+              "y": 413.17644672512404
+            }
+          ]
+        },
+        {
+          "text": "Recorded by M. Tanaka",
+          "confidence": 0.9662959108199285,
+          "recognitionConfidence": 0.9808111219179063,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 130.51932270249142,
+              "y": 449.5651998842512
+            },
+            {
+              "x": 373.95996564301385,
+              "y": 433.4551573367166
+            },
+            {
+              "x": 375.4753481270289,
+              "y": 456.35427042850137
+            },
+            {
+              "x": 132.03470518650653,
+              "y": 472.46431297603596
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pairing": "tiny_det+small_rec",
+      "caseId": "two-column",
+      "title": "Two-column newsletter",
+      "wallMs": 866.8842810000006,
+      "detectedRegions": 8,
+      "cer": {
+        "distance": 0,
+        "referenceUnits": 183,
+        "rate": 0
+      },
+      "wer": {
+        "distance": 0,
+        "referenceUnits": 28,
+        "rate": 0
+      },
+      "detection": {
+        "matched": 8,
+        "reference": 8,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "COMMUNITY GARDEN\nSpring planting begins.\nVolunteers meet at nine.\nBring gloves and water.\nCITY LIBRARY NEWS\nNew books arrive Monday.\nReading club welcomes all.\nReturn books by Friday.",
+      "ocrText": "COMMUNITY GARDEN\nSpring planting begins.\nVolunteers meet at nine.\nBring gloves and water.\nCITY LIBRARY NEWS\nNew books arrive Monday.\nReading club welcomes all.\nReturn books by Friday.",
+      "regions": [
+        {
+          "text": "COMMUNITY GARDEN",
+          "confidence": 0.9678829277502963,
+          "recognitionConfidence": 0.9998458996415138,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 65.16898864809082,
+              "y": 67.27178719762716
+            },
+            {
+              "x": 405.66434468524255,
+              "y": 67.27178719762716
+            },
+            {
+              "x": 405.66434468524255,
+              "y": 94.23327792538296
+            },
+            {
+              "x": 65.16898864809082,
+              "y": 94.23327792538296
+            }
+          ]
+        },
+        {
+          "text": "Spring planting begins.",
+          "confidence": 0.9524465491364953,
+          "recognitionConfidence": 0.9951074874919393,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 64.51092896174865,
+              "y": 138.50934022917608
+            },
+            {
+              "x": 386.530737704918,
+              "y": 138.50934022917608
+            },
+            {
+              "x": 386.530737704918,
+              "y": 167.8292994235012
+            },
+            {
+              "x": 64.51092896174865,
+              "y": 167.8292994235012
+            }
+          ]
+        },
+        {
+          "text": "Volunteers meet at nine.",
+          "confidence": 0.9543214761410554,
+          "recognitionConfidence": 0.9998307451605797,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 65.16983695652175,
+              "y": 198.56062417416473
+            },
+            {
+              "x": 404.62182971014494,
+              "y": 198.56062417416473
+            },
+            {
+              "x": 404.62182971014494,
+              "y": 225.52041779399732
+            },
+            {
+              "x": 65.16983695652175,
+              "y": 225.52041779399732
+            }
+          ]
+        },
+        {
+          "text": "Bring gloves and water.",
+          "confidence": 0.961848960841857,
+          "recognitionConfidence": 0.9999555064284283,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 64.14249727668846,
+              "y": 259.00910870860645
+            },
+            {
+              "x": 386.8991693899782,
+              "y": 259.00910870860645
+            },
+            {
+              "x": 386.8991693899782,
+              "y": 285.94024006129223
+            },
+            {
+              "x": 64.14249727668846,
+              "y": 285.94024006129223
+            }
+          ]
+        },
+        {
+          "text": "CITY LIBRARY NEWS",
+          "confidence": 0.9635839141442791,
+          "recognitionConfidence": 0.9947007403654211,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 545.3773219814242,
+              "y": 67.27178719762716
+            },
+            {
+              "x": 885.8726780185759,
+              "y": 67.27178719762716
+            },
+            {
+              "x": 885.8726780185759,
+              "y": 94.23327792538296
+            },
+            {
+              "x": 545.3773219814242,
+              "y": 94.23327792538296
+            }
+          ]
+        },
+        {
+          "text": "New books arrive Monday.",
+          "confidence": 0.9685552863074051,
+          "recognitionConfidence": 0.9971218506495158,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 543.2509849208794,
+              "y": 137.99501451285164
+            },
+            {
+              "x": 886.0102902659187,
+              "y": 139.19382049918184
+            },
+            {
+              "x": 885.9150959459826,
+              "y": 166.42727605162463
+            },
+            {
+              "x": 543.1557906009433,
+              "y": 165.22847006529443
+            }
+          ]
+        },
+        {
+          "text": "Reading club welcomes all.",
+          "confidence": 0.9750123132559649,
+          "recognitionConfidence": 0.9896943179460672,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 544.3274524524525,
+              "y": 198.55157038369774
+            },
+            {
+              "x": 895.2558808808809,
+              "y": 198.55157038369774
+            },
+            {
+              "x": 895.2558808808809,
+              "y": 225.52947158446435
+            },
+            {
+              "x": 544.3274524524525,
+              "y": 225.52947158446435
+            }
+          ]
+        },
+        {
+          "text": "Return books by Friday.",
+          "confidence": 0.9615617688552964,
+          "recognitionConfidence": 0.9995814691419187,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 543.6896259901215,
+              "y": 257.2048376813774
+            },
+            {
+              "x": 875.1611197613821,
+              "y": 258.3847929604597
+            },
+            {
+              "x": 875.0565879060139,
+              "y": 287.7667460414492
+            },
+            {
+              "x": 543.5850941347533,
+              "y": 286.58679076236683
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pairing": "tiny_det+small_rec",
+      "caseId": "mixed-ja-en",
+      "title": "Mixed Japanese and English guide",
+      "wallMs": 716.5464330000004,
+      "detectedRegions": 6,
+      "cer": {
+        "distance": 3,
+        "referenceUnits": 116,
+        "rate": 0.02586206896551724
+      },
+      "wer": {
+        "distance": 4,
+        "referenceUnits": 16,
+        "rate": 0.25
+      },
+      "detection": {
+        "matched": 6,
+        "reference": 6,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "Sakutto 翻訳ガイド\nSTART を押して開始します。\nEnglish と日本語を読み取ります。\nPrivacy first: 外部送信なし。\nOCR version 6 を使用します。\n詳細は README をご覧ください。",
+      "ocrText": "Sakutto 翻訳ガイド\nSTARTを押して開始します。\nEnglish と日本語を読み取ります。\nPrivacy first: 外部送信なし。\nOCR version ６を使用します。\n詳細は README をご覧ください。",
+      "regions": [
+        {
+          "text": "Sakutto 翻訳ガイド",
+          "confidence": 0.9738337267973947,
+          "recognitionConfidence": 0.9870123771520761,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 73.43349529128754,
+              "y": 70.1443415008581
+            },
+            {
+              "x": 374.313515009328,
+              "y": 68.35338900253643
+            },
+            {
+              "x": 374.5313585616797,
+              "y": 104.95110579763613
+            },
+            {
+              "x": 73.6513388436393,
+              "y": 106.7420582959578
+            }
+          ]
+        },
+        {
+          "text": "STARTを押して開始します。",
+          "confidence": 0.9666575998729852,
+          "recognitionConfidence": 0.9994219819704692,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 72.911227154047,
+              "y": 151.911227154047
+            },
+            {
+              "x": 461.08877284595303,
+              "y": 151.911227154047
+            },
+            {
+              "x": 461.08877284595303,
+              "y": 187.088772845953
+            },
+            {
+              "x": 72.911227154047,
+              "y": 187.088772845953
+            }
+          ]
+        },
+        {
+          "text": "English と日本語を読み取ります。",
+          "confidence": 0.9646984319619185,
+          "recognitionConfidence": 0.9777099907398223,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 72.96811828561161,
+              "y": 228.347148603727
+            },
+            {
+              "x": 510.9325602832331,
+              "y": 227.21545753913367
+            },
+            {
+              "x": 511.0222870024969,
+              "y": 261.9396978942366
+            },
+            {
+              "x": 73.05784500487542,
+              "y": 263.0713889588299
+            }
+          ]
+        },
+        {
+          "text": "Privacy first: 外部送信なし。",
+          "confidence": 0.969466222191036,
+          "recognitionConfidence": 0.9868874089284376,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 74.22952646239554,
+              "y": 305.22952646239554
+            },
+            {
+              "x": 437.77047353760446,
+              "y": 305.22952646239554
+            },
+            {
+              "x": 437.77047353760446,
+              "y": 335.77047353760446
+            },
+            {
+              "x": 74.22952646239554,
+              "y": 335.77047353760446
+            }
+          ]
+        },
+        {
+          "text": "OCR version ６を使用します。",
+          "confidence": 0.9613203254959022,
+          "recognitionConfidence": 0.9705923616886138,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 74.55636363636364,
+              "y": 378.55636363636364
+            },
+            {
+              "x": 464.44363636363636,
+              "y": 378.55636363636364
+            },
+            {
+              "x": 464.44363636363636,
+              "y": 411.44363636363636
+            },
+            {
+              "x": 74.55636363636364,
+              "y": 411.44363636363636
+            }
+          ]
+        },
+        {
+          "text": "詳細は README をご覧ください。",
+          "confidence": 0.9645856322120568,
+          "recognitionConfidence": 0.9843377690566214,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 73.51685912240185,
+              "y": 453.51685912240185
+            },
+            {
+              "x": 511.48314087759815,
+              "y": 453.51685912240185
+            },
+            {
+              "x": 511.48314087759815,
+              "y": 486.48314087759815
+            },
+            {
+              "x": 73.51685912240185,
+              "y": 486.48314087759815
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pairing": "tiny_det+small_rec",
+      "caseId": "small-text",
+      "title": "Small text and captions",
+      "wallMs": 877.3536650000005,
+      "detectedRegions": 8,
+      "cer": {
+        "distance": 0,
+        "referenceUnits": 211,
+        "rate": 0
+      },
+      "wer": {
+        "distance": 0,
+        "referenceUnits": 32,
+        "rate": 0
+      },
+      "detection": {
+        "matched": 8,
+        "reference": 8,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "QUICK REFERENCE\nSelect the source language.\nDrop an image on the page.\nCheck names and numbers.\nSmall captions remain legible.\nZoom in when the print is faint.\nSupport: help@example.test\nDocument ID: SA-006-2026",
+      "ocrText": "QUICK REFERENCE\nSelect the source language.\nDrop an image on the page.\nCheck names and numbers.\nSmall captions remain legible.\nZoom in when the print is faint.\nSupport: help@example.test\nDocument ID: SA-006-2026",
+      "regions": [
+        {
+          "text": "QUICK REFERENCE",
+          "confidence": 0.9503217592898682,
+          "recognitionConfidence": 0.9999005476633708,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 69.1201353637902,
+              "y": 59.76242773292587
+            },
+            {
+              "x": 277.75486463620985,
+              "y": 59.76242773292587
+            },
+            {
+              "x": 277.75486463620985,
+              "y": 84.02917863465734
+            },
+            {
+              "x": 69.1201353637902,
+              "y": 84.02917863465734
+            }
+          ]
+        },
+        {
+          "text": "Select the source language.",
+          "confidence": 0.9753234803636277,
+          "recognitionConfidence": 0.999436738314452,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 67.1067974169683,
+              "y": 118.64053921516268
+            },
+            {
+              "x": 296.6467869221084,
+              "y": 120.97156892632876
+            },
+            {
+              "x": 296.4381434962996,
+              "y": 141.52889466877292
+            },
+            {
+              "x": 66.89815399115946,
+              "y": 139.19786495760684
+            }
+          ]
+        },
+        {
+          "text": "Drop an image on the page.",
+          "confidence": 0.9607389223929603,
+          "recognitionConfidence": 0.9993696258618281,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 67.98935487762911,
+              "y": 169.39662394754495
+            },
+            {
+              "x": 296.7115707416852,
+              "y": 170.79167526593503
+            },
+            {
+              "x": 296.583638083172,
+              "y": 191.7787038976996
+            },
+            {
+              "x": 67.8614222191159,
+              "y": 190.3836525793095
+            }
+          ]
+        },
+        {
+          "text": "Check names and numbers.",
+          "confidence": 0.9760631559260227,
+          "recognitionConfidence": 0.9998931338389715,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 68.21738614412257,
+              "y": 219.21396508363569
+            },
+            {
+              "x": 291.2773474342245,
+              "y": 220.49628992722165
+            },
+            {
+              "x": 291.1613983567637,
+              "y": 240.67726880899878
+            },
+            {
+              "x": 68.10143706666184,
+              "y": 239.3949439654128
+            }
+          ]
+        },
+        {
+          "text": "Small captions remain legible.",
+          "confidence": 0.9484795971610145,
+          "recognitionConfidence": 0.9692368467648824,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 68.32789855072464,
+              "y": 270.4894985213616
+            },
+            {
+              "x": 310.83876811594206,
+              "y": 270.4894985213616
+            },
+            {
+              "x": 310.83876811594206,
+              "y": 290.0893726797961
+            },
+            {
+              "x": 68.32789855072464,
+              "y": 290.0893726797961
+            }
+          ]
+        },
+        {
+          "text": "Zoom in when the print is faint.",
+          "confidence": 0.9873327997169996,
+          "recognitionConfidence": 0.9975661747157574,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 67.63592479674797,
+              "y": 318.76982810349085
+            },
+            {
+              "x": 327.1557418699187,
+              "y": 318.76982810349085
+            },
+            {
+              "x": 327.1557418699187,
+              "y": 340.7960184956408
+            },
+            {
+              "x": 67.63592479674797,
+              "y": 340.7960184956408
+            }
+          ]
+        },
+        {
+          "text": "Support: help@example.test",
+          "confidence": 0.9345836737245884,
+          "recognitionConfidence": 0.999690796320255,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 68.34409233176838,
+              "y": 370.53464054951996
+            },
+            {
+              "x": 293.11424100156495,
+              "y": 370.53464054951996
+            },
+            {
+              "x": 293.11424100156495,
+              "y": 390.1021177717535
+            },
+            {
+              "x": 68.34409233176838,
+              "y": 390.1021177717535
+            }
+          ]
+        },
+        {
+          "text": "Document ID: SA-006-2026",
+          "confidence": 0.9602240694913785,
+          "recognitionConfidence": 0.9997599621613821,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 67.3178391959799,
+              "y": 420.56453032165166
+            },
+            {
+              "x": 277.4738274706868,
+              "y": 420.56453032165166
+            },
+            {
+              "x": 277.4738274706868,
+              "y": 440.1011715596797
+            },
+            {
+              "x": 67.3178391959799,
+              "y": 440.1011715596797
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pairing": "small_det+small_rec",
+      "caseId": "en-scan",
+      "title": "English scan",
+      "wallMs": 1108.433771,
+      "detectedRegions": 7,
+      "cer": {
+        "distance": 0,
+        "referenceUnits": 195,
+        "rate": 0
+      },
+      "wer": {
+        "distance": 0,
+        "referenceUnits": 34,
+        "rate": 0
+      },
+      "detection": {
+        "matched": 7,
+        "reference": 7,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "LOCAL TRANSLATION NOTES\nA private tool for every reader.\nOpen a page and choose a language.\nThe text stays on this device.\nNo account is required.\nVersion 2.4  March 2026\nPlease keep this receipt.",
+      "ocrText": "LOCAL TRANSLATION NOTES\nA private tool for every reader.\nOpen a page and choose a language.\nThe text stays on this device.\nNo account is required.\nVersion 2.4 March 2026\nPlease keep this receipt.",
+      "regions": [
+        {
+          "text": "LOCAL TRANSLATION NOTES",
+          "confidence": 0.9302693339049349,
+          "recognitionConfidence": 0.9893911014432493,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 77.19209876543209,
+              "y": 63.1920987654321
+            },
+            {
+              "x": 486.8079012345679,
+              "y": 63.1920987654321
+            },
+            {
+              "x": 486.8079012345679,
+              "y": 93.80790123456791
+            },
+            {
+              "x": 77.19209876543209,
+              "y": 93.80790123456791
+            }
+          ]
+        },
+        {
+          "text": "A private tool for every reader.",
+          "confidence": 0.9307438197788133,
+          "recognitionConfidence": 0.9802646785974503,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 77.18924205378974,
+              "y": 125.18924205378973
+            },
+            {
+              "x": 490.8107579462103,
+              "y": 125.18924205378973
+            },
+            {
+              "x": 490.8107579462103,
+              "y": 155.81075794621026
+            },
+            {
+              "x": 77.18924205378974,
+              "y": 155.81075794621026
+            }
+          ]
+        },
+        {
+          "text": "Open a page and choose a language.",
+          "confidence": 0.9501165709559312,
+          "recognitionConfidence": 0.9745081172269934,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 78.15773420479303,
+              "y": 181.15773420479303
+            },
+            {
+              "x": 541.8422657952069,
+              "y": 181.15773420479303
+            },
+            {
+              "x": 541.8422657952069,
+              "y": 211.84226579520697
+            },
+            {
+              "x": 78.15773420479303,
+              "y": 211.84226579520697
+            }
+          ]
+        },
+        {
+          "text": "The text stays on this device.",
+          "confidence": 0.9277010795549272,
+          "recognitionConfidence": 0.9879596292972564,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 78.20411311053985,
+              "y": 235.20411311053985
+            },
+            {
+              "x": 471.7958868894601,
+              "y": 235.20411311053985
+            },
+            {
+              "x": 471.7958868894601,
+              "y": 265.7958868894602
+            },
+            {
+              "x": 78.20411311053985,
+              "y": 265.7958868894602
+            }
+          ]
+        },
+        {
+          "text": "No account is required.",
+          "confidence": 0.9306229735268708,
+          "recognitionConfidence": 0.9988426047822704,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 77.28284789644013,
+              "y": 290.2828478964401
+            },
+            {
+              "x": 390.7171521035599,
+              "y": 290.2828478964401
+            },
+            {
+              "x": 390.7171521035599,
+              "y": 320.7171521035599
+            },
+            {
+              "x": 77.28284789644013,
+              "y": 320.7171521035599
+            }
+          ]
+        },
+        {
+          "text": "Version 2.4 March 2026",
+          "confidence": 0.9570347985167211,
+          "recognitionConfidence": 0.9969913011247461,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 77.73804228141276,
+              "y": 360.66453004567165
+            },
+            {
+              "x": 422.3448156580222,
+              "y": 361.73807139575445
+            },
+            {
+              "x": 422.25484411442596,
+              "y": 390.6189368901411
+            },
+            {
+              "x": 77.64807073781654,
+              "y": 389.5453955400583
+            }
+          ]
+        },
+        {
+          "text": "Please keep this receipt.",
+          "confidence": 0.964801316531332,
+          "recognitionConfidence": 0.9997384977340699,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 78.24525219712432,
+              "y": 415.1538756086443
+            },
+            {
+              "x": 419.85251410249174,
+              "y": 416.24527261153685
+            },
+            {
+              "x": 419.7546559380191,
+              "y": 446.87487809146796
+            },
+            {
+              "x": 78.14739403265169,
+              "y": 445.7834810885754
+            }
+          ]
+        }
+      ],
+      "translationSanity": {
+        "kind": "deterministic-local-stub; OCR-to-translation plumbing sanity only, not translation quality",
+        "direction": "en-to-ja",
+        "ocrText": "LOCAL TRANSLATION NOTES\nA private tool for every reader.\nOpen a page and choose a language.\nThe text stays on this device.\nNo account is required.\nVersion 2.4 March 2026\nPlease keep this receipt.",
+        "translatedText": "[SANITY STUB] ローカル 翻訳 NOTES\nA プライベート tool for every reader.\nOpen a page and choose a 言語.\nThe テキスト stays on this 端末.\nNo アカウント is required.\nVersion 2.4 March 2026\nPlease keep this receipt.",
+        "ocrSha256": "a486c19fd989cc8934020cd67c6c1fce3965e9eed6a75d3bcae7e839febc9d51",
+        "actualOcrTextConsumed": true
+      }
+    },
+    {
+      "pairing": "small_det+small_rec",
+      "caseId": "ja-horizontal",
+      "title": "Japanese horizontal document",
+      "wallMs": 1024.0516320000006,
+      "detectedRegions": 6,
+      "cer": {
+        "distance": 0,
+        "referenceUnits": 90,
+        "rate": 0
+      },
+      "wer": {
+        "distance": 0,
+        "referenceUnits": 6,
+        "rate": 0
+      },
+      "detection": {
+        "matched": 6,
+        "reference": 6,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "ローカル翻訳のご案内\nこの文章は端末の中で処理します。\n翻訳する言語を選んでください。\n画像から文字を読み取ります。\n結果を確認してから共有できます。\n静かな場所でも利用できます。",
+      "ocrText": "ローカル翻訳のご案内\nこの文章は端末の中で処理します。\n翻訳する言語を選んでください。\n画像から文字を読み取ります。\n結果を確認してから共有できます。\n静かな場所でも利用できます。",
+      "regions": [
+        {
+          "text": "ローカル翻訳のご案内",
+          "confidence": 0.9415612204877021,
+          "recognitionConfidence": 0.9989754796028137,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 89.03928317062507,
+              "y": 72.51344898689784
+            },
+            {
+              "x": 421.8318079566147,
+              "y": 71.29442874958652
+            },
+            {
+              "x": 421.958355364193,
+              "y": 105.84187101846909
+            },
+            {
+              "x": 89.1658305782034,
+              "y": 107.06089125578042
+            }
+          ]
+        },
+        {
+          "text": "この文章は端末の中で処理します。",
+          "confidence": 0.9205777595607669,
+          "recognitionConfidence": 0.9994068183004856,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 88.50421286031042,
+              "y": 149.50421286031042
+            },
+            {
+              "x": 544.4957871396896,
+              "y": 149.50421286031042
+            },
+            {
+              "x": 544.4957871396896,
+              "y": 182.49578713968958
+            },
+            {
+              "x": 88.50421286031042,
+              "y": 182.49578713968958
+            }
+          ]
+        },
+        {
+          "text": "翻訳する言語を選んでください。",
+          "confidence": 0.9387478829172522,
+          "recognitionConfidence": 0.9999372124671936,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 86.5243498817967,
+              "y": 219.5243498817967
+            },
+            {
+              "x": 514.4756501182032,
+              "y": 219.5243498817967
+            },
+            {
+              "x": 514.4756501182032,
+              "y": 252.4756501182033
+            },
+            {
+              "x": 86.5243498817967,
+              "y": 252.4756501182033
+            }
+          ]
+        },
+        {
+          "text": "画像から文字を読み取ります。",
+          "confidence": 0.931645230164064,
+          "recognitionConfidence": 0.9985568523406982,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 87.00568496228881,
+              "y": 288.0412351533396
+            },
+            {
+              "x": 485.08650261486895,
+              "y": 289.12592402977714
+            },
+            {
+              "x": 484.9912932840546,
+              "y": 324.0677484386123
+            },
+            {
+              "x": 86.91047563147451,
+              "y": 322.98305956217473
+            }
+          ]
+        },
+        {
+          "text": "結果を確認してから共有できます。",
+          "confidence": 0.9139588845709669,
+          "recognitionConfidence": 0.9999243915081024,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 86.04306181675479,
+              "y": 357.12289369582925
+            },
+            {
+              "x": 545.1025542432545,
+              "y": 359.38985415225636
+            },
+            {
+              "x": 544.9305160261875,
+              "y": 394.2275931083333
+            },
+            {
+              "x": 85.87102359968772,
+              "y": 391.96063265190617
+            }
+          ]
+        },
+        {
+          "text": "静かな場所でも利用できます。",
+          "confidence": 0.9400296004456064,
+          "recognitionConfidence": 0.9999027635369983,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 85.3905932719573,
+              "y": 428.9862543928866
+            },
+            {
+              "x": 485.6911355778342,
+              "y": 430.20668287552655
+            },
+            {
+              "x": 485.588697521369,
+              "y": 463.80636539611737
+            },
+            {
+              "x": 85.28815521549205,
+              "y": 462.58593691347744
+            }
+          ]
+        }
+      ],
+      "translationSanity": {
+        "kind": "deterministic-local-stub; OCR-to-translation plumbing sanity only, not translation quality",
+        "direction": "ja-to-en",
+        "ocrText": "ローカル翻訳のご案内\nこの文章は端末の中で処理します。\n翻訳する言語を選んでください。\n画像から文字を読み取ります。\n結果を確認してから共有できます。\n静かな場所でも利用できます。",
+        "translatedText": "[SANITY STUB] ローカルtranslationのご案内\nこの文章はdeviceの中でprocessingします。\ntranslationするlanguageを選んでください。\nimageからtextを読み取ります。\nresultをcheckしてから共有できます。\n静かな場所でも利用できます。",
+        "ocrSha256": "97988987f857d2f2e15237a93f4cd874c7af6c3033698dd1335ec523c5790656",
+        "actualOcrTextConsumed": true
+      }
+    },
+    {
+      "pairing": "small_det+small_rec",
+      "caseId": "ja-vertical",
+      "title": "Japanese vertical document",
+      "wallMs": 954.0752370000009,
+      "detectedRegions": 5,
+      "cer": {
+        "distance": 0,
+        "referenceUnits": 52,
+        "rate": 0
+      },
+      "wer": {
+        "distance": 0,
+        "referenceUnits": 5,
+        "rate": 0
+      },
+      "detection": {
+        "matched": 5,
+        "reference": 5,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "地域の声を未来へつなぐ\n小さな発見を記録する\n言葉の意味を確かめる\n新しい翻訳を試す\n毎日の読書を支える",
+      "ocrText": "地域の声を未来へつなぐ\n小さな発見を記録する\n言葉の意味を確かめる\n新しい翻訳を試す\n毎日の読書を支える",
+      "regions": [
+        {
+          "text": "地域の声を未来へつなぐ",
+          "confidence": 0.9572471433714954,
+          "recognitionConfidence": 0.990926281972365,
+          "vertical": true,
+          "quad": [
+            {
+              "x": 740.1856464779158,
+              "y": 67.97043172669777
+            },
+            {
+              "x": 779.0269110545249,
+              "y": 67.73923372326558
+            },
+            {
+              "x": 781.2667538763804,
+              "y": 444.03282779500296
+            },
+            {
+              "x": 742.4254892997714,
+              "y": 444.26402579843517
+            }
+          ]
+        },
+        {
+          "text": "小さな発見を記録する",
+          "confidence": 0.9406864655880929,
+          "recognitionConfidence": 0.9998225510120392,
+          "vertical": true,
+          "quad": [
+            {
+              "x": 602.9673590504451,
+              "y": 88.96735905044511
+            },
+            {
+              "x": 638.0326409495549,
+              "y": 88.96735905044511
+            },
+            {
+              "x": 638.0326409495549,
+              "y": 431.0326409495549
+            },
+            {
+              "x": 602.9673590504451,
+              "y": 431.0326409495549
+            }
+          ]
+        },
+        {
+          "text": "言葉の意味を確かめる",
+          "confidence": 0.951246807349749,
+          "recognitionConfidence": 0.9997742831707,
+          "vertical": true,
+          "quad": [
+            {
+              "x": 462.3301775147929,
+              "y": 68.3301775147929
+            },
+            {
+              "x": 499.6698224852071,
+              "y": 68.3301775147929
+            },
+            {
+              "x": 499.6698224852071,
+              "y": 411.6698224852071
+            },
+            {
+              "x": 462.3301775147929,
+              "y": 411.6698224852071
+            }
+          ]
+        },
+        {
+          "text": "新しい翻訳を試す",
+          "confidence": 0.9664210088917731,
+          "recognitionConfidence": 0.9998913705348969,
+          "vertical": true,
+          "quad": [
+            {
+              "x": 323.08550185873605,
+              "y": 108.08550185873605
+            },
+            {
+              "x": 357.91449814126395,
+              "y": 108.08550185873605
+            },
+            {
+              "x": 357.91449814126395,
+              "y": 381.91449814126395
+            },
+            {
+              "x": 323.08550185873605,
+              "y": 381.91449814126395
+            }
+          ]
+        },
+        {
+          "text": "毎日の読書を支える",
+          "confidence": 0.9519755023291026,
+          "recognitionConfidence": 0.998366998301612,
+          "vertical": true,
+          "quad": [
+            {
+              "x": 183.01980198019803,
+              "y": 78.01980198019803
+            },
+            {
+              "x": 217.98019801980197,
+              "y": 78.01980198019803
+            },
+            {
+              "x": 217.98019801980197,
+              "y": 385.98019801980195
+            },
+            {
+              "x": 183.01980198019803,
+              "y": 385.98019801980195
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pairing": "small_det+small_rec",
+      "caseId": "slides",
+      "title": "Presentation slide",
+      "wallMs": 1068.214464999999,
+      "detectedRegions": 7,
+      "cer": {
+        "distance": 31,
+        "referenceUnits": 126,
+        "rate": 0.24603174603174602
+      },
+      "wer": {
+        "distance": 6,
+        "referenceUnits": 20,
+        "rate": 0.3
+      },
+      "detection": {
+        "matched": 6,
+        "reference": 6,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "marginal",
+      "groundTruth": "DESIGN FOR EVERYONE\nFast, local, accessible\n01  Capture the page\n02  Read the text\n03  Translate privately\nsakutto.example / 2026",
+      "ocrText": "DESIGN FOR EVERYONE\nFast, local, accessible\n01 Capture the page\n03 Translate privately 02 Read the text O\nsakutto.example / 2026",
+      "regions": [
+        {
+          "text": "DESIGN FOR EVERYONE",
+          "confidence": 0.9329154162547617,
+          "recognitionConfidence": 0.9994827759893317,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 78.94741881127452,
+              "y": 70.61408547794119
+            },
+            {
+              "x": 651.2609145220589,
+              "y": 70.61408547794119
+            },
+            {
+              "x": 651.2609145220589,
+              "y": 107.51091452205883
+            },
+            {
+              "x": 78.94741881127452,
+              "y": 107.51091452205883
+            }
+          ]
+        },
+        {
+          "text": "Fast, local, accessible",
+          "confidence": 0.9419577614491896,
+          "recognitionConfidence": 0.997673371563787,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 82.19807942708334,
+              "y": 174.90641276041669
+            },
+            {
+              "x": 487.59358723958337,
+              "y": 174.90641276041669
+            },
+            {
+              "x": 487.59358723958337,
+              "y": 211.55192057291669
+            },
+            {
+              "x": 82.19807942708334,
+              "y": 211.55192057291669
+            }
+          ]
+        },
+        {
+          "text": "01 Capture the page",
+          "confidence": 0.9516022273072482,
+          "recognitionConfidence": 0.9994350609026457,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 97.51327548874684,
+              "y": 311.83088437675667
+            },
+            {
+              "x": 456.8782676950075,
+              "y": 314.1796751754904
+            },
+            {
+              "x": 456.65307970134273,
+              "y": 348.633438206185
+            },
+            {
+              "x": 97.28808749508217,
+              "y": 346.2846474074513
+            }
+          ]
+        },
+        {
+          "text": "03 Translate privately",
+          "confidence": 0.9426618294068224,
+          "recognitionConfidence": 0.99959535761313,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 97.59523770960907,
+              "y": 461.2784519901817
+            },
+            {
+              "x": 471.36150283834235,
+              "y": 463.7537252691799
+            },
+            {
+              "x": 471.1358037925985,
+              "y": 497.83428117649976
+            },
+            {
+              "x": 97.36953866386519,
+              "y": 495.35900789750156
+            }
+          ]
+        },
+        {
+          "text": "02 Read the text",
+          "confidence": 0.9504188966995422,
+          "recognitionConfidence": 0.9999361298978329,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 97.55972222222222,
+              "y": 386.1013888888889
+            },
+            {
+              "x": 414.9402777777778,
+              "y": 386.1013888888889
+            },
+            {
+              "x": 414.9402777777778,
+              "y": 420.1486111111111
+            },
+            {
+              "x": 97.55972222222222,
+              "y": 420.1486111111111
+            }
+          ]
+        },
+        {
+          "text": "O",
+          "confidence": 0.6464820341235767,
+          "recognitionConfidence": 0.42441216111183167,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 744.0015135327636,
+              "y": 312.75151353276357
+            },
+            {
+              "x": 942.4568198005699,
+              "y": 312.75151353276357
+            },
+            {
+              "x": 942.4568198005699,
+              "y": 527.8734864672365
+            },
+            {
+              "x": 744.0015135327636,
+              "y": 527.8734864672365
+            }
+          ]
+        },
+        {
+          "text": "sakutto.example / 2026",
+          "confidence": 0.9183145053297052,
+          "recognitionConfidence": 0.9888818426565691,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 588.099891422367,
+              "y": 603.724891422367
+            },
+            {
+              "x": 911.9001085776331,
+              "y": 603.724891422367
+            },
+            {
+              "x": 911.9001085776331,
+              "y": 630.6501085776331
+            },
+            {
+              "x": 588.099891422367,
+              "y": 630.6501085776331
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pairing": "small_det+small_rec",
+      "caseId": "low-res-skew",
+      "title": "Low resolution skewed scan",
+      "wallMs": 1028.9030050000001,
+      "detectedRegions": 6,
+      "cer": {
+        "distance": 0,
+        "referenceUnits": 139,
+        "rate": 0
+      },
+      "wer": {
+        "distance": 0,
+        "referenceUnits": 24,
+        "rate": 0
+      },
+      "detection": {
+        "matched": 6,
+        "reference": 6,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "FIELD REPORT 07\nRain stopped before dawn.\nThe north road is open.\nBattery level: 82 percent\nReturn by Friday evening.\nRecorded by M. Tanaka",
+      "ocrText": "FIELD REPORT 07\nRain stopped before dawn.\nThe north road is open.\nBattery level: 82 percent\nReturn by Friday evening.\nRecorded by M. Tanaka",
+      "regions": [
+        {
+          "text": "FIELD REPORT 07",
+          "confidence": 0.9366616597542397,
+          "recognitionConfidence": 0.9981446743011475,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 107.88093572273134,
+              "y": 132.73749654543022
+            },
+            {
+              "x": 317.4767983953662,
+              "y": 117.56937490464743
+            },
+            {
+              "x": 319.28436029449136,
+              "y": 142.54659387437593
+            },
+            {
+              "x": 109.68849762185646,
+              "y": 157.7147155151587
+            }
+          ]
+        },
+        {
+          "text": "Rain stopped before dawn.",
+          "confidence": 0.938606979571856,
+          "recognitionConfidence": 0.9999803400039673,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 113.88253756920491,
+              "y": 209.57932375428285
+            },
+            {
+              "x": 377.45325586444835,
+              "y": 191.35368897854798
+            },
+            {
+              "x": 379.14601535507643,
+              "y": 215.83359545839986
+            },
+            {
+              "x": 115.57529705983299,
+              "y": 234.05923023413473
+            }
+          ]
+        },
+        {
+          "text": "The north road is open.",
+          "confidence": 0.9398102569888284,
+          "recognitionConfidence": 0.9961833772451981,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 118.2525085485622,
+              "y": 268.84950753197637
+            },
+            {
+              "x": 371.4006487334443,
+              "y": 252.8458894743115
+            },
+            {
+              "x": 372.9345822827696,
+              "y": 277.1099292545485
+            },
+            {
+              "x": 119.78644209788753,
+              "y": 293.11354731221337
+            }
+          ]
+        },
+        {
+          "text": "Battery level: 82 percent",
+          "confidence": 0.9379969072770367,
+          "recognitionConfidence": 0.9994890737533569,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 122.58166960135084,
+              "y": 328.8188863498012
+            },
+            {
+              "x": 392.6411729633146,
+              "y": 310.28539102103895
+            },
+            {
+              "x": 394.3828381954538,
+              "y": 335.6639415464966
+            },
+            {
+              "x": 124.32333483349008,
+              "y": 354.1974368752588
+            }
+          ]
+        },
+        {
+          "text": "Return by Friday evening.",
+          "confidence": 0.9408931414638837,
+          "recognitionConfidence": 0.9974831509590149,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 126.81775685292658,
+              "y": 388.5632637017971
+            },
+            {
+              "x": 398.69362685212326,
+              "y": 370.7353378002104
+            },
+            {
+              "x": 400.35671464827766,
+              "y": 396.09742669156657
+            },
+            {
+              "x": 128.48084464908104,
+              "y": 413.92535259315326
+            }
+          ]
+        },
+        {
+          "text": "Recorded by M. Tanaka",
+          "confidence": 0.9396653707228623,
+          "recognitionConfidence": 0.9998687505722046,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 131.11981135818377,
+              "y": 449.1780549571555
+            },
+            {
+              "x": 374.4084294299815,
+              "y": 432.8682034663086
+            },
+            {
+              "x": 376.0453587521161,
+              "y": 457.28573252148374
+            },
+            {
+              "x": 132.7567406803184,
+              "y": 473.5955840123306
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pairing": "small_det+small_rec",
+      "caseId": "two-column",
+      "title": "Two-column newsletter",
+      "wallMs": 1233.5783269999993,
+      "detectedRegions": 8,
+      "cer": {
+        "distance": 0,
+        "referenceUnits": 183,
+        "rate": 0
+      },
+      "wer": {
+        "distance": 0,
+        "referenceUnits": 28,
+        "rate": 0
+      },
+      "detection": {
+        "matched": 8,
+        "reference": 8,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "COMMUNITY GARDEN\nSpring planting begins.\nVolunteers meet at nine.\nBring gloves and water.\nCITY LIBRARY NEWS\nNew books arrive Monday.\nReading club welcomes all.\nReturn books by Friday.",
+      "ocrText": "COMMUNITY GARDEN\nSpring planting begins.\nVolunteers meet at nine.\nBring gloves and water.\nCITY LIBRARY NEWS\nNew books arrive Monday.\nReading club welcomes all.\nReturn books by Friday.",
+      "regions": [
+        {
+          "text": "COMMUNITY GARDEN",
+          "confidence": 0.9588454157475385,
+          "recognitionConfidence": 0.9998139962553978,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 65.16983695652175,
+              "y": 68.31460391367268
+            },
+            {
+              "x": 404.62182971014494,
+              "y": 68.31460391367268
+            },
+            {
+              "x": 404.62182971014494,
+              "y": 95.27439753350532
+            },
+            {
+              "x": 65.16983695652175,
+              "y": 95.27439753350532
+            }
+          ]
+        },
+        {
+          "text": "Spring planting begins.",
+          "confidence": 0.9309897843143331,
+          "recognitionConfidence": 0.9964808096056399,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 64.13993269239573,
+              "y": 137.4140014565069
+            },
+            {
+              "x": 387.0166500539296,
+              "y": 138.6855375564208
+            },
+            {
+              "x": 386.8954856211237,
+              "y": 169.4702110914283
+            },
+            {
+              "x": 64.01876825958979,
+              "y": 168.1986749915144
+            }
+          ]
+        },
+        {
+          "text": "Volunteers meet at nine.",
+          "confidence": 0.9408866092888435,
+          "recognitionConfidence": 0.9999644135435423,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 65.16898864809082,
+              "y": 199.60174378228706
+            },
+            {
+              "x": 405.66434468524255,
+              "y": 199.60174378228706
+            },
+            {
+              "x": 405.66434468524255,
+              "y": 226.56323451004286
+            },
+            {
+              "x": 65.16898864809082,
+              "y": 226.56323451004286
+            }
+          ]
+        },
+        {
+          "text": "Bring gloves and water.",
+          "confidence": 0.9275957916736902,
+          "recognitionConfidence": 0.9998934450356857,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 63.46813725490197,
+              "y": 258.33455350302205
+            },
+            {
+              "x": 386.53186274509807,
+              "y": 258.33455350302205
+            },
+            {
+              "x": 386.53186274509807,
+              "y": 287.6567634289606
+            },
+            {
+              "x": 63.46813725490197,
+              "y": 287.6567634289606
+            }
+          ]
+        },
+        {
+          "text": "CITY LIBRARY NEWS",
+          "confidence": 0.9577438175601368,
+          "recognitionConfidence": 0.9945214916678036,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 545.3773219814242,
+              "y": 68.3137553597111
+            },
+            {
+              "x": 885.8726780185759,
+              "y": 68.3137553597111
+            },
+            {
+              "x": 885.8726780185759,
+              "y": 95.2752460874669
+            },
+            {
+              "x": 545.3773219814242,
+              "y": 95.2752460874669
+            }
+          ]
+        },
+        {
+          "text": "New books arrive Monday.",
+          "confidence": 0.942751300427411,
+          "recognitionConfidence": 0.998686857521534,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 543.7961637412836,
+              "y": 137.66264745547494
+            },
+            {
+              "x": 885.4791064032453,
+              "y": 138.91002642580224
+            },
+            {
+              "x": 885.3732917288786,
+              "y": 167.911638872501
+            },
+            {
+              "x": 543.690349066917,
+              "y": 166.66425990217368
+            }
+          ]
+        },
+        {
+          "text": "Reading club welcomes all.",
+          "confidence": 0.9331870673963012,
+          "recognitionConfidence": 0.9975519134448125,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 543.7346834724626,
+              "y": 197.96525336559378
+            },
+            {
+              "x": 895.9455465779563,
+              "y": 199.09809196838538
+            },
+            {
+              "x": 895.8516761458246,
+              "y": 228.30024605864418
+            },
+            {
+              "x": 543.6408130403311,
+              "y": 227.16740745585258
+            }
+          ]
+        },
+        {
+          "text": "Return books by Friday.",
+          "confidence": 0.937313293332128,
+          "recognitionConfidence": 0.9997676170390585,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 543.5469215201974,
+              "y": 257.5913054743646
+            },
+            {
+              "x": 876.383200204617,
+              "y": 259.1115457179839
+            },
+            {
+              "x": 876.2465695074212,
+              "y": 289.04232893145485
+            },
+            {
+              "x": 543.4102908230017,
+              "y": 287.5220886878356
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pairing": "small_det+small_rec",
+      "caseId": "mixed-ja-en",
+      "title": "Mixed Japanese and English guide",
+      "wallMs": 1022.9982459999992,
+      "detectedRegions": 6,
+      "cer": {
+        "distance": 3,
+        "referenceUnits": 116,
+        "rate": 0.02586206896551724
+      },
+      "wer": {
+        "distance": 4,
+        "referenceUnits": 16,
+        "rate": 0.25
+      },
+      "detection": {
+        "matched": 6,
+        "reference": 6,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "Sakutto 翻訳ガイド\nSTART を押して開始します。\nEnglish と日本語を読み取ります。\nPrivacy first: 外部送信なし。\nOCR version 6 を使用します。\n詳細は README をご覧ください。",
+      "ocrText": "Sakutto 翻訳ガイド\nSTARTを押して開始します。\nEnglish と日本語を読み取ります。\nPrivacy first: 外部送信なし。\nOCR version ６を使用します。\n詳細は README をご覧ください。",
+      "regions": [
+        {
+          "text": "Sakutto 翻訳ガイド",
+          "confidence": 0.9263257629969056,
+          "recognitionConfidence": 0.9766240395032443,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 75.03571428571428,
+              "y": 71.03571428571428
+            },
+            {
+              "x": 373.9642857142857,
+              "y": 71.03571428571428
+            },
+            {
+              "x": 373.9642857142857,
+              "y": 105.96428571428572
+            },
+            {
+              "x": 75.03571428571428,
+              "y": 105.96428571428572
+            }
+          ]
+        },
+        {
+          "text": "STARTを押して開始します。",
+          "confidence": 0.9491491045946586,
+          "recognitionConfidence": 0.9996805906295776,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 75.56200527704485,
+              "y": 154.56200527704485
+            },
+            {
+              "x": 459.4379947229552,
+              "y": 154.56200527704485
+            },
+            {
+              "x": 459.4379947229552,
+              "y": 187.43799472295515
+            },
+            {
+              "x": 75.56200527704485,
+              "y": 187.43799472295515
+            }
+          ]
+        },
+        {
+          "text": "English と日本語を読み取ります。",
+          "confidence": 0.9418174855319591,
+          "recognitionConfidence": 0.9789671540260315,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 74.51759259259259,
+              "y": 230.5175925925926
+            },
+            {
+              "x": 511.48240740740744,
+              "y": 230.5175925925926
+            },
+            {
+              "x": 511.48240740740744,
+              "y": 263.48240740740744
+            },
+            {
+              "x": 74.51759259259259,
+              "y": 263.48240740740744
+            }
+          ]
+        },
+        {
+          "text": "Privacy first: 外部送信なし。",
+          "confidence": 0.9393683631055257,
+          "recognitionConfidence": 0.9935012215917761,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 74.93871866295265,
+              "y": 303.9387186629526
+            },
+            {
+              "x": 439.0612813370474,
+              "y": 303.9387186629526
+            },
+            {
+              "x": 439.0612813370474,
+              "y": 339.0612813370474
+            },
+            {
+              "x": 74.93871866295265,
+              "y": 339.0612813370474
+            }
+          ]
+        },
+        {
+          "text": "OCR version ６を使用します。",
+          "confidence": 0.955335350628586,
+          "recognitionConfidence": 0.9617414712905884,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 75.55729166666666,
+              "y": 379.5572916666667
+            },
+            {
+              "x": 464.44270833333337,
+              "y": 379.5572916666667
+            },
+            {
+              "x": 464.44270833333337,
+              "y": 412.4427083333333
+            },
+            {
+              "x": 75.55729166666666,
+              "y": 412.4427083333333
+            }
+          ]
+        },
+        {
+          "text": "詳細は README をご覧ください。",
+          "confidence": 0.9440606437121135,
+          "recognitionConfidence": 0.9811785691662839,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 74.17515602166792,
+              "y": 453.54456710776947
+            },
+            {
+              "x": 512.8881664998959,
+              "y": 454.61984409423565
+            },
+            {
+              "x": 512.8041489373326,
+              "y": 488.8990096200713
+            },
+            {
+              "x": 74.09113845910458,
+              "y": 487.8237326336051
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pairing": "small_det+small_rec",
+      "caseId": "small-text",
+      "title": "Small text and captions",
+      "wallMs": 1223.0057359999992,
+      "detectedRegions": 8,
+      "cer": {
+        "distance": 0,
+        "referenceUnits": 211,
+        "rate": 0
+      },
+      "wer": {
+        "distance": 0,
+        "referenceUnits": 32,
+        "rate": 0
+      },
+      "detection": {
+        "matched": 8,
+        "reference": 8,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "QUICK REFERENCE\nSelect the source language.\nDrop an image on the page.\nCheck names and numbers.\nSmall captions remain legible.\nZoom in when the print is faint.\nSupport: help@example.test\nDocument ID: SA-006-2026",
+      "ocrText": "QUICK REFERENCE\nSelect the source language.\nDrop an image on the page.\nCheck names and numbers.\nSmall captions remain legible.\nZoom in when the print is faint.\nSupport: help@example.test\nDocument ID: SA-006-2026",
+      "regions": [
+        {
+          "text": "QUICK REFERENCE",
+          "confidence": 0.9385147947832883,
+          "recognitionConfidence": 0.999814236164093,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 68.73730964467006,
+              "y": 61.46342753458168
+            },
+            {
+              "x": 277.0960236886633,
+              "y": 61.46342753458168
+            },
+            {
+              "x": 277.0960236886633,
+              "y": 83.37014699508546
+            },
+            {
+              "x": 68.73730964467006,
+              "y": 83.37014699508546
+            }
+          ]
+        },
+        {
+          "text": "Select the source language.",
+          "confidence": 0.9525809762684909,
+          "recognitionConfidence": 0.998627777452822,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 68.34005376344086,
+              "y": 120.45824191214228
+            },
+            {
+              "x": 297.2849462365591,
+              "y": 120.45824191214228
+            },
+            {
+              "x": 297.2849462365591,
+              "y": 140.0337986088418
+            },
+            {
+              "x": 68.34005376344086,
+              "y": 140.0337986088418
+            }
+          ]
+        },
+        {
+          "text": "Drop an image on the page.",
+          "confidence": 0.9216648964795342,
+          "recognitionConfidence": 0.9998611509799957,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 68.34005376344086,
+              "y": 170.47271369217123
+            },
+            {
+              "x": 297.2849462365591,
+              "y": 170.47271369217123
+            },
+            {
+              "x": 297.2849462365591,
+              "y": 190.04827038887075
+            },
+            {
+              "x": 68.34005376344086,
+              "y": 190.04827038887075
+            }
+          ]
+        },
+        {
+          "text": "Check names and numbers.",
+          "confidence": 0.9513882953581456,
+          "recognitionConfidence": 0.9884141013026237,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 69.02349921011059,
+              "y": 221.1708287323132
+            },
+            {
+              "x": 291.39316745655606,
+              "y": 221.1708287323132
+            },
+            {
+              "x": 291.39316745655606,
+              "y": 238.33713074670268
+            },
+            {
+              "x": 69.02349921011059,
+              "y": 238.33713074670268
+            }
+          ]
+        },
+        {
+          "text": "Small captions remain legible.",
+          "confidence": 0.9532234636677975,
+          "recognitionConfidence": 0.9555604318777721,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 68.32702020202021,
+              "y": 270.4886199184318
+            },
+            {
+              "x": 311.8813131313131,
+              "y": 270.4886199184318
+            },
+            {
+              "x": 311.8813131313131,
+              "y": 290.09025128272594
+            },
+            {
+              "x": 68.32702020202021,
+              "y": 290.09025128272594
+            }
+          ]
+        },
+        {
+          "text": "Zoom in when the print is faint.",
+          "confidence": 0.9600378759384441,
+          "recognitionConfidence": 0.9825429506599903,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 67.2730352303523,
+              "y": 319.4488016660195
+            },
+            {
+              "x": 326.47696476964774,
+              "y": 319.4488016660195
+            },
+            {
+              "x": 326.47696476964774,
+              "y": 339.0750767710282
+            },
+            {
+              "x": 67.2730352303523,
+              "y": 339.0750767710282
+            }
+          ]
+        },
+        {
+          "text": "Support: help@example.test",
+          "confidence": 0.8780718806213365,
+          "recognitionConfidence": 0.999690796320255,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 68.34409233176838,
+              "y": 370.53464054951996
+            },
+            {
+              "x": 293.11424100156495,
+              "y": 370.53464054951996
+            },
+            {
+              "x": 293.11424100156495,
+              "y": 390.1021177717535
+            },
+            {
+              "x": 68.34409233176838,
+              "y": 390.1021177717535
+            }
+          ]
+        },
+        {
+          "text": "Document ID: SA-006-2026",
+          "confidence": 0.9829097159363173,
+          "recognitionConfidence": 0.9995853627721468,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 68.67491539763114,
+              "y": 422.9639674715523
+            },
+            {
+              "x": 276.11675126903555,
+              "y": 422.9639674715523
+            },
+            {
+              "x": 276.11675126903555,
+              "y": 437.7017344097791
+            },
+            {
+              "x": 68.67491539763114,
+              "y": 437.7017344097791
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pairing": "medium_det+medium_rec",
+      "caseId": "en-scan",
+      "title": "English scan",
+      "wallMs": 5899.938372999997,
+      "detectedRegions": 7,
+      "cer": {
+        "distance": 70,
+        "referenceUnits": 195,
+        "rate": 0.358974358974359
+      },
+      "wer": {
+        "distance": 19,
+        "referenceUnits": 34,
+        "rate": 0.5588235294117647
+      },
+      "detection": {
+        "matched": 7,
+        "reference": 7,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "marginal",
+      "groundTruth": "LOCAL TRANSLATION NOTES\nA private tool for every reader.\nOpen a page and choose a language.\nThe text stays on this device.\nNo account is required.\nVersion 2.4  March 2026\nPlease keep this receipt.",
+      "ocrText": "LOCAL TRANSLATION NOTES\nvvyd.\nOn apage aage.\nTheynv.\nNo account is required.\nVersion 2.4 March 2026\nPlease keep this receipt.",
+      "regions": [
+        {
+          "text": "LOCAL TRANSLATION NOTES",
+          "confidence": 0.950621343788654,
+          "recognitionConfidence": 0.9826779832010684,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 77.84950495049506,
+              "y": 63.849504950495046
+            },
+            {
+              "x": 486.1504950495049,
+              "y": 63.849504950495046
+            },
+            {
+              "x": 486.1504950495049,
+              "y": 92.15049504950495
+            },
+            {
+              "x": 77.84950495049506,
+              "y": 92.15049504950495
+            }
+          ]
+        },
+        {
+          "text": "vvyd.",
+          "confidence": 0.9729022448378051,
+          "recognitionConfidence": 0.6060754060745239,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 77.70110127277563,
+              "y": 125.8001232710101
+            },
+            {
+              "x": 491.1958394128038,
+              "y": 124.45760788743856
+            },
+            {
+              "x": 491.30010043491427,
+              "y": 156.57000269747144
+            },
+            {
+              "x": 77.80536229488611,
+              "y": 157.91251808104298
+            }
+          ]
+        },
+        {
+          "text": "On apage aage.",
+          "confidence": 0.9344872604546358,
+          "recognitionConfidence": 0.5498732796737126,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 78.81414265378307,
+              "y": 180.1982305116706
+            },
+            {
+              "x": 540.2643330104448,
+              "y": 181.31284449803934
+            },
+            {
+              "x": 540.1870709030471,
+              "y": 213.29935696068895
+            },
+            {
+              "x": 78.73688054638534,
+              "y": 212.18474297432022
+            }
+          ]
+        },
+        {
+          "text": "Theynv.",
+          "confidence": 0.9547932396070999,
+          "recognitionConfidence": 0.7248254844120571,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 78.2048969072165,
+              "y": 235.2048969072165
+            },
+            {
+              "x": 470.7951030927835,
+              "y": 235.2048969072165
+            },
+            {
+              "x": 470.7951030927835,
+              "y": 265.7951030927835
+            },
+            {
+              "x": 78.2048969072165,
+              "y": 265.7951030927835
+            }
+          ]
+        },
+        {
+          "text": "No account is required.",
+          "confidence": 0.9658023927196558,
+          "recognitionConfidence": 0.999942333801933,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 77.2175162921346,
+              "y": 290.00684074226683
+            },
+            {
+              "x": 390.9008677235842,
+              "y": 291.21331517084934
+            },
+            {
+              "x": 390.782394951782,
+              "y": 322.01623583944047
+            },
+            {
+              "x": 77.09904352033234,
+              "y": 320.80976141085796
+            }
+          ]
+        },
+        {
+          "text": "Version 2.4 March 2026",
+          "confidence": 0.9444034980954332,
+          "recognitionConfidence": 0.9988280209628019,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 78.55059171597634,
+              "y": 362.55059171597634
+            },
+            {
+              "x": 420.44940828402366,
+              "y": 362.55059171597634
+            },
+            {
+              "x": 420.44940828402366,
+              "y": 388.44940828402366
+            },
+            {
+              "x": 78.55059171597634,
+              "y": 388.44940828402366
+            }
+          ]
+        },
+        {
+          "text": "Please keep this receipt.",
+          "confidence": 0.9564002030910392,
+          "recognitionConfidence": 0.9995915699005127,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 78.08680009616266,
+              "y": 414.6684332919815
+            },
+            {
+              "x": 420.0423325237789,
+              "y": 416.0814726821782
+            },
+            {
+              "x": 419.91321697888225,
+              "y": 447.3274345471717
+            },
+            {
+              "x": 77.95768455126598,
+              "y": 445.91439515697505
+            }
+          ]
+        }
+      ],
+      "translationSanity": {
+        "kind": "deterministic-local-stub; OCR-to-translation plumbing sanity only, not translation quality",
+        "direction": "en-to-ja",
+        "ocrText": "LOCAL TRANSLATION NOTES\nvvyd.\nOn apage aage.\nTheynv.\nNo account is required.\nVersion 2.4 March 2026\nPlease keep this receipt.",
+        "translatedText": "[SANITY STUB] ローカル 翻訳 NOTES\nvvyd.\nOn apage aage.\nTheynv.\nNo アカウント is required.\nVersion 2.4 March 2026\nPlease keep this receipt.",
+        "ocrSha256": "8717eafbfe917ab5625b69fdfcf91ef49837b7a0247fe817d19806b6452b5f34",
+        "actualOcrTextConsumed": true
+      }
+    },
+    {
+      "pairing": "medium_det+medium_rec",
+      "caseId": "ja-horizontal",
+      "title": "Japanese horizontal document",
+      "wallMs": 5610.571229999998,
+      "detectedRegions": 6,
+      "cer": {
+        "distance": 0,
+        "referenceUnits": 90,
+        "rate": 0
+      },
+      "wer": {
+        "distance": 0,
+        "referenceUnits": 6,
+        "rate": 0
+      },
+      "detection": {
+        "matched": 6,
+        "reference": 6,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "ローカル翻訳のご案内\nこの文章は端末の中で処理します。\n翻訳する言語を選んでください。\n画像から文字を読み取ります。\n結果を確認してから共有できます。\n静かな場所でも利用できます。",
+      "ocrText": "ローカル翻訳のご案内\nこの文章は端末の中で処理します。\n翻訳する言語を選んでください。\n画像から文字を読み取ります。\n結果を確認してから共有できます。\n静かな場所でも利用できます。",
+      "regions": [
+        {
+          "text": "ローカル翻訳のご案内",
+          "confidence": 0.9445697624397869,
+          "recognitionConfidence": 0.9990975081920623,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 87.97727272727272,
+              "y": 69.97727272727272
+            },
+            {
+              "x": 423.02272727272725,
+              "y": 69.97727272727272
+            },
+            {
+              "x": 423.02272727272725,
+              "y": 105.02272727272728
+            },
+            {
+              "x": 87.97727272727272,
+              "y": 105.02272727272728
+            }
+          ]
+        },
+        {
+          "text": "この文章は端末の中で処理します。",
+          "confidence": 0.9605810346649796,
+          "recognitionConfidence": 0.9999361149966717,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 87.16,
+              "y": 149.16
+            },
+            {
+              "x": 546.84,
+              "y": 149.16
+            },
+            {
+              "x": 546.84,
+              "y": 179.84
+            },
+            {
+              "x": 87.16,
+              "y": 179.84
+            }
+          ]
+        },
+        {
+          "text": "翻訳する言語を選んでください。",
+          "confidence": 0.9407208190664491,
+          "recognitionConfidence": 0.9999648571014405,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 85.17769953051643,
+              "y": 219.17769953051643
+            },
+            {
+              "x": 515.8223004694836,
+              "y": 219.17769953051643
+            },
+            {
+              "x": 515.8223004694836,
+              "y": 249.82230046948357
+            },
+            {
+              "x": 85.17769953051643,
+              "y": 249.82230046948357
+            }
+          ]
+        },
+        {
+          "text": "画像から文字を読み取ります。",
+          "confidence": 0.9497415073051496,
+          "recognitionConfidence": 0.9998284918921334,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 86.19873737373737,
+              "y": 289.1987373737374
+            },
+            {
+              "x": 486.80126262626266,
+              "y": 289.1987373737374
+            },
+            {
+              "x": 486.80126262626266,
+              "y": 319.8012626262626
+            },
+            {
+              "x": 86.19873737373737,
+              "y": 319.8012626262626
+            }
+          ]
+        },
+        {
+          "text": "結果を確認してから共有できます。",
+          "confidence": 0.9241705579759822,
+          "recognitionConfidence": 0.9999397657811642,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 85.15886214442014,
+              "y": 359.15886214442014
+            },
+            {
+              "x": 546.8411378555799,
+              "y": 359.15886214442014
+            },
+            {
+              "x": 546.8411378555799,
+              "y": 389.84113785557986
+            },
+            {
+              "x": 85.15886214442014,
+              "y": 389.84113785557986
+            }
+          ]
+        },
+        {
+          "text": "静かな場所でも利用できます。",
+          "confidence": 0.9437927147591882,
+          "recognitionConfidence": 0.9999597200325557,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 85.19723618090453,
+              "y": 429.1972361809045
+            },
+            {
+              "x": 487.8027638190955,
+              "y": 429.1972361809045
+            },
+            {
+              "x": 487.8027638190955,
+              "y": 459.8027638190955
+            },
+            {
+              "x": 85.19723618090453,
+              "y": 459.8027638190955
+            }
+          ]
+        }
+      ],
+      "translationSanity": {
+        "kind": "deterministic-local-stub; OCR-to-translation plumbing sanity only, not translation quality",
+        "direction": "ja-to-en",
+        "ocrText": "ローカル翻訳のご案内\nこの文章は端末の中で処理します。\n翻訳する言語を選んでください。\n画像から文字を読み取ります。\n結果を確認してから共有できます。\n静かな場所でも利用できます。",
+        "translatedText": "[SANITY STUB] ローカルtranslationのご案内\nこの文章はdeviceの中でprocessingします。\ntranslationするlanguageを選んでください。\nimageからtextを読み取ります。\nresultをcheckしてから共有できます。\n静かな場所でも利用できます。",
+        "ocrSha256": "97988987f857d2f2e15237a93f4cd874c7af6c3033698dd1335ec523c5790656",
+        "actualOcrTextConsumed": true
+      }
+    },
+    {
+      "pairing": "medium_det+medium_rec",
+      "caseId": "ja-vertical",
+      "title": "Japanese vertical document",
+      "wallMs": 5253.241695000004,
+      "detectedRegions": 5,
+      "cer": {
+        "distance": 0,
+        "referenceUnits": 52,
+        "rate": 0
+      },
+      "wer": {
+        "distance": 0,
+        "referenceUnits": 5,
+        "rate": 0
+      },
+      "detection": {
+        "matched": 5,
+        "reference": 5,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "地域の声を未来へつなぐ\n小さな発見を記録する\n言葉の意味を確かめる\n新しい翻訳を試す\n毎日の読書を支える",
+      "ocrText": "地域の声を未来へつなぐ\n小さな発見を記録する\n言葉の意味を確かめる\n新しい翻訳を試す\n毎日の読書を支える",
+      "regions": [
+        {
+          "text": "地域の声を未来へつなぐ",
+          "confidence": 0.9722088067885419,
+          "recognitionConfidence": 0.9975785125385631,
+          "vertical": true,
+          "quad": [
+            {
+              "x": 740.5549735271688,
+              "y": 67.64876780053868
+            },
+            {
+              "x": 780.4013096432925,
+              "y": 67.53122698603687
+            },
+            {
+              "x": 781.5158310185225,
+              "y": 445.3539731890018
+            },
+            {
+              "x": 741.6694949023988,
+              "y": 445.4715140035036
+            }
+          ]
+        },
+        {
+          "text": "小さな発見を記録する",
+          "confidence": 0.968396295971064,
+          "recognitionConfidence": 0.9999788045883179,
+          "vertical": true,
+          "quad": [
+            {
+              "x": 602.3333333333334,
+              "y": 89.33333333333334
+            },
+            {
+              "x": 639.6666666666666,
+              "y": 89.33333333333334
+            },
+            {
+              "x": 639.6666666666666,
+              "y": 430.66666666666663
+            },
+            {
+              "x": 602.3333333333334,
+              "y": 430.66666666666663
+            }
+          ]
+        },
+        {
+          "text": "言葉の意味を確かめる",
+          "confidence": 0.9614047880499139,
+          "recognitionConfidence": 0.9997751355171204,
+          "vertical": true,
+          "quad": [
+            {
+              "x": 462.9715568862275,
+              "y": 70.97155688622755
+            },
+            {
+              "x": 498.0284431137725,
+              "y": 70.97155688622755
+            },
+            {
+              "x": 498.0284431137725,
+              "y": 410.0284431137725
+            },
+            {
+              "x": 462.9715568862275,
+              "y": 410.0284431137725
+            }
+          ]
+        },
+        {
+          "text": "新しい翻訳を試す",
+          "confidence": 0.9641940374881546,
+          "recognitionConfidence": 0.9999244883656502,
+          "vertical": true,
+          "quad": [
+            {
+              "x": 321.4736842105263,
+              "y": 109.4736842105263
+            },
+            {
+              "x": 358.5263157894737,
+              "y": 109.4736842105263
+            },
+            {
+              "x": 358.5263157894737,
+              "y": 380.5263157894737
+            },
+            {
+              "x": 321.4736842105263,
+              "y": 380.5263157894737
+            }
+          ]
+        },
+        {
+          "text": "毎日の読書を支える",
+          "confidence": 0.966263090267516,
+          "recognitionConfidence": 0.9988820751508077,
+          "vertical": true,
+          "quad": [
+            {
+              "x": 183.02325581395348,
+              "y": 80.02325581395348
+            },
+            {
+              "x": 217.97674418604652,
+              "y": 80.02325581395348
+            },
+            {
+              "x": 217.97674418604652,
+              "y": 385.9767441860465
+            },
+            {
+              "x": 183.02325581395348,
+              "y": 385.9767441860465
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pairing": "medium_det+medium_rec",
+      "caseId": "slides",
+      "title": "Presentation slide",
+      "wallMs": 5699.966425999999,
+      "detectedRegions": 6,
+      "cer": {
+        "distance": 1,
+        "referenceUnits": 126,
+        "rate": 0.007936507936507936
+      },
+      "wer": {
+        "distance": 2,
+        "referenceUnits": 20,
+        "rate": 0.1
+      },
+      "detection": {
+        "matched": 6,
+        "reference": 6,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "DESIGN FOR EVERYONE\nFast, local, accessible\n01  Capture the page\n02  Read the text\n03  Translate privately\nsakutto.example / 2026",
+      "ocrText": "DESIGN FOR EVERYONE\nFast, local, accessible\n01 Capture the page\n02 Read the text\n03 Translate privately\nsakutto.example /2026",
+      "regions": [
+        {
+          "text": "DESIGN FOR EVERYONE",
+          "confidence": 0.9790338061154017,
+          "recognitionConfidence": 0.9999534205386513,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 78.94741881127452,
+              "y": 70.61408547794119
+            },
+            {
+              "x": 651.2609145220589,
+              "y": 70.61408547794119
+            },
+            {
+              "x": 651.2609145220589,
+              "y": 107.51091452205883
+            },
+            {
+              "x": 78.94741881127452,
+              "y": 107.51091452205883
+            }
+          ]
+        },
+        {
+          "text": "Fast, local, accessible",
+          "confidence": 0.972601567550282,
+          "recognitionConfidence": 0.9999589738638505,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 83.2419829842932,
+              "y": 174.90864965095986
+            },
+            {
+              "x": 486.5496836823735,
+              "y": 174.90864965095986
+            },
+            {
+              "x": 486.5496836823735,
+              "y": 211.54968368237348
+            },
+            {
+              "x": 83.2419829842932,
+              "y": 211.54968368237348
+            }
+          ]
+        },
+        {
+          "text": "01 Capture the page",
+          "confidence": 0.9622241399169911,
+          "recognitionConfidence": 0.9999612663921557,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 97.65068097042845,
+              "y": 312.0123827859396
+            },
+            {
+              "x": 455.69780589330566,
+              "y": 313.97967468112023
+            },
+            {
+              "x": 455.5111429289426,
+              "y": 347.9523341951924
+            },
+            {
+              "x": 97.46401800606542,
+              "y": 345.98504230001174
+            }
+          ]
+        },
+        {
+          "text": "02 Read the text",
+          "confidence": 0.9587295958833683,
+          "recognitionConfidence": 0.9737529717385769,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 98.54510148430822,
+              "y": 387.39330499025203
+            },
+            {
+              "x": 413.0739968769211,
+              "y": 389.0314763204218
+            },
+            {
+              "x": 412.91393825528235,
+              "y": 419.7627316750583
+            },
+            {
+              "x": 98.38504286266952,
+              "y": 418.12456034488855
+            }
+          ]
+        },
+        {
+          "text": "03 Translate privately",
+          "confidence": 0.9503234980857914,
+          "recognitionConfidence": 0.9999616010622545,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 97.54372192665703,
+              "y": 461.45048032115307
+            },
+            {
+              "x": 471.4106400708727,
+              "y": 463.61156077285386
+            },
+            {
+              "x": 471.21268190450445,
+              "y": 497.85832355455693
+            },
+            {
+              "x": 97.34576376028879,
+              "y": 495.69724310285613
+            }
+          ]
+        },
+        {
+          "text": "sakutto.example /2026",
+          "confidence": 0.9605130785979349,
+          "recognitionConfidence": 0.9843279662586394,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 588.7799564270152,
+              "y": 604.4049564270152
+            },
+            {
+              "x": 911.2200435729848,
+              "y": 604.4049564270152
+            },
+            {
+              "x": 911.2200435729848,
+              "y": 628.9283769063181
+            },
+            {
+              "x": 588.7799564270152,
+              "y": 628.9283769063181
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pairing": "medium_det+medium_rec",
+      "caseId": "low-res-skew",
+      "title": "Low resolution skewed scan",
+      "wallMs": 5567.053763999997,
+      "detectedRegions": 6,
+      "cer": {
+        "distance": 0,
+        "referenceUnits": 139,
+        "rate": 0
+      },
+      "wer": {
+        "distance": 0,
+        "referenceUnits": 24,
+        "rate": 0
+      },
+      "detection": {
+        "matched": 6,
+        "reference": 6,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "FIELD REPORT 07\nRain stopped before dawn.\nThe north road is open.\nBattery level: 82 percent\nReturn by Friday evening.\nRecorded by M. Tanaka",
+      "ocrText": "FIELD REPORT 07\nRain stopped before dawn.\nThe north road is open.\nBattery level: 82 percent\nReturn by Friday evening.\nRecorded by M. Tanaka",
+      "regions": [
+        {
+          "text": "FIELD REPORT 07",
+          "confidence": 0.9477533091177053,
+          "recognitionConfidence": 0.9997438788414001,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 108.22354001612976,
+              "y": 132.7937346806458
+            },
+            {
+              "x": 316.96768663915105,
+              "y": 117.88343849328713
+            },
+            {
+              "x": 318.70539399402236,
+              "y": 142.2113414614861
+            },
+            {
+              "x": 109.9612473710011,
+              "y": 157.12163764884474
+            }
+          ]
+        },
+        {
+          "text": "Rain stopped before dawn.",
+          "confidence": 0.9466541738543157,
+          "recognitionConfidence": 0.9995708632469177,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 113.95092424823476,
+              "y": 209.59891538526037
+            },
+            {
+              "x": 377.322099843166,
+              "y": 190.97671105026527
+            },
+            {
+              "x": 379.02988793450635,
+              "y": 215.129714056364
+            },
+            {
+              "x": 115.6587123395751,
+              "y": 233.7519183913591
+            }
+          ]
+        },
+        {
+          "text": "The north road is open.",
+          "confidence": 0.9411506493532009,
+          "recognitionConfidence": 0.9797054244124371,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 117.79046711398945,
+              "y": 268.77901558057306
+            },
+            {
+              "x": 371.27915566101944,
+              "y": 251.65140148955754
+            },
+            {
+              "x": 372.9659408118423,
+              "y": 276.61582172173576
+            },
+            {
+              "x": 119.47725226481228,
+              "y": 293.7434358127513
+            }
+          ]
+        },
+        {
+          "text": "Battery level: 82 percent",
+          "confidence": 0.9412472076499566,
+          "recognitionConfidence": 0.9808394813537598,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 121.91643477797325,
+              "y": 328.9594754517832
+            },
+            {
+              "x": 392.24052454821697,
+              "y": 310.3164347779733
+            },
+            {
+              "x": 393.96048829894994,
+              "y": 335.2559091636015
+            },
+            {
+              "x": 123.63639852870617,
+              "y": 353.89894983741135
+            }
+          ]
+        },
+        {
+          "text": "Return by Friday evening.",
+          "confidence": 0.9402840683980547,
+          "recognitionConfidence": 0.980953209400177,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 125.7387771308262,
+              "y": 388.69616365525053
+            },
+            {
+              "x": 399.3838327574662,
+              "y": 370.3307236803082
+            },
+            {
+              "x": 401.08544599818134,
+              "y": 395.6847609669635
+            },
+            {
+              "x": 127.44039037154134,
+              "y": 414.0502009419058
+            }
+          ]
+        },
+        {
+          "text": "Recorded by M. Tanaka",
+          "confidence": 0.9395635949914568,
+          "recognitionConfidence": 0.9999806199754987,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 130.54476954847212,
+              "y": 449.32445731305614
+            },
+            {
+              "x": 374.1791205769339,
+              "y": 432.8283814621706
+            },
+            {
+              "x": 375.7792387684344,
+              "y": 456.4608962904866
+            },
+            {
+              "x": 132.14488773997266,
+              "y": 472.9569721413721
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pairing": "medium_det+medium_rec",
+      "caseId": "two-column",
+      "title": "Two-column newsletter",
+      "wallMs": 6540.896464999998,
+      "detectedRegions": 8,
+      "cer": {
+        "distance": 0,
+        "referenceUnits": 183,
+        "rate": 0
+      },
+      "wer": {
+        "distance": 0,
+        "referenceUnits": 28,
+        "rate": 0
+      },
+      "detection": {
+        "matched": 8,
+        "reference": 8,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "COMMUNITY GARDEN\nSpring planting begins.\nVolunteers meet at nine.\nBring gloves and water.\nCITY LIBRARY NEWS\nNew books arrive Monday.\nReading club welcomes all.\nReturn books by Friday.",
+      "ocrText": "COMMUNITY GARDEN\nSpring planting begins.\nVolunteers meet at nine.\nBring gloves and water.\nCITY LIBRARY NEWS\nNew books arrive Monday.\nReading club welcomes all.\nReturn books by Friday.",
+      "regions": [
+        {
+          "text": "COMMUNITY GARDEN",
+          "confidence": 0.9806661772355829,
+          "recognitionConfidence": 0.9999744966626167,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 63.766025641025635,
+              "y": 68.99432260937326
+            },
+            {
+              "x": 406.02564102564105,
+              "y": 68.99432260937326
+            },
+            {
+              "x": 406.02564102564105,
+              "y": 93.55271067572082
+            },
+            {
+              "x": 63.766025641025635,
+              "y": 93.55271067572082
+            }
+          ]
+        },
+        {
+          "text": "Spring planting begins.",
+          "confidence": 0.9910021320420123,
+          "recognitionConfidence": 0.9999835387520168,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 64.1443941885965,
+              "y": 139.18466752989565
+            },
+            {
+              "x": 384.8139391447369,
+              "y": 139.18466752989565
+            },
+            {
+              "x": 384.8139391447369,
+              "y": 166.1120039606977
+            },
+            {
+              "x": 64.1443941885965,
+              "y": 166.1120039606977
+            }
+          ]
+        },
+        {
+          "text": "Volunteers meet at nine.",
+          "confidence": 0.9235742461845527,
+          "recognitionConfidence": 0.9995616947611173,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 62.04147494887525,
+              "y": 198.55726119343353
+            },
+            {
+              "x": 405.6668583844581,
+              "y": 198.55726119343353
+            },
+            {
+              "x": 405.6668583844581,
+              "y": 225.52378077472855
+            },
+            {
+              "x": 62.04147494887525,
+              "y": 225.52378077472855
+            }
+          ]
+        },
+        {
+          "text": "Bring gloves and water.",
+          "confidence": 0.9550090591884711,
+          "recognitionConfidence": 0.9775777977445851,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 62.42535287730728,
+              "y": 257.2914673065048
+            },
+            {
+              "x": 386.53298045602605,
+              "y": 257.2914673065048
+            },
+            {
+              "x": 386.53298045602605,
+              "y": 286.61591330131
+            },
+            {
+              "x": 62.42535287730728,
+              "y": 286.61591330131
+            }
+          ]
+        },
+        {
+          "text": "CITY LIBRARY NEWS",
+          "confidence": 0.9849869559839958,
+          "recognitionConfidence": 0.9997984170913696,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 544.6614583333334,
+              "y": 69.68162083936323
+            },
+            {
+              "x": 885.546875,
+              "y": 69.68162083936323
+            },
+            {
+              "x": 885.546875,
+              "y": 91.82344428364688
+            },
+            {
+              "x": 544.6614583333334,
+              "y": 91.82344428364688
+            }
+          ]
+        },
+        {
+          "text": "New books arrive Monday.",
+          "confidence": 0.9501499012026284,
+          "recognitionConfidence": 0.9967276925841967,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 542.6137525562373,
+              "y": 137.44518924293945
+            },
+            {
+              "x": 886.5529141104295,
+              "y": 137.44518924293945
+            },
+            {
+              "x": 886.5529141104295,
+              "y": 166.80951408556996
+            },
+            {
+              "x": 542.6137525562373,
+              "y": 166.80951408556996
+            }
+          ]
+        },
+        {
+          "text": "Reading club welcomes all.",
+          "confidence": 0.958616197443142,
+          "recognitionConfidence": 0.963445130449075,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 543.2834201388889,
+              "y": 198.54920405209842
+            },
+            {
+              "x": 897.3415798611111,
+              "y": 198.54920405209842
+            },
+            {
+              "x": 897.3415798611111,
+              "y": 225.53183791606367
+            },
+            {
+              "x": 543.2834201388889,
+              "y": 225.53183791606367
+            }
+          ]
+        },
+        {
+          "text": "Return books by Friday.",
+          "confidence": 0.9559855565520152,
+          "recognitionConfidence": 0.9999896132427714,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 542.6239451476794,
+              "y": 258.32369158621697
+            },
+            {
+              "x": 876.1260548523206,
+              "y": 258.32369158621697
+            },
+            {
+              "x": 876.1260548523206,
+              "y": 287.6676253457656
+            },
+            {
+              "x": 542.6239451476794,
+              "y": 287.6676253457656
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pairing": "medium_det+medium_rec",
+      "caseId": "mixed-ja-en",
+      "title": "Mixed Japanese and English guide",
+      "wallMs": 5594.340501999999,
+      "detectedRegions": 6,
+      "cer": {
+        "distance": 1,
+        "referenceUnits": 116,
+        "rate": 0.008620689655172414
+      },
+      "wer": {
+        "distance": 2,
+        "referenceUnits": 16,
+        "rate": 0.125
+      },
+      "detection": {
+        "matched": 6,
+        "reference": 6,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "practical",
+      "groundTruth": "Sakutto 翻訳ガイド\nSTART を押して開始します。\nEnglish と日本語を読み取ります。\nPrivacy first: 外部送信なし。\nOCR version 6 を使用します。\n詳細は README をご覧ください。",
+      "ocrText": "Sakutto 翻訳ガイド\nSTARTを押して開始します。\nEnglish と日本語を読み取ります。\nPrivacy first: 外部送信なし。\nOCR version 6 を使用します。\n詳細は README をご覧ください。",
+      "regions": [
+        {
+          "text": "Sakutto 翻訳ガイド",
+          "confidence": 0.9619012583671757,
+          "recognitionConfidence": 0.9904001309321477,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 73.40336700336701,
+              "y": 67.40336700336701
+            },
+            {
+              "x": 375.596632996633,
+              "y": 67.40336700336701
+            },
+            {
+              "x": 375.596632996633,
+              "y": 104.59663299663299
+            },
+            {
+              "x": 73.40336700336701,
+              "y": 104.59663299663299
+            }
+          ]
+        },
+        {
+          "text": "STARTを押して開始します。",
+          "confidence": 0.9506420985424704,
+          "recognitionConfidence": 0.9998432199160258,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 73.56010498687664,
+              "y": 152.56010498687664
+            },
+            {
+              "x": 459.43989501312336,
+              "y": 152.56010498687664
+            },
+            {
+              "x": 459.43989501312336,
+              "y": 185.43989501312336
+            },
+            {
+              "x": 73.56010498687664,
+              "y": 185.43989501312336
+            }
+          ]
+        },
+        {
+          "text": "English と日本語を読み取ります。",
+          "confidence": 0.9575902849197993,
+          "recognitionConfidence": 0.999244499206543,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 73.51612903225805,
+              "y": 228.51612903225805
+            },
+            {
+              "x": 512.483870967742,
+              "y": 228.51612903225805
+            },
+            {
+              "x": 512.483870967742,
+              "y": 261.48387096774195
+            },
+            {
+              "x": 73.51612903225805,
+              "y": 261.48387096774195
+            }
+          ]
+        },
+        {
+          "text": "Privacy first: 外部送信なし。",
+          "confidence": 0.9658215681819112,
+          "recognitionConfidence": 0.9970600821755149,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 72.98899710479752,
+              "y": 303.1075406789802
+            },
+            {
+              "x": 439.8953811885701,
+              "y": 301.8246512241418
+            },
+            {
+              "x": 440.0165898971709,
+              "y": 336.49034188395
+            },
+            {
+              "x": 73.11020581339825,
+              "y": 337.7732313387884
+            }
+          ]
+        },
+        {
+          "text": "OCR version 6 を使用します。",
+          "confidence": 0.9573784343287798,
+          "recognitionConfidence": 0.9945415911220369,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 73.5545219638243,
+              "y": 377.5545219638243
+            },
+            {
+              "x": 465.4454780361757,
+              "y": 377.5545219638243
+            },
+            {
+              "x": 465.4454780361757,
+              "y": 410.4454780361757
+            },
+            {
+              "x": 73.5545219638243,
+              "y": 410.4454780361757
+            }
+          ]
+        },
+        {
+          "text": "詳細は README をご覧ください。",
+          "confidence": 0.9409857058529374,
+          "recognitionConfidence": 0.982613111797132,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 73.51612903225805,
+              "y": 452.51612903225805
+            },
+            {
+              "x": 512.483870967742,
+              "y": 452.51612903225805
+            },
+            {
+              "x": 512.483870967742,
+              "y": 485.48387096774195
+            },
+            {
+              "x": 73.51612903225805,
+              "y": 485.48387096774195
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pairing": "medium_det+medium_rec",
+      "caseId": "small-text",
+      "title": "Small text and captions",
+      "wallMs": 6520.525604000002,
+      "detectedRegions": 8,
+      "cer": {
+        "distance": 42,
+        "referenceUnits": 211,
+        "rate": 0.1990521327014218
+      },
+      "wer": {
+        "distance": 11,
+        "referenceUnits": 32,
+        "rate": 0.34375
+      },
+      "detection": {
+        "matched": 8,
+        "reference": 8,
+        "recall": 1,
+        "threshold": 0.3
+      },
+      "practicality": "marginal",
+      "groundTruth": "QUICK REFERENCE\nSelect the source language.\nDrop an image on the page.\nCheck names and numbers.\nSmall captions remain legible.\nZoom in when the print is faint.\nSupport: help@example.test\nDocument ID: SA-006-2026",
+      "ocrText": "QUICK REFERENCE\nSelect the source language.\nDrop an image on the page.\nCheck names and numbers.\nmaonsmng.\nZoomnntnan.\nSupport: help@example.test\nDocument ID: SA-006-2026",
+      "regions": [
+        {
+          "text": "QUICK REFERENCE",
+          "confidence": 0.9347305245743839,
+          "recognitionConfidence": 0.999786627292633,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 68.36188663282572,
+              "y": 62.12986402403637
+            },
+            {
+              "x": 276.4297800338409,
+              "y": 62.12986402403637
+            },
+            {
+              "x": 276.4297800338409,
+              "y": 81.66174234354683
+            },
+            {
+              "x": 68.36188663282572,
+              "y": 81.66174234354683
+            }
+          ]
+        },
+        {
+          "text": "Select the source language.",
+          "confidence": 0.9579333320001416,
+          "recognitionConfidence": 0.9845217907870257,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 68.22470562773333,
+              "y": 119.20132827672053
+            },
+            {
+              "x": 296.46905350229275,
+              "y": 120.47680542708068
+            },
+            {
+              "x": 296.3566771407163,
+              "y": 140.59799625310464
+            },
+            {
+              "x": 68.11232926615679,
+              "y": 139.32251910274454
+            }
+          ]
+        },
+        {
+          "text": "Drop an image on the page.",
+          "confidence": 0.9488469043335357,
+          "recognitionConfidence": 0.9638555645942688,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 68.34104938271605,
+              "y": 170.47370959961407
+            },
+            {
+              "x": 296.24228395061726,
+              "y": 170.47370959961407
+            },
+            {
+              "x": 296.24228395061726,
+              "y": 190.04727448142788
+            },
+            {
+              "x": 68.34104938271605,
+              "y": 190.04727448142788
+            }
+          ]
+        },
+        {
+          "text": "Check names and numbers.",
+          "confidence": 0.9726156038330113,
+          "recognitionConfidence": 0.9999427671233813,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 69.02349921011059,
+              "y": 221.1708287323132
+            },
+            {
+              "x": 291.39316745655606,
+              "y": 221.1708287323132
+            },
+            {
+              "x": 291.39316745655606,
+              "y": 238.33713074670268
+            },
+            {
+              "x": 69.02349921011059,
+              "y": 238.33713074670268
+            }
+          ]
+        },
+        {
+          "text": "maonsmng.",
+          "confidence": 0.9716572390296966,
+          "recognitionConfidence": 0.6677345534165701,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 69.00951086956523,
+              "y": 271.17130812307306
+            },
+            {
+              "x": 311.1988224637681,
+              "y": 271.17130812307306
+            },
+            {
+              "x": 311.1988224637681,
+              "y": 288.36559491600076
+            },
+            {
+              "x": 69.00951086956523,
+              "y": 288.36559491600076
+            }
+          ]
+        },
+        {
+          "text": "Zoomnntnan.",
+          "confidence": 0.9807053572961674,
+          "recognitionConfidence": 0.53719116340984,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 69.00059767759564,
+              "y": 321.1768641313373
+            },
+            {
+              "x": 325.79106898907105,
+              "y": 321.1768641313373
+            },
+            {
+              "x": 325.79106898907105,
+              "y": 338.3889824677944
+            },
+            {
+              "x": 69.00059767759564,
+              "y": 338.3889824677944
+            }
+          ]
+        },
+        {
+          "text": "Support: help@example.test",
+          "confidence": 0.8647577047822234,
+          "recognitionConfidence": 0.988127928513747,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 68.34409233176838,
+              "y": 370.53464054951996
+            },
+            {
+              "x": 293.11424100156495,
+              "y": 370.53464054951996
+            },
+            {
+              "x": 293.11424100156495,
+              "y": 390.1021177717535
+            },
+            {
+              "x": 68.34409233176838,
+              "y": 390.1021177717535
+            }
+          ]
+        },
+        {
+          "text": "Document ID: SA-006-2026",
+          "confidence": 0.9603909180884205,
+          "recognitionConfidence": 0.9999364987015724,
+          "vertical": false,
+          "quad": [
+            {
+              "x": 67.81778851378613,
+              "y": 422.1412639716334
+            },
+            {
+              "x": 276.8722201149879,
+              "y": 420.93250709651113
+            },
+            {
+              "x": 276.9735301185783,
+              "y": 438.4642105485083
+            },
+            {
+              "x": 67.91909851737647,
+              "y": 439.67296742363055
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "recommendation": "tiny_det+small_rec — fastest pairing within 0.05 absolute micro-CER and 0.05 absolute macro detection-recall proxy of the best values. This is a benchmark recommendation only; DEFAULT_OCR_TIER was not changed.",
+  "defaultTierChanged": false
+}

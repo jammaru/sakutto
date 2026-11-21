@@ -55,6 +55,10 @@ Both files are published by `pfnet` as quantized GGUF (`base_model_relation: qua
 
 The model is used under the PLaMo Community License (`https://plamo.preferredai.jp/info/plamo-community-license-en`, Japanese: `https://plamo.preferredai.jp/info/plamo-community-license-ja`). Hugging Face `LICENSE/en` and `LICENSE/ja` omit some Article 4 and Article 6 items that remain on preferredai.jp; this repository ships the preferredai.jp copies. PLaMo API/Chat terms and the hosted PLaMo Translate service terms do not govern these GGUF files.
 
+## Not shipped: generated OCR benchmark fixtures
+
+`bench/ocr/fixtures/` contains deterministic English/Japanese SVG, PNG, and raw-RGBA benchmark inputs covering scans, horizontal and vertical Japanese, slides, low-resolution/skew, columns, mixed text, and small text. The source sentences and generated images are dedicated to CC0; attribution and regeneration details are in `bench/ocr/LICENSE.md`. They are not packaged in the extension.
+
 ## Not shipped: Wikipedia fixture
 
 `scripts/bench/fixtures/kyoto.html` is a modified copy of the English Wikipedia article "Kyoto."
