@@ -83,6 +83,7 @@ import { isBrokenTranslation } from '../text/degenerate';
 import { CpuRetryRuntimeSlot } from './retry-runtime';
 import { translationStaysInSourceLanguage } from '@/pdf/language';
 import { RoutingEngine, type PairSupport } from '../router';
+import type { OcrHost } from '../ocr/host';
 import type { GlossaryEntry } from '../types';
 import {
   ENGINE_HOST_PORT,
@@ -101,6 +102,10 @@ import {
   type ModelDownloadRequest,
   type ModelSetRequest,
   type ModelStatusRequest,
+  type OcrDeleteRequest,
+  type OcrDownloadRequest,
+  type OcrRecognizeRequest,
+  type OcrStatusRequest,
   type RuntimeSetRequest,
   type SourceSetRequest,
   type TierSetRequest,
@@ -401,6 +406,8 @@ export class EngineHost {
   private localConfig: LocalServerConfig = localServerConfigFromSettings(null);
   private localScheduler: JobScheduler | null = null;
   private folderSession: SharedFolderSession | null = null;
+  /** Created only by an OCR message; translation startup never imports the OCR runtime. */
+  private ocrHostTask: Promise<OcrHost> | null = null;
 
   constructor(options: EngineHostOptions = {}) {
     this.idleReleaseMs = options.idleReleaseMs ?? IDLE_RELEASE_MS;
@@ -764,6 +771,15 @@ export class EngineHost {
       case 'model-status':
         void this.handleModelStatus(port, message);
         return;
+      case 'ocr-recognize':
+      case 'ocr-download':
+      case 'ocr-delete':
+      case 'ocr-status':
+        void this.handleOcr(port, message);
+        return;
+      case 'ocr-cancel':
+        void this.ocrHostTask?.then((host) => host.cancel(message.requestId));
+        return;
       case 'cache-clear':
         void this.handleCacheClear(port, message);
         return;
@@ -794,6 +810,75 @@ export class EngineHost {
       case 'benchmark':
         void this.handleBenchmark(port, message);
         return;
+    }
+  }
+
+  private ocrHost(): Promise<OcrHost> {
+    if (!this.ocrHostTask) {
+      this.ocrHostTask = import('../ocr/host').then(
+        ({ OcrHost: LazyOcrHost }) =>
+          new LazyOcrHost({
+            hasConsent: () => this.runtimePrefs?.consented ?? false,
+            createAssetStore: async () => {
+              // Do not initialize translation for OCR. If it is already active, however, use
+              // its selected OPFS/shared-folder destination instead of splitting model storage.
+              if (this.servicesTask) {
+                try {
+                  return (await this.servicesTask).manager.primaryStore;
+                } catch {
+                  // OCR can still use browser storage when translation initialization failed.
+                }
+              }
+              return OpfsModelFileStore.open();
+            },
+            onStatus: (status) => {
+              for (const port of this.ports) {
+                this.post(port, {
+                  type: 'ocr-progress',
+                  requestId: `ocr:${status.id}`,
+                  status,
+                });
+              }
+            },
+          }),
+      );
+    }
+    return this.ocrHostTask;
+  }
+
+  private async handleOcr(
+    port: Browser.runtime.Port,
+    request: OcrRecognizeRequest | OcrDownloadRequest | OcrDeleteRequest | OcrStatusRequest,
+  ): Promise<void> {
+    try {
+      const host = await this.ocrHost();
+      switch (request.type) {
+        case 'ocr-recognize': {
+          const { decodeOcrImage } = await import('../ocr/codec');
+          const result = await host.recognize(
+            request.requestId,
+            request.tier,
+            decodeOcrImage(request.image),
+          );
+          this.respond(port, request.requestId, result);
+          return;
+        }
+        case 'ocr-download':
+          this.respond(
+            port,
+            request.requestId,
+            await host.download(request.requestId, request.tier),
+          );
+          return;
+        case 'ocr-delete':
+          this.respond(port, request.requestId, await host.delete(request.tier));
+          return;
+        case 'ocr-status':
+          this.respond(port, request.requestId, await host.status(request.tier));
+          return;
+      }
+    } catch (error) {
+      this.respondError(port, request.requestId, error);
     }
   }
 

@@ -1,5 +1,7 @@
 import { EngineError, isEngineErrorCode, type EngineErrorCode } from '../errors';
 import { isModelId, type ModelId } from '../model/catalog';
+import { isOcrTier, type OcrTier } from '../ocr/catalog';
+import type { AssetStatus } from '../model/asset';
 import { isTranslationChunk } from '../types';
 import type {
   Formality,
@@ -148,6 +150,44 @@ export interface ModelStatusRequest {
   modelId: ModelId;
 }
 
+export interface OcrImagePayload {
+  width: number;
+  height: number;
+  /** Base64-encoded RGBA bytes, row-major with no stride. */
+  data: string;
+}
+
+export interface OcrRecognizeRequest {
+  type: 'ocr-recognize';
+  requestId: string;
+  tier: OcrTier;
+  image: OcrImagePayload;
+}
+
+export interface OcrCancelRequest {
+  type: 'ocr-cancel';
+  /** Request id of the recognition or model download to abort. */
+  requestId: string;
+}
+
+export interface OcrStatusRequest {
+  type: 'ocr-status';
+  requestId: string;
+  tier: OcrTier;
+}
+
+export interface OcrDownloadRequest {
+  type: 'ocr-download';
+  requestId: string;
+  tier: OcrTier;
+}
+
+export interface OcrDeleteRequest {
+  type: 'ocr-delete';
+  requestId: string;
+  tier: OcrTier;
+}
+
 export interface CacheClearRequest {
   type: 'cache-clear';
   requestId: string;
@@ -237,6 +277,11 @@ export type EngineHostRequest =
   | ModelUseRequest
   | ModelWarmRequest
   | ModelStatusRequest
+  | OcrRecognizeRequest
+  | OcrCancelRequest
+  | OcrStatusRequest
+  | OcrDownloadRequest
+  | OcrDeleteRequest
   | CacheClearRequest
   | TierSetRequest
   | SourceSetRequest
@@ -271,6 +316,12 @@ export interface ModelProgressEvent {
   status: ModelStatus;
 }
 
+export interface OcrProgressEvent {
+  type: 'ocr-progress';
+  requestId: string;
+  status: AssetStatus<OcrTier>;
+}
+
 export interface ResponseEvent {
   type: 'response';
   requestId: string;
@@ -301,6 +352,7 @@ export type EngineHostMessage =
   | DoneEvent
   | ErrorEvent
   | ModelProgressEvent
+  | OcrProgressEvent
   | ResponseEvent
   | ResponseErrorEvent
   | ModelPersistEvent;
@@ -339,6 +391,8 @@ export type TranslationClientMessage = TranslationStartRequest | TranslationCanc
 export type TranslationServerMessage =
   TranslationChunkEvent | TranslationDoneEvent | TranslationErrorEvent;
 
+export const MAX_OCR_PIXELS = 16_777_216;
+const MAX_OCR_DIMENSION = 16_384;
 const MAX_SEGMENTS = 2000;
 const MAX_SEGMENT_ID = 200;
 /**
@@ -425,6 +479,53 @@ function isSegments(value: unknown): value is TranslateSegment[] {
   );
 }
 
+function isOcrImagePayload(value: unknown): value is OcrImagePayload {
+  if (!isRecord(value)) return false;
+  if (!Number.isSafeInteger(value.width) || !Number.isSafeInteger(value.height)) return false;
+  const width = value.width as number;
+  const height = value.height as number;
+  if (width < 1 || height < 1 || width > MAX_OCR_DIMENSION || height > MAX_OCR_DIMENSION) {
+    return false;
+  }
+  const pixels = width * height;
+  if (pixels > MAX_OCR_PIXELS || typeof value.data !== 'string') return false;
+  const bytes = pixels * 4;
+  const expectedLength = Math.ceil(bytes / 3) * 4;
+  return (
+    value.data.length === expectedLength &&
+    /^[A-Za-z0-9+/]*={0,2}$/u.test(value.data) &&
+    !value.data.slice(0, -2).includes('=')
+  );
+}
+
+function isAssetStatus(value: unknown): value is AssetStatus<OcrTier> {
+  if (!isRecord(value) || !isOcrTier(value.id)) return false;
+  if (
+    typeof value.state !== 'string' ||
+    ![
+      'absent',
+      'partial',
+      'downloading',
+      'verifying',
+      'ready',
+      'loading',
+      'loaded',
+      'error',
+    ].includes(value.state)
+  ) {
+    return false;
+  }
+  return (
+    typeof value.received === 'number' &&
+    Number.isFinite(value.received) &&
+    typeof value.total === 'number' &&
+    Number.isFinite(value.total) &&
+    typeof value.progress === 'number' &&
+    Number.isFinite(value.progress) &&
+    (value.error === undefined || typeof value.error === 'string')
+  );
+}
+
 export function isEngineHostRequest(value: unknown): value is EngineHostRequest {
   if (!isRecord(value) || !isRequestId(value)) return false;
 
@@ -435,6 +536,7 @@ export function isEngineHostRequest(value: unknown): value is EngineHostRequest 
     case 'ping':
     case 'cancel':
     case 'model-cancel':
+    case 'ocr-cancel':
     case 'model-warm':
       return true;
     case 'model-download':
@@ -442,6 +544,12 @@ export function isEngineHostRequest(value: unknown): value is EngineHostRequest 
     case 'model-use':
     case 'model-status':
       return isModelId(value.modelId);
+    case 'ocr-recognize':
+      return isOcrTier(value.tier) && isOcrImagePayload(value.image);
+    case 'ocr-status':
+    case 'ocr-download':
+    case 'ocr-delete':
+      return isOcrTier(value.tier);
     case 'cache-clear':
     case 'benchmark':
       return true;
@@ -503,6 +611,8 @@ export function isEngineHostMessage(value: unknown): value is EngineHostMessage 
       return isErrorPayload(value.error);
     case 'model-progress':
       return isModelStatus(value.status);
+    case 'ocr-progress':
+      return isAssetStatus(value.status);
     case 'response':
       return (
         typeof value.ok === 'boolean' && (value.ok ? 'value' in value : isErrorPayload(value.error))
