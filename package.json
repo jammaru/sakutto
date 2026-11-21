@@ -37,6 +37,7 @@
     "typecheck": "node scripts/sync-licenses.mjs && node scripts/sync-pdfjs.mjs && wxt prepare && svelte-check --tsconfig ./tsconfig.json --threshold error",
     "test": "vitest run --configLoader runner",
     "test:e2e": "node scripts/run-e2e.mjs",
+    "caption:quality": "node scripts/run-e2e.mjs -- e2e/caption-quality.spec.ts",
     "bench": "node scripts/bench/run.ts",
     "bench:mock": "node scripts/bench/pages-run.ts --mode mock",
     "bench:live": "node scripts/bench/pages-run.ts --mode live",
