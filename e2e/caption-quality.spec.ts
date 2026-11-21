@@ -45,11 +45,15 @@ const EN: QualityRun = {
   ],
 };
 
-/** Exercise each display path in one pass; marks let the analyser attribute frames. */
+/**
+ * Exercise each display path in one pass; phase marks let the analyser attribute frames.
+ * Only seek-forward/seek-back are pure seeks (seek-settle). The tail and rate steps also
+ * reposition the playhead, but their play is measured for show-latency and cue-advance.
+ */
 const STEPS: readonly ScenarioStep[] = [
   { phase: 'normal', dwellMs: 4_700 },
-  { phase: 'seek-forward', seekMs: 4_200, dwellMs: 700 },
-  { phase: 'seek-back', seekMs: 2_200, dwellMs: 700 },
+  { phase: 'seek-forward', seekMs: 4_200, seek: true, dwellMs: 700 },
+  { phase: 'seek-back', seekMs: 2_200, seek: true, dwellMs: 700 },
   { phase: 'pause', pause: true, dwellMs: 500 },
   { phase: 'resume', dwellMs: 2_300 },
   { phase: 'tail', seekMs: 6_100, dwellMs: 900 },

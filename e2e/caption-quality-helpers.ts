@@ -21,14 +21,13 @@ export const THRESHOLDS = {
   showLatencyMs: 250,
   /** After a seek until the unit at the new playhead is painted. */
   seekSettleMs: 400,
-  /** After the next unit starts until the previous text is gone. */
-  cueAdvanceMs: 400,
   /**
-   * The product intentionally holds a finished line for up to 2s of real silence
-   * (CAPTION_HOLD_MAX_MS); allow that plus scheduler slack before calling it stale.
+   * After the next unit starts until the previous text is gone. The product
+   * intentionally holds a finished line through up to 2s of real silence
+   * (CAPTION_HOLD_MAX_MS); this window allows scheduler slack without hiding
+   * a genuinely stale line once the next cue has started.
    */
-  staleHoldGraceMs: 350,
-  nativeCaptionHoldMs: 2_000,
+  cueAdvanceMs: 400,
   /** Compact overlay: one translated line, optionally one original line. */
   maxVisibleLines: 2,
   /** Fraction of active frames allowed to show a non-sentence string at all. */
@@ -67,7 +66,14 @@ export interface CaptionSample {
 
 export interface ScenarioStep {
   phase: string;
+  /** Repositions the playhead: a seek test, a rewind to 0 for a rate run, etc. */
   seekMs?: number;
+  /**
+   * Marks a *pure seek* step, whose metric is seek-settle. Rate and tail steps also
+   * reposition the playhead via seekMs, but leave this unset so their subsequent
+   * play is measured for show-latency and cue-advance.
+   */
+  seek?: boolean;
   rate?: number;
   pause?: boolean;
   dwellMs: number;
@@ -326,7 +332,7 @@ export function computeQualityReport(
   const latencies: number[] = [];
   const latencyDetails: string[] = [];
   for (const step of steps) {
-    if (step.seekMs !== undefined || step.pause === true) continue;
+    if (step.seek === true || step.pause === true) continue;
     const frames = phaseSamples(samples, step.phase);
     for (const sentence of run.sentences) {
       if (sentence.startMs === 0) continue; // already painted before play starts
@@ -339,7 +345,7 @@ export function computeQualityReport(
         ? Math.max(0, appearance.atMs - crossed)
         : Number.POSITIVE_INFINITY;
       latencies.push(latency);
-      latencyDetails.push(sentence.text + '=' + Math.round(latency));
+      latencyDetails.push(step.phase + ':' + sentence.text + '=' + Math.round(latency));
     }
   }
   const worstLatency = latencies.length > 0 ? Math.max(...latencies) : 0;
@@ -349,7 +355,7 @@ export function computeQualityReport(
   for (const step of steps) {
     const frames = phaseSamples(samples, step.phase);
     if (frames.length === 0) continue;
-    if (step.seekMs !== undefined) {
+    if (step.seek === true) {
       const target = run.sentences.find(
         (sentence) =>
           step.seekMs !== undefined &&
@@ -437,7 +443,7 @@ export function computeQualityReport(
       THRESHOLDS.showLatencyMs,
       'ms',
       worstLatency <= THRESHOLDS.showLatencyMs,
-      'per-sentence ms at 1x/1.5x/2x: ' + latencyDetails.join(', '),
+      'per-sentence ms by phase at 1x/1.5x/2x: ' + latencyDetails.join(', '),
     ),
     metric(
       'seek-settle: worst',
@@ -453,7 +459,7 @@ export function computeQualityReport(
       THRESHOLDS.cueAdvanceMs,
       'ms',
       worstAdvance <= THRESHOLDS.cueAdvanceMs,
-      'previous unit persisting after the next unit starts',
+      'previous unit persisting after the next cue starts (1x/1.5x/2x, incl. tail after seek)',
     ),
     metric(
       'no-flicker: jump-back frames',

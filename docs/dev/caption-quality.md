@@ -34,28 +34,38 @@ The fake engine translates by prefixing the source with `§<target>§`; the page
   duplicated text such as `"The station opens at station opens at dawn."`.
 - `e2e/caption-quality-helpers.ts` — a 50 ms page-side sampler over the overlay host,
   its shadow lines, the native caption window, the player rect, and the playhead. It
-  drives normal play, forward/back seek, pause/resume, 1.5x and 2.0x playback, then
-  computes the metrics below.
+  drives normal play, forward/back seek, pause/resume, a tail seek, and 1.5x/2.0x playback,
+  then computes the metrics below. Scenario steps marked `seek: true` are _pure seeks_
+  (measured for seek-settle only); steps that merely set `seekMs` to reposition the
+  playhead before playing (tail, rate runs) are measured for show-latency and cue-advance
+  instead.
 - `e2e/caption-quality.spec.ts` — runs the same scenario for Japanese → English and
   English → Japanese, injects decoy page copy, and asserts every metric passes.
 
 ## Metrics and thresholds
 
-| Metric                        | Threshold                                   | Why                                                                 |
-| ----------------------------- | ------------------------------------------- | ------------------------------------------------------------------- |
-| Complete sentence units       | ≤8% of active frames, ≤250 ms partial dwell | No flicker through ASR fragments or duplicated rolling windows      |
-| All four sentences observed   | 4/4                                         | Every unit must reach the overlay                                   |
-| Show latency (1x / 1.5x / 2x) | ≤250 ms from playhead crossing cue start    | Includes 50 ms sampling slack; 80 ms fake-engine prefill            |
-| Seek settle                   | ≤400 ms                                     | Forward and backward seeks must repaint promptly                    |
-| Cue advance (no stale text)   | ≤400 ms after the next cue starts           | Product holds a finished line only through real silence (2 s hold)  |
-| Jump-back / rollback          | 0 frames                                    | A committed sentence must not reappear during a later unit          |
-| Overlay isolation             | 0 decoy leaks                               | Page copy must never enter caption attributes or shadow lines       |
-| Layout                        | 0 overflow frames, ≤2 visible lines         | Overlay stays inside the player; one translated + one original line |
-| Native captions hidden        | 0 frames                                    | Native window must be hidden while Sakutto paints                   |
+| Metric                        | Threshold                                   | Why                                                                                                     |
+| ----------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Complete sentence units       | ≤8% of active frames, ≤250 ms partial dwell | No flicker through ASR fragments or duplicated rolling windows                                          |
+| All four sentences observed   | 4/4                                         | Every unit must reach the overlay                                                                       |
+| Show latency (1x / 1.5x / 2x) | ≤250 ms from playhead crossing cue start    | Includes 50 ms sampling slack; 80 ms fake-engine prefill                                                |
+| Seek settle                   | ≤400 ms                                     | Forward/backward seeks only; pure seek steps repaint promptly                                           |
+| Cue advance (no stale text)   | ≤400 ms after the next cue starts           | All play phases incl. tail after its seek; a finished line is held only through real silence (2 s hold) |
+| Jump-back / rollback          | 0 frames                                    | A committed sentence must not reappear during a later unit                                              |
+| Overlay isolation             | 0 decoy leaks                               | Page copy must never enter caption attributes or shadow lines                                           |
+| Layout                        | 0 overflow frames, ≤2 visible lines         | Overlay stays inside the player; one translated + one original line                                     |
+| Native captions hidden        | 0 frames                                    | Native window must be hidden while Sakutto paints                                                       |
 
 Show latency used to be bounded by `timeupdate` (~4 Hz). `src/captions/session.ts` now
 polls the playhead every 50 ms while playing (`paint(false, true)`, skipping layout work)
 so a cue change paints at frame-like cadence. The 250 ms threshold was **not** relaxed.
+
+The show-latency and cue-advance timings are attributed by phase: normal play crosses the
+second and third cues at 1x, the tail step crosses the final cue after seeking to 6.1 s,
+and the rate steps rewind to 0 and cross the second cue at 1.5x and 2x. Only the two pure
+seek steps contribute to seek-settle; their `seekMs` repositions plus the mark lets the
+analyser keep the two measurements separate. The per-sentence latency detail in the
+metrics JSON is prefixed with its phase (e.g. `rate-2:…=…`).
 
 ## Baseline comparison workflow
 
