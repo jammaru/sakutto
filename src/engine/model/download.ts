@@ -1,4 +1,5 @@
 import { abortError, EngineError, isAbortError, isEngineError } from '../errors';
+import type { ModelRevision } from './catalog';
 import type { ModelFileStore, ModelFileWriter } from './file-store';
 import { reuseVerifiedFinal } from './copy';
 import { sha256OfBlob, type HashOptions } from './sha256';
@@ -13,6 +14,8 @@ export interface DownloadSource {
   url: string;
   size: number;
   sha256: string;
+  /** Every known official revision; absent for single-revision callers and benchmarks. */
+  revisions?: readonly ModelRevision[];
 }
 
 export type DownloadPhase = 'download' | 'verify';
@@ -875,7 +878,10 @@ export async function downloadModel(request: DownloadRequest): Promise<DownloadR
       }
       throwIfAborted(request.signal);
 
-      if (digest !== request.source.sha256) {
+      const accepted = request.source.revisions?.length
+        ? request.source.revisions.map((revision) => revision.sha256)
+        : [request.source.sha256];
+      if (!accepted.includes(digest)) {
         await request.store.remove(request.partPath);
         throw new EngineError('model-integrity', 'The downloaded model failed its digest check.');
       }
@@ -888,6 +894,7 @@ export async function downloadModel(request: DownloadRequest): Promise<DownloadR
         finalPath: request.finalPath,
         size: request.source.size,
         sha256: request.source.sha256,
+        ...(request.source.revisions ? { revisions: request.source.revisions } : {}),
         signal: request.signal,
         ...(customHash ? { hashBlob: customHash } : {}),
       });

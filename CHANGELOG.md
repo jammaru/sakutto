@@ -2,6 +2,16 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
+## [1.9.1] - 2026-11-21
+
+- オンボーディングのモデルダウンロード進捗が通知途絶後に止まったままになる不具合を修正 (#149) (#150)
+- docs: add kiyoka to contributors (#152)
+- docs: use dynamic GitHub release badge in READMEs (#153)
+- 16 並列のとき、空いた枠にすぐ次の依頼を入れる (#133)
+- Fix all-sites content-script registration race (#155)
+- Remove the Brave Shields caption notice (#156)
+- 公式PLaMo GGUFの複数リビジョンを検証し、未知版は更新を案内する（#157） (#158)
+
 ## [1.9.0] - 2026-11-20
 
 ### Features

@@ -801,6 +801,14 @@
       }
     }
   },
+  "modelFolderIntegrityUnknownRevision": {
+    "message": "Le hachage SHA-256 du fichier $FILE$ est inconnu de Sakutto. Il peut s’agir d’une version officielle plus récente de PLaMo — mettez à jour Sakutto.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
   },
@@ -1559,9 +1567,6 @@
   },
   "videoCaptionsCustomHostDenied": {
     "message": "L’accès à ce site n’a pas été accordé."
-  },
-  "videoCaptionsBraveShields": {
-    "message": "Brave Shields a bloqué les données des sous-titres YouTube. Désactivez Shields pour cette vidéo, puis rechargez la page pour traduire les sous-titres."
   },
   "videoCaptionsPositionReset": {
     "message": "Réinitialiser la position"

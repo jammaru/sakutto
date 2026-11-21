@@ -10,7 +10,7 @@ import type { ModelFileStore } from './file-store';
 import { importModelFile, type ModelTransferProgress } from './import-export';
 import { SHARED_MODELS_DIRECTORY } from './shared-folder';
 
-type FolderModelEntry = Pick<ModelEntry, 'size' | 'sha256' | 'commit' | 'file'>;
+type FolderModelEntry = Pick<ModelEntry, 'size' | 'sha256' | 'commit' | 'file' | 'revisions'>;
 
 export interface SharedFolderFileMatch {
   modelId: ModelId;

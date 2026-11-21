@@ -27,5 +27,5 @@ jobs:
         with:
           node-version: 24
 
-      - name: Range-check the pinned model URLs
+      - name: Check upstream revisions against the catalog pins
         run: node scripts/check-model-pins.ts

@@ -801,6 +801,14 @@
       }
     }
   },
+  "modelFolderIntegrityUnknownRevision": {
+    "message": "SHA-256 файла $FILE$ неизвестен Sakutto. Возможно, это более новая официальная модель PLaMo — обновите Sakutto.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
   },
@@ -1559,9 +1567,6 @@
   },
   "videoCaptionsCustomHostDenied": {
     "message": "Доступ к этому сайту не был предоставлен."
-  },
-  "videoCaptionsBraveShields": {
-    "message": "Brave Shields заблокировал данные субтитров YouTube. Отключите Shields для этого видео и перезагрузите страницу, чтобы перевести субтитры."
   },
   "videoCaptionsPositionReset": {
     "message": "Сбросить положение"

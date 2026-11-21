@@ -30,7 +30,7 @@
   import { modelCanTranslate, type ModelStatus } from '@/shared/engine-status';
   import { hasLicenseConsent } from '@/shared/agreement';
   import { openOrFocusExtensionTab } from '@/shared/extension-tabs';
-  import { t } from '@/shared/i18n';
+  import { integrityMessageKey, t } from '@/shared/i18n';
   import {
     isModelProgressMessage,
     requestEngineStatus,
@@ -115,7 +115,7 @@
     if (isModelIntegrityError(error)) {
       // Shared-folder failures are shown once under the folder settings.
       if (folderIntegrity.has(id)) return null;
-      return t('modelFolderIntegrityFailed', [getModel(id).file]);
+      return t(integrityMessageKey(error), [getModel(id).file]);
     }
     return error;
   }

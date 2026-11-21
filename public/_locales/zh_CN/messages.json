@@ -801,6 +801,14 @@
       }
     }
   },
+  "modelFolderIntegrityUnknownRevision": {
+    "message": "文件 $FILE$ 的 SHA-256 值 Sakutto 尚不支持。它可能是较新的官方 PLaMo 模型，请更新 Sakutto。",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
   },
@@ -1559,9 +1567,6 @@
   },
   "videoCaptionsCustomHostDenied": {
     "message": "未授予对该网站的访问权限。"
-  },
-  "videoCaptionsBraveShields": {
-    "message": "Brave Shields 阻止了 YouTube 字幕数据。请对此视频关闭 Shields，然后重新加载页面以翻译字幕。"
   },
   "videoCaptionsPositionReset": {
     "message": "重置位置"

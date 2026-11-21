@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   INTEGRITY_DIGEST_ERROR,
+  INTEGRITY_REVISION_ERROR,
   INTEGRITY_SIZE_ERROR,
   isModelIntegrityError,
   ModelManager,
@@ -537,7 +538,7 @@ describe('ModelManager', () => {
     ).rejects.toMatchObject({ code: 'model-integrity' });
     expect(await hashing.status(ENTRY.id)).toMatchObject({
       state: 'error',
-      error: INTEGRITY_DIGEST_ERROR,
+      error: INTEGRITY_REVISION_ERROR,
     });
   });
 
@@ -906,8 +907,134 @@ describe('ModelManager', () => {
   it('keeps integrity failures as tokens, not user-facing English', () => {
     expect(isModelIntegrityError(INTEGRITY_SIZE_ERROR)).toBe(true);
     expect(isModelIntegrityError(INTEGRITY_DIGEST_ERROR)).toBe(true);
+    expect(isModelIntegrityError(INTEGRITY_REVISION_ERROR)).toBe(true);
     expect(isModelIntegrityError('The file is not the official PLaMo model')).toBe(false);
     expect(INTEGRITY_SIZE_ERROR).toBe('integrity-size');
     expect(INTEGRITY_DIGEST_ERROR).toBe('integrity-digest');
+  });
+});
+
+const MULTI_PAYLOADS = [
+  PAYLOAD,
+  bytesOf('official model bytes!!'),
+  bytesOf('official model bytes!!!!'),
+];
+const MULTI_REVISIONS = MULTI_PAYLOADS.map((bytes, index) => ({
+  commit: `multi-c${String(index + 1)}`,
+  size: bytes.length,
+  sha256: sha256Hex(bytes),
+}));
+const MULTI_ENTRY = makeEntry({
+  size: MULTI_REVISIONS[0]?.size ?? 0,
+  sha256: MULTI_REVISIONS[0]?.sha256 ?? '',
+  revisions: MULTI_REVISIONS,
+});
+const MULTI_FINAL = `models/${MULTI_ENTRY.id}/model.gguf`;
+const MULTI_MANIFEST = `models/${MULTI_ENTRY.id}/model.json`;
+
+function multiManager(store: MemoryFileStore, fallbackStore?: MemoryFileStore): ModelManager {
+  return new ModelManager({
+    store,
+    ...(fallbackStore ? { fallbackStore } : {}),
+    entries: entryRecord(MULTI_ENTRY),
+    createRuntime: async () => new FakeRuntime(() => 'こんにちは'),
+    fetchImpl: async () => {
+      throw new Error('no network needed for a verified local file');
+    },
+  });
+}
+
+async function plantVerified(store: MemoryFileStore, bytes: Uint8Array): Promise<void> {
+  await store.append(MULTI_FINAL, bytes, 0);
+  const manager = multiManager(store);
+  await manager.download(MULTI_ENTRY.id, { signal: new AbortController().signal });
+}
+
+describe('ModelManager known revisions', () => {
+  it('verifies every known revision without downloading and records its manifest', async () => {
+    for (const [index, revision] of MULTI_REVISIONS.entries()) {
+      const bytes = MULTI_PAYLOADS[index];
+      if (!bytes) throw new Error('missing fixture');
+      const store = new MemoryFileStore();
+      await store.append(MULTI_FINAL, bytes, 0);
+      const manager = multiManager(store);
+
+      expect(await manager.status(MULTI_ENTRY.id)).toMatchObject({ state: 'verifying' });
+      await manager.download(MULTI_ENTRY.id, { signal: new AbortController().signal });
+
+      expect(await manager.primaryReady(MULTI_ENTRY.id)).toBe(true);
+      expect(JSON.parse(store.text(MULTI_MANIFEST))).toMatchObject({
+        sha256: revision.sha256,
+        size: revision.size,
+        commit: revision.commit,
+      });
+      expect(await manager.status(MULTI_ENTRY.id)).toMatchObject({
+        state: 'ready',
+        total: revision.size,
+      });
+    }
+  });
+
+  it('adopts each known OPFS revision into an empty shared folder', async () => {
+    for (const [index, revision] of MULTI_REVISIONS.entries()) {
+      const bytes = MULTI_PAYLOADS[index];
+      if (!bytes) throw new Error('missing fixture');
+      const opfs = new MemoryFileStore();
+      await plantVerified(opfs, bytes);
+      const shared = new MemoryFileStore();
+      const manager = multiManager(shared, opfs);
+
+      await manager.adoptPresentModels();
+
+      expect(await manager.primaryReady(MULTI_ENTRY.id)).toBe(true);
+      expect(shared.files.get(MULTI_FINAL)).toEqual(bytes);
+      expect(JSON.parse(shared.text(MULTI_MANIFEST))).toMatchObject({
+        sha256: revision.sha256,
+        size: revision.size,
+        commit: revision.commit,
+      });
+    }
+  });
+
+  it('rejects an unknown hash of a known size and reports an unknown revision', async () => {
+    const store = new MemoryFileStore();
+    const unknown = bytesOf('!'.repeat(MULTI_REVISIONS[1]?.size ?? 0));
+    await store.append(MULTI_FINAL, unknown, 0);
+    const manager = multiManager(store);
+
+    await expect(
+      manager.download(MULTI_ENTRY.id, { signal: new AbortController().signal }),
+    ).rejects.toMatchObject({ code: 'model-integrity' });
+    expect(await manager.status(MULTI_ENTRY.id)).toMatchObject({
+      state: 'error',
+      error: INTEGRITY_REVISION_ERROR,
+    });
+    expect(await manager.sharedIntegrityIssue(MULTI_ENTRY.id)).toMatchObject({
+      kind: 'revision',
+      file: MULTI_ENTRY.file,
+    });
+    expect(store.files.has(MULTI_MANIFEST)).toBe(false);
+  });
+
+  it('does not report an integrity issue for a model with no folder file', async () => {
+    const store = new MemoryFileStore();
+    const manager = multiManager(store);
+
+    expect(await manager.sharedIntegrityIssue(MULTI_ENTRY.id)).toBeNull();
+  });
+
+  it('reports a different-sized file as the wrong file', async () => {
+    const store = new MemoryFileStore();
+    await store.append(MULTI_FINAL, bytesOf('short'), 0);
+    const manager = multiManager(store);
+
+    expect(await manager.sharedIntegrityIssue(MULTI_ENTRY.id)).toMatchObject({
+      kind: 'size',
+      file: MULTI_ENTRY.file,
+    });
+    expect(await manager.status(MULTI_ENTRY.id)).toMatchObject({
+      state: 'error',
+      error: INTEGRITY_SIZE_ERROR,
+    });
   });
 });

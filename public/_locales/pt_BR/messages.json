@@ -801,6 +801,14 @@
       }
     }
   },
+  "modelFolderIntegrityUnknownRevision": {
+    "message": "O hash SHA-256 de $FILE$ não é reconhecido pelo Sakutto. Pode ser uma versão oficial mais recente do PLaMo — atualize o Sakutto.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
   },
@@ -1559,9 +1567,6 @@
   },
   "videoCaptionsCustomHostDenied": {
     "message": "O acesso a esse site não foi concedido."
-  },
-  "videoCaptionsBraveShields": {
-    "message": "O Brave Shields bloqueou os dados das legendas do YouTube. Desative o Shields neste vídeo e recarregue a página para traduzir as legendas."
   },
   "videoCaptionsPositionReset": {
     "message": "Redefinir posição"

@@ -1,5 +1,11 @@
 import { abortError, EngineError, isAbortError } from '../errors';
-import { getModel, type ModelEntry, type ModelId } from './catalog';
+import {
+  getModel,
+  knownRevisions,
+  type ModelEntry,
+  type ModelId,
+  type ModelRevision,
+} from './catalog';
 import type { ModelFileStore } from './file-store';
 import { createSha256, type HashOptions } from './sha256';
 
@@ -22,7 +28,8 @@ export interface ImportModelFileRequest {
   store: ModelFileStore;
   signal: AbortSignal;
   /** Unit tests use a small pinned entry instead of the real catalog. */
-  entry?: Pick<ModelEntry, 'size' | 'sha256' | 'commit' | 'file'>;
+  entry?: Pick<ModelEntry, 'size' | 'sha256' | 'commit' | 'file'> &
+    Partial<Pick<ModelEntry, 'revisions'>>;
   onProgress?: (progress: ModelTransferProgress) => void;
   /** Tests can force a digest without hashing the fake bytes. */
   hashBlob?: (blob: Blob, options?: HashOptions) => Promise<string>;
@@ -99,15 +106,15 @@ async function discardPart(store: ModelFileStore, modelId: ModelId): Promise<voi
 async function writeVerifiedManifest(
   store: ModelFileStore,
   modelId: ModelId,
-  entry: Pick<ModelEntry, 'size' | 'sha256' | 'commit' | 'file'>,
+  revision: ModelRevision,
   sha256: string,
 ): Promise<void> {
   const info = await store.stat(finalPath(modelId));
   const manifest = {
     id: modelId,
     sha256,
-    size: entry.size,
-    commit: entry.commit,
+    size: revision.size,
+    commit: revision.commit,
     verifiedAt: Date.now(),
     ...(info ? { lastModified: info.lastModified } : {}),
   };
@@ -130,11 +137,15 @@ export async function importModelFile(
   const { file, modelId, store, signal } = request;
   const entry = request.entry ?? getModel(modelId);
   const chunkBytes = Math.max(1, request.chunkBytes ?? DEFAULT_IMPORT_CHUNK_BYTES);
+  const pinnedSize =
+    knownRevisions(entry).find((item) => item.size === file.size)?.size ?? entry.size;
 
   throwIfAborted(signal);
   await discardPart(store, modelId);
 
-  if (file.size !== entry.size) throw importSizeError();
+  if (!knownRevisions(entry).some((revision) => revision.size === file.size)) {
+    throw importSizeError();
+  }
 
   const writer = await store.createWriter(partPath(modelId), 0);
   const hasher = request.hashBlob ? null : await createSha256();
@@ -148,7 +159,7 @@ export async function importModelFile(
   };
 
   try {
-    emitProgress(request, progressOf('copy', 0, entry.size));
+    emitProgress(request, progressOf('copy', 0, pinnedSize));
 
     if (typeof file.stream === 'function') {
       const reader = file.stream().getReader();
@@ -161,7 +172,7 @@ export async function importModelFile(
           await writer.write(value);
           hasher?.update(value);
           received += value.byteLength;
-          emitProgress(request, progressOf('copy', received, entry.size));
+          emitProgress(request, progressOf('copy', received, pinnedSize));
         }
       } finally {
         reader.releaseLock();
@@ -175,31 +186,34 @@ export async function importModelFile(
         await writer.write(chunk);
         hasher?.update(chunk);
         received += chunk.byteLength;
-        emitProgress(request, progressOf('copy', received, entry.size));
+        emitProgress(request, progressOf('copy', received, pinnedSize));
       }
     }
 
     await closeWriter();
     throwIfAborted(signal);
 
-    if (received !== entry.size) throw importSizeError();
+    if (received !== pinnedSize) throw importSizeError();
 
-    emitProgress(request, progressOf('verify', entry.size, entry.size));
+    emitProgress(request, progressOf('verify', pinnedSize, pinnedSize));
     const digest = request.hashBlob
       ? await request.hashBlob(await store.read(partPath(modelId)), {
           signal,
           onProgress: (hashed) => {
-            emitProgress(request, progressOf('verify', hashed, entry.size));
+            emitProgress(request, progressOf('verify', hashed, pinnedSize));
           },
         })
       : (hasher?.hex() ?? '');
     throwIfAborted(signal);
 
-    if (digest !== entry.sha256) throw importDigestError();
+    const revision = knownRevisions(entry).find(
+      (item) => item.size === file.size && item.sha256 === digest,
+    );
+    if (!revision) throw importDigestError();
 
     await store.move(partPath(modelId), finalPath(modelId));
-    await writeVerifiedManifest(store, modelId, entry, digest);
-    return { bytes: entry.size, sha256: digest };
+    await writeVerifiedManifest(store, modelId, revision, digest);
+    return { bytes: revision.size, sha256: digest };
   } catch (error) {
     await closeWriter();
     await discardPart(store, modelId);

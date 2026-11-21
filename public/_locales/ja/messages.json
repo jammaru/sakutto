@@ -801,6 +801,14 @@
       }
     }
   },
+  "modelFolderIntegrityUnknownRevision": {
+    "message": "$FILE$ の SHA-256 は Sakutto が未対応の値です。新しい公式 PLaMo モデルの可能性があるため、Sakutto を更新してください。",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
   "modelFolderEnableTabTitle": {
     "message": "再起動後もフォルダへのアクセスを続ける"
   },
@@ -1563,9 +1571,6 @@
   },
   "videoCaptionsCustomHostDenied": {
     "message": "そのサイトへのアクセスが許可されませんでした。"
-  },
-  "videoCaptionsBraveShields": {
-    "message": "Brave ShieldsがYouTubeの字幕データをブロックしました。この動画でShieldsをオフにしてページを再読み込みすると、字幕を翻訳できます。"
   },
   "videoCaptionsPositionReset": {
     "message": "位置をリセット"

@@ -801,6 +801,14 @@
       }
     }
   },
+  "modelFolderIntegrityUnknownRevision": {
+    "message": "ค่า SHA-256 ของไฟล์ $FILE$ ไม่เป็นที่รู้จักของ Sakutto อาจเป็นโมเดล PLaMo ทางการเวอร์ชันใหม่กว่า — กรุณาอัปเดต Sakutto",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
   },
@@ -1559,9 +1567,6 @@
   },
   "videoCaptionsCustomHostDenied": {
     "message": "ไม่ได้อนุญาตให้เข้าถึงไซต์นั้น"
-  },
-  "videoCaptionsBraveShields": {
-    "message": "Brave Shields บล็อกข้อมูลคำบรรยายของ YouTube ปิด Shields สำหรับวิดีโอนี้แล้วโหลดหน้าใหม่เพื่อแปลคำบรรยาย"
   },
   "videoCaptionsPositionReset": {
     "message": "รีเซ็ตตำแหน่ง"

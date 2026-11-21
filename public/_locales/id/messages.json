@@ -801,6 +801,14 @@
       }
     }
   },
+  "modelFolderIntegrityUnknownRevision": {
+    "message": "Hash SHA-256 berkas $FILE$ belum dikenal oleh Sakutto. Ini mungkin model PLaMo resmi yang lebih baru — perbarui Sakutto.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
   },
@@ -1559,9 +1567,6 @@
   },
   "videoCaptionsCustomHostDenied": {
     "message": "Akses ke situs itu tidak diberikan."
-  },
-  "videoCaptionsBraveShields": {
-    "message": "Brave Shields memblokir data takarir YouTube. Nonaktifkan Shields untuk video ini, lalu muat ulang halaman untuk menerjemahkan takarir."
   },
   "videoCaptionsPositionReset": {
     "message": "Atur ulang posisi"
