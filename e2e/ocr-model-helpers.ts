@@ -179,3 +179,31 @@ export async function openPdfTab(
     await helper.close();
   }
 }
+/**
+ * Initialize the ORT sessions with a tiny image before the 30 s page assertion. Cold WASM
+ * initialization on a shared CI runner can dominate the first recognition.
+ */
+export async function warmOcr(extension: LoadedExtension): Promise<void> {
+  const page: Page = await extension.context.newPage();
+  try {
+    await page.goto(`chrome-extension://${extension.extensionId}/popup.html`);
+    const started = Date.now();
+    const result = await page.evaluate(async () => {
+      const browser = (
+        globalThis as unknown as {
+          chrome: { runtime: { sendMessage(message: unknown): Promise<unknown> } };
+        }
+      ).chrome;
+      const data = btoa(String.fromCharCode(...new Uint8Array(16)));
+      return browser.runtime.sendMessage({
+        type: 'ocr:recognize',
+        tier: 'standard',
+        requestId: `warm-${String(Date.now())}`,
+        image: { width: 2, height: 2, data },
+      });
+    });
+    console.log(`OCR warm-up: ${String(Date.now() - started)} ms`, JSON.stringify(result));
+  } finally {
+    await page.close();
+  }
+}

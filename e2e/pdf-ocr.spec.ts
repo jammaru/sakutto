@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { loadExtension } from './extension';
 import { resetExtensionStorage } from './page';
 import { plantLicenseConsent } from './folder-model-helpers';
-import { openPdfTab, seedStandardOcrModels, setFileUrls } from './ocr-model-helpers';
+import { openPdfTab, seedStandardOcrModels, setFileUrls, warmOcr } from './ocr-model-helpers';
 
 const IMAGE_SOURCE = resolve('bench/ocr/fixtures/en-scan.png');
 
@@ -54,6 +54,7 @@ async function prepare(extension: Awaited<ReturnType<typeof loadExtension>>, wit
     await helper.close();
   }
   if (withModels) await seedStandardOcrModels(extension);
+  await warmOcr(extension);
 }
 
 function translatedText(page: Page): Promise<string> {
@@ -184,9 +185,17 @@ test.describe('scanned PDF and image OCR in real Chromium', () => {
       await pdf.goto(pdfUrl);
       const opened = await openPdfTab(extension, pdf, pdfUrl);
       expect(opened.reason).toBeNull();
-      await expect(opened.page.getByText('設定でOCRモデルをダウンロードしてください')).toBeVisible({
-        timeout: 20_000,
-      });
+      try {
+        await expect(
+          opened.page.getByText('設定でOCRモデルをダウンロードしてください'),
+        ).toBeVisible({ timeout: 20_000 });
+      } catch (error) {
+        console.log(
+          'missing-model reader text:',
+          JSON.stringify((await translatedText(opened.page)).slice(0, 400)),
+        );
+        throw error;
+      }
     } finally {
       await extension.close();
       await fixtures.server.close();

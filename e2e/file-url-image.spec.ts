@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { launchExtension, type LoadedExtension } from './extension';
 import { resetExtensionStorage } from './page';
-import { seedStandardOcrModels } from './ocr-model-helpers';
+import { seedStandardOcrModels, warmOcr } from './ocr-model-helpers';
 
 /**
  * A file:// image menu click cannot be handed to a content script: Chrome refuses to script
@@ -92,6 +92,7 @@ async function prepareExtension(extension: LoadedExtension): Promise<void> {
     });
   });
   await seedStandardOcrModels(extension);
+  await warmOcr(extension);
 }
 
 async function dispatchImageMenu(extension: LoadedExtension, imagePage: Page): Promise<void> {
@@ -164,7 +165,15 @@ test.describe('file URL image context menu', () => {
       await fallback.locator('input[type=file]').setInputFiles(imagePath);
       await expect(fallback.locator('[data-sakutto=chosen-file]')).toContainText('en-scan');
       // Real PP-OCR models recognize the scan; the fake engine prefixes every line.
-      await expect(fallback.locator('.translation')).toContainText('§en§', { timeout: 15_000 });
+      try {
+        await expect(fallback.locator('.translation')).toContainText('§en§', { timeout: 15_000 });
+      } catch (error) {
+        console.log(
+          'image panel text:',
+          JSON.stringify(await fallback.locator('body').innerText()),
+        );
+        throw error;
+      }
       await expect(fallback.locator('.translation')).toContainText('LOCAL TRANSLATION NOTES', {
         timeout: 15_000,
       });
