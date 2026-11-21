@@ -6,6 +6,8 @@ import {
   importModelFile,
   isModelImportIntegrityError,
 } from '@/engine/model/import-export';
+import { getModel } from '@/engine/model/catalog';
+import type { ModelFileStore } from '@/engine/model/file-store';
 import { sha256Hex } from '@/engine/model/sha256';
 import { bytesOf, MemoryFileStore, makeEntry } from './support/fakes';
 
@@ -179,5 +181,149 @@ describe('importModelFile with multiple official revisions', () => {
 
     expect((error as EngineError).detail).toBe(MODEL_IMPORT_SIZE_ERROR);
     expect(store.files.size).toBe(0);
+  });
+});
+
+const LARGE_ENTRY = getModel('plamo-3-translate-0.8b-q4_k_m');
+
+/** A small blob with the catalog's reported GGUF size, so tests stay sparse. */
+const SPARSE_CHUNK = new Uint8Array(1024 * 1024);
+
+/** A multi-hundred-MB file whose stream reuses one chunk instead of allocating the bytes. */
+function sizedFile(size: number, name: string): File {
+  return {
+    name,
+    size,
+    stream: () =>
+      new ReadableStream({
+        start(controller) {
+          let left = size;
+          while (left >= SPARSE_CHUNK.length) {
+            controller.enqueue(SPARSE_CHUNK);
+            left -= SPARSE_CHUNK.length;
+          }
+          if (left > 0) controller.enqueue(SPARSE_CHUNK.subarray(0, left));
+          controller.close();
+        },
+      }),
+    slice: () => new Blob([]),
+  } as unknown as File;
+}
+
+/** Store that tracks sizes only, so the sparse fixtures above stay cheap. */
+class SparseStore implements ModelFileStore {
+  readonly files = new Map<string, { size: number; lastModified: number }>();
+  readonly texts = new Map<string, string>();
+  private clock = 1;
+
+  async size(path: string): Promise<number> {
+    return this.files.get(path)?.size ?? 0;
+  }
+
+  async stat(path: string): Promise<{ size: number; lastModified: number } | null> {
+    return this.files.get(path) ?? null;
+  }
+
+  async append(path: string, chunk: Uint8Array, offset: number): Promise<void> {
+    const entry = this.files.get(path) ?? { size: 0, lastModified: this.clock++ };
+    entry.size = Math.max(entry.size, offset + chunk.length);
+    this.files.set(path, entry);
+  }
+
+  async createWriter(
+    path: string,
+    offset: number,
+  ): Promise<{ write(chunk: Uint8Array): Promise<void>; close(): Promise<void> }> {
+    const entry = this.files.get(path) ?? { size: 0, lastModified: this.clock++ };
+    let position = offset;
+    this.files.set(path, entry);
+    return {
+      write: async (chunk: Uint8Array) => {
+        position += chunk.length;
+        entry.size = Math.max(entry.size, position);
+        this.texts.set(path, new TextDecoder().decode(chunk));
+      },
+      close: async () => undefined,
+    };
+  }
+
+  async read(path: string): Promise<Blob> {
+    const entry = this.files.get(path);
+    if (!entry) throw new DOMException(`Missing ${path}`, 'NotFoundError');
+    return { size: entry.size } as Blob;
+  }
+
+  async move(from: string, to: string): Promise<void> {
+    const entry = this.files.get(from);
+    if (entry) {
+      this.files.set(to, entry);
+      this.files.delete(from);
+    }
+  }
+
+  async remove(path: string): Promise<void> {
+    this.files.delete(path);
+  }
+
+  async removeDirectory(path: string): Promise<void> {
+    for (const key of [...this.files.keys()]) {
+      if (key === path || key.startsWith(`${path}/`)) this.files.delete(key);
+    }
+  }
+
+  async estimate(): Promise<{ usage: number; quota: number }> {
+    return { usage: 0, quota: 0 };
+  }
+
+  text(path: string): string {
+    return this.texts.get(path) ?? '';
+  }
+}
+
+describe('shared-folder import of the older official 0.8B revisions', () => {
+  const CASES = [
+    '03891e907db8a43c97d3a7c75add125cc6d1f96a',
+    '0c4af2b003fdd94b6868aa955414c1c86ee96997',
+  ];
+
+  for (const commit of CASES) {
+    it(`adopts the ${commit.slice(0, 8)} size with its official digest`, async () => {
+      const revision = LARGE_ENTRY.revisions.find((item) => item.commit === commit);
+      if (!revision) throw new Error(`missing ${commit}`);
+      const store = new SparseStore();
+      const file = sizedFile(revision.size, LARGE_ENTRY.file);
+
+      const result = await importModelFile({
+        file,
+        modelId: LARGE_ENTRY.id,
+        store,
+        signal: new AbortController().signal,
+        hashBlob: async () => revision.sha256,
+      });
+
+      expect(result).toEqual({ bytes: revision.size, sha256: revision.sha256 });
+      expect(JSON.parse(store.text(`models/${LARGE_ENTRY.id}/model.json`))).toMatchObject({
+        sha256: revision.sha256,
+        size: revision.size,
+        commit: revision.commit,
+      });
+    });
+  }
+
+  it('still rejects an unknown hash of an older official size', async () => {
+    const revision = LARGE_ENTRY.revisions.find((item) => item.commit.startsWith('03891e90'));
+    if (!revision) throw new Error('missing 03891e90');
+    const store = new SparseStore();
+    const file = sizedFile(revision.size, LARGE_ENTRY.file);
+    const error = await importModelFile({
+      file,
+      modelId: LARGE_ENTRY.id,
+      store,
+      signal: new AbortController().signal,
+      hashBlob: async () => '0'.repeat(64),
+    }).catch((value: unknown) => value);
+
+    expect((error as EngineError).detail).toBe(MODEL_IMPORT_DIGEST_ERROR);
+    expect(store.files.has(FINAL_PATH)).toBe(false);
   });
 });

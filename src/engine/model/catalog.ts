@@ -76,6 +76,7 @@ const ZERO_EIGHT = defineModel({
   quantization: 'Q4_K_M',
   repository: 'pfnet/plamo-3-translate-0.8b-GGUF',
   file: 'plamo-3-translate-0.8b-Q4_K_M.gguf',
+  // The download default is listed first; the remaining revisions follow publish order.
   revisions: [
     {
       commit: 'dbeb0856cb0b004b484f190bb71dd65876297013',
@@ -83,9 +84,24 @@ const ZERO_EIGHT = defineModel({
       sha256: '923b2f28a9856de1b8b3b610a7e59ded0b14d007466fd5dd526e6a9ecaadafdd',
     },
     {
+      commit: '03891e907db8a43c97d3a7c75add125cc6d1f96a',
+      size: 573_116_288,
+      sha256: '3dbb09295bfd3350231ba0dba92bc72cb14111ef1b034e37dad39d581bd86b9c',
+    },
+    {
       commit: 'e11a613b483edceab3450941f18cc79307fc93e9',
       size: 573_125_696,
       sha256: 'ff10c4aed0c478af8be61fe4d22fb463c0f639acfc168012062efba35ccbdd48',
+    },
+    {
+      commit: '0c4af2b003fdd94b6868aa955414c1c86ee96997',
+      size: 573_125_952,
+      sha256: '73a1d942d8ab1e654d83898d997b8b4808c32ba669b378df612230989d18f079',
+    },
+    {
+      commit: 'e10c327b7a7ce84ffc427cb4b09360b781429fda',
+      size: 573_126_848,
+      sha256: '70891ec70dc7ab4205745a38307867c2881b99239f20327927633abfe4bc9ec6',
     },
     {
       commit: '7de4409f84a9d70e3a5e87b81e84883d49f77b58',
