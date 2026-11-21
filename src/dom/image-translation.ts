@@ -729,17 +729,21 @@ export class ImageTranslationController {
   }
 
   private async copyTranslatedText(): Promise<void> {
+    const parts = this.parts;
     const text = this.copyText;
-    if (!text || !this.parts) return;
+    if (!text || !parts) return;
     const view = this.host?.ownerDocument.defaultView;
     const ok = await copyTextToClipboard(text, view?.navigator.clipboard ?? null, document);
+    // The panel can be closed (or replaced by a newer image) while the clipboard promise is
+    // pending. Do not paint feedback into detached controls or start a new timer for them.
+    if (this.parts !== parts) return;
     const message = ok ? this.options.labels.copied : this.options.labels.copyFailed;
-    this.parts.copyNote.textContent = message;
-    this.parts.copyNote.hidden = false;
-    if (ok) this.parts.copy.dataset.state = 'copied';
-    else delete this.parts.copy.dataset.state;
-    this.parts.copy.setAttribute('aria-label', message);
-    this.parts.copy.title = message;
+    parts.copyNote.textContent = message;
+    parts.copyNote.hidden = false;
+    if (ok) parts.copy.dataset.state = 'copied';
+    else delete parts.copy.dataset.state;
+    parts.copy.setAttribute('aria-label', message);
+    parts.copy.title = message;
     if (this.copyTimer !== null) clearTimeout(this.copyTimer);
     this.copyTimer = setTimeout(() => this.resetCopyFeedback(), 2600);
   }

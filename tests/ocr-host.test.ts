@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { AssetManager } from '@/engine/model/asset-manager';
 import { OcrHost, type OcrRuntimeLike } from '@/engine/ocr/host';
 import type { OcrTier } from '@/engine/ocr/catalog';
-import { MemoryFileStore } from './support/fakes';
+import { sha256Hex } from '@/engine/model/sha256';
+import { MemoryFileStore, bytesOf } from './support/fakes';
 
 const empty = {
   id: 'empty',
@@ -19,8 +20,12 @@ const empty = {
 } as const;
 const bundles = { standard: { ...empty, id: 'standard' }, high: { ...empty, id: 'high' } } as const;
 
+function assetsFor(store: MemoryFileStore = new MemoryFileStore()): AssetManager<OcrTier> {
+  return new AssetManager<OcrTier>({ store, bundles });
+}
+
 function assets(): AssetManager<OcrTier> {
-  return new AssetManager<OcrTier>({ store: new MemoryFileStore(), bundles });
+  return assetsFor();
 }
 
 const image = { width: 1, height: 1, data: new Uint8ClampedArray(4) };
@@ -121,5 +126,125 @@ describe('OcrHost', () => {
 
     host.cancel('same-id');
     await expect(second).rejects.toMatchObject({ code: 'aborted' });
+  });
+
+  it('defers a folder-change refresh until an in-flight download settles', async () => {
+    const browser = new MemoryFileStore();
+    const folder = new MemoryFileStore();
+    const payload = bytesOf('bundle bytes');
+    const file = {
+      path: 'model.onnx',
+      commit: 'pinned-commit',
+      size: payload.length,
+      sha256: sha256Hex(payload),
+      url: 'https://example.test/model.onnx',
+    };
+    const downloadBundles = {
+      standard: { id: 'standard', files: [file], size: payload.length },
+      high: { id: 'high', files: [file], size: payload.length },
+    } as const;
+
+    let fetchStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      fetchStarted = resolve;
+    });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let gateOpen = false;
+
+    function managerFor(store: MemoryFileStore): AssetManager<OcrTier> {
+      return new AssetManager<OcrTier>({
+        store,
+        bundles: downloadBundles,
+        fetchImpl: async () => {
+          if (!gateOpen) {
+            fetchStarted();
+            await gate;
+          }
+          return new Response(new Uint8Array(payload), { status: 200 });
+        },
+        hashBlob: async (blob) => sha256Hex(new Uint8Array(await blob.arrayBuffer())),
+      });
+    }
+
+    let storeCall = 0;
+    const createAssetManager = vi.fn(async () => managerFor(storeCall++ === 0 ? browser : folder));
+    const host = new OcrHost({ createAssetManager });
+
+    // Start the download against browser storage, then adopt a shared folder mid-flight.
+    const downloading = host.download('in-flight', 'standard');
+    await started;
+    expect([...browser.files.keys()]).toEqual([]);
+
+    const refreshing = host.refreshStore();
+    let refreshApplied = false;
+    void refreshing.then(() => {
+      refreshApplied = true;
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(refreshApplied).toBe(false);
+    expect(createAssetManager).toHaveBeenCalledTimes(1);
+
+    // Let the ranged transfer finish on its original store; the refresh must then be applied
+    // before refreshStore() resolves, so no stale OPFS manager survives the folder switch.
+    gateOpen = true;
+    release();
+    await expect(downloading).resolves.toMatchObject({ state: 'ready' });
+    await refreshing;
+    expect(refreshApplied).toBe(true);
+    expect([...browser.files.keys()]).toContain('models/ocr-standard/model.onnx');
+    expect([...folder.files.keys()]).toEqual([]);
+
+    // A fresh download now resolves storage afresh and writes into the adopted folder.
+    await host.download('after-adopt', 'standard');
+    expect(createAssetManager).toHaveBeenCalledTimes(2);
+    expect([...folder.files.keys()]).toContain('models/ocr-standard/model.onnx');
+    expect(await host.status('standard')).toMatchObject({ state: 'ready' });
+  });
+
+  it('defers a folder-change refresh until an in-flight recognition settles', async () => {
+    const browser = new MemoryFileStore();
+    const folder = new MemoryFileStore();
+    let recognizeStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      recognizeStarted = resolve;
+    });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const runtime: OcrRuntimeLike = {
+      recognize: async () => {
+        recognizeStarted();
+        await gate;
+        return { text: 'ok' };
+      },
+      release: vi.fn(),
+    };
+    let storeCall = 0;
+    const createAssetManager = vi.fn(async () => assetsFor(storeCall++ === 0 ? browser : folder));
+    const host = new OcrHost({ createAssetManager, createRuntime: async () => runtime });
+
+    const recognizing = host.recognize('in-flight', 'standard', image);
+    await started;
+    const refreshing = host.refreshStore();
+    let refreshApplied = false;
+    void refreshing.then(() => {
+      refreshApplied = true;
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(refreshApplied).toBe(false);
+    expect(runtime.release).not.toHaveBeenCalled();
+
+    release();
+    await expect(recognizing).resolves.toMatchObject({ text: 'ok' });
+    await refreshing;
+    expect(runtime.release).toHaveBeenCalledOnce();
+    expect(await host.status('standard')).toMatchObject({ state: 'absent' });
+    expect(createAssetManager).toHaveBeenCalledTimes(2);
   });
 });

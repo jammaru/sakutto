@@ -37,6 +37,10 @@ export class OcrHost {
   private runtime: OcrRuntimeLike | null = null;
   private queue: Promise<void> = Promise.resolve();
   private readonly requests = new Map<string, OcrRequest>();
+  /** A folder change arrived while requests were still bound to the previous store. */
+  private pendingRefresh = false;
+  private refreshing = false;
+  private readonly refreshWaiters: Array<() => void> = [];
 
   constructor(options: OcrHostOptions = {}) {
     this.options = options;
@@ -78,7 +82,10 @@ export class OcrHost {
         if (isAbortError(error) || controller.signal.aborted) throw abortError();
         throw error;
       })
-      .finally(() => this.untrack(requestId, controller));
+      .finally(() => {
+        this.untrack(requestId, controller);
+        this.settleRefresh();
+      });
   }
 
   async download(requestId: string, tier: OcrTier): Promise<AssetStatus<OcrTier>> {
@@ -89,6 +96,7 @@ export class OcrHost {
       return this.status(tier);
     } finally {
       this.untrack(requestId, controller);
+      this.settleRefresh();
     }
   }
 
@@ -117,13 +125,46 @@ export class OcrHost {
 
   /**
    * Re-resolve storage after the shared folder changed. An active download/recognition is
-   * left on its original store: switching files underneath an ORT session or a ranged
-   * transfer would be worse than finishing on the store that started it.
+   * left on its original store: swapping files underneath an ORT session or a ranged
+   * transfer would be worse than letting it finish. The refresh is deferred until the last
+   * request settles, and callers wait for it so no stale manager survives the folder switch.
    */
   async refreshStore(): Promise<void> {
-    if (this.requests.size > 0) return;
-    await this.releaseRuntime();
-    this.assetsTask = null;
+    if (this.requests.size === 0 && !this.refreshing) {
+      await this.applyRefresh();
+      return;
+    }
+    this.pendingRefresh = true;
+    await new Promise<void>((resolve) => {
+      this.refreshWaiters.push(resolve);
+    });
+  }
+
+  /** Applies a refresh queued while requests were still using the previous store. */
+  private settleRefresh(): void {
+    if (!this.pendingRefresh || this.refreshing || this.requests.size > 0) return;
+    void this.applyRefresh();
+  }
+
+  private async applyRefresh(): Promise<void> {
+    if (this.refreshing) return;
+    this.refreshing = true;
+    this.pendingRefresh = false;
+    const stale = this.assetsTask;
+    try {
+      // Wait for queued inference first: releasing an ORT session while its native run is
+      // still using the handle is worse than finishing the run on the old store.
+      await this.queue;
+      await this.releaseRuntime();
+      // A newer request may have re-created the manager while the runtime was releasing.
+      // Only drop the manager that predates this refresh.
+      if (this.assetsTask === stale) this.assetsTask = null;
+    } finally {
+      this.refreshing = false;
+      this.pendingRefresh = false;
+      const waiters = this.refreshWaiters.splice(0);
+      for (const resolve of waiters) resolve();
+    }
   }
 
   private track(requestId: string, tier: OcrTier, signal?: AbortSignal): AbortController {

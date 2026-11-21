@@ -290,6 +290,36 @@ describe('ImageTranslationController bubble', () => {
     controller.close();
   });
 
+  it('does not paint copy feedback after the panel closes mid-copy', async () => {
+    image();
+    stubCanvas();
+    let releaseCopy!: () => void;
+    const clipboardGate = new Promise<void>((resolve) => {
+      releaseCopy = resolve;
+    });
+    let copied = '';
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: async (text: string) => {
+          copied = text;
+          await clipboardGate;
+        },
+      },
+    });
+    const { controller, shadow } = await translatedController();
+    const copy = shadow?.querySelector<HTMLButtonElement>('button.copy');
+    copy?.click();
+    await new Promise((done) => setTimeout(done, 0));
+    expect(copied).toBe('こんにちは');
+
+    controller.close();
+    releaseCopy();
+    await new Promise((done) => setTimeout(done, 0));
+    expect(shadow?.querySelector('.copy-note')?.textContent).toBe('');
+    expect(copy?.dataset.state).toBeUndefined();
+  });
+
   it('applies a saved width, persists a drag, and resets on double-click', async () => {
     image();
     stubCanvas();
