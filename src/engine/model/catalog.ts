@@ -117,11 +117,27 @@ const TWO = defineModel({
   quantization: 'Q4_K_M',
   repository: 'pfnet/plamo-3-translate-2b-GGUF',
   file: 'plamo-3-translate-2b-Q4_K_M.gguf',
+  // The download default is listed first; the remaining distinct blobs follow publish order.
   revisions: [
     {
       commit: '232fbd7916519edecddfdae0beae7e76fe70453f',
       size: 1_807_199_392,
       sha256: 'f36d0813dd95573a852ab5d76e374c543632d9e292929e922bcdbf7e53b494e0',
+    },
+    {
+      commit: 'f2b4599dff9b3e45c62567eac15e83186b4cb64e',
+      size: 1_807_192_480,
+      sha256: '2c288ecc7ebfe60c3561726580da3583767f3c41ca3ef5c6825bf6c4cc060787',
+    },
+    {
+      commit: '4e4500666915b3a2cc0d667b64d9745c0821b63c',
+      size: 1_807_201_888,
+      sha256: 'ac60fbb2e392349a6d3b53c7903655005377cf543703ad3869b31ab5d96a7ffb',
+    },
+    {
+      commit: 'd44589ecd5287cd64452e9cd1e2cfdad904fe216',
+      size: 1_807_202_144,
+      sha256: '2189a8a0b4b359f59443ec36cfb9c9c3f603a678c00dbcee8598b3f7ea7c12fb',
     },
     {
       commit: 'caf0267797e8a4ae418e7d8c480746be2ea6040c',

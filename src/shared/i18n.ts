@@ -37,7 +37,7 @@ export function tForBrowser(
  * The latter may be a newer official PLaMo revision, so suggest updating Sakutto.
  */
 export function integrityMessageKey(kind: string | undefined): MessageKey {
-  return kind === 'revision' || kind === 'digest' || kind === 'integrity-revision'
+  return kind === 'revision' || kind === 'integrity-revision'
     ? 'modelFolderIntegrityUnknownRevision'
     : 'modelFolderIntegrityFailed';
 }

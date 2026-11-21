@@ -61,7 +61,7 @@ interface ModelManifest extends IntegrityManifest {
 const FREE_SPACE_MARGIN = 64 * 1024 * 1024;
 const TEXT_ENCODER = new TextEncoder();
 
-/** Internal status.error tokens. The UI maps these to `modelFolderIntegrityFailed`. */
+/** Internal status.error tokens. The UI maps size/digest to the wrong-file copy and revision to the update hint. */
 export const INTEGRITY_SIZE_ERROR = 'integrity-size';
 export const INTEGRITY_DIGEST_ERROR = 'integrity-digest';
 /** Correct-size file with a hash that is not in the catalog's known-revision list. */
@@ -692,7 +692,8 @@ export class ModelManager {
     // replace it: `removeEntry` + rewrite is how one profile can invalidate the
     // file another profile's handle still points at. Only fill an empty slot.
     if (primary.integrity !== 'missing') return false;
-    if (this.errors.get(modelId) === INTEGRITY_DIGEST_ERROR) return false;
+    const error = this.errors.get(modelId);
+    if (error === INTEGRITY_DIGEST_ERROR || error === INTEGRITY_REVISION_ERROR) return false;
     if (await this.copyAlreadyRejected(modelId, fallbackStore)) return false;
 
     let fallback = await this.inspect(fallbackStore, modelId);

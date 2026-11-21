@@ -327,3 +327,45 @@ describe('shared-folder import of the older official 0.8B revisions', () => {
     expect(store.files.has(FINAL_PATH)).toBe(false);
   });
 });
+
+describe('shared-folder import of the initial 2B official release', () => {
+  it('adopts the f2b4599d size with its official digest', async () => {
+    const entry = getModel('plamo-3-translate-2b-q4_k_m');
+    const revision = entry.revisions.find((item) => item.commit.startsWith('f2b4599d'));
+    if (!revision) throw new Error('missing f2b4599d');
+    const store = new SparseStore();
+
+    const result = await importModelFile({
+      file: sizedFile(revision.size, entry.file),
+      modelId: entry.id,
+      store,
+      signal: new AbortController().signal,
+      hashBlob: async () => revision.sha256,
+    });
+
+    expect(result).toEqual({ bytes: revision.size, sha256: revision.sha256 });
+    expect(JSON.parse(store.text(`models/${entry.id}/model.json`))).toMatchObject({
+      sha256: revision.sha256,
+      size: revision.size,
+      commit: revision.commit,
+    });
+  });
+
+  it('rejects an unknown hash of that 2B size', async () => {
+    const entry = getModel('plamo-3-translate-2b-q4_k_m');
+    const revision = entry.revisions.find((item) => item.commit.startsWith('f2b4599d'));
+    if (!revision) throw new Error('missing f2b4599d');
+    const store = new SparseStore();
+
+    const error = await importModelFile({
+      file: sizedFile(revision.size, entry.file),
+      modelId: entry.id,
+      store,
+      signal: new AbortController().signal,
+      hashBlob: async () => '0'.repeat(64),
+    }).catch((value: unknown) => value);
+
+    expect((error as EngineError).detail).toBe(MODEL_IMPORT_DIGEST_ERROR);
+    expect(store.files.has(`models/${entry.id}/model.gguf`)).toBe(false);
+  });
+});

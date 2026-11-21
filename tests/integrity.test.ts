@@ -199,3 +199,66 @@ describe('0.8B catalog known revisions', () => {
     }
   });
 });
+
+describe('2B catalog known revisions', () => {
+  const EXPECTED = [
+    {
+      commit: '232fbd7916519edecddfdae0beae7e76fe70453f',
+      size: 1_807_199_392,
+      sha256: 'f36d0813dd95573a852ab5d76e374c543632d9e292929e922bcdbf7e53b494e0',
+    },
+    {
+      commit: 'f2b4599dff9b3e45c62567eac15e83186b4cb64e',
+      size: 1_807_192_480,
+      sha256: '2c288ecc7ebfe60c3561726580da3583767f3c41ca3ef5c6825bf6c4cc060787',
+    },
+    {
+      commit: '4e4500666915b3a2cc0d667b64d9745c0821b63c',
+      size: 1_807_201_888,
+      sha256: 'ac60fbb2e392349a6d3b53c7903655005377cf543703ad3869b31ab5d96a7ffb',
+    },
+    {
+      commit: 'd44589ecd5287cd64452e9cd1e2cfdad904fe216',
+      size: 1_807_202_144,
+      sha256: '2189a8a0b4b359f59443ec36cfb9c9c3f603a678c00dbcee8598b3f7ea7c12fb',
+    },
+    {
+      commit: 'caf0267797e8a4ae418e7d8c480746be2ea6040c',
+      size: 1_807_203_040,
+      sha256: '1ffd9073afcc70e35ccc942428aa2b73d7aa2b9ea779bf504b775369e0276c13',
+    },
+  ];
+
+  it('contains every verified official revision with the original download pin first', () => {
+    const entry = getModel('plamo-3-translate-2b-q4_k_m');
+    expect(entry.revisions).toEqual(EXPECTED);
+    expect(entry.commit).toBe(EXPECTED[0]?.commit);
+    expect(entry.size).toBe(EXPECTED[0]?.size);
+    expect(entry.sha256).toBe(EXPECTED[0]?.sha256);
+    expect(entry.url).toContain(`/resolve/${EXPECTED[0]?.commit}/`);
+  });
+
+  it('accepts a manifest and digest for every 2B revision', () => {
+    const entry = getModel('plamo-3-translate-2b-q4_k_m');
+    for (const revision of entry.revisions) {
+      expect(
+        decideIntegrity(
+          entry,
+          { size: revision.size, lastModified: 21 },
+          { ...revision, lastModified: 21 },
+        ),
+      ).toBe('verified');
+      expect(digestMatchesPin(revision.sha256, entry)).toBe(true);
+    }
+    expect(digestMatchesPin('0'.repeat(64), entry)).toBe(false);
+  });
+
+  it('fast-rejects every 2B size outside the catalog', () => {
+    const entry = getModel('plamo-3-translate-2b-q4_k_m');
+    for (const revision of entry.revisions) {
+      for (const size of [revision.size - 1, revision.size + 1]) {
+        expect(decideIntegrity(entry, { size, lastModified: 21 }, null)).toBe('reject-size');
+      }
+    }
+  });
+});
