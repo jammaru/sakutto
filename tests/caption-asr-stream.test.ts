@@ -151,6 +151,7 @@ describe('AsrChunkStream', () => {
     expect(isCjkTarget('zh-Hant')).toBe(true);
     expect(isCjkTarget('ja-easy')).toBe(true);
     expect(isCjkTarget('th')).toBe(true);
+    expect(isCjkTarget('ko')).toBe(false);
     expect(isCjkTarget('en')).toBe(false);
 
     const toJa = targetHarness('ja', ['駅は夜明けに開きます。', '赤い列車が待っています。']);
@@ -161,6 +162,16 @@ describe('AsrChunkStream', () => {
     expect(toJa.lines).toEqual([
       '駅は夜明けに開きます。',
       '駅は夜明けに開きます。赤い列車が待っています。',
+    ]);
+
+    const toKo = targetHarness('ko', ['역은 새벽에 열립니다.', '빨간 열차가 기다립니다.']);
+    toKo.stream.observe('The station opens at dawn.');
+    await flush();
+    toKo.stream.observe('The station opens at dawn. A red train waits.');
+    await flush();
+    expect(toKo.lines).toEqual([
+      '역은 새벽에 열립니다.',
+      '역은 새벽에 열립니다. 빨간 열차가 기다립니다.',
     ]);
 
     const toEn = targetHarness('en', ['The station opens at dawn.', 'A red train waits.']);

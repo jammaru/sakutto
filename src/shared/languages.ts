@@ -116,11 +116,11 @@ const CHROME_ONLY_SET: ReadonlySet<string> = new Set(CHROME_ONLY_LANGUAGES);
 /** A PLaMo output style rather than a language Chrome's translator can produce. */
 export const JA_EASY_TARGET = 'ja-easy' as const;
 const PLAMO_ONLY_SET: ReadonlySet<string> = new Set([JA_EASY_TARGET]);
-const NON_SPACE_DELIMITED_BASES: ReadonlySet<string> = new Set(['ja', 'zh', 'ko', 'th']);
+const NON_SPACE_DELIMITED_BASES: ReadonlySet<string> = new Set(['ja', 'zh', 'th']);
 
 /**
- * True when a translation target writes clauses without ASCII spaces (CJK and Thai).
- * This describes the *output* script, not the caption source track language.
+ * True when a translation target writes clauses without ASCII spaces (Japanese, Chinese, Thai).
+ * Korean output is space-delimited like Western languages; this describes the *target* script.
  */
 export function isCjkTarget(value: string | null | undefined): boolean {
   return NON_SPACE_DELIMITED_BASES.has(baseTag(value ?? ''));
