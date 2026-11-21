@@ -3,6 +3,7 @@ import { InBrowserEngine } from '@/engine/in-browser/engine';
 import type { TranslateOptions, TranslationChunk } from '@/engine/types';
 import { MAX_SEGMENT_TEXT } from '@/engine/offscreen/protocol';
 import { MAX_GLOSSARY_ENTRIES } from '@/shared/glossary';
+import { JobScheduler, type SchedulerJob } from '@/engine/queue/scheduler';
 import { collectChunks, FakeRuntime } from './support/fakes';
 import { promptSource } from './support/sim-runtime';
 
@@ -59,6 +60,27 @@ describe('InBrowserEngine', () => {
     expect(peak).toBeGreaterThan(1);
     expect(deltaText(chunks).replace(/\s/gu, '')).toBe('[A][B][C]');
     expect(finalChunks(chunks)[0]?.final?.replace(/\s/gu, '')).toBe('[A][B][C]');
+  });
+
+  it('marks every split piece with the same foreground body', async () => {
+    class CapturingScheduler extends JobScheduler {
+      readonly jobs: SchedulerJob[] = [];
+
+      override schedule(job: SchedulerJob) {
+        this.jobs.push(job);
+        return super.schedule(job);
+      }
+    }
+    const scheduler = new CapturingScheduler(16, 'staged');
+    const runtime = new FakeRuntime(() => 'translated', 16, 'webgpu');
+    const engine = new InBrowserEngine(runtime, { scheduler });
+    const text = `${'A'.repeat(300)}. ${'B'.repeat(300)}. ${'C'.repeat(300)}.`;
+
+    await collectChunks(engine.translate([{ id: 'body#0', text }], options()));
+
+    expect(scheduler.jobs.length).toBeGreaterThan(1);
+    const bodies = scheduler.jobs.flatMap((job) => job.foregroundBodies ?? []);
+    expect(new Set(bodies).size).toBe(1);
   });
 
   it('streams deltas and a final tagged with the PLaMo engine', async () => {

@@ -266,7 +266,7 @@ const settle = (): Promise<unknown> => vi.advanceTimersByTimeAsync(0);
 /** Jobs that run until the test ends them, in the order the scheduler started them. */
 function heldJobs(scheduler: JobScheduler): {
   started: string[];
-  add: (name: string, priority: number) => void;
+  add: (name: string, priority: number, body?: object) => void;
   produce: (...names: string[]) => void;
   produceRunning: () => void;
   end: (...names: string[]) => Promise<void>;
@@ -283,9 +283,10 @@ function heldJobs(scheduler: JobScheduler): {
   };
   return {
     started,
-    add: (name, priority) => {
+    add: (name, priority, body) => {
       scheduler.schedule({
         priority,
+        ...(body ? { foregroundBodies: [body] } : {}),
         run: (producing) =>
           new Promise<void>((resolve) => {
             started.push(name);
@@ -469,6 +470,23 @@ describe('JobScheduler in staged mode', () => {
       'near-3',
     ]);
 
+    await jobs.endAll();
+  });
+
+  it('counts the pieces of one long foreground body as one reader wait', async () => {
+    const scheduler = new JobScheduler(16, 'staged');
+    const jobs = heldJobs(scheduler);
+    const body = {};
+    for (let index = 0; index < 8; index += 1) jobs.add(`piece-${index}`, SCREEN_PROSE, body);
+    for (let index = 0; index < 6; index += 1) jobs.add(`near-${index}`, NEAR_PROSE);
+
+    jobs.produceRunning();
+    jobs.produceRunning();
+    expect(jobs.started).toHaveLength(8);
+    expect(jobs.started.every((name) => name.startsWith('piece-'))).toBe(true);
+
+    await jobs.end(...Array.from({ length: 8 }, (_, index) => `piece-${index}`));
+    expect(jobs.started).toHaveLength(14);
     await jobs.endAll();
   });
 

@@ -2,6 +2,8 @@ import { PriorityQueue } from './priority-queue';
 
 export interface SchedulerJob {
   priority: number;
+  /** Reader-visible bodies represented by this job. Split pieces share one identity. */
+  foregroundBodies?: readonly object[];
   /** When true, running worse-priority jobs are cancelled so this one can start. */
   preempt?: boolean;
   /** A job calls `producing` once its output has begun. The staged start waits for that. */
@@ -59,7 +61,7 @@ const STAGE_TIMEOUT_MS = 2000;
  */
 const FOREGROUND_END = 22;
 /**
- * More foreground jobs than this are not kept apart. Holding the rest of the page behind
+ * More foreground bodies than this are not kept apart. Holding the rest of the page behind
  * fifteen of them left the other slots empty for as long as the first screen took.
  */
 const SMALL_FOREGROUND = 5;
@@ -81,9 +83,9 @@ export class JobScheduler {
   /** Staged mode: where the start is. This and the fields below start over when idle. */
   private stage = 0;
   private stageTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Jobs started since the scheduler was idle, and how many of them were foreground. */
+  /** Jobs and distinct foreground bodies started since the scheduler was idle. */
   private started = 0;
-  private foregroundStarted = 0;
+  private readonly foregroundBodies = new Set<object>();
   private holding = true;
 
   constructor(
@@ -170,7 +172,7 @@ export class JobScheduler {
       if (!entry) break;
       if (entry.state !== 'queued') continue;
 
-      if (this.mode === 'staged') this.noteStart(entry.job.priority);
+      if (this.mode === 'staged') this.noteStart(entry);
       entry.state = 'running';
       this.running += 1;
       this.active.add(entry);
@@ -195,11 +197,11 @@ export class JobScheduler {
     // them would cost each one a slow step, and the reader is waiting for exactly these.
     // With many of them the rest of the page joins after the staged start.
     const staging = width !== undefined;
-    const small = this.foregroundStarted <= SMALL_FOREGROUND;
+    const small = this.foregroundBodies.size <= SMALL_FOREGROUND;
     if (this.foregroundRunning() === 0 || !(staging || small)) {
       // Once per busy period: foreground work that arrives after this joins the others.
       // Background work that ran before any foreground job has not used the hold up.
-      if (this.foregroundStarted > 0) this.holding = false;
+      if (this.foregroundBodies.size > 0) this.holding = false;
       return true;
     }
     // Counting starts, not running jobs: a slot the foreground never used may be filled,
@@ -219,10 +221,13 @@ export class JobScheduler {
     return this.stage < START_WIDTHS.length;
   }
 
-  private noteStart(priority: number): void {
+  private noteStart(entry: QueuedJob): void {
     if (this.started === 0) this.armStageTimer();
     this.started += 1;
-    if (isForeground(priority)) this.foregroundStarted += 1;
+    if (!isForeground(entry.job.priority)) return;
+    // A body split into pieces is still one reader wait. Without an identity, retain the
+    // scheduler's original behavior and count each job as a separate body.
+    for (const body of entry.job.foregroundBodies ?? [entry]) this.foregroundBodies.add(body);
   }
 
   private noteProducing(entry: QueuedJob): void {
@@ -284,7 +289,7 @@ export class JobScheduler {
     this.clearStageTimer();
     this.stage = 0;
     this.started = 0;
-    this.foregroundStarted = 0;
+    this.foregroundBodies.clear();
     this.holding = true;
     const waiters = this.idleWaiters;
     this.idleWaiters = [];

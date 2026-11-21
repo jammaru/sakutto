@@ -183,7 +183,25 @@ export class InBrowserEngine implements IdentifiedEngine {
       stream.push({ id: segment.id, final: segment.text, engine: this.kind });
     }
 
-    const jobs = work.flatMap((item) => this.jobsFor(item, options, controller.signal, stream));
+    const bodyIdentities = new Map<string, object>();
+    const bodyFor = (segment: TranslateSegment): object => {
+      // DOM and PDF piece IDs share their body's ID before the final numeric suffix.
+      const id = segment.id.replace(/#\d+$/u, '');
+      let body = bodyIdentities.get(id);
+      if (!body) {
+        body = {};
+        bodyIdentities.set(id, body);
+      }
+      return body;
+    };
+    const jobs = work.flatMap((item) => {
+      const segments = item.kind === 'single' ? [item.segment] : item.segments;
+      const foregroundBodies = [...new Set(segments.map(bodyFor))];
+      return this.jobsFor(item, options, controller.signal, stream).map((run) => ({
+        run,
+        foregroundBodies,
+      }));
+    });
     let remaining = jobs.length;
     let failed: unknown = null;
     const handles: ScheduledHandle[] = [];
@@ -207,10 +225,11 @@ export class InBrowserEngine implements IdentifiedEngine {
       handles.push(
         this.scheduler.schedule({
           priority: options.priority,
+          foregroundBodies: job.foregroundBodies,
           ...(options.preempt === true ? { preempt: true } : {}),
           run: async (producing) => {
             try {
-              await job(producing);
+              await job.run(producing);
             } catch (error) {
               if (!isAbortError(error) && !controller.signal.aborted && !failed) {
                 failed = toEngineError(error);
