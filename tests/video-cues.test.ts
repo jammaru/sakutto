@@ -638,7 +638,6 @@ describe('timedtext fetch guard', () => {
     expect(guard.allow(key, 0)).toBe(false);
     guard.fail(key, 0);
     expect(guard.allow(key, 0)).toBe(false);
-    expect(guard.exhausted(key)).toBe(false);
     expect(guard.allow(key, 999)).toBe(false);
     expect(guard.allow(key, 1_000)).toBe(true);
     guard.begin(key);
@@ -648,7 +647,6 @@ describe('timedtext fetch guard', () => {
     guard.begin(key);
     guard.fail(key, 5_000);
     expect(guard.allow(key, 60_000)).toBe(false);
-    expect(guard.exhausted(key)).toBe(true);
     expect(TIMEDTEXT_MAX_ATTEMPTS).toBe(3);
   });
 });

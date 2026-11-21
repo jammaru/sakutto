@@ -1560,9 +1560,6 @@
   "videoCaptionsCustomHostDenied": {
     "message": "해당 사이트 접근이 허용되지 않았습니다."
   },
-  "videoCaptionsBraveShields": {
-    "message": "Brave Shields가 YouTube 자막 데이터를 차단했습니다. 이 동영상에서 Shields를 끄고 페이지를 새로고침하면 자막을 번역할 수 있습니다."
-  },
   "videoCaptionsPositionReset": {
     "message": "위치 재설정"
   },

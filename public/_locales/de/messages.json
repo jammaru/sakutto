@@ -1560,9 +1560,6 @@
   "videoCaptionsCustomHostDenied": {
     "message": "Der Zugriff auf diese Website wurde nicht gewährt."
   },
-  "videoCaptionsBraveShields": {
-    "message": "Brave Shields hat die Untertiteldaten von YouTube blockiert. Deaktiviere Shields für dieses Video und lade die Seite neu, um die Untertitel zu übersetzen."
-  },
   "videoCaptionsPositionReset": {
     "message": "Position zurücksetzen"
   },

@@ -1560,9 +1560,6 @@
   "videoCaptionsCustomHostDenied": {
     "message": "O acesso a esse site não foi concedido."
   },
-  "videoCaptionsBraveShields": {
-    "message": "O Brave Shields bloqueou os dados das legendas do YouTube. Desative o Shields neste vídeo e recarregue a página para traduzir as legendas."
-  },
   "videoCaptionsPositionReset": {
     "message": "Redefinir posição"
   },

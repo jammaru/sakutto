@@ -1564,9 +1564,6 @@
   "videoCaptionsCustomHostDenied": {
     "message": "Access to that site was not granted."
   },
-  "videoCaptionsBraveShields": {
-    "message": "Brave Shields blocked YouTube’s caption data. Turn Shields off for this video, then reload to translate captions."
-  },
   "videoCaptionsPositionReset": {
     "message": "Reset position"
   },

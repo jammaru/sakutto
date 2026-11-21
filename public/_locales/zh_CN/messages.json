@@ -1560,9 +1560,6 @@
   "videoCaptionsCustomHostDenied": {
     "message": "未授予对该网站的访问权限。"
   },
-  "videoCaptionsBraveShields": {
-    "message": "Brave Shields 阻止了 YouTube 字幕数据。请对此视频关闭 Shields，然后重新加载页面以翻译字幕。"
-  },
   "videoCaptionsPositionReset": {
     "message": "重置位置"
   },

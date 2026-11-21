@@ -1560,9 +1560,6 @@
   "videoCaptionsCustomHostDenied": {
     "message": "Доступ к этому сайту не был предоставлен."
   },
-  "videoCaptionsBraveShields": {
-    "message": "Brave Shields заблокировал данные субтитров YouTube. Отключите Shields для этого видео и перезагрузите страницу, чтобы перевести субтитры."
-  },
   "videoCaptionsPositionReset": {
     "message": "Сбросить положение"
   },

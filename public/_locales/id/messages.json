@@ -1560,9 +1560,6 @@
   "videoCaptionsCustomHostDenied": {
     "message": "Akses ke situs itu tidak diberikan."
   },
-  "videoCaptionsBraveShields": {
-    "message": "Brave Shields memblokir data takarir YouTube. Nonaktifkan Shields untuk video ini, lalu muat ulang halaman untuk menerjemahkan takarir."
-  },
   "videoCaptionsPositionReset": {
     "message": "Atur ulang posisi"
   },
