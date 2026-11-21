@@ -120,3 +120,45 @@ describe('copyModelFile', () => {
     expect(store.files.has(PART)).toBe(false);
   });
 });
+
+const SECOND_PAYLOAD = bytesOf('another official model');
+const SECOND_DIGEST = sha256Hex(SECOND_PAYLOAD);
+const REVISIONS = [
+  { commit: 'c1', size: PAYLOAD.length, sha256: DIGEST },
+  { commit: 'c2', size: SECOND_PAYLOAD.length, sha256: SECOND_DIGEST },
+];
+
+describe('copyModelFile with multiple official revisions', () => {
+  it('accepts any known revision and rejects an unknown digest', async () => {
+    const store = new MemoryFileStore();
+    await copyModelFile({
+      ...baseRequest(store, new AbortController().signal),
+      blob: new Blob([new Uint8Array(SECOND_PAYLOAD)]),
+      revisions: REVISIONS,
+    });
+    expect(new TextDecoder().decode(store.files.get(FINAL))).toBe('another official model');
+
+    const other = new MemoryFileStore();
+    await expect(
+      copyModelFile({
+        ...baseRequest(other, new AbortController().signal),
+        blob: new Blob([new Uint8Array(bytesOf('!'.repeat(SECOND_PAYLOAD.length)))]),
+        revisions: REVISIONS,
+      }),
+    ).rejects.toMatchObject({ code: 'model-integrity' });
+    expect(other.files.has(FINAL)).toBe(false);
+  });
+
+  it('reuses a final file from a non-default known revision', async () => {
+    const store = new MemoryFileStore();
+    await store.append(FINAL, SECOND_PAYLOAD, 0);
+    const result = await copyModelFile({
+      ...baseRequest(store, new AbortController().signal),
+      blob: new Blob([new Uint8Array(PAYLOAD)]),
+      revisions: REVISIONS,
+    });
+
+    expect(result).toEqual({ bytes: SECOND_PAYLOAD.length, sha256: SECOND_DIGEST });
+    expect(store.files.get(FINAL)).toEqual(SECOND_PAYLOAD);
+  });
+});

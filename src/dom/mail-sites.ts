@@ -1,6 +1,7 @@
 import { browser } from 'wxt/browser';
+import { allSitesGrantCoversOrigins, hasAllSitesAccess } from '@/dom/all-sites';
 import { MAIL_HOST_PATTERNS } from '@/shared/manifest';
-import { saveSettings } from '@/shared/storage';
+import { loadSettings, saveSettings } from '@/shared/storage';
 
 /** Runtime content-script IDs. The pairs are registered only for granted mail origins. */
 export const MAIL_CONTENT_SCRIPT_ID = 'sakutto-mail';
@@ -46,10 +47,13 @@ export function mailOriginsOverlap(origins: readonly string[] | undefined): bool
 /**
  * Optional host access for the mail hosts. `permissions.request` must be the first awaited
  * extension call in the click that turns the banner on — a prior `await` (including
- * `permissions.contains`) drops the user gesture and Chrome shows no prompt.
+ * `permissions.contains`) drops the user gesture and Chrome shows no prompt. A broad
+ * all-sites grant already covers these https origins and requesting them would still
+ * prompt, so the grant alone turns the banner on and no request runs.
  */
 export async function requestMailHostAccess(): Promise<boolean> {
   const origins = mailPermissionOrigins();
+  if (allSitesGrantCoversOrigins(origins)) return true;
   return browser.permissions.request({ origins }).catch(() => false);
 }
 
@@ -188,6 +192,15 @@ export async function syncMailContentScripts(grantedOrigins?: readonly string[])
 
   const matches = await grantedMailOrigins(grantedOrigins);
   if (matches.length === 0) return;
+
+  // The broad all-sites origin makes every mail origin report as granted. The mail bundles
+  // exist for the banner, so a broad grant alone must not register them: without the banner
+  // setting they would be redundant with the all-sites script on ordinary pages. Narrow
+  // grants — the only kind when the broad origin is absent — keep today's behavior.
+  if (matches.length === mailPermissionOrigins().length && (await hasAllSitesAccess())) {
+    const settings = await loadSettings().catch(() => null);
+    if (!settings?.gmailTranslateBanner) return;
+  }
 
   const scripts: RegisteredMailScript[] = [
     {

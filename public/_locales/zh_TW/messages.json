@@ -801,6 +801,14 @@
       }
     }
   },
+  "modelFolderIntegrityUnknownRevision": {
+    "message": "檔案 $FILE$ 的 SHA-256 值 Sakutto 尚不支援。它可能是較新的官方 PLaMo 模型，請更新 Sakutto。",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
   },
@@ -1560,9 +1568,6 @@
   "videoCaptionsCustomHostDenied": {
     "message": "未授予該網站的存取權限。"
   },
-  "videoCaptionsBraveShields": {
-    "message": "Brave Shields 封鎖了 YouTube 字幕資料。請對此影片關閉 Shields，然後重新載入頁面以翻譯字幕。"
-  },
   "videoCaptionsPositionReset": {
     "message": "重設位置"
   },
@@ -1690,5 +1695,20 @@
   },
   "settingsGmailRemoveLang": {
     "message": "Remove"
+  },
+  "allSitesSetting": {
+    "message": "讓 Sakutto 在頁面開啟後立即可用（建議）"
+  },
+  "allSitesSettingHelp": {
+    "message": "Sakutto 起初只保留盡可能弱的權限，因此此開關關閉時，每個網頁都要先用過一次 Sakutto 圖示、右鍵選單或鍵盤快速鍵，劃詞翻譯按鈕和頁面內快速鍵才會生效。想要更順暢的體驗，建議開啟。只需允許一次對所有網站的存取，任何頁面一開啟就能立即使用。YouTube 字幕翻譯和郵件翻譯提示條也無須逐個網站個別授權即可使用。翻譯仍只在裝置上進行，隨時關閉此開關即可撤銷該存取。"
+  },
+  "allSitesPermissionDenied": {
+    "message": "未授予所有網站的存取權，此設定維持關閉。"
+  },
+  "allSitesPopupHint": {
+    "message": "開啟所有網站存取後，不必先開啟這個彈出視窗，每次都能使用劃詞翻譯按鈕和快速鍵。"
+  },
+  "allSitesPopupEnable": {
+    "message": "開啟"
   }
 }

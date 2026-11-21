@@ -28,6 +28,7 @@ import {
   isTargetLanguage,
   type TargetLanguage,
 } from '@/shared/languages';
+import type { PageCommandName } from '@/shared/messages';
 import {
   TRANSLATION_POPUP_SIZE_DEFAULT,
   TRANSLATION_POPUP_WIDTH_AUTO,
@@ -47,6 +48,7 @@ import {
   collectDocuments,
   collectShadowRoots,
   eachTranslatableBlock,
+  focusedEditableField,
   isAriaHiddenLeaf,
   isBlockElement,
   isFrozenInline,
@@ -108,6 +110,19 @@ const MAX_SELECTION_SCAN_NODES = 512;
  * translate and immediately restore, which looks like the shortcut doing nothing.
  */
 export const PAGE_SHORTCUT_DEDUP_MS = 200;
+
+/**
+ * True when the reader is typing in a field, where an unassigned Option+letter must type
+ * rather than run a page command. Chrome-assigned commands still arrive through onCommand.
+ */
+function isTypingShortcutTarget(event: KeyboardEvent): boolean {
+  const fromEvent = event.target instanceof Element ? event.target : null;
+  const doc = event.view?.document ?? fromEvent?.ownerDocument ?? null;
+  const field = focusedEditableField(fromEvent) ?? focusedEditableField(doc?.activeElement);
+  if (!field) return false;
+  return !isOwnUi(field);
+}
+
 /**
  * The rate only needs a few observations per second, so the whole page is not re-counted
  * for every finished segment. Each count walks every translated character.
@@ -259,6 +274,17 @@ export interface PageSessionOptions {
   }) => void | Promise<void>;
   /** Resolves true only after this site already has host access. */
   onGrantSite?: () => boolean | Promise<boolean>;
+  /** True for the key the reader bound to the selection command. */
+  selectionKey?: (event: KeyboardEvent) => boolean;
+  /** Page translate / restore, used only under the all-sites grant when unassigned. */
+  pageKey?: (event: KeyboardEvent) => boolean;
+  /** Bilingual toggle, used only under the all-sites grant when unassigned. */
+  bilingualKey?: (event: KeyboardEvent) => boolean;
+  /**
+   * Runs page commands from in-page shortcuts with the same gating and deduplication as
+   * `commands.onCommand`. Without this, Alt+A and a Chrome command can both call `handle`.
+   */
+  onPageCommand?: (command: PageCommandName) => void;
   /** Saves a width chosen by dragging or keyboard, in em at 100% text scale. */
   onPopupWidth?: (widthEm: number) => void | Promise<void>;
   /** True only while the shared folder grant actually needs the reader to act. */
@@ -302,6 +328,10 @@ export class PageSession {
   private readonly onSitePatch: PageSessionOptions['onSitePatch'];
   private readonly onGrantSite: PageSessionOptions['onGrantSite'];
   private readonly onPopupWidth: PageSessionOptions['onPopupWidth'];
+  private readonly selectionKey: ((event: KeyboardEvent) => boolean) | undefined;
+  private readonly pageKey: ((event: KeyboardEvent) => boolean) | undefined;
+  private readonly bilingualKey: ((event: KeyboardEvent) => boolean) | undefined;
+  private readonly onPageCommand: ((command: PageCommandName) => void) | undefined;
   private readonly keyWindows = new Set<Window>();
   private grantPending = false;
   private eagerOnce = true;
@@ -330,6 +360,8 @@ export class PageSession {
   private selection: Live | null = null;
   /** True while the selection popover is the thing the user is looking at. */
   private selectionShown = false;
+  /** Quiet on hosts the reader turned Sakutto off for, until an explicit action arrives. */
+  private selectionOffersSuppressed = false;
   private selectionTimer: ReturnType<typeof setTimeout> | null = null;
   private pointerDown = false;
   private pointerReleasedAt = 0;
@@ -401,6 +433,10 @@ export class PageSession {
     this.onSitePatch = options.onSitePatch;
     this.onGrantSite = options.onGrantSite;
     this.onPopupWidth = options.onPopupWidth;
+    this.selectionKey = options.selectionKey;
+    this.pageKey = options.pageKey;
+    this.bilingualKey = options.bilingualKey;
+    this.onPageCommand = options.onPageCommand;
     this.folderGrantUiActive = options.folderGrantUiActive === true;
     this.onFolderEnable = options.onFolderEnable;
     this.scheduleFrame =
@@ -491,12 +527,40 @@ export class PageSession {
     };
     this.onKeyDown = (event) => {
       if (!(event instanceof KeyboardEvent) || event.repeat || event.isComposing) return;
-      if (event.key !== 'Escape') return;
-      this.overlay.hideOriginal();
-      if (!this.selection && !this.overlay.selectionIconVisible()) return;
+      if (event.key === 'Escape') {
+        this.overlay.hideOriginal();
+        if (!this.selection && !this.overlay.selectionIconVisible()) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.dismissSelection();
+        return;
+      }
+      // In-page fallback (unassigned commands): skip when a field is focused so Option+letter
+      // can type. Chrome-assigned commands still run via onCommand inside fields.
+      if (this.pageKey?.(event)) {
+        if (isTypingShortcutTarget(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (this.onPageCommand) this.onPageCommand('toggle');
+        else void this.handle('toggle');
+        return;
+      }
+      if (this.bilingualKey?.(event)) {
+        if (isTypingShortcutTarget(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (this.onPageCommand) this.onPageCommand('bilingual');
+        else void this.handle('bilingual');
+        return;
+      }
+      if (!this.selectionKey?.(event)) return;
+      if (isTypingShortcutTarget(event)) return;
+      const selected = this.readSelection();
+      if (!selected) return;
       event.preventDefault();
       event.stopPropagation();
-      this.dismissSelection();
+      if (this.onPageCommand) this.onPageCommand('selection');
+      else this.translateSelection(selected.text, selected.rect);
     };
     this.onFocusIn = (event) => this.showHover(event);
     this.onFocusOut = (event) => this.hideHover(event);
@@ -822,6 +886,7 @@ export class PageSession {
   }
 
   private offerSelection(): void {
+    if (this.selectionOffersSuppressed) return;
     if (this.navigating || this.doc.hidden || this.pointerDown) return;
     const selected = this.readSelection();
     if (!selected) {
@@ -848,6 +913,25 @@ export class PageSession {
     }
     this.overlay.showSelectionIcon(selected.rect);
     if (prefetch) this.translateSelection(selected.text, selected.rect, false);
+  }
+
+  /**
+   * Offers a selection that already existed when this script initialized, once. A highlight
+   * made before the listeners were bound never fires `selectionchange` here, so the first
+   * check re-reads the document. One offer, no loop; the page is never translated by it.
+   */
+  offerExistingSelection(): void {
+    this.offerSelection();
+  }
+
+  /**
+   * The passive all-sites injection stays quiet on a host whose rule is `never`: the
+   * selection button returns only after an explicit popup or command reached this page.
+   */
+  setSelectionOffersSuppressed(suppressed: boolean): void {
+    if (this.selectionOffersSuppressed === suppressed) return;
+    this.selectionOffersSuppressed = suppressed;
+    if (suppressed) this.overlay.hideSelectionIcon();
   }
 
   private activateSelectionIcon(): void {

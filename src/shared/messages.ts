@@ -138,6 +138,11 @@ export interface ShortcutAssigned {
 export interface ShortcutQueryResult {
   snapshot: ShortcutSnapshot;
   assigned: ShortcutAssigned;
+  /**
+   * The broad optional-origin grant. Content scripts cannot call `permissions.contains`
+   * themselves, so the background includes it with the bindings they already query.
+   */
+  allSitesAccess?: boolean;
 }
 
 export interface ModelDownloadRequest {
@@ -167,6 +172,11 @@ export interface ModelProgressMessage {
 
 export interface ModelInspectRequest {
   type: 'model:inspect';
+  modelId: ModelId;
+}
+
+export interface ModelAttachRequest {
+  type: 'model:attach';
   modelId: ModelId;
 }
 
@@ -320,7 +330,10 @@ export function isShortcutAssigned(value: unknown): value is ShortcutAssigned {
 
 export function isShortcutQueryResult(value: unknown): value is ShortcutQueryResult {
   return (
-    isRecord(value) && isShortcutSnapshot(value.snapshot) && isShortcutAssigned(value.assigned)
+    isRecord(value) &&
+    isShortcutSnapshot(value.snapshot) &&
+    isShortcutAssigned(value.assigned) &&
+    (value.allSitesAccess === undefined || typeof value.allSitesAccess === 'boolean')
   );
 }
 
@@ -346,6 +359,10 @@ export function isModelProgressMessage(value: unknown): value is ModelProgressMe
 
 export function isModelInspectRequest(value: unknown): value is ModelInspectRequest {
   return isRecord(value) && value.type === 'model:inspect' && isModelId(value.modelId);
+}
+
+export function isModelAttachRequest(value: unknown): value is ModelAttachRequest {
+  return isRecord(value) && value.type === 'model:attach' && isModelId(value.modelId);
 }
 
 export function isModelFolderReloadRequest(value: unknown): value is ModelFolderReloadRequest {
@@ -540,6 +557,18 @@ export async function requestModelInspect(modelId: ModelId): Promise<ModelStatus
       type: 'model:inspect',
       modelId,
     } satisfies ModelInspectRequest);
+    return isModelStatus(response) ? response : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function requestModelAttach(modelId: ModelId): Promise<ModelStatus | null> {
+  try {
+    const response: unknown = await browser.runtime.sendMessage({
+      type: 'model:attach',
+      modelId,
+    } satisfies ModelAttachRequest);
     return isModelStatus(response) ? response : null;
   } catch {
     return null;

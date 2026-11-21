@@ -284,7 +284,6 @@ describe('page session', () => {
       pending: 'Translating caption…',
       showOriginal: 'Show original caption',
       hideOriginal: 'Hide original caption',
-      braveShields: 'Caption data was blocked.',
     });
     overlay.attach(player);
     overlay.show({
@@ -2158,6 +2157,88 @@ describe('page translation corrections', () => {
     expect(calls).toBe(0);
   });
 
+  it('runs the page fallback callbacks the content script enables under all-sites', async () => {
+    document.body.innerHTML = '<p>Hello world</p>';
+    const commands: string[] = [];
+    const session = new PageSession(document, {
+      engine: engineOf(async function* (segments) {
+        for (const segment of segments) {
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' };
+        }
+      }),
+      labels,
+      preferences: preferences(),
+      scheduleFrame: (callback) => callback(),
+      pageKey: (event) => event.altKey && event.code === 'KeyA',
+      bilingualKey: (event) => event.altKey && event.code === 'KeyB',
+      onPageCommand: (command) => commands.push(command),
+    });
+    sessions.push(session);
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'a',
+        code: 'KeyA',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'b',
+        code: 'KeyB',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(commands).toEqual(['toggle', 'bilingual']);
+  });
+
+  it('runs the selection callback only when there is a page selection', () => {
+    document.body.innerHTML = '<p id="lead">Selected phrase</p>';
+    const commands: string[] = [];
+    const session = new PageSession(document, {
+      engine: engineOf(async function* () {}),
+      labels,
+      preferences: preferences(),
+      scheduleFrame: (callback) => callback(),
+      selectionKey: (event) => event.altKey && event.code === 'KeyS',
+      onPageCommand: (command) => commands.push(command),
+    });
+    sessions.push(session);
+    document.getSelection()?.removeAllRanges();
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 's',
+        code: 'KeyS',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(commands).toEqual([]);
+
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing lead');
+    const range = document.createRange();
+    range.selectNodeContents(lead);
+    const selection = document.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 's',
+        code: 'KeyS',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(commands).toEqual(['selection']);
+  });
+
   it('ignores page-owned selection keydown commands', () => {
     document.body.innerHTML = '<p id="lead">Selected phrase</p>';
     const seen: string[] = [];
@@ -3915,5 +3996,159 @@ describe('selection popup translated-text scroll', () => {
     expect(scrollTop).toBe(360);
     await session.whenIdle();
     expect(scrollTop).toBe(360);
+  });
+});
+
+describe('selection offers on a never host and at init', () => {
+  afterEach(() => {
+    document.getSelection()?.removeAllRanges();
+  });
+
+  function icon(): HTMLElement {
+    const node = document.querySelector('sakutto-select');
+    if (!(node instanceof HTMLElement)) throw new Error('missing selection icon');
+    return node;
+  }
+
+  function selectLead(): void {
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing lead');
+    const range = document.createRange();
+    range.selectNodeContents(lead);
+    const selection = document.getSelection();
+    if (!selection) throw new Error('missing selection');
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  it('stays quiet while suppressed, then offers again once suppression lifts', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p id="lead">Osaka is a designated city.</p>';
+    const anchor = new DOMRect(20, 40, 120, 18);
+    const rects = vi.spyOn(Range.prototype, 'getClientRects').mockImplementation(
+      () =>
+        ({
+          length: 1,
+          item: (index: number) => (index === 0 ? anchor : null),
+        }) as unknown as DOMRectList,
+    );
+    const box = vi.spyOn(Range.prototype, 'getBoundingClientRect').mockReturnValue(anchor);
+    const seen: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        seen.push(segments.map((segment) => segment.text).join('|'));
+        const segment = segments[0];
+        if (!segment) return;
+        yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+      }),
+    );
+
+    try {
+      session.setSelectionOffersSuppressed(true);
+      selectLead();
+      document.dispatchEvent(new Event('selectionchange'));
+      document.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      expect(icon().hidden).toBe(true);
+      expect(seen).toEqual([]);
+
+      session.setSelectionOffersSuppressed(false);
+      document.dispatchEvent(new Event('selectionchange'));
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      expect(icon().hidden).toBe(false);
+      expect(seen).toEqual(['Osaka is a designated city.']);
+    } finally {
+      rects.mockRestore();
+      box.mockRestore();
+    }
+  });
+
+  it('offers a selection that already existed when the script initialized, once', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p id="lead">Hello world</p>';
+    const anchor = new DOMRect(20, 40, 120, 18);
+    const rects = vi.spyOn(Range.prototype, 'getClientRects').mockImplementation(
+      () =>
+        ({
+          length: 1,
+          item: (index: number) => (index === 0 ? anchor : null),
+        }) as unknown as DOMRectList,
+    );
+    const box = vi.spyOn(Range.prototype, 'getBoundingClientRect').mockReturnValue(anchor);
+    const seen: string[] = [];
+    start(
+      document,
+      engineOf(async function* (segments) {
+        seen.push(segments.map((segment) => segment.text).join('|'));
+        const segment = segments[0];
+        if (!segment) return;
+        yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+      }),
+    );
+
+    try {
+      // The highlight is made without firing selectionchange or pointerup, the way a
+      // selection that predates the content script looks to the page.
+      selectLead();
+      (sessions.at(-1) as PageSession).offerExistingSelection();
+      expect(icon().hidden).toBe(false);
+      expect(seen).toEqual(['Hello world']);
+
+      // One offer, no loop: a repeat does not queue the same selection twice.
+      (sessions.at(-1) as PageSession).offerExistingSelection();
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      expect(seen).toEqual(['Hello world']);
+    } finally {
+      rects.mockRestore();
+      box.mockRestore();
+    }
+  });
+
+  it('does not translate the page when offering an existing selection', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML =
+      '<p id="lead">Selected phrase</p><p id="rest">This page text stays.</p>';
+    const anchor = new DOMRect(20, 40, 120, 18);
+    const rects = vi.spyOn(Range.prototype, 'getClientRects').mockImplementation(
+      () =>
+        ({
+          length: 1,
+          item: (index: number) => (index === 0 ? anchor : null),
+        }) as unknown as DOMRectList,
+    );
+    const box = vi.spyOn(Range.prototype, 'getBoundingClientRect').mockReturnValue(anchor);
+    const seen: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        seen.push(segments.map((segment) => segment.text).join('|'));
+        for (const segment of segments) {
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+    );
+
+    try {
+      selectLead();
+      session.offerExistingSelection();
+      await session.whenIdle();
+      expect(seen).toEqual(['Selected phrase']);
+      expect(document.querySelector('#rest')?.textContent).toBe('This page text stays.');
+      expect(document.body.textContent).not.toContain('訳:This');
+    } finally {
+      rects.mockRestore();
+      box.mockRestore();
+    }
+  });
+
+  it('offers nothing when no selection exists at init', () => {
+    document.body.innerHTML = '<p id="lead">Hello world</p>';
+    const session = start(
+      document,
+      immediate((source) => `訳:${source}`),
+    );
+    session.offerExistingSelection();
+    expect(icon().hidden).toBe(true);
   });
 });

@@ -1,4 +1,5 @@
 import { browser } from 'wxt/browser';
+import { allSitesGrantCoversOrigins } from '@/dom/all-sites';
 import type { EngineSource } from '@/shared/engine-status';
 import type { Settings, SettingsPatch } from '@/shared/settings';
 import { isRemoteServerUrl, parseServerUrl, primaryOriginPattern } from './url';
@@ -18,6 +19,9 @@ import { isRemoteServerUrl, parseServerUrl, primaryOriginPattern } from './url';
 export async function requestServerPermission(url: string): Promise<boolean> {
   const origin = primaryOriginPattern(url);
   if (!origin) return false;
+  // A broad all-sites grant already covers this http/https origin and requesting it
+  // would still prompt, so the grant alone switches the engine and no request runs.
+  if (allSitesGrantCoversOrigins([origin])) return true;
   return browser.permissions.request({ origins: [origin] }).catch(() => false);
 }
 

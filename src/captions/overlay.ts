@@ -12,7 +12,6 @@ export interface CaptionOverlayLabels {
   pending: string;
   showOriginal: string;
   hideOriginal: string;
-  braveShields: string;
 }
 
 export interface CaptionOverlayState {
@@ -474,9 +473,6 @@ export class CaptionOverlay {
     this.labels = labels;
     this.host.setAttribute('aria-label', labels.label);
     this.toggle.setAttribute('aria-label', labels.showOriginal);
-    if (this.host.getAttribute('data-sakutto-notice') === 'brave-shields') {
-      this.translatedLine.textContent = labels.braveShields;
-    }
   }
 
   attach(root: Element): void {
@@ -577,26 +573,6 @@ export class CaptionOverlay {
     this.syncToggle();
   }
 
-  hasBraveShieldsNotice(): boolean {
-    return this.host.getAttribute('data-sakutto-notice') === 'brave-shields';
-  }
-
-  showBraveShieldsNotice(): void {
-    this.originalLine.textContent = '';
-    this.originalLine.hidden = true;
-    this.translatedLine.textContent = this.labels.braveShields;
-    this.translatedLine.hidden = false;
-    this.host.removeAttribute('data-sakutto-caption');
-    this.host.removeAttribute('data-sakutto-original');
-    this.host.removeAttribute('data-sakutto-show-original');
-    this.host.removeAttribute('data-sakutto-pending');
-    this.host.setAttribute('data-sakutto-notice', 'brave-shields');
-    this.toggleLabel = this.labels.showOriginal;
-    this.overlayActive = true;
-    this.host.hidden = false;
-    this.syncToggle();
-  }
-
   hide(): void {
     this.cancelHold();
     this.endDrag(false);
@@ -611,7 +587,6 @@ export class CaptionOverlay {
     this.host.removeAttribute('data-sakutto-original');
     this.host.removeAttribute('data-sakutto-show-original');
     this.host.removeAttribute('data-sakutto-pending');
-    this.host.removeAttribute('data-sakutto-notice');
     this.syncToggle();
   }
 

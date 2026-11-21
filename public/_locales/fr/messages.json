@@ -801,6 +801,14 @@
       }
     }
   },
+  "modelFolderIntegrityUnknownRevision": {
+    "message": "Le hachage SHA-256 du fichier $FILE$ est inconnu de Sakutto. Il peut s’agir d’une version officielle plus récente de PLaMo — mettez à jour Sakutto.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
   },
@@ -1560,9 +1568,6 @@
   "videoCaptionsCustomHostDenied": {
     "message": "L’accès à ce site n’a pas été accordé."
   },
-  "videoCaptionsBraveShields": {
-    "message": "Brave Shields a bloqué les données des sous-titres YouTube. Désactivez Shields pour cette vidéo, puis rechargez la page pour traduire les sous-titres."
-  },
   "videoCaptionsPositionReset": {
     "message": "Réinitialiser la position"
   },
@@ -1690,5 +1695,20 @@
   },
   "settingsGmailRemoveLang": {
     "message": "Remove"
+  },
+  "allSitesSetting": {
+    "message": "Rendre Sakutto prêt dès l'ouverture d'une page (recommandé)"
+  },
+  "allSitesSettingHelp": {
+    "message": "Sakutto démarre avec les permissions les plus limitées possible, donc tant que ceci est désactivé, le bouton de traduction de sélection et les raccourcis dans la page ne fonctionnent qu'après avoir utilisé une fois sur cette page l'icône de Sakutto, le menu contextuel ou un raccourci clavier. Pour une expérience plus fluide, nous vous recommandons de l'activer. Autorisez une seule fois l'accès à tous les sites et Sakutto fonctionne sur chaque page dès son ouverture. La traduction des sous-titres YouTube et le bandeau de traduction des e-mails fonctionnent aussi sans demander d'autorisation pour chaque site. La traduction continue de se faire uniquement sur votre appareil, et vous pouvez révoquer cet accès à tout moment en désactivant l'option."
+  },
+  "allSitesPermissionDenied": {
+    "message": "L'accès à tous les sites n'a pas été accordé, cette option reste donc désactivée."
+  },
+  "allSitesPopupHint": {
+    "message": "Activez l'accès à tous les sites pour utiliser le bouton de traduction de sélection et les raccourcis sur chaque page sans ouvrir d'abord cette fenêtre."
+  },
+  "allSitesPopupEnable": {
+    "message": "Activer"
   }
 }

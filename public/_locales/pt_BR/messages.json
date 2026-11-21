@@ -801,6 +801,14 @@
       }
     }
   },
+  "modelFolderIntegrityUnknownRevision": {
+    "message": "O hash SHA-256 de $FILE$ não é reconhecido pelo Sakutto. Pode ser uma versão oficial mais recente do PLaMo — atualize o Sakutto.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
   },
@@ -1560,9 +1568,6 @@
   "videoCaptionsCustomHostDenied": {
     "message": "O acesso a esse site não foi concedido."
   },
-  "videoCaptionsBraveShields": {
-    "message": "O Brave Shields bloqueou os dados das legendas do YouTube. Desative o Shields neste vídeo e recarregue a página para traduzir as legendas."
-  },
   "videoCaptionsPositionReset": {
     "message": "Redefinir posição"
   },
@@ -1690,5 +1695,20 @@
   },
   "settingsGmailRemoveLang": {
     "message": "Remove"
+  },
+  "allSitesSetting": {
+    "message": "Deixar o Sakutto pronto assim que uma página abrir (recomendado)"
+  },
+  "allSitesSettingHelp": {
+    "message": "O Sakutto começa com as permissões mais fracas possível, então, enquanto isso estiver desligado, o botão de tradução de seleção e os atalhos na página só funcionam depois que você usa ali uma vez o ícone do Sakutto, o menu do botão direito ou um atalho de teclado. Para uma experiência mais fluida, recomendamos ativar. Permita o acesso a todos os sites uma vez e o Sakutto funciona em qualquer página assim que ela abrir. A tradução de legendas do YouTube e o banner de tradução de e-mails também funcionam sem pedir permissão para cada site. A tradução continua acontecendo só no seu dispositivo, e você pode revogar esse acesso a qualquer momento desativando a opção."
+  },
+  "allSitesPermissionDenied": {
+    "message": "O acesso a todos os sites não foi concedido, então isso permanece desativado."
+  },
+  "allSitesPopupHint": {
+    "message": "Ative o acesso a todos os sites para usar o botão de tradução de seleção e os atalhos em cada página sem abrir este pop-up antes."
+  },
+  "allSitesPopupEnable": {
+    "message": "Ativar"
   }
 }

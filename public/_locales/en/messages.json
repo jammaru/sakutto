@@ -801,6 +801,14 @@
       }
     }
   },
+  "modelFolderIntegrityUnknownRevision": {
+    "message": "The file $FILE$ has a SHA-256 hash Sakutto does not recognize. It may be a newer official PLaMo model — update Sakutto to use it.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
   },
@@ -1564,9 +1572,6 @@
   "videoCaptionsCustomHostDenied": {
     "message": "Access to that site was not granted."
   },
-  "videoCaptionsBraveShields": {
-    "message": "Brave Shields blocked YouTube’s caption data. Turn Shields off for this video, then reload to translate captions."
-  },
   "videoCaptionsPositionReset": {
     "message": "Reset position"
   },
@@ -1695,5 +1700,25 @@
   },
   "settingsGmailRemoveLang": {
     "message": "Remove"
+  },
+  "allSitesSetting": {
+    "message": "Make Sakutto ready as soon as a page opens (recommended)",
+    "description": "Options toggle that asks for optional http/https host access once."
+  },
+  "allSitesSettingHelp": {
+    "message": "Sakutto starts with the weakest permissions it can, so while this is off, the selection button and in-page shortcuts only work on a page after you use the Sakutto icon, right-click menu, or a keyboard shortcut there once. For a smoother experience, we recommend turning this on. Allow access to all sites once and Sakutto works on every page right after it opens. YouTube subtitle translation and the mail translation banner also work without asking for each site. Translation still happens only on your device, and you can revoke this anytime by turning it off.",
+    "description": "One-line explanation of the all-sites toggle."
+  },
+  "allSitesPermissionDenied": {
+    "message": "All-sites access was not granted, so this stays off.",
+    "description": "Shown when the browser prompt for all-sites access is denied."
+  },
+  "allSitesPopupHint": {
+    "message": "Turn on all-sites access to use the selection button and shortcuts on every page without opening this popup first.",
+    "description": "One-line suggestion in the toolbar popup while all-sites access is off."
+  },
+  "allSitesPopupEnable": {
+    "message": "Turn on",
+    "description": "Button in the toolbar popup that turns on all-sites access."
   }
 }

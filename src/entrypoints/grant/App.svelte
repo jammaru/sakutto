@@ -1,5 +1,7 @@
 <script lang="ts">
   import { browser } from 'wxt/browser';
+  import { onMount } from 'svelte';
+  import { allSitesGrantCoversOrigins, hasAllSitesAccess } from '@/dom/all-sites';
   import { isSiteHost, loadSiteRule, saveSiteRule, siteAccessOrigins } from '@/dom/sites';
   import { t } from '@/shared/i18n';
 
@@ -8,6 +10,13 @@
 
   let message = $state('');
   let pending = $state(false);
+
+  onMount(() => {
+    // Recorded while the page opens so the Allow click can read the all-sites state
+    // synchronously and never awaits before its permission work. A click before this
+    // resolves still prompts, exactly like a page opened before the broad grant.
+    void hasAllSitesAccess();
+  });
 
   async function allow(): Promise<void> {
     if (!valid || pending) return;
@@ -19,7 +28,12 @@
       pending = false;
       return;
     }
-    const granted = await browser.permissions.request({ origins }).catch(() => false);
+    // A broad all-sites grant already covers these http/https origins and requesting
+    // them would still prompt, so the grant alone turns the rule on. Otherwise
+    // `permissions.request` stays the first awaited call in this click.
+    const granted = allSitesGrantCoversOrigins(origins)
+      ? true
+      : await browser.permissions.request({ origins }).catch(() => false);
     if (!granted) {
       message = t('siteGrantDenied');
       pending = false;

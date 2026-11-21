@@ -6,6 +6,7 @@ import {
 } from '@/shared/runtime-last-error';
 import { defineBackground } from 'wxt/utils/define-background';
 import { EngineClient } from '@/background/engine-client';
+import { ModelDownloads } from '@/background/model-downloads';
 import { createEngineHostController } from '@/background/engine-host-document';
 import {
   injectCaptionPages,
@@ -41,13 +42,14 @@ import {
 } from '@/shared/pdf';
 import { tabServesPdf } from '@/background/pdf-detect';
 import { sendExtensionModelProgress } from '@/background/extension-progress-sink';
-import { broadcastModelProgress, shouldWarmDownloadedModel } from '@/background/progress-broadcast';
+import { broadcastModelProgress } from '@/background/progress-broadcast';
 import { measureQuality } from '@/background/quality';
 import { TranslationBroker } from '@/background/translation-broker';
 import { settleCaptionEnableIntent } from '@/captions/sites';
+import { hasAllSitesAccess, syncAllSitesContentScripts } from '@/dom/all-sites';
 import { settleMailEnableIntent, syncMailContentScripts } from '@/dom/mail-sites';
 import { grantOriginsFor } from '@/dom/sites';
-import { getModel, type ModelId } from '@/engine/model/catalog';
+import type { ModelId } from '@/engine/model/catalog';
 import { normalizeSelectedModelId } from '@/engine/model/selection';
 import { hasLicenseConsent } from '@/shared/agreement';
 import type { EngineCapabilities } from '@/shared/capabilities';
@@ -66,6 +68,7 @@ import {
   isOpenSetupRequest,
   isShortcutQuery,
   isSiteGrantRequest,
+  isModelAttachRequest,
   isModelDeleteRequest,
   isModelDownloadRequest,
   isModelFolderAdoptRequest,
@@ -115,7 +118,7 @@ export default defineBackground(() => {
   // other background setup so the first event after a restart is not lost.
   installPageActionListeners(client);
   const broker = new TranslationBroker(client);
-  const downloads = new Map<ModelId, AbortController>();
+  const downloads = new ModelDownloads(client, broadcast);
   let capabilitiesCache: EngineCapabilities | null = null;
 
   client.onModelStatus((status) => {
@@ -150,6 +153,8 @@ export default defineBackground(() => {
   void ensureSettings().then((settings) => {
     void syncCaptionCustomContentScripts(settings.captionCustomHosts);
     void syncMailContentScripts();
+    // Live permission state decides: no broad grant means no all-sites registration.
+    void syncAllSitesContentScripts();
     if (settings.gmailTranslateBanner) {
       void injectGmailBannerPages();
       void injectOutlookBannerPages();
@@ -160,13 +165,16 @@ export default defineBackground(() => {
       granted.origins ? { grantedOrigins: granted.origins } : undefined,
     );
     void settleMailEnableIntent(granted.origins ? { grantedOrigins: granted.origins } : undefined);
-    // Re-read every granted mail origin: this event names only what was just added.
+    // Re-read every granted origin: this event names only what was just added, and a
+    // broad all-sites grant changes what several narrower origin checks report.
     void syncMailContentScripts();
+    void syncAllSitesContentScripts();
     void injectGmailBannerPages();
     void injectOutlookBannerPages();
   });
   browser.permissions.onRemoved?.addListener(() => {
     void syncMailContentScripts();
+    void syncAllSitesContentScripts();
   });
 
   async function syncSource(): Promise<void> {
@@ -223,68 +231,13 @@ export default defineBackground(() => {
     });
   }
 
-  async function broadcastStatus(): Promise<void> {
-    const status = await client.status().catch(() => null);
-    if (!status) return;
-    await broadcast({ type: 'model:progress', status: status.model });
-  }
-
-  function startDownload(modelId: ModelId): boolean {
-    if (downloads.has(modelId)) return true;
-
-    const controller = new AbortController();
-    downloads.set(modelId, controller);
-    const total = getModel(modelId).size;
-    let received = 0;
-
-    void (async () => {
-      try {
-        const status = await client.downloadModel(modelId, {
-          signal: controller.signal,
-          onProgress: (progress) => {
-            received = progress.received;
-            void broadcast({ type: 'model:progress', status: progress });
-          },
-        });
-        await broadcast({ type: 'model:progress', status });
-        const current = await client.status().catch(() => null);
-        if (shouldWarmDownloadedModel(status, current?.model ?? null)) {
-          const warmed = await client.warmModel().catch(() => null);
-          if (warmed) await broadcast({ type: 'model:progress', status: warmed });
-        }
-      } catch (error) {
-        if (controller.signal.aborted) {
-          await broadcastStatus();
-          return;
-        }
-
-        await broadcast({
-          type: 'model:progress',
-          status: {
-            id: modelId,
-            state: 'error',
-            received,
-            total,
-            progress: Math.min(1, received / total),
-            error: error instanceof Error ? error.message : String(error),
-          },
-        });
-      } finally {
-        downloads.delete(modelId);
-      }
-    })();
-
-    return true;
-  }
-
   async function deleteModel(modelId: ModelId) {
     // Check before removing the file: after deletion the host may already have selected a
     // fallback model, so only this snapshot says whether page translations used this id.
     const activeBefore = await client.status().catch(() => null);
     const removingActiveModel = activeBefore?.model.id === modelId;
 
-    downloads.get(modelId)?.abort();
-    downloads.delete(modelId);
+    downloads.abort(modelId);
     if (removingActiveModel) broker.cancelAll();
 
     const status = await client.deleteModel(modelId).catch(() => null);
@@ -305,6 +258,7 @@ export default defineBackground(() => {
       else await syncSource();
       await recordCommandAssignments(reason === 'install' || reason === 'update');
       await syncMailContentScripts();
+      await syncAllSitesContentScripts();
       if (reason === 'install') {
         await browser.tabs.create({ url: browser.runtime.getURL('/onboarding.html') });
       }
@@ -337,6 +291,7 @@ export default defineBackground(() => {
       .catch(() => undefined);
     void recordCommandAssignments().catch(() => undefined);
     void syncMailContentScripts();
+    void syncAllSitesContentScripts();
   });
 
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -533,7 +488,10 @@ export default defineBackground(() => {
     if (isShortcutQuery(message)) {
       void browser.commands
         .getAll()
-        .then((commands) => resolveShortcutQuery(commands))
+        .then(async (commands) => ({
+          ...(await resolveShortcutQuery(commands)),
+          allSitesAccess: await hasAllSitesAccess(),
+        }))
         .then(sendResponse, () => sendResponse(null));
       return true;
     }
@@ -555,6 +513,11 @@ export default defineBackground(() => {
 
     if (isModelInspectRequest(message)) {
       void client.modelStatus(message.modelId).then(sendResponse, () => sendResponse(null));
+      return true;
+    }
+
+    if (isModelAttachRequest(message)) {
+      void downloads.attach(message.modelId).then(sendResponse, () => sendResponse(null));
       return true;
     }
 
@@ -586,7 +549,7 @@ export default defineBackground(() => {
             sendResponse(false);
             return;
           }
-          sendResponse(startDownload(message.modelId));
+          sendResponse(downloads.start(message.modelId));
         },
         () => sendResponse(false),
       );
@@ -594,8 +557,7 @@ export default defineBackground(() => {
     }
 
     if (isModelCancelRequest(message)) {
-      downloads.get(message.modelId)?.abort();
-      downloads.delete(message.modelId);
+      void downloads.cancel(message.modelId);
       sendResponse(true);
       return false;
     }

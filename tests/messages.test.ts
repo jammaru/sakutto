@@ -103,6 +103,8 @@ describe('message validation', () => {
       'translate-compose': false,
     };
     expect(isShortcutQueryResult({ snapshot, assigned })).toBe(true);
+    expect(isShortcutQueryResult({ snapshot, assigned, allSitesAccess: true })).toBe(true);
+    expect(isShortcutQueryResult({ snapshot, assigned, allSitesAccess: 'yes' })).toBe(false);
     expect(isShortcutQueryResult({ snapshot })).toBe(false);
     expect(
       isShortcutQueryResult({ snapshot, assigned: { ...assigned, 'translate-page': 1 } }),

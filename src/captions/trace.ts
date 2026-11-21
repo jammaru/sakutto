@@ -96,7 +96,6 @@ const LABELS = {
   pending: 'Translating caption…',
   showOriginal: 'Show original caption',
   hideOriginal: 'Hide original caption',
-  braveShields: 'Caption data is unavailable.',
 };
 
 interface ReplayTimer {
@@ -226,7 +225,6 @@ export async function replayCaptionTrace(
       now: () => clock.time,
       readPlayerResponse: async () => syntheticPlayerResponse(trace),
       readTrack: async () => '',
-      readBrave: async () => false,
     });
     session.start();
     await flushMicrotasks();

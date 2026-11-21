@@ -41,15 +41,19 @@ describe('folder grant gate', () => {
     expect(content).not.toContain('ensureStoredFolderPermission');
   });
 
-  it('uses the gated background command path without page-owned shortcut listeners', () => {
+  it('gates page-owned shortcut listeners behind the all-sites grant', () => {
     const session = source('dom/session.ts');
     const content = source('content/main.ts');
-    expect(session).not.toContain('onPageCommand');
-    expect(session).not.toContain('selectionKey');
-    expect(session).not.toContain('pageKey');
-    expect(content).not.toContain('listensFor');
-    expect(content).not.toContain('inPageFallbackShortcut');
-    expect(content).not.toContain('onComposeCommand');
+    expect(session).toContain('onPageCommand');
+    expect(session).toContain('selectionKey');
+    expect(session).toContain('pageKey');
+    expect(content).toContain('listensFor');
+    expect(content).toContain('inPageFallbackShortcut');
+    expect(content).toContain('onComposeCommand');
+    expect(content).toContain('allSitesAccess');
+    // The page callbacks are not installed as an unconditional fallback.
+    expect(content).toMatch(/pageKey: \(event\) =>\s*\n\s*allSitesAccess &&/);
+    expect(content).toMatch(/composeKey: \(event\) =>\s*\n\s*allSitesAccess &&/);
     expect(content).toContain('const armed = await armFolderCommand(command);');
   });
 

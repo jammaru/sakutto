@@ -446,7 +446,7 @@ describe('local server settings', () => {
     expect(client).toContain('ensureSource');
     expect(client).toContain('syncStoredSettings');
     expect(background).toContain('client.syncStoredSettings');
-    expect(host).toContain('new JobScheduler(localRuntime.parallel, false)');
+    expect(host).toContain("new JobScheduler(localRuntime.parallel, 'pool')");
     expect(host).toContain('browser.storage?.local');
     expect(host).toContain("type: 'model-persist'");
     expect(host).toContain('preferredModelId');

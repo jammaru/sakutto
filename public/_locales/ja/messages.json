@@ -801,6 +801,14 @@
       }
     }
   },
+  "modelFolderIntegrityUnknownRevision": {
+    "message": "$FILE$ の SHA-256 は Sakutto が未対応の値です。新しい公式 PLaMo モデルの可能性があるため、Sakutto を更新してください。",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
   "modelFolderEnableTabTitle": {
     "message": "再起動後もフォルダへのアクセスを続ける"
   },
@@ -1564,9 +1572,6 @@
   "videoCaptionsCustomHostDenied": {
     "message": "そのサイトへのアクセスが許可されませんでした。"
   },
-  "videoCaptionsBraveShields": {
-    "message": "Brave ShieldsがYouTubeの字幕データをブロックしました。この動画でShieldsをオフにしてページを再読み込みすると、字幕を翻訳できます。"
-  },
   "videoCaptionsPositionReset": {
     "message": "位置をリセット"
   },
@@ -1694,5 +1699,25 @@
   },
   "settingsGmailRemoveLang": {
     "message": "削除"
+  },
+  "allSitesSetting": {
+    "message": "ページを開いたらすぐSakuttoを使えるようにする（おすすめ）",
+    "description": "Options toggle that asks for optional http/https host access once."
+  },
+  "allSitesSettingHelp": {
+    "message": "Sakuttoは最初の権限をできるだけ弱くしているので、オフのままだとページごとにアイコン・右クリック・ショートカットのどれかを一度使うまで、選択翻訳のボタンやページ内のショートカットが動きません。もっと快適に使うなら、オンにするのがおすすめです。全サイトへのアクセスを1回許可するだけで、どのページでも開いてすぐ使えます。YouTubeの字幕翻訳やメールの翻訳バナーも、サイトごとに許可しなくても使えるようになります。翻訳は今までどおり端末の中だけで行い、オフにすればいつでも取り消せます。",
+    "description": "One-line explanation of the all-sites toggle."
+  },
+  "allSitesPermissionDenied": {
+    "message": "すべてのサイトへのアクセスが許可されなかったため、この設定はオフのままです。",
+    "description": "Shown when the browser prompt for all-sites access is denied."
+  },
+  "allSitesPopupHint": {
+    "message": "すべてのサイトへのアクセスをオンにすると、このポップアップを開かなくても毎回、選択翻訳ボタンとショートカットが使えます。",
+    "description": "One-line suggestion in the toolbar popup while all-sites access is off."
+  },
+  "allSitesPopupEnable": {
+    "message": "オンにする",
+    "description": "Button in the toolbar popup that turns on all-sites access."
   }
 }

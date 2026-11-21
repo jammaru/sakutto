@@ -966,6 +966,34 @@ describe('compose controller', () => {
     expect(panelText()).toContain('Type something to translate.');
   });
 
+  it('routes an unassigned Alt+T keydown through the page command bridge', () => {
+    document.body.innerHTML = '<textarea id="box"></textarea>';
+    const field = document.querySelector('#box');
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing textarea');
+    field.focus();
+    const sources: Array<EventTarget | null | undefined> = [];
+    const controller = new ComposeController(document, {
+      engine: immediate((text, tgt) => `§${tgt}§${text}`),
+      labels,
+      preferences: defaultPrefs,
+      previewMs: 20,
+      composeKey: (event) => event.altKey && event.code === 'KeyT',
+      onComposeCommand: (source) => sources.push(source),
+    });
+    controllers.push(controller);
+    field.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: '†',
+        code: 'KeyT',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(sources).toEqual([field]);
+    expect((document.querySelector('sakutto-compose') as HTMLElement).hidden).toBe(true);
+  });
+
   it('ignores Alt+T regardless of IME composition or key repeat', () => {
     document.body.innerHTML = '<textarea id="box"></textarea>';
     const field = document.querySelector('#box');

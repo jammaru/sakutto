@@ -37,7 +37,7 @@
   import { isBraveBrowser, isFirefoxBuild } from '@/shared/browser';
   import { openOrFocusExtensionTab } from '@/shared/extension-tabs';
   import { modelCanTranslate } from '@/shared/engine-status';
-  import { t, type MessageKey } from '@/shared/i18n';
+  import { integrityMessageKey, t, type MessageKey } from '@/shared/i18n';
   import { loadSettings } from '@/shared/storage';
   import { formatByteSize, formatByteSizeList } from '@/ui/format';
   import {
@@ -465,7 +465,7 @@
     {#each folder.integrityIssues as issue (issue.modelId)}
       <div class="callout bad" role="alert">
         <span class="callout-icon" aria-hidden="true"></span>
-        <p>{t('modelFolderIntegrityFailed', [issue.file])}</p>
+        <p>{t(integrityMessageKey(issue.kind), [issue.file])}</p>
       </div>
     {/each}
   </div>

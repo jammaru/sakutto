@@ -22,6 +22,8 @@
     type Settings,
     type SettingsPatch,
   } from '@/shared/settings';
+  import { onMount } from 'svelte';
+  import { browser } from 'wxt/browser';
   import { parseCaptionCustomHost } from '@/captions/custom-hosts';
   import { CAPTION_PREVIEW_PLAYER_PX, captionOverlayFontPx } from '@/captions/overlay';
   import {
@@ -29,12 +31,20 @@
     revokeCaptionCustomHostAccess,
   } from '@/captions/register-custom';
   import { resolveCaptionToggle } from '@/captions/sites';
+  import {
+    hasAllSitesAccess,
+    requestAllSitesAccess,
+    revokeAllSitesAccess,
+    syncAllSitesContentScripts,
+  } from '@/dom/all-sites';
   import { resolveMailBannerToggle } from '@/dom/mail-sites';
   import LanguageField from './LanguageField.svelte';
   import { displayTargetLanguage } from './language-label';
 
   let captionDenied = $state(false);
   let mailDenied = $state(false);
+  let allSitesGranted = $state<boolean | null>(null);
+  let allSitesDenied = $state(false);
   let customHostInput = $state('');
   let customHostWildcard = $state(false);
   let customHostError = $state<'invalid' | 'denied' | null>(null);
@@ -118,6 +128,55 @@
       });
     })();
   }
+
+  async function refreshAllSitesGrant(): Promise<void> {
+    allSitesGranted = await hasAllSitesAccess();
+  }
+
+  function setAllSites(event: Event): void {
+    const input = event.currentTarget as HTMLInputElement;
+    allSitesDenied = false;
+    void (async () => {
+      // User gesture: requestAllSitesAccess must call permissions.request with no prior pause.
+      if (input.checked) {
+        const granted = await requestAllSitesAccess();
+        if (!granted) {
+          input.checked = false;
+          allSitesGranted = false;
+          allSitesDenied = true;
+          onPermissionDenied?.();
+          return;
+        }
+        // The control stands for working all-sites access: report it on only once the
+        // registration for future pages has actually completed.
+        await syncAllSitesContentScripts();
+        allSitesGranted = true;
+        return;
+      }
+      // Removes only the two broad origins; site, mail, caption, and local-server origins stay.
+      await revokeAllSitesAccess();
+      await syncAllSitesContentScripts();
+      allSitesGranted = false;
+    })();
+  }
+
+  onMount(() => {
+    void refreshAllSitesGrant();
+    // The live permission is the source of truth: a revoke from the browser's extension
+    // settings must show here without any prompt or stored flag.
+    const onAdded = () => {
+      void refreshAllSitesGrant();
+    };
+    const onRemoved = () => {
+      void refreshAllSitesGrant();
+    };
+    browser.permissions.onAdded?.addListener(onAdded);
+    browser.permissions.onRemoved?.addListener(onRemoved);
+    return () => {
+      browser.permissions.onAdded?.removeListener(onAdded);
+      browser.permissions.onRemoved?.removeListener(onRemoved);
+    };
+  });
 
   function updatePace(event: Event) {
     const select = event.currentTarget as HTMLSelectElement;
@@ -290,6 +349,22 @@
     </select>
   </label>
   <p class="muted help">{t('composePlacementSettingHelp')}</p>
+
+  <label class="check">
+    <input
+      type="checkbox"
+      data-sakutto="all-sites"
+      checked={allSitesGranted === true}
+      onchange={setAllSites}
+    />
+    <span>{t('allSitesSetting')}</span>
+  </label>
+  {#if allSitesDenied}
+    <p class="error" role="alert" data-sakutto="all-sites-denied">
+      {t('allSitesPermissionDenied')}
+    </p>
+  {/if}
+  <p class="muted help">{t('allSitesSettingHelp')}</p>
 
   <label class="check">
     <input

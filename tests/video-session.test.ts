@@ -21,7 +21,6 @@ const labels = {
   pending: 'Translating caption…',
   showOriginal: 'Show original caption',
   hideOriginal: 'Hide original caption',
-  braveShields: 'Brave Shields blocked caption data. Turn Shields off for this video and reload.',
 };
 
 const engine: PageEngine = {
@@ -2968,7 +2967,6 @@ A red train waits at platform two.
       preferences: captionPreferences(),
       readPlayerResponse: async () =>
         youtubePlayerResponse('neverpot0001', '/youtube-timedtext.json?v=neverpot0001'),
-      readBrave: async () => false,
       readTrack: async () => '',
     });
     try {
@@ -3011,7 +3009,6 @@ A red train waits at platform two.
       preferences: captionPreferences(),
       readPlayerResponse: async () =>
         youtubePlayerResponse('navreset001', '/youtube-timedtext.json?v=navreset001'),
-      readBrave: async () => false,
       readTrack: async () => '',
     });
     try {
@@ -3054,7 +3051,6 @@ A red train waits at platform two.
       labels,
       preferences: captionPreferences(),
       now: () => now,
-      readBrave: async () => true,
       readPlayerResponse: async () =>
         youtubePlayerResponse(
           'latepot0001',
@@ -3080,9 +3076,6 @@ A red train waits at platform two.
       now = 10_000;
       poll.run();
       await vi.waitFor(() => expect(urls.length).toBeGreaterThan(6));
-      expect(doc.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-notice')).toBe(
-        false,
-      );
       (video as unknown as { dispatchEvent(event: unknown): boolean }).dispatchEvent(
         new view.Event('timeupdate', { bubbles: true }),
       );
@@ -3114,7 +3107,6 @@ A red train waits at platform two.
         playerReads += 1;
         return youtubePlayerResponse('emptycap001', '/youtube-timedtext.json?v=emptycap001');
       },
-      readBrave: async () => false,
       readTrack: async () => {
         fetches += 1;
         return '';
@@ -3136,9 +3128,8 @@ A red train waits at platform two.
       poll.run();
       await new Promise((resolve) => setTimeout(resolve, 20));
       expect(fetches).toBe(6);
-      expect(doc.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-notice')).toBe(
-        false,
-      );
+      // Nothing to translate must leave the video uncovered, in every browser.
+      expect((doc.querySelector('sakutto-captions') as unknown as HTMLElement).hidden).toBe(true);
     } finally {
       session.stop();
       poll.restore();
@@ -3191,48 +3182,6 @@ A red train waits at platform two.
           'The station opens at dawn.',
         );
       });
-    } finally {
-      session.stop();
-      poll.restore();
-      view.close();
-    }
-  });
-
-  it('shows a localized persistent-empty notice only when navigator.brave is present', async () => {
-    const { view, doc, poll } = await youtubeTestWindow('braveempty1', true);
-    let now = 0;
-    const session = new VideoCaptionSession(doc as unknown as Document, {
-      engine,
-      labels,
-      preferences: captionPreferences(),
-      now: () => now,
-      readBrave: async () => true,
-      readTrack: async () => '',
-    });
-    try {
-      session.start();
-      await new Promise((resolve) => setTimeout(resolve, 20));
-      now = 1_000;
-      poll.run();
-      await new Promise((resolve) => setTimeout(resolve, 20));
-      now = 5_000;
-      poll.run();
-      await vi.waitFor(() => {
-        expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-notice')).toBe(
-          'brave-shields',
-        );
-      });
-      expect(doc.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-caption')).toBe(
-        false,
-      );
-      const video = doc.querySelector('video') as unknown as HTMLVideoElement;
-      (video as unknown as { dispatchEvent(event: unknown): boolean }).dispatchEvent(
-        new view.Event('timeupdate', { bubbles: true }),
-      );
-      await new Promise((resolve) => setTimeout(resolve, 20));
-      expect(doc.querySelector('sakutto-captions')?.getAttribute('data-sakutto-notice')).toBe(
-        'brave-shields',
-      );
     } finally {
       session.stop();
       poll.restore();

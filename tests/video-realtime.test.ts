@@ -10,7 +10,6 @@ const labels = {
   pending: 'Translating caption…',
   showOriginal: 'Show original caption',
   hideOriginal: 'Hide original caption',
-  braveShields: 'Brave Shields blocked caption data. Turn Shields off for this video and reload.',
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

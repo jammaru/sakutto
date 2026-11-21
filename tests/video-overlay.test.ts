@@ -25,7 +25,6 @@ const labels = {
   pending: 'Translating caption…',
   showOriginal: 'Show original caption',
   hideOriginal: 'Hide original caption',
-  braveShields: 'Brave Shields blocked caption data. Turn Shields off for this video and reload.',
 };
 
 describe('caption overlay', () => {
@@ -98,27 +97,6 @@ describe('caption overlay', () => {
       live: true,
     });
     expect(translated?.textContent).toBe('The station opens at dawn.');
-    overlay.detach();
-  });
-
-  it('shows the Brave notice without pretending it is a translation', () => {
-    const overlay = new CaptionOverlay(document, labels);
-    overlay.attach(document.body);
-    overlay.showBraveShieldsNotice();
-    const host = document.querySelector('sakutto-captions') as HTMLElement;
-    expect(host.hidden).toBe(false);
-    expect(host.getAttribute('data-sakutto-notice')).toBe('brave-shields');
-    expect(host.hasAttribute('data-sakutto-caption')).toBe(false);
-    expect(overlay.shadow()?.querySelector('.line:not(.original)')?.textContent).toBe(
-      labels.braveShields,
-    );
-    overlay.show({
-      original: 'The station opens at dawn.',
-      translation: '駅は夜明けに開きます。',
-      display: 'bilingual',
-      pending: false,
-    });
-    expect(host.hasAttribute('data-sakutto-notice')).toBe(false);
     overlay.detach();
   });
 

@@ -31,10 +31,6 @@ export class TimedtextFetchGuard {
     this.attempts.delete(key);
   }
 
-  exhausted(key: string): boolean {
-    return (this.attempts.get(key)?.count ?? 0) >= TIMEDTEXT_MAX_ATTEMPTS;
-  }
-
   fail(key: string, now: number): void {
     this.inflight.delete(key);
     const count = (this.attempts.get(key)?.count ?? 0) + 1;

@@ -32,6 +32,16 @@ export function tForBrowser(
   return t(isFirefoxBuild() ? firefoxKey : chromeKey, substitutions);
 }
 
+/**
+ * A wrong file and an unrecognised hash of an official filename need different advice.
+ * The latter may be a newer official PLaMo revision, so suggest updating Sakutto.
+ */
+export function integrityMessageKey(kind: string | undefined): MessageKey {
+  return kind === 'revision' || kind === 'integrity-revision'
+    ? 'modelFolderIntegrityUnknownRevision'
+    : 'modelFolderIntegrityFailed';
+}
+
 export function currentUiLanguage(): string {
   return browser.i18n.getUILanguage() || 'en';
 }

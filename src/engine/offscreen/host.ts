@@ -192,6 +192,7 @@ interface HostRequest {
   controller: AbortController;
   port: Browser.runtime.Port | null;
   kind: 'translate' | 'download' | 'warm';
+  modelId?: ModelId;
 }
 
 interface ActiveDownload {
@@ -643,7 +644,7 @@ export class EngineHost {
     };
     const lazy = new LazyInBrowserEngine({ loadRuntime: load, loadRetryRuntime, onGpuLost });
     const localRuntime = new LocalServerRuntime(() => this.localConfig);
-    this.localScheduler = new JobScheduler(localRuntime.parallel, false);
+    this.localScheduler = new JobScheduler(localRuntime.parallel, 'pool');
     const localEngine = new InBrowserEngine(localRuntime, { scheduler: this.localScheduler });
     const plamo = new PlamoSourceEngine(lazy, localEngine, () => this.engineSource);
 
@@ -745,9 +746,13 @@ export class EngineHost {
         void this.handleTranslate(port, message);
         return;
       case 'cancel':
+        this.requests.get(message.requestId)?.controller.abort();
+        this.requests.delete(message.requestId);
+        return;
       case 'model-cancel':
         this.requests.get(message.requestId)?.controller.abort();
         this.requests.delete(message.requestId);
+        if (message.modelId) this.cancelModel(message.modelId);
         return;
       case 'model-download':
         void this.handleDownload(port, message);
@@ -893,27 +898,93 @@ export class EngineHost {
   ): Promise<void> {
     const modelId = request.modelId;
     let download = this.downloads.get(modelId);
-    if (!download) download = this.startDownload(modelId);
-
+    if (download?.controller.signal.aborted) {
+      // An aborted download is winding down; never attach a new caller to it.
+      download = undefined;
+    }
     const requestId = request.requestId;
-    download.attachments.set(requestId, port);
-    this.requests.set(requestId, { controller: download.controller, port, kind: 'download' });
-    this.touch();
-
-    if (download.status) {
-      this.post(port, { type: 'model-progress', requestId, status: download.status });
+    if (!download) {
+      if (request.attachOnly) {
+        const controller = new AbortController();
+        this.requests.set(requestId, { controller, port, kind: 'download', modelId });
+        this.touch();
+        try {
+          const services = await this.services();
+          if (controller.signal.aborted) return;
+          const status = await services.manager.status(modelId, { signal: controller.signal });
+          if (
+            controller.signal.aborted ||
+            this.requests.get(requestId)?.controller !== controller
+          ) {
+            return;
+          }
+          this.respond(port, requestId, status);
+        } catch (error) {
+          if (!controller.signal.aborted) this.respondError(port, requestId, error);
+        } finally {
+          if (this.requests.get(requestId)?.controller === controller) {
+            this.requests.delete(requestId);
+          }
+          this.touch();
+        }
+        return;
+      }
+      download = this.startDownload(modelId);
     }
 
+    download.attachments.set(requestId, port);
+    this.requests.set(requestId, {
+      controller: download.controller,
+      port,
+      kind: 'download',
+      modelId,
+    });
+    this.touch();
+
     try {
+      if (request.attachOnly && !download.status && !download.controller.signal.aborted) {
+        const services = await this.services();
+        const persisted = await services.manager.status(modelId);
+        if (
+          !download.controller.signal.aborted &&
+          this.downloads.get(modelId) === download &&
+          !download.status
+        ) {
+          download.status = {
+            id: modelId,
+            state: 'downloading',
+            received: persisted.received,
+            total: persisted.total || getModel(modelId).size,
+            progress: persisted.progress,
+          };
+        }
+      }
+      if (download.status) {
+        this.post(port, { type: 'model-progress', requestId, status: download.status });
+      }
       const status = await download.operation;
-      this.respond(port, requestId, status);
+      if (!download.controller.signal.aborted) this.respond(port, requestId, status);
     } catch (error) {
-      if (!download.controller.signal.aborted) this.respondError(port, requestId, error);
+      this.respondError(port, requestId, error);
     } finally {
       download.attachments.delete(requestId);
       this.requests.delete(requestId);
       this.touch();
     }
+  }
+
+  private cancelModel(modelId: ModelId): void {
+    const download = this.downloads.get(modelId);
+    download?.controller.abort();
+    for (const [requestId, request] of this.requests) {
+      if (request.kind !== 'download' || request.modelId !== modelId) continue;
+      if (request.port) this.respondError(request.port, requestId, abortError());
+      request.controller.abort();
+      this.requests.delete(requestId);
+    }
+    void this.services()
+      .then((services) => services.manager.cancel(modelId))
+      .catch(() => undefined);
   }
 
   private startDownload(modelId: ModelId): ActiveDownload {
@@ -1418,13 +1489,34 @@ export class EngineHost {
     request: ModelStatusRequest,
   ): Promise<void> {
     try {
+      const active = this.downloads.get(request.modelId);
+      if (active && !active.controller.signal.aborted && active.status) {
+        this.respond(port, request.requestId, active.status);
+        return;
+      }
       const services = await this.services();
-      const live = this.downloads.get(request.modelId)?.status;
-      this.respond(
-        port,
-        request.requestId,
-        live ?? (await services.manager.status(request.modelId)),
-      );
+      if (active && !active.controller.signal.aborted && active.status) {
+        this.respond(port, request.requestId, active.status);
+        return;
+      }
+      const persisted = await services.manager.status(request.modelId);
+      if (
+        active &&
+        !active.controller.signal.aborted &&
+        this.downloads.get(request.modelId) === active
+      ) {
+        // Before the first chunk arrives on a resumed download, preserve the on-disk byte count
+        // so `advanceModelStatus` does not interpret a synthetic 0 as a restart from scratch.
+        this.respond(port, request.requestId, {
+          id: request.modelId,
+          state: 'downloading',
+          received: persisted.received,
+          total: persisted.total || getModel(request.modelId).size,
+          progress: persisted.progress,
+        });
+        return;
+      }
+      this.respond(port, request.requestId, persisted);
     } catch (error) {
       this.respondError(port, request.requestId, error);
     }

@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { InBrowserEngine } from '@/engine/in-browser/engine';
 import type { TranslateOptions, TranslationChunk } from '@/engine/types';
 import { MAX_SEGMENT_TEXT } from '@/engine/offscreen/protocol';
 import { MAX_GLOSSARY_ENTRIES } from '@/shared/glossary';
+import { JobScheduler, type SchedulerJob } from '@/engine/queue/scheduler';
 import { collectChunks, FakeRuntime } from './support/fakes';
 import { promptSource } from './support/sim-runtime';
 
@@ -59,6 +60,27 @@ describe('InBrowserEngine', () => {
     expect(peak).toBeGreaterThan(1);
     expect(deltaText(chunks).replace(/\s/gu, '')).toBe('[A][B][C]');
     expect(finalChunks(chunks)[0]?.final?.replace(/\s/gu, '')).toBe('[A][B][C]');
+  });
+
+  it('marks every split piece with the same foreground body', async () => {
+    class CapturingScheduler extends JobScheduler {
+      readonly jobs: SchedulerJob[] = [];
+
+      override schedule(job: SchedulerJob) {
+        this.jobs.push(job);
+        return super.schedule(job);
+      }
+    }
+    const scheduler = new CapturingScheduler(16, 'staged');
+    const runtime = new FakeRuntime(() => 'translated', 16, 'webgpu');
+    const engine = new InBrowserEngine(runtime, { scheduler });
+    const text = `${'A'.repeat(300)}. ${'B'.repeat(300)}. ${'C'.repeat(300)}.`;
+
+    await collectChunks(engine.translate([{ id: 'body#0', text }], options()));
+
+    expect(scheduler.jobs.length).toBeGreaterThan(1);
+    const bodies = scheduler.jobs.flatMap((job) => job.foregroundBodies ?? []);
+    expect(new Set(bodies).size).toBe(1);
   });
 
   it('streams deltas and a final tagged with the PLaMo engine', async () => {
@@ -486,5 +508,118 @@ describe('InBrowserEngine', () => {
     }
 
     expect(rest.some((chunk) => chunk.final !== undefined)).toBe(false);
+  });
+  it('refills free slots at sixteen WebGPU slots and keeps the waves at four', async () => {
+    type Request = Parameters<FakeRuntime['complete']>[0];
+    class HeldRuntime extends FakeRuntime {
+      readonly open: Array<{ token: () => void; end: () => void }> = [];
+      override complete(request: Request): Promise<void> {
+        this.requests.push(request);
+        return new Promise<void>((resolve) => {
+          this.open.push({ token: () => request.onToken('訳'), end: resolve });
+        });
+      }
+    }
+    // Fake timers: the stage timeout must not move the start on under a slow test run.
+    vi.useFakeTimers();
+    const settle = (): Promise<unknown> => vi.advanceTimersByTimeAsync(5);
+    const sentences = (count: number): string[][] =>
+      Array.from({ length: count }, (_, index) => [`Sentence ${index}.`]);
+    // Every inner list is one request. Several short texts in a request are one packed job.
+    const begin = (
+      parallel: number,
+      requests: ReadonlyArray<readonly string[]>,
+    ): { runtime: HeldRuntime; finish: () => Promise<void> } => {
+      const runtime = new HeldRuntime(() => '', parallel, 'webgpu');
+      const engine = new InBrowserEngine(runtime);
+      const work = requests.map((texts, request) =>
+        collectChunks(
+          engine.translate(
+            texts.map((text, index) => ({ id: `s${request}-${index}`, text })),
+            options({ priority: 30 }),
+          ),
+        ),
+      );
+      const finish = async (): Promise<void> => {
+        let done = false;
+        const all = Promise.all(work).then(() => {
+          done = true;
+        });
+        while (!done) {
+          for (const job of runtime.open.splice(0)) {
+            job.token();
+            job.end();
+          }
+          await settle();
+        }
+        await all;
+      };
+      return { runtime, finish };
+    };
+
+    try {
+      const wide = begin(16, sentences(20));
+      await settle();
+      expect(wide.runtime.requests).toHaveLength(1);
+      wide.runtime.open[0]?.token();
+      await settle();
+      expect(wide.runtime.requests).toHaveLength(4);
+      // The first job goes on producing. The next stage waits for the three that joined.
+      for (let token = 0; token < 8; token += 1) wide.runtime.open[0]?.token();
+      await settle();
+      expect(wide.runtime.requests).toHaveLength(4);
+      for (const job of wide.runtime.open.slice(1)) job.token();
+      await settle();
+      expect(wide.runtime.requests).toHaveLength(16);
+      wide.runtime.open.pop()?.end();
+      await settle();
+      expect(wide.runtime.requests).toHaveLength(17);
+      await wide.finish();
+
+      // One long text is several jobs, and each of them counts for the staged start.
+      const long = begin(16, [
+        [['A', 'B', 'C', 'D', 'E', 'F'].map((c) => c.repeat(300)).join('. ')],
+      ]);
+      await settle();
+      expect(long.runtime.requests).toHaveLength(1);
+      long.runtime.open[0]?.token();
+      await settle();
+      expect(long.runtime.requests).toHaveLength(4);
+      for (const job of long.runtime.open.slice(1)) job.token();
+      await settle();
+      expect(long.runtime.requests).toHaveLength(6);
+      await long.finish();
+
+      const packed = begin(
+        16,
+        Array.from({ length: 6 }, (_, index) => [
+          `Open ${index}`,
+          `Save ${index}`,
+          `Close ${index}`,
+        ]),
+      );
+      await settle();
+      expect(packed.runtime.requests).toHaveLength(1);
+      packed.runtime.open[0]?.token();
+      await settle();
+      expect(packed.runtime.requests).toHaveLength(4);
+      for (const job of packed.runtime.open.slice(1)) job.token();
+      await settle();
+      expect(packed.runtime.requests).toHaveLength(6);
+      await packed.finish();
+
+      const narrow = begin(4, sentences(6));
+      await settle();
+      expect(narrow.runtime.requests).toHaveLength(1);
+      narrow.runtime.open[0]?.token();
+      await settle();
+      expect(narrow.runtime.requests).toHaveLength(1);
+      narrow.runtime.open.shift()?.end();
+      await settle();
+      expect(narrow.runtime.requests).toHaveLength(5);
+      await narrow.finish();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

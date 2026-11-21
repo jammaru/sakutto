@@ -69,7 +69,7 @@ The extension tries not to translate text you are typing into a form field, and 
 
 ## Permissions
 
-The extension is not given access to every site when you install it. The release package asks for no install-time host access. A one-time translation of the current tab uses the access the browser grants for that action. Access to any particular site is optional, and is requested only when you turn that site on for automatic translation, when you turn on video caption translation (YouTube and X), when you add a custom caption site, or when you enable the Gmail/Outlook message banner from the popup or Settings. Access to a local server is also optional. It is requested when you turn that engine on or change a loopback address, and for a remote address only after you confirm the warning checkbox.
+The extension is not given access to every site when you install it. The release package asks for no install-time host access. A one-time translation of the current tab uses the access the browser grants for that action. Access to any particular site is optional, and is requested only when you turn that site on for automatic translation, when you turn on video caption translation (YouTube and X), when you add a custom caption site, or when you enable the Gmail/Outlook message banner from the popup or Settings. When the all-sites choice is on, its single grant already covers those sites and no further prompt appears. There is also one all-sites choice, off by default: turning it on grants optional access to http/https pages so the selection button and the shortcuts are on the page from page load, with no per-site step. You can revoke it with the same control or from the browser's extension permission settings. This choice only lets the extension run its content script on pages; it does not upload page text, which still stays on your device as everywhere else in this policy. Access to a local server is also optional. It is requested when you turn that engine on or change a loopback address, and for a remote address only after you confirm the warning checkbox.
 
 ## Limited Use
 
@@ -150,7 +150,7 @@ Chrome ウェブストアまたは addons.mozilla.org から入れた場合、�
 
 ## 権限
 
-インストールした時点で、すべてのサイトへのアクセスが与えられるわけではありません。リリース版ではインストール時のホストアクセスを要求しません。今開いているタブの一回だけの翻訳には、その操作に対してブラウザが与えるアクセスを使います。特定のサイトへのアクセスは任意で、そのサイトの自動翻訳をオンにしたとき、動画字幕翻訳をオンにしたとき（YouTube と X）、独自の字幕サイトを追加したとき、または Gmail / Outlook のメッセージバナーをポップアップか設定から有効にしたときに要求します。ローカルサーバーへのアクセスも任意です。そのエンジンをオンにしたときやループバックのアドレスを変えたときに要求し、この端末ではない URL では警告のチェックを確認したあとで要求します。
+インストールした時点で、すべてのサイトへのアクセスが与えられるわけではありません。リリース版ではインストール時のホストアクセスを要求しません。今開いているタブの一回だけの翻訳には、その操作に対してブラウザが与えるアクセスを使います。特定のサイトへのアクセスは任意で、そのサイトの自動翻訳をオンにしたとき、動画字幕翻訳をオンにしたとき（YouTube と X）、独自の字幕サイトを追加したとき、または Gmail / Outlook のメッセージバナーをポップアップか設定から有効にしたときに要求します。すべてのサイトの選択がオンのときは、その1回の許可でこれらのサイトもまかなわれ、追加の確認は表示されません。すべてのサイトを選ぶ任意の設定もあり、既定ではオフです。これをオンにすると http/https ページへの任意のアクセスが一度だけ許可され、選択翻訳のボタンとショートカットがページの読み込み時から使えるようになります。サイトごとの操作は不要です。同じ設定をオフにするか、ブラウザーの拡張機能の権限設定から取り消せます。この設定がするのは拡張機能の content script をページで動かすことだけです。ページの本文がどこかに送られることはなく、このポリシーの他の部分と同じく、ローカルサーバーを設定しない限り翻訳は端末の中で行われます。ローカルサーバーへのアクセスも任意です。そのエンジンをオンにしたときやループバックのアドレスを変えたときに要求し、この端末ではない URL では警告のチェックを確認したあとで要求します。
 
 ## 限定的な利用
 

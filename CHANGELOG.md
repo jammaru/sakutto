@@ -2,6 +2,31 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
+## [1.9.1] - 2026-11-21
+
+- オンボーディングのモデルダウンロード進捗が通知途絶後に止まったままになる不具合を修正 (#149) (#150)
+- docs: add kiyoka to contributors (#152)
+- docs: use dynamic GitHub release badge in READMEs (#153)
+- 16 並列のとき、空いた枠にすぐ次の依頼を入れる (#133)
+- Fix all-sites content-script registration race (#155)
+- Remove the Brave Shields caption notice (#156)
+- 公式PLaMo GGUFの複数リビジョンを検証し、未知版は更新を案内する（#157） (#158)
+
+## [1.9.0] - 2026-11-20
+
+### Features
+
+- A new opt-in setting lets you grant access to all sites with a single choice. While enabled, the selection-translate button and in-page shortcuts work as soon as a page opens, without first activating Sakutto through its icon, the right-click menu, or another shortcut. YouTube subtitle translation, the mail translation banner, always-translate for a site, custom caption sites, and the local server also work without extra per-site permission prompts. Translation remains entirely on your device, and you can turn the setting off at any time to revoke access. Install-time permissions remain minimal and unchanged; with the setting off, Sakutto behaves exactly as before. (#146)
+
+### Improvements
+
+- The popup now explains the all-sites option near the top the first time you open it. On later opens, the hint moves below "Translate text" to keep it out of the way. (#148)
+
+### 日本語
+
+- 新しいオプトイン設定で、すべてのサイトへのアクセスを一度に許可できるようになりました。有効にすると、ページを開いた時点で選択翻訳ボタンとページ内ショートカットが機能します。事前にアイコンをクリックしたり、右クリックメニューや別のショートカットで Sakutto を有効化したりする必要はありません。YouTube の字幕翻訳、メール翻訳バナー、サイトの常時翻訳、カスタム字幕サイト、ローカルサーバーも、サイトごとの追加の権限プロンプトなしで動作します。翻訳は引き続きデバイス上でのみ行われます。設定をオフにすれば、いつでもアクセスを取り消せます。インストール時の権限は従来どおり最小限で変更はなく、設定がオフの場合の動作も従来と同じです。(#146)
+- ポップアップを初めて開いたときは、全サイトへのアクセスに関するヒントを上部付近に表示します。2 回目以降は「Translate text」の下に表示されます。(#148)
+
 ## [1.8.1] - 2026-11-19
 
 ### Improvements

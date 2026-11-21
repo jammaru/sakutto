@@ -25,13 +25,13 @@ node scripts/ci-stats.ts jammaru/sakutto 200
 
 ## ワークフロー
 
-| ワークフロー                                      | きっかけ                                                         | 何のため                                                               |
-| ------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `ci.yml`                                          | PR（draft と `ready_for_review` を含む）、`main` への push、手動 | lint / 型 / 単体 / e2e / ピン留め検査 / 必要ならパッケージ             |
-| `model-pins.yml`                                  | 同じ PR/`main`、毎日 03:17 UTC                                   | ピン留め GGUF URL の Range 確認                                        |
-| `release.yml`                                     | `v*` タグ、手動                                                  | タグ検証、wllama をソースからビルド、Chrome zip、GitHub Release 下書き |
-| `chrome-web-store.yml` / `amo.yml`                | 手動だけ                                                         | ストア提出。PR から dispatch しない                                    |
-| `pr-labeler.yml` / `community.yml` / `labels.yml` | ラベルと歓迎コメント                                             | 安い。残す                                                             |
+| ワークフロー                                      | きっかけ                                                         | 何のため                                                                    |
+| ------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `ci.yml`                                          | PR（draft と `ready_for_review` を含む）、`main` への push、手動 | lint / 型 / 単体 / e2e / ピン留め検査 / 必要ならパッケージ                  |
+| `model-pins.yml`                                  | 同じ PR/`main`、毎日 03:17 UTC                                   | 上流 `resolve/main` の GGUF ハッシュ/サイズをカタログの既知リビジョンと照合 |
+| `release.yml`                                     | `v*` タグ、手動                                                  | タグ検証、wllama をソースからビルド、Chrome zip、GitHub Release 下書き      |
+| `chrome-web-store.yml` / `amo.yml`                | 手動だけ                                                         | ストア提出。PR から dispatch しない                                         |
+| `pr-labeler.yml` / `community.yml` / `labels.yml` | ラベルと歓迎コメント                                             | 安い。残す                                                                  |
 
 ## CI ジョブ
 

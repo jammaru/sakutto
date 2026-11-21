@@ -1,4 +1,5 @@
 import { browser } from 'wxt/browser';
+import { allSitesGrantCoversOrigins } from '@/dom/all-sites';
 import { saveSettings } from '@/shared/storage';
 import type { VideoCaptionPositionSite } from '@/shared/settings';
 import { hostMatchesCaptionCustom } from './custom-hosts';
@@ -73,9 +74,12 @@ export function shouldAutoInjectCaptions(options: {
  * Optional host access for youtube.com / x.com. `permissions.request` must be the first
  * awaited extension call in the click that turns the setting on — a prior `await`
  * (including `permissions.contains`) drops the user gesture and Chrome shows no prompt.
+ * A broad all-sites grant already covers these https origins and requesting them would
+ * still prompt, so the grant alone turns the setting on and no request runs.
  */
 export async function requestCaptionHostAccess(): Promise<boolean> {
   const origins = captionPermissionOrigins();
+  if (allSitesGrantCoversOrigins(origins)) return true;
   return browser.permissions.request({ origins }).catch(() => false);
 }
 

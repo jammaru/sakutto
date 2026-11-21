@@ -801,6 +801,14 @@
       }
     }
   },
+  "modelFolderIntegrityUnknownRevision": {
+    "message": "Hash SHA-256 berkas $FILE$ belum dikenal oleh Sakutto. Ini mungkin model PLaMo resmi yang lebih baru — perbarui Sakutto.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
   },
@@ -1560,9 +1568,6 @@
   "videoCaptionsCustomHostDenied": {
     "message": "Akses ke situs itu tidak diberikan."
   },
-  "videoCaptionsBraveShields": {
-    "message": "Brave Shields memblokir data takarir YouTube. Nonaktifkan Shields untuk video ini, lalu muat ulang halaman untuk menerjemahkan takarir."
-  },
   "videoCaptionsPositionReset": {
     "message": "Atur ulang posisi"
   },
@@ -1690,5 +1695,20 @@
   },
   "settingsGmailRemoveLang": {
     "message": "Remove"
+  },
+  "allSitesSetting": {
+    "message": "Buat Sakutto siap digunakan begitu halaman dibuka (disarankan)"
+  },
+  "allSitesSettingHelp": {
+    "message": "Sakutto memulai dengan izin yang seminimal mungkin, jadi selama opsi ini mati, tombol terjemahan pilihan dan pintasan di halaman hanya berfungsi setelah Anda memakai ikon Sakutto, menu klik kanan, atau pintasan keyboard di halaman itu sekali. Agar pengalaman lebih lancar, kami sarankan menyalakannya. Izinkan akses ke semua situs sekali saja dan Sakutto langsung berfungsi di setiap halaman begitu dibuka. Penerjemahan teks video YouTube dan banner terjemahan email juga bisa dipakai tanpa harus memberi izin untuk tiap situs. Penerjemahan tetap hanya terjadi di perangkat Anda, dan Anda bisa mencabut akses itu kapan saja dengan mematikan opsi ini."
+  },
+  "allSitesPermissionDenied": {
+    "message": "Akses ke semua situs tidak diberikan, jadi pengaturan ini tetap mati."
+  },
+  "allSitesPopupHint": {
+    "message": "Aktifkan akses semua situs untuk memakai tombol terjemahan pilihan dan pintasan di setiap halaman tanpa harus membuka popup ini dulu."
+  },
+  "allSitesPopupEnable": {
+    "message": "Aktifkan"
   }
 }

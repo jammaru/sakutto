@@ -801,6 +801,14 @@
       }
     }
   },
+  "modelFolderIntegrityUnknownRevision": {
+    "message": "文件 $FILE$ 的 SHA-256 值 Sakutto 尚不支持。它可能是较新的官方 PLaMo 模型，请更新 Sakutto。",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
   },
@@ -1560,9 +1568,6 @@
   "videoCaptionsCustomHostDenied": {
     "message": "未授予对该网站的访问权限。"
   },
-  "videoCaptionsBraveShields": {
-    "message": "Brave Shields 阻止了 YouTube 字幕数据。请对此视频关闭 Shields，然后重新加载页面以翻译字幕。"
-  },
   "videoCaptionsPositionReset": {
     "message": "重置位置"
   },
@@ -1690,5 +1695,20 @@
   },
   "settingsGmailRemoveLang": {
     "message": "Remove"
+  },
+  "allSitesSetting": {
+    "message": "让 Sakutto 在页面打开后立即可用（推荐）"
+  },
+  "allSitesSettingHelp": {
+    "message": "Sakutto 起初只保留尽可能弱的权限，因此该开关关闭时，每个页面都要先用过一次 Sakutto 图标、右键菜单或键盘快捷键，划词翻译按钮和页面内快捷键才会生效。想要更顺畅的体验，建议开启。只需允许一次对所有网站的访问，任何页面一打开就能立即使用。YouTube 字幕翻译和邮件翻译提示条也无需逐个网站单独授权即可使用。翻译仍只在设备上进行，随时关闭该开关即可撤销此访问。"
+  },
+  "allSitesPermissionDenied": {
+    "message": "未授予所有网站的访问权限，此设置保持关闭。"
+  },
+  "allSitesPopupHint": {
+    "message": "开启所有网站访问后，无需先打开此弹出窗口，每次都能使用划词翻译按钮和快捷键。"
+  },
+  "allSitesPopupEnable": {
+    "message": "开启"
   }
 }

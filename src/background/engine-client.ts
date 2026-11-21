@@ -156,6 +156,13 @@ export class EngineClient {
     return value;
   }
 
+  /** Cancel by model ID so a new service worker can stop an older worker's attachment. */
+  async cancelModel(modelId: ModelId): Promise<void> {
+    const port = await this.connect();
+    port.postMessage({ type: 'model-cancel', requestId: createRequestId(), modelId });
+    readRuntimeLastError();
+  }
+
   async reloadModelFolder(): Promise<SharedFolderStatus> {
     await this.ensureSource();
     const value = await this.request({ type: 'folder-reload' }, { timeoutMs: 180_000 });
@@ -273,7 +280,11 @@ export class EngineClient {
 
   async downloadModel(
     modelId: ModelId,
-    options: { signal: AbortSignal; onProgress?: (status: ModelStatus) => void },
+    options: {
+      signal: AbortSignal;
+      onProgress?: (status: ModelStatus) => void;
+      attachOnly?: boolean;
+    },
   ): Promise<ModelStatus> {
     let lastError: unknown;
 
@@ -287,9 +298,19 @@ export class EngineClient {
       options.signal.addEventListener('abort', cancel, { once: true });
 
       try {
-        const port = await this.connect();
+        const port = await raceWithAbort(this.connect(), options.signal);
         if (options.signal.aborted) throw abortError();
-        const value = await this.roundTrip(port, { type: 'model-download', requestId, modelId }, 0);
+        const value = await this.roundTrip(
+          port,
+          {
+            type: 'model-download',
+            requestId,
+            modelId,
+            ...(options.attachOnly ? { attachOnly: true } : {}),
+          },
+          0,
+          options.signal,
+        );
         if (!isModelStatus(value)) throw hostError('The engine host returned an invalid status.');
         return value;
       } catch (error) {
@@ -304,7 +325,10 @@ export class EngineClient {
 
         // The download keeps running in the offscreen document; reconnect and attach again.
         this.dropPort();
-        await new Promise((resolve) => setTimeout(resolve, DOWNLOAD_ATTACH_DELAY_MS));
+        await raceWithAbort(
+          new Promise((resolve) => setTimeout(resolve, DOWNLOAD_ATTACH_DELAY_MS)),
+          options.signal,
+        );
       } finally {
         options.signal.removeEventListener('abort', cancel);
         this.progress.delete(requestId);
@@ -476,25 +500,49 @@ export class EngineClient {
     port: Browser.runtime.Port,
     message: EngineHostRequest,
     timeoutMs: number,
+    signal?: AbortSignal,
   ): Promise<unknown> {
     return new Promise((resolve, reject) => {
-      const timer =
-        timeoutMs > 0
-          ? setTimeout(() => {
-              this.pending.delete(message.requestId);
-              reject(hostError('The translation host did not respond in time.'));
-            }, timeoutMs)
-          : null;
+      if (signal?.aborted) {
+        reject(abortError());
+        return;
+      }
 
-      this.pending.set(message.requestId, { resolve, reject, timer });
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const cleanup = (): void => {
+        if (timer) clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
+      };
+      const onAbort = (): void => {
+        this.pending.delete(message.requestId);
+        cleanup();
+        reject(abortError());
+      };
+      const settle = (callback: () => void): void => {
+        cleanup();
+        callback();
+      };
+
+      if (timeoutMs > 0) {
+        timer = setTimeout(() => {
+          this.pending.delete(message.requestId);
+          settle(() => reject(hostError('The translation host did not respond in time.')));
+        }, timeoutMs);
+      }
+
+      this.pending.set(message.requestId, {
+        resolve: (value) => settle(() => resolve(value)),
+        reject: (error) => settle(() => reject(error)),
+        timer,
+      });
+      signal?.addEventListener('abort', onAbort, { once: true });
 
       try {
         port.postMessage(message);
         readRuntimeLastError();
       } catch (error) {
         this.pending.delete(message.requestId);
-        if (timer) clearTimeout(timer);
-        reject(hostError('The translation host is not reachable.', error));
+        settle(() => reject(hostError('The translation host is not reachable.', error)));
       }
     });
   }
@@ -600,6 +648,20 @@ export class EngineClient {
       // The port is gone; the disconnect handler settles the streams.
     }
     readRuntimeLastError();
+  }
+}
+
+async function raceWithAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) throw abortError();
+  let onAbort!: () => void;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    onAbort = () => reject(abortError());
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+  try {
+    return await Promise.race([promise, aborted]);
+  } finally {
+    signal.removeEventListener('abort', onAbort);
   }
 }
 
