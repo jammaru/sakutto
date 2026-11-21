@@ -326,6 +326,21 @@ export class PdfSession {
     this.pump();
   }
 
+  /** Replaces a provisional native/empty page when a delayed OCR retry succeeds. */
+  replacePage(index: number, layout: PageLayout, pageHeight = 0): void {
+    if (!this.pages.has(index)) {
+      this.addPage(index, layout, pageHeight);
+      return;
+    }
+    this.queue.remove((job) => {
+      if (job.page !== index) return false;
+      if (job.state.state === 'queued') job.state.state = 'idle';
+      return true;
+    });
+    this.pages.delete(index);
+    this.addPage(index, layout, pageHeight);
+  }
+
   /**
    * Raises the priority of the page the reader can see.
    *

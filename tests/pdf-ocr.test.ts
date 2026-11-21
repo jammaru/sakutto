@@ -4,10 +4,12 @@ import type { FigureAreas } from '@/pdf/figures';
 import { lineFrom, type TextLine, type TextPiece } from '@/pdf/lines';
 import {
   createPdfPageOcr,
+  ocrResultToHybridPage,
   ocrResultToLayoutBlocks,
   ocrResultToPageLayout,
   ocrResultToTextLines,
   shouldRunPdfOcr,
+  uncoveredPdfOcrResult,
   type PdfOcrCanvas,
 } from '@/pdf/ocr';
 
@@ -107,10 +109,10 @@ describe('shouldRunPdfOcr', () => {
     expect(shouldRunPdfOcr(lines, NO_IMAGES, PAGE.width, PAGE.height)).toBe(false);
   });
 
-  it('never requests OCR for mixed image and prose pages, even below the character cutoff', () => {
+  it('checks mixed image and prose pages for uncovered scanned regions', () => {
     expect(
       shouldRunPdfOcr([nativeLine('One two three')], FULL_PAGE_IMAGE, PAGE.width, PAGE.height),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldRunPdfOcr(
         [nativeLine('A caption explains the scan clearly.')],
@@ -118,22 +120,65 @@ describe('shouldRunPdfOcr', () => {
         PAGE.width,
         PAGE.height,
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it('recognizes prose split across several short native lines on a mixed page', () => {
+  it('checks several short native lines on a mixed page for uncovered scans', () => {
     const lines = [
       nativeLine('Useful native'),
       nativeLine('text remains'),
       nativeLine('readable here'),
     ];
-    expect(shouldRunPdfOcr(lines, FULL_PAGE_IMAGE, PAGE.width, PAGE.height)).toBe(false);
+    expect(shouldRunPdfOcr(lines, FULL_PAGE_IMAGE, PAGE.width, PAGE.height)).toBe(true);
   });
 
   it('does not OCR a non-image page merely because its native runs are labels', () => {
     expect(
       shouldRunPdfOcr([nativeLine('12345 67890 12345')], NO_IMAGES, PAGE.width, PAGE.height),
     ).toBe(false);
+  });
+});
+
+describe('hybrid native and scanned PDF pages', () => {
+  it('keeps the native header and adds only uncovered OCR body regions', () => {
+    const header = nativeLine('Results and discussion');
+    const duplicateHeader = region('Results and discussion', quad(30, 20, 132, 10));
+    const scannedBody = region(
+      'This body exists only in the scanned part of the page.',
+      quad(30, 100, 400, 20),
+    );
+    const result = ocrResult(
+      [duplicateHeader, scannedBody],
+      [readingLine('horizontal', [duplicateHeader]), readingLine('horizontal', [scannedBody], [1])],
+    );
+    const options = {
+      pageIndex: 0,
+      pageWidth: PAGE.width,
+      pageHeight: PAGE.height,
+      imageWidth: PAGE.width,
+      imageHeight: PAGE.height,
+    };
+    const uncovered = uncoveredPdfOcrResult(result, [header], options);
+    expect(uncovered.regions).toEqual([scannedBody]);
+    expect(uncovered.lines).toHaveLength(1);
+
+    const hybrid = ocrResultToHybridPage(
+      result,
+      {
+        index: 0,
+        width: PAGE.width,
+        height: PAGE.height,
+        lines: [header],
+        figures: FULL_PAGE_IMAGE,
+        empty: false,
+      },
+      options,
+    );
+    expect(hybrid.lines.map((line) => line.text)).toEqual([scannedBody.text]);
+    expect(hybrid.layout.blocks.map((block) => block.text)).toEqual([
+      header.text,
+      scannedBody.text,
+    ]);
   });
 });
 
@@ -295,6 +340,32 @@ describe('vertical Japanese OCR', () => {
     expect(blocks[0]?.writing).toBe(90);
     expect(blocks[0]?.advance).toBe(lines[0]?.box.height);
     expect(blocks[0]?.box).toEqual(lines[0]?.box);
+  });
+
+  it('uses each region vertical flag instead of the majority reading orientation', () => {
+    const right = region('右列', quad(300, 100, 40, 100), true);
+    const left = region('左列', quad(100, 100, 40, 100), true);
+    const title = region('Horizontal title', quad(40, 20, 300, 40), false);
+    const result = ocrResult(
+      [right, left, title],
+      [
+        readingLine('vertical', [right], [0]),
+        readingLine('vertical', [left], [1]),
+        readingLine('vertical', [title], [2]),
+      ],
+    );
+    const lines = ocrResultToTextLines(result, CONVERSION);
+    const titlePiece = lines
+      .flatMap((line) => line.pieces)
+      .find((piece) => piece.text === title.text);
+
+    expect(titlePiece).toMatchObject({ orientation: 0, displayed: 0, size: 20 });
+    expect(
+      lines.flatMap((line) => line.pieces).filter((piece) => piece !== titlePiece),
+    ).toMatchObject([
+      { orientation: 90, displayed: 90 },
+      { orientation: 90, displayed: 90 },
+    ]);
   });
 
   it('derives canonical vertical order when a caller retained only regions', () => {

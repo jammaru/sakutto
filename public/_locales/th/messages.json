@@ -1706,6 +1706,14 @@
   "allSitesPopupEnable": {
     "message": "เปิดใช้งาน"
   },
+  "ocrTierStandard": {
+    "message": "OCR มาตรฐาน",
+    "description": "Label for the standard PP-OCR tier."
+  },
+  "ocrTierHigh": {
+    "message": "OCR ความแม่นยำสูง",
+    "description": "Label for the high-accuracy PP-OCR tier."
+  },
   "ocrModelsHeading": {
     "message": "OCR บนอุปกรณ์",
     "description": "Heading for PP-OCR model management."

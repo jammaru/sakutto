@@ -70,11 +70,11 @@ export function visibleImageRect(
 
 /** Convert frame-local crop coordinates to the top-level visible-tab screenshot. */
 export function topLevelImageCaptureGeometry(
-  rect: ImageCaptureRect | null,
+  rect: ImageCaptureRect,
   sourceWindow: Window = window,
 ): ImageCaptureGeometry | null {
-  let x = rect?.x ?? 0;
-  let y = rect?.y ?? 0;
+  let x = rect.x;
+  let y = rect.y;
   let current = sourceWindow;
   const seen = new Set<Window>();
 
@@ -94,7 +94,7 @@ export function topLevelImageCaptureGeometry(
   const viewportWidth = current.innerWidth;
   const viewportHeight = current.innerHeight;
   return {
-    rect: rect ? visibleImageRect({ ...rect, x, y }, viewportWidth, viewportHeight) : null,
+    rect: visibleImageRect({ ...rect, x, y }, viewportWidth, viewportHeight),
     viewportWidth,
     viewportHeight,
   };
@@ -162,7 +162,8 @@ export async function capturedPixels(
   screenshot.src = dataUrl;
   await waitForImage(screenshot);
   const { rect } = geometry;
-  if (!rect) return canvasPixels(screenshot, screenshot.naturalWidth, screenshot.naturalHeight);
+  if (!rect)
+    throw new ImageCapturePermissionError('Selected image has no visible capture rectangle');
   const scaleX = screenshot.naturalWidth / Math.max(1, geometry.viewportWidth);
   const scaleY = screenshot.naturalHeight / Math.max(1, geometry.viewportHeight);
   const width = Math.max(1, Math.round(rect.width * scaleX));
@@ -312,8 +313,9 @@ export class ImageTranslationController {
     }
 
     const bounds = image?.getBoundingClientRect();
-    const geometry = topLevelImageCaptureGeometry(bounds ?? null);
-    if (!geometry) throw new ImageCapturePermissionError();
+    if (!bounds) throw new ImageCapturePermissionError();
+    const geometry = topLevelImageCaptureGeometry(bounds);
+    if (!geometry?.rect) throw new ImageCapturePermissionError();
     const response: unknown = await browser.runtime.sendMessage({
       type: 'image:capture',
       rect: geometry.rect,

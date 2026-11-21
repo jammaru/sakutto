@@ -25,4 +25,11 @@ for (const [name, pin] of Object.entries(ORT_ASSETS)) {
   }
   copyFileSync(source, join(output, name));
 }
-console.log(`Synced onnxruntime-web ${ORT_VERSION} WASM assets`);
+
+// The npm package omits the repository's third-party notices. Keep the version-matched
+// upstream text beside the runtime artifacts as well as in the packaged licenses directory.
+copyFileSync(
+  join(root, 'licenses', 'onnxruntime-ThirdPartyNotices.txt'),
+  join(output, 'ThirdPartyNotices.txt'),
+);
+console.log(`Synced onnxruntime-web ${ORT_VERSION} WASM assets and third-party notices`);

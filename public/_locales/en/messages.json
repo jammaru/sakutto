@@ -1716,6 +1716,14 @@
     "message": "Turn on",
     "description": "Button in the toolbar popup that turns on all-sites access."
   },
+  "ocrTierStandard": {
+    "message": "Standard OCR",
+    "description": "Label for the standard PP-OCR tier."
+  },
+  "ocrTierHigh": {
+    "message": "High-accuracy OCR",
+    "description": "Label for the high-accuracy PP-OCR tier."
+  },
   "ocrModelsHeading": {
     "message": "On-device OCR",
     "description": "Heading for PP-OCR model management."

@@ -1715,6 +1715,14 @@
     "message": "オンにする",
     "description": "Button in the toolbar popup that turns on all-sites access."
   },
+  "ocrTierStandard": {
+    "message": "標準OCR",
+    "description": "Label for the standard PP-OCR tier."
+  },
+  "ocrTierHigh": {
+    "message": "高精度OCR",
+    "description": "Label for the high-accuracy PP-OCR tier."
+  },
   "ocrModelsHeading": {
     "message": "端末内OCR",
     "description": "Heading for PP-OCR model management."

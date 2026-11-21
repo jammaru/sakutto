@@ -136,6 +136,25 @@ describe('locale catalogs', () => {
 describe('locale messages', () => {
   const ja = readMessages('ja');
 
+  it('uses OCR-specific tier labels without translation-model parameter counts', () => {
+    for (const locale of catalogs) {
+      const messages = readMessages(locale);
+      for (const [ocrKey, modelKey] of [
+        ['ocrTierStandard', 'modelStandard'],
+        ['ocrTierHigh', 'modelHigh'],
+      ] as const) {
+        const label = messages[ocrKey]?.message ?? '';
+        expect(label, `${locale} ${ocrKey}`).not.toBe('');
+        expect(label, `${locale} ${ocrKey}`).not.toBe(messages[modelKey]?.message);
+        expect(label, `${locale} ${ocrKey}`).not.toMatch(/PLaMo|0[.,]8\s*B|\b2\s*B\b/iu);
+      }
+    }
+
+    const manager = readFileSync(new URL('../src/ui/ModelManager.svelte', import.meta.url), 'utf8');
+    expect(manager).toContain("tier === 'high' ? t('ocrTierHigh') : t('ocrTierStandard')");
+    expect(manager.match(/\{ocrLabel\(tier\)\}/gu)).toHaveLength(2);
+  });
+
   it('uses the product names from the specification', () => {
     expect(en.extensionName?.message).toBe('Sakutto - Local AI translation');
     expect(ja.extensionName?.message).toBe('Sakutto - ローカルAI翻訳');

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { focusedPdfPage, PdfReader, type ReaderLabels } from '@/pdf/reader';
 import type { PdfDocument, PdfPage } from '@/pdf/extract';
 import type { PdfEngine } from '@/pdf/session';
+import type { OcrResult } from '@/engine/ocr/types';
 
 const labels: ReaderLabels = {
   translate: 'Translate',
@@ -120,6 +121,43 @@ function viewportRect(top: number): DOMRect {
     y: top,
     toJSON: () => ({}),
   } as DOMRect;
+}
+
+const scannedResult: OcrResult = (() => {
+  const region = {
+    text: 'Recovered scanned body text',
+    confidence: 0.95,
+    recognitionConfidence: 0.95,
+    vertical: false,
+    quad: [
+      { x: 20, y: 20 },
+      { x: 180, y: 20 },
+      { x: 180, y: 50 },
+      { x: 20, y: 50 },
+    ],
+    symbolScores: [0.95],
+  } as const;
+  return {
+    regions: [region],
+    lines: [{ orientation: 'horizontal', items: [region], indices: [0] }],
+    text: region.text,
+  };
+})();
+
+function ocrCanvas(): void {
+  const getContext = function (this: HTMLCanvasElement): CanvasRenderingContext2D {
+    return {
+      setTransform: () => undefined,
+      fillRect: () => undefined,
+      getImageData: () => ({
+        width: this.width,
+        height: this.height,
+        data: new Uint8ClampedArray(this.width * this.height * 4),
+      }),
+    } as unknown as CanvasRenderingContext2D;
+  };
+  HTMLCanvasElement.prototype.getContext =
+    getContext as unknown as typeof HTMLCanvasElement.prototype.getContext;
 }
 
 function cancelledError(): Error {
@@ -735,6 +773,83 @@ describe('PdfReader viewport observer', () => {
     expect(pageHost(root, 2).dataset.renderFailed).toBeUndefined();
     expect(pageHost(root, 2).querySelector('canvas')).toBeInstanceOf(HTMLCanvasElement);
 
+    reader.destroy();
+  });
+
+  it('does not mark OCR aborted by a quick hide and re-show as failed', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    ocrCanvas();
+    let started = 0;
+    const recognize = vi.fn((_image: unknown, signal: AbortSignal) => {
+      started += 1;
+      if (started > 1) return Promise.resolve(scannedResult);
+      return new Promise<OcrResult>((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+      });
+    });
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 });
+    document.body.append(root);
+    const reader = new PdfReader(root, geometries(1), {
+      document: fakeDocument({ count: 0 }, 1),
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+      ocr: { recognize },
+    });
+
+    reader.start();
+    await vi.waitFor(() => expect(recognize).toHaveBeenCalledOnce());
+    reader.setVisible(false);
+    reader.setVisible(true);
+    await vi.waitFor(() => expect(recognize).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(reader.coverage(0)).toHaveLength(1));
+
+    expect(pageHost(root, 0).querySelector('.sakutto-page__missing')?.textContent).not.toBe(
+      labels.ocrFailed,
+    );
+    expect(reader.coverage(0)[0]?.sourceText).toBe(scannedResult.text);
+    reader.destroy();
+  });
+
+  it('reports a transient OCR failure and replaces its fallback on retry', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    ocrCanvas();
+    const recognize = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('temporary model initialization failure'))
+      .mockResolvedValueOnce(scannedResult);
+    const reports: { parsed: number; pages: number }[] = [];
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 });
+    document.body.append(root);
+    const reader = new PdfReader(root, geometries(1), {
+      document: fakeDocument({ count: 0 }, 1),
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: (state) => reports.push(state),
+      ocr: { recognize },
+    });
+
+    reader.start();
+    await vi.waitFor(() => expect(recognize).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(reports.at(-1)).toMatchObject({ parsed: 1, pages: 1 }));
+    expect(reader.coverage(0)).toHaveLength(0);
+    expect(pageHost(root, 0).querySelector('.sakutto-page__missing')?.textContent).toBe(
+      labels.ocrFailed,
+    );
+
+    reader.retryOcr();
+    await vi.waitFor(() => expect(recognize).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(reader.coverage(0)).toHaveLength(1));
+    expect(reader.coverage(0)[0]?.sourceText).toBe(scannedResult.text);
+    expect(reports.at(-1)).toMatchObject({ parsed: 1, pages: 1 });
     reader.destroy();
   });
 

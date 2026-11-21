@@ -1,18 +1,18 @@
 import { groupReadingLines } from '@/engine/ocr/order';
 import type { ImageDataLike, OcrQuad, OcrRegion, OcrResult, ReadingLine } from '@/engine/ocr/types';
-import { isImageOnlyPage } from './extract';
+import { isImageOnlyPage, type ExtractedPage } from './extract';
 import type { FigureAreas } from './figures';
 import { median, type Box } from './geometry';
-import type { LayoutBlock, PageLayout } from './layout';
-import { bodyFontSize, isRotated, lineFrom, type TextLine, type TextPiece } from './lines';
+import { layoutPage, type LayoutBlock, type PageLayout } from './layout';
+import { bodyFontSize, lineFrom, type TextLine, type TextPiece } from './lines';
 import { hasSourceProse } from './prose-detect';
 
 /**
  * OCR is a fallback, not a replacement for a usable PDF text layer.
  *
  * Keep the image-only geometry/character rules in one place by delegating to the extractor.
- * The prose guard also covers a mixed page whose full-page image made the character-only rule
- * look empty: a real text run means there is no reason to spend an OCR request on that page.
+ * A substantial raster can coexist with a native header or caption. Such pages need an OCR
+ * pass too; native coverage is removed after recognition rather than guessed from page text.
  */
 export function shouldRunPdfOcr(
   lines: readonly TextLine[],
@@ -20,10 +20,9 @@ export function shouldRunPdfOcr(
   width: number,
   height: number,
 ): boolean {
-  const upright = lines.filter((line) => !isRotated(line) && line.text.trim().length > 0);
-  const nativeText = upright.map((line) => line.text).join(' ');
-  if (hasSourceProse(nativeText)) return false;
-  return isImageOnlyPage(lines, figures, width, height);
+  if (isImageOnlyPage(lines, figures, width, height)) return true;
+  const pageArea = Math.max(1, width * height);
+  return figures.images.some((image) => image.width * image.height >= pageArea * 0.35);
 }
 
 /** A text piece with deterministic identity and both image-space and page-space geometry. */
@@ -189,7 +188,6 @@ export function ocrResultToTextLines(
   const output: OcrTextLine[] = [];
   const lines = readingLines(result);
   for (const [lineIndex, readingLine] of lines.entries()) {
-    const vertical = readingLine.orientation === 'vertical';
     const lineId = `ocr:p${String(resolved.pageIndex)}:l${String(lineIndex)}`;
     const pieces: OcrTextPiece[] = [];
     for (const [itemIndex, region] of readingLine.items.entries()) {
@@ -200,13 +198,14 @@ export function ocrResultToTextLines(
           ? detectorIndex
           : itemIndex;
       const id = `${lineId}:r${String(regionIndex)}`;
-      pieces.push(regionPiece(region, vertical, id, resolved.scaleX, resolved.scaleY));
+      pieces.push(regionPiece(region, region.vertical, id, resolved.scaleX, resolved.scaleY));
     }
     if (pieces.length === 0) continue;
     const line = lineFrom(pieces);
     // OCR region boundaries are authoritative, unlike gaps between native PDF text runs.
     // Match the pipeline's separator so touching or overlapping horizontal regions stay distinct.
-    const text = pieces.map((piece) => piece.text).join(vertical ? '' : ' ');
+    const pieceVertical = pieces.every((piece) => piece.displayed === 90);
+    const text = pieces.map((piece) => piece.text).join(pieceVertical ? '' : ' ');
     output.push({ ...line, text, id: lineId, pieces });
   }
   return output;
@@ -221,7 +220,7 @@ export function ocrResultToTextLines(
  */
 export function ocrLinesToLayoutBlocks(lines: readonly OcrTextLine[]): OcrLayoutBlock[] {
   return lines.map((line, column) => {
-    const vertical = line.pieces[0]?.displayed === 90;
+    const vertical = line.pieces.length > 0 && line.pieces.every((piece) => piece.displayed === 90);
     return {
       id: `${line.id}:block`,
       box: { ...line.box },
@@ -271,6 +270,107 @@ export function ocrResultToPageLayout(
   options: OcrConversionOptions,
 ): OcrPageLayout {
   return layoutFromLines(ocrResultToTextLines(result, options), options);
+}
+
+function intersectionArea(left: Box, right: Box): number {
+  const width = Math.max(
+    0,
+    Math.min(left.x + left.width, right.x + right.width) - Math.max(left.x, right.x),
+  );
+  const height = Math.max(
+    0,
+    Math.min(left.y + left.height, right.y + right.height) - Math.max(left.y, right.y),
+  );
+  return width * height;
+}
+
+/**
+ * Removes OCR duplicates of the native text layer while retaining scanned text elsewhere.
+ * Coverage is geometric because the recognizer and PDF text extractor may segment or spell the
+ * same line differently. Both ratios matter: a tiny native stamp inside a large scanned paragraph
+ * must not suppress that paragraph.
+ */
+export function uncoveredPdfOcrResult(
+  result: OcrResult,
+  nativeLines: readonly TextLine[],
+  options: OcrConversionOptions,
+): OcrResult {
+  const resolved = conversion(options);
+  const nativeBoxes = nativeLines
+    .filter((line) => line.text.trim().length > 0)
+    .map((line) => line.box);
+  const regions = result.regions.filter((region) => {
+    if (region.text.trim().length === 0) return false;
+    const box = quadBox(scaleQuad(region.quad, resolved.scaleX, resolved.scaleY));
+    const area = Math.max(1, box.width * box.height);
+    return !nativeBoxes.some((nativeBox) => {
+      const nativeArea = Math.max(1, nativeBox.width * nativeBox.height);
+      const overlap = intersectionArea(box, nativeBox);
+      return overlap >= Math.min(area, nativeArea) * 0.5 && overlap >= area * 0.2;
+    });
+  });
+  const retained = new Set(regions);
+  const lines = result.lines
+    .map((line) => {
+      const items: OcrRegion[] = [];
+      const indices: number[] = [];
+      line.items.forEach((region, index) => {
+        if (!retained.has(region)) return;
+        items.push(region);
+        const sourceIndex = line.indices[index];
+        if (sourceIndex !== undefined) indices.push(sourceIndex);
+      });
+      return { ...line, items, indices };
+    })
+    .filter((line) => line.items.length > 0);
+  return {
+    regions,
+    lines: result.lines.length > 0 ? lines : [],
+    text:
+      result.lines.length > 0
+        ? lines
+            .map((line) =>
+              line.items
+                .map((region) => region.text)
+                .join(line.orientation === 'vertical' ? '' : ' '),
+            )
+            .join('\n')
+        : regions.map((region) => region.text).join('\n'),
+  };
+}
+
+/** Native layout plus only the OCR lines not already represented by native text. */
+export function ocrResultToHybridPage(
+  result: OcrResult,
+  extracted: ExtractedPage,
+  options: OcrConversionOptions,
+): { lines: OcrTextLine[]; layout: PageLayout } {
+  // A page-sized scan is the background, not a figure whose native header should be skipped.
+  const native = layoutPage(
+    extracted.lines,
+    { images: [] },
+    {
+      width: extracted.width,
+      height: extracted.height,
+      index: options.pageIndex,
+    },
+  );
+  const lines = ocrResultToTextLines(
+    uncoveredPdfOcrResult(result, extracted.lines, options),
+    options,
+  );
+  if (lines.length === 0) return { lines, layout: native };
+  const scanned = layoutFromLines(lines, options);
+  return {
+    lines,
+    layout: {
+      ...native,
+      blocks: [...native.blocks, ...scanned.blocks],
+      bodySize: native.bodySize || scanned.bodySize,
+      lineHeight: native.lineHeight || scanned.lineHeight,
+      obstacles: native.blocks.length > 0 ? native.obstacles : scanned.obstacles,
+    },
+  };
 }
 
 /** The minimal canvas surface needed by the adapter; HTMLCanvasElement also satisfies it. */

@@ -76,6 +76,10 @@
     return id === HIGH_QUALITY_MODEL_ID ? t('modelHigh') : t('modelStandard');
   }
 
+  function ocrLabel(tier: OcrTier): string {
+    return tier === 'high' ? t('ocrTierHigh') : t('ocrTierStandard');
+  }
+
   function apply(status: ModelStatus) {
     if (status.error === FOLDER_PERMISSION_ERROR) folderBlocked = true;
     if (isModelIntegrityError(status.error)) {
@@ -367,7 +371,7 @@
           disabled={busy !== null}
           onchange={() => selectOcr(tier)}
         />
-        <span>{tier === 'high' ? t('modelHigh') : t('modelStandard')}</span>
+        <span>{ocrLabel(tier)}</span>
         <span class="muted">{formatByteSize(OCR_TIER_CATALOG[tier].size)}</span>
       </label>
     {/each}
@@ -380,7 +384,7 @@
       {@const downloading = state === 'downloading' || state === 'verifying'}
       <li>
         <div class="summary">
-          <strong>{tier === 'high' ? t('modelHigh') : t('modelStandard')}</strong>
+          <strong>{ocrLabel(tier)}</strong>
           <span class="muted">{formatByteSize(OCR_TIER_CATALOG[tier].size)}</span>
           {#if selectedOcrTier === tier && (state === 'ready' || state === 'loaded')}
             <span class="badge">{t('modelInUse')}</span>

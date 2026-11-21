@@ -1,8 +1,14 @@
 import type { Formality } from '@/shared/settings';
 import { isAbortError } from '@/engine/errors';
 import { MAX_OCR_DIMENSION, MAX_OCR_PIXELS } from '@/engine/offscreen/protocol';
-import { createPdfPageOcr, shouldRunPdfOcr, type PdfPageOcr, type PdfOcrRecognize } from './ocr';
-import { verticalWriting, type LayoutBlock } from './layout';
+import {
+  createPdfPageOcr,
+  ocrResultToHybridPage,
+  shouldRunPdfOcr,
+  type PdfPageOcr,
+  type PdfOcrRecognize,
+} from './ocr';
+import { verticalWriting, type LayoutBlock, type PageLayout } from './layout';
 import { layoutPage } from './layout';
 import { COVER_PAD_TOP_EM, HINTING_PAD_PX, coverPaintLayout, drawnBox } from './place';
 import { coverStyle, READER_STYLE, TextMeasurer } from './render';
@@ -164,14 +170,18 @@ export class PdfReader {
   private readonly ocr: { recognize: PdfOcrRecognize } | null;
   private pageOcr: PdfPageOcr | null = null;
   private readonly parsed = new Set<number>();
+  private readonly retryableOcr = new Set<number>();
+  private readonly ocrRetryNotBefore = new Map<number, number>();
+  private readonly ocrRetryAttempts = new Map<number, number>();
+  private ocrRetryTimer: ReturnType<typeof setTimeout> | null = null;
   private parsing: Promise<void> | null = null;
   private visible = true;
   private scale = 1;
   private focus = 0;
   private compare = false;
-  private emptyPages = 0;
+  private readonly emptyPages = new Set<number>();
   /** Blocks left in the page's own typesetting: equations and the text inside figures. */
-  private skippedBlocks = 0;
+  private readonly skippedBlocks = new Map<number, number>();
   private coverageSweepPass = 0;
   private target: string;
   private form: Formality;
@@ -233,6 +243,7 @@ export class PdfReader {
   /** Re-queues blocks that never got a translation, once the model is ready. */
   retryUntranslated(): void {
     this.coverageSweepPass = 0;
+    this.retryOcr();
     this.session.retryUntranslated();
   }
 
@@ -401,11 +412,22 @@ export class PdfReader {
   setVisible(visible: boolean): void {
     this.visible = visible;
     if (!visible) this.pageOcr?.cancel();
-    if (visible) void this.parseNext();
+    if (visible) this.retryOcr();
+  }
+
+  /** Retries pages whose OCR model download or runtime initialization failed. */
+  retryOcr(): void {
+    if (this.ocrRetryTimer !== null) clearTimeout(this.ocrRetryTimer);
+    this.ocrRetryTimer = null;
+    for (const page of this.retryableOcr) this.ocrRetryNotBefore.set(page, 0);
+    if (this.visible) void this.parseNext();
+    else this.scheduleOcrRetry();
   }
 
   destroy(): void {
     this.destroyed = true;
+    if (this.ocrRetryTimer !== null) clearTimeout(this.ocrRetryTimer);
+    this.ocrRetryTimer = null;
     this.pageOcr?.cancel();
     this.observer.disconnect();
     this.resizeObserver?.disconnect();
@@ -678,6 +700,12 @@ export class PdfReader {
 
     this.parsing = (async () => {
       let ocrAttempted = false;
+      let fallback: {
+        layout: PageLayout;
+        lines: TextLine[];
+        height: number;
+        empty: boolean;
+      } | null = null;
       try {
         const page = await this.document.getPage(next + 1);
         const extracted = await extractPage(page, next, this.ops);
@@ -685,13 +713,28 @@ export class PdfReader {
         // A new page brings new unpainted prose, so the coverage sweep starts over for it.
         this.coverageSweepPass = 0;
         const element = this.pageElements.get(next);
-        let ocrLayout = null;
-        let ocrLines = null;
+        const runOcr =
+          this.ocr !== null &&
+          shouldRunPdfOcr(extracted.lines, extracted.figures, extracted.width, extracted.height);
+        const nativeLayout = layoutPage(
+          extracted.lines,
+          runOcr ? { images: [] } : extracted.figures,
+          {
+            width: extracted.width,
+            height: extracted.height,
+            index: next,
+          },
+        );
+        fallback = {
+          layout: nativeLayout,
+          lines: extracted.lines,
+          height: extracted.height,
+          empty: extracted.empty,
+        };
+        let pageLayout = nativeLayout;
+        let textLines = extracted.lines;
 
-        if (
-          this.ocr &&
-          shouldRunPdfOcr(extracted.lines, extracted.figures, extracted.width, extracted.height)
-        ) {
+        if (this.ocr && runOcr) {
           ocrAttempted = true;
           if (element) {
             element.host.dataset.pageEmpty = 'true';
@@ -703,69 +746,93 @@ export class PdfReader {
             maxDimension: MAX_OCR_DIMENSION,
           }).promise;
           if (this.destroyed || !this.visible) return;
-          this.pageOcr = createPdfPageOcr({
+          const pageOcr = createPdfPageOcr({
             pageIndex: next,
             pageWidth: extracted.width,
             pageHeight: extracted.height,
             recognize: this.ocr.recognize,
           });
-          const recognized = await this.pageOcr.run(canvas);
-          this.pageOcr = null;
-          if (!recognized.empty) {
-            ocrLayout = recognized.layout;
-            ocrLines = recognized.lines;
-            if (element) element.host.dataset.pageEmpty = 'false';
-          }
+          this.pageOcr = pageOcr;
+          const recognized = await pageOcr.run(canvas);
+          const hybrid = ocrResultToHybridPage(recognized.ocr, extracted, {
+            pageIndex: next,
+            pageWidth: extracted.width,
+            pageHeight: extracted.height,
+            imageWidth: canvas.width,
+            imageHeight: canvas.height,
+          });
+          pageLayout = hybrid.layout;
+          if (hybrid.lines.length > 0) textLines = [...extracted.lines, ...hybrid.lines];
         }
 
         this.parsed.add(next);
-        if (ocrLayout && ocrLines) {
-          this.session.addPage(next, ocrLayout, extracted.height);
-          if (element) this.paintTextLayer(element, ocrLines);
-        } else if (extracted.empty || ocrAttempted) {
-          this.emptyPages += 1;
-          if (element) element.host.dataset.pageEmpty = 'true';
-          this.session.addPage(
-            next,
-            {
-              blocks: [],
-              bodySize: 0,
-              lineHeight: 0,
-              skipped: [],
-              pageHeight: extracted.height,
-              pageWidth: extracted.width,
-              pageIndex: next,
-              obstacles: extracted.figures.images ?? [],
-            },
-            extracted.height,
-          );
+        this.retryableOcr.delete(next);
+        this.ocrRetryNotBefore.delete(next);
+        this.ocrRetryAttempts.delete(next);
+        this.session.replacePage(next, pageLayout, extracted.height);
+        this.skippedBlocks.set(next, pageLayout.skipped.length);
+        if ((extracted.empty || ocrAttempted) && pageLayout.blocks.length === 0) {
+          this.emptyPages.add(next);
         } else {
-          const layout = layoutPage(extracted.lines, extracted.figures, {
-            width: extracted.width,
-            height: extracted.height,
-            index: next,
-          });
-          this.skippedBlocks += layout.skipped.length;
-          this.session.addPage(next, layout, extracted.height);
+          this.emptyPages.delete(next);
         }
-        if (element && !ocrLines) this.paintTextLayer(element, extracted.lines);
+        if (element) {
+          if (extracted.empty || ocrAttempted) {
+            element.host.dataset.pageEmpty = pageLayout.blocks.length === 0 ? 'true' : 'false';
+          } else {
+            delete element.host.dataset.pageEmpty;
+          }
+          this.paintTextLayer(element, textLines);
+        }
         this.session.focusPage(this.focus);
         this.report();
       } catch (error) {
-        if (isAbortError(error) && (this.destroyed || !this.visible)) return;
+        // Cancellation is control flow, including when a quick re-show happened before the
+        // rejection arrived. The page remains unparsed so the re-show can start a clean run.
+        if (isAbortError(error)) return;
         this.parsed.add(next);
-        if (ocrAttempted) {
+        if (ocrAttempted && fallback) {
+          const attempt = (this.ocrRetryAttempts.get(next) ?? 0) + 1;
+          this.ocrRetryAttempts.set(next, attempt);
+          this.retryableOcr.add(next);
+          this.ocrRetryNotBefore.set(
+            next,
+            Date.now() + Math.min(30_000, 1000 * 2 ** Math.min(attempt - 1, 5)),
+          );
+          this.session.replacePage(next, fallback.layout, fallback.height);
+          this.skippedBlocks.set(next, fallback.layout.skipped.length);
+          if (fallback.empty) this.emptyPages.add(next);
           const element = this.pageElements.get(next);
           if (element) {
             element.host.dataset.pageEmpty = 'true';
             element.missing.textContent = this.labels.ocrFailed;
+            this.paintTextLayer(element, fallback.lines);
           }
+          // Even a failed OCR attempt is a reported page with a usable native/empty fallback.
+          // It stays retryable instead of leaving the final page stuck at N-1/N forever.
+          this.report();
+          this.scheduleOcrRetry();
         }
       } finally {
+        this.pageOcr = null;
         this.parsing = null;
         void this.parseNext();
       }
     })();
+  }
+
+  private scheduleOcrRetry(): void {
+    if (this.ocrRetryTimer !== null) clearTimeout(this.ocrRetryTimer);
+    this.ocrRetryTimer = null;
+    if (this.destroyed || this.retryableOcr.size === 0) return;
+    const times = [...this.retryableOcr].map(
+      (page) => this.ocrRetryNotBefore.get(page) ?? Date.now(),
+    );
+    const delay = Math.max(0, Math.min(...times) - Date.now());
+    this.ocrRetryTimer = setTimeout(() => {
+      this.ocrRetryTimer = null;
+      if (this.visible) void this.parseNext();
+    }, delay);
   }
 
   /** The page nearest the reader that has not been parsed. */
@@ -773,7 +840,9 @@ export class PdfReader {
     let best: number | null = null;
     let bestDistance = Infinity;
     for (const geometry of this.geometries) {
-      if (this.parsed.has(geometry.index)) continue;
+      const retryable = this.retryableOcr.has(geometry.index);
+      if (this.parsed.has(geometry.index) && !retryable) continue;
+      if (retryable && (this.ocrRetryNotBefore.get(geometry.index) ?? 0) > Date.now()) continue;
       if (this.pageLimit !== null && this.parsed.size >= this.pageLimit) {
         if (!this.parsed.has(this.focus)) continue;
         // Only pages near the reader may exceed the limit, so a reader who scrolls far past it
@@ -1030,10 +1099,10 @@ export class PdfReader {
       ...progress,
       parsed: this.parsed.size,
       pages: this.geometries.length,
-      emptyPages: this.emptyPages,
+      emptyPages: this.emptyPages.size,
       tokensPerSecond: rates.tokensPerSecond,
       segmentsPerSecond: rates.segmentsPerSecond,
-      keptAsIs: this.skippedBlocks,
+      keptAsIs: [...this.skippedBlocks.values()].reduce((sum, count) => sum + count, 0),
       overflowed: progress.overflowed,
       failed: progress.failed,
     });

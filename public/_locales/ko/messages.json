@@ -1706,6 +1706,14 @@
   "allSitesPopupEnable": {
     "message": "켜기"
   },
+  "ocrTierStandard": {
+    "message": "표준 OCR",
+    "description": "Label for the standard PP-OCR tier."
+  },
+  "ocrTierHigh": {
+    "message": "고정밀 OCR",
+    "description": "Label for the high-accuracy PP-OCR tier."
+  },
   "ocrModelsHeading": {
     "message": "기기 내 OCR",
     "description": "Heading for PP-OCR model management."

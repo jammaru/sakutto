@@ -408,6 +408,11 @@ export class EngineHost {
   private folderSession: SharedFolderSession | null = null;
   /** Created only by an OCR message; translation startup never imports the OCR runtime. */
   private ocrHostTask: Promise<OcrHost> | null = null;
+  /** Registered before lazy host/codec awaits so ocr-cancel cannot miss recognition. */
+  private readonly ocrRequests = new Map<
+    string,
+    { tier: OcrRecognizeRequest['tier']; controller: AbortController }
+  >();
 
   constructor(options: EngineHostOptions = {}) {
     this.idleReleaseMs = options.idleReleaseMs ?? IDLE_RELEASE_MS;
@@ -787,9 +792,13 @@ export class EngineHost {
       case 'ocr-status':
         void this.handleOcr(port, message);
         return;
-      case 'ocr-cancel':
+      case 'ocr-cancel': {
+        const pending = this.ocrRequests.get(message.requestId);
+        pending?.controller.abort();
+        this.ocrRequests.delete(message.requestId);
         void this.ocrHostTask?.then((host) => host.cancel(message.requestId));
         return;
+      }
       case 'cache-clear':
         void this.handleCacheClear(port, message);
         return;
@@ -860,15 +869,23 @@ export class EngineHost {
     port: Browser.runtime.Port,
     request: OcrRecognizeRequest | OcrDownloadRequest | OcrDeleteRequest | OcrStatusRequest,
   ): Promise<void> {
+    const controller = request.type === 'ocr-recognize' ? new AbortController() : null;
+    if (controller && request.type === 'ocr-recognize') {
+      this.ocrRequests.get(request.requestId)?.controller.abort();
+      this.ocrRequests.set(request.requestId, { tier: request.tier, controller });
+    }
     try {
       const host = await this.ocrHost();
+      if (controller?.signal.aborted) throw abortError();
       switch (request.type) {
         case 'ocr-recognize': {
           const { decodeOcrImage } = await import('../ocr/codec');
+          if (controller?.signal.aborted) throw abortError();
           const result = await host.recognize(
             request.requestId,
             request.tier,
             decodeOcrImage(request.image),
+            controller?.signal,
           );
           this.respond(port, request.requestId, result);
           return;
@@ -889,6 +906,14 @@ export class EngineHost {
       }
     } catch (error) {
       this.respondError(port, request.requestId, error);
+    } finally {
+      if (
+        controller &&
+        request.type === 'ocr-recognize' &&
+        this.ocrRequests.get(request.requestId)?.controller === controller
+      ) {
+        this.ocrRequests.delete(request.requestId);
+      }
     }
   }
 

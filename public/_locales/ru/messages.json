@@ -1706,6 +1706,14 @@
   "allSitesPopupEnable": {
     "message": "Включить"
   },
+  "ocrTierStandard": {
+    "message": "Стандартный OCR",
+    "description": "Label for the standard PP-OCR tier."
+  },
+  "ocrTierHigh": {
+    "message": "OCR с высокой точностью",
+    "description": "Label for the high-accuracy PP-OCR tier."
+  },
   "ocrModelsHeading": {
     "message": "OCR на устройстве",
     "description": "Heading for PP-OCR model management."

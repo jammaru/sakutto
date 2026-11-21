@@ -17,6 +17,7 @@ export const LICENSE_FILE_COPIES = [
   'PLaMo-Community-License-ja.txt',
   'svelte-LICENSE.txt',
   'onnxruntime-LICENSE.txt',
+  'onnxruntime-ThirdPartyNotices.txt',
   'PaddleOCR-Apache-2.0.txt',
 ] as const;
 

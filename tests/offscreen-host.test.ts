@@ -234,6 +234,32 @@ describe('EngineHost', () => {
     ]);
   });
 
+  it('cancels OCR while its lazy host is still initializing', async () => {
+    const { services } = createServices();
+    const host = createHost(services);
+    const port = new FakePort();
+    host.handlePort(port.port);
+    const ocrHost = { recognize: vi.fn(), cancel: vi.fn() };
+    const lazy = deferred<typeof ocrHost>();
+    (host as unknown as { ocrHostTask: Promise<typeof ocrHost> }).ocrHostTask = lazy.promise;
+
+    port.emit({
+      type: 'ocr-recognize',
+      requestId: 'early-cancel',
+      tier: 'standard',
+      image: { width: 1, height: 1, data: 'AAAA' },
+    });
+    port.emit({ type: 'ocr-cancel', requestId: 'early-cancel' });
+    lazy.resolve(ocrHost);
+    await flushTasks();
+
+    expect(ocrHost.recognize).not.toHaveBeenCalled();
+    expect(ocrHost.cancel).toHaveBeenCalledWith('early-cancel');
+    expect(port.messagesOfType('response')).toEqual([
+      expect.objectContaining({ requestId: 'early-cancel', ok: false }),
+    ]);
+  });
+
   it('detects a revoked folder grant during status polling before replying', async () => {
     const { services } = createServices();
     services.manager.status = vi.fn(async () => modelStatus({ state: 'absent' }));

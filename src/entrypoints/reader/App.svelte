@@ -15,6 +15,7 @@
   import { displayLanguage, type TargetLanguage } from '@/shared/languages';
   import {
     isModelProgressMessage,
+    isOcrProgressMessage,
     requestEngineStatus,
     requestEngineWarm,
     requestModelDownload,
@@ -343,6 +344,10 @@
     });
 
     const onMessage = (message: unknown) => {
+      if (isOcrProgressMessage(message)) {
+        if (message.status.state === 'loaded') reader?.retryOcr();
+        return;
+      }
       if (!isModelProgressMessage(message)) return;
       if (message.status.state !== 'loaded') return;
       reader?.retryFailed();

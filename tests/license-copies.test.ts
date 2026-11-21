@@ -53,6 +53,17 @@ describe('packaged license text', () => {
     }
   });
 
+  it('bundles the upstream ONNX Runtime third-party notices beside the runtime', () => {
+    const source = read('onnxruntime-ThirdPartyNotices.txt');
+    expect(LICENSE_FILE_COPIES).toContain('onnxruntime-ThirdPartyNotices.txt');
+    expect(source.toString('utf8')).toMatch(/^THIRD PARTY SOFTWARE NOTICES AND INFORMATION\n/u);
+    expect(
+      readFileSync(new URL('../public/ocr/ort/ThirdPartyNotices.txt', import.meta.url)).equals(
+        source,
+      ),
+    ).toBe(true);
+  });
+
   it('lists every PLaMo license text and no weight file', () => {
     expect(LICENSE_FILE_COPIES).toContain('PLaMo-Community-License-ja.txt');
     expect(LICENSE_FILE_COPIES).toContain('PLaMo-Community-License-en.txt');

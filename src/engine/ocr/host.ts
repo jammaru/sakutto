@@ -56,8 +56,13 @@ export class OcrHost {
     return (await this.assets()).status(tier);
   }
 
-  recognize(requestId: string, tier: OcrTier, image: DecodedOcrImage): Promise<unknown> {
-    const controller = this.track(requestId, tier);
+  recognize(
+    requestId: string,
+    tier: OcrTier,
+    image: DecodedOcrImage,
+    signal?: AbortSignal,
+  ): Promise<unknown> {
+    const controller = this.track(requestId, tier, signal);
     const operation = this.queue.then(async () => {
       if (controller.signal.aborted) throw abortError();
       const runtime = await this.loadRuntime(tier, controller.signal);
@@ -110,9 +115,11 @@ export class OcrHost {
     void this.assetsTask?.then((assets) => assets.cancel(request.tier));
   }
 
-  private track(requestId: string, tier: OcrTier): AbortController {
+  private track(requestId: string, tier: OcrTier, signal?: AbortSignal): AbortController {
     this.cancel(requestId);
     const controller = new AbortController();
+    if (signal?.aborted) controller.abort();
+    else signal?.addEventListener('abort', () => controller.abort(), { once: true });
     this.requests.set(requestId, { tier, controller });
     return controller;
   }

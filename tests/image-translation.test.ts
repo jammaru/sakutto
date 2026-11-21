@@ -111,6 +111,13 @@ describe('image translation helpers', () => {
     expect(pixels.width).toBe(2048);
     expect(pixels.height).toBe(1152);
     expect(pixels.width * pixels.height).toBeLessThanOrEqual(16_777_216);
+    await expect(
+      capturedPixels('data:image/png;base64,cG5n', {
+        rect: null,
+        viewportWidth: 1920,
+        viewportHeight: 1080,
+      }),
+    ).rejects.toThrow('no visible capture rectangle');
   });
 });
 
