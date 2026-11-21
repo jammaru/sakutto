@@ -136,7 +136,15 @@ test.describe('scanned PDF and image OCR in real Chromium', () => {
       const started = Date.now();
       const opened = await openPdfTab(extension, pdf, pdfUrl);
       expect(opened.reason).toBeNull();
-      await waitForOcrText(opened.page, 30_000);
+      try {
+        await waitForOcrText(opened.page, 30_000);
+      } catch (error) {
+        console.log(
+          'reader state on timeout:',
+          JSON.stringify((await translatedText(opened.page)).slice(-600)),
+        );
+        throw error;
+      }
       const elapsed = Date.now() - started;
       console.log(`1-page scanned PDF OCR on CI: ${elapsed} ms`);
       expect(await translatedText(opened.page)).not.toContain('認識できませんでした');
@@ -192,7 +200,7 @@ test.describe('scanned PDF and image OCR in real Chromium', () => {
       } catch (error) {
         console.log(
           'missing-model reader text:',
-          JSON.stringify((await translatedText(opened.page)).slice(0, 400)),
+          JSON.stringify((await translatedText(opened.page)).slice(-600)),
         );
         throw error;
       }

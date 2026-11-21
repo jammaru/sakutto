@@ -171,6 +171,7 @@ export async function openPdfTab(
     );
     const reader = await created;
     await reader.waitForURL(/reader\.html/u, { timeout: 15_000 });
+    console.log('pdf:open result:', JSON.stringify(result), reader.url());
     return {
       page: reader,
       reason: result?.opened === true ? null : String(result?.reason ?? 'unknown'),
