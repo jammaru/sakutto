@@ -1,4 +1,5 @@
 import { OCR_MODEL_CATALOG, isOcrTier } from '@/engine/ocr/catalog';
+import { folderPermissionError } from '../errors';
 import { OpfsModelFileStore } from './file-store';
 import type { ModelFileStat, ModelFileStore, ModelFileWriter, StorageEstimate } from './file-store';
 import {
@@ -99,21 +100,41 @@ export class SharedFolderAssetStore implements ModelFileStore {
   }
 }
 
+export type SharedOcrStoreResolution =
+  | { kind: 'folder'; store: ModelFileStore }
+  | { kind: 'browser' }
+  | { kind: 'blocked'; reason: 'permission' | 'unreadable' };
+
 /**
  * Resolves where OCR weights belong now, independent of whether translation has been
- * initialized. Shared folder first (when granted), browser storage otherwise. Null lets
- * OcrHost fall back to the same OPFS root translation uses.
+ * initialized. `browser` means no folder is linked. `blocked` means a folder *is* linked but
+ * its grant is missing or the handle no longer opens: callers must surface that state instead
+ * of silently writing OCR files into OPFS, which would ignore the user's storage choice.
  */
-export async function openSharedOcrAssetStore(): Promise<ModelFileStore | null> {
-  if (!sharedFolderSupported()) return null;
+export async function resolveSharedOcrStore(): Promise<SharedOcrStoreResolution> {
+  if (!sharedFolderSupported()) return { kind: 'browser' };
   const stored = await loadStoredSharedFolder().catch(() => null);
-  if (!stored) return null;
-  const permission = await queryFolderPermission(stored.handle).catch(() => 'denied');
-  if (permission !== 'granted') return null;
+  if (!stored) return { kind: 'browser' };
+  const permission = await queryFolderPermission(stored.handle).catch(() => 'denied' as const);
+  if (permission !== 'granted') return { kind: 'blocked', reason: 'permission' };
   try {
-    return await SharedFolderAssetStore.open(stored.handle);
+    return { kind: 'folder', store: await SharedFolderAssetStore.open(stored.handle) };
   } catch {
-    // A revoked or deleted folder must not break OCR: use browser storage instead.
-    return null;
+    return { kind: 'blocked', reason: 'unreadable' };
   }
+}
+
+/**
+ * Store used by OcrHost. OPFS is only the fallback when no shared folder was chosen; a linked
+ * but unusable folder becomes a folder-permission error that the UI surfaces as a warning.
+ */
+export async function openOcrAssetStore(): Promise<ModelFileStore> {
+  const resolution = await resolveSharedOcrStore();
+  if (resolution.kind === 'folder') return resolution.store;
+  if (resolution.kind === 'blocked') {
+    throw folderPermissionError(
+      'The shared model folder needs permission before OCR can store its models.',
+    );
+  }
+  return OpfsModelFileStore.open();
 }

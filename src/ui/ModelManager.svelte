@@ -105,6 +105,25 @@
     ocrStatuses = { ...ocrStatuses, [status.id]: status };
   }
 
+  function ocrErrorText(error: string): string | null {
+    if (error === FOLDER_PERMISSION_ERROR) return null;
+    return error;
+  }
+
+  function markOcrFolderBlocked(tier: OcrTier): void {
+    ocrStatuses = {
+      ...ocrStatuses,
+      [tier]: {
+        id: tier,
+        state: 'error',
+        received: 0,
+        total: OCR_TIER_CATALOG[tier].size,
+        progress: 0,
+        error: FOLDER_PERMISSION_ERROR,
+      },
+    };
+  }
+
   async function syncActive() {
     const engine = await requestEngineStatus();
     if (engine) activeId = engine.model.id;
@@ -147,11 +166,20 @@
     if (stored) selectedOcrTier = stored.selectedOcrTier;
   }
 
-  async function ensureFolderPermissionForAction(): Promise<void> {
+  /** Returns false when a linked folder still needs a grant; OPFS is not a silent fallback. */
+  async function ensureFolderPermissionForAction(): Promise<boolean> {
     const access = await ensureStoredFolderPermission().catch(() => null);
-    if (access?.status !== 'granted' || !access.changed) return;
-    await requestModelFolderReload();
-    await refresh();
+    if (access?.status === 'granted' && access.changed) {
+      await requestModelFolderReload();
+      await refresh();
+    } else if (access && access.status !== 'none') {
+      const engine = await requestEngineStatus();
+      if (engine) {
+        sharedFolder = engine.sharedFolder ?? null;
+        folderBlocked = sharedFolderNeedsPermission(engine.sharedFolder);
+      }
+    }
+    return !folderBlocked;
   }
 
   async function download(target: AssetTarget) {
@@ -163,12 +191,12 @@
     const key = target.kind === 'ocr' ? `ocr:${target.id}` : target.id;
     busy = key;
     try {
-      if (target.kind === 'plamo') {
-        await ensureFolderPermissionForAction();
-        await requestModelDownload(target.id);
-      } else {
-        await requestOcrDownload(target.id);
+      if (!(await ensureFolderPermissionForAction())) {
+        if (target.kind === 'ocr') markOcrFolderBlocked(target.id);
+        return;
       }
+      if (target.kind === 'plamo') await requestModelDownload(target.id);
+      else await requestOcrDownload(target.id);
     } finally {
       busy = null;
     }
@@ -196,6 +224,10 @@
     const key = target.kind === 'ocr' ? `ocr:${target.id}` : target.id;
     busy = key;
     try {
+      if (!(await ensureFolderPermissionForAction())) {
+        if (target.kind === 'ocr') markOcrFolderBlocked(target.id);
+        return;
+      }
       if (target.kind === 'ocr') {
         const status = await requestOcrDelete(target.id);
         if (status) applyOcr(status);
@@ -360,6 +392,9 @@
 <section class="ocr-models" aria-labelledby="ocr-models-heading">
   <h3 id="ocr-models-heading">{t('ocrModelsHeading')}</h3>
   <p class="muted">{t('ocrModelsDescription')}</p>
+  {#if sharedFolderNeedsPermission(sharedFolder)}
+    <p class="error" role="alert">{t('modelFolderPermissionNeeded')}</p>
+  {/if}
   <div class="ocr-tiers" role="radiogroup" aria-label={t('ocrModelsHeading')}>
     {#each ocrTiers as tier (tier)}
       <label>
@@ -394,7 +429,10 @@
           <p class="muted">{formatByteSize(status.received)} / {formatByteSize(status.total)}</p>
         {/if}
         {#if status?.error}
-          <p class="error" role="alert">{status.error}</p>
+          {@const message = ocrErrorText(status.error)}
+          {#if message}
+            <p class="error" role="alert">{message}</p>
+          {/if}
         {/if}
         <div class="actions">
           {#if downloading}
@@ -405,6 +443,7 @@
             <button
               class="button"
               type="button"
+              aria-label={`${ocrLabel(tier)} ${state === 'partial' ? t('downloadResume') : t('modelDownload')}`}
               disabled={busy !== null}
               onclick={() => download({ kind: 'ocr', id: tier })}
             >
@@ -417,6 +456,7 @@
             <button
               class="button secondary"
               type="button"
+              aria-label={`${ocrLabel(tier)} ${t('modelDelete')}`}
               disabled={busy !== null}
               onclick={() => remove({ kind: 'ocr', id: tier })}
             >

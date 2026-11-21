@@ -1,7 +1,49 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { loadExtension } from './extension';
-import { chooseEmptySharedFolder, plantLicenseConsent } from './folder-model-helpers';
+import {
+  chooseEmptySharedFolder,
+  plantLicenseConsent,
+  readSharedFolder,
+  reloadFolder,
+  setPermissionOverride,
+} from './folder-model-helpers';
 import { seedStandardOcrModels } from './ocr-model-helpers';
+
+async function listOcrFiles(page: Page, store: 'folder' | 'browser'): Promise<string[]> {
+  return page.evaluate(async (which) => {
+    const root = await navigator.storage.getDirectory();
+    try {
+      const directory =
+        which === 'folder'
+          ? await (
+              await (
+                await root.getDirectoryHandle('e2e-empty')
+              ).getDirectoryHandle('sakutto-models')
+            ).getDirectoryHandle('ocr-standard')
+          : await (
+              await (await root.getDirectoryHandle('sakutto')).getDirectoryHandle('models')
+            ).getDirectoryHandle('ocr-standard');
+      const names: string[] = [];
+      for await (const entry of directory.values()) {
+        if (entry.kind === 'file') names.push(entry.name);
+      }
+      return names.sort();
+    } catch {
+      return [];
+    }
+  }, store);
+}
+
+async function inspectStandardOcr(page: Page): Promise<unknown> {
+  return page.evaluate(async () => {
+    const chrome = (
+      globalThis as unknown as {
+        chrome: { runtime: { sendMessage(message: unknown): Promise<unknown> } };
+      }
+    ).chrome;
+    return chrome.runtime.sendMessage({ type: 'ocr:inspect', tier: 'standard' });
+  });
+}
 
 /**
  * The reproduction from PR #154: a shared folder holds only the PLaMo GGUF. OCR must write
@@ -56,24 +98,71 @@ test('OCR weights are written into the shared folder and reused from it', async 
       expect(copied).toContain('asset.json');
 
       // A folder change re-resolves the OCR store; the copied sidecar makes the bundle ready.
-      await page.evaluate(async () => {
-        const chrome = (
-          globalThis as unknown as {
-            chrome: { runtime: { sendMessage(message: unknown): Promise<unknown> } };
-          }
-        ).chrome;
-        await chrome.runtime.sendMessage({ type: 'model-folder:reload' });
-      });
-      const status = await page.evaluate(async () => {
-        const chrome = (
-          globalThis as unknown as {
-            chrome: { runtime: { sendMessage(message: unknown): Promise<unknown> } };
-          }
-        ).chrome;
-        return chrome.runtime.sendMessage({ type: 'ocr:inspect', tier: 'standard' });
-      });
-      expect(status).toMatchObject({ state: 'ready', id: 'standard' });
+      await reloadFolder(page);
+      expect(await inspectStandardOcr(page)).toMatchObject({ state: 'ready', id: 'standard' });
       expect(extension.denied.filter((url) => url.includes('huggingface'))).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  } finally {
+    await extension.close();
+  }
+});
+
+/**
+ * The re-review blocker: with a folder linked but its grant gone, a Settings download must
+ * ask for permission and never write the OCR bundle into OPFS behind the user's back.
+ */
+test('a missing folder grant blocks OCR downloads instead of falling back to OPFS', async () => {
+  test.setTimeout(120_000);
+  const extension = await loadExtension('en-US');
+  try {
+    const page = await extension.context.newPage();
+    try {
+      await page.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await chooseEmptySharedFolder(page);
+      // Fake-engine 'denied' stands in for a restore prompt the user dismissed: the tab cannot
+      // turn it into a grant, so the action must stop with the permission warning.
+      await setPermissionOverride(page, 'denied');
+      await reloadFolder(page);
+      await expect
+        .poll(async () => readSharedFolder(page), { timeout: 15_000 })
+        .toMatchObject({ configured: true, permission: 'denied' });
+
+      await page.getByRole('button', { name: 'Standard OCR Download' }).click();
+      await expect(
+        page
+          .locator('.ocr-models')
+          .getByText('Sakutto needs permission to read the shared model folder.'),
+      ).toBeVisible();
+      await expect.poll(async () => listOcrFiles(page, 'browser'), { timeout: 15_000 }).toEqual([]);
+      expect(await listOcrFiles(page, 'folder')).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  } finally {
+    await extension.close();
+  }
+});
+
+/**
+ * The original e2e copied already-downloaded OCR files into the folder by hand. This one runs
+ * the real Settings download into the empty folder and checks where the bytes land.
+ */
+test('a Settings download writes OCR weights into an empty chosen folder', async () => {
+  test.setTimeout(180_000);
+  const extension = await loadExtension('en-US');
+  try {
+    const page = await extension.context.newPage();
+    try {
+      await page.goto(`chrome-extension://${extension.extensionId}/options.html`);
+      await chooseEmptySharedFolder(page);
+      await page.getByRole('button', { name: 'Standard OCR Download' }).click();
+      await expect
+        .poll(async () => listOcrFiles(page, 'folder'), { timeout: 120_000 })
+        .toEqual(['asset.json', 'small_rec.onnx', 'tiny_det.onnx']);
+      expect(await inspectStandardOcr(page)).toMatchObject({ state: 'ready', id: 'standard' });
+      expect(await listOcrFiles(page, 'browser')).toEqual([]);
     } finally {
       await page.close();
     }

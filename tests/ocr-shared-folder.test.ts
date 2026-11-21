@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssetManager } from '@/engine/model/asset-manager';
 import type { AssetBundle } from '@/engine/model/asset';
+import { OpfsModelFileStore } from '@/engine/model/file-store';
 import { sha256Hex } from '@/engine/model/sha256';
 import {
   SharedFolderAssetStore,
   mapAssetPathToSharedName,
-  openSharedOcrAssetStore,
+  openOcrAssetStore,
+  resolveSharedOcrStore,
 } from '@/engine/model/shared-asset-store';
 import { MemoryFileStore, bytesOf } from './support/fakes';
 
@@ -143,17 +145,42 @@ describe('OCR assets in a shared folder', () => {
     expect([...inner.files.keys()].sort()).toEqual(['plamo-3-translate-0.8b-Q4_K_M.gguf']);
   });
 
-  it('falls back to browser storage without a granted folder', async () => {
+  it('uses OPFS only when no folder is linked', async () => {
+    const browser = new MemoryFileStore();
+    const openOpfs = vi
+      .spyOn(OpfsModelFileStore, 'open')
+      .mockResolvedValue(browser as unknown as OpfsModelFileStore);
     loadFolder.mockResolvedValue(null);
-    expect(await openSharedOcrAssetStore()).toBeNull();
 
+    expect(await resolveSharedOcrStore()).toEqual({ kind: 'browser' });
+    expect(await openOcrAssetStore()).toBe(browser);
+    expect(openOpfs).toHaveBeenCalledOnce();
+    openOpfs.mockRestore();
+  });
+
+  it('raises a folder-permission error instead of silently falling back to OPFS', async () => {
     const handle = { name: 'e2e-shared' } as FileSystemDirectoryHandle;
     loadFolder.mockResolvedValue({ handle, name: handle.name, savedAt: 1 });
-    queryPermission.mockResolvedValue('denied');
-    expect(await openSharedOcrAssetStore()).toBeNull();
+    const openOpfs = vi.spyOn(OpfsModelFileStore, 'open');
 
+    for (const permission of ['prompt', 'denied'] as const) {
+      queryPermission.mockResolvedValue(permission);
+      expect(await resolveSharedOcrStore()).toEqual({ kind: 'blocked', reason: 'permission' });
+      await expect(openOcrAssetStore()).rejects.toMatchObject({
+        code: 'model-folder-permission',
+      });
+    }
+    expect(openOpfs).not.toHaveBeenCalled();
+    openOpfs.mockRestore();
+  });
+
+  it('opens the shared folder store for a granted folder', async () => {
+    const handle = { name: 'e2e-shared' } as FileSystemDirectoryHandle;
+    loadFolder.mockResolvedValue({ handle, name: handle.name, savedAt: 1 });
     queryPermission.mockResolvedValue('granted');
-    const store = await openSharedOcrAssetStore();
-    expect(store).toBeInstanceOf(SharedFolderAssetStore);
+
+    const resolution = await resolveSharedOcrStore();
+    expect(resolution.kind).toBe('folder');
+    expect(await openOcrAssetStore()).toBeInstanceOf(SharedFolderAssetStore);
   });
 });

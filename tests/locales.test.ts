@@ -152,7 +152,9 @@ describe('locale messages', () => {
 
     const manager = readFileSync(new URL('../src/ui/ModelManager.svelte', import.meta.url), 'utf8');
     expect(manager).toContain("tier === 'high' ? t('ocrTierHigh') : t('ocrTierStandard')");
-    expect(manager.match(/\{ocrLabel\(tier\)\}/gu)).toHaveLength(2);
+    // One label in the tier summary, one in the download control, one in the delete control,
+    // and one in each control's accessible name.
+    expect(manager.match(/\{ocrLabel\(tier\)\}/gu)).toHaveLength(4);
   });
 
   it('uses the product names from the specification', () => {

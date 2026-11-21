@@ -849,10 +849,10 @@ export class EngineHost {
               // folder keeps OCR ONNX + its asset.json sidecar in ocr-<tier>/ subfolders of
               // the same sakutto-models directory that holds the PLaMo GGUF. Otherwise
               // both engines use browser (OPFS) storage.
-              const { openSharedOcrAssetStore } = await import('../model/shared-asset-store');
-              const shared = await openSharedOcrAssetStore();
-              if (shared) return shared;
-              return OpfsModelFileStore.open();
+              const { openOcrAssetStore } = await import('../model/shared-asset-store');
+              // A linked folder without a grant raises a folder-permission error instead of
+              // silently writing OCR files into OPFS.
+              return openOcrAssetStore();
             },
             onStatus: (status) => {
               for (const port of this.ports) {
