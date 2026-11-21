@@ -140,20 +140,23 @@
       // User gesture: requestAllSitesAccess must call permissions.request with no prior pause.
       if (input.checked) {
         const granted = await requestAllSitesAccess();
-        input.checked = granted;
-        allSitesGranted = granted;
         if (!granted) {
+          input.checked = false;
+          allSitesGranted = false;
           allSitesDenied = true;
           onPermissionDenied?.();
           return;
         }
+        // The control stands for working all-sites access: report it on only once the
+        // registration for future pages has actually completed.
         await syncAllSitesContentScripts();
+        allSitesGranted = true;
         return;
       }
       // Removes only the two broad origins; site, mail, caption, and local-server origins stay.
       await revokeAllSitesAccess();
-      allSitesGranted = false;
       await syncAllSitesContentScripts();
+      allSitesGranted = false;
     })();
   }
 

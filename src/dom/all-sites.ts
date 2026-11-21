@@ -108,6 +108,9 @@ interface RegisteredAllSitesScript {
 interface AllSitesScripting {
   registerContentScripts?: (scripts: RegisteredAllSitesScript[]) => Promise<void>;
   unregisterContentScripts?: (filter?: { ids?: string[] }) => Promise<void>;
+  getRegisteredContentScripts?: (filter?: {
+    ids?: string[];
+  }) => Promise<Array<{ id?: string; matches?: string[] }>>;
 }
 
 export async function unregisterAllSitesContentScript(): Promise<void> {
@@ -145,6 +148,18 @@ export async function injectAllSitesOpenTabs(): Promise<void> {
 /** Set while the broad origins are granted, so the open-tab sweep runs once per grant. */
 let openTabsSwept = false;
 
+/** True when a registration already describes the current broad grant. */
+function matchesAllSitesGrant(script: {
+  id?: string | undefined;
+  matches?: string[] | undefined;
+}): boolean {
+  if (script.id !== ALL_SITES_CONTENT_SCRIPT_ID) return false;
+  const origins = script.matches;
+  if (!origins) return true;
+  const wanted = allSitesPermissionOrigins();
+  return origins.length === wanted.length && wanted.every((origin) => origins.includes(origin));
+}
+
 /**
  * Live permission state is the source of truth, never a stored boolean. While the broad
  * origins are granted, the general bundle is registered for future top-frame http/https
@@ -154,16 +169,40 @@ let openTabsSwept = false;
  * A newly appearing grant also sweeps already-open tabs once. `ensureContentScript` pings
  * first, so repeated syncs cannot execute the file twice into one page.
  */
-export async function syncAllSitesContentScripts(): Promise<void> {
+async function runAllSitesSync(): Promise<void> {
   const scripting = browser.scripting as typeof browser.scripting & AllSitesScripting;
   const register = scripting.registerContentScripts;
   const unregister = scripting.unregisterContentScripts;
   if (!register || !unregister) return;
 
+  const granted = await hasAllSitesAccess();
+  const registered = await scripting
+    .getRegisteredContentScripts?.({ ids: [ALL_SITES_CONTENT_SCRIPT_ID] })
+    .catch(() => []);
+  const alreadyRegistered = registered?.some(matchesAllSitesGrant) === true;
+
+  // Do not tear down a registration that already matches the live state: another context
+  // (options, popup, or the worker's permission listener) can be in the middle of its own
+  // sync, and an unregister here would leave that context's grant without a bundle.
+  if (granted && alreadyRegistered) {
+    if (!openTabsSwept) {
+      openTabsSwept = true;
+      await injectAllSitesOpenTabs();
+    }
+    return;
+  }
+  if (!granted && !alreadyRegistered) {
+    openTabsSwept = false;
+    return;
+  }
+
   await unregisterAllSitesContentScript();
 
-  const granted = await hasAllSitesAccess();
-  if (!granted) {
+  // The grant can land while the unregister is in flight — the options click resolves and
+  // the worker's onAdded listener starts a second sync. Re-read before returning so a
+  // no-grant answer from before that moment cannot leave the new grant unregistered.
+  const stillGranted = await hasAllSitesAccess();
+  if (!stillGranted) {
     openTabsSwept = false;
     return;
   }
@@ -183,4 +222,16 @@ export async function syncAllSitesContentScripts(): Promise<void> {
     openTabsSwept = true;
     await injectAllSitesOpenTabs();
   }
+}
+
+let syncInFlight: Promise<void> = Promise.resolve();
+
+/**
+ * Startup, permission events, and the UI can each start a sync at the same time. Queue them
+ * in this context so their permission checks, unregisters, and registers cannot interleave.
+ */
+export function syncAllSitesContentScripts(): Promise<void> {
+  const next = syncInFlight.then(runAllSitesSync, runAllSitesSync);
+  syncInFlight = next.catch(() => undefined);
+  return next;
 }
