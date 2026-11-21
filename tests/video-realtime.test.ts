@@ -587,6 +587,65 @@ describe('two-line realtime captions', () => {
     session.stop();
   });
 
+  it('does not duplicate non-live ASR source in both rows while translation is pending', async () => {
+    document.body.innerHTML = `
+      <div id="movie_player" class="html5-video-player">
+        <video id="player" class="html5-main-video"></video>
+        <div class="ytp-caption-window-container" lang="en">
+          <span class="ytp-caption-segment"></span>
+        </div>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "videoDetails": { "videoId": "vodasrpending", "defaultAudioLanguage": "en" },
+          "captions": {
+            "playerCaptionsTracklistRenderer": {
+              "captionTracks": [{
+                "baseUrl": "/youtube-timedtext-en-asr.json?lang=en&kind=asr",
+                "languageCode": "en",
+                "kind": "asr",
+                "name": { "simpleText": "English (auto-generated)" }
+              }]
+            }
+          }
+        };
+      </script>`;
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    const engine: PageEngine = {
+      async *translate() {
+        await new Promise(() => undefined);
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine,
+      labels,
+      preferences: captionPreferences(),
+      readTrack: async () => '',
+    });
+    session.start();
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    const segment = document.querySelector('.ytp-caption-segment') as HTMLElement;
+    try {
+      segment.textContent = 'The station opens at dawn.';
+      await vi.waitFor(() => {
+        expect(host.getAttribute('data-sakutto-original')).toBe('The station opens at dawn.');
+      });
+      expect(host.hasAttribute('data-sakutto-caption')).toBe(false);
+      const overlay = (
+        session as unknown as { overlay: import('@/captions/overlay').CaptionOverlay }
+      ).overlay;
+      const shadow = overlay.shadow();
+      const original = shadow?.querySelector('.original') as HTMLElement | null;
+      const translated = shadow?.querySelector('.line:not(.original)') as HTMLElement | null;
+      expect(original?.textContent).toBe('The station opens at dawn.');
+      expect(translated?.textContent).toBe(labels.pending);
+      expect(translated?.textContent).not.toBe('The station opens at dawn.');
+    } finally {
+      session.stop();
+    }
+  });
+
   it('does not let an older timed cue overwrite a newer DOM live caption', async () => {
     document.body.innerHTML = youtubeMarkup('twolineownership', true);
     const video = document.querySelector('video') as HTMLVideoElement;

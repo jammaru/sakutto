@@ -1306,7 +1306,7 @@ export class VideoCaptionSession {
       0,
       this.playheadMs(),
       0,
-      true,
+      this.liveMode,
       true,
     );
     this.startLiveTailTranslation(options, this.liveTailRevision, text, committedSource);
