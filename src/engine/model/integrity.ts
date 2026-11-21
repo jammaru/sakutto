@@ -1,4 +1,4 @@
-import type { ModelEntry } from './catalog';
+import type { AssetPin } from './asset';
 
 export type IntegrityDecision = 'missing' | 'verified' | 'needs-hash' | 'reject-size';
 
@@ -23,7 +23,7 @@ export interface IntegrityManifest {
  * change forces a SHA-256 pass before the file may be used.
  */
 export function decideIntegrity(
-  entry: Pick<ModelEntry, 'sha256' | 'size' | 'commit'>,
+  entry: Pick<AssetPin, 'sha256' | 'size' | 'commit'>,
   file: IntegrityFile | null,
   manifest: IntegrityManifest | null,
 ): IntegrityDecision {
@@ -42,6 +42,6 @@ export function decideIntegrity(
   return 'verified';
 }
 
-export function digestMatchesPin(digest: string, entry: Pick<ModelEntry, 'sha256'>): boolean {
+export function digestMatchesPin(digest: string, entry: Pick<AssetPin, 'sha256'>): boolean {
   return digest === entry.sha256;
 }

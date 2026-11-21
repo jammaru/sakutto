@@ -1,6 +1,8 @@
+import type { AssetPin } from './asset';
+
 export type ModelId = 'plamo-3-translate-0.8b-q4_k_m' | 'plamo-3-translate-2b-q4_k_m';
 
-export interface ModelEntry {
+export interface ModelEntry extends AssetPin {
   id: ModelId;
   params: '0.8B' | '2B';
   quantization: 'Q4_K_M';

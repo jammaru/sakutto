@@ -20,6 +20,8 @@ const LICENSE_FILE_COPIES = [
   'PLaMo-Community-License-en.txt',
   'PLaMo-Community-License-ja.txt',
   'svelte-LICENSE.txt',
+  'onnxruntime-LICENSE.txt',
+  'PaddleOCR-Apache-2.0.txt',
 ];
 
 const UTF8_BOM = Buffer.from([0xef, 0xbb, 0xbf]);

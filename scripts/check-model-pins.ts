@@ -1,6 +1,7 @@
 import { realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { MODEL_CATALOG, type ModelEntry } from '../src/engine/model/catalog.ts';
+import { MODEL_CATALOG } from '../src/engine/model/catalog.ts';
+import { OCR_MODEL_CATALOG } from '../src/engine/ocr/catalog.ts';
 
 export interface ModelPinTarget {
   id: string;
@@ -111,11 +112,13 @@ export async function checkModelPins(
 }
 
 export function pinnedModelTargets(): ModelPinTarget[] {
-  return Object.values(MODEL_CATALOG).map((entry: ModelEntry) => ({
-    id: entry.id,
-    url: entry.url,
-    size: entry.size,
-  }));
+  return [...Object.values(MODEL_CATALOG), ...Object.values(OCR_MODEL_CATALOG)].map(
+    (entry: ModelPinTarget) => ({
+      id: entry.id,
+      url: entry.url,
+      size: entry.size,
+    }),
+  );
 }
 
 function isDirectRun(): boolean {

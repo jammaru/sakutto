@@ -5,7 +5,8 @@ Sakutto
 
 モデルについて:
 - 翻訳モデル PLaMo 3 Translate（pfnet/plamo-3-translate-*）は PLaMo Community License で提供されています。
-- このリポジトリと拡張パッケージにはモデルを含みません。端末に保存されていないとき、Hugging Face の公式リポジトリからダウンロードします。
+- このリポジトリと拡張パッケージには翻訳モデルと OCR モデルの重みを含みません。端末に保存されていないとき、Hugging Face の公式リポジトリからダウンロードします。
+- OCR モデル PP-OCRv6（PaddlePaddle/PP-OCRv6_*_onnx）は Apache License 2.0 で提供されています。全文: licenses/PaddleOCR-Apache-2.0.txt。PP-OCRv6 の文字辞書は拡張パッケージに含みます。
 - ライセンス全文の写しは licenses/PLaMo-Community-License-ja.txt と licenses/PLaMo-Community-License-en.txt にあります。拡張パッケージにも同じ写しを同梱します。
   - 日本語の原本: https://plamo.preferredai.jp/info/plamo-community-license-ja
   - 英語の原本: https://plamo.preferredai.jp/info/plamo-community-license-en
@@ -17,6 +18,7 @@ Sakutto
 - Emscripten runtime — MIT / University of Illinois/NCSA Open Source License — Copyright (c) 2010-2014 Emscripten authors。全文: licenses/emscripten-LICENSE.txt
 - Dawn emdawnwebgpu JavaScript library — BSD-3-Clause — Copyright 2017-2026 The Dawn & Tint Authors。全文: licenses/dawn-LICENSE.txt
 - pdf.js — Apache License 2.0 — Copyright Mozilla Foundation。全文: vendor/pdfjs/LICENSE-pdfjs.txt。あわせて CMaps（vendor/pdfjs/LICENSE-cmaps.txt）と標準フォントの代替（vendor/pdfjs/LICENSE-foxit.txt、vendor/pdfjs/LICENSE-liberation.txt）を同梱します。
+- ONNX Runtime 1.31.1 — MIT License — Copyright (c) Microsoft Corporation。全文: licenses/onnxruntime-LICENSE.txt。WASM と JavaScript を拡張パッケージに含みます。
 
 ベンチ用の文章:
 - scripts/bench/fixtures/kyoto.html は、英語版 Wikipedia の記事「Kyoto」を改変したローカル計測用の写しです。拡張パッケージには含めません。`scripts/verify-package.ts` は、zip に `kyoto.html` または `scripts/bench/` が入っていると失敗します。
