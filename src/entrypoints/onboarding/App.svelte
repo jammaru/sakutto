@@ -32,7 +32,13 @@
   import type { ModelStatus } from '@/shared/engine-status';
   import { agreementFromStorage } from '@/shared/agreement';
   import { hasBuiltInTranslatorUi, isBraveBrowser } from '@/shared/browser';
-  import { currentUiLanguage, t, tForBrowser, type MessageKey } from '@/shared/i18n';
+  import {
+    currentUiLanguage,
+    integrityMessageKey,
+    t,
+    tForBrowser,
+    type MessageKey,
+  } from '@/shared/i18n';
   import { resolveTargetLanguage, type TargetLanguage } from '@/shared/languages';
   import {
     isModelProgressMessage,
@@ -227,7 +233,7 @@
     if (next.state === 'error') {
       const integrity = isModelIntegrityError(next.error);
       if (integrity) {
-        integrityAlert = t('modelFolderIntegrityFailed', [model.file]);
+        integrityAlert = t(integrityMessageKey(next.error), [model.file]);
         if (status.state === 'downloading') noteBytes(next.received);
         startRequested = false;
         phase = 'consent';
@@ -464,7 +470,7 @@
       if (issue) {
         await clearStoredSharedFolder();
         await requestModelFolderReload();
-        integrityAlert = t('modelFolderIntegrityFailed', [issue.file]);
+        integrityAlert = t(integrityMessageKey(issue.kind), [issue.file]);
         startRequested = false;
         phase = 'consent';
         return;

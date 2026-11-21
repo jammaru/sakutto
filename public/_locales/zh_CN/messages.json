@@ -801,6 +801,14 @@
       }
     }
   },
+  "modelFolderIntegrityUnknownRevision": {
+    "message": "文件 $FILE$ 的 SHA-256 值 Sakutto 尚不支持。它可能是较新的官方 PLaMo 模型，请更新 Sakutto。",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
   },

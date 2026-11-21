@@ -801,6 +801,14 @@
       }
     }
   },
+  "modelFolderIntegrityUnknownRevision": {
+    "message": "Mã SHA-256 của tệp $FILE$ chưa được Sakutto nhận biết. Đây có thể là mô hình PLaMo chính thức mới hơn — hãy cập nhật Sakutto.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
   },

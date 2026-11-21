@@ -801,6 +801,14 @@
       }
     }
   },
+  "modelFolderIntegrityUnknownRevision": {
+    "message": "$FILE$ 파일의 SHA-256 값을 Sakutto가 아직 지원하지 않습니다. 최신 공식 PLaMo 모델일 수 있으므로 Sakutto를 업데이트하세요.",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
   "modelFolderEnableTabTitle": {
     "message": "Keep folder access after restart"
   },
