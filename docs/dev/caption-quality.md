@@ -84,12 +84,12 @@ metrics JSON is prefixed with its phase (e.g. `rate-2:…=…`).
 
 1. Run the harness on the fixed commit and save `metrics-head-*.json`.
 2. Create a separate worktree at the bad commit:
-   `git worktree add --detach /tmp/baseline 804a48e`.
+   `git worktree add --detach /tmp/baseline ce3b0f4`.
 3. Copy the harness files listed above into that worktree (including the modified
    `e2e/extension.ts` for optional video capture), symlink `node_modules`, build with
    `SAKUTTO_FAKE_ENGINE=1 pnpm exec wxt build`, then run the same spec with
    `CAPTION_QUALITY_VARIANT=baseline pnpm exec playwright test e2e/caption-quality.spec.ts`.
-4. Compare the per-metric JSON files. On 804a48e the rolling-window windows are merged as
+4. Compare the per-metric JSON files. On ce3b0f4 the rolling-window windows are merged as
    separate fragments, so sentence-units, partial dwell, all-sentences, show latency and
    seek settle fail; overlay isolation, layout and native hiding still pass.
 
