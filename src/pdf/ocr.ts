@@ -22,7 +22,24 @@ export function shouldRunPdfOcr(
 ): boolean {
   if (isImageOnlyPage(lines, figures, width, height)) return true;
   const pageArea = Math.max(1, width * height);
-  return figures.images.some((image) => image.width * image.height >= pageArea * 0.35);
+  // Tiled scans can cover most of a page without any single image reaching 35% of it.
+  const rasterArea = figures.images.reduce((sum, image) => sum + image.width * image.height, 0);
+  if (rasterArea < pageArea * 0.35) return false;
+  // A page already covered by a usable native text layer is an ordinary text page with a
+  // background image; OCR would be discarded by the deduplication below after a full model
+  // download and render. Keep the scan pass for pages whose native text is only a header,
+  // caption, or stamp.
+  return nativeTextCoverage(lines, width, height) < 0.2;
+}
+
+function nativeTextCoverage(lines: readonly TextLine[], width: number, height: number): number {
+  const boxes = lines.map((line) => line.box).filter((box) => box.width > 0 && box.height > 0);
+  if (boxes.length === 0) return 0;
+  const left = Math.min(...boxes.map((box) => box.x));
+  const top = Math.min(...boxes.map((box) => box.y));
+  const right = Math.max(...boxes.map((box) => box.x + box.width));
+  const bottom = Math.max(...boxes.map((box) => box.y + box.height));
+  return (Math.max(0, right - left) * Math.max(0, bottom - top)) / Math.max(1, width * height);
 }
 
 /** A text piece with deterministic identity and both image-space and page-space geometry. */
@@ -309,13 +326,17 @@ export function uncoveredPdfOcrResult(
       return overlap >= Math.min(area, nativeArea) * 0.5 && overlap >= area * 0.2;
     });
   });
-  const retained = new Set(regions);
+  // Chrome serializes OcrResult as JSON across runtime messages, so lines[].items are not
+  // the same object instances as regions[]. Match by value to keep reading lines after transport.
+  const regionKey = (region: OcrRegion): string =>
+    JSON.stringify([region.text, region.vertical, region.quad]);
+  const retained = new Set(regions.map(regionKey));
   const lines = result.lines
     .map((line) => {
       const items: OcrRegion[] = [];
       const indices: number[] = [];
       line.items.forEach((region, index) => {
-        if (!retained.has(region)) return;
+        if (!retained.has(regionKey(region))) return;
         items.push(region);
         const sourceIndex = line.indices[index];
         if (sourceIndex !== undefined) indices.push(sourceIndex);

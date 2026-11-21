@@ -132,15 +132,6 @@ export function groupReadingLines<T extends LayoutRegion>(
   if (requested !== 'auto' && requested !== 'horizontal' && requested !== 'vertical') {
     throw new RangeError('Unknown reading orientation');
   }
-  const verticalCount = regions.filter(
-    (region) => region.vertical ?? isVerticalQuad(region.quad, options.verticalRatio),
-  ).length;
-  const orientation: TextOrientation =
-    requested === 'auto'
-      ? regions.length > 0 && verticalCount * 2 >= regions.length
-        ? 'vertical'
-        : 'horizontal'
-      : requested;
 
   const entries: IndexedRegion<T>[] = regions.map((item, index) => ({
     item,
@@ -148,57 +139,83 @@ export function groupReadingLines<T extends LayoutRegion>(
     column: 0,
     bounds: regionBounds(item.quad),
   }));
-  if (orientation === 'horizontal') assignHorizontalColumns(entries);
-  entries.sort((a, b) =>
-    orientation === 'horizontal'
-      ? a.column - b.column ||
-        a.bounds.centerY - b.bounds.centerY ||
-        a.bounds.left - b.bounds.left ||
-        a.index - b.index
-      : b.bounds.centerX - a.bounds.centerX || a.bounds.top - b.bounds.top || a.index - b.index,
-  );
+  const effectiveOrientation = (entry: IndexedRegion<T>): TextOrientation =>
+    requested !== 'auto'
+      ? requested
+      : (entry.item.vertical ?? isVerticalQuad(entry.item.quad, options.verticalRatio))
+        ? 'vertical'
+        : 'horizontal';
 
-  const grouped: IndexedRegion<T>[][] = [];
-  for (const entry of entries) {
-    let bestLine = -1;
-    let bestDistance = Number.POSITIVE_INFINITY;
-    for (let index = 0; index < grouped.length; index += 1) {
-      const line = grouped[index];
-      if (!line || line[0]?.column !== entry.column) continue;
-      const distance = belongsToLine(entry, line, orientation, tolerance);
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestLine = index;
-      }
-    }
-    if (bestLine < 0) grouped.push([entry]);
-    else grouped[bestLine]?.push(entry);
-  }
-
-  for (const line of grouped) {
-    line.sort((a, b) =>
+  // Mixed pages (a horizontal heading above vertical columns, for example) must not be
+  // collapsed into one global orientation. Group each orientation along its own axis and
+  // merge the resulting lines in page reading order.
+  const lines: { line: IndexedRegion<T>[]; orientation: TextOrientation }[] = [];
+  for (const orientation of ['horizontal', 'vertical'] as const) {
+    const subset = entries.filter((entry) => effectiveOrientation(entry) === orientation);
+    if (subset.length === 0) continue;
+    if (orientation === 'horizontal') assignHorizontalColumns(subset);
+    subset.sort((a, b) =>
       orientation === 'horizontal'
-        ? a.bounds.left - b.bounds.left || a.bounds.top - b.bounds.top || a.index - b.index
-        : a.bounds.top - b.bounds.top || b.bounds.right - a.bounds.right || a.index - b.index,
+        ? a.column - b.column ||
+          a.bounds.centerY - b.bounds.centerY ||
+          a.bounds.left - b.bounds.left ||
+          a.index - b.index
+        : b.bounds.centerX - a.bounds.centerX || a.bounds.top - b.bounds.top || a.index - b.index,
     );
+    const grouped: IndexedRegion<T>[][] = [];
+    for (const entry of subset) {
+      let bestLine = -1;
+      let bestDistance = Number.POSITIVE_INFINITY;
+      for (let index = 0; index < grouped.length; index += 1) {
+        const line = grouped[index];
+        if (!line || line[0]?.column !== entry.column) continue;
+        const distance = belongsToLine(entry, line, orientation, tolerance);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestLine = index;
+        }
+      }
+      if (bestLine < 0) grouped.push([entry]);
+      else grouped[bestLine]?.push(entry);
+    }
+    for (const line of grouped) {
+      line.sort((a, b) =>
+        orientation === 'horizontal'
+          ? a.bounds.left - b.bounds.left || a.bounds.top - b.bounds.top || a.index - b.index
+          : a.bounds.top - b.bounds.top || b.bounds.right - a.bounds.right || a.index - b.index,
+      );
+    }
+    for (const line of grouped) lines.push({ line, orientation });
   }
-  grouped.sort((a, b) => {
-    const column = (a[0]?.column ?? 0) - (b[0]?.column ?? 0);
-    if (column !== 0) return column;
-    const aCenterX = average(a.map((entry) => entry.bounds.centerX));
-    const bCenterX = average(b.map((entry) => entry.bounds.centerX));
-    const aCenterY = average(a.map((entry) => entry.bounds.centerY));
-    const bCenterY = average(b.map((entry) => entry.bounds.centerY));
-    const aLeft = Math.min(...a.map((entry) => entry.bounds.left));
-    const bLeft = Math.min(...b.map((entry) => entry.bounds.left));
-    const aTop = Math.min(...a.map((entry) => entry.bounds.top));
-    const bTop = Math.min(...b.map((entry) => entry.bounds.top));
-    return orientation === 'horizontal'
-      ? aCenterY - bCenterY || aLeft - bLeft
-      : bCenterX - aCenterX || aTop - bTop;
+
+  const span = (line: readonly IndexedRegion<T>[]) => ({
+    top: Math.min(...line.map((entry) => entry.bounds.top)),
+    bottom: Math.max(...line.map((entry) => entry.bounds.bottom)),
+    left: Math.min(...line.map((entry) => entry.bounds.left)),
+    centerX: average(line.map((entry) => entry.bounds.centerX)),
+    centerY: average(line.map((entry) => entry.bounds.centerY)),
+  });
+  lines.sort((a, b) => {
+    if (a.orientation === b.orientation) {
+      const aSpan = span(a.line);
+      const bSpan = span(b.line);
+      const column = (a.line[0]?.column ?? 0) - (b.line[0]?.column ?? 0);
+      if (column !== 0) return column;
+      return a.orientation === 'horizontal'
+        ? aSpan.centerY - bSpan.centerY || aSpan.left - bSpan.left
+        : bSpan.centerX - aSpan.centerX || aSpan.top - bSpan.top;
+    }
+    const horizontal = a.orientation === 'horizontal' ? a : b;
+    const vertical = a.orientation === 'horizontal' ? b : a;
+    const h = span(horizontal.line);
+    const v = span(vertical.line);
+    // A horizontal line above the vertical columns is read first; one below them is last.
+    // When it shares their vertical band, right-to-left ordering decides which comes first.
+    const order = h.centerY < v.top ? -1 : h.centerY > v.bottom ? 1 : v.centerX - h.centerX;
+    return a.orientation === 'horizontal' ? order : -order;
   });
 
-  return grouped.map((line) => ({
+  return lines.map(({ line, orientation }) => ({
     orientation,
     items: line.map((entry) => entry.item),
     indices: line.map((entry) => entry.index),

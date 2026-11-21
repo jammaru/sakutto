@@ -132,6 +132,38 @@ describe('shouldRunPdfOcr', () => {
     expect(shouldRunPdfOcr(lines, FULL_PAGE_IMAGE, PAGE.width, PAGE.height)).toBe(true);
   });
 
+  it('skips OCR when a usable native text layer already covers a page with a background image', () => {
+    const lines = Array.from({ length: 20 }, (_, index) => {
+      const piece: TextPiece = {
+        text: 'A normal paragraph line with genuine prose for translation.',
+        box: { x: 30, y: 20 + index * 20, width: 500, height: 10 },
+        baseline: 30 + index * 20,
+        fontName: 'native',
+        family: 'serif',
+        bold: false,
+        italic: false,
+        math: false,
+        orientation: 0,
+        size: 10,
+        displayed: 0,
+      };
+      return lineFrom([piece]);
+    });
+    expect(shouldRunPdfOcr(lines, FULL_PAGE_IMAGE, PAGE.width, PAGE.height)).toBe(false);
+  });
+
+  it('checks tiled scans whose individual images are each below 35% of the page', () => {
+    const tiles: FigureAreas = {
+      images: [
+        { x: 0, y: 0, width: 240, height: 520 },
+        { x: 240, y: 0, width: 240, height: 520 },
+      ],
+    };
+    expect(shouldRunPdfOcr([nativeLine('Scanned report')], tiles, PAGE.width, PAGE.height)).toBe(
+      true,
+    );
+  });
+
   it('does not OCR a non-image page merely because its native runs are labels', () => {
     expect(
       shouldRunPdfOcr([nativeLine('12345 67890 12345')], NO_IMAGES, PAGE.width, PAGE.height),
@@ -179,6 +211,31 @@ describe('hybrid native and scanned PDF pages', () => {
       header.text,
       scannedBody.text,
     ]);
+  });
+});
+
+describe('hybrid OCR after Chrome message serialization', () => {
+  it('keeps reading lines when regions and line items are distinct JSON objects', () => {
+    const header = nativeLine('Results and discussion');
+    const duplicateHeader = region('Results and discussion', quad(30, 20, 132, 10));
+    const scannedBody = region('Only in the scanned raster', quad(30, 100, 400, 20));
+    const original = ocrResult(
+      [duplicateHeader, scannedBody],
+      [readingLine('horizontal', [duplicateHeader]), readingLine('horizontal', [scannedBody], [1])],
+    );
+    // Chrome runtime messages are JSON-serialized; identity between regions and lines is lost.
+    const result = JSON.parse(JSON.stringify(original)) as OcrResult;
+    expect(result.regions[1]).not.toBe(result.lines[1]?.items[0]);
+    const uncovered = uncoveredPdfOcrResult(result, [header], {
+      pageIndex: 0,
+      pageWidth: PAGE.width,
+      pageHeight: PAGE.height,
+      imageWidth: PAGE.width,
+      imageHeight: PAGE.height,
+    });
+    expect(uncovered.regions).toHaveLength(1);
+    expect(uncovered.lines).toHaveLength(1);
+    expect(uncovered.text).toBe(scannedBody.text);
   });
 });
 

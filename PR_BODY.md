@@ -8,7 +8,7 @@ PP-OCRv6 と ONNX Runtime Web を使い、スキャンPDFと画像の文字認�
 
 - 初回設定で PLaMo と OCR モデルを一括ダウンロードし、結合した進捗を表示
 - 設定で標準／高精度 OCR を切り替え、再開・キャンセル・画質ごとの削除に対応
-- テキスト層のないPDFページだけを遅延 OCR し、段組・縦書き・読み順・組版を保持
+- テキスト層のないPDFページと、ネイティブ文字で覆われていないラスタ部分を遅延 OCR し、段組・縦書き・読み順・組版を保持
 - 画像の右クリックメニューから OCR→翻訳パネルを表示
 - 英語・日本語など14の UI ロケール、プライバシー、CWS レビュー資料を更新
 
@@ -19,7 +19,7 @@ PP-OCRv6 と ONNX Runtime Web を使い、スキャンPDFと画像の文字認�
 | 標準（既定） | tiny_det + small_rec    |   22,939,968 bytes |
 | 高精度       | medium_det + medium_rec |  138,587,816 bytes |
 
-既定は生成 CC0 フィクスチャ8件の実測で選択しました。small_det+small_rec は設定の比較対象ではなく、ベンチマークの中間構成です。
+既定はレイテンシ優先です。生成 CC0 フィクスチャ8件の実測では、高精度構成の認識前処理をアスペ比保持に修正した後、標準 0.7% / 1,208 ms、高精度 0.4% / 7,795 ms でした。small_det+small_rec は設定の比較対象ではなく、ベンチマークの中間構成です。
 
 ### ベンチマーク
 
@@ -27,9 +27,9 @@ Node 24 / ONNX Runtime Web 1.31.1 WASM、生成 CC0 フィクスチャ8件、各
 
 | 構成                  | Micro CER | Micro WER | 検出 recall proxy | 平均時間/ページ | Practical / Marginal |
 | --------------------- | --------: | --------: | ----------------: | --------------: | -------------------: |
-| tiny_det+small_rec    |      0.3% |      2.4% |              100% |          769 ms |                8 / 0 |
-| small_det+small_rec   |      3.1% |      6.1% |              100% |        1,083 ms |                7 / 1 |
-| medium_det+medium_rec |     10.3% |     20.6% |              100% |        5,836 ms |                6 / 2 |
+| tiny_det+small_rec    |      0.7% |      7.3% |              100% |        1,208 ms |                8 / 0 |
+| small_det+small_rec   |      3.5% |     10.9% |              100% |        1,531 ms |                7 / 1 |
+| medium_det+medium_rec |      0.4% |      4.2% |              100% |        7,795 ms |                8 / 0 |
 
 標準構成は、英語スキャン、日本語横書き・縦書き、スライド、低解像度・傾き、2段組、日英混在、小文字の8件すべてで practical でした。生成フィクスチャの結果であり、実文書全体での優位性を保証するものではありません。OCR→翻訳の配線確認は英語と日本語の2ページについて、実 OCR 出力と決定的なローカル置換スタブで実施しています（翻訳品質の評価ではありません）。
 
@@ -45,7 +45,7 @@ Node 24 / ONNX Runtime Web 1.31.1 WASM、生成 CC0 フィクスチャ8件、各
 ### 検証
 
 - `pnpm lint`
-- `pnpm test` — 193 files, 2,404 passed, 1 optional smoke skipped
+- `pnpm test` — 196 files, 2,435 passed, 1 optional smoke skipped
 - `pnpm typecheck`
 - `pnpm format:check`
 - `pnpm exec wxt build`
@@ -60,19 +60,19 @@ This change adds on-device PP-OCRv6 recognition and translation for scanned PDFs
 
 - Downloads PLaMo and OCR together during onboarding with combined progress
 - Adds standard/high OCR tiers, resume/cancel, and per-tier deletion in Settings
-- Runs lazy OCR only on PDF pages without a usable text layer, preserving columns, vertical Japanese, reading order, and fitted layout
+- Runs lazy OCR on image-only PDF pages and on pages whose raster content is not covered by a usable text layer, preserving columns, vertical Japanese, reading order, and fitted layout
 - Adds an image context-menu action with an OCR source and translation panel
 - Updates all 14 UI locales, privacy documentation, review notes, and third-party notices
 
 ### Benchmark and default
 
-The default was selected by running real official ONNX weights over eight generated CC0 fixtures. CER/WER are lower-is-better; the detection proxy is greedy one-to-one AABB matching at IoU 0.30. Mean page time excludes initialization and warm-up.
+The default is latency-first; the high tier uses the same weights with a larger detector/recognizer. After fixing the high tier's recognition preprocessing to preserve aspect ratio, the eight generated CC0 fixtures measured 0.7% micro-CER / 1,208 ms for standard versus 0.4% / 7,795 ms for high. CER/WER are lower-is-better; the detection proxy is greedy one-to-one AABB matching at IoU 0.30. Mean page time excludes initialization and warm-up.
 
 | Pairing               | Micro CER | Micro WER | Detection recall proxy | Mean ms/page | Practical / Marginal |
 | --------------------- | --------: | --------: | ---------------------: | -----------: | -------------------: |
-| tiny_det+small_rec    |      0.3% |      2.4% |                   100% |          769 |                8 / 0 |
-| small_det+small_rec   |      3.1% |      6.1% |                   100% |        1,083 |                7 / 1 |
-| medium_det+medium_rec |     10.3% |     20.6% |                   100% |        5,836 |                6 / 2 |
+| tiny_det+small_rec    |      0.7% |      7.3% |                   100% |        1,208 |                8 / 0 |
+| small_det+small_rec   |      3.5% |     10.9% |                   100% |        1,531 |                7 / 1 |
+| medium_det+medium_rec |      0.4% |      4.2% |                   100% |        7,795 |                8 / 0 |
 
 The standard pairing was practical on every default-tier case: English scan, Japanese horizontal and vertical text, slides, low-resolution/skew, two columns, mixed Japanese/English, and small text. These generated-fixture results do not establish broad real-world superiority. English and Japanese OCR output also passed through a deterministic local translation stub as a plumbing sanity check, not as translation-quality evidence.
 
@@ -85,7 +85,7 @@ Release `host_permissions` remains empty, with no new image-origin access. Canva
 ### Validation
 
 - `pnpm lint`
-- `pnpm test` — 193 files, 2,404 passed, 1 optional smoke skipped
+- `pnpm test` — 196 files, 2,435 passed, 1 optional smoke skipped
 - `pnpm typecheck`
 - `pnpm format:check`
 - `pnpm exec wxt build`

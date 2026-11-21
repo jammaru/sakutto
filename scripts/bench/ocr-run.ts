@@ -245,7 +245,7 @@ async function main() {
     },
     configuration: {
       detectionPreprocess: { maxSide: 960, multiple: 32 },
-      recognitionPreprocess: { height: 48, maxWidth: 320 },
+      recognitionPreprocess: { height: 48, maxWidth: 4096 },
       detection:
         'threshold=0.2; boxThreshold=0.4 tiny_det, 0.45 otherwise; unclipRatio=1.4; minSize=3; maxCandidates=3000; verticalRatio=1.5',
       timing:

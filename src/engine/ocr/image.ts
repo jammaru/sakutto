@@ -40,7 +40,7 @@ export const PP_OCR_REC_NORMALIZATION: Readonly<NormalizationConfig> = Object.fr
 });
 
 export const DEFAULT_RECOGNITION_HEIGHT = 48;
-export const DEFAULT_RECOGNITION_MAX_WIDTH = 320;
+export const DEFAULT_RECOGNITION_MAX_WIDTH = 4096;
 export const DEFAULT_DETECTION_MAX_SIDE = 960;
 export const DEFAULT_DETECTION_MULTIPLE = 32;
 
@@ -200,8 +200,9 @@ export function preprocessRecognition(
   assertPositiveInteger(maxWidth, 'maxWidth');
   const naturalWidth = Math.max(1, Math.ceil((image.width * height) / image.height));
   const width = Math.min(maxWidth, naturalWidth);
-  // PaddleOCR resize_norm_img always fills the model height and left-aligns the crop. Very
-  // wide lines are squeezed to maxWidth; narrower lines use their natural aspect-ratio width.
+  // PaddleOCR resize_norm_img preserves aspect ratio and pads on the right for short lines.
+  // The recognizer has a dynamic width axis; squeezing a long line into 320 px destroys text
+  // for the medium model, so keep the natural width up to a generous memory safety cap.
   const resizedWidth = width;
   const resizedHeight = height;
   const xOffset = 0;

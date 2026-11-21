@@ -4,6 +4,7 @@ import { abortError, EngineError, isAbortError, isEngineError } from '@/engine/e
 import type { AssetManager } from '@/engine/model/asset-manager';
 import { OCR_CHARSET, OCR_TIER_CATALOG, type OcrTier } from './catalog';
 import type { DecodedOcrImage } from './codec';
+import { DEFAULT_RECOGNITION_MAX_WIDTH } from './image';
 import { OcrPipeline, throwIfOcrAborted } from './pipeline';
 import { ORT_ASSET_DIRECTORY } from './runtime-assets';
 import type { OcrResult, OcrRunner } from './types';
@@ -151,7 +152,7 @@ export class OcrRuntime {
           verticalRatio: 1.5,
         },
         detectionPreprocess: { maxSide: 960, multiple: 32 },
-        recognitionPreprocess: { height: 48, maxWidth: 320 },
+        recognitionPreprocess: { height: 48, maxWidth: DEFAULT_RECOGNITION_MAX_WIDTH },
       });
       return new OcrRuntime(det, rec, pipeline);
     } catch (error) {

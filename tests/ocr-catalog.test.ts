@@ -58,7 +58,9 @@ describe('packaged ONNX Runtime pins', () => {
   it('uses the pinned package and checks every local artifact hash', () => {
     expect(packageJson.dependencies['onnxruntime-web']).toBe(ORT_VERSION);
     for (const [name, pin] of Object.entries(ORT_ASSETS)) {
-      const bytes = readFileSync(new URL(`../public/ocr/ort/${name}`, import.meta.url));
+      const bytes = readFileSync(
+        new URL(`../node_modules/onnxruntime-web/dist/${name}`, import.meta.url),
+      );
       expect(bytes.length).toBe(pin.size);
       expect(createHash('sha256').update(bytes).digest('hex')).toBe(pin.sha256);
     }

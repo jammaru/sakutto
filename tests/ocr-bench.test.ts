@@ -1,6 +1,7 @@
-import { readFile, stat } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { readRgbaFixture } from '../scripts/bench/ocr-engine.ts';
 import {
   FIXTURE_DIRECTORY,
   FIXTURE_MANIFEST,
@@ -53,8 +54,13 @@ describe('OCR benchmark generated fixtures', () => {
       expect(await readFile(join(FIXTURE_DIRECTORY, fixture.id + '.svg'), 'utf8')).toBe(
         fixture.svg,
       );
-      const rgba = await stat(join(FIXTURE_DIRECTORY, fixture.id + '.rgba'));
-      expect(rgba.size).toBe(fixture.width * fixture.height * 4);
+      const rgba = await readRgbaFixture(
+        FIXTURE_DIRECTORY,
+        fixture.id,
+        fixture.width,
+        fixture.height,
+      );
+      expect(rgba.data.length).toBe(fixture.width * fixture.height * 4);
       const png = await readFile(join(FIXTURE_DIRECTORY, fixture.id + '.png'));
       expect(png.subarray(1, 4).toString()).toBe('PNG');
     }

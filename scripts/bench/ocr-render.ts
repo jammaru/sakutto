@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { chromium } from '@playwright/test';
 import { FIXTURE_DIRECTORY, materializeFixtureSources, OCR_FIXTURES } from './ocr-fixtures.ts';
 
-/** Renders generated SVG into pixel-identical PNG and raw RGBA inputs for Node ONNX. */
+/** Renders generated SVG into the committed PNG inputs for the Node/WASM bench. */
 async function main(): Promise<void> {
   await materializeFixtureSources();
   const executablePath = process.env.CHROME_PATH ?? '/usr/local/bin/google-chrome';
@@ -26,20 +26,11 @@ async function main(): Promise<void> {
           const context = canvas.getContext('2d', { willReadFrequently: true });
           if (!context) throw new Error('No 2D canvas');
           context.drawImage(image, 0, 0, width, height);
-          const bytes = context.getImageData(0, 0, width, height).data;
-          let binary = '';
-          for (let offset = 0; offset < bytes.length; offset += 32768) {
-            binary += String.fromCharCode(...bytes.subarray(offset, offset + 32768));
-          }
-          return { rgba: btoa(binary), png: canvas.toDataURL('image/png').split(',')[1] };
+          return { png: canvas.toDataURL('image/png').split(',')[1] };
         },
         { svg: fixture.svg, width: fixture.width, height: fixture.height },
       );
       if (!rendered.png) throw new Error('PNG encoding failed for ' + fixture.id);
-      await writeFile(
-        join(FIXTURE_DIRECTORY, fixture.id + '.rgba'),
-        Buffer.from(rendered.rgba, 'base64'),
-      );
       await writeFile(
         join(FIXTURE_DIRECTORY, fixture.id + '.png'),
         Buffer.from(rendered.png, 'base64'),

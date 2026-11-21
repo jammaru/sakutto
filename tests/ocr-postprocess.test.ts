@@ -422,6 +422,22 @@ describe('reading order', () => {
     ]);
   });
 
+  it('reads a horizontal heading and footer around mixed vertical columns', () => {
+    const title = { id: 'title', quad: quad(180, 20, 140, 30), vertical: false };
+    const right = { id: 'right', quad: quad(400, 90, 20, 300), vertical: true };
+    const left = { id: 'left', quad: quad(80, 90, 20, 300), vertical: true };
+    const footer = { id: 'footer', quad: quad(80, 400, 340, 20), vertical: false };
+    const lines = groupReadingLines([left, footer, right, title]);
+    expect(lines.map((line) => line.items.map((item) => item.id))).toEqual([
+      ['title'],
+      ['right'],
+      ['left'],
+      ['footer'],
+    ]);
+    expect(lines[0]?.orientation).toBe('horizontal');
+    expect(lines[1]?.orientation).toBe('vertical');
+  });
+
   it('allows an explicit orientation override', () => {
     const regions = [region('a', 0, 0, 8, 30), region('b', 30, 0, 8, 30)];
     expect(groupReadingLines(regions, { orientation: 'horizontal' })[0]?.orientation).toBe(

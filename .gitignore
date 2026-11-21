@@ -42,4 +42,7 @@ public/licenses/dawn-LICENSE.txt
 public/licenses/svelte-LICENSE.txt
 public/licenses/onnxruntime-LICENSE.txt
 public/licenses/PaddleOCR-Apache-2.0.txt
+public/licenses/onnxruntime-ThirdPartyNotices.txt
+public/ocr/ort/ort-wasm-simd-threaded.wasm
+bench/ocr/fixtures/*.rgba
 en.pdf
