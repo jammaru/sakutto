@@ -184,9 +184,28 @@ export async function openPdfTab(
  * initialization on a shared CI runner can dominate the first recognition.
  */
 export async function warmOcr(extension: LoadedExtension): Promise<void> {
+  extension.worker.on('console', (message) => console.log('[sw]', message.text().slice(0, 300)));
+  extension.context.on('page', (page) => {
+    if (page.url().includes('offscreen')) {
+      page.on('console', (message) => console.log('[offscreen]', message.text().slice(0, 300)));
+    }
+  });
   const page: Page = await extension.context.newPage();
   try {
     await page.goto(`chrome-extension://${extension.extensionId}/popup.html`);
+    console.log(
+      'ocr status before warm-up:',
+      JSON.stringify(
+        await page.evaluate(async () => {
+          const browser = (
+            globalThis as unknown as {
+              chrome: { runtime: { sendMessage(message: unknown): Promise<unknown> } };
+            }
+          ).chrome;
+          return browser.runtime.sendMessage({ type: 'ocr:inspect', tier: 'standard' });
+        }),
+      ),
+    );
     const started = Date.now();
     const result = await page.evaluate(async () => {
       const browser = (
