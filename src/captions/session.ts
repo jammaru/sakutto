@@ -1012,18 +1012,9 @@ export class VideoCaptionSession {
 
     const cached = this.translator.getCached(original, options);
     if (cueChanged && !cached) {
-      // A new cue owns the original row immediately; only its own translation may
-      // later fill the second row, never the previous cue's translation.
-      this.commitDisplay(
-        cue.id,
-        original,
-        this.hold?.translation ?? '',
-        cue.startMs,
-        cue.endMs,
-        0,
-        false,
-        true,
-      );
+      // A new cue owns the original row immediately. Its translation is the only
+      // translation allowed for this unit, so do not show the previous unit's text.
+      this.commitDisplay(cue.id, original, '', cue.startMs, cue.endMs, 0, false, true);
     }
     if (cached) {
       this.commitDisplay(cue.id, original, cached, cue.startMs, cue.endMs, 0);
@@ -1113,7 +1104,7 @@ export class VideoCaptionSession {
       previousSource &&
       (text.startsWith(previousSource) || previousSource.startsWith(text))
     ) {
-      this.liveUtterance = joinCaptionFragments(
+      this.liveUtterance = appendLiveCaptionText(
         this.liveUtterance,
         text.slice(previousSource.length),
       );
@@ -1123,7 +1114,7 @@ export class VideoCaptionSession {
       );
       this.liveUtterance = text;
     } else {
-      this.liveUtterance = joinCaptionFragments(this.liveUtterance, text);
+      this.liveUtterance = appendLiveCaptionText(this.liveUtterance, text);
     }
 
     const utterance = this.liveUtterance;
@@ -1131,16 +1122,6 @@ export class VideoCaptionSession {
     this.liveLastChangeAt = now;
     this.liveTailRevision += 1;
     this.clearHoldTimer();
-    this.commitDisplay(
-      `live:${String(this.liveTailRevision)}`,
-      utterance,
-      this.hold?.translation ?? '',
-      0,
-      this.playheadMs(),
-      0,
-      true,
-      true,
-    );
     if (LIVE_SENTENCE_END_RE.test(utterance) || utterance.length >= LIVE_SENTENCE_MAX_CHARS) {
       this.commitLiveSentence(
         this.translateOptions(this.liveMode ? this.loaded?.language : undefined),
@@ -1166,6 +1147,16 @@ export class VideoCaptionSession {
     this.liveCommittedSource = text;
     this.liveUtterance = '';
     this.cancelLiveTailJob();
+    this.commitDisplay(
+      `live:${String(this.liveTailRevision)}`,
+      text,
+      '',
+      0,
+      this.playheadMs(),
+      0,
+      true,
+      true,
+    );
     this.startLiveTailTranslation(options, this.liveTailRevision, text, committedSource);
   }
 
@@ -1221,21 +1212,7 @@ export class VideoCaptionSession {
         this.liveTailJob = null;
         if (this.translator.abortedSince(generation)) return;
         if (!translation) {
-          const fallback = this.hold?.translation ?? '';
-          if (fallback) {
-            this.commitDisplay(
-              `live:${String(revision)}`,
-              text,
-              fallback,
-              0,
-              this.playheadMs(),
-              0,
-              true,
-              true,
-            );
-          } else {
-            this.showNative('translate-failed');
-          }
+          this.showNative('translate-failed');
           return;
         }
         this.commitDisplay(
@@ -1465,7 +1442,13 @@ export class VideoCaptionSession {
       const original = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
       if (original.length === 0) continue;
       skip.add(cue.id);
-      void this.translator.translateCue({ ...cue, text: original }, options, CAPTION_LIVE_PRIORITY);
+      const index = cues.findIndex((candidate) => candidate.id === cue.id);
+      const context = index > 0 ? cues[index - 1]?.text : undefined;
+      void this.translator.translateCue(
+        { ...cue, text: original },
+        context ? { ...options, context } : options,
+        CAPTION_LIVE_PRIORITY,
+      );
     }
     const playbackRate = video.playbackRate || 1;
     const windowMs = captionPrefetchWindowMs(this.prefs.tier, playbackRate);
@@ -1748,6 +1731,12 @@ function isHtmlVideo(value: EventTarget | null): value is HTMLVideoElement {
     'tagName' in value &&
     (value as HTMLElement).tagName === 'VIDEO',
   );
+}
+
+function appendLiveCaptionText(left: string, right: string): string {
+  if (!left) return right;
+  if (!right) return left;
+  return joinCaptionFragments(left, right).replace(/\s+([.!?。！？…])/u, '$1');
 }
 
 function dedupeLiveCaptionText(visible: string): string {

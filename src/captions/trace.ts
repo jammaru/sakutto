@@ -266,13 +266,13 @@ export async function replayCaptionTrace(
       const original = currentHost?.getAttribute('data-sakutto-original') ?? '';
       const originalGeometry = replayOriginalGeometry(original);
       const continuingOriginal =
-        previousOriginal !== null &&
         original.length > 0 &&
-        (original.startsWith(previousOriginal.text) || previousOriginal.text.startsWith(original));
+        (previousOriginal === null ||
+          original.startsWith(previousOriginal.text) ||
+          previousOriginal.text.startsWith(original));
       const originalRollUp = Boolean(
         continuingOriginal &&
-        previousOriginal &&
-        originalGeometry.firstVisibleLine > previousOriginal.firstVisibleLine,
+        originalGeometry.firstVisibleLine > (previousOriginal?.firstVisibleLine ?? 0),
       );
       frames.push({
         atMs,
@@ -501,9 +501,13 @@ export function replayMetrics(
   const blankAfterFirst =
     firstTranslation < 0
       ? 0
-      : frames
-          .slice(firstTranslation + 1)
-          .filter((frame) => frame.active && frame.translation.trim().length === 0).length;
+      : frames.slice(firstTranslation + 1).filter((frame, index, remaining) => {
+          if (!frame.active || frame.pending || frame.translation.trim().length > 0) return false;
+          if (remaining[index - 1]?.translation.trim().length === 0) return false;
+          return !requests.some(
+            (request) => request.input === frame.original && !request.completed,
+          );
+        }).length;
   const dwells: number[] = [];
   let dwellStart = -1;
   let dwellTranslation = '';
@@ -529,7 +533,8 @@ export function replayMetrics(
     if (previous.height !== current.height) {
       const firstTranslationArrival =
         previous.translation.trim().length === 0 && current.translation.trim().length > 0;
-      if (!firstTranslationArrival) heightChangeCount += 1;
+      const unitSwap = previous.original !== current.original;
+      if (!firstTranslationArrival && !unitSwap) heightChangeCount += 1;
     }
     if (
       previous.original &&

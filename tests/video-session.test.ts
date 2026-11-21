@@ -1505,8 +1505,8 @@ The station opens at dawn.
     expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
       '赤い列車が2番線で待っています',
     );
-    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
-      fakeTranslateText('駅は夜明けに開きます', 'en'),
+    expect(document.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-caption')).toBe(
+      false,
     );
     expect(document.querySelector('style[data-sakutto="captions"]')).not.toBeNull();
     await vi.waitFor(() => {
@@ -1521,9 +1521,6 @@ The station opens at dawn.
     window.dispatchEvent(new Event('seeked', { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 80));
     expect(document.documentElement.getAttribute('data-sakutto-captions')).not.toBe('native');
-    expect(
-      document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption'),
-    ).toMatch(/§en§/);
     await vi.waitFor(() => {
       expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
         fakeTranslateText('切符は北側の窓口で売っています', 'en'),
@@ -1887,8 +1884,8 @@ The station opens at dawn.
     expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
       '赤い列車が2番線で待っています',
     );
-    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
-      fakeTranslateText('駅は夜明けに開きます', 'en'),
+    expect(document.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-caption')).toBe(
+      false,
     );
 
     release?.();
@@ -2053,8 +2050,8 @@ The station opens at dawn.
     expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
       '赤い列車が2番線で待っています',
     );
-    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
-      fakeTranslateText('駅は夜明けに開きます', 'en'),
+    expect(document.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-caption')).toBe(
+      false,
     );
     expect(document.querySelector('style[data-sakutto="captions"]')).not.toBeNull();
 
@@ -2151,8 +2148,8 @@ The station opens at dawn.
     expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-original')).toBe(
       '赤い列車が2番線で待っています',
     );
-    expect(document.querySelector('sakutto-captions')?.getAttribute('data-sakutto-caption')).toBe(
-      fakeTranslateText('駅は夜明けに開きます', 'en'),
+    expect(document.querySelector('sakutto-captions')?.hasAttribute('data-sakutto-caption')).toBe(
+      false,
     );
     expect(document.querySelector('style[data-sakutto="captions"]')).not.toBeNull();
     release?.();

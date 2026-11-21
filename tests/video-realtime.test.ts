@@ -105,7 +105,7 @@ describe('two-line realtime captions', () => {
     document.documentElement.innerHTML = '<head></head><body></body>';
   });
 
-  it('paints the original before translation and clears it for a different caption', async () => {
+  it('shows each committed original only with its own translation', async () => {
     const engine: PageEngine = {
       async *translate(segments) {
         await new Promise(() => undefined);
@@ -116,14 +116,17 @@ describe('two-line realtime captions', () => {
     };
     const { session, host, segment } = mountLive('twolinepending', engine);
     segment.textContent = 'Hello';
+    await sleep(150);
+    expect(host.hasAttribute('data-sakutto-original')).toBe(false);
+    segment.textContent = 'Hello.';
     await vi.waitFor(() => {
-      expect(host.getAttribute('data-sakutto-original')).toBe('Hello');
+      expect(host.getAttribute('data-sakutto-original')).toBe('Hello.');
     });
     expect(host.hasAttribute('data-sakutto-caption')).toBe(false);
 
-    segment.textContent = 'Goodbye';
+    segment.textContent = 'Goodbye.';
     await vi.waitFor(() => {
-      expect(host.getAttribute('data-sakutto-original')).toBe('Goodbye');
+      expect(host.getAttribute('data-sakutto-original')).toBe('Goodbye.');
     });
     expect(host.hasAttribute('data-sakutto-caption')).toBe(false);
     expect(host.hasAttribute('data-sakutto-history')).toBe(false);
@@ -138,7 +141,7 @@ describe('two-line realtime captions', () => {
     const engine: PageEngine = {
       async *translate(segments) {
         const text = segments[0]?.text ?? '';
-        if (text === 'Hello world') await gate;
+        if (text === 'Hello world.') await gate;
         for (const segment of segments) {
           yield { id: segment.id, final: '同じ訳', engine: 'plamo' };
         }
@@ -152,14 +155,17 @@ describe('two-line realtime captions', () => {
       });
 
       segment.textContent = 'Hello world';
-      await vi.waitFor(() => {
-        expect(host.getAttribute('data-sakutto-original')).toBe('Hello world');
-      });
+      await sleep(150);
+      expect(host.getAttribute('data-sakutto-original')).toBe('Hello.');
       expect(host.getAttribute('data-sakutto-caption')).toBe('同じ訳');
-      expect(host.getAttribute('data-sakutto-pending')).toBe('1');
+      segment.textContent = 'Hello world.';
+      await vi.waitFor(() => {
+        expect(host.getAttribute('data-sakutto-original')).toBe('Hello world.');
+      });
+      expect(host.hasAttribute('data-sakutto-caption')).toBe(false);
       release();
       await vi.waitFor(() => {
-        expect(host.getAttribute('data-sakutto-original')).toBe('Hello world');
+        expect(host.getAttribute('data-sakutto-original')).toBe('Hello world.');
         expect(host.getAttribute('data-sakutto-caption')).toBe('同じ訳');
       });
     } finally {
@@ -203,9 +209,8 @@ describe('two-line realtime captions', () => {
       });
 
       segment.textContent = 'A red';
-      await vi.waitFor(() => {
-        expect(host.getAttribute('data-sakutto-original')).toBe('A red');
-      });
+      await sleep(150);
+      expect(host.getAttribute('data-sakutto-original')).toBe('The station opens at dawn.');
       expect(host.getAttribute('data-sakutto-caption')).toBe(
         fakeTranslateText('The station opens at dawn.', 'ja'),
       );
@@ -213,9 +218,7 @@ describe('two-line realtime captions', () => {
       await vi.waitFor(() => {
         expect(host.getAttribute('data-sakutto-original')).toBe('A red train waits.');
       });
-      expect(host.getAttribute('data-sakutto-caption')).toBe(
-        fakeTranslateText('The station opens at dawn.', 'ja'),
-      );
+      expect(host.hasAttribute('data-sakutto-caption')).toBe(false);
       release();
       await vi.waitFor(() => {
         expect(host.getAttribute('data-sakutto-caption')).toBe(
@@ -558,7 +561,7 @@ describe('two-line realtime captions', () => {
     session.stop();
   });
 
-  it('keeps the previous translation after a mutable-tail translation failure', async () => {
+  it('falls back to native captions after a mutable-tail translation failure', async () => {
     const engine: PageEngine = {
       async *translate(segments, options) {
         const text = segments[0]?.text ?? '';
@@ -579,10 +582,9 @@ describe('two-line realtime captions', () => {
     );
     segment.textContent = 'Alpha. Beta';
     await vi.waitFor(() => {
-      expect(host.getAttribute('data-sakutto-caption')).toBe(fakeTranslateText('Alpha.', 'ja'));
-      expect(host.getAttribute('data-sakutto-original')).toBe('Alpha. Beta');
-      expect(host.getAttribute('data-sakutto-pending')).toBe('1');
+      expect(document.documentElement.getAttribute('data-sakutto-captions')).toBe('waiting');
     });
+    expect(host.hasAttribute('data-sakutto-caption')).toBe(false);
     session.stop();
   });
 
@@ -755,7 +757,7 @@ describe('pre-timed caption scheduling', () => {
     session.stop();
   });
 
-  it('keeps the previous VOD translation while the next cue is pending', async () => {
+  it('shows the new VOD original with only its own pending translation', async () => {
     document.body.innerHTML = youtubeMarkup('twolinevodpending');
     const video = document.querySelector('video') as HTMLVideoElement;
     stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
@@ -801,9 +803,7 @@ describe('pre-timed caption scheduling', () => {
       await vi.waitFor(() => {
         expect(host.getAttribute('data-sakutto-original')).toBe('A red train waits.');
       });
-      expect(host.getAttribute('data-sakutto-caption')).toBe(
-        fakeTranslateText('The station opens at dawn.', 'ja'),
-      );
+      expect(host.hasAttribute('data-sakutto-caption')).toBe(false);
       expect(host.getAttribute('data-sakutto-pending')).toBe('1');
       release();
       await vi.waitFor(() => {

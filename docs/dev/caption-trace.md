@@ -110,6 +110,12 @@ a deterministic `white-space: normal`/`overflow-wrap: anywhere` model with a bot
 last-two-lines viewport. It records whole-line roll-ups and horizontal clipping without
 pretending to be a browser font measurement engine.
 
+Live ASR display is unit-at-once: the original appears only after a sentence unit commits,
+and translation appears only for that same unit. During the fallback while a unit's
+translation is pending, the overlay shows the current unit's original only. It never pairs
+that original with another unit's translation. Earlier unit translations are not rewritten
+after commit.
+
 The baseline `f5130d6` harness used the same fixed live rectangle and did not model the old
 horizontal tail-clipping CSS. Its width/height and continuity metrics are therefore directly
 comparable, but zero shift/clipping values in the wrapped geometry are **not** a measured
