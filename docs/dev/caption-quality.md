@@ -41,20 +41,33 @@ The fake engine translates by prefixing the source with `§<target>§`; the page
   instead.
 - `e2e/caption-quality.spec.ts` — runs the same scenario for Japanese → English and
   English → Japanese, injects decoy page copy, and asserts every metric passes.
+- `e2e/fixtures/youtube-quality-asr.html` / `-asr.json` — a live YouTube-style ASR track.
+  Native json3 chunks grow every 600 ms and carry sentinel noise (`S1`, `ED`, `E`, `NC`,
+  `RS`), a stutter (`in a in a`), a `[Music]`-only cue and a lyric line. The fake engine can
+  echo marker tokens left in a prompt (`data-bench-echo-markers`) and counts sound tags that
+  were sent to the model (`data-bench-sound-tag-translations`). Neither knob exists in release
+  builds.
+- `e2e/caption-quality-asr-helpers.ts` — four extra metrics for the auto-generated path;
+  latency is attributed to the first sampled change of the native caption text, not to the
+  media start time shared by rolling json3 windows.
 
 ## Metrics and thresholds
 
-| Metric                        | Threshold                                   | Why                                                                                                     |
-| ----------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Complete sentence units       | ≤8% of active frames, ≤250 ms partial dwell | No flicker through ASR fragments or duplicated rolling windows                                          |
-| All four sentences observed   | 4/4                                         | Every unit must reach the overlay                                                                       |
-| Show latency (1x / 1.5x / 2x) | ≤250 ms from playhead crossing cue start    | Includes 50 ms sampling slack; 80 ms fake-engine prefill                                                |
-| Seek settle                   | ≤400 ms                                     | Forward/backward seeks only; pure seek steps repaint promptly                                           |
-| Cue advance (no stale text)   | ≤400 ms after the next cue starts           | All play phases incl. tail after its seek; a finished line is held only through real silence (2 s hold) |
-| Jump-back / rollback          | 0 frames                                    | A committed sentence must not reappear during a later unit                                              |
-| Overlay isolation             | 0 decoy leaks                               | Page copy must never enter caption attributes or shadow lines                                           |
-| Layout                        | 0 overflow frames, ≤2 visible lines         | Overlay stays inside the player; one translated + one original line                                     |
-| Native captions hidden        | 0 frames                                    | Native window must be hidden while Sakutto paints                                                       |
+| Metric                         | Threshold                                   | Why                                                                                                     |
+| ------------------------------ | ------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Complete sentence units        | ≤8% of active frames, ≤250 ms partial dwell | No flicker through ASR fragments or duplicated rolling windows                                          |
+| All four sentences observed    | 4/4                                         | Every unit must reach the overlay                                                                       |
+| Show latency (1x / 1.5x / 2x)  | ≤250 ms from playhead crossing cue start    | Includes 50 ms sampling slack; 80 ms fake-engine prefill                                                |
+| Seek settle                    | ≤400 ms                                     | Forward/backward seeks only; pure seek steps repaint promptly                                           |
+| Cue advance (no stale text)    | ≤400 ms after the next cue starts           | All play phases incl. tail after its seek; a finished line is held only through real silence (2 s hold) |
+| Jump-back / rollback           | 0 frames                                    | A committed sentence must not reappear during a later unit                                              |
+| Overlay isolation              | 0 decoy leaks                               | Page copy must never enter caption attributes or shadow lines                                           |
+| Layout                         | 0 overflow frames, ≤2 visible lines         | Overlay stays inside the player; one translated + one original line                                     |
+| Native captions hidden         | 0 frames                                    | Native window must be hidden while Sakutto paints                                                       |
+| Marker leak (ASR)              | 0 frames                                    | No S1/ED/E/T/NC/RS token in caption attributes or shadow lines                                          |
+| Sound-tag translations (ASR)   | 0 calls/frames                              | Pure [Music]/♪ cues must be dropped without a model call                                                |
+| Stutter English leftover (ASR) | 0 frames                                    | Repeated English words must be collapsed before translation                                             |
+| ASR show latency               | ≤400 ms worst                               | Japanese overlay within 400 ms of each native chunk appearing                                           |
 
 Show latency used to be bounded by `timeupdate` (~4 Hz). `src/captions/session.ts` now
 polls the playhead every 50 ms while playing (`paint(false, true)`, skipping layout work)
@@ -80,5 +93,13 @@ metrics JSON is prefixed with its phase (e.g. `rate-2:…=…`).
    separate fragments, so sentence-units, partial dwell, all-sentences, show latency and
    seek settle fail; overlay isolation, layout and native hiding still pass.
 
+The ASR auto-generated scenario is a third test in the same spec. It drives a live
+`kind=asr` fixture, samples at 50 ms, and fails on any of the four new metrics. At 33911df
+(with the harness extension) all four fail: marker-leak 36 frames, sound-tag translations 11,
+stutter leftover 54 frames, and unbounded show latency. On this branch they are 0/0/0 and
+50 ms, while the ten legacy metrics still pass.
+
 The artifacts produced for PR 147 are summarized in
-`/cursor/stores/bc-df1ba74e-ebfd-59a3-80e9-0569718830e5/artifacts/caption-quality/metrics-before-after.md`.
+`/cursor/stores/bc-df1ba74e-ebfd-59a3-80e9-0569718830e5/artifacts/caption-quality/metrics-before-after.md`
+and, for this ASR round, in
+`/cursor/stores/bc-df1ba74e-ebfd-59a3-80e9-0569718830e5/artifacts/caption-quality-asr/metrics-before-after.md`.

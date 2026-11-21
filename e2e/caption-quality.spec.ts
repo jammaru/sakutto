@@ -9,6 +9,11 @@ import {
   resetExtensionStorage,
 } from './page';
 import {
+  computeAsrQualityReport,
+  type AsrChunk,
+  type AsrQualityRun,
+} from './caption-quality-asr-helpers';
+import {
   computeQualityReport,
   driveScenario,
   installCaptionSampler,
@@ -60,6 +65,40 @@ const STEPS: readonly ScenarioStep[] = [
   { phase: 'rate-1.5', seekMs: 0, rate: 1.5, dwellMs: 1_700 },
   { phase: 'rate-2', seekMs: 0, rate: 2, dwellMs: 1_350 },
 ];
+
+/**
+ * Native chunks are the raw strings painted by the ASR fixture; expected captions are
+ * the clean Japanese text (fake-engine prefix) that must be visible for each chunk.
+ */
+const ASR_CHUNKS: readonly AsrChunk[] = [
+  {
+    native: 'E We should keep the codebase in a in a',
+    expected: '§ja§We should keep the codebase in a',
+  },
+  {
+    native: 'We should keep the codebase in a in a and the bot',
+    expected: '§ja§We should keep the codebase in a and the bot',
+  },
+  {
+    native: 'We should keep the codebase in a in a and the bot stays',
+    expected: '§ja§We should keep the codebase in a and the bot stays',
+  },
+  {
+    native: 'We should keep the codebase in a in a and the bot stays here.',
+    expected: '§ja§We should keep the codebase in a and the bot stays here.',
+  },
+  { native: '[Music]', expected: '', sound: true },
+  { native: 'NC Most of the blame falls on us', expected: '§ja§Most of the blame falls on us' },
+  { native: 'Most of the blame falls on us RS', expected: '§ja§Most of the blame falls on us' },
+  { native: 'Most of the blame falls on us.', expected: '§ja§Most of the blame falls on us.' },
+  { native: 'S1 We can fix it together. ED', expected: '§ja§We can fix it together.' },
+  { native: 'We can fix it together.', expected: '§ja§We can fix it together.' },
+];
+
+const ASR: AsrQualityRun = {
+  chunks: ASR_CHUNKS,
+  markers: ['S1', 'ED', 'E', 'T', 'NC', 'RS'],
+};
 
 const DECOY = 'INJECTED_UNRELATED_PAGE_COPY_5C1D';
 const ARTIFACTS = process.env.CAPTION_QUALITY_ARTIFACTS ?? '';
@@ -177,6 +216,83 @@ async function measure(run: QualityRun): Promise<void> {
   }
 }
 
+async function measureAsr(): Promise<void> {
+  const videoDir = await artifactsDir('video');
+  const extension = await loadExtension('en-US', {
+    ...(videoDir ? { recordVideoDir: videoDir } : {}),
+  });
+  try {
+    const settings = {
+      translateVideoCaptions: true,
+      targetLanguage: 'ja',
+      videoCaptionDisplay: 'replace' as const,
+    };
+    await resetExtensionStorage(extension.worker, settings);
+    const page = await extension.context.newPage();
+    await page.goto(FIXTURE_ORIGIN + '/youtube-quality-asr.html');
+    // The fake engine echoes marker tokens left in the source and counts pure sound
+    // tags sent to the model. A clean build sends neither to the overlay/model.
+    await page.evaluate(
+      ({ decoy, markers }) => {
+        document.documentElement.setAttribute(
+          'data-bench-pace',
+          JSON.stringify({ ttfbMs: 80, msPerChar: 0, deltas: 0 }),
+        );
+        document.documentElement.setAttribute('data-bench-echo-markers', JSON.stringify(markers));
+        document.documentElement.removeAttribute('data-bench-sound-tag-translations');
+        const banner = document.createElement('p');
+        banner.id = 'injected-decoy';
+        banner.textContent = decoy;
+        document.body.append(banner);
+        const fixture = (globalThis as unknown as { __captionQuality?: { decoy?: string } })
+          .__captionQuality;
+        if (fixture) fixture.decoy = decoy;
+      },
+      { decoy: DECOY, markers: ASR.markers },
+    );
+    await preparePlayer(page);
+    await openExtensionShadowRoots(extension.worker, page);
+    await injectContentScript(extension.worker, page);
+    await resetExtensionStorage(extension.worker, settings);
+    await expect(page.locator('sakutto-captions')).toBeAttached({ timeout: 20_000 });
+    await page.waitForTimeout(250);
+
+    await installCaptionSampler(page);
+    const steps: readonly ScenarioStep[] = [{ phase: 'asr', dwellMs: 6_500 }];
+    await driveScenario(page, steps);
+    const samples = await readSamples(page);
+    await stopCaptionSampler(page);
+    expect(samples.length).toBeGreaterThan(50);
+
+    const report = computeAsrQualityReport(ASR, samples);
+    const metricsDir = await artifactsDir();
+    if (metricsDir) {
+      await writeFile(
+        join(metricsDir, 'metrics-' + VARIANT + '-asr.json'),
+        JSON.stringify(report, null, 2) + '\n',
+      );
+      await writeFile(
+        join(metricsDir, 'samples-' + VARIANT + '-asr.json'),
+        JSON.stringify(samples, null, 2),
+      );
+    }
+    await page.locator('#player').evaluate((element) => {
+      (element as HTMLVideoElement).currentTime = 1.0;
+    });
+    await page.waitForTimeout(400);
+    const screenshotDir = await artifactsDir('screenshots');
+    if (screenshotDir) {
+      await page.screenshot({ path: join(screenshotDir, VARIANT + '-asr-normal.png') });
+    }
+    expect(
+      report.failures,
+      'ASR caption quality metrics:\n' + JSON.stringify(report.metrics, null, 2),
+    ).toEqual([]);
+  } finally {
+    await extension.close();
+  }
+}
+
 test.describe('caption quality', () => {
   test('Japanese rolling ASR windows stay sentence-level through seek/rate changes', async () => {
     await measure(JA);
@@ -184,5 +300,9 @@ test.describe('caption quality', () => {
 
   test('English rolling ASR windows stay sentence-level through seek/rate changes', async () => {
     await measure(EN);
+  });
+
+  test('auto-generated ASR chunks are clean and painted within 400ms', async () => {
+    await measureAsr();
   });
 });

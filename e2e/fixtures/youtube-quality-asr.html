@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Watch - ASR caption quality fixture</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: sans-serif;
+      }
+      #movie_player {
+        position: relative;
+        width: 640px;
+        height: 360px;
+        background: #111;
+      }
+      .html5-video-container {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        height: 100%;
+      }
+      .html5-main-video {
+        width: 100%;
+        height: 100%;
+      }
+      .ytp-caption-window-container {
+        position: absolute;
+        left: 8%;
+        right: 8%;
+        bottom: 80px;
+        text-align: center;
+        z-index: 20;
+      }
+      .ytp-caption-segment {
+        display: inline-block;
+        padding: 4px 10px;
+        background: rgb(8 8 8 / 80%);
+        color: #fff;
+        font: 22px/1.35 sans-serif;
+      }
+      .ytp-chrome-bottom {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 72px;
+        z-index: 40;
+        pointer-events: auto;
+        background: rgb(0 0 0 / 45%);
+      }
+      #sidebar {
+        padding: 12px;
+        color: #334;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="movie_player" class="html5-video-player">
+      <div class="html5-video-container">
+        <video id="player" class="html5-main-video" controls muted playsinline></video>
+      </div>
+      <div class="ytp-caption-window-container" lang="en">
+        <span class="ytp-caption-segment" id="native-caption"></span>
+      </div>
+      <div class="ytp-chrome-bottom" data-sakutto="fake-chrome"></div>
+    </div>
+    <div id="sidebar">
+      <p id="page-decoy">UNRELATED_PAGE_COPY_DECOY_7A3F</p>
+      <p>Recommendations and other text that must never leak into a caption line.</p>
+    </div>
+    <!-- prettier-ignore -->
+    <script>
+      (function () {
+        // Rolling YouTube ASR chunks: growing windows with sentinel noise, a stutter,
+        // a sound-tag-only cue and a lyric line. Times are media milliseconds.
+        var chunks = [
+          [0,    600, 'E We should keep the codebase in a in a'],
+          [600,  1200, 'We should keep the codebase in a in a and the bot'],
+          [1200, 1800, 'We should keep the codebase in a in a and the bot stays'],
+          [1800, 2400, 'We should keep the codebase in a in a and the bot stays here.'],
+          [2400, 3000, '[Music]'],
+          [3000, 3600, 'NC Most of the blame falls on us'],
+          [3600, 4200, 'Most of the blame falls on us RS'],
+          [4200, 4800, 'Most of the blame falls on us.'],
+          [4800, 5400, 'S1 We can fix it together. ED'],
+          [5400, 6200, 'We can fix it together.']
+        ];
+        var native = document.getElementById('native-caption');
+        var video = document.getElementById('player');
+        var videoReady = fetch('/dummy.mp4')
+          .then(function (response) { return response.blob(); })
+          .then(function (blob) {
+            video.src = URL.createObjectURL(blob);
+            video.load();
+            return new Promise(function (resolve, reject) {
+              if (video.readyState >= 1) return resolve();
+              var timer = setTimeout(function () { reject(new Error('video metadata')); }, 5000);
+              video.addEventListener('loadedmetadata', function () {
+                clearTimeout(timer);
+                resolve();
+              }, { once: true });
+            });
+          });
+        function paintNative() {
+          var ms = video.currentTime * 1000;
+          var match = chunks.find(function (chunk) { return ms >= chunk[0] && ms < chunk[1]; });
+          native.textContent = match ? match[2] : '';
+        }
+        video.addEventListener('timeupdate', paintNative);
+        video.addEventListener('seeked', paintNative);
+        window.setInterval(paintNative, 25);
+        paintNative();
+        window.__captionQuality = {
+          language: 'en',
+          chunks: chunks,
+          decoy: 'UNRELATED_PAGE_COPY_DECOY_7A3F',
+          videoReady: videoReady
+        };
+        // Valid JSON so the isolated-world script parser can read it (unquoted
+        // keys in a JS object literal are not JSON).
+        window.ytInitialPlayerResponse = {"videoDetails":{"videoId":"qualityasr0001","defaultAudioLanguage":"en","isLive":true,"title":"Synthetic ASR caption-quality player"},"captions":{"playerCaptionsTracklistRenderer":{"captionTracks":[{"baseUrl":"/youtube-quality-asr.json","languageCode":"en","kind":"asr","name":{"simpleText":"English (auto-generated)"},"vssId":"a.en"}]}}};
+      })();
+    </script>
+  </body>
+</html>

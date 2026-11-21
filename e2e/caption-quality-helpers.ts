@@ -34,6 +34,8 @@ export const THRESHOLDS = {
   partialFrameRatio: 0.08,
   /** Longest continuous stretch allowed for an intermediate/duplicate string. */
   partialDwellMs: 250,
+  /** Worst acceptable delay from a native ASR chunk appearing to Japanese paint. */
+  asrShowLatencyMs: 400,
 } as const;
 
 export interface RectSample {
@@ -53,6 +55,7 @@ export interface CaptionSample {
   paused: boolean;
   phase: string;
   visible: boolean;
+  captionState: string;
   caption: string;
   original: string;
   pending: boolean;
@@ -61,6 +64,8 @@ export interface CaptionSample {
   player: RectSample | null;
   nativeVisible: boolean;
   nativeText: string;
+  /** Fake-engine count of pure sound tags sent to the model (0 in a correct build). */
+  soundTagTranslations: number;
   decoyInBar: boolean;
 }
 
@@ -164,6 +169,7 @@ export async function installCaptionSampler(page: Page): Promise<void> {
         paused: video?.paused ?? true,
         phase,
         visible: Boolean(host && !host.hidden && caption.length > 0),
+        captionState: document.documentElement.getAttribute('data-sakutto-captions') ?? '',
         caption,
         original,
         pending: host?.getAttribute('data-sakutto-pending') === '1',
@@ -172,6 +178,9 @@ export async function installCaptionSampler(page: Page): Promise<void> {
         player: readRect(document.querySelector('#movie_player')),
         nativeVisible,
         nativeText: native?.textContent?.trim() ?? '',
+        soundTagTranslations: Number(
+          document.documentElement.getAttribute('data-bench-sound-tag-translations') ?? '0',
+        ),
         decoyInBar: barText.includes(decoy),
       });
     };
@@ -255,7 +264,7 @@ export async function stopCaptionSampler(page: Page): Promise<void> {
   });
 }
 
-function metric(
+export function metric(
   name: string,
   value: number,
   threshold: number,

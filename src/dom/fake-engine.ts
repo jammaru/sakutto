@@ -1,20 +1,60 @@
 import type { TranslateOptions, TranslateSegment, TranslationChunk } from '@/engine/types';
 
 const PLACEHOLDER = /(<\/?i\d+>)/;
+/**
+ * E2E-only knobs. The page can ask the fake engine to echo marker-like tokens that were
+ * left in the source (a defect the ASR harness must catch) and can count pure sound-tag
+ * segments that were sent to the model at all. Neither knob exists in release builds.
+ */
+const ECHO_ATTRIBUTE = 'data-bench-echo-markers';
+const SOUND_TAG_COUNT_ATTRIBUTE = 'data-bench-sound-tag-translations';
+const DEFAULT_ECHO = ['S1', 'ED', 'E', 'T', 'NC', 'RS'];
+const SOUND_TAG_ONLY =
+  /^(?:\[[^\]]{1,32}\]|\([^)]{1,32}\)|[♪♫♩]+|#[^#]{1,24}#)(?:\s*(?:\[[^\]]{1,32}\]|\([^)]{1,32}\)|[♪♫♩]+|#[^#]{1,24}#))*\s*$/u;
 
 /** Keeps the source words so a fixture can see that the sentence itself was not rewritten. */
 export function fakeMarker(targetLanguage: string): string {
   return `§${targetLanguage}§`;
 }
 
-export function fakeTranslateText(text: string, targetLanguage: string): string {
+function readEchoMarkers(): readonly string[] {
+  const raw = globalThis.document?.documentElement?.getAttribute(ECHO_ATTRIBUTE) ?? null;
+  if (raw === null || raw.length === 0) return [];
+  if (raw === '1') return DEFAULT_ECHO;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.filter(
+        (entry): entry is string => typeof entry === 'string' && /^[A-Za-z0-9]{1,4}$/u.test(entry),
+      );
+    }
+  } catch {
+    // Ignore malformed bench configuration.
+  }
+  return [];
+}
+
+function countSoundTag(text: string): void {
+  if (!SOUND_TAG_ONLY.test(text.trim())) return;
+  const root = globalThis.document?.documentElement;
+  if (!root) return;
+  const next = Number(root.getAttribute(SOUND_TAG_COUNT_ATTRIBUTE) ?? '0') + 1;
+  root.setAttribute(SOUND_TAG_COUNT_ATTRIBUTE, String(next));
+}
+
+export function fakeTranslateText(
+  text: string,
+  targetLanguage: string,
+  echoMarkers: readonly string[] = [],
+): string {
   const marker = fakeMarker(targetLanguage);
   return text
     .split(PLACEHOLDER)
     .map((part, index) => {
       if (index % 2 === 1) return part;
       if (part.length === 0) return '';
-      return `${marker}${part}`;
+      const echoed = echoMarkers.filter((token) => new RegExp(`\\b${token}\\b`, 'u').test(part));
+      return `${marker}${part}${echoed.length > 0 ? ` ${echoed.join(' ')}` : ''}`;
     })
     .join('');
 }
@@ -74,9 +114,11 @@ export async function* fakeTranslate(
   options: TranslateOptions,
 ): AsyncGenerator<TranslationChunk> {
   const pace = readPace();
+  const echoMarkers = readEchoMarkers();
   for (const segment of segments) {
     if (options.signal.aborted) return;
-    const text = fakeTranslateText(segment.text, options.tgt);
+    countSoundTag(segment.text);
+    const text = fakeTranslateText(segment.text, options.tgt, echoMarkers);
     if (!pace) {
       yield { id: segment.id, final: text, engine: 'plamo' };
       continue;
