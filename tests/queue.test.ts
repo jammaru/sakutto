@@ -266,7 +266,7 @@ const settle = (): Promise<unknown> => vi.advanceTimersByTimeAsync(0);
 /** Jobs that run until the test ends them, in the order the scheduler started them. */
 function heldJobs(scheduler: JobScheduler): {
   started: string[];
-  add: (name: string, priority: number, body?: object) => void;
+  add: (name: string, priority: number, body?: object, preempt?: boolean) => void;
   produce: (...names: string[]) => void;
   produceRunning: () => void;
   end: (...names: string[]) => Promise<void>;
@@ -283,10 +283,11 @@ function heldJobs(scheduler: JobScheduler): {
   };
   return {
     started,
-    add: (name, priority, body) => {
+    add: (name, priority, body, preempt = false) => {
       scheduler.schedule({
         priority,
         ...(body ? { foregroundBodies: [body] } : {}),
+        ...(preempt ? { preempt: true } : {}),
         run: (producing) =>
           new Promise<void>((resolve) => {
             started.push(name);
@@ -487,6 +488,24 @@ describe('JobScheduler in staged mode', () => {
 
     await jobs.end(...Array.from({ length: 8 }, (_, index) => `piece-${index}`));
     expect(jobs.started).toHaveLength(14);
+    await jobs.endAll();
+  });
+
+  it('treats focused PDF work as foreground despite its page-ordered priority', async () => {
+    const scheduler = new JobScheduler(16, 'staged');
+    const jobs = heldJobs(scheduler);
+    jobs.add('focus-0', 100, undefined, true);
+    jobs.add('focus-1', 100, undefined, true);
+    for (let index = 0; index < 6; index += 1) jobs.add(`pdf-${index}`, 100);
+
+    jobs.produceRunning();
+    jobs.produceRunning();
+    expect(jobs.started).toEqual(['focus-0', 'focus-1', 'pdf-0', 'pdf-1']);
+
+    await jobs.end('focus-1');
+    expect(jobs.started).toHaveLength(4);
+    await jobs.end('focus-0');
+    expect(jobs.started).toHaveLength(8);
     await jobs.endAll();
   });
 

@@ -4,7 +4,7 @@ export interface SchedulerJob {
   priority: number;
   /** Reader-visible bodies represented by this job. Split pieces share one identity. */
   foregroundBodies?: readonly object[];
-  /** When true, running worse-priority jobs are cancelled so this one can start. */
+  /** Reader-urgent work: preempt worse jobs and count as foreground for the staged hold. */
   preempt?: boolean;
   /** A job calls `producing` once its output has begun. The staged start waits for that. */
   run: (producing: () => void) => Promise<void>;
@@ -57,7 +57,9 @@ const STAGE_TIMEOUT_MS = 2000;
  * Priorities below this count as foreground: a selection or typed text (0), the caption at
  * the playhead and the live one (1 and 2), prose inside the viewport (from 10). It is the
  * value `translationPriority` gives the first prose block that is off the screen. Menu text
- * on the screen starts at 50 and is not foreground.
+ * on the screen starts at 50 and is not foreground. A focused PDF page keeps its page-ordered
+ * priority, which can clamp to 100 at the engine boundary, so its `preempt` flag marks it as
+ * foreground instead.
  */
 const FOREGROUND_END = 22;
 /**
@@ -68,8 +70,8 @@ const SMALL_FOREGROUND = 5;
 /** While the foreground is kept apart, other jobs only fill what it left of the first four starts. */
 const HELD_STARTS = 4;
 
-function isForeground(priority: number): boolean {
-  return priority < FOREGROUND_END;
+function isForeground(job: Pick<SchedulerJob, 'priority' | 'preempt'>): boolean {
+  return job.preempt === true || job.priority < FOREGROUND_END;
 }
 
 export class JobScheduler {
@@ -191,7 +193,7 @@ export class JobScheduler {
     if (width !== undefined && this.running >= width) return false;
 
     const next = this.queue.peek();
-    if (!this.holding || !next || isForeground(next.value.job.priority)) return true;
+    if (!this.holding || !next || isForeground(next.value.job)) return true;
 
     // A few foreground jobs finish at the pace of a narrow batch. Every prompt that joined
     // them would cost each one a slow step, and the reader is waiting for exactly these.
@@ -212,7 +214,7 @@ export class JobScheduler {
   private foregroundRunning(): number {
     let count = 0;
     for (const entry of this.active) {
-      if (isForeground(entry.job.priority)) count += 1;
+      if (isForeground(entry.job)) count += 1;
     }
     return count;
   }
@@ -224,7 +226,7 @@ export class JobScheduler {
   private noteStart(entry: QueuedJob): void {
     if (this.started === 0) this.armStageTimer();
     this.started += 1;
-    if (!isForeground(entry.job.priority)) return;
+    if (!isForeground(entry.job)) return;
     // A body split into pieces is still one reader wait. Without an identity, retain the
     // scheduler's original behavior and count each job as a separate body.
     for (const body of entry.job.foregroundBodies ?? [entry]) this.foregroundBodies.add(body);
