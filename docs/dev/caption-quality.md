@@ -147,7 +147,7 @@ harness-only), the feel-test fails every new metric; on this branch all six pass
 
 | Metric                 | ce3b0f4   | this branch | threshold |
 | ---------------------- | --------- | ----------- | --------- |
-| e2e-lag-worst          | Infinity  | 450 ms      | ≤2000 ms  |
+| e2e-lag-worst          | Infinity  | 500 ms      | ≤2000 ms  |
 | skip-rate              | 0.0833    | 0           | 0         |
 | duplicate-rate         | 0.1875    | 0           | 0         |
 | loading-text-in-stream | 98 frames | 0           | 0         |

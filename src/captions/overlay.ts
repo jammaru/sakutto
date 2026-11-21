@@ -549,11 +549,13 @@ export class CaptionOverlay {
     this.originalLine.textContent = showOriginal ? original : '';
     // A live ASR line in flight keeps its source English until the translation lands.
     // The localised pending label is never substituted for the caption bar mid-stream.
+    // Non-live ASR (VOD) uses the normal pending row; repeating the source in both rows
+    // would duplicate the same line.
     this.translatedLine.textContent =
       translation.length > 0
         ? translation
         : originalOnly
-          ? asr
+          ? asr && state.live === true
             ? original
             : this.labels.pending
           : '';

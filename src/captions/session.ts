@@ -3,7 +3,7 @@ import { AsrChunkStream, asrDeltaOptions } from './asr-stream';
 import type { PageEngine } from '@/dom/session';
 import type { GlossaryEntry } from '@/engine/types';
 import { glossaryEquals } from '@/shared/glossary';
-import { canonicalLanguage, isPlamoOnlyTarget } from '@/shared/languages';
+import { canonicalLanguage, isCjkTarget, isPlamoOnlyTarget } from '@/shared/languages';
 import {
   VIDEO_CAPTION_SIZE_DEFAULT,
   type DisplayMode,
@@ -1193,10 +1193,7 @@ export class VideoCaptionSession {
   /** Build the caption-only incremental translator for a live ASR track. */
   private createAsrStream(): AsrChunkStream {
     return new AsrChunkStream({
-      spaceDelimited: () => {
-        const source = (captionLanguagePrefix(this.loaded?.language ?? '') || '').toLowerCase();
-        return source.length > 0 && !['ja', 'zh', 'ko', 'th'].includes(source.slice(0, 2));
-      },
+      spaceDelimited: () => !isCjkTarget(this.prefs.targetLanguage),
       now: () => this.now(),
       playheadMs: () => this.playheadMs(),
       translate: async (delta, context, sequence) => {

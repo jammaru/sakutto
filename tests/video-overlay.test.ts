@@ -70,6 +70,37 @@ describe('caption overlay', () => {
     overlay.detach();
   });
 
+  it('does not duplicate a non-live ASR source while its translation is pending', () => {
+    const overlay = new CaptionOverlay(document, labels);
+    overlay.attach(document.body);
+    overlay.show({
+      original: 'The station opens at dawn.',
+      translation: null,
+      display: 'bilingual',
+      pending: true,
+      asr: true,
+    });
+    const host = document.querySelector('sakutto-captions') as HTMLElement | null;
+    const shadow = overlay.shadow();
+    const original = shadow?.querySelector('.original') as HTMLElement | null;
+    const translated = shadow?.querySelector('.line:not(.original)') as HTMLElement | null;
+    expect(original?.textContent).toBe('The station opens at dawn.');
+    expect(translated?.textContent).toBe(labels.pending);
+    expect(host?.hasAttribute('data-sakutto-caption')).toBe(false);
+
+    // The live incremental path still keeps its source in the bar while a delta decodes.
+    overlay.show({
+      original: 'The station opens at dawn.',
+      translation: null,
+      display: 'bilingual',
+      pending: true,
+      asr: true,
+      live: true,
+    });
+    expect(translated?.textContent).toBe('The station opens at dawn.');
+    overlay.detach();
+  });
+
   it('shows the Brave notice without pretending it is a translation', () => {
     const overlay = new CaptionOverlay(document, labels);
     overlay.attach(document.body);

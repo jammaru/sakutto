@@ -11,7 +11,7 @@ import type { CaptionTranslateOptions } from './engine';
  * duplicate a clause.
  */
 export interface AsrStreamCallbacks {
-  /** Word-delimited source languages need a separator between incremental clauses. */
+  /** Word-delimited target languages need a separator between incremental clauses. */
   spaceDelimited(): boolean;
   now(): number;
   playheadMs(): number;
@@ -29,11 +29,12 @@ interface PendingDelta {
 
 /** Speech older than this is no longer worth translating (matches the overlay hold cap). */
 export const ASR_DELTA_MAX_LAG_MS = 2_000;
+/** Scripts that join incremental clauses without an ASCII space. */
+const CJK_SCRIPT = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
 
 export class AsrChunkStream {
   private readonly callbacks: AsrStreamCallbacks;
   private readonly maxLagMs: number;
-  private readonly spaceDelimited: boolean;
   private rawWindow = '';
   private lastQueued = '';
   private readonly pending: PendingDelta[] = [];
@@ -49,7 +50,6 @@ export class AsrChunkStream {
   constructor(callbacks: AsrStreamCallbacks, maxLagMs = ASR_DELTA_MAX_LAG_MS) {
     this.callbacks = callbacks;
     this.maxLagMs = maxLagMs;
-    this.spaceDelimited = callbacks.spaceDelimited();
   }
 
   /** Feed a new (already cleaned) native window. Returns true when a new delta was queued. */
@@ -96,40 +96,53 @@ export class AsrChunkStream {
 
   /** Abort everything and forget the window: seek, caption gap or source change. */
   reset(): void {
-    this.generation += 1;
-    for (const sequence of this.inFlight) {
-      const item = this.bySequence.get(sequence);
-      if (item) this.callbacks.cancel(item.text, item.context, sequence);
-    }
-    this.inFlight.clear();
-    this.pending.length = 0;
-    this.bySequence.clear();
-    this.results.clear();
-    this.rawWindow = '';
     this.resetCoverage();
+    this.rawWindow = '';
   }
 
   private coverage(): string {
     return this.sourceParts.join('');
   }
 
-  /** Models that output CJK need no separator; word languages keep one between clauses. */
+  /** CJK-target output needs no separator; word languages keep one between clauses. */
   private joinedTranslation(): string {
     let line = '';
+    // Read the target script at join time: a target change can outlive this stream.
+    const spaceDelimited = this.callbacks.spaceDelimited();
     for (const part of this.translationParts) {
       if (line.length === 0 || /^[,.;:!?。、！？…]/u.test(part)) {
         line += part;
       } else {
-        line += this.spaceDelimited ? ` ${part}` : part;
+        // CJK targets join clauses directly, but a result that is not in a CJK script
+        // (a failed delta showing its source, or an engine echoing it) needs a boundary.
+        const needsSpace = spaceDelimited || !CJK_SCRIPT.test(part);
+        line += needsSpace ? ` ${part}` : part;
       }
     }
     return line;
   }
 
+  /**
+   * Forget the current sentence and retire all of its work. A new sentence must never
+   * reuse a sequence that is still in flight: the stale result would be committed as the
+   * new line and the fresh result would be orphaned. Sequences only ever increase, so
+   * jumping `nextCommit` past the retired ones keeps late callbacks harmless.
+   */
   private resetCoverage(): void {
+    this.generation += 1;
+    for (const sequence of this.inFlight) {
+      const item = this.bySequence.get(sequence);
+      if (item) this.callbacks.cancel(item.text, item.context, sequence);
+    }
+    this.inFlight.clear();
+    // Pending deltas were never dispatched, so dropping them is enough; only dispatched
+    // work needs an engine cancel.
+    this.pending.length = 0;
+    this.bySequence.clear();
+    this.results.clear();
+    this.nextCommit = this.nextSequence;
     this.sourceParts = [];
     this.translationParts = [];
-    this.nextSequence = this.nextCommit;
     this.lastQueued = '';
   }
 
