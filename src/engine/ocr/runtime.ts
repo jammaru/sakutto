@@ -1,6 +1,7 @@
 import { browser } from 'wxt/browser';
 import dictionaryText from '../../../public/ocr/pp-ocrv6-chars.txt?raw';
 import { abortError, EngineError, isAbortError, isEngineError } from '@/engine/errors';
+import type { OcrRuntimeLike } from './host';
 import type { AssetManager } from '@/engine/model/asset-manager';
 import { OCR_CHARSET, OCR_TIER_CATALOG, type OcrTier } from './catalog';
 import type { DecodedOcrImage } from './codec';
@@ -119,7 +120,12 @@ export class OcrRuntime {
     assets: AssetManager<OcrTier>,
     tier: OcrTier,
     signal: AbortSignal,
-  ): Promise<OcrRuntime> {
+  ): Promise<OcrRuntimeLike> {
+    // The e2e build exercises the real message pipeline but deliberately skips the 15 MB ORT
+    // wasm download: shared CI runners cannot reliably fetch it from an extension origin. The
+    // release build always takes the real path below.
+    if (__SAKUTTO_FAKE_ENGINE__) return fakeRuntime(signal);
+
     const entry = OCR_TIER_CATALOG[tier];
     let det: OrtSession | null = null;
     let rec: OrtSession | null = null;
@@ -175,4 +181,37 @@ export class OcrRuntime {
   async release(): Promise<void> {
     await Promise.all([this.det.release(), this.rec.release()]);
   }
+}
+/** Deterministic OCR text for the fake-engine e2e build. Never compiled into the release. */
+function fakeRuntime(signal: AbortSignal): OcrRuntimeLike {
+  const lines = [
+    'LOCAL TRANSLATION NOTES',
+    'A private tool for every reader.',
+    'Open a page and choose a language.',
+    'The text stays on this device.',
+  ];
+  return {
+    recognize: async (image, runSignal) => {
+      throwIfOcrAborted(signal);
+      throwIfOcrAborted(runSignal);
+      const regions = lines.map((text, index) => {
+        const top = 12 + index * 18;
+        return {
+          text,
+          confidence: 1,
+          recognitionConfidence: 1,
+          symbolScores: [],
+          vertical: false,
+          quad: [
+            { x: 10, y: top },
+            { x: Math.max(20, image.width - 10), y: top },
+            { x: Math.max(20, image.width - 10), y: top + 14 },
+            { x: 10, y: top + 14 },
+          ] as const,
+        };
+      });
+      return { regions, lines: [], text: lines.join('\n') };
+    },
+    release: () => undefined,
+  };
 }

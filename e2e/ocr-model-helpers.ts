@@ -221,10 +221,12 @@ export async function warmOcr(extension: LoadedExtension): Promise<void> {
         image: { width: 2, height: 2, data },
       });
     });
+    const outcome = result as { text?: string } | { detail?: string } | null;
     console.log(
       `OCR warm-up: ${String(Date.now() - started)} ms`,
-      JSON.stringify(result),
-      (result as { detail?: string } | null)?.detail ?? '',
+      'text' in (outcome ?? {})
+        ? `text=${String((outcome as { text?: string }).text?.length ?? 0)} chars`
+        : `error=${(outcome as { detail?: string } | null)?.detail ?? JSON.stringify(result)}`,
     );
   } finally {
     await page.close();
