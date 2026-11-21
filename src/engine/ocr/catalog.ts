@@ -1,4 +1,4 @@
-import { assetBundleSize, type AssetFile, type AssetPin } from '@/engine/model/asset';
+import { assetBundleSize, type AssetFile, type AssetPin } from '../model/asset.ts';
 
 export type OcrModelId = 'tiny_det' | 'small_det' | 'medium_det' | 'small_rec' | 'medium_rec';
 export type OcrModelRole = 'det' | 'rec';
