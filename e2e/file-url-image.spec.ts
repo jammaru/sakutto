@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { copyFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { launchExtension, type LoadedExtension } from './extension';
 import { resetExtensionStorage } from './page';
@@ -13,7 +13,6 @@ import { seedStandardOcrModels } from './ocr-model-helpers';
  * that the fallback page is visible and can still translate the chosen image.
  */
 const IMAGE_FIXTURE = resolve('bench/ocr/fixtures/en-scan.png');
-const IMAGE_PATH = join(homedir(), 'sakutto-e2e-en-scan.png');
 
 interface ChromeInWorker {
   storage: {
@@ -147,30 +146,23 @@ async function expectGuidance(page: Page): Promise<void> {
 }
 
 test.describe('file URL image context menu', () => {
-  test.beforeAll(async () => {
-    await copyFile(IMAGE_FIXTURE, IMAGE_PATH);
-  });
-
-  test.afterAll(async () => {
-    await rm(IMAGE_PATH, { force: true });
-  });
-
   test('explains the setting and translates a chosen image with file access granted', async () => {
-    test.setTimeout(30_000);
+    test.setTimeout(40_000);
+    const directory = await mkdtemp(join(tmpdir(), 'sakutto-fileurl-image-'));
+    const imagePath = join(directory, 'en-scan.png');
+    await copyFile(IMAGE_FIXTURE, imagePath);
     const extension = await launchWithFileAccess(true);
     try {
       await expect.poll(() => fileSchemeAccess(extension)).toBe(true);
       await prepareExtension(extension);
 
       const imagePage = await extension.context.newPage();
-      await imagePage.goto('file://' + IMAGE_PATH);
+      await imagePage.goto('file://' + imagePath);
       const fallback = await openFallback(extension, imagePage);
       await expectGuidance(fallback);
 
-      await fallback.locator('input[type=file]').setInputFiles(IMAGE_PATH);
-      await expect(fallback.locator('[data-sakutto=chosen-file]')).toContainText(
-        'sakutto-e2e-en-scan',
-      );
+      await fallback.locator('input[type=file]').setInputFiles(imagePath);
+      await expect(fallback.locator('[data-sakutto=chosen-file]')).toContainText('en-scan');
       // Real PP-OCR models recognize the scan; the fake engine prefixes every line.
       await expect(fallback.locator('.translation')).toContainText('§en§', { timeout: 15_000 });
       await expect(fallback.locator('.translation')).toContainText('LOCAL TRANSLATION NOTES', {
@@ -178,23 +170,28 @@ test.describe('file URL image context menu', () => {
       });
     } finally {
       await extension.close();
+      await rm(directory, { recursive: true, force: true });
     }
   });
 
   test('shows an explicit message when file access is not granted', async () => {
-    test.setTimeout(30_000);
+    test.setTimeout(40_000);
+    const directory = await mkdtemp(join(tmpdir(), 'sakutto-fileurl-image-'));
+    const imagePath = join(directory, 'en-scan.png');
+    await copyFile(IMAGE_FIXTURE, imagePath);
     const extension = await launchWithFileAccess(false);
     try {
       await expect.poll(() => fileSchemeAccess(extension)).toBe(false);
       await prepareExtension(extension);
 
       const imagePage = await extension.context.newPage();
-      await imagePage.goto('file://' + IMAGE_PATH);
+      await imagePage.goto('file://' + imagePath);
       const fallback = await openFallback(extension, imagePage);
       await expectGuidance(fallback);
       await expect(fallback.locator('body')).not.toBeEmpty();
     } finally {
       await extension.close();
+      await rm(directory, { recursive: true, force: true });
     }
   });
 });

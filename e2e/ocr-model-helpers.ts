@@ -1,4 +1,4 @@
-import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Page } from '@playwright/test';
@@ -16,17 +16,26 @@ export async function ocrModelBytes(): Promise<Record<string, Uint8Array>> {
   const output: Record<string, Uint8Array> = {};
   for (const file of OCR_TIER_CATALOG.standard.files) {
     const path = cache ? join(cache, file.path) : join(tmpdir(), 'sakutto-e2e-models', file.path);
+    let bytes: Uint8Array | undefined;
     try {
-      await access(path);
+      const cached = new Uint8Array(await readFile(path));
+      if (cached.byteLength === file.size) bytes = cached;
     } catch {
-      if (!cache) {
-        await mkdir(join(tmpdir(), 'sakutto-e2e-models'), { recursive: true });
-        const response = await fetch(file.url);
-        if (!response.ok) throw new Error(`OCR model download failed: ${file.url}`);
-        await writeFile(path, Buffer.from(await response.arrayBuffer()));
-      }
+      // No usable cache yet; download below.
     }
-    const bytes = new Uint8Array(await readFile(path));
+    if (bytes === undefined) {
+      if (cache) {
+        throw new Error(`OCR model ${file.path} is missing from ${cache}`);
+      }
+      await mkdir(join(tmpdir(), 'sakutto-e2e-models'), { recursive: true });
+      const response = await fetch(file.url);
+      if (!response.ok) throw new Error(`OCR model download failed: ${file.url}`);
+      // Write to a worker-unique file first: CI shards can share the same temp directory.
+      const temporary = `${path}.${String(process.pid)}.tmp`;
+      await writeFile(temporary, Buffer.from(await response.arrayBuffer()));
+      await rename(temporary, path);
+      bytes = new Uint8Array(await readFile(path));
+    }
     if (bytes.byteLength !== file.size) {
       throw new Error(
         `OCR model ${file.path} has ${bytes.byteLength} bytes, expected ${file.size}`,

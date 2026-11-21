@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { loadExtension } from './extension';
 import { resetExtensionStorage } from './page';
 import { plantLicenseConsent } from './folder-model-helpers';
@@ -87,45 +88,52 @@ async function waitForOcrText(page: Page, timeoutMs: number): Promise<number> {
   return Date.now() - started;
 }
 
+interface Fixtures {
+  directory: string;
+  server: FixtureServer;
+  pdfPath: string;
+  pdfUrl: string;
+}
+
+/** Every test owns its fixture server and directory: CI shards run specs in parallel workers. */
+async function createFixtures(): Promise<Fixtures> {
+  const directory = await mkdtemp(join(tmpdir(), 'sakutto-ocr-fixtures-'));
+  // A one-page, image-only scan generated at test time. No text layer, no committed binary.
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    const image = (await readFile(IMAGE_SOURCE)).toString('base64');
+    await page.setContent(
+      `<style>@page { margin: 0 } body { margin: 0 } img { display: block }</style><img src="data:image/png;base64,${image}">`,
+    );
+    await writeFile(
+      join(directory, 'scan.pdf'),
+      await page.pdf({ width: '900px', height: '650px', printBackground: true }),
+    );
+  } finally {
+    await browser.close();
+  }
+  await writeFile(join(directory, 'en-scan.png'), await readFile(IMAGE_SOURCE));
+  return {
+    directory,
+    server: await serveFixtures(directory),
+    pdfPath: join(directory, 'scan.pdf'),
+    pdfUrl: pathToFileURL(join(directory, 'scan.pdf')).href,
+  };
+}
+
 test.describe('scanned PDF and image OCR in real Chromium', () => {
-  let directory: string;
-  let server: FixtureServer;
-
-  test.beforeAll(async () => {
-    directory = await mkdtemp(join(tmpdir(), 'sakutto-ocr-fixtures-'));
-    // A one-page, image-only scan generated at test time. No text layer, no committed binary.
-    const browser = await chromium.launch();
-    try {
-      const page = await browser.newPage();
-      const image = (await readFile(IMAGE_SOURCE)).toString('base64');
-      await page.setContent(
-        `<style>@page { margin: 0 } body { margin: 0 } img { display: block }</style><img src="data:image/png;base64,${image}">`,
-      );
-      await writeFile(
-        join(directory, 'scan.pdf'),
-        await page.pdf({ width: '900px', height: '650px', printBackground: true }),
-      );
-    } finally {
-      await browser.close();
-    }
-    await writeFile(join(directory, 'en-scan.png'), await readFile(IMAGE_SOURCE));
-    server = await serveFixtures(directory);
-  });
-
-  test.afterAll(async () => {
-    await server.close();
-    await rm(directory, { recursive: true, force: true });
-  });
-
   test('http scanned PDF finishes OCR within 30 seconds', async () => {
     test.setTimeout(90_000);
+    const fixtures = await createFixtures();
     const extension = await loadExtension('en-US');
     try {
       await prepare(extension, true);
       const pdf = await extension.context.newPage();
-      await pdf.goto(server.url('scan.pdf'));
+      const pdfUrl = fixtures.server.url('scan.pdf');
+      await pdf.goto(pdfUrl);
       const started = Date.now();
-      const opened = await openPdfTab(extension, pdf, server.url('scan.pdf'));
+      const opened = await openPdfTab(extension, pdf, pdfUrl);
       expect(opened.reason).toBeNull();
       await waitForOcrText(opened.page, 30_000);
       const elapsed = Date.now() - started;
@@ -133,17 +141,20 @@ test.describe('scanned PDF and image OCR in real Chromium', () => {
       expect(await translatedText(opened.page)).not.toContain('認識できませんでした');
     } finally {
       await extension.close();
+      await fixtures.server.close();
+      await rm(fixtures.directory, { recursive: true, force: true });
     }
   });
 
   test('file:// scanned PDF offers the picker and finishes OCR', async () => {
     test.setTimeout(90_000);
+    const fixtures = await createFixtures();
     const extension = await loadExtension('en-US');
     try {
       await prepare(extension, true);
       await setFileUrls(extension, true);
       const pdf = await extension.context.newPage();
-      const fileUrl = `file://${join(directory, 'scan.pdf')}`;
+      const fileUrl = fixtures.pdfUrl;
       await pdf.goto(fileUrl);
       const started = Date.now();
       const opened = await openPdfTab(extension, pdf, fileUrl);
@@ -151,39 +162,47 @@ test.describe('scanned PDF and image OCR in real Chromium', () => {
       // reader must say so instead of hanging, and the picker must still work.
       expect(opened.reason).toBe('file-denied');
       await expect(opened.page.locator('[data-sakutto="file-access-message"]')).toBeVisible();
-      await opened.page.locator('#pdf-file').setInputFiles(join(directory, 'scan.pdf'));
+      await opened.page.locator('#pdf-file').setInputFiles(fixtures.pdfPath);
       await waitForOcrText(opened.page, 30_000);
       const elapsed = Date.now() - started;
       console.log(`1-page file:// scanned PDF OCR via picker on CI: ${elapsed} ms`);
     } finally {
       await extension.close();
+      await fixtures.server.close();
+      await rm(fixtures.directory, { recursive: true, force: true });
     }
   });
 
   test('missing OCR model shows an actionable message instead of hanging', async () => {
     test.setTimeout(60_000);
+    const fixtures = await createFixtures();
     const extension = await loadExtension('ja');
     try {
       await prepare(extension, false);
       const pdf = await extension.context.newPage();
-      await pdf.goto(server.url('scan.pdf'));
-      const opened = await openPdfTab(extension, pdf, server.url('scan.pdf'));
+      const pdfUrl = fixtures.server.url('scan.pdf');
+      await pdf.goto(pdfUrl);
+      const opened = await openPdfTab(extension, pdf, pdfUrl);
       expect(opened.reason).toBeNull();
       await expect(opened.page.getByText('設定でOCRモデルをダウンロードしてください')).toBeVisible({
         timeout: 20_000,
       });
     } finally {
       await extension.close();
+      await fixtures.server.close();
+      await rm(fixtures.directory, { recursive: true, force: true });
     }
   });
 
   test('image context menu OCR still works over http', async () => {
     test.setTimeout(60_000);
+    const fixtures = await createFixtures();
     const extension = await loadExtension('en-US');
     try {
       await prepare(extension, true);
       const image = await extension.context.newPage();
-      await image.goto(server.url('en-scan.png'));
+      const imageUrl = fixtures.server.url('en-scan.png');
+      await image.goto(imageUrl);
       await image.bringToFront();
       const tabId = await extension.worker.evaluate(async () => {
         const browser = (
@@ -212,7 +231,7 @@ test.describe('scanned PDF and image OCR in real Chromium', () => {
             }
           ).dispatch({ menuItemId: 'translate-image', srcUrl }, await browser.tabs.get(tabId));
         },
-        { tabId, srcUrl: server.url('en-scan.png') },
+        { tabId, srcUrl: imageUrl },
       );
       await expect
         .poll(
@@ -227,6 +246,8 @@ test.describe('scanned PDF and image OCR in real Chromium', () => {
         .toBe(true);
     } finally {
       await extension.close();
+      await fixtures.server.close();
+      await rm(fixtures.directory, { recursive: true, force: true });
     }
   });
 });
