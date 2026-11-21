@@ -719,6 +719,10 @@
   "modelStorageIntro": {
     "message": "選擇模型的儲存位置。現有模型會隨選擇移動。"
   },
+  "modelStorageFilesNote": {
+    "message": "PLaMo 翻譯模型（GGUF）與端點 OCR 模型（ONNX）都會儲存在這裡。OCR 檔案放在 ocr-* 子資料夾中；若未選擇共用資料夾，兩者都會留在這個瀏覽器內。",
+    "description": "Where the PLaMo and OCR files are stored, for both folder and browser choices."
+  },
   "modelStorageBrowserOnlyHint": {
     "message": "此瀏覽器無法使用共用資料夾，因此模型會儲存在此瀏覽器中。"
   },

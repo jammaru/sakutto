@@ -719,6 +719,10 @@
   "modelStorageIntro": {
     "message": "Pilih tempat penyimpanan model. Model yang sudah ada dipindahkan sesuai pilihan."
   },
+  "modelStorageFilesNote": {
+    "message": "Model terjemahan PLaMo (GGUF) dan model OCR (ONNX) keduanya disimpan di sini. File OCR masuk ke subfolder ocr-*; tanpa folder bersama, keduanya tetap di browser ini.",
+    "description": "Where the PLaMo and OCR files are stored, for both folder and browser choices."
+  },
   "modelStorageBrowserOnlyHint": {
     "message": "Browser ini tidak dapat menggunakan folder bersama, jadi model disimpan di dalam browser ini."
   },

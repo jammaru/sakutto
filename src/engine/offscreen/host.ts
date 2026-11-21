@@ -844,15 +844,14 @@ export class EngineHost {
           new LazyOcrHost({
             hasConsent: () => this.runtimePrefs?.consented ?? false,
             createAssetStore: async () => {
-              // Do not initialize translation for OCR. If it is already active, however, use
-              // its selected OPFS/shared-folder destination instead of splitting model storage.
-              if (this.servicesTask) {
-                try {
-                  return (await this.servicesTask).manager.primaryStore;
-                } catch {
-                  // OCR can still use browser storage when translation initialization failed.
-                }
-              }
+              // Resolve the folder directly: OCR can be the first engine used on this
+              // profile, and the translation manager may not exist yet. A granted shared
+              // folder keeps OCR ONNX + its asset.json sidecar in ocr-<tier>/ subfolders of
+              // the same sakutto-models directory that holds the PLaMo GGUF. Otherwise
+              // both engines use browser (OPFS) storage.
+              const { openSharedOcrAssetStore } = await import('../model/shared-asset-store');
+              const shared = await openSharedOcrAssetStore();
+              if (shared) return shared;
               return OpfsModelFileStore.open();
             },
             onStatus: (status) => {
@@ -1300,6 +1299,7 @@ export class EngineHost {
     const status = this.folderSession
       ? await this.folderSession.apply({ moveOpfs })
       : emptySharedFolderStatus(false);
+    await this.refreshOcrStore();
     const model = modelStatusForSharedFolder(
       await services.manager.status(this.activeModelId),
       status,
@@ -1309,6 +1309,13 @@ export class EngineHost {
     // content targets and leave an unchecked lastError in the offscreen document.
     this.publishModelStatus(model);
     return status;
+  }
+
+  /** OCR keeps its own lazy store; re-resolve it after a folder choice changes. */
+  private async refreshOcrStore(): Promise<void> {
+    if (!this.ocrHostTask) return;
+    const host = await this.ocrHostTask.catch(() => null);
+    await host?.refreshStore();
   }
 
   private async handleFolderReload(
@@ -1363,6 +1370,7 @@ export class EngineHost {
       const status = this.folderSession
         ? await this.folderSession.apply()
         : emptySharedFolderStatus(false);
+      await this.refreshOcrStore();
       const model = modelStatusForSharedFolder(
         await services.manager.status(this.activeModelId),
         status,

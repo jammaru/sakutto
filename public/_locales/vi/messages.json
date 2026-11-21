@@ -719,6 +719,10 @@
   "modelStorageIntro": {
     "message": "Chọn nơi lưu mô hình. Các mô hình hiện có sẽ được di chuyển theo lựa chọn."
   },
+  "modelStorageFilesNote": {
+    "message": "Mô hình dịch PLaMo (GGUF) và các mô hình OCR (ONNX) đều được lưu tại đây. Tệp OCR nằm trong thư mục con ocr-*; nếu không chọn thư mục dùng chung, cả hai vẫn nằm trong trình duyệt này.",
+    "description": "Where the PLaMo and OCR files are stored, for both folder and browser choices."
+  },
   "modelStorageBrowserOnlyHint": {
     "message": "Trình duyệt này không thể sử dụng thư mục dùng chung, vì vậy mô hình sẽ được lưu trong trình duyệt này."
   },

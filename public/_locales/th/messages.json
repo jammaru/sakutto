@@ -719,6 +719,10 @@
   "modelStorageIntro": {
     "message": "เลือกตำแหน่งจัดเก็บโมเดล โมเดลที่มีอยู่จะถูกย้ายตามที่เลือก"
   },
+  "modelStorageFilesNote": {
+    "message": "โมเดลแปลภาษา PLaMo (GGUF) และโมเดล OCR (ONNX) จะถูกเก็บไว้ที่นี่ทั้งคู่ ไฟล์ OCR อยู่ในโฟลเดอร์ย่อย ocr-* หากไม่เลือกโฟลเดอร์ร่วม ทั้งสองจะอยู่ในเบราว์เซอร์นี้",
+    "description": "Where the PLaMo and OCR files are stored, for both folder and browser choices."
+  },
   "modelStorageBrowserOnlyHint": {
     "message": "เบราว์เซอร์นี้ไม่สามารถใช้โฟลเดอร์ที่ใช้ร่วมกันได้ โมเดลจึงถูกจัดเก็บไว้ในเบราว์เซอร์นี้"
   },

@@ -719,6 +719,10 @@
   "modelStorageIntro": {
     "message": "모델을 저장할 위치를 선택하세요. 기존 모델은 선택에 따라 이동합니다."
   },
+  "modelStorageFilesNote": {
+    "message": "PLaMo 번역 모델(GGUF)과 온디바이스 OCR 모델(ONNX)이 모두 여기에 저장됩니다. OCR 파일은 ocr-* 하위 폴더에 들어가며, 공유 폴더를 선택하지 않으면 둘 다 이 브라우저에 저장됩니다.",
+    "description": "Where the PLaMo and OCR files are stored, for both folder and browser choices."
+  },
   "modelStorageBrowserOnlyHint": {
     "message": "이 브라우저에서는 공유 폴더를 사용할 수 없으므로 모델이 브라우저 안에 저장됩니다."
   },

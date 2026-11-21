@@ -873,6 +873,7 @@
         <div class="storage-browser-only">
           <h3 class="storage-heading">{t('modelStorageLegend')}</h3>
           <p class="muted">{t('modelStorageBrowserOnlyHint')}</p>
+          <p class="muted" data-sakutto="model-storage-files-note">{t('modelStorageFilesNote')}</p>
           {#if braveBrowser}
             <p class="muted">{t('modelStorageBraveEnableFsaHint')}</p>
           {/if}
@@ -884,6 +885,7 @@
           legendKey="onboardingStoreLegend"
           folderKey={pickerAvailable ? 'onboardingStoreFolder' : 'modelStorageCopyFolder'}
           browserKey="onboardingStoreBrowser"
+          fileNoteKey="modelStorageFilesNote"
           recommended={pickerAvailable ? 'folder' : 'copy'}
           notes={storeChoice === (pickerAvailable ? 'folder' : 'copy')
             ? pickerAvailable

@@ -14,7 +14,7 @@ export interface OcrHostOptions {
   hasConsent?: () => boolean;
   onStatus?: (status: AssetStatus<OcrTier>) => void;
   createAssetManager?: () => Promise<AssetManager<OcrTier>>;
-  /** Reuses an active shared-folder store, or opens the same OPFS root as translation. */
+  /** Resolves the current shared folder or browser storage when the host is first used. */
   createAssetStore?: () => Promise<ModelFileStore>;
   createRuntime?: (
     assets: AssetManager<OcrTier>,
@@ -113,6 +113,17 @@ export class OcrHost {
     request.controller.abort();
     this.requests.delete(requestId);
     void this.assetsTask?.then((assets) => assets.cancel(request.tier));
+  }
+
+  /**
+   * Re-resolve storage after the shared folder changed. An active download/recognition is
+   * left on its original store: switching files underneath an ORT session or a ranged
+   * transfer would be worse than finishing on the store that started it.
+   */
+  async refreshStore(): Promise<void> {
+    if (this.requests.size > 0) return;
+    await this.releaseRuntime();
+    this.assetsTask = null;
   }
 
   private track(requestId: string, tier: OcrTier, signal?: AbortSignal): AbortController {

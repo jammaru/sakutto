@@ -719,6 +719,10 @@
   "modelStorageIntro": {
     "message": "Wählen Sie, wo das Modell gespeichert wird. Vorhandene Modelle werden entsprechend verschoben."
   },
+  "modelStorageFilesNote": {
+    "message": "Das PLaMo-Übersetzungsmodell (GGUF) und die OCR-Modelle (ONNX) werden beide hier gespeichert. OCR-Dateien liegen in Unterordnern mit ocr-*; ohne freigegebenen Ordner bleiben beide in diesem Browser.",
+    "description": "Where the PLaMo and OCR files are stored, for both folder and browser choices."
+  },
   "modelStorageBrowserOnlyHint": {
     "message": "In diesem Browser können keine freigegebenen Ordner verwendet werden. Modelle werden daher im Browser gespeichert."
   },
