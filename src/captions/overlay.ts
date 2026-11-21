@@ -537,9 +537,10 @@ export class CaptionOverlay {
     const bilingual = state.display === 'bilingual';
     const showOriginal = original.length > 0 && (bilingual || originalOnly);
     this.originalLine.textContent = showOriginal ? original : '';
-    this.translatedLine.textContent = translation;
+    this.translatedLine.textContent =
+      translation.length > 0 ? translation : originalOnly ? this.labels.pending : '';
     this.originalLine.hidden = !showOriginal;
-    this.translatedLine.hidden = translation.length === 0;
+    this.translatedLine.hidden = translation.length === 0 && !originalOnly;
     this.toggleLabel = bilingual ? this.labels.hideOriginal : this.labels.showOriginal;
     if (this.toggle.getAttribute('aria-label') !== this.toggleLabel) {
       this.toggle.setAttribute('aria-label', this.toggleLabel);

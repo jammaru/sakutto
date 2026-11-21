@@ -10,6 +10,7 @@ import {
   type VideoCaptionPosition,
 } from '@/shared/settings';
 import {
+  buildSentenceUnitsFromTrack,
   cueAtTime,
   cuesFromPlayhead,
   cuesInWindow,
@@ -649,11 +650,7 @@ export class VideoCaptionSession {
     }
 
     try {
-      const cues = await this.readYouTubeCues(
-        selected.baseUrl,
-        selected.languageCode,
-        selected.asr,
-      );
+      const cues = await this.readYouTubeCues(selected.baseUrl, selected.languageCode);
       if (!stillCurrent()) {
         this.timedtextGuard.reset(fetchKey);
         return null;
@@ -1586,22 +1583,13 @@ export class VideoCaptionSession {
     this.hold = null;
   }
 
-  private async readYouTubeCues(
-    baseUrl: string,
-    language: string,
-    asr: boolean,
-  ): Promise<CaptionCue[]> {
+  private async readYouTubeCues(baseUrl: string, language: string): Promise<CaptionCue[]> {
     const json3 = await this.readTrack(withTimedtextFormat(baseUrl, 'json3'));
-    const fromJson = finalizeCaptionCues(
-      parseTimedtextPayload(json3, 'json3', language),
-      undefined,
-      {
-        asr,
-      },
-    );
+    const parsedCues = parseTimedtextPayload(json3, 'json3', language);
+    const fromJson = buildSentenceUnitsFromTrack(parsedCues, json3);
     if (fromJson.length > 0) return fromJson;
     const vtt = await this.readTrack(withTimedtextFormat(baseUrl, 'vtt'));
-    return finalizeCaptionCues(parseTimedtextPayload(vtt, 'vtt', language), undefined, { asr });
+    return buildSentenceUnitsFromTrack(parseTimedtextPayload(vtt, 'vtt', language));
   }
 
   private translateOptions(language?: string): CaptionTranslateOptions {

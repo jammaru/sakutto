@@ -52,8 +52,8 @@ describe('caption overlay', () => {
     expect(host?.hidden).toBe(false);
     expect(original?.hidden).toBe(false);
     expect(original?.textContent).toBe('The station opens at dawn.');
-    expect(translated?.hidden).toBe(true);
-    expect(translated?.textContent).toBe('');
+    expect(translated?.hidden).toBe(false);
+    expect(translated?.textContent).toBe(labels.pending);
     expect(host?.hasAttribute('data-sakutto-caption')).toBe(false);
 
     overlay.show({
