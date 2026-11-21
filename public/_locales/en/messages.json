@@ -223,13 +223,13 @@
     "message": "Getting started"
   },
   "onboardingLead": {
-    "message": "Page translation runs on this device by default. The PLaMo 3 model is downloaded only when it is not already stored here."
+    "message": "Page translation and scanned-document OCR run on this device by default. The PLaMo 3 translation model and the standard OCR models download only when they are not already stored here."
   },
   "onboardingSetupHeading": {
     "message": "About this extension"
   },
   "onboardingModelNote": {
-    "message": "The default model (573 MB) downloads to this device. A sustained 100 Mbps transfer of that size is about 46 seconds before overhead; real time varies. An interrupted download resumes."
+    "message": "The default translation model (573 MB) downloads to this device. A sustained 100 Mbps transfer of that size is about 46 seconds before overhead; real time varies. An interrupted download resumes."
   },
   "onboardingBridgeNote": {
     "message": "The page keeps its original text until the model is ready, then PLaMo translates it. Google documents Chrome's translation as on-device."
@@ -629,7 +629,7 @@
     "message": "Try a sample page"
   },
   "onboardingWhileDownloading": {
-    "message": "While the model downloads, pages keep their original text; nothing is translated until PLaMo is ready."
+    "message": "While the translation and OCR models download, pages keep their original text; nothing is translated until PLaMo is ready."
   },
   "downloadEtaSeconds": {
     "message": "About $COUNT$ seconds left.",
@@ -1751,6 +1751,18 @@
   "ocrDownloadRequired": {
     "message": "Download the OCR models in Settings to recognize text in scanned PDFs and images.",
     "description": "Shown when OCR is unavailable or its model download fails."
+  },
+  "imageFileAccessHeading": {
+    "message": "Translate a local image",
+    "description": "Title of the page opened when the image context menu cannot reach a file URL."
+  },
+  "imageFileAccessBody": {
+    "message": "Sakutto cannot read this image from the page. Open chrome://extensions, choose Sakutto, and turn on “Allow access to file URLs” (「ファイルの URL へのアクセスを許可する」). You can also choose the image file below and translate it on this device.",
+    "description": "Guidance when a local image action cannot inject into the tab."
+  },
+  "imageFileAccessChoose": {
+    "message": "Choose an image file",
+    "description": "Label for the local image picker."
   },
   "contextTranslateImage": {
     "message": "Translate image with Sakutto",

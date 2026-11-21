@@ -11,7 +11,12 @@ import {
 import { isEngineCapabilities, type EngineCapabilities } from './capabilities';
 import type { EngineKind } from '@/engine/types';
 import type { OcrTier } from '@/engine/ocr/catalog';
-import type { OcrImagePayload } from '@/engine/offscreen/protocol';
+import {
+  isOcrFailureResponse,
+  OCR_RECOGNITION_TIMEOUT_MS,
+  type OcrFailureCode,
+  type OcrImagePayload,
+} from '@/engine/offscreen/protocol';
 import type { OcrResult } from '@/engine/ocr/types';
 import type { AssetStatus } from '@/engine/model/asset';
 import { isOcrResult, isOcrStatus } from './ocr';
@@ -716,11 +721,21 @@ function createOcrRequestId(): string {
     : `ocr-${String(Date.now())}-${Math.random().toString(36).slice(2)}`;
 }
 
-export async function requestOcrRecognize(
+export interface OcrRecognizeOutcome {
+  result: OcrResult | null;
+  error: OcrFailureCode | null;
+}
+
+/**
+ * Same request as `requestOcrRecognize`, but the caller can tell a model that was never
+ * downloaded from a recognition that failed or timed out, so it can show an actionable error
+ * instead of leaving a scanned page in the "reading" state forever.
+ */
+export async function requestOcrRecognizeDetailed(
   tier: OcrTier,
   image: OcrImagePayload,
   signal?: AbortSignal,
-): Promise<OcrResult | null> {
+): Promise<OcrRecognizeOutcome> {
   const requestId = createOcrRequestId();
   const cancel = (): void => {
     void requestOcrCancel(tier, requestId);
@@ -728,21 +743,41 @@ export async function requestOcrRecognize(
   signal?.addEventListener('abort', cancel, { once: true });
   if (signal?.aborted) {
     signal.removeEventListener('abort', cancel);
-    return null;
+    return { result: null, error: null };
   }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<OcrRecognizeOutcome>((resolve) => {
+    timer = setTimeout(() => {
+      void requestOcrCancel(tier, requestId);
+      resolve({ result: null, error: 'timeout' });
+    }, OCR_RECOGNITION_TIMEOUT_MS + 2_000);
+  });
   try {
-    const response: unknown = await browser.runtime.sendMessage({
-      type: 'ocr:recognize',
-      tier,
-      requestId,
-      image,
-    } satisfies OcrRecognizeRequest);
-    return isOcrResult(response) ? response : null;
+    const response: unknown = await Promise.race([
+      browser.runtime.sendMessage({
+        type: 'ocr:recognize',
+        tier,
+        requestId,
+        image,
+      } satisfies OcrRecognizeRequest),
+      timeout,
+    ]);
+    if (isOcrFailureResponse(response)) return { result: null, error: response.__ocrError };
+    return { result: isOcrResult(response) ? response : null, error: null };
   } catch {
-    return null;
+    return { result: null, error: null };
   } finally {
+    if (timer !== undefined) clearTimeout(timer);
     signal?.removeEventListener('abort', cancel);
   }
+}
+
+export async function requestOcrRecognize(
+  tier: OcrTier,
+  image: OcrImagePayload,
+  signal?: AbortSignal,
+): Promise<OcrResult | null> {
+  return (await requestOcrRecognizeDetailed(tier, image, signal)).result;
 }
 
 export async function requestCacheClear(): Promise<boolean> {

@@ -1742,6 +1742,18 @@
     "message": "Descarga los modelos de OCR en Configuración para reconocer texto en PDFs escaneados e imágenes.",
     "description": "Shown when OCR is unavailable or its model download fails."
   },
+  "imageFileAccessHeading": {
+    "message": "Translate a local image",
+    "description": "Title of the page opened when the image context menu cannot reach a file URL."
+  },
+  "imageFileAccessBody": {
+    "message": "Sakutto cannot read this image from the page. Open chrome://extensions, choose Sakutto, and turn on “Allow access to file URLs” (「ファイルの URL へのアクセスを許可する」). You can also choose the image file below and translate it on this device.",
+    "description": "Guidance when a local image action cannot inject into the tab."
+  },
+  "imageFileAccessChoose": {
+    "message": "Choose an image file",
+    "description": "Label for the local image picker."
+  },
   "contextTranslateImage": {
     "message": "Traducir imagen con Sakutto",
     "description": "Image context-menu action."

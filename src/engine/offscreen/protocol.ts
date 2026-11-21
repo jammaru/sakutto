@@ -33,6 +33,30 @@ export const TRANSLATION_PORT = 'sakutto:translate';
  */
 export const MODEL_STATUS_PROGRESS_ID = 'sakutto:model-status';
 
+/**
+ * OCR is the only host operation with no streaming progress. A recognition that never posts a
+ * result (stalled WASM init, a lost port, a wedged session) must not leave the reader pending
+ * forever. Every layer that waits for one recognition shares this bound.
+ */
+export const OCR_RECOGNITION_TIMEOUT_MS = 30_000;
+/** Slightly longer than the host bound so the typed error arrives before the page timer. */
+export const OCR_PAGE_TIMEOUT_MS = OCR_RECOGNITION_TIMEOUT_MS + 2_000;
+
+export type OcrFailureCode = 'model-missing' | 'timeout' | 'failed';
+
+export interface OcrFailureResponse {
+  __ocrError: OcrFailureCode;
+}
+
+export function isOcrFailureResponse(value: unknown): value is OcrFailureResponse {
+  return (
+    isRecord(value) &&
+    (value.__ocrError === 'model-missing' ||
+      value.__ocrError === 'timeout' ||
+      value.__ocrError === 'failed')
+  );
+}
+
 export interface SerializedTranslateOptions {
   src?: string;
   tgt: string;

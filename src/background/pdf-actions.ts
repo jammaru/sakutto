@@ -48,7 +48,7 @@ export async function openPdfForTabReason(
   if (url.startsWith('file:')) {
     const allowed = await fileSchemeAccessAllowed();
     if (allowed === false) {
-      await openPickerReader();
+      await openPickerReader('file-access');
       return 'file-denied';
     }
   }
@@ -57,7 +57,7 @@ export async function openPdfForTabReason(
   const stored = await openPdfFromUrl(url);
   if (!stored.ok) {
     if (url.startsWith('file:') && stored.reason === 'fetch-failed') {
-      await openPickerReader();
+      await openPickerReader('file-access');
       return 'file-denied';
     }
     return stored.reason;
@@ -74,11 +74,11 @@ export async function openPdfForTabReason(
 }
 
 /** Opens the reader with no stored document so the user can pick a local file. */
-async function openPickerReader(): Promise<void> {
+async function openPickerReader(reason?: 'file-access'): Promise<void> {
   try {
-    await browser.tabs.create({
-      url: browser.runtime.getURL(readerUrl('') as never),
-    });
+    const url = new URL(browser.runtime.getURL(readerUrl('') as never));
+    if (reason) url.searchParams.set('reason', reason);
+    await browser.tabs.create({ url: url.toString() as never });
   } catch {
     // The popup still explains how to allow file URLs.
   }

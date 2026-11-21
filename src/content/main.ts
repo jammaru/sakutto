@@ -838,6 +838,7 @@ export function contentMain(): void {
     if (sender.id !== browser.runtime.id) return;
     if (isImageTranslateRequest(message)) {
       imageTranslation ??= new ImageTranslationController({
+        ...(__SAKUTTO_FAKE_ENGINE__ ? { translate: fakeTranslate } : {}),
         labels: {
           heading: t('imageTranslationHeading'),
           pending: t('imageTranslating'),
@@ -846,6 +847,7 @@ export function contentMain(): void {
           close: t('imageTranslationClose'),
           original: t('imageOriginalText'),
           permission: t('imageTranslationPermission'),
+          ocrMissing: t('ocrDownloadRequired'),
         },
       });
       void imageTranslation.start(message.srcUrl);

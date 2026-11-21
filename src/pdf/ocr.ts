@@ -1,3 +1,4 @@
+import { OCR_PAGE_TIMEOUT_MS } from '@/engine/offscreen/protocol';
 import { groupReadingLines } from '@/engine/ocr/order';
 import type { ImageDataLike, OcrQuad, OcrRegion, OcrResult, ReadingLine } from '@/engine/ocr/types';
 import { isImageOnlyPage, type ExtractedPage } from './extract';
@@ -406,11 +407,17 @@ export interface PdfOcrCanvas {
 export type PdfOcrImage = ImageDataLike | PdfOcrCanvas;
 export type PdfOcrRecognize = (image: ImageDataLike, signal: AbortSignal) => Promise<OcrResult>;
 
+/** An OCR failure whose text is safe and useful to show on the scanned page. */
+export class OcrUserMessageError extends Error {}
+
 export interface PdfPageOcrOptions {
   readonly pageIndex: number;
   readonly pageWidth: number;
   readonly pageHeight: number;
   readonly recognize: PdfOcrRecognize;
+  /** Hard bound for one page; the default keeps a wedged engine from hanging the reader. */
+  readonly timeoutMs?: number;
+  readonly timeoutMessage?: string;
 }
 
 export interface PdfPageOcrResult {
@@ -482,30 +489,44 @@ export class PdfPageOcr {
     if (this.task) return this.task;
     const controller = new AbortController();
     this.controller = controller;
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, this.options.timeoutMs ?? OCR_PAGE_TIMEOUT_MS);
     const operation = Promise.resolve().then(async () => {
-      throwIfAborted(controller.signal);
-      const pixels = imageDataOf(image);
-      throwIfAborted(controller.signal);
-      const inference = Promise.resolve().then(() =>
-        this.options.recognize(pixels, controller.signal),
-      );
-      const ocr = await abortable(inference, controller.signal);
-      throwIfAborted(controller.signal);
-      const conversionOptions: OcrConversionOptions = {
-        pageIndex: this.options.pageIndex,
-        pageWidth: this.options.pageWidth,
-        pageHeight: this.options.pageHeight,
-        imageWidth: pixels.width,
-        imageHeight: pixels.height,
-      };
-      const lines = ocrResultToTextLines(ocr, conversionOptions);
-      throwIfAborted(controller.signal);
-      return {
-        ocr,
-        lines,
-        layout: layoutFromLines(lines, conversionOptions),
-        empty: lines.length === 0,
-      };
+      try {
+        throwIfAborted(controller.signal);
+        const pixels = imageDataOf(image);
+        throwIfAborted(controller.signal);
+        const inference = Promise.resolve().then(() =>
+          this.options.recognize(pixels, controller.signal),
+        );
+        const ocr = await abortable(inference, controller.signal);
+        throwIfAborted(controller.signal);
+        const conversionOptions: OcrConversionOptions = {
+          pageIndex: this.options.pageIndex,
+          pageWidth: this.options.pageWidth,
+          pageHeight: this.options.pageHeight,
+          imageWidth: pixels.width,
+          imageHeight: pixels.height,
+        };
+        const lines = ocrResultToTextLines(ocr, conversionOptions);
+        throwIfAborted(controller.signal);
+        return {
+          ocr,
+          lines,
+          layout: layoutFromLines(lines, conversionOptions),
+          empty: lines.length === 0,
+        };
+      } catch (error) {
+        if (timedOut) {
+          throw new OcrUserMessageError(this.options.timeoutMessage ?? 'OCR timed out.');
+        }
+        throw error;
+      } finally {
+        clearTimeout(timer);
+      }
     });
     const tracked: Promise<PdfPageOcrResult> = operation.then(
       (value) => {
@@ -517,7 +538,7 @@ export class PdfPageOcr {
           this.task = null;
           this.controller = null;
         }
-        if (controller.signal.aborted) throw abortError();
+        if (controller.signal.aborted && !timedOut) throw abortError();
         throw error;
       },
     );

@@ -3,8 +3,12 @@ import { encodeOcrImage } from '@/engine/ocr/codec';
 import type { OcrResult, ImageDataLike } from '@/engine/ocr/types';
 import { abortError } from '@/engine/errors';
 import type { TranslationChunk, TranslateOptions, TranslateSegment } from '@/engine/types';
-import { MAX_OCR_PIXELS, type OcrImagePayload } from '@/engine/offscreen/protocol';
-import { requestOcrRecognize } from '@/shared/messages';
+import {
+  MAX_OCR_PIXELS,
+  OCR_RECOGNITION_TIMEOUT_MS,
+  type OcrImagePayload,
+} from '@/engine/offscreen/protocol';
+import { requestOcrRecognizeDetailed } from '@/shared/messages';
 import { loadSettings } from '@/shared/storage';
 import type { Settings } from '@/shared/settings';
 import { translateViaBackground } from '@/shared/translation-client';
@@ -13,6 +17,7 @@ import type { ImageCaptureRect, ImageCaptureRequest } from '@/shared/image';
 const MAX_IMAGE_SIDE = 2048;
 
 class ImageCapturePermissionError extends Error {}
+class OcrModelMissingError extends Error {}
 
 interface ImageCaptureGeometry {
   rect: ImageCaptureRect | null;
@@ -28,6 +33,8 @@ export interface ImageTranslationLabels {
   close: string;
   original: string;
   permission: string;
+  /** Optional actionable message when OCR models have not been downloaded. */
+  ocrMissing?: string;
 }
 
 interface ImageTranslationOptions {
@@ -242,10 +249,30 @@ export class ImageTranslationController {
       this.throwIfStale(generation, controller.signal);
       const recognize =
         this.options.recognize ??
-        ((payload: OcrImagePayload) =>
-          requestOcrRecognize(settings.selectedOcrTier, payload, controller.signal));
+        (async (payload: OcrImagePayload) => {
+          const outcome = await requestOcrRecognizeDetailed(
+            settings.selectedOcrTier,
+            payload,
+            controller.signal,
+          );
+          if (outcome.error === 'model-missing') throw new OcrModelMissingError();
+          return outcome.result;
+        });
       const payload = encodeOcrImage(pixels);
-      const result = await recognize(payload);
+      // A silent recognizer must never leave the panel at "translating" forever.
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(new Error('OCR timed out'));
+        }, OCR_RECOGNITION_TIMEOUT_MS + 2_000);
+      });
+      let result: OcrResult | null;
+      try {
+        result = await Promise.race([recognize(payload), timeout]);
+      } finally {
+        if (timer !== undefined) clearTimeout(timer);
+      }
       this.throwIfStale(generation, controller.signal);
       if (!result) throw new Error('OCR failed');
       const segments = imageTranslationSegments(result);
@@ -284,7 +311,9 @@ export class ImageTranslationController {
       this.paintText(
         error instanceof ImageCapturePermissionError
           ? this.options.labels.permission
-          : this.options.labels.failed,
+          : error instanceof OcrModelMissingError && this.options.labels.ocrMissing
+            ? this.options.labels.ocrMissing
+            : this.options.labels.failed,
         true,
       );
     } finally {

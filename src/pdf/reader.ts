@@ -3,6 +3,7 @@ import { isAbortError } from '@/engine/errors';
 import { MAX_OCR_DIMENSION, MAX_OCR_PIXELS } from '@/engine/offscreen/protocol';
 import {
   createPdfPageOcr,
+  OcrUserMessageError,
   ocrResultToHybridPage,
   shouldRunPdfOcr,
   type PdfPageOcr,
@@ -751,6 +752,7 @@ export class PdfReader {
             pageWidth: extracted.width,
             pageHeight: extracted.height,
             recognize: this.ocr.recognize,
+            timeoutMessage: this.labels.ocrFailed,
           });
           this.pageOcr = pageOcr;
           const recognized = await pageOcr.run(canvas);
@@ -805,7 +807,8 @@ export class PdfReader {
           const element = this.pageElements.get(next);
           if (element) {
             element.host.dataset.pageEmpty = 'true';
-            element.missing.textContent = this.labels.ocrFailed;
+            element.missing.textContent =
+              error instanceof OcrUserMessageError ? error.message : this.labels.ocrFailed;
             this.paintTextLayer(element, fallback.lines);
           }
           // Even a failed OCR attempt is a reported page with a usable native/empty fallback.

@@ -9,6 +9,7 @@ import { EngineClient } from '@/background/engine-client';
 import { OcrRecognitionRequests } from '@/background/ocr-requests';
 import { captureActiveSenderTab } from '@/background/image-capture';
 import { ModelDownloads } from '@/background/model-downloads';
+import { OCR_RECOGNITION_TIMEOUT_MS, type OcrFailureResponse } from '@/engine/offscreen/protocol';
 import { createEngineHostController } from '@/background/engine-host-document';
 import {
   injectCaptionPages,
@@ -248,7 +249,6 @@ export default defineBackground(() => {
     });
   }
 
-
   function startOcrDownload(tier: OcrTier): boolean {
     if (ocrDownloadTasks.has(tier)) return true;
     const controller = new AbortController();
@@ -297,10 +297,10 @@ export default defineBackground(() => {
   async function ensureOcrReady(tier: OcrTier): Promise<void> {
     const status = await client.ocrStatus(tier);
     if (status.state === 'ready' || status.state === 'loaded') return;
-    const settings = await ensureSettings();
-    if (!hasLicenseConsent(settings)) throw new Error('OCR model consent is required.');
-    startOcrDownload(tier);
-    await ocrDownloadTasks.get(tier);
+    // On-demand downloads used to leave the first scanned page waiting on a 23 MB transfer
+    // with no visible error when that transfer could not start. Onboarding already offers the
+    // bundle; if it is missing, ask the reader to say so instead of waiting forever.
+    throw new Error('OCR models are not downloaded.');
   }
 
   async function deleteModel(modelId: ModelId) {
@@ -645,13 +645,33 @@ export default defineBackground(() => {
         return false;
       }
       void (async () => {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const timedOut = new Promise<OcrFailureResponse>((resolve) => {
+          timer = setTimeout(() => {
+            // Abort both the local and the offscreen side, then answer instead of hanging.
+            controller.abort();
+            resolve({ __ocrError: 'timeout' });
+          }, OCR_RECOGNITION_TIMEOUT_MS);
+        });
+        const work = (async (): Promise<unknown> => {
+          try {
+            await ensureOcrReady(message.tier);
+            return await client.recognizeOcr(message.tier, message.image, controller.signal);
+          } catch (error) {
+            if (controller.signal.aborted) return null;
+            // A missing or unusable OCR bundle is actionable; other failures stay generic.
+            const fromReadiness =
+              error instanceof Error &&
+              /OCR model consent|not downloaded|model-missing/iu.test(error.message);
+            return fromReadiness
+              ? ({ __ocrError: 'model-missing' } satisfies OcrFailureResponse)
+              : null;
+          }
+        })();
         try {
-          await ensureOcrReady(message.tier);
-          const result = await client.recognizeOcr(message.tier, message.image, controller.signal);
-          sendResponse(result);
-        } catch {
-          sendResponse(null);
+          sendResponse(await Promise.race([work, timedOut]));
         } finally {
+          if (timer !== undefined) clearTimeout(timer);
           ocrRecognitions.finish(message.requestId, controller);
         }
       })();

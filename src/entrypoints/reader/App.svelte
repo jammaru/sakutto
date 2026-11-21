@@ -8,6 +8,7 @@
   import { readerEngine } from './engine';
   import { loadPdfjs, resolvePdfjsAssetUrls } from '@/pdf/assets';
   import type { PdfDocument } from '@/pdf/extract';
+  import { OcrUserMessageError } from '@/pdf/ocr';
   import { PdfReader, type PageGeometry, type ReaderProgress } from '@/pdf/reader';
   import { pdfConcurrencyFor } from '@/pdf/session';
   import { hasLicenseConsent } from '@/shared/agreement';
@@ -19,7 +20,7 @@
     requestEngineStatus,
     requestEngineWarm,
     requestModelDownload,
-    requestOcrRecognize,
+    requestOcrRecognizeDetailed,
   } from '@/shared/messages';
   import { MAX_PDF_BYTES, PDF_ID_PARAM } from '@/shared/pdf';
   import type { Settings } from '@/shared/settings';
@@ -49,6 +50,8 @@
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   /** The toolbar's own height, so the progress hairline sits directly under it. */
   let toolbarHeight = $state(41);
+  /** Set when the background could not read a file:// PDF and offered the picker instead. */
+  let fileAccessDenied = $state(false);
 
   const id = new URL(location.href).searchParams.get(PDF_ID_PARAM) ?? '';
   /**
@@ -252,9 +255,13 @@
       ocr: {
         recognize: async (image, signal) => {
           const tier = settings?.selectedOcrTier ?? DEFAULT_OCR_TIER;
-          const result = await requestOcrRecognize(tier, encodeOcrImage(image), signal);
-          if (!result || signal.aborted) throw abortError();
-          return result;
+          const outcome = await requestOcrRecognizeDetailed(tier, encodeOcrImage(image), signal);
+          if (signal.aborted) throw abortError();
+          if (outcome.error === 'model-missing') {
+            throw new OcrUserMessageError(t('ocrDownloadRequired'));
+          }
+          if (!outcome.result) throw new OcrUserMessageError(t('pdfOcrFailed'));
+          return outcome.result;
         },
       },
       pageLimit,
@@ -326,6 +333,7 @@
   }
 
   onMount(() => {
+    fileAccessDenied = new URL(location.href).searchParams.get('reason') === 'file-access';
     // The toolbar wraps on a narrow window, so its height is measured rather than assumed.
     const header = document.querySelector('.toolbar');
     if (header) {
@@ -468,6 +476,9 @@
   {:else if phase === 'missing'}
     <div class="notice-panel">
       <p>{t('pdfMissing')}</p>
+      {#if fileAccessDenied}
+        <p data-sakutto="file-access-message">{t('imageFileAccessBody')}</p>
+      {/if}
       <input
         id="pdf-file"
         class="visually-hidden"

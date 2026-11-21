@@ -181,6 +181,7 @@
     if (seconds < 90) return t('downloadEtaSeconds', [String(seconds)]);
     return t('downloadEtaMinutes', [String(Math.max(1, Math.round(seconds / 60)))]);
   });
+  /** received/total come from combinedSetupProgress: PLaMo bytes plus the OCR bundle. */
   let statusText = $derived.by(() => {
     if (modelState === 'verifying') {
       return `${t('runtimeVerifying')} ${formatByteSize(received)} / ${formatByteSize(total)}`;
@@ -486,7 +487,9 @@
       skipDownload = Boolean(
         inspected && (inspected.state === 'ready' || inspected.state === 'loaded'),
       );
-      if (inspected) modelState = inspected.state;
+      // Keep the combined status in step with the inspected file; otherwise a PLaMo
+      // model already on disk looks absent once OCR bytes drive the progress line.
+      if (inspected) applyStatus(inspected);
     }
 
     if (pendingFolder) {
@@ -505,13 +508,13 @@
       const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
       if (inspected && (inspected.state === 'ready' || inspected.state === 'loaded')) {
         skipDownload = true;
-        modelState = inspected.state;
+        applyStatus(inspected);
       }
     } else if (keepExistingFolder) {
       const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
       if (inspected && (inspected.state === 'ready' || inspected.state === 'loaded')) {
         skipDownload = true;
-        modelState = inspected.state;
+        applyStatus(inspected);
       }
     }
 

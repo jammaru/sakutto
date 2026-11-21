@@ -590,4 +590,15 @@ describe('lazy per-page OCR', () => {
     const canvas: PdfOcrCanvas = { width: 400, height: 200, getContext: () => null };
     await expect(noContext.run(canvas)).rejects.toThrow('no 2D context');
   });
+  it('surfaces a visible error when one scanned page exceeds the hard timeout', async () => {
+    const page = createPdfPageOcr({
+      pageIndex: 0,
+      pageWidth: 400,
+      pageHeight: 200,
+      recognize: () => new Promise<OcrResult>(() => undefined),
+      timeoutMs: 10,
+      timeoutMessage: '設定でOCRモデルをダウンロードしてください',
+    });
+    await expect(page.run(pixels)).rejects.toThrow('設定でOCRモデルをダウンロードしてください');
+  });
 });

@@ -223,13 +223,13 @@
     "message": "はじめに"
   },
   "onboardingLead": {
-    "message": "ページ翻訳の既定は端末内です。PLaMo 3 のモデルは、この端末に保存されていないときだけダウンロードします。"
+    "message": "ページ翻訳とスキャン文書の文字認識の既定は端末内です。PLaMo 3 の翻訳モデルと標準のOCRモデルは、この端末に保存されていないときだけダウンロードします。"
   },
   "onboardingSetupHeading": {
     "message": "この拡張機能について"
   },
   "onboardingModelNote": {
-    "message": "標準モデル（573 MB）をこの端末へダウンロードします。100 Mbps を最後まで使えた場合の計算は約 46 秒で、実際の時間は回線により前後します。中断しても続きから再開できます。"
+    "message": "標準の翻訳モデル（573 MB）をこの端末へダウンロードします。100 Mbps を最後まで使えた場合の計算は約 46 秒で、実際の時間は回線により前後します。中断しても続きから再開できます。"
   },
   "onboardingBridgeNote": {
     "message": "モデルの準備ができるまで、ページは原文のまま表示します。準備ができると PLaMo が訳します。Google の説明では、Chrome の翻訳は端末内で動きます。"
@@ -629,7 +629,7 @@
     "message": "サンプルページで試す"
   },
   "onboardingWhileDownloading": {
-    "message": "モデルのダウンロード中、ページは原文のまま表示します。PLaMo の準備ができるまで訳文は出ません。"
+    "message": "翻訳モデルとOCRモデルのダウンロード中、ページは原文のまま表示します。PLaMo の準備ができるまで訳文は出ません。"
   },
   "downloadEtaSeconds": {
     "message": "あと約 $COUNT$ 秒です。",
@@ -1750,6 +1750,18 @@
   "ocrDownloadRequired": {
     "message": "スキャンしたＰＤＦや画像の文字を認識するには、設定でOCRモデルをダウンロードしてください。",
     "description": "Shown when OCR is unavailable or its model download fails."
+  },
+  "imageFileAccessHeading": {
+    "message": "ローカル画像を翻訳",
+    "description": "画像メニューが file URL に届かないときに開くページの見出し。"
+  },
+  "imageFileAccessBody": {
+    "message": "この画像はページから読み取れませんでした。chrome://extensions の Sakutto の詳細で「ファイルの URL へのアクセスを許可する」（Allow access to file URLs）をオンにしてください。下の「画像ファイルを選択」で画像を選べば、この端末で翻訳できます。",
+    "description": "ローカル画像のメニューがページに届かないときの案内。"
+  },
+  "imageFileAccessChoose": {
+    "message": "画像ファイルを選択",
+    "description": "ローカル画像のファイル選択のラベル。"
   },
   "contextTranslateImage": {
     "message": "Sakuttoで画像を翻訳",

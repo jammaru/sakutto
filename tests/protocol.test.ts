@@ -8,6 +8,7 @@ import {
   errorPayload,
   isEngineHostMessage,
   isEngineHostRequest,
+  isOcrFailureResponse,
   isTranslationCancelRequest,
   isTranslationServerMessage,
   isTranslationStartRequest,
@@ -427,5 +428,12 @@ describe('engine host protocol', () => {
       code: 'model-folder-permission',
       message: 'needs permission',
     });
+  });
+  it('accepts only explicit OCR failure codes', () => {
+    expect(isOcrFailureResponse({ __ocrError: 'model-missing' })).toBe(true);
+    expect(isOcrFailureResponse({ __ocrError: 'timeout' })).toBe(true);
+    expect(isOcrFailureResponse({ __ocrError: 'failed' })).toBe(true);
+    expect(isOcrFailureResponse({ __ocrError: 'unknown' })).toBe(false);
+    expect(isOcrFailureResponse({ text: 'hello' })).toBe(false);
   });
 });

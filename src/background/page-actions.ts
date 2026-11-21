@@ -21,6 +21,8 @@ interface PageTranslationCanceller {
   cancelTab(tabId: number): void;
 }
 
+const IMAGE_TRANSLATE_PAGE = '/image-translate.html';
+
 let gatedEngine: EngineClient | undefined;
 let translationCanceller: PageTranslationCanceller | undefined;
 let listenersInstalled = false;
@@ -59,8 +61,11 @@ export function installPageActionListeners(engine?: EngineClient): void {
         const ready = await ensureContentScript(
           tabId,
           info.frameId === undefined ? {} : { frameId: info.frameId },
-        );
-        if (!ready) return;
+        ).catch(() => false);
+        if (!ready) {
+          await openImageTranslateFallback();
+          return;
+        }
         await browser.tabs
           .sendMessage(
             tabId,
@@ -109,6 +114,20 @@ export function installPageActions(
 
 function installMenus(): void {
   scheduleContextMenusInstall();
+}
+
+/**
+ * Chrome can refuse to script a file:// tab even when "Allow access to file URLs" is on,
+ * so a failed injection has to be visible. The fallback is a normal extension tab: it can
+ * explain the setting and read a file the user picks, without any install-time host access.
+ */
+export async function openImageTranslateFallback(): Promise<boolean> {
+  try {
+    await browser.tabs.create({ url: browser.runtime.getURL(IMAGE_TRANSLATE_PAGE) });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

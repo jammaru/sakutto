@@ -4,7 +4,19 @@ import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { launchExtension, loadExtension, type LoadedExtension } from './extension';
 import { DEFAULT_MODEL_ID, getModel } from '../src/engine/model/catalog';
+import { DEFAULT_OCR_TIER, OCR_TIER_CATALOG } from '../src/engine/ocr/catalog';
+import { formatByteSize } from '../src/ui/format';
 import { FIXTURE_ORIGIN } from './page';
+
+// Onboarding tracks the PLaMo translation model and the default OCR bundle as one
+// byte-weighted download (573 MB + ~23 MB = 596 MB). The 0% snapshot is transient,
+// so match any percentage while pinning that combined total.
+const ONBOARDING_TOTAL_LABEL = formatByteSize(
+  getModel(DEFAULT_MODEL_ID).size + OCR_TIER_CATALOG[DEFAULT_OCR_TIER].size,
+);
+const ONBOARDING_DOWNLOADING = new RegExp(
+  `^Downloading \\d+% \\(\\d+ MB / ${ONBOARDING_TOTAL_LABEL}\\)$`,
+);
 
 const PICKER_HINT =
   'After you press start, a folder dialog opens in Documents. Create or choose Documents/Sakutto, or choose the existing folder if another browser already has the models. Any folder you can write to also works.';
@@ -220,7 +232,7 @@ test.describe('shared model folder', () => {
     }
   });
 
-  test('onboarding uses a verified shared file and does not download', async () => {
+  test('onboarding uses a verified shared file and skips only the PLaMo download', async () => {
     const extension = await loadExtension('en-US');
     const hits = await interceptGguf(extension, 'hang');
     try {
@@ -273,11 +285,22 @@ test.describe('shared model folder', () => {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
       await mockEmptySharedFolder(page);
+      // The setup copy names both bundles; the progress total below adds their sizes.
+      await expect(
+        page.getByText(
+          `Also downloads the standard on-device OCR models (${formatByteSize(
+            OCR_TIER_CATALOG[DEFAULT_OCR_TIER].size,
+          )}) for scanned PDFs and images.`,
+        ),
+      ).toBeVisible();
+      await expect(
+        page.getByText(/Page translation and scanned-document OCR run on this device by default/),
+      ).toBeVisible();
       await expect(page.getByRole('radio', { name: BROWSER_RADIO })).toBeChecked();
       await expect(page.getByRole('radio', { name: FOLDER_RADIO })).not.toBeChecked();
       await expect(page.getByText(PICKER_HINT)).toHaveCount(0);
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
-      await expect(page.getByText('Downloading 0% (0 MB / 573 MB)')).toBeVisible({
+      await expect(page.getByText(ONBOARDING_DOWNLOADING)).toBeVisible({
         timeout: 30_000,
       });
       await expect
@@ -303,7 +326,7 @@ test.describe('shared model folder', () => {
       await page.getByRole('radio', { name: FOLDER_RADIO }).check();
       await expect(page.getByText(PICKER_HINT)).toBeVisible();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
-      await expect(page.getByText('Downloading 0% (0 MB / 573 MB)')).toBeVisible({
+      await expect(page.getByText(ONBOARDING_DOWNLOADING)).toBeVisible({
         timeout: 30_000,
       });
       await expect
@@ -412,7 +435,7 @@ test.describe('shared model folder', () => {
       await expect(page.locator('[data-folder-picker-hint]')).toHaveCount(0);
       await page.getByRole('radio', { name: BROWSER_RADIO }).check();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
-      await expect(page.getByText('Downloading 0% (0 MB / 573 MB)')).toBeVisible({
+      await expect(page.getByText(ONBOARDING_DOWNLOADING)).toBeVisible({
         timeout: 30_000,
       });
       await expect
@@ -499,7 +522,7 @@ test.describe('shared model folder', () => {
     }
   });
 
-  test('onboarding skips the download when Sakutto already has a verified file', async () => {
+  test('onboarding skips the PLaMo download when Sakutto already has a verified file', async () => {
     const extension = await loadExtension('en-US');
     const hits = await interceptGguf(extension, 'hang');
     try {
