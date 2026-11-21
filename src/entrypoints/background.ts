@@ -658,6 +658,7 @@ export default defineBackground(() => {
             await ensureOcrReady(message.tier);
             return await client.recognizeOcr(message.tier, message.image, controller.signal);
           } catch (error) {
+            (globalThis as { console: Console }).console.error('OCR recognition failed:', error);
             if (controller.signal.aborted) return null;
             // A missing or unusable OCR bundle is actionable; other failures stay generic.
             const fromReadiness =

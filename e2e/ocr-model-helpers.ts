@@ -221,7 +221,11 @@ export async function warmOcr(extension: LoadedExtension): Promise<void> {
         image: { width: 2, height: 2, data },
       });
     });
-    console.log(`OCR warm-up: ${String(Date.now() - started)} ms`, JSON.stringify(result));
+    console.log(
+      `OCR warm-up: ${String(Date.now() - started)} ms`,
+      JSON.stringify(result),
+      (result as { detail?: string } | null)?.detail ?? '',
+    );
   } finally {
     await page.close();
   }

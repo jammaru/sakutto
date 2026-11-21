@@ -724,6 +724,8 @@ function createOcrRequestId(): string {
 export interface OcrRecognizeOutcome {
   result: OcrResult | null;
   error: OcrFailureCode | null;
+  /** Diagnostic detail for a failed request; never shown directly to users. */
+  detail?: string;
 }
 
 /**
@@ -764,8 +766,12 @@ export async function requestOcrRecognizeDetailed(
     ]);
     if (isOcrFailureResponse(response)) return { result: null, error: response.__ocrError };
     return { result: isOcrResult(response) ? response : null, error: null };
-  } catch {
-    return { result: null, error: null };
+  } catch (error) {
+    return {
+      result: null,
+      error: null,
+      detail: error instanceof Error ? error.message : String(error),
+    };
   } finally {
     if (timer !== undefined) clearTimeout(timer);
     signal?.removeEventListener('abort', cancel);
