@@ -10,6 +10,11 @@ import {
 } from '@/shared/engine-status';
 import { isEngineCapabilities, type EngineCapabilities } from './capabilities';
 import type { EngineKind } from '@/engine/types';
+import type { OcrTier } from '@/engine/ocr/catalog';
+import type { OcrImagePayload } from '@/engine/offscreen/protocol';
+import type { OcrResult } from '@/engine/ocr/types';
+import type { AssetStatus } from '@/engine/model/asset';
+import { isOcrResult, isOcrStatus } from './ocr';
 import { isSiteHost, type SiteAuto } from '@/dom/sites';
 import type { QualitySample } from './quality';
 import { isQualitySample } from './quality';
@@ -173,6 +178,37 @@ export interface ModelProgressMessage {
 export interface ModelInspectRequest {
   type: 'model:inspect';
   modelId: ModelId;
+}
+
+export interface OcrDownloadRequest {
+  type: 'ocr:download';
+  tier: OcrTier;
+}
+
+export interface OcrCancelRequest {
+  type: 'ocr:cancel';
+  tier: OcrTier;
+}
+
+export interface OcrDeleteRequest {
+  type: 'ocr:delete';
+  tier: OcrTier;
+}
+
+export interface OcrInspectRequest {
+  type: 'ocr:inspect';
+  tier: OcrTier;
+}
+
+export interface OcrRecognizeRequest {
+  type: 'ocr:recognize';
+  tier: OcrTier;
+  image: OcrImagePayload;
+}
+
+export interface OcrProgressMessage {
+  type: 'ocr:progress';
+  status: AssetStatus<OcrTier>;
 }
 
 export interface ModelFolderReloadRequest {
@@ -354,6 +390,42 @@ export function isModelProgressMessage(value: unknown): value is ModelProgressMe
 
 export function isModelInspectRequest(value: unknown): value is ModelInspectRequest {
   return isRecord(value) && value.type === 'model:inspect' && isModelId(value.modelId);
+}
+
+export function isOcrDownloadRequest(value: unknown): value is OcrDownloadRequest {
+  return isRecord(value) && value.type === 'ocr:download' && isOcrStatusTier(value.tier);
+}
+
+export function isOcrCancelRequest(value: unknown): value is OcrCancelRequest {
+  return isRecord(value) && value.type === 'ocr:cancel' && isOcrStatusTier(value.tier);
+}
+
+export function isOcrDeleteRequest(value: unknown): value is OcrDeleteRequest {
+  return isRecord(value) && value.type === 'ocr:delete' && isOcrStatusTier(value.tier);
+}
+
+export function isOcrInspectRequest(value: unknown): value is OcrInspectRequest {
+  return isRecord(value) && value.type === 'ocr:inspect' && isOcrStatusTier(value.tier);
+}
+
+export function isOcrRecognizeRequest(value: unknown): value is OcrRecognizeRequest {
+  return (
+    isRecord(value) &&
+    value.type === 'ocr:recognize' &&
+    isOcrStatusTier(value.tier) &&
+    isRecord(value.image) &&
+    typeof value.image.width === 'number' &&
+    typeof value.image.height === 'number' &&
+    typeof value.image.data === 'string'
+  );
+}
+
+export function isOcrProgressMessage(value: unknown): value is OcrProgressMessage {
+  return isRecord(value) && value.type === 'ocr:progress' && isOcrStatus(value.status);
+}
+
+function isOcrStatusTier(value: unknown): value is OcrTier {
+  return value === 'standard' || value === 'high';
 }
 
 export function isModelFolderReloadRequest(value: unknown): value is ModelFolderReloadRequest {
@@ -549,6 +621,66 @@ export async function requestModelInspect(modelId: ModelId): Promise<ModelStatus
       modelId,
     } satisfies ModelInspectRequest);
     return isModelStatus(response) ? response : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function requestOcrDownload(tier: OcrTier): Promise<boolean> {
+  try {
+    const response: unknown = await browser.runtime.sendMessage({
+      type: 'ocr:download',
+      tier,
+    } satisfies OcrDownloadRequest);
+    return response === true;
+  } catch {
+    return false;
+  }
+}
+
+export async function requestOcrCancel(tier: OcrTier): Promise<void> {
+  try {
+    await browser.runtime.sendMessage({ type: 'ocr:cancel', tier } satisfies OcrCancelRequest);
+  } catch {
+    // Cancelling is best effort.
+  }
+}
+
+export async function requestOcrDelete(tier: OcrTier): Promise<AssetStatus<OcrTier> | null> {
+  try {
+    const response: unknown = await browser.runtime.sendMessage({
+      type: 'ocr:delete',
+      tier,
+    } satisfies OcrDeleteRequest);
+    return isOcrStatus(response) ? response : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function requestOcrInspect(tier: OcrTier): Promise<AssetStatus<OcrTier> | null> {
+  try {
+    const response: unknown = await browser.runtime.sendMessage({
+      type: 'ocr:inspect',
+      tier,
+    } satisfies OcrInspectRequest);
+    return isOcrStatus(response) ? response : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function requestOcrRecognize(
+  tier: OcrTier,
+  image: OcrImagePayload,
+): Promise<OcrResult | null> {
+  try {
+    const response: unknown = await browser.runtime.sendMessage({
+      type: 'ocr:recognize',
+      tier,
+      image,
+    } satisfies OcrRecognizeRequest);
+    return isOcrResult(response) ? response : null;
   } catch {
     return null;
   }

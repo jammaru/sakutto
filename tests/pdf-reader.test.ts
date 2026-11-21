@@ -20,6 +20,8 @@ const labels: ReaderLabels = {
   overflowOpen: 'Open',
   compareOriginal: 'Original',
   compareTranslated: 'Translated',
+  ocrReading: (page, of) => `OCR ${String(page)}/${String(of)}`,
+  ocrFailed: 'OCR failed',
 };
 
 type ObserverRecord = {

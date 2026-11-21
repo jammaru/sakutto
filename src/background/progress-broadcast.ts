@@ -1,5 +1,7 @@
 import type { ModelStatus } from '@/shared/engine-status';
-import type { ModelProgressMessage } from '@/shared/messages';
+import type { ModelProgressMessage, OcrProgressMessage } from '@/shared/messages';
+
+export type ExtensionProgressMessage = ModelProgressMessage | OcrProgressMessage;
 
 export interface ProgressTab {
   id?: number | undefined;
@@ -7,9 +9,9 @@ export interface ProgressTab {
 }
 
 export interface ProgressSink {
-  sendExtension(message: ModelProgressMessage): Promise<void>;
+  sendExtension(message: ExtensionProgressMessage): Promise<void>;
   listTabs(): Promise<readonly ProgressTab[]>;
-  sendTab(tabId: number, message: ModelProgressMessage): Promise<void>;
+  sendTab(tabId: number, message: ExtensionProgressMessage): Promise<void>;
 }
 
 /**
@@ -18,7 +20,7 @@ export interface ProgressSink {
  * fan-out to BFCache’d content scripts.
  */
 export async function broadcastModelProgress(
-  message: ModelProgressMessage,
+  message: ExtensionProgressMessage,
   sink: ProgressSink,
 ): Promise<void> {
   try {

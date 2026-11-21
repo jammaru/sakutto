@@ -5,6 +5,7 @@ import { shouldAutoInjectOutlookBanner } from '@/dom/outlook-banner';
 import { originPattern, pageHost, loadSiteRule } from '@/dom/sites';
 import { ensureContentScript } from '@/shared/page-bridge';
 import { requestPageCommand, type PageCommandName } from '@/shared/messages';
+import type { ImageTranslateRequest } from '@/shared/image';
 import { noteShortcutCommandAssigned } from '@/shared/shortcut-assignment';
 import { isShortcutCommand, PDF_COMMAND, SHORTCUT_PAGE_COMMANDS } from '@/shared/shortcuts';
 import type { ShortcutCommand, ShortcutEnabled } from '@/shared/shortcuts';
@@ -51,6 +52,21 @@ export function installPageActionListeners(engine?: EngineClient): void {
     }
     const tabId = tab?.id;
     if (tabId === undefined) return;
+    if (info.menuItemId === 'translate-image') {
+      const srcUrl = info.srcUrl;
+      if (typeof srcUrl !== 'string') return;
+      void (async () => {
+        if (!(await ensureContentScript(tabId))) return;
+        await browser.tabs
+          .sendMessage(
+            tabId,
+            { type: 'image:translate', srcUrl } satisfies ImageTranslateRequest,
+            info.frameId === undefined ? {} : { frameId: info.frameId },
+          )
+          .catch(() => undefined);
+      })();
+      return;
+    }
     const pageCommand =
       info.menuItemId === 'translate-selection'
         ? 'selection'

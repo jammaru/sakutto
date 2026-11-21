@@ -1705,5 +1705,65 @@
   },
   "allSitesPopupEnable": {
     "message": "Aktifkan"
+  },
+  "ocrModelsHeading": {
+    "message": "OCR di perangkat",
+    "description": "Heading for PP-OCR model management."
+  },
+  "ocrModelsDescription": {
+    "message": "PP-OCRv6 mengenali teks dalam PDFs pindaian dan gambar di perangkat ini. Memilih tingkat akan mengunduh detektor dan pengenalnya.",
+    "description": "Explanation of OCR tiers and downloads."
+  },
+  "ocrTierSwitchHint": {
+    "message": "Beralih tingkat akan mengunduh model yang dipilih. Tingkat lain tetap berada di perangkat ini sampai Anda menghapusnya.",
+    "description": "Explains tier switching and old model cleanup."
+  },
+  "onboardingOcrNote": {
+    "message": "Juga mengunduh model OCR standar di perangkat ($1) untuk PDFs pindaian dan gambar.",
+    "description": "Combined onboarding download note with OCR bundle size."
+  },
+  "pdfOcrReading": {
+    "message": "Mengenali halaman pindaian $1 dari $2…",
+    "description": "Shown while OCR runs on a scanned PDF page."
+  },
+  "pdfOcrFailed": {
+    "message": "Pengenalan teks gagal pada halaman pindaian ini.",
+    "description": "Shown when a scanned PDF page cannot be recognized."
+  },
+  "ocrDownloadRequired": {
+    "message": "Unduh model OCR di Pengaturan untuk mengenali teks dalam PDFs pindaian dan gambar.",
+    "description": "Shown when OCR is unavailable or its model download fails."
+  },
+  "contextTranslateImage": {
+    "message": "Terjemahkan gambar dengan Sakutto",
+    "description": "Image context-menu action."
+  },
+  "imageTranslationHeading": {
+    "message": "Terjemahan gambar",
+    "description": "Title of the image translation panel."
+  },
+  "imageTranslating": {
+    "message": "Mengenali dan menerjemahkan gambar…",
+    "description": "Shown while image OCR and translation run."
+  },
+  "imageTranslationFailed": {
+    "message": "Gambar tidak dapat diterjemahkan.",
+    "description": "Shown when image OCR or translation fails."
+  },
+  "imageTranslationEmpty": {
+    "message": "Tidak ada teks yang dikenali dalam gambar ini.",
+    "description": "Shown when OCR returns no text."
+  },
+  "imageTranslationClose": {
+    "message": "Tutup terjemahan gambar",
+    "description": "Accessible close-button label for the image panel."
+  },
+  "imageOriginalText": {
+    "message": "Teks yang dikenali",
+    "description": "Label for OCR source text in the image panel."
+  },
+  "imageTranslationPermission": {
+    "message": "Browser tidak dapat mengakses gambar ini. Coba tangkap halaman yang terlihat sebagai gantinya.",
+    "description": "Shown when image pixels cannot be read without extra permissions."
   }
 }

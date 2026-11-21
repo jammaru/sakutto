@@ -4,6 +4,7 @@ import {
   shouldWarmDownloadedModel,
   type ProgressSink,
   type ProgressTab,
+  type ExtensionProgressMessage,
 } from '@/background/progress-broadcast';
 import type { ModelStatus } from '@/shared/engine-status';
 import type { ModelProgressMessage } from '@/shared/messages';
@@ -20,11 +21,11 @@ function message(state: ModelStatus['state']): ModelProgressMessage {
 }
 
 function sink(tabs: readonly ProgressTab[]): ProgressSink & {
-  extension: ModelProgressMessage[];
-  pages: Array<{ tabId: number; message: ModelProgressMessage }>;
+  extension: ExtensionProgressMessage[];
+  pages: Array<{ tabId: number; message: ExtensionProgressMessage }>;
 } {
-  const extension: ModelProgressMessage[] = [];
-  const pages: Array<{ tabId: number; message: ModelProgressMessage }> = [];
+  const extension: ExtensionProgressMessage[] = [];
+  const pages: Array<{ tabId: number; message: ExtensionProgressMessage }> = [];
   return {
     extension,
     pages,

@@ -1,5 +1,6 @@
 import { DEFAULT_MODEL_ID, type ModelId } from '@/engine/model/catalog';
 import { normalizeSelectedModelId } from '@/engine/model/selection';
+import { DEFAULT_OCR_TIER, isOcrTier, type OcrTier } from '@/engine/ocr/catalog';
 import type { GlossaryEntry } from '@/engine/types';
 import {
   DEFAULT_LOCAL_SERVER_PARALLEL,
@@ -305,6 +306,8 @@ export interface Settings {
   composePlacement: ComposePlacement;
   /** Which PLaMo GGUF the engine should load. Survives service-worker and offscreen restarts. */
   selectedModelId: ModelId;
+  /** PP-OCRv6 detector/recognizer pair used by scanned PDF and image translation. */
+  selectedOcrTier: OcrTier;
   /**
    * Where PLaMo requests run. `in-browser` is the packaged wllama engine. `local-server` is
    * an OpenAI-compatible process the user started (mlx_lm.server, LM Studio, …).
@@ -378,6 +381,7 @@ export type SettingsPatch = Partial<
     | 'composeInstantReplace'
     | 'composePlacement'
     | 'selectedModelId'
+    | 'selectedOcrTier'
     | 'engineSource'
     | 'localServerUrl'
     | 'localServerModel'
@@ -421,6 +425,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   composeInstantReplace: false,
   composePlacement: 'above',
   selectedModelId: DEFAULT_MODEL_ID,
+  selectedOcrTier: DEFAULT_OCR_TIER,
   engineSource: 'in-browser',
   localServerUrl: DEFAULT_LOCAL_SERVER_URL,
   localServerModel: '',
@@ -489,6 +494,7 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     composeInstantReplace: value.composeInstantReplace === true,
     composePlacement: isComposePlacement(value.composePlacement) ? value.composePlacement : 'above',
     selectedModelId: normalizeSelectedModelId(value.selectedModelId),
+    selectedOcrTier: isOcrTier(value.selectedOcrTier) ? value.selectedOcrTier : DEFAULT_OCR_TIER,
     engineSource: isEngineSource(value.engineSource) ? value.engineSource : 'in-browser',
     localServerUrl: normalizeServerUrl(
       typeof value.localServerUrl === 'string' ? value.localServerUrl : DEFAULT_LOCAL_SERVER_URL,

@@ -2,6 +2,9 @@
   import { onMount, tick } from 'svelte';
   import { browser } from 'wxt/browser';
   import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
+  import { DEFAULT_OCR_TIER } from '@/engine/ocr/catalog';
+  import { encodeOcrImage } from '@/engine/ocr/codec';
+  import { abortError } from '@/engine/errors';
   import { readerEngine } from './engine';
   import { loadPdfjs, resolvePdfjsAssetUrls } from '@/pdf/assets';
   import type { PdfDocument } from '@/pdf/extract';
@@ -15,6 +18,8 @@
     requestEngineStatus,
     requestEngineWarm,
     requestModelDownload,
+    requestOcrCancel,
+    requestOcrRecognize,
   } from '@/shared/messages';
   import { MAX_PDF_BYTES, PDF_ID_PARAM } from '@/shared/pdf';
   import type { Settings } from '@/shared/settings';
@@ -238,9 +243,27 @@
         overflowOpen: t('pdfOverflowOpen'),
         compareOriginal: t('pdfOriginalPane'),
         compareTranslated: t('pdfTranslatedPane'),
+        ocrReading: (page, of) => t('pdfOcrReading', [String(page), String(of)]),
+        ocrFailed: t('pdfOcrFailed'),
       },
       onProgress: (state) => {
         progress = state;
+      },
+      ocr: {
+        recognize: async (image, signal) => {
+          const tier = settings?.selectedOcrTier ?? DEFAULT_OCR_TIER;
+          const cancel = (): void => {
+            void requestOcrCancel(tier);
+          };
+          signal.addEventListener('abort', cancel, { once: true });
+          try {
+            const result = await requestOcrRecognize(tier, encodeOcrImage(image));
+            if (!result || signal.aborted) throw abortError();
+            return result;
+          } finally {
+            signal.removeEventListener('abort', cancel);
+          }
+        },
       },
       pageLimit,
     });

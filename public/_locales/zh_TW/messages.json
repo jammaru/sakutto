@@ -1705,5 +1705,65 @@
   },
   "allSitesPopupEnable": {
     "message": "開啟"
+  },
+  "ocrModelsHeading": {
+    "message": "裝置端 OCR",
+    "description": "Heading for PP-OCR model management."
+  },
+  "ocrModelsDescription": {
+    "message": "PP-OCRv6 會在此裝置上辨識掃描版 PDFs 和圖片中的文字。選擇級別會下載相應的偵測模型和辨識模型。",
+    "description": "Explanation of OCR tiers and downloads."
+  },
+  "ocrTierSwitchHint": {
+    "message": "切換級別會下載所選模型。其他級別的模型會保留在此裝置上，直到你將其刪除。",
+    "description": "Explains tier switching and old model cleanup."
+  },
+  "onboardingOcrNote": {
+    "message": "還會下載用於掃描版 PDFs 和圖片的標準裝置端 OCR 模型（$1）。",
+    "description": "Combined onboarding download note with OCR bundle size."
+  },
+  "pdfOcrReading": {
+    "message": "正在辨識掃描版第 $1 頁，共 $2 頁…",
+    "description": "Shown while OCR runs on a scanned PDF page."
+  },
+  "pdfOcrFailed": {
+    "message": "無法辨識此掃描頁面中的文字。",
+    "description": "Shown when a scanned PDF page cannot be recognized."
+  },
+  "ocrDownloadRequired": {
+    "message": "請在設定中下載 OCR 模型，以辨識掃描版 PDFs 和圖片中的文字。",
+    "description": "Shown when OCR is unavailable or its model download fails."
+  },
+  "contextTranslateImage": {
+    "message": "使用 Sakutto 翻譯圖片",
+    "description": "Image context-menu action."
+  },
+  "imageTranslationHeading": {
+    "message": "圖片翻譯",
+    "description": "Title of the image translation panel."
+  },
+  "imageTranslating": {
+    "message": "正在辨識並翻譯圖片中的文字…",
+    "description": "Shown while image OCR and translation run."
+  },
+  "imageTranslationFailed": {
+    "message": "無法翻譯此圖片。",
+    "description": "Shown when image OCR or translation fails."
+  },
+  "imageTranslationEmpty": {
+    "message": "未在此圖片中辨識到文字。",
+    "description": "Shown when OCR returns no text."
+  },
+  "imageTranslationClose": {
+    "message": "關閉圖片翻譯",
+    "description": "Accessible close-button label for the image panel."
+  },
+  "imageOriginalText": {
+    "message": "辨識到的文字",
+    "description": "Label for OCR source text in the image panel."
+  },
+  "imageTranslationPermission": {
+    "message": "瀏覽器無法存取此圖片。請嘗試改為擷取目前可見頁面。",
+    "description": "Shown when image pixels cannot be read without extra permissions."
   }
 }

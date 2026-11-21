@@ -4,6 +4,8 @@ import { ComposeController, type ComposeLabels, type ComposePreferences } from '
 import { shouldHandleComposeCommand } from '@/dom/compose-field';
 import { detectDocumentLanguage } from '@/dom/detect';
 import { fakeTranslate } from '@/dom/fake-engine';
+import { ImageTranslationController } from '@/dom/image-translation';
+import { isImageTranslateRequest } from '@/shared/image';
 import { GmailBannerController, isGmailHost, type GmailBannerLabels } from '@/dom/gmail-banner';
 import {
   OutlookBannerController,
@@ -93,6 +95,7 @@ interface ContentBridgeGlobal {
 }
 
 const bridge = globalThis as typeof globalThis & ContentBridgeGlobal;
+let imageTranslation: ImageTranslationController | null = null;
 
 /**
  * Browser bindings plus the broad-grant state. A page may listen only for an empty binding
@@ -833,6 +836,22 @@ export function contentMain(): void {
 
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.id !== browser.runtime.id) return;
+    if (isImageTranslateRequest(message)) {
+      imageTranslation ??= new ImageTranslationController({
+        labels: {
+          heading: t('imageTranslationHeading'),
+          pending: t('imageTranslating'),
+          failed: t('imageTranslationFailed'),
+          empty: t('imageTranslationEmpty'),
+          close: t('imageTranslationClose'),
+          original: t('imageOriginalText'),
+          permission: t('imageTranslationPermission'),
+        },
+      });
+      void imageTranslation.start(message.srcUrl);
+      sendResponse(true);
+      return;
+    }
     if (isFolderGrantCompleteMessage(message)) {
       void sessionPromise.then(async (session) => {
         session.endFolderGrantWait();

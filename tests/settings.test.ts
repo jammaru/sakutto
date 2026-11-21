@@ -50,6 +50,7 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     composeInstantReplace: false,
     composePlacement: 'above',
     selectedModelId: DEFAULT_MODEL_ID,
+    selectedOcrTier: 'standard',
     engineSource: 'in-browser',
     localServerUrl: 'http://127.0.0.1:8080/v1',
     localServerModel: '',

@@ -1705,5 +1705,65 @@
   },
   "allSitesPopupEnable": {
     "message": "开启"
+  },
+  "ocrModelsHeading": {
+    "message": "设备端 OCR",
+    "description": "Heading for PP-OCR model management."
+  },
+  "ocrModelsDescription": {
+    "message": "PP-OCRv6 在此设备上识别扫描版 PDFs 和图片中的文字。选择档位会下载相应的检测模型和识别模型。",
+    "description": "Explanation of OCR tiers and downloads."
+  },
+  "ocrTierSwitchHint": {
+    "message": "切换档位会下载所选模型。其他档位的模型会保留在此设备上，直到你将其删除。",
+    "description": "Explains tier switching and old model cleanup."
+  },
+  "onboardingOcrNote": {
+    "message": "还会下载用于扫描版 PDFs 和图片的标准设备端 OCR 模型（$1）。",
+    "description": "Combined onboarding download note with OCR bundle size."
+  },
+  "pdfOcrReading": {
+    "message": "正在识别扫描版第 $1 页，共 $2 页…",
+    "description": "Shown while OCR runs on a scanned PDF page."
+  },
+  "pdfOcrFailed": {
+    "message": "无法识别此扫描页面中的文字。",
+    "description": "Shown when a scanned PDF page cannot be recognized."
+  },
+  "ocrDownloadRequired": {
+    "message": "请在设置中下载 OCR 模型，以识别扫描版 PDFs 和图片中的文字。",
+    "description": "Shown when OCR is unavailable or its model download fails."
+  },
+  "contextTranslateImage": {
+    "message": "使用 Sakutto 翻译图片",
+    "description": "Image context-menu action."
+  },
+  "imageTranslationHeading": {
+    "message": "图片翻译",
+    "description": "Title of the image translation panel."
+  },
+  "imageTranslating": {
+    "message": "正在识别并翻译图片中的文字…",
+    "description": "Shown while image OCR and translation run."
+  },
+  "imageTranslationFailed": {
+    "message": "无法翻译此图片。",
+    "description": "Shown when image OCR or translation fails."
+  },
+  "imageTranslationEmpty": {
+    "message": "未在此图片中识别到文字。",
+    "description": "Shown when OCR returns no text."
+  },
+  "imageTranslationClose": {
+    "message": "关闭图片翻译",
+    "description": "Accessible close-button label for the image panel."
+  },
+  "imageOriginalText": {
+    "message": "识别到的文字",
+    "description": "Label for OCR source text in the image panel."
+  },
+  "imageTranslationPermission": {
+    "message": "浏览器无法访问此图片。请尝试改为截取当前可见页面。",
+    "description": "Shown when image pixels cannot be read without extra permissions."
   }
 }

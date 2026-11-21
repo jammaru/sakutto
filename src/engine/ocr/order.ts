@@ -17,6 +17,8 @@ export interface ReadingOrderOptions {
 interface IndexedRegion<T> {
   readonly item: T;
   readonly index: number;
+  /** Horizontal newspaper-style column; zero for vertical writing and single-column pages. */
+  column: number;
   readonly bounds: {
     readonly left: number;
     readonly right: number;
@@ -81,6 +83,42 @@ function belongsToLine<T extends LayoutRegion>(
   return drift <= allowed && overlap >= -allowed ? drift / allowed : Number.POSITIVE_INFINITY;
 }
 
+function assignHorizontalColumns<T>(entries: IndexedRegion<T>[]): void {
+  if (entries.length < 4) return;
+  const sorted = [...entries].sort((a, b) => a.bounds.centerX - b.bounds.centerX);
+  const widths = sorted.map((entry) => entry.bounds.width).sort((a, b) => a - b);
+  const medianWidth = widths[Math.floor(widths.length / 2)] ?? 1;
+  let split = -1;
+  let largestGap = 0;
+  for (let index = 1; index < sorted.length; index++) {
+    const previous = sorted[index - 1];
+    const next = sorted[index];
+    if (!previous || !next) continue;
+    const gap = next.bounds.centerX - previous.bounds.centerX;
+    if (gap > largestGap) {
+      largestGap = gap;
+      split = index;
+    }
+  }
+  if (split < 2 || sorted.length - split < 2 || largestGap < Math.max(40, medianWidth * 0.75)) {
+    return;
+  }
+  const left = sorted.slice(0, split);
+  const right = sorted.slice(split);
+  const gutter =
+    Math.min(...right.map((entry) => entry.bounds.left)) -
+    Math.max(...left.map((entry) => entry.bounds.right));
+  if (gutter <= 0) return;
+  const leftTop = Math.min(...left.map((entry) => entry.bounds.top));
+  const rightTop = Math.min(...right.map((entry) => entry.bounds.top));
+  const leftBottom = Math.max(...left.map((entry) => entry.bounds.bottom));
+  const rightBottom = Math.max(...right.map((entry) => entry.bounds.bottom));
+  const overlap = Math.min(leftBottom, rightBottom) - Math.max(leftTop, rightTop);
+  if (overlap <= 0) return;
+  for (const entry of left) entry.column = 1;
+  for (const entry of right) entry.column = 2;
+}
+
 /** Groups horizontal rows or vertical Japanese columns and returns their reading order. */
 export function groupReadingLines<T extends LayoutRegion>(
   regions: readonly T[],
@@ -107,11 +145,16 @@ export function groupReadingLines<T extends LayoutRegion>(
   const entries: IndexedRegion<T>[] = regions.map((item, index) => ({
     item,
     index,
+    column: 0,
     bounds: regionBounds(item.quad),
   }));
+  if (orientation === 'horizontal') assignHorizontalColumns(entries);
   entries.sort((a, b) =>
     orientation === 'horizontal'
-      ? a.bounds.centerY - b.bounds.centerY || a.bounds.left - b.bounds.left || a.index - b.index
+      ? a.column - b.column ||
+        a.bounds.centerY - b.bounds.centerY ||
+        a.bounds.left - b.bounds.left ||
+        a.index - b.index
       : b.bounds.centerX - a.bounds.centerX || a.bounds.top - b.bounds.top || a.index - b.index,
   );
 
@@ -121,7 +164,7 @@ export function groupReadingLines<T extends LayoutRegion>(
     let bestDistance = Number.POSITIVE_INFINITY;
     for (let index = 0; index < grouped.length; index += 1) {
       const line = grouped[index];
-      if (!line) continue;
+      if (!line || line[0]?.column !== entry.column) continue;
       const distance = belongsToLine(entry, line, orientation, tolerance);
       if (distance < bestDistance) {
         bestDistance = distance;
@@ -140,6 +183,8 @@ export function groupReadingLines<T extends LayoutRegion>(
     );
   }
   grouped.sort((a, b) => {
+    const column = (a[0]?.column ?? 0) - (b[0]?.column ?? 0);
+    if (column !== 0) return column;
     const aCenterX = average(a.map((entry) => entry.bounds.centerX));
     const bCenterX = average(b.map((entry) => entry.bounds.centerX));
     const aCenterY = average(a.map((entry) => entry.bounds.centerY));

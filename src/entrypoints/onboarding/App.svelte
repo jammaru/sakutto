@@ -2,6 +2,9 @@
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
   import { DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID, getModel } from '@/engine/model/catalog';
+  import { DEFAULT_OCR_TIER, OCR_TIER_CATALOG, type OcrTier } from '@/engine/ocr/catalog';
+  import type { AssetStatus } from '@/engine/model/asset';
+  import { combinedSetupProgress } from '@/shared/ocr';
   import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
   import {
     emptySharedFolderStatus,
@@ -36,6 +39,10 @@
   import { resolveTargetLanguage, type TargetLanguage } from '@/shared/languages';
   import {
     isModelProgressMessage,
+    isOcrProgressMessage,
+    requestOcrCancel,
+    requestOcrDownload,
+    requestOcrInspect,
     requestModelCancel,
     requestModelDownload,
     requestEngineWarm,
@@ -133,6 +140,8 @@
   let progress = $state(0);
   let modelState = $state<ModelStatus['state']>('absent');
   let lastStatus = $state<ModelStatus | null>(null);
+  let ocrTier = $state<OcrTier>(DEFAULT_OCR_TIER);
+  let lastOcrStatus = $state<AssetStatus<OcrTier> | null>(null);
   let engineFolder = $state<SharedFolderStatus>(
     emptySharedFolderStatus(sharedFolderPickerAvailable()),
   );
@@ -208,14 +217,38 @@
     sharedFolderNeedsPermission(engineFolder) || lastStatus?.error === FOLDER_PERMISSION_ERROR,
   );
 
+  function updateCombinedProgress(notifyBytes = false) {
+    const combined = combinedSetupProgress(
+      lastStatus ?? {
+        received: 0,
+        total: model.size,
+        state: modelState,
+      },
+      lastOcrStatus ?? {
+        received: 0,
+        total: OCR_TIER_CATALOG[ocrTier].size,
+        state: 'absent',
+      },
+    );
+    received = combined.received;
+    total = combined.total;
+    progress = combined.progress;
+    modelState = combined.state;
+    if (notifyBytes) noteBytes(received);
+    phase = onboardingPhaseAfterStatus(phase, combined.state, consentSaved || startRequested);
+  }
+
+  function applyOcrStatus(status: AssetStatus<OcrTier>) {
+    if (status.id !== ocrTier) return;
+    lastOcrStatus = status;
+    if (status.state === 'error') failureDetail = status.error ?? null;
+    updateCombinedProgress(status.state === 'downloading');
+  }
+
   function applyStatus(status: ModelStatus) {
     if (status.id !== DEFAULT_MODEL_ID) return;
     const next = advanceModelStatus(lastStatus, status);
     lastStatus = next;
-    received = next.received;
-    total = next.total || model.size;
-    progress = next.progress;
-    modelState = next.state;
     if (next.error === FOLDER_PERMISSION_ERROR) {
       failureDetail = null;
       phase = 'consent';
@@ -234,8 +267,7 @@
     } else if (next.state === 'downloading' || next.state === 'ready' || next.state === 'loaded') {
       failureDetail = null;
     }
-    if (status.state === 'downloading') noteBytes(next.received);
-    phase = onboardingPhaseAfterStatus(phase, next.state, consentSaved || startRequested);
+    updateCombinedProgress(status.state === 'downloading');
   }
 
   function noteBytes(receivedBytes: number): void {
@@ -490,18 +522,22 @@
 
     if (received > 0) continued = true;
 
-    if (alreadyReady) {
+    const ocrReady = lastOcrStatus?.state === 'ready' || lastOcrStatus?.state === 'loaded';
+    if (alreadyReady && ocrReady) {
       phase = 'ready';
       return;
     }
 
     phase = 'downloading';
-    const started = await requestModelDownload(DEFAULT_MODEL_ID);
-    if (!started) phase = 'error';
+    const [plamoStarted, ocrStarted] = await Promise.all([
+      alreadyReady ? Promise.resolve(true) : requestModelDownload(DEFAULT_MODEL_ID),
+      ocrReady ? Promise.resolve(true) : requestOcrDownload(ocrTier),
+    ]);
+    if (!plamoStarted || !ocrStarted) phase = 'error';
   }
 
   async function pause() {
-    await requestModelCancel(DEFAULT_MODEL_ID);
+    await Promise.all([requestModelCancel(DEFAULT_MODEL_ID), requestOcrCancel(ocrTier)]);
     phase = 'paused';
   }
 
@@ -532,6 +568,10 @@
 
   onMount(() => {
     const onMessage = (message: unknown) => {
+      if (isOcrProgressMessage(message)) {
+        applyOcrStatus(message.status);
+        return;
+      }
       if (!isModelProgressMessage(message)) return;
       applyStatus(message.status);
     };
@@ -543,6 +583,7 @@
     void loadSettings()
       .then((settings) => {
         targetLanguage = settings.targetLanguage;
+        ocrTier = settings.selectedOcrTier;
         // A consent written under an earlier notice stays valid, but this user has not seen
         // the clearer commercial summary. Showing it again does not invalidate the license,
         // does not touch the stored model, and only asks for one more click.
@@ -566,9 +607,11 @@
         }
       })
       .catch(() => undefined)
-      .then(() => requestModelInspect(DEFAULT_MODEL_ID))
-      .then((status) => {
+      .then(() => Promise.all([requestModelInspect(DEFAULT_MODEL_ID), requestOcrInspect(ocrTier)]))
+      .then(([status, ocrStatus]) => {
         if (status) applyStatus(status);
+        if (ocrStatus) applyOcrStatus(ocrStatus);
+        updateCombinedProgress();
       })
       .catch(() => undefined);
 
@@ -601,6 +644,7 @@
       <h2>{t('onboardingSetupHeading')}</h2>
       <ul>
         <li>{t('onboardingModelNote')}</li>
+        <li>{t('onboardingOcrNote', [formatByteSize(OCR_TIER_CATALOG[ocrTier].size)])}</li>
         <li>{tForBrowser('onboardingBridgeNote', 'onboardingBridgeNoteFirefox')}</li>
         {#if hasBuiltInTranslatorUi()}
           <li>{t('onboardingUseNow')}</li>

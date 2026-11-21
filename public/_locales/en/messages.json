@@ -1715,5 +1715,65 @@
   "allSitesPopupEnable": {
     "message": "Turn on",
     "description": "Button in the toolbar popup that turns on all-sites access."
+  },
+  "ocrModelsHeading": {
+    "message": "On-device OCR",
+    "description": "Heading for PP-OCR model management."
+  },
+  "ocrModelsDescription": {
+    "message": "PP-OCRv6 recognizes text in scanned PDFs and images on this device. Choosing a tier downloads its detector and recognizer.",
+    "description": "Explanation of OCR tiers and downloads."
+  },
+  "ocrTierSwitchHint": {
+    "message": "Switching tiers downloads the selected models. Other tiers stay on this device until you delete them.",
+    "description": "Explains tier switching and old model cleanup."
+  },
+  "onboardingOcrNote": {
+    "message": "Also downloads the standard on-device OCR models ($1) for scanned PDFs and images.",
+    "description": "Combined onboarding download note with OCR bundle size."
+  },
+  "pdfOcrReading": {
+    "message": "Recognizing scanned page $1 of $2…",
+    "description": "Shown while OCR runs on a scanned PDF page."
+  },
+  "pdfOcrFailed": {
+    "message": "Text recognition failed on this scanned page.",
+    "description": "Shown when a scanned PDF page cannot be recognized."
+  },
+  "ocrDownloadRequired": {
+    "message": "Download the OCR models in Settings to recognize text in scanned PDFs and images.",
+    "description": "Shown when OCR is unavailable or its model download fails."
+  },
+  "contextTranslateImage": {
+    "message": "Translate image with Sakutto",
+    "description": "Image context-menu action."
+  },
+  "imageTranslationHeading": {
+    "message": "Image translation",
+    "description": "Title of the image translation panel."
+  },
+  "imageTranslating": {
+    "message": "Recognizing and translating image…",
+    "description": "Shown while image OCR and translation run."
+  },
+  "imageTranslationFailed": {
+    "message": "The image could not be translated.",
+    "description": "Shown when image OCR or translation fails."
+  },
+  "imageTranslationEmpty": {
+    "message": "No text was recognized in this image.",
+    "description": "Shown when OCR returns no text."
+  },
+  "imageTranslationClose": {
+    "message": "Close image translation",
+    "description": "Accessible close-button label for the image panel."
+  },
+  "imageOriginalText": {
+    "message": "Recognized text",
+    "description": "Label for OCR source text in the image panel."
+  },
+  "imageTranslationPermission": {
+    "message": "The browser could not access this image. Try capturing the visible page instead.",
+    "description": "Shown when image pixels cannot be read without extra permissions."
   }
 }

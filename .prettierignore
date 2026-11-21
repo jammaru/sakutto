@@ -5,6 +5,8 @@ pnpm-lock.yaml
 public/icon
 public/licenses
 public/vendor
+# Byte-pinned third-party OCR runtime; formatting would invalidate SHA-256 pins.
+public/ocr/ort
 vendor
 scripts/icon.svg
 scripts/bench/fixtures/

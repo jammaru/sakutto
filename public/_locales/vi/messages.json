@@ -1705,5 +1705,65 @@
   },
   "allSitesPopupEnable": {
     "message": "Bật"
+  },
+  "ocrModelsHeading": {
+    "message": "OCR trên thiết bị",
+    "description": "Heading for PP-OCR model management."
+  },
+  "ocrModelsDescription": {
+    "message": "PP-OCRv6 nhận dạng văn bản trong PDFs được quét và hình ảnh trên thiết bị này. Khi chọn một cấp, các mô hình phát hiện và nhận dạng của cấp đó sẽ được tải xuống.",
+    "description": "Explanation of OCR tiers and downloads."
+  },
+  "ocrTierSwitchHint": {
+    "message": "Chuyển cấp sẽ tải xuống các mô hình đã chọn. Các cấp khác vẫn ở trên thiết bị này cho đến khi bạn xóa chúng.",
+    "description": "Explains tier switching and old model cleanup."
+  },
+  "onboardingOcrNote": {
+    "message": "Cũng tải xuống các mô hình OCR tiêu chuẩn trên thiết bị ($1) cho PDFs được quét và hình ảnh.",
+    "description": "Combined onboarding download note with OCR bundle size."
+  },
+  "pdfOcrReading": {
+    "message": "Đang nhận dạng trang được quét $1/$2…",
+    "description": "Shown while OCR runs on a scanned PDF page."
+  },
+  "pdfOcrFailed": {
+    "message": "Không nhận dạng được văn bản trên trang được quét này.",
+    "description": "Shown when a scanned PDF page cannot be recognized."
+  },
+  "ocrDownloadRequired": {
+    "message": "Tải xuống các mô hình OCR trong Cài đặt để nhận dạng văn bản trong PDFs được quét và hình ảnh.",
+    "description": "Shown when OCR is unavailable or its model download fails."
+  },
+  "contextTranslateImage": {
+    "message": "Dịch hình ảnh bằng Sakutto",
+    "description": "Image context-menu action."
+  },
+  "imageTranslationHeading": {
+    "message": "Dịch hình ảnh",
+    "description": "Title of the image translation panel."
+  },
+  "imageTranslating": {
+    "message": "Đang nhận dạng và dịch hình ảnh…",
+    "description": "Shown while image OCR and translation run."
+  },
+  "imageTranslationFailed": {
+    "message": "Không thể dịch hình ảnh.",
+    "description": "Shown when image OCR or translation fails."
+  },
+  "imageTranslationEmpty": {
+    "message": "Không nhận dạng được văn bản nào trong hình ảnh này.",
+    "description": "Shown when OCR returns no text."
+  },
+  "imageTranslationClose": {
+    "message": "Đóng phần dịch hình ảnh",
+    "description": "Accessible close-button label for the image panel."
+  },
+  "imageOriginalText": {
+    "message": "Văn bản đã nhận dạng",
+    "description": "Label for OCR source text in the image panel."
+  },
+  "imageTranslationPermission": {
+    "message": "Trình duyệt không thể truy cập hình ảnh này. Hãy thử chụp trang đang hiển thị.",
+    "description": "Shown when image pixels cannot be read without extra permissions."
   }
 }

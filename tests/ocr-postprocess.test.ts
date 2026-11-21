@@ -387,6 +387,29 @@ describe('reading order', () => {
     expect(lines).toHaveLength(3);
   });
 
+  it('reads clear horizontal columns left-to-right before moving to the next row', () => {
+    const regions = [
+      region('left-1', 20, 10, 100, 10),
+      region('right-1', 300, 10, 100, 10),
+      region('left-2', 20, 40, 100, 10),
+      region('right-2', 300, 40, 100, 10),
+      region('left-3', 20, 70, 100, 10),
+      region('right-3', 300, 70, 100, 10),
+      region('left-4', 20, 100, 100, 10),
+      region('right-4', 300, 100, 100, 10),
+    ];
+    expect(orderTextRegions(regions).map((item) => item.id)).toEqual([
+      'left-1',
+      'left-2',
+      'left-3',
+      'left-4',
+      'right-1',
+      'right-2',
+      'right-3',
+      'right-4',
+    ]);
+  });
+
   it('groups vertical Japanese columns right-to-left and top-to-bottom', () => {
     const left = region('left', 0, 0, 8, 30);
     const rightBottom = region('right-bottom', 30, 35, 8, 30);

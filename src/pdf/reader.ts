@@ -1,4 +1,6 @@
 import type { Formality } from '@/shared/settings';
+import { isAbortError } from '@/engine/errors';
+import { createPdfPageOcr, shouldRunPdfOcr, type PdfPageOcr, type PdfOcrRecognize } from './ocr';
 import { verticalWriting, type LayoutBlock } from './layout';
 import { layoutPage } from './layout';
 import { COVER_PAD_TOP_EM, HINTING_PAD_PX, coverPaintLayout, drawnBox } from './place';
@@ -39,6 +41,9 @@ export interface ReaderLabels {
   compareOriginal: string;
   /** Caption on the translated pane in side-by-side compare. */
   compareTranslated: string;
+  /** OCR status on a page whose text layer is absent or negligible. */
+  ocrReading: (page: number, of: number) => string;
+  ocrFailed: string;
 }
 
 export interface ReaderOptions {
@@ -70,6 +75,8 @@ export interface ReaderOptions {
   pageLimit?: number | undefined;
   /** Reports progress to the page's toolbar. */
   onProgress: (state: ReaderProgress) => void;
+  /** Optional scanned-page fallback. Construction does not load or download OCR models. */
+  ocr?: { recognize: PdfOcrRecognize } | undefined;
 }
 
 export interface ReaderProgress {
@@ -153,6 +160,8 @@ export class PdfReader {
   private readonly geometryByIndex: ReadonlyMap<number, PageGeometry>;
   private readonly pageLimit: number | null;
   private readonly ops: Record<string, number> | null;
+  private readonly ocr: { recognize: PdfOcrRecognize } | null;
+  private pageOcr: PdfPageOcr | null = null;
   private readonly parsed = new Set<number>();
   private parsing: Promise<void> | null = null;
   private visible = true;
@@ -179,6 +188,7 @@ export class PdfReader {
     this.pageLimit =
       options.pageLimit !== undefined && options.pageLimit > 0 ? options.pageLimit : null;
     this.ops = options.ops ?? null;
+    this.ocr = options.ocr ?? null;
     this.target = options.targetLanguage;
     this.form = options.form;
     this.engine = options.engine;
@@ -389,11 +399,13 @@ export class PdfReader {
   /** Pauses translating while the tab is hidden, and resumes when it is shown again. */
   setVisible(visible: boolean): void {
     this.visible = visible;
+    if (!visible) this.pageOcr?.cancel();
     if (visible) void this.parseNext();
   }
 
   destroy(): void {
     this.destroyed = true;
+    this.pageOcr?.cancel();
     this.observer.disconnect();
     this.resizeObserver?.disconnect();
     document.removeEventListener('click', this.onDocumentClick);
@@ -664,16 +676,49 @@ export class PdfReader {
     if (next === null) return;
 
     this.parsing = (async () => {
+      let ocrAttempted = false;
       try {
         const page = await this.document.getPage(next + 1);
         const extracted = await extractPage(page, next, this.ops);
         if (this.destroyed) return;
-        this.parsed.add(next);
         // A new page brings new unpainted prose, so the coverage sweep starts over for it.
         this.coverageSweepPass = 0;
         const element = this.pageElements.get(next);
+        let ocrLayout = null;
+        let ocrLines = null;
 
-        if (extracted.empty) {
+        if (
+          this.ocr &&
+          shouldRunPdfOcr(extracted.lines, extracted.figures, extracted.width, extracted.height)
+        ) {
+          ocrAttempted = true;
+          if (element) {
+            element.host.dataset.pageEmpty = 'true';
+            element.missing.textContent = this.labels.ocrReading(next + 1, this.geometries.length);
+          }
+          const canvas = document.createElement('canvas');
+          await renderPage(page, 2, canvas).promise;
+          if (this.destroyed || !this.visible) return;
+          this.pageOcr = createPdfPageOcr({
+            pageIndex: next,
+            pageWidth: extracted.width,
+            pageHeight: extracted.height,
+            recognize: this.ocr.recognize,
+          });
+          const recognized = await this.pageOcr.run(canvas);
+          this.pageOcr = null;
+          if (!recognized.empty) {
+            ocrLayout = recognized.layout;
+            ocrLines = recognized.lines;
+            if (element) element.host.dataset.pageEmpty = 'false';
+          }
+        }
+
+        this.parsed.add(next);
+        if (ocrLayout && ocrLines) {
+          this.session.addPage(next, ocrLayout, extracted.height);
+          if (element) this.paintTextLayer(element, ocrLines);
+        } else if (extracted.empty || ocrAttempted) {
           this.emptyPages += 1;
           if (element) element.host.dataset.pageEmpty = 'true';
           this.session.addPage(
@@ -699,11 +744,19 @@ export class PdfReader {
           this.skippedBlocks += layout.skipped.length;
           this.session.addPage(next, layout, extracted.height);
         }
-        if (element) this.paintTextLayer(element, extracted.lines);
+        if (element && !ocrLines) this.paintTextLayer(element, extracted.lines);
         this.session.focusPage(this.focus);
         this.report();
-      } catch {
+      } catch (error) {
+        if (isAbortError(error) && (this.destroyed || !this.visible)) return;
         this.parsed.add(next);
+        if (ocrAttempted) {
+          const element = this.pageElements.get(next);
+          if (element) {
+            element.host.dataset.pageEmpty = 'true';
+            element.missing.textContent = this.labels.ocrFailed;
+          }
+        }
       } finally {
         this.parsing = null;
         void this.parseNext();

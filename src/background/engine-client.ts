@@ -2,6 +2,10 @@ import { browser, type Browser } from 'wxt/browser';
 import { bindPortDisconnectCleanup, readRuntimeLastError } from '@/shared/runtime-last-error';
 import { abortError, EngineError, isAbortError } from '@/engine/errors';
 import type { ModelId } from '@/engine/model/catalog';
+import type { OcrTier } from '@/engine/ocr/catalog';
+import type { OcrResult } from '@/engine/ocr/types';
+import type { AssetStatus } from '@/engine/model/asset';
+import { isOcrResult, isOcrStatus } from '@/shared/ocr';
 import {
   ENGINE_HOST_PORT,
   MODEL_STATUS_PROGRESS_ID,
@@ -20,6 +24,10 @@ import {
   type ModelStatusRequest,
   type ModelUseRequest,
   type ModelWarmRequest,
+  type OcrDeleteRequest,
+  type OcrDownloadRequest,
+  type OcrRecognizeRequest,
+  type OcrStatusRequest,
   type PingRequest,
   type RuntimeSetRequest,
   type SourceSetRequest,
@@ -51,6 +59,8 @@ type RequestWithoutId =
   | Omit<ModelUseRequest, 'requestId'>
   | Omit<ModelWarmRequest, 'requestId'>
   | Omit<ModelStatusRequest, 'requestId'>
+  | Omit<OcrStatusRequest, 'requestId'>
+  | Omit<OcrDeleteRequest, 'requestId'>
   | Omit<CacheClearRequest, 'requestId'>
   | Omit<TierSetRequest, 'requestId'>
   | Omit<SourceSetRequest, 'requestId'>
@@ -105,6 +115,8 @@ export class EngineClient {
   private readonly pending = new Map<string, PendingRequest>();
   private readonly streams = new Map<string, ChunkStream<TranslationChunk>>();
   private readonly progress = new Map<string, (status: ModelStatus) => void>();
+  private readonly ocrProgress = new Map<string, (status: AssetStatus<OcrTier>) => void>();
+  private readonly ocrStatusListeners = new Set<(status: AssetStatus<OcrTier>) => void>();
   private readonly modelMarks = new Map<string, ModelStatus>();
   private readonly modelStatusListeners = new Set<(status: ModelStatus) => void>();
   private sourceKey = '';
@@ -154,6 +166,24 @@ export class EngineClient {
     const value = await this.request({ type: 'model-status', modelId }, { timeoutMs: 15_000 });
     if (!isModelStatus(value)) throw hostError('The engine host returned an invalid status.');
     return value;
+  }
+
+  async ocrStatus(tier: OcrTier): Promise<AssetStatus<OcrTier>> {
+    await this.ensureSource();
+    const value = await this.request({ type: 'ocr-status', tier }, { timeoutMs: 15_000 });
+    if (!isOcrStatus(value)) throw hostError('The OCR host returned an invalid status.');
+    return value;
+  }
+
+  async deleteOcr(tier: OcrTier): Promise<AssetStatus<OcrTier>> {
+    const value = await this.request({ type: 'ocr-delete', tier }, { timeoutMs: 30_000 });
+    if (!isOcrStatus(value)) throw hostError('The OCR host returned an invalid status.');
+    return value;
+  }
+
+  onOcrStatus(listener: (status: AssetStatus<OcrTier>) => void): () => void {
+    this.ocrStatusListeners.add(listener);
+    return () => this.ocrStatusListeners.delete(listener);
   }
 
   async reloadModelFolder(): Promise<SharedFolderStatus> {
@@ -314,6 +344,61 @@ export class EngineClient {
     throw lastError instanceof EngineError
       ? lastError
       : hostError('The model download failed.', lastError);
+  }
+
+  async downloadOcr(
+    tier: OcrTier,
+    options: { signal: AbortSignal; onProgress?: (status: AssetStatus<OcrTier>) => void },
+  ): Promise<AssetStatus<OcrTier>> {
+    const requestId = createRequestId();
+    if (options.onProgress) this.ocrProgress.set(requestId, options.onProgress);
+    const cancel = (): void => this.sendRaw({ type: 'ocr-cancel', requestId });
+    options.signal.addEventListener('abort', cancel, { once: true });
+    try {
+      await this.ensureSource();
+      const port = await this.connect();
+      if (options.signal.aborted) throw abortError();
+      const value = await this.roundTrip(
+        port,
+        { type: 'ocr-download', requestId, tier } satisfies OcrDownloadRequest,
+        0,
+      );
+      if (!isOcrStatus(value)) throw hostError('The OCR host returned an invalid status.');
+      return value;
+    } catch (error) {
+      if (options.signal.aborted || isAbortError(error)) throw abortError();
+      throw error instanceof EngineError ? error : hostError('The OCR download failed.', error);
+    } finally {
+      options.signal.removeEventListener('abort', cancel);
+      this.ocrProgress.delete(requestId);
+    }
+  }
+
+  async recognizeOcr(
+    tier: OcrTier,
+    image: OcrRecognizeRequest['image'],
+    signal: AbortSignal,
+  ): Promise<OcrResult> {
+    const requestId = createRequestId();
+    const cancel = (): void => this.sendRaw({ type: 'ocr-cancel', requestId });
+    signal.addEventListener('abort', cancel, { once: true });
+    try {
+      await this.ensureSource();
+      const port = await this.connect();
+      if (signal.aborted) throw abortError();
+      const value = await this.roundTrip(
+        port,
+        { type: 'ocr-recognize', requestId, tier, image } satisfies OcrRecognizeRequest,
+        0,
+      );
+      if (!isOcrResult(value)) throw hostError('The OCR host returned an invalid result.');
+      return value;
+    } catch (error) {
+      if (signal.aborted || isAbortError(error)) throw abortError();
+      throw error instanceof EngineError ? error : hostError('OCR recognition failed.', error);
+    } finally {
+      signal.removeEventListener('abort', cancel);
+    }
   }
 
   async *translate(
@@ -546,6 +631,19 @@ export class EngineClient {
         }
         return;
       }
+      case 'ocr-progress': {
+        this.ocrProgress.get(message.requestId)?.(message.status);
+        if (message.requestId === `ocr:${message.status.id}`) {
+          for (const listener of this.ocrStatusListeners) {
+            try {
+              listener(message.status);
+            } catch {
+              // A status subscriber must not break the host inbox.
+            }
+          }
+        }
+        return;
+      }
       case 'response': {
         const pending = this.pending.get(message.requestId);
         if (!pending) return;
@@ -591,6 +689,7 @@ export class EngineClient {
     for (const stream of this.streams.values()) stream.fail(error);
     this.streams.clear();
     this.progress.clear();
+    this.ocrProgress.clear();
   }
 
   private sendRaw(message: EngineHostRequest): void {

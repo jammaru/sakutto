@@ -90,8 +90,11 @@ function tier(id: OcrTier, det: OcrModelEntry, rec: OcrModelEntry): OcrTierEntry
   return { id, det, rec, files, size: assetBundleSize(files) };
 }
 
-// The standard pairing is a conservative placeholder until the browser benchmark selects
-// a final default. The high tier is fixed as medium detection plus medium recognition.
+// Standard was selected on the generated CC0 eight-case Node/WASM benchmark: 0.3% micro-CER
+// and 769 ms/page versus 3.1%/1083 ms (small+small) and 10.3%/5836 ms (medium+medium).
+// See bench/results/ocr-benchmark.md. The high tier remains medium detection plus recognition
+// for difficult real-world scans where its extra compute may help; generated fixtures alone
+// do not establish broad accuracy superiority.
 export const OCR_TIER_CATALOG: Readonly<Record<OcrTier, OcrTierEntry>> = Object.freeze({
   standard: tier('standard', OCR_MODEL_CATALOG.tiny_det, OCR_MODEL_CATALOG.small_rec),
   high: tier('high', OCR_MODEL_CATALOG.medium_det, OCR_MODEL_CATALOG.medium_rec),

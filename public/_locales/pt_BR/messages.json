@@ -1705,5 +1705,65 @@
   },
   "allSitesPopupEnable": {
     "message": "Ativar"
+  },
+  "ocrModelsHeading": {
+    "message": "OCR no dispositivo",
+    "description": "Heading for PP-OCR model management."
+  },
+  "ocrModelsDescription": {
+    "message": "O PP-OCRv6 reconhece texto em PDFs digitalizados e imagens neste dispositivo. Ao escolher um nível, o detector e o reconhecedor correspondentes são baixados.",
+    "description": "Explanation of OCR tiers and downloads."
+  },
+  "ocrTierSwitchHint": {
+    "message": "Trocar de nível baixa os modelos selecionados. Os outros níveis permanecem neste dispositivo até você excluí-los.",
+    "description": "Explains tier switching and old model cleanup."
+  },
+  "onboardingOcrNote": {
+    "message": "Também baixa os modelos padrão de OCR no dispositivo ($1) para PDFs digitalizados e imagens.",
+    "description": "Combined onboarding download note with OCR bundle size."
+  },
+  "pdfOcrReading": {
+    "message": "Reconhecendo a página digitalizada $1 de $2…",
+    "description": "Shown while OCR runs on a scanned PDF page."
+  },
+  "pdfOcrFailed": {
+    "message": "Falha ao reconhecer o texto desta página digitalizada.",
+    "description": "Shown when a scanned PDF page cannot be recognized."
+  },
+  "ocrDownloadRequired": {
+    "message": "Baixe os modelos de OCR nas Configurações para reconhecer texto em PDFs digitalizados e imagens.",
+    "description": "Shown when OCR is unavailable or its model download fails."
+  },
+  "contextTranslateImage": {
+    "message": "Traduzir imagem com o Sakutto",
+    "description": "Image context-menu action."
+  },
+  "imageTranslationHeading": {
+    "message": "Tradução de imagem",
+    "description": "Title of the image translation panel."
+  },
+  "imageTranslating": {
+    "message": "Reconhecendo e traduzindo a imagem…",
+    "description": "Shown while image OCR and translation run."
+  },
+  "imageTranslationFailed": {
+    "message": "Não foi possível traduzir a imagem.",
+    "description": "Shown when image OCR or translation fails."
+  },
+  "imageTranslationEmpty": {
+    "message": "Nenhum texto foi reconhecido nesta imagem.",
+    "description": "Shown when OCR returns no text."
+  },
+  "imageTranslationClose": {
+    "message": "Fechar tradução de imagem",
+    "description": "Accessible close-button label for the image panel."
+  },
+  "imageOriginalText": {
+    "message": "Texto reconhecido",
+    "description": "Label for OCR source text in the image panel."
+  },
+  "imageTranslationPermission": {
+    "message": "O navegador não conseguiu acessar esta imagem. Tente capturar a página visível.",
+    "description": "Shown when image pixels cannot be read without extra permissions."
   }
 }
