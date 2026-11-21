@@ -120,11 +120,15 @@ export interface ModelDownloadRequest {
   type: 'model-download';
   requestId: string;
   modelId: ModelId;
+  /** Re-attach to an already running, non-aborted download without starting a new one. */
+  attachOnly?: boolean;
 }
 
 export interface ModelCancelRequest {
   type: 'model-cancel';
   requestId: string;
+  /** Cancel the model operation even when its request ID lived in an earlier worker. */
+  modelId?: ModelId;
 }
 
 export interface ModelDeleteRequest {
@@ -535,11 +539,16 @@ export function isEngineHostRequest(value: unknown): value is EngineHostRequest 
     case 'status':
     case 'ping':
     case 'cancel':
-    case 'model-cancel':
     case 'ocr-cancel':
     case 'model-warm':
       return true;
+    case 'model-cancel':
+      return value.modelId === undefined || isModelId(value.modelId);
     case 'model-download':
+      return (
+        isModelId(value.modelId) &&
+        (value.attachOnly === undefined || typeof value.attachOnly === 'boolean')
+      );
     case 'model-delete':
     case 'model-use':
     case 'model-status':

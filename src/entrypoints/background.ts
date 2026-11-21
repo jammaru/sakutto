@@ -8,6 +8,7 @@ import { defineBackground } from 'wxt/utils/define-background';
 import { EngineClient } from '@/background/engine-client';
 import { OcrRecognitionRequests } from '@/background/ocr-requests';
 import { captureActiveSenderTab } from '@/background/image-capture';
+import { ModelDownloads } from '@/background/model-downloads';
 import { createEngineHostController } from '@/background/engine-host-document';
 import {
   injectCaptionPages,
@@ -44,14 +45,14 @@ import {
 import { tabServesPdf } from '@/background/pdf-detect';
 import { isImageCaptureRequest } from '@/shared/image';
 import { sendExtensionModelProgress } from '@/background/extension-progress-sink';
-import { broadcastModelProgress, shouldWarmDownloadedModel } from '@/background/progress-broadcast';
+import { broadcastModelProgress } from '@/background/progress-broadcast';
 import { measureQuality } from '@/background/quality';
 import { TranslationBroker } from '@/background/translation-broker';
 import { settleCaptionEnableIntent } from '@/captions/sites';
 import { hasAllSitesAccess, syncAllSitesContentScripts } from '@/dom/all-sites';
 import { settleMailEnableIntent, syncMailContentScripts } from '@/dom/mail-sites';
 import { grantOriginsFor } from '@/dom/sites';
-import { getModel, type ModelId } from '@/engine/model/catalog';
+import type { ModelId } from '@/engine/model/catalog';
 import { OCR_TIER_CATALOG, type OcrTier } from '@/engine/ocr/catalog';
 import type { AssetStatus } from '@/engine/model/asset';
 import { normalizeSelectedModelId } from '@/engine/model/selection';
@@ -72,6 +73,7 @@ import {
   isOpenSetupRequest,
   isShortcutQuery,
   isSiteGrantRequest,
+  isModelAttachRequest,
   isModelDeleteRequest,
   isModelDownloadRequest,
   isModelFolderAdoptRequest,
@@ -127,7 +129,7 @@ export default defineBackground(() => {
   // other background setup so the first event after a restart is not lost.
   installPageActionListeners(client);
   const broker = new TranslationBroker(client);
-  const downloads = new Map<ModelId, AbortController>();
+  const downloads = new ModelDownloads(client, broadcast);
   const ocrDownloads = new Map<OcrTier, AbortController>();
   const ocrDownloadTasks = new Map<OcrTier, Promise<AssetStatus<OcrTier>>>();
   const ocrRecognitions = new OcrRecognitionRequests();
@@ -246,59 +248,6 @@ export default defineBackground(() => {
     });
   }
 
-  async function broadcastStatus(): Promise<void> {
-    const status = await client.status().catch(() => null);
-    if (!status) return;
-    await broadcast({ type: 'model:progress', status: status.model });
-  }
-
-  function startDownload(modelId: ModelId): boolean {
-    if (downloads.has(modelId)) return true;
-
-    const controller = new AbortController();
-    downloads.set(modelId, controller);
-    const total = getModel(modelId).size;
-    let received = 0;
-
-    void (async () => {
-      try {
-        const status = await client.downloadModel(modelId, {
-          signal: controller.signal,
-          onProgress: (progress) => {
-            received = progress.received;
-            void broadcast({ type: 'model:progress', status: progress });
-          },
-        });
-        await broadcast({ type: 'model:progress', status });
-        const current = await client.status().catch(() => null);
-        if (shouldWarmDownloadedModel(status, current?.model ?? null)) {
-          const warmed = await client.warmModel().catch(() => null);
-          if (warmed) await broadcast({ type: 'model:progress', status: warmed });
-        }
-      } catch (error) {
-        if (controller.signal.aborted) {
-          await broadcastStatus();
-          return;
-        }
-
-        await broadcast({
-          type: 'model:progress',
-          status: {
-            id: modelId,
-            state: 'error',
-            received,
-            total,
-            progress: Math.min(1, received / total),
-            error: error instanceof Error ? error.message : String(error),
-          },
-        });
-      } finally {
-        downloads.delete(modelId);
-      }
-    })();
-
-    return true;
-  }
 
   function startOcrDownload(tier: OcrTier): boolean {
     if (ocrDownloadTasks.has(tier)) return true;
@@ -360,8 +309,7 @@ export default defineBackground(() => {
     const activeBefore = await client.status().catch(() => null);
     const removingActiveModel = activeBefore?.model.id === modelId;
 
-    downloads.get(modelId)?.abort();
-    downloads.delete(modelId);
+    downloads.abort(modelId);
     if (removingActiveModel) broker.cancelAll();
 
     const status = await client.deleteModel(modelId).catch(() => null);
@@ -710,6 +658,11 @@ export default defineBackground(() => {
       return true;
     }
 
+    if (isModelAttachRequest(message)) {
+      void downloads.attach(message.modelId).then(sendResponse, () => sendResponse(null));
+      return true;
+    }
+
     if (isCacheClearRequest(message)) {
       void client.clearCache().then(
         () => sendResponse(true),
@@ -738,7 +691,7 @@ export default defineBackground(() => {
             sendResponse(false);
             return;
           }
-          sendResponse(startDownload(message.modelId));
+          sendResponse(downloads.start(message.modelId));
         },
         () => sendResponse(false),
       );
@@ -746,8 +699,7 @@ export default defineBackground(() => {
     }
 
     if (isModelCancelRequest(message)) {
-      downloads.get(message.modelId)?.abort();
-      downloads.delete(message.modelId);
+      void downloads.cancel(message.modelId);
       sendResponse(true);
       return false;
     }

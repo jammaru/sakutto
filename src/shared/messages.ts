@@ -214,6 +214,11 @@ export interface OcrProgressMessage {
   status: AssetStatus<OcrTier>;
 }
 
+export interface ModelAttachRequest {
+  type: 'model:attach';
+  modelId: ModelId;
+}
+
 export interface ModelFolderReloadRequest {
   type: 'model-folder:reload';
 }
@@ -437,6 +442,10 @@ export function isOcrProgressMessage(value: unknown): value is OcrProgressMessag
 
 function isOcrStatusTier(value: unknown): value is OcrTier {
   return value === 'standard' || value === 'high';
+}
+
+export function isModelAttachRequest(value: unknown): value is ModelAttachRequest {
+  return isRecord(value) && value.type === 'model:attach' && isModelId(value.modelId);
 }
 
 export function isModelFolderReloadRequest(value: unknown): value is ModelFolderReloadRequest {
@@ -672,6 +681,18 @@ export async function requestOcrDelete(tier: OcrTier): Promise<AssetStatus<OcrTi
       tier,
     } satisfies OcrDeleteRequest);
     return isOcrStatus(response) ? response : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function requestModelAttach(modelId: ModelId): Promise<ModelStatus | null> {
+  try {
+    const response: unknown = await browser.runtime.sendMessage({
+      type: 'model:attach',
+      modelId,
+    } satisfies ModelAttachRequest);
+    return isModelStatus(response) ? response : null;
   } catch {
     return null;
   }

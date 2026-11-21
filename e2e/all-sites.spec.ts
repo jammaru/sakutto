@@ -59,6 +59,7 @@ async function turnOffAllSitesViaOptions(options: Page): Promise<void> {
   await expect(options.locator('[data-sakutto="all-sites"]')).not.toBeChecked();
 }
 
+/** Read the live registration from the worker. Callers poll it: registration is async. */
 async function registeredAllSites(worker: Worker): Promise<boolean> {
   return worker.evaluate(async () => {
     const chrome = (
@@ -99,7 +100,7 @@ test('without the all-sites grant, a fresh page has no selection button until an
   const extension = await loadExtension('en-US');
   try {
     await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
-    expect(await registeredAllSites(extension.worker)).toBe(false);
+    await expect.poll(() => registeredAllSites(extension.worker)).toBe(false);
 
     const page = await extension.context.newPage();
     await page.goto(`${FIXTURE_ORIGIN}/article.html`);
@@ -119,7 +120,7 @@ test('with the all-sites grant, a fresh page offers the selection from page load
   try {
     await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
     const options = await enableAllSitesViaOptions(extension.context, extension.extensionId);
-    expect(await registeredAllSites(extension.worker)).toBe(true);
+    await expect.poll(() => registeredAllSites(extension.worker)).toBe(true);
 
     // Select before the idle bundle has to be there; the one-time init offer still shows
     // the button for a highlight that predates the script.
@@ -139,7 +140,7 @@ test('with the all-sites grant, a fresh page offers the selection from page load
 
     // Turning the control off unregisters, so the next load is quiet again.
     await turnOffAllSitesViaOptions(options);
-    expect(await registeredAllSites(extension.worker)).toBe(false);
+    await expect.poll(() => registeredAllSites(extension.worker)).toBe(false);
     const afterRevoke = await extension.context.newPage();
     await afterRevoke.goto(`${FIXTURE_ORIGIN}/wiki.html`);
     await selectLead(afterRevoke);
@@ -163,7 +164,7 @@ test('a never site stays quiet from the grant, but an explicit command still wor
       });
     });
     const options = await enableAllSitesViaOptions(extension.context, extension.extensionId);
-    expect(await registeredAllSites(extension.worker)).toBe(true);
+    await expect.poll(() => registeredAllSites(extension.worker)).toBe(true);
 
     const page = await extension.context.newPage();
     await page.goto(`${FIXTURE_ORIGIN}/article.html`);

@@ -23,6 +23,10 @@ const state = vi.hoisted(() => ({
   injected: new Set<number>(),
   tabs: [] as Array<{ id?: number; url?: string }>,
   storage: new Map<string, unknown>(),
+  registeredIds: new Set<string>(),
+  registeredMatches: new Map<string, string[]>(),
+  beforeRegister: undefined as (() => Promise<void>) | undefined,
+  onUnregister: undefined as (() => void) | undefined,
 }));
 
 vi.mock('wxt/browser', () => ({
@@ -85,6 +89,7 @@ vi.mock('wxt/browser', () => ({
     },
     scripting: {
       registerContentScripts: async (scripts: (typeof state.registered)[number]): Promise<void> => {
+        await state.beforeRegister?.();
         if (
           state.registerRejectsPersist &&
           scripts.some((script) => script.persistAcrossSessions === true)
@@ -92,9 +97,24 @@ vi.mock('wxt/browser', () => ({
           throw new Error('persistAcrossSessions is not supported');
         }
         state.registered.push(scripts);
+        for (const script of scripts) {
+          state.registeredIds.add(script.id);
+          state.registeredMatches.set(script.id, [...script.matches]);
+        }
       },
       unregisterContentScripts: async (filter?: { ids?: string[] }) => {
         state.unregistered.push(filter);
+        state.onUnregister?.();
+        for (const id of filter?.ids ?? [...state.registeredIds]) {
+          state.registeredIds.delete(id);
+          state.registeredMatches.delete(id);
+        }
+      },
+      getRegisteredContentScripts: async (filter?: { ids?: string[] }) => {
+        const ids = filter?.ids ?? [...state.registeredIds];
+        return ids
+          .filter((id) => state.registeredIds.has(id))
+          .map((id) => ({ id, matches: state.registeredMatches.get(id) }));
       },
       executeScript: vi.fn(async (options: { target: { tabId: number } }) => {
         state.executed.push(options.target.tabId);
@@ -172,6 +192,10 @@ beforeEach(async () => {
   state.injected = new Set();
   state.tabs = [];
   state.storage.clear();
+  state.registeredIds = new Set();
+  state.registeredMatches = new Map();
+  state.beforeRegister = undefined;
+  state.onUnregister = undefined;
   // The all-sites snapshot is module state: every test starts at the not-granted default.
   resetAllSitesAccessSnapshot();
   // One sync while the broad origins are absent clears the open-tab sweep tracking, exactly
@@ -248,10 +272,70 @@ describe('all-sites content-script registration', () => {
     ]);
   });
 
-  it('unregisters and registers nothing when the broad origins are absent', async () => {
+  it('leaves nothing to unregister when the broad origins are absent', async () => {
     await syncAllSitesContentScripts();
-    expect(state.unregistered).toEqual([{ ids: [ALL_SITES_CONTENT_SCRIPT_ID] }]);
+    // A startup sync with no grant must not touch a registration another context may
+    // install a moment later, so an absent registration is left alone.
+    expect(state.unregistered).toEqual([]);
     expect(state.registered).toEqual([]);
+  });
+
+  it('unregisters an existing bundle when the broad origins disappear', async () => {
+    grantBroad();
+    await syncAllSitesContentScripts();
+    state.broadGranted = false;
+
+    await syncAllSitesContentScripts();
+    expect(state.unregistered.at(-1)).toEqual({ ids: [ALL_SITES_CONTENT_SCRIPT_ID] });
+    expect(state.registered).toHaveLength(1);
+    expect(state.registeredIds.has(ALL_SITES_CONTENT_SCRIPT_ID)).toBe(false);
+  });
+
+  it('keeps a matching registration on a repeated sync', async () => {
+    grantBroad();
+    await syncAllSitesContentScripts();
+    await syncAllSitesContentScripts();
+
+    // The second sync must not tear down and rebuild the first one's registration: an
+    // options click and the worker's onAdded listener both sync for the same grant.
+    expect(state.unregistered).toHaveLength(1);
+    expect(state.registered).toHaveLength(1);
+  });
+
+  it('serializes syncs so a second one cannot unregister during the first register', async () => {
+    grantBroad();
+    let signalRegisterEntered: () => void = () => undefined;
+    const registerEntered = new Promise<void>((resolve) => {
+      signalRegisterEntered = resolve;
+    });
+    let releaseRegister: () => void = () => undefined;
+    const registerGate = new Promise<void>((resolve) => {
+      releaseRegister = resolve;
+    });
+    state.beforeRegister = async () => {
+      signalRegisterEntered();
+      await registerGate;
+    };
+
+    const first = syncAllSitesContentScripts();
+    await registerEntered;
+    const second = syncAllSitesContentScripts();
+    releaseRegister();
+    await Promise.all([first, second]);
+
+    expect(state.unregistered).toHaveLength(1);
+    expect(state.registered).toHaveLength(1);
+  });
+
+  it('registers when the grant lands during an in-flight unregister', async () => {
+    grantBroad();
+    await syncAllSitesContentScripts();
+    state.broadGranted = false;
+    state.onUnregister = () => grantBroad();
+
+    await syncAllSitesContentScripts();
+    expect(state.registered).toHaveLength(2);
+    expect(state.registeredIds.has(ALL_SITES_CONTENT_SCRIPT_ID)).toBe(true);
   });
 
   it('is a no-op on a browser without registerContentScripts', async () => {
@@ -544,6 +628,26 @@ describe('background wiring', () => {
     });
     expect(source).toContain('hasAllSitesAccess');
     expect(source).toMatch(/allSitesAccess: await hasAllSitesAccess\(\),/);
+  });
+});
+
+describe('options toggle wiring', () => {
+  it('reports the grant only after the registration sync has resolved', () => {
+    const source = readFileSync(new URL('../src/ui/SettingsFields.svelte', import.meta.url), {
+      encoding: 'utf8',
+    });
+    const body = source.slice(source.indexOf('function setAllSites'), source.indexOf('onMount('));
+    expect(body).toContain('await requestAllSitesAccess()');
+    expect(body).toContain('await revokeAllSitesAccess()');
+    // A checked control means the bundle is registered, not just that the prompt was
+    // answered — the e2e spec reads it as the moment to assert the live registration.
+    expect(body.indexOf('await syncAllSitesContentScripts();')).toBeLessThan(
+      body.indexOf('allSitesGranted = true;'),
+    );
+    const revoke = body.indexOf('await revokeAllSitesAccess()');
+    expect(body.indexOf('await syncAllSitesContentScripts();', revoke)).toBeLessThan(
+      body.indexOf('allSitesGranted = false;', revoke),
+    );
   });
 });
 

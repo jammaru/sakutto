@@ -75,9 +75,10 @@ export class ModelManager {
   private readonly stallTimeoutMs: number | undefined;
   private readonly downloads = new Map<
     ModelId,
-    { operation: Promise<void>; abort: AbortController }
+    { operation: Promise<void>; abort: AbortController; signal: AbortSignal }
   >();
-  private readonly verifies = new Map<ModelId, Promise<void>>();
+  private readonly verifies = new Map<ModelId, { operation: Promise<void>; signal: AbortSignal }>();
+  private readonly standaloneVerifies = new Map<ModelId, AbortController>();
   private readonly downloadParts: Map<ModelId, string>;
   private readonly errors = new Map<ModelId, string>();
   private loaded: LoadedModel | null = null;
@@ -122,7 +123,10 @@ export class ModelManager {
     return this.fallbackStore;
   }
 
-  async status(modelId: ModelId = DEFAULT_MODEL_ID): Promise<ModelStatus> {
+  async status(
+    modelId: ModelId = DEFAULT_MODEL_ID,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<ModelStatus> {
     const entry = this.entry(modelId);
 
     if (this.loaded?.id === modelId) {
@@ -136,7 +140,7 @@ export class ModelManager {
     }
 
     if (primary.integrity === 'needs-hash' && !this.errors.has(modelId)) {
-      this.kickVerify(this.store, modelId);
+      this.kickVerify(this.store, modelId, options.signal);
     }
 
     if (this.fallbackStore) {
@@ -180,16 +184,30 @@ export class ModelManager {
     modelId: ModelId,
     options: { signal: AbortSignal; onProgress?: (progress: DownloadProgress) => void },
   ): Promise<void> {
+    if (options.signal.aborted) throw abortError();
+
     const existing = this.downloads.get(modelId);
-    if (existing) return existing.operation;
+    if (existing) {
+      if (!existing.signal.aborted) return existing.operation;
+      // The aborted transfer may still own its writer and partial file. Wait for its cleanup,
+      // then de-dupe again in case another Resume caller already started the replacement.
+      await existing.operation.catch(() => undefined);
+      return this.download(modelId, options);
+    }
 
     const abort = new AbortController();
     const signal = AbortSignal.any([options.signal, abort.signal]);
     const operation = this.runDownload(modelId, signal, options.onProgress).finally(() => {
-      this.downloads.delete(modelId);
+      if (this.downloads.get(modelId)?.operation === operation) this.downloads.delete(modelId);
     });
-    this.downloads.set(modelId, { operation, abort });
+    this.downloads.set(modelId, { operation, abort, signal });
     return operation;
+  }
+
+  /** Stop both a tracked transfer and verification started by a read-only status check. */
+  cancel(modelId: ModelId): void {
+    this.downloads.get(modelId)?.abort.abort();
+    this.standaloneVerifies.get(modelId)?.abort();
   }
 
   /**
@@ -732,23 +750,37 @@ export class ModelManager {
     return true;
   }
 
-  private kickVerify(store: ModelFileStore, modelId: ModelId): void {
-    if (this.downloads.has(modelId)) return;
-    void this.runVerify(store, modelId, new AbortController().signal).catch(() => undefined);
+  private kickVerify(store: ModelFileStore, modelId: ModelId, signal?: AbortSignal): void {
+    if (this.downloads.has(modelId) || this.standaloneVerifies.has(modelId)) return;
+    const abort = new AbortController();
+    this.standaloneVerifies.set(modelId, abort);
+    const verifySignal = signal ? AbortSignal.any([signal, abort.signal]) : abort.signal;
+    void this.runVerify(store, modelId, verifySignal)
+      .catch(() => undefined)
+      .finally(() => {
+        if (this.standaloneVerifies.get(modelId) === abort) {
+          this.standaloneVerifies.delete(modelId);
+        }
+      });
   }
 
-  private runVerify(
+  private async runVerify(
     store: ModelFileStore,
     modelId: ModelId,
     signal: AbortSignal,
     onProgress?: (progress: DownloadProgress) => void,
   ): Promise<void> {
+    if (signal.aborted) throw abortError();
     const existing = this.verifies.get(modelId);
-    if (existing) return existing;
+    if (existing) {
+      if (!existing.signal.aborted) return existing.operation;
+      await existing.operation.catch(() => undefined);
+      return this.runVerify(store, modelId, signal, onProgress);
+    }
     const operation = this.verifyExisting(store, modelId, signal, onProgress).finally(() => {
-      if (this.verifies.get(modelId) === operation) this.verifies.delete(modelId);
+      if (this.verifies.get(modelId)?.operation === operation) this.verifies.delete(modelId);
     });
-    this.verifies.set(modelId, operation);
+    this.verifies.set(modelId, { operation, signal });
     return operation;
   }
 

@@ -38,6 +38,39 @@ function controller(): OffscreenController {
 }
 
 describe('EngineClient', () => {
+  it('settles an attach-only request on abort and ignores its late response', async () => {
+    const port = new FakePort();
+    connect.mockReturnValue(port.port);
+    const client = new EngineClient(controller());
+    const abort = new AbortController();
+
+    const pending = client.downloadModel(DEFAULT_MODEL_ID, {
+      signal: abort.signal,
+      attachOnly: true,
+    });
+    const request = await waitForMessage<{ requestId: string }>(port, 'model-download');
+    abort.abort();
+    await expect(pending).rejects.toMatchObject({ code: 'aborted' });
+    expect(port.messagesOfType('model-cancel')).toContainEqual({
+      type: 'model-cancel',
+      requestId: request.requestId,
+    });
+
+    port.emit({
+      type: 'response',
+      requestId: request.requestId,
+      ok: true,
+      value: {
+        id: DEFAULT_MODEL_ID,
+        state: 'verifying',
+        received: 1,
+        total: 1,
+        progress: 0,
+      },
+    });
+    await flushTasks();
+  });
+
   it('fails every open stream when the host port disconnects', async () => {
     const port = new FakePort();
     connect.mockReturnValue(port.port);

@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ONBOARDING_POLL_MAX_BACKOFF_MS,
+  ONBOARDING_PROGRESS_STALE_MS,
   onboardingCanTry,
   onboardingErrorMessage,
   onboardingPhaseAfterStatus,
+  onboardingPollDelayMs,
+  shouldApplyOnboardingPollResult,
+  shouldPollOnboardingProgress,
 } from '@/ui/onboarding-phase';
 
 describe('onboardingPhaseAfterStatus', () => {
@@ -20,6 +25,12 @@ describe('onboardingPhaseAfterStatus', () => {
     expect(onboardingPhaseAfterStatus('consent', 'ready', true)).toBe('ready');
     expect(onboardingPhaseAfterStatus('downloading', 'partial', true)).toBe('paused');
     expect(onboardingPhaseAfterStatus('consent', 'partial', false)).toBe('consent');
+  });
+
+  it('does not turn paused back into downloading from stale progress', () => {
+    expect(onboardingPhaseAfterStatus('paused', 'downloading', true)).toBe('paused');
+    expect(onboardingPhaseAfterStatus('paused', 'verifying', true)).toBe('paused');
+    expect(onboardingPhaseAfterStatus('paused', 'loading', true)).toBe('paused');
   });
 
   it('leaves an error in place until a later ready state', () => {
@@ -80,5 +91,130 @@ describe('onboardingErrorMessage', () => {
         http,
       }),
     ).toBe('Setup could not start. Please try again.');
+  });
+});
+
+describe('shouldPollOnboardingProgress', () => {
+  it('polls only while downloading after push progress has gone silent', () => {
+    expect(
+      shouldPollOnboardingProgress({
+        phase: 'downloading',
+        now: 10_000,
+        lastProgressAt: 10_000 - ONBOARDING_PROGRESS_STALE_MS + 1,
+        inFlight: false,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldPollOnboardingProgress({
+        phase: 'downloading',
+        now: 10_000,
+        lastProgressAt: 10_000 - ONBOARDING_PROGRESS_STALE_MS,
+        inFlight: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('skips polling when not downloading or a poll is already in flight', () => {
+    for (const phase of ['consent', 'paused', 'ready', 'error'] as const) {
+      expect(
+        shouldPollOnboardingProgress({
+          phase,
+          now: 20_000,
+          lastProgressAt: 0,
+          inFlight: false,
+        }),
+      ).toBe(false);
+    }
+
+    expect(
+      shouldPollOnboardingProgress({
+        phase: 'downloading',
+        now: 20_000,
+        lastProgressAt: 0,
+        inFlight: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('backs off exponentially after repeated poll failures up to the cap', () => {
+    expect(onboardingPollDelayMs(0)).toBe(ONBOARDING_PROGRESS_STALE_MS);
+    expect(onboardingPollDelayMs(1)).toBe(ONBOARDING_PROGRESS_STALE_MS * 2);
+    expect(onboardingPollDelayMs(2)).toBe(ONBOARDING_PROGRESS_STALE_MS * 4);
+    expect(onboardingPollDelayMs(3)).toBe(ONBOARDING_PROGRESS_STALE_MS * 8);
+    expect(onboardingPollDelayMs(10)).toBe(ONBOARDING_POLL_MAX_BACKOFF_MS);
+
+    expect(
+      shouldPollOnboardingProgress({
+        phase: 'downloading',
+        now: 10_000,
+        lastProgressAt: 10_000 - ONBOARDING_PROGRESS_STALE_MS,
+        inFlight: false,
+        failures: 1,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldPollOnboardingProgress({
+        phase: 'downloading',
+        now: 10_000,
+        lastProgressAt: 10_000 - ONBOARDING_PROGRESS_STALE_MS * 2,
+        inFlight: false,
+        failures: 1,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe('shouldApplyOnboardingPollResult', () => {
+  it('ignores a stale downloading poll response after pause or generation change', () => {
+    expect(
+      shouldApplyOnboardingPollResult({
+        disposed: false,
+        phase: 'downloading',
+        startedGeneration: 2,
+        currentGeneration: 2,
+      }),
+    ).toBe(true);
+
+    // User clicked Pause while the poll request was in flight.
+    expect(
+      shouldApplyOnboardingPollResult({
+        disposed: false,
+        phase: 'paused',
+        startedGeneration: 2,
+        currentGeneration: 3,
+      }),
+    ).toBe(false);
+
+    // User paused and resumed again before the earlier poll resolved.
+    expect(
+      shouldApplyOnboardingPollResult({
+        disposed: false,
+        phase: 'downloading',
+        startedGeneration: 2,
+        currentGeneration: 4,
+      }),
+    ).toBe(false);
+
+    // A runtime progress message queued before Pause uses the same guard on delivery.
+    expect(
+      shouldApplyOnboardingPollResult({
+        disposed: false,
+        phase: 'paused',
+        startedGeneration: 3,
+        currentGeneration: 3,
+      }),
+    ).toBe(false);
+
+    // Component unmounted before the poll resolved.
+    expect(
+      shouldApplyOnboardingPollResult({
+        disposed: true,
+        phase: 'downloading',
+        startedGeneration: 2,
+        currentGeneration: 2,
+      }),
+    ).toBe(false);
   });
 });
