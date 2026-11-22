@@ -1141,10 +1141,9 @@ export class VideoCaptionSession {
   private readVodDisplay(cue: CaptionCue): { original: string; translation: string } | null {
     const original = this.originalForCue(cue);
     if (!original) return null;
-    return {
-      original,
-      translation: this.translator.getCached(original, this.optionsForVodCue(cue)) ?? '',
-    };
+    const cached = this.translator.getCached(original, this.optionsForVodCue(cue));
+    if (cached !== undefined) this.emitVodRequest('cache-hit', cue.id, original, 'paint');
+    return { original, translation: cached ?? '' };
   }
 
   private async paintVodJson3(): Promise<void> {

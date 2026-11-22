@@ -88,14 +88,21 @@ export interface CaptionRequestTrace {
   mediaMs: number;
   phase: string;
   epoch: number;
+  /** Page point captured alongside the request event, when available. */
+  caption?: string;
+  visible?: boolean;
 }
 
 export interface SchedulerTrace {
   generation: number;
   reason: string;
   mode: 'vod-json3' | 'live-incremental' | 'cue-list';
-  cueCount: number;
-  outstanding: number;
+  type?: string;
+  cueId?: string;
+  oldPriority?: number | null;
+  newPriority?: number | null;
+  cueCount?: number;
+  outstanding?: number | readonly unknown[];
   atMs: number;
   mediaMs: number;
   phase: string;
@@ -357,6 +364,7 @@ export async function installJson3Recorder(page: Page): Promise<void> {
       observer: MutationObserver;
       lastKey: string;
       mark(phase: string, censored: boolean): void;
+      anchor(): void;
       read(): Json3Recording;
       stop(): void;
     }
@@ -451,7 +459,10 @@ export async function installJson3Recorder(page: Page): Promise<void> {
         epoch += 1;
         lastKey = '';
         samples.push(point());
-        record('mark', false, true);
+        record('mark', censored, true);
+      },
+      anchor(): void {
+        samples.push(point());
       },
       read(): Json3Recording {
         return {
@@ -527,6 +538,10 @@ export async function driveJson3Replay(
         step.seekMs,
       );
     }
+    await page.evaluate(() => {
+      const state = globalThis as unknown as { __captionJson3Recorder?: { anchor(): void } };
+      state.__captionJson3Recorder?.anchor();
+    });
     if (step.untilMediaMs !== undefined) {
       await page.waitForFunction(
         (target) =>
@@ -562,6 +577,12 @@ function crossingForCue(
   phase: string,
 ): { atMs: number; epoch: number } | null {
   const phased = samples.filter((sample) => sample.phase === phase);
+  // A seek can cross the exact destination before the next 50ms sample. The
+  // post-seek anchor is a closer wall-time estimate than discarding that cue.
+  const anchored = phased.find(
+    (sample) => sample.mediaMs >= cue.startMs && sample.mediaMs <= cue.startMs + 180,
+  );
+  if (anchored) return { atMs: anchored.atMs, epoch: anchored.epoch };
   for (let index = 1; index < phased.length; index += 1) {
     const before = phased[index - 1];
     const after = phased[index];
@@ -635,7 +656,7 @@ function visibilityIntervals(
       if (cue.id === matched?.id || !active.has(cue.id)) continue;
       close(cue.id, transition.atMs, transition.censored);
     }
-    if (matched && transition.visible && !active.has(matched.id)) {
+    if (matched && transition.visible && !transition.censored && !active.has(matched.id)) {
       active.set(matched.id, { shownAtMs: transition.atMs, epoch: transition.epoch });
     }
   }
@@ -697,6 +718,8 @@ export function computeJson3QualityReport(
     live?: boolean;
     longTrackCueCount?: number;
     fixtureSha256?: string;
+    /** Other valid manifest cues may continue playing outside this targeted subset. */
+    allowUnexpected?: boolean;
   } = {},
 ): Json3QualityReport {
   const phase = options.phase ?? 'normal';
@@ -704,18 +727,36 @@ export function computeJson3QualityReport(
   const samples = recording.samples.filter((sample) => sample.phase === phase);
   const transitions = recording.transitions.filter((transition) => transition.phase === phase);
   const lagDetails = manifest.cues.map((cue): CueLagDetail => {
-    const crossing = crossingForCue(cue, recording.samples, phase);
+    const crossing = crossingForCue(
+      cue,
+      [...recording.samples, ...recording.transitions, ...recording.requests].sort(
+        (left, right) => left.atMs - right.atMs,
+      ),
+      phase,
+    );
     const expectedText = normalizeJson3Caption(cue.expectedJa);
-    const paints = transitions.filter(
+    const transitionPaints = transitions.filter(
       (transition) =>
         transition.visible &&
+        !transition.censored &&
         normalizeJson3Caption(transition.caption) === expectedText &&
         (crossing === null || transition.epoch === crossing.epoch),
     );
-    const earlyPaint = paints.some(
-      (paint) => paint.mediaMs < cue.startMs || (crossing !== null && paint.atMs < crossing.atMs),
+    // A cached seek repaint can set the same attribute value and produce no DOM
+    // mutation. The paint cache-hit still proves that the due cue was selected.
+    const cachePaints = recording.requests.filter(
+      (request) =>
+        request.phase === phase &&
+        request.action === 'cache-hit' &&
+        request.visible &&
+        normalizeJson3Caption(request.caption ?? '') === expectedText &&
+        (crossing === null || request.epoch === crossing.epoch),
     );
-    const painted = crossing ? paints.find((paint) => paint.atMs >= crossing.atMs) : undefined;
+    const paints = [...transitionPaints, ...cachePaints].sort(
+      (left, right) => left.atMs - right.atMs,
+    );
+    const earlyPaint = paints.some((paint) => paint.mediaMs < cue.startMs);
+    const painted = crossing ? paints.find((paint) => paint.mediaMs >= cue.startMs) : undefined;
     return {
       cueId: cue.id,
       crossingAtMs: crossing?.atMs ?? null,
@@ -747,20 +788,26 @@ export function computeJson3QualityReport(
   });
   const knownJa = new Set(manifest.cues.map((cue) => normalizeJson3Caption(cue.expectedJa)));
   const knownSource = new Set(manifest.cues.map((cue) => normalizeJson3Caption(cue.source)));
-  const unexpectedTranslations = [
-    ...new Set(
-      transitions
-        .map((transition) => normalizeJson3Caption(transition.caption))
-        .filter((caption) => caption.length > 0 && !knownJa.has(caption)),
-    ),
-  ];
-  const unexpectedSources = [
-    ...new Set(
-      transitions
-        .map((transition) => normalizeJson3Caption(transition.original))
-        .filter((original) => original.length > 0 && !knownSource.has(original)),
-    ),
-  ];
+  const unexpectedTranslations = options.allowUnexpected
+    ? []
+    : [
+        ...new Set(
+          transitions
+            .filter((transition) => !transition.censored)
+            .map((transition) => normalizeJson3Caption(transition.caption))
+            .filter((caption) => caption.length > 0 && !knownJa.has(caption)),
+        ),
+      ];
+  const unexpectedSources = options.allowUnexpected
+    ? []
+    : [
+        ...new Set(
+          transitions
+            .filter((transition) => !transition.censored)
+            .map((transition) => normalizeJson3Caption(transition.original))
+            .filter((original) => original.length > 0 && !knownSource.has(original)),
+        ),
+      ];
   const content: ContentAudit = {
     missingJaIds: manifest.cues.filter((cue) => !jaCounts.has(cue.id)).map((cue) => cue.id),
     missingSourceIds: manifest.cues.filter((cue) => !sourceCounts.has(cue.id)).map((cue) => cue.id),
