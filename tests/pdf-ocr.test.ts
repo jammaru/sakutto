@@ -1015,3 +1015,90 @@ describe('latest review blockers', () => {
     }
   });
 });
+
+describe('latest DSH review blockers', () => {
+  it('B1: groups Japanese body lines into one prose paragraph', () => {
+    const texts = ['この文書はスキャンされた', '日本語のページです'];
+    const items = texts.map((text, index) => region(text, quad(50, 100 + index * 25, 400, 20)));
+    const result = ocrResult(
+      items,
+      items.map((item) => readingLine('horizontal', [item])),
+    );
+    const layout = ocrResultToPageLayout(result, {
+      pageIndex: 0,
+      pageWidth: 600,
+      pageHeight: 800,
+    });
+
+    expect(layout.blocks.map((block) => block.text)).toEqual([texts.join(' ')]);
+    expect(layout.blocks[0]?.role).toBe('prose');
+    expect(layout.skipped).toEqual([]);
+  });
+
+  it('B1: keeps a short English body line out of the heading role', () => {
+    const texts = ['This is a short', 'line of ordinary body prose'];
+    const items = texts.map((text, index) => region(text, quad(50, 100 + index * 25, 400, 20)));
+    const result = ocrResult(
+      items,
+      items.map((item) => readingLine('horizontal', [item])),
+    );
+    const layout = ocrResultToPageLayout(result, {
+      pageIndex: 0,
+      pageWidth: 600,
+      pageHeight: 800,
+    });
+
+    expect(layout.blocks.map((block) => block.text)).toEqual([texts.join(' ')]);
+    expect(layout.blocks[0]?.role).toBe('prose');
+    expect(layout.skipped).toEqual([]);
+  });
+
+  it('B2: keeps a short left-column body line in its column', () => {
+    const items = [
+      region('Left body paragraph starts here', quad(45, 100, 250, 20)),
+      region('Right body paragraph starts here', quad(320, 105, 250, 20)),
+      region('The model is trained', quad(45, 125, 250, 20)),
+      region('with more words in the column', quad(320, 140, 250, 20)),
+      region('and continues on the next line', quad(45, 150, 250, 20)),
+      region('and a final line of text', quad(320, 160, 250, 20)),
+    ];
+    const result = ocrResult(
+      items,
+      items.map((item) => readingLine('horizontal', [item])),
+    );
+    expect(
+      ocrResultToTextLines(result, { pageIndex: 0, pageWidth: 600, pageHeight: 800 }).map(
+        (line) => line.text,
+      ),
+    ).toEqual([
+      items[0]?.text,
+      items[2]?.text,
+      items[4]?.text,
+      items[1]?.text,
+      items[3]?.text,
+      items[5]?.text,
+    ]);
+  });
+
+  it('B3: splits at the real off-centre gutter, not the page midpoint', () => {
+    const leftText =
+      'Left column words that end past the midpoint more left column words left tail word';
+    const rightText = 'Right column body text starts after a real gutter';
+    const items = [
+      region('Left column words that end past the midpoint', quad(30, 100, 100, 20)),
+      region('more left column words', quad(140, 100, 100, 20)),
+      region('left tail word', quad(255, 100, 92, 20)),
+      region(rightText, quad(355, 100, 215, 20)),
+    ];
+    const result = ocrResult([...items], [readingLine('horizontal', items)]);
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+
+    expect(ocrResultToTextLines(result, options).map((line) => line.text)).toEqual([
+      leftText,
+      rightText,
+    ]);
+    expect(ocrResultToPageLayout(result, options).blocks.map((block) => block.column)).toEqual([
+      0, 1,
+    ]);
+  });
+});

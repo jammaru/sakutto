@@ -78,7 +78,10 @@ async function main(): Promise<void> {
               break;
             }
             if (ancestor.matches('.references')) {
-              section = ancestor.matches('h2') ? 3 : 4;
+              // The class is on the <section>; its heading is a child <h2>. Keep that heading
+              // ahead of the reference paragraphs in the reading order.
+              const heading = node.parentElement?.closest('h2');
+              section = heading && ancestor.contains(heading) ? 3 : 4;
               break;
             }
             if (ancestor.matches('.columns')) {
@@ -105,7 +108,10 @@ async function main(): Promise<void> {
                     x: rect.left,
                     y: rect.top,
                     section,
-                    column: section >= 3 ? (rect.left + rect.right < width ? 0 : 1) : 0,
+                    // Section 2 is the two-column body: a paragraph can start at the foot of
+                    // the left column and continue at the head of the right one. Its character
+                    // rects, not DOM order, decide which column each token belongs to.
+                    column: section >= 2 ? (rect.left + rect.right < width ? 0 : 1) : 0,
                     domIndex,
                     tokenIndex,
                   });

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-22T18:08:41.486Z",
+  "generatedAt": "2026-11-22T22:54:06.034Z",
   "scope": "full",
   "runtime": {
     "node": "v24.22.3",
@@ -38,7 +38,7 @@
   "runs": [
     {
       "pairing": "tiny_det+small_rec",
-      "initializationMs": 427.742233,
+      "initializationMs": 435.95335100000005,
       "models": [
         {
           "id": "tiny_det",
@@ -59,7 +59,7 @@
     },
     {
       "pairing": "small_det+small_rec",
-      "initializationMs": 129.40702800000145,
+      "initializationMs": 186.7231610000017,
       "models": [
         {
           "id": "small_det",
@@ -80,7 +80,7 @@
     },
     {
       "pairing": "medium_det+medium_rec",
-      "initializationMs": 444.7940929999968,
+      "initializationMs": 583.6106709999949,
       "models": [
         {
           "id": "medium_det",
@@ -110,7 +110,7 @@
       "wordEdits": 12,
       "referenceWords": 165,
       "macroDetectionRecall": 1,
-      "meanWallMsPerPage": 1638.3232225000004,
+      "meanWallMsPerPage": 1412.684073625,
       "practical": 8,
       "marginal": 0,
       "notPractical": 0
@@ -124,7 +124,7 @@
       "wordEdits": 18,
       "referenceWords": 165,
       "macroDetectionRecall": 1,
-      "meanWallMsPerPage": 1600.1400387500003,
+      "meanWallMsPerPage": 2115.306978875,
       "practical": 7,
       "marginal": 1,
       "notPractical": 0
@@ -138,7 +138,7 @@
       "wordEdits": 7,
       "referenceWords": 165,
       "macroDetectionRecall": 1,
-      "meanWallMsPerPage": 7975.771679999999,
+      "meanWallMsPerPage": 10846.589297875002,
       "practical": 8,
       "marginal": 0,
       "notPractical": 0
@@ -149,7 +149,7 @@
       "pairing": "tiny_det+small_rec",
       "caseId": "en-scan",
       "title": "English scan",
-      "wallMs": 1379.3731370000005,
+      "wallMs": 1635.9754259999995,
       "detectedRegions": 7,
       "cer": {
         "distance": 0,
@@ -353,7 +353,7 @@
       "pairing": "tiny_det+small_rec",
       "caseId": "ja-horizontal",
       "title": "Japanese horizontal document",
-      "wallMs": 1184.015101,
+      "wallMs": 1418.7181360000004,
       "detectedRegions": 6,
       "cer": {
         "distance": 0,
@@ -533,7 +533,7 @@
       "pairing": "tiny_det+small_rec",
       "caseId": "ja-vertical",
       "title": "Japanese vertical document",
-      "wallMs": 811.5792970000002,
+      "wallMs": 932.0998250000002,
       "detectedRegions": 5,
       "cer": {
         "distance": 0,
@@ -681,7 +681,7 @@
       "pairing": "tiny_det+small_rec",
       "caseId": "slides",
       "title": "Presentation slide",
-      "wallMs": 1151.9206379999996,
+      "wallMs": 1384.7691160000004,
       "detectedRegions": 6,
       "cer": {
         "distance": 0,
@@ -853,7 +853,7 @@
       "pairing": "tiny_det+small_rec",
       "caseId": "low-res-skew",
       "title": "Low resolution skewed scan",
-      "wallMs": 1010.8102040000012,
+      "wallMs": 1159.1611649999995,
       "detectedRegions": 6,
       "cer": {
         "distance": 0,
@@ -1025,7 +1025,7 @@
       "pairing": "tiny_det+small_rec",
       "caseId": "two-column",
       "title": "Two-column newsletter",
-      "wallMs": 1505.2924710000007,
+      "wallMs": 1764.492354,
       "detectedRegions": 8,
       "cer": {
         "distance": 0,
@@ -1245,7 +1245,7 @@
       "pairing": "tiny_det+small_rec",
       "caseId": "mixed-ja-en",
       "title": "Mixed Japanese and English guide",
-      "wallMs": 2520.1599590000005,
+      "wallMs": 1274.1381630000014,
       "detectedRegions": 6,
       "cer": {
         "distance": 8,
@@ -1417,7 +1417,7 @@
       "pairing": "tiny_det+small_rec",
       "caseId": "small-text",
       "title": "Small text and captions",
-      "wallMs": 3543.4349730000013,
+      "wallMs": 1732.118403999999,
       "detectedRegions": 8,
       "cer": {
         "distance": 0,
@@ -1637,7 +1637,7 @@
       "pairing": "small_det+small_rec",
       "caseId": "en-scan",
       "title": "English scan",
-      "wallMs": 2325.556163000001,
+      "wallMs": 2121.4231230000005,
       "detectedRegions": 7,
       "cer": {
         "distance": 0,
@@ -1841,7 +1841,7 @@
       "pairing": "small_det+small_rec",
       "caseId": "ja-horizontal",
       "title": "Japanese horizontal document",
-      "wallMs": 1450.0633140000027,
+      "wallMs": 1827.4975180000001,
       "detectedRegions": 6,
       "cer": {
         "distance": 0,
@@ -2021,7 +2021,7 @@
       "pairing": "small_det+small_rec",
       "caseId": "ja-vertical",
       "title": "Japanese vertical document",
-      "wallMs": 1125.7110219999995,
+      "wallMs": 1591.2098809999989,
       "detectedRegions": 5,
       "cer": {
         "distance": 0,
@@ -2169,7 +2169,7 @@
       "pairing": "small_det+small_rec",
       "caseId": "slides",
       "title": "Presentation slide",
-      "wallMs": 1527.7990869999994,
+      "wallMs": 2418.137000999999,
       "detectedRegions": 7,
       "cer": {
         "distance": 31,
@@ -2365,7 +2365,7 @@
       "pairing": "small_det+small_rec",
       "caseId": "low-res-skew",
       "title": "Low resolution skewed scan",
-      "wallMs": 1309.5996410000007,
+      "wallMs": 1666.0694799999983,
       "detectedRegions": 6,
       "cer": {
         "distance": 0,
@@ -2537,7 +2537,7 @@
       "pairing": "small_det+small_rec",
       "caseId": "two-column",
       "title": "Two-column newsletter",
-      "wallMs": 1847.9519670000009,
+      "wallMs": 2810.517061999999,
       "detectedRegions": 8,
       "cer": {
         "distance": 0,
@@ -2757,7 +2757,7 @@
       "pairing": "small_det+small_rec",
       "caseId": "mixed-ja-en",
       "title": "Mixed Japanese and English guide",
-      "wallMs": 1397.011301999999,
+      "wallMs": 2021.3652800000018,
       "detectedRegions": 6,
       "cer": {
         "distance": 8,
@@ -2929,7 +2929,7 @@
       "pairing": "small_det+small_rec",
       "caseId": "small-text",
       "title": "Small text and captions",
-      "wallMs": 1817.4278139999988,
+      "wallMs": 2466.2364860000016,
       "detectedRegions": 8,
       "cer": {
         "distance": 0,
@@ -3149,7 +3149,7 @@
       "pairing": "medium_det+medium_rec",
       "caseId": "en-scan",
       "title": "English scan",
-      "wallMs": 8213.588568,
+      "wallMs": 11387.792399999998,
       "detectedRegions": 7,
       "cer": {
         "distance": 0,
@@ -3353,7 +3353,7 @@
       "pairing": "medium_det+medium_rec",
       "caseId": "ja-horizontal",
       "title": "Japanese horizontal document",
-      "wallMs": 7777.529424,
+      "wallMs": 10972.692831999993,
       "detectedRegions": 6,
       "cer": {
         "distance": 0,
@@ -3533,7 +3533,7 @@
       "pairing": "medium_det+medium_rec",
       "caseId": "ja-vertical",
       "title": "Japanese vertical document",
-      "wallMs": 6022.174641999998,
+      "wallMs": 8919.563431999995,
       "detectedRegions": 5,
       "cer": {
         "distance": 0,
@@ -3681,7 +3681,7 @@
       "pairing": "medium_det+medium_rec",
       "caseId": "slides",
       "title": "Presentation slide",
-      "wallMs": 7998.630612000001,
+      "wallMs": 10635.104002000007,
       "detectedRegions": 6,
       "cer": {
         "distance": 0,
@@ -3853,7 +3853,7 @@
       "pairing": "medium_det+medium_rec",
       "caseId": "low-res-skew",
       "title": "Low resolution skewed scan",
-      "wallMs": 6882.157573999997,
+      "wallMs": 9625.144259000008,
       "detectedRegions": 6,
       "cer": {
         "distance": 0,
@@ -4025,7 +4025,7 @@
       "pairing": "medium_det+medium_rec",
       "caseId": "two-column",
       "title": "Two-column newsletter",
-      "wallMs": 9776.812605999992,
+      "wallMs": 12533.379954000004,
       "detectedRegions": 8,
       "cer": {
         "distance": 0,
@@ -4245,7 +4245,7 @@
       "pairing": "medium_det+medium_rec",
       "caseId": "mixed-ja-en",
       "title": "Mixed Japanese and English guide",
-      "wallMs": 7246.208010000002,
+      "wallMs": 9973.650418999998,
       "detectedRegions": 6,
       "cer": {
         "distance": 4,
@@ -4417,7 +4417,7 @@
       "pairing": "medium_det+medium_rec",
       "caseId": "small-text",
       "title": "Small text and captions",
-      "wallMs": 9889.072004000001,
+      "wallMs": 12725.38708500001,
       "detectedRegions": 8,
       "cer": {
         "distance": 0,
@@ -4634,6 +4634,6 @@
       ]
     }
   ],
-  "recommendation": "small_det+small_rec — fastest pairing within 0.05 absolute micro-CER and 0.05 absolute macro detection-recall proxy of the best values. This is a benchmark recommendation only; DEFAULT_OCR_TIER was not changed.",
+  "recommendation": "tiny_det+small_rec — shipped Standard default, within 0.05 absolute micro-CER and 0.05 absolute macro detection-recall proxy of the best values. This is a benchmark recommendation only; DEFAULT_OCR_TIER was not changed.",
   "defaultTierChanged": false
 }

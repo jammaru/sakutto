@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 
 import { loadPairing, decodePngImage, type Pairing } from './ocr-engine.ts';
+import type { OcrPoint, OcrQuad, OcrRegion, OcrResult } from '../../src/engine/ocr/types.ts';
 import { applyOcrPreprocess, type OcrPreprocessStep } from '../../src/engine/ocr/preprocess.ts';
 import { OcrPipeline } from '../../src/engine/ocr/pipeline.ts';
 import { startStaticServer } from './static.ts';
@@ -36,6 +37,37 @@ const requireModule = createRequire(import.meta.url).resolve;
 const VIEWER = '/scripts/bench/pdf-quality-view.html';
 const PDF = 'bench/pdf/scan.pdf';
 const GT = 'bench/pdf/scan-p1.gt.txt';
+
+/**
+ * Preprocessing can crop, scale or rotate the detector image. mapBack returns each quad to
+ * the coordinates of the raster the page was rendered from; the layout adapter scales by
+ * imageWidth/imageHeight, so it must receive those mapped quads and the original raster size.
+ * Reading lines are preserved verbatim: they were computed on the detector image.
+ */
+function mapResultBack(result: OcrResult, mapBack: (point: OcrPoint) => OcrPoint): OcrResult {
+  const mapped = new Map<OcrRegion, OcrRegion>();
+  const regions = result.regions.map((region) => {
+    const copy: OcrRegion = {
+      ...region,
+      quad: region.quad.map(mapBack) as unknown as OcrQuad,
+    };
+    mapped.set(region, copy);
+    return copy;
+  });
+  return {
+    regions,
+    lines: result.lines.map((line) => ({
+      orientation: line.orientation,
+      indices: line.indices,
+      items: line.items.map(
+        (item) =>
+          mapped.get(item) ??
+          ({ ...item, quad: item.quad.map(mapBack) as unknown as OcrQuad } as OcrRegion),
+      ),
+    })),
+    text: result.text,
+  };
+}
 
 const flagDump = process.argv.includes('--dump');
 const flagShots = process.argv.includes('--shots');
@@ -268,40 +300,41 @@ async function main(): Promise<void> {
       const started = performance.now();
       const result = await pipeline.run(preprocessed.image);
       const ms = performance.now() - started;
-      // Keep the engine\'s own reading-line grouping: it was computed on the detector image.
-      // Re-grouping after mapping quads into page points changes the absolute-height tolerances
-      // and merges the two body columns into single lines. ocrResultToTextLines scales by the
-      // image size itself, so the original result is the correct input here.
+      // Keep the engine's own reading-line grouping: it was computed on the detector image and
+      // re-grouping after mapping quads changes the absolute-height tolerances. Only the quads
+      // are mapped back to the rendered raster, and the adapter scales by that raster's size;
+      // using the cropped image size here shifted and stretched every layout metric.
+      const mapped = mapResultBack(result, preprocessed.mapBack);
       const options = {
         pageIndex: 0,
         pageWidth,
         pageHeight,
-        imageWidth: preprocessed.image.width,
-        imageHeight: preprocessed.image.height,
+        imageWidth: image.width,
+        imageHeight: image.height,
       };
       // Score the reader's final reading order, not raw detector order: groupReadingLines
       // assigns a global column first, while ocrResultToTextLines restores spanning bands.
-      const readLines = ocrResultToTextLines(result, options);
+      const readLines = ocrResultToTextLines(mapped, options);
       const hypothesisLines = readLines.map((line) => line.text);
       const aligned = alignToReference(referenceLines, hypothesisLines);
       const hypothesis = aligned.join('\n');
-      const layout = ocrResultToPageLayout(result, options);
+      const layout = ocrResultToPageLayout(mapped, options);
       await writeFile(join(OUT, 'text-' + variant.id + '.txt'), hypothesis + '\n');
       if (flagDump) {
         await writeFile(
           join(OUT, 'regions-' + variant.id + '.json'),
           JSON.stringify(
             {
-              regions: result.regions.map((region) => ({
+              regions: mapped.regions.map((region) => ({
                 text: region.text,
                 bounds: {
-                  left: Math.min(...region.quad.map((point) => preprocessed.mapBack(point).x)),
-                  right: Math.max(...region.quad.map((point) => preprocessed.mapBack(point).x)),
-                  top: Math.min(...region.quad.map((point) => preprocessed.mapBack(point).y)),
-                  bottom: Math.max(...region.quad.map((point) => preprocessed.mapBack(point).y)),
+                  left: Math.min(...region.quad.map((point) => point.x)),
+                  right: Math.max(...region.quad.map((point) => point.x)),
+                  top: Math.min(...region.quad.map((point) => point.y)),
+                  bottom: Math.max(...region.quad.map((point) => point.y)),
                 },
               })),
-              lines: result.lines.map((line) => line.items.map((item) => item.text)),
+              lines: mapped.lines.map((line) => line.items.map((item) => item.text)),
             },
             null,
             2,

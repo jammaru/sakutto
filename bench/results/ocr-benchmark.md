@@ -1,6 +1,6 @@
 # PP-OCRv6 Node/WASM benchmark
 
-Generated: 2026-11-22T18:08:41.486Z  
+Generated: 2026-11-22T22:54:06.034Z  
 Runtime: Node v24.22.3, onnxruntime-web 1.31.1, WASM, 1 thread, Intel(R) Xeon(R) Processor  
 Fixtures: **generated CC0**; manifest SHA-256 c77dd8691c5dc2a9c418bda3c2f5b7297861d8ada7d14d1bd979a06e5c92eeea
 
@@ -8,9 +8,9 @@ Fixtures: **generated CC0**; manifest SHA-256 c77dd8691c5dc2a9c418bda3c2f5b72978
 
 | Pairing               | micro CER | micro WER | macro detection recall proxy | mean wall ms/page | practical / marginal / not |
 | --------------------- | --------: | --------: | ---------------------------: | ----------------: | -------------------------: |
-| tiny_det+small_rec    |      0.7% |      7.3% |                       100.0% |            1638.3 |                  8 / 0 / 0 |
-| small_det+small_rec   |      3.5% |     10.9% |                       100.0% |            1600.1 |                  7 / 1 / 0 |
-| medium_det+medium_rec |      0.4% |      4.2% |                       100.0% |            7975.8 |                  8 / 0 / 0 |
+| tiny_det+small_rec    |      0.7% |      7.3% |                       100.0% |            1412.7 |                  8 / 0 / 0 |
+| small_det+small_rec   |      3.5% |     10.9% |                       100.0% |            2115.3 |                  7 / 1 / 0 |
+| medium_det+medium_rec |      0.4% |      4.2% |                       100.0% |           10846.6 |                  8 / 0 / 0 |
 
 **Recommended default:** tiny_det+small_rec — shipped Standard default, within 0.05 absolute micro-CER and 0.05 absolute macro detection-recall proxy of the best values. This is a benchmark recommendation only; DEFAULT_OCR_TIER was not changed.
 
@@ -18,30 +18,30 @@ Fixtures: **generated CC0**; manifest SHA-256 c77dd8691c5dc2a9c418bda3c2f5b72978
 
 | Pairing               | Case          |   CER |   WER | Detection matched | Wall ms | Practicality |
 | --------------------- | ------------- | ----: | ----: | ----------------: | ------: | ------------ |
-| tiny_det+small_rec    | en-scan       |  0.0% |  0.0% |               7/7 |  1379.4 | practical    |
-| tiny_det+small_rec    | ja-horizontal |  0.0% |  0.0% |               6/6 |  1184.0 | practical    |
-| tiny_det+small_rec    | ja-vertical   |  0.0% |  0.0% |               5/5 |   811.6 | practical    |
-| tiny_det+small_rec    | slides        |  0.0% |  0.0% |               6/6 |  1151.9 | practical    |
-| tiny_det+small_rec    | low-res-skew  |  0.0% |  0.0% |               6/6 |  1010.8 | practical    |
-| tiny_det+small_rec    | two-column    |  0.0% |  0.0% |               8/8 |  1505.3 | practical    |
-| tiny_det+small_rec    | mixed-ja-en   |  6.9% | 75.0% |               6/6 |  2520.2 | practical    |
-| tiny_det+small_rec    | small-text    |  0.0% |  0.0% |               8/8 |  3543.4 | practical    |
-| small_det+small_rec   | en-scan       |  0.0% |  0.0% |               7/7 |  2325.6 | practical    |
-| small_det+small_rec   | ja-horizontal |  0.0% |  0.0% |               6/6 |  1450.1 | practical    |
-| small_det+small_rec   | ja-vertical   |  0.0% |  0.0% |               5/5 |  1125.7 | practical    |
-| small_det+small_rec   | slides        | 24.6% | 30.0% |               6/6 |  1527.8 | marginal     |
-| small_det+small_rec   | low-res-skew  |  0.0% |  0.0% |               6/6 |  1309.6 | practical    |
-| small_det+small_rec   | two-column    |  0.0% |  0.0% |               8/8 |  1848.0 | practical    |
-| small_det+small_rec   | mixed-ja-en   |  6.9% | 75.0% |               6/6 |  1397.0 | practical    |
-| small_det+small_rec   | small-text    |  0.0% |  0.0% |               8/8 |  1817.4 | practical    |
-| medium_det+medium_rec | en-scan       |  0.0% |  0.0% |               7/7 |  8213.6 | practical    |
-| medium_det+medium_rec | ja-horizontal |  0.0% |  0.0% |               6/6 |  7777.5 | practical    |
-| medium_det+medium_rec | ja-vertical   |  0.0% |  0.0% |               5/5 |  6022.2 | practical    |
-| medium_det+medium_rec | slides        |  0.0% |  0.0% |               6/6 |  7998.6 | practical    |
-| medium_det+medium_rec | low-res-skew  |  0.0% |  0.0% |               6/6 |  6882.2 | practical    |
-| medium_det+medium_rec | two-column    |  0.0% |  0.0% |               8/8 |  9776.8 | practical    |
-| medium_det+medium_rec | mixed-ja-en   |  3.4% | 43.8% |               6/6 |  7246.2 | practical    |
-| medium_det+medium_rec | small-text    |  0.0% |  0.0% |               8/8 |  9889.1 | practical    |
+| tiny_det+small_rec    | en-scan       |  0.0% |  0.0% |               7/7 |  1636.0 | practical    |
+| tiny_det+small_rec    | ja-horizontal |  0.0% |  0.0% |               6/6 |  1418.7 | practical    |
+| tiny_det+small_rec    | ja-vertical   |  0.0% |  0.0% |               5/5 |   932.1 | practical    |
+| tiny_det+small_rec    | slides        |  0.0% |  0.0% |               6/6 |  1384.8 | practical    |
+| tiny_det+small_rec    | low-res-skew  |  0.0% |  0.0% |               6/6 |  1159.2 | practical    |
+| tiny_det+small_rec    | two-column    |  0.0% |  0.0% |               8/8 |  1764.5 | practical    |
+| tiny_det+small_rec    | mixed-ja-en   |  6.9% | 75.0% |               6/6 |  1274.1 | practical    |
+| tiny_det+small_rec    | small-text    |  0.0% |  0.0% |               8/8 |  1732.1 | practical    |
+| small_det+small_rec   | en-scan       |  0.0% |  0.0% |               7/7 |  2121.4 | practical    |
+| small_det+small_rec   | ja-horizontal |  0.0% |  0.0% |               6/6 |  1827.5 | practical    |
+| small_det+small_rec   | ja-vertical   |  0.0% |  0.0% |               5/5 |  1591.2 | practical    |
+| small_det+small_rec   | slides        | 24.6% | 30.0% |               6/6 |  2418.1 | marginal     |
+| small_det+small_rec   | low-res-skew  |  0.0% |  0.0% |               6/6 |  1666.1 | practical    |
+| small_det+small_rec   | two-column    |  0.0% |  0.0% |               8/8 |  2810.5 | practical    |
+| small_det+small_rec   | mixed-ja-en   |  6.9% | 75.0% |               6/6 |  2021.4 | practical    |
+| small_det+small_rec   | small-text    |  0.0% |  0.0% |               8/8 |  2466.2 | practical    |
+| medium_det+medium_rec | en-scan       |  0.0% |  0.0% |               7/7 | 11387.8 | practical    |
+| medium_det+medium_rec | ja-horizontal |  0.0% |  0.0% |               6/6 | 10972.7 | practical    |
+| medium_det+medium_rec | ja-vertical   |  0.0% |  0.0% |               5/5 |  8919.6 | practical    |
+| medium_det+medium_rec | slides        |  0.0% |  0.0% |               6/6 | 10635.1 | practical    |
+| medium_det+medium_rec | low-res-skew  |  0.0% |  0.0% |               6/6 |  9625.1 | practical    |
+| medium_det+medium_rec | two-column    |  0.0% |  0.0% |               8/8 | 12533.4 | practical    |
+| medium_det+medium_rec | mixed-ja-en   |  3.4% | 43.8% |               6/6 |  9973.7 | practical    |
+| medium_det+medium_rec | small-text    |  0.0% |  0.0% |               8/8 | 12725.4 | practical    |
 
 ## Measurement definitions
 
@@ -54,7 +54,7 @@ Fixtures: **generated CC0**; manifest SHA-256 c77dd8691c5dc2a9c418bda3c2f5b72978
 - **detectionRecallProxy:** Maximum-IoU-first greedy one-to-one matching of axis-aligned bounding boxes of GT and predicted quads; matched GT boxes with IoU >= 0.30 / all GT boxes. Proxy only: no polygon IoU or precision.
 - **practicality:** practical: recall>=0.80 and CER<=0.15; marginal: recall>=0.50 and CER<=0.40; otherwise not practical.
 - **WER caveat:** whitespace tokenization makes Japanese WER coarse; CER is the primary Japanese accuracy measure.
-- **Initialization:** tiny_det+small_rec=427.7ms, small_det+small_rec=129.4ms, medium_det+medium_rec=444.8ms. Page timings exclude initialization and warm-up.
+- **Initialization:** tiny_det+small_rec=436.0ms, small_det+small_rec=186.7ms, medium_det+medium_rec=583.6ms. Page timings exclude initialization and warm-up.
 
 ## OCR → translation plumbing sanity
 

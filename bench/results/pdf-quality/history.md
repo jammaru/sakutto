@@ -34,3 +34,6 @@ metrics and the band-aware reading-order GT. Draft rows were removed from this h
 | final      |     5 |             0 |               1.2% |           0.0% |          0.04% |       0.000 |        0.000 |         97.6% |            360 |    1035 |
 | final      |     5 |             0 |               1.2% |           0.0% |          0.04% |       0.000 |        0.000 |         98.3% |            278 |     889 |
 | final      |     5 |             0 |               1.2% |           0.0% |          0.04% |       0.000 |        0.000 |         98.3% |            334 |    1073 |
+| label      | pages | skipped prose | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box | reading order | first block ms | full ms |
+| ---        |  ---: |          ---: |               ---: |           ---: |           ---: |        ---: |         ---: |          ---: |           ---: |
+| final      |     5 |             1 |               1.3% |           0.0% |          0.04% |       0.000 |        0.099 |         98.3% |            342 |    1029 |

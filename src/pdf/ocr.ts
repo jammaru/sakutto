@@ -2,6 +2,7 @@ import { OCR_PAGE_TIMEOUT_MS } from '@/engine/offscreen/protocol';
 import { groupReadingLines } from '@/engine/ocr/order';
 import type { ImageDataLike, OcrQuad, OcrRegion, OcrResult, ReadingLine } from '@/engine/ocr/types';
 import { isImageOnlyPage, normalizeGlyphRun, type ExtractedPage } from './extract';
+import { CJK_MAJORITY, cjkRatio } from './fonts';
 import type { FigureAreas } from './figures';
 import { median, type Box } from './geometry';
 import {
@@ -236,6 +237,54 @@ function gutterCentred(leftEnd: number, rightStart: number, pageWidth: number): 
   return Math.abs((leftEnd + rightStart) / 2 - pageWidth / 2) <= pageWidth * 0.1;
 }
 
+interface PieceSplit {
+  readonly left: OcrTextPiece[];
+  readonly right: OcrTextPiece[];
+  readonly leftEnd: number;
+  readonly rightStart: number;
+}
+
+/**
+ * Partition a merged line at the widest white gap in the gutter band, not at the page midpoint.
+ *
+ * A two-column page can be asymmetric: the left measure may end past the midpoint, so a
+ * word-level piece on the left can have its centre past it too. Splitting by piece centre then
+ * moves that tail into the right block. Looking at the actual gaps between neighbouring boxes
+ * finds the printed gutter; prefer the rightmost qualifying gap so an ordinary word space just
+ * before the gutter cannot take its place.
+ */
+function splitAtGutter(pieces: readonly OcrTextPiece[], pageWidth: number): PieceSplit {
+  const middle = pageWidth / 2;
+  const byX = [...pieces].sort((a, b) => a.box.x - b.box.x);
+  let best: { index: number; leftEnd: number; rightStart: number } | undefined;
+  for (let index = 1; index < byX.length; index += 1) {
+    const leftEnd = Math.max(...byX.slice(0, index).map((piece) => piece.box.x + piece.box.width));
+    const rightStart = Math.min(...byX.slice(index).map((piece) => piece.box.x));
+    if (rightStart - leftEnd < MIN_COLUMN_GUTTER) continue;
+    if (!gutterCentred(leftEnd, rightStart, pageWidth)) continue;
+    if (leftEnd < middle - pageWidth * 0.1) continue;
+    // Prefer the gap closest to (or just past) the midpoint: an asymmetric gutter's left edge
+    // can sit past it, while earlier word gaps still fall inside the allowed 10% band.
+    if (!best || leftEnd > best.leftEnd) best = { index, leftEnd, rightStart };
+  }
+  if (!best) {
+    const left = pieces.filter((piece) => piece.box.x + piece.box.width / 2 < middle);
+    const right = pieces.filter((piece) => piece.box.x + piece.box.width / 2 >= middle);
+    return {
+      left,
+      right,
+      leftEnd:
+        left.length > 0
+          ? Math.max(...left.map((piece) => piece.box.x + piece.box.width))
+          : -Infinity,
+      rightStart: right.length > 0 ? Math.min(...right.map((piece) => piece.box.x)) : Infinity,
+    };
+  }
+  const left = pieces.filter((piece) => piece.box.x + piece.box.width <= best.leftEnd + 0.001);
+  const right = pieces.filter((piece) => piece.box.x + piece.box.width > best.leftEnd + 0.001);
+  return { left, right, leftEnd: best.leftEnd, rightStart: best.rightStart };
+}
+
 /**
  * Splits a wide reading line that combined two body rows at slightly different baselines.
  *
@@ -337,16 +386,12 @@ export function ocrResultToTextLines(
     const lineWidth =
       Math.max(...pieces.map((piece) => piece.box.x + piece.box.width)) -
       Math.min(...pieces.map((piece) => piece.box.x));
-    const leftPieces = pieces.filter((piece) => piece.box.x + piece.box.width / 2 < middle);
-    const rightPieces = pieces.filter((piece) => piece.box.x + piece.box.width / 2 >= middle);
-    const leftEnd =
-      leftPieces.length > 0
-        ? Math.max(...leftPieces.map((piece) => piece.box.x + piece.box.width))
-        : Number.NEGATIVE_INFINITY;
-    const rightStart =
-      rightPieces.length > 0
-        ? Math.min(...rightPieces.map((piece) => piece.box.x))
-        : Number.POSITIVE_INFINITY;
+    const {
+      left: leftPieces,
+      right: rightPieces,
+      leftEnd,
+      rightStart,
+    } = splitAtGutter(pieces, resolved.pageWidth);
     const leftText = leftPieces
       .map((piece) => piece.text)
       .join(' ')
@@ -461,6 +506,8 @@ interface ColumnContext {
   readonly twoColumn: boolean;
   /** Lines printed in the opposite column on the same baseline band. */
   readonly oppositeBand: ReadonlySet<OcrTextLine>;
+  /** Median body line height, used to tell an oversized heading from body prose. */
+  readonly bodySize: number;
 }
 
 /**
@@ -470,7 +517,8 @@ interface ColumnContext {
  * spanning the layout (e.g. a left-aligned "References"), not a left-column paragraph.
  */
 function columnContext(lines: readonly OcrTextLine[], pageWidth: number): ColumnContext {
-  const single = { twoColumn: false, oppositeBand: new Set<OcrTextLine>() };
+  const bodySize = bodyFontSize(lines);
+  const single = { twoColumn: false, oppositeBand: new Set<OcrTextLine>(), bodySize };
   if (pageWidth <= 0 || lines.length < 2 || lines.some(verticalLine)) return single;
   const centre = (line: OcrTextLine): number => line.box.x + line.box.width / 2;
   const bodies = lines.filter((line) => !verticalLine(line) && line.box.width <= pageWidth * 0.6);
@@ -500,7 +548,7 @@ function columnContext(lines: readonly OcrTextLine[], pageWidth: number): Column
       oppositeBand.add(line);
     }
   }
-  return { twoColumn: true, oppositeBand };
+  return { twoColumn: true, oppositeBand, bodySize };
 }
 
 /** Geometric column of a line. Full-width lines get a group of their own. */
@@ -517,7 +565,10 @@ function lineColumn(
   if (!context.twoColumn) return 0;
   const headingText = line.text.trim();
   const heading =
-    !verticalLine(line) && !CAPTION_LINE.test(headingText) && isShortHeadingPieces(line.pieces);
+    !verticalLine(line) &&
+    !CAPTION_LINE.test(headingText) &&
+    isShortHeadingPieces(line.pieces) &&
+    hasHeadingEvidence(headingText, line.height, context.bodySize);
   if (heading) {
     const nearCentre = Math.abs(mid - pageWidth / 2) <= pageWidth * 0.06;
     // A left-aligned `column-span: all` heading (e.g. "References") has no partner on its own
@@ -576,6 +627,23 @@ function twoColumnOrder(
 
 const CAPTION_LINE = /^(?:Fig(?:ure)?|Tab(?:le)?|Alg(?:orithm)?)\.?\s*\d/iu;
 const SECTION_LINE = /^\d+(?:\.\d+)*\.?\s+\p{Lu}/u;
+/** Unambiguous section labels, sized like body text when OCR sees them on their own. */
+const HEADING_LABEL =
+  /^(?:abstract|references?|introduction|conclusions?|acknowledge?ments?|bibliography|appendi(?:x|ces)|summary|overview|related work|background|methods?|results?|discussion)[.:]?$/iu;
+
+/**
+ * A short line is a heading only with independent evidence: a section number, a known section
+ * label, or type visibly larger than the page's body. Prose of four English words or one
+ * Japanese line has none of these and must stay in its paragraph.
+ */
+function hasHeadingEvidence(text: string, height: number, bodySize: number): boolean {
+  const trimmed = text.trim();
+  return (
+    SECTION_LINE.test(trimmed) ||
+    HEADING_LABEL.test(trimmed) ||
+    (bodySize > 0 && height >= bodySize * 1.15)
+  );
+}
 
 /**
  * A listing line whose OCR lost its indentation but kept code punctuation.
@@ -618,6 +686,14 @@ function groupText(lines: readonly OcrTextLine[]): string {
   return output.replace(/\s+/gu, ' ').trim();
 }
 
+/**
+ * Japanese OCR lines are one continuous letter run, so the Latin word counter in
+ * `hasSourceProse` undercounts them. A long CJK-majority line is body text and must reach the
+ * engine instead of being skipped as a label.
+ */
+function hasCjkProse(text: string): boolean {
+  return cjkRatio(text) >= CJK_MAJORITY && text.replace(/\s+/gu, '').length >= 8;
+}
 function groupRole(group: readonly OcrTextLine[], bodySize: number): AnyBlockRole {
   const text = groupText(group);
   if (CAPTION_LINE.test(text)) return 'caption';
@@ -628,17 +704,18 @@ function groupRole(group: readonly OcrTextLine[], bodySize: number): AnyBlockRol
   // A one-word heading such as "References" or "Abstract" is body prose, not a furniture
   // label. It must reach the engine and be counted in the prose denominator; a numeric or
   // punctuation-heavy label stays skipped.
+  const first = group[0];
   if (
     /^[\p{L}][\p{L}\s'’&.,:-]*$/u.test(text) &&
     !/[\d]/u.test(text) &&
     (text.match(/\p{L}{3,}/gu)?.length ?? 0) >= 1 &&
     text.split(/\s+/u).filter(Boolean).length <= 4 &&
     text.length <= 40 &&
-    !/[.!?]$/u.test(text)
+    !/[.!?]$/u.test(text) &&
+    hasHeadingEvidence(text, first?.height ?? 0, bodySize)
   ) {
     return 'heading';
   }
-  const first = group[0];
   // A row of values or short numbers is table typesetting, not a sentence to translate.
   const tokens = text.split(/\s+/u).filter(Boolean);
   const numeric = tokens.filter((token) => /\d/u.test(token)).length;
@@ -656,7 +733,7 @@ function groupRole(group: readonly OcrTextLine[], bodySize: number): AnyBlockRol
   ) {
     return 'heading';
   }
-  return hasSourceProse(text) ? 'prose' : 'label';
+  return hasSourceProse(text) || hasCjkProse(text) ? 'prose' : 'label';
 }
 
 function groupBlocks(

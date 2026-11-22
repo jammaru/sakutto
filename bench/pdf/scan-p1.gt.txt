@@ -67,10 +67,10 @@ Figure 1.
 Time to translate the whole fixture article, by backend. The GPU path is not only faster per token; it also packs short blocks into
 one completion, so it issues roughly a third as many requests.
 3. Scheduling
-translated first, then blocks within about two screens in the direction the reader is scrolling. Scrolling up re-ranks the
-queue, which is why a reader who jumps to the conclusion gets the conclusion rather than the introduction.
 A reader does not read a page in document order, so the extension does not translate in document order either. Every
 block gets a priority from its distance to the viewport, its kind, and its position in the document. Blocks on screen are
+translated first, then blocks within about two screens in the direction the reader is scrolling. Scrolling up re-ranks the
+queue, which is why a reader who jumps to the conclusion gets the conclusion rather than the introduction.
 Short blocks — a label, a table cell, a one-line list item — are packed into one request, up to eight per completion and
 160 source tokens in total. Packing is not applied to paragraphs. A paragraph is as long as the prompt template, so
 packing saves almost nothing, and it delays every block in the pack behind the prefill of the whole pack. The rule is

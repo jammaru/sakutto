@@ -11,7 +11,7 @@ PP-OCRv6 と ONNX Runtime Web を使い、スキャンPDFと画像の文字認�
 - テキスト層のないPDFページと、ネイティブ文字で覆われていないラスタ部分を遅延 OCR し、段組・縦書き・読み順・組版を保持
 - 画像の右クリックメニューから OCR→翻訳パネルを表示
 - 英語・日本語など14の UI ロケール、プライバシー、CWS レビュー資料を更新
-- 最新レビューの 6 件のブロッカーを修正：非対称ガターの 2 段分割、10pt ガターのカバー計測、左寄せ `References` の読み順、中央 1 段组の行順、予約語で始まる散文の誤スキップ、数式後の前置詞の誤保護
+- 今回のレビューの 6 件のブロッカーを修正：日本語・短い英文の見出し誤判定と段落分割、短い左段本文のページ横断見出し誤判定、単語単位の非対称ガター分割、スキャン正解テキストの段組読み順、trim 前処理の座標逆変換、ベンチ推奨の出荷構成ラベル
 
 ### OCR モデル
 
@@ -20,7 +20,7 @@ PP-OCRv6 と ONNX Runtime Web を使い、スキャンPDFと画像の文字認�
 | 標準（既定） | tiny_det + small_rec    |   22,939,968 bytes |
 | 高精度       | medium_det + medium_rec |  138,587,816 bytes |
 
-既定はレイテンシ優先です。生成 CC0 フィクスチャ8件の実測では、高精度構成の認識前処理をアスペ比保持に修正した後、標準 0.7% / 1,638 ms、高精度 0.4% / 7,976 ms でした。small_det+small_rec は設定の比較対象ではなく、ベンチマークの中間構成です。
+既定はレイテンシ優先です。生成 CC0 フィクスチャ8件の実測では、高精度構成の認識前処理をアスペ比保持に修正した後、標準 0.7% / 1,413 ms、高精度 0.4% / 10,847 ms でした。small_det+small_rec は設定の比較対象ではなく、ベンチマークの中間構成です。
 
 ### ベンチマーク
 
@@ -28,15 +28,15 @@ Node 24 / ONNX Runtime Web 1.31.1 WASM、生成 CC0 フィクスチャ8件、各
 
 | 構成                  | Micro CER | Micro WER | 検出 recall proxy | 平均時間/ページ | Practical / Marginal |
 | --------------------- | --------: | --------: | ----------------: | --------------: | -------------------: |
-| tiny_det+small_rec    |      0.7% |      7.3% |              100% |        1,638 ms |                8 / 0 |
-| small_det+small_rec   |      3.5% |     10.9% |              100% |        1,600 ms |                7 / 1 |
-| medium_det+medium_rec |      0.4% |      4.2% |              100% |        7,976 ms |                8 / 0 |
+| tiny_det+small_rec    |      0.7% |      7.3% |              100% |        1,413 ms |                8 / 0 |
+| small_det+small_rec   |      3.5% |     10.9% |              100% |        2,115 ms |                7 / 1 |
+| medium_det+medium_rec |      0.4% |      4.2% |              100% |       10,847 ms |                8 / 0 |
 
 標準構成は、英語スキャン、日本語横書き・縦書き、スライド、低解像度・傾き、2段組、日英混在、小文字の8件すべてで practical でした。生成フィクスチャの結果であり、実文書全体での優位性を保証するものではありません。OCR→翻訳の配線確認は英語と日本語の2ページについて、実 OCR 出力と決定的なローカル置換スタブで実施しています（翻訳品質の評価ではありません）。
 
 再現: `pnpm bench:ocr`。詳細: `bench/results/ocr-benchmark.md`。
 
-実スキャン `bench/pdf/scan.pdf` p1 は、コミット済みの正解テキスト（`bench/pdf/scan-p1.gt.txt`）に対して `pnpm bench:pdf:scan:ocr` で測定します。旧ベンチの参照は印刷用 paper.pdf の行でスキャンレイアウトと不一致でした。修正後の出荷設定（2x / maxSide 1600, Standard）は CER 3.0% / WER 5.5%、cross-column 0、約 39 秒/ページです。詳細: `bench/results/scan-ocr/README.md`。組版品質ベンチは mixed language 0.0%（目標 ≤2%）、reading order 98.3%（目標 ≥98%）を維持しています。
+実スキャン `bench/pdf/scan.pdf` p1 は、コミット済みの正解テキスト（`bench/pdf/scan-p1.gt.txt`）に対して `pnpm bench:pdf:scan:ocr` で測定します。旧ベンチの参照は印刷用 paper.pdf の行でスキャンレイアウトと不一致でした。修正後の出荷設定（2x / maxSide 1600, Standard）は CER 3.0% / WER 5.5%、cross-column 0、約 45 秒/ページです。詳細: `bench/results/scan-ocr/README.md`。組版品質ベンチは mixed language 0.0%（目標 ≤2%）、reading order 98.3%（目標 ≥98%）を維持しています。
 
 ### 権限とプライバシー
 
@@ -48,7 +48,7 @@ Node 24 / ONNX Runtime Web 1.31.1 WASM、生成 CC0 フィクスチャ8件、各
 ### 検証
 
 - `pnpm lint`
-- `pnpm test` — 201 files, 2,584 passed, 1 optional smoke skipped
+- `pnpm test` — 201 files, 2,588 passed, 1 optional smoke skipped
 - `pnpm typecheck`
 - `pnpm format:check`
 - `pnpm exec wxt build`
@@ -66,21 +66,21 @@ This change adds on-device PP-OCRv6 recognition and translation for scanned PDFs
 - Runs lazy OCR on image-only PDF pages and on pages whose raster content is not covered by a usable text layer, preserving columns, vertical Japanese, reading order, and fitted layout
 - Adds an image context-menu action with an OCR source and translation panel
 - Updates all 14 UI locales, privacy documentation, review notes, and third-party notices
-- Fixes six follow-up review blockers: asymmetric two-column gutters, 10pt gutter cross-column detection, left-aligned `References` ordering, centred single-column reading order, keyword-initial prose mistaken for code, and prepositions swallowed by notation protection
+- Fixes six review blockers: Japanese and short English body lines misread as headings, short left-column lines treated as spanning headings, word-level asymmetric-gutter splits, scan ground-truth column order, trim-preprocess coordinate mapping, and mislabeled shipped-default recommendations
 
 ### Benchmark and default
 
-The default is latency-first; the high tier uses the same weights with a larger detector/recognizer. After fixing the high tier's recognition preprocessing to preserve aspect ratio, the eight generated CC0 fixtures measured 0.7% micro-CER / 1,638 ms for standard versus 0.4% / 7,976 ms for high. CER/WER are lower-is-better; the detection proxy is greedy one-to-one AABB matching at IoU 0.30. Mean page time excludes initialization and warm-up.
+The default is latency-first; the high tier uses the same weights with a larger detector/recognizer. After fixing the high tier's recognition preprocessing to preserve aspect ratio, the eight generated CC0 fixtures measured 0.7% micro-CER / 1,413 ms for standard versus 0.4% / 10,847 ms for high. CER/WER are lower-is-better; the detection proxy is greedy one-to-one AABB matching at IoU 0.30. Mean page time excludes initialization and warm-up.
 
 | Pairing               | Micro CER | Micro WER | Detection recall proxy | Mean ms/page | Practical / Marginal |
 | --------------------- | --------: | --------: | ---------------------: | -----------: | -------------------: |
-| tiny_det+small_rec    |      0.7% |      7.3% |                   100% |        1,638 |                8 / 0 |
-| small_det+small_rec   |      3.5% |     10.9% |                   100% |        1,600 |                7 / 1 |
-| medium_det+medium_rec |      0.4% |      4.2% |                   100% |        7,976 |                8 / 0 |
+| tiny_det+small_rec    |      0.7% |      7.3% |                   100% |        1,413 |                8 / 0 |
+| small_det+small_rec   |      3.5% |     10.9% |                   100% |        2,115 |                7 / 1 |
+| medium_det+medium_rec |      0.4% |      4.2% |                   100% |       10,847 |                8 / 0 |
 
 The standard pairing was practical on every default-tier case: English scan, Japanese horizontal and vertical text, slides, low-resolution/skew, two columns, mixed Japanese/English, and small text. These generated-fixture results do not establish broad real-world superiority. English and Japanese OCR output also passed through a deterministic local translation stub as a plumbing sanity check, not as translation-quality evidence.
 
-Reproduce with `pnpm bench:ocr`; see `bench/results/ocr-benchmark.md`. The PDF quality bench keeps mixed-language at 0.0% (target ≤2%) and reading order at 98.3% (target ≥98%); see `bench/results/pdf-quality/final.md`.
+Reproduce with `pnpm bench:ocr`; see `bench/results/ocr-benchmark.md`. The real scan bench keeps the shipped Standard row at CER 3.0% and cross-column 0; see `bench/results/scan-ocr/report.md`. The PDF quality bench keeps mixed-language at 0.0% (target ≤2%) and reading order at 98.3% (target ≥98%); see `bench/results/pdf-quality/final.md`.
 
 ### Permissions and privacy
 
@@ -89,7 +89,7 @@ Release `host_permissions` remains empty, with no new image-origin access. Canva
 ### Validation
 
 - `pnpm lint`
-- `pnpm test` — 201 files, 2,584 passed, 1 optional smoke skipped
+- `pnpm test` — 201 files, 2,588 passed, 1 optional smoke skipped
 - `pnpm typecheck`
 - `pnpm format:check`
 - `pnpm exec wxt build`

@@ -104,9 +104,26 @@ function recommendation(summaries: readonly PairingSummary[]): string {
   const choice =
     eligible.sort((a, b) => a.meanWallMsPerPage - b.meanWallMsPerPage)[0] ?? summaries[0];
   if (!choice) throw new Error('Cannot recommend without benchmark results');
-  // The shipped Standard tier is the reference pairing: report it as the recommendation when
-  // it is within the accuracy envelope, rather than naming a different benchmark-only pairing.
-  const shipped = eligible.find((summary) => summary.pairing === 'tiny_det+small_rec') ?? choice;
+  // Only call a pairing the shipped Standard default when that exact pairing was benchmarked
+  // and fell inside the envelope. A partial run or an out-of-envelope default must not be
+  // described as shipped, and the 0.05 claim must not be made for an ineligible choice.
+  const shipped = eligible.find((summary) => summary.pairing === 'tiny_det+small_rec');
+  if (!shipped) {
+    const benchmarked = summaries.some((summary) => summary.pairing === 'tiny_det+small_rec');
+    const envelope = eligible.includes(choice)
+      ? 'fastest pairing within 0.05 absolute micro-CER and 0.05 absolute macro detection-recall proxy of the best values'
+      : 'fastest benchmarked pairing (outside the 0.05 accuracy envelope)';
+    return (
+      choice.pairing +
+      ' — ' +
+      envelope +
+      '. The shipped Standard default (tiny_det+small_rec) ' +
+      (benchmarked
+        ? 'was outside the accuracy envelope in this run'
+        : 'was not benchmarked in this run') +
+      '. This is a benchmark recommendation only; DEFAULT_OCR_TIER was not changed.'
+    );
+  }
   return (
     shipped.pairing +
     ' — shipped Standard default, within 0.05 absolute micro-CER and 0.05 absolute macro detection-recall proxy of the best values. ' +
