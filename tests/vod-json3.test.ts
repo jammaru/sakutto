@@ -168,22 +168,31 @@ describe('sanitized public-style VOD fixture', () => {
       readFileSync(new URL('../e2e/fixtures/youtube-vod-json3-en.json', import.meta.url), 'utf8'),
     ) as unknown;
     const expected = JSON.parse(
-      readFileSync(new URL('../e2e/fixtures/youtube-vod-json3-en.expected.json', import.meta.url), 'utf8'),
-    ) as { cues: Array<{ source: string; startMs: number; endMs: number; numericLexemes: string[] }> };
+      readFileSync(
+        new URL('../e2e/fixtures/youtube-vod-json3-en.expected.json', import.meta.url),
+        'utf8',
+      ),
+    ) as {
+      cues: Array<{ source: string; startMs: number; endMs: number; numericLexemes: string[] }>;
+    };
     const timeline = parseVodJson3Timeline(raw, 'en', true);
     expect(timeline?.sourceCoverage.complete).toBe(true);
     expect(timeline?.sourceCoverage.offsetTokens).toBeGreaterThan(0);
-    expect(timeline?.cues.map((cue) => ({
-      source: cue.text,
-      startMs: cue.startMs,
-      endMs: cue.endMs,
-      numericLexemes: cue.numericLexemes,
-    }))).toEqual(expected.cues.map(({ source, startMs, endMs, numericLexemes }) => ({
-      source,
-      startMs,
-      endMs,
-      numericLexemes,
-    })));
+    expect(
+      timeline?.cues.map((cue) => ({
+        source: cue.text,
+        startMs: cue.startMs,
+        endMs: cue.endMs,
+        numericLexemes: cue.numericLexemes,
+      })),
+    ).toEqual(
+      expected.cues.map(({ source, startMs, endMs, numericLexemes }) => ({
+        source,
+        startMs,
+        endMs,
+        numericLexemes,
+      })),
+    );
   });
 });
 

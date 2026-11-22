@@ -571,9 +571,11 @@ export async function readJson3Recording(page: Page): Promise<Json3Recording> {
   });
 }
 
+type Json3PlayheadPoint = Pick<Json3Sample, 'atMs' | 'mediaMs' | 'phase' | 'epoch'>;
+
 function crossingForCue(
   cue: ExpectedJson3Cue,
-  samples: readonly Json3Sample[],
+  samples: readonly Json3PlayheadPoint[],
   phase: string,
 ): { atMs: number; epoch: number } | null {
   const phased = samples.filter((sample) => sample.phase === phase);
