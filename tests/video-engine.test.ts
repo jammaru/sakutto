@@ -377,6 +377,70 @@ describe('caption translator', () => {
     expect(seen).not.toContain('line 8');
   });
 
+  it('round-trips exact numeric lexemes through opaque placeholders', async () => {
+    const sources: string[] = [];
+    const translator = new CaptionTranslator(
+      engineOf((segments) => {
+        sources.push(segments[0]?.text ?? '');
+        return segments.map((segment) => ({
+          id: segment.id,
+          final: '訳:' + segment.text,
+          engine: 'plamo' as const,
+        }));
+      }),
+    );
+    const source = 'Opus 5.5, Fable 5.2, then Opus 4.5.';
+    const options = { tgt: 'ja', form: 'polite' as const, preserveNumbers: true };
+    await expect(translator.translateCue(cue(source), options, 2)).resolves.toBe(
+      '訳:Opus 5.5, Fable 5.2, then Opus 4.5.',
+    );
+    expect(sources).toEqual(['Opus ⟦N:A⟧, Fable ⟦N:B⟧, then Opus ⟦N:C⟧.']);
+    expect(translator.getCached(source, options)).toBe('訳:Opus 5.5, Fable 5.2, then Opus 4.5.');
+  });
+
+  it.each(['Opus 55.', 'Opus.', 'Opus ⟦N:B⟧.', 'Opus ⟦N:A⟧ ⟦N:A⟧.'])(
+    'uses the exact source fallback for hostile numeric output %s',
+    async (output) => {
+      let calls = 0;
+      const translator = new CaptionTranslator(
+        engineOf((segments) => {
+          calls += 1;
+          return segments.map((segment) => ({
+            id: segment.id,
+            final: output,
+            engine: 'plamo' as const,
+          }));
+        }),
+      );
+      const options = { tgt: 'ja', form: 'polite' as const, preserveNumbers: true };
+      await expect(translator.translateCue(cue('Opus 5.5.'), options, 2)).resolves.toBe(
+        'Opus 5.5.',
+      );
+      expect(translator.getCached('Opus 5.5.', options)).toBe('Opus 5.5.');
+      await translator.translateCue(cue('Opus 5.5.'), options, 2);
+      expect(calls).toBe(1);
+    },
+  );
+
+  it('preserves upstream integer ASR text without inventing decimals', async () => {
+    const translator = new CaptionTranslator(
+      engineOf((segments) =>
+        segments.map((segment) => ({
+          id: segment.id,
+          final: segment.text,
+          engine: 'plamo' as const,
+        })),
+      ),
+    );
+    await expect(
+      translator.translateCue(
+        cue('Opus 55.'),
+        { tgt: 'ja', form: 'polite', preserveNumbers: true },
+        2,
+      ),
+    ).resolves.toBe('Opus 55.');
+  });
+
   it('finishes the playhead line first when later cues would otherwise share the first batch', async () => {
     const delayMs = 25;
     const lines = Array.from({ length: 12 }, (_, index) => `line ${String(index)}`);

@@ -301,7 +301,7 @@ describe('VodPrefetchController', () => {
     expect(controller.getState().completedCueIds).toEqual(['c1']);
   });
 
-  it('suppresses failed retries on ticks and retries after a seek', async () => {
+  it('retries failed work on the next external reconciliation', async () => {
     const adapter = new FakeTranslator();
     const controller = new VodPrefetchController({
       cues: cuesAt(0),
@@ -315,8 +315,6 @@ describe('VodPrefetchController', () => {
     expect(adapter.calls).toHaveLength(1);
 
     controller.reconcile();
-    expect(adapter.calls).toHaveLength(1);
-    controller.seek(0);
     expect(adapter.calls).toHaveLength(2);
   });
 });

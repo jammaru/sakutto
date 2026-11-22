@@ -292,7 +292,7 @@ export class VodPrefetchController {
     playbackRate = this.playbackRate,
   ): VodPrefetchSnapshot {
     if (this.disposed) return this.getState();
-    if (reason === 'seek' || reason === 'rate') this.failed.clear();
+    if (reason !== 'completion') this.failed.clear();
     if (reason === 'seek' || reason === 'rate') this.generation += 1;
     this.timeMs = Number.isFinite(timeMs) ? timeMs : 0;
     this.playbackRate = sanitizeVodPlaybackRate(playbackRate);

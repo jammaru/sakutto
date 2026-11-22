@@ -4,6 +4,7 @@ import { hasTranslatableText, isInvisibleRunawayOutput } from '@/engine/text/san
 import type { Formality, GlossaryEntry, TranslationChunk } from '@/engine/types';
 import { cuesInWindow, type CaptionCue } from './cues';
 import { cleanCaptionForMode, cleanCaptionSource } from './text-cleanup';
+import { numericLexemes, protectCaptionNumerics, restoreCaptionNumerics } from './vod-json3';
 
 /** Current playhead cue: ahead of other caption work, still after a selection (0). */
 export const CAPTION_PLAYHEAD_PRIORITY = 1;
@@ -35,6 +36,8 @@ export interface CaptionTranslateOptions {
   context?: string | undefined;
   /** Auto-generated caption: use the ASR-only cleanup for keys, prompts and output. */
   asr?: boolean | undefined;
+  /** Immutable VOD only: protect exact numeric spellings through the engine. */
+  preserveNumbers?: boolean | undefined;
 }
 
 interface CacheEntry {
@@ -203,7 +206,9 @@ export class CaptionTranslator {
     let output = '';
     let failed = false;
     try {
-      for await (const chunk of this.engine.translate([{ id: cue.id, text: source }], {
+      const modelSource =
+        options.preserveNumbers === true ? protectCaptionNumerics(source) : source;
+      for await (const chunk of this.engine.translate([{ id: cue.id, text: modelSource }], {
         tgt: options.tgt,
         form: options.form,
         glossary: options.glossary,
@@ -224,8 +229,21 @@ export class CaptionTranslator {
       return null;
     }
     // Safety net for engines that echo structural tokens or tags in their output.
-    const translated = cleanCaptionForMode(output, options.asr === true).trim();
-    if (failed || translated.length === 0) return null;
+    const cleaned = cleanCaptionForMode(output, options.asr === true).trim();
+    if (failed || cleaned.length === 0) return null;
+    let translated = cleaned;
+    if (options.preserveNumbers === true && numericLexemes(source).length > 0) {
+      const restored = restoreCaptionNumerics(cleaned, source);
+      if (restored === null) {
+        // Hostile numeric output is never cached or displayed. The exact source is a
+        // safe fallback and prevents a corrupt result from being requested repeatedly.
+        if (!signal.aborted) {
+          this.cache.set(this.cacheKey(source, options), { translation: source });
+        }
+        return signal.aborted ? null : source;
+      }
+      translated = restored;
+    }
     if (isBrokenTranslation(source, translated) || isInvisibleRunawayOutput(source, translated)) {
       return null;
     }

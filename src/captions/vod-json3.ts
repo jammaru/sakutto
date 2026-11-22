@@ -55,26 +55,43 @@ export function numericLexemesEqual(source: string, translated: string): boolean
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-/** Reuse the translator's atomic inline-placeholder convention for exact numerics. */
+function numericMarker(index: number): string {
+  let value = index + 1;
+  let letters = '';
+  while (value > 0) {
+    value -= 1;
+    letters = String.fromCharCode(65 + (value % 26)) + letters;
+    value = Math.floor(value / 26);
+  }
+  return '⟦N:' + letters + '⟧';
+}
+
+function numericMarkerIndex(letters: string): number {
+  let value = 0;
+  for (const letter of letters) value = value * 26 + letter.charCodeAt(0) - 64;
+  return value - 1;
+}
+
+/** Caption-safe opaque markers contain no digits and introduce no overlay markup. */
 export function protectCaptionNumerics(source: string): string {
   let index = 0;
-  return source.replace(/\d+(?:,\d{3})*(?:\.\d+)*/gu, () => '<i' + String(index++) + '>');
+  return source.replace(/\d+(?:,\d{3})*(?:\.\d+)*/gu, () => numericMarker(index++));
 }
 
 /** Restore every placeholder once, in order, or reject the hostile engine output. */
 export function restoreCaptionNumerics(output: string, source: string): string | null {
   const numbers = numericLexemes(source);
   if (numbers.length === 0) return output;
-  const markers = [...output.matchAll(/<i(\d+)>/gu)];
+  const markers = [...output.matchAll(/⟦N:([A-Z]+)⟧/gu)];
   if (
     markers.length !== numbers.length ||
-    markers.some((marker, index) => marker[1] !== String(index))
+    markers.some((marker, index) => numericMarkerIndex(marker[1] ?? '') !== index)
   ) {
     return null;
   }
   let restored = output;
   for (let index = 0; index < numbers.length; index += 1) {
-    restored = restored.replace('<i' + String(index) + '>', numbers[index] ?? '');
+    restored = restored.replace(numericMarker(index), numbers[index] ?? '');
   }
   return numericLexemesEqual(source, restored) ? restored : null;
 }

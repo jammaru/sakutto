@@ -23,6 +23,7 @@ import {
   type CaptionCue,
 } from './cues';
 import { parseVodJson3Timeline, type VodTimeline } from './vod-json3';
+import { VodDisplayScheduler } from './vod-json3-display';
 import { VodPrefetchController } from './vod-prefetch';
 import {
   CAPTION_LIVE_PRIORITY,
@@ -199,6 +200,7 @@ export class VideoCaptionSession {
   private readonly readPlayerResponse: () => Promise<unknown>;
   private readonly now: () => number;
   private readonly timedtextGuard = new TimedtextFetchGuard();
+  private readonly vodDisplay = new VodDisplayScheduler();
   private vodPrefetch: VodPrefetchController | null = null;
   private prefs: CaptionSessionPreferences;
   private running = false;
@@ -429,6 +431,7 @@ export class VideoCaptionSession {
     this.resetLiveCaptions();
     this.vodPrefetch?.dispose();
     this.vodPrefetch = null;
+    this.vodDisplay.reset([], 0);
     this.translator.clear();
     this.clearHold();
     this.unbindVideo(this.video);
@@ -471,7 +474,10 @@ export class VideoCaptionSession {
     this.clearHold();
     this.activeCueId = '';
     const timeMs = this.playheadMs();
-    this.vodPrefetch?.seek(timeMs, this.video?.playbackRate ?? 1);
+    if (this.loaded?.source === 'vod-json3') {
+      this.vodDisplay.seek(timeMs);
+      this.vodPrefetch?.seek(timeMs, this.video?.playbackRate ?? 1);
+    }
     // A jump before the held line (loop, ad, rewind) must not keep a future
     // translation. Do not showNative here: a seek must not flash native while
     // the new playhead cue is still translating.
@@ -581,6 +587,7 @@ export class VideoCaptionSession {
     this.resetLiveCaptions();
     this.vodPrefetch?.dispose();
     this.vodPrefetch = null;
+    this.vodDisplay.reset([], 0);
     this.translator.clear();
     this.clearHold();
     this.activeCueId = '';
@@ -851,11 +858,13 @@ export class VideoCaptionSession {
   }
 
   private finishLoadedTrack(loaded: LoadedTrack): void {
-    const resetVodPrefetch =
+    const resetVodDisplay =
       loaded.source === 'vod-json3' &&
       (this.loaded?.key !== loaded.key || this.loaded.source !== 'vod-json3');
     this.loaded = loaded;
-    if (loaded.source === 'vod-json3' && resetVodPrefetch) {
+    if (loaded.source === 'vod-json3' && resetVodDisplay) {
+      const timeMs = this.playheadMs();
+      this.vodDisplay.reset(loaded.cues, timeMs);
       this.vodPrefetch?.dispose();
       const sourceCues = loaded.cues.map((cue) => ({ ...cue, text: this.originalForCue(cue) }));
       this.vodPrefetch = new VodPrefetchController({
@@ -863,7 +872,9 @@ export class VideoCaptionSession {
         adapter: {
           getCached: (text, options) => {
             const cached = this.translator.getCached(text, options);
-            if (cached !== undefined) this.emitVodRequest('cache-hit', '', text, 'cache');
+            if (cached !== undefined) {
+              this.emitVodRequest('cache-hit', '', text, 'cache');
+            }
             return cached;
           },
           translateCue: (cue, options, priority) => {
@@ -884,8 +895,8 @@ export class VideoCaptionSession {
             this.translator.cancelText(text, options);
           },
         },
-        options: this.translateOptions(loaded.language),
-        timeMs: this.playheadMs(),
+        options: { ...this.translateOptions(loaded.language), preserveNumbers: true },
+        timeMs,
         playbackRate: this.video?.playbackRate ?? 1,
         onDebug: (event) => {
           captionDebug('vod-prefetch', { ...event });
@@ -895,7 +906,7 @@ export class VideoCaptionSession {
             }),
           );
           if (event.type === 'complete' && this.running && this.loaded?.key === loaded.key) {
-            void this.paint(false);
+            void this.paintVodJson3();
           }
         },
       });
@@ -1060,6 +1071,10 @@ export class VideoCaptionSession {
       if (token === this.sourceToken && !this.holdActiveAt(timeMs)) this.showNative('no-cue');
       return;
     }
+    if (this.loaded?.source === 'vod-json3') {
+      await this.paintVodJson3();
+      return;
+    }
     if (cue) {
       await this.paintCue(cue, force);
       return;
@@ -1086,7 +1101,7 @@ export class VideoCaptionSession {
   }
 
   private emitVodRequest(
-    action: 'start' | 'abort' | 'finish' | 'cache-hit',
+    type: 'start' | 'abort' | 'finish' | 'cache-hit',
     cueId: string,
     sourceText: string,
     reason: string,
@@ -1095,7 +1110,7 @@ export class VideoCaptionSession {
     this.doc.dispatchEvent(
       new CustomEvent('sakutto:caption-request', {
         detail: {
-          action,
+          action: type,
           cueId,
           sourceText,
           generation: this.vodPrefetch?.getState().generation ?? 0,
@@ -1110,7 +1125,10 @@ export class VideoCaptionSession {
 
   /** One options/context identity for VOD warming, cache lookup, and paint. */
   private optionsForVodCue(cue: CaptionCue): CaptionTranslateOptions {
-    const options = this.translateOptions(cue.language ?? this.loaded?.language);
+    const options = {
+      ...this.translateOptions(cue.language ?? this.loaded?.language),
+      preserveNumbers: true,
+    };
     const cues = this.loaded?.cues ?? [];
     const index = cues.findIndex((candidate) => candidate.id === cue.id);
     const scheduled = this.vodPrefetch?.optionsForCue(index);
@@ -1120,16 +1138,56 @@ export class VideoCaptionSession {
     return context ? { ...options, context } : options;
   }
 
+  private readVodDisplay(cue: CaptionCue): { original: string; translation: string } | null {
+    const original = this.originalForCue(cue);
+    if (!original) return null;
+    return {
+      original,
+      translation: this.translator.getCached(original, this.optionsForVodCue(cue)) ?? '',
+    };
+  }
+
+  private async paintVodJson3(): Promise<void> {
+    const video = this.video;
+    const cues = this.loaded?.cues ?? [];
+    if (!video || cues.length === 0 || this.passthroughNative) return;
+    if (sameLanguage(this.loaded?.language, this.prefs.targetLanguage)) {
+      this.passthroughNative = true;
+      this.applyNativeVisibility('same-language');
+      return;
+    }
+    const timeMs = this.playheadMs();
+    this.vodPrefetch?.reconcile(timeMs, video.playbackRate);
+    const command = this.vodDisplay.update(
+      timeMs,
+      this.now(),
+      (cue) => this.readVodDisplay(cue),
+      video.paused,
+    );
+    if (command?.type === 'show') {
+      const { cue, original, translation, pending } = command.paint;
+      this.activeCueId = cue.id;
+      this.commitDisplay(cue.id, original, translation, cue.startMs, cue.endMs, 0, false, pending);
+      return;
+    }
+    if (command?.type === 'clear') {
+      this.showNative('vod-silence');
+      return;
+    }
+    if (!this.hold && timeMs < (cues[0]?.startMs ?? 0)) this.showNative('no-cue');
+  }
+
   private async paintCue(cue: CaptionCue, force: boolean): Promise<void> {
     if (this.passthroughNative) return;
     const token = this.sourceToken;
     const liveRevision = this.liveTailRevision;
     const language = cue.language ?? this.loaded?.language;
-    const options =
-      this.loaded?.source === 'vod-json3'
-        ? this.optionsForVodCue(cue)
-        : this.translateOptions(language);
-    const original = this.originalForCue(cue);
+    const options = this.translateOptions(language);
+    const stripped = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
+    const original = cleanCaptionSource(
+      stripped.length > 0 ? stripped : cue.text.trim(),
+      this.loaded?.asr === true,
+    );
     if (original.length === 0) {
       if (!this.holdActiveAt(this.playheadMs())) this.showNative('empty-source');
       return;
@@ -1142,7 +1200,7 @@ export class VideoCaptionSession {
     const cueChanged = this.activeCueId !== cue.id;
     if (cueChanged) {
       this.activeCueId = cue.id;
-      if (this.loaded?.source !== 'vod-json3') this.retainAroundPlayhead(original, options);
+      this.retainAroundPlayhead(original, options);
     }
 
     const cached = this.translator.getCached(original, options);
@@ -1729,10 +1787,6 @@ export class VideoCaptionSession {
    * the prefetch band, kept behind visible page prose and capped by the translator.
    */
   private scheduleAroundPlayhead(current: CaptionCue | null): void {
-    if (this.vodPrefetch) {
-      this.vodPrefetch.reconcile(this.playheadMs(), this.video?.playbackRate ?? 1);
-      return;
-    }
     const video = this.video;
     const cues = this.loaded?.cues ?? [];
     if (!video || cues.length === 0) return;
@@ -1744,17 +1798,24 @@ export class VideoCaptionSession {
     const skip = new Set<string>();
     if (current) skip.add(current.id);
     for (const cue of nearby) {
-      const original = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
+      const original = this.originalForCue(cue);
       if (original.length === 0) continue;
       skip.add(cue.id);
       const index = cues.findIndex((candidate) => candidate.id === cue.id);
       const context = index > 0 ? cues[index - 1]?.text : undefined;
+      const cueOptions =
+        this.loaded?.source === 'vod-json3'
+          ? this.optionsForVodCue(cue)
+          : context
+            ? { ...options, context }
+            : options;
       void this.translator.translateCue(
         { ...cue, text: original },
-        context ? { ...options, context } : options,
+        cueOptions,
         CAPTION_LIVE_PRIORITY,
       );
     }
+    if (this.loaded?.source === 'vod-json3') return;
     const playbackRate = video.playbackRate || 1;
     const windowMs = captionPrefetchWindowMs(this.prefs.tier, playbackRate);
     const prefetchCues = cuesInWindow(cues, timeMs, timeMs + windowMs)
