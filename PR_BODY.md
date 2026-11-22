@@ -19,7 +19,7 @@ PP-OCRv6 と ONNX Runtime Web を使い、スキャンPDFと画像の文字認�
 | 標準（既定） | tiny_det + small_rec    |   22,939,968 bytes |
 | 高精度       | medium_det + medium_rec |  138,587,816 bytes |
 
-既定はレイテンシ優先です。生成 CC0 フィクスチャ8件の実測では、高精度構成の認識前処理をアスペ比保持に修正した後、標準 0.7% / 1,208 ms、高精度 0.4% / 7,795 ms でした。small_det+small_rec は設定の比較対象ではなく、ベンチマークの中間構成です。
+既定はレイテンシ優先です。生成 CC0 フィクスチャ8件の実測では、高精度構成の認識前処理をアスペ比保持に修正した後、標準 0.7% / 1,638 ms、高精度 0.4% / 7,976 ms でした。small_det+small_rec は設定の比較対象ではなく、ベンチマークの中間構成です。
 
 ### ベンチマーク
 
@@ -27,13 +27,15 @@ Node 24 / ONNX Runtime Web 1.31.1 WASM、生成 CC0 フィクスチャ8件、各
 
 | 構成                  | Micro CER | Micro WER | 検出 recall proxy | 平均時間/ページ | Practical / Marginal |
 | --------------------- | --------: | --------: | ----------------: | --------------: | -------------------: |
-| tiny_det+small_rec    |      0.7% |      7.3% |              100% |        1,208 ms |                8 / 0 |
-| small_det+small_rec   |      3.5% |     10.9% |              100% |        1,531 ms |                7 / 1 |
-| medium_det+medium_rec |      0.4% |      4.2% |              100% |        7,795 ms |                8 / 0 |
+| tiny_det+small_rec    |      0.7% |      7.3% |              100% |        1,638 ms |                8 / 0 |
+| small_det+small_rec   |      3.5% |     10.9% |              100% |        1,600 ms |                7 / 1 |
+| medium_det+medium_rec |      0.4% |      4.2% |              100% |        7,976 ms |                8 / 0 |
 
 標準構成は、英語スキャン、日本語横書き・縦書き、スライド、低解像度・傾き、2段組、日英混在、小文字の8件すべてで practical でした。生成フィクスチャの結果であり、実文書全体での優位性を保証するものではありません。OCR→翻訳の配線確認は英語と日本語の2ページについて、実 OCR 出力と決定的なローカル置換スタブで実施しています（翻訳品質の評価ではありません）。
 
 再現: `pnpm bench:ocr`。詳細: `bench/results/ocr-benchmark.md`。
+
+実スキャン `bench/pdf/scan.pdf` p1 は、コミット済みの正解テキスト（`bench/pdf/scan-p1.gt.txt`）に対して `pnpm bench:pdf:scan:ocr` で測定します。旧ベンチの参照は印刷用 paper.pdf の行でスキャンレイアウトと不一致でした。修正後の出荷設定（2x / maxSide 1600, Standard）は CER 3.0% / WER 5.5%、cross-column 0、約 34 秒/ページです。詳細: `bench/results/scan-ocr/README.md`。
 
 ### 権限とプライバシー
 
@@ -66,13 +68,13 @@ This change adds on-device PP-OCRv6 recognition and translation for scanned PDFs
 
 ### Benchmark and default
 
-The default is latency-first; the high tier uses the same weights with a larger detector/recognizer. After fixing the high tier's recognition preprocessing to preserve aspect ratio, the eight generated CC0 fixtures measured 0.7% micro-CER / 1,208 ms for standard versus 0.4% / 7,795 ms for high. CER/WER are lower-is-better; the detection proxy is greedy one-to-one AABB matching at IoU 0.30. Mean page time excludes initialization and warm-up.
+The default is latency-first; the high tier uses the same weights with a larger detector/recognizer. After fixing the high tier's recognition preprocessing to preserve aspect ratio, the eight generated CC0 fixtures measured 0.7% micro-CER / 1,638 ms for standard versus 0.4% / 7,976 ms for high. CER/WER are lower-is-better; the detection proxy is greedy one-to-one AABB matching at IoU 0.30. Mean page time excludes initialization and warm-up.
 
 | Pairing               | Micro CER | Micro WER | Detection recall proxy | Mean ms/page | Practical / Marginal |
 | --------------------- | --------: | --------: | ---------------------: | -----------: | -------------------: |
-| tiny_det+small_rec    |      0.7% |      7.3% |                   100% |        1,208 |                8 / 0 |
-| small_det+small_rec   |      3.5% |     10.9% |                   100% |        1,531 |                7 / 1 |
-| medium_det+medium_rec |      0.4% |      4.2% |                   100% |        7,795 |                8 / 0 |
+| tiny_det+small_rec    |      0.7% |      7.3% |                   100% |        1,638 |                8 / 0 |
+| small_det+small_rec   |      3.5% |     10.9% |                   100% |        1,600 |                7 / 1 |
+| medium_det+medium_rec |      0.4% |      4.2% |                   100% |        7,976 |                8 / 0 |
 
 The standard pairing was practical on every default-tier case: English scan, Japanese horizontal and vertical text, slides, low-resolution/skew, two columns, mixed Japanese/English, and small text. These generated-fixture results do not establish broad real-world superiority. English and Japanese OCR output also passed through a deterministic local translation stub as a plumbing sanity check, not as translation-quality evidence.
 

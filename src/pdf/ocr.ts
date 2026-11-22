@@ -221,6 +221,9 @@ function sharesBaseline(left: readonly OcrTextPiece[], right: readonly OcrTextPi
   return Math.abs(centre(left) - centre(right)) <= Math.max(2, height * 0.75);
 }
 
+/** White gap that separates two printed columns. Dense scans map a 12px gutter to ~6pt. */
+const MIN_COLUMN_GUTTER = 6;
+
 /**
  * Splits a wide reading line that combined two body rows at slightly different baselines.
  *
@@ -262,6 +265,14 @@ function splitMergedBodyLine(
   // so compare centres rather than requiring perfectly disjoint boxes.
   const firstCentre = (first.left + first.right) / 2;
   const secondCentre = (second.left + second.right) / 2;
+  // A 2pt top-edge step on one wavy full-width line is OCR noise, not evidence of two rows.
+  // Two column rows must also be separated by a real white gutter and sit on opposite sides
+  // of the page midpoint. Without the gutter test, adjacent word boxes on a sloped line
+  // looked like a left and a right column and got split into two translation blocks.
+  const gutter = Math.max(first.left, second.left) - Math.min(first.right, second.right);
+  const middle = pageWidth / 2;
+  if (gutter < MIN_COLUMN_GUTTER) return null;
+  if (!(first.right <= middle + 4 && second.left >= middle - 4)) return null;
   if (Math.abs(firstCentre - secondCentre) < pageWidth * 0.2) return null;
   if (
     first.right - first.left < pageWidth * 0.18 ||
@@ -271,14 +282,6 @@ function splitMergedBodyLine(
   }
   return firstCentre <= secondCentre ? [upper, lower] : [lower, upper];
 }
-
-/**
- * Narrowest white gap that still separates two printed columns.
- *
- * A 15pt gutter is common in two-column papers. Requiring a page-width fraction here used
- * to leave those rows merged, so the translation cover painted across the gap.
- */
-const MIN_COLUMN_GUTTER = 15;
 
 /**
  * Converts OCR reading lines to the PDF reader's native line model.
@@ -344,13 +347,18 @@ export function ocrResultToTextLines(
     // nearly the whole page: the old `< 82% of page width` guard left those merged and painted
     // one cover across the gutter. Require a real white gap at the centre, with substantial text
     // on both sides, so a full-width title whose words merely straddle the middle stays whole.
+    const wholeText = pieces
+      .map((piece) => piece.text)
+      .join(' ')
+      .trim();
+    const headingWholeLine = wholeText.length <= 120 && !/[.!?。]$/u.test(wholeText);
     const wideTwoColumnLine =
       lineWidth >= resolved.pageWidth * 0.82 &&
       leftWidth > resolved.pageWidth * 0.18 &&
       rightWidth > resolved.pageWidth * 0.18 &&
       leftEnd <= middle + 4 &&
       rightStart >= middle - 4 &&
-      gutterGap >= MIN_COLUMN_GUTTER;
+      gutterGap >= 15;
     // A short left heading beside a normal body line is a two-column row too: the 18% width
     // floor for `wideTwoColumnLine` cannot see it, but the gutter and shared baseline can.
     const shortHeadingBesideBody =
@@ -362,11 +370,24 @@ export function ocrResultToTextLines(
       isShortHeadingPieces(leftPieces) &&
       rightText.length >= Math.max(24, leftText.length * 2) &&
       sharesBaseline(leftPieces, rightPieces);
+    // This detector emits one quad per printed line, so a merged two-column row often has
+    // just two wide pieces, one of them a short fragment that fails the 18% width floor.
+    // A line-region wide enough to be a column measure on either side is still firm evidence
+    // of two columns; word-level boxes on a wavy single line are far narrower than this.
+    const wideLineRegionMerge =
+      lineWidth >= resolved.pageWidth * 0.6 &&
+      pieces.some((piece) => piece.box.width >= resolved.pageWidth * 0.3) &&
+      !headingWholeLine;
     const crossesGutter =
       resolved.pageWidth > 0 &&
       !pieceVertical &&
       gutterGap >= MIN_COLUMN_GUTTER &&
-      (lineWidth < resolved.pageWidth * 0.82 || wideTwoColumnLine || shortHeadingBesideBody);
+      leftEnd <= middle + 4 &&
+      rightStart >= middle - 4 &&
+      (lineWidth < resolved.pageWidth * 0.82 ||
+        wideTwoColumnLine ||
+        shortHeadingBesideBody ||
+        wideLineRegionMerge);
     const pushLine = (selected: OcrTextPiece[], id: string): void => {
       if (selected.length === 0) return;
       const line = lineFrom(selected);
@@ -409,6 +430,18 @@ function lineColumn(line: OcrTextLine, pageWidth: number): number {
   if (pageWidth <= 0) return 0;
   const mid = line.box.x + line.box.width / 2;
   if (line.box.width > pageWidth * 0.6) return SPANNING_COLUMN;
+  // A short centred title ("BERT", "References") is semantically full-width even though its
+  // ink occupies only a few points. Classifying it as the right column both emitted it after
+  // the left column and widened that column's room across the gutter. Centring and a
+  // heading-like, non-sentence text are the evidence here; an ordinary body line whose end
+  // happens to land near the middle must stay in its own column.
+  if (
+    !verticalLine(line) &&
+    Math.abs(mid - pageWidth / 2) <= pageWidth * 0.06 &&
+    isShortHeadingPieces(line.pieces)
+  ) {
+    return SPANNING_COLUMN;
+  }
   return mid < pageWidth / 2 ? 0 : 1;
 }
 
@@ -491,6 +524,19 @@ function groupRole(group: readonly OcrTextLine[], bodySize: number): AnyBlockRol
     return 'code';
   }
   if (/^[^\p{L}]*\d+[^\p{L}]*$/u.test(text)) return 'label';
+  // A one-word heading such as "References" or "Abstract" is body prose, not a furniture
+  // label. It must reach the engine and be counted in the prose denominator; a numeric or
+  // punctuation-heavy label stays skipped.
+  if (
+    /^[\p{L}][\p{L}\s'’&.,:-]*$/u.test(text) &&
+    !/[\d]/u.test(text) &&
+    (text.match(/\p{L}{3,}/gu)?.length ?? 0) >= 1 &&
+    text.split(/\s+/u).filter(Boolean).length <= 4 &&
+    text.length <= 40 &&
+    !/[.!?]$/u.test(text)
+  ) {
+    return 'heading';
+  }
   const first = group[0];
   // A row of values or short numbers is table typesetting, not a sentence to translate.
   const tokens = text.split(/\s+/u).filter(Boolean);

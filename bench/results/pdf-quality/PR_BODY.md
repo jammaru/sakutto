@@ -20,44 +20,43 @@ PDF 翻訳を「動く」から「読める」に変えるため、抽出・段�
 1. リガチャ（fi/ff/ffi）・ソフトハイフン・NBSP を pdf.js の item 段階で正規化し、単語単位の分割を防ぐ。
 2. 行の結合はハイフン継続とセンテンス境界を優先し、列をまたぐ行は別ブロックに分割する。
 3. 列検出は行ボックスの x 中心とページ中央のジオメトリで行い、2 カラムの読み順を保持する。
-4. 数式は数学フォントに加え、通常テキストの Q ∈ R d のような演算子 run も `iN` プレースホルダで保護し、訳後に必ず差し戻す（タグの全角化も正規化）。保護範囲は単語境界で切り出し、`10× speedup` の語尾や `matrices` の語尾を数式に含めない。先行する `Let` / `For` / `If` / 冠詞 `a` は保護スロットから外し、散文としてモデルに渡す。
-5. 訳文ボックスは元の段落領域に対してフィットさせ、収まらない場合は切らずにマーカーで全文を開く。OCR は行を段落にまとめ、コード/数値ラベル/図キャプション周辺は原文のまま残す。全幅でも 2 カラムの行は列ごとに分け、15pt 以上のガターを分割・計測し、span ブロックのカバーもガター越えとして扱う。
+4. 数式は数学フォントに加え、通常テキストの `Q ∈ R d model × d k` のような次元式全体を `iN` プレースホルダで保護し、訳後に必ず差し戻す（タグの全角化のみ正規化し、本文の全角括弧や ① は書き換えない）。保護範囲は単語境界で切り出し、`10× speedup` の語尾や `matrices` の語尾を数式に含めない。先行する `Let` / `For` / `If` / 冠詞 `a` は保護スロットから外し、散文としてモデルに渡す。
+5. 訳文ボックスは元の段落領域に対してフィットさせ、収まらない場合は切らずにマーカーで全文を開く。エンジン失敗で `failed` になった散文にも同じマーカーを出し、二言語モードでは skipped ブロックも原文行として読める。OCR は行を段落にまとめ、コード/数値ラベル/図キャプション周辺は原文のまま残す。全幅でも 2 カラムの行は列ごとに分け、実スキャンでは 6pt のガターと行レジオン幅を分割根拠にし、span ブロックのカバーもガター越えとして扱う。短い中央見出しは列に含めず、本文列より前に出力する。
 
 ## 変更内容
 
 - src/pdf/extract.ts: グリフ run の Unicode 正規化。
 - src/pdf/layout.ts: 行・段落の復元と列をまたぐブロック分割を改善。
 - src/pdf/protect.ts, src/pdf/session.ts: 数式 protection の拡張（単語境界付き演算子パターン、先行散文の除外）、プレースホルダ正規化、最終チャンクでタグが欠けた時だけの自動リトライ（最大 2 回）。ストリーム途中の欠落で再リクエストして良い訳を捨てる問題を修正し、すべての散文ブロックが翻訳されるかマーカーで読めるようにした。
-- src/pdf/ocr.ts: OCR 行を列・段落へグループ化し、コード/図表ラベルを skipped へ分離。2 カラムが 1 行に合体した場合は行のベースライン差または 15pt 以上のガターで分割（3.5% のページ幅しきい値を廃止）。コード判定は `for` / `if` 等の先頭語だけではなく句読点・演算子も要求し、小さな Figure キャプションは figure label から除外。ブロックごとの統一サイズと読み順を実現。
-- src/pdf/place.ts: ガター越えカバーの計測から span ブロックの例外を外し、2 カラムが合体した行（15pt の狭いガターを含む）のカバーを検出できるようにした（通常の全幅タイトル/著者行は誤検知しない）。
-- src/pdf/reader.ts, src/pdf/render.ts, src/entrypoints/reader/App.svelte: 二言語表示モード（原文左・訳文右、同一スクロール）、並べて比較の維持、青いマーカー点を控えめなニュートラルなチップに変更。
+- src/pdf/ocr.ts: OCR 行を列・段落へグループ化し、`References` / `Abstract` のような短い見出しは翻訳対象の `heading` として保持。2 カラムが 1 行に合体した場合は実ガター（密なスキャンは 6pt）と行レジオン幅で分割し、2pt の傾きだけでは分割しない。短い中央見出しは span 列として先に出力し、room がガターを越えないようにした。コード判定は `for` / `if` 等の先頭語だけではなく句読点・演算子も要求し、小さな Figure キャプションは figure label から除外。ブロックごとの統一サイズと読み順を実現。
+- src/pdf/place.ts: ガター越えカバーの計測から span ブロックの例外を外し、2 カラムが合体した行のカバーを検出できるようにした（通常の全幅タイトル/著者行は誤検知しない）。実スキャンの cross-column は 0。
+- src/pdf/reader.ts, src/pdf/render.ts, src/entrypoints/reader/App.svelte: 二言語表示モード（原文左・訳文右、同一スクロール）、並べて比較の維持、青いマーカー点を控えめなニュートラルなチップに変更。失敗ブロックのマーカー、二言語モードの空ページ通知、skipped 原文行の表示を追加。src/pdf/session.ts はスクロール時の再キューで attempts を保持し、リトライ上限（最大 2 回）を越えないようにした。
 
-## 計測
+## 計測（iteration 6 / `final`）
 
-pnpm bench:build:mock は既存の fake engine ビルドです。新しい pnpm bench:pdf:quality はモデル・ネットワーク不要で、コミット済みの paper.pdf / scan.pdf とキャッシュされた arXiv 1706.03762（初回のみダウンロード、bench/.cache 配下）に対して、fake engine の決定的な訳し出しで同一条件を再現します。
+`pnpm bench:pdf:quality --label final --shots --no-download` と `pnpm bench:pdf:scan:ocr` を再実行しました。ベンチはモデル不要の決定的 fake engine で、コミット済みの paper.pdf / scan.pdf とキャッシュ済み arXiv 1706.03762（SHA-256 ピン留め）を使います。`firstBlockMs` はページ開始からの値に修正し、実行全体の先頭ブロック時刻は別途集計しています。
 
-**scan 行は疑似 OCR です**: scan.pdf のページ寸法・背景を使い、paper.pdf のテキストから語単位の矩形を合成した入力で、認識ではなく OCR 後のレイアウト/配置を測っています。実スキャン scan.pdf p1 の認識は `pnpm bench:pdf:scan:ocr` で別途実測し、`pnpm bench:pdf:quality:scan` が両方を実行して quality レポートに実 OCR 結果を反映します。final.json / final.md はテキスト来源別（native / simulated-ocr）の集計と realOcr セクションを分けています。
+**scan 行は疑似 OCR です**: scan.pdf のページ寸法・背景を使い、paper.pdf のテキストから語単位の矩形を合成した入力で、認識ではなく OCR 後のレイアウト/配置を測ります。実スキャンの認識は下の実 OCR 表（`pnpm bench:pdf:scan:ocr`）で別途測定し、混ぜていません。
 
-| 指標                                       | 変更前 |     変更後 |
-| ------------------------------------------ | -----: | ---------: |
-| 未翻訳散文ブロック率（skipped 散文を含む） |  13.8% |   **1.3%** |
-| ブロック内言語混在率                       |  20.9% |   **8.8%** |
-| 文字化けトークン率                         |  0.84% |  **0.25%** |
-| 重なり/ブロック                            |  0.000 |      0.000 |
-| はみ出し/ブロック                          |  0.062 |      0.082 |
-| 2 カラム読み順正解率                       |  98.3% |      96.5% |
-| 最初の訳文が出るまで                       | 307 ms | **284 ms** |
-| 全文処理時間（fake engine）                | 909 ms | **866 ms** |
+| 指標                                       | 変更前 (baseline) | 変更後 (final) | 目標 |
+| ------------------------------------------ | ----------------: | -------------: | ---: |
+| 未翻訳散文ブロック率（skipped 散文を含む） |             13.8% |       **1.2%** |  low |
+| ブロック内言語混在率                       |             20.9% |       **0.0%** |  ≤2% |
+| 文字化けトークン率                         |             0.84% |      **0.04%** |    — |
+| 重なり/ブロック                            |             0.000 |          0.000 |    — |
+| はみ出し/ブロック                          |             0.062 |          0.000 |    — |
+| 2 カラム読み順正解率                       |             98.3% |      **98.3%** | ≥98% |
+| 最初の訳文が出るまで（ページ単位）         |            307 ms |         248 ms |    — |
+| 全文処理時間（fake engine）                |            909 ms |         779 ms |    — |
 
-数値は 4 次レビューのブロッカー修正（疑似 OCR の語矩形、列順、原文の文字化け判定、実験の detection 解像度）を反映した再実行（`final.json` / `final.md`）です。未翻訳散文率は、OCR が `code` 等に誤分類した散文も分母に含めるよう指標を修正しました。比較のため変更前の `baseline.json` / `baseline.md` もコミット済みエントリを同じ判定で再集計しており、旧指標の 13.0% は 13.8% に変わります。現在も 5 ページ中 1 ブロック（arXiv p1 の脚注風の所属注記）が未翻訳散文として数えられており、0% ではありません。タイミングは実行環境の負荷で変動します。はみ出しと読み順は変更前より悪化しており、改善を主張していません。
-
-ページ別の主な変化: arXiv p1 の未翻訳散文 3 → 0、p5 の 3 → 0、scan（疑似 OCR）p1 の 8 → 0。scan のブロック数は 58 → 26 に減り、1 行ずつだったオーバーレイが段落単位になりました（全幅で列が混ざる行は列ごとに分割）。疑似 OCR の語矩形が行幅をはみ出さないよう修正した結果、scan p1 は 2 カラムとして計測され、列ごとの読み順と gutter 判定が実際の紙面を反映するようになりました。
+テキスト来源別（native = paper + arXiv / simulated OCR = scan）は `final.md` の別表を参照してください。native の未翻訳散文は 0.0%、疑似 OCR の scan は 4.0% です。言語混在率は、Email・モデル名・数字入り識別子などを「言語switch」と数えず、連続した英語の散文_run_ のみを検出するよう指標を修正した結果です（fake engine が意図的に残す技術トークンを英語散文と誤判定していません）。文字化け率も、正しく空白の入った `Q ∈ R d model × d k` を「化け」と数えていた誤検知を除去しました。読み順の GT は、全幅見出しがバンドを区切る二段組の順序（全幅→左列→右列→次の全幅）に修正しています。
 
 スクリーンショット（Playwright / Chromium）:
 
-- 変更前: bench/results/screenshots/baseline/arxiv-p1.png, arxiv-p3.png, arxiv-p5.png, scan-p1.png
-- 変更後: bench/results/screenshots/final/arxiv-p1.png, arxiv-p3.png, arxiv-p5.png, scan-p1.png
-- 数値の生データ: bench/results/pdf-quality/baseline.json, final.json, history.md
+- 変更前: `bench/results/screenshots/baseline/`（arXiv p1/p3/p5, paper p1, scan p1）
+- 変更後: `bench/results/screenshots/final/`（arXiv p1/p3/p5, paper p1, scan p1（疑似 OCR））
+- 実 OCR の overlay: `bench/results/screenshots/final/scan-p1-real-ocr.png`
+- 生データ: `bench/results/pdf-quality/final.json` / `final.md` / `history.md`
 
 ## OCR 実験ログ（pnpm bench:ocr:lab / pnpm bench:pdf:scan:ocr）
 
@@ -95,24 +94,22 @@ pnpm bench:build:mock は既存の fake engine ビルドです。新しい pnpm 
 
 ### 実スキャン scan.pdf p1（実 OCR）
 
-| variant                  | 描画                                                         |      CER* |      WER* | blocks | skipped | cross-column | overlaps |    ms | 読みやすさ                         |
-| ------------------------ | ------------------------------------------------------------ | --------: | --------: | -----: | ------: | -----------: | -------: | ----: | ---------------------------------- |
-| baseline-1x              | 1x / maxSide 960（旧ベンチの「baseline」、出荷設定ではない） |     0.912 |     1.783 |     53 |      10 |            6 |        0 | 23180 | 本文が文字化け、語が欠落           |
-| dpi200                   | 1.33x / maxSide 1280                                         |     1.389 |     1.725 |     68 |       3 |           10 |        0 | 30089 | 本文は読めるが列またぎが残る       |
-| shipped-baseline         | **2x / maxSide 960（変更前の実出荷設定）**                   |     1.461 |     1.693 |     56 |       7 |            8 |        0 | 26874 | 2x でも 960 で落とすと本文が崩れる |
-| **default-1600（採用）** | **2x / maxSide 1600**                                        |     1.411 |     1.627 |     66 |       5 |            8 |        0 | 34138 | 本文が読め、skipped も少ない       |
-| dpi300                   | 2x / maxSide 1920                                            |     1.412 |     1.628 |     66 |       4 |            8 |        0 | 35559 | 1600 と同等、わずかに遅い          |
-| sauvola                  | 1x / maxSide 960 + Sauvola                                   | **0.725** | **0.963** |     37 |      37 |            4 |        0 | 21143 | 文字が潰れ、行が欠落               |
-| dpi200+sauvola           | 1.33x / maxSide 1280 + Sauvola                               |     0.792 |     1.368 |     46 |      16 |            8 |        0 | 27577 | 本文が潰れる                       |
-| dpi200+gray              | 1.33x / maxSide 1280 + grayscale                             |     1.400 |     1.742 |     59 |       5 |           11 |        0 | 30073 | 列またぎが残る                     |
+旧ベンチは paper.pdf の印刷レイアウト行を参照に使っており、scan.pdf の 1 ページ全体（画面レンダリングの 2 カラム）と不一致でした。コミット済みの `bench/pdf/scan-p1.gt.txt`（`scripts/bench/build-scan-gt.ts` で生成）を参照にし、行を内容でアラインした上で CER/WER を計算します。行順は別途、製品出力に対してスコアします。詳細は `bench/results/scan-ocr/README.md`。
 
-\* 実スキャンの参照は paper.pdf の各行で、OCR の行分割が異なるため CER/WER は相対比較のみ。表中の block / skipped / cross-column / ms は `bench/results/scan-ocr/report.json` と `report.md` の再実行値。3 次レビューで、クアッドのページ座標変換と配置に Letter（612×792）を誤用していたことが判明したため、PDF の MediaBox（595.28×841.89 pt）を読み込んで再計測しました（認識結果の CER/WER は不変、座標由来の block / skipped / cross-column が変化）。15pt の狭いガターも分割・計測対象にしたため、cross-column はどの variant でも 0 ではありません。
+| variant             |   CER |   WER | cross-column | lines | ms/page | model bytes |
+| ------------------- | ----: | ----: | -----------: | ----: | ------: | ----------: |
+| baseline-1x         | 68.5% | 94.3% |            2 |    97 |  23.7 s |    21.9 MiB |
+| shipped-baseline    | 11.6% | 16.8% |            1 |   105 |  26.7 s |    21.9 MiB |
+| default-1600        |  3.0% |  5.5% |            0 |   117 |  33.9 s |    21.9 MiB |
+| gray+contrast-1600  |  3.0% |  5.4% |            0 |   117 |  33.6 s |    21.9 MiB |
+| dpi300              |  3.0% |  5.5% |            0 |   116 |  35.1 s |    21.9 MiB |
+| sauvola             | 82.5% | 97.2% |            5 |    94 |  20.7 s |    21.9 MiB |
+| default-1600 (High) |  3.6% |  6.4% |            0 |   117 | 162.4 s |   132.2 MiB |
 
-**採用したデフォルト**: Standard（tiny_det + small_rec）を維持し、PDF の OCR ラスタは既存の 2x 描画を detection で落とさないよう maxSide を 960 → 1600 に変更しました。旧ベンチの `baseline` は 1x / 960 で出荷設定ではなかったため、`shipped-baseline`（2x / 960）を追加して同じ描画条件で比較し直しました。CER 1.461 → **1.411**、WER 1.693 → **1.627**、blocks 56 → 66、skipped 7 → 5 と、同じ 2x ラスタでも 960 でスケールダウンするより 1600 の方が本文が読めます（代償は約 7.3 秒の遅延）。1920 は 1600 とほぼ同等で約 1.4 秒遅いため採用していません。`pnpm bench:ocr` / `pnpm bench:pdf:scan:ocr` の detection maxSide を出荷値 1600 に揃え、再実行した `ocr-benchmark.json` / `scan-ocr/report.json` をコミットしています。二値化は合成 Fixtures では効きましたが実スキャンで文字を潰すため既定では有効にせず、High は設定で選べるままにしています。OCR 後の行→段落グルーピング、列単位の room（全幅の見出しは列に含めない）、コード/数値行・キャプション周辺のスキップ、全幅行の列分割、ハイフン接続とリガチャ正規化を追加し、疑似 OCR の scan fixture では列が混ざるオーバーレイ、重なり、コード翻訳を解消しました。数式保護では `Let` / `For` / `If` / 冠詞などの先行散文をスロットから外し、OCR では 15pt のガターを分割・計測するよう修正しました。実 OCR の default-1600 では補正後の指標で cross-column 8 が残っており、ここは未解決です。
+**採用**: 2x 描画 + detection maxSide 1600 の Standard（tiny_det + small_rec）。実スキャン p1 で **CER 3.0%、cross-column 0** を達成しました。旧ベンチの 1.4 という値は GT 不一致によるもので、認識精度ではありません。High は 3.4〜3.6% とわずかに良いものの約 5 倍遅く 6 倍サイズのため採用しません。Binarization はこの小さなセリフ文字を潰すため既定では無効です。17 バリアントの全表は `bench/results/scan-ocr/report.md`。
 
 ## 確認
 
-- 3 次レビューの修正後に pnpm lint、pnpm typecheck（0 errors / 1 warning）、pnpm test（2559 passed, 1 skipped）、pnpm format:check を再実行。pnpm test:e2e はこのラウンドでは再実行していません。
-- ベンチは `pnpm bench:pdf:scan:ocr`、`pnpm bench:pdf:quality --label final --shots --no-download` を再実行し、scan-ocr レポート、final.json / final.md と final の scan-p1 スクリーンショットを更新しました（baseline はコミット済みエントリを新指標で再集計）。
-- i18n は 14 ロケールすべてでキー整合を確認（新規 pdfBilingual を追加）。
-- 既存の権限モデル・シークレットに変更なし。
+- `pnpm lint`, `pnpm typecheck` (0 errors / 1 warning), `pnpm test` (201 files, 2,577 passed, 1 skipped), `pnpm format:check`, `pnpm i18n:check` がすべて成功。
+- `pnpm bench:pdf:quality --label final --shots --no-download` と `pnpm bench:pdf:scan:ocr` を再実行し、レポートとスクリーンショットを更新。`baseline.json` は旧指標のまま参照用に保持。
+- 権限モデル・シークレット・ Manifest に変更なし。

@@ -115,8 +115,6 @@ export function garbledTokens(text: string): string[] {
     push(match);
   // A line-break hyphen that was not joined back to its word: "English- to-German".
   for (const match of normalized.match(/\p{L}-\s+\p{Ll}/gu) ?? []) push(match);
-  // A base letter separated from its relation by spaces: "R d model × d k".
-  for (const match of normalized.match(/\p{L}\s+[∈×÷≈]\s+\p{L}/gu) ?? []) push(match);
   // A whole English clause left inside a Japanese translation: the visible symptom of lines
   // from two columns being joined into one prompt.
   if (CJK_CHAR.test(normalized)) {
@@ -160,19 +158,32 @@ export const PROSE_ROLE = /^(prose|heading|caption|cell)$/u;
 export function isProseLike(text: string): boolean {
   const normalized = normalizeText(text);
   const words = normalized.match(LATIN_WORD) ?? [];
+  if (words.length === 0) return false;
+  // A numbered listing line is code regardless of how English its keywords look.
+  if (/^\d+\s+(?:for|if|while|return|emit|continue|def|let|var)\b/iu.test(normalized)) {
+    return false;
+  }
+  const codeMarkers = (normalized.match(/[{}();:=]/gu) ?? []).length;
+  const hasSectionMarker = /\b(?:section|figure|table)\b/iu.test(normalized);
+  if (codeMarkers >= 3 && !hasSectionMarker) return false;
+  // Short headings ("References", "Abstract", "We win.") used to vanish from the prose
+  // denominator because this helper demanded three words and two function words. A short
+  // alphabetic line with no code punctuation is a heading or a sentence, not a label.
+  if (
+    /^[\p{L}][\p{L}\s'’&.,:-]*$/u.test(normalized) &&
+    normalized.length <= 80 &&
+    words.length <= 8 &&
+    !(words.length === 1 && (normalized.length > 14 || /[a-z][A-Z]/u.test(normalized)))
+  ) {
+    return true;
+  }
   if (words.length < 3) return false;
   const functionWords =
     normalized.match(
       /\b(?:the|and|of|is|are|we|this|that|these|those|which|with|for|from|by|as|in|on|to|it|its|be|was|were|has|have|can|then|when|where|section|figure|table|describes|shows|proposes|reports|uses|used)\b/giu,
     ) ?? [];
   if (functionWords.length < 2) return false;
-  // A numbered listing line can use ordinary words ("1 for block in page:").
-  if (/^\d+\s+(?:for|if|while|return|emit|continue|def|let|var)\b/iu.test(normalized)) {
-    return false;
-  }
-  const codeMarkers = (normalized.match(/[{}();:=]/gu) ?? []).length;
-  if (codeMarkers >= 3 && !/\b(?:section|figure|table)\b/iu.test(normalized)) return false;
-  return true;
+  return functionWords.length >= 2 || (functionWords.length >= 1 && codeMarkers === 0);
 }
 
 /** Role-based fallback keeps previously recorded reports comparable. */
@@ -182,11 +193,16 @@ export function countsAsProse(entry: Pick<QualityEntry, 'role' | 'prose'>): bool
 
 /** True when one block contains both real Japanese text and a run of English words. */
 export function isMixedLanguage(text: string): boolean {
-  const latin = text.match(LATIN_WORD) ?? [];
-  if (latin.length === 0) return false;
   let cjk = 0;
   for (const character of text) if (CJK_CHAR.test(character)) cjk += 1;
-  return cjk >= 6 && latin.length >= 2;
+  if (cjk < 6) return false;
+  // Two isolated technical tokens (an email, a model name such as PLaMo 3 Translate, or
+  // 0.8-billion-parameter) are not a language switch. Require a contiguous run of ordinary
+  // English words, and ignore all-capital acronyms inside that run.
+  const runs = text.match(/(?<![A-Za-z])[A-Za-z]{3,}(?:\s+[A-Za-z]{3,})+(?![A-Za-z])/gu) ?? [];
+  return runs.some((run) =>
+    run.split(/\s+/u).some((word) => !/^[A-Z]{2,}$/u.test(word) && word.length >= 3),
+  );
 }
 
 /** Kendall-style adjacent agreement between emitted order and geometric reading order. */
@@ -233,12 +249,33 @@ export function expectedReadingOrder(
       column: !twoColumn || fullWidth ? 0 : center < mid ? 1 : 2,
     };
   });
-  decorated.sort((left, right) => {
-    if (left.column !== right.column) return left.column - right.column;
-    if (Math.abs(left.box.y - right.box.y) > 2) return left.box.y - right.box.y;
-    return left.box.x - right.box.x;
-  });
-  return { keys: decorated.map((entry) => entry.key), twoColumn };
+  if (!twoColumn) {
+    decorated.sort((left, right) => left.box.y - right.box.y || left.box.x - right.box.x);
+    return { keys: decorated.map((entry) => entry.key), twoColumn };
+  }
+  // Full-width blocks delimit reading bands: a title and an abstract come before the two
+  // body columns, and a trailing References heading comes after both of them. Sorting all
+  // spanning blocks first (or all left-column blocks first) scores a correct reader as wrong.
+  const spanning = decorated
+    .filter((entry) => entry.box.width > pageWidth * 0.6)
+    .sort((left, right) => left.box.y - right.box.y);
+  const ordered: typeof decorated = [];
+  const emitted = new Set<string>();
+  for (const block of spanning) {
+    ordered.push(
+      ...decorated
+        .filter((entry) => !emitted.has(entry.key) && entry.box.y < block.box.y)
+        .sort((left, right) => left.column - right.column || left.box.y - right.box.y),
+    );
+    ordered.push(block);
+    for (const entry of ordered) emitted.add(entry.key);
+  }
+  ordered.push(
+    ...decorated
+      .filter((entry) => !emitted.has(entry.key))
+      .sort((left, right) => left.column - right.column || left.box.y - right.box.y),
+  );
+  return { keys: ordered.map((entry) => entry.key), twoColumn };
 }
 
 /** Aggregates page measurements into the rates printed in the PR table. */

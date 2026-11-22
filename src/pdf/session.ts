@@ -357,7 +357,13 @@ export class PdfSession {
     // Re-queue everything still waiting so the new distance is applied. The queue is a heap
     // with no decrease-key, and the number of waiting blocks is small enough that rebuilding
     // it is cheaper than reasoning about which entries to move.
-    const waiting: { state: BlockState; page: number; id: number; bypassCache: boolean }[] = [];
+    const waiting: {
+      state: BlockState;
+      page: number;
+      id: number;
+      bypassCache: boolean;
+      attempts: number;
+    }[] = [];
     this.queue.remove((job) => {
       if (job.state.state !== 'queued') return false;
       job.state.state = 'idle';
@@ -366,6 +372,7 @@ export class PdfSession {
         page: job.page,
         id: job.id,
         bypassCache: job.bypassCache === true,
+        attempts: job.attempts,
       });
       return true;
     });
@@ -374,7 +381,7 @@ export class PdfSession {
     // of reshuffling equal-priority blocks every time the reader scrolls.
     waiting.sort((left, right) => left.id - right.id);
     for (const entry of waiting) {
-      this.enqueue(entry.state, entry.page, entry.bypassCache);
+      this.enqueue(entry.state, entry.page, entry.bypassCache, entry.attempts);
     }
     this.pump();
   }
@@ -382,6 +389,11 @@ export class PdfSession {
   /** Blocks belonging to one page, in reading order. */
   pageBlocks(index: number): readonly BlockState[] {
     return this.pages.get(index) ?? [];
+  }
+
+  /** Source blocks the layout deliberately left in place, for the bilingual reading flow. */
+  skippedBlocks(index: number): readonly LayoutBlock[] {
+    return this.skipped.get(index) ?? [];
   }
 
   progress(): {

@@ -321,14 +321,40 @@ export class PdfReader {
     this.applyScale();
   }
 
-  private paintBilingual(element: PageElement, states: readonly BlockState[]): void {
-    const live = new Set<BlockState>();
-    for (const state of states) {
-      const translation = state.translation.trim();
-      const source = state.block.text.trim();
+  private paintBilingual(
+    element: PageElement,
+    states: readonly BlockState[],
+    skipped: readonly LayoutBlock[] = [],
+  ): void {
+    const live = new Set<object>();
+    const rows: Array<{
+      key: object;
+      source: string;
+      translation: string;
+      role: string;
+      failed: boolean;
+    }> = [
+      ...states.map((state) => ({
+        key: state,
+        source: state.block.text.trim(),
+        translation: state.translation.trim(),
+        role: state.block.role,
+        failed: state.state === 'failed',
+      })),
+      ...skipped.map((block) => ({
+        key: block,
+        source: block.text.trim(),
+        translation: '',
+        role: block.role,
+        failed: false,
+      })),
+    ];
+    for (const item of rows) {
+      const translation = item.translation;
+      const source = item.source;
       if (translation.length === 0 && source.length === 0) continue;
-      live.add(state);
-      let row = element.bilingualRows.get(state);
+      live.add(item.key);
+      let row = element.bilingualRows.get(item.key);
       if (!row) {
         row = document.createElement('section');
         row.className = 'sakutto-bilingual__row';
@@ -339,19 +365,19 @@ export class PdfReader {
         translated.className = 'sakutto-bilingual__translation';
         row.append(original, translated);
         element.bilingual.append(row);
-        element.bilingualRows.set(state, row);
+        element.bilingualRows.set(item.key, row);
       }
       const sourceNode = row.firstElementChild;
       const translatedNode = row.lastElementChild;
       if (sourceNode) sourceNode.textContent = source;
       if (translatedNode) translatedNode.textContent = translation;
-      row.dataset.state = translation.length > 0 ? 'translated' : 'kept';
-      row.dataset.role = state.block.role;
+      row.dataset.state = item.failed ? 'failed' : translation.length > 0 ? 'translated' : 'kept';
+      row.dataset.role = item.role;
     }
-    for (const [state, row] of element.bilingualRows) {
-      if (live.has(state)) continue;
+    for (const [key, row] of element.bilingualRows) {
+      if (live.has(key)) continue;
       row.remove();
-      element.bilingualRows.delete(state);
+      element.bilingualRows.delete(key);
     }
   }
   /**
@@ -609,7 +635,7 @@ export class PdfReader {
         text,
         layer,
         bilingual,
-        bilingualRows: new Map<BlockState, HTMLElement>(),
+        bilingualRows: new Map<object, HTMLElement>(),
         missing,
         popover,
         note,
@@ -971,7 +997,9 @@ export class PdfReader {
           this.paintBlock(element, state, index);
           continue;
         }
-        if (state.overflow) {
+        // An engine failure also leaves English on the page. It needs the same per-block
+        // marker as an overflow so the reader can open the note and read what was intended.
+        if (state.overflow || state.state === 'failed') {
           marked.add(state);
           this.paintMarker(element, state);
         }
@@ -987,7 +1015,7 @@ export class PdfReader {
         node.remove();
         element.markers.delete(key);
       }
-      if (this.bilingual) this.paintBilingual(element, states);
+      if (this.bilingual) this.paintBilingual(element, states, this.session.skippedBlocks(index));
     }
     this.runCoverageSweep();
     this.report();
@@ -1090,8 +1118,12 @@ export class PdfReader {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'sakutto-overflow';
-      button.setAttribute('aria-label', this.labels.overflowOpen);
-      button.textContent = '↗';
+      button.dataset.state = state.state === 'failed' ? 'failed' : 'overflow';
+      button.setAttribute(
+        'aria-label',
+        state.state === 'failed' ? this.labels.failed : this.labels.overflowOpen,
+      );
+      button.textContent = state.state === 'failed' ? '!' : '↗';
       button.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -1285,7 +1317,7 @@ interface PageElement {
   layer: HTMLElement;
   /** Reflowed source/translation pairs, used only in bilingual mode. */
   bilingual: HTMLElement;
-  bilingualRows: Map<BlockState, HTMLElement>;
+  bilingualRows: Map<object, HTMLElement>;
   missing: HTMLElement;
   /** The box a selection's translation is shown in. */
   popover: HTMLElement;

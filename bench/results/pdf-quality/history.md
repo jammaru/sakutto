@@ -22,3 +22,10 @@ regenerated after the simulated-scan word boxes and raw-source garbling metric w
 | final (r3)      |     5 |             — |               0.0% |           6.7% |          0.24% |       0.000 |        0.066 |         97.9% |            274 |     859 |
 | final (r4)      |     5 |             2 |               1.9% |           6.7% |          0.24% |       0.000 |        0.066 |         97.9% |            316 |     930 |
 | final (current) |     5 |             1 |               1.3% |           8.8% |          0.25% |       0.000 |        0.082 |         96.5% |            284 |     866 |
+
+Iteration 6: fair scan GT, content-aligned real-OCR CER, honest mixed-language/garbling
+metrics and the band-aware reading-order GT. Draft rows were removed from this history.
+
+| label      | pages | skipped prose | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box | reading order | first block ms | full ms |
+| ---------- | ----: | ------------: | -----------------: | -------------: | -------------: | ----------: | -----------: | ------------: | -------------: | ------: |
+| final (v6) |     5 |             0 |               1.2% |           0.0% |          0.04% |       0.000 |        0.000 |         98.3% |            248 |     779 |

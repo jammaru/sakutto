@@ -251,3 +251,29 @@ describe('protectInlineMath', () => {
     expect(protectedText.text).toBe(block.text);
   });
 });
+
+describe('review 5 notation and typography', () => {
+  it('B4: protects the whole dimension expression and keeps the sentence', () => {
+    const source =
+      'Where the projections are parameter matrices Wi Q ∈ R d model ×d k , Wi K ∈ R d model ×d k , and W O ∈ R hd v ×d model .';
+    const lines = groupLines([piece(source, 49, 100, 430)]);
+    const block = layoutPage(lines).blocks[0];
+    if (!block) throw new Error('expected a block');
+    const protectedText = protectInlineMath(block);
+    expect(protectedText.slots.map((slot) => slot.text)).toContain('Wi Q ∈ R d model ×d k');
+    expect(protectedText.text).toContain('parameter matrices ');
+    expect(protectedText.text).toContain(', and ');
+    expect(protectedText.text).not.toContain('model ×d k');
+    expectSourcePreserved(protectedText, source);
+    const tags = protectedText.slots.map((_slot, index) => '<i' + String(index) + '>').join('');
+    expect(restoreInlineMath('射影は ' + tags + ' である。', protectedText.slots)).not.toBeNull();
+  });
+
+  it('does not NFKC-normalize the reader typography when restoring a slot', () => {
+    expect(
+      restoreInlineMath('モデル（注意）は ＜ｉ０＞ です。① と ㍻ と ｶﾀｶﾅ。', [
+        { text: 'Q ∈ R', script: 'none' },
+      ]),
+    ).toBe('モデル（注意）は Q ∈ R です。① と ㍻ と ｶﾀｶﾅ。');
+  });
+});

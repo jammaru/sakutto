@@ -831,3 +831,70 @@ describe('lazy per-page OCR', () => {
     await expect(page.run(pixels)).rejects.toThrow('設定でOCRモデルをダウンロードしてください');
   });
 });
+
+describe('review 5 blockers', () => {
+  const conversion = { pageIndex: 0, pageWidth: 595, pageHeight: 842 };
+
+  it('B1: translates body-size headings instead of skipping every short label', () => {
+    for (const text of ['References', 'Abstract']) {
+      const item = region(text, quad(260, 600, 70, 14));
+      const layout = ocrResultToPageLayout(
+        ocrResult([item], [readingLine('horizontal', [item])]),
+        conversion,
+      );
+      expect(
+        layout.blocks.map((block) => block.text),
+        text,
+      ).toEqual([text]);
+      expect(layout.blocks[0]?.role, text).toBe('heading');
+      expect(layout.skipped, text).toEqual([]);
+    }
+  });
+
+  it('B2: keeps one sloped full-width line whole when word boxes have no gutter', () => {
+    const words = ['This', 'is', 'a', 'single', 'full', 'width', 'line', 'of', 'ordinary', 'text'];
+    const items = words.map((text, index) =>
+      region(text, quad(45 + index * 50, index < 3 ? 100 : 102, 45, 18)),
+    );
+    const lines = ocrResultToTextLines(
+      ocrResult(items, [readingLine('horizontal', items)]),
+      conversion,
+    );
+    expect(lines.map((line) => line.text)).toEqual([words.join(' ')]);
+  });
+
+  it('B3: a short centred title precedes the columns and keeps its own room', () => {
+    const title = region('BERT', quad(260, 50, 75, 30));
+    const left1 = region(
+      'Left column prose with enough words to translate',
+      quad(45, 120, 240, 20),
+    );
+    const left2 = region('More left column prose with enough words', quad(45, 145, 240, 20));
+    const right1 = region(
+      'Right column prose with enough words to translate',
+      quad(310, 120, 240, 20),
+    );
+    const right2 = region('Other right column prose with enough words', quad(310, 145, 240, 20));
+    const result = ocrResult(
+      [title, left1, left2, right1, right2],
+      [
+        readingLine('horizontal', [title]),
+        readingLine('horizontal', [left1]),
+        readingLine('horizontal', [left2]),
+        readingLine('horizontal', [right1]),
+        readingLine('horizontal', [right2]),
+      ],
+    );
+    expect(ocrResultToTextLines(result, conversion).map((line) => line.text)).toEqual([
+      title.text,
+      left1.text,
+      left2.text,
+      right1.text,
+      right2.text,
+    ]);
+    const layout = ocrResultToPageLayout(result, conversion);
+    expect(layout.blocks[0]?.column).toBe(-1);
+    expect(layout.blocks[0]?.room.width).toBeCloseTo(75, 5);
+    for (const block of layout.blocks.slice(1)) expect(block.room.width).toBeLessThan(300);
+  });
+});

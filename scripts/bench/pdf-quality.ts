@@ -15,6 +15,7 @@
  * and never folded into the simulated scan numbers. Run both with 'pnpm bench:pdf:quality:scan'.
  */
 import { mkdir, readFile, writeFile, appendFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -42,6 +43,8 @@ const OUT = join(ROOT, 'bench/results/pdf-quality');
 const SHOTS = join(ROOT, 'bench/results/screenshots');
 const ARXIV_URL = 'https://arxiv.org/pdf/1706.03762';
 const ARXIV_URL_V7 = 'https://arxiv.org/pdf/1706.03762v7';
+/** Pinned digest of the cached arXiv payload; an upstream change must not move the baseline. */
+const ARXIV_SHA256 = 'bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697';
 
 interface Box {
   x: number;
@@ -110,7 +113,10 @@ function flag(name: string): boolean {
   return process.argv.includes(name);
 }
 
-const label = option('--label', 'run');
+// The label is only a report filename, but keep it inside the results directory.
+const label = option('--label', 'run')
+  .replace(/[^A-Za-z0-9._-]/gu, '_')
+  .replace(/^\.\.+/u, '_');
 const fixtureNames = option('--fixtures', 'paper,arxiv,scan').split(',').filter(Boolean);
 const pageArg = option('--pages', '');
 const shotArg = option('--shot-pages', 'arxiv:1,3,5;paper:1;scan:1');
@@ -273,10 +279,12 @@ function sleep(ms: number): Promise<void> {
 /** Resolves fake translations with bounded concurrency; records when the first one lands. */
 async function translateBlocks(
   blocks: readonly Block[],
-  started: number,
-): Promise<{ translations: Map<Block, string>; firstMs: number }> {
+  pageStarted: number,
+  runStarted: number,
+): Promise<{ translations: Map<Block, string>; firstMs: number; runFirstMs: number }> {
   const translations = new Map<Block, string>();
   let firstMs = 0;
+  let runFirstMs = 0;
   let cursor = 0;
   const workers = Array.from(
     { length: Math.max(1, Math.min(concurrency, blocks.length || 1)) },
@@ -293,30 +301,41 @@ async function translateBlocks(
           const output = fakeTranslate(protectedText.text);
           const restored = restoreInlineMath(output, protectedText.slots);
           translations.set(block, restored ?? '');
-          if (firstMs === 0) firstMs = Date.now() - started;
+          const arrived = Date.now();
+          if (firstMs === 0) firstMs = arrived - pageStarted;
+          if (runFirstMs === 0) runFirstMs = arrived - runStarted;
         }
       })(),
   );
   await Promise.all(workers);
-  return { translations, firstMs };
+  return { translations, firstMs, runFirstMs };
 }
 
 async function arxivBytes(): Promise<Uint8Array> {
   const cache = join(ROOT, 'bench/.cache/arxiv-1706.03762.pdf');
-  try {
-    return new Uint8Array(await readFile(cache));
-  } catch {
-    if (noDownload) throw new Error('arXiv fixture is not cached and downloads are disabled.');
-    await mkdir(dirname(cache), { recursive: true });
-    let response = await fetch(ARXIV_URL);
-    if (!response.ok) response = await fetch(ARXIV_URL_V7);
-    if (!response.ok || !response.body) throw new Error('arXiv download failed.');
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    await writeFile(cache, bytes);
-    return bytes;
+  const cached = await readFile(cache)
+    .then((bytes) => new Uint8Array(bytes))
+    .catch(() => null);
+  if (cached) {
+    const digest = createHash('sha256').update(cached).digest('hex');
+    if (digest !== ARXIV_SHA256) {
+      throw new Error('arXiv cache digest changed (' + digest + '); refresh the pinned fixture.');
+    }
+    return cached;
   }
+  if (noDownload) throw new Error('arXiv fixture is not cached and downloads are disabled.');
+  await mkdir(dirname(cache), { recursive: true });
+  let response = await fetch(ARXIV_URL);
+  if (!response.ok) response = await fetch(ARXIV_URL_V7);
+  if (!response.ok || !response.body) throw new Error('arXiv download failed.');
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const digest = createHash('sha256').update(bytes).digest('hex');
+  if (digest !== ARXIV_SHA256) {
+    throw new Error('arXiv download digest changed (' + digest + '); refresh the pinned fixture.');
+  }
+  await writeFile(cache, bytes);
+  return bytes;
 }
-
 async function renderShots(report: unknown): Promise<void> {
   let server: Awaited<ReturnType<typeof startStaticServer>> | null = null;
   let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
@@ -464,8 +483,14 @@ async function main(): Promise<void> {
       }
 
       const pageStarted = Date.now();
-      const { translations, firstMs } = await translateBlocks(layout.blocks, started);
-      if (firstMs > 0 && (firstBlockMs === 0 || firstMs < firstBlockMs)) firstBlockMs = firstMs;
+      const { translations, firstMs, runFirstMs } = await translateBlocks(
+        layout.blocks,
+        pageStarted,
+        started,
+      );
+      if (runFirstMs > 0 && (firstBlockMs === 0 || runFirstMs < firstBlockMs)) {
+        firstBlockMs = runFirstMs;
+      }
 
       const entries: QualityEntry[] = [];
       const translationOf = (block: Block): string => translations.get(block) ?? '';
@@ -483,8 +508,12 @@ async function main(): Promise<void> {
         .slice(0, 4)
         .map((block) => block.text)
         .join(' ');
+      // Use the same prose test as the metrics: a one-word heading is still prose that the
+      // reader sees in English, while a numeric label or a listing line is not.
+      // Proper names and page furniture are deliberately left in the source; counting them
+      // as untranslated prose would make an author list look like a translation failure.
       const skippedProse = layout.skipped.filter(
-        (block) => (block.text.match(/\p{L}{3,}/gu)?.length ?? 0) >= 3,
+        (block) => !/^(identity|furniture)$/u.test(block.role) && isProseLike(block.text),
       );
       const skippedSet = new Set(skippedProse);
 
@@ -684,7 +713,7 @@ async function main(): Promise<void> {
   const fullMarkdown = [
     markdown,
     '',
-    '"skipped prose" counts blocks the layout skipped as code/labels that still contain a natural-language sentence; they are part of the prose denominator and the untranslated rate.',
+    '"skipped prose" counts code/label blocks the layout skipped that still contain a natural-language sentence; they are part of the prose denominator and the untranslated rate. Proper names and page furniture are deliberately kept in the source and are reported separately, not counted as translation failures.',
     '',
     '## Text source split',
     '',

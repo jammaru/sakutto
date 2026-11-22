@@ -31,6 +31,25 @@ const TEXT_NOTATION =
   /(?<![\p{L}\p{N}_])(?:[\p{Lu}\p{N}_^][\p{L}\p{N}_^]{0,4}|[a-z][\p{N}_^]{0,3})(?![\p{L}\p{N}_])(?:\s+(?:\p{Lu}[\p{L}\p{N}_^]{0,4}|[a-z][\p{N}_^]{0,3}|[\p{N}_^]{1,4})(?![\p{L}\p{N}_])){0,4}(?:\s*(?:∈|×|÷|≈|≤|≥|≠|∑|∏|∫|∂|∇|\^)\s*(?:[\p{Lu}\p{N}_^][\p{L}\p{N}_^]{0,6}|[a-z][\p{N}_^]{0,3})(?![\p{L}\p{N}_])){1,8}/gu;
 
 /**
+ * A whole dimension expression such as `Q ∈ R d model × d k`.
+ *
+ * The generic operator pattern stops at the operator's right operand, which left `model`
+ * and `d k` visible to the model and let them be translated into Japanese. Dimension names
+ * are short lowercase technical words, so they can be consumed safely when they follow an
+ * operator or a `d` and stay close to another multiplication. Ordinary English words around
+ * the formula are deliberately not matched.
+ */
+const DIMENSION_WORD = String.raw`(?:model|hd|out|in|dim|size|[a-z][\p{N}_^]{0,3})(?![\p{L}\p{N}_])`;
+const NOTATION_OPERAND = String.raw`(?:[\p{Lu}\p{N}_^][\p{L}\p{N}_^]{0,6}|[a-z][\p{N}_^]{0,3})(?![\p{L}\p{N}_])`;
+const DIMENSION_CHAIN = new RegExp(
+  String.raw`(?<![\p{L}\p{N}_])${NOTATION_OPERAND}(?:\s+${NOTATION_OPERAND}){0,3}` +
+    String.raw`\s*(?:∈|×|÷|≈|≤|≥|≠)\s*${NOTATION_OPERAND}` +
+    String.raw`(?:\s+${DIMENSION_WORD}){0,3}` +
+    String.raw`(?:\s*(?:×|÷)\s*${DIMENSION_WORD}(?:\s+${DIMENSION_WORD})?){0,6}`,
+  'gu',
+);
+
+/**
  * Prose words that look like short variables to `TEXT_NOTATION`.
  *
  * The notation pattern has to accept a leading word (`A ∈ R`) or an article before a size
@@ -42,8 +61,8 @@ const TEXT_NOTATION =
 const PROSE_LEAD =
   /^(?:(?:Let|For|If|When|Where|Then|While|With|Each|Given|The|This|That|These|Those|We|It|And|But|Are|Was|Were|Has|Have|Can|May|Use|Using|From|Into|Over|Under|After|Before|By|In|On|At|To|Of|As)\s+|(?:A|a)\s+(?=\p{N}))/u;
 
-function protectTextNotation(text: string, slots: ProtectedSlot[]): string {
-  return text.replace(TEXT_NOTATION, (match) => {
+function protectSpan(match: string, slots: ProtectedSlot[]): string {
+  {
     let value = match.trim();
     let lead = '';
     for (;;) {
@@ -56,7 +75,13 @@ function protectTextNotation(text: string, slots: ProtectedSlot[]): string {
     const index = slots.length;
     slots.push({ text: value, script: 'none' });
     return lead + PLACEHOLDER(index);
-  });
+  }
+}
+
+function protectTextNotation(text: string, slots: ProtectedSlot[]): string {
+  return text
+    .replace(DIMENSION_CHAIN, (match) => protectSpan(match, slots))
+    .replace(TEXT_NOTATION, (match) => protectSpan(match, slots));
 }
 
 export type ScriptRole = 'super' | 'sub' | 'none';
@@ -579,7 +604,11 @@ export function restoreInlineMath(
   if (normalized.length === 0) return translated;
   const seen = new Set<number>();
   let count = 0;
-  const canonical = translated.normalize('NFKC').replace(/[＜<]\s*i\s*(\d+)\s*[＞>]/gu, '<i$1>');
+  // Normalize only the placeholder spelling. NFKC on the whole translation would silently
+  // rewrite the reader's typography: （注意） becomes (注意), ① becomes 1 and ㍻ becomes 平成.
+  const canonical = translated.replace(/[＜<]\s*[iＩｉ]\s*([\p{Nd}]+)\s*[＞>]/gu, (tag) =>
+    tag.normalize('NFKC').replace(/\s+/gu, ''),
+  );
   const restored = canonical.replace(PLACEHOLDER_PATTERN, (_match, raw: string) => {
     const index = Number(raw);
     if (!Number.isInteger(index) || index < 0 || index >= normalized.length) return '\u0000';

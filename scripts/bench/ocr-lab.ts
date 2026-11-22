@@ -70,8 +70,9 @@ export const EXPERIMENTS: readonly Experiment[] = [
   {
     id: 'dpi150',
     category: 'render',
-    scale: 1,
-    detectionMaxSide: DEFAULT_DETECTION_MAX_SIDE,
+    // The committed raster fixtures are 200 DPI; a true 150 DPI downscale is 960 * 0.75.
+    scale: 0.75,
+    detectionMaxSide: 720,
   },
   { id: 'dpi200', category: 'render', scale: 4 / 3, detectionMaxSide: 1280 },
   { id: 'dpi300', category: 'render', scale: 2, detectionMaxSide: 1920 },

@@ -23,6 +23,7 @@ import {
   practicality,
   wordErrorRate,
   lineOrderAccuracy,
+  recognitionCoverage,
   columnOrderAccuracy,
   blockIoU,
 } from '../scripts/bench/ocr-metrics.ts';
@@ -236,4 +237,22 @@ describe('optional real tiny-model OCR smoke', () => {
     },
     30_000,
   );
+});
+
+describe('failed OCR cannot score a perfect reading order', () => {
+  it('returns no order credit for a single matched line', () => {
+    expect(lineOrderAccuracy(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'], ['a'])).toEqual({
+      accuracy: 0,
+      matched: 1,
+      reference: 8,
+    });
+    expect(lineOrderAccuracy(['a', 'b'], ['a', 'b']).accuracy).toBe(1);
+    expect(lineOrderAccuracy(['a', 'b', 'c', 'd'], ['a', 'b']).accuracy).toBe(0.5);
+  });
+
+  it('measures recognition coverage instead of replacement presence', () => {
+    expect(recognitionCoverage('one two three four', 'one two three four')).toBe(1);
+    expect(recognitionCoverage('one two three four', 'one wrong three four')).toBeCloseTo(0.75);
+    expect(recognitionCoverage('one two three four', '語')).toBe(0);
+  });
 });

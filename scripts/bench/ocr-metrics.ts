@@ -110,6 +110,28 @@ export function detectionRecallProxy(
     threshold,
   };
 }
+/**
+ * Share of reference words that appear in the hypothesis in the same order (word-level LCS).
+ * Unlike the `covered` placeholder in the scan overlay bench, this measures recognition
+ * coverage rather than whether a replacement string happened to be non-empty.
+ */
+export function recognitionCoverage(reference: string, hypothesis: string): number {
+  const a = normalizeOcrText(reference).split(' ').filter(Boolean);
+  const b = normalizeOcrText(hypothesis).split(' ').filter(Boolean);
+  if (a.length === 0) return 1;
+  let previous = new Array<number>(b.length + 1).fill(0);
+  for (const expected of a) {
+    const current = new Array<number>(b.length + 1).fill(0);
+    for (let index = 0; index < b.length; index += 1) {
+      current[index + 1] =
+        expected === b[index]
+          ? (previous[index] ?? 0) + 1
+          : Math.max(previous[index + 1] ?? 0, current[index] ?? 0);
+    }
+    previous = current;
+  }
+  return (previous[b.length] ?? 0) / a.length;
+}
 export function practicality(
   cer: number,
   recall: number,
@@ -160,7 +182,11 @@ export function lineOrderAccuracy(
     if (previous && current && previous.rank <= current.rank) correct += 1;
   }
   return {
-    accuracy: matches.length < 2 ? (matches.length === 0 ? 0 : 1) : correct / (matches.length - 1),
+    // A single matched line carries no ordering information. Returning 1 for a one-line
+    // hypothesis against an eight-line reference would score a failed OCR run as perfect.
+    accuracy:
+      (matches.length < 2 ? 0 : correct / (matches.length - 1)) *
+      (reference.length === 0 ? 0 : matches.length / reference.length),
     matched: matches.length,
     reference: reference.length,
   };

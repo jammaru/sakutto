@@ -349,11 +349,21 @@ export const READER_STYLE = `
 
 [data-bilingual="true"] .sakutto-page__pane--translated .sakutto-page__canvas,
 [data-bilingual="true"] .sakutto-page__pane--translated .sakutto-page__layer,
-[data-bilingual="true"] .sakutto-page__pane--translated .sakutto-page__text,
-[data-bilingual="true"] .sakutto-page__pane--translated .sakutto-page__missing,
-[data-bilingual="true"] .sakutto-page__pane--translated .sakutto-page__render-failed {
+[data-bilingual="true"] .sakutto-page__pane--translated .sakutto-page__text {
   display: none;
 }
+
+/* A page with no text, a failed OCR pass or a failed render still needs a visible message in
+   the reading pane; hiding it left a blank column with no explanation. */
+[data-bilingual="true"] .sakutto-page__pane--translated .sakutto-page__missing,
+[data-bilingual="true"] .sakutto-page__pane--translated .sakutto-page__render-failed {
+  position: static;
+  inset: auto;
+  grid-auto-flow: row;
+  background: none;
+  padding: 16px 18px;
+}
+
 
 [data-bilingual="true"] .sakutto-bilingual {
   display: block;

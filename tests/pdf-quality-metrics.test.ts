@@ -3,6 +3,7 @@ import {
   countsAsProse,
   entryGarbledTokens,
   garbledTokens,
+  isMixedLanguage,
   isProseLike,
   normalizeText,
   summarize,
@@ -95,5 +96,29 @@ describe('PDF quality metrics', () => {
     const old = { role: 'prose' } as Pick<QualityEntry, 'role' | 'prose'>;
     expect(countsAsProse(old)).toBe(true);
     expect(countsAsProse({ role: 'code' })).toBe(false);
+  });
+});
+
+describe('honest quality denominators', () => {
+  it('does not flag a correctly spaced formula as garbled', () => {
+    expect(garbledTokens('Q ∈ R d model × d k')).toEqual([]);
+    expect(garbledTokens('MultiHead(Q, K, V ) = Concat(head)')).toEqual([]);
+  });
+
+  it('counts short headings as skipped prose but not code', () => {
+    expect(isProseLike('References')).toBe(true);
+    expect(isProseLike('Abstract')).toBe(true);
+    expect(isProseLike('We win.')).toBe(true);
+    expect(isProseLike('maxSegmentTokens')).toBe(false);
+    expect(isProseLike('1 for block in page:')).toBe(false);
+  });
+
+  it('does not call isolated identifiers a language switch', () => {
+    expect(
+      isMixedLanguage(
+        '語語モデルである0.8-billion-parameterとtensor2tensor、sakutto@example.org。',
+      ),
+    ).toBe(false);
+    expect(isMixedLanguage('これはまだ This is still English です。')).toBe(true);
   });
 });
