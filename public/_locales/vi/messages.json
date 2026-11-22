@@ -1523,6 +1523,18 @@
   "translationPopupSizeHelp": {
     "message": "Thay đổi cỡ chữ trong cửa sổ dịch khi di chuột, khi bôi đen và khi soạn thảo. Phụ đề video có cài đặt cỡ chữ riêng."
   },
+  "translationRevealLabel": {
+    "message": "Cách hiển thị bản dịch của trang"
+  },
+  "translationRevealHelp": {
+    "message": "Tùy chọn đầu tiên giữ nguyên văn bản gốc của đoạn cho đến khi dịch xong, rồi thay bằng một chuyển động ngắn, nên trang không bị giật trong khi dịch. Đoạn nào mất nhiều thời gian sẽ được hiển thị trong khi dịch. Chế độ song ngữ không thay đổi."
+  },
+  "translationRevealSmooth": {
+    "message": "Thay từng đoạn khi dịch xong"
+  },
+  "translationRevealStream": {
+    "message": "Hiển thị văn bản trong khi dịch (như trước)"
+  },
   "plainTextLineBreaksLabel": {
     "message": "Xuống dòng trong bản dịch"
   },

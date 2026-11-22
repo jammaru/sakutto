@@ -36,6 +36,7 @@ import {
   type PlainTextLineBreakMode,
   type Settings,
   type TranslationPace,
+  type TranslationReveal,
 } from '@/shared/settings';
 import {
   applyPlainTextLineBreaks,
@@ -86,6 +87,7 @@ import {
   visibleOriginal,
   type SegmentModel,
 } from './segment';
+import { REVEAL_STREAM_AFTER_MS, Revealer, type RevealKind } from './reveal';
 import type { SiteAuto, SiteRule } from './sites';
 
 /** The engine packs by the same rule, so a request the page packs is not split up again. */
@@ -147,6 +149,8 @@ export interface SessionPreferences {
   popupWidth?: number;
   /** How source line breaks are reflected in a selection translation. Missing means `none`. */
   plainTextLineBreaks?: PlainTextLineBreakMode;
+  /** How a finished page block appears in replace mode. Missing means `stream`. */
+  reveal?: TranslationReveal;
   auto: SiteAuto;
   host: string;
   context: boolean;
@@ -206,6 +210,19 @@ interface Live {
   partError: boolean[];
   rect: DOMRect | null;
   batchToken: number;
+  /** When the running request sent this block's first text, or null before that. */
+  firstPieceAt: number | null;
+  /** Unfinished text of this block has been written to the page. */
+  streamed: boolean;
+  /** When the text of this block last grew. */
+  lastPieceAt: number;
+  /** How many characters of source each piece of the running request has. */
+  partSource: number[];
+  /**
+   * Whether each piece is translated by itself. A short one can share a request with other
+   * lines, and such a request says it is finished only when all of its lines are.
+   */
+  partAlone: boolean[];
   /** Selection only: normalized source, its model input, and the break map. */
   plainSource?: string;
   plainBreakMap?: PlainTextBreakMap;
@@ -265,7 +282,7 @@ export interface PageSessionOptions {
   engine: PageEngine;
   labels: OverlayLabels;
   preferences: SessionPreferences;
-  scheduleFrame?: (callback: () => void) => void;
+  scheduleFrame?: (callback: (time?: number) => void) => void;
   debounceMs?: number;
   onSitePatch?: (patch: {
     display?: 'replace' | 'bilingual';
@@ -309,6 +326,7 @@ export function preferencesFor(
     popupSize: settings.translationPopupSize,
     popupWidth: settings.translationPopupWidth,
     plainTextLineBreaks: settings.plainTextLineBreaks,
+    reveal: settings.translationReveal,
     auto: rule.auto,
     host,
     context: false,
@@ -323,7 +341,7 @@ export function preferencesFor(
 export class PageSession {
   private readonly engine: PageEngine;
   private readonly overlay: PageOverlay;
-  private readonly scheduleFrame: (callback: () => void) => void;
+  private readonly scheduleFrame: (callback: (time?: number) => void) => void;
   private readonly debounceMs: number;
   private readonly onSitePatch: PageSessionOptions['onSitePatch'];
   private readonly onGrantSite: PageSessionOptions['onGrantSite'];
@@ -393,6 +411,20 @@ export class PageSession {
   private direction: 'down' | 'up' = 'down';
   private lastScroll = 0;
   private dirty = new Set<Live>();
+  private readonly revealer: Revealer;
+  /** The finished text each block shows, so that writing it again is not shown as a change. */
+  private readonly shown = new WeakMap<Element, string>();
+  /** How long translations on this page have been for their source; null before the first. */
+  private outputRatio: number | null = null;
+  /** Characters of translation one request gets in a millisecond; null before the first. */
+  private pace: number | null = null;
+  /** Lines that were finished before their request ended, with the request they were in. */
+  private readonly endedEarly = new WeakMap<Live, number>();
+  /** The block the latest piece of text was for, and when it came. */
+  private pieceFor: Live | null = null;
+  private pieceAt = 0;
+  /** When text last came for another block than the one the latest piece was for. */
+  private otherPieceAt = 0;
   private frameQueued = false;
   private paintGeneration = 0;
   private startedAt = 0;
@@ -443,10 +475,21 @@ export class PageSession {
       options.scheduleFrame ??
       ((callback) => {
         const view = this.doc.defaultView;
-        if (view) view.requestAnimationFrame(() => callback());
+        if (view) view.requestAnimationFrame((time) => callback(time));
         else callback();
       });
     this.overlay = new PageOverlay(doc, options.labels);
+    this.revealer = new Revealer(doc, {
+      now: () => performance.now(),
+      frame: (callback) => this.scheduleFrame(callback),
+      later: (ms, callback) => {
+        (this.doc.defaultView ?? globalThis).setTimeout(callback, ms);
+      },
+      settled: () => {
+        if (this.active) this.publishState();
+        this.resolveIdle();
+      },
+    });
     this.overlay.setPopupTextScale(this.prefs.popupSize ?? TRANSLATION_POPUP_SIZE_DEFAULT);
     this.overlay.setPopupWidth(this.prefs.popupWidth ?? TRANSLATION_POPUP_WIDTH_AUTO);
     this.overlay.setOnPopupWidth((width) => {
@@ -618,6 +661,7 @@ export class PageSession {
       this.bindVisibility();
     }
     if (next.display !== previous.display) this.repaintAll();
+    else if (next.reveal !== previous.reveal) this.revealer.flush();
     if (
       (next.popupSize ?? TRANSLATION_POPUP_SIZE_DEFAULT) !==
       (previous.popupSize ?? TRANSLATION_POPUP_SIZE_DEFAULT)
@@ -664,7 +708,9 @@ export class PageSession {
       active: this.active,
       display: this.prefs.display,
       engine,
-      pending: tracked.filter((item) => item.state === 'queued' || item.state === 'running').length,
+      pending:
+        tracked.filter((item) => item.state === 'queued' || item.state === 'running').length +
+        this.revealer.finished,
       done: roundProgress(coveredBlocks(tracked)),
       total: tracked.length,
       host: this.prefs.host,
@@ -725,6 +771,7 @@ export class PageSession {
   async translate(): Promise<void> {
     if (this.active) return;
     this.active = true;
+    if (this.prefs.reveal === 'smooth') this.revealer.prime();
     this.serverFault = false;
     this.folderPermissionFault = false;
     this.modelMissingFault = false;
@@ -761,6 +808,7 @@ export class PageSession {
       this.doc.documentElement.lang = source;
       this.doc.documentElement.removeAttribute('data-sakutto-source-lang');
     }
+    this.revealer.clear();
     this.invalidatePaints();
     this.throughputSamples = [];
     this.heldRates = { tokensPerSecond: null, segmentsPerSecond: null };
@@ -1207,6 +1255,11 @@ export class PageSession {
       partError: [],
       rect: null,
       batchToken: 0,
+      firstPieceAt: null,
+      streamed: false,
+      lastPieceAt: 0,
+      partSource: [],
+      partAlone: [],
     };
 
     this.live.set(item.id, item);
@@ -1249,6 +1302,11 @@ export class PageSession {
       partError: [],
       rect,
       batchToken: 0,
+      firstPieceAt: null,
+      streamed: false,
+      lastPieceAt: 0,
+      partSource: [],
+      partAlone: [],
     };
   }
 
@@ -1488,7 +1546,12 @@ export class PageSession {
       if (item.role === 'page' && item.model) {
         item.model.block.setAttribute('data-sakutto-pending', '1');
       }
+      item.firstPieceAt = null;
       const pieces = expandSource(item);
+      item.partSource = pieces.map((piece) => piece.text.length);
+      item.partAlone = pieces.map(
+        (piece) => piece.text.includes('\n') || estimateTokens(piece.text) > PACK_SEGMENT_TOKENS,
+      );
       const preserve = item.failures > 0 && item.partText.length === pieces.length;
       item.partFinal = pieces.map((_, index) =>
         preserve ? item.partFinal[index] === true : false,
@@ -1535,24 +1598,47 @@ export class PageSession {
         const item = owners.get(chunk.id);
         if (!item || item.batchToken !== token) continue;
         const index = partIndex(chunk.id);
-        if (item.state !== 'running') continue;
+        if (item.state !== 'running') {
+          // A line that was finished when the next line of its request began. The request
+          // answers for it now; that answer counts where it says something else.
+          if (chunk.final !== undefined && this.endedEarly.get(item) === token) {
+            this.correctLine(item, chunk.final, chunk.error === true);
+          }
+          continue;
+        }
         if (chunk.engine) item.engine = chunk.engine;
         if (chunk.textDelta !== undefined) {
           const before = chunk.restart === true ? '' : (item.partText[index] ?? '');
           item.partText[index] = before + chunk.textDelta;
-          this.queuePaint(item);
+          if (item.firstPieceAt === null && chunk.textDelta.length > 0) {
+            this.endLineBefore(batch, item, token);
+          }
+          item.firstPieceAt ??= performance.now();
+          if (chunk.textDelta.length > 0) {
+            item.lastPieceAt = performance.now();
+            if (this.pieceFor !== item) {
+              this.otherPieceAt = this.pieceAt;
+              this.pieceFor = item;
+            }
+            this.pieceAt = item.lastPieceAt;
+          }
+          // Text that is kept back needs no frame.
+          if (this.holdsBack(item)) this.noteLiveRate();
+          else this.queuePaint(item);
         }
         if (chunk.final !== undefined) {
           item.partText[index] = chunk.final;
           item.partFinal[index] = true;
           if (chunk.error === true) item.partError[index] = true;
           if (item.partFinal.every(Boolean)) {
+            this.notePace(item);
             if (item.partError.length > 0 && item.partError.every(Boolean)) {
               this.markUntranslated(item, signal);
             } else {
               this.complete(item);
             }
-          } else this.queuePaint(item);
+          } else if (this.holdsBack(item)) this.noteLiveRate();
+          else this.queuePaint(item);
         }
       }
     } catch (error) {
@@ -1739,10 +1825,16 @@ export class PageSession {
     }
     const markup = this.acceptTranslation(item, translated);
     if (markup === 'retry') return;
+    if (item.role === 'page' && item.source.length >= 40) {
+      const ratio = translated.length / item.source.length;
+      this.outputRatio = this.outputRatio === null ? ratio : this.outputRatio * 0.8 + ratio * 0.2;
+    }
     item.translation = markup;
     item.state = 'done';
     if (item.translation.trim().length > 0) this.paint(item, false);
     else item.model?.block.removeAttribute('data-sakutto-pending');
+    // Whatever was or was not painted, the block is no longer filling in.
+    if (item.model) this.revealer.release(item.model.block);
     this.noteTiming(item);
     this.publishState();
   }
@@ -1856,7 +1948,11 @@ export class PageSession {
     });
   }
 
-  private paint(item: Live, partial: boolean): void {
+  /**
+   * `direct` writes a finished translation at once. It is for text the reader has already
+   * seen, such as a repaint after the display mode changed.
+   */
+  private paint(item: Live, partial: boolean, direct = false): void {
     let text = partial ? partialText(item, this.prefs.targetLanguage) : item.translation;
     if (text.trim().length === 0) return;
 
@@ -1883,6 +1979,173 @@ export class PageSession {
     }
 
     const bilingual = this.prefs.display === 'bilingual' && this.keepsOriginalVisible(item);
+    if (!direct && this.prefs.reveal === 'smooth') {
+      if (partial) {
+        if (!item.streamed) {
+          // The block keeps its source until its translation is finished, unless that takes
+          // so long that the reader would be left without any sign of progress.
+          if (this.holdsBack(item)) return;
+          if (!bilingual) {
+            this.offerStream(item, model);
+            return;
+          }
+        }
+      } else if (item.streamed) {
+        if (!bilingual) {
+          this.revealer.settle(model.block, () => {
+            this.write(item, model, text, false, false);
+          });
+          return;
+        }
+      } else if (this.shown.get(model.block) !== shownAs(text, bilingual)) {
+        this.offerReveal(item, model, text, bilingual);
+        return;
+      }
+    }
+    this.write(item, model, text, partial, bilingual);
+  }
+
+  /** Whether an unfinished translation of this block stays unseen for now. */
+  private holdsBack(item: Live): boolean {
+    if (this.prefs.reveal !== 'smooth' || item.role !== 'page' || item.streamed) return false;
+    // A line under the source is added when it is finished, however long that takes: the
+    // source stays readable meanwhile, and a line that grows moves the page under it.
+    if (this.prefs.display === 'bilingual' && this.keepsOriginalVisible(item)) return true;
+    return !decodesSlowly(
+      item,
+      this.outputRatio ?? this.usualOutputRatio(item),
+      this.pace,
+      this.decodesAlone(item),
+    );
+  }
+
+  /**
+   * Whether no other block has got text since this one got its first: one request is decoded
+   * at a time, or nothing else is left. Nothing else on the screen changes meanwhile, and
+   * the block's text comes steadily.
+   */
+  private decodesAlone(item: Live): boolean {
+    if (item.firstPieceAt === null) return false;
+    const other = this.pieceFor === item ? this.otherPieceAt : this.pieceAt;
+    return other < item.firstPieceAt;
+  }
+
+  /**
+   * Short lines share a request, and the request answers for all of them when it ends. The
+   * text of a line is whole before that, though: as soon as the next line begins. With the
+   * source kept until a translation is finished, a line would otherwise wait for every line
+   * after it in the request, and the reader would see a screen of labels change all at once
+   * where the text came line by line.
+   */
+  private endLineBefore(batch: readonly Live[], item: Live, token: number): void {
+    if (this.prefs.reveal !== 'smooth' || item.partAlone[0] === true) return;
+    const line = batch[batch.indexOf(item) - 1];
+    if (!line || line.role !== 'page' || line.state !== 'running' || line.batchToken !== token) {
+      return;
+    }
+    if (line.partText.length !== 1 || line.partAlone[0] === true || line.partFinal[0] === true) {
+      return;
+    }
+    if ((line.partText[0] ?? '').trim().length === 0) return;
+    line.partFinal[0] = true;
+    this.endedEarly.set(line, token);
+    this.notePace(line);
+    this.complete(line);
+  }
+
+  /** Takes the request's own answer for a line that `endLineBefore` finished. */
+  private correctLine(item: Live, final: string, failed: boolean): void {
+    this.endedEarly.delete(item);
+    if (failed || item.state !== 'done' || !this.active) return;
+    if (final.trim() === (item.partText[0] ?? '').trim()) return;
+    item.partText[0] = final;
+    this.complete(item);
+  }
+
+  /** How fast text comes, learned from a block that has just finished. */
+  private notePace(item: Live): void {
+    if (item.role !== 'page' || item.partText.length !== 1 || item.firstPieceAt === null) return;
+    const span = item.lastPieceAt - item.firstPieceAt;
+    const length = item.partText[0]?.length ?? 0;
+    if (span < PACE_MIN_SPAN_MS || length === 0) return;
+    const pace = length / span;
+    this.pace = this.pace === null ? pace : this.pace * 0.7 + pace * 0.3;
+  }
+
+  /** Japanese, Chinese and Korean say in about half the letters what English says. */
+  private usualOutputRatio(item: Live): number {
+    const dense = /^(?:ja|zh|ko)\b/iu;
+    const from = dense.test(item.lang ?? '');
+    const to = dense.test(this.prefs.targetLanguage);
+    return from === to ? 1 : to ? 0.5 : 2;
+  }
+
+  private offerReveal(item: Live, model: SegmentModel, text: string, bilingual: boolean): void {
+    const generation = this.paintGeneration;
+    this.claim(item, model);
+    this.revealer.offer({
+      block: model.block,
+      kind: revealKind(item),
+      apply: () => {
+        if (generation !== this.paintGeneration || !this.active) return;
+        if (item.state !== 'done' || item.model !== model || !model.block.isConnected) return;
+        this.write(item, model, text, false, bilingual);
+      },
+      ...(bilingual ? { added: () => model.block.querySelector(':scope > sakutto-line') } : {}),
+      ...(this.endsPage(item) ? { last: true } : {}),
+    });
+  }
+
+  /** Whether no other block of the page is waiting for its translation. */
+  private endsPage(item: Live): boolean {
+    for (const other of this.live.values()) {
+      if (other === item || other.role !== 'page') continue;
+      if (other.state === 'queued' || other.state === 'running') return false;
+    }
+    return true;
+  }
+
+  /**
+   * A block that decodes slowly shows what there is so far and fills in from there. It keeps
+   * its height meanwhile, so the page under it stays where it is until the text is finished.
+   */
+  private offerStream(item: Live, model: SegmentModel): void {
+    const generation = this.paintGeneration;
+    this.claim(item, model);
+    this.revealer.offer({
+      block: model.block,
+      kind: revealKind(item),
+      keepHeight: true,
+      apply: () => {
+        if (generation !== this.paintGeneration || !this.active) return;
+        if (item.model !== model || !model.block.isConnected) return;
+        // Finished or given up meanwhile: what is on the page now is newer than these pieces.
+        if (item.state !== 'running' && item.state !== 'queued') return;
+        const text = stripPlaceholderTokens(partialText(item, this.prefs.targetLanguage));
+        if (text.trim().length === 0) return;
+        this.write(item, model, text, true, false);
+      },
+    });
+  }
+
+  /**
+   * Marks a block whose translation waits to be shown as one of ours, as the first streamed
+   * piece used to. A change the page makes to it meanwhile is then noticed.
+   */
+  private claim(item: Live, model: SegmentModel): void {
+    if (model.block.getAttribute('data-sakutto-id') === item.id) return;
+    this.editDom(() => {
+      model.block.setAttribute('data-sakutto-id', item.id);
+    });
+  }
+
+  private write(
+    item: Live,
+    model: SegmentModel,
+    text: string,
+    partial: boolean,
+    bilingual: boolean,
+  ): void {
     this.editDom(() => {
       model.block.setAttribute('data-sakutto-id', item.id);
       if (item.engine) model.block.setAttribute('data-sakutto-engine', item.engine);
@@ -1905,16 +2168,27 @@ export class PageSession {
       }
       this.remember(model, item.created);
     });
+    if (partial) {
+      item.streamed = true;
+      this.shown.delete(model.block);
+    } else {
+      this.shown.set(model.block, shownAs(text, bilingual));
+    }
   }
 
   private repaintAll(): void {
+    this.revealer.clear();
     for (const item of this.live.values()) {
       if (!item.translation) continue;
-      this.paint(item, false);
+      this.paint(item, false, true);
     }
   }
 
   private retranslate(): void {
+    this.revealer.clear();
+    // What was learned about speed and length belongs to the language it was learned in.
+    this.outputRatio = null;
+    this.pace = null;
     this.invalidatePaints();
     this.abortRunning(false);
     const target = isPlamoOnlyTarget(this.prefs.targetLanguage)
@@ -1945,6 +2219,9 @@ export class PageSession {
     if (!item.model) return;
     const model = item.model;
     const block = model.block;
+    this.revealer.forget(block);
+    this.shown.delete(block);
+    item.streamed = false;
     this.editDom(() => {
       restoreSegment(model, item.created);
       removeTranslationUi(block);
@@ -2028,6 +2305,8 @@ export class PageSession {
     if (item.model) {
       if (restore) this.resetLive(item);
       else {
+        this.revealer.forget(item.model.block);
+        this.shown.delete(item.model.block);
         removeTranslationUi(item.model.block);
         item.model.block.removeAttribute('data-sakutto-pending');
         item.model.block.removeAttribute('data-sakutto-id');
@@ -2438,9 +2717,15 @@ export class PageSession {
   }
 
   private invalidatePaints(): void {
-    this.paintGeneration += 1;
-    this.dirty.clear();
-    this.frameQueued = false;
+    // A finished translation that waits to be shown is written now: its block counts as done
+    // and nothing would translate it again.
+    try {
+      this.revealer.flush();
+    } finally {
+      this.paintGeneration += 1;
+      this.dirty.clear();
+      this.frameQueued = false;
+    }
   }
 
   private keepsOriginalVisible(item: Live): boolean {
@@ -2601,6 +2886,7 @@ export class PageSession {
     return (
       this.running === 0 &&
       this.queue.size === 0 &&
+      this.revealer.size === 0 &&
       this.scanTimer === null &&
       this.selectionTimer === null &&
       this.pendingScans === 0
@@ -2712,6 +2998,95 @@ function partIndex(id: string): number {
   if (marker === -1) return 0;
   const index = Number(id.slice(marker + 1));
   return Number.isInteger(index) ? index : 0;
+}
+
+/**
+ * A few words are short enough that going out of focus would read as a flicker. The limit is
+ * in Latin letters; a character of a wide script counts as two.
+ */
+const REVEAL_LABEL_MAX_WIDTH = 28;
+
+function revealKind(item: Live): RevealKind {
+  if (item.heading) return 'heading';
+  let width = 0;
+  for (const character of item.plain) {
+    width += (character.codePointAt(0) ?? 0) > 0x2e7f ? 2 : 1;
+    if (width > REVEAL_LABEL_MAX_WIDTH) return 'body';
+  }
+  return 'label';
+}
+
+/** What `shown` remembers for a finished translation: the text, and how it was put there. */
+function shownAs(text: string, bilingual: boolean): string {
+  return `${bilingual ? 'line' : 'text'}:${text}`;
+}
+
+/** A block's speed can be told this long after its first piece. */
+const REVEAL_FORECAST_AFTER_MS = 250;
+/** A block that took less than this says too little about the speed. */
+const PACE_MIN_SPAN_MS = 25;
+/** Less text than this says too little about the speed. */
+const REVEAL_FORECAST_MIN_CHARS = 8;
+/**
+ * Pieces of one block that are decoded side by side have all started this long after the
+ * first of them. A piece that has not is waiting for its turn.
+ */
+const REVEAL_PIECES_START_MS = 1200;
+/**
+ * A block that is decoded by itself is streamed when it takes longer than this: no other
+ * block is swapped in meanwhile, so the screen would show no sign of progress.
+ */
+const REVEAL_STREAM_ALONE_MS = 3000;
+
+/**
+ * Whether the block is taking, or will take, longer than a reader should look at the source
+ * without a sign of progress. `ratio` is how long a translation is for its source on this
+ * page, `pace` how many letters a millisecond its finished blocks came at (null before the
+ * first one has finished), `alone` whether no other block has got text beside it.
+ */
+function decodesSlowly(item: Live, ratio: number, pace: number | null, alone: boolean): boolean {
+  if (item.firstPieceAt === null) return false;
+  const elapsed = performance.now() - item.firstPieceAt;
+  // While other blocks are swapped in around it, a block can keep its source for longer than
+  // on a screen where nothing else happens.
+  const limit = alone ? REVEAL_STREAM_ALONE_MS : REVEAL_STREAM_AFTER_MS;
+  if (elapsed > limit) return true;
+  if (elapsed < REVEAL_FORECAST_AFTER_MS) return false;
+  let have = 0;
+  for (const part of item.partText) have += part.length;
+  const expected = item.source.length * ratio;
+  if (have >= expected) return false;
+  // Blocks are decoded many at a time: one often gets a few letters, waits while others are
+  // started, and then comes quickly. Its own first pieces would say it takes far longer than
+  // it does. The speed at which finished blocks came on this page has those waits in it.
+  // A block that is decoded by itself has no such waits, and its own speed says more than
+  // that of the blocks before it, which may have been much shorter.
+  if (pace !== null && !alone) {
+    // A long block is sent as several pieces. Where many requests are decoded at a time the
+    // pieces come side by side, and the block is finished when the piece that lacks the most
+    // is. Where one is decoded at a time they come one after another, and the block takes
+    // the sum of them. Which it is shows in the pieces themselves: side by side they have
+    // all started soon after the first one.
+    let most = 0;
+    let all = 0;
+    let started = 0;
+    let waiting = 0;
+    for (let index = 0; index < item.partSource.length; index += 1) {
+      if (item.partFinal[index] === true) continue;
+      const got = item.partText[index]?.length ?? 0;
+      const part = Math.max(0, (item.partSource[index] ?? 0) * ratio - got);
+      most = Math.max(most, part);
+      all += part;
+      if (got > 0) started += 1;
+      else waiting += 1;
+    }
+    const inTurn = waiting > 0 && elapsed >= REVEAL_PIECES_START_MS;
+    const lacking = inTurn ? Math.max(most, all / Math.max(1, started)) : most;
+    return elapsed + lacking / pace > REVEAL_STREAM_AFTER_MS;
+  }
+  // Decoded by itself, or nothing has finished on this page yet: the block's own speed.
+  if (have < REVEAL_FORECAST_MIN_CHARS) return false;
+  return (elapsed * expected) / have > limit;
 }
 
 function partialText(item: Live, target: string): string {

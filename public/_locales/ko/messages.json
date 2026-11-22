@@ -1523,6 +1523,18 @@
   "translationPopupSizeHelp": {
     "message": "마우스 오버, 선택, 작문 번역 팝업의 글자 크기를 변경합니다. 동영상 자막은 자막 설정에서 따로 변경합니다."
   },
+  "translationRevealLabel": {
+    "message": "페이지 번역문 표시 방식"
+  },
+  "translationRevealHelp": {
+    "message": "첫 번째 옵션은 문단의 번역이 끝날 때까지 원문을 그대로 두었다가 짧은 움직임으로 한 번에 바꿉니다. 번역 중에 페이지가 흔들리지 않습니다. 시간이 오래 걸리는 문단은 번역되는 대로 표시합니다. 이중 언어 표시는 바뀌지 않습니다."
+  },
+  "translationRevealSmooth": {
+    "message": "문단 번역이 끝나면 한 번에 바꾸기"
+  },
+  "translationRevealStream": {
+    "message": "번역되는 대로 표시(기존 방식)"
+  },
   "plainTextLineBreaksLabel": {
     "message": "번역문의 줄바꿈"
   },

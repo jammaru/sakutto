@@ -1523,6 +1523,18 @@
   "translationPopupSizeHelp": {
     "message": "Altera o tamanho do texto nas janelas de tradução ao passar o mouse, ao selecionar e ao escrever. As legendas de vídeo têm um ajuste de tamanho próprio."
   },
+  "translationRevealLabel": {
+    "message": "Como as traduções da página aparecem"
+  },
+  "translationRevealHelp": {
+    "message": "A primeira opção mantém o texto original de um parágrafo até a tradução ficar pronta e então o substitui com um movimento curto, para que a página não salte durante a tradução. Um parágrafo que demora muito é mostrado enquanto é traduzido. A exibição bilíngue não muda."
+  },
+  "translationRevealSmooth": {
+    "message": "Substituir cada parágrafo quando estiver pronto"
+  },
+  "translationRevealStream": {
+    "message": "Mostrar o texto enquanto é traduzido (como antes)"
+  },
   "plainTextLineBreaksLabel": {
     "message": "Quebras de linha na tradução"
   },

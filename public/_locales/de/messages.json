@@ -1523,6 +1523,18 @@
   "translationPopupSizeHelp": {
     "message": "Ändert die Textgröße in Übersetzungs-Pop-ups beim Überfahren, bei Auswahl und beim Verfassen. Untertitel haben eine eigene Größenoption."
   },
+  "translationRevealLabel": {
+    "message": "Darstellung der Seitenübersetzung"
+  },
+  "translationRevealHelp": {
+    "message": "Die erste Option lässt den Originaltext eines Absatzes stehen, bis seine Übersetzung fertig ist, und ersetzt ihn dann in einer kurzen Bewegung. So springt die Seite während der Übersetzung nicht. Ein Absatz, der lange dauert, wird während der Übersetzung angezeigt. Die zweisprachige Anzeige bleibt unverändert."
+  },
+  "translationRevealSmooth": {
+    "message": "Jeden Absatz ersetzen, sobald er fertig ist"
+  },
+  "translationRevealStream": {
+    "message": "Text während der Übersetzung anzeigen (wie bisher)"
+  },
   "plainTextLineBreaksLabel": {
     "message": "Zeilenumbrüche in der Übersetzung"
   },

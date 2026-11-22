@@ -15,6 +15,7 @@
     VIDEO_CAPTION_SIZE_MIN,
     isComposePlacement,
     normalizePlainTextLineBreaks,
+    normalizeTranslationReveal,
     normalizeTranslationPopupSize,
     normalizeVideoCaptionSize,
     removeGmailTranslateLanguage,
@@ -87,6 +88,11 @@
     const size = normalizeTranslationPopupSize(input.value);
     popupPreviewSize = size;
     onChange({ translationPopupSize: size });
+  }
+
+  function updateTranslationReveal(event: Event) {
+    const select = event.currentTarget as HTMLSelectElement;
+    onChange({ translationReveal: normalizeTranslationReveal(select.value) });
   }
 
   function updatePlainTextLineBreaks(event: Event) {
@@ -291,6 +297,15 @@
     />
     <p class="muted help">{t('translationPopupSizeHelp')}</p>
   </div>
+
+  <label class="field" data-sakutto="translation-reveal">
+    <span>{t('translationRevealLabel')}</span>
+    <select value={settings.translationReveal} onchange={updateTranslationReveal}>
+      <option value="smooth">{t('translationRevealSmooth')}</option>
+      <option value="stream">{t('translationRevealStream')}</option>
+    </select>
+  </label>
+  <p class="muted help">{t('translationRevealHelp')}</p>
 
   <label class="field" data-sakutto="plain-text-line-breaks">
     <span>{t('plainTextLineBreaksLabel')}</span>

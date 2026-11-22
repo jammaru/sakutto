@@ -16,6 +16,7 @@ import {
   isTierPreference,
   normalizeGmailLanguageList,
   normalizePlainTextLineBreaks,
+  normalizeTranslationReveal,
   normalizeTranslationPopupSize,
   normalizeTranslationPopupWidth,
   normalizeVideoCaptionSize,
@@ -37,6 +38,7 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     translationPopupSize: 100,
     translationPopupWidth: 0,
     plainTextLineBreaks: 'none',
+    translationReveal: 'smooth',
     consent: null,
     highQualityDismissed: false,
     sharedFolderOfferDismissed: false,
@@ -441,6 +443,23 @@ describe('settings defaults', () => {
         'en-US',
       ).plainTextLineBreaks,
     ).toBe('none');
+  });
+
+  it('swaps finished paragraphs by default and keeps streaming only when it was chosen', () => {
+    expect(DEFAULT_SETTINGS.translationReveal).toBe('smooth');
+    expect(normalizeTranslationReveal(undefined)).toBe('smooth');
+    expect(normalizeTranslationReveal('stream')).toBe('stream');
+    expect(normalizeTranslationReveal('typewriter')).toBe('smooth');
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          translationReveal: 'stream',
+        },
+        'en-US',
+      ).translationReveal,
+    ).toBe('stream');
   });
 
   it('stores a selection popup width in em and treats zero as automatic', () => {

@@ -1527,6 +1527,18 @@
   "translationPopupSizeHelp": {
     "message": "ホバー・選択・作文の翻訳ポップアップの文字サイズを変更します。動画の字幕は字幕用の設定で変更します。"
   },
+  "translationRevealLabel": {
+    "message": "ページの訳文の出し方"
+  },
+  "translationRevealHelp": {
+    "message": "最初のオプションは、段落の訳ができるまで原文を残し、できたら短い動きで1回だけ入れ替えます。翻訳中にページががたつきません。時間がかかる段落は、できた分から表示します。対訳表示は変わりません。"
+  },
+  "translationRevealSmooth": {
+    "message": "段落の訳ができてから入れ替える"
+  },
+  "translationRevealStream": {
+    "message": "できた分から表示する（従来どおり）"
+  },
   "plainTextLineBreaksLabel": {
     "message": "訳文の改行"
   },

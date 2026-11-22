@@ -1523,6 +1523,18 @@
   "translationPopupSizeHelp": {
     "message": "调整悬停、划词和写作翻译弹窗中的文字大小。视频字幕使用单独的字幕大小设置。"
   },
+  "translationRevealLabel": {
+    "message": "页面译文的显示方式"
+  },
+  "translationRevealHelp": {
+    "message": "第一个选项会保留段落的原文，直到译文完成，再以一个简短的动画一次替换，翻译过程中页面不会跳动。耗时较长的段落会边翻译边显示。双语显示不受影响。"
+  },
+  "translationRevealSmooth": {
+    "message": "段落翻译完成后一次替换"
+  },
+  "translationRevealStream": {
+    "message": "边翻译边显示（与以前相同）"
+  },
   "plainTextLineBreaksLabel": {
     "message": "译文中的换行"
   },

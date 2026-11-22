@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Revealer } from '@/dom/reveal';
+import { REVEAL_STREAM_AFTER_MS } from '@/dom/reveal';
 import { buildSegment } from '@/dom/segment';
 import { applyTranslation, restoreSegment } from '@/dom/render';
 import {
@@ -335,6 +337,672 @@ describe('page session', () => {
     await session.whenIdle();
     expect(document.body.textContent).toContain('完了');
     expect(document.querySelector('a')?.textContent).toBe('docs');
+  });
+
+  it('keeps the source while a block is translated when finished blocks are swapped', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello</p>';
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let streamed = false;
+    const session = start(
+      document,
+      engineOf(async function* (segments, options: TranslateOptions) {
+        for (const segment of segments) {
+          yield { id: segment.id, textDelta: '途中', engine: 'plamo' as const };
+          streamed = true;
+          await gate;
+          if (options.signal.aborted) return;
+          yield { id: segment.id, final: '完了', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'smooth' },
+    );
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(streamed).toBe(true);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.body.textContent).toBe('Hello');
+
+    release();
+    await session.whenIdle();
+    expect(document.body.textContent).toBe('完了');
+  });
+
+  it('tells the reveal which translations are the last of the page', async () => {
+    document.documentElement.lang = 'en';
+    const long = 'The harbour office logs every crossing and publishes the delays each month. ';
+    document.body.innerHTML = Array.from(
+      { length: 6 },
+      (_, index) => `<p>${String(index)} ${long.repeat(6)}</p>`,
+    ).join('');
+    const offers = vi.spyOn(Revealer.prototype, 'offer');
+    const session = start(
+      document,
+      immediate((text) => `訳 ${text.slice(0, 1)}`),
+      { reveal: 'smooth' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+    const last = offers.mock.calls.map(([offer]) => offer.last === true);
+    expect(last.length).toBeGreaterThanOrEqual(6);
+    // While other requests run or wait, a block is not the last; the one that ends the page is.
+    expect(last[0]).toBe(false);
+    expect(last.at(-1)).toBe(true);
+  });
+
+  it('counts a finished block as pending until its text is on the page', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello</p>';
+    const frames: (() => void)[] = [];
+    const session = new PageSession(document, {
+      engine: engineOf(async function* (segments) {
+        for (const segment of segments) {
+          yield { id: segment.id, final: '完了', engine: 'plamo' as const };
+        }
+      }),
+      labels,
+      preferences: preferences({ reveal: 'smooth' }),
+      scheduleFrame: (callback) => frames.push(callback),
+      debounceMs: 20,
+    });
+    sessions.push(session);
+    let idle = false;
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(session.state().pending).toBe(1);
+      expect(frames.length).toBeGreaterThan(0);
+    });
+    void session.whenIdle().then(() => {
+      idle = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.body.textContent).toBe('Hello');
+    expect(idle).toBe(false);
+
+    while (frames.length > 0) frames.shift()?.();
+    await vi.waitFor(() => {
+      expect(idle).toBe(true);
+    });
+    expect(document.body.textContent).toBe('完了');
+    expect(session.state().pending).toBe(0);
+  });
+
+  it('writes a translation that waits to be shown when the page navigates in place', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello</p>';
+    const frames: (() => void)[] = [];
+    const session = new PageSession(document, {
+      engine: engineOf(async function* (segments) {
+        for (const segment of segments) {
+          yield { id: segment.id, final: '完了', engine: 'plamo' as const };
+        }
+      }),
+      labels,
+      preferences: preferences({ reveal: 'smooth' }),
+      scheduleFrame: (callback) => frames.push(callback),
+      debounceMs: 20,
+    });
+    sessions.push(session);
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(session.state().pending).toBe(1);
+    });
+    expect(document.body.textContent).toBe('Hello');
+
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    expect(document.body.textContent).toBe('完了');
+  });
+
+  it('streams a block that is still being translated long after its first text', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello</p>';
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const clock = vi.spyOn(performance, 'now');
+    const session = start(
+      document,
+      engineOf(async function* (segments, options: TranslateOptions) {
+        for (const segment of segments) {
+          clock.mockReturnValue(1000);
+          yield { id: segment.id, textDelta: '途', engine: 'plamo' as const };
+          clock.mockReturnValue(1000 + REVEAL_STREAM_AFTER_MS + 1);
+          yield { id: segment.id, textDelta: '中', engine: 'plamo' as const };
+          await gate;
+          if (options.signal.aborted) return;
+          yield { id: segment.id, final: '完了', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'smooth' },
+    );
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('途中');
+    });
+
+    release();
+    await session.whenIdle();
+    expect(document.body.textContent).toBe('完了');
+    clock.mockRestore();
+  });
+
+  it('starts to stream a block early when its speed says it will be slow', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = `<p>${'A sentence of the source text. '.repeat(8)}</p>`;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const clock = vi.spyOn(performance, 'now');
+    const session = start(
+      document,
+      engineOf(async function* (segments, options: TranslateOptions) {
+        for (const segment of segments) {
+          clock.mockReturnValue(1000);
+          yield { id: segment.id, textDelta: '訳文のはじめの部分', engine: 'plamo' as const };
+          // A second and a half in, a tenth of the expected text is there: at that speed
+          // the block takes much longer than a reader should look at the source.
+          clock.mockReturnValue(2500);
+          yield { id: segment.id, textDelta: 'です', engine: 'plamo' as const };
+          await gate;
+          if (options.signal.aborted) return;
+          yield { id: segment.id, final: '完了', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'smooth' },
+    );
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('訳文のはじめの部分です');
+    });
+
+    release();
+    await session.whenIdle();
+    expect(document.body.textContent).toBe('完了');
+    clock.mockRestore();
+  });
+
+  it('expects English to take about twice the letters of its Japanese source', async () => {
+    document.documentElement.lang = 'ja';
+    // Fifty-four letters of Japanese.
+    document.body.innerHTML = `<p>${'フェリーは七時に島を出て、潮が変わる前に戻ってきます。'.repeat(2)}</p>`;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const clock = vi.spyOn(performance, 'now');
+    const session = start(
+      document,
+      engineOf(async function* (segments, options: TranslateOptions) {
+        for (const segment of segments) {
+          clock.mockReturnValue(1000);
+          yield { id: segment.id, textDelta: 'The ferry leaves at ', engine: 'plamo' as const };
+          // Twenty-four letters in a second. Of a translation as long as the source that is
+          // nearly half, and the block would be finished soon; of one twice as long it is not.
+          clock.mockReturnValue(2000);
+          yield { id: segment.id, textDelta: 'four', engine: 'plamo' as const };
+          await gate;
+          if (options.signal.aborted) return;
+          yield { id: segment.id, final: 'Done', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'smooth', targetLanguage: 'en' },
+    );
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('The ferry leaves at four');
+    });
+
+    release();
+    await session.whenIdle();
+    expect(document.body.textContent).toBe('Done');
+    clock.mockRestore();
+  });
+
+  /**
+   * Three paragraphs. The first one comes at `firstMs` for its twenty letters, which tells
+   * the page how fast a block comes. The second gets eight letters, then waits `waitMs`
+   * before its next letter, and is held open until `release` is called. A second paragraph
+   * of many `sentences` is sent as several pieces: only the first of them starts, unless
+   * they come `sideBySide`. The third paragraph gets a letter beside the second one, as where
+   * many requests are decoded at a time, unless the second is decoded `alone`.
+   */
+  function afterOneBlock(
+    firstMs: number,
+    waitMs: number,
+    sentences = 3,
+    sideBySide = false,
+    alone = false,
+  ): { session: PageSession; second: () => Element | undefined; release: () => void } {
+    document.documentElement.lang = 'en';
+    const first = 'The ferry leaves the island at seven and is back before the tide turns.';
+    const long = 'The harbour office logs every crossing of the season and reads it back. '
+      .repeat(sentences)
+      .trim();
+    // Too long to share a request with another block.
+    const third = 'The lighthouse keeper writes the weather into the same book each night. '
+      .repeat(5)
+      .trim();
+    document.body.innerHTML = `<p>${first}</p><p>${long}</p><p>${third}</p>`;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // The third paragraph may be asked for in a request of its own: it waits there for the
+    // second one to begin.
+    let begin!: () => void;
+    const begun = new Promise<void>((resolve) => {
+      begin = resolve;
+    });
+    const beside = (segment: { text: string }): boolean => segment.text.includes('lighthouse');
+    // The two paragraphs can be asked for in two requests that run side by side: the second
+    // one starts when the first has finished and the page knows its speed.
+    let learned!: () => void;
+    const known = new Promise<void>((resolve) => {
+      learned = resolve;
+    });
+    const clock = vi.spyOn(performance, 'now');
+    clock.mockReturnValue(1000);
+    const session = start(
+      document,
+      engineOf(async function* (segments, options: TranslateOptions) {
+        for (const segment of segments) {
+          if (segment.text.includes('tide')) {
+            clock.mockReturnValue(1000);
+            yield { id: segment.id, textDelta: 'フェリーは七時に島を', engine: 'plamo' as const };
+            clock.mockReturnValue(1000 + firstMs);
+            yield { id: segment.id, textDelta: '出て潮の前に戻ります', engine: 'plamo' as const };
+            yield {
+              id: segment.id,
+              final: 'フェリーは七時に島を出て潮の前に戻ります',
+              engine: 'plamo' as const,
+            };
+            learned();
+            continue;
+          }
+          const pieces = segments.filter((piece) => !piece.text.includes('tide') && !beside(piece));
+          const neighbour = segments.find(beside);
+          if (beside(segment)) {
+            if (pieces.length > 0) continue;
+            // In a request of its own.
+            await begun;
+            if (!alone) yield { id: segment.id, textDelta: '灯', engine: 'plamo' as const };
+            await gate;
+            if (options.signal.aborted) return;
+            yield { id: segment.id, final: '灯台', engine: 'plamo' as const };
+            continue;
+          }
+          if (segment !== pieces[0]) continue;
+          await known;
+          const from = 1000 + firstMs + 100;
+          clock.mockReturnValue(from);
+          for (const piece of sideBySide ? pieces : [segment]) {
+            yield { id: piece.id, textDelta: '港の事務所は毎回', engine: 'plamo' as const };
+          }
+          if (neighbour && !alone) {
+            yield { id: neighbour.id, textDelta: '灯', engine: 'plamo' as const };
+          }
+          begin();
+          // The request of the third paragraph, if it has one, sends its letter now.
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          clock.mockReturnValue(from + waitMs);
+          yield { id: segment.id, textDelta: 'の', engine: 'plamo' as const };
+          await gate;
+          if (options.signal.aborted) return;
+          for (const piece of pieces) {
+            yield { id: piece.id, final: '完了', engine: 'plamo' as const };
+          }
+          if (neighbour) yield { id: neighbour.id, final: '灯台', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'smooth' },
+    );
+    return { session, second: () => document.querySelectorAll('p')[1], release };
+  }
+
+  it('does not take a block for slow that waited after its first letters, as blocks here do', async () => {
+    // Finished blocks came at a tenth of a letter a millisecond. The second block has nine
+    // letters after 2.5 s: by its own speed it would take half a minute, at the speed of the
+    // page under a second more.
+    const { session, second, release } = afterOneBlock(200, 2500);
+    await session.translate();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(second()?.textContent).toContain('The harbour office');
+    expect(second()?.textContent).not.toContain('港の事務所');
+
+    release();
+    vi.mocked(performance.now).mockRestore();
+    await session.whenIdle();
+    expect(second()?.textContent).toBe('完了');
+  });
+
+  it('takes a long block by the piece of it that lacks the most while the others can still start', async () => {
+    // Twenty letters in a second. The block is long enough to be sent as several pieces: each
+    // lacks about six seconds, all of them together more than eight. So soon after the first
+    // piece the others may still start beside it.
+    const { session, second, release } = afterOneBlock(1000, 300, 13);
+    await session.translate();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(second()?.textContent).toContain('The harbour office');
+    expect(second()?.textContent).not.toContain('港の事務所');
+
+    release();
+    vi.mocked(performance.now).mockRestore();
+    await session.whenIdle();
+    expect(second()?.textContent).toMatch(/^(?:完了)+$/u);
+    expect(second()?.textContent?.length).toBeGreaterThan(2);
+  });
+
+  it('keeps the source of a long block whose pieces all come side by side', async () => {
+    // Twenty letters in 0.8 s. A second and a half in, both pieces have text: the block
+    // ends with the one that lacks the most, in about six seconds.
+    const { session, second, release } = afterOneBlock(800, 1500, 11, true);
+    await session.translate();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(second()?.textContent).toContain('The harbour office');
+    expect(second()?.textContent).not.toContain('港の事務所');
+
+    release();
+    vi.mocked(performance.now).mockRestore();
+    await session.whenIdle();
+    // More than one piece: otherwise this says nothing about pieces.
+    expect(second()?.textContent).toMatch(/^(?:完了){2,}$/u);
+  });
+
+  it('streams a long block whose other pieces have not started in time', async () => {
+    // A second and a half in, only the first piece has text: the pieces come one after
+    // another, as where one request is decoded at a time, and take eight and a half seconds
+    // together.
+    const { session, second, release } = afterOneBlock(800, 1500, 11);
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(second()?.textContent).toContain('港の事務所は毎回の');
+    });
+
+    release();
+    vi.mocked(performance.now).mockRestore();
+    await session.whenIdle();
+    // More than one piece: otherwise this says nothing about pieces.
+    expect(second()?.textContent).toMatch(/^(?:完了){2,}$/u);
+  });
+
+  /**
+   * Menu words. The first one of a page is asked for by itself; the three after it share a
+   * request. Of those the first gets its text, then the second begins; the request answers
+   * for all three when `release` is called, with `answer` for the first.
+   */
+  function sharedRequest(
+    answer: string,
+    reveal: 'smooth' | 'stream' = 'smooth',
+  ): { session: PageSession; items: () => Element[]; release: () => void } {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML =
+      '<ul><li>Harbour</li><li>Departures</li><li>Arrivals</li><li>Timetable</li></ul>';
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = start(
+      document,
+      engineOf(async function* (segments, options: TranslateOptions) {
+        const [first, second, third] = segments;
+        if (!first) return;
+        if (!second || !third) {
+          for (const segment of segments) {
+            yield { id: segment.id, final: '港', engine: 'plamo' as const };
+          }
+          return;
+        }
+        yield { id: first.id, textDelta: '出', engine: 'plamo' as const };
+        yield { id: first.id, textDelta: '発', engine: 'plamo' as const };
+        yield { id: second.id, textDelta: '到', engine: 'plamo' as const };
+        await gate;
+        if (options.signal.aborted) return;
+        yield { id: second.id, textDelta: '着', engine: 'plamo' as const };
+        yield { id: third.id, textDelta: '時刻表', engine: 'plamo' as const };
+        yield { id: first.id, final: answer, engine: 'plamo' as const };
+        yield { id: second.id, final: '到着', engine: 'plamo' as const };
+        yield { id: third.id, final: '時刻表', engine: 'plamo' as const };
+      }),
+      { reveal },
+    );
+    return { session, items: () => [...document.querySelectorAll('li')].slice(1), release };
+  }
+
+  it('shows a line that shares its request as soon as the next line begins', async () => {
+    const { session, items, release } = sharedRequest('出発');
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(items()[0]?.textContent).toBe('出発');
+    });
+    // The request is still open: the line that has begun keeps its source.
+    expect(items()[1]?.textContent).toBe('Arrivals');
+    expect(items()[2]?.textContent).toBe('Timetable');
+
+    release();
+    await session.whenIdle();
+    expect(items().map((item) => item.textContent)).toEqual(['出発', '到着', '時刻表']);
+  });
+
+  it('takes the answer of the request for a line where it says something else', async () => {
+    const { session, items, release } = sharedRequest('出発便');
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(items()[0]?.textContent).toBe('出発');
+    });
+
+    release();
+    await session.whenIdle();
+    expect(items().map((item) => item.textContent)).toEqual(['出発便', '到着', '時刻表']);
+  });
+
+  it('streams a block that is decoded by itself and will take more than three seconds', async () => {
+    // No other block gets text beside it, as where one request is decoded at a time. Nine
+    // letters in 0.6 s of the sixty it will have: four seconds, by its own speed. The speed
+    // of the block before it would say half a second.
+    const { session, second, release } = afterOneBlock(200, 600, 3, false, true);
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(second()?.textContent).toContain('港の事務所は毎回の');
+    });
+
+    release();
+    vi.mocked(performance.now).mockRestore();
+    await session.whenIdle();
+    expect(second()?.textContent).toBe('完了');
+  });
+
+  it('keeps the source of a block that is decoded by itself and will be finished soon', async () => {
+    // Nine letters in 0.3 s of sixty: two seconds, by its own speed. The block before it was
+    // slow, and its speed would say ten.
+    const { session, second, release } = afterOneBlock(4000, 300, 3, false, true);
+    await session.translate();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(second()?.textContent).toContain('The harbour office');
+    expect(second()?.textContent).not.toContain('港の事務所');
+
+    release();
+    vi.mocked(performance.now).mockRestore();
+    await session.whenIdle();
+    expect(second()?.textContent).toBe('完了');
+  });
+
+  it('streams a block early on a page whose blocks have come slowly', async () => {
+    // Twenty letters in four seconds: the hundred letters this block still lacks take twenty.
+    const { session, second, release } = afterOneBlock(4000, 300);
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(second()?.textContent).toContain('港の事務所は毎回の');
+    });
+
+    release();
+    vi.mocked(performance.now).mockRestore();
+    await session.whenIdle();
+    expect(second()?.textContent).toBe('完了');
+  });
+
+  it('keeps the source of a block whose speed says it will be finished soon', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = `<p>${'A sentence of the source text. '.repeat(8)}</p>`;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let streamed = false;
+    const clock = vi.spyOn(performance, 'now');
+    const session = start(
+      document,
+      engineOf(async function* (segments, options: TranslateOptions) {
+        for (const segment of segments) {
+          clock.mockReturnValue(1000);
+          yield { id: segment.id, textDelta: '訳'.repeat(40), engine: 'plamo' as const };
+          clock.mockReturnValue(1300);
+          yield { id: segment.id, textDelta: '文'.repeat(40), engine: 'plamo' as const };
+          streamed = true;
+          await gate;
+          if (options.signal.aborted) return;
+          yield { id: segment.id, final: '完了', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'smooth' },
+    );
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(streamed).toBe(true);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.body.textContent).toContain('A sentence of the source text.');
+
+    release();
+    await session.whenIdle();
+    expect(document.body.textContent).toBe('完了');
+    clock.mockRestore();
+  });
+
+  it('adds a bilingual line only when its translation is finished', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello world</p>';
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let streamed = false;
+    const session = start(
+      document,
+      engineOf(async function* (segments, options: TranslateOptions) {
+        for (const segment of segments) {
+          yield { id: segment.id, textDelta: '途中', engine: 'plamo' as const };
+          streamed = true;
+          await gate;
+          if (options.signal.aborted) return;
+          yield { id: segment.id, final: '完了', engine: 'plamo' as const };
+        }
+      }),
+      { display: 'bilingual', reveal: 'smooth' },
+    );
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(streamed).toBe(true);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.querySelector('sakutto-line')).toBeNull();
+
+    release();
+    await session.whenIdle();
+    expect(document.querySelector('p')?.childNodes[0]?.nodeValue).toBe('Hello world');
+    expect(document.querySelector('sakutto-line')?.textContent).toBe('完了');
+  });
+
+  it('does not grow a bilingual line while a slow block is translated', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello world</p>';
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let streamed = false;
+    const clock = vi.spyOn(performance, 'now');
+    const session = start(
+      document,
+      engineOf(async function* (segments, options: TranslateOptions) {
+        for (const segment of segments) {
+          clock.mockReturnValue(1000);
+          yield { id: segment.id, textDelta: '途', engine: 'plamo' as const };
+          clock.mockReturnValue(1000 + REVEAL_STREAM_AFTER_MS + 1);
+          yield { id: segment.id, textDelta: '中', engine: 'plamo' as const };
+          streamed = true;
+          await gate;
+          if (options.signal.aborted) return;
+          yield { id: segment.id, final: '完了', engine: 'plamo' as const };
+        }
+      }),
+      { display: 'bilingual', reveal: 'smooth' },
+    );
+
+    try {
+      await session.translate();
+      await vi.waitFor(() => {
+        expect(streamed).toBe(true);
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(document.querySelector('sakutto-line')).toBeNull();
+
+      release();
+      await session.whenIdle();
+      expect(document.querySelector('sakutto-line')?.textContent).toBe('完了');
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it('translates a block again when the page changes it before its translation is shown', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello</p>';
+    const frames: (() => void)[] = [];
+    const session = new PageSession(document, {
+      engine: engineOf(async function* (segments) {
+        for (const segment of segments) {
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+      labels,
+      preferences: preferences({ reveal: 'smooth' }),
+      scheduleFrame: (callback) => frames.push(callback),
+      debounceMs: 20,
+    });
+    sessions.push(session);
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(session.state().pending).toBe(1);
+    });
+    const paragraph = document.querySelector('p');
+    expect(paragraph?.textContent).toBe('Hello');
+    expect(paragraph?.hasAttribute('data-sakutto-id')).toBe(true);
+
+    const text = paragraph?.firstChild;
+    if (!text) throw new Error('missing text');
+    text.nodeValue = 'Goodbye';
+    // The page's change is noticed before the next frame, as it is in a browser.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await vi.waitFor(() => {
+      while (frames.length > 0) frames.shift()?.();
+      expect(paragraph?.textContent).toBe('訳:Goodbye');
+    });
   });
 
   it('clears unfinished page paint immediately when the model changes', async () => {

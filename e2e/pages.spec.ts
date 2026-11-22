@@ -368,7 +368,9 @@ test.describe('faded translation and skipped sidebar', () => {
       await expect(page.locator('html')).toHaveAttribute('data-sakutto-state', 'translated');
 
       // The reported bug: Japanese rendered paler than the English it replaced. The
-      // translated paragraph must keep the host color at full opacity.
+      // translated paragraph must keep the host color at full opacity. A translation
+      // fades in when it is swapped in, so the colors are read once that has ended.
+      await page.waitForFunction(() => document.getAnimations().length === 0);
       const contrast = await page.evaluate(() => {
         const lead = document.querySelector('#lead');
         if (!lead) return null;
@@ -449,6 +451,8 @@ test.describe('faded translation and skipped sidebar', () => {
     const page = await openFixture('/app-shell.html');
     try {
       await expect(page.locator('#downloads')).toContainText(MARKER);
+      // A translation fades in to the opacity the page gave its block.
+      await page.waitForFunction(() => document.getAnimations().length === 0);
       const opacity = await page.evaluate(() => {
         const slide = document.querySelector<HTMLElement>('#slide');
         const disabled = document.querySelector<HTMLElement>('#disabled');

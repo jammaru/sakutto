@@ -1527,6 +1527,18 @@
   "translationPopupSizeHelp": {
     "message": "Changes the text size in hover, selection, and compose translation popups. Video captions use their own size setting."
   },
+  "translationRevealLabel": {
+    "message": "How page translations appear"
+  },
+  "translationRevealHelp": {
+    "message": "The first option keeps a paragraph's original text until its translation is finished, then swaps it in one short motion, so the page does not jump while it is translated. A paragraph that takes long is shown as it is translated. Bilingual display is not affected."
+  },
+  "translationRevealSmooth": {
+    "message": "Swap each paragraph once it is finished"
+  },
+  "translationRevealStream": {
+    "message": "Show text as it is translated (as before)"
+  },
   "plainTextLineBreaksLabel": {
     "message": "Line breaks in the translation"
   },
