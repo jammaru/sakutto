@@ -6,8 +6,8 @@ export const JSON3_THRESHOLDS = {
   p95CueLagMs: 1_000,
   minimumDwellMs: 1_200,
   minimumCueCount: 9,
-  maximumOutstanding: 4,
-  maximumInitialRequests: 4,
+  maximumOutstanding: 2,
+  maximumInitialRequests: 2,
 } as const;
 
 export interface Json3Segment {
@@ -526,6 +526,10 @@ export async function driveJson3Replay(
       const video = element as HTMLVideoElement;
       if (current.rate !== undefined) video.playbackRate = current.rate;
       if (current.seekMs !== undefined) video.currentTime = current.seekMs / 1_000;
+      if (current.seekMs !== undefined || current.rate !== undefined) {
+        const state = globalThis as unknown as { __captionJson3Recorder?: { anchor(): void } };
+        state.__captionJson3Recorder?.anchor();
+      }
       if (current.pause === true) video.pause();
       if (current.play === true) await video.play();
     }, step);
@@ -579,22 +583,26 @@ function crossingForCue(
   phase: string,
 ): { atMs: number; epoch: number } | null {
   const phased = samples.filter((sample) => sample.phase === phase);
-  // A seek can cross the exact destination before the next 50ms sample. The
-  // post-seek anchor is a closer wall-time estimate than discarding that cue.
-  const anchored = phased.find(
-    (sample) => sample.mediaMs >= cue.startMs && sample.mediaMs <= cue.startMs + 180,
-  );
-  if (anchored) return { atMs: anchored.atMs, epoch: anchored.epoch };
+  if (phase.startsWith('seek') || phase.startsWith('rate')) {
+    // Media seeks are discontinuous, so interpolation from the old position is invalid.
+    // The recorder anchors the new playhead inside the input action, before async paint.
+    const anchored = phased.find((sample) => Math.abs(sample.mediaMs - cue.startMs) <= 180);
+    if (anchored) return { atMs: anchored.atMs, epoch: anchored.epoch };
+  }
   for (let index = 1; index < phased.length; index += 1) {
     const before = phased[index - 1];
     const after = phased[index];
     if (!before || !after || before.epoch !== after.epoch) continue;
-    if (before.mediaMs > cue.startMs || after.mediaMs < cue.startMs) continue;
-    if (after.mediaMs < before.mediaMs || after.atMs - before.atMs > 1_000) continue;
+    const forward = before.mediaMs <= cue.startMs && after.mediaMs >= cue.startMs;
+    const backward = before.mediaMs >= cue.startMs && after.mediaMs <= cue.startMs;
+    if (!forward && !backward) continue;
+    const wallDelta = after.atMs - before.atMs;
+    if (wallDelta < 0 || wallDelta > 1_000) continue;
     const mediaDelta = after.mediaMs - before.mediaMs;
-    const fraction = mediaDelta === 0 ? 0 : (cue.startMs - before.mediaMs) / mediaDelta;
+    if (mediaDelta === 0 && before.mediaMs !== cue.startMs) continue;
+    const fraction = mediaDelta === 0 ? 1 : (cue.startMs - before.mediaMs) / mediaDelta;
     return {
-      atMs: before.atMs + (after.atMs - before.atMs) * fraction,
+      atMs: before.atMs + wallDelta * fraction,
       epoch: before.epoch,
     };
   }
@@ -729,13 +737,9 @@ export function computeJson3QualityReport(
   const samples = recording.samples.filter((sample) => sample.phase === phase);
   const transitions = recording.transitions.filter((transition) => transition.phase === phase);
   const lagDetails = manifest.cues.map((cue): CueLagDetail => {
-    const crossing = crossingForCue(
-      cue,
-      [...recording.samples, ...recording.transitions, ...recording.requests].sort(
-        (left, right) => left.atMs - right.atMs,
-      ),
-      phase,
-    );
+    // Only independent playhead samples establish a wall-clock source crossing.
+    // Requests and paints may prove presentation, never their own starting timestamp.
+    const crossing = crossingForCue(cue, recording.samples, phase);
     const expectedText = normalizeJson3Caption(cue.expectedJa);
     const transitionPaints = transitions.filter(
       (transition) =>
@@ -774,17 +778,19 @@ export function computeJson3QualityReport(
   const belowMinimum = fullyObserved.filter(
     (interval) => interval.dwellMs < JSON3_THRESHOLDS.minimumDwellMs,
   );
-  const jaOrder = firstAppearanceOrder(manifest, dwellIntervals);
+  const contentDwellIntervals = dwellIntervals.filter((interval) => !interval.censored);
+  const contentSourceIntervals = sourceIntervals.filter((interval) => !interval.censored);
+  const jaOrder = firstAppearanceOrder(manifest, contentDwellIntervals);
   const sourceOrder = firstAppearanceOrder(
     manifest,
-    sourceIntervals.map((interval) => ({ ...interval, cueId: interval.cueId.slice(7) })),
+    contentSourceIntervals.map((interval) => ({ ...interval, cueId: interval.cueId.slice(7) })),
   );
   const jaCounts = new Map<string, number>();
   const sourceCounts = new Map<string, number>();
-  dwellIntervals.forEach((interval) =>
+  contentDwellIntervals.forEach((interval) =>
     jaCounts.set(interval.cueId, (jaCounts.get(interval.cueId) ?? 0) + 1),
   );
-  sourceIntervals.forEach((interval) => {
+  contentSourceIntervals.forEach((interval) => {
     const id = interval.cueId.slice(7);
     sourceCounts.set(id, (sourceCounts.get(id) ?? 0) + 1);
   });
@@ -832,7 +838,7 @@ export function computeJson3QualityReport(
   };
   const numericMismatches: NumericMismatch[] = [];
   for (const cue of manifest.cues) {
-    const interval = dwellIntervals.find((candidate) => candidate.cueId === cue.id);
+    const interval = contentDwellIntervals.find((candidate) => candidate.cueId === cue.id);
     const paint = interval
       ? transitions.find(
           (transition) =>
@@ -867,6 +873,7 @@ export function computeJson3QualityReport(
     .filter((detail) => detail.earlyPaint)
     .forEach((detail) => failures.push(detail.cueId + ': early paint'));
   belowMinimum.forEach((interval) => failures.push(interval.cueId + ': dwell below 1200ms'));
+  if (fullyObserved.length === 0) failures.push('no fully observed uncensored JA dwell interval');
   if (content.missingJaIds.length > 0)
     failures.push('missing JA cues: ' + content.missingJaIds.join(','));
   if (content.missingSourceIds.length > 0)
