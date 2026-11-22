@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Watch - synthetic VOD json3 quality fixture</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: sans-serif;
+      }
+      #movie_player {
+        position: relative;
+        width: 640px;
+        height: 360px;
+        background: #111;
+      }
+      .html5-video-container {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        height: 100%;
+      }
+      .html5-main-video {
+        width: 100%;
+        height: 100%;
+      }
+      .ytp-caption-window-container {
+        position: absolute;
+        left: 8%;
+        right: 8%;
+        bottom: 80px;
+        z-index: 20;
+        text-align: center;
+      }
+      .ytp-caption-segment {
+        display: inline-block;
+        padding: 4px 10px;
+        background: rgb(8 8 8 / 80%);
+        color: #fff;
+        font: 22px/1.35 sans-serif;
+      }
+      .ytp-chrome-bottom {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 72px;
+        z-index: 40;
+        background: rgb(0 0 0 / 45%);
+      }
+      #sidebar {
+        padding: 12px;
+        color: #334;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="movie_player" class="html5-video-player">
+      <div class="html5-video-container">
+        <video id="player" class="html5-main-video" controls muted playsinline></video>
+      </div>
+      <div class="ytp-caption-window-container" lang="en">
+        <span class="ytp-caption-segment" id="native-caption"></span>
+      </div>
+      <div class="ytp-chrome-bottom" data-sakutto="fake-chrome"></div>
+    </div>
+    <div id="sidebar">
+      <p id="page-decoy">UNRELATED_PAGE_COPY_DECOY_7A3F</p>
+      <p>Recommendation copy must never enter the caption overlay.</p>
+    </div>
+    <!-- prettier-ignore -->
+    <script>
+      (function () {
+        var query = new URLSearchParams(location.search);
+        var live = query.get('live') === '1';
+        var longTrack = query.get('track') === 'long';
+        var native = document.getElementById('native-caption');
+        var video = document.getElementById('player');
+        var nativeMutations = 0;
+        var videoReady = fetch('/youtube-vod-json3-media.bin')
+          .then(function (response) { return response.blob(); })
+          .then(function (blob) {
+            video.src = URL.createObjectURL(new Blob([blob], { type: 'video/mp4' }));
+            video.load();
+            return new Promise(function (resolve, reject) {
+              if (video.readyState >= 1) return resolve();
+              var timer = setTimeout(function () { reject(new Error('video metadata')); }, 5000);
+              video.addEventListener('loadedmetadata', function () {
+                clearTimeout(timer);
+                resolve();
+              }, { once: true });
+            });
+          });
+        function paintNative() {
+          var ms = video.currentTime * 1000;
+          nativeMutations += 1;
+          if (live) {
+            native.textContent = ms < 900 ? 'Live rolling answer' : 'Live rolling answer continues.';
+          } else {
+            native.textContent = 'NATIVE_DOM_DECOY_MUTATION_' + (nativeMutations % 3);
+          }
+        }
+        video.addEventListener('timeupdate', paintNative);
+        video.addEventListener('seeked', paintNative);
+        setInterval(paintNative, 450);
+        paintNative();
+        window.__captionJson3 = {
+          videoReady: videoReady,
+          get nativeMutations() { return nativeMutations; },
+          synthetic: true
+        };
+        var trackUrl = live
+          ? '/youtube-vod-json3-live.json'
+          : longTrack
+            ? '/youtube-vod-json3-long.json'
+            : '/youtube-vod-json3-en.json';
+        window.ytInitialPlayerResponse = {
+          videoDetails: {
+            videoId: live ? 'json3live01' : 'json3vod001',
+            defaultAudioLanguage: 'en',
+            title: 'Synthetic public-style json3 caption-quality player',
+            isLive: live
+          },
+          captions: {
+            playerCaptionsTracklistRenderer: {
+              captionTracks: [{
+                baseUrl: trackUrl + '?fmt=json3',
+                languageCode: 'en',
+                kind: 'asr',
+                name: { simpleText: 'English (auto-generated)' },
+                vssId: 'a.en'
+              }]
+            }
+          }
+        };
+      })();
+    </script>
+  </body>
+</html>

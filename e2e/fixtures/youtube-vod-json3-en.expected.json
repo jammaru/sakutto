@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "scenarioId": "synthetic-public-style-vod-json3-v1",
+  "fixture": "youtube-vod-json3-en.json",
+  "language": "en",
+  "targetLanguage": "ja",
+  "synthetic": true,
+  "minimumCueCount": 9,
+  "cues": [
+    {
+      "id": "intro",
+      "source": "Welcome to the model review.",
+      "startMs": 0,
+      "endMs": 1900,
+      "expectedJa": "§ja§Welcome to the model review.",
+      "numericLexemes": []
+    },
+    {
+      "id": "decimals",
+      "source": "Today we compare Opus 5.5 and Fable 5.2.",
+      "startMs": 3200,
+      "endMs": 6100,
+      "expectedJa": "§ja§Today we compare Opus 5.5 and Fable 5.2.",
+      "numericLexemes": ["5.5", "5.2"]
+    },
+    {
+      "id": "short-fable",
+      "source": "Fable is quick.",
+      "startMs": 7000,
+      "endMs": 7800,
+      "expectedJa": "§ja§Fable is quick.",
+      "numericLexemes": []
+    },
+    {
+      "id": "short-opus",
+      "source": "Opus 4.5 is careful.",
+      "startMs": 8250,
+      "endMs": 9400,
+      "expectedJa": "§ja§Opus 4.5 is careful.",
+      "numericLexemes": ["4.5"]
+    },
+    {
+      "id": "short-ready",
+      "source": "Ready?",
+      "startMs": 9900,
+      "endMs": 10400,
+      "expectedJa": "§ja§Ready?",
+      "numericLexemes": []
+    },
+    {
+      "id": "complete",
+      "source": "The decoded answer stays complete.",
+      "startMs": 11000,
+      "endMs": 13300,
+      "expectedJa": "§ja§The decoded answer stays complete.",
+      "numericLexemes": []
+    },
+    {
+      "id": "order",
+      "source": "Numbers, punctuation, and order remain intact.",
+      "startMs": 14500,
+      "endMs": 16400,
+      "expectedJa": "§ja§Numbers, punctuation, and order remain intact.",
+      "numericLexemes": []
+    },
+    {
+      "id": "closing",
+      "source": "That is the review.",
+      "startMs": 18000,
+      "endMs": 19100,
+      "expectedJa": "§ja§That is the review.",
+      "numericLexemes": []
+    },
+    {
+      "id": "final",
+      "source": "Done.",
+      "startMs": 20500,
+      "endMs": 20900,
+      "expectedJa": "§ja§Done.",
+      "numericLexemes": []
+    }
+  ]
+}
