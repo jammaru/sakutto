@@ -905,7 +905,11 @@ export class VideoCaptionSession {
               detail: { ...event, mode: 'vod-json3', at: this.now() },
             }),
           );
-          if (event.type === 'complete' && this.running && this.loaded?.key === loaded.key) {
+          if (
+            (event.type === 'complete' || event.type === 'error') &&
+            this.running &&
+            this.loaded?.key === loaded.key
+          ) {
             void this.paintVodJson3();
           }
         },
@@ -1140,7 +1144,7 @@ export class VideoCaptionSession {
 
   private readVodDisplay(cue: CaptionCue): { original: string; translation: string } | null {
     const original = this.originalForCue(cue);
-    if (!original) return null;
+    if (!original || this.vodPrefetch?.hasFailed(cue.id)) return null;
     const cached = this.translator.getCached(original, this.optionsForVodCue(cue));
     if (cached !== undefined) this.emitVodRequest('cache-hit', cue.id, original, 'paint');
     return { original, translation: cached ?? '' };
@@ -1925,6 +1929,7 @@ export class VideoCaptionSession {
         pending,
         ...(live ? { live: true } : {}),
         ...(this.loaded?.asr === true ? { asr: true } : {}),
+        ...(this.loaded?.source === 'vod-json3' ? { vodJson3: true } : {}),
       });
       this.applyNativeVisibility();
       this.releasePlayerMutations();

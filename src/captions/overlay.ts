@@ -23,6 +23,8 @@ export interface CaptionOverlayState {
   live?: boolean | undefined;
   /** Auto-generated cue: bare sound words are production cues, not caption prose. */
   asr?: boolean | undefined;
+  /** Immutable non-live VOD keeps its source visible instead of a loading placeholder. */
+  vodJson3?: boolean | undefined;
 }
 
 export const CAPTION_OVERLAY_HOST = 'sakutto-captions';
@@ -543,15 +545,13 @@ export class CaptionOverlay {
     const bilingual = state.display === 'bilingual';
     const showOriginal = original.length > 0 && (bilingual || originalOnly);
     this.originalLine.textContent = showOriginal ? original : '';
-    // A live ASR line in flight keeps its source English until the translation lands.
-    // The localised pending label is never substituted for the caption bar mid-stream.
-    // Non-live ASR (VOD) uses the normal pending row; repeating the source in both rows
-    // would duplicate the same line.
+    // Live ASR and immutable VOD keep the source visible until translation lands.
+    // Other pending cue-list modes retain their existing localized pending row.
     this.translatedLine.textContent =
       translation.length > 0
         ? translation
         : originalOnly
-          ? asr && state.live === true
+          ? (asr && state.live === true) || state.vodJson3 === true
             ? original
             : this.labels.pending
           : '';

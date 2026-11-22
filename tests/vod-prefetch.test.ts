@@ -224,6 +224,32 @@ describe('VodPrefetchController', () => {
     expect(adapter.calls).toHaveLength(3);
   });
 
+  it('preempts lower-priority outstanding work for a new current cue', () => {
+    const adapter = new FakeTranslator();
+    const events: VodDebugEvent[] = [];
+    const controller = new VodPrefetchController({
+      cues: cuesAt(0, 10_000, 20_000, 30_000),
+      adapter,
+      options: baseOptions,
+      policy: { maxOutstanding: 2, urgentCueCount: 2, lookaheadHorizonMs: 30_000 },
+      onDebug: (event) => events.push(event),
+    });
+    expect(adapter.calls.map(({ cue }) => cue.id)).toEqual(['c0', 'c1']);
+
+    controller.reconcile(20_000, 1);
+
+    expect(adapter.cancelled.map(({ text }) => text)).toEqual(['source 1']);
+    expect(adapter.calls.map(({ cue }) => cue.id)).toEqual(['c0', 'c1', 'c2']);
+    expect(adapter.calls[2]?.priority).toBe(1);
+    expect(controller.getState().outstanding).toEqual([
+      { cueId: 'c0', index: 0, priority: 2, generation: 0 },
+      { cueId: 'c2', index: 2, priority: 1, generation: 0 },
+    ]);
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: 'cancel', cueId: 'c1', reason: 'preempt' }),
+    );
+  });
+
   it('cancels work that becomes far on a rate change without restarting retained work', () => {
     const adapter = new FakeTranslator();
     const controller = new VodPrefetchController({
@@ -301,7 +327,7 @@ describe('VodPrefetchController', () => {
     expect(controller.getState().completedCueIds).toEqual(['c1']);
   });
 
-  it('retries failed work on the next external reconciliation', async () => {
+  it('keeps failed work terminal until an intentional seek retries it', async () => {
     const adapter = new FakeTranslator();
     const controller = new VodPrefetchController({
       cues: cuesAt(0),
@@ -313,8 +339,13 @@ describe('VodPrefetchController', () => {
     await flush();
     await flush();
     expect(adapter.calls).toHaveLength(1);
+    expect(controller.hasFailed('c0')).toBe(true);
+    expect(controller.getState().failedCueIds).toEqual(['c0']);
 
     controller.reconcile();
+    expect(adapter.calls).toHaveLength(1);
+    controller.seek(0);
     expect(adapter.calls).toHaveLength(2);
+    expect(controller.hasFailed('c0')).toBe(false);
   });
 });

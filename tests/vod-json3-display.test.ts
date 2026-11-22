@@ -86,6 +86,29 @@ describe('VOD cue-start display scheduler', () => {
     expect(scheduler.queuedCueIds).toEqual(['c']);
   });
 
+  it('skips sound-only cues instead of blocking later dialogue', () => {
+    const scheduler = new VodDisplayScheduler();
+    scheduler.reset(cues);
+    const read = (cue: CaptionCue) => (cue.id === 'a' ? null : translated(cue));
+    expect(scheduler.update(1_100, 1_100, read)).toMatchObject({
+      type: 'show',
+      paint: { cue: { id: 'b' }, pending: false },
+    });
+    expect(scheduler.queuedCueIds).toEqual(['c']);
+  });
+
+  it('drops a terminally failed pending cue and advances the FIFO', () => {
+    const scheduler = new VodDisplayScheduler();
+    scheduler.reset(cues);
+    scheduler.update(0, 0, (cue) => ({ original: cue.text, translation: '' }));
+    const read = (cue: CaptionCue) => (cue.id === 'a' ? null : translated(cue));
+    expect(scheduler.update(600, 100, read)).toMatchObject({
+      type: 'show',
+      paint: { cue: { id: 'b' }, pending: false },
+    });
+    expect(scheduler.queuedCueIds).toEqual([]);
+  });
+
   it('flushes intentional seeks and starts at the destination cue only', () => {
     const scheduler = new VodDisplayScheduler();
     scheduler.reset(cues);

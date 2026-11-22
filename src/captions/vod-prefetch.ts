@@ -54,7 +54,7 @@ export interface VodCaptionTranslationAdapter {
 }
 
 export type VodSchedulerReason = 'load' | 'tick' | 'seek' | 'rate' | 'completion';
-export type VodDebugReason = VodSchedulerReason | 'stale' | 'dispose';
+export type VodDebugReason = VodSchedulerReason | 'stale' | 'preempt' | 'dispose';
 export type VodDebugEventType =
   'cached' | 'submit' | 'promote' | 'retain' | 'cancel' | 'complete' | 'error' | 'ignore';
 
@@ -83,6 +83,7 @@ export interface VodPrefetchSnapshot extends VodPlayhead {
   queue: readonly VodPlannedCue[];
   outstanding: readonly VodOutstandingWork[];
   completedCueIds: readonly string[];
+  failedCueIds: readonly string[];
 }
 
 export interface VodPrefetchControllerInit {
@@ -260,6 +261,10 @@ export class VodPrefetchController {
     return cue && options ? this.adapter.getCached(cue.text, options) : undefined;
   }
 
+  hasFailed(cueId: string): boolean {
+    return [...this.failed].some((index) => this.cues[index]?.id === cueId);
+  }
+
   getState(): VodPrefetchSnapshot {
     const plan = this.currentPlan();
     return {
@@ -273,6 +278,10 @@ export class VodPrefetchController {
         .map(({ cueId, index, priority, generation }) => ({ cueId, index, priority, generation }))
         .sort((left, right) => left.index - right.index),
       completedCueIds: [...this.completed]
+        .sort((left, right) => left - right)
+        .map((index) => this.cues[index]?.id)
+        .filter((id): id is string => id !== undefined),
+      failedCueIds: [...this.failed]
         .sort((left, right) => left - right)
         .map((index) => this.cues[index]?.id)
         .filter((id): id is string => id !== undefined),
@@ -292,7 +301,9 @@ export class VodPrefetchController {
     playbackRate = this.playbackRate,
   ): VodPrefetchSnapshot {
     if (this.disposed) return this.getState();
-    if (reason !== 'completion') this.failed.clear();
+    // A null/failed engine result is terminal for this playback generation. Polling must
+    // not resurrect it ahead of the display FIFO; an intentional seek/rate change may retry.
+    if (reason === 'seek' || reason === 'rate') this.failed.clear();
     if (reason === 'seek' || reason === 'rate') this.generation += 1;
     this.timeMs = Number.isFinite(timeMs) ? timeMs : 0;
     this.playbackRate = sanitizeVodPlaybackRate(playbackRate);
@@ -331,7 +342,6 @@ export class VodPrefetchController {
     }
 
     for (const item of queue) {
-      if (this.outstanding.size >= this.policy.maxOutstanding) break;
       if (
         item.priority === null ||
         this.completed.has(item.index) ||
@@ -340,7 +350,22 @@ export class VodPrefetchController {
       ) {
         continue;
       }
-      this.start(item, item.priority, reason);
+      if (this.outstanding.size >= this.policy.maxOutstanding) {
+        const victim = [...this.outstanding.values()]
+          .filter((entry) => entry.priority > (item.priority ?? VOD_WINDOW_PRIORITY))
+          .sort(
+            (left, right) =>
+              right.priority - left.priority ||
+              vodWallHorizonMs(right.cue, this.timeMs, this.playbackRate) -
+                vodWallHorizonMs(left.cue, this.timeMs, this.playbackRate) ||
+              right.index - left.index,
+          )[0];
+        if (!victim) break;
+        this.cancel(victim, 'preempt');
+      }
+      if (this.outstanding.size < this.policy.maxOutstanding) {
+        this.start(item, item.priority, reason);
+      }
     }
     return this.getState();
   }
@@ -414,7 +439,7 @@ export class VodPrefetchController {
     this.reconcileInternal('completion');
   }
 
-  private cancel(entry: OutstandingEntry, reason: 'seek' | 'rate' | 'dispose'): void {
+  private cancel(entry: OutstandingEntry, reason: 'seek' | 'rate' | 'preempt' | 'dispose'): void {
     this.outstanding.delete(entry.index);
     this.adapter.cancelText(entry.cue.text, entry.options);
     this.emit('cancel', this.itemFor(entry.index), entry.priority, null, reason);

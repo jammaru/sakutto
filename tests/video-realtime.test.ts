@@ -846,8 +846,16 @@ describe('pre-timed caption scheduling', () => {
       readTrack: async () =>
         JSON.stringify({
           events: [
-            { tStartMs: 0, dDurationMs: 1000, segs: [{ utf8: 'The station opens at dawn.' }] },
-            { tStartMs: 1000, dDurationMs: 4000, segs: [{ utf8: 'A red train waits.' }] },
+            {
+              tStartMs: 0,
+              dDurationMs: 1000,
+              segs: [{ utf8: 'The station opens at dawn.', tOffsetMs: 0 }],
+            },
+            {
+              tStartMs: 1000,
+              dDurationMs: 4000,
+              segs: [{ utf8: 'A red train waits.', tOffsetMs: 0 }],
+            },
           ],
         }),
     });
@@ -859,6 +867,7 @@ describe('pre-timed caption scheduling', () => {
           fakeTranslateText('The station opens at dawn.', 'ja'),
         );
       });
+      await sleep(1_250);
       video.currentTime = 1.2;
       video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
       await vi.waitFor(() => {
@@ -866,6 +875,12 @@ describe('pre-timed caption scheduling', () => {
       });
       expect(host.hasAttribute('data-sakutto-caption')).toBe(false);
       expect(host.getAttribute('data-sakutto-pending')).toBe('1');
+      const overlay = (
+        session as unknown as { overlay: import('@/captions/overlay').CaptionOverlay }
+      ).overlay;
+      const translated = overlay.shadow()?.querySelector('.line:not(.original)');
+      expect(translated?.textContent).toBe('A red train waits.');
+      expect(translated?.textContent).not.toBe(labels.pending);
       release();
       await vi.waitFor(() => {
         expect(host.getAttribute('data-sakutto-caption')).toBe(
@@ -874,6 +889,60 @@ describe('pre-timed caption scheduling', () => {
       });
     } finally {
       release();
+      session.stop();
+    }
+  });
+
+  it('skips a failed VOD json3 cue so later dialogue can display', async () => {
+    document.body.innerHTML = youtubeMarkup('vodjsonfailedfifo');
+    const video = document.querySelector('video') as HTMLVideoElement;
+    stubMedia(video, { paused: false, currentTime: 0.4, duration: 30 });
+    let failedAttempts = 0;
+    const session = new VideoCaptionSession(document, {
+      engine: {
+        async *translate(segments, options) {
+          const text = segments[0]?.text ?? '';
+          if (text === 'First fails.') failedAttempts += 1;
+          for (const segment of segments) {
+            yield {
+              id: segment.id,
+              final: text === 'First fails.' ? '' : fakeTranslateText(segment.text, options.tgt),
+              engine: 'plamo' as const,
+            };
+          }
+        },
+      },
+      labels,
+      preferences: captionPreferences(),
+      readTrack: async () =>
+        JSON.stringify({
+          events: [
+            {
+              tStartMs: 0,
+              dDurationMs: 1000,
+              segs: [{ utf8: 'First fails.', tOffsetMs: 0 }],
+            },
+            {
+              tStartMs: 2000,
+              dDurationMs: 1000,
+              segs: [{ utf8: 'Later dialogue.', tOffsetMs: 0 }],
+            },
+          ],
+        }),
+    });
+    session.start();
+    const host = document.querySelector('sakutto-captions') as HTMLElement;
+    try {
+      await vi.waitFor(() => expect(failedAttempts).toBe(1));
+      video.currentTime = 2.2;
+      video.dispatchEvent(new Event('timeupdate', { bubbles: true }));
+      await vi.waitFor(() => {
+        expect(host.getAttribute('data-sakutto-caption')).toBe(
+          fakeTranslateText('Later dialogue.', 'ja'),
+        );
+      });
+      expect(failedAttempts).toBe(1);
+    } finally {
       session.stop();
     }
   });

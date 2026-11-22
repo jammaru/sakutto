@@ -100,6 +100,26 @@ describe('caption overlay', () => {
     overlay.detach();
   });
 
+  it('shows a pending VOD json3 source without a loading placeholder', () => {
+    const overlay = new CaptionOverlay(document, labels);
+    overlay.attach(document.body);
+    overlay.show({
+      original: 'The station opens at dawn.',
+      translation: null,
+      display: 'bilingual',
+      pending: true,
+      asr: true,
+      vodJson3: true,
+    });
+    const shadow = overlay.shadow();
+    const original = shadow?.querySelector('.original') as HTMLElement | null;
+    const translated = shadow?.querySelector('.line:not(.original)') as HTMLElement | null;
+    expect(original?.textContent).toBe('The station opens at dawn.');
+    expect(translated?.textContent).toBe('The station opens at dawn.');
+    expect(translated?.textContent).not.toBe(labels.pending);
+    overlay.detach();
+  });
+
   it('does not paint an empty original-only box in replace mode', () => {
     const overlay = new CaptionOverlay(document, labels);
     overlay.attach(document.body);

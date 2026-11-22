@@ -74,9 +74,14 @@ export class VodDisplayScheduler {
       }
     }
 
+    let clearedActiveId: string | null = null;
     if (this.active?.pending) {
       const value = read(this.active.cue);
-      if (value?.translation) {
+      if (!value) {
+        // A terminal translation failure must not pin the original or block later dialogue.
+        clearedActiveId = this.active.cue.id;
+        this.active = null;
+      } else if (value.translation) {
         this.active = {
           cue: this.active.cue,
           value,
@@ -100,20 +105,24 @@ export class VodDisplayScheduler {
         }
         return null;
       }
+      clearedActiveId = this.active.cue.id;
       this.active = null;
     }
 
     // A pending original does not have a JA dwell yet, but it still owns the FIFO
     // until its translation arrives. Later translated cues cannot overtake it.
     if (this.active) return null;
-    const cue = this.queue[0];
-    if (!cue) return null;
-    const value = read(cue);
-    if (!value) return null;
-    this.queue.shift();
-    const pending = value.translation.length === 0;
-    this.active = { cue, value, pending, shownAt: nowMs };
-    return this.show(this.active);
+    while (this.queue.length > 0) {
+      const cue = this.queue.shift();
+      if (!cue) continue;
+      const value = read(cue);
+      // Sound-only and otherwise undisplayable cues are intentional FIFO skips.
+      if (!value) continue;
+      const pending = value.translation.length === 0;
+      this.active = { cue, value, pending, shownAt: nowMs };
+      return this.show(this.active);
+    }
+    return clearedActiveId ? { type: 'clear', cueId: clearedActiveId } : null;
   }
 
   private show(active: ActiveDisplay): VodDisplayCommand {
